@@ -13,7 +13,7 @@
     "dev:no-mocks": "cross-env NODE_ENV=development node index.ts",
     "format": "prettier --write .",
     "lint": "eslint .",
-    "setup": "npm run build && prisma migrate deploy && prisma generate && playwright install",
+    "setup": "npm run build && prisma migrate deploy && prisma generate && prisma db seed && playwright install",
     "start": "cross-env NODE_ENV=production node index.ts",
     "start:mocks": "cross-env NODE_ENV=production MOCKS=true node index.ts",
     "test": "vitest",
@@ -157,7 +157,7 @@
     "node": "^22.18.0"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "node prisma/seed.js"
   },
   "epic-stack": {
     "head": "d1c3dde718e1e98ba49a542a1eb13985ad484d5d",

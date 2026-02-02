@@ -1,9 +1,19 @@
-import { Link } from 'react-router'
+import { Link, redirect } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { getUserId } from '#app/utils/auth.server.ts'
 import { type Route } from './+types/index.ts'
 
 export const meta: Route.MetaFunction = () => [{ title: 'Quartermaster' }]
+
+export async function loader({ request }: Route.LoaderArgs) {
+	const userId = await getUserId(request)
+	// Redirect logged-in users to recipes page
+	if (userId) {
+		throw redirect('/recipes')
+	}
+	return null
+}
 
 export default function Index() {
 	return (

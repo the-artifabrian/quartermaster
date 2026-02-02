@@ -13,6 +13,7 @@ import { HoneypotProvider } from 'remix-utils/honeypot/react'
 import { type Route } from './+types/root.ts'
 import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
+import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { EpicProgress } from './components/progress-bar.tsx'
 import { useToast } from './components/toaster.tsx'
@@ -201,12 +202,26 @@ function App() {
 						<div className="flex items-center gap-4 md:gap-10 ml-auto">
 							{user ? (
 								<>
-									<Link
-										to="/recipes"
-										className="hidden md:block text-sm font-medium hover:text-primary"
-									>
-										My Recipes
-									</Link>
+									<div className="hidden md:flex items-center gap-6">
+										<Link
+											to="/recipes"
+											className="text-sm font-medium hover:text-primary transition-colors"
+										>
+											Recipes
+										</Link>
+										<Link
+											to="/inventory"
+											className="text-sm font-medium hover:text-primary transition-colors"
+										>
+											Inventory
+										</Link>
+										<Link
+											to="/discover"
+											className="text-sm font-medium hover:text-primary transition-colors"
+										>
+											Discover
+										</Link>
+									</div>
 									<UserDropdown />
 								</>
 							) : (
@@ -227,6 +242,7 @@ function App() {
 					<ThemeSwitch userPreference={data.requestInfo.userPrefs.theme} />
 				</div>
 			</div>
+			<BottomNav />
 			<EpicToaster closeButton position="top-center" theme={theme} />
 			<EpicProgress />
 		</OpenImgContextProvider>

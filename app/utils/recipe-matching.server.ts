@@ -27,6 +27,7 @@ const INGREDIENT_SYNONYMS: Record<string, string[]> = {
  * - Converts to lowercase
  * - Trims whitespace
  * - Removes parenthetical notes
+ * - Removes comma-separated preparation instructions
  * - Handles "or" and "/" alternatives (takes first option)
  * - Removes common modifiers (optional, fresh, dried, etc.)
  * - Handles pluralization
@@ -36,6 +37,12 @@ export function normalizeIngredientName(name: string): string {
 
 	// Remove parenthetical notes: "flour (for tangzhong)" → "flour"
 	normalized = normalized.replace(/\([^)]*\)/g, '').trim()
+
+	// Remove comma-separated preparation instructions: "scallions, finely diced" → "scallions"
+	// This handles cases like "beans, rinsed" or "onion, chopped"
+	if (normalized.includes(',')) {
+		normalized = normalized.split(',')[0]!.trim()
+	}
 
 	// Handle "or" alternatives: "plain flour or all purpose flour" → "plain flour"
 	// Take the first option before "or"

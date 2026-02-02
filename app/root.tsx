@@ -237,7 +237,9 @@ function App() {
 					<Outlet />
 				</div>
 
-				<div className="container flex justify-between pb-5"></div>
+				<div className="container flex justify-between pb-5">
+					<ThemeSwitch userPreference={data.requestInfo.userPrefs.theme} />
+				</div>
 			</div>
 			<BottomNav />
 			<Toaster closeButton position="top-center" theme={theme} />

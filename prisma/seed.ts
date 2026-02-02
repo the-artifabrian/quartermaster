@@ -2,6 +2,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { MOCK_CODE_GITHUB } from '#app/utils/providers/constants.ts'
 import { createPassword, getUserImages } from '#tests/db-utils.ts'
 import { insertGitHubUser } from '#tests/mocks/github.ts'
+import { seedSampleData } from './seed-sample-data.ts'
 
 async function seed() {
 	console.log('🌱 Seeding...')
@@ -92,38 +93,49 @@ async function seed() {
 
 	const userImages = await getUserImages()
 
-	console.time(`🐨 Created admin user "kody"`)
+	console.time(`🐨 Find or create admin user "kody"`)
 
-	const githubUser = await insertGitHubUser(MOCK_CODE_GITHUB)
-
-	const kody = await prisma.user.create({
+	// Find or create kody user
+	let kody = await prisma.user.findUnique({
+		where: { username: 'kody' },
 		select: { id: true },
-		data: {
-			email: 'kody@kcd.dev',
-			username: 'kody',
-			name: 'Kody',
-			password: { create: createPassword('kodylovesyou') },
-			connections: {
-				create: {
-					providerName: 'github',
-					providerId: String(githubUser.profile.id),
-				},
-			},
-			roles: { connect: [{ name: 'admin' }, { name: 'user' }] },
-		},
 	})
 
-	const kodyImage = userImages[0]
-	if (kodyImage) {
-		await prisma.userImage.create({
+	if (!kody) {
+		const githubUser = await insertGitHubUser(MOCK_CODE_GITHUB)
+
+		kody = await prisma.user.create({
+			select: { id: true },
 			data: {
-				userId: kody.id,
-				objectKey: kodyImage.objectKey,
+				email: 'kody@kcd.dev',
+				username: 'kody',
+				name: 'Kody',
+				password: { create: createPassword('kodylovesyou') },
+				connections: {
+					create: {
+						providerName: 'github',
+						providerId: String(githubUser.profile.id),
+					},
+				},
+				roles: { connect: [{ name: 'admin' }, { name: 'user' }] },
 			},
 		})
+
+		const kodyImage = userImages[0]
+		if (kodyImage) {
+			await prisma.userImage.create({
+				data: {
+					userId: kody.id,
+					objectKey: kodyImage.objectKey,
+				},
+			})
+		}
 	}
 
-	console.timeEnd(`🐨 Created admin user "kody"`)
+	console.timeEnd(`🐨 Find or create admin user "kody"`)
+
+	// Seed sample recipes and inventory for kody
+	await seedSampleData(kody.id)
 
 	console.timeEnd(`🌱 Database has been seeded`)
 }

@@ -40,13 +40,13 @@ export function normalizeIngredientName(name: string): string {
 	// Handle "or" alternatives: "plain flour or all purpose flour" → "plain flour"
 	// Take the first option before "or"
 	if (normalized.includes(' or ')) {
-		normalized = normalized.split(' or ')[0].trim()
+		normalized = normalized.split(' or ')[0]!.trim()
 	}
 
 	// Handle slash alternatives: "mirin/sake/white wine" → "mirin"
 	// Take the first option before "/"
 	if (normalized.includes('/')) {
-		normalized = normalized.split('/')[0].trim()
+		normalized = normalized.split('/')[0]!.trim()
 	}
 
 	// Remove common descriptive words that don't affect ingredient identity
@@ -78,8 +78,9 @@ export function normalizeIngredientName(name: string): string {
 		knives: 'knife',
 		loaves: 'loaf',
 	}
-	if (irregularPlurals[normalized]) {
-		return irregularPlurals[normalized]
+	const irregular = irregularPlurals[normalized]
+	if (irregular) {
+		return irregular
 	}
 
 	// Handle -ies -> -y (berries -> berry)

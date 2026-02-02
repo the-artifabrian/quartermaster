@@ -11,10 +11,6 @@ export function getUserImgSrc(objectKey?: string | null) {
 		: '/img/user.png'
 }
 
-export function getNoteImgSrc(objectKey: string) {
-	return `/resources/images?objectKey=${encodeURIComponent(objectKey)}`
-}
-
 export function getImgSrc({
 	height,
 	optimizerEndpoint,

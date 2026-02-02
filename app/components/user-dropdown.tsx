@@ -21,7 +21,7 @@ export function UserDropdown() {
 			<DropdownMenuTrigger asChild>
 				<Button asChild variant="secondary">
 					<Link
-						to={`/users/${user.username}`}
+						to="/settings/profile"
 						// this is for progressive enhancement
 						onClick={(e) => e.preventDefault()}
 						className="flex items-center gap-2"
@@ -44,16 +44,16 @@ export function UserDropdown() {
 			<DropdownMenuPortal>
 				<DropdownMenuContent sideOffset={8} align="end">
 					<DropdownMenuItem asChild>
-						<Link prefetch="intent" to={`/users/${user.username}`}>
+						<Link prefetch="intent" to="/settings/profile">
 							<Icon className="text-body-md" name="avatar">
 								Profile
 							</Icon>
 						</Link>
 					</DropdownMenuItem>
 					<DropdownMenuItem asChild>
-						<Link prefetch="intent" to={`/users/${user.username}/notes`}>
+						<Link prefetch="intent" to="/recipes">
 							<Icon className="text-body-md" name="pencil-2">
-								Notes
+								My Recipes
 							</Icon>
 						</Link>
 					</DropdownMenuItem>

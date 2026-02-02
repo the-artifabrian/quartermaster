@@ -551,20 +551,64 @@ npm run setup
 npm run dev
 ```
 
-### First Steps ✅ COMPLETE
+### Completed Steps ✅
 
-1. ~~**Create the Prisma schema** - Add recipe models to `prisma/schema.prisma`~~
-2. ~~**Run migration** - `npx prisma migrate dev --name add-recipe-models`~~
-3. ~~**Build recipe routes** - Start with `/recipes` list and `/recipes/new`~~
-4. ~~**Add mobile layout** - Bottom nav, responsive grid~~
-5. **Iterate from there** - Continue to Phase 2
+**Phase 1 & 2:**
+1. ~~**Create the Prisma schema** - Recipe + InventoryItem models~~
+2. ~~**Run migrations** - All database models migrated~~
+3. ~~**Build recipe routes** - Full CRUD with search/filter~~
+4. ~~**Build inventory routes** - Full CRUD with location filtering~~
+5. ~~**Add mobile layout** - Bottom nav on all pages, responsive grid~~
+6. ~~**Recipe matching** - Fuzzy ingredient matching algorithm~~
+7. ~~**Sample data seeding** - 18 recipes + 38 inventory items~~
 
-### Next Steps (Phase 2)
+### Next Steps (Phase 3)
 
-1. **Add inventory models** - Create Ingredient, InventoryItem models
-2. **Build inventory routes** - `/inventory`, `/inventory/pantry`, etc.
-3. **Link recipes to inventory** - Ingredient normalization
-4. **Test the full flow** - Add recipes, track inventory, find matches
+**Meal Planning (Future):**
+1. Weekly calendar view
+2. Drag-and-drop recipes to days
+3. Shopping list generation
+4. Inventory subtraction
+
+**Available Commands:**
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run typecheck    # Run TypeScript checks
+npm run lint         # Run ESLint
+npm run reseed       # Clear and re-seed sample data for all users
+npx prisma db seed   # Seed database with sample data
+npx prisma studio    # Open Prisma Studio (database GUI)
+```
+
+---
+
+## Sample Data & Testing
+
+### Current Sample Data
+
+The app includes sample data for testing and demonstration:
+
+**18 Sample Recipes:**
+- Apple and yogurt cake, Asian Cucumber Salad, Beef and Broccoli Stirfry, Brown butter brookies, Carbonara, Cheese Fondue, Chicken Cacciatore, Classic Tiramisu, Fried Rice, Gemuse Kebab, Gochujang Chicken, Hot Chocolate, Japanese milk bread, Minestrone, Okonomiyaki, Quick Cucumber Pickles, Tuscan-style sausage, White beans salad
+
+**38 Inventory Items:**
+- **Pantry (16)**: flour, sugar, salt, pepper, oils, soy sauce, rice, pasta, canned goods, stock, honey, sesame oil, rice vinegar, baking powder, vanilla
+- **Fridge (16)**: eggs, butter, milk, cream, cheeses, yogurt, vegetables (carrots, celery, onions, garlic, ginger, scallions, peppers, broccoli, lettuce)
+- **Freezer (6)**: chicken breast, ground beef, bacon, peas, mixed vegetables, pizza dough
+
+### Seeding System
+
+All new users automatically receive sample recipes and inventory items via `prisma/seed.ts`. This allows friends/testers to immediately explore the app's features without manually entering data.
+
+**Scripts:**
+- `npm run reseed` - Clear and re-seed all user data
+- `scripts/clear-recipes.ts` - Remove all recipes and inventory
+- `scripts/import-sample-recipes.ts` - Import recipes from markdown files
+- `prisma/seed-sample-data.ts` - Reusable seeding function
+
+**For Production:**
+When ready to deploy without sample data, update `prisma/seed.ts` to remove the `seedSampleData()` call.
 
 ---
 
@@ -572,12 +616,13 @@ npm run dev
 
 For a personal app, "success" means:
 
-- [ ] All 100+ recipes migrated from Apple Notes
-- [ ] Can find any recipe in < 5 seconds
-- [ ] Weekly meal planning takes < 5 minutes
-- [ ] Shopping list generation is automatic
-- [ ] App is usable in the kitchen (cooking mode)
-- [ ] Works offline for viewing recipes
+- [x] Recipe import system from Apple Notes (markdown parser built)
+- [x] Can find any recipe in < 5 seconds (search + filter working)
+- [x] Discover recipes based on available ingredients (fuzzy matching implemented)
+- [ ] Weekly meal planning takes < 5 minutes (Phase 3)
+- [ ] Shopping list generation is automatic (Phase 3)
+- [ ] App is usable in the kitchen (cooking mode) (Phase 4)
+- [ ] Works offline for viewing recipes (PWA - Phase 5)
 
 ---
 
@@ -604,4 +649,4 @@ Before starting implementation:
 ---
 
 *Document created: February 2026*
-*Last updated: February 2, 2026 - Phase 1 & 2 complete*
+*Last updated: February 2, 2026 - Phase 1 & 2 complete with sample data seeding system*

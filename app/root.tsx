@@ -15,11 +15,11 @@ import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
-import { EpicProgress } from './components/progress-bar.tsx'
+import { Progress } from './components/progress-bar.tsx'
 import { useToast } from './components/toaster.tsx'
 import { Button } from './components/ui/button.tsx'
 import { href as iconsHref } from './components/ui/icon.tsx'
-import { EpicToaster } from './components/ui/sonner.tsx'
+import { Toaster } from './components/ui/sonner.tsx'
 import { UserDropdown } from './components/user-dropdown.tsx'
 import {
 	ThemeSwitch,
@@ -243,8 +243,8 @@ function App() {
 				</div>
 			</div>
 			<BottomNav />
-			<EpicToaster closeButton position="top-center" theme={theme} />
-			<EpicProgress />
+			<Toaster closeButton position="top-center" theme={theme} />
+			<Progress />
 		</OpenImgContextProvider>
 	)
 }

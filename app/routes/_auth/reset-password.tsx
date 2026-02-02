@@ -76,7 +76,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Reset Password | Epic Notes' }]
+	return [{ title: 'Reset Password | Quartermaster' }]
 }
 
 export default function ResetPasswordPage({

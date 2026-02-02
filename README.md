@@ -1,54 +1,87 @@
-<div align="center">
-  <h1 align="center"><a href="https://www.epicweb.dev/epic-stack">The Epic Stack 🚀</a></h1>
-  <strong align="center">
-    Ditch analysis paralysis and start shipping Epic Web apps.
-  </strong>
-  <p>
-    This is an opinionated project starter and reference that allows teams to
-    ship their ideas to production faster and on a more stable foundation based
-    on the experience of <a href="https://kentcdodds.com">Kent C. Dodds</a> and
-    <a href="https://github.com/epicweb-dev/epic-stack/graphs/contributors">contributors</a>.
-  </p>
-</div>
+# 👨‍🍳 Quartermaster
 
-```sh
-npx epicli
+Your personal recipe manager. Organize your recipes, track your ingredients, and discover what you can make with what you have.
+
+## Features
+
+- **Recipe Management**: Store and organize 100+ recipes with ingredients, instructions, prep/cook times, and tags
+- **Smart Search**: Full-text search across recipe titles, ingredients, and descriptions
+- **Kitchen Inventory**: Track what's in your pantry, fridge, and freezer
+- **Recipe Discovery**: Find recipes based on ingredients you already have
+- **Match Percentage**: See how many ingredients you have for each recipe
+- **Mobile-First Design**: Beautiful, responsive interface with bottom navigation for easy mobile use
+- **Image Support**: Add photos to your recipes (or enjoy colorful gradient placeholders)
+- **Tag System**: Organize by cuisine, meal type, and dietary preferences
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js >= 20
+- npm >= 10
+
+### Installation
+
+```bash
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your configuration
+
+# Initialize database
+npm run setup
+
+# Start development server
+npm run dev
 ```
 
-[![The Epic Stack](https://github-production-user-asset-6210df.s3.amazonaws.com/1500684/246885449-1b00286c-aa3d-44b2-9ef2-04f694eb3592.png)](https://www.epicweb.dev/epic-stack)
+Visit http://localhost:3000 and create an account to get started!
 
-[The Epic Stack](https://www.epicweb.dev/epic-stack)
+## Sample Data
 
-<hr />
+New users automatically receive:
+- 18 sample recipes to explore
+- 38 sample inventory items (pantry, fridge, freezer)
 
-## Watch Kent's Introduction to The Epic Stack
+This helps you get familiar with the app right away!
 
-[![Epic Stack Talk slide showing Flynn Rider with knives, the text "I've been around and I've got opinions" and Kent speaking in the corner](https://github-production-user-asset-6210df.s3.amazonaws.com/1500684/277818553-47158e68-4efc-43ae-a477-9d1670d4217d.png)](https://www.epicweb.dev/talks/the-epic-stack)
+## Tech Stack
 
-["The Epic Stack" by Kent C. Dodds](https://www.epicweb.dev/talks/the-epic-stack)
+- **Framework**: React Router v7 (Remix)
+- **Database**: SQLite with Prisma ORM
+- **Styling**: Tailwind CSS with shadcn/ui components
+- **Auth**: Session-based authentication with email verification
+- **Deployment**: Designed for Fly.io or self-hosting
 
-## Docs
+## Available Scripts
 
-[Read the docs](https://github.com/epicweb-dev/epic-stack/blob/main/docs)
-(please 🙏).
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run start        # Start production server
+npm run typecheck    # Run TypeScript checks
+npm run lint         # Run ESLint
+npm run reseed       # Clear and re-seed sample data
+npx prisma studio    # Open database GUI
+```
 
-## Support
+## Development Roadmap
 
-- 🆘 Join the
-  [discussion on GitHub](https://github.com/epicweb-dev/epic-stack/discussions)
-  and the [KCD Community on Discord](https://kcd.im/discord).
-- 💡 Create an
-  [idea discussion](https://github.com/epicweb-dev/epic-stack/discussions/new?category=ideas)
-  for suggestions.
-- 🐛 Open a [GitHub issue](https://github.com/epicweb-dev/epic-stack/issues) to
-  report a bug.
+- ✅ **Phase 1**: Recipe CRUD with search and tags
+- ✅ **Phase 2**: Inventory tracking and recipe matching
+- 🚧 **Phase 3**: Meal planning and shopping lists
+- 📋 **Phase 4**: Cooking mode and smart suggestions
 
-## Branding
+## Documentation
 
-Want to talk about the Epic Stack in a blog post or talk? Great! Here are some
-assets you can use in your material:
-[EpicWeb.dev/brand](https://epicweb.dev/brand)
+See the [Development Plan](docs/DEVELOPMENT_PLAN.md) for detailed project information.
 
-## Thanks
+## Built With
 
-You rock 🪨
+This project was bootstrapped from the [Epic Stack](https://www.epicweb.dev/epic-stack) by Kent C. Dodds.
+
+## License
+
+MIT

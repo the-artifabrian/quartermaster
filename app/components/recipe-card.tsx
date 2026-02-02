@@ -13,6 +13,31 @@ type RecipeCardProps = {
 	tags?: Array<{ id: string; name: string }>
 }
 
+// Generate a consistent color gradient based on recipe title
+function getRecipeGradient(title: string) {
+	const gradients = [
+		'from-emerald-400 to-teal-500', // Green
+		'from-orange-400 to-amber-500', // Orange
+		'from-rose-400 to-pink-500', // Pink
+		'from-blue-400 to-cyan-500', // Blue
+		'from-purple-400 to-fuchsia-500', // Purple
+		'from-lime-400 to-green-500', // Lime
+		'from-amber-400 to-orange-500', // Amber
+		'from-indigo-400 to-blue-500', // Indigo
+		'from-red-400 to-rose-500', // Red
+		'from-cyan-400 to-blue-500', // Cyan
+	]
+
+	// Simple hash function to get consistent gradient for same title
+	let hash = 0
+	for (let i = 0; i < title.length; i++) {
+		hash = (hash << 5) - hash + title.charCodeAt(i)
+		hash = hash & hash // Convert to 32bit integer
+	}
+	const index = Math.abs(hash) % gradients.length
+	return gradients[index]
+}
+
 export function RecipeCard({
 	id,
 	title,
@@ -39,8 +64,18 @@ export function RecipeCard({
 						height={300}
 					/>
 				) : (
-					<div className="flex h-full w-full items-center justify-center">
-						<Icon name="cookie" className="size-12 text-muted-foreground" />
+					<div
+						className={cn(
+							'flex h-full w-full items-center justify-center bg-gradient-to-br transition-transform group-hover:scale-105',
+							getRecipeGradient(title),
+						)}
+					>
+						<div className="flex flex-col items-center gap-2">
+							<span className="text-6xl font-bold text-white drop-shadow-lg">
+								{title.charAt(0).toUpperCase()}
+							</span>
+							<Icon name="cookie" className="size-8 text-white/80" />
+						</div>
 					</div>
 				)}
 			</div>

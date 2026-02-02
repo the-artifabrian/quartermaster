@@ -1,6 +1,7 @@
 import { type InventoryItem } from '@prisma/client'
 import { Form, Link } from 'react-router'
 import { LOCATION_LABELS } from '#app/utils/inventory-validation.ts'
+import { useDoubleCheck } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { StatusButton } from './ui/status-button.tsx'
@@ -14,6 +15,7 @@ export function InventoryItemCard({
 	item,
 	showActions = true,
 }: InventoryItemCardProps) {
+	const dc = useDoubleCheck()
 	const isExpiringSoon =
 		item.expiresAt && new Date(item.expiresAt) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 	const isExpired = item.expiresAt && new Date(item.expiresAt) < new Date()
@@ -78,13 +80,19 @@ export function InventoryItemCard({
 							<input type="hidden" name="intent" value="delete" />
 							<input type="hidden" name="itemId" value={item.id} />
 							<StatusButton
-								type="submit"
+								{...dc.getButtonProps({
+									type: 'submit',
+									name: 'intent',
+									value: 'delete',
+								})}
 								size="sm"
-								variant="ghost"
+								variant={dc.doubleCheck ? 'destructive' : 'ghost'}
 								status="idle"
-								className="hover:text-destructive"
+								className={dc.doubleCheck ? '' : 'hover:text-destructive'}
 							>
-								<Icon name="trash" size="sm" />
+								<Icon name="trash" size="sm">
+									{dc.doubleCheck ? 'Sure?' : ''}
+								</Icon>
 							</StatusButton>
 						</Form>
 					</div>

@@ -35,7 +35,7 @@ export default function Index() {
 					className="animate-slide-top text-muted-foreground mt-6 text-xl/7 [animation-delay:0.5s] [animation-fill-mode:backwards]"
 				>
 					Your personal recipe manager. Organize your recipes, track your
-					ingredients, and plan your meals.
+					ingredients, and discover what you can make.
 				</p>
 
 				<div className="animate-slide-top mt-10 flex flex-wrap justify-center gap-4 [animation-delay:0.7s] [animation-fill-mode:backwards]">
@@ -59,7 +59,7 @@ export default function Index() {
 					</li>
 					<li className="flex items-start gap-3">
 						<Icon name="check" className="size-5 text-primary mt-0.5" />
-						<span>Plan weekly meals</span>
+						<span>Discover recipes you can make</span>
 					</li>
 				</ul>
 			</div>

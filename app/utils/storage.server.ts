@@ -26,6 +26,32 @@ async function uploadToStorage(file: File | FileUpload, key: string) {
 	return key
 }
 
+async function deleteFromStorage(key: string) {
+	const { url, headers } = getSignedDeleteRequestInfo(key)
+
+	const deleteResponse = await fetch(url, {
+		method: 'DELETE',
+		headers,
+	})
+
+	if (!deleteResponse.ok && deleteResponse.status !== 404) {
+		// 404 is ok - object doesn't exist
+		const errorMessage = `Failed to delete file from storage. Server responded with ${deleteResponse.status}: ${deleteResponse.statusText}`
+		console.error(errorMessage)
+		throw new Error(`Failed to delete object: ${key}`)
+	}
+
+	return true
+}
+
+export async function deleteRecipeImage(objectKey: string) {
+	return deleteFromStorage(objectKey)
+}
+
+export async function deleteProfileImage(objectKey: string) {
+	return deleteFromStorage(objectKey)
+}
+
 export async function uploadProfileImage(
 	userId: string,
 	file: File | FileUpload,
@@ -92,7 +118,7 @@ function getBaseSignedRequestInfo({
 	contentType,
 	uploadDate,
 }: {
-	method: 'GET' | 'PUT'
+	method: 'GET' | 'PUT' | 'DELETE'
 	key: string
 	contentType?: string
 	uploadDate?: string
@@ -175,6 +201,18 @@ function getSignedPutRequestInfo(file: File | FileUpload, key: string) {
 			'Content-Type': file.type,
 			'X-Amz-Meta-Upload-Date': uploadDate,
 		},
+	}
+}
+
+function getSignedDeleteRequestInfo(key: string) {
+	const { url, baseHeaders } = getBaseSignedRequestInfo({
+		method: 'DELETE',
+		key,
+	})
+
+	return {
+		url,
+		headers: baseHeaders,
 	}
 }
 

@@ -17,7 +17,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const userId = await requireUserId(request)
 	const url = new URL(request.url)
 	const search = url.searchParams.get('search') ?? ''
-	const tagId = url.searchParams.get('tag') ?? ''
+	const tagsParam = url.searchParams.get('tags') ?? ''
+	const selectedTagIds = tagsParam ? tagsParam.split(',').filter(Boolean) : []
 
 	const recipes = await prisma.recipe.findMany({
 		where: {
@@ -29,8 +30,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 					{ ingredients: { some: { name: { contains: search } } } },
 				],
 			}),
-			...(tagId && {
-				tags: { some: { id: tagId } },
+			// Filter by ALL selected tags (AND logic)
+			...(selectedTagIds.length > 0 && {
+				AND: selectedTagIds.map((tagId) => ({
+					tags: { some: { id: tagId } },
+				})),
 			}),
 		},
 		select: {
@@ -50,11 +54,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		orderBy: [{ category: 'asc' }, { name: 'asc' }],
 	})
 
-	return { recipes, tags, search, selectedTagId: tagId }
+	return { recipes, tags, search, selectedTagIds }
 }
 
 export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
-	const { recipes, tags, search, selectedTagId } = loaderData
+	const { recipes, tags, search, selectedTagIds } = loaderData
 	const [searchParams, setSearchParams] = useSearchParams()
 
 	const handleSearchChange = useDebounce((value: string) => {
@@ -69,10 +73,17 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 
 	const handleTagClick = (tagId: string) => {
 		const params = new URLSearchParams(searchParams)
-		if (selectedTagId === tagId) {
-			params.delete('tag')
+		const currentTags = selectedTagIds
+
+		// Toggle tag selection
+		const newTags = currentTags.includes(tagId)
+			? currentTags.filter((id) => id !== tagId)
+			: [...currentTags, tagId]
+
+		if (newTags.length > 0) {
+			params.set('tags', newTags.join(','))
 		} else {
-			params.set('tag', tagId)
+			params.delete('tags')
 		}
 		setSearchParams(params, { replace: true })
 	}
@@ -109,20 +120,28 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 
 				{/* Tag filters */}
 				<div className="flex flex-wrap gap-2">
-					{tags.map((tag) => (
-						<button
-							key={tag.id}
-							type="button"
-							onClick={() => handleTagClick(tag.id)}
-							className={`rounded-full px-3 py-1 text-sm transition-colors ${
-								selectedTagId === tag.id
-									? 'bg-primary text-primary-foreground'
-									: 'bg-secondary hover:bg-secondary/80'
-							}`}
-						>
-							{tag.name}
-						</button>
-					))}
+					{tags.map((tag) => {
+						const isSelected = selectedTagIds.includes(tag.id)
+						return (
+							<button
+								key={tag.id}
+								type="button"
+								onClick={() => handleTagClick(tag.id)}
+								className={`rounded-full px-3 py-1 text-sm transition-colors ${
+									isSelected
+										? 'bg-primary text-primary-foreground'
+										: 'bg-secondary hover:bg-secondary/80'
+								}`}
+							>
+								{tag.name}
+								{isSelected && (
+									<span className="ml-1 font-bold" aria-hidden="true">
+										×
+									</span>
+								)}
+							</button>
+						)
+					})}
 				</div>
 			</div>
 
@@ -147,11 +166,11 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					<Icon name="cookie" className="size-16 text-muted-foreground" />
 					<h2 className="mt-4 text-xl font-semibold">No recipes yet</h2>
 					<p className="mt-2 text-muted-foreground">
-						{search || selectedTagId
+						{search || selectedTagIds.length > 0
 							? 'No recipes match your search. Try different filters.'
 							: "Start by adding your first recipe. It's easy!"}
 					</p>
-					{!search && !selectedTagId && (
+					{!search && selectedTagIds.length === 0 && (
 						<Button asChild className="mt-6">
 							<Link to="/recipes/new">
 								<Icon name="plus" size="sm" />

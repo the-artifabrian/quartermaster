@@ -14,7 +14,10 @@ import {
 	MAX_RECIPE_IMAGE_SIZE,
 	ACCEPTED_RECIPE_IMAGE_TYPES,
 } from '#app/utils/recipe-validation.ts'
-import { uploadRecipeImage } from '#app/utils/storage.server.ts'
+import {
+	uploadRecipeImage,
+	deleteRecipeImage,
+} from '#app/utils/storage.server.ts'
 import { type Route } from './+types/$recipeId_.edit.ts'
 
 export const handle: SEOHandle = {
@@ -102,6 +105,21 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	// Handle delete
 	if (intent === 'delete') {
+		// Delete recipe image from storage if it exists
+		const recipeWithImage = await prisma.recipe.findUnique({
+			where: { id: recipeId },
+			select: { image: { select: { objectKey: true } } },
+		})
+
+		if (recipeWithImage?.image?.objectKey) {
+			try {
+				await deleteRecipeImage(recipeWithImage.image.objectKey)
+			} catch (error) {
+				console.error('Failed to delete recipe image from storage:', error)
+				// Continue with recipe deletion even if image deletion fails
+			}
+		}
+
 		await prisma.recipe.delete({ where: { id: recipeId } })
 		return redirect('/recipes')
 	}
@@ -195,7 +213,23 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	// Upload image if provided
 	if (imageFile) {
-		// Delete existing image if any
+		// Get existing image to delete from storage
+		const existingImage = await prisma.recipeImage.findUnique({
+			where: { recipeId },
+			select: { objectKey: true },
+		})
+
+		// Delete existing image from storage if it exists
+		if (existingImage?.objectKey) {
+			try {
+				await deleteRecipeImage(existingImage.objectKey)
+			} catch (error) {
+				console.error('Failed to delete old recipe image from storage:', error)
+				// Continue with new image upload even if old image deletion fails
+			}
+		}
+
+		// Delete existing image record and create new one
 		await prisma.recipeImage.deleteMany({ where: { recipeId } })
 		const objectKey = await uploadRecipeImage(userId, recipeId, imageFile)
 		await prisma.recipeImage.create({

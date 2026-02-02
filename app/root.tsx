@@ -199,25 +199,25 @@ function App() {
 				<header className="container py-6">
 					<nav className="flex flex-wrap items-center justify-between gap-4 sm:flex-nowrap md:gap-8">
 						<Logo />
-						<div className="flex items-center gap-4 md:gap-10 ml-auto">
+						<div className="ml-auto flex items-center gap-4 md:gap-10">
 							{user ? (
 								<>
-									<div className="hidden md:flex items-center gap-6">
+									<div className="hidden items-center gap-6 md:flex">
 										<Link
 											to="/recipes"
-											className="text-sm font-medium hover:text-primary transition-colors"
+											className="hover:text-primary text-sm font-medium transition-colors"
 										>
 											Recipes
 										</Link>
 										<Link
 											to="/inventory"
-											className="text-sm font-medium hover:text-primary transition-colors"
+											className="hover:text-primary text-sm font-medium transition-colors"
 										>
 											Inventory
 										</Link>
 										<Link
 											to="/discover"
-											className="text-sm font-medium hover:text-primary transition-colors"
+											className="hover:text-primary text-sm font-medium transition-colors"
 										>
 											Discover
 										</Link>
@@ -237,10 +237,7 @@ function App() {
 					<Outlet />
 				</div>
 
-				<div className="container flex justify-between pb-5">
-					<Logo />
-					<ThemeSwitch userPreference={data.requestInfo.userPrefs.theme} />
-				</div>
+				<div className="container flex justify-between pb-5"></div>
 			</div>
 			<BottomNav />
 			<Toaster closeButton position="top-center" theme={theme} />
@@ -256,9 +253,8 @@ function Logo() {
 				👨‍🍳
 			</div>
 			<div className="grid leading-tight">
-				<span className="text-lg font-semibold text-primary">Quarter</span>
-				<span className="text-sm font-light text-muted-foreground -mt-1">
-					master
+				<span className="text-primary text-lg font-semibold">
+					Quartermaster
 				</span>
 			</div>
 		</Link>

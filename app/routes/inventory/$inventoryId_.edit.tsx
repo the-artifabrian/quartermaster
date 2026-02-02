@@ -5,16 +5,16 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Form, data, redirect, useFetcher } from 'react-router'
 import { Field, CheckboxField } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
-import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Label } from '#app/components/ui/label.tsx'
+import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { useDoubleCheck } from '#app/utils/misc.tsx'
 import {
 	InventoryItemSchema,
 	LOCATION_LABELS,
 } from '#app/utils/inventory-validation.ts'
+import { useDoubleCheck } from '#app/utils/misc.tsx'
 import { type Route } from './+types/$inventoryId_.edit.ts'
 
 export const handle: SEOHandle = {

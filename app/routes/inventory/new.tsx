@@ -2,11 +2,11 @@ import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { parseWithZod } from '@conform-to/zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Form, data, redirect } from 'react-router'
-import { Field, TextareaField, CheckboxField } from '#app/components/forms.tsx'
+import { Field, CheckboxField } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
-import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Label } from '#app/components/ui/label.tsx'
+import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
@@ -34,12 +34,11 @@ export async function action({ request }: Route.ActionArgs) {
 		return data({ result: submission.reply() }, { status: 400 })
 	}
 
-	const item = await prisma.inventoryItem.create({
+	await prisma.inventoryItem.create({
 		data: {
 			...submission.value,
 			userId,
 		},
-		select: { id: true },
 	})
 
 	return redirect(`/inventory`)

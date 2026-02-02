@@ -1,8 +1,8 @@
 import { Img } from 'openimg/react'
 import { Link } from 'react-router'
 import { cn } from '#app/utils/misc.tsx'
-import { Icon } from './ui/icon.tsx'
 import { type RecipeMatch } from '#app/utils/recipe-matching.server.ts'
+import { Icon } from './ui/icon.tsx'
 
 type RecipeMatchCardProps = {
 	match: RecipeMatch

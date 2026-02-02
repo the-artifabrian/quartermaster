@@ -1,14 +1,14 @@
-import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { invariantResponse } from '@epic-web/invariant'
 import { parseWithZod } from '@conform-to/zod'
-import { Link, useSearchParams } from 'react-router'
+import { invariantResponse } from '@epic-web/invariant'
+import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { Link } from 'react-router'
+import { CommonIngredients } from '#app/components/common-ingredients.tsx'
 import {
 	InventoryItemCard,
 	InventoryItemGrid,
 } from '#app/components/inventory-item-card.tsx'
-import { InventoryQuickAdd } from '#app/components/inventory-quick-add.tsx'
 import { InventoryLocationTabs } from '#app/components/inventory-location-tabs.tsx'
-import { CommonIngredients } from '#app/components/common-ingredients.tsx'
+import { InventoryQuickAdd } from '#app/components/inventory-quick-add.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
@@ -93,7 +93,6 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	const { items, selectedLocation } = loaderData
-	const [searchParams] = useSearchParams()
 
 	const pantryItems = items.filter((item) => item.location === 'pantry')
 	const fridgeItems = items.filter((item) => item.location === 'fridge')

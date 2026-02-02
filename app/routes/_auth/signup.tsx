@@ -9,10 +9,6 @@ import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { ErrorList, Field } from '#app/components/forms.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireAnonymous } from '#app/utils/auth.server.ts'
-import {
-	ProviderConnectionForm,
-	providerNames,
-} from '#app/utils/connections.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
 import { checkHoneypot } from '#app/utils/honeypot.server.ts'
@@ -170,20 +166,6 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 						Submit
 					</StatusButton>
 				</Form>
-				<ul className="flex flex-col gap-4 py-4">
-					{providerNames.map((providerName) => (
-						<>
-							<hr />
-							<li key={providerName}>
-								<ProviderConnectionForm
-									type="Signup"
-									providerName={providerName}
-									redirectTo={redirectTo}
-								/>
-							</li>
-						</>
-					))}
-				</ul>
 			</div>
 		</div>
 	)

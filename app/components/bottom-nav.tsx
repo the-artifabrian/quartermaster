@@ -18,12 +18,6 @@ const navItems: NavItem[] = [
 		matchPaths: ['/recipes'],
 	},
 	{
-		to: '/recipes/new',
-		icon: 'plus' as IconName,
-		label: 'New',
-		matchPaths: ['/recipes/new', '/inventory/new'],
-	},
-	{
 		to: '/inventory',
 		icon: 'file-text' as IconName,
 		label: 'Inventory',
@@ -44,7 +38,7 @@ export function BottomNav() {
 	if (!user) return null
 
 	return (
-		<nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-background md:hidden">
+		<nav className="bg-background fixed inset-x-0 bottom-0 z-50 border-t md:hidden">
 			<div className="flex h-16 items-center justify-around">
 				{navItems.map((item) => {
 					const isActive = item.matchPaths?.some((path) =>
@@ -65,7 +59,7 @@ export function BottomNav() {
 							)}
 						>
 							{item.icon === 'plus' ? (
-								<span className="flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
+								<span className="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-full">
 									<Icon name={item.icon} size="md" />
 								</span>
 							) : (

@@ -93,7 +93,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 			{/* Header */}
 			<div className="mb-6 flex items-center justify-between">
 				<h1 className="text-2xl font-bold">My Recipes</h1>
-				<Button asChild className="hidden md:inline-flex">
+				<Button asChild>
 					<Link to="/recipes/new">
 						<Icon name="plus" size="sm" />
 						New Recipe
@@ -106,7 +106,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 				<div className="relative">
 					<Icon
 						name="magnifying-glass"
-						className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+						className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
 						size="sm"
 					/>
 					<Input
@@ -163,9 +163,9 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 				</RecipeCardGrid>
 			) : (
 				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<Icon name="cookie" className="size-16 text-muted-foreground" />
+					<Icon name="cookie" className="text-muted-foreground size-16" />
 					<h2 className="mt-4 text-xl font-semibold">No recipes yet</h2>
-					<p className="mt-2 text-muted-foreground">
+					<p className="text-muted-foreground mt-2">
 						{search || selectedTagIds.length > 0
 							? 'No recipes match your search. Try different filters.'
 							: "Start by adding your first recipe. It's easy!"}

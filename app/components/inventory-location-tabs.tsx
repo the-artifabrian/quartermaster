@@ -1,6 +1,6 @@
 import { Link, useSearchParams } from 'react-router'
-import { cn } from '#app/utils/misc.tsx'
 import { LOCATION_LABELS } from '#app/utils/inventory-validation.ts'
+import { cn } from '#app/utils/misc.tsx'
 
 export function InventoryLocationTabs() {
 	const [searchParams] = useSearchParams()

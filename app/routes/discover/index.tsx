@@ -1,5 +1,6 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useState } from 'react'
+import { Link } from 'react-router'
 import {
 	RecipeMatchCard,
 	RecipeMatchCardGrid,
@@ -10,7 +11,6 @@ import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { matchRecipesWithInventory } from '#app/utils/recipe-matching.server.ts'
 import { type Route } from './+types/index.ts'
-import { Link } from 'react-router'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,

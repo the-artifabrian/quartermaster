@@ -1,9 +1,9 @@
-import { Form } from 'react-router'
 import { useState } from 'react'
+import { Form } from 'react-router'
 import { Button } from './ui/button.tsx'
+import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
 import { StatusButton } from './ui/status-button.tsx'
-import { Icon } from './ui/icon.tsx'
 
 type InventoryQuickAddProps = {
 	location: 'pantry' | 'fridge' | 'freezer'

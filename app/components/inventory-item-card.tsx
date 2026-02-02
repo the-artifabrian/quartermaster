@@ -1,8 +1,8 @@
-import { Form, Link } from 'react-router'
 import { type InventoryItem } from '@prisma/client'
+import { Form, Link } from 'react-router'
 import { LOCATION_LABELS } from '#app/utils/inventory-validation.ts'
-import { Icon } from './ui/icon.tsx'
 import { Button } from './ui/button.tsx'
+import { Icon } from './ui/icon.tsx'
 import { StatusButton } from './ui/status-button.tsx'
 
 type InventoryItemCardProps = {

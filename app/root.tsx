@@ -198,9 +198,17 @@ function App() {
 				<header className="container py-6">
 					<nav className="flex flex-wrap items-center justify-between gap-4 sm:flex-nowrap md:gap-8">
 						<Logo />
-						<div className="flex items-center gap-10 ml-auto">
+						<div className="flex items-center gap-4 md:gap-10 ml-auto">
 							{user ? (
-								<UserDropdown />
+								<>
+									<Link
+										to="/recipes"
+										className="hidden md:block text-sm font-medium hover:text-primary"
+									>
+										My Recipes
+									</Link>
+									<UserDropdown />
+								</>
 							) : (
 								<Button asChild variant="default" size="lg">
 									<Link to="/login">Log In</Link>

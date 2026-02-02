@@ -26,6 +26,7 @@ model User {
   sessions    Session[]
   connections Connection[]
   passkey     Passkey[]
+  recipes     Recipe[]
 }
 
 model UserImage {
@@ -148,4 +149,71 @@ model Passkey {
   transports     String? // Stored as comma-separated values
 
   @@index(userId)
+}
+
+model Recipe {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  servings    Int      @default(4)
+  prepTime    Int?     // minutes
+  cookTime    Int?     // minutes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  image        RecipeImage?
+  ingredients  Ingredient[]
+  instructions Instruction[]
+  tags         Tag[]
+
+  @@index([userId])
+  @@index([title])
+}
+
+model RecipeImage {
+  id        String   @id @default(cuid())
+  altText   String?
+  objectKey String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String @unique
+}
+
+model Ingredient {
+  id       String  @id @default(cuid())
+  name     String
+  amount   String? // "2", "1/2" (string for fractions)
+  unit     String? // "cups", "tbsp"
+  notes    String? // "diced", "room temperature"
+  order    Int     @default(0)
+
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+
+  @@index([recipeId])
+}
+
+model Instruction {
+  id      String @id @default(cuid())
+  content String
+  order   Int
+
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+
+  @@index([recipeId])
+}
+
+model Tag {
+  id       String   @id @default(cuid())
+  name     String   @unique
+  category String   // "cuisine", "meal-type", "dietary"
+  recipes  Recipe[]
 }

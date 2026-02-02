@@ -17,26 +17,27 @@ You (a full-stack JavaScript developer) - building for personal use first, with 
 
 ## Core Features (MVP)
 
-### Phase 1: Foundation
+### Phase 1: Foundation ✅ COMPLETE
 
 #### 1.1 Recipe Management
-- [ ] Create/edit/delete recipes
-- [ ] Recipe fields: title, description, servings, prep time, cook time, ingredients, instructions, notes
-- [ ] Support for ingredient quantities and units (2 cups, 500g, etc.)
-- [ ] Recipe images (upload or URL)
-- [ ] Tags/categories (cuisine, meal type, dietary: vegetarian, vegan, gluten-free)
-- [ ] Favorite/bookmark recipes
-- [ ] Recipe source URL (for imported recipes)
+- [x] Create/edit/delete recipes
+- [x] Recipe fields: title, description, servings, prep time, cook time, ingredients, instructions
+- [x] Support for ingredient quantities and units (2 cups, 500g, etc.)
+- [x] Recipe images (upload to S3-compatible storage)
+- [x] Tags/categories (cuisine, meal type, dietary: vegetarian, vegan, gluten-free)
+- [ ] Favorite/bookmark recipes *(deferred to Phase 1.5)*
+- [ ] Recipe source URL (for imported recipes) *(deferred to Phase 1.5)*
 
 #### 1.2 Search & Browse
-- [ ] Full-text search across recipe title, ingredients, instructions
-- [ ] Filter by tags, cook time, difficulty
-- [ ] Sort by: recently added, alphabetical, cook time, rating
-- [ ] **NOT** by recently viewed (solving your Apple Notes problem)
+- [x] Full-text search across recipe title, ingredients, description
+- [x] Filter by tags
+- [x] Sort by: recently updated (default)
+- [x] **NOT** by recently viewed (solving your Apple Notes problem)
+- [ ] Filter by cook time, difficulty *(deferred to Phase 1.5)*
 
 #### 1.3 Authentication
-- [ ] User accounts (Epic Stack provides this out of the box)
-- [ ] Personal recipe library per user
+- [x] User accounts (Epic Stack provides this out of the box)
+- [x] Personal recipe library per user
 
 ### Phase 2: Inventory System
 
@@ -103,87 +104,87 @@ Testing:         Vitest + Playwright
 
 ### Database Schema (Prisma)
 
+#### Phase 1 Implementation ✅
+
 ```prisma
-// Core recipe models
+// Core recipe models - IMPLEMENTED
 model Recipe {
   id          String   @id @default(cuid())
   title       String
   description String?
-  servings    Int?
+  servings    Int      @default(4)
   prepTime    Int?     // minutes
   cookTime    Int?     // minutes
-  imageUrl    String?
-  sourceUrl   String?
-  notes       String?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
 
-  ingredients RecipeIngredient[]
-  instructions RecipeInstruction[]
-  tags        RecipeTag[]
-  mealPlans   MealPlanEntry[]
+  image        RecipeImage?
+  ingredients  Ingredient[]
+  instructions Instruction[]
+  tags         Tag[]
 
   @@index([userId])
   @@index([title])
 }
 
-model RecipeIngredient {
-  id          String  @id @default(cuid())
-  quantity    Float?
-  unit        String? // cups, tbsp, g, oz, etc.
-  name        String  // "chicken breast", "olive oil"
-  notes       String? // "diced", "room temperature"
-  order       Int     @default(0)
+model RecipeImage {
+  id        String   @id @default(cuid())
+  altText   String?
+  objectKey String   // S3-compatible storage key
 
-  recipeId    String
-  recipe      Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // Link to master ingredient for matching
-  ingredientId String?
-  ingredient   Ingredient? @relation(fields: [ingredientId], references: [id])
-
-  @@index([recipeId])
-  @@index([ingredientId])
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId  String   @unique
 }
 
-model RecipeInstruction {
-  id       String @id @default(cuid())
-  step     Int
-  text     String
+model Ingredient {
+  id       String  @id @default(cuid())
+  name     String
+  amount   String? // "2", "1/2" (string for fractions)
+  unit     String? // "cups", "tbsp"
+  notes    String? // "diced", "room temperature"
+  order    Int     @default(0)
 
+  recipe   Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   recipeId String
+
+  @@index([recipeId])
+}
+
+model Instruction {
+  id       String @id @default(cuid())
+  content  String
+  order    Int
+
   recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
 
   @@index([recipeId])
 }
 
 model Tag {
-  id      String      @id @default(cuid())
-  name    String      @unique
-  type    String?     // "cuisine", "meal-type", "dietary", "custom"
-  recipes RecipeTag[]
+  id       String   @id @default(cuid())
+  name     String   @unique
+  category String   // "cuisine", "meal-type", "dietary"
+  recipes  Recipe[]
 }
+```
 
-model RecipeTag {
-  recipeId String
-  tagId    String
-  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+#### Future Phases (Planned)
 
-  @@id([recipeId, tagId])
-}
-
-// Inventory models
-model Ingredient {
+```prisma
+// Inventory models (Phase 2+)
+model MasterIngredient {
   id       String @id @default(cuid())
   name     String @unique // normalized: "chicken breast"
   category String? // "protein", "produce", "dairy", etc.
 
-  recipeIngredients RecipeIngredient[]
   inventoryItems    InventoryItem[]
 }
 
@@ -268,29 +269,31 @@ model ShoppingListItem {
 
 ```
 app/routes/
-├── _index.tsx                    # Landing/dashboard
-├── _auth+/                       # Auth routes (Epic Stack)
+├── _marketing/
+│   └── index.tsx                 # Landing page
+├── _auth/                        # Auth routes (Epic Stack)
 │   ├── login.tsx
 │   ├── signup.tsx
 │   └── ...
-├── recipes+/
-│   ├── _index.tsx                # Recipe list with search/filter
+├── recipes/                      # ✅ IMPLEMENTED
+│   ├── _layout.tsx               # Layout with bottom nav
+│   ├── index.tsx                 # Recipe list with search/filter
 │   ├── new.tsx                   # Create recipe
 │   ├── $recipeId.tsx             # View recipe
 │   ├── $recipeId_.edit.tsx       # Edit recipe
-│   └── $recipeId_.cook.tsx       # Cooking mode
-├── inventory+/
+│   └── $recipeId_.cook.tsx       # Cooking mode (future)
+├── inventory/                    # Phase 2
 │   ├── _index.tsx                # Inventory overview
 │   ├── pantry.tsx                # Pantry items
 │   ├── fridge.tsx                # Fridge items
 │   └── freezer.tsx               # Freezer items
-├── plan+/
+├── plan/                         # Phase 4
 │   ├── _index.tsx                # Weekly meal plan
 │   └── shopping-list.tsx         # Generated shopping list
-├── discover+/
+├── discover/                     # Phase 3
 │   └── _index.tsx                # "What can I make?" + suggestions
-└── settings+/
-    └── profile.tsx               # User settings
+└── settings/
+    └── profile/                  # User settings (Epic Stack)
 ```
 
 ---
@@ -345,18 +348,40 @@ xl: 1280px  /* Desktops */
 
 ## Development Phases & Timeline
 
-### Phase 1: Foundation (Weeks 1-2)
+### Phase 1: Foundation ✅ COMPLETE
 **Goal**: Basic recipe CRUD with search
 
-- [ ] Set up Prisma schema for recipes
-- [ ] Recipe list page with search
-- [ ] Create/edit/delete recipe forms
-- [ ] Recipe detail view
-- [ ] Tags system
-- [ ] Mobile-responsive layout
-- [ ] Bottom navigation component
+- [x] Set up Prisma schema for recipes
+- [x] Recipe list page with search
+- [x] Create/edit/delete recipe forms
+- [x] Recipe detail view
+- [x] Tags system (16 predefined tags across cuisine, meal-type, dietary)
+- [x] Mobile-responsive layout (1 col → 2 col → 3 col grid)
+- [x] Bottom navigation component (mobile only)
 
 **Deliverable**: Can add, view, search, and organize recipes
+
+#### Phase 1 Implementation Notes
+
+**Database Models Created:**
+- `Recipe` - Core recipe with title, description, servings, prep/cook time
+- `RecipeImage` - Single image per recipe (S3-compatible storage)
+- `Ingredient` - Ingredients with name, amount, unit, notes, order
+- `Instruction` - Steps with content and order
+- `Tag` - Predefined tags with category (many-to-many with recipes)
+
+**Routes Created:**
+- `/recipes` - Recipe list with search & tag filtering
+- `/recipes/new` - Create recipe form
+- `/recipes/:recipeId` - View recipe detail
+- `/recipes/:recipeId/edit` - Edit recipe + delete
+
+**Components Created:**
+- `recipe-card.tsx` - Recipe card for grid display
+- `recipe-form.tsx` - Shared create/edit form
+- `ingredient-fields.tsx` - Dynamic ingredient inputs
+- `instruction-fields.tsx` - Dynamic instruction inputs
+- `bottom-nav.tsx` - Mobile bottom navigation
 
 ### Phase 2: Inventory (Weeks 3-4)
 **Goal**: Track what's in your kitchen
@@ -480,13 +505,20 @@ npm run setup
 npm run dev
 ```
 
-### First Steps
+### First Steps ✅ COMPLETE
 
-1. **Create the Prisma schema** - Add recipe models to `prisma/schema.prisma`
-2. **Run migration** - `npx prisma migrate dev --name add-recipe-models`
-3. **Build recipe routes** - Start with `/recipes` list and `/recipes/new`
-4. **Add mobile layout** - Bottom nav, responsive grid
-5. **Iterate from there**
+1. ~~**Create the Prisma schema** - Add recipe models to `prisma/schema.prisma`~~
+2. ~~**Run migration** - `npx prisma migrate dev --name add-recipe-models`~~
+3. ~~**Build recipe routes** - Start with `/recipes` list and `/recipes/new`~~
+4. ~~**Add mobile layout** - Bottom nav, responsive grid~~
+5. **Iterate from there** - Continue to Phase 2
+
+### Next Steps (Phase 2)
+
+1. **Add inventory models** - Create Ingredient, InventoryItem models
+2. **Build inventory routes** - `/inventory`, `/inventory/pantry`, etc.
+3. **Link recipes to inventory** - Ingredient normalization
+4. **Test the full flow** - Add recipes, track inventory, find matches
 
 ---
 
@@ -526,4 +558,4 @@ Before starting implementation:
 ---
 
 *Document created: February 2026*
-*Last updated: February 2026*
+*Last updated: February 2, 2026 - Phase 1 complete*

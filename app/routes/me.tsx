@@ -15,5 +15,5 @@ export async function loader({ request }: Route.LoaderArgs) {
 		await logout({ request, redirectTo })
 		return redirect(redirectTo)
 	}
-	return redirect(`/users/${user.username}`)
+	return redirect(`/settings/profile`)
 }

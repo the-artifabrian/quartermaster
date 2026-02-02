@@ -31,7 +31,7 @@ function parseIngredient(line: string): {
 		const amount = match[1] || match[4]
 		const unit = match[2] || match[5]
 		const name = match[3] || match[6]
-		return { name: name.trim(), amount, unit: unit || undefined }
+		return { name: name?.trim() || '', amount, unit: unit || undefined }
 	}
 
 	// If no pattern matched, treat whole thing as name

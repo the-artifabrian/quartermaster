@@ -39,20 +39,20 @@ You (a full-stack JavaScript developer) - building for personal use first, with 
 - [x] User accounts (Epic Stack provides this out of the box)
 - [x] Personal recipe library per user
 
-### Phase 2: Inventory System
+### Phase 2: Inventory System ✅ COMPLETE
 
 #### 2.1 Pantry/Fridge/Freezer Tracking
-- [ ] Three inventory locations: Pantry, Fridge, Freezer
-- [ ] Add ingredients with optional quantity/expiration
-- [ ] Quick add from common ingredients list
-- [ ] Mark items as "running low" or "out"
-- [ ] Simple increment/decrement quantities
+- [x] Three inventory locations: Pantry, Fridge, Freezer
+- [x] Add ingredients with optional quantity/expiration
+- [x] Quick add from common ingredients list
+- [x] Mark items as "running low" or "out"
+- [x] Simple increment/decrement quantities
 
 #### 2.2 Ingredient Matching
-- [ ] "What can I make?" - recipes matching current inventory
-- [ ] Show match percentage (e.g., "You have 8/10 ingredients")
-- [ ] Highlight missing ingredients
-- [ ] Filter: "Only show recipes I can make right now"
+- [x] "What can I make?" - recipes matching current inventory
+- [x] Show match percentage (e.g., "You have 8/10 ingredients")
+- [x] Highlight missing ingredients
+- [x] Filter: "Only show recipes I can make right now"
 
 ### Phase 3: Meal Planning
 
@@ -383,27 +383,45 @@ xl: 1280px  /* Desktops */
 - `instruction-fields.tsx` - Dynamic instruction inputs
 - `bottom-nav.tsx` - Mobile bottom navigation
 
-### Phase 2: Inventory (Weeks 3-4)
+### Phase 2: Inventory ✅ COMPLETE
 **Goal**: Track what's in your kitchen
 
-- [ ] Inventory schema and models
-- [ ] Pantry/Fridge/Freezer views
-- [ ] Add/remove inventory items
-- [ ] Quick-add common ingredients
-- [ ] Ingredient autocomplete
+- [x] Inventory schema and models
+- [x] Pantry/Fridge/Freezer views
+- [x] Add/remove inventory items
+- [x] Quick-add common ingredients
+- [x] Ingredient matching with fuzzy logic
+- [x] "What can I make?" discover page
+- [x] Match percentage calculation
+- [x] Missing ingredients highlight
+- [x] Filter by available ingredients
 
-**Deliverable**: Can track kitchen inventory across three locations
+**Deliverable**: Can track kitchen inventory and discover recipes based on what you have
 
-### Phase 3: Smart Matching (Week 5)
-**Goal**: Connect recipes to inventory
+#### Phase 2 Implementation Notes
 
-- [ ] Ingredient normalization/matching logic
-- [ ] "What can I make?" page
-- [ ] Match percentage calculation
-- [ ] Missing ingredients highlight
-- [ ] Filter by available ingredients
+**Database Models Created:**
+- `InventoryItem` - Free-text inventory items with location, quantity, unit, expiration, lowStock flag
 
-**Deliverable**: Can discover recipes based on what you have
+**Routes Created:**
+- `/inventory` - Inventory list with location tabs (All/Pantry/Fridge/Freezer)
+- `/inventory/new` - Add inventory item form
+- `/inventory/:id/edit` - Edit/delete inventory item
+- `/discover` - Recipe discovery with match percentages
+
+**Components Created:**
+- `inventory-item-card.tsx` - Inventory item card with quick actions
+- `inventory-quick-add.tsx` - Inline quick-add form
+- `inventory-location-tabs.tsx` - Location filter tabs
+- `common-ingredients.tsx` - Quick-add buttons for 30 common ingredients
+- `recipe-match-card.tsx` - Enhanced recipe card with match percentage badge
+
+**Utilities Created:**
+- `inventory-validation.ts` - Zod schemas for inventory items
+- `recipe-matching.server.ts` - Fuzzy matching algorithm with ingredient normalization
+
+**Navigation:**
+- Bottom nav updated to 5 items: Home, Recipes, New, Inventory, Discover
 
 ### Phase 4: Meal Planning (Weeks 6-7)
 **Goal**: Plan your week
@@ -476,6 +494,34 @@ The parser would use simple heuristics:
 - **Barcode scanning**: Scan products to add to inventory
 - **Multi-user households**: Shared inventory and meal plans
 - **Cost tracking**: Track ingredient costs, meal budgeting
+
+### AI-Powered Features (Nice to Have)
+
+Leverage AI (Claude API, OpenAI, or local models) to enhance the cooking experience:
+
+#### Ingredient Substitutions
+- **Smart substitutions when missing ingredients**: When you're missing an ingredient for a recipe, AI suggests practical alternatives
+  - Example: "Don't have buttermilk? Use 1 cup milk + 1 tbsp lemon juice"
+  - Context-aware suggestions based on the recipe type and cooking method
+  - Explain how the substitution affects taste/texture
+
+#### Healthy Recipe Modifications
+- **Health-goal substitutions**: AI recommends ingredient swaps to meet dietary goals
+  - **Lower cholesterol**: Suggest egg whites instead of whole eggs, olive oil instead of butter
+  - **Increase protein**: Add Greek yogurt, quinoa, or lean proteins
+  - **Reduce sodium**: Alternative seasonings and flavor enhancers
+  - **Lower carbs**: Cauliflower rice, zucchini noodles, almond flour alternatives
+  - **Allergen-free**: Dairy-free, gluten-free, nut-free substitutions
+
+- **Nutritional impact preview**: Show estimated changes in calories, protein, fat, etc.
+- **Multiple suggestion levels**: Conservative swaps vs. more adventurous alternatives
+- **Recipe rewrite**: AI can rewrite entire recipe with healthier ingredients while maintaining flavor profile
+
+#### Implementation Considerations
+- Use Claude API for context-aware, detailed substitution explanations
+- Cache common substitution patterns to reduce API costs
+- Allow users to save favorite substitutions for future use
+- Integrate with recipe view: "🤖 Get AI suggestions" button on each recipe
 
 ---
 
@@ -558,4 +604,4 @@ Before starting implementation:
 ---
 
 *Document created: February 2026*
-*Last updated: February 2, 2026 - Phase 1 complete*
+*Last updated: February 2, 2026 - Phase 1 & 2 complete*

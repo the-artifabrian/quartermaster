@@ -20,13 +20,14 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  image       UserImage?
-  password    Password?
-  roles       Role[]
-  sessions    Session[]
-  connections Connection[]
-  passkey     Passkey[]
-  recipes     Recipe[]
+  image          UserImage?
+  password       Password?
+  roles          Role[]
+  sessions       Session[]
+  connections    Connection[]
+  passkey        Passkey[]
+  recipes        Recipe[]
+  inventoryItems InventoryItem[]
 }
 
 model UserImage {
@@ -216,4 +217,23 @@ model Tag {
   name     String   @unique
   category String   // "cuisine", "meal-type", "dietary"
   recipes  Recipe[]
+}
+
+model InventoryItem {
+  id        String    @id @default(cuid())
+  name      String    // Free-text: "chicken breast", "Chicken Breasts"
+  location  String    // "pantry", "fridge", "freezer"
+  quantity  Float?    // Optional: 2.5
+  unit      String?   // Optional: "lbs", "cups", "count"
+  expiresAt DateTime?
+  lowStock  Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId])
+  @@index([userId, location])
 }

@@ -12,12 +12,6 @@ type NavItem = {
 
 const navItems: NavItem[] = [
 	{
-		to: '/',
-		icon: 'home' as IconName,
-		label: 'Home',
-		matchPaths: ['/'],
-	},
-	{
 		to: '/recipes',
 		icon: 'cookie' as IconName,
 		label: 'Recipes',
@@ -27,13 +21,19 @@ const navItems: NavItem[] = [
 		to: '/recipes/new',
 		icon: 'plus' as IconName,
 		label: 'New',
-		matchPaths: ['/recipes/new'],
+		matchPaths: ['/recipes/new', '/inventory/new'],
 	},
 	{
-		to: '/settings/profile',
-		icon: 'avatar' as IconName,
-		label: 'Profile',
-		matchPaths: ['/settings/profile', '/users/'],
+		to: '/inventory',
+		icon: 'file-text' as IconName,
+		label: 'Inventory',
+		matchPaths: ['/inventory'],
+	},
+	{
+		to: '/discover',
+		icon: 'magnifying-glass' as IconName,
+		label: 'Discover',
+		matchPaths: ['/discover'],
 	},
 ]
 

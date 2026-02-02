@@ -9,7 +9,7 @@ async function seed() {
 
 	// Create permissions
 	console.time(`🔑 Created permissions...`)
-	const entities = ['user'] as const
+	const entities = ['user', 'recipe'] as const
 	const actions = ['create', 'read', 'update', 'delete'] as const
 	const accesses = ['own', 'any'] as const
 
@@ -25,6 +25,39 @@ async function seed() {
 		}
 	}
 	console.timeEnd(`🔑 Created permissions...`)
+
+	// Create predefined tags
+	console.time(`🏷️ Created tags...`)
+	const tags = [
+		// Cuisine
+		{ name: 'Italian', category: 'cuisine' },
+		{ name: 'Mexican', category: 'cuisine' },
+		{ name: 'Asian', category: 'cuisine' },
+		{ name: 'American', category: 'cuisine' },
+		{ name: 'Mediterranean', category: 'cuisine' },
+		{ name: 'Indian', category: 'cuisine' },
+		// Meal Type
+		{ name: 'Breakfast', category: 'meal-type' },
+		{ name: 'Lunch', category: 'meal-type' },
+		{ name: 'Dinner', category: 'meal-type' },
+		{ name: 'Snack', category: 'meal-type' },
+		{ name: 'Dessert', category: 'meal-type' },
+		// Dietary
+		{ name: 'Vegetarian', category: 'dietary' },
+		{ name: 'Vegan', category: 'dietary' },
+		{ name: 'Gluten-Free', category: 'dietary' },
+		{ name: 'Dairy-Free', category: 'dietary' },
+		{ name: 'Keto', category: 'dietary' },
+	]
+
+	for (const tag of tags) {
+		await prisma.tag.upsert({
+			where: { name: tag.name },
+			update: {},
+			create: tag,
+		})
+	}
+	console.timeEnd(`🏷️ Created tags...`)
 
 	// Create roles
 	console.time(`👑 Created roles...`)

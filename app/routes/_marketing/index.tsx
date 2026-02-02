@@ -46,19 +46,19 @@ export default function Index() {
 
 				<ul className="animate-slide-top mt-16 grid gap-4 text-left text-muted-foreground [animation-delay:0.9s] [animation-fill-mode:backwards] sm:grid-cols-2">
 					<li className="flex items-start gap-3">
-						<Icon name="check" className="size-5 text-green-500 mt-0.5" />
+						<Icon name="check" className="size-5 text-primary mt-0.5" />
 						<span>Store and organize 100+ recipes</span>
 					</li>
 					<li className="flex items-start gap-3">
-						<Icon name="check" className="size-5 text-green-500 mt-0.5" />
+						<Icon name="check" className="size-5 text-primary mt-0.5" />
 						<span>Search by name or ingredients</span>
 					</li>
 					<li className="flex items-start gap-3">
-						<Icon name="check" className="size-5 text-green-500 mt-0.5" />
+						<Icon name="check" className="size-5 text-primary mt-0.5" />
 						<span>Track pantry, fridge & freezer</span>
 					</li>
 					<li className="flex items-start gap-3">
-						<Icon name="check" className="size-5 text-green-500 mt-0.5" />
+						<Icon name="check" className="size-5 text-primary mt-0.5" />
 						<span>Plan weekly meals</span>
 					</li>
 				</ul>

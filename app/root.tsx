@@ -251,13 +251,16 @@ function App() {
 
 function Logo() {
 	return (
-		<Link to="/" className="group grid leading-snug">
-			<span className="font-light transition group-hover:-translate-x-1">
-				quarter
-			</span>
-			<span className="font-bold transition group-hover:translate-x-1">
-				master
-			</span>
+		<Link to="/" className="group flex items-center gap-2">
+			<div className="text-2xl transition-transform group-hover:rotate-12">
+				👨‍🍳
+			</div>
+			<div className="grid leading-tight">
+				<span className="text-lg font-semibold text-primary">Quarter</span>
+				<span className="text-sm font-light text-muted-foreground -mt-1">
+					master
+				</span>
+			</div>
 		</Link>
 	)
 }

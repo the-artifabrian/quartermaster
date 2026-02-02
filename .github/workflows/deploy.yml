@@ -2,7 +2,7 @@ name: 🚀 Deploy
 on:
   push:
     branches:
-      - main
+      - master
       - dev
   pull_request: {}
 
@@ -177,7 +177,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: 📦 Build Production Container
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/master' }}
         run: |
           flyctl deploy \
             --build-only \
@@ -221,7 +221,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: 🚀 Deploy Production
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/master' }}
         run: |
           flyctl deploy \
             --image "registry.fly.io/${{ steps.app_name.outputs.value }}:${{ github.sha }}"

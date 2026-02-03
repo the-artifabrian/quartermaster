@@ -5,7 +5,7 @@
 - [ ] 800g boneless chicken thighs
 - [ ] 2 Tbsp gochujang
 - [ ] 2 Tbsp soy sauce
-- [ ] 1 tbsp mirin/sake/white wine
+- [ ] 1 tbsp mirin (or sake/white wine)
 - [ ] 4 cloves of garlic, grated
 - [ ] 1 Tbsp ginger, grated
 - [ ] 1 tsp sugar

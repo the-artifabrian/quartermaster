@@ -103,6 +103,7 @@ export function RecipeForm({
 			cookTime: recipe?.cookTime ?? undefined,
 		},
 		shouldRevalidate: 'onBlur',
+		shouldValidate: 'onSubmit',
 	})
 
 	const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -142,6 +143,14 @@ export function RecipeForm({
 			{...getFormProps(form)}
 			className="space-y-8"
 		>
+			{/* Form-level errors */}
+			{form.errors && form.errors.length > 0 && (
+				<div className="rounded-lg border border-destructive bg-destructive/10 p-4">
+					<h3 className="font-semibold text-destructive mb-2">Please fix the following errors:</h3>
+					<ErrorList errors={form.errors} id={form.errorId} />
+				</div>
+			)}
+
 			{/* Image Upload */}
 			<div className="space-y-2">
 				<Label>Recipe Image</Label>
@@ -278,7 +287,6 @@ export function RecipeForm({
 			<IngredientFields
 				ingredients={ingredients}
 				onChange={setIngredients}
-				errors={actionData?.result?.error}
 			/>
 			{/* Hidden inputs for ingredients */}
 			{ingredients.map((ingredient, index) => (
@@ -297,7 +305,6 @@ export function RecipeForm({
 			<InstructionFields
 				instructions={instructions}
 				onChange={setInstructions}
-				errors={actionData?.result?.error}
 			/>
 			{/* Hidden inputs for instructions */}
 			{instructions.map((instruction, index) => (
@@ -308,8 +315,6 @@ export function RecipeForm({
 					<input type="hidden" name={`instructions[${index}].content`} value={instruction.content} />
 				</div>
 			))}
-
-			<ErrorList errors={form.errors} id={form.errorId} />
 
 			<div className="flex justify-end gap-4">
 				<Button type="button" variant="outline" onClick={() => history.back()}>

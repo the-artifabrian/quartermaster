@@ -2,16 +2,19 @@
 
 ## Ingredients
 
-- [ ] 400–500 g fresh pork sausage (mici-style without casing or Italian-style),
-      casing removed
-- [ ] 1 tbsp olive oil (if sausage is very lean)
-- [ ] 1 onion, chopped; 2 cloves garlic, minced
-- [ ] 1 tsp fennel seeds (optional), pinch chili flakes
-- [ ] 1 × 400 g can cannellini/white beans, drained and rinsed
+- [ ] 400–500g fresh pork sausage, casing removed
+- [ ] 1 tbsp olive oil
+- [ ] 1 onion, chopped
+- [ ] 2 cloves garlic, minced
+- [ ] 1 tsp fennel seeds
+- [ ] pinch chili flakes
+- [ ] 400g can cannellini, drained and rinsed
 - [ ] 200 g cherry tomatoes (or 1 large tomato, chopped)
 - [ ] 150–200 g baby spinach or shredded kale/cabbage
 - [ ] 60–90 ml stock or water
-- [ ] Lemon zest, parsley; Parmesan or Telemea for serving
+- [ ] Lemon zest
+- [ ] parsley
+- [ ] Parmesan for serving
 
 ## Instructions
 

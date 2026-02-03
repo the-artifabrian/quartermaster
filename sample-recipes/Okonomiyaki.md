@@ -40,5 +40,3 @@
       ginger, more bonito and sprinkle aonori to serve.
 - [ ] Brush the okonomiyaki with Okonomiyaki sauce and garnish with pickled
       ginger, more bonito and sprinkle aonori to serve.
-
-[https://www.chopstickchronicles.com/osaka-okonomiyaki/](https://www.chopstickchronicles.com/osaka-okonomiyaki/)

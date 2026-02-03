@@ -3,12 +3,14 @@
 ## Ingredients
 
 - [ ] 200g guanciale or pancetta
-- [ ] 50g pecorino cheese
+- [ ] 50g pecorino
 - [ ] 50g parmesan
-- [ ] 2 whole eggs + 2 egg yolks
+- [ ] 2 whole eggs
+- [ ] 2 egg yolks
 - [ ] 200g spaghetti
 - [ ] 1 garlic clove, crushed
-- [ ] sea salt and freshly ground black pepper
+- [ ] sea salt
+- [ ] black pepper, freshly ground
 
 ## Instructions
 

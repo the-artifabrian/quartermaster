@@ -1,6 +1,26 @@
 import { type Recipe, type Ingredient, type InventoryItem } from '@prisma/client'
 
 /**
+ * Common staple ingredients that are assumed to be available
+ * These won't count against recipe matching percentage
+ */
+const STAPLE_INGREDIENTS = new Set([
+	'water',
+	'salt',
+	'sea salt',
+	'kosher salt',
+	'table salt',
+	'black pepper',
+	'pepper',
+	'ground black pepper',
+	'freshly ground black pepper',
+	'vegetable oil',
+	'cooking oil',
+	'olive oil',
+	'canola oil',
+])
+
+/**
  * Common ingredient synonyms for better matching
  */
 const INGREDIENT_SYNONYMS: Record<string, string[]> = {
@@ -20,6 +40,14 @@ const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 	'chicken broth': ['chicken stock'],
 	mirin: ['sake', 'white wine', 'rice wine'],
 	sake: ['mirin', 'white wine', 'rice wine'],
+	// Cooking oils - neutral oils are interchangeable
+	oil: ['vegetable oil', 'canola oil', 'grapeseed oil', 'sunflower oil', 'peanut oil', 'avocado oil', 'safflower oil'],
+	'vegetable oil': ['oil', 'canola oil', 'grapeseed oil', 'sunflower oil', 'peanut oil', 'avocado oil'],
+	'canola oil': ['oil', 'vegetable oil', 'grapeseed oil', 'sunflower oil', 'peanut oil', 'avocado oil'],
+	'grapeseed oil': ['oil', 'vegetable oil', 'canola oil', 'sunflower oil', 'peanut oil', 'avocado oil'],
+	'sunflower oil': ['oil', 'vegetable oil', 'canola oil', 'grapeseed oil', 'peanut oil', 'avocado oil'],
+	'peanut oil': ['oil', 'vegetable oil', 'canola oil', 'grapeseed oil', 'sunflower oil', 'avocado oil'],
+	'avocado oil': ['oil', 'vegetable oil', 'canola oil', 'grapeseed oil', 'sunflower oil', 'peanut oil'],
 }
 
 /**
@@ -58,17 +86,72 @@ export function normalizeIngredientName(name: string): string {
 
 	// Remove common descriptive words that don't affect ingredient identity
 	const modifiers = [
+		// Freshness/state
 		'fresh',
 		'dried',
 		'frozen',
 		'canned',
+		'raw',
+		'cooked',
 		'optional',
+		// Preparation
 		'chopped',
 		'diced',
 		'sliced',
 		'minced',
 		'grated',
 		'shredded',
+		'crushed',
+		'whole',
+		'halved',
+		'quartered',
+		// Size
+		'large',
+		'medium',
+		'small',
+		'extra large',
+		'baby',
+		'jumbo',
+		// Color (for vegetables/produce)
+		'yellow',
+		'red',
+		'green',
+		'white',
+		'orange',
+		'purple',
+		'brown',
+		// Quality descriptors
+		'ripe',
+		'unripe',
+		'firm',
+		'soft',
+		'neutral',
+		'mild',
+		'strong',
+		'light',
+		'dark',
+		'extra virgin',
+		'virgin',
+		'pure',
+		'unsalted',
+		'salted',
+		'sweetened',
+		'unsweetened',
+		// Sugar/grain types
+		'granulated',
+		'powdered',
+		'confectioners',
+		'superfine',
+		'caster',
+		'demerara',
+		'turbinado',
+		'muscovado',
+		// Grain descriptors
+		'long grain',
+		'short grain',
+		'jasmine',
+		'basmati',
+		'arborio',
 	]
 	for (const modifier of modifiers) {
 		normalized = normalized.replace(new RegExp(`\\b${modifier}\\b`, 'gi'), '')
@@ -170,20 +253,23 @@ function ingredientMatchesInventoryItem(
 
 	// Check if one is a multi-word version of the other
 	// e.g., "butter" should match "unsalted butter" or "butter unsalted"
+	// e.g., "cucumber" should match "fabio cucumber" or "persian cucumber"
 	// But "rice" should NOT match "rice vinegar"
 	const ingredientWords = normalizedIngredient.split(' ')
 	const inventoryWords = normalizedInventory.split(' ')
 
-	// If the shorter name is just one word, it must match a word in the longer name
-	// AND be the first significant word (not a modifier like "vinegar" in "rice vinegar")
+	// If the shorter name is just one word, check if it matches the first OR last word
+	// This handles both "unsalted butter" (match first) and "fabio cucumber" (match last)
 	if (ingredientWords.length === 1 && inventoryWords.length > 1) {
-		// Check if ingredient word is the FIRST word in inventory
-		return inventoryWords[0] === ingredientWords[0]
+		const word = ingredientWords[0]
+		// Check first or last word (main ingredient is usually first or last)
+		return inventoryWords[0] === word || inventoryWords[inventoryWords.length - 1] === word
 	}
 
 	if (inventoryWords.length === 1 && ingredientWords.length > 1) {
-		// Check if inventory word is the FIRST word in ingredient
-		return ingredientWords[0] === inventoryWords[0]
+		const word = inventoryWords[0]
+		// Check first or last word (main ingredient is usually first or last)
+		return ingredientWords[0] === word || ingredientWords[ingredientWords.length - 1] === word
 	}
 
 	// For multi-word matches, check if one contains all words of the other
@@ -217,6 +303,14 @@ export type RecipeMatch = {
 }
 
 /**
+ * Check if an ingredient is a common staple that should be ignored in matching
+ */
+function isStapleIngredient(ingredient: Pick<Ingredient, 'name'>): boolean {
+	const normalized = normalizeIngredientName(ingredient.name)
+	return STAPLE_INGREDIENTS.has(normalized)
+}
+
+/**
  * Match recipes against user's inventory
  * Returns recipes with match percentage and missing ingredients
  */
@@ -232,12 +326,17 @@ export function matchRecipesWithInventory(
 ): RecipeMatch[] {
 	return recipes
 		.map((recipe) => {
-			const totalIngredientsCount = recipe.ingredients.length
+			// Filter out staple ingredients from the matching calculation
+			const nonStapleIngredients = recipe.ingredients.filter(
+				(ing) => !isStapleIngredient(ing),
+			)
+
+			const totalIngredientsCount = nonStapleIngredients.length
 			let matchedIngredientsCount = 0
 			const missingIngredients: Ingredient[] = []
 
-			// Check each ingredient against inventory
-			for (const ingredient of recipe.ingredients) {
+			// Check each non-staple ingredient against inventory
+			for (const ingredient of nonStapleIngredients) {
 				const hasMatch = inventoryItems.some((item) =>
 					ingredientMatchesInventoryItem(ingredient, item),
 				)

@@ -16,13 +16,11 @@ export type IngredientFieldValue = {
 type IngredientFieldsProps = {
 	ingredients: IngredientFieldValue[]
 	onChange: (ingredients: IngredientFieldValue[]) => void
-	errors?: Record<string, string[] | undefined>
 }
 
 export function IngredientFields({
 	ingredients,
 	onChange,
-	errors,
 }: IngredientFieldsProps) {
 	const baseId = useId()
 
@@ -73,7 +71,6 @@ export function IngredientFields({
 						onUpdate={(field, value) => updateIngredient(index, field, value)}
 						onRemove={() => removeIngredient(index)}
 						canRemove={ingredients.length > 1}
-						error={errors?.[`ingredients[${index}].name`]}
 					/>
 				))}
 			</div>
@@ -87,14 +84,12 @@ function IngredientRow({
 	onUpdate,
 	onRemove,
 	canRemove,
-	error,
 }: {
 	index: number
 	ingredient: IngredientFieldValue
 	onUpdate: (field: keyof IngredientFieldValue, value: string) => void
 	onRemove: () => void
 	canRemove: boolean
-	error?: string[]
 }) {
 	const id = useId()
 
@@ -104,18 +99,15 @@ function IngredientRow({
 				<div className="flex-1 min-w-0">
 					<Input
 						id={`${id}-name`}
-						name={`ingredients[${index}].name`}
 						placeholder="Ingredient name"
 						value={ingredient.name}
 						onChange={(e) => onUpdate('name', e.target.value)}
-						aria-invalid={error ? true : undefined}
 						className="w-full"
 					/>
 				</div>
 				<div className="w-20">
 					<Input
 						id={`${id}-amount`}
-						name={`ingredients[${index}].amount`}
 						placeholder="Amt"
 						value={ingredient.amount ?? ''}
 						onChange={(e) => onUpdate('amount', e.target.value)}
@@ -124,7 +116,6 @@ function IngredientRow({
 				<div className="w-20">
 					<Input
 						id={`${id}-unit`}
-						name={`ingredients[${index}].unit`}
 						placeholder="Unit"
 						value={ingredient.unit ?? ''}
 						onChange={(e) => onUpdate('unit', e.target.value)}
@@ -144,15 +135,11 @@ function IngredientRow({
 			</div>
 			<Input
 				id={`${id}-notes`}
-				name={`ingredients[${index}].notes`}
 				placeholder="Notes (e.g., diced, room temperature)"
 				value={ingredient.notes ?? ''}
 				onChange={(e) => onUpdate('notes', e.target.value)}
 				className="text-sm"
 			/>
-			{error && (
-				<p className="text-xs text-destructive">{error.join(', ')}</p>
-			)}
 		</div>
 	)
 }

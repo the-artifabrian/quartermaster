@@ -4,12 +4,12 @@
 
 ### For the Chocolate Chip Cookies:
 
-- [ ] 206g salted butter
+- [ ] 206g butter
 - [ ] 163g dark brown sugar, packed
 - [ ] 156g granulated sugar
 - [ ] 2 large eggs, at room temperature
-- [ ] 1 and 1/2 tsp vanilla extract
-- [ ] 390g all-purpose flour
+- [ ] 1.5 tsp vanilla extract
+- [ ] 390g flour
 - [ ] 1 tsp baking soda
 - [ ] 1 tsp baking powder
 - [ ] 1/2 salt
@@ -27,7 +27,7 @@
 - [ ] 170g powdered sugar
 - [ ] 2 tsp vanilla extract
 - [ ] 1/4 tsp salt
-- [ ] 65g all-purpose flour
+- [ ] 65g flour
 - [ ] pinch of espresso powder, optional
 
 ## Instructions 

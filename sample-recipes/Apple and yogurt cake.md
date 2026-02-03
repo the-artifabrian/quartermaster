@@ -2,20 +2,20 @@
 
 ## Ingredients
 
-- [ ] 250 grams plain flour or all purpose flour
+- [ ] 250g flour
 - [ ] 2 tsp baking powder
 - [ ] 1/4 tsp baking soda
 - [ ] 0.75 tsp salt
 - [ ] 100g granulated sugar
 - [ ] 50g brown sugar
-- [ ] 600g apples, **peeled and roughly chopped**
-- [ ] 2 large eggs
-- [ ] 2 teaspoons vanilla extract
-- [ ] 75g vegetable oil
-- [ ] 230g plain yogurt
-- [ ] 50g chopped nuts
-- [ ] 1tsp cinnamon
-- [ ] 0.5tsp ginger powder
+- [ ] 600g apples, peeled and roughly chopped
+- [ ] 2 eggs, large
+- [ ] 2 tsp vanilla extract
+- [ ] 75g oil
+- [ ] 230g yogurt
+- [ ] 50g nuts, chopped
+- [ ] 1 tsp cinnamon
+- [ ] 0.5 tsp ginger powder
 
 ## Instructions
 

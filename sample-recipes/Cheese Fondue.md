@@ -2,14 +2,14 @@
 
 Ingredients
 
-- [ ] 200g gruyere
-- [ ] 200g emmental
-- [ ] 160ml dry white wine
+- [ ] 200g gruyere, grated
+- [ ] 200g emmental, grated
+- [ ] 160ml white wine, dry
 - [ ] 1 garlic clove
 - [ ] 1 tbsp corn starch
 - [ ] 1 tsp lemon juice
-- [ ] freshly ground black pepper
-- [ ] grated nutmeg
+- [ ] black pepper, freshly ground
+- [ ] nutmeg, grated
 
 Instructions
 

@@ -2,16 +2,16 @@
 
 ## Ingredients
 
-- [x] 600g Turkish, Persian or English cucumbers
+- [x] 600g cucumbers, Turkish, Persian or English
 - [x] 1/2 teaspoon salt
 - [x] 4–5 scallions, finely sliced
 - [x] 1 teaspoon ginger, grated
 - [x] 1 clove garlic, grated
 - [x] 50ml rice vinegar
 - [x] 1 tablespoon soy sauce
-- [x] 1 tablespoon toasted sesame oil
+- [x] 1 tablespoon sesame oil
 - [x] 1 tablespoon honey
-- [x] 1–2 tablespoons toasted sesame seeds
+- [x] 1–2 tablespoons sesame seeds
 
 ## Instructions
 

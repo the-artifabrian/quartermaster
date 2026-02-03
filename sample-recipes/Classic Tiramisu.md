@@ -2,7 +2,7 @@
 
 ## Ingredients
 
-- [ ] 400ml moka pot coffee (or 150g espresso, diluted with 250g water)
+- [ ] 400ml moka pot coffee, or 150g espresso, diluted with 250g water
 - [ ] 1tbsp + 1tsp vanilla extract
 - [ ] 400g heavy whipping cream
 - [ ] 500g mascarpone
@@ -10,7 +10,7 @@
 - [ ] 150g sugar
 - [ ] 1/2tsp salt
 - [ ] 80g Kahlua or Cognac
-- [ ] 1 packet/7g powdered gelatin mixed with 20-30mL water
+- [ ] 7g powdered gelatin, mixed with 20-30mL water
 - [ ] 2 200g bags of crunchy Italian ladyfingers
 - [ ] cocoa powder for topping
 

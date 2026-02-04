@@ -54,20 +54,25 @@ You (a full-stack JavaScript developer) - building for personal use first, with 
 - [x] Highlight missing ingredients
 - [x] Filter: "Only show recipes I can make right now"
 
-### Phase 3: Meal Planning
+### Phase 3: Meal Planning ✅ COMPLETE
 
 #### 3.1 Weekly Planner
-- [ ] Calendar view (week at a glance)
-- [ ] Drag-and-drop recipes to days
-- [ ] Multiple meals per day (breakfast, lunch, dinner, snacks)
-- [ ] Quick "Cook again" from recent history
+- [x] Calendar view (week at a glance)
+- [x] Click/tap to assign recipes to meal slots
+- [x] Multiple meals per day (breakfast, lunch, dinner, snacks)
+- [x] Week navigation (previous/next/current week)
+- [x] Mobile-optimized with horizontal scroll
+- [ ] Drag-and-drop recipes (desktop - deferred)
+- [ ] Quick "Cook again" from recent history (deferred)
 
 #### 3.2 Shopping List Generation
-- [ ] Auto-generate shopping list from meal plan
-- [ ] Subtract items already in inventory
-- [ ] Group by store section (produce, dairy, meat, etc.)
-- [ ] Check off items while shopping
-- [ ] Manual add items to list
+- [x] Auto-generate shopping list from meal plan
+- [x] Group by store section (produce, dairy, meat, pantry, frozen, bakery, other)
+- [x] Check off items while shopping
+- [x] Manual add items to list
+- [x] Clear checked items
+- [x] Ingredient quantity consolidation (same unit)
+- [ ] Subtract items already in inventory (deferred to Phase 3.5)
 
 ### Phase 4: Smart Features
 
@@ -176,92 +181,89 @@ model Tag {
 }
 ```
 
-#### Future Phases (Planned)
+#### Phase 2 Implementation ✅
 
 ```prisma
-// Inventory models (Phase 2+)
-model MasterIngredient {
-  id       String @id @default(cuid())
-  name     String @unique // normalized: "chicken breast"
-  category String? // "protein", "produce", "dairy", etc.
-
-  inventoryItems    InventoryItem[]
-}
-
+// Inventory model - IMPLEMENTED
 model InventoryItem {
-  id           String   @id @default(cuid())
-  location     String   // "pantry", "fridge", "freezer"
-  quantity     Float?
-  unit         String?
-  expiresAt    DateTime?
-  lowStock     Boolean  @default(false)
-
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  ingredientId String
-  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@unique([userId, ingredientId, location])
-  @@index([userId])
-}
-
-// Meal planning models
-model MealPlan {
-  id        String   @id @default(cuid())
-  weekStart DateTime // Monday of the week
-
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  entries   MealPlanEntry[]
-
-  @@unique([userId, weekStart])
-}
-
-model MealPlanEntry {
-  id       String   @id @default(cuid())
-  date     DateTime
-  mealType String   // "breakfast", "lunch", "dinner", "snack"
-
-  mealPlanId String
-  mealPlan   MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
-
-  recipeId String
-  recipe   Recipe   @relation(fields: [recipeId], references: [id])
-
-  @@index([mealPlanId])
-}
-
-// Shopping list
-model ShoppingList {
-  id        String   @id @default(cuid())
-  name      String   @default("Shopping List")
-
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  items     ShoppingListItem[]
+  id        String    @id @default(cuid())
+  name      String    // Free-text: "chicken breast", "Chicken Breasts"
+  location  String    // "pantry", "fridge", "freezer"
+  quantity  Float?    // Optional: 2.5
+  unit      String?   // Optional: "lbs", "cups", "count"
+  expiresAt DateTime?
+  lowStock  Boolean   @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId])
+  @@index([userId, location])
+}
+```
+
+#### Phase 3 Implementation ✅
+
+```prisma
+// Meal planning models - IMPLEMENTED
+model MealPlan {
+  id        String   @id @default(cuid())
+  weekStart DateTime // Monday midnight UTC
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries   MealPlanEntry[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, weekStart])
+  @@index([userId])
+}
+
+model MealPlanEntry {
+  id         String   @id @default(cuid())
+  date       DateTime // Specific date for this meal
+  mealType   String   // "breakfast", "lunch", "dinner", "snack"
+  mealPlanId String
+  mealPlan   MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  recipeId   String
+  recipe     Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([mealPlanId])
+  @@index([recipeId])
+  @@unique([mealPlanId, date, mealType])
+}
+
+// Shopping list models - IMPLEMENTED
+model ShoppingList {
+  id        String   @id @default(cuid())
+  name      String   @default("Shopping List")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     ShoppingListItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model ShoppingListItem {
-  id         String  @id @default(cuid())
+  id         String   @id @default(cuid())
   name       String
-  quantity   Float?
+  quantity   String?  // Freeform: "2", "1/2 cup", etc.
   unit       String?
-  category   String? // for grouping in store
-  checked    Boolean @default(false)
-
+  category   String?  // "produce", "dairy", "meat", "pantry", "frozen", "bakery", "other"
+  checked    Boolean  @default(false)
+  source     String   @default("manual") // "manual" or "generated"
   listId     String
   list       ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
 
   @@index([listId])
+  @@index([listId, checked])
 }
 ```
 
@@ -282,16 +284,15 @@ app/routes/
 │   ├── $recipeId.tsx             # View recipe
 │   ├── $recipeId_.edit.tsx       # Edit recipe
 │   └── $recipeId_.cook.tsx       # Cooking mode (future)
-├── inventory/                    # Phase 2
-│   ├── _index.tsx                # Inventory overview
-│   ├── pantry.tsx                # Pantry items
-│   ├── fridge.tsx                # Fridge items
-│   └── freezer.tsx               # Freezer items
-├── plan/                         # Phase 4
-│   ├── _index.tsx                # Weekly meal plan
-│   └── shopping-list.tsx         # Generated shopping list
-├── discover/                     # Phase 3
-│   └── _index.tsx                # "What can I make?" + suggestions
+├── inventory/                    # ✅ IMPLEMENTED
+│   ├── index.tsx                 # Inventory overview with location tabs
+│   ├── new.tsx                   # Add inventory item
+│   └── $id.edit.tsx              # Edit/delete inventory item
+├── plan/                         # ✅ IMPLEMENTED
+│   ├── index.tsx                 # Weekly meal plan calendar
+│   └── shopping-list.tsx         # Shopping list with generation
+├── discover/                     # ✅ IMPLEMENTED
+│   └── index.tsx                 # "What can I make?" with match percentages
 └── settings/
     └── profile/                  # User settings (Epic Stack)
 ```
@@ -421,27 +422,71 @@ xl: 1280px  /* Desktops */
 - `recipe-matching.server.ts` - Fuzzy matching algorithm with ingredient normalization
 
 **Navigation:**
-- Bottom nav updated to 5 items: Home, Recipes, New, Inventory, Discover
+- Bottom nav updated to 4 items: Recipes, Inventory, Plan, Discover
 
-### Phase 4: Meal Planning (Weeks 6-7)
+### Phase 3: Meal Planning ✅ COMPLETE
 **Goal**: Plan your week
 
-- [ ] Weekly calendar view
-- [ ] Drag-and-drop recipes to days
-- [ ] Shopping list generation
-- [ ] Inventory subtraction
-- [ ] Category grouping for shopping
+- [x] Weekly calendar view (Monday-start)
+- [x] Click to assign recipes to meal slots
+- [x] 4 meal types: Breakfast, Lunch, Dinner, Snack
+- [x] Week navigation (previous/next/current)
+- [x] Shopping list generation from meal plan
+- [x] Ingredient consolidation and quantity summing
+- [x] Category grouping (7 categories)
+- [x] Manual item addition
+- [x] Check off items while shopping
+- [x] Mobile-optimized with horizontal scroll
 
-**Deliverable**: Can plan meals and generate shopping lists
+**Deliverable**: Can plan meals and generate organized shopping lists
 
-### Phase 5: Polish & UX (Week 8)
+#### Phase 3 Implementation Notes
+
+**Database Models Created:**
+- `MealPlan` - Weekly meal plans with Monday start date
+- `MealPlanEntry` - Individual meal slots (date + mealType + recipe)
+- `ShoppingList` - User's shopping list
+- `ShoppingListItem` - Items with category, quantity, checked state, source
+
+**Routes Created:**
+- `/plan` - Weekly meal planner with calendar grid
+- `/plan/shopping-list` - Shopping list with generation and management
+
+**Components Created:**
+- `meal-plan-calendar.tsx` - Week grid layout (4 meal types × 7 days)
+- `meal-slot-card.tsx` - Individual meal slot with add/change/remove
+- `recipe-selector.tsx` - Searchable recipe picker
+- `shopping-list-item.tsx` - Shopping list item with checkbox
+
+**Utilities Created:**
+- `date.ts` - Week calculations, date formatting, meal type definitions
+- `meal-plan-validation.ts` - Zod schemas for meal entries
+- `shopping-list-validation.ts` - Category definitions and auto-categorization
+- `shopping-list.server.ts` - Shopping list generation with consolidation logic
+
+**Navigation:**
+- Bottom nav updated to 4 items: Recipes, Inventory, Plan, Discover
+- Desktop nav updated with Plan link
+
+### Phase 4: Polish & Smart Features (Future)
 **Goal**: Make it delightful to use
 
-- [ ] Cooking mode (step-by-step)
+- [ ] Inventory subtraction when generating shopping list
+- [ ] After completing a recipe, subtract ingredients from inventory
+- [ ] Drag-and-drop recipes (desktop)
+- [ ] Recipe scaling (adjust servings)
+- [ ] Copy week to next week
+- [ ] Mark meal as "cooked" in meal plan
+
+### Phase 5: Advanced Features (Future)
+**Goal**: Enhanced user experience
+
+- [ ] Cooking mode (step-by-step view)
 - [ ] PWA setup (offline, installable)
 - [ ] Performance optimization
-- [ ] Recipe suggestions
-- [ ] Data import tool (for your Apple Notes)
+- [ ] Recipe suggestions based on expiring ingredients
+- [ ] Print shopping list
+- [ ] Recipe history/ratings
 
 **Deliverable**: Production-ready personal app
 
@@ -499,11 +544,43 @@ The parser would use simple heuristics:
 
 Leverage AI (Claude API, OpenAI, or local models) to enhance the cooking experience:
 
+#### Creative Recipe Suggestions
+- **AI recipe generation from available ingredients**: When no recipes fully match your inventory, AI suggests 2-3 custom recipes
+  - Example: "You have chicken, rice, carrots, and soy sauce" → AI suggests "Chicken Fried Rice" with full recipe
+  - Considers your cooking style and dietary preferences
+  - Shows what you have vs. what you need to buy
+  - Can save AI-generated recipes to your collection
+- **UX Enhancement**: Solves the "I have random stuff in my fridge" problem when discovery shows only low-match recipes
+- **Implementation**:
+  - Add "🤖 Generate Recipe Ideas" button on discover page when max match < 70%
+  - Send inventory list to Claude API with prompt: "Suggest 2-3 recipes I can make"
+  - Display suggestions with ingredient lists and simple instructions
+  - One-click to save as new recipe or add to meal plan
+
+#### Smart Inventory Management
+- **Receipt scanning**: Take photo of grocery receipt, AI extracts items and adds to inventory
+  - OCR + AI parsing to identify items, quantities, and units
+  - Auto-categorize by location (pantry/fridge/freezer)
+  - Review screen before confirming additions
+  - Example: Photo of Trader Joe's receipt → extracts "Milk 1 gal", "Eggs 1 doz", "Chicken Breast 2 lbs"
+- **Grocery photo scanning**: Take photo of groceries themselves (on counter, in bags)
+  - AI vision identifies items: "I see: 3 tomatoes, 1 head lettuce, 2 bell peppers, 1 onion"
+  - Great for farmers market hauls or loose produce without receipts
+  - Estimates quantities when not obvious
+- **UX Enhancement**: Major time-saver - instead of manually adding 20 items after shopping, just snap a photo
+- **Implementation**:
+  - Add "📸 Scan Receipt" and "📸 Scan Groceries" buttons on inventory page
+  - Use Claude API with vision capabilities (supports image analysis)
+  - Structured prompt: "Extract grocery items from this image with quantities and units"
+  - Parse JSON response and pre-fill inventory add form for review
+
 #### Ingredient Substitutions
 - **Smart substitutions when missing ingredients**: When you're missing an ingredient for a recipe, AI suggests practical alternatives
   - Example: "Don't have buttermilk? Use 1 cup milk + 1 tbsp lemon juice"
   - Context-aware suggestions based on the recipe type and cooking method
   - Explain how the substitution affects taste/texture
+- **UX Enhancement**: Reduces trips to store, encourages cooking with what you have
+- **Implementation**: "🤖 Suggest Substitutions" button on recipe view when missing ingredients
 
 #### Healthy Recipe Modifications
 - **Health-goal substitutions**: AI recommends ingredient swaps to meet dietary goals
@@ -512,16 +589,20 @@ Leverage AI (Claude API, OpenAI, or local models) to enhance the cooking experie
   - **Reduce sodium**: Alternative seasonings and flavor enhancers
   - **Lower carbs**: Cauliflower rice, zucchini noodles, almond flour alternatives
   - **Allergen-free**: Dairy-free, gluten-free, nut-free substitutions
-
 - **Nutritional impact preview**: Show estimated changes in calories, protein, fat, etc.
 - **Multiple suggestion levels**: Conservative swaps vs. more adventurous alternatives
 - **Recipe rewrite**: AI can rewrite entire recipe with healthier ingredients while maintaining flavor profile
+- **UX Enhancement**: Makes healthy eating easier without manual research
+- **Implementation**: "🤖 Make Healthier" button on recipe view
 
 #### Implementation Considerations
-- Use Claude API for context-aware, detailed substitution explanations
+- Use Claude API (Sonnet 3.5 or Opus) for all AI features - context-aware and multimodal
+- Claude supports both text and image inputs (perfect for receipt/photo scanning)
+- Estimated costs: ~$0.003-0.015 per API call (very affordable for personal use)
 - Cache common substitution patterns to reduce API costs
-- Allow users to save favorite substitutions for future use
-- Integrate with recipe view: "🤖 Get AI suggestions" button on each recipe
+- Allow users to save AI-generated recipes and substitutions
+- Add optional OpenAI integration for users who prefer GPT-4 Vision
+- Store API keys securely in user settings (not in codebase)
 
 ---
 
@@ -553,22 +634,24 @@ npm run dev
 
 ### Completed Steps ✅
 
-**Phase 1 & 2:**
-1. ~~**Create the Prisma schema** - Recipe + InventoryItem models~~
+**Phase 1, 2 & 3:**
+1. ~~**Create the Prisma schema** - Recipe + InventoryItem + MealPlan + ShoppingList models~~
 2. ~~**Run migrations** - All database models migrated~~
 3. ~~**Build recipe routes** - Full CRUD with search/filter~~
 4. ~~**Build inventory routes** - Full CRUD with location filtering~~
 5. ~~**Add mobile layout** - Bottom nav on all pages, responsive grid~~
 6. ~~**Recipe matching** - Fuzzy ingredient matching algorithm~~
 7. ~~**Sample data seeding** - 18 recipes + 38 inventory items~~
+8. ~~**Meal planning** - Weekly calendar with 4 meal types~~
+9. ~~**Shopping list** - Auto-generation with category grouping~~
 
-### Next Steps (Phase 3)
+### Next Steps (Phase 4)
 
-**Meal Planning (Future):**
-1. Weekly calendar view
-2. Drag-and-drop recipes to days
-3. Shopping list generation
-4. Inventory subtraction
+**Enhanced Features (Future):**
+1. Inventory subtraction from shopping list
+2. Drag-and-drop recipes (desktop)
+3. Recipe scaling
+4. Cooking mode
 
 **Available Commands:**
 ```bash
@@ -619,9 +702,9 @@ For a personal app, "success" means:
 - [x] Recipe import system from Apple Notes (markdown parser built)
 - [x] Can find any recipe in < 5 seconds (search + filter working)
 - [x] Discover recipes based on available ingredients (fuzzy matching implemented)
-- [ ] Weekly meal planning takes < 5 minutes (Phase 3)
-- [ ] Shopping list generation is automatic (Phase 3)
-- [ ] App is usable in the kitchen (cooking mode) (Phase 4)
+- [x] Weekly meal planning takes < 5 minutes (click-to-assign implemented)
+- [x] Shopping list generation is automatic (one-click generation from meal plan)
+- [ ] App is usable in the kitchen (cooking mode) (Phase 5)
 - [ ] Works offline for viewing recipes (PWA - Phase 5)
 
 ---
@@ -649,4 +732,4 @@ Before starting implementation:
 ---
 
 *Document created: February 2026*
-*Last updated: February 2, 2026 - Phase 1 & 2 complete with sample data seeding system*
+*Last updated: February 4, 2026 - Phase 1, 2 & 3 complete! Meal planning and shopping list features now live.*

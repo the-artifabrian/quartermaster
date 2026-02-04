@@ -28,6 +28,8 @@ model User {
   passkey        Passkey[]
   recipes        Recipe[]
   inventoryItems InventoryItem[]
+  mealPlans      MealPlan[]
+  shoppingLists  ShoppingList[]
 }
 
 model UserImage {
@@ -166,10 +168,11 @@ model Recipe {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
-  image        RecipeImage?
-  ingredients  Ingredient[]
-  instructions Instruction[]
-  tags         Tag[]
+  image           RecipeImage?
+  ingredients     Ingredient[]
+  instructions    Instruction[]
+  tags            Tag[]
+  mealPlanEntries MealPlanEntry[]
 
   @@index([userId])
   @@index([title])
@@ -236,4 +239,60 @@ model InventoryItem {
 
   @@index([userId])
   @@index([userId, location])
+}
+
+model MealPlan {
+  id        String   @id @default(cuid())
+  weekStart DateTime // Monday midnight UTC
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries   MealPlanEntry[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, weekStart])
+  @@index([userId])
+}
+
+model MealPlanEntry {
+  id         String   @id @default(cuid())
+  date       DateTime // Specific date for this meal
+  mealType   String   // "breakfast", "lunch", "dinner", "snack"
+  mealPlanId String
+  mealPlan   MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  recipeId   String
+  recipe     Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([mealPlanId])
+  @@index([recipeId])
+  @@unique([mealPlanId, date, mealType])
+}
+
+model ShoppingList {
+  id        String   @id @default(cuid())
+  name      String   @default("Shopping List")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     ShoppingListItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model ShoppingListItem {
+  id         String   @id @default(cuid())
+  name       String
+  quantity   String?  // Freeform: "2", "1/2 cup", etc.
+  unit       String?
+  category   String?  // "produce", "dairy", "meat", "pantry", "frozen", "bakery", "other"
+  checked    Boolean  @default(false)
+  source     String   @default("manual") // "manual" or "generated"
+  listId     String
+  list       ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([listId])
+  @@index([listId, checked])
 }

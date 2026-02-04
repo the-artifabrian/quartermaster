@@ -10,6 +10,7 @@ type RecipeSelectorProps = {
 	recipes: Recipe[]
 	date: Date
 	mealType: MealType
+	excludeRecipeIds?: string[]
 	onCancel: () => void
 }
 
@@ -17,13 +18,14 @@ export function RecipeSelector({
 	recipes,
 	date,
 	mealType,
+	excludeRecipeIds = [],
 	onCancel,
 }: RecipeSelectorProps) {
 	const [search, setSearch] = useState('')
 
-	const filteredRecipes = recipes.filter(r =>
-		r.title.toLowerCase().includes(search.toLowerCase()),
-	)
+	const filteredRecipes = recipes
+		.filter(r => !excludeRecipeIds.includes(r.id))
+		.filter(r => r.title.toLowerCase().includes(search.toLowerCase()))
 
 	return (
 		<div className="space-y-3">

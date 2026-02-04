@@ -219,7 +219,7 @@ function getCoreIngredientWord(name: string): string {
 /**
  * Check if an ingredient matches an inventory item using improved fuzzy matching
  */
-function ingredientMatchesInventoryItem(
+export function ingredientMatchesInventoryItem(
 	ingredient: Pick<Ingredient, 'name'>,
 	inventoryItem: Pick<InventoryItem, 'name'>,
 ): boolean {
@@ -305,7 +305,7 @@ export type RecipeMatch = {
 /**
  * Check if an ingredient is a common staple that should be ignored in matching
  */
-function isStapleIngredient(ingredient: Pick<Ingredient, 'name'>): boolean {
+export function isStapleIngredient(ingredient: Pick<Ingredient, 'name'>): boolean {
 	const normalized = normalizeIngredientName(ingredient.name)
 	return STAPLE_INGREDIENTS.has(normalized)
 }

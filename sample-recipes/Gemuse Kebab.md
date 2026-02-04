@@ -34,12 +34,12 @@
 - [x] 2 large bell peppers
 - [x] 1 large zucchini (or 2 small)
 
-Salad
+### Salad
 
 - [ ] white cabbage
 - [ ] carrots
 
-Instructions
+## Instructions
 
 - [ ] Mix all marinade spices + salt with olive oil + lemon, coat the chicken
       thighs, and marinate 30 min–overnight.

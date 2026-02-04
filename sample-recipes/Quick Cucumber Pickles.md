@@ -1,6 +1,6 @@
 # Quick Cucumber Pickles
 
-Ingredients
+## Ingredients
 
 - [x] 2 large fabio cucumbers
 - [x] 322g water
@@ -11,7 +11,7 @@ Ingredients
 - [ ] 1-2 bay leaves
 - [ ] 1g turmeric
 
-Instructions
+## Instructions
 
 - [ ] Thinly slice 2 large cucumbers (or cut into spears) and pack into a clean
       jar/container.

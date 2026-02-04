@@ -266,7 +266,7 @@ model MealPlanEntry {
 
   @@index([mealPlanId])
   @@index([recipeId])
-  @@unique([mealPlanId, date, mealType])
+  @@unique([mealPlanId, date, mealType, recipeId])
 }
 
 model ShoppingList {

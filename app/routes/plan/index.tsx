@@ -109,25 +109,28 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 		}
 
-		// Create or update the meal plan entry
-		await prisma.mealPlanEntry.upsert({
+		// Check if this exact recipe is already assigned to this slot
+		const existing = await prisma.mealPlanEntry.findUnique({
 			where: {
-				mealPlanId_date_mealType: {
+				mealPlanId_date_mealType_recipeId: {
 					mealPlanId: mealPlan.id,
 					date,
 					mealType,
+					recipeId,
 				},
 			},
-			create: {
-				mealPlanId: mealPlan.id,
-				date,
-				mealType,
-				recipeId,
-			},
-			update: {
-				recipeId,
-			},
 		})
+
+		if (!existing) {
+			await prisma.mealPlanEntry.create({
+				data: {
+					mealPlanId: mealPlan.id,
+					date,
+					mealType,
+					recipeId,
+				},
+			})
+		}
 
 		return { status: 'success' as const }
 	}

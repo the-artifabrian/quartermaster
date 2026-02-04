@@ -1,11 +1,12 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Img } from 'openimg/react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { scaleAmount } from '#app/utils/fractions.ts'
 import { type Route } from './+types/$recipeId.ts'
 
 export const handle: SEOHandle = {
@@ -59,6 +60,29 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const { recipe } = loaderData
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
+	const [searchParams, setSearchParams] = useSearchParams()
+
+	const servingsParam = searchParams.get('servings')
+	const currentServings = servingsParam
+		? Math.max(1, parseInt(servingsParam, 10) || recipe.servings)
+		: recipe.servings
+	const ratio = currentServings / recipe.servings
+	const isScaled = currentServings !== recipe.servings
+
+	function updateServings(newServings: number) {
+		const clamped = Math.max(1, newServings)
+		setSearchParams(
+			(prev) => {
+				if (clamped === recipe.servings) {
+					prev.delete('servings')
+				} else {
+					prev.set('servings', clamped.toString())
+				}
+				return prev
+			},
+			{ replace: true },
+		)
+	}
 
 	return (
 		<div className="container max-w-3xl py-6">
@@ -74,12 +98,20 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</Link>
 					<h1 className="text-3xl font-bold">{recipe.title}</h1>
 				</div>
-				<Button asChild variant="outline">
-					<Link to={`/recipes/${recipe.id}/edit`}>
-						<Icon name="pencil-1" size="sm" />
-						Edit
-					</Link>
-				</Button>
+				<div className="flex gap-2">
+					<Button asChild variant="outline">
+						<Link to={`/recipes/${recipe.id}/cook`}>
+							<Icon name="clock" size="sm" />
+							Cook
+						</Link>
+					</Button>
+					<Button asChild variant="outline">
+						<Link to={`/recipes/${recipe.id}/edit`}>
+							<Icon name="pencil-1" size="sm" />
+							Edit
+						</Link>
+					</Button>
+				</div>
 			</div>
 
 			{/* Image */}
@@ -98,9 +130,38 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 			{/* Meta info */}
 			<div className="mb-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+				{/* Servings with scaling controls */}
 				<span className="flex items-center gap-1">
 					<Icon name="avatar" size="sm" />
-					{recipe.servings} servings
+					<Button
+						variant="outline"
+						size="sm"
+						className="h-7 w-7 p-0"
+						onClick={() => updateServings(currentServings - 1)}
+						disabled={currentServings <= 1}
+					>
+						-
+					</Button>
+					<span className="min-w-[5ch] text-center font-medium">
+						{currentServings}
+					</span>
+					<Button
+						variant="outline"
+						size="sm"
+						className="h-7 w-7 p-0"
+						onClick={() => updateServings(currentServings + 1)}
+					>
+						+
+					</Button>
+					<span>servings</span>
+					{isScaled && (
+						<button
+							onClick={() => updateServings(recipe.servings)}
+							className="ml-1 text-xs text-primary hover:underline"
+						>
+							Reset
+						</button>
+					)}
 				</span>
 				{recipe.prepTime && (
 					<span className="flex items-center gap-1">
@@ -152,7 +213,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								<span className="mt-2 block size-1.5 rounded-full bg-primary" />
 								<span>
 									{ingredient.amount && (
-										<span className="font-medium">{ingredient.amount} </span>
+										<span className="font-medium">
+											{scaleAmount(ingredient.amount, ratio)}{' '}
+										</span>
 									)}
 									{ingredient.unit && <span>{ingredient.unit} </span>}
 									<span>{ingredient.name}</span>

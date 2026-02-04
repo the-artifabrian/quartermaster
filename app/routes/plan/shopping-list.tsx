@@ -13,7 +13,10 @@ import { requireUserId } from '#app/utils/auth.server.ts'
 import { getCurrentWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
-import { generateShoppingListFromRecipes } from '#app/utils/shopping-list.server.ts'
+import {
+	generateShoppingListFromRecipes,
+	subtractInventoryFromShoppingList,
+} from '#app/utils/shopping-list.server.ts'
 import {
 	ShoppingListItemSchema,
 	CATEGORY_LABELS,
@@ -122,7 +125,16 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 
 		const recipes = mealPlan.entries.map(entry => entry.recipe)
-		const items = generateShoppingListFromRecipes(recipes)
+		const rawItems = generateShoppingListFromRecipes(recipes)
+
+		// Subtract items already in inventory (unless low stock) and staples
+		const inventoryItems = await prisma.inventoryItem.findMany({
+			where: { userId },
+		})
+		const { items, removedCount } = subtractInventoryFromShoppingList(
+			rawItems,
+			inventoryItems,
+		)
 
 		// Delete existing generated items
 		await prisma.shoppingListItem.deleteMany({
@@ -140,7 +152,7 @@ export async function action({ request }: Route.ActionArgs) {
 			})),
 		})
 
-		return { status: 'success' as const }
+		return { status: 'success' as const, removedCount }
 	}
 
 	if (intent === 'add') {
@@ -266,6 +278,15 @@ export default function ShoppingListRoute({
 							Generate from Meal Plan
 						</Button>
 					</Form>
+					{actionData &&
+						'removedCount' in actionData &&
+						typeof actionData.removedCount === 'number' &&
+						actionData.removedCount > 0 && (
+							<p className="mt-2 text-center text-sm text-muted-foreground">
+								{actionData.removedCount} items removed (already in inventory or
+								staples)
+							</p>
+						)}
 				</div>
 			)}
 

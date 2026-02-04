@@ -1,4 +1,8 @@
-import { type Recipe, type Ingredient } from '@prisma/client'
+import { type Recipe, type Ingredient, type InventoryItem } from '@prisma/client'
+import {
+	ingredientMatchesInventoryItem,
+	isStapleIngredient,
+} from './recipe-matching.server.ts'
 import { guessCategory } from './shopping-list-validation.ts'
 
 type RecipeWithIngredients = Recipe & {
@@ -92,4 +96,45 @@ function consolidateQuantities(
 	}
 
 	return { quantity: `${quantities.length}×`, unit: undefined }
+}
+
+/**
+ * Remove items from the shopping list that the user already has in inventory
+ * (unless low stock) and items that are common staples.
+ */
+export function subtractInventoryFromShoppingList(
+	items: ShoppingListItemInput[],
+	inventoryItems: InventoryItem[],
+): {
+	items: ShoppingListItemInput[]
+	removedCount: number
+	removedItems: string[]
+} {
+	const availableInventory = inventoryItems.filter((item) => !item.lowStock)
+	const removedItems: string[] = []
+
+	const filtered = items.filter((item) => {
+		// Remove staple ingredients
+		if (isStapleIngredient({ name: item.name })) {
+			removedItems.push(item.name)
+			return false
+		}
+
+		// Remove items the user already has (not low stock)
+		const hasInInventory = availableInventory.some((inv) =>
+			ingredientMatchesInventoryItem({ name: item.name }, inv),
+		)
+		if (hasInInventory) {
+			removedItems.push(item.name)
+			return false
+		}
+
+		return true
+	})
+
+	return {
+		items: filtered,
+		removedCount: removedItems.length,
+		removedItems,
+	}
 }

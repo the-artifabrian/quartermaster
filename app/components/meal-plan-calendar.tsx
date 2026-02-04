@@ -1,12 +1,7 @@
-import {
-	type MealType,
-	MEAL_TYPES,
-	formatDayLabel,
-	isToday,
-} from '#app/utils/date.ts'
 import { type Recipe } from '@prisma/client'
-import { MealSlotCard } from './meal-slot-card.tsx'
+import { MEAL_TYPES, formatDayLabel, isToday } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { MealSlotCard } from './meal-slot-card.tsx'
 
 type Entry = {
 	id: string
@@ -26,11 +21,13 @@ export function MealPlanCalendar({
 	entries,
 	recipes,
 }: MealPlanCalendarProps) {
-	// Group entries by date and mealType
-	const entryMap = new Map<string, Entry>()
+	// Group entries by date and mealType (multiple entries per slot)
+	const entryMap = new Map<string, Entry[]>()
 	for (const entry of entries) {
 		const key = `${entry.date.toISOString()}-${entry.mealType}`
-		entryMap.set(key, entry)
+		const existing = entryMap.get(key) || []
+		existing.push(entry)
+		entryMap.set(key, existing)
 	}
 
 	return (
@@ -40,7 +37,7 @@ export function MealPlanCalendar({
 					<div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 md:grid md:grid-cols-7 md:overflow-visible">
 						{weekDays.map(date => {
 							const key = `${date.toISOString()}-${mealType}`
-							const entry = entryMap.get(key)
+							const slotEntries = entryMap.get(key) || []
 
 							return (
 								<div
@@ -60,7 +57,7 @@ export function MealPlanCalendar({
 									<MealSlotCard
 										date={date}
 										mealType={mealType}
-										entry={entry}
+										entries={slotEntries}
 										recipes={recipes}
 									/>
 								</div>

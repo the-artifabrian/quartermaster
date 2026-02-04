@@ -216,6 +216,12 @@ function App() {
 											Inventory
 										</Link>
 										<Link
+											to="/plan"
+											className="hover:text-primary text-sm font-medium transition-colors"
+										>
+											Plan
+										</Link>
+										<Link
 											to="/discover"
 											className="hover:text-primary text-sm font-medium transition-colors"
 										>

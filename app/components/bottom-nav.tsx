@@ -24,6 +24,12 @@ const navItems: NavItem[] = [
 		matchPaths: ['/inventory'],
 	},
 	{
+		to: '/plan',
+		icon: 'clock' as IconName,
+		label: 'Plan',
+		matchPaths: ['/plan'],
+	},
+	{
 		to: '/discover',
 		icon: 'magnifying-glass' as IconName,
 		label: 'Discover',

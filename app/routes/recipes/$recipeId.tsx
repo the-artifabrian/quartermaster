@@ -106,9 +106,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
 		() => new Set(),
 	)
-	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(
-		() => new Set(),
-	)
+	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(() => new Set())
 	const wakeLock = useWakeLock()
 
 	const servingsParam = searchParams.get('servings')
@@ -164,7 +162,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				<div>
 					<Link
 						to="/recipes"
-						className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+						className="text-muted-foreground hover:text-foreground mb-2 inline-flex items-center gap-1 text-sm"
 					>
 						<Icon name="arrow-left" size="sm" />
 						Back to recipes
@@ -195,7 +193,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 			{/* Image */}
 			{recipe.image && (
-				<div className="mb-6 aspect-[16/9] overflow-hidden rounded-lg bg-muted">
+				<div className="bg-muted mb-6 aspect-[16/9] overflow-hidden rounded-lg">
 					<Img
 						src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
 						alt={recipe.image.altText ?? recipe.title}
@@ -208,7 +206,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			)}
 
 			{/* Meta info */}
-			<div className="mb-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+			<div className="text-muted-foreground mb-6 flex flex-wrap items-center gap-4 text-sm">
 				{/* Servings with scaling controls */}
 				<span className="flex items-center gap-1">
 					<Icon name="avatar" size="sm" />
@@ -236,7 +234,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					{isScaled && (
 						<button
 							onClick={() => updateServings(recipe.servings)}
-							className="ml-1 text-xs text-primary hover:underline"
+							className="text-primary ml-1 text-xs hover:underline"
 						>
 							Reset
 						</button>
@@ -255,7 +253,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</span>
 				)}
 				{totalTime > 0 && (
-					<span className="font-medium text-foreground">
+					<span className="text-foreground font-medium">
 						Total: {totalTime} min
 					</span>
 				)}
@@ -267,7 +265,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					{recipe.tags.map((tag) => (
 						<span
 							key={tag.id}
-							className="rounded-full bg-secondary px-3 py-1 text-sm"
+							className="bg-secondary rounded-full px-3 py-1 text-sm"
 						>
 							{tag.name}
 						</span>
@@ -277,7 +275,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 			{/* Description */}
 			{recipe.description && (
-				<p className="mb-8 text-lg text-muted-foreground">
+				<p className="text-muted-foreground mb-8 text-lg">
 					{recipe.description}
 				</p>
 			)}
@@ -292,7 +290,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							return (
 								<li
 									key={ingredient.id}
-									className="flex cursor-pointer select-none items-start gap-2 rounded-md px-2 py-1 transition-colors hover:bg-muted/50"
+									className="hover:bg-muted/50 flex cursor-pointer items-start gap-2 rounded-md px-2 py-1 transition-colors select-none"
 									onClick={() => toggleIngredient(ingredient.id)}
 								>
 									<span
@@ -304,8 +302,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									<span
 										className={cn(
 											'transition-colors',
-											isChecked &&
-												'text-muted-foreground/50 line-through',
+											isChecked && 'text-muted-foreground/50 line-through',
 										)}
 									>
 										{ingredient.amount && (
@@ -316,7 +313,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 										{ingredient.unit && <span>{ingredient.unit} </span>}
 										<span>{ingredient.name}</span>
 										{ingredient.notes && (
-											<span className="text-muted-foreground">
+											<span
+												className={isChecked ? '' : 'text-muted-foreground'}
+											>
 												, {ingredient.notes}
 											</span>
 										)}
@@ -336,7 +335,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							return (
 								<li
 									key={instruction.id}
-									className="flex cursor-pointer select-none gap-4 rounded-md px-2 py-1 transition-colors hover:bg-muted/50"
+									className="hover:bg-muted/50 flex cursor-pointer gap-4 rounded-md px-2 py-1 transition-colors select-none"
 									onClick={() => toggleStep(instruction.id)}
 								>
 									<span
@@ -347,17 +346,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 												: 'bg-primary text-primary-foreground',
 										)}
 									>
-										{isChecked ? (
-											<Icon name="check" size="sm" />
-										) : (
-											index + 1
-										)}
+										{isChecked ? <Icon name="check" size="sm" /> : index + 1}
 									</span>
 									<p
 										className={cn(
 											'pt-1 transition-colors',
-											isChecked &&
-												'text-muted-foreground/50 line-through',
+											isChecked && 'text-muted-foreground/50 line-through',
 										)}
 									>
 										{instruction.content}

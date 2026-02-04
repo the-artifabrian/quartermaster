@@ -1,6 +1,6 @@
 # White beans salad
 
-Ingredients
+## Ingredients
 
 - [ ] 2 cans bianchi di spagna
 - [ ] 150g tomatoes, diced
@@ -16,7 +16,7 @@ Ingredients
 - [ ] big pinch of salt
 - [ ] (optional) avocado, grated garlic, mustard, capers etc.
 
-Instructions
+## Instructions
 
 - [ ] Drain and rinse the white beans well, then let them dry off a bit.
 - [ ] Dice tomatoes, red onion, kapia pepper, cucumber, and celery; finely chop

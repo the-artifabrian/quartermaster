@@ -1,6 +1,6 @@
 # Cheese Fondue
 
-Ingredients
+## Ingredients
 
 - [ ] 200g gruyere, grated
 - [ ] 200g emmental, grated
@@ -11,7 +11,7 @@ Ingredients
 - [ ] black pepper, freshly ground
 - [ ] nutmeg, grated
 
-Instructions
+## Instructions
 
 - [ ] Grate the gruyere and emmental; toss with the cornstarch until evenly
       coated.

@@ -1,12 +1,14 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Img } from 'openimg/react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { scaleAmount } from '#app/utils/fractions.ts'
+import { cn } from '#app/utils/misc.tsx'
 import { type Route } from './+types/$recipeId.ts'
 
 export const handle: SEOHandle = {
@@ -57,10 +59,57 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	return { recipe }
 }
 
+function useWakeLock() {
+	const [isActive, setIsActive] = useState(false)
+
+	const toggle = useCallback(() => {
+		setIsActive((prev) => !prev)
+	}, [])
+
+	useEffect(() => {
+		if (!isActive) return
+
+		let wakeLock: WakeLockSentinel | null = null
+
+		async function requestWakeLock() {
+			try {
+				if ('wakeLock' in navigator) {
+					wakeLock = await navigator.wakeLock.request('screen')
+				}
+			} catch {
+				// Wake Lock request failed (e.g., low battery)
+			}
+		}
+
+		void requestWakeLock()
+
+		function handleVisibilityChange() {
+			if (document.visibilityState === 'visible') {
+				void requestWakeLock()
+			}
+		}
+		document.addEventListener('visibilitychange', handleVisibilityChange)
+
+		return () => {
+			document.removeEventListener('visibilitychange', handleVisibilityChange)
+			void wakeLock?.release()
+		}
+	}, [isActive])
+
+	return { isActive, toggle }
+}
+
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const { recipe } = loaderData
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
 	const [searchParams, setSearchParams] = useSearchParams()
+	const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
+		() => new Set(),
+	)
+	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(
+		() => new Set(),
+	)
+	const wakeLock = useWakeLock()
 
 	const servingsParam = searchParams.get('servings')
 	const currentServings = servingsParam
@@ -84,6 +133,30 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		)
 	}
 
+	function toggleIngredient(id: string) {
+		setCheckedIngredients((prev) => {
+			const next = new Set(prev)
+			if (next.has(id)) {
+				next.delete(id)
+			} else {
+				next.add(id)
+			}
+			return next
+		})
+	}
+
+	function toggleStep(id: string) {
+		setCheckedSteps((prev) => {
+			const next = new Set(prev)
+			if (next.has(id)) {
+				next.delete(id)
+			} else {
+				next.add(id)
+			}
+			return next
+		})
+	}
+
 	return (
 		<div className="container max-w-3xl py-6">
 			{/* Header */}
@@ -99,11 +172,17 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					<h1 className="text-3xl font-bold">{recipe.title}</h1>
 				</div>
 				<div className="flex gap-2">
-					<Button asChild variant="outline">
-						<Link to={`/recipes/${recipe.id}/cook`}>
-							<Icon name="clock" size="sm" />
-							Cook
-						</Link>
+					<Button
+						variant={wakeLock.isActive ? 'secondary' : 'outline'}
+						onClick={wakeLock.toggle}
+						title={
+							wakeLock.isActive
+								? 'Screen will stay on'
+								: 'Keep screen on while cooking'
+						}
+					>
+						<Icon name="clock" size="sm" />
+						{wakeLock.isActive ? 'Screen On' : 'Keep Awake'}
 					</Button>
 					<Button asChild variant="outline">
 						<Link to={`/recipes/${recipe.id}/edit`}>
@@ -208,25 +287,43 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				<div>
 					<h2 className="mb-4 text-xl font-semibold">Ingredients</h2>
 					<ul className="space-y-2">
-						{recipe.ingredients.map((ingredient) => (
-							<li key={ingredient.id} className="flex items-start gap-2">
-								<span className="mt-2 block size-1.5 rounded-full bg-primary" />
-								<span>
-									{ingredient.amount && (
-										<span className="font-medium">
-											{scaleAmount(ingredient.amount, ratio)}{' '}
-										</span>
-									)}
-									{ingredient.unit && <span>{ingredient.unit} </span>}
-									<span>{ingredient.name}</span>
-									{ingredient.notes && (
-										<span className="text-muted-foreground">
-											, {ingredient.notes}
-										</span>
-									)}
-								</span>
-							</li>
-						))}
+						{recipe.ingredients.map((ingredient) => {
+							const isChecked = checkedIngredients.has(ingredient.id)
+							return (
+								<li
+									key={ingredient.id}
+									className="flex cursor-pointer select-none items-start gap-2 rounded-md px-2 py-1 transition-colors hover:bg-muted/50"
+									onClick={() => toggleIngredient(ingredient.id)}
+								>
+									<span
+										className={cn(
+											'mt-2 block size-1.5 shrink-0 rounded-full',
+											isChecked ? 'bg-muted-foreground/30' : 'bg-primary',
+										)}
+									/>
+									<span
+										className={cn(
+											'transition-colors',
+											isChecked &&
+												'text-muted-foreground/50 line-through',
+										)}
+									>
+										{ingredient.amount && (
+											<span className="font-medium">
+												{scaleAmount(ingredient.amount, ratio)}{' '}
+											</span>
+										)}
+										{ingredient.unit && <span>{ingredient.unit} </span>}
+										<span>{ingredient.name}</span>
+										{ingredient.notes && (
+											<span className="text-muted-foreground">
+												, {ingredient.notes}
+											</span>
+										)}
+									</span>
+								</li>
+							)
+						})}
 					</ul>
 				</div>
 
@@ -234,14 +331,40 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				<div>
 					<h2 className="mb-4 text-xl font-semibold">Instructions</h2>
 					<ol className="space-y-4">
-						{recipe.instructions.map((instruction, index) => (
-							<li key={instruction.id} className="flex gap-4">
-								<span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
-									{index + 1}
-								</span>
-								<p className="pt-1">{instruction.content}</p>
-							</li>
-						))}
+						{recipe.instructions.map((instruction, index) => {
+							const isChecked = checkedSteps.has(instruction.id)
+							return (
+								<li
+									key={instruction.id}
+									className="flex cursor-pointer select-none gap-4 rounded-md px-2 py-1 transition-colors hover:bg-muted/50"
+									onClick={() => toggleStep(instruction.id)}
+								>
+									<span
+										className={cn(
+											'flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors',
+											isChecked
+												? 'bg-muted text-muted-foreground/50'
+												: 'bg-primary text-primary-foreground',
+										)}
+									>
+										{isChecked ? (
+											<Icon name="check" size="sm" />
+										) : (
+											index + 1
+										)}
+									</span>
+									<p
+										className={cn(
+											'pt-1 transition-colors',
+											isChecked &&
+												'text-muted-foreground/50 line-through',
+										)}
+									>
+										{instruction.content}
+									</p>
+								</li>
+							)
+						})}
 					</ol>
 				</div>
 			</div>

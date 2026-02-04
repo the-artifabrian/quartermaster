@@ -92,13 +92,11 @@ You (a full-stack JavaScript developer) - building for personal use first, with 
 - [x] URL-based scaling (?servings=N) for bookmarkable scaled views
 - [x] Reset link to return to original servings
 
-#### 4.4 Cooking Mode
-- [x] Full-screen step-by-step instruction view
-- [x] Large text for kitchen use (text-2xl/3xl)
-- [x] Keep screen awake (Wake Lock API)
-- [x] Collapsible ingredients panel
-- [x] Progress bar
-- [x] Previous/Next navigation with large touch targets
+#### 4.4 Cooking Assistance
+- [x] Tap ingredients to cross them off while cooking
+- [x] Tap instruction steps to mark them as done (strikethrough + checkmark)
+- [x] "Keep Awake" toggle to prevent screen from sleeping (Wake Lock API)
+- [x] Client-side only state (resets on navigation, no database changes)
 - [ ] Voice commands (stretch goal - deferred)
 
 #### 4.5 Recipe Suggestions (Future)
@@ -301,8 +299,7 @@ app/routes/
 │   ├── index.tsx                 # Recipe list with search/filter
 │   ├── new.tsx                   # Create recipe
 │   ├── $recipeId.tsx             # View recipe
-│   ├── $recipeId_.edit.tsx       # Edit recipe
-│   └── $recipeId_.cook.tsx       # Cooking mode (full-screen step-by-step)
+│   └── $recipeId_.edit.tsx       # Edit recipe
 ├── inventory/                    # ✅ IMPLEMENTED
 │   ├── index.tsx                 # Inventory overview with location tabs
 │   ├── new.tsx                   # Add inventory item
@@ -493,21 +490,17 @@ xl: 1280px  /* Desktops */
 - [x] Inventory subtraction from shopping list
 - [x] Multiple recipes per meal slot
 - [x] Recipe scaling (client-side servings adjustment)
-- [x] Cooking mode (full-screen step-by-step)
+- [x] Cooking assistance (tap-to-cross-off ingredients and steps, wake lock)
 
-**Deliverable**: Enhanced meal planning with inventory-aware shopping, flexible meal slots, scalable recipes, and kitchen-friendly cooking mode
+**Deliverable**: Enhanced meal planning with inventory-aware shopping, flexible meal slots, scalable recipes, and cooking assistance
 
 #### Phase 4 Implementation Notes
 
 **Schema Changes:**
 - `MealPlanEntry` unique constraint changed from `[mealPlanId, date, mealType]` to `[mealPlanId, date, mealType, recipeId]` — allows multiple recipes per meal slot
 
-**Routes Created:**
-- `/recipes/:recipeId/cook` - Full-screen cooking mode with step-by-step instructions
-
 **Files Created:**
 - `app/utils/fractions.ts` - Fraction parsing (`parseAmount`), formatting (`formatAmount`), and scaling (`scaleAmount`)
-- `app/routes/recipes/$recipeId_.cook.tsx` - Cooking mode route with Wake Lock, progress bar, collapsible ingredients
 
 **Files Modified:**
 - `app/utils/recipe-matching.server.ts` - Exported `ingredientMatchesInventoryItem()` and `isStapleIngredient()` for reuse
@@ -517,7 +510,7 @@ xl: 1280px  /* Desktops */
 - `app/components/meal-plan-calendar.tsx` - Entry grouping changed to `Map<string, Entry[]>` for multi-entry slots
 - `app/components/meal-slot-card.tsx` - Rewritten for multi-entry support with `EntryRow` component and "Add Another" button
 - `app/components/recipe-selector.tsx` - Added `excludeRecipeIds` prop to filter already-assigned recipes
-- `app/routes/recipes/$recipeId.tsx` - Added scaling controls (+/- servings), Cook button, scaled ingredient display
+- `app/routes/recipes/$recipeId.tsx` - Added scaling controls (+/- servings), scaled ingredient display, tap-to-cross-off for ingredients/steps, Wake Lock toggle
 **Goal**: Make it delightful to use
 
 - [x] Inventory subtraction when generating shopping list
@@ -699,7 +692,7 @@ npm run dev
 10. ~~**Inventory subtraction** - Shopping list subtracts inventory items and staples~~
 11. ~~**Multiple recipes per slot** - Main + sides support for meal slots~~
 12. ~~**Recipe scaling** - Client-side servings adjustment with fraction display~~
-13. ~~**Cooking mode** - Full-screen step-by-step with wake lock~~
+13. ~~**Cooking assistance** - Tap-to-cross-off ingredients/steps with wake lock toggle~~
 
 ### Next Steps (Phase 5)
 
@@ -761,7 +754,7 @@ For a personal app, "success" means:
 - [x] Discover recipes based on available ingredients (fuzzy matching implemented)
 - [x] Weekly meal planning takes < 5 minutes (click-to-assign implemented)
 - [x] Shopping list generation is automatic (one-click generation from meal plan)
-- [x] App is usable in the kitchen (cooking mode with wake lock, large text, step-by-step)
+- [x] App is usable in the kitchen (tap-to-cross-off ingredients/steps, wake lock)
 - [ ] Works offline for viewing recipes (PWA - Phase 5)
 
 ---
@@ -789,4 +782,4 @@ Before starting implementation:
 ---
 
 *Document created: February 2026*
-*Last updated: February 4, 2026 - Phase 1, 2, 3 & 4 complete! Inventory-aware shopping list, multiple recipes per meal slot, recipe scaling, and cooking mode now live.*
+*Last updated: February 4, 2026 - Phase 1, 2, 3 & 4 complete! Inventory-aware shopping list, multiple recipes per meal slot, recipe scaling, and cooking assistance now live.*

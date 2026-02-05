@@ -82,6 +82,30 @@ Priority is driven by daily use — features that remove friction from the core 
 - [ ] **Subtract ingredients from inventory after cooking**
 - [ ] **Mark meal as "cooked" in meal plan**
 
+### Phase 8: Runtime Migration (Bun)
+
+**Goal**: Faster development, faster CI, potential runtime performance gains
+
+Migrate from Node.js to Bun runtime. Bun offers 3-4x faster execution, 10x faster package installs, and built-in TypeScript support without transpilation.
+
+- [ ] **Switch to Bun package manager** - Use `bun install` instead of `npm install`. Immediate CI/CD speedup with no runtime risk.
+- [ ] **Update image optimization** - Switch `openimg/node` to `openimg/bun` in `app/routes/resources/images.tsx`. The openimg library has a dedicated Bun adapter.
+- [ ] **Remove redundant packages** - Bun handles these natively:
+  - `dotenv` (Bun auto-loads .env files)
+  - `source-map-support` (Bun has built-in source maps)
+  - `cross-env` (Bun handles env vars cross-platform)
+- [ ] **Update Prisma configuration** - Add Bun runtime config to schema generator. Run Prisma CLI with `bun --bun prisma`.
+- [ ] **Update npm scripts** - Replace `node index.ts` with `bun index.ts` in package.json scripts.
+- [ ] **Validate full test suite** - Run `npm run validate` to ensure no regressions.
+- [ ] **Update Fly.io deployment** - Use `Dockerfile.bun` template for production deployment.
+
+**Compatibility notes**:
+- Sharp (used by openimg) supports Bun via Node-API v9
+- Express works with Bun (consider Hono migration later for max performance)
+- React Router v7 has community Bun support with some edge cases to watch
+
+**Rollback plan**: Keep Node.js scripts as fallback (`node index.ts` still works).
+
 ### Backlog
 
 Lower-priority items to reconsider once the app has been in daily use:
@@ -92,6 +116,7 @@ Lower-priority items to reconsider once the app has been in daily use:
 - [ ] Performance audit (optimize queries, lazy load images, bundle analysis)
 - [ ] PWA / offline support (only if connectivity is a real problem in practice)
 - [ ] Nutrition info via external API
+- [ ] Hono migration (replace Express for native Bun HTTP performance)
 
 ---
 
@@ -128,4 +153,4 @@ When missing an ingredient, AI suggests practical alternatives with context on h
 ---
 
 *Document created: February 2026*
-*Last updated: February 4, 2026 - Phases 1-4 complete. Deployed on Fly.io. Roadmap refocused on recipe growth and daily use.*
+*Last updated: February 5, 2026 - Added Phase 8 (Bun runtime migration).*

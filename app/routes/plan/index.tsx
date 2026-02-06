@@ -1,7 +1,8 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Link, redirect } from 'react-router'
+import { addDays } from 'date-fns'
+import { Form, Link, redirect } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -95,7 +96,7 @@ export async function action({ request }: Route.ActionArgs) {
 			return { status: 'error' as const, submission: submission.reply() }
 		}
 
-		const { date, mealType, recipeId } = submission.value
+		const { date, mealType, recipeId, servings } = submission.value
 
 		// Get the meal plan for this week
 		const weekStart = getWeekStart(date)
@@ -128,9 +129,30 @@ export async function action({ request }: Route.ActionArgs) {
 					date,
 					mealType,
 					recipeId,
+					servings,
 				},
 			})
 		}
+
+		return { status: 'success' as const }
+	}
+
+	if (intent === 'updateServings') {
+		const entryId = formData.get('entryId')
+		invariantResponse(typeof entryId === 'string', 'Entry ID is required')
+
+		const servingsStr = formData.get('servings')
+		const servings = servingsStr ? parseInt(String(servingsStr), 10) : null
+
+		const entry = await prisma.mealPlanEntry.findFirst({
+			where: { id: entryId, mealPlan: { userId } },
+		})
+		invariantResponse(entry, 'Entry not found', { status: 404 })
+
+		await prisma.mealPlanEntry.update({
+			where: { id: entryId },
+			data: { servings: servings && servings > 0 ? servings : null },
+		})
 
 		return { status: 'success' as const }
 	}
@@ -151,6 +173,62 @@ export async function action({ request }: Route.ActionArgs) {
 		await prisma.mealPlanEntry.delete({ where: { id: entryId } })
 
 		return { status: 'success' as const }
+	}
+
+	if (intent === 'copyWeek') {
+		const weekStartStr = formData.get('weekStart')
+		invariantResponse(
+			typeof weekStartStr === 'string',
+			'Week start is required',
+		)
+
+		const weekStart = getWeekStart(parseDate(weekStartStr))
+		const mealPlan = await prisma.mealPlan.findFirst({
+			where: { userId, weekStart },
+			include: { entries: true },
+		})
+		invariantResponse(mealPlan && mealPlan.entries.length > 0, 'No entries to copy')
+
+		const nextWeekStart = getNextWeek(weekStart)
+
+		// Get or create next week's meal plan
+		let nextMealPlan = await prisma.mealPlan.findFirst({
+			where: { userId, weekStart: nextWeekStart },
+		})
+
+		if (!nextMealPlan) {
+			nextMealPlan = await prisma.mealPlan.create({
+				data: { userId, weekStart: nextWeekStart },
+			})
+		}
+
+		// Duplicate entries with dates shifted +7 days
+		for (const entry of mealPlan.entries) {
+			const newDate = addDays(new Date(entry.date), 7)
+			const existing = await prisma.mealPlanEntry.findUnique({
+				where: {
+					mealPlanId_date_mealType_recipeId: {
+						mealPlanId: nextMealPlan.id,
+						date: newDate,
+						mealType: entry.mealType,
+						recipeId: entry.recipeId,
+					},
+				},
+			})
+			if (!existing) {
+				await prisma.mealPlanEntry.create({
+					data: {
+						mealPlanId: nextMealPlan.id,
+						date: newDate,
+						mealType: entry.mealType,
+						recipeId: entry.recipeId,
+						servings: entry.servings,
+					},
+				})
+			}
+		}
+
+		return redirect(`/plan?weekStart=${serializeDate(nextWeekStart)}`)
 	}
 
 	return { status: 'error' as const }
@@ -174,12 +252,24 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 							Plan your week
 						</p>
 					</div>
-					<Button asChild variant="outline">
-						<Link to="/plan/shopping-list">
-							<Icon name="file-text" size="sm" />
-							Shopping List
-						</Link>
-					</Button>
+					<div className="flex gap-2">
+						{entries.length > 0 && (
+							<Form method="POST">
+								<input type="hidden" name="intent" value="copyWeek" />
+								<input type="hidden" name="weekStart" value={weekStart} />
+								<Button type="submit" variant="outline">
+									<Icon name="update" size="sm" />
+									Copy to Next Week
+								</Button>
+							</Form>
+						)}
+						<Button asChild variant="outline">
+							<Link to="/plan/shopping-list">
+								<Icon name="file-text" size="sm" />
+								Shopping List
+							</Link>
+						</Button>
+					</div>
 				</div>
 			</div>
 

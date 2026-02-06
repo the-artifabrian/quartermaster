@@ -1,4 +1,6 @@
 import { useId } from 'react'
+import { useFetcher } from 'react-router'
+import { COMMON_INGREDIENTS } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -23,6 +25,22 @@ export function IngredientFields({
 	onChange,
 }: IngredientFieldsProps) {
 	const baseId = useId()
+	const datalistId = `${baseId}-suggestions`
+
+	const fetcher = useFetcher<{ ingredients: string[] }>({
+		key: 'ingredient-suggestions',
+	})
+
+	// Load suggestions on first render
+	if (!fetcher.data && fetcher.state === 'idle') {
+		void fetcher.load('/resources/ingredient-suggestions')
+	}
+
+	// Merge DB results with common ingredients, deduped and sorted
+	const dbNames = fetcher.data?.ingredients ?? []
+	const allSuggestions = [
+		...new Set([...dbNames, ...COMMON_INGREDIENTS]),
+	].sort((a, b) => a.localeCompare(b))
 
 	const addIngredient = () => {
 		onChange([...ingredients, { name: '', amount: '', unit: '', notes: '' }])
@@ -62,12 +80,19 @@ export function IngredientFields({
 				</Button>
 			</div>
 
+			<datalist id={datalistId}>
+				{allSuggestions.map((name) => (
+					<option key={name} value={name} />
+				))}
+			</datalist>
+
 			<div className="space-y-3">
 				{ingredients.map((ingredient, index) => (
 					<IngredientRow
 						key={ingredient.id ?? `${baseId}-${index}`}
 						index={index}
 						ingredient={ingredient}
+						datalistId={datalistId}
 						onUpdate={(field, value) => updateIngredient(index, field, value)}
 						onRemove={() => removeIngredient(index)}
 						canRemove={ingredients.length > 1}
@@ -81,12 +106,14 @@ export function IngredientFields({
 function IngredientRow({
 	index,
 	ingredient,
+	datalistId,
 	onUpdate,
 	onRemove,
 	canRemove,
 }: {
 	index: number
 	ingredient: IngredientFieldValue
+	datalistId: string
 	onUpdate: (field: keyof IngredientFieldValue, value: string) => void
 	onRemove: () => void
 	canRemove: boolean
@@ -102,6 +129,7 @@ function IngredientRow({
 						placeholder="Ingredient name"
 						value={ingredient.name}
 						onChange={(e) => onUpdate('name', e.target.value)}
+						list={datalistId}
 						className="w-full"
 					/>
 				</div>

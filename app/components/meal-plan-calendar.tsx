@@ -7,6 +7,7 @@ type Entry = {
 	id: string
 	date: Date
 	mealType: string
+	servings: number | null
 	recipe: Recipe
 }
 

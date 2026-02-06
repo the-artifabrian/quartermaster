@@ -124,8 +124,11 @@ export async function action({ request }: Route.ActionArgs) {
 			status: 404,
 		})
 
-		const recipes = mealPlan.entries.map((entry) => entry.recipe)
-		const rawItems = generateShoppingListFromRecipes(recipes)
+		const recipeEntries = mealPlan.entries.map((entry) => ({
+			recipe: entry.recipe,
+			servings: entry.servings,
+		}))
+		const rawItems = generateShoppingListFromRecipes(recipeEntries)
 
 		// Subtract items already in inventory (unless low stock) and staples
 		const inventoryItems = await prisma.inventoryItem.findMany({

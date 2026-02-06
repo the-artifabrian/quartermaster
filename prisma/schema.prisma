@@ -30,6 +30,7 @@ model User {
   inventoryItems InventoryItem[]
   mealPlans      MealPlan[]
   shoppingLists  ShoppingList[]
+  cookingLogs    CookingLog[]
 }
 
 model UserImage {
@@ -176,6 +177,7 @@ model Recipe {
   instructions    Instruction[]
   tags            Tag[]
   mealPlanEntries MealPlanEntry[]
+  cookingLogs     CookingLog[]
 
   @@index([userId])
   @@index([title])
@@ -261,6 +263,7 @@ model MealPlanEntry {
   id         String   @id @default(cuid())
   date       DateTime // Specific date for this meal
   mealType   String   // "breakfast", "lunch", "dinner", "snack"
+  servings   Int?     // Override recipe default servings
   mealPlanId String
   mealPlan   MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
   recipeId   String
@@ -298,4 +301,22 @@ model ShoppingListItem {
 
   @@index([listId])
   @@index([listId, checked])
+}
+
+model CookingLog {
+  id       String   @id @default(cuid())
+  cookedAt DateTime @default(now())
+  notes    String?
+  rating   Int?     // 1-5
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+
+  @@index([recipeId])
+  @@index([userId])
 }

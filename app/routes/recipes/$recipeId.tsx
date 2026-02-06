@@ -1,14 +1,18 @@
+import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { format } from 'date-fns'
 import { Img } from 'openimg/react'
-import { useState, useEffect, useCallback } from 'react'
-import { Link, useFetcher, useSearchParams } from 'react-router'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Form, Link, useFetcher, useSearchParams } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
+import { CookingLogSchema } from '#app/utils/cooking-log-validation.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { scaleAmount } from '#app/utils/fractions.ts'
-import { cn } from '#app/utils/misc.tsx'
+import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import { type Route } from './+types/$recipeId.ts'
 
 export const handle: SEOHandle = {
@@ -59,7 +63,19 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	invariantResponse(recipe, 'Recipe not found', { status: 404 })
 	invariantResponse(recipe.userId === userId, 'Not authorized', { status: 403 })
 
-	return { recipe }
+	const cookingLogs = await prisma.cookingLog.findMany({
+		where: { recipeId, userId },
+		orderBy: { cookedAt: 'desc' },
+		take: 10,
+		select: {
+			id: true,
+			cookedAt: true,
+			notes: true,
+			rating: true,
+		},
+	})
+
+	return { recipe, cookingLogs }
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -82,6 +98,37 @@ export async function action({ request, params }: Route.ActionArgs) {
 			where: { id: recipeId },
 			data: { isFavorite: !recipe.isFavorite },
 		})
+		return { success: true }
+	}
+
+	if (intent === 'logCook') {
+		const submission = parseWithZod(formData, { schema: CookingLogSchema })
+		if (submission.status !== 'success') {
+			return { success: false }
+		}
+
+		await prisma.cookingLog.create({
+			data: {
+				recipeId,
+				userId,
+				cookedAt: submission.value.cookedAt ?? new Date(),
+				notes: submission.value.notes || null,
+				rating: submission.value.rating ?? null,
+			},
+		})
+		return { success: true }
+	}
+
+	if (intent === 'deleteCookLog') {
+		const logId = formData.get('logId')
+		invariantResponse(typeof logId === 'string', 'Log ID is required')
+
+		const log = await prisma.cookingLog.findFirst({
+			where: { id: logId, userId, recipeId },
+		})
+		invariantResponse(log, 'Log not found', { status: 404 })
+
+		await prisma.cookingLog.delete({ where: { id: logId } })
 		return { success: true }
 	}
 
@@ -128,8 +175,49 @@ function useWakeLock() {
 	return { isActive, toggle }
 }
 
+function StarRating({
+	value,
+	onChange,
+}: {
+	value: number
+	onChange: (rating: number) => void
+}) {
+	return (
+		<div className="flex gap-0.5">
+			{[1, 2, 3, 4, 5].map((star) => (
+				<button
+					key={star}
+					type="button"
+					onClick={() => onChange(star === value ? 0 : star)}
+					className="text-amber-500 hover:scale-110 transition-transform"
+				>
+					<Icon
+						name={star <= value ? 'star-filled' : 'star'}
+						size="md"
+					/>
+				</button>
+			))}
+		</div>
+	)
+}
+
+function StarDisplay({ rating }: { rating: number }) {
+	return (
+		<div className="flex gap-0.5">
+			{[1, 2, 3, 4, 5].map((star) => (
+				<Icon
+					key={star}
+					name={star <= rating ? 'star-filled' : 'star'}
+					size="sm"
+					className="text-amber-500"
+				/>
+			))}
+		</div>
+	)
+}
+
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
-	const { recipe } = loaderData
+	const { recipe, cookingLogs } = loaderData
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
 	const [searchParams, setSearchParams] = useSearchParams()
 	const favoriteFetcher = useFetcher()
@@ -142,6 +230,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	)
 	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(() => new Set())
 	const wakeLock = useWakeLock()
+	const [showCookForm, setShowCookForm] = useState(false)
+	const [cookRating, setCookRating] = useState(0)
+	const cookFetcher = useFetcher({ key: 'log-cook' })
+	const prevCookFetcherState = useRef(cookFetcher.state)
 
 	const servingsParam = searchParams.get('servings')
 	const currentServings = servingsParam
@@ -149,6 +241,17 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		: recipe.servings
 	const ratio = currentServings / recipe.servings
 	const isScaled = currentServings !== recipe.servings
+
+	// Close form after successful submission
+	if (
+		prevCookFetcherState.current !== 'idle' &&
+		cookFetcher.state === 'idle' &&
+		cookFetcher.data?.success
+	) {
+		setShowCookForm(false)
+		setCookRating(0)
+	}
+	prevCookFetcherState.current = cookFetcher.state
 
 	function updateServings(newServings: number) {
 		const clamped = Math.max(1, newServings)
@@ -223,6 +326,15 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				<Button
 					variant="ghost"
 					size="sm"
+					onClick={() => setShowCookForm((v) => !v)}
+					className={showCookForm ? 'text-primary' : ''}
+				>
+					<Icon name="check" size="sm" />
+					I Made This
+				</Button>
+				<Button
+					variant="ghost"
+					size="sm"
 					onClick={wakeLock.toggle}
 					title={
 						wakeLock.isActive
@@ -241,6 +353,71 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</Link>
 				</Button>
 			</div>
+
+			{/* "I Made This" inline form */}
+			{showCookForm && (
+				<div className="bg-muted/30 mb-6 rounded-xl border p-4">
+					<h3 className="mb-3 font-semibold">Log Cooking</h3>
+					<cookFetcher.Form method="POST" className="space-y-3">
+						<input type="hidden" name="intent" value="logCook" />
+						<input type="hidden" name="rating" value={cookRating || ''} />
+						<div className="flex flex-wrap gap-4">
+							<div>
+								<label
+									htmlFor="cookedAt"
+									className="text-muted-foreground mb-1 block text-sm"
+								>
+									Date
+								</label>
+								<input
+									type="date"
+									id="cookedAt"
+									name="cookedAt"
+									defaultValue={format(new Date(), 'yyyy-MM-dd')}
+									className="border-input bg-background rounded-md border px-3 py-1.5 text-sm"
+								/>
+							</div>
+							<div>
+								<label className="text-muted-foreground mb-1 block text-sm">
+									Rating
+								</label>
+								<StarRating value={cookRating} onChange={setCookRating} />
+							</div>
+						</div>
+						<div>
+							<label
+								htmlFor="cookNotes"
+								className="text-muted-foreground mb-1 block text-sm"
+							>
+								Notes (optional)
+							</label>
+							<textarea
+								id="cookNotes"
+								name="notes"
+								rows={2}
+								placeholder="How did it turn out? Any adjustments?"
+								className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+							/>
+						</div>
+						<div className="flex gap-2">
+							<Button type="submit" size="sm">
+								Save
+							</Button>
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								onClick={() => {
+									setShowCookForm(false)
+									setCookRating(0)
+								}}
+							>
+								Cancel
+							</Button>
+						</div>
+					</cookFetcher.Form>
+				</div>
+			)}
 
 			{/* Image */}
 			{recipe.image && (
@@ -460,6 +637,55 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</ol>
 				</div>
 			</div>
+
+			{/* Cooking History */}
+			{cookingLogs.length > 0 && (
+				<div className="mt-10">
+					<h2 className="mb-4 text-lg font-semibold">Cooking History</h2>
+					<div className="space-y-3">
+						{cookingLogs.map((log) => (
+							<CookingLogEntry key={log.id} log={log} />
+						))}
+					</div>
+				</div>
+			)}
+		</div>
+	)
+}
+
+function CookingLogEntry({
+	log,
+}: {
+	log: { id: string; cookedAt: Date; notes: string | null; rating: number | null }
+}) {
+	const dc = useDoubleCheck()
+
+	return (
+		<div className="bg-muted/20 flex items-start gap-3 rounded-lg p-4">
+			<div className="min-w-0 flex-1">
+				<div className="flex flex-wrap items-center gap-2">
+					<span className="text-sm font-medium">
+						{format(new Date(log.cookedAt), 'MMM d, yyyy')}
+					</span>
+					{log.rating && <StarDisplay rating={log.rating} />}
+				</div>
+				{log.notes && (
+					<p className="text-muted-foreground mt-1 text-sm">{log.notes}</p>
+				)}
+			</div>
+			<Form method="POST">
+				<input type="hidden" name="intent" value="deleteCookLog" />
+				<input type="hidden" name="logId" value={log.id} />
+				<StatusButton
+					type="submit"
+					size="sm"
+					variant="ghost"
+					status="idle"
+					{...dc.getButtonProps()}
+				>
+					<Icon name="trash" size="sm" />
+				</StatusButton>
+			</Form>
 		</div>
 	)
 }

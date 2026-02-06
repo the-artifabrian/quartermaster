@@ -164,17 +164,26 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const currentWeek = serializeDate(getCurrentWeekStart())
 
 	return (
-		<div className="container py-6 pb-20 md:pb-6">
-			{/* Header */}
-			<div className="mb-6 flex items-center justify-between">
-				<h1 className="text-2xl font-bold">Meal Plan</h1>
-				<Button asChild variant="outline">
-					<Link to="/plan/shopping-list">
-						<Icon name="file-text" size="sm" />
-						Shopping List
-					</Link>
-				</Button>
+		<div className="pb-20 md:pb-6">
+			{/* Page Header */}
+			<div className="bg-muted/30">
+				<div className="container flex items-center justify-between py-6">
+					<div>
+						<h1 className="text-2xl font-bold">Meal Plan</h1>
+						<p className="text-muted-foreground mt-1 text-sm">
+							Plan your week
+						</p>
+					</div>
+					<Button asChild variant="outline">
+						<Link to="/plan/shopping-list">
+							<Icon name="file-text" size="sm" />
+							Shopping List
+						</Link>
+					</Button>
+				</div>
 			</div>
+
+			<div className="container py-6">
 
 			{/* Week Navigation */}
 			<div className="mb-6 flex items-center justify-between">
@@ -210,6 +219,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 				entries={entries}
 				recipes={recipes}
 			/>
+			</div>
 		</div>
 	)
 }

@@ -54,7 +54,7 @@ export function RecipeCard({
 	return (
 		<Link
 			to={`/recipes/${id}`}
-			className="group bg-card text-card-foreground block rounded-lg border shadow-sm transition-shadow hover:shadow-md"
+			className="group bg-card text-card-foreground block overflow-hidden rounded-lg ring-1 ring-border transition-shadow hover:shadow-md"
 		>
 			<div className="bg-muted relative aspect-[4/3] overflow-hidden rounded-t-lg">
 				{isFavorite && (
@@ -90,39 +90,39 @@ export function RecipeCard({
 				)}
 			</div>
 			<div className="p-4">
-				<h3 className="group-hover:text-primary line-clamp-1 font-semibold">
-					{title}
-				</h3>
+				<div className="flex items-start justify-between gap-2">
+					<h3 className="group-hover:text-primary line-clamp-1 font-semibold">
+						{title}
+					</h3>
+					{totalTime > 0 && (
+						<span className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
+							<Icon name="clock" size="xs" />
+							{totalTime} min
+						</span>
+					)}
+				</div>
 				{description && (
 					<p className="text-muted-foreground mt-1 line-clamp-2 text-sm">
 						{description}
 					</p>
 				)}
-				<div className="mt-3 flex flex-wrap items-center gap-2">
-					{totalTime > 0 && (
-						<span className="text-muted-foreground flex items-center gap-1 text-xs">
-							<Icon name="clock" size="xs" />
-							{totalTime} min
-						</span>
-					)}
-					{tags && tags.length > 0 && (
-						<div className="flex flex-wrap gap-1">
-							{tags.slice(0, 2).map((tag) => (
-								<span
-									key={tag.id}
-									className="bg-secondary rounded-full px-2 py-0.5 text-xs"
-								>
-									{tag.name}
-								</span>
-							))}
-							{tags.length > 2 && (
-								<span className="text-muted-foreground text-xs">
-									+{tags.length - 2}
-								</span>
-							)}
-						</div>
-					)}
-				</div>
+				{tags && tags.length > 0 && (
+					<div className="mt-3 flex flex-wrap gap-1">
+						{tags.slice(0, 3).map((tag) => (
+							<span
+								key={tag.id}
+								className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs font-medium"
+							>
+								{tag.name}
+							</span>
+						))}
+						{tags.length > 3 && (
+							<span className="text-muted-foreground text-xs leading-5">
+								+{tags.length - 3}
+							</span>
+						)}
+					</div>
+				)}
 			</div>
 		</Link>
 	)

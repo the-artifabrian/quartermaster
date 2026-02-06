@@ -4,6 +4,7 @@ import {
 	Link,
 	Links,
 	Meta,
+	NavLink,
 	Outlet,
 	Scripts,
 	ScrollRestoration,
@@ -203,30 +204,46 @@ function App() {
 							{user ? (
 								<>
 									<div className="hidden items-center gap-6 md:flex">
-										<Link
+										<NavLink
 											to="/recipes"
-											className="hover:text-primary text-sm font-medium transition-colors"
+											className={({ isActive }) =>
+												isActive
+													? 'text-primary border-b-2 border-primary pb-1 text-sm font-medium transition-colors'
+													: 'text-muted-foreground hover:text-foreground pb-1 text-sm font-medium transition-colors'
+											}
 										>
 											Recipes
-										</Link>
-										<Link
+										</NavLink>
+										<NavLink
 											to="/inventory"
-											className="hover:text-primary text-sm font-medium transition-colors"
+											className={({ isActive }) =>
+												isActive
+													? 'text-primary border-b-2 border-primary pb-1 text-sm font-medium transition-colors'
+													: 'text-muted-foreground hover:text-foreground pb-1 text-sm font-medium transition-colors'
+											}
 										>
 											Inventory
-										</Link>
-										<Link
+										</NavLink>
+										<NavLink
 											to="/plan"
-											className="hover:text-primary text-sm font-medium transition-colors"
+											className={({ isActive }) =>
+												isActive
+													? 'text-primary border-b-2 border-primary pb-1 text-sm font-medium transition-colors'
+													: 'text-muted-foreground hover:text-foreground pb-1 text-sm font-medium transition-colors'
+											}
 										>
 											Plan
-										</Link>
-										<Link
+										</NavLink>
+										<NavLink
 											to="/discover"
-											className="hover:text-primary text-sm font-medium transition-colors"
+											className={({ isActive }) =>
+												isActive
+													? 'text-primary border-b-2 border-primary pb-1 text-sm font-medium transition-colors'
+													: 'text-muted-foreground hover:text-foreground pb-1 text-sm font-medium transition-colors'
+											}
 										>
 											Discover
-										</Link>
+										</NavLink>
 									</div>
 									<UserDropdown />
 								</>

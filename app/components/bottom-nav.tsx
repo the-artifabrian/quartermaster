@@ -58,12 +58,15 @@ export function BottomNav() {
 							key={item.to}
 							to={item.to}
 							className={cn(
-								'flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors',
+								'relative flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors',
 								isActive
 									? 'text-primary'
 									: 'text-muted-foreground hover:text-foreground',
 							)}
 						>
+							{isActive && (
+								<span className="bg-primary absolute top-0 right-2 left-2 h-0.5 rounded-full" />
+							)}
 							{item.icon === 'plus' ? (
 								<span className="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-full">
 									<Icon name={item.icon} size="md" />
@@ -71,7 +74,14 @@ export function BottomNav() {
 							) : (
 								<>
 									<Icon name={item.icon} size="lg" />
-									<span className="text-xs">{item.label}</span>
+									<span
+										className={cn(
+											'text-xs',
+											isActive && 'font-semibold',
+										)}
+									>
+										{item.label}
+									</span>
 								</>
 							)}
 						</Link>

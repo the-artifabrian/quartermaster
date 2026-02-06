@@ -153,17 +153,26 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					: null
 
 	return (
-		<div className="container py-6 pb-20 md:pb-6">
-			{/* Header */}
-			<div className="mb-6 flex items-center justify-between">
-				<h1 className="text-2xl font-bold">My Inventory</h1>
-				<Button asChild>
-					<Link to="/inventory/new">
-						<Icon name="plus" size="sm" />
-						Add Item
-					</Link>
-				</Button>
+		<div className="pb-20 md:pb-6">
+			{/* Page Header */}
+			<div className="bg-muted/30">
+				<div className="container flex items-center justify-between py-6">
+					<div>
+						<h1 className="text-2xl font-bold">My Inventory</h1>
+						<p className="text-muted-foreground mt-1 text-sm">
+							{items.length} {items.length === 1 ? 'item' : 'items'}
+						</p>
+					</div>
+					<Button asChild>
+						<Link to="/inventory/new">
+							<Icon name="plus" size="sm" />
+							Add Item
+						</Link>
+					</Button>
+				</div>
 			</div>
+
+			<div className="container py-6">
 
 			{/* Location Tabs */}
 			<div className="mb-6">
@@ -185,7 +194,10 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						<>
 							{pantryItems.length > 0 && (
 								<section>
-									<h2 className="mb-3 text-lg font-semibold">Pantry</h2>
+									<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+										<span className="inline-block size-2.5 rounded-full bg-amber-500" />
+										Pantry
+									</h2>
 									<InventoryItemGrid>
 										{pantryItems.map((item) => (
 											<InventoryItemCard key={item.id} item={item} />
@@ -195,7 +207,10 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 							)}
 							{fridgeItems.length > 0 && (
 								<section>
-									<h2 className="mb-3 text-lg font-semibold">Fridge</h2>
+									<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+										<span className="inline-block size-2.5 rounded-full bg-blue-500" />
+										Fridge
+									</h2>
 									<InventoryItemGrid>
 										{fridgeItems.map((item) => (
 											<InventoryItemCard key={item.id} item={item} />
@@ -205,7 +220,10 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 							)}
 							{freezerItems.length > 0 && (
 								<section>
-									<h2 className="mb-3 text-lg font-semibold">Freezer</h2>
+									<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+										<span className="inline-block size-2.5 rounded-full bg-cyan-500" />
+										Freezer
+									</h2>
 									<InventoryItemGrid>
 										{freezerItems.map((item) => (
 											<InventoryItemCard key={item.id} item={item} />
@@ -224,23 +242,24 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 				</div>
 			) : (
 				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<Icon name="cookie" className="text-muted-foreground size-16" />
-					<h2 className="mt-4 text-xl font-semibold">
+					<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+						<Icon name="file-text" className="text-muted-foreground size-10" />
+					</div>
+					<h2 className="mt-4 text-xl font-semibold">Nothing tracked yet</h2>
+					<p className="text-muted-foreground mt-2 max-w-sm">
 						{selectedLocation === 'all'
-							? 'No items yet'
-							: `No items in ${selectedLocation}`}
-					</h2>
-					<p className="text-muted-foreground mt-2">
-						Start tracking your inventory to see what you can make!
+							? 'Start tracking your pantry, fridge, and freezer items to discover what you can cook.'
+							: `Your ${selectedLocation} is empty. Add items to start tracking.`}
 					</p>
 					<Button asChild className="mt-6">
 						<Link to="/inventory/new">
 							<Icon name="plus" size="sm" />
-							Add Your First Item
+							Add Item
 						</Link>
 					</Button>
 				</div>
 			)}
+			</div>
 		</div>
 	)
 }

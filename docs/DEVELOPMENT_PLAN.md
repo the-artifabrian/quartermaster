@@ -118,33 +118,38 @@ around actual content, not sample data.
       what they actually have and add with one tap. Better than force-feeding 38
       items because it reflects what the user actually owns. Can reuse/expand the
       existing quick-add shortcuts (30 common ingredients) as a starting point.
-- [ ] **Page headers and visual hierarchy** - All pages currently use the same
-      flat pattern: `text-2xl font-bold` title + content. Add section
-      backgrounds, visual grouping, and better spacing to create distinct page
-      identities. The recipe list, meal plan, and inventory pages should each
-      feel purpose-built, not like the same template three times.
-- [ ] **Card redesign** - Recipe cards, inventory cards, and meal slot cards all
-      use identical `border bg-card rounded-lg shadow-sm` styling. Differentiate
-      them: recipe cards should emphasize the image and quick info (time, tags),
-      inventory cards should make location and status (expiring, low stock) more
-      scannable, meal plan cards should be compact and calendar-appropriate.
-- [ ] **Search and filter UI** - The recipe search is a plain input with an icon
-      overlay, and tag filters are basic pill buttons. Add better visual
-      feedback on active filters, filter counts, and a more polished search
-      experience.
-- [ ] **Navigation active states** - Desktop nav links have no active state
-      indicator. Bottom nav uses only color change. Add clear visual indicators
-      for the current page on both desktop and mobile.
-- [ ] **Recipe detail page** - This is the most-viewed page (you look at it
-      every time you cook). Give it a dedicated layout: hero image, clear
-      ingredient/instruction sections, better scaling controls, and a more
-      immersive cooking-mode feel.
-- [ ] **Form layout** - Recipe creation form has no visual grouping between
-      sections (basic info, tags, ingredients, instructions, image). Add section
-      dividers or cards to make the form scannable and less intimidating.
-- [ ] **Empty states** - Current empty states are icon + text + button. Add more
-      personality — these are the first thing new users see and the thing
-      returning users see when they haven't added content to a section yet.
+- [x] **Page headers and visual hierarchy** - All main pages use a `bg-muted/30`
+      header band with title, subtitle/count, and primary actions. Inventory
+      "All" view has color-coded location dots (amber/blue/cyan) on section
+      headings.
+- [x] **Card redesign** - Recipe cards use `ring-1 ring-border` with
+      overflow-hidden, cook time inline with title, sage-tinted tag pills
+      (`bg-primary/10`), capped at 3 with "+N". Inventory cards have
+      `border-l-4` color-coded by location, pill badges for low-stock and
+      expiry with dark mode variants. Meal slot empty states use dashed borders.
+      Match cards have backdrop-blur badge and styled missing-ingredients box.
+- [x] **Search and filter UI** - Search and tag filters wrapped in a
+      `bg-muted/30 rounded-xl` zone with contrasting input background. Active
+      tag pills get shadow-sm lift. Added result count and "Clear all filters"
+      link when filters are active.
+- [x] **Navigation active states** - Desktop nav uses NavLink with
+      `text-primary border-b-2 border-primary` active indicator; inactive links
+      use `text-muted-foreground`. Mobile bottom nav adds a `bg-primary` bar at
+      the top of the active tab with bold label text.
+- [x] **Recipe detail page** - Wider `max-w-4xl` container, `tracking-tight`
+      title, action buttons as ghost sm below title with text labels.
+      `bg-muted/30 rounded-xl` stat bar with vertical dividers. Sage-tinted
+      tags. Ingredients in `bg-muted/20 rounded-xl` panel with "Scaled" badge.
+      Edge-to-edge image on mobile, `rounded-xl` on desktop.
+- [x] **Form layout** - Each section (Photo, Details, Tags, Ingredients,
+      Instructions) wrapped in `rounded-xl border p-6` cards with section
+      headers. Alternating row backgrounds on ingredient fields. Submit buttons
+      separated with `border-t pt-6`.
+- [x] **Empty states** - All empty states use a `bg-muted/50 rounded-full
+      size-20` icon circle, `max-w-sm` constrained text, and contextual copy.
+      Recipes page has dual CTAs (Add Recipe + Import from URL) and a separate
+      "No matches found" state with clear-filters link. Discover has four
+      distinct states with contextual icons. Shopping list uses dashed border.
 
 ### Phase 7: Shopping List Accuracy & Smarter Planning
 
@@ -267,6 +272,8 @@ how it affects the recipe. "No buttermilk? Use 1 cup milk + 1 tbsp lemon juice."
 
 ---
 
-_Document created: February 2026_ _Last updated: February 6, 2026 - Implemented
-Phase 6 landing page, sample data removal, and pantry staples onboarding. Added
-shared household feature to backlog._
+_Document created: February 2026_ _Last updated: February 6, 2026 - Completed
+Phase 6 UI refresh: landing page, sample data removal, pantry staples
+onboarding, navigation active states, page headers, card redesign, search/filter
+UI, recipe detail page, form layout, and empty states. Added shared household
+feature to backlog._

@@ -248,10 +248,10 @@ export default function ShoppingListRoute({
 		.filter((item) => item.checked).length
 
 	return (
-		<div className="container py-6 pb-20 md:pb-6">
-			{/* Header */}
-			<div className="mb-6 flex items-center justify-between">
-				<div className="flex items-center gap-3">
+		<div className="pb-20 md:pb-6">
+			{/* Page Header */}
+			<div className="bg-muted/30">
+				<div className="container flex items-center gap-3 py-6">
 					<Button asChild variant="ghost" size="icon">
 						<Link to="/plan">
 							<Icon name="arrow-left" size="sm" />
@@ -260,13 +260,15 @@ export default function ShoppingListRoute({
 					<div>
 						<h1 className="text-2xl font-bold">Shopping List</h1>
 						{totalItems > 0 && (
-							<p className="text-muted-foreground text-sm">
+							<p className="text-muted-foreground mt-1 text-sm">
 								{checkedItems} of {totalItems} checked
 							</p>
 						)}
 					</div>
 				</div>
 			</div>
+
+			<div className="container py-6">
 
 			{/* Generate from Meal Plan */}
 			{hasMealPlan && (
@@ -370,22 +372,22 @@ export default function ShoppingListRoute({
 					)}
 				</div>
 			) : (
-				<div className="bg-muted/50 rounded-lg border p-8 text-center">
-					<Icon
-						name="file-text"
-						size="xl"
-						className="text-muted-foreground mx-auto"
-					/>
-					<p className="text-muted-foreground mt-4">
-						Your shopping list is empty.
-					</p>
-					<p className="text-muted-foreground mt-1 text-sm">
+				<div className="rounded-lg border border-dashed p-8 text-center">
+					<div className="bg-muted/50 mx-auto flex size-20 items-center justify-center rounded-full">
+						<Icon
+							name="file-text"
+							className="text-muted-foreground size-10"
+						/>
+					</div>
+					<h3 className="mt-4 font-semibold">Your shopping list is empty</h3>
+					<p className="text-muted-foreground mt-2 mx-auto max-w-sm text-sm">
 						{hasMealPlan
-							? 'Generate items from your meal plan or add items manually.'
-							: 'Add items manually or create a meal plan first.'}
+							? 'Generate items from your meal plan or add items manually above.'
+							: 'Create a meal plan first to auto-generate your list, or add items manually above.'}
 					</p>
 				</div>
 			)}
+			</div>
 		</div>
 	)
 }

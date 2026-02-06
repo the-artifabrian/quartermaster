@@ -190,55 +190,61 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	}
 
 	return (
-		<div className="container max-w-3xl py-6">
+		<div className="container max-w-4xl py-6">
 			{/* Header */}
-			<div className="mb-6 flex items-start justify-between gap-4">
-				<div>
-					<Link
-						to="/recipes"
-						className="text-muted-foreground hover:text-foreground mb-2 inline-flex items-center gap-1 text-sm"
-					>
-						<Icon name="arrow-left" size="sm" />
-						Back to recipes
-					</Link>
-					<h1 className="text-3xl font-bold">{recipe.title}</h1>
-				</div>
-				<div className="flex gap-2">
-					<favoriteFetcher.Form method="POST">
-						<input type="hidden" name="intent" value="toggleFavorite" />
-						<Button
-							type="submit"
-							variant="outline"
-							title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-							className={isFavorite ? 'text-red-500 hover:text-red-600' : ''}
-						>
-							<Icon name={isFavorite ? 'heart-filled' : 'heart'} size="sm" />
-						</Button>
-					</favoriteFetcher.Form>
+			<div className="mb-4">
+				<Link
+					to="/recipes"
+					className="text-muted-foreground hover:text-foreground mb-2 inline-flex items-center gap-1 text-sm"
+				>
+					<Icon name="arrow-left" size="sm" />
+					Back to recipes
+				</Link>
+				<h1 className="text-3xl font-bold tracking-tight">
+					{recipe.title}
+				</h1>
+			</div>
+
+			{/* Action buttons */}
+			<div className="mb-6 flex flex-wrap gap-2">
+				<favoriteFetcher.Form method="POST">
+					<input type="hidden" name="intent" value="toggleFavorite" />
 					<Button
-						variant={wakeLock.isActive ? 'secondary' : 'outline'}
-						onClick={wakeLock.toggle}
-						title={
-							wakeLock.isActive
-								? 'Screen will stay on'
-								: 'Keep screen on while cooking'
-						}
+						type="submit"
+						variant="ghost"
+						size="sm"
+						title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+						className={isFavorite ? 'text-red-500 hover:text-red-600' : ''}
 					>
-						<Icon name="clock" size="sm" />
-						{wakeLock.isActive ? 'Screen On' : 'Keep Awake'}
+						<Icon name={isFavorite ? 'heart-filled' : 'heart'} size="sm" />
+						{isFavorite ? 'Favorited' : 'Favorite'}
 					</Button>
-					<Button asChild variant="outline">
-						<Link to={`/recipes/${recipe.id}/edit`}>
-							<Icon name="pencil-1" size="sm" />
-							Edit
-						</Link>
-					</Button>
-				</div>
+				</favoriteFetcher.Form>
+				<Button
+					variant="ghost"
+					size="sm"
+					onClick={wakeLock.toggle}
+					title={
+						wakeLock.isActive
+							? 'Screen will stay on'
+							: 'Keep screen on while cooking'
+					}
+					className={wakeLock.isActive ? 'text-primary' : ''}
+				>
+					<Icon name="clock" size="sm" />
+					{wakeLock.isActive ? 'Screen On' : 'Keep Awake'}
+				</Button>
+				<Button asChild variant="ghost" size="sm">
+					<Link to={`/recipes/${recipe.id}/edit`}>
+						<Icon name="pencil-1" size="sm" />
+						Edit
+					</Link>
+				</Button>
 			</div>
 
 			{/* Image */}
 			{recipe.image && (
-				<div className="bg-muted mb-6 aspect-[16/9] overflow-hidden rounded-lg">
+				<div className="bg-muted mb-6 aspect-[16/9] overflow-hidden rounded-xl max-md:-mx-4 max-md:rounded-none">
 					<Img
 						src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
 						alt={recipe.image.altText ?? recipe.title}
@@ -251,10 +257,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			)}
 
 			{/* Meta info */}
-			<div className="text-muted-foreground mb-6 flex flex-wrap items-center gap-4 text-sm">
+			<div className="bg-muted/30 mb-6 flex flex-wrap items-center gap-4 rounded-xl px-5 py-4 text-sm">
 				{/* Servings with scaling controls */}
 				<span className="flex items-center gap-1">
-					<Icon name="avatar" size="sm" />
+					<Icon name="avatar" size="sm" className="text-muted-foreground" />
 					<Button
 						variant="outline"
 						size="sm"
@@ -275,7 +281,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					>
 						+
 					</Button>
-					<span>servings</span>
+					<span className="text-muted-foreground">servings</span>
 					{isScaled && (
 						<button
 							onClick={() => updateServings(recipe.servings)}
@@ -285,22 +291,29 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						</button>
 					)}
 				</span>
+				<span className="text-border hidden md:inline">|</span>
 				{recipe.prepTime && (
-					<span className="flex items-center gap-1">
+					<span className="text-muted-foreground flex items-center gap-1">
 						<Icon name="clock" size="sm" />
 						Prep: {recipe.prepTime} min
 					</span>
 				)}
 				{recipe.cookTime && (
-					<span className="flex items-center gap-1">
-						<Icon name="clock" size="sm" />
-						Cook: {recipe.cookTime} min
-					</span>
+					<>
+						<span className="text-border hidden md:inline">|</span>
+						<span className="text-muted-foreground flex items-center gap-1">
+							<Icon name="clock" size="sm" />
+							Cook: {recipe.cookTime} min
+						</span>
+					</>
 				)}
 				{totalTime > 0 && (
-					<span className="text-foreground font-medium">
-						Total: {totalTime} min
-					</span>
+					<>
+						<span className="text-border hidden md:inline">|</span>
+						<span className="text-foreground font-medium">
+							Total: {totalTime} min
+						</span>
+					</>
 				)}
 			</div>
 
@@ -310,7 +323,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					{recipe.tags.map((tag) => (
 						<span
 							key={tag.id}
-							className="bg-secondary rounded-full px-3 py-1 text-sm"
+							className="bg-primary/10 text-primary rounded-full px-3 py-1 text-sm font-medium"
 						>
 							{tag.name}
 						</span>
@@ -349,7 +362,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			{/* Raw Text (quick-entry recipes) */}
 			{recipe.rawText && (
 				<div className="mb-8">
-					<h2 className="mb-4 text-xl font-semibold">Recipe Notes</h2>
+					<h2 className="mb-4 text-lg font-semibold">Recipe Notes</h2>
 					<div className="bg-muted/50 rounded-lg p-4">
 						<pre className="font-sans text-sm whitespace-pre-wrap">
 							{recipe.rawText}
@@ -360,8 +373,15 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 			<div className="grid gap-8 md:grid-cols-[1fr_2fr]">
 				{/* Ingredients */}
-				<div>
-					<h2 className="mb-4 text-xl font-semibold">Ingredients</h2>
+				<div className="bg-muted/20 rounded-xl p-5">
+					<div className="mb-4 flex items-center gap-2">
+						<h2 className="text-lg font-semibold">Ingredients</h2>
+						{isScaled && (
+							<span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs font-medium">
+								Scaled
+							</span>
+						)}
+					</div>
 					<ul className="space-y-2">
 						{recipe.ingredients.map((ingredient) => {
 							const isChecked = checkedIngredients.has(ingredient.id)
@@ -406,7 +426,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 				{/* Instructions */}
 				<div>
-					<h2 className="mb-4 text-xl font-semibold">Instructions</h2>
+					<h2 className="mb-4 text-lg font-semibold">Instructions</h2>
 					<ol className="space-y-4">
 						{recipe.instructions.map((instruction, index) => {
 							const isChecked = checkedSteps.has(instruction.id)

@@ -31,8 +31,8 @@ export function IngredientFields({
 		key: 'ingredient-suggestions',
 	})
 
-	// Load suggestions on first render
-	if (!fetcher.data && fetcher.state === 'idle') {
+	// Load suggestions on first render (skip during SSR)
+	if (typeof document !== 'undefined' && !fetcher.data && fetcher.state === 'idle') {
 		void fetcher.load('/resources/ingredient-suggestions')
 	}
 

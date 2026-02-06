@@ -20,6 +20,13 @@ export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
 }
 
+export const meta: Route.MetaFunction = ({ data }) => {
+	const title = data?.recipe?.title
+		? `${data.recipe.title} | Quartermaster`
+		: 'Recipe | Quartermaster'
+	return [{ title }]
+}
+
 export async function loader({ request, params }: Route.LoaderArgs) {
 	const userId = await requireUserId(request)
 	const { recipeId } = params
@@ -203,6 +210,7 @@ function StarRating({
 					key={star}
 					type="button"
 					onClick={() => onChange(star === value ? 0 : star)}
+					aria-label={`Rate ${star} star${star !== 1 ? 's' : ''}`}
 					className="text-amber-500 hover:scale-110 transition-transform"
 				>
 					<Icon
@@ -217,7 +225,7 @@ function StarRating({
 
 function StarDisplay({ rating }: { rating: number }) {
 	return (
-		<div className="flex gap-0.5">
+		<div className="flex gap-0.5" role="img" aria-label={`Rating: ${rating} out of 5 stars`}>
 			{[1, 2, 3, 4, 5].map((star) => (
 				<Icon
 					key={star}

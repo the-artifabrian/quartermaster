@@ -19,6 +19,10 @@ export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
 }
 
+export const meta: Route.MetaFunction = () => {
+	return [{ title: 'Add Inventory Item | Quartermaster' }]
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
 	await requireUserId(request)
 	return {}

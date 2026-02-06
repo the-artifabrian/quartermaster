@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'vitest'
-import { generateShoppingListFromRecipes } from './shopping-list.server.ts'
+import {
+	generateShoppingListFromRecipes,
+	subtractInventoryFromShoppingList,
+	type ShoppingListItemInput,
+} from './shopping-list.server.ts'
 
 function makeRecipe(
 	id: string,
@@ -124,5 +128,145 @@ describe('generateShoppingListFromRecipes', () => {
 
 		const items = generateShoppingListFromRecipes(recipes)
 		expect(items).toHaveLength(2)
+	})
+
+	test('scales ingredients by serving ratio', () => {
+		const recipe = makeRecipe('r1', [
+			{ name: 'flour', amount: '2', unit: 'cups' },
+		])
+		// recipe.servings = 4, entry servings = 8 → ratio = 2
+		const items = generateShoppingListFromRecipes([
+			{ recipe, servings: 8 },
+		])
+		const flourItem = items.find((i) =>
+			i.name.toLowerCase().includes('flour'),
+		)
+		expect(flourItem!.quantity).toBe('4')
+	})
+
+	test('scales down by serving ratio', () => {
+		const recipe = makeRecipe('r1', [
+			{ name: 'flour', amount: '2', unit: 'cups' },
+		])
+		// recipe.servings = 4, entry servings = 2 → ratio = 0.5
+		const items = generateShoppingListFromRecipes([
+			{ recipe, servings: 2 },
+		])
+		const flourItem = items.find((i) =>
+			i.name.toLowerCase().includes('flour'),
+		)
+		expect(flourItem!.quantity).toBe('1')
+	})
+
+	test('no scaling when entry servings is null', () => {
+		const recipe = makeRecipe('r1', [
+			{ name: 'flour', amount: '2', unit: 'cups' },
+		])
+		const items = generateShoppingListFromRecipes([
+			{ recipe, servings: null },
+		])
+		const flourItem = items.find((i) =>
+			i.name.toLowerCase().includes('flour'),
+		)
+		expect(flourItem!.quantity).toBe('2')
+	})
+
+	test('passes through amount when unparseable', () => {
+		const recipe = makeRecipe('r1', [
+			{ name: 'salt', amount: undefined, unit: undefined },
+		])
+		const items = generateShoppingListFromRecipes([{ recipe, servings: 8 }])
+		expect(items[0]!.quantity).toBeUndefined()
+	})
+
+	test('servings=0 falls back to ratio=1', () => {
+		const recipe = {
+			...makeRecipe('r1', [
+				{ name: 'flour', amount: '2', unit: 'cups' },
+			]),
+			servings: 0,
+		}
+		const items = generateShoppingListFromRecipes([
+			{ recipe, servings: 4 },
+		])
+		const flourItem = items.find((i) =>
+			i.name.toLowerCase().includes('flour'),
+		)
+		// ratio = servings && recipe.servings > 0 → false, so ratio = 1
+		expect(flourItem!.quantity).toBe('2')
+	})
+})
+
+describe('subtractInventoryFromShoppingList', () => {
+	function makeInventory(
+		items: Array<{ name: string; lowStock?: boolean }>,
+	) {
+		return items.map((item, i) => ({
+			id: `inv-${i}`,
+			name: item.name,
+			location: 'pantry' as const,
+			quantity: null,
+			unit: null,
+			expiresAt: null,
+			lowStock: item.lowStock ?? false,
+			userId: 'user-1',
+			createdAt: new Date(),
+			updatedAt: new Date(),
+		}))
+	}
+
+	function makeShoppingItem(name: string): ShoppingListItemInput {
+		return {
+			name,
+			quantity: '1',
+			unit: 'cup',
+			category: 'other',
+			source: 'generated',
+		}
+	}
+
+	test('removes staple ingredients', () => {
+		const items = [makeShoppingItem('salt'), makeShoppingItem('chicken')]
+		const result = subtractInventoryFromShoppingList(items, [])
+		expect(result.items).toHaveLength(1)
+		expect(result.items[0]!.name).toBe('chicken')
+		expect(result.removedCount).toBe(1)
+		expect(result.removedItems).toContain('salt')
+	})
+
+	test('removes items already in inventory', () => {
+		const items = [makeShoppingItem('chicken'), makeShoppingItem('rice')]
+		const inventory = makeInventory([{ name: 'chicken' }])
+		const result = subtractInventoryFromShoppingList(items, inventory)
+		expect(result.items).toHaveLength(1)
+		expect(result.items[0]!.name).toBe('rice')
+	})
+
+	test('keeps low-stock inventory items on the list', () => {
+		const items = [makeShoppingItem('chicken')]
+		const inventory = makeInventory([{ name: 'chicken', lowStock: true }])
+		const result = subtractInventoryFromShoppingList(items, inventory)
+		expect(result.items).toHaveLength(1)
+		expect(result.items[0]!.name).toBe('chicken')
+	})
+
+	test('returns correct removedCount', () => {
+		const items = [
+			makeShoppingItem('salt'),
+			makeShoppingItem('water'),
+			makeShoppingItem('chicken'),
+			makeShoppingItem('broccoli'),
+		]
+		const inventory = makeInventory([{ name: 'chicken' }])
+		const result = subtractInventoryFromShoppingList(items, inventory)
+		expect(result.removedCount).toBe(3) // salt, water, chicken
+		expect(result.items).toHaveLength(1) // broccoli
+	})
+
+	test('empty inventory only removes staples', () => {
+		const items = [makeShoppingItem('chicken'), makeShoppingItem('olive oil')]
+		const result = subtractInventoryFromShoppingList(items, [])
+		expect(result.items).toHaveLength(1)
+		expect(result.items[0]!.name).toBe('chicken')
 	})
 })

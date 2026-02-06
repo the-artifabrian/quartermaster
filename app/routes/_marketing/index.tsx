@@ -17,7 +17,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export default function Index() {
 	return (
-		<main className="font-poppins">
+		<div className="font-poppins">
 			{/* Hero Section */}
 			<section className="grid place-items-center px-4 py-20 text-center md:py-28">
 				<div className="max-w-2xl">
@@ -50,6 +50,9 @@ export default function Index() {
 
 			{/* Features Section */}
 			<section className="animate-slide-top px-4 pb-16 [animation-delay:0.8s] [animation-fill-mode:backwards]">
+				<h2 className="mb-6 text-center text-2xl font-semibold">
+					Key Features
+				</h2>
 				<div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
 					<div className="bg-muted/50 rounded-xl p-6">
 						<Icon name="file-text" className="text-primary size-8" />
@@ -140,6 +143,6 @@ export default function Index() {
 					</Button>
 				</div>
 			</section>
-		</main>
+		</div>
 	)
 }

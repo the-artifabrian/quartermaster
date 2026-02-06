@@ -18,6 +18,10 @@ export const handle: BreadcrumbHandle & SEOHandle = {
 	getSitemapEntries: () => null,
 }
 
+export const meta: Route.MetaFunction = () => {
+	return [{ title: 'Settings | Quartermaster' }]
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
 	const userId = await requireUserId(request)
 	const user = await prisma.user.findUnique({

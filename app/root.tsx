@@ -139,11 +139,15 @@ function Document({
 	nonce,
 	theme = 'light',
 	env = {},
+	origin,
+	path,
 }: {
 	children: React.ReactNode
 	nonce: string
 	theme?: Theme
 	env?: Record<string, string | undefined>
+	origin?: string
+	path?: string
 }) {
 	const allowIndexing = ENV.ALLOW_INDEXING !== 'false'
 	return (
@@ -156,6 +160,9 @@ function Document({
 				{allowIndexing ? null : (
 					<meta name="robots" content="noindex, nofollow" />
 				)}
+				{origin && path ? (
+					<link rel="canonical" href={`${origin}${path}`} />
+				) : null}
 				<Links />
 			</head>
 			<body className="bg-background text-foreground">
@@ -179,7 +186,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 	const nonce = useNonce()
 	const theme = useOptionalTheme()
 	return (
-		<Document nonce={nonce} theme={theme} env={data?.ENV}>
+		<Document
+			nonce={nonce}
+			theme={theme}
+			env={data?.ENV}
+			origin={data?.requestInfo.origin}
+			path={data?.requestInfo.path}
+		>
 			{children}
 		</Document>
 	)
@@ -256,9 +269,9 @@ function App() {
 					</nav>
 				</header>
 
-				<div className="flex flex-1 flex-col">
+				<main className="flex flex-1 flex-col">
 					<Outlet />
-				</div>
+				</main>
 
 				<div className="container flex justify-between pb-5">
 					<ThemeSwitch userPreference={data.requestInfo.userPrefs.theme} />

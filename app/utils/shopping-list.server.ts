@@ -3,7 +3,9 @@ import {
 	type Ingredient,
 	type InventoryItem,
 } from '@prisma/client'
+import { parseAmount, formatAmount } from './fractions.ts'
 import {
+	getCanonicalIngredientName,
 	ingredientMatchesInventoryItem,
 	isStapleIngredient,
 } from './recipe-matching.server.ts'
@@ -11,6 +13,11 @@ import { guessCategory } from './shopping-list-validation.ts'
 
 type RecipeWithIngredients = Recipe & {
 	ingredients: Ingredient[]
+}
+
+type RecipeEntry = {
+	recipe: RecipeWithIngredients
+	servings?: number | null
 }
 
 export type ShoppingListItemInput = {
@@ -21,10 +28,16 @@ export type ShoppingListItemInput = {
 	source: string
 }
 
-// Generate shopping list from recipes, consolidate duplicates
+// Generate shopping list from recipe entries, consolidate duplicates
+// Accepts either RecipeWithIngredients[] (backwards-compatible) or RecipeEntry[]
 export function generateShoppingListFromRecipes(
-	recipes: RecipeWithIngredients[],
+	input: RecipeWithIngredients[] | RecipeEntry[],
 ): ShoppingListItemInput[] {
+	// Normalize input to RecipeEntry[]
+	const entries: RecipeEntry[] = isRecipeArray(input)
+		? input.map((recipe) => ({ recipe }))
+		: input
+
 	const ingredientMap = new Map<
 		string,
 		{
@@ -34,19 +47,28 @@ export function generateShoppingListFromRecipes(
 		}
 	>()
 
-	for (const recipe of recipes) {
+	for (const entry of entries) {
+		const { recipe, servings } = entry
+		const ratio =
+			servings && recipe.servings > 0
+				? servings / recipe.servings
+				: 1
+
 		for (const ingredient of recipe.ingredients) {
-			const normalizedName = ingredient.name.toLowerCase().trim()
+			const normalizedName = getCanonicalIngredientName(ingredient.name)
+
+			// Scale the amount by the serving ratio
+			const scaledAmount = scaleAmountString(ingredient.amount, ratio)
 
 			if (ingredientMap.has(normalizedName)) {
 				ingredientMap.get(normalizedName)!.quantities.push({
-					amount: ingredient.amount,
+					amount: scaledAmount,
 					unit: ingredient.unit,
 				})
 			} else {
 				ingredientMap.set(normalizedName, {
 					name: ingredient.name,
-					quantities: [{ amount: ingredient.amount, unit: ingredient.unit }],
+					quantities: [{ amount: scaledAmount, unit: ingredient.unit }],
 					category: guessCategory(ingredient.name),
 				})
 			}
@@ -55,7 +77,7 @@ export function generateShoppingListFromRecipes(
 
 	const items: ShoppingListItemInput[] = []
 
-	for (const [_, data] of ingredientMap) {
+	for (const [, data] of ingredientMap) {
 		const consolidated = consolidateQuantities(data.quantities)
 
 		items.push({
@@ -68,6 +90,23 @@ export function generateShoppingListFromRecipes(
 	}
 
 	return items.sort((a, b) => a.category.localeCompare(b.category))
+}
+
+function isRecipeArray(
+	input: RecipeWithIngredients[] | RecipeEntry[],
+): input is RecipeWithIngredients[] {
+	if (input.length === 0) return true
+	return 'ingredients' in input[0]! && !('recipe' in input[0]!)
+}
+
+function scaleAmountString(
+	amount: string | null,
+	ratio: number,
+): string | null {
+	if (!amount || ratio === 1) return amount
+	const parsed = parseAmount(amount)
+	if (parsed === null) return amount
+	return formatAmount(parsed * ratio)
 }
 
 // Sum numeric quantities with same unit, or show count

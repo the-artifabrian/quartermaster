@@ -27,7 +27,7 @@ const STAPLE_INGREDIENTS = new Set([
 /**
  * Common ingredient synonyms for better matching
  */
-const INGREDIENT_SYNONYMS: Record<string, string[]> = {
+export const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 	cilantro: ['coriander', 'chinese parsley'],
 	coriander: ['cilantro', 'chinese parsley'],
 	'green onion': ['scallion', 'spring onion'],
@@ -250,6 +250,27 @@ export function normalizeIngredientName(name: string): string {
 	}
 
 	return normalized
+}
+
+/**
+ * Get a canonical name for an ingredient, mapping synonyms to a stable key.
+ * Both "cilantro" and "coriander" map to the same canonical name,
+ * enabling proper consolidation in shopping lists.
+ */
+export function getCanonicalIngredientName(name: string): string {
+	const normalized = normalizeIngredientName(name)
+
+	// Collect all equivalent names: the normalized name + its synonyms
+	const equivalents = new Set<string>([normalized])
+	const synonyms = INGREDIENT_SYNONYMS[normalized]
+	if (synonyms) {
+		for (const syn of synonyms) {
+			equivalents.add(syn)
+		}
+	}
+
+	// Sort alphabetically and return the first — gives a stable canonical key
+	return [...equivalents].sort()[0]!
 }
 
 /**

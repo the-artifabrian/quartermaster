@@ -1,41 +1,85 @@
+import { type Recipe } from '@prisma/client'
 import { useState } from 'react'
-import { Form } from 'react-router'
+import { Form, useFetcher } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { type MealType, MEAL_TYPE_LABELS } from '#app/utils/date.ts'
-import { type Recipe } from '@prisma/client'
 import { useDoubleCheck } from '#app/utils/misc.tsx'
 import { RecipeSelector } from './recipe-selector.tsx'
 
 type MealSlotCardProps = {
 	date: Date
 	mealType: MealType
-	entries: Array<{ id: string; recipe: Recipe }>
+	entries: Array<{ id: string; servings: number | null; recipe: Recipe }>
 	recipes: Recipe[]
 }
 
-function EntryRow({ entry }: { entry: { id: string; recipe: Recipe } }) {
+function EntryRow({
+	entry,
+}: {
+	entry: { id: string; servings: number | null; recipe: Recipe }
+}) {
 	const dc = useDoubleCheck()
+	const servingsFetcher = useFetcher()
+
+	const currentServings = entry.servings ?? entry.recipe.servings
+
+	function updateServings(newServings: number) {
+		const clamped = Math.max(1, newServings)
+		void servingsFetcher.submit(
+			{
+				intent: 'updateServings',
+				entryId: entry.id,
+				servings: clamped === entry.recipe.servings ? '' : String(clamped),
+			},
+			{ method: 'POST' },
+		)
+	}
 
 	return (
-		<div className="flex items-center gap-2">
-			<h4 className="line-clamp-2 flex-1 text-sm font-semibold">
-				{entry.recipe.title}
-			</h4>
-			<Form method="POST">
-				<input type="hidden" name="intent" value="remove" />
-				<input type="hidden" name="entryId" value={entry.id} />
-				<StatusButton
-					type="submit"
+		<div className="space-y-1">
+			<div className="flex items-center gap-2">
+				<h4 className="line-clamp-2 flex-1 text-sm font-semibold">
+					{entry.recipe.title}
+				</h4>
+				<Form method="POST">
+					<input type="hidden" name="intent" value="remove" />
+					<input type="hidden" name="entryId" value={entry.id} />
+					<StatusButton
+						type="submit"
+						size="sm"
+						variant="ghost"
+						status="idle"
+						{...dc.getButtonProps()}
+					>
+						<Icon name="trash" size="sm" />
+					</StatusButton>
+				</Form>
+			</div>
+			<div className="flex items-center gap-1 text-xs">
+				<Button
+					variant="outline"
 					size="sm"
-					variant="ghost"
-					status="idle"
-					{...dc.getButtonProps()}
+					className="h-5 w-5 p-0 text-xs"
+					onClick={() => updateServings(currentServings - 1)}
+					disabled={currentServings <= 1}
 				>
-					<Icon name="trash" size="sm" />
-				</StatusButton>
-			</Form>
+					-
+				</Button>
+				<span className="text-muted-foreground min-w-[4ch] text-center">
+					{currentServings}
+				</span>
+				<Button
+					variant="outline"
+					size="sm"
+					className="h-5 w-5 p-0 text-xs"
+					onClick={() => updateServings(currentServings + 1)}
+				>
+					+
+				</Button>
+				<span className="text-muted-foreground">servings</span>
+			</div>
 		</div>
 	)
 }

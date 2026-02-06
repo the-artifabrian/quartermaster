@@ -1,5 +1,6 @@
 import { Img } from 'openimg/react'
 import { Link } from 'react-router'
+import { formatTimeAgo } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { Icon } from './ui/icon.tsx'
 
@@ -12,6 +13,8 @@ type RecipeCardProps = {
 	cookTime?: number | null
 	tags?: Array<{ id: string; name: string }>
 	isFavorite?: boolean
+	lastCookedAt?: string | null
+	cookCount?: number
 }
 
 // Generate a consistent color gradient based on recipe title
@@ -48,6 +51,8 @@ export function RecipeCard({
 	cookTime,
 	tags,
 	isFavorite,
+	lastCookedAt,
+	cookCount,
 }: RecipeCardProps) {
 	const totalTime = (prepTime ?? 0) + (cookTime ?? 0)
 
@@ -106,6 +111,12 @@ export function RecipeCard({
 				{description && (
 					<p className="text-muted-foreground mt-1 line-clamp-2 text-sm">
 						{description}
+					</p>
+				)}
+				{cookCount != null && cookCount > 0 && lastCookedAt && (
+					<p className="text-muted-foreground mt-2 text-xs">
+						{cookCount === 1 ? 'Made once' : `Made ${cookCount} times`} ·
+						Last: {formatTimeAgo(new Date(lastCookedAt))}
 					</p>
 				)}
 				{tags && tags.length > 0 && (

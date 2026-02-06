@@ -42,6 +42,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			prepTime: true,
 			cookTime: true,
 			sourceUrl: true,
+			notes: true,
 			userId: true,
 			image: { select: { objectKey: true, altText: true } },
 			ingredients: {
@@ -176,7 +177,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		return data({ result: submission.reply() }, { status: 400 })
 	}
 
-	const { title, description, servings, prepTime, cookTime, sourceUrl } =
+	const { title, description, servings, prepTime, cookTime, sourceUrl, notes } =
 		submission.value
 
 	// Update recipe - delete all ingredients and instructions, then recreate
@@ -192,6 +193,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 				prepTime,
 				cookTime,
 				sourceUrl: sourceUrl || null,
+				notes: notes || null,
 				ingredients: {
 					create: ingredients
 						.filter((ing) => ing.name.trim() !== '')

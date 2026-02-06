@@ -85,6 +85,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			isFavorite: true,
 			sourceUrl: true,
 			rawText: true,
+			notes: true,
 			userId: true,
 			image: { select: { objectKey: true, altText: true } },
 			ingredients: {
@@ -701,6 +702,18 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					<div className="bg-muted/50 rounded-lg p-4">
 						<pre className="font-sans text-sm whitespace-pre-wrap">
 							{recipe.rawText}
+						</pre>
+					</div>
+				</div>
+			)}
+
+			{/* My Notes (personal reminders) */}
+			{recipe.notes && (
+				<div className="mb-8">
+					<h2 className="mb-4 text-lg font-semibold">My Notes</h2>
+					<div className="border-primary/30 bg-primary/5 rounded-r-lg border-l-4 py-3 pr-4 pl-4">
+						<pre className="font-sans text-sm whitespace-pre-wrap">
+							{recipe.notes}
 						</pre>
 					</div>
 				</div>

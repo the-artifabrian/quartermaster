@@ -34,6 +34,7 @@ type RecipeFormProps = {
 		prepTime?: number | null
 		cookTime?: number | null
 		sourceUrl?: string | null
+		notes?: string | null
 		image?: { objectKey: string; altText?: string | null } | null
 		ingredients: Array<{
 			id: string
@@ -105,6 +106,7 @@ export function RecipeForm({
 			prepTime: recipe?.prepTime ?? undefined,
 			cookTime: recipe?.cookTime ?? undefined,
 			sourceUrl: recipe?.sourceUrl ?? '',
+			notes: recipe?.notes ?? '',
 		},
 		shouldRevalidate: 'onBlur',
 		shouldValidate: 'onSubmit',
@@ -218,6 +220,17 @@ export function RecipeForm({
 							placeholder: 'https://example.com/recipe',
 						}}
 						errors={fields.sourceUrl.errors}
+					/>
+
+					<TextareaField
+						labelProps={{ children: 'My Notes' }}
+						textareaProps={{
+							...getInputProps(fields.notes, { type: 'text' }),
+							placeholder:
+								'Personal reminders, tips, or modifications...',
+							rows: 3,
+						}}
+						errors={fields.notes.errors}
 					/>
 
 					<div className="grid grid-cols-3 gap-4">

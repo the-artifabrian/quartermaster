@@ -7,6 +7,7 @@ import {
 	serializeDate,
 	parseDate,
 	isToday,
+	formatTimeAgo,
 	MEAL_TYPES,
 } from './date.ts'
 
@@ -108,6 +109,55 @@ describe('isToday', () => {
 		const yesterday = new Date()
 		yesterday.setDate(yesterday.getDate() - 1)
 		expect(isToday(yesterday)).toBe(false)
+	})
+})
+
+describe('formatTimeAgo', () => {
+	function daysAgo(days: number): Date {
+		const d = new Date()
+		d.setDate(d.getDate() - days)
+		return d
+	}
+
+	test('returns "today" for today', () => {
+		expect(formatTimeAgo(new Date())).toBe('today')
+	})
+
+	test('returns "yesterday" for 1 day ago', () => {
+		expect(formatTimeAgo(daysAgo(1))).toBe('yesterday')
+	})
+
+	test('returns "X days ago" for 2-6 days', () => {
+		expect(formatTimeAgo(daysAgo(3))).toBe('3 days ago')
+		expect(formatTimeAgo(daysAgo(6))).toBe('6 days ago')
+	})
+
+	test('returns "1 week ago" for 7-13 days', () => {
+		expect(formatTimeAgo(daysAgo(7))).toBe('1 week ago')
+		expect(formatTimeAgo(daysAgo(13))).toBe('1 week ago')
+	})
+
+	test('returns "X weeks ago" for 14-29 days', () => {
+		expect(formatTimeAgo(daysAgo(14))).toBe('2 weeks ago')
+		expect(formatTimeAgo(daysAgo(21))).toBe('3 weeks ago')
+	})
+
+	test('returns "1 month ago" for 30-59 days', () => {
+		expect(formatTimeAgo(daysAgo(30))).toBe('1 month ago')
+		expect(formatTimeAgo(daysAgo(59))).toBe('1 month ago')
+	})
+
+	test('returns "X months ago" for 60-364 days', () => {
+		expect(formatTimeAgo(daysAgo(60))).toBe('2 months ago')
+		expect(formatTimeAgo(daysAgo(180))).toBe('6 months ago')
+	})
+
+	test('returns "1 year ago" for 365 days', () => {
+		expect(formatTimeAgo(daysAgo(365))).toBe('1 year ago')
+	})
+
+	test('returns "X years ago" for 730+ days', () => {
+		expect(formatTimeAgo(daysAgo(730))).toBe('2 years ago')
 	})
 })
 

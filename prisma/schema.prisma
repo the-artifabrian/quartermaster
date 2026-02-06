@@ -165,6 +165,7 @@ model Recipe {
   isFavorite  Boolean  @default(false)
   sourceUrl   String?
   rawText     String?
+  notes       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

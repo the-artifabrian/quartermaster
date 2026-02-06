@@ -46,6 +46,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			isFavorite: true,
 			sourceUrl: true,
 			rawText: true,
+			notes: true,
 			createdAt: true,
 			updatedAt: true,
 			userId: true,
@@ -63,6 +64,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 				},
 				orderBy: { order: 'asc' },
 			},
+			cookingLogs: {
+				select: { cookedAt: true },
+				orderBy: { cookedAt: 'desc' as const },
+				take: 1,
+			},
+			_count: { select: { cookingLogs: true } },
 		},
 	})
 
@@ -96,12 +103,21 @@ export async function loader({ request }: Route.LoaderArgs) {
 			.slice(0, 6)
 	}
 
+	const cookingStats: Record<string, { lastCookedAt: string | null; cookCount: number }> = {}
+	for (const recipe of recipes) {
+		cookingStats[recipe.id] = {
+			lastCookedAt: recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null,
+			cookCount: recipe._count.cookingLogs,
+		}
+	}
+
 	return {
 		matches,
 		inventoryItemCount: inventoryItems.length,
 		recipeCount: recipes.length,
 		expiringMatches,
 		expiringItemCount: expiringItems.length,
+		cookingStats,
 	}
 }
 
@@ -112,6 +128,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 		recipeCount,
 		expiringMatches,
 		expiringItemCount,
+		cookingStats,
 	} = loaderData
 	const [showOnlyMakeable, setShowOnlyMakeable] = useState(false)
 
@@ -156,6 +173,8 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 							<RecipeMatchCard
 								key={match.recipe.id}
 								match={match}
+								lastCookedAt={cookingStats[match.recipe.id]?.lastCookedAt}
+								cookCount={cookingStats[match.recipe.id]?.cookCount}
 							/>
 						))}
 					</RecipeMatchCardGrid>
@@ -189,7 +208,12 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 					{displayMatches.length > 0 ? (
 						<RecipeMatchCardGrid>
 							{displayMatches.map((match) => (
-								<RecipeMatchCard key={match.recipe.id} match={match} />
+								<RecipeMatchCard
+									key={match.recipe.id}
+									match={match}
+									lastCookedAt={cookingStats[match.recipe.id]?.lastCookedAt}
+									cookCount={cookingStats[match.recipe.id]?.cookCount}
+								/>
 							))}
 						</RecipeMatchCardGrid>
 					) : (

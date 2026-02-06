@@ -148,7 +148,7 @@ export default function EditInventoryItem({
 							<option value="fridge">{LOCATION_LABELS.fridge}</option>
 							<option value="freezer">{LOCATION_LABELS.freezer}</option>
 						</select>
-						<div className="min-h-[32px] px-4 pt-1 pb-3">
+						<div className="min-h-8 px-4 pt-1 pb-3">
 							{fields.location.errors && (
 								<p className="text-destructive text-sm">
 									{fields.location.errors}

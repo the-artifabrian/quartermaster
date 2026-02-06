@@ -6,6 +6,12 @@ import {
 } from './recipe-matching.server.ts'
 import { normalizeUnit, getUnitFamily } from './unit-conversion.ts'
 
+export type SubtractionSummary = {
+	removed: string[]
+	flaggedLow: string[]
+	updated: string[]
+}
+
 /**
  * After cooking a recipe, subtract its ingredients from the user's inventory.
  *
@@ -16,24 +22,30 @@ import { normalizeUnit, getUnitFamily } from './unit-conversion.ts'
  * For each non-staple ingredient:
  * - Find a matching inventory item
  * - If both have numeric quantities with compatible units, subtract
- * - If the inventory quantity drops to 0 or below, mark as low stock
+ * - If the inventory quantity drops to 0 or below, delete the item
  * - If units are incompatible or quantities are missing, skip silently
+ *
+ * Returns a summary of what changed.
  */
 export async function subtractRecipeIngredientsFromInventory(
 	recipeId: string,
 	userId: string,
 	servingRatio: number = 1,
-) {
+): Promise<SubtractionSummary> {
 	const recipe = await prisma.recipe.findUnique({
 		where: { id: recipeId },
 		include: { ingredients: true },
 	})
 
-	if (!recipe) return
+	if (!recipe) return { removed: [], flaggedLow: [], updated: [] }
 
 	const inventoryItems = await prisma.inventoryItem.findMany({
 		where: { userId },
 	})
+
+	const removed: string[] = []
+	const flaggedLow: string[] = []
+	const updated: string[] = []
 
 	for (const ingredient of recipe.ingredients) {
 		if (isStapleIngredient(ingredient)) continue
@@ -43,8 +55,17 @@ export async function subtractRecipeIngredientsFromInventory(
 		)
 		if (!match) continue
 
-		// Both need numeric quantities
-		if (match.quantity === null || !ingredient.amount) continue
+		// If inventory has no tracked quantity, just flag as low stock
+		if (match.quantity === null) {
+			await prisma.inventoryItem.update({
+				where: { id: match.id },
+				data: { lowStock: true },
+			})
+			flaggedLow.push(match.name)
+			continue
+		}
+
+		if (!ingredient.amount) continue
 
 		const ingredientAmount = parseAmount(ingredient.amount)
 		if (ingredientAmount === null) continue
@@ -60,13 +81,16 @@ export async function subtractRecipeIngredientsFromInventory(
 		// Same unit after normalization — subtract directly
 		if (ingredientUnit === inventoryUnit) {
 			const newQuantity = match.quantity - scaledAmount
-			await prisma.inventoryItem.update({
-				where: { id: match.id },
-				data: {
-					quantity: Math.max(0, newQuantity),
-					lowStock: newQuantity <= 0,
-				},
-			})
+			if (newQuantity <= 0) {
+				await prisma.inventoryItem.delete({ where: { id: match.id } })
+				removed.push(match.name)
+			} else {
+				await prisma.inventoryItem.update({
+					where: { id: match.id },
+					data: { quantity: newQuantity },
+				})
+				updated.push(match.name)
+			}
 			continue
 		}
 
@@ -85,17 +109,22 @@ export async function subtractRecipeIngredientsFromInventory(
 				const ingredientInInventoryUnit = ingredientInBase / invFamily.factor
 
 				const newQuantity = match.quantity - ingredientInInventoryUnit
-				await prisma.inventoryItem.update({
-					where: { id: match.id },
-					data: {
-						quantity: Math.max(0, newQuantity),
-						lowStock: newQuantity <= 0,
-					},
-				})
+				if (newQuantity <= 0) {
+					await prisma.inventoryItem.delete({ where: { id: match.id } })
+					removed.push(match.name)
+				} else {
+					await prisma.inventoryItem.update({
+						where: { id: match.id },
+						data: { quantity: newQuantity },
+					})
+					updated.push(match.name)
+				}
 				continue
 			}
 		}
 
 		// Units are incompatible — skip silently
 	}
+
+	return { removed, flaggedLow, updated }
 }

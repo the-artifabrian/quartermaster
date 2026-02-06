@@ -447,6 +447,11 @@ export function matchRecipesWithInventory(
 	>,
 	inventoryItems: InventoryItem[],
 ): RecipeMatch[] {
+	// Exclude depleted items (quantity explicitly tracked to 0)
+	const availableItems = inventoryItems.filter(
+		(item) => item.quantity === null || item.quantity > 0,
+	)
+
 	return recipes
 		.map((recipe) => {
 			// Filter out staple ingredients from the matching calculation
@@ -460,7 +465,7 @@ export function matchRecipesWithInventory(
 
 			// Check each non-staple ingredient against inventory
 			for (const ingredient of nonStapleIngredients) {
-				const hasMatch = inventoryItems.some((item) =>
+				const hasMatch = availableItems.some((item) =>
 					ingredientMatchesInventoryItem(ingredient, item),
 				)
 

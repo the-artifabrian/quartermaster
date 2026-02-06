@@ -2,6 +2,7 @@ import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { format } from 'date-fns'
+import { toast } from 'sonner'
 import { Img } from 'openimg/react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
@@ -173,14 +174,16 @@ export async function action({ request, params }: Route.ActionArgs) {
 			const servingRatio = parseFloat(
 				String(formData.get('servingRatio') ?? '1'),
 			)
-			await subtractRecipeIngredientsFromInventory(
-				recipeId,
-				userId,
-				isNaN(servingRatio) || servingRatio <= 0 ? 1 : servingRatio,
-			)
+			const inventorySummary =
+				await subtractRecipeIngredientsFromInventory(
+					recipeId,
+					userId,
+					isNaN(servingRatio) || servingRatio <= 0 ? 1 : servingRatio,
+				)
+			return { success: true, inventorySummary }
 		}
 
-		return { success: true }
+		return { success: true, inventorySummary: null }
 	}
 
 	if (intent === 'deleteCookLog') {
@@ -394,6 +397,28 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	) {
 		setShowCookForm(false)
 		setCookRating(0)
+
+		const summary = cookFetcher.data.inventorySummary
+		if (summary) {
+			const parts: string[] = []
+			if (summary.removed.length > 0) {
+				parts.push(`Removed ${summary.removed.join(', ')}.`)
+			}
+			if (summary.updated.length > 0) {
+				parts.push(`Updated ${summary.updated.join(', ')}.`)
+			}
+			if (summary.flaggedLow.length > 0) {
+				parts.push(
+					`${summary.flaggedLow.join(', ')} marked low.`,
+				)
+			}
+			toast.success('Inventory updated', {
+				description:
+					parts.length > 0
+						? parts.join(' ')
+						: 'No matching inventory items found.',
+			})
+		}
 	}
 	prevCookFetcherState.current = cookFetcher.state
 
@@ -554,6 +579,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							<input
 								type="checkbox"
 								name="subtractInventory"
+								defaultChecked
 								className="size-4 rounded"
 							/>
 							Subtract ingredients from inventory
@@ -848,13 +874,16 @@ function CookingLogEntry({
 				<input type="hidden" name="intent" value="deleteCookLog" />
 				<input type="hidden" name="logId" value={log.id} />
 				<StatusButton
-					type="submit"
+					{...dc.getButtonProps({
+						type: 'submit',
+					})}
 					size="sm"
-					variant="ghost"
+					variant={dc.doubleCheck ? 'destructive' : 'ghost'}
 					status="idle"
-					{...dc.getButtonProps()}
 				>
-					<Icon name="trash" size="sm" />
+					<Icon name="trash" size="sm">
+						{dc.doubleCheck ? 'Sure?' : ''}
+					</Icon>
 				</StatusButton>
 			</Form>
 		</div>

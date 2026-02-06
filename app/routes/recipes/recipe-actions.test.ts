@@ -163,7 +163,7 @@ describe('recipe detail actions', () => {
 			notes: 'Turned out great!',
 		})
 		const result = await action({ request, ...makeActionArgs(recipe.id) })
-		expect(result).toEqual({ success: true })
+		expect(result).toEqual({ success: true, inventorySummary: null })
 
 		const logs = await prisma.cookingLog.findMany({
 			where: { recipeId: recipe.id, userId: session.userId },
@@ -194,13 +194,18 @@ describe('recipe detail actions', () => {
 			subtractInventory: 'on',
 			servingRatio: '1',
 		})
-		await action({ request, ...makeActionArgs(recipe.id) })
+		const result = await action({ request, ...makeActionArgs(recipe.id) })
 
 		const flour = await prisma.inventoryItem.findFirst({
 			where: { userId: session.userId, name: 'flour' },
 		})
 		// Recipe uses 2 cups flour; started with 10
 		expect(flour!.quantity).toBe(8)
+		// butter (1 tbsp) has no inventory match, so only flour appears
+		expect(result).toEqual({
+			success: true,
+			inventorySummary: { updated: ['flour'], removed: [], flaggedLow: [] },
+		})
 	})
 
 	test('delete cook log', async () => {

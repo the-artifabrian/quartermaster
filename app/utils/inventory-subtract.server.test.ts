@@ -64,16 +64,17 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			{ name: 'flour', quantity: 5, unit: 'cups' },
 		])
 
-		await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'flour' },
 		})
 		expect(item!.quantity).toBe(3)
 		expect(item!.lowStock).toBe(false)
+		expect(summary).toEqual({ updated: ['flour'], removed: [], flaggedLow: [] })
 	})
 
-	test('marks low stock when quantity reaches 0', async () => {
+	test('deletes item when quantity reaches 0', async () => {
 		const user = await setupUser()
 		const recipe = await setupRecipe(user.id, [
 			{ name: 'flour', amount: '5', unit: 'cups' },
@@ -82,16 +83,16 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			{ name: 'flour', quantity: 5, unit: 'cups' },
 		])
 
-		await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'flour' },
 		})
-		expect(item!.quantity).toBe(0)
-		expect(item!.lowStock).toBe(true)
+		expect(item).toBeNull()
+		expect(summary).toEqual({ removed: ['flour'], updated: [], flaggedLow: [] })
 	})
 
-	test('quantity never goes below 0', async () => {
+	test('deletes item when quantity would go below 0', async () => {
 		const user = await setupUser()
 		const recipe = await setupRecipe(user.id, [
 			{ name: 'flour', amount: '10', unit: 'cups' },
@@ -100,13 +101,13 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			{ name: 'flour', quantity: 3, unit: 'cups' },
 		])
 
-		await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'flour' },
 		})
-		expect(item!.quantity).toBe(0)
-		expect(item!.lowStock).toBe(true)
+		expect(item).toBeNull()
+		expect(summary).toEqual({ removed: ['flour'], updated: [], flaggedLow: [] })
 	})
 
 	test('skips staple ingredients', async () => {
@@ -118,12 +119,13 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			{ name: 'salt', quantity: 10, unit: 'tsp' },
 		])
 
-		await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'salt' },
 		})
 		expect(item!.quantity).toBe(10) // unchanged
+		expect(summary).toEqual({ removed: [], updated: [], flaggedLow: [] })
 	})
 
 	test('skips ingredients with no inventory match', async () => {
@@ -137,12 +139,13 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		])
 
 		// Should not throw
-		await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'flour' },
 		})
 		expect(item!.quantity).toBe(5) // unchanged
+		expect(summary).toEqual({ removed: [], updated: [], flaggedLow: [] })
 	})
 
 	test('skips incompatible units', async () => {
@@ -154,12 +157,13 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			{ name: 'butter', quantity: 200, unit: 'g' },
 		])
 
-		await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'butter' },
 		})
 		expect(item!.quantity).toBe(200) // unchanged — US volume vs metric weight
+		expect(summary).toEqual({ removed: [], updated: [], flaggedLow: [] })
 	})
 
 	test('handles unit conversion within same family (tbsp → cup)', async () => {
@@ -171,7 +175,7 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			{ name: 'butter', quantity: 2, unit: 'cup' },
 		])
 
-		await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'butter' },
@@ -179,6 +183,7 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		// 8 tbsp = 0.5 cup, so 2 - 0.5 = 1.5
 		expect(item!.quantity).toBeCloseTo(1.5, 1)
 		expect(item!.lowStock).toBe(false)
+		expect(summary).toEqual({ updated: ['butter'], removed: [], flaggedLow: [] })
 	})
 
 	test('respects serving ratio', async () => {
@@ -191,12 +196,44 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		])
 
 		// Double servings → ratio = 2
-		await subtractRecipeIngredientsFromInventory(recipe.id, user.id, 2)
+		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id, 2)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'flour' },
 		})
 		expect(item!.quantity).toBe(6) // 10 - (2 * 2) = 6
+		expect(summary).toEqual({ updated: ['flour'], removed: [], flaggedLow: [] })
+	})
+
+	test('flags lowStock when inventory item has no quantity', async () => {
+		const user = await setupUser()
+		const recipe = await setupRecipe(user.id, [
+			{ name: 'cucumber', amount: '2', unit: '' },
+			{ name: 'rice vinegar', amount: '3', unit: 'tbsp' },
+		])
+		await setupInventory(user.id, [
+			{ name: 'cucumber' },
+			{ name: 'rice vinegar' },
+		])
+
+		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+
+		const cucumber = await prisma.inventoryItem.findFirst({
+			where: { userId: user.id, name: 'cucumber' },
+		})
+		expect(cucumber!.quantity).toBeNull()
+		expect(cucumber!.lowStock).toBe(true)
+
+		const vinegar = await prisma.inventoryItem.findFirst({
+			where: { userId: user.id, name: 'rice vinegar' },
+		})
+		expect(vinegar!.quantity).toBeNull()
+		expect(vinegar!.lowStock).toBe(true)
+		expect(summary).toEqual({
+			flaggedLow: ['cucumber', 'rice vinegar'],
+			removed: [],
+			updated: [],
+		})
 	})
 
 	test('nonexistent recipe is a no-op', async () => {
@@ -206,7 +243,7 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		])
 
 		// Should not throw
-		await subtractRecipeIngredientsFromInventory(
+		const summary = await subtractRecipeIngredientsFromInventory(
 			'nonexistent-id',
 			user.id,
 		)
@@ -215,5 +252,6 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			where: { userId: user.id, name: 'flour' },
 		})
 		expect(item!.quantity).toBe(5) // unchanged
+		expect(summary).toEqual({ removed: [], updated: [], flaggedLow: [] })
 	})
 })

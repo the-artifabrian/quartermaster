@@ -172,10 +172,13 @@ required for most items.
       Number input + start/pause/reset. No instruction parsing — just a manual
       kitchen timer that lives on the page. Useful when cooking with messy hands
       and the phone is propped up.
-- [ ] **Duplicate detection on import** — When importing from URL, check for
+- [x] **Duplicate detection on import** — When importing from URL, check for
       existing recipes with the same `sourceUrl` or very similar title. Show
       "You may already have this recipe" warning. Prevents clutter as the
       library grows past 50+ recipes.
+- [x] **Inventory subtraction feedback** — After cooking with "Subtract
+      ingredients" checked, a toast shows what changed (items removed, updated,
+      or flagged low). Checkbox now defaults to checked.
 - [ ] **PWA / offline recipe access** — Service worker to cache the
       currently-viewed recipe and the current week's meal plan. The app already
       has a web manifest and wake lock — offline access would make it
@@ -248,12 +251,8 @@ Lower-priority items to reconsider once the app has been in daily use:
 
 ---
 
-_Document created: February 2026_ _Last updated: February 6, 2026 - Reorganized
-roadmap: added Phase 11 (workflow polish: shopping→inventory pipeline, last
-cooked, recipe notes, cooking timer, duplicate detection, PWA offline), Phase 12
-(AI: receipt scanning, ingredient substitutions), Phase 13 (nutrition estimates,
-monthly cooking summary). Moved shared household and public sharing to backlog.
-Removed drag-and-drop, nutrition API, and grocery haul photo as standalone items.
-Dropped Phase 9D-E (Playwright E2E) — CRUD happy paths have poor ROI given
-existing unit/integration coverage. Previously: completed Phase 10 SEO, Phase
-9A-C tests._
+_Document created: February 2026_ _Last updated: February 6, 2026 - Phase 11
+progress: inventory subtraction feedback (toast summary of removed/updated/low
+items, checkbox defaults to checked). Previously: reorganized roadmap, added
+Phases 11-13, completed Phase 10 SEO, Phase 9A-C tests, last cooked stats,
+recipe personal notes, duplicate detection on import._

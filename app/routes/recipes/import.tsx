@@ -52,6 +52,13 @@ type ExtractedRecipe = {
 	instructions: Array<{ content: string }>
 }
 
+type DuplicateMatch = {
+	id: string
+	title: string
+	sourceUrl: string | null
+	matchReason: 'same-url' | 'similar-title'
+}
+
 function isAllowedUrl(url: string): boolean {
 	try {
 		const parsed = new URL(url)
@@ -191,6 +198,7 @@ export async function action({ request }: Route.ActionArgs) {
 					error: 'Please enter a valid URL.',
 					recipe: null,
 					result: submission.reply(),
+					duplicates: null,
 				},
 				{ status: 400 },
 			)
@@ -206,6 +214,7 @@ export async function action({ request }: Route.ActionArgs) {
 						'This URL cannot be imported. Please use a public HTTP(S) URL.',
 					recipe: null,
 					result: null,
+					duplicates: null,
 				},
 				{ status: 400 },
 			)
@@ -232,6 +241,7 @@ export async function action({ request }: Route.ActionArgs) {
 						error: `Failed to fetch URL (${response.status})`,
 						recipe: null,
 						result: null,
+						duplicates: null,
 					},
 					{ status: 400 },
 				)
@@ -260,6 +270,7 @@ export async function action({ request }: Route.ActionArgs) {
 							'No recipe data found on this page. The site may not use structured recipe data (JSON-LD).',
 						recipe: null,
 						result: null,
+						duplicates: null,
 					},
 					{ status: 400 },
 				)
@@ -267,11 +278,36 @@ export async function action({ request }: Route.ActionArgs) {
 
 			const recipe = extractRecipe(recipeData, url)
 
+			// Check for duplicates
+			const duplicates: DuplicateMatch[] = []
+
+			const urlMatches = await prisma.recipe.findMany({
+				where: { userId, sourceUrl: url },
+				select: { id: true, title: true, sourceUrl: true },
+			})
+			for (const match of urlMatches) {
+				duplicates.push({ ...match, matchReason: 'same-url' })
+			}
+
+			const urlMatchIds = new Set(urlMatches.map((m) => m.id))
+			const titleMatches = await prisma.recipe.findMany({
+				where: {
+					userId,
+					title: { equals: recipe.title },
+					id: { notIn: [...urlMatchIds] },
+				},
+				select: { id: true, title: true, sourceUrl: true },
+			})
+			for (const match of titleMatches) {
+				duplicates.push({ ...match, matchReason: 'similar-title' })
+			}
+
 			return data({
 				intent: 'fetch' as const,
 				recipe,
 				error: null,
 				result: null,
+				duplicates: duplicates.length > 0 ? duplicates : null,
 			})
 		} catch (error) {
 			const message =
@@ -284,6 +320,7 @@ export async function action({ request }: Route.ActionArgs) {
 					error: message,
 					recipe: null,
 					result: null,
+					duplicates: null,
 				},
 				{ status: 400 },
 			)
@@ -343,6 +380,7 @@ export async function action({ request }: Route.ActionArgs) {
 					error: 'Title is required.',
 					recipe: null,
 					result: null,
+					duplicates: null,
 				},
 				{ status: 400 },
 			)
@@ -380,7 +418,13 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	return data(
-		{ intent: null, error: 'Invalid action', recipe: null, result: null },
+		{
+			intent: null,
+			error: 'Invalid action',
+			recipe: null,
+			result: null,
+			duplicates: null,
+		},
 		{ status: 400 },
 	)
 }
@@ -392,6 +436,8 @@ export default function ImportRecipe() {
 
 	const recipe = actionData && 'recipe' in actionData ? actionData.recipe : null
 	const error = actionData && 'error' in actionData ? actionData.error : null
+	const duplicates =
+		actionData && 'duplicates' in actionData ? actionData.duplicates : null
 	const hasRecipe = recipe && !error
 
 	return (
@@ -507,6 +553,43 @@ export default function ImportRecipe() {
 							</div>
 						)}
 					</div>
+
+					{duplicates && duplicates.length > 0 && (
+						<div className="rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950/50">
+							<div className="flex items-start gap-3">
+								<Icon
+									name="question-mark-circled"
+									className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+								/>
+								<div className="space-y-2">
+									<p className="font-medium text-amber-800 dark:text-amber-200">
+										You may already have this recipe
+									</p>
+									<ul className="space-y-1 text-sm text-amber-700 dark:text-amber-300">
+										{duplicates.map((dup) => (
+											<li key={dup.id}>
+												<Link
+													to={`/recipes/${dup.id}`}
+													target="_blank"
+													className="underline hover:no-underline"
+												>
+													{dup.title}
+												</Link>{' '}
+												<span className="text-amber-600 dark:text-amber-400">
+													({dup.matchReason === 'same-url'
+														? 'same URL'
+														: 'same title'})
+												</span>
+											</li>
+										))}
+									</ul>
+									<p className="text-sm text-amber-600 dark:text-amber-400">
+										You can still save this recipe if you'd like a second copy.
+									</p>
+								</div>
+							</div>
+						</div>
+					)}
 
 					<Form method="POST">
 						<input type="hidden" name="intent" value="save" />

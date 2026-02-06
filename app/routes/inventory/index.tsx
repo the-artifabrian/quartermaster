@@ -9,6 +9,7 @@ import {
 } from '#app/components/inventory-item-card.tsx'
 import { InventoryLocationTabs } from '#app/components/inventory-location-tabs.tsx'
 import { InventoryQuickAdd } from '#app/components/inventory-quick-add.tsx'
+import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboarding.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
@@ -25,15 +26,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const url = new URL(request.url)
 	const location = url.searchParams.get('location') ?? ''
 
-	const items = await prisma.inventoryItem.findMany({
-		where: {
-			userId,
-			...(location && location !== 'all' && { location }),
-		},
-		orderBy: [{ lowStock: 'desc' }, { expiresAt: 'asc' }, { name: 'asc' }],
-	})
+	const [items, totalItemCount] = await Promise.all([
+		prisma.inventoryItem.findMany({
+			where: {
+				userId,
+				...(location && location !== 'all' && { location }),
+			},
+			orderBy: [{ lowStock: 'desc' }, { expiresAt: 'asc' }, { name: 'asc' }],
+		}),
+		prisma.inventoryItem.count({ where: { userId } }),
+	])
 
-	return { items, selectedLocation: location || 'all' }
+	return { items, totalItemCount, selectedLocation: location || 'all' }
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -53,6 +57,30 @@ export async function action({ request }: Route.ActionArgs) {
 				userId,
 			},
 		})
+
+		return { status: 'success' as const }
+	}
+
+	if (intent === 'bulk-create') {
+		const itemsJson = formData.get('items')
+		invariantResponse(typeof itemsJson === 'string', 'Items are required')
+		const items = JSON.parse(itemsJson) as Array<{
+			name: string
+			location: string
+		}>
+		invariantResponse(Array.isArray(items), 'Items must be an array')
+
+		await prisma.$transaction(
+			items.map((item) =>
+				prisma.inventoryItem.create({
+					data: {
+						name: item.name,
+						location: item.location,
+						userId,
+					},
+				}),
+			),
+		)
 
 		return { status: 'success' as const }
 	}
@@ -92,7 +120,15 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
-	const { items, selectedLocation } = loaderData
+	const { items, totalItemCount, selectedLocation } = loaderData
+
+	if (totalItemCount === 0) {
+		return (
+			<div className="container py-6 pb-20 md:pb-6">
+				<PantryStaplesOnboarding />
+			</div>
+		)
+	}
 
 	const pantryItems = items.filter((item) => item.location === 'pantry')
 	const fridgeItems = items.filter((item) => item.location === 'fridge')

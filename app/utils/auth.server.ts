@@ -4,7 +4,6 @@ import bcrypt from 'bcryptjs'
 import { redirect } from 'react-router'
 import { Authenticator } from 'remix-auth'
 import { safeRedirect } from 'remix-utils/safe-redirect'
-import { seedSampleData } from '../../prisma/seed-sample-data.ts'
 import { providers } from './connections.server.ts'
 import { prisma } from './db.server.ts'
 import { combineHeaders, downloadFile } from './misc.tsx'
@@ -146,9 +145,6 @@ export async function signup({
 		select: { id: true, expirationDate: true, userId: true },
 	})
 
-	// Seed sample data for new user
-	await seedSampleData(session.userId)
-
 	return session
 }
 
@@ -191,9 +187,6 @@ export async function signupWithConnection({
 			},
 		})
 	}
-
-	// Seed sample data for new user
-	await seedSampleData(user.id)
 
 	// Create and return the session
 	const session = await prisma.session.create({

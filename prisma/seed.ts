@@ -2,7 +2,6 @@ import { prisma } from '#app/utils/db.server.ts'
 import { MOCK_CODE_GITHUB } from '#app/utils/providers/constants.ts'
 import { createPassword, getUserImages } from '#tests/db-utils.ts'
 import { insertGitHubUser } from '#tests/mocks/github.ts'
-import { seedSampleData } from './seed-sample-data.ts'
 
 async function seed() {
 	console.log('🌱 Seeding...')
@@ -133,9 +132,6 @@ async function seed() {
 	}
 
 	console.timeEnd(`🐨 Find or create admin user "kody"`)
-
-	// Seed sample recipes and inventory for kody
-	await seedSampleData(kody.id)
 
 	console.timeEnd(`🌱 Database has been seeded`)
 }

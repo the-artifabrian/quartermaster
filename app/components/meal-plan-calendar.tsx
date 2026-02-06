@@ -8,6 +8,7 @@ type Entry = {
 	date: Date
 	mealType: string
 	servings: number | null
+	cooked: boolean
 	recipe: Recipe
 }
 

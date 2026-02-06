@@ -264,6 +264,7 @@ model MealPlanEntry {
   date       DateTime // Specific date for this meal
   mealType   String   // "breakfast", "lunch", "dinner", "snack"
   servings   Int?     // Override recipe default servings
+  cooked     Boolean  @default(false)
   mealPlanId String
   mealPlan   MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
   recipeId   String

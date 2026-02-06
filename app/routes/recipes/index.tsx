@@ -27,6 +27,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const selectedTagIds = tagsParam ? tagsParam.split(',').filter(Boolean) : []
 
 	const favoritesOnly = url.searchParams.get('favorites') === 'true'
+	const maxTime = url.searchParams.get('maxTime')
+		? parseInt(url.searchParams.get('maxTime')!, 10)
+		: null
 
 	const recipes = await prisma.recipe.findMany({
 		where: {
@@ -59,16 +62,34 @@ export async function loader({ request }: Route.LoaderArgs) {
 		orderBy: { updatedAt: 'desc' },
 	})
 
+	// Post-filter by total cook time (prepTime + cookTime).
+	// Recipes with no time data (both null) are included since unknown ≠ slow.
+	const filteredRecipes = maxTime
+		? recipes.filter((r) => {
+				const total = (r.prepTime ?? 0) + (r.cookTime ?? 0)
+				if (total === 0) return true // no time data — don't exclude
+				return total <= maxTime
+			})
+		: recipes
+
 	const tags = await prisma.tag.findMany({
 		select: { id: true, name: true, category: true },
 		orderBy: [{ category: 'asc' }, { name: 'asc' }],
 	})
 
-	return { recipes, tags, search, selectedTagIds, favoritesOnly }
+	return {
+		recipes: filteredRecipes,
+		tags,
+		search,
+		selectedTagIds,
+		favoritesOnly,
+		maxTime,
+	}
 }
 
 export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
-	const { recipes, tags, search, selectedTagIds, favoritesOnly } = loaderData
+	const { recipes, tags, search, selectedTagIds, favoritesOnly, maxTime } =
+		loaderData
 	const [searchParams, setSearchParams] = useSearchParams()
 
 	const handleSearchChange = useDebounce((value: string) => {
@@ -80,6 +101,16 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		}
 		setSearchParams(params, { replace: true })
 	}, 300)
+
+	const handleMaxTimeChange = (value: string) => {
+		const params = new URLSearchParams(searchParams)
+		if (value) {
+			params.set('maxTime', value)
+		} else {
+			params.delete('maxTime')
+		}
+		setSearchParams(params, { replace: true })
+	}
 
 	const handleFavoritesToggle = () => {
 		const params = new URLSearchParams(searchParams)
@@ -108,7 +139,8 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		setSearchParams(params, { replace: true })
 	}
 
-	const hasFilters = search || selectedTagIds.length > 0 || favoritesOnly
+	const hasFilters =
+		search || selectedTagIds.length > 0 || favoritesOnly || maxTime
 
 	const handleClearFilters = () => {
 		setSearchParams(new URLSearchParams(), { replace: true })
@@ -184,6 +216,16 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							className="bg-background pl-10"
 						/>
 					</div>
+					<select
+						value={maxTime?.toString() ?? ''}
+						onChange={(e) => handleMaxTimeChange(e.target.value)}
+						className="bg-background border-input rounded-md border px-3 py-2 text-sm"
+					>
+						<option value="">Any time</option>
+						<option value="30">Under 30 min</option>
+						<option value="60">Under 1 hour</option>
+						<option value="120">Under 2 hours</option>
+					</select>
 					<Button
 						variant={favoritesOnly ? 'default' : 'outline'}
 						onClick={handleFavoritesToggle}

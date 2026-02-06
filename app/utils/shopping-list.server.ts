@@ -10,6 +10,11 @@ import {
 	isStapleIngredient,
 } from './recipe-matching.server.ts'
 import { guessCategory } from './shopping-list-validation.ts'
+import {
+	normalizeUnit,
+	getUnitFamily,
+	convertAndSum,
+} from './unit-conversion.ts'
 
 type RecipeWithIngredients = Recipe & {
 	ingredients: Ingredient[]
@@ -109,7 +114,7 @@ function scaleAmountString(
 	return formatAmount(parsed * ratio)
 }
 
-// Sum numeric quantities with same unit, or show count
+// Sum numeric quantities with same unit, or convert compatible units, or show count
 function consolidateQuantities(
 	quantities: Array<{ amount?: string | null; unit?: string | null }>,
 ): { quantity?: string; unit?: string } {
@@ -121,19 +126,64 @@ function consolidateQuantities(
 		}
 	}
 
-	const firstUnit = quantities[0]!.unit ?? ''
-	const sameUnit = quantities.every((q) => (q.unit ?? '') === firstUnit)
+	// Normalize all units
+	const normalized = quantities.map((q) => ({
+		amount: q.amount,
+		unit: q.unit,
+		normalizedUnit: q.unit ? normalizeUnit(q.unit) : '',
+	}))
 
-	if (sameUnit) {
-		const numericQuantities = quantities
-			.map((q) => parseFloat(q.amount ?? ''))
-			.filter((n) => !isNaN(n))
+	// Check if all have the same normalized unit
+	const firstNormUnit = normalized[0]!.normalizedUnit
+	const sameNormUnit = normalized.every(
+		(q) => q.normalizedUnit === firstNormUnit,
+	)
+
+	if (sameNormUnit) {
+		const numericQuantities = normalized
+			.map((q) => parseAmount(q.amount ?? ''))
+			.filter((n): n is number => n !== null)
 
 		if (numericQuantities.length === quantities.length) {
 			const sum = numericQuantities.reduce((a, b) => a + b, 0)
 			return {
-				quantity: sum.toString(),
-				unit: firstUnit || undefined,
+				quantity: formatAmount(sum),
+				unit: normalized[0]!.unit ?? undefined,
+			}
+		}
+	}
+
+	// Try unit conversion within the same family
+	const parsed = normalized
+		.map((q) => {
+			const amount = parseAmount(q.amount ?? '')
+			if (amount === null) return null
+			const family = q.normalizedUnit
+				? getUnitFamily(q.normalizedUnit)
+				: null
+			if (!family) return null
+			return {
+				amount,
+				normalizedUnit: q.normalizedUnit,
+				familyName: family.family.name,
+				family: family.family,
+			}
+		})
+
+	// All must be parseable and in the same family
+	if (parsed.every((p) => p !== null)) {
+		const firstFamily = parsed[0]!.familyName
+		if (parsed.every((p) => p!.familyName === firstFamily)) {
+			const result = convertAndSum(
+				parsed.map((p) => ({
+					amount: p!.amount,
+					normalizedUnit: p!.normalizedUnit,
+				})),
+				parsed[0]!.family,
+			)
+			return {
+				quantity: formatAmount(result.value),
+				unit: result.unit,
 			}
 		}
 	}

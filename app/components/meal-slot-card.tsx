@@ -5,25 +5,42 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { type MealType, MEAL_TYPE_LABELS } from '#app/utils/date.ts'
-import { useDoubleCheck } from '#app/utils/misc.tsx'
+import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import { RecipeSelector } from './recipe-selector.tsx'
 
 type MealSlotCardProps = {
 	date: Date
 	mealType: MealType
-	entries: Array<{ id: string; servings: number | null; recipe: Recipe }>
+	entries: Array<{
+		id: string
+		servings: number | null
+		cooked: boolean
+		recipe: Recipe
+	}>
 	recipes: Recipe[]
 }
 
 function EntryRow({
 	entry,
 }: {
-	entry: { id: string; servings: number | null; recipe: Recipe }
+	entry: {
+		id: string
+		servings: number | null
+		cooked: boolean
+		recipe: Recipe
+	}
 }) {
 	const dc = useDoubleCheck()
 	const servingsFetcher = useFetcher()
+	const cookedFetcher = useFetcher()
 
 	const currentServings = entry.servings ?? entry.recipe.servings
+
+	// Optimistic cooked state
+	const isCooked =
+		cookedFetcher.formData?.get('intent') === 'toggleCooked'
+			? !entry.cooked
+			: entry.cooked
 
 	function updateServings(newServings: number) {
 		const clamped = Math.max(1, newServings)
@@ -38,9 +55,30 @@ function EntryRow({
 	}
 
 	return (
-		<div className="space-y-1">
+		<div className={cn('space-y-1', isCooked && 'opacity-60')}>
 			<div className="flex items-center gap-2">
-				<h4 className="line-clamp-2 flex-1 text-sm font-semibold">
+				<cookedFetcher.Form method="POST" className="flex-shrink-0">
+					<input type="hidden" name="intent" value="toggleCooked" />
+					<input type="hidden" name="entryId" value={entry.id} />
+					<button
+						type="submit"
+						className={cn(
+							'flex size-5 items-center justify-center rounded-full border-2 transition-colors',
+							isCooked
+								? 'border-green-500 bg-green-500 text-white'
+								: 'border-muted-foreground/30 hover:border-green-500',
+						)}
+						title={isCooked ? 'Mark as not cooked' : 'Mark as cooked'}
+					>
+						{isCooked && <Icon name="check" size="xs" />}
+					</button>
+				</cookedFetcher.Form>
+				<h4
+					className={cn(
+						'line-clamp-2 flex-1 text-sm font-semibold',
+						isCooked && 'line-through',
+					)}
+				>
 					{entry.recipe.title}
 				</h4>
 				<Form method="POST">

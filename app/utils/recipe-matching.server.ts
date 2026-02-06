@@ -102,6 +102,46 @@ export const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 		'sunflower oil',
 		'peanut oil',
 	],
+	// Soy sauces — "dark soy sauce" and "light soy sauce" normalize to "soy sauce"
+	// via modifier stripping, so only tamari/shoyu need explicit synonyms
+	'soy sauce': ['tamari', 'shoyu'],
+	tamari: ['soy sauce', 'shoyu'],
+	shoyu: ['soy sauce', 'tamari'],
+	// Proteins — "chicken breast" and "chicken thigh" already match "chicken"
+	// via the core-word matching logic, but explicit synonyms help the reverse case
+	chicken: ['chicken breast', 'chicken thigh'],
+	'chicken breast': ['chicken', 'chicken thigh'],
+	'chicken thigh': ['chicken', 'chicken breast'],
+	// Hard cheeses
+	parmesan: ['pecorino', 'parmigiano reggiano', 'grana padano'],
+	pecorino: ['parmesan', 'parmigiano reggiano', 'grana padano'],
+	'parmigiano reggiano': ['parmesan', 'pecorino', 'grana padano'],
+	'grana padano': ['parmesan', 'pecorino', 'parmigiano reggiano'],
+	// Yogurt — "greek yogurt" normalizes to "yogurt" via modifier stripping
+	yogurt: ['greek yogurt'],
+	'greek yogurt': ['yogurt'],
+	// Sugars — "powdered sugar" and "confectioners sugar" normalize to "sugar"
+	// via modifier stripping; "icing sugar" stays as "icing sugar"
+	sugar: ['icing sugar'],
+	'icing sugar': ['sugar'],
+	// Leavening
+	'baking soda': ['bicarbonate of soda'],
+	'bicarbonate of soda': ['baking soda'],
+	// Starch
+	cornstarch: ['corn starch'],
+	'corn starch': ['cornstarch'],
+	// Vegetables
+	eggplant: ['aubergine'],
+	aubergine: ['eggplant'],
+	arugula: ['rocket'],
+	rocket: ['arugula'],
+	// "green beans" normalizes to "bean" (green stripped, plurals stripped)
+	bean: ['string bean', 'french bean'],
+	'string bean': ['bean', 'french bean'],
+	'french bean': ['bean', 'string bean'],
+	// Alliums — "small onion" normalizes to "onion" via modifier stripping
+	shallot: ['onion'],
+	// Don't add onion→shallot since that would make any onion match shallot
 }
 
 /**

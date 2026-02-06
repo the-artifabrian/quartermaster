@@ -44,7 +44,7 @@ export function BottomNav() {
 	if (!user) return null
 
 	return (
-		<nav className="bg-background fixed inset-x-0 bottom-0 z-50 border-t md:hidden">
+		<nav className="bg-background fixed inset-x-0 bottom-0 z-50 border-t md:hidden print:hidden">
 			<div className="flex h-16 items-center justify-around">
 				{navItems.map((item) => {
 					const isActive = item.matchPaths?.some((path) =>

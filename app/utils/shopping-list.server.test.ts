@@ -82,10 +82,27 @@ describe('generateShoppingListFromRecipes', () => {
 		expect(flourItems[0]!.unit).toBe('cups')
 	})
 
-	test('shows count when units differ', () => {
+	test('consolidates compatible units via conversion (tbsp + cup)', () => {
 		const recipes = [
 			makeRecipe('r1', [{ name: 'butter', amount: '2', unit: 'tbsp' }]),
 			makeRecipe('r2', [{ name: 'butter', amount: '1', unit: 'cup' }]),
+		]
+
+		const items = generateShoppingListFromRecipes(recipes)
+		const butterItems = items.filter((i) =>
+			i.name.toLowerCase().includes('butter'),
+		)
+
+		expect(butterItems).toHaveLength(1)
+		// 2 tbsp + 1 cup = 6 tsp + 48 tsp = 54 tsp = 1.125 cups
+		expect(butterItems[0]!.unit).toBe('cup')
+		expect(butterItems[0]!.quantity).toBe('1 1/8')
+	})
+
+	test('shows count when units are incompatible', () => {
+		const recipes = [
+			makeRecipe('r1', [{ name: 'butter', amount: '2', unit: 'tbsp' }]),
+			makeRecipe('r2', [{ name: 'butter', amount: '100', unit: 'g' }]),
 		]
 
 		const items = generateShoppingListFromRecipes(recipes)

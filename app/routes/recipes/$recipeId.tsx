@@ -12,6 +12,7 @@ import { requireUserId } from '#app/utils/auth.server.ts'
 import { CookingLogSchema } from '#app/utils/cooking-log-validation.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { scaleAmount } from '#app/utils/fractions.ts'
+import { subtractRecipeIngredientsFromInventory } from '#app/utils/inventory-subtract.server.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import { type Route } from './+types/$recipeId.ts'
 
@@ -116,6 +117,19 @@ export async function action({ request, params }: Route.ActionArgs) {
 				rating: submission.value.rating ?? null,
 			},
 		})
+
+		const subtractInventory = formData.get('subtractInventory') === 'on'
+		if (subtractInventory) {
+			const servingRatio = parseFloat(
+				String(formData.get('servingRatio') ?? '1'),
+			)
+			await subtractRecipeIngredientsFromInventory(
+				recipeId,
+				userId,
+				isNaN(servingRatio) || servingRatio <= 0 ? 1 : servingRatio,
+			)
+		}
+
 		return { success: true }
 	}
 
@@ -361,6 +375,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					<cookFetcher.Form method="POST" className="space-y-3">
 						<input type="hidden" name="intent" value="logCook" />
 						<input type="hidden" name="rating" value={cookRating || ''} />
+						<input type="hidden" name="servingRatio" value={ratio} />
 						<div className="flex flex-wrap gap-4">
 							<div>
 								<label
@@ -399,6 +414,14 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
 							/>
 						</div>
+						<label className="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								name="subtractInventory"
+								className="size-4 rounded"
+							/>
+							Subtract ingredients from inventory
+						</label>
 						<div className="flex gap-2">
 							<Button type="submit" size="sm">
 								Save

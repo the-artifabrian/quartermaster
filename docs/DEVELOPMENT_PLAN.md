@@ -12,9 +12,10 @@ generation.
 
 ---
 
-## What's Built (Phases 1-5) ✅
+## What's Built (Phases 1-8) ✅
 
-The MVP is complete and deployed. Here's a summary of everything implemented:
+The app is feature-complete for daily use. Here's a summary of everything
+implemented:
 
 ### Recipe Management
 
@@ -23,9 +24,13 @@ The MVP is complete and deployed. Here's a summary of everything implemented:
 - Image uploads (S3-compatible storage, max 3MB)
 - 16 predefined tags across cuisine, meal-type, and dietary categories
 - Full-text search across title, ingredients, and description
-- Tag filtering with bookmarkable URL params
+- Tag filtering and cook time filtering with bookmarkable URL params
 - Recipe scaling with +/- servings controls and fraction display
 - Cooking assistance: tap-to-cross-off ingredients/steps, Wake Lock toggle
+- Favorite/bookmark recipes with filter toggle
+- Import from URL (JSON-LD scraping), quick text entry, JSON export
+- "Surprise me" random recipe picker
+- Cooking log with star ratings and notes ("I Made This")
 
 ### Inventory System
 
@@ -34,26 +39,43 @@ The MVP is complete and deployed. Here's a summary of everything implemented:
 - Quick-add shortcuts for 30 common ingredients
 - "What can I make?" discovery page with fuzzy ingredient matching
 - Match percentage scoring and missing ingredient highlighting
+- Expiration-based recipe suggestions ("Use It Before You Lose It")
+- Automatic inventory subtraction after cooking (with unit conversion)
 
 ### Meal Planning
 
 - Weekly calendar view (Monday-start, 4 meal types per day)
 - Click-to-assign recipes to meal slots, multiple recipes per slot
+- Per-entry serving size overrides with +/- controls
+- Mark meals as "cooked" with optimistic toggle UI
+- Copy week to next week (preserves servings, skips duplicates)
 - Week navigation (previous/next/current)
 - Mobile-optimized with horizontal scroll
 
 ### Shopping List
 
 - Auto-generation from meal plan with ingredient consolidation
+- Unit-aware consolidation (e.g., 2 tbsp + 1 cup → 1 1/8 cup)
 - Grouped by store section (produce, dairy, meat, pantry, frozen, bakery, other)
 - Inventory-aware: subtracts items already in stock and staple ingredients
 - Manual item addition, check-off while shopping, clear checked items
+- Print-friendly layout (Tailwind `print:` variants)
+
+### UI & Design
+
+- Custom color system (sage green + peach accent, OKLch) and typography
+- Redesigned landing page explaining the app's value proposition
+- Card redesign with location color-coding, tag pills, and match badges
+- Polished empty states with contextual icons and CTAs
+- Active navigation states for desktop and mobile
 
 ### Infrastructure
 
 - Deployed on Fly.io with custom domain, HTTPS, and email
 - Session-based auth with per-user recipe libraries
 - New user onboarding with recommended pantry staples checklist
+- Ingredient auto-suggest in recipe forms (from user's recipe history)
+- Expanded ingredient synonym database (~20 synonym groups)
 - Mobile-first responsive layout with bottom navigation
 - Responsive grid (1 col / 2 col / 3 col)
 
@@ -185,23 +207,212 @@ and reduce meal planning friction
 
 **Goal**: Polish based on real usage patterns
 
-- [ ] **Shopping list unit consolidation** - Currently, quantities are only
-      summed when units match exactly (e.g., 2 cups + 1 cup = 3 cups). Mixed
-      units show as a count like "2x" instead of converting. Add common unit
-      conversions (tbsp to cup, oz to lb, ml to l) so the shopping list produces
-      a single consolidated quantity.
-- [ ] **Expand synonym database** - The matching algorithm is strong but has
-      gaps for common variants: dark soy sauce / soy sauce, chicken breast /
-      chicken, pecorino / parmesan. Audit real recipe data after importing 50+
-      recipes and fill gaps.
-- [ ] **Filter by cook time** - Useful for weeknight "what's quick?" filtering.
-- [ ] **Print shopping list** - Printer-friendly layout.
-- [ ] **Subtract ingredients from inventory after cooking**
-- [ ] **Mark meal as "cooked" in meal plan**
-- [ ] **Expiration-based suggestions** - Surface recipes using ingredients about
-      to expire. Useful in theory, but depends on users consistently maintaining
-      expiration dates, which is high-friction. Revisit after seeing whether
-      expiration data gets entered in practice.
+- [x] **Shopping list unit consolidation** - Added `unit-conversion.ts` with
+      unit families (US volume, US weight, metric volume, metric weight) and
+      alias normalization. Shopping list now converts compatible units (e.g.,
+      2 tbsp + 1 cup = 1 1/8 cup) instead of showing "2×". Prefers display
+      units that appeared in the input for natural results.
+- [x] **Expand synonym database** - Added synonym groups for soy sauces
+      (tamari, shoyu), proteins (chicken ↔ chicken breast/thigh), hard cheeses
+      (parmesan ↔ pecorino ↔ grana padano), yogurt, sugars (icing sugar),
+      leavening (baking soda ↔ bicarbonate of soda), starch (cornstarch ↔
+      corn starch), vegetables (eggplant ↔ aubergine, arugula ↔ rocket,
+      green beans ↔ string/french beans), and alliums (shallot → onion).
+      Synonym keys aligned with post-normalization names.
+- [x] **Filter by cook time** - Added `maxTime` URL param to recipes page
+      with `<select>` dropdown (Any time, Under 30 min, Under 1 hour, Under
+      2 hours). Post-filters recipes where prepTime + cookTime ≤ maxTime.
+- [x] **Print shopping list** - Added print button and Tailwind `print:`
+      variants. Interactive elements (forms, buttons, bottom nav) hidden on
+      print; items show Unicode checkbox characters (☐/☑) for print.
+- [x] **Subtract ingredients from inventory after cooking** - New
+      `inventory-subtract.server.ts` with `subtractRecipeIngredientsFromInventory()`.
+      Matches recipe ingredients to inventory items, subtracts quantities when
+      units match, marks low stock when depleted. "I Made This" form includes
+      optional "Subtract ingredients from inventory" checkbox.
+- [x] **Mark meal as "cooked" in meal plan** - Added `cooked Boolean` to
+      MealPlanEntry schema. Toggle button on each meal slot entry with
+      optimistic UI (green checkmark, strikethrough title, dimmed opacity).
+- [x] **Expiration-based suggestions** - Discover page shows "Use It Before
+      You Lose It" section when inventory items expire within 7 days. Displays
+      up to 6 matching recipes sorted by how many expiring ingredients they use.
+      Hidden when no expirations exist.
+
+### Phase 9: Test Coverage Expansion
+
+**Goal**: Build confidence in the codebase by testing the core business logic
+and critical user flows that Phases 1-8 shipped without test coverage
+
+As of Phase 8: 41 tests across 7 files. Zero coverage of Quartermaster-specific
+business logic (recipe matching, fractions, ingredient parsing, meal planning,
+discover). All existing tests are Epic Stack infrastructure or Phase 7-8
+utilities.
+
+#### Phase 9A — High-value pure unit tests (no DB, fast to write)
+
+- [ ] **Recipe matching tests** (`recipe-matching.server.test.ts`, ~25 tests) —
+      `normalizeIngredientName` (modifier stripping, pluralization, alternatives,
+      comma removal), `ingredientMatchesInventoryItem` (exact match, synonym
+      match, core word match, multi-word containment, negative cases like "rice"
+      vs "rice vinegar"), `matchRecipesWithInventory` (percentage calculation,
+      sorting, staple exclusion, canMake flag), `isStapleIngredient`,
+      `getCanonicalIngredientName` (synonym stability, bidirectional mapping)
+- [ ] **Fractions tests** (`fractions.test.ts`, ~15 tests) — `parseAmount`
+      (integers, decimals, fractions, mixed numbers, division by zero, empty
+      string, non-numeric), `formatAmount` (whole numbers, common fractions,
+      mixed numbers, snap-to-nearest, zero), `scaleAmount` (scaling, null input,
+      unparseable passthrough)
+- [ ] **Ingredient parser tests** (`ingredient-parser.server.test.ts`, ~15
+      tests) — `parseIngredient` (standard "2 cups flour", no-space metric
+      "600g broccoli", no amount "salt", comma notes, unicode fractions,
+      checkbox format), `parseISODuration` (PT30M, PT1H15M, PT0M, invalid)
+
+#### Phase 9B — Shopping & inventory unit tests
+
+- [ ] **Shopping list subtraction tests** (extend `shopping-list.server.test.ts`,
+      ~13 tests) — `subtractInventoryFromShoppingList` (removes staples, removes
+      in-stock items, keeps low-stock items, correct removedCount), serving
+      scaling (ratio doubles amounts, ratio halves, missing amount passthrough,
+      servings=0 fallback)
+- [ ] **Category guessing tests** (`shopping-list-validation.test.ts`, ~10
+      tests) — `guessCategory` (tomato→produce, chicken→meat, milk→dairy,
+      flour→pantry, bread→bakery, frozen peas→frozen, unknown→other)
+- [ ] **Date utility tests** (`date.test.ts`, ~10 tests) — `getWeekStart`
+      (returns Monday), `getWeekDays` (7 days Mon-Sun), `getNextWeek`/
+      `getPreviousWeek`, `serializeDate`/`parseDate` round-trip, `isToday`
+
+#### Phase 9C — Integration tests (DB-backed)
+
+- [ ] **Inventory subtraction integration** (`inventory-subtract.server.test.ts`,
+      ~9 tests) — subtracts matching quantities, marks low stock at 0, skips
+      staples, skips missing inventory match, skips incompatible units, handles
+      unit conversion (tbsp→cup), respects serving ratio, quantity never < 0,
+      nonexistent recipe is no-op
+- [ ] **Meal plan actions** (~10 tests) — assign recipe to slot, duplicate
+      assignment is idempotent, update servings, toggle cooked, remove entry,
+      copy week (duplicates entries +7 days, skips existing, preserves
+      servings), entry not found 404
+- [ ] **Shopping list actions** (~8 tests) — generate from meal plan end-to-end,
+      generate removes staples/inventory, generate replaces previous generated
+      items, add manual item, toggle checked, delete item, clear checked, no
+      meal plan 404
+- [ ] **Recipe CRUD actions** (~12 tests) — create with valid data, validation
+      failure, view detail with ingredients/instructions/tags/logs, 404 for
+      nonexistent, 403 for other user's recipe, toggle favorite, log cook, log
+      cook with subtractInventory, delete cook log
+
+#### Phase 9D — E2E happy paths (Playwright)
+
+- [ ] **Recipe CRUD flow** (`recipes.test.ts`) — create recipe with title,
+      ingredients, instructions, tags → verify in list → view detail → edit →
+      delete
+- [ ] **Meal plan flow** (`meal-plan.test.ts`) — assign recipe to slot → verify
+      in calendar → copy week → navigate to next week → verify → mark cooked
+- [ ] **Shopping list flow** (`shopping-list.test.ts`) — generate from meal
+      plan → verify categorized items → add manual item → check items → clear
+      checked
+- [ ] **Inventory flow** (`inventory.test.ts`) — add item → verify by location
+      → edit → delete → pantry staples onboarding
+
+#### Phase 9E — E2E edge cases
+
+- [ ] **Discover page flow** (`discover.test.ts`) — with recipes + inventory
+      shows match cards → "Show Only Makeable" filter → empty states
+- [ ] **Cooking log flow** (`cooking-log.test.ts`) — "I Made This" with rating
+      and notes → verify in history → subtract inventory checkbox → delete log
+- [ ] **Recipe import flow** (`recipe-import.test.ts`) — enter URL → preview →
+      confirm → verify recipe created (requires MSW mock for external fetch)
+
+### Phase 10: SEO Audit & Overhaul
+
+**Goal**: Make the app discoverable by search engines and shareable on social
+media. The app currently has zero indexable recipe content and no structured
+data.
+
+#### Audit findings (by severity)
+
+**Critical:**
+1. No JSON-LD Recipe structured data on recipe detail pages
+2. Missing `meta` exports (title/description) on most pages — every page shows
+   generic "Quartermaster" title
+3. No Open Graph or Twitter Card meta tags anywhere — shared links have no
+   preview
+4. All content pages are auth-gated — search engines can't index any recipe
+   content
+5. Marketing pages (about, privacy, tos, support) are empty one-line stubs
+
+**Important:**
+6. Sitemap is empty — all routes return `getSitemapEntries: () => null`
+7. No `<link rel="canonical">` tags — filter params create duplicate URLs
+8. Heading hierarchy skip (h1→h3) on landing page
+9. "Epic Notes" branding in onboarding meta title
+10. No `<main>` landmark in root layout
+11. No user-editable image alt text; missing alt on placeholder recipe cards
+12. No font loading strategy (potential CLS impact)
+
+**Nice-to-have:**
+13. UUID URLs instead of human-readable slugs
+14. No preload hints for above-the-fold recipe images
+15. No Cache-Control headers on HTML pages
+16. Web manifest missing description field
+17. Star rating buttons lack aria-labels
+18. No `<noscript>` fallback
+
+#### Implementation items
+
+##### Quick wins (single session)
+
+- [ ] **Fix "Epic Notes" branding** — Change onboarding meta title from "Setup
+      Epic Notes Account" to "Setup Quartermaster Account"
+- [ ] **Add `meta` exports to all routes** — Recipe detail: `{recipe.title} |
+      Quartermaster` with description. All other pages: descriptive titles for
+      browser tabs and bookmarks.
+- [ ] **Add canonical URLs** — Global `<link rel="canonical">` in root.tsx
+      using `requestInfo.origin + requestInfo.path` (strips query params)
+- [ ] **Add `<main>` landmark** — Wrap `<Outlet>` in `<main>` in root.tsx
+- [ ] **Fix heading hierarchy** — Add `<h2>` section headings on landing page
+      before the `<h3>` feature cards
+- [ ] **Add web manifest description** — Add `description` field to
+      `public/site.webmanifest`
+- [ ] **Star rating accessibility** — Add `aria-label` to star buttons and
+      `StarDisplay` wrapper
+
+##### Open Graph & social sharing
+
+- [ ] **Global OG tags** — Add `og:site_name`, `og:type`, `og:locale`,
+      `twitter:card` to root.tsx meta
+- [ ] **Per-page OG tags** — Recipe detail: `og:title`, `og:description`,
+      `og:image` (recipe image URL), `og:url`, `twitter:title`,
+      `twitter:description`, `twitter:image`
+
+##### Structured data
+
+- [ ] **JSON-LD Recipe schema** — Add `<script type="application/ld+json">` to
+      recipe detail page with `@type: Recipe`, `name`, `description`, `image`,
+      `prepTime`/`cookTime`/`totalTime` (ISO 8601 duration),
+      `recipeYield`, `recipeIngredient` (string array),
+      `recipeInstructions` (HowToStep array), `recipeCategory` (from tags),
+      `aggregateRating` (from cooking logs if available)
+
+##### Content & indexability
+
+- [ ] **Fill marketing pages** — Write real content for about, privacy policy,
+      terms of service, and support pages
+- [ ] **Add marketing pages to sitemap** — Return sitemap entries for `/`,
+      `/about`, `/privacy`, `/tos`, `/support`
+- [ ] **Public recipe sharing** (optional, largest lift) — Add `/r/$recipeId`
+      public read-only route that doesn't require auth. Include JSON-LD, OG
+      tags, and sitemap entries for shared recipes. This is the single highest
+      SEO ceiling item but requires an opt-in sharing mechanism per recipe.
+
+##### Performance & polish
+
+- [ ] **Image alt text** — Add `role="img"` and `aria-label` to placeholder
+      gradient recipe cards
+- [ ] **Font loading** — Verify font loading strategy, add `font-display: swap`
+      and `<link rel="preconnect">` if using web fonts
+- [ ] **Cache-Control headers** — Add `Cache-Control: public, max-age=300` to
+      marketing pages via `headers` export
 
 ### Backlog
 
@@ -221,9 +432,10 @@ Lower-priority items to reconsider once the app has been in daily use:
       only. Significant scope: touches data ownership model, most queries, and
       auth. Worth doing once the core app is stable and in daily use by both
       people.
-- [ ] Recipe sharing via public link
 - [ ] Bulk import (paste-and-parse for Apple Notes at scale)
-- [ ] Performance audit (optimize queries, lazy load images, bundle analysis)
+- [ ] Performance audit (optimize queries, lazy load images, bundle analysis).
+      Phase 10 covers SEO-adjacent perf items (font loading, cache headers, image
+      preload); this covers deeper work like query profiling and bundle analysis.
 - [ ] Nutrition info via external API
 - [ ] Bun runtime migration - Faster CI and native TypeScript, but minimal
       user-facing value for a personal app. React Router v7 Bun support has edge
@@ -241,6 +453,9 @@ simple to implement.
 
 When missing an ingredient, AI suggests practical alternatives with context on
 how it affects the recipe. "No buttermilk? Use 1 cup milk + 1 tbsp lemon juice."
+This goes beyond the synonym database (Phase 8), which handles direct equivalents
+(parmesan ↔ pecorino, tamari ↔ soy sauce). AI substitutions are contextual —
+they consider the recipe, suggest compound replacements, and explain trade-offs.
 
 ### Smart Inventory via Photo
 
@@ -268,12 +483,13 @@ how it affects the recipe. "No buttermilk? Use 1 cup milk + 1 tbsp lemon juice."
 - [x] App is usable in the kitchen (wake lock, tap-to-cross-off)
 - [x] Deployed and accessible on mobile
 - [ ] 50+ real recipes imported (replacing Apple Notes as primary store)
-- [ ] Data is backed up / exportable
-- [ ] App has its own visual identity (not recognizable as Epic Stack template)
+- [x] Data is backed up / exportable (Phase 5: JSON export)
+- [x] App has its own visual identity (Phase 6: full UI overhaul)
 
 ---
 
 _Document created: February 2026_ _Last updated: February 6, 2026 - Completed
-Phase 7: shopping list normalization fix, ingredient auto-suggest, meal plan
-serving sizes with shopping list scaling, cooking log with star ratings, and
-copy week to next week._
+Phase 8. Added Phase 9 (test coverage expansion) and Phase 10 (SEO audit &
+overhaul). Updated "What's Built" summary to cover Phases 1-8. Marked completed
+success metrics. Removed backlog items captured in Phase 10. Clarified AI
+substitutions vs synonym database._

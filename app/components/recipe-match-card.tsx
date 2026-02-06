@@ -53,6 +53,8 @@ export function RecipeMatchCard({ match }: RecipeMatchCardProps) {
 					/>
 				) : (
 					<div
+						role="img"
+						aria-label={`${recipe.title} recipe`}
 						className={cn(
 							'flex h-full w-full items-center justify-center bg-gradient-to-br transition-transform group-hover:scale-105',
 							getRecipeGradient(recipe.title),

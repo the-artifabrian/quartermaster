@@ -1,8 +1,14 @@
-import { Link, redirect } from 'react-router'
+import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { data, Link, redirect } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
+import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { type Route } from './+types/index.ts'
+
+export const handle: SEOHandle = {
+	getSitemapEntries: () => [{ route: '', priority: 1.0 }],
+}
 
 export const meta: Route.MetaFunction = () => [{ title: 'Quartermaster' }]
 
@@ -12,12 +18,16 @@ export async function loader({ request }: Route.LoaderArgs) {
 	if (userId) {
 		throw redirect('/recipes')
 	}
-	return null
+	return data(null, {
+		headers: { 'Cache-Control': 'public, max-age=300' },
+	})
 }
+
+export const headers: Route.HeadersFunction = pipeHeaders
 
 export default function Index() {
 	return (
-		<div className="font-poppins">
+		<div>
 			{/* Hero Section */}
 			<section className="grid place-items-center px-4 py-20 text-center md:py-28">
 				<div className="max-w-2xl">

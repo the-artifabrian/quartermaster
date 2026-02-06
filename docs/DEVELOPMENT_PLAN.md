@@ -76,7 +76,12 @@ implemented:
 - `<link rel="canonical">` on all pages (strips query params)
 - `<main>` landmark wrapping page content
 - Web manifest with app description
+- Open Graph and Twitter Card meta tags (global defaults + per-recipe with image)
+- JSON-LD Recipe structured data (ingredients, instructions, times, ratings)
+- Marketing pages with real content (about, privacy, ToS, support) in sitemap
+- `Cache-Control: public, max-age=300` on marketing pages
 - Accessible star rating buttons and displays (aria-labels, role="img")
+- Recipe card placeholder accessibility (role="img", aria-label)
 
 ### Test Coverage
 
@@ -102,20 +107,16 @@ implemented:
 Priority is driven by daily use — features that remove friction from the core
 cooking workflow come first.
 
-### Phases 5-8 ✅ (complete)
+### Phases 5-8 ✅
 
-- **Phase 5 — Recipe Growth & Quick Access**: URL import (JSON-LD scraping),
-  quick text entry, favorites, source URL tracking, "Surprise me", JSON export
-- **Phase 6 — UI Refresh & Onboarding**: Landing page redesign, removed sample
-  data seeding, pantry staples onboarding, page headers, card redesign, search
-  UI, navigation active states, recipe detail polish, form layout, empty states
-- **Phase 7 — Shopping List Accuracy & Smarter Planning**: Ingredient
-  normalization with canonical names, auto-suggest in recipe forms, meal plan
-  serving sizes, cooking log with star ratings, copy week to next week
-- **Phase 8 — Quality of Life**: Shopping list unit conversion (tbsp + cup),
-  expanded synonym database (~20 groups), cook time filter, print-friendly
-  shopping list, subtract ingredients from inventory after cooking, mark meal as
-  cooked, expiration-based recipe suggestions
+- **Phase 5**: URL import, quick text entry, favorites, "Surprise me", JSON
+  export
+- **Phase 6**: Landing page redesign, pantry staples onboarding, card redesign,
+  empty states, navigation polish
+- **Phase 7**: Ingredient normalization, auto-suggest, meal plan servings,
+  cooking log with ratings, copy week
+- **Phase 8**: Unit conversion, expanded synonyms, cook time filter,
+  print-friendly shopping list, inventory subtraction, mark cooked
 
 ### Phase 9: Test Coverage Expansion (9A-C complete, 9D-E remaining)
 
@@ -145,157 +146,110 @@ inventory subtraction, meal plan actions, recipe CRUD).
 - [ ] **Recipe import flow** (`recipe-import.test.ts`) — enter URL → preview →
       confirm → verify recipe created (requires MSW mock for external fetch)
 
-### Phase 10: SEO Audit & Overhaul
+### Phase 10: SEO Audit & Overhaul ✅
 
-**Goal**: Make the app discoverable by search engines and shareable on social
-media. The app currently has zero indexable recipe content and no structured
-data.
+Audited 18 SEO/accessibility issues and resolved 15 of them:
 
-#### Audit findings (by severity)
+- Fixed branding ("Epic Notes" → "Quartermaster"), added `meta` exports to all
+  17 routes, canonical URLs, `<main>` landmark, heading hierarchy, web manifest
+  description
+- Open Graph + Twitter Card meta tags (global defaults in root, per-recipe with
+  `og:image` 1200x630 and `summary_large_image`)
+- JSON-LD Recipe structured data on recipe detail (`recipeIngredient`,
+  `recipeInstructions` as HowToStep, ISO 8601 durations, `recipeCategory`,
+  `recipeCuisine`, `aggregateRating` from cooking logs)
+- Marketing pages: real content (about, privacy, ToS, support), sitemap entries
+  with priority, `Cache-Control: public, max-age=300`
+- Accessibility: star rating aria-labels, `role="img"` on StarDisplay and recipe
+  card gradient placeholders, removed unused `font-poppins` class
 
-**Critical:**
-1. No JSON-LD Recipe structured data on recipe detail pages
-2. Missing `meta` exports (title/description) on most pages — every page shows
-   generic "Quartermaster" title
-3. No Open Graph or Twitter Card meta tags anywhere — shared links have no
-   preview
-4. All content pages are auth-gated — search engines can't index any recipe
-   content
-5. Marketing pages (about, privacy, tos, support) are empty one-line stubs
+**Unresolved (not worth the complexity):** auth-gated content (no public recipe
+pages), UUID URLs vs slugs, image preload hints, `<noscript>` fallback. Public
+recipe sharing is tracked in backlog.
 
-**Important:**
-6. Sitemap is empty — all routes return `getSitemapEntries: () => null`
-7. No `<link rel="canonical">` tags — filter params create duplicate URLs
-8. Heading hierarchy skip (h1→h3) on landing page
-9. "Epic Notes" branding in onboarding meta title
-10. No `<main>` landmark in root layout
-11. No user-editable image alt text; missing alt on placeholder recipe cards
-12. No font loading strategy (potential CLS impact)
+### Phase 11: Workflow Polish
 
-**Nice-to-have:**
-13. UUID URLs instead of human-readable slugs
-14. No preload hints for above-the-fold recipe images
-15. No Cache-Control headers on HTML pages
-16. Web manifest missing description field
-17. Star rating buttons lack aria-labels
-18. No `<noscript>` fallback
+Small, high-impact improvements to reduce daily friction. No schema migrations
+required for most items.
 
-#### Implementation items
+- [ ] **Shopping list → inventory pipeline** — When checking off shopping list
+      items (meaning "I bought this"), offer to add them to inventory with
+      pre-filled name, location, and quantity. This closes the biggest workflow
+      gap: without it, inventory accuracy degrades after every shopping trip.
+      Build this before any AI inventory features — it's the manual fallback
+      that must exist regardless.
+- [ ] **"Last cooked" on recipe cards** — Show "Last made: 3 weeks ago" or
+      "Made 5 times" on recipe list cards. Low lift — join cooking logs in
+      the recipes loader. Helps answer "what haven't I made in a while?"
+      without clicking into each recipe.
+- [ ] **Recipe personal notes** — A free-text "My notes" field on the Recipe
+      model for persistent reminders ("always double the garlic", "serve with
+      rice", "kids don't like this"). Different from description (recipe's own
+      text) and cooking log (per-cook reflections).
+- [ ] **Cooking timer** — A simple floating timer on the recipe detail page.
+      Number input + start/pause/reset. No instruction parsing — just a manual
+      kitchen timer that lives on the page. Useful when cooking with messy hands
+      and the phone is propped up.
+- [ ] **Duplicate detection on import** — When importing from URL, check for
+      existing recipes with the same `sourceUrl` or very similar title. Show
+      "You may already have this recipe" warning. Prevents clutter as the
+      library grows past 50+ recipes.
+- [ ] **PWA / offline recipe access** — Service worker to cache the
+      currently-viewed recipe and the current week's meal plan. The app already
+      has a web manifest and wake lock — offline access would make it
+      significantly more reliable in kitchens with spotty connectivity.
 
-##### Quick wins (single session)
+### Phase 12: AI Features
 
-- [x] **Fix "Epic Notes" branding** — Change onboarding meta title from "Setup
-      Epic Notes Account" to "Setup Quartermaster Account". Also fixed email
-      subject and body in change-email flow.
-- [x] **Add `meta` exports to all routes** — Recipe detail: `{recipe.title} |
-      Quartermaster` (dynamic). All other pages: descriptive titles for
-      browser tabs and bookmarks. 17 routes updated.
-- [x] **Add canonical URLs** — Global `<link rel="canonical">` in root.tsx
-      using `requestInfo.origin + requestInfo.path` (strips query params)
-- [x] **Add `<main>` landmark** — Wrap `<Outlet>` in `<main>` in root.tsx.
-      Changed landing page `<main>` to `<div>` to avoid nested landmarks.
-- [x] **Fix heading hierarchy** — Add `<h2>` section headings on landing page
-      before the `<h3>` feature cards
-- [x] **Add web manifest description** — Add `description` field to
-      `public/site.webmanifest`
-- [x] **Star rating accessibility** — Add `aria-label` to star buttons and
-      `role="img"` + `aria-label` to `StarDisplay` wrapper
+Claude API (Sonnet or Haiku) for text, vision for images. Estimated cost:
+~$0.01-0.03 per call (affordable for personal use). API key in environment
+variables.
 
-##### Open Graph & social sharing
+- [ ] **Receipt scanning → inventory** — Photo of grocery receipt, AI extracts
+      item names, quantities, and guesses storage locations. Review/confirm
+      screen before adding to inventory. Receipts are structured text so
+      extraction is reliable. The main challenge is mapping abbreviated receipt
+      line items ("ORG BROCCOLINI", "GV 2% MLK") to clean inventory names.
+      Build after the manual shopping → inventory pipeline (Phase 11) exists as
+      a fallback.
+- [ ] **Ingredient substitutions** — When a recipe ingredient is missing from
+      inventory, suggest practical alternatives with context: "No buttermilk?
+      Use 1 cup milk + 1 tbsp lemon juice." Goes beyond the synonym database
+      (Phase 8) — AI substitutions are contextual, consider the recipe, and
+      explain trade-offs.
 
-- [ ] **Global OG tags** — Add `og:site_name`, `og:type`, `og:locale`,
-      `twitter:card` to root.tsx meta
-- [ ] **Per-page OG tags** — Recipe detail: `og:title`, `og:description`,
-      `og:image` (recipe image URL), `og:url`, `twitter:title`,
-      `twitter:description`, `twitter:image`
+### Phase 13: Nutrition & Insights
 
-##### Structured data
-
-- [ ] **JSON-LD Recipe schema** — Add `<script type="application/ld+json">` to
-      recipe detail page with `@type: Recipe`, `name`, `description`, `image`,
-      `prepTime`/`cookTime`/`totalTime` (ISO 8601 duration),
-      `recipeYield`, `recipeIngredient` (string array),
-      `recipeInstructions` (HowToStep array), `recipeCategory` (from tags),
-      `aggregateRating` (from cooking logs if available)
-
-##### Content & indexability
-
-- [ ] **Fill marketing pages** — Write real content for about, privacy policy,
-      terms of service, and support pages
-- [ ] **Add marketing pages to sitemap** — Return sitemap entries for `/`,
-      `/about`, `/privacy`, `/tos`, `/support`
-- [ ] **Public recipe sharing** (optional, largest lift) — Add `/r/$recipeId`
-      public read-only route that doesn't require auth. Include JSON-LD, OG
-      tags, and sitemap entries for shared recipes. This is the single highest
-      SEO ceiling item but requires an opt-in sharing mechanism per recipe.
-
-##### Performance & polish
-
-- [ ] **Image alt text** — Add `role="img"` and `aria-label` to placeholder
-      gradient recipe cards
-- [ ] **Font loading** — Verify font loading strategy, add `font-display: swap`
-      and `<link rel="preconnect">` if using web fonts
-- [ ] **Cache-Control headers** — Add `Cache-Control: public, max-age=300` to
-      marketing pages via `headers` export
+- [ ] **Per-recipe nutrition estimates** — Hit a nutrition API (Nutritionix or
+      Edamam) with the ingredient list to get estimated calories and macros.
+      Display on recipe detail page. Numbers will be rough estimates (portion
+      sizes, cooking methods, and brands all affect accuracy) — present them
+      as approximations, not precise counts.
+- [ ] **Monthly cooking summary** — Simple stats from cooking logs: meals
+      cooked this month, most-made recipes, average rating, estimated
+      calories if nutrition data is available. Light analytics, not full diet
+      tracking — only covers meals logged in Quartermaster, so explicitly
+      don't position it as comprehensive calorie counting.
 
 ### Backlog
 
 Lower-priority items to reconsider once the app has been in daily use:
 
-- [ ] PWA / offline support - The app has a web manifest and is installable, but
-      has no service worker or offline caching. For a kitchen app with wake lock
-      support, offline access to the current recipe would reduce friction. Build
-      if connectivity proves to be a real problem.
-- [ ] Drag-and-drop recipes on meal plan (desktop)
-- [ ] Shared household - Invite another account (e.g. partner) to share recipes,
+- [ ] Shared household — Invite another account (e.g. partner) to share recipes,
       inventory, meal plans, and shopping lists. Both users see and edit the same
       data. Requires a "household" or "group" concept that owns the data instead
-      of individual users, plus invite/accept flow and permission scoping. This is
-      the highest-impact social feature — cooking and inventory are shared
-      activities in most households, and without this the app is single-player
-      only. Significant scope: touches data ownership model, most queries, and
-      auth. Worth doing once the core app is stable and in daily use by both
+      of individual users, plus invite/accept flow and permission scoping.
+      Highest-impact social feature — cooking is a shared activity in most
+      households. Significant scope: touches data ownership model, most queries,
+      and auth. Worth doing once the core app is stable and in daily use by both
       people.
+- [ ] Public recipe sharing — `/r/$recipeId` public read-only route without
+      auth, with JSON-LD, OG tags, and sitemap entries. Requires opt-in sharing
+      toggle per recipe. Highest SEO ceiling item.
 - [ ] Bulk import (paste-and-parse for Apple Notes at scale)
-- [ ] Performance audit (optimize queries, lazy load images, bundle analysis).
-      Phase 10 covers SEO-adjacent perf items (font loading, cache headers, image
-      preload); this covers deeper work like query profiling and bundle analysis.
-- [ ] Nutrition info via external API
-- [ ] Bun runtime migration - Faster CI and native TypeScript, but minimal
-      user-facing value for a personal app. React Router v7 Bun support has edge
-      cases. Revisit when the framework ecosystem is more stable.
-
----
-
-## AI-Powered Features (Future)
-
-The one AI feature worth building first is **ingredient substitutions** — it
-solves a real moment ("I'm about to cook but I'm missing one thing") and is
-simple to implement.
-
-### Ingredient Substitutions
-
-When missing an ingredient, AI suggests practical alternatives with context on
-how it affects the recipe. "No buttermilk? Use 1 cup milk + 1 tbsp lemon juice."
-This goes beyond the synonym database (Phase 8), which handles direct equivalents
-(parmesan ↔ pecorino, tamari ↔ soy sauce). AI substitutions are contextual —
-they consider the recipe, suggest compound replacements, and explain trade-offs.
-
-### Smart Inventory via Photo
-
-- **Receipt scanning** - Photo of grocery receipt -> AI extracts items,
-  quantities, locations
-- **Grocery photo scanning** - Photo of groceries on counter -> AI identifies
-  items and quantities
-- Review screen before confirming additions to inventory
-- Large feature surface — camera access, image upload, API calls, review UI.
-  Build only if manual inventory entry becomes a real pain point.
-
-### Implementation Notes
-
-- Claude API (Sonnet or Haiku) for text features, with vision for photo scanning
-- Estimated cost: ~$0.003-0.015 per call (affordable for personal use)
-- Store API key in environment variables, not in codebase
+- [ ] Performance audit (query profiling, lazy load images, bundle analysis)
+- [ ] Bun runtime migration — revisit when React Router v7 Bun support is more
+      stable
 
 ---
 
@@ -312,11 +266,10 @@ they consider the recipe, suggest compound replacements, and explain trade-offs.
 
 ---
 
-_Document created: February 2026_ _Last updated: February 6, 2026 - Completed
-Phase 10 quick wins (branding fixes, meta exports on 17 routes, canonical URLs,
-main landmark, heading hierarchy, web manifest description, star rating
-accessibility). Completed Phase 9A-C (unit + integration tests: 190 tests across
-16 files). Added Phase 9 (test coverage expansion) and Phase 10 (SEO audit &
-overhaul). Updated "What's Built" summary to cover Phases 1-8. Marked completed
-success metrics. Removed backlog items captured in Phase 10. Clarified AI
-substitutions vs synonym database._
+_Document created: February 2026_ _Last updated: February 6, 2026 - Reorganized
+roadmap: added Phase 11 (workflow polish: shopping→inventory pipeline, last
+cooked, recipe notes, cooking timer, duplicate detection, PWA offline), Phase 12
+(AI: receipt scanning, ingredient substitutions), Phase 13 (nutrition estimates,
+monthly cooking summary). Moved shared household and public sharing to backlog.
+Removed drag-and-drop, nutrition API, and grocery haul photo as standalone items.
+Previously: completed Phase 10 SEO, Phase 9A-C tests._

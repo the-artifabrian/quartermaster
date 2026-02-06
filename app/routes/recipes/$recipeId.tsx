@@ -4,7 +4,13 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { format } from 'date-fns'
 import { Img } from 'openimg/react'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Form, Link, useFetcher, useSearchParams } from 'react-router'
+import {
+	Form,
+	Link,
+	useFetcher,
+	useRouteLoaderData,
+	useSearchParams,
+} from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
@@ -20,11 +26,47 @@ export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
 }
 
-export const meta: Route.MetaFunction = ({ data }) => {
-	const title = data?.recipe?.title
-		? `${data.recipe.title} | Quartermaster`
+export const meta: Route.MetaFunction = ({ data, matches }) => {
+	const recipe = data?.recipe
+	const title = recipe?.title
+		? `${recipe.title} | Quartermaster`
 		: 'Recipe | Quartermaster'
-	return [{ title }]
+	const description = recipe?.description || `View recipe for ${recipe?.title ?? 'a dish'}`
+
+	const rootMatch = matches.find((m) => m?.id === 'root')
+	const origin = (rootMatch?.data as { requestInfo?: { origin?: string } } | undefined)
+		?.requestInfo?.origin
+
+	const meta: ReturnType<Route.MetaFunction> = [
+		{ title },
+		{ name: 'description', content: description },
+		{ property: 'og:title', content: title },
+		{ property: 'og:description', content: description },
+		{ property: 'og:type', content: 'article' },
+		{ property: 'og:site_name', content: 'Quartermaster' },
+	]
+
+	if (origin && recipe) {
+		meta.push({ property: 'og:url', content: `${origin}/recipes/${recipe.id}` })
+	}
+
+	if (origin && recipe?.image?.objectKey) {
+		const imageUrl = `${origin}/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}&w=1200&h=630&fit=cover`
+		meta.push(
+			{ property: 'og:image', content: imageUrl },
+			{ name: 'twitter:card', content: 'summary_large_image' },
+			{ name: 'twitter:image', content: imageUrl },
+		)
+	} else {
+		meta.push({ name: 'twitter:card', content: 'summary' })
+	}
+
+	meta.push(
+		{ name: 'twitter:title', content: title },
+		{ name: 'twitter:description', content: description },
+	)
+
+	return meta
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -238,8 +280,87 @@ function StarDisplay({ rating }: { rating: number }) {
 	)
 }
 
+function toIsoDuration(minutes: number | null | undefined): string | undefined {
+	if (!minutes) return undefined
+	const h = Math.floor(minutes / 60)
+	const m = minutes % 60
+	return `PT${h ? `${h}H` : ''}${m ? `${m}M` : ''}`
+}
+
+function getRecipeJsonLd(
+	recipe: {
+		title: string
+		description: string | null
+		servings: number
+		prepTime: number | null
+		cookTime: number | null
+		image: { objectKey: string; altText: string | null } | null
+		ingredients: Array<{ name: string; amount: string | null; unit: string | null }>
+		instructions: Array<{ content: string }>
+		tags: Array<{ name: string; category: string }>
+	},
+	cookingLogs: Array<{ rating: number | null }>,
+	origin: string | undefined,
+) {
+	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
+	const ratings = cookingLogs
+		.map((l) => l.rating)
+		.filter((r): r is number => r !== null && r > 0)
+
+	const jsonLd: Record<string, unknown> = {
+		'@context': 'https://schema.org',
+		'@type': 'Recipe',
+		name: recipe.title,
+		...(recipe.description && { description: recipe.description }),
+		...(recipe.servings && { recipeYield: `${recipe.servings} servings` }),
+		...(recipe.prepTime && { prepTime: toIsoDuration(recipe.prepTime) }),
+		...(recipe.cookTime && { cookTime: toIsoDuration(recipe.cookTime) }),
+		...(totalTime > 0 && { totalTime: toIsoDuration(totalTime) }),
+		recipeIngredient: recipe.ingredients.map((i) =>
+			[i.amount, i.unit, i.name].filter(Boolean).join(' '),
+		),
+		recipeInstructions: recipe.instructions.map((step, idx) => ({
+			'@type': 'HowToStep',
+			position: idx + 1,
+			text: step.content,
+		})),
+	}
+
+	const mealTypes = recipe.tags
+		.filter((t) => t.category === 'meal-type')
+		.map((t) => t.name)
+	if (mealTypes.length > 0) jsonLd.recipeCategory = mealTypes
+
+	const cuisines = recipe.tags
+		.filter((t) => t.category === 'cuisine')
+		.map((t) => t.name)
+	if (cuisines.length > 0) jsonLd.recipeCuisine = cuisines
+
+	if (origin && recipe.image?.objectKey) {
+		jsonLd.image = `${origin}/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}&w=1200&h=630&fit=cover`
+	}
+
+	if (ratings.length > 0) {
+		const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length
+		jsonLd.aggregateRating = {
+			'@type': 'AggregateRating',
+			ratingValue: Math.round(avg * 10) / 10,
+			ratingCount: ratings.length,
+			bestRating: 5,
+			worstRating: 1,
+		}
+	}
+
+	return jsonLd
+}
+
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const { recipe, cookingLogs } = loaderData
+	const rootData = useRouteLoaderData('root') as
+		| { requestInfo?: { origin?: string } }
+		| undefined
+	const origin = rootData?.requestInfo?.origin
+	const recipeJsonLd = getRecipeJsonLd(recipe, cookingLogs, origin)
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
 	const [searchParams, setSearchParams] = useSearchParams()
 	const favoriteFetcher = useFetcher()
@@ -316,6 +437,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="container max-w-4xl py-6">
+			<script
+				type="application/ld+json"
+				dangerouslySetInnerHTML={{
+					__html: JSON.stringify(recipeJsonLd),
+				}}
+			/>
 			{/* Header */}
 			<div className="mb-4">
 				<Link

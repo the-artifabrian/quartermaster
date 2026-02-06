@@ -24,6 +24,10 @@ export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
 }
 
+export const meta: Route.MetaFunction = () => {
+	return [{ title: 'Edit Recipe | Quartermaster' }]
+}
+
 export async function loader({ request, params }: Route.LoaderArgs) {
 	const userId = await requireUserId(request)
 	const { recipeId } = params

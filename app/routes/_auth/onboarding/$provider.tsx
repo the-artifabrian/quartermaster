@@ -160,7 +160,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Setup Epic Notes Account' }]
+	return [{ title: 'Setup Quartermaster Account' }]
 }
 
 export default function OnboardingProviderRoute({

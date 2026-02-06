@@ -16,5 +16,6 @@
 	],
 	"theme_color": "#52a868",
 	"background_color": "#f8fdf9",
+	"description": "Your personal recipe manager. Store recipes, track ingredients, plan meals, and generate shopping lists.",
 	"display": "standalone"
 }

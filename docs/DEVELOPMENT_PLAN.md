@@ -12,7 +12,7 @@ generation.
 
 ---
 
-## What's Built (Phases 1-8) ✅
+## What's Built (Phases 1-10) ✅
 
 The app is feature-complete for daily use. Here's a summary of everything
 implemented:
@@ -64,10 +64,26 @@ implemented:
 ### UI & Design
 
 - Custom color system (sage green + peach accent, OKLch) and typography
-- Redesigned landing page explaining the app's value proposition
+- Redesigned landing page with value proposition, feature cards, and CTAs
 - Card redesign with location color-coding, tag pills, and match badges
 - Polished empty states with contextual icons and CTAs
 - Active navigation states for desktop and mobile
+- Proper heading hierarchy (h1 → h2 → h3) on all pages
+
+### SEO & Accessibility
+
+- Descriptive `<title>` on every page (e.g., `Chicken Tikka | Quartermaster`)
+- `<link rel="canonical">` on all pages (strips query params)
+- `<main>` landmark wrapping page content
+- Web manifest with app description
+- Accessible star rating buttons and displays (aria-labels, role="img")
+
+### Test Coverage
+
+- 190 unit and integration tests across 16 files
+- Covers: recipe matching, fractions, ingredient parsing, shopping list
+  generation/subtraction, date utilities, inventory subtraction, unit
+  conversion, meal plan actions, recipe CRUD actions, category guessing
 
 ### Infrastructure
 
@@ -86,220 +102,26 @@ implemented:
 Priority is driven by daily use — features that remove friction from the core
 cooking workflow come first.
 
-### Phase 5: Recipe Growth & Quick Access
+### Phases 5-8 ✅ (complete)
 
-**Goal**: Get real recipes into the app fast and make the collection easy to
-navigate
+- **Phase 5 — Recipe Growth & Quick Access**: URL import (JSON-LD scraping),
+  quick text entry, favorites, source URL tracking, "Surprise me", JSON export
+- **Phase 6 — UI Refresh & Onboarding**: Landing page redesign, removed sample
+  data seeding, pantry staples onboarding, page headers, card redesign, search
+  UI, navigation active states, recipe detail polish, form layout, empty states
+- **Phase 7 — Shopping List Accuracy & Smarter Planning**: Ingredient
+  normalization with canonical names, auto-suggest in recipe forms, meal plan
+  serving sizes, cooking log with star ratings, copy week to next week
+- **Phase 8 — Quality of Life**: Shopping list unit conversion (tbsp + cup),
+  expanded synonym database (~20 groups), cook time filter, print-friendly
+  shopping list, subtract ingredients from inventory after cooking, mark meal as
+  cooked, expiration-based recipe suggestions
 
-- [x] **Import from URL** - Scrape recipes from websites using JSON-LD
-      structured data. This is the fastest path to growing the collection from
-      web sources.
-- [x] **Quick recipe entry** - Paste-and-save freeform text input for recipes
-      that don't come from a URL. Many Apple Notes recipes are plain text —
-      making users fill every structured field (dynamic ingredient arrays,
-      separate amount/unit/notes per ingredient) is too slow for bulk migration.
-      A simple title + text body that can be structured later.
-- [x] **Favorite/bookmark recipes** - Boolean field + filter. Low effort, high
-      daily value for quick access to go-to recipes.
-- [x] **Recipe source URL** - Store where a recipe came from (useful alongside
-      URL import).
-- [x] **"Surprise me"** - Random recipe from collection. Trivial to implement
-      (single random query), adds personality to the app once the collection
-      grows. No reason to wait for a later phase.
-- [x] **JSON export** - Download all recipes as JSON for backup. Important for
-      data safety, but the app is already deployed on Fly.io with a managed
-      database — this isn't as urgent as getting recipes in.
+### Phase 9: Test Coverage Expansion (9A-C complete, 9D-E remaining)
 
-### Phase 6: UI Refresh & Onboarding Overhaul
-
-**Goal**: Make the app feel like its own product, not a styled Epic Stack
-template. Remove training wheels and let real features carry the experience.
-
-The color system (sage green + peach accent, OKLch) and typography scale are
-already custom. But page layouts, cards, forms, and navigation still follow
-generic shadcn/Epic Stack patterns. This phase focuses on the areas with the
-highest visual impact. Do this after importing real recipes so you're designing
-around actual content, not sample data.
-
-- [x] **Landing page redesign** - The homepage should explain what Quartermaster
-      is and why it exists: recipe management, inventory tracking, meal planning,
-      and smart shopping lists. Show the value proposition clearly for new
-      visitors and provide a compelling entry point. Currently it's a generic
-      Epic Stack landing page that says nothing about the app.
-- [x] **Remove sample recipe/inventory seeding** - Delete
-      `prisma/seed-sample-data.ts` and remove all `seedSampleData()` calls:
-      `seed.ts` (kody dev user), `auth.server.ts` (email signup + OAuth signup).
-      Now that URL import and quick text entry exist, auto-seeding 18 recipes
-      and 38 inventory items is clutter, not help. New users start with an empty
-      library and use the import/entry tools to build their own collection.
-      Update CLAUDE.md references to sample data accordingly.
-- [x] **Recommended pantry staples** - Replace auto-seeded inventory with an
-      opt-in "recommended pantry staples" feature. Show a curated checklist of
-      common staples (oils, spices, flour, sugar, salt, etc.) on the empty
-      inventory state or as part of a first-use onboarding step. Users select
-      what they actually have and add with one tap. Better than force-feeding 38
-      items because it reflects what the user actually owns. Can reuse/expand the
-      existing quick-add shortcuts (30 common ingredients) as a starting point.
-- [x] **Page headers and visual hierarchy** - All main pages use a `bg-muted/30`
-      header band with title, subtitle/count, and primary actions. Inventory
-      "All" view has color-coded location dots (amber/blue/cyan) on section
-      headings.
-- [x] **Card redesign** - Recipe cards use `ring-1 ring-border` with
-      overflow-hidden, cook time inline with title, sage-tinted tag pills
-      (`bg-primary/10`), capped at 3 with "+N". Inventory cards have
-      `border-l-4` color-coded by location, pill badges for low-stock and
-      expiry with dark mode variants. Meal slot empty states use dashed borders.
-      Match cards have backdrop-blur badge and styled missing-ingredients box.
-- [x] **Search and filter UI** - Search and tag filters wrapped in a
-      `bg-muted/30 rounded-xl` zone with contrasting input background. Active
-      tag pills get shadow-sm lift. Added result count and "Clear all filters"
-      link when filters are active.
-- [x] **Navigation active states** - Desktop nav uses NavLink with
-      `text-primary border-b-2 border-primary` active indicator; inactive links
-      use `text-muted-foreground`. Mobile bottom nav adds a `bg-primary` bar at
-      the top of the active tab with bold label text.
-- [x] **Recipe detail page** - Wider `max-w-4xl` container, `tracking-tight`
-      title, action buttons as ghost sm below title with text labels.
-      `bg-muted/30 rounded-xl` stat bar with vertical dividers. Sage-tinted
-      tags. Ingredients in `bg-muted/20 rounded-xl` panel with "Scaled" badge.
-      Edge-to-edge image on mobile, `rounded-xl` on desktop.
-- [x] **Form layout** - Each section (Photo, Details, Tags, Ingredients,
-      Instructions) wrapped in `rounded-xl border p-6` cards with section
-      headers. Alternating row backgrounds on ingredient fields. Submit buttons
-      separated with `border-t pt-6`.
-- [x] **Empty states** - All empty states use a `bg-muted/50 rounded-full
-      size-20` icon circle, `max-w-sm` constrained text, and contextual copy.
-      Recipes page has dual CTAs (Add Recipe + Import from URL) and a separate
-      "No matches found" state with clear-filters link. Discover has four
-      distinct states with contextual icons. Shopping list uses dashed border.
-
-### Phase 7: Shopping List Accuracy & Smarter Planning
-
-**Goal**: Fix data quality issues that compound as the recipe collection grows,
-and reduce meal planning friction
-
-- [x] **Fix shopping list ingredient normalization** - Added
-      `getCanonicalIngredientName()` that maps synonyms to a stable canonical
-      key (alphabetically first equivalent). Shopping list consolidation now
-      uses the full normalization pipeline — "Fresh Garlic" and "garlic, minced"
-      correctly merge into one entry. Includes unit tests.
-- [x] **Ingredient auto-suggest in recipe forms** - Resource route
-      (`/resources/ingredient-suggestions`) returns distinct ingredient names
-      from the user's recipes. `IngredientFields` component loads suggestions
-      via `useFetcher`, merges with `COMMON_INGREDIENTS`, and renders a native
-      HTML `<datalist>` — zero UI dependencies, accessible, works on all
-      browsers.
-- [x] **Meal plan serving sizes** - Added `servings Int?` to MealPlanEntry
-      schema. Inline +/- controls on each meal slot entry. Shopping list
-      generation scales ingredient amounts by the serving ratio
-      (`entryServings / recipeServings`). Copy-week preserves servings.
-- [x] **Recipe history (cooking log)** - New `CookingLog` model with
-      `cookedAt`, `notes`, and `rating` (1-5 stars). "I Made This" button on
-      recipe detail page expands an inline form. Cooking history section at
-      bottom shows past events with star ratings and notes. Delete support via
-      double-check button.
-- [x] **Copy week to next week** - Button in meal plan header duplicates all
-      entries with dates shifted +7 days, preserving serving overrides. Skips
-      entries that already exist in the target week. Redirects to next week
-      after copying.
-
-### Phase 8: Quality of Life
-
-**Goal**: Polish based on real usage patterns
-
-- [x] **Shopping list unit consolidation** - Added `unit-conversion.ts` with
-      unit families (US volume, US weight, metric volume, metric weight) and
-      alias normalization. Shopping list now converts compatible units (e.g.,
-      2 tbsp + 1 cup = 1 1/8 cup) instead of showing "2×". Prefers display
-      units that appeared in the input for natural results.
-- [x] **Expand synonym database** - Added synonym groups for soy sauces
-      (tamari, shoyu), proteins (chicken ↔ chicken breast/thigh), hard cheeses
-      (parmesan ↔ pecorino ↔ grana padano), yogurt, sugars (icing sugar),
-      leavening (baking soda ↔ bicarbonate of soda), starch (cornstarch ↔
-      corn starch), vegetables (eggplant ↔ aubergine, arugula ↔ rocket,
-      green beans ↔ string/french beans), and alliums (shallot → onion).
-      Synonym keys aligned with post-normalization names.
-- [x] **Filter by cook time** - Added `maxTime` URL param to recipes page
-      with `<select>` dropdown (Any time, Under 30 min, Under 1 hour, Under
-      2 hours). Post-filters recipes where prepTime + cookTime ≤ maxTime.
-- [x] **Print shopping list** - Added print button and Tailwind `print:`
-      variants. Interactive elements (forms, buttons, bottom nav) hidden on
-      print; items show Unicode checkbox characters (☐/☑) for print.
-- [x] **Subtract ingredients from inventory after cooking** - New
-      `inventory-subtract.server.ts` with `subtractRecipeIngredientsFromInventory()`.
-      Matches recipe ingredients to inventory items, subtracts quantities when
-      units match, marks low stock when depleted. "I Made This" form includes
-      optional "Subtract ingredients from inventory" checkbox.
-- [x] **Mark meal as "cooked" in meal plan** - Added `cooked Boolean` to
-      MealPlanEntry schema. Toggle button on each meal slot entry with
-      optimistic UI (green checkmark, strikethrough title, dimmed opacity).
-- [x] **Expiration-based suggestions** - Discover page shows "Use It Before
-      You Lose It" section when inventory items expire within 7 days. Displays
-      up to 6 matching recipes sorted by how many expiring ingredients they use.
-      Hidden when no expirations exist.
-
-### Phase 9: Test Coverage Expansion
-
-**Goal**: Build confidence in the codebase by testing the core business logic
-and critical user flows that Phases 1-8 shipped without test coverage
-
-As of Phase 8: 41 tests across 7 files. Zero coverage of Quartermaster-specific
-business logic (recipe matching, fractions, ingredient parsing, meal planning,
-discover). All existing tests are Epic Stack infrastructure or Phase 7-8
-utilities.
-
-#### Phase 9A — High-value pure unit tests (no DB, fast to write)
-
-- [ ] **Recipe matching tests** (`recipe-matching.server.test.ts`, ~25 tests) —
-      `normalizeIngredientName` (modifier stripping, pluralization, alternatives,
-      comma removal), `ingredientMatchesInventoryItem` (exact match, synonym
-      match, core word match, multi-word containment, negative cases like "rice"
-      vs "rice vinegar"), `matchRecipesWithInventory` (percentage calculation,
-      sorting, staple exclusion, canMake flag), `isStapleIngredient`,
-      `getCanonicalIngredientName` (synonym stability, bidirectional mapping)
-- [ ] **Fractions tests** (`fractions.test.ts`, ~15 tests) — `parseAmount`
-      (integers, decimals, fractions, mixed numbers, division by zero, empty
-      string, non-numeric), `formatAmount` (whole numbers, common fractions,
-      mixed numbers, snap-to-nearest, zero), `scaleAmount` (scaling, null input,
-      unparseable passthrough)
-- [ ] **Ingredient parser tests** (`ingredient-parser.server.test.ts`, ~15
-      tests) — `parseIngredient` (standard "2 cups flour", no-space metric
-      "600g broccoli", no amount "salt", comma notes, unicode fractions,
-      checkbox format), `parseISODuration` (PT30M, PT1H15M, PT0M, invalid)
-
-#### Phase 9B — Shopping & inventory unit tests
-
-- [ ] **Shopping list subtraction tests** (extend `shopping-list.server.test.ts`,
-      ~13 tests) — `subtractInventoryFromShoppingList` (removes staples, removes
-      in-stock items, keeps low-stock items, correct removedCount), serving
-      scaling (ratio doubles amounts, ratio halves, missing amount passthrough,
-      servings=0 fallback)
-- [ ] **Category guessing tests** (`shopping-list-validation.test.ts`, ~10
-      tests) — `guessCategory` (tomato→produce, chicken→meat, milk→dairy,
-      flour→pantry, bread→bakery, frozen peas→frozen, unknown→other)
-- [ ] **Date utility tests** (`date.test.ts`, ~10 tests) — `getWeekStart`
-      (returns Monday), `getWeekDays` (7 days Mon-Sun), `getNextWeek`/
-      `getPreviousWeek`, `serializeDate`/`parseDate` round-trip, `isToday`
-
-#### Phase 9C — Integration tests (DB-backed)
-
-- [ ] **Inventory subtraction integration** (`inventory-subtract.server.test.ts`,
-      ~9 tests) — subtracts matching quantities, marks low stock at 0, skips
-      staples, skips missing inventory match, skips incompatible units, handles
-      unit conversion (tbsp→cup), respects serving ratio, quantity never < 0,
-      nonexistent recipe is no-op
-- [ ] **Meal plan actions** (~10 tests) — assign recipe to slot, duplicate
-      assignment is idempotent, update servings, toggle cooked, remove entry,
-      copy week (duplicates entries +7 days, skips existing, preserves
-      servings), entry not found 404
-- [ ] **Shopping list actions** (~8 tests) — generate from meal plan end-to-end,
-      generate removes staples/inventory, generate replaces previous generated
-      items, add manual item, toggle checked, delete item, clear checked, no
-      meal plan 404
-- [ ] **Recipe CRUD actions** (~12 tests) — create with valid data, validation
-      failure, view detail with ingredients/instructions/tags/logs, 404 for
-      nonexistent, 403 for other user's recipe, toggle favorite, log cook, log
-      cook with subtractInventory, delete cook log
+190 tests across 16 files. All Quartermaster-specific business logic is covered
+(recipe matching, fractions, ingredient parsing, shopping list, date utilities,
+inventory subtraction, meal plan actions, recipe CRUD).
 
 #### Phase 9D — E2E happy paths (Playwright)
 
@@ -362,20 +184,22 @@ data.
 
 ##### Quick wins (single session)
 
-- [ ] **Fix "Epic Notes" branding** — Change onboarding meta title from "Setup
-      Epic Notes Account" to "Setup Quartermaster Account"
-- [ ] **Add `meta` exports to all routes** — Recipe detail: `{recipe.title} |
-      Quartermaster` with description. All other pages: descriptive titles for
-      browser tabs and bookmarks.
-- [ ] **Add canonical URLs** — Global `<link rel="canonical">` in root.tsx
+- [x] **Fix "Epic Notes" branding** — Change onboarding meta title from "Setup
+      Epic Notes Account" to "Setup Quartermaster Account". Also fixed email
+      subject and body in change-email flow.
+- [x] **Add `meta` exports to all routes** — Recipe detail: `{recipe.title} |
+      Quartermaster` (dynamic). All other pages: descriptive titles for
+      browser tabs and bookmarks. 17 routes updated.
+- [x] **Add canonical URLs** — Global `<link rel="canonical">` in root.tsx
       using `requestInfo.origin + requestInfo.path` (strips query params)
-- [ ] **Add `<main>` landmark** — Wrap `<Outlet>` in `<main>` in root.tsx
-- [ ] **Fix heading hierarchy** — Add `<h2>` section headings on landing page
+- [x] **Add `<main>` landmark** — Wrap `<Outlet>` in `<main>` in root.tsx.
+      Changed landing page `<main>` to `<div>` to avoid nested landmarks.
+- [x] **Fix heading hierarchy** — Add `<h2>` section headings on landing page
       before the `<h3>` feature cards
-- [ ] **Add web manifest description** — Add `description` field to
+- [x] **Add web manifest description** — Add `description` field to
       `public/site.webmanifest`
-- [ ] **Star rating accessibility** — Add `aria-label` to star buttons and
-      `StarDisplay` wrapper
+- [x] **Star rating accessibility** — Add `aria-label` to star buttons and
+      `role="img"` + `aria-label` to `StarDisplay` wrapper
 
 ##### Open Graph & social sharing
 
@@ -489,7 +313,10 @@ they consider the recipe, suggest compound replacements, and explain trade-offs.
 ---
 
 _Document created: February 2026_ _Last updated: February 6, 2026 - Completed
-Phase 8. Added Phase 9 (test coverage expansion) and Phase 10 (SEO audit &
+Phase 10 quick wins (branding fixes, meta exports on 17 routes, canonical URLs,
+main landmark, heading hierarchy, web manifest description, star rating
+accessibility). Completed Phase 9A-C (unit + integration tests: 190 tests across
+16 files). Added Phase 9 (test coverage expansion) and Phase 10 (SEO audit &
 overhaul). Updated "What's Built" summary to cover Phases 1-8. Marked completed
 success metrics. Removed backlog items captured in Phase 10. Clarified AI
 substitutions vs synonym database._

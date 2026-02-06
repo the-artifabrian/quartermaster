@@ -18,7 +18,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 export default function Index() {
 	return (
 		<main className="font-poppins grid h-full place-items-center">
-			<div className="grid place-items-center px-4 py-16 max-w-2xl text-center">
+			<div className="grid max-w-2xl place-items-center px-4 py-16 text-center">
 				<div className="animate-slide-top [animation-fill-mode:backwards]">
 					<Icon name="cookie" className="text-foreground size-20" />
 				</div>
@@ -44,21 +44,21 @@ export default function Index() {
 					</Button>
 				</div>
 
-				<ul className="animate-slide-top mt-16 grid gap-4 text-left text-muted-foreground [animation-delay:0.9s] [animation-fill-mode:backwards] sm:grid-cols-2">
+				<ul className="animate-slide-top text-muted-foreground mt-16 grid gap-4 text-left [animation-delay:0.9s] [animation-fill-mode:backwards] sm:grid-cols-2">
 					<li className="flex items-start gap-3">
-						<Icon name="check" className="size-5 text-primary mt-0.5" />
+						<Icon name="check" className="text-primary mt-0.5 size-5" />
 						<span>Store and organize 100+ recipes</span>
 					</li>
 					<li className="flex items-start gap-3">
-						<Icon name="check" className="size-5 text-primary mt-0.5" />
+						<Icon name="check" className="text-primary mt-0.5 size-5" />
 						<span>Search by name or ingredients</span>
 					</li>
 					<li className="flex items-start gap-3">
-						<Icon name="check" className="size-5 text-primary mt-0.5" />
+						<Icon name="check" className="text-primary mt-0.5 size-5" />
 						<span>Track pantry, fridge & freezer</span>
 					</li>
 					<li className="flex items-start gap-3">
-						<Icon name="check" className="size-5 text-primary mt-0.5" />
+						<Icon name="check" className="text-primary mt-0.5 size-5" />
 						<span>Discover recipes you can make</span>
 					</li>
 				</ul>

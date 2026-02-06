@@ -48,12 +48,12 @@ export function MealSlotCard({
 }: MealSlotCardProps) {
 	const [isSelectingRecipe, setIsSelectingRecipe] = useState(false)
 
-	const assignedRecipeIds = entries.map(e => e.recipe.id)
+	const assignedRecipeIds = entries.map((e) => e.recipe.id)
 
 	if (entries.length === 0) {
 		return (
-			<div className="rounded-lg border bg-card p-4">
-				<div className="mb-2 text-xs font-medium text-muted-foreground">
+			<div className="bg-card rounded-lg border p-4">
+				<div className="text-muted-foreground mb-2 text-xs font-medium">
 					{MEAL_TYPE_LABELS[mealType]}
 				</div>
 				<div className="flex min-h-[100px] items-center justify-center">
@@ -72,7 +72,7 @@ export function MealSlotCard({
 							className="h-auto flex-col gap-1 py-4"
 						>
 							<Icon name="plus" size="lg" className="text-muted-foreground" />
-							<span className="text-xs text-muted-foreground">Add Recipe</span>
+							<span className="text-muted-foreground text-xs">Add Recipe</span>
 						</Button>
 					)}
 				</div>
@@ -81,14 +81,14 @@ export function MealSlotCard({
 	}
 
 	return (
-		<div className="group overflow-hidden rounded-lg border bg-card transition-shadow hover:shadow-md">
-			<div className="border-b bg-muted/50 p-2">
-				<p className="text-xs font-medium text-muted-foreground">
+		<div className="group bg-card overflow-hidden rounded-lg border transition-shadow hover:shadow-md">
+			<div className="bg-muted/50 border-b p-2">
+				<p className="text-muted-foreground text-xs font-medium">
 					{MEAL_TYPE_LABELS[mealType]}
 				</p>
 			</div>
 			<div className="space-y-2 p-3">
-				{entries.map(entry => (
+				{entries.map((entry) => (
 					<EntryRow key={entry.id} entry={entry} />
 				))}
 				{isSelectingRecipe ? (

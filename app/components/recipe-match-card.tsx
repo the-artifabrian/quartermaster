@@ -40,9 +40,9 @@ export function RecipeMatchCard({ match }: RecipeMatchCardProps) {
 	return (
 		<Link
 			to={`/recipes/${recipe.id}`}
-			className="group block rounded-lg border bg-card text-card-foreground shadow-sm transition-shadow hover:shadow-md"
+			className="group bg-card text-card-foreground block rounded-lg border shadow-sm transition-shadow hover:shadow-md"
 		>
-			<div className="aspect-[4/3] overflow-hidden rounded-t-lg bg-muted relative">
+			<div className="bg-muted relative aspect-[4/3] overflow-hidden rounded-t-lg">
 				{recipe.image?.objectKey ? (
 					<Img
 						src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
@@ -86,15 +86,18 @@ export function RecipeMatchCard({ match }: RecipeMatchCardProps) {
 			</div>
 			<div className="p-4">
 				<div className="flex items-start justify-between gap-2">
-					<h3 className="font-semibold line-clamp-1 group-hover:text-primary">
+					<h3 className="group-hover:text-primary line-clamp-1 font-semibold">
 						{recipe.title}
 					</h3>
 					{canMake && (
-						<Icon name="check" className="size-5 text-green-600 flex-shrink-0" />
+						<Icon
+							name="check"
+							className="size-5 flex-shrink-0 text-green-600"
+						/>
 					)}
 				</div>
 				{recipe.description && (
-					<p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+					<p className="text-muted-foreground mt-1 line-clamp-2 text-sm">
 						{recipe.description}
 					</p>
 				)}
@@ -103,7 +106,7 @@ export function RecipeMatchCard({ match }: RecipeMatchCardProps) {
 					{/* Time & Tags */}
 					<div className="flex flex-wrap items-center gap-2">
 						{totalTime > 0 && (
-							<span className="flex items-center gap-1 text-xs text-muted-foreground">
+							<span className="text-muted-foreground flex items-center gap-1 text-xs">
 								<Icon name="clock" size="xs" />
 								{totalTime} min
 							</span>
@@ -113,13 +116,13 @@ export function RecipeMatchCard({ match }: RecipeMatchCardProps) {
 								{recipe.tags.slice(0, 2).map((tag) => (
 									<span
 										key={tag.id}
-										className="rounded-full bg-secondary px-2 py-0.5 text-xs"
+										className="bg-secondary rounded-full px-2 py-0.5 text-xs"
 									>
 										{tag.name}
 									</span>
 								))}
 								{recipe.tags.length > 2 && (
-									<span className="text-xs text-muted-foreground">
+									<span className="text-muted-foreground text-xs">
 										+{recipe.tags.length - 2}
 									</span>
 								)}
@@ -129,7 +132,7 @@ export function RecipeMatchCard({ match }: RecipeMatchCardProps) {
 
 					{/* Missing Ingredients */}
 					{missingIngredients.length > 0 && (
-						<div className="text-xs text-muted-foreground">
+						<div className="text-muted-foreground text-xs">
 							<span className="font-medium">Missing:</span>{' '}
 							{missingIngredients
 								.slice(0, 3)
@@ -151,7 +154,7 @@ export function RecipeMatchCardGrid({
 	children: React.ReactNode
 }) {
 	return (
-		<div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+		<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
 			{children}
 		</div>
 	)

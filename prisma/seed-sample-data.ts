@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs'
 import path from 'path'
 import { prisma } from '#app/utils/db.server.ts'
+import { parseIngredient } from '#app/utils/ingredient-parser.server.ts'
 
 // Function to clean text by removing markdown links
 function cleanText(text: string): string {
@@ -10,80 +11,6 @@ function cleanText(text: string): string {
 		.trim()
 }
 
-// Common cooking units - only these should be treated as units
-const COMMON_UNITS = new Set([
-	'g', 'kg', 'mg', 'oz', 'lb', 'lbs', 'pound', 'pounds',
-	'ml', 'l', 'liter', 'liters', 'litre', 'litres', 'gallon', 'gallons', 'quart', 'quarts', 'pint', 'pints',
-	'cup', 'cups', 'tablespoon', 'tablespoons', 'tbsp', 'tsp', 'teaspoon', 'teaspoons',
-	'can', 'cans', 'jar', 'jars', 'bottle', 'bottles', 'package', 'packages', 'box', 'boxes',
-	'slice', 'slices', 'piece', 'pieces', 'whole', 'half', 'halves', 'clove', 'cloves',
-	'bunch', 'bunches', 'head', 'heads', 'stalk', 'stalks', 'sprig', 'sprigs',
-	'pinch', 'dash', 'handful',
-])
-
-// Function to parse ingredient line
-function parseIngredient(line: string): {
-	name: string
-	amount?: string
-	unit?: string
-	notes?: string
-} | null {
-	const cleaned = cleanText(line.replace(/^-\s*\[[ x]\]\s*/, '').trim())
-	if (!cleaned) return null
-
-	// Try to match: amount + optional unit + name
-	// Handle both "600 g broccoli" and "600g broccoli"
-	const match = cleaned.match(/^([\d.\/\-–]+)\s*([a-zA-Z]+)?\s+(.+)$/)
-
-	if (match) {
-		const amount = match[1]
-		const possibleUnit = match[2]
-		let remainder = match[3]?.trim() || ''
-		let unit: string | undefined = undefined
-		let name = ''
-		let notes: string | undefined = undefined
-
-		// Check if the matched word is a valid unit
-		if (possibleUnit && COMMON_UNITS.has(possibleUnit.toLowerCase())) {
-			unit = possibleUnit
-			name = remainder
-		} else if (possibleUnit) {
-			// If it's not a valid unit, it's part of the ingredient name
-			name = possibleUnit + ' ' + remainder
-		} else {
-			// Check if the first word of remainder is a valid unit
-			const words = remainder.split(/\s+/)
-			if (words.length > 1 && words[0] && COMMON_UNITS.has(words[0].toLowerCase())) {
-				unit = words[0]
-				name = words.slice(1).join(' ')
-			} else {
-				name = remainder
-			}
-		}
-
-		// Split name on comma to extract notes
-		if (name && name.includes(',')) {
-			const parts = name.split(',').map(s => s.trim())
-			name = parts[0] || ''
-			notes = parts.slice(1).join(', ')
-		}
-
-		return { name: name?.trim() || '', amount, unit, notes }
-	}
-
-	// For ingredients without amounts, also check for comma-separated notes
-	let name = cleaned
-	let notes: string | undefined = undefined
-
-	if (cleaned.includes(',')) {
-		const parts = cleaned.split(',').map(s => s.trim())
-		name = parts[0] || ''
-		notes = parts.slice(1).join(', ')
-	}
-
-	return { name, notes }
-}
-
 // Function to parse a recipe markdown file
 async function parseRecipeFile(filePath: string) {
 	const content = await fs.readFile(filePath, 'utf-8')
@@ -91,8 +18,12 @@ async function parseRecipeFile(filePath: string) {
 
 	let title = ''
 	let currentSection: 'none' | 'ingredients' | 'instructions' = 'none'
-	const ingredients: Array<{ name: string; amount?: string; unit?: string; notes?: string }> =
-		[]
+	const ingredients: Array<{
+		name: string
+		amount?: string
+		unit?: string
+		notes?: string
+	}> = []
 	const instructions: string[] = []
 
 	for (let line of lines) {

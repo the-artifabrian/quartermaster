@@ -33,6 +33,7 @@ type RecipeFormProps = {
 		servings: number
 		prepTime?: number | null
 		cookTime?: number | null
+		sourceUrl?: string | null
 		image?: { objectKey: string; altText?: string | null } | null
 		ingredients: Array<{
 			id: string
@@ -56,7 +57,9 @@ export function RecipeForm({
 	tags,
 	submitLabel = 'Save Recipe',
 }: RecipeFormProps) {
-	const actionData = useActionData<{ result: { error?: Record<string, string[]> } }>()
+	const actionData = useActionData<{
+		result: { error?: Record<string, string[]> }
+	}>()
 	const navigation = useNavigation()
 	const isSubmitting = navigation.state === 'submitting'
 	const formId = useId()
@@ -101,6 +104,7 @@ export function RecipeForm({
 			servings: recipe?.servings ?? 4,
 			prepTime: recipe?.prepTime ?? undefined,
 			cookTime: recipe?.cookTime ?? undefined,
+			sourceUrl: recipe?.sourceUrl ?? '',
 		},
 		shouldRevalidate: 'onBlur',
 		shouldValidate: 'onSubmit',
@@ -117,18 +121,15 @@ export function RecipeForm({
 		}
 	}
 
-	const tagsByCategory = tags.reduce<Record<string, Tag[]>>(
-		(acc, tag) => {
-			const category = acc[tag.category]
-			if (!category) {
-				acc[tag.category] = [tag]
-			} else {
-				category.push(tag)
-			}
-			return acc
-		},
-		{},
-	)
+	const tagsByCategory = tags.reduce<Record<string, Tag[]>>((acc, tag) => {
+		const category = acc[tag.category]
+		if (!category) {
+			acc[tag.category] = [tag]
+		} else {
+			category.push(tag)
+		}
+		return acc
+	}, {})
 
 	const categoryLabels: Record<string, string> = {
 		cuisine: 'Cuisine',
@@ -145,8 +146,10 @@ export function RecipeForm({
 		>
 			{/* Form-level errors */}
 			{form.errors && form.errors.length > 0 && (
-				<div className="rounded-lg border border-destructive bg-destructive/10 p-4">
-					<h3 className="font-semibold text-destructive mb-2">Please fix the following errors:</h3>
+				<div className="border-destructive bg-destructive/10 rounded-lg border p-4">
+					<h3 className="text-destructive mb-2 font-semibold">
+						Please fix the following errors:
+					</h3>
 					<ErrorList errors={form.errors} id={form.errorId} />
 				</div>
 			)}
@@ -155,7 +158,7 @@ export function RecipeForm({
 			<div className="space-y-2">
 				<Label>Recipe Image</Label>
 				<div className="flex items-start gap-4">
-					<div className="relative aspect-[4/3] w-40 overflow-hidden rounded-lg border bg-muted">
+					<div className="bg-muted relative aspect-[4/3] w-40 overflow-hidden rounded-lg border">
 						{imagePreview ? (
 							<Img
 								src={imagePreview}
@@ -166,7 +169,7 @@ export function RecipeForm({
 							/>
 						) : (
 							<div className="flex h-full w-full items-center justify-center">
-								<Icon name="camera" className="size-8 text-muted-foreground" />
+								<Icon name="camera" className="text-muted-foreground size-8" />
 							</div>
 						)}
 					</div>
@@ -178,7 +181,7 @@ export function RecipeForm({
 							onChange={handleImageChange}
 							className="w-auto"
 						/>
-						<p className="text-xs text-muted-foreground">
+						<p className="text-muted-foreground text-xs">
 							JPG, PNG or WebP. Max 3MB.
 						</p>
 					</div>
@@ -204,6 +207,15 @@ export function RecipeForm({
 						rows: 3,
 					}}
 					errors={fields.description.errors}
+				/>
+
+				<Field
+					labelProps={{ children: 'Source URL' }}
+					inputProps={{
+						...getInputProps(fields.sourceUrl, { type: 'url' }),
+						placeholder: 'https://example.com/recipe',
+					}}
+					errors={fields.sourceUrl.errors}
 				/>
 
 				<div className="grid grid-cols-3 gap-4">
@@ -242,7 +254,7 @@ export function RecipeForm({
 				<Label className="text-base font-semibold">Tags</Label>
 				{Object.entries(tagsByCategory).map(([category, categoryTags]) => (
 					<div key={category} className="space-y-2">
-						<Label className="text-sm text-muted-foreground">
+						<Label className="text-muted-foreground text-sm">
 							{categoryLabels[category] ?? category}
 						</Label>
 						<div className="flex flex-wrap gap-2">
@@ -284,20 +296,37 @@ export function RecipeForm({
 			</div>
 
 			{/* Ingredients */}
-			<IngredientFields
-				ingredients={ingredients}
-				onChange={setIngredients}
-			/>
+			<IngredientFields ingredients={ingredients} onChange={setIngredients} />
 			{/* Hidden inputs for ingredients */}
 			{ingredients.map((ingredient, index) => (
 				<div key={ingredient.id ?? index}>
 					{ingredient.id && (
-						<input type="hidden" name={`ingredients[${index}].id`} value={ingredient.id} />
+						<input
+							type="hidden"
+							name={`ingredients[${index}].id`}
+							value={ingredient.id}
+						/>
 					)}
-					<input type="hidden" name={`ingredients[${index}].name`} value={ingredient.name} />
-					<input type="hidden" name={`ingredients[${index}].amount`} value={ingredient.amount ?? ''} />
-					<input type="hidden" name={`ingredients[${index}].unit`} value={ingredient.unit ?? ''} />
-					<input type="hidden" name={`ingredients[${index}].notes`} value={ingredient.notes ?? ''} />
+					<input
+						type="hidden"
+						name={`ingredients[${index}].name`}
+						value={ingredient.name}
+					/>
+					<input
+						type="hidden"
+						name={`ingredients[${index}].amount`}
+						value={ingredient.amount ?? ''}
+					/>
+					<input
+						type="hidden"
+						name={`ingredients[${index}].unit`}
+						value={ingredient.unit ?? ''}
+					/>
+					<input
+						type="hidden"
+						name={`ingredients[${index}].notes`}
+						value={ingredient.notes ?? ''}
+					/>
 				</div>
 			))}
 
@@ -310,9 +339,17 @@ export function RecipeForm({
 			{instructions.map((instruction, index) => (
 				<div key={instruction.id ?? index}>
 					{instruction.id && (
-						<input type="hidden" name={`instructions[${index}].id`} value={instruction.id} />
+						<input
+							type="hidden"
+							name={`instructions[${index}].id`}
+							value={instruction.id}
+						/>
 					)}
-					<input type="hidden" name={`instructions[${index}].content`} value={instruction.content} />
+					<input
+						type="hidden"
+						name={`instructions[${index}].content`}
+						value={instruction.content}
+					/>
 				</div>
 			))}
 

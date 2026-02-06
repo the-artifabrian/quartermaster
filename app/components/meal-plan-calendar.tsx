@@ -32,10 +32,10 @@ export function MealPlanCalendar({
 
 	return (
 		<div className="space-y-6">
-			{MEAL_TYPES.map(mealType => (
+			{MEAL_TYPES.map((mealType) => (
 				<div key={mealType}>
 					<div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 md:grid md:grid-cols-7 md:overflow-visible">
-						{weekDays.map(date => {
+						{weekDays.map((date) => {
 							const key = `${date.toISOString()}-${mealType}`
 							const slotEntries = entryMap.get(key) || []
 

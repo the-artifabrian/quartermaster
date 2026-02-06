@@ -2,6 +2,12 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Link, useSearchParams } from 'react-router'
 import { RecipeCard, RecipeCardGrid } from '#app/components/recipe-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '#app/components/ui/dropdown-menu.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
@@ -20,9 +26,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const tagsParam = url.searchParams.get('tags') ?? ''
 	const selectedTagIds = tagsParam ? tagsParam.split(',').filter(Boolean) : []
 
+	const favoritesOnly = url.searchParams.get('favorites') === 'true'
+
 	const recipes = await prisma.recipe.findMany({
 		where: {
 			userId,
+			...(favoritesOnly && { isFavorite: true }),
 			...(search && {
 				OR: [
 					{ title: { contains: search } },
@@ -43,6 +52,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			description: true,
 			prepTime: true,
 			cookTime: true,
+			isFavorite: true,
 			image: { select: { objectKey: true } },
 			tags: { select: { id: true, name: true } },
 		},
@@ -54,11 +64,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		orderBy: [{ category: 'asc' }, { name: 'asc' }],
 	})
 
-	return { recipes, tags, search, selectedTagIds }
+	return { recipes, tags, search, selectedTagIds, favoritesOnly }
 }
 
 export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
-	const { recipes, tags, search, selectedTagIds } = loaderData
+	const { recipes, tags, search, selectedTagIds, favoritesOnly } = loaderData
 	const [searchParams, setSearchParams] = useSearchParams()
 
 	const handleSearchChange = useDebounce((value: string) => {
@@ -70,6 +80,16 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		}
 		setSearchParams(params, { replace: true })
 	}, 300)
+
+	const handleFavoritesToggle = () => {
+		const params = new URLSearchParams(searchParams)
+		if (favoritesOnly) {
+			params.delete('favorites')
+		} else {
+			params.set('favorites', 'true')
+		}
+		setSearchParams(params, { replace: true })
+	}
 
 	const handleTagClick = (tagId: string) => {
 		const params = new URLSearchParams(searchParams)
@@ -93,29 +113,69 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 			{/* Header */}
 			<div className="mb-6 flex items-center justify-between">
 				<h1 className="text-2xl font-bold">My Recipes</h1>
-				<Button asChild>
-					<Link to="/recipes/new">
-						<Icon name="plus" size="sm" />
-						New Recipe
-					</Link>
-				</Button>
+				<div className="flex gap-2">
+					<Button asChild variant="outline" size="sm">
+						<Link to="/resources/surprise-me">
+							<Icon name="shuffle" size="sm" />
+							Surprise Me
+						</Link>
+					</Button>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button>
+								<Icon name="plus" size="sm" />
+								New Recipe
+								<Icon name="chevron-down" size="sm" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem asChild>
+								<Link to="/recipes/new" className="gap-2">
+									<Icon name="pencil-1" size="sm" />
+									Full Recipe
+								</Link>
+							</DropdownMenuItem>
+							<DropdownMenuItem asChild>
+								<Link to="/recipes/quick" className="gap-2">
+									<Icon name="file-text" size="sm" />
+									Quick Entry
+								</Link>
+							</DropdownMenuItem>
+							<DropdownMenuItem asChild>
+								<Link to="/recipes/import" className="gap-2">
+									<Icon name="link-2" size="sm" />
+									Import from URL
+								</Link>
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</div>
 			</div>
 
 			{/* Search & Filters */}
 			<div className="mb-6 space-y-4">
-				<div className="relative">
-					<Icon
-						name="magnifying-glass"
-						className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
-						size="sm"
-					/>
-					<Input
-						type="search"
-						placeholder="Search recipes..."
-						defaultValue={search}
-						onChange={(e) => handleSearchChange(e.target.value)}
-						className="pl-10"
-					/>
+				<div className="flex gap-2">
+					<div className="relative flex-1">
+						<Icon
+							name="magnifying-glass"
+							className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
+							size="sm"
+						/>
+						<Input
+							type="search"
+							placeholder="Search recipes..."
+							defaultValue={search}
+							onChange={(e) => handleSearchChange(e.target.value)}
+							className="pl-10"
+						/>
+					</div>
+					<Button
+						variant={favoritesOnly ? 'default' : 'outline'}
+						onClick={handleFavoritesToggle}
+						title={favoritesOnly ? 'Show all recipes' : 'Show favorites only'}
+					>
+						<Icon name={favoritesOnly ? 'heart-filled' : 'heart'} size="sm" />
+					</Button>
 				</div>
 
 				{/* Tag filters */}
@@ -158,6 +218,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							prepTime={recipe.prepTime}
 							cookTime={recipe.cookTime}
 							tags={recipe.tags}
+							isFavorite={recipe.isFavorite}
 						/>
 					))}
 				</RecipeCardGrid>
@@ -166,11 +227,11 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					<Icon name="cookie" className="text-muted-foreground size-16" />
 					<h2 className="mt-4 text-xl font-semibold">No recipes yet</h2>
 					<p className="text-muted-foreground mt-2">
-						{search || selectedTagIds.length > 0
-							? 'No recipes match your search. Try different filters.'
+						{search || selectedTagIds.length > 0 || favoritesOnly
+							? 'No recipes match your filters. Try different criteria.'
 							: "Start by adding your first recipe. It's easy!"}
 					</p>
-					{!search && selectedTagIds.length === 0 && (
+					{!search && selectedTagIds.length === 0 && !favoritesOnly && (
 						<Button asChild className="mt-6">
 							<Link to="/recipes/new">
 								<Icon name="plus" size="sm" />

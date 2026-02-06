@@ -1,16 +1,21 @@
 # 👨‍🍳 Quartermaster
 
-Your personal recipe manager. Organize your recipes, track your ingredients, and discover what you can make with what you have.
+Your personal recipe manager. Organize your recipes, track your ingredients, and
+discover what you can make with what you have.
 
 ## Features
 
-- **Recipe Management**: Store and organize 100+ recipes with ingredients, instructions, prep/cook times, and tags
-- **Smart Search**: Full-text search across recipe titles, ingredients, and descriptions
+- **Recipe Management**: Store and organize 100+ recipes with ingredients,
+  instructions, prep/cook times, and tags
+- **Smart Search**: Full-text search across recipe titles, ingredients, and
+  descriptions
 - **Kitchen Inventory**: Track what's in your pantry, fridge, and freezer
 - **Recipe Discovery**: Find recipes based on ingredients you already have
 - **Match Percentage**: See how many ingredients you have for each recipe
-- **Mobile-First Design**: Beautiful, responsive interface with bottom navigation for easy mobile use
-- **Image Support**: Add photos to your recipes (or enjoy colorful gradient placeholders)
+- **Mobile-First Design**: Beautiful, responsive interface with bottom
+  navigation for easy mobile use
+- **Image Support**: Add photos to your recipes (or enjoy colorful gradient
+  placeholders)
 - **Tag System**: Organize by cuisine, meal type, and dietary preferences
 
 ## Getting Started
@@ -42,6 +47,7 @@ Visit http://localhost:3000 and create an account to get started!
 ## Sample Data
 
 New users automatically receive:
+
 - 18 sample recipes to explore
 - 38 sample inventory items (pantry, fridge, freezer)
 
@@ -76,11 +82,13 @@ npx prisma studio    # Open database GUI
 
 ## Documentation
 
-See the [Development Plan](docs/DEVELOPMENT_PLAN.md) for detailed project information.
+See the [Development Plan](docs/DEVELOPMENT_PLAN.md) for detailed project
+information.
 
 ## Built With
 
-This project was bootstrapped from the [Epic Stack](https://www.epicweb.dev/epic-stack) by Kent C. Dodds.
+This project was bootstrapped from the
+[Epic Stack](https://www.epicweb.dev/epic-stack) by Kent C. Dodds.
 
 ## License
 

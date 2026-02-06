@@ -5,15 +5,7 @@ export const ShoppingListItemSchema = z.object({
 	quantity: z.string().max(50).optional(),
 	unit: z.string().max(20).optional(),
 	category: z
-		.enum([
-			'produce',
-			'dairy',
-			'meat',
-			'pantry',
-			'frozen',
-			'bakery',
-			'other',
-		])
+		.enum(['produce', 'dairy', 'meat', 'pantry', 'frozen', 'bakery', 'other'])
 		.optional(),
 })
 

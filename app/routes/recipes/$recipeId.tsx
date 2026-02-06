@@ -2,7 +2,7 @@ import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Img } from 'openimg/react'
 import { useState, useEffect, useCallback } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useFetcher, useSearchParams } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
@@ -28,6 +28,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			servings: true,
 			prepTime: true,
 			cookTime: true,
+			isFavorite: true,
+			sourceUrl: true,
+			rawText: true,
 			userId: true,
 			image: { select: { objectKey: true, altText: true } },
 			ingredients: {
@@ -57,6 +60,32 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	invariantResponse(recipe.userId === userId, 'Not authorized', { status: 403 })
 
 	return { recipe }
+}
+
+export async function action({ request, params }: Route.ActionArgs) {
+	const userId = await requireUserId(request)
+	const { recipeId } = params
+
+	const recipe = await prisma.recipe.findUnique({
+		where: { id: recipeId },
+		select: { id: true, userId: true, isFavorite: true },
+	})
+
+	invariantResponse(recipe, 'Recipe not found', { status: 404 })
+	invariantResponse(recipe.userId === userId, 'Not authorized', { status: 403 })
+
+	const formData = await request.formData()
+	const intent = formData.get('intent')
+
+	if (intent === 'toggleFavorite') {
+		await prisma.recipe.update({
+			where: { id: recipeId },
+			data: { isFavorite: !recipe.isFavorite },
+		})
+		return { success: true }
+	}
+
+	return { success: false }
 }
 
 function useWakeLock() {
@@ -103,6 +132,11 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const { recipe } = loaderData
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
 	const [searchParams, setSearchParams] = useSearchParams()
+	const favoriteFetcher = useFetcher()
+	const isFavorite =
+		favoriteFetcher.formData?.get('intent') === 'toggleFavorite'
+			? !recipe.isFavorite
+			: recipe.isFavorite
 	const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
 		() => new Set(),
 	)
@@ -170,6 +204,17 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					<h1 className="text-3xl font-bold">{recipe.title}</h1>
 				</div>
 				<div className="flex gap-2">
+					<favoriteFetcher.Form method="POST">
+						<input type="hidden" name="intent" value="toggleFavorite" />
+						<Button
+							type="submit"
+							variant="outline"
+							title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+							className={isFavorite ? 'text-red-500 hover:text-red-600' : ''}
+						>
+							<Icon name={isFavorite ? 'heart-filled' : 'heart'} size="sm" />
+						</Button>
+					</favoriteFetcher.Form>
 					<Button
 						variant={wakeLock.isActive ? 'secondary' : 'outline'}
 						onClick={wakeLock.toggle}
@@ -273,11 +318,44 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				</div>
 			)}
 
+			{/* Source URL */}
+			{recipe.sourceUrl && (
+				<div className="mb-6">
+					<a
+						href={recipe.sourceUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm underline"
+					>
+						<Icon name="link-2" size="sm" />
+						{(() => {
+							try {
+								return new URL(recipe.sourceUrl).hostname.replace(/^www\./, '')
+							} catch {
+								return recipe.sourceUrl
+							}
+						})()}
+					</a>
+				</div>
+			)}
+
 			{/* Description */}
 			{recipe.description && (
 				<p className="text-muted-foreground mb-8 text-lg">
 					{recipe.description}
 				</p>
+			)}
+
+			{/* Raw Text (quick-entry recipes) */}
+			{recipe.rawText && (
+				<div className="mb-8">
+					<h2 className="mb-4 text-xl font-semibold">Recipe Notes</h2>
+					<div className="bg-muted/50 rounded-lg p-4">
+						<pre className="font-sans text-sm whitespace-pre-wrap">
+							{recipe.rawText}
+						</pre>
+					</div>
+				</div>
 			)}
 
 			<div className="grid gap-8 md:grid-cols-[1fr_2fr]">

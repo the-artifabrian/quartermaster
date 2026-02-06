@@ -91,7 +91,8 @@ export async function action({ request }: Route.ActionArgs) {
 		return data({ result: submission.reply() }, { status: 400 })
 	}
 
-	const { title, description, servings, prepTime, cookTime } = submission.value
+	const { title, description, servings, prepTime, cookTime, sourceUrl } =
+		submission.value
 
 	const recipe = await prisma.recipe.create({
 		data: {
@@ -100,6 +101,7 @@ export async function action({ request }: Route.ActionArgs) {
 			servings,
 			prepTime,
 			cookTime,
+			sourceUrl: sourceUrl || null,
 			userId,
 			ingredients: {
 				create: ingredients

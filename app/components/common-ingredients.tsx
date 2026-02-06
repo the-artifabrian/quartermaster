@@ -10,7 +10,7 @@ type CommonIngredientsProps = {
 export function CommonIngredients({ location }: CommonIngredientsProps) {
 	return (
 		<div className="space-y-3">
-			<h3 className="text-sm font-medium text-muted-foreground">
+			<h3 className="text-muted-foreground text-sm font-medium">
 				Common Ingredients
 			</h3>
 			<div className="flex flex-wrap gap-2">

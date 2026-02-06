@@ -1,4 +1,8 @@
-import { type Recipe, type Ingredient, type InventoryItem } from '@prisma/client'
+import {
+	type Recipe,
+	type Ingredient,
+	type InventoryItem,
+} from '@prisma/client'
 import {
 	ingredientMatchesInventoryItem,
 	isStapleIngredient,
@@ -79,12 +83,12 @@ function consolidateQuantities(
 	}
 
 	const firstUnit = quantities[0]!.unit ?? ''
-	const sameUnit = quantities.every(q => (q.unit ?? '') === firstUnit)
+	const sameUnit = quantities.every((q) => (q.unit ?? '') === firstUnit)
 
 	if (sameUnit) {
 		const numericQuantities = quantities
-			.map(q => parseFloat(q.amount ?? ''))
-			.filter(n => !isNaN(n))
+			.map((q) => parseFloat(q.amount ?? ''))
+			.filter((n) => !isNaN(n))
 
 		if (numericQuantities.length === quantities.length) {
 			const sum = numericQuantities.reduce((a, b) => a + b, 0)

@@ -96,7 +96,7 @@ function IngredientRow({
 	return (
 		<div className="space-y-2">
 			<div className="flex gap-2">
-				<div className="flex-1 min-w-0">
+				<div className="min-w-0 flex-1">
 					<Input
 						id={`${id}-name`}
 						placeholder="Ingredient name"

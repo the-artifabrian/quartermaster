@@ -31,26 +31,26 @@ export default function Index() {
 			{/* Hero Section */}
 			<section className="grid place-items-center px-4 py-20 text-center md:py-28">
 				<div className="max-w-2xl">
-					<div className="animate-slide-top [animation-fill-mode:backwards]">
+					<div className="animate-slide-top fill-mode-[backwards]">
 						<Icon name="cookie" className="text-foreground mx-auto size-16" />
 					</div>
 
 					<h1
 						data-heading
-						className="animate-slide-top text-foreground mt-6 text-4xl font-medium [animation-delay:0.2s] [animation-fill-mode:backwards] md:text-5xl xl:text-6xl"
+						className="animate-slide-top text-foreground fill-mode-[backwards] mt-6 text-4xl font-medium [animation-delay:0.2s] md:text-5xl xl:text-6xl"
 					>
 						Quartermaster
 					</h1>
 
 					<p
 						data-paragraph
-						className="animate-slide-top text-muted-foreground mx-auto mt-6 max-w-lg text-lg/7 [animation-delay:0.4s] [animation-fill-mode:backwards]"
+						className="animate-slide-top text-muted-foreground fill-mode-[backwards] mx-auto mt-6 max-w-lg text-lg/7 [animation-delay:0.4s]"
 					>
 						Your personal recipe manager. Store recipes, track what's in your
 						kitchen, plan meals, and never wonder what to cook again.
 					</p>
 
-					<div className="animate-slide-top mt-8 [animation-delay:0.6s] [animation-fill-mode:backwards]">
+					<div className="animate-slide-top fill-mode-[backwards] mt-8 [animation-delay:0.6s]">
 						<Button asChild size="lg">
 							<Link to="/login">Get Started</Link>
 						</Button>
@@ -59,7 +59,7 @@ export default function Index() {
 			</section>
 
 			{/* Features Section */}
-			<section className="animate-slide-top px-4 pb-16 [animation-delay:0.8s] [animation-fill-mode:backwards]">
+			<section className="animate-slide-top fill-mode-[backwards] px-4 pb-16 [animation-delay:0.8s]">
 				<h2 className="mb-6 text-center text-2xl font-semibold">
 					Key Features
 				</h2>
@@ -100,7 +100,7 @@ export default function Index() {
 			</section>
 
 			{/* How It Works */}
-			<section className="animate-slide-top px-4 pb-16 [animation-delay:1s] [animation-fill-mode:backwards]">
+			<section className="animate-slide-top fill-mode-[backwards] px-4 pb-16 [animation-delay:1s]">
 				<div className="mx-auto max-w-2xl">
 					<h2 className="text-center text-2xl font-semibold">How It Works</h2>
 					<div className="mt-8 space-y-6">
@@ -145,7 +145,7 @@ export default function Index() {
 			</section>
 
 			{/* Final CTA */}
-			<section className="animate-slide-top px-4 pb-20 text-center [animation-delay:1.2s] [animation-fill-mode:backwards]">
+			<section className="animate-slide-top fill-mode-[backwards] px-4 pb-20 text-center [animation-delay:1.2s]">
 				<h2 className="text-xl font-semibold">Ready to get organized?</h2>
 				<div className="mt-4">
 					<Button asChild size="lg">

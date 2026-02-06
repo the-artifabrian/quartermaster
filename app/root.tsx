@@ -65,6 +65,10 @@ export const meta: Route.MetaFunction = ({ data }) => {
 	return [
 		{ title: data ? 'Quartermaster' : 'Error | Quartermaster' },
 		{ name: 'description', content: `Your personal recipe manager` },
+		{ property: 'og:site_name', content: 'Quartermaster' },
+		{ property: 'og:type', content: 'website' },
+		{ property: 'og:locale', content: 'en_US' },
+		{ name: 'twitter:card', content: 'summary' },
 	]
 }
 

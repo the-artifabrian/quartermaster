@@ -75,6 +75,8 @@ export function RecipeCard({
 					/>
 				) : (
 					<div
+						role="img"
+						aria-label={`${title} recipe`}
 						className={cn(
 							'flex h-full w-full items-center justify-center bg-gradient-to-br transition-transform group-hover:scale-105',
 							getRecipeGradient(title),

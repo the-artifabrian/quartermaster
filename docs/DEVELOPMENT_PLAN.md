@@ -53,7 +53,7 @@ The MVP is complete and deployed. Here's a summary of everything implemented:
 
 - Deployed on Fly.io with custom domain, HTTPS, and email
 - Session-based auth with per-user recipe libraries
-- New user onboarding with 18 sample recipes + 38 inventory items
+- New user onboarding with recommended pantry staples checklist
 - Mobile-first responsive layout with bottom navigation
 - Responsive grid (1 col / 2 col / 3 col)
 
@@ -88,10 +88,10 @@ navigate
       data safety, but the app is already deployed on Fly.io with a managed
       database — this isn't as urgent as getting recipes in.
 
-### Phase 6: UI Refresh
+### Phase 6: UI Refresh & Onboarding Overhaul
 
 **Goal**: Make the app feel like its own product, not a styled Epic Stack
-template
+template. Remove training wheels and let real features carry the experience.
 
 The color system (sage green + peach accent, OKLch) and typography scale are
 already custom. But page layouts, cards, forms, and navigation still follow
@@ -99,6 +99,25 @@ generic shadcn/Epic Stack patterns. This phase focuses on the areas with the
 highest visual impact. Do this after importing real recipes so you're designing
 around actual content, not sample data.
 
+- [x] **Landing page redesign** - The homepage should explain what Quartermaster
+      is and why it exists: recipe management, inventory tracking, meal planning,
+      and smart shopping lists. Show the value proposition clearly for new
+      visitors and provide a compelling entry point. Currently it's a generic
+      Epic Stack landing page that says nothing about the app.
+- [x] **Remove sample recipe/inventory seeding** - Delete
+      `prisma/seed-sample-data.ts` and remove all `seedSampleData()` calls:
+      `seed.ts` (kody dev user), `auth.server.ts` (email signup + OAuth signup).
+      Now that URL import and quick text entry exist, auto-seeding 18 recipes
+      and 38 inventory items is clutter, not help. New users start with an empty
+      library and use the import/entry tools to build their own collection.
+      Update CLAUDE.md references to sample data accordingly.
+- [x] **Recommended pantry staples** - Replace auto-seeded inventory with an
+      opt-in "recommended pantry staples" feature. Show a curated checklist of
+      common staples (oils, spices, flour, sugar, salt, etc.) on the empty
+      inventory state or as part of a first-use onboarding step. Users select
+      what they actually have and add with one tap. Better than force-feeding 38
+      items because it reflects what the user actually owns. Can reuse/expand the
+      existing quick-add shortcuts (30 common ingredients) as a starting point.
 - [ ] **Page headers and visual hierarchy** - All pages currently use the same
       flat pattern: `text-2xl font-bold` title + content. Add section
       backgrounds, visual grouping, and better spacing to create distinct page
@@ -187,6 +206,15 @@ Lower-priority items to reconsider once the app has been in daily use:
       support, offline access to the current recipe would reduce friction. Build
       if connectivity proves to be a real problem.
 - [ ] Drag-and-drop recipes on meal plan (desktop)
+- [ ] Shared household - Invite another account (e.g. partner) to share recipes,
+      inventory, meal plans, and shopping lists. Both users see and edit the same
+      data. Requires a "household" or "group" concept that owns the data instead
+      of individual users, plus invite/accept flow and permission scoping. This is
+      the highest-impact social feature — cooking and inventory are shared
+      activities in most households, and without this the app is single-player
+      only. Significant scope: touches data ownership model, most queries, and
+      auth. Worth doing once the core app is stable and in daily use by both
+      people.
 - [ ] Recipe sharing via public link
 - [ ] Bulk import (paste-and-parse for Apple Notes at scale)
 - [ ] Performance audit (optimize queries, lazy load images, bundle analysis)
@@ -239,8 +267,6 @@ how it affects the recipe. "No buttermilk? Use 1 cup milk + 1 tbsp lemon juice."
 
 ---
 
-_Document created: February 2026_ _Last updated: February 6, 2026 - Reorganized
-roadmap after codebase analysis. Promoted quick recipe entry and "Surprise me"
-to Phase 5. Added Phase 6 UI refresh. Added shopping list normalization bug fix,
-ingredient auto-suggest, and meal plan serving sizes to Phase 7. Moved Bun
-migration to backlog._
+_Document created: February 2026_ _Last updated: February 6, 2026 - Implemented
+Phase 6 landing page, sample data removal, and pantry staples onboarding. Added
+shared household feature to backlog._

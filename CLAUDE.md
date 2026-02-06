@@ -32,8 +32,7 @@ npm run validate         # Run all checks: tests, lint, typecheck, e2e
 ```bash
 npx prisma studio        # Open Prisma Studio GUI for database browsing
 npx prisma migrate dev   # Create and apply new migration
-npx prisma db seed       # Seed database with sample data
-npm run reseed           # Clear all data and re-seed (runs scripts/reseed.ts)
+npx prisma db seed       # Seed database (permissions, tags, roles, admin user)
 npx prisma generate      # Regenerate Prisma client after schema changes
 ```
 
@@ -41,7 +40,6 @@ npx prisma generate      # Regenerate Prisma client after schema changes
 
 ```bash
 npm run setup            # Full setup: build, migrate, generate, seed, install Playwright
-tsx scripts/reseed.ts    # Clear and re-seed all user data
 ```
 
 ## Architecture Overview
@@ -88,8 +86,7 @@ app/
 prisma/
 ├── schema.prisma        # Database schema (Recipe, InventoryItem, User, etc.)
 ├── migrations/          # Migration history
-├── seed.ts              # Main seed file (calls seedSampleData for new users)
-└── seed-sample-data.ts  # Creates 18 sample recipes + 38 inventory items
+└── seed.ts              # Main seed file (permissions, tags, roles, admin user)
 
 tests/
 ├── e2e/                 # Playwright end-to-end tests
@@ -172,14 +169,13 @@ percentage.
 - `getUserId(request)` → userId | null (checks session)
 - `requireUserId(request)` → userId | throws redirect to /login (route guard)
 - `login({username, password})` → creates session
-- `signup({email, username, password})` → creates user + session, seeds sample
-  data
+- `signup({email, username, password})` → creates user + session
 - `logout({request, redirectTo})` → destroys session
 - `requireUserWithPermission(request, permission)` → enforces RBAC
 
-**New User Flow**: All new users automatically receive 18 sample recipes and 38
-inventory items via `seedSampleData()` (defined in
-`prisma/seed-sample-data.ts`).
+**New User Flow**: New users start with an empty library. The inventory page
+shows a recommended pantry staples onboarding checklist when the inventory is
+empty, letting users select common items they have on hand.
 
 ### Form Handling Pattern
 
@@ -318,17 +314,6 @@ expiresAt?, lowStock, userId
 #app/*   → ./app/*       // Use #app/utils/db.server.ts
 #tests/* → ./tests/*     // Use #tests/db-utils.ts
 ```
-
-## Sample Data
-
-New users automatically receive sample data via `prisma/seed-sample-data.ts`:
-
-- **18 sample recipes**: Carbonara, Tiramisu, Chicken Cacciatore, Gochujang
-  Chicken, etc.
-- **38 inventory items**: 16 pantry, 16 fridge, 6 freezer items
-
-To reset data: `npm run reseed` (clears all recipes/inventory and re-seeds for
-all users)
 
 ## Common Patterns
 

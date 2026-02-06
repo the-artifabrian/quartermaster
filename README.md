@@ -69,7 +69,6 @@ npm run build        # Build for production
 npm run start        # Start production server
 npm run typecheck    # Run TypeScript checks
 npm run lint         # Run ESLint
-npm run reseed       # Clear and re-seed sample data
 npx prisma studio    # Open database GUI
 ```
 

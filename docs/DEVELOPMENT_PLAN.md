@@ -118,33 +118,14 @@ cooking workflow come first.
 - **Phase 8**: Unit conversion, expanded synonyms, cook time filter,
   print-friendly shopping list, inventory subtraction, mark cooked
 
-### Phase 9: Test Coverage Expansion (9A-C complete, 9D-E remaining)
+### Phase 9: Test Coverage ✅
 
-190 tests across 16 files. All Quartermaster-specific business logic is covered
+190 unit and integration tests across 16 files. All business logic is covered
 (recipe matching, fractions, ingredient parsing, shopping list, date utilities,
-inventory subtraction, meal plan actions, recipe CRUD).
-
-#### Phase 9D — E2E happy paths (Playwright)
-
-- [ ] **Recipe CRUD flow** (`recipes.test.ts`) — create recipe with title,
-      ingredients, instructions, tags → verify in list → view detail → edit →
-      delete
-- [ ] **Meal plan flow** (`meal-plan.test.ts`) — assign recipe to slot → verify
-      in calendar → copy week → navigate to next week → verify → mark cooked
-- [ ] **Shopping list flow** (`shopping-list.test.ts`) — generate from meal
-      plan → verify categorized items → add manual item → check items → clear
-      checked
-- [ ] **Inventory flow** (`inventory.test.ts`) — add item → verify by location
-      → edit → delete → pantry staples onboarding
-
-#### Phase 9E — E2E edge cases
-
-- [ ] **Discover page flow** (`discover.test.ts`) — with recipes + inventory
-      shows match cards → "Show Only Makeable" filter → empty states
-- [ ] **Cooking log flow** (`cooking-log.test.ts`) — "I Made This" with rating
-      and notes → verify in history → subtract inventory checkbox → delete log
-- [ ] **Recipe import flow** (`recipe-import.test.ts`) — enter URL → preview →
-      confirm → verify recipe created (requires MSW mock for external fetch)
+inventory subtraction, meal plan actions, recipe CRUD). E2E happy-path tests
+were dropped — they'd mostly test that React Router and Prisma work, not app
+logic. Playwright E2E tests should be added selectively for complex cross-cutting
+workflows (e.g. shopping list → inventory pipeline) as those features are built.
 
 ### Phase 10: SEO Audit & Overhaul ✅
 
@@ -272,4 +253,6 @@ cooked, recipe notes, cooking timer, duplicate detection, PWA offline), Phase 12
 (AI: receipt scanning, ingredient substitutions), Phase 13 (nutrition estimates,
 monthly cooking summary). Moved shared household and public sharing to backlog.
 Removed drag-and-drop, nutrition API, and grocery haul photo as standalone items.
-Previously: completed Phase 10 SEO, Phase 9A-C tests._
+Dropped Phase 9D-E (Playwright E2E) — CRUD happy paths have poor ROI given
+existing unit/integration coverage. Previously: completed Phase 10 SEO, Phase
+9A-C tests._

@@ -1,10 +1,16 @@
 import { type InventoryItem } from '@prisma/client'
 import { Form, Link } from 'react-router'
 import { LOCATION_LABELS } from '#app/utils/inventory-validation.ts'
-import { useDoubleCheck } from '#app/utils/misc.tsx'
+import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { StatusButton } from './ui/status-button.tsx'
+
+const locationBorderColors: Record<string, string> = {
+	pantry: 'border-l-amber-500',
+	fridge: 'border-l-blue-500',
+	freezer: 'border-l-cyan-500',
+}
 
 type InventoryItemCardProps = {
 	item: InventoryItem
@@ -22,14 +28,18 @@ export function InventoryItemCard({
 	const isExpired = item.expiresAt && new Date(item.expiresAt) < new Date()
 
 	return (
-		<div className="group bg-card text-card-foreground rounded-lg border shadow-sm">
+		<div
+			className={cn(
+				'group bg-card text-card-foreground rounded-lg border border-l-4 shadow-sm',
+				locationBorderColors[item.location] ?? 'border-l-border',
+			)}
+		>
 			<div className="flex items-start justify-between gap-2 p-4">
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-2">
 						<h3 className="line-clamp-1 font-semibold">{item.name}</h3>
 						{item.lowStock && (
-							<span className="flex items-center gap-1 text-xs text-orange-600">
-								<Icon name="question-mark-circled" size="xs" />
+							<span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700 dark:bg-orange-950 dark:text-orange-400">
 								Low
 							</span>
 						)}
@@ -50,21 +60,20 @@ export function InventoryItemCard({
 						{item.expiresAt && (
 							<>
 								<span>•</span>
-								<span
-									className={
-										isExpired
-											? 'font-medium text-red-600'
-											: isExpiringSoon
-												? 'font-medium text-orange-600'
-												: ''
-									}
-								>
-									{isExpired
-										? 'Expired'
-										: isExpiringSoon
-											? 'Expires soon'
-											: `Expires ${new Date(item.expiresAt).toLocaleDateString()}`}
-								</span>
+								{isExpired ? (
+									<span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-400">
+										Expired
+									</span>
+								) : isExpiringSoon ? (
+									<span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+										Expires soon
+									</span>
+								) : (
+									<span>
+										Expires{' '}
+										{new Date(item.expiresAt).toLocaleDateString()}
+									</span>
+								)}
 							</>
 						)}
 					</div>

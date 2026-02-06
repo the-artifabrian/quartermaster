@@ -94,7 +94,7 @@ function IngredientRow({
 	const id = useId()
 
 	return (
-		<div className="space-y-2">
+		<div className={cn('space-y-2 rounded-lg p-2', index % 2 === 0 && 'bg-muted/30')}>
 			<div className="flex gap-2">
 				<div className="min-w-0 flex-1">
 					<Input

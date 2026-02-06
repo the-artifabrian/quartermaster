@@ -12,7 +12,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { useDebounce } from '#app/utils/misc.tsx'
+import { cn, useDebounce } from '#app/utils/misc.tsx'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -108,52 +108,67 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		setSearchParams(params, { replace: true })
 	}
 
+	const hasFilters = search || selectedTagIds.length > 0 || favoritesOnly
+
+	const handleClearFilters = () => {
+		setSearchParams(new URLSearchParams(), { replace: true })
+	}
+
 	return (
-		<div className="container py-6">
-			{/* Header */}
-			<div className="mb-6 flex items-center justify-between">
-				<h1 className="text-2xl font-bold">My Recipes</h1>
-				<div className="flex gap-2">
-					<Button asChild variant="outline" size="sm">
-						<Link to="/resources/surprise-me">
-							<Icon name="shuffle" size="sm" />
-							Surprise Me
-						</Link>
-					</Button>
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button>
-								<Icon name="plus" size="sm" />
-								New Recipe
-								<Icon name="chevron-down" size="sm" />
-							</Button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end">
-							<DropdownMenuItem asChild>
-								<Link to="/recipes/new" className="gap-2">
-									<Icon name="pencil-1" size="sm" />
-									Full Recipe
-								</Link>
-							</DropdownMenuItem>
-							<DropdownMenuItem asChild>
-								<Link to="/recipes/quick" className="gap-2">
-									<Icon name="file-text" size="sm" />
-									Quick Entry
-								</Link>
-							</DropdownMenuItem>
-							<DropdownMenuItem asChild>
-								<Link to="/recipes/import" className="gap-2">
-									<Icon name="link-2" size="sm" />
-									Import from URL
-								</Link>
-							</DropdownMenuItem>
-						</DropdownMenuContent>
-					</DropdownMenu>
+		<div className="pb-20 md:pb-6">
+			{/* Page Header */}
+			<div className="bg-muted/30">
+				<div className="container flex items-center justify-between py-6">
+					<div>
+						<h1 className="text-2xl font-bold">My Recipes</h1>
+						<p className="text-muted-foreground mt-1 text-sm">
+							{recipes.length} {recipes.length === 1 ? 'recipe' : 'recipes'}
+						</p>
+					</div>
+					<div className="flex gap-2">
+						<Button asChild variant="outline" size="sm">
+							<Link to="/resources/surprise-me">
+								<Icon name="shuffle" size="sm" />
+								Surprise Me
+							</Link>
+						</Button>
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button>
+									<Icon name="plus" size="sm" />
+									New Recipe
+									<Icon name="chevron-down" size="sm" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end">
+								<DropdownMenuItem asChild>
+									<Link to="/recipes/new" className="gap-2">
+										<Icon name="pencil-1" size="sm" />
+										Full Recipe
+									</Link>
+								</DropdownMenuItem>
+								<DropdownMenuItem asChild>
+									<Link to="/recipes/quick" className="gap-2">
+										<Icon name="file-text" size="sm" />
+										Quick Entry
+									</Link>
+								</DropdownMenuItem>
+								<DropdownMenuItem asChild>
+									<Link to="/recipes/import" className="gap-2">
+										<Icon name="link-2" size="sm" />
+										Import from URL
+									</Link>
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					</div>
 				</div>
 			</div>
 
+			<div className="container py-6">
+
 			{/* Search & Filters */}
-			<div className="mb-6 space-y-4">
+			<div className="bg-muted/30 mb-6 space-y-4 rounded-xl p-4">
 				<div className="flex gap-2">
 					<div className="relative flex-1">
 						<Icon
@@ -166,13 +181,14 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							placeholder="Search recipes..."
 							defaultValue={search}
 							onChange={(e) => handleSearchChange(e.target.value)}
-							className="pl-10"
+							className="bg-background pl-10"
 						/>
 					</div>
 					<Button
 						variant={favoritesOnly ? 'default' : 'outline'}
 						onClick={handleFavoritesToggle}
 						title={favoritesOnly ? 'Show all recipes' : 'Show favorites only'}
+						className={cn(!favoritesOnly && 'bg-background')}
 					>
 						<Icon name={favoritesOnly ? 'heart-filled' : 'heart'} size="sm" />
 					</Button>
@@ -187,11 +203,12 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								key={tag.id}
 								type="button"
 								onClick={() => handleTagClick(tag.id)}
-								className={`rounded-full px-3 py-1 text-sm transition-colors ${
+								className={cn(
+									'rounded-full px-3 py-1 text-sm transition-colors',
 									isSelected
-										? 'bg-primary text-primary-foreground'
-										: 'bg-secondary hover:bg-secondary/80'
-								}`}
+										? 'bg-primary text-primary-foreground shadow-sm'
+										: 'bg-secondary hover:bg-secondary/80',
+								)}
 							>
 								{tag.name}
 								{isSelected && (
@@ -203,6 +220,22 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						)
 					})}
 				</div>
+
+				{/* Active filter info */}
+				{hasFilters && (
+					<div className="flex items-center justify-between text-sm">
+						<span className="text-muted-foreground">
+							{recipes.length} {recipes.length === 1 ? 'result' : 'results'}
+						</span>
+						<button
+							type="button"
+							onClick={handleClearFilters}
+							className="text-primary hover:text-primary/80 text-sm font-medium"
+						>
+							Clear all filters
+						</button>
+					</div>
+				)}
 			</div>
 
 			{/* Recipe Grid */}
@@ -222,25 +255,51 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						/>
 					))}
 				</RecipeCardGrid>
+			) : hasFilters ? (
+				<div className="flex flex-col items-center justify-center py-16 text-center">
+					<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+						<Icon name="magnifying-glass" className="text-muted-foreground size-10" />
+					</div>
+					<h2 className="mt-4 text-xl font-semibold">No matches found</h2>
+					<p className="text-muted-foreground mt-2 max-w-sm">
+						No recipes match your current filters. Try different search terms or tags.
+					</p>
+					<button
+						type="button"
+						onClick={handleClearFilters}
+						className="text-primary hover:text-primary/80 mt-4 text-sm font-medium"
+					>
+						Clear all filters
+					</button>
+				</div>
 			) : (
 				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<Icon name="cookie" className="text-muted-foreground size-16" />
-					<h2 className="mt-4 text-xl font-semibold">No recipes yet</h2>
-					<p className="text-muted-foreground mt-2">
-						{search || selectedTagIds.length > 0 || favoritesOnly
-							? 'No recipes match your filters. Try different criteria.'
-							: "Start by adding your first recipe. It's easy!"}
+					<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+						<Icon name="cookie" className="text-muted-foreground size-10" />
+					</div>
+					<h2 className="mt-4 text-xl font-semibold">
+						Your recipe book is empty
+					</h2>
+					<p className="text-muted-foreground mt-2 max-w-sm">
+						Add your first recipe to get started. You can type it in manually or import from a URL.
 					</p>
-					{!search && selectedTagIds.length === 0 && !favoritesOnly && (
-						<Button asChild className="mt-6">
+					<div className="mt-6 flex gap-3">
+						<Button asChild>
 							<Link to="/recipes/new">
 								<Icon name="plus" size="sm" />
-								Add Your First Recipe
+								Add Recipe
 							</Link>
 						</Button>
-					)}
+						<Button asChild variant="outline">
+							<Link to="/recipes/import">
+								<Icon name="link-2" size="sm" />
+								Import from URL
+							</Link>
+						</Button>
+					</div>
 				</div>
 			)}
+			</div>
 		</div>
 	)
 }

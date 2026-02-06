@@ -52,7 +52,7 @@ export function MealSlotCard({
 
 	if (entries.length === 0) {
 		return (
-			<div className="bg-card rounded-lg border p-4">
+			<div className="bg-card rounded-lg border border-dashed p-4">
 				<div className="text-muted-foreground mb-2 text-xs font-medium">
 					{MEAL_TYPE_LABELS[mealType]}
 				</div>
@@ -82,7 +82,7 @@ export function MealSlotCard({
 
 	return (
 		<div className="group bg-card overflow-hidden rounded-lg border transition-shadow hover:shadow-md">
-			<div className="bg-muted/50 border-b p-2">
+			<div className="bg-muted/30 border-b px-3 py-1.5">
 				<p className="text-muted-foreground text-xs font-medium">
 					{MEAL_TYPE_LABELS[mealType]}
 				</p>

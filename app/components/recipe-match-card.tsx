@@ -40,7 +40,7 @@ export function RecipeMatchCard({ match }: RecipeMatchCardProps) {
 	return (
 		<Link
 			to={`/recipes/${recipe.id}`}
-			className="group bg-card text-card-foreground block rounded-lg border shadow-sm transition-shadow hover:shadow-md"
+			className="group bg-card text-card-foreground block overflow-hidden rounded-lg ring-1 ring-border transition-shadow hover:shadow-md"
 		>
 			<div className="bg-muted relative aspect-[4/3] overflow-hidden rounded-t-lg">
 				{recipe.image?.objectKey ? (
@@ -70,14 +70,14 @@ export function RecipeMatchCard({ match }: RecipeMatchCardProps) {
 				<div className="absolute top-2 right-2">
 					<div
 						className={cn(
-							'rounded-full px-3 py-1 text-xs font-semibold shadow-lg',
+							'rounded-full px-3 py-1 text-xs font-semibold shadow-lg backdrop-blur-sm',
 							canMake
-								? 'bg-green-500 text-white'
+								? 'bg-green-500/90 text-white'
 								: matchPercentage >= 75
-									? 'bg-blue-500 text-white'
+									? 'bg-blue-500/90 text-white'
 									: matchPercentage >= 50
-										? 'bg-yellow-500 text-white'
-										: 'bg-gray-500 text-white',
+										? 'bg-yellow-500/90 text-white'
+										: 'bg-gray-500/90 text-white',
 						)}
 					>
 						{matchPercentage}% Match
@@ -113,17 +113,17 @@ export function RecipeMatchCard({ match }: RecipeMatchCardProps) {
 						)}
 						{recipe.tags && recipe.tags.length > 0 && (
 							<div className="flex flex-wrap gap-1">
-								{recipe.tags.slice(0, 2).map((tag) => (
+								{recipe.tags.slice(0, 3).map((tag) => (
 									<span
 										key={tag.id}
-										className="bg-secondary rounded-full px-2 py-0.5 text-xs"
+										className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs font-medium"
 									>
 										{tag.name}
 									</span>
 								))}
-								{recipe.tags.length > 2 && (
-									<span className="text-muted-foreground text-xs">
-										+{recipe.tags.length - 2}
+								{recipe.tags.length > 3 && (
+									<span className="text-muted-foreground text-xs leading-5">
+										+{recipe.tags.length - 3}
 									</span>
 								)}
 							</div>
@@ -132,14 +132,18 @@ export function RecipeMatchCard({ match }: RecipeMatchCardProps) {
 
 					{/* Missing Ingredients */}
 					{missingIngredients.length > 0 && (
-						<div className="text-muted-foreground text-xs">
-							<span className="font-medium">Missing:</span>{' '}
-							{missingIngredients
-								.slice(0, 3)
-								.map((ing) => ing.name)
-								.join(', ')}
-							{missingIngredients.length > 3 &&
-								` +${missingIngredients.length - 3} more`}
+						<div className="bg-muted rounded-md px-2.5 py-1.5 text-xs">
+							<span className="text-muted-foreground font-medium">
+								Missing:
+							</span>{' '}
+							<span className="text-muted-foreground">
+								{missingIngredients
+									.slice(0, 3)
+									.map((ing) => ing.name)
+									.join(', ')}
+								{missingIngredients.length > 3 &&
+									` +${missingIngredients.length - 3} more`}
+							</span>
 						</div>
 					)}
 				</div>

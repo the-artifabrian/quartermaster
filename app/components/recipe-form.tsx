@@ -142,7 +142,7 @@ export function RecipeForm({
 			method="POST"
 			encType="multipart/form-data"
 			{...getFormProps(form)}
-			className="space-y-8"
+			className="space-y-6"
 		>
 			{/* Form-level errors */}
 			{form.errors && form.errors.length > 0 && (
@@ -154,9 +154,9 @@ export function RecipeForm({
 				</div>
 			)}
 
-			{/* Image Upload */}
-			<div className="space-y-2">
-				<Label>Recipe Image</Label>
+			{/* Photo Section */}
+			<div className="rounded-xl border p-6">
+				<h3 className="mb-4 text-lg font-semibold">Photo</h3>
 				<div className="flex items-start gap-4">
 					<div className="bg-muted relative aspect-[4/3] w-40 overflow-hidden rounded-lg border">
 						{imagePreview ? (
@@ -188,115 +188,122 @@ export function RecipeForm({
 				</div>
 			</div>
 
-			{/* Basic Info */}
-			<div className="space-y-4">
-				<Field
-					labelProps={{ children: 'Title' }}
-					inputProps={{
-						...getInputProps(fields.title, { type: 'text' }),
-						placeholder: 'Recipe title',
-					}}
-					errors={fields.title.errors}
-				/>
-
-				<TextareaField
-					labelProps={{ children: 'Description' }}
-					textareaProps={{
-						...getInputProps(fields.description, { type: 'text' }),
-						placeholder: 'A brief description of this recipe',
-						rows: 3,
-					}}
-					errors={fields.description.errors}
-				/>
-
-				<Field
-					labelProps={{ children: 'Source URL' }}
-					inputProps={{
-						...getInputProps(fields.sourceUrl, { type: 'url' }),
-						placeholder: 'https://example.com/recipe',
-					}}
-					errors={fields.sourceUrl.errors}
-				/>
-
-				<div className="grid grid-cols-3 gap-4">
+			{/* Details Section */}
+			<div className="rounded-xl border p-6">
+				<h3 className="mb-4 text-lg font-semibold">Details</h3>
+				<div className="space-y-4">
 					<Field
-						labelProps={{ children: 'Servings' }}
+						labelProps={{ children: 'Title' }}
 						inputProps={{
-							...getInputProps(fields.servings, { type: 'number' }),
-							min: 1,
-							max: 100,
+							...getInputProps(fields.title, { type: 'text' }),
+							placeholder: 'Recipe title',
 						}}
-						errors={fields.servings.errors}
+						errors={fields.title.errors}
 					/>
+
+					<TextareaField
+						labelProps={{ children: 'Description' }}
+						textareaProps={{
+							...getInputProps(fields.description, { type: 'text' }),
+							placeholder: 'A brief description of this recipe',
+							rows: 3,
+						}}
+						errors={fields.description.errors}
+					/>
+
 					<Field
-						labelProps={{ children: 'Prep Time (min)' }}
+						labelProps={{ children: 'Source URL' }}
 						inputProps={{
-							...getInputProps(fields.prepTime, { type: 'number' }),
-							min: 0,
-							placeholder: '—',
+							...getInputProps(fields.sourceUrl, { type: 'url' }),
+							placeholder: 'https://example.com/recipe',
 						}}
-						errors={fields.prepTime.errors}
+						errors={fields.sourceUrl.errors}
 					/>
-					<Field
-						labelProps={{ children: 'Cook Time (min)' }}
-						inputProps={{
-							...getInputProps(fields.cookTime, { type: 'number' }),
-							min: 0,
-							placeholder: '—',
-						}}
-						errors={fields.cookTime.errors}
-					/>
+
+					<div className="grid grid-cols-3 gap-4">
+						<Field
+							labelProps={{ children: 'Servings' }}
+							inputProps={{
+								...getInputProps(fields.servings, { type: 'number' }),
+								min: 1,
+								max: 100,
+							}}
+							errors={fields.servings.errors}
+						/>
+						<Field
+							labelProps={{ children: 'Prep Time (min)' }}
+							inputProps={{
+								...getInputProps(fields.prepTime, { type: 'number' }),
+								min: 0,
+								placeholder: '—',
+							}}
+							errors={fields.prepTime.errors}
+						/>
+						<Field
+							labelProps={{ children: 'Cook Time (min)' }}
+							inputProps={{
+								...getInputProps(fields.cookTime, { type: 'number' }),
+								min: 0,
+								placeholder: '—',
+							}}
+							errors={fields.cookTime.errors}
+						/>
+					</div>
 				</div>
 			</div>
 
-			{/* Tags */}
-			<div className="space-y-4">
-				<Label className="text-base font-semibold">Tags</Label>
-				{Object.entries(tagsByCategory).map(([category, categoryTags]) => (
-					<div key={category} className="space-y-2">
-						<Label className="text-muted-foreground text-sm">
-							{categoryLabels[category] ?? category}
-						</Label>
-						<div className="flex flex-wrap gap-2">
-							{categoryTags.map((tag) => {
-								const isSelected = selectedTags.includes(tag.id)
-								return (
-									<label key={tag.id}>
-										<input
-											type="checkbox"
-											name="tagIds"
-											value={tag.id}
-											checked={isSelected}
-											onChange={(e) => {
-												if (e.target.checked) {
-													setSelectedTags([...selectedTags, tag.id])
-												} else {
-													setSelectedTags(
-														selectedTags.filter((id) => id !== tag.id),
-													)
-												}
-											}}
-											className="sr-only"
-										/>
-										<span
-											className={`inline-flex cursor-pointer rounded-full px-3 py-1 text-sm transition-colors ${
-												isSelected
-													? 'bg-primary text-primary-foreground'
-													: 'bg-secondary hover:bg-secondary/80'
-											}`}
-										>
-											{tag.name}
-										</span>
-									</label>
-								)
-							})}
+			{/* Tags Section */}
+			<div className="rounded-xl border p-6">
+				<h3 className="mb-4 text-lg font-semibold">Tags</h3>
+				<div className="space-y-4">
+					{Object.entries(tagsByCategory).map(([category, categoryTags]) => (
+						<div key={category} className="space-y-2">
+							<Label className="text-muted-foreground text-sm">
+								{categoryLabels[category] ?? category}
+							</Label>
+							<div className="flex flex-wrap gap-2">
+								{categoryTags.map((tag) => {
+									const isSelected = selectedTags.includes(tag.id)
+									return (
+										<label key={tag.id}>
+											<input
+												type="checkbox"
+												name="tagIds"
+												value={tag.id}
+												checked={isSelected}
+												onChange={(e) => {
+													if (e.target.checked) {
+														setSelectedTags([...selectedTags, tag.id])
+													} else {
+														setSelectedTags(
+															selectedTags.filter((id) => id !== tag.id),
+														)
+													}
+												}}
+												className="sr-only"
+											/>
+											<span
+												className={`inline-flex cursor-pointer rounded-full px-3 py-1 text-sm transition-colors ${
+													isSelected
+														? 'bg-primary text-primary-foreground'
+														: 'bg-secondary hover:bg-secondary/80'
+												}`}
+											>
+												{tag.name}
+											</span>
+										</label>
+									)
+								})}
+							</div>
 						</div>
-					</div>
-				))}
+					))}
+				</div>
 			</div>
 
-			{/* Ingredients */}
-			<IngredientFields ingredients={ingredients} onChange={setIngredients} />
+			{/* Ingredients Section */}
+			<div className="rounded-xl border p-6">
+				<IngredientFields ingredients={ingredients} onChange={setIngredients} />
+			</div>
 			{/* Hidden inputs for ingredients */}
 			{ingredients.map((ingredient, index) => (
 				<div key={ingredient.id ?? index}>
@@ -330,11 +337,13 @@ export function RecipeForm({
 				</div>
 			))}
 
-			{/* Instructions */}
-			<InstructionFields
-				instructions={instructions}
-				onChange={setInstructions}
-			/>
+			{/* Instructions Section */}
+			<div className="rounded-xl border p-6">
+				<InstructionFields
+					instructions={instructions}
+					onChange={setInstructions}
+				/>
+			</div>
 			{/* Hidden inputs for instructions */}
 			{instructions.map((instruction, index) => (
 				<div key={instruction.id ?? index}>
@@ -353,7 +362,7 @@ export function RecipeForm({
 				</div>
 			))}
 
-			<div className="flex justify-end gap-4">
+			<div className="flex justify-end gap-4 border-t pt-6">
 				<Button type="button" variant="outline" onClick={() => history.back()}>
 					Cancel
 				</Button>

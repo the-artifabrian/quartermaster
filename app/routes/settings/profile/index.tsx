@@ -172,6 +172,11 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 						<Icon name="download">Download your data</Icon>
 					</Link>
 				</div>
+				<div>
+					<a href="/resources/export-recipes" download>
+						<Icon name="download">Export recipes as JSON</Icon>
+					</a>
+				</div>
 				<SignOutOfSessions loaderData={loaderData} />
 				<DeleteData />
 			</div>

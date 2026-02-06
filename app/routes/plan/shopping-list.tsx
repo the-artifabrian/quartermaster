@@ -124,7 +124,7 @@ export async function action({ request }: Route.ActionArgs) {
 			status: 404,
 		})
 
-		const recipes = mealPlan.entries.map(entry => entry.recipe)
+		const recipes = mealPlan.entries.map((entry) => entry.recipe)
 		const rawItems = generateShoppingListFromRecipes(recipes)
 
 		// Subtract items already in inventory (unless low stock) and staples
@@ -146,7 +146,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		// Create new items
 		await prisma.shoppingListItem.createMany({
-			data: items.map(item => ({
+			data: items.map((item) => ({
 				...item,
 				listId: shoppingList.id,
 			})),
@@ -245,7 +245,7 @@ export default function ShoppingListRoute({
 	const totalItems = Object.values(itemsByCategory).flat().length
 	const checkedItems = Object.values(itemsByCategory)
 		.flat()
-		.filter(item => item.checked).length
+		.filter((item) => item.checked).length
 
 	return (
 		<div className="container py-6 pb-20 md:pb-6">
@@ -260,7 +260,7 @@ export default function ShoppingListRoute({
 					<div>
 						<h1 className="text-2xl font-bold">Shopping List</h1>
 						{totalItems > 0 && (
-							<p className="text-sm text-muted-foreground">
+							<p className="text-muted-foreground text-sm">
 								{checkedItems} of {totalItems} checked
 							</p>
 						)}
@@ -282,7 +282,7 @@ export default function ShoppingListRoute({
 						'removedCount' in actionData &&
 						typeof actionData.removedCount === 'number' &&
 						actionData.removedCount > 0 && (
-							<p className="mt-2 text-center text-sm text-muted-foreground">
+							<p className="text-muted-foreground mt-2 text-center text-sm">
 								{actionData.removedCount} items removed (already in inventory or
 								staples)
 							</p>
@@ -291,7 +291,7 @@ export default function ShoppingListRoute({
 			)}
 
 			{/* Add Manual Item */}
-			<div className="mb-6 rounded-lg border bg-card p-4">
+			<div className="bg-card mb-6 rounded-lg border p-4">
 				<h2 className="mb-3 font-semibold">Add Item</h2>
 				<Form method="POST" {...getFormProps(form)}>
 					<input type="hidden" name="intent" value="add" />
@@ -303,7 +303,7 @@ export default function ShoppingListRoute({
 								placeholder="e.g., Milk, Eggs, Flour"
 							/>
 							{fields.name.errors && (
-								<p className="mt-1 text-sm text-destructive">
+								<p className="text-destructive mt-1 text-sm">
 									{fields.name.errors}
 								</p>
 							)}
@@ -340,17 +340,17 @@ export default function ShoppingListRoute({
 			{/* Items by Category */}
 			{totalItems > 0 ? (
 				<div className="space-y-6">
-					{categories.map(category => {
+					{categories.map((category) => {
 						const items = itemsByCategory[category]
 						if (!items || items.length === 0) return null
 
 						return (
 							<div key={category}>
-								<h3 className="mb-3 text-sm font-semibold uppercase text-muted-foreground">
+								<h3 className="text-muted-foreground mb-3 text-sm font-semibold uppercase">
 									{CATEGORY_LABELS[category] || category}
 								</h3>
 								<div className="space-y-2">
-									{items.map(item => (
+									{items.map((item) => (
 										<ShoppingListItemCard key={item.id} item={item} />
 									))}
 								</div>
@@ -370,12 +370,16 @@ export default function ShoppingListRoute({
 					)}
 				</div>
 			) : (
-				<div className="rounded-lg border bg-muted/50 p-8 text-center">
-					<Icon name="file-text" size="xl" className="mx-auto text-muted-foreground" />
-					<p className="mt-4 text-muted-foreground">
+				<div className="bg-muted/50 rounded-lg border p-8 text-center">
+					<Icon
+						name="file-text"
+						size="xl"
+						className="text-muted-foreground mx-auto"
+					/>
+					<p className="text-muted-foreground mt-4">
 						Your shopping list is empty.
 					</p>
-					<p className="mt-1 text-sm text-muted-foreground">
+					<p className="text-muted-foreground mt-1 text-sm">
 						{hasMealPlan
 							? 'Generate items from your meal plan or add items manually.'
 							: 'Add items manually or create a meal plan first.'}

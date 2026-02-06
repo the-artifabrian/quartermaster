@@ -17,15 +17,16 @@ export function InventoryItemCard({
 }: InventoryItemCardProps) {
 	const dc = useDoubleCheck()
 	const isExpiringSoon =
-		item.expiresAt && new Date(item.expiresAt) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+		item.expiresAt &&
+		new Date(item.expiresAt) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 	const isExpired = item.expiresAt && new Date(item.expiresAt) < new Date()
 
 	return (
-		<div className="group rounded-lg border bg-card text-card-foreground shadow-sm">
+		<div className="group bg-card text-card-foreground rounded-lg border shadow-sm">
 			<div className="flex items-start justify-between gap-2 p-4">
-				<div className="flex-1 min-w-0">
+				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-2">
-						<h3 className="font-semibold line-clamp-1">{item.name}</h3>
+						<h3 className="line-clamp-1 font-semibold">{item.name}</h3>
 						{item.lowStock && (
 							<span className="flex items-center gap-1 text-xs text-orange-600">
 								<Icon name="question-mark-circled" size="xs" />
@@ -34,7 +35,7 @@ export function InventoryItemCard({
 						)}
 					</div>
 
-					<div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+					<div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-2 text-sm">
 						<span className="capitalize">
 							{LOCATION_LABELS[item.location as keyof typeof LOCATION_LABELS]}
 						</span>
@@ -52,9 +53,9 @@ export function InventoryItemCard({
 								<span
 									className={
 										isExpired
-											? 'text-red-600 font-medium'
+											? 'font-medium text-red-600'
 											: isExpiringSoon
-												? 'text-orange-600 font-medium'
+												? 'font-medium text-orange-600'
 												: ''
 									}
 								>
@@ -102,13 +103,9 @@ export function InventoryItemCard({
 	)
 }
 
-export function InventoryItemGrid({
-	children,
-}: {
-	children: React.ReactNode
-}) {
+export function InventoryItemGrid({ children }: { children: React.ReactNode }) {
 	return (
-		<div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+		<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
 			{children}
 		</div>
 	)

@@ -34,6 +34,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 			prepTime: true,
 			cookTime: true,
 			servings: true,
+			isFavorite: true,
+			sourceUrl: true,
+			rawText: true,
 			createdAt: true,
 			updatedAt: true,
 			userId: true,
@@ -79,7 +82,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 			{/* Header */}
 			<div className="mb-6">
 				<h1 className="text-2xl font-bold">Discover Recipes</h1>
-				<p className="mt-2 text-muted-foreground">
+				<p className="text-muted-foreground mt-2">
 					See what you can make with your current inventory
 				</p>
 			</div>
@@ -102,10 +105,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 							size="sm"
 							onClick={() => setShowOnlyMakeable(!showOnlyMakeable)}
 						>
-							<Icon
-								name={showOnlyMakeable ? 'check' : 'cookie'}
-								size="sm"
-							/>
+							<Icon name={showOnlyMakeable ? 'check' : 'cookie'} size="sm" />
 							{showOnlyMakeable ? 'Showing Makeable' : 'Show Only Makeable'}
 						</Button>
 					</div>
@@ -119,11 +119,11 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 						</RecipeMatchCardGrid>
 					) : (
 						<div className="flex flex-col items-center justify-center py-16 text-center">
-							<Icon name="cookie" className="size-16 text-muted-foreground" />
+							<Icon name="cookie" className="text-muted-foreground size-16" />
 							<h2 className="mt-4 text-xl font-semibold">
 								No recipes match your filter
 							</h2>
-							<p className="mt-2 text-muted-foreground">
+							<p className="text-muted-foreground mt-2">
 								{showOnlyMakeable
 									? "You don't have all the ingredients for any recipes yet. Try adding more items to your inventory!"
 									: 'Try adjusting your filters.'}
@@ -146,9 +146,9 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 				</>
 			) : inventoryItemCount === 0 && recipeCount === 0 ? (
 				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<Icon name="cookie" className="size-16 text-muted-foreground" />
+					<Icon name="cookie" className="text-muted-foreground size-16" />
 					<h2 className="mt-4 text-xl font-semibold">Get Started</h2>
-					<p className="mt-2 text-muted-foreground max-w-md">
+					<p className="text-muted-foreground mt-2 max-w-md">
 						Add recipes and track your inventory to discover what you can make!
 					</p>
 					<div className="mt-6 flex gap-3">
@@ -168,9 +168,9 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 				</div>
 			) : inventoryItemCount === 0 ? (
 				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<Icon name="cookie" className="size-16 text-muted-foreground" />
+					<Icon name="cookie" className="text-muted-foreground size-16" />
 					<h2 className="mt-4 text-xl font-semibold">Add Your Inventory</h2>
-					<p className="mt-2 text-muted-foreground max-w-md">
+					<p className="text-muted-foreground mt-2 max-w-md">
 						Track what's in your pantry, fridge, and freezer to see what recipes
 						you can make!
 					</p>
@@ -183,9 +183,9 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 				</div>
 			) : (
 				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<Icon name="cookie" className="size-16 text-muted-foreground" />
+					<Icon name="cookie" className="text-muted-foreground size-16" />
 					<h2 className="mt-4 text-xl font-semibold">Add Recipes</h2>
-					<p className="mt-2 text-muted-foreground max-w-md">
+					<p className="text-muted-foreground mt-2 max-w-md">
 						Add your favorite recipes to see which ones you can make with your
 						current inventory!
 					</p>

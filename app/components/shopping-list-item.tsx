@@ -12,20 +12,22 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 	const dc = useDoubleCheck()
 
 	return (
-		<div className="flex items-start gap-3 rounded-lg border bg-card p-3">
+		<div className="bg-card flex items-start gap-3 rounded-lg border p-3">
 			<Form method="POST" className="pt-1">
 				<input type="hidden" name="intent" value="toggle" />
 				<input type="hidden" name="itemId" value={item.id} />
 				<button type="submit" className="cursor-pointer">
 					<div
 						className={`flex size-5 items-center justify-center rounded border-2 ${
-							item.checked
-								? 'border-primary bg-primary'
-								: 'border-input'
+							item.checked ? 'border-primary bg-primary' : 'border-input'
 						}`}
 					>
 						{item.checked && (
-							<Icon name="check" size="xs" className="text-primary-foreground" />
+							<Icon
+								name="check"
+								size="xs"
+								className="text-primary-foreground"
+							/>
 						)}
 					</div>
 				</button>
@@ -38,7 +40,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 					{item.name}
 				</p>
 				{(item.quantity || item.unit) && (
-					<p className="text-sm text-muted-foreground">
+					<p className="text-muted-foreground text-sm">
 						{item.quantity} {item.unit}
 					</p>
 				)}

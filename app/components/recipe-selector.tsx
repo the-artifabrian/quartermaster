@@ -24,8 +24,8 @@ export function RecipeSelector({
 	const [search, setSearch] = useState('')
 
 	const filteredRecipes = recipes
-		.filter(r => !excludeRecipeIds.includes(r.id))
-		.filter(r => r.title.toLowerCase().includes(search.toLowerCase()))
+		.filter((r) => !excludeRecipeIds.includes(r.id))
+		.filter((r) => r.title.toLowerCase().includes(search.toLowerCase()))
 
 	return (
 		<div className="space-y-3">
@@ -33,7 +33,7 @@ export function RecipeSelector({
 				<Input
 					placeholder="Search recipes..."
 					value={search}
-					onChange={e => setSearch(e.target.value)}
+					onChange={(e) => setSearch(e.target.value)}
 					autoFocus
 				/>
 				<Button variant="ghost" size="icon" onClick={onCancel}>
@@ -42,11 +42,11 @@ export function RecipeSelector({
 			</div>
 			<div className="max-h-[300px] space-y-2 overflow-y-auto">
 				{filteredRecipes.length === 0 ? (
-					<p className="py-4 text-center text-sm text-muted-foreground">
+					<p className="text-muted-foreground py-4 text-center text-sm">
 						No recipes found
 					</p>
 				) : (
-					filteredRecipes.map(recipe => (
+					filteredRecipes.map((recipe) => (
 						<Form method="POST" key={recipe.id}>
 							<input type="hidden" name="intent" value="assign" />
 							<input type="hidden" name="date" value={serializeDate(date)} />
@@ -54,11 +54,11 @@ export function RecipeSelector({
 							<input type="hidden" name="recipeId" value={recipe.id} />
 							<button
 								type="submit"
-								className="w-full rounded-lg border bg-background p-3 text-left transition-colors hover:bg-muted"
+								className="bg-background hover:bg-muted w-full rounded-lg border p-3 text-left transition-colors"
 							>
 								<p className="text-sm font-medium">{recipe.title}</p>
 								{recipe.description && (
-									<p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+									<p className="text-muted-foreground mt-1 line-clamp-1 text-xs">
 										{recipe.description}
 									</p>
 								)}

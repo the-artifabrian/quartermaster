@@ -188,13 +188,13 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 				</div>
 			) : (
 				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<Icon name="cookie" className="size-16 text-muted-foreground" />
+					<Icon name="cookie" className="text-muted-foreground size-16" />
 					<h2 className="mt-4 text-xl font-semibold">
 						{selectedLocation === 'all'
 							? 'No items yet'
 							: `No items in ${selectedLocation}`}
 					</h2>
-					<p className="mt-2 text-muted-foreground">
+					<p className="text-muted-foreground mt-2">
 						Start tracking your inventory to see what you can make!
 					</p>
 					<Button asChild className="mt-6">

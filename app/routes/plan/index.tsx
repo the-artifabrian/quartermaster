@@ -74,7 +74,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	return {
 		mealPlan,
-		entries: mealPlan.entries.map(entry => ({
+		entries: mealPlan.entries.map((entry) => ({
 			...entry,
 			date: new Date(entry.date),
 		})),

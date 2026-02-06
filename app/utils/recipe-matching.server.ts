@@ -1,4 +1,8 @@
-import { type Recipe, type Ingredient, type InventoryItem } from '@prisma/client'
+import {
+	type Recipe,
+	type Ingredient,
+	type InventoryItem,
+} from '@prisma/client'
 
 /**
  * Common staple ingredients that are assumed to be available
@@ -41,13 +45,63 @@ const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 	mirin: ['sake', 'white wine', 'rice wine'],
 	sake: ['mirin', 'white wine', 'rice wine'],
 	// Cooking oils - neutral oils are interchangeable
-	oil: ['vegetable oil', 'canola oil', 'grapeseed oil', 'sunflower oil', 'peanut oil', 'avocado oil', 'safflower oil'],
-	'vegetable oil': ['oil', 'canola oil', 'grapeseed oil', 'sunflower oil', 'peanut oil', 'avocado oil'],
-	'canola oil': ['oil', 'vegetable oil', 'grapeseed oil', 'sunflower oil', 'peanut oil', 'avocado oil'],
-	'grapeseed oil': ['oil', 'vegetable oil', 'canola oil', 'sunflower oil', 'peanut oil', 'avocado oil'],
-	'sunflower oil': ['oil', 'vegetable oil', 'canola oil', 'grapeseed oil', 'peanut oil', 'avocado oil'],
-	'peanut oil': ['oil', 'vegetable oil', 'canola oil', 'grapeseed oil', 'sunflower oil', 'avocado oil'],
-	'avocado oil': ['oil', 'vegetable oil', 'canola oil', 'grapeseed oil', 'sunflower oil', 'peanut oil'],
+	oil: [
+		'vegetable oil',
+		'canola oil',
+		'grapeseed oil',
+		'sunflower oil',
+		'peanut oil',
+		'avocado oil',
+		'safflower oil',
+	],
+	'vegetable oil': [
+		'oil',
+		'canola oil',
+		'grapeseed oil',
+		'sunflower oil',
+		'peanut oil',
+		'avocado oil',
+	],
+	'canola oil': [
+		'oil',
+		'vegetable oil',
+		'grapeseed oil',
+		'sunflower oil',
+		'peanut oil',
+		'avocado oil',
+	],
+	'grapeseed oil': [
+		'oil',
+		'vegetable oil',
+		'canola oil',
+		'sunflower oil',
+		'peanut oil',
+		'avocado oil',
+	],
+	'sunflower oil': [
+		'oil',
+		'vegetable oil',
+		'canola oil',
+		'grapeseed oil',
+		'peanut oil',
+		'avocado oil',
+	],
+	'peanut oil': [
+		'oil',
+		'vegetable oil',
+		'canola oil',
+		'grapeseed oil',
+		'sunflower oil',
+		'avocado oil',
+	],
+	'avocado oil': [
+		'oil',
+		'vegetable oil',
+		'canola oil',
+		'grapeseed oil',
+		'sunflower oil',
+		'peanut oil',
+	],
 }
 
 /**
@@ -263,13 +317,19 @@ export function ingredientMatchesInventoryItem(
 	if (ingredientWords.length === 1 && inventoryWords.length > 1) {
 		const word = ingredientWords[0]
 		// Check first or last word (main ingredient is usually first or last)
-		return inventoryWords[0] === word || inventoryWords[inventoryWords.length - 1] === word
+		return (
+			inventoryWords[0] === word ||
+			inventoryWords[inventoryWords.length - 1] === word
+		)
 	}
 
 	if (inventoryWords.length === 1 && ingredientWords.length > 1) {
 		const word = inventoryWords[0]
 		// Check first or last word (main ingredient is usually first or last)
-		return ingredientWords[0] === word || ingredientWords[ingredientWords.length - 1] === word
+		return (
+			ingredientWords[0] === word ||
+			ingredientWords[ingredientWords.length - 1] === word
+		)
 	}
 
 	// For multi-word matches, check if one contains all words of the other
@@ -305,7 +365,9 @@ export type RecipeMatch = {
 /**
  * Check if an ingredient is a common staple that should be ignored in matching
  */
-export function isStapleIngredient(ingredient: Pick<Ingredient, 'name'>): boolean {
+export function isStapleIngredient(
+	ingredient: Pick<Ingredient, 'name'>,
+): boolean {
 	const normalized = normalizeIngredientName(ingredient.name)
 	return STAPLE_INGREDIENTS.has(normalized)
 }

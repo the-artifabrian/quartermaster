@@ -58,7 +58,7 @@ export function InstructionFields({
 						key={instruction.id ?? `${baseId}-${index}`}
 						className="flex gap-3"
 					>
-						<div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
+						<div className="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium">
 							{index + 1}
 						</div>
 						<div className="flex-1">

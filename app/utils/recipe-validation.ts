@@ -29,6 +29,7 @@ export const RecipeSchema = z.object({
 	servings: z.coerce.number().int().min(1).max(100).default(4),
 	prepTime: z.coerce.number().int().min(0).max(1440).optional(),
 	cookTime: z.coerce.number().int().min(0).max(1440).optional(),
+	sourceUrl: z.string().url().optional().or(z.literal('')),
 	ingredients: z.array(IngredientSchema).min(1, {
 		message: 'At least one ingredient is required',
 	}),
@@ -39,6 +40,15 @@ export const RecipeSchema = z.object({
 })
 
 export type RecipeFormData = z.infer<typeof RecipeSchema>
+
+export const QuickRecipeSchema = z.object({
+	title: RecipeTitleSchema,
+	rawText: z.string().min(1, 'Recipe text is required').max(10000),
+})
+
+export const ImportUrlSchema = z.object({
+	url: z.string().url('Please enter a valid URL'),
+})
 
 export const MAX_RECIPE_IMAGE_SIZE = 1024 * 1024 * 3 // 3MB
 export const ACCEPTED_RECIPE_IMAGE_TYPES = [

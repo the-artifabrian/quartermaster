@@ -10,7 +10,7 @@ Meat and Marinade
 - [ ] 1 tablespoon cornstarch
 - [ ] 1 teaspoon sugar
 - [ ] 0.5 teaspoon baking soda  
-      Sauce
+       Sauce
 - [ ] 140g water, or chicken stock
 - [ ] 2 tablespoons Shaoxing wine
 - [ ] 2 tablespoons soy sauce
@@ -22,7 +22,7 @@ Meat and Marinade
 - [ ] 2 teaspoons ginger, grated
 - [ ] 1tsp sesame oil
 - [ ] 0.5 tsp msg  
-      Stir-fry
+       Stir-fry
 - [ ] 600g broccoli, cut to bite-size florets
 - [ ] 1 onion, cut into strips
 - [ ] 1 bell pepper, cut into strips

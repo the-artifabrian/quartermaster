@@ -37,6 +37,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			servings: true,
 			prepTime: true,
 			cookTime: true,
+			sourceUrl: true,
 			userId: true,
 			image: { select: { objectKey: true, altText: true } },
 			ingredients: {
@@ -171,7 +172,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 		return data({ result: submission.reply() }, { status: 400 })
 	}
 
-	const { title, description, servings, prepTime, cookTime } = submission.value
+	const { title, description, servings, prepTime, cookTime, sourceUrl } =
+		submission.value
 
 	// Update recipe - delete all ingredients and instructions, then recreate
 	await prisma.$transaction([
@@ -185,6 +187,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 				servings,
 				prepTime,
 				cookTime,
+				sourceUrl: sourceUrl || null,
 				ingredients: {
 					create: ingredients
 						.filter((ing) => ing.name.trim() !== '')
@@ -249,11 +252,7 @@ export default function EditRecipe({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="container max-w-2xl py-6">
 			<h1 className="mb-6 text-2xl font-bold">Edit Recipe</h1>
-			<RecipeForm
-				recipe={recipe}
-				tags={tags}
-				submitLabel="Save Changes"
-			/>
+			<RecipeForm recipe={recipe} tags={tags} submitLabel="Save Changes" />
 			<div className="mt-8 border-t pt-8">
 				<DeleteRecipe recipeId={recipe.id} />
 			</div>

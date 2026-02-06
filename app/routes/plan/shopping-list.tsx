@@ -255,12 +255,12 @@ export default function ShoppingListRoute({
 			{/* Page Header */}
 			<div className="bg-muted/30">
 				<div className="container flex items-center gap-3 py-6">
-					<Button asChild variant="ghost" size="icon">
+					<Button asChild variant="ghost" size="icon" className="print:hidden">
 						<Link to="/plan">
 							<Icon name="arrow-left" size="sm" />
 						</Link>
 					</Button>
-					<div>
+					<div className="flex-1">
 						<h1 className="text-2xl font-bold">Shopping List</h1>
 						{totalItems > 0 && (
 							<p className="text-muted-foreground mt-1 text-sm">
@@ -268,6 +268,17 @@ export default function ShoppingListRoute({
 							</p>
 						)}
 					</div>
+					{totalItems > 0 && (
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => window.print()}
+							className="print:hidden"
+						>
+							<Icon name="file-text" size="sm" />
+							Print
+						</Button>
+					)}
 				</div>
 			</div>
 
@@ -275,7 +286,7 @@ export default function ShoppingListRoute({
 
 			{/* Generate from Meal Plan */}
 			{hasMealPlan && (
-				<div className="mb-6">
+				<div className="mb-6 print:hidden">
 					<Form method="POST">
 						<input type="hidden" name="intent" value="generate" />
 						<Button type="submit" variant="outline" className="w-full">
@@ -296,7 +307,7 @@ export default function ShoppingListRoute({
 			)}
 
 			{/* Add Manual Item */}
-			<div className="bg-card mb-6 rounded-lg border p-4">
+			<div className="bg-card mb-6 rounded-lg border p-4 print:hidden">
 				<h2 className="mb-3 font-semibold">Add Item</h2>
 				<Form method="POST" {...getFormProps(form)}>
 					<input type="hidden" name="intent" value="add" />
@@ -365,7 +376,7 @@ export default function ShoppingListRoute({
 
 					{/* Clear Checked Button */}
 					{checkedItems > 0 && (
-						<Form method="POST">
+						<Form method="POST" className="print:hidden">
 							<input type="hidden" name="intent" value="clear-checked" />
 							<Button type="submit" variant="outline" className="w-full">
 								<Icon name="trash" size="sm" />

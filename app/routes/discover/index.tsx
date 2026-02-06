@@ -1,4 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { addDays } from 'date-fns'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import {
@@ -9,7 +10,11 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { matchRecipesWithInventory } from '#app/utils/recipe-matching.server.ts'
+import {
+	ingredientMatchesInventoryItem,
+	matchRecipesWithInventory,
+	type RecipeMatch,
+} from '#app/utils/recipe-matching.server.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -60,15 +65,50 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// Calculate matches
 	const matches = matchRecipesWithInventory(recipes, inventoryItems)
 
+	// Find items expiring within 7 days
+	const now = new Date()
+	const sevenDaysFromNow = addDays(now, 7)
+	const expiringItems = inventoryItems.filter(
+		(item) =>
+			item.expiresAt &&
+			new Date(item.expiresAt) >= now &&
+			new Date(item.expiresAt) <= sevenDaysFromNow,
+	)
+
+	// Find recipes that use expiring ingredients, sorted by how many they use
+	let expiringMatches: Array<RecipeMatch & { expiringCount: number }> = []
+	if (expiringItems.length > 0) {
+		expiringMatches = matches
+			.map((match) => {
+				const expiringCount = match.recipe.ingredients.filter((ing) =>
+					expiringItems.some((item) =>
+						ingredientMatchesInventoryItem(ing, item),
+					),
+				).length
+				return { ...match, expiringCount }
+			})
+			.filter((m) => m.expiringCount > 0)
+			.sort((a, b) => b.expiringCount - a.expiringCount)
+			.slice(0, 6)
+	}
+
 	return {
 		matches,
 		inventoryItemCount: inventoryItems.length,
 		recipeCount: recipes.length,
+		expiringMatches,
+		expiringItemCount: expiringItems.length,
 	}
 }
 
 export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
-	const { matches, inventoryItemCount, recipeCount } = loaderData
+	const {
+		matches,
+		inventoryItemCount,
+		recipeCount,
+		expiringMatches,
+		expiringItemCount,
+	} = loaderData
 	const [showOnlyMakeable, setShowOnlyMakeable] = useState(false)
 
 	const displayMatches = showOnlyMakeable
@@ -90,6 +130,33 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container py-6">
+
+			{/* Expiring Items Suggestions */}
+			{expiringMatches.length > 0 && (
+				<div className="mb-8">
+					<div className="mb-4 flex items-center gap-2">
+						<Icon name="clock" className="size-5 text-amber-500" />
+						<div>
+							<h2 className="text-lg font-semibold">
+								Use It Before You Lose It
+							</h2>
+							<p className="text-muted-foreground text-sm">
+								{expiringItemCount}{' '}
+								{expiringItemCount === 1 ? 'item' : 'items'} expiring
+								within 7 days
+							</p>
+						</div>
+					</div>
+					<RecipeMatchCardGrid>
+						{expiringMatches.map((match) => (
+							<RecipeMatchCard
+								key={match.recipe.id}
+								match={match}
+							/>
+						))}
+					</RecipeMatchCardGrid>
+				</div>
+			)}
 
 			{/* Stats & Filter */}
 			{inventoryItemCount > 0 && recipeCount > 0 ? (

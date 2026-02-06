@@ -157,6 +157,23 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const }
 	}
 
+	if (intent === 'toggleCooked') {
+		const entryId = formData.get('entryId')
+		invariantResponse(typeof entryId === 'string', 'Entry ID is required')
+
+		const entry = await prisma.mealPlanEntry.findFirst({
+			where: { id: entryId, mealPlan: { userId } },
+		})
+		invariantResponse(entry, 'Entry not found', { status: 404 })
+
+		await prisma.mealPlanEntry.update({
+			where: { id: entryId },
+			data: { cooked: !entry.cooked },
+		})
+
+		return { status: 'success' as const }
+	}
+
 	if (intent === 'remove') {
 		const entryId = formData.get('entryId')
 		invariantResponse(typeof entryId === 'string', 'Entry ID is required')

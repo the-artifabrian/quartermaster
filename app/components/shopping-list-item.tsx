@@ -12,8 +12,8 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 	const dc = useDoubleCheck()
 
 	return (
-		<div className="bg-card flex items-start gap-3 rounded-lg border p-3">
-			<Form method="POST" className="pt-1">
+		<div className="bg-card flex items-start gap-3 rounded-lg border p-3 print:border-0 print:p-1">
+			<Form method="POST" className="pt-1 print:hidden">
 				<input type="hidden" name="intent" value="toggle" />
 				<input type="hidden" name="itemId" value={item.id} />
 				<button type="submit" className="cursor-pointer">
@@ -32,6 +32,9 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 					</div>
 				</button>
 			</Form>
+			<span className="hidden pt-0.5 text-base print:inline">
+				{item.checked ? '\u2611' : '\u2610'}
+			</span>
 
 			<div className="flex-1">
 				<p
@@ -46,7 +49,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 				)}
 			</div>
 
-			<Form method="POST">
+			<Form method="POST" className="print:hidden">
 				<input type="hidden" name="intent" value="delete" />
 				<input type="hidden" name="itemId" value={item.id} />
 				<StatusButton

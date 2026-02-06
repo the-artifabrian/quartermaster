@@ -156,29 +156,30 @@ around actual content, not sample data.
 **Goal**: Fix data quality issues that compound as the recipe collection grows,
 and reduce meal planning friction
 
-- [ ] **Fix shopping list ingredient normalization** - BUG:
-      `shopping-list.server.ts` uses simple `toLowerCase().trim()` for
-      consolidation, while the discovery system uses the full
-      `normalizeIngredientName()` with modifier stripping, plural handling, and
-      synonym resolution. This causes duplicate shopping list entries (e.g.,
-      "Fresh Garlic" and "garlic, minced" appear as separate items). Reuse the
-      existing normalization function.
-- [ ] **Ingredient auto-suggest in recipe forms** - Suggest from existing
-      ingredient names as the user types. Currently the ingredient name field is
-      completely free-form with zero guidance, which causes naming drift
-      ("parmesan" vs "parmesan cheese", "chicken breast" vs "chicken"). This
-      directly degrades discovery matching accuracy and shopping list
-      consolidation. More impactful than it sounds.
-- [ ] **Meal plan serving sizes** - Add a `servings` field to MealPlanEntry so
-      users can specify how many servings they want when assigning a recipe to a
-      meal slot. Currently, the shopping list always uses the recipe's default
-      serving count — if a recipe serves 4 but you're cooking for 2, you buy
-      double what you need. Wire scaled amounts through to shopping list
-      generation.
-- [ ] **Recipe history** - Track when you last made a recipe, with optional
-      personal notes/ratings. Helps avoid repeating meals and surfaces forgotten
-      recipes.
-- [ ] **Copy week to next week** - Common pattern for meal prep routines.
+- [x] **Fix shopping list ingredient normalization** - Added
+      `getCanonicalIngredientName()` that maps synonyms to a stable canonical
+      key (alphabetically first equivalent). Shopping list consolidation now
+      uses the full normalization pipeline — "Fresh Garlic" and "garlic, minced"
+      correctly merge into one entry. Includes unit tests.
+- [x] **Ingredient auto-suggest in recipe forms** - Resource route
+      (`/resources/ingredient-suggestions`) returns distinct ingredient names
+      from the user's recipes. `IngredientFields` component loads suggestions
+      via `useFetcher`, merges with `COMMON_INGREDIENTS`, and renders a native
+      HTML `<datalist>` — zero UI dependencies, accessible, works on all
+      browsers.
+- [x] **Meal plan serving sizes** - Added `servings Int?` to MealPlanEntry
+      schema. Inline +/- controls on each meal slot entry. Shopping list
+      generation scales ingredient amounts by the serving ratio
+      (`entryServings / recipeServings`). Copy-week preserves servings.
+- [x] **Recipe history (cooking log)** - New `CookingLog` model with
+      `cookedAt`, `notes`, and `rating` (1-5 stars). "I Made This" button on
+      recipe detail page expands an inline form. Cooking history section at
+      bottom shows past events with star ratings and notes. Delete support via
+      double-check button.
+- [x] **Copy week to next week** - Button in meal plan header duplicates all
+      entries with dates shifted +7 days, preserving serving overrides. Skips
+      entries that already exist in the target week. Redirects to next week
+      after copying.
 
 ### Phase 8: Quality of Life
 
@@ -273,7 +274,6 @@ how it affects the recipe. "No buttermilk? Use 1 cup milk + 1 tbsp lemon juice."
 ---
 
 _Document created: February 2026_ _Last updated: February 6, 2026 - Completed
-Phase 6 UI refresh: landing page, sample data removal, pantry staples
-onboarding, navigation active states, page headers, card redesign, search/filter
-UI, recipe detail page, form layout, and empty states. Added shared household
-feature to backlog._
+Phase 7: shopping list normalization fix, ingredient auto-suggest, meal plan
+serving sizes with shopping list scaling, cooking log with star ratings, and
+copy week to next week._

@@ -10,6 +10,11 @@ export const RecipeDescriptionSchema = z
 	.max(500, { message: 'Description is too long' })
 	.optional()
 
+export const RecipeNotesSchema = z
+	.string()
+	.max(2000, { message: 'Notes are too long' })
+	.optional()
+
 export const IngredientSchema = z.object({
 	id: z.string().optional(),
 	name: z.string().min(1, { message: 'Ingredient name is required' }),
@@ -30,6 +35,7 @@ export const RecipeSchema = z.object({
 	prepTime: z.coerce.number().int().min(0).max(1440).optional(),
 	cookTime: z.coerce.number().int().min(0).max(1440).optional(),
 	sourceUrl: z.string().url().optional().or(z.literal('')),
+	notes: RecipeNotesSchema,
 	ingredients: z.array(IngredientSchema).min(1, {
 		message: 'At least one ingredient is required',
 	}),

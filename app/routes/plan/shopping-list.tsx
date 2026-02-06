@@ -1,9 +1,11 @@
-import { parseWithZod } from '@conform-to/zod'
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
+import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Form, Link, redirect } from 'react-router'
+import { useState } from 'react'
+import { Form, Link } from 'react-router'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
+import { ShoppingListToInventory } from '#app/components/shopping-list-to-inventory.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -12,15 +14,17 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { getCurrentWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { parseAmount } from '#app/utils/fractions.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
-import {
-	generateShoppingListFromRecipes,
-	subtractInventoryFromShoppingList,
-} from '#app/utils/shopping-list.server.ts'
 import {
 	ShoppingListItemSchema,
 	CATEGORY_LABELS,
 } from '#app/utils/shopping-list-validation.ts'
+import {
+	generateShoppingListFromRecipes,
+	subtractInventoryFromShoppingList,
+} from '#app/utils/shopping-list.server.ts'
+import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/shopping-list.ts'
 
 export const handle: SEOHandle = {
@@ -229,6 +233,68 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const }
 	}
 
+	if (intent === 'add-to-inventory') {
+		const rawItems = formData.get('items')
+		invariantResponse(typeof rawItems === 'string', 'Items are required')
+
+		const VALID_LOCATIONS = new Set(['pantry', 'fridge', 'freezer'])
+
+		let items: Array<{ itemId: string; location: string }>
+		try {
+			items = JSON.parse(rawItems) as Array<{
+				itemId: string
+				location: string
+			}>
+		} catch {
+			throw new Response('Invalid items data', { status: 400 })
+		}
+		invariantResponse(Array.isArray(items) && items.length > 0, 'No items')
+
+		// Verify all items belong to user's shopping list
+		const shoppingListItems = await prisma.shoppingListItem.findMany({
+			where: {
+				id: { in: items.map((i) => i.itemId) },
+				listId: shoppingList.id,
+			},
+		})
+
+		const itemMap = new Map(shoppingListItems.map((i) => [i.id, i]))
+		const validItems = items.filter(
+			(i) => itemMap.has(i.itemId) && VALID_LOCATIONS.has(i.location),
+		)
+		invariantResponse(validItems.length > 0, 'No valid items found')
+
+		await prisma.$transaction([
+			// Create inventory items
+			...validItems.map((item) => {
+				const shoppingItem = itemMap.get(item.itemId)!
+				const quantity = shoppingItem.quantity
+					? parseAmount(shoppingItem.quantity)
+					: null
+				return prisma.inventoryItem.create({
+					data: {
+						name: shoppingItem.name,
+						location: item.location,
+						quantity,
+						unit: shoppingItem.unit,
+						userId,
+					},
+				})
+			}),
+			// Delete those shopping list items
+			prisma.shoppingListItem.deleteMany({
+				where: {
+					id: { in: validItems.map((i) => i.itemId) },
+				},
+			}),
+		])
+
+		return redirectWithToast('/plan/shopping-list', {
+			type: 'success',
+			description: `${validItems.length} item${validItems.length !== 1 ? 's' : ''} added to inventory`,
+		})
+	}
+
 	return { status: 'error' as const }
 }
 
@@ -248,11 +314,13 @@ export default function ShoppingListRoute({
 		shouldRevalidate: 'onInput',
 	})
 
+	const [showReview, setShowReview] = useState(false)
+
 	const categories = Object.keys(itemsByCategory).sort()
-	const totalItems = Object.values(itemsByCategory).flat().length
-	const checkedItems = Object.values(itemsByCategory)
-		.flat()
-		.filter((item) => item.checked).length
+	const allItems = Object.values(itemsByCategory).flat()
+	const totalItems = allItems.length
+	const checkedItemsList = allItems.filter((item) => item.checked)
+	const checkedItems = checkedItemsList.length
 
 	return (
 		<div className="pb-20 md:pb-6">
@@ -378,15 +446,35 @@ export default function ShoppingListRoute({
 						)
 					})}
 
-					{/* Clear Checked Button */}
-					{checkedItems > 0 && (
-						<Form method="POST" className="print:hidden">
-							<input type="hidden" name="intent" value="clear-checked" />
-							<Button type="submit" variant="outline" className="w-full">
-								<Icon name="trash" size="sm" />
-								Clear Checked Items ({checkedItems})
+					{/* Checked Item Actions */}
+					{checkedItems > 0 && !showReview && (
+						<div className="space-y-2 print:hidden">
+							<Button
+								variant="default"
+								className="w-full"
+								onClick={() => setShowReview(true)}
+							>
+								<Icon name="plus" size="sm" />
+								Add Checked to Inventory ({checkedItems})
 							</Button>
-						</Form>
+							<Form method="POST">
+								<input type="hidden" name="intent" value="clear-checked" />
+								<Button type="submit" variant="outline" className="w-full">
+									<Icon name="trash" size="sm" />
+									Clear Checked Items ({checkedItems})
+								</Button>
+							</Form>
+						</div>
+					)}
+
+					{/* Inventory Review Panel */}
+					{showReview && checkedItems > 0 && (
+						<div className="print:hidden">
+							<ShoppingListToInventory
+								items={checkedItemsList}
+								onCancel={() => setShowReview(false)}
+							/>
+						</div>
 					)}
 				</div>
 			) : (

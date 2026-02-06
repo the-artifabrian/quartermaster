@@ -31,6 +31,7 @@ implemented:
 - Import from URL (JSON-LD scraping), quick text entry, JSON export
 - "Surprise me" random recipe picker
 - Cooking log with star ratings and notes ("I Made This")
+- "Last cooked" stats on recipe cards (cook count + relative time ago)
 
 ### Inventory System
 
@@ -85,7 +86,7 @@ implemented:
 
 ### Test Coverage
 
-- 190 unit and integration tests across 16 files
+- 199 unit and integration tests across 16 files
 - Covers: recipe matching, fractions, ingredient parsing, shopping list
   generation/subtraction, date utilities, inventory subtraction, unit
   conversion, meal plan actions, recipe CRUD actions, category guessing
@@ -120,7 +121,7 @@ cooking workflow come first.
 
 ### Phase 9: Test Coverage ✅
 
-190 unit and integration tests across 16 files. All business logic is covered
+199 unit and integration tests across 16 files. All business logic is covered
 (recipe matching, fractions, ingredient parsing, shopping list, date utilities,
 inventory subtraction, meal plan actions, recipe CRUD). E2E happy-path tests
 were dropped — they'd mostly test that React Router and Prisma work, not app
@@ -159,11 +160,11 @@ required for most items.
       gap: without it, inventory accuracy degrades after every shopping trip.
       Build this before any AI inventory features — it's the manual fallback
       that must exist regardless.
-- [ ] **"Last cooked" on recipe cards** — Show "Last made: 3 weeks ago" or
+- [x] **"Last cooked" on recipe cards** — Show "Last made: 3 weeks ago" or
       "Made 5 times" on recipe list cards. Low lift — join cooking logs in
       the recipes loader. Helps answer "what haven't I made in a while?"
       without clicking into each recipe.
-- [ ] **Recipe personal notes** — A free-text "My notes" field on the Recipe
+- [x] **Recipe personal notes** — A free-text "My notes" field on the Recipe
       model for persistent reminders ("always double the garlic", "serve with
       rice", "kids don't like this"). Different from description (recipe's own
       text) and cooking log (per-cook reflections).

@@ -62,6 +62,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 			isFavorite: true,
 			image: { select: { objectKey: true } },
 			tags: { select: { id: true, name: true } },
+			cookingLogs: {
+				select: { cookedAt: true },
+				orderBy: { cookedAt: 'desc' as const },
+				take: 1,
+			},
+			_count: { select: { cookingLogs: true } },
 		},
 		orderBy: { updatedAt: 'desc' },
 	})
@@ -298,6 +304,8 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							cookTime={recipe.cookTime}
 							tags={recipe.tags}
 							isFavorite={recipe.isFavorite}
+							lastCookedAt={recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null}
+							cookCount={recipe._count.cookingLogs}
 						/>
 					))}
 				</RecipeCardGrid>

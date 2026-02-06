@@ -1,11 +1,14 @@
 import { Img } from 'openimg/react'
 import { Link } from 'react-router'
+import { formatTimeAgo } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { type RecipeMatch } from '#app/utils/recipe-matching.server.ts'
 import { Icon } from './ui/icon.tsx'
 
 type RecipeMatchCardProps = {
 	match: RecipeMatch
+	lastCookedAt?: string | null
+	cookCount?: number
 }
 
 // Generate a consistent color gradient based on recipe title
@@ -33,7 +36,7 @@ function getRecipeGradient(title: string) {
 	return gradients[index]
 }
 
-export function RecipeMatchCard({ match }: RecipeMatchCardProps) {
+export function RecipeMatchCard({ match, lastCookedAt, cookCount }: RecipeMatchCardProps) {
 	const { recipe, matchPercentage, canMake, missingIngredients } = match
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
 
@@ -101,6 +104,13 @@ export function RecipeMatchCard({ match }: RecipeMatchCardProps) {
 				{recipe.description && (
 					<p className="text-muted-foreground mt-1 line-clamp-2 text-sm">
 						{recipe.description}
+					</p>
+				)}
+
+				{cookCount != null && cookCount > 0 && lastCookedAt && (
+					<p className="text-muted-foreground mt-2 text-xs">
+						{cookCount === 1 ? 'Made once' : `Made ${cookCount} times`} ·
+						Last: {formatTimeAgo(new Date(lastCookedAt))}
 					</p>
 				)}
 

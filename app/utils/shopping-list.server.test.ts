@@ -19,6 +19,7 @@ function makeRecipe(
 		isFavorite: false,
 		sourceUrl: null,
 		rawText: null,
+		notes: null,
 		createdAt: new Date(),
 		updatedAt: new Date(),
 		userId: 'user-1',

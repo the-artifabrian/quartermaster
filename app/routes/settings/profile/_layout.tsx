@@ -52,7 +52,7 @@ export default function EditUserProfile() {
 		.filter(Boolean)
 
 	return (
-		<div className="m-auto mt-16 mb-24 max-w-3xl">
+		<div className="m-auto mt-16 mb-24 max-w-4xl">
 			<div className="container">
 				<ul className="flex gap-3">
 					<li>

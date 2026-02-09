@@ -32,6 +32,7 @@ model User {
   shoppingLists    ShoppingList[]
   cookingLogs      CookingLog[]
   householdMembers HouseholdMember[]
+  householdInvites HouseholdInvite[]
   subscription     Subscription?
 }
 
@@ -165,6 +166,7 @@ model Household {
   updatedAt DateTime @updatedAt
 
   members        HouseholdMember[]
+  invites        HouseholdInvite[]
   recipes        Recipe[]
   inventoryItems InventoryItem[]
   mealPlans      MealPlan[]
@@ -186,6 +188,22 @@ model HouseholdMember {
   @@unique([householdId, userId])
   @@index([householdId])
   @@index([userId])
+}
+
+model HouseholdInvite {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  createdAt DateTime @default(now())
+
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId String
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String
+
+  @@index([householdId])
 }
 
 model Subscription {

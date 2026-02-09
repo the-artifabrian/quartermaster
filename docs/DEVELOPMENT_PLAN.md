@@ -222,11 +222,11 @@ is independently testable:
 
 Ship only after 13a and 13b are stable.
 
-- [ ] **Invite flow** — Household owner generates an invite link (token-based,
+- [x] **Invite flow** — Household owner generates an invite link (token-based,
       expires in 7 days). New `HouseholdInvite` model (`token`, `householdId`,
       `expiresAt`, `usedAt?`). Recipient clicks link → if logged in, joins
       household; if not, signs up then joins.
-- [ ] **Member management UI** — Settings page showing household members, roles
+- [x] **Member management UI** — Settings page showing household members, roles
       (owner vs member), pending invites. Owner can remove members and revoke
       invites. Member can leave household.
 
@@ -571,4 +571,13 @@ householdId. CookingLog stays user-scoped. All routes migrated from
 requireUserId to requireUserWithHousehold (including recipes layout guard).
 Updated inventory-subtract utility, 6 recipe routes, 3 inventory routes, 3 meal
 plan/shopping list routes, discover route, 4 resource routes, and 4 test files
-with household-aware setup helpers. 251 tests across 18 files._
+with household-aware setup helpers. 251 tests across 18 files. Completed Phase
+13c: HouseholdInvite model with token/expiresAt/usedAt fields. Server utilities
+for invite creation (UUID tokens, 7-day expiry), token validation, accept
+(sole-member moves data, multi-member deep-copies recipes), leave (creates solo
+household with recipe copies), remove member (owner-only), revoke invite
+(owner-only). Household settings page at /settings/profile/household with rename,
+member list, invite generation with copy-link, revoke invites, remove members
+(useDoubleCheck), leave household (useDoubleCheck). Join page at /household/join
+with accept/decline flow and auth redirect support. 14 new test cases covering
+all invite/join/leave functions. 265 tests across 19 files._

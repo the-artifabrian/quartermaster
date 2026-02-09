@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { cn } from '#app/utils/misc.tsx'
 
@@ -24,6 +23,69 @@ type MealPlanWasteAlertsProps = {
 	alerts: WasteAlertData[]
 }
 
+type RecipePairBridge = {
+	key: string
+	recipeNames: string[]
+	ingredients: string[]
+}
+
+type RecipeSuggestion = {
+	id: string
+	title: string
+	ingredients: string[]
+}
+
+function groupByRecipePair(
+	sharedIngredients: SharedIngredientData[],
+): RecipePairBridge[] {
+	const groups = new Map<string, { recipeNames: string[]; ingredients: string[] }>()
+
+	for (const item of sharedIngredients) {
+		const sorted = [...item.recipeNames].sort()
+		const key = sorted.join(' ↔ ')
+		const existing = groups.get(key)
+		if (existing) {
+			existing.ingredients.push(item.name)
+		} else {
+			groups.set(key, { recipeNames: sorted, ingredients: [item.name] })
+		}
+	}
+
+	return [...groups.entries()]
+		.map(([key, value]) => ({ key, ...value }))
+		.sort((a, b) => b.ingredients.length - a.ingredients.length)
+}
+
+function getTopSuggestions(
+	alerts: WasteAlertData[],
+	limit = 5,
+): RecipeSuggestion[] {
+	const recipeMap = new Map<string, { title: string; ingredients: Set<string> }>()
+
+	for (const alert of alerts) {
+		for (const recipe of alert.suggestedRecipes) {
+			const existing = recipeMap.get(recipe.id)
+			if (existing) {
+				existing.ingredients.add(alert.ingredientName)
+			} else {
+				recipeMap.set(recipe.id, {
+					title: recipe.title,
+					ingredients: new Set([alert.ingredientName]),
+				})
+			}
+		}
+	}
+
+	return [...recipeMap.entries()]
+		.map(([id, { title, ingredients }]) => ({
+			id,
+			title,
+			ingredients: [...ingredients],
+		}))
+		.sort((a, b) => b.ingredients.length - a.ingredients.length)
+		.slice(0, limit)
+}
+
 export function MealPlanWasteAlerts({
 	efficiencyScore,
 	sharedCount,
@@ -35,6 +97,9 @@ export function MealPlanWasteAlerts({
 	const [isExpanded, setIsExpanded] = useState(false)
 
 	const efficiencyPct = Math.round((1 - efficiencyScore) * 100)
+
+	const recipePairs = groupByRecipePair(sharedIngredients)
+	const suggestions = getTopSuggestions(alerts)
 
 	return (
 		<div className="bg-muted/30 rounded-lg border p-4">
@@ -81,75 +146,56 @@ export function MealPlanWasteAlerts({
 				/>
 			</button>
 
-			{isExpanded && (sharedIngredients.length > 0 || alerts.length > 0) && (
+			{isExpanded && (recipePairs.length > 0 || suggestions.length > 0) && (
 				<div className="mt-3 space-y-4 border-t pt-3">
-					{/* Shared Ingredients (Ingredient Bridges) */}
-					{sharedIngredients.length > 0 && (
-						<div className="space-y-2">
+					{/* Ingredient Bridges — grouped by recipe pair */}
+					{recipePairs.length > 0 && (
+						<div className="space-y-1">
 							<p className="text-muted-foreground text-xs font-medium">
-								Ingredient bridges across recipes:
+								Shared ingredients between recipes:
 							</p>
-							{sharedIngredients.map((ingredient) => (
+							{recipePairs.map((pair) => (
 								<div
-									key={ingredient.name}
-									className="bg-background rounded-md p-3"
+									key={pair.key}
+									className="flex flex-col gap-0.5 py-1.5"
 								>
-									<p className="text-sm font-medium">{ingredient.name}</p>
-									<div className="mt-1 flex flex-wrap gap-1">
-										{ingredient.recipeNames.map((name) => (
-											<span
-												key={name}
-												className="bg-primary/10 text-primary inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-											>
-												{name}
-											</span>
-										))}
-									</div>
+									<p className="text-sm">
+										<span className="font-medium">
+											{pair.recipeNames.join(' ↔ ')}
+										</span>
+									</p>
+									<p className="text-muted-foreground text-xs">
+										{pair.ingredients.join(', ')}
+									</p>
 								</div>
 							))}
 						</div>
 					)}
 
-					{/* Waste Alerts */}
-					{alerts.length > 0 && (
-						<div className="space-y-2">
+					{/* Recipes to consider — ranked by shared ingredient count */}
+					{suggestions.length > 0 && (
+						<div className="space-y-1">
 							<p className="text-muted-foreground text-xs font-medium">
-								Single-use ingredients you could use in more recipes:
+								Recipes to consider adding:
 							</p>
-							{alerts.map((alert) => (
+							{suggestions.map((suggestion) => (
 								<div
-									key={alert.ingredientName}
-									className="bg-background rounded-md p-3"
+									key={suggestion.id}
+									className="flex items-baseline gap-2 py-1"
 								>
-									<p className="text-sm">
-										<span className="font-medium">
-											{alert.ingredientName}
-										</span>
-										<span className="text-muted-foreground">
-											{' '}
-											&mdash; only in {alert.usedInRecipeTitle}
-										</span>
-									</p>
-									<div className="mt-1 flex flex-wrap gap-1">
-										{alert.suggestedRecipes.slice(0, 3).map((recipe) => (
-											<Button
-												key={recipe.id}
-												asChild
-												variant="outline"
-												size="sm"
-												className="h-6 text-xs"
-											>
-												<Link to={`/recipes/${recipe.id}`}>
-													{recipe.title}
-												</Link>
-											</Button>
-										))}
-										{alert.suggestedRecipes.length > 3 && (
-											<span className="text-muted-foreground self-center text-xs">
-												+{alert.suggestedRecipes.length - 3} more
-											</span>
-										)}
-									</div>
+									<Link
+										to={`/recipes/${suggestion.id}`}
+										className="text-sm font-medium underline decoration-dotted underline-offset-2"
+									>
+										{suggestion.title}
+									</Link>
+									<span className="text-muted-foreground text-xs">
+										would share {suggestion.ingredients.length}{' '}
+										{suggestion.ingredients.length === 1
+											? 'ingredient'
+											: 'ingredients'}{' '}
+										({suggestion.ingredients.join(', ')})
+									</span>
 								</div>
 							))}
 						</div>

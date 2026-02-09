@@ -142,6 +142,11 @@ export const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 	// Alliums — "small onion" normalizes to "onion" via modifier stripping
 	shallot: ['onion'],
 	// Don't add onion→shallot since that would make any onion match shallot
+	// Count-unit variants — "garlic cloves" normalizes to "garlic clove"
+	'garlic clove': ['garlic'],
+	garlic: ['garlic clove'],
+	'celery stalk': ['celery'],
+	celery: ['celery stalk'],
 }
 
 /**
@@ -156,6 +161,9 @@ export const INGREDIENT_SYNONYMS: Record<string, string[]> = {
  */
 export function normalizeIngredientName(name: string): string {
 	let normalized = name.toLowerCase().trim()
+
+	// Strip leading "of " from ingredient names: "of garlic" → "garlic"
+	normalized = normalized.replace(/^of\s+/, '')
 
 	// Remove parenthetical notes: "flour (for tangzhong)" → "flour"
 	normalized = normalized.replace(/\([^)]*\)/g, '').trim()
@@ -246,6 +254,15 @@ export function normalizeIngredientName(name: string): string {
 		'jasmine',
 		'basmati',
 		'arborio',
+		// Meat descriptors
+		'boneless',
+		'skinless',
+		'skin-on',
+		'bone-in',
+		// Processing
+		'smoked',
+		'roasted',
+		'toasted',
 	]
 	for (const modifier of modifiers) {
 		normalized = normalized.replace(new RegExp(`\\b${modifier}\\b`, 'gi'), '')
@@ -261,6 +278,7 @@ export function normalizeIngredientName(name: string): string {
 		potatoes: 'potato',
 		knives: 'knife',
 		loaves: 'loaf',
+		'bay leaves': 'bay leaf',
 	}
 	const irregular = irregularPlurals[normalized]
 	if (irregular) {

@@ -88,11 +88,15 @@ function EntryRow({
 					<StatusButton
 						type="submit"
 						size="sm"
-						variant="ghost"
+						variant={dc.doubleCheck ? 'destructive' : 'ghost'}
 						status="idle"
 						{...dc.getButtonProps()}
 					>
-						<Icon name="trash" size="sm" />
+						{dc.doubleCheck ? (
+							<span className="text-xs">Sure?</span>
+						) : (
+							<Icon name="trash" size="sm" />
+						)}
 					</StatusButton>
 				</Form>
 			</div>
@@ -146,37 +150,39 @@ export function MealSlotCard({
 
 	const assignedRecipeIds = entries.map((e) => e.recipe.id)
 
+	// Empty slot: compact button that expands to RecipeSelector
 	if (entries.length === 0) {
+		if (isSelectingRecipe) {
+			return (
+				<div className="bg-card rounded-lg border border-dashed p-3">
+					<div className="text-muted-foreground mb-2 text-xs font-medium">
+						{MEAL_TYPE_LABELS[mealType]}
+					</div>
+					<RecipeSelector
+						recipes={recipes}
+						date={date}
+						mealType={mealType}
+						excludeRecipeIds={assignedRecipeIds}
+						onCancel={() => setIsSelectingRecipe(false)}
+						pairingData={pairingData}
+					/>
+				</div>
+			)
+		}
+
 		return (
-			<div className="bg-card rounded-lg border border-dashed p-4">
-				<div className="text-muted-foreground mb-2 text-xs font-medium">
-					{MEAL_TYPE_LABELS[mealType]}
-				</div>
-				<div className="flex min-h-[100px] items-center justify-center">
-					{isSelectingRecipe ? (
-						<RecipeSelector
-							recipes={recipes}
-							date={date}
-							mealType={mealType}
-							excludeRecipeIds={assignedRecipeIds}
-							onCancel={() => setIsSelectingRecipe(false)}
-							pairingData={pairingData}
-						/>
-					) : (
-						<Button
-							variant="ghost"
-							onClick={openRecipeSelector}
-							className="h-auto flex-col gap-1 py-4"
-						>
-							<Icon name="plus" size="lg" className="text-muted-foreground" />
-							<span className="text-muted-foreground text-xs">Add Recipe</span>
-						</Button>
-					)}
-				</div>
-			</div>
+			<button
+				type="button"
+				onClick={openRecipeSelector}
+				className="text-muted-foreground hover:text-foreground hover:border-primary/40 flex w-full items-center gap-1.5 rounded-md border border-dashed px-3 py-1.5 text-xs transition-colors"
+			>
+				<Icon name="plus" size="xs" />
+				{MEAL_TYPE_LABELS[mealType]}
+			</button>
 		)
 	}
 
+	// Filled slot: unchanged card with entries
 	return (
 		<div className="group bg-card overflow-hidden rounded-lg border transition-shadow hover:shadow-md">
 			<div className="bg-muted/30 border-b px-3 py-1.5">

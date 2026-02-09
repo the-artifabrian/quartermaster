@@ -43,7 +43,7 @@ export function MealPlanCalendar({
 		<>
 			{/* Desktop: day-column grid */}
 			<div className="hidden md:block">
-				<div className="grid grid-cols-7 gap-3">
+				<div className="grid grid-cols-7">
 					{/* Header row */}
 					{weekDays.map((date) => (
 						<div

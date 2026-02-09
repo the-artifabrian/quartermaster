@@ -47,6 +47,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			sourceUrl: true,
 			rawText: true,
 			notes: true,
+			householdId: true,
 			createdAt: true,
 			updatedAt: true,
 			userId: true,

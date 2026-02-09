@@ -125,24 +125,38 @@ export async function signup({
 }) {
 	const hashedPassword = await getPasswordHash(password)
 
-	const session = await prisma.session.create({
-		data: {
-			expirationDate: getSessionExpirationDate(),
-			user: {
-				create: {
-					email: email.toLowerCase(),
-					username: username.toLowerCase(),
-					name,
-					roles: { connect: { name: 'user' } },
-					password: {
-						create: {
-							hash: hashedPassword,
+	const session = await prisma.$transaction(async (tx) => {
+		const newSession = await tx.session.create({
+			data: {
+				expirationDate: getSessionExpirationDate(),
+				user: {
+					create: {
+						email: email.toLowerCase(),
+						username: username.toLowerCase(),
+						name,
+						roles: { connect: { name: 'user' } },
+						password: {
+							create: {
+								hash: hashedPassword,
+							},
 						},
 					},
 				},
 			},
-		},
-		select: { id: true, expirationDate: true, userId: true },
+			select: { id: true, expirationDate: true, userId: true },
+		})
+
+		// Create a household for the new user
+		await tx.household.create({
+			data: {
+				name: `${name ?? username}'s Household`,
+				members: {
+					create: { userId: newSession.userId, role: 'owner' },
+				},
+			},
+		})
+
+		return newSession
 	})
 
 	return session
@@ -163,15 +177,37 @@ export async function signupWithConnection({
 	providerName: Connection['providerName']
 	imageUrl?: string
 }) {
-	const user = await prisma.user.create({
-		data: {
-			email: email.toLowerCase(),
-			username: username.toLowerCase(),
-			name,
-			roles: { connect: { name: 'user' } },
-			connections: { create: { providerId, providerName } },
-		},
-		select: { id: true },
+	const { user, session } = await prisma.$transaction(async (tx) => {
+		const newUser = await tx.user.create({
+			data: {
+				email: email.toLowerCase(),
+				username: username.toLowerCase(),
+				name,
+				roles: { connect: { name: 'user' } },
+				connections: { create: { providerId, providerName } },
+			},
+			select: { id: true },
+		})
+
+		// Create a household for the new user
+		await tx.household.create({
+			data: {
+				name: `${name ?? username}'s Household`,
+				members: {
+					create: { userId: newUser.id, role: 'owner' },
+				},
+			},
+		})
+
+		const newSession = await tx.session.create({
+			data: {
+				expirationDate: getSessionExpirationDate(),
+				userId: newUser.id,
+			},
+			select: { id: true, expirationDate: true },
+		})
+
+		return { user: newUser, session: newSession }
 	})
 
 	if (imageUrl) {
@@ -187,15 +223,6 @@ export async function signupWithConnection({
 			},
 		})
 	}
-
-	// Create and return the session
-	const session = await prisma.session.create({
-		data: {
-			expirationDate: getSessionExpirationDate(),
-			userId: user.id,
-		},
-		select: { id: true, expirationDate: true },
-	})
 
 	return session
 }

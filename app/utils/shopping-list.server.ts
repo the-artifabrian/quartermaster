@@ -102,7 +102,7 @@ function isRecipeArray(
 	return 'ingredients' in input[0]! && !('recipe' in input[0]!)
 }
 
-function scaleAmountString(
+export function scaleAmountString(
 	amount: string | null,
 	ratio: number,
 ): string | null {
@@ -113,7 +113,7 @@ function scaleAmountString(
 }
 
 // Sum numeric quantities with same unit, or convert compatible units, or show count
-function consolidateQuantities(
+export function consolidateQuantities(
 	quantities: Array<{ amount?: string | null; unit?: string | null }>,
 ): { quantity?: string; unit?: string } {
 	if (quantities.length === 0) return {}

@@ -340,17 +340,24 @@ export default function ShoppingListRoute({
 							</p>
 						)}
 					</div>
-					{totalItems > 0 && (
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => window.print()}
-							className="print:hidden"
-						>
-							<Icon name="file-text" size="sm" />
-							Print
+					<div className="flex gap-2 print:hidden">
+						<Button asChild variant="ghost" size="sm">
+							<Link to="/plan/prep-list">
+								<Icon name="file-text" size="sm" />
+								Prep List
+							</Link>
 						</Button>
-					)}
+						{totalItems > 0 && (
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => window.print()}
+							>
+								<Icon name="file-text" size="sm" />
+								Print
+							</Button>
+						)}
+					</div>
 				</div>
 			</div>
 

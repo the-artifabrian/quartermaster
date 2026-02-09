@@ -468,6 +468,16 @@ can be done between phases without disrupting planned work.
 - [ ] **UX: Inventory quick-add quantity** — Quick-add only accepts a name.
       Adding optional inline quantity/unit/location fields would cut the
       add-then-edit workflow in half.
+- [ ] ⚡ **UX: Unsplash placeholder images for recipes** — Recipes without a
+      user-uploaded image currently show colored gradients, which look generic.
+      Use the [Unsplash API](https://unsplash.com/developers) to fetch a
+      relevant food photo based on the recipe title. Store the image URL in a
+      new `placeholderImageUrl` field on Recipe so the API is only hit once per
+      recipe (on create/edit when no image is uploaded). Free tier: 50
+      requests/hour, high-quality photos, no attribution required. Fallback to
+      the existing gradient if the API is unavailable or returns no results.
+      Implementation: server-side fetch in the recipe create/edit action,
+      search query = recipe title, pick the top result's `urls.regular`.
 
 ---
 

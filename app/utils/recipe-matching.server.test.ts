@@ -89,6 +89,29 @@ describe('normalizeIngredientName', () => {
 			'bell pepper',
 		)
 	})
+
+	test('strips leading "of " from ingredient names', () => {
+		expect(normalizeIngredientName('of garlic')).toBe('garlic')
+		expect(normalizeIngredientName('of celery')).toBe('celery')
+	})
+
+	test('strips meat descriptors', () => {
+		expect(normalizeIngredientName('boneless chicken thighs')).toBe(
+			'chicken thigh',
+		)
+		expect(normalizeIngredientName('skinless chicken breast')).toBe(
+			'chicken breast',
+		)
+		expect(normalizeIngredientName('bone-in pork chops')).toBe('pork chop')
+	})
+
+	test('strips processing modifiers', () => {
+		expect(normalizeIngredientName('smoked paprika')).toBe('paprika')
+		expect(normalizeIngredientName('roasted peanuts')).toBe('peanut')
+		expect(normalizeIngredientName('toasted sesame seeds')).toBe(
+			'sesame seed',
+		)
+	})
 })
 
 describe('getCanonicalIngredientName', () => {
@@ -130,6 +153,19 @@ describe('getCanonicalIngredientName', () => {
 		expect(getCanonicalIngredientName('powdered sugar')).toBe(
 			getCanonicalIngredientName('icing sugar'),
 		)
+	})
+
+	test('"garlic cloves" and "garlic" share canonical name', () => {
+		// "garlic cloves" → depluralized → "garlic clove" → synonym → "garlic"
+		const fromCloves = getCanonicalIngredientName('garlic cloves')
+		const fromGarlic = getCanonicalIngredientName('garlic')
+		expect(fromCloves).toBe(fromGarlic)
+	})
+
+	test('"celery stalks" and "celery" share canonical name', () => {
+		const fromStalks = getCanonicalIngredientName('celery stalks')
+		const fromCelery = getCanonicalIngredientName('celery')
+		expect(fromStalks).toBe(fromCelery)
 	})
 })
 

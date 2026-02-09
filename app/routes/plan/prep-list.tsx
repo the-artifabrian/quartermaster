@@ -7,9 +7,6 @@ import { requireUserId } from '#app/utils/auth.server.ts'
 import {
 	getCurrentWeekStart,
 	formatWeekRange,
-	formatDayLabel,
-	MEAL_TYPE_LABELS,
-	type MealType,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { generatePrepList, type PrepItem } from '#app/utils/prep-list.server.ts'
@@ -101,14 +98,16 @@ export default function PrepListRoute({ loaderData }: Route.ComponentProps) {
 
 			<div className="container py-6">
 				{prepItems.length > 0 ? (
-					<div className="space-y-4">
-						<p className="text-muted-foreground text-sm">
-							{prepItems.length} shared ingredient
-							{prepItems.length !== 1 ? 's' : ''} to prep ahead of time
+					<div>
+						<p className="text-muted-foreground mb-3 text-sm">
+							{prepItems.length} ingredient
+							{prepItems.length !== 1 ? 's' : ''} to prep
 						</p>
-						{prepItems.map((item) => (
-							<PrepItemCard key={item.canonicalName} item={item} />
-						))}
+						<div className="divide-y">
+							{prepItems.map((item) => (
+								<PrepItemCard key={item.canonicalName} item={item} />
+							))}
+						</div>
 					</div>
 				) : (
 					<div className="rounded-lg border border-dashed p-8 text-center">
@@ -133,23 +132,34 @@ export default function PrepListRoute({ loaderData }: Route.ComponentProps) {
 
 function PrepItemCard({ item }: { item: PrepItem }) {
 	const [prepped, setPrepped] = useState(false)
-	const [expanded, setExpanded] = useState(false)
 
 	const quantityLabel = [item.totalQuantity, item.totalUnit]
 		.filter(Boolean)
 		.join(' ')
 
+	const recipeNames = [
+		...new Set(item.usedIn.map((usage) => usage.recipeTitle)),
+	]
+
+	// Capitalize first letter for display
+	const displayName =
+		item.ingredientName.charAt(0).toUpperCase() +
+		item.ingredientName.slice(1)
+
+	// Show prep method breakdown when any usage has a non-"Whole" method
+	const hasRealMethods = item.prepMethods.some((g) => g.method !== 'Whole')
+
 	return (
 		<div
-			className={`bg-card rounded-lg border p-4 transition-opacity ${prepped ? 'opacity-50' : ''}`}
+			className={`py-3 transition-opacity ${prepped ? 'opacity-50' : ''}`}
 		>
 			<div className="flex items-start gap-3">
 				{/* Checkbox */}
 				<button
 					type="button"
-					aria-label={`Mark ${item.ingredientName} as prepped`}
+					aria-label={`Mark ${displayName} as prepped`}
 					onClick={() => setPrepped(!prepped)}
-					className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border ${
+					className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border print:hidden ${
 						prepped
 							? 'border-primary bg-primary text-primary-foreground'
 							: 'border-input'
@@ -158,100 +168,56 @@ function PrepItemCard({ item }: { item: PrepItem }) {
 					{prepped && <Icon name="check" size="xs" />}
 				</button>
 
-				<div className="flex-1">
-					{/* Header */}
-					<div className="flex items-baseline justify-between gap-2">
-						<h3
+				<div className="min-w-0 flex-1">
+					{/* Line 1: Ingredient name + quantity inline */}
+					<p className="flex items-baseline gap-1">
+						<span
 							className={`font-medium ${prepped ? 'line-through' : ''}`}
 						>
-							{item.ingredientName}
-						</h3>
+							{displayName}
+						</span>
 						{quantityLabel && (
-							<span className="text-muted-foreground shrink-0 text-sm">
-								{quantityLabel}
-							</span>
+							<>
+								<span className="text-muted-foreground">·</span>
+								<span
+									className={`text-muted-foreground text-sm ${prepped ? 'line-through' : ''}`}
+								>
+									{quantityLabel}
+								</span>
+							</>
 						)}
-					</div>
-
-					{/* Usage summary */}
-					<p className="text-muted-foreground mt-1 text-sm">
-						Used in {item.usedIn.length} meal
-						{item.usedIn.length !== 1 ? 's' : ''}
 					</p>
 
-					{/* Expandable details */}
-					<button
-						type="button"
-						onClick={() => setExpanded(!expanded)}
-						className="text-muted-foreground hover:text-foreground mt-1 flex items-center gap-1 text-xs print:hidden"
-					>
-						<Icon
-							name="chevron-down"
-							size="xs"
-							className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
-						/>
-						{expanded ? 'Hide' : 'Show'} details
-					</button>
-
-					{/* Expanded recipe attributions */}
-					{expanded && (
-						<ul className="mt-2 space-y-1 print:hidden">
-							{item.usedIn.map((usage, i) => {
-								const dayLabel = formatDayLabel(new Date(usage.date))
-								const mealLabel =
-									MEAL_TYPE_LABELS[usage.mealType as MealType] ??
-									usage.mealType
-								const perRecipeQty = [usage.quantity, usage.unit]
+					{/* Line 2+: Prep method breakdown or simple recipe list */}
+					{hasRealMethods ? (
+						<div className="text-muted-foreground text-sm">
+							{item.prepMethods.map((group) => {
+								const qty = [group.totalQuantity, group.totalUnit]
 									.filter(Boolean)
 									.join(' ')
-
+								const label =
+									group.method === 'Whole'
+										? `${qty ? qty + ' ' : ''}whole`
+										: `${group.method}${qty ? ' ' + qty : ''}`
 								return (
-									<li
-										key={i}
-										className="text-muted-foreground flex items-baseline justify-between text-sm"
-									>
-										<span>
-											{dayLabel} {mealLabel.toLowerCase()}:{' '}
-											{usage.recipeTitle}
-										</span>
-										{perRecipeQty && (
-											<span className="shrink-0 text-xs">
-												{perRecipeQty}
-											</span>
-										)}
-									</li>
+									<p key={group.method}>
+										{label} ({group.recipes.join(', ')})
+									</p>
 								)
 							})}
-						</ul>
+						</div>
+					) : (
+						<p className="text-muted-foreground truncate text-sm">
+							{recipeNames.join(', ')}
+						</p>
 					)}
 
-					{/* Print-only: always show details */}
-					<ul className="mt-2 hidden space-y-1 print:block">
-						{item.usedIn.map((usage, i) => {
-							const dayLabel = formatDayLabel(new Date(usage.date))
-							const mealLabel =
-								MEAL_TYPE_LABELS[usage.mealType as MealType] ??
-								usage.mealType
-							const perRecipeQty = [usage.quantity, usage.unit]
-								.filter(Boolean)
-								.join(' ')
-
-							return (
-								<li
-									key={i}
-									className="text-muted-foreground flex items-baseline justify-between text-sm"
-								>
-									<span>
-										{dayLabel} {mealLabel.toLowerCase()}:{' '}
-										{usage.recipeTitle}
-									</span>
-									{perRecipeQty && (
-										<span className="shrink-0 text-xs">{perRecipeQty}</span>
-									)}
-								</li>
-							)
-						})}
-					</ul>
+					{/* Line 3: Storage tip */}
+					{item.storageTip && (
+						<p className="text-muted-foreground mt-0.5 text-xs italic">
+							{item.storageTip}
+						</p>
+					)}
 				</div>
 			</div>
 		</div>

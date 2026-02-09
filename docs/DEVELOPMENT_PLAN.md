@@ -67,7 +67,8 @@ implemented across 11 phases of development:
   ingredient count with green badges)
 - Single-use ingredient waste alerts with recipe suggestions to reduce waste
 - Unified prep list: shared ingredients across 2+ recipes aggregated into a
-  Sunday prep checklist with per-recipe attribution and serving-scaled amounts
+  Sunday prep checklist with per-recipe attribution, serving-scaled amounts,
+  prep method grouping from ingredient notes, and storage tips for prepped items
 - Plan efficiency dashboard: total/unique ingredient stats, expandable shared
   ingredient bridges with recipe name pills
 
@@ -78,7 +79,7 @@ implemented across 11 phases of development:
 - Descriptive `<title>`, canonical URLs, Open Graph / Twitter Card meta tags
 - JSON-LD Recipe structured data, marketing pages with sitemap
 - PWA with service worker: offline access for viewed recipes and meal plan
-- 232 unit/integration tests across 18 files
+- 251 unit/integration tests across 18 files
 - Deployed on Fly.io with custom domain, HTTPS, and email
 - Mobile-first responsive layout with bottom navigation
 
@@ -129,15 +130,16 @@ just new logic on top of battle-tested infrastructure.
 
 - [x] **Weekly prep list generation** — From the meal plan, extract all
       ingredients that appear in 2+ recipes and generate a single "Sunday prep"
-      checklist: "Dice 4 onions (Mon stir-fry, Wed soup, Fri tacos)", "Cook 3
-      cups rice (Tue bowl, Thu curry)". Amounts are aggregated across recipes
-      using the existing shopping list consolidation logic
-      (`generateShoppingListFromRecipes` already handles unit-aware quantity
-      merging and canonical name deduplication). Start by grouping by
-      ingredient. Prep-type grouping (chop, cook, marinate) can be added later
-      if the basic list proves useful. The key insight from restaurant kitchens:
-      prep your shared ingredients once, store them, assemble meals throughout
-      the week.
+      checklist. Amounts are aggregated across recipes using the existing
+      shopping list consolidation logic (unit-aware quantity merging and
+      canonical name deduplication). Prep method grouping extracts verbs from
+      ingredient notes (minced, sliced, diced, etc.) and shows per-method
+      quantities with recipe attribution. Storage tips (~30 ingredients) give
+      practical fridge/freezer guidance for prepped items. Non-preppable filter
+      (90+ shelf-stable items) keeps the list focused on items that actually
+      need physical prep. Normalization fixes (leading "of " stripping, meat
+      descriptors, count-unit synonyms like "garlic cloves" → "garlic") ensure
+      proper consolidation.
 
 #### 12c: Plan Efficiency Dashboard ✅
 
@@ -431,8 +433,10 @@ can be done between phases without disrupting planned work.
 - [ ] **Prep freshness guidance** — Flag ingredients where prep-ahead has
       limits. Avocado or fresh herbs can't be prepped 5 days early. Simple
       heuristic rules (not AI): a small lookup table of ingredients with
-      max-prep-ahead days. Natural extension of Phase 12b's prep list — add once
-      the prep list proves useful in daily cooking.
+      max-prep-ahead days. The prep list already has storage tips (general
+      fridge/freezer advice); this would add day-specific warnings based on
+      when the meal is planned (e.g., "Prep basil no earlier than Wednesday
+      for Friday's dinner").
 - [ ] **AI: Receipt scanning → inventory** — Photo of grocery receipt, AI
       extracts items and guesses storage locations. Review/confirm before
       adding.
@@ -543,4 +547,9 @@ handling, print-friendly layout, cross-navigation between prep list and
 shopping list. Completed Phase 12c: plan efficiency dashboard with expanded
 stats (total/unique ingredient counts), shared ingredient bridges with recipe
 name pills in expandable section. Phase 12 (No-Waste Meal Planning) is now
-fully complete. 232 tests across 18 files._
+fully complete. Enhanced Phase 12b prep list: added prep method grouping from
+ingredient notes (19 prep verbs), storage tips map (~30 ingredients),
+non-preppable filter expansion (sesame seeds, italian seasoning, bay leaves
+fix), normalization fixes (leading "of " stripping, meat/processing modifiers,
+garlic clove/celery stalk synonyms), shortest display name selection, per-method
+line layout for readability. 251 tests across 18 files._

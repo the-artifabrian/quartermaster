@@ -1,10 +1,19 @@
 import { describe, expect, test } from 'vitest'
-import { generatePrepList, type PrepEntry } from './prep-list.server.ts'
+import {
+	generatePrepList,
+	extractPrepMethod,
+	type PrepEntry,
+} from './prep-list.server.ts'
 
 function makeRecipe(
 	id: string,
 	title: string,
-	ingredients: Array<{ name: string; amount?: string; unit?: string }>,
+	ingredients: Array<{
+		name: string
+		amount?: string
+		unit?: string
+		notes?: string
+	}>,
 	servings = 4,
 ) {
 	return {
@@ -26,7 +35,7 @@ function makeRecipe(
 			name: ing.name,
 			amount: ing.amount ?? null,
 			unit: ing.unit ?? null,
-			notes: null,
+			notes: ing.notes ?? null,
 			order: i,
 			recipeId: id,
 		})),
@@ -45,6 +54,44 @@ function makeEntry(
 const monday = new Date('2026-02-09')
 const tuesday = new Date('2026-02-10')
 const wednesday = new Date('2026-02-11')
+
+describe('extractPrepMethod', () => {
+	test('returns null for null notes', () => {
+		expect(extractPrepMethod(null)).toBeNull()
+	})
+
+	test('returns null for non-prep notes', () => {
+		expect(extractPrepMethod('room temperature')).toBeNull()
+		expect(extractPrepMethod('to taste')).toBeNull()
+	})
+
+	test('extracts single-word prep methods', () => {
+		expect(extractPrepMethod('minced')).toBe('Minced')
+		expect(extractPrepMethod('diced')).toBe('Diced')
+		expect(extractPrepMethod('sliced')).toBe('Sliced')
+		expect(extractPrepMethod('chopped')).toBe('Chopped')
+		expect(extractPrepMethod('grated')).toBe('Grated')
+		expect(extractPrepMethod('crushed')).toBe('Crushed')
+		expect(extractPrepMethod('peeled')).toBe('Peeled')
+		expect(extractPrepMethod('zested')).toBe('Zested')
+		expect(extractPrepMethod('shredded')).toBe('Shredded')
+	})
+
+	test('extracts multi-word prep methods first', () => {
+		expect(extractPrepMethod('thinly sliced')).toBe('Thinly sliced')
+		expect(extractPrepMethod('finely chopped')).toBe('Finely chopped')
+		expect(extractPrepMethod('finely diced')).toBe('Finely diced')
+		expect(extractPrepMethod('roughly chopped')).toBe('Roughly chopped')
+	})
+
+	test('extracts prep method from longer notes', () => {
+		// "diced" appears before "peeled" in the pattern priority list
+		expect(extractPrepMethod('peeled and diced into 1-inch cubes')).toBe(
+			'Diced',
+		)
+		expect(extractPrepMethod('about 3 cloves, minced')).toBe('Minced')
+	})
+})
 
 describe('generatePrepList', () => {
 	test('shared ingredients produce prep items', () => {
@@ -122,6 +169,77 @@ describe('generatePrepList', () => {
 		expect(items[0]!.canonicalName).toBe('onion')
 	})
 
+	test('non-preppable ingredients are excluded', () => {
+		const r1 = makeRecipe('r1', 'Stir Fry', [
+			{ name: 'garlic', amount: '3', unit: 'cloves' },
+			{ name: 'soy sauce', amount: '2', unit: 'tbsp' },
+			{ name: 'sesame oil', amount: '1', unit: 'tsp' },
+			{ name: 'rice vinegar', amount: '1', unit: 'tbsp' },
+			{ name: 'sugar', amount: '1', unit: 'tsp' },
+		])
+		const r2 = makeRecipe('r2', 'Fried Rice', [
+			{ name: 'garlic', amount: '2', unit: 'cloves' },
+			{ name: 'soy sauce', amount: '3', unit: 'tbsp' },
+			{ name: 'sesame oil', amount: '1', unit: 'tsp' },
+			{ name: 'rice vinegar', amount: '2', unit: 'tbsp' },
+			{ name: 'sugar', amount: '2', unit: 'tsp' },
+		])
+
+		const entries = [
+			makeEntry(r1, monday, 'dinner'),
+			makeEntry(r2, tuesday, 'dinner'),
+		]
+
+		const items = generatePrepList(entries)
+
+		// Only garlic should appear — soy sauce, sesame oil, rice vinegar,
+		// and sugar are all non-preppable (just measured/poured)
+		expect(items).toHaveLength(1)
+		expect(items[0]!.canonicalName).toBe('garlic')
+	})
+
+	test('sesame seeds are filtered as non-preppable', () => {
+		const r1 = makeRecipe('r1', 'Stir Fry', [
+			{ name: 'sesame seeds', amount: '1', unit: 'tbsp' },
+			{ name: 'garlic', amount: '2', unit: 'cloves' },
+		])
+		const r2 = makeRecipe('r2', 'Noodles', [
+			{ name: 'sesame seeds', amount: '2', unit: 'tbsp' },
+			{ name: 'garlic', amount: '3', unit: 'cloves' },
+		])
+
+		const entries = [
+			makeEntry(r1, monday, 'dinner'),
+			makeEntry(r2, tuesday, 'dinner'),
+		]
+
+		const items = generatePrepList(entries)
+
+		expect(items).toHaveLength(1)
+		expect(items[0]!.canonicalName).toBe('garlic')
+	})
+
+	test('smoked paprika is filtered (smoked stripped → paprika → non-preppable)', () => {
+		const r1 = makeRecipe('r1', 'Recipe A', [
+			{ name: 'smoked paprika', amount: '1', unit: 'tsp' },
+			{ name: 'onion', amount: '1', unit: '' },
+		])
+		const r2 = makeRecipe('r2', 'Recipe B', [
+			{ name: 'smoked paprika', amount: '2', unit: 'tsp' },
+			{ name: 'onion', amount: '1', unit: '' },
+		])
+
+		const entries = [
+			makeEntry(r1, monday, 'dinner'),
+			makeEntry(r2, tuesday, 'dinner'),
+		]
+
+		const items = generatePrepList(entries)
+
+		expect(items).toHaveLength(1)
+		expect(items[0]!.canonicalName).toBe('onion')
+	})
+
 	test('synonyms are consolidated', () => {
 		const r1 = makeRecipe('r1', 'Mexican Bowl', [
 			{ name: 'cilantro', amount: '1', unit: 'bunch' },
@@ -140,6 +258,25 @@ describe('generatePrepList', () => {
 		expect(items).toHaveLength(1)
 		expect(items[0]!.totalQuantity).toBe('2')
 		expect(items[0]!.usedIn).toHaveLength(2)
+	})
+
+	test('"of garlic" consolidates with "garlic"', () => {
+		const r1 = makeRecipe('r1', 'Recipe A', [
+			{ name: 'of garlic', amount: '3', unit: 'cloves' },
+		])
+		const r2 = makeRecipe('r2', 'Recipe B', [
+			{ name: 'garlic', amount: '2', unit: 'cloves' },
+		])
+
+		const entries = [
+			makeEntry(r1, monday, 'dinner'),
+			makeEntry(r2, tuesday, 'dinner'),
+		]
+
+		const items = generatePrepList(entries)
+
+		expect(items).toHaveLength(1)
+		expect(items[0]!.totalQuantity).toBe('5')
 	})
 
 	test('quantities are aggregated correctly', () => {
@@ -287,12 +424,8 @@ describe('generatePrepList', () => {
 	})
 
 	test('handles ingredients without amounts', () => {
-		const r1 = makeRecipe('r1', 'Recipe A', [
-			{ name: 'garlic' },
-		])
-		const r2 = makeRecipe('r2', 'Recipe B', [
-			{ name: 'garlic' },
-		])
+		const r1 = makeRecipe('r1', 'Recipe A', [{ name: 'garlic' }])
+		const r2 = makeRecipe('r2', 'Recipe B', [{ name: 'garlic' }])
 
 		const entries = [
 			makeEntry(r1, monday, 'dinner'),
@@ -304,5 +437,120 @@ describe('generatePrepList', () => {
 		expect(items).toHaveLength(1)
 		// consolidateQuantities returns count when amounts aren't parseable
 		expect(items[0]!.totalQuantity).toBe('2×')
+	})
+
+	test('prep methods grouped from notes', () => {
+		const r1 = makeRecipe('r1', 'Stir Fry', [
+			{ name: 'garlic', amount: '5', unit: 'cloves', notes: 'minced' },
+		])
+		const r2 = makeRecipe('r2', 'Fried Rice', [
+			{ name: 'garlic', amount: '2', unit: 'cloves', notes: 'sliced' },
+		])
+		const r3 = makeRecipe('r3', 'Kebab', [
+			{ name: 'garlic', amount: '6', unit: 'cloves' },
+		])
+
+		const entries = [
+			makeEntry(r1, monday, 'dinner'),
+			makeEntry(r2, tuesday, 'dinner'),
+			makeEntry(r3, wednesday, 'dinner'),
+		]
+
+		const items = generatePrepList(entries)
+
+		expect(items).toHaveLength(1)
+		const methods = items[0]!.prepMethods
+		expect(methods).toHaveLength(3)
+
+		const minced = methods.find((m) => m.method === 'Minced')
+		expect(minced).toBeDefined()
+		expect(minced!.totalQuantity).toBe('5')
+		expect(minced!.recipes).toEqual(['Stir Fry'])
+
+		const sliced = methods.find((m) => m.method === 'Sliced')
+		expect(sliced).toBeDefined()
+		expect(sliced!.totalQuantity).toBe('2')
+		expect(sliced!.recipes).toEqual(['Fried Rice'])
+
+		const whole = methods.find((m) => m.method === 'Whole')
+		expect(whole).toBeDefined()
+		expect(whole!.totalQuantity).toBe('6')
+		expect(whole!.recipes).toEqual(['Kebab'])
+	})
+
+	test('prep methods deduplicate recipe titles within group', () => {
+		const r1 = makeRecipe('r1', 'Stir Fry', [
+			{ name: 'garlic', amount: '3', unit: 'cloves', notes: 'minced' },
+		])
+		const r2 = makeRecipe('r2', 'Pasta', [
+			{ name: 'garlic', amount: '2', unit: 'cloves', notes: 'minced' },
+		])
+
+		const entries = [
+			makeEntry(r1, monday, 'dinner'),
+			makeEntry(r2, tuesday, 'dinner'),
+		]
+
+		const items = generatePrepList(entries)
+		const minced = items[0]!.prepMethods.find((m) => m.method === 'Minced')
+		expect(minced!.totalQuantity).toBe('5')
+		expect(minced!.recipes).toEqual(['Stir Fry', 'Pasta'])
+	})
+
+	test('storage tip present for known ingredients', () => {
+		const r1 = makeRecipe('r1', 'Recipe A', [
+			{ name: 'garlic', amount: '2', unit: 'cloves' },
+		])
+		const r2 = makeRecipe('r2', 'Recipe B', [
+			{ name: 'garlic', amount: '3', unit: 'cloves' },
+		])
+
+		const entries = [
+			makeEntry(r1, monday, 'dinner'),
+			makeEntry(r2, tuesday, 'dinner'),
+		]
+
+		const items = generatePrepList(entries)
+
+		expect(items[0]!.storageTip).toBe(
+			'Airtight container in fridge, up to 3 days',
+		)
+	})
+
+	test('storage tip null for unknown ingredients', () => {
+		const r1 = makeRecipe('r1', 'Recipe A', [
+			{ name: 'jicama', amount: '1', unit: '' },
+		])
+		const r2 = makeRecipe('r2', 'Recipe B', [
+			{ name: 'jicama', amount: '1', unit: '' },
+		])
+
+		const entries = [
+			makeEntry(r1, monday, 'dinner'),
+			makeEntry(r2, tuesday, 'dinner'),
+		]
+
+		const items = generatePrepList(entries)
+
+		expect(items[0]!.storageTip).toBeNull()
+	})
+
+	test('notes are passed through to usages', () => {
+		const r1 = makeRecipe('r1', 'Recipe A', [
+			{ name: 'garlic', amount: '2', unit: 'cloves', notes: 'minced' },
+		])
+		const r2 = makeRecipe('r2', 'Recipe B', [
+			{ name: 'garlic', amount: '3', unit: 'cloves', notes: 'sliced' },
+		])
+
+		const entries = [
+			makeEntry(r1, monday, 'dinner'),
+			makeEntry(r2, tuesday, 'dinner'),
+		]
+
+		const items = generatePrepList(entries)
+
+		expect(items[0]!.usedIn[0]!.notes).toBe('minced')
+		expect(items[0]!.usedIn[1]!.notes).toBe('sliced')
 	})
 })

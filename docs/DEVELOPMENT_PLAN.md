@@ -66,6 +66,8 @@ implemented across 11 phases of development:
 - Pairing suggestions when adding recipes to meal plan (sorted by shared
   ingredient count with green badges)
 - Single-use ingredient waste alerts with recipe suggestions to reduce waste
+- Unified prep list: shared ingredients across 2+ recipes aggregated into a
+  Sunday prep checklist with per-recipe attribution and serving-scaled amounts
 
 ### UI, SEO & Infrastructure
 
@@ -74,7 +76,7 @@ implemented across 11 phases of development:
 - Descriptive `<title>`, canonical URLs, Open Graph / Twitter Card meta tags
 - JSON-LD Recipe structured data, marketing pages with sitemap
 - PWA with service worker: offline access for viewed recipes and meal plan
-- 219 unit/integration tests across 17 files
+- 232 unit/integration tests across 18 files
 - Deployed on Fly.io with custom domain, HTTPS, and email
 - Mobile-first responsive layout with bottom navigation
 
@@ -121,9 +123,9 @@ just new logic on top of battle-tested infrastructure.
       on later if the basic alerts prove useful — avoid building a packaging
       knowledge database upfront.
 
-#### 12b: Unified Prep List
+#### 12b: Unified Prep List ✅
 
-- [ ] **Weekly prep list generation** — From the meal plan, extract all
+- [x] **Weekly prep list generation** — From the meal plan, extract all
       ingredients that appear in 2+ recipes and generate a single "Sunday prep"
       checklist: "Dice 4 onions (Mon stir-fry, Wed soup, Fri tacos)", "Cook 3
       cups rice (Tue bowl, Thu curry)". Amounts are aggregated across recipes
@@ -533,4 +535,7 @@ gate with concrete signals before starting monetization. Added ingredient parser
 accuracy to backlog. Added Phase 12 success metrics. Completed Phase 12a:
 ingredient overlap analysis engine, pairing suggestions in RecipeSelector
 (lazy-loaded via resource route), waste alerts with efficiency scoring on meal
-plan page. 219 tests across 17 files._
+plan page. Completed Phase 12b: unified prep list generation with
+serving-scaled quantity aggregation, recipe attribution, staple/synonym
+handling, print-friendly layout, cross-navigation between prep list and
+shopping list. 232 tests across 18 files._

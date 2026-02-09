@@ -321,6 +321,14 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 								</Button>
 							</Form>
 						)}
+						{entries.length > 0 && (
+							<Button asChild variant="outline">
+								<Link to="/plan/prep-list">
+									<Icon name="file-text" size="sm" />
+									Prep List
+								</Link>
+							</Button>
+						)}
 						<Button asChild variant="outline">
 							<Link to="/plan/shopping-list">
 								<Icon name="file-text" size="sm" />

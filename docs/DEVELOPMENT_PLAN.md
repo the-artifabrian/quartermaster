@@ -154,7 +154,7 @@ recipe sharing is tracked in backlog.
 Small, high-impact improvements to reduce daily friction. No schema migrations
 required for most items.
 
-- [ ] **Shopping list → inventory pipeline** — When checking off shopping list
+- [x] **Shopping list → inventory pipeline** — When checking off shopping list
       items (meaning "I bought this"), offer to add them to inventory with
       pre-filled name, location, and quantity. This closes the biggest workflow
       gap: without it, inventory accuracy degrades after every shopping trip.
@@ -168,7 +168,7 @@ required for most items.
       model for persistent reminders ("always double the garlic", "serve with
       rice", "kids don't like this"). Different from description (recipe's own
       text) and cooking log (per-cook reflections).
-- [ ] **Cooking timer** — A simple floating timer on the recipe detail page.
+- [x] **Cooking timer** — A simple floating timer on the recipe detail page.
       Number input + start/pause/reset. No instruction parsing — just a manual
       kitchen timer that lives on the page. Useful when cooking with messy hands
       and the phone is propped up.

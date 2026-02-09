@@ -68,6 +68,8 @@ implemented across 11 phases of development:
 - Single-use ingredient waste alerts with recipe suggestions to reduce waste
 - Unified prep list: shared ingredients across 2+ recipes aggregated into a
   Sunday prep checklist with per-recipe attribution and serving-scaled amounts
+- Plan efficiency dashboard: total/unique ingredient stats, expandable shared
+  ingredient bridges with recipe name pills
 
 ### UI, SEO & Infrastructure
 
@@ -92,7 +94,7 @@ lift and ships once a second person is ready to use the app. Phase 14
 (Monetization) ships after Phase 12 proves the no-waste planning story — that's
 the pitch that justifies paying, so it needs to be real first.
 
-### Phase 12: No-Waste Meal Planning
+### Phase 12: No-Waste Meal Planning ✅
 
 Inspired by [Restaurant Dropout](https://restaurantdropout.substack.com/) (Zoe
 Barrie Soderstrom) — plan your week's meals around shared ingredients, prep
@@ -137,9 +139,9 @@ just new logic on top of battle-tested infrastructure.
       prep your shared ingredients once, store them, assemble meals throughout
       the week.
 
-#### 12c: Plan Efficiency Dashboard
+#### 12c: Plan Efficiency Dashboard ✅
 
-- [ ] **Overlap visualization on meal plan** — Show a small badge or indicator
+- [x] **Overlap visualization on meal plan** — Show a small badge or indicator
       on the meal plan view: "This week: 34 ingredients, 22 unique (65%
       efficiency)". Tapping it shows which ingredients bridge which meals. Makes
       the waste-reduction benefit tangible and gamifies building efficient
@@ -538,4 +540,7 @@ ingredient overlap analysis engine, pairing suggestions in RecipeSelector
 plan page. Completed Phase 12b: unified prep list generation with
 serving-scaled quantity aggregation, recipe attribution, staple/synonym
 handling, print-friendly layout, cross-navigation between prep list and
-shopping list. 232 tests across 18 files._
+shopping list. Completed Phase 12c: plan efficiency dashboard with expanded
+stats (total/unique ingredient counts), shared ingredient bridges with recipe
+name pills in expandable section. Phase 12 (No-Waste Meal Planning) is now
+fully complete. 232 tests across 18 files._

@@ -100,9 +100,25 @@ export async function loader({ request }: Route.LoaderArgs) {
 			const overlap = analyzeIngredientOverlap(uniquePlanned)
 			const alerts = generateWasteAlerts(uniquePlanned, recipes)
 
+			// Resolve recipe IDs to titles for shared ingredients
+			const recipeTitleMap = new Map(
+				uniquePlanned.map((r) => [r.id, r.title]),
+			)
+			const sharedIngredients = [...overlap.sharedIngredients.entries()]
+				.map(([name, recipeIds]) => ({
+					name,
+					recipeNames: recipeIds
+						.map((id) => recipeTitleMap.get(id))
+						.filter(Boolean) as string[],
+				}))
+				.sort((a, b) => b.recipeNames.length - a.recipeNames.length)
+
 			overlapData = {
 				efficiencyScore: overlap.efficiencyScore,
 				sharedCount: overlap.sharedIngredients.size,
+				uniqueCount: overlap.uniqueCount,
+				totalSlots: overlap.totalSlots,
+				sharedIngredients,
 				alerts: alerts.map((a) => ({
 					ingredientName: a.ingredientName,
 					usedInRecipeTitle: a.usedInRecipeTitle,
@@ -374,6 +390,9 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						<MealPlanWasteAlerts
 							efficiencyScore={overlapData.efficiencyScore}
 							sharedCount={overlapData.sharedCount}
+							uniqueCount={overlapData.uniqueCount}
+							totalSlots={overlapData.totalSlots}
+							sharedIngredients={overlapData.sharedIngredients}
 							alerts={overlapData.alerts}
 						/>
 					</div>

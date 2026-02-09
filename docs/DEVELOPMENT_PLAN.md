@@ -169,24 +169,25 @@ most households have two people planning meals, shopping, and cooking together.
 This phase transforms Quartermaster from a single-user app into a collaborative
 one.
 
-#### 13a: Schema & Data Migration
+#### 13a: Schema & Data Migration ✅
 
 The foundation. Add household tables and migrate ownership, but don't change any
 route queries yet — the app continues to work exactly as before.
 
-- [ ] **Household model** — New `Household` entity with `id` and `name`. New
+- [x] **Household model** — New `Household` entity with `id` and `name`. New
       `HouseholdMember` join table (`householdId`, `userId`,
-      `role:     owner|member`). A user belongs to exactly one household at a
+      `role: owner|member`). A user belongs to exactly one household at a
       time — this avoids household-selector UX complexity and ambiguous data
-      ownership. Leaving a household creates a new solo one.
-- [ ] **Add `householdId` to shared models** — Add `householdId` column to
+      ownership. Leaving a household creates a new solo one. Forward-planning
+      `Subscription` model also added (tier, Stripe fields) for Phase 14.
+- [x] **Add `householdId` to shared models** — Add `householdId` column to
       Recipe, InventoryItem, MealPlan, and ShoppingList alongside the existing
       `userId`. Keep `userId` as `createdBy` for attribution. **CookingLog stays
       user-scoped** — cooking logs are personal ("I made this, I rated it 4
       stars") and shouldn't merge when households combine. Household members can
       see each other's cooking activity on shared recipes, but ratings and notes
       belong to the individual.
-- [ ] **Backfill migration** — Data migration that creates a default
+- [x] **Backfill migration** — Data migration that creates a default
       single-person `Household` for each existing user, adds them as
       `HouseholdMember` with role `owner`, and backfills `householdId` on all
       their existing records. Keep `householdId` **nullable during 13a/13b** —
@@ -194,6 +195,10 @@ route queries yet — the app continues to work exactly as before.
       recreating tables. The `requireUserWithHousehold` helper provides the
       runtime guarantee. Tighten the constraint to non-nullable in a follow-up
       migration after 13b is complete and all records are confirmed backfilled.
+- [x] **Signup flows** — Both `signup()` and `signupWithConnection()` wrapped
+      in `$transaction` to atomically create user + household + membership.
+      `requireUserWithHousehold` helper ready for 13b with race-safe
+      auto-creation fallback.
 
 #### 13b: Query Migration
 
@@ -215,8 +220,7 @@ is independently testable:
 
 #### 13c: Invite Flow & Member Management
 
-Ship only after 13a and 13b are stable. Feature-flag behind
-`ENABLE_HOUSEHOLD_INVITES` env var until confident.
+Ship only after 13a and 13b are stable.
 
 - [ ] **Invite flow** — Household owner generates an invite link (token-based,
       expires in 7 days). New `HouseholdInvite` model (`token`, `householdId`,
@@ -265,8 +269,9 @@ Ship after 13a-13c are proven in daily use.
   to read household-scoped data from a public route. Worth keeping in mind when
   designing the `householdId` access patterns — don't couple authorization too
   tightly to the session.
-- **Subscription schema**: If Phase 14 is planned, add the subscription/tier
-  fields to the User model in 13a's migration to avoid a separate schema change
+- **Subscription schema**: ✅ Added in 13a — `Subscription` model with `tier`,
+  `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionExpiresAt`,
+  `trialEndsAt`. Unique on `userId`. Ready for Phase 14 without a separate schema change
   later. A nullable `Subscription` model (or `tier` + `stripeCustomerId` +
   `subscriptionExpiresAt` on User) costs nothing to add early and saves a
   migration.
@@ -552,4 +557,11 @@ ingredient notes (19 prep verbs), storage tips map (~30 ingredients),
 non-preppable filter expansion (sesame seeds, italian seasoning, bay leaves
 fix), normalization fixes (leading "of " stripping, meat/processing modifiers,
 garlic clove/celery stalk synonyms), shortest display name selection, per-method
-line layout for readability. 251 tests across 18 files._
+line layout for readability. Completed Phase 13a: Household, HouseholdMember, and
+Subscription models added. Nullable householdId on Recipe, InventoryItem,
+MealPlan, ShoppingList with onDelete:SetNull. Backfill migration creates
+per-user households with deterministic IDs. Signup flows wrapped in $transaction
+for atomic user+household creation. requireUserWithHousehold helper with
+race-safe auto-creation fallback. Seed updated for kody's household. Removed
+ENABLE_HOUSEHOLD_INVITES feature flag from 13c (not needed — app not yet
+marketed). 251 tests across 18 files._

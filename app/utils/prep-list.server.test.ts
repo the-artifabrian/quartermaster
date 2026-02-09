@@ -27,6 +27,7 @@ function makeRecipe(
 		sourceUrl: null,
 		rawText: null,
 		notes: null,
+		householdId: null,
 		createdAt: new Date(),
 		updatedAt: new Date(),
 		userId: 'user-1',

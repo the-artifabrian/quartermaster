@@ -133,6 +133,23 @@ async function seed() {
 
 	console.timeEnd(`🐨 Find or create admin user "kody"`)
 
+	// Ensure kody has a household
+	console.time(`🏠 Ensure household for kody`)
+	const existingMember = await prisma.householdMember.findFirst({
+		where: { userId: kody.id },
+	})
+	if (!existingMember) {
+		await prisma.household.create({
+			data: {
+				name: "Kody's Household",
+				members: {
+					create: { userId: kody.id, role: 'owner' },
+				},
+			},
+		})
+	}
+	console.timeEnd(`🏠 Ensure household for kody`)
+
 	console.timeEnd(`🌱 Database has been seeded`)
 }
 

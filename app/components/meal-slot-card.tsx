@@ -6,7 +6,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { type MealType, MEAL_TYPE_LABELS } from '#app/utils/date.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
-import { RecipeSelector } from './recipe-selector.tsx'
+import { type PairingData, RecipeSelector } from './recipe-selector.tsx'
 
 type MealSlotCardProps = {
 	date: Date
@@ -18,6 +18,7 @@ type MealSlotCardProps = {
 		recipe: Recipe
 	}>
 	recipes: Recipe[]
+	weekStart: string
 }
 
 function EntryRow({
@@ -127,8 +128,21 @@ export function MealSlotCard({
 	mealType,
 	entries,
 	recipes,
+	weekStart,
 }: MealSlotCardProps) {
 	const [isSelectingRecipe, setIsSelectingRecipe] = useState(false)
+	const pairingFetcher = useFetcher<{ pairings: PairingData }>()
+
+	const pairingData = pairingFetcher.data?.pairings
+
+	function openRecipeSelector() {
+		setIsSelectingRecipe(true)
+		if (!pairingFetcher.data && pairingFetcher.state === 'idle') {
+			void pairingFetcher.load(
+				`/resources/meal-plan-pairing?weekStart=${weekStart}`,
+			)
+		}
+	}
 
 	const assignedRecipeIds = entries.map((e) => e.recipe.id)
 
@@ -146,11 +160,12 @@ export function MealSlotCard({
 							mealType={mealType}
 							excludeRecipeIds={assignedRecipeIds}
 							onCancel={() => setIsSelectingRecipe(false)}
+							pairingData={pairingData}
 						/>
 					) : (
 						<Button
 							variant="ghost"
-							onClick={() => setIsSelectingRecipe(true)}
+							onClick={openRecipeSelector}
 							className="h-auto flex-col gap-1 py-4"
 						>
 							<Icon name="plus" size="lg" className="text-muted-foreground" />
@@ -181,6 +196,7 @@ export function MealSlotCard({
 							mealType={mealType}
 							excludeRecipeIds={assignedRecipeIds}
 							onCancel={() => setIsSelectingRecipe(false)}
+							pairingData={pairingData}
 						/>
 					</div>
 				) : (
@@ -188,7 +204,7 @@ export function MealSlotCard({
 						variant="ghost"
 						size="sm"
 						className="w-full"
-						onClick={() => setIsSelectingRecipe(true)}
+						onClick={openRecipeSelector}
 					>
 						<Icon name="plus" size="sm" />
 						Add Another

@@ -70,8 +70,7 @@ export function InventoryItemCard({
 									</span>
 								) : (
 									<span>
-										Expires{' '}
-										{new Date(item.expiresAt).toLocaleDateString()}
+										Expires {new Date(item.expiresAt).toLocaleDateString()}
 									</span>
 								)}
 							</>

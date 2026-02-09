@@ -14,9 +14,7 @@ test('Inventory flow: empty state → add item → verify → edit → delete', 
 	).toBeVisible()
 
 	// Empty state should show pantry staples onboarding
-	await expect(
-		page.getByText(/staples you already have/i),
-	).toBeVisible()
+	await expect(page.getByText(/staples you already have/i)).toBeVisible()
 
 	// 2. Add item via the "Add Item" page
 	await page.goto('/inventory/new')

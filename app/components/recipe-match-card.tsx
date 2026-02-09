@@ -36,14 +36,18 @@ function getRecipeGradient(title: string) {
 	return gradients[index]
 }
 
-export function RecipeMatchCard({ match, lastCookedAt, cookCount }: RecipeMatchCardProps) {
+export function RecipeMatchCard({
+	match,
+	lastCookedAt,
+	cookCount,
+}: RecipeMatchCardProps) {
 	const { recipe, matchPercentage, canMake, missingIngredients } = match
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
 
 	return (
 		<Link
 			to={`/recipes/${recipe.id}`}
-			className="group bg-card text-card-foreground block overflow-hidden rounded-lg ring-1 ring-border transition-shadow hover:shadow-md"
+			className="group bg-card text-card-foreground ring-border block overflow-hidden rounded-lg ring-1 transition-shadow hover:shadow-md"
 		>
 			<div className="bg-muted relative aspect-[4/3] overflow-hidden rounded-t-lg">
 				{recipe.image?.objectKey ? (
@@ -109,8 +113,8 @@ export function RecipeMatchCard({ match, lastCookedAt, cookCount }: RecipeMatchC
 
 				{cookCount != null && cookCount > 0 && lastCookedAt && (
 					<p className="text-muted-foreground mt-2 text-xs">
-						{cookCount === 1 ? 'Made once' : `Made ${cookCount} times`} ·
-						Last: {formatTimeAgo(new Date(lastCookedAt))}
+						{cookCount === 1 ? 'Made once' : `Made ${cookCount} times`} · Last:{' '}
+						{formatTimeAgo(new Date(lastCookedAt))}
 					</p>
 				)}
 

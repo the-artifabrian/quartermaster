@@ -4,6 +4,7 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { addDays } from 'date-fns'
 import { Form, Link, redirect } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
+import { MealPlanWasteAlerts } from '#app/components/meal-plan-waste-alerts.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
@@ -18,6 +19,10 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import {
+	analyzeIngredientOverlap,
+	generateWasteAlerts,
+} from '#app/utils/ingredient-overlap.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
 import { type Route } from './+types/index.ts'
 
@@ -47,7 +52,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 		include: {
 			entries: {
 				include: {
-					recipe: true,
+					recipe: {
+						include: { ingredients: true },
+					},
 				},
 			},
 		},
@@ -62,20 +69,48 @@ export async function loader({ request }: Route.LoaderArgs) {
 			include: {
 				entries: {
 					include: {
-						recipe: true,
+						recipe: {
+							include: { ingredients: true },
+						},
 					},
 				},
 			},
 		})
 	}
 
-	// Load user's recipes for selection
+	// Load user's recipes for selection (include ingredients for overlap analysis)
 	const recipes = await prisma.recipe.findMany({
 		where: { userId },
 		orderBy: { title: 'asc' },
+		include: { ingredients: true },
 	})
 
 	const weekDays = getWeekDays(weekStart)
+
+	// Compute overlap and waste alerts when there are 2+ unique planned recipes
+	let overlapData = null
+	if (mealPlan.entries.length >= 2) {
+		const plannedRecipes = mealPlan.entries.map((e) => e.recipe)
+		// Deduplicate in case the same recipe is used in multiple slots
+		const uniquePlanned = [
+			...new Map(plannedRecipes.map((r) => [r.id, r])).values(),
+		]
+
+		if (uniquePlanned.length >= 2) {
+			const overlap = analyzeIngredientOverlap(uniquePlanned)
+			const alerts = generateWasteAlerts(uniquePlanned, recipes)
+
+			overlapData = {
+				efficiencyScore: overlap.efficiencyScore,
+				sharedCount: overlap.sharedIngredients.size,
+				alerts: alerts.map((a) => ({
+					ingredientName: a.ingredientName,
+					usedInRecipeTitle: a.usedInRecipeTitle,
+					suggestedRecipes: a.suggestedRecipes,
+				})),
+			}
+		}
+	}
 
 	return {
 		mealPlan,
@@ -86,6 +121,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		recipes,
 		weekDays,
 		weekStart: serializeDate(weekStart),
+		overlapData,
 	}
 }
 
@@ -208,7 +244,10 @@ export async function action({ request }: Route.ActionArgs) {
 			where: { userId, weekStart },
 			include: { entries: true },
 		})
-		invariantResponse(mealPlan && mealPlan.entries.length > 0, 'No entries to copy')
+		invariantResponse(
+			mealPlan && mealPlan.entries.length > 0,
+			'No entries to copy',
+		)
 
 		const nextWeekStart = getNextWeek(weekStart)
 
@@ -256,7 +295,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
-	const { entries, recipes, weekDays, weekStart } = loaderData
+	const { entries, recipes, weekDays, weekStart, overlapData } = loaderData
 
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
 	const nextWeek = serializeDate(getNextWeek(parseDate(weekStart)))
@@ -269,9 +308,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 				<div className="container flex items-center justify-between py-6">
 					<div>
 						<h1 className="text-2xl font-bold">Meal Plan</h1>
-						<p className="text-muted-foreground mt-1 text-sm">
-							Plan your week
-						</p>
+						<p className="text-muted-foreground mt-1 text-sm">Plan your week</p>
 					</div>
 					<div className="flex gap-2">
 						{entries.length > 0 && (
@@ -295,41 +332,52 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container py-6">
+				{/* Week Navigation */}
+				<div className="mb-6 flex items-center justify-between">
+					<Button asChild variant="ghost" size="sm">
+						<Link to={`/plan?weekStart=${prevWeek}`}>
+							<Icon name="arrow-left" size="sm" />
+							Previous
+						</Link>
+					</Button>
 
-			{/* Week Navigation */}
-			<div className="mb-6 flex items-center justify-between">
-				<Button asChild variant="ghost" size="sm">
-					<Link to={`/plan?weekStart=${prevWeek}`}>
-						<Icon name="arrow-left" size="sm" />
-						Previous
-					</Link>
-				</Button>
+					<div className="text-center">
+						<p className="text-lg font-semibold">
+							{formatWeekRange(parseDate(weekStart))}
+						</p>
+						{weekStart !== currentWeek && (
+							<Button asChild variant="link" size="sm">
+								<Link to="/plan">This Week</Link>
+							</Button>
+						)}
+					</div>
 
-				<div className="text-center">
-					<p className="text-lg font-semibold">
-						{formatWeekRange(parseDate(weekStart))}
-					</p>
-					{weekStart !== currentWeek && (
-						<Button asChild variant="link" size="sm">
-							<Link to="/plan">This Week</Link>
-						</Button>
-					)}
+					<Button asChild variant="ghost" size="sm">
+						<Link to={`/plan?weekStart=${nextWeek}`}>
+							Next
+							<Icon name="arrow-right" size="sm" />
+						</Link>
+					</Button>
 				</div>
 
-				<Button asChild variant="ghost" size="sm">
-					<Link to={`/plan?weekStart=${nextWeek}`}>
-						Next
-						<Icon name="arrow-right" size="sm" />
-					</Link>
-				</Button>
-			</div>
+				{/* Waste Alerts */}
+				{overlapData && (
+					<div className="mb-6">
+						<MealPlanWasteAlerts
+							efficiencyScore={overlapData.efficiencyScore}
+							sharedCount={overlapData.sharedCount}
+							alerts={overlapData.alerts}
+						/>
+					</div>
+				)}
 
-			{/* Calendar */}
-			<MealPlanCalendar
-				weekDays={weekDays}
-				entries={entries}
-				recipes={recipes}
-			/>
+				{/* Calendar */}
+				<MealPlanCalendar
+					weekDays={weekDays}
+					entries={entries}
+					recipes={recipes}
+					weekStart={weekStart}
+				/>
 			</div>
 		</div>
 	)

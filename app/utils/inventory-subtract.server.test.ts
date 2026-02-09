@@ -64,7 +64,10 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			{ name: 'flour', quantity: 5, unit: 'cups' },
 		])
 
-		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(
+			recipe.id,
+			user.id,
+		)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'flour' },
@@ -83,7 +86,10 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			{ name: 'flour', quantity: 5, unit: 'cups' },
 		])
 
-		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(
+			recipe.id,
+			user.id,
+		)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'flour' },
@@ -101,7 +107,10 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			{ name: 'flour', quantity: 3, unit: 'cups' },
 		])
 
-		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(
+			recipe.id,
+			user.id,
+		)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'flour' },
@@ -115,11 +124,12 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		const recipe = await setupRecipe(user.id, [
 			{ name: 'salt', amount: '1', unit: 'tsp' },
 		])
-		await setupInventory(user.id, [
-			{ name: 'salt', quantity: 10, unit: 'tsp' },
-		])
+		await setupInventory(user.id, [{ name: 'salt', quantity: 10, unit: 'tsp' }])
 
-		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(
+			recipe.id,
+			user.id,
+		)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'salt' },
@@ -139,7 +149,10 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		])
 
 		// Should not throw
-		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(
+			recipe.id,
+			user.id,
+		)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'flour' },
@@ -157,7 +170,10 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			{ name: 'butter', quantity: 200, unit: 'g' },
 		])
 
-		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(
+			recipe.id,
+			user.id,
+		)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'butter' },
@@ -175,7 +191,10 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			{ name: 'butter', quantity: 2, unit: 'cup' },
 		])
 
-		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(
+			recipe.id,
+			user.id,
+		)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'butter' },
@@ -183,7 +202,11 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		// 8 tbsp = 0.5 cup, so 2 - 0.5 = 1.5
 		expect(item!.quantity).toBeCloseTo(1.5, 1)
 		expect(item!.lowStock).toBe(false)
-		expect(summary).toEqual({ updated: ['butter'], removed: [], flaggedLow: [] })
+		expect(summary).toEqual({
+			updated: ['butter'],
+			removed: [],
+			flaggedLow: [],
+		})
 	})
 
 	test('respects serving ratio', async () => {
@@ -196,7 +219,11 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		])
 
 		// Double servings → ratio = 2
-		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id, 2)
+		const summary = await subtractRecipeIngredientsFromInventory(
+			recipe.id,
+			user.id,
+			2,
+		)
 
 		const item = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'flour' },
@@ -216,7 +243,10 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			{ name: 'rice vinegar' },
 		])
 
-		const summary = await subtractRecipeIngredientsFromInventory(recipe.id, user.id)
+		const summary = await subtractRecipeIngredientsFromInventory(
+			recipe.id,
+			user.id,
+		)
 
 		const cucumber = await prisma.inventoryItem.findFirst({
 			where: { userId: user.id, name: 'cucumber' },

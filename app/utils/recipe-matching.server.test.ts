@@ -23,9 +23,9 @@ describe('normalizeIngredientName', () => {
 
 	test('handles "or" alternatives — takes first option', () => {
 		// "plain" is not a modifier, so "plain flour" stays as-is
-		expect(
-			normalizeIngredientName('plain flour or all purpose flour'),
-		).toBe('plain flour')
+		expect(normalizeIngredientName('plain flour or all purpose flour')).toBe(
+			'plain flour',
+		)
 		expect(normalizeIngredientName('mirin or sake')).toBe('mirin')
 	})
 
@@ -85,9 +85,9 @@ describe('normalizeIngredientName', () => {
 
 	test('combines multiple normalizations', () => {
 		expect(normalizeIngredientName('Fresh Garlic, minced')).toBe('garlic')
-		expect(
-			normalizeIngredientName('large red bell peppers (roasted)'),
-		).toBe('bell pepper')
+		expect(normalizeIngredientName('large red bell peppers (roasted)')).toBe(
+			'bell pepper',
+		)
 	})
 })
 
@@ -324,11 +324,7 @@ describe('matchRecipesWithInventory', () => {
 			makeRecipe('fewer', ['chicken', 'rice']),
 		]
 		// Both 100% match, but "fewer" has fewer total ingredients
-		const inventory = makeInventory([
-			'chicken',
-			'rice',
-			'extra',
-		])
+		const inventory = makeInventory(['chicken', 'rice', 'extra'])
 
 		const results = matchRecipesWithInventory(recipes, inventory)
 		expect(results[0]!.recipe.id).toBe('fewer')
@@ -355,9 +351,7 @@ describe('matchRecipesWithInventory', () => {
 		const results = matchRecipesWithInventory(recipes, inventory)
 		expect(results[0]!.matchedIngredientsCount).toBe(1) // only chicken
 		expect(results[0]!.matchPercentage).toBe(50)
-		expect(results[0]!.missingIngredients.map((i) => i.name)).toContain(
-			'rice',
-		)
+		expect(results[0]!.missingIngredients.map((i) => i.name)).toContain('rice')
 	})
 
 	test('includes items with null quantity in matching', () => {

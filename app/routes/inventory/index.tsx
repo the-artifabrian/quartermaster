@@ -177,92 +177,94 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container py-6">
-
-			{/* Location Tabs */}
-			<div className="mb-6">
-				<InventoryLocationTabs />
-			</div>
-
-			{/* Quick Add */}
-			{showingLocation && (
-				<div className="mb-6 space-y-4">
-					<InventoryQuickAdd location={showingLocation} />
-					<CommonIngredients location={showingLocation} />
+				{/* Location Tabs */}
+				<div className="mb-6">
+					<InventoryLocationTabs />
 				</div>
-			)}
 
-			{/* Items Grid */}
-			{displayItems.length > 0 ? (
-				<div className="space-y-8">
-					{selectedLocation === 'all' ? (
-						<>
-							{pantryItems.length > 0 && (
-								<section>
-									<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
-										<span className="inline-block size-2.5 rounded-full bg-amber-500" />
-										Pantry
-									</h2>
-									<InventoryItemGrid>
-										{pantryItems.map((item) => (
-											<InventoryItemCard key={item.id} item={item} />
-										))}
-									</InventoryItemGrid>
-								</section>
-							)}
-							{fridgeItems.length > 0 && (
-								<section>
-									<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
-										<span className="inline-block size-2.5 rounded-full bg-blue-500" />
-										Fridge
-									</h2>
-									<InventoryItemGrid>
-										{fridgeItems.map((item) => (
-											<InventoryItemCard key={item.id} item={item} />
-										))}
-									</InventoryItemGrid>
-								</section>
-							)}
-							{freezerItems.length > 0 && (
-								<section>
-									<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
-										<span className="inline-block size-2.5 rounded-full bg-cyan-500" />
-										Freezer
-									</h2>
-									<InventoryItemGrid>
-										{freezerItems.map((item) => (
-											<InventoryItemCard key={item.id} item={item} />
-										))}
-									</InventoryItemGrid>
-								</section>
-							)}
-						</>
-					) : (
-						<InventoryItemGrid>
-							{displayItems.map((item) => (
-								<InventoryItemCard key={item.id} item={item} />
-							))}
-						</InventoryItemGrid>
-					)}
-				</div>
-			) : (
-				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
-						<Icon name="file-text" className="text-muted-foreground size-10" />
+				{/* Quick Add */}
+				{showingLocation && (
+					<div className="mb-6 space-y-4">
+						<InventoryQuickAdd location={showingLocation} />
+						<CommonIngredients location={showingLocation} />
 					</div>
-					<h2 className="mt-4 text-xl font-semibold">Nothing tracked yet</h2>
-					<p className="text-muted-foreground mt-2 max-w-sm">
-						{selectedLocation === 'all'
-							? 'Start tracking your pantry, fridge, and freezer items to discover what you can cook.'
-							: `Your ${selectedLocation} is empty. Add items to start tracking.`}
-					</p>
-					<Button asChild className="mt-6">
-						<Link to="/inventory/new">
-							<Icon name="plus" size="sm" />
-							Add Item
-						</Link>
-					</Button>
-				</div>
-			)}
+				)}
+
+				{/* Items Grid */}
+				{displayItems.length > 0 ? (
+					<div className="space-y-8">
+						{selectedLocation === 'all' ? (
+							<>
+								{pantryItems.length > 0 && (
+									<section>
+										<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+											<span className="inline-block size-2.5 rounded-full bg-amber-500" />
+											Pantry
+										</h2>
+										<InventoryItemGrid>
+											{pantryItems.map((item) => (
+												<InventoryItemCard key={item.id} item={item} />
+											))}
+										</InventoryItemGrid>
+									</section>
+								)}
+								{fridgeItems.length > 0 && (
+									<section>
+										<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+											<span className="inline-block size-2.5 rounded-full bg-blue-500" />
+											Fridge
+										</h2>
+										<InventoryItemGrid>
+											{fridgeItems.map((item) => (
+												<InventoryItemCard key={item.id} item={item} />
+											))}
+										</InventoryItemGrid>
+									</section>
+								)}
+								{freezerItems.length > 0 && (
+									<section>
+										<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+											<span className="inline-block size-2.5 rounded-full bg-cyan-500" />
+											Freezer
+										</h2>
+										<InventoryItemGrid>
+											{freezerItems.map((item) => (
+												<InventoryItemCard key={item.id} item={item} />
+											))}
+										</InventoryItemGrid>
+									</section>
+								)}
+							</>
+						) : (
+							<InventoryItemGrid>
+								{displayItems.map((item) => (
+									<InventoryItemCard key={item.id} item={item} />
+								))}
+							</InventoryItemGrid>
+						)}
+					</div>
+				) : (
+					<div className="flex flex-col items-center justify-center py-16 text-center">
+						<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+							<Icon
+								name="file-text"
+								className="text-muted-foreground size-10"
+							/>
+						</div>
+						<h2 className="mt-4 text-xl font-semibold">Nothing tracked yet</h2>
+						<p className="text-muted-foreground mt-2 max-w-sm">
+							{selectedLocation === 'all'
+								? 'Start tracking your pantry, fridge, and freezer items to discover what you can cook.'
+								: `Your ${selectedLocation} is empty. Add items to start tracking.`}
+						</p>
+						<Button asChild className="mt-6">
+							<Link to="/inventory/new">
+								<Icon name="plus" size="sm" />
+								Add Item
+							</Link>
+						</Button>
+					</div>
+				)}
 			</div>
 		</div>
 	)

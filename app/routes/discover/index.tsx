@@ -103,7 +103,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 			.slice(0, 6)
 	}
 
-	const cookingStats: Record<string, { lastCookedAt: string | null; cookCount: number }> = {}
+	const cookingStats: Record<
+		string,
+		{ lastCookedAt: string | null; cookCount: number }
+	> = {}
 	for (const recipe of recipes) {
 		cookingStats[recipe.id] = {
 			lastCookedAt: recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null,
@@ -151,63 +154,24 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container py-6">
-
-			{/* Expiring Items Suggestions */}
-			{expiringMatches.length > 0 && (
-				<div className="mb-8">
-					<div className="mb-4 flex items-center gap-2">
-						<Icon name="clock" className="size-5 text-amber-500" />
-						<div>
-							<h2 className="text-lg font-semibold">
-								Use It Before You Lose It
-							</h2>
-							<p className="text-muted-foreground text-sm">
-								{expiringItemCount}{' '}
-								{expiringItemCount === 1 ? 'item' : 'items'} expiring
-								within 7 days
-							</p>
-						</div>
-					</div>
-					<RecipeMatchCardGrid>
-						{expiringMatches.map((match) => (
-							<RecipeMatchCard
-								key={match.recipe.id}
-								match={match}
-								lastCookedAt={cookingStats[match.recipe.id]?.lastCookedAt}
-								cookCount={cookingStats[match.recipe.id]?.cookCount}
-							/>
-						))}
-					</RecipeMatchCardGrid>
-				</div>
-			)}
-
-			{/* Stats & Filter */}
-			{inventoryItemCount > 0 && recipeCount > 0 ? (
-				<>
-					<div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-						<div className="flex flex-wrap gap-4 text-sm">
+				{/* Expiring Items Suggestions */}
+				{expiringMatches.length > 0 && (
+					<div className="mb-8">
+						<div className="mb-4 flex items-center gap-2">
+							<Icon name="clock" className="size-5 text-amber-500" />
 							<div>
-								<span className="font-medium">{makeableCount}</span> recipes you
-								can make
-							</div>
-							<div className="text-muted-foreground">
-								{inventoryItemCount} items in inventory
+								<h2 className="text-lg font-semibold">
+									Use It Before You Lose It
+								</h2>
+								<p className="text-muted-foreground text-sm">
+									{expiringItemCount}{' '}
+									{expiringItemCount === 1 ? 'item' : 'items'} expiring within 7
+									days
+								</p>
 							</div>
 						</div>
-						<Button
-							variant={showOnlyMakeable ? 'default' : 'outline'}
-							size="sm"
-							onClick={() => setShowOnlyMakeable(!showOnlyMakeable)}
-						>
-							<Icon name={showOnlyMakeable ? 'check' : 'cookie'} size="sm" />
-							{showOnlyMakeable ? 'Showing Makeable' : 'Show Only Makeable'}
-						</Button>
-					</div>
-
-					{/* Recipe Matches */}
-					{displayMatches.length > 0 ? (
 						<RecipeMatchCardGrid>
-							{displayMatches.map((match) => (
+							{expiringMatches.map((match) => (
 								<RecipeMatchCard
 									key={match.recipe.id}
 									match={match}
@@ -216,98 +180,145 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 								/>
 							))}
 						</RecipeMatchCardGrid>
-					) : (
-						<div className="flex flex-col items-center justify-center py-16 text-center">
-							<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
-								<Icon name="magnifying-glass" className="text-muted-foreground size-10" />
-							</div>
-							<h2 className="mt-4 text-xl font-semibold">
-								No recipes match your filter
-							</h2>
-							<p className="text-muted-foreground mt-2 max-w-sm">
-								{showOnlyMakeable
-									? "You don't have all the ingredients for any recipes yet. Try adding more items to your inventory."
-									: 'Try adjusting your filters.'}
-							</p>
-							<div className="mt-6 flex gap-3">
-								{showOnlyMakeable && (
-									<Button onClick={() => setShowOnlyMakeable(false)}>
-										Show All Recipes
-									</Button>
-								)}
-								<Button variant="outline" asChild>
-									<Link to="/inventory">
-										<Icon name="plus" size="sm" />
-										Add to Inventory
-									</Link>
-								</Button>
-							</div>
-						</div>
-					)}
-				</>
-			) : inventoryItemCount === 0 && recipeCount === 0 ? (
-				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
-						<Icon name="cookie" className="text-muted-foreground size-10" />
 					</div>
-					<h2 className="mt-4 text-xl font-semibold">
-						Ready to discover what you can cook?
-					</h2>
-					<p className="text-muted-foreground mt-2 max-w-sm">
-						Add some recipes and track your inventory. We'll match them up and show you what's possible.
-					</p>
-					<div className="mt-6 flex gap-3">
-						<Button asChild>
-							<Link to="/recipes/new">
-								<Icon name="plus" size="sm" />
-								Add Recipe
-							</Link>
-						</Button>
-						<Button variant="outline" asChild>
+				)}
+
+				{/* Stats & Filter */}
+				{inventoryItemCount > 0 && recipeCount > 0 ? (
+					<>
+						<div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+							<div className="flex flex-wrap gap-4 text-sm">
+								<div>
+									<span className="font-medium">{makeableCount}</span> recipes
+									you can make
+								</div>
+								<div className="text-muted-foreground">
+									{inventoryItemCount} items in inventory
+								</div>
+							</div>
+							<Button
+								variant={showOnlyMakeable ? 'default' : 'outline'}
+								size="sm"
+								onClick={() => setShowOnlyMakeable(!showOnlyMakeable)}
+							>
+								<Icon name={showOnlyMakeable ? 'check' : 'cookie'} size="sm" />
+								{showOnlyMakeable ? 'Showing Makeable' : 'Show Only Makeable'}
+							</Button>
+						</div>
+
+						{/* Recipe Matches */}
+						{displayMatches.length > 0 ? (
+							<RecipeMatchCardGrid>
+								{displayMatches.map((match) => (
+									<RecipeMatchCard
+										key={match.recipe.id}
+										match={match}
+										lastCookedAt={cookingStats[match.recipe.id]?.lastCookedAt}
+										cookCount={cookingStats[match.recipe.id]?.cookCount}
+									/>
+								))}
+							</RecipeMatchCardGrid>
+						) : (
+							<div className="flex flex-col items-center justify-center py-16 text-center">
+								<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+									<Icon
+										name="magnifying-glass"
+										className="text-muted-foreground size-10"
+									/>
+								</div>
+								<h2 className="mt-4 text-xl font-semibold">
+									No recipes match your filter
+								</h2>
+								<p className="text-muted-foreground mt-2 max-w-sm">
+									{showOnlyMakeable
+										? "You don't have all the ingredients for any recipes yet. Try adding more items to your inventory."
+										: 'Try adjusting your filters.'}
+								</p>
+								<div className="mt-6 flex gap-3">
+									{showOnlyMakeable && (
+										<Button onClick={() => setShowOnlyMakeable(false)}>
+											Show All Recipes
+										</Button>
+									)}
+									<Button variant="outline" asChild>
+										<Link to="/inventory">
+											<Icon name="plus" size="sm" />
+											Add to Inventory
+										</Link>
+									</Button>
+								</div>
+							</div>
+						)}
+					</>
+				) : inventoryItemCount === 0 && recipeCount === 0 ? (
+					<div className="flex flex-col items-center justify-center py-16 text-center">
+						<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+							<Icon name="cookie" className="text-muted-foreground size-10" />
+						</div>
+						<h2 className="mt-4 text-xl font-semibold">
+							Ready to discover what you can cook?
+						</h2>
+						<p className="text-muted-foreground mt-2 max-w-sm">
+							Add some recipes and track your inventory. We'll match them up and
+							show you what's possible.
+						</p>
+						<div className="mt-6 flex gap-3">
+							<Button asChild>
+								<Link to="/recipes/new">
+									<Icon name="plus" size="sm" />
+									Add Recipe
+								</Link>
+							</Button>
+							<Button variant="outline" asChild>
+								<Link to="/inventory">
+									<Icon name="plus" size="sm" />
+									Add to Inventory
+								</Link>
+							</Button>
+						</div>
+					</div>
+				) : inventoryItemCount === 0 ? (
+					<div className="flex flex-col items-center justify-center py-16 text-center">
+						<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+							<Icon
+								name="file-text"
+								className="text-muted-foreground size-10"
+							/>
+						</div>
+						<h2 className="mt-4 text-xl font-semibold">
+							What's in your kitchen?
+						</h2>
+						<p className="text-muted-foreground mt-2 max-w-sm">
+							Track what's in your pantry, fridge, and freezer so we can match
+							it against your recipes.
+						</p>
+						<Button asChild className="mt-6">
 							<Link to="/inventory">
 								<Icon name="plus" size="sm" />
 								Add to Inventory
 							</Link>
 						</Button>
 					</div>
-				</div>
-			) : inventoryItemCount === 0 ? (
-				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
-						<Icon name="file-text" className="text-muted-foreground size-10" />
+				) : (
+					<div className="flex flex-col items-center justify-center py-16 text-center">
+						<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+							<Icon name="pencil-1" className="text-muted-foreground size-10" />
+						</div>
+						<h2 className="mt-4 text-xl font-semibold">
+							Add your first recipe
+						</h2>
+						<p className="text-muted-foreground mt-2 max-w-sm">
+							You have {inventoryItemCount} items in your inventory. Add some
+							recipes and we'll tell you what you can make.
+						</p>
+						<Button asChild className="mt-6">
+							<Link to="/recipes/new">
+								<Icon name="plus" size="sm" />
+								Add Recipe
+							</Link>
+						</Button>
 					</div>
-					<h2 className="mt-4 text-xl font-semibold">
-						What's in your kitchen?
-					</h2>
-					<p className="text-muted-foreground mt-2 max-w-sm">
-						Track what's in your pantry, fridge, and freezer so we can match it against your recipes.
-					</p>
-					<Button asChild className="mt-6">
-						<Link to="/inventory">
-							<Icon name="plus" size="sm" />
-							Add to Inventory
-						</Link>
-					</Button>
-				</div>
-			) : (
-				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
-						<Icon name="pencil-1" className="text-muted-foreground size-10" />
-					</div>
-					<h2 className="mt-4 text-xl font-semibold">
-						Add your first recipe
-					</h2>
-					<p className="text-muted-foreground mt-2 max-w-sm">
-						You have {inventoryItemCount} items in your inventory. Add some recipes and we'll tell you what you can make.
-					</p>
-					<Button asChild className="mt-6">
-						<Link to="/recipes/new">
-							<Icon name="plus" size="sm" />
-							Add Recipe
-						</Link>
-					</Button>
-				</div>
-			)}
+				)}
 			</div>
 		</div>
 	)

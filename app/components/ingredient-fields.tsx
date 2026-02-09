@@ -32,15 +32,19 @@ export function IngredientFields({
 	})
 
 	// Load suggestions on first render (skip during SSR)
-	if (typeof document !== 'undefined' && !fetcher.data && fetcher.state === 'idle') {
+	if (
+		typeof document !== 'undefined' &&
+		!fetcher.data &&
+		fetcher.state === 'idle'
+	) {
 		void fetcher.load('/resources/ingredient-suggestions')
 	}
 
 	// Merge DB results with common ingredients, deduped and sorted
 	const dbNames = fetcher.data?.ingredients ?? []
-	const allSuggestions = [
-		...new Set([...dbNames, ...COMMON_INGREDIENTS]),
-	].sort((a, b) => a.localeCompare(b))
+	const allSuggestions = [...new Set([...dbNames, ...COMMON_INGREDIENTS])].sort(
+		(a, b) => a.localeCompare(b),
+	)
 
 	const addIngredient = () => {
 		onChange([...ingredients, { name: '', amount: '', unit: '', notes: '' }])
@@ -121,7 +125,12 @@ function IngredientRow({
 	const id = useId()
 
 	return (
-		<div className={cn('space-y-2 rounded-lg p-2', index % 2 === 0 && 'bg-muted/30')}>
+		<div
+			className={cn(
+				'space-y-2 rounded-lg p-2',
+				index % 2 === 0 && 'bg-muted/30',
+			)}
+		>
 			<div className="flex gap-2">
 				<div className="min-w-0 flex-1">
 					<Input

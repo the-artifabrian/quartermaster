@@ -16,12 +16,14 @@ type MealPlanCalendarProps = {
 	weekDays: Date[]
 	entries: Entry[]
 	recipes: Recipe[]
+	weekStart: string
 }
 
 export function MealPlanCalendar({
 	weekDays,
 	entries,
 	recipes,
+	weekStart,
 }: MealPlanCalendarProps) {
 	// Group entries by date and mealType (multiple entries per slot)
 	const entryMap = new Map<string, Entry[]>()
@@ -61,6 +63,7 @@ export function MealPlanCalendar({
 										mealType={mealType}
 										entries={slotEntries}
 										recipes={recipes}
+										weekStart={weekStart}
 									/>
 								</div>
 							)

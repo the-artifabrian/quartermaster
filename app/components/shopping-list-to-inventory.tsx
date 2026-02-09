@@ -89,8 +89,8 @@ export function ShoppingListToInventory({
 							checked={item.included}
 							onCheckedChange={() => handleToggle(item.id)}
 						/>
-						<div className="flex-1 min-w-0">
-							<p className="text-sm font-medium truncate">{item.name}</p>
+						<div className="min-w-0 flex-1">
+							<p className="truncate text-sm font-medium">{item.name}</p>
 							{(item.quantity || item.unit) && (
 								<p className="text-muted-foreground text-xs">
 									{item.quantity} {item.unit}

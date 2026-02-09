@@ -62,6 +62,10 @@ implemented across 11 phases of development:
   with pre-filled name, location, and quantity
 - Manual item addition, check-off while shopping, clear checked items
 - Print-friendly layout
+- Ingredient overlap analysis with efficiency scoring and waste alerts
+- Pairing suggestions when adding recipes to meal plan (sorted by shared
+  ingredient count with green badges)
+- Single-use ingredient waste alerts with recipe suggestions to reduce waste
 
 ### UI, SEO & Infrastructure
 
@@ -70,7 +74,7 @@ implemented across 11 phases of development:
 - Descriptive `<title>`, canonical URLs, Open Graph / Twitter Card meta tags
 - JSON-LD Recipe structured data, marketing pages with sitemap
 - PWA with service worker: offline access for viewed recipes and meal plan
-- 199 unit/integration tests across 16 files
+- 219 unit/integration tests across 17 files
 - Deployed on Fly.io with custom domain, HTTPS, and email
 - Mobile-first responsive layout with bottom navigation
 
@@ -88,20 +92,20 @@ the pitch that justifies paying, so it needs to be real first.
 ### Phase 12: No-Waste Meal Planning
 
 Inspired by [Restaurant Dropout](https://restaurantdropout.substack.com/) (Zoe
-Barrie Soderstrom) — plan your week's meals around shared ingredients, prep once,
-cook all week. The existing ingredient normalization and synonym matching systems
-are the foundation for this. No schema migrations, no query rewrites — just new
-logic on top of battle-tested infrastructure.
+Barrie Soderstrom) — plan your week's meals around shared ingredients, prep
+once, cook all week. The existing ingredient normalization and synonym matching
+systems are the foundation for this. No schema migrations, no query rewrites —
+just new logic on top of battle-tested infrastructure.
 
-#### 12a: Ingredient Overlap & Pairing Suggestions
+#### 12a: Ingredient Overlap & Pairing Suggestions ✅
 
-- [ ] **Overlap analysis engine** — Given a set of recipes (e.g. the current
+- [x] **Overlap analysis engine** — Given a set of recipes (e.g. the current
       week's meal plan), compute pairwise ingredient overlap using the existing
       normalization pipeline (`normalizeIngredient`, synonym lookup, core word
-      matching). Output: which ingredients appear in 2+ recipes, how many recipes
-      share each ingredient, and an overall "efficiency score" for the plan (ratio
-      of unique ingredients to total ingredient slots).
-- [ ] **"Suggest recipes that pair well"** — The lead feature of this phase.
+      matching). Output: which ingredients appear in 2+ recipes, how many
+      recipes share each ingredient, and an overall "efficiency score" for the
+      plan (ratio of unique ingredients to total ingredient slots).
+- [x] **"Suggest recipes that pair well"** — The lead feature of this phase.
       When adding a recipe to the meal plan, show a ranked list of other recipes
       sorted by ingredient overlap with what's already planned. Reuses the
       matching engine but inverted: instead of matching inventory → recipes,
@@ -109,9 +113,9 @@ logic on top of battle-tested infrastructure.
       a week where buying one bunch of cilantro covers 3 dinners instead of
       rotting after one. Ship this UI before the efficiency dashboard — a ranked
       suggestion list is more actionable than a post-hoc score.
-- [ ] **Waste alerts** — Flag ingredients used in only one recipe this week.
-      "You're only using parsley in one recipe this week. Add [Tabbouleh] to
-      use the rest?" Start simple: any single-use ingredient gets flagged.
+- [x] **Waste alerts** — Flag ingredients used in only one recipe this week.
+      "You're only using parsley in one recipe this week. Add [Tabbouleh] to use
+      the rest?" Start simple: any single-use ingredient gets flagged.
       Packaging-aware heuristics ("sold in bulk", "whole bunch") can be layered
       on later if the basic alerts prove useful — avoid building a packaging
       knowledge database upfront.
@@ -124,31 +128,32 @@ logic on top of battle-tested infrastructure.
       cups rice (Tue bowl, Thu curry)". Amounts are aggregated across recipes
       using the existing shopping list consolidation logic
       (`generateShoppingListFromRecipes` already handles unit-aware quantity
-      merging and canonical name deduplication). Start by grouping by ingredient.
-      Prep-type grouping (chop, cook, marinate) can be added later if the basic
-      list proves useful. The key insight from restaurant kitchens: prep your
-      shared ingredients once, store them, assemble meals throughout the week.
+      merging and canonical name deduplication). Start by grouping by
+      ingredient. Prep-type grouping (chop, cook, marinate) can be added later
+      if the basic list proves useful. The key insight from restaurant kitchens:
+      prep your shared ingredients once, store them, assemble meals throughout
+      the week.
 
 #### 12c: Plan Efficiency Dashboard
 
 - [ ] **Overlap visualization on meal plan** — Show a small badge or indicator
       on the meal plan view: "This week: 34 ingredients, 22 unique (65%
       efficiency)". Tapping it shows which ingredients bridge which meals. Makes
-      the waste-reduction benefit tangible and gamifies building efficient plans.
-      Lower priority than 12a/12b — this is polish, not core value. Ship after
-      the overlap engine and prep list are proven useful in daily cooking.
+      the waste-reduction benefit tangible and gamifies building efficient
+      plans. Lower priority than 12a/12b — this is polish, not core value. Ship
+      after the overlap engine and prep list are proven useful in daily cooking.
 
 #### Why This Works Here
 
 Quartermaster already has the hardest pieces: ingredient normalization that
 strips 40+ modifiers and handles plurals/irregulars, a synonym database with ~25
-groups (~145 lines of mappings), and 4-level fuzzy matching (exact, synonym, core
-word, multi-word containment). The overlap engine is essentially the
+groups (~145 lines of mappings), and 4-level fuzzy matching (exact, synonym,
+core word, multi-word containment). The overlap engine is essentially the
 recipe-matching algorithm run sideways — instead of "what can I make with my
 inventory?", it's "what shares ingredients with my plan?" The prep list is a
 grouped, annotated version of the shopping list generator (which already handles
-unit-aware quantity consolidation across unit families). This phase is high-value
-with relatively low new infrastructure.
+unit-aware quantity consolidation across unit families). This phase is
+high-value with relatively low new infrastructure.
 
 ### Phase 13: Household Sharing
 
@@ -163,10 +168,10 @@ The foundation. Add household tables and migrate ownership, but don't change any
 route queries yet — the app continues to work exactly as before.
 
 - [ ] **Household model** — New `Household` entity with `id` and `name`. New
-      `HouseholdMember` join table (`householdId`, `userId`, `role:
-      owner|member`). A user belongs to exactly one household at a time — this
-      avoids household-selector UX complexity and ambiguous data ownership.
-      Leaving a household creates a new solo one.
+      `HouseholdMember` join table (`householdId`, `userId`,
+      `role:     owner|member`). A user belongs to exactly one household at a
+      time — this avoids household-selector UX complexity and ambiguous data
+      ownership. Leaving a household creates a new solo one.
 - [ ] **Add `householdId` to shared models** — Add `householdId` column to
       Recipe, InventoryItem, MealPlan, and ShoppingList alongside the existing
       `userId`. Keep `userId` as `createdBy` for attribution. **CookingLog stays
@@ -222,8 +227,8 @@ Ship after 13a-13c are proven in daily use.
 - [ ] **Server-Sent Events (SSE) endpoint** — `/resources/household-events` SSE
       stream scoped to the user's household. SSE over WebSockets because it's
       simpler (unidirectional, works with HTTP/2, no extra server), and RR7's
-      resource routes make it natural. Use explicit event emission in each action
-      (not Prisma middleware) for controllable, predictable behavior.
+      resource routes make it natural. Use explicit event emission in each
+      action (not Prisma middleware) for controllable, predictable behavior.
 - [ ] **Activity banner / toast** — Client subscribes to the SSE stream.
       Incoming events show as a toast or a subtle banner: "Alex added 3 items to
       the shopping list", "Alex planned Chicken Tikka for Thursday dinner". Tap
@@ -241,9 +246,9 @@ Ship after 13a-13c are proven in daily use.
   rollback-safe. A final migration after 13b tightens `householdId` to
   non-nullable.
 - **Data on leave**: When a member leaves a household, recipes they created
-  (`userId` = them) are **copied** to their new solo household — they keep
-  their own work. Shared inventory, meal plans, and shopping lists stay with
-  the household. CookingLog entries always belong to the user regardless of
+  (`userId` = them) are **copied** to their new solo household — they keep their
+  own work. Shared inventory, meal plans, and shopping lists stay with the
+  household. CookingLog entries always belong to the user regardless of
   household. This needs to be decided before 13a ships to ensure the schema
   supports it.
 - **Single-instance SSE**: SSE events emitted on one Fly machine won't reach
@@ -267,8 +272,8 @@ genuinely differentiated — no mainstream competitor offers this end-to-end.
 
 Ship after Phase 12 is proven in daily use. Phase 12's no-waste meal planning is
 the marketing story: "Plan meals that share ingredients, prep once on Sunday,
-waste less food, save money." That pitch needs to be real before asking people to
-pay for it.
+waste less food, save money." That pitch needs to be real before asking people
+to pay for it.
 
 One-time purchase doesn't sustain ongoing development. Pure subscription scares
 intelligence layer justifies the upgrade.
@@ -312,16 +317,15 @@ Natural upgrade for couples/families. Ships after Phase 13:
 
 #### Competitive Positioning
 
-| --- | --- | --- | --- | --- |
-| Fuzzy inventory→recipe matching | 4-level + synonyms | No | No | No |
-| Unit-aware shopping consolidation | Cross-family | Basic | Basic | Yes |
-| Inventory subtraction after cooking | Yes | No | No | No |
-| Expiration-based suggestions | Yes | No | No | No |
-| Ingredient overlap planning | Yes (Phase 12) | No | No | No |
-| Unified prep list | Yes (Phase 12) | No | No | No |
+| ----------------------------------- | ------------------ | --------------- | -------------------- | ---------------- |
+| Fuzzy inventory→recipe matching     | 4-level + synonyms | No              | No                   | No               |
+| Unit-aware shopping consolidation   | Cross-family       | Basic           | Basic                | Yes              |
+| Inventory subtraction after cooking | Yes                | No              | No                   | No               |
+| Expiration-based suggestions        | Yes                | No              | No                   | No               |
+| Ingredient overlap planning         | Yes (Phase 12)     | No              | No                   | No               |
+| Unified prep list                   | Yes (Phase 12)     | No              | No                   | No               |
 
-offering more. One-time-purchase apps like Paprika lack the intelligence layer
-entirely.
+more. One-time-purchase apps like Paprika lack the intelligence layer entirely.
 
 #### Implementation Considerations
 
@@ -336,14 +340,14 @@ entirely.
       subscription status. Free-tier users hitting a Pro route get a paywall
       page, not an error. Keep the check in a single helper
       (`requireProTier(request)`) to avoid scattering subscription logic.
-- [ ] **Graceful downgrade** — When a Pro subscription lapses, data is
-      preserved but gated features become read-only. User can still export
-      their data. Never delete user data on downgrade. Recipes beyond the
-      free-tier limit remain visible but new recipes can't be added until
-      under the limit or upgraded.
+- [ ] **Graceful downgrade** — When a Pro subscription lapses, data is preserved
+      but gated features become read-only. User can still export their data.
+      Never delete user data on downgrade. Recipes beyond the free-tier limit
+      remain visible but new recipes can't be added until under the limit or
+      upgraded.
 - [ ] **Free trial** — 14-day Pro trial for new signups, no card required.
-      days remaining.
-      landing page and from paywall interstitials inside the app.
+      remaining.
+      page and from paywall interstitials inside the app.
 
 #### "Proven" Gate for Phase 14
 
@@ -353,8 +357,8 @@ at least 4 weeks. Minimum signals that it's working:
 - Prep list is generated and referenced at least once per week
 - Ingredient efficiency scores trend above 50% for planned weeks
 
-Without these signals, the no-waste pitch is aspirational, not real — and
-that's a weak foundation for asking people to pay.
+Without these signals, the no-waste pitch is aspirational, not real — and that's
+a weak foundation for asking people to pay.
 
 #### Risks
 
@@ -381,12 +385,12 @@ can be done between phases without disrupting planned work.
       asking people to pay. Should be done before or alongside Phase 14.
 - [ ] **Automated backups** — The app stores years of recipes in a single SQLite
       file. Fly.io + LiteFS handles replication, but a scheduled backup to S3
-      (daily Litestream snapshots or a cron job that copies the DB) would provide
-      disaster recovery. Critical infrastructure for a paid product.
+      (daily Litestream snapshots or a cron job that copies the DB) would
+      provide disaster recovery. Critical infrastructure for a paid product.
 - [ ] **Performance baseline at scale** — The discover page loads all recipes +
       all inventory items into memory for matching. Fine at 50 recipes, but at
-      500+ this could become slow. Profile with a realistic dataset and determine
-      when pagination or server-side pre-filtering is needed.
+      500+ this could become slow. Profile with a realistic dataset and
+      determine when pagination or server-side pre-filtering is needed.
 - [ ] Bulk import (paste-and-parse for Apple Notes at scale)
 - [ ] Performance audit (query profiling, lazy load images, bundle analysis)
 
@@ -406,7 +410,8 @@ can be done between phases without disrupting planned work.
       max-prep-ahead days. Natural extension of Phase 12b's prep list — add once
       the prep list proves useful in daily cooking.
 - [ ] **AI: Receipt scanning → inventory** — Photo of grocery receipt, AI
-      extracts items and guesses storage locations. Review/confirm before adding.
+      extracts items and guesses storage locations. Review/confirm before
+      adding.
 - [ ] **AI: Ingredient substitutions** — When an ingredient is missing, suggest
       contextual alternatives ("No buttermilk? Use 1 cup milk + 1 tbsp lemon
       juice"). Note: the existing synonym system already handles this implicitly
@@ -427,20 +432,20 @@ can be done between phases without disrupting planned work.
 - [ ] **UX: Accessibility pass** — Icon-only buttons (favorite, delete, cooked
       toggle) use `title` instead of `aria-label`. Ingredient cross-off uses
       `onClick` on `<li>` without `role="button"` or `tabIndex`. No skip-to-
-      content link. Location tabs rely on color alone with no secondary indicator
-      and ethical requirement, not a nice-to-have. Prioritize before or alongside
-      Phase 14.
+      content link. Location tabs rely on color alone with no secondary
+      is a legal and ethical requirement, not a nice-to-have. Prioritize before
+      or alongside Phase 14.
 - [ ] ⚡ **UX: Landing page CTA** — "Get Started" links to `/login`, not
       `/signup`. New users land on a login form and must find the signup link.
       Change CTA to point to `/signup`, or add a prominent "New here? Create an
       account" section on the login page.
 - [ ] **UX: Unified cooking mode** — Wake lock, cooking timer, tap-to-cross-off,
       and "I Made This" are separate sections scattered across the recipe detail
-      page. A dedicated cooking view that puts ingredients + instructions + timer
-      in one compact layout would reduce scrolling while actively cooking.
+      page. A dedicated cooking view that puts ingredients + instructions +
+      timer in one compact layout would reduce scrolling while actively cooking.
 - [ ] **UX: Recipe form length on mobile** — Photo, details, ingredients,
-      instructions, and tags all stack vertically. Tags at the bottom are easy to
-      forget. Consider collapsible sections or a multi-step form on mobile.
+      instructions, and tags all stack vertically. Tags at the bottom are easy
+      to forget. Consider collapsible sections or a multi-step form on mobile.
 - [ ] ⚡ **UX: Meal plan empty state** — New users see a blank 7-day grid with
       no guidance. Add explanatory text like "Plan your meals for the week — tap
       a slot to assign a recipe" on first visit.
@@ -454,8 +459,8 @@ can be done between phases without disrupting planned work.
       new `placeholderImageUrl` field on Recipe so the API is only hit once per
       requests/hour, high-quality photos, no attribution required. Fallback to
       the existing gradient if the API is unavailable or returns no results.
-      Implementation: server-side fetch in the recipe create/edit action,
-      search query = recipe title, pick the top result's `urls.regular`.
+      Implementation: server-side fetch in the recipe create/edit action, search
+      query = recipe title, pick the top result's `urls.regular`.
 
 ---
 
@@ -494,4 +499,7 @@ features to backlog. Plan review: Phase 12a reframed to lead with pairing
 suggestions UI, waste alerts simplified to skip packaging heuristics. Phase 13a
 updated: CookingLog stays user-scoped, householdId kept nullable through 13b,
 added data-on-leave policy and subscription schema forward-planning. Phase 14
-accuracy to backlog. Added Phase 12 success metrics._
+accuracy to backlog. Added Phase 12 success metrics. Completed Phase 12a:
+ingredient overlap analysis engine, pairing suggestions in RecipeSelector
+(lazy-loaded via resource route), waste alerts with efficiency scoring on meal
+plan page. 219 tests across 17 files._

@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import { parseIngredient, parseISODuration } from './ingredient-parser.server.ts'
+import {
+	parseIngredient,
+	parseISODuration,
+} from './ingredient-parser.server.ts'
 
 describe('parseIngredient', () => {
 	test('parses standard "amount unit name" format', () => {

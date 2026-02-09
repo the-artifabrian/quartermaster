@@ -355,144 +355,143 @@ export default function ShoppingListRoute({
 			</div>
 
 			<div className="container py-6">
-
-			{/* Generate from Meal Plan */}
-			{hasMealPlan && (
-				<div className="mb-6 print:hidden">
-					<Form method="POST">
-						<input type="hidden" name="intent" value="generate" />
-						<Button type="submit" variant="outline" className="w-full">
-							<Icon name="update" size="sm" />
-							Generate from Meal Plan
-						</Button>
-					</Form>
-					{actionData &&
-						'removedCount' in actionData &&
-						typeof actionData.removedCount === 'number' &&
-						actionData.removedCount > 0 && (
-							<p className="text-muted-foreground mt-2 text-center text-sm">
-								{actionData.removedCount} items removed (already in inventory or
-								staples)
-							</p>
-						)}
-				</div>
-			)}
-
-			{/* Add Manual Item */}
-			<div className="bg-card mb-6 rounded-lg border p-4 print:hidden">
-				<h2 className="mb-3 font-semibold">Add Item</h2>
-				<Form method="POST" {...getFormProps(form)}>
-					<input type="hidden" name="intent" value="add" />
-					<div className="space-y-3">
-						<div>
-							<Label htmlFor={fields.name.id}>Item Name</Label>
-							<Input
-								{...getInputProps(fields.name, { type: 'text' })}
-								placeholder="e.g., Milk, Eggs, Flour"
-							/>
-							{fields.name.errors && (
-								<p className="text-destructive mt-1 text-sm">
-									{fields.name.errors}
+				{/* Generate from Meal Plan */}
+				{hasMealPlan && (
+					<div className="mb-6 print:hidden">
+						<Form method="POST">
+							<input type="hidden" name="intent" value="generate" />
+							<Button type="submit" variant="outline" className="w-full">
+								<Icon name="update" size="sm" />
+								Generate from Meal Plan
+							</Button>
+						</Form>
+						{actionData &&
+							'removedCount' in actionData &&
+							typeof actionData.removedCount === 'number' &&
+							actionData.removedCount > 0 && (
+								<p className="text-muted-foreground mt-2 text-center text-sm">
+									{actionData.removedCount} items removed (already in inventory
+									or staples)
 								</p>
 							)}
-						</div>
-						<div className="flex gap-2">
-							<div className="flex-1">
-								<Label htmlFor={fields.quantity.id}>Quantity</Label>
-								<Input
-									{...getInputProps(fields.quantity, { type: 'text' })}
-									placeholder="e.g., 2, 1/2"
-								/>
-							</div>
-							<div className="flex-1">
-								<Label htmlFor={fields.unit.id}>Unit</Label>
-								<Input
-									{...getInputProps(fields.unit, { type: 'text' })}
-									placeholder="e.g., cups, lbs"
-								/>
-							</div>
-						</div>
-						<StatusButton
-							type="submit"
-							status={isPending ? 'pending' : 'idle'}
-							disabled={isPending}
-							className="w-full"
-						>
-							<Icon name="plus" size="sm" />
-							Add to List
-						</StatusButton>
 					</div>
-				</Form>
-			</div>
+				)}
 
-			{/* Items by Category */}
-			{totalItems > 0 ? (
-				<div className="space-y-6">
-					{categories.map((category) => {
-						const items = itemsByCategory[category]
-						if (!items || items.length === 0) return null
-
-						return (
-							<div key={category}>
-								<h3 className="text-muted-foreground mb-3 text-sm font-semibold uppercase">
-									{CATEGORY_LABELS[category] || category}
-								</h3>
-								<div className="space-y-2">
-									{items.map((item) => (
-										<ShoppingListItemCard key={item.id} item={item} />
-									))}
+				{/* Add Manual Item */}
+				<div className="bg-card mb-6 rounded-lg border p-4 print:hidden">
+					<h2 className="mb-3 font-semibold">Add Item</h2>
+					<Form method="POST" {...getFormProps(form)}>
+						<input type="hidden" name="intent" value="add" />
+						<div className="space-y-3">
+							<div>
+								<Label htmlFor={fields.name.id}>Item Name</Label>
+								<Input
+									{...getInputProps(fields.name, { type: 'text' })}
+									placeholder="e.g., Milk, Eggs, Flour"
+								/>
+								{fields.name.errors && (
+									<p className="text-destructive mt-1 text-sm">
+										{fields.name.errors}
+									</p>
+								)}
+							</div>
+							<div className="flex gap-2">
+								<div className="flex-1">
+									<Label htmlFor={fields.quantity.id}>Quantity</Label>
+									<Input
+										{...getInputProps(fields.quantity, { type: 'text' })}
+										placeholder="e.g., 2, 1/2"
+									/>
+								</div>
+								<div className="flex-1">
+									<Label htmlFor={fields.unit.id}>Unit</Label>
+									<Input
+										{...getInputProps(fields.unit, { type: 'text' })}
+										placeholder="e.g., cups, lbs"
+									/>
 								</div>
 							</div>
-						)
-					})}
-
-					{/* Checked Item Actions */}
-					{checkedItems > 0 && !showReview && (
-						<div className="space-y-2 print:hidden">
-							<Button
-								variant="default"
+							<StatusButton
+								type="submit"
+								status={isPending ? 'pending' : 'idle'}
+								disabled={isPending}
 								className="w-full"
-								onClick={() => setShowReview(true)}
 							>
 								<Icon name="plus" size="sm" />
-								Add Checked to Inventory ({checkedItems})
-							</Button>
-							<Form method="POST">
-								<input type="hidden" name="intent" value="clear-checked" />
-								<Button type="submit" variant="outline" className="w-full">
-									<Icon name="trash" size="sm" />
-									Clear Checked Items ({checkedItems})
-								</Button>
-							</Form>
+								Add to List
+							</StatusButton>
 						</div>
-					)}
+					</Form>
+				</div>
 
-					{/* Inventory Review Panel */}
-					{showReview && checkedItems > 0 && (
-						<div className="print:hidden">
-							<ShoppingListToInventory
-								items={checkedItemsList}
-								onCancel={() => setShowReview(false)}
+				{/* Items by Category */}
+				{totalItems > 0 ? (
+					<div className="space-y-6">
+						{categories.map((category) => {
+							const items = itemsByCategory[category]
+							if (!items || items.length === 0) return null
+
+							return (
+								<div key={category}>
+									<h3 className="text-muted-foreground mb-3 text-sm font-semibold uppercase">
+										{CATEGORY_LABELS[category] || category}
+									</h3>
+									<div className="space-y-2">
+										{items.map((item) => (
+											<ShoppingListItemCard key={item.id} item={item} />
+										))}
+									</div>
+								</div>
+							)
+						})}
+
+						{/* Checked Item Actions */}
+						{checkedItems > 0 && !showReview && (
+							<div className="space-y-2 print:hidden">
+								<Button
+									variant="default"
+									className="w-full"
+									onClick={() => setShowReview(true)}
+								>
+									<Icon name="plus" size="sm" />
+									Add Checked to Inventory ({checkedItems})
+								</Button>
+								<Form method="POST">
+									<input type="hidden" name="intent" value="clear-checked" />
+									<Button type="submit" variant="outline" className="w-full">
+										<Icon name="trash" size="sm" />
+										Clear Checked Items ({checkedItems})
+									</Button>
+								</Form>
+							</div>
+						)}
+
+						{/* Inventory Review Panel */}
+						{showReview && checkedItems > 0 && (
+							<div className="print:hidden">
+								<ShoppingListToInventory
+									items={checkedItemsList}
+									onCancel={() => setShowReview(false)}
+								/>
+							</div>
+						)}
+					</div>
+				) : (
+					<div className="rounded-lg border border-dashed p-8 text-center">
+						<div className="bg-muted/50 mx-auto flex size-20 items-center justify-center rounded-full">
+							<Icon
+								name="file-text"
+								className="text-muted-foreground size-10"
 							/>
 						</div>
-					)}
-				</div>
-			) : (
-				<div className="rounded-lg border border-dashed p-8 text-center">
-					<div className="bg-muted/50 mx-auto flex size-20 items-center justify-center rounded-full">
-						<Icon
-							name="file-text"
-							className="text-muted-foreground size-10"
-						/>
+						<h3 className="mt-4 font-semibold">Your shopping list is empty</h3>
+						<p className="text-muted-foreground mx-auto mt-2 max-w-sm text-sm">
+							{hasMealPlan
+								? 'Generate items from your meal plan or add items manually above.'
+								: 'Create a meal plan first to auto-generate your list, or add items manually above.'}
+						</p>
 					</div>
-					<h3 className="mt-4 font-semibold">Your shopping list is empty</h3>
-					<p className="text-muted-foreground mt-2 mx-auto max-w-sm text-sm">
-						{hasMealPlan
-							? 'Generate items from your meal plan or add items manually above.'
-							: 'Create a meal plan first to auto-generate your list, or add items manually above.'}
-					</p>
-				</div>
-			)}
+				)}
 			</div>
 		</div>
 	)

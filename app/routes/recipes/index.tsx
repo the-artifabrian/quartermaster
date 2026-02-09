@@ -208,151 +208,157 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container py-6">
-
-			{/* Search & Filters */}
-			<div className="bg-muted/30 mb-6 space-y-4 rounded-xl p-4">
-				<div className="flex gap-2">
-					<div className="relative flex-1">
-						<Icon
-							name="magnifying-glass"
-							className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
-							size="sm"
-						/>
-						<Input
-							type="search"
-							placeholder="Search recipes..."
-							defaultValue={search}
-							onChange={(e) => handleSearchChange(e.target.value)}
-							className="bg-background pl-10"
-						/>
+				{/* Search & Filters */}
+				<div className="bg-muted/30 mb-6 space-y-4 rounded-xl p-4">
+					<div className="flex gap-2">
+						<div className="relative flex-1">
+							<Icon
+								name="magnifying-glass"
+								className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
+								size="sm"
+							/>
+							<Input
+								type="search"
+								placeholder="Search recipes..."
+								defaultValue={search}
+								onChange={(e) => handleSearchChange(e.target.value)}
+								className="bg-background pl-10"
+							/>
+						</div>
+						<select
+							value={maxTime?.toString() ?? ''}
+							onChange={(e) => handleMaxTimeChange(e.target.value)}
+							className="bg-background border-input rounded-md border px-3 py-2 text-sm"
+						>
+							<option value="">Any time</option>
+							<option value="30">Under 30 min</option>
+							<option value="60">Under 1 hour</option>
+							<option value="120">Under 2 hours</option>
+						</select>
+						<Button
+							variant={favoritesOnly ? 'default' : 'outline'}
+							onClick={handleFavoritesToggle}
+							title={favoritesOnly ? 'Show all recipes' : 'Show favorites only'}
+							className={cn(!favoritesOnly && 'bg-background')}
+						>
+							<Icon name={favoritesOnly ? 'heart-filled' : 'heart'} size="sm" />
+						</Button>
 					</div>
-					<select
-						value={maxTime?.toString() ?? ''}
-						onChange={(e) => handleMaxTimeChange(e.target.value)}
-						className="bg-background border-input rounded-md border px-3 py-2 text-sm"
-					>
-						<option value="">Any time</option>
-						<option value="30">Under 30 min</option>
-						<option value="60">Under 1 hour</option>
-						<option value="120">Under 2 hours</option>
-					</select>
-					<Button
-						variant={favoritesOnly ? 'default' : 'outline'}
-						onClick={handleFavoritesToggle}
-						title={favoritesOnly ? 'Show all recipes' : 'Show favorites only'}
-						className={cn(!favoritesOnly && 'bg-background')}
-					>
-						<Icon name={favoritesOnly ? 'heart-filled' : 'heart'} size="sm" />
-					</Button>
-				</div>
 
-				{/* Tag filters */}
-				<div className="flex flex-wrap gap-2">
-					{tags.map((tag) => {
-						const isSelected = selectedTagIds.includes(tag.id)
-						return (
+					{/* Tag filters */}
+					<div className="flex flex-wrap gap-2">
+						{tags.map((tag) => {
+							const isSelected = selectedTagIds.includes(tag.id)
+							return (
+								<button
+									key={tag.id}
+									type="button"
+									onClick={() => handleTagClick(tag.id)}
+									className={cn(
+										'rounded-full px-3 py-1 text-sm transition-colors',
+										isSelected
+											? 'bg-primary text-primary-foreground shadow-sm'
+											: 'bg-secondary hover:bg-secondary/80',
+									)}
+								>
+									{tag.name}
+									{isSelected && (
+										<span className="ml-1 font-bold" aria-hidden="true">
+											×
+										</span>
+									)}
+								</button>
+							)
+						})}
+					</div>
+
+					{/* Active filter info */}
+					{hasFilters && (
+						<div className="flex items-center justify-between text-sm">
+							<span className="text-muted-foreground">
+								{recipes.length} {recipes.length === 1 ? 'result' : 'results'}
+							</span>
 							<button
-								key={tag.id}
 								type="button"
-								onClick={() => handleTagClick(tag.id)}
-								className={cn(
-									'rounded-full px-3 py-1 text-sm transition-colors',
-									isSelected
-										? 'bg-primary text-primary-foreground shadow-sm'
-										: 'bg-secondary hover:bg-secondary/80',
-								)}
+								onClick={handleClearFilters}
+								className="text-primary hover:text-primary/80 text-sm font-medium"
 							>
-								{tag.name}
-								{isSelected && (
-									<span className="ml-1 font-bold" aria-hidden="true">
-										×
-									</span>
-								)}
+								Clear all filters
 							</button>
-						)
-					})}
+						</div>
+					)}
 				</div>
 
-				{/* Active filter info */}
-				{hasFilters && (
-					<div className="flex items-center justify-between text-sm">
-						<span className="text-muted-foreground">
-							{recipes.length} {recipes.length === 1 ? 'result' : 'results'}
-						</span>
+				{/* Recipe Grid */}
+				{recipes.length > 0 ? (
+					<RecipeCardGrid>
+						{recipes.map((recipe) => (
+							<RecipeCard
+								key={recipe.id}
+								id={recipe.id}
+								title={recipe.title}
+								description={recipe.description}
+								imageObjectKey={recipe.image?.objectKey}
+								prepTime={recipe.prepTime}
+								cookTime={recipe.cookTime}
+								tags={recipe.tags}
+								isFavorite={recipe.isFavorite}
+								lastCookedAt={
+									recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null
+								}
+								cookCount={recipe._count.cookingLogs}
+							/>
+						))}
+					</RecipeCardGrid>
+				) : hasFilters ? (
+					<div className="flex flex-col items-center justify-center py-16 text-center">
+						<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+							<Icon
+								name="magnifying-glass"
+								className="text-muted-foreground size-10"
+							/>
+						</div>
+						<h2 className="mt-4 text-xl font-semibold">No matches found</h2>
+						<p className="text-muted-foreground mt-2 max-w-sm">
+							No recipes match your current filters. Try different search terms
+							or tags.
+						</p>
 						<button
 							type="button"
 							onClick={handleClearFilters}
-							className="text-primary hover:text-primary/80 text-sm font-medium"
+							className="text-primary hover:text-primary/80 mt-4 text-sm font-medium"
 						>
 							Clear all filters
 						</button>
 					</div>
+				) : (
+					<div className="flex flex-col items-center justify-center py-16 text-center">
+						<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+							<Icon name="cookie" className="text-muted-foreground size-10" />
+						</div>
+						<h2 className="mt-4 text-xl font-semibold">
+							Your recipe book is empty
+						</h2>
+						<p className="text-muted-foreground mt-2 max-w-sm">
+							Add your first recipe to get started. You can type it in manually
+							or import from a URL.
+						</p>
+						<div className="mt-6 flex gap-3">
+							<Button asChild>
+								<Link to="/recipes/new">
+									<Icon name="plus" size="sm" />
+									Add Recipe
+								</Link>
+							</Button>
+							<Button asChild variant="outline">
+								<Link to="/recipes/import">
+									<Icon name="link-2" size="sm" />
+									Import from URL
+								</Link>
+							</Button>
+						</div>
+					</div>
 				)}
-			</div>
-
-			{/* Recipe Grid */}
-			{recipes.length > 0 ? (
-				<RecipeCardGrid>
-					{recipes.map((recipe) => (
-						<RecipeCard
-							key={recipe.id}
-							id={recipe.id}
-							title={recipe.title}
-							description={recipe.description}
-							imageObjectKey={recipe.image?.objectKey}
-							prepTime={recipe.prepTime}
-							cookTime={recipe.cookTime}
-							tags={recipe.tags}
-							isFavorite={recipe.isFavorite}
-							lastCookedAt={recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null}
-							cookCount={recipe._count.cookingLogs}
-						/>
-					))}
-				</RecipeCardGrid>
-			) : hasFilters ? (
-				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
-						<Icon name="magnifying-glass" className="text-muted-foreground size-10" />
-					</div>
-					<h2 className="mt-4 text-xl font-semibold">No matches found</h2>
-					<p className="text-muted-foreground mt-2 max-w-sm">
-						No recipes match your current filters. Try different search terms or tags.
-					</p>
-					<button
-						type="button"
-						onClick={handleClearFilters}
-						className="text-primary hover:text-primary/80 mt-4 text-sm font-medium"
-					>
-						Clear all filters
-					</button>
-				</div>
-			) : (
-				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
-						<Icon name="cookie" className="text-muted-foreground size-10" />
-					</div>
-					<h2 className="mt-4 text-xl font-semibold">
-						Your recipe book is empty
-					</h2>
-					<p className="text-muted-foreground mt-2 max-w-sm">
-						Add your first recipe to get started. You can type it in manually or import from a URL.
-					</p>
-					<div className="mt-6 flex gap-3">
-						<Button asChild>
-							<Link to="/recipes/new">
-								<Icon name="plus" size="sm" />
-								Add Recipe
-							</Link>
-						</Button>
-						<Button asChild variant="outline">
-							<Link to="/recipes/import">
-								<Icon name="link-2" size="sm" />
-								Import from URL
-							</Link>
-						</Button>
-					</div>
-				</div>
-			)}
 			</div>
 		</div>
 	)

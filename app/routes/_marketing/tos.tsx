@@ -33,8 +33,8 @@ export default function TermsOfServiceRoute() {
 					<p className="text-muted-foreground mt-2">
 						Quartermaster is a personal recipe management service. By creating
 						an account, you agree to use the service for its intended purpose:
-						storing and organizing your recipes, tracking kitchen inventory,
-						and planning meals.
+						storing and organizing your recipes, tracking kitchen inventory, and
+						planning meals.
 					</p>
 				</section>
 

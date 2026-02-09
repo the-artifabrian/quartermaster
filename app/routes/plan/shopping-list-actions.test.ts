@@ -111,9 +111,7 @@ describe('shopping list actions', () => {
 			include: { items: true },
 		})
 		// Should not have duplicates
-		const generatedItems = list!.items.filter(
-			(i) => i.source === 'generated',
-		)
+		const generatedItems = list!.items.filter((i) => i.source === 'generated')
 		const uniqueNames = new Set(generatedItems.map((i) => i.name))
 		expect(generatedItems).toHaveLength(uniqueNames.size)
 	})

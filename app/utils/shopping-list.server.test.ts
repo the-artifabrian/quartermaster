@@ -136,12 +136,8 @@ describe('generateShoppingListFromRecipes', () => {
 			{ name: 'flour', amount: '2', unit: 'cups' },
 		])
 		// recipe.servings = 4, entry servings = 8 → ratio = 2
-		const items = generateShoppingListFromRecipes([
-			{ recipe, servings: 8 },
-		])
-		const flourItem = items.find((i) =>
-			i.name.toLowerCase().includes('flour'),
-		)
+		const items = generateShoppingListFromRecipes([{ recipe, servings: 8 }])
+		const flourItem = items.find((i) => i.name.toLowerCase().includes('flour'))
 		expect(flourItem!.quantity).toBe('4')
 	})
 
@@ -150,12 +146,8 @@ describe('generateShoppingListFromRecipes', () => {
 			{ name: 'flour', amount: '2', unit: 'cups' },
 		])
 		// recipe.servings = 4, entry servings = 2 → ratio = 0.5
-		const items = generateShoppingListFromRecipes([
-			{ recipe, servings: 2 },
-		])
-		const flourItem = items.find((i) =>
-			i.name.toLowerCase().includes('flour'),
-		)
+		const items = generateShoppingListFromRecipes([{ recipe, servings: 2 }])
+		const flourItem = items.find((i) => i.name.toLowerCase().includes('flour'))
 		expect(flourItem!.quantity).toBe('1')
 	})
 
@@ -163,12 +155,8 @@ describe('generateShoppingListFromRecipes', () => {
 		const recipe = makeRecipe('r1', [
 			{ name: 'flour', amount: '2', unit: 'cups' },
 		])
-		const items = generateShoppingListFromRecipes([
-			{ recipe, servings: null },
-		])
-		const flourItem = items.find((i) =>
-			i.name.toLowerCase().includes('flour'),
-		)
+		const items = generateShoppingListFromRecipes([{ recipe, servings: null }])
+		const flourItem = items.find((i) => i.name.toLowerCase().includes('flour'))
 		expect(flourItem!.quantity).toBe('2')
 	})
 
@@ -182,26 +170,18 @@ describe('generateShoppingListFromRecipes', () => {
 
 	test('servings=0 falls back to ratio=1', () => {
 		const recipe = {
-			...makeRecipe('r1', [
-				{ name: 'flour', amount: '2', unit: 'cups' },
-			]),
+			...makeRecipe('r1', [{ name: 'flour', amount: '2', unit: 'cups' }]),
 			servings: 0,
 		}
-		const items = generateShoppingListFromRecipes([
-			{ recipe, servings: 4 },
-		])
-		const flourItem = items.find((i) =>
-			i.name.toLowerCase().includes('flour'),
-		)
+		const items = generateShoppingListFromRecipes([{ recipe, servings: 4 }])
+		const flourItem = items.find((i) => i.name.toLowerCase().includes('flour'))
 		// ratio = servings && recipe.servings > 0 → false, so ratio = 1
 		expect(flourItem!.quantity).toBe('2')
 	})
 })
 
 describe('subtractInventoryFromShoppingList', () => {
-	function makeInventory(
-		items: Array<{ name: string; lowStock?: boolean }>,
-	) {
+	function makeInventory(items: Array<{ name: string; lowStock?: boolean }>) {
 		return items.map((item, i) => ({
 			id: `inv-${i}`,
 			name: item.name,

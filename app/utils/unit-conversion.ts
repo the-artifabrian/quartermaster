@@ -171,7 +171,9 @@ export function convertAndSum(
 	for (const q of quantities) {
 		const factor = family.units[q.normalizedUnit]
 		if (factor === undefined) {
-			throw new Error(`Unit "${q.normalizedUnit}" not in family "${family.name}"`)
+			throw new Error(
+				`Unit "${q.normalizedUnit}" not in family "${family.name}"`,
+			)
 		}
 		totalBase += q.amount * factor
 		inputUnits.add(q.normalizedUnit)

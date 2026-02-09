@@ -576,9 +576,11 @@ export default function ImportRecipe() {
 													{dup.title}
 												</Link>{' '}
 												<span className="text-amber-600 dark:text-amber-400">
-													({dup.matchReason === 'same-url'
+													(
+													{dup.matchReason === 'same-url'
 														? 'same URL'
-														: 'same title'})
+														: 'same title'}
+													)
 												</span>
 											</li>
 										))}

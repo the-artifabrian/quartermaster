@@ -226,7 +226,7 @@ function App() {
 											to="/recipes"
 											className={({ isActive }) =>
 												isActive
-													? 'text-primary border-b-2 border-primary pb-1 text-sm font-medium transition-colors'
+													? 'text-primary border-primary border-b-2 pb-1 text-sm font-medium transition-colors'
 													: 'text-muted-foreground hover:text-foreground pb-1 text-sm font-medium transition-colors'
 											}
 										>
@@ -236,7 +236,7 @@ function App() {
 											to="/inventory"
 											className={({ isActive }) =>
 												isActive
-													? 'text-primary border-b-2 border-primary pb-1 text-sm font-medium transition-colors'
+													? 'text-primary border-primary border-b-2 pb-1 text-sm font-medium transition-colors'
 													: 'text-muted-foreground hover:text-foreground pb-1 text-sm font-medium transition-colors'
 											}
 										>
@@ -246,7 +246,7 @@ function App() {
 											to="/plan"
 											className={({ isActive }) =>
 												isActive
-													? 'text-primary border-b-2 border-primary pb-1 text-sm font-medium transition-colors'
+													? 'text-primary border-primary border-b-2 pb-1 text-sm font-medium transition-colors'
 													: 'text-muted-foreground hover:text-foreground pb-1 text-sm font-medium transition-colors'
 											}
 										>
@@ -256,7 +256,7 @@ function App() {
 											to="/discover"
 											className={({ isActive }) =>
 												isActive
-													? 'text-primary border-b-2 border-primary pb-1 text-sm font-medium transition-colors'
+													? 'text-primary border-primary border-b-2 pb-1 text-sm font-medium transition-colors'
 													: 'text-muted-foreground hover:text-foreground pb-1 text-sm font-medium transition-colors'
 											}
 										>

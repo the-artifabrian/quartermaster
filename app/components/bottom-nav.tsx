@@ -74,12 +74,7 @@ export function BottomNav() {
 							) : (
 								<>
 									<Icon name={item.icon} size="lg" />
-									<span
-										className={cn(
-											'text-xs',
-											isActive && 'font-semibold',
-										)}
-									>
+									<span className={cn('text-xs', isActive && 'font-semibold')}>
 										{item.label}
 									</span>
 								</>

@@ -6,7 +6,7 @@ import { data, redirect, useFetcher } from 'react-router'
 import { RecipeForm } from '#app/components/recipe-form.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { useDoubleCheck } from '#app/utils/misc.tsx'
 import {
@@ -29,7 +29,7 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-	const userId = await requireUserId(request)
+	const { householdId } = await requireUserWithHousehold(request)
 	const { recipeId } = params
 
 	const recipe = await prisma.recipe.findUnique({
@@ -43,7 +43,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			cookTime: true,
 			sourceUrl: true,
 			notes: true,
-			userId: true,
+			householdId: true,
 			image: { select: { objectKey: true, altText: true } },
 			ingredients: {
 				select: {
@@ -69,7 +69,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	})
 
 	invariantResponse(recipe, 'Recipe not found', { status: 404 })
-	invariantResponse(recipe.userId === userId, 'Not authorized', { status: 403 })
+	invariantResponse(recipe.householdId === householdId, 'Not authorized', {
+		status: 403,
+	})
 
 	const tags = await prisma.tag.findMany({
 		select: { id: true, name: true, category: true },
@@ -80,16 +82,18 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-	const userId = await requireUserId(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
 	const { recipeId } = params
 
 	const recipe = await prisma.recipe.findUnique({
 		where: { id: recipeId },
-		select: { id: true, userId: true },
+		select: { id: true, householdId: true },
 	})
 
 	invariantResponse(recipe, 'Recipe not found', { status: 404 })
-	invariantResponse(recipe.userId === userId, 'Not authorized', { status: 403 })
+	invariantResponse(recipe.householdId === householdId, 'Not authorized', {
+		status: 403,
+	})
 
 	let imageFile: FileUpload | null = null
 

@@ -1,7 +1,7 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Outlet } from 'react-router'
 import { BottomNav } from '#app/components/bottom-nav.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { type Route } from './+types/_layout.ts'
 
 export const handle: SEOHandle = {
@@ -9,7 +9,7 @@ export const handle: SEOHandle = {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	await requireUserId(request)
+	await requireUserWithHousehold(request)
 	return {}
 }
 

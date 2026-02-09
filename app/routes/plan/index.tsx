@@ -7,7 +7,7 @@ import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
 import { MealPlanWasteAlerts } from '#app/components/meal-plan-waste-alerts.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	getCurrentWeekStart,
 	getWeekDays,
@@ -35,7 +35,7 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const userId = await requireUserId(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
 	const url = new URL(request.url)
 	const weekStartParam = url.searchParams.get('weekStart')
 
@@ -46,7 +46,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// Get or create meal plan for this week
 	let mealPlan = await prisma.mealPlan.findFirst({
 		where: {
-			userId,
+			householdId,
 			weekStart,
 		},
 		include: {
@@ -64,6 +64,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		mealPlan = await prisma.mealPlan.create({
 			data: {
 				userId,
+				householdId,
 				weekStart,
 			},
 			include: {
@@ -80,7 +81,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	// Load user's recipes for selection (include ingredients for overlap analysis)
 	const recipes = await prisma.recipe.findMany({
-		where: { userId },
+		where: { householdId },
 		orderBy: { title: 'asc' },
 		include: { ingredients: true },
 	})
@@ -142,7 +143,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const userId = await requireUserId(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
 	const formData = await request.formData()
 	const intent = formData.get('intent')
 
@@ -157,12 +158,12 @@ export async function action({ request }: Route.ActionArgs) {
 		// Get the meal plan for this week
 		const weekStart = getWeekStart(date)
 		let mealPlan = await prisma.mealPlan.findFirst({
-			where: { userId, weekStart },
+			where: { householdId, weekStart },
 		})
 
 		if (!mealPlan) {
 			mealPlan = await prisma.mealPlan.create({
-				data: { userId, weekStart },
+				data: { userId, householdId, weekStart },
 			})
 		}
 
@@ -201,7 +202,7 @@ export async function action({ request }: Route.ActionArgs) {
 		const servings = servingsStr ? parseInt(String(servingsStr), 10) : null
 
 		const entry = await prisma.mealPlanEntry.findFirst({
-			where: { id: entryId, mealPlan: { userId } },
+			where: { id: entryId, mealPlan: { householdId } },
 		})
 		invariantResponse(entry, 'Entry not found', { status: 404 })
 
@@ -218,7 +219,7 @@ export async function action({ request }: Route.ActionArgs) {
 		invariantResponse(typeof entryId === 'string', 'Entry ID is required')
 
 		const entry = await prisma.mealPlanEntry.findFirst({
-			where: { id: entryId, mealPlan: { userId } },
+			where: { id: entryId, mealPlan: { householdId } },
 		})
 		invariantResponse(entry, 'Entry not found', { status: 404 })
 
@@ -238,7 +239,7 @@ export async function action({ request }: Route.ActionArgs) {
 		const entry = await prisma.mealPlanEntry.findFirst({
 			where: {
 				id: entryId,
-				mealPlan: { userId },
+				mealPlan: { householdId },
 			},
 		})
 		invariantResponse(entry, 'Entry not found', { status: 404 })
@@ -257,7 +258,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const weekStart = getWeekStart(parseDate(weekStartStr))
 		const mealPlan = await prisma.mealPlan.findFirst({
-			where: { userId, weekStart },
+			where: { householdId, weekStart },
 			include: { entries: true },
 		})
 		invariantResponse(
@@ -269,12 +270,12 @@ export async function action({ request }: Route.ActionArgs) {
 
 		// Get or create next week's meal plan
 		let nextMealPlan = await prisma.mealPlan.findFirst({
-			where: { userId, weekStart: nextWeekStart },
+			where: { householdId, weekStart: nextWeekStart },
 		})
 
 		if (!nextMealPlan) {
 			nextMealPlan = await prisma.mealPlan.create({
-				data: { userId, weekStart: nextWeekStart },
+				data: { userId, householdId, weekStart: nextWeekStart },
 			})
 		}
 

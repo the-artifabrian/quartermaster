@@ -3,7 +3,7 @@ import { parseFormData, type FileUpload } from '@mjackson/form-data-parser'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { data, redirect } from 'react-router'
 import { RecipeForm } from '#app/components/recipe-form.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	RecipeSchema,
@@ -22,7 +22,7 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	await requireUserId(request)
+	await requireUserWithHousehold(request)
 
 	const tags = await prisma.tag.findMany({
 		select: { id: true, name: true, category: true },
@@ -33,7 +33,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const userId = await requireUserId(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
 
 	let imageFile: FileUpload | null = null
 
@@ -108,6 +108,7 @@ export async function action({ request }: Route.ActionArgs) {
 			sourceUrl: sourceUrl || null,
 			notes: notes || null,
 			userId,
+			householdId,
 			ingredients: {
 				create: ingredients
 					.filter((ing) => ing.name.trim() !== '')

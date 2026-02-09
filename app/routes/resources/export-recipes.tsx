@@ -1,12 +1,12 @@
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { type Route } from './+types/export-recipes.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const userId = await requireUserId(request)
+	const { householdId } = await requireUserWithHousehold(request)
 
 	const recipes = await prisma.recipe.findMany({
-		where: { userId },
+		where: { householdId },
 		select: {
 			title: true,
 			description: true,

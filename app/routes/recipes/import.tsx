@@ -14,7 +14,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	parseIngredient,
@@ -32,7 +32,7 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	await requireUserId(request)
+	await requireUserWithHousehold(request)
 	return {}
 }
 
@@ -185,7 +185,7 @@ function extractRecipe(
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const userId = await requireUserId(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
 	const formData = await request.formData()
 	const intent = formData.get('intent')
 
@@ -282,7 +282,7 @@ export async function action({ request }: Route.ActionArgs) {
 			const duplicates: DuplicateMatch[] = []
 
 			const urlMatches = await prisma.recipe.findMany({
-				where: { userId, sourceUrl: url },
+				where: { householdId, sourceUrl: url },
 				select: { id: true, title: true, sourceUrl: true },
 			})
 			for (const match of urlMatches) {
@@ -292,7 +292,7 @@ export async function action({ request }: Route.ActionArgs) {
 			const urlMatchIds = new Set(urlMatches.map((m) => m.id))
 			const titleMatches = await prisma.recipe.findMany({
 				where: {
-					userId,
+					householdId,
 					title: { equals: recipe.title },
 					id: { notIn: [...urlMatchIds] },
 				},
@@ -395,6 +395,7 @@ export async function action({ request }: Route.ActionArgs) {
 				cookTime,
 				sourceUrl,
 				userId,
+				householdId,
 				ingredients: {
 					create: ingredients.map((ing, order) => ({
 						name: ing.name,

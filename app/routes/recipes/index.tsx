@@ -10,7 +10,7 @@ import {
 } from '#app/components/ui/dropdown-menu.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { cn, useDebounce } from '#app/utils/misc.tsx'
 import { type Route } from './+types/index.ts'
@@ -24,7 +24,7 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const userId = await requireUserId(request)
+	const { householdId } = await requireUserWithHousehold(request)
 	const url = new URL(request.url)
 	const search = url.searchParams.get('search') ?? ''
 	const tagsParam = url.searchParams.get('tags') ?? ''
@@ -37,7 +37,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const recipes = await prisma.recipe.findMany({
 		where: {
-			userId,
+			householdId,
 			...(favoritesOnly && { isFavorite: true }),
 			...(search && {
 				OR: [

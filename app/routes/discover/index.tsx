@@ -8,7 +8,7 @@ import {
 } from '#app/components/recipe-match-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	ingredientMatchesInventoryItem,
@@ -26,16 +26,16 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const userId = await requireUserId(request)
+	const { householdId } = await requireUserWithHousehold(request)
 
 	// Load user's inventory
 	const inventoryItems = await prisma.inventoryItem.findMany({
-		where: { userId },
+		where: { householdId },
 	})
 
 	// Load all user's recipes with ingredients
 	const recipes = await prisma.recipe.findMany({
-		where: { userId },
+		where: { householdId },
 		select: {
 			id: true,
 			title: true,

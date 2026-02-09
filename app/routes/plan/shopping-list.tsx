@@ -11,7 +11,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { getCurrentWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { parseAmount } from '#app/utils/fractions.ts'
@@ -36,11 +36,11 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const userId = await requireUserId(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
 
 	// Get or create shopping list
 	let shoppingList = await prisma.shoppingList.findFirst({
-		where: { userId },
+		where: { householdId },
 		include: {
 			items: {
 				orderBy: [{ checked: 'asc' }, { category: 'asc' }, { name: 'asc' }],
@@ -50,7 +50,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	if (!shoppingList) {
 		shoppingList = await prisma.shoppingList.create({
-			data: { userId },
+			data: { userId, householdId },
 			include: { items: true },
 		})
 	}
@@ -71,7 +71,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// Check if user has a current meal plan
 	const weekStart = getCurrentWeekStart()
 	const mealPlan = await prisma.mealPlan.findFirst({
-		where: { userId, weekStart },
+		where: { householdId, weekStart },
 		include: {
 			entries: {
 				include: {
@@ -95,18 +95,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const userId = await requireUserId(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
 	const formData = await request.formData()
 	const intent = formData.get('intent')
 
 	// Get user's shopping list
 	let shoppingList = await prisma.shoppingList.findFirst({
-		where: { userId },
+		where: { householdId },
 	})
 
 	if (!shoppingList) {
 		shoppingList = await prisma.shoppingList.create({
-			data: { userId },
+			data: { userId, householdId },
 		})
 	}
 
@@ -114,7 +114,7 @@ export async function action({ request }: Route.ActionArgs) {
 		// Get current week's meal plan
 		const weekStart = getCurrentWeekStart()
 		const mealPlan = await prisma.mealPlan.findFirst({
-			where: { userId, weekStart },
+			where: { householdId, weekStart },
 			include: {
 				entries: {
 					include: {
@@ -140,7 +140,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		// Subtract items already in inventory (unless low stock) and staples
 		const inventoryItems = await prisma.inventoryItem.findMany({
-			where: { userId },
+			where: { householdId },
 		})
 		const { items, removedCount } = subtractInventoryFromShoppingList(
 			rawItems,
@@ -192,7 +192,7 @@ export async function action({ request }: Route.ActionArgs) {
 		const item = await prisma.shoppingListItem.findFirst({
 			where: {
 				id: itemId,
-				list: { userId },
+				list: { householdId },
 			},
 		})
 		invariantResponse(item, 'Item not found', { status: 404 })
@@ -212,7 +212,7 @@ export async function action({ request }: Route.ActionArgs) {
 		const item = await prisma.shoppingListItem.findFirst({
 			where: {
 				id: itemId,
-				list: { userId },
+				list: { householdId },
 			},
 		})
 		invariantResponse(item, 'Item not found', { status: 404 })
@@ -278,6 +278,7 @@ export async function action({ request }: Route.ActionArgs) {
 						quantity,
 						unit: shoppingItem.unit,
 						userId,
+						householdId,
 					},
 				})
 			}),

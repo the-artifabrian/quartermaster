@@ -1,10 +1,10 @@
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { scoreRecipePairings } from '#app/utils/ingredient-overlap.server.ts'
 import { type Route } from './+types/meal-plan-pairing.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const userId = await requireUserId(request)
+	const { householdId } = await requireUserWithHousehold(request)
 	const url = new URL(request.url)
 	const weekStart = url.searchParams.get('weekStart')
 
@@ -15,7 +15,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// Load meal plan entries for this week with recipe ingredients
 	const mealPlan = await prisma.mealPlan.findFirst({
 		where: {
-			userId,
+			householdId,
 			weekStart: new Date(weekStart),
 		},
 		include: {
@@ -42,7 +42,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	// Load all user recipes with ingredients
 	const allRecipes = await prisma.recipe.findMany({
-		where: { userId },
+		where: { householdId },
 		include: { ingredients: true },
 	})
 

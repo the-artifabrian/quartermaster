@@ -22,11 +22,18 @@ async function setupUser() {
 		},
 		select: { id: true, userId: true },
 	})
-	return session
+	const household = await prisma.household.create({
+		data: {
+			name: 'Test Household',
+			members: { create: { userId: session.userId, role: 'owner' } },
+		},
+	})
+	return { ...session, householdId: household.id }
 }
 
 async function setupRecipe(
 	userId: string,
+	householdId: string,
 	overrides?: { isFavorite?: boolean },
 ) {
 	return prisma.recipe.create({
@@ -34,6 +41,7 @@ async function setupRecipe(
 			title: 'Test Recipe',
 			description: 'A test description',
 			userId,
+			householdId,
 			servings: 4,
 			prepTime: 10,
 			cookTime: 30,
@@ -81,7 +89,7 @@ async function makeRequest(
 describe('recipe detail loader', () => {
 	test('loads recipe with ingredients, instructions, tags, and logs', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId)
+		const recipe = await setupRecipe(session.userId, session.householdId)
 
 		const request = await makeRequest(session, recipe.id, {}, 'GET')
 		const result = (await loader({
@@ -112,7 +120,7 @@ describe('recipe detail loader', () => {
 	test('returns 403 for other user recipe', async () => {
 		const session1 = await setupUser()
 		const session2 = await setupUser()
-		const recipe = await setupRecipe(session1.userId)
+		const recipe = await setupRecipe(session1.userId, session1.householdId)
 
 		const request = await makeRequest(session2, recipe.id, {}, 'GET')
 		const response = loader({
@@ -128,7 +136,7 @@ describe('recipe detail loader', () => {
 describe('recipe detail actions', () => {
 	test('toggle favorite', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId, { isFavorite: false })
+		const recipe = await setupRecipe(session.userId, session.householdId, { isFavorite: false })
 
 		const request = await makeRequest(session, recipe.id, {
 			intent: 'toggleFavorite',
@@ -154,7 +162,7 @@ describe('recipe detail actions', () => {
 
 	test('log cook creates cooking log', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId)
+		const recipe = await setupRecipe(session.userId, session.householdId)
 
 		const request = await makeRequest(session, recipe.id, {
 			intent: 'logCook',
@@ -175,7 +183,7 @@ describe('recipe detail actions', () => {
 
 	test('log cook with subtractInventory subtracts from inventory', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId)
+		const recipe = await setupRecipe(session.userId, session.householdId)
 
 		// Set up inventory with flour
 		await prisma.inventoryItem.create({
@@ -185,6 +193,7 @@ describe('recipe detail actions', () => {
 				quantity: 10,
 				unit: 'cups',
 				userId: session.userId,
+				householdId: session.householdId,
 			},
 		})
 
@@ -210,7 +219,7 @@ describe('recipe detail actions', () => {
 
 	test('delete cook log', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId)
+		const recipe = await setupRecipe(session.userId, session.householdId)
 
 		// Create a cooking log
 		const log = await prisma.cookingLog.create({
@@ -253,7 +262,7 @@ describe('recipe detail actions', () => {
 	test('action on other user recipe returns 403', async () => {
 		const session1 = await setupUser()
 		const session2 = await setupUser()
-		const recipe = await setupRecipe(session1.userId)
+		const recipe = await setupRecipe(session1.userId, session1.householdId)
 
 		const request = await makeRequest(session2, recipe.id, {
 			intent: 'toggleFavorite',

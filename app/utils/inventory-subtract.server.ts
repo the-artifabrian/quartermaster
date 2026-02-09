@@ -16,7 +16,7 @@ export type SubtractionSummary = {
  * After cooking a recipe, subtract its ingredients from the user's inventory.
  *
  * @param recipeId - The recipe that was cooked
- * @param userId - The user who cooked it
+ * @param householdId - The household whose inventory to subtract from
  * @param servingRatio - Ratio of cooked servings to recipe default (e.g., 2.0 if doubled)
  *
  * For each non-staple ingredient:
@@ -29,7 +29,7 @@ export type SubtractionSummary = {
  */
 export async function subtractRecipeIngredientsFromInventory(
 	recipeId: string,
-	userId: string,
+	householdId: string,
 	servingRatio: number = 1,
 ): Promise<SubtractionSummary> {
 	const recipe = await prisma.recipe.findUnique({
@@ -40,7 +40,7 @@ export async function subtractRecipeIngredientsFromInventory(
 	if (!recipe) return { removed: [], flaggedLow: [], updated: [] }
 
 	const inventoryItems = await prisma.inventoryItem.findMany({
-		where: { userId },
+		where: { householdId },
 	})
 
 	const removed: string[] = []

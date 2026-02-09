@@ -16,6 +16,7 @@ import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
+import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { Progress } from './components/progress-bar.tsx'
 import { useToast } from './components/toaster.tsx'
 import { Button } from './components/ui/button.tsx'
@@ -283,6 +284,7 @@ function App() {
 			</div>
 			<BottomNav />
 			<Toaster closeButton position="top-center" theme={theme} />
+			<OfflineIndicator />
 			<Progress />
 		</OpenImgContextProvider>
 	)

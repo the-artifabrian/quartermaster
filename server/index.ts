@@ -179,6 +179,11 @@ if (IS_DEV) {
 	})
 } else {
 	console.log('Starting production server')
+	// Ensure the browser always checks for SW updates
+	app.get('/sw.js', (_req, res, next) => {
+		res.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+		next()
+	})
 	// React Router fingerprints its assets so we can cache forever.
 	app.use(
 		'/assets',

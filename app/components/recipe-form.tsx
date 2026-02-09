@@ -226,8 +226,7 @@ export function RecipeForm({
 						labelProps={{ children: 'My Notes' }}
 						textareaProps={{
 							...getInputProps(fields.notes, { type: 'text' }),
-							placeholder:
-								'Personal reminders, tips, or modifications...',
+							placeholder: 'Personal reminders, tips, or modifications...',
 							rows: 3,
 						}}
 						errors={fields.notes.errors}

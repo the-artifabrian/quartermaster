@@ -24,9 +24,7 @@ export const headers: Route.HeadersFunction = pipeHeaders
 export default function AboutRoute() {
 	return (
 		<div className="container max-w-2xl py-12">
-			<h1 className="text-3xl font-bold tracking-tight">
-				About Quartermaster
-			</h1>
+			<h1 className="text-3xl font-bold tracking-tight">About Quartermaster</h1>
 
 			<div className="text-muted-foreground mt-6 space-y-4 text-base/7">
 				<p>
@@ -51,18 +49,13 @@ export default function AboutRoute() {
 						className="text-primary mt-0.5 size-5 shrink-0"
 					/>
 					<p className="text-muted-foreground text-sm">
-						<span className="text-foreground font-medium">
-							Store recipes
-						</span>{' '}
-						— Import from URLs, paste text, or build from scratch with
+						<span className="text-foreground font-medium">Store recipes</span> —
+						Import from URLs, paste text, or build from scratch with
 						ingredients, instructions, tags, and photos.
 					</p>
 				</div>
 				<div className="flex gap-3">
-					<Icon
-						name="home"
-						className="text-primary mt-0.5 size-5 shrink-0"
-					/>
+					<Icon name="home" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">
 							Track your kitchen
@@ -85,15 +78,10 @@ export default function AboutRoute() {
 					</p>
 				</div>
 				<div className="flex gap-3">
-					<Icon
-						name="clock"
-						className="text-primary mt-0.5 size-5 shrink-0"
-					/>
+					<Icon name="clock" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
-						<span className="text-foreground font-medium">
-							Plan and shop
-						</span>{' '}
-						— Plan meals for the week and generate a consolidated shopping list
+						<span className="text-foreground font-medium">Plan and shop</span> —
+						Plan meals for the week and generate a consolidated shopping list
 						grouped by store section.
 					</p>
 				</div>
@@ -101,9 +89,9 @@ export default function AboutRoute() {
 
 			<h2 className="mt-10 text-xl font-semibold">Built for the kitchen</h2>
 			<p className="text-muted-foreground mt-3 text-base/7">
-				Quartermaster is designed to be used while you cook. Tap ingredients
-				and steps to cross them off, scale servings up or down, and keep your
-				screen awake so you don't have to touch your phone with messy hands.
+				Quartermaster is designed to be used while you cook. Tap ingredients and
+				steps to cross them off, scale servings up or down, and keep your screen
+				awake so you don't have to touch your phone with messy hands.
 			</p>
 
 			<div className="mt-10">

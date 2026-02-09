@@ -55,9 +55,7 @@ export function generateShoppingListFromRecipes(
 	for (const entry of entries) {
 		const { recipe, servings } = entry
 		const ratio =
-			servings && recipe.servings > 0
-				? servings / recipe.servings
-				: 1
+			servings && recipe.servings > 0 ? servings / recipe.servings : 1
 
 		for (const ingredient of recipe.ingredients) {
 			const normalizedName = getCanonicalIngredientName(ingredient.name)
@@ -154,21 +152,18 @@ function consolidateQuantities(
 	}
 
 	// Try unit conversion within the same family
-	const parsed = normalized
-		.map((q) => {
-			const amount = parseAmount(q.amount ?? '')
-			if (amount === null) return null
-			const family = q.normalizedUnit
-				? getUnitFamily(q.normalizedUnit)
-				: null
-			if (!family) return null
-			return {
-				amount,
-				normalizedUnit: q.normalizedUnit,
-				familyName: family.family.name,
-				family: family.family,
-			}
-		})
+	const parsed = normalized.map((q) => {
+		const amount = parseAmount(q.amount ?? '')
+		if (amount === null) return null
+		const family = q.normalizedUnit ? getUnitFamily(q.normalizedUnit) : null
+		if (!family) return null
+		return {
+			amount,
+			normalizedUnit: q.normalizedUnit,
+			familyName: family.family.name,
+			family: family.family,
+		}
+	})
 
 	// All must be parseable and in the same family
 	if (parsed.every((p) => p !== null)) {

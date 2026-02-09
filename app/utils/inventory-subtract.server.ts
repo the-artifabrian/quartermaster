@@ -73,9 +73,7 @@ export async function subtractRecipeIngredientsFromInventory(
 		// Scale by serving ratio
 		const scaledAmount = ingredientAmount * servingRatio
 
-		const ingredientUnit = ingredient.unit
-			? normalizeUnit(ingredient.unit)
-			: ''
+		const ingredientUnit = ingredient.unit ? normalizeUnit(ingredient.unit) : ''
 		const inventoryUnit = match.unit ? normalizeUnit(match.unit) : ''
 
 		// Same unit after normalization — subtract directly

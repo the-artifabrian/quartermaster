@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'vitest'
-import { normalizeUnit, getUnitFamily, convertAndSum } from './unit-conversion.ts'
+import {
+	normalizeUnit,
+	getUnitFamily,
+	convertAndSum,
+} from './unit-conversion.ts'
 
 describe('normalizeUnit', () => {
 	test('normalizes common aliases', () => {

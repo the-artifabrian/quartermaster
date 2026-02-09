@@ -42,9 +42,9 @@ export default function PrivacyRoute() {
 					<h2 className="text-lg font-semibold">How we use your data</h2>
 					<p className="text-muted-foreground mt-2">
 						Your data is used solely to provide the Quartermaster service to
-						you. We do not sell, share, or monetize your personal data or
-						recipe content. We do not use your data for advertising or
-						analytics profiling.
+						you. We do not sell, share, or monetize your personal data or recipe
+						content. We do not use your data for advertising or analytics
+						profiling.
 					</p>
 				</section>
 

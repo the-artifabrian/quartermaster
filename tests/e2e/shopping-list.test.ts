@@ -58,7 +58,10 @@ test('Shopping list flow: generate → verify items → add manual → check →
 
 	// 4. Add manual item
 	await page.getByLabel(/item name/i).fill('Bananas')
-	await page.getByLabel(/quantity/i).first().fill('6')
+	await page
+		.getByLabel(/quantity/i)
+		.first()
+		.fill('6')
 	await page.getByRole('button', { name: /add to list/i }).click()
 	await expect(page.getByText('Bananas')).toBeVisible()
 

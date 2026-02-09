@@ -59,7 +59,7 @@ export function RecipeCard({
 	return (
 		<Link
 			to={`/recipes/${id}`}
-			className="group bg-card text-card-foreground block overflow-hidden rounded-lg ring-1 ring-border transition-shadow hover:shadow-md"
+			className="group bg-card text-card-foreground ring-border block overflow-hidden rounded-lg ring-1 transition-shadow hover:shadow-md"
 		>
 			<div className="bg-muted relative aspect-[4/3] overflow-hidden rounded-t-lg">
 				{isFavorite && (
@@ -115,8 +115,8 @@ export function RecipeCard({
 				)}
 				{cookCount != null && cookCount > 0 && lastCookedAt && (
 					<p className="text-muted-foreground mt-2 text-xs">
-						{cookCount === 1 ? 'Made once' : `Made ${cookCount} times`} ·
-						Last: {formatTimeAgo(new Date(lastCookedAt))}
+						{cookCount === 1 ? 'Made once' : `Made ${cookCount} times`} · Last:{' '}
+						{formatTimeAgo(new Date(lastCookedAt))}
 					</p>
 				)}
 				{tags && tags.length > 0 && (

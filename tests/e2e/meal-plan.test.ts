@@ -1,11 +1,12 @@
 import { prisma } from '#app/utils/db.server.ts'
-import { getCurrentWeekStart, getWeekDays, serializeDate } from '#app/utils/date.ts'
+import {
+	getCurrentWeekStart,
+	getWeekDays,
+	serializeDate,
+} from '#app/utils/date.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
-test('Meal plan: view entries and mark as cooked', async ({
-	page,
-	login,
-}) => {
+test('Meal plan: view entries and mark as cooked', async ({ page, login }) => {
 	const user = await login()
 
 	// Create a recipe via DB
@@ -56,14 +57,8 @@ test('Meal plan: view entries and mark as cooked', async ({
 	).toBeVisible()
 
 	// 4. Mark as cooked (click the circle button)
-	await page
-		.getByTitle('Mark as cooked')
-		.first()
-		.click()
+	await page.getByTitle('Mark as cooked').first().click()
 
 	// 5. Verify cooked state (toggle changes title)
-	await expect(
-		page.getByTitle('Mark as not cooked').first(),
-	).toBeVisible()
+	await expect(page.getByTitle('Mark as not cooked').first()).toBeVisible()
 })
-

@@ -31,11 +31,15 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 
 	// 2. Verify redirected to recipe detail
 	await expect(page).toHaveURL(/\/recipes\/[a-z0-9]+$/)
-	await expect(page.getByRole('heading', { name: 'E2E Test Pasta' })).toBeVisible()
+	await expect(
+		page.getByRole('heading', { name: 'E2E Test Pasta' }),
+	).toBeVisible()
 	// Use .first() to avoid strict mode issues with dev-mode JSON viewer duplicates
 	await expect(page.getByText('A simple test recipe').first()).toBeVisible()
 	await expect(page.getByText('spaghetti').first()).toBeVisible()
-	await expect(page.getByText('Boil water and cook pasta').first()).toBeVisible()
+	await expect(
+		page.getByText('Boil water and cook pasta').first(),
+	).toBeVisible()
 
 	// 3. Verify in recipe list
 	await page.goto('/recipes')
@@ -47,9 +51,7 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 	await page.getByRole('link', { name: /edit/i }).click()
 	await expect(page).toHaveURL(/\/recipes\/[a-z0-9]+\/edit/)
 
-	await page
-		.getByRole('textbox', { name: /title/i })
-		.fill('E2E Updated Pasta')
+	await page.getByRole('textbox', { name: /title/i }).fill('E2E Updated Pasta')
 	await page.getByRole('button', { name: /save changes/i }).click()
 
 	// Verify update

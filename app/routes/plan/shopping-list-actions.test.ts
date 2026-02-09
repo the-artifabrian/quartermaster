@@ -21,14 +21,24 @@ async function setupUser() {
 		},
 		select: { id: true, userId: true },
 	})
-	return session
+	const household = await prisma.household.create({
+		data: {
+			name: 'Test Household',
+			members: { create: { userId: session.userId, role: 'owner' } },
+		},
+	})
+	return { ...session, householdId: household.id }
 }
 
-async function setupMealPlanWithRecipe(userId: string) {
+async function setupMealPlanWithRecipe(
+	userId: string,
+	householdId: string,
+) {
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Test Recipe',
 			userId,
+			householdId,
 			servings: 4,
 			ingredients: {
 				create: [
@@ -43,6 +53,7 @@ async function setupMealPlanWithRecipe(userId: string) {
 	const mealPlan = await prisma.mealPlan.create({
 		data: {
 			userId,
+			householdId,
 			weekStart,
 			entries: {
 				create: {
@@ -76,7 +87,7 @@ async function makeRequest(
 describe('shopping list actions', () => {
 	test('generate from meal plan creates items', async () => {
 		const session = await setupUser()
-		await setupMealPlanWithRecipe(session.userId)
+		await setupMealPlanWithRecipe(session.userId, session.householdId)
 
 		const request = await makeRequest(session, { intent: 'generate' })
 		const result = (await action({ request, ...ACTION_ARGS_BASE })) as {
@@ -94,7 +105,7 @@ describe('shopping list actions', () => {
 
 	test('generate replaces previous generated items', async () => {
 		const session = await setupUser()
-		await setupMealPlanWithRecipe(session.userId)
+		await setupMealPlanWithRecipe(session.userId, session.householdId)
 
 		// Generate twice
 		await action({

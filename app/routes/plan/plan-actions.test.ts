@@ -21,14 +21,21 @@ async function setupUser() {
 		},
 		select: { id: true, userId: true },
 	})
-	return session
+	const household = await prisma.household.create({
+		data: {
+			name: 'Test Household',
+			members: { create: { userId: session.userId, role: 'owner' } },
+		},
+	})
+	return { ...session, householdId: household.id }
 }
 
-async function setupRecipe(userId: string) {
+async function setupRecipe(userId: string, householdId: string) {
 	return prisma.recipe.create({
 		data: {
 			title: 'Test Recipe',
 			userId,
+			householdId,
 			servings: 4,
 			ingredients: {
 				create: [{ name: 'flour', amount: '2', unit: 'cups', order: 0 }],
@@ -56,7 +63,7 @@ async function makeRequest(
 describe('meal plan actions', () => {
 	test('assign recipe to slot', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId)
+		const recipe = await setupRecipe(session.userId, session.householdId)
 		const date = '2026-02-02' // Monday
 
 		const request = await makeRequest(session, {
@@ -79,7 +86,7 @@ describe('meal plan actions', () => {
 
 	test('duplicate assignment is idempotent', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId)
+		const recipe = await setupRecipe(session.userId, session.householdId)
 		const fields = {
 			intent: 'assign',
 			date: '2026-02-02',
@@ -105,7 +112,7 @@ describe('meal plan actions', () => {
 
 	test('assign with servings override', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId)
+		const recipe = await setupRecipe(session.userId, session.householdId)
 
 		const request = await makeRequest(session, {
 			intent: 'assign',
@@ -125,7 +132,7 @@ describe('meal plan actions', () => {
 
 	test('update servings', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId)
+		const recipe = await setupRecipe(session.userId, session.householdId)
 
 		// First assign
 		await action({
@@ -158,7 +165,7 @@ describe('meal plan actions', () => {
 
 	test('toggle cooked', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId)
+		const recipe = await setupRecipe(session.userId, session.householdId)
 
 		await action({
 			request: await makeRequest(session, {
@@ -191,7 +198,7 @@ describe('meal plan actions', () => {
 
 	test('remove entry', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId)
+		const recipe = await setupRecipe(session.userId, session.householdId)
 
 		await action({
 			request: await makeRequest(session, {
@@ -237,7 +244,7 @@ describe('meal plan actions', () => {
 
 	test('copy week duplicates entries +7 days and preserves servings', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId)
+		const recipe = await setupRecipe(session.userId, session.householdId)
 		const weekStart = '2026-02-02'
 
 		await action({
@@ -280,7 +287,7 @@ describe('meal plan actions', () => {
 
 	test('copy week skips existing entries', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId)
+		const recipe = await setupRecipe(session.userId, session.householdId)
 		const weekStart = '2026-02-02'
 
 		// Set up source week

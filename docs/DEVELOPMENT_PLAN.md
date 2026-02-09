@@ -12,7 +12,7 @@ generation.
 
 ---
 
-## What's Built (Phases 1-11) ✅
+## What's Built (Phases 1-13b) ✅
 
 The app is feature-complete for solo daily use. Here's a summary of everything
 implemented across 11 phases of development:
@@ -199,22 +199,22 @@ route queries yet — the app continues to work exactly as before.
       `requireUserWithHousehold` helper ready for 13b with race-safe
       auto-creation fallback.
 
-#### 13b: Query Migration
+#### 13b: Query Migration ✅
 
 Systematically swap `where: { userId }` → `where: { householdId }` across the
 app. There are ~47 userId-scoped queries. Migrate by feature area so each batch
 is independently testable:
 
-- [ ] **Auth helper** — New `requireUserWithHousehold(request)` that returns
+- [x] **Auth helper** — New `requireUserWithHousehold(request)` that returns
       `{ userId, householdId }`. Wraps `requireUserId` + household membership
       lookup. All routes migrate to this helper.
-- [ ] **Recipes** — Migrate recipe list, detail, create, edit, import, export,
+- [x] **Recipes** — Migrate recipe list, detail, create, edit, import, export,
       cooking log, and favorites queries to use `householdId`.
-- [ ] **Inventory** — Migrate inventory list, create, edit, quick-add, and
+- [x] **Inventory** — Migrate inventory list, create, edit, quick-add, and
       pantry staples queries.
-- [ ] **Meal plan & shopping list** — Migrate meal plan CRUD, shopping list
+- [x] **Meal plan & shopping list** — Migrate meal plan CRUD, shopping list
       generation, and inventory subtraction queries.
-- [ ] **Discovery** — Migrate the `/discover` loader (recipe matching uses
+- [x] **Discovery** — Migrate the `/discover` loader (recipe matching uses
       inventory, so it needs household-scoped inventory + recipes).
 
 #### 13c: Invite Flow & Member Management
@@ -533,4 +533,11 @@ per-user households with deterministic IDs. Signup flows wrapped in $transaction
 for atomic user+household creation. requireUserWithHousehold helper with
 race-safe auto-creation fallback. Seed updated for kody's household. Removed
 ENABLE_HOUSEHOLD_INVITES feature flag from 13c (not needed — app not yet
-marketed). 251 tests across 18 files._
+marketed). Completed Phase 13b: query migration from userId → householdId across
+~50 queries in 15 route/utility files. READ queries use householdId, WRITE
+queries keep userId for attribution + householdId for scoping. Auth checks use
+householdId. CookingLog stays user-scoped. All routes migrated from
+requireUserId to requireUserWithHousehold (including recipes layout guard).
+Updated inventory-subtract utility, 6 recipe routes, 3 inventory routes, 3 meal
+plan/shopping list routes, discover route, 4 resource routes, and 4 test files
+with household-aware setup helpers. 251 tests across 18 files._

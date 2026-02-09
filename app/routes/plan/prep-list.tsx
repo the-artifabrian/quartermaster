@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	getCurrentWeekStart,
 	formatWeekRange,
@@ -21,12 +21,12 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const userId = await requireUserId(request)
+	const { householdId } = await requireUserWithHousehold(request)
 
 	const weekStart = getCurrentWeekStart()
 
 	const mealPlan = await prisma.mealPlan.findFirst({
-		where: { userId, weekStart },
+		where: { householdId, weekStart },
 		include: {
 			entries: {
 				include: {

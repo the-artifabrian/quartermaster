@@ -12,7 +12,7 @@ import { InventoryQuickAdd } from '#app/components/inventory-quick-add.tsx'
 import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboarding.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { InventoryItemSchema } from '#app/utils/inventory-validation.ts'
 import { type Route } from './+types/index.ts'
@@ -26,26 +26,26 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const userId = await requireUserId(request)
+	const { householdId } = await requireUserWithHousehold(request)
 	const url = new URL(request.url)
 	const location = url.searchParams.get('location') ?? ''
 
 	const [items, totalItemCount] = await Promise.all([
 		prisma.inventoryItem.findMany({
 			where: {
-				userId,
+				householdId,
 				...(location && location !== 'all' && { location }),
 			},
 			orderBy: [{ lowStock: 'desc' }, { expiresAt: 'asc' }, { name: 'asc' }],
 		}),
-		prisma.inventoryItem.count({ where: { userId } }),
+		prisma.inventoryItem.count({ where: { householdId } }),
 	])
 
 	return { items, totalItemCount, selectedLocation: location || 'all' }
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const userId = await requireUserId(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
 	const formData = await request.formData()
 	const intent = formData.get('intent')
 
@@ -59,6 +59,7 @@ export async function action({ request }: Route.ActionArgs) {
 			data: {
 				...submission.value,
 				userId,
+				householdId,
 			},
 		})
 
@@ -81,6 +82,7 @@ export async function action({ request }: Route.ActionArgs) {
 						name: item.name,
 						location: item.location,
 						userId,
+						householdId,
 					},
 				}),
 			),
@@ -94,7 +96,7 @@ export async function action({ request }: Route.ActionArgs) {
 		invariantResponse(typeof itemId === 'string', 'Item ID is required')
 
 		const item = await prisma.inventoryItem.findFirst({
-			where: { id: itemId, userId },
+			where: { id: itemId, householdId },
 		})
 		invariantResponse(item, 'Item not found', { status: 404 })
 
@@ -108,7 +110,7 @@ export async function action({ request }: Route.ActionArgs) {
 		invariantResponse(typeof itemId === 'string', 'Item ID is required')
 
 		const item = await prisma.inventoryItem.findFirst({
-			where: { id: itemId, userId },
+			where: { id: itemId, householdId },
 		})
 		invariantResponse(item, 'Item not found', { status: 404 })
 

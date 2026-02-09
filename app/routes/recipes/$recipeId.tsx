@@ -16,7 +16,7 @@ import { CookingTimer } from '#app/components/cooking-timer.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { CookingLogSchema } from '#app/utils/cooking-log-validation.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { scaleAmount } from '#app/utils/fractions.ts'
@@ -74,7 +74,7 @@ export const meta: Route.MetaFunction = ({ data, matches }) => {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-	const userId = await requireUserId(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
 	const { recipeId } = params
 
 	const recipe = await prisma.recipe.findUnique({
@@ -90,7 +90,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			sourceUrl: true,
 			rawText: true,
 			notes: true,
-			userId: true,
+			householdId: true,
 			image: { select: { objectKey: true, altText: true } },
 			ingredients: {
 				select: {
@@ -116,7 +116,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	})
 
 	invariantResponse(recipe, 'Recipe not found', { status: 404 })
-	invariantResponse(recipe.userId === userId, 'Not authorized', { status: 403 })
+	invariantResponse(recipe.householdId === householdId, 'Not authorized', {
+		status: 403,
+	})
 
 	const cookingLogs = await prisma.cookingLog.findMany({
 		where: { recipeId, userId },
@@ -134,16 +136,18 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-	const userId = await requireUserId(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
 	const { recipeId } = params
 
 	const recipe = await prisma.recipe.findUnique({
 		where: { id: recipeId },
-		select: { id: true, userId: true, isFavorite: true },
+		select: { id: true, householdId: true, isFavorite: true },
 	})
 
 	invariantResponse(recipe, 'Recipe not found', { status: 404 })
-	invariantResponse(recipe.userId === userId, 'Not authorized', { status: 403 })
+	invariantResponse(recipe.householdId === householdId, 'Not authorized', {
+		status: 403,
+	})
 
 	const formData = await request.formData()
 	const intent = formData.get('intent')
@@ -179,7 +183,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			)
 			const inventorySummary = await subtractRecipeIngredientsFromInventory(
 				recipeId,
-				userId,
+				householdId,
 				isNaN(servingRatio) || servingRatio <= 0 ? 1 : servingRatio,
 			)
 			return { success: true, inventorySummary }

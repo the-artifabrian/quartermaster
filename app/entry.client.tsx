@@ -9,3 +9,9 @@ if (ENV.MODE === 'production' && ENV.SENTRY_DSN) {
 startTransition(() => {
 	hydrateRoot(document, <HydratedRouter />)
 })
+
+if ('serviceWorker' in navigator && ENV.MODE === 'production') {
+	window.addEventListener('load', () => {
+		void navigator.serviceWorker.register('/sw.js')
+	})
+}

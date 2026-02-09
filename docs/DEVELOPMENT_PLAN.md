@@ -12,10 +12,10 @@ generation.
 
 ---
 
-## What's Built (Phases 1-10) ✅
+## What's Built (Phases 1-11) ✅
 
-The app is feature-complete for daily use. Here's a summary of everything
-implemented:
+The app is feature-complete for solo daily use. Here's a summary of everything
+implemented across 11 phases of development:
 
 ### Recipe Management
 
@@ -26,12 +26,16 @@ implemented:
 - Full-text search across title, ingredients, and description
 - Tag filtering and cook time filtering with bookmarkable URL params
 - Recipe scaling with +/- servings controls and fraction display
-- Cooking assistance: tap-to-cross-off ingredients/steps, Wake Lock toggle
+- Cooking assistance: tap-to-cross-off ingredients/steps, Wake Lock toggle,
+  floating kitchen timer with start/pause/reset
 - Favorite/bookmark recipes with filter toggle
-- Import from URL (JSON-LD scraping), quick text entry, JSON export
+- Import from URL (JSON-LD scraping) with duplicate detection, quick text entry,
+  JSON export
 - "Surprise me" random recipe picker
 - Cooking log with star ratings and notes ("I Made This")
 - "Last cooked" stats on recipe cards (cook count + relative time ago)
+- Personal notes field per recipe ("always double the garlic", "kids don't like
+  this")
 
 ### Inventory System
 
@@ -41,65 +45,34 @@ implemented:
 - "What can I make?" discovery page with fuzzy ingredient matching
 - Match percentage scoring and missing ingredient highlighting
 - Expiration-based recipe suggestions ("Use It Before You Lose It")
-- Automatic inventory subtraction after cooking (with unit conversion)
+- Automatic inventory subtraction after cooking (with unit conversion and
+  feedback toast showing what changed)
 
-### Meal Planning
+### Meal Planning & Shopping
 
 - Weekly calendar view (Monday-start, 4 meal types per day)
 - Click-to-assign recipes to meal slots, multiple recipes per slot
 - Per-entry serving size overrides with +/- controls
 - Mark meals as "cooked" with optimistic toggle UI
 - Copy week to next week (preserves servings, skips duplicates)
-- Week navigation (previous/next/current)
-- Mobile-optimized with horizontal scroll
-
-### Shopping List
-
-- Auto-generation from meal plan with ingredient consolidation
-- Unit-aware consolidation (e.g., 2 tbsp + 1 cup → 1 1/8 cup)
+- Auto-generated shopping list with unit-aware ingredient consolidation
 - Grouped by store section (produce, dairy, meat, pantry, frozen, bakery, other)
 - Inventory-aware: subtracts items already in stock and staple ingredients
+- Shopping list → inventory pipeline: check off items to add them to inventory
+  with pre-filled name, location, and quantity
 - Manual item addition, check-off while shopping, clear checked items
-- Print-friendly layout (Tailwind `print:` variants)
+- Print-friendly layout
 
-### UI & Design
+### UI, SEO & Infrastructure
 
 - Custom color system (sage green + peach accent, OKLch) and typography
-- Redesigned landing page with value proposition, feature cards, and CTAs
-- Card redesign with location color-coding, tag pills, and match badges
-- Polished empty states with contextual icons and CTAs
-- Active navigation states for desktop and mobile
-- Proper heading hierarchy (h1 → h2 → h3) on all pages
-
-### SEO & Accessibility
-
-- Descriptive `<title>` on every page (e.g., `Chicken Tikka | Quartermaster`)
-- `<link rel="canonical">` on all pages (strips query params)
-- `<main>` landmark wrapping page content
-- Web manifest with app description
-- Open Graph and Twitter Card meta tags (global defaults + per-recipe with image)
-- JSON-LD Recipe structured data (ingredients, instructions, times, ratings)
-- Marketing pages with real content (about, privacy, ToS, support) in sitemap
-- `Cache-Control: public, max-age=300` on marketing pages
-- Accessible star rating buttons and displays (aria-labels, role="img")
-- Recipe card placeholder accessibility (role="img", aria-label)
-
-### Test Coverage
-
-- 199 unit and integration tests across 16 files
-- Covers: recipe matching, fractions, ingredient parsing, shopping list
-  generation/subtraction, date utilities, inventory subtraction, unit
-  conversion, meal plan actions, recipe CRUD actions, category guessing
-
-### Infrastructure
-
+- Polished landing page, card designs, empty states, navigation
+- Descriptive `<title>`, canonical URLs, Open Graph / Twitter Card meta tags
+- JSON-LD Recipe structured data, marketing pages with sitemap
+- PWA with service worker: offline access for viewed recipes and meal plan
+- 199 unit/integration tests across 16 files
 - Deployed on Fly.io with custom domain, HTTPS, and email
-- Session-based auth with per-user recipe libraries
-- New user onboarding with recommended pantry staples checklist
-- Ingredient auto-suggest in recipe forms (from user's recipe history)
-- Expanded ingredient synonym database (~20 synonym groups)
 - Mobile-first responsive layout with bottom navigation
-- Responsive grid (1 col / 2 col / 3 col)
 
 ---
 
@@ -108,133 +81,133 @@ implemented:
 Priority is driven by daily use — features that remove friction from the core
 cooking workflow come first.
 
-### Phases 5-8 ✅
+### Phase 12: Household Sharing
 
-- **Phase 5**: URL import, quick text entry, favorites, "Surprise me", JSON
-  export
-- **Phase 6**: Landing page redesign, pantry staples onboarding, card redesign,
-  empty states, navigation polish
-- **Phase 7**: Ingredient normalization, auto-suggest, meal plan servings,
-  cooking log with ratings, copy week
-- **Phase 8**: Unit conversion, expanded synonyms, cook time filter,
-  print-friendly shopping list, inventory subtraction, mark cooked
+The biggest architectural change since launch. Cooking is a shared activity —
+most households have two people planning meals, shopping, and cooking together.
+This phase transforms Quartermaster from a single-user app into a collaborative
+one.
 
-### Phase 9: Test Coverage ✅
+#### 12a: Data Model & Core Sharing
 
-199 unit and integration tests across 16 files. All business logic is covered
-(recipe matching, fractions, ingredient parsing, shopping list, date utilities,
-inventory subtraction, meal plan actions, recipe CRUD). E2E happy-path tests
-were dropped — they'd mostly test that React Router and Prisma work, not app
-logic. Playwright E2E tests should be added selectively for complex cross-cutting
-workflows (e.g. shopping list → inventory pipeline) as those features are built.
+- [ ] **Household model** — New `Household` entity that owns recipes, inventory,
+      meal plans, and shopping lists. A household has one or more members (users).
+      When a user creates an account, they get a default single-person household.
+      All existing queries shift from `where: { userId }` to
+      `where: { householdId }` — this is the biggest migration. The `userId`
+      fields on Recipe, InventoryItem, MealPlan, etc. become `householdId`.
+      Keep `createdBy` / `updatedBy` fields on records for attribution.
+- [ ] **Invite flow** — Household owner generates an invite link (token-based,
+      expires in 7 days). Recipient clicks link → if logged in, joins household;
+      if not, signs up then joins. A user belongs to exactly one household at a
+      time. Leaving a household creates a new solo one.
+- [ ] **Member management UI** — Settings page showing household members, roles
+      (owner vs member), pending invites. Owner can remove members and revoke
+      invites. Member can leave household.
 
-### Phase 10: SEO Audit & Overhaul ✅
+#### 12b: Real-Time Activity Notifications
 
-Audited 18 SEO/accessibility issues and resolved 15 of them:
+- [ ] **Server-Sent Events (SSE) endpoint** — `/resources/household-events` SSE
+      stream scoped to the user's household. Emits events when a household member
+      modifies shared data: adds to shopping list, changes meal plan, updates
+      inventory, etc. SSE over WebSockets because it's simpler (unidirectional,
+      works with HTTP/2, no extra server), and RR7's resource routes make it
+      natural.
+- [ ] **Activity banner / toast** — Client subscribes to the SSE stream.
+      Incoming events show as a toast or a subtle banner: "Alex added 3 items to
+      the shopping list", "Alex planned Chicken Tikka for Thursday dinner". Tap
+      to navigate to the relevant page. Use `useSyncExternalStore` to subscribe
+      to the EventSource (same pattern as the offline indicator — external
+      browser API). Auto-reconnect on disconnect.
+- [ ] **Event recording** — Lightweight `HouseholdEvent` table (householdId,
+      userId, type, payload JSON, createdAt) to persist recent activity. Powers
+      both the SSE stream and an optional "Recent activity" feed on the
+      household settings page. Auto-prune events older than 30 days.
 
-- Fixed branding ("Epic Notes" → "Quartermaster"), added `meta` exports to all
-  17 routes, canonical URLs, `<main>` landmark, heading hierarchy, web manifest
-  description
-- Open Graph + Twitter Card meta tags (global defaults in root, per-recipe with
-  `og:image` 1200x630 and `summary_large_image`)
-- JSON-LD Recipe structured data on recipe detail (`recipeIngredient`,
-  `recipeInstructions` as HowToStep, ISO 8601 durations, `recipeCategory`,
-  `recipeCuisine`, `aggregateRating` from cooking logs)
-- Marketing pages: real content (about, privacy, ToS, support), sitemap entries
-  with priority, `Cache-Control: public, max-age=300`
-- Accessibility: star rating aria-labels, `role="img"` on StarDisplay and recipe
-  card gradient placeholders, removed unused `font-poppins` class
+#### Scope & Considerations
 
-**Unresolved (not worth the complexity):** auth-gated content (no public recipe
-pages), UUID URLs vs slugs, image preload hints, `<noscript>` fallback. Public
-recipe sharing is tracked in backlog.
+This phase touches nearly every query in the app. Plan for a careful migration
+strategy: add `householdId` alongside `userId` first, backfill existing data
+(each user gets a household), then swap queries. Feature-flag the invite flow
+until the data model is stable. SSE adds a persistent connection per client —
+fine for a small household app, but add a heartbeat interval and connection
+timeout to avoid resource leaks.
 
-### Phase 11: Workflow Polish
+### Phase 13: No-Waste Meal Planning
 
-Small, high-impact improvements to reduce daily friction. No schema migrations
-required for most items.
+Inspired by [Restaurant Dropout](https://restaurantdropout.substack.com/) (Zoe
+Barrie Soderstrom) — plan your week's meals around shared ingredients, prep once,
+cook all week. The existing ingredient normalization and synonym matching systems
+are the foundation for this.
 
-- [x] **Shopping list → inventory pipeline** — When checking off shopping list
-      items (meaning "I bought this"), offer to add them to inventory with
-      pre-filled name, location, and quantity. This closes the biggest workflow
-      gap: without it, inventory accuracy degrades after every shopping trip.
-      Build this before any AI inventory features — it's the manual fallback
-      that must exist regardless.
-- [x] **"Last cooked" on recipe cards** — Show "Last made: 3 weeks ago" or
-      "Made 5 times" on recipe list cards. Low lift — join cooking logs in
-      the recipes loader. Helps answer "what haven't I made in a while?"
-      without clicking into each recipe.
-- [x] **Recipe personal notes** — A free-text "My notes" field on the Recipe
-      model for persistent reminders ("always double the garlic", "serve with
-      rice", "kids don't like this"). Different from description (recipe's own
-      text) and cooking log (per-cook reflections).
-- [x] **Cooking timer** — A simple floating timer on the recipe detail page.
-      Number input + start/pause/reset. No instruction parsing — just a manual
-      kitchen timer that lives on the page. Useful when cooking with messy hands
-      and the phone is propped up.
-- [x] **Duplicate detection on import** — When importing from URL, check for
-      existing recipes with the same `sourceUrl` or very similar title. Show
-      "You may already have this recipe" warning. Prevents clutter as the
-      library grows past 50+ recipes.
-- [x] **Inventory subtraction feedback** — After cooking with "Subtract
-      ingredients" checked, a toast shows what changed (items removed, updated,
-      or flagged low). Checkbox now defaults to checked.
-- [ ] **PWA / offline recipe access** — Service worker to cache the
-      currently-viewed recipe and the current week's meal plan. The app already
-      has a web manifest and wake lock — offline access would make it
-      significantly more reliable in kitchens with spotty connectivity.
+#### 13a: Ingredient Overlap Scoring
 
-### Phase 12: AI Features
+- [ ] **Overlap analysis engine** — Given a set of recipes (e.g. the current
+      week's meal plan), compute pairwise ingredient overlap using the existing
+      normalization pipeline (`normalizeIngredient`, synonym lookup, core word
+      matching). Output: which ingredients appear in 2+ recipes, how many recipes
+      share each ingredient, and an overall "efficiency score" for the plan (ratio
+      of unique ingredients to total ingredient slots).
+- [ ] **"Suggest recipes that pair well"** — When adding a recipe to the meal
+      plan, show a ranked list of other recipes sorted by ingredient overlap with
+      what's already planned. Reuses the matching engine but inverted: instead of
+      matching inventory → recipes, match planned-recipe-ingredients → candidate
+      recipes. Helps the user build a week where buying one bunch of cilantro
+      covers 3 dinners instead of rotting after one.
 
-Claude API (Sonnet or Haiku) for text, vision for images. Estimated cost:
-~$0.01-0.03 per call (affordable for personal use). API key in environment
-variables.
+#### 13b: Unified Prep List
 
-- [ ] **Receipt scanning → inventory** — Photo of grocery receipt, AI extracts
-      item names, quantities, and guesses storage locations. Review/confirm
-      screen before adding to inventory. Receipts are structured text so
-      extraction is reliable. The main challenge is mapping abbreviated receipt
-      line items ("ORG BROCCOLINI", "GV 2% MLK") to clean inventory names.
-      Build after the manual shopping → inventory pipeline (Phase 11) exists as
-      a fallback.
-- [ ] **Ingredient substitutions** — When a recipe ingredient is missing from
-      inventory, suggest practical alternatives with context: "No buttermilk?
-      Use 1 cup milk + 1 tbsp lemon juice." Goes beyond the synonym database
-      (Phase 8) — AI substitutions are contextual, consider the recipe, and
-      explain trade-offs.
+- [ ] **Weekly prep list generation** — From the meal plan, extract all
+      ingredients that appear in 2+ recipes and generate a single "Sunday prep"
+      checklist: "Dice 4 onions (Mon stir-fry, Wed soup, Fri tacos)", "Cook 3
+      cups rice (Tue bowl, Thu curry)". Group by prep type (chop, cook, marinate,
+      etc.). The key insight from restaurant kitchens: prep your shared
+      ingredients once, store them, assemble meals throughout the week.
+- [ ] **Prep freshness guidance** — Flag ingredients where prep-ahead has limits.
+      Avocado or fresh herbs can't be prepped 5 days early. Simple heuristic
+      rules (not AI): a small lookup table of ingredients with max-prep-ahead
+      days. Items beyond their window get a note: "Prep this the day of" or
+      "Prep max 2 days ahead."
 
-### Phase 13: Nutrition & Insights
+#### 13c: Plan Efficiency Dashboard
 
-- [ ] **Per-recipe nutrition estimates** — Hit a nutrition API (Nutritionix or
-      Edamam) with the ingredient list to get estimated calories and macros.
-      Display on recipe detail page. Numbers will be rough estimates (portion
-      sizes, cooking methods, and brands all affect accuracy) — present them
-      as approximations, not precise counts.
-- [ ] **Monthly cooking summary** — Simple stats from cooking logs: meals
-      cooked this month, most-made recipes, average rating, estimated
-      calories if nutrition data is available. Light analytics, not full diet
-      tracking — only covers meals logged in Quartermaster, so explicitly
-      don't position it as comprehensive calorie counting.
+- [ ] **Overlap visualization on meal plan** — Show a small badge or indicator
+      on the meal plan view: "This week: 34 ingredients, 22 unique (65%
+      efficiency)". Tapping it shows which ingredients bridge which meals. Makes
+      the waste-reduction benefit tangible and gamifies building efficient plans.
+- [ ] **Waste alerts** — When the meal plan has ingredients used in only one
+      recipe that are typically sold in bulk (a whole bunch of parsley, a full
+      can of coconut milk), suggest: "You're only using parsley in one recipe
+      this week. Add [Tabbouleh] to use the rest?" Ties into the overlap
+      suggestion engine from 13a.
+
+#### Why This Works Here
+
+Quartermaster already has the hardest pieces: ingredient normalization that
+strips modifiers and handles plurals, a synonym database with ~20 groups, and
+multi-level fuzzy matching. The overlap engine is essentially the recipe-matching
+algorithm run sideways — instead of "what can I make with my inventory?", it's
+"what shares ingredients with my plan?" The prep list is a grouped, annotated
+version of the shopping list generator. This phase is high-value with relatively
+low new infrastructure.
 
 ### Backlog
 
-Lower-priority items to reconsider once the app has been in daily use:
+Lower-priority items to reconsider later:
 
-- [ ] Shared household — Invite another account (e.g. partner) to share recipes,
-      inventory, meal plans, and shopping lists. Both users see and edit the same
-      data. Requires a "household" or "group" concept that owns the data instead
-      of individual users, plus invite/accept flow and permission scoping.
-      Highest-impact social feature — cooking is a shared activity in most
-      households. Significant scope: touches data ownership model, most queries,
-      and auth. Worth doing once the core app is stable and in daily use by both
-      people.
-- [ ] Public recipe sharing — `/r/$recipeId` public read-only route without
-      auth, with JSON-LD, OG tags, and sitemap entries. Requires opt-in sharing
-      toggle per recipe. Highest SEO ceiling item.
+- [ ] **AI: Receipt scanning → inventory** — Photo of grocery receipt, AI
+      extracts items and guesses storage locations. Review/confirm before adding.
+- [ ] **AI: Ingredient substitutions** — When an ingredient is missing, suggest
+      contextual alternatives ("No buttermilk? Use 1 cup milk + 1 tbsp lemon
+      juice").
+- [ ] **Nutrition estimates** — Hit a nutrition API (Nutritionix or Edamam) for
+      estimated calories and macros on recipe detail pages.
+- [ ] **Monthly cooking summary** — Stats from cooking logs: meals cooked, most-
+      made recipes, average rating. Light analytics, not diet tracking.
+- [ ] **Public recipe sharing** — `/r/$recipeId` public read-only route with
+      JSON-LD, OG tags, and sitemap. Opt-in per recipe.
 - [ ] Bulk import (paste-and-parse for Apple Notes at scale)
 - [ ] Performance audit (query profiling, lazy load images, bundle analysis)
-- [ ] Bun runtime migration — revisit when React Router v7 Bun support is more
-      stable
 
 ---
 
@@ -243,16 +216,19 @@ Lower-priority items to reconsider once the app has been in daily use:
 - [x] Can find any recipe in < 5 seconds
 - [x] Discover recipes based on available ingredients
 - [x] Weekly meal planning with one-click shopping lists
-- [x] App is usable in the kitchen (wake lock, tap-to-cross-off)
+- [x] App is usable in the kitchen (wake lock, tap-to-cross-off, timer, offline)
 - [x] Deployed and accessible on mobile
 - [ ] 50+ real recipes imported (replacing Apple Notes as primary store)
-- [x] Data is backed up / exportable (Phase 5: JSON export)
-- [x] App has its own visual identity (Phase 6: full UI overhaul)
+- [x] Data is backed up / exportable (JSON export)
+- [x] App has its own visual identity (custom color system + typography)
+- [ ] Household sharing: two people use the same recipe library and meal plan
+- [ ] Weekly meal plans regularly achieve 60%+ ingredient efficiency
 
 ---
 
-_Document created: February 2026_ _Last updated: February 6, 2026 - Phase 11
-progress: inventory subtraction feedback (toast summary of removed/updated/low
-items, checkbox defaults to checked). Previously: reorganized roadmap, added
-Phases 11-13, completed Phase 10 SEO, Phase 9A-C tests, last cooked stats,
-recipe personal notes, duplicate detection on import._
+_Document created: February 2026. Last updated: February 9, 2026 — completed
+Phase 11 (PWA offline, cooking timer, personal notes, duplicate detection,
+shopping→inventory pipeline, inventory subtraction feedback). Compacted Phases
+1-11 into "What's Built". Added Phase 12 (Household Sharing with real-time
+notifications) and Phase 13 (No-Waste Meal Planning). Moved AI features and
+nutrition to backlog._

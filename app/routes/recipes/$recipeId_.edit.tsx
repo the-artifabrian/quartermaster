@@ -7,6 +7,7 @@ import { RecipeForm } from '#app/components/recipe-form.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { useDoubleCheck } from '#app/utils/misc.tsx'
 import {
@@ -87,7 +88,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	const recipe = await prisma.recipe.findUnique({
 		where: { id: recipeId },
-		select: { id: true, householdId: true },
+		select: { id: true, title: true, householdId: true },
 	})
 
 	invariantResponse(recipe, 'Recipe not found', { status: 404 })
@@ -131,6 +132,12 @@ export async function action({ request, params }: Route.ActionArgs) {
 		}
 
 		await prisma.recipe.delete({ where: { id: recipeId } })
+		void emitHouseholdEvent({
+			type: 'recipe_deleted',
+			payload: { recipeId, title: recipe.title },
+			userId,
+			householdId,
+		})
 		return redirect('/recipes')
 	}
 
@@ -252,6 +259,13 @@ export async function action({ request, params }: Route.ActionArgs) {
 			},
 		})
 	}
+
+	void emitHouseholdEvent({
+		type: 'recipe_updated',
+		payload: { recipeId, title },
+		userId,
+		householdId,
+	})
 
 	return redirect(`/recipes/${recipeId}`)
 }

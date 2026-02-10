@@ -13,6 +13,7 @@ import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboardi
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { InventoryItemSchema } from '#app/utils/inventory-validation.ts'
 import { type Route } from './+types/index.ts'
@@ -63,6 +64,13 @@ export async function action({ request }: Route.ActionArgs) {
 			},
 		})
 
+		void emitHouseholdEvent({
+			type: 'inventory_item_added',
+			payload: { name: submission.value.name, location: submission.value.location },
+			userId,
+			householdId,
+		})
+
 		return { status: 'success' as const }
 	}
 
@@ -88,6 +96,14 @@ export async function action({ request }: Route.ActionArgs) {
 			),
 		)
 
+		const location = items[0]?.location ?? 'pantry'
+		void emitHouseholdEvent({
+			type: 'inventory_items_bulk_added',
+			payload: { count: items.length, location },
+			userId,
+			householdId,
+		})
+
 		return { status: 'success' as const }
 	}
 
@@ -101,6 +117,13 @@ export async function action({ request }: Route.ActionArgs) {
 		invariantResponse(item, 'Item not found', { status: 404 })
 
 		await prisma.inventoryItem.delete({ where: { id: itemId } })
+
+		void emitHouseholdEvent({
+			type: 'inventory_item_deleted',
+			payload: { name: item.name },
+			userId,
+			householdId,
+		})
 
 		return { status: 'success' as const }
 	}

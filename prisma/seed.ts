@@ -150,6 +150,44 @@ async function seed() {
 	}
 	console.timeEnd(`🏠 Ensure household for kody`)
 
+	// Create kody2 test user for household sharing testing
+	console.time(`🐨 Find or create test user "kody2"`)
+
+	let kody2 = await prisma.user.findUnique({
+		where: { username: 'kody2' },
+		select: { id: true },
+	})
+
+	if (!kody2) {
+		kody2 = await prisma.user.create({
+			select: { id: true },
+			data: {
+				email: 'kody2@kcd.dev',
+				username: 'kody2',
+				name: 'Kody Jr',
+				password: { create: createPassword('kodylovesyou') },
+				roles: { connect: [{ name: 'user' }] },
+			},
+		})
+	}
+
+	// Ensure kody2 has a household
+	const kody2Member = await prisma.householdMember.findFirst({
+		where: { userId: kody2.id },
+	})
+	if (!kody2Member) {
+		await prisma.household.create({
+			data: {
+				name: "Kody Jr's Household",
+				members: {
+					create: { userId: kody2.id, role: 'owner' },
+				},
+			},
+		})
+	}
+
+	console.timeEnd(`🐨 Find or create test user "kody2"`)
+
 	console.timeEnd(`🌱 Database has been seeded`)
 }
 

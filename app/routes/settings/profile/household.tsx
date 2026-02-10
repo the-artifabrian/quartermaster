@@ -8,6 +8,8 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { formatEventMessage } from '#app/utils/household-event-messages.ts'
 import {
 	requireUserWithHousehold,
 	createHouseholdInvite,
@@ -63,10 +65,24 @@ export async function loader({ request }: Route.LoaderArgs) {
 		},
 	})
 
+	const recentEvents = await prisma.householdEvent.findMany({
+		where: { householdId },
+		orderBy: { createdAt: 'desc' },
+		take: 20,
+		select: {
+			id: true,
+			type: true,
+			payload: true,
+			createdAt: true,
+			user: { select: { name: true, username: true } },
+		},
+	})
+
 	return {
 		household,
 		currentUserId: userId,
 		currentRole: role,
+		recentEvents,
 	}
 }
 
@@ -118,10 +134,24 @@ export async function action({ request }: Route.ActionArgs) {
 			if (typeof targetUserId !== 'string') {
 				throw new Response('Invalid targetUserId', { status: 400 })
 			}
+			// Emit before removing (user still has membership)
+			void emitHouseholdEvent({
+				type: 'household_member_left',
+				payload: {},
+				userId: targetUserId,
+				householdId,
+			})
 			await removeMember(userId, targetUserId, householdId)
 			return { result: null, inviteToken: null }
 		}
 		case 'leave-household': {
+			// Emit before leaving (user still has membership)
+			void emitHouseholdEvent({
+				type: 'household_member_left',
+				payload: {},
+				userId,
+				householdId,
+			})
 			await leaveHousehold(userId)
 			return redirectWithToast('/settings/profile/household', {
 				type: 'success',
@@ -138,7 +168,7 @@ export async function action({ request }: Route.ActionArgs) {
 export default function HouseholdSettings({
 	loaderData,
 }: Route.ComponentProps) {
-	const { household, currentUserId, currentRole } = loaderData
+	const { household, currentUserId, currentRole, recentEvents } = loaderData
 	const isOwner = currentRole === 'owner'
 
 	return (
@@ -181,6 +211,13 @@ export default function HouseholdSettings({
 				<>
 					<div className="border-foreground my-2 h-1 border-b-[1.5px]" />
 					<LeaveHousehold />
+				</>
+			) : null}
+
+			{recentEvents.length > 0 ? (
+				<>
+					<div className="border-foreground my-2 h-1 border-b-[1.5px]" />
+					<ActivityFeed events={recentEvents} />
 				</>
 			) : null}
 		</div>
@@ -411,4 +448,61 @@ function LeaveHousehold() {
 			</fetcher.Form>
 		</div>
 	)
+}
+
+function ActivityFeed({
+	events,
+}: {
+	events: Array<{
+		id: string
+		type: string
+		payload: string
+		createdAt: Date | string
+		user: { name: string | null; username: string }
+	}>
+}) {
+	return (
+		<div>
+			<h3 className="text-h6 mb-4">Recent Activity</h3>
+			<ul className="flex flex-col gap-2">
+				{events.map((event) => {
+					const payload = JSON.parse(event.payload) as Record<
+						string,
+						unknown
+					>
+					const username = event.user.name ?? event.user.username
+					const { message } = formatEventMessage(
+						event.type,
+						payload,
+						username,
+					)
+					const createdAt = new Date(event.createdAt)
+					const timeAgo = getRelativeTime(createdAt)
+
+					return (
+						<li
+							key={event.id}
+							className="text-muted-foreground flex items-baseline justify-between gap-2 text-sm"
+						>
+							<span>{message}</span>
+							<span className="shrink-0 text-xs">{timeAgo}</span>
+						</li>
+					)
+				})}
+			</ul>
+		</div>
+	)
+}
+
+function getRelativeTime(date: Date): string {
+	const now = Date.now()
+	const diffMs = now - date.getTime()
+	const diffMin = Math.floor(diffMs / 60_000)
+	if (diffMin < 1) return 'just now'
+	if (diffMin < 60) return `${diffMin}m ago`
+	const diffHr = Math.floor(diffMin / 60)
+	if (diffHr < 24) return `${diffHr}h ago`
+	const diffDay = Math.floor(diffHr / 24)
+	if (diffDay < 7) return `${diffDay}d ago`
+	return date.toLocaleDateString()
 }

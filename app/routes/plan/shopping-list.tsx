@@ -12,6 +12,7 @@ import { Input } from '#app/components/ui/input.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { getCurrentWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { parseAmount } from '#app/utils/fractions.ts'
@@ -163,6 +164,13 @@ export async function action({ request }: Route.ActionArgs) {
 			})),
 		})
 
+		void emitHouseholdEvent({
+			type: 'shopping_list_generated',
+			payload: { count: items.length },
+			userId,
+			householdId,
+		})
+
 		return { status: 'success' as const, removedCount }
 	}
 
@@ -180,6 +188,13 @@ export async function action({ request }: Route.ActionArgs) {
 				listId: shoppingList.id,
 				source: 'manual',
 			},
+		})
+
+		void emitHouseholdEvent({
+			type: 'shopping_list_item_added',
+			payload: { name: submission.value.name },
+			userId,
+			householdId,
 		})
 
 		return { status: 'success' as const }
@@ -228,6 +243,13 @@ export async function action({ request }: Route.ActionArgs) {
 				listId: shoppingList.id,
 				checked: true,
 			},
+		})
+
+		void emitHouseholdEvent({
+			type: 'shopping_list_cleared',
+			payload: {},
+			userId,
+			householdId,
 		})
 
 		return { status: 'success' as const }
@@ -289,6 +311,13 @@ export async function action({ request }: Route.ActionArgs) {
 				},
 			}),
 		])
+
+		void emitHouseholdEvent({
+			type: 'shopping_list_to_inventory',
+			payload: { count: validItems.length },
+			userId,
+			householdId,
+		})
 
 		return redirectWithToast('/plan/shopping-list', {
 			type: 'success',

@@ -16,6 +16,7 @@ import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	parseIngredient,
 	parseISODuration,
@@ -413,6 +414,13 @@ export async function action({ request }: Route.ActionArgs) {
 				},
 			},
 			select: { id: true },
+		})
+
+		void emitHouseholdEvent({
+			type: 'recipe_imported',
+			payload: { recipeId: recipe.id, title },
+			userId,
+			householdId,
 		})
 
 		return redirect(`/recipes/${recipe.id}`)

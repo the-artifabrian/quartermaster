@@ -119,7 +119,7 @@ bookmarkability.
 
 ---
 
-## Phase 2: Discover Page — Make It Exciting (~1 file)
+## Phase 2: Discover Page — Make It Exciting ✅ IMPLEMENTED
 
 **File**: `app/routes/discover/index.tsx`
 
@@ -247,7 +247,7 @@ suggestions ranked by shared ingredient count. The old component
 
 ---
 
-## Phase 4: Inventory — Dashboard Feel (~2 files)
+## Phase 4: Inventory — Dashboard Feel ✅ IMPLEMENTED
 
 **Files**: `app/routes/inventory/index.tsx`,
 `app/components/inventory-item-card.tsx`
@@ -306,7 +306,7 @@ has a colored dot and a heading. Give each section a subtle distinct identity:
 
 ---
 
-## Phase 5: Recipe List — Add Variety and Sort Options (~1 file)
+## Phase 5: Recipe List — Add Variety and Sort Options ✅ IMPLEMENTED
 
 **File**: `app/routes/recipes/index.tsx`
 
@@ -356,7 +356,7 @@ persisted in URL param `?view=list`.
 
 ---
 
-## Phase 6: Shopping List — More Delightful (~2 files)
+## Phase 6: Shopping List — More Delightful ✅ IMPLEMENTED
 
 **Files**: `app/routes/plan/shopping-list.tsx`,
 `app/components/shopping-list-item.tsx`
@@ -403,7 +403,7 @@ change — the data already exists in the `ShoppingListItem` table.
 
 ---
 
-## Phase 7: Navigation & Shell Polish (~3 files)
+## Phase 7: Navigation & Shell Polish ✅ IMPLEMENTED (7A deferred)
 
 **Files**: `app/root.tsx`, `app/components/bottom-nav.tsx`,
 `app/components/user-dropdown.tsx`
@@ -441,7 +441,7 @@ This personalizes the header.
 
 ---
 
-## Phase 8: Recipe Form — Mobile-Friendly (~2 files)
+## Phase 8: Recipe Form — Mobile-Friendly ✅ IMPLEMENTED
 
 **Files**: `app/components/recipe-form.tsx`,
 `app/components/ingredient-fields.tsx`
@@ -487,7 +487,7 @@ Current ingredient rows are functional but dense. Improvements:
 
 ---
 
-## Phase 9: Empty States with Personality (~across all route files)
+## Phase 9: Empty States with Personality ✅ IMPLEMENTED
 
 Empty states are currently: centered icon + heading + description + CTA button.
 They're informative but cold.
@@ -524,7 +524,7 @@ it a try!"
 
 ---
 
-## Phase 10: Landing Page — Sell the Experience (~1 file)
+## Phase 10: Landing Page — Sell the Experience ✅ IMPLEMENTED
 
 **File**: `app/routes/_marketing/index.tsx`
 
@@ -596,20 +596,18 @@ over raw colors wherever possible.
 
 1. **Phase 1 (Recipe Detail + Cooking Mode)** ✅ — Highest daily-use impact.
    Cooking mode is the flagship new feature.
-2. **Phase 2 (Discover)** — Second most unique page, biggest "wow" potential.
+2. **Phase 2 (Discover)** ✅ — Hero card, progress rings, expiring item pills.
 3. **Phase 3 (Meal Plan)** ✅ — Two-row layout, compact cards, overlap redesign.
-4. **Phase 9 (Empty States)** — Quick wins, personality injection, can do
-   alongside any phase.
-5. **Phase 4 (Inventory)** — Dashboard treatment improves daily check-in flow.
-6. **Phase 5 (Recipe List)** — Sort and density options improve browsing.
-7. **Phase 8 (Recipe Form)** — Mobile UX fixes, directly supports the recipe
-   creation workflow.
-8. **Phase 7 (Navigation)** — Global search is high-value but can wait for core
-   pages.
-9. **Phase 6 (Shopping List)** — Progress bar and collapsible sections are
-   polish. Swipe-to-check is a stretch goal.
-10. **Phase 10 (Landing Page)** — Important for conversions but doesn't affect
-    daily use.
+4. **Phase 9 (Empty States)** ✅ — Warm personality messages across all pages.
+5. **Phase 4 (Inventory)** ✅ — Dashboard strip, expiring callout, location tints.
+6. **Phase 5 (Recipe List)** ✅ — Sort options, tag category colors, list view
+   toggle.
+7. **Phase 8 (Recipe Form)** ✅ — Collapsible sections, mobile grid fix,
+   ingredient layout.
+8. **Phase 7 (Navigation)** ✅ — Bottom nav animation, user dropdown. Global
+   search (7A) deferred — not needed yet.
+9. **Phase 6 (Shopping List)** ✅ — Progress bar and collapsible sections.
+10. **Phase 10 (Landing Page)** ✅ — Hero overhaul, feature story, social proof.
 
 Phases 1-3 are structural rethinks. Phases 4-10 are enhancements and polish.
 Each phase is independently deployable.

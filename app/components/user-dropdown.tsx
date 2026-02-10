@@ -1,6 +1,7 @@
 import { Img } from 'openimg/react'
 import { useRef } from 'react'
-import { Link, Form } from 'react-router'
+import { Link, Form, useRouteLoaderData } from 'react-router'
+import { type loader as rootLoader } from '#app/root.tsx'
 import { getUserImgSrc } from '#app/utils/misc.tsx'
 import { useUser } from '#app/utils/user.ts'
 import { Button } from './ui/button'
@@ -15,6 +16,8 @@ import { Icon } from './ui/icon'
 
 export function UserDropdown() {
 	const user = useUser()
+	const rootData = useRouteLoaderData<typeof rootLoader>('root')
+	const householdName = rootData?.householdName
 	const formRef = useRef<HTMLFormElement>(null)
 	return (
 		<DropdownMenu modal={false}>
@@ -35,9 +38,17 @@ export function UserDropdown() {
 							height={256}
 							aria-hidden="true"
 						/>
-						<span className="text-body-sm font-bold">
-							{user.name ?? user.username}
-						</span>
+						<div className="hidden flex-col items-start sm:flex">
+							<span className="text-body-sm font-bold">
+								{user.name ?? user.username}
+							</span>
+							{householdName &&
+								householdName !== 'My Household' && (
+									<span className="text-muted-foreground text-xs">
+										{householdName}
+									</span>
+								)}
+						</div>
 					</Link>
 				</Button>
 			</DropdownMenuTrigger>

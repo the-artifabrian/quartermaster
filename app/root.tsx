@@ -125,12 +125,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 	}
 
 	let unreadNotificationCount = 0
+	let householdName: string | null = null
 	if (userId) {
 		const member = await prisma.householdMember.findFirst({
 			where: { userId },
-			select: { householdId: true, notificationsLastSeenAt: true },
+			select: {
+				householdId: true,
+				notificationsLastSeenAt: true,
+				household: { select: { name: true } },
+			},
 		})
 		if (member) {
+			householdName = member.household.name
 			unreadNotificationCount = await prisma.householdEvent.count({
 				where: {
 					householdId: member.householdId,
@@ -150,6 +156,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		{
 			user,
 			unreadNotificationCount,
+			householdName,
 			requestInfo: {
 				hints: getHints(request),
 				origin: getDomainUrl(request),

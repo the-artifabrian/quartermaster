@@ -53,6 +53,38 @@ type RecipeFormProps = {
 	submitLabel?: string
 }
 
+function FormSection({
+	title,
+	summary,
+	defaultOpen,
+	children,
+}: {
+	title: string
+	summary?: string
+	defaultOpen?: boolean
+	children: React.ReactNode
+}) {
+	return (
+		<details
+			open={defaultOpen}
+			className="group/section rounded-xl border [&>summary]:list-none [&>summary::-webkit-details-marker]:hidden"
+		>
+			<summary className="flex cursor-pointer select-none items-center gap-2 p-6">
+				<Icon
+					name="chevron-down"
+					size="sm"
+					className="text-muted-foreground transition-transform group-not-open/section:-rotate-90"
+				/>
+				<h3 className="text-lg font-semibold">{title}</h3>
+				{summary && (
+					<span className="text-muted-foreground text-sm">{summary}</span>
+				)}
+			</summary>
+			<div className="px-6 pb-6">{children}</div>
+		</details>
+	)
+}
+
 export function RecipeForm({
 	recipe,
 	tags,
@@ -64,6 +96,7 @@ export function RecipeForm({
 	const navigation = useNavigation()
 	const isSubmitting = navigation.state === 'submitting'
 	const formId = useId()
+	const isEditing = !!recipe
 
 	const [ingredients, setIngredients] = useState<IngredientFieldValue[]>(
 		recipe?.ingredients?.map((i) => ({
@@ -139,12 +172,22 @@ export function RecipeForm({
 		dietary: 'Dietary',
 	}
 
+	// Section summaries for collapsed state
+	const filledDetails = [
+		fields.title.value ? 'title' : null,
+		fields.description.value ? 'description' : null,
+		fields.sourceUrl.value ? 'URL' : null,
+		fields.notes.value ? 'notes' : null,
+		fields.prepTime.value ? 'prep' : null,
+		fields.cookTime.value ? 'cook' : null,
+	].filter(Boolean).length
+
 	return (
 		<Form
 			method="POST"
 			encType="multipart/form-data"
 			{...getFormProps(form)}
-			className="space-y-6"
+			className="space-y-4"
 		>
 			{/* Form-level errors */}
 			{form.errors && form.errors.length > 0 && (
@@ -157,8 +200,11 @@ export function RecipeForm({
 			)}
 
 			{/* Photo Section */}
-			<div className="rounded-xl border p-6">
-				<h3 className="mb-4 text-lg font-semibold">Photo</h3>
+			<FormSection
+				title="Photo"
+				summary={imagePreview ? 'Has photo' : 'No photo'}
+				defaultOpen={isEditing}
+			>
 				<div className="flex items-start gap-4">
 					<div className="relative aspect-[4/3] w-40 overflow-hidden rounded-lg border-2 border-dashed border-border/60 bg-muted/30">
 						{imagePreview ? (
@@ -188,11 +234,14 @@ export function RecipeForm({
 						</p>
 					</div>
 				</div>
-			</div>
+			</FormSection>
 
 			{/* Details Section */}
-			<div className="rounded-xl border p-6">
-				<h3 className="mb-4 text-lg font-semibold">Details</h3>
+			<FormSection
+				title="Details"
+				summary={`${filledDetails}/6 filled`}
+				defaultOpen
+			>
 				<div className="space-y-4">
 					<Field
 						labelProps={{ children: 'Title' }}
@@ -232,7 +281,7 @@ export function RecipeForm({
 						errors={fields.notes.errors}
 					/>
 
-					<div className="grid grid-cols-3 gap-4">
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
 						<Field
 							labelProps={{ children: 'Servings' }}
 							inputProps={{
@@ -262,11 +311,18 @@ export function RecipeForm({
 						/>
 					</div>
 				</div>
-			</div>
+			</FormSection>
 
 			{/* Tags Section */}
-			<div className="rounded-xl border p-6">
-				<h3 className="mb-4 text-lg font-semibold">Tags</h3>
+			<FormSection
+				title="Tags"
+				summary={
+					selectedTags.length > 0
+						? `${selectedTags.length} selected`
+						: 'None selected'
+				}
+				defaultOpen={isEditing}
+			>
 				<div className="space-y-4">
 					{Object.entries(tagsByCategory).map(([category, categoryTags]) => (
 						<div key={category} className="space-y-2">
@@ -310,12 +366,16 @@ export function RecipeForm({
 						</div>
 					))}
 				</div>
-			</div>
+			</FormSection>
 
 			{/* Ingredients Section */}
-			<div className="rounded-xl border p-6">
+			<FormSection
+				title="Ingredients"
+				summary={`${ingredients.filter((i) => i.name).length} items`}
+				defaultOpen={isEditing || ingredients.length <= 1}
+			>
 				<IngredientFields ingredients={ingredients} onChange={setIngredients} />
-			</div>
+			</FormSection>
 			{/* Hidden inputs for ingredients */}
 			{ingredients.map((ingredient, index) => (
 				<div key={ingredient.id ?? index}>
@@ -350,12 +410,16 @@ export function RecipeForm({
 			))}
 
 			{/* Instructions Section */}
-			<div className="rounded-xl border p-6">
+			<FormSection
+				title="Instructions"
+				summary={`${instructions.filter((i) => i.content).length} steps`}
+				defaultOpen={isEditing || instructions.length <= 1}
+			>
 				<InstructionFields
 					instructions={instructions}
 					onChange={setInstructions}
 				/>
-			</div>
+			</FormSection>
 			{/* Hidden inputs for instructions */}
 			{instructions.map((instruction, index) => (
 				<div key={instruction.id ?? index}>

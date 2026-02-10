@@ -355,7 +355,7 @@ export default function ShoppingListRoute({
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="bg-gradient-to-b from-card to-background border-b border-border/50">
+			<div className="from-card to-background border-border/50 border-b bg-gradient-to-b">
 				<div className="container flex items-center gap-3 py-6">
 					<Button asChild variant="ghost" size="icon" className="print:hidden">
 						<Link to="/plan">
@@ -514,18 +514,30 @@ export default function ShoppingListRoute({
 						)}
 					</div>
 				) : (
-					<div className="rounded-lg border border-dashed p-8 text-center">
-						<div className="bg-muted/50 mx-auto flex size-20 items-center justify-center rounded-full">
-							<Icon
-								name="file-text"
-								className="text-muted-foreground size-10"
-							/>
+					<div className="rounded-2xl border border-dashed p-8 text-center">
+						<div className="bg-accent/10 mx-auto flex size-20 items-center justify-center rounded-2xl">
+							<Icon name="file-text" className="text-accent/50 size-10" />
 						</div>
-						<h3 className="mt-4 font-semibold">Your shopping list is empty</h3>
+						<h3 className="mt-4 font-serif text-lg font-semibold">
+							Nothing on the list
+						</h3>
 						<p className="text-muted-foreground mx-auto mt-2 max-w-sm text-sm">
-							{hasMealPlan
-								? 'Generate items from your meal plan or add items manually above.'
-								: 'Create a meal plan first to auto-generate your list, or add items manually above.'}
+							{hasMealPlan ? (
+								<>
+									Generate one from your meal plan above, or add items manually.
+								</>
+							) : (
+								<>
+									Create a{' '}
+									<Link
+										to="/plan"
+										className="text-primary hover:text-primary/80 font-medium underline underline-offset-2"
+									>
+										meal plan
+									</Link>{' '}
+									to auto-generate your list, or add items manually above.
+								</>
+							)}
 						</p>
 					</div>
 				)}

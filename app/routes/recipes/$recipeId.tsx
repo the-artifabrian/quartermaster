@@ -326,9 +326,7 @@ function StarDisplay({ rating }: { rating: number }) {
 	)
 }
 
-function toIsoDuration(
-	minutes: number | null | undefined,
-): string | undefined {
+function toIsoDuration(minutes: number | null | undefined): string | undefined {
 	if (!minutes) return undefined
 	const h = Math.floor(minutes / 60)
 	const m = minutes % 60
@@ -425,9 +423,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
 		() => new Set(),
 	)
-	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(
-		() => new Set(),
-	)
+	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(() => new Set())
 	const wakeLock = useWakeLock()
 	const [cookRating, setCookRating] = useState(0)
 	const cookFetcher = useFetcher({ key: 'log-cook' })
@@ -582,7 +578,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						<div className="md:sticky md:top-20 md:self-start">
 							{/* Mobile toggle */}
 							<button
-								className="bg-card mb-4 flex w-full items-center justify-between rounded-2xl border p-4 shadow-warm md:hidden"
+								className="bg-card shadow-warm mb-4 flex w-full items-center justify-between rounded-2xl border p-4 md:hidden"
 								onClick={() => setShowIngredientDrawer((v) => !v)}
 							>
 								<span className="flex items-center gap-2 font-semibold">
@@ -607,7 +603,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							{/* Ingredients panel */}
 							<div
 								className={cn(
-									'bg-card rounded-2xl border p-6 shadow-warm',
+									'bg-card shadow-warm rounded-2xl border p-6',
 									showIngredientDrawer ? 'block' : 'hidden md:block',
 								)}
 							>
@@ -621,11 +617,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								</div>
 								{/* Servings controls */}
 								<div className="mb-4 flex items-center gap-2 text-sm">
-									<Icon
-										name="avatar"
-										size="sm"
-										className="text-accent"
-									/>
+									<Icon name="avatar" size="sm" className="text-accent" />
 									<Button
 										variant="outline"
 										size="sm"
@@ -698,9 +690,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 															{scaleAmount(ingredient.amount, ratio)}{' '}
 														</span>
 													)}
-													{ingredient.unit && (
-														<span>{ingredient.unit} </span>
-													)}
+													{ingredient.unit && <span>{ingredient.unit} </span>}
 													<span>{ingredient.name}</span>
 													{ingredient.notes && (
 														<span
@@ -730,10 +720,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								{recipe.instructions.length > 0 && (
 									<div className="space-y-4">
 										<div className="text-muted-foreground text-center text-sm">
-											Step {currentStep + 1} of{' '}
-											{recipe.instructions.length}
+											Step {currentStep + 1} of {recipe.instructions.length}
 										</div>
-										<div className="bg-card min-h-[200px] rounded-2xl border p-6 shadow-warm">
+										<div className="bg-card shadow-warm min-h-[200px] rounded-2xl border p-6">
 											<div className="mb-3 flex items-center gap-3">
 												<span className="bg-accent/10 text-accent border-accent/20 flex size-10 shrink-0 items-center justify-center rounded-full border text-lg font-semibold">
 													{currentStep + 1}
@@ -787,8 +776,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 												<Icon name="arrow-left" size="sm" />
 												Previous
 											</Button>
-											{currentStep <
-											recipe.instructions.length - 1 ? (
+											{currentStep < recipe.instructions.length - 1 ? (
 												<Button
 													className="h-12 flex-1"
 													onClick={() => {
@@ -798,10 +786,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 															toggleStep(currentId)
 														}
 														setCurrentStep((s) =>
-															Math.min(
-																recipe.instructions.length - 1,
-																s + 1,
-															),
+															Math.min(recipe.instructions.length - 1, s + 1),
 														)
 													}}
 												>
@@ -873,7 +858,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 											</span>
 											<div className="flex-1 pt-0.5">
 												{isCurrent && !isChecked && (
-													<span className="text-accent mb-1 block text-xs font-semibold uppercase tracking-wide">
+													<span className="text-accent mb-1 block text-xs font-semibold tracking-wide uppercase">
 														Current Step
 													</span>
 												)}
@@ -952,7 +937,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 			{/* Meta card + content */}
 			<div className="container max-w-4xl px-4 md:px-8">
-				<div className="bg-card mt-4 rounded-2xl border p-5 shadow-warm-lg">
+				<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-5">
 					<div className="flex flex-wrap items-center gap-3 text-sm">
 						{/* Servings */}
 						<span className="flex items-center gap-1">
@@ -1068,7 +1053,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				{recipe.notes && (
 					<div className="mt-6">
 						<div className="border-accent/30 bg-accent/5 rounded-lg border-l-4 py-3 pr-4 pl-4">
-							<p className="text-accent mb-1 text-xs font-semibold uppercase tracking-wide">
+							<p className="text-accent mb-1 text-xs font-semibold tracking-wide uppercase">
 								My Notes
 							</p>
 							<pre className="font-sans text-sm whitespace-pre-wrap">
@@ -1081,8 +1066,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				{/* Raw Text */}
 				{recipe.rawText && (
 					<div className="mt-6">
-						<div className="bg-card rounded-2xl border p-4 shadow-warm">
-							<p className="text-muted-foreground mb-2 text-xs font-semibold uppercase tracking-wide">
+						<div className="bg-card shadow-warm rounded-2xl border p-4">
+							<p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
 								Recipe Notes
 							</p>
 							<pre className="font-sans text-sm whitespace-pre-wrap">
@@ -1137,7 +1122,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				<div className="mt-8 grid gap-8 md:grid-cols-[2fr_3fr]">
 					{/* Ingredients - sticky on desktop */}
 					<div className="md:sticky md:top-20 md:self-start">
-						<div className="bg-card rounded-2xl border p-6 shadow-warm">
+						<div className="bg-card shadow-warm rounded-2xl border p-6">
 							<div className="mb-4 flex items-center gap-2">
 								<h2 className="text-lg font-semibold">Ingredients</h2>
 								{isScaled && (
@@ -1159,9 +1144,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 													{scaleAmount(ingredient.amount, ratio)}{' '}
 												</span>
 											)}
-											{ingredient.unit && (
-												<span>{ingredient.unit} </span>
-											)}
+											{ingredient.unit && <span>{ingredient.unit} </span>}
 											<span>{ingredient.name}</span>
 											{ingredient.notes && (
 												<span className="text-muted-foreground">
@@ -1187,9 +1170,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									<span className="bg-accent/10 text-accent border-accent/20 flex size-8 shrink-0 items-center justify-center rounded-full border text-sm font-medium">
 										{index + 1}
 									</span>
-									<p className="pt-1 text-base">
-										{instruction.content}
-									</p>
+									<p className="pt-1 text-base">{instruction.content}</p>
 								</li>
 							))}
 						</ol>
@@ -1197,7 +1178,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				</div>
 
 				{/* Cooking History - collapsible */}
-				{cookingLogs.length > 0 && (
+				{cookingLogs.length > 0 ? (
 					<div className="mt-10">
 						<button
 							onClick={() => setHistoryExpanded((v) => !v)}
@@ -1221,6 +1202,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							</div>
 						)}
 					</div>
+				) : (
+					<div className="mt-10">
+						<p className="text-muted-foreground text-sm italic">
+							You haven't cooked this yet. Give it a try!
+						</p>
+					</div>
 				)}
 
 				{/* Bottom spacer for mobile floating bar */}
@@ -1229,7 +1216,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 			{/* Floating action bar - mobile only */}
 			<div className="fixed inset-x-4 bottom-20 z-30 md:hidden print:hidden">
-				<div className="bg-card/95 flex items-center gap-2 rounded-2xl border p-2 shadow-warm-lg backdrop-blur-md">
+				<div className="bg-card/95 shadow-warm-lg flex items-center gap-2 rounded-2xl border p-2 backdrop-blur-md">
 					<Button onClick={enterCookingMode} className="flex-1 gap-2">
 						<Icon name="play" size="sm" />
 						Start Cooking
@@ -1240,15 +1227,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							type="submit"
 							variant="ghost"
 							size="icon"
-							aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-							className={
-								isFavorite ? 'text-red-500 hover:text-red-600' : ''
+							aria-label={
+								isFavorite ? 'Remove from favorites' : 'Add to favorites'
 							}
+							className={isFavorite ? 'text-red-500 hover:text-red-600' : ''}
 						>
-							<Icon
-								name={isFavorite ? 'heart-filled' : 'heart'}
-								size="md"
-							/>
+							<Icon name={isFavorite ? 'heart-filled' : 'heart'} size="md" />
 						</Button>
 					</favoriteFetcher.Form>
 					<Button asChild variant="ghost" size="icon" aria-label="Edit recipe">
@@ -1300,7 +1284,7 @@ function CookCompleteModal({
 				onClick={onClose}
 			/>
 			{/* Modal */}
-			<div className="bg-card relative w-full max-w-md rounded-t-2xl p-6 shadow-warm-lg sm:rounded-2xl">
+			<div className="bg-card shadow-warm-lg relative w-full max-w-md rounded-t-2xl p-6 sm:rounded-2xl">
 				<div className="mb-1 flex items-center justify-between">
 					<h2 id="cook-complete-title" className="font-serif text-xl font-bold">
 						Nice work!
@@ -1396,7 +1380,7 @@ function CookingLogEntry({
 	const dc = useDoubleCheck()
 
 	return (
-		<div className="bg-card flex items-start gap-3 rounded-2xl border p-4 shadow-warm">
+		<div className="bg-card shadow-warm flex items-start gap-3 rounded-2xl border p-4">
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-center gap-2">
 					<span className="text-sm font-medium">

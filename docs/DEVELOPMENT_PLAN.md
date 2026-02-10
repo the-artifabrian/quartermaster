@@ -136,14 +136,43 @@ the pitch that justifies paying, so it needs to be real first.
   queries, 13c added invite flow, 13d/13e added real-time notifications. Each
   sub-phase was independently deployable and rollback-safe.
 - **Single-instance SSE**: SSE events emitted on one Fly machine won't reach
-  clients connected to another. Stay on a single instance until this matters, or
-  add a lightweight pub/sub layer (LiteFS broadcast or polling) later.
+  clients connected to another. This is a **blocking issue for the Household
+  tier** — paying household members on different machines won't see each other's
+  events. Must be resolved before Household tier launches. See Pre-Phase 14
+  prerequisites.
 - **Public recipe sharing** (backlog item): Would need to read household-scoped
   data from a public route. Don't couple authorization too tightly to the
   session.
 - **Subscription schema**: Added in 13a — `Subscription` model with `tier`,
   `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionExpiresAt`,
   `trialEndsAt`. Ready for Phase 14 without a separate schema change.
+
+### Pre-Phase 14: Monetization Prerequisites
+
+These items from the backlog should ship before or in parallel with Phase 14.
+They're not features — they're table stakes for charging money.
+
+- [ ] ⚡ **Landing page CTA fix** — "Get Started" links to `/login`, not
+      `/signup`. New users land on a login form and must find the signup link.
+      Quick win that directly impacts signup conversion. Do this first.
+- [ ] **Accessibility pass** — Icon-only buttons use `title` instead of
+      `aria-label`, ingredient cross-off lacks `role="button"`, no skip-to-
+      content link. Legal and ethical requirement for a paid product.
+- [ ] **Import from export (data round-trip)** — JSON export exists but there's
+      no import-from-export. Users burned by Yummly care about portability.
+      Complete round-trip builds trust before asking people to pay.
+- [ ] **New user onboarding flow** — No guided path from signup → first recipes
+      → discovering features. Pantry staples onboarding exists for inventory,
+      but nothing guides a user through adding their first 5 recipes or
+      exploring meal planning. Consider: welcome checklist, contextual tooltips,
+      or a "getting started" card on the dashboard. Retention before
+      monetization matters — users who don't build the habit in week 1 won't
+      convert.
+- [ ] **SSE multi-instance fix** — SSE events emitted on one Fly machine won't
+      reach clients on another. Fine for solo use, but if charging for the
+      Household tier, two users on different machines won't see each other's
+      real-time events. Options: polling fallback, LiteFS broadcast, or Redis
+      pub/sub. Must be resolved before Household tier launches.
 
 ### Phase 14: Monetization
 
@@ -182,6 +211,14 @@ The free tier should make users _want_ Pro, not _need_ it. The upgrade trigger
 is natural: "I have 50 recipes and want to import more" or "I want the shopping
 list to know what's already in my kitchen." If the free tier solves 80% of the
 problem, conversion will be low.
+
+> **Risk: 50 recipes may be too generous.** Users who manually enter recipes
+> tend to plateau well under 50. The recipe-count gate assumes URL import drives
+> bulk collection past the limit, but without URL import on free, users may
+> never hit 50. Consider whether the primary gate should be features
+> (inventory/planning) rather than recipe count — or lower the limit to 25. The
+> upgrade trigger needs to be something users _actually hit_, not a theoretical
+> ceiling.
 
 #### Pro Tier (~$30–40/year or ~$4/month)
 
@@ -226,6 +263,22 @@ more. One-time-purchase apps like Paprika lack the intelligence layer entirely.
 
 #### Implementation Considerations
 
+Stripe provides full **test mode** with test API keys that don't require a
+verified business account. All development work below can be built and tested
+against test mode. The only step that requires a registered business entity
+(PFA) is flipping to live mode for real payments.
+
+**Go-live dependency:** Register a PFA (Persoană Fizică Autorizată) with ONRC
+under a software-related CAEN code (6201 or 6209). This can take a few weeks,
+so start the registration in parallel with development. You'll also need a
+Romanian bank account linked to the PFA and should consider OSS (One-Stop Shop)
+registration for EU cross-border VAT on digital services. Stripe Tax can handle
+VAT collection automatically — enable it from day one. Consult a Romanian
+accountant (contabil) for CAEN code selection and VAT strategy before
+registering.
+
+**Development (can start now, in Stripe test mode):**
+
 - [ ] **Subscription model** — Add `Subscription` model (or fields on User):
       `tier` (free|pro|household), `stripeCustomerId`, `subscriptionExpiresAt`,
       `trialEndsAt`. If Phase 13 ships first, add these fields in 13a's
@@ -248,6 +301,14 @@ more. One-time-purchase apps like Paprika lack the intelligence layer entirely.
 - [ ] **Pricing page** — Clear feature comparison table. Accessible from landing
       page and from paywall interstitials inside the app.
 
+**Go-live (requires PFA registration):**
+
+- [ ] **Register PFA** — ONRC registration, bank account, CAEN code
+- [ ] **Stripe live mode** — Swap test keys for live keys, verify business
+      details with Stripe, connect PFA bank account for payouts
+- [ ] **VAT setup** — Enable Stripe Tax and/or register for OSS depending on
+      accountant's recommendation
+
 #### "Proven" Gate for Phase 14
 
 Don't start monetization until Phase 12 has been used in real meal planning for
@@ -259,6 +320,13 @@ at least 4 weeks. Minimum signals that it's working:
 
 Without these signals, the no-waste pitch is aspirational, not real — and that's
 a weak foundation for asking people to pay.
+
+> **Status check (February 2026):** Phase 12 is built and deployed. Are these
+> signals being tracked? If the features are in daily use and meeting these
+> thresholds, start Phase 14. If not, identify what's preventing adoption (UX
+> friction? not enough recipes? features not discoverable?) and fix that first.
+> The risk here is indefinite deferral — "proven" needs a concrete evaluation
+> date, not an open-ended "later."
 
 #### Risks
 
@@ -279,10 +347,8 @@ can be done between phases without disrupting planned work.
 
 #### Infrastructure
 
-- [ ] **Import from export (data round-trip)** — JSON export exists but there's
-      no import-from-export. Users burned by Yummly's shutdown care about data
-      portability. A complete round-trip builds trust — especially important if
-      asking people to pay. Should be done before or alongside Phase 14.
+- [ ] **Import from export (data round-trip)** — _Promoted to Pre-Phase 14
+      prerequisites._ See above.
 - [ ] **Automated backups** — The app stores years of recipes in a single SQLite
       file. Fly.io + LiteFS handles replication, but a scheduled backup to S3
       (daily Litestream snapshots or a cron job that copies the DB) would
@@ -331,17 +397,10 @@ can be done between phases without disrupting planned work.
 
 #### UX Improvements
 
-- [ ] **UX: Accessibility pass** — Icon-only buttons (favorite, delete, cooked
-      toggle) use `title` instead of `aria-label`. Ingredient cross-off uses
-      `onClick` on `<li>` without `role="button"` or `tabIndex`. No skip-to-
-      content link. Location tabs rely on color alone with no secondary
-      indicator for color-blind users. Important: if monetizing, accessibility
-      is a legal and ethical requirement, not a nice-to-have. Prioritize before
-      or alongside Phase 14.
-- [ ] ⚡ **UX: Landing page CTA** — "Get Started" links to `/login`, not
-      `/signup`. New users land on a login form and must find the signup link.
-      Change CTA to point to `/signup`, or add a prominent "New here? Create an
-      account" section on the login page.
+- [ ] **UX: Accessibility pass** — _Promoted to Pre-Phase 14 prerequisites._
+      See above.
+- [ ] ⚡ **UX: Landing page CTA** — _Promoted to Pre-Phase 14 prerequisites._
+      See above.
 - [ ] **UX: Unified cooking mode** — Wake lock, cooking timer, tap-to-cross-off,
       and "I Made This" are separate sections scattered across the recipe detail
       page. A dedicated cooking view that puts ingredients + instructions +
@@ -392,4 +451,6 @@ can be done between phases without disrupting planned work.
 
 _Document created: February 2026. Last updated: February 10, 2026 — completed
 Phase 13e (notification bell). Compacted completed Phase 12 and 13 details into
-the "What's Built" summary. 291 tests across 21 files._
+the "What's Built" summary. Added Pre-Phase 14 prerequisites section, free tier
+risk note, proven-gate status check, and Stripe dev/go-live split with PFA
+registration notes. 291 tests across 21 files._

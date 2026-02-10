@@ -3,6 +3,7 @@ import { Form } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	getInviteByToken,
 	acceptInvite,
@@ -78,7 +79,16 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	try {
+		const invite = await getInviteByToken(token)
 		await acceptInvite(token, userId)
+		if (invite) {
+			void emitHouseholdEvent({
+				type: 'household_member_joined',
+				payload: {},
+				userId,
+				householdId: invite.householdId,
+			})
+		}
 		return redirectWithToast('/recipes', {
 			type: 'success',
 			title: 'Joined household!',

@@ -17,6 +17,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { CookingLogSchema } from '#app/utils/cooking-log-validation.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { scaleAmount } from '#app/utils/fractions.ts'
@@ -141,7 +142,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	const recipe = await prisma.recipe.findUnique({
 		where: { id: recipeId },
-		select: { id: true, householdId: true, isFavorite: true },
+		select: { id: true, title: true, householdId: true, isFavorite: true },
 	})
 
 	invariantResponse(recipe, 'Recipe not found', { status: 404 })
@@ -156,6 +157,12 @@ export async function action({ request, params }: Route.ActionArgs) {
 		await prisma.recipe.update({
 			where: { id: recipeId },
 			data: { isFavorite: !recipe.isFavorite },
+		})
+		void emitHouseholdEvent({
+			type: 'recipe_favorited',
+			payload: { recipeId, title: recipe.title, isFavorite: !recipe.isFavorite },
+			userId,
+			householdId,
 		})
 		return { success: true }
 	}
@@ -174,6 +181,13 @@ export async function action({ request, params }: Route.ActionArgs) {
 				notes: submission.value.notes || null,
 				rating: submission.value.rating ?? null,
 			},
+		})
+
+		void emitHouseholdEvent({
+			type: 'cook_logged',
+			payload: { recipeId, title: recipe.title },
+			userId,
+			householdId,
 		})
 
 		const subtractInventory = formData.get('subtractInventory') === 'on'

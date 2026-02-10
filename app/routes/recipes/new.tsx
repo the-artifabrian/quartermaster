@@ -10,6 +10,7 @@ import {
 	MAX_RECIPE_IMAGE_SIZE,
 	ACCEPTED_RECIPE_IMAGE_TYPES,
 } from '#app/utils/recipe-validation.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { uploadRecipeImage } from '#app/utils/storage.server.ts'
 import { type Route } from './+types/new.ts'
 
@@ -145,6 +146,13 @@ export async function action({ request }: Route.ActionArgs) {
 			},
 		})
 	}
+
+	void emitHouseholdEvent({
+		type: 'recipe_created',
+		payload: { recipeId: recipe.id, title },
+		userId,
+		householdId,
+	})
 
 	return redirect(`/recipes/${recipe.id}`)
 }

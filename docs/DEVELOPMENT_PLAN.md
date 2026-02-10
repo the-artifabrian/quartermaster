@@ -12,7 +12,7 @@ generation.
 
 ---
 
-## What's Built (Phases 1-13b) ✅
+## What's Built (Phases 1-13d) ✅
 
 The app is feature-complete for solo daily use. Here's a summary of everything
 implemented across 11 phases of development:
@@ -72,6 +72,20 @@ implemented across 11 phases of development:
 - Plan efficiency dashboard: total/unique ingredient stats, expandable shared
   ingredient bridges with recipe name pills
 
+### Household Sharing
+
+- Household model with owner/member roles, one household per user
+- All recipes, inventory, meal plans, and shopping lists scoped to household
+- Invite system: token-based links with 7-day expiry, accept/decline flow
+- Member management: rename household, remove members, revoke invites, leave
+- Data on leave: sole members move all data; multi-member leaves get recipe copies
+- Real-time activity notifications via Server-Sent Events (SSE)
+- 20 event types: recipe CRUD, inventory changes, meal plan updates, shopping
+  list actions, member join/leave
+- Client auto-reconnect with 3-5s jitter, self-event filtering
+- Activity feed on household settings page (last 20 events, relative timestamps)
+- Auto-prune events older than 30 days
+
 ### UI, SEO & Infrastructure
 
 - Custom color system (sage green + peach accent, OKLch) and typography
@@ -79,7 +93,7 @@ implemented across 11 phases of development:
 - Descriptive `<title>`, canonical URLs, Open Graph / Twitter Card meta tags
 - JSON-LD Recipe structured data, marketing pages with sitemap
 - PWA with service worker: offline access for viewed recipes and meal plan
-- 251 unit/integration tests across 18 files
+- 291 unit/integration tests across 21 files
 - Deployed on Fly.io with custom domain, HTTPS, and email
 - Mobile-first responsive layout with bottom navigation
 
@@ -229,25 +243,23 @@ Ship only after 13a and 13b are stable.
       (owner vs member), pending invites. Owner can remove members and revoke
       invites. Member can leave household.
 
-#### 13d: Real-Time Activity Notifications (Optional)
+#### 13d: Real-Time Activity Notifications ✅
 
-Nice-to-have for household awareness but not required for core sharing to work.
-Ship after 13a-13c are proven in daily use.
-
-- [ ] **Server-Sent Events (SSE) endpoint** — `/resources/household-events` SSE
-      stream scoped to the user's household. SSE over WebSockets because it's
-      simpler (unidirectional, works with HTTP/2, no extra server), and RR7's
-      resource routes make it natural. Use explicit event emission in each
-      action (not Prisma middleware) for controllable, predictable behavior.
-- [ ] **Activity banner / toast** — Client subscribes to the SSE stream.
-      Incoming events show as a toast or a subtle banner: "Alex added 3 items to
-      the shopping list", "Alex planned Chicken Tikka for Thursday dinner". Tap
-      to navigate to the relevant page. Use `useSyncExternalStore` to subscribe
-      to the EventSource. Auto-reconnect on disconnect.
-- [ ] **Event recording** — Lightweight `HouseholdEvent` table (householdId,
-      userId, type, payload JSON, createdAt) to persist recent activity. Powers
-      both the SSE stream and an optional "Recent activity" feed on the
-      household settings page. Auto-prune events older than 30 days.
+- [x] **Server-Sent Events (SSE) endpoint** — `/resources/household-events` SSE
+      stream scoped to the user's household. In-memory EventEmitter singleton
+      (via `@epic-web/remember`) for near-zero latency broadcasting, with DB
+      persistence for the activity feed. Self-event filtering (you don't see
+      toasts for your own actions). 30s keepalive.
+- [x] **Activity toasts** — Client EventSource with auto-reconnect (3-5s
+      jitter). Incoming events show as Sonner toasts with optional "View" action
+      button that navigates to the relevant page. 20 event types covering all
+      major actions (recipe CRUD, inventory changes, meal plan updates, shopping
+      list actions, member join/leave).
+- [x] **Event recording** — `HouseholdEvent` table (householdId, userId, type,
+      payload JSON, createdAt) with compound index. Powers SSE stream and
+      "Recent activity" feed on household settings page (last 20 events with
+      relative timestamps). Auto-prune events older than 30 days (lazy, on SSE
+      connect).
 
 #### Scope & Considerations
 
@@ -492,61 +504,23 @@ can be done between phases without disrupting planned work.
 - [ ] Weekly meal plans regularly achieve 60%+ ingredient efficiency
 - [ ] Pairing suggestions used when building 3+ weekly plans
 - [ ] Prep list generated and referenced at least once per week
-- [ ] Household sharing: two people use the same recipe library and meal plan
+- [x] Household sharing: two people use the same recipe library and meal plan
 
 - [ ] Pro conversion rate >5% of active free users
 
 ---
 
-_Document created: February 2026. Last updated: February 9, 2026 — completed
-Phase 11 (PWA offline, cooking timer, personal notes, duplicate detection,
-shopping→inventory pipeline, inventory subtraction feedback). Compacted Phases
-1-11 into "What's Built". Reordered roadmap: Phase 12 is now No-Waste Meal
-Planning (lower risk, immediate daily value, builds on existing infrastructure),
-Phase 13 is now Household Sharing (split into 4 sub-phases: schema migration,
-query migration by feature area, invite flow, optional SSE). Added Phase 14
-Reorganized backlog into categories (Infrastructure, Intelligence & AI, Social,
-UX) and added data round-trip import, automated backups, performance baseline,
-and accessibility prioritization notes. Moved prep freshness guidance and AI
-features to backlog. Plan review: Phase 12a reframed to lead with pairing
-suggestions UI, waste alerts simplified to skip packaging heuristics. Phase 13a
-updated: CookingLog stays user-scoped, householdId kept nullable through 13b,
-added data-on-leave policy and subscription schema forward-planning. Phase 14
-accuracy to backlog. Added Phase 12 success metrics. Completed Phase 12a:
-ingredient overlap analysis engine, pairing suggestions in RecipeSelector
-(lazy-loaded via resource route), waste alerts with efficiency scoring on meal
-plan page. Completed Phase 12b: unified prep list generation with
-serving-scaled quantity aggregation, recipe attribution, staple/synonym
-handling, print-friendly layout, cross-navigation between prep list and
-shopping list. Completed Phase 12c: plan efficiency dashboard with expanded
-stats (total/unique ingredient counts), shared ingredient bridges with recipe
-name pills in expandable section. Phase 12 (No-Waste Meal Planning) is now
-fully complete. Enhanced Phase 12b prep list: added prep method grouping from
-ingredient notes (19 prep verbs), storage tips map (~30 ingredients),
-non-preppable filter expansion (sesame seeds, italian seasoning, bay leaves
-fix), normalization fixes (leading "of " stripping, meat/processing modifiers,
-garlic clove/celery stalk synonyms), shortest display name selection, per-method
-line layout for readability. Completed Phase 13a: Household, HouseholdMember, and
-Subscription models added. Nullable householdId on Recipe, InventoryItem,
-MealPlan, ShoppingList with onDelete:SetNull. Backfill migration creates
-per-user households with deterministic IDs. Signup flows wrapped in $transaction
-for atomic user+household creation. requireUserWithHousehold helper with
-race-safe auto-creation fallback. Seed updated for kody's household. Removed
-ENABLE_HOUSEHOLD_INVITES feature flag from 13c (not needed — app not yet
-marketed). Completed Phase 13b: query migration from userId → householdId across
-~50 queries in 15 route/utility files. READ queries use householdId, WRITE
-queries keep userId for attribution + householdId for scoping. Auth checks use
-householdId. CookingLog stays user-scoped. All routes migrated from
-requireUserId to requireUserWithHousehold (including recipes layout guard).
-Updated inventory-subtract utility, 6 recipe routes, 3 inventory routes, 3 meal
-plan/shopping list routes, discover route, 4 resource routes, and 4 test files
-with household-aware setup helpers. 251 tests across 18 files. Completed Phase
-13c: HouseholdInvite model with token/expiresAt/usedAt fields. Server utilities
-for invite creation (UUID tokens, 7-day expiry), token validation, accept
-(sole-member moves data, multi-member deep-copies recipes), leave (creates solo
-household with recipe copies), remove member (owner-only), revoke invite
-(owner-only). Household settings page at /settings/profile/household with rename,
-member list, invite generation with copy-link, revoke invites, remove members
-(useDoubleCheck), leave household (useDoubleCheck). Join page at /household/join
-with accept/decline flow and auth redirect support. 14 new test cases covering
-all invite/join/leave functions. 265 tests across 19 files._
+_Document created: February 2026. Last updated: February 10, 2026 — completed
+Phase 13d (real-time activity notifications). HouseholdEvent model with
+householdId/userId/type/payload/createdAt. In-memory EventEmitter singleton for
+SSE broadcasting, DB persistence for activity feed. SSE endpoint at
+/resources/household-events with auth, keepalive, self-event filtering, abort
+cleanup. Client EventSource with auto-reconnect (3-5s jitter). Sonner toast
+notifications with "View" action navigation. 20 event types across 12 route
+files: recipe CRUD, inventory changes, meal plan updates, shopping list actions,
+member join/leave. Activity feed on household settings page (last 20 events,
+relative timestamps). Auto-prune events >30 days on SSE connect.
+emitHouseholdEvent wrapped in try/catch for fire-and-forget resilience. Action
+tests mock household-events to avoid SQLite concurrency issues. 25 new tests
+(23 message formatter + 2 event bus). 291 tests across 21 files. Phase 13
+(Household Sharing) is now fully complete._

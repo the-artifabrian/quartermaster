@@ -8,6 +8,7 @@ import { MealPlanWasteAlerts } from '#app/components/meal-plan-waste-alerts.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	getCurrentWeekStart,
 	getWeekDays,
@@ -189,6 +190,18 @@ export async function action({ request }: Route.ActionArgs) {
 					servings,
 				},
 			})
+
+			const recipe = await prisma.recipe.findUnique({
+				where: { id: recipeId },
+				select: { title: true },
+			})
+			const dayName = new Date(date).toLocaleDateString('en-US', { weekday: 'long' })
+			void emitHouseholdEvent({
+				type: 'meal_plan_assigned',
+				payload: { title: recipe?.title ?? 'a recipe', day: dayName, mealType },
+				userId,
+				householdId,
+			})
 		}
 
 		return { status: 'success' as const }
@@ -220,12 +233,20 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const entry = await prisma.mealPlanEntry.findFirst({
 			where: { id: entryId, mealPlan: { householdId } },
+			include: { recipe: { select: { title: true } } },
 		})
 		invariantResponse(entry, 'Entry not found', { status: 404 })
 
 		await prisma.mealPlanEntry.update({
 			where: { id: entryId },
 			data: { cooked: !entry.cooked },
+		})
+
+		void emitHouseholdEvent({
+			type: 'meal_plan_cooked',
+			payload: { title: entry.recipe.title, cooked: !entry.cooked },
+			userId,
+			householdId,
 		})
 
 		return { status: 'success' as const }
@@ -241,10 +262,18 @@ export async function action({ request }: Route.ActionArgs) {
 				id: entryId,
 				mealPlan: { householdId },
 			},
+			include: { recipe: { select: { title: true } } },
 		})
 		invariantResponse(entry, 'Entry not found', { status: 404 })
 
 		await prisma.mealPlanEntry.delete({ where: { id: entryId } })
+
+		void emitHouseholdEvent({
+			type: 'meal_plan_removed',
+			payload: { title: entry.recipe.title },
+			userId,
+			householdId,
+		})
 
 		return { status: 'success' as const }
 	}
@@ -304,6 +333,13 @@ export async function action({ request }: Route.ActionArgs) {
 				})
 			}
 		}
+
+		void emitHouseholdEvent({
+			type: 'meal_plan_week_copied',
+			payload: {},
+			userId,
+			householdId,
+		})
 
 		return redirect(`/plan?weekStart=${serializeDate(nextWeekStart)}`)
 	}

@@ -33,6 +33,7 @@ model User {
   cookingLogs      CookingLog[]
   householdMembers HouseholdMember[]
   householdInvites HouseholdInvite[]
+  householdEvents  HouseholdEvent[]
   subscription     Subscription?
 }
 
@@ -167,6 +168,7 @@ model Household {
 
   members        HouseholdMember[]
   invites        HouseholdInvite[]
+  events         HouseholdEvent[]
   recipes        Recipe[]
   inventoryItems InventoryItem[]
   mealPlans      MealPlan[]
@@ -399,4 +401,18 @@ model CookingLog {
 
   @@index([recipeId])
   @@index([userId])
+}
+
+model HouseholdEvent {
+  id        String   @id @default(cuid())
+  type      String
+  payload   String   // JSON string
+  createdAt DateTime @default(now())
+
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+
+  @@index([householdId, createdAt])
 }

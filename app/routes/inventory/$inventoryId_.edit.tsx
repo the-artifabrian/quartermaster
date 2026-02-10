@@ -9,6 +9,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	InventoryItemSchema,
@@ -42,13 +43,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-	const { householdId } = await requireUserWithHousehold(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
 	const { inventoryId } = params
 	const formData = await request.formData()
 
 	const item = await prisma.inventoryItem.findUnique({
 		where: { id: inventoryId },
-		select: { id: true, householdId: true },
+		select: { id: true, name: true, householdId: true },
 	})
 
 	invariantResponse(item, 'Item not found', { status: 404 })
@@ -60,6 +61,12 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	if (intent === 'delete') {
 		await prisma.inventoryItem.delete({ where: { id: inventoryId } })
+		void emitHouseholdEvent({
+			type: 'inventory_item_deleted',
+			payload: { name: item.name },
+			userId,
+			householdId,
+		})
 		return redirect('/inventory')
 	}
 
@@ -72,6 +79,13 @@ export async function action({ request, params }: Route.ActionArgs) {
 	await prisma.inventoryItem.update({
 		where: { id: inventoryId },
 		data: submission.value,
+	})
+
+	void emitHouseholdEvent({
+		type: 'inventory_item_updated',
+		payload: { name: submission.value.name },
+		userId,
+		householdId,
 	})
 
 	return redirect('/inventory')

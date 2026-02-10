@@ -1,320 +1,669 @@
-# UI/UX Redesign: Warm & Cozy Quartermaster
+# UX Redesign: From Developer Tool to Daily Cookbook
 
 ## Context
 
-## Design Direction
+Phase 1 of the visual redesign (warm colors, Fraunces/DM Sans typography,
+rounded corners, warm shadows) is complete. The app is warmer and prettier, but
+the **page structures, information hierarchy, and interaction patterns are still
+"Epic Stack CRUD app."** Every page follows the same shape: header with gradient
+→ filter bar → grid of cards → empty state. There's no visual variety, no sense
+of delight, and no feeling of using a personal cookbook.
 
-- **Theme**: Warm light mode primary (cream/warm white), warm dark mode secondary
-- **Typography**: Fraunces (serif, variable) for headings, DM Sans for body
-- **Colors**: Warm olive-sage primary (shifted from cold mint), golden amber accent (promoted from underused peach), cream backgrounds
-- **Shape**: Larger border radius (12px base), warm-tinted shadows, pill-style navigation
-- **Feel**: Like a well-designed cookbook — approachable, inviting, tactile
+This plan goes deeper: **structural layout changes, interaction upgrades, and UX
+rethinks** that transform how each page feels to use daily. No schema or API
+changes — this is purely frontend.
 
----
+## Design Principles
 
-## Phase 1: Foundation — Colors, Typography, Shadows (3 files)
-
-Everything depends on this phase. After it lands, the entire app will already feel warmer.
-
-### 1A. Color System Overhaul
-
-**File: `app/styles/tailwind.css`**
-
-**Critical fix first**: Line 227 `border-color: hsl(var(--border))` is wrong — colors are OKLch. Change to `border-color: var(--color-border);`
-
-Replace `:root` and `.dark` color blocks. Key shifts:
-- Background hue: 120→75 (cool gray→warm cream)
-- Primary hue: 155→145 (cold mint sage→warm olive sage)
-- Accent hue: 45→65 (underused peach→prominent golden amber)
-- All neutral hues shift to 55-75 range (warm grays/browns instead of cool greens)
-
-**Light mode `:root`** values:
-```
---background: oklch(97.5% 0.008 75)       /* warm cream */
---foreground: oklch(20% 0.015 55)          /* warm near-black */
---card: oklch(99.5% 0.004 75)              /* warm white */
---primary: oklch(45% 0.10 145)             /* warm olive sage */
---primary-foreground: oklch(98% 0.005 75)
---secondary: oklch(93% 0.02 75)            /* warm beige */
---muted: oklch(94% 0.01 75)
---muted-foreground: oklch(50% 0.03 55)
---accent: oklch(72% 0.14 70)               /* golden amber */
---accent-foreground: oklch(20% 0.015 55)
---border: oklch(90% 0.01 75)
---ring: oklch(45% 0.10 145)
-```
-
-**Dark mode `.dark`** values (warm charcoal, not cold green):
-```
---background: oklch(18% 0.01 55)
---foreground: oklch(93% 0.008 75)
---card: oklch(22% 0.012 55)
---primary: oklch(62% 0.10 145)             /* lighter olive for contrast */
---secondary: oklch(28% 0.02 55)
---muted: oklch(25% 0.01 55)
---accent: oklch(65% 0.12 70)
---border: oklch(30% 0.01 55)
-```
-
-Bump base radius: `--radius: 0.75rem` (was 0.5rem)
-
-Add warm shadow custom properties in `:root`:
-```
---shadow-warm: 0 1px 3px oklch(20% 0.01 55 / 0.08), 0 1px 2px oklch(20% 0.01 55 / 0.06);
---shadow-warm-md: 0 4px 6px oklch(20% 0.01 55 / 0.07), 0 2px 4px oklch(20% 0.01 55 / 0.06);
---shadow-warm-lg: 0 10px 15px oklch(20% 0.01 55 / 0.07), 0 4px 6px oklch(20% 0.01 55 / 0.05);
-```
-
-Register shadows in `@theme inline` block as:
-```
---shadow-warm: 0 1px 3px oklch(20% 0.01 55 / 0.08), 0 1px 2px oklch(20% 0.01 55 / 0.06);
---shadow-warm-md: 0 4px 6px oklch(20% 0.01 55 / 0.07), 0 2px 4px oklch(20% 0.01 55 / 0.06);
---shadow-warm-lg: 0 10px 15px oklch(20% 0.01 55 / 0.07), 0 4px 6px oklch(20% 0.01 55 / 0.05);
-```
-This enables `shadow-warm`, `shadow-warm-md`, `shadow-warm-lg` as Tailwind utility classes.
-
-Add `fade-up` keyframe animation in `@theme` block:
-```
---animate-fade-up: fade-up 0.4s ease-out;
-
-@keyframes fade-up {
-  from {
-    transform: translateY(8px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-```
-
-Add base layer rule for serif headings:
-```css
-@layer base {
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-serif);
-  }
-}
-```
-
-### 1B. Typography — Google Fonts
-
-**File: `app/root.tsx`**
-
-Add to `links` export (before stylesheet):
-- Preconnect to `fonts.googleapis.com` and `fonts.gstatic.com`
-- Stylesheet: `Fraunces:ital,opsz,wght@0,9..144,300..900` + `DM+Sans:opsz,wght@9..40,300..700` with `display=swap`
-
-**File: `app/styles/tailwind.css`**
-
-Add in `@theme` block:
-```
---font-sans: 'DM Sans', system-ui, sans-serif;
---font-serif: 'Fraunces', Georgia, serif;
-```
-
-### 1C. shadcn config
-
-**File: `components.json`** — Change `baseColor` from `"slate"` to `"stone"`.
+1. **Image-first**: Food is visual. Every surface that can show food imagery
+   should.
+2. **Reduce sameness**: Not every page needs the same header → grid layout. Vary
+   the rhythm.
+3. **Progressive disclosure**: Show the essential action first, reveal
+   complexity on demand.
+4. **Cooking context**: The app is used in a kitchen with messy hands. Tap
+   targets should be large, text readable at arm's length.
+5. **Emotional empty states**: Empty pages are opportunities for warmth, not
+   just "no data" messages.
+6. **Mobile-native**: Most cooking happens on a phone propped on a counter.
+   Design for that first.
 
 ---
 
-## Phase 2: Base Component Restyling (9 files)
+## Phase 1: Recipe Detail Page Overhaul ✅ IMPLEMENTED
 
-All pages use these — restyling them transforms everything at once.
+**Files**: `app/routes/recipes/$recipeId.tsx`,
+`app/utils/recipe-placeholder.ts`, `app/components/recipe-card.tsx`,
+`app/components/recipe-match-card.tsx`
 
-### 2A. Button — `app/components/ui/button.tsx`
-- `rounded-md` → `rounded-lg` everywhere
-- `transition-colors` → `transition-all duration-200`
-- Default variant: add `shadow-warm hover:shadow-warm-md active:scale-[0.98]`
-- Outline variant: `hover:bg-accent/10 hover:border-accent/50`
-- Ghost variant: `hover:bg-accent/10`
+### 1A. Restructure Information Hierarchy ✅
 
-### 2B. Input — `app/components/ui/input.tsx`
-- `rounded-md` → `rounded-lg`
-- Add `transition-all duration-200 hover:border-muted-foreground/30`
-- Warm focus: `focus-visible:border-accent focus-visible:ring-accent/20`
+Reorganized into three clear zones:
 
-### 2C. Textarea — `app/components/ui/textarea.tsx`
-- Same changes as Input
+**Header** (compact, no hero image):
 
-### 2D. Dropdown Menu — `app/components/ui/dropdown-menu.tsx`
-- Content: `rounded-md` → `rounded-xl`, add `shadow-warm-lg`
-- Items: `rounded-sm` → `rounded-lg`, `focus:bg-accent` → `focus:bg-accent/10`
+- Decision: hero images were removed entirely from the recipe detail page — even
+  for recipes with images. A full-width hero took up half the viewport on
+  desktop/laptop and pushed the actual recipe content below the fold. The
+  compact layout gets users to the recipe content immediately.
+- Back link + serif title (`font-serif text-3xl md:text-4xl`) at the top
+- Meta card below the title (`bg-card rounded-2xl shadow-warm-lg`) containing:
+  servings with +/- scaling controls, prep/cook/total time, source URL (inline),
+  and tag pills
 
-### 2E. Forms wrapper — `app/components/forms.tsx`
-- ErrorList: `text-[10px]` → `text-xs` for readability
+**Content zone** (the recipe itself):
 
-### 2F. Sonner toaster — `app/components/ui/sonner.tsx`
-- Toast class: add `rounded-xl shadow-warm-lg`
+- Two-column layout with swapped ratio: `md:grid-cols-[2fr_3fr]` (ingredients
+  get more room)
+- Ingredients panel: sticky on desktop (`md:sticky md:top-20 md:self-start`),
+  read-only bullet list in normal mode
+- Instructions: `space-y-6` breathing room, `size-8` step number circles,
+  `text-base` minimum
+- Cross-off/checkbox behavior is reserved for cooking mode only — normal mode
+  shows a clean read-only view. This gives cooking mode a clear purpose.
+- "My Notes" promoted above the content zone as an accent-bordered callout
+- Description shown between meta card and content
 
-### 2G. Checkbox — `app/components/ui/checkbox.tsx`
-- Slightly rounder, use primary color for check state
+**History zone** (below the fold):
 
-### 2H. Tooltip — `app/components/ui/tooltip.tsx`
-- Add `rounded-lg shadow-warm`
+- Cooking history collapsed by default behind a clickable header with chevron
+  and count ("Cooking History (5)")
 
-### 2I. Input OTP — `app/components/ui/input-otp.tsx`
-- `first:rounded-l-md` → `first:rounded-l-lg`, `last:rounded-r-md` → `last:rounded-r-lg`
+### 1B. Redesign the Action Bar ✅
 
----
+- **Mobile**: floating action bar fixed at `bottom-20 inset-x-4 z-30` (above
+  bottom nav), `bg-card/95 backdrop-blur-md`. Primary "Start Cooking" button +
+  icon-only Favorite and Edit
+- **Desktop**: inline action bar with "Start Cooking" as primary button,
+  Favorite and Edit with tooltips
+- "I Made This" and "Keep Awake" removed from the action bar — "I Made This"
+  moved to cooking mode completion flow, wake lock auto-activates in cooking
+  mode
 
-## Phase 3: Navigation & Shell Redesign (5 files)
+### 1C. Cooking Mode ✅
 
-### 3A. Header & Navigation — `app/root.tsx`
-- **Sticky header**: wrap in `bg-card/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-40`
-- **Logo**: Change `text-primary` to `text-foreground`, add `font-serif italic` to "Quartermaster"
-- **Desktop nav**: Replace underline active state with pill background. Active: `bg-primary/10 text-primary rounded-full px-4 py-1.5`. Inactive: `text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5`
-- **Theme switch**: Move into user dropdown or footer (declutter bottom area)
+Activated via "Start Cooking" button, `?cooking=true` URL param for
+bookmarkability.
 
-### 3B. Bottom Nav (mobile) — `app/components/bottom-nav.tsx`
-- `bg-background` → `bg-card/95 backdrop-blur-sm`
-- Add subtle top shadow
-- Active indicator: pill background `bg-primary/10 rounded-xl` instead of top bar
+- **Hides**: tags, description, source URL, cooking history, notes, raw text,
+  edit button
+- **Shows**: compact title + "Cooking mode" subtitle, ingredients panel,
+  instructions, timer FAB, "Done Cooking" button
+- **Mobile step paginator**: one step at a time, large text (`text-lg`), step
+  counter ("Step 2 of 8"), progress dots for navigation, Previous/Next buttons.
+  Last step shows green "Done Cooking" button
+- **Desktop**: all steps visible, current step highlighted with
+  `border-l-4 border-accent bg-accent/5` and "Current Step" label
+- **Auto-advance**: checking off a step automatically advances the "current
+  step" marker to the next unchecked step
+- **Ingredients**: sticky sidebar on desktop, collapsible drawer on mobile with
+  toggle button. Includes servings scaling controls
+- **Ingredient/step cross-off**: checkbox-style circles for ingredients, step
+  checking with visual feedback — this interactive behavior only exists in
+  cooking mode
+- **"Done Cooking" modal**: celebratory bottom sheet/modal ("Nice work!") with
+  date picker, star rating, notes, inventory subtraction checkbox, Save/Skip
+  buttons
+- **Wake Lock**: auto-activates on entering cooking mode, deactivates on exit
+- **Exit**: "Exit" button in header, or browser back
 
-### 3C. User Dropdown — `app/components/user-dropdown.tsx`
-- Trigger: `bg-card border border-border/50 rounded-full shadow-warm hover:bg-muted/50`
-- Avatar: add `ring-2 ring-accent/20`
+### 1D. Better Image Placeholder ✅
 
-### 3D. Notification Bell — `app/components/notification-bell.tsx`
-- Badge: `bg-accent text-accent-foreground` (warm, not destructive red)
-- Dropdown: `rounded-xl shadow-warm-lg`
-- Unread items: `bg-accent/5` instead of `bg-accent/50`
-
-### 3E. Page Header Pattern (multiple route files)
-Replace `bg-muted/30` header background across all pages with:
-```
-bg-gradient-to-b from-card to-background border-b border-border/50
-```
-Affects: `recipes/index.tsx`, `inventory/index.tsx`, `plan/index.tsx`, `discover/index.tsx`, `plan/shopping-list.tsx`, `plan/prep-list.tsx`
-
----
-
-## Phase 4: Page-Level Layout Redesigns (14 files)
-
-### 4A. Recipe Cards — `app/components/recipe-card.tsx`, `recipe-match-card.tsx`
-- **Kill loud gradients**: Replace 10 vibrant gradient pairs with warm muted ones (`from-secondary to-muted`). Large serif initial letter in `text-accent/40` instead of bold white.
-- Card: `ring-1` → `border border-border/60 shadow-warm`, `rounded-lg` → `rounded-xl`
-- Hover: `hover:shadow-warm-md hover:-translate-y-0.5 transition-all duration-200`
-- Content area: `p-4` → `p-5`
-- Tag pills: `bg-accent/10 text-accent-foreground border border-accent/20 rounded-full`
-- Match badges (match card): keep color coding but use warmer tones
-
-### 4B. Recipe List — `app/routes/recipes/index.tsx`
-- Search/filter area: `bg-card border border-border/50 shadow-warm rounded-2xl`
-- Tag pills — selected: `bg-accent text-accent-foreground shadow-sm`; unselected: `bg-card border border-border hover:border-accent/50`
-- Time dropdown: style with `rounded-lg bg-card`
-
-### 4C. Recipe Detail — `app/routes/recipes/$recipeId.tsx` (biggest overhaul)
-- **Hero layout**: Move image above title, `aspect-[2/1]` wider hero, `rounded-2xl` on desktop
-- **Title**: `text-4xl font-serif tracking-tight`
-- **Action bar**: Wrap Favorite/I Made This/Keep Awake/Edit in a floating pill bar: `bg-card/90 backdrop-blur-sm rounded-full border shadow-warm inline-flex gap-1`. Icon-only on mobile, icon+text on desktop.
-- **Meta info**: `bg-card border rounded-2xl shadow-warm` with `text-accent` icons for servings/prep/cook time
-- **Ingredients panel**: `bg-card border rounded-2xl shadow-warm p-6`. Items as `rounded-lg hover:bg-accent/5`. Replace bullets with small `text-accent` dots.
-- **Instruction steps**: Numbered circles → `bg-accent/10 text-accent border border-accent/20` (checked: `bg-muted line-through`). More vertical spacing.
-- **Tags**: bordered pill style `bg-accent/10 border border-accent/20 rounded-full`
-- **Cook log & history**: `bg-card rounded-2xl border shadow-warm`
-
-### 4D. Inventory — `app/routes/inventory/index.tsx`, `inventory-item-card.tsx`, `inventory-location-tabs.tsx`
-- **Cards**: Replace `border-l-4` colored left border with full warm card (`bg-card rounded-xl border shadow-warm`). Location shown as colored badge: `bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-200 rounded-full px-2 py-0.5 text-xs`
-- **Status badges**: Warm-tinted with dark mode — "Low": `bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-200`, "Expired": `bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-200`
-- **Location tabs**: Pill-style segmented control: `bg-muted rounded-full p-1 inline-flex`. Active: `bg-primary text-primary-foreground rounded-full shadow-sm`
-- **Section headers**: Add `font-serif`
-
-### 4E. Meal Plan — `app/routes/plan/index.tsx`, `meal-plan-calendar.tsx`, `meal-slot-card.tsx`, `meal-plan-waste-alerts.tsx`
-- **Grid**: Add `gap-2 p-2` for breathing room
-- **Today column**: `bg-accent/5 ring-1 ring-accent/20 rounded-xl`
-- **Day headers**: Today gets `bg-accent/10 rounded-full px-3 py-1`
-- **Meal type headers**: Color-coded warmly — Breakfast: `bg-amber-50/80 text-amber-800 dark:bg-amber-950/80 dark:text-amber-200`, Lunch: `bg-green-50/80 text-green-800 dark:bg-green-950/80 dark:text-green-200`, Dinner: `bg-orange-50/80 text-orange-800 dark:bg-orange-950/80 dark:text-orange-200`, Snack: `bg-purple-50/80 text-purple-800 dark:bg-purple-950/80 dark:text-purple-200`
-- **Empty slots**: `bg-muted/30 border-dashed hover:bg-accent/5 hover:border-accent/40 rounded-xl`
-- **Week nav arrows**: `bg-card rounded-full border shadow-warm`
-- **Waste alerts**: Update `bg-muted/30` container to warm card style
-
-### 4F. Discover — `app/routes/discover/index.tsx`
-- "Use It Before You Lose It" section: `bg-accent/5 rounded-2xl p-6 border border-accent/10`
-- Stats numbers: `font-serif font-bold text-lg`
-- Filter toggle when active: `bg-accent text-accent-foreground`
-
-### 4G. Landing Page — `app/routes/_marketing/index.tsx` (full overhaul)
-- **Hero**: Much larger heading `text-5xl md:text-6xl xl:text-7xl font-serif`. Warm subtitle color. CTA: `size="lg" rounded-full px-8 shadow-warm-md` with arrow icon
-- **Feature cards**: `bg-card rounded-2xl border shadow-warm hover:shadow-warm-md hover:-translate-y-1 transition-all duration-300 p-8`. Icons: `text-accent`
-- **How It Works**: Numbered circles `bg-accent/10 text-accent`. Add connecting vertical line between steps.
-- **Final CTA**: Warm gradient panel `bg-gradient-to-r from-primary/5 to-accent/5 rounded-3xl p-12`
-
-### 4H. Settings — `app/routes/settings/profile/index.tsx`
-- Group links into card sections (Account, Household, Connections, Data, Danger Zone)
-- Each group: `bg-card rounded-xl border shadow-warm p-4`
-- Each link: `rounded-lg px-4 py-3 hover:bg-accent/5`
-- Profile photo: `ring-4 ring-accent/20`
-
-### 4I. Shopping List — `app/routes/plan/shopping-list.tsx`, `shopping-list-item.tsx`
-- Form card: `rounded-2xl border-border/50 shadow-warm`
-- Category headers: `font-serif capitalize` instead of `uppercase text-muted-foreground`
-- Checkbox: accent color when checked `border-accent bg-accent`
-- Checked item text: `text-muted-foreground/60` gentler strikethrough
-
-### 4J. Recipe Form — `app/components/recipe-form.tsx`, `ingredient-fields.tsx`
-- Section cards: `bg-card rounded-2xl border-border/50 shadow-warm`
-- Section headings: `font-serif`
-- Tag pills: selected `bg-accent text-accent-foreground shadow-sm`
-- Photo upload: `border-2 border-dashed border-border/60 bg-muted/30`
-- Ingredient rows: Replace `bg-muted/30` zebra striping with `bg-muted/20` for warmer tone
-
-### 4K. Pantry Onboarding — `app/components/pantry-staples-onboarding.tsx`
-- Wrap in `bg-card rounded-2xl border shadow-warm`
-- Section titles: `font-serif`
+- Created shared `app/utils/recipe-placeholder.ts` utility
+- Deduplicated `getRecipeGradient()` from `recipe-card.tsx` and
+  `recipe-match-card.tsx`
+- 6 warm color themes (terracotta, sage, golden, dusty rose, slate blue, warm
+  plum) with dark mode variants
+- Deterministic selection based on title hash
+- Applied to card components only (recipe detail page has no image display)
 
 ---
 
-## Phase 5: Micro-Interactions & Polish (across all changed files)
+## Phase 2: Discover Page — Make It Exciting (~1 file)
 
-### 5A. Hover & Transitions
-- All cards: `hover:-translate-y-0.5 transition-all duration-200` (subtle lift)
-- All buttons: `active:scale-[0.98]` (tactile press)
-- Tag pills: `transition-all duration-150`
-- Nav links: `transition-all duration-200`
+**File**: `app/routes/discover/index.tsx`
 
-### 5B. Empty States (all route files)
-- Icon container: `bg-accent/10 rounded-2xl` (was `bg-muted/50 rounded-full`)
-- Icon color: `text-accent/50` (was `text-muted-foreground`)
-- Heading: `font-serif`
-- Add `animate-fade-up` for gentle entrance
+Currently: header → expiring section → stats row (makeable count + inventory
+count + "Show Only Makeable" toggle) → card grid. It's a filtered list with
+numbers. The most exciting page in the app (you can make dinner with what you
+already have!) feels like a report.
 
-### 5C. Cooking Timer — `app/components/cooking-timer.tsx`
-- Timer display: `font-serif tabular-nums`
-- Container: `bg-card rounded-2xl shadow-warm-lg border`
-- Alarm: `ring-2 ring-accent animate-pulse`
+### 2A. Hero Card for Top Match
 
-### 5D. Progress Bar — `app/components/progress-bar.tsx`
-- Color: accent instead of primary (warm loading indicator)
+Replace the stats line + grid with a **hero treatment for the #1 match**:
+
+- If the user has a 100% match (or highest match): render it as a large card
+  spanning full width, `bg-card rounded-2xl shadow-warm-lg overflow-hidden`
+- Show the recipe image at `aspect-[2/1]` (wide), title overlaid with gradient
+  scrim (same pattern as recipe detail hero)
+- Below the image: "You have everything you need" badge (green), missing count
+  if not 100%, and a prominent "Let's Cook" button
+- On mobile this card should feel like a recommendation from the app —
+  "Tonight's Pick" label above it in `font-serif text-accent`
+
+Below the hero: the rest of the matches in the existing grid, but starting from
+#2.
+
+### 2B. Visual Match Indicators
+
+Replace the percentage badge (`87% Match`) with a **visual progress ring**:
+
+- Small circular SVG progress indicator (`size-10`) showing the match percentage
+  as a filled arc
+- Color transitions: green (100-80%), accent/amber (79-50%), muted (below 50%)
+- Percentage number centered inside the ring
+- This replaces the colored badge on `recipe-match-card.tsx` — more scannable
+  than reading "87%"
+
+### 2C. Expiring Items Urgency
+
+Current "Use It Before You Lose It" section is an accent-tinted card with a grid
+of match cards. It doesn't convey urgency.
+
+New treatment:
+
+- Show the expiring items themselves as small pills above the recipe
+  suggestions: "Spinach (2 days)" "Chicken (3 days)" in warm amber pills
+- Recipe cards in this section get a subtle amber left border or top accent
+  strip to visually connect them to the expiring items
+- If an item expires tomorrow or today: use a more urgent warm red pill with
+  `animate-pulse` (subtle)
+
+### 2D. Quick Actions on Match Cards
+
+Add a "Plan This" quick-action button on each match card (small, bottom-right)
+that opens a meal-slot picker popover (day + meal type) without navigating away
+from Discover. Currently users must: click card → view recipe → go back → go to
+plan → add to slot. This shortcut makes Discover → Plan a 2-tap flow.
+
+**Complexity note**: This requires submitting a form action to create a meal
+plan entry from the discover page. Reuse the existing `assignRecipe` action
+pattern from `plan/index.tsx` via a `useFetcher` POST to `/plan`. No new API
+route needed, but the popover UI (day picker + meal type selector) is
+non-trivial. Consider deferring this to a later pass if it slows down the core
+visual work.
 
 ---
 
-## Files Summary (~35 files)
+## Phase 3: Meal Plan — Visual and Inviting (~3 files)
 
-| Phase | Files |
-|-------|-------|
-| 1 (Foundation) | `tailwind.css`, `root.tsx`, `components.json` |
-| 2 (Components) | `button.tsx`, `input.tsx`, `textarea.tsx`, `dropdown-menu.tsx`, `forms.tsx`, `sonner.tsx`, `checkbox.tsx`, `tooltip.tsx`, `input-otp.tsx` |
-| 3 (Navigation) | `root.tsx`, `bottom-nav.tsx`, `user-dropdown.tsx`, `notification-bell.tsx`, + page headers in 6 route files |
-| 4 (Pages) | `recipe-card.tsx`, `recipe-match-card.tsx`, `recipes/index.tsx`, `recipes/$recipeId.tsx`, `inventory/index.tsx`, `inventory-item-card.tsx`, `inventory-location-tabs.tsx`, `plan/index.tsx`, `meal-plan-calendar.tsx`, `meal-slot-card.tsx`, `meal-plan-waste-alerts.tsx`, `discover/index.tsx`, `_marketing/index.tsx`, `settings/profile/index.tsx`, `plan/shopping-list.tsx`, `shopping-list-item.tsx`, `recipe-form.tsx`, `ingredient-fields.tsx`, `pantry-staples-onboarding.tsx` |
-| 5 (Polish) | `cooking-timer.tsx`, `progress-bar.tsx`, + touch-ups across Phase 4 files |
+**Files**: `app/routes/plan/index.tsx`, `app/components/meal-plan-calendar.tsx`,
+`app/components/meal-slot-card.tsx`
 
-## Implementation Notes
+Currently: a 7-column grid with text-only meal slots. It's functional but looks
+like a spreadsheet. Users should see their week of food at a glance, with
+imagery.
 
-1. **Phase ordering is critical.** Phase 1 must go first — every file references the CSS custom properties. Phases 2-3 can run in parallel. Phase 4 depends on 2-3. Phase 5 is polish applied during or after Phase 4.
-2. **Test after Phase 1.** Just swapping colors+fonts will already transform the app. Check both light and dark modes, verify WCAG AA contrast.
-3. **Font loading**: ~80KB total with `display=swap`. Preconnect links minimize flash.
-4. **No schema/API changes.** This is purely visual — all Prisma queries, loaders, actions, and Conform forms stay untouched.
-5. **Print styles**: Verify shopping list `print:` variants still work after warm styling.
-6. **Color tuning**: The specific OKLch values may need visual tweaking once rendered. The hue directions (75 for warm neutrals, 145 for warm olive sage, 70 for golden amber) are the important anchors.
+### 3A. Meal Slot Cards with Recipe Images
+
+When a recipe is assigned to a slot and has an image, show a **small thumbnail**
+(`size-10 rounded-lg object-cover`) to the left of the recipe title. This single
+change transforms the calendar from a text grid to a visual meal plan.
+
+For recipes without images: show the colored placeholder circle (from Phase 1's
+improved `getRecipeGradient`) at the same size.
+
+### 3B. Today Column Emphasis
+
+Current today highlight is `bg-accent/5 ring-1 ring-accent/20`. It's subtle to
+the point of being invisible.
+
+New: today's column header gets a filled badge
+(`bg-accent text-accent-foreground rounded-full px-3 py-0.5 text-xs font-semibold`).
+The column itself gets `bg-accent/[0.03]` (extremely subtle background) but the
+header stands out clearly.
+
+### 3C. Mobile Calendar as Daily Cards
+
+Current mobile: horizontal snap-scroll with 85vw cards. This works mechanically
+but every day looks the same.
+
+Improve by:
+
+- Showing today's card first (auto-scroll to today on mount via `useEffect` +
+  `scrollIntoView`)
+- Today's card gets a distinct top border: `border-t-2 border-accent`
+- Show a summary line at the top of each day card: "3 meals planned" or "Nothing
+  planned yet" in `text-xs text-muted-foreground`
+- Empty days: instead of just empty slots, show a warm illustration or friendly
+  message: "No meals planned for Tuesday. Add some?"
+
+### 3D. Empty Meal Plan Welcome
+
+Current empty state: icon + text. New: a warm, full-width card with:
+
+- Illustration or food icon
+- "Plan Your Week" heading in `font-serif`
+- Brief description
+- Two CTAs: "Browse Recipes" (goes to /recipes) and "See What You Can Make"
+  (goes to /discover)
+- If there are recipes but no meal plan: "You have X recipes — let's plan your
+  week!"
+
+### 3E. Waste Alerts Inline
+
+Currently waste alerts are a separate component above the calendar. Move them to
+be contextual: when viewing the meal plan, if a single-use ingredient is
+detected, show a small amber banner **below the relevant day's column**
+(desktop) or at the bottom of the day card (mobile): "Parsley only used once
+this week" with a link to browse recipes that also use parsley.
+
+---
+
+## Phase 4: Inventory — Dashboard Feel (~2 files)
+
+**Files**: `app/routes/inventory/index.tsx`,
+`app/components/inventory-item-card.tsx`
+
+Currently: location tabs → grid of cards. It's a list. A daily-use inventory
+page should immediately surface what matters.
+
+### 4A. Dashboard Summary Strip
+
+Add a horizontal strip below the header (before tabs) with 3 quick-stat cards:
+
+- **Expiring Soon**: count of items expiring within 7 days, amber-tinted,
+  clickable (scrolls to/filters those items)
+- **Low Stock**: count of items flagged low stock, with a subtle badge
+- **Total Items**: plain count
+
+Each stat card: `bg-card rounded-xl border p-3 text-center min-w-[100px]` in a
+horizontal scroll on mobile, flex row on desktop. Tapping "Expiring Soon" could
+filter the list to only show those items (add a URL param `?filter=expiring`).
+
+### 4B. Expiring Items Callout
+
+If any items expire within 3 days, show a prominent card above the grid:
+
+- Amber/warm-red background tint
+- Lists the items by name with days remaining: "Chicken breast — expires
+  tomorrow", "Spinach — 2 days left"
+- CTA: "Find recipes to use these" → links to `/discover` (which already has the
+  "Use It Before You Lose It" feature)
+
+This creates a natural daily workflow: check inventory → see what's expiring →
+discover recipes → plan meals.
+
+### 4C. Item Cards: Show Expiry Countdown
+
+Current item cards show "Expired", "Expires soon", or a date. Replace with a
+human-readable countdown:
+
+- "Expires tomorrow" (amber)
+- "Expires in 3 days" (muted amber)
+- "Expires Feb 15" (muted, if >7 days)
+- "Expired 2 days ago" (red, if past)
+
+This is more scannable than a formatted date string.
+
+### 4D. Location Sections with Visual Identity
+
+When viewing "All", each location section (Pantry, Fridge, Freezer) currently
+has a colored dot and a heading. Give each section a subtle distinct identity:
+
+- Section header: location name with its icon and a count badge
+- Subtle background tint per section: `bg-amber-50/30` for pantry (warm),
+  `bg-blue-50/30` for fridge (cool), `bg-cyan-50/30` for freezer (cold). In dark
+  mode: `dark:bg-amber-950/20` etc.
+- This creates visual separation without heavy borders or dividers
+
+---
+
+## Phase 5: Recipe List — Add Variety and Sort Options (~1 file)
+
+**File**: `app/routes/recipes/index.tsx`
+
+### 5A. Sort Options
+
+Currently recipes are sorted by `updatedAt` desc only. Add a sort dropdown next
+to the search:
+
+- Recently updated (default)
+- Most cooked
+- Recently cooked
+- Alphabetical
+- Newest first
+
+Implement as URL param `?sort=most-cooked` so it's bookmarkable. Each option
+maps to a Prisma `orderBy`.
+
+### 5B. Recipe Count and Active Filter Summary
+
+Move the recipe count from the header into the filter bar area, alongside active
+filter information. When filters are active, show: "12 of 47 recipes · Filtered
+by: Italian, <30min" with a clear-all link. This grounds the user in what
+they're looking at.
+
+### 5C. Tag Pills with Category Colors
+
+Currently all tag pills look the same. Add subtle category-based tinting:
+
+- Cuisine tags (Italian, Mexican, etc.): warm olive tint
+- Meal-type tags (breakfast, dinner, etc.): warm amber tint
+- Dietary tags (vegetarian, gluten-free, etc.): warm sage tint
+
+When selected, they all use the accent color. When unselected, the category tint
+gives visual grouping without requiring explicit section headers.
+
+### 5D. Grid Density
+
+The 3-column grid is good for desktop browsing but on a phone, each card takes
+significant vertical space. Consider a compact list view toggle:
+
+- **Grid** (default): current card layout
+- **List**: horizontal rows with small thumbnail, title, cook time, tags on one
+  line. Fits ~6 recipes on a phone screen vs ~2 in grid mode
+
+Toggle via an icon button pair (grid icon / list icon) in the filter bar,
+persisted in URL param `?view=list`.
+
+---
+
+## Phase 6: Shopping List — More Delightful (~2 files)
+
+**Files**: `app/routes/plan/shopping-list.tsx`,
+`app/components/shopping-list-item.tsx`
+
+### 6A. Progress Bar
+
+Add a visual progress bar at the top of the list (below the header) showing
+checked/total items. A thin horizontal bar: `h-1.5 rounded-full bg-muted` with a
+fill of `bg-accent` animated with `transition-all duration-300`. Percentage
+label to the right.
+
+This creates a satisfying "checking things off" feel. The current "X of Y
+checked" text in the header is functional but not visual.
+
+### 6B. Category Sections as Collapsible
+
+Each store section (Produce, Dairy, Meat, etc.) becomes collapsible with a
+chevron. Fully-checked sections auto-collapse to reduce clutter as the user
+shops. Section header shows checked count: "Produce (3/5)".
+
+### 6C. Swipe to Check (mobile) — Stretch Goal
+
+On mobile, add swipe-right gesture on items to toggle checked state (in addition
+to the tap checkbox). Use a CSS transform-based swipe with a green accent reveal
+behind the item. This feels native and fast for one-handed shopping use.
+
+**Complexity note**: Reliable touch swipe detection without a library (to match
+our "no third-party UI libraries" constraint) is finicky — needs
+`touchstart`/`touchmove`/`touchend` handling with threshold logic, conflict
+avoidance with scroll, and snap-back animation. Mark as stretch goal: nice to
+have, skip if it takes more than a day. The existing tap checkbox is already a
+fine interaction.
+
+### 6D. Recently Bought Items
+
+When the manual add form is focused, show a "Recently bought" section below it
+with the last 5-10 unique items the user has added manually to any shopping
+list. These appear as quick-tap pills. This reduces typing for items bought
+weekly.
+
+**Implementation note**: Requires adding a query to the shopping list loader to
+fetch recent distinct item names. This is a loader data change, not a schema
+change — the data already exists in the `ShoppingListItem` table.
+
+---
+
+## Phase 7: Navigation & Shell Polish (~3 files)
+
+**Files**: `app/root.tsx`, `app/components/bottom-nav.tsx`,
+`app/components/user-dropdown.tsx`
+
+### 7A. Global Quick Search
+
+Add a search icon button in the header (between nav links and notification bell
+on desktop, in the header on mobile). Clicking it opens a command-palette style
+modal:
+
+- `bg-card rounded-2xl shadow-warm-lg border` modal centered on screen
+- Single search input, auto-focused
+- Results grouped: Recipes (by title), Inventory Items (by name)
+- Keyboard shortcut: `Cmd+K` / `Ctrl+K` on desktop
+- This replaces needing to navigate to the recipes page just to search
+
+Implementation: a resource route (`resources/quick-search.tsx`) that queries
+recipe titles and inventory item names on demand via `useFetcher`. Avoids
+bloating the root loader with search data on every page load — only fetches when
+the search modal opens. Debounce the input at 200ms. At 500+ recipes this is
+still fast since it's just title/name columns with a `contains` filter.
+
+### 7B. Mobile Bottom Nav — Active Route Animation
+
+Current bottom nav: icon + label with a pill background on active. Add a subtle
+slide animation when switching between routes — the active pill indicator
+smoothly slides between positions using CSS `transition-all` on a pseudo-element
+that tracks the active index position.
+
+### 7C. User Dropdown Enhancements
+
+Add the user's name (or first letter avatar if no profile image) as visible text
+on desktop, not just an icon. Show the household name below if in a household.
+This personalizes the header.
+
+---
+
+## Phase 8: Recipe Form — Mobile-Friendly (~2 files)
+
+**Files**: `app/components/recipe-form.tsx`,
+`app/components/ingredient-fields.tsx`
+
+The recipe form is one of the longest pages in the app. On mobile it's a single
+vertical scroll through Photo → Details → Tags → Ingredients → Instructions. The
+development plan backlog specifically calls out "Recipe form length on mobile"
+as a UX issue.
+
+### 8A. Collapsible Sections
+
+Wrap each form section (Photo, Details, Tags, Ingredients, Instructions) in a
+collapsible `<details>` element (or a Collapsible component from shadcn) with a
+section header that shows completion state:
+
+- "Photo" — shows thumbnail preview or "No photo" in the header when collapsed
+- "Details (3/6 filled)" — shows how many optional fields are filled
+- "Tags (2 selected)" — shows count
+- "Ingredients (5)" — shows count
+- "Instructions (4 steps)" — shows count
+
+On initial load for new recipes: Details expanded, others collapsed. On edit:
+all expanded (user is likely editing a specific section).
+
+### 8B. Fix Servings/Time Grid on Mobile
+
+Current: `grid-cols-3` for servings, prep time, cook time — fixed 3 columns
+regardless of screen width. On narrow phones (~320px) these fields are cramped.
+
+Fix: `grid-cols-1 sm:grid-cols-3` — stack vertically on small phones, 3-column
+on wider screens.
+
+### 8C. Ingredient Row Improvements
+
+Current ingredient rows are functional but dense. Improvements:
+
+- Add a drag handle hint (grip icon, `text-muted-foreground/30`) to suggest
+  reorderability (even if drag-and-drop isn't implemented yet, the visual
+  language communicates "these are ordered")
+- On mobile, stack the amount/unit fields below the name field instead of
+  inline. Current inline layout works on desktop but can feel cramped on phones
+- Larger remove button tap target (`size-9` not `size-7`)
+
+---
+
+## Phase 9: Empty States with Personality (~across all route files)
+
+Empty states are currently: centered icon + heading + description + CTA button.
+They're informative but cold.
+
+### Principles for new empty states:
+
+- Use `font-serif` headings with a warm, conversational tone
+- Replace generic icons with contextual mini-illustrations (CSS-based or simple
+  SVG compositions)
+- Add a subtle entrance animation (`animate-fade-up`)
+- Give each empty state a unique personality message:
+
+**Recipes (no recipes)**: "Your cookbook is empty — every great collection
+starts with one recipe."
+
+**Recipes (no filter matches)**: "Nothing matches those filters. Try broadening
+your search or [clear all filters]."
+
+**Inventory (empty)**: Current pantry staples onboarding is good — keep it.
+
+**Meal Plan (empty)**: "A blank canvas for the week ahead. What sounds good?"
+
+**Discover (no inventory, no recipes)**: "Add some recipes and stock your pantry
+— then we'll show you what you can make tonight."
+
+**Discover (no matches)**: "None of your recipes match what's in your kitchen
+right now. Time to go shopping or [add new recipes]?"
+
+**Shopping List (empty)**: "Nothing on the list. Generate one from your [meal
+plan] or add items manually."
+
+**Cooking History (no logs on recipe page)**: "You haven't cooked this yet. Give
+it a try!"
+
+---
+
+## Phase 10: Landing Page — Sell the Experience (~1 file)
+
+**File**: `app/routes/_marketing/index.tsx`
+
+Note: The CTA already correctly links to `/signup` (this was fixed previously).
+Focus is on layout and messaging.
+
+### 10A. Hero Overhaul
+
+Current: small cookie icon + title + description + button. It's generic.
+
+New hero:
+
+- Much larger heading:
+  `text-5xl md:text-7xl font-serif font-bold tracking-tight`
+- Subheading with personality: "Your recipes. Your pantry. Your plan. One
+  place." (not "Track recipes and plan meals")
+- CTA: "Start Cooking — It's Free" with a more compelling label than "Get
+  Started"
+- Secondary CTA: "See how it works" → smooth scrolls to features section
+- Background: subtle warm gradient or food-inspired pattern
+
+### 10B. Feature Section as Story
+
+Replace the 2x2 grid of feature cards with a **scrolling narrative**:
+
+1. "Import your favorite recipes" — with a mock recipe card visual
+2. "Track what's in your kitchen" — with a mock inventory strip
+3. "Plan meals that share ingredients" — with a mock calendar snippet
+4. "Generate a smart shopping list" — with a mock checklist
+
+Each section alternates: visual left + text right, then text left + visual
+right. This tells a story instead of listing features.
+
+### 10C. Social Proof Area
+
+Add a section (can be static content initially, real testimonials later):
+
+- "Built for home cooks who care about what they eat" heading
+- 2-3 persona cards: "Sarah, meal-prep Sunday enthusiast", "Marcus, zero-waste
+  kitchen", "The Chen family, shared meal planning" — each with a short quote
+  about the workflow
+- Even if fictional initially, this humanizes the product
+
+---
+
+## Dark Mode Considerations
+
+Several new patterns introduce elements that need explicit dark mode treatment:
+
+- **Recipe placeholder colors** (Phase 1D, done): All 6 placeholder themes have
+  explicit `dark:` variants (e.g. `bg-orange-50 dark:bg-orange-950/30`).
+- **Floating meta card** (Phase 1A, done): `bg-card` already respects theme.
+  `shadow-warm-lg` works with border fallback.
+- **Progress ring SVG** (Phase 2B): Use `stroke="currentColor"` with Tailwind
+  color classes so ring inherits theme colors.
+- **Location section tints** (Phase 4D): Light mode uses `bg-amber-50/30` etc.
+  Dark mode needs `dark:bg-amber-950/20` etc. (already noted in 4D).
+- **Expiry urgency pills** (Phase 2C, 4B): Amber/red pills need dark variants.
+  Use the existing pattern:
+  `bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-200`.
+
+**Rule of thumb**: Every hardcoded color (not from the theme system) needs a
+`dark:` variant. Prefer semantic colors (`bg-accent`, `text-muted-foreground`)
+over raw colors wherever possible.
+
+---
+
+## Implementation Order
+
+1. **Phase 1 (Recipe Detail + Cooking Mode)** ✅ — Highest daily-use impact.
+   Cooking mode is the flagship new feature.
+2. **Phase 2 (Discover)** — Second most unique page, biggest "wow" potential.
+3. **Phase 3 (Meal Plan)** — Third most used, benefits most from imagery.
+4. **Phase 9 (Empty States)** — Quick wins, personality injection, can do
+   alongside any phase.
+5. **Phase 4 (Inventory)** — Dashboard treatment improves daily check-in flow.
+6. **Phase 5 (Recipe List)** — Sort and density options improve browsing.
+7. **Phase 8 (Recipe Form)** — Mobile UX fixes, directly supports the recipe
+   creation workflow.
+8. **Phase 7 (Navigation)** — Global search is high-value but can wait for core
+   pages.
+9. **Phase 6 (Shopping List)** — Progress bar and collapsible sections are
+   polish. Swipe-to-check is a stretch goal.
+10. **Phase 10 (Landing Page)** — Important for conversions but doesn't affect
+    daily use.
+
+Phases 1-3 are structural rethinks. Phases 4-10 are enhancements and polish.
+Each phase is independently deployable.
+
+## Files Summary (~18 primary files)
+
+| Phase             | Files                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------- |
+| 1 (Recipe Detail) | `recipes/$recipeId.tsx`, `recipe-card.tsx`, `recipe-match-card.tsx`, new shared `utils/recipe-placeholder.ts` |
+| 2 (Discover)      | `discover/index.tsx`, `recipe-match-card.tsx`                                                                 |
+| 3 (Meal Plan)     | `plan/index.tsx`, `meal-plan-calendar.tsx`, `meal-slot-card.tsx`                                              |
+| 4 (Inventory)     | `inventory/index.tsx`, `inventory-item-card.tsx`                                                              |
+| 5 (Recipe List)   | `recipes/index.tsx`                                                                                           |
+| 6 (Shopping List) | `plan/shopping-list.tsx`, `shopping-list-item.tsx`                                                            |
+| 7 (Navigation)    | `root.tsx`, `bottom-nav.tsx`, `user-dropdown.tsx`, new `resources/quick-search.tsx`                           |
+| 8 (Recipe Form)   | `recipe-form.tsx`, `ingredient-fields.tsx`                                                                    |
+| 9 (Empty States)  | Across all route files (text/class changes only)                                                              |
+| 10 (Landing Page) | `_marketing/index.tsx`                                                                                        |
 
 ## Verification
 
 After each phase:
-- `npm run dev` — visual inspection across all major pages in both themes
-- `npm run typecheck` — no type errors from template changes
+
+- `npm run dev` — visual inspection in **both light and dark modes**, mobile +
+  desktop
+- `npm run typecheck` — no type errors
 - `npm run lint` — no lint issues
-- `npm test` — existing 291 tests pass (no logic changes)
-- Manual check: light mode, dark mode, mobile responsive, print view for shopping list
+- `npm test` — all existing tests pass (no logic changes except cooking mode URL
+  param)
+- Manual: check that cooking mode works on actual phone (large tap targets,
+  readable at arm's length)
+- Manual: verify dark mode doesn't have invisible shadows, unreadable text, or
+  missing color variants
+
+## Non-Goals
+
+- **No schema changes.** All data stays the same.
+- **No new API routes** except: a `resources/quick-search.tsx` route for global
+  search (Phase 7), and a loader query addition for recently bought items (Phase
+  6D).
+- **No third-party UI libraries.** Everything built with existing Tailwind +
+  shadcn primitives. Touch gestures (6C) are stretch goals that may be cut.
+- **No breaking URL changes.** Cooking mode uses a query param. Sort/view/filter
+  use query params. All existing URLs continue to work.
+
+## Pages Intentionally Not Changed
+
+- **Settings (`settings/profile/index.tsx`)** — Already well-organized with card
+  sections, icons, and hover states. No redesign needed.
+- **Prep list (`plan/prep-list.tsx`)** — Clean and functional. Could benefit
+  from visual grouping later but not a priority.
+- **Auth pages (`_auth/*`)** — Standard login/signup forms. Functional and fine.
+- **Recipe edit (`recipes/$recipeId.edit.tsx`)** — Uses `recipe-form.tsx`, so
+  Phase 8 improvements cover it automatically.

@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { formatTimeAgo } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { type RecipeMatch } from '#app/utils/recipe-matching.server.ts'
+import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import { Icon } from './ui/icon.tsx'
 
 type RecipeMatchCardProps = {
@@ -11,30 +12,6 @@ type RecipeMatchCardProps = {
 	cookCount?: number
 }
 
-// Generate a consistent color gradient based on recipe title
-function getRecipeGradient(title: string) {
-	const gradients = [
-		'from-secondary to-muted',
-		'from-secondary to-muted',
-		'from-secondary to-muted',
-		'from-secondary to-muted',
-		'from-secondary to-muted',
-		'from-secondary to-muted',
-		'from-secondary to-muted',
-		'from-secondary to-muted',
-		'from-secondary to-muted',
-		'from-secondary to-muted',
-	]
-
-	// Simple hash function to get consistent gradient for same title
-	let hash = 0
-	for (let i = 0; i < title.length; i++) {
-		hash = (hash << 5) - hash + title.charCodeAt(i)
-		hash = hash & hash // Convert to 32bit integer
-	}
-	const index = Math.abs(hash) % gradients.length
-	return gradients[index]
-}
 
 export function RecipeMatchCard({
 	match,
@@ -59,21 +36,34 @@ export function RecipeMatchCard({
 						height={300}
 					/>
 				) : (
-					<div
-						role="img"
-						aria-label={`${recipe.title} recipe`}
-						className={cn(
-							'flex h-full w-full items-center justify-center bg-gradient-to-br transition-transform group-hover:scale-105',
-							getRecipeGradient(recipe.title),
-						)}
-					>
-						<div className="flex flex-col items-center gap-2">
-							<span className="text-accent/40 text-6xl font-bold">
-								{recipe.title.charAt(0).toUpperCase()}
-							</span>
-							<Icon name="cookie" className="text-accent/30 size-8" />
-						</div>
-					</div>
+					(() => {
+						const placeholder = getRecipePlaceholder(recipe.title)
+						return (
+							<div
+								role="img"
+								aria-label={`${recipe.title} recipe`}
+								className={cn(
+									'flex h-full w-full items-center justify-center transition-transform group-hover:scale-105',
+									placeholder.bgClass,
+								)}
+							>
+								<div className="flex flex-col items-center gap-2">
+									<span
+										className={cn(
+											'text-6xl font-bold',
+											placeholder.letterColorClass,
+										)}
+									>
+										{placeholder.letter}
+									</span>
+									<Icon
+										name={placeholder.iconName}
+										className={cn('size-8', placeholder.iconColorClass)}
+									/>
+								</div>
+							</div>
+						)
+					})()
 				)}
 				{/* Match Badge */}
 				<div className="absolute top-2 right-2">

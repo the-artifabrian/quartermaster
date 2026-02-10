@@ -14,7 +14,7 @@ export function InventoryLocationTabs() {
 	] as const
 
 	return (
-		<div className="flex gap-2 overflow-x-auto border-b">
+		<div className="bg-muted inline-flex gap-1 overflow-x-auto rounded-full p-1">
 			{locations.map((location) => (
 				<Link
 					key={location.value}
@@ -24,10 +24,10 @@ export function InventoryLocationTabs() {
 							: `?location=${location.value}`
 					}
 					className={cn(
-						'border-b-2 px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+						'rounded-full px-4 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-200',
 						currentLocation === location.value
-							? 'border-primary text-primary'
-							: 'text-muted-foreground hover:text-foreground hover:border-muted border-transparent',
+							? 'bg-primary text-primary-foreground shadow-sm'
+							: 'text-muted-foreground hover:text-foreground',
 					)}
 				>
 					{location.label}

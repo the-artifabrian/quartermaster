@@ -102,7 +102,7 @@ export function MealPlanWasteAlerts({
 	const suggestions = getTopSuggestions(alerts)
 
 	return (
-		<div className="bg-muted/30 rounded-lg border p-4">
+		<div className="bg-card rounded-xl border shadow-warm p-4">
 			<button
 				type="button"
 				className="flex w-full items-center justify-between"

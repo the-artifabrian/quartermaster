@@ -105,7 +105,7 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 					<Img
 						src={getUserImgSrc(loaderData.user.image?.objectKey)}
 						alt={loaderData.user.name ?? loaderData.user.username}
-						className="h-full w-full rounded-full object-cover"
+						className="ring-accent/20 h-full w-full rounded-full object-cover ring-4"
 						width={832}
 						height={832}
 						isAboveFold
@@ -128,17 +128,32 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 			</div>
 			<UpdateProfile loaderData={loaderData} />
 
-			<div className="border-foreground col-span-6 my-6 h-1 border-b-[1.5px]" />
-			<div className="col-span-full flex flex-col gap-6">
-				<div>
-					<Link to="change-email">
+			{/* Account */}
+			<div className="bg-card rounded-xl border p-4 shadow-warm">
+				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+					Account
+				</h3>
+				<div className="flex flex-col">
+					<Link
+						to="change-email"
+						className="hover:bg-accent/5 rounded-lg px-4 py-3"
+					>
 						<Icon name="envelope-closed">
 							Change email from {loaderData.user.email}
 						</Icon>
 					</Link>
-				</div>
-				<div>
-					<Link to="two-factor">
+					<Link
+						to={loaderData.hasPassword ? 'password' : 'password/create'}
+						className="hover:bg-accent/5 rounded-lg px-4 py-3"
+					>
+						<Icon name="dots-horizontal">
+							{loaderData.hasPassword ? 'Change Password' : 'Create a Password'}
+						</Icon>
+					</Link>
+					<Link
+						to="two-factor"
+						className="hover:bg-accent/5 rounded-lg px-4 py-3"
+					>
 						{loaderData.isTwoFactorEnabled ? (
 							<Icon name="lock-closed">2FA is enabled</Icon>
 						) : (
@@ -146,44 +161,77 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 						)}
 					</Link>
 				</div>
-				<div>
-					<Link to={loaderData.hasPassword ? 'password' : 'password/create'}>
-						<Icon name="dots-horizontal">
-							{loaderData.hasPassword ? 'Change Password' : 'Create a Password'}
-						</Icon>
-					</Link>
-				</div>
-				<div>
-					<Link to="household">
+			</div>
+
+			{/* Household */}
+			<div className="bg-card rounded-xl border p-4 shadow-warm">
+				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+					Household
+				</h3>
+				<div className="flex flex-col">
+					<Link
+						to="household"
+						className="hover:bg-accent/5 rounded-lg px-4 py-3"
+					>
 						<Icon name="home">Manage household</Icon>
 					</Link>
 				</div>
-				<div>
-					<Link to="connections">
+			</div>
+
+			{/* Connections */}
+			<div className="bg-card rounded-xl border p-4 shadow-warm">
+				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+					Connections
+				</h3>
+				<div className="flex flex-col">
+					<Link
+						to="connections"
+						className="hover:bg-accent/5 rounded-lg px-4 py-3"
+					>
 						<Icon name="link-2">Manage connections</Icon>
 					</Link>
-				</div>
-				<div>
-					<Link to="passkeys">
+					<Link
+						to="passkeys"
+						className="hover:bg-accent/5 rounded-lg px-4 py-3"
+					>
 						<Icon name="passkey">Manage passkeys</Icon>
 					</Link>
 				</div>
-				<div>
+			</div>
+
+			{/* Data */}
+			<div className="bg-card rounded-xl border p-4 shadow-warm">
+				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+					Data
+				</h3>
+				<div className="flex flex-col">
 					<Link
 						reloadDocument
 						download="my-quartermaster-data.json"
 						to="/resources/download-user-data"
+						className="hover:bg-accent/5 rounded-lg px-4 py-3"
 					>
 						<Icon name="download">Download your data</Icon>
 					</Link>
-				</div>
-				<div>
-					<a href="/resources/export-recipes" download>
+					<a
+						href="/resources/export-recipes"
+						download
+						className="hover:bg-accent/5 rounded-lg px-4 py-3"
+					>
 						<Icon name="download">Export recipes as JSON</Icon>
 					</a>
 				</div>
-				<SignOutOfSessions loaderData={loaderData} />
-				<DeleteData />
+			</div>
+
+			{/* Danger Zone */}
+			<div className="bg-card rounded-xl border p-4 shadow-warm">
+				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+					Danger Zone
+				</h3>
+				<div className="col-span-full flex flex-col gap-4 px-4 py-3">
+					<SignOutOfSessions loaderData={loaderData} />
+					<DeleteData />
+				</div>
 			</div>
 		</div>
 	)

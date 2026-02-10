@@ -12,7 +12,7 @@ const Input = ({
 			data-slot="input"
 			type={type}
 			className={cn(
-				'border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring aria-[invalid]:border-input-invalid flex h-10 w-full rounded-md border px-3 py-2 text-base file:border-0 file:bg-transparent file:text-base file:font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 md:text-sm md:file:text-sm',
+				'border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:border-accent focus-visible:ring-accent/20 aria-[invalid]:border-input-invalid flex h-10 w-full rounded-lg border px-3 py-2 text-base transition-all duration-200 hover:border-muted-foreground/30 file:border-0 file:bg-transparent file:text-base file:font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 md:text-sm md:file:text-sm',
 				className,
 			)}
 			{...props}

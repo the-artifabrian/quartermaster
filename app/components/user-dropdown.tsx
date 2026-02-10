@@ -19,16 +19,16 @@ export function UserDropdown() {
 	return (
 		<DropdownMenu modal={false}>
 			<DropdownMenuTrigger asChild>
-				<Button asChild variant="secondary">
+				<Button asChild variant="ghost">
 					<Link
 						to="/settings/profile"
 						// this is for progressive enhancement
 						onClick={(e) => e.preventDefault()}
-						className="flex items-center gap-2"
+						className="bg-card hover:bg-muted/50 flex items-center gap-2 rounded-full border border-border/50 shadow-warm"
 						aria-label="User menu"
 					>
 						<Img
-							className="size-8 rounded-full object-cover"
+							className="ring-accent/20 size-8 rounded-full object-cover ring-2"
 							alt={user.name ?? user.username}
 							src={getUserImgSrc(user.image?.objectKey)}
 							width={256}

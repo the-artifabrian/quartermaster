@@ -85,7 +85,7 @@ export function PantryStaplesOnboarding() {
 	}
 
 	return (
-		<div className="mx-auto max-w-2xl py-8">
+		<div className="mx-auto max-w-2xl bg-card rounded-2xl border shadow-warm py-8 px-6">
 			<div className="mb-8 text-center">
 				<Icon name="home" className="text-muted-foreground mx-auto size-12" />
 				<h2 className="mt-4 text-2xl font-bold">Stock Your Kitchen</h2>

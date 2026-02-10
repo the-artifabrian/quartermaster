@@ -184,7 +184,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="bg-muted/30">
+			<div className="bg-gradient-to-b from-card to-background border-b border-border/50">
 				<div className="container flex items-center justify-between py-6">
 					<div>
 						<h1 className="text-2xl font-bold">My Inventory</h1>
@@ -270,10 +270,10 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				) : (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
 							<Icon
 								name="file-text"
-								className="text-muted-foreground size-10"
+								className="text-accent/50 size-10"
 							/>
 						</div>
 						<h2 className="mt-4 text-xl font-semibold">Nothing tracked yet</h2>

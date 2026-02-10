@@ -50,7 +50,9 @@ export function MealPlanCalendar({
 							key={`header-${serializeDate(date)}`}
 							className={cn(
 								'pb-2 text-center text-sm font-medium',
-								isToday(date) ? 'text-primary' : 'text-muted-foreground',
+								isToday(date)
+									? 'text-primary bg-accent/10 rounded-full px-3 py-1'
+									: 'text-muted-foreground',
 							)}
 						>
 							{formatDayLabel(date)}
@@ -61,8 +63,8 @@ export function MealPlanCalendar({
 						<div
 							key={`day-${serializeDate(date)}`}
 							className={cn(
-								'space-y-2 rounded-lg p-1.5',
-								isToday(date) && 'bg-primary/5',
+								'space-y-2 rounded-xl p-1.5',
+								isToday(date) && 'bg-accent/5 ring-1 ring-accent/20',
 							)}
 						>
 							{MEAL_TYPES.map((mealType) => {
@@ -96,7 +98,7 @@ export function MealPlanCalendar({
 								<p
 									className={cn(
 										'text-sm font-medium',
-										isToday(date) && 'text-primary',
+										isToday(date) && 'text-primary bg-accent/10 rounded-full px-3 py-1 inline-block',
 									)}
 								>
 									{formatDayLabel(date)}

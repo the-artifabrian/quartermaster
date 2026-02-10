@@ -128,7 +128,7 @@ function IngredientRow({
 		<div
 			className={cn(
 				'space-y-2 rounded-lg p-2',
-				index % 2 === 0 && 'bg-muted/30',
+				index % 2 === 0 && 'bg-muted/20',
 			)}
 		>
 			<div className="flex gap-2">

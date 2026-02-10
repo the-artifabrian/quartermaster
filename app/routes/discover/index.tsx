@@ -161,7 +161,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="bg-gradient-to-b from-card to-background border-b border-border/50">
+			<div className="from-card to-background border-border/50 border-b bg-gradient-to-b">
 				<div className="container py-6">
 					<h1 className="text-2xl font-bold">Discover Recipes</h1>
 					<p className="text-muted-foreground mt-1 text-sm">
@@ -173,7 +173,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 			<div className="container py-6">
 				{/* Expiring Items Suggestions */}
 				{expiringMatches.length > 0 && (
-					<div className="mb-8 rounded-2xl border border-accent/10 bg-accent/5 p-6">
+					<div className="border-accent/10 bg-accent/5 mb-8 rounded-2xl border p-6">
 						<div className="mb-4 flex items-center gap-2">
 							<Icon name="clock" className="size-5 text-amber-500" />
 							<div>
@@ -197,7 +197,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 										className={cn(
 											'rounded-full px-3 py-1 text-xs font-medium',
 											isUrgent
-												? 'bg-red-100 text-red-700 animate-pulse dark:bg-red-900/30 dark:text-red-300'
+												? 'animate-pulse bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
 												: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
 										)}
 									>
@@ -282,16 +282,14 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 														lastCookedAt={
 															cookingStats[match.recipe.id]?.lastCookedAt
 														}
-														cookCount={
-															cookingStats[match.recipe.id]?.cookCount
-														}
+														cookCount={cookingStats[match.recipe.id]?.cookCount}
 													/>
 												))}
 											</RecipeMatchCardGrid>
 										) : (
 											<p className="text-muted-foreground py-8 text-center text-sm">
-												This is your only recipe match — add more recipes to
-												see more suggestions.
+												This is your only recipe match — add more recipes to see
+												more suggestions.
 											</p>
 										)}
 									</>
@@ -305,12 +303,14 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 										className="text-accent/50 size-10"
 									/>
 								</div>
-								<h2 className="mt-4 text-xl font-semibold">
-									No recipes match your filter
+								<h2 className="mt-4 font-serif text-xl font-semibold">
+									{showOnlyMakeable
+										? 'No perfect matches yet'
+										: 'No recipes match your filter'}
 								</h2>
 								<p className="text-muted-foreground mt-2 max-w-sm">
 									{showOnlyMakeable
-										? "You don't have all the ingredients for any recipes yet. Try adding more items to your inventory."
+										? "None of your recipes match what's in your kitchen right now. Time to go shopping or add new recipes?"
 										: 'Try adjusting your filters.'}
 								</p>
 								<div className="mt-6 flex gap-3">
@@ -334,12 +334,12 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
 							<Icon name="cookie" className="text-accent/50 size-10" />
 						</div>
-						<h2 className="mt-4 text-xl font-semibold">
-							Ready to discover what you can cook?
+						<h2 className="mt-4 font-serif text-xl font-semibold">
+							Let's get cooking
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
-							Add some recipes and track your inventory. We'll match them up and
-							show you what's possible.
+							Add some recipes and stock your pantry — then we'll show you what
+							you can make tonight.
 						</p>
 						<div className="mt-6 flex gap-3">
 							<Button asChild>
@@ -359,17 +359,14 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 				) : inventoryItemCount === 0 ? (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
 						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
-							<Icon
-								name="file-text"
-								className="text-accent/50 size-10"
-							/>
+							<Icon name="file-text" className="text-accent/50 size-10" />
 						</div>
-						<h2 className="mt-4 text-xl font-semibold">
+						<h2 className="mt-4 font-serif text-xl font-semibold">
 							What's in your kitchen?
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
-							Track what's in your pantry, fridge, and freezer so we can match
-							it against your recipes.
+							You've got recipes — now tell us what's in your pantry, fridge,
+							and freezer so we can match them up.
 						</p>
 						<Button asChild className="mt-6">
 							<Link to="/inventory">
@@ -383,7 +380,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
 							<Icon name="pencil-1" className="text-accent/50 size-10" />
 						</div>
-						<h2 className="mt-4 text-xl font-semibold">
+						<h2 className="mt-4 font-serif text-xl font-semibold">
 							Add your first recipe
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
@@ -425,7 +422,7 @@ function HeroMatchCard({
 			</p>
 			<Link
 				to={`/recipes/${recipe.id}`}
-				className="bg-card group block overflow-hidden rounded-2xl shadow-warm-lg"
+				className="bg-card group shadow-warm-lg block overflow-hidden rounded-2xl"
 			>
 				{/* Image area */}
 				<div className="relative aspect-[2/1] overflow-hidden">
@@ -465,7 +462,7 @@ function HeroMatchCard({
 					{/* Gradient scrim */}
 					<div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 					{/* Title overlay */}
-					<h3 className="absolute bottom-4 left-5 right-16 text-xl font-bold text-white drop-shadow-lg md:text-2xl">
+					<h3 className="absolute right-16 bottom-4 left-5 text-xl font-bold text-white drop-shadow-lg md:text-2xl">
 						{recipe.title}
 					</h3>
 					{/* Progress ring */}
@@ -497,8 +494,7 @@ function HeroMatchCard({
 					)}
 					{stats && stats.cookCount > 0 && stats.lastCookedAt && (
 						<span className="text-muted-foreground text-xs">
-							Made {stats.cookCount}{' '}
-							{stats.cookCount === 1 ? 'time' : 'times'}
+							Made {stats.cookCount} {stats.cookCount === 1 ? 'time' : 'times'}
 						</span>
 					)}
 					<span className="bg-primary text-primary-foreground ml-auto rounded-full px-4 py-1.5 text-sm font-medium transition-colors group-hover:opacity-90">

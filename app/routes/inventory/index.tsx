@@ -12,10 +12,11 @@ import { InventoryQuickAdd } from '#app/components/inventory-quick-add.tsx'
 import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboarding.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { InventoryItemSchema } from '#app/utils/inventory-validation.ts'
+import { cn } from '#app/utils/misc.tsx'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -31,6 +32,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const url = new URL(request.url)
 	const location = url.searchParams.get('location') ?? ''
 
+	const now = new Date()
+	const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
+	const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+
 	const [items, totalItemCount] = await Promise.all([
 		prisma.inventoryItem.findMany({
 			where: {
@@ -42,7 +47,49 @@ export async function loader({ request }: Route.LoaderArgs) {
 		prisma.inventoryItem.count({ where: { householdId } }),
 	])
 
-	return { items, totalItemCount, selectedLocation: location || 'all' }
+	// Dashboard stats (computed from all items, not filtered by location)
+	const allItems =
+		location && location !== 'all'
+			? await prisma.inventoryItem.findMany({ where: { householdId } })
+			: items
+
+	const expiringSoonCount = allItems.filter(
+		(item) =>
+			item.expiresAt &&
+			new Date(item.expiresAt) >= now &&
+			new Date(item.expiresAt) <= sevenDaysFromNow,
+	).length
+
+	const lowStockCount = allItems.filter((item) => item.lowStock).length
+
+	// Items expiring within 3 days for the urgent callout
+	const urgentExpiringItems = allItems
+		.filter(
+			(item) =>
+				item.expiresAt &&
+				new Date(item.expiresAt) >= now &&
+				new Date(item.expiresAt) <= threeDaysFromNow,
+		)
+		.map((item) => ({
+			id: item.id,
+			name: item.name,
+			daysLeft: Math.max(
+				0,
+				Math.ceil(
+					(new Date(item.expiresAt!).getTime() - now.getTime()) /
+						(1000 * 60 * 60 * 24),
+				),
+			),
+		}))
+
+	return {
+		items,
+		totalItemCount,
+		selectedLocation: location || 'all',
+		expiringSoonCount,
+		lowStockCount,
+		urgentExpiringItems,
+	}
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -66,7 +113,10 @@ export async function action({ request }: Route.ActionArgs) {
 
 		void emitHouseholdEvent({
 			type: 'inventory_item_added',
-			payload: { name: submission.value.name, location: submission.value.location },
+			payload: {
+				name: submission.value.name,
+				location: submission.value.location,
+			},
 			userId,
 			householdId,
 		})
@@ -149,7 +199,14 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
-	const { items, totalItemCount, selectedLocation } = loaderData
+	const {
+		items,
+		totalItemCount,
+		selectedLocation,
+		expiringSoonCount,
+		lowStockCount,
+		urgentExpiringItems,
+	} = loaderData
 
 	if (totalItemCount === 0) {
 		return (
@@ -184,7 +241,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="bg-gradient-to-b from-card to-background border-b border-border/50">
+			<div className="from-card to-background border-border/50 border-b bg-gradient-to-b">
 				<div className="container flex items-center justify-between py-6">
 					<div>
 						<h1 className="text-2xl font-bold">My Inventory</h1>
@@ -202,6 +259,94 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container py-6">
+				{/* Dashboard Summary Strip */}
+				<div className="mb-6 flex gap-3 overflow-x-auto pb-1">
+					<div
+						className={cn(
+							'bg-card flex min-w-[120px] flex-1 flex-col items-center rounded-xl border p-3 text-center',
+							expiringSoonCount > 0 && 'border-amber-200 dark:border-amber-800',
+						)}
+					>
+						<span
+							className={cn(
+								'text-2xl font-bold',
+								expiringSoonCount > 0
+									? 'text-amber-600 dark:text-amber-400'
+									: 'text-foreground',
+							)}
+						>
+							{expiringSoonCount}
+						</span>
+						<span className="text-muted-foreground text-xs">Expiring Soon</span>
+					</div>
+					<div
+						className={cn(
+							'bg-card flex min-w-[120px] flex-1 flex-col items-center rounded-xl border p-3 text-center',
+							lowStockCount > 0 && 'border-amber-200 dark:border-amber-800',
+						)}
+					>
+						<span
+							className={cn(
+								'text-2xl font-bold',
+								lowStockCount > 0
+									? 'text-amber-600 dark:text-amber-400'
+									: 'text-foreground',
+							)}
+						>
+							{lowStockCount}
+						</span>
+						<span className="text-muted-foreground text-xs">Low Stock</span>
+					</div>
+					<div className="bg-card flex min-w-[120px] flex-1 flex-col items-center rounded-xl border p-3 text-center">
+						<span className="text-2xl font-bold">{totalItemCount}</span>
+						<span className="text-muted-foreground text-xs">Total Items</span>
+					</div>
+				</div>
+
+				{/* Urgent Expiring Items Callout */}
+				{urgentExpiringItems.length > 0 && (
+					<div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+						<div className="mb-2 flex items-center gap-2">
+							<Icon
+								name="clock"
+								className="size-5 text-amber-600 dark:text-amber-400"
+							/>
+							<h2 className="font-semibold text-amber-900 dark:text-amber-200">
+								Use these up soon
+							</h2>
+						</div>
+						<ul className="mb-3 space-y-1">
+							{urgentExpiringItems.map((item) => (
+								<li
+									key={item.id}
+									className="text-sm text-amber-800 dark:text-amber-300"
+								>
+									<span className="font-medium">{item.name}</span>
+									<span className="text-amber-600 dark:text-amber-400">
+										{' — '}
+										{item.daysLeft === 0
+											? 'expires today'
+											: item.daysLeft === 1
+												? 'expires tomorrow'
+												: `${item.daysLeft} days left`}
+									</span>
+								</li>
+							))}
+						</ul>
+						<Button
+							asChild
+							size="sm"
+							variant="outline"
+							className="border-amber-300 bg-amber-100/50 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/50"
+						>
+							<Link to="/discover">
+								<Icon name="cookie" size="sm" />
+								Find recipes to use these
+							</Link>
+						</Button>
+					</div>
+				)}
+
 				{/* Location Tabs */}
 				<div className="mb-6">
 					<InventoryLocationTabs />
@@ -221,40 +366,49 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						{selectedLocation === 'all' ? (
 							<>
 								{pantryItems.length > 0 && (
-									<section>
+									<section className="rounded-xl bg-amber-50/30 p-4 dark:bg-amber-950/20">
 										<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
 											<span className="inline-block size-2.5 rounded-full bg-amber-500" />
 											Pantry
+											<span className="text-muted-foreground ml-1 text-sm font-normal">
+												({pantryItems.length})
+											</span>
 										</h2>
 										<InventoryItemGrid>
 											{pantryItems.map((item) => (
-												<InventoryItemCard key={item.id} item={item} />
+												<InventoryItemCard key={item.id} item={item} showLocation={false} />
 											))}
 										</InventoryItemGrid>
 									</section>
 								)}
 								{fridgeItems.length > 0 && (
-									<section>
+									<section className="rounded-xl bg-blue-50/30 p-4 dark:bg-blue-950/20">
 										<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
 											<span className="inline-block size-2.5 rounded-full bg-blue-500" />
 											Fridge
+											<span className="text-muted-foreground ml-1 text-sm font-normal">
+												({fridgeItems.length})
+											</span>
 										</h2>
 										<InventoryItemGrid>
 											{fridgeItems.map((item) => (
-												<InventoryItemCard key={item.id} item={item} />
+												<InventoryItemCard key={item.id} item={item} showLocation={false} />
 											))}
 										</InventoryItemGrid>
 									</section>
 								)}
 								{freezerItems.length > 0 && (
-									<section>
+									<section className="rounded-xl bg-cyan-50/30 p-4 dark:bg-cyan-950/20">
 										<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
 											<span className="inline-block size-2.5 rounded-full bg-cyan-500" />
 											Freezer
+											<span className="text-muted-foreground ml-1 text-sm font-normal">
+												({freezerItems.length})
+											</span>
 										</h2>
 										<InventoryItemGrid>
 											{freezerItems.map((item) => (
-												<InventoryItemCard key={item.id} item={item} />
+												<InventoryItemCard key={item.id} item={item} showLocation={false} />
 											))}
 										</InventoryItemGrid>
 									</section>
@@ -263,7 +417,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						) : (
 							<InventoryItemGrid>
 								{displayItems.map((item) => (
-									<InventoryItemCard key={item.id} item={item} />
+									<InventoryItemCard key={item.id} item={item} showLocation={false} />
 								))}
 							</InventoryItemGrid>
 						)}
@@ -271,12 +425,11 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 				) : (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
 						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
-							<Icon
-								name="file-text"
-								className="text-accent/50 size-10"
-							/>
+							<Icon name="file-text" className="text-accent/50 size-10" />
 						</div>
-						<h2 className="mt-4 text-xl font-semibold">Nothing tracked yet</h2>
+						<h2 className="mt-4 font-serif text-xl font-semibold">
+							Nothing here yet
+						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
 							{selectedLocation === 'all'
 								? 'Start tracking your pantry, fridge, and freezer items to discover what you can cook.'

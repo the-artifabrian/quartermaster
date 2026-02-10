@@ -345,12 +345,37 @@ export default function ShoppingListRoute({
 	})
 
 	const [showReview, setShowReview] = useState(false)
+	// Tracks explicit user overrides: true = forced open, false = forced closed
+	const [sectionOverrides, setSectionOverrides] = useState<
+		Map<string, boolean>
+	>(new Map())
 
 	const categories = Object.keys(itemsByCategory).sort()
 	const allItems = Object.values(itemsByCategory).flat()
 	const totalItems = allItems.length
 	const checkedItemsList = allItems.filter((item) => item.checked)
 	const checkedItems = checkedItemsList.length
+	const progressPercent =
+		totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0
+
+	const toggleSection = (category: string) => {
+		setSectionOverrides((prev) => {
+			const next = new Map(prev)
+			const currentlyOpen = isSectionOpen(category)
+			next.set(category, !currentlyOpen)
+			return next
+		})
+	}
+
+	// A section is "open" if: user explicitly set it, or default (open unless fully checked)
+	const isSectionOpen = (category: string) => {
+		const override = sectionOverrides.get(category)
+		if (override !== undefined) return override
+		const items = itemsByCategory[category]
+		if (!items) return false
+		// Auto-collapse fully checked sections by default
+		return !items.every((item) => item.checked)
+	}
 
 	return (
 		<div className="pb-20 md:pb-6">
@@ -392,6 +417,23 @@ export default function ShoppingListRoute({
 			</div>
 
 			<div className="container py-6">
+				{/* Progress Bar */}
+				{totalItems > 0 && (
+					<div className="mb-6 print:hidden">
+						<div className="flex items-center gap-3">
+							<div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
+								<div
+									className="bg-accent h-full rounded-full transition-all duration-300"
+									style={{ width: `${progressPercent}%` }}
+								/>
+							</div>
+							<span className="text-muted-foreground w-10 text-right text-sm tabular-nums">
+								{progressPercent}%
+							</span>
+						</div>
+					</div>
+				)}
+
 				{/* Generate from Meal Plan */}
 				{hasMealPlan && (
 					<div className="mb-6 print:hidden">
@@ -467,17 +509,35 @@ export default function ShoppingListRoute({
 						{categories.map((category) => {
 							const items = itemsByCategory[category]
 							if (!items || items.length === 0) return null
+							const categoryChecked = items.filter((i) => i.checked).length
+							const isOpen = isSectionOpen(category)
 
 							return (
 								<div key={category}>
-									<h3 className="mb-3 text-sm font-semibold capitalize">
-										{CATEGORY_LABELS[category] || category}
-									</h3>
-									<div className="space-y-2">
-										{items.map((item) => (
-											<ShoppingListItemCard key={item.id} item={item} />
-										))}
-									</div>
+									<button
+										type="button"
+										onClick={() => toggleSection(category)}
+										className="mb-2 flex w-full items-center gap-2 text-left"
+									>
+										<Icon
+											name="chevron-down"
+											size="sm"
+											className={`text-muted-foreground transition-transform ${!isOpen ? '-rotate-90' : ''}`}
+										/>
+										<h3 className="text-sm font-semibold capitalize">
+											{CATEGORY_LABELS[category] || category}
+										</h3>
+										<span className="text-muted-foreground text-xs">
+											({categoryChecked}/{items.length})
+										</span>
+									</button>
+									{isOpen && (
+										<div className="space-y-2 pl-6">
+											{items.map((item) => (
+												<ShoppingListItemCard key={item.id} item={item} />
+											))}
+										</div>
+									)}
 								</div>
 							)
 						})}

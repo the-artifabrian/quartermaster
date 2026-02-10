@@ -131,8 +131,11 @@ function IngredientRow({
 				index % 2 === 0 && 'bg-muted/20',
 			)}
 		>
-			<div className="flex gap-2">
-				<div className="min-w-0 flex-1">
+			<div className="flex items-start gap-2">
+				<div className="text-muted-foreground/30 hidden pt-2.5 sm:block">
+					<Icon name="dots-horizontal" size="sm" />
+				</div>
+				<div className="min-w-0 flex-1 space-y-2">
 					<Input
 						id={`${id}-name`}
 						placeholder="Ingredient name"
@@ -141,21 +144,30 @@ function IngredientRow({
 						list={datalistId}
 						className="w-full"
 					/>
-				</div>
-				<div className="w-20">
+					<div className="flex gap-2">
+						<div className="flex-1 sm:w-20 sm:flex-none">
+							<Input
+								id={`${id}-amount`}
+								placeholder="Amount"
+								value={ingredient.amount ?? ''}
+								onChange={(e) => onUpdate('amount', e.target.value)}
+							/>
+						</div>
+						<div className="flex-1 sm:w-20 sm:flex-none">
+							<Input
+								id={`${id}-unit`}
+								placeholder="Unit"
+								value={ingredient.unit ?? ''}
+								onChange={(e) => onUpdate('unit', e.target.value)}
+							/>
+						</div>
+					</div>
 					<Input
-						id={`${id}-amount`}
-						placeholder="Amt"
-						value={ingredient.amount ?? ''}
-						onChange={(e) => onUpdate('amount', e.target.value)}
-					/>
-				</div>
-				<div className="w-20">
-					<Input
-						id={`${id}-unit`}
-						placeholder="Unit"
-						value={ingredient.unit ?? ''}
-						onChange={(e) => onUpdate('unit', e.target.value)}
+						id={`${id}-notes`}
+						placeholder="Notes (e.g., diced, room temperature)"
+						value={ingredient.notes ?? ''}
+						onChange={(e) => onUpdate('notes', e.target.value)}
+						className="text-sm"
 					/>
 				</div>
 				<Button
@@ -164,19 +176,12 @@ function IngredientRow({
 					size="icon"
 					onClick={onRemove}
 					disabled={!canRemove}
-					className={cn(!canRemove && 'opacity-30')}
+					className={cn('size-9', !canRemove && 'opacity-30')}
 					aria-label="Remove ingredient"
 				>
 					<Icon name="cross-1" size="sm" />
 				</Button>
 			</div>
-			<Input
-				id={`${id}-notes`}
-				placeholder="Notes (e.g., diced, room temperature)"
-				value={ingredient.notes ?? ''}
-				onChange={(e) => onUpdate('notes', e.target.value)}
-				className="text-sm"
-			/>
 		</div>
 	)
 }

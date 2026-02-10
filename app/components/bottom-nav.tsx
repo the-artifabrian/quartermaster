@@ -43,9 +43,26 @@ export function BottomNav() {
 
 	if (!user) return null
 
+	const activeIndex = navItems.findIndex((item) =>
+		item.matchPaths?.some((path) =>
+			path === '/'
+				? location.pathname === '/'
+				: location.pathname.startsWith(path),
+		),
+	)
+
 	return (
 		<nav className="bg-card/95 fixed inset-x-0 bottom-0 z-50 border-t border-border/50 shadow-[0_-1px_3px_oklch(20%_0.01_55/0.05)] backdrop-blur-sm md:hidden print:hidden">
-			<div className="flex h-16 items-center justify-around">
+			<div className="relative flex h-16 items-center justify-around">
+				{/* Sliding pill indicator */}
+				{activeIndex >= 0 && (
+					<div
+						className="bg-primary/10 absolute top-1/2 h-11 w-[calc(25%-8px)] -translate-y-1/2 rounded-xl transition-[left] duration-300 ease-out"
+						style={{
+							left: `calc(${activeIndex} * 25% + 4px)`,
+						}}
+					/>
+				)}
 				{navItems.map((item) => {
 					const isActive = item.matchPaths?.some((path) =>
 						path === '/'
@@ -58,25 +75,16 @@ export function BottomNav() {
 							key={item.to}
 							to={item.to}
 							className={cn(
-								'relative flex flex-col items-center justify-center gap-1 px-4 py-2 transition-all duration-200',
+								'relative z-10 flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors duration-200',
 								isActive
-									? 'bg-primary/10 text-primary rounded-xl'
+									? 'text-primary'
 									: 'text-muted-foreground hover:text-foreground',
 							)}
 						>
-							{/* no active top bar — pill bg handles it */}
-							{item.icon === 'plus' ? (
-								<span className="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-full">
-									<Icon name={item.icon} size="md" />
-								</span>
-							) : (
-								<>
-									<Icon name={item.icon} size="lg" />
-									<span className={cn('text-xs', isActive && 'font-semibold')}>
-										{item.label}
-									</span>
-								</>
-							)}
+							<Icon name={item.icon} size="lg" />
+							<span className={cn('text-xs', isActive && 'font-semibold')}>
+								{item.label}
+							</span>
 						</Link>
 					)
 				})}

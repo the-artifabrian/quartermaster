@@ -182,19 +182,31 @@ export function MealSlotCard({
 		)
 	}
 
-	// Filled slot: unchanged card with entries
+	// Filled slot: card with entries + add button in header
 	return (
 		<div className="group bg-card overflow-hidden rounded-xl border shadow-warm transition-shadow hover:shadow-warm-md">
-			<div className="bg-muted/30 border-b px-3 py-1.5">
+			<div className="bg-muted/30 flex items-center justify-between border-b px-3 py-1.5">
 				<p className="text-muted-foreground text-xs font-medium">
 					{MEAL_TYPE_LABELS[mealType]}
 				</p>
+				{!isSelectingRecipe && (
+					<button
+						type="button"
+						onClick={openRecipeSelector}
+						className="text-muted-foreground hover:text-foreground transition-colors"
+						title="Add another recipe"
+					>
+						<Icon name="plus" className="size-3.5" />
+					</button>
+				)}
 			</div>
-			<div className="space-y-2 p-3">
+			<div className="divide-y divide-border/50 p-3">
 				{entries.map((entry) => (
-					<EntryRow key={entry.id} entry={entry} />
+					<div key={entry.id} className="py-2 first:pt-0 last:pb-0">
+						<EntryRow entry={entry} />
+					</div>
 				))}
-				{isSelectingRecipe ? (
+				{isSelectingRecipe && (
 					<div className="border-t pt-2">
 						<RecipeSelector
 							recipes={recipes}
@@ -205,16 +217,6 @@ export function MealSlotCard({
 							pairingData={pairingData}
 						/>
 					</div>
-				) : (
-					<Button
-						variant="ghost"
-						size="sm"
-						className="w-full"
-						onClick={openRecipeSelector}
-					>
-						<Icon name="plus" size="sm" />
-						Add Another
-					</Button>
 				)}
 			</div>
 		</div>

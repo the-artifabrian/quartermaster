@@ -179,6 +179,8 @@ model HouseholdMember {
   id   String @id @default(cuid())
   role String @default("owner")
 
+  notificationsLastSeenAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

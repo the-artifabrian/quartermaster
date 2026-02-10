@@ -16,6 +16,7 @@ import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
+import { NotificationBell } from './components/notification-bell.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
 import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { Progress } from './components/progress-bar.tsx'
@@ -111,12 +112,33 @@ export async function loader({ request }: Route.LoaderArgs) {
 		// them in the database. Maybe they were deleted? Let's log them out.
 		await logout({ request, redirectTo: '/' })
 	}
+
+	let unreadNotificationCount = 0
+	if (userId) {
+		const member = await prisma.householdMember.findFirst({
+			where: { userId },
+			select: { householdId: true, notificationsLastSeenAt: true },
+		})
+		if (member) {
+			unreadNotificationCount = await prisma.householdEvent.count({
+				where: {
+					householdId: member.householdId,
+					userId: { not: userId },
+					...(member.notificationsLastSeenAt
+						? { createdAt: { gt: member.notificationsLastSeenAt } }
+						: {}),
+				},
+			})
+		}
+	}
+
 	const { toast, headers: toastHeaders } = await getToast(request)
 	const honeyProps = await honeypot.getInputProps()
 
 	return data(
 		{
 			user,
+			unreadNotificationCount,
 			requestInfo: {
 				hints: getHints(request),
 				origin: getDomainUrl(request),
@@ -264,6 +286,7 @@ function App() {
 											Discover
 										</NavLink>
 									</div>
+									<NotificationBell />
 									<UserDropdown />
 								</>
 							) : (

@@ -17,7 +17,7 @@ export function UserDropdown() {
 	const user = useUser()
 	const formRef = useRef<HTMLFormElement>(null)
 	return (
-		<DropdownMenu>
+		<DropdownMenu modal={false}>
 			<DropdownMenuTrigger asChild>
 				<Button asChild variant="secondary">
 					<Link

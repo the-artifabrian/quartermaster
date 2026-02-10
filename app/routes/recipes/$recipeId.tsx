@@ -457,36 +457,40 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [isCookingMode])
 
-	// Close modal after successful cook log submission
-	if (
-		prevCookFetcherState.current !== 'idle' &&
-		cookFetcher.state === 'idle' &&
-		cookFetcher.data?.success
-	) {
-		setShowCookModal(false)
-		setCookRating(0)
+	// Close modal + exit cooking mode after successful cook log submission
+	useEffect(() => {
+		if (
+			prevCookFetcherState.current !== 'idle' &&
+			cookFetcher.state === 'idle' &&
+			cookFetcher.data?.success
+		) {
+			setShowCookModal(false)
+			setCookRating(0)
+			exitCookingMode()
 
-		const summary = cookFetcher.data.inventorySummary
-		if (summary) {
-			const parts: string[] = []
-			if (summary.removed.length > 0) {
-				parts.push(`Removed ${summary.removed.join(', ')}.`)
+			const summary = cookFetcher.data.inventorySummary
+			if (summary) {
+				const parts: string[] = []
+				if (summary.removed.length > 0) {
+					parts.push(`Removed ${summary.removed.join(', ')}.`)
+				}
+				if (summary.updated.length > 0) {
+					parts.push(`Updated ${summary.updated.join(', ')}.`)
+				}
+				if (summary.flaggedLow.length > 0) {
+					parts.push(`${summary.flaggedLow.join(', ')} marked low.`)
+				}
+				toast.success('Inventory updated', {
+					description:
+						parts.length > 0
+							? parts.join(' ')
+							: 'No matching inventory items found.',
+				})
 			}
-			if (summary.updated.length > 0) {
-				parts.push(`Updated ${summary.updated.join(', ')}.`)
-			}
-			if (summary.flaggedLow.length > 0) {
-				parts.push(`${summary.flaggedLow.join(', ')} marked low.`)
-			}
-			toast.success('Inventory updated', {
-				description:
-					parts.length > 0
-						? parts.join(' ')
-						: 'No matching inventory items found.',
-			})
 		}
-	}
-	prevCookFetcherState.current = cookFetcher.state
+		prevCookFetcherState.current = cookFetcher.state
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [cookFetcher.state, cookFetcher.data])
 
 	function updateServings(newServings: number) {
 		const clamped = Math.max(1, newServings)
@@ -658,8 +662,17 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 										return (
 											<li
 												key={ingredient.id}
+												role="checkbox"
+												aria-checked={isChecked}
+												tabIndex={0}
 												className="hover:bg-accent/5 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 transition-colors select-none"
 												onClick={() => toggleIngredient(ingredient.id)}
+												onKeyDown={(e) => {
+													if (e.key === 'Enter' || e.key === ' ') {
+														e.preventDefault()
+														toggleIngredient(ingredient.id)
+													}
+												}}
 											>
 												<span
 													className={cn(
@@ -744,16 +757,20 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 												<button
 													key={inst.id}
 													onClick={() => setCurrentStep(idx)}
-													className={cn(
-														'size-2.5 rounded-full transition-all',
-														idx === currentStep
-															? 'bg-accent scale-125'
-															: checkedSteps.has(inst.id)
-																? 'bg-primary/40'
-																: 'bg-muted-foreground/20',
-													)}
+													className="flex size-8 items-center justify-center"
 													aria-label={`Go to step ${idx + 1}`}
-												/>
+												>
+													<span
+														className={cn(
+															'size-2.5 rounded-full transition-all',
+															idx === currentStep
+																? 'bg-accent scale-125'
+																: checkedSteps.has(inst.id)
+																	? 'bg-primary/40'
+																	: 'bg-muted-foreground/20',
+														)}
+													/>
+												</button>
 											))}
 										</div>
 
@@ -820,6 +837,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									return (
 										<li
 											key={instruction.id}
+											role="checkbox"
+											aria-checked={isChecked}
+											tabIndex={0}
 											className={cn(
 												'flex cursor-pointer gap-4 rounded-lg px-3 py-3 transition-all select-none',
 												isCurrent &&
@@ -828,6 +848,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 												!isCurrent && 'hover:bg-muted/50',
 											)}
 											onClick={() => toggleStep(instruction.id)}
+											onKeyDown={(e) => {
+												if (e.key === 'Enter' || e.key === ' ') {
+													e.preventDefault()
+													toggleStep(instruction.id)
+												}
+											}}
 										>
 											<span
 												className={cn(
@@ -893,7 +919,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							setShowCookModal(false)
 							setCookRating(0)
 						}}
-						onSuccess={exitCookingMode}
 					/>
 				)}
 			</>
@@ -1203,7 +1228,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			{/* Floating action bar - mobile only */}
-			<div className="fixed inset-x-4 bottom-20 z-30 md:hidden">
+			<div className="fixed inset-x-4 bottom-20 z-30 md:hidden print:hidden">
 				<div className="bg-card/95 flex items-center gap-2 rounded-2xl border p-2 shadow-warm-lg backdrop-blur-md">
 					<Button onClick={enterCookingMode} className="flex-1 gap-2">
 						<Icon name="play" size="sm" />
@@ -1215,6 +1240,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							type="submit"
 							variant="ghost"
 							size="icon"
+							aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
 							className={
 								isFavorite ? 'text-red-500 hover:text-red-600' : ''
 							}
@@ -1225,7 +1251,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							/>
 						</Button>
 					</favoriteFetcher.Form>
-					<Button asChild variant="ghost" size="icon">
+					<Button asChild variant="ghost" size="icon" aria-label="Edit recipe">
 						<Link to={`/recipes/${recipe.id}/edit`}>
 							<Icon name="pencil-1" size="md" />
 						</Link>
@@ -1246,31 +1272,28 @@ function CookCompleteModal({
 	setCookRating,
 	cookFetcher,
 	onClose,
-	onSuccess,
 }: {
 	ratio: number
 	cookRating: number
 	setCookRating: (r: number) => void
 	cookFetcher: ReturnType<typeof useFetcher>
 	onClose: () => void
-	onSuccess: () => void
 }) {
-	const prevState = useRef(cookFetcher.state)
-	const fetcherData = cookFetcher.data as
-		| { success?: boolean }
-		| undefined
-
-	if (
-		prevState.current !== 'idle' &&
-		cookFetcher.state === 'idle' &&
-		fetcherData?.success
-	) {
-		onSuccess()
-	}
-	prevState.current = cookFetcher.state
+	useEffect(() => {
+		function handleEscape(e: KeyboardEvent) {
+			if (e.key === 'Escape') onClose()
+		}
+		document.addEventListener('keydown', handleEscape)
+		return () => document.removeEventListener('keydown', handleEscape)
+	}, [onClose])
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+		<div
+			className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="cook-complete-title"
+		>
 			{/* Backdrop */}
 			<div
 				className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -1279,9 +1302,12 @@ function CookCompleteModal({
 			{/* Modal */}
 			<div className="bg-card relative w-full max-w-md rounded-t-2xl p-6 shadow-warm-lg sm:rounded-2xl">
 				<div className="mb-1 flex items-center justify-between">
-					<h2 className="font-serif text-xl font-bold">Nice work!</h2>
+					<h2 id="cook-complete-title" className="font-serif text-xl font-bold">
+						Nice work!
+					</h2>
 					<button
 						onClick={onClose}
+						aria-label="Close"
 						className="text-muted-foreground hover:text-foreground rounded-md p-1"
 					>
 						<Icon name="cross-1" size="sm" />

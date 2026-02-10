@@ -4,7 +4,6 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { addDays } from 'date-fns'
 import { Form, Link, redirect } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
-import { MealPlanWasteAlerts } from '#app/components/meal-plan-waste-alerts.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -89,11 +88,20 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const weekDays = getWeekDays(weekStart)
 
-	// Compute overlap and waste alerts when there are 2+ unique planned recipes
-	let overlapData = null
+	// Compute overlap stats and recipe suggestions when 2+ unique recipes planned
+	let overlapSummary: {
+		efficiencyPct: number
+		sharedCount: number
+		suggestions: Array<{
+			id: string
+			title: string
+			sharedCount: number
+			ingredients: string[]
+		}>
+	} | null = null
+
 	if (mealPlan.entries.length >= 2) {
 		const plannedRecipes = mealPlan.entries.map((e) => e.recipe)
-		// Deduplicate in case the same recipe is used in multiple slots
 		const uniquePlanned = [
 			...new Map(plannedRecipes.map((r) => [r.id, r])).values(),
 		]
@@ -102,30 +110,41 @@ export async function loader({ request }: Route.LoaderArgs) {
 			const overlap = analyzeIngredientOverlap(uniquePlanned)
 			const alerts = generateWasteAlerts(uniquePlanned, recipes)
 
-			// Resolve recipe IDs to titles for shared ingredients
-			const recipeTitleMap = new Map(
-				uniquePlanned.map((r) => [r.id, r.title]),
-			)
-			const sharedIngredients = [...overlap.sharedIngredients.entries()]
-				.map(([name, recipeIds]) => ({
-					name,
-					recipeNames: recipeIds
-						.map((id) => recipeTitleMap.get(id))
-						.filter(Boolean) as string[],
-				}))
-				.sort((a, b) => b.recipeNames.length - a.recipeNames.length)
+			// Aggregate suggestions by recipe, ranked by shared ingredient count
+			const recipeMap = new Map<
+				string,
+				{ title: string; ingredients: Set<string> }
+			>()
+			for (const alert of alerts) {
+				for (const recipe of alert.suggestedRecipes) {
+					const existing = recipeMap.get(recipe.id)
+					if (existing) {
+						existing.ingredients.add(alert.ingredientName)
+					} else {
+						recipeMap.set(recipe.id, {
+							title: recipe.title,
+							ingredients: new Set([alert.ingredientName]),
+						})
+					}
+				}
+			}
 
-			overlapData = {
-				efficiencyScore: overlap.efficiencyScore,
+			const suggestions = [...recipeMap.entries()]
+				.map(([id, { title, ingredients }]) => ({
+					id,
+					title,
+					sharedCount: ingredients.size,
+					ingredients: [...ingredients],
+				}))
+				.sort((a, b) => b.sharedCount - a.sharedCount)
+				.slice(0, 3)
+
+			overlapSummary = {
+				efficiencyPct: Math.round(
+					(1 - overlap.efficiencyScore) * 100,
+				),
 				sharedCount: overlap.sharedIngredients.size,
-				uniqueCount: overlap.uniqueCount,
-				totalSlots: overlap.totalSlots,
-				sharedIngredients,
-				alerts: alerts.map((a) => ({
-					ingredientName: a.ingredientName,
-					usedInRecipeTitle: a.usedInRecipeTitle,
-					suggestedRecipes: a.suggestedRecipes,
-				})),
+				suggestions,
 			}
 		}
 	}
@@ -139,7 +158,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		recipes,
 		weekDays,
 		weekStart: serializeDate(weekStart),
-		overlapData,
+		overlapSummary,
 	}
 }
 
@@ -348,7 +367,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
-	const { entries, recipes, weekDays, weekStart, overlapData } = loaderData
+	const { entries, recipes, weekDays, weekStart, overlapSummary } = loaderData
 
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
 	const nextWeek = serializeDate(getNextWeek(parseDate(weekStart)))
@@ -421,33 +440,61 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					</Button>
 				</div>
 
-				{/* Waste Alerts */}
-				{overlapData && (
-					<div className="mb-6">
-						<MealPlanWasteAlerts
-							efficiencyScore={overlapData.efficiencyScore}
-							sharedCount={overlapData.sharedCount}
-							uniqueCount={overlapData.uniqueCount}
-							totalSlots={overlapData.totalSlots}
-							sharedIngredients={overlapData.sharedIngredients}
-							alerts={overlapData.alerts}
-						/>
+				{/* Overlap summary + recipe suggestions */}
+				{overlapSummary && (
+					<div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+						<span className="bg-accent text-accent-foreground inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium">
+							<Icon name="cookie" size="xs" />
+							{overlapSummary.efficiencyPct}% overlap &middot;{' '}
+							{overlapSummary.sharedCount} shared ingredients
+						</span>
+						{overlapSummary.suggestions.length > 0 && (
+							<span className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
+								Pairs well:
+								{overlapSummary.suggestions.map((s, i) => (
+									<span key={s.id}>
+										<Link
+											to={`/recipes/${s.id}`}
+											className="text-foreground underline decoration-dotted underline-offset-2"
+										>
+											{s.title}
+										</Link>
+										<span className="text-muted-foreground">
+											{' '}
+											({s.sharedCount})
+										</span>
+										{i < overlapSummary.suggestions.length - 1 && ', '}
+									</span>
+								))}
+							</span>
+						)}
 					</div>
 				)}
 
 				{/* Empty State Guidance */}
 				{entries.length === 0 && (
-					<div className="bg-muted/30 mb-6 rounded-xl border border-dashed p-6 text-center hover:bg-accent/5 hover:border-accent/40">
-						<Icon name="clock" className="text-muted-foreground mx-auto size-10" />
-						<h3 className="mt-3 font-medium">No meals planned yet</h3>
-						<p className="text-muted-foreground mt-1 text-sm">
-							Tap a slot below to assign a recipe. Plan your meals for the
-							week, then generate a shopping list.
+					<div className="bg-card mb-6 rounded-2xl p-8 text-center shadow-warm-lg">
+						<h3 className="font-serif text-xl">Plan Your Week</h3>
+						<p className="text-muted-foreground mx-auto mt-2 max-w-md text-sm">
+							Pick recipes for each day, then generate a shopping list with
+							everything you need. Tap any slot below to get started.
 						</p>
-						{recipes.length === 0 && (
-							<Button asChild className="mt-4" size="sm">
-								<Link to="/recipes/new">Add Your First Recipe</Link>
+						{recipes.length === 0 ? (
+							<Button asChild className="mt-5">
+								<Link to="/recipes/new">
+									<Icon name="plus" size="sm" />
+									Add Your First Recipe
+								</Link>
 							</Button>
+						) : (
+							<div className="mt-5 flex justify-center gap-3">
+								<Button asChild variant="outline">
+									<Link to="/recipes">Browse Recipes</Link>
+								</Button>
+								<Button asChild>
+									<Link to="/discover">See What You Can Make</Link>
+								</Button>
+							</div>
 						)}
 					</div>
 				)}

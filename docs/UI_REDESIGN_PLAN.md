@@ -185,68 +185,65 @@ visual work.
 
 ---
 
-## Phase 3: Meal Plan — Visual and Inviting (~3 files)
+## Phase 3: Meal Plan — Visual and Inviting ✅ IMPLEMENTED
 
 **Files**: `app/routes/plan/index.tsx`, `app/components/meal-plan-calendar.tsx`,
 `app/components/meal-slot-card.tsx`
 
-Currently: a 7-column grid with text-only meal slots. It's functional but looks
-like a spreadsheet. Users should see their week of food at a glance, with
-imagery.
+The 7-column grid was functional but horizontally cramped — recipe titles
+truncated after a few characters and the page felt like a spreadsheet.
 
-### 3A. Meal Slot Cards with Recipe Images
+### 3A. Two-Row Calendar Layout ✅
 
-When a recipe is assigned to a slot and has an image, show a **small thumbnail**
-(`size-10 rounded-lg object-cover`) to the left of the recipe title. This single
-change transforms the calendar from a text grid to a visual meal plan.
+Replaced the 7-column grid with a **two-row layout**: Mon–Thu (4 columns) on
+top, Fri–Sun (3 columns + empty cell) below. Both rows use `grid-cols-4` for
+consistent column widths. Each day gets ~25% width instead of ~14%, giving
+recipe titles nearly double the breathing room. Cards with multiple entries use
+subtle `divide-border/50` separators between recipes.
 
-For recipes without images: show the colored placeholder circle (from Phase 1's
-improved `getRecipeGradient`) at the same size.
+### 3B. Meal Slot Cards with Recipe Images — SKIPPED
 
-### 3B. Today Column Emphasis
+Thumbnails (`size-10`) were implemented and tested but **removed** — in the
+narrow card columns they consumed too much horizontal space and cluttered the
+layout without adding enough value. The two-row layout improvement made this
+unnecessary.
 
-Current today highlight is `bg-accent/5 ring-1 ring-accent/20`. It's subtle to
-the point of being invisible.
+### 3C. Compact Card Layout ✅
 
-New: today's column header gets a filled badge
-(`bg-accent text-accent-foreground rounded-full px-3 py-0.5 text-xs font-semibold`).
-The column itself gets `bg-accent/[0.03]` (extremely subtle background) but the
-header stands out clearly.
+- "Add Another" button moved from a full-width button in the card body to a
+  small `+` icon in the card header's top-right corner
+- Saves a full line of vertical space per filled card
 
-### 3C. Mobile Calendar as Daily Cards
+### 3D. Today Column Emphasis ✅
 
-Current mobile: horizontal snap-scroll with 85vw cards. This works mechanically
-but every day looks the same.
+- Desktop: today's header uses a filled badge
+  (`bg-accent text-accent-foreground rounded-full px-3 py-0.5 text-xs font-semibold`)
+- Desktop: today's column gets a subtle `bg-accent/5` background
+- Mobile: today's card gets `border-t-2 border-accent`
 
-Improve by:
+### 3E. Mobile Calendar Improvements ✅
 
-- Showing today's card first (auto-scroll to today on mount via `useEffect` +
-  `scrollIntoView`)
-- Today's card gets a distinct top border: `border-t-2 border-accent`
-- Show a summary line at the top of each day card: "3 meals planned" or "Nothing
-  planned yet" in `text-xs text-muted-foreground`
-- Empty days: instead of just empty slots, show a warm illustration or friendly
-  message: "No meals planned for Tuesday. Add some?"
+- Auto-scroll to today on mount via `useRef` + `useEffect` +
+  `scrollIntoView({ behavior: 'smooth', inline: 'center' })`
+- Summary line per day card: "3 meals planned" or "Nothing planned yet" in
+  `text-xs text-muted-foreground`
 
-### 3D. Empty Meal Plan Welcome
+### 3F. Empty Meal Plan Welcome ✅
 
-Current empty state: icon + text. New: a warm, full-width card with:
+Replaced the dashed `bg-muted/30` empty state with a warm card:
+`bg-card rounded-2xl shadow-warm-lg p-8 text-center` with `font-serif text-xl`
+"Plan Your Week" heading, conversational subtitle, and dual CTAs ("Browse
+Recipes" → `/recipes`, "See What You Can Make" → `/discover`). Single "Add Your
+First Recipe" CTA if no recipes exist.
 
-- Illustration or food icon
-- "Plan Your Week" heading in `font-serif`
-- Brief description
-- Two CTAs: "Browse Recipes" (goes to /recipes) and "See What You Can Make"
-  (goes to /discover)
-- If there are recipes but no meal plan: "You have X recipes — let's plan your
-  week!"
+### 3G. Overlap Summary Redesign ✅
 
-### 3E. Waste Alerts Inline
-
-Currently waste alerts are a separate component above the calendar. Move them to
-be contextual: when viewing the meal plan, if a single-use ingredient is
-detected, show a small amber banner **below the relevant day's column**
-(desktop) or at the bottom of the day card (mobile): "Parsley only used once
-this week" with a link to browse recipes that also use parsley.
+Replaced the expandable `MealPlanWasteAlerts` dropdown (which showed an
+overwhelming wall of shared ingredient details) with a **compact inline
+summary**: a solid `bg-accent` badge showing the overlap percentage and shared
+ingredient count, followed by inline "Pairs well:" links to the top 3 recipe
+suggestions ranked by shared ingredient count. The old component
+(`meal-plan-waste-alerts.tsx`) was deleted.
 
 ---
 
@@ -600,7 +597,7 @@ over raw colors wherever possible.
 1. **Phase 1 (Recipe Detail + Cooking Mode)** ✅ — Highest daily-use impact.
    Cooking mode is the flagship new feature.
 2. **Phase 2 (Discover)** — Second most unique page, biggest "wow" potential.
-3. **Phase 3 (Meal Plan)** — Third most used, benefits most from imagery.
+3. **Phase 3 (Meal Plan)** ✅ — Two-row layout, compact cards, overlap redesign.
 4. **Phase 9 (Empty States)** — Quick wins, personality injection, can do
    alongside any phase.
 5. **Phase 4 (Inventory)** — Dashboard treatment improves daily check-in flow.

@@ -1,7 +1,9 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { addDays } from 'date-fns'
+import { Img } from 'openimg/react'
 import { useState } from 'react'
 import { Link } from 'react-router'
+import { MatchProgressRing } from '#app/components/match-progress-ring.tsx'
 import {
 	RecipeMatchCard,
 	RecipeMatchCardGrid,
@@ -10,11 +12,13 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { cn } from '#app/utils/misc.tsx'
 import {
 	ingredientMatchesInventoryItem,
 	matchRecipesWithInventory,
 	type RecipeMatch,
 } from '#app/utils/recipe-matching.server.ts'
+import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -121,6 +125,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 		recipeCount: recipes.length,
 		expiringMatches,
 		expiringItemCount: expiringItems.length,
+		expiringItems: expiringItems.map((item) => ({
+			id: item.id,
+			name: item.name,
+			daysUntilExpiry: Math.max(
+				0,
+				Math.floor(
+					(new Date(item.expiresAt!).getTime() - now.getTime()) /
+						(1000 * 60 * 60 * 24),
+				),
+			),
+		})),
 		cookingStats,
 	}
 }
@@ -132,6 +147,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 		recipeCount,
 		expiringMatches,
 		expiringItemCount,
+		expiringItems,
 		cookingStats,
 	} = loaderData
 	const [showOnlyMakeable, setShowOnlyMakeable] = useState(false)
@@ -171,6 +187,31 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 								</p>
 							</div>
 						</div>
+						{/* Expiring item pills */}
+						<div className="mb-4 flex flex-wrap gap-2">
+							{expiringItems.map((item) => {
+								const isUrgent = item.daysUntilExpiry <= 1
+								return (
+									<span
+										key={item.id}
+										className={cn(
+											'rounded-full px-3 py-1 text-xs font-medium',
+											isUrgent
+												? 'bg-red-100 text-red-700 animate-pulse dark:bg-red-900/30 dark:text-red-300'
+												: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+										)}
+									>
+										{item.name} (
+										{item.daysUntilExpiry === 0
+											? 'today'
+											: item.daysUntilExpiry === 1
+												? 'tomorrow'
+												: `${item.daysUntilExpiry} days`}
+										)
+									</span>
+								)
+							})}
+						</div>
 						<RecipeMatchCardGrid>
 							{expiringMatches.map((match) => (
 								<RecipeMatchCard
@@ -178,6 +219,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 									match={match}
 									lastCookedAt={cookingStats[match.recipe.id]?.lastCookedAt}
 									cookCount={cookingStats[match.recipe.id]?.cookCount}
+									urgentBorder
 								/>
 							))}
 						</RecipeMatchCardGrid>
@@ -190,11 +232,14 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 						<div className="mb-6 flex flex-wrap items-center justify-between gap-4">
 							<div className="flex flex-wrap gap-4 text-sm">
 								<div>
-									<span className="font-bold text-lg">{makeableCount}</span> recipes
-									you can make
+									<span className="text-lg font-bold">{makeableCount}</span>{' '}
+									recipes you can make
 								</div>
 								<div className="text-muted-foreground">
-									<span className="font-bold text-lg">{inventoryItemCount}</span> items in inventory
+									<span className="text-lg font-bold">
+										{inventoryItemCount}
+									</span>{' '}
+									items in inventory
 								</div>
 							</div>
 							<Button
@@ -209,16 +254,49 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 
 						{/* Recipe Matches */}
 						{displayMatches.length > 0 ? (
-							<RecipeMatchCardGrid>
-								{displayMatches.map((match) => (
-									<RecipeMatchCard
-										key={match.recipe.id}
-										match={match}
-										lastCookedAt={cookingStats[match.recipe.id]?.lastCookedAt}
-										cookCount={cookingStats[match.recipe.id]?.cookCount}
-									/>
-								))}
-							</RecipeMatchCardGrid>
+							(() => {
+								const heroMatch =
+									displayMatches[0]!.matchPercentage > 0
+										? displayMatches[0]!
+										: null
+								const gridMatches = heroMatch
+									? displayMatches.slice(1)
+									: displayMatches
+								return (
+									<>
+										{/* Hero Card — top match */}
+										{heroMatch && (
+											<HeroMatchCard
+												match={heroMatch}
+												cookingStats={cookingStats}
+											/>
+										)}
+
+										{/* Grid — remaining matches */}
+										{gridMatches.length > 0 ? (
+											<RecipeMatchCardGrid>
+												{gridMatches.map((match) => (
+													<RecipeMatchCard
+														key={match.recipe.id}
+														match={match}
+														lastCookedAt={
+															cookingStats[match.recipe.id]?.lastCookedAt
+														}
+														cookCount={
+															cookingStats[match.recipe.id]?.cookCount
+														}
+													/>
+												))}
+											</RecipeMatchCardGrid>
+										) : (
+											<p className="text-muted-foreground py-8 text-center text-sm">
+												This is your only recipe match — add more recipes to
+												see more suggestions.
+											</p>
+										)}
+									</>
+								)
+							})()
 						) : (
 							<div className="flex flex-col items-center justify-center py-16 text-center">
 								<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
@@ -321,6 +399,113 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 			</div>
+		</div>
+	)
+}
+
+function HeroMatchCard({
+	match,
+	cookingStats,
+}: {
+	match: RecipeMatch
+	cookingStats: Record<
+		string,
+		{ lastCookedAt: string | null; cookCount: number }
+	>
+}) {
+	const { recipe, matchPercentage, canMake, missingIngredients } = match
+	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
+	const placeholder = getRecipePlaceholder(recipe.title)
+	const stats = cookingStats[recipe.id]
+
+	return (
+		<div className="mb-6">
+			<p className="text-accent mb-2 font-serif text-sm font-medium md:hidden">
+				Tonight's Pick
+			</p>
+			<Link
+				to={`/recipes/${recipe.id}`}
+				className="bg-card group block overflow-hidden rounded-2xl shadow-warm-lg"
+			>
+				{/* Image area */}
+				<div className="relative aspect-[2/1] overflow-hidden">
+					{recipe.image?.objectKey ? (
+						<Img
+							src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
+							alt={recipe.title}
+							className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+							width={800}
+							height={400}
+						/>
+					) : (
+						<div
+							role="img"
+							aria-label={`${recipe.title} recipe`}
+							className={cn(
+								'flex h-full w-full items-center justify-center',
+								placeholder.bgClass,
+							)}
+						>
+							<div className="flex flex-col items-center gap-3">
+								<span
+									className={cn(
+										'text-8xl font-bold',
+										placeholder.letterColorClass,
+									)}
+								>
+									{placeholder.letter}
+								</span>
+								<Icon
+									name={placeholder.iconName}
+									className={cn('size-12', placeholder.iconColorClass)}
+								/>
+							</div>
+						</div>
+					)}
+					{/* Gradient scrim */}
+					<div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+					{/* Title overlay */}
+					<h3 className="absolute bottom-4 left-5 right-16 text-xl font-bold text-white drop-shadow-lg md:text-2xl">
+						{recipe.title}
+					</h3>
+					{/* Progress ring */}
+					<div className="absolute top-3 right-3">
+						<div className="rounded-full bg-white/80 p-1 shadow-lg backdrop-blur-sm dark:bg-black/60">
+							<MatchProgressRing percentage={matchPercentage} size={48} />
+						</div>
+					</div>
+				</div>
+
+				{/* Card body */}
+				<div className="flex flex-wrap items-center gap-3 p-5">
+					{canMake ? (
+						<span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
+							<Icon name="check" className="size-3.5" />
+							You have everything you need
+						</span>
+					) : (
+						<span className="text-muted-foreground text-sm">
+							Missing {missingIngredients.length} ingredient
+							{missingIngredients.length !== 1 && 's'}
+						</span>
+					)}
+					{totalTime > 0 && (
+						<span className="text-muted-foreground flex items-center gap-1 text-sm">
+							<Icon name="clock" size="xs" />
+							{totalTime} min
+						</span>
+					)}
+					{stats && stats.cookCount > 0 && stats.lastCookedAt && (
+						<span className="text-muted-foreground text-xs">
+							Made {stats.cookCount}{' '}
+							{stats.cookCount === 1 ? 'time' : 'times'}
+						</span>
+					)}
+					<span className="bg-primary text-primary-foreground ml-auto rounded-full px-4 py-1.5 text-sm font-medium transition-colors group-hover:opacity-90">
+						Let's Cook
+					</span>
+				</div>
+			</Link>
 		</div>
 	)
 }

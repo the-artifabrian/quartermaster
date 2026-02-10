@@ -4,12 +4,14 @@ import { formatTimeAgo } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { type RecipeMatch } from '#app/utils/recipe-matching.server.ts'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
+import { MatchProgressRing } from './match-progress-ring.tsx'
 import { Icon } from './ui/icon.tsx'
 
 type RecipeMatchCardProps = {
 	match: RecipeMatch
 	lastCookedAt?: string | null
 	cookCount?: number
+	urgentBorder?: boolean
 }
 
 
@@ -17,6 +19,7 @@ export function RecipeMatchCard({
 	match,
 	lastCookedAt,
 	cookCount,
+	urgentBorder,
 }: RecipeMatchCardProps) {
 	const { recipe, matchPercentage, canMake, missingIngredients } = match
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
@@ -24,7 +27,10 @@ export function RecipeMatchCard({
 	return (
 		<Link
 			to={`/recipes/${recipe.id}`}
-			className="group bg-card text-card-foreground block overflow-hidden rounded-xl border border-border/60 shadow-warm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-warm-md"
+			className={cn(
+				'group bg-card text-card-foreground block overflow-hidden rounded-xl border border-border/60 shadow-warm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-warm-md',
+				urgentBorder && 'border-l-4 border-l-amber-400 dark:border-l-amber-500',
+			)}
 		>
 			<div className="bg-muted relative aspect-[4/3] overflow-hidden rounded-t-lg">
 				{recipe.image?.objectKey ? (
@@ -65,21 +71,10 @@ export function RecipeMatchCard({
 						)
 					})()
 				)}
-				{/* Match Badge */}
+				{/* Match Progress Ring */}
 				<div className="absolute top-2 right-2">
-					<div
-						className={cn(
-							'rounded-full px-3 py-1 text-xs font-semibold shadow-lg backdrop-blur-sm',
-							canMake
-								? 'bg-green-600/90 text-white dark:bg-green-500/90'
-								: matchPercentage >= 75
-									? 'bg-blue-600/90 text-white dark:bg-blue-500/90'
-									: matchPercentage >= 50
-										? 'bg-amber-600/90 text-white dark:bg-amber-500/90'
-										: 'bg-muted-foreground/70 text-white',
-						)}
-					>
-						{matchPercentage}% Match
+					<div className="rounded-full bg-white/80 p-0.5 shadow-lg backdrop-blur-sm dark:bg-black/60">
+						<MatchProgressRing percentage={matchPercentage} size={40} />
 					</div>
 				</div>
 			</div>

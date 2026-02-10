@@ -44,7 +44,7 @@ export function BottomNav() {
 	if (!user) return null
 
 	return (
-		<nav className="bg-background fixed inset-x-0 bottom-0 z-50 border-t md:hidden print:hidden">
+		<nav className="bg-card/95 fixed inset-x-0 bottom-0 z-50 border-t border-border/50 shadow-[0_-1px_3px_oklch(20%_0.01_55/0.05)] backdrop-blur-sm md:hidden print:hidden">
 			<div className="flex h-16 items-center justify-around">
 				{navItems.map((item) => {
 					const isActive = item.matchPaths?.some((path) =>
@@ -58,15 +58,13 @@ export function BottomNav() {
 							key={item.to}
 							to={item.to}
 							className={cn(
-								'relative flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors',
+								'relative flex flex-col items-center justify-center gap-1 px-4 py-2 transition-all duration-200',
 								isActive
-									? 'text-primary'
+									? 'bg-primary/10 text-primary rounded-xl'
 									: 'text-muted-foreground hover:text-foreground',
 							)}
 						>
-							{isActive && (
-								<span className="bg-primary absolute top-0 right-2 left-2 h-0.5 rounded-full" />
-							)}
+							{/* no active top bar — pill bg handles it */}
 							{item.icon === 'plus' ? (
 								<span className="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-full">
 									<Icon name={item.icon} size="md" />

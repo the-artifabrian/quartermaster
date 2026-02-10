@@ -6,10 +6,13 @@ import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { StatusButton } from './ui/status-button.tsx'
 
-const locationBorderColors: Record<string, string> = {
-	pantry: 'border-l-amber-500',
-	fridge: 'border-l-blue-500',
-	freezer: 'border-l-cyan-500',
+const locationBadgeColors: Record<string, string> = {
+	pantry:
+		'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-200',
+	fridge:
+		'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-200',
+	freezer:
+		'bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-200',
 }
 
 type InventoryItemCardProps = {
@@ -29,29 +32,31 @@ export function InventoryItemCard({
 
 	return (
 		<div
-			className={cn(
-				'group bg-card text-card-foreground rounded-lg border border-l-4 shadow-sm',
-				locationBorderColors[item.location] ?? 'border-l-border',
-			)}
+			className="group bg-card text-card-foreground rounded-xl border shadow-warm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-warm-md"
 		>
 			<div className="flex items-start justify-between gap-2 p-4">
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-2">
 						<h3 className="line-clamp-1 font-semibold">{item.name}</h3>
+						<span
+							className={cn(
+								'rounded-full px-2 py-0.5 text-xs font-medium',
+								locationBadgeColors[item.location] ??
+									'bg-muted text-muted-foreground',
+							)}
+						>
+							{LOCATION_LABELS[item.location as keyof typeof LOCATION_LABELS]}
+						</span>
 						{item.lowStock && (
-							<span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700 dark:bg-orange-950 dark:text-orange-400">
+							<span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-200">
 								Low
 							</span>
 						)}
 					</div>
 
 					<div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-2 text-sm">
-						<span className="capitalize">
-							{LOCATION_LABELS[item.location as keyof typeof LOCATION_LABELS]}
-						</span>
 						{item.quantity && (
 							<>
-								<span>•</span>
 								<span>
 									{item.quantity} {item.unit}
 								</span>
@@ -61,11 +66,11 @@ export function InventoryItemCard({
 							<>
 								<span>•</span>
 								{isExpired ? (
-									<span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-400">
+									<span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-200">
 										Expired
 									</span>
 								) : isExpiringSoon ? (
-									<span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+									<span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-200">
 										Expires soon
 									</span>
 								) : (

@@ -38,7 +38,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 
 			<div className="flex-1">
 				<p
-					className={`font-medium ${item.checked ? 'text-muted-foreground line-through' : ''}`}
+					className={`font-medium ${item.checked ? 'text-muted-foreground/60 line-through' : ''}`}
 				>
 					{item.name}
 				</p>

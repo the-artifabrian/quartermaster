@@ -32,12 +32,12 @@ export default function Index() {
 			<section className="grid place-items-center px-4 py-20 text-center md:py-28">
 				<div className="max-w-2xl">
 					<div className="animate-slide-top fill-mode-[backwards]">
-						<Icon name="cookie" className="text-foreground mx-auto size-16" />
+						<Icon name="cookie" className="text-accent mx-auto size-16" />
 					</div>
 
 					<h1
 						data-heading
-						className="animate-slide-top text-foreground fill-mode-[backwards] mt-6 text-4xl font-medium [animation-delay:0.2s] md:text-5xl xl:text-6xl"
+						className="animate-slide-top text-foreground fill-mode-[backwards] mt-6 text-5xl font-medium tracking-tight [animation-delay:0.2s] md:text-6xl xl:text-7xl"
 					>
 						Quartermaster
 					</h1>
@@ -51,8 +51,11 @@ export default function Index() {
 					</p>
 
 					<div className="animate-slide-top fill-mode-[backwards] mt-8 [animation-delay:0.6s]">
-						<Button asChild size="lg">
-							<Link to="/signup">Get Started</Link>
+						<Button asChild size="lg" className="rounded-full px-8 shadow-warm-md">
+							<Link to="/signup">
+								Get Started
+								<Icon name="arrow-right" size="sm" />
+							</Link>
 						</Button>
 					</div>
 				</div>
@@ -64,32 +67,32 @@ export default function Index() {
 					Key Features
 				</h2>
 				<div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
-					<div className="bg-muted/50 rounded-xl p-6">
-						<Icon name="file-text" className="text-primary size-8" />
+					<div className="bg-card rounded-2xl border p-8 shadow-warm transition-all duration-300 hover:-translate-y-1 hover:shadow-warm-md">
+						<Icon name="file-text" className="text-accent size-8" />
 						<h3 className="mt-3 text-lg font-semibold">Recipe Collection</h3>
 						<p className="text-muted-foreground mt-1 text-sm">
 							Import from URLs, paste text, or build from scratch. Search and
 							filter your full library.
 						</p>
 					</div>
-					<div className="bg-muted/50 rounded-xl p-6">
-						<Icon name="home" className="text-primary size-8" />
+					<div className="bg-card rounded-2xl border p-8 shadow-warm transition-all duration-300 hover:-translate-y-1 hover:shadow-warm-md">
+						<Icon name="home" className="text-accent size-8" />
 						<h3 className="mt-3 text-lg font-semibold">Kitchen Inventory</h3>
 						<p className="text-muted-foreground mt-1 text-sm">
 							Track what's in your pantry, fridge, and freezer. Know what you
 							have at a glance.
 						</p>
 					</div>
-					<div className="bg-muted/50 rounded-xl p-6">
-						<Icon name="magnifying-glass" className="text-primary size-8" />
+					<div className="bg-card rounded-2xl border p-8 shadow-warm transition-all duration-300 hover:-translate-y-1 hover:shadow-warm-md">
+						<Icon name="magnifying-glass" className="text-accent size-8" />
 						<h3 className="mt-3 text-lg font-semibold">Discover Recipes</h3>
 						<p className="text-muted-foreground mt-1 text-sm">
 							Find recipes you can make right now based on ingredients you
 							already have.
 						</p>
 					</div>
-					<div className="bg-muted/50 rounded-xl p-6">
-						<Icon name="clock" className="text-primary size-8" />
+					<div className="bg-card rounded-2xl border p-8 shadow-warm transition-all duration-300 hover:-translate-y-1 hover:shadow-warm-md">
+						<Icon name="clock" className="text-accent size-8" />
 						<h3 className="mt-3 text-lg font-semibold">Meal Planning</h3>
 						<p className="text-muted-foreground mt-1 text-sm">
 							Plan your week, generate shopping lists, and never overbuy at the
@@ -103,9 +106,11 @@ export default function Index() {
 			<section className="animate-slide-top fill-mode-[backwards] px-4 pb-16 [animation-delay:1s]">
 				<div className="mx-auto max-w-2xl">
 					<h2 className="text-center text-2xl font-semibold">How It Works</h2>
-					<div className="mt-8 space-y-6">
-						<div className="flex gap-4">
-							<div className="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold">
+					<div className="relative mt-8 space-y-6">
+						{/* Connecting line */}
+						<div className="absolute top-4 bottom-4 left-4 w-px bg-border" />
+						<div className="relative flex gap-4">
+							<div className="bg-accent/10 text-accent flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold">
 								1
 							</div>
 							<div>
@@ -116,8 +121,8 @@ export default function Index() {
 								</p>
 							</div>
 						</div>
-						<div className="flex gap-4">
-							<div className="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold">
+						<div className="relative flex gap-4">
+							<div className="bg-accent/10 text-accent flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold">
 								2
 							</div>
 							<div>
@@ -128,8 +133,8 @@ export default function Index() {
 								</p>
 							</div>
 						</div>
-						<div className="flex gap-4">
-							<div className="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold">
+						<div className="relative flex gap-4">
+							<div className="bg-accent/10 text-accent flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold">
 								3
 							</div>
 							<div>
@@ -146,11 +151,16 @@ export default function Index() {
 
 			{/* Final CTA */}
 			<section className="animate-slide-top fill-mode-[backwards] px-4 pb-20 text-center [animation-delay:1.2s]">
-				<h2 className="text-xl font-semibold">Ready to get organized?</h2>
-				<div className="mt-4">
-					<Button asChild size="lg">
-						<Link to="/signup">Get Started</Link>
-					</Button>
+				<div className="mx-auto max-w-xl rounded-3xl bg-gradient-to-r from-primary/5 to-accent/5 p-12">
+					<h2 className="text-xl font-semibold">Ready to get organized?</h2>
+					<div className="mt-4">
+						<Button asChild size="lg" className="rounded-full px-8 shadow-warm-md">
+							<Link to="/signup">
+								Get Started
+								<Icon name="arrow-right" size="sm" />
+							</Link>
+						</Button>
+					</div>
 				</div>
 			</section>
 		</div>

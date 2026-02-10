@@ -159,7 +159,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="bg-muted/30">
+			<div className="bg-gradient-to-b from-card to-background border-b border-border/50">
 				<div className="container flex items-center justify-between py-6">
 					<div>
 						<h1 className="text-2xl font-bold">My Recipes</h1>
@@ -209,7 +209,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 
 			<div className="container py-6">
 				{/* Search & Filters */}
-				<div className="bg-muted/30 mb-6 space-y-4 rounded-xl p-4">
+				<div className="bg-card mb-6 space-y-4 rounded-2xl border border-border/50 p-4 shadow-warm">
 					<div className="flex gap-2">
 						<div className="relative flex-1">
 							<Icon
@@ -228,7 +228,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						<select
 							value={maxTime?.toString() ?? ''}
 							onChange={(e) => handleMaxTimeChange(e.target.value)}
-							className="bg-background border-input rounded-md border px-3 py-2 text-sm"
+							className="bg-card border-input rounded-lg border px-3 py-2 text-sm"
 						>
 							<option value="">Any time</option>
 							<option value="30">Under 30 min</option>
@@ -257,8 +257,8 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 									className={cn(
 										'rounded-full px-3 py-1 text-sm transition-colors',
 										isSelected
-											? 'bg-primary text-primary-foreground shadow-sm'
-											: 'bg-secondary hover:bg-secondary/80',
+											? 'bg-accent text-accent-foreground shadow-sm'
+											: 'bg-card border border-border hover:border-accent/50',
 									)}
 								>
 									{tag.name}
@@ -312,10 +312,10 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					</RecipeCardGrid>
 				) : hasFilters ? (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
 							<Icon
 								name="magnifying-glass"
-								className="text-muted-foreground size-10"
+								className="text-accent/50 size-10"
 							/>
 						</div>
 						<h2 className="mt-4 text-xl font-semibold">No matches found</h2>
@@ -333,8 +333,8 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				) : (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
-							<Icon name="cookie" className="text-muted-foreground size-10" />
+						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
+							<Icon name="cookie" className="text-accent/50 size-10" />
 						</div>
 						<h2 className="mt-4 text-xl font-semibold">
 							Your recipe book is empty

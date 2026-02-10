@@ -64,7 +64,7 @@ export default function PrepListRoute({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="bg-muted/30">
+			<div className="bg-gradient-to-b from-card to-background border-b border-border/50">
 				<div className="container flex items-center gap-3 py-6">
 					<Button asChild variant="ghost" size="icon" className="print:hidden">
 						<Link to="/plan">

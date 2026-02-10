@@ -48,6 +48,17 @@ export const links: Route.LinksFunction = () => {
 	return [
 		// Preload svg sprite as a resource to avoid render blocking
 		{ rel: 'preload', href: iconsHref, as: 'image' },
+		// Google Fonts
+		{ rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+		{
+			rel: 'preconnect',
+			href: 'https://fonts.gstatic.com',
+			crossOrigin: 'anonymous',
+		} as const,
+		{
+			rel: 'stylesheet',
+			href: 'https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&display=swap',
+		},
 		{
 			rel: 'icon',
 			href: '/favicon.ico',
@@ -238,19 +249,19 @@ function App() {
 			getSrc={getImgSrc}
 		>
 			<div className="flex min-h-screen flex-col justify-between">
-				<header className="container py-6">
-					<nav className="flex flex-wrap items-center justify-between gap-4 sm:flex-nowrap md:gap-8">
+				<header className="bg-card/80 border-border/50 sticky top-0 z-40 border-b backdrop-blur-sm">
+					<nav className="container flex flex-wrap items-center justify-between gap-4 py-4 sm:flex-nowrap md:gap-8">
 						<Logo />
 						<div className="ml-auto flex items-center gap-4 md:gap-10">
 							{user ? (
 								<>
-									<div className="hidden items-center gap-6 md:flex">
+									<div className="hidden items-center gap-2 md:flex">
 										<NavLink
 											to="/recipes"
 											className={({ isActive }) =>
 												isActive
-													? 'text-primary border-primary border-b-2 pb-1 text-sm font-medium transition-colors'
-													: 'text-muted-foreground hover:text-foreground pb-1 text-sm font-medium transition-colors'
+													? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+													: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
 											}
 										>
 											Recipes
@@ -259,8 +270,8 @@ function App() {
 											to="/inventory"
 											className={({ isActive }) =>
 												isActive
-													? 'text-primary border-primary border-b-2 pb-1 text-sm font-medium transition-colors'
-													: 'text-muted-foreground hover:text-foreground pb-1 text-sm font-medium transition-colors'
+													? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+													: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
 											}
 										>
 											Inventory
@@ -269,8 +280,8 @@ function App() {
 											to="/plan"
 											className={({ isActive }) =>
 												isActive
-													? 'text-primary border-primary border-b-2 pb-1 text-sm font-medium transition-colors'
-													: 'text-muted-foreground hover:text-foreground pb-1 text-sm font-medium transition-colors'
+													? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+													: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
 											}
 										>
 											Plan
@@ -279,8 +290,8 @@ function App() {
 											to="/discover"
 											className={({ isActive }) =>
 												isActive
-													? 'text-primary border-primary border-b-2 pb-1 text-sm font-medium transition-colors'
-													: 'text-muted-foreground hover:text-foreground pb-1 text-sm font-medium transition-colors'
+													? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+													: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
 											}
 										>
 											Discover
@@ -318,11 +329,8 @@ function App() {
 function Logo() {
 	return (
 		<Link to="/" className="group flex items-center gap-2">
-			<div className="text-2xl transition-transform group-hover:rotate-12">
-				👨‍🍳
-			</div>
 			<div className="grid leading-tight">
-				<span className="text-primary text-lg font-semibold">
+				<span className="text-foreground text-lg font-semibold">
 					Quartermaster
 				</span>
 			</div>

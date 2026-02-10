@@ -37,7 +37,7 @@ function Progress() {
 			<div
 				ref={ref}
 				className={cn(
-					'bg-foreground h-full w-0 duration-500 ease-in-out',
+					'bg-accent h-full w-0 duration-500 ease-in-out',
 					transition.state === 'idle' &&
 						(animationComplete
 							? 'transition-none'

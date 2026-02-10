@@ -4,70 +4,74 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-	--radius: 0.5rem;
+	--radius: 0.75rem;
 
-	--background: oklch(99% 0.005 120);
-	--foreground: oklch(15% 0.02 150);
+	--background: oklch(97.5% 0.008 75);
+	--foreground: oklch(20% 0.015 55);
 
-	--card: oklch(100% 0 0);
-	--card-foreground: oklch(15% 0.02 150);
+	--card: oklch(99.5% 0.004 75);
+	--card-foreground: oklch(20% 0.015 55);
 
-	--popover: oklch(100% 0 0);
-	--popover-foreground: oklch(15% 0.02 150);
+	--popover: oklch(99.5% 0.004 75);
+	--popover-foreground: oklch(20% 0.015 55);
 
-	/* Sage green primary */
-	--primary: oklch(52% 0.12 155);
-	--primary-foreground: oklch(99% 0.005 120);
+	/* Warm olive sage primary */
+	--primary: oklch(45% 0.10 145);
+	--primary-foreground: oklch(98% 0.005 75);
 
-	/* Light sage secondary */
-	--secondary: oklch(92% 0.04 150);
-	--secondary-foreground: oklch(35% 0.08 155);
+	/* Warm beige secondary */
+	--secondary: oklch(93% 0.02 75);
+	--secondary-foreground: oklch(35% 0.06 55);
 
-	--muted: oklch(95% 0.02 140);
-	--muted-foreground: oklch(50% 0.05 150);
+	--muted: oklch(94% 0.01 75);
+	--muted-foreground: oklch(50% 0.03 55);
 
-	/* Warm peach/coral accent */
-	--accent: oklch(75% 0.15 45);
-	--accent-foreground: oklch(15% 0.02 150);
+	/* Golden amber accent */
+	--accent: oklch(72% 0.14 70);
+	--accent-foreground: oklch(20% 0.015 55);
 
-	--border: oklch(90% 0.02 140);
-	--input: oklch(90% 0.02 140);
+	--border: oklch(90% 0.01 75);
+	--input: oklch(90% 0.01 75);
 	--input-invalid: oklch(63.68% 0.2078 25.33);
 
 	--destructive: oklch(57.14% 0.2121 27.25);
-	--destructive-foreground: oklch(99% 0.005 120);
+	--destructive-foreground: oklch(99% 0.005 75);
 	/* prefixed with foreground because it should look good on the background */
 	--foreground-destructive: oklch(51.46% 0.1979 16.57);
 
-	--ring: oklch(52% 0.12 155);
+	--ring: oklch(45% 0.10 145);
+
+	--shadow-warm: 0 1px 3px oklch(20% 0.01 55 / 0.08), 0 1px 2px oklch(20% 0.01 55 / 0.06);
+	--shadow-warm-md: 0 4px 6px oklch(20% 0.01 55 / 0.07), 0 2px 4px oklch(20% 0.01 55 / 0.06);
+	--shadow-warm-lg: 0 10px 15px oklch(20% 0.01 55 / 0.07), 0 4px 6px oklch(20% 0.01 55 / 0.05);
 }
 
 .dark {
-	--background: oklch(18% 0.02 150);
-	--foreground: oklch(95% 0.01 140);
+	--background: oklch(18% 0.01 55);
+	--foreground: oklch(93% 0.008 75);
 
-	--card: oklch(20% 0.02 150);
-	--card-foreground: oklch(95% 0.01 140);
+	--card: oklch(22% 0.012 55);
+	--card-foreground: oklch(93% 0.008 75);
 
-	--popover: oklch(20% 0.02 150);
-	--popover-foreground: oklch(95% 0.01 140);
+	--popover: oklch(22% 0.012 55);
+	--popover-foreground: oklch(93% 0.008 75);
 
-	/* Lighter sage for dark mode */
-	--primary: oklch(68% 0.12 155);
-	--primary-foreground: oklch(18% 0.02 150);
+	/* Lighter olive for dark mode contrast */
+	--primary: oklch(62% 0.10 145);
+	--primary-foreground: oklch(18% 0.01 55);
 
-	--secondary: oklch(30% 0.04 150);
-	--secondary-foreground: oklch(95% 0.01 140);
+	--secondary: oklch(28% 0.02 55);
+	--secondary-foreground: oklch(93% 0.008 75);
 
-	--muted: oklch(25% 0.02 150);
-	--muted-foreground: oklch(70% 0.04 150);
+	--muted: oklch(25% 0.01 55);
+	--muted-foreground: oklch(70% 0.04 55);
 
-	/* Warm peachy accent for dark mode */
-	--accent: oklch(65% 0.14 45);
-	--accent-foreground: oklch(18% 0.02 150);
+	/* Warm amber accent for dark mode */
+	--accent: oklch(65% 0.12 70);
+	--accent-foreground: oklch(18% 0.01 55);
 
-	--border: oklch(30% 0.02 150);
-	--input: oklch(30% 0.02 150);
+	--border: oklch(30% 0.01 55);
+	--input: oklch(30% 0.01 55);
 	--input-invalid: oklch(39.59% 0.1331 25.72);
 
 	--destructive: oklch(47.6% 0.159 25.64);
@@ -75,7 +79,7 @@
 	/* prefixed with foreground because it should look good on the background */
 	--foreground-destructive: oklch(63.72% 0.2071 21.89);
 
-	--ring: oklch(68% 0.12 155);
+	--ring: oklch(62% 0.10 145);
 }
 
 @theme inline {
@@ -104,6 +108,10 @@
 	--color-input-invalid: var(--input-invalid);
 	--color-destructive-foreground: var(--destructive-foreground);
 	--color-foreground-destructive: var(--foreground-destructive);
+	--shadow-warm: 0 1px 3px oklch(20% 0.01 55 / 0.08), 0 1px 2px oklch(20% 0.01 55 / 0.06);
+	--shadow-warm-md: 0 4px 6px oklch(20% 0.01 55 / 0.07), 0 2px 4px oklch(20% 0.01 55 / 0.06);
+	--shadow-warm-lg: 0 10px 15px oklch(20% 0.01 55 / 0.07), 0 4px 6px oklch(20% 0.01 55 / 0.05);
+	--font-sans: 'DM Sans', system-ui, sans-serif;
 }
 
 @theme {
@@ -152,6 +160,7 @@
 	--animate-slide-left: slide-left 0.3s ease-out;
 	--animate-slide-top: slide-top 0.3s ease-out;
 	--animate-caret-blink: caret-blink 1.25s ease-out infinite;
+	--animate-fade-up: fade-up 0.4s ease-out;
 
 	@keyframes roll-reveal {
 		from {
@@ -201,6 +210,18 @@
 			opacity: 0;
 		}
 	}
+
+	@keyframes fade-up {
+		from {
+			transform: translateY(8px);
+			opacity: 0;
+		}
+
+		to {
+			transform: translateY(0);
+			opacity: 1;
+		}
+	}
 }
 
 html {
@@ -224,6 +245,7 @@ html {
 	::before,
 	::backdrop,
 	::file-selector-button {
-		border-color: hsl(var(--border));
+		border-color: var(--color-border);
 	}
+
 }

@@ -160,7 +160,7 @@ export function RecipeForm({
 			<div className="rounded-xl border p-6">
 				<h3 className="mb-4 text-lg font-semibold">Photo</h3>
 				<div className="flex items-start gap-4">
-					<div className="bg-muted relative aspect-[4/3] w-40 overflow-hidden rounded-lg border">
+					<div className="relative aspect-[4/3] w-40 overflow-hidden rounded-lg border-2 border-dashed border-border/60 bg-muted/30">
 						{imagePreview ? (
 							<Img
 								src={imagePreview}
@@ -297,7 +297,7 @@ export function RecipeForm({
 											<span
 												className={`inline-flex cursor-pointer rounded-full px-3 py-1 text-sm transition-colors ${
 													isSelected
-														? 'bg-primary text-primary-foreground'
+														? 'bg-accent text-accent-foreground shadow-sm'
 														: 'bg-secondary hover:bg-secondary/80'
 												}`}
 											>

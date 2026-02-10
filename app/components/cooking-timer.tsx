@@ -136,7 +136,7 @@ export function CookingTimer({
 	return (
 		<div className="fixed right-4 bottom-20 z-50 md:right-6 md:bottom-6 print:hidden">
 			{isExpanded ? (
-				<div className="bg-card w-72 rounded-2xl border p-4 shadow-lg">
+				<div className="bg-card w-72 rounded-2xl border p-4 shadow-warm-lg">
 					{/* Header */}
 					<div className="mb-3 flex items-center justify-between">
 						<span className="text-sm font-semibold">Cooking Timer</span>
@@ -152,8 +152,8 @@ export function CookingTimer({
 					{/* Time display */}
 					<div
 						className={cn(
-							'mb-4 text-center font-mono text-4xl font-bold tabular-nums',
-							timer.status === 'alarming' && 'animate-pulse text-red-500',
+							'mb-4 text-center text-4xl font-bold tabular-nums',
+							timer.status === 'alarming' && 'ring-accent ring-2 animate-pulse text-red-500',
 						)}
 					>
 						{isActive

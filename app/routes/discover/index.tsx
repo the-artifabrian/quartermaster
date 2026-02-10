@@ -145,7 +145,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="bg-muted/30">
+			<div className="bg-gradient-to-b from-card to-background border-b border-border/50">
 				<div className="container py-6">
 					<h1 className="text-2xl font-bold">Discover Recipes</h1>
 					<p className="text-muted-foreground mt-1 text-sm">
@@ -157,7 +157,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 			<div className="container py-6">
 				{/* Expiring Items Suggestions */}
 				{expiringMatches.length > 0 && (
-					<div className="mb-8">
+					<div className="mb-8 rounded-2xl border border-accent/10 bg-accent/5 p-6">
 						<div className="mb-4 flex items-center gap-2">
 							<Icon name="clock" className="size-5 text-amber-500" />
 							<div>
@@ -190,11 +190,11 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 						<div className="mb-6 flex flex-wrap items-center justify-between gap-4">
 							<div className="flex flex-wrap gap-4 text-sm">
 								<div>
-									<span className="font-medium">{makeableCount}</span> recipes
+									<span className="font-bold text-lg">{makeableCount}</span> recipes
 									you can make
 								</div>
 								<div className="text-muted-foreground">
-									{inventoryItemCount} items in inventory
+									<span className="font-bold text-lg">{inventoryItemCount}</span> items in inventory
 								</div>
 							</div>
 							<Button
@@ -221,10 +221,10 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 							</RecipeMatchCardGrid>
 						) : (
 							<div className="flex flex-col items-center justify-center py-16 text-center">
-								<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+								<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
 									<Icon
 										name="magnifying-glass"
-										className="text-muted-foreground size-10"
+										className="text-accent/50 size-10"
 									/>
 								</div>
 								<h2 className="mt-4 text-xl font-semibold">
@@ -253,8 +253,8 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 					</>
 				) : inventoryItemCount === 0 && recipeCount === 0 ? (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
-							<Icon name="cookie" className="text-muted-foreground size-10" />
+						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
+							<Icon name="cookie" className="text-accent/50 size-10" />
 						</div>
 						<h2 className="mt-4 text-xl font-semibold">
 							Ready to discover what you can cook?
@@ -280,10 +280,10 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				) : inventoryItemCount === 0 ? (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
+						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
 							<Icon
 								name="file-text"
-								className="text-muted-foreground size-10"
+								className="text-accent/50 size-10"
 							/>
 						</div>
 						<h2 className="mt-4 text-xl font-semibold">
@@ -302,8 +302,8 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				) : (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="bg-muted/50 flex size-20 items-center justify-center rounded-full">
-							<Icon name="pencil-1" className="text-muted-foreground size-10" />
+						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
+							<Icon name="pencil-1" className="text-accent/50 size-10" />
 						</div>
 						<h2 className="mt-4 text-xl font-semibold">
 							Add your first recipe

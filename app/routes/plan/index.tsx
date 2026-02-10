@@ -357,7 +357,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="bg-muted/30">
+			<div className="bg-gradient-to-b from-card to-background border-b border-border/50">
 				<div className="container flex items-center justify-between py-6">
 					<div>
 						<h1 className="text-2xl font-bold">Meal Plan</h1>
@@ -437,7 +437,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 
 				{/* Empty State Guidance */}
 				{entries.length === 0 && (
-					<div className="bg-muted/30 mb-6 rounded-lg border border-dashed p-6 text-center">
+					<div className="bg-muted/30 mb-6 rounded-xl border border-dashed p-6 text-center hover:bg-accent/5 hover:border-accent/40">
 						<Icon name="clock" className="text-muted-foreground mx-auto size-10" />
 						<h3 className="mt-3 font-medium">No meals planned yet</h3>
 						<p className="text-muted-foreground mt-1 text-sm">

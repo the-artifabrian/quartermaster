@@ -154,7 +154,7 @@ export function MealSlotCard({
 	if (entries.length === 0) {
 		if (isSelectingRecipe) {
 			return (
-				<div className="bg-card rounded-lg border border-dashed p-3">
+				<div className="bg-card rounded-xl border border-dashed p-3 shadow-warm">
 					<div className="text-muted-foreground mb-2 text-xs font-medium">
 						{MEAL_TYPE_LABELS[mealType]}
 					</div>
@@ -174,7 +174,7 @@ export function MealSlotCard({
 			<button
 				type="button"
 				onClick={openRecipeSelector}
-				className="text-muted-foreground hover:text-foreground hover:border-primary/40 flex w-full items-center gap-1.5 rounded-md border border-dashed px-3 py-1.5 text-xs transition-colors"
+				className="text-muted-foreground hover:text-foreground hover:border-accent/40 hover:bg-accent/5 flex w-full items-center gap-1.5 rounded-xl border border-dashed px-3 py-1.5 text-xs transition-colors"
 			>
 				<Icon name="plus" size="xs" />
 				{MEAL_TYPE_LABELS[mealType]}
@@ -184,7 +184,7 @@ export function MealSlotCard({
 
 	// Filled slot: unchanged card with entries
 	return (
-		<div className="group bg-card overflow-hidden rounded-lg border transition-shadow hover:shadow-md">
+		<div className="group bg-card overflow-hidden rounded-xl border shadow-warm transition-shadow hover:shadow-warm-md">
 			<div className="bg-muted/30 border-b px-3 py-1.5">
 				<p className="text-muted-foreground text-xs font-medium">
 					{MEAL_TYPE_LABELS[mealType]}

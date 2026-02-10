@@ -506,7 +506,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				</div>
 
 				{/* Action buttons */}
-				<div className="mb-6 flex flex-wrap gap-2">
+				<div className="mb-6 bg-card/90 backdrop-blur-sm rounded-full border shadow-warm inline-flex gap-1 px-2 py-1 flex-wrap">
 					<favoriteFetcher.Form method="POST">
 						<input type="hidden" name="intent" value="toggleFavorite" />
 						<Button
@@ -552,7 +552,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 				{/* "I Made This" inline form */}
 				{showCookForm && (
-					<div className="bg-muted/30 mb-6 rounded-xl border p-4">
+					<div className="bg-card rounded-2xl border shadow-warm mb-6 p-4">
 						<h3 className="mb-3 font-semibold">Log Cooking</h3>
 						<cookFetcher.Form method="POST" className="space-y-3">
 							<input type="hidden" name="intent" value="logCook" />
@@ -640,10 +640,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Meta info */}
-				<div className="bg-muted/30 mb-6 flex flex-wrap items-center gap-4 rounded-xl px-5 py-4 text-sm">
+				<div className="bg-card border rounded-2xl shadow-warm mb-6 flex flex-wrap items-center gap-4 px-5 py-4 text-sm">
 					{/* Servings with scaling controls */}
 					<span className="flex items-center gap-1">
-						<Icon name="avatar" size="sm" className="text-muted-foreground" />
+						<Icon name="avatar" size="sm" className="text-accent" />
 						<Button
 							variant="outline"
 							size="sm"
@@ -677,7 +677,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					<span className="text-border hidden md:inline">|</span>
 					{recipe.prepTime && (
 						<span className="text-muted-foreground flex items-center gap-1">
-							<Icon name="clock" size="sm" />
+							<Icon name="clock" size="sm" className="text-accent" />
 							Prep: {recipe.prepTime} min
 						</span>
 					)}
@@ -685,7 +685,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						<>
 							<span className="text-border hidden md:inline">|</span>
 							<span className="text-muted-foreground flex items-center gap-1">
-								<Icon name="clock" size="sm" />
+								<Icon name="clock" size="sm" className="text-accent" />
 								Cook: {recipe.cookTime} min
 							</span>
 						</>
@@ -706,7 +706,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						{recipe.tags.map((tag) => (
 							<span
 								key={tag.id}
-								className="bg-primary/10 text-primary rounded-full px-3 py-1 text-sm font-medium"
+								className="bg-accent/10 border border-accent/20 rounded-full px-3 py-1 text-sm font-medium"
 							>
 								{tag.name}
 							</span>
@@ -749,7 +749,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				{recipe.rawText && (
 					<div className="mb-8">
 						<h2 className="mb-4 text-lg font-semibold">Recipe Notes</h2>
-						<div className="bg-muted/50 rounded-lg p-4">
+						<div className="bg-card rounded-2xl border shadow-warm p-4">
 							<pre className="font-sans text-sm whitespace-pre-wrap">
 								{recipe.rawText}
 							</pre>
@@ -771,7 +771,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 				<div className="grid gap-8 md:grid-cols-[1fr_2fr]">
 					{/* Ingredients */}
-					<div className="bg-muted/20 rounded-xl p-5">
+					<div className="bg-card border rounded-2xl shadow-warm p-6">
 						<div className="mb-4 flex items-center gap-2">
 							<h2 className="text-lg font-semibold">Ingredients</h2>
 							{isScaled && (
@@ -786,7 +786,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								return (
 									<li
 										key={ingredient.id}
-										className="hover:bg-muted/50 flex cursor-pointer items-start gap-2 rounded-md px-2 py-1 transition-colors select-none"
+										className="hover:bg-accent/5 flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1 transition-colors select-none"
 										onClick={() => toggleIngredient(ingredient.id)}
 									>
 										<span
@@ -838,8 +838,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 											className={cn(
 												'flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors',
 												isChecked
-													? 'bg-muted text-muted-foreground/50'
-													: 'bg-primary text-primary-foreground',
+													? 'bg-muted text-muted-foreground/50 line-through'
+													: 'bg-accent/10 text-accent border border-accent/20',
 											)}
 										>
 											{isChecked ? <Icon name="check" size="sm" /> : index + 1}
@@ -889,7 +889,7 @@ function CookingLogEntry({
 	const dc = useDoubleCheck()
 
 	return (
-		<div className="bg-muted/20 flex items-start gap-3 rounded-lg p-4">
+		<div className="bg-card rounded-2xl border shadow-warm flex items-start gap-3 p-4">
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-center gap-2">
 					<span className="text-sm font-medium">

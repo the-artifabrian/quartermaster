@@ -54,9 +54,9 @@ export function NotificationBell() {
 	const handleOpenChange = useCallback(
 		(open: boolean) => {
 			if (open) {
-				loadFetcher.load('/resources/notifications')
+				void loadFetcher.load('/resources/notifications')
 				if (unreadCount > 0) {
-					markReadFetcher.submit(null, {
+					void markReadFetcher.submit(null, {
 						method: 'POST',
 						action: '/resources/notifications',
 					})
@@ -86,7 +86,7 @@ export function NotificationBell() {
 				>
 					<Icon name="bell" className="size-5" />
 					{unreadCount > 0 ? (
-						<span className="bg-destructive text-destructive-foreground absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none">
+						<span className="bg-accent text-accent-foreground absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none">
 							{unreadCount > 99 ? '99+' : unreadCount}
 						</span>
 					) : null}
@@ -96,7 +96,7 @@ export function NotificationBell() {
 				<DropdownMenuContent
 					sideOffset={8}
 					align="end"
-					className="w-80 max-h-96 overflow-y-auto p-0"
+					className="w-80 max-h-96 overflow-y-auto rounded-xl shadow-warm-lg p-0"
 				>
 					<div className="border-b px-3 py-2">
 						<h3 className="text-sm font-semibold">Notifications</h3>
@@ -135,7 +135,7 @@ export function NotificationBell() {
 								const content = (
 									<div
 										className={`flex items-baseline justify-between gap-2 px-3 py-2 text-sm ${
-											isUnread ? 'bg-accent/50' : ''
+											isUnread ? 'bg-accent/5' : ''
 										}`}
 									>
 										<span className="text-foreground min-w-0 flex-1">

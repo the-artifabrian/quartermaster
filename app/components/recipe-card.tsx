@@ -20,16 +20,16 @@ type RecipeCardProps = {
 // Generate a consistent color gradient based on recipe title
 function getRecipeGradient(title: string) {
 	const gradients = [
-		'from-emerald-400 to-teal-500', // Green
-		'from-orange-400 to-amber-500', // Orange
-		'from-rose-400 to-pink-500', // Pink
-		'from-blue-400 to-cyan-500', // Blue
-		'from-purple-400 to-fuchsia-500', // Purple
-		'from-lime-400 to-green-500', // Lime
-		'from-amber-400 to-orange-500', // Amber
-		'from-indigo-400 to-blue-500', // Indigo
-		'from-red-400 to-rose-500', // Red
-		'from-cyan-400 to-blue-500', // Cyan
+		'from-secondary to-muted',
+		'from-secondary to-muted',
+		'from-secondary to-muted',
+		'from-secondary to-muted',
+		'from-secondary to-muted',
+		'from-secondary to-muted',
+		'from-secondary to-muted',
+		'from-secondary to-muted',
+		'from-secondary to-muted',
+		'from-secondary to-muted',
 	]
 
 	// Simple hash function to get consistent gradient for same title
@@ -59,7 +59,7 @@ export function RecipeCard({
 	return (
 		<Link
 			to={`/recipes/${id}`}
-			className="group bg-card text-card-foreground ring-border block overflow-hidden rounded-lg ring-1 transition-shadow hover:shadow-md"
+			className="group bg-card text-card-foreground block overflow-hidden rounded-xl border border-border/60 shadow-warm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-warm-md"
 		>
 			<div className="bg-muted relative aspect-[4/3] overflow-hidden rounded-t-lg">
 				{isFavorite && (
@@ -88,15 +88,15 @@ export function RecipeCard({
 						)}
 					>
 						<div className="flex flex-col items-center gap-2">
-							<span className="text-6xl font-bold text-white drop-shadow-lg">
+							<span className="text-accent/40 text-6xl font-bold">
 								{title.charAt(0).toUpperCase()}
 							</span>
-							<Icon name="cookie" className="size-8 text-white/80" />
+							<Icon name="cookie" className="text-accent/30 size-8" />
 						</div>
 					</div>
 				)}
 			</div>
-			<div className="p-4">
+			<div className="p-5">
 				<div className="flex items-start justify-between gap-2">
 					<h3 className="group-hover:text-primary line-clamp-1 font-semibold">
 						{title}
@@ -124,7 +124,7 @@ export function RecipeCard({
 						{tags.slice(0, 3).map((tag) => (
 							<span
 								key={tag.id}
-								className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs font-medium"
+								className="bg-accent/10 text-accent-foreground rounded-full border border-accent/20 px-2 py-0.5 text-xs font-medium"
 							>
 								{tag.name}
 							</span>

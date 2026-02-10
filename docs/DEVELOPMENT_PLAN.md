@@ -12,10 +12,11 @@ generation.
 
 ---
 
-## What's Built (Phases 1-13e) ✅
+## What's Built (Phases 1-13e + UI Redesign) ✅
 
 The app is feature-complete for solo and shared daily use. Here's a summary of
-everything implemented across 13 phases of development:
+everything implemented across 13 phases of development plus a comprehensive UI
+redesign:
 
 ### Recipe Management
 
@@ -112,8 +113,8 @@ everything implemented across 13 phases of development:
 
 ### UI, SEO & Infrastructure
 
-- Custom color system (sage green + peach accent, OKLch) and typography
-- Polished landing page, card designs, empty states, navigation
+- Custom color system (sage green + peach accent, OKLch) and Fraunces/DM Sans
+  typography
 - Descriptive `<title>`, canonical URLs, Open Graph / Twitter Card meta tags
 - JSON-LD Recipe structured data, marketing pages with sitemap
 - PWA with service worker: offline access for viewed recipes and meal plan
@@ -121,14 +122,44 @@ everything implemented across 13 phases of development:
 - Deployed on Fly.io with custom domain, HTTPS, and email
 - Mobile-first responsive layout with bottom navigation
 
+### UI Redesign (10 phases, see `docs/UI_REDESIGN_PLAN.md`)
+
+Transformed the app from "developer CRUD tool" to "daily cookbook":
+
+- **Recipe detail overhaul**: compact header with meta card, sticky ingredients
+  sidebar, dedicated cooking mode with mobile step paginator, wake lock,
+  floating timer, and "Done Cooking" completion modal
+- **Discover page**: hero card for top match ("Tonight's Pick"), SVG progress
+  rings for match percentage, expiring-item urgency pills
+- **Meal plan**: two-row calendar layout (4+3 columns), today emphasis, compact
+  cards, ingredient overlap summary with pairing suggestions
+- **Inventory dashboard**: summary strip (expiring/low-stock/total), expiring
+  callout card with "Find recipes" CTA, location section tints, human-readable
+  expiry countdowns
+- **Recipe list**: sort dropdown (5 options), grid/list view toggle, tag
+  category colors (cuisine/meal-type/dietary), cook-time filter
+- **Shopping list**: visual progress bar, collapsible category sections with
+  auto-collapse for checked sections
+- **Recipe form**: collapsible `<details>` sections with completion summaries,
+  mobile-friendly grid, improved ingredient row layout
+- **Navigation**: sliding pill indicator on mobile bottom nav, household name
+  in user dropdown
+- **Landing page**: hero with serif typography and warm gradient, 4-step
+  alternating feature story with mock UI visuals, dual CTAs
+- **Empty states**: warm personality messages with serif headings and contextual
+  illustrations across all pages
+- **Accessibility**: aria-labels on interactive controls, aria-pressed on
+  toggle buttons
+
 ---
 
 ## Roadmap
 
 Priority is driven by daily use — features that remove friction from the core
-cooking workflow come first. Phases 12 and 13 are complete. Phase 14
-(Monetization) ships after Phase 12 proves the no-waste planning story — that's
-the pitch that justifies paying, so it needs to be real first.
+cooking workflow come first. Phases 1–13 and the UI redesign are complete. Next
+up: targeted daily-use polish (Tonight banner, recipe sharing, full data export)
+before monetization. Phase 14 (Monetization) ships after the no-waste planning
+story is proven in real use — that's the pitch that justifies paying.
 
 ### Architecture Notes (from completed phases)
 
@@ -152,12 +183,14 @@ the pitch that justifies paying, so it needs to be real first.
 These items from the backlog should ship before or in parallel with Phase 14.
 They're not features — they're table stakes for charging money.
 
-- [ ] ⚡ **Landing page CTA fix** — "Get Started" links to `/login`, not
-      `/signup`. New users land on a login form and must find the signup link.
-      Quick win that directly impacts signup conversion. Do this first.
-- [ ] **Accessibility pass** — Icon-only buttons use `title` instead of
-      `aria-label`, ingredient cross-off lacks `role="button"`, no skip-to-
-      content link. Legal and ethical requirement for a paid product.
+- [x] ⚡ **Landing page CTA fix** — Landing page redesigned with "Start
+      Cooking — It's Free" CTA linking to `/signup`. Done in UI redesign
+      Phase 10.
+- [~] **Accessibility pass** — Partially done in UI redesign: aria-labels on
+      select elements, aria-pressed on toggle buttons (tag filters, view
+      toggles, favorites). Remaining: skip-to-content link, comprehensive
+      screen reader audit, focus management in cooking mode. Legal and ethical
+      requirement for a paid product.
 - [ ] **Import from export (data round-trip)** — JSON export exists but there's
       no import-from-export. Users burned by Yummly care about portability.
       Complete round-trip builds trust before asking people to pay.
@@ -173,6 +206,52 @@ They're not features — they're table stakes for charging money.
       Household tier, two users on different machines won't see each other's
       real-time events. Options: polling fallback, LiteFS broadcast, or Redis
       pub/sub. Must be resolved before Household tier launches.
+
+### Daily Use Polish
+
+These aren't new "phases" — they're targeted improvements that make the app
+more useful for people who cook daily. Prioritized by impact on the core
+workflow: plan → shop → cook → repeat.
+
+#### High Impact
+
+- [ ] **"Tonight" banner on meal plan** — If today's slot has a recipe, show a
+      prominent card: "Tonight: Chicken Tikka Masala" with a one-tap "Start
+      Cooking" button and a quick ingredient check against inventory. If today's
+      slot is empty, show a suggestion from the top Discover match. This turns
+      the Plan page into a daily dashboard, not just a weekly planner.
+- [ ] **Recipe sharing** — Add a "Share" button on recipe detail using the Web
+      Share API (`navigator.share()`) for native mobile sharing (copy link,
+      SMS, email). Fallback to clipboard copy on desktop. Currently recipes
+      have OG meta tags but no way to share them from the UI. Consider: public
+      read-only recipe URLs (opt-in per recipe) so shared links actually work
+      for non-users.
+- [ ] **Full data export** — Current download endpoint only exports the user
+      profile, not recipes, inventory, or meal plans. Add comprehensive JSON
+      export of all user data (recipes with ingredients/instructions/tags,
+      inventory items, meal plans, cooking logs). Trust issue — people won't
+      invest time entering 50+ recipes if they can't get their data out.
+
+#### Medium Impact
+
+- [ ] **Recipe print view** — Shopping list has `print:` styles but recipes
+      don't. Add a clean print layout for recipe detail (hide nav, actions,
+      compact ingredients + instructions). People still print recipes and tape
+      them to cabinets.
+- [ ] **Meal templates / recurring meals** — "Copy to Next Week" exists but
+      most families have a rotation, not a repeat. Save a week as a named
+      template ("Weeknight Easy" vs "Entertaining Week") or mark individual
+      meals as recurring ("Taco Tuesday"). Reduces weekly planning friction
+      significantly.
+- [ ] **Quick "I made this" from meal plan** — When cooking outside of cooking
+      mode (most meals), there's no fast way to log a cook and subtract
+      inventory. A quick action on the meal plan card (not just the "cooked"
+      checkbox) that logs the cook + subtracts ingredients in one tap would
+      help keep inventory accurate with less effort.
+- [ ] **Better low-match discovery** — When inventory is low, Discover shows
+      discouraging low percentages. Reframe as: "You're 2 items away from
+      making these 5 recipes" with an "Add missing to shopping list" button.
+      Turns low matches into actionable next steps instead of dead ends.
 
 ### Phase 14: Monetization
 
@@ -393,33 +472,27 @@ can be done between phases without disrupting planned work.
 
 - [ ] **Public recipe sharing** — `/r/$recipeId` public read-only route with
       JSON-LD, OG tags, and sitemap. Opt-in per recipe. Design access patterns
-      to work with household-scoped data from Phase 13.
+      to work with household-scoped data from Phase 13. See also "Recipe
+      sharing" in Daily Use Polish above.
 
 #### UX Improvements
 
-- [ ] **UX: Accessibility pass** — _Promoted to Pre-Phase 14 prerequisites._
-      See above.
-- [ ] ⚡ **UX: Landing page CTA** — _Promoted to Pre-Phase 14 prerequisites._
-      See above.
-- [ ] **UX: Unified cooking mode** — Wake lock, cooking timer, tap-to-cross-off,
-      and "I Made This" are separate sections scattered across the recipe detail
-      page. A dedicated cooking view that puts ingredients + instructions +
-      timer in one compact layout would reduce scrolling while actively cooking.
-- [ ] **UX: Recipe form length on mobile** — Photo, details, ingredients,
-      instructions, and tags all stack vertically. Tags at the bottom are easy
-      to forget. Consider collapsible sections or a multi-step form on mobile.
-- [ ] ⚡ **UX: Meal plan empty state** — New users see a blank 7-day grid with
-      no guidance. Add explanatory text like "Plan your meals for the week — tap
-      a slot to assign a recipe" on first visit.
+- [~] **UX: Accessibility pass** — _Promoted to Pre-Phase 14 prerequisites._
+      Partially done in UI redesign. See above.
+- [x] ⚡ **UX: Landing page CTA** — Done in UI redesign Phase 10.
+- [x] **UX: Unified cooking mode** — Done in UI redesign Phase 1. Dedicated
+      cooking view with step paginator, sticky ingredients, floating timer, and
+      "Done Cooking" modal.
+- [x] **UX: Recipe form length on mobile** — Done in UI redesign Phase 8.
+      Collapsible `<details>` sections with completion summaries.
+- [x] ⚡ **UX: Meal plan empty state** — Done in UI redesign Phase 9. Warm
+      card with "Plan Your Week" heading and dual CTAs.
 - [ ] **UX: Inventory quick-add quantity** — Quick-add only accepts a name.
       Adding optional inline quantity/unit/location fields would cut the
       add-then-edit workflow in half.
 - ~~⚡ **UX: Unsplash placeholder images for recipes**~~ — Tried and reverted.
-      Unsplash search results are too hit-or-miss for recipe titles (e.g.
-      "Chicken Cacciatore" returns a live chicken, "Classic Tiramisu" returns
-      abstract 3D art). Appending "food" to queries helped but didn't fully
-      solve it. Would need a food-specific image API or curated fallback set to
-      be reliable.
+      Deterministic warm-color placeholders implemented in UI redesign instead
+      (6 themes based on title hash).
 
 ---
 
@@ -450,7 +523,10 @@ can be done between phases without disrupting planned work.
 ---
 
 _Document created: February 2026. Last updated: February 10, 2026 — completed
-Phase 13e (notification bell). Compacted completed Phase 12 and 13 details into
-the "What's Built" summary. Added Pre-Phase 14 prerequisites section, free tier
-risk note, proven-gate status check, and Stripe dev/go-live split with PFA
-registration notes. 291 tests across 21 files._
+UI redesign (10 phases, see `docs/UI_REDESIGN_PLAN.md`): recipe detail with
+cooking mode, discover hero + progress rings, two-row meal plan, inventory
+dashboard, recipe list sort/view/tag colors, shopping list progress bar,
+collapsible recipe form, navigation animation, landing page overhaul, warm empty
+states. Marked completed backlog items (landing CTA, cooking mode, recipe form,
+empty states). Added "Daily Use Polish" section with prioritized improvements
+for daily cooking workflow. 291 tests across 21 files._

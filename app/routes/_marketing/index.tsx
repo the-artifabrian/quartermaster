@@ -52,7 +52,7 @@ export default function Index() {
 
 					<div className="animate-slide-top fill-mode-[backwards] mt-8 [animation-delay:0.6s]">
 						<Button asChild size="lg">
-							<Link to="/login">Get Started</Link>
+							<Link to="/signup">Get Started</Link>
 						</Button>
 					</div>
 				</div>
@@ -149,7 +149,7 @@ export default function Index() {
 				<h2 className="text-xl font-semibold">Ready to get organized?</h2>
 				<div className="mt-4">
 					<Button asChild size="lg">
-						<Link to="/login">Get Started</Link>
+						<Link to="/signup">Get Started</Link>
 					</Button>
 				</div>
 			</section>

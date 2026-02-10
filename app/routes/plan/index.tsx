@@ -435,6 +435,23 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 
+				{/* Empty State Guidance */}
+				{entries.length === 0 && (
+					<div className="bg-muted/30 mb-6 rounded-lg border border-dashed p-6 text-center">
+						<Icon name="clock" className="text-muted-foreground mx-auto size-10" />
+						<h3 className="mt-3 font-medium">No meals planned yet</h3>
+						<p className="text-muted-foreground mt-1 text-sm">
+							Tap a slot below to assign a recipe. Plan your meals for the
+							week, then generate a shopping list.
+						</p>
+						{recipes.length === 0 && (
+							<Button asChild className="mt-4" size="sm">
+								<Link to="/recipes/new">Add Your First Recipe</Link>
+							</Button>
+						)}
+					</div>
+				)}
+
 				{/* Calendar */}
 				<MealPlanCalendar
 					weekDays={weekDays}

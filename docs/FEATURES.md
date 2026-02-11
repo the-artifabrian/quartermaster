@@ -49,6 +49,11 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 - Click-to-assign recipes to meal slots, multiple recipes per slot
 - Per-entry serving size overrides with +/- controls
 - Mark meals as "cooked" with optimistic toggle UI
+- "Today/Tonight" banner (current week only): shows today's uncooked meals
+  with recipe image, cook time, servings, and "Start Cooking" link to cooking
+  mode. Empty state suggests a favorite recipe with one-tap "Add to Today"
+  (excludes already-planned recipes). Uses "Tonight" for dinner/snack,
+  "Today" for breakfast/lunch
 - Copy week to next week (preserves servings, skips duplicates)
 - Auto-generated shopping list with unit-aware ingredient consolidation
 - Grouped by store section (produce, dairy, meat, pantry, frozen, bakery, other)

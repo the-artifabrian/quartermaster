@@ -49,7 +49,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const favoritesOnly = url.searchParams.get('favorites') === 'true'
 	const rawMaxTime = url.searchParams.get('maxTime')
-	const maxTime = rawMaxTime ? (Number.isNaN(+rawMaxTime) ? null : +rawMaxTime) : null
+	const maxTime = rawMaxTime
+		? Number.isNaN(+rawMaxTime)
+			? null
+			: +rawMaxTime
+		: null
 
 	// Determine Prisma orderBy for simple sort options
 	const orderBy = (() => {
@@ -239,13 +243,12 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="from-card to-background border-border/50 border-b bg-gradient-to-b">
+			<div className="from-card to-background border-border/50 border-b bg-linear-to-b">
 				<div className="container flex items-center justify-between py-6">
 					<div>
 						<h1 className="text-2xl font-bold">My Recipes</h1>
 						<p className="text-muted-foreground mt-1 text-sm">
-							{totalRecipeCount}{' '}
-							{totalRecipeCount === 1 ? 'recipe' : 'recipes'}
+							{totalRecipeCount} {totalRecipeCount === 1 ? 'recipe' : 'recipes'}
 						</p>
 					</div>
 					<div className="flex gap-2">
@@ -255,7 +258,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								Surprise Me
 							</Link>
 						</Button>
-						<DropdownMenu>
+						<DropdownMenu modal={false}>
 							<DropdownMenuTrigger asChild>
 								<Button>
 									<Icon name="plus" size="sm" />
@@ -338,7 +341,9 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						<Button
 							variant={favoritesOnly ? 'default' : 'outline'}
 							onClick={handleFavoritesToggle}
-							aria-label={favoritesOnly ? 'Show all recipes' : 'Show favorites only'}
+							aria-label={
+								favoritesOnly ? 'Show all recipes' : 'Show favorites only'
+							}
 							aria-pressed={favoritesOnly}
 							className={cn(!favoritesOnly && 'bg-background')}
 						>

@@ -21,6 +21,7 @@ export type HouseholdEventType =
 	| 'shopping_list_item_added'
 	| 'shopping_list_cleared'
 	| 'shopping_list_to_inventory'
+	| 'recipes_bulk_imported'
 	| 'household_member_joined'
 	| 'household_member_left'
 

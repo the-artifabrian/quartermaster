@@ -25,11 +25,9 @@ for the full catalog.
 - **Household migration strategy**: 13a added columns (nullable), 13b swapped
   queries, 13c added invite flow, 13d/13e added real-time notifications. Each
   sub-phase was independently deployable and rollback-safe.
-- **Single-instance SSE**: SSE events emitted on one Fly machine won't reach
-  clients connected to another. This is a **blocking issue for the Household
-  tier** -- paying household members on different machines won't see each other's
-  events. Must be resolved before Household tier launches. See Pre-Phase 14
-  prerequisites.
+- **Single-instance SSE**: In-memory EventEmitter means SSE events only reach
+  clients on the same Fly machine. Blocking for Household tier. See **SSE
+  multi-instance fix** in Pre-Monetization prerequisites for details and options.
 - **Public recipe sharing** (backlog item): Would need to read household-scoped
   data from a public route. Don't couple authorization too tightly to the
   session.
@@ -39,18 +37,63 @@ for the full catalog.
 
 ---
 
-## Roadmap
+## Phase Now: Daily Driver
 
-Priority is driven by daily use -- features that remove friction from the core
-cooking workflow come first. Next up: targeted daily-use polish (Tonight banner,
-recipe sharing, full data export) before monetization. Phase 14 (Monetization)
-ships after the no-waste planning story is proven in real use -- that's the pitch
-that justifies paying.
+The app is feature-rich but not habit-forming yet. 140 recipes are still in
+Apple Notes. No one -- including the creator -- uses it as their daily cooking
+tool. Until that changes, no roadmap item matters.
 
-### Pre-Phase 14: Monetization Prerequisites
+### Current Reality
 
-These items should ship before or in parallel with Phase 14. They're not
-features -- they're table stakes for charging money.
+- Feature-complete for solo and shared daily use (Phases 1-13e + UI redesign)
+- 140 structured recipes still in Apple Notes waiting to be imported
+- A few testers have tried the app with promising reactions, but no habitual
+  daily users yet
+- Inventory tracking is untested in sustained real-world use -- the biggest
+  open question is how fast accuracy decays and whether the overhead is worth it
+- The app has no daily touchpoint -- nothing pulls a user back at 5pm to decide
+  what to cook
+
+### Critical Path
+
+1. ~~**Bulk import from Apple Notes**~~ -- **Done.** Paste-and-import flow at
+   `/recipes/bulk-import` with client-side parsing, instant preview, `---`
+   multi-recipe separator, session counter, and auto-clear/refocus for rapid
+   batch import.
+2. **"Tonight" banner on meal plan** -- The daily hook. If today has a planned
+   meal, show "Tonight: [Recipe]" with a one-tap "Start Cooking" button. If
+   empty, nudge with a suggestion. This turns the app into something you open
+   every evening.
+3. **Daily drive for 4+ weeks** -- Use the app for real cooking: plan the week,
+   shop from the list, cook from the app. Fix friction as it surfaces. Get
+   partner using it as a real co-user, not a tester.
+4. **Stress-test inventory** -- Track inventory honestly for a month. Measure
+   how fast it drifts. Determine whether the overhead is justified by the
+   discovery and subtraction benefits, or whether inventory needs to be more
+   passive (e.g., auto-populate from shopping list check-offs only).
+
+### Gate
+
+The app has **fully replaced Apple Notes** as the primary recipe store and
+**weekly meal planning happens in-app** for at least 4 consecutive weeks. Only
+then does the rest of the roadmap activate. If daily driving reveals that the
+core workflow has fundamental friction, fix that first -- don't layer more
+features on top.
+
+---
+
+## Future Roadmap
+
+Everything below activates after the daily driver gate is met. Priority is
+driven by real friction discovered during daily use, not theoretical roadmap
+planning. Items may be reprioritized or cut based on what actually matters in
+practice.
+
+### Pre-Monetization Prerequisites
+
+These items should ship before or in parallel with monetization. They're not
+features -- they're table stakes for charging money. Not urgent until the daily
+driver gate is met and real user adoption exists.
 
 - [x] **Landing page CTA fix** -- Landing page redesigned with "Start
       Cooking -- It's Free" CTA linking to `/signup`. Done in UI redesign
@@ -70,6 +113,16 @@ features -- they're table stakes for charging money.
       tooltips, or a "getting started" card on the dashboard. Retention before
       monetization matters -- users who don't build the habit in week 1 won't
       convert.
+- [ ] **Full data export** -- Current download endpoint only exports the user
+      profile, not recipes, inventory, or meal plans. Add comprehensive JSON
+      export of all user data (recipes with ingredients/instructions/tags,
+      inventory items, meal plans, cooking logs). Trust issue -- people won't
+      invest time entering 50+ recipes if they can't get their data out.
+- [ ] **Usage analytics for "proven" gate** -- The monetization "proven gate"
+      requires usage signals (pairing suggestion usage, prep list generation,
+      efficiency scores) that aren't currently tracked. Add basic event counters
+      so the gate can be evaluated concretely. Without this, the gate will be
+      deferred indefinitely.
 - [ ] **SSE multi-instance fix** -- SSE events emitted on one Fly machine won't
       reach clients on another. Fine for solo use, but if charging for the
       Household tier, two users on different machines won't see each other's
@@ -82,24 +135,22 @@ These aren't new "phases" -- they're targeted improvements that make the app
 more useful for people who cook daily. Prioritized by impact on the core
 workflow: plan -> shop -> cook -> repeat.
 
+> **Size legend**: `[S]` = a few hours, single file. `[M]` = a day or two,
+> multiple files. `[L]` = multiple days, new models or significant refactoring.
+
 #### High Impact
 
-- [ ] **"Tonight" banner on meal plan** `[M]` -- If today's slot has a recipe,
-      show a prominent card: "Tonight: Chicken Tikka Masala" with a one-tap
-      "Start Cooking" button and a quick ingredient check against inventory. If
-      today's slot is empty, show a suggestion from the top Discover match. This
-      turns the Plan page into a daily dashboard, not just a weekly planner.
+- [x] **"Tonight" banner on meal plan** `[M]` -- _Moved to Phase Now: Daily
+      Driver._ This is the daily hook, too important to sit in the future
+      roadmap.
 - [ ] **Recipe sharing** `[M]` -- Add a "Share" button on recipe detail using
       the Web Share API (`navigator.share()`) for native mobile sharing (copy
       link, SMS, email). Fallback to clipboard copy on desktop. Currently
       recipes have OG meta tags but no way to share them from the UI. Consider:
       public read-only recipe URLs (opt-in per recipe) so shared links actually
       work for non-users.
-- [ ] **Full data export** `[S]` -- Current download endpoint only exports the
-      user profile, not recipes, inventory, or meal plans. Add comprehensive
-      JSON export of all user data (recipes with ingredients/instructions/tags,
-      inventory items, meal plans, cooking logs). Trust issue -- people won't
-      invest time entering 50+ recipes if they can't get their data out.
+- [ ] **Full data export** `[S]` -- _Promoted to Pre-Phase 14 prerequisites._
+      See above.
 
 #### Medium Impact
 
@@ -133,10 +184,10 @@ less food, save money" -- needs to be real before asking people to pay for it.
 
 #### Implementation Tasks (Stripe test mode)
 
-- [ ] **Subscription model** -- Add `Subscription` model (or fields on User):
-      `tier` (free|pro|household), `stripeCustomerId`, `subscriptionExpiresAt`,
-      `trialEndsAt`. If Phase 13 ships first, add these fields in 13a's
-      migration to avoid a separate schema change.
+- [x] **Subscription model** -- `Subscription` model with `tier`,
+      `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionExpiresAt`,
+      `trialEndsAt` was added in Phase 13a's migration. No additional schema
+      change needed.
 - [ ] **Stripe integration** -- Subscriptions, webhooks, customer portal for
       self-service plan changes / cancellation. Use Stripe Checkout for the
       payment flow to avoid building card forms.
@@ -161,9 +212,8 @@ less food, save money" -- needs to be real before asking people to pay for it.
 
 Known issues to address before or alongside monetization:
 
-- **SSE single-instance limitation** -- In-memory EventEmitter means SSE events
-  only reach clients on the same Fly machine. Blocking for Household tier.
-  Options: polling fallback, LiteFS broadcast, Redis pub/sub.
+- **SSE single-instance limitation** -- See **SSE multi-instance fix** in
+  Pre-Monetization prerequisites.
 - **Fire-and-forget event emission** -- `emitHouseholdEvent()` wraps DB writes
   in try/catch and runs async without awaiting. Risk of SQLite concurrency
   issues under load. Tests already need `vi.mock()` for this. Consider
@@ -172,10 +222,8 @@ Known issues to address before or alongside monetization:
   inventory items into memory for matching. Fine at 50-100 recipes, but at
   500+ this could become slow. Profile with a realistic dataset and determine
   when pagination or server-side pre-filtering is needed.
-- **No analytics/tracking infrastructure** -- The "proven gate" for
-  monetization requires usage signals (pairing suggestion usage, prep list
-  generation, efficiency scores) that aren't currently tracked. Need basic
-  event counters or analytics before the gate can be evaluated.
+- **No analytics/tracking infrastructure** -- See **Usage analytics for
+  "proven" gate** in Pre-Monetization prerequisites.
 
 ---
 
@@ -201,7 +249,9 @@ quick wins that can be done between phases without disrupting planned work.
       all inventory items into memory for matching. Fine at 50 recipes, but at
       500+ this could become slow. Profile with a realistic dataset and
       determine when pagination or server-side pre-filtering is needed.
-- [ ] Bulk import (paste-and-parse for Apple Notes at scale)
+- [x] Bulk import (paste-and-parse for Apple Notes at scale) -- **Done.**
+      `/recipes/bulk-import` with client-side parser, `---` separator, max 50
+      per batch.
 - [ ] Performance audit (query profiling, lazy load images, bundle analysis)
 
 #### Intelligence & AI
@@ -263,7 +313,16 @@ quick wins that can be done between phases without disrupting planned work.
 
 ## Success Metrics
 
-### Shipped
+### Daily Driver (current focus)
+
+- [ ] All 140 Apple Notes recipes imported into the app
+- [ ] Apple Notes is no longer used for recipes
+- [ ] Weekly meal planning happens in-app for 4+ consecutive weeks
+- [ ] Partner uses the app as a real co-user (not just testing)
+- [ ] Inventory accuracy assessed after 4 weeks of real tracking
+- [ ] "Tonight" banner used as the daily cooking entry point
+
+### Shipped (features)
 
 - [x] Can find any recipe in < 5 seconds
 - [x] Discover recipes based on available ingredients
@@ -274,14 +333,14 @@ quick wins that can be done between phases without disrupting planned work.
 - [x] App has its own visual identity (custom color system + typography)
 - [x] Household sharing: two people use the same recipe library and meal plan
 
-### Adoption
+### Adoption (future)
 
-- [ ] 50+ real recipes imported (replacing Apple Notes as primary store)
+- [ ] 5+ external users with 10+ recipes each
 - [ ] Weekly meal plans regularly achieve 60%+ ingredient efficiency
 - [ ] Pairing suggestions used when building 3+ weekly plans
 - [ ] Prep list generated and referenced at least once per week
 
-### Monetization
+### Monetization (distant future)
 
 - [ ] Free tier retains users (>50% of signups add 5+ recipes)
 - [ ] Pro conversion rate >5% of active free users
@@ -290,7 +349,9 @@ quick wins that can be done between phases without disrupting planned work.
 
 ---
 
-_Last updated: February 10, 2026. Restructured from single 530-line file into
-three focused documents: [FEATURES.md](./FEATURES.md) (what's built),
+_Last updated: February 11, 2026. Refocused around daily driver adoption as
+the immediate priority. Monetization and feature expansion deferred until the
+app is proven in daily use. Three-doc structure:
+[FEATURES.md](./FEATURES.md) (what's built),
 [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md) (business strategy),
-and this file (forward-looking roadmap)._
+and this file (roadmap)._

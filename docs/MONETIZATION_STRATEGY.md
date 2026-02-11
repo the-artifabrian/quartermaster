@@ -66,7 +66,7 @@ differentiator. This is where ongoing development effort goes:
   waste alerts)
 - PWA offline access
 
-## Household Tier (~$50/year)
+## Household Tier (~$50-60/year)
 
 Natural upgrade for couples/families:
 
@@ -74,6 +74,11 @@ Natural upgrade for couples/families:
 - Shared recipe library, inventory, and meal plan
 - Invite household members
 - Real-time activity notifications
+
+> **Pricing note:** At $30-40/year for Pro and $50/year for Household, the gap
+> is only ~$10-20 for multi-user sync + real-time notifications — features with
+> real infrastructure cost. Consider $55-65/year to avoid devaluing the
+> household features while staying well under Plan to Eat / Mealime pricing.
 
 ---
 
@@ -147,6 +152,24 @@ VAT strategy before registering.
       with Stripe, connect PFA bank account for payouts
 - [ ] VAT setup -- Enable Stripe Tax and/or register for OSS depending on
       accountant's recommendation
+
+---
+
+## Churn Mitigation
+
+Target is <5% monthly churn on Pro. Strategies to build before launch:
+
+- **Graceful downgrade UX** -- When a subscription lapses, show a clear
+  "your data is safe" message. Pro features become read-only, not deleted.
+  Recipes beyond the free limit stay visible but new ones can't be added.
+- **Pause option** -- Offer 1-3 month pause instead of cancel. Users who
+  stop cooking temporarily (travel, busy season) shouldn't have to re-subscribe.
+- **Cancel flow** -- Before completing cancellation, show what they'll lose
+  (inventory tracking, X planned meals, shopping lists) with a "switch to
+  annual and save" offer if they're on monthly.
+- **Data export on cancel** -- Proactively offer a full JSON export during
+  the cancel flow. Builds goodwill and reduces "trapped data" anxiety that
+  causes angry churn.
 
 ---
 

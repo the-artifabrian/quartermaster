@@ -120,6 +120,16 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   messages with relative timestamps, unread highlighting, clickable links, and
   "View all activity" link. Badge clears optimistically
 
+## Onboarding
+
+- "Getting Started" checklist on `/recipes` for new users: tracks 3 steps (add
+  a recipe, stock inventory, plan a meal) with progress bar
+- Steps auto-complete based on household data (recipe/inventory/meal-plan counts
+  queried in loader)
+- Dismissible via X button (persisted to localStorage), auto-hides when all 3
+  steps are complete
+- Works correctly when joining an existing household (steps reflect shared data)
+
 ## UI, SEO & Infrastructure
 
 - Custom color system (sage green + peach accent, OKLch) and Fraunces/DM Sans

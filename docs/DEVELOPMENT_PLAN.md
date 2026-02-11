@@ -102,12 +102,10 @@ driver gate is met and real user adoption exists.
 - [ ] **Import from export (data round-trip)** -- JSON export exists but there's
       no import-from-export. Users burned by Yummly care about portability.
       Complete round-trip builds trust before asking people to pay.
-- [ ] **New user onboarding flow** -- No guided path from signup -> first
-      recipes -> discovering features. Pantry staples onboarding exists for
-      inventory, but nothing guides a user through adding their first 5 recipes
-      or exploring meal planning. Consider: welcome checklist, contextual
-      tooltips, or a "getting started" card on the dashboard. Retention before
-      convert.
+- [x] **New user onboarding flow** -- **Done.** "Getting Started" checklist card
+      on `/recipes` tracks 3 steps (add a recipe, stock inventory, plan a meal)
+      with progress bar. Auto-completes from household data, dismissible via
+      localStorage, auto-hides when all complete.
 - [ ] **Full data export** -- Current download endpoint only exports the user
       profile, not recipes, inventory, or meal plans. Add comprehensive JSON
       export of all user data (recipes with ingredients/instructions/tags,

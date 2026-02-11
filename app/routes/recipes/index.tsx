@@ -1,5 +1,6 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Link, useSearchParams } from 'react-router'
+import { GettingStartedChecklist } from '#app/components/getting-started-checklist.tsx'
 import {
 	RecipeCard,
 	RecipeCardGrid,
@@ -67,45 +68,50 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	})()
 
-	const [recipes, totalRecipeCount] = await Promise.all([
-		prisma.recipe.findMany({
-			where: {
-				householdId,
-				...(favoritesOnly && { isFavorite: true }),
-				...(search && {
-					OR: [
-						{ title: { contains: search } },
-						{ description: { contains: search } },
-						{ ingredients: { some: { name: { contains: search } } } },
-					],
-				}),
-				// Filter by ALL selected tags (AND logic)
-				...(selectedTagIds.length > 0 && {
-					AND: selectedTagIds.map((tagId) => ({
-						tags: { some: { id: tagId } },
-					})),
-				}),
-			},
-			select: {
-				id: true,
-				title: true,
-				description: true,
-				prepTime: true,
-				cookTime: true,
-				isFavorite: true,
-				image: { select: { objectKey: true } },
-				tags: { select: { id: true, name: true, category: true } },
-				cookingLogs: {
-					select: { cookedAt: true },
-					orderBy: { cookedAt: 'desc' as const },
-					take: 1,
+	const [recipes, totalRecipeCount, inventoryCount, mealPlanEntryCount] =
+		await Promise.all([
+			prisma.recipe.findMany({
+				where: {
+					householdId,
+					...(favoritesOnly && { isFavorite: true }),
+					...(search && {
+						OR: [
+							{ title: { contains: search } },
+							{ description: { contains: search } },
+							{ ingredients: { some: { name: { contains: search } } } },
+						],
+					}),
+					// Filter by ALL selected tags (AND logic)
+					...(selectedTagIds.length > 0 && {
+						AND: selectedTagIds.map((tagId) => ({
+							tags: { some: { id: tagId } },
+						})),
+					}),
 				},
-				_count: { select: { cookingLogs: true } },
-			},
-			orderBy,
-		}),
-		prisma.recipe.count({ where: { householdId } }),
-	])
+				select: {
+					id: true,
+					title: true,
+					description: true,
+					prepTime: true,
+					cookTime: true,
+					isFavorite: true,
+					image: { select: { objectKey: true } },
+					tags: { select: { id: true, name: true, category: true } },
+					cookingLogs: {
+						select: { cookedAt: true },
+						orderBy: { cookedAt: 'desc' as const },
+						take: 1,
+					},
+					_count: { select: { cookingLogs: true } },
+				},
+				orderBy,
+			}),
+			prisma.recipe.count({ where: { householdId } }),
+			prisma.inventoryItem.count({ where: { householdId } }),
+			prisma.mealPlanEntry.count({
+				where: { mealPlan: { householdId } },
+			}),
+		])
 
 	// Post-filter by total cook time (prepTime + cookTime).
 	// Recipes with no time data (both null) are included since unknown ≠ slow.
@@ -145,6 +151,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		sort,
 		view,
 		totalRecipeCount,
+		onboarding: {
+			hasRecipes: totalRecipeCount > 0,
+			hasInventory: inventoryCount > 0,
+			hasMealPlan: mealPlanEntryCount > 0,
+		},
 	}
 }
 
@@ -159,6 +170,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		sort,
 		view,
 		totalRecipeCount,
+		onboarding,
 	} = loaderData
 	const [searchParams, setSearchParams] = useSearchParams()
 
@@ -441,6 +453,8 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						</div>
 					)}
 				</div>
+
+				<GettingStartedChecklist onboarding={onboarding} />
 
 				{/* Recipe Grid / List */}
 				{recipes.length > 0 ? (

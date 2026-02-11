@@ -282,6 +282,12 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 										Import from URL
 									</Link>
 								</DropdownMenuItem>
+								<DropdownMenuItem asChild>
+									<Link to="/recipes/bulk-import" className="gap-2">
+										<Icon name="download" size="sm" />
+										Bulk Import
+									</Link>
+								</DropdownMenuItem>
 							</DropdownMenuContent>
 						</DropdownMenu>
 					</div>

@@ -96,6 +96,11 @@ export function formatEventMessage(
 				message: `${username} moved ${payload.count} items from the shopping list to inventory`,
 				url: '/inventory',
 			}
+		case 'recipes_bulk_imported':
+			return {
+				message: `${username} imported ${payload.count} recipes`,
+				url: '/recipes',
+			}
 		case 'household_member_joined':
 			return {
 				message: `${username} joined the household`,

@@ -19,6 +19,9 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 - Favorite/bookmark recipes with filter toggle
 - Import from URL (JSON-LD scraping) with duplicate detection, quick text entry,
   JSON export
+- Bulk import: paste plain-text recipes (Apple Notes format) with instant
+  client-side preview, `---` separator for multiple recipes per batch (max 50),
+  session counter, auto-clear and refocus for rapid paste-import-paste workflow
 - "Surprise me" random recipe picker
 - Cooking log with star ratings and notes ("I Made This")
 - "Last cooked" stats on recipe cards (cook count + relative time ago)
@@ -30,7 +33,11 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 - Three locations: Pantry, Fridge, Freezer
 - Items with optional quantity, unit, expiration, and low-stock flag
 - Quick-add shortcuts for 30 common ingredients
-- "What can I make?" discovery page with fuzzy ingredient matching
+- Ingredient normalization pipeline: ~40 modifier strippers, ~25 synonym groups,
+  pluralization handling. Powers matching, shopping consolidation, overlap
+  scoring, and waste detection across the entire app
+- "What can I make?" discovery page with 4-level fuzzy ingredient matching
+  (exact, synonym, core word, multi-word containment)
 - Match percentage scoring and missing ingredient highlighting
 - Expiration-based recipe suggestions ("Use It Before You Lose It")
 - Automatic inventory subtraction after cooking (with unit conversion and
@@ -85,9 +92,9 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   (`@epic-web/remember`) for SSE broadcasting, `HouseholdEvent` table for
   persistence. SSE endpoint with auth, 30s keepalive, self-event filtering,
   abort cleanup. Client EventSource with auto-reconnect (3-5s jitter)
-- 20 event types: recipe CRUD/import/favorite, cook logged, inventory
-  add/bulk-add/update/delete, meal plan assign/remove/cook/copy-week, shopping
-  list generate/add-item/clear/to-inventory, member join/leave
+- 21 event types: recipe CRUD/import/bulk-import/favorite, cook logged,
+  inventory add/bulk-add/update/delete, meal plan assign/remove/cook/copy-week,
+  shopping list generate/add-item/clear/to-inventory, member join/leave
 - Sonner toast notifications with "View" action navigation to relevant pages
 - Activity feed on household settings page (last 20 events, relative timestamps)
 - Auto-prune events older than 30 days (lazy, on SSE connect)
@@ -105,7 +112,7 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 - Descriptive `<title>`, canonical URLs, Open Graph / Twitter Card meta tags
 - JSON-LD Recipe structured data, marketing pages with sitemap
 - PWA with service worker: offline access for viewed recipes and meal plan
-- 291 unit/integration tests across 21 files
+- Comprehensive unit/integration test suite (Vitest) and e2e tests (Playwright)
 - Deployed on Fly.io with custom domain, HTTPS, and email
 - Mobile-first responsive layout with bottom navigation
 

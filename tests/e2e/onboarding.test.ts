@@ -102,7 +102,7 @@ test('onboarding with link', async ({ page, navigate, getOnboardingData }) => {
 
 	await page.getByRole('button', { name: /Create an account/i }).click()
 
-	await expect(page).toHaveURL(`/`)
+	await expect(page).toHaveURL(`/recipes`)
 
 	await page.getByRole('link', { name: 'User menu' }).click()
 	await page.getByRole('menuitem', { name: /profile/i }).click()
@@ -185,7 +185,7 @@ test('completes onboarding after GitHub OAuth given valid user details', async (
 		.check()
 	await createAccountButton.click()
 
-	await expect(page).toHaveURL('/')
+	await expect(page).toHaveURL('/recipes')
 	await expect(page.getByText(/thanks for signing up/i)).toBeVisible()
 
 	// internally, a user has been created:
@@ -228,7 +228,7 @@ test('logs user in after GitHub OAuth if they are already registered', async ({
 	await navigate('/signup')
 	await page.getByRole('button', { name: /signup with github/i }).click()
 
-	await expect(page).toHaveURL(`/`)
+	await expect(page).toHaveURL(`/recipes`)
 	await expect(
 		page.getByText(
 			new RegExp(
@@ -342,7 +342,7 @@ test('login as existing user', async ({ page, navigate, insertNewUser }) => {
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByLabel(/^password$/i).fill(password)
 	await page.getByRole('button', { name: /log in/i }).click()
-	await expect(page).toHaveURL(`/`)
+	await expect(page).toHaveURL(`/recipes`)
 
 	await expect(page.getByRole('link', { name: 'User menu' })).toBeVisible()
 })
@@ -400,7 +400,7 @@ test('reset password with a link', async ({
 	await page.getByLabel(/^password$/i).fill(newPassword)
 	await page.getByRole('button', { name: /log in/i }).click()
 
-	await expect(page).toHaveURL(`/`)
+	await expect(page).toHaveURL(`/recipes`)
 
 	await expect(page.getByRole('link', { name: 'User menu' })).toBeVisible()
 })

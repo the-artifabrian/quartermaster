@@ -47,7 +47,7 @@ export function GettingStartedChecklist({
 		},
 		{
 			title: 'Plan a meal',
-			description: 'Drag a recipe onto your weekly meal plan',
+			description: 'Add a recipe to your weekly meal plan',
 			icon: 'cookie',
 			href: '/plan',
 			done: onboarding.hasMealPlan,
@@ -110,10 +110,7 @@ export function GettingStartedChecklist({
 									: 'bg-background border-border border',
 							)}
 						>
-							<Icon
-								name={step.done ? 'check' : step.icon}
-								size="sm"
-							/>
+							<Icon name={step.done ? 'check' : step.icon} size="sm" />
 						</div>
 						<div className="min-w-0 flex-1">
 							<p

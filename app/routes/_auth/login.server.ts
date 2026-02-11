@@ -65,7 +65,7 @@ export async function handleNewSession(
 		authSession.set(sessionKey, session.id)
 
 		return redirect(
-			safeRedirect(redirectTo),
+			safeRedirect(redirectTo, '/recipes'),
 			combineResponseInits(
 				{
 					headers: {
@@ -133,7 +133,7 @@ export async function handleVerification({
 		await verifySessionStorage.destroySession(verifySession),
 	)
 
-	return redirect(safeRedirect(redirectTo), { headers })
+	return redirect(safeRedirect(redirectTo, '/recipes'), { headers })
 }
 
 export async function shouldRequestTwoFA(request: Request) {

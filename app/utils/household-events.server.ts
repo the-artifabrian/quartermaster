@@ -24,6 +24,8 @@ export type HouseholdEventType =
 	| 'recipes_bulk_imported'
 	| 'household_member_joined'
 	| 'household_member_left'
+	| 'meal_plan_template_saved'
+	| 'meal_plan_template_applied'
 
 export interface HouseholdEventData {
 	id: string

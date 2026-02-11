@@ -1,10 +1,15 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { addDays, isSameDay } from 'date-fns'
+import { addDays, differenceInCalendarDays, isSameDay } from 'date-fns'
+import { useState } from 'react'
 import { Form, Link, redirect } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
-import { TonightBanner } from '#app/components/tonight-banner.tsx'
+import {
+	ApplyTemplateModal,
+	SaveTemplateModal,
+} from '#app/components/template-modal.tsx'
+import { TodayBanner } from '#app/components/today-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -24,7 +29,13 @@ import {
 	analyzeIngredientOverlap,
 	generateWasteAlerts,
 } from '#app/utils/ingredient-overlap.server.ts'
+import { subtractRecipeIngredientsFromInventory } from '#app/utils/inventory-subtract.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
+import {
+	SaveTemplateSchema,
+	ApplyTemplateSchema,
+	DeleteTemplateSchema,
+} from '#app/utils/meal-template-validation.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -147,9 +158,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 				.slice(0, 3)
 
 			overlapSummary = {
-				efficiencyPct: Math.round(
-					(1 - overlap.efficiencyScore) * 100,
-				),
+				efficiencyPct: Math.round((1 - overlap.efficiencyScore) * 100),
 				sharedCount: overlap.sharedIngredients.size,
 				suggestions,
 			}
@@ -182,6 +191,21 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	if (isCurrentWeek) {
 		const today = new Date()
+		const hour = today.getHours()
+
+		// Determine which meal type is "next" based on time of day
+		const mealTypeOrder = ['breakfast', 'lunch', 'dinner', 'snack']
+		const currentMealIndex =
+			hour < 11 ? 0 : hour < 15 ? 1 : hour < 21 ? 2 : 3
+
+		// Sort entries so the next meal type comes first, then later ones in order
+		function mealTypeSortKey(mealType: string) {
+			const idx = mealTypeOrder.indexOf(mealType)
+			if (idx === -1) return 999
+			// Rotate so currentMealIndex comes first
+			return (idx - currentMealIndex + 4) % 4
+		}
+
 		const tonightEntries = mealPlan.entries
 			.filter((e) => isSameDay(new Date(e.date), today) && !e.cooked)
 			.map((e) => ({
@@ -197,6 +221,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 				mealType: e.mealType,
 				servings: e.servings,
 			}))
+			.sort((a, b) => mealTypeSortKey(a.mealType) - mealTypeSortKey(b.mealType))
 
 		let suggestion = null
 		if (tonightEntries.length === 0) {
@@ -206,9 +231,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 			suggestion = await prisma.recipe.findFirst({
 				where: {
 					householdId,
-					id: plannedRecipeIds.length > 0
-						? { notIn: plannedRecipeIds }
-						: undefined,
+					id:
+						plannedRecipeIds.length > 0
+							? { notIn: plannedRecipeIds }
+							: undefined,
 				},
 				orderBy: [{ isFavorite: 'desc' }, { updatedAt: 'desc' }],
 				select: {
@@ -222,6 +248,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 		tonightData = { entries: tonightEntries, suggestion }
 	}
 
+	// Fetch meal plan templates for this household
+	const templates = await prisma.mealPlanTemplate.findMany({
+		where: { householdId },
+		orderBy: { updatedAt: 'desc' },
+		select: {
+			id: true,
+			name: true,
+			_count: { select: { entries: true } },
+		},
+	})
+
 	return {
 		mealPlan,
 		entries: mealPlan.entries.map((entry) => ({
@@ -233,6 +270,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		weekStart: serializeDate(weekStart),
 		overlapSummary,
 		tonightData,
+		templates,
 	}
 }
 
@@ -288,7 +326,9 @@ export async function action({ request }: Route.ActionArgs) {
 				where: { id: recipeId },
 				select: { title: true },
 			})
-			const dayName = new Date(date).toLocaleDateString('en-US', { weekday: 'long' })
+			const dayName = new Date(date).toLocaleDateString('en-US', {
+				weekday: 'long',
+			})
 			void emitHouseholdEvent({
 				type: 'meal_plan_assigned',
 				payload: { title: recipe?.title ?? 'a recipe', day: dayName, mealType },
@@ -437,27 +477,251 @@ export async function action({ request }: Route.ActionArgs) {
 		return redirect(`/plan?weekStart=${serializeDate(nextWeekStart)}`)
 	}
 
+	if (intent === 'quickCook') {
+		const entryId = formData.get('entryId')
+		invariantResponse(typeof entryId === 'string', 'Entry ID is required')
+
+		const entry = await prisma.mealPlanEntry.findFirst({
+			where: { id: entryId, mealPlan: { householdId } },
+			include: {
+				recipe: { select: { id: true, title: true, servings: true } },
+			},
+		})
+		invariantResponse(entry, 'Entry not found', { status: 404 })
+		invariantResponse(!entry.cooked, 'Entry already cooked')
+
+		// Mark as cooked
+		await prisma.mealPlanEntry.update({
+			where: { id: entryId },
+			data: { cooked: true },
+		})
+
+		// Create cooking log (no rating/notes — that's what full cooking mode is for)
+		await prisma.cookingLog.create({
+			data: {
+				recipeId: entry.recipe.id,
+				userId,
+				cookedAt: new Date(),
+			},
+		})
+
+		// Subtract ingredients from inventory
+		const servingRatio =
+			entry.servings && entry.recipe.servings
+				? entry.servings / entry.recipe.servings
+				: 1
+		const inventorySummary = await subtractRecipeIngredientsFromInventory(
+			entry.recipe.id,
+			householdId,
+			servingRatio,
+		)
+
+		void emitHouseholdEvent({
+			type: 'meal_plan_cooked',
+			payload: { title: entry.recipe.title, cooked: true },
+			userId,
+			householdId,
+		})
+
+		void emitHouseholdEvent({
+			type: 'cook_logged',
+			payload: { recipeId: entry.recipe.id, title: entry.recipe.title },
+			userId,
+			householdId,
+		})
+
+		return {
+			status: 'success' as const,
+			recipeTitle: entry.recipe.title,
+			inventorySummary,
+		}
+	}
+
+	if (intent === 'saveTemplate') {
+		const submission = parseWithZod(formData, { schema: SaveTemplateSchema })
+		if (submission.status !== 'success') {
+			return { status: 'error' as const }
+		}
+
+		const { name, weekStart: weekStartStr } = submission.value
+		const weekStart = getWeekStart(parseDate(weekStartStr))
+
+		const mealPlan = await prisma.mealPlan.findFirst({
+			where: { householdId, weekStart },
+			include: { entries: true },
+		})
+		invariantResponse(
+			mealPlan && mealPlan.entries.length > 0,
+			'No entries to save as template',
+		)
+
+		const template = await prisma.mealPlanTemplate.create({
+			data: {
+				name,
+				userId,
+				householdId,
+				entries: {
+					create: mealPlan.entries.map((entry) => ({
+						dayOfWeek: differenceInCalendarDays(
+							new Date(entry.date),
+							weekStart,
+						),
+						mealType: entry.mealType,
+						recipeId: entry.recipeId,
+						servings: entry.servings,
+					})),
+				},
+			},
+		})
+
+		void emitHouseholdEvent({
+			type: 'meal_plan_template_saved',
+			payload: { name: template.name },
+			userId,
+			householdId,
+		})
+
+		return { status: 'success' as const }
+	}
+
+	if (intent === 'applyTemplate') {
+		const submission = parseWithZod(formData, {
+			schema: ApplyTemplateSchema,
+		})
+		if (submission.status !== 'success') {
+			return { status: 'error' as const }
+		}
+
+		const { templateId, weekStart: weekStartStr } = submission.value
+		const weekStart = getWeekStart(parseDate(weekStartStr))
+
+		const template = await prisma.mealPlanTemplate.findFirst({
+			where: { id: templateId, householdId },
+			include: { entries: true },
+		})
+		invariantResponse(template, 'Template not found', { status: 404 })
+
+		// Get or create meal plan for this week
+		let mealPlan = await prisma.mealPlan.findFirst({
+			where: { householdId, weekStart },
+		})
+
+		if (!mealPlan) {
+			mealPlan = await prisma.mealPlan.create({
+				data: { userId, householdId, weekStart },
+			})
+		}
+
+		// Create entries from template, skipping duplicates (same pattern as copyWeek)
+		// Use serializeDate+new Date to produce UTC midnight dates, matching how
+		// the assign action stores dates via z.coerce.date()
+		for (const tEntry of template.entries) {
+			const entryDate = new Date(
+				serializeDate(addDays(weekStart, tEntry.dayOfWeek)),
+			)
+			const existing = await prisma.mealPlanEntry.findUnique({
+				where: {
+					mealPlanId_date_mealType_recipeId: {
+						mealPlanId: mealPlan.id,
+						date: entryDate,
+						mealType: tEntry.mealType,
+						recipeId: tEntry.recipeId,
+					},
+				},
+			})
+			if (!existing) {
+				await prisma.mealPlanEntry.create({
+					data: {
+						mealPlanId: mealPlan.id,
+						date: entryDate,
+						mealType: tEntry.mealType,
+						recipeId: tEntry.recipeId,
+						servings: tEntry.servings,
+					},
+				})
+			}
+		}
+
+		void emitHouseholdEvent({
+			type: 'meal_plan_template_applied',
+			payload: { name: template.name },
+			userId,
+			householdId,
+		})
+
+		return { status: 'success' as const }
+	}
+
+	if (intent === 'deleteTemplate') {
+		const submission = parseWithZod(formData, {
+			schema: DeleteTemplateSchema,
+		})
+		if (submission.status !== 'success') {
+			return { status: 'error' as const }
+		}
+
+		const { templateId } = submission.value
+
+		const template = await prisma.mealPlanTemplate.findFirst({
+			where: { id: templateId, householdId },
+		})
+		invariantResponse(template, 'Template not found', { status: 404 })
+
+		await prisma.mealPlanTemplate.delete({
+			where: { id: templateId },
+		})
+
+		return { status: 'success' as const }
+	}
+
 	return { status: 'error' as const }
 }
 
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
-	const { entries, recipes, weekDays, weekStart, overlapSummary, tonightData } =
-		loaderData
+	const {
+		entries,
+		recipes,
+		weekDays,
+		weekStart,
+		overlapSummary,
+		tonightData,
+		templates,
+	} = loaderData
 
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
 	const nextWeek = serializeDate(getNextWeek(parseDate(weekStart)))
 	const currentWeek = serializeDate(getCurrentWeekStart())
+	const [showSaveTemplate, setShowSaveTemplate] = useState(false)
+	const [showApplyTemplate, setShowApplyTemplate] = useState(false)
 
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="bg-gradient-to-b from-card to-background border-b border-border/50">
+			<div className="from-card to-background border-border/50 border-b bg-gradient-to-b">
 				<div className="container flex items-center justify-between py-6">
 					<div>
 						<h1 className="text-2xl font-bold">Meal Plan</h1>
 						<p className="text-muted-foreground mt-1 text-sm">Plan your week</p>
 					</div>
-					<div className="flex gap-2">
+					<div className="flex flex-wrap gap-2">
+						{entries.length > 0 && (
+							<Button
+								variant="outline"
+								onClick={() => setShowSaveTemplate(true)}
+							>
+								<Icon name="plus" size="sm" />
+								Save Template
+							</Button>
+						)}
+						{templates.length > 0 && (
+							<Button
+								variant="outline"
+								onClick={() => setShowApplyTemplate(true)}
+							>
+								<Icon name="update" size="sm" />
+								Use Template
+							</Button>
+						)}
 						{entries.length > 0 && (
 							<Form method="POST">
 								<input type="hidden" name="intent" value="copyWeek" />
@@ -467,14 +731,6 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 									Copy to Next Week
 								</Button>
 							</Form>
-						)}
-						{entries.length > 0 && (
-							<Button asChild variant="outline">
-								<Link to="/plan/prep-list">
-									<Icon name="file-text" size="sm" />
-									Prep List
-								</Link>
-							</Button>
 						)}
 						<Button asChild variant="outline">
 							<Link to="/plan/shopping-list">
@@ -515,10 +771,10 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					</Button>
 				</div>
 
-					{/* Tonight banner (current week only) */}
+				{/* Tonight banner (current week only) */}
 				{tonightData &&
 					(tonightData.entries.length > 0 || tonightData.suggestion) && (
-						<TonightBanner
+						<TodayBanner
 							entries={tonightData.entries}
 							suggestion={tonightData.suggestion}
 						/>
@@ -557,7 +813,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 
 				{/* Empty State Guidance */}
 				{entries.length === 0 && (
-					<div className="bg-card mb-6 rounded-2xl p-8 text-center shadow-warm-lg">
+					<div className="bg-card shadow-warm-lg mb-6 rounded-2xl p-8 text-center">
 						<h3 className="font-serif text-xl">Plan Your Week</h3>
 						<p className="text-muted-foreground mx-auto mt-2 max-w-md text-sm">
 							Pick recipes for each day, then generate a shopping list with
@@ -591,6 +847,21 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					weekStart={weekStart}
 				/>
 			</div>
+
+			{showSaveTemplate && (
+				<SaveTemplateModal
+					weekStart={weekStart}
+					onClose={() => setShowSaveTemplate(false)}
+				/>
+			)}
+
+			{showApplyTemplate && (
+				<ApplyTemplateModal
+					templates={templates}
+					weekStart={weekStart}
+					onClose={() => setShowApplyTemplate(false)}
+				/>
+			)}
 		</div>
 	)
 }

@@ -111,6 +111,16 @@ export function formatEventMessage(
 				message: `${username} left the household`,
 				url: null,
 			}
+		case 'meal_plan_template_saved':
+			return {
+				message: `${username} saved meal plan template "${payload.name}"`,
+				url: '/plan',
+			}
+		case 'meal_plan_template_applied':
+			return {
+				message: `${username} applied template "${payload.name}"`,
+				url: '/plan',
+			}
 		default:
 			return {
 				message: `${username} performed an action`,

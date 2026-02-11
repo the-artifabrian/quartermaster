@@ -1,6 +1,7 @@
 import { type Recipe } from '@prisma/client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Form, useFetcher } from 'react-router'
+import { toast } from 'sonner'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
@@ -21,6 +22,16 @@ type MealSlotCardProps = {
 	weekStart: string
 }
 
+type QuickCookData = {
+	status: string
+	recipeTitle?: string
+	inventorySummary?: {
+		removed: string[]
+		updated: string[]
+		flaggedLow: string[]
+	} | null
+}
+
 function EntryRow({
 	entry,
 }: {
@@ -33,15 +44,55 @@ function EntryRow({
 }) {
 	const dc = useDoubleCheck()
 	const servingsFetcher = useFetcher()
-	const cookedFetcher = useFetcher()
+	const cookedFetcher = useFetcher<QuickCookData>()
+	const prevCookedFetcherState = useRef(cookedFetcher.state)
 
 	const currentServings = entry.servings ?? entry.recipe.servings
 
-	// Optimistic cooked state
+	// Optimistic cooked state: consider both quickCook and toggleCooked
+	const cookedIntent = cookedFetcher.formData?.get('intent')
 	const isCooked =
-		cookedFetcher.formData?.get('intent') === 'toggleCooked'
-			? !entry.cooked
-			: entry.cooked
+		cookedIntent === 'quickCook'
+			? true
+			: cookedIntent === 'toggleCooked'
+				? !entry.cooked
+				: entry.cooked
+
+	// Show toast when quickCook completes
+	useEffect(() => {
+		if (
+			prevCookedFetcherState.current !== 'idle' &&
+			cookedFetcher.state === 'idle' &&
+			cookedFetcher.data?.status === 'success' &&
+			cookedFetcher.data?.recipeTitle
+		) {
+			const summary = cookedFetcher.data.inventorySummary
+			if (summary) {
+				const parts: string[] = []
+				if (summary.removed.length > 0) {
+					parts.push(`Removed ${summary.removed.join(', ')}.`)
+				}
+				if (summary.updated.length > 0) {
+					parts.push(`Updated ${summary.updated.join(', ')}.`)
+				}
+				if (summary.flaggedLow.length > 0) {
+					parts.push(`${summary.flaggedLow.join(', ')} marked low.`)
+				}
+				toast.success(
+					`Cooked ${cookedFetcher.data.recipeTitle}`,
+					{
+						description:
+							parts.length > 0
+								? parts.join(' ')
+								: 'No matching inventory items found.',
+					},
+				)
+			} else {
+				toast.success(`Cooked ${cookedFetcher.data.recipeTitle}`)
+			}
+		}
+		prevCookedFetcherState.current = cookedFetcher.state
+	}, [cookedFetcher.state, cookedFetcher.data])
 
 	function updateServings(newServings: number) {
 		const clamped = Math.max(1, newServings)
@@ -59,7 +110,11 @@ function EntryRow({
 		<div className={cn('space-y-1', isCooked && 'opacity-60')}>
 			<div className="flex items-center gap-2">
 				<cookedFetcher.Form method="POST" className="flex-shrink-0">
-					<input type="hidden" name="intent" value="toggleCooked" />
+					<input
+						type="hidden"
+						name="intent"
+						value={entry.cooked ? 'toggleCooked' : 'quickCook'}
+					/>
 					<input type="hidden" name="entryId" value={entry.id} />
 					<button
 						type="submit"
@@ -69,7 +124,11 @@ function EntryRow({
 								? 'border-green-500 bg-green-500 text-white'
 								: 'border-muted-foreground/30 hover:border-green-500',
 						)}
-						title={isCooked ? 'Mark as not cooked' : 'Mark as cooked'}
+						title={
+							isCooked
+								? 'Mark as not cooked'
+								: 'Mark as cooked (logs cook + updates inventory)'
+						}
 					>
 						{isCooked && <Icon name="check" size="xs" />}
 					</button>

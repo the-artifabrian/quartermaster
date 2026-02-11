@@ -14,9 +14,9 @@ generation.
 
 ## What's Built
 
-Phases 1-13e and a 10-phase UI redesign are complete. The app is
-feature-complete for solo and shared daily use. See [FEATURES.md](./FEATURES.md)
-for the full catalog.
+Phases 1-13e, a 10-phase UI redesign, and the Daily Use Polish batch are
+complete. The app is feature-complete for solo and shared daily use. See
+[FEATURES.md](./FEATURES.md) for the full catalog.
 
 ---
 
@@ -60,11 +60,11 @@ tool. Until that changes, no roadmap item matters.
    `/recipes/bulk-import` with client-side parsing, instant preview, `---`
    multi-recipe separator, session counter, and auto-clear/refocus for rapid
    batch import.
-2. ~~**"Tonight" banner on meal plan**~~ -- **Done.** Warm accent banner on the
-   meal plan page (current week only) showing today's uncooked meals with
-   recipe image, cook time, servings, and a "Start Cooking" link to cooking
-   mode. Empty state suggests a favorite recipe with one-tap "Add to Today".
-   Excludes recipes already planned this week from suggestions.
+2. ~~**"Up next" banner on meal plan**~~ -- **Done.** Warm accent banner on the
+   meal plan page (current week only) showing the next chronological meal to
+   cook (time-of-day aware: breakfast → lunch → dinner → snack), with recipe
+   image, cook time, servings, remaining count, and "Start Cooking" link.
+   Empty state suggests a favorite recipe with one-tap "Add to Today".
 3. **Daily drive for 4+ weeks** -- Use the app for real cooking: plan the week,
    shop from the list, cook from the app. Fix friction as it surfaces. Get
    partner using it as a real co-user, not a tester.
@@ -120,8 +120,8 @@ driver gate is met and real user adoption exists.
       inventory items, meal plans, cooking logs). Trust issue -- people won't
       invest time entering 50+ recipes if they can't get their data out.
 - [ ] **Usage analytics for "proven" gate** -- The monetization "proven gate"
-      requires usage signals (pairing suggestion usage, prep list generation,
-      efficiency scores) that aren't currently tracked. Add basic event counters
+      requires usage signals (pairing suggestion usage, efficiency scores)
+      that aren't currently tracked. Add basic event counters
       so the gate can be evaluated concretely. Without this, the gate will be
       deferred indefinitely.
 - [ ] **SSE multi-instance fix** -- SSE events emitted on one Fly machine won't
@@ -141,33 +141,30 @@ workflow: plan -> shop -> cook -> repeat.
 
 #### High Impact
 
-- [x] **"Today/Tonight" banner on meal plan** `[M]` -- _Moved to Phase Now:
+- [x] **"Up next" banner on meal plan** `[M]` -- _Moved to Phase Now:
       Daily Driver._ Done. See Critical Path #2 above.
-- [ ] **Recipe sharing** `[M]` -- Add a "Share" button on recipe detail using
-      the Web Share API (`navigator.share()`) for native mobile sharing (copy
-      link, SMS, email). Fallback to clipboard copy on desktop. Currently
-      recipes have OG meta tags but no way to share them from the UI. Consider:
-      public read-only recipe URLs (opt-in per recipe) so shared links actually
-      work for non-users.
+- [x] **Recipe sharing** `[M]` -- **Done.** Share button on recipe detail
+      using Web Share API (`navigator.share()`) for native mobile sharing,
+      with clipboard fallback + toast on desktop. Note: shared links require
+      a Quartermaster account. Public recipe URLs remain a backlog item.
 - [ ] **Full data export** `[S]` -- _Promoted to Pre-Phase 14 prerequisites._
       See above.
 
 #### Medium Impact
 
-- [ ] **Recipe print view** `[S]` -- Shopping list has `print:` styles but
-      recipes don't. Add a clean print layout for recipe detail (hide nav,
-      actions, compact ingredients + instructions). People still print recipes
-      and tape them to cabinets.
-- [ ] **Meal templates / recurring meals** `[L]` -- "Copy to Next Week" exists
-      but most families have a rotation, not a repeat. Save a week as a named
-      template ("Weeknight Easy" vs "Entertaining Week") or mark individual
-      meals as recurring ("Taco Tuesday"). Reduces weekly planning friction
-      significantly.
-- [ ] **Quick "I made this" from meal plan** `[S]` -- When cooking outside of
-      cooking mode (most meals), there's no fast way to log a cook and subtract
-      inventory. A quick action on the meal plan card (not just the "cooked"
-      checkbox) that logs the cook + subtracts ingredients in one tap would help
-      keep inventory accurate with less effort.
+- [x] **Recipe print view** `[S]` -- **Done.** Print button on recipe detail,
+      `print:hidden` on nav/actions/history, single-column layout with flat
+      cards. Matches shopping list print pattern.
+- [x] **Meal templates** `[L]` -- **Done.** Save a week as a named template
+      ("Weeknight Easy", "Entertaining Week"), apply templates to any week
+      (skips duplicate slots), delete templates. `MealPlanTemplate` +
+      `MealPlanTemplateEntry` models, household-scoped, with real-time event
+      notifications and full test coverage.
+- [x] **Quick "I made this" from meal plan** `[S]` -- **Done.** Tapping the
+      unchecked circle on a meal plan entry now logs a cook, marks as cooked,
+      and subtracts ingredients from inventory in one tap. Toast shows inventory
+      changes. Unchecking a cooked entry still uses simple toggle (no undo of
+      log/subtraction).
 - [x] **Better low-match discovery** `[M]` -- **Done.** "Almost there" banner
       on Discover page shows near-miss recipes (missing 1-3 ingredients) with
       deduplicated ingredient pills and one-click "Add to shopping list".
@@ -266,13 +263,6 @@ quick wins that can be done between phases without disrupting planned work.
       real ingredient strings from imported recipes and track parse accuracy.
       Improvements here compound across matching, shopping lists, and overlap
       scoring -- it's foundational infrastructure.
-- [ ] **Prep freshness guidance** -- Flag ingredients where prep-ahead has
-      limits. Avocado or fresh herbs can't be prepped 5 days early. Simple
-      heuristic rules (not AI): a small lookup table of ingredients with
-      max-prep-ahead days. The prep list already has storage tips (general
-      fridge/freezer advice); this would add day-specific warnings based on
-      when the meal is planned (e.g., "Prep basil no earlier than Wednesday
-      for Friday's dinner").
 - [ ] **AI: Receipt scanning -> inventory** -- Photo of grocery receipt, AI
       extracts items and guesses storage locations. Review/confirm before
       adding.
@@ -322,7 +312,7 @@ quick wins that can be done between phases without disrupting planned work.
 - [ ] Weekly meal planning happens in-app for 4+ consecutive weeks
 - [ ] Partner uses the app as a real co-user (not just testing)
 - [ ] Inventory accuracy assessed after 4 weeks of real tracking
-- [ ] "Tonight" banner used as the daily cooking entry point
+- [ ] "Up next" banner used as the daily cooking entry point
 
 ### Shipped (features)
 
@@ -340,7 +330,6 @@ quick wins that can be done between phases without disrupting planned work.
 - [ ] 5+ external users with 10+ recipes each
 - [ ] Weekly meal plans regularly achieve 60%+ ingredient efficiency
 - [ ] Pairing suggestions used when building 3+ weekly plans
-- [ ] Prep list generated and referenced at least once per week
 
 ### Monetization (distant future)
 

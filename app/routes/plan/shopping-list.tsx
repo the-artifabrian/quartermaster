@@ -396,12 +396,6 @@ export default function ShoppingListRoute({
 						)}
 					</div>
 					<div className="flex gap-2 print:hidden">
-						<Button asChild variant="ghost" size="sm">
-							<Link to="/plan/prep-list">
-								<Icon name="file-text" size="sm" />
-								Prep List
-							</Link>
-						</Button>
 						{totalItems > 0 && (
 							<Button
 								variant="outline"

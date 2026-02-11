@@ -62,8 +62,7 @@ differentiator. This is where ongoing development effort goes:
   store-section grouping, print layout)
 - Inventory subtraction after cooking (with unit conversion)
 - Kitchen timer
-- Phase 12 features (ingredient overlap, prep lists, efficiency scoring,
-  waste alerts)
+- Phase 12 features (ingredient overlap, efficiency scoring, waste alerts)
 - PWA offline access
 
 ## Household Tier (~$50-60/year)
@@ -91,7 +90,6 @@ Natural upgrade for couples/families:
 | Inventory subtraction after cooking | Yes                | No              | No                   | No               |
 | Expiration-based suggestions        | Yes                | No              | No                   | No               |
 | Ingredient overlap planning         | Yes (Phase 12)     | No              | No                   | No               |
-| Unified prep list                   | Yes (Phase 12)     | No              | No                   | No               |
 
 $30-40/year is cheaper than Plan to Eat and Mealime ($50/yr each) while offering
 more. One-time-purchase apps like Paprika lack the intelligence layer entirely.
@@ -104,7 +102,6 @@ Don't start monetization until the no-waste planning features (Phase 12) have
 been used in real meal planning for at least 4 weeks. Minimum signals:
 
 - Pairing suggestions are used when building 3+ weekly plans
-- Prep list is generated and referenced at least once per week
 - Ingredient efficiency scores trend above 50% for planned weeks
 
 Without these signals, the no-waste pitch is aspirational, not real -- and that's

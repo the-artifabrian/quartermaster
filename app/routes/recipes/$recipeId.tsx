@@ -556,6 +556,31 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		})
 	}
 
+	async function handleShare() {
+		const url = `${origin ?? window.location.origin}/recipes/${recipe.id}`
+		const shareData = {
+			title: recipe.title,
+			text: recipe.description || `Check out this recipe: ${recipe.title}`,
+			url,
+		}
+		try {
+			if (navigator.share) {
+				await navigator.share(shareData)
+			} else {
+				await navigator.clipboard.writeText(url)
+				toast.success('Link copied to clipboard')
+			}
+		} catch (error) {
+			if (error instanceof Error && error.name === 'AbortError') return
+			try {
+				await navigator.clipboard.writeText(url)
+				toast.success('Link copied to clipboard')
+			} catch {
+				toast.error('Unable to share — try copying the URL manually')
+			}
+		}
+	}
+
 	// --- Cooking Mode ---
 	if (isCookingMode) {
 		return (
@@ -925,7 +950,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			<div className="container max-w-4xl px-4 pt-6 md:px-8">
 				<Link
 					to="/recipes"
-					className="text-muted-foreground hover:text-foreground mb-3 inline-flex items-center gap-1 text-sm"
+					className="text-muted-foreground hover:text-foreground mb-3 inline-flex items-center gap-1 text-sm print:hidden"
 				>
 					<Icon name="arrow-left" size="sm" />
 					Recipes
@@ -937,7 +962,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 			{/* Meta card + content */}
 			<div className="container max-w-4xl px-4 md:px-8">
-				<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-5">
+				<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-5 print:border-0 print:p-2 print:shadow-none">
 					<div className="flex flex-wrap items-center gap-3 text-sm">
 						{/* Servings */}
 						<span className="flex items-center gap-1">
@@ -945,7 +970,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							<Button
 								variant="outline"
 								size="sm"
-								className="h-7 w-7 p-0"
+								className="h-7 w-7 p-0 print:hidden"
 								onClick={() => updateServings(currentServings - 1)}
 								disabled={currentServings <= 1}
 							>
@@ -957,7 +982,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							<Button
 								variant="outline"
 								size="sm"
-								className="h-7 w-7 p-0"
+								className="h-7 w-7 p-0 print:hidden"
 								onClick={() => updateServings(currentServings + 1)}
 							>
 								+
@@ -966,7 +991,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							{isScaled && (
 								<button
 									onClick={() => updateServings(recipe.servings)}
-									className="text-primary ml-1 text-xs hover:underline"
+									className="text-primary ml-1 text-xs hover:underline print:hidden"
 								>
 									Reset
 								</button>
@@ -1065,7 +1090,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 				{/* Raw Text */}
 				{recipe.rawText && (
-					<div className="mt-6">
+					<div className="mt-6 print:hidden">
 						<div className="bg-card shadow-warm rounded-2xl border p-4">
 							<p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
 								Recipe Notes
@@ -1078,7 +1103,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Action bar - inline on desktop */}
-				<div className="mt-6 hidden items-center gap-2 md:flex">
+				<div className="mt-6 hidden items-center gap-2 md:flex print:hidden">
 					<Button onClick={enterCookingMode} className="gap-2">
 						<Icon name="play" size="sm" />
 						Start Cooking
@@ -1116,13 +1141,37 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						</TooltipTrigger>
 						<TooltipContent>Edit recipe</TooltipContent>
 					</Tooltip>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={() => window.print()}
+							>
+								<Icon name="file-text" size="md" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>Print recipe</TooltipContent>
+					</Tooltip>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={handleShare}
+							>
+								<Icon name="share" size="md" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>Share recipe</TooltipContent>
+					</Tooltip>
 				</div>
 
 				{/* Content zone: Ingredients + Instructions */}
-				<div className="mt-8 grid gap-8 md:grid-cols-[2fr_3fr]">
+				<div className="mt-8 grid gap-8 md:grid-cols-[2fr_3fr] print:grid-cols-1 print:gap-4">
 					{/* Ingredients - sticky on desktop */}
-					<div className="md:sticky md:top-20 md:self-start">
-						<div className="bg-card shadow-warm rounded-2xl border p-6">
+					<div className="md:sticky md:top-20 md:self-start print:static">
+						<div className="bg-card shadow-warm rounded-2xl border p-6 print:border-0 print:p-2 print:shadow-none">
 							<div className="mb-4 flex items-center gap-2">
 								<h2 className="text-lg font-semibold">Ingredients</h2>
 								{isScaled && (
@@ -1179,7 +1228,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 				{/* Cooking History - collapsible */}
 				{cookingLogs.length > 0 ? (
-					<div className="mt-10">
+					<div className="mt-10 print:hidden">
 						<button
 							onClick={() => setHistoryExpanded((v) => !v)}
 							className="hover:text-foreground mb-4 flex w-full items-center gap-2 text-left text-lg font-semibold"
@@ -1203,7 +1252,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						)}
 					</div>
 				) : (
-					<div className="mt-10">
+					<div className="mt-10 print:hidden">
 						<p className="text-muted-foreground text-sm italic">
 							You haven't cooked this yet. Give it a try!
 						</p>
@@ -1211,7 +1260,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Bottom spacer for mobile floating bar */}
-				<div className="h-24 md:hidden" />
+				<div className="h-24 md:hidden print:hidden" />
 			</div>
 
 			{/* Floating action bar - mobile only */}
@@ -1239,6 +1288,22 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						<Link to={`/recipes/${recipe.id}/edit`}>
 							<Icon name="pencil-1" size="md" />
 						</Link>
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						aria-label="Print recipe"
+						onClick={() => window.print()}
+					>
+						<Icon name="file-text" size="md" />
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						aria-label="Share recipe"
+						onClick={handleShare}
+					>
+						<Icon name="share" size="md" />
 					</Button>
 				</div>
 			</div>

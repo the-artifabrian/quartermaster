@@ -153,7 +153,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	)
 
 	return redirectWithToast(
-		safeRedirect(redirectTo),
+		safeRedirect(redirectTo, '/recipes'),
 		{ title: 'Welcome', description: 'Thanks for signing up!' },
 		{ headers },
 	)

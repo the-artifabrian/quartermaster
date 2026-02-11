@@ -56,15 +56,8 @@ tool. Until that changes, no roadmap item matters.
 
 ### Critical Path
 
-1. ~~**Bulk import from Apple Notes**~~ -- **Done.** Paste-and-import flow at
-   `/recipes/bulk-import` with client-side parsing, instant preview, `---`
-   multi-recipe separator, session counter, and auto-clear/refocus for rapid
-   batch import.
-2. ~~**"Up next" banner on meal plan**~~ -- **Done.** Warm accent banner on the
-   meal plan page (current week only) showing the next chronological meal to
-   cook (time-of-day aware: breakfast → lunch → dinner → snack), with recipe
-   image, cook time, servings, remaining count, and "Start Cooking" link.
-   Empty state suggests a favorite recipe with one-tap "Add to Today".
+1. ~~**Bulk import from Apple Notes**~~ -- Done.
+2. ~~**"Up next" banner on meal plan**~~ -- Done.
 3. **Daily drive for 4+ weeks** -- Use the app for real cooking: plan the week,
    shop from the list, cook from the app. Fix friction as it surfaces. Get
    partner using it as a real co-user, not a tester.
@@ -96,9 +89,9 @@ These items should ship before or in parallel with monetization. They're not
 features -- they're table stakes for charging money. Not urgent until the daily
 driver gate is met and real user adoption exists.
 
-- [x] **Landing page CTA fix** -- Landing page redesigned with "Start
-      Cooking -- It's Free" CTA linking to `/signup`. Done in UI redesign
-      Phase 10.
+Previously completed: landing page CTA (UI redesign Phase 10), new user
+onboarding flow (getting started checklist on `/recipes`).
+
 - [~] **Accessibility pass** -- Partially done in UI redesign: aria-labels on
       select elements, aria-pressed on toggle buttons (tag filters, view
       toggles, favorites). Remaining: skip-to-content link, comprehensive
@@ -107,10 +100,6 @@ driver gate is met and real user adoption exists.
 - [ ] **Import from export (data round-trip)** -- JSON export exists but there's
       no import-from-export. Users burned by Yummly care about portability.
       Complete round-trip builds trust before asking people to pay.
-- [x] **New user onboarding flow** -- **Done.** "Getting Started" checklist card
-      on `/recipes` tracks 3 steps (add a recipe, stock inventory, plan a meal)
-      with progress bar. Auto-completes from household data, dismissible via
-      localStorage, auto-hides when all complete.
 - [ ] **Full data export** -- Current download endpoint only exports the user
       profile, not recipes, inventory, or meal plans. Add comprehensive JSON
       export of all user data (recipes with ingredients/instructions/tags,
@@ -129,45 +118,12 @@ driver gate is met and real user adoption exists.
 
 ### Daily Use Polish
 
-These aren't new "phases" -- they're targeted improvements that make the app
-more useful for people who cook daily. Prioritized by impact on the core
-workflow: plan -> shop -> cook -> repeat.
+All shipped. See [FEATURES.md](./FEATURES.md) for details on: recipe print
+view, recipe sharing (Web Share API), quick "I made this" from meal plan, meal
+templates, better low-match discovery ("almost there" banner), "up next" banner.
 
-> **Size legend**: `[S]` = a few hours, single file. `[M]` = a day or two,
-> multiple files. `[L]` = multiple days, new models or significant refactoring.
-
-#### High Impact
-
-- [x] **"Up next" banner on meal plan** `[M]` -- _Moved to Phase Now:
-      Daily Driver._ Done. See Critical Path #2 above.
-- [x] **Recipe sharing** `[M]` -- **Done.** Share button on recipe detail
-      using Web Share API (`navigator.share()`) for native mobile sharing,
-      with clipboard fallback + toast on desktop. Note: shared links require
-      a Quartermaster account. Public recipe URLs remain a backlog item.
-- [ ] **Full data export** `[S]` -- _Promoted to Pre-Phase 14 prerequisites._
-      See above.
-
-#### Medium Impact
-
-- [x] **Recipe print view** `[S]` -- **Done.** Print button on recipe detail,
-      `print:hidden` on nav/actions/history, single-column layout with flat
-      cards. Matches shopping list print pattern.
-- [x] **Meal templates** `[L]` -- **Done.** Save a week as a named template
-      ("Weeknight Easy", "Entertaining Week"), apply templates to any week
-      (skips duplicate slots), delete templates. `MealPlanTemplate` +
-      `MealPlanTemplateEntry` models, household-scoped, with real-time event
-      notifications and full test coverage.
-- [x] **Quick "I made this" from meal plan** `[S]` -- **Done.** Tapping the
-      unchecked circle on a meal plan entry now logs a cook, marks as cooked,
-      and subtracts ingredients from inventory in one tap. Toast shows inventory
-      changes. Unchecking a cooked entry still uses simple toggle (no undo of
-      log/subtraction).
-- [x] **Better low-match discovery** `[M]` -- **Done.** "Almost there" banner
-      on Discover page shows near-miss recipes (missing 1-3 ingredients) with
-      deduplicated ingredient pills and one-click "Add to shopping list".
-      Per-card add button on each recipe match card. Server-side re-computation
-      of matching ensures accuracy; canonical name deduplication avoids
-      shopping list duplicates.
+One remaining item promoted to Pre-Monetization prerequisites: **Full data
+export**.
 
 ### Phase 14: Monetization
 
@@ -180,10 +136,7 @@ less food, save money" -- needs to be real before asking people to pay for it.
 
 #### Implementation Tasks (Stripe test mode)
 
-- [x] **Subscription model** -- `Subscription` model with `tier`,
-      `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionExpiresAt`,
-      `trialEndsAt` was added in Phase 13a's migration. No additional schema
-      change needed.
+- [x] **Subscription model** -- Schema added in Phase 13a migration.
 - [ ] **Stripe integration** -- Subscriptions, webhooks, customer portal for
       self-service plan changes / cancellation. Use Stripe Checkout for the
       payment flow to avoid building card forms.
@@ -225,8 +178,7 @@ Known issues to address before or alongside monetization:
 
 ## Backlog
 
-Lower-priority items to reconsider later. Items marked with a lightning bolt are
-quick wins that can be done between phases without disrupting planned work.
+Lower-priority items to reconsider later.
 
 > **Triage note:** Items graduate from the backlog when (1) they directly
 > unblock a roadmap item, (2) daily use reveals them as friction points, or
@@ -245,9 +197,6 @@ quick wins that can be done between phases without disrupting planned work.
       all inventory items into memory for matching. Fine at 50 recipes, but at
       500+ this could become slow. Profile with a realistic dataset and
       determine when pagination or server-side pre-filtering is needed.
-- [x] Bulk import (paste-and-parse for Apple Notes at scale) -- **Done.**
-      `/recipes/bulk-import` with client-side parser, `---` separator, max 50
-      per batch.
 - [ ] Performance audit (query profiling, lazy load images, bundle analysis)
 
 #### Intelligence & AI
@@ -276,27 +225,19 @@ quick wins that can be done between phases without disrupting planned work.
 
 - [ ] **Public recipe sharing** -- `/r/$recipeId` public read-only route with
       JSON-LD, OG tags, and sitemap. Opt-in per recipe. Design access patterns
-      to work with household-scoped data from Phase 13. See also "Recipe
-      sharing" in Daily Use Polish above.
+      to work with household-scoped data from Phase 13.
 
 #### UX Improvements
 
+Previously completed: landing page CTA, unified cooking mode, recipe form
+collapsible sections, meal plan empty state. Unsplash placeholders tried and
+reverted (warm-color deterministic placeholders used instead).
+
 - [~] **Accessibility pass** -- _Promoted to Pre-Phase 14 prerequisites._
       Partially done in UI redesign. See above.
-- [x] **Landing page CTA** -- Done in UI redesign Phase 10.
-- [x] **Unified cooking mode** -- Done in UI redesign Phase 1. Dedicated
-      cooking view with step paginator, sticky ingredients, floating timer, and
-      "Done Cooking" modal.
-- [x] **Recipe form length on mobile** -- Done in UI redesign Phase 8.
-      Collapsible `<details>` sections with completion summaries.
-- [x] **Meal plan empty state** -- Done in UI redesign Phase 9. Warm card with
-      "Plan Your Week" heading and dual CTAs.
 - [ ] **Inventory quick-add quantity** -- Quick-add only accepts a name. Adding
       optional inline quantity/unit/location fields would cut the add-then-edit
       workflow in half.
-- ~~**Unsplash placeholder images for recipes**~~ -- Tried and reverted.
-  Deterministic warm-color placeholders implemented in UI redesign instead
-  (6 themes based on title hash).
 
 ---
 

@@ -18,9 +18,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	if (userId) {
 		throw redirect('/recipes')
 	}
-	return data(null, {
-		headers: { 'Cache-Control': 'public, max-age=300' },
-	})
+	return data(null)
 }
 
 export const headers: Route.HeadersFunction = pipeHeaders

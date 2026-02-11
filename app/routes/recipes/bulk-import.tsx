@@ -31,17 +31,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 const BulkImportIngredientSchema = z.object({
-	name: z.string().min(1),
-	amount: z.string().optional(),
-	unit: z.string().optional(),
-	notes: z.string().optional(),
+	name: z.string().min(1).max(200),
+	amount: z.string().max(50).optional(),
+	unit: z.string().max(50).optional(),
+	notes: z.string().max(500).optional(),
 })
 
 const BulkImportRecipeSchema = z.object({
-	title: z.string().min(1),
-	description: z.string().optional(),
-	ingredients: z.array(BulkImportIngredientSchema),
-	instructions: z.array(z.object({ content: z.string().min(1) })),
+	title: z.string().min(1).max(100),
+	description: z.string().max(500).optional(),
+	ingredients: z.array(BulkImportIngredientSchema).max(200),
+	instructions: z.array(z.object({ content: z.string().min(1).max(5000) })).max(200),
 })
 
 const BulkImportPayloadSchema = z

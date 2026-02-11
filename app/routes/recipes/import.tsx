@@ -227,6 +227,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 			const response = await fetch(url, {
 				signal: controller.signal,
+				redirect: 'manual',
 				headers: {
 					'User-Agent':
 						'Mozilla/5.0 (compatible; Quartermaster/1.0; +recipe-import)',
@@ -234,6 +235,19 @@ export async function action({ request }: Route.ActionArgs) {
 				},
 			})
 			clearTimeout(timeout)
+
+			if (response.status >= 300 && response.status < 400) {
+				return data(
+					{
+						intent: 'fetch' as const,
+						error: 'URL redirected. Please use the final URL directly.',
+						recipe: null,
+						result: null,
+						duplicates: null,
+					},
+					{ status: 400 },
+				)
+			}
 
 			if (!response.ok) {
 				return data(
@@ -248,7 +262,35 @@ export async function action({ request }: Route.ActionArgs) {
 				)
 			}
 
+			const contentLength = response.headers.get('Content-Length')
+			const MAX_RESPONSE_SIZE = 5 * 1024 * 1024 // 5MB
+			if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_SIZE) {
+				return data(
+					{
+						intent: 'fetch' as const,
+						error: 'Page is too large to import.',
+						recipe: null,
+						result: null,
+						duplicates: null,
+					},
+					{ status: 400 },
+				)
+			}
+
 			const html = await response.text()
+
+			if (html.length > MAX_RESPONSE_SIZE) {
+				return data(
+					{
+						intent: 'fetch' as const,
+						error: 'Page is too large to import.',
+						recipe: null,
+						result: null,
+						duplicates: null,
+					},
+					{ status: 400 },
+				)
+			}
 			const $ = cheerio.load(html)
 
 			let recipeData: Record<string, unknown> | null = null
@@ -348,7 +390,7 @@ export async function action({ request }: Route.ActionArgs) {
 			notes?: string
 		}> = []
 		let i = 0
-		while (formData.has(`ingredients[${i}].name`)) {
+		while (formData.has(`ingredients[${i}].name`) && i < 200) {
 			const name = formData.get(`ingredients[${i}].name`) as string
 			if (name.trim()) {
 				ingredients.push({
@@ -366,7 +408,7 @@ export async function action({ request }: Route.ActionArgs) {
 		// Parse instructions
 		const instructions: Array<{ content: string }> = []
 		i = 0
-		while (formData.has(`instructions[${i}].content`)) {
+		while (formData.has(`instructions[${i}].content`) && i < 200) {
 			const content = formData.get(`instructions[${i}].content`) as string
 			if (content.trim()) {
 				instructions.push({ content })

@@ -942,7 +942,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			<script
 				type="application/ld+json"
 				dangerouslySetInnerHTML={{
-					__html: JSON.stringify(recipeJsonLd),
+					__html: JSON.stringify(recipeJsonLd).replace(/</g, '\\u003c'),
 				}}
 			/>
 

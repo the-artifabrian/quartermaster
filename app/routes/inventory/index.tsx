@@ -1,5 +1,6 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
+import { z } from 'zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Link } from 'react-router'
 import { CommonIngredients } from '#app/components/common-ingredients.tsx'
@@ -15,7 +16,11 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { InventoryItemSchema } from '#app/utils/inventory-validation.ts'
+import {
+	InventoryItemLocationSchema,
+	InventoryItemNameSchema,
+	InventoryItemSchema,
+} from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { type Route } from './+types/index.ts'
 
@@ -127,11 +132,28 @@ export async function action({ request }: Route.ActionArgs) {
 	if (intent === 'bulk-create') {
 		const itemsJson = formData.get('items')
 		invariantResponse(typeof itemsJson === 'string', 'Items are required')
-		const items = JSON.parse(itemsJson) as Array<{
-			name: string
-			location: string
-		}>
-		invariantResponse(Array.isArray(items), 'Items must be an array')
+
+		const BulkCreateSchema = z
+			.array(
+				z.object({
+					name: InventoryItemNameSchema,
+					location: InventoryItemLocationSchema,
+				}),
+			)
+			.min(1)
+			.max(200)
+
+		let json: unknown
+		try {
+			json = JSON.parse(itemsJson)
+		} catch {
+			return { status: 'error' as const }
+		}
+		const parsed = BulkCreateSchema.safeParse(json)
+		if (!parsed.success) {
+			return { status: 'error' as const }
+		}
+		const items = parsed.data
 
 		await prisma.$transaction(
 			items.map((item) =>

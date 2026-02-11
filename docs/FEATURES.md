@@ -40,6 +40,10 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 - "What can I make?" discovery page with 4-level fuzzy ingredient matching
   (exact, synonym, core word, multi-word containment)
 - Match percentage scoring and missing ingredient highlighting
+- "Almost there" banner for near-miss recipes (1-3 missing ingredients):
+  shows deduplicated ingredient pills with one-click "Add to shopping list"
+  (items added with `source: 'discover'`, auto-categorized, skip duplicates)
+- Per-card "add missing to list" button on each recipe match card
 - Expiration-based recipe suggestions ("Use It Before You Lose It")
 - Automatic inventory subtraction after cooking (with unit conversion and
   feedback toast showing what changed)

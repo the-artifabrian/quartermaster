@@ -168,10 +168,12 @@ workflow: plan -> shop -> cook -> repeat.
       inventory. A quick action on the meal plan card (not just the "cooked"
       checkbox) that logs the cook + subtracts ingredients in one tap would help
       keep inventory accurate with less effort.
-- [ ] **Better low-match discovery** `[M]` -- When inventory is low, Discover
-      shows discouraging low percentages. Reframe as: "You're 2 items away from
-      making these 5 recipes" with an "Add missing to shopping list" button.
-      Turns low matches into actionable next steps instead of dead ends.
+- [x] **Better low-match discovery** `[M]` -- **Done.** "Almost there" banner
+      on Discover page shows near-miss recipes (missing 1-3 ingredients) with
+      deduplicated ingredient pills and one-click "Add to shopping list".
+      Per-card add button on each recipe match card. Server-side re-computation
+      of matching ensures accuracy; canonical name deduplication avoids
+      shopping list duplicates.
 
 ### Phase 14: Monetization
 

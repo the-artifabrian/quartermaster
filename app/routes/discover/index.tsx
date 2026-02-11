@@ -1,8 +1,9 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { addDays } from 'date-fns'
 import { Img } from 'openimg/react'
-import { useState } from 'react'
-import { Link } from 'react-router'
+import { useRef, useState } from 'react'
+import { Link, useFetcher } from 'react-router'
+import { toast } from 'sonner'
 import { MatchProgressRing } from '#app/components/match-progress-ring.tsx'
 import {
 	RecipeMatchCard,
@@ -10,15 +11,18 @@ import {
 } from '#app/components/recipe-match-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
+	getCanonicalIngredientName,
 	ingredientMatchesInventoryItem,
 	matchRecipesWithInventory,
 	type RecipeMatch,
 } from '#app/utils/recipe-matching.server.ts'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
+import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -140,6 +144,95 @@ export async function loader({ request }: Route.LoaderArgs) {
 	}
 }
 
+export async function action({ request }: Route.ActionArgs) {
+	const { userId, householdId } = await requireUserWithHousehold(request)
+	const formData = await request.formData()
+	const intent = formData.get('intent')
+
+	if (intent === 'addMissing') {
+		const recipeIdsParam = formData.get('recipeIds')
+		if (typeof recipeIdsParam !== 'string' || !recipeIdsParam) {
+			return { status: 'error' as const, addedCount: 0 }
+		}
+
+		const recipeIds = recipeIdsParam.split(',').filter(Boolean)
+		if (recipeIds.length === 0) {
+			return { status: 'error' as const, addedCount: 0 }
+		}
+
+		// Fetch the requested recipes with ingredients
+		const recipes = await prisma.recipe.findMany({
+			where: { id: { in: recipeIds }, householdId },
+			include: { ingredients: true, image: { select: { objectKey: true } } },
+		})
+
+		// Fetch inventory items
+		const inventoryItems = await prisma.inventoryItem.findMany({
+			where: { householdId },
+		})
+
+		// Re-compute matching server-side for accuracy
+		const matches = matchRecipesWithInventory(recipes, inventoryItems)
+
+		// Collect all missing ingredients, deduplicate via canonical name
+		const missingByCanonical = new Map<string, string>()
+		for (const match of matches) {
+			for (const ing of match.missingIngredients) {
+				const canonical = getCanonicalIngredientName(ing.name)
+				if (!missingByCanonical.has(canonical)) {
+					missingByCanonical.set(canonical, ing.name)
+				}
+			}
+		}
+
+		if (missingByCanonical.size === 0) {
+			return { status: 'success' as const, addedCount: 0 }
+		}
+
+		// Get or create shopping list
+		let shoppingList = await prisma.shoppingList.findFirst({
+			where: { householdId },
+			include: { items: { where: { checked: false } } },
+		})
+
+		if (!shoppingList) {
+			shoppingList = await prisma.shoppingList.create({
+				data: { userId, householdId },
+				include: { items: { where: { checked: false } } },
+			})
+		}
+
+		// Check existing items to avoid duplicates
+		const existingCanonicals = new Set(
+			shoppingList.items.map((item) => getCanonicalIngredientName(item.name)),
+		)
+
+		const itemsToAdd = [...missingByCanonical.entries()]
+			.filter(([canonical]) => !existingCanonicals.has(canonical))
+			.map(([, originalName]) => ({
+				name: originalName,
+				category: guessCategory(originalName),
+				source: 'discover',
+				listId: shoppingList.id,
+			}))
+
+		if (itemsToAdd.length > 0) {
+			await prisma.shoppingListItem.createMany({ data: itemsToAdd })
+
+			void emitHouseholdEvent({
+				type: 'shopping_list_item_added',
+				payload: { count: itemsToAdd.length, source: 'discover' },
+				userId,
+				householdId,
+			})
+		}
+
+		return { status: 'success' as const, addedCount: itemsToAdd.length }
+	}
+
+	return { status: 'error' as const, addedCount: 0 }
+}
+
 export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 	const {
 		matches,
@@ -151,12 +244,46 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 		cookingStats,
 	} = loaderData
 	const [showOnlyMakeable, setShowOnlyMakeable] = useState(false)
+	const fetcher = useFetcher<typeof action>()
+	const prevFetcherState = useRef(fetcher.state)
+
+	// Show toast when fetcher transitions from loading → idle with success
+	if (
+		prevFetcherState.current === 'loading' &&
+		fetcher.state === 'idle' &&
+		fetcher.data?.status === 'success'
+	) {
+		const count = fetcher.data.addedCount
+		if (count > 0) {
+			toast.success(
+				`Added ${count} item${count === 1 ? '' : 's'} to your shopping list`,
+			)
+		} else {
+			toast.info('All items are already on your shopping list')
+		}
+	}
+	prevFetcherState.current = fetcher.state
 
 	const displayMatches = showOnlyMakeable
 		? matches.filter((m) => m.canMake)
 		: matches
 
 	const makeableCount = matches.filter((m) => m.canMake).length
+
+	// Near-matches: recipes missing 1-3 ingredients
+	const nearMatches = matches.filter(
+		(m) =>
+			!m.canMake &&
+			m.missingIngredients.length > 0 &&
+			m.missingIngredients.length <= 3,
+	)
+	const uniqueMissingNames = [
+		...new Set(
+			nearMatches.flatMap((m) =>
+				m.missingIngredients.map((i) => i.name.toLowerCase()),
+			),
+		),
+	]
 
 	return (
 		<div className="pb-20 md:pb-6">
@@ -251,6 +378,78 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 								{showOnlyMakeable ? 'Showing Makeable' : 'Show Only Makeable'}
 							</Button>
 						</div>
+
+						{/* Almost There Banner */}
+						{nearMatches.length > 0 && !showOnlyMakeable && (
+							<div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+								<div className="flex flex-wrap items-start justify-between gap-4">
+									<div className="min-w-0 flex-1">
+										<div className="flex items-center gap-2">
+											<Icon
+												name="star"
+												className="size-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400"
+											/>
+											<h2 className="font-semibold text-emerald-900 dark:text-emerald-100">
+												Almost there
+											</h2>
+										</div>
+										<p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
+											You're{' '}
+											<span className="font-semibold">
+												{uniqueMissingNames.length} ingredient
+												{uniqueMissingNames.length !== 1 ? 's' : ''}
+											</span>{' '}
+											away from making{' '}
+											<span className="font-semibold">
+												{nearMatches.length} recipe
+												{nearMatches.length !== 1 ? 's' : ''}
+											</span>
+										</p>
+										<div className="mt-2.5 flex flex-wrap gap-1.5">
+											{uniqueMissingNames.slice(0, 8).map((name) => (
+												<span
+													key={name}
+													className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+												>
+													{name}
+												</span>
+											))}
+											{uniqueMissingNames.length > 8 && (
+												<span className="text-xs leading-5 text-emerald-600 dark:text-emerald-400">
+													+{uniqueMissingNames.length - 8} more
+												</span>
+											)}
+										</div>
+									</div>
+									<fetcher.Form method="POST">
+										<input
+											type="hidden"
+											name="intent"
+											value="addMissing"
+										/>
+										<input
+											type="hidden"
+											name="recipeIds"
+											value={nearMatches
+												.map((m) => m.recipe.id)
+												.join(',')}
+										/>
+										<Button
+											type="submit"
+											size="sm"
+											variant="outline"
+											className="border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+											disabled={fetcher.state !== 'idle'}
+										>
+											<Icon name="plus" size="sm" />
+											{fetcher.state !== 'idle'
+												? 'Adding...'
+												: 'Add to shopping list'}
+										</Button>
+									</fetcher.Form>
+								</div>
+							</div>
+						)}
 
 						{/* Recipe Matches */}
 						{displayMatches.length > 0 ? (

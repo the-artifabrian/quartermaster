@@ -37,6 +37,7 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 
 - Three locations: Pantry, Fridge, Freezer
 - Items with optional quantity, unit, expiration, and low-stock flag
+- Quick-add with optional inline quantity and unit fields
 - Quick-add shortcuts for 30 common ingredients
 - Ingredient normalization pipeline: ~40 modifier strippers, ~25 synonym groups,
   pluralization handling. Powers matching, shopping consolidation, overlap
@@ -138,6 +139,9 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 - Descriptive `<title>`, canonical URLs, Open Graph / Twitter Card meta tags
 - JSON-LD Recipe structured data, marketing pages with sitemap
 - PWA with service worker: offline access for viewed recipes and meal plan
+- Full data export: comprehensive JSON download of all user/household data
+  (recipes, inventory, meal plans, shopping lists, cooking logs, meal templates)
+  plus recipe-only JSON export
 - Comprehensive unit/integration test suite (Vitest) and e2e tests (Playwright)
 - Deployed on Fly.io with custom domain, HTTPS, and email
 - Mobile-first responsive layout with bottom navigation

@@ -100,11 +100,11 @@ onboarding flow (getting started checklist on `/recipes`).
 - [ ] **Import from export (data round-trip)** -- JSON export exists but there's
       no import-from-export. Users burned by Yummly care about portability.
       Complete round-trip builds trust before asking people to pay.
-- [ ] **Full data export** -- Current download endpoint only exports the user
-      profile, not recipes, inventory, or meal plans. Add comprehensive JSON
-      export of all user data (recipes with ingredients/instructions/tags,
-      inventory items, meal plans, cooking logs). Trust issue -- people won't
-      invest time entering 50+ recipes if they can't get their data out.
+- [x] **Full data export** -- Comprehensive JSON export of all user/household
+      data: recipes (with ingredients, instructions, tags, image refs, notes),
+      inventory, meal plans (with entries), shopping lists (with items), cooking
+      logs, and meal plan templates. Available at Settings > Data > "Export all
+      data". Recipe-only export kept as a separate option.
 - [ ] **Usage analytics for "proven" gate** -- The monetization "proven gate"
       requires usage signals (pairing suggestion usage, efficiency scores)
       that aren't currently tracked. Add basic event counters
@@ -122,8 +122,8 @@ All shipped. See [FEATURES.md](./FEATURES.md) for details on: recipe print
 view, recipe sharing (Web Share API), quick "I made this" from meal plan, meal
 templates, better low-match discovery ("almost there" banner), "up next" banner.
 
-One remaining item promoted to Pre-Monetization prerequisites: **Full data
-export**.
+Previously promoted to Pre-Monetization prerequisites: **Full data export**
+(now shipped).
 
 ### Phase 14: Monetization
 
@@ -235,9 +235,9 @@ reverted (warm-color deterministic placeholders used instead).
 
 - [~] **Accessibility pass** -- _Promoted to Pre-Phase 14 prerequisites._
       Partially done in UI redesign. See above.
-- [ ] **Inventory quick-add quantity** -- Quick-add only accepts a name. Adding
-      optional inline quantity/unit/location fields would cut the add-then-edit
-      workflow in half.
+- [x] **Inventory quick-add quantity** -- Quick-add now accepts optional inline
+      quantity and unit fields alongside the name. Compact layout wraps
+      gracefully on mobile.
 
 ---
 

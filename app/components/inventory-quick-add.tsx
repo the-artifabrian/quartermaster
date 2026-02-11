@@ -31,7 +31,7 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 	return (
 		<Form
 			method="POST"
-			className="flex gap-2"
+			className="flex flex-wrap gap-2"
 			onSubmit={(e) => {
 				const formData = new FormData(e.currentTarget)
 				if (!formData.get('name')) {
@@ -50,7 +50,20 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 				value={name}
 				onChange={(e) => setName(e.target.value)}
 				autoFocus
-				className="flex-1"
+				className="min-w-[120px] flex-1"
+			/>
+			<Input
+				name="quantity"
+				type="number"
+				step="0.1"
+				min="0"
+				placeholder="Qty"
+				className="w-16"
+			/>
+			<Input
+				name="unit"
+				placeholder="Unit"
+				className="w-20"
 			/>
 			<StatusButton
 				type="submit"

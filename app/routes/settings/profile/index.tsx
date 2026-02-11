@@ -205,14 +205,13 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 					Data
 				</h3>
 				<div className="flex flex-col">
-					<Link
-						reloadDocument
-						download="my-quartermaster-data.json"
-						to="/resources/download-user-data"
+					<a
+						href="/resources/export-all-data"
+						download
 						className="hover:bg-accent/5 rounded-lg px-4 py-3"
 					>
-						<Icon name="download">Download your data</Icon>
-					</Link>
+						<Icon name="download">Export all data</Icon>
+					</a>
 					<a
 						href="/resources/export-recipes"
 						download

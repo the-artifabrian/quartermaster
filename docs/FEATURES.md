@@ -17,6 +17,10 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 - Cooking assistance: tap-to-cross-off ingredients/steps, Wake Lock toggle,
   floating kitchen timer with start/pause/reset
 - Favorite/bookmark recipes with filter toggle
+- Print-friendly recipe layout (hides nav, actions, raw text, cooking history;
+  single-column grid, flat cards)
+- Share button with Web Share API (native mobile sharing) and clipboard
+  fallback with toast confirmation
 - Import from URL (JSON-LD scraping) with duplicate detection, quick text entry,
   JSON export
 - Bulk import: paste plain-text recipes (Apple Notes format) with instant
@@ -52,13 +56,18 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 - Weekly calendar view (Monday-start, 4 meal types per day)
 - Click-to-assign recipes to meal slots, multiple recipes per slot
 - Per-entry serving size overrides with +/- controls
-- Mark meals as "cooked" with optimistic toggle UI
-- "Today/Tonight" banner (current week only): shows today's uncooked meals
-  with recipe image, cook time, servings, and "Start Cooking" link to cooking
-  mode. Empty state suggests a favorite recipe with one-tap "Add to Today"
-  (excludes already-planned recipes). Uses "Tonight" for dinner/snack,
-  "Today" for breakfast/lunch
+- Mark meals as "cooked" with optimistic toggle UI; quick "I made this"
+  one-tap action (logs cook + subtracts inventory without entering cooking mode)
+
+- "Up next" banner (current week only): shows the next chronological meal to
+  cook today (breakfast before 11am, lunch 11am-3pm, dinner 3pm-9pm, snack
+  after 9pm) with recipe image, cook time, servings, remaining meal count,
+  and "Start Cooking" link. Empty state suggests a favorite recipe with
+  one-tap "Add to Today" (excludes already-planned recipes)
 - Copy week to next week (preserves servings, skips duplicates)
+- Meal plan templates: save a week as a named template ("Weeknight Easy",
+  "Entertaining Week"), apply templates to any week (skips duplicate slots),
+  delete templates. Household-scoped with real-time event notifications
 - Auto-generated shopping list with unit-aware ingredient consolidation
 - Grouped by store section (produce, dairy, meat, pantry, frozen, bakery, other)
 - Inventory-aware: subtracts items already in stock and staple ingredients
@@ -74,10 +83,6 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   shared ingredient count with green badges
 - Single-use ingredient waste alerts with recipe suggestions to reduce waste
   ("You're only using parsley in one recipe -- add Tabbouleh?")
-- Unified prep list: shared ingredients across 2+ recipes aggregated into a
-  Sunday prep checklist with per-recipe attribution, serving-scaled amounts,
-  prep method grouping (minced, sliced, diced) from ingredient notes, storage
-  tips (~30 ingredients), non-preppable filter (90+ shelf-stable items)
 - Plan efficiency dashboard: total/unique ingredient stats, expandable shared
   ingredient bridges with recipe name pills
 
@@ -101,9 +106,10 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   (`@epic-web/remember`) for SSE broadcasting, `HouseholdEvent` table for
   persistence. SSE endpoint with auth, 30s keepalive, self-event filtering,
   abort cleanup. Client EventSource with auto-reconnect (3-5s jitter)
-- 21 event types: recipe CRUD/import/bulk-import/favorite, cook logged,
-  inventory add/bulk-add/update/delete, meal plan assign/remove/cook/copy-week,
-  shopping list generate/add-item/clear/to-inventory, member join/leave
+- 23 event types: recipe CRUD/import/bulk-import/favorite, cook logged,
+  inventory add/bulk-add/update/delete, meal plan assign/remove/cook/copy-week/
+  template-saved/template-applied, shopping list generate/add-item/clear/
+  to-inventory, member join/leave
 - Sonner toast notifications with "View" action navigation to relevant pages
 - Activity feed on household settings page (last 20 events, relative timestamps)
 - Auto-prune events older than 30 days (lazy, on SSE connect)

@@ -33,8 +33,9 @@ model User {
   cookingLogs      CookingLog[]
   householdMembers HouseholdMember[]
   householdInvites HouseholdInvite[]
-  householdEvents  HouseholdEvent[]
-  subscription     Subscription?
+  householdEvents    HouseholdEvent[]
+  mealPlanTemplates  MealPlanTemplate[]
+  subscription       Subscription?
 }
 
 model UserImage {
@@ -166,13 +167,14 @@ model Household {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members        HouseholdMember[]
-  invites        HouseholdInvite[]
-  events         HouseholdEvent[]
-  recipes        Recipe[]
-  inventoryItems InventoryItem[]
-  mealPlans      MealPlan[]
-  shoppingLists  ShoppingList[]
+  members           HouseholdMember[]
+  invites           HouseholdInvite[]
+  events            HouseholdEvent[]
+  recipes           Recipe[]
+  inventoryItems    InventoryItem[]
+  mealPlans         MealPlan[]
+  shoppingLists     ShoppingList[]
+  mealPlanTemplates MealPlanTemplate[]
 }
 
 model HouseholdMember {
@@ -249,8 +251,9 @@ model Recipe {
   ingredients     Ingredient[]
   instructions    Instruction[]
   tags            Tag[]
-  mealPlanEntries MealPlanEntry[]
-  cookingLogs     CookingLog[]
+  mealPlanEntries      MealPlanEntry[]
+  cookingLogs          CookingLog[]
+  mealPlanTemplateEntries MealPlanTemplateEntry[]
 
   @@index([userId])
   @@index([householdId])
@@ -417,4 +420,36 @@ model HouseholdEvent {
   userId      String
 
   @@index([householdId, createdAt])
+}
+
+model MealPlanTemplate {
+  id   String @id @default(cuid())
+  name String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  household   Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  householdId String?
+  entries     MealPlanTemplateEntry[]
+
+  @@index([userId])
+  @@index([householdId])
+}
+
+model MealPlanTemplateEntry {
+  id        String @id @default(cuid())
+  dayOfWeek Int    // 0 = Monday, 1 = Tuesday, ... 6 = Sunday
+  mealType  String // "breakfast", "lunch", "dinner", "snack"
+  servings  Int?
+
+  template   MealPlanTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  templateId String
+  recipe     Recipe           @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId   String
+
+  @@index([templateId])
+  @@index([recipeId])
 }

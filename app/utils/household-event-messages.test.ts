@@ -230,6 +230,28 @@ describe('formatEventMessage', () => {
 		expect(result.url).toBeNull()
 	})
 
+	test('meal_plan_template_saved', () => {
+		const result = formatEventMessage(
+			'meal_plan_template_saved',
+			{ name: 'Weeknight Easy' },
+			'Alex',
+		)
+		expect(result.message).toBe(
+			'Alex saved meal plan template "Weeknight Easy"',
+		)
+		expect(result.url).toBe('/plan')
+	})
+
+	test('meal_plan_template_applied', () => {
+		const result = formatEventMessage(
+			'meal_plan_template_applied',
+			{ name: 'Entertaining Week' },
+			'Sam',
+		)
+		expect(result.message).toBe('Sam applied template "Entertaining Week"')
+		expect(result.url).toBe('/plan')
+	})
+
 	test('unknown event type', () => {
 		const result = formatEventMessage('something_unknown', {}, 'Alex')
 		expect(result.message).toBe('Alex performed an action')

@@ -141,6 +141,10 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 - Full data export: comprehensive JSON download of all user/household data
   (recipes, inventory, meal plans, shopping lists, cooking logs, meal templates)
   plus recipe-only JSON export
+- Security hardening: streaming file size enforcement on uploads, server-side
+  MIME validation, Zod validation on all bulk operations, SSRF protection on
+  URL import, input length limits on all text fields, open redirect fix,
+  JSON-LD injection prevention
 - Comprehensive unit/integration test suite (Vitest) and e2e tests (Playwright)
 - Deployed on Fly.io with custom domain, HTTPS, and email
 - Mobile-first responsive layout with bottom navigation

@@ -22,7 +22,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 				},
 			},
 			password: false, // <-- intentionally omit password
-			sessions: true,
+			sessions: {
+				select: {
+					createdAt: true,
+					expirationDate: true,
+				},
+			},
 			roles: true,
 		},
 	})

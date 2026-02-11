@@ -38,19 +38,23 @@ export async function action({ request }: Route.ActionArgs) {
 
 	let imageFile: FileUpload | null = null
 
-	const formData = await parseFormData(request, async (file) => {
-		if (file.fieldName === 'image' && file.name) {
-			if (file.size > MAX_RECIPE_IMAGE_SIZE) {
-				return undefined
+	const formData = await parseFormData(
+		request,
+		{ maxFileSize: MAX_RECIPE_IMAGE_SIZE },
+		async (file) => {
+			if (file.fieldName === 'image' && file.name) {
+				if (file.size > MAX_RECIPE_IMAGE_SIZE) {
+					return undefined
+				}
+				if (!ACCEPTED_RECIPE_IMAGE_TYPES.includes(file.type)) {
+					return undefined
+				}
+				imageFile = file
+				return file
 			}
-			if (!ACCEPTED_RECIPE_IMAGE_TYPES.includes(file.type)) {
-				return undefined
-			}
-			imageFile = file
-			return file
-		}
-		return undefined
-	})
+			return undefined
+		},
+	)
 
 	// Parse ingredients array from form data
 	const ingredients: Array<{

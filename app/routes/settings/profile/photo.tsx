@@ -27,6 +27,12 @@ export const handle: BreadcrumbHandle & SEOHandle = {
 }
 
 const MAX_SIZE = 1024 * 1024 * 3 // 3MB
+const ACCEPTED_PHOTO_TYPES = [
+	'image/jpeg',
+	'image/jpg',
+	'image/png',
+	'image/webp',
+]
 
 const DeleteImageSchema = z.object({
 	intent: z.literal('delete'),
@@ -40,6 +46,10 @@ const NewImageSchema = z.object({
 		.refine(
 			(file) => file.size <= MAX_SIZE,
 			'Image size must be less than 3MB',
+		)
+		.refine(
+			(file) => ACCEPTED_PHOTO_TYPES.includes(file.type),
+			'Only JPEG, PNG, and WebP images are allowed',
 		),
 })
 
@@ -159,7 +169,7 @@ export default function PhotoRoute({
 					*/}
 					<input
 						{...getInputProps(fields.photoFile, { type: 'file' })}
-						accept="image/*"
+						accept="image/jpeg,image/png,image/webp"
 						className="peer sr-only"
 						required
 						tabIndex={newImageSrc ? -1 : 0}

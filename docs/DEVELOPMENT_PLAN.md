@@ -104,6 +104,18 @@ onboarding flow (getting started checklist on `/recipes`).
       that aren't currently tracked. Add basic event counters
       so the gate can be evaluated concretely. Without this, the gate will be
       deferred indefinitely.
+- [x] **Security hardening** -- Comprehensive audit and fixes:
+      - Image uploads: `maxFileSize` enforced at stream level (not post-buffer)
+        for recipe images; server-side MIME allowlist on profile photos blocking
+        SVG/HTML uploads
+      - Input validation: `.max()` limits on all recipe/ingredient/instruction
+        string fields and arrays (200 items); inventory bulk-create validated
+      - URL import: `redirect: 'manual'` to prevent SSRF via redirect,
+        5MB response size limit (Content-Length + body length)
+      - Open redirect fixed in theme-switch (now uses `safeRedirect()`)
+      - JSON-LD `</script>` breakout prevented via `\u003c` escaping
+      - User data export no longer leaks session IDs
+      - Bulk import string fields and arrays bounded to match recipe schema
 - [ ] **SSE multi-instance fix** -- SSE events emitted on one Fly machine won't
       reach clients on another. Fine for solo use, but if charging for the
       real-time events. Options: polling fallback, LiteFS broadcast, or Redis
@@ -153,6 +165,14 @@ less food, save money" -- needs to be real before asking people to pay for it.
   500+ this could become slow. Profile with a realistic dataset and determine
   when pagination or server-side pre-filtering is needed.
 - **No analytics/tracking infrastructure** -- See **Usage analytics for
+- **CSP report-only** -- Content Security Policy is configured but
+  `reportOnly: true` in `entry.server.tsx`. Provides no actual XSS protection.
+- **Image endpoint unauthenticated** -- `/resources/images` serves any
+  `objectKey` without auth. Object keys are CUIDs (not guessable), but exposed
+  in OG meta tags. Acceptable for sharing use case; revisit if private recipes
+  are added.
+- **Profile photo S3 orphans** -- Photo updates/deletes remove the DB record
+  but never call `deleteProfileImage()` to clean up S3. Leaks storage over time.
 
 ---
 

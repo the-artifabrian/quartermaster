@@ -1,9 +1,10 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { addDays } from 'date-fns'
+import { addDays, isSameDay } from 'date-fns'
 import { Form, Link, redirect } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
+import { TonightBanner } from '#app/components/tonight-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -53,7 +54,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 			entries: {
 				include: {
 					recipe: {
-						include: { ingredients: true },
+						include: {
+							ingredients: true,
+							image: { select: { objectKey: true } },
+						},
 					},
 				},
 			},
@@ -71,7 +75,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 				entries: {
 					include: {
 						recipe: {
-							include: { ingredients: true },
+							include: {
+								ingredients: true,
+								image: { select: { objectKey: true } },
+							},
 						},
 					},
 				},
@@ -149,6 +156,72 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	}
 
+	// Tonight banner data (only for current week)
+	const isCurrentWeek =
+		serializeDate(weekStart) === serializeDate(getCurrentWeekStart())
+	let tonightData: {
+		entries: Array<{
+			id: string
+			recipe: {
+				id: string
+				title: string
+				prepTime: number | null
+				cookTime: number | null
+				servings: number | null
+				image: { objectKey: string } | null
+			}
+			mealType: string
+			servings: number | null
+		}>
+		suggestion: {
+			id: string
+			title: string
+			image: { objectKey: string } | null
+		} | null
+	} | null = null
+
+	if (isCurrentWeek) {
+		const today = new Date()
+		const tonightEntries = mealPlan.entries
+			.filter((e) => isSameDay(new Date(e.date), today) && !e.cooked)
+			.map((e) => ({
+				id: e.id,
+				recipe: {
+					id: e.recipe.id,
+					title: e.recipe.title,
+					prepTime: e.recipe.prepTime,
+					cookTime: e.recipe.cookTime,
+					servings: e.recipe.servings,
+					image: e.recipe.image,
+				},
+				mealType: e.mealType,
+				servings: e.servings,
+			}))
+
+		let suggestion = null
+		if (tonightEntries.length === 0) {
+			const plannedRecipeIds = [
+				...new Set(mealPlan.entries.map((e) => e.recipeId)),
+			]
+			suggestion = await prisma.recipe.findFirst({
+				where: {
+					householdId,
+					id: plannedRecipeIds.length > 0
+						? { notIn: plannedRecipeIds }
+						: undefined,
+				},
+				orderBy: [{ isFavorite: 'desc' }, { updatedAt: 'desc' }],
+				select: {
+					id: true,
+					title: true,
+					image: { select: { objectKey: true } },
+				},
+			})
+		}
+
+		tonightData = { entries: tonightEntries, suggestion }
+	}
+
 	return {
 		mealPlan,
 		entries: mealPlan.entries.map((entry) => ({
@@ -159,6 +232,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		weekDays,
 		weekStart: serializeDate(weekStart),
 		overlapSummary,
+		tonightData,
 	}
 }
 
@@ -367,7 +441,8 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
-	const { entries, recipes, weekDays, weekStart, overlapSummary } = loaderData
+	const { entries, recipes, weekDays, weekStart, overlapSummary, tonightData } =
+		loaderData
 
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
 	const nextWeek = serializeDate(getNextWeek(parseDate(weekStart)))
@@ -439,6 +514,15 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						</Link>
 					</Button>
 				</div>
+
+					{/* Tonight banner (current week only) */}
+				{tonightData &&
+					(tonightData.entries.length > 0 || tonightData.suggestion) && (
+						<TonightBanner
+							entries={tonightData.entries}
+							suggestion={tonightData.suggestion}
+						/>
+					)}
 
 				{/* Overlap summary + recipe suggestions */}
 				{overlapSummary && (

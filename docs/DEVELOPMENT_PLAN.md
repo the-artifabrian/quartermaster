@@ -60,10 +60,11 @@ tool. Until that changes, no roadmap item matters.
    `/recipes/bulk-import` with client-side parsing, instant preview, `---`
    multi-recipe separator, session counter, and auto-clear/refocus for rapid
    batch import.
-2. **"Tonight" banner on meal plan** -- The daily hook. If today has a planned
-   meal, show "Tonight: [Recipe]" with a one-tap "Start Cooking" button. If
-   empty, nudge with a suggestion. This turns the app into something you open
-   every evening.
+2. ~~**"Tonight" banner on meal plan**~~ -- **Done.** Warm accent banner on the
+   meal plan page (current week only) showing today's uncooked meals with
+   recipe image, cook time, servings, and a "Start Cooking" link to cooking
+   mode. Empty state suggests a favorite recipe with one-tap "Add to Today".
+   Excludes recipes already planned this week from suggestions.
 3. **Daily drive for 4+ weeks** -- Use the app for real cooking: plan the week,
    shop from the list, cook from the app. Fix friction as it surfaces. Get
    partner using it as a real co-user, not a tester.
@@ -140,9 +141,8 @@ workflow: plan -> shop -> cook -> repeat.
 
 #### High Impact
 
-- [x] **"Tonight" banner on meal plan** `[M]` -- _Moved to Phase Now: Daily
-      Driver._ This is the daily hook, too important to sit in the future
-      roadmap.
+- [x] **"Today/Tonight" banner on meal plan** `[M]` -- _Moved to Phase Now:
+      Daily Driver._ Done. See Critical Path #2 above.
 - [ ] **Recipe sharing** `[M]` -- Add a "Share" button on recipe detail using
       the Web Share API (`navigator.share()`) for native mobile sharing (copy
       link, SMS, email). Fallback to clipboard copy on desktop. Currently

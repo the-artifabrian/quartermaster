@@ -1,10 +1,12 @@
+import { type Ingredient } from '@prisma/client'
 import { Img } from 'openimg/react'
-import { Link } from 'react-router'
+import { Link, useFetcher } from 'react-router'
 import { formatTimeAgo } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { type RecipeMatch } from '#app/utils/recipe-matching.server.ts'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import { MatchProgressRing } from './match-progress-ring.tsx'
+import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 
 type RecipeMatchCardProps = {
@@ -13,7 +15,6 @@ type RecipeMatchCardProps = {
 	cookCount?: number
 	urgentBorder?: boolean
 }
-
 
 export function RecipeMatchCard({
 	match,
@@ -29,7 +30,8 @@ export function RecipeMatchCard({
 			to={`/recipes/${recipe.id}`}
 			className={cn(
 				'group bg-card text-card-foreground block overflow-hidden rounded-xl border border-border/60 shadow-warm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-warm-md',
-				urgentBorder && 'border-l-4 border-l-amber-400 dark:border-l-amber-500',
+				urgentBorder &&
+					'border-l-4 border-l-amber-400 dark:border-l-amber-500',
 			)}
 		>
 			<div className="bg-muted relative aspect-[4/3] overflow-hidden rounded-t-lg">
@@ -133,23 +135,68 @@ export function RecipeMatchCard({
 
 					{/* Missing Ingredients */}
 					{missingIngredients.length > 0 && (
-						<div className="bg-muted rounded-md px-2.5 py-1.5 text-xs">
-							<span className="text-muted-foreground font-medium">
-								Missing:
-							</span>{' '}
-							<span className="text-muted-foreground">
-								{missingIngredients
-									.slice(0, 3)
-									.map((ing) => ing.name)
-									.join(', ')}
-								{missingIngredients.length > 3 &&
-									` +${missingIngredients.length - 3} more`}
-							</span>
-						</div>
+						<MissingIngredients
+							recipeId={recipe.id}
+							missingIngredients={missingIngredients}
+						/>
 					)}
 				</div>
 			</div>
 		</Link>
+	)
+}
+
+function MissingIngredients({
+	recipeId,
+	missingIngredients,
+}: {
+	recipeId: string
+	missingIngredients: Ingredient[]
+}) {
+	const fetcher = useFetcher<{ status: string; addedCount: number }>()
+	const isAdded = fetcher.data?.status === 'success'
+	const isSubmitting = fetcher.state !== 'idle'
+
+	return (
+		<div className="bg-muted flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs">
+			<div className="min-w-0 flex-1">
+				<span className="text-muted-foreground font-medium">Missing:</span>{' '}
+				<span className="text-muted-foreground">
+					{missingIngredients
+						.slice(0, 3)
+						.map((ing) => ing.name)
+						.join(', ')}
+					{missingIngredients.length > 3 &&
+						` +${missingIngredients.length - 3} more`}
+				</span>
+			</div>
+			<fetcher.Form
+				method="POST"
+				action="/discover"
+				onClick={(e) => e.stopPropagation()}
+			>
+				<input type="hidden" name="intent" value="addMissing" />
+				<input type="hidden" name="recipeIds" value={recipeId} />
+				<Button
+					type="submit"
+					variant="ghost"
+					size="sm"
+					className="text-muted-foreground hover:text-foreground -mr-1.5 size-7 p-0"
+					disabled={isSubmitting || isAdded}
+					onClick={(e) => {
+						e.preventDefault()
+						e.stopPropagation()
+						void fetcher.submit(e.currentTarget.form!)
+					}}
+				>
+					<Icon
+						name={isAdded ? 'check' : 'plus'}
+						className={cn('size-3.5', isAdded && 'text-green-600')}
+					/>
+					<span className="sr-only">Add missing to shopping list</span>
+				</Button>
+			</fetcher.Form>
+		</div>
 	)
 }
 

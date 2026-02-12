@@ -1,5 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { data, Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -124,13 +124,27 @@ export async function action({ request }: Route.ActionArgs) {
 	return { created: created.length, errors }
 }
 
+function readFileAsText(file: File): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader()
+		reader.onload = () => resolve(reader.result as string)
+		reader.onerror = () => reject(new Error(`Failed to read ${file.name}`))
+		reader.readAsText(file)
+	})
+}
+
 export default function BulkImport() {
 	const fetcher = useFetcher<typeof action>()
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
+	const fileInputRef = useRef<HTMLInputElement>(null)
 	const [previews, setPreviews] = useState<ParsedRecipe[]>([])
 	const [sessionCount, setSessionCount] = useState(0)
+	const [uploadedFileNames, setUploadedFileNames] = useState<string[]>([])
+	const [isReadingFiles, setIsReadingFiles] = useState(false)
+	const [isDragOver, setIsDragOver] = useState(false)
 
 	const isSubmitting = fetcher.state === 'submitting'
+	const hasUploadedFiles = uploadedFileNames.length > 0
 
 	const handleChange = useDebounce((value: string) => {
 		if (!value.trim()) {
@@ -140,6 +154,39 @@ export default function BulkImport() {
 		const chunks = splitMultipleRecipes(value)
 		setPreviews(chunks.map(parseRecipeText))
 	}, 300)
+
+	async function handleFileUpload(files: FileList | null) {
+		if (!files || files.length === 0) return
+		setIsReadingFiles(true)
+		try {
+			const fileArray = Array.from(files)
+			const contents = await Promise.all(fileArray.map(readFileAsText))
+			const allParsed: ParsedRecipe[] = []
+			for (const text of contents) {
+				const chunks = splitMultipleRecipes(text)
+				allParsed.push(...chunks.map(parseRecipeText))
+			}
+			setUploadedFileNames(fileArray.map((f) => f.name))
+			setPreviews(allParsed)
+			if (textareaRef.current) {
+				textareaRef.current.value = ''
+			}
+		} catch (err) {
+			toast.error(
+				err instanceof Error ? err.message : 'Failed to read files',
+			)
+		} finally {
+			setIsReadingFiles(false)
+		}
+	}
+
+	const clearFiles = useCallback(() => {
+		setUploadedFileNames([])
+		setPreviews([])
+		if (fileInputRef.current) {
+			fileInputRef.current.value = ''
+		}
+	}, [])
 
 	// Handle fetcher completion — toast + clear are external side effects
 	const lastFetcherData = useRef(fetcher.data)
@@ -156,14 +203,14 @@ export default function BulkImport() {
 				textareaRef.current.value = ''
 				textareaRef.current.focus()
 			}
-			setPreviews([])
+			clearFiles()
 		}
 		if (errors.length > 0) {
 			toast.error(
 				`Failed to import ${errors.length}: ${errors.map((e) => e.title).join(', ')}`,
 			)
 		}
-	}, [fetcher.data])
+	}, [fetcher.data, clearFiles])
 
 	const validPreviews = previews.filter(
 		(p) => p.title && p.ingredients.length > 0,
@@ -192,7 +239,9 @@ export default function BulkImport() {
 			</Link>
 			<h1 className="mb-2 text-2xl font-bold">Bulk Import</h1>
 			<p className="text-muted-foreground mb-6">
-				Paste a recipe from Apple Notes (or any plain text). Use{' '}
+				Upload <code className="bg-muted rounded px-1.5 py-0.5 text-xs">.md</code> or{' '}
+				<code className="bg-muted rounded px-1.5 py-0.5 text-xs">.txt</code> files,
+				or paste recipe text below. Use{' '}
 				<code className="bg-muted rounded px-1.5 py-0.5 text-xs">---</code> to
 				separate multiple recipes. Max 50 per batch.
 			</p>
@@ -204,12 +253,78 @@ export default function BulkImport() {
 				</div>
 			)}
 
-			<textarea
-				ref={textareaRef}
-				rows={16}
-				autoFocus
-				className="bg-background border-input placeholder:text-muted-foreground mb-4 w-full rounded-lg border p-4 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-offset-2"
-				placeholder={`Chicken Stir Fry
+			{/* File upload zone */}
+			{hasUploadedFiles ? (
+				<div className="border-border bg-card mb-4 rounded-lg border p-4">
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2">
+							<Icon name="file-text" size="md" className="text-muted-foreground" />
+							<span className="text-sm font-medium">
+								{uploadedFileNames.length} file{uploadedFileNames.length === 1 ? '' : 's'} loaded
+								{' '}({previews.length} recipe{previews.length === 1 ? '' : 's'})
+							</span>
+						</div>
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={clearFiles}
+						>
+							Clear files
+						</Button>
+					</div>
+					<p className="text-muted-foreground mt-1 text-xs">
+						{uploadedFileNames.slice(0, 5).join(', ')}
+						{uploadedFileNames.length > 5
+							? `, and ${uploadedFileNames.length - 5} more`
+							: ''}
+					</p>
+				</div>
+			) : (
+				<>
+					<div
+						className={`mb-4 flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-6 transition-colors ${isDragOver ? 'border-primary bg-accent/50' : 'border-input hover:bg-accent/50'}`}
+						onDragOver={(e) => {
+							e.preventDefault()
+							setIsDragOver(true)
+						}}
+						onDragLeave={() => setIsDragOver(false)}
+						onDrop={(e) => {
+							e.preventDefault()
+							setIsDragOver(false)
+							void handleFileUpload(e.dataTransfer.files)
+						}}
+						onClick={() => fileInputRef.current?.click()}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault()
+								fileInputRef.current?.click()
+							}
+						}}
+						role="button"
+						tabIndex={0}
+					>
+						<Icon name="file-text" size="lg" className="text-muted-foreground" />
+						<span className="text-sm font-medium">
+							{isReadingFiles ? 'Reading files...' : isDragOver ? 'Drop files here' : 'Choose files or drag & drop'}
+						</span>
+						<span className="text-muted-foreground text-xs">
+							.md and .txt files supported
+						</span>
+						<input
+							ref={fileInputRef}
+							type="file"
+							accept=".md,.txt"
+							multiple
+							className="hidden"
+							onChange={(e) => handleFileUpload(e.target.files)}
+						/>
+					</div>
+					<textarea
+						ref={textareaRef}
+						rows={16}
+						autoFocus
+						className="bg-background border-input placeholder:text-muted-foreground mb-4 w-full rounded-lg border p-4 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-offset-2"
+						placeholder={`Chicken Stir Fry
 
 Ingredients
 - 2 cups chicken breast, diced
@@ -224,8 +339,10 @@ Instructions
 ---
 
 (paste another recipe here)`}
-				onChange={(e) => handleChange(e.target.value)}
-			/>
+						onChange={(e) => handleChange(e.target.value)}
+					/>
+				</>
+			)}
 
 			{/* Preview */}
 			{previews.length > 0 && (

@@ -46,7 +46,8 @@ tool. Until that changes, no roadmap item matters.
 ### Current Reality
 
 - Feature-complete for solo and shared daily use (Phases 1-13e + UI redesign)
-- 140 structured recipes still in Apple Notes waiting to be imported
+- 140 structured recipes still in Apple Notes waiting to be imported (bulk
+  import now supports multi-file upload via drag & drop)
 - A few testers have tried the app with promising reactions, but no habitual
   daily users yet
 - Inventory tracking is untested in sustained real-world use -- the biggest

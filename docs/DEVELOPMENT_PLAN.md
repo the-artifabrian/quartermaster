@@ -44,8 +44,10 @@ tool. Until that changes, no roadmap item matters.
 ### Current Reality
 
 - Feature-complete for solo and shared daily use (Phases 1-13e + UI redesign)
-- 140 structured recipes still in Apple Notes waiting to be imported (bulk
-  import now supports multi-file upload via drag & drop)
+- ~135 recipes bulk-imported from Apple Notes. Import is done, but there's a
+  ramp-up gap: recipes may have parsing issues, inventory is a rough sketch
+  from pantry staples, and there's no guided path from "data imported" to
+  "using it weekly"
 - A few testers have tried the app with promising reactions, but no habitual
   daily users yet
 - Inventory tracking is untested in sustained real-world use -- the biggest
@@ -57,13 +59,35 @@ tool. Until that changes, no roadmap item matters.
 
 1. ~~**Bulk import from Apple Notes**~~ -- Done.
 2. ~~**"Up next" banner on meal plan**~~ -- Done.
-3. **Daily drive for 4+ weeks** -- Use the app for real cooking: plan the week,
+3. **Smooth the post-import ramp** -- The gap between "I imported everything"
+   and "I use this every week" is the adoption killer. Three targeted fixes:
+   - **Post-import nudge to meal planning.** After bulk import succeeds, show
+     a clear CTA: "Pick a few recipes and plan this week." Currently the
+     success screen is a dead end -- the user has to self-navigate to /plan.
+     A single well-placed link bridges the gap.
+   - **Import quality flags.** Auto-detect recipes that likely parsed
+     incorrectly: no ingredients, very few ingredients (< 3), no instructions,
+     or duplicate titles. Show a banner on the recipe list: "12 recipes may
+     need a quick review" with a filter to surface just those. The rest can
+     be trusted until cooked. This reframes the mental model from "review all
+     135 recipes" to "check the ~10 that look off."
+   - **"I have this" on the discover page.** The discover page already shows
+     missing ingredients as pills with an "add to shopping list" action. Add
+     a complementary "I have this" action on each missing ingredient --
+     one tap adds it to inventory and updates the match. Every discover page
+     visit becomes a passive inventory audit, building accuracy through use
+     instead of upfront data entry. This is the single highest-leverage
+     change for inventory accuracy.
+4. **Daily drive for 4+ weeks** -- Use the app for real cooking: plan the week,
    shop from the list, cook from the app. Fix friction as it surfaces. Get
    partner using it as a real co-user, not a tester.
-4. **Stress-test inventory** -- Track inventory honestly for a month. Measure
+5. **Stress-test inventory** -- Track inventory honestly for a month. Measure
    how fast it drifts. Determine whether the overhead is justified by the
    discovery and subtraction benefits, or whether inventory needs to be more
-   passive (e.g., auto-populate from shopping list check-offs only).
+   passive (e.g., auto-populate from shopping list check-offs only). The
+   "I have this" button on discover and shopping list → inventory pipeline
+   should be the primary inventory input methods -- if these keep inventory
+   accurate enough without manual entry, that's the answer.
 
 ### Gate
 
@@ -129,6 +153,114 @@ view, recipe sharing (Web Share API), quick "I made this" from meal plan, meal
 templates, better low-match discovery ("almost there" banner), "up next" banner.
 
 (now shipped).
+
+### AI Integration
+
+AI enhancements to existing flows -- not a separate "AI feature", but invisible
+intelligence woven into the discover, meal plan, and cooking experience. Every
+AI output lands in an existing UI pattern (recipe card, ingredient pill, meal
+plan slot), never in a chat window.
+
+These activate after the daily driver gate is met -- they enhance existing flows,
+but the flows need to be proven in real use first. Each item is a standalone
+improvement to an existing page and can ship incrementally.
+
+#### Design principles
+
+- **Integrated, not bolted on.** AI outputs appear as native UI elements:
+  a tooltip under a missing ingredient, a recipe card in the library, a
+  pre-filled meal plan. No chat windows, no "AI" branding, no separate modes.
+- **User stays in control.** Generated recipes go through the standard recipe
+  form for review before saving. Generated meal plans are editable drafts.
+  Substitution hints are suggestions, not automatic replacements.
+  call matters. Prefer caching (substitutions can be pre-computed per ingredient
+  pair), batching (meal plan generation is one call, not seven), and gating
+  (only fire on user action, never speculatively in loaders).
+
+#### Features
+
+- [ ] **Ingredient substitutions** -- When the discover page or a recipe detail
+      shows a missing ingredient, display a contextual substitution hint inline
+      ("No buttermilk? Use 1 cup milk + 1 tbsp lemon juice"). Appears as a
+      small expandable line or tooltip on the missing-ingredient pill -- not a
+      modal or sidebar. The existing synonym system handles _equivalent_
+      ingredients (cilantro = coriander); this covers _non-equivalent_
+      substitutions where a different ingredient can fill the same role.
+      Implementation: server-side LLM call on demand (user clicks/taps "suggest
+      substitute"), cached per ingredient + recipe context pair. Consider
+      seeding a static substitution database for the most common ~50
+      ingredients to reduce API calls.
+- [ ] **Recipe generation from inventory** -- When the discover page has no
+      strong matches (e.g., best match is below 50%), show a "Create something
+      from what I have" CTA in the empty/low-match state. Also triggers when
+      inventory items are expiring soon and no planned meal uses them --
+      generates a recipe that prioritizes those ingredients. Takes the user's
+      current inventory, sends it to an LLM with cuisine/dietary preferences
+      from their existing recipe tags, and generates a structured recipe. The
+      result opens in the standard recipe form (pre-filled, editable) for
+      review before saving. The user can tweak and save it like any other
+      recipe -- it becomes a normal part of their library.
+      Implementation: single LLM call with structured output (JSON matching
+      the recipe schema). Limit to a reasonable rate (e.g., 5 generations/day)
+      to manage cost.
+      **Trust note:** AI-generated recipes are unvetted -- proportions or flavor
+      combinations may be off. Generated recipes should carry a subtle
+      "AI-generated" indicator so the user knows to pay closer attention when
+      cooking it the first time. The cooking log prompt for these recipes could
+      nudge the user to note adjustments ("How did this turn out? Anything to
+      tweak for next time?").
+- [ ] **Smart meal plan generation** -- A "Fill my week" button on the meal plan
+      page that generates a full or partial weekly plan. Considers: inventory
+      (prioritize expiring items), ingredient overlap (the efficiency engine
+      already built in Phase 12), variety (avoid repeating cuisines or proteins
+      back-to-back), cooking history (favor highly-rated recipes, avoid
+      recently cooked ones), and time constraints (quicker meals on weekdays).
+      The output is a draft meal plan -- all slots are pre-filled but the user
+      can swap, remove, or adjust servings before confirming. Only assigns
+      recipes already in the user's library (no generation here).
+      Implementation: **algorithmic first.** The inputs (recipe metadata, tags,
+      cook times, ratings, inventory, overlap scores) and output (recipe ID →
+      day + slot) are all structured -- this is a constraint-satisfaction and
+      ranking problem, not a natural language problem. Build it as a
+      deterministic algorithm using the existing overlap engine, matching
+      engine, and cooking log data. This is cheaper, faster, more predictable,
+      and debuggable than an LLM. Only reach for an LLM if the rules-based
+      approach can't handle preference nuance well enough (e.g., "I want more
+      variety" or "lighter meals midweek").
+- [ ] **Receipt scanning → inventory** -- Photo upload of a grocery receipt,
+      OCR + AI extracts line items, maps them to ingredient names, and guesses
+      storage locations (pantry/fridge/freezer). Presented as a review list
+      where the user can edit names, fix locations, and deselect items before
+      bulk-adding. Higher implementation complexity (camera UI, OCR pipeline,
+      item classification) -- ship after the above features prove out.
+
+#### Cost management
+
+At scale, the main cost concern is LLM API calls. Mitigation strategies:
+
+- **Static seed data** for the most common substitutions (~50-100 ingredients)
+  to avoid LLM calls entirely for predictable cases
+- **Cache aggressively** -- substitution results are stable and can be cached
+  per ingredient pair
+- **Gate on user action** -- never call an LLM in a loader or on page load;
+  always behind a button click
+- **Rate limits per user** -- prevent runaway costs from power users or abuse
+- **Track spend** -- log API calls per user per day; alert if costs exceed
+  expected thresholds
+- **Meal plan generation is algorithmic** -- no LLM cost for the highest-
+  frequency AI feature
+
+**Rough cost estimate:** Assuming a Haiku-class model (~$0.001/call for short
+prompts), an active Pro user who looks up 5 substitutions/week and generates
+2 recipes/month costs roughly $0.03/month in API calls -- well within the
+$2.50-3.30/month Pro revenue. The static substitution database and caching
+should reduce even this further. Receipt scanning (vision model) would be
+more expensive per call (~$0.01-0.05) but is low-frequency (once per grocery
+trip). Monitor actual usage before optimizing.
+
+existing rules-based matching and synonym system. Pro unlocks AI substitutions,
+recipe generation, smart meal planning, and receipt scanning. This strengthens
+the Pro value proposition beyond just "more recipes" and "inventory tracking."
 
 Ship after the no-waste planning story (Phase 12) is proven in daily use. The
 marketing pitch -- "Plan meals that share ingredients, prep once on Sunday, waste
@@ -203,6 +335,10 @@ Lower-priority items to reconsider later.
 
 #### Intelligence & AI
 
+AI substitutions, recipe generation, meal plan generation, "use it up"
+suggestions, and receipt scanning have been promoted to the **AI Integration**
+section in the Future Roadmap above.
+
 - [ ] **Ingredient parser accuracy** -- The normalization pipeline handles ~40
       modifiers and ~25 synonym groups, but real-world imports will surface edge
       cases: nested quantities ("1 (14.5 oz) can diced tomatoes"), brand names
@@ -211,13 +347,6 @@ Lower-priority items to reconsider later.
       real ingredient strings from imported recipes and track parse accuracy.
       Improvements here compound across matching, shopping lists, and overlap
       scoring -- it's foundational infrastructure.
-- [ ] **AI: Receipt scanning -> inventory** -- Photo of grocery receipt, AI
-      extracts items and guesses storage locations. Review/confirm before
-      adding.
-- [ ] **AI: Ingredient substitutions** -- When an ingredient is missing, suggest
-      contextual alternatives ("No buttermilk? Use 1 cup milk + 1 tbsp lemon
-      juice"). Note: the existing synonym system already handles this implicitly
-      for equivalent ingredients -- AI would cover non-equivalent substitutions.
 - [ ] **Nutrition estimates** -- Hit a nutrition API (Nutritionix or Edamam) for
       estimated calories and macros on recipe detail pages.
 - [ ] **Monthly cooking summary** -- Stats from cooking logs: meals cooked,
@@ -247,11 +376,13 @@ reverted (warm-color deterministic placeholders used instead).
 
 ### Daily Driver (current focus)
 
-- [ ] All 140 Apple Notes recipes imported into the app
+- [x] All Apple Notes recipes imported into the app (~135 bulk imported)
 - [ ] Apple Notes is no longer used for recipes
+- [ ] Flagged recipes reviewed and fixed (import quality flags shipped)
 - [ ] Weekly meal planning happens in-app for 4+ consecutive weeks
 - [ ] Partner uses the app as a real co-user (not just testing)
 - [ ] Inventory accuracy assessed after 4 weeks of real tracking
+- [ ] "I have this" on discover is the primary way inventory gets corrected
 - [ ] "Up next" banner used as the daily cooking entry point
 
 ### Shipped (features)
@@ -275,7 +406,9 @@ reverted (warm-color deterministic placeholders used instead).
 
 ---
 
-_Last updated: February 11, 2026. Refocused around daily driver adoption as
-app is proven in daily use. Three-doc structure:
-[FEATURES.md](./FEATURES.md) (what's built),
-and this file (roadmap)._
+_Last updated: February 12, 2026. Added post-import ramp (quality flags, "I
+have this" on discover, post-import nudge) to Critical Path. Added AI
+Integration section (substitutions, recipe generation, smart meal planning,
+receipt scanning). AI features scoped as enhancements to existing flows, not a
+separate mode. Three-doc structure: [FEATURES.md](./FEATURES.md) (what's
+strategy), and this file (roadmap)._

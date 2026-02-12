@@ -205,6 +205,12 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 					Data
 				</h3>
 				<div className="flex flex-col">
+					<Link
+						to="import"
+						className="hover:bg-accent/5 rounded-lg px-4 py-3"
+					>
+						<Icon name="update">Import data</Icon>
+					</Link>
 					<a
 						href="/resources/export-all-data"
 						download

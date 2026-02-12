@@ -97,9 +97,10 @@ onboarding flow (getting started checklist on `/recipes`).
       toggles, favorites). Remaining: skip-to-content link, comprehensive
       screen reader audit, focus management in cooking mode. Legal and ethical
       requirement for a paid product.
-- [ ] **Import from export (data round-trip)** -- JSON export exists but there's
-      no import-from-export. Users burned by Yummly care about portability.
-      Complete round-trip builds trust before asking people to pay.
+- [x] **Import from export (data round-trip)** -- Full round-trip: import
+      supports both full exports and recipe-only exports. Duplicates auto-skipped
+      by title (recipes) and name+location (inventory). Partial success kept on
+      errors. Available at Settings > Data > "Import data".
 - [x] **Full data export** -- Comprehensive JSON export of all user/household
       data: recipes (with ingredients, instructions, tags, image refs, notes),
       inventory, meal plans (with entries), shopping lists (with items), cooking
@@ -209,8 +210,8 @@ Lower-priority items to reconsider later.
 
 #### Infrastructure
 
-- [ ] **Import from export (data round-trip)** -- _Promoted to Pre-Phase 14
-      prerequisites._ See above.
+- [x] **Import from export (data round-trip)** -- _Shipped._ See Pre-Phase 14
+      prerequisites above.
 - [ ] **Automated backups** -- The app stores years of recipes in a single
       SQLite file. Fly.io + LiteFS handles replication, but a scheduled backup
       to S3 (daily Litestream snapshots or a cron job that copies the DB) would

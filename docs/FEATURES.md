@@ -108,10 +108,10 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
   (`@epic-web/remember`) for SSE broadcasting, `HouseholdEvent` table for
   persistence. SSE endpoint with auth, 30s keepalive, self-event filtering,
   abort cleanup. Client EventSource with auto-reconnect (3-5s jitter)
-- 23 event types: recipe CRUD/import/bulk-import/favorite, cook logged,
+- 24 event types: recipe CRUD/import/bulk-import/favorite, cook logged,
   inventory add/bulk-add/update/delete, meal plan assign/remove/cook/copy-week/
   template-saved/template-applied, shopping list generate/add-item/clear/
-  to-inventory, member join/leave
+  to-inventory, member join/leave, data imported
 - Sonner toast notifications with "View" action navigation to relevant pages
 - Activity feed on household settings page (last 20 events, relative timestamps)
 - Auto-prune events older than 30 days (lazy, on SSE connect)
@@ -142,6 +142,13 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 - Full data export: comprehensive JSON download of all user/household data
   (recipes, inventory, meal plans, shopping lists, cooking logs, meal templates)
   plus recipe-only JSON export
+- Import from export: complete data round-trip supporting both full exports and
+  recipe-only exports. Client-side file validation with preview (item counts per
+  section), server-side Zod validation with bounded string/array limits.
+  Duplicate detection: recipes matched by title (case-insensitive), inventory by
+  name+location. Meal plans find-or-create by week, entries skip on unique
+  constraint conflicts. Partial success preserved (per-section error isolation).
+  Results summary shows created/skipped/errored counts per section
 - Security hardening: streaming file size enforcement on uploads, server-side
   MIME validation, Zod validation on all bulk operations, SSRF protection on
   URL import, input length limits on all text fields, open redirect fix,

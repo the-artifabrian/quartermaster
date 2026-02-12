@@ -210,6 +210,28 @@ describe('formatEventMessage', () => {
 		expect(result.url).toBe('/inventory')
 	})
 
+	test('data_imported - recipes and inventory', () => {
+		const result = formatEventMessage(
+			'data_imported',
+			{ recipeCount: 42, inventoryCount: 15 },
+			'Alex',
+		)
+		expect(result.message).toBe(
+			'Alex imported 42 recipes and 15 inventory items',
+		)
+		expect(result.url).toBe('/recipes')
+	})
+
+	test('data_imported - recipes only', () => {
+		const result = formatEventMessage(
+			'data_imported',
+			{ recipeCount: 10, inventoryCount: 0 },
+			'Alex',
+		)
+		expect(result.message).toBe('Alex imported 10 recipes')
+		expect(result.url).toBe('/recipes')
+	})
+
 	test('household_member_joined', () => {
 		const result = formatEventMessage(
 			'household_member_joined',

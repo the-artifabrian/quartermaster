@@ -52,7 +52,7 @@ export function BottomNav() {
 	)
 
 	return (
-		<nav className="bg-card/95 fixed inset-x-0 bottom-0 z-50 border-t border-border/50 shadow-[0_-1px_3px_oklch(20%_0.01_55/0.05)] backdrop-blur-sm md:hidden print:hidden">
+		<nav className="bg-card/95 fixed inset-x-0 bottom-0 z-50 border-t border-border/50 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_oklch(20%_0.01_55/0.05)] backdrop-blur-sm md:hidden print:hidden">
 			<div className="relative flex h-16 items-center justify-around">
 				{/* Sliding pill indicator */}
 				{activeIndex >= 0 && (

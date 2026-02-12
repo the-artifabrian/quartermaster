@@ -278,7 +278,7 @@ export default function EditRecipe({ loaderData }: Route.ComponentProps) {
 	const { recipe, tags } = loaderData
 
 	return (
-		<div className="container max-w-2xl py-6">
+		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
 			<h1 className="mb-6 text-2xl font-bold">Edit Recipe</h1>
 			<RecipeForm recipe={recipe} tags={tags} submitLabel="Save Changes" />
 			<div className="mt-8 border-t pt-8">

@@ -119,7 +119,7 @@ function EntryRow({
 					<button
 						type="submit"
 						className={cn(
-							'flex size-5 items-center justify-center rounded-full border-2 transition-colors',
+							'flex size-7 items-center justify-center rounded-full border-2 transition-colors',
 							isCooked
 								? 'border-green-500 bg-green-500 text-white'
 								: 'border-muted-foreground/30 hover:border-green-500',
@@ -163,7 +163,7 @@ function EntryRow({
 				<Button
 					variant="outline"
 					size="sm"
-					className="h-5 w-5 p-0 text-xs"
+					className="h-7 w-7 p-0 text-xs"
 					onClick={() => updateServings(currentServings - 1)}
 					disabled={currentServings <= 1}
 				>
@@ -175,7 +175,7 @@ function EntryRow({
 				<Button
 					variant="outline"
 					size="sm"
-					className="h-5 w-5 p-0 text-xs"
+					className="h-7 w-7 p-0 text-xs"
 					onClick={() => updateServings(currentServings + 1)}
 				>
 					+

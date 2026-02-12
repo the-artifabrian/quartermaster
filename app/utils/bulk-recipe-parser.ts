@@ -189,6 +189,11 @@ export function parseRecipeText(text: string): ParsedRecipe {
 
 			const stripped = stripBullet(line)
 			if (!stripped) continue
+			// Skip lines that are clearly not ingredients (paragraph-length text)
+			if (stripped.length > 200) {
+				warnings.push(`Skipped long line (not an ingredient): "${stripped.slice(0, 60)}..."`)
+				continue
+			}
 			const parsed = parseIngredient(stripped)
 			if (parsed) {
 				if (currentSubHeader) {

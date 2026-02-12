@@ -56,7 +56,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if (typeof rawJson !== 'string') {
 		return data(
-			{ created: 0, errors: [{ title: 'Unknown', error: 'Invalid payload' }] },
+			{ created: 0, skipped: [], errors: [{ title: 'Unknown', error: 'Invalid payload' }] },
 			{ status: 400 },
 		)
 	}
@@ -65,20 +65,49 @@ export async function action({ request }: Route.ActionArgs) {
 	try {
 		const parsed = JSON.parse(rawJson)
 		recipes = BulkImportPayloadSchema.parse(parsed)
-	} catch {
+	} catch (err) {
+		if (err instanceof z.ZodError) {
+			const details = err.errors
+				.slice(0, 5)
+				.map((e) => `${e.path.join('.')}: ${e.message}`)
+				.join('; ')
+			return data(
+				{
+					created: 0,
+					skipped: [],
+					errors: [{ title: 'Validation error', error: details }],
+				},
+				{ status: 400 },
+			)
+		}
 		return data(
 			{
 				created: 0,
+				skipped: [],
 				errors: [{ title: 'Unknown', error: 'Invalid recipe data' }],
 			},
 			{ status: 400 },
 		)
 	}
 
+	const existingTitles = new Set(
+		(
+			await prisma.recipe.findMany({
+				where: { householdId },
+				select: { title: true },
+			})
+		).map((r) => r.title.toLowerCase()),
+	)
+
 	const created: string[] = []
+	const skipped: string[] = []
 	const errors: Array<{ title: string; error: string }> = []
 
 	for (const recipe of recipes) {
+		if (existingTitles.has(recipe.title.toLowerCase())) {
+			skipped.push(recipe.title)
+			continue
+		}
 		try {
 			await prisma.recipe.create({
 				data: {
@@ -104,6 +133,7 @@ export async function action({ request }: Route.ActionArgs) {
 				},
 			})
 			created.push(recipe.title)
+			existingTitles.add(recipe.title.toLowerCase())
 		} catch (err) {
 			errors.push({
 				title: recipe.title,
@@ -121,7 +151,7 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 	}
 
-	return { created: created.length, errors }
+	return { created: created.length, skipped, errors }
 }
 
 function readFileAsText(file: File): Promise<string> {
@@ -193,7 +223,7 @@ export default function BulkImport() {
 	useEffect(() => {
 		if (!fetcher.data || fetcher.data === lastFetcherData.current) return
 		lastFetcherData.current = fetcher.data
-		const { created, errors } = fetcher.data
+		const { created, skipped, errors } = fetcher.data
 		if (created > 0) {
 			setSessionCount((prev) => prev + created)
 			toast.success(
@@ -204,6 +234,11 @@ export default function BulkImport() {
 				textareaRef.current.focus()
 			}
 			clearFiles()
+		}
+		if (skipped && skipped.length > 0) {
+			toast.info(
+				`Skipped ${skipped.length} duplicate${skipped.length === 1 ? '' : 's'}: ${skipped.join(', ')}`,
+			)
 		}
 		if (errors.length > 0) {
 			toast.error(

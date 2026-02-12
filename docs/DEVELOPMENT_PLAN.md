@@ -366,8 +366,8 @@ section in the Future Roadmap above.
       most-made recipes, average rating. Light analytics, not diet tracking.
 - [ ] **Timer integration with recipe steps** -- Detect time references in
       instruction text (e.g., "simmer for 15 minutes") and offer an inline
-      "start timer" button. Pairs with the multiple concurrent timers UX
-      improvement.
+      "start timer" button. Multiple concurrent timers infrastructure is now
+      in place (TimerProvider + TimerWidget).
 - [ ] **Leftovers/batch tracking** -- After cooking 6 servings for 2, the 4
       leftover portions aren't tracked. Would affect meal planning ("I already
       have chili for 2 more meals"). Needs schema design and UX thought -- more
@@ -382,8 +382,9 @@ section in the Future Roadmap above.
 #### UX Improvements
 
 Previously completed: landing page CTA, unified cooking mode, recipe form
-collapsible sections, meal plan empty state. Unsplash placeholders tried and
-reverted (warm-color deterministic placeholders used instead).
+collapsible sections, meal plan empty state, multiple concurrent timers,
+smarter "Surprise Me", shopping list week picker. Unsplash placeholders tried
+and reverted (warm-color deterministic placeholders used instead).
 
 - [~] **Accessibility pass** -- _Promoted to Pre-Phase 14 prerequisites._
       Partially done in UI redesign. See above.
@@ -395,16 +396,19 @@ reverted (warm-color deterministic placeholders used instead).
       distinct "no matches" empty state. Shopping list: filters within categories,
       hides empty categories, hides bulk action buttons during search, hidden on
       print.
-- [ ] **Multiple concurrent timers** -- Current timer is single-instance and
-      non-persistent. Real cooking regularly needs 2-3 simultaneous timers
-      (pasta + sauce + bread). Named timers that survive page navigation.
-- [ ] **Smarter "Surprise Me"** -- Currently pure random. Should weight toward:
-      recipes with high inventory match (reuse existing matching algorithm),
-      recipes not recently cooked (use cooking log data), and favorites. All the
-      data and algorithms already exist -- just needs wiring.
-- [ ] **Shopping list generation from any week** -- Currently only generates
-      from the current week's meal plan. If you plan ahead, you can't generate a
-      list for next week. Add a week picker to the generate action.
+- [x] **Multiple concurrent timers** -- _Shipped._ Global `TimerProvider`
+      context manages up to 5 named timers with localStorage persistence,
+      wake lock, and alarm sound. Floating `TimerWidget` pill (collapsed
+      countdown + expanded card with pause/resume/dismiss). `CookingTimer`
+      refactored to inline creation UI within cooking mode. Timers survive
+      page navigation.
+- [x] **Smarter "Surprise Me"** -- _Shipped._ Weighted random selection using
+      inventory match percentage, favorite status, average rating, exploration
+      bonus (never-cooked), and recency penalty. Scoring extracted to
+      `surprise-scoring.server.ts` with 18 unit tests.
+- [x] **Shopping list generation from any week** -- _Shipped._ Loader queries
+      prev/current/next week for meal plans. Week picker `<select>` shown when
+      multiple weeks have plans. Action accepts optional `weekStart` param.
 - [ ] **Recipe duplicate from detail view** -- No way to fork a recipe for
       variations ("spicy version"). A "Duplicate" action on the recipe detail
       page that copies all fields into the create form.
@@ -454,6 +458,7 @@ reverted (warm-color deterministic placeholders used instead).
 
 ---
 
-_Last updated: February 12, 2026. Inventory and shopping list search shipped.
-Daily driving in progress -- using the app for real cooking with friction notes,
-feature work continues in parallel._
+_Last updated: February 12, 2026. Smarter "Surprise Me", shopping list week
+picker, and multiple concurrent timers shipped. Daily driving in progress --
+using the app for real cooking with friction notes, feature work continues in
+parallel._

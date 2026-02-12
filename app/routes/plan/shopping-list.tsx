@@ -13,7 +13,15 @@ import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import { getCurrentWeekStart } from '#app/utils/date.ts'
+import {
+	getCurrentWeekStart,
+	getPreviousWeek,
+	getNextWeek,
+	getWeekStart,
+	parseDate,
+	serializeDate,
+	formatWeekRange,
+} from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { parseAmount } from '#app/utils/fractions.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
@@ -69,29 +77,43 @@ export async function loader({ request }: Route.LoaderArgs) {
 		{} as Record<string, typeof shoppingList.items>,
 	)
 
-	// Check if user has a current meal plan
-	const weekStart = getCurrentWeekStart()
-	const mealPlan = await prisma.mealPlan.findFirst({
-		where: { householdId, weekStart },
-		include: {
-			entries: {
-				include: {
-					recipe: {
-						include: {
-							ingredients: true,
-						},
-					},
-				},
-			},
+	// Check prev/current/next weeks for meal plans
+	const currentWeek = getCurrentWeekStart()
+	const prevWeek = getPreviousWeek(currentWeek)
+	const nextWeek = getNextWeek(currentWeek)
+
+	const mealPlans = await prisma.mealPlan.findMany({
+		where: {
+			householdId,
+			weekStart: { in: [prevWeek, currentWeek, nextWeek] },
+		},
+		select: {
+			weekStart: true,
+			_count: { select: { entries: true } },
 		},
 	})
 
-	const hasMealPlan = mealPlan && mealPlan.entries.length > 0
+	const weeksWithPlans = [prevWeek, currentWeek, nextWeek]
+		.filter((week) =>
+			mealPlans.some(
+				(mp) =>
+					mp.weekStart.getTime() === week.getTime() &&
+					mp._count.entries > 0,
+			),
+		)
+		.map((week) => ({
+			weekStart: serializeDate(week),
+			label: formatWeekRange(week),
+			isCurrent: week.getTime() === currentWeek.getTime(),
+		}))
+
+	const hasMealPlan = weeksWithPlans.length > 0
 
 	return {
 		shoppingList,
 		itemsByCategory,
 		hasMealPlan,
+		weeksWithPlans,
 	}
 }
 
@@ -112,8 +134,12 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	if (intent === 'generate') {
-		// Get current week's meal plan
-		const weekStart = getCurrentWeekStart()
+		// Get meal plan for specified week (or current week)
+		const weekStartParam = formData.get('weekStart')
+		const weekStart =
+			typeof weekStartParam === 'string' && weekStartParam
+				? getWeekStart(parseDate(weekStartParam))
+				: getCurrentWeekStart()
 		const mealPlan = await prisma.mealPlan.findFirst({
 			where: { householdId, weekStart },
 			include: {
@@ -332,7 +358,13 @@ export default function ShoppingListRoute({
 	loaderData,
 	actionData,
 }: Route.ComponentProps) {
-	const { itemsByCategory, hasMealPlan } = loaderData
+	const { itemsByCategory, hasMealPlan, weeksWithPlans } = loaderData
+	const [selectedWeek, setSelectedWeek] = useState(
+		() =>
+			weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
+			weeksWithPlans[0]?.weekStart ??
+			'',
+	)
 	const isPending = useIsPending()
 
 	const [form, fields] = useForm({
@@ -450,6 +482,23 @@ export default function ShoppingListRoute({
 					<div className="mb-6 print:hidden">
 						<Form method="POST">
 							<input type="hidden" name="intent" value="generate" />
+							<input type="hidden" name="weekStart" value={selectedWeek} />
+							{weeksWithPlans.length > 1 && (
+								<div className="mb-2">
+									<select
+										value={selectedWeek}
+										onChange={(e) => setSelectedWeek(e.target.value)}
+										className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+									>
+										{weeksWithPlans.map((week) => (
+											<option key={week.weekStart} value={week.weekStart}>
+												{week.label}
+												{week.isCurrent ? ' (this week)' : ''}
+											</option>
+										))}
+									</select>
+								</div>
+							)}
 							<Button type="submit" variant="outline" className="w-full">
 								<Icon name="update" size="sm" />
 								Generate from Meal Plan

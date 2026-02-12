@@ -16,11 +16,11 @@ import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
-import { NotificationBell } from './components/notification-bell.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
-import { NOTIFY_EVENT_TYPES_LIST } from './utils/household-event-messages.ts'
+import { NotificationBell } from './components/notification-bell.tsx'
 import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { Progress } from './components/progress-bar.tsx'
+import { TimerWidget } from './components/timer-widget.tsx'
 import { useToast } from './components/toaster.tsx'
 import { Button } from './components/ui/button.tsx'
 import { href as iconsHref } from './components/ui/icon.tsx'
@@ -38,9 +38,11 @@ import { prisma } from './utils/db.server.ts'
 import { getEnv } from './utils/env.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
 import { honeypot } from './utils/honeypot.server.ts'
+import { NOTIFY_EVENT_TYPES_LIST } from './utils/household-event-messages.ts'
 import { combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
 import { useNonce } from './utils/nonce-provider.ts'
 import { type Theme, getTheme } from './utils/theme.server.ts'
+import { TimerProvider } from './utils/timer-context.tsx'
 import { makeTimings, time } from './utils/timing.server.ts'
 import { getToast } from './utils/toast.server.ts'
 import { useOptionalUser } from './utils/user.ts'
@@ -253,7 +255,8 @@ function App() {
 	useToast(data.toast)
 
 	return (
-		<OpenImgContextProvider
+		<TimerProvider>
+			<OpenImgContextProvider
 			optimizerEndpoint="/resources/images"
 			getSrc={getImgSrc}
 		>
@@ -330,8 +333,10 @@ function App() {
 			<Toaster closeButton position="top-center" theme={theme} />
 			<OfflineIndicator />
 			{user ? <HouseholdActivityNotifier /> : null}
+			{user ? <TimerWidget /> : null}
 			<Progress />
-		</OpenImgContextProvider>
+			</OpenImgContextProvider>
+		</TimerProvider>
 	)
 }
 

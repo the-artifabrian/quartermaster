@@ -1,6 +1,8 @@
 import { type Ingredient } from '@prisma/client'
 import { Img } from 'openimg/react'
+import { useEffect, useRef } from 'react'
 import { Link, useFetcher } from 'react-router'
+import { toast } from 'sonner'
 import { formatTimeAgo } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { type RecipeMatch } from '#app/utils/recipe-matching.server.ts'
@@ -157,46 +159,127 @@ function MissingIngredients({
 	const isAdded = fetcher.data?.status === 'success'
 	const isSubmitting = fetcher.state !== 'idle'
 
+	const visible = missingIngredients.slice(0, 4)
+	const overflowCount = missingIngredients.length - visible.length
+
 	return (
-		<div className="bg-muted flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs">
-			<div className="min-w-0 flex-1">
-				<span className="text-muted-foreground font-medium">Missing:</span>{' '}
-				<span className="text-muted-foreground">
-					{missingIngredients
-						.slice(0, 3)
-						.map((ing) => ing.name)
-						.join(', ')}
-					{missingIngredients.length > 3 &&
-						` +${missingIngredients.length - 3} more`}
-				</span>
-			</div>
-			<fetcher.Form
-				method="POST"
-				action="/discover"
-				onClick={(e) => e.stopPropagation()}
-			>
-				<input type="hidden" name="intent" value="addMissing" />
-				<input type="hidden" name="recipeIds" value={recipeId} />
-				<Button
-					type="submit"
-					variant="ghost"
-					size="sm"
-					className="text-muted-foreground hover:text-foreground -mr-1.5 size-7 p-0"
-					disabled={isSubmitting || isAdded}
-					onClick={(e) => {
-						e.preventDefault()
-						e.stopPropagation()
-						void fetcher.submit(e.currentTarget.form!)
-					}}
+		<div className="bg-muted rounded-md px-2.5 py-1.5 text-xs">
+			<div className="mb-1.5 flex items-center justify-between">
+				<span className="text-muted-foreground font-medium">Missing:</span>
+				<fetcher.Form
+					method="POST"
+					action="/discover"
+					onClick={(e) => e.stopPropagation()}
 				>
-					<Icon
-						name={isAdded ? 'check' : 'plus'}
-						className={cn('size-3.5', isAdded && 'text-green-600')}
-					/>
-					<span className="sr-only">Add missing to shopping list</span>
-				</Button>
-			</fetcher.Form>
+					<input type="hidden" name="intent" value="addMissing" />
+					<input type="hidden" name="recipeIds" value={recipeId} />
+					<Button
+						type="submit"
+						variant="ghost"
+						size="sm"
+						className="text-muted-foreground hover:text-foreground -mr-1.5 size-6 p-0"
+						disabled={isSubmitting || isAdded}
+						onClick={(e) => {
+							e.preventDefault()
+							e.stopPropagation()
+							void fetcher.submit(e.currentTarget.form!)
+						}}
+					>
+						<Icon
+							name={isAdded ? 'check' : 'plus'}
+							className={cn('size-3.5', isAdded && 'text-green-600')}
+						/>
+						<span className="sr-only">Add all missing to shopping list</span>
+					</Button>
+				</fetcher.Form>
+			</div>
+			<div className="flex flex-wrap gap-1">
+				{visible.map((ing) => (
+					<span
+						key={ing.id}
+						className="bg-background/60 text-muted-foreground inline-flex items-center gap-0.5 rounded-full py-0.5 pl-2 pr-0.5"
+					>
+						{ing.name}
+						<IngredientHaveItButton name={ing.name} />
+					</span>
+				))}
+				{overflowCount > 0 && (
+					<span className="text-muted-foreground leading-5">
+						+{overflowCount} more
+					</span>
+				)}
+			</div>
 		</div>
+	)
+}
+
+export function IngredientHaveItButton({
+	name,
+	variant = 'card',
+}: {
+	name: string
+	variant?: 'card' | 'banner'
+}) {
+	const fetcher = useFetcher<{
+		status: string
+		intent?: string
+		addedCount: number
+	}>()
+	const isSuccess = fetcher.data?.status === 'success'
+	const isAlready = fetcher.data?.status === 'already_exists'
+	const isDone = isSuccess || isAlready
+	const isSubmitting = fetcher.state !== 'idle'
+
+	// Toast on completion
+	const prevState = useRef(fetcher.state)
+	useEffect(() => {
+		if (prevState.current !== 'idle' && fetcher.state === 'idle' && fetcher.data) {
+			if (fetcher.data.status === 'success') {
+				toast.success(`Added "${name}" to your inventory`)
+			} else if (fetcher.data.status === 'already_exists') {
+				toast.info(`"${name}" is already in your inventory`)
+			}
+		}
+		prevState.current = fetcher.state
+	}, [fetcher.state, fetcher.data, name])
+
+	return (
+		<fetcher.Form
+			method="POST"
+			action="/discover"
+			className="inline-flex"
+			onClick={(e) => e.stopPropagation()}
+		>
+			<input type="hidden" name="intent" value="addToInventory" />
+			<input type="hidden" name="ingredientName" value={name} />
+			<button
+				type="submit"
+				disabled={isSubmitting || isDone}
+				className={cn(
+					'inline-flex items-center justify-center rounded-full transition-colors',
+					variant === 'card'
+						? 'text-muted-foreground hover:text-foreground size-5 hover:bg-background'
+						: 'text-emerald-600 hover:text-emerald-800 size-5 hover:bg-emerald-200/50 dark:text-emerald-400 dark:hover:text-emerald-200 dark:hover:bg-emerald-800/40',
+					isDone && 'cursor-default',
+				)}
+				onClick={(e) => {
+					e.preventDefault()
+					e.stopPropagation()
+					if (!isSubmitting && !isDone) {
+						void fetcher.submit(e.currentTarget.form!)
+					}
+				}}
+				aria-label={`Add ${name} to inventory`}
+			>
+				<Icon
+					name={isDone ? 'check' : 'plus'}
+					className={cn(
+						'size-3',
+						isDone && 'text-green-600',
+					)}
+				/>
+			</button>
+		</fetcher.Form>
 	)
 }
 

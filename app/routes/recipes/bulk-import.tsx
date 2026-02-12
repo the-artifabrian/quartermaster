@@ -169,6 +169,7 @@ export default function BulkImport() {
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const [previews, setPreviews] = useState<ParsedRecipe[]>([])
 	const [sessionCount, setSessionCount] = useState(0)
+	const [nudgeDismissed, setNudgeDismissed] = useState(false)
 	const [uploadedFileNames, setUploadedFileNames] = useState<string[]>([])
 	const [isReadingFiles, setIsReadingFiles] = useState(false)
 	const [isDragOver, setIsDragOver] = useState(false)
@@ -285,6 +286,46 @@ export default function BulkImport() {
 				<div className="bg-accent/10 text-accent-foreground mb-4 rounded-lg px-4 py-2 text-sm">
 					{sessionCount} recipe{sessionCount === 1 ? '' : 's'} imported this
 					session
+				</div>
+			)}
+
+			{sessionCount > 0 && !nudgeDismissed && (
+				<div className="bg-card border-border shadow-warm relative mb-4 rounded-2xl border p-5">
+					<button
+						type="button"
+						onClick={() => setNudgeDismissed(true)}
+						className="text-muted-foreground hover:text-foreground absolute top-3 right-3"
+						aria-label="Dismiss"
+					>
+						<Icon name="cross-1" size="sm" />
+					</button>
+					<div className="flex items-start gap-3">
+						<Icon
+							name="cookie"
+							className="text-primary mt-0.5 size-6 flex-shrink-0"
+						/>
+						<div>
+							<h3 className="font-semibold">Ready to plan your week?</h3>
+							<p className="text-muted-foreground mt-1 text-sm">
+								Pick a few of your {sessionCount} new recipe
+								{sessionCount === 1 ? '' : 's'} and plan this week's meals.
+							</p>
+							<div className="mt-3 flex flex-wrap items-center gap-3">
+								<Button asChild>
+									<Link to="/plan">
+										Plan your week
+										<Icon name="arrow-right" size="sm" />
+									</Link>
+								</Button>
+								<Link
+									to="/recipes"
+									className="text-muted-foreground hover:text-foreground text-sm underline underline-offset-2"
+								>
+									Browse recipes first
+								</Link>
+							</div>
+						</div>
+					</div>
 				</div>
 			)}
 

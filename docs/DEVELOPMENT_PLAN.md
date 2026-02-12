@@ -58,25 +58,15 @@ driver phase is an ongoing evaluation, not a feature freeze.
 
 1. ~~**Bulk import from Apple Notes**~~ -- Done.
 2. ~~**"Up next" banner on meal plan**~~ -- Done.
-3. **Smooth the post-import ramp** -- The gap between "I imported everything"
-   and "I use this every week" is the adoption killer. Three targeted fixes:
-   - **Post-import nudge to meal planning.** After bulk import succeeds, show
-     a clear CTA: "Pick a few recipes and plan this week." Currently the
-     success screen is a dead end -- the user has to self-navigate to /plan.
-     A single well-placed link bridges the gap.
-   - **Import quality flags.** Auto-detect recipes that likely parsed
-     incorrectly: no ingredients, very few ingredients (< 3), no instructions,
-     or duplicate titles. Show a banner on the recipe list: "12 recipes may
-     need a quick review" with a filter to surface just those. The rest can
-     be trusted until cooked. This reframes the mental model from "review all
-     135 recipes" to "check the ~10 that look off."
-   - **"I have this" on the discover page.** The discover page already shows
-     missing ingredients as pills with an "add to shopping list" action. Add
-     a complementary "I have this" action on each missing ingredient --
-     one tap adds it to inventory and updates the match. Every discover page
-     visit becomes a passive inventory audit, building accuracy through use
-     instead of upfront data entry. This is the single highest-leverage
-     change for inventory accuracy.
+3. ~~**Smooth the post-import ramp**~~ -- Done. Three targeted fixes shipped:
+   - Post-import nudge: dismissable CTA card after bulk import linking to
+     `/plan` and `/recipes`
+   - Import quality flags: amber banner on recipe list auto-detecting recipes
+     with no ingredients, no instructions, or duplicate titles; filterable
+     via `?quality=flagged`
+   - "I have this" on discover: per-ingredient inventory add button on
+     missing ingredient pills (recipe cards + "almost there" banner),
+     canonical name dedup, auto-revalidating match percentages
 4. **Daily drive for 4+ weeks** -- Use the app for real cooking: plan the week,
    shop from the list, cook from the app. Fix friction as it surfaces. Get
    partner using it as a real co-user, not a tester.
@@ -429,7 +419,7 @@ reverted (warm-color deterministic placeholders used instead).
 
 - [x] All Apple Notes recipes imported into the app (~135 bulk imported)
 - [ ] Apple Notes is no longer used for recipes
-- [ ] Flagged recipes reviewed and fixed (import quality flags shipped)
+- [ ] Flagged recipes reviewed and fixed (import quality flags live)
 - [ ] Weekly meal planning happens in-app for 4+ consecutive weeks
 - [ ] Partner uses the app as a real co-user (not just testing)
 - [ ] Inventory accuracy assessed after 4 weeks of real tracking
@@ -462,9 +452,6 @@ reverted (warm-color deterministic placeholders used instead).
 
 ---
 
-_Last updated: February 12, 2026. Daily driving started -- using the app for
-real cooking with friction notes over 2-3 weeks, feature work continues in
-parallel. Added mobile UX audit findings to Backlog (inventory/shopping search,
-concurrent timers, smarter Surprise Me, week picker for shopping lists, recipe
-duplicate, non-JSON-LD fallback, timer integration with steps,
-leftovers/batch tracking)._
+_Last updated: February 12, 2026. Post-import ramp shipped (nudge CTA, quality
+flags, "I have this" on discover). Daily driving in progress -- using the app
+for real cooking with friction notes, feature work continues in parallel._

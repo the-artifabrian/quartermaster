@@ -63,6 +63,8 @@ differentiator. This is where ongoing development effort goes:
 - Inventory subtraction after cooking (with unit conversion)
 - Kitchen timer
 - Phase 12 features (ingredient overlap, efficiency scoring, waste alerts)
+- AI features: ingredient substitution hints, recipe generation from inventory
+- Smart meal plan generation ("Fill my week" auto-planning)
 - PWA offline access
 
 ## Household Tier (~$50-60/year)
@@ -90,9 +92,14 @@ Natural upgrade for couples/families:
 | Inventory subtraction after cooking | Yes                | No              | No                   | No               |
 | Expiration-based suggestions        | Yes                | No              | No                   | No               |
 | Ingredient overlap planning         | Yes (Phase 12)     | No              | No                   | No               |
+| AI substitution hints               | Yes                | No              | No                   | No               |
+| AI recipe generation from inventory | Yes                | No              | No                   | No               |
+| Smart meal plan auto-fill           | Yes                | No              | No                   | No               |
 
 $30-40/year is cheaper than Plan to Eat and Mealime ($50/yr each) while offering
 more. One-time-purchase apps like Paprika lack the intelligence layer entirely.
+AI substitutions and recipe generation further widen this gap -- no competitor
+offers contextual substitution hints or inventory-aware recipe generation.
 
 ---
 

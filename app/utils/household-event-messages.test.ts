@@ -1,5 +1,48 @@
 import { describe, expect, test } from 'vitest'
-import { formatEventMessage } from './household-event-messages.ts'
+import {
+	formatEventMessage,
+	getEventPriority,
+} from './household-event-messages.ts'
+
+describe('getEventPriority', () => {
+	test.each([
+		'shopping_list_generated',
+		'shopping_list_to_inventory',
+		'meal_plan_assigned',
+		'meal_plan_template_applied',
+		'meal_plan_week_copied',
+		'household_member_joined',
+		'household_member_left',
+		'recipe_created',
+		'recipe_imported',
+		'recipes_bulk_imported',
+		'data_imported',
+	])('%s is notify priority', (type) => {
+		expect(getEventPriority(type)).toBe('notify')
+	})
+
+	test.each([
+		'recipe_updated',
+		'recipe_deleted',
+		'recipe_favorited',
+		'cook_logged',
+		'inventory_item_added',
+		'inventory_items_bulk_added',
+		'inventory_item_updated',
+		'inventory_item_deleted',
+		'meal_plan_removed',
+		'meal_plan_cooked',
+		'shopping_list_item_added',
+		'shopping_list_cleared',
+		'meal_plan_template_saved',
+	])('%s is silent priority', (type) => {
+		expect(getEventPriority(type)).toBe('silent')
+	})
+
+	test('unknown event type defaults to silent', () => {
+		expect(getEventPriority('something_unknown')).toBe('silent')
+	})
+})
 
 describe('formatEventMessage', () => {
 	test('recipe_created', () => {

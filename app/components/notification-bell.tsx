@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useFetcher, useRouteLoaderData } from 'react-router'
 import { type loader as rootLoader } from '#app/root.tsx'
-import { formatEventMessage } from '#app/utils/household-event-messages.ts'
+import {
+	formatEventMessage,
+	getEventPriority,
+} from '#app/utils/household-event-messages.ts'
 import { subscribeToHouseholdEvents } from '#app/utils/household-event-source.client.tsx'
 import { getRelativeTime } from '#app/utils/relative-time.ts'
 import {
@@ -43,10 +46,12 @@ export function NotificationBell() {
 		setClientIncrements(0)
 	}
 
-	// Subscribe to SSE events and increment client counter
+	// Subscribe to SSE events and increment client counter (notify-tier only)
 	useEffect(() => {
-		const unsubscribe = subscribeToHouseholdEvents(() => {
-			setClientIncrements((prev) => prev + 1)
+		const unsubscribe = subscribeToHouseholdEvents((event) => {
+			if (getEventPriority(event.type) === 'notify') {
+				setClientIncrements((prev) => prev + 1)
+			}
 		})
 		return unsubscribe
 	}, [])
@@ -127,6 +132,8 @@ export function NotificationBell() {
 									notification.createdAt,
 								)
 								const isUnread =
+									getEventPriority(notification.type) ===
+										'notify' &&
 									lastSeenAt &&
 									new Date(notification.createdAt) >
 										new Date(lastSeenAt)

@@ -1,5 +1,27 @@
 type EventPayload = Record<string, unknown>
 
+const NOTIFY_EVENT_TYPES = new Set([
+	'shopping_list_generated',
+	'shopping_list_to_inventory',
+	'meal_plan_assigned',
+	'meal_plan_template_applied',
+	'meal_plan_week_copied',
+	'household_member_joined',
+	'household_member_left',
+	'recipe_created',
+	'recipe_imported',
+	'recipes_bulk_imported',
+	'data_imported',
+])
+
+export type EventPriority = 'notify' | 'silent'
+
+export function getEventPriority(type: string): EventPriority {
+	return NOTIFY_EVENT_TYPES.has(type) ? 'notify' : 'silent'
+}
+
+export const NOTIFY_EVENT_TYPES_LIST = [...NOTIFY_EVENT_TYPES]
+
 export function formatEventMessage(
 	type: string,
 	payload: EventPayload,

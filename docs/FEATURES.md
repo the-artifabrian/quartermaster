@@ -112,15 +112,24 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
   inventory add/bulk-add/update/delete, meal plan assign/remove/cook/copy-week/
   template-saved/template-applied, shopping list generate/add-item/clear/
   to-inventory, member join/leave, data imported
-- Sonner toast notifications with "View" action navigation to relevant pages
-- Activity feed on household settings page (last 20 events, relative timestamps)
+- Two-tier notification priority: **notify** tier (11 types: shopping list
+  generated/to-inventory, meal plan assigned/template-applied/week-copied,
+  recipe created/imported, bulk imports, data imported, member join/leave)
+  triggers toast + badge; **silent** tier (13 types: recipe edits/deletes/
+  favorites, cook logs, inventory CRUD, meal plan removes/cooked, shopping list
+  single-item adds/clears, template saves) appears in activity feed only.
+  Reduces notification noise while keeping the full audit trail
+- Sonner toast notifications with "View" action navigation (notify tier only)
+- Activity feed on household settings page (last 20 events, relative timestamps,
+  all event types)
 - Auto-prune events older than 30 days (lazy, on SSE connect)
 - Notification bell in header with unread badge count (server-loaded COUNT query
-  in root loader + real-time SSE client-side increments)
+  filtered to notify-tier events + real-time SSE client-side increments)
 - Notification dropdown: fetches last 20 events on open via resource route,
   marks as read via POST (updates `notificationsLastSeenAt`), shows formatted
-  messages with relative timestamps, unread highlighting, clickable links, and
-  "View all activity" link. Badge clears optimistically
+  messages with relative timestamps, unread highlighting for notify-tier events
+  only, clickable links, and "View all activity" link. Badge clears
+  optimistically
 
 ## Onboarding
 

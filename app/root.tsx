@@ -18,6 +18,7 @@ import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { NotificationBell } from './components/notification-bell.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
+import { NOTIFY_EVENT_TYPES_LIST } from './utils/household-event-messages.ts'
 import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { Progress } from './components/progress-bar.tsx'
 import { useToast } from './components/toaster.tsx'
@@ -141,6 +142,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 				where: {
 					householdId: member.householdId,
 					userId: { not: userId },
+					type: { in: NOTIFY_EVENT_TYPES_LIST },
 					...(member.notificationsLastSeenAt
 						? { createdAt: { gt: member.notificationsLastSeenAt } }
 						: {}),

@@ -34,7 +34,7 @@ export function RecipeMatchCard({
 					'border-l-4 border-l-amber-400 dark:border-l-amber-500',
 			)}
 		>
-			<div className="bg-muted relative aspect-[4/3] overflow-hidden rounded-t-lg">
+			<div className="bg-muted relative aspect-[16/9] overflow-hidden rounded-t-lg sm:aspect-[4/3]">
 				{recipe.image?.objectKey ? (
 					<Img
 						src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}

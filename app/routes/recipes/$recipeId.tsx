@@ -766,17 +766,17 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 										</div>
 
 										{/* Progress dots */}
-										<div className="flex items-center justify-center gap-1.5">
+										<div className="scrollbar-hide flex items-center justify-center gap-0.5 overflow-x-auto">
 											{recipe.instructions.map((inst, idx) => (
 												<button
 													key={inst.id}
 													onClick={() => setCurrentStep(idx)}
-													className="flex size-8 items-center justify-center"
+													className="flex size-6 shrink-0 items-center justify-center"
 													aria-label={`Go to step ${idx + 1}`}
 												>
 													<span
 														className={cn(
-															'size-2.5 rounded-full transition-all',
+															'size-2 rounded-full transition-all',
 															idx === currentStep
 																? 'bg-accent scale-125'
 																: checkedSteps.has(inst.id)
@@ -789,7 +789,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 										</div>
 
 										{/* Prev/Next buttons */}
-										<div className="flex gap-3">
+										<div className="flex gap-3 pb-20 md:pb-0">
 											<Button
 												variant="outline"
 												className="h-12 flex-1"

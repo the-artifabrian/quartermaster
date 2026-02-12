@@ -526,7 +526,7 @@ export default function ImportRecipe() {
 							{error}
 						</div>
 					)}
-					<div className="flex justify-end gap-4">
+					<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
 						<Button
 							type="button"
 							variant="outline"
@@ -692,7 +692,7 @@ export default function ImportRecipe() {
 								value={inst.content}
 							/>
 						))}
-						<div className="flex justify-end gap-4">
+						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
 							<Button
 								type="button"
 								variant="outline"

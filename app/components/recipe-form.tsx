@@ -205,8 +205,8 @@ export function RecipeForm({
 				summary={imagePreview ? 'Has photo' : 'No photo'}
 				defaultOpen={isEditing}
 			>
-				<div className="flex items-start gap-4">
-					<div className="relative aspect-[4/3] w-40 overflow-hidden rounded-lg border-2 border-dashed border-border/60 bg-muted/30">
+				<div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+					<div className="relative aspect-[4/3] w-full sm:w-40 overflow-hidden rounded-lg border-2 border-dashed border-border/60 bg-muted/30">
 						{imagePreview ? (
 							<Img
 								src={imagePreview}

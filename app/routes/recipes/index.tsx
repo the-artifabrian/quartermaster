@@ -256,7 +256,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
 			<div className="from-card to-background border-border/50 border-b bg-linear-to-b">
-				<div className="container flex items-center justify-between py-6">
+				<div className="container flex flex-col gap-3 py-6 md:flex-row md:items-center md:justify-between">
 					<div>
 						<h1 className="text-2xl font-bold">My Recipes</h1>
 						<p className="text-muted-foreground mt-1 text-sm">

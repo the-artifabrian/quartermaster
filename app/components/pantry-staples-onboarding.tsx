@@ -147,7 +147,7 @@ export function PantryStaplesOnboarding() {
 				})}
 			</div>
 
-			<div className="mt-8 flex items-center justify-between gap-4">
+			<div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
 				<p className="text-muted-foreground text-sm">
 					{totalSelected} item{totalSelected !== 1 ? 's' : ''} selected
 				</p>

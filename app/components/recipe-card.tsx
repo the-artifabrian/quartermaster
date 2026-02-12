@@ -52,7 +52,7 @@ export function RecipeCard({
 			to={`/recipes/${id}`}
 			className="group bg-card text-card-foreground block overflow-hidden rounded-xl border border-border/60 shadow-warm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-warm-md"
 		>
-			<div className="bg-muted relative aspect-[4/3] overflow-hidden rounded-t-lg">
+			<div className="bg-muted relative aspect-[16/9] overflow-hidden rounded-t-lg sm:aspect-[4/3]">
 				{isFavorite && (
 					<div className="absolute top-2 right-2 z-10">
 						<Icon

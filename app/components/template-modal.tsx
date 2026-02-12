@@ -171,7 +171,7 @@ export function ApplyTemplateModal({
 					{visibleTemplates.map((template) => (
 						<div
 							key={template.id}
-							className="bg-muted/30 flex items-center gap-3 rounded-lg border p-3"
+							className="bg-muted/30 flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center"
 						>
 							<div className="min-w-0 flex-1">
 								<p className="truncate text-sm font-semibold">

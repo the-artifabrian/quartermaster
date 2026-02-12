@@ -440,7 +440,7 @@ Instructions
 				</div>
 			)}
 
-			<div className="flex justify-end gap-3">
+			<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
 				<Button variant="outline" asChild>
 					<Link to="/recipes">Cancel</Link>
 				</Button>

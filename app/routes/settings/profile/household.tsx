@@ -383,7 +383,7 @@ function InviteRow({
 	const fetcher = useFetcher<typeof action>()
 
 	return (
-		<div className="flex items-center gap-3 rounded-lg border p-3">
+		<div className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center">
 			<div className="min-w-0 flex-1">
 				<code className="text-xs">{invite.token.slice(0, 8)}...</code>
 				<p className="text-muted-foreground text-xs">

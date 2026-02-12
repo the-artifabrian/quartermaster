@@ -281,10 +281,10 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 
 			<div className="container py-6">
 				{/* Dashboard Summary Strip */}
-				<div className="mb-6 flex gap-3 overflow-x-auto pb-1">
+				<div className="mb-6 flex gap-3 pb-1">
 					<div
 						className={cn(
-							'bg-card flex min-w-[120px] flex-1 flex-col items-center rounded-xl border p-3 text-center',
+							'bg-card flex flex-1 flex-col items-center rounded-xl border p-3 text-center',
 							expiringSoonCount > 0 && 'border-amber-200 dark:border-amber-800',
 						)}
 					>
@@ -302,7 +302,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 					<div
 						className={cn(
-							'bg-card flex min-w-[120px] flex-1 flex-col items-center rounded-xl border p-3 text-center',
+							'bg-card flex flex-1 flex-col items-center rounded-xl border p-3 text-center',
 							lowStockCount > 0 && 'border-amber-200 dark:border-amber-800',
 						)}
 					>
@@ -318,7 +318,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						</span>
 						<span className="text-muted-foreground text-xs">Low Stock</span>
 					</div>
-					<div className="bg-card flex min-w-[120px] flex-1 flex-col items-center rounded-xl border p-3 text-center">
+					<div className="bg-card flex flex-1 flex-col items-center rounded-xl border p-3 text-center">
 						<span className="text-2xl font-bold">{totalItemCount}</span>
 						<span className="text-muted-foreground text-xs">Total Items</span>
 					</div>

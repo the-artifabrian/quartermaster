@@ -356,7 +356,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 				{/* Stats & Filter */}
 				{inventoryItemCount > 0 && recipeCount > 0 ? (
 					<>
-						<div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+						<div className="mb-6 flex flex-col items-start gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
 							<div className="flex flex-wrap gap-4 text-sm">
 								<div>
 									<span className="text-lg font-bold">{makeableCount}</span>{' '}

@@ -119,7 +119,7 @@ export default function EditInventoryItem({
 
 	return (
 		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
-			<div className="mb-6 flex items-center justify-between">
+			<div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex items-center gap-2">
 					<Button variant="ghost" size="sm" asChild>
 						<a href="/inventory">

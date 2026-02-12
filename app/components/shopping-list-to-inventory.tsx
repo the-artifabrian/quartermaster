@@ -115,7 +115,7 @@ export function ShoppingListToInventory({
 				))}
 			</div>
 
-			<div className="mt-4 flex items-center justify-between gap-4">
+			<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
 				<p className="text-muted-foreground text-sm">
 					{selectedCount} item{selectedCount !== 1 ? 's' : ''} selected
 				</p>

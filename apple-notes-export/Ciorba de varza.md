@@ -2,17 +2,17 @@ Ciorba de varza
 
 Ingredients
 
-- [x] 200 g pancetta, diced
-- [x] 2 tbsp oil or lard (only if pancetta is lean)
-- [x] 1 large onion, finely chopped
-- [x] 2 cloves garlic, minced
-- [x] 1 tsp caraway seeds
-- [x] 1 tbsp sweet Hungarian paprika
-- [x] 2 tbsp tomato paste
-- [x] 1 medium carrot, diced
-- [x] 1 small green/white cabbage (600–800 g), cored, thinly sliced
-- [x] 1.5 L chicken or pork stock (or water + stock cube)
-- [x] 2 bay leaves
+- [ ] 200 g pancetta, diced
+- [ ] 2 tbsp oil or lard (only if pancetta is lean)
+- [ ] 1 large onion, finely chopped
+- [ ] 2 cloves garlic, minced
+- [ ] 1 tsp caraway seeds
+- [ ] 1 tbsp sweet Hungarian paprika
+- [ ] 2 tbsp tomato paste
+- [ ] 1 medium carrot, diced
+- [ ] 1 small green/white cabbage (600–800 g), cored, thinly sliced
+- [ ] 1.5 L chicken or pork stock (or water + stock cube)
+- [ ] 2 bay leaves
 - [ ] 150 ml sour cream (tejföl-style), room temp
 - [ ] 1 tbsp flour (for tempering; optional)
 - [ ] 1–2 tsp white wine vinegar or lemon juice (to taste)

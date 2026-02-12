@@ -4,24 +4,24 @@ Ingredients
 
 For the filling
 
-- [x] 40g butter
-- [x] 6 medium peaches
-- [x] 40g brown sugar
-- [x] juice of half a lemon
+- [ ] 40g butter
+- [ ] 6 medium peaches
+- [ ] 40g brown sugar
+- [ ] juice of half a lemon
 - [ ] 1 tsp cornstarch
-- [x] 1 tsp vanilla extract
-- [x] Pinch of salt
-- [x] 1/2 tsp ground cinnamon
+- [ ] 1 tsp vanilla extract
+- [ ] Pinch of salt
+- [ ] 1/2 tsp ground cinnamon
 
 For the cake
 
-- [x] 120g flour
-- [x] 90g sugar
-- [x] 1 1/2 tsp baking powder
-- [x] Pinch of salt
-- [x] 120ml milk
+- [ ] 120g flour
+- [ ] 90g sugar
+- [ ] 1 1/2 tsp baking powder
+- [ ] Pinch of salt
+- [ ] 120ml milk
 - [ ] 40g melted butter
-- [x] zest of 1/2 lemon
+- [ ] zest of 1/2 lemon
 
 Instructions
 

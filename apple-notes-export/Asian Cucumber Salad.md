@@ -2,16 +2,16 @@ Asian Cucumber Salad
 
 Ingredients
 
-- [x] 600g grams Turkish, Persian or English cucumbers
-- [x] 1/2 teaspoon salt
-- [x] 4–5 scallions, finely sliced
-- [x] 1 teaspoon ginger, grated
-- [x] 1 clove garlic, grated
-- [x] 50ml rice vinegar
-- [x] 1 tablespoon soy sauce
-- [x] 1 tablespoon toasted sesame oil
-- [x] 1 tablespoon honey
-- [x] 1–2 tablespoons toasted sesame seeds
+- [ ] 600g grams Turkish, Persian or English cucumbers
+- [ ] 1/2 teaspoon salt
+- [ ] 4–5 scallions, finely sliced
+- [ ] 1 teaspoon ginger, grated
+- [ ] 1 clove garlic, grated
+- [ ] 50ml rice vinegar
+- [ ] 1 tablespoon soy sauce
+- [ ] 1 tablespoon toasted sesame oil
+- [ ] 1 tablespoon honey
+- [ ] 1–2 tablespoons toasted sesame seeds
 
 Instructions
 

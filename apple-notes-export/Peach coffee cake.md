@@ -41,13 +41,13 @@ Cinnamon Sugar Ripple
 
 Instructions
 
-- [x] Make the Crumb Layer: Melt the butter in a medium bowl. Whisk in the
+- [ ] Make the Crumb Layer: Melt the butter in a medium bowl. Whisk in the
       sugars. Stir in the remaining crumb ingredients until you have large
       crumbs. If the mixture seems to wet, don't fret – it will stiffen up as
       the butter begins to re-solidify at room temperature.  113g salted butter,
       106g brown sugar, packed, 173g all-purpose flour, 1/2 tsp cinnamon,pinch
       of salt
-- [x] Prepare the Peaches: Stir together the corn starch and water until
+- [ ] Prepare the Peaches: Stir together the corn starch and water until
       dissolved. Set aside. Add the peach slices, sugar, cinnamon, nutmeg, and
       lemon juice to a medium saucepan over medium heat. Cook, stirring gently,
       for 5 minutes. Re-stir the corn starch slurry so it's all dissolved, then
@@ -73,7 +73,7 @@ Instructions
       sugar, 84ml vegetable oil, 100g greek yogurt, 1 and 1/2 tsp vanilla
       extract, 260g all-purpose flour, 1 tbsp baking powder, 1/4 tsp salt, 3/4
       tsp cinnamon, 100g milk
-- [x] Make the Cinnamon Sugar Ripple: Stir together brown sugar and cinnamon in
+- [ ] Make the Cinnamon Sugar Ripple: Stir together brown sugar and cinnamon in
       a small bowl until well combined.  40g light brown sugar, 1 tbsp cinnamon
 - [ ] Assemble & Bake: Preheat your oven to 350° F. Spray a 9-inch springform
       pan with nonstick spray and place a piece of parchment paper across the

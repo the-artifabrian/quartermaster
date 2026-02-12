@@ -6,33 +6,33 @@ Ingredients
 
 Chicken Marinade
 
-- [x] 1 tsp sweet paprika
-- [x] 1 tsp smoked paprika
-- [x] 1 tsp cumin
-- [x] 1 tsp coriander
-- [x] 1 tsp garlic powder
-- [x] 1 tsp oregano
-- [x] 1/2 tsp black pepper
-- [x] 1 tsp salt
-- [x] 1 tbsp olive oil
-- [x] 1 tbsp lemon juice
+- [ ] 1 tsp sweet paprika
+- [ ] 1 tsp smoked paprika
+- [ ] 1 tsp cumin
+- [ ] 1 tsp coriander
+- [ ] 1 tsp garlic powder
+- [ ] 1 tsp oregano
+- [ ] 1/2 tsp black pepper
+- [ ] 1 tsp salt
+- [ ] 1 tbsp olive oil
+- [ ] 1 tbsp lemon juice
 
 Yogurt Sauce
 
-- [x] 200g greek yogurt
-- [x] 40g mayo
-- [x] 2 cloves of garlic, grated
-- [x] squeeze of lemon
-- [x] pinch of salt
-- [x] parsley
-- [x] dill
-- [x] water to loosen mixture
+- [ ] 200g greek yogurt
+- [ ] 40g mayo
+- [ ] 2 cloves of garlic, grated
+- [ ] squeeze of lemon
+- [ ] pinch of salt
+- [ ] parsley
+- [ ] dill
+- [ ] water to loosen mixture
 
 Vegetables
 
-- [x] 2 medium red onions, cut into chunks
-- [x] 2 large bell peppers
-- [x] 1 large zucchini (or 2 small)
+- [ ] 2 medium red onions, cut into chunks
+- [ ] 2 large bell peppers
+- [ ] 1 large zucchini (or 2 small)
 
 Salad
 

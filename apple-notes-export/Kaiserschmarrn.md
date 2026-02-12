@@ -8,13 +8,13 @@ For the rum-soaked raisins
 
 For the pancake
 
-- [x] 3 large eggs, divided
-- [x] 42g unsalted butter, melted
-- [x] 1 tsp vanilla extract
-- [x] 25g granulated sugar
-- [x] 1 pinch of salt
-- [x] 125g all-purpose flour
-- [x] 240 ml milk
+- [ ] 3 large eggs, divided
+- [ ] 42g unsalted butter, melted
+- [ ] 1 tsp vanilla extract
+- [ ] 25g granulated sugar
+- [ ] 1 pinch of salt
+- [ ] 125g all-purpose flour
+- [ ] 240 ml milk
 
 To caramelize
 
@@ -29,18 +29,18 @@ To serve
 
 Instructions 
 
-- [x] In a small bowl combine raisins and rum. If you can't use rum, soak the
+- [ ] In a small bowl combine raisins and rum. If you can't use rum, soak the
       raisins in water but I highly encourage you to use rum because it's an
       essential part.
-- [x] Separate the eggs and set the egg yolks aside for a moment.
-- [x] In the bowl of a stand mixer fitted with the whisk attachment add the
+- [ ] Separate the eggs and set the egg yolks aside for a moment.
+- [ ] In the bowl of a stand mixer fitted with the whisk attachment add the
       three egg whites and beat at high speed about 2.5 minutes until stiff
       peaks form. Don't overbeat the egg whites! Transfer to a bowl and set
       aside.
-- [x] Add the three egg yolks, melted butter, vanilla extract, sugar, and a
+- [ ] Add the three egg yolks, melted butter, vanilla extract, sugar, and a
       pinch of salt to the (now empty) bowl of your stand mixer, still fitted
       with the whisk attachment. Combine at medium speed about 2-3 minutes.
-- [x] On low speed, alternately add flour and milk, a tablespoon of each at a
+- [ ] On low speed, alternately add flour and milk, a tablespoon of each at a
       time, until you used up the milk and the flour. Don't overmix. Scrape down
       the sides and up the bottom of the bowl as needed.
 - [ ] Using a metal spoon or rubber spatula, fold in the stiff egg whites until

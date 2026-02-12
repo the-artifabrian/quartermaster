@@ -25,7 +25,7 @@ Instructions 
       the freezer for about 30 minutes to bring it back to the consistency of
       room temperature softened butter, or use it in it's melted state – just
       let it cool a bit so it's not piping hot.
-- [x] Prep: Preheat your oven to 175°C and spray a 9×13 pan with nonstick spray
+- [ ] Prep: Preheat your oven to 175°C and spray a 9×13 pan with nonstick spray
       and line with parchment paper.
 - [ ] Make the cookie dough: Cream softened butter in a large mixing bowl with
       an electric mixer on high speed, making sure to get all the brown bits

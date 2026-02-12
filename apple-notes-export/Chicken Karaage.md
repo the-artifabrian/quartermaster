@@ -2,17 +2,17 @@ Chicken Karaage
 
 Ingredients
 
-- [x] 750 g boneless, skin-on chicken thighs (4–6 pieces; read the blog post for
+- [ ] 750 g boneless, skin-on chicken thighs (4–6 pieces; read the blog post for
       details)  
        For the Marinade
-- [x] 0.5 tsp ginger (grated, with juice)
-- [x] 1 clove garlic
-- [x] 1 tbsp ++[soy sauce](https://www.justonecookbook.com/soy-sauce/)++
-- [x] 0.5 tbsp ++[sake](https://www.justonecookbook.com/sake/)++ (or substitute
+- [ ] 0.5 tsp ginger (grated, with juice)
+- [ ] 1 clove garlic
+- [ ] 1 tbsp ++[soy sauce](https://www.justonecookbook.com/soy-sauce/)++
+- [ ] 0.5 tbsp ++[sake](https://www.justonecookbook.com/sake/)++ (or substitute
       dry sherry, Chinese rice wine, or skip it)
-- [x] 0.5
+- [ ] 0.5
       tsp ++[toasted sesame oil](https://www.justonecookbook.com/sesame-oil/)++
-- [x] 0.5 tsp salt  
+- [ ] 0.5 tsp salt  
        For Deep-Frying
 - [ ] 720–960 ml ++[neutral oil](https://www.justonecookbook.com/best-neutral-oil-for-cooking/)++
 - [ ] 2

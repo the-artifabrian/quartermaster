@@ -2,16 +2,16 @@ Invisible apple cake
 
 Ingredients
 
-- [x] 3 eggs, lightly beaten
-- [x] 158g milk, slightly warmed
-- [x] 45g butter, melted
-- [x] 1 tsp vanilla extract
-- [x] 63g flour
-- [x] 60g powdered sugar
-- [x] 0.5 tsp cinnamon
-- [x] 1 tsp baking powder
-- [x] 0.25 tsp salt
-- [x] 4 apples  
+- [ ] 3 eggs, lightly beaten
+- [ ] 158g milk, slightly warmed
+- [ ] 45g butter, melted
+- [ ] 1 tsp vanilla extract
+- [ ] 63g flour
+- [ ] 60g powdered sugar
+- [ ] 0.5 tsp cinnamon
+- [ ] 1 tsp baking powder
+- [ ] 0.25 tsp salt
+- [ ] 4 apples  
          Instructions
 - [ ] Preheat your oven to 170C. Line a 23×12cm loaf pan with parchment paper. 
 - [ ] In a large bowl, quickly whisk together the eggs, milk, butter + vanilla.

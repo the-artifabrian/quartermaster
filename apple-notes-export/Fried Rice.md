@@ -19,14 +19,14 @@ Ingredients
 
 Instructions
 
-- [x] Sear chicken: Heat 1 tbsp oil in a very hot wok/skillet. Add cooked
+- [ ] Sear chicken: Heat 1 tbsp oil in a very hot wok/skillet. Add cooked
       chicken just to brown and heat through; remove.
-- [x] Aromatics/veg: Add 1 tbsp oil. Sauté garlic, ginger, and scallion whites
+- [ ] Aromatics/veg: Add 1 tbsp oil. Sauté garlic, ginger, and scallion whites
       15–30 seconds. Add carrots; cook 1–2 minutes. Add peas; toss 30 seconds.
-- [x] Eggs: Push veg aside. Add a little oil if needed. Pour in eggs; scramble
+- [ ] Eggs: Push veg aside. Add a little oil if needed. Pour in eggs; scramble
       just set.
-- [x] Rice: Add rice. Fry, pressing and tossing until hot and lightly toasty,
+- [ ] Rice: Add rice. Fry, pressing and tossing until hot and lightly toasty,
       2–3 minutes.
-- [x] Season: Splash soy sauce around the pan edges; add oyster sauce, white
+- [ ] Season: Splash soy sauce around the pan edges; add oyster sauce, white
       pepper, and pinch of sugar. Return chicken; toss. Adjust soy.
-- [x] Finish: Off heat, stir in sesame oil and scallion greens. Serve hot.
+- [ ] Finish: Off heat, stir in sesame oil and scallion greens. Serve hot.

@@ -3,17 +3,17 @@ Pumpkin cookies
 Ingredients  
 Cookie dough
 
-- [x] 113g unsalted butter
-- [x] 165g packed light brown sugar
-- [x] 1 large egg yolk
-- [x] 1 tablespoon honey
-- [x] 1 teaspoon ++vanilla extract++
-- [x] 100g pure pumpkin puree, blotted to reduce wetness
-- [x] 190g all purpose flour
-- [x] 1 ½ teaspoon++ pumpkin pie spice++
-- [x] ½ teaspoon baking soda
-- [x] ¼ teaspoon salt
-- [x] (optional) zest of one lemon
+- [ ] 113g unsalted butter
+- [ ] 165g packed light brown sugar
+- [ ] 1 large egg yolk
+- [ ] 1 tablespoon honey
+- [ ] 1 teaspoon ++vanilla extract++
+- [ ] 100g pure pumpkin puree, blotted to reduce wetness
+- [ ] 190g all purpose flour
+- [ ] 1 ½ teaspoon++ pumpkin pie spice++
+- [ ] ½ teaspoon baking soda
+- [ ] ¼ teaspoon salt
+- [ ] (optional) zest of one lemon
 
 For rolling
 

@@ -4,33 +4,33 @@ Ingredients
 
 For the Apple Filling:
 
-- [x] 4 medium apples, 588 grams sliced
-- [x] 40g butter
-- [x] 50g brown sugar, packed
-- [x] 1 and 1/4 tsp cinnamon
-- [x] 1/2 tsp nutmeg
-- [x] 1/4 tsp ground cloves
-- [x] 1/8 tsp allspice
-- [x] 1-2 tsp lemon juice, to taste
-- [x] 2 tsp cornstarch
-- [x] 2 tsp water
-- [x] pinch of salt  
+- [ ] 4 medium apples, 588 grams sliced
+- [ ] 40g butter
+- [ ] 50g brown sugar, packed
+- [ ] 1 and 1/4 tsp cinnamon
+- [ ] 1/2 tsp nutmeg
+- [ ] 1/4 tsp ground cloves
+- [ ] 1/8 tsp allspice
+- [ ] 1-2 tsp lemon juice, to taste
+- [ ] 2 tsp cornstarch
+- [ ] 2 tsp water
+- [ ] pinch of salt  
        For the Crust:
 - [ ] 300g graham cracker crumbs
 - [ ] 1tsp cinnamon
 - [ ] 150g butter, melted
 - [ ] pinch of salt  
        For the Cheesecake:
-- [x] 900g cream cheese, at room temperature, use the full-fat, block style
-- [x] 200g granulated sugar
-- [x] 4 large eggs, at room temperature
-- [x] 2 tsp vanilla extract
-- [x] 1 and 1/2 tsp corn starch
-- [x] 180g full-fat sour cream, at room temperature
-- [x] 1 tsp cinnamon
-- [x] 1/4 tsp nutmeg
-- [x] 1/8 tsp ground cloves
-- [x] zest of 1 lemon  
+- [ ] 900g cream cheese, at room temperature, use the full-fat, block style
+- [ ] 200g granulated sugar
+- [ ] 4 large eggs, at room temperature
+- [ ] 2 tsp vanilla extract
+- [ ] 1 and 1/2 tsp corn starch
+- [ ] 180g full-fat sour cream, at room temperature
+- [ ] 1 tsp cinnamon
+- [ ] 1/4 tsp nutmeg
+- [ ] 1/8 tsp ground cloves
+- [ ] zest of 1 lemon  
        Crumble Topping
 - [ ] 77g all purpose flour
 - [ ] 50g granulated sugar
@@ -53,7 +53,7 @@ For the Apple Filling:
 
 Instructions 
 
-- [x] Make the Apple Filling: Peel & slice your apples between 1/4 and 1/2 inch
+- [ ] Make the Apple Filling: Peel & slice your apples between 1/4 and 1/2 inch
       thick. Add all apple filling ingredients to a medium pan over medium high
       heat. Cook for 8-14 minutes, stirring lazily the whole time, until desired
       tenderness is reached. If the liquid all dries up at any point, add a
@@ -66,7 +66,7 @@ Instructions 
       ahead).  4 medium apples, 40g butter,70g light brown sugar, packed,1 and
       1/4 tsp cinnamon,1/2 tsp nutmeg,1/4 tsp ground cloves,1/8 tsp allspice,1-2
       tsp lemon juice,2 tsp cornstarch,2 tsp water, pinch of salt
-- [x] Make the Crust: Preheat oven to 175C. Spray a 9-inch springform pan with
+- [ ] Make the Crust: Preheat oven to 175C. Spray a 9-inch springform pan with
       nonstick spray and make sure the bottom is securely fastened. Stir
       together crust ingredients and press into prepared pan and up the sides a
       bit (*see photos above). *Bake this for 10 minutes. Set aside. Keep the
@@ -74,7 +74,7 @@ Instructions 
       get out a large roasting pan – you'll need this for your water bath
       later.  300g cinnamon graham cracker crumbs, 150g melted butter, 1 tsp
       cinnamon, big pinch of salt
-- [x] Make the Cheesecake: \*++Remember that your cold ingredients need to come
+- [ ] Make the Cheesecake: \*++Remember that your cold ingredients need to come
       to room temp before you start or the filling won't turn out.++ \*In a
       large mixing bowl, beat the softened cream cheese with electric mixer
       until creamy, about 1-2 minutes. Add the sugar & mix until well

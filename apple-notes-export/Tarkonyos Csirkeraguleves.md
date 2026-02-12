@@ -2,22 +2,22 @@ Tarkonyos Csirkeraguleves
 
 Ingredients
 
-- [x] 600-700g chicken breast
-- [x] 3 tbsp sunflower oil
-- [x] 3 medium carrots, evenly diced
-- [x] 2 medium parsley roots, evenly diced
-- [x] 1 small kohlrabi, diced
-- [x] 1 small piece celeriac (about 1/4 of a bulb), diced
-- [x] 2 medium onions, finely chopped
-- [x] 300g green peas (fresh or frozen)
-- [x] 1.5 tsp dried tarragon (or 1 tbsp fresh, finely chopped), plus a pinch
+- [ ] 600-700g chicken breast
+- [ ] 3 tbsp sunflower oil
+- [ ] 3 medium carrots, evenly diced
+- [ ] 2 medium parsley roots, evenly diced
+- [ ] 1 small kohlrabi, diced
+- [ ] 1 small piece celeriac (about 1/4 of a bulb), diced
+- [ ] 2 medium onions, finely chopped
+- [ ] 300g green peas (fresh or frozen)
+- [ ] 1.5 tsp dried tarragon (or 1 tbsp fresh, finely chopped), plus a pinch
       more at the end if needed
 - [ ] 200g sour cream
 - [ ] 1 tbsp flour
 - [ ] 1tbsp white vinegar
-- [x] 2–3 bouillon cubes or equivalent stock powder
+- [ ] 2–3 bouillon cubes or equivalent stock powder
 - [ ] 2 tbsp chopped parsley
-- [x] 1.5–1.7 L water (or light chicken stock)
+- [ ] 1.5–1.7 L water (or light chicken stock)
 - [ ] Salt and freshly ground black pepper
 
 Instructions

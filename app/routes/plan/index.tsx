@@ -703,41 +703,41 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						<h1 className="text-2xl font-bold">Meal Plan</h1>
 						<p className="text-muted-foreground mt-1 text-sm">Plan your week</p>
 					</div>
-					<div className="flex gap-2">
+					<div className="flex flex-wrap gap-2">
 						{entries.length > 0 && (
 							<Button
 								variant="outline"
+								size="sm"
 								onClick={() => setShowSaveTemplate(true)}
-								title="Save Template"
 							>
 								<Icon name="plus" size="sm" />
-								<span className="hidden sm:inline">Save Template</span>
+								Save Template
 							</Button>
 						)}
 						{templates.length > 0 && (
 							<Button
 								variant="outline"
+								size="sm"
 								onClick={() => setShowApplyTemplate(true)}
-								title="Use Template"
 							>
 								<Icon name="update" size="sm" />
-								<span className="hidden sm:inline">Use Template</span>
+								Use Template
 							</Button>
 						)}
 						{entries.length > 0 && (
 							<Form method="POST">
 								<input type="hidden" name="intent" value="copyWeek" />
 								<input type="hidden" name="weekStart" value={weekStart} />
-								<Button type="submit" variant="outline" title="Copy to Next Week">
-									<Icon name="update" size="sm" />
-									<span className="hidden sm:inline">Copy to Next Week</span>
+								<Button type="submit" variant="outline" size="sm">
+									<Icon name="arrow-right" size="sm" />
+									Copy Week
 								</Button>
 							</Form>
 						)}
-						<Button asChild variant="outline" title="Shopping List">
+						<Button asChild variant="outline" size="sm">
 							<Link to="/plan/shopping-list">
 								<Icon name="file-text" size="sm" />
-								<span className="hidden sm:inline">Shopping List</span>
+								Shopping List
 							</Link>
 						</Button>
 					</div>

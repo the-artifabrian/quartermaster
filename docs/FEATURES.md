@@ -15,7 +15,10 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 - Tag filtering and cook time filtering with bookmarkable URL params
 - Recipe scaling with +/- servings controls and fraction display
 - Cooking assistance: tap-to-cross-off ingredients/steps, Wake Lock toggle,
-  floating kitchen timer with start/pause/reset
+  inline timer creation (presets + custom) in cooking mode with multiple
+  concurrent timer support (up to 5 named timers, global floating widget
+  with pause/resume/dismiss, localStorage persistence across navigation,
+  alarm sound + wake lock)
 - Favorite/bookmark recipes with filter toggle
 - Print-friendly recipe layout (hides nav, actions, raw text, cooking history;
   single-column grid, flat cards)
@@ -32,7 +35,9 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   ingredient notes field. Post-import nudge CTA: after a successful import,
   a dismissable card prompts "Ready to plan your week?" with links to `/plan`
   and `/recipes`
-- "Surprise me" random recipe picker
+- "Surprise me" weighted random recipe picker (scores by inventory match,
+  favorites, ratings, exploration bonus for uncooked recipes, recency penalty
+  for recently cooked)
 - Cooking log with star ratings and notes ("I Made This")
 - "Last cooked" stats on recipe cards (cook count + relative time ago)
 - Personal notes field per recipe ("always double the garlic", "kids don't like
@@ -79,7 +84,8 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 - Meal plan templates: save a week as a named template ("Weeknight Easy",
   "Entertaining Week"), apply templates to any week (skips duplicate slots),
   delete templates. Household-scoped with real-time event notifications
-- Auto-generated shopping list with unit-aware ingredient consolidation
+- Auto-generated shopping list with unit-aware ingredient consolidation,
+  week picker for generating from prev/current/next week's meal plan
 - Grouped by store section (produce, dairy, meat, pantry, frozen, bakery, other)
 - Inventory-aware: subtracts items already in stock and staple ingredients
 - Shopping list -> inventory pipeline: check off items to add them to inventory

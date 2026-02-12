@@ -916,7 +916,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</div>
 				</div>
 
-				<CookingTimer wakeLock={wakeLock} />
+				<CookingTimer recipeName={recipe.title} />
 
 				{/* "Done Cooking" modal */}
 				{showCookModal && (
@@ -1308,7 +1308,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				</div>
 			</div>
 
-			<CookingTimer wakeLock={wakeLock} />
 		</>
 	)
 }

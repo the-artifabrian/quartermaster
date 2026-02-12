@@ -28,8 +28,8 @@ export function splitMultipleRecipes(text: string): string[] {
 }
 
 /**
- * Normalize common Unicode characters that Apple Notes and other
- * rich-text editors introduce.
+ * Normalize common Unicode characters and strip Markdown formatting
+ * that Apple Notes and other rich-text editors introduce.
  */
 function normalizeText(text: string): string {
 	return (
@@ -41,6 +41,21 @@ function normalizeText(text: string): string {
 			.replace(/\u00A0/g, ' ')
 			// Zero-width spaces and joiners
 			.replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+			// Apple Notes links: ++[text](url)++ → text
+			.replace(/\+\+\[([^\]]+)\]\([^)]+\)\+\+/g, '$1')
+			// Markdown escaped characters: \* \_ \# → literal
+			.replace(/\\([*_#])/g, '$1')
+			// Markdown heading prefixes: # Title → Title
+			.replace(/^#{1,6}\s+/gm, '')
+			// Markdown bold/italic: ** and *** (preserve single * for bullet detection)
+			.replace(/\*{2,}/g, '')
+			// Markdown underscore italic markers
+			.replace(/_/g, '')
+			// Join continuation lines: indented non-bullet lines rejoin previous line
+			.replace(
+				/\n[ \t]{2,}(?=\S)(?![-*•]\s)(?!\d+[.)]\s)(?!\[[ x]\])/g,
+				' ',
+			)
 	)
 }
 
@@ -51,8 +66,18 @@ function normalizeText(text: string): string {
 function stripBullet(line: string): string {
 	return line
 		.replace(/^\s*[-*•]\s+/, '')
+		.replace(/^\s*\[[ x]\]\s*/, '') // strip checkbox markers
 		.replace(/^\s*\d+[.)]\s+/, '')
 		.trim()
+}
+
+/**
+ * Check if a line starts with a bullet, checkbox, or number prefix.
+ * Used to distinguish ingredient lines from sub-section headers.
+ */
+function hasBulletPrefix(line: string): boolean {
+	const trimmed = line.trim()
+	return /^[-*•]\s+/.test(trimmed) || /^\d+[.)]\s+/.test(trimmed)
 }
 
 /**
@@ -152,11 +177,25 @@ export function parseRecipeText(text: string): ParsedRecipe {
 	)
 	if (ingredientSectionIndex >= 0) {
 		const ingredientLines = getSectionLines(ingredientSectionIndex)
+		const usesBullets = ingredientLines.some(hasBulletPrefix)
+		let currentSubHeader: string | undefined
+
 		for (const line of ingredientLines) {
+			// In bulleted sections, non-bulleted lines are sub-headers
+			if (usesBullets && !hasBulletPrefix(line)) {
+				currentSubHeader = line.replace(/:$/, '').trim()
+				continue
+			}
+
 			const stripped = stripBullet(line)
 			if (!stripped) continue
 			const parsed = parseIngredient(stripped)
 			if (parsed) {
+				if (currentSubHeader) {
+					parsed.notes = parsed.notes
+						? `${currentSubHeader}; ${parsed.notes}`
+						: currentSubHeader
+				}
 				ingredients.push(parsed)
 			}
 		}

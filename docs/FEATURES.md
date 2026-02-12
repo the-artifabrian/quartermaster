@@ -25,7 +25,10 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   JSON export
 - Bulk import: paste plain-text recipes (Apple Notes format) with instant
   client-side preview, `---` separator for multiple recipes per batch (max 50),
-  session counter, auto-clear and refocus for rapid paste-import-paste workflow
+  session counter, auto-clear and refocus for rapid paste-import-paste workflow.
+  Handles `- [ ]`/`- [x]` checkbox format and sub-section headers within
+  ingredients (e.g., "Gremolata Topping", "Polenta") — sub-headers are preserved
+  in the ingredient notes field
 - "Surprise me" random recipe picker
 - Cooking log with star ratings and notes ("I Made This")
 - "Last cooked" stats on recipe cards (cook count + relative time ago)

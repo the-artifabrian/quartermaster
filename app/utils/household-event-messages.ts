@@ -101,6 +101,18 @@ export function formatEventMessage(
 				message: `${username} imported ${payload.count} recipes`,
 				url: '/recipes',
 			}
+		case 'data_imported': {
+			const parts: string[] = []
+			if (payload.recipeCount)
+				parts.push(`${payload.recipeCount} recipes`)
+			if (payload.inventoryCount)
+				parts.push(`${payload.inventoryCount} inventory items`)
+			const summary = parts.length > 0 ? parts.join(' and ') : 'data'
+			return {
+				message: `${username} imported ${summary}`,
+				url: '/recipes',
+			}
+		}
 		case 'household_member_joined':
 			return {
 				message: `${username} joined the household`,

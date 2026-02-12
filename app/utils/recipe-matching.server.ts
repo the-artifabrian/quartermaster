@@ -102,8 +102,9 @@ export const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 		'sunflower oil',
 		'peanut oil',
 	],
-	// Soy sauces — "dark soy sauce" and "light soy sauce" normalize to "soy sauce"
-	// via modifier stripping, so only tamari/shoyu need explicit synonyms
+	// Soy sauces — "dark soy sauce" and "light soy sauce" are protected compounds
+	// (dark/light preserved), so they normalize to themselves, not "soy sauce".
+	// tamari/shoyu are synonyms for generic "soy sauce" only.
 	'soy sauce': ['tamari', 'shoyu'],
 	tamari: ['soy sauce', 'shoyu'],
 	shoyu: ['soy sauce', 'tamari'],
@@ -135,7 +136,8 @@ export const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 	aubergine: ['eggplant'],
 	arugula: ['rocket'],
 	rocket: ['arugula'],
-	// "green beans" normalizes to "bean" (green stripped, plurals stripped)
+	// "green beans" normalizes to "green bean" (protected compound, plural stripped).
+	// "bean" (from other sources) still matches via multi-word last-word matching.
 	bean: ['string bean', 'french bean'],
 	'string bean': ['bean', 'french bean'],
 	'french bean': ['bean', 'string bean'],
@@ -148,6 +150,43 @@ export const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 	'celery stalk': ['celery'],
 	celery: ['celery stalk'],
 }
+
+/**
+ * Compound ingredients where color/type modifiers are part of the identity.
+ * These are checked BEFORE modifier stripping — if the pre-stripped name
+ * matches, modifiers are left intact.
+ */
+const PROTECTED_COMPOUNDS = new Set([
+	'green onion',
+	'green bean',
+	'green pepper',
+	'green chile',
+	'green lentil',
+	'green tea',
+	'red onion',
+	'red pepper',
+	'red chile',
+	'red lentil',
+	'red wine',
+	'red wine vinegar',
+	'yellow onion',
+	'yellow pepper',
+	'white onion',
+	'white pepper',
+	'white wine',
+	'white wine vinegar',
+	'white bean',
+	'white chocolate',
+	'brown sugar',
+	'brown rice',
+	'brown butter',
+	'brown lentil',
+	'dark chocolate',
+	'dark soy sauce',
+	'light soy sauce',
+	'black bean',
+	'black tea',
+])
 
 /**
  * Normalize ingredient name for fuzzy matching
@@ -264,8 +303,31 @@ export function normalizeIngredientName(name: string): string {
 		'roasted',
 		'toasted',
 	]
+
+	// Protect compound ingredients where modifiers are part of the identity.
+	// Find which modifiers are "protected" (part of a compound like "green onion").
+	const protectedModifiers = new Set<string>()
+	// Check normalized text (and depluralized variant) against protected compounds
+	const variants = [normalized]
+	if (normalized.endsWith('s')) variants.push(normalized.slice(0, -1))
+	for (const variant of variants) {
+		for (const compound of PROTECTED_COMPOUNDS) {
+			if (variant === compound || variant.endsWith(' ' + compound)) {
+				// The compound's words include modifiers — protect them
+				for (const mod of modifiers) {
+					if (compound.includes(mod)) {
+						protectedModifiers.add(mod)
+					}
+				}
+			}
+		}
+	}
 	for (const modifier of modifiers) {
-		normalized = normalized.replace(new RegExp(`\\b${modifier}\\b`, 'gi'), '')
+		if (protectedModifiers.has(modifier)) continue
+		normalized = normalized.replace(
+			new RegExp(`\\b${modifier}\\b`, 'gi'),
+			'',
+		)
 	}
 
 	// Clean up extra spaces
@@ -350,6 +412,45 @@ function getCoreIngredientWord(name: string): string {
 }
 
 /**
+ * Compounds where the bare core word is NOT equivalent to the compound.
+ * e.g. "rice" is NOT "rice vinegar", "coconut" is NOT "coconut milk".
+ */
+const NON_EQUIVALENT_COMPOUNDS = new Map<string, string[]>([
+	[
+		'rice',
+		['rice vinegar', 'rice wine', 'rice paper', 'rice noodle', 'rice flour'],
+	],
+	['sesame', ['sesame oil', 'sesame seed']],
+	[
+		'coconut',
+		['coconut milk', 'coconut oil', 'coconut cream', 'coconut flour'],
+	],
+	['soy', ['soy sauce', 'soy milk']],
+	['tomato', ['tomato paste', 'tomato sauce', 'tomato puree']],
+	['peanut', ['peanut oil', 'peanut butter']],
+	['almond', ['almond milk', 'almond flour', 'almond butter']],
+	['chili', ['chili oil', 'chili paste', 'chili flake']],
+])
+
+function isNonEquivalentCompoundMatch(
+	normalizedA: string,
+	normalizedB: string,
+): boolean {
+	if (normalizedA === normalizedB) return false
+	// Check if either name is a bare core word and the other is a non-equivalent compound
+	for (const [bareWord, compounds] of NON_EQUIVALENT_COMPOUNDS) {
+		const aIsBare = normalizedA === bareWord
+		const bIsBare = normalizedB === bareWord
+		const aIsCompound = compounds.includes(normalizedA)
+		const bIsCompound = compounds.includes(normalizedB)
+		if ((aIsBare && bIsCompound) || (bIsBare && aIsCompound)) {
+			return true
+		}
+	}
+	return false
+}
+
+/**
  * Check if an ingredient matches an inventory item using improved fuzzy matching
  */
 export function ingredientMatchesInventoryItem(
@@ -379,8 +480,11 @@ export function ingredientMatchesInventoryItem(
 	const ingredientCore = getCoreIngredientWord(ingredient.name)
 	const inventoryCore = getCoreIngredientWord(inventoryItem.name)
 
-	// Match on core words (prevents "rice" matching "rice vinegar")
-	if (ingredientCore === inventoryCore) {
+	// Match on core words, but exclude non-equivalent compounds
+	if (
+		ingredientCore === inventoryCore &&
+		!isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory)
+	) {
 		return true
 	}
 
@@ -393,9 +497,11 @@ export function ingredientMatchesInventoryItem(
 
 	// If the shorter name is just one word, check if it matches the first OR last word
 	// This handles both "unsalted butter" (match first) and "fabio cucumber" (match last)
+	// But skip non-equivalent compounds like "rice" vs "rice vinegar"
 	if (ingredientWords.length === 1 && inventoryWords.length > 1) {
+		if (isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory))
+			return false
 		const word = ingredientWords[0]
-		// Check first or last word (main ingredient is usually first or last)
 		return (
 			inventoryWords[0] === word ||
 			inventoryWords[inventoryWords.length - 1] === word
@@ -403,8 +509,9 @@ export function ingredientMatchesInventoryItem(
 	}
 
 	if (inventoryWords.length === 1 && ingredientWords.length > 1) {
+		if (isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory))
+			return false
 		const word = inventoryWords[0]
-		// Check first or last word (main ingredient is usually first or last)
 		return (
 			ingredientWords[0] === word ||
 			ingredientWords[ingredientWords.length - 1] === word

@@ -74,9 +74,37 @@ export function parseIngredient(line: string): {
 		.trim()
 	if (!cleaned) return null
 
+	// Handle "X to taste" pattern (without comma).
+	// Only match when not starting with a digit (avoids capturing "2 tsp salt to taste"
+	// which should fall through to the main regex for proper amount/unit parsing).
+	const toTasteMatch = cleaned.match(/^([a-zA-Z][^,]*?)\s+to\s+taste$/i)
+	if (toTasteMatch) {
+		return { name: toTasteMatch[1]!.trim(), notes: 'to taste' }
+	}
+
+	// Handle "N (X unit) container name" → e.g. "1 (14.5 oz) can diced tomatoes"
+	const nestedMatch = cleaned.match(
+		/^([\d.\/\-–½⅓⅔¼¾⅛~]+)\s*\(([^)]+)\)\s*([a-zA-Z]+)\s+(.+)$/,
+	)
+	if (nestedMatch) {
+		const [, nestedAmount, parenthetical, possibleUnit, rest] = nestedMatch
+		if (possibleUnit && COMMON_UNITS.has(possibleUnit.toLowerCase())) {
+			let name = rest!.trim()
+			let notes: string | undefined = parenthetical!.trim()
+			if (name.includes(',')) {
+				const parts = name.split(',').map((s) => s.trim())
+				name = parts[0]!
+				notes = notes + '; ' + parts.slice(1).join(', ')
+			}
+			return { name, amount: nestedAmount, unit: possibleUnit, notes }
+		}
+	}
+
 	// Try to match: amount + optional unit + name
 	// Handle both "600 g broccoli" and "600g broccoli"
-	const match = cleaned.match(/^([\d.\/\-–½⅓⅔¼¾⅛]+)\s*([a-zA-Z]+)?\s+(.+)$/)
+	const match = cleaned.match(
+		/^(~?[\d.\/\-–½⅓⅔¼¾⅛]+)\s*([a-zA-Z]+)?\s+(.+)$/,
+	)
 
 	if (match) {
 		const amount = match[1]

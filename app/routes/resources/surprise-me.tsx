@@ -63,14 +63,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// Load cooking logs for the current user (personal, not household-scoped)
 	const cookingLogs = await prisma.cookingLog.findMany({
 		where: { userId, recipeId: { in: recipes.map((r) => r.id) } },
-		select: { recipeId: true, rating: true, cookedAt: true },
+		select: { recipeId: true, cookedAt: true },
 	})
 
 	// Build cooking log summaries per recipe
-	const logsByRecipe = new Map<
-		string,
-		Array<{ rating: number | null; cookedAt: Date }>
-	>()
+	const logsByRecipe = new Map<string, Array<{ cookedAt: Date }>>()
 	for (const log of cookingLogs) {
 		const existing = logsByRecipe.get(log.recipeId) ?? []
 		existing.push(log)
@@ -81,14 +78,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		const matchPercentage = matchByRecipeId.get(recipe.id) ?? 0
 		const logs = logsByRecipe.get(recipe.id) ?? []
 
-		const ratings = logs
-			.map((l) => l.rating)
-			.filter((r): r is number => r !== null && r > 0)
-		const avgRating =
-			ratings.length > 0
-				? ratings.reduce((a, b) => a + b, 0) / ratings.length
-				: null
-
 		const lastCookedAt =
 			logs.length > 0
 				? new Date(
@@ -96,7 +85,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					)
 				: null
 
-		const summary: CookingLogSummary = { avgRating, lastCookedAt }
+		const summary: CookingLogSummary = { lastCookedAt }
 
 		return {
 			recipeId: recipe.id,

@@ -50,9 +50,26 @@ describe('normalizeIngredientName', () => {
 		expect(normalizeIngredientName('medium onion')).toBe('onion')
 	})
 
-	test('strips color modifiers', () => {
-		expect(normalizeIngredientName('red onion')).toBe('onion')
+	test('strips color modifiers for non-protected compounds', () => {
 		expect(normalizeIngredientName('yellow bell pepper')).toBe('bell pepper')
+		expect(normalizeIngredientName('red bell peppers')).toBe('bell pepper')
+	})
+
+	test('protects compound ingredients from modifier stripping', () => {
+		expect(normalizeIngredientName('green onion')).toBe('green onion')
+		expect(normalizeIngredientName('green onions')).toBe('green onion')
+		expect(normalizeIngredientName('red pepper')).toBe('red pepper')
+		expect(normalizeIngredientName('red onion')).toBe('red onion')
+		expect(normalizeIngredientName('brown sugar')).toBe('brown sugar')
+		expect(normalizeIngredientName('white wine')).toBe('white wine')
+		expect(normalizeIngredientName('dark chocolate')).toBe('dark chocolate')
+		expect(normalizeIngredientName('black bean')).toBe('black bean')
+		expect(normalizeIngredientName('black beans')).toBe('black bean')
+	})
+
+	test('strips non-identity modifiers but keeps protected compound parts', () => {
+		// "large green onions" — "large" is stripped, "green" is protected via "green onion"
+		expect(normalizeIngredientName('large green onions')).toBe('green onion')
 	})
 
 	test('strips sugar/grain type modifiers', () => {
@@ -125,15 +142,12 @@ describe('getCanonicalIngredientName', () => {
 		expect(fromCilantro).toBe(fromCoriander)
 	})
 
-	test('scallion and green onion diverge because "green" is stripped as modifier', () => {
-		// "green onion" → "green" stripped → "onion" (no synonym entry)
+	test('scallion and green onion share canonical name (compound protection fix)', () => {
+		// "green onion" → protected compound, "green" NOT stripped → "green onion"
 		// "scallion" → synonyms: green onion, spring onion → canonical: "green onion"
 		const fromScallion = getCanonicalIngredientName('scallion')
 		const fromGreenOnion = getCanonicalIngredientName('green onion')
-		expect(fromScallion).toBe('green onion')
-		expect(fromGreenOnion).toBe('onion')
-		// These don't match — a known limitation of modifier stripping + synonym lookup
-		expect(fromScallion).not.toBe(fromGreenOnion)
+		expect(fromScallion).toBe(fromGreenOnion)
 	})
 
 	test('bidirectional: stock and broth map to the same canonical name', () => {
@@ -188,10 +202,10 @@ describe('ingredientMatchesInventoryItem', () => {
 		expect(match('stock', 'broth')).toBe(true)
 	})
 
-	test('scallion vs green onion: "green" stripped breaks synonym path', () => {
-		// "green onion" → normalize strips "green" → "onion"
-		// "scallion" synonym list is ["green onion", "spring onion"] — not "onion"
-		expect(match('scallion', 'green onion')).toBe(false)
+	test('scallion matches green onion (compound protection + synonym)', () => {
+		// "green onion" → protected compound, stays "green onion" after normalization
+		// "scallion" synonyms include "green onion" → match
+		expect(match('scallion', 'green onion')).toBe(true)
 	})
 
 	test('core word match', () => {
@@ -212,16 +226,15 @@ describe('ingredientMatchesInventoryItem', () => {
 	})
 
 	test('negative: rice does NOT match rice vinegar', () => {
-		// "rice" is single word, "rice vinegar" first word is "rice" → actually matches
-		// Wait, let me re-check: single word "rice" vs multi-word "rice vinegar"
-		// inventoryWords[0] === "rice" → true. So this DOES match.
-		// The dev plan says it shouldn't. Let me check the core word logic.
-		// Actually the coreWord check: getCoreIngredientWord("rice") = "rice",
-		// getCoreIngredientWord("rice vinegar") = "rice" → core word match = true
-		// The comment in the code says "prevents rice matching rice vinegar" but
-		// the core word logic makes them match. Let me test what the code actually does.
-		// Since core words match ("rice" === "rice"), this returns true.
-		expect(match('rice', 'rice vinegar')).toBe(true)
+		expect(match('rice', 'rice vinegar')).toBe(false)
+	})
+
+	test('negative: coconut does NOT match coconut milk', () => {
+		expect(match('coconut', 'coconut milk')).toBe(false)
+	})
+
+	test('negative: tomato does NOT match tomato paste', () => {
+		expect(match('tomato', 'tomato paste')).toBe(false)
 	})
 
 	test('negative: completely unrelated ingredients do not match', () => {

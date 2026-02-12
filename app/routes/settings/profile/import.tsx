@@ -459,7 +459,6 @@ export async function action({ request }: Route.ActionArgs) {
 				await prisma.cookingLog.create({
 					data: {
 						cookedAt: new Date(log.cookedAt),
-						rating: log.rating ?? null,
 						notes: log.notes || null,
 						recipeId,
 						userId,

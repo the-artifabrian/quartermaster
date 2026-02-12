@@ -171,7 +171,6 @@ describe('recipe detail actions', () => {
 		const request = await makeRequest(session, recipe.id, {
 			intent: 'logCook',
 			cookedAt: '2026-02-06',
-			rating: '4',
 			notes: 'Turned out great!',
 		})
 		const result = await action({ request, ...makeActionArgs(recipe.id) })
@@ -181,7 +180,6 @@ describe('recipe detail actions', () => {
 			where: { recipeId: recipe.id, userId: session.userId },
 		})
 		expect(logs).toHaveLength(1)
-		expect(logs[0]!.rating).toBe(4)
 		expect(logs[0]!.notes).toBe('Turned out great!')
 	})
 
@@ -231,7 +229,6 @@ describe('recipe detail actions', () => {
 				recipeId: recipe.id,
 				userId: session.userId,
 				cookedAt: new Date(),
-				rating: 5,
 			},
 		})
 

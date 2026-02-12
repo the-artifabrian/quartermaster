@@ -15,11 +15,15 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 - Full-text search across title, ingredients, and description
 - Tag filtering and cook time filtering with bookmarkable URL params
 - Recipe scaling with +/- servings controls and fraction display
-- Cooking assistance: tap-to-cross-off ingredients/steps, Wake Lock toggle,
-  inline timer creation (presets + custom) in cooking mode with multiple
-  concurrent timer support (up to 5 named timers, global floating widget
-  with pause/resume/dismiss, localStorage persistence across navigation,
-  alarm sound + wake lock)
+- Cooking assistance: always-interactive ingredients (checkbox cross-off) and
+  instructions (tap-to-complete with step number → checkmark transition),
+  inline timer pill buttons on time references in instruction text ("simmer
+  for 15 minutes" → one-tap timer start), multiple concurrent timer support
+  (up to 5 named timers, global floating widget with pause/resume/dismiss,
+  localStorage persistence across navigation, alarm sound + wake lock).
+  Auto-detected time references support minutes/hours/seconds, ranges
+  (upper bound), fractions, combined times ("1 hour 30 minutes"), with
+  temperature false positive avoidance
 - Favorite/bookmark recipes with filter toggle
 - Print-friendly recipe layout (hides nav, actions, raw text, cooking history;
   single-column grid, flat cards)
@@ -37,9 +41,10 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
   a dismissable card prompts "Ready to plan your week?" with links to `/plan`
   and `/recipes`
 - "Surprise me" weighted random recipe picker (scores by inventory match,
-  favorites, ratings, exploration bonus for uncooked recipes, recency penalty
+  favorites, exploration bonus for uncooked recipes, recency penalty
   for recently cooked)
-- Cooking log with star ratings and notes ("I Made This")
+- "I Made This" cook logging with inventory impact preview (shows what
+  will be subtracted/removed/flagged before confirming)
 - "Last cooked" stats on recipe cards (cook count + relative time ago)
 - Personal notes field per recipe ("always double the garlic", "kids don't like
   this")
@@ -52,8 +57,13 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 - Quick-add with optional inline quantity and unit fields
 - Quick-add shortcuts for 30 common ingredients
 - Ingredient normalization pipeline: ~40 modifier strippers, ~25 synonym groups,
-  pluralization handling. Powers matching, shopping consolidation, overlap
-  scoring, and waste detection across the entire app
+  pluralization handling, compound ingredient protection (green onion, brown
+  sugar, etc. preserved through modifier stripping), non-equivalent compound
+  exclusions (rice != rice vinegar, coconut != coconut milk). Powers matching,
+  shopping consolidation, overlap scoring, and waste detection across the
+  entire app
+- Ingredient parser: handles nested parenthetical quantities ("1 (14.5 oz) can
+  diced tomatoes"), "to taste" extraction, tilde/approximate amounts, ranges
 - "What can I make?" discovery page with 4-level fuzzy ingredient matching
   (exact, synonym, core word, multi-word containment)
 - Match percentage scoring and missing ingredient highlighting
@@ -74,12 +84,12 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 - Click-to-assign recipes to meal slots, multiple recipes per slot
 - Per-entry serving size overrides with +/- controls
 - Mark meals as "cooked" with optimistic toggle UI; quick "I made this"
-  one-tap action (logs cook + subtracts inventory without entering cooking mode)
+  one-tap action (logs cook + subtracts inventory)
 
 - "Up next" banner (current week only): shows the next chronological meal to
   cook today (breakfast before 11am, lunch 11am-3pm, dinner 3pm-9pm, snack
   after 9pm) with recipe image, cook time, servings, remaining meal count,
-  and "Start Cooking" link. Empty state suggests a favorite recipe with
+  and "View Recipe" link. Empty state suggests a favorite recipe with
   one-tap "Add to Today" (excludes already-planned recipes)
 - Copy week to next week (preserves servings, skips duplicates)
 - Meal plan templates: save a week as a named template ("Weeknight Easy",
@@ -112,7 +122,7 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
   roles, one household per user
 - `householdId` on Recipe, InventoryItem, MealPlan, ShoppingList alongside
   `userId` (kept for attribution). CookingLog stays user-scoped (personal
-  ratings/notes)
+  notes)
 - ~50 queries migrated from `where: { userId }` to `where: { householdId }`
   across 15 route/utility files. Auth via `requireUserWithHousehold()` helper
   with race-safe auto-creation fallback
@@ -189,8 +199,8 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 Transformed the app from "developer CRUD tool" to "daily cookbook":
 
 - **Recipe detail overhaul**: compact header with meta card, sticky ingredients
-  sidebar, dedicated cooking mode with mobile step paginator, wake lock,
-  floating timer, and "Done Cooking" completion modal
+  sidebar with interactive checkboxes, crossable instruction steps with inline
+  timer pill buttons, "I Made This" button with inventory impact preview modal
 - **Discover page**: hero card for top match ("Tonight's Pick"), SVG progress
   rings for match percentage, expiring-item urgency pills
 - **Meal plan**: two-row calendar layout (4+3 columns), today emphasis, compact

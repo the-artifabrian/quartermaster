@@ -30,10 +30,10 @@ points when the user wants more:
   useful, low enough to hit the limit once committed. Unlimited on Pro.
 - Manual recipe entry + quick text entry (URL import is Pro -- it's the
   power-user feature that drives bulk recipe collection past the free limit)
-- Basic cooking mode (tap-to-cross-off, wake lock)
+- Interactive recipe view (tap-to-cross-off ingredients/steps, inline timers)
 - JSON export (data portability builds trust -- users burned by Yummly
   shutting down care about this)
-- Cooking log with ratings
+- Cooking log with notes
 
 The free tier should make users _want_ Pro, not _need_ it. The upgrade trigger
 is natural: "I have 50 recipes and want to import more" or "I want the shopping

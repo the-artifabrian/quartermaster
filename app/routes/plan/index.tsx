@@ -496,7 +496,7 @@ export async function action({ request }: Route.ActionArgs) {
 			data: { cooked: true },
 		})
 
-		// Create cooking log (no rating/notes — that's what full cooking mode is for)
+		// Create cooking log (quick cook — no notes)
 		await prisma.cookingLog.create({
 			data: {
 				recipeId: entry.recipe.id,

@@ -3,7 +3,7 @@ import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
 	Form,
 	Link,
@@ -11,7 +11,7 @@ import {
 	useRouteLoaderData,
 	useSearchParams,
 } from 'react-router'
-import { CookingTimer } from '#app/components/cooking-timer.tsx'
+import { InstructionWithTimers } from '#app/components/instruction-with-timers.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
@@ -25,9 +25,25 @@ import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { CookingLogSchema } from '#app/utils/cooking-log-validation.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { scaleAmount } from '#app/utils/fractions.ts'
-import { subtractRecipeIngredientsFromInventory } from '#app/utils/inventory-subtract.server.ts'
+import {
+	subtractRecipeIngredientsFromInventory,
+	previewInventorySubtraction,
+} from '#app/utils/inventory-subtract.server.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import { type Route } from './+types/$recipeId.ts'
+
+type SubtractionPreviewData = {
+	willSubtract: Array<{
+		name: string
+		currentQuantity: number | null
+		currentUnit: string | null
+		subtractAmount: number | null
+		newQuantity: number | null
+		willBeRemoved: boolean
+		willBeFlaggedLow: boolean
+	}>
+	noMatch: string[]
+}
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
@@ -136,7 +152,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			id: true,
 			cookedAt: true,
 			notes: true,
-			rating: true,
 		},
 	})
 
@@ -178,6 +193,18 @@ export async function action({ request, params }: Route.ActionArgs) {
 		return { success: true }
 	}
 
+	if (intent === 'previewSubtraction') {
+		const servingRatio = parseFloat(
+			String(formData.get('servingRatio') ?? '1'),
+		)
+		const preview = await previewInventorySubtraction(
+			recipeId,
+			householdId,
+			isNaN(servingRatio) || servingRatio <= 0 ? 1 : servingRatio,
+		)
+		return { success: true, preview }
+	}
+
 	if (intent === 'logCook') {
 		const submission = parseWithZod(formData, { schema: CookingLogSchema })
 		if (submission.status !== 'success') {
@@ -190,7 +217,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 				userId,
 				cookedAt: submission.value.cookedAt ?? new Date(),
 				notes: submission.value.notes || null,
-				rating: submission.value.rating ?? null,
 			},
 		})
 
@@ -233,98 +259,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	return { success: false }
 }
 
-// --- Utility hooks & components ---
-
-function useWakeLock() {
-	const [isActive, setIsActive] = useState(false)
-
-	const toggle = useCallback(() => {
-		setIsActive((prev) => !prev)
-	}, [])
-
-	const activate = useCallback(() => {
-		setIsActive(true)
-	}, [])
-
-	const deactivate = useCallback(() => {
-		setIsActive(false)
-	}, [])
-
-	useEffect(() => {
-		if (!isActive) return
-
-		let wakeLock: WakeLockSentinel | null = null
-
-		async function requestWakeLock() {
-			try {
-				if ('wakeLock' in navigator) {
-					wakeLock = await navigator.wakeLock.request('screen')
-				}
-			} catch {
-				// Wake Lock request failed (e.g., low battery)
-			}
-		}
-
-		void requestWakeLock()
-
-		function handleVisibilityChange() {
-			if (document.visibilityState === 'visible') {
-				void requestWakeLock()
-			}
-		}
-		document.addEventListener('visibilitychange', handleVisibilityChange)
-
-		return () => {
-			document.removeEventListener('visibilitychange', handleVisibilityChange)
-			void wakeLock?.release()
-		}
-	}, [isActive])
-
-	return { isActive, toggle, activate, deactivate }
-}
-
-function StarRating({
-	value,
-	onChange,
-}: {
-	value: number
-	onChange: (rating: number) => void
-}) {
-	return (
-		<div className="flex gap-0.5">
-			{[1, 2, 3, 4, 5].map((star) => (
-				<button
-					key={star}
-					type="button"
-					onClick={() => onChange(star === value ? 0 : star)}
-					aria-label={`Rate ${star} star${star !== 1 ? 's' : ''}`}
-					className="p-1 text-amber-500 transition-transform hover:scale-110"
-				>
-					<Icon name={star <= value ? 'star-filled' : 'star'} size="md" />
-				</button>
-			))}
-		</div>
-	)
-}
-
-function StarDisplay({ rating }: { rating: number }) {
-	return (
-		<div
-			className="flex gap-0.5"
-			role="img"
-			aria-label={`Rating: ${rating} out of 5 stars`}
-		>
-			{[1, 2, 3, 4, 5].map((star) => (
-				<Icon
-					key={star}
-					name={star <= rating ? 'star-filled' : 'star'}
-					size="sm"
-					className="text-amber-500"
-				/>
-			))}
-		</div>
-	)
-}
+// --- Utility functions ---
 
 function toIsoDuration(minutes: number | null | undefined): string | undefined {
 	if (!minutes) return undefined
@@ -349,13 +284,9 @@ function getRecipeJsonLd(
 		instructions: Array<{ content: string }>
 		tags: Array<{ name: string; category: string }>
 	},
-	cookingLogs: Array<{ rating: number | null }>,
 	origin: string | undefined,
 ) {
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
-	const ratings = cookingLogs
-		.map((l) => l.rating)
-		.filter((r): r is number => r !== null && r > 0)
 
 	const jsonLd: Record<string, unknown> = {
 		'@context': 'https://schema.org',
@@ -390,17 +321,6 @@ function getRecipeJsonLd(
 		jsonLd.image = `${origin}/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}&w=1200&h=630&fit=cover`
 	}
 
-	if (ratings.length > 0) {
-		const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length
-		jsonLd.aggregateRating = {
-			'@type': 'AggregateRating',
-			ratingValue: Math.round(avg * 10) / 10,
-			ratingCount: ratings.length,
-			bestRating: 5,
-			worstRating: 1,
-		}
-	}
-
 	return jsonLd
 }
 
@@ -412,7 +332,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		| { requestInfo?: { origin?: string } }
 		| undefined
 	const origin = rootData?.requestInfo?.origin
-	const recipeJsonLd = getRecipeJsonLd(recipe, cookingLogs, origin)
+	const recipeJsonLd = getRecipeJsonLd(recipe, origin)
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
 	const [searchParams, setSearchParams] = useSearchParams()
 	const favoriteFetcher = useFetcher()
@@ -424,15 +344,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		() => new Set(),
 	)
 	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(() => new Set())
-	const wakeLock = useWakeLock()
-	const [cookRating, setCookRating] = useState(0)
 	const cookFetcher = useFetcher({ key: 'log-cook' })
+	const previewFetcher = useFetcher({ key: 'preview-subtraction' })
 	const prevCookFetcherState = useRef(cookFetcher.state)
-
-	const isCookingMode = searchParams.get('cooking') === 'true'
-	const [currentStep, setCurrentStep] = useState(0)
-	const [showCookModal, setShowCookModal] = useState(false)
-	const [showIngredientDrawer, setShowIngredientDrawer] = useState(false)
+	const [showIMadeThisModal, setShowIMadeThisModal] = useState(false)
 	const [historyExpanded, setHistoryExpanded] = useState(false)
 
 	const servingsParam = searchParams.get('servings')
@@ -442,27 +357,14 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const ratio = currentServings / recipe.servings
 	const isScaled = currentServings !== recipe.servings
 
-	// Auto-activate wake lock in cooking mode
-	useEffect(() => {
-		if (isCookingMode && !wakeLock.isActive) {
-			wakeLock.activate()
-		}
-		if (!isCookingMode && wakeLock.isActive) {
-			wakeLock.deactivate()
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isCookingMode])
-
-	// Close modal + exit cooking mode after successful cook log submission
+	// Close modal after successful cook log submission
 	useEffect(() => {
 		if (
 			prevCookFetcherState.current !== 'idle' &&
 			cookFetcher.state === 'idle' &&
 			cookFetcher.data?.success
 		) {
-			setShowCookModal(false)
-			setCookRating(0)
-			exitCookingMode()
+			setShowIMadeThisModal(false)
 
 			const summary = cookFetcher.data.inventorySummary
 			if (summary) {
@@ -482,10 +384,11 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							? parts.join(' ')
 							: 'No matching inventory items found.',
 				})
+			} else {
+				toast.success('Cook logged!')
 			}
 		}
 		prevCookFetcherState.current = cookFetcher.state
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [cookFetcher.state, cookFetcher.data])
 
 	function updateServings(newServings: number) {
@@ -497,27 +400,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				} else {
 					prev.set('servings', clamped.toString())
 				}
-				return prev
-			},
-			{ replace: true },
-		)
-	}
-
-	function enterCookingMode() {
-		setSearchParams(
-			(prev) => {
-				prev.set('cooking', 'true')
-				return prev
-			},
-			{ replace: true },
-		)
-		setCurrentStep(0)
-	}
-
-	function exitCookingMode() {
-		setSearchParams(
-			(prev) => {
-				prev.delete('cooking')
 				return prev
 			},
 			{ replace: true },
@@ -539,21 +421,22 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	function toggleStep(id: string) {
 		setCheckedSteps((prev) => {
 			const next = new Set(prev)
-			const wasChecked = next.has(id)
-			if (wasChecked) {
+			if (next.has(id)) {
 				next.delete(id)
 			} else {
 				next.add(id)
-				// Auto-advance current step to next unchecked step
-				const nextUnchecked = recipe.instructions.findIndex(
-					(inst, idx) => idx > currentStep && !next.has(inst.id),
-				)
-				if (nextUnchecked !== -1) {
-					setCurrentStep(nextUnchecked)
-				}
 			}
 			return next
 		})
+	}
+
+	function handleIMadeThis() {
+		setShowIMadeThisModal(true)
+		// Fire preview fetch
+		const formData = new FormData()
+		formData.set('intent', 'previewSubtraction')
+		formData.set('servingRatio', ratio.toString())
+		void previewFetcher.submit(formData, { method: 'POST' })
 	}
 
 	async function handleShare() {
@@ -581,362 +464,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		}
 	}
 
-	// --- Cooking Mode ---
-	if (isCookingMode) {
-		return (
-			<>
-				<div className="container max-w-4xl py-4">
-					{/* Cooking mode header */}
-					<div className="mb-4 flex items-center justify-between">
-						<div className="min-w-0 flex-1">
-							<h1 className="truncate text-xl font-bold">{recipe.title}</h1>
-							<p className="text-muted-foreground text-sm">Cooking mode</p>
-						</div>
-						<Button variant="ghost" size="sm" onClick={exitCookingMode}>
-							<Icon name="cross-1" size="sm" />
-							Exit
-						</Button>
-					</div>
-
-					<div className="grid gap-6 md:grid-cols-[2fr_3fr]">
-						{/* Ingredients - sticky sidebar on desktop, drawer toggle on mobile */}
-						<div className="md:sticky md:top-20 md:self-start">
-							{/* Mobile toggle */}
-							<button
-								className="bg-card shadow-warm mb-4 flex w-full items-center justify-between rounded-2xl border p-4 md:hidden"
-								onClick={() => setShowIngredientDrawer((v) => !v)}
-							>
-								<span className="flex items-center gap-2 font-semibold">
-									<Icon name="file-text" size="sm" />
-									Ingredients
-									{isScaled && (
-										<span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs">
-											Scaled
-										</span>
-									)}
-								</span>
-								<Icon
-									name="chevron-down"
-									size="sm"
-									className={cn(
-										'transition-transform',
-										showIngredientDrawer && 'rotate-180',
-									)}
-								/>
-							</button>
-
-							{/* Ingredients panel */}
-							<div
-								className={cn(
-									'bg-card shadow-warm rounded-2xl border p-6',
-									showIngredientDrawer ? 'block' : 'hidden md:block',
-								)}
-							>
-								<div className="mb-4 flex items-center gap-2">
-									<h2 className="text-lg font-semibold">Ingredients</h2>
-									{isScaled && (
-										<span className="bg-primary/10 text-primary hidden rounded-full px-2 py-0.5 text-xs font-medium md:inline-block">
-											Scaled
-										</span>
-									)}
-								</div>
-								{/* Servings controls */}
-								<div className="mb-4 flex items-center gap-2 text-sm">
-									<Icon name="avatar" size="sm" className="text-accent" />
-									<Button
-										variant="outline"
-										size="sm"
-										className="h-9 w-9 p-0"
-										onClick={() => updateServings(currentServings - 1)}
-										disabled={currentServings <= 1}
-									>
-										-
-									</Button>
-									<span className="min-w-[5ch] text-center font-medium">
-										{currentServings}
-									</span>
-									<Button
-										variant="outline"
-										size="sm"
-										className="h-9 w-9 p-0"
-										onClick={() => updateServings(currentServings + 1)}
-									>
-										+
-									</Button>
-									<span className="text-muted-foreground">servings</span>
-									{isScaled && (
-										<button
-											onClick={() => updateServings(recipe.servings)}
-											className="text-primary text-xs hover:underline"
-										>
-											Reset
-										</button>
-									)}
-								</div>
-								<ul className="space-y-1">
-									{recipe.ingredients.map((ingredient) => {
-										const isChecked = checkedIngredients.has(ingredient.id)
-										return (
-											<li
-												key={ingredient.id}
-												role="checkbox"
-												aria-checked={isChecked}
-												tabIndex={0}
-												className="hover:bg-accent/5 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 transition-colors select-none"
-												onClick={() => toggleIngredient(ingredient.id)}
-												onKeyDown={(e) => {
-													if (e.key === 'Enter' || e.key === ' ') {
-														e.preventDefault()
-														toggleIngredient(ingredient.id)
-													}
-												}}
-											>
-												<span
-													className={cn(
-														'flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-														isChecked
-															? 'border-primary bg-primary text-primary-foreground'
-															: 'border-muted-foreground/30',
-													)}
-												>
-													{isChecked && (
-														<Icon name="check" className="size-3" />
-													)}
-												</span>
-												<span
-													className={cn(
-														'transition-colors',
-														isChecked &&
-															'text-muted-foreground/50 line-through',
-													)}
-												>
-													{ingredient.amount && (
-														<span className="font-medium">
-															{scaleAmount(ingredient.amount, ratio)}{' '}
-														</span>
-													)}
-													{ingredient.unit && <span>{ingredient.unit} </span>}
-													<span>{ingredient.name}</span>
-													{ingredient.notes && (
-														<span
-															className={
-																isChecked ? '' : 'text-muted-foreground'
-															}
-														>
-															, {ingredient.notes}
-														</span>
-													)}
-												</span>
-											</li>
-										)
-									})}
-								</ul>
-							</div>
-						</div>
-
-						{/* Instructions - step paginator on mobile, full list on desktop */}
-						<div>
-							<h2 className="mb-4 hidden text-lg font-semibold md:block">
-								Instructions
-							</h2>
-
-							{/* Mobile: step-by-step paginator */}
-							<div className="md:hidden">
-								{recipe.instructions.length > 0 && (
-									<div className="space-y-4">
-										<div className="text-muted-foreground text-center text-sm">
-											Step {currentStep + 1} of {recipe.instructions.length}
-										</div>
-										<div className="bg-card shadow-warm min-h-[200px] rounded-2xl border p-6">
-											<div className="mb-3 flex items-center gap-3">
-												<span className="bg-accent/10 text-accent border-accent/20 flex size-10 shrink-0 items-center justify-center rounded-full border text-lg font-semibold">
-													{currentStep + 1}
-												</span>
-												{checkedSteps.has(
-													recipe.instructions[currentStep]?.id ?? '',
-												) && (
-													<span className="text-xs text-green-600">
-														Completed
-													</span>
-												)}
-											</div>
-											<p className="text-lg leading-relaxed">
-												{recipe.instructions[currentStep]?.content}
-											</p>
-										</div>
-
-										{/* Progress dots */}
-										<div className="scrollbar-hide flex items-center justify-center gap-0.5 overflow-x-auto">
-											{recipe.instructions.map((inst, idx) => (
-												<button
-													key={inst.id}
-													onClick={() => setCurrentStep(idx)}
-													className="flex size-6 shrink-0 items-center justify-center"
-													aria-label={`Go to step ${idx + 1}`}
-												>
-													<span
-														className={cn(
-															'size-2 rounded-full transition-all',
-															idx === currentStep
-																? 'bg-accent scale-125'
-																: checkedSteps.has(inst.id)
-																	? 'bg-primary/40'
-																	: 'bg-muted-foreground/20',
-														)}
-													/>
-												</button>
-											))}
-										</div>
-
-										{/* Prev/Next buttons */}
-										<div className="flex gap-3 pb-20 md:pb-0">
-											<Button
-												variant="outline"
-												className="h-12 flex-1"
-												onClick={() =>
-													setCurrentStep((s) => Math.max(0, s - 1))
-												}
-												disabled={currentStep === 0}
-											>
-												<Icon name="arrow-left" size="sm" />
-												Previous
-											</Button>
-											{currentStep < recipe.instructions.length - 1 ? (
-												<Button
-													className="h-12 flex-1"
-													onClick={() => {
-														const currentId =
-															recipe.instructions[currentStep]?.id
-														if (currentId && !checkedSteps.has(currentId)) {
-															toggleStep(currentId)
-														}
-														setCurrentStep((s) =>
-															Math.min(recipe.instructions.length - 1, s + 1),
-														)
-													}}
-												>
-													Next
-													<Icon name="arrow-right" size="sm" />
-												</Button>
-											) : (
-												<Button
-													className="h-12 flex-1 bg-green-600 hover:bg-green-700"
-													onClick={() => {
-														const currentId =
-															recipe.instructions[currentStep]?.id
-														if (currentId && !checkedSteps.has(currentId)) {
-															toggleStep(currentId)
-														}
-														setShowCookModal(true)
-													}}
-												>
-													<Icon name="check" size="sm" />
-													Done Cooking
-												</Button>
-											)}
-										</div>
-									</div>
-								)}
-							</div>
-
-							{/* Desktop: all steps visible, current highlighted */}
-							<ol className="hidden space-y-4 md:block">
-								{recipe.instructions.map((instruction, index) => {
-									const isChecked = checkedSteps.has(instruction.id)
-									const isCurrent = index === currentStep
-									return (
-										<li
-											key={instruction.id}
-											role="checkbox"
-											aria-checked={isChecked}
-											tabIndex={0}
-											className={cn(
-												'flex cursor-pointer gap-4 rounded-lg px-3 py-3 transition-all select-none',
-												isCurrent &&
-													!isChecked &&
-													'border-accent bg-accent/5 rounded-r-lg border-l-4',
-												!isCurrent && 'hover:bg-muted/50',
-											)}
-											onClick={() => toggleStep(instruction.id)}
-											onKeyDown={(e) => {
-												if (e.key === 'Enter' || e.key === ' ') {
-													e.preventDefault()
-													toggleStep(instruction.id)
-												}
-											}}
-										>
-											<span
-												className={cn(
-													'flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors',
-													isChecked
-														? 'bg-primary/20 text-primary'
-														: isCurrent
-															? 'bg-accent text-accent-foreground'
-															: 'bg-accent/10 text-accent border-accent/20 border',
-												)}
-											>
-												{isChecked ? (
-													<Icon name="check" size="sm" />
-												) : (
-													index + 1
-												)}
-											</span>
-											<div className="flex-1 pt-0.5">
-												{isCurrent && !isChecked && (
-													<span className="text-accent mb-1 block text-xs font-semibold tracking-wide uppercase">
-														Current Step
-													</span>
-												)}
-												<p
-													className={cn(
-														'text-base transition-colors',
-														isChecked &&
-															'text-muted-foreground/50 line-through',
-													)}
-												>
-													{instruction.content}
-												</p>
-											</div>
-										</li>
-									)
-								})}
-							</ol>
-
-							{/* Desktop done cooking button */}
-							<div className="mt-6 hidden md:block">
-								<Button
-									className="h-12 w-full bg-green-600 text-base hover:bg-green-700"
-									onClick={() => setShowCookModal(true)}
-								>
-									<Icon name="check" size="md" />
-									Done Cooking
-								</Button>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<CookingTimer recipeName={recipe.title} />
-
-				{/* "Done Cooking" modal */}
-				{showCookModal && (
-					<CookCompleteModal
-						ratio={ratio}
-						cookRating={cookRating}
-						setCookRating={setCookRating}
-						cookFetcher={cookFetcher}
-						onClose={() => {
-							setShowCookModal(false)
-							setCookRating(0)
-						}}
-					/>
-				)}
-			</>
-		)
-	}
-
-	// --- Normal Mode ---
-
 	return (
 		<>
 			<script
@@ -947,10 +474,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			/>
 
 			{/* Header */}
-			<div className="container max-w-4xl px-4 pt-6 md:px-8">
+			<div className="container max-w-4xl px-4 pt-4 md:pt-6 md:px-8">
 				<Link
 					to="/recipes"
-					className="text-muted-foreground hover:text-foreground mb-3 inline-flex items-center gap-1 text-sm print:hidden"
+					className="text-muted-foreground hover:text-foreground mb-2 inline-flex items-center gap-1 text-sm md:mb-3 print:hidden"
 				>
 					<Icon name="arrow-left" size="sm" />
 					Recipes
@@ -962,7 +489,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 			{/* Meta card + content */}
 			<div className="container max-w-4xl px-4 md:px-8">
-				<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-5 print:border-0 print:p-2 print:shadow-none">
+				<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-3 md:p-5 print:border-0 print:p-2 print:shadow-none">
 					<div className="flex flex-wrap items-center gap-3 text-sm">
 						{/* Servings */}
 						<span className="flex items-center gap-1">
@@ -970,7 +497,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							<Button
 								variant="outline"
 								size="sm"
-								className="h-9 w-9 p-0 print:hidden"
+								className="h-7 w-7 p-0 md:h-9 md:w-9 print:hidden"
 								onClick={() => updateServings(currentServings - 1)}
 								disabled={currentServings <= 1}
 							>
@@ -982,7 +509,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							<Button
 								variant="outline"
 								size="sm"
-								className="h-9 w-9 p-0 print:hidden"
+								className="h-7 w-7 p-0 md:h-9 md:w-9 print:hidden"
 								onClick={() => updateServings(currentServings + 1)}
 							>
 								+
@@ -1104,9 +631,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 				{/* Action bar - inline on desktop */}
 				<div className="mt-6 hidden items-center gap-2 md:flex print:hidden">
-					<Button onClick={enterCookingMode} className="gap-2">
-						<Icon name="play" size="sm" />
-						Start Cooking
+					<Button
+						onClick={handleIMadeThis}
+						className="gap-2 bg-green-600 hover:bg-green-700"
+					>
+						<Icon name="check" size="sm" />
+						I Made This
 					</Button>
 					<favoriteFetcher.Form method="POST">
 						<input type="hidden" name="intent" value="toggleFavorite" />
@@ -1168,11 +698,11 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				</div>
 
 				{/* Content zone: Ingredients + Instructions */}
-				<div className="mt-8 grid gap-8 md:grid-cols-[2fr_3fr] print:grid-cols-1 print:gap-4">
-					{/* Ingredients - sticky on desktop */}
+				<div className="mt-5 grid gap-5 md:mt-8 md:grid-cols-[2fr_3fr] md:gap-8 print:grid-cols-1 print:gap-4">
+					{/* Ingredients - sticky on desktop, interactive checkboxes */}
 					<div className="md:sticky md:top-20 md:self-start print:static">
-						<div className="bg-card shadow-warm rounded-2xl border p-6 print:border-0 print:p-2 print:shadow-none">
-							<div className="mb-4 flex items-center gap-2">
+						<div className="bg-card shadow-warm rounded-2xl border p-4 md:p-6 print:border-0 print:p-2 print:shadow-none">
+							<div className="mb-3 flex items-center gap-2 md:mb-4">
 								<h2 className="text-lg font-semibold">Ingredients</h2>
 								{isScaled && (
 									<span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs font-medium">
@@ -1181,47 +711,120 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								)}
 							</div>
 							<ul className="space-y-1">
-								{recipe.ingredients.map((ingredient) => (
-									<li
-										key={ingredient.id}
-										className="flex items-start gap-3 rounded-lg px-2 py-2"
-									>
-										<span className="bg-primary mt-2 block size-1.5 shrink-0 rounded-full" />
-										<span>
-											{ingredient.amount && (
-												<span className="font-medium">
-													{scaleAmount(ingredient.amount, ratio)}{' '}
-												</span>
-											)}
-											{ingredient.unit && <span>{ingredient.unit} </span>}
-											<span>{ingredient.name}</span>
-											{ingredient.notes && (
-												<span className="text-muted-foreground">
-													, {ingredient.notes}
-												</span>
-											)}
-										</span>
-									</li>
-								))}
+								{recipe.ingredients.map((ingredient) => {
+									const isChecked = checkedIngredients.has(ingredient.id)
+									return (
+										<li
+											key={ingredient.id}
+											role="checkbox"
+											aria-checked={isChecked}
+											tabIndex={0}
+											className="hover:bg-accent/5 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors select-none"
+											onClick={() => toggleIngredient(ingredient.id)}
+											onKeyDown={(e) => {
+												if (e.key === 'Enter' || e.key === ' ') {
+													e.preventDefault()
+													toggleIngredient(ingredient.id)
+												}
+											}}
+										>
+											<span
+												className={cn(
+													'flex size-4 shrink-0 items-center justify-center rounded border transition-colors',
+													isChecked
+														? 'border-primary bg-primary text-primary-foreground'
+														: 'border-muted-foreground/25',
+												)}
+											>
+												{isChecked && (
+													<Icon name="check" className="size-3" />
+												)}
+											</span>
+											<span
+												className={cn(
+													'transition-colors',
+													isChecked &&
+														'text-muted-foreground/50 line-through',
+												)}
+											>
+												{ingredient.amount && (
+													<span className="font-medium">
+														{scaleAmount(ingredient.amount, ratio)}{' '}
+													</span>
+												)}
+												{ingredient.unit && <span>{ingredient.unit} </span>}
+												<span>{ingredient.name}</span>
+												{ingredient.notes && (
+													<span
+														className={
+															isChecked ? '' : 'text-muted-foreground'
+														}
+													>
+														, {ingredient.notes}
+													</span>
+												)}
+											</span>
+										</li>
+									)
+								})}
 							</ul>
 						</div>
 					</div>
 
-					{/* Instructions */}
+					{/* Instructions - interactive crossable steps */}
 					<div>
 						<h2 className="mb-4 text-lg font-semibold">Instructions</h2>
-						<ol className="space-y-6">
-							{recipe.instructions.map((instruction, index) => (
-								<li
-									key={instruction.id}
-									className="flex gap-4 rounded-lg px-2 py-2"
-								>
-									<span className="bg-accent/10 text-accent border-accent/20 flex size-8 shrink-0 items-center justify-center rounded-full border text-sm font-medium">
-										{index + 1}
-									</span>
-									<p className="pt-1 text-base">{instruction.content}</p>
-								</li>
-							))}
+						<ol className="space-y-4">
+							{recipe.instructions.map((instruction, index) => {
+								const isChecked = checkedSteps.has(instruction.id)
+								return (
+									<li
+										key={instruction.id}
+										role="checkbox"
+										aria-checked={isChecked}
+										tabIndex={0}
+										className={cn(
+											'flex cursor-pointer gap-4 rounded-lg px-2 py-2 transition-all select-none',
+											'hover:bg-muted/50',
+										)}
+										onClick={() => toggleStep(instruction.id)}
+										onKeyDown={(e) => {
+											if (e.key === 'Enter' || e.key === ' ') {
+												e.preventDefault()
+												toggleStep(instruction.id)
+											}
+										}}
+									>
+										<span
+											className={cn(
+												'flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors',
+												isChecked
+													? 'bg-primary/20 text-primary'
+													: 'bg-accent/10 text-accent border-accent/20 border',
+											)}
+										>
+											{isChecked ? (
+												<Icon name="check" size="sm" />
+											) : (
+												index + 1
+											)}
+										</span>
+										<p
+											className={cn(
+												'pt-1 text-base transition-colors',
+												isChecked &&
+													'text-muted-foreground/50 line-through',
+											)}
+										>
+											<InstructionWithTimers
+												content={instruction.content}
+												stepNumber={index + 1}
+												recipeName={recipe.title}
+											/>
+										</p>
+									</li>
+								)
+							})}
 						</ol>
 					</div>
 				</div>
@@ -1266,9 +869,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			{/* Floating action bar - mobile only */}
 			<div className="fixed inset-x-4 bottom-20 z-30 md:hidden print:hidden">
 				<div className="bg-card/95 shadow-warm-lg flex items-center gap-2 rounded-2xl border p-2 backdrop-blur-md">
-					<Button onClick={enterCookingMode} className="flex-1 gap-2">
-						<Icon name="play" size="sm" />
-						Start Cooking
+					<Button
+						onClick={handleIMadeThis}
+						className="flex-1 gap-2 bg-green-600 hover:bg-green-700"
+					>
+						<Icon name="check" size="sm" />
+						I Made This
 					</Button>
 					<favoriteFetcher.Form method="POST">
 						<input type="hidden" name="intent" value="toggleFavorite" />
@@ -1308,23 +914,30 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				</div>
 			</div>
 
+			{/* "I Made This" modal */}
+			{showIMadeThisModal && (
+				<IMadeThisModal
+					ratio={ratio}
+					cookFetcher={cookFetcher}
+					previewFetcher={previewFetcher}
+					onClose={() => setShowIMadeThisModal(false)}
+				/>
+			)}
 		</>
 	)
 }
 
-// --- "Done Cooking" modal ---
+// --- "I Made This" modal ---
 
-function CookCompleteModal({
+function IMadeThisModal({
 	ratio,
-	cookRating,
-	setCookRating,
 	cookFetcher,
+	previewFetcher,
 	onClose,
 }: {
 	ratio: number
-	cookRating: number
-	setCookRating: (r: number) => void
 	cookFetcher: ReturnType<typeof useFetcher>
+	previewFetcher: ReturnType<typeof useFetcher>
 	onClose: () => void
 }) {
 	useEffect(() => {
@@ -1335,12 +948,19 @@ function CookCompleteModal({
 		return () => document.removeEventListener('keydown', handleEscape)
 	}, [onClose])
 
+	const previewData = previewFetcher.data as
+		| { preview?: SubtractionPreviewData }
+		| undefined
+	const preview = previewData?.preview
+	const isLoadingPreview = previewFetcher.state !== 'idle'
+	const hasInventoryImpact = preview && preview.willSubtract.length > 0
+
 	return (
 		<div
 			className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center"
 			role="dialog"
 			aria-modal="true"
-			aria-labelledby="cook-complete-title"
+			aria-labelledby="i-made-this-title"
 		>
 			{/* Backdrop */}
 			<div
@@ -1348,10 +968,13 @@ function CookCompleteModal({
 				onClick={onClose}
 			/>
 			{/* Modal */}
-			<div className="bg-card shadow-warm-lg relative w-full max-w-md rounded-t-2xl p-6 sm:rounded-2xl">
+			<div className="bg-card shadow-warm-lg relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl p-6 sm:rounded-2xl">
 				<div className="mb-1 flex items-center justify-between">
-					<h2 id="cook-complete-title" className="font-serif text-xl font-bold">
-						Nice work!
+					<h2
+						id="i-made-this-title"
+						className="font-serif text-xl font-bold"
+					>
+						I Made This
 					</h2>
 					<button
 						onClick={onClose}
@@ -1362,34 +985,25 @@ function CookCompleteModal({
 					</button>
 				</div>
 				<p className="text-muted-foreground mb-4 text-sm">
-					Log this cook to track your cooking history.
+					Log this cook and update your inventory.
 				</p>
 				<cookFetcher.Form method="POST" className="space-y-4">
 					<input type="hidden" name="intent" value="logCook" />
-					<input type="hidden" name="rating" value={cookRating || ''} />
 					<input type="hidden" name="servingRatio" value={ratio} />
-					<div className="flex flex-wrap gap-4">
-						<div>
-							<label
-								htmlFor="cookedAt"
-								className="text-muted-foreground mb-1 block text-sm"
-							>
-								Date
-							</label>
-							<input
-								type="date"
-								id="cookedAt"
-								name="cookedAt"
-								defaultValue={format(new Date(), 'yyyy-MM-dd')}
-								className="border-input bg-background rounded-md border px-3 py-1.5 text-sm"
-							/>
-						</div>
-						<div>
-							<label className="text-muted-foreground mb-1 block text-sm">
-								Rating
-							</label>
-							<StarRating value={cookRating} onChange={setCookRating} />
-						</div>
+					<div>
+						<label
+							htmlFor="cookedAt"
+							className="text-muted-foreground mb-1 block text-sm"
+						>
+							Date
+						</label>
+						<input
+							type="date"
+							id="cookedAt"
+							name="cookedAt"
+							defaultValue={format(new Date(), 'yyyy-MM-dd')}
+							className="border-input bg-background rounded-md border px-3 py-1.5 text-sm"
+						/>
 					</div>
 					<div>
 						<label
@@ -1406,27 +1020,90 @@ function CookCompleteModal({
 							className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
 						/>
 					</div>
+
+					{/* Inventory impact preview */}
+					<div className="rounded-lg border p-3">
+						<h3 className="mb-2 text-sm font-semibold">Inventory Impact</h3>
+						{isLoadingPreview ? (
+							<p className="text-muted-foreground text-sm">
+								Checking inventory...
+							</p>
+						) : hasInventoryImpact ? (
+							<>
+								<ul className="space-y-1.5">
+									{preview.willSubtract.map((item) => (
+										<li
+											key={item.name}
+											className="flex items-center justify-between text-sm"
+										>
+											<span>{item.name}</span>
+											<span className="text-muted-foreground text-xs">
+												{item.willBeFlaggedLow ? (
+													<span className="text-amber-600">
+														will be flagged low
+													</span>
+												) : item.willBeRemoved ? (
+													<span className="text-red-600">
+														will be removed
+													</span>
+												) : (
+													<>
+														{formatQuantity(item.currentQuantity)}{' '}
+														{item.currentUnit ?? ''} →{' '}
+														{formatQuantity(item.newQuantity)}{' '}
+														{item.currentUnit ?? ''}
+													</>
+												)}
+											</span>
+										</li>
+									))}
+								</ul>
+								{preview.noMatch.length > 0 && (
+									<p className="text-muted-foreground mt-2 text-xs">
+										Not in inventory: {preview.noMatch.join(', ')}
+									</p>
+								)}
+							</>
+						) : preview ? (
+							<p className="text-muted-foreground text-sm">
+								No matching inventory items to subtract.
+								{preview.noMatch.length > 0 && (
+									<span className="mt-1 block text-xs">
+										Not in inventory: {preview.noMatch.join(', ')}
+									</span>
+								)}
+							</p>
+						) : null}
+					</div>
+
 					<label className="flex items-center gap-2 text-sm">
 						<input
+							key={hasInventoryImpact ? 'has-impact' : 'no-impact'}
 							type="checkbox"
 							name="subtractInventory"
-							defaultChecked
+							defaultChecked={!!hasInventoryImpact}
+							disabled={!hasInventoryImpact}
 							className="size-4 rounded"
 						/>
 						Subtract ingredients from inventory
 					</label>
 					<div className="flex gap-2">
 						<Button type="submit" className="flex-1">
-							Save
+							Confirm
 						</Button>
 						<Button type="button" variant="ghost" onClick={onClose}>
-							Skip
+							Cancel
 						</Button>
 					</div>
 				</cookFetcher.Form>
 			</div>
 		</div>
 	)
+}
+
+function formatQuantity(q: number | null): string {
+	if (q === null) return '?'
+	return Number.isInteger(q) ? q.toString() : q.toFixed(1)
 }
 
 // --- Cooking log entry ---
@@ -1438,7 +1115,6 @@ function CookingLogEntry({
 		id: string
 		cookedAt: Date
 		notes: string | null
-		rating: number | null
 	}
 }) {
 	const dc = useDoubleCheck()
@@ -1446,12 +1122,9 @@ function CookingLogEntry({
 	return (
 		<div className="bg-card shadow-warm flex items-start gap-3 rounded-2xl border p-4">
 			<div className="min-w-0 flex-1">
-				<div className="flex flex-wrap items-center gap-2">
-					<span className="text-sm font-medium">
-						{format(new Date(log.cookedAt), 'MMM d, yyyy')}
-					</span>
-					{log.rating && <StarDisplay rating={log.rating} />}
-				</div>
+				<span className="text-sm font-medium">
+					{format(new Date(log.cookedAt), 'MMM d, yyyy')}
+				</span>
 				{log.notes && (
 					<p className="text-muted-foreground mt-1 text-sm">{log.notes}</p>
 				)}

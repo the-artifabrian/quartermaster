@@ -394,7 +394,6 @@ model CookingLog {
   id       String   @id @default(cuid())
   cookedAt DateTime @default(now())
   notes    String?
-  rating   Int?     // 1-5
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

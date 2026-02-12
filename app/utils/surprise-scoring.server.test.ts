@@ -6,7 +6,6 @@ import {
 } from './surprise-scoring.server.ts'
 
 const NO_COOKING_HISTORY: CookingLogSummary = {
-	avgRating: null,
 	lastCookedAt: null,
 }
 
@@ -35,27 +34,8 @@ describe('scoreRecipe', () => {
 		expect(score).toBe(3.5)
 	})
 
-	test('rating bonus', () => {
-		const score = scoreRecipe(0, false, {
-			avgRating: 5,
-			lastCookedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000), // 60 days ago
-		})
-		// base(1) + rating(2) = 3.0 (no exploration bonus since it was cooked, no recency penalty >30d)
-		expect(score).toBe(3.0)
-	})
-
-	test('partial rating bonus', () => {
-		const score = scoreRecipe(0, false, {
-			avgRating: 2.5,
-			lastCookedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
-		})
-		// base(1) + rating(1) = 2.0
-		expect(score).toBe(2.0)
-	})
-
 	test('exploration bonus for never-cooked recipe', () => {
 		const withHistory: CookingLogSummary = {
-			avgRating: null,
 			lastCookedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
 		}
 		const scoreWithHistory = scoreRecipe(0, false, withHistory)
@@ -68,7 +48,6 @@ describe('scoreRecipe', () => {
 
 	test('recency penalty: cooked within 7 days', () => {
 		const score = scoreRecipe(0, false, {
-			avgRating: null,
 			lastCookedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
 		})
 		// base(1) * 0.1 = 0.1
@@ -77,7 +56,6 @@ describe('scoreRecipe', () => {
 
 	test('recency penalty: cooked within 14 days', () => {
 		const score = scoreRecipe(0, false, {
-			avgRating: null,
 			lastCookedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
 		})
 		// base(1) * 0.3 = 0.3
@@ -86,7 +64,6 @@ describe('scoreRecipe', () => {
 
 	test('recency penalty: cooked within 30 days', () => {
 		const score = scoreRecipe(0, false, {
-			avgRating: null,
 			lastCookedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), // 20 days ago
 		})
 		// base(1) * 0.6 = 0.6
@@ -95,7 +72,6 @@ describe('scoreRecipe', () => {
 
 	test('no recency penalty after 30 days', () => {
 		const score = scoreRecipe(0, false, {
-			avgRating: null,
 			lastCookedAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000),
 		})
 		// base(1) = 1.0 (no penalty, no exploration bonus)
@@ -103,9 +79,8 @@ describe('scoreRecipe', () => {
 	})
 
 	test('minimum score floor', () => {
-		// Recipe cooked yesterday, 0% match, not favorite, no rating
+		// Recipe cooked yesterday, 0% match, not favorite
 		const score = scoreRecipe(0, false, {
-			avgRating: null,
 			lastCookedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
 		})
 		// base(1) * 0.1 = 0.1, which is above floor
@@ -114,20 +89,18 @@ describe('scoreRecipe', () => {
 
 	test('all bonuses combined', () => {
 		const score = scoreRecipe(100, true, {
-			avgRating: 5,
 			lastCookedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
 		})
-		// base(1) + inventory(3) + favorite(2) + rating(2) = 8.0
-		expect(score).toBe(8.0)
+		// base(1) + inventory(3) + favorite(2) = 6.0
+		expect(score).toBe(6.0)
 	})
 
 	test('all bonuses with recency penalty', () => {
 		const score = scoreRecipe(100, true, {
-			avgRating: 5,
 			lastCookedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
 		})
-		// (base(1) + inventory(3) + favorite(2) + rating(2)) * 0.1 = 0.8
-		expect(score).toBeCloseTo(0.8)
+		// (base(1) + inventory(3) + favorite(2)) * 0.1 = 0.6
+		expect(score).toBeCloseTo(0.6)
 	})
 })
 

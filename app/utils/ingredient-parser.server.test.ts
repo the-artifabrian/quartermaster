@@ -133,6 +133,65 @@ describe('parseIngredient', () => {
 			notes: undefined,
 		})
 	})
+
+	test('parses nested parenthetical quantity: "1 (14.5 oz) can diced tomatoes"', () => {
+		const result = parseIngredient('1 (14.5 oz) can diced tomatoes')
+		expect(result).toEqual({
+			name: 'diced tomatoes',
+			amount: '1',
+			unit: 'can',
+			notes: '14.5 oz',
+		})
+	})
+
+	test('parses nested parenthetical with comma notes: "2 (15 oz) cans black beans, drained"', () => {
+		const result = parseIngredient('2 (15 oz) cans black beans, drained')
+		expect(result).toEqual({
+			name: 'black beans',
+			amount: '2',
+			unit: 'cans',
+			notes: '15 oz; drained',
+		})
+	})
+
+	test('parses "salt to taste"', () => {
+		const result = parseIngredient('salt to taste')
+		expect(result).toEqual({
+			name: 'salt',
+			notes: 'to taste',
+		})
+	})
+
+	test('"to taste" does not capture amount+unit inputs', () => {
+		// "2 tsp salt to taste" should parse amount/unit, not treat as name-only
+		const result = parseIngredient('2 tsp salt to taste')
+		expect(result).toEqual({
+			name: 'salt to taste',
+			amount: '2',
+			unit: 'tsp',
+			notes: undefined,
+		})
+	})
+
+	test('parses tilde amounts: "~350g lemon curd"', () => {
+		const result = parseIngredient('~350g lemon curd')
+		expect(result).toEqual({
+			name: 'lemon curd',
+			amount: '~350',
+			unit: 'g',
+			notes: undefined,
+		})
+	})
+
+	test('parses range amounts: "1-2 tsp vanilla"', () => {
+		const result = parseIngredient('1-2 tsp vanilla')
+		expect(result).toEqual({
+			name: 'vanilla',
+			amount: '1-2',
+			unit: 'tsp',
+			notes: undefined,
+		})
+	})
 })
 
 describe('parseISODuration', () => {

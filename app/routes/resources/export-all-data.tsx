@@ -88,7 +88,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 				where: { userId },
 				select: {
 					cookedAt: true,
-					rating: true,
 					notes: true,
 					recipe: { select: { title: true } },
 				},
@@ -178,7 +177,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		})),
 		cookingLogs: cookingLogs.map((log) => ({
 			cookedAt: log.cookedAt.toISOString(),
-			rating: log.rating,
 			notes: log.notes,
 			recipe: log.recipe.title,
 		})),

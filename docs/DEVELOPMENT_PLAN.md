@@ -107,7 +107,7 @@ onboarding flow (getting started checklist on `/recipes`).
 - [~] **Accessibility pass** -- Partially done in UI redesign: aria-labels on
       select elements, aria-pressed on toggle buttons (tag filters, view
       toggles, favorites). Remaining: skip-to-content link, comprehensive
-      screen reader audit, focus management in cooking mode. Legal and ethical
+      screen reader audit. Legal and ethical
       requirement for a paid product.
 - [x] **Import from export (data round-trip)** -- Full round-trip: import
       supports both full exports and recipe-only exports. Duplicates auto-skipped
@@ -213,11 +213,13 @@ improvement to an existing page and can ship incrementally.
       already built in Phase 12), variety (avoid repeating cuisines or proteins
       back-to-back), cooking history (favor highly-rated recipes, avoid
       recently cooked ones), and time constraints (quicker meals on weekdays).
+      Note: star ratings were removed; scoring uses favorites, recency, and
+      inventory match instead.
       The output is a draft meal plan -- all slots are pre-filled but the user
       can swap, remove, or adjust servings before confirming. Only assigns
       recipes already in the user's library (no generation here).
       Implementation: **algorithmic first.** The inputs (recipe metadata, tags,
-      cook times, ratings, inventory, overlap scores) and output (recipe ID →
+      cook times, favorites, inventory, overlap scores) and output (recipe ID →
       day + slot) are all structured -- this is a constraint-satisfaction and
       ranking problem, not a natural language problem. Build it as a
       deterministic algorithm using the existing overlap engine, matching
@@ -352,22 +354,22 @@ AI substitutions, recipe generation, meal plan generation, "use it up"
 suggestions, and receipt scanning have been promoted to the **AI Integration**
 section in the Future Roadmap above.
 
-- [ ] **Ingredient parser accuracy** -- The normalization pipeline handles ~40
-      modifiers and ~25 synonym groups, but real-world imports will surface edge
-      cases: nested quantities ("1 (14.5 oz) can diced tomatoes"), brand names
-      ("Hellmann's mayonnaise"), compound ingredients ("peanut butter"), and
-      non-standard units ("a handful of basil"). Build a test corpus of 100+
-      real ingredient strings from imported recipes and track parse accuracy.
-      Improvements here compound across matching, shopping lists, and overlap
-      scoring -- it's foundational infrastructure.
+- [x] **Ingredient parser accuracy** -- _Shipped._ Compound ingredient
+      protection (green onion, brown sugar, red pepper, etc. preserved through
+      modifier stripping), non-equivalent compound exclusions (rice != rice
+      vinegar, coconut != coconut milk, tomato != tomato paste), nested
+      parenthetical quantities ("1 (14.5 oz) can diced tomatoes"), "to taste"
+      extraction, tilde/approximate amounts. Fixes green onion / scallion
+      synonym matching. 391 tests passing.
 - [ ] **Nutrition estimates** -- Hit a nutrition API (Nutritionix or Edamam) for
       estimated calories and macros on recipe detail pages.
 - [ ] **Monthly cooking summary** -- Stats from cooking logs: meals cooked,
-      most-made recipes, average rating. Light analytics, not diet tracking.
-- [ ] **Timer integration with recipe steps** -- Detect time references in
-      instruction text (e.g., "simmer for 15 minutes") and offer an inline
-      "start timer" button. Multiple concurrent timers infrastructure is now
-      in place (TimerProvider + TimerWidget).
+      most-made recipes. Light analytics, not diet tracking.
+- [x] **Timer integration with recipe steps** -- _Shipped._ `detectTimes()`
+      utility parses instruction text for time references (minutes, hours,
+      seconds, ranges, fractions, combined times, "an hour") with temperature
+      false-positive avoidance. Inline timer pill buttons appear on instruction
+      text in the recipe detail view. 25 test cases.
 - [ ] **Leftovers/batch tracking** -- After cooking 6 servings for 2, the 4
       leftover portions aren't tracked. Would affect meal planning ("I already
       have chili for 2 more meals"). Needs schema design and UX thought -- more
@@ -381,7 +383,7 @@ section in the Future Roadmap above.
 
 #### UX Improvements
 
-Previously completed: landing page CTA, unified cooking mode, recipe form
+Previously completed: landing page CTA, interactive recipe view, recipe form
 collapsible sections, meal plan empty state, multiple concurrent timers,
 smarter "Surprise Me", shopping list week picker. Unsplash placeholders tried
 and reverted (warm-color deterministic placeholders used instead).
@@ -399,13 +401,12 @@ and reverted (warm-color deterministic placeholders used instead).
 - [x] **Multiple concurrent timers** -- _Shipped._ Global `TimerProvider`
       context manages up to 5 named timers with localStorage persistence,
       wake lock, and alarm sound. Floating `TimerWidget` pill (collapsed
-      countdown + expanded card with pause/resume/dismiss). `CookingTimer`
-      refactored to inline creation UI within cooking mode. Timers survive
+      countdown + expanded card with pause/resume/dismiss). Timers survive
       page navigation.
 - [x] **Smarter "Surprise Me"** -- _Shipped._ Weighted random selection using
-      inventory match percentage, favorite status, average rating, exploration
-      bonus (never-cooked), and recency penalty. Scoring extracted to
-      `surprise-scoring.server.ts` with 18 unit tests.
+      inventory match percentage, favorite status, exploration bonus
+      (never-cooked), and recency penalty. Scoring extracted to
+      `surprise-scoring.server.ts` with unit tests.
 - [x] **Shopping list generation from any week** -- _Shipped._ Loader queries
       prev/current/next week for meal plans. Week picker `<select>` shown when
       multiple weeks have plans. Action accepts optional `weekStart` param.
@@ -458,7 +459,8 @@ and reverted (warm-color deterministic placeholders used instead).
 
 ---
 
-_Last updated: February 12, 2026. Smarter "Surprise Me", shopping list week
-picker, and multiple concurrent timers shipped. Daily driving in progress --
-using the app for real cooking with friction notes, feature work continues in
-parallel._
+_Last updated: February 12, 2026. Simplified cooking experience: merged cooking
+mode into always-interactive recipe view with crossable ingredients/steps, "I
+Made This" with inventory impact preview, removed star ratings. Daily driving in
+progress -- using the app for real cooking with friction notes, feature work
+continues in parallel._

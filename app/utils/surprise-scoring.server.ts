@@ -1,5 +1,4 @@
 export type CookingLogSummary = {
-	avgRating: number | null
 	lastCookedAt: Date | null
 }
 
@@ -15,7 +14,6 @@ export type ScoredRecipe = {
  * - Base: 1 point (everyone has a chance)
  * - Inventory match: matchPercentage/100 * 3 (0-3 points)
  * - Favorite: +2
- * - Avg rating: avgRating/5 * 2 (0-2 points)
  * - Never cooked: +0.5 exploration bonus
  * - Recency penalty (multiplicative): <7d => x0.1, <14d => x0.3, <30d => x0.6
  * - Minimum score floor: 0.01
@@ -33,11 +31,6 @@ export function scoreRecipe(
 	// Favorite bonus
 	if (isFavorite) {
 		score += 2
-	}
-
-	// Rating bonus (0-2)
-	if (cookingLogSummary.avgRating !== null && cookingLogSummary.avgRating > 0) {
-		score += (cookingLogSummary.avgRating / 5) * 2
 	}
 
 	// Exploration bonus for never-cooked recipes

@@ -264,7 +264,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						</p>
 					</div>
 					<div className="flex gap-2">
-						<Button asChild variant="outline" size="sm">
+						<Button asChild variant="outline">
 							<Link to="/resources/surprise-me">
 								<Icon name="shuffle" size="sm" />
 								Surprise Me
@@ -312,26 +312,29 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 			<div className="container py-6">
 				{/* Search & Filters */}
 				<div className="bg-card border-border/50 shadow-warm mb-6 space-y-4 rounded-2xl border p-4">
-					<div className="flex gap-2">
-						<div className="relative flex-1">
-							<Icon
-								name="magnifying-glass"
-								className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
-								size="sm"
-							/>
-							<Input
-								type="search"
-								placeholder="Search recipes..."
-								defaultValue={search}
-								onChange={(e) => handleSearchChange(e.target.value)}
-								className="bg-background pl-10"
-							/>
-						</div>
+					{/* Search bar — full width row */}
+					<div className="relative">
+						<Icon
+							name="magnifying-glass"
+							className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
+							size="sm"
+						/>
+						<Input
+							type="search"
+							placeholder="Search recipes..."
+							defaultValue={search}
+							onChange={(e) => handleSearchChange(e.target.value)}
+							className="bg-background pl-10"
+						/>
+					</div>
+
+					{/* Filter controls row */}
+					<div className="flex items-center gap-2">
 						<select
 							value={sort}
 							onChange={(e) => handleSortChange(e.target.value)}
 							aria-label="Sort recipes"
-							className="bg-card border-input hidden rounded-lg border px-3 py-2 text-sm sm:block"
+							className="bg-card border-input min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
 						>
 							{SORT_OPTIONS.map((option) => (
 								<option key={option.value} value={option.value}>
@@ -343,25 +346,29 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							value={maxTime?.toString() ?? ''}
 							onChange={(e) => handleMaxTimeChange(e.target.value)}
 							aria-label="Filter by cook time"
-							className="bg-card border-input rounded-lg border px-3 py-2 text-sm"
+							className="bg-card border-input min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
 						>
 							<option value="">Any time</option>
 							<option value="30">Under 30 min</option>
 							<option value="60">Under 1 hour</option>
 							<option value="120">Under 2 hours</option>
 						</select>
-						<Button
-							variant={favoritesOnly ? 'default' : 'outline'}
-							onClick={handleFavoritesToggle}
-							aria-label={
-								favoritesOnly ? 'Show all recipes' : 'Show favorites only'
-							}
-							aria-pressed={favoritesOnly}
-							className={cn(!favoritesOnly && 'bg-background')}
-						>
-							<Icon name={favoritesOnly ? 'heart-filled' : 'heart'} size="sm" />
-						</Button>
-						<div className="flex gap-1">
+						<div className="flex items-center gap-1">
+							<Button
+								variant={favoritesOnly ? 'default' : 'outline'}
+								size="icon"
+								onClick={handleFavoritesToggle}
+								aria-label={
+									favoritesOnly ? 'Show all recipes' : 'Show favorites only'
+								}
+								aria-pressed={favoritesOnly}
+								className={cn(!favoritesOnly && 'bg-background')}
+							>
+								<Icon
+									name={favoritesOnly ? 'heart-filled' : 'heart'}
+									size="sm"
+								/>
+							</Button>
 							<button
 								type="button"
 								onClick={() => handleViewChange('grid')}
@@ -391,22 +398,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								<Icon name="rows" size="sm" />
 							</button>
 						</div>
-					</div>
-
-					{/* Sort dropdown for mobile (below search) */}
-					<div className="sm:hidden">
-						<select
-							value={sort}
-							onChange={(e) => handleSortChange(e.target.value)}
-							aria-label="Sort recipes"
-							className="bg-card border-input w-full rounded-lg border px-3 py-2 text-sm"
-						>
-							{SORT_OPTIONS.map((option) => (
-								<option key={option.value} value={option.value}>
-									{option.label}
-								</option>
-							))}
-						</select>
 					</div>
 
 					{/* Tag filters */}

@@ -37,23 +37,20 @@ complete. The app is feature-complete for solo and shared daily use. See
 
 ## Phase Now: Daily Driver
 
-The app is feature-rich but not habit-forming yet. 140 recipes are still in
-Apple Notes. No one -- including the creator -- uses it as their daily cooking
-tool. Until that changes, no roadmap item matters.
+Daily driving started **February 12, 2026**. The app is being used for real
+cooking and meal planning, with friction notes collected over 2-3 weeks to
+inform what gets built next. Feature work continues in parallel -- the daily
+driver phase is an ongoing evaluation, not a feature freeze.
 
 ### Current Reality
 
 - Feature-complete for solo and shared daily use (Phases 1-13e + UI redesign)
-- ~135 recipes bulk-imported from Apple Notes. Import is done, but there's a
-  ramp-up gap: recipes may have parsing issues, inventory is a rough sketch
-  from pantry staples, and there's no guided path from "data imported" to
-  "using it weekly"
-- A few testers have tried the app with promising reactions, but no habitual
-  daily users yet
-- Inventory tracking is untested in sustained real-world use -- the biggest
-  open question is how fast accuracy decays and whether the overhead is worth it
-- The app has no daily touchpoint -- nothing pulls a user back at 5pm to decide
-  what to cook
+- ~135 recipes bulk-imported from Apple Notes
+- Daily driving in progress -- tracking friction points, inventory accuracy,
+  and whether the core workflow holds up for real weekly use
+- Inventory tracking accuracy under sustained real-world evaluation
+- Feature development continues alongside daily use; backlog items that surface
+  as friction points get prioritized
 
 ### Critical Path
 
@@ -351,6 +348,14 @@ section in the Future Roadmap above.
       estimated calories and macros on recipe detail pages.
 - [ ] **Monthly cooking summary** -- Stats from cooking logs: meals cooked,
       most-made recipes, average rating. Light analytics, not diet tracking.
+- [ ] **Timer integration with recipe steps** -- Detect time references in
+      instruction text (e.g., "simmer for 15 minutes") and offer an inline
+      "start timer" button. Pairs with the multiple concurrent timers UX
+      improvement.
+- [ ] **Leftovers/batch tracking** -- After cooking 6 servings for 2, the 4
+      leftover portions aren't tracked. Would affect meal planning ("I already
+      have chili for 2 more meals"). Needs schema design and UX thought -- more
+      ambitious than the other items here.
 
 #### Social & Sharing
 
@@ -369,6 +374,26 @@ reverted (warm-color deterministic placeholders used instead).
 - [x] **Inventory quick-add quantity** -- Quick-add now accepts optional inline
       quantity and unit fields alongside the name. Compact layout wraps
       gracefully on mobile.
+- [ ] **Inventory and shopping list search** -- With 40+ items, there's no way
+      to filter or search either list. Add a basic text filter input at the top
+      of each list. Low effort, high daily-use impact.
+- [ ] **Multiple concurrent timers** -- Current timer is single-instance and
+      non-persistent. Real cooking regularly needs 2-3 simultaneous timers
+      (pasta + sauce + bread). Named timers that survive page navigation.
+- [ ] **Smarter "Surprise Me"** -- Currently pure random. Should weight toward:
+      recipes with high inventory match (reuse existing matching algorithm),
+      recipes not recently cooked (use cooking log data), and favorites. All the
+      data and algorithms already exist -- just needs wiring.
+- [ ] **Shopping list generation from any week** -- Currently only generates
+      from the current week's meal plan. If you plan ahead, you can't generate a
+      list for next week. Add a week picker to the generate action.
+- [ ] **Recipe duplicate from detail view** -- No way to fork a recipe for
+      variations ("spicy version"). A "Duplicate" action on the recipe detail
+      page that copies all fields into the create form.
+- [ ] **Non-JSON-LD import fallback** -- URL import only works with JSON-LD
+      structured data. Many sites use microdata or none. When JSON-LD extraction
+      fails, offer a "paste recipe text" fallback that feeds into the existing
+      bulk-import parser. Bridges the gap until AI parsing ships.
 
 ---
 
@@ -406,9 +431,9 @@ reverted (warm-color deterministic placeholders used instead).
 
 ---
 
-_Last updated: February 12, 2026. Added post-import ramp (quality flags, "I
-have this" on discover, post-import nudge) to Critical Path. Added AI
-Integration section (substitutions, recipe generation, smart meal planning,
-receipt scanning). AI features scoped as enhancements to existing flows, not a
-separate mode. Three-doc structure: [FEATURES.md](./FEATURES.md) (what's
-strategy), and this file (roadmap)._
+_Last updated: February 12, 2026. Daily driving started -- using the app for
+real cooking with friction notes over 2-3 weeks, feature work continues in
+parallel. Added mobile UX audit findings to Backlog (inventory/shopping search,
+concurrent timers, smarter Surprise Me, week picker for shopping lists, recipe
+duplicate, non-JSON-LD fallback, timer integration with steps,
+leftovers/batch tracking)._

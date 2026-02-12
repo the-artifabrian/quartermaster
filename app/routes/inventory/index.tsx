@@ -2,6 +2,7 @@ import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { z } from 'zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { useState } from 'react'
 import { Link } from 'react-router'
 import {
 	InventoryItemCard,
@@ -12,6 +13,7 @@ import { InventoryQuickAdd } from '#app/components/inventory-quick-add.tsx'
 import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboarding.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { Input } from '#app/components/ui/input.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -229,6 +231,8 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		urgentExpiringItems,
 	} = loaderData
 
+	const [search, setSearch] = useState('')
+
 	if (totalItemCount === 0) {
 		return (
 			<div className="container py-6 pb-20 md:pb-6">
@@ -237,13 +241,25 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		)
 	}
 
-	const pantryItems = items.filter((item) => item.location === 'pantry')
-	const fridgeItems = items.filter((item) => item.location === 'fridge')
-	const freezerItems = items.filter((item) => item.location === 'freezer')
+	const filteredItems = search
+		? items.filter((item) =>
+				item.name.toLowerCase().includes(search.toLowerCase()),
+			)
+		: items
+
+	const pantryItems = filteredItems.filter(
+		(item) => item.location === 'pantry',
+	)
+	const fridgeItems = filteredItems.filter(
+		(item) => item.location === 'fridge',
+	)
+	const freezerItems = filteredItems.filter(
+		(item) => item.location === 'freezer',
+	)
 
 	const displayItems =
 		selectedLocation === 'all'
-			? items
+			? filteredItems
 			: selectedLocation === 'pantry'
 				? pantryItems
 				: selectedLocation === 'fridge'
@@ -267,7 +283,9 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					<div>
 						<h1 className="text-2xl font-bold">My Inventory</h1>
 						<p className="text-muted-foreground mt-1 text-sm">
-							{items.length} {items.length === 1 ? 'item' : 'items'}
+							{search
+								? `${filteredItems.length} of ${items.length} items`
+								: `${items.length} ${items.length === 1 ? 'item' : 'items'}`}
 						</p>
 					</div>
 					<Button asChild>
@@ -368,6 +386,22 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 
+				{/* Search */}
+				<div className="relative mb-6">
+					<Icon
+						name="magnifying-glass"
+						size="sm"
+						className="text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2"
+					/>
+					<Input
+						type="search"
+						placeholder="Search inventory..."
+						value={search}
+						onChange={(e) => setSearch(e.target.value)}
+						className="pl-9"
+					/>
+				</div>
+
 				{/* Location Tabs */}
 				<div className="mb-6">
 					<InventoryLocationTabs />
@@ -441,6 +475,28 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 								))}
 							</InventoryItemGrid>
 						)}
+					</div>
+				) : search ? (
+					<div className="flex flex-col items-center justify-center py-16 text-center">
+						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
+							<Icon
+								name="magnifying-glass"
+								className="text-accent/50 size-10"
+							/>
+						</div>
+						<h2 className="mt-4 font-serif text-xl font-semibold">
+							No items matching &ldquo;{search}&rdquo;
+						</h2>
+						<p className="text-muted-foreground mt-2 max-w-sm">
+							Try a different search term.
+						</p>
+						<Button
+							variant="outline"
+							className="mt-4"
+							onClick={() => setSearch('')}
+						>
+							Clear Search
+						</Button>
 					</div>
 				) : (
 					<div className="flex flex-col items-center justify-center py-16 text-center">

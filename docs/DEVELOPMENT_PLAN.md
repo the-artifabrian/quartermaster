@@ -390,9 +390,11 @@ reverted (warm-color deterministic placeholders used instead).
 - [x] **Inventory quick-add quantity** -- Quick-add now accepts optional inline
       quantity and unit fields alongside the name. Compact layout wraps
       gracefully on mobile.
-- [ ] **Inventory and shopping list search** -- With 40+ items, there's no way
-      to filter or search either list. Add a basic text filter input at the top
-      of each list. Low effort, high daily-use impact.
+- [x] **Inventory and shopping list search** -- Client-side search/filter on
+      both pages. Inventory: filters across location tabs, updates header count,
+      distinct "no matches" empty state. Shopping list: filters within categories,
+      hides empty categories, hides bulk action buttons during search, hidden on
+      print.
 - [ ] **Multiple concurrent timers** -- Current timer is single-instance and
       non-persistent. Real cooking regularly needs 2-3 simultaneous timers
       (pasta + sauce + bread). Named timers that survive page navigation.
@@ -452,6 +454,6 @@ reverted (warm-color deterministic placeholders used instead).
 
 ---
 
-_Last updated: February 12, 2026. Post-import ramp shipped (nudge CTA, quality
-flags, "I have this" on discover). Daily driving in progress -- using the app
-for real cooking with friction notes, feature work continues in parallel._
+_Last updated: February 12, 2026. Inventory and shopping list search shipped.
+Daily driving in progress -- using the app for real cooking with friction notes,
+feature work continues in parallel._

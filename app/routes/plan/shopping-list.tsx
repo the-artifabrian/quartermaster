@@ -344,6 +344,7 @@ export default function ShoppingListRoute({
 		shouldRevalidate: 'onInput',
 	})
 
+	const [search, setSearch] = useState('')
 	const [showReview, setShowReview] = useState(false)
 	// Tracks explicit user overrides: true = forced open, false = forced closed
 	const [sectionOverrides, setSectionOverrides] = useState<
@@ -357,6 +358,22 @@ export default function ShoppingListRoute({
 	const checkedItems = checkedItemsList.length
 	const progressPercent =
 		totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0
+
+	const searchLower = search.toLowerCase()
+	const filteredCategories = categories
+		.map((category) => {
+			const items = itemsByCategory[category]
+			if (!items || items.length === 0) return null
+			const filtered = search
+				? items.filter((i) => i.name.toLowerCase().includes(searchLower))
+				: items
+			if (filtered.length === 0) return null
+			return { category, filtered }
+		})
+		.filter(Boolean) as Array<{
+		category: string
+		filtered: (typeof allItems)[number][]
+	}>
 
 	const toggleSection = (category: string) => {
 		setSectionOverrides((prev) => {
@@ -497,47 +514,94 @@ export default function ShoppingListRoute({
 					</Form>
 				</div>
 
+				{/* Search */}
+				{totalItems > 0 && (
+					<div className="relative mb-6 print:hidden">
+						<Icon
+							name="magnifying-glass"
+							size="sm"
+							className="text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2"
+						/>
+						<Input
+							type="search"
+							placeholder="Search shopping list..."
+							value={search}
+							onChange={(e) => setSearch(e.target.value)}
+							className="pl-9"
+						/>
+					</div>
+				)}
+
 				{/* Items by Category */}
 				{totalItems > 0 ? (
 					<div className="space-y-6">
-						{categories.map((category) => {
-							const items = itemsByCategory[category]
-							if (!items || items.length === 0) return null
-							const categoryChecked = items.filter((i) => i.checked).length
-							const isOpen = isSectionOpen(category)
-
-							return (
-								<div key={category}>
-									<button
-										type="button"
-										onClick={() => toggleSection(category)}
-										className="mb-2 flex w-full items-center gap-2 text-left"
-									>
-										<Icon
-											name="chevron-down"
-											size="sm"
-											className={`text-muted-foreground transition-transform ${!isOpen ? '-rotate-90' : ''}`}
-										/>
-										<h3 className="text-sm font-semibold capitalize">
-											{CATEGORY_LABELS[category] || category}
-										</h3>
-										<span className="text-muted-foreground text-xs">
-											({categoryChecked}/{items.length})
-										</span>
-									</button>
-									{isOpen && (
-										<div className="space-y-2 pl-6">
-											{items.map((item) => (
-												<ShoppingListItemCard key={item.id} item={item} />
-											))}
-										</div>
-									)}
+						{search && filteredCategories.length === 0 ? (
+							<div className="flex flex-col items-center justify-center py-16 text-center">
+								<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
+									<Icon
+										name="magnifying-glass"
+										className="text-accent/50 size-10"
+									/>
 								</div>
-							)
-						})}
+								<h3 className="mt-4 font-serif text-lg font-semibold">
+									No items matching &ldquo;{search}&rdquo;
+								</h3>
+								<p className="text-muted-foreground mt-2 max-w-sm text-sm">
+									Try a different search term.
+								</p>
+								<Button
+									variant="outline"
+									className="mt-4"
+									onClick={() => setSearch('')}
+								>
+									Clear Search
+								</Button>
+							</div>
+						) : (
+							<>
+								{filteredCategories.map(({ category, filtered }) => {
+									const categoryChecked = filtered.filter(
+										(i) => i.checked,
+									).length
+									const isOpen = isSectionOpen(category)
+
+									return (
+										<div key={category}>
+											<button
+												type="button"
+												onClick={() => toggleSection(category)}
+												className="mb-2 flex w-full items-center gap-2 text-left"
+											>
+												<Icon
+													name="chevron-down"
+													size="sm"
+													className={`text-muted-foreground transition-transform ${!isOpen ? '-rotate-90' : ''}`}
+												/>
+												<h3 className="text-sm font-semibold capitalize">
+													{CATEGORY_LABELS[category] || category}
+												</h3>
+												<span className="text-muted-foreground text-xs">
+													({categoryChecked}/{filtered.length})
+												</span>
+											</button>
+											{isOpen && (
+												<div className="space-y-2 pl-6">
+													{filtered.map((item) => (
+														<ShoppingListItemCard
+															key={item.id}
+															item={item}
+														/>
+													))}
+												</div>
+											)}
+										</div>
+									)
+								})}
+							</>
+						)}
 
 						{/* Checked Item Actions */}
-						{checkedItems > 0 && !showReview && (
+						{checkedItems > 0 && !showReview && !search && (
 							<div className="space-y-2 print:hidden">
 								<Button
 									variant="default"
@@ -558,7 +622,7 @@ export default function ShoppingListRoute({
 						)}
 
 						{/* Inventory Review Panel */}
-						{showReview && checkedItems > 0 && (
+						{showReview && checkedItems > 0 && !search && (
 							<div className="print:hidden">
 								<ShoppingListToInventory
 									items={checkedItemsList}

@@ -43,6 +43,7 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 
 - Three locations: Pantry, Fridge, Freezer
 - Items with optional quantity, unit, expiration, and low-stock flag
+- Client-side search/filter across all items and location tabs
 - Quick-add with optional inline quantity and unit fields
 - Quick-add shortcuts for 30 common ingredients
 - Ingredient normalization pipeline: ~40 modifier strippers, ~25 synonym groups,
@@ -84,6 +85,8 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 - Inventory-aware: subtracts items already in stock and staple ingredients
 - Shopping list -> inventory pipeline: check off items to add them to inventory
   with pre-filled name, location, and quantity
+- Client-side search/filter within categories (hides empty categories, preserves
+  progress bar, hidden on print)
 - Manual item addition, check-off while shopping, clear checked items
 - Print-friendly layout
 - Ingredient overlap analysis engine: pairwise overlap using normalization

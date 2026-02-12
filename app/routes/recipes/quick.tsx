@@ -57,7 +57,6 @@ export async function action({ request }: Route.ActionArgs) {
 		data: {
 			title,
 			description: parsed.description,
-			rawText,
 			userId,
 			householdId,
 			ingredients:

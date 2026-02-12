@@ -18,9 +18,10 @@ import { Field, TextareaField } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { parseRecipeText } from '#app/utils/bulk-recipe-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { QuickRecipeSchema } from '#app/utils/recipe-validation.ts'
 import { type Route } from './+types/quick.ts'
 
@@ -49,15 +50,37 @@ export async function action({ request }: Route.ActionArgs) {
 
 	const { title, rawText } = submission.value
 
+	// Parse the raw text to extract structured ingredients and instructions
+	const parsed = parseRecipeText(`${title}\n\n${rawText}`)
+
 	const recipe = await prisma.recipe.create({
 		data: {
 			title,
+			description: parsed.description,
 			rawText,
 			userId,
 			householdId,
-			instructions: {
-				create: [{ content: rawText, order: 0 }],
-			},
+			ingredients:
+				parsed.ingredients.length > 0
+					? {
+							create: parsed.ingredients.map((ing, i) => ({
+								name: ing.name,
+								amount: ing.amount ?? null,
+								unit: ing.unit ?? null,
+								notes: ing.notes ?? null,
+								order: i,
+							})),
+						}
+					: undefined,
+			instructions:
+				parsed.instructions.length > 0
+					? {
+							create: parsed.instructions.map((inst, i) => ({
+								content: inst.content,
+								order: i,
+							})),
+						}
+					: undefined,
 		},
 		select: { id: true },
 	})

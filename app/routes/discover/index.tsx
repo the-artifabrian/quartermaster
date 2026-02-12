@@ -382,8 +382,8 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 						{/* Almost There Banner */}
 						{nearMatches.length > 0 && !showOnlyMakeable && (
 							<div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/50 dark:bg-emerald-950/30">
-								<div className="flex flex-wrap items-start justify-between gap-4">
-									<div className="min-w-0 flex-1">
+								<div>
+									<div className="flex items-start justify-between gap-3">
 										<div className="flex items-center gap-2">
 											<Icon
 												name="star"
@@ -393,6 +393,34 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 												Almost there
 											</h2>
 										</div>
+										<fetcher.Form method="POST" className="hidden shrink-0 sm:block">
+											<input
+												type="hidden"
+												name="intent"
+												value="addMissing"
+											/>
+											<input
+												type="hidden"
+												name="recipeIds"
+												value={nearMatches
+													.map((m) => m.recipe.id)
+													.join(',')}
+											/>
+											<Button
+												type="submit"
+												size="sm"
+												variant="outline"
+												className="border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+												disabled={fetcher.state !== 'idle'}
+											>
+												<Icon name="plus" size="sm" />
+												{fetcher.state !== 'idle'
+													? 'Adding...'
+													: 'Add to shopping list'}
+											</Button>
+										</fetcher.Form>
+									</div>
+									<div>
 										<p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
 											You're{' '}
 											<span className="font-semibold">
@@ -421,7 +449,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 											)}
 										</div>
 									</div>
-									<fetcher.Form method="POST">
+									<fetcher.Form method="POST" className="mt-3 sm:hidden">
 										<input
 											type="hidden"
 											name="intent"
@@ -438,7 +466,7 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 											type="submit"
 											size="sm"
 											variant="outline"
-											className="border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+											className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
 											disabled={fetcher.state !== 'idle'}
 										>
 											<Icon name="plus" size="sm" />

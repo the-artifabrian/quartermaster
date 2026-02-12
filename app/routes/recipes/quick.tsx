@@ -90,7 +90,7 @@ export default function QuickRecipeEntry() {
 	})
 
 	return (
-		<div className="container max-w-2xl py-6">
+		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
 			<Link
 				to="/recipes"
 				className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm"

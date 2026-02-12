@@ -16,7 +16,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 			<Form method="POST" className="pt-1 print:hidden">
 				<input type="hidden" name="intent" value="toggle" />
 				<input type="hidden" name="itemId" value={item.id} />
-				<button type="submit" className="cursor-pointer">
+				<button type="submit" className="cursor-pointer p-2 -m-2">
 					<div
 						className={`flex size-5 items-center justify-center rounded border-2 ${
 							item.checked ? 'border-primary bg-primary' : 'border-input'

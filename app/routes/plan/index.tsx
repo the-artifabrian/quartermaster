@@ -703,39 +703,41 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						<h1 className="text-2xl font-bold">Meal Plan</h1>
 						<p className="text-muted-foreground mt-1 text-sm">Plan your week</p>
 					</div>
-					<div className="flex flex-wrap gap-2">
+					<div className="flex gap-2">
 						{entries.length > 0 && (
 							<Button
 								variant="outline"
 								onClick={() => setShowSaveTemplate(true)}
+								title="Save Template"
 							>
 								<Icon name="plus" size="sm" />
-								Save Template
+								<span className="hidden sm:inline">Save Template</span>
 							</Button>
 						)}
 						{templates.length > 0 && (
 							<Button
 								variant="outline"
 								onClick={() => setShowApplyTemplate(true)}
+								title="Use Template"
 							>
 								<Icon name="update" size="sm" />
-								Use Template
+								<span className="hidden sm:inline">Use Template</span>
 							</Button>
 						)}
 						{entries.length > 0 && (
 							<Form method="POST">
 								<input type="hidden" name="intent" value="copyWeek" />
 								<input type="hidden" name="weekStart" value={weekStart} />
-								<Button type="submit" variant="outline">
+								<Button type="submit" variant="outline" title="Copy to Next Week">
 									<Icon name="update" size="sm" />
-									Copy to Next Week
+									<span className="hidden sm:inline">Copy to Next Week</span>
 								</Button>
 							</Form>
 						)}
-						<Button asChild variant="outline">
+						<Button asChild variant="outline" title="Shopping List">
 							<Link to="/plan/shopping-list">
 								<Icon name="file-text" size="sm" />
-								Shopping List
+								<span className="hidden sm:inline">Shopping List</span>
 							</Link>
 						</Button>
 					</div>

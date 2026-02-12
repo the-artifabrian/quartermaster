@@ -298,7 +298,7 @@ function StarRating({
 					type="button"
 					onClick={() => onChange(star === value ? 0 : star)}
 					aria-label={`Rate ${star} star${star !== 1 ? 's' : ''}`}
-					className="text-amber-500 transition-transform hover:scale-110"
+					className="p-1 text-amber-500 transition-transform hover:scale-110"
 				>
 					<Icon name={star <= value ? 'star-filled' : 'star'} size="md" />
 				</button>
@@ -646,7 +646,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									<Button
 										variant="outline"
 										size="sm"
-										className="h-7 w-7 p-0"
+										className="h-9 w-9 p-0"
 										onClick={() => updateServings(currentServings - 1)}
 										disabled={currentServings <= 1}
 									>
@@ -658,7 +658,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									<Button
 										variant="outline"
 										size="sm"
-										className="h-7 w-7 p-0"
+										className="h-9 w-9 p-0"
 										onClick={() => updateServings(currentServings + 1)}
 									>
 										+
@@ -970,7 +970,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							<Button
 								variant="outline"
 								size="sm"
-								className="h-7 w-7 p-0 print:hidden"
+								className="h-9 w-9 p-0 print:hidden"
 								onClick={() => updateServings(currentServings - 1)}
 								disabled={currentServings <= 1}
 							>
@@ -982,7 +982,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							<Button
 								variant="outline"
 								size="sm"
-								className="h-7 w-7 p-0 print:hidden"
+								className="h-9 w-9 p-0 print:hidden"
 								onClick={() => updateServings(currentServings + 1)}
 							>
 								+

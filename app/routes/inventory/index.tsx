@@ -3,7 +3,6 @@ import { invariantResponse } from '@epic-web/invariant'
 import { z } from 'zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Link } from 'react-router'
-import { CommonIngredients } from '#app/components/common-ingredients.tsx'
 import {
 	InventoryItemCard,
 	InventoryItemGrid,
@@ -376,9 +375,8 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 
 				{/* Quick Add */}
 				{showingLocation && (
-					<div className="mb-6 space-y-4">
+					<div className="mb-6">
 						<InventoryQuickAdd location={showingLocation} />
-						<CommonIngredients location={showingLocation} />
 					</div>
 				)}
 

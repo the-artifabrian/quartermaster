@@ -27,7 +27,7 @@ export function UserDropdown() {
 						to="/settings/profile"
 						// this is for progressive enhancement
 						onClick={(e) => e.preventDefault()}
-						className="bg-card hover:bg-muted/50 flex items-center gap-2 rounded-full border border-border/50 shadow-warm"
+						className="bg-card hover:bg-muted/50 border-border/50 shadow-warm flex items-center gap-2 rounded-full border"
 						aria-label="User menu"
 					>
 						<Img
@@ -42,12 +42,11 @@ export function UserDropdown() {
 							<span className="text-body-sm font-bold">
 								{user.name ?? user.username}
 							</span>
-							{householdName &&
-								householdName !== 'My Household' && (
-									<span className="text-muted-foreground text-xs">
-										{householdName}
-									</span>
-								)}
+							{householdName && householdName !== 'My Household' && (
+								<span className="text-muted-foreground text-xs">
+									{householdName}
+								</span>
+							)}
 						</div>
 					</Link>
 				</Button>
@@ -58,13 +57,6 @@ export function UserDropdown() {
 						<Link prefetch="intent" to="/settings/profile">
 							<Icon className="text-body-md" name="avatar">
 								Profile
-							</Icon>
-						</Link>
-					</DropdownMenuItem>
-					<DropdownMenuItem asChild>
-						<Link prefetch="intent" to="/recipes">
-							<Icon className="text-body-md" name="pencil-2">
-								My Recipes
 							</Icon>
 						</Link>
 					</DropdownMenuItem>

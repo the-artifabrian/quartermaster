@@ -6,6 +6,7 @@ import { Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { MatchProgressRing } from '#app/components/match-progress-ring.tsx'
 import {
+	IngredientHaveItButton,
 	RecipeMatchCard,
 	RecipeMatchCardGrid,
 } from '#app/components/recipe-match-card.tsx'
@@ -152,12 +153,12 @@ export async function action({ request }: Route.ActionArgs) {
 	if (intent === 'addMissing') {
 		const recipeIdsParam = formData.get('recipeIds')
 		if (typeof recipeIdsParam !== 'string' || !recipeIdsParam) {
-			return { status: 'error' as const, addedCount: 0 }
+			return { status: 'error' as const, intent: 'addMissing' as const, addedCount: 0 }
 		}
 
 		const recipeIds = recipeIdsParam.split(',').filter(Boolean)
 		if (recipeIds.length === 0) {
-			return { status: 'error' as const, addedCount: 0 }
+			return { status: 'error' as const, intent: 'addMissing' as const, addedCount: 0 }
 		}
 
 		// Fetch the requested recipes with ingredients
@@ -186,7 +187,7 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 
 		if (missingByCanonical.size === 0) {
-			return { status: 'success' as const, addedCount: 0 }
+			return { status: 'success' as const, intent: 'addMissing' as const, addedCount: 0 }
 		}
 
 		// Get or create shopping list
@@ -227,7 +228,46 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 		}
 
-		return { status: 'success' as const, addedCount: itemsToAdd.length }
+		return { status: 'success' as const, intent: 'addMissing' as const, addedCount: itemsToAdd.length }
+	}
+
+	if (intent === 'addToInventory') {
+		const ingredientName = formData.get('ingredientName')
+		if (typeof ingredientName !== 'string' || !ingredientName.trim()) {
+			return { status: 'error' as const, intent: 'addToInventory' as const, addedCount: 0 }
+		}
+
+		const existingItems = await prisma.inventoryItem.findMany({
+			where: { householdId },
+			select: { name: true },
+		})
+
+		const canonicalNew = getCanonicalIngredientName(ingredientName)
+		const alreadyExists = existingItems.some(
+			(item) => getCanonicalIngredientName(item.name) === canonicalNew,
+		)
+
+		if (alreadyExists) {
+			return { status: 'already_exists' as const, intent: 'addToInventory' as const, addedCount: 0 }
+		}
+
+		await prisma.inventoryItem.create({
+			data: {
+				name: ingredientName.trim(),
+				location: 'pantry',
+				userId,
+				householdId,
+			},
+		})
+
+		void emitHouseholdEvent({
+			type: 'inventory_item_added',
+			payload: { itemName: ingredientName.trim() },
+			userId,
+			householdId,
+		})
+
+		return { status: 'success' as const, intent: 'addToInventory' as const, addedCount: 1 }
 	}
 
 	return { status: 'error' as const, addedCount: 0 }
@@ -247,20 +287,27 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 	const fetcher = useFetcher<typeof action>()
 	const prevFetcherState = useRef(fetcher.state)
 
-	// Show toast when fetcher transitions from loading → idle with success
+	// Show toast when fetcher transitions from loading → idle with data
 	if (
 		prevFetcherState.current === 'loading' &&
 		fetcher.state === 'idle' &&
-		fetcher.data?.status === 'success'
+		fetcher.data
 	) {
-		const count = fetcher.data.addedCount
-		if (count > 0) {
-			toast.success(
-				`Added ${count} item${count === 1 ? '' : 's'} to your shopping list`,
-			)
-		} else {
-			toast.info('All items are already on your shopping list')
+		const { intent } = fetcher.data as { intent?: string }
+		if (intent !== 'addToInventory') {
+			// Shopping list toast (addMissing)
+			if (fetcher.data.status === 'success') {
+				const count = fetcher.data.addedCount
+				if (count > 0) {
+					toast.success(
+						`Added ${count} item${count === 1 ? '' : 's'} to your shopping list`,
+					)
+				} else {
+					toast.info('All items are already on your shopping list')
+				}
+			}
 		}
+		// addToInventory toasts are handled by IngredientHaveItButton's own fetcher
 	}
 	prevFetcherState.current = fetcher.state
 
@@ -277,13 +324,20 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 			m.missingIngredients.length > 0 &&
 			m.missingIngredients.length <= 3,
 	)
-	const uniqueMissingNames = [
-		...new Set(
-			nearMatches.flatMap((m) =>
-				m.missingIngredients.map((i) => i.name.toLowerCase()),
-			),
-		),
-	]
+	const uniqueMissingNames = (() => {
+		const seen = new Set<string>()
+		const names: string[] = []
+		for (const m of nearMatches) {
+			for (const i of m.missingIngredients) {
+				const lower = i.name.toLowerCase()
+				if (!seen.has(lower)) {
+					seen.add(lower)
+					names.push(i.name)
+				}
+			}
+		}
+		return names
+	})()
 
 	return (
 		<div className="pb-20 md:pb-6">
@@ -437,9 +491,10 @@ export default function DiscoverIndex({ loaderData }: Route.ComponentProps) {
 											{uniqueMissingNames.slice(0, 8).map((name) => (
 												<span
 													key={name}
-													className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+													className="inline-flex items-center gap-1 rounded-full bg-emerald-100 py-0.5 pl-2.5 pr-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
 												>
 													{name}
+													<IngredientHaveItButton name={name} variant="banner" />
 												</span>
 											))}
 											{uniqueMissingNames.length > 8 && (

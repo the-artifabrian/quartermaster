@@ -29,7 +29,9 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   auto-clear and refocus for rapid paste-import-paste workflow. Handles
   `- [ ]`/`- [x]` checkbox format and sub-section headers within ingredients
   (e.g., "Gremolata Topping", "Polenta") — sub-headers are preserved in the
-  ingredient notes field
+  ingredient notes field. Post-import nudge CTA: after a successful import,
+  a dismissable card prompts "Ready to plan your week?" with links to `/plan`
+  and `/recipes`
 - "Surprise me" random recipe picker
 - Cooking log with star ratings and notes ("I Made This")
 - "Last cooked" stats on recipe cards (cook count + relative time ago)
@@ -50,8 +52,11 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 - Match percentage scoring and missing ingredient highlighting
 - "Almost there" banner for near-miss recipes (1-3 missing ingredients):
   shows deduplicated ingredient pills with one-click "Add to shopping list"
-  (items added with `source: 'discover'`, auto-categorized, skip duplicates)
-- Per-card "add missing to list" button on each recipe match card
+  (items added with `source: 'discover'`, auto-categorized, skip duplicates).
+  Each ingredient pill has an "I have this" button that adds it to inventory
+  with one tap (canonical name dedup, auto-revalidates match percentages)
+- Per-card missing ingredient pills with individual "I have this" buttons
+  (up to 4 visible, overflow count) plus "add all missing to shopping list"
 - Expiration-based recipe suggestions ("Use It Before You Lose It")
 - Automatic inventory subtraction after cooking (with unit conversion and
   feedback toast showing what changed)
@@ -184,7 +189,9 @@ Transformed the app from "developer CRUD tool" to "daily cookbook":
   callout card with "Find recipes" CTA, location section tints, human-readable
   expiry countdowns
 - **Recipe list**: sort dropdown (5 options), grid/list view toggle, tag
-  category colors (cuisine/meal-type/dietary), cook-time filter
+  category colors (cuisine/meal-type/dietary), cook-time filter, import
+  quality flags (amber banner detecting recipes with missing ingredients,
+  missing instructions, or duplicate titles; filterable via `?quality=flagged`)
 - **Shopping list**: visual progress bar, collapsible category sections with
   auto-collapse for checked sections
 - **Recipe form**: collapsible `<details>` sections with completion summaries,

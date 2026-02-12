@@ -48,6 +48,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const sort = (url.searchParams.get('sort') ?? 'recent') as SortOption
 	const view = url.searchParams.get('view') ?? 'grid'
 
+	const quality = url.searchParams.get('quality') ?? ''
 	const favoritesOnly = url.searchParams.get('favorites') === 'true'
 	const rawMaxTime = url.searchParams.get('maxTime')
 	const maxTime = rawMaxTime
@@ -68,7 +69,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	})()
 
-	const [recipes, totalRecipeCount, inventoryCount, mealPlanEntryCount] =
+	const [recipes, totalRecipeCount, inventoryCount, mealPlanEntryCount, allRecipesForQuality] =
 		await Promise.all([
 			prisma.recipe.findMany({
 				where: {
@@ -111,6 +112,14 @@ export async function loader({ request }: Route.LoaderArgs) {
 			prisma.mealPlanEntry.count({
 				where: { mealPlan: { householdId } },
 			}),
+			prisma.recipe.findMany({
+				where: { householdId },
+				select: {
+					id: true,
+					title: true,
+					_count: { select: { ingredients: true, instructions: true } },
+				},
+			}),
 		])
 
 	// Post-filter by total cook time (prepTime + cookTime).
@@ -136,6 +145,29 @@ export async function loader({ request }: Route.LoaderArgs) {
 		})
 	}
 
+	// Compute quality flags for imported recipe review
+	const flaggedIds = new Set<string>()
+	const titleCounts = new Map<string, string[]>()
+	for (const r of allRecipesForQuality) {
+		if (r._count.ingredients === 0 || r._count.instructions === 0) {
+			flaggedIds.add(r.id)
+		}
+		const lower = r.title.toLowerCase()
+		const ids = titleCounts.get(lower) ?? []
+		ids.push(r.id)
+		titleCounts.set(lower, ids)
+	}
+	for (const ids of titleCounts.values()) {
+		if (ids.length > 1) {
+			for (const id of ids) flaggedIds.add(id)
+		}
+	}
+	const flaggedCount = flaggedIds.size
+
+	if (quality === 'flagged') {
+		filteredRecipes = filteredRecipes.filter((r) => flaggedIds.has(r.id))
+	}
+
 	const tags = await prisma.tag.findMany({
 		select: { id: true, name: true, category: true },
 		orderBy: [{ category: 'asc' }, { name: 'asc' }],
@@ -151,6 +183,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 		sort,
 		view,
 		totalRecipeCount,
+		flaggedCount,
+		quality,
 		onboarding: {
 			hasRecipes: totalRecipeCount > 0,
 			hasInventory: inventoryCount > 0,
@@ -170,6 +204,8 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		sort,
 		view,
 		totalRecipeCount,
+		flaggedCount,
+		quality,
 		onboarding,
 	} = loaderData
 	const [searchParams, setSearchParams] = useSearchParams()
@@ -242,13 +278,14 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	}
 
 	const hasFilters =
-		search || selectedTagIds.length > 0 || favoritesOnly || maxTime
+		search || selectedTagIds.length > 0 || favoritesOnly || maxTime || quality
 
 	const handleClearFilters = () => {
 		// Preserve sort and view when clearing filters
 		const params = new URLSearchParams()
 		if (sort !== 'recent') params.set('sort', sort)
 		if (view === 'list') params.set('view', 'list')
+		// quality param is cleared along with other filters
 		setSearchParams(params, { replace: true })
 	}
 
@@ -446,6 +483,50 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 				</div>
 
 				<GettingStartedChecklist onboarding={onboarding} />
+
+				{flaggedCount > 0 && quality !== 'flagged' && (
+					<div className="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+						<Icon
+							name="question-mark-circled"
+							className="size-5 flex-shrink-0 text-amber-500"
+						/>
+						<p className="min-w-0 flex-1 text-sm text-amber-800 dark:text-amber-200">
+							<span className="font-semibold">{flaggedCount} recipe{flaggedCount === 1 ? '' : 's'}</span>{' '}
+							may need a quick review — missing ingredients, instructions, or possible duplicates
+						</p>
+						<Button
+							variant="outline"
+							size="sm"
+							className="shrink-0 border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40"
+							onClick={() => {
+								const params = new URLSearchParams(searchParams)
+								params.set('quality', 'flagged')
+								setSearchParams(params, { replace: true })
+							}}
+						>
+							Review these
+						</Button>
+					</div>
+				)}
+
+				{quality === 'flagged' && (
+					<div className="mb-4 flex items-center justify-between">
+						<p className="text-sm font-medium">
+							Showing {recipes.length} recipe{recipes.length === 1 ? '' : 's'} that may need review
+						</p>
+						<button
+							type="button"
+							onClick={() => {
+								const params = new URLSearchParams(searchParams)
+								params.delete('quality')
+								setSearchParams(params, { replace: true })
+							}}
+							className="text-primary hover:text-primary/80 text-sm font-medium"
+						>
+							Clear filter
+						</button>
+					</div>
+				)}
 
 				{/* Recipe Grid / List */}
 				{recipes.length > 0 ? (

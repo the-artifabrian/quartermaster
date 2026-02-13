@@ -31,28 +31,22 @@ export default function Index() {
 				{/* Background pattern */}
 				<div className="from-accent/5 via-primary/3 to-background absolute inset-0 bg-linear-to-b" />
 				<div className="relative mx-auto max-w-3xl">
-					<div className="animate-slide-top fill-mode-[backwards]">
-						<Icon name="cookie" className="text-accent mx-auto size-14" />
-					</div>
-
 					<h1
 						data-heading
 						className="animate-slide-top text-foreground fill-mode-[backwards] mt-6 font-serif text-5xl font-bold tracking-tight [animation-delay:0.2s] md:text-7xl"
 					>
-						Your recipes.
+						Stop wondering
 						<br />
-						Your kitchen.
-						<br />
-						<span className="text-accent">One place.</span>
+						<span className="text-accent">what's for dinner</span>
 					</h1>
 
 					<p
 						data-paragraph
 						className="animate-slide-top text-muted-foreground fill-mode-[backwards] mx-auto mt-8 max-w-lg text-lg/7 [animation-delay:0.4s]"
 					>
-						Stop wondering what to cook. Quartermaster connects your recipes to
-						what's actually in your kitchen, plans your week, and writes your
-						shopping list.
+						Quartermaster connects your recipes to what's actually in your
+						kitchen, plans your week, and writes your shopping list. All in one
+						place.
 					</p>
 
 					<div className="animate-slide-top fill-mode-[backwards] mt-10 flex flex-col items-center gap-4 [animation-delay:0.6s] sm:flex-row sm:justify-center">
@@ -62,7 +56,7 @@ export default function Index() {
 							className="shadow-warm-md rounded-full px-8"
 						>
 							<Link to="/signup">
-								Start Cooking — It's Free
+								Get started
 								<Icon name="arrow-right" size="sm" />
 							</Link>
 						</Button>
@@ -121,8 +115,8 @@ export default function Index() {
 							</h3>
 							<p className="text-muted-foreground mt-2">
 								Paste a URL, bulk-import dozens at once, or type it in by
-								hand. Your whole collection in one searchable place — tags,
-								photos, and all.
+								hand. Your whole collection in one searchable place, tags
+								and all.
 							</p>
 						</div>
 					</div>
@@ -176,7 +170,7 @@ export default function Index() {
 								Track what's in your kitchen
 							</h3>
 							<p className="text-muted-foreground mt-2">
-								Pantry, fridge, freezer — know what you have at a glance.
+								Pantry, fridge, freezer. Know what you have at a glance.
 								Quartermaster tells you what you can cook right now and alerts
 								you when things are about to expire.
 							</p>
@@ -224,8 +218,8 @@ export default function Index() {
 							</h3>
 							<p className="text-muted-foreground mt-2">
 								Add recipes to your weekly plan. Quartermaster spots ingredient
-								overlaps so you buy less and waste less — and warns you about
-								single-use ingredients before you shop.
+								overlaps so you buy less and waste less. It also warns you
+								about single-use ingredients before you shop.
 							</p>
 						</div>
 					</div>
@@ -293,7 +287,7 @@ export default function Index() {
 						Built for the kitchen
 					</h2>
 					<p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
-						Quartermaster is designed to be used while you cook — not just
+						Quartermaster is designed to be used while you cook, not just
 						for planning ahead.
 					</p>
 					<div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -349,7 +343,7 @@ export default function Index() {
 							className="shadow-warm-md rounded-full px-8"
 						>
 							<Link to="/signup">
-								Start Cooking — It's Free
+								Create your account
 								<Icon name="arrow-right" size="sm" />
 							</Link>
 						</Button>

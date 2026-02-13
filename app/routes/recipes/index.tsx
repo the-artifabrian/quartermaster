@@ -54,7 +54,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const maxTime = rawMaxTime
 		? Number.isNaN(+rawMaxTime)
 			? null
-			: +rawMaxTime
+			: Math.min(1440, Math.max(0, +rawMaxTime))
 		: null
 
 	// Determine Prisma orderBy for simple sort options

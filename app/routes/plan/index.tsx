@@ -353,7 +353,7 @@ export async function action({ request }: Route.ActionArgs) {
 		invariantResponse(typeof entryId === 'string', 'Entry ID is required')
 
 		const servingsStr = formData.get('servings')
-		const servings = servingsStr ? parseInt(String(servingsStr), 10) : null
+		const servings = servingsStr ? Math.min(999, parseInt(String(servingsStr), 10)) : null
 
 		const entry = await prisma.mealPlanEntry.findFirst({
 			where: { id: entryId, mealPlan: { householdId } },

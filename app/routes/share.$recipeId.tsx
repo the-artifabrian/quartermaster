@@ -75,6 +75,7 @@ export async function loader({ params }: Route.LoaderArgs) {
 			prepTime: true,
 			cookTime: true,
 			sourceUrl: true,
+			user: { select: { name: true } },
 			image: { select: { objectKey: true, altText: true } },
 			ingredients: {
 				select: {
@@ -247,7 +248,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 			{/* Header */}
 			<div className="container max-w-4xl px-4 pt-4 md:px-8 md:pt-6">
 				<p className="text-muted-foreground mb-2 text-sm">
-					Shared from{' '}
+					Shared{recipe.user.name ? ` by ${recipe.user.name}` : ''} on{' '}
 					<Link to="/" className="text-primary hover:underline">
 						Quartermaster
 					</Link>

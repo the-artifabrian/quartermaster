@@ -3,14 +3,12 @@ import { getZodConstraint, parseWithZod } from '@conform-to/zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import * as E from '@react-email/components'
 import { data, redirect, Link, useFetcher } from 'react-router'
-import { HoneypotInputs } from 'remix-utils/honeypot/react'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { ErrorList, Field } from '#app/components/forms.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
-import { checkHoneypot } from '#app/utils/honeypot.server.ts'
 import { EmailSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/forgot-password.ts'
 import { prepareVerification } from './verify.server.ts'
@@ -25,7 +23,6 @@ const ForgotPasswordSchema = z.object({
 
 export async function action({ request }: Route.ActionArgs) {
 	const formData = await request.formData()
-	await checkHoneypot(formData)
 	const submission = await parseWithZod(formData, {
 		schema: ForgotPasswordSchema.superRefine(async (data, ctx) => {
 			const user = await prisma.user.findFirst({
@@ -141,7 +138,6 @@ export default function ForgotPasswordRoute() {
 				</div>
 				<div className="mx-auto mt-16 max-w-sm min-w-full sm:min-w-[368px]">
 					<forgotPassword.Form method="POST" {...getFormProps(form)}>
-						<HoneypotInputs />
 						<div>
 							<Field
 								labelProps={{

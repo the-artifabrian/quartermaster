@@ -197,10 +197,12 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   name+location. Meal plans find-or-create by week, entries skip on unique
   constraint conflicts. Partial success preserved (per-section error isolation).
   Results summary shows created/skipped/errored counts per section
-- Security hardening: streaming file size enforcement on uploads, server-side
-  MIME validation, Zod validation on all bulk operations, SSRF protection on
-  URL import, input length limits on all text fields, open redirect fix,
-  JSON-LD injection prevention
+- Security hardening: Content Security Policy enforced (nonce-based script-src,
+  style-src, font-src for Google Fonts, object-src: none, form-action, base-uri,
+  upgrade-insecure-requests), streaming file size enforcement on uploads,
+  server-side MIME validation, Zod validation on all bulk operations, SSRF
+  protection on URL import, input length limits on all text fields, open redirect
+  fix, JSON-LD injection prevention
 - Comprehensive unit/integration test suite (Vitest) and e2e tests (Playwright)
 - Deployed on Fly.io with custom domain, HTTPS, and email
 - Mobile-first responsive layout with bottom navigation
@@ -234,8 +236,10 @@ Transformed the app from "developer CRUD tool" to "daily cookbook":
   alternating feature story with mock UI visuals, dual CTAs
 - **Empty states**: warm personality messages with serif headings and contextual
   illustrations across all pages
-- **Accessibility**: aria-labels on interactive controls, aria-pressed on
-  toggle buttons
+- **Accessibility**: skip-to-content link (WCAG 2.4.1), navigation landmarks
+  with `aria-label` and `aria-current="page"`, modal focus trapping with focus
+  return, aria-labels on icon-only buttons and interactive controls, aria-pressed
+  on toggle buttons
 - **Mobile touch target pass**: systematic improvements across all critical
   paths for in-kitchen and in-store use (44px minimum tap areas per Apple HIG).
   Recipe detail: larger ingredient checkboxes, servings +/- buttons, instruction

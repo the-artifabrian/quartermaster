@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router'
+import { NavLink, useLocation } from 'react-router'
 import { cn } from '#app/utils/misc.tsx'
 import { useOptionalUser } from '#app/utils/user.ts'
 import { Icon, type IconName } from './ui/icon.tsx'
@@ -52,7 +52,7 @@ export function BottomNav() {
 	)
 
 	return (
-		<nav className="bg-card/95 border-border/50 fixed inset-x-0 bottom-0 z-50 border-t pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_oklch(20%_0.01_55/0.05)] backdrop-blur-sm md:hidden print:hidden">
+		<nav aria-label="Main" className="bg-card/95 border-border/50 fixed inset-x-0 bottom-0 z-50 border-t pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_oklch(20%_0.01_55/0.05)] backdrop-blur-sm md:hidden print:hidden">
 			<div className="relative flex h-14 items-center justify-around">
 				{/* Sliding pill indicator */}
 				{activeIndex >= 0 && (
@@ -71,7 +71,7 @@ export function BottomNav() {
 					)
 
 					return (
-						<Link
+						<NavLink
 							key={item.to}
 							to={item.to}
 							className={cn(
@@ -85,7 +85,7 @@ export function BottomNav() {
 							<span className={cn('text-xs', isActive && 'font-semibold')}>
 								{item.label}
 							</span>
-						</Link>
+						</NavLink>
 					)
 				})}
 			</div>

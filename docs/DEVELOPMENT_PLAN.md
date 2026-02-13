@@ -28,9 +28,9 @@ complete. The app is feature-complete for solo and shared daily use. See
 - **Single-instance SSE**: In-memory EventEmitter means SSE events only reach
   clients on the same Fly machine. Blocking for Household tier. See **SSE
   multi-instance fix** in Pre-Monetization prerequisites for details and options.
-- **Public recipe sharing** (backlog item): Would need to read household-scoped
-  data from a public route. Don't couple authorization too tightly to the
-  session.
+- **Public recipe sharing**: Shipped at `/share/$recipeId`. Public read-only
+  route with OG meta tags, recipe scaling, and "Import to Quartermaster" CTA.
+  Reads household-scoped data without requiring a session.
 - **Subscription schema**: Added in 13a -- `Subscription` model with `tier`,
   `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionExpiresAt`,
   `trialEndsAt`. Ready for Phase 14 without a separate schema change.
@@ -97,188 +97,58 @@ practice.
 
 ### Pre-Monetization Prerequisites
 
-These items should ship before or in parallel with monetization. They're not
-features -- they're table stakes for charging money. Not urgent until the daily
-driver gate is met and real user adoption exists.
+Table stakes for charging money. Previously completed: accessibility pass,
+data import/export round-trip, full data export, usage analytics, security
+hardening, landing page CTA, new user onboarding. See
+[FEATURES.md](./FEATURES.md) for details on all shipped items.
 
-Previously completed: landing page CTA (UI redesign Phase 10), new user
-onboarding flow (getting started checklist on `/recipes`).
+Remaining:
 
-- [x] **Accessibility pass** -- Skip-to-content link, navigation landmarks
-      (`aria-label`, `aria-current="page"`), icon button labels, modal focus
-      trapping and focus return. Earlier: aria-labels on selects, aria-pressed
-      on toggles, 44px touch targets.
-- [x] **Import from export (data round-trip)** -- Full round-trip: import
-      supports both full exports and recipe-only exports. Duplicates auto-skipped
-      by title (recipes) and name+location (inventory). Partial success kept on
-      errors. Available at Settings > Data > "Import data".
-- [x] **Full data export** -- Comprehensive JSON export of all user/household
-      data: recipes (with ingredients, instructions, tags, image refs, notes),
-      inventory, meal plans (with entries), shopping lists (with items), cooking
-      logs, and meal plan templates. Available at Settings > Data > "Export all
-      data". Recipe-only export kept as a separate option.
-- [x] **Usage analytics for "proven" gate** -- The monetization "proven gate"
-      requires usage signals (pairing suggestion usage, efficiency scores)
-      that aren't currently tracked. Add basic event counters
-      so the gate can be evaluated concretely. Without this, the gate will be
-      deferred indefinitely.
-- [x] **Security hardening** -- Comprehensive audit and fixes:
-      - Image uploads: `maxFileSize` enforced at stream level (not post-buffer)
-        for recipe images; server-side MIME allowlist on profile photos blocking
-        SVG/HTML uploads
-      - Input validation: `.max()` limits on all recipe/ingredient/instruction
-        string fields and arrays (200 items); inventory bulk-create validated
-        with Zod schema (name, location enum, 200-item cap)
-      - URL import: `redirect: 'manual'` to prevent SSRF via redirect,
-        5MB response size limit (Content-Length + body length)
-      - Open redirect fixed in theme-switch (now uses `safeRedirect()`)
-      - JSON-LD `</script>` breakout prevented via `\u003c` escaping
-      - User data export no longer leaks session IDs
-      - Bulk import string fields and arrays bounded to match recipe schema
 - [ ] **SSE multi-instance fix** -- SSE events emitted on one Fly machine won't
       reach clients on another. Fine for solo use, but if charging for the
       Household tier, two users on different machines won't see each other's
       real-time events. Options: polling fallback, LiteFS broadcast, or Redis
       pub/sub. Must be resolved before Household tier launches.
 
-### Daily Use Polish
-
-All shipped. See [FEATURES.md](./FEATURES.md) for details on: recipe print
-view, recipe sharing (Web Share API), quick "I made this" from meal plan, meal
-templates, better low-match discovery ("almost there" banner), "up next" banner,
-"What do I need?" ingredient check on recipe detail.
-
-Previously promoted to Pre-Monetization prerequisites: **Full data export**
-(now shipped).
-
 ### AI Integration
 
-AI enhancements to existing flows -- not a separate "AI feature", but invisible
-intelligence woven into the discover, meal plan, and cooking experience. Every
-AI output lands in an existing UI pattern (recipe card, ingredient pill, meal
-plan slot), never in a chat window.
+AI enhancements to existing flows. Not a separate "AI feature" -- outputs land
+in existing UI patterns (recipe cards, ingredient pills, meal plan slots), never
+in a chat window. Activates after the daily driver gate is met. Each item is a
+standalone improvement that can ship incrementally.
 
-These activate after the daily driver gate is met -- they enhance existing flows,
-but the flows need to be proven in real use first. Each item is a standalone
-improvement to an existing page and can ship incrementally.
-
-#### Design principles
-
-- **Integrated, not bolted on.** AI outputs appear as native UI elements:
-  a tooltip under a missing ingredient, a recipe card in the library, a
-  pre-filled meal plan. No chat windows, no "AI" branding, no separate modes.
-- **User stays in control.** Generated recipes go through the standard recipe
-  form for review before saving. Generated meal plans are editable drafts.
-  Substitution hints are suggestions, not automatic replacements.
-- **Cost-aware.** LLM calls aren't free. At ~$30-40/year per user, every API
-  call matters. Prefer caching (substitutions can be pre-computed per ingredient
-  pair), batching (meal plan generation is one call, not seven), and gating
-  (only fire on user action, never speculatively in loaders).
+**Principles**: integrated not bolted on (no chat UI, no "AI" branding); user
+stays in control (generated content is always an editable draft); cost-aware
+(gate on user action, cache aggressively, never call LLMs in loaders).
 
 #### Features
 
-- [ ] **Ingredient substitutions** -- When the discover page or a recipe detail
-      shows a missing ingredient, display a contextual substitution hint inline
-      ("No buttermilk? Use 1 cup milk + 1 tbsp lemon juice"). Appears as a
-      small expandable line or tooltip on the missing-ingredient pill -- not a
-      modal or sidebar. The existing synonym system handles _equivalent_
-      ingredients (cilantro = coriander); this covers _non-equivalent_
-      substitutions where a different ingredient can fill the same role.
-      Implementation: server-side LLM call on demand (user clicks/taps "suggest
-      substitute"), cached per ingredient + recipe context pair. Consider
-      seeding a static substitution database for the most common ~50
-      ingredients to reduce API calls.
-- [ ] **Recipe generation from inventory** -- When the discover page has no
-      strong matches (e.g., best match is below 50%), show a "Create something
-      from what I have" CTA in the empty/low-match state. Also triggers when
-      inventory items are expiring soon and no planned meal uses them --
-      generates a recipe that prioritizes those ingredients. Takes the user's
-      current inventory, sends it to an LLM with cuisine/dietary preferences
-      from their existing recipe tags, and generates a structured recipe. The
-      result opens in the standard recipe form (pre-filled, editable) for
-      review before saving. The user can tweak and save it like any other
-      recipe -- it becomes a normal part of their library.
-      Implementation: single LLM call with structured output (JSON matching
-      the recipe schema). Limit to a reasonable rate (e.g., 5 generations/day)
-      to manage cost.
-      **Trust note:** AI-generated recipes are unvetted -- proportions or flavor
-      combinations may be off. Generated recipes should carry a subtle
-      "AI-generated" indicator so the user knows to pay closer attention when
-      cooking it the first time. The cooking log prompt for these recipes could
-      nudge the user to note adjustments ("How did this turn out? Anything to
-      tweak for next time?").
-- [ ] **Smart meal plan generation** -- A "Fill my week" button on the meal plan
-      page that generates a full or partial weekly plan. Considers: inventory
-      (prioritize expiring items), ingredient overlap (the efficiency engine
-      already built in Phase 12), variety (avoid repeating cuisines or proteins
-      back-to-back), cooking history (favor highly-rated recipes, avoid
-      recently cooked ones), and time constraints (quicker meals on weekdays).
-      Note: star ratings were removed; scoring uses favorites, recency, and
-      inventory match instead.
-      The output is a draft meal plan -- all slots are pre-filled but the user
-      can swap, remove, or adjust servings before confirming. Only assigns
-      recipes already in the user's library (no generation here).
-      Implementation: **algorithmic first.** The inputs (recipe metadata, tags,
-      cook times, favorites, inventory, overlap scores) and output (recipe ID →
-      day + slot) are all structured -- this is a constraint-satisfaction and
-      ranking problem, not a natural language problem. Build it as a
-      deterministic algorithm using the existing overlap engine, matching
-      engine, and cooking log data. This is cheaper, faster, more predictable,
-      and debuggable than an LLM. Only reach for an LLM if the rules-based
-      approach can't handle preference nuance well enough (e.g., "I want more
-      variety" or "lighter meals midweek").
-- [ ] **Receipt scanning → inventory** -- Photo upload of a grocery receipt,
-      OCR + AI extracts line items, maps them to ingredient names, and guesses
-      storage locations (pantry/fridge/freezer). Presented as a review list
-      where the user can edit names, fix locations, and deselect items before
-      bulk-adding. Higher implementation complexity (camera UI, OCR pipeline,
-      item classification) -- ship after the above features prove out.
-- [ ] **Voice inventory updates** -- Speak to update inventory instead of
-      tapping through quick-add. Mic button on inventory page → Web Speech API
-      transcribes client-side (free, no API cost) → one LLM call structures the
-      transcript into items with quantities, units, and auto-categorized
-      locations → editable preview list (like bulk import) → confirm.
-      The compelling version goes beyond just "add items" -- a single voice
-      input that can add, remove, or flag: _"I'm out of eggs, running low on
-      flour, and I just bought milk and butter."_ Genuinely useful while
-      cooking with messy hands or unpacking groceries. Simpler to implement
-      than receipt scanning (no camera/OCR pipeline) and solves the same core
-      problem (post-shopping bulk entry) plus the in-kitchen hands-busy case.
-      **Limitations:** Web Speech API support varies (Chrome/Edge strong,
-      Firefox limited, Safari partial). Kitchen background noise may affect
-      accuracy. Always needs a review step before committing changes.
-      Could ship as a lighter alternative to receipt scanning or alongside it.
+- [ ] **Ingredient substitutions** -- Contextual hints on missing-ingredient
+      pills ("No buttermilk? Use 1 cup milk + 1 tbsp lemon juice"). Server-side
+      LLM call on demand, cached per ingredient pair. Seed a static database
+      for the ~50 most common substitutions to reduce API calls.
+- [ ] **Recipe generation from inventory** -- "Create something from what I
+      have" CTA when discover has no strong matches or items are expiring.
+      Single LLM call → structured recipe → standard recipe form for review.
+      AI-generated indicator so user knows to pay attention on first cook.
+- [ ] **Smart meal plan generation** -- "Fill my week" button. Algorithmic
+      first (constraint-satisfaction using overlap engine, matching, cooking
+      logs, favorites, cook times). Only reach for LLM if rules-based approach
+      can't handle preference nuance. Output is an editable draft.
+- [ ] **Receipt scanning → inventory** -- Photo upload, OCR + AI extracts
+      items, review list before bulk-adding. Higher complexity -- ship after
+      the above features prove out.
+- [ ] **Voice inventory updates** -- Web Speech API transcription (free,
+      client-side) → LLM structures into items → editable preview. Useful
+      with messy hands or unpacking groceries.
 
-#### Cost management
+#### Cost notes
 
-At scale, the main cost concern is LLM API calls. Mitigation strategies:
-
-- **Static seed data** for the most common substitutions (~50-100 ingredients)
-  to avoid LLM calls entirely for predictable cases
-- **Cache aggressively** -- substitution results are stable and can be cached
-  per ingredient pair
-- **Gate on user action** -- never call an LLM in a loader or on page load;
-  always behind a button click
-- **Rate limits per user** -- prevent runaway costs from power users or abuse
-- **Track spend** -- log API calls per user per day; alert if costs exceed
-  expected thresholds
-- **Meal plan generation is algorithmic** -- no LLM cost for the highest-
-  frequency AI feature
-
-**Rough cost estimate:** Assuming a Haiku-class model (~$0.001/call for short
-prompts), an active Pro user who looks up 5 substitutions/week and generates
-2 recipes/month costs roughly $0.03/month in API calls -- well within the
-$2.50-3.30/month Pro revenue. The static substitution database and caching
-should reduce even this further. Receipt scanning (vision model) would be
-more expensive per call (~$0.01-0.05) but is low-frequency (once per grocery
-trip). Monitor actual usage before optimizing.
-
-#### Monetization fit
-
-AI features are natural Pro-tier differentiators. The free tier gets the
-existing rules-based matching and synonym system. Pro unlocks AI substitutions,
-recipe generation, smart meal planning, and receipt scanning. This strengthens
-the Pro value proposition beyond just "more recipes" and "inventory tracking."
+Rough estimate: ~$0.03/month per active Pro user (5 substitutions/week +
+2 recipe generations/month at Haiku-class pricing). Static substitution
+database + caching reduces this further. Meal plan generation is algorithmic
+(no LLM cost). Receipt scanning is more expensive per call (~$0.01-0.05) but
+low-frequency. AI features are natural Pro-tier differentiators.
 
 ### Phase 14: Monetization
 
@@ -323,15 +193,8 @@ Known issues to address before or alongside monetization:
   issues under load. Tests already need `vi.mock()` for this. Consider
   queueing or awaiting in non-critical paths.
 - **In-memory matching at scale** -- Discover page loads all recipes + all
-  inventory items into memory for matching. Fine at 50-100 recipes, but at
-  500+ this could become slow. Profile with a realistic dataset and determine
-  when pagination or server-side pre-filtering is needed.
-- ~~**No analytics/tracking infrastructure**~~ -- Resolved. `UsageEvent` model
-  tracks pairing selections, efficiency snapshots, discover views, surprise-me
-  uses, and what-do-i-need uses. Stats page at Settings > Data > Usage stats.
-- ~~**CSP report-only**~~ -- Resolved. CSP now enforced with full directive set
-  (default-src, style-src, font-src, object-src, media-src, base-uri,
-  form-action, upgrade-insecure-requests).
+  inventory items into memory. Fine at ~135 recipes, but may need pagination
+  or pre-filtering at 500+. See **Performance audit** in Backlog.
 - **Image endpoint unauthenticated** -- `/resources/images` serves any
   `objectKey` without auth. Object keys are CUIDs (not guessable), but exposed
   in OG meta tags. Acceptable for sharing use case; revisit if private recipes
@@ -352,85 +215,27 @@ Lower-priority items to reconsider later.
 
 #### Infrastructure
 
-- [x] **Import from export (data round-trip)** -- _Shipped._ See Pre-Phase 14
-      prerequisites above.
 - [ ] **Automated backups** -- The app stores years of recipes in a single
       SQLite file. Fly.io + LiteFS handles replication, but a scheduled backup
       to S3 (daily Litestream snapshots or a cron job that copies the DB) would
       provide disaster recovery. Critical infrastructure for a paid product.
-- [ ] **Performance baseline at scale** -- The discover page loads all recipes +
-      all inventory items into memory for matching. Fine at 50 recipes, but at
-      500+ this could become slow. Profile with a realistic dataset and
-      determine when pagination or server-side pre-filtering is needed.
-- [ ] Performance audit (query profiling, lazy load images, bundle analysis)
+- [ ] **Performance audit** -- Query profiling, lazy load images, bundle
+      analysis. The discover page loads all recipes + inventory into memory for
+      matching -- fine at ~135 recipes, but profile at 500+ to determine when
+      pagination or server-side pre-filtering is needed.
 
 #### Intelligence & AI
 
-AI substitutions, recipe generation, meal plan generation, "use it up"
-suggestions, and receipt scanning have been promoted to the **AI Integration**
-section in the Future Roadmap above.
+AI substitutions, recipe generation, meal plan generation, receipt scanning,
+and voice inventory have been promoted to the **AI Integration** section above.
 
-- [x] **Ingredient parser accuracy** -- _Shipped._ Compound ingredient
-      protection (green onion, brown sugar, red pepper, etc. preserved through
-      modifier stripping), non-equivalent compound exclusions (rice != rice
-      vinegar, coconut != coconut milk, tomato != tomato paste), nested
-      parenthetical quantities ("1 (14.5 oz) can diced tomatoes"), "to taste"
-      extraction, tilde/approximate amounts. Fixes green onion / scallion
-      synonym matching. 391 tests passing.
 - [ ] **Nutrition estimates** -- Hit a nutrition API (Nutritionix or Edamam) for
       estimated calories and macros on recipe detail pages.
 - [ ] **Monthly cooking summary** -- Stats from cooking logs: meals cooked,
       most-made recipes. Light analytics, not diet tracking.
-- [x] **Timer integration with recipe steps** -- _Shipped._ `detectTimes()`
-      utility parses instruction text for time references (minutes, hours,
-      seconds, ranges, fractions, combined times, "an hour") with temperature
-      false-positive avoidance. Inline timer pill buttons appear on instruction
-      text in the recipe detail view. 25 test cases.
 - [ ] **Leftovers/batch tracking** -- After cooking 6 servings for 2, the 4
       leftover portions aren't tracked. Would affect meal planning ("I already
-      have chili for 2 more meals"). Needs schema design and UX thought -- more
-      ambitious than the other items here.
-
-#### Social & Sharing
-
-- [ ] **Public recipe sharing** -- `/r/$recipeId` public read-only route with
-      JSON-LD, OG tags, and sitemap. Opt-in per recipe. Design access patterns
-      to work with household-scoped data from Phase 13.
-
-#### UX Improvements
-
-Previously completed: landing page CTA, interactive recipe view, recipe form
-collapsible sections, meal plan empty state, multiple concurrent timers,
-smarter "Surprise Me", shopping list week picker. Unsplash placeholders tried
-and reverted (warm-color deterministic placeholders used instead).
-
-- [x] **Accessibility pass** -- _Promoted to Pre-Phase 14 prerequisites._
-      Shipped. See above.
-- [x] **Inventory quick-add quantity** -- Quick-add now accepts optional inline
-      quantity and unit fields alongside the name. Compact layout wraps
-      gracefully on mobile.
-- [x] **Inventory and shopping list search** -- Client-side search/filter on
-      both pages. Inventory: filters across location tabs, updates header count,
-      distinct "no matches" empty state. Shopping list: filters within categories,
-      hides empty categories, hides bulk action buttons during search, hidden on
-      print.
-- [x] **Multiple concurrent timers** -- _Shipped._ Global `TimerProvider`
-      context manages up to 5 named timers with localStorage persistence,
-      wake lock, and alarm sound. Floating `TimerWidget` pill (collapsed
-      countdown + expanded card with pause/resume/dismiss). Timers survive
-      page navigation.
-- [x] **Smarter "Surprise Me"** -- _Shipped._ Weighted random selection using
-      inventory match percentage, favorite status, exploration bonus
-      (never-cooked), and recency penalty. Scoring extracted to
-      `surprise-scoring.server.ts` with unit tests.
-- [x] **Shopping list generation from any week** -- _Shipped._ Loader queries
-      prev/current/next week for meal plans. Week picker `<select>` shown when
-      multiple weeks have plans. Action accepts optional `weekStart` param.
-- [x] **Non-JSON-LD import fallback** -- _Shipped._ When URL import fails
-      (no JSON-LD structured data), a "paste recipe text" fallback appears below
-      the error. Feeds pasted text into the existing bulk-import parser
-      (`parseRecipeText`), preserving the original URL as `sourceUrl`. Flows
-      into the same preview & save UI as successful URL imports.
+      have chili for 2 more meals"). Needs schema design and UX thought.
 
 ---
 
@@ -458,26 +263,15 @@ and reverted (warm-color deterministic placeholders used instead).
 - [x] App has its own visual identity (custom color system + typography)
 - [x] Household sharing: two people use the same recipe library and meal plan
 
-### Adoption (future)
+### Adoption & Monetization (future)
+
+See [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md) for detailed targets.
 
 - [ ] 5+ external users with 10+ recipes each
-- [ ] Weekly meal plans regularly achieve 60%+ ingredient efficiency
 - [ ] Pairing suggestions used when building 3+ weekly plans
-
-### Monetization (distant future)
-
-- [ ] Free tier retains users (>50% of signups add 5+ recipes)
+- [ ] Weekly meal plans regularly achieve 60%+ ingredient efficiency
 - [ ] Pro conversion rate >5% of active free users
-- [ ] Churn rate <5% monthly on Pro tier
-- [ ] Household tier adopted by >30% of Pro users with a partner
 
 ---
 
-_Last updated: February 13, 2026. Mobile touch target pass across all critical
-paths (recipe detail, meal plan, shopping list, recipe list, discover) for
-in-kitchen and in-store use. Added "What Do I Need?" button on recipe detail
-page (checks inventory for missing/insufficient ingredients). Added ingredient
-headings (section dividers in ingredient lists) and drag-and-drop reordering.
-Updated branding, favicons, and landing page. Daily driving in progress -- using
-the app for real cooking with friction notes, feature work continues in
-parallel._
+_Last updated: February 13, 2026._

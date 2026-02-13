@@ -29,6 +29,8 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
   single-column grid, flat cards)
 - Share button with Web Share API (native mobile sharing) and clipboard
   fallback with toast confirmation
+- Public recipe sharing page (`/share/$recipeId`): read-only view with OG meta
+  tags, recipe scaling, and "Import to Quartermaster" CTA for non-users
 - Import from URL (JSON-LD scraping) with duplicate detection and text fallback
   (when structured data extraction fails, paste recipe text for parsing via the
   bulk-import parser), quick text entry, JSON export
@@ -67,7 +69,7 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 - Items with optional quantity, unit, expiration, and low-stock flag
 - Client-side search/filter across all items and location tabs
 - Quick-add with optional inline quantity and unit fields
-- Quick-add shortcuts for 30 common ingredients
+- Quick-add shortcuts for 33 common ingredients
 - Ingredient normalization pipeline: ~40 modifier strippers, ~25 synonym groups,
   pluralization handling, compound ingredient protection (green onion, brown
   sugar, etc. preserved through modifier stripping), non-equivalent compound

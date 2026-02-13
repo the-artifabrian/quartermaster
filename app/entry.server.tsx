@@ -83,20 +83,14 @@ export default async function handleRequest(...args: DocRequestArgs) {
 										"'self'",
 										`'nonce-${nonce}'`,
 									],
-									'script-src-attr': [`'nonce-${nonce}'`],
 									'style-src': [
 										"'self'",
 										"'unsafe-inline'",
 										'https://fonts.googleapis.com',
 									],
-									'style-src-elem': [
-										"'self'",
-										`'nonce-${nonce}'`,
-										'https://fonts.googleapis.com',
-									],
-									'style-src-attr': ["'unsafe-inline'"],
 									'object-src': ["'none'"],
 									'media-src': ["'self'"],
+									'worker-src': ["'self'"],
 								},
 								document: {
 									'base-uri': ["'self'"],

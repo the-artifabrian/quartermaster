@@ -36,8 +36,8 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
   `---` separator for multiple recipes per batch (max 50), session counter,
   auto-clear and refocus for rapid paste-import-paste workflow. Handles
   `- [ ]`/`- [x]` checkbox format and sub-section headers within ingredients
-  (e.g., "Gremolata Topping", "Polenta") — sub-headers are preserved in the
-  ingredient notes field. Post-import nudge CTA: after a successful import,
+  (e.g., "Gremolata Topping", "Polenta") — sub-headers become ingredient
+  heading rows (`isHeading: true`). Post-import nudge CTA: after a successful import,
   a dismissable card prompts "Ready to plan your week?" with links to `/plan`
   and `/recipes`
 - "Surprise me" weighted random recipe picker (scores by inventory match,
@@ -48,6 +48,11 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 - "Last cooked" stats on recipe cards (cook count + relative time ago)
 - Personal notes field per recipe ("always double the garlic", "kids don't like
   this")
+- Ingredient headings: section dividers within ingredient lists (e.g.,
+  "Gremolata Topping", "Polenta") displayed as styled headers on the recipe
+  detail page. Heading rows are skipped by shopping list, matching, subtraction,
+  and JSON-LD
+- Drag-and-drop ingredient reordering in the recipe form (`@dnd-kit/sortable`)
 
 ## Inventory System
 

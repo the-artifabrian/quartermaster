@@ -235,3 +235,11 @@ Transformed the app from "developer CRUD tool" to "daily cookbook":
   illustrations across all pages
 - **Accessibility**: aria-labels on interactive controls, aria-pressed on
   toggle buttons
+- **Mobile touch target pass**: systematic improvements across all critical
+  paths for in-kitchen and in-store use (44px minimum tap areas per Apple HIG).
+  Recipe detail: larger ingredient checkboxes, servings +/- buttons, instruction
+  step padding, timer pill touch targets (min 44px), iOS zoom prevention on modal
+  inputs. Meal plan: larger cook checkboxes and servings controls, tappable empty
+  slots. Shopping list: larger checkbox tap areas (~44px effective). Recipe list:
+  wrapping filter controls, larger tag buttons and view toggles. Discover: larger
+  "I have this" and "add to shopping list" buttons

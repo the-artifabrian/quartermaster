@@ -272,7 +272,7 @@ function App() {
 			>
 				<div className="flex min-h-screen flex-col justify-between">
 					<header className="bg-card/80 border-border/50 sticky top-0 z-40 border-b backdrop-blur-sm">
-						<nav className="container flex flex-wrap items-center justify-between gap-4 py-4 sm:flex-nowrap md:gap-8">
+						<nav className="container flex flex-wrap items-center justify-between gap-4 py-3 sm:flex-nowrap md:gap-8">
 							<Logo />
 							<div className="ml-auto flex items-center gap-4 md:gap-10">
 								{user ? (

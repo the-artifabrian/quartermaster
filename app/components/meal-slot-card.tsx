@@ -119,7 +119,7 @@ function EntryRow({
 					<button
 						type="submit"
 						className={cn(
-							'flex size-7 items-center justify-center rounded-full border-2 transition-colors',
+							'flex size-9 items-center justify-center rounded-full border-2 transition-colors',
 							isCooked
 								? 'border-green-500 bg-green-500 text-white'
 								: 'border-muted-foreground/30 hover:border-green-500',
@@ -163,7 +163,7 @@ function EntryRow({
 				<Button
 					variant="outline"
 					size="sm"
-					className="h-7 w-7 p-0 text-xs"
+					className="h-8 w-8 p-0 text-xs"
 					onClick={() => updateServings(currentServings - 1)}
 					disabled={currentServings <= 1}
 				>
@@ -175,7 +175,7 @@ function EntryRow({
 				<Button
 					variant="outline"
 					size="sm"
-					className="h-7 w-7 p-0 text-xs"
+					className="h-8 w-8 p-0 text-xs"
 					onClick={() => updateServings(currentServings + 1)}
 				>
 					+
@@ -233,7 +233,7 @@ export function MealSlotCard({
 			<button
 				type="button"
 				onClick={openRecipeSelector}
-				className="text-muted-foreground hover:text-foreground hover:border-accent/40 hover:bg-accent/5 flex w-full items-center gap-1.5 rounded-xl border border-dashed px-3 py-1.5 text-xs transition-colors"
+				className="text-muted-foreground hover:text-foreground hover:border-accent/40 hover:bg-accent/5 flex w-full items-center gap-1.5 rounded-xl border border-dashed px-3 py-2.5 text-xs transition-colors"
 			>
 				<Icon name="plus" size="xs" />
 				{MEAL_TYPE_LABELS[mealType]}
@@ -252,7 +252,7 @@ export function MealSlotCard({
 					<button
 						type="button"
 						onClick={openRecipeSelector}
-						className="text-muted-foreground hover:text-foreground transition-colors"
+						className="text-muted-foreground hover:text-foreground -m-1 rounded p-2 transition-colors"
 						title="Add another recipe"
 					>
 						<Icon name="plus" className="size-3.5" />

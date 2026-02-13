@@ -101,9 +101,10 @@ onboarding flow (getting started checklist on `/recipes`).
 
 - [~] **Accessibility pass** -- Partially done in UI redesign: aria-labels on
       select elements, aria-pressed on toggle buttons (tag filters, view
-      toggles, favorites). Remaining: skip-to-content link, comprehensive
-      screen reader audit. Legal and ethical
-      requirement for a paid product.
+      toggles, favorites). Mobile touch target pass shipped (44px minimum tap
+      areas across all critical paths). Remaining: skip-to-content link,
+      comprehensive screen reader audit. Legal and ethical requirement for a
+      paid product.
 - [x] **Import from export (data round-trip)** -- Full round-trip: import
       supports both full exports and recipe-only exports. Duplicates auto-skipped
       by title (recipes) and name+location (inventory). Partial success kept on
@@ -379,7 +380,7 @@ smarter "Surprise Me", shopping list week picker. Unsplash placeholders tried
 and reverted (warm-color deterministic placeholders used instead).
 
 - [~] **Accessibility pass** -- _Promoted to Pre-Phase 14 prerequisites._
-      Partially done in UI redesign. See above.
+      Partially done in UI redesign + mobile touch target pass. See above.
 - [x] **Inventory quick-add quantity** -- Quick-add now accepts optional inline
       quantity and unit fields alongside the name. Compact layout wraps
       gracefully on mobile.
@@ -444,9 +445,11 @@ and reverted (warm-color deterministic placeholders used instead).
 
 ---
 
-_Last updated: February 13, 2026. Added "What Do I Need?" button on recipe
-detail page (checks inventory for missing/insufficient ingredients with
-copy-to-clipboard). Added ingredient headings (section dividers in ingredient
-lists) and drag-and-drop reordering. Updated branding, favicons, and landing
-page. Daily driving in progress -- using the app for real cooking with friction
-notes, feature work continues in parallel._
+_Last updated: February 13, 2026. Mobile touch target pass across all critical
+paths (recipe detail, meal plan, shopping list, recipe list, discover) for
+in-kitchen and in-store use. Added "What Do I Need?" button on recipe detail
+page (checks inventory for missing/insufficient ingredients). Added ingredient
+headings (section dividers in ingredient lists) and drag-and-drop reordering.
+Updated branding, favicons, and landing page. Daily driving in progress -- using
+the app for real cooking with friction notes, feature work continues in
+parallel._

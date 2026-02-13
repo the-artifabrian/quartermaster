@@ -127,6 +127,9 @@ function RecipeOption({
 			<input type="hidden" name="date" value={serializeDate(date)} />
 			<input type="hidden" name="mealType" value={mealType} />
 			<input type="hidden" name="recipeId" value={recipe.id} />
+			{pairing && pairing.overlapCount > 0 && (
+				<input type="hidden" name="fromPairing" value="true" />
+			)}
 			<button
 				type="submit"
 				className="bg-background hover:bg-muted w-full rounded-lg border p-3 text-left transition-colors"

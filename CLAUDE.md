@@ -114,7 +114,9 @@ app/
 │   ├── pantry-staples.ts           # Staple ingredient definitions
 │   ├── category-location-map.ts    # Ingredient → store section mapping
 │   ├── relative-time.ts            # Human-readable relative timestamps
-│   └── fractions.ts                # Fraction display (1.5 → "1½")
+│   ├── fractions.ts                # Fraction display (1.5 → "1½")
+│   ├── usage-tracking.server.ts   # Fire-and-forget usage event tracking
+│   └── usage-stats.server.ts      # Shared usage stats query logic
 ├── styles/              # Global CSS and Tailwind config
 └── root.tsx             # Root layout with theme, toaster, timer provider, SSE
 
@@ -357,6 +359,9 @@ userId
 **MealPlanTemplateEntry**: dayOfWeek (0-6, Mon-Sun), mealType, servings?,
 templateId, recipeId
 
+**UsageEvent**: type, payload (JSON string), createdAt, userId, householdId?
+(long-term analytics, separate from HouseholdEvent notification system)
+
 **Subscription**: tier, stripeCustomerId?, stripeSubscriptionId?,
 subscriptionExpiresAt?, trialEndsAt?, userId (1-to-1)
 
@@ -366,9 +371,10 @@ sessions, passkeys
 ### Key Relationships
 
 - Household has many: Recipe, InventoryItem, MealPlan, ShoppingList,
-  MealPlanTemplate, HouseholdMember, HouseholdInvite, HouseholdEvent
+  MealPlanTemplate, HouseholdMember, HouseholdInvite, HouseholdEvent,
+  UsageEvent
 - User has many: Recipe, InventoryItem, MealPlan, ShoppingList, CookingLog,
-  MealPlanTemplate, HouseholdMember
+  MealPlanTemplate, HouseholdMember, UsageEvent
 - Recipe has many: Ingredient, Instruction, MealPlanEntry, CookingLog,
   MealPlanTemplateEntry; has one: RecipeImage; many-to-many: Tag
 - MealPlan has many MealPlanEntry; ShoppingList has many ShoppingListItem

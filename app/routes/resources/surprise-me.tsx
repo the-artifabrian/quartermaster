@@ -7,6 +7,7 @@ import {
 	weightedRandomSelect,
 	type CookingLogSummary,
 } from '#app/utils/surprise-scoring.server.ts'
+import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { type Route } from './+types/surprise-me.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -99,6 +100,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 	if (!winnerId) {
 		return redirect('/recipes')
 	}
+
+	void trackEvent(userId, householdId, 'surprise_me', { recipeId: winnerId })
 
 	return redirect(`/recipes/${winnerId}`)
 }

@@ -36,6 +36,7 @@ model User {
   householdEvents    HouseholdEvent[]
   mealPlanTemplates  MealPlanTemplate[]
   subscription       Subscription?
+  usageEvents        UsageEvent[]
 }
 
 model UserImage {
@@ -175,6 +176,7 @@ model Household {
   mealPlans         MealPlan[]
   shoppingLists     ShoppingList[]
   mealPlanTemplates MealPlanTemplate[]
+  usageEvents       UsageEvent[]
 }
 
 model HouseholdMember {
@@ -455,4 +457,19 @@ model MealPlanTemplateEntry {
 
   @@index([templateId])
   @@index([recipeId])
+}
+
+model UsageEvent {
+  id          String     @id @default(cuid())
+  type        String
+  payload     String     @default("{}")
+  createdAt   DateTime   @default(now())
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  household   Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  householdId String?
+
+  @@index([type, createdAt])
+  @@index([householdId, createdAt])
+  @@index([userId, createdAt])
 }

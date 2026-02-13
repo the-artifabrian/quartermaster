@@ -302,7 +302,9 @@ less food, save money" -- needs to be real before asking people to pay for it.
   inventory items into memory for matching. Fine at 50-100 recipes, but at
   500+ this could become slow. Profile with a realistic dataset and determine
   when pagination or server-side pre-filtering is needed.
-- **No analytics/tracking infrastructure** -- See **Usage analytics for
+- ~~**No analytics/tracking infrastructure**~~ -- Resolved. `UsageEvent` model
+  tracks pairing selections, efficiency snapshots, discover views, surprise-me
+  uses, and what-do-i-need uses. Stats page at Settings > Data > Usage stats.
 - ~~**CSP report-only**~~ -- Resolved. CSP now enforced with full directive set
   (default-src, style-src, font-src, object-src, media-src, base-uri,
   form-action, upgrade-insecure-requests).

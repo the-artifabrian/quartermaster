@@ -30,6 +30,7 @@ import {
 	previewInventorySubtraction,
 } from '#app/utils/inventory-subtract.server.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
+import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { type Route } from './+types/$recipeId.ts'
 
 type SubtractionPreviewData = {
@@ -201,6 +202,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 			householdId,
 			isNaN(servingRatio) || servingRatio <= 0 ? 1 : servingRatio,
 		)
+		if (formData.get('source') === 'whatDoINeed') {
+			void trackEvent(userId, householdId, 'what_do_i_need', { recipeId })
+		}
 		return { success: true, preview }
 	}
 
@@ -446,6 +450,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		const formData = new FormData()
 		formData.set('intent', 'previewSubtraction')
 		formData.set('servingRatio', ratio.toString())
+		formData.set('source', 'whatDoINeed')
 		void needFetcher.submit(formData, { method: 'POST' })
 	}
 

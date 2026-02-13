@@ -206,6 +206,12 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 				</h3>
 				<div className="flex flex-col">
 					<Link
+						to="usage"
+						className="hover:bg-accent/5 rounded-lg px-4 py-3"
+					>
+						<Icon name="dashboard">Usage stats</Icon>
+					</Link>
+					<Link
 						to="import"
 						className="hover:bg-accent/5 rounded-lg px-4 py-3"
 					>

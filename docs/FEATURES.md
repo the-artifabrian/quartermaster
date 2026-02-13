@@ -204,6 +204,13 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
   server-side MIME validation, Zod validation on all bulk operations, SSRF
   protection on URL import, input length limits on all text fields, open redirect
   fix, JSON-LD injection prevention
+- Usage analytics: lightweight `UsageEvent` model (separate from HouseholdEvent
+  notification system) tracks pairing recipe selections, efficiency snapshots
+  (deduplicated per week), discover page visits, "Surprise Me" uses, and "What
+  Do I Need?" uses. Stats page at Settings > Data > Usage stats with cooking
+  activity, meal planning metrics, and discovery stats. JSON API at
+  `GET /resources/usage-stats`. Events transferred on household join (sole
+  member)
 - Comprehensive unit/integration test suite (Vitest) and e2e tests (Playwright)
 - Deployed on Fly.io with custom domain, HTTPS, and email
 - Mobile-first responsive layout with bottom navigation

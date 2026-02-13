@@ -117,7 +117,7 @@ onboarding flow (getting started checklist on `/recipes`).
       inventory, meal plans (with entries), shopping lists (with items), cooking
       logs, and meal plan templates. Available at Settings > Data > "Export all
       data". Recipe-only export kept as a separate option.
-- [ ] **Usage analytics for "proven" gate** -- The monetization "proven gate"
+- [x] **Usage analytics for "proven" gate** -- The monetization "proven gate"
       requires usage signals (pairing suggestion usage, efficiency scores)
       that aren't currently tracked. Add basic event counters
       so the gate can be evaluated concretely. Without this, the gate will be
@@ -326,8 +326,9 @@ Known issues to address before or alongside monetization:
   inventory items into memory for matching. Fine at 50-100 recipes, but at
   500+ this could become slow. Profile with a realistic dataset and determine
   when pagination or server-side pre-filtering is needed.
-- **No analytics/tracking infrastructure** -- See **Usage analytics for
-  "proven" gate** in Pre-Monetization prerequisites.
+- ~~**No analytics/tracking infrastructure**~~ -- Resolved. `UsageEvent` model
+  tracks pairing selections, efficiency snapshots, discover views, surprise-me
+  uses, and what-do-i-need uses. Stats page at Settings > Data > Usage stats.
 - ~~**CSP report-only**~~ -- Resolved. CSP now enforced with full directive set
   (default-src, style-src, font-src, object-src, media-src, base-uri,
   form-action, upgrade-insecure-requests).

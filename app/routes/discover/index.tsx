@@ -25,6 +25,7 @@ import {
 } from '#app/utils/recipe-matching.server.ts'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
+import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -36,7 +37,7 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { householdId } = await requireUserWithHousehold(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
 
 	// Load user's inventory
 	const inventoryItems = await prisma.inventoryItem.findMany({
@@ -80,6 +81,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	// Calculate matches
 	const matches = matchRecipesWithInventory(recipes, inventoryItems)
+	const makeableCount = matches.filter((m) => m.canMake).length
+
+	void trackEvent(userId, householdId, 'discover_viewed', {
+		totalRecipes: recipes.length,
+		makeableCount,
+	})
 
 	// Find items expiring within 7 days
 	const now = new Date()

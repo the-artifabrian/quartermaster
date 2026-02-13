@@ -114,10 +114,11 @@ been used in real meal planning for at least 4 weeks. Minimum signals:
 Without these signals, the no-waste pitch is aspirational, not real -- and that's
 a weak foundation for asking people to pay.
 
-> **Note:** These signals are not currently tracked. Implementing basic analytics
-> or usage counters is a prerequisite for evaluating the gate. See the
-> "No analytics/tracking infrastructure" item in the Technical Debt section of
-> [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md).
+> **Note:** These signals are now tracked via the `UsageEvent` model. Events
+> tracked: `pairing_recipe_assigned`, `efficiency_snapshot` (deduplicated per
+> week), `discover_viewed`, `surprise_me`, `what_do_i_need`. Stats viewable at
+> Settings > Data > Usage stats, and programmatically via
+> `GET /resources/usage-stats`.
 
 > **Status check (February 2026):** Phase 12 is built and deployed. Are these
 > signals being tracked? If the features are in daily use and meeting these

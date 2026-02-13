@@ -36,6 +36,7 @@ import {
 	ApplyTemplateSchema,
 	DeleteTemplateSchema,
 } from '#app/utils/meal-template-validation.ts'
+import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -169,6 +170,25 @@ export async function loader({ request }: Route.LoaderArgs) {
 				efficiencyPct: Math.round((1 - overlap.efficiencyScore) * 100),
 				sharedCount: overlap.sharedIngredients.size,
 				suggestions,
+			}
+
+			// Deduplicate: only snapshot once per household per week
+			const weekKey = serializeDate(weekStart)
+			const existing = await prisma.usageEvent.findFirst({
+				where: {
+					householdId,
+					type: 'efficiency_snapshot',
+					payload: { contains: weekKey },
+				},
+				select: { id: true },
+			})
+			if (!existing) {
+				void trackEvent(userId, householdId, 'efficiency_snapshot', {
+					efficiencyPct: overlapSummary.efficiencyPct,
+					sharedCount: overlapSummary.sharedCount,
+					recipeCount: uniquePlanned.length,
+					weekStart: weekKey,
+				})
 			}
 		}
 	}
@@ -343,6 +363,13 @@ export async function action({ request }: Route.ActionArgs) {
 				userId,
 				householdId,
 			})
+
+			if (formData.get('fromPairing') === 'true') {
+				void trackEvent(userId, householdId, 'pairing_recipe_assigned', {
+					recipeId,
+					recipeTitle: recipe?.title,
+				})
+			}
 		}
 
 		return { status: 'success' as const }

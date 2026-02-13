@@ -484,46 +484,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 			{/* Meta card + content */}
 			<div className="container max-w-4xl px-4 md:px-8">
+				{(recipe.prepTime || recipe.cookTime || recipe.sourceUrl || recipe.tags.length > 0) && (
 				<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-3 md:p-5 print:border-0 print:p-2 print:shadow-none">
 					<div className="flex flex-wrap items-center gap-3 text-sm">
-						{/* Servings */}
-						<span className="flex items-center gap-1">
-							<Icon name="avatar" size="sm" className="text-accent" />
-							<Button
-								variant="outline"
-								size="sm"
-								className="h-7 w-7 p-0 md:h-9 md:w-9 print:hidden"
-								onClick={() => updateServings(currentServings - 1)}
-								disabled={currentServings <= 1}
-							>
-								-
-							</Button>
-							<span className="min-w-[5ch] text-center font-medium">
-								{currentServings}
-							</span>
-							<Button
-								variant="outline"
-								size="sm"
-								className="h-7 w-7 p-0 md:h-9 md:w-9 print:hidden"
-								onClick={() => updateServings(currentServings + 1)}
-							>
-								+
-							</Button>
-							<span className="text-muted-foreground">servings</span>
-							{isScaled && (
-								<button
-									onClick={() => updateServings(recipe.servings)}
-									className="text-primary ml-1 text-xs hover:underline print:hidden"
-								>
-									Reset
-								</button>
-							)}
-						</span>
-
-						{(recipe.prepTime || recipe.cookTime) && (
-							<span className="text-border hidden md:inline">|</span>
-						)}
-
 						{recipe.prepTime && (
 							<span className="text-muted-foreground flex items-center gap-1">
 								<Icon name="clock" size="sm" className="text-accent" />
@@ -532,7 +495,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						)}
 						{recipe.cookTime && (
 							<>
-								<span className="text-border hidden md:inline">|</span>
+								{recipe.prepTime && (
+									<span className="text-border hidden md:inline">|</span>
+								)}
 								<span className="text-muted-foreground flex items-center gap-1">
 									<Icon name="clock" size="sm" className="text-accent" />
 									Cook: {recipe.cookTime} min
@@ -551,7 +516,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						{/* Source URL inline */}
 						{recipe.sourceUrl && (
 							<>
-								<span className="text-border hidden md:inline">|</span>
+								{(recipe.prepTime || recipe.cookTime) && (
+									<span className="text-border hidden md:inline">|</span>
+								)}
 								<a
 									href={recipe.sourceUrl}
 									target="_blank"
@@ -588,6 +555,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						</div>
 					)}
 				</div>
+				)}
 
 				{/* Description */}
 				{recipe.description && (
@@ -694,20 +662,40 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						<div className="bg-card shadow-warm rounded-2xl border p-4 md:p-6 print:border-0 print:p-2 print:shadow-none">
 							<div className="mb-3 flex items-center gap-2 md:mb-4">
 								<h2 className="text-lg font-semibold">Ingredients</h2>
-								{isScaled && (
-									<span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs font-medium">
-										Scaled
+								<span className="ml-auto flex items-center gap-1 print:hidden">
+									<Button
+										variant="outline"
+										size="sm"
+										className="h-6 w-6 p-0 text-xs"
+										onClick={() => updateServings(currentServings - 1)}
+										disabled={currentServings <= 1}
+									>
+										-
+									</Button>
+									<span className="min-w-[3ch] text-center text-sm font-medium">
+										{currentServings}
 									</span>
-								)}
-								<Button
-									variant="ghost"
-									size="sm"
-									className="ml-auto gap-1.5 text-xs print:hidden"
-									onClick={handleWhatDoINeed}
-								>
-									<Icon name="magnifying-glass" size="sm" />
-									What do I need?
-								</Button>
+									<Button
+										variant="outline"
+										size="sm"
+										className="h-6 w-6 p-0 text-xs"
+										onClick={() => updateServings(currentServings + 1)}
+									>
+										+
+									</Button>
+									{isScaled ? (
+										<button
+											onClick={() => updateServings(recipe.servings)}
+											className="text-primary text-xs hover:underline"
+										>
+											Reset
+										</button>
+									) : (
+										<span className="text-muted-foreground text-xs">
+											servings
+										</span>
+									)}
+								</span>
 							</div>
 							<IngredientList
 								ingredients={recipe.ingredients}
@@ -715,6 +703,15 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								onToggle={toggleIngredient}
 								ratio={ratio}
 							/>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="mt-3 w-full gap-1.5 text-xs print:hidden"
+								onClick={handleWhatDoINeed}
+							>
+								<Icon name="magnifying-glass" size="sm" />
+								What do I need?
+							</Button>
 						</div>
 					</div>
 

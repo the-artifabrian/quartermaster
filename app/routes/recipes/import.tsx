@@ -373,12 +373,12 @@ export async function action({ request }: Route.ActionArgs) {
 	if (intent === 'save') {
 		const title = formData.get('title') as string
 		const description = (formData.get('description') as string) || null
-		const servings = parseInt(formData.get('servings') as string, 10) || 4
+		const servings = Math.min(999, Math.max(1, parseInt(formData.get('servings') as string, 10) || 4))
 		const prepTime = formData.get('prepTime')
-			? parseInt(formData.get('prepTime') as string, 10)
+			? Math.min(1440, Math.max(0, parseInt(formData.get('prepTime') as string, 10) || 0))
 			: null
 		const cookTime = formData.get('cookTime')
-			? parseInt(formData.get('cookTime') as string, 10)
+			? Math.min(1440, Math.max(0, parseInt(formData.get('cookTime') as string, 10) || 0))
 			: null
 		const sourceUrl = (formData.get('sourceUrl') as string) || null
 

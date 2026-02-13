@@ -44,6 +44,12 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   for recently cooked)
 - "I Made This" cook logging with inventory impact preview (shows what
   will be subtracted/removed/flagged before confirming)
+- "What Do I Need?" on recipe detail page (ingredients card header): checks
+  inventory against recipe ingredients and shows missing/insufficient items
+  with amounts in an interactive checklist. Items not in inventory show full
+  recipe amounts (scaled by servings); items with insufficient stock show the
+  deficit. Cross off items as you gather them, with progress counter and
+  completion state. Reuses the existing `previewSubtraction` infrastructure
 - "Last cooked" stats on recipe cards (cook count + relative time ago)
 - Personal notes field per recipe ("always double the garlic", "kids don't like
   this")
@@ -204,7 +210,8 @@ Transformed the app from "developer CRUD tool" to "daily cookbook":
 
 - **Recipe detail overhaul**: compact header with meta card, sticky ingredients
   sidebar with interactive checkboxes, crossable instruction steps with inline
-  timer pill buttons, "I Made This" button with inventory impact preview modal
+  timer pill buttons, "I Made This" button with inventory impact preview modal,
+  "What Do I Need?" interactive checklist for missing ingredients
 - **Discover page**: hero card for top match ("Tonight's Pick"), SVG progress
   rings for match percentage, expiring-item urgency pills
 - **Meal plan**: two-row calendar layout (4+3 columns), today emphasis, compact

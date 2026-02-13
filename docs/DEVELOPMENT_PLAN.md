@@ -137,7 +137,8 @@ onboarding flow (getting started checklist on `/recipes`).
 
 All shipped. See [FEATURES.md](./FEATURES.md) for details on: recipe print
 view, recipe sharing (Web Share API), quick "I made this" from meal plan, meal
-templates, better low-match discovery ("almost there" banner), "up next" banner.
+templates, better low-match discovery ("almost there" banner), "up next" banner,
+"What do I need?" ingredient check on recipe detail.
 
 (now shipped).
 
@@ -443,7 +444,9 @@ and reverted (warm-color deterministic placeholders used instead).
 
 ---
 
-_Last updated: February 13, 2026. Added ingredient headings (section dividers
-in ingredient lists) and drag-and-drop reordering. Updated branding, favicons,
-and landing page. Daily driving in progress -- using the app for real cooking
-with friction notes, feature work continues in parallel._
+_Last updated: February 13, 2026. Added "What Do I Need?" button on recipe
+detail page (checks inventory for missing/insufficient ingredients with
+copy-to-clipboard). Added ingredient headings (section dividers in ingredient
+lists) and drag-and-drop reordering. Updated branding, favicons, and landing
+page. Daily driving in progress -- using the app for real cooking with friction
+notes, feature work continues in parallel._

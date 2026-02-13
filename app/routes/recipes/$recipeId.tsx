@@ -346,13 +346,15 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(() => new Set())
 	const cookFetcher = useFetcher({ key: 'log-cook' })
 	const previewFetcher = useFetcher({ key: 'preview-subtraction' })
+	const needFetcher = useFetcher({ key: 'what-do-i-need' })
 	const prevCookFetcherState = useRef(cookFetcher.state)
 	const [showIMadeThisModal, setShowIMadeThisModal] = useState(false)
+	const [showNeedModal, setShowNeedModal] = useState(false)
 	const [historyExpanded, setHistoryExpanded] = useState(false)
 
 	const servingsParam = searchParams.get('servings')
 	const currentServings = servingsParam
-		? Math.max(1, parseInt(servingsParam, 10) || recipe.servings)
+		? Math.min(999, Math.max(1, parseInt(servingsParam, 10) || recipe.servings))
 		: recipe.servings
 	const ratio = currentServings / recipe.servings
 	const isScaled = currentServings !== recipe.servings
@@ -392,7 +394,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	}, [cookFetcher.state, cookFetcher.data])
 
 	function updateServings(newServings: number) {
-		const clamped = Math.max(1, newServings)
+		const clamped = Math.min(999, Math.max(1, newServings))
 		setSearchParams(
 			(prev) => {
 				if (clamped === recipe.servings) {
@@ -437,6 +439,14 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		formData.set('intent', 'previewSubtraction')
 		formData.set('servingRatio', ratio.toString())
 		void previewFetcher.submit(formData, { method: 'POST' })
+	}
+
+	function handleWhatDoINeed() {
+		setShowNeedModal(true)
+		const formData = new FormData()
+		formData.set('intent', 'previewSubtraction')
+		formData.set('servingRatio', ratio.toString())
+		void needFetcher.submit(formData, { method: 'POST' })
 	}
 
 	async function handleShare() {
@@ -689,6 +699,15 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 										Scaled
 									</span>
 								)}
+								<Button
+									variant="ghost"
+									size="sm"
+									className="ml-auto gap-1.5 text-xs print:hidden"
+									onClick={handleWhatDoINeed}
+								>
+									<Icon name="magnifying-glass" size="sm" />
+									What do I need?
+								</Button>
 							</div>
 							<IngredientList
 								ingredients={recipe.ingredients}
@@ -843,6 +862,16 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					cookFetcher={cookFetcher}
 					previewFetcher={previewFetcher}
 					onClose={() => setShowIMadeThisModal(false)}
+				/>
+			)}
+
+			{/* "What Do I Need?" modal */}
+			{showNeedModal && (
+				<WhatDoINeedModal
+					recipe={recipe}
+					ratio={ratio}
+					needFetcher={needFetcher}
+					onClose={() => setShowNeedModal(false)}
 				/>
 			)}
 		</>
@@ -1013,6 +1042,223 @@ function IMadeThisModal({
 						</Button>
 					</div>
 				</cookFetcher.Form>
+			</div>
+		</div>
+	)
+}
+
+// --- "What Do I Need?" modal ---
+
+function WhatDoINeedModal({
+	recipe,
+	ratio,
+	needFetcher,
+	onClose,
+}: {
+	recipe: {
+		ingredients: Array<{
+			name: string
+			amount: string | null
+			unit: string | null
+			isHeading: boolean
+		}>
+	}
+	ratio: number
+	needFetcher: ReturnType<typeof useFetcher>
+	onClose: () => void
+}) {
+	const [checked, setChecked] = useState<Set<number>>(() => new Set())
+
+	useEffect(() => {
+		function handleEscape(e: KeyboardEvent) {
+			if (e.key === 'Escape') onClose()
+		}
+		document.addEventListener('keydown', handleEscape)
+		return () => document.removeEventListener('keydown', handleEscape)
+	}, [onClose])
+
+	const data = needFetcher.data as
+		| { preview?: SubtractionPreviewData }
+		| undefined
+	const preview = data?.preview
+	const isLoading = needFetcher.state !== 'idle'
+
+	// Build list of missing items
+	const missingItems: Array<{
+		name: string
+		amount: string | null
+		unit: string | null
+	}> = []
+
+	if (preview) {
+		// Items not in inventory at all
+		for (const ingredientName of preview.noMatch) {
+			const ingredient = recipe.ingredients.find(
+				(i) =>
+					!i.isHeading &&
+					i.name.toLowerCase() === ingredientName.toLowerCase(),
+			)
+			if (ingredient) {
+				missingItems.push({
+					name: ingredient.name,
+					amount: ingredient.amount
+						? scaleAmount(ingredient.amount, ratio)
+						: null,
+					unit: ingredient.unit,
+				})
+			} else {
+				missingItems.push({ name: ingredientName, amount: null, unit: null })
+			}
+		}
+
+		// Items with insufficient inventory (deficit)
+		for (const item of preview.willSubtract) {
+			if (
+				item.subtractAmount !== null &&
+				item.currentQuantity !== null &&
+				item.subtractAmount > item.currentQuantity
+			) {
+				const deficit = item.subtractAmount - item.currentQuantity
+				missingItems.push({
+					name: item.name,
+					amount: formatQuantity(deficit),
+					unit: item.currentUnit,
+				})
+			}
+		}
+	}
+
+	function toggleItem(index: number) {
+		setChecked((prev) => {
+			const next = new Set(prev)
+			if (next.has(index)) {
+				next.delete(index)
+			} else {
+				next.add(index)
+			}
+			return next
+		})
+	}
+
+	const remaining = missingItems.length - checked.size
+	const allChecked = missingItems.length > 0 && remaining === 0
+
+	return (
+		<div
+			className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="what-do-i-need-title"
+		>
+			{/* Backdrop */}
+			<div
+				className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+				onClick={onClose}
+			/>
+			{/* Modal */}
+			<div className="bg-card shadow-warm-lg relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl p-6 sm:rounded-2xl">
+				<div className="mb-1 flex items-center justify-between">
+					<h2
+						id="what-do-i-need-title"
+						className="font-serif text-xl font-bold"
+					>
+						What Do I Need?
+					</h2>
+					<button
+						onClick={onClose}
+						aria-label="Close"
+						className="text-muted-foreground hover:text-foreground rounded-md p-1"
+					>
+						<Icon name="cross-1" size="sm" />
+					</button>
+				</div>
+
+				{isLoading ? (
+					<p className="text-muted-foreground py-6 text-center text-sm">
+						Checking your inventory...
+					</p>
+				) : missingItems.length === 0 ? (
+					<div className="py-6 text-center">
+						<Icon
+							name="check"
+							className="text-green-600 mx-auto mb-2 size-8"
+						/>
+						<p className="font-medium">You have everything you need!</p>
+						<p className="text-muted-foreground mt-1 text-sm">
+							All ingredients are in your inventory.
+						</p>
+					</div>
+				) : allChecked ? (
+					<div className="py-6 text-center">
+						<Icon
+							name="check"
+							className="text-green-600 mx-auto mb-2 size-8"
+						/>
+						<p className="font-medium">All sorted!</p>
+						<p className="text-muted-foreground mt-1 text-sm">
+							You've got everything checked off.
+						</p>
+					</div>
+				) : (
+					<>
+						<p className="text-muted-foreground mb-3 text-sm">
+							{remaining} of {missingItems.length} item
+							{missingItems.length !== 1 ? 's' : ''} still needed:
+						</p>
+						<ul className="space-y-0.5">
+							{missingItems.map((item, i) => {
+								const isChecked = checked.has(i)
+								return (
+									<li
+										key={i}
+										role="checkbox"
+										aria-checked={isChecked}
+										tabIndex={0}
+										className={cn(
+											'flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors select-none',
+											'hover:bg-accent/5',
+										)}
+										onClick={() => toggleItem(i)}
+										onKeyDown={(e) => {
+											if (e.key === 'Enter' || e.key === ' ') {
+												e.preventDefault()
+												toggleItem(i)
+											}
+										}}
+									>
+										<span
+											className={cn(
+												'flex size-4 shrink-0 items-center justify-center rounded border transition-colors',
+												isChecked
+													? 'border-primary bg-primary text-primary-foreground'
+													: 'border-muted-foreground/25',
+											)}
+										>
+											{isChecked && (
+												<Icon name="check" className="size-3" />
+											)}
+										</span>
+										<span
+											className={cn(
+												'transition-colors',
+												isChecked &&
+													'text-muted-foreground/50 line-through',
+											)}
+										>
+											{item.amount && (
+												<span className="font-medium">
+													{item.amount}{' '}
+												</span>
+											)}
+											{item.unit && <span>{item.unit} </span>}
+											{item.name}
+										</span>
+									</li>
+								)
+							})}
+						</ul>
+					</>
+				)}
 			</div>
 		</div>
 	)

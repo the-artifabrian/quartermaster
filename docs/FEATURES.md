@@ -28,8 +28,9 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   single-column grid, flat cards)
 - Share button with Web Share API (native mobile sharing) and clipboard
   fallback with toast confirmation
-- Import from URL (JSON-LD scraping) with duplicate detection, quick text entry,
-  JSON export
+- Import from URL (JSON-LD scraping) with duplicate detection and text fallback
+  (when structured data extraction fails, paste recipe text for parsing via the
+  bulk-import parser), quick text entry, JSON export
 - Bulk import: paste plain-text recipes (Apple Notes format) or upload multiple
   `.md`/`.txt` files via file picker or drag & drop. Client-side preview with
   `---` separator for multiple recipes per batch (max 50), session counter,

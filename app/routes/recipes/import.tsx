@@ -1,6 +1,7 @@
 import { parseWithZod } from '@conform-to/zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import * as cheerio from 'cheerio'
+import { useState } from 'react'
 import {
 	data,
 	Form,
@@ -14,8 +15,10 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { Textarea } from '#app/components/ui/textarea.tsx'
+import { parseRecipeText } from '#app/utils/bulk-recipe-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	parseIngredient,
@@ -370,6 +373,92 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 	}
 
+	if (intent === 'parse-text') {
+		const rawText = (formData.get('rawText') as string) || ''
+		const sourceUrl = (formData.get('sourceUrl') as string) || ''
+
+		if (!rawText.trim()) {
+			return data(
+				{
+					intent: 'parse-text' as const,
+					error: 'Please paste some recipe text.',
+					recipe: null,
+					result: null,
+					duplicates: null,
+				},
+				{ status: 400 },
+			)
+		}
+
+		const parsed = parseRecipeText(rawText)
+
+		if (!parsed.title && !parsed.ingredients.length && !parsed.instructions.length) {
+			return data(
+				{
+					intent: 'parse-text' as const,
+					error:
+						'Could not find a recipe in the pasted text. Try including a title, ingredients, and instructions.',
+					recipe: null,
+					result: null,
+					duplicates: null,
+				},
+				{ status: 400 },
+			)
+		}
+
+		const recipe: ExtractedRecipe = {
+			title: parsed.title || 'Untitled Recipe',
+			description: parsed.description || null,
+			servings: 4,
+			prepTime: null,
+			cookTime: null,
+			sourceUrl: sourceUrl || '',
+			ingredients: parsed.ingredients
+				.filter((ing) => !ing.isHeading)
+				.map((ing) => ({
+					name: ing.name,
+					amount: ing.amount,
+					unit: ing.unit,
+					notes: ing.notes,
+				})),
+			instructions: parsed.instructions,
+		}
+
+		// Check for duplicates
+		const duplicates: DuplicateMatch[] = []
+
+		if (sourceUrl) {
+			const urlMatches = await prisma.recipe.findMany({
+				where: { householdId, sourceUrl },
+				select: { id: true, title: true, sourceUrl: true },
+			})
+			for (const match of urlMatches) {
+				duplicates.push({ ...match, matchReason: 'same-url' })
+			}
+		}
+
+		const urlMatchIds = new Set(duplicates.map((m) => m.id))
+		const titleMatches = await prisma.recipe.findMany({
+			where: {
+				householdId,
+				title: { equals: recipe.title },
+				id: { notIn: [...urlMatchIds] },
+			},
+			select: { id: true, title: true, sourceUrl: true },
+		})
+		for (const match of titleMatches) {
+			duplicates.push({ ...match, matchReason: 'similar-title' })
+		}
+
+		return data({
+			intent: 'parse-text' as const,
+			recipe,
+			error: null,
+			result: null,
+			duplicates: duplicates.length > 0 ? duplicates : null,
+		})
+	}
+
 	if (intent === 'save') {
 		const title = formData.get('title') as string
 		const description = (formData.get('description') as string) || null
@@ -484,12 +573,20 @@ export default function ImportRecipe() {
 	const actionData = useActionData<typeof action>()
 	const navigation = useNavigation()
 	const isSubmitting = navigation.state === 'submitting'
+	const submittingIntent =
+		isSubmitting && navigation.formData
+			? navigation.formData.get('intent')
+			: null
+	const [urlValue, setUrlValue] = useState('')
 
 	const recipe = actionData && 'recipe' in actionData ? actionData.recipe : null
 	const error = actionData && 'error' in actionData ? actionData.error : null
+	const actionIntent =
+		actionData && 'intent' in actionData ? actionData.intent : null
 	const duplicates =
 		actionData && 'duplicates' in actionData ? actionData.duplicates : null
 	const hasRecipe = recipe && !error
+	const showTextFallback = error && actionIntent !== 'save'
 
 	return (
 		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
@@ -508,41 +605,91 @@ export default function ImportRecipe() {
 
 			{/* Phase A: URL input */}
 			{!hasRecipe && (
-				<Form method="POST" className="space-y-4">
-					<input type="hidden" name="intent" value="fetch" />
-					<div className="space-y-2">
-						<Label htmlFor="url">Recipe URL</Label>
-						<Input
-							id="url"
-							name="url"
-							type="url"
-							placeholder="https://example.com/recipe/..."
-							autoFocus
-							required
-						/>
-					</div>
-					{error && (
-						<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
-							{error}
+				<>
+					<Form method="POST" className="space-y-4">
+						<input type="hidden" name="intent" value="fetch" />
+						<div className="space-y-2">
+							<Label htmlFor="url">Recipe URL</Label>
+							<Input
+								id="url"
+								name="url"
+								type="url"
+								placeholder="https://example.com/recipe/..."
+								autoFocus
+								required
+								onChange={(e) => setUrlValue(e.target.value)}
+							/>
+						</div>
+						{error && (
+							<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
+								{error}
+							</div>
+						)}
+						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => history.back()}
+							>
+								Cancel
+							</Button>
+							<StatusButton
+								type="submit"
+								status={submittingIntent === 'fetch' ? 'pending' : 'idle'}
+								disabled={isSubmitting}
+							>
+								{submittingIntent === 'fetch'
+									? 'Fetching...'
+									: 'Fetch Recipe'}
+							</StatusButton>
+						</div>
+					</Form>
+
+					{/* Text fallback when URL extraction fails */}
+					{showTextFallback && (
+						<div className="mt-6 space-y-4 rounded-lg border p-6">
+							<div className="space-y-1">
+								<h2 className="font-medium">Paste recipe text instead</h2>
+								<p className="text-muted-foreground text-sm">
+									Copy the recipe text from the page and paste it below.
+									We'll do our best to parse the title, ingredients, and
+									instructions.
+								</p>
+							</div>
+							<Form method="POST" className="space-y-4">
+								<input type="hidden" name="intent" value="parse-text" />
+								<input
+									type="hidden"
+									name="sourceUrl"
+									value={urlValue}
+								/>
+								<Textarea
+									name="rawText"
+									placeholder={
+										'Chicken Parmesan\n\nIngredients:\n2 chicken breasts\n1 cup breadcrumbs\n1 cup marinara sauce\n...\n\nInstructions:\n1. Preheat oven to 400°F\n2. Bread the chicken...'
+									}
+									rows={10}
+									required
+								/>
+								<div className="flex justify-end">
+									<StatusButton
+										type="submit"
+										status={
+											submittingIntent === 'parse-text'
+												? 'pending'
+												: 'idle'
+										}
+										disabled={isSubmitting}
+									>
+										{submittingIntent === 'parse-text'
+											? 'Parsing...'
+											: 'Parse Recipe'}
+									</StatusButton>
+								</div>
+							</Form>
 						</div>
 					)}
-					<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => history.back()}
-						>
-							Cancel
-						</Button>
-						<StatusButton
-							type="submit"
-							status={isSubmitting ? 'pending' : 'idle'}
-							disabled={isSubmitting}
-						>
-							{isSubmitting ? 'Fetching...' : 'Fetch Recipe'}
-						</StatusButton>
-					</div>
-				</Form>
+				</>
 			)}
 
 			{/* Phase B: Preview & Save */}

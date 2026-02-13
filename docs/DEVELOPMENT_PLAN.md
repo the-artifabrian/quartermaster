@@ -104,12 +104,10 @@ driver gate is met and real user adoption exists.
 Previously completed: landing page CTA (UI redesign Phase 10), new user
 onboarding flow (getting started checklist on `/recipes`).
 
-- [~] **Accessibility pass** -- Partially done in UI redesign: aria-labels on
-      select elements, aria-pressed on toggle buttons (tag filters, view
-      toggles, favorites). Mobile touch target pass shipped (44px minimum tap
-      areas across all critical paths). Remaining: skip-to-content link,
-      comprehensive screen reader audit. Legal and ethical requirement for a
-      paid product.
+- [x] **Accessibility pass** -- Skip-to-content link, navigation landmarks
+      (`aria-label`, `aria-current="page"`), icon button labels, modal focus
+      trapping and focus return. Earlier: aria-labels on selects, aria-pressed
+      on toggles, 44px touch targets.
 - [x] **Import from export (data round-trip)** -- Full round-trip: import
       supports both full exports and recipe-only exports. Duplicates auto-skipped
       by title (recipes) and name+location (inventory). Partial success kept on
@@ -330,9 +328,9 @@ Known issues to address before or alongside monetization:
   when pagination or server-side pre-filtering is needed.
 - **No analytics/tracking infrastructure** -- See **Usage analytics for
   "proven" gate** in Pre-Monetization prerequisites.
-- **CSP report-only** -- Content Security Policy is configured but
-  `reportOnly: true` in `entry.server.tsx`. Provides no actual XSS protection.
-  Switch to enforcement before monetization.
+- ~~**CSP report-only**~~ -- Resolved. CSP now enforced with full directive set
+  (default-src, style-src, font-src, object-src, media-src, base-uri,
+  form-action, upgrade-insecure-requests).
 - **Image endpoint unauthenticated** -- `/resources/images` serves any
   `objectKey` without auth. Object keys are CUIDs (not guessable), but exposed
   in OG meta tags. Acceptable for sharing use case; revisit if private recipes
@@ -405,8 +403,8 @@ collapsible sections, meal plan empty state, multiple concurrent timers,
 smarter "Surprise Me", shopping list week picker. Unsplash placeholders tried
 and reverted (warm-color deterministic placeholders used instead).
 
-- [~] **Accessibility pass** -- _Promoted to Pre-Phase 14 prerequisites._
-      Partially done in UI redesign + mobile touch target pass. See above.
+- [x] **Accessibility pass** -- _Promoted to Pre-Phase 14 prerequisites._
+      Shipped. See above.
 - [x] **Inventory quick-add quantity** -- Quick-add now accepts optional inline
       quantity and unit fields alongside the name. Compact layout wraps
       gracefully on mobile.
@@ -427,9 +425,6 @@ and reverted (warm-color deterministic placeholders used instead).
 - [x] **Shopping list generation from any week** -- _Shipped._ Loader queries
       prev/current/next week for meal plans. Week picker `<select>` shown when
       multiple weeks have plans. Action accepts optional `weekStart` param.
-- [ ] **Recipe duplicate from detail view** -- No way to fork a recipe for
-      variations ("spicy version"). A "Duplicate" action on the recipe detail
-      page that copies all fields into the create form.
 - [x] **Non-JSON-LD import fallback** -- _Shipped._ When URL import fails
       (no JSON-LD structured data), a "paste recipe text" fallback appears below
       the error. Feeds pasted text into the existing bulk-import parser

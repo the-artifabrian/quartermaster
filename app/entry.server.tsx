@@ -67,16 +67,15 @@ export default async function handleRequest(...args: DocRequestArgs) {
 					contentSecurity(responseHeaders, {
 						crossOriginEmbedderPolicy: false,
 						contentSecurityPolicy: {
-							// NOTE: Remove reportOnly when you're ready to enforce this CSP
-							reportOnly: true,
 							directives: {
 								fetch: {
+									'default-src': ["'self'"],
 									'connect-src': [
 										MODE === 'development' ? 'ws:' : undefined,
 										process.env.SENTRY_DSN ? '*.sentry.io' : undefined,
 										"'self'",
 									],
-									'font-src': ["'self'"],
+									'font-src': ["'self'", 'https://fonts.gstatic.com'],
 									'frame-src': ["'self'"],
 									'img-src': ["'self'", 'data:'],
 									'script-src': [
@@ -85,6 +84,28 @@ export default async function handleRequest(...args: DocRequestArgs) {
 										`'nonce-${nonce}'`,
 									],
 									'script-src-attr': [`'nonce-${nonce}'`],
+									'style-src': [
+										"'self'",
+										"'unsafe-inline'",
+										'https://fonts.googleapis.com',
+									],
+									'style-src-elem': [
+										"'self'",
+										`'nonce-${nonce}'`,
+										'https://fonts.googleapis.com',
+									],
+									'style-src-attr': ["'unsafe-inline'"],
+									'object-src': ["'none'"],
+									'media-src': ["'self'"],
+								},
+								document: {
+									'base-uri': ["'self'"],
+								},
+								navigation: {
+									'form-action': ["'self'"],
+								},
+								other: {
+									'upgrade-insecure-requests': true,
 								},
 							},
 						},

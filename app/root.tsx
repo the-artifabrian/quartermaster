@@ -10,7 +10,6 @@ import {
 	ScrollRestoration,
 	useLoaderData,
 } from 'react-router'
-import { HoneypotProvider } from 'remix-utils/honeypot/react'
 import { type Route } from './+types/root.ts'
 import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
@@ -37,7 +36,6 @@ import { ClientHintCheck, getHints } from './utils/client-hints.tsx'
 import { prisma } from './utils/db.server.ts'
 import { getEnv } from './utils/env.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
-import { honeypot } from './utils/honeypot.server.ts'
 import { NOTIFY_EVENT_TYPES_LIST } from './utils/household-event-messages.ts'
 import { combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
 import { useNonce } from './utils/nonce-provider.ts'
@@ -164,8 +162,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 	}
 
 	const { toast, headers: toastHeaders } = await getToast(request)
-	const honeyProps = await honeypot.getInputProps()
-
 	return data(
 		{
 			user,
@@ -181,7 +177,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			},
 			ENV: getEnv(),
 			toast,
-			honeyProps,
 		},
 		{
 			headers: combineHeaders(
@@ -367,12 +362,7 @@ function Logo() {
 }
 
 function AppWithProviders() {
-	const data = useLoaderData<typeof loader>()
-	return (
-		<HoneypotProvider {...data.honeyProps}>
-			<App />
-		</HoneypotProvider>
-	)
+	return <App />
 }
 
 export default AppWithProviders

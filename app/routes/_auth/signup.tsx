@@ -3,7 +3,6 @@ import { getZodConstraint, parseWithZod } from '@conform-to/zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import * as E from '@react-email/components'
 import { data, redirect, Form, useSearchParams } from 'react-router'
-import { HoneypotInputs } from 'remix-utils/honeypot/react'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { ErrorList, Field } from '#app/components/forms.tsx'
@@ -11,7 +10,6 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireAnonymous } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
-import { checkHoneypot } from '#app/utils/honeypot.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
 import { EmailSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/signup.ts'
@@ -32,8 +30,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export async function action({ request }: Route.ActionArgs) {
 	const formData = await request.formData()
-
-	await checkHoneypot(formData)
 
 	const submission = await parseWithZod(formData, {
 		schema: SignupSchema.superRefine(async (data, ctx) => {
@@ -143,7 +139,6 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 			</div>
 			<div className="mx-auto mt-16 max-w-sm min-w-full sm:min-w-[368px]">
 				<Form method="POST" {...getFormProps(form)}>
-					<HoneypotInputs />
 					<Field
 						labelProps={{
 							htmlFor: fields.email.id,

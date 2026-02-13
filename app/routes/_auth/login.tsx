@@ -4,7 +4,6 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { startAuthentication } from '@simplewebauthn/browser'
 import { useOptimistic, useState, useTransition } from 'react'
 import { data, Form, Link, useNavigate, useSearchParams } from 'react-router'
-import { HoneypotInputs } from 'remix-utils/honeypot/react'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { CheckboxField, ErrorList, Field } from '#app/components/forms.tsx'
@@ -12,7 +11,6 @@ import { Spacer } from '#app/components/spacer.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { login, requireAnonymous } from '#app/utils/auth.server.ts'
-import { checkHoneypot } from '#app/utils/honeypot.server.ts'
 import { getErrorMessage, useIsPending } from '#app/utils/misc.tsx'
 import { PasswordSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/login.ts'
@@ -41,7 +39,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 export async function action({ request }: Route.ActionArgs) {
 	await requireAnonymous(request)
 	const formData = await request.formData()
-	await checkHoneypot(formData)
 	const submission = await parseWithZod(formData, {
 		schema: (intent) =>
 			LoginFormSchema.transform(async (data, ctx) => {
@@ -108,7 +105,6 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 				<div>
 					<div className="mx-auto w-full max-w-md px-8">
 						<Form method="POST" {...getFormProps(form)}>
-							<HoneypotInputs />
 							<Field
 								labelProps={{ children: 'Username' }}
 								inputProps={{

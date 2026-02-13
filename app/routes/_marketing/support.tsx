@@ -40,11 +40,14 @@ export default function SupportRoute() {
 							<dl className="text-muted-foreground mt-3 space-y-3 text-sm">
 								<div>
 									<dt className="text-foreground font-medium">
-										How do I import a recipe from a website?
+										How do I import recipes?
 									</dt>
 									<dd className="mt-0.5">
-										Go to Recipes, click "Import from URL", paste the link, and
-										Quartermaster will extract the recipe details automatically.
+										Several ways: paste a URL and Quartermaster extracts the
+										recipe automatically, bulk-import by pasting text from
+										Apple Notes (separate recipes with ---), or drag and drop
+										.md/.txt files. You can also import a full data export from
+										Settings &gt; Data.
 									</dd>
 								</div>
 								<div>
@@ -53,16 +56,44 @@ export default function SupportRoute() {
 									</dt>
 									<dd className="mt-0.5">
 										It compares your inventory against recipe ingredients using
-										fuzzy matching and synonym lookup, then ranks recipes by
-										match percentage.
+										smart matching that understands different names for the same
+										thing (like cilantro and coriander), then ranks recipes by
+										how many ingredients you already have. It also highlights
+										recipes that use ingredients about to expire.
 									</dd>
 								</div>
 								<div>
 									<dt className="text-foreground font-medium">
-										Can I export my recipes?
+										Can I share with my partner or household?
 									</dt>
 									<dd className="mt-0.5">
-										Yes. Each recipe has a JSON export option on the edit page.
+										Yes. Go to Settings &gt; Household to invite members via a
+										link. Everyone in the household shares the same recipe
+										library, inventory, meal plans, and shopping lists, with
+										real-time activity notifications.
+									</dd>
+								</div>
+								<div>
+									<dt className="text-foreground font-medium">
+										Can I export my data?
+									</dt>
+									<dd className="mt-0.5">
+										Yes. Go to Settings &gt; Data to export all your data
+										(recipes, inventory, meal plans, shopping lists, cooking
+										logs) as JSON. You can also import this export back in — your
+										data is never locked in.
+									</dd>
+								</div>
+								<div>
+									<dt className="text-foreground font-medium">
+										How does meal planning work?
+									</dt>
+									<dd className="mt-0.5">
+										The Planner shows a weekly calendar where you assign recipes
+										to meal slots. Quartermaster analyzes ingredient overlap
+										across your planned meals and suggests recipes that share
+										ingredients to reduce waste. When you're ready, generate a
+										shopping list that subtracts what you already have.
 									</dd>
 								</div>
 								<div>
@@ -70,8 +101,9 @@ export default function SupportRoute() {
 										How do I delete my account?
 									</dt>
 									<dd className="mt-0.5">
-										Contact us using the information below and we'll delete your
-										account and all associated data.
+										Go to Settings &gt; Profile where you can manage your
+										account. You can export all your data first from
+										Settings &gt; Data.
 									</dd>
 								</div>
 							</dl>

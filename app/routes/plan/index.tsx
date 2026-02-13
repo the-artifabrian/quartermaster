@@ -97,11 +97,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 		})
 	}
 
-	// Load user's recipes for selection (include ingredients for overlap analysis)
+	// Load user's recipes for the picker (no ingredients — lighter query)
 	const recipes = await prisma.recipe.findMany({
 		where: { householdId },
 		orderBy: { title: 'asc' },
-		include: { ingredients: true },
 	})
 
 	const weekDays = getWeekDays(weekStart)
@@ -125,8 +124,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 		]
 
 		if (uniquePlanned.length >= 2) {
+			// Only load all recipes with ingredients when overlap analysis is needed
+			const recipesWithIngredients = await prisma.recipe.findMany({
+				where: { householdId },
+				include: { ingredients: true },
+			})
+
 			const overlap = analyzeIngredientOverlap(uniquePlanned)
-			const alerts = generateWasteAlerts(uniquePlanned, recipes)
+			const alerts = generateWasteAlerts(
+				uniquePlanned,
+				recipesWithIngredients,
+			)
 
 			// Aggregate suggestions by recipe, ranked by shared ingredient count
 			const recipeMap = new Map<

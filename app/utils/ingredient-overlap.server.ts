@@ -163,6 +163,14 @@ export function generateWasteAlerts(
 	const plannedIds = new Set(plannedRecipes.map((r) => r.id))
 	const recipeById = new Map(allUserRecipes.map((r) => [r.id, r]))
 
+	// Pre-compute canonical ingredient sets for all recipes once
+	const recipeCanonicalCache = new Map<string, Set<string>>()
+	for (const recipe of allUserRecipes) {
+		if (!plannedIds.has(recipe.id)) {
+			recipeCanonicalCache.set(recipe.id, getRecipeCanonicalIngredients(recipe))
+		}
+	}
+
 	const alerts: WasteAlert[] = []
 
 	for (const [ingredientName, recipeId] of singleUseIngredients) {
@@ -174,7 +182,7 @@ export function generateWasteAlerts(
 		for (const recipe of allUserRecipes) {
 			if (plannedIds.has(recipe.id)) continue
 
-			const canonical = getRecipeCanonicalIngredients(recipe)
+			const canonical = recipeCanonicalCache.get(recipe.id)!
 			if (canonical.has(ingredientName)) {
 				suggestions.push({ id: recipe.id, title: recipe.title })
 			}

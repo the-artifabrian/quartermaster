@@ -120,9 +120,9 @@ export default function Index() {
 								Import your favorite recipes
 							</h3>
 							<p className="text-muted-foreground mt-2">
-								Paste a URL, type it in, or use quick entry for that recipe
-								scribbled on a napkin. Your whole collection in one searchable
-								place.
+								Paste a URL, bulk-import from notes, or type it in by hand.
+								Your whole collection in one searchable place — tags, photos,
+								and all.
 							</p>
 						</div>
 					</div>
@@ -176,8 +176,9 @@ export default function Index() {
 								Track what's in your kitchen
 							</h3>
 							<p className="text-muted-foreground mt-2">
-								Pantry, fridge, freezer — know what you have at a glance. Get
-								alerts when things are expiring so nothing goes to waste.
+								Pantry, fridge, freezer — know what you have at a glance.
+								Quartermaster tells you what you can cook right now and alerts
+								you when things are about to expire.
 							</p>
 						</div>
 					</div>
@@ -222,8 +223,9 @@ export default function Index() {
 								Plan meals that share ingredients
 							</h3>
 							<p className="text-muted-foreground mt-2">
-								Drag recipes into your weekly plan. Quartermaster spots
-								ingredient overlaps so you buy less and waste less.
+								Add recipes to your weekly plan. Quartermaster spots ingredient
+								overlaps so you buy less and waste less — and warns you about
+								single-use ingredients before you shop.
 							</p>
 						</div>
 					</div>
@@ -280,6 +282,53 @@ export default function Index() {
 								what you already have. Check items off as you shop.
 							</p>
 						</div>
+					</div>
+				</div>
+			</section>
+
+			{/* Built for the kitchen */}
+			<section className="px-4 pb-16">
+				<div className="mx-auto max-w-4xl">
+					<h2 className="text-center font-serif text-2xl font-bold">
+						Built for the kitchen
+					</h2>
+					<p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
+						Quartermaster is designed to be used while you cook — not just
+						for planning ahead.
+					</p>
+					<div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+						{[
+							{
+								icon: 'timer' as const,
+								title: 'Inline timers',
+								desc: 'Tap time references in recipe steps to start named timers. Multiple timers run at once.',
+							},
+							{
+								icon: 'check' as const,
+								title: 'Tap to cross off',
+								desc: 'Check off ingredients and steps as you go. Your screen stays awake so you can cook hands-free.',
+							},
+							{
+								icon: 'home' as const,
+								title: 'Share a kitchen',
+								desc: 'Invite your partner or housemates. Recipes, inventory, and meal plans stay in sync in real time.',
+							},
+							{
+								icon: 'download' as const,
+								title: 'Your data, always',
+								desc: 'Full JSON export anytime. Import it back if you ever need to. No lock-in.',
+							},
+						].map((f) => (
+							<div key={f.title} className="text-center">
+								<div className="bg-accent/10 mx-auto flex size-10 items-center justify-center rounded-xl">
+									<Icon name={f.icon} className="text-accent size-5" />
+								</div>
+								<h3 className="mt-3 text-sm font-semibold">{f.title}</h3>
+								<p className="text-muted-foreground mt-1 text-xs/5">
+									{f.desc}
+								</p>
+							</div>
+						))}
 					</div>
 				</div>
 			</section>

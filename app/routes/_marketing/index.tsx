@@ -120,9 +120,9 @@ export default function Index() {
 								Import your favorite recipes
 							</h3>
 							<p className="text-muted-foreground mt-2">
-								Paste a URL, bulk-import from notes, or type it in by hand.
-								Your whole collection in one searchable place — tags, photos,
-								and all.
+								Paste a URL, bulk-import dozens at once, or type it in by
+								hand. Your whole collection in one searchable place — tags,
+								photos, and all.
 							</p>
 						</div>
 					</div>

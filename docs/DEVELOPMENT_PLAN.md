@@ -430,10 +430,11 @@ and reverted (warm-color deterministic placeholders used instead).
 - [ ] **Recipe duplicate from detail view** -- No way to fork a recipe for
       variations ("spicy version"). A "Duplicate" action on the recipe detail
       page that copies all fields into the create form.
-- [ ] **Non-JSON-LD import fallback** -- URL import only works with JSON-LD
-      structured data. Many sites use microdata or none. When JSON-LD extraction
-      fails, offer a "paste recipe text" fallback that feeds into the existing
-      bulk-import parser. Bridges the gap until AI parsing ships.
+- [x] **Non-JSON-LD import fallback** -- _Shipped._ When URL import fails
+      (no JSON-LD structured data), a "paste recipe text" fallback appears below
+      the error. Feeds pasted text into the existing bulk-import parser
+      (`parseRecipeText`), preserving the original URL as `sourceUrl`. Flows
+      into the same preview & save UI as successful URL imports.
 
 ---
 

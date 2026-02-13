@@ -150,9 +150,10 @@ tests/
 - `app/utils/recipe-validation.ts` - Zod schemas
 - `app/utils/bulk-recipe-parser.ts` - Plain-text/markdown recipe parsing
 
-**Import**: URL import (JSON-LD scraping), quick text entry, bulk paste (with
-`---` separators for multiple recipes), file upload (.md/.txt). Duplicate
-detection by title. Sub-section headers in ingredients become heading rows
+**Import**: URL import (JSON-LD scraping with text fallback — when extraction
+fails, user can paste recipe text for parsing via `parseRecipeText()`), quick
+text entry, bulk paste (with `---` separators for multiple recipes), file upload
+(.md/.txt). Duplicate detection by title. Sub-section headers in ingredients become heading rows
 (`isHeading: true`).
 
 **Ingredient Headings**: Ingredients with `isHeading: true` are section dividers

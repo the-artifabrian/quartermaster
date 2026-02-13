@@ -46,15 +46,30 @@ is natural: "I have 50 recipes and want to import more" or "I want the shopping
 list to know what's already in my kitchen." If the free tier solves 80% of the
 problem, conversion will be low.
 
-> **Risk: 50 recipes may be too generous.** Users who manually enter recipes
-> tend to plateau well under 50. The recipe-count gate assumes URL import drives
-> bulk collection past the limit, but without URL import on free, users may
-> never hit 50. Consider whether the primary gate should be features
-> (inventory/planning) rather than recipe count -- or lower the limit to 25. The
-> upgrade trigger needs to be something users _actually hit_, not a theoretical
-> ceiling.
+> **Open decision: what gates the free tier?**
+>
+> The 50-recipe limit assumes URL import drives bulk collection past it, but URL
+> import is Pro-only. Users who manually enter recipes tend to plateau at 15-30.
+> The upgrade trigger needs to be something users _actually hit_. Two options:
+>
+> **Option A -- Feature gate (recommended).** Free = unlimited recipes + manual
+> entry + URL import + cooking view. Pro = inventory, discovery, meal planning,
+> shopping list, overlap analysis, AI features. The upgrade trigger is
+> experiential: "I want the app to know what's in my kitchen." This aligns the
+> paid tier with the actual differentiator (the inventory loop), lets free users
+> build a big library (increasing switching costs), and makes URL import a
+> growth lever (users import lots of recipes → get invested → want planning).
+>
+> **Option B -- Count gate (current design).** Free = 50 recipes, manual entry
+> only. Lower the limit to 20-25 so users hit it faster, and include URL import
+> on free to accelerate collection. Simpler to implement but risks feeling
+> punitive ("you have too many recipes") rather than aspirational ("unlock the
+> full kitchen intelligence system").
+>
+> Decide before building tier enforcement. Validate with external user feedback
+> if possible.
 
-## Pro Tier (~$49/year or ~$5/month)
+## Pro Tier (~$49/year or ~$5/month, see early-adopter note)
 
 Gates the inventory intelligence loop -- the closed-loop system that's the actual
 differentiator. This is where ongoing development effort goes:
@@ -86,6 +101,13 @@ Natural upgrade for couples/families:
 > sync + real-time notifications -- features with real infrastructure cost (SSE,
 > multi-instance). Still well under Ollie ($84/yr) and comparable to Plan to Eat
 > ($49/yr) plus a second account.
+
+> **Early-adopter pricing:** Consider launching at $35/year for the first year
+> or first 100 users (annual-only). $49/yr is competitive on paper but
+> Quartermaster has zero brand recognition at launch. A lower introductory price
+> reduces friction for early adopters who are taking a bet on an unknown product.
+> Raise to $49 once there's social proof (reviews, word of mouth). The $20
+> Household uplift stays the same either way.
 
 ---
 
@@ -201,6 +223,45 @@ VAT strategy before registering.
 
 ---
 
+## Distribution & First Users
+
+No product survives without users finding it. The daily driver gate validates
+the workflow; the next step validates that _other people_ can find, understand,
+and adopt the app. Aim for 3-5 real external users before launch.
+
+### Built-in growth loops
+
+- **Public recipe sharing** (`/share/$recipeId`) -- Already has JSON-LD
+  structured data and OG meta tags. Every shared recipe is a landing page with
+  an "Import to Quartermaster" CTA. This is the primary organic growth vector.
+  Optimize: make sharing frictionless (it already is via Web Share API), ensure
+  share pages rank for recipe names.
+- **Data portability as trust signal** -- JSON export prominently shown in
+  settings. Position in marketing: "Your recipes, your data. Export anytime.
+  Self-host if you want." Directly addresses the post-Yummly trust gap.
+- **Self-hosting option** -- Standard Node.js app (no Docker required).
+  Differentiated vs. Mealie/Tandoor/KitchenOwl which all require Docker.
+  Worth mentioning on the landing page and in r/selfhosted posts.
+
+### Launch channels
+
+- **r/selfhosted, r/mealprepsunday, r/Cooking** -- "Show HN"-style posts when
+  the app has external users and polish. Self-hosted angle for r/selfhosted,
+  meal planning angle for the cooking subs.
+- **Hacker News** -- "Show HN: I built an inventory-aware meal planner." The
+  technical depth (fuzzy matching, normalization pipeline, unit conversion)
+  appeals to the HN audience. Time this for when the app is truly ready.
+- **Word of mouth** -- Friends and family who cook. The household sharing
+  feature means every user is a potential recruiter for their partner.
+
+### What to track
+
+- How do external users discover the app? (Share page, direct link, search)
+- Where do they drop off? (Signup, first recipe, inventory, meal planning)
+- Do they reach the inventory loop or stop at recipe storage?
+
+---
+
 ## Churn Mitigation
 
 Target is <5% monthly churn on Pro. Strategies to build before launch:
@@ -245,6 +306,16 @@ Target is <5% monthly churn on Pro. Strategies to build before launch:
   value (AI features, inventory intelligence, real-time sync) to justify a
   recurring fee. Data portability (JSON export) and a generous free tier help
   mitigate "trapped data" anxiety.
+- **Inventory loop may be too high-friction.** The entire value proposition
+  rests on users maintaining inventory. If daily driving reveals that inventory
+  drifts too fast or the tracking overhead isn't worth the discovery/subtraction
+  benefits, the monetization pitch breaks. **Fallback:** a "light inventory"
+  mode where inventory is populated passively (shopping list check-offs +
+  "I have this" taps only, no manual entry or expiration tracking). Discovery
+  becomes fuzzy suggestions rather than precise matching. This is still
+  differentiated -- no competitor connects shopping check-off to recipe
+  discovery -- but requires adjusting the marketing pitch from "closed-loop
+  intelligence" to "the shopping list that learns your kitchen."
 - **App store economics.** If going native mobile later, Apple/Google take 30%.
   PWA avoids this but limits discoverability. Web-first is the right starting
   point -- validated by the indie/self-hosted segment's preference for

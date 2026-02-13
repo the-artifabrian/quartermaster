@@ -222,6 +222,21 @@ improvement to an existing page and can ship incrementally.
       where the user can edit names, fix locations, and deselect items before
       bulk-adding. Higher implementation complexity (camera UI, OCR pipeline,
       item classification) -- ship after the above features prove out.
+- [ ] **Voice inventory updates** -- Speak to update inventory instead of
+      tapping through quick-add. Mic button on inventory page → Web Speech API
+      transcribes client-side (free, no API cost) → one LLM call structures the
+      transcript into items with quantities, units, and auto-categorized
+      locations → editable preview list (like bulk import) → confirm.
+      The compelling version goes beyond just "add items" -- a single voice
+      input that can add, remove, or flag: _"I'm out of eggs, running low on
+      flour, and I just bought milk and butter."_ Genuinely useful while
+      cooking with messy hands or unpacking groceries. Simpler to implement
+      than receipt scanning (no camera/OCR pipeline) and solves the same core
+      problem (post-shopping bulk entry) plus the in-kitchen hands-busy case.
+      **Limitations:** Web Speech API support varies (Chrome/Edge strong,
+      Firefox limited, Safari partial). Kitchen background noise may affect
+      accuracy. Always needs a review step before committing changes.
+      Could ship as a lighter alternative to receipt scanning or alongside it.
 
 #### Cost management
 
@@ -428,8 +443,7 @@ and reverted (warm-color deterministic placeholders used instead).
 
 ---
 
-_Last updated: February 12, 2026. Simplified cooking experience: merged cooking
-mode into always-interactive recipe view with crossable ingredients/steps, "I
-Made This" with inventory impact preview, removed star ratings. Daily driving in
-progress -- using the app for real cooking with friction notes, feature work
-continues in parallel._
+_Last updated: February 13, 2026. Added ingredient headings (section dividers
+in ingredient lists) and drag-and-drop reordering. Updated branding, favicons,
+and landing page. Daily driving in progress -- using the app for real cooking
+with friction notes, feature work continues in parallel._

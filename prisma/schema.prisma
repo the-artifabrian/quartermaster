@@ -340,6 +340,7 @@ model MealPlan {
   @@unique([userId, weekStart])
   @@index([userId])
   @@index([householdId])
+  @@index([householdId, weekStart])
 }
 
 model MealPlanEntry {
@@ -405,6 +406,7 @@ model CookingLog {
 
   @@index([recipeId])
   @@index([userId])
+  @@index([recipeId, userId])
 }
 
 model HouseholdEvent {
@@ -419,6 +421,7 @@ model HouseholdEvent {
   userId      String
 
   @@index([householdId, createdAt])
+  @@index([householdId, userId])
 }
 
 model MealPlanTemplate {

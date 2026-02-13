@@ -1,8 +1,4 @@
-import {
-	type Recipe,
-	type Ingredient,
-	type InventoryItem,
-} from '@prisma/client'
+import { type Ingredient, type InventoryItem } from '@prisma/client'
 
 /**
  * Common staple ingredients that are assumed to be available
@@ -188,6 +184,108 @@ const PROTECTED_COMPOUNDS = new Set([
 	'black tea',
 ])
 
+// Common descriptive words that don't affect ingredient identity
+const MODIFIERS = [
+	// Freshness/state
+	'fresh',
+	'dried',
+	'frozen',
+	'canned',
+	'raw',
+	'cooked',
+	'optional',
+	// Preparation
+	'chopped',
+	'diced',
+	'sliced',
+	'minced',
+	'grated',
+	'shredded',
+	'crushed',
+	'whole',
+	'halved',
+	'quartered',
+	// Size
+	'large',
+	'medium',
+	'small',
+	'extra large',
+	'baby',
+	'jumbo',
+	// Color (for vegetables/produce)
+	'yellow',
+	'red',
+	'green',
+	'white',
+	'orange',
+	'purple',
+	'brown',
+	// Quality descriptors
+	'ripe',
+	'unripe',
+	'firm',
+	'soft',
+	'neutral',
+	'mild',
+	'strong',
+	'light',
+	'dark',
+	'extra virgin',
+	'virgin',
+	'pure',
+	'unsalted',
+	'salted',
+	'sweetened',
+	'unsweetened',
+	// Sugar/grain types
+	'granulated',
+	'powdered',
+	'confectioners',
+	'superfine',
+	'caster',
+	'demerara',
+	'turbinado',
+	'muscovado',
+	// Grain descriptors
+	'long grain',
+	'short grain',
+	'jasmine',
+	'basmati',
+	'arborio',
+	// Meat descriptors
+	'boneless',
+	'skinless',
+	'skin-on',
+	'bone-in',
+	// Processing
+	'smoked',
+	'roasted',
+	'toasted',
+] as const
+
+// Pre-compile modifier regexes once at module level (~50 regexes, not per call)
+const MODIFIER_REGEXES = MODIFIERS.map((m) => ({
+	modifier: m,
+	regex: new RegExp(`\\b${m}\\b`, 'gi'),
+}))
+
+// Pre-compute which modifiers appear in each protected compound
+const PROTECTED_COMPOUND_MODIFIERS = new Map<string, Set<string>>()
+for (const compound of PROTECTED_COMPOUNDS) {
+	const mods = new Set<string>()
+	for (const m of MODIFIERS) {
+		if (compound.includes(m)) {
+			mods.add(m)
+		}
+	}
+	if (mods.size > 0) {
+		PROTECTED_COMPOUND_MODIFIERS.set(compound, mods)
+	}
+}
+
+// Normalization cache — ingredient names repeat heavily across recipes
+const normalizationCache = new Map<string, string>()
+
 /**
  * Normalize ingredient name for fuzzy matching
  * - Converts to lowercase
@@ -197,8 +295,13 @@ const PROTECTED_COMPOUNDS = new Set([
  * - Handles "or" and "/" alternatives (takes first option)
  * - Removes common modifiers (optional, fresh, dried, etc.)
  * - Handles pluralization
+ *
+ * Results are cached since ingredient names repeat heavily across recipes.
  */
 export function normalizeIngredientName(name: string): string {
+	const cached = normalizationCache.get(name)
+	if (cached !== undefined) return cached
+
 	let normalized = name.toLowerCase().trim()
 
 	// Strip leading "of " from ingredient names: "of garlic" → "garlic"
@@ -225,85 +328,6 @@ export function normalizeIngredientName(name: string): string {
 		normalized = normalized.split('/')[0]!.trim()
 	}
 
-	// Remove common descriptive words that don't affect ingredient identity
-	const modifiers = [
-		// Freshness/state
-		'fresh',
-		'dried',
-		'frozen',
-		'canned',
-		'raw',
-		'cooked',
-		'optional',
-		// Preparation
-		'chopped',
-		'diced',
-		'sliced',
-		'minced',
-		'grated',
-		'shredded',
-		'crushed',
-		'whole',
-		'halved',
-		'quartered',
-		// Size
-		'large',
-		'medium',
-		'small',
-		'extra large',
-		'baby',
-		'jumbo',
-		// Color (for vegetables/produce)
-		'yellow',
-		'red',
-		'green',
-		'white',
-		'orange',
-		'purple',
-		'brown',
-		// Quality descriptors
-		'ripe',
-		'unripe',
-		'firm',
-		'soft',
-		'neutral',
-		'mild',
-		'strong',
-		'light',
-		'dark',
-		'extra virgin',
-		'virgin',
-		'pure',
-		'unsalted',
-		'salted',
-		'sweetened',
-		'unsweetened',
-		// Sugar/grain types
-		'granulated',
-		'powdered',
-		'confectioners',
-		'superfine',
-		'caster',
-		'demerara',
-		'turbinado',
-		'muscovado',
-		// Grain descriptors
-		'long grain',
-		'short grain',
-		'jasmine',
-		'basmati',
-		'arborio',
-		// Meat descriptors
-		'boneless',
-		'skinless',
-		'skin-on',
-		'bone-in',
-		// Processing
-		'smoked',
-		'roasted',
-		'toasted',
-	]
-
 	// Protect compound ingredients where modifiers are part of the identity.
 	// Find which modifiers are "protected" (part of a compound like "green onion").
 	const protectedModifiers = new Set<string>()
@@ -314,20 +338,18 @@ export function normalizeIngredientName(name: string): string {
 		for (const compound of PROTECTED_COMPOUNDS) {
 			if (variant === compound || variant.endsWith(' ' + compound)) {
 				// The compound's words include modifiers — protect them
-				for (const mod of modifiers) {
-					if (compound.includes(mod)) {
+				const mods = PROTECTED_COMPOUND_MODIFIERS.get(compound)
+				if (mods) {
+					for (const mod of mods) {
 						protectedModifiers.add(mod)
 					}
 				}
 			}
 		}
 	}
-	for (const modifier of modifiers) {
+	for (const { modifier, regex } of MODIFIER_REGEXES) {
 		if (protectedModifiers.has(modifier)) continue
-		normalized = normalized.replace(
-			new RegExp(`\\b${modifier}\\b`, 'gi'),
-			'',
-		)
+		normalized = normalized.replace(regex, '')
 	}
 
 	// Clean up extra spaces
@@ -344,12 +366,15 @@ export function normalizeIngredientName(name: string): string {
 	}
 	const irregular = irregularPlurals[normalized]
 	if (irregular) {
+		normalizationCache.set(name, irregular)
 		return irregular
 	}
 
 	// Handle -ies -> -y (berries -> berry)
 	if (normalized.endsWith('ies')) {
-		return normalized.slice(0, -3) + 'y'
+		const result = normalized.slice(0, -3) + 'y'
+		normalizationCache.set(name, result)
+		return result
 	}
 
 	// Handle -es -> '' for words ending in s, x, z, ch, sh
@@ -361,14 +386,19 @@ export function normalizeIngredientName(name: string): string {
 			normalized.endsWith('ches') ||
 			normalized.endsWith('shes'))
 	) {
-		return normalized.slice(0, -2)
+		const result = normalized.slice(0, -2)
+		normalizationCache.set(name, result)
+		return result
 	}
 
 	// Simple plural removal (remove trailing 's')
 	if (normalized.endsWith('s') && normalized.length > 3) {
-		return normalized.slice(0, -1)
+		const result = normalized.slice(0, -1)
+		normalizationCache.set(name, result)
+		return result
 	}
 
+	normalizationCache.set(name, normalized)
 	return normalized
 }
 
@@ -535,12 +565,22 @@ export function ingredientMatchesInventoryItem(
 	return false
 }
 
-export type RecipeMatch = {
-	recipe: Recipe & {
-		ingredients: Ingredient[]
-		image?: { objectKey: string } | null
-		tags?: Array<{ id: string; name: string }>
-	}
+/** Minimal recipe shape needed for matching and display */
+export type MatchableRecipe = {
+	id: string
+	title: string
+	description?: string | null
+	prepTime?: number | null
+	cookTime?: number | null
+	servings?: number | null
+	isFavorite?: boolean
+	ingredients: Ingredient[]
+	image?: { objectKey: string } | null
+	tags?: Array<{ id: string; name: string }>
+}
+
+export type RecipeMatch<R extends MatchableRecipe = MatchableRecipe> = {
+	recipe: R
 	matchPercentage: number
 	matchedIngredientsCount: number
 	totalIngredientsCount: number
@@ -559,23 +599,169 @@ export function isStapleIngredient(
 }
 
 /**
+ * Pre-built lookup structure for O(1) inventory matching.
+ * Instead of scanning all inventory items for each ingredient,
+ * we pre-normalize all inventory names and build sets for fast lookup.
+ */
+type InventoryLookup = {
+	/** Normalized inventory item names */
+	normalizedNames: Set<string>
+	/** All synonym expansions of inventory items */
+	synonymNames: Set<string>
+	/** Core words from inventory items (for core-word matching) */
+	coreWords: Set<string>
+	/** Map from normalized name to item, for non-equivalent compound checks */
+	normalizedToItem: Map<string, Pick<InventoryItem, 'name'>>
+	/** The full available items list, for rare multi-word fallback */
+	items: Array<Pick<InventoryItem, 'name'>>
+}
+
+export function buildInventoryLookup(
+	items: Array<Pick<InventoryItem, 'name'>>,
+): InventoryLookup {
+	const normalizedNames = new Set<string>()
+	const synonymNames = new Set<string>()
+	const coreWords = new Set<string>()
+	const normalizedToItem = new Map<string, Pick<InventoryItem, 'name'>>()
+
+	for (const item of items) {
+		const normalized = normalizeIngredientName(item.name)
+		normalizedNames.add(normalized)
+		normalizedToItem.set(normalized, item)
+
+		// Add all synonyms
+		const synonyms = INGREDIENT_SYNONYMS[normalized]
+		if (synonyms) {
+			for (const syn of synonyms) {
+				synonymNames.add(syn)
+			}
+		}
+
+		// Add core word
+		const core = getCoreIngredientWord(item.name)
+		coreWords.add(core)
+	}
+
+	return { normalizedNames, synonymNames, coreWords, normalizedToItem, items }
+}
+
+/**
+ * Check if an ingredient matches ANY inventory item using the pre-built lookup.
+ * Uses O(1) set lookups for the common case, falls back to per-item comparison
+ * only for multi-word containment matching.
+ */
+export function ingredientMatchesAnyInventoryItem(
+	ingredient: Pick<Ingredient, 'name'>,
+	lookup: InventoryLookup,
+): boolean {
+	const normalizedIngredient = normalizeIngredientName(ingredient.name)
+
+	// 1. Exact match after normalization — O(1) set lookup
+	if (lookup.normalizedNames.has(normalizedIngredient)) {
+		return true
+	}
+
+	// 2. Synonym match — check if any inventory synonym matches the ingredient
+	const synonymsForIngredient =
+		INGREDIENT_SYNONYMS[normalizedIngredient] || []
+	for (const syn of synonymsForIngredient) {
+		if (lookup.normalizedNames.has(syn)) {
+			return true
+		}
+	}
+	// Check if the ingredient is a synonym of any inventory item
+	if (lookup.synonymNames.has(normalizedIngredient)) {
+		return true
+	}
+
+	// 3. Core word match — O(1) set lookup
+	const ingredientCore = getCoreIngredientWord(ingredient.name)
+	if (lookup.coreWords.has(ingredientCore)) {
+		// But need to verify it's not a non-equivalent compound match
+		// Find the matching inventory item by core word and check
+		for (const [invNorm, invItem] of lookup.normalizedToItem) {
+			const invCore = getCoreIngredientWord(invItem.name)
+			if (
+				ingredientCore === invCore &&
+				!isNonEquivalentCompoundMatch(normalizedIngredient, invNorm)
+			) {
+				return true
+			}
+		}
+	}
+
+	// 4. Multi-word containment — fall back to per-item comparison for edge cases
+	const ingredientWords = normalizedIngredient.split(' ')
+	for (const invItem of lookup.items) {
+		const normalizedInventory = normalizeIngredientName(invItem.name)
+		const inventoryWords = normalizedInventory.split(' ')
+
+		// Single ingredient word vs multi-word inventory
+		if (ingredientWords.length === 1 && inventoryWords.length > 1) {
+			if (
+				isNonEquivalentCompoundMatch(
+					normalizedIngredient,
+					normalizedInventory,
+				)
+			)
+				continue
+			const word = ingredientWords[0]
+			if (
+				inventoryWords[0] === word ||
+				inventoryWords[inventoryWords.length - 1] === word
+			)
+				return true
+		}
+
+		// Multi-word ingredient vs single inventory word
+		if (inventoryWords.length === 1 && ingredientWords.length > 1) {
+			if (
+				isNonEquivalentCompoundMatch(
+					normalizedIngredient,
+					normalizedInventory,
+				)
+			)
+				continue
+			const word = inventoryWords[0]
+			if (
+				ingredientWords[0] === word ||
+				ingredientWords[ingredientWords.length - 1] === word
+			)
+				return true
+		}
+
+		// Multi-word vs multi-word containment
+		if (ingredientWords.length > 1 && inventoryWords.length > 1) {
+			const allIngredientWordsInInventory = ingredientWords.every((word) =>
+				inventoryWords.includes(word),
+			)
+			const allInventoryWordsInIngredient = inventoryWords.every((word) =>
+				ingredientWords.includes(word),
+			)
+			if (allIngredientWordsInInventory || allInventoryWordsInIngredient) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+/**
  * Match recipes against user's inventory
  * Returns recipes with match percentage and missing ingredients
  */
-export function matchRecipesWithInventory(
-	recipes: Array<
-		Recipe & {
-			ingredients: Ingredient[]
-			image?: { objectKey: string } | null
-			tags?: Array<{ id: string; name: string }>
-		}
-	>,
-	inventoryItems: InventoryItem[],
-): RecipeMatch[] {
+export function matchRecipesWithInventory<R extends MatchableRecipe>(
+	recipes: R[],
+	inventoryItems: Array<Pick<InventoryItem, 'name' | 'quantity'>>,
+): RecipeMatch<R>[] {
 	// Exclude depleted items (quantity explicitly tracked to 0)
 	const availableItems = inventoryItems.filter(
 		(item) => item.quantity === null || item.quantity > 0,
 	)
+
+	// Pre-build lookup structure for O(1) matching instead of O(n) per ingredient
+	const lookup = buildInventoryLookup(availableItems)
 
 	return recipes
 		.map((recipe) => {
@@ -588,13 +774,9 @@ export function matchRecipesWithInventory(
 			let matchedIngredientsCount = 0
 			const missingIngredients: Ingredient[] = []
 
-			// Check each non-staple ingredient against inventory
+			// Check each non-staple ingredient against inventory via lookup
 			for (const ingredient of nonStapleIngredients) {
-				const hasMatch = availableItems.some((item) =>
-					ingredientMatchesInventoryItem(ingredient, item),
-				)
-
-				if (hasMatch) {
+				if (ingredientMatchesAnyInventoryItem(ingredient, lookup)) {
 					matchedIngredientsCount++
 				} else {
 					missingIngredients.push(ingredient)

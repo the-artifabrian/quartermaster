@@ -42,22 +42,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
 	const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
-	const [items, totalItemCount] = await Promise.all([
-		prisma.inventoryItem.findMany({
-			where: {
-				householdId,
-				...(location && location !== 'all' && { location }),
-			},
-			orderBy: [{ lowStock: 'desc' }, { expiresAt: 'asc' }, { name: 'asc' }],
-		}),
-		prisma.inventoryItem.count({ where: { householdId } }),
-	])
+	// Single query for all items — filter by location in JS
+	const allItems = await prisma.inventoryItem.findMany({
+		where: { householdId },
+		orderBy: [{ lowStock: 'desc' }, { expiresAt: 'asc' }, { name: 'asc' }],
+	})
 
-	// Dashboard stats (computed from all items, not filtered by location)
-	const allItems =
+	const totalItemCount = allItems.length
+	const items =
 		location && location !== 'all'
-			? await prisma.inventoryItem.findMany({ where: { householdId } })
-			: items
+			? allItems.filter((item) => item.location === location)
+			: allItems
 
 	const expiringSoonCount = allItems.filter(
 		(item) =>

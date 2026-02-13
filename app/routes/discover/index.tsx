@@ -17,8 +17,9 @@ import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
+	buildInventoryLookup,
 	getCanonicalIngredientName,
-	ingredientMatchesInventoryItem,
+	ingredientMatchesAnyInventoryItem,
 	matchRecipesWithInventory,
 	type RecipeMatch,
 } from '#app/utils/recipe-matching.server.ts'
@@ -42,7 +43,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		where: { householdId },
 	})
 
-	// Load all user's recipes with ingredients
+	// Load all user's recipes with ingredients (only fields needed for matching + display)
 	const recipes = await prisma.recipe.findMany({
 		where: { householdId },
 		select: {
@@ -53,13 +54,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			cookTime: true,
 			servings: true,
 			isFavorite: true,
-			sourceUrl: true,
-			rawText: true,
-			notes: true,
-			householdId: true,
-			createdAt: true,
-			updatedAt: true,
-			userId: true,
 			image: { select: { objectKey: true } },
 			tags: { select: { id: true, name: true } },
 			ingredients: {
@@ -99,12 +93,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// Find recipes that use expiring ingredients, sorted by how many they use
 	let expiringMatches: Array<RecipeMatch & { expiringCount: number }> = []
 	if (expiringItems.length > 0) {
+		// Build a lookup from just expiring items for O(1) matching
+		const expiringLookup = buildInventoryLookup(expiringItems)
 		expiringMatches = matches
 			.map((match) => {
 				const expiringCount = match.recipe.ingredients.filter((ing) =>
-					expiringItems.some((item) =>
-						ingredientMatchesInventoryItem(ing, item),
-					),
+					ingredientMatchesAnyInventoryItem(ing, expiringLookup),
 				).length
 				return { ...match, expiringCount }
 			})

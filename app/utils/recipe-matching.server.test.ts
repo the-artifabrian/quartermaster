@@ -283,13 +283,6 @@ describe('matchRecipesWithInventory', () => {
 			prepTime: null,
 			cookTime: null,
 			isFavorite: false,
-			sourceUrl: null,
-			rawText: null,
-			notes: null,
-			householdId: null,
-			createdAt: new Date(),
-			updatedAt: new Date(),
-			userId: 'user1',
 			ingredients: ingredients.map((name, i) => ({
 				id: `${id}-ing-${i}`,
 				name,
@@ -306,17 +299,8 @@ describe('matchRecipesWithInventory', () => {
 		names: string[],
 	): Parameters<typeof matchRecipesWithInventory>[1] {
 		return names.map((name, i) => ({
-			id: `inv-${i}`,
 			name,
-			location: 'pantry' as const,
 			quantity: null,
-			unit: null,
-			expiresAt: null,
-			lowStock: false,
-			householdId: null,
-			userId: 'user1',
-			createdAt: new Date(),
-			updatedAt: new Date(),
 		}))
 	}
 

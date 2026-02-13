@@ -103,6 +103,14 @@ Remaining:
 - [ ] **SSE multi-instance fix** -- SSE events emitted on one Fly machine won't
       reach clients on another. Fine for solo use, but if charging for the
       real-time events. Options: polling fallback, LiteFS broadcast, or Redis
+- [ ] **First external users** -- Get 3-5 people outside the household using the
+      app with real recipes before charging money. Daily driving validates the
+      workflow for _you_; external users validate onboarding, learnability, and
+      whether the value prop makes sense to someone who didn't build it. Channels:
+      friends/family who cook, r/mealprepsunday, r/selfhosted, cooking Discord
+      communities. Track whether they hit the inventory loop or stop at recipes.
+- [ ] **Free-tier gate decision** -- Resolve the open question on whether the
+      Must be decided before building tier enforcement.
 
 ### AI Integration
 
@@ -135,6 +143,12 @@ stays in control (generated content is always an editable draft); cost-aware
 - [ ] **Voice inventory updates** -- Web Speech API transcription (free,
       client-side) → LLM structures into items → editable preview. Useful
       with messy hands or unpacking groceries.
+
+> **Prioritization note:** The features above are ordered by shipping
+> complexity, not by impact. If daily driving reveals that inventory _input_
+> friction (not output quality) is the main bottleneck, receipt scanning and
+> voice updates should be re-prioritized ahead of substitutions and recipe
+> generation -- they directly reduce the overhead of keeping inventory accurate.
 
 #### Cost notes
 
@@ -244,6 +258,10 @@ and voice inventory have been promoted to the **AI Integration** section above.
 - [x] Data is backed up / exportable (JSON export)
 - [x] App has its own visual identity (custom color system + typography)
 - [x] Household sharing: two people use the same recipe library and meal plan
+
+- [ ] 3-5 external users with real recipes (not just testing)
+- [ ] External users reach the inventory loop (not just recipe storage)
+- [ ] Free-tier gate decision made (feature gate vs. recipe count)
 
 - [ ] 5+ external users with 10+ recipes each
 - [ ] Pairing suggestions used when building 3+ weekly plans

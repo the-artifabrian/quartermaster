@@ -67,6 +67,7 @@ export async function action({ request }: Route.ActionArgs) {
 								amount: ing.amount ?? null,
 								unit: ing.unit ?? null,
 								notes: ing.notes ?? null,
+								isHeading: ing.isHeading ?? false,
 								order: i,
 							})),
 						}

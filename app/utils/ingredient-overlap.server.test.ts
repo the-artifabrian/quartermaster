@@ -31,6 +31,7 @@ function makeRecipe(
 			amount: null,
 			unit: null,
 			notes: null,
+			isHeading: false,
 			order: i,
 			recipeId: id,
 		})),

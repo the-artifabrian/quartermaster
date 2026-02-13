@@ -765,9 +765,9 @@ export function matchRecipesWithInventory<R extends MatchableRecipe>(
 
 	return recipes
 		.map((recipe) => {
-			// Filter out staple ingredients from the matching calculation
+			// Filter out headings and staple ingredients from the matching calculation
 			const nonStapleIngredients = recipe.ingredients.filter(
-				(ing) => !isStapleIngredient(ing),
+				(ing) => !ing.isHeading && !isStapleIngredient(ing),
 			)
 
 			const totalIngredientsCount = nonStapleIngredients.length

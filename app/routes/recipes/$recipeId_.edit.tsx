@@ -53,6 +53,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 					amount: true,
 					unit: true,
 					notes: true,
+					isHeading: true,
 				},
 				orderBy: { order: 'asc' },
 			},
@@ -152,6 +153,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		amount?: string
 		unit?: string
 		notes?: string
+		isHeading?: boolean
 	}> = []
 	let i = 0
 	while (formData.has(`ingredients[${i}].name`)) {
@@ -161,6 +163,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			amount: (formData.get(`ingredients[${i}].amount`) as string) || undefined,
 			unit: (formData.get(`ingredients[${i}].unit`) as string) || undefined,
 			notes: (formData.get(`ingredients[${i}].notes`) as string) || undefined,
+			isHeading: formData.get(`ingredients[${i}].isHeading`) === 'true',
 		})
 		i++
 	}
@@ -217,6 +220,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 							amount: ing.amount || null,
 							unit: ing.unit || null,
 							notes: ing.notes || null,
+							isHeading: ing.isHeading ?? false,
 							order,
 						})),
 				},

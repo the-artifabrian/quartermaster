@@ -66,6 +66,7 @@ export function parseIngredient(line: string): {
 	amount?: string
 	unit?: string
 	notes?: string
+	isHeading?: boolean
 } | null {
 	const cleaned = line
 		.replace(/^-\s*\[[ x]\]\s*/, '')

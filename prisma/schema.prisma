@@ -273,12 +273,13 @@ model RecipeImage {
 }
 
 model Ingredient {
-  id       String  @id @default(cuid())
-  name     String
-  amount   String? // "2", "1/2" (string for fractions)
-  unit     String? // "cups", "tbsp"
-  notes    String? // "diced", "room temperature"
-  order    Int     @default(0)
+  id        String  @id @default(cuid())
+  name      String
+  amount    String? // "2", "1/2" (string for fractions)
+  unit      String? // "cups", "tbsp"
+  notes     String? // "diced", "room temperature"
+  isHeading Boolean @default(false)
+  order     Int     @default(0)
 
   recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   recipeId String

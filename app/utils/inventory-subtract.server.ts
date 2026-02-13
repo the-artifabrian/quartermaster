@@ -48,6 +48,7 @@ export async function subtractRecipeIngredientsFromInventory(
 	const updated: string[] = []
 
 	for (const ingredient of recipe.ingredients) {
+		if (ingredient.isHeading) continue
 		if (isStapleIngredient(ingredient)) continue
 
 		const match = inventoryItems.find((item) =>
@@ -164,6 +165,7 @@ export async function previewInventorySubtraction(
 	const noMatch: string[] = []
 
 	for (const ingredient of recipe.ingredients) {
+		if (ingredient.isHeading) continue
 		if (isStapleIngredient(ingredient)) continue
 
 		const match = inventoryItems.find((item) =>

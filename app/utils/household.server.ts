@@ -298,11 +298,12 @@ async function deepCopyRecipes(tx: any, userId: string, fromHouseholdId: string,
 				householdId: toHouseholdId,
 				ingredients: {
 					create: recipe.ingredients.map(
-						(ing: { name: string; amount: string | null; unit: string | null; notes: string | null; order: number }) => ({
+						(ing: { name: string; amount: string | null; unit: string | null; notes: string | null; isHeading: boolean; order: number }) => ({
 							name: ing.name,
 							amount: ing.amount,
 							unit: ing.unit,
 							notes: ing.notes,
+							isHeading: ing.isHeading,
 							order: ing.order,
 						}),
 					),

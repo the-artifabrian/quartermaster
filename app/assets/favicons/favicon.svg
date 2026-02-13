@@ -1,14 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" fill="none" viewBox="0 0 24 24">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" fill="none" viewBox="0 0 512 512">
   <style>
-    path {
-      fill: #52a868;
-    }
+    .bg { fill: #52a868; }
+    .card { fill: #ffffff; }
+    .accent { fill: #52a868; }
+    .accent-stroke { stroke: #52a868; }
     @media (prefers-color-scheme: dark) {
-      path {
-        fill: #7fc890;
-      }
+      .bg { fill: #3d8a50; }
+      .card { fill: #ffffff; }
+      .accent { fill: #3d8a50; }
+      .accent-stroke { stroke: #3d8a50; }
     }
   </style>
-  <!-- Chef's hat -->
-  <path d="M8.5 3C6.57 3 5 4.57 5 6.5c0 .58.16 1.12.43 1.59C4.59 8.59 4 9.7 4 11v7c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-7c0-1.3-.59-2.41-1.43-2.91.27-.47.43-1.01.43-1.59 0-1.93-1.57-3.5-3.5-3.5-.84 0-1.61.3-2.21.79A3.49 3.49 0 0 0 12 3c-.75 0-1.45.24-2.03.64A3.48 3.48 0 0 0 8.5 3zm0 2c.83 0 1.5.67 1.5 1.5 0 .17-.03.33-.08.49.54.41.98.94 1.29 1.55.3-.15.63-.23.98-.23s.68.08.98.23c.31-.61.75-1.14 1.29-1.55A1.5 1.5 0 0 1 14.38 5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-.02c-.49.92-1.37 1.58-2.41 1.58s-1.92-.66-2.41-1.58h-.02c-.83 0-1.5-.67-1.5-1.5S7.67 5 8.5 5zM6 11h12v7H6v-7z"/>
+  <!-- Green background -->
+  <rect class="bg" width="512" height="512" rx="80"/>
+  <!-- White card -->
+  <rect class="card" x="106" y="96" width="280" height="360" rx="20"/>
+  <!-- Title bar -->
+  <rect class="accent" x="141" y="136" width="180" height="20" rx="6"/>
+  <!-- Divider -->
+  <rect class="accent" x="141" y="176" width="210" height="4" rx="2" opacity="0.3"/>
+  <!-- Bullet lines -->
+  <circle class="accent" cx="156" cy="216" r="8"/>
+  <rect class="accent" x="176" y="209" width="140" height="14" rx="4" opacity="0.5"/>
+  <circle class="accent" cx="156" cy="256" r="8"/>
+  <rect class="accent" x="176" y="249" width="160" height="14" rx="4" opacity="0.5"/>
+  <circle class="accent" cx="156" cy="296" r="8"/>
+  <rect class="accent" x="176" y="289" width="120" height="14" rx="4" opacity="0.5"/>
+  <!-- Checkmark -->
+  <path class="accent-stroke" d="M226 356 L246 381 L286 331" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

@@ -79,13 +79,23 @@ export const links: Route.LinksFunction = () => {
 }
 
 export const meta: Route.MetaFunction = ({ data }) => {
+	const origin = data?.requestInfo.origin ?? ''
 	return [
 		{ title: data ? 'Quartermaster' : 'Error | Quartermaster' },
 		{ name: 'description', content: `Your personal recipe manager` },
+		{ name: 'theme-color', content: '#52a868' },
 		{ property: 'og:site_name', content: 'Quartermaster' },
+		{ property: 'og:title', content: 'Quartermaster' },
+		{
+			property: 'og:description',
+			content: 'Your personal recipe manager',
+		},
+		{ property: 'og:image', content: `${origin}/og-image.png` },
+		{ property: 'og:image:width', content: '1200' },
+		{ property: 'og:image:height', content: '630' },
 		{ property: 'og:type', content: 'website' },
 		{ property: 'og:locale', content: 'en_US' },
-		{ name: 'twitter:card', content: 'summary' },
+		{ name: 'twitter:card', content: 'summary_large_image' },
 	]
 }
 
@@ -257,84 +267,84 @@ function App() {
 	return (
 		<TimerProvider>
 			<OpenImgContextProvider
-			optimizerEndpoint="/resources/images"
-			getSrc={getImgSrc}
-		>
-			<div className="flex min-h-screen flex-col justify-between">
-				<header className="bg-card/80 border-border/50 sticky top-0 z-40 border-b backdrop-blur-sm">
-					<nav className="container flex flex-wrap items-center justify-between gap-4 py-4 sm:flex-nowrap md:gap-8">
-						<Logo />
-						<div className="ml-auto flex items-center gap-4 md:gap-10">
-							{user ? (
-								<>
-									<div className="hidden items-center gap-2 md:flex">
-										<NavLink
-											to="/recipes"
-											className={({ isActive }) =>
-												isActive
-													? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-													: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-											}
-										>
-											Recipes
-										</NavLink>
-										<NavLink
-											to="/inventory"
-											className={({ isActive }) =>
-												isActive
-													? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-													: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-											}
-										>
-											Inventory
-										</NavLink>
-										<NavLink
-											to="/plan"
-											className={({ isActive }) =>
-												isActive
-													? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-													: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-											}
-										>
-											Plan
-										</NavLink>
-										<NavLink
-											to="/discover"
-											className={({ isActive }) =>
-												isActive
-													? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-													: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-											}
-										>
-											Discover
-										</NavLink>
-									</div>
-									<NotificationBell />
-									<UserDropdown />
-								</>
-							) : (
-								<Button asChild variant="default" size="lg">
-									<Link to="/login">Log In</Link>
-								</Button>
-							)}
-						</div>
-					</nav>
-				</header>
+				optimizerEndpoint="/resources/images"
+				getSrc={getImgSrc}
+			>
+				<div className="flex min-h-screen flex-col justify-between">
+					<header className="bg-card/80 border-border/50 sticky top-0 z-40 border-b backdrop-blur-sm">
+						<nav className="container flex flex-wrap items-center justify-between gap-4 py-4 sm:flex-nowrap md:gap-8">
+							<Logo />
+							<div className="ml-auto flex items-center gap-4 md:gap-10">
+								{user ? (
+									<>
+										<div className="hidden items-center gap-2 md:flex">
+											<NavLink
+												to="/recipes"
+												className={({ isActive }) =>
+													isActive
+														? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+														: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+												}
+											>
+												Recipes
+											</NavLink>
+											<NavLink
+												to="/inventory"
+												className={({ isActive }) =>
+													isActive
+														? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+														: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+												}
+											>
+												Inventory
+											</NavLink>
+											<NavLink
+												to="/plan"
+												className={({ isActive }) =>
+													isActive
+														? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+														: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+												}
+											>
+												Plan
+											</NavLink>
+											<NavLink
+												to="/discover"
+												className={({ isActive }) =>
+													isActive
+														? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+														: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+												}
+											>
+												Discover
+											</NavLink>
+										</div>
+										<NotificationBell />
+										<UserDropdown />
+									</>
+								) : (
+									<Button asChild variant="default" size="lg">
+										<Link to="/login">Log In</Link>
+									</Button>
+								)}
+							</div>
+						</nav>
+					</header>
 
-				<main className="flex flex-1 flex-col">
-					<Outlet />
-				</main>
+					<main className="flex flex-1 flex-col">
+						<Outlet />
+					</main>
 
-				<div className="container flex justify-between pb-5">
-					<ThemeSwitch userPreference={data.requestInfo.userPrefs.theme} />
+					<div className="container flex justify-between pb-5">
+						<ThemeSwitch userPreference={data.requestInfo.userPrefs.theme} />
+					</div>
 				</div>
-			</div>
-			<BottomNav />
-			<Toaster closeButton position="top-center" theme={theme} />
-			<OfflineIndicator />
-			{user ? <HouseholdActivityNotifier /> : null}
-			{user ? <TimerWidget /> : null}
-			<Progress />
+				<BottomNav />
+				<Toaster closeButton position="top-center" theme={theme} />
+				<OfflineIndicator />
+				{user ? <HouseholdActivityNotifier /> : null}
+				{user ? <TimerWidget /> : null}
+				<Progress />
 			</OpenImgContextProvider>
 		</TimerProvider>
 	)
@@ -343,11 +353,9 @@ function App() {
 function Logo() {
 	return (
 		<Link to="/" className="group flex items-center gap-2">
-			<div className="grid leading-tight">
-				<span className="text-foreground text-lg font-semibold">
-					Quartermaster
-				</span>
-			</div>
+			<span className="text-foreground text-lg font-semibold">
+				Quartermaster
+			</span>
 		</Link>
 	)
 }

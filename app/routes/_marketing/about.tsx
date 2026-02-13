@@ -28,17 +28,23 @@ export default function AboutRoute() {
 
 			<div className="text-muted-foreground mt-6 space-y-4 text-base/7">
 				<p>
-					Quartermaster is a recipe management app built to replace recipes
-					scattered across notes apps, bookmarks, and screenshots. It puts your
-					entire cooking life in one place: recipes, pantry inventory, meal
-					plans, and shopping lists.
+					Quartermaster started from a familiar frustration: recipes scattered
+					across bookmarks, screenshots, notes apps, and half-remembered
+					conversations. "What should we have for dinner?" shouldn't be a
+					30-minute research project.
 				</p>
 				<p>
-					The idea is simple — if you know what recipes you have and what
-					ingredients are in your kitchen, the app can tell you what you can
-					cook right now, help you plan your week, and generate a shopping list
-					for what you're missing. After you cook, it updates your inventory
-					automatically so you're always ready for next time.
+					So we built the tool we wanted — one place for your recipes, your
+					pantry, your meal plan, and your shopping list. The idea is
+					straightforward: if you know what you have and what you like to cook,
+					the rest should take care of itself. Quartermaster tells you what you
+					can make tonight, helps you plan the week ahead, and writes your
+					shopping list when you're ready.
+				</p>
+				<p>
+					It's built for people who actually cook at home — not food bloggers
+					or professional chefs, just anyone who wants to spend less time
+					figuring out meals and more time eating them.
 				</p>
 			</div>
 
@@ -105,13 +111,13 @@ export default function AboutRoute() {
 				</div>
 			</div>
 
-			<h2 className="mt-10 text-xl font-semibold">Built for the kitchen</h2>
+			<h2 className="mt-10 text-xl font-semibold">Built for messy hands</h2>
 			<p className="text-muted-foreground mt-3 text-base/7">
-				Quartermaster is designed to be used while you cook. Tap ingredients
-				and steps to cross them off, start inline timers from recipe
-				instructions, scale servings up or down, and keep your screen awake so
-				you don't have to touch your phone with messy hands. It works offline
-				too — recipes you've viewed are available without a connection.
+				Most recipe apps are great for browsing but terrible for actually
+				cooking. Quartermaster is the opposite — tap ingredients and steps to
+				cross them off, start timers right from recipe instructions, scale
+				servings on the fly, and your screen stays awake so you're not
+				unlocking your phone with floury fingers. It works offline too.
 			</p>
 
 			<div className="mt-10">

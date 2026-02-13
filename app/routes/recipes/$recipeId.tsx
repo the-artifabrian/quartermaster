@@ -440,27 +440,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	}
 
 	async function handleShare() {
-		const url = `${origin ?? window.location.origin}/recipes/${recipe.id}`
-		const shareData = {
-			title: recipe.title,
-			text: recipe.description || `Check out this recipe: ${recipe.title}`,
-			url,
-		}
+		const url = `${origin ?? window.location.origin}/share/${recipe.id}`
 		try {
-			if (navigator.share) {
-				await navigator.share(shareData)
-			} else {
-				await navigator.clipboard.writeText(url)
-				toast.success('Link copied to clipboard')
-			}
-		} catch (error) {
-			if (error instanceof Error && error.name === 'AbortError') return
-			try {
-				await navigator.clipboard.writeText(url)
-				toast.success('Link copied to clipboard')
-			} catch {
-				toast.error('Unable to share — try copying the URL manually')
-			}
+			await navigator.clipboard.writeText(url)
+			toast.success('Link copied to clipboard')
+		} catch {
+			toast.error('Unable to copy — try copying the URL manually')
 		}
 	}
 

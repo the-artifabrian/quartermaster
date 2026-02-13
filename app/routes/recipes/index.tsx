@@ -366,7 +366,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 
 					{/* Filter controls row */}
-					<div className="flex items-center gap-2">
+					<div className="flex flex-wrap items-center gap-2">
 						<select
 							value={sort}
 							onChange={(e) => handleSortChange(e.target.value)}
@@ -410,7 +410,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								type="button"
 								onClick={() => handleViewChange('grid')}
 								className={cn(
-									'rounded-md p-1.5 transition-colors',
+									'rounded-md p-2 transition-colors',
 									view !== 'list'
 										? 'bg-accent text-accent-foreground'
 										: 'text-muted-foreground hover:text-foreground',
@@ -424,7 +424,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								type="button"
 								onClick={() => handleViewChange('list')}
 								className={cn(
-									'rounded-md p-1.5 transition-colors',
+									'rounded-md p-2 transition-colors',
 									view === 'list'
 										? 'bg-accent text-accent-foreground'
 										: 'text-muted-foreground hover:text-foreground',
@@ -448,7 +448,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 									onClick={() => handleTagClick(tag.id)}
 									aria-pressed={isSelected}
 									className={cn(
-										'rounded-full border px-3 py-1 text-sm transition-colors',
+										'rounded-full border px-3 py-1.5 text-sm transition-colors',
 										isSelected
 											? 'bg-accent text-accent-foreground shadow-sm'
 											: getTagCategoryClass(tag.category),

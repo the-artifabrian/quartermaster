@@ -484,77 +484,80 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 			{/* Meta card + content */}
 			<div className="container max-w-4xl px-4 md:px-8">
-				{(recipe.prepTime || recipe.cookTime || recipe.sourceUrl || recipe.tags.length > 0) && (
-				<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-3 md:p-5 print:border-0 print:p-2 print:shadow-none">
-					<div className="flex flex-wrap items-center gap-3 text-sm">
-						{recipe.prepTime && (
-							<span className="text-muted-foreground flex items-center gap-1">
-								<Icon name="clock" size="sm" className="text-accent" />
-								Prep: {recipe.prepTime} min
-							</span>
-						)}
-						{recipe.cookTime && (
-							<>
-								{recipe.prepTime && (
-									<span className="text-border hidden md:inline">|</span>
-								)}
+				{(recipe.prepTime ||
+					recipe.cookTime ||
+					recipe.sourceUrl ||
+					recipe.tags.length > 0) && (
+					<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-3 md:p-5 print:border-0 print:p-2 print:shadow-none">
+						<div className="flex flex-wrap items-center gap-3 text-sm">
+							{recipe.prepTime && (
 								<span className="text-muted-foreground flex items-center gap-1">
 									<Icon name="clock" size="sm" className="text-accent" />
-									Cook: {recipe.cookTime} min
+									Prep: {recipe.prepTime} min
 								</span>
-							</>
-						)}
-						{totalTime > 0 && (
-							<>
-								<span className="text-border hidden md:inline">|</span>
-								<span className="text-foreground font-medium">
-									Total: {totalTime} min
-								</span>
-							</>
-						)}
-
-						{/* Source URL inline */}
-						{recipe.sourceUrl && (
-							<>
-								{(recipe.prepTime || recipe.cookTime) && (
+							)}
+							{recipe.cookTime && (
+								<>
+									{recipe.prepTime && (
+										<span className="text-border hidden md:inline">|</span>
+									)}
+									<span className="text-muted-foreground flex items-center gap-1">
+										<Icon name="clock" size="sm" className="text-accent" />
+										Cook: {recipe.cookTime} min
+									</span>
+								</>
+							)}
+							{totalTime > 0 && (
+								<>
 									<span className="text-border hidden md:inline">|</span>
-								)}
-								<a
-									href={recipe.sourceUrl}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline"
-								>
-									<Icon name="link-2" size="sm" />
-									{(() => {
-										try {
-											return new URL(recipe.sourceUrl).hostname.replace(
-												/^www\./,
-												'',
-											)
-										} catch {
-											return 'Source'
-										}
-									})()}
-								</a>
-							</>
+									<span className="text-foreground font-medium">
+										Total: {totalTime} min
+									</span>
+								</>
+							)}
+
+							{/* Source URL inline */}
+							{recipe.sourceUrl && (
+								<>
+									{(recipe.prepTime || recipe.cookTime) && (
+										<span className="text-border hidden md:inline">|</span>
+									)}
+									<a
+										href={recipe.sourceUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline"
+									>
+										<Icon name="link-2" size="sm" />
+										{(() => {
+											try {
+												return new URL(recipe.sourceUrl).hostname.replace(
+													/^www\./,
+													'',
+												)
+											} catch {
+												return 'Source'
+											}
+										})()}
+									</a>
+								</>
+							)}
+						</div>
+
+						{/* Tags inside meta card */}
+						{recipe.tags.length > 0 && (
+							<div className="mt-3 flex flex-wrap gap-1.5">
+								{recipe.tags.map((tag) => (
+									<span
+										key={tag.id}
+										className="bg-accent/10 border-accent/20 rounded-full border px-2.5 py-0.5 text-xs font-medium"
+									>
+										{tag.name}
+									</span>
+								))}
+							</div>
 						)}
 					</div>
-
-					{/* Tags inside meta card */}
-					{recipe.tags.length > 0 && (
-						<div className="mt-3 flex flex-wrap gap-1.5">
-							{recipe.tags.map((tag) => (
-								<span
-									key={tag.id}
-									className="bg-accent/10 border-accent/20 rounded-full border px-2.5 py-0.5 text-xs font-medium"
-								>
-									{tag.name}
-								</span>
-							))}
-						</div>
-					)}
-				</div>
 				)}
 
 				{/* Description */}
@@ -666,7 +669,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									<Button
 										variant="outline"
 										size="sm"
-										className="h-6 w-6 p-0 text-xs"
+										className="h-8 w-8 p-0 text-xs"
 										onClick={() => updateServings(currentServings - 1)}
 										disabled={currentServings <= 1}
 									>
@@ -678,7 +681,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									<Button
 										variant="outline"
 										size="sm"
-										className="h-6 w-6 p-0 text-xs"
+										className="h-8 w-8 p-0 text-xs"
 										onClick={() => updateServings(currentServings + 1)}
 									>
 										+
@@ -691,7 +694,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 											Reset
 										</button>
 									) : (
-										<span className="text-muted-foreground text-xs">
+										<span className="text-muted-foreground text-sm">
 											servings
 										</span>
 									)}
@@ -728,7 +731,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 										aria-checked={isChecked}
 										tabIndex={0}
 										className={cn(
-											'flex cursor-pointer gap-4 rounded-lg px-2 py-2 transition-all select-none',
+											'flex cursor-pointer gap-4 rounded-lg px-3 py-3 transition-all select-none',
 											'hover:bg-muted/50',
 										)}
 										onClick={() => toggleStep(instruction.id)}
@@ -806,8 +809,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			{/* Floating action bar - mobile only */}
-			<div className="fixed inset-x-4 bottom-20 z-30 md:hidden print:hidden">
-				<div className="bg-card/95 shadow-warm-lg flex items-center gap-2 rounded-2xl border p-2 backdrop-blur-md">
+			<div className="fixed inset-x-4 bottom-16 z-30 md:hidden print:hidden">
+				<div className="bg-card/95 shadow-warm-lg flex items-center gap-1.5 rounded-2xl border p-2.5 backdrop-blur-md">
 					<Button
 						onClick={handleIMadeThis}
 						className="flex-1 gap-2 bg-green-600 hover:bg-green-700"
@@ -947,7 +950,7 @@ function IMadeThisModal({
 							id="cookedAt"
 							name="cookedAt"
 							defaultValue={format(new Date(), 'yyyy-MM-dd')}
-							className="border-input bg-background rounded-md border px-3 py-1.5 text-sm"
+							className="border-input bg-background rounded-md border px-3 py-1.5 text-base md:text-sm"
 						/>
 					</div>
 					<div>
@@ -962,7 +965,7 @@ function IMadeThisModal({
 							name="notes"
 							rows={2}
 							placeholder="How did it turn out? Any adjustments?"
-							className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+							className="border-input bg-background w-full rounded-md border px-3 py-2 text-base md:text-sm"
 						/>
 					</div>
 
@@ -1019,14 +1022,14 @@ function IMadeThisModal({
 						) : null}
 					</div>
 
-					<label className="flex items-center gap-2 text-sm">
+					<label className="flex items-center gap-2 py-1 text-sm">
 						<input
 							key={hasInventoryImpact ? 'has-impact' : 'no-impact'}
 							type="checkbox"
 							name="subtractInventory"
 							defaultChecked={!!hasInventoryImpact}
 							disabled={!hasInventoryImpact}
-							className="size-4 rounded"
+							className="size-5 rounded"
 						/>
 						Subtract ingredients from inventory
 					</label>
@@ -1092,8 +1095,7 @@ function WhatDoINeedModal({
 		for (const ingredientName of preview.noMatch) {
 			const ingredient = recipe.ingredients.find(
 				(i) =>
-					!i.isHeading &&
-					i.name.toLowerCase() === ingredientName.toLowerCase(),
+					!i.isHeading && i.name.toLowerCase() === ingredientName.toLowerCase(),
 			)
 			if (ingredient) {
 				missingItems.push({
@@ -1176,10 +1178,7 @@ function WhatDoINeedModal({
 					</p>
 				) : missingItems.length === 0 ? (
 					<div className="py-6 text-center">
-						<Icon
-							name="check"
-							className="text-green-600 mx-auto mb-2 size-8"
-						/>
+						<Icon name="check" className="mx-auto mb-2 size-8 text-green-600" />
 						<p className="font-medium">You have everything you need!</p>
 						<p className="text-muted-foreground mt-1 text-sm">
 							All ingredients are in your inventory.
@@ -1187,10 +1186,7 @@ function WhatDoINeedModal({
 					</div>
 				) : allChecked ? (
 					<div className="py-6 text-center">
-						<Icon
-							name="check"
-							className="text-green-600 mx-auto mb-2 size-8"
-						/>
+						<Icon name="check" className="mx-auto mb-2 size-8 text-green-600" />
 						<p className="font-medium">All sorted!</p>
 						<p className="text-muted-foreground mt-1 text-sm">
 							You've got everything checked off.
@@ -1212,7 +1208,7 @@ function WhatDoINeedModal({
 										aria-checked={isChecked}
 										tabIndex={0}
 										className={cn(
-											'flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors select-none',
+											'flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors select-none',
 											'hover:bg-accent/5',
 										)}
 										onClick={() => toggleItem(i)}
@@ -1225,27 +1221,22 @@ function WhatDoINeedModal({
 									>
 										<span
 											className={cn(
-												'flex size-4 shrink-0 items-center justify-center rounded border transition-colors',
+												'flex size-5 shrink-0 items-center justify-center rounded border transition-colors',
 												isChecked
 													? 'border-primary bg-primary text-primary-foreground'
 													: 'border-muted-foreground/25',
 											)}
 										>
-											{isChecked && (
-												<Icon name="check" className="size-3" />
-											)}
+											{isChecked && <Icon name="check" className="size-3.5" />}
 										</span>
 										<span
 											className={cn(
 												'transition-colors',
-												isChecked &&
-													'text-muted-foreground/50 line-through',
+												isChecked && 'text-muted-foreground/50 line-through',
 											)}
 										>
 											{item.amount && (
-												<span className="font-medium">
-													{item.amount}{' '}
-												</span>
+												<span className="font-medium">{item.amount} </span>
 											)}
 											{item.unit && <span>{item.unit} </span>}
 											{item.name}
@@ -1301,7 +1292,7 @@ function IngredientList({
 						role="checkbox"
 						aria-checked={isChecked}
 						tabIndex={0}
-						className="hover:bg-accent/5 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors select-none"
+						className="hover:bg-accent/5 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors select-none"
 						onClick={() => onToggle(ingredient.id)}
 						onKeyDown={(e) => {
 							if (e.key === 'Enter' || e.key === ' ') {
@@ -1312,13 +1303,13 @@ function IngredientList({
 					>
 						<span
 							className={cn(
-								'flex size-4 shrink-0 items-center justify-center rounded border transition-colors',
+								'flex size-5 shrink-0 items-center justify-center rounded border transition-colors',
 								isChecked
 									? 'border-primary bg-primary text-primary-foreground'
 									: 'border-muted-foreground/25',
 							)}
 						>
-							{isChecked && <Icon name="check" className="size-3" />}
+							{isChecked && <Icon name="check" className="size-3.5" />}
 						</span>
 						<span
 							className={cn(

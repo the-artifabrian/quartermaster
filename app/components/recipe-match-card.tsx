@@ -177,7 +177,7 @@ function MissingIngredients({
 						type="submit"
 						variant="ghost"
 						size="sm"
-						className="text-muted-foreground hover:text-foreground -mr-1.5 size-6 p-0"
+						className="text-muted-foreground hover:text-foreground -mr-1 size-8 p-0"
 						disabled={isSubmitting || isAdded}
 						onClick={(e) => {
 							e.preventDefault()
@@ -187,7 +187,7 @@ function MissingIngredients({
 					>
 						<Icon
 							name={isAdded ? 'check' : 'plus'}
-							className={cn('size-3.5', isAdded && 'text-green-600')}
+							className={cn('size-4', isAdded && 'text-green-600')}
 						/>
 						<span className="sr-only">Add all missing to shopping list</span>
 					</Button>
@@ -258,8 +258,8 @@ export function IngredientHaveItButton({
 				className={cn(
 					'inline-flex items-center justify-center rounded-full transition-colors',
 					variant === 'card'
-						? 'text-muted-foreground hover:text-foreground size-5 hover:bg-background'
-						: 'text-emerald-600 hover:text-emerald-800 size-5 hover:bg-emerald-200/50 dark:text-emerald-400 dark:hover:text-emerald-200 dark:hover:bg-emerald-800/40',
+						? 'text-muted-foreground hover:text-foreground size-7 hover:bg-background'
+						: 'text-emerald-600 hover:text-emerald-800 size-7 hover:bg-emerald-200/50 dark:text-emerald-400 dark:hover:text-emerald-200 dark:hover:bg-emerald-800/40',
 					isDone && 'cursor-default',
 				)}
 				onClick={(e) => {
@@ -274,7 +274,7 @@ export function IngredientHaveItButton({
 				<Icon
 					name={isDone ? 'check' : 'plus'}
 					className={cn(
-						'size-3',
+						'size-3.5',
 						isDone && 'text-green-600',
 					)}
 				/>

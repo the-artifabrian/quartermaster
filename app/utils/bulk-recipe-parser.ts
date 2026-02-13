@@ -8,6 +8,7 @@ export type ParsedRecipe = {
 		amount?: string
 		unit?: string
 		notes?: string
+		isHeading?: boolean
 	}>
 	instructions: Array<{ content: string }>
 	warnings: string[]
@@ -178,12 +179,14 @@ export function parseRecipeText(text: string): ParsedRecipe {
 	if (ingredientSectionIndex >= 0) {
 		const ingredientLines = getSectionLines(ingredientSectionIndex)
 		const usesBullets = ingredientLines.some(hasBulletPrefix)
-		let currentSubHeader: string | undefined
 
 		for (const line of ingredientLines) {
 			// In bulleted sections, non-bulleted lines are sub-headers
 			if (usesBullets && !hasBulletPrefix(line)) {
-				currentSubHeader = line.replace(/:$/, '').trim()
+				const heading = line.replace(/:$/, '').trim()
+				if (heading) {
+					ingredients.push({ name: heading, isHeading: true })
+				}
 				continue
 			}
 
@@ -196,11 +199,6 @@ export function parseRecipeText(text: string): ParsedRecipe {
 			}
 			const parsed = parseIngredient(stripped)
 			if (parsed) {
-				if (currentSubHeader) {
-					parsed.notes = parsed.notes
-						? `${currentSubHeader}; ${parsed.notes}`
-						: currentSubHeader
-				}
 				ingredients.push(parsed)
 			}
 		}

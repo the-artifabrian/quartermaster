@@ -42,7 +42,7 @@ function getRecipeCanonicalIngredients(
 ): Set<string> {
 	const result = new Set<string>()
 	for (const ing of recipe.ingredients) {
-		if (!isStapleIngredient(ing)) {
+		if (!ing.isHeading && !isStapleIngredient(ing)) {
 			result.add(getCanonicalIngredientName(ing.name))
 		}
 	}

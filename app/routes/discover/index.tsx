@@ -63,6 +63,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					amount: true,
 					unit: true,
 					notes: true,
+					isHeading: true,
 					order: true,
 					recipeId: true,
 				},

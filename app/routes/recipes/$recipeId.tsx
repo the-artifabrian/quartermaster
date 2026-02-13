@@ -123,6 +123,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 					amount: true,
 					unit: true,
 					notes: true,
+					isHeading: true,
 				},
 				orderBy: { order: 'asc' },
 			},
@@ -194,9 +195,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	}
 
 	if (intent === 'previewSubtraction') {
-		const servingRatio = parseFloat(
-			String(formData.get('servingRatio') ?? '1'),
-		)
+		const servingRatio = parseFloat(String(formData.get('servingRatio') ?? '1'))
 		const preview = await previewInventorySubtraction(
 			recipeId,
 			householdId,
@@ -280,6 +279,7 @@ function getRecipeJsonLd(
 			name: string
 			amount: string | null
 			unit: string | null
+			isHeading?: boolean
 		}>
 		instructions: Array<{ content: string }>
 		tags: Array<{ name: string; category: string }>
@@ -297,9 +297,9 @@ function getRecipeJsonLd(
 		...(recipe.prepTime && { prepTime: toIsoDuration(recipe.prepTime) }),
 		...(recipe.cookTime && { cookTime: toIsoDuration(recipe.cookTime) }),
 		...(totalTime > 0 && { totalTime: toIsoDuration(totalTime) }),
-		recipeIngredient: recipe.ingredients.map((i) =>
-			[i.amount, i.unit, i.name].filter(Boolean).join(' '),
-		),
+		recipeIngredient: recipe.ingredients
+			.filter((i) => !i.isHeading)
+			.map((i) => [i.amount, i.unit, i.name].filter(Boolean).join(' ')),
 		recipeInstructions: recipe.instructions.map((step, idx) => ({
 			'@type': 'HowToStep',
 			position: idx + 1,
@@ -474,7 +474,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			/>
 
 			{/* Header */}
-			<div className="container max-w-4xl px-4 pt-4 md:pt-6 md:px-8">
+			<div className="container max-w-4xl px-4 pt-4 md:px-8 md:pt-6">
 				<Link
 					to="/recipes"
 					className="text-muted-foreground hover:text-foreground mb-2 inline-flex items-center gap-1 text-sm md:mb-3 print:hidden"
@@ -635,8 +635,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						onClick={handleIMadeThis}
 						className="gap-2 bg-green-600 hover:bg-green-700"
 					>
-						<Icon name="check" size="sm" />
-						I Made This
+						<Icon name="check" size="sm" />I Made This
 					</Button>
 					<favoriteFetcher.Form method="POST">
 						<input type="hidden" name="intent" value="toggleFavorite" />
@@ -685,11 +684,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</Tooltip>
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<Button
-								variant="ghost"
-								size="icon"
-								onClick={handleShare}
-							>
+							<Button variant="ghost" size="icon" onClick={handleShare}>
 								<Icon name="share" size="md" />
 							</Button>
 						</TooltipTrigger>
@@ -710,64 +705,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									</span>
 								)}
 							</div>
-							<ul className="space-y-1">
-								{recipe.ingredients.map((ingredient) => {
-									const isChecked = checkedIngredients.has(ingredient.id)
-									return (
-										<li
-											key={ingredient.id}
-											role="checkbox"
-											aria-checked={isChecked}
-											tabIndex={0}
-											className="hover:bg-accent/5 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors select-none"
-											onClick={() => toggleIngredient(ingredient.id)}
-											onKeyDown={(e) => {
-												if (e.key === 'Enter' || e.key === ' ') {
-													e.preventDefault()
-													toggleIngredient(ingredient.id)
-												}
-											}}
-										>
-											<span
-												className={cn(
-													'flex size-4 shrink-0 items-center justify-center rounded border transition-colors',
-													isChecked
-														? 'border-primary bg-primary text-primary-foreground'
-														: 'border-muted-foreground/25',
-												)}
-											>
-												{isChecked && (
-													<Icon name="check" className="size-3" />
-												)}
-											</span>
-											<span
-												className={cn(
-													'transition-colors',
-													isChecked &&
-														'text-muted-foreground/50 line-through',
-												)}
-											>
-												{ingredient.amount && (
-													<span className="font-medium">
-														{scaleAmount(ingredient.amount, ratio)}{' '}
-													</span>
-												)}
-												{ingredient.unit && <span>{ingredient.unit} </span>}
-												<span>{ingredient.name}</span>
-												{ingredient.notes && (
-													<span
-														className={
-															isChecked ? '' : 'text-muted-foreground'
-														}
-													>
-														, {ingredient.notes}
-													</span>
-												)}
-											</span>
-										</li>
-									)
-								})}
-							</ul>
+							<IngredientList
+								ingredients={recipe.ingredients}
+								checkedIngredients={checkedIngredients}
+								onToggle={toggleIngredient}
+								ratio={ratio}
+							/>
 						</div>
 					</div>
 
@@ -803,17 +746,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 													: 'bg-accent/10 text-accent border-accent/20 border',
 											)}
 										>
-											{isChecked ? (
-												<Icon name="check" size="sm" />
-											) : (
-												index + 1
-											)}
+											{isChecked ? <Icon name="check" size="sm" /> : index + 1}
 										</span>
 										<p
 											className={cn(
 												'pt-1 text-base transition-colors',
-												isChecked &&
-													'text-muted-foreground/50 line-through',
+												isChecked && 'text-muted-foreground/50 line-through',
 											)}
 										>
 											<InstructionWithTimers
@@ -873,8 +811,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						onClick={handleIMadeThis}
 						className="flex-1 gap-2 bg-green-600 hover:bg-green-700"
 					>
-						<Icon name="check" size="sm" />
-						I Made This
+						<Icon name="check" size="sm" />I Made This
 					</Button>
 					<favoriteFetcher.Form method="POST">
 						<input type="hidden" name="intent" value="toggleFavorite" />
@@ -970,10 +907,7 @@ function IMadeThisModal({
 			{/* Modal */}
 			<div className="bg-card shadow-warm-lg relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl p-6 sm:rounded-2xl">
 				<div className="mb-1 flex items-center justify-between">
-					<h2
-						id="i-made-this-title"
-						className="font-serif text-xl font-bold"
-					>
+					<h2 id="i-made-this-title" className="font-serif text-xl font-bold">
 						I Made This
 					</h2>
 					<button
@@ -1043,9 +977,7 @@ function IMadeThisModal({
 														will be flagged low
 													</span>
 												) : item.willBeRemoved ? (
-													<span className="text-red-600">
-														will be removed
-													</span>
+													<span className="text-red-600">will be removed</span>
 												) : (
 													<>
 														{formatQuantity(item.currentQuantity)}{' '}
@@ -1098,6 +1030,91 @@ function IMadeThisModal({
 				</cookFetcher.Form>
 			</div>
 		</div>
+	)
+}
+
+// --- Ingredient list with heading support ---
+
+function IngredientList({
+	ingredients,
+	checkedIngredients,
+	onToggle,
+	ratio,
+}: {
+	ingredients: Array<{
+		id: string
+		name: string
+		amount: string | null
+		unit: string | null
+		notes: string | null
+		isHeading: boolean
+	}>
+	checkedIngredients: Set<string>
+	onToggle: (id: string) => void
+	ratio: number
+}) {
+	return (
+		<ul className="space-y-1">
+			{ingredients.map((ingredient) => {
+				if (ingredient.isHeading) {
+					return (
+						<li key={ingredient.id}>
+							<p className="text-muted-foreground mt-3 mb-1 px-2 text-sm font-semibold tracking-wide first:mt-0">
+								{ingredient.name}
+							</p>
+						</li>
+					)
+				}
+
+				const isChecked = checkedIngredients.has(ingredient.id)
+				return (
+					<li
+						key={ingredient.id}
+						role="checkbox"
+						aria-checked={isChecked}
+						tabIndex={0}
+						className="hover:bg-accent/5 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors select-none"
+						onClick={() => onToggle(ingredient.id)}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault()
+								onToggle(ingredient.id)
+							}
+						}}
+					>
+						<span
+							className={cn(
+								'flex size-4 shrink-0 items-center justify-center rounded border transition-colors',
+								isChecked
+									? 'border-primary bg-primary text-primary-foreground'
+									: 'border-muted-foreground/25',
+							)}
+						>
+							{isChecked && <Icon name="check" className="size-3" />}
+						</span>
+						<span
+							className={cn(
+								'transition-colors',
+								isChecked && 'text-muted-foreground/50 line-through',
+							)}
+						>
+							{ingredient.amount && (
+								<span className="font-medium">
+									{scaleAmount(ingredient.amount, ratio)}{' '}
+								</span>
+							)}
+							{ingredient.unit && <span>{ingredient.unit} </span>}
+							<span>{ingredient.name}</span>
+							{ingredient.notes && (
+								<span className={isChecked ? '' : 'text-muted-foreground'}>
+									, {ingredient.notes}
+								</span>
+							)}
+						</span>
+					</li>
+				)
+			})}
+		</ul>
 	)
 }
 

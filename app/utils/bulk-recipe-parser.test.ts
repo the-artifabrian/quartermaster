@@ -349,8 +349,11 @@ Instructions
 1. Make pizza.`
 
 		const result = parseRecipeText(text)
-		expect(result.ingredients[0]!.notes).toBe('Dough')
-		expect(result.ingredients[1]!.notes).toBe('Sauce')
+		expect(result.ingredients).toHaveLength(4)
+		expect(result.ingredients[0]).toEqual({ name: 'Dough', isHeading: true })
+		expect(result.ingredients[1]!.name).toBe('flour')
+		expect(result.ingredients[2]).toEqual({ name: 'Sauce', isHeading: true })
+		expect(result.ingredients[3]!.name).toBe('tomatoes')
 	})
 
 	test('strips bold-italic markers from sub-section headers', () => {
@@ -366,8 +369,11 @@ Instructions
 1. Bake.`
 
 		const result = parseRecipeText(text)
-		expect(result.ingredients[0]!.notes).toBe('Choux Pastry')
-		expect(result.ingredients[1]!.notes).toBe('Ganache')
+		expect(result.ingredients).toHaveLength(4)
+		expect(result.ingredients[0]).toEqual({ name: 'Choux Pastry', isHeading: true })
+		expect(result.ingredients[1]!.name).toBe('water')
+		expect(result.ingredients[2]).toEqual({ name: 'Ganache', isHeading: true })
+		expect(result.ingredients[3]!.name).toBe('cream')
 	})
 
 	test('strips Apple Notes link syntax', () => {
@@ -559,34 +565,32 @@ Instructions
 2. Cook polenta.`
 
 		const result = parseRecipeText(text)
-		expect(result.ingredients).toHaveLength(4)
-		expect(result.ingredients[0]).toEqual({
+		expect(result.ingredients).toHaveLength(6)
+		expect(result.ingredients[0]).toEqual({ name: 'Gremolata Topping', isHeading: true })
+		expect(result.ingredients[1]).toEqual({
 			name: 'parsley',
 			amount: '1',
 			unit: 'cup',
-			notes: 'Gremolata Topping',
 		})
-		expect(result.ingredients[1]).toEqual({
+		expect(result.ingredients[2]).toEqual({
 			name: 'garlic',
 			amount: '3',
 			unit: 'cloves',
-			notes: 'Gremolata Topping',
 		})
-		expect(result.ingredients[2]).toEqual({
+		expect(result.ingredients[3]).toEqual({ name: 'Polenta', isHeading: true })
+		expect(result.ingredients[4]).toEqual({
 			name: 'cornmeal',
 			amount: '2',
 			unit: 'cups',
-			notes: 'Polenta',
 		})
-		expect(result.ingredients[3]).toEqual({
+		expect(result.ingredients[5]).toEqual({
 			name: 'water',
 			amount: '4',
 			unit: 'cups',
-			notes: 'Polenta',
 		})
 	})
 
-	test('merges sub-section header with comma-based notes', () => {
+	test('keeps notes separate from heading ingredients', () => {
 		const text = `Fancy Dish
 
 Ingredients
@@ -598,17 +602,18 @@ Instructions
 1. Cook.`
 
 		const result = parseRecipeText(text)
-		expect(result.ingredients[0]).toEqual({
+		expect(result.ingredients).toHaveLength(3)
+		expect(result.ingredients[0]).toEqual({ name: 'Sauce', isHeading: true })
+		expect(result.ingredients[1]).toEqual({
 			name: 'tomatoes',
 			amount: '2',
 			unit: 'cups',
-			notes: 'Sauce; diced',
+			notes: 'diced',
 		})
-		expect(result.ingredients[1]).toEqual({
+		expect(result.ingredients[2]).toEqual({
 			name: 'olive oil',
 			amount: '1',
 			unit: 'tbsp',
-			notes: 'Sauce',
 		})
 	})
 
@@ -625,8 +630,11 @@ Instructions
 1. Assemble.`
 
 		const result = parseRecipeText(text)
-		expect(result.ingredients[0]!.notes).toBe('Filling')
-		expect(result.ingredients[1]!.notes).toBe('Base')
+		expect(result.ingredients).toHaveLength(4)
+		expect(result.ingredients[0]).toEqual({ name: 'Filling', isHeading: true })
+		expect(result.ingredients[1]!.name).toBe('ricotta')
+		expect(result.ingredients[2]).toEqual({ name: 'Base', isHeading: true })
+		expect(result.ingredients[3]!.name).toBe('flour')
 	})
 
 	test('no sub-headers detected when section has no bullets', () => {
@@ -677,14 +685,17 @@ Day Of
 		const result = parseRecipeText(text)
 		expect(result.title).toBe('Braised Short Ribs with Polenta')
 		expect(result.description).toBe('A hearty winter dish.')
-		expect(result.ingredients).toHaveLength(7)
-		expect(result.ingredients[0]!.notes).toBe('Braised Short Ribs')
-		expect(result.ingredients[1]!.notes).toBe('Braised Short Ribs')
-		expect(result.ingredients[2]!.notes).toBe('Braised Short Ribs; crushed')
-		expect(result.ingredients[3]!.notes).toBe('Gremolata Topping; chopped')
-		expect(result.ingredients[4]!.notes).toBe('Gremolata Topping; minced')
-		expect(result.ingredients[5]!.notes).toBe('Polenta')
-		expect(result.ingredients[6]!.notes).toBe('Polenta')
+		expect(result.ingredients).toHaveLength(10) // 3 headings + 7 ingredients
+		expect(result.ingredients[0]).toEqual({ name: 'Braised Short Ribs', isHeading: true })
+		expect(result.ingredients[1]!.name).toBe('bone-in short ribs')
+		expect(result.ingredients[2]!.name).toBe('red wine')
+		expect(result.ingredients[3]!.notes).toBe('crushed')
+		expect(result.ingredients[4]).toEqual({ name: 'Gremolata Topping', isHeading: true })
+		expect(result.ingredients[5]!.notes).toBe('chopped')
+		expect(result.ingredients[6]!.notes).toBe('minced')
+		expect(result.ingredients[7]).toEqual({ name: 'Polenta', isHeading: true })
+		expect(result.ingredients[8]!.name).toBe('cornmeal')
+		expect(result.ingredients[9]!.name).toBe('water')
 		expect(result.instructions).toHaveLength(8)
 		// Sub-headers in instructions become their own steps
 		expect(result.instructions[0]!.content).toBe('Braising (Day Before)')

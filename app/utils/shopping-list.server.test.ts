@@ -30,6 +30,7 @@ function makeRecipe(
 			amount: ing.amount ?? null,
 			unit: ing.unit ?? null,
 			notes: null,
+			isHeading: false,
 			order: i,
 			recipeId: id,
 		})),

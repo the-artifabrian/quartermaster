@@ -58,6 +58,7 @@ export function generateShoppingListFromRecipes(
 			servings && recipe.servings > 0 ? servings / recipe.servings : 1
 
 		for (const ingredient of recipe.ingredients) {
+			if (ingredient.isHeading) continue
 			const normalizedName = getCanonicalIngredientName(ingredient.name)
 
 			// Scale the amount by the serving ratio

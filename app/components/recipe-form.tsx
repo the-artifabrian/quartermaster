@@ -42,6 +42,7 @@ type RecipeFormProps = {
 			amount?: string | null
 			unit?: string | null
 			notes?: string | null
+			isHeading?: boolean
 		}>
 		instructions: Array<{
 			id: string
@@ -105,6 +106,7 @@ export function RecipeForm({
 			amount: i.amount ?? '',
 			unit: i.unit ?? '',
 			notes: i.notes ?? '',
+			isHeading: i.isHeading ?? false,
 		})) ?? [{ name: '', amount: '', unit: '', notes: '' }],
 	)
 
@@ -405,6 +407,11 @@ export function RecipeForm({
 						type="hidden"
 						name={`ingredients[${index}].notes`}
 						value={ingredient.notes ?? ''}
+					/>
+					<input
+						type="hidden"
+						name={`ingredients[${index}].isHeading`}
+						value={ingredient.isHeading ? 'true' : ''}
 					/>
 				</div>
 			))}

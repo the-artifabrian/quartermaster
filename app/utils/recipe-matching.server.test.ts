@@ -289,6 +289,7 @@ describe('matchRecipesWithInventory', () => {
 				amount: '1',
 				unit: 'cup',
 				notes: null,
+				isHeading: false,
 				order: i,
 				recipeId: id,
 			})),

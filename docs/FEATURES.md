@@ -30,7 +30,8 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 - Share button with Web Share API (native mobile sharing) and clipboard
   fallback with toast confirmation
 - Public recipe sharing page (`/share/$recipeId`): read-only view with OG meta
-  tags, recipe scaling, and "Import to Quartermaster" CTA for non-users
+  tags, recipe scaling, "Save to My Recipes" for logged-in users (with duplicate
+  detection), and sign-up CTA for non-users
 - Import from URL (JSON-LD scraping) with duplicate detection and text fallback
   (when structured data extraction fails, paste recipe text for parsing via the
   bulk-import parser), quick text entry, JSON export

@@ -5,21 +5,20 @@ export const ShoppingListItemSchema = z.object({
 	quantity: z.string().max(50).optional(),
 	unit: z.string().max(20).optional(),
 	category: z
-		.enum(['produce', 'dairy', 'meat', 'pantry', 'frozen', 'bakery', 'other'])
+		.enum([
+			'produce',
+			'dairy',
+			'meat',
+			'pantry',
+			'frozen',
+			'bakery',
+			'household',
+			'other',
+		])
 		.optional(),
 })
 
 export type ShoppingListItemFormData = z.infer<typeof ShoppingListItemSchema>
-
-export const CATEGORY_LABELS: Record<string, string> = {
-	produce: 'Produce',
-	dairy: 'Dairy',
-	meat: 'Meat & Seafood',
-	pantry: 'Pantry',
-	frozen: 'Frozen',
-	bakery: 'Bakery',
-	other: 'Other',
-}
 
 // Categorize ingredients by name
 export function guessCategory(ingredientName: string): string {
@@ -51,6 +50,15 @@ export function guessCategory(ingredientName: string): string {
 	}
 	if (name.match(/bread|bun|roll|bagel|tortilla|pita/)) {
 		return 'bakery'
+	}
+	// Household check before pantry — "toilet" contains "oil" which would
+	// otherwise match the pantry pattern.
+	if (
+		name.match(
+			/toilet paper|paper towel|tissues|napkins|paper plates|paper cups|dish soap|laundry detergent|bleach|cleaner|disinfect|wipes|sponge|dryer sheets|fabric softener|shampoo|conditioner|body wash|toothpaste|deodorant|floss|razor|sunscreen|trash bag|garbage bag|aluminum foil|plastic wrap|ziplock|batteries|light bulb|candle|dog food|cat food|cat litter|pet food|pet treats/,
+		)
+	) {
+		return 'household'
 	}
 	if (
 		name.match(

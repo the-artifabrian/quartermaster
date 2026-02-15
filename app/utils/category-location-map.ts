@@ -8,6 +8,7 @@ const CATEGORY_LOCATION: Record<string, 'pantry' | 'fridge' | 'freezer'> = {
 	pantry: 'pantry',
 	frozen: 'freezer',
 	bakery: 'pantry',
+	household: 'pantry',
 	other: 'pantry',
 }
 

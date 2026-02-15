@@ -29,7 +29,9 @@ import {
 	subtractRecipeIngredientsFromInventory,
 	previewInventorySubtraction,
 } from '#app/utils/inventory-subtract.server.ts'
+import { getCanonicalIngredientName } from '#app/utils/recipe-matching.server.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
+import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { type Route } from './+types/$recipeId.ts'
 
@@ -257,6 +259,125 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 		await prisma.cookingLog.delete({ where: { id: logId } })
 		return { success: true }
+	}
+
+	if (intent === 'add-to-shopping-list') {
+		const servingRatio = parseFloat(
+			String(formData.get('servingRatio') ?? '1'),
+		)
+		const safeRatio =
+			isNaN(servingRatio) || servingRatio <= 0 ? 1 : servingRatio
+
+		// Re-run preview to get missing items
+		const preview = await previewInventorySubtraction(
+			recipeId,
+			householdId,
+			safeRatio,
+		)
+
+		// Build items to add from noMatch + deficit items
+		const fullRecipe = await prisma.recipe.findUnique({
+			where: { id: recipeId },
+			include: { ingredients: true },
+		})
+		invariantResponse(fullRecipe, 'Recipe not found')
+
+		const shoppingItems: Array<{
+			name: string
+			quantity: string | null
+			unit: string | null
+		}> = []
+
+		// Items not in inventory at all
+		for (const ingredientName of preview.noMatch) {
+			const ingredient = fullRecipe.ingredients.find(
+				(i) =>
+					!i.isHeading &&
+					i.name.toLowerCase() === ingredientName.toLowerCase(),
+			)
+			if (ingredient) {
+				const amount = ingredient.amount
+					? scaleAmount(ingredient.amount, safeRatio)
+					: null
+				shoppingItems.push({
+					name: ingredient.name,
+					quantity: amount,
+					unit: ingredient.unit,
+				})
+			} else {
+				shoppingItems.push({
+					name: ingredientName,
+					quantity: null,
+					unit: null,
+				})
+			}
+		}
+
+		// Items with insufficient inventory (deficit)
+		for (const item of preview.willSubtract) {
+			if (
+				item.subtractAmount !== null &&
+				item.currentQuantity !== null &&
+				item.subtractAmount > item.currentQuantity
+			) {
+				const deficit = item.subtractAmount - item.currentQuantity
+				shoppingItems.push({
+					name: item.name,
+					quantity: formatQuantity(deficit),
+					unit: item.currentUnit,
+				})
+			}
+		}
+
+		if (shoppingItems.length === 0) {
+			return { success: true, addedToShoppingList: 0 }
+		}
+
+		// Get or create shopping list
+		let shoppingList = await prisma.shoppingList.findFirst({
+			where: { householdId },
+			include: { items: { where: { checked: false } } },
+		})
+		if (!shoppingList) {
+			shoppingList = await prisma.shoppingList.create({
+				data: { userId, householdId },
+				include: { items: { where: { checked: false } } },
+			})
+		}
+
+		// Deduplicate by canonical name
+		const existingCanonical = new Set(
+			shoppingList.items.map((item) =>
+				getCanonicalIngredientName(item.name),
+			),
+		)
+
+		const newItems = shoppingItems.filter(
+			(item) =>
+				!existingCanonical.has(getCanonicalIngredientName(item.name)),
+		)
+
+		if (newItems.length > 0) {
+			await prisma.shoppingListItem.createMany({
+				data: newItems.map((item) => ({
+					name: item.name,
+					quantity: item.quantity,
+					unit: item.unit,
+					category: guessCategory(item.name),
+					source: 'recipe',
+					listId: shoppingList.id,
+				})),
+			})
+		}
+
+		void emitHouseholdEvent({
+			type: 'shopping_list_item_added',
+			payload: { name: recipe.title, source: 'recipe' },
+			userId,
+			householdId,
+		})
+
+		return { success: true, addedToShoppingList: newItems.length }
 	}
 
 	return { success: false }
@@ -1073,6 +1194,7 @@ function WhatDoINeedModal({
 	onClose: () => void
 }) {
 	const [checked, setChecked] = useState<Set<number>>(() => new Set())
+	const shoppingFetcher = useFetcher()
 
 	useEffect(() => {
 		function handleEscape(e: KeyboardEvent) {
@@ -1087,6 +1209,12 @@ function WhatDoINeedModal({
 		| undefined
 	const preview = data?.preview
 	const isLoading = needFetcher.state !== 'idle'
+
+	const shoppingData = shoppingFetcher.data as
+		| { addedToShoppingList?: number }
+		| undefined
+	const addedToList = shoppingData?.addedToShoppingList
+	const isAddingToList = shoppingFetcher.state !== 'idle'
 
 	// Build list of missing items
 	const missingItems: Array<{
@@ -1142,6 +1270,13 @@ function WhatDoINeedModal({
 			}
 			return next
 		})
+	}
+
+	function handleAddToShoppingList() {
+		const formData = new FormData()
+		formData.set('intent', 'add-to-shopping-list')
+		formData.set('servingRatio', ratio.toString())
+		void shoppingFetcher.submit(formData, { method: 'POST' })
 	}
 
 	const remaining = missingItems.length - checked.size
@@ -1250,6 +1385,38 @@ function WhatDoINeedModal({
 								)
 							})}
 						</ul>
+
+						{/* Add to Shopping List */}
+						<div className="mt-4 border-t pt-3">
+							{addedToList !== undefined ? (
+								<div className="text-center">
+									<p className="text-sm text-green-600">
+										<Icon name="check" className="mr-1 inline size-4" />
+										Added {addedToList} item
+										{addedToList !== 1 ? 's' : ''} to shopping list
+									</p>
+									<Link
+										to="/shopping"
+										className="text-primary mt-2 inline-flex items-center gap-1 text-sm font-medium hover:underline"
+									>
+										View Shopping List
+										<Icon name="arrow-right" size="sm" />
+									</Link>
+								</div>
+							) : (
+								<Button
+									variant="outline"
+									className="w-full gap-1.5"
+									onClick={handleAddToShoppingList}
+									disabled={isAddingToList}
+								>
+									<Icon name="plus" size="sm" />
+									{isAddingToList
+										? 'Adding...'
+										: `Add ${missingItems.length} to Shopping List`}
+								</Button>
+							)}
+						</div>
 					</>
 				)}
 			</div>

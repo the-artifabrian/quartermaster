@@ -9,12 +9,12 @@ import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getCurrentWeekStart } from '#app/utils/date.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
-import { action } from './shopping-list.tsx'
+import { action } from '../shopping.tsx'
 
 const ACTION_ARGS_BASE = {
 	params: {},
 	context: {} as AppLoadContext,
-	unstable_pattern: '/plan/shopping-list',
+	unstable_pattern: '/shopping',
 }
 
 async function setupUser() {
@@ -78,7 +78,7 @@ async function makeRequest(
 ) {
 	const cookie = await getSessionCookieHeader(session)
 	const formData = new URLSearchParams(formFields)
-	return new Request(`${BASE_URL}/plan/shopping-list`, {
+	return new Request(`${BASE_URL}/shopping`, {
 		method: 'POST',
 		headers: {
 			cookie,
@@ -277,5 +277,23 @@ describe('shopping list actions', () => {
 		await expect(response).rejects.toEqual(
 			expect.objectContaining({ status: 404 }),
 		)
+	})
+
+	test('add item auto-categorizes household items', async () => {
+		const session = await setupUser()
+
+		const request = await makeRequest(session, {
+			intent: 'add',
+			name: 'Toilet Paper',
+		})
+		await action({ request, ...ACTION_ARGS_BASE })
+
+		const list = await prisma.shoppingList.findFirst({
+			where: { userId: session.userId },
+			include: { items: true },
+		})
+		const item = list!.items.find((i) => i.name === 'Toilet Paper')
+		expect(item).toBeDefined()
+		expect(item!.category).toBe('household')
 	})
 })

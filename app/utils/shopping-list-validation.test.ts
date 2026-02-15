@@ -55,6 +55,26 @@ describe('guessCategory', () => {
 		expect(guessCategory('oats')).toBe('pantry')
 	})
 
+	test('categorizes household items', () => {
+		expect(guessCategory('toilet paper')).toBe('household')
+		expect(guessCategory('Paper Towels')).toBe('household')
+		expect(guessCategory('dish soap')).toBe('household')
+		expect(guessCategory('laundry detergent')).toBe('household')
+		expect(guessCategory('all-purpose cleaner')).toBe('household')
+		expect(guessCategory('disinfecting wipes')).toBe('household')
+		expect(guessCategory('sponge')).toBe('household')
+		expect(guessCategory('shampoo')).toBe('household')
+		expect(guessCategory('toothpaste')).toBe('household')
+		expect(guessCategory('trash bags')).toBe('household')
+		expect(guessCategory('aluminum foil')).toBe('household')
+		expect(guessCategory('batteries')).toBe('household')
+		expect(guessCategory('dog food')).toBe('household')
+		expect(guessCategory('cat litter')).toBe('household')
+		expect(guessCategory('dryer sheets')).toBe('household')
+		expect(guessCategory('plastic wrap')).toBe('household')
+		expect(guessCategory('Toilet Paper')).toBe('household')
+	})
+
 	test('falls back to "other" for unknown items', () => {
 		expect(guessCategory('nutritional yeast')).toBe('other')
 		expect(guessCategory('tofu')).toBe('other')

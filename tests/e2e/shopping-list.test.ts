@@ -43,20 +43,21 @@ test('Shopping list flow: generate → verify items → add manual → check →
 	})
 
 	// 1. Navigate to shopping list
-	await page.goto('/plan/shopping-list')
+	await page.goto('/shopping')
 	await expect(
 		page.getByRole('heading', { name: /shopping list/i }),
 	).toBeVisible()
 
 	// 2. Generate from meal plan
-	await page.getByRole('button', { name: /generate from meal plan/i }).click()
+	await page.getByRole('button', { name: /generate/i }).click()
 
 	// 3. Verify generated items appear
 	await expect(page.getByText('chicken breast')).toBeVisible()
 	await expect(page.getByText('jasmine rice')).toBeVisible()
 	await expect(page.getByText('broccoli')).toBeVisible()
 
-	// 4. Add manual item
+	// 4. Add manual item (expand Quick Add first)
+	await page.getByRole('button', { name: /quick add/i }).click()
 	await page.getByLabel(/item name/i).fill('Bananas')
 	await page
 		.getByLabel(/quantity/i)
@@ -70,7 +71,7 @@ test('Shopping list flow: generate → verify items → add manual → check →
 	await chickenItem.locator('button[type="submit"]').first().click()
 
 	// 6. Verify checked count updates
-	await expect(page.getByText(/1 of \d+ checked/i)).toBeVisible()
+	await expect(page.getByText(/1\/\d+ checked/i)).toBeVisible()
 
 	// 7. Clear checked items
 	await page.getByRole('button', { name: /clear checked/i }).click()

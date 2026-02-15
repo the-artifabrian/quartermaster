@@ -25,8 +25,12 @@ export function ShoppingListToInventory({
 	const fetcher = useFetcher()
 	const isSubmitting = fetcher.state !== 'idle'
 
+	// Separate household items — they won't become inventory
+	const foodItems = items.filter((item) => item.category !== 'household')
+	const householdCount = items.length - foodItems.length
+
 	const [reviewItems, setReviewItems] = useState<InventoryReviewItem[]>(() =>
-		items.map((item) => ({
+		foodItems.map((item) => ({
 			id: item.id,
 			name: item.name,
 			quantity: item.quantity,
@@ -59,11 +63,16 @@ export function ShoppingListToInventory({
 		const selected = reviewItems
 			.filter((i) => i.included)
 			.map((i) => ({ itemId: i.id, location: i.location }))
-		if (selected.length === 0) return
+		// Include household items too — server will clear them but skip inventory creation
+		const householdItemEntries = items
+			.filter((item) => item.category === 'household')
+			.map((item) => ({ itemId: item.id, location: 'pantry' }))
+		const allItems = [...selected, ...householdItemEntries]
+		if (allItems.length === 0) return
 
 		const formData = new FormData()
 		formData.set('intent', 'add-to-inventory')
-		formData.set('items', JSON.stringify(selected))
+		formData.set('items', JSON.stringify(allItems))
 		void fetcher.submit(formData, { method: 'POST' })
 	}
 
@@ -79,41 +88,50 @@ export function ShoppingListToInventory({
 				</p>
 			</div>
 
-			<div className="space-y-2">
-				{reviewItems.map((item) => (
-					<div
-						key={item.id}
-						className="bg-background flex items-center gap-3 rounded-lg px-3 py-2.5"
-					>
-						<Checkbox
-							checked={item.included}
-							onCheckedChange={() => handleToggle(item.id)}
-						/>
-						<div className="min-w-0 flex-1">
-							<p className="truncate text-sm font-medium">{item.name}</p>
-							{(item.quantity || item.unit) && (
-								<p className="text-muted-foreground text-xs">
-									{item.quantity} {item.unit}
-								</p>
-							)}
-						</div>
-						<select
-							value={item.location}
-							onChange={(e) =>
-								handleLocationChange(
-									item.id,
-									e.target.value as 'pantry' | 'fridge' | 'freezer',
-								)
-							}
-							className="bg-muted rounded-md border px-2 py-1 text-sm"
+			{reviewItems.length > 0 && (
+				<div className="space-y-2">
+					{reviewItems.map((item) => (
+						<div
+							key={item.id}
+							className="bg-background flex items-center gap-3 rounded-lg px-3 py-2.5"
 						>
-							<option value="pantry">Pantry</option>
-							<option value="fridge">Fridge</option>
-							<option value="freezer">Freezer</option>
-						</select>
-					</div>
-				))}
-			</div>
+							<Checkbox
+								checked={item.included}
+								onCheckedChange={() => handleToggle(item.id)}
+							/>
+							<div className="min-w-0 flex-1">
+								<p className="truncate text-sm font-medium">{item.name}</p>
+								{(item.quantity || item.unit) && (
+									<p className="text-muted-foreground text-xs">
+										{item.quantity} {item.unit}
+									</p>
+								)}
+							</div>
+							<select
+								value={item.location}
+								onChange={(e) =>
+									handleLocationChange(
+										item.id,
+										e.target.value as 'pantry' | 'fridge' | 'freezer',
+									)
+								}
+								className="bg-muted rounded-md border px-2 py-1 text-sm"
+							>
+								<option value="pantry">Pantry</option>
+								<option value="fridge">Fridge</option>
+								<option value="freezer">Freezer</option>
+							</select>
+						</div>
+					))}
+				</div>
+			)}
+
+			{householdCount > 0 && (
+				<p className="text-muted-foreground mt-3 text-sm">
+					{householdCount} household item{householdCount !== 1 ? 's' : ''} will
+					be cleared from the list (not added to inventory).
+				</p>
+			)}
 
 			<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
 				<p className="text-muted-foreground text-sm">
@@ -125,10 +143,17 @@ export function ShoppingListToInventory({
 					</Button>
 					<Button
 						onClick={handleSubmit}
-						disabled={selectedCount === 0 || isSubmitting}
+						disabled={
+							(selectedCount === 0 && householdCount === 0) || isSubmitting
+						}
 					>
 						{isSubmitting ? (
-							'Adding...'
+							'Processing...'
+						) : selectedCount === 0 && householdCount > 0 ? (
+							<>
+								<Icon name="trash" size="sm" />
+								Clear Household Items
+							</>
 						) : (
 							<>
 								<Icon name="plus" size="sm" />

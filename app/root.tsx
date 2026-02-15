@@ -187,6 +187,47 @@ export async function loader({ request }: Route.LoaderArgs) {
 	)
 }
 
+/**
+ * Skip re-running the root loader on normal page-to-page navigations.
+ * The root loader provides mostly-static data (user, theme, ENV) and
+ * notification count (tracked client-side via SSE).
+ *
+ * Revalidate when:
+ * - After form submissions (toasts, state changes)
+ * - Explicit revalidation (useRevalidator — e.g., OS color scheme change)
+ * - Same-URL revalidation (defaultShouldRevalidate handles this)
+ *
+ * Skip when:
+ * - Navigating between pages (root data doesn't depend on URL/params)
+ * - Search params change on a child route
+ */
+export function shouldRevalidate({
+	defaultShouldRevalidate,
+	formAction,
+	currentUrl,
+	nextUrl,
+}: {
+	defaultShouldRevalidate: boolean
+	formAction?: string
+	currentUrl: URL
+	nextUrl: URL
+}) {
+	// Always revalidate after form submissions (actions)
+	if (formAction) return true
+
+	// Same URL — respect defaultShouldRevalidate (covers useRevalidator,
+	// X-Remix-Revalidate, and other explicit revalidation triggers)
+	if (
+		currentUrl.pathname === nextUrl.pathname &&
+		currentUrl.search === nextUrl.search
+	) {
+		return defaultShouldRevalidate
+	}
+
+	// URL changed — root loader data doesn't depend on URL or search params
+	return false
+}
+
 export const headers: Route.HeadersFunction = pipeHeaders
 
 function Document({

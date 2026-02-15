@@ -69,7 +69,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	})()
 
-	const [recipes, totalRecipeCount, inventoryCount, mealPlanEntryCount, allRecipesForQuality] =
+	const [recipes, inventoryCount, mealPlanEntryCount, allRecipesForQuality] =
 		await Promise.all([
 			prisma.recipe.findMany({
 				where: {
@@ -107,7 +107,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 				},
 				orderBy,
 			}),
-			prisma.recipe.count({ where: { householdId } }),
 			prisma.inventoryItem.count({ where: { householdId } }),
 			prisma.mealPlanEntry.count({
 				where: { mealPlan: { householdId } },
@@ -121,6 +120,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 				},
 			}),
 		])
+
+	// Total recipe count comes from the unfiltered quality query
+	const totalRecipeCount = allRecipesForQuality.length
 
 	// Post-filter by total cook time (prepTime + cookTime).
 	// Recipes with no time data (both null) are included since unknown ≠ slow.

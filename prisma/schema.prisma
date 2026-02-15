@@ -425,6 +425,7 @@ model HouseholdEvent {
 
   @@index([householdId, createdAt])
   @@index([householdId, userId])
+  @@index([householdId, type, createdAt])
 }
 
 model MealPlanTemplate {

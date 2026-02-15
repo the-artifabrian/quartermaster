@@ -101,17 +101,17 @@ export function formatEventMessage(
 		case 'shopping_list_generated':
 			return {
 				message: `${username} generated the shopping list (${payload.count} items)`,
-				url: '/plan/shopping-list',
+				url: '/shopping',
 			}
 		case 'shopping_list_item_added':
 			return {
 				message: `${username} added ${payload.name} to the shopping list`,
-				url: '/plan/shopping-list',
+				url: '/shopping',
 			}
 		case 'shopping_list_cleared':
 			return {
 				message: `${username} cleared checked items from the shopping list`,
-				url: '/plan/shopping-list',
+				url: '/shopping',
 			}
 		case 'shopping_list_to_inventory':
 			return {

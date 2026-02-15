@@ -216,7 +216,7 @@ describe('formatEventMessage', () => {
 		expect(result.message).toBe(
 			'Alex generated the shopping list (24 items)',
 		)
-		expect(result.url).toBe('/plan/shopping-list')
+		expect(result.url).toBe('/shopping')
 	})
 
 	test('shopping_list_item_added', () => {
@@ -226,7 +226,7 @@ describe('formatEventMessage', () => {
 			'Alex',
 		)
 		expect(result.message).toBe('Alex added Butter to the shopping list')
-		expect(result.url).toBe('/plan/shopping-list')
+		expect(result.url).toBe('/shopping')
 	})
 
 	test('shopping_list_cleared', () => {
@@ -238,7 +238,7 @@ describe('formatEventMessage', () => {
 		expect(result.message).toBe(
 			'Alex cleared checked items from the shopping list',
 		)
-		expect(result.url).toBe('/plan/shopping-list')
+		expect(result.url).toBe('/shopping')
 	})
 
 	test('shopping_list_to_inventory', () => {

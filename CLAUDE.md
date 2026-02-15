@@ -71,7 +71,8 @@ app/
 │   ├── recipes/         # Recipe CRUD, search, import (URL, bulk text, file upload)
 │   ├── inventory/       # Inventory tracking (pantry/fridge/freezer)
 │   ├── discover/        # Recipe matching with inventory
-│   ├── plan/            # Meal planning calendar + shopping list
+│   ├── plan/            # Meal planning calendar
+│   ├── shopping.tsx     # Standalone shopping list
 │   ├── household/       # Household join flow
 │   ├── settings/        # User profile, password, 2FA, household management, data
 │   ├── resources/       # API-only routes (images, exports, notifications, SSE, etc.)
@@ -198,9 +199,10 @@ recipe detail.
 - `app/routes/plan/index.tsx` - Weekly calendar (Mon-Sun, 4 meal types/day),
   per-entry serving overrides, cook toggle, "Up next" banner, copy week,
   templates, pairing suggestions, waste alerts, efficiency dashboard
-- `app/routes/plan/shopping-list.tsx` - Auto-generated shopping list from meal
-  plan with unit-aware consolidation, inventory subtraction, store-section
-  grouping, check-off → inventory pipeline, manual additions, print layout
+- `app/routes/shopping.tsx` - Standalone shopping list with generate from meal
+  plan, collapsible quick add with duplicate/inventory warnings, household
+  item category, flat item list, check-off → inventory pipeline, print layout
+- `app/routes/plan/shopping-list.tsx` - Redirect to `/shopping`
 - `app/utils/shopping-list.server.ts` - Shopping list generation logic
 - `app/utils/ingredient-overlap.server.ts` - Pairwise overlap scoring for
   pairing suggestions and efficiency stats
@@ -339,8 +341,8 @@ cooked, mealPlanId, recipeId
 **ShoppingList**: name, userId, householdId? → ShoppingListItem[]
 
 **ShoppingListItem**: name, quantity?, unit?, category?
-(produce|dairy|meat|pantry|frozen|bakery|other), checked, source
-(manual|generated|discover), listId
+(produce|dairy|meat|pantry|frozen|bakery|household|other), checked, source
+(manual|generated|recipe|discover), listId
 
 **CookingLog**: cookedAt, notes?, recipeId, userId (user-scoped, not household)
 

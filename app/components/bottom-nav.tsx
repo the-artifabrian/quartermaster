@@ -35,6 +35,12 @@ const navItems: NavItem[] = [
 		label: 'Discover',
 		matchPaths: ['/discover'],
 	},
+	{
+		to: '/shopping',
+		icon: 'cart' as IconName,
+		label: 'Shop',
+		matchPaths: ['/shopping'],
+	},
 ]
 
 export function BottomNav() {
@@ -52,14 +58,17 @@ export function BottomNav() {
 	)
 
 	return (
-		<nav aria-label="Main" className="bg-card/95 border-border/50 fixed inset-x-0 bottom-0 z-50 border-t pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_oklch(20%_0.01_55/0.05)] backdrop-blur-sm md:hidden print:hidden">
-			<div className="relative flex h-14 items-center justify-around">
+		<nav
+			aria-label="Main"
+			className="bg-card/95 border-border/50 fixed inset-x-0 bottom-0 z-50 border-t pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_oklch(20%_0.01_55/0.05)] backdrop-blur-sm md:hidden print:hidden"
+		>
+			<div className="relative flex h-16 items-center justify-around">
 				{/* Sliding pill indicator */}
 				{activeIndex >= 0 && (
 					<div
-						className="bg-primary/10 absolute top-1/2 h-11 w-[calc(25%-8px)] -translate-y-1/2 rounded-xl transition-[left] duration-300 ease-out"
+						className="bg-primary/10 absolute top-1/2 h-11 w-[calc(20%-8px)] -translate-y-1/2 rounded-xl transition-[left] duration-300 ease-out"
 						style={{
-							left: `calc(${activeIndex} * 25% + 4px)`,
+							left: `calc(${activeIndex} * 20% + 4px)`,
 						}}
 					/>
 				)}

@@ -770,7 +770,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 							</Form>
 						)}
 						<Button asChild variant="outline" size="sm">
-							<Link to="/plan/shopping-list">
+							<Link to="/shopping">
 								<Icon name="file-text" size="sm" />
 								Shopping List
 							</Link>

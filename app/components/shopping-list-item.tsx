@@ -54,12 +54,16 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 				<input type="hidden" name="itemId" value={item.id} />
 				<StatusButton
 					type="submit"
-					variant="ghost"
+					variant={dc.doubleCheck ? 'destructive' : 'ghost'}
 					size="sm"
-					status={dc.doubleCheck ? 'idle' : 'idle'}
+					status="idle"
 					{...dc.getButtonProps()}
 				>
-					<Icon name="trash" size="sm" />
+					{dc.doubleCheck ? (
+						<span className="text-xs">Sure?</span>
+					) : (
+						<Icon name="trash" size="sm" />
+					)}
 				</StatusButton>
 			</Form>
 		</div>

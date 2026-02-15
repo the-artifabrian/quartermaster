@@ -109,15 +109,18 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 - Meal plan templates: save a week as a named template ("Weeknight Easy",
   "Entertaining Week"), apply templates to any week (skips duplicate slots),
   delete templates. Household-scoped with real-time event notifications
-- Auto-generated shopping list with unit-aware ingredient consolidation,
-  week picker for generating from prev/current/next week's meal plan
-- Grouped by store section (produce, dairy, meat, pantry, frozen, bakery, other)
+- Standalone shopping list at `/shopping` (top-level nav item) with:
+  - Generate from meal plan (week picker for prev/current/next week)
+  - Collapsible quick add with smart duplicate/inventory warnings ("Milk is
+    already on your list", "Eggs are in your fridge") and "Add Anyway" bypass
+  - Auto-categorization including household category (cleaning products,
+    personal care, paper goods, pet supplies)
+  - "Add to Shopping List" button in recipe detail "What Do I Need?" modal
+- Flat item list with client-side search/filter (hidden on print)
 - Inventory-aware: subtracts items already in stock and staple ingredients
 - Shopping list -> inventory pipeline: check off items to add them to inventory
-  with pre-filled name, location, and quantity
-- Client-side search/filter within categories (hides empty categories, preserves
-  progress bar, hidden on print)
-- Manual item addition, check-off while shopping, clear checked items
+  with pre-filled name, location, and quantity. Household items are cleared
+  from the list but not added to inventory
 - Print-friendly layout
 - Ingredient overlap analysis engine: pairwise overlap using normalization
   pipeline (normalizeIngredient, synonym lookup, core word matching), efficiency
@@ -236,8 +239,8 @@ Transformed the app from "developer CRUD tool" to "daily cookbook":
   category colors (cuisine/meal-type/dietary), cook-time filter, import
   quality flags (amber banner detecting recipes with missing ingredients,
   missing instructions, or duplicate titles; filterable via `?quality=flagged`)
-- **Shopping list**: visual progress bar, collapsible category sections with
-  auto-collapse for checked sections
+- **Shopping list**: flat item list, collapsible quick add, delete confirmation
+  ("Sure?" destructive button), search filter, inline generate in header
 - **Recipe form**: collapsible `<details>` sections with completion summaries,
   mobile-friendly grid, improved ingredient row layout
 - **Navigation**: sliding pill indicator on mobile bottom nav, household name

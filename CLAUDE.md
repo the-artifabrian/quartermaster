@@ -86,6 +86,7 @@ app/
 │   ├── inventory-*.tsx  # Item cards, quick-add, location tabs
 │   ├── meal-*.tsx       # Calendar, slot cards
 │   ├── shopping-list-*.tsx  # Shopping list items, inventory pipeline
+│   ├── inline-temperature.tsx # Temperature conversion tooltip (F↔C)
 │   ├── cooking-timer.tsx    # Timer provider + alarm sound
 │   ├── timer-widget.tsx     # Floating timer display
 │   ├── notification-bell.tsx    # Header notification dropdown
@@ -111,6 +112,7 @@ app/
 │   ├── bulk-recipe-parser.ts       # Plain-text recipe parsing (Apple Notes format)
 │   ├── surprise-scoring.server.ts  # Weighted random recipe selection
 │   ├── time-detection.ts           # Instruction text → timer pill detection
+│   ├── temperature-detection.ts    # Instruction text → temperature conversion tooltips
 │   ├── storage.server.ts           # S3-compatible image upload
 │   ├── pantry-staples.ts           # Staple ingredient definitions
 │   ├── category-location-map.ts    # Ingredient → store section mapping
@@ -145,7 +147,8 @@ tests/
 - `app/routes/recipes/new.tsx` - Create recipe (manual, URL import, bulk
   text/file import)
 - `app/routes/recipes/$recipeId.tsx` - View with interactive cooking mode
-  (ingredient checkboxes, instruction cross-off, inline timers, "I Made This",
+  (ingredient checkboxes, instruction cross-off, inline timers, temperature
+  conversion tooltips, "I Made This",
   "What Do I Need?")
 - `app/routes/recipes/$recipeId.edit.tsx` - Edit recipe form
 - `app/components/recipe-form.tsx` - Shared form with drag-and-drop ingredients

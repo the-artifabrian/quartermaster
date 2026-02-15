@@ -262,9 +262,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	}
 
 	if (intent === 'add-to-shopping-list') {
-		const servingRatio = parseFloat(
-			String(formData.get('servingRatio') ?? '1'),
-		)
+		const servingRatio = parseFloat(String(formData.get('servingRatio') ?? '1'))
 		const safeRatio =
 			isNaN(servingRatio) || servingRatio <= 0 ? 1 : servingRatio
 
@@ -292,8 +290,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		for (const ingredientName of preview.noMatch) {
 			const ingredient = fullRecipe.ingredients.find(
 				(i) =>
-					!i.isHeading &&
-					i.name.toLowerCase() === ingredientName.toLowerCase(),
+					!i.isHeading && i.name.toLowerCase() === ingredientName.toLowerCase(),
 			)
 			if (ingredient) {
 				const amount = ingredient.amount
@@ -347,14 +344,11 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 		// Deduplicate by canonical name
 		const existingCanonical = new Set(
-			shoppingList.items.map((item) =>
-				getCanonicalIngredientName(item.name),
-			),
+			shoppingList.items.map((item) => getCanonicalIngredientName(item.name)),
 		)
 
 		const newItems = shoppingItems.filter(
-			(item) =>
-				!existingCanonical.has(getCanonicalIngredientName(item.name)),
+			(item) => !existingCanonical.has(getCanonicalIngredientName(item.name)),
 		)
 
 		if (newItems.length > 0) {
@@ -935,7 +929,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			{/* Floating action bar - mobile only */}
-			<div className="fixed inset-x-4 bottom-16 z-30 md:hidden print:hidden">
+			<div className="fixed inset-x-4 bottom-18 z-30 md:hidden print:hidden">
 				<div className="bg-card/95 shadow-warm-lg flex items-center gap-1.5 rounded-2xl border p-2.5 backdrop-blur-md">
 					<Button
 						onClick={handleIMadeThis}

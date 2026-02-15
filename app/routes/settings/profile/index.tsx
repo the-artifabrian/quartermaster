@@ -9,10 +9,12 @@ import { ErrorList, Field } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
+import { ThemeSwitch } from '#app/routes/resources/theme-switch.tsx'
 import { requireUserId, sessionKey } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { getUserImgSrc, useDoubleCheck } from '#app/utils/misc.tsx'
 import { authSessionStorage } from '#app/utils/session.server.ts'
+import { useRequestInfo } from '#app/utils/request-info.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { NameSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/index.ts'
@@ -98,6 +100,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
+	const requestInfo = useRequestInfo()
 	return (
 		<div className="flex flex-col gap-12">
 			<div className="flex justify-center">
@@ -127,6 +130,19 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 				</div>
 			</div>
 			<UpdateProfile loaderData={loaderData} />
+
+			{/* Preferences */}
+			<div className="bg-card rounded-xl border p-4 shadow-warm">
+				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+					Preferences
+				</h3>
+				<div className="flex items-center justify-between px-4 py-3">
+					<span>Theme</span>
+					<ThemeSwitch
+						userPreference={requestInfo.userPrefs.theme}
+					/>
+				</div>
+			</div>
 
 			{/* Account */}
 			<div className="bg-card rounded-xl border p-4 shadow-warm">

@@ -26,7 +26,6 @@ import { href as iconsHref } from './components/ui/icon.tsx'
 import { Toaster } from './components/ui/sonner.tsx'
 import { UserDropdown } from './components/user-dropdown.tsx'
 import {
-	ThemeSwitch,
 	useOptionalTheme,
 	useTheme,
 } from './routes/resources/theme-switch.tsx'
@@ -377,9 +376,6 @@ function App() {
 						<Outlet />
 					</main>
 
-					<div className="container flex justify-between pb-5">
-						<ThemeSwitch userPreference={data.requestInfo.userPrefs.theme} />
-					</div>
 				</div>
 				<BottomNav />
 				<Toaster closeButton position="top-center" theme={theme} />

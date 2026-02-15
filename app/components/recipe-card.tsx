@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { formatTimeAgo } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
+import { MatchProgressRing } from './match-progress-ring.tsx'
 import { Icon } from './ui/icon.tsx'
 
 type TagWithCategory = { id: string; name: string; category?: string }
@@ -18,6 +19,7 @@ type RecipeCardProps = {
 	isFavorite?: boolean
 	lastCookedAt?: string | null
 	cookCount?: number
+	matchPercentage?: number
 }
 
 export function getTagCategoryClass(category?: string): string {
@@ -44,6 +46,7 @@ export function RecipeCard({
 	isFavorite,
 	lastCookedAt,
 	cookCount,
+	matchPercentage,
 }: RecipeCardProps) {
 	const totalTime = (prepTime ?? 0) + (cookTime ?? 0)
 
@@ -59,6 +62,13 @@ export function RecipeCard({
 							name="heart-filled"
 							className="size-5 text-red-500 drop-shadow"
 						/>
+					</div>
+				)}
+				{matchPercentage != null && (
+					<div className="absolute bottom-2 left-2">
+						<div className="rounded-full bg-white/80 p-0.5 shadow-lg backdrop-blur-sm dark:bg-black/60">
+							<MatchProgressRing percentage={matchPercentage} size={36} />
+						</div>
 					</div>
 				)}
 				{imageObjectKey ? (
@@ -158,6 +168,7 @@ export function RecipeListRow({
 	isFavorite,
 	lastCookedAt,
 	cookCount,
+	matchPercentage,
 }: RecipeCardProps) {
 	const totalTime = (prepTime ?? 0) + (cookTime ?? 0)
 
@@ -209,6 +220,11 @@ export function RecipeListRow({
 					})()
 				)}
 			</div>
+
+			{/* Match ring */}
+			{matchPercentage != null && (
+				<MatchProgressRing percentage={matchPercentage} size={28} />
+			)}
 
 			{/* Content */}
 			<div className="min-w-0 flex-1">

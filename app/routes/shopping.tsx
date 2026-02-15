@@ -501,14 +501,16 @@ export default function ShoppingListRoute({
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
 			<div className="from-card to-background border-border/50 border-b bg-gradient-to-b print:border-0">
-				<div className="container py-6">
+				<div className="container py-4">
 					<div className="flex items-center gap-3">
-						<h1 className="text-2xl font-bold">Shopping List</h1>
-						{totalItems > 0 && (
-							<span className="text-muted-foreground text-sm">
-								{checkedItems}/{totalItems}
-							</span>
-						)}
+						<h1 className="text-2xl font-bold">
+							Shopping List
+							{totalItems > 0 && (
+								<span className="text-muted-foreground ml-2 text-base font-normal">
+									{checkedItems}/{totalItems}
+								</span>
+							)}
+						</h1>
 						<div className="ml-auto flex items-center gap-2 print:hidden">
 							{hasMealPlan && (
 								<Form method="POST" className="flex items-center gap-2">

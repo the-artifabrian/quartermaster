@@ -30,12 +30,6 @@ const navItems: NavItem[] = [
 		matchPaths: ['/plan'],
 	},
 	{
-		to: '/discover',
-		icon: 'magnifying-glass' as IconName,
-		label: 'Discover',
-		matchPaths: ['/discover'],
-	},
-	{
 		to: '/shopping',
 		icon: 'cart' as IconName,
 		label: 'Shop',
@@ -66,9 +60,9 @@ export function BottomNav() {
 				{/* Sliding pill indicator */}
 				{activeIndex >= 0 && (
 					<div
-						className="bg-primary/10 absolute top-1/2 h-11 w-[calc(20%-8px)] -translate-y-1/2 rounded-xl transition-[left] duration-300 ease-out"
+						className="bg-primary/10 absolute top-1/2 h-11 w-[calc(25%-8px)] -translate-y-1/2 rounded-xl transition-[left] duration-300 ease-out"
 						style={{
-							left: `calc(${activeIndex} * 20% + 4px)`,
+							left: `calc(${activeIndex} * 25% + 4px)`,
 						}}
 					/>
 				)}

@@ -68,9 +68,9 @@ shared access.
 ```
 app/
 ├── routes/
-│   ├── recipes/         # Recipe CRUD, search, import (URL, bulk text, file upload)
+│   ├── recipes/         # Recipe CRUD, search, import, always-on inventory matching
 │   ├── inventory/       # Inventory tracking (pantry/fridge/freezer)
-│   ├── discover/        # Recipe matching with inventory
+│   ├── discover/        # Redirect → /recipes
 │   ├── plan/            # Meal planning calendar
 │   ├── shopping.tsx     # Standalone shopping list
 │   ├── household/       # Household join flow
@@ -188,9 +188,11 @@ vinegar). Powers matching, shopping consolidation, and inventory subtraction.
 
 Matches inventory against recipe ingredients with 4-level fuzzy matching: exact
 (post-normalization) → synonym lookup → core word → multi-word containment.
-Calculates match percentage per recipe. Used by `/discover` for "What can I
-make?" sorted by makeable percentage, and by the "What Do I Need?" checklist on
-recipe detail.
+Calculates match percentage per recipe. Always-on when the user has inventory
+items — recipe cards show subtle match progress rings, default sort is by match
+percentage (when no explicit sort chosen), and expiring item suggestions / "Almost
+There" banner display as contextual sections. Also used by the "What Do I Need?"
+checklist on recipe detail. The `/discover` route redirects to `/recipes`.
 
 ### Meal Planning & Shopping
 

@@ -274,15 +274,15 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
 			<div className="from-card to-background border-border/50 border-b bg-gradient-to-b">
-				<div className="container flex items-center justify-between py-6">
-					<div>
-						<h1 className="text-2xl font-bold">My Inventory</h1>
-						<p className="text-muted-foreground mt-1 text-sm">
+				<div className="container flex items-center justify-between py-4">
+					<h1 className="text-2xl font-bold">
+						My Inventory{' '}
+						<span className="text-muted-foreground text-base font-normal">
 							{search
-								? `${filteredItems.length} of ${items.length} items`
-								: `${items.length} ${items.length === 1 ? 'item' : 'items'}`}
-						</p>
-					</div>
+								? `(${filteredItems.length} of ${items.length})`
+								: `(${items.length})`}
+						</span>
+					</h1>
 					<Button asChild>
 						<Link to="/inventory/new">
 							<Icon name="plus" size="sm" />
@@ -373,7 +373,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 							variant="outline"
 							className="border-amber-300 bg-amber-100/50 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/50"
 						>
-							<Link to="/discover">
+							<Link to="/recipes">
 								<Icon name="cookie" size="sm" />
 								Find recipes to use these
 							</Link>

@@ -23,7 +23,11 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
   localStorage persistence across navigation, alarm sound + wake lock).
   Auto-detected time references support minutes/hours/seconds, ranges
   (upper bound), fractions, combined times ("1 hour 30 minutes"), with
-  temperature false positive avoidance
+  temperature false positive avoidance.
+  Auto-detected temperature references ("350°F", "180°C", ranges, "degrees"
+  word form) shown with dotted underline; hover/tap reveals tooltip with
+  converted equivalent (F↔C, rounded to nearest 5°). Skips text that already
+  provides both units
 - Favorite/bookmark recipes with filter toggle
 - Print-friendly recipe layout (hides nav, actions, raw text, cooking history;
   single-column grid, flat cards)
@@ -232,7 +236,8 @@ Transformed the app from "developer CRUD tool" to "daily cookbook":
 
 - **Recipe detail overhaul**: compact header with meta card, sticky ingredients
   sidebar with interactive checkboxes, crossable instruction steps with inline
-  timer pill buttons, "I Made This" button with inventory impact preview modal,
+  timer pill buttons and temperature conversion tooltips, "I Made This" button
+  with inventory impact preview modal,
   "What Do I Need?" interactive checklist for missing ingredients
 - **Always-on match display**: SVG progress rings on recipe cards when inventory
   exists, expiring-item urgency pills, "Almost There" banner, "Show Only

@@ -7,6 +7,8 @@ import {
 describe('getEventPriority', () => {
 	test.each([
 		'shopping_list_generated',
+		'shopping_list_item_added',
+		'shopping_list_cleared',
 		'shopping_list_to_inventory',
 		'meal_plan_assigned',
 		'meal_plan_template_applied',
@@ -32,8 +34,6 @@ describe('getEventPriority', () => {
 		'inventory_item_deleted',
 		'meal_plan_removed',
 		'meal_plan_cooked',
-		'shopping_list_item_added',
-		'shopping_list_cleared',
 		'meal_plan_template_saved',
 	])('%s is silent priority', (type) => {
 		expect(getEventPriority(type)).toBe('silent')

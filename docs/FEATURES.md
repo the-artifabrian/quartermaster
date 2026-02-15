@@ -12,7 +12,7 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 - Image uploads (S3-compatible storage, max 3MB)
 - 16 predefined tags across cuisine, meal-type, and dietary categories
 - Full-text search across title, ingredients, and description
-- Tag filtering and cook time filtering with bookmarkable URL params
+- Cook time filtering with bookmarkable URL params
 - Recipe scaling with +/- servings controls and fraction display
 - Cooking assistance: always-interactive ingredients (checkbox cross-off) and
   instructions (tap-to-complete with step number → checkmark transition),
@@ -77,8 +77,10 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   entire app
 - Ingredient parser: handles nested parenthetical quantities ("1 (14.5 oz) can
   diced tomatoes"), "to taste" extraction, tilde/approximate amounts, ranges
-- "What can I make?" discovery page with 4-level fuzzy ingredient matching
-  (exact, synonym, core word, multi-word containment)
+- "What can I make?" always-on when inventory exists — recipe cards show match
+  progress rings, default sort is by match percentage. Uses 4-level fuzzy
+  ingredient matching (exact, synonym, core word, multi-word containment).
+  `/discover` redirects to `/recipes`
 - Match percentage scoring and missing ingredient highlighting
 - "Almost there" banner for near-miss recipes (1-3 missing ingredients):
   shows deduplicated ingredient pills with one-click "Add to shopping list"
@@ -213,7 +215,7 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   fix, JSON-LD injection prevention
 - Usage analytics: lightweight `UsageEvent` model (separate from HouseholdEvent
   notification system) tracks pairing recipe selections, efficiency snapshots
-  (deduplicated per week), discover page visits, "Surprise Me" uses, and "What
+  (deduplicated per week), "Surprise Me" uses, and "What
   Do I Need?" uses. Stats page at Settings > Data > Usage stats with cooking
   activity, meal planning metrics, and discovery stats. JSON API at
   `GET /resources/usage-stats`. Events transferred on household join (sole
@@ -230,15 +232,16 @@ Transformed the app from "developer CRUD tool" to "daily cookbook":
   sidebar with interactive checkboxes, crossable instruction steps with inline
   timer pill buttons, "I Made This" button with inventory impact preview modal,
   "What Do I Need?" interactive checklist for missing ingredients
-- **Discover page**: hero card for top match ("Tonight's Pick"), SVG progress
-  rings for match percentage, expiring-item urgency pills
+- **Always-on match display**: SVG progress rings on recipe cards when inventory
+  exists, expiring-item urgency pills, "Almost There" banner, "Show Only
+  Makeable" toggle, default match sort (overrideable by explicit sort choice)
 - **Meal plan**: two-row calendar layout (4+3 columns), today emphasis, compact
   cards, ingredient overlap summary with pairing suggestions
 - **Inventory dashboard**: summary strip (expiring/low-stock/total), expiring
   callout card with "Find recipes" CTA, location section tints, human-readable
   expiry countdowns
-- **Recipe list**: sort dropdown (5 options), grid/list view toggle, tag
-  category colors (cuisine/meal-type/dietary), cook-time filter, import
+- **Recipe list**: sort dropdown (5 options), grid/list view toggle, cook-time
+  filter, import
   quality flags (amber banner detecting recipes with missing ingredients,
   missing instructions, or duplicate titles; filterable via `?quality=flagged`)
 - **Shopping list**: flat item list, collapsible quick add, inline item editing,
@@ -262,5 +265,5 @@ Transformed the app from "developer CRUD tool" to "daily cookbook":
   step padding, timer pill touch targets (min 44px), iOS zoom prevention on modal
   inputs. Meal plan: larger cook checkboxes and servings controls, tappable empty
   slots. Shopping list: larger checkbox tap areas (~44px effective). Recipe list:
-  wrapping filter controls, larger tag buttons and view toggles. Discover: larger
-  "I have this" and "add to shopping list" buttons
+  wrapping filter controls, larger view toggles. Match display:
+  larger "I have this" and "add to shopping list" buttons

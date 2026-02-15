@@ -168,7 +168,7 @@ function MissingIngredients({
 				<span className="text-muted-foreground font-medium">Missing:</span>
 				<fetcher.Form
 					method="POST"
-					action="/discover"
+					action="/resources/discover-actions"
 					onClick={(e) => e.stopPropagation()}
 				>
 					<input type="hidden" name="intent" value="addMissing" />
@@ -246,7 +246,7 @@ export function IngredientHaveItButton({
 	return (
 		<fetcher.Form
 			method="POST"
-			action="/discover"
+			action="/resources/discover-actions"
 			className="inline-flex"
 			onClick={(e) => e.stopPropagation()}
 		>

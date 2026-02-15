@@ -351,16 +351,6 @@ function App() {
 												Plan
 											</NavLink>
 											<NavLink
-												to="/discover"
-												className={({ isActive }) =>
-													isActive
-														? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-														: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-												}
-											>
-												Discover
-											</NavLink>
-											<NavLink
 												to="/shopping"
 												className={({ isActive }) =>
 													isActive

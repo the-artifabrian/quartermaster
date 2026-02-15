@@ -733,11 +733,8 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
 			<div className="from-card to-background border-border/50 border-b bg-gradient-to-b">
-				<div className="container flex flex-col gap-4 py-6 md:flex-row md:items-center md:justify-between">
-					<div>
-						<h1 className="text-2xl font-bold">Meal Plan</h1>
-						<p className="text-muted-foreground mt-1 text-sm">Plan your week</p>
-					</div>
+				<div className="container flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between">
+					<h1 className="text-2xl font-bold">Meal Plan</h1>
 					<div className="flex flex-wrap gap-2">
 						{entries.length > 0 && (
 							<Button
@@ -864,14 +861,9 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 								</Link>
 							</Button>
 						) : (
-							<div className="mt-5 flex justify-center gap-3">
-								<Button asChild variant="outline">
-									<Link to="/recipes">Browse Recipes</Link>
-								</Button>
-								<Button asChild>
-									<Link to="/discover">See What You Can Make</Link>
-								</Button>
-							</div>
+							<Button asChild className="mt-5">
+								<Link to="/recipes">Browse Recipes</Link>
+							</Button>
 						)}
 					</div>
 				)}

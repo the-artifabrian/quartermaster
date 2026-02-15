@@ -62,9 +62,10 @@ driver phase is an ongoing evaluation, not a feature freeze.
    - Import quality flags: amber banner on recipe list auto-detecting recipes
      with no ingredients, no instructions, or duplicate titles; filterable
      via `?quality=flagged`
-   - "I have this" on discover: per-ingredient inventory add button on
+   - "I have this" on recipe cards: per-ingredient inventory add button on
      missing ingredient pills (recipe cards + "almost there" banner),
-     canonical name dedup, auto-revalidating match percentages
+     canonical name dedup, auto-revalidating match percentages. Match data
+     always-on when inventory exists (no separate discover page or sort mode)
 4. **Daily drive for 4+ weeks** -- Use the app for real cooking: plan the week,
    shop from the list, cook from the app. Fix friction as it surfaces. Get
    partner using it as a real co-user, not a tester.
@@ -72,7 +73,7 @@ driver phase is an ongoing evaluation, not a feature freeze.
    how fast it drifts. Determine whether the overhead is justified by the
    discovery and subtraction benefits, or whether inventory needs to be more
    passive (e.g., auto-populate from shopping list check-offs only). The
-   "I have this" button on discover and shopping list → inventory pipeline
+   "I have this" button on recipe cards and shopping list → inventory pipeline
    should be the primary inventory input methods -- if these keep inventory
    accurate enough without manual entry, that's the answer.
 
@@ -188,9 +189,9 @@ less food, save money" -- needs to be real before asking people to pay for it.
   in try/catch and runs async without awaiting. Risk of SQLite concurrency
   issues under load. Tests already need `vi.mock()` for this. Consider
   queueing or awaiting in non-critical paths.
-- **In-memory matching at scale** -- Discover page loads all recipes + all
-  inventory items into memory. Fine at ~135 recipes, but may need pagination
-  or pre-filtering at 500+. See **Performance audit** in Backlog.
+- **In-memory matching at scale** -- Recipes page loads all recipes + all
+  inventory items into memory for matching. Fine at ~135 recipes, but may need
+  pagination or pre-filtering at 500+. See **Performance audit** in Backlog.
 - **Image endpoint unauthenticated** -- `/resources/images` serves any
   `objectKey` without auth. Object keys are CUIDs (not guessable), but exposed
   in OG meta tags. Acceptable for sharing use case; revisit if private recipes
@@ -216,7 +217,7 @@ Lower-priority items to reconsider later.
       to S3 (daily Litestream snapshots or a cron job that copies the DB) would
       provide disaster recovery. Critical infrastructure for a paid product.
 - [ ] **Performance audit** -- Query profiling, lazy load images, bundle
-      analysis. The discover page loads all recipes + inventory into memory for
+      analysis. The recipes page loads all recipes + inventory into memory for
       matching -- fine at ~135 recipes, but profile at 500+ to determine when
       pagination or server-side pre-filtering is needed.
 
@@ -245,7 +246,7 @@ and voice inventory have been promoted to the **AI Integration** section above.
 - [ ] Weekly meal planning happens in-app for 4+ consecutive weeks
 - [ ] Partner uses the app as a real co-user (not just testing)
 - [ ] Inventory accuracy assessed after 4 weeks of real tracking
-- [ ] "I have this" on discover is the primary way inventory gets corrected
+- [ ] "I have this" on recipe cards is the primary way inventory gets corrected
 - [ ] "Up next" banner used as the daily cooking entry point
 
 ### Shipped (features)
@@ -270,4 +271,4 @@ and voice inventory have been promoted to the **AI Integration** section above.
 
 ---
 
-_Last updated: February 13, 2026._
+_Last updated: February 15, 2026._

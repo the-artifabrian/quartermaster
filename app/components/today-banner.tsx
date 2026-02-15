@@ -174,9 +174,9 @@ function EmptyBanner({ suggestion }: { suggestion: TodaySuggestion | null }) {
 					</Form>
 				) : (
 					<Button asChild variant="outline" size="sm" className="shrink-0">
-						<Link to="/discover">
+						<Link to="/recipes">
 							<Icon name="magnifying-glass" size="sm" />
-							Discover
+							Find a Match
 						</Link>
 					</Button>
 				)}

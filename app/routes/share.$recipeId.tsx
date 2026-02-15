@@ -1,12 +1,21 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Img } from 'openimg/react'
 import { useState } from 'react'
-import { Link, useRouteLoaderData, useSearchParams } from 'react-router'
+import {
+	Link,
+	redirect,
+	useFetcher,
+	useRouteLoaderData,
+	useSearchParams,
+} from 'react-router'
 import { InstructionWithTimers } from '#app/components/instruction-with-timers.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { getUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { scaleAmount } from '#app/utils/fractions.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { type Route } from './+types/share.$recipeId.ts'
 
@@ -62,8 +71,9 @@ export const meta: Route.MetaFunction = ({ data, matches }) => {
 	return meta
 }
 
-export async function loader({ params }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
 	const { recipeId } = params
+	const userId = await getUserId(request)
 
 	const recipe = await prisma.recipe.findUnique({
 		where: { id: recipeId },
@@ -105,7 +115,104 @@ export async function loader({ params }: Route.LoaderArgs) {
 		throw new Response('Recipe not found', { status: 404 })
 	}
 
-	return { recipe }
+	let alreadySaved = false
+	if (userId) {
+		const member = await prisma.householdMember.findFirst({
+			where: { userId },
+			select: { householdId: true },
+		})
+		if (member) {
+			const existing = await prisma.recipe.findFirst({
+				where: { householdId: member.householdId, title: recipe.title },
+				select: { id: true },
+			})
+			alreadySaved = Boolean(existing)
+		}
+	}
+
+	return { recipe, isLoggedIn: Boolean(userId), alreadySaved }
+}
+
+export async function action({ params, request }: Route.ActionArgs) {
+	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { recipeId } = params
+
+	const recipe = await prisma.recipe.findUnique({
+		where: { id: recipeId },
+		include: {
+			ingredients: true,
+			instructions: true,
+			tags: { select: { id: true } },
+			image: true,
+		},
+	})
+
+	if (!recipe) {
+		throw new Response('Recipe not found', { status: 404 })
+	}
+
+	// Prevent duplicates from double-clicks or resubmits
+	const existing = await prisma.recipe.findFirst({
+		where: { householdId, title: recipe.title },
+		select: { id: true },
+	})
+	if (existing) {
+		return redirect(`/recipes/${existing.id}`)
+	}
+
+	const newRecipe = await prisma.recipe.create({
+		data: {
+			title: recipe.title,
+			description: recipe.description,
+			servings: recipe.servings,
+			prepTime: recipe.prepTime,
+			cookTime: recipe.cookTime,
+			isFavorite: false,
+			sourceUrl: recipe.sourceUrl,
+			rawText: recipe.rawText,
+			userId,
+			householdId,
+			ingredients: {
+				create: recipe.ingredients.map((ing) => ({
+					name: ing.name,
+					amount: ing.amount,
+					unit: ing.unit,
+					notes: ing.notes,
+					isHeading: ing.isHeading,
+					order: ing.order,
+				})),
+			},
+			instructions: {
+				create: recipe.instructions.map((inst) => ({
+					content: inst.content,
+					order: inst.order,
+				})),
+			},
+			tags: {
+				connect: recipe.tags.map((tag) => ({ id: tag.id })),
+			},
+			...(recipe.image
+				? {
+						image: {
+							create: {
+								altText: recipe.image.altText,
+								objectKey: recipe.image.objectKey,
+							},
+						},
+					}
+				: {}),
+		},
+		select: { id: true },
+	})
+
+	void emitHouseholdEvent({
+		householdId,
+		userId,
+		type: 'recipe_created',
+		payload: { recipeId: newRecipe.id, recipeTitle: recipe.title },
+	})
+
+	return redirect(`/recipes/${newRecipe.id}`)
 }
 
 // --- Utility functions ---
@@ -177,7 +284,8 @@ function getRecipeJsonLd(
 // --- Main component ---
 
 export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
-	const { recipe } = loaderData
+	const { recipe, isLoggedIn, alreadySaved } = loaderData
+	const saveFetcher = useFetcher()
 	const rootData = useRouteLoaderData('root') as
 		| { requestInfo?: { origin?: string } }
 		| undefined
@@ -531,22 +639,50 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 					</div>
 				</div>
 
-				{/* Sign-up CTA */}
+				{/* Save / Sign-up CTA */}
 				<div className="mt-12 mb-8 text-center">
 					<div className="bg-accent/5 inline-block rounded-2xl border px-8 py-6">
-						<p className="text-lg font-semibold">Like this recipe?</p>
-						<p className="text-muted-foreground mt-1 text-sm">
-							Sign up for Quartermaster to save recipes, plan meals, and track
-							your pantry.
-						</p>
-						<div className="mt-4 flex justify-center gap-3">
-							<Button asChild>
-								<Link to="/signup">Sign up free</Link>
-							</Button>
-							<Button asChild variant="outline">
-								<Link to="/login">Log in</Link>
-							</Button>
-						</div>
+						{isLoggedIn ? (
+							<>
+								<p className="text-lg font-semibold">Like this recipe?</p>
+								<p className="text-muted-foreground mt-1 text-sm">
+									Save it to your recipes to cook later, add to meal
+									plans, and more.
+								</p>
+								<div className="mt-4 flex justify-center">
+									{alreadySaved ? (
+										<Button disabled variant="outline">
+											<Icon name="check">Already saved</Icon>
+										</Button>
+									) : (
+										<saveFetcher.Form method="POST">
+											<Button
+												type="submit"
+												disabled={saveFetcher.state !== 'idle'}
+											>
+												<Icon name="plus">Save to My Recipes</Icon>
+											</Button>
+										</saveFetcher.Form>
+									)}
+								</div>
+							</>
+						) : (
+							<>
+								<p className="text-lg font-semibold">Like this recipe?</p>
+								<p className="text-muted-foreground mt-1 text-sm">
+									Sign up for Quartermaster to save recipes, plan meals,
+									and track your pantry.
+								</p>
+								<div className="mt-4 flex justify-center gap-3">
+									<Button asChild>
+										<Link to="/signup">Sign up free</Link>
+									</Button>
+									<Button asChild variant="outline">
+										<Link to="/login">Log in</Link>
+									</Button>
+								</div>
+							</>
+						)}
 					</div>
 				</div>
 			</div>

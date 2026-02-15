@@ -2,6 +2,8 @@ type EventPayload = Record<string, unknown>
 
 const NOTIFY_EVENT_TYPES = new Set([
 	'shopping_list_generated',
+	'shopping_list_item_added',
+	'shopping_list_cleared',
 	'shopping_list_to_inventory',
 	'meal_plan_assigned',
 	'meal_plan_template_applied',

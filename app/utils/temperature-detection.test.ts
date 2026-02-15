@@ -145,4 +145,34 @@ describe('detectTemperatures', () => {
 		expect(matches).toHaveLength(1)
 		expect(matches[0]).toMatchObject({ converted: '175°C' })
 	})
+
+	test('bare form without degree symbol: "350F"', () => {
+		const matches = detectTemperatures('Preheat oven to 350F')
+		expect(matches).toHaveLength(1)
+		expect(matches[0]).toMatchObject({
+			value: 350,
+			unit: 'F',
+			converted: '175°C',
+		})
+	})
+
+	test('bare form without degree symbol: "175C"', () => {
+		const matches = detectTemperatures('Preheat oven to 175C')
+		expect(matches).toHaveLength(1)
+		expect(matches[0]).toMatchObject({
+			value: 175,
+			unit: 'C',
+			converted: '345°F',
+		})
+	})
+
+	test('bare form skips short numbers to avoid false positives', () => {
+		const matches = detectTemperatures('See section 3C for details')
+		expect(matches).toHaveLength(0)
+	})
+
+	test('bare form skips 2-digit numbers', () => {
+		const matches = detectTemperatures('Add 50F of water')
+		expect(matches).toHaveLength(0)
+	})
 })

@@ -306,6 +306,37 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const }
 	}
 
+	if (intent === 'edit') {
+		const itemId = formData.get('itemId')
+		invariantResponse(typeof itemId === 'string', 'Item ID is required')
+
+		const item = await prisma.shoppingListItem.findFirst({
+			where: {
+				id: itemId,
+				list: { householdId },
+			},
+		})
+		invariantResponse(item, 'Item not found', { status: 404 })
+
+		const submission = parseWithZod(formData, {
+			schema: ShoppingListItemSchema,
+		})
+		if (submission.status !== 'success') {
+			return { status: 'error' as const, submission: submission.reply() }
+		}
+
+		await prisma.shoppingListItem.update({
+			where: { id: itemId },
+			data: {
+				name: submission.value.name,
+				quantity: submission.value.quantity,
+				unit: submission.value.unit,
+			},
+		})
+
+		return { status: 'success' as const }
+	}
+
 	if (intent === 'clear-checked') {
 		await prisma.shoppingListItem.deleteMany({
 			where: {

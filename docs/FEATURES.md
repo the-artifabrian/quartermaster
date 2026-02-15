@@ -89,8 +89,10 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 - Per-card missing ingredient pills with individual "I have this" buttons
   (up to 4 visible, overflow count) plus "add all missing to shopping list"
 - Expiration-based recipe suggestions ("Use It Before You Lose It")
-- Automatic inventory subtraction after cooking (with unit conversion and
-  feedback toast showing what changed)
+- Automatic inventory subtraction after cooking (with cross-system unit
+  conversion — e.g., tsp recipe vs ml inventory — and feedback toast showing
+  what changed). Incompatible unit types (volume vs weight) flag items as low
+  stock rather than silently skipping
 
 ## Meal Planning & Shopping
 
@@ -116,6 +118,7 @@ see [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
   - Auto-categorization including household category (cleaning products,
     personal care, paper goods, pet supplies)
   - "Add to Shopping List" button in recipe detail "What Do I Need?" modal
+- Inline item editing (name, quantity, unit) via pencil button on unchecked items
 - Flat item list with client-side search/filter (hidden on print)
 - Inventory-aware: subtracts items already in stock and staple ingredients
 - Shopping list -> inventory pipeline: check off items to add them to inventory
@@ -239,8 +242,9 @@ Transformed the app from "developer CRUD tool" to "daily cookbook":
   category colors (cuisine/meal-type/dietary), cook-time filter, import
   quality flags (amber banner detecting recipes with missing ingredients,
   missing instructions, or duplicate titles; filterable via `?quality=flagged`)
-- **Shopping list**: flat item list, collapsible quick add, delete confirmation
-  ("Sure?" destructive button), search filter, inline generate in header
+- **Shopping list**: flat item list, collapsible quick add, inline item editing,
+  delete confirmation ("Sure?" destructive button), search filter, inline
+  generate in header
 - **Recipe form**: collapsible `<details>` sections with completion summaries,
   mobile-friendly grid, improved ingredient row layout
 - **Navigation**: sliding pill indicator on mobile bottom nav, household name

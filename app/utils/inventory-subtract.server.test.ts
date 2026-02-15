@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
-import { subtractRecipeIngredientsFromInventory } from './inventory-subtract.server.ts'
+import {
+	subtractRecipeIngredientsFromInventory,
+	previewInventorySubtraction,
+} from './inventory-subtract.server.ts'
 
 async function setupUser() {
 	const user = await prisma.user.create({ data: createUser() })
@@ -174,7 +177,7 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		expect(summary).toEqual({ removed: [], updated: [], flaggedLow: [] })
 	})
 
-	test('skips incompatible units', async () => {
+	test('flags low stock for incompatible units (volume vs weight)', async () => {
 		const user = await setupUser()
 		const recipe = await setupRecipe(user.id, user.householdId, [
 			{ name: 'butter', amount: '2', unit: 'tbsp' },
@@ -191,8 +194,65 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		const item = await prisma.inventoryItem.findFirst({
 			where: { householdId: user.householdId, name: 'butter' },
 		})
-		expect(item!.quantity).toBe(200) // unchanged — US volume vs metric weight
-		expect(summary).toEqual({ removed: [], updated: [], flaggedLow: [] })
+		expect(item!.quantity).toBe(200) // unchanged — volume vs weight
+		expect(item!.lowStock).toBe(true) // flagged as low
+		expect(summary).toEqual({
+			removed: [],
+			updated: [],
+			flaggedLow: ['butter'],
+		})
+	})
+
+	test('converts cross-system units (tsp recipe vs ml inventory)', async () => {
+		const user = await setupUser()
+		const recipe = await setupRecipe(user.id, user.householdId, [
+			{ name: 'sesame oil', amount: '1', unit: 'tsp' },
+		])
+		await setupInventory(user.id, user.householdId, [
+			{ name: 'sesame oil', quantity: 100, unit: 'ml' },
+		])
+
+		const summary = await subtractRecipeIngredientsFromInventory(
+			recipe.id,
+			user.householdId,
+		)
+
+		const item = await prisma.inventoryItem.findFirst({
+			where: { householdId: user.householdId, name: 'sesame oil' },
+		})
+		// 1 tsp ≈ 4.929 ml, so 100 - 4.929 ≈ 95.071
+		expect(item!.quantity).toBeCloseTo(95.071, 0)
+		expect(summary).toEqual({
+			updated: ['sesame oil'],
+			removed: [],
+			flaggedLow: [],
+		})
+	})
+
+	test('converts cross-system weight units (oz recipe vs g inventory)', async () => {
+		const user = await setupUser()
+		const recipe = await setupRecipe(user.id, user.householdId, [
+			{ name: 'chicken', amount: '8', unit: 'oz' },
+		])
+		await setupInventory(user.id, user.householdId, [
+			{ name: 'chicken', quantity: 500, unit: 'g' },
+		])
+
+		const summary = await subtractRecipeIngredientsFromInventory(
+			recipe.id,
+			user.householdId,
+		)
+
+		const item = await prisma.inventoryItem.findFirst({
+			where: { householdId: user.householdId, name: 'chicken' },
+		})
+		// 8 oz ≈ 226.796 g, so 500 - 226.796 ≈ 273.204
+		expect(item!.quantity).toBeCloseTo(273.204, 0)
+		expect(summary).toEqual({
+			updated: ['chicken'],
+			removed: [],
+			flaggedLow: [],
+		})
 	})
 
 	test('handles unit conversion within same family (tbsp → cup)', async () => {
@@ -296,5 +356,49 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		})
 		expect(item!.quantity).toBe(5) // unchanged
 		expect(summary).toEqual({ removed: [], updated: [], flaggedLow: [] })
+	})
+})
+
+describe('previewInventorySubtraction', () => {
+	test('previews cross-system conversion (tsp recipe vs ml inventory)', async () => {
+		const user = await setupUser()
+		const recipe = await setupRecipe(user.id, user.householdId, [
+			{ name: 'sesame oil', amount: '1', unit: 'tsp' },
+		])
+		await setupInventory(user.id, user.householdId, [
+			{ name: 'sesame oil', quantity: 100, unit: 'ml' },
+		])
+
+		const preview = await previewInventorySubtraction(
+			recipe.id,
+			user.householdId,
+		)
+
+		expect(preview.noMatch).toEqual([])
+		expect(preview.willSubtract).toHaveLength(1)
+		expect(preview.willSubtract[0]!.name).toBe('sesame oil')
+		expect(preview.willSubtract[0]!.subtractAmount).toBeCloseTo(4.929, 0)
+		expect(preview.willSubtract[0]!.willBeRemoved).toBe(false)
+	})
+
+	test('previews incompatible units as flagged low (volume vs weight)', async () => {
+		const user = await setupUser()
+		const recipe = await setupRecipe(user.id, user.householdId, [
+			{ name: 'butter', amount: '2', unit: 'tbsp' },
+		])
+		await setupInventory(user.id, user.householdId, [
+			{ name: 'butter', quantity: 200, unit: 'g' },
+		])
+
+		const preview = await previewInventorySubtraction(
+			recipe.id,
+			user.householdId,
+		)
+
+		expect(preview.noMatch).toEqual([])
+		expect(preview.willSubtract).toHaveLength(1)
+		expect(preview.willSubtract[0]!.name).toBe('butter')
+		expect(preview.willSubtract[0]!.willBeFlaggedLow).toBe(true)
+		expect(preview.willSubtract[0]!.subtractAmount).toBeNull()
 	})
 })

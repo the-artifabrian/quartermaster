@@ -23,7 +23,8 @@ export type SubtractionSummary = {
  * - Find a matching inventory item
  * - If both have numeric quantities with compatible units, subtract
  * - If the inventory quantity drops to 0 or below, delete the item
- * - If units are incompatible or quantities are missing, skip silently
+ * - If units are incompatible but name matches, flag as low stock
+ * - If quantities are missing, skip silently
  *
  * Returns a summary of what changed.
  */
@@ -122,7 +123,12 @@ export async function subtractRecipeIngredientsFromInventory(
 			}
 		}
 
-		// Units are incompatible — skip silently
+		// Units are incompatible but name matched — flag as low stock
+		await prisma.inventoryItem.update({
+			where: { id: match.id },
+			data: { lowStock: true },
+		})
+		flaggedLow.push(match.name)
 	}
 
 	return { removed, flaggedLow, updated }
@@ -243,8 +249,16 @@ export async function previewInventorySubtraction(
 			}
 		}
 
-		// Units are incompatible — treat as no match for preview
-		noMatch.push(ingredient.name)
+		// Units are incompatible but name matched — show as flagged low
+		willSubtract.push({
+			name: match.name,
+			currentQuantity: match.quantity,
+			currentUnit: match.unit,
+			subtractAmount: null,
+			newQuantity: null,
+			willBeRemoved: false,
+			willBeFlaggedLow: true,
+		})
 	}
 
 	return { willSubtract, noMatch }

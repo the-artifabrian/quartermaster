@@ -206,8 +206,8 @@ recipe detail.
 - `app/utils/shopping-list.server.ts` - Shopping list generation logic
 - `app/utils/ingredient-overlap.server.ts` - Pairwise overlap scoring for
   pairing suggestions and efficiency stats
-- `app/utils/unit-conversion.ts` - Unit conversion across families
-  (volume/weight/count)
+- `app/utils/unit-conversion.ts` - Unit conversion across merged US/metric
+  families (volume: ml↔tsp↔tbsp↔cup↔l, weight: g↔oz↔lb↔kg)
 
 ### Household Sharing
 

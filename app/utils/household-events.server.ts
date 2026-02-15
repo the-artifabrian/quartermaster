@@ -88,8 +88,15 @@ export async function emitHouseholdEvent({
 	}
 }
 
+let lastPruneTime = 0
+const PRUNE_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
+
 export async function pruneOldEvents() {
-	const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+	const now = Date.now()
+	if (now - lastPruneTime < PRUNE_INTERVAL_MS) return
+	lastPruneTime = now
+
+	const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000)
 	await prisma.householdEvent.deleteMany({
 		where: { createdAt: { lt: thirtyDaysAgo } },
 	})

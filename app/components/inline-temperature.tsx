@@ -1,8 +1,5 @@
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '#app/components/ui/tooltip.tsx'
+import { useState } from 'react'
+import { cn } from '#app/utils/misc.tsx'
 
 export function InlineTemperature({
 	originalText,
@@ -11,26 +8,43 @@ export function InlineTemperature({
 	originalText: string
 	converted: string
 }) {
+	const [open, setOpen] = useState(false)
+
 	return (
-		<Tooltip>
-			<TooltipTrigger asChild>
-				<span
-					role="button"
-					tabIndex={0}
-					onClick={(e) => e.stopPropagation()}
-					onKeyDown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.stopPropagation()
-						}
-					}}
-					className="cursor-help underline decoration-dotted decoration-muted-foreground/50 underline-offset-4"
-				>
-					{originalText}
-				</span>
-			</TooltipTrigger>
-			<TooltipContent>
-				<span className="font-medium">{converted}</span>
-			</TooltipContent>
-		</Tooltip>
+		<span className="relative inline">
+			<span
+				role="button"
+				tabIndex={0}
+				onPointerEnter={(e) => {
+					if (e.pointerType !== 'touch') setOpen(true)
+				}}
+				onPointerLeave={(e) => {
+					if (e.pointerType !== 'touch') setOpen(false)
+				}}
+				onClick={(e) => {
+					e.stopPropagation()
+					setOpen((v) => !v)
+				}}
+				onKeyDown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.stopPropagation()
+						setOpen((v) => !v)
+					}
+				}}
+				onBlur={() => setOpen(false)}
+				className="cursor-help underline decoration-dotted decoration-muted-foreground/50 underline-offset-4"
+			>
+				{originalText}
+			</span>
+			<span
+				className={cn(
+					'bg-popover text-popover-foreground pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 rounded-lg border px-3 py-1.5 text-sm font-medium whitespace-nowrap shadow-warm transition-opacity',
+					open ? 'opacity-100' : 'opacity-0',
+				)}
+				aria-hidden={!open}
+			>
+				{converted}
+			</span>
+		</span>
 	)
 }

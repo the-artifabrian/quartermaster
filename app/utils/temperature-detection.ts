@@ -50,15 +50,24 @@ const BOTH_UNITS_WINDOW = 30
 export function detectTemperatures(text: string): TemperatureMatch[] {
 	const matches: TemperatureMatch[] = []
 
-	// Regex created inside the function to avoid shared mutable lastIndex state
+	// Regex created inside the function to avoid shared mutable lastIndex state.
+	// The degree separator (°, º, "degrees") is optional to match bare "350F"/"175C".
+	// Sanity bounds below filter out false positives from the bare form.
 	const pattern =
-		/(\d+)\s*(?:[-–]\s*(\d+)\s*)?(?:°\s*|degrees?\s+|º\s*)(F(?:ahrenheit)?|C(?:elsius|entigrade)?)\b/gi
+		/(\d+)\s*(?:[-–]\s*(\d+)\s*)?(?:°\s*|degrees?\s+|º\s*)?(F(?:ahrenheit)?|C(?:elsius|entigrade)?)\b/gi
 
 	let m
 	while ((m = pattern.exec(text)) !== null) {
 		const unit: 'F' | 'C' = m[3]!.toUpperCase().startsWith('F') ? 'F' : 'C'
 		const value = parseInt(m[1]!, 10)
 		const valueHigh = m[2] ? parseInt(m[2], 10) : null
+
+		// For bare form (no ° or "degrees"), require 3+ digit number to avoid
+		// false positives like "section 3C" or "vitamin C"
+		const hasSeparator = /[°º]|degrees?/i.test(
+			m[0].slice(m[1]!.length, -m[3]!.length),
+		)
+		if (!hasSeparator && m[1]!.length < 3) continue
 
 		// Skip if the opposite unit appears nearby (both already provided)
 		const oppositeUnit = unit === 'F' ? 'C' : 'F'

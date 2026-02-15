@@ -15,38 +15,26 @@ type UnitFamily = {
 
 const UNIT_FAMILIES: UnitFamily[] = [
 	{
-		name: 'us-volume',
-		baseUnit: 'tsp',
-		units: {
-			tsp: 1,
-			tbsp: 3,
-			'fl oz': 6,
-			cup: 48,
-			pint: 96,
-			quart: 192,
-		},
-	},
-	{
-		name: 'us-weight',
-		baseUnit: 'oz',
-		units: {
-			oz: 1,
-			lb: 16,
-		},
-	},
-	{
-		name: 'metric-volume',
+		name: 'volume',
 		baseUnit: 'ml',
 		units: {
 			ml: 1,
+			tsp: 4.929,
+			tbsp: 14.787,
+			'fl oz': 29.574,
+			cup: 236.588,
+			pint: 473.176,
+			quart: 946.353,
 			l: 1000,
 		},
 	},
 	{
-		name: 'metric-weight',
+		name: 'weight',
 		baseUnit: 'g',
 		units: {
 			g: 1,
+			oz: 28.3495,
+			lb: 453.592,
 			kg: 1000,
 		},
 	},

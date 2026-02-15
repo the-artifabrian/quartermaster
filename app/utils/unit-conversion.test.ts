@@ -36,26 +36,30 @@ describe('normalizeUnit', () => {
 })
 
 describe('getUnitFamily', () => {
-	test('finds US volume family', () => {
-		const result = getUnitFamily('tsp')
-		expect(result).not.toBeNull()
-		expect(result!.family.name).toBe('us-volume')
-		expect(result!.factor).toBe(1)
+	test('finds volume family for US and metric units', () => {
+		const tsp = getUnitFamily('tsp')
+		expect(tsp).not.toBeNull()
+		expect(tsp!.family.name).toBe('volume')
+		expect(tsp!.factor).toBeCloseTo(4.929)
 
 		const cup = getUnitFamily('cup')
-		expect(cup!.family.name).toBe('us-volume')
-		expect(cup!.factor).toBe(48)
+		expect(cup!.family.name).toBe('volume')
+		expect(cup!.factor).toBeCloseTo(236.588)
+
+		const ml = getUnitFamily('ml')
+		expect(ml!.family.name).toBe('volume')
+		expect(ml!.factor).toBe(1)
+
+		const l = getUnitFamily('l')
+		expect(l!.family.name).toBe('volume')
+		expect(l!.factor).toBe(1000)
 	})
 
-	test('finds US weight family', () => {
-		expect(getUnitFamily('oz')!.family.name).toBe('us-weight')
-		expect(getUnitFamily('lb')!.family.name).toBe('us-weight')
-	})
-
-	test('finds metric families', () => {
-		expect(getUnitFamily('ml')!.family.name).toBe('metric-volume')
-		expect(getUnitFamily('g')!.family.name).toBe('metric-weight')
-		expect(getUnitFamily('kg')!.family.name).toBe('metric-weight')
+	test('finds weight family for US and metric units', () => {
+		expect(getUnitFamily('oz')!.family.name).toBe('weight')
+		expect(getUnitFamily('lb')!.family.name).toBe('weight')
+		expect(getUnitFamily('g')!.family.name).toBe('weight')
+		expect(getUnitFamily('kg')!.family.name).toBe('weight')
 	})
 
 	test('returns null for unknown units', () => {
@@ -74,10 +78,10 @@ describe('convertAndSum', () => {
 			],
 			family,
 		)
-		// 2 tbsp = 6 tsp, 1 cup = 48 tsp, total = 54 tsp
-		// Best unit: 54/48 = 1.125 cups → picks cup since ≥ 1
+		// 2 tbsp ≈ 29.574 ml, 1 cup ≈ 236.588 ml, total ≈ 266.162 ml
+		// Best unit: 266.162/236.588 ≈ 1.125 cups → picks cup since ≥ 1
 		expect(result.unit).toBe('cup')
-		expect(result.value).toBeCloseTo(1.125)
+		expect(result.value).toBeCloseTo(1.125, 2)
 	})
 
 	test('converts tsp + tbsp preferring input units', () => {
@@ -89,7 +93,8 @@ describe('convertAndSum', () => {
 			],
 			family,
 		)
-		// 3 tsp + 6 tsp = 9 tsp = 3 tbsp (prefers tbsp since it was an input unit)
+		// 3 tsp ≈ 14.787 ml, 2 tbsp ≈ 29.574 ml, total ≈ 44.361 ml
+		// 44.361/14.787 ≈ 3 tbsp (prefers tbsp since it was an input unit)
 		expect(result.unit).toBe('tbsp')
 		expect(result.value).toBeCloseTo(3)
 	})
@@ -103,7 +108,8 @@ describe('convertAndSum', () => {
 			],
 			family,
 		)
-		// 8 oz + 16 oz = 24 oz = 1.5 lb
+		// 8 oz ≈ 226.796 g, 1 lb ≈ 453.592 g, total ≈ 680.388 g
+		// 680.388/453.592 ≈ 1.5 lb
 		expect(result.unit).toBe('lb')
 		expect(result.value).toBeCloseTo(1.5)
 	})
@@ -145,5 +151,49 @@ describe('convertAndSum', () => {
 		)
 		expect(result.unit).toBe('l')
 		expect(result.value).toBeCloseTo(1.25)
+	})
+
+	test('converts tsp + ml cross-system', () => {
+		const family = getUnitFamily('tsp')!.family
+		const result = convertAndSum(
+			[
+				{ amount: 1, normalizedUnit: 'tsp' },
+				{ amount: 100, normalizedUnit: 'ml' },
+			],
+			family,
+		)
+		// 1 tsp ≈ 4.929 ml + 100 ml = 104.929 ml
+		// pickBestUnit prefers largest input unit where value ≥1: tsp (4.929) > ml (1)
+		// 104.929/4.929 ≈ 21.3 tsp
+		expect(result.unit).toBe('tsp')
+		expect(result.value).toBeCloseTo(21.3, 0)
+	})
+
+	test('converts oz + g cross-system', () => {
+		const family = getUnitFamily('oz')!.family
+		const result = convertAndSum(
+			[
+				{ amount: 4, normalizedUnit: 'oz' },
+				{ amount: 200, normalizedUnit: 'g' },
+			],
+			family,
+		)
+		// 4 oz ≈ 113.398 g + 200 g = 313.398 g
+		// pickBestUnit prefers largest input unit where value ≥1: oz (28.3) > g (1)
+		// 313.398/28.3495 ≈ 11.06 oz
+		expect(result.unit).toBe('oz')
+		expect(result.value).toBeCloseTo(11.06, 0)
+	})
+
+	test('tsp and ml are in the same family', () => {
+		const tsp = getUnitFamily('tsp')
+		const ml = getUnitFamily('ml')
+		expect(tsp!.family.name).toBe(ml!.family.name)
+	})
+
+	test('oz and g are in the same family', () => {
+		const oz = getUnitFamily('oz')
+		const g = getUnitFamily('g')
+		expect(oz!.family.name).toBe(g!.family.name)
 	})
 })

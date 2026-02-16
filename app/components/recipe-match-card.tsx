@@ -204,6 +204,7 @@ function MissingIngredients({
 						<SubstitutionHint
 							ingredientName={ing.name}
 							isProActive={!!isProActive}
+							recipeId={recipeId}
 						>
 							{ing.name}
 						</SubstitutionHint>

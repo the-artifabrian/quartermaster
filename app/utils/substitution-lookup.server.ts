@@ -4,7 +4,10 @@ import {
 	getStaticSubstitutions,
 } from './ingredient-substitutions.ts'
 import { normalizeIngredientName } from './recipe-matching.server.ts'
-import { getLLMSubstitutions } from './substitution-llm.server.ts'
+import {
+	type RecipeContext,
+	getLLMSubstitutions,
+} from './substitution-llm.server.ts'
 
 export type EnrichedSubstitution = Substitution & {
 	/** true if the user's inventory contains (some of) the replacement ingredients */
@@ -25,6 +28,7 @@ export type SubstitutionResult = {
 export async function getSubstitutions(
 	ingredientName: string,
 	inventoryItems: Array<{ name: string }>,
+	recipeContext?: RecipeContext,
 ): Promise<SubstitutionResult> {
 	const normalized = normalizeIngredientName(ingredientName)
 
@@ -37,8 +41,11 @@ export async function getSubstitutions(
 		}
 	}
 
-	// 2. Cache + LLM fallback
-	const llmResult = await getLLMSubstitutionsWithCache(normalized)
+	// 2. Cache + LLM fallback (with optional recipe context for better results)
+	const llmResult = await getLLMSubstitutionsWithCache(
+		normalized,
+		recipeContext,
+	)
 	if (llmResult) {
 		return {
 			substitutions: enrichWithInventory(llmResult.substitutions, inventoryItems),
@@ -48,6 +55,8 @@ export async function getSubstitutions(
 
 	return { substitutions: [], source: 'none' }
 }
+
+export { type RecipeContext } from './substitution-llm.server.ts'
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 
@@ -60,17 +69,22 @@ const EMPTY_SENTINEL: Substitution[] = []
 /**
  * Cache-wrapped LLM substitution lookup.
  * Uses SQLite cache (persists across restarts) with 30-day TTL.
- * Cache key is per-ingredient — substitutions are ingredient-specific, not recipe-specific.
+ *
+ * Cache key includes recipe title when context is provided, so "water in
+ * Peach Coffee Cake" and "water in Fried Rice" cache separately.
  *
  * Negative results (LLM returns nothing) are also cached to prevent
  * repeated API calls for ingredients with no known substitutions.
  */
 async function getLLMSubstitutionsWithCache(
 	normalizedName: string,
+	recipeContext?: RecipeContext,
 ): Promise<{ substitutions: Substitution[]; source: 'cached' | 'llm' } | null> {
 	if (!process.env.ANTHROPIC_API_KEY) return null
 
-	const cacheKey = `substitution:${normalizedName}`
+	const cacheKey = recipeContext
+		? `substitution:${normalizedName}:recipe:${recipeContext.title.toLowerCase().trim()}`
+		: `substitution:${normalizedName}`
 
 	const result = await cachified({
 		key: cacheKey,
@@ -78,7 +92,10 @@ async function getLLMSubstitutionsWithCache(
 		ttl: THIRTY_DAYS_MS,
 		staleWhileRevalidate: THIRTY_DAYS_MS,
 		async getFreshValue() {
-			const llmResult = await getLLMSubstitutions(normalizedName)
+			const llmResult = await getLLMSubstitutions(
+				normalizedName,
+				recipeContext,
+			)
 			// Cache empty array as negative result (prevents repeated failed calls)
 			return llmResult ?? EMPTY_SENTINEL
 		},

@@ -407,7 +407,7 @@ templateId, recipeId
 subscriptionExpiresAt?, trialEndsAt?, userId (1-to-1)
 
 **InviteCode**: code (unique, "QM-XXXXXX"), type ("admin"|"earned"),
-grantsDays, expiresAt?, redeemedAt?, milestoneKey?, createdById, redeemedById?
+grantsDays, expiresAt?, redeemedAt?, createdById, redeemedById?
 
 **User**: Epic Stack default model with roles, permissions, connections (OAuth),
 sessions, passkeys

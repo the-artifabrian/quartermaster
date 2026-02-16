@@ -190,7 +190,8 @@ Complete feature catalog. For the roadmap, see
   aria-labels on icon-only buttons, `prefers-reduced-motion` support
 - SEO: descriptive titles, canonical URLs, OG/Twitter meta, JSON-LD (Recipe,
   WebApplication, FAQPage), sitemap, robots.txt
-- PWA with service worker for offline access
+- PWA with service worker for offline access, iOS standalone meta tags, and
+  themed splash screen (spinner + branding, PWA-only, dismissed after hydration)
 - Full data export (JSON) + import round-trip with duplicate detection and
   per-section error isolation
 - Security: CSP (nonce-based), streaming upload size enforcement, MIME

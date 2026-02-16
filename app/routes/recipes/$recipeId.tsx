@@ -11,6 +11,7 @@ import {
 	useRouteLoaderData,
 	useSearchParams,
 } from 'react-router'
+import { SubstitutionHint } from '#app/components/ingredient-substitution.tsx'
 import { InstructionWithTimers } from '#app/components/instruction-with-timers.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -1008,6 +1009,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					ratio={ratio}
 					needFetcher={needFetcher}
 					onClose={() => setShowNeedModal(false)}
+					isProActive={isProActive}
 				/>
 			)}
 		</>
@@ -1196,6 +1198,7 @@ function WhatDoINeedModal({
 	ratio,
 	needFetcher,
 	onClose,
+	isProActive,
 }: {
 	recipe: {
 		ingredients: Array<{
@@ -1208,6 +1211,7 @@ function WhatDoINeedModal({
 	ratio: number
 	needFetcher: ReturnType<typeof useFetcher>
 	onClose: () => void
+	isProActive: boolean
 }) {
 	const [checked, setChecked] = useState<Set<number>>(() => new Set())
 	const shoppingFetcher = useFetcher()
@@ -1395,7 +1399,12 @@ function WhatDoINeedModal({
 												<span className="font-medium">{item.amount} </span>
 											)}
 											{item.unit && <span>{item.unit} </span>}
-											{item.name}
+											<SubstitutionHint
+												ingredientName={item.name}
+												isProActive={isProActive}
+											>
+												{item.name}
+											</SubstitutionHint>
 										</span>
 									</li>
 								)

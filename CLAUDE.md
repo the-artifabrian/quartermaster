@@ -324,6 +324,35 @@ Stripe subscriptions coexist — user has Pro if either `trialEndsAt` or
 `STRIPE_PRO_YEARLY_PRICE_ID`, `STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID`,
 `STRIPE_HOUSEHOLD_YEARLY_PRICE_ID`
 
+### Ingredient Substitutions (AI Integration)
+
+**Architecture**: Static database first, LLM fallback, cached aggressively.
+Pro-tier feature — free users see no substitution indicators.
+
+**Key Files**:
+
+- `app/utils/ingredient-substitutions.ts` — Static database of ~50 common
+  substitutions (zero API cost). Keyed by normalized name, substring matching
+- `app/utils/substitution-lookup.server.ts` — Orchestrates static → cache → LLM
+  cascade. Cross-references substitutions against user's inventory
+- `app/utils/substitution-llm.server.ts` — Direct HTTP fetch to Anthropic
+  Messages API (Claude Haiku). Returns null on any error (graceful degradation)
+- `app/routes/resources/substitutions.tsx` — POST-only resource route (Pro-gated
+  via `requireProTier`). Never called in loaders
+- `app/components/ingredient-substitution.tsx` — `SubstitutionHint` Popover
+  component wrapping missing-ingredient pills
+- `app/components/ui/popover.tsx` — Radix Popover primitive (shadcn pattern)
+
+**Integration points**: Missing ingredient pills on recipe cards
+(`recipe-match-card.tsx`), "Almost There" banner pills (`recipes/index.tsx`),
+"What Do I Need?" modal (`recipes/$recipeId.tsx`).
+
+**Env vars**: `ANTHROPIC_API_KEY` (optional — app works with static
+substitutions only when unset). LLM results cached 30 days in SQLite via
+`cachified()`. Negative results (no subs found) are also cached to prevent
+repeated API calls. Cache key is per-ingredient, not per-recipe. 8-second
+timeout on API calls.
+
 ### Image Handling
 
 **Storage**: S3-compatible storage (configured in `app/utils/storage.server.ts`)

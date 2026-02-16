@@ -87,8 +87,10 @@ differentiator. Everything above plus:
 - **Ingredient overlap planning**, efficiency scoring, pairing suggestions
 - **"What Do I Need?"** checklist on recipe detail
 - **"I Made This"** cook logging with inventory impact preview
-- AI features (planned): substitution hints, recipe generation from inventory,
-  smart meal plan auto-fill
+- **Ingredient substitution hints** (static database + Claude Haiku LLM
+  fallback, inventory-aware)
+- AI features (planned): recipe generation from inventory, smart meal plan
+  auto-fill
 
 ## Household Tier (~$69/year)
 
@@ -124,17 +126,18 @@ Natural upgrade for couples/families:
 | Inventory subtraction after cooking | Yes                 | No              | No                   | No                 | No             |
 | Expiration-based suggestions        | Yes                 | No              | No                   | No                 | Partial        |
 | Ingredient overlap planning         | Yes                 | No              | No                   | No                 | No             |
-| AI substitution hints               | Planned             | No              | No                   | No                 | Yes            |
+| AI substitution hints               | Yes                 | No              | No                   | No                 | Yes            |
 | AI recipe generation from inventory | Planned             | No              | No                   | No                 | Yes            |
 | Smart meal plan auto-fill           | Planned             | No              | No                   | No                 | Yes            |
 | Household sharing + real-time sync  | Yes                 | No              | No                   | No                 | No             |
 
-The top 5 rows are shipped today and represent Quartermaster's core
-differentiator -- the closed-loop inventory intelligence pipeline. No competitor
-offers this end-to-end. Ollie has AI features that Quartermaster plans to build,
-but lacks the inventory tracking depth (no subtraction, no overlap planning, no
-fuzzy matching). At $49/yr, Quartermaster undercuts Ollie ($84/yr) significantly
-while offering a more complete inventory loop.
+The top 6 rows are shipped today and represent Quartermaster's core
+differentiator -- the closed-loop inventory intelligence pipeline plus
+AI-powered substitution hints. No competitor offers this end-to-end. Ollie has
+AI features that Quartermaster plans to build, but lacks the inventory tracking
+depth (no subtraction, no overlap planning, no fuzzy matching). At $49/yr,
+Quartermaster undercuts Ollie ($84/yr) significantly while offering a more
+complete inventory loop.
 
 ### Broader landscape
 

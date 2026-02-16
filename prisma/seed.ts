@@ -116,8 +116,12 @@ async function seed() {
 	for (const user of [kody, kody2]) {
 		await prisma.subscription.upsert({
 			where: { userId: user.id },
-			update: {},
-			create: { userId: user.id, tier: 'pro' },
+			update: { subscriptionExpiresAt: new Date('2099-12-31') },
+			create: {
+				userId: user.id,
+				tier: 'pro',
+				subscriptionExpiresAt: new Date('2099-12-31'),
+			},
 		})
 	}
 	console.timeEnd(`💎 Ensure subscriptions`)

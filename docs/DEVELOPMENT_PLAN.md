@@ -37,8 +37,11 @@ The app is feature-complete for solo and shared daily use. See
 ## Architecture Notes
 
 - **Single-instance SSE**: In-memory EventEmitter means SSE events only reach
-- **Subscription model**: `Subscription` with `tier`, Stripe fields,
-  override.
+- **Subscription model**: `Subscription` with `tier`, Stripe fields
+  (`stripeCustomerId`, `stripeSubscriptionId`, both `@unique`),
+  `subscriptionExpiresAt`, `trialEndsAt`. Pro access if either Stripe
+  subscription or invite-code trial is active. Stripe webhook handlers are
+  authoritative for subscription lifecycle; success redirect is optimistic.
 - **Infrastructure seed**: `prisma/seed-infrastructure.ts` (permissions, roles,
   tags) runs on every production deploy via `litefs.yml`. Dev seed adds test
   users.
@@ -163,16 +166,10 @@ scoring, waste alerts) are proven in daily use. The marketing pitch needs to be
 real before asking people to pay.
 
 Shipped: subscription model, tier enforcement (`requireProTier` route guard,
-subscription management (`/admin/subscriptions`).
+subscription management (`/admin/subscriptions`), Stripe integration (Checkout,
 
-Remaining (start Stripe in test mode now — it doesn't require a business entity
-and shouldn't be blocked on the March 12 gate check):
+Remaining:
 
-- [ ] **Stripe integration** -- Subscriptions, webhooks, customer portal for
-      self-service plan changes / cancellation. Use Stripe Checkout for the
-      payment flow to avoid building card forms. Build against **test mode**
-      in parallel with daily driving — flipping to live mode only requires
-      swapping API keys and verifying the PFA.
 - [ ] **Pro expiry + graceful downgrade** -- When Pro lapses (Stripe
       cancellation or 60-day invite-code grant expiry), data is preserved but
       gated features become read-only. Never delete user data on downgrade.

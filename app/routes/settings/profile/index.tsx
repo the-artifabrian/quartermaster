@@ -3,7 +3,7 @@ import { getZodConstraint, parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Img } from 'openimg/react'
-import { data, Link, useFetcher } from 'react-router'
+import { data, Form, Link, useFetcher } from 'react-router'
 import { z } from 'zod'
 import { ErrorList, Field } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -17,7 +17,7 @@ import { authSessionStorage } from '#app/utils/session.server.ts'
 import { useRequestInfo } from '#app/utils/request-info.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { getAvailableCodeCount } from '#app/utils/invite-codes.server.ts'
-import { getUserTier } from '#app/utils/subscription.server.ts'
+import { getUserTier, type TierInfo } from '#app/utils/subscription.server.ts'
 import { NameSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/index.ts'
 import { twoFAVerificationType } from './two-factor/_layout.tsx'
@@ -74,6 +74,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		hasPassword: Boolean(password),
 		isTwoFactorEnabled: Boolean(twoFactorVerification),
 		isProActive: tierInfo.isProActive,
+		tierInfo,
 		availableInviteCodeCount,
 	}
 }
@@ -151,6 +152,9 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 					/>
 				</div>
 			</div>
+
+			{/* Subscription */}
+			<SubscriptionCard tierInfo={loaderData.tierInfo} />
 
 			{/* Account */}
 			<div className="bg-card rounded-xl border p-4 shadow-warm">
@@ -481,6 +485,82 @@ function DeleteData() {
 					</Icon>
 				</StatusButton>
 			</fetcher.Form>
+		</div>
+	)
+}
+
+function SubscriptionCard({ tierInfo }: { tierInfo: TierInfo }) {
+	const tierLabel =
+		tierInfo.tier === 'household'
+			? 'Household'
+			: tierInfo.tier === 'pro'
+				? 'Pro'
+				: 'Free'
+
+	return (
+		<div className="bg-card rounded-xl border p-4 shadow-warm">
+			<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+				Subscription
+			</h3>
+			<div className="flex flex-col gap-2 px-4 py-3">
+				{tierInfo.hasStripeSubscription ? (
+					<>
+						<p className="text-sm">
+							<span className="font-medium">{tierLabel} plan</span>
+							{tierInfo.subscriptionExpiresAt ? (
+								<>
+									{' '}
+									&middot; Renews{' '}
+									{new Date(
+										tierInfo.subscriptionExpiresAt,
+									).toLocaleDateString('en-US', {
+										month: 'long',
+										day: 'numeric',
+										year: 'numeric',
+									})}
+								</>
+							) : null}
+						</p>
+						<Form method="POST" action="/resources/stripe-portal">
+							<Button variant="outline" size="sm">
+								Manage Subscription
+							</Button>
+						</Form>
+					</>
+				) : tierInfo.isProActive && tierInfo.isTrialing ? (
+					<>
+						<p className="text-sm">
+							<span className="font-medium">Pro access</span> via invite
+							code until{' '}
+							{tierInfo.trialEndsAt
+								? new Date(
+										tierInfo.trialEndsAt,
+									).toLocaleDateString('en-US', {
+										month: 'long',
+										day: 'numeric',
+										year: 'numeric',
+									})
+								: 'unknown'}
+						</p>
+						<Button asChild variant="outline" size="sm">
+							<Link to="/upgrade">Subscribe</Link>
+						</Button>
+					</>
+				) : tierInfo.isProActive ? (
+					<p className="text-sm">
+						<span className="font-medium">{tierLabel} plan</span>
+					</p>
+				) : (
+					<>
+						<p className="text-sm">
+							<span className="font-medium">Free plan</span>
+						</p>
+						<Button asChild variant="outline" size="sm">
+							<Link to="/upgrade">Upgrade</Link>
+						</Button>
+					</>
+				)}
+			</div>
 		</div>
 	)
 }

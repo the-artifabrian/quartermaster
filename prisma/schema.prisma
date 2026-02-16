@@ -219,8 +219,8 @@ model HouseholdInvite {
 model Subscription {
   id                    String    @id @default(cuid())
   tier                  String    @default("free")
-  stripeCustomerId      String?
-  stripeSubscriptionId  String?
+  stripeCustomerId      String?   @unique
+  stripeSubscriptionId  String?   @unique
   subscriptionExpiresAt DateTime?
   trialEndsAt           DateTime?
 

@@ -123,7 +123,11 @@ Complete feature catalog. For the roadmap, see
   Dismissible, auto-hides on completion
 - Pantry staples onboarding on empty inventory
 
-- Three-tier model: Free, Pro, Household
+  Stripe subscription, or admin override
+- **Stripe integration**: Stripe Checkout (hosted redirect, PCI-compliant),
+  Customer Portal for self-service plan changes/cancellation, webhook-driven
+  subscription lifecycle (checkout completed, invoice paid, subscription
+  Pro access if either is active
   Pro access. Redemption grants 2 starter codes to share with friends. Admins
   generate codes for launches at `/admin/subscriptions`
 - Pro-only routes (`/inventory`, `/plan`, `/shopping`) redirect free users to
@@ -131,6 +135,8 @@ Complete feature catalog. For the roadmap, see
 - Mixed-access routes degrade gracefully: recipe list skips match data,
   recipe detail hides inventory features, Surprise Me skips inventory weighting,
   data import skips Pro-only models
+- Subscription status in Settings > Profile with "Manage Subscription" portal
+  link for Stripe subscribers
 - Admin page at `/admin/subscriptions` for tier management and code generation
 - Client hooks: `useSubscriptionTier()`, `useIsProActive()`
 

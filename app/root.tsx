@@ -140,6 +140,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 		tier: 'free',
 		isProActive: false,
 		trialEndsAt: null,
+		subscriptionExpiresAt: null,
+		hasStripeSubscription: false,
 	}
 	let unreadNotificationCount = 0
 	let householdName: string | null = null

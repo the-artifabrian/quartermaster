@@ -278,8 +278,6 @@ fly ssh console -C "sqlite3 \$DATABASE_PATH \"
 
 Admin routes: `/admin/cache` (cache management), `/admin/subscriptions` (tier
 
-friends. Admins can also generate codes for launches.
-
 **Key Files**:
 
 - `app/utils/invite-codes.server.ts` — Code generation (`QM-XXXXXX` format),
@@ -288,9 +286,33 @@ friends. Admins can also generate codes for launches.
   `getCodeStatus()` UI helper (used by settings and admin pages)
 - `app/routes/resources/redeem-invite-code.tsx` — POST resource route for
   code redemption (used by `/upgrade` and potentially other pages via `useFetcher`)
+  checkout buttons, billing period toggle
 - `app/routes/settings/profile/invite-codes.tsx` — Pro-only settings page
   showing user's codes
 - `app/routes/admin/subscriptions.tsx` — Admin code generation + management
+
+### Stripe Integration
+
+**Pattern**: Stripe Checkout (hosted redirect) + Customer Portal (self-service).
+Stripe subscriptions coexist — user has Pro if either `trialEndsAt` or
+`subscriptionExpiresAt` is in the future.
+
+**Key Files**:
+
+- `app/utils/stripe.server.ts` — Stripe client singleton, Checkout/Portal
+  session creation, webhook handlers (`handleCheckoutCompleted`,
+  `handleInvoicePaid`, `handleSubscriptionUpdated`, `handleSubscriptionDeleted`),
+  price-to-tier mapping
+- `app/routes/resources/stripe-webhook.tsx` — Webhook endpoint (POST only, no
+  session auth, Stripe signature verification). Always returns 200 after valid
+  signature to prevent retries
+- `app/routes/resources/stripe-portal.tsx` — Customer Portal redirect
+  (authenticated, POST only)
+
+**Env vars** (all optional — app runs without Stripe in invite-code-only mode):
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_MONTHLY_PRICE_ID`,
+`STRIPE_PRO_YEARLY_PRICE_ID`, `STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID`,
+`STRIPE_HOUSEHOLD_YEARLY_PRICE_ID`
 
 ### Image Handling
 

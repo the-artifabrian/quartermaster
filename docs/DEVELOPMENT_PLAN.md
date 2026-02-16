@@ -137,10 +137,10 @@ Remaining:
       `getUserTier()` utility, root loader `tierInfo`, client hooks, lock icons
       in nav, `/upgrade` pricing page, 14-day trial on signup. See Phase 14
       implementation tasks for details.
-- [x] **Admin subscription management** -- Admin page at
-      `/admin/subscriptions` for managing user tiers (promote/demote). Lists all
-      users with current tier, household, trial status. Per-row dropdown to change
-      tier (upsert, clears trial/expiry). Admin-role gated.
+- [x] **Admin subscription management** -- Admin page at `/admin/subscriptions`
+      for managing user tiers (promote/demote). Lists all users with current
+      tier, household, trial status. Per-row dropdown to change tier (upsert,
+      clears trial/expiry). Admin-role gated.
 
 ### AI Integration
 
@@ -213,9 +213,9 @@ it.
       Household). "Coming Soon" where payment buttons will go. Accessible to all
       users (no auth guard).
 - [x] **Admin subscription management** -- Shipped. Admin page at
-      `/admin/subscriptions` for managing user tiers. Lists all users with current
-      tier, household, trial status. Per-row dropdown to change tier (upsert,
-      clears trial/expiry for clean admin override). Admin-role gated.
+      `/admin/subscriptions` for managing user tiers. Lists all users with
+      current tier, household, trial status. Per-row dropdown to change tier
+      (upsert, clears trial/expiry for clean admin override). Admin-role gated.
 - [ ] **Stripe integration** -- Subscriptions, webhooks, customer portal for
       self-service plan changes / cancellation. Use Stripe Checkout for the
       payment flow to avoid building card forms.

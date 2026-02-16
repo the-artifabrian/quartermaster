@@ -160,7 +160,7 @@
     "node": "^22.18.0"
   },
   "prisma": {
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.ts"
   },
   "epic-stack": {
     "head": "d1c3dde718e1e98ba49a542a1eb13985ad484d5d",

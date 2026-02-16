@@ -260,6 +260,23 @@ CookingLog stays user-scoped.
 Empty recipe library shows a "Getting Started" checklist. Empty inventory shows
 pantry staples onboarding.
 
+**Admin Role**: The `admin` role is created by the infrastructure seed
+(`prisma/seed-infrastructure.ts`), which runs automatically on every deploy via
+`litefs.yml`. In development, the `kody` test user gets admin automatically. In
+production, promote a user to admin via Fly SSH (one-time):
+
+```bash
+fly ssh console -C "sqlite3 \$DATABASE_PATH \"
+  INSERT INTO _RoleToUser (A, B)
+  SELECT Role.id, User.id
+  FROM Role, User
+  WHERE Role.name = 'admin' AND User.username = 'YOUR_USERNAME';
+\""
+```
+
+Admin routes: `/admin/cache` (cache management), `/admin/subscriptions` (tier
+management).
+
 ### Image Handling
 
 **Storage**: S3-compatible storage (configured in `app/utils/storage.server.ts`)

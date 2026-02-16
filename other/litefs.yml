@@ -32,6 +32,10 @@ exec:
   - cmd: npx prisma migrate deploy
     if-candidate: true
 
+  # Seed infrastructure data (permissions, roles, tags). Idempotent.
+  - cmd: node prisma/run-seed-infrastructure.ts
+    if-candidate: true
+
   # Set the journal mode for the database to WAL. This reduces concurrency deadlock issues
   - cmd: sqlite3 $DATABASE_PATH "PRAGMA journal_mode = WAL;"
     if-candidate: true

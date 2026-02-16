@@ -1,5 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useFetcher } from 'react-router'
+import { data, useFetcher } from 'react-router'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { Spacer } from '#app/components/spacer.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
@@ -89,11 +89,19 @@ export async function action({ request }: Route.ActionArgs) {
 		const tier = formData.get('tier')
 
 		if (typeof userId !== 'string' || typeof tier !== 'string') {
-			return { error: 'Invalid form data' }
+			return data({ error: 'Invalid form data' }, { status: 400 })
 		}
 
 		if (!['free', 'pro', 'household'].includes(tier)) {
-			return { error: 'Invalid tier' }
+			return data({ error: 'Invalid tier' }, { status: 400 })
+		}
+
+		const user = await prisma.user.findUnique({
+			where: { id: userId },
+			select: { id: true },
+		})
+		if (!user) {
+			return data({ error: 'User not found' }, { status: 404 })
 		}
 
 		await prisma.subscription.upsert({
@@ -105,7 +113,7 @@ export async function action({ request }: Route.ActionArgs) {
 		return { success: true }
 	}
 
-	return { error: 'Unknown intent' }
+	return data({ error: 'Unknown intent' }, { status: 400 })
 }
 
 const tierStyles: Record<string, string> = {
@@ -127,8 +135,7 @@ function TierBadge({ tier }: { tier: string }) {
 
 function UserRow({ user }: { user: UserRow }) {
 	const fetcher = useFetcher<typeof action>()
-	const optimisticTier =
-		fetcher.formData?.get('tier')?.toString() ?? user.tier
+	const optimisticTier = fetcher.formData?.get('tier')?.toString() ?? user.tier
 
 	return (
 		<li className="flex items-center justify-between rounded-lg border p-3">
@@ -136,33 +143,23 @@ function UserRow({ user }: { user: UserRow }) {
 				<div className="flex items-center gap-2">
 					<span className="font-medium">{user.username}</span>
 					{user.name ? (
-						<span className="text-muted-foreground text-sm">
-							({user.name})
-						</span>
+						<span className="text-muted-foreground text-sm">({user.name})</span>
 					) : null}
 					<TierBadge tier={optimisticTier} />
 					{user.isTrialing && user.trialEndsAt ? (
 						<span className="text-xs text-amber-600 dark:text-amber-400">
-							Trial ends{' '}
-							{new Date(user.trialEndsAt).toLocaleDateString()}
+							Trial ends {new Date(user.trialEndsAt).toLocaleDateString()}
 						</span>
 					) : user.trialExpired ? (
-						<span className="text-muted-foreground text-xs">
-							Trial expired
-						</span>
+						<span className="text-muted-foreground text-xs">Trial expired</span>
 					) : null}
 				</div>
 				<p className="text-muted-foreground text-sm">
 					{user.email}
-					{user.householdName ? (
-						<span> · {user.householdName}</span>
-					) : null}
+					{user.householdName ? <span> · {user.householdName}</span> : null}
 				</p>
 			</div>
-			<fetcher.Form
-				method="POST"
-				className="flex shrink-0 items-center gap-2"
-			>
+			<fetcher.Form method="POST" className="flex shrink-0 items-center gap-2">
 				<input type="hidden" name="intent" value="changeTier" />
 				<input type="hidden" name="userId" value={user.id} />
 				<select
@@ -196,7 +193,7 @@ export default function SubscriptionsAdminRoute({
 	loaderData,
 }: Route.ComponentProps) {
 	return (
-		<div className="container">
+		<div className="container p-4">
 			<h1 className="text-h2">Subscription Management</h1>
 			<Spacer size="2xs" />
 			<p className="text-muted-foreground text-sm">

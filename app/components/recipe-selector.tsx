@@ -20,6 +20,17 @@ type RecipeSelectorProps = {
 	pairingData?: PairingData
 }
 
+function getTotalTime(recipe: Recipe): number | null {
+	const total = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
+	return total > 0 ? total : null
+}
+
+function sortByTime(a: Recipe, b: Recipe): number {
+	const aTime = getTotalTime(a) ?? 45
+	const bTime = getTotalTime(b) ?? 45
+	return aTime - bTime
+}
+
 export function RecipeSelector({
 	recipes,
 	date,
@@ -34,15 +45,25 @@ export function RecipeSelector({
 		.filter((r) => !excludeRecipeIds.includes(r.id))
 		.filter((r) => r.title.toLowerCase().includes(search.toLowerCase()))
 
+	// Mon=1..Thu=4 are weeknights
+	const isWeeknight = date.getDay() >= 1 && date.getDay() <= 4
+
 	// Sort by pairing overlap if data is available
 	const sortedRecipes = pairingData
 		? [...filteredRecipes].sort((a, b) => {
 				const aOverlap = pairingData[a.id]?.overlapCount ?? 0
 				const bOverlap = pairingData[b.id]?.overlapCount ?? 0
-				return bOverlap - aOverlap
+				const overlapDiff = bOverlap - aOverlap
+				if (overlapDiff !== 0) return overlapDiff
+				// Secondary sort by time on weeknights
+				return isWeeknight ? sortByTime(a, b) : 0
 			})
-		: filteredRecipes
+		: isWeeknight
+			? [...filteredRecipes].sort(sortByTime)
+			: filteredRecipes
 
+	// Split into groups — .filter() preserves the order from sortedRecipes,
+	// so overlap-primary + time-secondary sorting is already correct
 	const pairsWell = pairingData
 		? sortedRecipes.filter((r) => (pairingData[r.id]?.overlapCount ?? 0) > 0)
 		: []
@@ -121,6 +142,8 @@ function RecipeOption({
 		score: number
 	}
 }) {
+	const totalTime = getTotalTime(recipe)
+
 	return (
 		<Form method="POST">
 			<input type="hidden" name="intent" value="assign" />
@@ -143,11 +166,19 @@ function RecipeOption({
 							</p>
 						)}
 					</div>
-					{pairing && pairing.overlapCount > 0 && (
-						<span className="inline-flex flex-shrink-0 items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
-							{pairing.overlapCount} shared
-						</span>
-					)}
+					<div className="flex flex-shrink-0 items-center gap-1.5">
+						{totalTime != null && (
+							<span className="text-muted-foreground inline-flex items-center gap-0.5 text-xs">
+								<Icon name="clock" className="size-3" />
+								{totalTime}m
+							</span>
+						)}
+						{pairing && pairing.overlapCount > 0 && (
+							<span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
+								{pairing.overlapCount} shared
+							</span>
+						)}
+					</div>
 				</div>
 				{pairing && pairing.overlapCount > 0 && (
 					<p className="text-muted-foreground mt-1 text-xs">

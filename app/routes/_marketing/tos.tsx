@@ -1,14 +1,24 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { data } from 'react-router'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
+import { baseMetaTags } from '#app/utils/meta.ts'
 import { type Route } from './+types/tos.ts'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => [{ route: 'tos', priority: 0.2 }],
 }
 
-export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Terms of Service | Quartermaster' }]
+const description =
+	'The rules of the road for using Quartermaster. You own your recipes, we keep the lights on.'
+
+export const meta: Route.MetaFunction = ({ matches }) => {
+	return [
+		{ title: 'Terms of Service | Quartermaster' },
+		{ name: 'description', content: description },
+		{ property: 'og:title', content: 'Terms of Service | Quartermaster' },
+		{ property: 'og:description', content: description },
+		...baseMetaTags(matches),
+	]
 }
 
 export function loader() {

@@ -2,6 +2,7 @@ import { type ShoppingListItem } from '@prisma/client'
 import { useState } from 'react'
 import { useFetcher } from 'react-router'
 import { categoryToLocation } from '#app/utils/category-location-map.ts'
+import { suggestExpiryDate } from '#app/utils/shelf-life.ts'
 import { Button } from './ui/button.tsx'
 import { Checkbox } from './ui/checkbox.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -12,6 +13,7 @@ type InventoryReviewItem = {
 	quantity: string | null
 	unit: string | null
 	location: 'pantry' | 'fridge' | 'freezer'
+	expiresAt: string | null
 	included: boolean
 }
 
@@ -30,14 +32,18 @@ export function ShoppingListToInventory({
 	const householdCount = items.length - foodItems.length
 
 	const [reviewItems, setReviewItems] = useState<InventoryReviewItem[]>(() =>
-		foodItems.map((item) => ({
-			id: item.id,
-			name: item.name,
-			quantity: item.quantity,
-			unit: item.unit,
-			location: categoryToLocation(item.category ?? 'other'),
-			included: true,
-		})),
+		foodItems.map((item) => {
+			const location = categoryToLocation(item.category ?? 'other')
+			return {
+				id: item.id,
+				name: item.name,
+				quantity: item.quantity,
+				unit: item.unit,
+				location,
+				expiresAt: suggestExpiryDate(item.name, location),
+				included: true,
+			}
+		}),
 	)
 
 	const selectedCount = reviewItems.filter((i) => i.included).length
@@ -55,18 +61,38 @@ export function ShoppingListToInventory({
 		location: 'pantry' | 'fridge' | 'freezer',
 	) {
 		setReviewItems((prev) =>
-			prev.map((item) => (item.id === id ? { ...item, location } : item)),
+			prev.map((item) =>
+				item.id === id
+					? {
+							...item,
+							location,
+							expiresAt: suggestExpiryDate(item.name, location),
+						}
+					: item,
+			),
+		)
+	}
+
+	function handleExpiryChange(id: string, expiresAt: string | null) {
+		setReviewItems((prev) =>
+			prev.map((item) =>
+				item.id === id ? { ...item, expiresAt } : item,
+			),
 		)
 	}
 
 	function handleSubmit() {
 		const selected = reviewItems
 			.filter((i) => i.included)
-			.map((i) => ({ itemId: i.id, location: i.location }))
+			.map((i) => ({
+				itemId: i.id,
+				location: i.location,
+				expiresAt: i.expiresAt || null,
+			}))
 		// Include household items too — server will clear them but skip inventory creation
 		const householdItemEntries = items
 			.filter((item) => item.category === 'household')
-			.map((item) => ({ itemId: item.id, location: 'pantry' }))
+			.map((item) => ({ itemId: item.id, location: 'pantry', expiresAt: null }))
 		const allItems = [...selected, ...householdItemEntries]
 		if (allItems.length === 0) return
 
@@ -93,7 +119,7 @@ export function ShoppingListToInventory({
 					{reviewItems.map((item) => (
 						<div
 							key={item.id}
-							className="bg-background flex items-center gap-3 rounded-lg px-3 py-2.5"
+							className="bg-background flex flex-wrap items-center gap-3 rounded-lg px-3 py-2.5"
 						>
 							<Checkbox
 								checked={item.included}
@@ -121,6 +147,18 @@ export function ShoppingListToInventory({
 								<option value="fridge">Fridge</option>
 								<option value="freezer">Freezer</option>
 							</select>
+							<input
+								type="date"
+								value={item.expiresAt ?? ''}
+								onChange={(e) =>
+									handleExpiryChange(
+										item.id,
+										e.target.value || null,
+									)
+								}
+								className="bg-muted w-[130px] rounded-md border px-2 py-1 text-sm"
+								aria-label={`Expiry date for ${item.name}`}
+							/>
 						</div>
 					))}
 				</div>

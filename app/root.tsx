@@ -16,6 +16,7 @@ import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
+import { ProExpiryNudge } from './components/pro-expiry-nudge.tsx'
 import { NotificationBell } from './components/notification-bell.tsx'
 import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { Progress } from './components/progress-bar.tsx'
@@ -143,6 +144,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 		trialEndsAt: null,
 		subscriptionExpiresAt: null,
 		hasStripeSubscription: false,
+		proExpiresAt: null,
+		daysUntilExpiry: null,
+		wasProPreviously: false,
 	}
 	let unreadNotificationCount = 0
 	let householdName: string | null = null
@@ -402,6 +406,7 @@ function App() {
 				<Toaster closeButton position="top-center" theme={theme} />
 				<OfflineIndicator />
 				{user ? <HouseholdActivityNotifier /> : null}
+				{user ? <ProExpiryNudge /> : null}
 				{user ? <TimerWidget /> : null}
 				<Progress />
 			</OpenImgContextProvider>

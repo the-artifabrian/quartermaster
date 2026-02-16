@@ -38,6 +38,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 		trialEndsAt: null,
 		subscriptionExpiresAt: null,
 		hasStripeSubscription: false,
+		proExpiresAt: null,
+		daysUntilExpiry: null,
+		wasProPreviously: false,
 	}
 	if (userId) {
 		tierInfo = await getUserTier(userId)
@@ -189,6 +192,20 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="container max-w-5xl px-4 py-8 md:py-12">
+			{!tierInfo.isProActive && tierInfo.wasProPreviously ? (
+				<div className="bg-card border-border mx-auto mb-8 max-w-2xl rounded-2xl border p-6 text-center">
+					<Icon name="lock-open-1" size="lg" className="text-primary mx-auto mb-3" />
+					<h2 className="text-lg font-semibold">
+						Your Pro access has ended
+					</h2>
+					<p className="text-muted-foreground mt-2 text-sm">
+						Your data is safe &mdash; recipes, inventory, meal plans, and
+						shopping lists are all preserved. Subscribe or redeem a new
+						invite code to pick up where you left off.
+					</p>
+				</div>
+			) : null}
+
 			<div className="mb-8 text-center md:mb-12">
 				<h1 className="font-serif text-3xl font-bold tracking-tight md:text-4xl">
 					Upgrade Your Kitchen

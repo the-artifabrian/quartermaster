@@ -31,7 +31,7 @@ The app is feature-complete for solo and shared daily use. See
 | UI redesign | Custom color system, mobile-first layout, warm empty states, accessibility pass |
 | Daily Use Polish | Recipe print/share, quick cook from meal plan, meal templates, "Up next" banner |
 | Smarter UX | Shelf-life auto-suggest, low-stock nudge chips, weeknight-aware sorting, pairing/waste/efficiency |
-| Monetization infra | Subscription tiers, tier enforcement, invite code system, admin dashboard, pricing page, Stripe integration |
+| Monetization infra | Subscription tiers, tier enforcement, invite code system, admin dashboard, pricing page, Stripe integration, Pro expiry + graceful downgrade |
 
 ---
 
@@ -187,18 +187,10 @@ Shipped: subscription model, tier enforcement (`requireProTier` route guard,
 mixed-access degradation, lock icons, client hooks), invite code system (no
 auto-trial, codes are only path to Pro), pricing page (`/upgrade`), admin
 subscription management (`/admin/subscriptions`), Stripe integration (Checkout,
-Customer Portal, webhooks, coexists with invite codes).
-
-Remaining:
-
-- [ ] **Pro expiry + graceful downgrade** -- When Pro lapses (Stripe
-      cancellation or 60-day invite-code grant expiry), data is preserved but
-      gated features become read-only. Never delete user data on downgrade.
-      UI: show Pro status and days remaining in settings/header, reminder nudge
-      at 7 days and 3 days, on expiry show "Your Pro access has ended — your
-      data is safe" with options to subscribe (Stripe) or redeem another code.
-      The invite-code expiry is the most likely early-adopter churn point —
-      design before the first codes expire (~mid-April).
+Customer Portal, webhooks, coexists with invite codes), Pro expiry + graceful
+downgrade (days-remaining in header/settings, toast nudges at 7d/3d, lapsed
+redirect with "data is safe" toast, reassurance banner on `/upgrade`, lapsed
+state in settings subscription card).
 
 ---
 

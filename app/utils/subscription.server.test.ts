@@ -227,3 +227,208 @@ describe('getUserTier', () => {
 		expect(tier.subscriptionExpiresAt).toBeNull()
 	})
 })
+
+describe('proExpiresAt', () => {
+	test('returns trialEndsAt when trialing', async () => {
+		const user = await setupUser()
+		const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'free',
+				trialEndsAt: futureDate,
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.proExpiresAt).toEqual(futureDate)
+	})
+
+	test('returns subscriptionExpiresAt when paid', async () => {
+		const user = await setupUser()
+		const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'pro',
+				stripeCustomerId: 'cus_test',
+				subscriptionExpiresAt: futureDate,
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.proExpiresAt).toEqual(futureDate)
+	})
+
+	test('returns null for indefinite Stripe (no subscriptionExpiresAt)', async () => {
+		const user = await setupUser()
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'pro',
+				stripeCustomerId: 'cus_test_indef',
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.proExpiresAt).toBeNull()
+		expect(tier.isProActive).toBe(true)
+	})
+
+	test('returns null for no subscription', async () => {
+		const user = await setupUser()
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.proExpiresAt).toBeNull()
+	})
+
+	test('returns null when trial active but Stripe is indefinite', async () => {
+		const user = await setupUser()
+		const trialEnd = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'pro',
+				stripeCustomerId: 'cus_test_indef',
+				trialEndsAt: trialEnd,
+				// no subscriptionExpiresAt → indefinite Stripe
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		// Indefinite Stripe wins — should NOT show trial countdown
+		expect(tier.proExpiresAt).toBeNull()
+		expect(tier.daysUntilExpiry).toBeNull()
+		expect(tier.isProActive).toBe(true)
+	})
+
+	test('picks later date when both trial and paid have concrete dates', async () => {
+		const user = await setupUser()
+		const trialEnd = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
+		const subEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'pro',
+				stripeCustomerId: 'cus_test',
+				trialEndsAt: trialEnd,
+				subscriptionExpiresAt: subEnd,
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		// Should pick the later date (subscription), not the trial
+		expect(tier.proExpiresAt).toEqual(subEnd)
+		expect(tier.daysUntilExpiry).toBe(30)
+	})
+})
+
+describe('daysUntilExpiry', () => {
+	test('calculates correctly for trial ending in 5 days', async () => {
+		const user = await setupUser()
+		const fiveDaysFromNow = new Date(
+			Date.now() + 5 * 24 * 60 * 60 * 1000,
+		)
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'free',
+				trialEndsAt: fiveDaysFromNow,
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.daysUntilExpiry).toBe(5)
+	})
+
+	test('returns null when no expiry', async () => {
+		const user = await setupUser()
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'pro',
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.daysUntilExpiry).toBeNull()
+	})
+
+	test('returns null when no subscription', async () => {
+		const user = await setupUser()
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.daysUntilExpiry).toBeNull()
+	})
+})
+
+describe('wasProPreviously', () => {
+	test('is true for expired trial', async () => {
+		const user = await setupUser()
+		const pastDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'free',
+				trialEndsAt: pastDate,
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.wasProPreviously).toBe(true)
+		expect(tier.isProActive).toBe(false)
+	})
+
+	test('is true for expired Stripe subscription', async () => {
+		const user = await setupUser()
+		const pastDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'pro',
+				stripeCustomerId: 'cus_test_expired',
+				subscriptionExpiresAt: pastDate,
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.wasProPreviously).toBe(true)
+		expect(tier.isProActive).toBe(false)
+	})
+
+	test('is false for never-Pro user', async () => {
+		const user = await setupUser()
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.wasProPreviously).toBe(false)
+	})
+
+	test('is false for active Pro user', async () => {
+		const user = await setupUser()
+		const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'free',
+				trialEndsAt: futureDate,
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.wasProPreviously).toBe(false)
+		expect(tier.isProActive).toBe(true)
+	})
+})

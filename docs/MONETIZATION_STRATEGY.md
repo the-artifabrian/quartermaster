@@ -51,16 +51,19 @@ URL import is free because it's a growth lever — users build a big library,
 get invested, and then want the intelligence layer to plan around it.
 
 > **Enforcement status:** Tier gating is fully implemented. Pro-only routes
-> redirect to `/upgrade`. Mixed-access routes degrade gracefully (no inventory
-> matching, no "What Do I Need?", no shopping list integration). New signups
-> start on free tier (no auto-trial). Pro access via invite codes (60 days +
-> 2 starter codes) or Stripe subscription. **Stripe integration shipped:**
-> Checkout (hosted redirect), Customer Portal (self-service manage/cancel),
-> webhook-driven lifecycle (`checkout.session.completed`, `invoice.paid`,
+> redirect to `/upgrade` (lapsed users see "Your data is safe" toast).
+> Mixed-access routes degrade gracefully (no inventory matching, no "What Do I
+> Need?", no shopping list integration). New signups start on free tier (no
+> auto-trial). Pro access via invite codes (60 days + 2 starter codes) or
+> Stripe subscription. **Stripe integration shipped:** Checkout (hosted
+> redirect), Customer Portal (self-service manage/cancel), webhook-driven
+> lifecycle (`checkout.session.completed`, `invoice.paid`,
 > `customer.subscription.updated/deleted`). Both access paths coexist — user
 > has Pro if either invite-code trial or Stripe subscription is active.
-> Currently running against Stripe **test mode**; flipping to live requires
-> only swapping API keys and verifying the PFA.
+> **Pro expiry shipped:** days-remaining badge in header/settings, toast nudges
+> at 7d/3d, graceful downgrade with data preservation. Currently running
+> against Stripe **test mode**; flipping to live requires only swapping API
+> keys and verifying the PFA.
 
 > **Why feature gate over recipe count?** A 50-recipe limit assumes URL import
 > drives bulk collection past it, but users who manually enter recipes plateau
@@ -294,20 +297,23 @@ admin launch post) shares a code.
 
 ## Churn Mitigation
 
-Target is <5% monthly churn on Pro. Strategies to build before launch:
+Target is <5% monthly churn on Pro. Strategies:
 
-- **Invite-code expiry (first churn point)** -- The 60-day invite-code grant
-  is the earliest moment users face a downgrade. This is the highest-risk
-  transition because these users never chose to pay — they got access for free.
-  Flow: show days remaining in settings + header badge at 7 days, remind at 3
-  days, on expiry show "Your Pro access has ended — your data is safe" with
-  clear options: subscribe via Stripe, or redeem another invite code. Design
-  this before the first codes expire (~mid-April 2026).
-- **Graceful downgrade UX** -- When a subscription or invite-code grant lapses,
-  show a clear "your data is safe" message. Pro features become read-only, not
-  deleted. Recipes remain fully accessible (free tier is unlimited recipes).
-  Inventory, meal plans, and shopping lists are preserved but not editable
-  until the user re-subscribes or redeems a new code.
+- **Invite-code expiry (first churn point) -- SHIPPED.** Days remaining shown
+  in user dropdown (color-coded: muted >7d, amber 3-7d, red <=3d) and Settings
+  subscription card. Client-side toast nudges at 7-day and 3-day thresholds
+  (localStorage-gated per expiry date — resets when a new code is redeemed).
+  On lapse, Pro-only routes redirect to `/upgrade` with "Your data is safe"
+  toast. Upgrade page shows reassurance banner with subscribe/redeem options.
+  Settings subscription card shows lapsed state with action buttons. User
+  dropdown shows "Renew Pro access" link. Ready before first codes expire
+  (~mid-April 2026).
+- **Graceful downgrade UX -- SHIPPED.** Data is preserved on lapse (never
+  deleted). Pro features redirect to `/upgrade` rather than becoming read-only
+  — a hard redirect keeps the upgrade page visible. Recipes remain fully
+  accessible on the free tier. Inventory, meal plans, and shopping lists are
+  preserved in the database and restored when the user re-subscribes or redeems
+  a new code.
 - **Pause option** -- Offer 1-3 month pause instead of cancel. Users who
   stop cooking temporarily (travel, busy season) shouldn't have to re-subscribe.
 - **Cancel flow** -- Before completing cancellation, show what they'll lose

@@ -40,19 +40,20 @@ See [FEATURES.md](./FEATURES.md) for the full catalog.
 ## Phase Now: Daily Driver
 
 Daily driving started **February 12, 2026**. The app is being used for real
-cooking and meal planning, with friction notes collected over 2-3 weeks to
-inform what gets built next. Feature work continues in parallel -- the daily
-driver phase is an ongoing evaluation, not a feature freeze.
+cooking and meal planning. Active app usage is ~2-3 hours/day (shopping every
+2-3 days, cooking daily or every other day), with the remaining dev time spent
+building features. Early friction has already been addressed -- the daily driver
+phase is now an ongoing evaluation running in parallel with feature development,
+not a gate that blocks forward progress.
 
 ### Current Reality
 
 - Feature-complete for solo and shared daily use (Phases 1-13e + UI redesign)
 - ~135 recipes bulk-imported from Apple Notes
-- Daily driving in progress -- tracking friction points, inventory accuracy,
-  and whether the core workflow holds up for real weekly use
-- Inventory tracking accuracy under sustained real-world evaluation
-- Feature development continues alongside daily use; backlog items that surface
-  as friction points get prioritized
+- Daily driving in progress -- core workflow is solid, initial friction points
+  have been fixed, continuing to track inventory accuracy
+- **Active dev time available**: real-world app usage takes a small fraction of
+  the day, so feature work proceeds in parallel
 - **Smarter UX batch shipped**: shelf-life auto-suggest on inventory intake
   (shopping list → inventory and "I have this"), low-stock → shopping list
   nudge chips, weeknight-aware recipe sorting in meal plan
@@ -85,19 +86,19 @@ driver phase is an ongoing evaluation, not a feature freeze.
 ### Gate
 
 The app has **fully replaced Apple Notes** as the primary recipe store and
-**weekly meal planning happens in-app** for at least 4 consecutive weeks. Only
-then does the rest of the roadmap activate. If daily driving reveals that the
-core workflow has fundamental friction, fix that first -- don't layer more
-features on top.
+**weekly meal planning happens in-app** for at least 4 consecutive weeks before
+monetization activates. Feature development is **not blocked** by this gate --
+the daily driver evaluation runs in the background while new features ship.
+If daily driving reveals fundamental workflow friction, that takes priority over
+new features.
 
 ---
 
 ## Future Roadmap
 
-Everything below activates after the daily driver gate is met. Priority is
-driven by real friction discovered during daily use, not theoretical roadmap
-planning. Items may be reprioritized or cut based on what actually matters in
-practice.
+Feature work proceeds in parallel with daily driving. Priority is driven by real
+friction discovered during daily use and by readiness for monetization. Items may
+be reprioritized or cut based on what actually matters in practice.
 
 ### Pre-Monetization Prerequisites
 

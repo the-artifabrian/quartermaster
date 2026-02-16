@@ -45,7 +45,13 @@ Complete feature catalog. For the roadmap, see
   Recipe-context-aware — LLM receives recipe title and ingredient list so
   suggestions fit the dish (e.g. won't suggest broth for water in a cake).
   Appears on recipe detail ingredient list, recipe cards, "Almost There" banner,
-  and "What Do I Need?" modal
+  and "What Do I Need?" modal. On recipe detail, click "Use this" to temporarily
+  swap the ingredient in both the ingredient list and instruction text
+  (client-side only, resets on navigation). Revert via reset icon button.
+  Safety: LLM prompt enforces culinary-function matching (liquid→liquid,
+  fat→fat), allergen flagging (nuts, dairy, gluten, soy, eggs, shellfish,
+  sesame), and no non-food suggestions. Popover shows "AI suggestion" badge for
+  LLM-sourced results and allergen/flavor disclaimer on all results
 
 ## Inventory System
 

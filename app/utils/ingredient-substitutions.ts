@@ -741,6 +741,38 @@ function simplifyName(name: string): string {
 }
 
 /**
+ * Strip leading quantity/size descriptors from an ingredient name.
+ *
+ * "Small knob of ginger" → "ginger"
+ * "Large handful of basil" → "basil"
+ * "Drizzle of oil" → "oil"
+ * "Splash of vinegar" → "vinegar"
+ * "450 g Italian sausage" → "Italian sausage"
+ *
+ * Used before substitution lookups and for popover header display.
+ */
+export function stripDescriptors(name: string): string {
+	let s = name.trim()
+	// Strip leading numeric amounts + units: "450 g ", "1 cup ", "2 tbsp "
+	s = s.replace(
+		/^[\d./½⅓⅔¼¾⅛]+\s*(?:g|kg|ml|l|cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?|pounds?|grams?|liters?|litres?|cloves?|sachet|sachets|bunch(?:es)?|head|heads|sticks?|pieces?|slices?|sprigs?|stalks?|strips?|pinch(?:es)?|dash(?:es)?)\b\s*/i,
+		'',
+	)
+	// Strip size/quantity adjectives and "of": "small knob of", "large handful of", "drizzle of"
+	s = s.replace(
+		/^(?:small|medium|large|big|thin|thick|generous|scant|good|extra|optional)\s+/i,
+		'',
+	)
+	s = s.replace(
+		/^(?:knob|handful|drizzle|splash|squeeze|pinch|dash|sprig|bunch|head|clove|stalk|strip|slice|piece|sachet|can|tin|jar|bottle|packet|bag|box)(?:s|es)?\s+(?:of\s+)?/i,
+		'',
+	)
+	// Strip bare "of" if still leading (e.g. after previous pass)
+	s = s.replace(/^of\s+/i, '')
+	return s.trim() || name.trim()
+}
+
+/**
  * Look up static substitutions for an ingredient name.
  * Uses substring matching (sorted longest-first) so
  * "low-sodium chicken stock" still matches "chicken stock".

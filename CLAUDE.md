@@ -322,19 +322,25 @@ Pro-tier feature — free users see no substitution indicators.
 **Key Files**:
 
 - `app/utils/ingredient-substitutions.ts` — Static database of ~50 common
-  substitutions (zero API cost). Keyed by normalized name, substring matching
+  substitutions (zero API cost). Keyed by normalized name, substring matching.
+  Also exports `stripDescriptors()` to clean quantity/size prefixes from
+  ingredient names before lookup and for popover header display
 - `app/utils/substitution-lookup.server.ts` — Orchestrates static → cache → LLM
   cascade. Cross-references substitutions against user's inventory
 - `app/utils/substitution-llm.server.ts` — Direct HTTP fetch to Anthropic
   Messages API (Claude Haiku). Accepts optional `RecipeContext` (title +
   ingredients) for dish-appropriate suggestions. Returns null on any error
-  (graceful degradation)
+  (graceful degradation). Prompt enforces culinary-function matching
+  (liquid→liquid, fat→fat), allergen flagging, and no non-food suggestions
 - `app/routes/resources/substitutions.tsx` — POST-only resource route (Pro-gated
   via `requireProTier`). Accepts optional `recipeId`; when present, looks up
   recipe title + ingredients to pass as LLM context. Never called in loaders
 - `app/components/ingredient-substitution.tsx` — `SubstitutionHint` Popover
   component wrapping missing-ingredient pills. Optional `recipeId` prop for
-  recipe-context-aware LLM suggestions
+  recipe-context-aware LLM suggestions. Optional `onApply` callback makes
+  substitution items clickable ("Use this") and auto-closes popover on select.
+  Shows "AI suggestion" badge for LLM-sourced results and allergen/flavor
+  disclaimer footer on all results. Uses `stripDescriptors()` for clean header
 - `app/components/ui/popover.tsx` — Radix Popover primitive (shadcn pattern)
 
 **Integration points**: Recipe detail ingredient list (`recipes/$recipeId.tsx`),
@@ -342,7 +348,11 @@ missing ingredient pills on recipe cards (`recipe-match-card.tsx`), "Almost
 There" banner pills (`recipes/index.tsx`), "What Do I Need?" modal
 (`recipes/$recipeId.tsx`). Recipe detail, recipe cards, and What Do I Need pass
 `recipeId` for contextual LLM results; Almost There banner omits it (ingredients
-are deduplicated across multiple recipes).
+are deduplicated across multiple recipes). Recipe detail passes `onApply` to
+enable temporary ingredient swaps (client-side `Map<ingredientId,
+AppliedSubstitution>` state in `RecipeDetail`); instruction text preprocessed
+via `applySubstitutionsToText()` with word-boundary regex. Other integration
+points (cards, banner, What Do I Need modal) omit `onApply` — read-only.
 
 **Env vars**: `ANTHROPIC_API_KEY` (optional — app works with static
 substitutions only when unset). LLM results cached 30 days in SQLite via

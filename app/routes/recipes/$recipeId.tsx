@@ -731,6 +731,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									type="submit"
 									variant="ghost"
 									size="icon"
+									aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
 									className={
 										isFavorite ? 'text-red-500 hover:text-red-600' : ''
 									}
@@ -748,7 +749,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</favoriteFetcher.Form>
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<Button asChild variant="ghost" size="icon">
+							<Button asChild variant="ghost" size="icon" aria-label="Edit recipe">
 								<Link to={`/recipes/${recipe.id}/edit`}>
 									<Icon name="pencil-1" size="md" />
 								</Link>
@@ -761,6 +762,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							<Button
 								variant="ghost"
 								size="icon"
+								aria-label="Print recipe"
 								onClick={() => window.print()}
 							>
 								<Icon name="file-text" size="md" />
@@ -770,7 +772,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</Tooltip>
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<Button variant="ghost" size="icon" onClick={handleShare}>
+							<Button variant="ghost" size="icon" aria-label="Share recipe" onClick={handleShare}>
 								<Icon name="share" size="md" />
 							</Button>
 						</TooltipTrigger>

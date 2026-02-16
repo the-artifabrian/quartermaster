@@ -280,12 +280,17 @@ Transformed the app from "developer CRUD tool" to "daily cookbook":
 - **Accessibility**: skip-to-content link (WCAG 2.4.1), navigation landmarks
   with `aria-label` and `aria-current="page"`, modal focus trapping with focus
   return, aria-labels on icon-only buttons and interactive controls, aria-pressed
-  on toggle buttons
+  on toggle buttons, `prefers-reduced-motion: reduce` kills all animations/transitions
 - **Mobile touch target pass**: systematic improvements across all critical
   paths for in-kitchen and in-store use (44px minimum tap areas per Apple HIG).
   Recipe detail: larger ingredient checkboxes, servings +/- buttons, instruction
   step padding, timer pill touch targets (min 44px), iOS zoom prevention on modal
   inputs. Meal plan: larger cook checkboxes and servings controls, tappable empty
   slots. Shopping list: larger checkbox tap areas (~44px effective). Recipe list:
-  wrapping filter controls, larger view toggles. Match display:
-  larger "I have this" and "add to shopping list" buttons
+  wrapping filter controls, larger view toggles and select dropdowns (min-h 44px).
+  Match display: larger "I have this" and "add to shopping list" buttons.
+  Icon-only buttons use 44px size variant. Dropdown menu items padded to ~44px.
+  `touch-action: manipulation` eliminates 300ms tap delay on all interactive
+  elements. `overscroll-behavior: contain` on modals/popovers prevents
+  scroll-through. Dropdown menus and notification panel constrained to viewport
+  width

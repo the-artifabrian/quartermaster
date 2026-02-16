@@ -553,7 +553,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							value={sort}
 							onChange={(e) => handleSortChange(e.target.value)}
 							aria-label="Sort recipes"
-							className="bg-card border-input min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
+							className="bg-card border-input min-h-11 min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
 						>
 							{SORT_OPTIONS.map((option) => (
 								<option key={option.value} value={option.value}>
@@ -565,7 +565,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							value={maxTime?.toString() ?? ''}
 							onChange={(e) => handleMaxTimeChange(e.target.value)}
 							aria-label="Filter by cook time"
-							className="bg-card border-input min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
+							className="bg-card border-input min-h-11 min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
 						>
 							<option value="">Any time</option>
 							<option value="30">Under 30 min</option>
@@ -592,7 +592,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								type="button"
 								onClick={() => handleViewChange('grid')}
 								className={cn(
-									'rounded-md p-2 transition-colors',
+									'min-h-11 min-w-11 rounded-md p-2 transition-colors',
 									view !== 'list'
 										? 'bg-accent text-accent-foreground'
 										: 'text-muted-foreground hover:text-foreground',
@@ -606,7 +606,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								type="button"
 								onClick={() => handleViewChange('list')}
 								className={cn(
-									'rounded-md p-2 transition-colors',
+									'min-h-11 min-w-11 rounded-md p-2 transition-colors',
 									view === 'list'
 										? 'bg-accent text-accent-foreground'
 										: 'text-muted-foreground hover:text-foreground',

@@ -66,9 +66,10 @@ self.addEventListener('fetch', (event) => {
 		return
 	}
 
-	// ── Favicons & webmanifest (cache-first) ─────────────────────
+	// ── Favicons, splash screens & webmanifest (cache-first) ────
 	if (
 		url.pathname.startsWith('/favicons/') ||
+		url.pathname.startsWith('/splash/') ||
 		url.pathname === '/site.webmanifest' ||
 		url.pathname === '/favicon.ico'
 	) {

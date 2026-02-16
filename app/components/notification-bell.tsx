@@ -101,7 +101,7 @@ export function NotificationBell() {
 				<DropdownMenuContent
 					sideOffset={8}
 					align="end"
-					className="w-80 max-h-96 overflow-y-auto rounded-xl shadow-warm-lg p-0"
+					className="w-80 max-w-[calc(100vw-1rem)] max-h-96 overflow-y-auto rounded-xl shadow-warm-lg p-0"
 				>
 					<div className="border-b px-3 py-2">
 						<h3 className="text-sm font-semibold">Notifications</h3>

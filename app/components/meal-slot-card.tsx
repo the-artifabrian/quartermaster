@@ -149,6 +149,7 @@ function EntryRow({
 						size="sm"
 						variant={dc.doubleCheck ? 'destructive' : 'ghost'}
 						status="idle"
+						aria-label="Remove from meal plan"
 						{...dc.getButtonProps()}
 					>
 						{dc.doubleCheck ? (
@@ -163,9 +164,10 @@ function EntryRow({
 				<Button
 					variant="outline"
 					size="sm"
-					className="h-8 w-8 p-0 text-xs"
+					className="h-9 w-9 p-0 text-xs"
 					onClick={() => updateServings(currentServings - 1)}
 					disabled={currentServings <= 1}
+					aria-label="Decrease servings"
 				>
 					-
 				</Button>
@@ -175,8 +177,9 @@ function EntryRow({
 				<Button
 					variant="outline"
 					size="sm"
-					className="h-8 w-8 p-0 text-xs"
+					className="h-9 w-9 p-0 text-xs"
 					onClick={() => updateServings(currentServings + 1)}
+					aria-label="Increase servings"
 				>
 					+
 				</Button>

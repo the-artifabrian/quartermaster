@@ -58,12 +58,12 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 				step="0.1"
 				min="0"
 				placeholder="Qty"
-				className="w-16"
+				className="w-20 min-w-0 shrink"
 			/>
 			<Input
 				name="unit"
 				placeholder="Unit"
-				className="w-20"
+				className="w-24 min-w-0 shrink"
 			/>
 			<StatusButton
 				type="submit"
@@ -77,6 +77,7 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 				type="button"
 				variant="ghost"
 				size="sm"
+				aria-label="Close quick add"
 				onClick={() => {
 					setIsOpen(false)
 					setName('')

@@ -1,10 +1,10 @@
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { requireProTier } from '#app/utils/subscription.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { scoreRecipePairings } from '#app/utils/ingredient-overlap.server.ts'
 import { type Route } from './+types/meal-plan-pairing.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { householdId } = await requireUserWithHousehold(request)
+	const { householdId } = await requireProTier(request)
 	const url = new URL(request.url)
 	const weekStart = url.searchParams.get('weekStart')
 

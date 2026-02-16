@@ -199,12 +199,41 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 ## Onboarding
 
 - "Getting Started" checklist on `/recipes` for new users: tracks 3 steps (add
-  a recipe, stock inventory, plan a meal) with progress bar
+  a recipe, stock inventory, plan a meal) with progress bar. Free users see only
+  the recipe step (inventory and plan are Pro features)
 - Steps auto-complete based on household data (recipe/inventory/meal-plan counts
   queried in loader)
-- Dismissible via X button (persisted to localStorage), auto-hides when all 3
+- Dismissible via X button (persisted to localStorage), auto-hides when all
   steps are complete
 - Works correctly when joining an existing household (steps reflect shared data)
+
+## Subscription & Tier Gating
+
+- Three-tier model: Free, Pro, Household. `Subscription` table with `tier`,
+  `trialEndsAt`, `subscriptionExpiresAt`, Stripe fields (for future use)
+- New signups get a free Subscription with 14-day Pro trial (created atomically
+  in signup transaction). Trial converts to free automatically (no cron —
+  checked per request via `getUserTier()`)
+- `requireProTier(request)`: drop-in route guard for Pro-only routes. Redirects
+  free users to `/upgrade`. Returns same `{ userId, householdId, role }` shape
+  as `requireUserWithHousehold` plus tier info
+- Pro-only routes: `/inventory/*`, `/plan`, `/shopping`,
+  `/resources/discover-actions`, `/resources/meal-plan-pairing`
+- Mixed-access routes with reduced free functionality:
+  - Recipe list: skips inventory query + match data for free users
+  - Recipe detail: hides "What Do I Need?", inventory impact in "I Made This"
+    modal, add-to-shopping-list intent
+  - Surprise Me: random without inventory weighting
+  - Data import: recipes import for all; inventory, meal plans, shopping lists,
+    and templates skipped for free users
+- Navigation lock icons (desktop + mobile) on Pro routes for free users
+- Root loader exposes `tierInfo` for client-side gating. Client hooks:
+  `useSubscriptionTier()`, `useIsProActive()`
+  Soon" payment buttons. Accessible to all users (no auth guard)
+- Admin subscription management at `/admin/subscriptions`: lists all users with
+  current tier, household, trial status. Change tier via per-row dropdown
+  (upsert, clears trial/expiry for clean admin override). Admin-role gated with
+  403 error boundary
 
 ## UI, SEO & Infrastructure
 

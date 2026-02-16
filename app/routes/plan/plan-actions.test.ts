@@ -31,6 +31,9 @@ async function setupUser() {
 			members: { create: { userId: session.userId, role: 'owner' } },
 		},
 	})
+	await prisma.subscription.create({
+		data: { userId: session.userId, tier: 'pro' },
+	})
 	return { ...session, householdId: household.id }
 }
 

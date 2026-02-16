@@ -9,6 +9,7 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
 
 export const handle: SEOHandle = {
@@ -296,8 +297,13 @@ export async function action({ request }: Route.ActionArgs) {
 		)
 	}
 
+	const { isProActive } = await getUserTier(userId)
+
 	const recipes = importResult.data.recipes
-	const fullData = importResult.type === 'full' ? importResult.data : null
+	// Pro-only data (inventory, meal plans, shopping lists, templates) is
+	// skipped for free users — only recipes are imported.
+	const fullData =
+		importResult.type === 'full' && isProActive ? importResult.data : null
 
 	const results: ImportResults = {
 		recipes: { created: 0, skipped: 0, errored: 0 },

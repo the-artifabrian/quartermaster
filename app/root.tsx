@@ -22,7 +22,7 @@ import { Progress } from './components/progress-bar.tsx'
 import { TimerWidget } from './components/timer-widget.tsx'
 import { useToast } from './components/toaster.tsx'
 import { Button } from './components/ui/button.tsx'
-import { href as iconsHref } from './components/ui/icon.tsx'
+import { Icon, href as iconsHref } from './components/ui/icon.tsx'
 import { Toaster } from './components/ui/sonner.tsx'
 import { UserDropdown } from './components/user-dropdown.tsx'
 import {
@@ -42,6 +42,7 @@ import { type Theme, getTheme } from './utils/theme.server.ts'
 import { TimerProvider } from './utils/timer-context.tsx'
 import { makeTimings, time } from './utils/timing.server.ts'
 import { getToast } from './utils/toast.server.ts'
+import { getUserTier, type TierInfo } from './utils/subscription.server.ts'
 import { useOptionalUser } from './utils/user.ts'
 
 export const links: Route.LinksFunction = () => {
@@ -134,9 +135,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 		await logout({ request, redirectTo: '/' })
 	}
 
+	let tierInfo: TierInfo = {
+		tier: 'free',
+		isProActive: false,
+		trialEndsAt: null,
+	}
 	let unreadNotificationCount = 0
 	let householdName: string | null = null
 	if (userId) {
+		tierInfo = await getUserTier(userId)
 		const member = await prisma.householdMember.findFirst({
 			where: { userId },
 			select: {
@@ -164,6 +171,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	return data(
 		{
 			user,
+			tierInfo,
 			unreadNotificationCount,
 			householdName,
 			requestInfo: {
@@ -303,6 +311,7 @@ function App() {
 	const data = useLoaderData<typeof loader>()
 	const user = useOptionalUser()
 	const theme = useTheme()
+	const isPro = data.tierInfo.isProActive
 	useToast(data.toast)
 
 	return (
@@ -338,6 +347,7 @@ function App() {
 												}
 											>
 												Inventory
+												{!isPro && <Icon name="lock-closed" size="xs" className="ml-1 inline opacity-40" />}
 											</NavLink>
 											<NavLink
 												to="/plan"
@@ -348,6 +358,7 @@ function App() {
 												}
 											>
 												Plan
+												{!isPro && <Icon name="lock-closed" size="xs" className="ml-1 inline opacity-40" />}
 											</NavLink>
 											<NavLink
 												to="/shopping"
@@ -358,6 +369,7 @@ function App() {
 												}
 											>
 												Shopping
+												{!isPro && <Icon name="lock-closed" size="xs" className="ml-1 inline opacity-40" />}
 											</NavLink>
 										</div>
 										<NotificationBell />

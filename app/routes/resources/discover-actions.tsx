@@ -1,7 +1,7 @@
 import { categoryToLocation } from '#app/utils/category-location-map.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { requireProTier } from '#app/utils/subscription.server.ts'
 import {
 	getCanonicalIngredientName,
 	matchRecipesWithInventory,
@@ -11,7 +11,7 @@ import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { type Route } from './+types/discover-actions.ts'
 
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { userId, householdId } = await requireProTier(request)
 	const formData = await request.formData()
 	const intent = formData.get('intent')
 

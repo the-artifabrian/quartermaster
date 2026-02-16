@@ -188,6 +188,17 @@ async function seed() {
 
 	console.timeEnd(`🐨 Find or create test user "kody2"`)
 
+	// Ensure all users have Subscription records (Pro for test users)
+	console.time(`💎 Ensure subscriptions`)
+	for (const user of [kody, kody2]) {
+		await prisma.subscription.upsert({
+			where: { userId: user.id },
+			update: {},
+			create: { userId: user.id, tier: 'pro' },
+		})
+	}
+	console.timeEnd(`💎 Ensure subscriptions`)
+
 	console.timeEnd(`🌱 Database has been seeded`)
 }
 

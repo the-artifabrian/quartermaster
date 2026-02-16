@@ -232,8 +232,10 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   Soon" payment buttons. Accessible to all users (no auth guard)
 - Admin subscription management at `/admin/subscriptions`: lists all users with
   current tier, household, trial status. Change tier via per-row dropdown
-  (upsert, clears trial/expiry for clean admin override). Admin-role gated with
-  403 error boundary
+  (upsert, clears trial/expiry for clean admin override). Admin-role gated
+  (non-admins redirected to `/`). Infrastructure seed
+  (`prisma/seed-infrastructure.ts`) runs on every deploy to ensure permissions,
+  roles, and tags exist in production
 
 ## UI, SEO & Infrastructure
 

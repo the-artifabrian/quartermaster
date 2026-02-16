@@ -34,7 +34,7 @@ npm run validate         # Run all checks: tests, lint, typecheck, e2e
 ```bash
 npx prisma studio        # Open Prisma Studio GUI for database browsing
 npx prisma migrate dev   # Create and apply new migration
-npx prisma db seed       # Seed database (permissions, tags, roles, admin user)
+npx prisma db seed       # Seed database (infrastructure + test users, dev only)
 npx prisma generate      # Regenerate Prisma client after schema changes
 ```
 
@@ -127,7 +127,9 @@ app/
 prisma/
 ├── schema.prisma        # Database schema (see below)
 ├── migrations/          # Migration history
-└── seed.ts              # Permissions, tags, roles, admin user
+├── seed.ts              # Dev seed: infrastructure + test users (kody, kody2)
+├── seed-infrastructure.ts   # Permissions, tags, roles (runs in prod via litefs)
+└── run-seed-infrastructure.ts  # Standalone runner for litefs exec chain
 
 tests/
 ├── e2e/                 # Playwright end-to-end tests
@@ -524,6 +526,9 @@ Configured for **Fly.io** with `fly.toml`:
 - Health checks at `/resources/healthcheck`
 - Automatic HTTPS
 - Environment variables managed via Fly secrets
+- LiteFS exec chain (`other/litefs.yml`): `prisma migrate deploy` →
+  `run-seed-infrastructure.ts` (permissions, roles, tags) → WAL pragma → `npm
+  start`. Infrastructure seed runs on every deploy (idempotent upserts)
 
 For self-hosting, standard Node.js app:
 

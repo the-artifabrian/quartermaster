@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { OpenImgContextProvider } from 'openimg/react'
 import {
 	data,
@@ -10,6 +11,12 @@ import {
 	ScrollRestoration,
 	useLoaderData,
 } from 'react-router'
+
+declare global {
+	interface Window {
+		__dismissPwaSplash?: () => void
+	}
+}
 import { type Route } from './+types/root.ts'
 import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
@@ -271,7 +278,10 @@ function Document({
 				<ClientHintCheck nonce={nonce} />
 				<Meta />
 				<meta charSet="utf-8" />
-				<meta name="viewport" content="width=device-width,initial-scale=1" />
+				<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+				<meta name="apple-mobile-web-app-capable" content="yes" />
+				<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+				<meta name="apple-mobile-web-app-title" content="Quartermaster" />
 				{allowIndexing ? null : (
 					<meta name="robots" content="noindex, nofollow" />
 				)}
@@ -281,6 +291,38 @@ function Document({
 				<Links />
 			</head>
 			<body className="bg-background text-foreground">
+				{/* PWA splash — created imperatively outside React's tree to avoid hydration mismatch.
+				    Only shown in standalone (PWA) mode. Dismissed by useEffect in App after hydration. */}
+				<script
+					nonce={nonce}
+					dangerouslySetInnerHTML={{
+						__html: `(function(){
+	var isPwa = window.navigator.standalone || window.matchMedia("(display-mode:standalone)").matches;
+	if (!isPwa) return;
+	var dk = ${JSON.stringify(theme === 'dark')};
+	var bg = dk ? "#0a0a0a" : "#f8fdf9";
+	var fg = dk ? "#e5e5e5" : "#1a1a1a";
+	var ac = dk ? "#4ade80" : "#52a868";
+	var br = dk ? "#333" : "#e5e7eb";
+	var st = document.createElement("style");
+	st.textContent = "@keyframes pwa-spin{to{transform:rotate(360deg)}}";
+	document.head.appendChild(st);
+	var s = document.createElement("div");
+	s.id = "pwa-splash";
+	s.style.cssText = "position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:" + bg + ";transition:opacity .3s ease-out";
+	s.innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="' + ac + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 11h.01"/><path d="M11 15h.01"/><path d="M16 16h.01"/><path d="m2 16 20 6-6-20A20 20 0 0 0 2 16"/><path d="M5.71 17.11a17.04 17.04 0 0 1 11.4-11.4"/></svg>'
+		+ '<span style="font-size:18px;font-weight:600;color:' + fg + ';font-family:DM Sans,system-ui,-apple-system,sans-serif">Quartermaster</span>'
+		+ '<div style="width:32px;height:32px;border:3px solid ' + br + ";border-top-color:" + ac + ';border-radius:50%;animation:pwa-spin .8s linear infinite"></div>';
+	document.body.appendChild(s);
+	window.__dismissPwaSplash = function() {
+		if (!s.parentNode) return;
+		s.style.opacity = "0";
+		setTimeout(function() { s.remove(); st.remove(); }, 300);
+	};
+	setTimeout(window.__dismissPwaSplash, 5000);
+})()`,
+					}}
+				/>
 				<a
 					href="#main-content"
 					className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-card focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg"
@@ -325,6 +367,13 @@ function App() {
 	const theme = useTheme()
 	const isPro = data.tierInfo.isProActive
 	useToast(data.toast)
+
+	// Dismiss PWA splash screen after hydration
+	useEffect(() => {
+		if (typeof window.__dismissPwaSplash === 'function') {
+			window.__dismissPwaSplash()
+		}
+	}, [])
 
 	return (
 		<TimerProvider>

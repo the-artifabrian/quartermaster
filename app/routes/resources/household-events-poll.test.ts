@@ -89,6 +89,7 @@ describe('household-events-poll loader', () => {
 		const cookie = await getSessionCookieHeader(user)
 
 		const before = new Date()
+		await new Promise((r) => setTimeout(r, 5))
 
 		// Create events from the other user
 		await prisma.householdEvent.create({
@@ -135,6 +136,7 @@ describe('household-events-poll loader', () => {
 		const cookie = await getSessionCookieHeader(user)
 
 		const before = new Date()
+		await new Promise((r) => setTimeout(r, 5))
 
 		await prisma.householdEvent.create({
 			data: {

@@ -4,8 +4,17 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-haiku-4-5-20251001'
 const TIMEOUT_MS = 8_000
 
+export type RecipeContext = {
+	title: string
+	ingredients: string[]
+}
+
 /**
  * Call Claude Haiku to get substitution suggestions for an ingredient.
+ *
+ * When recipeContext is provided, the prompt includes the recipe title and
+ * full ingredient list so the model can give contextually appropriate
+ * suggestions (e.g. won't suggest broth as a water substitute in a cake).
  *
  * Returns null if:
  * - No API key is configured
@@ -16,6 +25,7 @@ const TIMEOUT_MS = 8_000
  */
 export async function getLLMSubstitutions(
 	ingredientName: string,
+	recipeContext?: RecipeContext,
 ): Promise<Substitution[] | null> {
 	const apiKey = process.env.ANTHROPIC_API_KEY
 	if (!apiKey) return null
@@ -35,15 +45,7 @@ export async function getLLMSubstitutions(
 				messages: [
 					{
 						role: 'user',
-						content: `What are practical cooking substitutions for "${ingredientName}"?
-
-Return a JSON array of 2-4 substitutions. Each object:
-{"replacement": "what to use", "context": "one sentence of practical advice", "ratio": "conversion ratio or null"}
-
-Rules:
-- Only realistic, commonly available ingredients
-- Include ratio when the swap isn't 1:1
-- Keep context to one sentence`,
+						content: buildPrompt(ingredientName, recipeContext),
 					},
 				],
 			}),
@@ -69,6 +71,24 @@ Rules:
 		console.error('Substitution LLM error:', error)
 		return null
 	}
+}
+
+function buildPrompt(
+	ingredientName: string,
+	recipeContext?: RecipeContext,
+): string {
+	const recipeClause = recipeContext
+		? `\nThis ingredient is used in "${recipeContext.title}" which contains: ${recipeContext.ingredients.slice(0, 30).join(', ')}.\nSuggestions must make sense for this specific recipe.\n`
+		: ''
+
+	return `What are practical cooking substitutions for "${ingredientName}"?${recipeClause}
+Return a JSON array of 2-4 substitutions. Each object:
+{"replacement": "what to use", "context": "one sentence of practical advice", "ratio": "conversion ratio or null"}
+
+Rules:
+- Only realistic, commonly available ingredients
+- Include ratio when the swap isn't 1:1
+- Keep context to one sentence`
 }
 
 /**

@@ -1,4 +1,9 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
+
+vi.mock('./substitution-llm.server.ts', () => ({
+	getLLMSubstitutions: vi.fn().mockResolvedValue(null),
+}))
+
 import { getSubstitutions } from './substitution-lookup.server.ts'
 
 describe('getSubstitutions', () => {

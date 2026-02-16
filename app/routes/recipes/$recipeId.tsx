@@ -877,6 +877,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								ratio={ratio}
 								missingIngredientIds={missingIngredientIds}
 								isProActive={isProActive}
+								recipeId={recipe.id}
 							/>
 							{isProActive && (
 								<Button
@@ -1243,6 +1244,7 @@ function WhatDoINeedModal({
 	isProActive,
 }: {
 	recipe: {
+		id: string
 		ingredients: Array<{
 			name: string
 			amount: string | null
@@ -1444,6 +1446,7 @@ function WhatDoINeedModal({
 											<SubstitutionHint
 												ingredientName={item.name}
 												isProActive={isProActive}
+												recipeId={recipe.id}
 											>
 												{item.name}
 											</SubstitutionHint>
@@ -1500,6 +1503,7 @@ function IngredientList({
 	ratio,
 	missingIngredientIds,
 	isProActive,
+	recipeId,
 }: {
 	ingredients: Array<{
 		id: string
@@ -1514,6 +1518,7 @@ function IngredientList({
 	ratio: number
 	missingIngredientIds: string[]
 	isProActive: boolean
+	recipeId: string
 }) {
 	const missingIds = new Set(missingIngredientIds)
 	return (
@@ -1572,6 +1577,7 @@ function IngredientList({
 								<SubstitutionHint
 									ingredientName={ingredient.name}
 									isProActive={isProActive}
+									recipeId={recipeId}
 								>
 									{ingredient.name}
 								</SubstitutionHint>

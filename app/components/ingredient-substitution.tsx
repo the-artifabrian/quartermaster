@@ -7,18 +7,21 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
 type SubstitutionHintProps = {
 	ingredientName: string
 	isProActive: boolean
+	/** When provided, the LLM gets recipe context for better suggestions */
+	recipeId?: string
 	children: React.ReactNode
 }
 
 export function SubstitutionHint({
 	ingredientName,
 	isProActive,
+	recipeId,
 	children,
 }: SubstitutionHintProps) {
 	if (!isProActive) return <>{children}</>
 
 	return (
-		<SubstitutionPopover ingredientName={ingredientName}>
+		<SubstitutionPopover ingredientName={ingredientName} recipeId={recipeId}>
 			{children}
 		</SubstitutionPopover>
 	)
@@ -26,9 +29,11 @@ export function SubstitutionHint({
 
 function SubstitutionPopover({
 	ingredientName,
+	recipeId,
 	children,
 }: {
 	ingredientName: string
+	recipeId?: string
 	children: React.ReactNode
 }) {
 	const [hasLoaded, setHasLoaded] = useState(false)
@@ -45,6 +50,7 @@ function SubstitutionPopover({
 			setHasLoaded(true)
 			const formData = new FormData()
 			formData.set('ingredientName', ingredientName)
+			if (recipeId) formData.set('recipeId', recipeId)
 			void fetcher.submit(formData, {
 				method: 'POST',
 				action: '/resources/substitutions',

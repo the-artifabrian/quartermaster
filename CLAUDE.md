@@ -336,22 +336,30 @@ Pro-tier feature — free users see no substitution indicators.
 - `app/utils/substitution-lookup.server.ts` — Orchestrates static → cache → LLM
   cascade. Cross-references substitutions against user's inventory
 - `app/utils/substitution-llm.server.ts` — Direct HTTP fetch to Anthropic
-  Messages API (Claude Haiku). Returns null on any error (graceful degradation)
+  Messages API (Claude Haiku). Accepts optional `RecipeContext` (title +
+  ingredients) for dish-appropriate suggestions. Returns null on any error
+  (graceful degradation)
 - `app/routes/resources/substitutions.tsx` — POST-only resource route (Pro-gated
-  via `requireProTier`). Never called in loaders
+  via `requireProTier`). Accepts optional `recipeId`; when present, looks up
+  recipe title + ingredients to pass as LLM context. Never called in loaders
 - `app/components/ingredient-substitution.tsx` — `SubstitutionHint` Popover
-  component wrapping missing-ingredient pills
+  component wrapping missing-ingredient pills. Optional `recipeId` prop for
+  recipe-context-aware LLM suggestions
 - `app/components/ui/popover.tsx` — Radix Popover primitive (shadcn pattern)
 
-**Integration points**: Missing ingredient pills on recipe cards
-(`recipe-match-card.tsx`), "Almost There" banner pills (`recipes/index.tsx`),
-"What Do I Need?" modal (`recipes/$recipeId.tsx`).
+**Integration points**: Recipe detail ingredient list (`recipes/$recipeId.tsx`),
+missing ingredient pills on recipe cards (`recipe-match-card.tsx`), "Almost
+There" banner pills (`recipes/index.tsx`), "What Do I Need?" modal
+(`recipes/$recipeId.tsx`). Recipe detail, recipe cards, and What Do I Need pass
+`recipeId` for contextual LLM results; Almost There banner omits it (ingredients
+are deduplicated across multiple recipes).
 
 **Env vars**: `ANTHROPIC_API_KEY` (optional — app works with static
 substitutions only when unset). LLM results cached 30 days in SQLite via
 `cachified()`. Negative results (no subs found) are also cached to prevent
-repeated API calls. Cache key is per-ingredient, not per-recipe. 8-second
-timeout on API calls.
+repeated API calls. Cache key is per-ingredient when no recipe context, or
+per-ingredient-per-recipe-title when context is provided. Ingredient list in
+prompt capped at 30 items. 8-second timeout on API calls.
 
 ### Image Handling
 

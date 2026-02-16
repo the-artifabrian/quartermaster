@@ -82,7 +82,6 @@ differentiator. Everything above plus:
 - **"I Made This"** cook logging with inventory impact preview
 - AI features (planned): substitution hints, recipe generation from inventory,
   smart meal plan auto-fill
-- PWA offline access
 
 ## Household Tier (~$69/year)
 
@@ -286,9 +285,18 @@ admin launch post) shares a code.
 
 Target is <5% monthly churn on Pro. Strategies to build before launch:
 
-- **Graceful downgrade UX** -- When a subscription lapses, show a clear
-  "your data is safe" message. Pro features become read-only, not deleted.
-  Recipes remain fully accessible (free tier is unlimited recipes).
+- **Invite-code expiry (first churn point)** -- The 60-day invite-code grant
+  is the earliest moment users face a downgrade. This is the highest-risk
+  transition because these users never chose to pay — they got access for free.
+  Flow: show days remaining in settings + header badge at 7 days, remind at 3
+  days, on expiry show "Your Pro access has ended — your data is safe" with
+  clear options: subscribe via Stripe, or redeem another invite code. Design
+  this before the first codes expire (~mid-April 2026).
+- **Graceful downgrade UX** -- When a subscription or invite-code grant lapses,
+  show a clear "your data is safe" message. Pro features become read-only, not
+  deleted. Recipes remain fully accessible (free tier is unlimited recipes).
+  Inventory, meal plans, and shopping lists are preserved but not editable
+  until the user re-subscribes or redeems a new code.
 - **Pause option** -- Offer 1-3 month pause instead of cancel. Users who
   stop cooking temporarily (travel, busy season) shouldn't have to re-subscribe.
 - **Cancel flow** -- Before completing cancellation, show what they'll lose

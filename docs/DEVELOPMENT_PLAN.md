@@ -14,9 +14,24 @@ generation.
 
 ## What's Built
 
-Phases 1-13e, a 10-phase UI redesign, Daily Use Polish, and the Smarter UX batch
-are complete. The app is feature-complete for solo and shared daily use. See
+The app is feature-complete for solo and shared daily use. See
 [FEATURES.md](./FEATURES.md) for the full catalog.
+
+| Phase | Summary |
+| ----- | ------- |
+| 1-4 | Recipe CRUD, inventory tracking, meal planning calendar, shopping list generation |
+| 5 | Recipe discovery ("What can I make?"), fuzzy matching, favorites, URL import |
+| 6 | Pantry staples onboarding, removed sample data seeding |
+| 7 | Cooking logs, servings overrides, ingredient auto-suggest, shopping list consolidation |
+| 8 | Post-cooking inventory subtraction, unit conversion, print-friendly shopping list |
+| 9-10 | Recipe scaling, inline timers, temperature conversion tooltips, cooking mode |
+| 11 | Personal recipe notes, ingredient headings, drag-and-drop reordering |
+| 12 | Bulk import (paste/file), import quality flags, "Surprise me" picker |
+| 13a-e | Household sharing: data scoping, invite/join/leave, SSE real-time events, notification bell |
+| UI redesign | Custom color system, mobile-first layout, warm empty states, accessibility pass |
+| Daily Use Polish | Recipe print/share, quick cook from meal plan, meal templates, "Up next" banner |
+| Smarter UX | Shelf-life auto-suggest, low-stock nudge chips, weeknight-aware sorting, pairing/waste/efficiency |
+| Monetization infra | Subscription tiers, tier enforcement, invite code system, admin dashboard, pricing page |
 
 ---
 
@@ -26,8 +41,9 @@ are complete. The app is feature-complete for solo and shared daily use. See
   clients on the same Fly machine. Blocking for Household tier. See **SSE
   multi-instance fix** in Pre-Monetization prerequisites.
 - **Subscription model**: `Subscription` with `tier`, Stripe fields,
-  `trialEndsAt`. New signups start on free tier (no auto-trial). Pro access via
-  invite codes or admin override.
+  `subscriptionExpiresAt`. New signups start on free tier (no auto-trial). Pro
+  access via invite codes (set `subscriptionExpiresAt` on redemption) or admin
+  override.
 - **Infrastructure seed**: `prisma/seed-infrastructure.ts` (permissions, roles,
   tags) runs on every production deploy via `litefs.yml`. Dev seed adds test
   users.
@@ -104,8 +120,12 @@ Remaining:
 - [ ] **SSE multi-instance fix** -- SSE events emitted on one Fly machine won't
       reach clients on another. Fine for solo use, but if charging for the
       Household tier, two users on different machines won't see each other's
-      real-time events. Options: polling fallback, LiteFS broadcast, or Redis
-      pub/sub. Must be resolved before Household tier launches.
+      real-time events. **Approach: polling fallback.** Add a periodic poll
+      (every 30-60s) that queries `HouseholdEvent` for events since last check.
+      SSE stays as a progressive enhancement for instant delivery on the same
+      machine; polling catches cross-machine events. This avoids adding Redis
+      and works with the existing SQLite + LiteFS stack. Must be resolved before
+      Household tier launches.
 
 ### AI Integration
 
@@ -167,15 +187,22 @@ mixed-access degradation, lock icons, client hooks), invite code system (no
 auto-trial, codes are only path to Pro), pricing page (`/upgrade`), admin
 subscription management (`/admin/subscriptions`).
 
-Remaining:
+Remaining (start Stripe in test mode now — it doesn't require a business entity
+and shouldn't be blocked on the March 12 gate check):
 
 - [ ] **Stripe integration** -- Subscriptions, webhooks, customer portal for
       self-service plan changes / cancellation. Use Stripe Checkout for the
-      payment flow to avoid building card forms.
-- [ ] **Graceful downgrade** -- When Pro lapses, data is preserved but gated
-      features become read-only. Never delete user data on downgrade.
-- [ ] **Pro expiry UI** -- Show Pro status and days remaining in the app (header
-      banner or settings). Nudge to upgrade/redeem new code as access expires.
+      payment flow to avoid building card forms. Build against **test mode**
+      in parallel with daily driving — flipping to live mode only requires
+      swapping API keys and verifying the PFA.
+- [ ] **Pro expiry + graceful downgrade** -- When Pro lapses (Stripe
+      cancellation or 60-day invite-code grant expiry), data is preserved but
+      gated features become read-only. Never delete user data on downgrade.
+      UI: show Pro status and days remaining in settings/header, reminder nudge
+      at 7 days and 3 days, on expiry show "Your Pro access has ended — your
+      data is safe" with options to subscribe (Stripe) or redeem another code.
+      The invite-code expiry is the most likely early-adopter churn point —
+      design before the first codes expire (~mid-April).
 
 ---
 
@@ -253,7 +280,8 @@ voice inventory have been promoted to the **AI Integration** section above.
 - [ ] Weekly meal planning happens in-app for 4+ consecutive weeks
 - [x] Partner uses the app as a real co-user (not just testing)
 - [ ] Inventory accuracy assessed after 4 weeks of real tracking
-- [ ] "I have this" on recipe cards is the primary way inventory gets corrected
+- [ ] Inventory correction happens naturally (via "I have this", shopping list
+      check-off, or post-cook subtraction — track which paths get used most)
 - [ ] "Up next" banner used as the daily cooking entry point
 
 ### Pre-Monetization

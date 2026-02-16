@@ -146,7 +146,9 @@ Complete feature catalog. For the roadmap, see
   (monthly/yearly), Stripe checkout buttons, invite code redemption
 - Subscription status in Settings > Profile with "Manage Subscription" portal
   link for Stripe subscribers
-- Admin page at `/admin/subscriptions` for tier management and code generation
+- Admin pages: `/admin/users` (sortable analytics table — engagement signals,
+  content counts, subscription source), `/admin/subscriptions` (tier management
+  and code generation)
 - Client hooks: `useSubscriptionTier()`, `useIsProActive()`
 
 ## UI & Infrastructure

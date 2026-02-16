@@ -2,6 +2,7 @@ import { cache, cachified } from './cache.server.ts'
 import {
 	type Substitution,
 	getStaticSubstitutions,
+	stripDescriptors,
 } from './ingredient-substitutions.ts'
 import { normalizeIngredientName } from './recipe-matching.server.ts'
 import {
@@ -30,7 +31,8 @@ export async function getSubstitutions(
 	inventoryItems: Array<{ name: string }>,
 	recipeContext?: RecipeContext,
 ): Promise<SubstitutionResult> {
-	const normalized = normalizeIngredientName(ingredientName)
+	const cleaned = stripDescriptors(ingredientName)
+	const normalized = normalizeIngredientName(cleaned)
 
 	// 1. Static database lookup (instant, no API cost)
 	const staticSubs = getStaticSubstitutions(normalized)

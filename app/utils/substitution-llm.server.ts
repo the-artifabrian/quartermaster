@@ -41,7 +41,8 @@ export async function getLLMSubstitutions(
 			body: JSON.stringify({
 				model: MODEL,
 				max_tokens: 512,
-				system: 'You are a practical home cook advisor. Return only valid JSON — no markdown, no explanation.',
+				system:
+					'You are a practical home cook advisor. Return only valid JSON — no markdown, no explanation.',
 				messages: [
 					{
 						role: 'user',
@@ -87,8 +88,11 @@ Return a JSON array of 2-4 substitutions. Each object:
 
 Rules:
 - Only realistic, commonly available ingredients
+- Each substitution must serve the same culinary function as the original (a liquid must be replaced by a liquid, a fat by a fat, a spice by a spice, etc.) — do NOT suggest unrelated ingredients that happen to go well in the dish
 - Include ratio when the swap isn't 1:1
-- Keep context to one sentence`
+- Keep context to one sentence
+- If a substitution contains a common allergen (nuts, dairy, gluten, soy, eggs, shellfish, sesame), note it in context (e.g. "Contains tree nuts" or "Contains dairy")
+- NEVER suggest non-food items or anything unsafe to eat`
 }
 
 /**

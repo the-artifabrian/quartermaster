@@ -139,6 +139,8 @@ stays in control (generated content is always an editable draft); cost-aware
       Recipe-context-aware — LLM receives recipe title and ingredient list for
       dish-appropriate suggestions. Integrated into recipe detail ingredient
       list, recipe cards, "Almost There" banner, and "What Do I Need?" modal.
+      On recipe detail, "Use this" temporarily swaps the ingredient in both
+      ingredient list and instruction text (client-side, revertible).
       Pro-tier feature.
 - [ ] **Recipe generation from inventory** -- "Create something from what I
       have" CTA when discover has no strong matches or items are expiring.

@@ -7,6 +7,7 @@ import { formatTimeAgo } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { type RecipeMatch } from '#app/utils/recipe-matching.server.ts'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
+import { SubstitutionHint } from './ingredient-substitution.tsx'
 import { MatchProgressRing } from './match-progress-ring.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -16,6 +17,7 @@ type RecipeMatchCardProps = {
 	lastCookedAt?: string | null
 	cookCount?: number
 	urgentBorder?: boolean
+	isProActive?: boolean
 }
 
 export function RecipeMatchCard({
@@ -23,6 +25,7 @@ export function RecipeMatchCard({
 	lastCookedAt,
 	cookCount,
 	urgentBorder,
+	isProActive,
 }: RecipeMatchCardProps) {
 	const { recipe, matchPercentage, canMake, missingIngredients } = match
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
@@ -140,6 +143,7 @@ export function RecipeMatchCard({
 						<MissingIngredients
 							recipeId={recipe.id}
 							missingIngredients={missingIngredients}
+							isProActive={isProActive}
 						/>
 					)}
 				</div>
@@ -151,9 +155,11 @@ export function RecipeMatchCard({
 function MissingIngredients({
 	recipeId,
 	missingIngredients,
+	isProActive,
 }: {
 	recipeId: string
 	missingIngredients: Ingredient[]
+	isProActive?: boolean
 }) {
 	const fetcher = useFetcher<{ status: string; addedCount: number }>()
 	const isAdded = fetcher.data?.status === 'success'
@@ -199,7 +205,12 @@ function MissingIngredients({
 						key={ing.id}
 						className="bg-background/60 text-muted-foreground inline-flex items-center gap-0.5 rounded-full py-0.5 pl-2 pr-0.5"
 					>
-						{ing.name}
+						<SubstitutionHint
+							ingredientName={ing.name}
+							isProActive={!!isProActive}
+						>
+							{ing.name}
+						</SubstitutionHint>
 						<IngredientHaveItButton name={ing.name} />
 					</span>
 				))}

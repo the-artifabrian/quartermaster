@@ -124,10 +124,12 @@ stays in control (generated content is always an editable draft); cost-aware
 
 #### Features
 
-- [ ] **Ingredient substitutions** -- Contextual hints on missing-ingredient
-      pills ("No buttermilk? Use 1 cup milk + 1 tbsp lemon juice"). Server-side
-      LLM call on demand, cached per ingredient pair. Seed a static database for
-      the ~50 most common substitutions to reduce API calls.
+- [x] **Ingredient substitutions** -- Contextual hints on missing-ingredient
+      pills ("No buttermilk? Use 1 cup milk + 1 tbsp lemon juice"). Static
+      database of ~50 common substitutions + Claude Haiku LLM fallback (cached
+      30 days). Inventory-aware — highlights substitutes you already have.
+      Integrated into recipe cards, "Almost There" banner, and "What Do I Need?"
+      modal. Pro-tier feature.
 - [ ] **Recipe generation from inventory** -- "Create something from what I
       have" CTA when discover has no strong matches or items are expiring.
       Single LLM call → structured recipe → standard recipe form for review.

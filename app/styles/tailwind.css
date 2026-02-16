@@ -228,6 +228,11 @@ html {
 	scrollbar-gutter: stable;
 }
 
+@utility scrollbar-thin {
+	scrollbar-width: thin;
+	scrollbar-color: var(--color-border) transparent;
+}
+
 @utility container {
 	margin-inline: auto;
 	padding-inline: 1rem;

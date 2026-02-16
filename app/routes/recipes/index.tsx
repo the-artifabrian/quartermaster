@@ -9,6 +9,7 @@ import {
 	RecipeCardGrid,
 	RecipeListRow,
 } from '#app/components/recipe-card.tsx'
+import { SubstitutionHint } from '#app/components/ingredient-substitution.tsx'
 import {
 	IngredientHaveItButton,
 	RecipeMatchCard,
@@ -732,6 +733,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						matchData={matchData}
 						makeableOnly={makeableOnly}
 						fetcher={fetcher}
+						isProActive={isProActive}
 					/>
 				)}
 
@@ -850,10 +852,12 @@ function MatchModeUI({
 	matchData,
 	makeableOnly,
 	fetcher,
+	isProActive,
 }: {
 	matchData: NonNullable<Awaited<ReturnType<typeof loader>>['matchData']>
 	makeableOnly: boolean
 	fetcher: ReturnType<typeof useFetcher>
+	isProActive: boolean
 }) {
 	const {
 		expiringMatches,
@@ -898,17 +902,22 @@ function MatchModeUI({
 							})}
 						</div>
 					</div>
-					<RecipeMatchCardGrid>
+					<div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 scrollbar-thin">
 						{expiringMatches.map((match) => (
-							<RecipeMatchCard
+							<div
 								key={match.recipe.id}
-								match={match}
-								lastCookedAt={cookingStats[match.recipe.id]?.lastCookedAt}
-								cookCount={cookingStats[match.recipe.id]?.cookCount}
-								urgentBorder
-							/>
+								className="w-64 flex-shrink-0 snap-start sm:w-72"
+							>
+								<RecipeMatchCard
+									match={match}
+									lastCookedAt={cookingStats[match.recipe.id]?.lastCookedAt}
+									cookCount={cookingStats[match.recipe.id]?.cookCount}
+									urgentBorder
+									isProActive={isProActive}
+								/>
+							</div>
 						))}
-					</RecipeMatchCardGrid>
+					</div>
 				</div>
 			)}
 
@@ -935,7 +944,12 @@ function MatchModeUI({
 								key={name}
 								className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 py-0.5 pl-2 pr-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
 							>
-								{name}
+								<SubstitutionHint
+									ingredientName={name}
+									isProActive={isProActive}
+								>
+									{name}
+								</SubstitutionHint>
 								<IngredientHaveItButton name={name} variant="banner" />
 							</span>
 						))}

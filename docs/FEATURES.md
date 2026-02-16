@@ -39,6 +39,10 @@ Complete feature catalog. For the roadmap, see
 - Ingredient headings: section dividers within ingredient lists displayed as
   styled headers. Skipped by shopping list, matching, subtraction, and JSON-LD
 - Drag-and-drop ingredient reordering (`@dnd-kit/sortable`)
+- Ingredient substitution hints (Pro): click missing-ingredient pills to see
+  substitutions. ~50 common static entries + LLM fallback (Claude Haiku, cached
+  30 days). Inventory-aware — highlights substitutes you already have. Appears on
+  recipe cards, "Almost There" banner, and "What Do I Need?" modal
 
 ## Inventory System
 

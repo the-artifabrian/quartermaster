@@ -16,6 +16,8 @@ import { getUserImgSrc, useDoubleCheck } from '#app/utils/misc.tsx'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { useRequestInfo } from '#app/utils/request-info.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
+import { getAvailableCodeCount } from '#app/utils/invite-codes.server.ts'
+import { getUserTier } from '#app/utils/subscription.server.ts'
 import { NameSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/index.ts'
 import { twoFAVerificationType } from './two-factor/_layout.tsx'
@@ -58,15 +60,21 @@ export async function loader({ request }: Route.LoaderArgs) {
 		where: { target_type: { type: twoFAVerificationType, target: userId } },
 	})
 
-	const password = await prisma.password.findUnique({
-		select: { userId: true },
-		where: { userId },
-	})
+	const [password, tierInfo, availableInviteCodeCount] = await Promise.all([
+		prisma.password.findUnique({
+			select: { userId: true },
+			where: { userId },
+		}),
+		getUserTier(userId),
+		getAvailableCodeCount(userId),
+	])
 
 	return {
 		user,
 		hasPassword: Boolean(password),
 		isTwoFactorEnabled: Boolean(twoFactorVerification),
+		isProActive: tierInfo.isProActive,
+		availableInviteCodeCount,
 	}
 }
 
@@ -193,6 +201,28 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 					</Link>
 				</div>
 			</div>
+
+			{/* Invite Codes (Pro only) */}
+			{loaderData.isProActive ? (
+				<div className="bg-card rounded-xl border p-4 shadow-warm">
+					<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+						Invite Codes
+					</h3>
+					<div className="flex flex-col">
+						<Link
+							to="invite-codes"
+							className="hover:bg-accent/5 flex items-center justify-between rounded-lg px-4 py-3"
+						>
+							<Icon name="share">Invite codes</Icon>
+							{loaderData.availableInviteCodeCount > 0 ? (
+								<span className="bg-primary text-primary-foreground inline-flex size-5 items-center justify-center rounded-full text-xs font-bold">
+									{loaderData.availableInviteCodeCount}
+								</span>
+							) : null}
+						</Link>
+					</div>
+				</div>
+			) : null}
 
 			{/* Connections */}
 			<div className="bg-card rounded-xl border p-4 shadow-warm">

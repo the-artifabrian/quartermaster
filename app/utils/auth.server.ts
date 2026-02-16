@@ -156,12 +156,11 @@ export async function signup({
 			},
 		})
 
-		// Create a free subscription with 14-day Pro trial
+		// Create a free subscription (Pro via invite codes only)
 		await tx.subscription.create({
 			data: {
 				userId: newSession.userId,
 				tier: 'free',
-				trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
 			},
 		})
 
@@ -208,12 +207,11 @@ export async function signupWithConnection({
 			},
 		})
 
-		// Create a free subscription with 14-day Pro trial
+		// Create a free subscription (Pro via invite codes only)
 		await tx.subscription.create({
 			data: {
 				userId: newUser.id,
 				tier: 'free',
-				trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
 			},
 		})
 

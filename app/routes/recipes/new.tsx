@@ -160,7 +160,6 @@ export async function action({ request }: Route.ActionArgs) {
 		userId,
 		householdId,
 	})
-
 	return redirect(`/recipes/${recipe.id}`)
 }
 

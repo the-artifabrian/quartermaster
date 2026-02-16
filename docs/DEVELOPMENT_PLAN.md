@@ -139,12 +139,17 @@ Remaining:
       [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md) for details.
 - [x] **Tier enforcement infrastructure** -- `requireProTier()` route guard,
       `getUserTier()` utility, root loader `tierInfo`, client hooks, lock icons
-      in nav, `/upgrade` pricing page, 14-day trial on signup. See Phase 14
-      implementation tasks for details.
+      in nav, `/upgrade` pricing page. See Phase 14 implementation tasks for
+      details.
 - [x] **Admin subscription management** -- Admin page at `/admin/subscriptions`
-      for managing user tiers (promote/demote). Lists all users with current
-      tier, household, trial status. Per-row dropdown to change tier (upsert,
-      clears trial/expiry). Admin-role gated.
+      for managing user tiers (promote/demote) and invite code generation. Lists
+      all users with current tier, household, trial status. Per-row dropdown to
+      change tier (upsert, clears trial/expiry). Admin-role gated.
+- [x] **Invite code system** -- Replaced 14-day auto-trial with invite-code
+      growth model. `InviteCode` model, `invite-codes.server.ts` with code
+      generation (`QM-XXXXXX`), redemption with 2 starter codes granted
+      immediately. Redemption on `/upgrade`, Pro-only settings page at
+      `/settings/profile/invite-codes`, nav badge for available codes.
 
 ### AI Integration
 
@@ -347,6 +352,7 @@ voice inventory have been promoted to the **AI Integration** section above.
 - [~] 3-5 external users with real recipes (3 onboarded, tracking progress)
 - [ ] External users reach the inventory loop (not just recipe storage)
 - [x] Free-tier gate decision made (feature gate — Pro gates inventory loop)
+- [x] Invite code growth model (replaces auto-trial — codes are only path to Pro)
 
 ### Adoption & Monetization (future)
 

@@ -3,6 +3,10 @@ import { useRef } from 'react'
 import { Link, Form, useRouteLoaderData } from 'react-router'
 import { type loader as rootLoader } from '#app/root.tsx'
 import { getUserImgSrc } from '#app/utils/misc.tsx'
+import {
+	useAvailableInviteCodeCount,
+	useIsProActive,
+} from '#app/utils/subscription.ts'
 import { useUser } from '#app/utils/user.ts'
 import { Button } from './ui/button'
 import {
@@ -18,6 +22,8 @@ export function UserDropdown() {
 	const user = useUser()
 	const rootData = useRouteLoaderData<typeof rootLoader>('root')
 	const householdName = rootData?.householdName
+	const isPro = useIsProActive()
+	const availableCodes = useAvailableInviteCodeCount()
 	const formRef = useRef<HTMLFormElement>(null)
 	return (
 		<DropdownMenu modal={false}>
@@ -60,6 +66,18 @@ export function UserDropdown() {
 							</Icon>
 						</Link>
 					</DropdownMenuItem>
+					{isPro && availableCodes > 0 ? (
+						<DropdownMenuItem asChild>
+							<Link prefetch="intent" to="/settings/profile/invite-codes">
+								<Icon className="text-body-md" name="share">
+									Invite codes
+								</Icon>
+								<span className="bg-primary text-primary-foreground ml-auto inline-flex size-5 items-center justify-center rounded-full text-xs font-bold">
+									{availableCodes}
+								</span>
+							</Link>
+						</DropdownMenuItem>
+					) : null}
 					<Form action="/logout" method="POST" ref={formRef}>
 						<DropdownMenuItem asChild>
 							<button type="submit" className="w-full">

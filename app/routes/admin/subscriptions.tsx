@@ -1,5 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { data, redirect, useFetcher } from 'react-router'
+import { data, Link, redirect, useFetcher } from 'react-router'
 import { Spacer } from '#app/components/spacer.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -322,7 +322,16 @@ export default function SubscriptionsAdminRoute({
 
 	return (
 		<div className="container p-4">
-			<h1 className="text-h2">Subscription Management</h1>
+			<div className="text-muted-foreground flex gap-3 text-sm">
+				<Link to="/admin/users" className="underline-offset-4 hover:underline">
+					Users
+				</Link>
+				<span className="font-medium text-foreground">Subscriptions</span>
+				<Link to="/admin/cache" className="underline-offset-4 hover:underline">
+					Cache
+				</Link>
+			</div>
+			<h1 className="text-h2 mt-2">Subscription Management</h1>
 
 			{/* Invite Code Generation */}
 			<Spacer size="2xs" />

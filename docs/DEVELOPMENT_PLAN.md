@@ -36,7 +36,10 @@ The app is feature-complete for solo and shared daily use. See
 
 ## Architecture Notes
 
-- **Single-instance SSE**: In-memory EventEmitter means SSE events only reach
+- **SSE + polling hybrid**: In-memory EventEmitter delivers instant SSE events
+  on the same Fly machine. A 30s database poll (`/resources/household-events-poll`)
+  catches cross-machine events via LiteFS-replicated `HouseholdEvent` rows.
+  Client-side dedup (bounded ID set, 500 entries) prevents duplicate delivery.
 - **Subscription model**: `Subscription` with `tier`, Stripe fields
   (`stripeCustomerId`, `stripeSubscriptionId`, both `@unique`),
   `subscriptionExpiresAt`, `trialEndsAt`. Pro access if either Stripe
@@ -108,16 +111,6 @@ import/export round-trip, usage analytics, security hardening, landing page CTA,
 new user onboarding, free-tier gate decision (feature gate), tier enforcement
 external users (3 onboarded, aiming for 5+). See [FEATURES.md](./FEATURES.md).
 
-Remaining:
-
-- [ ] **SSE multi-instance fix** -- SSE events emitted on one Fly machine won't
-      reach clients on another. Fine for solo use, but if charging for the
-      real-time events. **Approach: polling fallback.** Add a periodic poll
-      (every 30-60s) that queries `HouseholdEvent` for events since last check.
-      SSE stays as a progressive enhancement for instant delivery on the same
-      machine; polling catches cross-machine events. This avoids adding Redis
-      and works with the existing SQLite + LiteFS stack. Must be resolved before
-
 ### AI Integration
 
 AI enhancements to existing flows. Not a separate "AI feature" -- outputs land
@@ -175,7 +168,8 @@ state in settings subscription card).
 
 ## Technical Debt
 
-- **SSE single-instance limitation** -- See **SSE multi-instance fix** in
+- **SSE single-instance limitation** -- Resolved via 30s polling fallback.
+  SSE still only reaches same-machine clients, but polling catches the rest.
 - **Fire-and-forget event emission** -- `emitHouseholdEvent()` wraps DB writes
   in try/catch and runs async without awaiting. Risk of SQLite concurrency
   issues under load. Tests already need `vi.mock()` for this. Consider queueing

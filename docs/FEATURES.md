@@ -107,10 +107,13 @@ Complete feature catalog. For the roadmap, see
 - Member management: rename household, remove members, revoke invites, leave
 - Data on leave: sole members move all data; multi-member leaves deep-copy
   recipes
-- Real-time activity via Server-Sent Events: 24 event types with two-tier
-  priority -- **notify** tier (shopping list generated, meal plan changes,
-  recipe created/imported, member join/leave) triggers toast + badge; **silent**
-  tier (edits, deletes, favorites, inventory CRUD) appears in activity feed only
+- Real-time activity via Server-Sent Events + 30s database polling fallback:
+  24 event types with two-tier priority -- **notify** tier (shopping list
+  generated, meal plan changes, recipe created/imported, member join/leave)
+  triggers toast + badge; **silent** tier (edits, deletes, favorites, inventory
+  CRUD) appears in activity feed only. SSE delivers instant same-machine events;
+  polling catches cross-machine events on multi-instance Fly.io deployments.
+  Client-side dedup (bounded ID set) prevents duplicate delivery
 - Notification bell in header with unread badge, dropdown with formatted
   messages, "mark as read", and "View all activity" link
 - Activity feed on household settings page (last 20 events)

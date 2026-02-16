@@ -75,7 +75,7 @@ function SubstitutionPopover({
 						{children}
 						<Icon
 							name="shuffle"
-							className="text-muted-foreground/60 hover:text-muted-foreground size-3 shrink-0 transition-colors"
+							className="text-amber-500/70 hover:text-amber-600 size-3.5 shrink-0 transition-colors"
 						/>
 					</span>
 				</PopoverTrigger>

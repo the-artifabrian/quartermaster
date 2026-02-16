@@ -53,7 +53,7 @@ export function RecipeCard({
 	return (
 		<Link
 			to={`/recipes/${id}`}
-			className="group bg-card text-card-foreground block overflow-hidden rounded-xl border border-border/60 shadow-warm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-warm-md"
+			className="group bg-card text-card-foreground border-border/60 shadow-warm hover:shadow-warm-md block overflow-hidden rounded-xl border transition-all duration-200 hover:-translate-y-0.5"
 		>
 			<div className="bg-muted relative aspect-[16/9] overflow-hidden rounded-t-lg sm:aspect-[4/3]">
 				{isFavorite && (
@@ -175,10 +175,10 @@ export function RecipeListRow({
 	return (
 		<Link
 			to={`/recipes/${id}`}
-			className="group bg-card text-card-foreground flex items-center gap-3 rounded-lg border border-border/60 p-3 shadow-warm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-warm-md"
+			className="group bg-card text-card-foreground border-border/60 shadow-warm hover:shadow-warm-md flex items-center gap-3 rounded-lg border p-3 transition-all duration-200 hover:-translate-y-0.5"
 		>
 			{/* Thumbnail */}
-			<div className="bg-muted relative size-14 flex-shrink-0 overflow-hidden rounded-lg">
+			<div className="bg-muted relative size-14 shrink-0 overflow-hidden rounded-lg">
 				{isFavorite && (
 					<div className="absolute top-0.5 right-0.5 z-10">
 						<Icon
@@ -250,7 +250,7 @@ export function RecipeListRow({
 								<span
 									key={tag.id}
 									className={cn(
-										'rounded-full border px-1.5 py-0 text-[10px] font-medium leading-4',
+										'rounded-full border px-1.5 py-0 text-[10px] leading-4 font-medium',
 										getTagCategoryClass(tag.category),
 									)}
 								>

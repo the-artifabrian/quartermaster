@@ -102,7 +102,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// Low-stock inventory items as suggestions
 	const lowStockItems = await prisma.inventoryItem.findMany({
 		where: { householdId, lowStock: true },
-		select: { id: true, name: true, location: true, quantity: true, unit: true },
+		select: {
+			id: true,
+			name: true,
+			location: true,
+			quantity: true,
+			unit: true,
+		},
 	})
 
 	// Filter out items already on the shopping list by canonical name
@@ -467,7 +473,11 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const VALID_LOCATIONS = new Set(['pantry', 'fridge', 'freezer'])
 
-		let items: Array<{ itemId: string; location: string; expiresAt?: string | null }>
+		let items: Array<{
+			itemId: string
+			location: string
+			expiresAt?: string | null
+		}>
 		try {
 			items = JSON.parse(rawItems) as Array<{
 				itemId: string
@@ -609,7 +619,7 @@ export default function ShoppingListRoute({
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="from-card to-background border-border/50 border-b bg-gradient-to-b print:border-0">
+			<div className="from-card to-background border-border/50 border-b bg-linear-to-b print:border-0">
 				<div className="container py-4">
 					<div className="flex items-center gap-3">
 						<h1 className="text-2xl font-bold">
@@ -925,7 +935,7 @@ function LowStockNudge({ items }: { items: LowStockItem[] }) {
 	const isAddingAll = addAllFetcher.state !== 'idle'
 
 	return (
-		<div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 print:hidden dark:border-amber-700 dark:bg-amber-950/30">
+		<div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950/30 print:hidden">
 			<div className="mb-3 flex items-center justify-between gap-2">
 				<h3 className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200">
 					<Icon name="question-mark-circled" className="size-4" />

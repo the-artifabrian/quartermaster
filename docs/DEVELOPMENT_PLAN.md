@@ -229,6 +229,14 @@ Lower-priority items to reconsider later.
 AI substitutions, recipe generation, meal plan generation, receipt scanning,
 and voice inventory have been promoted to the **AI Integration** section above.
 
+- [ ] **Dashboard homepage** -- A central landing page (`/`) for logged-in users
+      that aggregates the most actionable information: today's meals from the plan
+      (reuse "Up next" banner), top inventory-matched recipes ("What can I make?"),
+      expiring items, low-stock nudges, and quick-nav to plan/shopping/inventory.
+      Validates during daily driving: if users consistently go to `/plan` or
+      `/recipes` first, that's a signal this would help. Risk: becomes stale UI
+      that duplicates individual pages — must add value through aggregation, not
+      just links.
 - [ ] **Nutrition estimates** -- Hit a nutrition API (Nutritionix or Edamam) for
       estimated calories and macros on recipe detail pages.
 - [ ] **Monthly cooking summary** -- Stats from cooking logs: meals cooked,

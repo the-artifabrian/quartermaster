@@ -37,6 +37,10 @@ are complete. The app is feature-complete for solo and shared daily use. See
   `trialEndsAt`. Tier enforcement infrastructure now active -- new signups get a
   free Subscription with 14-day trial; existing production users need manual
   promotion via admin page (`/admin/subscriptions`).
+- **Infrastructure seed split**: `prisma/seed-infrastructure.ts` (permissions,
+  roles, tags) runs on every production deploy via `litefs.yml` exec chain.
+  `prisma/seed.ts` imports the infrastructure seed and adds test users (dev
+  only). Eliminates the need for manual role/permission setup in production.
 
 ---
 

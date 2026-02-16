@@ -1,10 +1,9 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { data, useFetcher } from 'react-router'
-import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
+import { data, redirect, useFetcher } from 'react-router'
 import { Spacer } from '#app/components/spacer.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
+import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { requireUserWithRole } from '#app/utils/permissions.server.ts'
 import { type Route } from './+types/subscriptions.ts'
 
 export const handle: SEOHandle = {
@@ -23,8 +22,18 @@ type UserRow = {
 	trialEndsAt: string | null
 }
 
+async function requireAdmin(request: Request) {
+	const userId = await requireUserId(request)
+	const user = await prisma.user.findFirst({
+		select: { id: true },
+		where: { id: userId, roles: { some: { name: 'admin' } } },
+	})
+	if (!user) throw redirect('/')
+	return user.id
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
-	await requireUserWithRole(request, 'admin')
+	await requireAdmin(request)
 
 	const users = await prisma.user.findMany({
 		select: {
@@ -79,7 +88,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	await requireUserWithRole(request, 'admin')
+	await requireAdmin(request)
 
 	const formData = await request.formData()
 	const intent = formData.get('intent')
@@ -207,17 +216,5 @@ export default function SubscriptionsAdminRoute({
 				))}
 			</ul>
 		</div>
-	)
-}
-
-export function ErrorBoundary() {
-	return (
-		<GeneralErrorBoundary
-			statusHandlers={{
-				403: ({ error }) => (
-					<p>You are not allowed to do that: {error?.data.message}</p>
-				),
-			}}
-		/>
 	)
 }

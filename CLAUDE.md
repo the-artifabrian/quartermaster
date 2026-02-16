@@ -277,7 +277,20 @@ fly ssh console -C "sqlite3 \$DATABASE_PATH \"
 ```
 
 Admin routes: `/admin/cache` (cache management), `/admin/subscriptions` (tier
-management).
+
+friends. Admins can also generate codes for launches.
+
+**Key Files**:
+
+- `app/utils/invite-codes.server.ts` — Code generation (`QM-XXXXXX` format),
+  redemption with concurrent-use guard, starter code granting on redemption
+- `app/utils/invite-code-status.ts` — Shared `RedeemCodeSchema` (Zod) and
+  `getCodeStatus()` UI helper (used by settings and admin pages)
+- `app/routes/resources/redeem-invite-code.tsx` — POST resource route for
+  code redemption (used by `/upgrade` and potentially other pages via `useFetcher`)
+- `app/routes/settings/profile/invite-codes.tsx` — Pro-only settings page
+  showing user's codes
+- `app/routes/admin/subscriptions.tsx` — Admin code generation + management
 
 ### Image Handling
 
@@ -393,6 +406,9 @@ templateId, recipeId
 **Subscription**: tier, stripeCustomerId?, stripeSubscriptionId?,
 subscriptionExpiresAt?, trialEndsAt?, userId (1-to-1)
 
+**InviteCode**: code (unique, "QM-XXXXXX"), type ("admin"|"earned"),
+grantsDays, expiresAt?, redeemedAt?, milestoneKey?, createdById, redeemedById?
+
 **User**: Epic Stack default model with roles, permissions, connections (OAuth),
 sessions, passkeys
 
@@ -402,7 +418,7 @@ sessions, passkeys
   MealPlanTemplate, HouseholdMember, HouseholdInvite, HouseholdEvent,
   UsageEvent
 - User has many: Recipe, InventoryItem, MealPlan, ShoppingList, CookingLog,
-  MealPlanTemplate, HouseholdMember, UsageEvent
+  MealPlanTemplate, HouseholdMember, UsageEvent, InviteCode (created + redeemed)
 - Recipe has many: Ingredient, Instruction, MealPlanEntry, CookingLog,
   MealPlanTemplateEntry; has one: RecipeImage; many-to-many: Tag
 - MealPlan has many MealPlanEntry; ShoppingList has many ShoppingListItem

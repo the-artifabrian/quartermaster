@@ -1,9 +1,13 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { data, redirect, useFetcher } from 'react-router'
 import { Spacer } from '#app/components/spacer.tsx'
+import { Button } from '#app/components/ui/button.tsx'
+import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { getCodeStatus } from '#app/utils/invite-code-status.ts'
+import { createAdminCodes } from '#app/utils/invite-codes.server.ts'
 import { type Route } from './+types/subscriptions.ts'
 
 export const handle: SEOHandle = {
@@ -22,6 +26,16 @@ type UserRow = {
 	trialEndsAt: string | null
 }
 
+type InviteCodeRow = {
+	id: string
+	code: string
+	grantsDays: number
+	expiresAt: string | null
+	redeemedAt: string | null
+	redeemedByUsername: string | null
+	createdAt: string
+}
+
 async function requireAdmin(request: Request) {
 	const userId = await requireUserId(request)
 	const user = await prisma.user.findFirst({
@@ -33,29 +47,44 @@ async function requireAdmin(request: Request) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	await requireAdmin(request)
+	const adminId = await requireAdmin(request)
 
-	const users = await prisma.user.findMany({
-		select: {
-			id: true,
-			username: true,
-			name: true,
-			email: true,
-			subscription: {
-				select: {
-					tier: true,
-					trialEndsAt: true,
-					subscriptionExpiresAt: true,
+	const [users, inviteCodes] = await Promise.all([
+		prisma.user.findMany({
+			select: {
+				id: true,
+				username: true,
+				name: true,
+				email: true,
+				subscription: {
+					select: {
+						tier: true,
+						trialEndsAt: true,
+						subscriptionExpiresAt: true,
+					},
+				},
+				householdMembers: {
+					select: {
+						household: { select: { name: true } },
+					},
 				},
 			},
-			householdMembers: {
-				select: {
-					household: { select: { name: true } },
-				},
+			orderBy: { createdAt: 'asc' },
+		}),
+		prisma.inviteCode.findMany({
+			where: { type: 'admin' },
+			select: {
+				id: true,
+				code: true,
+				grantsDays: true,
+				expiresAt: true,
+				redeemedAt: true,
+				createdAt: true,
+				redeemedBy: { select: { username: true } },
 			},
-		},
-		orderBy: { createdAt: 'asc' },
-	})
+			orderBy: { createdAt: 'desc' },
+		}),
+	])
 
 	const now = new Date()
 
@@ -84,11 +113,21 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	})
 
-	return { users: rows }
+	const codeRows: InviteCodeRow[] = inviteCodes.map((c) => ({
+		id: c.id,
+		code: c.code,
+		grantsDays: c.grantsDays,
+		expiresAt: c.expiresAt?.toISOString() ?? null,
+		redeemedAt: c.redeemedAt?.toISOString() ?? null,
+		redeemedByUsername: c.redeemedBy?.username ?? null,
+		createdAt: c.createdAt.toISOString(),
+	}))
+
+	return { users: rows, inviteCodes: codeRows, adminId }
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	await requireAdmin(request)
+	const adminId = await requireAdmin(request)
 
 	const formData = await request.formData()
 	const intent = formData.get('intent')
@@ -119,6 +158,26 @@ export async function action({ request }: Route.ActionArgs) {
 			create: { userId, tier },
 		})
 
+		return { success: true }
+	}
+
+	if (intent === 'generateCodes') {
+		const countStr = formData.get('count')
+		const grantsDaysStr = formData.get('grantsDays')
+
+		const count = Math.min(Math.max(Number(countStr) || 1, 1), 50)
+		const grantsDays = Number(grantsDaysStr) || 60
+
+		await createAdminCodes(adminId, count, { grantsDays })
+		return { success: true }
+	}
+
+	if (intent === 'deleteCode') {
+		const codeId = formData.get('codeId')
+		if (typeof codeId !== 'string') {
+			return data({ error: 'Invalid code ID' }, { status: 400 })
+		}
+		await prisma.inviteCode.delete({ where: { id: codeId } })
 		return { success: true }
 	}
 
@@ -198,12 +257,139 @@ function UserRow({ user }: { user: UserRow }) {
 	)
 }
 
+function InviteCodeRow({ code }: { code: InviteCodeRow }) {
+	const fetcher = useFetcher<typeof action>()
+	const status = getCodeStatus(code)
+	const isDeleting = fetcher.state !== 'idle'
+
+	return (
+		<li
+			className={`flex items-center justify-between rounded-lg border p-3 ${isDeleting ? 'opacity-50' : ''}`}
+		>
+			<div className="flex items-center gap-3">
+				<code className="rounded bg-gray-100 px-2 py-1 font-mono text-sm dark:bg-gray-800">
+					{code.code}
+				</code>
+				<span
+					className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${status.className}`}
+				>
+					{status.label}
+				</span>
+				{code.redeemedByUsername ? (
+					<span className="text-muted-foreground text-xs">
+						by {code.redeemedByUsername}
+					</span>
+				) : null}
+				<span className="text-muted-foreground text-xs">
+					{code.grantsDays}d
+				</span>
+			</div>
+			<div className="flex items-center gap-2">
+				{!code.redeemedAt ? (
+					<>
+						<CopyButton text={code.code} />
+						<fetcher.Form method="POST">
+							<input type="hidden" name="intent" value="deleteCode" />
+							<input type="hidden" name="codeId" value={code.id} />
+							<Button variant="ghost" size="sm" type="submit">
+								<Icon name="trash" size="sm" />
+							</Button>
+						</fetcher.Form>
+					</>
+				) : null}
+			</div>
+		</li>
+	)
+}
+
+function CopyButton({ text }: { text: string }) {
+	return (
+		<Button
+			variant="ghost"
+			size="sm"
+			onClick={() => navigator.clipboard.writeText(text)}
+			type="button"
+		>
+			<Icon name="link-2" size="sm" />
+		</Button>
+	)
+}
+
 export default function SubscriptionsAdminRoute({
 	loaderData,
 }: Route.ComponentProps) {
+	const generateFetcher = useFetcher<typeof action>()
+
 	return (
 		<div className="container p-4">
 			<h1 className="text-h2">Subscription Management</h1>
+
+			{/* Invite Code Generation */}
+			<Spacer size="2xs" />
+			<div className="rounded-xl border p-4">
+				<h2 className="text-lg font-semibold">Invite Codes</h2>
+				<generateFetcher.Form
+					method="POST"
+					className="mt-3 flex items-end gap-3"
+				>
+					<input type="hidden" name="intent" value="generateCodes" />
+					<div>
+						<label
+							htmlFor="count"
+							className="text-muted-foreground mb-1 block text-xs"
+						>
+							Count (1-50)
+						</label>
+						<input
+							id="count"
+							name="count"
+							type="number"
+							min={1}
+							max={50}
+							defaultValue={5}
+							className="border-input bg-background h-9 w-20 rounded-md border px-3 text-sm"
+						/>
+					</div>
+					<div>
+						<label
+							htmlFor="grantsDays"
+							className="text-muted-foreground mb-1 block text-xs"
+						>
+							Pro days
+						</label>
+						<input
+							id="grantsDays"
+							name="grantsDays"
+							type="number"
+							min={1}
+							defaultValue={60}
+							className="border-input bg-background h-9 w-20 rounded-md border px-3 text-sm"
+						/>
+					</div>
+					<StatusButton
+						type="submit"
+						status={
+							generateFetcher.state === 'submitting' ? 'pending' : 'idle'
+						}
+					>
+						Generate
+					</StatusButton>
+				</generateFetcher.Form>
+
+				{loaderData.inviteCodes.length > 0 ? (
+					<ul className="mt-4 flex flex-col gap-2">
+						{loaderData.inviteCodes.map((code) => (
+							<InviteCodeRow key={code.id} code={code} />
+						))}
+					</ul>
+				) : (
+					<p className="text-muted-foreground mt-4 text-sm">
+						No admin codes generated yet.
+					</p>
+				)}
+			</div>
+
+			{/* User List */}
 			<Spacer size="2xs" />
 			<p className="text-muted-foreground text-sm">
 				{loaderData.users.length} user

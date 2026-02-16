@@ -42,6 +42,7 @@ import { type Theme, getTheme } from './utils/theme.server.ts'
 import { TimerProvider } from './utils/timer-context.tsx'
 import { makeTimings, time } from './utils/timing.server.ts'
 import { getToast } from './utils/toast.server.ts'
+import { getAvailableCodeCount } from './utils/invite-codes.server.ts'
 import { getUserTier, type TierInfo } from './utils/subscription.server.ts'
 import { useOptionalUser } from './utils/user.ts'
 
@@ -142,6 +143,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	}
 	let unreadNotificationCount = 0
 	let householdName: string | null = null
+	let availableInviteCodeCount = 0
 	if (userId) {
 		tierInfo = await getUserTier(userId)
 		const member = await prisma.householdMember.findFirst({
@@ -165,6 +167,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 				},
 			})
 		}
+		if (tierInfo.isProActive) {
+			availableInviteCodeCount = await getAvailableCodeCount(userId)
+		}
 	}
 
 	const { toast, headers: toastHeaders } = await getToast(request)
@@ -174,6 +179,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			tierInfo,
 			unreadNotificationCount,
 			householdName,
+			availableInviteCodeCount,
 			requestInfo: {
 				hints: getHints(request),
 				origin: getDomainUrl(request),

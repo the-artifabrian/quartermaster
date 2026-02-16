@@ -363,7 +363,7 @@ export async function action({ request }: Route.ActionArgs) {
 				userId,
 				householdId,
 			})
-
+	
 			if (formData.get('fromPairing') === 'true') {
 				void trackEvent(userId, householdId, 'pairing_recipe_assigned', {
 					recipeId,

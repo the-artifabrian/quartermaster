@@ -1,8 +1,16 @@
+import { getFormProps, getInputProps, useForm } from '@conform-to/react'
+import { getZodConstraint, parseWithZod } from '@conform-to/zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Link } from 'react-router'
+import { Link, useFetcher } from 'react-router'
+import { ErrorList } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { StatusButton } from '#app/components/ui/status-button.tsx'
+import { RedeemCodeSchema } from '#app/utils/invite-code-status.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { getUserTier, type TierInfo } from '#app/utils/subscription.server.ts'
+import { getUserId } from '#app/utils/auth.server.ts'
+import { type action as redeemAction } from './resources/redeem-invite-code.tsx'
 import { type Route } from './+types/upgrade.ts'
 
 export const handle: SEOHandle = {
@@ -11,6 +19,19 @@ export const handle: SEOHandle = {
 
 export const meta: Route.MetaFunction = () => {
 	return [{ title: 'Upgrade | Quartermaster' }]
+}
+
+export async function loader({ request }: Route.LoaderArgs) {
+	const userId = await getUserId(request)
+	let tierInfo: TierInfo = {
+		tier: 'free',
+		isProActive: false,
+		trialEndsAt: null,
+	}
+	if (userId) {
+		tierInfo = await getUserTier(userId)
+	}
+	return { tierInfo }
 }
 
 const tiers = [
@@ -58,7 +79,9 @@ const tiers = [
 	},
 ]
 
-export default function UpgradePage() {
+export default function UpgradePage({ loaderData }: Route.ComponentProps) {
+	const { tierInfo } = loaderData
+
 	return (
 		<div className="container max-w-5xl px-4 py-8 md:py-12">
 			<div className="mb-8 text-center md:mb-12">
@@ -68,6 +91,19 @@ export default function UpgradePage() {
 				<p className="text-muted-foreground mt-2 text-lg">
 					Unlock inventory tracking, meal planning, and smart shopping lists.
 				</p>
+					<p className="text-primary mt-2 text-sm font-medium">
+						You have Pro access until{' '}
+						{new Date(tierInfo.trialEndsAt).toLocaleDateString('en-US', {
+							month: 'long',
+							day: 'numeric',
+							year: 'numeric',
+						})}
+					</p>
+				) : tierInfo.isProActive ? (
+					<p className="text-primary mt-2 text-sm font-medium">
+						You&apos;re on the {tierInfo.tier} plan
+					</p>
+				) : null}
 			</div>
 
 			<div className="grid gap-6 md:grid-cols-3">
@@ -118,6 +154,10 @@ export default function UpgradePage() {
 				))}
 			</div>
 
+			{!tierInfo.isProActive ? (
+				<InviteCodeSection />
+			) : null}
+
 			<div className="mt-8 text-center">
 				<Button asChild variant="ghost">
 					<Link to="/recipes">
@@ -126,6 +166,50 @@ export default function UpgradePage() {
 					</Link>
 				</Button>
 			</div>
+		</div>
+	)
+}
+
+function InviteCodeSection() {
+	const fetcher = useFetcher<typeof redeemAction>()
+	const isSubmitting = fetcher.state !== 'idle'
+
+	const [form, fields] = useForm({
+		id: 'redeem-invite-code',
+		constraint: getZodConstraint(RedeemCodeSchema),
+		lastResult: fetcher.data?.result,
+		onValidate({ formData }) {
+			return parseWithZod(formData, { schema: RedeemCodeSchema })
+		},
+	})
+
+	return (
+		<div className="bg-card mx-auto mt-10 max-w-md rounded-2xl border p-6 text-center">
+			<p className="text-muted-foreground mt-1 text-sm">
+				Enter a code from a friend to unlock Pro features.
+			</p>
+			<fetcher.Form
+				method="POST"
+				action="/resources/redeem-invite-code"
+				{...getFormProps(form)}
+				className="mt-4"
+			>
+				<div className="flex gap-2">
+					<input
+						{...getInputProps(fields.code, { type: 'text' })}
+						placeholder="QM-A7K2X9"
+						className="border-input bg-background placeholder:text-muted-foreground flex-1 rounded-lg border px-3 py-2 text-center font-mono text-sm uppercase tracking-widest"
+						autoComplete="off"
+					/>
+					<StatusButton
+						type="submit"
+						status={isSubmitting ? 'pending' : 'idle'}
+					>
+						Redeem
+					</StatusButton>
+				</div>
+				<ErrorList errors={form.errors} id={form.errorId} />
+			</fetcher.Form>
 		</div>
 	)
 }

@@ -130,11 +130,14 @@ Remaining:
       intelligence loop boundary. See
 - [x] **Tier enforcement infrastructure** -- `requireProTier()` route guard,
       `getUserTier()` utility, root loader `tierInfo`, client hooks, lock icons
-      implementation tasks for details.
+      details.
 - [x] **Admin subscription management** -- Admin page at `/admin/subscriptions`
-      for managing user tiers (promote/demote). Lists all users with current
-      tier, household, trial status. Per-row dropdown to change tier (upsert,
-      clears trial/expiry). Admin-role gated.
+      all users with current tier, household, trial status. Per-row dropdown to
+      change tier (upsert, clears trial/expiry). Admin-role gated.
+      growth model. `InviteCode` model, `invite-codes.server.ts` with code
+      generation (`QM-XXXXXX`), redemption with 2 starter codes granted
+      immediately. Redemption on `/upgrade`, Pro-only settings page at
+      `/settings/profile/invite-codes`, nav badge for available codes.
 
 ### AI Integration
 

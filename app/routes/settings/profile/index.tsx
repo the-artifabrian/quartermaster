@@ -12,7 +12,7 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { ThemeSwitch } from '#app/routes/resources/theme-switch.tsx'
 import { requireUserId, sessionKey } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { getUserImgSrc, useDoubleCheck } from '#app/utils/misc.tsx'
+import { cn, getUserImgSrc, useDoubleCheck } from '#app/utils/misc.tsx'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { useRequestInfo } from '#app/utils/request-info.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
@@ -497,6 +497,24 @@ function SubscriptionCard({ tierInfo }: { tierInfo: TierInfo }) {
 				? 'Pro'
 				: 'Free'
 
+	const daysLeftBadge =
+		tierInfo.daysUntilExpiry !== null && tierInfo.daysUntilExpiry <= 14 ? (
+			<span
+				className={cn(
+					'text-xs font-medium',
+					tierInfo.daysUntilExpiry <= 3
+						? 'text-destructive font-bold'
+						: tierInfo.daysUntilExpiry <= 7
+							? 'text-amber-600 dark:text-amber-400'
+							: 'text-muted-foreground',
+				)}
+			>
+				{tierInfo.daysUntilExpiry === 0
+					? ' · Expires today'
+					: ` · ${tierInfo.daysUntilExpiry} day${tierInfo.daysUntilExpiry === 1 ? '' : 's'} left`}
+			</span>
+		) : null
+
 	return (
 		<div className="bg-card rounded-xl border p-4 shadow-warm">
 			<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
@@ -527,6 +545,23 @@ function SubscriptionCard({ tierInfo }: { tierInfo: TierInfo }) {
 							</Button>
 						</Form>
 					</>
+				) : !tierInfo.isProActive && tierInfo.wasProPreviously ? (
+					<>
+						<p className="text-sm font-medium">
+							Pro access ended &mdash; your data is safe
+						</p>
+						<p className="text-muted-foreground text-xs">
+							Subscribe or redeem a new invite code to continue.
+						</p>
+						<div className="mt-1 flex gap-2">
+							<Button asChild variant="default" size="sm">
+								<Link to="/upgrade">Subscribe</Link>
+							</Button>
+							<Button asChild variant="outline" size="sm">
+								<Link to="/upgrade">Redeem code</Link>
+							</Button>
+						</div>
+					</>
 				) : tierInfo.isProActive && tierInfo.isTrialing ? (
 					<>
 						<p className="text-sm">
@@ -541,6 +576,7 @@ function SubscriptionCard({ tierInfo }: { tierInfo: TierInfo }) {
 										year: 'numeric',
 									})
 								: 'unknown'}
+							{daysLeftBadge}
 						</p>
 						<Button asChild variant="outline" size="sm">
 							<Link to="/upgrade">Subscribe</Link>

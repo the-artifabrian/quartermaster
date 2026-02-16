@@ -1,6 +1,6 @@
-import { redirect } from 'react-router'
 import { prisma } from './db.server.ts'
 import { requireUserWithHousehold } from './household.server.ts'
+import { redirectWithToast } from './toast.server.ts'
 
 export type TierInfo = {
 	tier: string
@@ -9,6 +9,9 @@ export type TierInfo = {
 	trialEndsAt: Date | null
 	subscriptionExpiresAt: Date | null
 	hasStripeSubscription: boolean
+	proExpiresAt: Date | null
+	daysUntilExpiry: number | null
+	wasProPreviously: boolean
 }
 
 /**
@@ -34,6 +37,9 @@ export async function getUserTier(userId: string): Promise<TierInfo> {
 			trialEndsAt: null,
 			subscriptionExpiresAt: null,
 			hasStripeSubscription: false,
+			proExpiresAt: null,
+			daysUntilExpiry: null,
+			wasProPreviously: false,
 		}
 	}
 
@@ -51,6 +57,42 @@ export async function getUserTier(userId: string): Promise<TierInfo> {
 
 	const isProActive = isPaidActive || isTrialing
 
+	// Compute effective expiry date — the date when ALL Pro access ends.
+	// Indefinite Stripe (no subscriptionExpiresAt) wins over any trial countdown.
+	// When both trial and paid have concrete dates, pick the later one.
+	let proExpiresAt: Date | null = null
+	if (isPaidActive && subscription.subscriptionExpiresAt === null) {
+		// Indefinite paid subscription — no expiry regardless of trial
+		proExpiresAt = null
+	} else if (
+		isTrialing &&
+		isPaidActive &&
+		subscription.trialEndsAt &&
+		subscription.subscriptionExpiresAt
+	) {
+		// Both active with concrete dates — use the later one
+		proExpiresAt =
+			subscription.trialEndsAt > subscription.subscriptionExpiresAt
+				? subscription.trialEndsAt
+				: subscription.subscriptionExpiresAt
+	} else if (isTrialing && subscription.trialEndsAt) {
+		proExpiresAt = subscription.trialEndsAt
+	} else if (isPaidActive && subscription.subscriptionExpiresAt) {
+		proExpiresAt = subscription.subscriptionExpiresAt
+	}
+
+	const daysUntilExpiry =
+		proExpiresAt !== null
+			? Math.ceil((proExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+			: null
+
+	// User previously had Pro but it lapsed
+	const wasProPreviously =
+		!isProActive &&
+		((subscription.trialEndsAt !== null && subscription.trialEndsAt <= now) ||
+			(subscription.subscriptionExpiresAt !== null &&
+				subscription.subscriptionExpiresAt <= now))
+
 	return {
 		tier: subscription.tier,
 		isProActive,
@@ -58,6 +100,9 @@ export async function getUserTier(userId: string): Promise<TierInfo> {
 		trialEndsAt: subscription.trialEndsAt,
 		subscriptionExpiresAt: subscription.subscriptionExpiresAt,
 		hasStripeSubscription: Boolean(subscription.stripeCustomerId),
+		proExpiresAt,
+		daysUntilExpiry,
+		wasProPreviously,
 	}
 }
 
@@ -71,7 +116,19 @@ export async function requireProTier(request: Request) {
 	const tierInfo = await getUserTier(userId)
 
 	if (!tierInfo.isProActive) {
-		throw redirect('/upgrade')
+		if (tierInfo.wasProPreviously) {
+			throw await redirectWithToast('/upgrade', {
+				type: 'message',
+				title: 'Pro access ended',
+				description:
+					'Your data is safe. Subscribe or redeem a code to continue.',
+			})
+		}
+		throw await redirectWithToast('/upgrade', {
+			type: 'message',
+			title: 'Pro feature',
+			description: 'Upgrade to Pro to access this feature.',
+		})
 	}
 
 	return { userId, householdId, role, ...tierInfo }

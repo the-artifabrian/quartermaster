@@ -131,16 +131,26 @@ Complete feature catalog. For the roadmap, see
   Pro access. Redemption grants 2 starter codes to share with friends. Admins
   generate codes for launches at `/admin/subscriptions`
 - Pro-only routes (`/inventory`, `/plan`, `/shopping`) redirect free users to
-  `/upgrade` with lock icons in nav
+  `/upgrade` with lock icons in nav. Lapsed users get contextual toast ("Your
+  data is safe") on redirect
 - Mixed-access routes degrade gracefully: recipe list skips match data,
   recipe detail hides inventory features, Surprise Me skips inventory weighting,
   data import skips Pro-only models
+  users see reassurance banner ("Your Pro access has ended — your data is safe")
+- Pro expiry awareness: days-remaining badge in user dropdown (color-coded:
+  muted >7d, amber 3-7d, red <=3d), days-remaining in Settings subscription
+  card, client-side toast nudges at 7-day and 3-day thresholds
+  (localStorage-gated per expiry date, reset on new code redemption)
+- Graceful downgrade: data preserved on lapse (never deleted), lapsed state in
+  Settings subscription card with Subscribe/Redeem buttons, "Renew Pro access"
+  item in user dropdown
 - Subscription status in Settings > Profile with "Manage Subscription" portal
   link for Stripe subscribers
 - Admin pages: `/admin/users` (sortable analytics table — engagement signals,
   content counts, subscription source), `/admin/subscriptions` (tier management
   and code generation)
-- Client hooks: `useSubscriptionTier()`, `useIsProActive()`
+- Client hooks: `useSubscriptionTier()`, `useIsProActive()`,
+  `useDaysUntilExpiry()`, `useWasProPreviously()`
 
 ## UI & Infrastructure
 

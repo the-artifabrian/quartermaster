@@ -167,16 +167,9 @@ real before asking people to pay.
 
 Shipped: subscription model, tier enforcement (`requireProTier` route guard,
 subscription management (`/admin/subscriptions`), Stripe integration (Checkout,
-
-Remaining:
-
-- [ ] **Pro expiry + graceful downgrade** -- When Pro lapses (Stripe
-      cancellation or 60-day invite-code grant expiry), data is preserved but
-      gated features become read-only. Never delete user data on downgrade.
-      UI: show Pro status and days remaining in settings/header, reminder nudge
-      at 7 days and 3 days, on expiry show "Your Pro access has ended — your
-      data is safe" with options to subscribe (Stripe) or redeem another code.
-      design before the first codes expire (~mid-April).
+downgrade (days-remaining in header/settings, toast nudges at 7d/3d, lapsed
+redirect with "data is safe" toast, reassurance banner on `/upgrade`, lapsed
+state in settings subscription card).
 
 ---
 

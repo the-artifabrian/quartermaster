@@ -1,6 +1,7 @@
 import { redirect } from 'react-router'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { getUserTier } from '#app/utils/subscription.server.ts'
 import { matchRecipesWithInventory } from '#app/utils/recipe-matching.server.ts'
 import {
 	scoreRecipe,
@@ -51,10 +52,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		return redirect('/recipes')
 	}
 
-	// Load inventory for match scoring
-	const inventoryItems = await prisma.inventoryItem.findMany({
-		where: { householdId },
-	})
+	// Load inventory for match scoring (Pro only)
+	const { isProActive } = await getUserTier(userId)
+	const inventoryItems = isProActive
+		? await prisma.inventoryItem.findMany({ where: { householdId } })
+		: []
 
 	// Calculate match percentages
 	const matches = matchRecipesWithInventory(recipes, inventoryItems)

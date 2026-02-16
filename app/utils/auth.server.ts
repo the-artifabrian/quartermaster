@@ -156,6 +156,15 @@ export async function signup({
 			},
 		})
 
+		// Create a free subscription with 14-day Pro trial
+		await tx.subscription.create({
+			data: {
+				userId: newSession.userId,
+				tier: 'free',
+				trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+			},
+		})
+
 		return newSession
 	})
 
@@ -196,6 +205,15 @@ export async function signupWithConnection({
 				members: {
 					create: { userId: newUser.id, role: 'owner' },
 				},
+			},
+		})
+
+		// Create a free subscription with 14-day Pro trial
+		await tx.subscription.create({
+			data: {
+				userId: newUser.id,
+				tier: 'free',
+				trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
 			},
 		})
 

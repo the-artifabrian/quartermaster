@@ -7,7 +7,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { requireProTier } from '#app/utils/subscription.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
@@ -25,12 +25,12 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	await requireUserWithHousehold(request)
+	await requireProTier(request)
 	return {}
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { userId, householdId } = await requireProTier(request)
 	const formData = await request.formData()
 
 	const submission = parseWithZod(formData, { schema: InventoryItemSchema })

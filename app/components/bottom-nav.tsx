@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router'
 import { cn } from '#app/utils/misc.tsx'
+import { useIsProActive } from '#app/utils/subscription.ts'
 import { useOptionalUser } from '#app/utils/user.ts'
 import { Icon, type IconName } from './ui/icon.tsx'
 
@@ -37,9 +38,12 @@ const navItems: NavItem[] = [
 	},
 ]
 
+const PRO_PATHS = new Set(['/inventory', '/plan', '/shopping'])
+
 export function BottomNav() {
 	const location = useLocation()
 	const user = useOptionalUser()
+	const isPro = useIsProActive()
 
 	if (!user) return null
 
@@ -72,6 +76,7 @@ export function BottomNav() {
 							? location.pathname === '/'
 							: location.pathname.startsWith(path),
 					)
+					const isLocked = !isPro && PRO_PATHS.has(item.to)
 
 					return (
 						<NavLink
@@ -84,7 +89,7 @@ export function BottomNav() {
 									: 'text-muted-foreground hover:text-foreground',
 							)}
 						>
-							<Icon name={item.icon} size="lg" />
+							<Icon name={isLocked ? 'lock-closed' : item.icon} size="lg" />
 							<span className={cn('text-xs', isActive && 'font-semibold')}>
 								{item.label}
 							</span>

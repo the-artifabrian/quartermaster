@@ -11,7 +11,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { requireProTier } from '#app/utils/subscription.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	getCurrentWeekStart,
@@ -49,7 +49,7 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { userId, householdId } = await requireProTier(request)
 
 	// Get or create shopping list
 	let shoppingList = await prisma.shoppingList.findFirst({
@@ -129,7 +129,7 @@ function parseExpiresAt(value?: string | null): Date | null {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { userId, householdId } = await requireProTier(request)
 	const formData = await request.formData()
 	const intent = formData.get('intent')
 

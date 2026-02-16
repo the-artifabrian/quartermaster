@@ -25,6 +25,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { getUserTier } from '#app/utils/subscription.server.ts'
 import { cn, useDebounce } from '#app/utils/misc.tsx'
 import {
 	buildInventoryLookup,
@@ -54,7 +55,8 @@ const SORT_OPTIONS = [
 type SortOption = (typeof SORT_OPTIONS)[number]['value']
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { householdId } = await requireUserWithHousehold(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { isProActive } = await getUserTier(userId)
 	const url = new URL(request.url)
 	const search = url.searchParams.get('search') ?? ''
 	const explicitSort = url.searchParams.get('sort')
@@ -128,10 +130,14 @@ export async function loader({ request }: Route.LoaderArgs) {
 				},
 				orderBy,
 			}),
-			prisma.inventoryItem.findMany({ where: { householdId } }),
-			prisma.mealPlanEntry.count({
-				where: { mealPlan: { householdId } },
-			}),
+			isProActive
+				? prisma.inventoryItem.findMany({ where: { householdId } })
+				: Promise.resolve([]),
+			isProActive
+				? prisma.mealPlanEntry.count({
+						where: { mealPlan: { householdId } },
+					})
+				: Promise.resolve(0),
 			prisma.recipe.findMany({
 				where: { householdId },
 				select: {
@@ -329,6 +335,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		flaggedCount,
 		quality,
 		hasInventory,
+		isProActive,
 		onboarding: {
 			hasRecipes: totalRecipeCount > 0,
 			hasInventory,
@@ -349,6 +356,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		totalRecipeCount,
 		flaggedCount,
 		quality,
+		isProActive,
 		onboarding,
 		matchData,
 	} = loaderData
@@ -668,7 +676,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					)}
 				</div>
 
-				<GettingStartedChecklist onboarding={onboarding} />
+				<GettingStartedChecklist onboarding={onboarding} isProActive={isProActive} />
 
 				{flaggedCount > 0 && quality !== 'flagged' && (
 					<div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 dark:border-amber-900/50 dark:bg-amber-950/30">

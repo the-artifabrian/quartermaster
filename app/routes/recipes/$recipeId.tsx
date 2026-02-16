@@ -21,6 +21,7 @@ import {
 	TooltipTrigger,
 } from '#app/components/ui/tooltip.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { getUserTier } from '#app/utils/subscription.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { CookingLogSchema } from '#app/utils/cooking-log-validation.ts'
 import { prisma } from '#app/utils/db.server.ts'
@@ -148,18 +149,21 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		status: 403,
 	})
 
-	const cookingLogs = await prisma.cookingLog.findMany({
-		where: { recipeId, userId },
-		orderBy: { cookedAt: 'desc' },
-		take: 10,
-		select: {
-			id: true,
-			cookedAt: true,
-			notes: true,
-		},
-	})
+	const [cookingLogs, tierInfo] = await Promise.all([
+		prisma.cookingLog.findMany({
+			where: { recipeId, userId },
+			orderBy: { cookedAt: 'desc' },
+			take: 10,
+			select: {
+				id: true,
+				cookedAt: true,
+				notes: true,
+			},
+		}),
+		getUserTier(userId),
+	])
 
-	return { recipe, cookingLogs }
+	return { recipe, cookingLogs, isProActive: tierInfo.isProActive }
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -175,6 +179,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 	invariantResponse(recipe.householdId === householdId, 'Not authorized', {
 		status: 403,
 	})
+
+	const { isProActive } = await getUserTier(userId)
 
 	const formData = await request.formData()
 	const intent = formData.get('intent')
@@ -198,6 +204,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	}
 
 	if (intent === 'previewSubtraction') {
+		if (!isProActive) return { success: false, requiresPro: true }
 		const servingRatio = parseFloat(String(formData.get('servingRatio') ?? '1'))
 		const preview = await previewInventorySubtraction(
 			recipeId,
@@ -232,7 +239,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 			householdId,
 		})
 
-		const subtractInventory = formData.get('subtractInventory') === 'on'
+		const subtractInventory =
+			isProActive && formData.get('subtractInventory') === 'on'
 		if (subtractInventory) {
 			const servingRatio = parseFloat(
 				String(formData.get('servingRatio') ?? '1'),
@@ -262,6 +270,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	}
 
 	if (intent === 'add-to-shopping-list') {
+		if (!isProActive) return { success: false, requiresPro: true }
 		const servingRatio = parseFloat(String(formData.get('servingRatio') ?? '1'))
 		const safeRatio =
 			isNaN(servingRatio) || servingRatio <= 0 ? 1 : servingRatio
@@ -446,7 +455,7 @@ function getRecipeJsonLd(
 // --- Main component ---
 
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
-	const { recipe, cookingLogs } = loaderData
+	const { recipe, cookingLogs, isProActive } = loaderData
 	const rootData = useRouteLoaderData('root') as
 		| { requestInfo?: { origin?: string } }
 		| undefined
@@ -553,11 +562,13 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 	function handleIMadeThis() {
 		setShowIMadeThisModal(true)
-		// Fire preview fetch
-		const formData = new FormData()
-		formData.set('intent', 'previewSubtraction')
-		formData.set('servingRatio', ratio.toString())
-		void previewFetcher.submit(formData, { method: 'POST' })
+		// Fire preview fetch (Pro only — free users just log the cook)
+		if (isProActive) {
+			const formData = new FormData()
+			formData.set('intent', 'previewSubtraction')
+			formData.set('servingRatio', ratio.toString())
+			void previewFetcher.submit(formData, { method: 'POST' })
+		}
 	}
 
 	function handleWhatDoINeed() {
@@ -828,15 +839,17 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								onToggle={toggleIngredient}
 								ratio={ratio}
 							/>
-							<Button
-								variant="ghost"
-								size="sm"
-								className="mt-3 w-full gap-1.5 text-xs print:hidden"
-								onClick={handleWhatDoINeed}
-							>
-								<Icon name="magnifying-glass" size="sm" />
-								What do I need?
-							</Button>
+							{isProActive && (
+								<Button
+									variant="ghost"
+									size="sm"
+									className="mt-3 w-full gap-1.5 text-xs print:hidden"
+									onClick={handleWhatDoINeed}
+								>
+									<Icon name="magnifying-glass" size="sm" />
+									What do I need?
+								</Button>
+							)}
 						</div>
 					</div>
 
@@ -984,6 +997,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					cookFetcher={cookFetcher}
 					previewFetcher={previewFetcher}
 					onClose={() => setShowIMadeThisModal(false)}
+					isProActive={isProActive}
 				/>
 			)}
 
@@ -1007,11 +1021,13 @@ function IMadeThisModal({
 	cookFetcher,
 	previewFetcher,
 	onClose,
+	isProActive,
 }: {
 	ratio: number
 	cookFetcher: ReturnType<typeof useFetcher>
 	previewFetcher: ReturnType<typeof useFetcher>
 	onClose: () => void
+	isProActive: boolean
 }) {
 	useEffect(() => {
 		function handleEscape(e: KeyboardEvent) {
@@ -1055,7 +1071,9 @@ function IMadeThisModal({
 					</button>
 				</div>
 				<p className="text-muted-foreground mb-4 text-sm">
-					Log this cook and update your inventory.
+					{isProActive
+						? 'Log this cook and update your inventory.'
+						: 'Log this cook to your history.'}
 				</p>
 				<cookFetcher.Form method="POST" className="space-y-4">
 					<input type="hidden" name="intent" value="logCook" />
@@ -1091,7 +1109,8 @@ function IMadeThisModal({
 						/>
 					</div>
 
-					{/* Inventory impact preview */}
+					{/* Inventory impact preview (Pro only) */}
+					{isProActive && (<>
 					<div className="rounded-lg border p-3">
 						<h3 className="mb-2 text-sm font-semibold">Inventory Impact</h3>
 						{isLoadingPreview ? (
@@ -1155,6 +1174,7 @@ function IMadeThisModal({
 						/>
 						Subtract ingredients from inventory
 					</label>
+					</>)}
 					<div className="flex gap-2">
 						<Button type="submit" className="flex-1">
 							Confirm

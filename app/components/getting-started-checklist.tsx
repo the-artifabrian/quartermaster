@@ -15,12 +15,14 @@ interface Step {
 
 export function GettingStartedChecklist({
 	onboarding,
+	isProActive = true,
 }: {
 	onboarding: {
 		hasRecipes: boolean
 		hasInventory: boolean
 		hasMealPlan: boolean
 	}
+	isProActive?: boolean
 }) {
 	const [dismissed, setDismissed] = useState(false)
 
@@ -30,7 +32,7 @@ export function GettingStartedChecklist({
 		}
 	}, [])
 
-	const steps: Step[] = [
+	const allSteps: Step[] = [
 		{
 			title: 'Add your first recipe',
 			description: 'Type one in, paste text, or import from a URL',
@@ -53,6 +55,9 @@ export function GettingStartedChecklist({
 			done: onboarding.hasMealPlan,
 		},
 	]
+
+	// Free users only see the first step (recipe) — inventory and plan are Pro
+	const steps = isProActive ? allSteps : allSteps.slice(0, 1)
 
 	const completedCount = steps.filter((s) => s.done).length
 	const allComplete = completedCount === steps.length

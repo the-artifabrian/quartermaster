@@ -27,63 +27,58 @@ trust, and the intelligence layer justifies the upgrade.
 
 ---
 
-## Free Tier
+## Free Tier (Feature Gate — decided February 2026, enforced February 2026)
 
-A functional recipe manager -- enough to build the habit, with natural upgrade
-points when the user wants more:
+A fully functional recipe manager — enough to build the habit, with a natural
+upgrade point when the user wants kitchen intelligence:
 
-- Up to 50 recipes (CRUD, search, tags, images, scaling) -- enough to be
-  useful, low enough to hit the limit once committed. Unlimited on Pro.
-- Manual recipe entry + quick text entry (URL import is Pro -- it's the
-  power-user feature that drives bulk recipe collection past the free limit)
-- Interactive recipe view (tap-to-cross-off ingredients/steps, inline timers)
-- JSON export (data portability builds trust -- users burned by Yummly
-  shutting down care about this)
+- **Unlimited recipes** (CRUD, search, tags, images, scaling)
+- Recipe import from URL (JSON-LD scraping with duplicate detection)
+- Bulk import (paste, file upload)
+- Interactive recipe view (tap-to-cross-off ingredients/steps, inline timers,
+  temperature conversion)
+- Recipe sharing (public share page + Web Share API)
 - Cooking log with notes
+- JSON export (data portability builds trust — users burned by Yummly
+  shutting down care about this)
+- "Surprise me" random recipe picker (basic — without inventory weighting)
+- Favorites and search
+- Data import (recipes only — Pro-only models are skipped)
 
-The free tier should make users _want_ Pro, not _need_ it. The upgrade trigger
-is natural: "I have 50 recipes and want to import more" or "I want the shopping
-list to know what's already in my kitchen." If the free tier solves 80% of the
-problem, conversion will be low.
+The free tier is a **complete recipe manager**. The upgrade trigger is
+experiential, not punitive: "I want the app to know what's in my kitchen."
+URL import is free because it's a growth lever — users build a big library,
+get invested, and then want the intelligence layer to plan around it.
 
-> **Open decision: what gates the free tier?**
->
-> The 50-recipe limit assumes URL import drives bulk collection past it, but URL
-> import is Pro-only. Users who manually enter recipes tend to plateau at 15-30.
-> The upgrade trigger needs to be something users _actually hit_. Two options:
->
-> **Option A -- Feature gate (recommended).** Free = unlimited recipes + manual
-> entry + URL import + cooking view. Pro = inventory, discovery, meal planning,
-> shopping list, overlap analysis, AI features. The upgrade trigger is
-> experiential: "I want the app to know what's in my kitchen." This aligns the
-> paid tier with the actual differentiator (the inventory loop), lets free users
-> build a big library (increasing switching costs), and makes URL import a
-> growth lever (users import lots of recipes → get invested → want planning).
->
-> **Option B -- Count gate (current design).** Free = 50 recipes, manual entry
-> only. Lower the limit to 20-25 so users hit it faster, and include URL import
-> on free to accelerate collection. Simpler to implement but risks feeling
-> punitive ("you have too many recipes") rather than aspirational ("unlock the
-> full kitchen intelligence system").
->
-> Decide before building tier enforcement. Validate with external user feedback
-> if possible.
+> **Enforcement status:** Tier gating is fully implemented. Pro-only routes
+> redirect to `/upgrade`. Mixed-access routes degrade gracefully (no inventory
+> matching, no "What Do I Need?", no shopping list integration). New signups
+> get a 14-day Pro trial. Admin subscription management page shipped at
+> `/admin/subscriptions` for manual tier changes. Stripe integration not yet
+> built.
+
+> **Why feature gate over recipe count?** A 50-recipe limit assumes URL import
+> drives bulk collection past it, but users who manually enter recipes plateau
+> at 15-30. The count gate risks feeling punitive ("you have too many recipes").
+> Feature gating aligns the paywall with the actual differentiator (the
+> inventory loop) and lets free users build switching costs through a large
+> library.
 
 ## Pro Tier (~$49/year or ~$5/month, see early-adopter note)
 
-Gates the inventory intelligence loop -- the closed-loop system that's the actual
-differentiator. This is where ongoing development effort goes:
+Gates the inventory intelligence loop — the closed-loop system that's the actual
+differentiator. Everything above plus:
 
-- Unlimited recipes (uncapped from free tier's 50 limit)
-- Recipe import from URL (JSON-LD scraping with duplicate detection)
-- Inventory tracking (pantry/fridge/freezer with expiration + low-stock)
-- "What can I make?" discovery with fuzzy matching + expiration suggestions
-- Meal planning calendar (weekly view, copy week, servings overrides)
-- Smart shopping list (unit-aware consolidation, inventory subtraction,
-  store-section grouping, print layout)
-- Inventory subtraction after cooking (with unit conversion)
-- Kitchen timer
-- Ingredient overlap planning, efficiency scoring, waste alerts
+- **Inventory tracking** (pantry/fridge/freezer with expiration + low-stock)
+- **"What can I make?" discovery** with fuzzy matching + expiration suggestions
+- **Meal planning calendar** (weekly view, copy week, servings overrides,
+  templates, "Up next" banner, waste alerts, efficiency dashboard)
+- **Smart shopping list** (generate from meal plan, unit-aware consolidation,
+  inventory subtraction, store-section grouping, low-stock nudges, print layout)
+- **Inventory subtraction after cooking** (with unit conversion)
+- **Ingredient overlap planning**, efficiency scoring, pairing suggestions
+- **"What Do I Need?"** checklist on recipe detail
+- **"I Made This"** cook logging with inventory impact preview
 - AI features (planned): substitution hints, recipe generation from inventory,
   smart meal plan auto-fill
 - PWA offline access
@@ -227,7 +222,9 @@ VAT strategy before registering.
 
 No product survives without users finding it. The daily driver gate validates
 the workflow; the next step validates that _other people_ can find, understand,
-and adopt the app. Aim for 3-5 real external users before launch.
+and adopt the app. **3 external users onboarded** (girlfriend as household
+co-user, plus a friend and his girlfriend as a separate household). Tracking
+whether they reach the inventory loop. Aiming for 5+ total before launch.
 
 ### Built-in growth loops
 
@@ -268,7 +265,7 @@ Target is <5% monthly churn on Pro. Strategies to build before launch:
 
 - **Graceful downgrade UX** -- When a subscription lapses, show a clear
   "your data is safe" message. Pro features become read-only, not deleted.
-  Recipes beyond the free limit stay visible but new ones can't be added.
+  Recipes remain fully accessible (free tier is unlimited recipes).
 - **Pause option** -- Offer 1-3 month pause instead of cancel. Users who
   stop cooking temporarily (travel, busy season) shouldn't have to re-subscribe.
 - **Cancel flow** -- Before completing cancellation, show what they'll lose

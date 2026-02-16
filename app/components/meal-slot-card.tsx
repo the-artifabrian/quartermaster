@@ -119,7 +119,7 @@ function EntryRow({
 					<button
 						type="submit"
 						className={cn(
-							'flex size-9 items-center justify-center rounded-full border-2 transition-colors',
+							'flex size-6 items-center justify-center rounded-full border-2 transition-colors',
 							isCooked
 								? 'border-green-500 bg-green-500 text-white'
 								: 'border-muted-foreground/30 hover:border-green-500',

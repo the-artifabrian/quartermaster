@@ -67,7 +67,7 @@ export function MealPlanCalendar({
 	return (
 		<>
 			{/* Desktop: two rows — Mon–Thu (4 cols), Fri–Sun (3 cols) */}
-			<div className="hidden md:block space-y-4">
+			<div className="hidden space-y-4 md:block">
 				{[weekdayRow, weekendRow].map((rowDays, rowIdx) => (
 					<div key={rowIdx} className="grid grid-cols-4 gap-1">
 						{rowDays.map((date) => (
@@ -122,8 +122,8 @@ export function MealPlanCalendar({
 								key={serializeDate(date)}
 								ref={today ? todayRef : undefined}
 								className={cn(
-									'w-[85vw] flex-shrink-0 snap-start rounded-xl',
-									today && 'border-t-2 border-accent',
+									'w-[85vw] shrink-0 snap-start rounded-xl',
+									today && 'border-accent border-t-2',
 								)}
 							>
 								<div className="mb-2">
@@ -131,7 +131,7 @@ export function MealPlanCalendar({
 										className={cn(
 											'text-sm font-medium',
 											today &&
-												'text-primary bg-accent/10 rounded-full px-3 py-1 inline-block',
+												'text-primary bg-accent/10 inline-block rounded-full px-3 py-1',
 										)}
 									>
 										{formatDayLabel(date)}

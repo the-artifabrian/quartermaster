@@ -42,7 +42,8 @@ Complete feature catalog. For the roadmap, see
 - Ingredient substitution hints (Pro): click missing-ingredient pills to see
   substitutions. ~50 common static entries + LLM fallback (Claude Haiku, cached
   30 days). Inventory-aware — highlights substitutes you already have. Appears on
-  recipe cards, "Almost There" banner, and "What Do I Need?" modal
+  recipe detail ingredient list, recipe cards, "Almost There" banner, and "What
+  Do I Need?" modal
 
 ## Inventory System
 

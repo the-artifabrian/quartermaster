@@ -166,7 +166,7 @@ function RecipeOption({
 							</p>
 						)}
 					</div>
-					<div className="flex flex-shrink-0 items-center gap-1.5">
+					<div className="flex shrink-0 items-center gap-1.5">
 						{totalTime != null && (
 							<span className="text-muted-foreground inline-flex items-center gap-0.5 text-xs">
 								<Icon name="clock" className="size-3" />

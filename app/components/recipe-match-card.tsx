@@ -34,9 +34,8 @@ export function RecipeMatchCard({
 		<Link
 			to={`/recipes/${recipe.id}`}
 			className={cn(
-				'group bg-card text-card-foreground block overflow-hidden rounded-xl border border-border/60 shadow-warm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-warm-md',
-				urgentBorder &&
-					'border-l-4 border-l-amber-400 dark:border-l-amber-500',
+				'group bg-card text-card-foreground border-border/60 shadow-warm hover:shadow-warm-md block overflow-hidden rounded-xl border transition-all duration-200 hover:-translate-y-0.5',
+				urgentBorder && 'border-l-4 border-l-amber-400 dark:border-l-amber-500',
 			)}
 		>
 			<div className="bg-muted relative aspect-[16/9] overflow-hidden rounded-t-lg sm:aspect-[4/3]">
@@ -91,10 +90,7 @@ export function RecipeMatchCard({
 						{recipe.title}
 					</h3>
 					{canMake && (
-						<Icon
-							name="check"
-							className="size-5 flex-shrink-0 text-green-600"
-						/>
+						<Icon name="check" className="size-5 shrink-0 text-green-600" />
 					)}
 				</div>
 				{recipe.description && (
@@ -124,7 +120,7 @@ export function RecipeMatchCard({
 								{recipe.tags.slice(0, 3).map((tag) => (
 									<span
 										key={tag.id}
-										className="bg-accent/10 text-accent-foreground rounded-full border border-accent/20 px-2 py-0.5 text-xs font-medium"
+										className="bg-accent/10 text-accent-foreground border-accent/20 rounded-full border px-2 py-0.5 text-xs font-medium"
 									>
 										{tag.name}
 									</span>
@@ -203,7 +199,7 @@ function MissingIngredients({
 				{visible.map((ing) => (
 					<span
 						key={ing.id}
-						className="bg-background/60 text-muted-foreground inline-flex items-center gap-0.5 rounded-full py-0.5 pl-2 pr-0.5"
+						className="bg-background/60 text-muted-foreground inline-flex items-center gap-0.5 rounded-full py-0.5 pr-0.5 pl-2"
 					>
 						<SubstitutionHint
 							ingredientName={ing.name}
@@ -244,7 +240,11 @@ export function IngredientHaveItButton({
 	// Toast on completion
 	const prevState = useRef(fetcher.state)
 	useEffect(() => {
-		if (prevState.current !== 'idle' && fetcher.state === 'idle' && fetcher.data) {
+		if (
+			prevState.current !== 'idle' &&
+			fetcher.state === 'idle' &&
+			fetcher.data
+		) {
 			if (fetcher.data.status === 'success') {
 				toast.success(`Added "${name}" to your inventory`)
 			} else if (fetcher.data.status === 'already_exists') {
@@ -269,8 +269,8 @@ export function IngredientHaveItButton({
 				className={cn(
 					'inline-flex items-center justify-center rounded-full transition-colors',
 					variant === 'card'
-						? 'text-muted-foreground hover:text-foreground size-7 hover:bg-background'
-						: 'text-emerald-600 hover:text-emerald-800 size-7 hover:bg-emerald-200/50 dark:text-emerald-400 dark:hover:text-emerald-200 dark:hover:bg-emerald-800/40',
+						? 'text-muted-foreground hover:text-foreground hover:bg-background size-7'
+						: 'size-7 text-emerald-600 hover:bg-emerald-200/50 hover:text-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-800/40 dark:hover:text-emerald-200',
 					isDone && 'cursor-default',
 				)}
 				onClick={(e) => {
@@ -284,10 +284,7 @@ export function IngredientHaveItButton({
 			>
 				<Icon
 					name={isDone ? 'check' : 'plus'}
-					className={cn(
-						'size-3.5',
-						isDone && 'text-green-600',
-					)}
+					className={cn('size-3.5', isDone && 'text-green-600')}
 				/>
 			</button>
 		</fetcher.Form>

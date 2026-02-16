@@ -31,7 +31,11 @@ import {
 	subtractRecipeIngredientsFromInventory,
 	previewInventorySubtraction,
 } from '#app/utils/inventory-subtract.server.ts'
-import { getCanonicalIngredientName } from '#app/utils/recipe-matching.server.ts'
+import {
+	buildInventoryLookup,
+	getCanonicalIngredientName,
+	ingredientMatchesAnyInventoryItem,
+} from '#app/utils/recipe-matching.server.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { trackEvent } from '#app/utils/usage-tracking.server.ts'
@@ -164,7 +168,27 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		getUserTier(userId),
 	])
 
-	return { recipe, cookingLogs, isProActive: tierInfo.isProActive }
+	const missingIngredientIds: string[] = []
+	if (tierInfo.isProActive) {
+		const inventoryItems = await prisma.inventoryItem.findMany({
+			where: { householdId },
+			select: { name: true },
+		})
+		const lookup = buildInventoryLookup(inventoryItems)
+		for (const ingredient of recipe.ingredients) {
+			if (ingredient.isHeading) continue
+			if (!ingredientMatchesAnyInventoryItem(ingredient, lookup)) {
+				missingIngredientIds.push(ingredient.id)
+			}
+		}
+	}
+
+	return {
+		recipe,
+		cookingLogs,
+		isProActive: tierInfo.isProActive,
+		missingIngredientIds,
+	}
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -456,7 +480,7 @@ function getRecipeJsonLd(
 // --- Main component ---
 
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
-	const { recipe, cookingLogs, isProActive } = loaderData
+	const { recipe, cookingLogs, isProActive, missingIngredientIds } = loaderData
 	const rootData = useRouteLoaderData('root') as
 		| { requestInfo?: { origin?: string } }
 		| undefined
@@ -743,7 +767,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									type="submit"
 									variant="ghost"
 									size="icon"
-									aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+									aria-label={
+										isFavorite ? 'Remove from favorites' : 'Add to favorites'
+									}
 									className={
 										isFavorite ? 'text-red-500 hover:text-red-600' : ''
 									}
@@ -761,7 +787,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</favoriteFetcher.Form>
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<Button asChild variant="ghost" size="icon" aria-label="Edit recipe">
+							<Button
+								asChild
+								variant="ghost"
+								size="icon"
+								aria-label="Edit recipe"
+							>
 								<Link to={`/recipes/${recipe.id}/edit`}>
 									<Icon name="pencil-1" size="md" />
 								</Link>
@@ -784,7 +815,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</Tooltip>
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<Button variant="ghost" size="icon" aria-label="Share recipe" onClick={handleShare}>
+							<Button
+								variant="ghost"
+								size="icon"
+								aria-label="Share recipe"
+								onClick={handleShare}
+							>
 								<Icon name="share" size="md" />
 							</Button>
 						</TooltipTrigger>
@@ -839,6 +875,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								checkedIngredients={checkedIngredients}
 								onToggle={toggleIngredient}
 								ratio={ratio}
+								missingIngredientIds={missingIngredientIds}
+								isProActive={isProActive}
 							/>
 							{isProActive && (
 								<Button
@@ -1048,7 +1086,7 @@ function IMadeThisModal({
 
 	return (
 		<div
-			className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center"
+			className="fixed inset-0 z-60 flex items-end justify-center sm:items-center"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="i-made-this-title"
@@ -1112,71 +1150,75 @@ function IMadeThisModal({
 					</div>
 
 					{/* Inventory impact preview (Pro only) */}
-					{isProActive && (<>
-					<div className="rounded-lg border p-3">
-						<h3 className="mb-2 text-sm font-semibold">Inventory Impact</h3>
-						{isLoadingPreview ? (
-							<p className="text-muted-foreground text-sm">
-								Checking inventory...
-							</p>
-						) : hasInventoryImpact ? (
-							<>
-								<ul className="space-y-1.5">
-									{preview.willSubtract.map((item) => (
-										<li
-											key={item.name}
-											className="flex items-center justify-between text-sm"
-										>
-											<span>{item.name}</span>
-											<span className="text-muted-foreground text-xs">
-												{item.willBeFlaggedLow ? (
-													<span className="text-amber-600">
-														will be flagged low
-													</span>
-												) : item.willBeRemoved ? (
-													<span className="text-red-600">will be removed</span>
-												) : (
-													<>
-														{formatQuantity(item.currentQuantity)}{' '}
-														{item.currentUnit ?? ''} →{' '}
-														{formatQuantity(item.newQuantity)}{' '}
-														{item.currentUnit ?? ''}
-													</>
-												)}
-											</span>
-										</li>
-									))}
-								</ul>
-								{preview.noMatch.length > 0 && (
-									<p className="text-muted-foreground mt-2 text-xs">
-										Not in inventory: {preview.noMatch.join(', ')}
+					{isProActive && (
+						<>
+							<div className="rounded-lg border p-3">
+								<h3 className="mb-2 text-sm font-semibold">Inventory Impact</h3>
+								{isLoadingPreview ? (
+									<p className="text-muted-foreground text-sm">
+										Checking inventory...
 									</p>
-								)}
-							</>
-						) : preview ? (
-							<p className="text-muted-foreground text-sm">
-								No matching inventory items to subtract.
-								{preview.noMatch.length > 0 && (
-									<span className="mt-1 block text-xs">
-										Not in inventory: {preview.noMatch.join(', ')}
-									</span>
-								)}
-							</p>
-						) : null}
-					</div>
+								) : hasInventoryImpact ? (
+									<>
+										<ul className="space-y-1.5">
+											{preview.willSubtract.map((item) => (
+												<li
+													key={item.name}
+													className="flex items-center justify-between text-sm"
+												>
+													<span>{item.name}</span>
+													<span className="text-muted-foreground text-xs">
+														{item.willBeFlaggedLow ? (
+															<span className="text-amber-600">
+																will be flagged low
+															</span>
+														) : item.willBeRemoved ? (
+															<span className="text-red-600">
+																will be removed
+															</span>
+														) : (
+															<>
+																{formatQuantity(item.currentQuantity)}{' '}
+																{item.currentUnit ?? ''} →{' '}
+																{formatQuantity(item.newQuantity)}{' '}
+																{item.currentUnit ?? ''}
+															</>
+														)}
+													</span>
+												</li>
+											))}
+										</ul>
+										{preview.noMatch.length > 0 && (
+											<p className="text-muted-foreground mt-2 text-xs">
+												Not in inventory: {preview.noMatch.join(', ')}
+											</p>
+										)}
+									</>
+								) : preview ? (
+									<p className="text-muted-foreground text-sm">
+										No matching inventory items to subtract.
+										{preview.noMatch.length > 0 && (
+											<span className="mt-1 block text-xs">
+												Not in inventory: {preview.noMatch.join(', ')}
+											</span>
+										)}
+									</p>
+								) : null}
+							</div>
 
-					<label className="flex items-center gap-2 py-1 text-sm">
-						<input
-							key={hasInventoryImpact ? 'has-impact' : 'no-impact'}
-							type="checkbox"
-							name="subtractInventory"
-							defaultChecked={!!hasInventoryImpact}
-							disabled={!hasInventoryImpact}
-							className="size-5 rounded"
-						/>
-						Subtract ingredients from inventory
-					</label>
-					</>)}
+							<label className="flex items-center gap-2 py-1 text-sm">
+								<input
+									key={hasInventoryImpact ? 'has-impact' : 'no-impact'}
+									type="checkbox"
+									name="subtractInventory"
+									defaultChecked={!!hasInventoryImpact}
+									disabled={!hasInventoryImpact}
+									className="size-5 rounded"
+								/>
+								Subtract ingredients from inventory
+							</label>
+						</>
+					)}
 					<div className="flex gap-2">
 						<Button type="submit" className="flex-1">
 							Confirm
@@ -1304,7 +1346,7 @@ function WhatDoINeedModal({
 
 	return (
 		<div
-			className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center"
+			className="fixed inset-0 z-60 flex items-end justify-center sm:items-center"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="what-do-i-need-title"
@@ -1456,6 +1498,8 @@ function IngredientList({
 	checkedIngredients,
 	onToggle,
 	ratio,
+	missingIngredientIds,
+	isProActive,
 }: {
 	ingredients: Array<{
 		id: string
@@ -1468,7 +1512,10 @@ function IngredientList({
 	checkedIngredients: Set<string>
 	onToggle: (id: string) => void
 	ratio: number
+	missingIngredientIds: string[]
+	isProActive: boolean
 }) {
+	const missingIds = new Set(missingIngredientIds)
 	return (
 		<ul className="space-y-1">
 			{ingredients.map((ingredient) => {
@@ -1483,6 +1530,7 @@ function IngredientList({
 				}
 
 				const isChecked = checkedIngredients.has(ingredient.id)
+				const isMissing = missingIds.has(ingredient.id)
 				return (
 					<li
 						key={ingredient.id}
@@ -1520,7 +1568,16 @@ function IngredientList({
 								</span>
 							)}
 							{ingredient.unit && <span>{ingredient.unit} </span>}
-							<span>{ingredient.name}</span>
+							{isMissing && isProActive ? (
+								<SubstitutionHint
+									ingredientName={ingredient.name}
+									isProActive={isProActive}
+								>
+									{ingredient.name}
+								</SubstitutionHint>
+							) : (
+								<span>{ingredient.name}</span>
+							)}
 							{ingredient.notes && (
 								<span className={isChecked ? '' : 'text-muted-foreground'}>
 									, {ingredient.notes}

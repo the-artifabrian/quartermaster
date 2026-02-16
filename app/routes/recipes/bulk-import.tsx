@@ -41,13 +41,12 @@ const BulkImportRecipeSchema = z.object({
 	title: z.string().min(1).max(100),
 	description: z.string().max(500).optional(),
 	ingredients: z.array(BulkImportIngredientSchema).max(200),
-	instructions: z.array(z.object({ content: z.string().min(1).max(5000) })).max(200),
+	instructions: z
+		.array(z.object({ content: z.string().min(1).max(5000) }))
+		.max(200),
 })
 
-const BulkImportPayloadSchema = z
-	.array(BulkImportRecipeSchema)
-	.min(1)
-	.max(50)
+const BulkImportPayloadSchema = z.array(BulkImportRecipeSchema).min(1).max(50)
 
 export async function action({ request }: Route.ActionArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
@@ -56,7 +55,11 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if (typeof rawJson !== 'string') {
 		return data(
-			{ created: 0, skipped: [], errors: [{ title: 'Unknown', error: 'Invalid payload' }] },
+			{
+				created: 0,
+				skipped: [],
+				errors: [{ title: 'Unknown', error: 'Invalid payload' }],
+			},
 			{ status: 400 },
 		)
 	}
@@ -203,9 +206,7 @@ export default function BulkImport() {
 				textareaRef.current.value = ''
 			}
 		} catch (err) {
-			toast.error(
-				err instanceof Error ? err.message : 'Failed to read files',
-			)
+			toast.error(err instanceof Error ? err.message : 'Failed to read files')
 		} finally {
 			setIsReadingFiles(false)
 		}
@@ -227,9 +228,7 @@ export default function BulkImport() {
 		const { created, skipped, errors } = fetcher.data
 		if (created > 0) {
 			setSessionCount((prev) => prev + created)
-			toast.success(
-				`Imported ${created} recipe${created === 1 ? '' : 's'}`,
-			)
+			toast.success(`Imported ${created} recipe${created === 1 ? '' : 's'}`)
 			if (textareaRef.current) {
 				textareaRef.current.value = ''
 				textareaRef.current.focus()
@@ -275,9 +274,10 @@ export default function BulkImport() {
 			</Link>
 			<h1 className="mb-2 text-2xl font-bold">Bulk Import</h1>
 			<p className="text-muted-foreground mb-6">
-				Upload <code className="bg-muted rounded px-1.5 py-0.5 text-xs">.md</code> or{' '}
-				<code className="bg-muted rounded px-1.5 py-0.5 text-xs">.txt</code> files,
-				or paste recipe text below. Use{' '}
+				Upload{' '}
+				<code className="bg-muted rounded px-1.5 py-0.5 text-xs">.md</code> or{' '}
+				<code className="bg-muted rounded px-1.5 py-0.5 text-xs">.txt</code>{' '}
+				files, or paste recipe text below. Use{' '}
 				<code className="bg-muted rounded px-1.5 py-0.5 text-xs">---</code> to
 				separate multiple recipes. Max 50 per batch.
 			</p>
@@ -302,7 +302,7 @@ export default function BulkImport() {
 					<div className="flex items-start gap-3">
 						<Icon
 							name="cookie"
-							className="text-primary mt-0.5 size-6 flex-shrink-0"
+							className="text-primary mt-0.5 size-6 shrink-0"
 						/>
 						<div>
 							<h3 className="font-semibold">Ready to plan your week?</h3>
@@ -334,17 +334,18 @@ export default function BulkImport() {
 				<div className="border-border bg-card mb-4 rounded-lg border p-4">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
-							<Icon name="file-text" size="md" className="text-muted-foreground" />
+							<Icon
+								name="file-text"
+								size="md"
+								className="text-muted-foreground"
+							/>
 							<span className="text-sm font-medium">
-								{uploadedFileNames.length} file{uploadedFileNames.length === 1 ? '' : 's'} loaded
-								{' '}({previews.length} recipe{previews.length === 1 ? '' : 's'})
+								{uploadedFileNames.length} file
+								{uploadedFileNames.length === 1 ? '' : 's'} loaded (
+								{previews.length} recipe{previews.length === 1 ? '' : 's'})
 							</span>
 						</div>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={clearFiles}
-						>
+						<Button variant="ghost" size="sm" onClick={clearFiles}>
 							Clear files
 						</Button>
 					</div>
@@ -379,9 +380,17 @@ export default function BulkImport() {
 						role="button"
 						tabIndex={0}
 					>
-						<Icon name="file-text" size="lg" className="text-muted-foreground" />
+						<Icon
+							name="file-text"
+							size="lg"
+							className="text-muted-foreground"
+						/>
 						<span className="text-sm font-medium">
-							{isReadingFiles ? 'Reading files...' : isDragOver ? 'Drop files here' : 'Choose files or drag & drop'}
+							{isReadingFiles
+								? 'Reading files...'
+								: isDragOver
+									? 'Drop files here'
+									: 'Choose files or drag & drop'}
 						</span>
 						<span className="text-muted-foreground text-xs">
 							.md and .txt files supported
@@ -399,7 +408,7 @@ export default function BulkImport() {
 						ref={textareaRef}
 						rows={16}
 						autoFocus
-						className="bg-background border-input placeholder:text-muted-foreground mb-4 w-full rounded-lg border p-4 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-offset-2"
+						className="bg-background border-input placeholder:text-muted-foreground mb-4 w-full rounded-lg border p-4 font-mono text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none"
 						placeholder={`Chicken Stir Fry
 
 Ingredients

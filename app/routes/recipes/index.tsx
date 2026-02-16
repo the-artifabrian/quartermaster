@@ -246,8 +246,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 			const expiringLookup = buildInventoryLookup(expiringItems)
 			expiringMatches = matches
 				.map((match) => {
-					const expiringCount = match.recipe.ingredients.filter(
-						(ing) => ingredientMatchesAnyInventoryItem(ing, expiringLookup),
+					const expiringCount = match.recipe.ingredients.filter((ing) =>
+						ingredientMatchesAnyInventoryItem(ing, expiringLookup),
 					).length
 					return { ...match, expiringCount }
 				})
@@ -287,8 +287,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		> = {}
 		for (const recipe of filteredRecipes) {
 			cookingStats[recipe.id] = {
-				lastCookedAt:
-					recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null,
+				lastCookedAt: recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null,
 				cookCount: recipe._count.cookingLogs,
 			}
 		}
@@ -651,10 +650,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								className="h-7 text-xs"
 								onClick={handleMakeableToggle}
 							>
-								<Icon
-									name={makeableOnly ? 'check' : 'cookie'}
-									size="sm"
-								/>
+								<Icon name={makeableOnly ? 'check' : 'cookie'} size="sm" />
 								{makeableOnly ? 'Showing Makeable' : 'Only Makeable'}
 							</Button>
 						</div>
@@ -677,13 +673,16 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					)}
 				</div>
 
-				<GettingStartedChecklist onboarding={onboarding} isProActive={isProActive} />
+				<GettingStartedChecklist
+					onboarding={onboarding}
+					isProActive={isProActive}
+				/>
 
 				{flaggedCount > 0 && quality !== 'flagged' && (
 					<div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 dark:border-amber-900/50 dark:bg-amber-950/30">
 						<Icon
 							name="question-mark-circled"
-							className="size-5 flex-shrink-0 text-amber-500"
+							className="size-5 shrink-0 text-amber-500"
 						/>
 						<p className="min-w-0 flex-1 text-sm text-amber-800 dark:text-amber-200">
 							<span className="font-semibold">
@@ -756,9 +755,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 										recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null
 									}
 									cookCount={recipe._count.cookingLogs}
-									matchPercentage={
-										matchLookup?.get(recipe.id)?.matchPercentage
-									}
+									matchPercentage={matchLookup?.get(recipe.id)?.matchPercentage}
 								/>
 							))}
 						</div>
@@ -779,9 +776,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 										recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null
 									}
 									cookCount={recipe._count.cookingLogs}
-									matchPercentage={
-										matchLookup?.get(recipe.id)?.matchPercentage
-									}
+									matchPercentage={matchLookup?.get(recipe.id)?.matchPercentage}
 								/>
 							))}
 						</RecipeCardGrid>
@@ -874,9 +869,7 @@ function MatchModeUI({
 				<div className="border-accent/10 bg-accent/5 mb-4 rounded-2xl border p-4">
 					<div className="mb-3 flex flex-wrap items-center gap-2">
 						<Icon name="clock" className="size-4 text-amber-500" />
-						<h2 className="text-sm font-semibold">
-							Use before you lose it
-						</h2>
+						<h2 className="text-sm font-semibold">Use before you lose it</h2>
 						<div className="flex flex-wrap gap-1.5">
 							{expiringItems.map((item) => {
 								const isUrgent = item.daysUntilExpiry <= 1
@@ -902,11 +895,11 @@ function MatchModeUI({
 							})}
 						</div>
 					</div>
-					<div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 scrollbar-thin">
+					<div className="scrollbar-thin -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2">
 						{expiringMatches.map((match) => (
 							<div
 								key={match.recipe.id}
-								className="w-64 flex-shrink-0 snap-start sm:w-72"
+								className="w-64 shrink-0 snap-start sm:w-72"
 							>
 								<RecipeMatchCard
 									match={match}
@@ -927,22 +920,20 @@ function MatchModeUI({
 					<div className="flex items-center gap-2">
 						<Icon
 							name="star"
-							className="size-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400"
+							className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
 						/>
 						<span className="text-sm text-emerald-800 dark:text-emerald-200">
-							<span className="font-semibold">
-								{uniqueMissingNames.length}
-							</span>{' '}
+							<span className="font-semibold">{uniqueMissingNames.length}</span>{' '}
 							ingredient{uniqueMissingNames.length !== 1 ? 's' : ''} from{' '}
-							<span className="font-semibold">{nearMatches.length}</span>{' '}
-							more recipe{nearMatches.length !== 1 ? 's' : ''}
+							<span className="font-semibold">{nearMatches.length}</span> more
+							recipe{nearMatches.length !== 1 ? 's' : ''}
 						</span>
 					</div>
 					<div className="flex flex-wrap gap-1">
 						{uniqueMissingNames.slice(0, 6).map((name) => (
 							<span
 								key={name}
-								className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 py-0.5 pl-2 pr-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+								className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 py-0.5 pr-0.5 pl-2 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
 							>
 								<SubstitutionHint
 									ingredientName={name}
@@ -1035,9 +1026,7 @@ function MatchEmptyState({
 					: 'Try adjusting your filters.'}
 			</p>
 			<div className="mt-6 flex gap-3">
-				{makeableOnly && (
-					<Button onClick={onShowAll}>Show All Recipes</Button>
-				)}
+				{makeableOnly && <Button onClick={onShowAll}>Show All Recipes</Button>}
 				<Button variant="outline" asChild>
 					<Link to="/inventory">
 						<Icon name="plus" size="sm" />

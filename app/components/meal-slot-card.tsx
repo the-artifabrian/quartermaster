@@ -78,15 +78,12 @@ function EntryRow({
 				if (summary.flaggedLow.length > 0) {
 					parts.push(`${summary.flaggedLow.join(', ')} marked low.`)
 				}
-				toast.success(
-					`Cooked ${cookedFetcher.data.recipeTitle}`,
-					{
-						description:
-							parts.length > 0
-								? parts.join(' ')
-								: 'No matching inventory items found.',
-					},
-				)
+				toast.success(`Cooked ${cookedFetcher.data.recipeTitle}`, {
+					description:
+						parts.length > 0
+							? parts.join(' ')
+							: 'No matching inventory items found.',
+				})
 			} else {
 				toast.success(`Cooked ${cookedFetcher.data.recipeTitle}`)
 			}
@@ -109,7 +106,7 @@ function EntryRow({
 	return (
 		<div className={cn('space-y-1', isCooked && 'opacity-60')}>
 			<div className="flex items-center gap-2">
-				<cookedFetcher.Form method="POST" className="flex-shrink-0">
+				<cookedFetcher.Form method="POST" className="shrink-0">
 					<input
 						type="hidden"
 						name="intent"
@@ -216,7 +213,7 @@ export function MealSlotCard({
 	if (entries.length === 0) {
 		if (isSelectingRecipe) {
 			return (
-				<div className="bg-card rounded-xl border border-dashed p-3 shadow-warm">
+				<div className="bg-card shadow-warm rounded-xl border border-dashed p-3">
 					<div className="text-muted-foreground mb-2 text-xs font-medium">
 						{MEAL_TYPE_LABELS[mealType]}
 					</div>
@@ -246,7 +243,7 @@ export function MealSlotCard({
 
 	// Filled slot: card with entries + add button in header
 	return (
-		<div className="group bg-card overflow-hidden rounded-xl border shadow-warm transition-shadow hover:shadow-warm-md">
+		<div className="group bg-card shadow-warm hover:shadow-warm-md overflow-hidden rounded-xl border transition-shadow">
 			<div className="bg-muted/30 flex items-center justify-between border-b px-3 py-1.5">
 				<p className="text-muted-foreground text-xs font-medium">
 					{MEAL_TYPE_LABELS[mealType]}
@@ -262,7 +259,7 @@ export function MealSlotCard({
 					</button>
 				)}
 			</div>
-			<div className="divide-y divide-border/50 p-3">
+			<div className="divide-border/50 divide-y p-3">
 				{entries.map((entry) => (
 					<div key={entry.id} className="py-2 first:pt-0 last:pb-0">
 						<EntryRow entry={entry} />

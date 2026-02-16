@@ -132,10 +132,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			})
 
 			const overlap = analyzeIngredientOverlap(uniquePlanned)
-			const alerts = generateWasteAlerts(
-				uniquePlanned,
-				recipesWithIngredients,
-			)
+			const alerts = generateWasteAlerts(uniquePlanned, recipesWithIngredients)
 
 			// Aggregate suggestions by recipe, ranked by shared ingredient count
 			const recipeMap = new Map<
@@ -223,8 +220,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 		// Determine which meal type is "next" based on time of day
 		const mealTypeOrder = ['breakfast', 'lunch', 'dinner', 'snack']
-		const currentMealIndex =
-			hour < 11 ? 0 : hour < 15 ? 1 : hour < 21 ? 2 : 3
+		const currentMealIndex = hour < 11 ? 0 : hour < 15 ? 1 : hour < 21 ? 2 : 3
 
 		// Sort entries so the next meal type comes first, then later ones in order
 		function mealTypeSortKey(mealType: string) {
@@ -363,7 +359,7 @@ export async function action({ request }: Route.ActionArgs) {
 				userId,
 				householdId,
 			})
-	
+
 			if (formData.get('fromPairing') === 'true') {
 				void trackEvent(userId, householdId, 'pairing_recipe_assigned', {
 					recipeId,
@@ -380,7 +376,9 @@ export async function action({ request }: Route.ActionArgs) {
 		invariantResponse(typeof entryId === 'string', 'Entry ID is required')
 
 		const servingsStr = formData.get('servings')
-		const servings = servingsStr ? Math.min(999, parseInt(String(servingsStr), 10)) : null
+		const servings = servingsStr
+			? Math.min(999, parseInt(String(servingsStr), 10))
+			: null
 
 		const entry = await prisma.mealPlanEntry.findFirst({
 			where: { id: entryId, mealPlan: { householdId } },
@@ -732,7 +730,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="from-card to-background border-border/50 border-b bg-gradient-to-b">
+			<div className="from-card to-background border-border/50 border-b bg-linear-to-b">
 				<div className="container flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between">
 					<h1 className="text-2xl font-bold">Meal Plan</h1>
 					<div className="flex flex-wrap gap-2">

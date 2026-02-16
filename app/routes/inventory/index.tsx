@@ -242,12 +242,8 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 			)
 		: items
 
-	const pantryItems = filteredItems.filter(
-		(item) => item.location === 'pantry',
-	)
-	const fridgeItems = filteredItems.filter(
-		(item) => item.location === 'fridge',
-	)
+	const pantryItems = filteredItems.filter((item) => item.location === 'pantry')
+	const fridgeItems = filteredItems.filter((item) => item.location === 'fridge')
 	const freezerItems = filteredItems.filter(
 		(item) => item.location === 'freezer',
 	)
@@ -273,7 +269,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="from-card to-background border-border/50 border-b bg-gradient-to-b">
+			<div className="from-card to-background border-border/50 border-b bg-linear-to-b">
 				<div className="container flex items-center justify-between py-4">
 					<h1 className="text-2xl font-bold">
 						My Inventory{' '}
@@ -386,7 +382,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					<Icon
 						name="magnifying-glass"
 						size="sm"
-						className="text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2"
+						className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
 					/>
 					<Input
 						type="search"
@@ -425,7 +421,11 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 										</h2>
 										<InventoryItemGrid>
 											{pantryItems.map((item) => (
-												<InventoryItemCard key={item.id} item={item} showLocation={false} />
+												<InventoryItemCard
+													key={item.id}
+													item={item}
+													showLocation={false}
+												/>
 											))}
 										</InventoryItemGrid>
 									</section>
@@ -441,7 +441,11 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 										</h2>
 										<InventoryItemGrid>
 											{fridgeItems.map((item) => (
-												<InventoryItemCard key={item.id} item={item} showLocation={false} />
+												<InventoryItemCard
+													key={item.id}
+													item={item}
+													showLocation={false}
+												/>
 											))}
 										</InventoryItemGrid>
 									</section>
@@ -457,7 +461,11 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 										</h2>
 										<InventoryItemGrid>
 											{freezerItems.map((item) => (
-												<InventoryItemCard key={item.id} item={item} showLocation={false} />
+												<InventoryItemCard
+													key={item.id}
+													item={item}
+													showLocation={false}
+												/>
 											))}
 										</InventoryItemGrid>
 									</section>
@@ -466,7 +474,11 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						) : (
 							<InventoryItemGrid>
 								{displayItems.map((item) => (
-									<InventoryItemCard key={item.id} item={item} showLocation={false} />
+									<InventoryItemCard
+										key={item.id}
+										item={item}
+										showLocation={false}
+									/>
 								))}
 							</InventoryItemGrid>
 						)}

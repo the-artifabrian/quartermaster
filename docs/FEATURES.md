@@ -1,6 +1,6 @@
 # Quartermaster - Feature Reference
 
-Everything built across Phases 1-13e and the UI Redesign. For the forward-looking
+Everything built across Phases 1-13e, the UI Redesign, and post-launch batches. For the forward-looking
 roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy,
 
 ---
@@ -93,7 +93,9 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
   Each ingredient pill has an "I have this" button that adds it to inventory
   with one tap (canonical name dedup, auto-revalidates match percentages)
 - Per-card missing ingredient pills with individual "I have this" buttons
-  (up to 4 visible, overflow count) plus "add all missing to shopping list"
+  (up to 4 visible, overflow count) plus "add all missing to shopping list".
+  "I have this" uses smart location (category-based) and auto-suggested expiry
+  dates from the shelf-life lookup
 - Expiration-based recipe suggestions ("Use It Before You Lose It")
 - Automatic inventory subtraction after cooking (with cross-system unit
   conversion — e.g., tsp recipe vs ml inventory — and feedback toast showing
@@ -128,15 +130,24 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 - Flat item list with client-side search/filter (hidden on print)
 - Inventory-aware: subtracts items already in stock and staple ingredients
 - Shopping list -> inventory pipeline: check off items to add them to inventory
-  with pre-filled name, location, and quantity. Household items are cleared
-  from the list but not added to inventory
+  with pre-filled name, location, quantity, and auto-suggested expiry dates
+  (shelf-life lookup table with ~60 entries, re-computes on location change,
+  user-adjustable). Household items are cleared from the list but not added to
+  inventory
+- Low-stock nudge: amber chip banner surfaces inventory items flagged as low
+  stock that aren't already on the list. One-tap per chip or "Add All" to batch-
+  add to shopping list. Chips disappear on revalidation. Hidden during inventory
+  review and print
 - Print-friendly layout
 - Ingredient overlap analysis engine: pairwise overlap using normalization
   pipeline (normalizeIngredient, synonym lookup, core word matching), efficiency
   scoring (unique-to-total ingredient ratio)
 - Pairing suggestions when adding recipes to meal plan: ranked by ingredient
   overlap with already-planned recipes (inverted matching engine), sorted by
-  shared ingredient count with green badges
+  shared ingredient count with green badges. Weeknight-aware sorting (Mon-Thu):
+  quick-cook recipes sort higher as secondary sort within each group; cook time
+  badge on all recipe options
+
 - Single-use ingredient waste alerts with recipe suggestions to reduce waste
   ("You're only using parsley in one recipe -- add Tabbouleh?")
 - Plan efficiency dashboard: total/unique ingredient stats, expandable shared
@@ -199,8 +210,12 @@ roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy
 
 - Custom color system (sage green + peach accent, OKLch) and Fraunces/DM Sans
   typography
-- Descriptive `<title>`, canonical URLs, Open Graph / Twitter Card meta tags
-- JSON-LD Recipe structured data, marketing pages with sitemap
+- Descriptive `<title>`, canonical URLs, Open Graph / Twitter Card meta tags,
+  meta descriptions on all marketing pages
+- JSON-LD structured data: Recipe (share pages), WebApplication (landing page),
+  FAQPage (support page). Marketing pages with sitemap
+- robots.txt disallows authenticated routes; public `/share` pages remain
+  crawlable
 - PWA with service worker: offline access for viewed recipes and meal plan
 - Full data export: comprehensive JSON download of all user/household data
   (recipes, inventory, meal plans, shopping lists, cooking logs, meal templates)

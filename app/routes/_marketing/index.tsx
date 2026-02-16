@@ -4,13 +4,23 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
+import { baseMetaTags } from '#app/utils/meta.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => [{ route: '', priority: 1.0 }],
 }
 
-export const meta: Route.MetaFunction = () => [{ title: 'Quartermaster' }]
+const description =
+	'Your recipes, your pantry, your meal plan, your shopping list — all in one place. Quartermaster figures out what you can cook tonight and writes your grocery list when you\u2019re ready.'
+
+export const meta: Route.MetaFunction = ({ matches }) => [
+	{ title: 'Quartermaster' },
+	{ name: 'description', content: description },
+	{ property: 'og:title', content: 'Quartermaster' },
+	{ property: 'og:description', content: description },
+	...baseMetaTags(matches),
+]
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const userId = await getUserId(request)
@@ -23,9 +33,27 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export const headers: Route.HeadersFunction = pipeHeaders
 
+const webApplicationJsonLd = JSON.stringify({
+	'@context': 'https://schema.org',
+	'@type': 'WebApplication',
+	name: 'Quartermaster',
+	description,
+	applicationCategory: 'LifestyleApplication',
+	operatingSystem: 'Web',
+	offers: {
+		'@type': 'Offer',
+		price: '0',
+		priceCurrency: 'USD',
+	},
+}).replace(/</g, '\\u003c')
+
 export default function Index() {
 	return (
 		<div>
+			<script
+				type="application/ld+json"
+				dangerouslySetInnerHTML={{ __html: webApplicationJsonLd }}
+			/>
 			{/* Hero Section */}
 			<section className="relative overflow-hidden px-4 py-20 text-center">
 				{/* Background pattern */}

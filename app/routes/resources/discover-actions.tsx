@@ -1,3 +1,4 @@
+import { categoryToLocation } from '#app/utils/category-location-map.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -5,6 +6,7 @@ import {
 	getCanonicalIngredientName,
 	matchRecipesWithInventory,
 } from '#app/utils/recipe-matching.server.ts'
+import { suggestExpiryDate } from '#app/utils/shelf-life.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { type Route } from './+types/discover-actions.ts'
 
@@ -114,10 +116,16 @@ export async function action({ request }: Route.ActionArgs) {
 			return { status: 'already_exists' as const, intent: 'addToInventory' as const, addedCount: 0 }
 		}
 
+		const trimmedName = ingredientName.trim()
+		const category = guessCategory(trimmedName)
+		const location = categoryToLocation(category)
+		const expiresAt = suggestExpiryDate(trimmedName, location)
+
 		await prisma.inventoryItem.create({
 			data: {
-				name: ingredientName.trim(),
-				location: 'pantry',
+				name: trimmedName,
+				location,
+				expiresAt: expiresAt ? new Date(expiresAt) : null,
 				userId,
 				householdId,
 			},
@@ -125,7 +133,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		void emitHouseholdEvent({
 			type: 'inventory_item_added',
-			payload: { itemName: ingredientName.trim() },
+			payload: { itemName: trimmedName },
 			userId,
 			householdId,
 		})

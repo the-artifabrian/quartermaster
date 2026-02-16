@@ -3,14 +3,24 @@ import { data, Link } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
+import { baseMetaTags } from '#app/utils/meta.ts'
 import { type Route } from './+types/about.ts'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => [{ route: 'about', priority: 0.3 }],
 }
 
-export const meta: Route.MetaFunction = () => {
-	return [{ title: 'About | Quartermaster' }]
+const description =
+	'Quartermaster started from a familiar frustration: recipes scattered everywhere and no idea what\u2019s for dinner. So we built one place for your recipes, your pantry, and your week.'
+
+export const meta: Route.MetaFunction = ({ matches }) => {
+	return [
+		{ title: 'About | Quartermaster' },
+		{ name: 'description', content: description },
+		{ property: 'og:title', content: 'About | Quartermaster' },
+		{ property: 'og:description', content: description },
+		...baseMetaTags(matches),
+	]
 }
 
 export function loader() {

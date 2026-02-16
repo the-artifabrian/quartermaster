@@ -14,9 +14,9 @@ generation.
 
 ## What's Built
 
-Phases 1-13e, a 10-phase UI redesign, and the Daily Use Polish batch are
-complete. The app is feature-complete for solo and shared daily use. See
-[FEATURES.md](./FEATURES.md) for the full catalog.
+Phases 1-13e, a 10-phase UI redesign, Daily Use Polish, and the Smarter UX
+batch are complete. The app is feature-complete for solo and shared daily use.
+See [FEATURES.md](./FEATURES.md) for the full catalog.
 
 ---
 
@@ -51,6 +51,9 @@ driver phase is an ongoing evaluation, not a feature freeze.
 - Inventory tracking accuracy under sustained real-world evaluation
 - Feature development continues alongside daily use; backlog items that surface
   as friction points get prioritized
+- **Smarter UX batch shipped**: shelf-life auto-suggest on inventory intake
+  (shopping list → inventory and "I have this"), low-stock → shopping list
+  nudge chips, weeknight-aware recipe sorting in meal plan
 
 ### Critical Path
 
@@ -271,4 +274,4 @@ and voice inventory have been promoted to the **AI Integration** section above.
 
 ---
 
-_Last updated: February 15, 2026._
+_Last updated: February 16, 2026._

@@ -116,6 +116,7 @@ app/
 │   ├── storage.server.ts           # S3-compatible image upload
 │   ├── pantry-staples.ts           # Staple ingredient definitions
 │   ├── category-location-map.ts    # Ingredient → store section mapping
+│   ├── shelf-life.ts              # Shelf-life lookup → auto-suggest expiry dates
 │   ├── relative-time.ts            # Human-readable relative timestamps
 │   ├── fractions.ts                # Fraction display (1.5 → "1½")
 │   ├── usage-tracking.server.ts   # Fire-and-forget usage event tracking
@@ -205,8 +206,9 @@ checklist on recipe detail. The `/discover` route redirects to `/recipes`.
   per-entry serving overrides, cook toggle, "Up next" banner, copy week,
   templates, pairing suggestions, waste alerts, efficiency dashboard
 - `app/routes/shopping.tsx` - Standalone shopping list with generate from meal
-  plan, collapsible quick add with duplicate/inventory warnings, household
-  item category, flat item list, check-off → inventory pipeline, print layout
+  plan, collapsible quick add with duplicate/inventory warnings, low-stock
+  nudge chips, household item category, flat item list, check-off → inventory
+  pipeline (with shelf-life auto-suggest expiry dates), print layout
 - `app/routes/plan/shopping-list.tsx` - Redirect to `/shopping`
 - `app/utils/shopping-list.server.ts` - Shopping list generation logic
 - `app/utils/ingredient-overlap.server.ts` - Pairwise overlap scoring for

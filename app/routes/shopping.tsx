@@ -3,7 +3,7 @@ import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useState } from 'react'
-import { Form, Link } from 'react-router'
+import { Form, Link, useFetcher } from 'react-router'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { ShoppingListToInventory } from '#app/components/shopping-list-to-inventory.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -99,11 +99,33 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const hasMealPlan = weeksWithPlans.length > 0
 
+	// Low-stock inventory items as suggestions
+	const lowStockItems = await prisma.inventoryItem.findMany({
+		where: { householdId, lowStock: true },
+		select: { id: true, name: true, location: true, quantity: true, unit: true },
+	})
+
+	// Filter out items already on the shopping list by canonical name
+	const shoppingCanonicals = new Set(
+		shoppingList.items.map((item) => getCanonicalIngredientName(item.name)),
+	)
+	const lowStockSuggestions = lowStockItems.filter(
+		(item) => !shoppingCanonicals.has(getCanonicalIngredientName(item.name)),
+	)
+
 	return {
 		shoppingList,
 		hasMealPlan,
 		weeksWithPlans,
+		lowStockSuggestions,
 	}
+}
+
+function parseExpiresAt(value?: string | null): Date | null {
+	if (!value) return null
+	const d = new Date(value)
+	if (isNaN(d.getTime())) return null
+	return d
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -355,17 +377,102 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const }
 	}
 
+	if (intent === 'add-low-stock') {
+		const itemName = formData.get('itemName')
+		invariantResponse(
+			typeof itemName === 'string' && itemName.trim(),
+			'Item name is required',
+		)
+
+		const trimmed = itemName.trim()
+		const canonicalName = getCanonicalIngredientName(trimmed)
+
+		// Dedup: skip if already on the list
+		const existingItems = await prisma.shoppingListItem.findMany({
+			where: { listId: shoppingList.id, checked: false },
+			select: { name: true },
+		})
+		const alreadyOnList = existingItems.some(
+			(item) => getCanonicalIngredientName(item.name) === canonicalName,
+		)
+		if (!alreadyOnList) {
+			await prisma.shoppingListItem.create({
+				data: {
+					name: trimmed,
+					category: guessCategory(trimmed),
+					listId: shoppingList.id,
+					source: 'manual',
+				},
+			})
+
+			void emitHouseholdEvent({
+				type: 'shopping_list_item_added',
+				payload: { name: trimmed },
+				userId,
+				householdId,
+			})
+		}
+
+		return { status: 'success' as const }
+	}
+
+	if (intent === 'add-all-low-stock') {
+		const rawNames = formData.get('names')
+		invariantResponse(typeof rawNames === 'string', 'Names are required')
+
+		let names: string[]
+		try {
+			names = JSON.parse(rawNames) as string[]
+		} catch {
+			throw new Response('Invalid names data', { status: 400 })
+		}
+		invariantResponse(Array.isArray(names) && names.length > 0, 'No names')
+
+		// Dedup: filter out items already on the list
+		const existingItems = await prisma.shoppingListItem.findMany({
+			where: { listId: shoppingList.id, checked: false },
+			select: { name: true },
+		})
+		const existingCanonicals = new Set(
+			existingItems.map((item) => getCanonicalIngredientName(item.name)),
+		)
+		const newNames = names.filter(
+			(name) => !existingCanonicals.has(getCanonicalIngredientName(name)),
+		)
+
+		if (newNames.length > 0) {
+			await prisma.shoppingListItem.createMany({
+				data: newNames.map((name) => ({
+					name,
+					category: guessCategory(name),
+					listId: shoppingList.id,
+					source: 'manual' as const,
+				})),
+			})
+
+			void emitHouseholdEvent({
+				type: 'shopping_list_item_added',
+				payload: { count: newNames.length, source: 'low-stock' },
+				userId,
+				householdId,
+			})
+		}
+
+		return { status: 'success' as const }
+	}
+
 	if (intent === 'add-to-inventory') {
 		const rawItems = formData.get('items')
 		invariantResponse(typeof rawItems === 'string', 'Items are required')
 
 		const VALID_LOCATIONS = new Set(['pantry', 'fridge', 'freezer'])
 
-		let items: Array<{ itemId: string; location: string }>
+		let items: Array<{ itemId: string; location: string; expiresAt?: string | null }>
 		try {
 			items = JSON.parse(rawItems) as Array<{
 				itemId: string
 				location: string
+				expiresAt?: string | null
 			}>
 		} catch {
 			throw new Response('Invalid items data', { status: 400 })
@@ -407,6 +514,7 @@ export async function action({ request }: Route.ActionArgs) {
 						location: item.location,
 						quantity,
 						unit: shoppingItem.unit,
+						expiresAt: parseExpiresAt(item.expiresAt),
 						userId,
 						householdId,
 					},
@@ -454,7 +562,8 @@ export default function ShoppingListRoute({
 	loaderData,
 	actionData,
 }: Route.ComponentProps) {
-	const { shoppingList, hasMealPlan, weeksWithPlans } = loaderData
+	const { shoppingList, hasMealPlan, weeksWithPlans, lowStockSuggestions } =
+		loaderData
 	const [selectedWeek, setSelectedWeek] = useState(
 		() =>
 			weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
@@ -680,6 +789,11 @@ export default function ShoppingListRoute({
 					)}
 				</div>
 
+				{/* Low Stock Nudge */}
+				{lowStockSuggestions.length > 0 && !showReview && (
+					<LowStockNudge items={lowStockSuggestions} />
+				)}
+
 				{/* Search */}
 				{totalItems > 0 && (
 					<div className="relative mb-4 print:hidden">
@@ -793,6 +907,82 @@ export default function ShoppingListRoute({
 				)}
 			</div>
 		</div>
+	)
+}
+
+// --- Low stock nudge ---
+
+type LowStockItem = {
+	id: string
+	name: string
+	location: string
+	quantity: number | null
+	unit: string | null
+}
+
+function LowStockNudge({ items }: { items: LowStockItem[] }) {
+	const addAllFetcher = useFetcher()
+	const isAddingAll = addAllFetcher.state !== 'idle'
+
+	return (
+		<div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 print:hidden dark:border-amber-700 dark:bg-amber-950/30">
+			<div className="mb-3 flex items-center justify-between gap-2">
+				<h3 className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200">
+					<Icon name="question-mark-circled" className="size-4" />
+					Running low
+				</h3>
+				<addAllFetcher.Form method="POST">
+					<input type="hidden" name="intent" value="add-all-low-stock" />
+					<input
+						type="hidden"
+						name="names"
+						value={JSON.stringify(items.map((i) => i.name))}
+					/>
+					<Button
+						type="submit"
+						variant="ghost"
+						size="sm"
+						className="h-7 text-xs text-amber-800 dark:text-amber-200"
+						disabled={isAddingAll}
+					>
+						{isAddingAll ? 'Adding...' : `Add All (${items.length})`}
+					</Button>
+				</addAllFetcher.Form>
+			</div>
+			<div className="flex flex-wrap gap-2">
+				{items.map((item) => (
+					<LowStockChip key={item.id} item={item} />
+				))}
+			</div>
+		</div>
+	)
+}
+
+function LowStockChip({ item }: { item: LowStockItem }) {
+	const fetcher = useFetcher()
+	const isAdding = fetcher.state !== 'idle'
+
+	if (isAdding) {
+		return (
+			<span className="inline-flex items-center gap-1 rounded-full border border-green-300 bg-green-50 px-3 py-1 text-xs font-medium text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-400">
+				<Icon name="check" className="size-3" />
+				{item.name}
+			</span>
+		)
+	}
+
+	return (
+		<fetcher.Form method="POST">
+			<input type="hidden" name="intent" value="add-low-stock" />
+			<input type="hidden" name="itemName" value={item.name} />
+			<button
+				type="submit"
+				className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/50"
+			>
+				{item.name}
+				<Icon name="plus" className="size-3" />
+			</button>
+		</fetcher.Form>
 	)
 }
 

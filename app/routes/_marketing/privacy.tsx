@@ -1,14 +1,24 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { data } from 'react-router'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
+import { baseMetaTags } from '#app/utils/meta.ts'
 import { type Route } from './+types/privacy.ts'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => [{ route: 'privacy', priority: 0.2 }],
 }
 
-export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Privacy Policy | Quartermaster' }]
+const description =
+	'What Quartermaster collects, how we use it, and how to export or delete everything. Short version: your data is yours.'
+
+export const meta: Route.MetaFunction = ({ matches }) => {
+	return [
+		{ title: 'Privacy Policy | Quartermaster' },
+		{ name: 'description', content: description },
+		{ property: 'og:title', content: 'Privacy Policy | Quartermaster' },
+		{ property: 'og:description', content: description },
+		...baseMetaTags(matches),
+	]
 }
 
 export function loader() {

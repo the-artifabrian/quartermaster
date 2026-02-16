@@ -124,4 +124,106 @@ describe('getUserTier', () => {
 		expect(tier.isProActive).toBe(true)
 		expect(tier.isTrialing).toBe(true)
 	})
+
+	test('Stripe-subscribed user with no trial is pro', async () => {
+		const user = await setupUser()
+		const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'pro',
+				stripeCustomerId: 'cus_test_stripe',
+				stripeSubscriptionId: 'sub_test_stripe',
+				subscriptionExpiresAt: futureDate,
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.tier).toBe('pro')
+		expect(tier.isProActive).toBe(true)
+		expect(tier.hasStripeSubscription).toBe(true)
+		expect(tier.isTrialing).toBe(false)
+		expect(tier.subscriptionExpiresAt).toEqual(futureDate)
+	})
+
+	test('Stripe subscription expired returns not pro', async () => {
+		const user = await setupUser()
+		const pastDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'pro',
+				stripeCustomerId: 'cus_test_expired',
+				stripeSubscriptionId: 'sub_test_expired',
+				subscriptionExpiresAt: pastDate,
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.isProActive).toBe(false)
+		expect(tier.hasStripeSubscription).toBe(true)
+	})
+
+	test('both Stripe and invite code active returns pro', async () => {
+		const user = await setupUser()
+		const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+		const trialEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'pro',
+				stripeCustomerId: 'cus_test_both',
+				stripeSubscriptionId: 'sub_test_both',
+				subscriptionExpiresAt: futureDate,
+				trialEndsAt: trialEnd,
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.isProActive).toBe(true)
+		expect(tier.hasStripeSubscription).toBe(true)
+		expect(tier.isTrialing).toBe(true)
+	})
+
+	test('Stripe active with expired invite code is still pro', async () => {
+		const user = await setupUser()
+		const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+		const pastDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'pro',
+				stripeCustomerId: 'cus_test_stripe_only',
+				stripeSubscriptionId: 'sub_test_stripe_only',
+				subscriptionExpiresAt: futureDate,
+				trialEndsAt: pastDate,
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.isProActive).toBe(true)
+		expect(tier.isTrialing).toBe(false)
+		expect(tier.hasStripeSubscription).toBe(true)
+	})
+
+	test('no Stripe subscription returns hasStripeSubscription false', async () => {
+		const user = await setupUser()
+		const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'free',
+				trialEndsAt: futureDate,
+			},
+		})
+
+		const tier = await getUserTier(user.id)
+
+		expect(tier.hasStripeSubscription).toBe(false)
+		expect(tier.subscriptionExpiresAt).toBeNull()
+	})
 })

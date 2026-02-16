@@ -7,6 +7,8 @@ export type TierInfo = {
 	isProActive: boolean
 	isTrialing: boolean
 	trialEndsAt: Date | null
+	subscriptionExpiresAt: Date | null
+	hasStripeSubscription: boolean
 }
 
 /**
@@ -20,11 +22,19 @@ export async function getUserTier(userId: string): Promise<TierInfo> {
 			tier: true,
 			trialEndsAt: true,
 			subscriptionExpiresAt: true,
+			stripeCustomerId: true,
 		},
 	})
 
 	if (!subscription) {
-		return { tier: 'free', isProActive: false, isTrialing: false, trialEndsAt: null }
+		return {
+			tier: 'free',
+			isProActive: false,
+			isTrialing: false,
+			trialEndsAt: null,
+			subscriptionExpiresAt: null,
+			hasStripeSubscription: false,
+		}
 	}
 
 	const now = new Date()
@@ -46,6 +56,8 @@ export async function getUserTier(userId: string): Promise<TierInfo> {
 		isProActive,
 		isTrialing,
 		trialEndsAt: subscription.trialEndsAt,
+		subscriptionExpiresAt: subscription.subscriptionExpiresAt,
+		hasStripeSubscription: Boolean(subscription.stripeCustomerId),
 	}
 }
 

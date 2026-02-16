@@ -281,10 +281,10 @@ management + invite code generation).
 
 ### Invite Code System
 
-**Growth model**: Open signup gives free tier. Pro access is granted exclusively
-via invite codes (no auto-trial on signup). When a user redeems a code and
-becomes Pro, they immediately receive 2 starter invite codes to share with
-friends. Admins can also generate codes for launches.
+**Growth model**: Open signup gives free tier. Pro access via invite codes,
+Stripe subscription, or admin override (no auto-trial on signup). When a user
+redeems an invite code and becomes Pro, they immediately receive 2 starter
+invite codes to share with friends. Admins can also generate codes for launches.
 
 **Key Files**:
 
@@ -294,10 +294,35 @@ friends. Admins can also generate codes for launches.
   `getCodeStatus()` UI helper (used by settings and admin pages)
 - `app/routes/resources/redeem-invite-code.tsx` — POST resource route for
   code redemption (used by `/upgrade` and potentially other pages via `useFetcher`)
-- `app/routes/upgrade.tsx` — Pricing page with invite code input section
+- `app/routes/upgrade.tsx` — Pricing page with invite code input, Stripe
+  checkout buttons, billing period toggle
 - `app/routes/settings/profile/invite-codes.tsx` — Pro-only settings page
   showing user's codes
 - `app/routes/admin/subscriptions.tsx` — Admin code generation + management
+
+### Stripe Integration
+
+**Pattern**: Stripe Checkout (hosted redirect) + Customer Portal (self-service).
+Webhooks are authoritative; success redirect is optimistic. Invite codes and
+Stripe subscriptions coexist — user has Pro if either `trialEndsAt` or
+`subscriptionExpiresAt` is in the future.
+
+**Key Files**:
+
+- `app/utils/stripe.server.ts` — Stripe client singleton, Checkout/Portal
+  session creation, webhook handlers (`handleCheckoutCompleted`,
+  `handleInvoicePaid`, `handleSubscriptionUpdated`, `handleSubscriptionDeleted`),
+  price-to-tier mapping
+- `app/routes/resources/stripe-webhook.tsx` — Webhook endpoint (POST only, no
+  session auth, Stripe signature verification). Always returns 200 after valid
+  signature to prevent retries
+- `app/routes/resources/stripe-portal.tsx` — Customer Portal redirect
+  (authenticated, POST only)
+
+**Env vars** (all optional — app runs without Stripe in invite-code-only mode):
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_MONTHLY_PRICE_ID`,
+`STRIPE_PRO_YEARLY_PRICE_ID`, `STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID`,
+`STRIPE_HOUSEHOLD_YEARLY_PRICE_ID`
 
 ### Image Handling
 

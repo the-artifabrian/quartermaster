@@ -53,10 +53,14 @@ get invested, and then want the intelligence layer to plan around it.
 > **Enforcement status:** Tier gating is fully implemented. Pro-only routes
 > redirect to `/upgrade`. Mixed-access routes degrade gracefully (no inventory
 > matching, no "What Do I Need?", no shopping list integration). New signups
-> start on free tier (no auto-trial). Pro access is granted exclusively via
-> invite codes — redeemed on `/upgrade`, granting 60 days of Pro + 2 starter
-> codes to share. Admins generate codes for launches at
-> `/admin/subscriptions`. Stripe integration not yet built.
+> start on free tier (no auto-trial). Pro access via invite codes (60 days +
+> 2 starter codes) or Stripe subscription. **Stripe integration shipped:**
+> Checkout (hosted redirect), Customer Portal (self-service manage/cancel),
+> webhook-driven lifecycle (`checkout.session.completed`, `invoice.paid`,
+> `customer.subscription.updated/deleted`). Both access paths coexist — user
+> has Pro if either invite-code trial or Stripe subscription is active.
+> Currently running against Stripe **test mode**; flipping to live requires
+> only swapping API keys and verifying the PFA.
 
 > **Why feature gate over recipe count?** A 50-recipe limit assumes URL import
 > drives bulk collection past it, but users who manually enter recipes plateau
@@ -213,7 +217,14 @@ VAT strategy before registering.
 
 - [ ] Register PFA -- ONRC registration, bank account, CAEN code
 - [ ] Stripe live mode -- Swap test keys for live keys, verify business details
-      with Stripe, connect PFA bank account for payouts
+      with Stripe, connect PFA bank account for payouts. Test-mode integration
+      is fully built (Checkout, Portal, webhooks) — no code changes needed
+- [ ] Stripe Dashboard setup -- Create Products/Prices (Pro monthly/yearly,
+      Household monthly/yearly), configure Customer Portal (plan switching,
+      cancellation), create webhook endpoint, set env vars (`STRIPE_SECRET_KEY`,
+      `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_MONTHLY_PRICE_ID`,
+      `STRIPE_PRO_YEARLY_PRICE_ID`, `STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID`,
+      `STRIPE_HOUSEHOLD_YEARLY_PRICE_ID`)
 - [ ] VAT setup -- Enable Stripe Tax and/or register for OSS depending on
       accountant's recommendation
 

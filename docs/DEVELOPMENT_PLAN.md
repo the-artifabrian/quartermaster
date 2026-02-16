@@ -31,7 +31,7 @@ The app is feature-complete for solo and shared daily use. See
 | UI redesign | Custom color system, mobile-first layout, warm empty states, accessibility pass |
 | Daily Use Polish | Recipe print/share, quick cook from meal plan, meal templates, "Up next" banner |
 | Smarter UX | Shelf-life auto-suggest, low-stock nudge chips, weeknight-aware sorting, pairing/waste/efficiency |
-| Monetization infra | Subscription tiers, tier enforcement, invite code system, admin dashboard, pricing page |
+| Monetization infra | Subscription tiers, tier enforcement, invite code system, admin dashboard, pricing page, Stripe integration |
 
 ---
 
@@ -40,10 +40,11 @@ The app is feature-complete for solo and shared daily use. See
 - **Single-instance SSE**: In-memory EventEmitter means SSE events only reach
   clients on the same Fly machine. Blocking for Household tier. See **SSE
   multi-instance fix** in Pre-Monetization prerequisites.
-- **Subscription model**: `Subscription` with `tier`, Stripe fields,
-  `subscriptionExpiresAt`. New signups start on free tier (no auto-trial). Pro
-  access via invite codes (set `subscriptionExpiresAt` on redemption) or admin
-  override.
+- **Subscription model**: `Subscription` with `tier`, Stripe fields
+  (`stripeCustomerId`, `stripeSubscriptionId`, both `@unique`),
+  `subscriptionExpiresAt`, `trialEndsAt`. Pro access if either Stripe
+  subscription or invite-code trial is active. Stripe webhook handlers are
+  authoritative for subscription lifecycle; success redirect is optimistic.
 - **Infrastructure seed**: `prisma/seed-infrastructure.ts` (permissions, roles,
   tags) runs on every production deploy via `litefs.yml`. Dev seed adds test
   users.
@@ -185,16 +186,11 @@ real before asking people to pay.
 Shipped: subscription model, tier enforcement (`requireProTier` route guard,
 mixed-access degradation, lock icons, client hooks), invite code system (no
 auto-trial, codes are only path to Pro), pricing page (`/upgrade`), admin
-subscription management (`/admin/subscriptions`).
+subscription management (`/admin/subscriptions`), Stripe integration (Checkout,
+Customer Portal, webhooks, coexists with invite codes).
 
-Remaining (start Stripe in test mode now — it doesn't require a business entity
-and shouldn't be blocked on the March 12 gate check):
+Remaining:
 
-- [ ] **Stripe integration** -- Subscriptions, webhooks, customer portal for
-      self-service plan changes / cancellation. Use Stripe Checkout for the
-      payment flow to avoid building card forms. Build against **test mode**
-      in parallel with daily driving — flipping to live mode only requires
-      swapping API keys and verifying the PFA.
 - [ ] **Pro expiry + graceful downgrade** -- When Pro lapses (Stripe
       cancellation or 60-day invite-code grant expiry), data is preserved but
       gated features become read-only. Never delete user data on downgrade.

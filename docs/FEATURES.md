@@ -126,9 +126,14 @@ Complete feature catalog. For the roadmap, see
 
 ## Subscription & Invite Codes
 
-- Three-tier model: Free, Pro, Household
-- New signups start on free tier (no auto-trial). Pro access exclusively via
-  invite codes or admin override
+- Three-tier model: Free, Pro ($5/mo or $49/yr), Household ($7/mo or $69/yr)
+- New signups start on free tier (no auto-trial). Pro access via invite codes,
+  Stripe subscription, or admin override
+- **Stripe integration**: Stripe Checkout (hosted redirect, PCI-compliant),
+  Customer Portal for self-service plan changes/cancellation, webhook-driven
+  subscription lifecycle (checkout completed, invoice paid, subscription
+  updated/deleted). Invite codes and Stripe subscriptions coexist -- user has
+  Pro access if either is active
 - Invite code system: `QM-XXXXXX` format, redeemed on `/upgrade` for 60 days of
   Pro access. Redemption grants 2 starter codes to share with friends. Admins
   generate codes for launches at `/admin/subscriptions`
@@ -137,7 +142,10 @@ Complete feature catalog. For the roadmap, see
 - Mixed-access routes degrade gracefully: recipe list skips match data,
   recipe detail hides inventory features, Surprise Me skips inventory weighting,
   data import skips Pro-only models
-- `/upgrade` pricing page with three-tier comparison
+- `/upgrade` pricing page with three-tier comparison, billing period toggle
+  (monthly/yearly), Stripe checkout buttons, invite code redemption
+- Subscription status in Settings > Profile with "Manage Subscription" portal
+  link for Stripe subscribers
 - Admin page at `/admin/subscriptions` for tier management and code generation
 - Client hooks: `useSubscriptionTier()`, `useIsProActive()`
 

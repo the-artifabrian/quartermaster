@@ -141,6 +141,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 		isProActive: false,
 		isTrialing: false,
 		trialEndsAt: null,
+		subscriptionExpiresAt: null,
+		hasStripeSubscription: false,
 	}
 	let unreadNotificationCount = 0
 	let householdName: string | null = null

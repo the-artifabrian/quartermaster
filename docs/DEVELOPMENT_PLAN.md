@@ -184,6 +184,13 @@ $5/month subscription. Meal plan generation is algorithmic (no LLM cost). Receip
 scanning is more expensive per call (~$0.01-0.05) but low-frequency. AI features
 are natural Pro-tier differentiators.
 
+> **Model alternatives**: Food-specific models (RecipeBERT, Chef Transformer T5,
+> GISMo) were evaluated and ruled out — quality is far below prompted LLMs for
+> both generation and substitution tasks. If cost optimization is needed at scale:
+> Gemini 2.0 Flash ($0.10/$0.40 per MTok) is ~10x cheaper with comparable
+> quality; Gemini 3 Flash ($0.50/$3.00 per MTok, currently preview) offers better
+> reasoning at similar cost to Haiku. No action needed at current scale.
+
 ### Monetization
 
 For the full business model, pricing tiers, competitive positioning, and go-live

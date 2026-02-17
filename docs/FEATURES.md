@@ -43,6 +43,12 @@ Complete feature catalog. For the roadmap, see
 - Ingredient headings: section dividers within ingredient lists displayed as
   styled headers. Skipped by shopping list, matching, subtraction, and JSON-LD
 - Drag-and-drop ingredient reordering (`@dnd-kit/sortable`)
+- AI recipe enhance (Pro): one-click "Enhance with AI" button on recipe detail
+  page. Sends recipe to Claude Haiku to infer missing metadata (description,
+  servings, prep/cook times, tags). Before/after modal with per-field checkboxes
+  — missing fields pre-checked, existing fields opt-in. 10/day rate limit.
+  Sparkles button in desktop and mobile action bars (violet, spinner while
+  loading). No-changes case handled gracefully
 - Ingredient substitution hints (Pro): click missing-ingredient pills to see
   substitutions. ~50 common static entries + Claude Haiku LLM fallback (cached
   30 days). Inventory-aware (highlights substitutes you have), recipe-context-

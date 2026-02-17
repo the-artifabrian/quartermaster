@@ -1,5 +1,10 @@
 # Quartermaster - Feature Reference
 
+Built to replace 100+ recipes scattered across Apple Notes. Track what's in your
+kitchen, see what you can cook, plan the week, generate a shopping list, and
+watch inventory update as you cook. The whole loop — from "what do I have?" to
+"what should I make?" to "what do I need to buy?" — in one app.
+
 Complete feature catalog. For the roadmap, see
 [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy, see
 [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
@@ -148,11 +153,12 @@ Complete feature catalog. For the roadmap, see
   Dismissible, auto-hides on completion
 - Pantry staples onboarding on empty inventory
 - Planned: inventory-first AI recipe path, post-action contextual nudges (see
-  [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) §5)
+  [Backlog in DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md#backlog))
 
 ## Subscription & Invite Codes
 
-- Three-tier model: Free, Pro ($5/mo or $49/yr), Household ($7/mo or $69/yr)
+- Two-tier model: Free (with 10-15 inventory items), Pro ($35/yr early-adopter,
+  $49/yr standard, annual-only)
 - No auto-trial on signup. Pro access via invite codes, Stripe, or admin override
 - Stripe Checkout + Customer Portal + webhook-driven lifecycle. Invite codes and
   Stripe coexist — user has Pro if either is active
@@ -162,8 +168,8 @@ Complete feature catalog. For the roadmap, see
   routes degrade gracefully (no match data, no inventory features)
 - Pro expiry awareness: days-remaining badge (color-coded), toast nudges at
   7d/3d, graceful downgrade with data preservation
-- `/upgrade` pricing page with tier comparison, billing toggle, Stripe checkout,
-  invite code redemption. Lapsed users see "data is safe" reassurance
+- `/upgrade` pricing page with tier comparison, Stripe checkout, invite code
+  redemption. Lapsed users see "data is safe" reassurance
 - Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (tier
   management + code generation)
 

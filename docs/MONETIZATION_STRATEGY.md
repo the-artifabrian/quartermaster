@@ -1,7 +1,12 @@
 # Quartermaster - Monetization Strategy
 
-Business model, pricing, competitive positioning, and go-live requirements. For
-the roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For features,
+Quartermaster is a personal tool first — built by a developer who cooks to
+replace Apple Notes and actually manage what's in the kitchen. Monetization is
+secondary: passive income potential, not a startup. The goal is a great daily-use
+app that happens to be worth paying for. Business infrastructure ships when there
+are actual paying users, not before.
+
+For the roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For features,
 see [FEATURES.md](./FEATURES.md).
 
 ---
@@ -24,133 +29,74 @@ the upgrade.
 
 ### Free ($0)
 
-A complete recipe manager — enough to build the habit:
+A complete recipe manager with a taste of inventory — enough to build the habit
+and experience the "aha" moment:
 
 - Unlimited recipes (CRUD, search, images, scaling)
 - Import from URL, bulk import, JSON export
 - Interactive cooking view (timers, temperature tooltips, checkboxes)
 - Recipe sharing, cooking log, favorites, "Surprise me"
+- 10-15 inventory items (enough for match rings and discovery)
 
-The upgrade trigger is experiential: "I want the app to know what's in my
-kitchen." URL import is free because it's a growth lever — users build a library,
-get invested, then want the intelligence layer.
+The upgrade trigger is experiential: "I want more than 15 items in my kitchen."
+URL import is free because it's a growth lever — users build a library, get
+invested, then want the full intelligence layer.
 
 > **Why feature gate over recipe count?** Manual enterers plateau at 15-30
 > recipes and would never hit a limit. Feature gating aligns the paywall with
 > the actual differentiator (the inventory loop).
 
-### Pro (~$49/yr or ~$5/mo)
+### Pro ($35/yr early-adopter, $49/yr standard)
 
-The inventory intelligence loop. Everything above plus:
+Everything. Annual-only. One tier, no complexity.
 
-- Inventory tracking (pantry/fridge/freezer, expiration, low-stock)
+- Unlimited inventory tracking (pantry/fridge/freezer, expiration, low-stock)
 - "What can I make?" discovery with 4-level fuzzy matching
 - Meal planning calendar (weekly view, templates, waste alerts, efficiency)
 - Smart shopping list (generate from plan, unit-aware consolidation, print)
 - Post-cooking inventory subtraction with unit conversion
 - Ingredient overlap planning, pairing suggestions
-- AI substitution hints, recipe generation from inventory, recipe metadata enhance
-
-### Household (~$69/yr)
-
-Everything in Pro + shared recipe library, inventory, and meal plan. Invite
-household members. Real-time activity notifications.
-
-> **Pricing rationale:** $20 uplift for multi-user sync + real-time
-> notifications. Still under Ollie ($84/yr) and comparable to Plan to Eat
-> ($49/yr) plus a second account.
+- AI substitution hints, recipe generation from inventory, recipe metadata
+  enhance
+- Household sharing: shared recipe library, inventory, meal plan, real-time
+  activity notifications
 
 > **Early-adopter pricing:** Launch at $35/yr for the first year or first 100
-> users (annual-only). Raise to $49 once there's social proof.
-
----
-
-## Open Questions (February 2026 review)
-
-Decisions needed before monetization goes live.
-
-### Merge Pro + Household into one tier?
-
-The $20/yr gap may not justify a separate tier. Most target users cook for a
-household. One paid tier at $49/yr including sharing simplifies the pricing page
-and eliminates "penalty for having a partner" perception. Revisit per-seat only
-if multi-household use cases emerge.
-
-### Add a free trial alongside invite codes?
-
-The invite-code-only model is a conversion barrier for organic discovery (HN,
-Reddit, search). Options:
-
-- **14-day free trial** on signup (alongside invite codes, not replacing them)
-- **Limited inventory** on free tier: 10-15 items permanently, enough for match
-  rings and the "aha" moment. Recommended — simpler than time-limited trial,
-  creates natural upgrade trigger
-
-### Annual-only at launch?
-
-Monthly pricing ($5/mo) invites churn after one month. Annual ($35/yr early,
-$49/yr standard) filters for committed users. Add monthly later when there's
-volume to optimize conversion.
-
-### Landing page honesty
-
-"Free to use. No credit card required." but 3/4 featured steps are Pro-only.
-Either adjust CTA ("Free recipe manager. Upgrade for kitchen intelligence.") or
-expand the free tier. Add social proof once available.
+> users. Raise to $49 once there's social proof. Add monthly pricing later when
+> there's volume to optimize conversion.
 
 ---
 
 ## Competitive Positioning
 
-### Intelligence features (Quartermaster's moat)
-
-|                                     | Quartermaster | Paprika ($5-30) | Plan to Eat ($49/yr) | Mealime (~$36/yr) | Ollie ($84/yr) |
-| ----------------------------------- | ------------- | --------------- | -------------------- | ----------------- | -------------- |
-| Fuzzy inventory→recipe matching     | 4-level       | No              | No                   | No                | No             |
-| Unit-aware shopping consolidation   | Cross-family  | Basic           | Basic                | Yes               | Basic          |
-| Inventory subtraction after cooking | Yes           | No              | No                   | No                | No             |
-| Expiration-based suggestions        | Yes           | No              | No                   | No                | Partial        |
-| Ingredient overlap planning         | Yes           | No              | No                   | No                | No             |
-| AI substitution hints               | Yes           | No              | No                   | No                | Yes            |
-| AI recipe generation from inventory | Yes           | No              | No                   | No                | Yes            |
-| AI metadata enhance (1-click)       | Yes           | No              | No                   | No                | No             |
-| Smart meal plan auto-fill           | Planned       | No              | No                   | No                | Yes            |
-| Household sharing + real-time sync  | Yes           | No              | No                   | No                | No             |
-
-8 of 10 rows are shipped. No competitor offers the full inventory intelligence
-loop. Ollie has AI features but lacks subtraction, overlap planning, and fuzzy
-matching. At $49/yr, Quartermaster undercuts Ollie ($84/yr) significantly.
+Quartermaster is an inventory-intelligence layer for serious home cooks. No
+competitor offers the full loop: fuzzy matching → discovery → overlap planning →
+shopping consolidation → post-cooking subtraction. Ollie ($84/yr) has AI but
+lacks subtraction, overlap planning, and fuzzy matching. Traditional managers
+(Paprika, Mela, Plan to Eat) have no AI and no inventory intelligence. At
+$49/yr, Quartermaster undercuts the AI-first tier and outfeatures the
+traditional tier.
 
 ### Broader landscape
 
-- **Traditional** (Paprika, Mela, Plan to Eat): No AI, no inventory intelligence.
-  Compete on reliability and anti-subscription positioning
+- **Traditional** (Paprika, Mela, Plan to Eat): No AI, no inventory
+  intelligence. Compete on reliability and anti-subscription positioning
 - **AI-first** (Ollie $84/yr, DishGen): AI meal plans, pantry scanning. Closest
   competitor but approaches from AI-first, not inventory-first
 - **Corporate** (Samsung Food, free + $60/yr Plus): 240K+ recipes, Vision AI.
   Lacks subtraction, overlap, household collaboration
-- **Self-hosted** (Mealie, Tandoor, KitchenOwl): Free, require Docker. Mealie
-  added OpenAI (Feb 2026). None offer the full inventory loop
+- **Self-hosted** (Mealie, Tandoor, KitchenOwl): Free, require Docker. None
+  offer the full inventory loop
 - **Social-first** (Honeydew, OnlyRecipe): TikTok/Instagram recipe import.
   Different audience
-
-**Positioning:** Inventory intelligence for serious home cooks, priced between
-traditional managers and AI-first premium apps.
 
 ---
 
 ## "Proven" Gate
 
-Don't monetize until no-waste planning features have been used for 4+ weeks.
-Minimum signals:
-
-- Pairing suggestions used when building 3+ weekly plans
-- Efficiency scores trend above 50%
-
-Tracked via `UsageEvent` model. Stats at Settings > Data.
-
-> **Gate check: March 12, 2026.** If thresholds aren't met, identify UX friction
-> and fix it. Don't defer indefinitely.
+Defined in [DEVELOPMENT_PLAN.md § Proven Gate](./DEVELOPMENT_PLAN.md#proven-gate).
+In short: 4+ weeks of daily use with planning features, gate check on
+**March 12, 2026**. Don't monetize until the pitch is real.
 
 ---
 
@@ -165,15 +111,21 @@ Consult accountant for CAEN code and VAT strategy (OSS for EU cross-border).
 ### Checklist
 
 - [ ] Register PFA (ONRC, bank account, CAEN code)
+- [ ] VAT setup (Stripe Tax and/or OSS)
 - [ ] Stripe live mode (swap test keys, verify business, connect payouts)
 - [ ] Stripe Dashboard (create Products/Prices, configure Portal, webhook)
-- [ ] VAT setup (Stripe Tax and/or OSS)
+- [ ] Refund policy defined and documented
+- [ ] Terms of Service updated for paid tier
+- [ ] Automated backups operational (Litestream or cron → S3)
+- [ ] Monitoring & alerting operational
 
 ---
 
 ## Distribution
 
-3 external users onboarded. Aiming for 5+ before launch.
+3 external users onboarded. Aiming for 5+ **actively using** (have real recipes
+and used the app in the past 2 weeks) before launch — onboarded but dormant
+doesn't count.
 
 ### Growth loops
 
@@ -183,24 +135,17 @@ Consult accountant for CAEN code and VAT strategy (OSS for EU cross-border).
 - **Self-hosting** — Standard Node.js, no Docker. Differentiator vs. Mealie et al
 - **Invite codes** — QM-XXXXXX format, 60 days Pro + 2 starter codes. Social
   currency: "try this app — here's a code"
+- **Public recipe pages** — every `/share/$recipeId` is already SEO-indexed with
+  JSON-LD. Scales with usage — more users sharing = more landing pages, zero
+  effort
 
 ### Launch channels
 
-- r/selfhosted, r/mealprepsunday, r/Cooking — angle by subreddit
+- r/selfhosted, r/mealprepsunday, r/Cooking — angle by subreddit. Note:
+  r/selfhosted users resist SaaS pricing — lead with self-hosting option and
+  data portability, not the subscription
 - Hacker News — "Show HN: inventory-aware meal planner" (technical depth appeals)
 - Word of mouth — household sharing makes every user a recruiter
-
----
-
-## Churn Mitigation
-
-Target: <5% monthly churn.
-
-- **Pro expiry awareness** (shipped): days-remaining badge, toast nudges at 7d/3d,
-  "data is safe" messaging on lapse, graceful downgrade with data preservation
-- **Pause option** (planned): 1-3 month pause instead of cancel
-- **Cancel flow** (planned): show what they'll lose, "switch to annual" offer
-- **Data export on cancel** (planned): proactive JSON export in cancel flow
 
 ---
 
@@ -214,8 +159,10 @@ Target: <5% monthly churn.
 - **Subscription fatigue** — one-time purchase apps gaining mindshare. Users need
   clear ongoing value to justify recurring fees
 - **Inventory loop friction** — the entire value proposition rests on users
-  maintaining inventory. **Fallback:** passive "light inventory" mode (shopping
-  check-offs + "I have this" only, no manual entry). Discovery becomes fuzzy
-  suggestions rather than precise matching
-- **App store economics** — PWA avoids 30% cut but limits discoverability.
-  Web-first is right for the indie/self-hosted audience
+  maintaining inventory. Contingency plan in
+  [DEVELOPMENT_PLAN.md § Light Inventory Mode](./DEVELOPMENT_PLAN.md#contingency-light-inventory-mode)
+- **No native app (PWA)** — some users expect a native app for a paid
+  subscription. PWA is intentional: avoids app store cuts, enables self-hosting,
+  allows rapid iteration, works on all platforms. iOS limitations (no push
+  notifications, no background sync) are the main trade-off. No app store
+  discoverability — offset by SEO, community posts, and word of mouth

@@ -174,6 +174,13 @@ misses/week × $0.001 + 8 recipe generations/month × $0.003). Well under 1% of 
 scanning is more expensive per call (~$0.01-0.05) but low-frequency. AI features
 are natural Pro-tier differentiators.
 
+> **Model alternatives**: Food-specific models (RecipeBERT, Chef Transformer T5,
+> GISMo) were evaluated and ruled out — quality is far below prompted LLMs for
+> both generation and substitution tasks. If cost optimization is needed at scale:
+> Gemini 2.0 Flash ($0.10/$0.40 per MTok) is ~10x cheaper with comparable
+> quality; Gemini 3 Flash ($0.50/$3.00 per MTok, currently preview) offers better
+> reasoning at similar cost to Haiku. No action needed at current scale.
+
 Ship after the no-waste planning features (pairing suggestions, efficiency
 scoring, waste alerts) are proven in daily use. The marketing pitch needs to be
 real before asking people to pay.

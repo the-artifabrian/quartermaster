@@ -174,7 +174,7 @@ export function IngredientFields({
 
 	return (
 		<div className="space-y-4">
-			<div className="flex items-center justify-between">
+			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 				<Label className="text-base font-semibold">Ingredients</Label>
 				<div className="flex gap-2">
 					<Button
@@ -213,7 +213,7 @@ export function IngredientFields({
 					items={sortKeys}
 					strategy={verticalListSortingStrategy}
 				>
-					<div ref={listRef} className="space-y-2">
+					<div ref={listRef} className="divide-border divide-y">
 						{ingredients.map((ingredient, index) =>
 							ingredient.isHeading ? (
 								<SortableHeadingRow
@@ -286,7 +286,7 @@ function SortableIngredientRow({
 			ref={setNodeRef}
 			style={style}
 			className={cn(
-				'space-y-2 rounded-lg p-2',
+				'space-y-2 rounded-lg py-3 first:pt-0 last:pb-0',
 				isDragging && 'z-10 opacity-80 shadow-lg',
 			)}
 		>
@@ -408,7 +408,7 @@ function SortableHeadingRow({
 			ref={setNodeRef}
 			style={style}
 			className={cn(
-				'border-accent/30 bg-accent/5 flex items-center gap-2 rounded-lg border-l-4 p-2',
+				'border-accent/30 bg-accent/5 flex items-center gap-2 rounded-lg border-l-4 py-3 px-2 first:pt-2 last:pb-2',
 				isDragging && 'z-10 opacity-80 shadow-lg',
 			)}
 		>

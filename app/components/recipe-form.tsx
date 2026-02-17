@@ -199,7 +199,7 @@ export function RecipeForm({
 							name="image"
 							accept="image/jpeg,image/png,image/webp"
 							onChange={handleImageChange}
-							className="w-auto"
+							className="max-w-full text-sm"
 						/>
 						<p className="text-muted-foreground text-xs">
 							JPG, PNG or WebP. Max 3MB.

@@ -98,7 +98,7 @@ export async function action({ request }: Route.ActionArgs) {
 	const recipe = await prisma.recipe.create({
 		data: {
 			title,
-			description,
+			description: description ?? null,
 			servings,
 			prepTime,
 			cookTime,

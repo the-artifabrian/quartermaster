@@ -2,7 +2,7 @@ import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { z } from 'zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import {
 	InventoryItemCard,
@@ -14,8 +14,16 @@ import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboardi
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
+import {
+	getWeekStart,
+	getNextWeek,
+	serializeDate,
+	MEAL_TYPE_LABELS,
+	type MealType,
+} from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { ingredientMatchesInventoryItem } from '#app/utils/recipe-matching.server.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import {
 	InventoryItemLocationSchema,
@@ -64,16 +72,63 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const lowStockCount = allItems.filter((item) => item.lowStock).length
 
 	// Items expiring within 3 days for the urgent callout
-	const urgentExpiringItems = allItems
-		.filter(
-			(item) =>
-				item.expiresAt &&
-				new Date(item.expiresAt) >= now &&
-				new Date(item.expiresAt) <= threeDaysFromNow,
-		)
-		.map((item) => ({
+	const expiringRaw = allItems.filter(
+		(item) =>
+			item.expiresAt &&
+			new Date(item.expiresAt) >= now &&
+			new Date(item.expiresAt) <= threeDaysFromNow,
+	)
+
+	// Load upcoming uncooked meal plan entries to detect coverage
+	const weekStart = getWeekStart(now)
+	const twoWeeksEnd = getNextWeek(getNextWeek(weekStart))
+	const upcomingEntries = await prisma.mealPlanEntry.findMany({
+		where: {
+			cooked: false,
+			date: { gte: weekStart, lt: twoWeeksEnd },
+			mealPlan: { householdId },
+		},
+		include: {
+			recipe: {
+				select: {
+					title: true,
+					ingredients: {
+						where: { isHeading: false },
+						select: { name: true },
+					},
+				},
+			},
+		},
+	})
+
+	const urgentExpiringItems = expiringRaw.map((item) => {
+		// Check if any upcoming recipe ingredient matches this expiring item
+		let coveredBy: {
+			recipeTitle: string
+			date: string
+			mealType: string
+		} | null = null
+
+		for (const entry of upcomingEntries) {
+			const matches = entry.recipe.ingredients.some((ing) =>
+				ingredientMatchesInventoryItem(ing, item),
+			)
+			if (matches) {
+				coveredBy = {
+					recipeTitle: entry.recipe.title,
+					date: serializeDate(new Date(entry.date)),
+					mealType: entry.mealType,
+				}
+				break
+			}
+		}
+
+		return {
 			id: item.id,
 			name: item.name,
+			expiresAt: item.expiresAt
+				? serializeDate(new Date(item.expiresAt))
+				: null,
 			daysLeft: Math.max(
 				0,
 				Math.ceil(
@@ -81,7 +136,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 						(1000 * 60 * 60 * 24),
 				),
 			),
-		}))
+			coveredBy,
+		}
+	})
 
 	return {
 		items,
@@ -227,6 +284,19 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	} = loaderData
 
 	const [search, setSearch] = useState('')
+	const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
+
+	// Load dismissed IDs from localStorage on mount
+	useEffect(() => {
+		const dismissed = new Set<string>()
+		for (const item of urgentExpiringItems) {
+			const key = `dismissed-expiring-${item.id}-${item.expiresAt}`
+			if (localStorage.getItem(key) === 'true') {
+				dismissed.add(item.id)
+			}
+		}
+		if (dismissed.size > 0) setDismissedIds(dismissed)
+	}, [urgentExpiringItems])
 
 	if (totalItemCount === 0) {
 		return (
@@ -279,12 +349,14 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 								: `(${items.length})`}
 						</span>
 					</h1>
-					<Button asChild>
-						<Link to="/inventory/new">
-							<Icon name="plus" size="sm" />
-							Add Item
-						</Link>
-					</Button>
+					<div className="flex gap-2">
+						<Button asChild>
+							<Link to="/inventory/new">
+								<Icon name="plus" size="sm" />
+								Add Item
+							</Link>
+						</Button>
+					</div>
 				</div>
 			</div>
 
@@ -334,48 +406,15 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 				</div>
 
 				{/* Urgent Expiring Items Callout */}
-				{urgentExpiringItems.length > 0 && (
-					<div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
-						<div className="mb-2 flex items-center gap-2">
-							<Icon
-								name="clock"
-								className="size-5 text-amber-600 dark:text-amber-400"
-							/>
-							<h2 className="font-semibold text-amber-900 dark:text-amber-200">
-								Use these up soon
-							</h2>
-						</div>
-						<ul className="mb-3 space-y-1">
-							{urgentExpiringItems.map((item) => (
-								<li
-									key={item.id}
-									className="text-sm text-amber-800 dark:text-amber-300"
-								>
-									<span className="font-medium">{item.name}</span>
-									<span className="text-amber-600 dark:text-amber-400">
-										{' — '}
-										{item.daysLeft === 0
-											? 'expires today'
-											: item.daysLeft === 1
-												? 'expires tomorrow'
-												: `${item.daysLeft} days left`}
-									</span>
-								</li>
-							))}
-						</ul>
-						<Button
-							asChild
-							size="sm"
-							variant="outline"
-							className="border-amber-300 bg-amber-100/50 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/50"
-						>
-							<Link to="/recipes">
-								<Icon name="cookie" size="sm" />
-								Find recipes to use these
-							</Link>
-						</Button>
-					</div>
-				)}
+				<ExpiringItemsCallout
+					items={urgentExpiringItems}
+					dismissedIds={dismissedIds}
+					onDismiss={(item) => {
+						const key = `dismissed-expiring-${item.id}-${item.expiresAt}`
+						localStorage.setItem(key, 'true')
+						setDismissedIds((prev) => new Set(prev).add(item.id))
+					}}
+				/>
 
 				{/* Search */}
 				<div className="relative mb-6">
@@ -527,6 +566,136 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 			</div>
+		</div>
+	)
+}
+
+type ExpiringItem = {
+	id: string
+	name: string
+	expiresAt: string | null
+	daysLeft: number
+	coveredBy: {
+		recipeTitle: string
+		date: string
+		mealType: string
+	} | null
+}
+
+function formatCoverageDay(dateStr: string): string {
+	const date = new Date(dateStr + 'T12:00:00') // avoid timezone issues
+	const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+	return days[date.getDay()] ?? dateStr
+}
+
+function ExpiringItemsCallout({
+	items,
+	dismissedIds,
+	onDismiss,
+}: {
+	items: ExpiringItem[]
+	dismissedIds: Set<string>
+	onDismiss: (item: ExpiringItem) => void
+}) {
+	const visible = items.filter((item) => !dismissedIds.has(item.id))
+	if (visible.length === 0) return null
+
+	const uncovered = visible.filter((item) => !item.coveredBy)
+	const covered = visible.filter((item) => item.coveredBy)
+
+	return (
+		<div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+			<div className="mb-2 flex items-center gap-2">
+				<Icon
+					name="clock"
+					className="size-5 text-amber-600 dark:text-amber-400"
+				/>
+				<h2 className="font-semibold text-amber-900 dark:text-amber-200">
+					Use these up soon
+				</h2>
+			</div>
+
+			{/* Uncovered items — prominent */}
+			{uncovered.length > 0 && (
+				<ul className="mb-3 space-y-1">
+					{uncovered.map((item) => (
+						<li
+							key={item.id}
+							className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-300"
+						>
+							<span className="min-w-0 flex-1">
+								<span className="font-medium">{item.name}</span>
+								<span className="text-amber-600 dark:text-amber-400">
+									{' — '}
+									{item.daysLeft === 0
+										? 'expires today'
+										: item.daysLeft === 1
+											? 'expires tomorrow'
+											: `${item.daysLeft} days left`}
+								</span>
+							</span>
+							<button
+								type="button"
+								onClick={() => onDismiss(item)}
+								className="shrink-0 rounded-md p-0.5 text-amber-500 transition-colors hover:text-amber-800 dark:hover:text-amber-200"
+								aria-label={`Dismiss ${item.name}`}
+							>
+								<Icon name="cross-1" size="xs" />
+							</button>
+						</li>
+					))}
+				</ul>
+			)}
+
+			{/* "Find recipes" CTA — only show if there are uncovered items */}
+			{uncovered.length > 0 && (
+				<Button
+					asChild
+					size="sm"
+					variant="outline"
+					className="mb-3 border-amber-300 bg-amber-100/50 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/50"
+				>
+					<Link to="/recipes">
+						<Icon name="cookie" size="sm" />
+						Find recipes to use these
+					</Link>
+				</Button>
+			)}
+
+			{/* Covered items — muted */}
+			{covered.length > 0 && (
+				<ul className="space-y-1">
+					{covered.map((item) => (
+						<li
+							key={item.id}
+							className="flex items-center gap-2 text-sm text-amber-700/60 dark:text-amber-400/50"
+						>
+							<span className="min-w-0 flex-1">
+								<span className="font-medium">{item.name}</span>
+								<span>
+									{' — in '}
+									{item.coveredBy!.recipeTitle}
+									{' on '}
+									{formatCoverageDay(item.coveredBy!.date)}
+									{' ('}
+									{MEAL_TYPE_LABELS[
+										item.coveredBy!.mealType as MealType
+									]?.toLowerCase() ?? item.coveredBy!.mealType}
+									{')'}
+								</span>
+							</span>
+							<button
+								type="button"
+								onClick={() => onDismiss(item)}
+								className="shrink-0 rounded-md p-0.5 text-amber-400/60 transition-colors hover:text-amber-700 dark:hover:text-amber-300"
+								aria-label={`Dismiss ${item.name}`}
+							>
+								<Icon name="cross-1" size="xs" />
+							</button>
+						</li>
+					))}
+				</ul>
+			)}
 		</div>
 	)
 }

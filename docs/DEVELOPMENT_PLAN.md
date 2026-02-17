@@ -32,6 +32,7 @@ The app is feature-complete for solo and shared daily use. See
 | Daily Use Polish   | Recipe print/share, quick cook from meal plan, meal templates, "Up next" banner                                                              |
 | Smarter UX         | Shelf-life auto-suggest, low-stock nudge chips, weeknight-aware sorting, pairing/waste/efficiency                                            |
 | AI integration     | Ingredient substitutions (static DB + LLM fallback), recipe generation from inventory (LLM → preview → save)                                |
+| Inventory drift    | Uncooked meal reminders ("Did you make X?"), smarter expiring-items callout (meal plan coverage detection, per-item dismiss)              |
 
 ---
 
@@ -68,6 +69,10 @@ not a gate that blocks forward progress.
 - ~135 recipes bulk-imported from Apple Notes
 - Daily driving in progress -- core workflow is solid, initial friction points
   have been fixed, continuing to track inventory accuracy
+- **Inventory drift mitigations shipped**: uncooked meal reminders (site-wide
+  banner for yesterday/today's missed cooks with one-tap mark-as-cooked),
+  smarter "Use these up soon" callout (meal plan coverage detection, per-item
+  dismiss)
 - **Active dev time available**: real-world app usage takes a small fraction of
   the day, so feature work proceeds in parallel
 - **Smarter UX batch shipped**: shelf-life auto-suggest on inventory intake
@@ -150,15 +155,17 @@ stays in control (generated content is always an editable draft); cost-aware
 - [ ] **Receipt scanning → inventory** -- Photo upload, OCR + AI extracts items,
       review list before bulk-adding. Higher complexity -- ship after the above
       features prove out.
-- [ ] **Voice inventory updates** -- Web Speech API transcription (free,
-      client-side) → LLM structures into items → editable preview. Useful with
-      messy hands or unpacking groceries.
+- [ ] ~~**Voice inventory updates**~~ -- Explored and cut. Web Speech API was
+      too flaky across browsers (blocked by Brave, poor quality on Safari,
+      requires Google servers). LLM parsing of natural language text worked well
+      but the UX didn't justify the complexity — the shopping list → inventory
+      pipeline already handles bulk intake better.
 
 > **Prioritization note:** The features above are ordered by shipping
 > complexity, not by impact. If daily driving reveals that inventory _input_
-> friction (not output quality) is the main bottleneck, receipt scanning and
-> voice updates should be re-prioritized ahead of substitutions and recipe
-> generation -- they directly reduce the overhead of keeping inventory accurate.
+> friction (not output quality) is the main bottleneck, receipt scanning
+> should be re-prioritized -- it directly reduces the overhead of keeping
+> inventory accurate.
 
 #### Cost notes
 
@@ -234,8 +241,8 @@ Lower-priority items to reconsider later.
 
 #### Intelligence & AI
 
-AI substitutions, recipe generation, meal plan generation, receipt scanning, and
-voice inventory have been promoted to the **AI Integration** section above.
+AI substitutions, recipe generation, meal plan generation, and receipt scanning
+have been promoted to the **AI Integration** section above.
 
 - [ ] **Dashboard homepage** -- A central landing page (`/`) for logged-in users
       that aggregates the most actionable information: today's meals from the

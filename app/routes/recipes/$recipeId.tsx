@@ -844,7 +844,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				</div>
 
 				{/* Content zone: Ingredients + Instructions */}
-				<div className="mt-5 grid gap-5 md:mt-8 md:grid-cols-[2fr_3fr] md:gap-8 print:grid-cols-1 print:gap-4">
+				<div className="mt-5 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8 print:grid-cols-1 print:gap-4">
 					{/* Ingredients - sticky on desktop, interactive checkboxes */}
 					<div className="md:sticky md:top-20 md:self-start print:static">
 						<div className="bg-card shadow-warm rounded-2xl border p-4 md:p-6 print:border-0 print:p-2 print:shadow-none">
@@ -1279,8 +1279,12 @@ function IngredientList({
 }) {
 	const missingSet = new Set(missingIngredientIds)
 	const nonHeadingCount = ingredients.filter((i) => !i.isHeading).length
-	const haveCount = nonHeadingCount - missingIngredientIds.length
-	const missingCount = missingIngredientIds.length
+	const substitutedCount = missingIngredientIds.filter((id) =>
+		substitutions.has(id),
+	).length
+	const haveCount =
+		nonHeadingCount - missingIngredientIds.length + substitutedCount
+	const missingCount = missingIngredientIds.length - substitutedCount
 
 	const shoppingData = shoppingFetcher.data as
 		| { addedToShoppingList?: number }
@@ -1320,9 +1324,8 @@ function IngredientList({
 							aria-checked={isChecked}
 							tabIndex={0}
 							className={cn(
-								'flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors select-none',
+								'flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors select-none',
 								'hover:bg-accent/5',
-								sub && 'bg-amber-50 dark:bg-amber-950/20',
 							)}
 							onClick={() => onToggle(ingredient.id)}
 							onKeyDown={(e) => {
@@ -1356,23 +1359,27 @@ function IngredientList({
 								{ingredient.unit && <span>{ingredient.unit} </span>}
 								{sub ? (
 									<>
-										<span className="font-medium text-amber-700 dark:text-amber-400">
+										<span className="text-amber-700 dark:text-amber-400">
 											{sub.replacementShort}
 										</span>
-										<span className="text-muted-foreground ml-1 text-xs line-through">
-											{sub.originalName}
-										</span>
-										<button
-											type="button"
-											aria-label="Revert substitution"
-											className="ml-1 inline-flex text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
-											onClick={(e) => {
-												e.stopPropagation()
-												onRevertSubstitution(ingredient.id)
-											}}
-										>
-											<Icon name="reset" className="size-3.5" />
-										</button>
+										<Tooltip>
+											<TooltipTrigger asChild>
+												<button
+													type="button"
+													aria-label={`Revert to ${sub.originalName}`}
+													className="ml-0.5 inline-flex translate-y-px text-amber-500/70 hover:text-amber-700 dark:hover:text-amber-300"
+													onClick={(e) => {
+														e.stopPropagation()
+														onRevertSubstitution(ingredient.id)
+													}}
+												>
+													<Icon name="reset" className="size-3" />
+												</button>
+											</TooltipTrigger>
+											<TooltipContent>
+												Revert to {sub.originalName}
+											</TooltipContent>
+										</Tooltip>
 									</>
 								) : isMissing && isProActive ? (
 									<SubstitutionHint

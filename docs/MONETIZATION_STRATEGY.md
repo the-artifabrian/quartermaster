@@ -85,7 +85,8 @@ differentiator. Everything above plus:
   inventory subtraction, store-section grouping, low-stock nudges, print layout)
 - **Inventory subtraction after cooking** (with unit conversion)
 - **Ingredient overlap planning**, efficiency scoring, pairing suggestions
-- **"What Do I Need?"** checklist on recipe detail
+- **Inline inventory status** on recipe detail ingredient list with "Add missing
+  to Shopping List"
 - **"I Made This"** cook logging with inventory impact preview
 - **Ingredient substitution hints** (static database + Claude Haiku LLM
   fallback, inventory-aware)

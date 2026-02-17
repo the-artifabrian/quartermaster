@@ -11,6 +11,7 @@ import {
 	useRouteLoaderData,
 	useSearchParams,
 } from 'react-router'
+import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
 import { SubstitutionHint } from '#app/components/ingredient-substitution.tsx'
 import { InstructionWithTimers } from '#app/components/instruction-with-timers.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -22,6 +23,7 @@ import {
 	TooltipTrigger,
 } from '#app/components/ui/tooltip.tsx'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { CookingLogSchema } from '#app/utils/cooking-log-validation.ts'
@@ -295,6 +297,75 @@ export async function action({ request, params }: Route.ActionArgs) {
 		return { success: true }
 	}
 
+	if (intent === 'applyEnhancement') {
+		if (!isProActive) return { success: false, requiresPro: true }
+
+		const updateData: Record<string, string | number> = {}
+
+		const description = formData.get('enhance_description')
+		if (typeof description === 'string' && description) {
+			updateData.description = description
+		}
+		const servings = formData.get('enhance_servings')
+		if (typeof servings === 'string' && servings) {
+			updateData.servings = parseInt(servings, 10)
+		}
+		const prepTime = formData.get('enhance_prepTime')
+		if (typeof prepTime === 'string' && prepTime) {
+			updateData.prepTime = parseInt(prepTime, 10)
+		}
+		const cookTime = formData.get('enhance_cookTime')
+		if (typeof cookTime === 'string' && cookTime) {
+			updateData.cookTime = parseInt(cookTime, 10)
+		}
+
+		// Collect tag names from enhance_tag_0, enhance_tag_1, ...
+		const tagNames: string[] = []
+		for (let i = 0; i < 16; i++) {
+			const tag = formData.get(`enhance_tag_${i}`)
+			if (typeof tag === 'string' && tag) {
+				tagNames.push(tag)
+			} else {
+				break
+			}
+		}
+
+		// Resolve tags to IDs and connect (additive)
+		let tagConnect: Array<{ id: string }> = []
+		if (tagNames.length > 0) {
+			const tags = await prisma.tag.findMany({
+				where: { name: { in: tagNames } },
+				select: { id: true },
+			})
+			tagConnect = tags.map((t) => ({ id: t.id }))
+		}
+
+		await prisma.recipe.update({
+			where: { id: recipeId },
+			data: {
+				...updateData,
+				...(tagConnect.length > 0 && {
+					tags: { connect: tagConnect },
+				}),
+			},
+		})
+
+		void emitHouseholdEvent({
+			type: 'recipe_updated',
+			payload: { recipeId, title: recipe.title },
+			userId,
+			householdId,
+		})
+
+		trackEvent(userId, householdId, 'recipe_enhance_applied', {
+			recipeId,
+			fields: Object.keys(updateData),
+			tagCount: tagConnect.length,
+		})
+
+		return { success: true }
+	}
+
 	if (intent === 'add-to-shopping-list') {
 		const servingRatio = parseFloat(String(formData.get('servingRatio') ?? '1'))
 		const safeRatio =
@@ -506,6 +577,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const [substitutions, setSubstitutions] = useState<
 		Map<string, AppliedSubstitution>
 	>(() => new Map())
+	const enhanceFetcher = useFetcher<{
+		error: string | null
+		suggestions: EnhanceableFields | null
+	}>({ key: 'enhance-recipe' })
+	const [showEnhanceModal, setShowEnhanceModal] = useState(false)
+	const prevEnhanceFetcherState = useRef(enhanceFetcher.state)
 
 	const servingsParam = searchParams.get('servings')
 	const currentServings = servingsParam
@@ -547,6 +624,31 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		}
 		prevCookFetcherState.current = cookFetcher.state
 	}, [cookFetcher.state, cookFetcher.data])
+
+	// Open enhance modal or show error when enhance fetch completes
+	useEffect(() => {
+		if (
+			prevEnhanceFetcherState.current !== 'idle' &&
+			enhanceFetcher.state === 'idle' &&
+			enhanceFetcher.data
+		) {
+			if (enhanceFetcher.data.suggestions) {
+				setShowEnhanceModal(true)
+			} else if (enhanceFetcher.data.error) {
+				toast.error(enhanceFetcher.data.error)
+			}
+		}
+		prevEnhanceFetcherState.current = enhanceFetcher.state
+	}, [enhanceFetcher.state, enhanceFetcher.data])
+
+	function handleEnhance() {
+		const formData = new FormData()
+		formData.set('recipeId', recipe.id)
+		enhanceFetcher.submit(formData, {
+			method: 'POST',
+			action: '/resources/enhance-recipe',
+		})
+	}
 
 	function updateServings(newServings: number) {
 		const clamped = Math.min(999, Math.max(1, newServings))
@@ -848,6 +950,30 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						</TooltipTrigger>
 						<TooltipContent>Share recipe</TooltipContent>
 					</Tooltip>
+					{isProActive && (
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									aria-label="Enhance with AI"
+									onClick={handleEnhance}
+									disabled={enhanceFetcher.state !== 'idle'}
+									className="text-violet-500 hover:text-violet-600"
+								>
+									{enhanceFetcher.state !== 'idle' ? (
+										<Icon
+											name="update"
+											className="size-5 animate-spin"
+										/>
+									) : (
+										<Icon name="sparkles" size="md" />
+									)}
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Enhance with AI</TooltipContent>
+						</Tooltip>
+					)}
 				</div>
 
 				{/* Content zone: Ingredients + Instructions */}
@@ -1049,6 +1175,25 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					>
 						<Icon name="share" size="md" />
 					</Button>
+					{isProActive && (
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Enhance with AI"
+							onClick={handleEnhance}
+							disabled={enhanceFetcher.state !== 'idle'}
+							className="text-violet-500 hover:text-violet-600"
+						>
+							{enhanceFetcher.state !== 'idle' ? (
+								<Icon
+									name="update"
+									className="size-5 animate-spin"
+								/>
+							) : (
+								<Icon name="sparkles" size="md" />
+							)}
+						</Button>
+					)}
 				</div>
 			</div>
 
@@ -1060,6 +1205,14 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					previewFetcher={previewFetcher}
 					onClose={() => setShowIMadeThisModal(false)}
 					isProActive={isProActive}
+				/>
+			)}
+
+			{showEnhanceModal && enhanceFetcher.data?.suggestions && (
+				<EnhanceRecipeModal
+					recipe={recipe}
+					suggestions={enhanceFetcher.data.suggestions}
+					onClose={() => setShowEnhanceModal(false)}
 				/>
 			)}
 

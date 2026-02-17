@@ -49,7 +49,7 @@ The inventory intelligence loop. Everything above plus:
 - Smart shopping list (generate from plan, unit-aware consolidation, print)
 - Post-cooking inventory subtraction with unit conversion
 - Ingredient overlap planning, pairing suggestions
-- AI substitution hints and recipe generation from inventory
+- AI substitution hints, recipe generation from inventory, recipe metadata enhance
 
 ### Household (~$69/yr)
 
@@ -113,10 +113,11 @@ expand the free tier. Add social proof once available.
 | Ingredient overlap planning         | Yes           | No              | No                   | No                | No             |
 | AI substitution hints               | Yes           | No              | No                   | No                | Yes            |
 | AI recipe generation from inventory | Yes           | No              | No                   | No                | Yes            |
+| AI metadata enhance (1-click)       | Yes           | No              | No                   | No                | No             |
 | Smart meal plan auto-fill           | Planned       | No              | No                   | No                | Yes            |
 | Household sharing + real-time sync  | Yes           | No              | No                   | No                | No             |
 
-7 of 9 rows are shipped. No competitor offers the full inventory intelligence
+8 of 10 rows are shipped. No competitor offers the full inventory intelligence
 loop. Ollie has AI features but lacks subtraction, overlap planning, and fuzzy
 matching. At $49/yr, Quartermaster undercuts Ollie ($84/yr) significantly.
 

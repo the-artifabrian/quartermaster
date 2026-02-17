@@ -27,7 +27,7 @@ The app is feature-complete for solo and shared daily use.
 | UI + Polish        | Custom color system, mobile-first layout, recipe print/share, meal templates             |
 | Smarter UX         | Shelf-life auto-suggest, low-stock nudges, pairing/waste/efficiency                     |
 | Monetization infra | Subscription tiers, Stripe integration, invite codes, admin dashboard, graceful downgrade |
-| AI integration     | Ingredient substitutions (static DB + LLM), recipe generation from inventory             |
+| AI integration     | Ingredient substitutions (static DB + LLM), recipe generation from inventory, recipe metadata enhance |
 | Inventory drift    | Uncooked meal reminders, smarter expiring-items callout                                  |
 
 ---
@@ -103,6 +103,8 @@ loaders).
 
 - [x] **Ingredient substitutions** — static DB + LLM fallback, inventory-aware
 - [x] **Recipe generation from inventory** — Claude Haiku, preview before save
+- [x] **Recipe enhance** — one-click metadata inference (description, times,
+      servings, tags) with review modal. 10/day rate limit
 - [ ] **Smart meal plan generation** — algorithmic first (constraint-satisfaction),
       LLM only if needed. Output is an editable draft
 - [ ] **Receipt scanning → inventory** — photo upload, OCR + AI extraction,
@@ -115,7 +117,8 @@ loaders).
 
 ~$0.05/month per active Pro user. Well under 1% of a $5/month subscription.
 Meal plan generation is algorithmic (no LLM cost). Details: substitution
-~$0.001/call (cached 30 days), generation ~$0.003/call (daily limit of 10).
+~$0.001/call (cached 30 days), generation ~$0.003/call (daily limit of 10),
+enhance ~$0.0014/call (daily limit of 10, max ~$0.42/month if maxed daily).
 
 ### Monetization
 

@@ -147,6 +147,8 @@ Complete feature catalog. For the roadmap, see
   inventory, plan a meal) with progress bar. Free users see recipe step only.
   Dismissible, auto-hides on completion
 - Pantry staples onboarding on empty inventory
+- Planned: inventory-first AI recipe path, post-action contextual nudges (see
+  [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) §5)
 
 ## Subscription & Invite Codes
 

@@ -229,6 +229,7 @@ export function MealSlotCard({
 						mealType={mealType}
 						excludeRecipeIds={assignedRecipeIds}
 						onCancel={() => setIsSelectingRecipe(false)}
+						onSelect={() => setIsSelectingRecipe(false)}
 						pairingData={pairingData}
 					/>
 				</div>
@@ -279,6 +280,7 @@ export function MealSlotCard({
 							mealType={mealType}
 							excludeRecipeIds={assignedRecipeIds}
 							onCancel={() => setIsSelectingRecipe(false)}
+							onSelect={() => setIsSelectingRecipe(false)}
 							pairingData={pairingData}
 						/>
 					</div>

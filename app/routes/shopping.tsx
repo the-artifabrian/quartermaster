@@ -199,9 +199,21 @@ export async function action({ request }: Route.ActionArgs) {
 			},
 		})
 
+		// Dedup against remaining unchecked items (manual, recipe, discover sources)
+		const existingItems = await prisma.shoppingListItem.findMany({
+			where: { listId: shoppingList.id, checked: false },
+			select: { name: true },
+		})
+		const existingCanonicals = new Set(
+			existingItems.map((i) => getCanonicalIngredientName(i.name)),
+		)
+		const dedupedItems = items.filter(
+			(item) => !existingCanonicals.has(getCanonicalIngredientName(item.name)),
+		)
+
 		// Create new items
 		await prisma.shoppingListItem.createMany({
-			data: items.map((item) => ({
+			data: dedupedItems.map((item) => ({
 				...item,
 				listId: shoppingList.id,
 			})),
@@ -209,7 +221,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		void emitHouseholdEvent({
 			type: 'shopping_list_generated',
-			payload: { count: items.length },
+			payload: { count: dedupedItems.length },
 			userId,
 			householdId,
 		})

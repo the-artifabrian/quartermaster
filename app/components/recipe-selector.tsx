@@ -17,6 +17,7 @@ type RecipeSelectorProps = {
 	mealType: MealType
 	excludeRecipeIds?: string[]
 	onCancel: () => void
+	onSelect?: () => void
 	pairingData?: PairingData
 }
 
@@ -37,6 +38,7 @@ export function RecipeSelector({
 	mealType,
 	excludeRecipeIds = [],
 	onCancel,
+	onSelect,
 	pairingData,
 }: RecipeSelectorProps) {
 	const [search, setSearch] = useState('')
@@ -103,6 +105,7 @@ export function RecipeSelector({
 										date={date}
 										mealType={mealType}
 										pairing={pairingData?.[recipe.id]}
+										onSelect={onSelect}
 									/>
 								))}
 								{otherRecipes.length > 0 && (
@@ -118,6 +121,7 @@ export function RecipeSelector({
 								recipe={recipe}
 								date={date}
 								mealType={mealType}
+								onSelect={onSelect}
 							/>
 						))}
 					</>
@@ -132,6 +136,7 @@ function RecipeOption({
 	date,
 	mealType,
 	pairing,
+	onSelect,
 }: {
 	recipe: Recipe
 	date: Date
@@ -141,11 +146,12 @@ function RecipeOption({
 		overlapIngredients: string[]
 		score: number
 	}
+	onSelect?: () => void
 }) {
 	const totalTime = getTotalTime(recipe)
 
 	return (
-		<Form method="POST">
+		<Form method="POST" onSubmit={onSelect}>
 			<input type="hidden" name="intent" value="assign" />
 			<input type="hidden" name="date" value={serializeDate(date)} />
 			<input type="hidden" name="mealType" value={mealType} />

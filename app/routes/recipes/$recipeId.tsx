@@ -121,6 +121,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			prepTime: true,
 			cookTime: true,
 			isFavorite: true,
+			isAiGenerated: true,
 			sourceUrl: true,
 			rawText: true,
 			notes: true,
@@ -651,6 +652,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				<h1 className="font-serif text-3xl font-bold tracking-tight md:text-4xl">
 					{recipe.title}
 				</h1>
+				{recipe.isAiGenerated && (
+					<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
+						<Icon name="sparkles" className="size-3" />
+						AI Generated
+					</span>
+				)}
 			</div>
 
 			{/* Meta card + content */}

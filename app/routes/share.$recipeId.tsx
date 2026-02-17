@@ -84,6 +84,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 			servings: true,
 			prepTime: true,
 			cookTime: true,
+			isAiGenerated: true,
 			sourceUrl: true,
 			user: { select: { name: true } },
 			image: { select: { objectKey: true, altText: true } },
@@ -168,6 +169,7 @@ export async function action({ params, request }: Route.ActionArgs) {
 			prepTime: recipe.prepTime,
 			cookTime: recipe.cookTime,
 			isFavorite: false,
+			isAiGenerated: recipe.isAiGenerated,
 			sourceUrl: recipe.sourceUrl,
 			rawText: recipe.rawText,
 			userId,
@@ -364,6 +366,12 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 				<h1 className="font-serif text-3xl font-bold tracking-tight md:text-4xl">
 					{recipe.title}
 				</h1>
+				{recipe.isAiGenerated && (
+					<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
+						<Icon name="sparkles" className="size-3" />
+						AI Generated
+					</span>
+				)}
 			</div>
 
 			{/* Hero image */}

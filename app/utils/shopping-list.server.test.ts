@@ -17,6 +17,7 @@ function makeRecipe(
 		prepTime: null,
 		cookTime: null,
 		isFavorite: false,
+		isAiGenerated: false,
 		sourceUrl: null,
 		rawText: null,
 		notes: null,

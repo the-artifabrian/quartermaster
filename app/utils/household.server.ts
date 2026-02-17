@@ -304,6 +304,7 @@ async function deepCopyRecipes(
 				prepTime: recipe.prepTime,
 				cookTime: recipe.cookTime,
 				isFavorite: recipe.isFavorite,
+				isAiGenerated: recipe.isAiGenerated,
 				sourceUrl: recipe.sourceUrl,
 				rawText: recipe.rawText,
 				notes: recipe.notes,

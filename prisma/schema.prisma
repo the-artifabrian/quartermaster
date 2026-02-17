@@ -238,8 +238,9 @@ model Recipe {
   servings    Int      @default(4)
   prepTime    Int?     // minutes
   cookTime    Int?     // minutes
-  isFavorite  Boolean  @default(false)
-  sourceUrl   String?
+  isFavorite     Boolean  @default(false)
+  isAiGenerated  Boolean  @default(false)
+  sourceUrl      String?
   rawText     String?
   notes       String?
 

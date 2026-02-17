@@ -32,6 +32,7 @@ The app is feature-complete for solo and shared daily use. See
 | Daily Use Polish   | Recipe print/share, quick cook from meal plan, meal templates, "Up next" banner                                                              |
 | Smarter UX         | Shelf-life auto-suggest, low-stock nudge chips, weeknight-aware sorting, pairing/waste/efficiency                                            |
 | Monetization infra | Subscription tiers, tier enforcement, invite code system, admin dashboard, pricing page, Stripe integration, Pro expiry + graceful downgrade |
+| AI integration     | Ingredient substitutions (static DB + LLM fallback), recipe generation from inventory (LLM → preview → save)                                |
 
 ---
 
@@ -144,10 +145,12 @@ stays in control (generated content is always an editable draft); cost-aware
       ingredient list and instruction text (client-side, revertible). Pro-tier
       feature. Ingredient list shows inline inventory summary and "Add N missing
       to Shopping List" button for all users.
-- [ ] **Recipe generation from inventory** -- "Create something from what I
-      have" CTA when discover has no strong matches or items are expiring.
-      Single LLM call → structured recipe → standard recipe form for review.
-      AI-generated indicator so user knows to pay attention on first cook.
+- [x] **Recipe generation from inventory** -- "Generate Recipe" top-level
+      button on recipes page (Pro + inventory required). Optional meal type
+      and quick-meal preferences. Single LLM call (Claude Haiku, 15s timeout)
+      → structured recipe → preview with save. `isAiGenerated` flag on Recipe
+      model with violet badge on detail/share/cards. Replaces "Surprise Me"
+      as the primary discovery action.
 - [ ] **Smart meal plan generation** -- "Fill my week" button. Algorithmic first
       (constraint-satisfaction using overlap engine, matching, cooking logs,
       favorites, cook times). Only reach for LLM if rules-based approach can't
@@ -290,4 +293,4 @@ See [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md) for detailed targets.
 
 ---
 
-_Last updated: February 16, 2026._
+_Last updated: February 17, 2026._

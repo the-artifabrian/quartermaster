@@ -1,0 +1,377 @@
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
+import {
+	generateRecipeFromInventory,
+	buildPrompt,
+	parseRecipeResponse,
+	type InventoryInput,
+} from './recipe-generation-llm.server.ts'
+
+const validResponse = {
+	title: 'Chicken Stir Fry',
+	description: 'A quick and easy stir fry with tender chicken and vegetables.',
+	servings: 4,
+	prepTime: 10,
+	cookTime: 15,
+	ingredients: [
+		{ name: 'chicken breast', amount: '2', unit: 'lbs', notes: 'sliced' },
+		{ name: 'bell pepper', amount: '1', unit: null, notes: 'diced' },
+		{ name: 'soy sauce', amount: '3', unit: 'tbsp', notes: null },
+	],
+	instructions: [
+		{ content: 'Slice the chicken into thin strips.' },
+		{ content: 'Heat oil in a large pan over high heat.' },
+		{ content: 'Cook chicken until golden, about 5 minutes.' },
+		{ content: 'Add vegetables and soy sauce, cook for 3 more minutes.' },
+	],
+	suggestedTags: ['dinner', 'asian', 'quick'],
+}
+
+function makeInventory(
+	overrides?: Partial<InventoryInput>[],
+): InventoryInput[] {
+	const defaults: InventoryInput[] = [
+		{
+			name: 'chicken breast',
+			quantity: 2,
+			unit: 'lbs',
+			location: 'fridge',
+			expiresAt: null,
+		},
+		{
+			name: 'bell pepper',
+			quantity: 3,
+			unit: null,
+			location: 'fridge',
+			expiresAt: null,
+		},
+		{
+			name: 'rice',
+			quantity: 5,
+			unit: 'lbs',
+			location: 'pantry',
+			expiresAt: null,
+		},
+	]
+	if (overrides) {
+		return overrides.map((o, i) => ({ ...defaults[i % defaults.length]!, ...o }))
+	}
+	return defaults
+}
+
+describe('buildPrompt', () => {
+	test('includes all inventory items', () => {
+		const inventory = makeInventory()
+		const prompt = buildPrompt(inventory)
+
+		expect(prompt).toContain('chicken breast')
+		expect(prompt).toContain('bell pepper')
+		expect(prompt).toContain('rice')
+	})
+
+	test('shows quantity and unit when present', () => {
+		const inventory = makeInventory()
+		const prompt = buildPrompt(inventory)
+
+		expect(prompt).toContain('(2 lbs)')
+		expect(prompt).toContain('[fridge]')
+		expect(prompt).toContain('[pantry]')
+	})
+
+	test('marks expiring items', () => {
+		const now = new Date()
+		const tomorrow = new Date(now.getTime() + 86400000)
+		const inventory = makeInventory([
+			{ name: 'milk', expiresAt: tomorrow, location: 'fridge' },
+		])
+		const prompt = buildPrompt(inventory)
+
+		expect(prompt).toContain('[EXPIRING SOON]')
+	})
+
+	test('sorts expiring items first', () => {
+		const now = new Date()
+		const tomorrow = new Date(now.getTime() + 86400000)
+		const inventory: InventoryInput[] = [
+			{
+				name: 'rice',
+				quantity: null,
+				unit: null,
+				location: 'pantry',
+				expiresAt: null,
+			},
+			{
+				name: 'milk',
+				quantity: 1,
+				unit: 'gallon',
+				location: 'fridge',
+				expiresAt: tomorrow,
+			},
+		]
+		const prompt = buildPrompt(inventory)
+
+		const milkIdx = prompt.indexOf('milk')
+		const riceIdx = prompt.indexOf('rice')
+		expect(milkIdx).toBeLessThan(riceIdx)
+	})
+
+	test('caps inventory at 80 items', () => {
+		const inventory: InventoryInput[] = Array.from({ length: 100 }, (_, i) => ({
+			name: `item-${i}`,
+			quantity: 1,
+			unit: null,
+			location: 'pantry',
+			expiresAt: null,
+		}))
+		const prompt = buildPrompt(inventory)
+
+		expect(prompt).toContain('item-0')
+		expect(prompt).toContain('item-79')
+		expect(prompt).not.toContain('item-80')
+	})
+
+	test('includes meal type preference', () => {
+		const prompt = buildPrompt(makeInventory(), { mealType: 'breakfast' })
+		expect(prompt).toContain('Meal type: breakfast')
+	})
+
+	test('includes quick meal preference', () => {
+		const prompt = buildPrompt(makeInventory(), { quickMeal: true })
+		expect(prompt).toContain('30 minutes or less')
+	})
+
+	test('includes both preferences', () => {
+		const prompt = buildPrompt(makeInventory(), {
+			mealType: 'dinner',
+			quickMeal: true,
+		})
+		expect(prompt).toContain('Meal type: dinner')
+		expect(prompt).toContain('30 minutes or less')
+	})
+
+	test('omits preferences section when none given', () => {
+		const prompt = buildPrompt(makeInventory())
+		expect(prompt).not.toContain('Preferences:')
+	})
+})
+
+describe('parseRecipeResponse', () => {
+	test('parses valid JSON response', () => {
+		const result = parseRecipeResponse(JSON.stringify(validResponse))
+		expect(result).not.toBeNull()
+		expect(result!.title).toBe('Chicken Stir Fry')
+		expect(result!.servings).toBe(4)
+		expect(result!.ingredients).toHaveLength(3)
+		expect(result!.instructions).toHaveLength(4)
+		expect(result!.suggestedTags).toEqual(['dinner', 'asian', 'quick'])
+	})
+
+	test('handles markdown-wrapped JSON', () => {
+		const wrapped = '```json\n' + JSON.stringify(validResponse) + '\n```'
+		const result = parseRecipeResponse(wrapped)
+		expect(result).not.toBeNull()
+		expect(result!.title).toBe('Chicken Stir Fry')
+	})
+
+	test('returns null for missing title', () => {
+		const noTitle = { ...validResponse, title: '' }
+		expect(parseRecipeResponse(JSON.stringify(noTitle))).toBeNull()
+	})
+
+	test('returns null for no ingredients', () => {
+		const noIngs = { ...validResponse, ingredients: [] }
+		expect(parseRecipeResponse(JSON.stringify(noIngs))).toBeNull()
+	})
+
+	test('returns null for no instructions', () => {
+		const noInsts = { ...validResponse, instructions: [] }
+		expect(parseRecipeResponse(JSON.stringify(noInsts))).toBeNull()
+	})
+
+	test('returns null for invalid JSON', () => {
+		expect(parseRecipeResponse('not json at all')).toBeNull()
+	})
+
+	test('returns null for non-object JSON', () => {
+		expect(parseRecipeResponse('[1, 2, 3]')).toBeNull()
+	})
+
+	test('caps ingredients at 50', () => {
+		const manyIngs = {
+			...validResponse,
+			ingredients: Array.from({ length: 60 }, (_, i) => ({
+				name: `ingredient-${i}`,
+				amount: '1',
+				unit: 'cup',
+				notes: null,
+			})),
+		}
+		const result = parseRecipeResponse(JSON.stringify(manyIngs))
+		expect(result!.ingredients).toHaveLength(50)
+	})
+
+	test('caps instructions at 30', () => {
+		const manyInsts = {
+			...validResponse,
+			instructions: Array.from({ length: 40 }, (_, i) => ({
+				content: `Step ${i + 1}`,
+			})),
+		}
+		const result = parseRecipeResponse(JSON.stringify(manyInsts))
+		expect(result!.instructions).toHaveLength(30)
+	})
+
+	test('defaults servings to 4 when invalid', () => {
+		const badServings = { ...validResponse, servings: -1 }
+		const result = parseRecipeResponse(JSON.stringify(badServings))
+		expect(result!.servings).toBe(4)
+	})
+
+	test('handles null prepTime and cookTime', () => {
+		const nullTimes = {
+			...validResponse,
+			prepTime: null,
+			cookTime: null,
+		}
+		const result = parseRecipeResponse(JSON.stringify(nullTimes))
+		expect(result!.prepTime).toBeNull()
+		expect(result!.cookTime).toBeNull()
+	})
+
+	test('handles string instructions', () => {
+		const stringInsts = {
+			...validResponse,
+			instructions: ['Step 1', 'Step 2', 'Step 3'],
+		}
+		const result = parseRecipeResponse(JSON.stringify(stringInsts))
+		expect(result!.instructions).toHaveLength(3)
+		expect(result!.instructions[0]!.content).toBe('Step 1')
+	})
+
+	test('normalizes tag case', () => {
+		const upperTags = {
+			...validResponse,
+			suggestedTags: ['DINNER', 'Italian', 'Quick'],
+		}
+		const result = parseRecipeResponse(JSON.stringify(upperTags))
+		expect(result!.suggestedTags).toEqual(['dinner', 'italian', 'quick'])
+	})
+
+	test('coerces numeric amounts to strings', () => {
+		const numericAmounts = {
+			...validResponse,
+			ingredients: [
+				{ name: 'flour', amount: 2, unit: 'cups', notes: null },
+				{ name: 'sugar', amount: 0.5, unit: 'cup', notes: null },
+			],
+		}
+		const result = parseRecipeResponse(JSON.stringify(numericAmounts))
+		expect(result!.ingredients[0]!.amount).toBe('2')
+		expect(result!.ingredients[1]!.amount).toBe('0.5')
+	})
+
+	test('skips ingredients with missing name', () => {
+		const badIngs = {
+			...validResponse,
+			ingredients: [
+				{ name: 'valid', amount: '1', unit: 'cup', notes: null },
+				{ amount: '2', unit: 'tbsp', notes: null }, // missing name
+				{ name: 'also valid', amount: '3', unit: 'oz', notes: null },
+			],
+		}
+		const result = parseRecipeResponse(JSON.stringify(badIngs))
+		expect(result!.ingredients).toHaveLength(2)
+	})
+})
+
+describe('generateRecipeFromInventory', () => {
+	const originalEnv = process.env.ANTHROPIC_API_KEY
+
+	beforeEach(() => {
+		vi.restoreAllMocks()
+	})
+
+	afterEach(() => {
+		if (originalEnv !== undefined) {
+			process.env.ANTHROPIC_API_KEY = originalEnv
+		} else {
+			delete process.env.ANTHROPIC_API_KEY
+		}
+	})
+
+	test('returns null when API key is not set', async () => {
+		delete process.env.ANTHROPIC_API_KEY
+		const result = await generateRecipeFromInventory(makeInventory())
+		expect(result).toBeNull()
+	})
+
+	test('returns null on fetch error', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'))
+
+		const result = await generateRecipeFromInventory(makeInventory())
+		expect(result).toBeNull()
+	})
+
+	test('returns null on non-OK response', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			new Response('', { status: 500 }),
+		)
+
+		const result = await generateRecipeFromInventory(makeInventory())
+		expect(result).toBeNull()
+	})
+
+	test('returns parsed recipe on successful response', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			new Response(
+				JSON.stringify({
+					content: [{ type: 'text', text: JSON.stringify(validResponse) }],
+				}),
+				{ status: 200 },
+			),
+		)
+
+		const result = await generateRecipeFromInventory(makeInventory())
+		expect(result).not.toBeNull()
+		expect(result!.title).toBe('Chicken Stir Fry')
+		expect(result!.ingredients).toHaveLength(3)
+	})
+
+	test('returns null when response has no content', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			new Response(JSON.stringify({ content: [] }), { status: 200 }),
+		)
+
+		const result = await generateRecipeFromInventory(makeInventory())
+		expect(result).toBeNull()
+	})
+
+	test('passes preferences to prompt', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		let capturedBody: string | undefined
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
+			capturedBody = opts?.body as string
+			return new Response(
+				JSON.stringify({
+					content: [{ type: 'text', text: JSON.stringify(validResponse) }],
+				}),
+				{ status: 200 },
+			)
+		})
+
+		await generateRecipeFromInventory(makeInventory(), {
+			mealType: 'dinner',
+			quickMeal: true,
+		})
+
+		const body = JSON.parse(capturedBody!) as {
+			messages: Array<{ content: string }>
+		}
+		const userMessage = body.messages[0]!.content
+		expect(userMessage).toContain('Meal type: dinner')
+		expect(userMessage).toContain('30 minutes or less')
+	})
+})

@@ -145,8 +145,8 @@ tests/
 
 **Key Files**:
 
-- `app/routes/recipes/index.tsx` - Recipe list with search, tag/cook-time
-  filtering, sort, grid/list views, import quality flags
+- `app/routes/recipes/index.tsx` - Recipe list with search, cook-time filter,
+  sort, favorites, makeable-only toggle, `?quality=flagged` support
 - `app/routes/recipes/new.tsx` - Create recipe (manual, URL import, bulk
   text/file import)
 - `app/routes/recipes/$recipeId.tsx` - View with interactive cooking mode
@@ -195,9 +195,9 @@ Matches inventory against recipe ingredients with 4-level fuzzy matching: exact
 (post-normalization) → synonym lookup → core word → multi-word containment.
 Calculates match percentage per recipe. Always-on when the user has inventory
 items — recipe cards show subtle match progress rings, default sort is by match
-percentage (when no explicit sort chosen), and expiring item suggestions /
-"Almost There" banner display as contextual sections. Also used by the "What Do
-I Need?" checklist on recipe detail. The `/discover` route redirects to
+percentage (when no explicit sort chosen), and "Almost There" banner displays as
+a contextual section. Also used by the "What Do I Need?" checklist on recipe
+detail. The `/discover` route redirects to
 `/recipes`.
 
 ### Meal Planning & Shopping

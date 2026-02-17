@@ -55,21 +55,14 @@ development is **not blocked** by this gate.
 
 Identified during a full-app UX and strategy review (February 2026). Highest-
 
-### 1. Shopping list category grouping
-
-**Impact:** High — table stakes for in-store use.
-
-Category data exists (`guessCategory()`) but items display in a flat list. Group
-by section (produce, dairy, meat, etc.) so users can work through aisles.
-
-### 2. Recipes page simplification
+### 1. Recipes page simplification ✅
 
 **Impact:** High — the main entry point is overloaded.
 
-The page serves three roles: recipe browser, discovery engine, and quality
-review tool. Up to 8 UI sections above the recipe grid. Reduce: quality flags to
-a subtle indicator, expiring items carousel smaller or moved to dashboard,
-filter bar collapsible on mobile. Goal: recipe grid visible without scrolling.
+Done. Removed expiring items carousel (~320px), quality flags banner (~52px),
+and grid/list view toggle. Merged match stats into filter bar, tightened
+spacing. Recipe grid now visible without scrolling. `?quality=flagged` still
+works (computed from main query). Progress rings and match sort retained.
 
 **Impact:** High — directly affects conversion.
 
@@ -77,7 +70,7 @@ Free users see 3/4 nav tabs locked and can't experience match rings or discovery
 Let free users add 10-15 inventory items — enough for the "aha" moment. Upgrade
 trigger becomes "I want more than 15 items" rather than "I have to pay to try."
 
-### 4. Dashboard homepage
+### 3. Dashboard homepage
 
 **Impact:** Medium — makes the app feel like a daily companion.
 
@@ -164,9 +157,8 @@ requests them.
 
 - [~] 3-5 external users with real recipes (3 onboarded)
 - [ ] External users reach the inventory loop
-- [ ] Shopping list category grouping shipped (#1)
-- [ ] Recipes page simplified (#2)
-- [ ] Free-tier inventory taste decision made (#3)
+- [ ] Recipes page simplified (#1)
+- [ ] Free-tier inventory taste decision made (#2)
 
 ### Adoption (future)
 

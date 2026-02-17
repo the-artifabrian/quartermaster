@@ -170,11 +170,19 @@ stays in control (generated content is always an editable draft); cost-aware
 
 #### Cost notes
 
-Rough estimate: ~$0.03/month per active Pro user (5 substitutions/week + 2
-recipe generations/month at Haiku-class pricing). Static substitution database +
-caching reduces this further. Meal plan generation is algorithmic (no LLM cost).
-Receipt scanning is more expensive per call (~$0.01-0.05) but low-frequency. AI
-features are natural Pro-tier differentiators.
+Per-call estimates (Haiku 4.5: $1/MTok input, $5/MTok output):
+
+- **Ingredient substitution**: ~$0.001/call. Cached 30 days, so repeat lookups
+  are free. No daily limit (cache is the rate limiter).
+- **Recipe generation**: ~$0.003/call (~400-500 input tokens, ~400-600 output
+  tokens). Not cached (inventory changes constantly). Daily limit of 10
+  generations per user.
+
+Rough per-user estimate: ~$0.05/month per active Pro user (5 substitution cache
+misses/week × $0.001 + 8 recipe generations/month × $0.003). Well under 1% of a
+$5/month subscription. Meal plan generation is algorithmic (no LLM cost). Receipt
+scanning is more expensive per call (~$0.01-0.05) but low-frequency. AI features
+are natural Pro-tier differentiators.
 
 ### Monetization
 

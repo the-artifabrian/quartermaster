@@ -29,13 +29,17 @@ export const meta: Route.MetaFunction = () => {
 	return [{ title: 'Generate Recipe | Quartermaster' }]
 }
 
+const DAILY_GENERATION_LIMIT = 10
+
 export async function loader({ request }: Route.LoaderArgs) {
-	const { householdId } = await requireProTier(request)
+	const { userId, householdId } = await requireProTier(request)
 
 	const now = new Date()
+	const startOfDay = new Date(now)
+	startOfDay.setHours(0, 0, 0, 0)
 	const threeDaysFromNow = new Date(now.getTime() + 3 * 86400000)
 
-	const [inventoryCount, expiringCount] = await Promise.all([
+	const [inventoryCount, expiringCount, todayGenerations] = await Promise.all([
 		prisma.inventoryItem.count({ where: { householdId } }),
 		prisma.inventoryItem.count({
 			where: {
@@ -43,9 +47,20 @@ export async function loader({ request }: Route.LoaderArgs) {
 				expiresAt: { gte: now, lte: threeDaysFromNow },
 			},
 		}),
+		prisma.usageEvent.count({
+			where: {
+				userId,
+				type: 'recipe_generation_llm_call',
+				createdAt: { gte: startOfDay },
+			},
+		}),
 	])
 
-	return { inventoryCount, expiringCount }
+	return {
+		inventoryCount,
+		expiringCount,
+		generationsRemaining: Math.max(0, DAILY_GENERATION_LIMIT - todayGenerations),
+	}
 }
 
 type ActionData =
@@ -58,6 +73,24 @@ export async function action({ request }: Route.ActionArgs) {
 	const intent = formData.get('intent')
 
 	if (intent === 'generate') {
+		// Check daily generation limit
+		const startOfDay = new Date()
+		startOfDay.setHours(0, 0, 0, 0)
+		const todayCount = await prisma.usageEvent.count({
+			where: {
+				userId,
+				type: 'recipe_generation_llm_call',
+				createdAt: { gte: startOfDay },
+			},
+		})
+		if (todayCount >= DAILY_GENERATION_LIMIT) {
+			return data({
+				intent: 'generate' as const,
+				recipe: null,
+				error: `You've reached the daily limit of ${DAILY_GENERATION_LIMIT} recipe generations. Try again tomorrow!`,
+			})
+		}
+
 		const inventory = await prisma.inventoryItem.findMany({
 			where: { householdId },
 			select: {
@@ -269,7 +302,7 @@ export async function action({ request }: Route.ActionArgs) {
 export default function GenerateRecipe({
 	loaderData,
 }: Route.ComponentProps) {
-	const { inventoryCount, expiringCount } = loaderData
+	const { inventoryCount, expiringCount, generationsRemaining } = loaderData
 	const actionData = useActionData<typeof action>() as ActionData | undefined
 	const navigation = useNavigation()
 	const isSubmitting = navigation.state === 'submitting'
@@ -377,28 +410,39 @@ export default function GenerateRecipe({
 							</span>
 						</label>
 
-						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => history.back()}
-							>
-								Cancel
-							</Button>
-							<StatusButton
-								type="submit"
-								status={
-									submittingIntent === 'generate'
-										? 'pending'
-										: 'idle'
-								}
-								disabled={
-									isSubmitting || inventoryCount === 0
-								}
-							>
-								<Icon name="sparkles" size="sm" />
-								Generate Recipe
-							</StatusButton>
+						<div className="flex flex-col-reverse items-end gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+							{generationsRemaining <= 3 && (
+								<p className="text-muted-foreground text-xs">
+									{generationsRemaining === 0
+										? 'Daily limit reached — try again tomorrow'
+										: `${generationsRemaining} generation${generationsRemaining !== 1 ? 's' : ''} remaining today`}
+								</p>
+							)}
+							<div className="flex gap-2">
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => history.back()}
+								>
+									Cancel
+								</Button>
+								<StatusButton
+									type="submit"
+									status={
+										submittingIntent === 'generate'
+											? 'pending'
+											: 'idle'
+									}
+									disabled={
+										isSubmitting ||
+										inventoryCount === 0 ||
+										generationsRemaining === 0
+									}
+								>
+									<Icon name="sparkles" size="sm" />
+									Generate Recipe
+								</StatusButton>
+							</div>
 						</div>
 					</Form>
 				</div>

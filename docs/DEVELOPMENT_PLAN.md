@@ -162,8 +162,17 @@ stays in control (generated content is always an editable draft); cost-aware
 
 #### Cost notes
 
-Receipt scanning is more expensive per call (~$0.01-0.05) but low-frequency. AI
-features are natural Pro-tier differentiators.
+Per-call estimates (Haiku 4.5: $1/MTok input, $5/MTok output):
+
+- **Ingredient substitution**: ~$0.001/call. Cached 30 days, so repeat lookups
+  are free. No daily limit (cache is the rate limiter).
+- **Recipe generation**: ~$0.003/call (~400-500 input tokens, ~400-600 output
+  tokens). Not cached (inventory changes constantly). Daily limit of 10
+  generations per user.
+
+misses/week × $0.001 + 8 recipe generations/month × $0.003). Well under 1% of a
+scanning is more expensive per call (~$0.01-0.05) but low-frequency. AI features
+are natural Pro-tier differentiators.
 
 Ship after the no-waste planning features (pairing suggestions, efficiency
 scoring, waste alerts) are proven in daily use. The marketing pitch needs to be

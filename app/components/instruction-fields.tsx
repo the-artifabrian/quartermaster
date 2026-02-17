@@ -52,13 +52,13 @@ export function InstructionFields({
 				</Button>
 			</div>
 
-			<div className="space-y-4">
+			<div className="space-y-3">
 				{instructions.map((instruction, index) => (
 					<div
 						key={instruction.id ?? `${baseId}-${index}`}
 						className="flex gap-3"
 					>
-						<div className="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium">
+						<div className="bg-primary text-primary-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-medium sm:size-8">
 							{index + 1}
 						</div>
 						<div className="flex-1">

@@ -194,7 +194,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			where: { id: recipeId },
 			data: {
 				title,
-				description,
+				description: description ?? null,
 				servings,
 				prepTime,
 				cookTime,

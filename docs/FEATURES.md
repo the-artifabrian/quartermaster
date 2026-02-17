@@ -44,18 +44,13 @@ Complete feature catalog. For the roadmap, see
   styled headers. Skipped by shopping list, matching, subtraction, and JSON-LD
 - Drag-and-drop ingredient reordering (`@dnd-kit/sortable`)
 - Ingredient substitution hints (Pro): click missing-ingredient pills to see
-  substitutions. ~50 common static entries + LLM fallback (Claude Haiku, cached
-  30 days). Inventory-aware — highlights substitutes you already have.
-  Recipe-context-aware — LLM receives recipe title and ingredient list so
-  suggestions fit the dish (e.g. won't suggest broth for water in a cake).
-  Appears on recipe detail ingredient list (missing items only), recipe cards,
-  and "Almost There" banner. On recipe detail, click "Use this" to temporarily
-  swap the ingredient in both the ingredient list and instruction text
-  (client-side only, resets on navigation). Revert via reset icon button.
-  Safety: LLM prompt enforces culinary-function matching (liquid→liquid,
-  fat→fat), allergen flagging (nuts, dairy, gluten, soy, eggs, shellfish,
-  sesame), and no non-food suggestions. Popover shows "AI suggestion" badge for
-  LLM-sourced results and allergen/flavor disclaimer on all results
+  substitutions. ~50 common static entries + Claude Haiku LLM fallback (cached
+  30 days). Inventory-aware (highlights substitutes you have), recipe-context-
+  aware (LLM receives recipe title + ingredients for dish-appropriate suggestions).
+  Appears on recipe detail, recipe cards, and "Almost There" banner. "Use this"
+  temporarily swaps ingredient in both list and instruction text (client-side,
+  revertible). Safety: culinary-function matching, allergen flagging, no non-food
+  suggestions. "AI suggestion" badge for LLM-sourced results
 
 ## Inventory System
 
@@ -132,13 +127,10 @@ Complete feature catalog. For the roadmap, see
 - Member management: rename household, remove members, revoke invites, leave
 - Data on leave: sole members move all data; multi-member leaves deep-copy
   recipes
-- Real-time activity via Server-Sent Events + 30s database polling fallback: 24
-  event types with two-tier priority -- **notify** tier (shopping list
-  generated, meal plan changes, recipe created/imported, member join/leave)
-  triggers toast + badge; **silent** tier (edits, deletes, favorites, inventory
-  CRUD) appears in activity feed only. SSE delivers instant same-machine events;
-  polling catches cross-machine events on multi-instance Fly.io deployments.
-  Client-side dedup (bounded ID set) prevents duplicate delivery
+- Real-time activity via SSE + 30s database polling fallback: 24 event types
+  with two-tier priority — **notify** (shopping list generated, meal plan
+  changes, member join/leave) triggers toast + badge; **silent** (edits,
+  deletes, inventory CRUD) appears in activity feed only. Client-side dedup
 - Notification bell in header with unread badge, dropdown with formatted
   messages, "mark as read", and "View all activity" link
 - Activity feed on household settings page (last 20 events)
@@ -151,34 +143,14 @@ Complete feature catalog. For the roadmap, see
   Dismissible, auto-hides on completion
 - Pantry staples onboarding on empty inventory
 
-  Stripe subscription, or admin override
-- **Stripe integration**: Stripe Checkout (hosted redirect, PCI-compliant),
-  Customer Portal for self-service plan changes/cancellation, webhook-driven
-  subscription lifecycle (checkout completed, invoice paid, subscription
-  Pro access if either is active
-  Pro access. Redemption grants 2 starter codes to share with friends. Admins
-  generate codes for launches at `/admin/subscriptions`
-- Pro-only routes (`/inventory`, `/plan`, `/shopping`) redirect free users to
-  `/upgrade` with lock icons in nav. Lapsed users get contextual toast ("Your
-  data is safe") on redirect
-- Mixed-access routes degrade gracefully: recipe list skips match data, recipe
-  detail hides inventory features, Surprise Me skips inventory weighting, data
-  import skips Pro-only models
-  users see reassurance banner ("Your Pro access has ended — your data is safe")
-- Pro expiry awareness: days-remaining badge in user dropdown (color-coded:
-  muted >7d, amber 3-7d, red <=3d), days-remaining in Settings subscription
-  card, client-side toast nudges at 7-day and 3-day thresholds
-  (localStorage-gated per expiry date, reset on new code redemption)
-- Graceful downgrade: data preserved on lapse (never deleted), lapsed state in
-  Settings subscription card with Subscribe/Redeem buttons, "Renew Pro access"
-  item in user dropdown
-- Subscription status in Settings > Profile with "Manage Subscription" portal
-  link for Stripe subscribers
-- Admin pages: `/admin/users` (sortable analytics table — engagement signals,
-  content counts, subscription source), `/admin/subscriptions` (tier management
-  and code generation)
-- Client hooks: `useSubscriptionTier()`, `useIsProActive()`,
-  `useDaysUntilExpiry()`, `useWasProPreviously()`
+  Stripe coexist — user has Pro if either is active
+  redemption. Admins generate codes at `/admin/subscriptions`
+- Pro-only routes redirect to `/upgrade` with lock icons in nav. Mixed-access
+  routes degrade gracefully (no match data, no inventory features)
+- Pro expiry awareness: days-remaining badge (color-coded), toast nudges at
+  7d/3d, graceful downgrade with data preservation
+- Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (tier
+  management + code generation)
 
 ## UI & Infrastructure
 

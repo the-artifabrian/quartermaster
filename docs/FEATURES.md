@@ -13,7 +13,7 @@ Complete feature catalog. For the roadmap, see
 - Image uploads (S3-compatible, max 3MB, JPEG/PNG/WebP)
 - 16 predefined tags across cuisine, meal-type, and dietary categories
 - Full-text search across title, ingredients, and description
-- Sort (5 options), grid/list view toggle, cook-time filter, favorites filter
+- Sort (5 options), cook-time filter, favorites filter, makeable-only toggle
 - Recipe scaling with +/- servings controls and fraction display
 - Cooking mode: interactive ingredient checkboxes and instruction cross-off,
   auto-detected inline timer buttons ("simmer for 15 minutes" -> one-tap start,
@@ -28,9 +28,9 @@ Complete feature catalog. For the roadmap, see
 - Bulk import: paste plain-text recipes or upload `.md`/`.txt` files. `---`
   separator for multiple recipes per batch (max 50). Handles checkbox format and
   sub-section headers (become ingredient heading rows). Post-import nudge CTA
-- Import quality flags: amber banner auto-detecting recipes with missing
-  ingredients, missing instructions, or duplicate titles; filterable via
-  `?quality=flagged`
+- Import quality flags: filterable via `?quality=flagged` (missing ingredients,
+  missing instructions, or duplicate titles) — computed from main query, no
+  persistent banner
 - AI recipe generation from inventory (Pro): "Generate Recipe" button on recipes
   page. Pick optional meal type and quick-meal toggle, single LLM call (Claude
   Haiku) generates a full recipe from current inventory items (prioritizing

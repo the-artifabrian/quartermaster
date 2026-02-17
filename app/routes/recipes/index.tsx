@@ -1,17 +1,11 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { addDays } from 'date-fns'
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { GettingStartedChecklist } from '#app/components/getting-started-checklist.tsx'
 import {
 	RecipeCard,
 	RecipeCardGrid,
-	RecipeListRow,
 } from '#app/components/recipe-card.tsx'
-import {
-	RecipeMatchCard,
-	RecipeMatchCardGrid,
-} from '#app/components/recipe-match-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import {
 	DropdownMenu,
@@ -26,8 +20,6 @@ import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { cn, useDebounce } from '#app/utils/misc.tsx'
 import {
-	buildInventoryLookup,
-	ingredientMatchesAnyInventoryItem,
 	matchRecipesWithInventory,
 	type RecipeMatch,
 } from '#app/utils/recipe-matching.server.ts'
@@ -58,8 +50,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const search = url.searchParams.get('search') ?? ''
 	const explicitSort = url.searchParams.get('sort')
 	const sort = (explicitSort ?? 'recent') as SortOption
-	const view = url.searchParams.get('view') ?? 'grid'
-
 	const quality = url.searchParams.get('quality') ?? ''
 	const favoritesOnly = url.searchParams.get('favorites') === 'true'
 	const rawMaxTime = url.searchParams.get('maxTime')
@@ -81,7 +71,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	})()
 
-	const [recipes, inventoryItems, mealPlanEntryCount, allRecipesForQuality] =
+	const [recipes, inventoryItems, mealPlanEntryCount, totalRecipeCount] =
 		await Promise.all([
 			prisma.recipe.findMany({
 				where: {
@@ -111,7 +101,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 						orderBy: { cookedAt: 'desc' as const },
 						take: 1,
 					},
-					_count: { select: { cookingLogs: true } },
+					_count: { select: { cookingLogs: true, instructions: true } },
 					ingredients: {
 						select: {
 							id: true,
@@ -136,21 +126,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 						where: { mealPlan: { householdId } },
 					})
 				: Promise.resolve(0),
-			prisma.recipe.findMany({
-				where: { householdId },
-				select: {
-					id: true,
-					title: true,
-					_count: { select: { ingredients: true, instructions: true } },
-				},
-			}),
+			prisma.recipe.count({ where: { householdId } }),
 		])
 
 	const hasInventory = inventoryItems.length > 0
 	const useMatchSort = hasInventory && !explicitSort
-
-	// Total recipe count comes from the unfiltered quality query
-	const totalRecipeCount = allRecipesForQuality.length
 
 	// Post-filter by total cook time (prepTime + cookTime).
 	// Recipes with no time data (both null) are included since unknown ≠ slow.
@@ -175,27 +155,27 @@ export async function loader({ request }: Route.LoaderArgs) {
 		})
 	}
 
-	// Compute quality flags for imported recipe review
-	const flaggedIds = new Set<string>()
-	const titleCounts = new Map<string, string[]>()
-	for (const r of allRecipesForQuality) {
-		if (r._count.ingredients === 0 || r._count.instructions === 0) {
-			flaggedIds.add(r.id)
-		}
-		const lower = r.title.toLowerCase()
-		const ids = titleCounts.get(lower) ?? []
-		ids.push(r.id)
-		titleCounts.set(lower, ids)
-	}
-	for (const ids of titleCounts.values()) {
-		if (ids.length > 1) {
-			for (const id of ids) flaggedIds.add(id)
-		}
-	}
-	const flaggedCount = flaggedIds.size
-
+	// Quality flags computed from main query data (no extra query needed)
 	if (quality === 'flagged') {
-		filteredRecipes = filteredRecipes.filter((r) => flaggedIds.has(r.id))
+		const titleCounts = new Map<string, string[]>()
+		for (const r of filteredRecipes) {
+			const lower = r.title.toLowerCase()
+			const ids = titleCounts.get(lower) ?? []
+			ids.push(r.id)
+			titleCounts.set(lower, ids)
+		}
+		const duplicateIds = new Set<string>()
+		for (const ids of titleCounts.values()) {
+			if (ids.length > 1) {
+				for (const id of ids) duplicateIds.add(id)
+			}
+		}
+		filteredRecipes = filteredRecipes.filter(
+			(r) =>
+				r.ingredients.length === 0 ||
+				r._count.instructions === 0 ||
+				duplicateIds.has(r.id),
+		)
 	}
 
 	// Match data (when inventory exists)
@@ -203,16 +183,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		matches: RecipeMatch[]
 		inventoryItemCount: number
 		makeableCount: number
-		expiringMatches: Array<RecipeMatch & { expiringCount: number }>
-		expiringItems: Array<{
-			id: string
-			name: string
-			daysUntilExpiry: number
-		}>
-		cookingStats: Record<
-			string,
-			{ lastCookedAt: string | null; cookCount: number }
-		>
 	}
 
 	let matchData: MatchData | null = null
@@ -224,44 +194,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		)
 
 		const makeableCount = matches.filter((m) => m.canMake).length
-
-		// Find items expiring within 7 days
-		const now = new Date()
-		const sevenDaysFromNow = addDays(now, 7)
-		const expiringItems = inventoryItems.filter(
-			(item) =>
-				item.expiresAt &&
-				new Date(item.expiresAt) >= now &&
-				new Date(item.expiresAt) <= sevenDaysFromNow,
-		)
-
-		// Find recipes that use expiring ingredients
-		let expiringMatches: Array<RecipeMatch & { expiringCount: number }> = []
-		if (expiringItems.length > 0) {
-			const expiringLookup = buildInventoryLookup(expiringItems)
-			expiringMatches = matches
-				.map((match) => {
-					const expiringCount = match.recipe.ingredients.filter((ing) =>
-						ingredientMatchesAnyInventoryItem(ing, expiringLookup),
-					).length
-					return { ...match, expiringCount }
-				})
-				.filter((m) => m.expiringCount > 0)
-				.sort((a, b) => b.expiringCount - a.expiringCount)
-				.slice(0, 6)
-		}
-
-		// Cooking stats for match cards
-		const cookingStats: Record<
-			string,
-			{ lastCookedAt: string | null; cookCount: number }
-		> = {}
-		for (const recipe of filteredRecipes) {
-			cookingStats[recipe.id] = {
-				lastCookedAt: recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null,
-				cookCount: recipe._count.cookingLogs,
-			}
-		}
 
 		// Sort by match percentage when no explicit sort was chosen
 		if (useMatchSort) {
@@ -277,19 +209,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			matches,
 			inventoryItemCount: inventoryItems.length,
 			makeableCount,
-			expiringMatches,
-			expiringItems: expiringItems.map((item) => ({
-				id: item.id,
-				name: item.name,
-				daysUntilExpiry: Math.max(
-					0,
-					Math.floor(
-						(new Date(item.expiresAt!).getTime() - now.getTime()) /
-							(1000 * 60 * 60 * 24),
-					),
-				),
-			})),
-			cookingStats,
 		}
 	}
 
@@ -299,10 +218,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		favoritesOnly,
 		maxTime,
 		sort,
-		view,
 		totalRecipeCount,
-		flaggedCount,
-		quality,
 		hasInventory,
 		isProActive,
 		onboarding: {
@@ -321,10 +237,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		favoritesOnly,
 		maxTime,
 		sort,
-		view,
 		totalRecipeCount,
-		flaggedCount,
-		quality,
 		isProActive,
 		onboarding,
 		matchData,
@@ -382,16 +295,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		setSearchParams(params, { replace: true })
 	}
 
-	const handleViewChange = (value: string) => {
-		const params = new URLSearchParams(searchParams)
-		if (value === 'list') {
-			params.set('view', 'list')
-		} else {
-			params.delete('view')
-		}
-		setSearchParams(params, { replace: true })
-	}
-
 	const handleMakeableToggle = () => {
 		const params = new URLSearchParams(searchParams)
 		if (makeableOnly) {
@@ -402,13 +305,12 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		setSearchParams(params, { replace: true })
 	}
 
-	const hasFilters = search || favoritesOnly || maxTime || quality
+	const hasFilters = search || favoritesOnly || maxTime
 
 	const handleClearFilters = () => {
-		// Preserve sort and view when clearing filters
+		// Preserve sort when clearing filters
 		const params = new URLSearchParams()
 		if (sort !== 'recent') params.set('sort', sort)
-		if (view === 'list') params.set('view', 'list')
 		if (makeableOnly) params.set('makeable', 'true')
 		setSearchParams(params, { replace: true })
 	}
@@ -480,7 +382,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 
 			<div className="container py-4">
 				{/* Search & Filters */}
-				<div className="bg-card border-border/50 shadow-warm mb-4 space-y-3 rounded-2xl border p-3">
+				<div className="bg-card border-border/50 shadow-warm mb-4 space-y-2 rounded-2xl border p-2.5">
 					{/* Search bar — full width row */}
 					<div className="relative">
 						<Icon
@@ -538,81 +440,45 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 									size="sm"
 								/>
 							</Button>
-							<button
-								type="button"
-								onClick={() => handleViewChange('grid')}
-								className={cn(
-									'min-h-11 min-w-11 rounded-md p-2 transition-colors',
-									view !== 'list'
-										? 'bg-accent text-accent-foreground'
-										: 'text-muted-foreground hover:text-foreground',
-								)}
-								aria-label="Grid view"
-								aria-pressed={view !== 'list'}
-							>
-								<Icon name="dashboard" size="sm" />
-							</button>
-							<button
-								type="button"
-								onClick={() => handleViewChange('list')}
-								className={cn(
-									'min-h-11 min-w-11 rounded-md p-2 transition-colors',
-									view === 'list'
-										? 'bg-accent text-accent-foreground'
-										: 'text-muted-foreground hover:text-foreground',
-								)}
-								aria-label="List view"
-								aria-pressed={view === 'list'}
-							>
-								<Icon name="rows" size="sm" />
-							</button>
+							{matchData && (
+								<Button
+									variant={makeableOnly ? 'default' : 'outline'}
+									onClick={handleMakeableToggle}
+									aria-label={
+										makeableOnly
+											? 'Show all recipes'
+											: 'Show only makeable recipes'
+									}
+									aria-pressed={makeableOnly}
+									className={cn(
+										'h-11 gap-1.5 rounded-lg px-3 text-sm',
+										!makeableOnly && 'bg-background',
+									)}
+								>
+									<Icon
+										name={makeableOnly ? 'check' : 'cookie'}
+										size="sm"
+									/>
+									Makeable ({matchData.makeableCount})
+								</Button>
+							)}
 						</div>
-					</div>
-
-					{/* Match stats inline */}
-					{matchData && (
-						<div className="flex flex-wrap items-center justify-between gap-2">
-							<div className="text-muted-foreground flex gap-3 text-sm">
-								<span>
-									<span className="text-foreground font-semibold">
-										{matchData.makeableCount}
-									</span>{' '}
-									makeable
-								</span>
-								<span>
-									<span className="text-foreground font-semibold">
-										{matchData.inventoryItemCount}
-									</span>{' '}
-									in inventory
-								</span>
+						{/* Active filter summary */}
+						{hasFilters && (
+							<div className="text-muted-foreground text-sm">
+								{displayRecipes.length} of {totalRecipeCount}{' '}
+								{totalRecipeCount === 1 ? 'recipe' : 'recipes'}
+								<span className="mx-2">·</span>
+								<button
+									type="button"
+									onClick={handleClearFilters}
+									className="text-primary hover:text-primary/80 font-medium"
+								>
+									Clear filters
+								</button>
 							</div>
-							<Button
-								variant={makeableOnly ? 'default' : 'ghost'}
-								size="sm"
-								className="h-7 text-xs"
-								onClick={handleMakeableToggle}
-							>
-								<Icon name={makeableOnly ? 'check' : 'cookie'} size="sm" />
-								{makeableOnly ? 'Showing Makeable' : 'Only Makeable'}
-							</Button>
-						</div>
-					)}
-
-					{/* Active filter summary */}
-					{hasFilters && (
-						<div className="text-muted-foreground text-sm">
-							{displayRecipes.length} of {totalRecipeCount}{' '}
-							{totalRecipeCount === 1 ? 'recipe' : 'recipes'}
-							<span className="mx-2">·</span>
-							<button
-								type="button"
-								onClick={handleClearFilters}
-								className="text-primary hover:text-primary/80 font-medium"
-							>
-								Clear filters
-							</button>
-						</div>
-					)}
+						)}
+					</div>
 				</div>
 
 				<GettingStartedChecklist
@@ -620,110 +486,29 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					isProActive={isProActive}
 				/>
 
-				{flaggedCount > 0 && quality !== 'flagged' && (
-					<div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 dark:border-amber-900/50 dark:bg-amber-950/30">
-						<Icon
-							name="question-mark-circled"
-							className="size-5 shrink-0 text-amber-500"
-						/>
-						<p className="min-w-0 flex-1 text-sm text-amber-800 dark:text-amber-200">
-							<span className="font-semibold">
-								{flaggedCount} recipe{flaggedCount === 1 ? '' : 's'}
-							</span>{' '}
-							may need a quick review — missing ingredients, instructions, or
-							possible duplicates
-						</p>
-						<Button
-							variant="outline"
-							size="sm"
-							className="shrink-0 border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40"
-							onClick={() => {
-								const params = new URLSearchParams(searchParams)
-								params.set('quality', 'flagged')
-								setSearchParams(params, { replace: true })
-							}}
-						>
-							Review these
-						</Button>
-					</div>
-				)}
-
-				{quality === 'flagged' && (
-					<div className="mb-4 flex items-center justify-between">
-						<p className="text-sm font-medium">
-							Showing {displayRecipes.length} recipe
-							{displayRecipes.length === 1 ? '' : 's'} that may need review
-						</p>
-						<button
-							type="button"
-							onClick={() => {
-								const params = new URLSearchParams(searchParams)
-								params.delete('quality')
-								setSearchParams(params, { replace: true })
-							}}
-							className="text-primary hover:text-primary/80 text-sm font-medium"
-						>
-							Clear filter
-						</button>
-					</div>
-				)}
-
-				{/* Match mode UI */}
-				{matchData && (
-					<MatchModeUI
-						matchData={matchData}
-						makeableOnly={makeableOnly}
-						isProActive={isProActive}
-					/>
-				)}
-
-				{/* Recipe Grid / List */}
+				{/* Recipe Grid */}
 				{displayRecipes.length > 0 ? (
-					view === 'list' ? (
-						<div className="space-y-2">
-							{displayRecipes.map((recipe) => (
-								<RecipeListRow
-									key={recipe.id}
-									id={recipe.id}
-									title={recipe.title}
-									description={recipe.description}
-									imageObjectKey={recipe.image?.objectKey}
-									prepTime={recipe.prepTime}
-									cookTime={recipe.cookTime}
-									tags={recipe.tags}
-									isFavorite={recipe.isFavorite}
-									isAiGenerated={recipe.isAiGenerated}
-									lastCookedAt={
-										recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null
-									}
-									cookCount={recipe._count.cookingLogs}
-									matchPercentage={matchLookup?.get(recipe.id)?.matchPercentage}
-								/>
-							))}
-						</div>
-					) : (
-						<RecipeCardGrid>
-							{displayRecipes.map((recipe) => (
-								<RecipeCard
-									key={recipe.id}
-									id={recipe.id}
-									title={recipe.title}
-									description={recipe.description}
-									imageObjectKey={recipe.image?.objectKey}
-									prepTime={recipe.prepTime}
-									cookTime={recipe.cookTime}
-									tags={recipe.tags}
-									isFavorite={recipe.isFavorite}
-									isAiGenerated={recipe.isAiGenerated}
-									lastCookedAt={
-										recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null
-									}
-									cookCount={recipe._count.cookingLogs}
-									matchPercentage={matchLookup?.get(recipe.id)?.matchPercentage}
-								/>
-							))}
-						</RecipeCardGrid>
-					)
+					<RecipeCardGrid>
+						{displayRecipes.map((recipe) => (
+							<RecipeCard
+								key={recipe.id}
+								id={recipe.id}
+								title={recipe.title}
+								description={recipe.description}
+								imageObjectKey={recipe.image?.objectKey}
+								prepTime={recipe.prepTime}
+								cookTime={recipe.cookTime}
+								tags={recipe.tags}
+								isFavorite={recipe.isFavorite}
+								isAiGenerated={recipe.isAiGenerated}
+								lastCookedAt={
+									recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null
+								}
+								cookCount={recipe._count.cookingLogs}
+								matchPercentage={matchLookup?.get(recipe.id)?.matchPercentage}
+							/>
+						))}
+					</RecipeCardGrid>
 				) : matchData ? (
 					<MatchEmptyState
 						inventoryItemCount={matchData.inventoryItemCount}
@@ -791,74 +576,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 				)}
 			</div>
 		</div>
-	)
-}
-
-function MatchModeUI({
-	matchData,
-	makeableOnly,
-	isProActive,
-}: {
-	matchData: NonNullable<Awaited<ReturnType<typeof loader>>['matchData']>
-	makeableOnly: boolean
-	isProActive: boolean
-}) {
-	const { expiringMatches, expiringItems, cookingStats } = matchData
-
-	return (
-		<>
-			{/* Expiring Items Section */}
-			{expiringMatches.length > 0 && (
-				<div className="border-accent/10 bg-accent/5 mb-4 rounded-2xl border p-4">
-					<div className="mb-3 flex flex-wrap items-center gap-2">
-						<Icon name="clock" className="size-4 text-amber-500" />
-						<h2 className="text-sm font-semibold">Use before you lose it</h2>
-						<div className="flex flex-wrap gap-1.5">
-							{expiringItems.map((item) => {
-								const isUrgent = item.daysUntilExpiry <= 1
-								return (
-									<span
-										key={item.id}
-										className={cn(
-											'rounded-full px-2 py-0.5 text-xs font-medium',
-											isUrgent
-												? 'animate-pulse bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-												: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-										)}
-									>
-										{item.name} (
-										{item.daysUntilExpiry === 0
-											? 'today'
-											: item.daysUntilExpiry === 1
-												? 'tomorrow'
-												: `${item.daysUntilExpiry}d`}
-										)
-									</span>
-								)
-							})}
-						</div>
-					</div>
-					<div className="scrollbar-thin -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2">
-						{expiringMatches.map((match) => (
-							<div
-								key={match.recipe.id}
-								className="w-64 shrink-0 snap-start sm:w-72"
-							>
-								<RecipeMatchCard
-									match={match}
-									lastCookedAt={cookingStats[match.recipe.id]?.lastCookedAt}
-									cookCount={cookingStats[match.recipe.id]?.cookCount}
-									urgentBorder
-									isProActive={isProActive}
-								/>
-							</div>
-						))}
-					</div>
-				</div>
-			)}
-
-
-		</>
 	)
 }
 

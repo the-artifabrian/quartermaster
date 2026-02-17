@@ -33,8 +33,8 @@ Complete feature catalog. For the roadmap, see
 - "Surprise me" weighted random picker (inventory match, favorites, exploration
   bonus, recency penalty)
 - "I Made This" cook logging with inventory impact preview
-- "What Do I Need?" checklist on recipe detail: shows missing/insufficient items
-  with amounts (scaled by servings), cross-off progress counter
+- Inline inventory status on recipe detail ingredient list: summary footer shows
+  "You have X/Y ingredients" with "Add N missing to Shopping List" button
 - "Last cooked" stats on recipe cards (cook count + relative time)
 - Ingredient headings: section dividers within ingredient lists displayed as
   styled headers. Skipped by shopping list, matching, subtraction, and JSON-LD
@@ -44,8 +44,8 @@ Complete feature catalog. For the roadmap, see
   30 days). Inventory-aware — highlights substitutes you already have.
   Recipe-context-aware — LLM receives recipe title and ingredient list so
   suggestions fit the dish (e.g. won't suggest broth for water in a cake).
-  Appears on recipe detail ingredient list, recipe cards, "Almost There" banner,
-  and "What Do I Need?" modal. On recipe detail, click "Use this" to temporarily
+  Appears on recipe detail ingredient list (missing items only), recipe cards,
+  and "Almost There" banner. On recipe detail, click "Use this" to temporarily
   swap the ingredient in both the ingredient list and instruction text
   (client-side only, resets on navigation). Revert via reset icon button.
   Safety: LLM prompt enforces culinary-function matching (liquid→liquid,
@@ -97,7 +97,8 @@ Complete feature catalog. For the roadmap, see
 - Plan efficiency dashboard: total/unique ingredient stats, shared ingredient
   bridges
 - Standalone shopping list at `/shopping` with:
-  - Generate from meal plan (week picker for prev/current/next week)
+  - Generate from meal plan (week picker for prev/current/next week) with
+    dedup against existing manual/recipe items
   - Collapsible quick add with smart duplicate/inventory warnings and "Add
     Anyway" bypass
   - Auto-categorization (produce, dairy, meat, pantry, frozen, bakery,

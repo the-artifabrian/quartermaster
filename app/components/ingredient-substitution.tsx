@@ -103,7 +103,7 @@ function SubstitutionPopover({
 						{children}
 						<Icon
 							name="shuffle"
-							className="text-amber-500/70 hover:text-amber-600 size-3.5 shrink-0 transition-colors"
+							className="size-3.5 shrink-0 text-amber-500/70 transition-colors hover:text-amber-600"
 						/>
 					</span>
 				</PopoverTrigger>
@@ -146,8 +146,8 @@ function SubstitutionPopover({
 									))}
 								</ul>
 								<p className="text-muted-foreground/70 border-border/30 border-t pt-2 text-[10px] leading-tight">
-									Check for allergies. Substitutions may change
-									flavor or texture.
+									Check for allergies. Substitutions may change flavor or
+									texture.
 								</p>
 							</>
 						) : (

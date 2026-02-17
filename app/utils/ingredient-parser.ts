@@ -103,9 +103,7 @@ export function parseIngredient(line: string): {
 
 	// Try to match: amount + optional unit + name
 	// Handle both "600 g broccoli" and "600g broccoli"
-	const match = cleaned.match(
-		/^(~?[\d.\/\-–½⅓⅔¼¾⅛]+)\s*([a-zA-Z]+)?\s+(.+)$/,
-	)
+	const match = cleaned.match(/^(~?[\d.\/\-–½⅓⅔¼¾⅛]+)\s*([a-zA-Z]+)?\s+(.+)$/)
 
 	if (match) {
 		const amount = match[1]

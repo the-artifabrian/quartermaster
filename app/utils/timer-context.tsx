@@ -83,7 +83,12 @@ function loadTimersFromStorage(): Timer[] {
 			if (timer.status === 'running' && timer.endTime) {
 				if (timer.endTime <= now) {
 					// Timer expired while away
-					return { ...timer, status: 'alarming' as const, endTime: null, remainingMs: 0 }
+					return {
+						...timer,
+						status: 'alarming' as const,
+						endTime: null,
+						remainingMs: 0,
+					}
 				}
 				// Still running, keep endTime as-is
 				return timer
@@ -146,7 +151,11 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 			let needsUpdate = false
 
 			for (const timer of current) {
-				if (timer.status === 'running' && timer.endTime && timer.endTime <= now) {
+				if (
+					timer.status === 'running' &&
+					timer.endTime &&
+					timer.endTime <= now
+				) {
 					needsUpdate = true
 					break
 				}

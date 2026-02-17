@@ -172,9 +172,7 @@ describe('formatEventMessage', () => {
 			{ title: 'Chicken Tikka' },
 			'Alex',
 		)
-		expect(result.message).toBe(
-			'Alex removed Chicken Tikka from the meal plan',
-		)
+		expect(result.message).toBe('Alex removed Chicken Tikka from the meal plan')
 		expect(result.url).toBe('/plan')
 	})
 
@@ -198,11 +196,7 @@ describe('formatEventMessage', () => {
 	})
 
 	test('meal_plan_week_copied', () => {
-		const result = formatEventMessage(
-			'meal_plan_week_copied',
-			{},
-			'Alex',
-		)
+		const result = formatEventMessage('meal_plan_week_copied', {}, 'Alex')
 		expect(result.message).toBe('Alex copied the meal plan to next week')
 		expect(result.url).toBe('/plan')
 	})
@@ -213,9 +207,7 @@ describe('formatEventMessage', () => {
 			{ count: 24 },
 			'Alex',
 		)
-		expect(result.message).toBe(
-			'Alex generated the shopping list (24 items)',
-		)
+		expect(result.message).toBe('Alex generated the shopping list (24 items)')
 		expect(result.url).toBe('/shopping')
 	})
 
@@ -230,11 +222,7 @@ describe('formatEventMessage', () => {
 	})
 
 	test('shopping_list_cleared', () => {
-		const result = formatEventMessage(
-			'shopping_list_cleared',
-			{},
-			'Alex',
-		)
+		const result = formatEventMessage('shopping_list_cleared', {}, 'Alex')
 		expect(result.message).toBe(
 			'Alex cleared checked items from the shopping list',
 		)
@@ -276,21 +264,13 @@ describe('formatEventMessage', () => {
 	})
 
 	test('household_member_joined', () => {
-		const result = formatEventMessage(
-			'household_member_joined',
-			{},
-			'Sam',
-		)
+		const result = formatEventMessage('household_member_joined', {}, 'Sam')
 		expect(result.message).toBe('Sam joined the household')
 		expect(result.url).toBeNull()
 	})
 
 	test('household_member_left', () => {
-		const result = formatEventMessage(
-			'household_member_left',
-			{},
-			'Sam',
-		)
+		const result = formatEventMessage('household_member_left', {}, 'Sam')
 		expect(result.message).toBe('Sam left the household')
 		expect(result.url).toBeNull()
 	})

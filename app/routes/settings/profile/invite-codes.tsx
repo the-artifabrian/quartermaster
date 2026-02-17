@@ -44,9 +44,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	}
 }
 
-export default function InviteCodesPage({
-	loaderData,
-}: Route.ComponentProps) {
+export default function InviteCodesPage({ loaderData }: Route.ComponentProps) {
 	const { codes, availableCount } = loaderData
 
 	return (
@@ -56,8 +54,8 @@ export default function InviteCodesPage({
 				</p>
 			</div>
 
-			<div className="bg-card rounded-xl border p-4 shadow-warm">
-				<h3 className="text-muted-foreground mb-3 px-4 text-xs font-semibold uppercase tracking-wider">
+			<div className="bg-card shadow-warm rounded-xl border p-4">
+				<h3 className="text-muted-foreground mb-3 px-4 text-xs font-semibold tracking-wider uppercase">
 					Your Codes
 					{availableCount > 0 ? (
 						<span className="bg-primary text-primary-foreground ml-2 inline-flex size-5 items-center justify-center rounded-full text-xs font-bold">
@@ -93,8 +91,7 @@ export default function InviteCodesPage({
 										) : null}
 									</div>
 									{!code.redeemedAt &&
-									(!code.expiresAt ||
-										new Date(code.expiresAt) > new Date()) ? (
+									(!code.expiresAt || new Date(code.expiresAt) > new Date()) ? (
 										<ShareButton code={code.code} />
 									) : null}
 								</li>

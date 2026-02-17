@@ -84,9 +84,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 		const lastCookedAt =
 			logs.length > 0
-				? new Date(
-						Math.max(...logs.map((l) => l.cookedAt.getTime())),
-					)
+				? new Date(Math.max(...logs.map((l) => l.cookedAt.getTime())))
 				: null
 
 		const summary: CookingLogSummary = { lastCookedAt }

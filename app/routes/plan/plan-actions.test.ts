@@ -423,16 +423,23 @@ describe('meal plan actions', () => {
 		expect(result).toEqual({ status: 'success' })
 
 		const mealPlan = await prisma.mealPlan.findFirst({
-			where: { householdId: session.householdId, weekStart: getWeekStart(parseDate(targetWeekStart)) },
+			where: {
+				householdId: session.householdId,
+				weekStart: getWeekStart(parseDate(targetWeekStart)),
+			},
 			include: { entries: { orderBy: { date: 'asc' } } },
 		})
 		expect(mealPlan!.entries).toHaveLength(2)
 		// Monday breakfast
-		expect(serializeDate(new Date(mealPlan!.entries[0]!.date))).toBe('2026-02-09')
+		expect(serializeDate(new Date(mealPlan!.entries[0]!.date))).toBe(
+			'2026-02-09',
+		)
 		expect(mealPlan!.entries[0]!.mealType).toBe('breakfast')
 		expect(mealPlan!.entries[0]!.servings).toBe(2)
 		// Friday dinner
-		expect(serializeDate(new Date(mealPlan!.entries[1]!.date))).toBe('2026-02-13')
+		expect(serializeDate(new Date(mealPlan!.entries[1]!.date))).toBe(
+			'2026-02-13',
+		)
 		expect(mealPlan!.entries[1]!.mealType).toBe('dinner')
 	})
 
@@ -476,7 +483,10 @@ describe('meal plan actions', () => {
 		})
 
 		const mealPlan = await prisma.mealPlan.findFirst({
-			where: { householdId: session.householdId, weekStart: getWeekStart(parseDate(weekStart)) },
+			where: {
+				householdId: session.householdId,
+				weekStart: getWeekStart(parseDate(weekStart)),
+			},
 			include: { entries: true },
 		})
 		expect(mealPlan!.entries).toHaveLength(1)
@@ -492,9 +502,7 @@ describe('meal plan actions', () => {
 				userId: session.userId,
 				householdId: session.householdId,
 				entries: {
-					create: [
-						{ dayOfWeek: 0, mealType: 'dinner', recipeId: recipe.id },
-					],
+					create: [{ dayOfWeek: 0, mealType: 'dinner', recipeId: recipe.id }],
 				},
 			},
 		})

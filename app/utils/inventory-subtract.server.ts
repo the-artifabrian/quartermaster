@@ -202,9 +202,7 @@ export async function previewInventorySubtraction(
 		if (ingredientAmount === null) continue
 
 		const scaledAmount = ingredientAmount * servingRatio
-		const ingredientUnit = ingredient.unit
-			? normalizeUnit(ingredient.unit)
-			: ''
+		const ingredientUnit = ingredient.unit ? normalizeUnit(ingredient.unit) : ''
 		const inventoryUnit = match.unit ? normalizeUnit(match.unit) : ''
 
 		// Same unit after normalization
@@ -233,8 +231,7 @@ export async function previewInventorySubtraction(
 				ingFamily.family.name === invFamily.family.name
 			) {
 				const ingredientInBase = scaledAmount * ingFamily.factor
-				const ingredientInInventoryUnit =
-					ingredientInBase / invFamily.factor
+				const ingredientInInventoryUnit = ingredientInBase / invFamily.factor
 				const newQuantity = match.quantity - ingredientInInventoryUnit
 				willSubtract.push({
 					name: match.name,

@@ -332,9 +332,7 @@ describe('proExpiresAt', () => {
 describe('daysUntilExpiry', () => {
 	test('calculates correctly for trial ending in 5 days', async () => {
 		const user = await setupUser()
-		const fiveDaysFromNow = new Date(
-			Date.now() + 5 * 24 * 60 * 60 * 1000,
-		)
+		const fiveDaysFromNow = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
 		await prisma.subscription.create({
 			data: {
 				userId: user.id,

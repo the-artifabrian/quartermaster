@@ -1,8 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import {
-	parseRecipeText,
-	splitMultipleRecipes,
-} from './bulk-recipe-parser.ts'
+import { parseRecipeText, splitMultipleRecipes } from './bulk-recipe-parser.ts'
 
 describe('splitMultipleRecipes', () => {
 	test('returns single recipe when no separator', () => {
@@ -370,7 +367,10 @@ Instructions
 
 		const result = parseRecipeText(text)
 		expect(result.ingredients).toHaveLength(4)
-		expect(result.ingredients[0]).toEqual({ name: 'Choux Pastry', isHeading: true })
+		expect(result.ingredients[0]).toEqual({
+			name: 'Choux Pastry',
+			isHeading: true,
+		})
 		expect(result.ingredients[1]!.name).toBe('water')
 		expect(result.ingredients[2]).toEqual({ name: 'Ganache', isHeading: true })
 		expect(result.ingredients[3]!.name).toBe('cream')
@@ -435,7 +435,9 @@ Instructions
 
 		const result = parseRecipeText(text)
 		expect(result.instructions).toHaveLength(2)
-		expect(result.instructions[0]!.content).toContain('starting to take on color')
+		expect(result.instructions[0]!.content).toContain(
+			'starting to take on color',
+		)
 		expect(result.instructions[1]!.content).toContain('caramelization there')
 	})
 
@@ -566,7 +568,10 @@ Instructions
 
 		const result = parseRecipeText(text)
 		expect(result.ingredients).toHaveLength(6)
-		expect(result.ingredients[0]).toEqual({ name: 'Gremolata Topping', isHeading: true })
+		expect(result.ingredients[0]).toEqual({
+			name: 'Gremolata Topping',
+			isHeading: true,
+		})
 		expect(result.ingredients[1]).toEqual({
 			name: 'parsley',
 			amount: '1',
@@ -686,11 +691,17 @@ Day Of
 		expect(result.title).toBe('Braised Short Ribs with Polenta')
 		expect(result.description).toBe('A hearty winter dish.')
 		expect(result.ingredients).toHaveLength(10) // 3 headings + 7 ingredients
-		expect(result.ingredients[0]).toEqual({ name: 'Braised Short Ribs', isHeading: true })
+		expect(result.ingredients[0]).toEqual({
+			name: 'Braised Short Ribs',
+			isHeading: true,
+		})
 		expect(result.ingredients[1]!.name).toBe('bone-in short ribs')
 		expect(result.ingredients[2]!.name).toBe('red wine')
 		expect(result.ingredients[3]!.notes).toBe('crushed')
-		expect(result.ingredients[4]).toEqual({ name: 'Gremolata Topping', isHeading: true })
+		expect(result.ingredients[4]).toEqual({
+			name: 'Gremolata Topping',
+			isHeading: true,
+		})
 		expect(result.ingredients[5]!.notes).toBe('chopped')
 		expect(result.ingredients[6]!.notes).toBe('minced')
 		expect(result.ingredients[7]).toEqual({ name: 'Polenta', isHeading: true })

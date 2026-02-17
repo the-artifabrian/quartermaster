@@ -37,9 +37,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 				// Don't notify the acting user
 				if (event.userId === userId) return
 
-				send(
-					`event: activity\ndata: ${JSON.stringify(event)}\n\n`,
-				)
+				send(`event: activity\ndata: ${JSON.stringify(event)}\n\n`)
 			}
 
 			householdEventBus.on(`household:${householdId}`, onEvent)

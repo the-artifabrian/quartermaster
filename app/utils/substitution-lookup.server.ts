@@ -50,7 +50,10 @@ export async function getSubstitutions(
 	)
 	if (llmResult) {
 		return {
-			substitutions: enrichWithInventory(llmResult.substitutions, inventoryItems),
+			substitutions: enrichWithInventory(
+				llmResult.substitutions,
+				inventoryItems,
+			),
 			source: llmResult.source,
 		}
 	}
@@ -94,10 +97,7 @@ async function getLLMSubstitutionsWithCache(
 		ttl: THIRTY_DAYS_MS,
 		staleWhileRevalidate: THIRTY_DAYS_MS,
 		async getFreshValue() {
-			const llmResult = await getLLMSubstitutions(
-				normalizedName,
-				recipeContext,
-			)
+			const llmResult = await getLLMSubstitutions(normalizedName, recipeContext)
 			// Cache empty array as negative result (prevents repeated failed calls)
 			return llmResult ?? EMPTY_SENTINEL
 		},

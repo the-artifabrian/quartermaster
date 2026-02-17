@@ -37,7 +37,7 @@ export function InlineTimerButton({
 			type="button"
 			onClick={handleClick}
 			disabled={atMax}
-			className="bg-accent/10 text-accent hover:bg-accent/20 disabled:opacity-40 mx-0.5 inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-full border border-transparent px-2.5 py-1 text-xs font-medium transition-colors"
+			className="bg-accent/10 text-accent hover:bg-accent/20 mx-0.5 inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-full border border-transparent px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-40"
 		>
 			<Icon name="timer" className="size-3.5" />
 			{justStarted ? 'Started!' : label}

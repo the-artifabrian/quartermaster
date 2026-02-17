@@ -42,7 +42,11 @@ export async function requireUserWithHousehold(request: Request) {
 			where: { userId },
 			select: { householdId: true, role: true },
 		})
-		return { userId, householdId: retryMember.householdId, role: retryMember.role }
+		return {
+			userId,
+			householdId: retryMember.householdId,
+			role: retryMember.role,
+		}
 	}
 }
 
@@ -275,7 +279,12 @@ export async function revokeInvite(
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function deepCopyRecipes(tx: any, userId: string, fromHouseholdId: string, toHouseholdId: string) {
+async function deepCopyRecipes(
+	tx: any,
+	userId: string,
+	fromHouseholdId: string,
+	toHouseholdId: string,
+) {
 	const recipes = await tx.recipe.findMany({
 		where: { userId, householdId: fromHouseholdId },
 		include: {
@@ -302,7 +311,14 @@ async function deepCopyRecipes(tx: any, userId: string, fromHouseholdId: string,
 				householdId: toHouseholdId,
 				ingredients: {
 					create: recipe.ingredients.map(
-						(ing: { name: string; amount: string | null; unit: string | null; notes: string | null; isHeading: boolean; order: number }) => ({
+						(ing: {
+							name: string
+							amount: string | null
+							unit: string | null
+							notes: string | null
+							isHeading: boolean
+							order: number
+						}) => ({
 							name: ing.name,
 							amount: ing.amount,
 							unit: ing.unit,

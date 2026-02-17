@@ -8,10 +8,7 @@ export const RedeemCodeSchema = z.object({
 	code: z
 		.string()
 		.min(1, 'Please enter an invite code')
-		.regex(
-			/^QM-[A-Za-z0-9]{6}$/i,
-			'Invalid code format (expected QM-XXXXXX)',
-		),
+		.regex(/^QM-[A-Za-z0-9]{6}$/i, 'Invalid code format (expected QM-XXXXXX)'),
 })
 
 /**

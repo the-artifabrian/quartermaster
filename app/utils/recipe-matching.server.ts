@@ -662,8 +662,7 @@ export function ingredientMatchesAnyInventoryItem(
 	}
 
 	// 2. Synonym match — check if any inventory synonym matches the ingredient
-	const synonymsForIngredient =
-		INGREDIENT_SYNONYMS[normalizedIngredient] || []
+	const synonymsForIngredient = INGREDIENT_SYNONYMS[normalizedIngredient] || []
 	for (const syn of synonymsForIngredient) {
 		if (lookup.normalizedNames.has(syn)) {
 			return true
@@ -699,10 +698,7 @@ export function ingredientMatchesAnyInventoryItem(
 		// Single ingredient word vs multi-word inventory
 		if (ingredientWords.length === 1 && inventoryWords.length > 1) {
 			if (
-				isNonEquivalentCompoundMatch(
-					normalizedIngredient,
-					normalizedInventory,
-				)
+				isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory)
 			)
 				continue
 			const word = ingredientWords[0]
@@ -716,10 +712,7 @@ export function ingredientMatchesAnyInventoryItem(
 		// Multi-word ingredient vs single inventory word
 		if (inventoryWords.length === 1 && ingredientWords.length > 1) {
 			if (
-				isNonEquivalentCompoundMatch(
-					normalizedIngredient,
-					normalizedInventory,
-				)
+				isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory)
 			)
 				continue
 			const word = inventoryWords[0]

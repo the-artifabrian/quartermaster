@@ -84,8 +84,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					proYearly: process.env.STRIPE_PRO_YEARLY_PRICE_ID!,
 					householdMonthly:
 						process.env.STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID ?? null,
-					householdYearly:
-						process.env.STRIPE_HOUSEHOLD_YEARLY_PRICE_ID ?? null,
+					householdYearly: process.env.STRIPE_HOUSEHOLD_YEARLY_PRICE_ID ?? null,
 				}
 			: null,
 	}
@@ -193,13 +192,16 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 		<div className="container max-w-5xl px-4 py-8 md:py-12">
 			{!tierInfo.isProActive && tierInfo.wasProPreviously ? (
 				<div className="bg-card border-border mx-auto mb-8 max-w-2xl rounded-2xl border p-6 text-center">
-					<Icon name="lock-open-1" size="lg" className="text-primary mx-auto mb-3" />
-					<h2 className="text-lg font-semibold">
-						Your Pro access has ended
-					</h2>
+					<Icon
+						name="lock-open-1"
+						size="lg"
+						className="text-primary mx-auto mb-3"
+					/>
+					<h2 className="text-lg font-semibold">Your Pro access has ended</h2>
 					<p className="text-muted-foreground mt-2 text-sm">
 						Your data is safe &mdash; recipes, inventory, meal plans, and
-						shopping lists are all preserved. Subscribe or redeem a new
+						shopping lists are all preserved. Subscribe or redeem a new invite
+						code to pick up where you left off.
 					</p>
 				</div>
 			) : null}
@@ -211,8 +213,6 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 				<p className="text-muted-foreground mt-2 text-lg">
 					Unlock inventory tracking, meal planning, and smart shopping lists.
 				</p>
-				{tierInfo.isProActive &&
-				tierInfo.trialEndsAt ? (
 					<p className="text-primary mt-2 text-sm font-medium">
 						You have Pro access until{' '}
 						{new Date(tierInfo.trialEndsAt).toLocaleDateString('en-US', {
@@ -266,9 +266,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 				{tierDefinitions.map((tier) => {
 					const isCurrent = currentTierKey === tier.key
 					const price =
-						billingPeriod === 'monthly'
-							? tier.monthlyPrice
-							: tier.yearlyPrice
+						billingPeriod === 'monthly' ? tier.monthlyPrice : tier.yearlyPrice
 					const priceLabel =
 						tier.key === 'free'
 							? '$0'
@@ -279,9 +277,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					let priceId: string | null = null
 					if (prices && tier.key === 'pro') {
 						priceId =
-							billingPeriod === 'monthly'
-								? prices.proMonthly
-								: prices.proYearly
+							billingPeriod === 'monthly' ? prices.proMonthly : prices.proYearly
 					} else if (prices && tier.key === 'household') {
 						priceId =
 							billingPeriod === 'monthly'
@@ -294,8 +290,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 							key={tier.key}
 							className={cn(
 								'bg-card rounded-2xl border p-6',
-								tier.highlighted &&
-									'border-primary ring-primary/20 ring-2',
+								tier.highlighted && 'border-primary ring-primary/20 ring-2',
 							)}
 						>
 							<div className="mb-4">
@@ -307,10 +302,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 							</div>
 							<ul className="space-y-2">
 								{tier.features.map((feature) => (
-									<li
-										key={feature}
-										className="flex items-start gap-2 text-sm"
-									>
+									<li key={feature} className="flex items-start gap-2 text-sm">
 										<Icon
 											name="check"
 											size="sm"
@@ -327,9 +319,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 									isHighlighted={tier.highlighted ?? false}
 									priceId={priceId}
 									stripeConfigured={stripeConfigured}
-									hasStripeSubscription={
-										tierInfo.hasStripeSubscription
-									}
+									hasStripeSubscription={tierInfo.hasStripeSubscription}
 								/>
 							</div>
 						</div>
@@ -462,7 +452,7 @@ function InviteCodeSection() {
 					<input
 						{...getInputProps(fields.code, { type: 'text' })}
 						placeholder="QM-A7K2X9"
-						className="border-input bg-background placeholder:text-muted-foreground flex-1 rounded-lg border px-3 py-2 text-center font-mono text-sm uppercase tracking-widest"
+						className="border-input bg-background placeholder:text-muted-foreground flex-1 rounded-lg border px-3 py-2 text-center font-mono text-sm tracking-widest uppercase"
 						autoComplete="off"
 					/>
 					<StatusButton

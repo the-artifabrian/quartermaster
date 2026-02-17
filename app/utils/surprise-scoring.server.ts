@@ -60,9 +60,7 @@ export function scoreRecipe(
  * Weighted random selection from scored recipes.
  * Higher-scored recipes are more likely to be selected.
  */
-export function weightedRandomSelect(
-	items: ScoredRecipe[],
-): string | null {
+export function weightedRandomSelect(items: ScoredRecipe[]): string | null {
 	if (items.length === 0) return null
 
 	const totalWeight = items.reduce((sum, item) => sum + item.score, 0)

@@ -18,12 +18,20 @@ export async function action({ request }: Route.ActionArgs) {
 	if (intent === 'addMissing') {
 		const recipeIdsParam = formData.get('recipeIds')
 		if (typeof recipeIdsParam !== 'string' || !recipeIdsParam) {
-			return { status: 'error' as const, intent: 'addMissing' as const, addedCount: 0 }
+			return {
+				status: 'error' as const,
+				intent: 'addMissing' as const,
+				addedCount: 0,
+			}
 		}
 
 		const recipeIds = recipeIdsParam.split(',').filter(Boolean)
 		if (recipeIds.length === 0) {
-			return { status: 'error' as const, intent: 'addMissing' as const, addedCount: 0 }
+			return {
+				status: 'error' as const,
+				intent: 'addMissing' as const,
+				addedCount: 0,
+			}
 		}
 
 		// Fetch the requested recipes with ingredients
@@ -52,7 +60,11 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 
 		if (missingByCanonical.size === 0) {
-			return { status: 'success' as const, intent: 'addMissing' as const, addedCount: 0 }
+			return {
+				status: 'success' as const,
+				intent: 'addMissing' as const,
+				addedCount: 0,
+			}
 		}
 
 		// Get or create shopping list
@@ -93,13 +105,21 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 		}
 
-		return { status: 'success' as const, intent: 'addMissing' as const, addedCount: itemsToAdd.length }
+		return {
+			status: 'success' as const,
+			intent: 'addMissing' as const,
+			addedCount: itemsToAdd.length,
+		}
 	}
 
 	if (intent === 'addToInventory') {
 		const ingredientName = formData.get('ingredientName')
 		if (typeof ingredientName !== 'string' || !ingredientName.trim()) {
-			return { status: 'error' as const, intent: 'addToInventory' as const, addedCount: 0 }
+			return {
+				status: 'error' as const,
+				intent: 'addToInventory' as const,
+				addedCount: 0,
+			}
 		}
 
 		const existingItems = await prisma.inventoryItem.findMany({
@@ -113,7 +133,11 @@ export async function action({ request }: Route.ActionArgs) {
 		)
 
 		if (alreadyExists) {
-			return { status: 'already_exists' as const, intent: 'addToInventory' as const, addedCount: 0 }
+			return {
+				status: 'already_exists' as const,
+				intent: 'addToInventory' as const,
+				addedCount: 0,
+			}
 		}
 
 		const trimmedName = ingredientName.trim()
@@ -138,7 +162,11 @@ export async function action({ request }: Route.ActionArgs) {
 			householdId,
 		})
 
-		return { status: 'success' as const, intent: 'addToInventory' as const, addedCount: 1 }
+		return {
+			status: 'success' as const,
+			intent: 'addToInventory' as const,
+			addedCount: 1,
+		}
 	}
 
 	return { status: 'error' as const, addedCount: 0 }

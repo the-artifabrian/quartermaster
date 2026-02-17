@@ -392,7 +392,11 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const parsed = parseRecipeText(rawText)
 
-		if (!parsed.title && !parsed.ingredients.length && !parsed.instructions.length) {
+		if (
+			!parsed.title &&
+			!parsed.ingredients.length &&
+			!parsed.instructions.length
+		) {
 			return data(
 				{
 					intent: 'parse-text' as const,
@@ -462,12 +466,21 @@ export async function action({ request }: Route.ActionArgs) {
 	if (intent === 'save') {
 		const title = formData.get('title') as string
 		const description = (formData.get('description') as string) || null
-		const servings = Math.min(999, Math.max(1, parseInt(formData.get('servings') as string, 10) || 4))
+		const servings = Math.min(
+			999,
+			Math.max(1, parseInt(formData.get('servings') as string, 10) || 4),
+		)
 		const prepTime = formData.get('prepTime')
-			? Math.min(1440, Math.max(0, parseInt(formData.get('prepTime') as string, 10) || 0))
+			? Math.min(
+					1440,
+					Math.max(0, parseInt(formData.get('prepTime') as string, 10) || 0),
+				)
 			: null
 		const cookTime = formData.get('cookTime')
-			? Math.min(1440, Math.max(0, parseInt(formData.get('cookTime') as string, 10) || 0))
+			? Math.min(
+					1440,
+					Math.max(0, parseInt(formData.get('cookTime') as string, 10) || 0),
+				)
 			: null
 		const sourceUrl = (formData.get('sourceUrl') as string) || null
 
@@ -638,9 +651,7 @@ export default function ImportRecipe() {
 								status={submittingIntent === 'fetch' ? 'pending' : 'idle'}
 								disabled={isSubmitting}
 							>
-								{submittingIntent === 'fetch'
-									? 'Fetching...'
-									: 'Fetch Recipe'}
+								{submittingIntent === 'fetch' ? 'Fetching...' : 'Fetch Recipe'}
 							</StatusButton>
 						</div>
 					</Form>
@@ -651,18 +662,13 @@ export default function ImportRecipe() {
 							<div className="space-y-1">
 								<h2 className="font-medium">Paste recipe text instead</h2>
 								<p className="text-muted-foreground text-sm">
-									Copy the recipe text from the page and paste it below.
-									We'll do our best to parse the title, ingredients, and
-									instructions.
+									Copy the recipe text from the page and paste it below. We'll
+									do our best to parse the title, ingredients, and instructions.
 								</p>
 							</div>
 							<Form method="POST" className="space-y-4">
 								<input type="hidden" name="intent" value="parse-text" />
-								<input
-									type="hidden"
-									name="sourceUrl"
-									value={urlValue}
-								/>
+								<input type="hidden" name="sourceUrl" value={urlValue} />
 								<Textarea
 									name="rawText"
 									placeholder={
@@ -675,9 +681,7 @@ export default function ImportRecipe() {
 									<StatusButton
 										type="submit"
 										status={
-											submittingIntent === 'parse-text'
-												? 'pending'
-												: 'idle'
+											submittingIntent === 'parse-text' ? 'pending' : 'idle'
 										}
 										disabled={isSubmitting}
 									>

@@ -60,11 +60,7 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 				placeholder="Qty"
 				className="w-20 min-w-0 shrink"
 			/>
-			<Input
-				name="unit"
-				placeholder="Unit"
-				className="w-24 min-w-0 shrink"
-			/>
+			<Input name="unit" placeholder="Unit" className="w-24 min-w-0 shrink" />
 			<StatusButton
 				type="submit"
 				size="sm"

@@ -91,7 +91,7 @@ export function NotificationBell() {
 				>
 					<Icon name="bell" className="size-5" />
 					{unreadCount > 0 ? (
-						<span className="bg-accent text-accent-foreground absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none">
+						<span className="bg-accent text-accent-foreground absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none font-bold">
 							{unreadCount > 99 ? '99+' : unreadCount}
 						</span>
 					) : null}
@@ -101,7 +101,7 @@ export function NotificationBell() {
 				<DropdownMenuContent
 					sideOffset={8}
 					align="end"
-					className="w-80 max-w-[calc(100vw-1rem)] max-h-96 overflow-y-auto rounded-xl shadow-warm-lg p-0"
+					className="shadow-warm-lg max-h-96 w-80 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl p-0"
 				>
 					<div className="border-b px-3 py-2">
 						<h3 className="text-sm font-semibold">Notifications</h3>
@@ -117,26 +117,22 @@ export function NotificationBell() {
 					) : (
 						<ul className="flex flex-col">
 							{notifications.map((notification) => {
-								const payload = JSON.parse(
-									notification.payload,
-								) as Record<string, unknown>
+								const payload = JSON.parse(notification.payload) as Record<
+									string,
+									unknown
+								>
 								const username =
-									notification.user.name ??
-									notification.user.username
+									notification.user.name ?? notification.user.username
 								const { message, url } = formatEventMessage(
 									notification.type,
 									payload,
 									username,
 								)
-								const createdAt = new Date(
-									notification.createdAt,
-								)
+								const createdAt = new Date(notification.createdAt)
 								const isUnread =
-									getEventPriority(notification.type) ===
-										'notify' &&
+									getEventPriority(notification.type) === 'notify' &&
 									lastSeenAt &&
-									new Date(notification.createdAt) >
-										new Date(lastSeenAt)
+									new Date(notification.createdAt) > new Date(lastSeenAt)
 								const timeAgo = getRelativeTime(createdAt)
 
 								const content = (

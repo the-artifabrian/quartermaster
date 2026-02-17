@@ -11,8 +11,14 @@ import {
 const PRESETS = [1, 5, 10, 15, 30] as const
 
 export function TimerWidget() {
-	const { timers, addTimer, pauseTimer, resumeTimer, removeTimer, dismissAlarm } =
-		useTimers()
+	const {
+		timers,
+		addTimer,
+		pauseTimer,
+		resumeTimer,
+		removeTimer,
+		dismissAlarm,
+	} = useTimers()
 	const [isExpanded, setIsExpanded] = useState(false)
 
 	const activeTimers = timers.filter((t) => t.status !== 'idle')
@@ -23,16 +29,17 @@ export function TimerWidget() {
 
 	// Find the timer with shortest remaining time for collapsed display
 	const runningTimers = activeTimers.filter((t) => t.status === 'running')
-	const shortestRunning = runningTimers.length > 0
-		? runningTimers.reduce((shortest, t) => {
-				const remaining = getTimerRemainingSeconds(t)
-				const shortestRemaining = getTimerRemainingSeconds(shortest)
-				return remaining < shortestRemaining ? t : shortest
-			})
-		: null
+	const shortestRunning =
+		runningTimers.length > 0
+			? runningTimers.reduce((shortest, t) => {
+					const remaining = getTimerRemainingSeconds(t)
+					const shortestRemaining = getTimerRemainingSeconds(shortest)
+					return remaining < shortestRemaining ? t : shortest
+				})
+			: null
 	const displayTimer = hasAlarming
 		? timers.find((t) => t.status === 'alarming')!
-		: shortestRunning ?? activeTimers[0]
+		: (shortestRunning ?? activeTimers[0])
 
 	if (!isExpanded) {
 		return (
@@ -67,7 +74,7 @@ export function TimerWidget() {
 
 	return (
 		<div className="fixed right-4 bottom-20 z-50 md:right-6 md:bottom-6 print:hidden">
-			<div className="bg-card w-80 rounded-2xl border p-4 shadow-warm-lg">
+			<div className="bg-card shadow-warm-lg w-80 rounded-2xl border p-4">
 				{/* Header */}
 				<div className="mb-3 flex items-center justify-between">
 					<span className="text-sm font-semibold">Timers</span>
@@ -100,7 +107,7 @@ export function TimerWidget() {
 									)}
 								>
 									<div className="min-w-0 flex-1">
-										<p className="truncate text-xs text-muted-foreground">
+										<p className="text-muted-foreground truncate text-xs">
 											{timer.label}
 										</p>
 										<p

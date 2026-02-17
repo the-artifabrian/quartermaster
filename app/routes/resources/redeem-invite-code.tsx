@@ -12,10 +12,7 @@ export async function action({ request }: Route.ActionArgs) {
 	const submission = parseWithZod(formData, { schema: RedeemCodeSchema })
 
 	if (submission.status !== 'success') {
-		return data(
-			{ result: submission.reply(), error: null },
-			{ status: 400 },
-		)
+		return data({ result: submission.reply(), error: null }, { status: 400 })
 	}
 
 	const result = await redeemInviteCode(submission.value.code, userId)

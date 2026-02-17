@@ -35,8 +35,8 @@ export const prisma = remember('prisma', () => {
 	// Set busy_timeout so SQLite waits for locks instead of failing with
 	// SQLITE_BUSY immediately. This prevents write contention between the main
 	// request and fire-and-forget background writes (household events, usage tracking).
-	void client.$connect().then(() =>
-		client.$queryRawUnsafe('PRAGMA busy_timeout = 5000'),
-	)
+	void client
+		.$connect()
+		.then(() => client.$queryRawUnsafe('PRAGMA busy_timeout = 5000'))
 	return client
 })

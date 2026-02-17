@@ -49,7 +49,10 @@ export async function action({ request }: Route.ActionArgs) {
 
 	void emitHouseholdEvent({
 		type: 'inventory_item_added',
-		payload: { name: submission.value.name, location: submission.value.location },
+		payload: {
+			name: submission.value.name,
+			location: submission.value.location,
+		},
 		userId,
 		householdId,
 	})

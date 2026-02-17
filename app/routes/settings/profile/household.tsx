@@ -33,8 +33,7 @@ const RenameSchema = z.object({
 })
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { userId, householdId, role } =
-		await requireUserWithHousehold(request)
+	const { userId, householdId, role } = await requireUserWithHousehold(request)
 
 	const household = await prisma.household.findUniqueOrThrow({
 		where: { id: householdId },
@@ -88,8 +87,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId, role } =
-		await requireUserWithHousehold(request)
+	const { userId, householdId, role } = await requireUserWithHousehold(request)
 	const formData = await request.formData()
 	const intent = formData.get('intent')
 
@@ -387,8 +385,7 @@ function InviteRow({
 			<div className="min-w-0 flex-1">
 				<code className="text-xs">{invite.token.slice(0, 8)}...</code>
 				<p className="text-muted-foreground text-xs">
-					Expires{' '}
-					{new Date(invite.expiresAt).toLocaleDateString()}
+					Expires {new Date(invite.expiresAt).toLocaleDateString()}
 				</p>
 			</div>
 			<div className="flex shrink-0 gap-2">
@@ -467,16 +464,9 @@ function ActivityFeed({
 			<h3 className="text-h6 mb-4">Recent Activity</h3>
 			<ul className="flex flex-col gap-2">
 				{events.map((event) => {
-					const payload = JSON.parse(event.payload) as Record<
-						string,
-						unknown
-					>
+					const payload = JSON.parse(event.payload) as Record<string, unknown>
 					const username = event.user.name ?? event.user.username
-					const { message } = formatEventMessage(
-						event.type,
-						payload,
-						username,
-					)
+					const { message } = formatEventMessage(event.type, payload, username)
 					const createdAt = new Date(event.createdAt)
 					const timeAgo = getRelativeTime(createdAt)
 
@@ -494,4 +484,3 @@ function ActivityFeed({
 		</div>
 	)
 }
-

@@ -34,18 +34,14 @@ export function ProExpiryNudge() {
 			const key = `pro-expiry-7d:${expiresAtIso}`
 			if (!localStorage.getItem(key)) {
 				localStorage.setItem(key, '1')
-				toast.info(
-					`Pro access expires in ${tierInfo.daysUntilExpiry} days`,
-					{
-						description:
-							'Subscribe or redeem a new invite code to continue.',
-						duration: 8000,
-						action: {
-							label: 'Upgrade',
-							onClick: () => navigate('/upgrade'),
-						},
+				toast.info(`Pro access expires in ${tierInfo.daysUntilExpiry} days`, {
+					description: 'Subscribe or redeem a new invite code to continue.',
+					duration: 8000,
+					action: {
+						label: 'Upgrade',
+						onClick: () => navigate('/upgrade'),
 					},
-				)
+				})
 			}
 		}
 	}, [tierInfo, navigate])

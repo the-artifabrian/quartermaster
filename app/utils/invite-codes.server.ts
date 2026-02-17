@@ -63,10 +63,7 @@ export async function redeemInviteCode(
 	// Check user's current subscription state
 	const tierInfo = await getUserTier(userId)
 
-	if (
-		tierInfo.tier === 'pro' ||
-		tierInfo.tier === 'household'
-	) {
+	if (tierInfo.tier === 'pro' || tierInfo.tier === 'household') {
 		// Paid Pro (not trial) — reject
 		if (!tierInfo.isTrialing) {
 			return {

@@ -16,7 +16,7 @@
 	--popover-foreground: oklch(20% 0.015 55);
 
 	/* Warm olive sage primary */
-	--primary: oklch(45% 0.10 145);
+	--primary: oklch(45% 0.1 145);
 	--primary-foreground: oklch(98% 0.005 75);
 
 	/* Warm beige secondary */
@@ -39,11 +39,14 @@
 	/* prefixed with foreground because it should look good on the background */
 	--foreground-destructive: oklch(51.46% 0.1979 16.57);
 
-	--ring: oklch(45% 0.10 145);
+	--ring: oklch(45% 0.1 145);
 
-	--shadow-warm: 0 1px 3px oklch(20% 0.01 55 / 0.08), 0 1px 2px oklch(20% 0.01 55 / 0.06);
-	--shadow-warm-md: 0 4px 6px oklch(20% 0.01 55 / 0.07), 0 2px 4px oklch(20% 0.01 55 / 0.06);
-	--shadow-warm-lg: 0 10px 15px oklch(20% 0.01 55 / 0.07), 0 4px 6px oklch(20% 0.01 55 / 0.05);
+	--shadow-warm:
+		0 1px 3px oklch(20% 0.01 55 / 0.08), 0 1px 2px oklch(20% 0.01 55 / 0.06);
+	--shadow-warm-md:
+		0 4px 6px oklch(20% 0.01 55 / 0.07), 0 2px 4px oklch(20% 0.01 55 / 0.06);
+	--shadow-warm-lg:
+		0 10px 15px oklch(20% 0.01 55 / 0.07), 0 4px 6px oklch(20% 0.01 55 / 0.05);
 }
 
 .dark {
@@ -57,7 +60,7 @@
 	--popover-foreground: oklch(93% 0.008 75);
 
 	/* Lighter olive for dark mode contrast */
-	--primary: oklch(62% 0.10 145);
+	--primary: oklch(62% 0.1 145);
 	--primary-foreground: oklch(18% 0.01 55);
 
 	--secondary: oklch(28% 0.02 55);
@@ -79,7 +82,7 @@
 	/* prefixed with foreground because it should look good on the background */
 	--foreground-destructive: oklch(63.72% 0.2071 21.89);
 
-	--ring: oklch(62% 0.10 145);
+	--ring: oklch(62% 0.1 145);
 }
 
 @theme inline {
@@ -108,9 +111,12 @@
 	--color-input-invalid: var(--input-invalid);
 	--color-destructive-foreground: var(--destructive-foreground);
 	--color-foreground-destructive: var(--foreground-destructive);
-	--shadow-warm: 0 1px 3px oklch(20% 0.01 55 / 0.08), 0 1px 2px oklch(20% 0.01 55 / 0.06);
-	--shadow-warm-md: 0 4px 6px oklch(20% 0.01 55 / 0.07), 0 2px 4px oklch(20% 0.01 55 / 0.06);
-	--shadow-warm-lg: 0 10px 15px oklch(20% 0.01 55 / 0.07), 0 4px 6px oklch(20% 0.01 55 / 0.05);
+	--shadow-warm:
+		0 1px 3px oklch(20% 0.01 55 / 0.08), 0 1px 2px oklch(20% 0.01 55 / 0.06);
+	--shadow-warm-md:
+		0 4px 6px oklch(20% 0.01 55 / 0.07), 0 2px 4px oklch(20% 0.01 55 / 0.06);
+	--shadow-warm-lg:
+		0 10px 15px oklch(20% 0.01 55 / 0.07), 0 4px 6px oklch(20% 0.01 55 / 0.05);
 	--font-sans: 'DM Sans', system-ui, sans-serif;
 }
 
@@ -263,22 +269,36 @@ html {
 		-webkit-tap-highlight-color: transparent;
 	}
 
-	a, button, [role="button"], [role="checkbox"],
-	input, select, textarea, summary {
+	a,
+	button,
+	[role='button'],
+	[role='checkbox'],
+	input,
+	select,
+	textarea,
+	summary {
 		touch-action: manipulation;
 	}
 
-	[role="dialog"], [data-radix-popper-content-wrapper] {
+	[role='dialog'],
+	[data-radix-popper-content-wrapper] {
 		overscroll-behavior: contain;
 	}
 
-	h1, h2, h3, h4, h5, h6 {
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
 		text-wrap: balance;
 	}
 }
 
 @media (prefers-reduced-motion: reduce) {
-	*, ::before, ::after {
+	*,
+	::before,
+	::after {
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;

@@ -17,29 +17,30 @@ generation.
 The app is feature-complete for solo and shared daily use. See
 [FEATURES.md](./FEATURES.md) for the full catalog.
 
-| Phase | Summary |
-| ----- | ------- |
-| 1-4 | Recipe CRUD, inventory tracking, meal planning calendar, shopping list generation |
-| 5 | Recipe discovery ("What can I make?"), fuzzy matching, favorites, URL import |
-| 6 | Pantry staples onboarding, removed sample data seeding |
-| 7 | Cooking logs, servings overrides, ingredient auto-suggest, shopping list consolidation |
-| 8 | Post-cooking inventory subtraction, unit conversion, print-friendly shopping list |
-| 9-10 | Recipe scaling, inline timers, temperature conversion tooltips, cooking mode |
-| 11 | Personal recipe notes, ingredient headings, drag-and-drop reordering |
-| 12 | Bulk import (paste/file), import quality flags, "Surprise me" picker |
-| 13a-e | Household sharing: data scoping, invite/join/leave, SSE real-time events, notification bell |
-| UI redesign | Custom color system, mobile-first layout, warm empty states, accessibility pass |
-| Daily Use Polish | Recipe print/share, quick cook from meal plan, meal templates, "Up next" banner |
-| Smarter UX | Shelf-life auto-suggest, low-stock nudge chips, weeknight-aware sorting, pairing/waste/efficiency |
+| Phase              | Summary                                                                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1-4                | Recipe CRUD, inventory tracking, meal planning calendar, shopping list generation                                                            |
+| 5                  | Recipe discovery ("What can I make?"), fuzzy matching, favorites, URL import                                                                 |
+| 6                  | Pantry staples onboarding, removed sample data seeding                                                                                       |
+| 7                  | Cooking logs, servings overrides, ingredient auto-suggest, shopping list consolidation                                                       |
+| 8                  | Post-cooking inventory subtraction, unit conversion, print-friendly shopping list                                                            |
+| 9-10               | Recipe scaling, inline timers, temperature conversion tooltips, cooking mode                                                                 |
+| 11                 | Personal recipe notes, ingredient headings, drag-and-drop reordering                                                                         |
+| 12                 | Bulk import (paste/file), import quality flags, "Surprise me" picker                                                                         |
+| 13a-e              | Household sharing: data scoping, invite/join/leave, SSE real-time events, notification bell                                                  |
+| UI redesign        | Custom color system, mobile-first layout, warm empty states, accessibility pass                                                              |
+| Daily Use Polish   | Recipe print/share, quick cook from meal plan, meal templates, "Up next" banner                                                              |
+| Smarter UX         | Shelf-life auto-suggest, low-stock nudge chips, weeknight-aware sorting, pairing/waste/efficiency                                            |
 
 ---
 
 ## Architecture Notes
 
 - **SSE + polling hybrid**: In-memory EventEmitter delivers instant SSE events
-  on the same Fly machine. A 30s database poll (`/resources/household-events-poll`)
-  catches cross-machine events via LiteFS-replicated `HouseholdEvent` rows.
-  Client-side dedup (bounded ID set, 500 entries) prevents duplicate delivery.
+  on the same Fly machine. A 30s database poll
+  (`/resources/household-events-poll`) catches cross-machine events via
+  LiteFS-replicated `HouseholdEvent` rows. Client-side dedup (bounded ID set,
+  500 entries) prevents duplicate delivery.
 - **Subscription model**: `Subscription` with `tier`, Stripe fields
   (`stripeCustomerId`, `stripeSubscriptionId`, both `@unique`),
   `subscriptionExpiresAt`, `trialEndsAt`. Pro access if either Stripe
@@ -130,10 +131,10 @@ stays in control (generated content is always an editable draft); cost-aware
       30 days). Inventory-aware — highlights substitutes you already have.
       Recipe-context-aware — LLM receives recipe title and ingredient list for
       dish-appropriate suggestions. Integrated into recipe detail ingredient
-      list, recipe cards, "Almost There" banner, and "What Do I Need?" modal.
-      On recipe detail, "Use this" temporarily swaps the ingredient in both
-      ingredient list and instruction text (client-side, revertible).
-      Pro-tier feature.
+      list, recipe cards, "Almost There" banner, and "What Do I Need?" modal. On
+      recipe detail, "Use this" temporarily swaps the ingredient in both
+      ingredient list and instruction text (client-side, revertible). Pro-tier
+      feature.
 - [ ] **Recipe generation from inventory** -- "Create something from what I
       have" CTA when discover has no strong matches or items are expiring.
       Single LLM call → structured recipe → standard recipe form for review.
@@ -174,8 +175,8 @@ state in settings subscription card).
 
 ## Technical Debt
 
-- **SSE single-instance limitation** -- Resolved via 30s polling fallback.
-  SSE still only reaches same-machine clients, but polling catches the rest.
+- **SSE single-instance limitation** -- Resolved via 30s polling fallback. SSE
+  still only reaches same-machine clients, but polling catches the rest.
 - **Fire-and-forget event emission** -- `emitHouseholdEvent()` wraps DB writes
   in try/catch and runs async without awaiting. Risk of SQLite concurrency
   issues under load. Tests already need `vi.mock()` for this. Consider queueing

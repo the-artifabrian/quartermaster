@@ -5,111 +5,118 @@ import { type Route } from './+types/export-all-data.ts'
 export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
 
-	const [user, recipes, inventory, mealPlans, shoppingLists, cookingLogs, mealPlanTemplates] =
-		await Promise.all([
-			prisma.user.findUniqueOrThrow({
-				where: { id: userId },
-				select: { username: true, email: true, name: true },
-			}),
-			prisma.recipe.findMany({
-				where: { householdId },
-				select: {
-					title: true,
-					description: true,
-					servings: true,
-					prepTime: true,
-					cookTime: true,
-					isFavorite: true,
-					sourceUrl: true,
-					notes: true,
-					ingredients: {
-						select: { name: true, amount: true, unit: true, notes: true },
-						orderBy: { order: 'asc' },
-					},
-					instructions: {
-						select: { content: true },
-						orderBy: { order: 'asc' },
-					},
-					tags: {
-						select: { name: true, category: true },
-					},
-					image: { select: { objectKey: true, altText: true } },
+	const [
+		user,
+		recipes,
+		inventory,
+		mealPlans,
+		shoppingLists,
+		cookingLogs,
+		mealPlanTemplates,
+	] = await Promise.all([
+		prisma.user.findUniqueOrThrow({
+			where: { id: userId },
+			select: { username: true, email: true, name: true },
+		}),
+		prisma.recipe.findMany({
+			where: { householdId },
+			select: {
+				title: true,
+				description: true,
+				servings: true,
+				prepTime: true,
+				cookTime: true,
+				isFavorite: true,
+				sourceUrl: true,
+				notes: true,
+				ingredients: {
+					select: { name: true, amount: true, unit: true, notes: true },
+					orderBy: { order: 'asc' },
 				},
-				orderBy: { title: 'asc' },
-			}),
-			prisma.inventoryItem.findMany({
-				where: { householdId },
-				select: {
-					name: true,
-					location: true,
-					quantity: true,
-					unit: true,
-					expiresAt: true,
-					lowStock: true,
+				instructions: {
+					select: { content: true },
+					orderBy: { order: 'asc' },
 				},
-				orderBy: [{ location: 'asc' }, { name: 'asc' }],
-			}),
-			prisma.mealPlan.findMany({
-				where: { householdId },
-				select: {
-					weekStart: true,
-					entries: {
-						select: {
-							date: true,
-							mealType: true,
-							servings: true,
-							cooked: true,
-							recipe: { select: { title: true } },
-						},
-						orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
+				tags: {
+					select: { name: true, category: true },
+				},
+				image: { select: { objectKey: true, altText: true } },
+			},
+			orderBy: { title: 'asc' },
+		}),
+		prisma.inventoryItem.findMany({
+			where: { householdId },
+			select: {
+				name: true,
+				location: true,
+				quantity: true,
+				unit: true,
+				expiresAt: true,
+				lowStock: true,
+			},
+			orderBy: [{ location: 'asc' }, { name: 'asc' }],
+		}),
+		prisma.mealPlan.findMany({
+			where: { householdId },
+			select: {
+				weekStart: true,
+				entries: {
+					select: {
+						date: true,
+						mealType: true,
+						servings: true,
+						cooked: true,
+						recipe: { select: { title: true } },
 					},
+					orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
 				},
-				orderBy: { weekStart: 'desc' },
-			}),
-			prisma.shoppingList.findMany({
-				where: { householdId },
-				select: {
-					name: true,
-					items: {
-						select: {
-							name: true,
-							quantity: true,
-							unit: true,
-							category: true,
-							checked: true,
-							source: true,
-						},
-						orderBy: { name: 'asc' },
+			},
+			orderBy: { weekStart: 'desc' },
+		}),
+		prisma.shoppingList.findMany({
+			where: { householdId },
+			select: {
+				name: true,
+				items: {
+					select: {
+						name: true,
+						quantity: true,
+						unit: true,
+						category: true,
+						checked: true,
+						source: true,
 					},
+					orderBy: { name: 'asc' },
 				},
-				orderBy: { updatedAt: 'desc' },
-			}),
-			prisma.cookingLog.findMany({
-				where: { userId },
-				select: {
-					cookedAt: true,
-					notes: true,
-					recipe: { select: { title: true } },
-				},
-				orderBy: { cookedAt: 'desc' },
-			}),
-			prisma.mealPlanTemplate.findMany({
-				where: { householdId },
-				select: {
-					name: true,
-					entries: {
-						select: {
-							dayOfWeek: true,
-							mealType: true,
-							servings: true,
-							recipe: { select: { title: true } },
-						},
-						orderBy: [{ dayOfWeek: 'asc' }, { mealType: 'asc' }],
+			},
+			orderBy: { updatedAt: 'desc' },
+		}),
+		prisma.cookingLog.findMany({
+			where: { userId },
+			select: {
+				cookedAt: true,
+				notes: true,
+				recipe: { select: { title: true } },
+			},
+			orderBy: { cookedAt: 'desc' },
+		}),
+		prisma.mealPlanTemplate.findMany({
+			where: { householdId },
+			select: {
+				name: true,
+				entries: {
+					select: {
+						dayOfWeek: true,
+						mealType: true,
+						servings: true,
+						recipe: { select: { title: true } },
 					},
+					orderBy: [{ dayOfWeek: 'asc' }, { mealType: 'asc' }],
 				},
-				orderBy: { name: 'asc' },
-			}),
-		])
+			},
+			orderBy: { name: 'asc' },
+		}),
+	])
 
 	const exportData = {
 		exportedAt: new Date().toISOString(),

@@ -201,8 +201,11 @@ export default function UsersAdminRoute({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="container p-4">
 			<div className="text-muted-foreground flex gap-3 text-sm">
-				<span className="font-medium text-foreground">Users</span>
-				<Link to="/admin/subscriptions" className="underline-offset-4 hover:underline">
+				<span className="text-foreground font-medium">Users</span>
+				<Link
+					to="/admin/subscriptions"
+					className="underline-offset-4 hover:underline"
+				>
 					Subscriptions
 				</Link>
 				<Link to="/admin/cache" className="underline-offset-4 hover:underline">
@@ -222,7 +225,7 @@ export default function UsersAdminRoute({ loaderData }: Route.ComponentProps) {
 							{columns.map((col) => (
 								<th
 									key={col.key}
-									className={`cursor-pointer select-none whitespace-nowrap px-3 py-2 text-left font-medium hover:bg-muted ${col.numeric ? 'text-right' : ''}`}
+									className={`hover:bg-muted cursor-pointer px-3 py-2 text-left font-medium whitespace-nowrap select-none ${col.numeric ? 'text-right' : ''}`}
 									onClick={() => handleSort(col.key)}
 								>
 									{col.label}
@@ -237,7 +240,10 @@ export default function UsersAdminRoute({ loaderData }: Route.ComponentProps) {
 					</thead>
 					<tbody>
 						{sorted.map((user) => (
-							<tr key={user.id} className="hover:bg-muted/30 border-b last:border-b-0">
+							<tr
+								key={user.id}
+								className="hover:bg-muted/30 border-b last:border-b-0"
+							>
 								<td className="px-3 py-2">
 									<div className="font-medium">{user.username}</div>
 									<div className="text-muted-foreground text-xs">
@@ -256,32 +262,32 @@ export default function UsersAdminRoute({ loaderData }: Route.ComponentProps) {
 										<span className="text-muted-foreground">—</span>
 									)}
 								</td>
-								<td className="whitespace-nowrap px-3 py-2">
+								<td className="px-3 py-2 whitespace-nowrap">
 									<RelativeDate iso={user.joined} />
 								</td>
-								<td className="whitespace-nowrap px-3 py-2">
+								<td className="px-3 py-2 whitespace-nowrap">
 									<RelativeDate iso={user.lastActive} />
 								</td>
-								<td className="whitespace-nowrap px-3 py-2">
+								<td className="px-3 py-2 whitespace-nowrap">
 									<RelativeDate iso={user.lastCooked} />
 								</td>
 								<td
-									className={`tabular-nums px-3 py-2 text-right ${user.recipeCount === 0 ? 'text-muted-foreground' : ''}`}
+									className={`px-3 py-2 text-right tabular-nums ${user.recipeCount === 0 ? 'text-muted-foreground' : ''}`}
 								>
 									{user.recipeCount}
 								</td>
 								<td
-									className={`tabular-nums px-3 py-2 text-right ${user.inventoryCount === 0 ? 'text-muted-foreground' : ''}`}
+									className={`px-3 py-2 text-right tabular-nums ${user.inventoryCount === 0 ? 'text-muted-foreground' : ''}`}
 								>
 									{user.inventoryCount}
 								</td>
 								<td
-									className={`tabular-nums px-3 py-2 text-right ${user.cookLogCount === 0 ? 'text-muted-foreground' : ''}`}
+									className={`px-3 py-2 text-right tabular-nums ${user.cookLogCount === 0 ? 'text-muted-foreground' : ''}`}
 								>
 									{user.cookLogCount}
 								</td>
 								<td
-									className={`tabular-nums px-3 py-2 text-right ${user.codesRedeemed === 0 ? 'text-muted-foreground' : ''}`}
+									className={`px-3 py-2 text-right tabular-nums ${user.codesRedeemed === 0 ? 'text-muted-foreground' : ''}`}
 								>
 									{user.codesRedeemed}
 								</td>

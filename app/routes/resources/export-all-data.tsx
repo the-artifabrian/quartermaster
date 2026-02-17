@@ -37,10 +37,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					select: { content: true },
 					orderBy: { order: 'asc' },
 				},
-				tags: {
-					select: { name: true, category: true },
-				},
-				image: { select: { objectKey: true, altText: true } },
+					image: { select: { objectKey: true, altText: true } },
 			},
 			orderBy: { title: 'asc' },
 		}),
@@ -142,10 +139,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 				notes: ing.notes,
 			})),
 			instructions: recipe.instructions.map((inst) => inst.content),
-			tags: recipe.tags.map((tag) => ({
-				name: tag.name,
-				category: tag.category,
-			})),
 			image: recipe.image
 				? {
 						url: `/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`,

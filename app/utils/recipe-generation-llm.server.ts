@@ -18,7 +18,6 @@ export type GeneratedRecipe = {
 		notes: string | null
 	}>
 	instructions: Array<{ content: string }>
-	suggestedTags: string[]
 }
 
 export type GenerationPreferences = {
@@ -159,8 +158,7 @@ ${prefLines.length > 0 ? `Preferences:\n${prefLines.join('\n')}\n` : ''}Return a
   ],
   "instructions": [
     {"content": "Step description"}
-  ],
-  "suggestedTags": ["dinner", "italian"]
+  ]
 }
 
 Rules:
@@ -169,7 +167,6 @@ Rules:
 - Use specific amounts and units for each ingredient
 - Write clear, beginner-friendly instructions
 - prepTime and cookTime are in minutes (use null if unknown)
-- suggestedTags should be lowercase and match common categories: cuisine names (italian, mexican, asian, etc.), meal types (breakfast, lunch, dinner, snack), or dietary labels (vegetarian, vegan, gluten-free, etc.)
 - Create a complete, practical, everyday recipe — not overly fancy`
 }
 
@@ -209,7 +206,6 @@ export function parseRecipeResponse(text: string): GeneratedRecipe | null {
 					: null,
 			ingredients: [],
 			instructions: [],
-			suggestedTags: [],
 		}
 
 		// Parse ingredients
@@ -251,15 +247,6 @@ export function parseRecipeResponse(text: string): GeneratedRecipe | null {
 				) {
 					const content = ((item as { content: string }).content || '').trim()
 					if (content) recipe.instructions.push({ content })
-				}
-			}
-		}
-
-		// Parse suggested tags
-		if (Array.isArray(parsed.suggestedTags)) {
-			for (const tag of parsed.suggestedTags.slice(0, 10)) {
-				if (typeof tag === 'string' && tag.trim()) {
-					recipe.suggestedTags.push(tag.trim().toLowerCase())
 				}
 			}
 		}

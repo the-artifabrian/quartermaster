@@ -94,7 +94,7 @@ async function makeRequest(
 }
 
 describe('recipe detail loader', () => {
-	test('loads recipe with ingredients, instructions, tags, and logs', async () => {
+	test('loads recipe with ingredients, instructions, and logs', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 

@@ -34,11 +34,6 @@ const ImportIngredientSchema = z.object({
 	notes: z.string().max(500).nullable().optional(),
 })
 
-const ImportTagSchema = z.object({
-	name: z.string().min(1).max(50),
-	category: z.string().max(50).optional(),
-})
-
 const ImportRecipeSchema = z.object({
 	title: z.string().min(1).max(100),
 	description: z.string().max(500).nullable().optional(),
@@ -57,7 +52,7 @@ const ImportRecipeSchema = z.object({
 			]),
 		)
 		.max(200),
-	tags: z.array(ImportTagSchema).max(50).optional(),
+	tags: z.any().optional(),
 	image: z.any().optional(),
 })
 
@@ -204,12 +199,6 @@ async function importRecipes(
 ) {
 	const stats = { created: 0, skipped: 0, errored: 0 }
 
-	// Pre-fetch all tags for efficient lookup
-	const allTags = await prisma.tag.findMany({
-		select: { id: true, name: true },
-	})
-	const tagNameToId = new Map(allTags.map((t) => [t.name.toLowerCase(), t.id]))
-
 	for (const recipe of recipes) {
 		const lowerTitle = recipe.title.toLowerCase()
 		if (titleToIdMap.has(lowerTitle)) {
@@ -221,10 +210,6 @@ async function importRecipes(
 				content: typeof inst === 'string' ? inst : inst.content,
 				order,
 			}))
-
-			const tagIds = (recipe.tags || [])
-				.map((t) => tagNameToId.get(t.name.toLowerCase()))
-				.filter((id): id is string => id != null)
 
 			const created = await prisma.recipe.create({
 				data: {
@@ -248,9 +233,6 @@ async function importRecipes(
 						})),
 					},
 					instructions: { create: instructions },
-					tags: tagIds.length
-						? { connect: tagIds.map((id) => ({ id })) }
-						: undefined,
 				},
 				select: { id: true },
 			})

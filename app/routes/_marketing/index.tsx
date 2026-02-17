@@ -143,7 +143,7 @@ export default function Index() {
 							</h3>
 							<p className="text-muted-foreground mt-2">
 								Paste a URL, bulk-import dozens at once, or type it in by hand.
-								Your whole collection in one searchable place, tags and all.
+								Your whole collection in one searchable place.
 							</p>
 						</div>
 					</div>

@@ -26,7 +26,7 @@ the upgrade.
 
 A complete recipe manager — enough to build the habit:
 
-- Unlimited recipes (CRUD, search, tags, images, scaling)
+- Unlimited recipes (CRUD, search, images, scaling)
 - Import from URL, bulk import, JSON export
 - Interactive cooking view (timers, temperature tooltips, checkboxes)
 - Recipe sharing, cooking log, favorites, "Surprise me"

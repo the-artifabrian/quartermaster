@@ -95,7 +95,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 					isAiGenerated: true,
 					servings: true,
 					image: { select: { objectKey: true } },
-					tags: { select: { id: true, name: true, category: true } },
 					cookingLogs: {
 						select: { cookedAt: true },
 						orderBy: { cookedAt: 'desc' as const },
@@ -498,7 +497,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								imageObjectKey={recipe.image?.objectKey}
 								prepTime={recipe.prepTime}
 								cookTime={recipe.cookTime}
-								tags={recipe.tags}
 								isFavorite={recipe.isFavorite}
 								isAiGenerated={recipe.isAiGenerated}
 								lastCookedAt={

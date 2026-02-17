@@ -106,10 +106,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 				},
 				orderBy: { order: 'asc' },
 			},
-			tags: {
-				select: { id: true, name: true, category: true },
 			},
-		},
 	})
 
 	if (!recipe) {
@@ -143,7 +140,6 @@ export async function action({ params, request }: Route.ActionArgs) {
 		include: {
 			ingredients: true,
 			instructions: true,
-			tags: { select: { id: true } },
 			image: true,
 		},
 	})
@@ -189,9 +185,6 @@ export async function action({ params, request }: Route.ActionArgs) {
 					content: inst.content,
 					order: inst.order,
 				})),
-			},
-			tags: {
-				connect: recipe.tags.map((tag) => ({ id: tag.id })),
 			},
 			...(recipe.image
 				? {
@@ -241,7 +234,6 @@ function getRecipeJsonLd(
 			isHeading?: boolean
 		}>
 		instructions: Array<{ content: string }>
-		tags: Array<{ name: string; category: string }>
 	},
 	origin: string | undefined,
 ) {
@@ -265,16 +257,6 @@ function getRecipeJsonLd(
 			text: step.content,
 		})),
 	}
-
-	const mealTypes = recipe.tags
-		.filter((t) => t.category === 'meal-type')
-		.map((t) => t.name)
-	if (mealTypes.length > 0) jsonLd.recipeCategory = mealTypes
-
-	const cuisines = recipe.tags
-		.filter((t) => t.category === 'cuisine')
-		.map((t) => t.name)
-	if (cuisines.length > 0) jsonLd.recipeCuisine = cuisines
 
 	if (origin && recipe.image?.objectKey) {
 		jsonLd.image = `${origin}/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}&w=1200&h=630&fit=cover`
@@ -393,8 +375,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 			<div className="container max-w-4xl px-4 md:px-8">
 				{(recipe.prepTime ||
 					recipe.cookTime ||
-					recipe.sourceUrl ||
-					recipe.tags.length > 0) && (
+					recipe.sourceUrl) && (
 					<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-3 md:p-5">
 						<div className="flex flex-wrap items-center gap-3 text-sm">
 							{recipe.prepTime && (
@@ -450,20 +431,6 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 								</>
 							)}
 						</div>
-
-						{/* Tags inside meta card */}
-						{recipe.tags.length > 0 && (
-							<div className="mt-3 flex flex-wrap gap-1.5">
-								{recipe.tags.map((tag) => (
-									<span
-										key={tag.id}
-										className="bg-accent/10 border-accent/20 rounded-full border px-2.5 py-0.5 text-xs font-medium"
-									>
-										{tag.name}
-									</span>
-								))}
-							</div>
-						)}
 					</div>
 				)}
 

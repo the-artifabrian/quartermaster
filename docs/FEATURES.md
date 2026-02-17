@@ -11,7 +11,6 @@ Complete feature catalog. For the roadmap, see
 - Full CRUD with title, description, servings, prep/cook time, ingredients,
   instructions, personal notes
 - Image uploads (S3-compatible, max 3MB, JPEG/PNG/WebP)
-- 16 predefined tags across cuisine, meal-type, and dietary categories
 - Full-text search across title, ingredients, and description
 - Sort (5 options), cook-time filter, favorites filter, makeable-only toggle
 - Recipe scaling with +/- servings controls and fraction display
@@ -34,8 +33,7 @@ Complete feature catalog. For the roadmap, see
 - AI recipe generation from inventory (Pro): "Generate Recipe" button on recipes
   page. Pick optional meal type and quick-meal toggle, single LLM call (Claude
   Haiku) generates a full recipe from current inventory items (prioritizing
-  expiring items). Preview with ingredients, instructions, and suggested tags
-  before saving. Saved recipes marked `isAiGenerated` with violet "AI Generated"
+  expiring items). Preview with ingredients and instructions before saving. Saved recipes marked `isAiGenerated` with violet "AI Generated"
   badge on detail page, share page, and recipe cards
 - "I Made This" cook logging with inventory impact preview
 - Inline inventory status on recipe detail ingredient list: summary footer shows
@@ -46,8 +44,8 @@ Complete feature catalog. For the roadmap, see
 - Drag-and-drop ingredient reordering (`@dnd-kit/sortable`)
 - AI recipe enhance (Pro): one-click "Enhance with AI" button on recipe detail
   page. Sends recipe to Claude Haiku to infer missing metadata (description,
-  servings, prep/cook times, tags). Before/after modal with per-field checkboxes
-  — missing fields pre-checked, existing fields opt-in. 10/day rate limit.
+  servings, prep/cook times). Before/after modal with per-field checkboxes —
+  missing fields pre-checked, existing fields opt-in. 10/day rate limit.
   Sparkles button in desktop and mobile action bars (violet, spinner while
   loading). No-changes case handled gracefully
 - Ingredient substitution hints (Pro): click missing-ingredient pills to see

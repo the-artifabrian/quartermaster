@@ -213,23 +213,6 @@ export async function action({ request }: Route.ActionArgs) {
 			i++
 		}
 
-		// Parse suggested tags — resolve names to IDs
-		const tagNames: string[] = []
-		i = 0
-		while (formData.has(`tags[${i}]`) && i < 20) {
-			const tag = formData.get(`tags[${i}]`) as string
-			if (tag.trim()) tagNames.push(tag.trim())
-			i++
-		}
-
-		const matchedTags =
-			tagNames.length > 0
-				? await prisma.tag.findMany({
-						where: { name: { in: tagNames } },
-						select: { id: true },
-					})
-				: []
-
 		if (!title) {
 			return data(
 				{
@@ -266,11 +249,6 @@ export async function action({ request }: Route.ActionArgs) {
 						order,
 					})),
 				},
-				...(matchedTags.length > 0 && {
-					tags: {
-						connect: matchedTags.map((t) => ({ id: t.id })),
-					},
-				}),
 			},
 			select: { id: true },
 		})
@@ -492,19 +470,6 @@ export default function GenerateRecipe({
 							)}
 						</div>
 
-						{recipe.suggestedTags.length > 0 && (
-							<div className="flex flex-wrap gap-1">
-								{recipe.suggestedTags.map((tag) => (
-									<span
-										key={tag}
-										className="bg-muted text-muted-foreground rounded-full border px-2 py-0.5 text-xs font-medium"
-									>
-										{tag}
-									</span>
-								))}
-							</div>
-						)}
-
 						{recipe.ingredients.length > 0 && (
 							<div>
 								<h3 className="mb-2 font-medium">
@@ -618,14 +583,6 @@ export default function GenerateRecipe({
 								type="hidden"
 								name={`instructions[${i}].content`}
 								value={inst.content}
-							/>
-						))}
-						{recipe.suggestedTags.map((tag, i) => (
-							<input
-								key={i}
-								type="hidden"
-								name={`tags[${i}]`}
-								value={tag}
 							/>
 						))}
 						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">

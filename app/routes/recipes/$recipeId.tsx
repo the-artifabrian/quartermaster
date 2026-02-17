@@ -147,10 +147,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 				},
 				orderBy: { order: 'asc' },
 			},
-			tags: {
-				select: { id: true, name: true, category: true },
 			},
-		},
 	})
 
 	invariantResponse(recipe, 'Recipe not found', { status: 404 })
@@ -319,35 +316,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 			updateData.cookTime = parseInt(cookTime, 10)
 		}
 
-		// Collect tag names from enhance_tag_0, enhance_tag_1, ...
-		const tagNames: string[] = []
-		for (let i = 0; i < 16; i++) {
-			const tag = formData.get(`enhance_tag_${i}`)
-			if (typeof tag === 'string' && tag) {
-				tagNames.push(tag)
-			} else {
-				break
-			}
-		}
-
-		// Resolve tags to IDs and connect (additive)
-		let tagConnect: Array<{ id: string }> = []
-		if (tagNames.length > 0) {
-			const tags = await prisma.tag.findMany({
-				where: { name: { in: tagNames } },
-				select: { id: true },
-			})
-			tagConnect = tags.map((t) => ({ id: t.id }))
-		}
-
 		await prisma.recipe.update({
 			where: { id: recipeId },
-			data: {
-				...updateData,
-				...(tagConnect.length > 0 && {
-					tags: { connect: tagConnect },
-				}),
-			},
+			data: updateData,
 		})
 
 		void emitHouseholdEvent({
@@ -360,7 +331,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 		trackEvent(userId, householdId, 'recipe_enhance_applied', {
 			recipeId,
 			fields: Object.keys(updateData),
-			tagCount: tagConnect.length,
 		})
 
 		return { success: true }
@@ -506,7 +476,6 @@ function getRecipeJsonLd(
 			isHeading?: boolean
 		}>
 		instructions: Array<{ content: string }>
-		tags: Array<{ name: string; category: string }>
 	},
 	origin: string | undefined,
 ) {
@@ -530,16 +499,6 @@ function getRecipeJsonLd(
 			text: step.content,
 		})),
 	}
-
-	const mealTypes = recipe.tags
-		.filter((t) => t.category === 'meal-type')
-		.map((t) => t.name)
-	if (mealTypes.length > 0) jsonLd.recipeCategory = mealTypes
-
-	const cuisines = recipe.tags
-		.filter((t) => t.category === 'cuisine')
-		.map((t) => t.name)
-	if (cuisines.length > 0) jsonLd.recipeCuisine = cuisines
 
 	if (origin && recipe.image?.objectKey) {
 		jsonLd.image = `${origin}/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}&w=1200&h=630&fit=cover`
@@ -644,7 +603,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	function handleEnhance() {
 		const formData = new FormData()
 		formData.set('recipeId', recipe.id)
-		enhanceFetcher.submit(formData, {
+		void enhanceFetcher.submit(formData, {
 			method: 'POST',
 			action: '/resources/enhance-recipe',
 		})
@@ -766,8 +725,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			<div className="container max-w-4xl px-4 md:px-8">
 				{(recipe.prepTime ||
 					recipe.cookTime ||
-					recipe.sourceUrl ||
-					recipe.tags.length > 0) && (
+					recipe.sourceUrl) && (
 					<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-3 md:p-5 print:border-0 print:p-2 print:shadow-none">
 						<div className="flex flex-wrap items-center gap-3 text-sm">
 							{recipe.prepTime && (
@@ -823,20 +781,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								</>
 							)}
 						</div>
-
-						{/* Tags inside meta card */}
-						{recipe.tags.length > 0 && (
-							<div className="mt-3 flex flex-wrap gap-1.5">
-								{recipe.tags.map((tag) => (
-									<span
-										key={tag.id}
-										className="bg-accent/10 border-accent/20 rounded-full border px-2.5 py-0.5 text-xs font-medium"
-									>
-										{tag.name}
-									</span>
-								))}
-							</div>
-						)}
 					</div>
 				)}
 

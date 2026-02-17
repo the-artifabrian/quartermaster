@@ -6,8 +6,6 @@ import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import { MatchProgressRing } from './match-progress-ring.tsx'
 import { Icon } from './ui/icon.tsx'
 
-type TagWithCategory = { id: string; name: string; category?: string }
-
 type RecipeCardProps = {
 	id: string
 	title: string
@@ -15,25 +13,11 @@ type RecipeCardProps = {
 	imageObjectKey?: string | null
 	prepTime?: number | null
 	cookTime?: number | null
-	tags?: Array<TagWithCategory>
 	isFavorite?: boolean
 	isAiGenerated?: boolean
 	lastCookedAt?: string | null
 	cookCount?: number
 	matchPercentage?: number
-}
-
-export function getTagCategoryClass(category?: string): string {
-	switch (category) {
-		case 'cuisine':
-			return 'bg-lime-50/80 text-lime-800 border-lime-200/60 dark:bg-lime-950/30 dark:text-lime-300 dark:border-lime-800/40'
-		case 'meal-type':
-			return 'bg-amber-50/80 text-amber-800 border-amber-200/60 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/40'
-		case 'dietary':
-			return 'bg-emerald-50/80 text-emerald-800 border-emerald-200/60 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800/40'
-		default:
-			return 'bg-accent/10 text-accent-foreground border-accent/20'
-	}
 }
 
 export function RecipeCard({
@@ -43,7 +27,6 @@ export function RecipeCard({
 	imageObjectKey,
 	prepTime,
 	cookTime,
-	tags,
 	isFavorite,
 	isAiGenerated,
 	lastCookedAt,
@@ -141,27 +124,7 @@ export function RecipeCard({
 						{formatTimeAgo(new Date(lastCookedAt))}
 					</p>
 				)}
-				{tags && tags.length > 0 && (
-					<div className="mt-3 flex flex-wrap gap-1">
-						{tags.slice(0, 3).map((tag) => (
-							<span
-								key={tag.id}
-								className={cn(
-									'rounded-full border px-2 py-0.5 text-xs font-medium',
-									getTagCategoryClass(tag.category),
-								)}
-							>
-								{tag.name}
-							</span>
-						))}
-						{tags.length > 3 && (
-							<span className="text-muted-foreground text-xs leading-5">
-								+{tags.length - 3}
-							</span>
-						)}
-					</div>
-				)}
-			</div>
+							</div>
 		</Link>
 	)
 }

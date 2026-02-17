@@ -290,7 +290,6 @@ async function deepCopyRecipes(
 		include: {
 			ingredients: true,
 			instructions: true,
-			tags: { select: { id: true } },
 			image: true,
 		},
 	})
@@ -336,11 +335,6 @@ async function deepCopyRecipes(
 							order: inst.order,
 						}),
 					),
-				},
-				tags: {
-					connect: recipe.tags.map((tag: { id: string }) => ({
-						id: tag.id,
-					})),
 				},
 				...(recipe.image
 					? {

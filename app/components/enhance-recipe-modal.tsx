@@ -11,7 +11,6 @@ type RecipeData = {
 	servings: number
 	prepTime: number | null
 	cookTime: number | null
-	tags: Array<{ id: string; name: string }>
 }
 
 export function EnhanceRecipeModal({
@@ -38,14 +37,11 @@ export function EnhanceRecipeModal({
 	const hasCookTimeChange =
 		suggestions.cookTime !== null &&
 		suggestions.cookTime !== recipe.cookTime
-	const hasTagChanges = suggestions.suggestedTags.length > 0
-
 	const hasAnyChange =
 		hasDescriptionChange ||
 		hasServingsChange ||
 		hasPrepTimeChange ||
-		hasCookTimeChange ||
-		hasTagChanges
+		hasCookTimeChange
 
 	// Checkbox state: missing fields pre-checked, existing fields unchecked
 	const [checked, setChecked] = useState(() => ({
@@ -54,10 +50,6 @@ export function EnhanceRecipeModal({
 		prepTime: hasPrepTimeChange && !recipe.prepTime,
 		cookTime: hasCookTimeChange && !recipe.cookTime,
 	}))
-	const [checkedTags, setCheckedTags] = useState<Set<string>>(
-		() => new Set(suggestions.suggestedTags),
-	)
-
 	// Close on escape
 	useEffect(() => {
 		function handleEscape(e: KeyboardEvent) {
@@ -88,24 +80,11 @@ export function EnhanceRecipeModal({
 		setChecked((prev) => ({ ...prev, [field]: !prev[field] }))
 	}
 
-	function toggleTag(tag: string) {
-		setCheckedTags((prev) => {
-			const next = new Set(prev)
-			if (next.has(tag)) {
-				next.delete(tag)
-			} else {
-				next.add(tag)
-			}
-			return next
-		})
-	}
-
 	const hasAnySelected =
 		checked.description ||
 		checked.servings ||
 		checked.prepTime ||
-		checked.cookTime ||
-		checkedTags.size > 0
+		checked.cookTime
 
 	function handleApply() {
 		const formData = new FormData()
@@ -124,13 +103,7 @@ export function EnhanceRecipeModal({
 			formData.set('enhance_cookTime', suggestions.cookTime.toString())
 		}
 
-		let tagIndex = 0
-		for (const tag of checkedTags) {
-			formData.set(`enhance_tag_${tagIndex}`, tag)
-			tagIndex++
-		}
-
-		fetcher.submit(formData, {
+		void fetcher.submit(formData, {
 			method: 'POST',
 			action: `/recipes/${recipe.id}`,
 		})
@@ -223,53 +196,6 @@ export function EnhanceRecipeModal({
 									checked={checked.cookTime}
 									onToggle={() => toggleField('cookTime')}
 								/>
-							)}
-
-							{hasTagChanges && (
-								<div className="rounded-lg border p-3">
-									<p className="mb-2 text-sm font-medium">
-										Tags
-									</p>
-									{recipe.tags.length > 0 && (
-										<div className="mb-2 flex flex-wrap gap-1">
-											{recipe.tags.map((tag) => (
-												<span
-													key={tag.id}
-													className="bg-accent/10 border-accent/20 rounded-full border px-2 py-0.5 text-xs"
-												>
-													{tag.name}
-												</span>
-											))}
-										</div>
-									)}
-									<p className="text-muted-foreground mb-1.5 text-xs">
-										Suggested additions:
-									</p>
-									<div className="flex flex-wrap gap-1.5">
-										{suggestions.suggestedTags.map(
-											(tag) => (
-												<label
-													key={tag}
-													className="flex cursor-pointer items-center gap-1.5"
-												>
-													<input
-														type="checkbox"
-														checked={checkedTags.has(
-															tag,
-														)}
-														onChange={() =>
-															toggleTag(tag)
-														}
-														className="size-4 rounded"
-													/>
-													<span className="rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
-														+ {tag}
-													</span>
-												</label>
-											),
-										)}
-									</div>
-								</div>
 							)}
 						</div>
 

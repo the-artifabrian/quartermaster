@@ -99,7 +99,7 @@ export default async function handleRequest(...args: DocRequestArgs) {
 									'form-action': ["'self'"],
 								},
 								other: {
-									'upgrade-insecure-requests': true,
+									'upgrade-insecure-requests': MODE === 'production',
 								},
 							},
 						},

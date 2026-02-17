@@ -17,6 +17,7 @@ import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
 import { ProExpiryNudge } from './components/pro-expiry-nudge.tsx'
+import { UncookedMealReminder } from './components/uncooked-meal-reminder.tsx'
 import { NotificationBell } from './components/notification-bell.tsx'
 import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { Progress } from './components/progress-bar.tsx'
@@ -442,6 +443,8 @@ function App() {
 							</div>
 						</nav>
 					</header>
+
+					{isPro ? <UncookedMealReminder /> : null}
 
 					<main id="main-content" className="flex flex-1 flex-col">
 						<Outlet />

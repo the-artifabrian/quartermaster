@@ -79,8 +79,11 @@ Complete feature catalog. For the roadmap, see
   expiry from shelf-life lookup)
 - Per-card missing ingredient pills with "I have this" buttons (up to 4 visible,
   overflow count) plus "add all missing to shopping list"
-- Expiration-based recipe suggestions ("Use It Before You Lose It") with callout
-  card and "Find recipes" CTA
+- "Use these up soon" callout for items expiring within 3 days: meal plan
+  coverage detection (checks upcoming 2 weeks of uncooked meals for ingredient
+  matches — covered items shown muted with recipe name, day, and meal type;
+  uncovered items shown prominently with "Find recipes" CTA). Per-item dismiss
+  via localStorage (keyed by item ID + expiry date, resets if expiry changes)
 - Automatic inventory subtraction after cooking (cross-system unit conversion,
   feedback toast). Incompatible unit types flag as low stock
 
@@ -92,6 +95,10 @@ Complete feature catalog. For the roadmap, see
 - Per-entry serving size overrides with +/- controls
 - Mark meals as "cooked" with optimistic toggle; quick "I made this" one-tap
   action (logs cook + subtracts inventory)
+- Uncooked meal reminders: site-wide amber banner for planned-but-uncooked meals
+  from today or yesterday. Shows one meal at a time with "Yes, I made it"
+  (triggers cook log + inventory subtraction with toast summary) and "Skip"
+  (session-only dismiss). Pro-only, self-loads via resource route fetcher
 - "Up next" banner (current week): next chronological meal to cook today with
   time-of-day awareness. Empty state suggests a favorite with one-tap add
 - Copy week to next week (preserves servings, skips duplicates)

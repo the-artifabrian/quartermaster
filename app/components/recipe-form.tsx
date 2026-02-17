@@ -16,14 +16,7 @@ import {
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
-import { Label } from './ui/label.tsx'
 import { StatusButton } from './ui/status-button.tsx'
-
-type Tag = {
-	id: string
-	name: string
-	category: string
-}
 
 type RecipeFormProps = {
 	recipe?: {
@@ -48,9 +41,7 @@ type RecipeFormProps = {
 			id: string
 			content: string
 		}>
-		tags: Array<{ id: string }>
 	}
-	tags: Tag[]
 	submitLabel?: string
 }
 
@@ -88,7 +79,6 @@ function FormSection({
 
 export function RecipeForm({
 	recipe,
-	tags,
 	submitLabel = 'Save Recipe',
 }: RecipeFormProps) {
 	const actionData = useActionData<{
@@ -115,10 +105,6 @@ export function RecipeForm({
 			id: i.id,
 			content: i.content,
 		})) ?? [{ content: '' }],
-	)
-
-	const [selectedTags, setSelectedTags] = useState<string[]>(
-		recipe?.tags?.map((t) => t.id) ?? [],
 	)
 
 	const [imagePreview, setImagePreview] = useState<string | null>(
@@ -156,22 +142,6 @@ export function RecipeForm({
 			}
 			reader.readAsDataURL(file)
 		}
-	}
-
-	const tagsByCategory = tags.reduce<Record<string, Tag[]>>((acc, tag) => {
-		const category = acc[tag.category]
-		if (!category) {
-			acc[tag.category] = [tag]
-		} else {
-			category.push(tag)
-		}
-		return acc
-	}, {})
-
-	const categoryLabels: Record<string, string> = {
-		cuisine: 'Cuisine',
-		'meal-type': 'Meal Type',
-		dietary: 'Dietary',
 	}
 
 	// Section summaries for collapsed state
@@ -312,61 +282,6 @@ export function RecipeForm({
 							errors={fields.cookTime.errors}
 						/>
 					</div>
-				</div>
-			</FormSection>
-
-			{/* Tags Section */}
-			<FormSection
-				title="Tags"
-				summary={
-					selectedTags.length > 0
-						? `${selectedTags.length} selected`
-						: 'None selected'
-				}
-				defaultOpen={isEditing}
-			>
-				<div className="space-y-4">
-					{Object.entries(tagsByCategory).map(([category, categoryTags]) => (
-						<div key={category} className="space-y-2">
-							<Label className="text-muted-foreground text-sm">
-								{categoryLabels[category] ?? category}
-							</Label>
-							<div className="flex flex-wrap gap-2">
-								{categoryTags.map((tag) => {
-									const isSelected = selectedTags.includes(tag.id)
-									return (
-										<label key={tag.id}>
-											<input
-												type="checkbox"
-												name="tagIds"
-												value={tag.id}
-												checked={isSelected}
-												onChange={(e) => {
-													if (e.target.checked) {
-														setSelectedTags([...selectedTags, tag.id])
-													} else {
-														setSelectedTags(
-															selectedTags.filter((id) => id !== tag.id),
-														)
-													}
-												}}
-												className="sr-only"
-											/>
-											<span
-												className={`inline-flex cursor-pointer rounded-full px-3 py-1 text-sm transition-colors ${
-													isSelected
-														? 'bg-accent text-accent-foreground shadow-sm'
-														: 'bg-secondary hover:bg-secondary/80'
-												}`}
-											>
-												{tag.name}
-											</span>
-										</label>
-									)
-								})}
-							</div>
-						</div>
-					))}
 				</div>
 			</FormSection>
 

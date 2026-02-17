@@ -128,7 +128,7 @@ prisma/
 ├── schema.prisma        # Database schema (see below)
 ├── migrations/          # Migration history
 ├── seed.ts              # Dev seed: infrastructure + test users (kody, kody2)
-├── seed-infrastructure.ts   # Permissions, tags, roles (runs in prod via litefs)
+├── seed-infrastructure.ts   # Permissions, roles (runs in prod via litefs)
 └── run-seed-infrastructure.ts  # Standalone runner for litefs exec chain
 
 tests/
@@ -141,7 +141,7 @@ tests/
 
 ### Recipe System
 
-**Data Model**: Recipe → Ingredients[] + Instructions[] + Tags[] + RecipeImage?
+**Data Model**: Recipe → Ingredients[] + Instructions[] + RecipeImage?
 
 **Key Files**:
 
@@ -428,14 +428,12 @@ Per `.cursor/rules/avoid-use-effect.mdc`, prefer alternatives to `useEffect`:
 
 **Recipe**: title, description, servings, prepTime, cookTime, isFavorite,
 sourceUrl?, rawText?, notes?, userId, householdId? → Ingredient[],
-Instruction[], Tag[], RecipeImage?, MealPlanEntry[], CookingLog[],
+Instruction[], RecipeImage?, MealPlanEntry[], CookingLog[],
 MealPlanTemplateEntry[]
 
 **Ingredient**: name, amount?, unit?, notes?, isHeading, order, recipeId
 
 **Instruction**: content, order, recipeId
-
-**Tag**: name, category (cuisine|meal-type|dietary) → Recipe[] (many-to-many)
 
 **RecipeImage**: altText, objectKey, recipeId (1-to-1)
 
@@ -489,7 +487,7 @@ sessions, passkeys
 - User has many: Recipe, InventoryItem, MealPlan, ShoppingList, CookingLog,
   MealPlanTemplate, HouseholdMember, UsageEvent, InviteCode (created + redeemed)
 - Recipe has many: Ingredient, Instruction, MealPlanEntry, CookingLog,
-  MealPlanTemplateEntry; has one: RecipeImage; many-to-many: Tag
+  MealPlanTemplateEntry; has one: RecipeImage
 - MealPlan has many MealPlanEntry; ShoppingList has many ShoppingListItem
 - All household-scoped models have both `userId` (attribution) and `householdId`
   (data scoping)
@@ -612,7 +610,7 @@ Configured for **Fly.io** with `fly.toml`:
 - Automatic HTTPS
 - Environment variables managed via Fly secrets
 - LiteFS exec chain (`other/litefs.yml`): `prisma migrate deploy` →
-  `run-seed-infrastructure.ts` (permissions, roles, tags) → WAL pragma →
+  `run-seed-infrastructure.ts` (permissions, roles) → WAL pragma →
   `npm start`. Infrastructure seed runs on every deploy (idempotent upserts)
 
 For self-hosting, standard Node.js app:

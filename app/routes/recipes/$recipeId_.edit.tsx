@@ -64,10 +64,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 				},
 				orderBy: { order: 'asc' },
 			},
-			tags: {
-				select: { id: true },
 			},
-		},
 	})
 
 	invariantResponse(recipe, 'Recipe not found', { status: 404 })
@@ -75,12 +72,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		status: 403,
 	})
 
-	const tags = await prisma.tag.findMany({
-		select: { id: true, name: true, category: true },
-		orderBy: [{ category: 'asc' }, { name: 'asc' }],
-	})
-
-	return { recipe, tags }
+	return { recipe }
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -179,15 +171,11 @@ export async function action({ request, params }: Route.ActionArgs) {
 		i++
 	}
 
-	// Parse tagIds
-	const tagIds = formData.getAll('tagIds') as string[]
-
 	const submission = parseWithZod(formData, {
 		schema: RecipeSchema.transform((data) => ({
 			...data,
 			ingredients,
 			instructions,
-			tagIds,
 		})),
 	})
 
@@ -231,9 +219,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 							content: inst.content,
 							order,
 						})),
-				},
-				tags: {
-					set: tagIds.map((id) => ({ id })),
 				},
 			},
 		}),
@@ -279,12 +264,12 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function EditRecipe({ loaderData }: Route.ComponentProps) {
-	const { recipe, tags } = loaderData
+	const { recipe } = loaderData
 
 	return (
 		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
 			<h1 className="mb-6 text-2xl font-bold">Edit Recipe</h1>
-			<RecipeForm recipe={recipe} tags={tags} submitLabel="Save Changes" />
+			<RecipeForm recipe={recipe} submitLabel="Save Changes" />
 			<div className="mt-8 border-t pt-8">
 				<DeleteRecipe recipeId={recipe.id} />
 			</div>

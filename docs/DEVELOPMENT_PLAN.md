@@ -93,7 +93,7 @@ loaders).
 - [x] **Ingredient substitutions** — static DB + LLM fallback, inventory-aware
 - [x] **Recipe generation from inventory** — Claude Haiku, preview before save
 - [x] **Recipe enhance** — one-click metadata inference (description, times,
-      servings, tags) with review modal. 10/day rate limit
+      servings) with review modal. 10/day rate limit
 - [ ] **Smart meal plan generation** — algorithmic first (constraint-satisfaction),
       LLM only if needed. Output is an editable draft
 - [ ] **Receipt scanning → inventory** — photo upload, OCR + AI extraction,

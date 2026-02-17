@@ -115,24 +115,7 @@ export function RecipeMatchCard({
 								{totalTime} min
 							</span>
 						)}
-						{recipe.tags && recipe.tags.length > 0 && (
-							<div className="flex flex-wrap gap-1">
-								{recipe.tags.slice(0, 3).map((tag) => (
-									<span
-										key={tag.id}
-										className="bg-accent/10 text-accent-foreground border-accent/20 rounded-full border px-2 py-0.5 text-xs font-medium"
-									>
-										{tag.name}
-									</span>
-								))}
-								{recipe.tags.length > 3 && (
-									<span className="text-muted-foreground text-xs leading-5">
-										+{recipe.tags.length - 3}
-									</span>
-								)}
-							</div>
-						)}
-					</div>
+						</div>
 
 					{/* Missing Ingredients */}
 					{missingIngredients.length > 0 && (

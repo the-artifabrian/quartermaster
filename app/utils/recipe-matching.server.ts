@@ -576,7 +576,6 @@ export type MatchableRecipe = {
 	isFavorite?: boolean
 	ingredients: Ingredient[]
 	image?: { objectKey: string } | null
-	tags?: Array<{ id: string; name: string }>
 }
 
 export type RecipeMatch<R extends MatchableRecipe = MatchableRecipe> = {

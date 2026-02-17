@@ -48,7 +48,7 @@ export function UncookedMealReminder() {
 	useEffect(() => {
 		if (!hasLoaded.current) {
 			hasLoaded.current = true
-			loadFetcher.load('/resources/uncooked-meals')
+			void loadFetcher.load('/resources/uncooked-meals')
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [])
@@ -106,7 +106,7 @@ export function UncookedMealReminder() {
 						disabled={isCooking}
 						onClick={() => {
 							setCooked((prev) => new Set(prev).add(current.entryId))
-							cookFetcher.submit(
+							void cookFetcher.submit(
 								{ entryId: current.entryId },
 								{ method: 'POST', action: '/resources/quick-cook' },
 							)

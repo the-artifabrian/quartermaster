@@ -23,7 +23,6 @@ const validResponse = {
 		{ content: 'Cook chicken until golden, about 5 minutes.' },
 		{ content: 'Add vegetables and soy sauce, cook for 3 more minutes.' },
 	],
-	suggestedTags: ['dinner', 'asian', 'quick'],
 }
 
 function makeInventory(
@@ -162,7 +161,6 @@ describe('parseRecipeResponse', () => {
 		expect(result!.servings).toBe(4)
 		expect(result!.ingredients).toHaveLength(3)
 		expect(result!.instructions).toHaveLength(4)
-		expect(result!.suggestedTags).toEqual(['dinner', 'asian', 'quick'])
 	})
 
 	test('handles markdown-wrapped JSON', () => {
@@ -245,15 +243,6 @@ describe('parseRecipeResponse', () => {
 		const result = parseRecipeResponse(JSON.stringify(stringInsts))
 		expect(result!.instructions).toHaveLength(3)
 		expect(result!.instructions[0]!.content).toBe('Step 1')
-	})
-
-	test('normalizes tag case', () => {
-		const upperTags = {
-			...validResponse,
-			suggestedTags: ['DINNER', 'Italian', 'Quick'],
-		}
-		const result = parseRecipeResponse(JSON.stringify(upperTags))
-		expect(result!.suggestedTags).toEqual(['dinner', 'italian', 'quick'])
 	})
 
 	test('coerces numeric amounts to strings', () => {

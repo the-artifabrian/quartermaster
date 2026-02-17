@@ -11,7 +11,6 @@ const sampleInput: RecipeInput = {
 	servings: 4,
 	prepTime: null,
 	cookTime: null,
-	currentTags: ['Italian'],
 	ingredients: [
 		{ name: 'spaghetti', amount: '400', unit: 'g' },
 		{ name: 'guanciale', amount: '200', unit: 'g' },
@@ -34,7 +33,6 @@ describe('buildEnhancePrompt', () => {
 		expect(prompt).toContain('spaghetti')
 		expect(prompt).toContain('guanciale')
 		expect(prompt).toContain('Boil a large pot')
-		expect(prompt).toContain('Current tags: Italian')
 	})
 
 	it('shows "None" for missing fields', () => {
@@ -56,13 +54,6 @@ describe('buildEnhancePrompt', () => {
 		expect(prompt).toContain('Current prep time: 10 minutes')
 		expect(prompt).toContain('Current cook time: 20 minutes')
 	})
-
-	it('lists valid tag names', () => {
-		const prompt = buildEnhancePrompt(sampleInput)
-		expect(prompt).toContain('Italian')
-		expect(prompt).toContain('Vegetarian')
-		expect(prompt).toContain('Gluten-Free')
-	})
 })
 
 describe('parseEnhanceResponse', () => {
@@ -72,66 +63,24 @@ describe('parseEnhanceResponse', () => {
 			servings: 4,
 			prepTime: 10,
 			cookTime: 15,
-			suggestedTags: ['Dinner'],
 		})
-		const result = parseEnhanceResponse(text, ['Italian'])
+		const result = parseEnhanceResponse(text)
 		expect(result).toEqual({
 			description: 'A rich, creamy Roman pasta with guanciale and pecorino.',
 			servings: 4,
 			prepTime: 10,
 			cookTime: 15,
-			suggestedTags: ['Dinner'],
 		})
-	})
-
-	it('filters out already-assigned tags', () => {
-		const text = JSON.stringify({
-			description: null,
-			servings: 4,
-			prepTime: 10,
-			cookTime: 15,
-			suggestedTags: ['Italian', 'Dinner'],
-		})
-		const result = parseEnhanceResponse(text, ['Italian'])
-		expect(result?.suggestedTags).toEqual(['Dinner'])
-	})
-
-	it('filters out invalid tag names', () => {
-		const text = JSON.stringify({
-			description: null,
-			servings: 4,
-			prepTime: null,
-			cookTime: null,
-			suggestedTags: ['Italian', 'Comfort Food', 'Quick'],
-		})
-		const result = parseEnhanceResponse(text, [])
-		expect(result?.suggestedTags).toEqual(['Italian'])
-	})
-
-	it('normalizes tag name casing', () => {
-		const text = JSON.stringify({
-			description: null,
-			servings: null,
-			prepTime: null,
-			cookTime: null,
-			suggestedTags: ['italian', 'DINNER', 'gluten-free'],
-		})
-		const result = parseEnhanceResponse(text, [])
-		expect(result?.suggestedTags).toEqual([
-			'Italian',
-			'Dinner',
-			'Gluten-Free',
-		])
 	})
 
 	it('returns null for empty/non-JSON text', () => {
-		expect(parseEnhanceResponse('not json', [])).toBeNull()
-		expect(parseEnhanceResponse('', [])).toBeNull()
+		expect(parseEnhanceResponse('not json')).toBeNull()
+		expect(parseEnhanceResponse('')).toBeNull()
 	})
 
 	it('handles markdown code block wrapping', () => {
-		const text = '```json\n{"description": "A test recipe.", "servings": 2, "prepTime": 5, "cookTime": 10, "suggestedTags": []}\n```'
-		const result = parseEnhanceResponse(text, [])
+		const text = '```json\n{"description": "A test recipe.", "servings": 2, "prepTime": 5, "cookTime": 10}\n```'
+		const result = parseEnhanceResponse(text)
 		expect(result?.description).toBe('A test recipe.')
 		expect(result?.servings).toBe(2)
 	})
@@ -142,15 +91,13 @@ describe('parseEnhanceResponse', () => {
 			servings: 'four',
 			prepTime: -5,
 			cookTime: 'twenty',
-			suggestedTags: 'not an array',
 		})
-		const result = parseEnhanceResponse(text, [])
+		const result = parseEnhanceResponse(text)
 		expect(result).toEqual({
 			description: null,
 			servings: null,
 			prepTime: null,
 			cookTime: null,
-			suggestedTags: [],
 		})
 	})
 
@@ -160,9 +107,8 @@ describe('parseEnhanceResponse', () => {
 			servings: 200,
 			prepTime: null,
 			cookTime: null,
-			suggestedTags: [],
 		})
-		const result = parseEnhanceResponse(text, [])
+		const result = parseEnhanceResponse(text)
 		expect(result?.servings).toBeNull()
 	})
 
@@ -172,9 +118,8 @@ describe('parseEnhanceResponse', () => {
 			servings: 4.5,
 			prepTime: null,
 			cookTime: null,
-			suggestedTags: [],
 		})
-		const result = parseEnhanceResponse(text, [])
+		const result = parseEnhanceResponse(text)
 		expect(result?.servings).toBe(5)
 	})
 
@@ -184,9 +129,8 @@ describe('parseEnhanceResponse', () => {
 			servings: 4,
 			prepTime: 10,
 			cookTime: 20,
-			suggestedTags: [],
 		})
-		const result = parseEnhanceResponse(text, [])
+		const result = parseEnhanceResponse(text)
 		expect(result?.description).toBeNull()
 	})
 
@@ -196,9 +140,8 @@ describe('parseEnhanceResponse', () => {
 			servings: null,
 			prepTime: null,
 			cookTime: null,
-			suggestedTags: [],
 		})
-		const result = parseEnhanceResponse(text, [])
+		const result = parseEnhanceResponse(text)
 		expect(result?.description).toBe('A tasty dish.')
 	})
 })

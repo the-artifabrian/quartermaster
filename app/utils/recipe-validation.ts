@@ -51,7 +51,6 @@ export const RecipeSchema = z.object({
 		.array(InstructionSchema)
 		.min(1, { message: 'At least one instruction is required' })
 		.max(200, { message: 'Too many instructions' }),
-	tagIds: z.array(z.string()).optional(),
 })
 
 export type RecipeFormData = z.infer<typeof RecipeSchema>

@@ -63,7 +63,6 @@ export async function action({ request }: Route.ActionArgs) {
 			servings: true,
 			prepTime: true,
 			cookTime: true,
-			tags: { select: { name: true } },
 			ingredients: {
 				where: { isHeading: false },
 				select: { name: true, amount: true, unit: true },
@@ -89,7 +88,6 @@ export async function action({ request }: Route.ActionArgs) {
 		servings: recipe.servings,
 		prepTime: recipe.prepTime,
 		cookTime: recipe.cookTime,
-		currentTags: recipe.tags.map((t) => t.name),
 		ingredients: recipe.ingredients,
 		instructions: recipe.instructions,
 	})

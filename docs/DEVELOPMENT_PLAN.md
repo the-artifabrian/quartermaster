@@ -80,9 +80,66 @@ individual pages — must add value through aggregation.
 
 **Impact:** Medium — affects conversion clarity. See detailed recommendations in
 
----
+### 5. Progressive onboarding & contextual nudges
 
-## Future Roadmap
+**Impact:** High — reduces overwhelm for new users and drives feature adoption.
+
+The app has many features but the current onboarding is thin: a 3-step getting-
+started checklist (add recipe, stock inventory, plan a meal) and pantry staples
+on empty inventory. Users who complete those steps have no guidance toward
+cooking mode, shopping lists, household sharing, templates, substitutions, etc.
+
+**Principles:**
+
+- **Contextual over comprehensive** — show hints where the user is, not all at
+  once. A tip about shopping lists appears after the first meal plan, not on
+  signup
+- **Progressive disclosure** — don't explain meal templates before the user has
+  planned a single meal. Nudges trigger on behavior milestones, not time
+- **Never block** — all nudges are dismissible, never modal, never interrupt a
+  flow. Banners or inline cards, not popups
+
+**Inventory-first path (no recipes):**
+
+Users who have inventory but no recipes can generate AI recipes immediately.
+Surface this prominently on the empty recipes page: "Have ingredients but no
+ideas? Generate a recipe from what you have." This gives immediate value with
+zero recipe input effort and creates a natural bridge into the full app. The
+existing AI recipe generation feature already supports this — it just needs a
+more visible entry point for new users.
+
+**Post-action milestone nudges:**
+
+After a user completes a key action for the first time, suggest the natural next
+step. Each nudge shows once, is dismissible, and is stored in localStorage (same
+pattern as the getting-started checklist).
+
+| After...                    | Suggest...                                              |
+| --------------------------- | ------------------------------------------------------- |
+| First recipe added          | "Add inventory items to see what you can make"           |
+| First inventory items added | "Check your recipes — we'll show what you can cook now"  |
+| First meal planned          | "Generate a shopping list from your plan"                |
+| First shopping list used    | "Check items off to add them to inventory automatically" |
+| First cook logged           | "Add notes to remember how it turned out"                |
+| 5+ recipes added            | "Invite someone to share your kitchen" (household)       |
+| First meal plan week done   | "Save this as a template to reuse"                       |
+
+**Implementation approach:**
+
+- Track milestones via localStorage flags (`milestone:<name>:seen`)
+- `MilestoneNudge` component: renders an inline card/banner, takes `milestoneKey`
+  and checks localStorage to show/hide. Dismiss writes the key
+- Place nudges in the relevant page (not a global overlay). E.g., the "generate
+  shopping list" nudge lives in `plan/index.tsx`, not in root
+- No server-side tracking needed — this is purely a UX guide layer
+
+**Not in scope:**
+
+- Guided tours or step-by-step wizards
+- Onboarding completion tracking or gamification
+- Feature announcement modals
+
+---
 
 ### AI Integration
 

@@ -27,10 +27,15 @@ The app is feature-complete for solo and shared daily use.
 | Smarter UX         | Shelf-life auto-suggest, low-stock nudges, pairing/waste/efficiency                     |
 | AI integration     | Ingredient substitutions (static DB + LLM), recipe generation from inventory, recipe metadata enhance |
 | Inventory drift    | Uncooked meal reminders, smarter expiring-items callout                                  |
+| UX review          | Recipes page simplification — match stats in filter bar, grid visible without scrolling  |
 
 ---
 
-## Phase Now: Daily Driver
+## Phase Now: Iterate and Refine
+
+The core loop is complete — plan, shop, cook, subtract, repeat. The app doesn't
+need more features; it needs the existing ones to be smooth enough for daily use.
+New ideas come from the friction log, not a roadmap.
 
 Daily driving started **February 12, 2026**. The app is being used for real
 cooking and meal planning. 3 external users onboarded (girlfriend as household
@@ -38,16 +43,88 @@ co-user, plus a friend and his girlfriend as a separate household).
 
 ### Critical Path
 
-1. **Daily drive for 4+ weeks** -- Plan the week, shop from the list, cook from
+1. **Daily drive for 4+ weeks** — Plan the week, shop from the list, cook from
    the app. Fix friction as it surfaces.
-2. **Stress-test inventory** -- Track inventory honestly for a month. Measure
+2. **Stress-test inventory** — Track inventory honestly for a month. Measure
    drift. Determine whether overhead is justified or whether inventory needs to
    be more passive (auto-populate from shopping list check-offs only).
 
-### Gate
+### Proven Gate
 
 The app has **fully replaced Apple Notes** and **weekly meal planning happens
 development is **not blocked** by this gate.
+
+**Personal criteria:**
+
+- Am I using the app every week? Has it fully replaced Apple Notes?
+- Is inventory tracking sustainable, or does light mode need to ship?
+- Do the testers find it useful without prompting?
+
+> **Check-in: March 12, 2026.** Assess daily driving progress. If the app isn't
+> sticking, identify UX friction and fix it. Don't defer indefinitely.
+
+### Contingency: Light Inventory Mode
+
+The entire value proposition rests on users maintaining inventory. If daily
+driving reveals that inventory tracking feels like a chore, the fallback is a
+**passive "light inventory" mode** that removes the maintenance burden.
+
+**Trigger criteria** (assess at March 12 gate check):
+
+- Inventory updates happen less than 2x/week despite regular cooking
+- Inventory drift > 30% (items marked in-stock that are actually gone, or items
+  in stock that were never tracked)
+- Qualitative: you or external users actively avoid opening the inventory page
+
+**What changes:**
+
+- **Input becomes passive** — inventory is populated exclusively through:
+  - Shopping list check-offs (already built)
+  - "I have this" buttons on recipe cards and detail pages (already built)
+  - Post-cooking subtraction (already built)
+  - No manual entry page; the current add/edit flow becomes optional "power mode"
+- **Boolean instead of quantities** — items are "have" or "don't have," no
+  amount/unit tracking. Eliminates the hardest maintenance task (updating
+  quantities after partial use)
+- **Auto-expire aggressively** — items auto-expire based on shelf-life lookup
+  (already built, ~60 entries). No manual expiry management. Expired items
+  silently drop off rather than requiring user action
+- **Match rings become suggestions** — "You might be able to make this" instead
+  of "You can make 8/10 ingredients." Fuzzy confidence rather than precise counts
+
+**Affected files/systems:**
+
+- `app/routes/inventory/index.tsx` — simplified view, hide quantity/unit columns,
+  prominent "populated from your shopping" messaging
+- `app/routes/inventory/new.tsx` — hide or gate behind "detailed mode" toggle
+- `app/utils/recipe-matching.server.ts` — boolean matching (have/don't have)
+  instead of quantity-aware. Scoring becomes binary per-ingredient
+- `app/routes/shopping.tsx` — check-off pipeline becomes the primary inventory
+  input path, emphasized in UI
+- `app/components/recipe-match-card.tsx` — softer language ("likely makeable"
+  vs "8/10 ingredients")
+- `app/utils/inventory-subtract.server.ts` — boolean subtract (remove item
+  entirely) instead of quantity math
+- User setting toggle: full vs. light inventory mode, persisted in DB
+
+**What stays the same:** Recipe matching still works (just fuzzier), shopping
+list generation still works, meal planning still works. The core loop survives
+— it's just less precise.
+
+> This is a contingency, not a plan. Build it only if the trigger criteria are
+> met. The goal is to have a clear fallback so that inventory friction doesn't
+> kill the product.
+
+### Friction Log
+
+Issues discovered during daily driving. Format: date, area, observation, status.
+
+| Date       | Area      | Observation                                          | Status   |
+| ---------- | --------- | ---------------------------------------------------- | -------- |
+| 2026-02-17 | _example_ | _Shopping list: hard to tell which items are checked_ | _open_   |
+| 2026-02-17 | _example_ | _Meal plan: "Up next" banner flickers on page load_   | _fixed_  |
+
+> Add entries as friction surfaces. Resolve or promote to Strategic Priorities.
 
 ---
 
@@ -55,114 +132,86 @@ development is **not blocked** by this gate.
 
 Identified during a full-app UX and strategy review (February 2026). Highest-
 
-### 1. Recipes page simplification ✅
-
-**Impact:** High — the main entry point is overloaded.
-
-Done. Removed expiring items carousel (~320px), quality flags banner (~52px),
-and grid/list view toggle. Merged match stats into filter bar, tightened
-spacing. Recipe grid now visible without scrolling. `?quality=flagged` still
-works (computed from main query). Progress rings and match sort retained.
-
-**Impact:** High — directly affects conversion.
+**Impact:** High — makes the app better for everyone.
 
 Free users see 3/4 nav tabs locked and can't experience match rings or discovery.
 Let free users add 10-15 inventory items — enough for the "aha" moment. Upgrade
 trigger becomes "I want more than 15 items" rather than "I have to pay to try."
 
-### 3. Dashboard homepage
+**Affected files/systems:**
 
-**Impact:** Medium — makes the app feel like a daily companion.
+- `app/utils/subscription.server.ts` — add `FREE_INVENTORY_LIMIT` constant,
+  `canAddInventoryItem(userId)` check
+- `app/routes/inventory/index.tsx` — show items up to limit, upgrade CTA when
+  near/at limit
+- `app/routes/inventory/new.tsx` — enforce limit in action, show upgrade nudge
+- `app/routes/recipes/index.tsx` — enable match rings and "Almost There" banner
+  for free users who have inventory items
+- `app/components/getting-started-checklist.tsx` — unlock inventory step for
+  free users (currently hidden)
+- `app/routes/upgrade.tsx` — update copy to emphasize "unlock unlimited
+  inventory"
+  lock on plan/shopping until upgrade)
 
-Aggregates today's meals, top matched recipes, expiring items, low-stock nudges.
-Currently users always land on `/recipes`. Risk: becomes stale UI that duplicates
-individual pages — must add value through aggregation.
+### 2. UX debt cleanup
 
-**Impact:** Medium — affects conversion clarity. See detailed recommendations in
+**Impact:** High — affects daily use quality.
 
-### 5. Progressive onboarding & contextual nudges
+These affect every session. More impactful than onboarding nudges for testers
+who are already past onboarding.
 
-**Impact:** High — reduces overwhelm for new users and drives feature adoption.
+- **Shopping list Quick Add collapsed by default** — adding items is the primary
+  action but requires a click to access
+- **Recipe detail is 1500+ lines** — modal, ingredient list, cooking history,
+  and mobile action bar all inline. Extract to components
+- **Large action handlers** — `shopping.tsx` and `plan/index.tsx` each have 9
+  intents. Consider extracting to resource routes
 
-The app has many features but the current onboarding is thin: a 3-step getting-
-started checklist (add recipe, stock inventory, plan a meal) and pantry staples
-on empty inventory. Users who complete those steps have no guidance toward
-cooking mode, shopping lists, household sharing, templates, substitutions, etc.
+### 3. Implement merged single tier
 
-**Principles:**
+**Impact:** Medium — resolved decision, just needs implementation.
 
-- **Contextual over comprehensive** — show hints where the user is, not all at
-  once. A tip about shopping lists appears after the first meal plan, not on
-  signup
-- **Progressive disclosure** — don't explain meal templates before the user has
-  planned a single meal. Nudges trigger on behavior milestones, not time
-- **Never block** — all nudges are dismissible, never modal, never interrupt a
-  flow. Banners or inline cards, not popups
+Collapse Pro + Household into one paid tier. Annual-only at launch.
 
-**Inventory-first path (no recipes):**
+**Files:**
 
-Users who have inventory but no recipes can generate AI recipes immediately.
-Surface this prominently on the empty recipes page: "Have ingredients but no
-ideas? Generate a recipe from what you have." This gives immediate value with
-zero recipe input effort and creates a natural bridge into the full app. The
-existing AI recipe generation feature already supports this — it just needs a
-more visible entry point for new users.
-
-**Post-action milestone nudges:**
-
-After a user completes a key action for the first time, suggest the natural next
-step. Each nudge shows once, is dismissible, and is stored in localStorage (same
-pattern as the getting-started checklist).
-
-| After...                    | Suggest...                                              |
-| --------------------------- | ------------------------------------------------------- |
-| First recipe added          | "Add inventory items to see what you can make"           |
-| First inventory items added | "Check your recipes — we'll show what you can cook now"  |
-| First meal planned          | "Generate a shopping list from your plan"                |
-| First shopping list used    | "Check items off to add them to inventory automatically" |
-| First cook logged           | "Add notes to remember how it turned out"                |
-| 5+ recipes added            | "Invite someone to share your kitchen" (household)       |
-| First meal plan week done   | "Save this as a template to reuse"                       |
-
-**Implementation approach:**
-
-- Track milestones via localStorage flags (`milestone:<name>:seen`)
-- `MilestoneNudge` component: renders an inline card/banner, takes `milestoneKey`
-  and checks localStorage to show/hide. Dismiss writes the key
-- Place nudges in the relevant page (not a global overlay). E.g., the "generate
-  shopping list" nudge lives in `plan/index.tsx`, not in root
-- No server-side tracking needed — this is purely a UX guide layer
-
-**Not in scope:**
-
-- Guided tours or step-by-step wizards
-- Onboarding completion tracking or gamification
-- Feature announcement modals
+- `prisma/schema.prisma` — remove `household` tier enum value
+- `app/utils/subscription.server.ts` — simplify tier checks
+- `app/routes/admin/subscriptions.tsx` — update admin UI
+- Stripe Dashboard — archive Household prices, remove monthly Price IDs
 
 ---
 
 ### AI Integration
 
-AI enhancements integrated into existing flows. Principles: no chat UI, user
-stays in control (editable drafts), cost-aware (gate on action, cache, never in
-loaders).
+AI enhancements integrated into existing flows. The bar for AI features is "would
+I actually use this while cooking?" — not "is this technically possible." The
+inventory loop is the moat, not AI. Principles: no chat UI, user stays in
+control (editable drafts), cost-aware (gate on action, cache, never in loaders).
 
-- [x] **Ingredient substitutions** — static DB + LLM fallback, inventory-aware
-- [x] **Recipe generation from inventory** — Claude Haiku, preview before save
+- [x] **Ingredient substitutions** — static DB + LLM fallback, inventory-aware.
+      Strongest AI feature — solves a real in-the-moment cooking problem
+- [x] **Recipe generation from inventory** — Claude Haiku, preview before save.
+      Useful occasionally for inspiration, but the matching system is the real
+      answer to "what can I make?"
 - [x] **Recipe enhance** — one-click metadata inference (description, times,
-      servings) with review modal. 10/day rate limit
-- [ ] **Smart meal plan generation** — algorithmic first (constraint-satisfaction),
-      LLM only if needed. Output is an editable draft
+      servings) with review modal. 10/day rate limit. Primarily a one-time
+      cleanup tool for bulk-imported recipes
 - [ ] **Receipt scanning → inventory** — photo upload, OCR + AI extraction,
-      review before bulk-adding. Ship after above features prove out
+      review before bulk-adding. Build only if daily driving reveals inventory
+      input as the main friction point
 
-> If daily driving reveals inventory _input_ friction is the main bottleneck,
-> re-prioritize receipt scanning.
+> ~~Smart meal plan generation~~ — deprioritized. Pairing suggestions already
+> handle the smart part (ingredient overlap, weeknight-aware sorting). Full
+> auto-generation removes the personal judgment that makes meal planning work —
+> you pick meals based on what you feel like, what happened this week, what's in
+> season. An algorithm can't know you want something light tonight.
 
 #### Cost notes
 
-~$0.001/call (cached 30 days), generation ~$0.003/call (daily limit of 10),
-enhance ~$0.0014/call (daily limit of 10, max ~$0.42/month if maxed daily).
+Details: substitution ~$0.001/call (cached 30 days), generation ~$0.003/call
+(daily limit of 10), enhance ~$0.0014/call (daily limit of 10, max ~$0.42/month
+if maxed daily).
 
 Ship after the no-waste planning features (pairing, efficiency, waste alerts)
 are proven in daily use — the marketing pitch needs to be real first.
@@ -173,12 +222,7 @@ are proven in daily use — the marketing pitch needs to be real first.
 
 ### UX
 
-- **Shopping list Quick Add collapsed by default** — adding items is the primary
-  action but requires a click to access
-- **Recipe detail is 1500+ lines** — modal, ingredient list, cooking history,
-  and mobile action bar all inline. Extract to components
-- **Large action handlers** — `shopping.tsx` and `plan/index.tsx` each have 9
-  intents. Consider extracting to resource routes
+Promoted to [Strategic Priority #2](#2-ux-debt-cleanup).
 
 ### Technical
 
@@ -195,12 +239,34 @@ are proven in daily use — the marketing pitch needs to be real first.
 Lower-priority items. Graduate when daily use reveals friction or user feedback
 requests them.
 
-- [ ] **Automated backups** — scheduled backup to S3 (Litestream or cron).
-      Critical for a paid product
+- [ ] **Defrost & prep-ahead reminders** — "You're cooking Chicken Tikka
+      tomorrow — the chicken is in your freezer." Connects meal plan entries +
+      recipe ingredients + inventory locations. Also supports user-editable
+      prep-ahead notes on recipes (marinating, soaking, dough rising) that
+      surface the day before a planned cook
+- [ ] **Quick restock** — after shopping, show recently depleted/subtracted
+      inventory items for one-tap re-add. Targets the exact moment inventory
+      maintenance feels like overhead — items bought off-list that aren't
+      covered by the shopping list → inventory pipeline
+- [ ] **Leftovers/batch awareness** — if a recipe serves 6 and you're 2 people,
+      that's 3 meals not 1. The meal plan has no concept of this — you plan 7
+      dinners when you really only need to cook 4-5. Watch for friction signal
+      during daily driving before building
+- [ ] **Progressive onboarding & contextual nudges** — post-action milestone
+      nudges (e.g., "Generate a shopping list from your plan" after first meal
+      planned). Inventory-first AI recipe path for users with no recipes.
+      Build when strangers are signing up, not while testers are past onboarding
+- [ ] **Dashboard homepage** — aggregates today's meals, top matches, expiring
+      items, low-stock nudges. Risk: becomes stale UI that duplicates individual
+      pages. Build only if user feedback requests it post-launch
 - [ ] **Performance audit** — query profiling, lazy load images, bundle analysis
 - [ ] **Nutrition estimates** — Nutritionix or Edamam API
-- [ ] **Monthly cooking summary** — stats from cooking logs
-- [ ] **Leftovers/batch tracking** — leftover portions after cooking
+- [ ] **Subscription pause** — 1-3 month pause option instead of cancel (Stripe
+      supports this via `pause_collection`)
+- [ ] **Cancel flow** — show what they'll lose, offer "switch to annual" before
+      confirming. Proactive JSON export in cancel flow
+- [ ] **Monthly cooking summary** — email digest of cooking stats (requires
+      transactional email infrastructure)
 
 ---
 
@@ -212,19 +278,6 @@ requests them.
 - [x] Partner uses the app as a real co-user
 - [ ] Apple Notes no longer used for recipes
 - [ ] Weekly meal planning in-app for 4+ consecutive weeks
-- [ ] Inventory accuracy assessed after 4 weeks of tracking
-- [ ] "Up next" banner used as daily cooking entry point
+- [ ] Inventory tracking feels sustainable (not a chore)
+- [ ] Testers use the app without prompting
 
-- [~] 3-5 external users with real recipes (3 onboarded)
-- [ ] External users reach the inventory loop
-- [ ] Recipes page simplified (#1)
-- [ ] Free-tier inventory taste decision made (#2)
-
-### Adoption (future)
-
-- [ ] 5+ external users with 10+ recipes each
-- [ ] Pro conversion rate >5% of active free users
-
----
-
-_Last updated: February 17, 2026._

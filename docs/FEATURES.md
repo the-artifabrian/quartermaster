@@ -1,5 +1,10 @@
 # Quartermaster - Feature Reference
 
+Built to replace 100+ recipes scattered across Apple Notes. Track what's in your
+kitchen, see what you can cook, plan the week, generate a shopping list, and
+watch inventory update as you cook. The whole loop — from "what do I have?" to
+"what should I make?" to "what do I need to buy?" — in one app.
+
 Complete feature catalog. For the roadmap, see
 [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy, see
 
@@ -147,7 +152,7 @@ Complete feature catalog. For the roadmap, see
   Dismissible, auto-hides on completion
 - Pantry staples onboarding on empty inventory
 - Planned: inventory-first AI recipe path, post-action contextual nudges (see
-  [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) §5)
+  [Backlog in DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md#backlog))
 
   Stripe coexist — user has Pro if either is active
   redemption. Admins generate codes at `/admin/subscriptions`

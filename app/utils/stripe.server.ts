@@ -23,8 +23,8 @@ export function getStripeClient(): Stripe | null {
 export function isStripeConfigured(): boolean {
 	return Boolean(
 		process.env.STRIPE_SECRET_KEY &&
-			process.env.STRIPE_PRO_MONTHLY_PRICE_ID &&
-			process.env.STRIPE_PRO_YEARLY_PRICE_ID,
+		process.env.STRIPE_PRO_MONTHLY_PRICE_ID &&
+		process.env.STRIPE_PRO_YEARLY_PRICE_ID,
 	)
 }
 
@@ -47,9 +47,7 @@ export function getSubscriptionTierFromPriceId(
  * Extracts the period end date from a Stripe Subscription.
  * In Stripe API v2025+, current_period_end is on SubscriptionItem, not Subscription.
  */
-function getPeriodEndFromSubscription(
-	subscription: Stripe.Subscription,
-): Date {
+function getPeriodEndFromSubscription(subscription: Stripe.Subscription): Date {
 	const periodEnd = subscription.items.data[0]?.current_period_end
 	if (!periodEnd) {
 		// Fallback: 30 days from now
@@ -116,7 +114,9 @@ export async function createPortalSession({
 
 type SubscriptionRetriever = (
 	id: string,
-) => Promise<{ items: { data: Array<{ price: { id: string }; current_period_end: number }> } }>
+) => Promise<{
+	items: { data: Array<{ price: { id: string }; current_period_end: number }> }
+}>
 
 function defaultRetrieveSubscription(): SubscriptionRetriever {
 	return async (id: string) => {
@@ -200,8 +200,7 @@ export async function handleInvoicePaid(
 	retrieveSubscription?: SubscriptionRetriever,
 ) {
 	const subRef = invoice.parent?.subscription_details?.subscription
-	const subscriptionId =
-		typeof subRef === 'string' ? subRef : subRef?.id
+	const subscriptionId = typeof subRef === 'string' ? subRef : subRef?.id
 	if (!subscriptionId) return
 
 	const retrieve = retrieveSubscription ?? defaultRetrieveSubscription()

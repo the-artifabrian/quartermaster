@@ -37,9 +37,9 @@ describe('getSubscriptionTierFromPriceId', () => {
 		const original = process.env.STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID
 		process.env.STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID = 'price_household_monthly'
 		try {
-			expect(
-				getSubscriptionTierFromPriceId('price_household_monthly'),
-			).toBe('household')
+			expect(getSubscriptionTierFromPriceId('price_household_monthly')).toBe(
+				'household',
+			)
 		} finally {
 			process.env.STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID = original
 		}
@@ -49,9 +49,9 @@ describe('getSubscriptionTierFromPriceId', () => {
 		const original = process.env.STRIPE_HOUSEHOLD_YEARLY_PRICE_ID
 		process.env.STRIPE_HOUSEHOLD_YEARLY_PRICE_ID = 'price_household_yearly'
 		try {
-			expect(
-				getSubscriptionTierFromPriceId('price_household_yearly'),
-			).toBe('household')
+			expect(getSubscriptionTierFromPriceId('price_household_yearly')).toBe(
+				'household',
+			)
 		} finally {
 			process.env.STRIPE_HOUSEHOLD_YEARLY_PRICE_ID = original
 		}
@@ -113,9 +113,7 @@ describe('handleCheckoutCompleted', () => {
 	})
 
 	test('ignores session without client_reference_id', async () => {
-		const consoleError = vi
-			.spyOn(console, 'error')
-			.mockImplementation(() => {})
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 		try {
 			await handleCheckoutCompleted(
 				{
@@ -204,8 +202,7 @@ describe('handleSubscriptionUpdated', () => {
 					data: [
 						{
 							price: { id: 'price_household_monthly' },
-							current_period_end:
-								Math.floor(Date.now() / 1000) + 30 * 86400,
+							current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400,
 						},
 					],
 				},

@@ -26,11 +26,7 @@ export function MatchProgressRing({
 			className={cn('relative flex items-center justify-center', className)}
 			style={{ width: size, height: size }}
 		>
-			<svg
-				viewBox="0 0 40 40"
-				className="h-full w-full -rotate-90"
-				fill="none"
-			>
+			<svg viewBox="0 0 40 40" className="h-full w-full -rotate-90" fill="none">
 				{/* Background track */}
 				<circle
 					cx="20"
@@ -48,12 +44,15 @@ export function MatchProgressRing({
 					strokeLinecap="round"
 					strokeDasharray={CIRCUMFERENCE}
 					strokeDashoffset={offset}
-					className={cn('transition-[stroke-dashoffset] duration-500', getColorClass(percentage))}
+					className={cn(
+						'transition-[stroke-dashoffset] duration-500',
+						getColorClass(percentage),
+					)}
 					stroke="currentColor"
 				/>
 			</svg>
 			<span
-				className="absolute text-center font-bold leading-none"
+				className="absolute text-center leading-none font-bold"
 				style={{ fontSize: size * 0.28 }}
 			>
 				{percentage}

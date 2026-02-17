@@ -75,10 +75,7 @@ export function detectTemperatures(text: string): TemperatureMatch[] {
 			m.index + m[0].length,
 			m.index + m[0].length + BOTH_UNITS_WINDOW,
 		)
-		const before = text.slice(
-			Math.max(0, m.index - BOTH_UNITS_WINDOW),
-			m.index,
-		)
+		const before = text.slice(Math.max(0, m.index - BOTH_UNITS_WINDOW), m.index)
 		const oppositePattern = new RegExp(
 			`\\d+\\s*(?:°\\s*|degrees?\\s+)${oppositeUnit}`,
 			'i',

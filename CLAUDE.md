@@ -151,8 +151,7 @@ tests/
   text/file import)
 - `app/routes/recipes/$recipeId.tsx` - View with interactive cooking mode
   (ingredient checkboxes, instruction cross-off, inline timers, temperature
-  conversion tooltips, "I Made This",
-  "What Do I Need?")
+  conversion tooltips, "I Made This", "What Do I Need?")
 - `app/routes/recipes/$recipeId.edit.tsx` - Edit recipe form
 - `app/components/recipe-form.tsx` - Shared form with drag-and-drop ingredients
   (`@dnd-kit/sortable`), collapsible sections
@@ -162,8 +161,8 @@ tests/
 **Import**: URL import (JSON-LD scraping with text fallback — when extraction
 fails, user can paste recipe text for parsing via `parseRecipeText()`), quick
 text entry, bulk paste (with `---` separators for multiple recipes), file upload
-(.md/.txt). Duplicate detection by title. Sub-section headers in ingredients become heading rows
-(`isHeading: true`).
+(.md/.txt). Duplicate detection by title. Sub-section headers in ingredients
+become heading rows (`isHeading: true`).
 
 **Ingredient Headings**: Ingredients with `isHeading: true` are section dividers
 (e.g., "Gremolata Topping"). They have only a `name`, no amount/unit/notes.
@@ -196,9 +195,10 @@ Matches inventory against recipe ingredients with 4-level fuzzy matching: exact
 (post-normalization) → synonym lookup → core word → multi-word containment.
 Calculates match percentage per recipe. Always-on when the user has inventory
 items — recipe cards show subtle match progress rings, default sort is by match
-percentage (when no explicit sort chosen), and expiring item suggestions / "Almost
-There" banner display as contextual sections. Also used by the "What Do I Need?"
-checklist on recipe detail. The `/discover` route redirects to `/recipes`.
+percentage (when no explicit sort chosen), and expiring item suggestions /
+"Almost There" banner display as contextual sections. Also used by the "What Do
+I Need?" checklist on recipe detail. The `/discover` route redirects to
+`/recipes`.
 
 ### Meal Planning & Shopping
 
@@ -208,9 +208,9 @@ checklist on recipe detail. The `/discover` route redirects to `/recipes`.
   per-entry serving overrides, cook toggle, "Up next" banner, copy week,
   templates, pairing suggestions, waste alerts, efficiency dashboard
 - `app/routes/shopping.tsx` - Standalone shopping list with generate from meal
-  plan, collapsible quick add with duplicate/inventory warnings, low-stock
-  nudge chips, household item category, flat item list, check-off → inventory
-  pipeline (with shelf-life auto-suggest expiry dates), print layout
+  plan, collapsible quick add with duplicate/inventory warnings, low-stock nudge
+  chips, household item category, flat item list, check-off → inventory pipeline
+  (with shelf-life auto-suggest expiry dates), print layout
 - `app/routes/plan/shopping-list.tsx` - Redirect to `/shopping`
 - `app/utils/shopping-list.server.ts` - Shopping list generation logic
 - `app/utils/ingredient-overlap.server.ts` - Pairwise overlap scoring for
@@ -292,8 +292,8 @@ invite codes to share with friends. Admins can also generate codes for launches.
   redemption with concurrent-use guard, starter code granting on redemption
 - `app/utils/invite-code-status.ts` — Shared `RedeemCodeSchema` (Zod) and
   `getCodeStatus()` UI helper (used by settings and admin pages)
-- `app/routes/resources/redeem-invite-code.tsx` — POST resource route for
-  code redemption (used by `/upgrade` and potentially other pages via `useFetcher`)
+- `app/routes/resources/redeem-invite-code.tsx` — POST resource route for code
+  redemption (used by `/upgrade` and potentially other pages via `useFetcher`)
 - `app/routes/upgrade.tsx` — Pricing page with invite code input, Stripe
   checkout buttons, billing period toggle
 - `app/routes/settings/profile/invite-codes.tsx` — Pro-only settings page
@@ -311,8 +311,8 @@ Stripe subscriptions coexist — user has Pro if either `trialEndsAt` or
 
 - `app/utils/stripe.server.ts` — Stripe client singleton, Checkout/Portal
   session creation, webhook handlers (`handleCheckoutCompleted`,
-  `handleInvoicePaid`, `handleSubscriptionUpdated`, `handleSubscriptionDeleted`),
-  price-to-tier mapping
+  `handleInvoicePaid`, `handleSubscriptionUpdated`,
+  `handleSubscriptionDeleted`), price-to-tier mapping
 - `app/routes/resources/stripe-webhook.tsx` — Webhook endpoint (POST only, no
   session auth, Stripe signature verification). Always returns 200 after valid
   signature to prevent retries
@@ -359,10 +359,11 @@ There" banner pills (`recipes/index.tsx`), "What Do I Need?" modal
 (`recipes/$recipeId.tsx`). Recipe detail, recipe cards, and What Do I Need pass
 `recipeId` for contextual LLM results; Almost There banner omits it (ingredients
 are deduplicated across multiple recipes). Recipe detail passes `onApply` to
-enable temporary ingredient swaps (client-side `Map<ingredientId,
-AppliedSubstitution>` state in `RecipeDetail`); instruction text preprocessed
-via `applySubstitutionsToText()` with word-boundary regex. Other integration
-points (cards, banner, What Do I Need modal) omit `onApply` — read-only.
+enable temporary ingredient swaps (client-side
+`Map<ingredientId, AppliedSubstitution>` state in `RecipeDetail`); instruction
+text preprocessed via `applySubstitutionsToText()` with word-boundary regex.
+Other integration points (cards, banner, What Do I Need modal) omit `onApply` —
+read-only.
 
 **Env vars**: `ANTHROPIC_API_KEY` (optional — app works with static
 substitutions only when unset). LLM results cached 30 days in SQLite via
@@ -485,8 +486,8 @@ templateId, recipeId
 **Subscription**: tier, stripeCustomerId?, stripeSubscriptionId?,
 subscriptionExpiresAt?, trialEndsAt?, userId (1-to-1)
 
-**InviteCode**: code (unique, "QM-XXXXXX"), type ("admin"|"earned"),
-grantsDays, expiresAt?, redeemedAt?, createdById, redeemedById?
+**InviteCode**: code (unique, "QM-XXXXXX"), type ("admin"|"earned"), grantsDays,
+expiresAt?, redeemedAt?, createdById, redeemedById?
 
 **User**: Epic Stack default model with roles, permissions, connections (OAuth),
 sessions, passkeys
@@ -494,15 +495,14 @@ sessions, passkeys
 ### Key Relationships
 
 - Household has many: Recipe, InventoryItem, MealPlan, ShoppingList,
-  MealPlanTemplate, HouseholdMember, HouseholdInvite, HouseholdEvent,
-  UsageEvent
+  MealPlanTemplate, HouseholdMember, HouseholdInvite, HouseholdEvent, UsageEvent
 - User has many: Recipe, InventoryItem, MealPlan, ShoppingList, CookingLog,
   MealPlanTemplate, HouseholdMember, UsageEvent, InviteCode (created + redeemed)
 - Recipe has many: Ingredient, Instruction, MealPlanEntry, CookingLog,
   MealPlanTemplateEntry; has one: RecipeImage; many-to-many: Tag
 - MealPlan has many MealPlanEntry; ShoppingList has many ShoppingListItem
-- All household-scoped models have both `userId` (attribution) and
-  `householdId` (data scoping)
+- All household-scoped models have both `userId` (attribution) and `householdId`
+  (data scoping)
 
 ## Testing
 
@@ -622,8 +622,8 @@ Configured for **Fly.io** with `fly.toml`:
 - Automatic HTTPS
 - Environment variables managed via Fly secrets
 - LiteFS exec chain (`other/litefs.yml`): `prisma migrate deploy` →
-  `run-seed-infrastructure.ts` (permissions, roles, tags) → WAL pragma → `npm
-  start`. Infrastructure seed runs on every deploy (idempotent upserts)
+  `run-seed-infrastructure.ts` (permissions, roles, tags) → WAL pragma →
+  `npm start`. Infrastructure seed runs on every deploy (idempotent upserts)
 
 For self-hosting, standard Node.js app:
 

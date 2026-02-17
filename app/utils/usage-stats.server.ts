@@ -89,10 +89,7 @@ export async function getUsageStats(userId: string, householdId: string) {
 			const d = new Date(e.createdAt)
 			const jan1 = new Date(d.getFullYear(), 0, 1)
 			const weekNum = Math.ceil(
-				((d.getTime() - jan1.getTime()) / 86400000 +
-					jan1.getDay() +
-					1) /
-					7,
+				((d.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7,
 			)
 			return `${d.getFullYear()}-W${weekNum}`
 		}),

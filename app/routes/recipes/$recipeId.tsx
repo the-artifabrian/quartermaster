@@ -499,9 +499,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		() => new Set(),
 	)
 	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(() => new Set())
-	const [substitutions, setSubstitutions] = useState<
-		Map<string, AppliedSubstitution>
-	>(() => new Map())
 	const cookFetcher = useFetcher({ key: 'log-cook' })
 	const previewFetcher = useFetcher({ key: 'preview-subtraction' })
 	const needFetcher = useFetcher({ key: 'what-do-i-need' })
@@ -586,30 +583,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			} else {
 				next.add(id)
 			}
-			return next
-		})
-	}
-
-	function applySubstitution(
-		ingredientId: string,
-		originalName: string,
-		replacement: string,
-	) {
-		setSubstitutions((prev) => {
-			const next = new Map(prev)
-			next.set(ingredientId, {
-				originalName,
-				replacementDisplay: replacement,
-				replacementShort: extractPrimaryIngredient(replacement),
-			})
-			return next
-		})
-	}
-
-	function revertSubstitution(ingredientId: string) {
-		setSubstitutions((prev) => {
-			const next = new Map(prev)
-			next.delete(ingredientId)
 			return next
 		})
 	}
@@ -904,12 +877,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								checkedIngredients={checkedIngredients}
 								onToggle={toggleIngredient}
 								ratio={ratio}
-								missingIngredientIds={missingIngredientIds}
-								isProActive={isProActive}
-								recipeId={recipe.id}
-								substitutions={substitutions}
-								onApplySubstitution={applySubstitution}
-								onRevertSubstitution={revertSubstitution}
 							/>
 							{isProActive && (
 								<Button
@@ -966,14 +933,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 											)}
 										>
 											<InstructionWithTimers
-												content={
-													substitutions.size > 0
-														? applySubstitutionsToText(
-																instruction.content,
-																substitutions,
-															)
-														: instruction.content
-												}
+												content={instruction.content}
 												stepNumber={index + 1}
 												recipeName={recipe.title}
 											/>
@@ -1540,12 +1500,6 @@ function IngredientList({
 	checkedIngredients,
 	onToggle,
 	ratio,
-	missingIngredientIds,
-	isProActive,
-	recipeId,
-	substitutions,
-	onApplySubstitution,
-	onRevertSubstitution,
 }: {
 	ingredients: Array<{
 		id: string
@@ -1558,18 +1512,7 @@ function IngredientList({
 	checkedIngredients: Set<string>
 	onToggle: (id: string) => void
 	ratio: number
-	missingIngredientIds: string[]
-	isProActive: boolean
-	recipeId: string
-	substitutions: Map<string, AppliedSubstitution>
-	onApplySubstitution: (
-		ingredientId: string,
-		originalName: string,
-		replacement: string,
-	) => void
-	onRevertSubstitution: (ingredientId: string) => void
 }) {
-	const missingIds = new Set(missingIngredientIds)
 	return (
 		<ul className="space-y-1">
 			{ingredients.map((ingredient) => {
@@ -1584,8 +1527,6 @@ function IngredientList({
 				}
 
 				const isChecked = checkedIngredients.has(ingredient.id)
-				const isMissing = missingIds.has(ingredient.id)
-				const activeSub = substitutions.get(ingredient.id)
 				return (
 					<li
 						key={ingredient.id}
@@ -1623,46 +1564,7 @@ function IngredientList({
 								</span>
 							)}
 							{ingredient.unit && <span>{ingredient.unit} </span>}
-							{activeSub ? (
-								<span className="inline-flex items-center gap-1">
-									<span className="font-medium text-amber-600 dark:text-amber-400">
-										{activeSub.replacementDisplay}
-									</span>
-									<button
-										type="button"
-										aria-label={`Revert to ${ingredient.name}`}
-										className="text-muted-foreground hover:text-foreground inline-flex shrink-0 rounded p-0.5 transition-colors"
-										onClick={(e) => {
-											e.stopPropagation()
-											onRevertSubstitution(ingredient.id)
-										}}
-										onKeyDown={(e) => {
-											if (e.key === 'Enter' || e.key === ' ') {
-												e.stopPropagation()
-											}
-										}}
-									>
-										<Icon name="reset" className="size-3.5" />
-									</button>
-								</span>
-							) : isMissing && isProActive ? (
-								<SubstitutionHint
-									ingredientName={ingredient.name}
-									isProActive={isProActive}
-									recipeId={recipeId}
-									onApply={(replacement) =>
-										onApplySubstitution(
-											ingredient.id,
-											ingredient.name,
-											replacement,
-										)
-									}
-								>
-									{ingredient.name}
-								</SubstitutionHint>
-							) : (
-								<span>{ingredient.name}</span>
-							)}
+							<span>{ingredient.name}</span>
 							{ingredient.notes && (
 								<span className={isChecked ? '' : 'text-muted-foreground'}>
 									, {ingredient.notes}
@@ -1679,42 +1581,6 @@ function IngredientList({
 function formatQuantity(q: number | null): string {
 	if (q === null) return '?'
 	return Number.isInteger(q) ? q.toString() : q.toFixed(1)
-}
-
-// --- Substitution utilities ---
-
-type AppliedSubstitution = {
-	originalName: string
-	replacementDisplay: string // full text for ingredient list: "milk + lemon juice"
-	replacementShort: string // primary ingredient for instructions: "milk"
-}
-
-/** Extract the primary ingredient from a compound replacement string */
-function extractPrimaryIngredient(replacement: string): string {
-	// Split on common separators: "+", "&", "and", "with"
-	const parts = replacement.split(/\s*(?:\+|&|\band\b|\bwith\b)\s*/i)
-	let primary = parts[0]?.trim() ?? replacement
-	// Strip leading amounts/units: "1 cup milk" → "milk"
-	primary = primary.replace(
-		/^[\d./½⅓⅔¼¾⅛]+\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?|pounds?|g|grams?|ml|liters?|litres?|pinch(?:es)?|dash(?:es)?|cloves?)\s+/i,
-		'',
-	)
-	return primary || replacement
-}
-
-/** Replace original ingredient names with substitution names in instruction text */
-function applySubstitutionsToText(
-	text: string,
-	substitutions: Map<string, AppliedSubstitution>,
-): string {
-	let result = text
-	for (const [, sub] of substitutions) {
-		// Escape regex special chars in original name
-		const escaped = sub.originalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-		const regex = new RegExp(`\\b${escaped}\\b`, 'gi')
-		result = result.replace(regex, sub.replacementShort)
-	}
-	return result
 }
 
 // --- Cooking log entry ---

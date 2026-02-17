@@ -326,7 +326,7 @@ export default function SubscriptionsAdminRoute({
 				<Link to="/admin/users" className="underline-offset-4 hover:underline">
 					Users
 				</Link>
-				<span className="font-medium text-foreground">Subscriptions</span>
+				<span className="text-foreground font-medium">Subscriptions</span>
 				<Link to="/admin/cache" className="underline-offset-4 hover:underline">
 					Cache
 				</Link>
@@ -377,9 +377,7 @@ export default function SubscriptionsAdminRoute({
 					</div>
 					<StatusButton
 						type="submit"
-						status={
-							generateFetcher.state === 'submitting' ? 'pending' : 'idle'
-						}
+						status={generateFetcher.state === 'submitting' ? 'pending' : 'idle'}
 					>
 						Generate
 					</StatusButton>

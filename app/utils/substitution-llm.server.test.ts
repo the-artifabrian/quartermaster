@@ -130,17 +130,20 @@ describe('getLLMSubstitutions', () => {
 		let capturedBody: any = null
 
 		server.use(
-			http.post('https://api.anthropic.com/v1/messages', async ({ request }) => {
-				capturedBody = await request.json()
-				return HttpResponse.json({
-					content: [
-						{
-							type: 'text',
-							text: '[{"replacement": "test", "context": "test"}]',
-						},
-					],
-				})
-			}),
+			http.post(
+				'https://api.anthropic.com/v1/messages',
+				async ({ request }) => {
+					capturedBody = await request.json()
+					return HttpResponse.json({
+						content: [
+							{
+								type: 'text',
+								text: '[{"replacement": "test", "context": "test"}]',
+							},
+						],
+					})
+				},
+			),
 		)
 
 		await getLLMSubstitutions('saffron')

@@ -81,7 +81,12 @@ function ModalShell({
 			/>
 			<div className="bg-card shadow-warm-lg relative w-full max-w-md rounded-t-2xl p-6 sm:rounded-2xl">
 				<div className="mb-4 flex items-center justify-between">
-					<h2 id="template-modal-title" className="font-serif text-xl font-bold">{title}</h2>
+					<h2
+						id="template-modal-title"
+						className="font-serif text-xl font-bold"
+					>
+						{title}
+					</h2>
 					<button
 						onClick={onClose}
 						aria-label="Close"
@@ -212,8 +217,7 @@ export function ApplyTemplateModal({
 			) : (
 				<div className="space-y-2">
 					<p className="text-muted-foreground mb-3 text-sm">
-						Apply a template to this week. Existing entries won't be
-						duplicated.
+						Apply a template to this week. Existing entries won't be duplicated.
 					</p>
 					{visibleTemplates.map((template) => (
 						<div
@@ -231,11 +235,7 @@ export function ApplyTemplateModal({
 							</div>
 							<applyFetcher.Form method="POST">
 								<input type="hidden" name="intent" value="applyTemplate" />
-								<input
-									type="hidden"
-									name="templateId"
-									value={template.id}
-								/>
+								<input type="hidden" name="templateId" value={template.id} />
 								<input type="hidden" name="weekStart" value={weekStart} />
 								<Button type="submit" size="sm">
 									Apply
@@ -244,11 +244,7 @@ export function ApplyTemplateModal({
 							{pendingDeleteId === template.id ? (
 								<div className="flex gap-1">
 									<deleteFetcher.Form method="POST">
-										<input
-											type="hidden"
-											name="intent"
-											value="deleteTemplate"
-										/>
+										<input type="hidden" name="intent" value="deleteTemplate" />
 										<input
 											type="hidden"
 											name="templateId"

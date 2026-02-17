@@ -256,7 +256,8 @@ const SUBSTITUTION_DATA: SubstitutionEntry[] = [
 		substitutions: [
 			{
 				replacement: 'peanut oil + soy sauce',
-				context: 'A few drops of soy sauce with peanut oil approximates the flavor.',
+				context:
+					'A few drops of soy sauce with peanut oil approximates the flavor.',
 			},
 		],
 	},

@@ -164,8 +164,7 @@ function parseImportData(
 
 	if ('recipeCount' in obj) {
 		const result = RecipeOnlyExportSchema.safeParse(parsed)
-		if (result.success)
-			return { type: 'recipe-only', data: result.data }
+		if (result.success) return { type: 'recipe-only', data: result.data }
 		return {
 			error: `Invalid data: ${result.error.errors[0]?.message ?? 'validation failed'}`,
 		}
@@ -209,9 +208,7 @@ async function importRecipes(
 	const allTags = await prisma.tag.findMany({
 		select: { id: true, name: true },
 	})
-	const tagNameToId = new Map(
-		allTags.map((t) => [t.name.toLowerCase(), t.id]),
-	)
+	const tagNameToId = new Map(allTags.map((t) => [t.name.toLowerCase(), t.id]))
 
 	for (const recipe of recipes) {
 		const lowerTitle = recipe.title.toLowerCase()
@@ -291,10 +288,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 	const importResult = parseImportData(parsed)
 	if ('error' in importResult) {
-		return data(
-			{ error: importResult.error, results: null },
-			{ status: 400 },
-		)
+		return data({ error: importResult.error, results: null }, { status: 400 })
 	}
 
 	const { isProActive } = await getUserTier(userId)
@@ -343,9 +337,7 @@ export async function action({ request }: Route.ActionArgs) {
 				select: { name: true, location: true },
 			})
 			const existingKeys = new Set(
-				existingInventory.map(
-					(i) => `${i.name.toLowerCase()}|${i.location}`,
-				),
+				existingInventory.map((i) => `${i.name.toLowerCase()}|${i.location}`),
 			)
 
 			for (const item of fullData.inventory) {
@@ -361,9 +353,7 @@ export async function action({ request }: Route.ActionArgs) {
 							location: item.location,
 							quantity: item.quantity ?? null,
 							unit: item.unit || null,
-							expiresAt: item.expiresAt
-								? new Date(item.expiresAt)
-								: null,
+							expiresAt: item.expiresAt ? new Date(item.expiresAt) : null,
 							lowStock: item.lowStock ?? false,
 							userId,
 							householdId,
@@ -396,9 +386,7 @@ export async function action({ request }: Route.ActionArgs) {
 				}
 
 				for (const entry of plan.entries) {
-					const recipeId = titleToIdMap.get(
-						entry.recipe.toLowerCase(),
-					)
+					const recipeId = titleToIdMap.get(entry.recipe.toLowerCase())
 					if (!recipeId) {
 						results.mealPlans.skipped++
 						continue
@@ -483,9 +471,7 @@ export async function action({ request }: Route.ActionArgs) {
 			try {
 				const entries = template.entries
 					.map((entry) => {
-						const recipeId = titleToIdMap.get(
-							entry.recipe.toLowerCase(),
-						)
+						const recipeId = titleToIdMap.get(entry.recipe.toLowerCase())
 						if (!recipeId) return null
 						return {
 							dayOfWeek: entry.dayOfWeek,
@@ -494,9 +480,7 @@ export async function action({ request }: Route.ActionArgs) {
 							recipeId,
 						}
 					})
-					.filter(
-						(e): e is NonNullable<typeof e> => e != null,
-					)
+					.filter((e): e is NonNullable<typeof e> => e != null)
 
 				if (entries.length === 0) {
 					results.mealPlanTemplates.skipped++
@@ -548,10 +532,7 @@ function getPreview(jsonData: unknown): ImportPreview | null {
 		recipes: result.data.recipes.length,
 		inventory: fullData?.inventory?.length ?? 0,
 		mealPlans:
-			fullData?.mealPlans?.reduce(
-				(sum, p) => sum + p.entries.length,
-				0,
-			) ?? 0,
+			fullData?.mealPlans?.reduce((sum, p) => sum + p.entries.length, 0) ?? 0,
 		shoppingLists: fullData?.shoppingLists?.length ?? 0,
 		cookingLogs: fullData?.cookingLogs?.length ?? 0,
 		mealPlanTemplates: fullData?.mealPlanTemplates?.length ?? 0,
@@ -672,18 +653,15 @@ export default function ImportData() {
 			</Link>
 			<h1 className="mb-2 text-2xl font-bold">Import Data</h1>
 			<p className="text-muted-foreground mb-6">
-				Import a previously exported Quartermaster file. Both full
-				exports and recipe-only exports are supported. Duplicates are
-				automatically skipped.
+				Import a previously exported Quartermaster file. Both full exports and
+				recipe-only exports are supported. Duplicates are automatically skipped.
 			</p>
 
 			{/* Phase 3: Results */}
 			{results ? (
 				<div className="space-y-4">
-					<div className="bg-card rounded-xl border p-6 shadow-warm">
-						<h2 className="mb-4 text-lg font-semibold">
-							Import Complete
-						</h2>
+					<div className="bg-card shadow-warm rounded-xl border p-6">
+						<h2 className="mb-4 text-lg font-semibold">Import Complete</h2>
 						<div className="space-y-3">
 							<ResultRow
 								label="Recipes"
@@ -725,12 +703,8 @@ export default function ImportData() {
 								results.mealPlanTemplates.skipped > 0) && (
 								<ResultRow
 									label="Meal plan templates"
-									created={
-										results.mealPlanTemplates.created
-									}
-									skipped={
-										results.mealPlanTemplates.skipped
-									}
+									created={results.mealPlanTemplates.created}
+									skipped={results.mealPlanTemplates.skipped}
 								/>
 							)}
 						</div>
@@ -747,51 +721,40 @@ export default function ImportData() {
 			) : (
 				<>
 					{/* Phase 1: Upload */}
-					<div className="bg-card rounded-xl border p-6 shadow-warm">
+					<div className="bg-card shadow-warm rounded-xl border p-6">
 						<label className="block">
-							<span className="text-sm font-medium">
-								Select export file
-							</span>
+							<span className="text-sm font-medium">Select export file</span>
 							<input
 								ref={fileInputRef}
 								type="file"
 								accept=".json"
 								onChange={handleFileChange}
-								className="mt-2 block w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
+								className="file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 mt-2 block w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:px-4 file:py-2 file:text-sm file:font-medium"
 							/>
 						</label>
 
 						{fileError && (
-							<p className="mt-3 text-sm text-destructive">
-								{fileError}
-							</p>
+							<p className="text-destructive mt-3 text-sm">{fileError}</p>
 						)}
 						{serverError && !results && (
-							<p className="mt-3 text-sm text-destructive">
-								{serverError}
-							</p>
+							<p className="text-destructive mt-3 text-sm">{serverError}</p>
 						)}
 
 						<p className="text-muted-foreground mt-4 text-xs">
-							Images are not included in exports and will be
-							skipped during import.
+							Images are not included in exports and will be skipped during
+							import.
 						</p>
 					</div>
 
 					{/* Phase 2: Preview */}
 					{preview && (
 						<div className="mt-4 space-y-4">
-							<div className="bg-card rounded-xl border p-6 shadow-warm">
-								<h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-									{preview.isFullExport
-										? 'Full Export'
-										: 'Recipe-Only Export'}
+							<div className="bg-card shadow-warm rounded-xl border p-6">
+								<h2 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
+									{preview.isFullExport ? 'Full Export' : 'Recipe-Only Export'}
 								</h2>
 								<div className="space-y-1.5 text-sm">
-									<PreviewRow
-										label="Recipes"
-										count={preview.recipes}
-									/>
+									<PreviewRow label="Recipes" count={preview.recipes} />
 									{preview.inventory > 0 && (
 										<PreviewRow
 											label="Inventory items"
@@ -824,30 +787,22 @@ export default function ImportData() {
 									)}
 								</div>
 								<p className="text-muted-foreground mt-3 text-xs">
-									Existing recipes (matched by title) and
-									inventory items (matched by name + location)
-									will be automatically skipped.
+									Existing recipes (matched by title) and inventory items
+									(matched by name + location) will be automatically skipped.
 								</p>
 							</div>
 
 							<div className="flex justify-end gap-3">
-								<Button
-									variant="outline"
-									onClick={handleReset}
-								>
+								<Button variant="outline" onClick={handleReset}>
 									Cancel
 								</Button>
 								<StatusButton
 									type="button"
-									status={
-										isSubmitting ? 'pending' : 'idle'
-									}
+									status={isSubmitting ? 'pending' : 'idle'}
 									disabled={isSubmitting}
 									onClick={handleSubmit}
 								>
-									{isSubmitting
-										? 'Importing...'
-										: 'Import'}
+									{isSubmitting ? 'Importing...' : 'Import'}
 								</StatusButton>
 							</div>
 						</div>
@@ -888,14 +843,10 @@ function ResultRow({
 					</span>
 				)}
 				{skipped > 0 && (
-					<span className="text-muted-foreground">
-						{skipped} skipped
-					</span>
+					<span className="text-muted-foreground">{skipped} skipped</span>
 				)}
 				{errored > 0 && (
-					<span className="text-destructive">
-						{errored} failed
-					</span>
+					<span className="text-destructive">{errored} failed</span>
 				)}
 				{created === 0 && skipped === 0 && errored === 0 && (
 					<span className="text-muted-foreground">none</span>

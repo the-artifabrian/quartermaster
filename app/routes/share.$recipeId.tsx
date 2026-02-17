@@ -387,76 +387,76 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 					recipe.cookTime ||
 					recipe.sourceUrl ||
 					recipe.tags.length > 0) && (
-				<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-3 md:p-5">
-					<div className="flex flex-wrap items-center gap-3 text-sm">
-						{recipe.prepTime && (
-							<span className="text-muted-foreground flex items-center gap-1">
-								<Icon name="clock" size="sm" className="text-accent" />
-								Prep: {recipe.prepTime} min
-							</span>
-						)}
-						{recipe.cookTime && (
-							<>
-								{recipe.prepTime && (
-									<span className="text-border hidden md:inline">|</span>
-								)}
+					<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-3 md:p-5">
+						<div className="flex flex-wrap items-center gap-3 text-sm">
+							{recipe.prepTime && (
 								<span className="text-muted-foreground flex items-center gap-1">
 									<Icon name="clock" size="sm" className="text-accent" />
-									Cook: {recipe.cookTime} min
+									Prep: {recipe.prepTime} min
 								</span>
-							</>
-						)}
-						{totalTime > 0 && (
-							<>
-								<span className="text-border hidden md:inline">|</span>
-								<span className="text-foreground font-medium">
-									Total: {totalTime} min
-								</span>
-							</>
-						)}
-
-						{/* Source URL inline */}
-						{recipe.sourceUrl && (
-							<>
-								{(recipe.prepTime || recipe.cookTime) && (
+							)}
+							{recipe.cookTime && (
+								<>
+									{recipe.prepTime && (
+										<span className="text-border hidden md:inline">|</span>
+									)}
+									<span className="text-muted-foreground flex items-center gap-1">
+										<Icon name="clock" size="sm" className="text-accent" />
+										Cook: {recipe.cookTime} min
+									</span>
+								</>
+							)}
+							{totalTime > 0 && (
+								<>
 									<span className="text-border hidden md:inline">|</span>
-								)}
-								<a
-									href={recipe.sourceUrl}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline"
-								>
-									<Icon name="link-2" size="sm" />
-									{(() => {
-										try {
-											return new URL(recipe.sourceUrl).hostname.replace(
-												/^www\./,
-												'',
-											)
-										} catch {
-											return 'Source'
-										}
-									})()}
-								</a>
-							</>
+									<span className="text-foreground font-medium">
+										Total: {totalTime} min
+									</span>
+								</>
+							)}
+
+							{/* Source URL inline */}
+							{recipe.sourceUrl && (
+								<>
+									{(recipe.prepTime || recipe.cookTime) && (
+										<span className="text-border hidden md:inline">|</span>
+									)}
+									<a
+										href={recipe.sourceUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline"
+									>
+										<Icon name="link-2" size="sm" />
+										{(() => {
+											try {
+												return new URL(recipe.sourceUrl).hostname.replace(
+													/^www\./,
+													'',
+												)
+											} catch {
+												return 'Source'
+											}
+										})()}
+									</a>
+								</>
+							)}
+						</div>
+
+						{/* Tags inside meta card */}
+						{recipe.tags.length > 0 && (
+							<div className="mt-3 flex flex-wrap gap-1.5">
+								{recipe.tags.map((tag) => (
+									<span
+										key={tag.id}
+										className="bg-accent/10 border-accent/20 rounded-full border px-2.5 py-0.5 text-xs font-medium"
+									>
+										{tag.name}
+									</span>
+								))}
+							</div>
 						)}
 					</div>
-
-					{/* Tags inside meta card */}
-					{recipe.tags.length > 0 && (
-						<div className="mt-3 flex flex-wrap gap-1.5">
-							{recipe.tags.map((tag) => (
-								<span
-									key={tag.id}
-									className="bg-accent/10 border-accent/20 rounded-full border px-2.5 py-0.5 text-xs font-medium"
-								>
-									{tag.name}
-								</span>
-							))}
-						</div>
-					)}
-				</div>
 				)}
 
 				{/* Description */}
@@ -544,15 +544,12 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 														: 'border-muted-foreground/25',
 												)}
 											>
-												{isChecked && (
-													<Icon name="check" className="size-3" />
-												)}
+												{isChecked && <Icon name="check" className="size-3" />}
 											</span>
 											<span
 												className={cn(
 													'transition-colors',
-													isChecked &&
-														'text-muted-foreground/50 line-through',
+													isChecked && 'text-muted-foreground/50 line-through',
 												)}
 											>
 												{ingredient.amount && (
@@ -560,15 +557,11 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 														{scaleAmount(ingredient.amount, ratio)}{' '}
 													</span>
 												)}
-												{ingredient.unit && (
-													<span>{ingredient.unit} </span>
-												)}
+												{ingredient.unit && <span>{ingredient.unit} </span>}
 												<span>{ingredient.name}</span>
 												{ingredient.notes && (
 													<span
-														className={
-															isChecked ? '' : 'text-muted-foreground'
-														}
+														className={isChecked ? '' : 'text-muted-foreground'}
 													>
 														, {ingredient.notes}
 													</span>
@@ -613,17 +606,12 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 													: 'bg-accent/10 text-accent border-accent/20 border',
 											)}
 										>
-											{isChecked ? (
-												<Icon name="check" size="sm" />
-											) : (
-												index + 1
-											)}
+											{isChecked ? <Icon name="check" size="sm" /> : index + 1}
 										</span>
 										<p
 											className={cn(
 												'pt-1 text-base transition-colors',
-												isChecked &&
-													'text-muted-foreground/50 line-through',
+												isChecked && 'text-muted-foreground/50 line-through',
 											)}
 										>
 											<InstructionWithTimers
@@ -646,8 +634,8 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 							<>
 								<p className="text-lg font-semibold">Like this recipe?</p>
 								<p className="text-muted-foreground mt-1 text-sm">
-									Save it to your recipes to cook later, add to meal
-									plans, and more.
+									Save it to your recipes to cook later, add to meal plans, and
+									more.
 								</p>
 								<div className="mt-4 flex justify-center">
 									{alreadySaved ? (
@@ -670,8 +658,8 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 							<>
 								<p className="text-lg font-semibold">Like this recipe?</p>
 								<p className="text-muted-foreground mt-1 text-sm">
-									Sign up for Quartermaster to save recipes, plan meals,
-									and track your pantry.
+									Sign up for Quartermaster to save recipes, plan meals, and
+									track your pantry.
 								</p>
 								<div className="mt-4 flex justify-center gap-3">
 									<Button asChild>

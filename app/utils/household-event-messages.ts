@@ -127,8 +127,7 @@ export function formatEventMessage(
 			}
 		case 'data_imported': {
 			const parts: string[] = []
-			if (payload.recipeCount)
-				parts.push(`${payload.recipeCount} recipes`)
+			if (payload.recipeCount) parts.push(`${payload.recipeCount} recipes`)
 			if (payload.inventoryCount)
 				parts.push(`${payload.inventoryCount} inventory items`)
 			const summary = parts.length > 0 ? parts.join(' and ') : 'data'

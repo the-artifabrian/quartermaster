@@ -41,17 +41,14 @@ export default function UsageStats({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			{/* Cooking Activity */}
-			<div className="bg-card rounded-xl border p-5 shadow-warm">
-				<h3 className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wider">
+			<div className="bg-card shadow-warm rounded-xl border p-5">
+				<h3 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
 					Cooking Activity
 				</h3>
 				<div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
 					<StatCard label="Total cooks" value={cookCount} />
 					<StatCard label="Recipes in library" value={recipeCount} />
-					<StatCard
-						label="Unique recipes cooked"
-						value={uniqueRecipesCooked}
-					/>
+					<StatCard label="Unique recipes cooked" value={uniqueRecipesCooked} />
 				</div>
 				{mostCookedRecipe && (
 					<p className="text-muted-foreground mt-3 text-sm">
@@ -65,8 +62,8 @@ export default function UsageStats({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			{/* Meal Planning */}
-			<div className="bg-card rounded-xl border p-5 shadow-warm">
-				<h3 className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wider">
+			<div className="bg-card shadow-warm rounded-xl border p-5">
+				<h3 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
 					Meal Planning
 				</h3>
 				<div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -75,32 +72,26 @@ export default function UsageStats({ loaderData }: Route.ComponentProps) {
 						label="Avg efficiency"
 						value={avgEfficiency !== null ? `${avgEfficiency}%` : '--'}
 					/>
-					<StatCard
-						label="Pairing selections"
-						value={pairingAssignments}
-					/>
+					<StatCard label="Pairing selections" value={pairingAssignments} />
 				</div>
 			</div>
 
 			{/* Discovery */}
-			<div className="bg-card rounded-xl border p-5 shadow-warm">
-				<h3 className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wider">
+			<div className="bg-card shadow-warm rounded-xl border p-5">
+				<h3 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
 					Discovery
 				</h3>
 				<div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
 					<StatCard label="Discover visits" value={discoverViews} />
 					<StatCard label="Surprise Me uses" value={surpriseMeUses} />
-					<StatCard
-						label="What Do I Need? uses"
-						value={whatDoINeedUses}
-					/>
+					<StatCard label="What Do I Need? uses" value={whatDoINeedUses} />
 				</div>
 			</div>
 
 			{/* Event Log */}
 			{Object.keys(eventCounts).length > 0 && (
-				<div className="bg-card rounded-xl border p-5 shadow-warm">
-					<h3 className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wider">
+				<div className="bg-card shadow-warm rounded-xl border p-5">
+					<h3 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
 						Event Log (90 days)
 					</h3>
 					<div className="divide-y">
@@ -124,13 +115,7 @@ export default function UsageStats({ loaderData }: Route.ComponentProps) {
 	)
 }
 
-function StatCard({
-	label,
-	value,
-}: {
-	label: string
-	value: string | number
-}) {
+function StatCard({ label, value }: { label: string; value: string | number }) {
 	return (
 		<div className="rounded-lg border p-3">
 			<p className="text-2xl font-bold">{value}</p>

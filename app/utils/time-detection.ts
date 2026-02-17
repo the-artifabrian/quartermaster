@@ -105,7 +105,10 @@ export function detectTimes(text: string): TimeMatch[] {
 	const rangePat = `(?:${numberPat})(?:\\s*[-–]\\s*(?:${numberPat}))?`
 	const unitPat = `(?:hours?|hrs?|minutes?|mins?|seconds?|secs?)`
 	const prefixPat = `(?:(?:for|about|approximately|around|another|an\\s+additional)\\s+)?`
-	const mainPattern = new RegExp(`${prefixPat}(${rangePat})\\s*${unitPat}`, 'gi')
+	const mainPattern = new RegExp(
+		`${prefixPat}(${rangePat})\\s*${unitPat}`,
+		'gi',
+	)
 
 	while ((m = mainPattern.exec(text)) !== null) {
 		// Skip if already covered by combined or "an hour" pattern
@@ -122,7 +125,9 @@ export function detectTimes(text: string): TimeMatch[] {
 		const numberStr = m[1]!
 
 		// Determine unit from the matched string
-		const unitMatch = fullMatch.match(/hours?|hrs?|minutes?|mins?|seconds?|secs?/i)
+		const unitMatch = fullMatch.match(
+			/hours?|hrs?|minutes?|mins?|seconds?|secs?/i,
+		)
 		if (!unitMatch) continue
 		const unit = unitMatch[0].toLowerCase()
 

@@ -4,10 +4,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import {
-	getInviteByToken,
-	acceptInvite,
-} from '#app/utils/household.server.ts'
+import { getInviteByToken, acceptInvite } from '#app/utils/household.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/join.ts'
 
@@ -118,12 +115,7 @@ export default function JoinHousehold({ loaderData }: Route.ComponentProps) {
 					</p>
 					<Form method="POST" className="flex justify-center gap-4">
 						<input type="hidden" name="token" value={token} />
-						<Button
-							type="submit"
-							name="intent"
-							value="accept"
-							size="lg"
-						>
+						<Button type="submit" name="intent" value="accept" size="lg">
 							Accept
 						</Button>
 						<Button

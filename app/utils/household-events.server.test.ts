@@ -1,7 +1,10 @@
 import { describe, expect, test, vi } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
-import { emitHouseholdEvent, householdEventBus } from './household-events.server.ts'
+import {
+	emitHouseholdEvent,
+	householdEventBus,
+} from './household-events.server.ts'
 
 async function setupUser() {
 	const user = await prisma.user.create({ data: createUser() })

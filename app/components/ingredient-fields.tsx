@@ -22,6 +22,7 @@ import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
 import { Label } from './ui/label.tsx'
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip.tsx'
 
 export type IngredientFieldValue = {
 	id?: string
@@ -131,16 +132,36 @@ export function IngredientFields({
 		}
 	}
 
+	const convertToHeading = (index: number) => {
+		const updated = [...ingredients]
+		const current = updated[index]
+		if (current) {
+			updated[index] = {
+				...current,
+				isHeading: true,
+				amount: '',
+				unit: '',
+				notes: '',
+			}
+			onChange(updated)
+		}
+	}
+
+	const convertToIngredient = (index: number) => {
+		const updated = [...ingredients]
+		const current = updated[index]
+		if (current) {
+			updated[index] = { ...current, isHeading: false }
+			onChange(updated)
+		}
+	}
+
 	function handleDragEnd(event: DragEndEvent) {
 		const { active, over } = event
 		if (!over || active.id === over.id) return
 
-		const oldIndex = ingredients.findIndex(
-			(i) => i.sortKey === active.id,
-		)
-		const newIndex = ingredients.findIndex(
-			(i) => i.sortKey === over.id,
-		)
+		const oldIndex = ingredients.findIndex((i) => i.sortKey === active.id)
+		const newIndex = ingredients.findIndex((i) => i.sortKey === over.id)
 		if (oldIndex === -1 || newIndex === -1) return
 
 		const updated = [...ingredients]
@@ -204,6 +225,7 @@ export function IngredientFields({
 									}
 									onRemove={() => removeIngredient(index)}
 									canRemove={ingredients.length > 1}
+									onConvertToIngredient={() => convertToIngredient(index)}
 								/>
 							) : (
 								<SortableIngredientRow
@@ -216,6 +238,7 @@ export function IngredientFields({
 									}
 									onRemove={() => removeIngredient(index)}
 									canRemove={ingredients.length > 1}
+									onConvertToHeading={() => convertToHeading(index)}
 								/>
 							),
 						)}
@@ -233,6 +256,7 @@ function SortableIngredientRow({
 	onUpdate,
 	onRemove,
 	canRemove,
+	onConvertToHeading,
 }: {
 	sortKey: string
 	ingredient: IngredientFieldValue
@@ -240,6 +264,7 @@ function SortableIngredientRow({
 	onUpdate: (field: keyof IngredientFieldValue, value: string) => void
 	onRemove: () => void
 	canRemove: boolean
+	onConvertToHeading: () => void
 }) {
 	const id = useId()
 	const {
@@ -317,6 +342,21 @@ function SortableIngredientRow({
 						className="text-sm sm:hidden"
 					/>
 				</div>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							onClick={onConvertToHeading}
+							className="size-9"
+							aria-label="Convert to section heading"
+						>
+							<Icon name="rows" size="sm" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>Convert to section heading</TooltipContent>
+				</Tooltip>
 				<Button
 					type="button"
 					variant="ghost"
@@ -339,12 +379,14 @@ function SortableHeadingRow({
 	onUpdate,
 	onRemove,
 	canRemove,
+	onConvertToIngredient,
 }: {
 	sortKey: string
 	ingredient: IngredientFieldValue
 	onUpdate: (field: keyof IngredientFieldValue, value: string) => void
 	onRemove: () => void
 	canRemove: boolean
+	onConvertToIngredient: () => void
 }) {
 	const id = useId()
 	const {
@@ -386,6 +428,21 @@ function SortableHeadingRow({
 				onChange={(e) => onUpdate('name', e.target.value)}
 				className="flex-1 font-semibold"
 			/>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						onClick={onConvertToIngredient}
+						className="size-9"
+						aria-label="Convert to regular ingredient"
+					>
+						<Icon name="reset" size="sm" />
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>Convert to regular ingredient</TooltipContent>
+			</Tooltip>
 			<Button
 				type="button"
 				variant="ghost"

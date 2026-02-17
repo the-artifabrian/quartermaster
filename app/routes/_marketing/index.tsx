@@ -142,9 +142,8 @@ export default function Index() {
 								Import your favorite recipes
 							</h3>
 							<p className="text-muted-foreground mt-2">
-								Paste a URL, bulk-import dozens at once, or type it in by
-								hand. Your whole collection in one searchable place, tags
-								and all.
+								Paste a URL, bulk-import dozens at once, or type it in by hand.
+								Your whole collection in one searchable place, tags and all.
 							</p>
 						</div>
 					</div>
@@ -229,7 +228,7 @@ export default function Index() {
 								))}
 							</div>
 							<div className="mt-3 flex items-center justify-center gap-2">
-								<span className="bg-accent inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold text-accent-foreground">
+								<span className="bg-accent text-accent-foreground inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold">
 									67% overlap
 								</span>
 								<span className="text-muted-foreground text-[10px]">
@@ -246,8 +245,8 @@ export default function Index() {
 							</h3>
 							<p className="text-muted-foreground mt-2">
 								Add recipes to your weekly plan. Quartermaster spots ingredient
-								overlaps so you buy less and waste less. It also warns you
-								about single-use ingredients before you shop.
+								overlaps so you buy less and waste less. It also warns you about
+								single-use ingredients before you shop.
 							</p>
 						</div>
 					</div>
@@ -315,8 +314,8 @@ export default function Index() {
 						Built for the kitchen
 					</h2>
 					<p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
-						Quartermaster is designed to be used while you cook, not just
-						for planning ahead.
+						Quartermaster is designed to be used while you cook, not just for
+						planning ahead.
 					</p>
 					<div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 						{[
@@ -346,9 +345,7 @@ export default function Index() {
 									<Icon name={f.icon} className="text-accent size-5" />
 								</div>
 								<h3 className="mt-3 text-sm font-semibold">{f.title}</h3>
-								<p className="text-muted-foreground mt-1 text-xs/5">
-									{f.desc}
-								</p>
+								<p className="text-muted-foreground mt-1 text-xs/5">{f.desc}</p>
 							</div>
 						))}
 					</div>

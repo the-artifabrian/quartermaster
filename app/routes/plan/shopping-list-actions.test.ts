@@ -37,10 +37,7 @@ async function setupUser() {
 	return { ...session, householdId: household.id }
 }
 
-async function setupMealPlanWithRecipe(
-	userId: string,
-	householdId: string,
-) {
+async function setupMealPlanWithRecipe(userId: string, householdId: string) {
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Test Recipe',

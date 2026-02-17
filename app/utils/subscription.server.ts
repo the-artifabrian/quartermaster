@@ -83,7 +83,9 @@ export async function getUserTier(userId: string): Promise<TierInfo> {
 
 	const daysUntilExpiry =
 		proExpiresAt !== null
-			? Math.ceil((proExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+			? Math.ceil(
+					(proExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+				)
 			: null
 
 	// User previously had Pro but it lapsed
@@ -111,8 +113,7 @@ export async function getUserTier(userId: string): Promise<TierInfo> {
  * Redirects to /upgrade if the user doesn't have an active Pro subscription.
  */
 export async function requireProTier(request: Request) {
-	const { userId, householdId, role } =
-		await requireUserWithHousehold(request)
+	const { userId, householdId, role } = await requireUserWithHousehold(request)
 	const tierInfo = await getUserTier(userId)
 
 	if (!tierInfo.isProActive) {

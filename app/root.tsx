@@ -26,10 +26,7 @@ import { Button } from './components/ui/button.tsx'
 import { Icon, href as iconsHref } from './components/ui/icon.tsx'
 import { Toaster } from './components/ui/sonner.tsx'
 import { UserDropdown } from './components/user-dropdown.tsx'
-import {
-	useOptionalTheme,
-	useTheme,
-} from './routes/resources/theme-switch.tsx'
+import { useOptionalTheme, useTheme } from './routes/resources/theme-switch.tsx'
 import tailwindStyleSheetUrl from './styles/tailwind.css?url'
 import { getUserId, logout } from './utils/auth.server.ts'
 import { ClientHintCheck, getHints } from './utils/client-hints.tsx'
@@ -312,7 +309,7 @@ function Document({
 			<body className="bg-background text-foreground">
 				<a
 					href="#main-content"
-					className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-card focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg"
+					className="focus:bg-card sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:rounded-md focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg"
 				>
 					Skip to content
 				</a>
@@ -363,7 +360,10 @@ function App() {
 			>
 				<div className="flex min-h-screen flex-col justify-between">
 					<header className="bg-card/80 border-border/50 sticky top-0 z-40 border-b backdrop-blur-sm">
-						<nav aria-label="Main" className="container flex flex-wrap items-center justify-between gap-4 py-3 sm:flex-nowrap md:gap-8">
+						<nav
+							aria-label="Main"
+							className="container flex flex-wrap items-center justify-between gap-4 py-3 sm:flex-nowrap md:gap-8"
+						>
 							<Logo />
 							<div className="ml-auto flex items-center gap-4 md:gap-10">
 								{user ? (
@@ -388,7 +388,13 @@ function App() {
 												}
 											>
 												Inventory
-												{!isPro && <Icon name="lock-closed" size="xs" className="ml-1 inline opacity-40" />}
+												{!isPro && (
+													<Icon
+														name="lock-closed"
+														size="xs"
+														className="ml-1 inline opacity-40"
+													/>
+												)}
 											</NavLink>
 											<NavLink
 												to="/plan"
@@ -399,7 +405,13 @@ function App() {
 												}
 											>
 												Plan
-												{!isPro && <Icon name="lock-closed" size="xs" className="ml-1 inline opacity-40" />}
+												{!isPro && (
+													<Icon
+														name="lock-closed"
+														size="xs"
+														className="ml-1 inline opacity-40"
+													/>
+												)}
 											</NavLink>
 											<NavLink
 												to="/shopping"
@@ -410,7 +422,13 @@ function App() {
 												}
 											>
 												Shopping
-												{!isPro && <Icon name="lock-closed" size="xs" className="ml-1 inline opacity-40" />}
+												{!isPro && (
+													<Icon
+														name="lock-closed"
+														size="xs"
+														className="ml-1 inline opacity-40"
+													/>
+												)}
 											</NavLink>
 										</div>
 										<NotificationBell />
@@ -428,7 +446,6 @@ function App() {
 					<main id="main-content" className="flex flex-1 flex-col">
 						<Outlet />
 					</main>
-
 				</div>
 				<BottomNav />
 				<Toaster closeButton position="top-center" theme={theme} />

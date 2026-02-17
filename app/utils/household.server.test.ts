@@ -208,7 +208,10 @@ describe('acceptInvite', () => {
 
 		// Original recipe should still be in old household
 		const originalRecipe = await prisma.recipe.findFirst({
-			where: { title: 'Joiner Multi Recipe', householdId: joinerOldHouseholdId },
+			where: {
+				title: 'Joiner Multi Recipe',
+				householdId: joinerOldHouseholdId,
+			},
 		})
 		expect(originalRecipe).not.toBeNull()
 
@@ -329,9 +332,7 @@ describe('leaveHousehold', () => {
 	test('owner cannot leave household', async () => {
 		const owner = await setupUser()
 
-		await expect(leaveHousehold(owner.id)).rejects.toThrow(
-			'Owner cannot leave',
-		)
+		await expect(leaveHousehold(owner.id)).rejects.toThrow('Owner cannot leave')
 	})
 })
 

@@ -4,7 +4,12 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
+import { parseAmount } from '#app/utils/fractions.ts'
 import { useDoubleCheck } from '#app/utils/misc.tsx'
+import {
+	getProduceCountDisplay,
+	isWeightUnit,
+} from '#app/utils/produce-weights.ts'
 import { type ShoppingListItem } from '@prisma/client'
 
 type ShoppingListItemCardProps = {
@@ -98,7 +103,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 			<Form method="POST" className="pt-1 print:hidden">
 				<input type="hidden" name="intent" value="toggle" />
 				<input type="hidden" name="itemId" value={item.id} />
-				<button type="submit" className="cursor-pointer p-2.5 -m-2.5">
+				<button type="submit" className="-m-2.5 cursor-pointer p-2.5">
 					<div
 						className={`flex size-6 items-center justify-center rounded border-2 ${
 							item.checked ? 'border-primary bg-primary' : 'border-input'
@@ -126,7 +131,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 				</p>
 				{(item.quantity || item.unit) && (
 					<p className="text-muted-foreground text-sm">
-						{item.quantity} {item.unit}
+						<ProduceCountLine item={item} />
 					</p>
 				)}
 			</div>
@@ -161,5 +166,26 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 				</StatusButton>
 			</Form>
 		</div>
+	)
+}
+
+function ProduceCountLine({ item }: { item: ShoppingListItem }) {
+	if (item.quantity && item.unit && isWeightUnit(item.unit)) {
+		const parsed = parseAmount(item.quantity)
+		if (parsed !== null) {
+			const countDisplay = getProduceCountDisplay(item.name, parsed, item.unit)
+			if (countDisplay) {
+				return (
+					<>
+						{countDisplay} ({item.quantity} {item.unit})
+					</>
+				)
+			}
+		}
+	}
+	return (
+		<>
+			{item.quantity} {item.unit}
+		</>
 	)
 }

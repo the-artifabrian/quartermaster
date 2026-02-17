@@ -1,6 +1,6 @@
 import { type Recipe } from '@prisma/client'
 import { useState, useEffect, useRef } from 'react'
-import { Form, useFetcher } from 'react-router'
+import { Form, Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -136,7 +136,13 @@ function EntryRow({
 						isCooked && 'line-through',
 					)}
 				>
-					{entry.recipe.title}
+					<Link
+						to={`/recipes/${entry.recipe.id}`}
+						className="hover:underline"
+						onClick={(e) => e.stopPropagation()}
+					>
+						{entry.recipe.title}
+					</Link>
 				</h4>
 				<Form method="POST">
 					<input type="hidden" name="intent" value="remove" />

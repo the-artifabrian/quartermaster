@@ -46,43 +46,37 @@ export const handlers: Array<HttpHandler> = [
 		},
 	),
 
-	http.post(
-		'https://api.stripe.com/v1/billing_portal/sessions',
-		async () => {
-			if (passthroughStripe) return HttpResponse.error()
+	http.post('https://api.stripe.com/v1/billing_portal/sessions', async () => {
+		if (passthroughStripe) return HttpResponse.error()
 
-			return json({
-				id: 'bps_mock_portal',
-				object: 'billing_portal.session',
-				url: 'https://billing.stripe.com/mock-portal',
-			})
-		},
-	),
+		return json({
+			id: 'bps_mock_portal',
+			object: 'billing_portal.session',
+			url: 'https://billing.stripe.com/mock-portal',
+		})
+	}),
 
-	http.get(
-		'https://api.stripe.com/v1/subscriptions/:id',
-		async () => {
-			if (passthroughStripe) return HttpResponse.error()
+	http.get('https://api.stripe.com/v1/subscriptions/:id', async () => {
+		if (passthroughStripe) return HttpResponse.error()
 
-			const periodEnd = Math.floor(Date.now() / 1000) + 30 * 24 * 3600
-			return json({
-				id: 'sub_mock_subscription',
-				object: 'subscription',
-				status: 'active',
-				current_period_end: periodEnd,
-				items: {
-					data: [
-						{
-							price: {
-								id: 'price_mock_pro_monthly',
-								product: 'prod_mock_pro',
-							},
-							current_period_end: periodEnd,
+		const periodEnd = Math.floor(Date.now() / 1000) + 30 * 24 * 3600
+		return json({
+			id: 'sub_mock_subscription',
+			object: 'subscription',
+			status: 'active',
+			current_period_end: periodEnd,
+			items: {
+				data: [
+					{
+						price: {
+							id: 'price_mock_pro_monthly',
+							product: 'prod_mock_pro',
 						},
-					],
-				},
-				customer: 'cus_mock_customer',
-			})
-		},
-	),
+						current_period_end: periodEnd,
+					},
+				],
+			},
+			customer: 'cus_mock_customer',
+		})
+	}),
 ]

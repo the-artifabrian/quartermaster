@@ -43,10 +43,7 @@ const NewImageSchema = z.object({
 	photoFile: z
 		.instanceof(File)
 		.refine((file) => file.size > 0, 'Image is required')
-		.refine(
-			(file) => file.size <= MAX_SIZE,
-			'Image size must be less than 3MB',
-		)
+		.refine((file) => file.size <= MAX_SIZE, 'Image size must be less than 3MB')
 		.refine(
 			(file) => ACCEPTED_PHOTO_TYPES.includes(file.type),
 			'Only JPEG, PNG, and WebP images are allowed',

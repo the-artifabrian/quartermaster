@@ -53,10 +53,7 @@ function normalizeText(text: string): string {
 			// Markdown underscore italic markers
 			.replace(/_/g, '')
 			// Join continuation lines: indented non-bullet lines rejoin previous line
-			.replace(
-				/\n[ \t]{2,}(?=\S)(?![-*•]\s)(?!\d+[.)]\s)(?!\[[ x]\])/g,
-				' ',
-			)
+			.replace(/\n[ \t]{2,}(?=\S)(?![-*•]\s)(?!\d+[.)]\s)(?!\[[ x]\])/g, ' ')
 	)
 }
 
@@ -194,7 +191,9 @@ export function parseRecipeText(text: string): ParsedRecipe {
 			if (!stripped) continue
 			// Skip lines that are clearly not ingredients (paragraph-length text)
 			if (stripped.length > 200) {
-				warnings.push(`Skipped long line (not an ingredient): "${stripped.slice(0, 60)}..."`)
+				warnings.push(
+					`Skipped long line (not an ingredient): "${stripped.slice(0, 60)}..."`,
+				)
 				continue
 			}
 			const parsed = parseIngredient(stripped)

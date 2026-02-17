@@ -28,10 +28,7 @@ function broadcast(event: HouseholdEventData) {
 	addSeenId(event.id)
 
 	// Advance cursor
-	if (
-		!lastSeenTimestamp ||
-		event.createdAt > lastSeenTimestamp
-	) {
+	if (!lastSeenTimestamp || event.createdAt > lastSeenTimestamp) {
 		lastSeenTimestamp = event.createdAt
 	}
 

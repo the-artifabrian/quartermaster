@@ -125,9 +125,7 @@ describe('normalizeIngredientName', () => {
 	test('strips processing modifiers', () => {
 		expect(normalizeIngredientName('smoked paprika')).toBe('paprika')
 		expect(normalizeIngredientName('roasted peanuts')).toBe('peanut')
-		expect(normalizeIngredientName('toasted sesame seeds')).toBe(
-			'sesame seed',
-		)
+		expect(normalizeIngredientName('toasted sesame seeds')).toBe('sesame seed')
 	})
 })
 

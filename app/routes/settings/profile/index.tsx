@@ -141,15 +141,13 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 			<UpdateProfile loaderData={loaderData} />
 
 			{/* Preferences */}
-			<div className="bg-card rounded-xl border p-4 shadow-warm">
-				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+			<div className="bg-card shadow-warm rounded-xl border p-4">
+				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
 					Preferences
 				</h3>
 				<div className="flex items-center justify-between px-4 py-3">
 					<span>Theme</span>
-					<ThemeSwitch
-						userPreference={requestInfo.userPrefs.theme}
-					/>
+					<ThemeSwitch userPreference={requestInfo.userPrefs.theme} />
 				</div>
 			</div>
 
@@ -157,8 +155,8 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 			<SubscriptionCard tierInfo={loaderData.tierInfo} />
 
 			{/* Account */}
-			<div className="bg-card rounded-xl border p-4 shadow-warm">
-				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+			<div className="bg-card shadow-warm rounded-xl border p-4">
+				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
 					Account
 				</h3>
 				<div className="flex flex-col">
@@ -192,8 +190,8 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			{/* Household */}
-			<div className="bg-card rounded-xl border p-4 shadow-warm">
-				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+			<div className="bg-card shadow-warm rounded-xl border p-4">
+				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
 					Household
 				</h3>
 				<div className="flex flex-col">
@@ -208,8 +206,8 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 
 			{/* Invite Codes (Pro only) */}
 			{loaderData.isProActive ? (
-				<div className="bg-card rounded-xl border p-4 shadow-warm">
-					<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+				<div className="bg-card shadow-warm rounded-xl border p-4">
+					<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
 						Invite Codes
 					</h3>
 					<div className="flex flex-col">
@@ -229,8 +227,8 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 			) : null}
 
 			{/* Connections */}
-			<div className="bg-card rounded-xl border p-4 shadow-warm">
-				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+			<div className="bg-card shadow-warm rounded-xl border p-4">
+				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
 					Connections
 				</h3>
 				<div className="flex flex-col">
@@ -250,21 +248,15 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			{/* Data */}
-			<div className="bg-card rounded-xl border p-4 shadow-warm">
-				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+			<div className="bg-card shadow-warm rounded-xl border p-4">
+				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
 					Data
 				</h3>
 				<div className="flex flex-col">
-					<Link
-						to="usage"
-						className="hover:bg-accent/5 rounded-lg px-4 py-3"
-					>
+					<Link to="usage" className="hover:bg-accent/5 rounded-lg px-4 py-3">
 						<Icon name="dashboard">Usage stats</Icon>
 					</Link>
-					<Link
-						to="import"
-						className="hover:bg-accent/5 rounded-lg px-4 py-3"
-					>
+					<Link to="import" className="hover:bg-accent/5 rounded-lg px-4 py-3">
 						<Icon name="update">Import data</Icon>
 					</Link>
 					<a
@@ -285,8 +277,8 @@ export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			{/* Danger Zone */}
-			<div className="bg-card rounded-xl border p-4 shadow-warm">
-				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+			<div className="bg-card shadow-warm rounded-xl border p-4">
+				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
 					Danger Zone
 				</h3>
 				<div className="col-span-full flex flex-col gap-4 px-4 py-3">
@@ -516,8 +508,8 @@ function SubscriptionCard({ tierInfo }: { tierInfo: TierInfo }) {
 		) : null
 
 	return (
-		<div className="bg-card rounded-xl border p-4 shadow-warm">
-			<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold uppercase tracking-wider">
+		<div className="bg-card shadow-warm rounded-xl border p-4">
+			<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
 				Subscription
 			</h3>
 			<div className="flex flex-col gap-2 px-4 py-3">
@@ -529,13 +521,14 @@ function SubscriptionCard({ tierInfo }: { tierInfo: TierInfo }) {
 								<>
 									{' '}
 									&middot; Renews{' '}
-									{new Date(
-										tierInfo.subscriptionExpiresAt,
-									).toLocaleDateString('en-US', {
-										month: 'long',
-										day: 'numeric',
-										year: 'numeric',
-									})}
+									{new Date(tierInfo.subscriptionExpiresAt).toLocaleDateString(
+										'en-US',
+										{
+											month: 'long',
+											day: 'numeric',
+											year: 'numeric',
+										},
+									)}
 								</>
 							) : null}
 						</p>
@@ -565,12 +558,10 @@ function SubscriptionCard({ tierInfo }: { tierInfo: TierInfo }) {
 				) : tierInfo.isProActive && tierInfo.isTrialing ? (
 					<>
 						<p className="text-sm">
-							<span className="font-medium">Pro access</span> via invite
-							code until{' '}
+							<span className="font-medium">Pro access</span> via invite code
+							until{' '}
 							{tierInfo.trialEndsAt
-								? new Date(
-										tierInfo.trialEndsAt,
-									).toLocaleDateString('en-US', {
+								? new Date(tierInfo.trialEndsAt).toLocaleDateString('en-US', {
 										month: 'long',
 										day: 'numeric',
 										year: 'numeric',

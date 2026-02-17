@@ -143,7 +143,9 @@ describe('recipe detail loader', () => {
 describe('recipe detail actions', () => {
 	test('toggle favorite', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId, session.householdId, { isFavorite: false })
+		const recipe = await setupRecipe(session.userId, session.householdId, {
+			isFavorite: false,
+		})
 
 		const request = await makeRequest(session, recipe.id, {
 			intent: 'toggleFavorite',

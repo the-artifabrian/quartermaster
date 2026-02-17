@@ -75,9 +75,7 @@ export function ShoppingListToInventory({
 
 	function handleExpiryChange(id: string, expiresAt: string | null) {
 		setReviewItems((prev) =>
-			prev.map((item) =>
-				item.id === id ? { ...item, expiresAt } : item,
-			),
+			prev.map((item) => (item.id === id ? { ...item, expiresAt } : item)),
 		)
 	}
 
@@ -151,10 +149,7 @@ export function ShoppingListToInventory({
 								type="date"
 								value={item.expiresAt ?? ''}
 								onChange={(e) =>
-									handleExpiryChange(
-										item.id,
-										e.target.value || null,
-									)
+									handleExpiryChange(item.id, e.target.value || null)
 								}
 								className="bg-muted w-[130px] rounded-md border px-2 py-1 text-sm"
 								aria-label={`Expiry date for ${item.name}`}

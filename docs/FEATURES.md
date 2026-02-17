@@ -30,8 +30,12 @@ Complete feature catalog. For the roadmap, see
 - Import quality flags: amber banner auto-detecting recipes with missing
   ingredients, missing instructions, or duplicate titles; filterable via
   `?quality=flagged`
-- "Surprise me" weighted random picker (inventory match, favorites, exploration
-  bonus, recency penalty)
+- AI recipe generation from inventory (Pro): "Generate Recipe" button on recipes
+  page. Pick optional meal type and quick-meal toggle, single LLM call (Claude
+  Haiku) generates a full recipe from current inventory items (prioritizing
+  expiring items). Preview with ingredients, instructions, and suggested tags
+  before saving. Saved recipes marked `isAiGenerated` with violet "AI Generated"
+  badge on detail page, share page, and recipe cards
 - "I Made This" cook logging with inventory impact preview
 - Inline inventory status on recipe detail ingredient list: summary footer shows
   "You have X/Y ingredients" with "Add N missing to Shopping List" button

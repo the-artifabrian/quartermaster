@@ -102,6 +102,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					prepTime: true,
 					cookTime: true,
 					isFavorite: true,
+					isAiGenerated: true,
 					servings: true,
 					image: { select: { objectKey: true } },
 					tags: { select: { id: true, name: true, category: true } },
@@ -430,12 +431,14 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						</span>
 					</h1>
 					<div className="flex gap-2">
-						<Button asChild variant="outline">
-							<Link to="/resources/surprise-me">
-								<Icon name="shuffle" size="sm" />
-								Surprise Me
-							</Link>
-						</Button>
+						{isProActive && loaderData.hasInventory && (
+							<Button asChild variant="secondary">
+								<Link to="/recipes/generate">
+									<Icon name="sparkles" size="sm" />
+									Generate Recipe
+								</Link>
+							</Button>
+						)}
 						<DropdownMenu modal={false}>
 							<DropdownMenuTrigger asChild>
 								<Button>
@@ -689,6 +692,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 									cookTime={recipe.cookTime}
 									tags={recipe.tags}
 									isFavorite={recipe.isFavorite}
+									isAiGenerated={recipe.isAiGenerated}
 									lastCookedAt={
 										recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null
 									}
@@ -710,6 +714,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 									cookTime={recipe.cookTime}
 									tags={recipe.tags}
 									isFavorite={recipe.isFavorite}
+									isAiGenerated={recipe.isAiGenerated}
 									lastCookedAt={
 										recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null
 									}
@@ -773,6 +778,14 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 									Import from URL
 								</Link>
 							</Button>
+							{isProActive && loaderData.hasInventory && (
+								<Button asChild variant="outline">
+									<Link to="/recipes/generate">
+										<Icon name="sparkles" size="sm" />
+										Generate from Inventory
+									</Link>
+								</Button>
+							)}
 						</div>
 					</div>
 				)}

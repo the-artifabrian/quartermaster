@@ -17,6 +17,7 @@ type RecipeCardProps = {
 	cookTime?: number | null
 	tags?: Array<TagWithCategory>
 	isFavorite?: boolean
+	isAiGenerated?: boolean
 	lastCookedAt?: string | null
 	cookCount?: number
 	matchPercentage?: number
@@ -44,6 +45,7 @@ export function RecipeCard({
 	cookTime,
 	tags,
 	isFavorite,
+	isAiGenerated,
 	lastCookedAt,
 	cookCount,
 	matchPercentage,
@@ -56,14 +58,20 @@ export function RecipeCard({
 			className="group bg-card text-card-foreground border-border/60 shadow-warm hover:shadow-warm-md block overflow-hidden rounded-xl border transition-all duration-200 hover:-translate-y-0.5"
 		>
 			<div className="bg-muted relative aspect-[16/9] overflow-hidden rounded-t-lg sm:aspect-[4/3]">
-				{isFavorite && (
-					<div className="absolute top-2 right-2 z-10">
+				<div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+					{isAiGenerated && (
+						<Icon
+							name="sparkles"
+							className="size-4 text-violet-500 drop-shadow"
+						/>
+					)}
+					{isFavorite && (
 						<Icon
 							name="heart-filled"
 							className="size-5 text-red-500 drop-shadow"
 						/>
-					</div>
-				)}
+					)}
+				</div>
 				{matchPercentage != null && (
 					<div className="absolute bottom-2 left-2">
 						<div className="rounded-full bg-white/80 p-0.5 shadow-lg backdrop-blur-sm dark:bg-black/60">
@@ -166,6 +174,7 @@ export function RecipeListRow({
 	cookTime,
 	tags,
 	isFavorite,
+	isAiGenerated,
 	lastCookedAt,
 	cookCount,
 	matchPercentage,
@@ -179,14 +188,20 @@ export function RecipeListRow({
 		>
 			{/* Thumbnail */}
 			<div className="bg-muted relative size-14 shrink-0 overflow-hidden rounded-lg">
-				{isFavorite && (
-					<div className="absolute top-0.5 right-0.5 z-10">
+				<div className="absolute top-0.5 right-0.5 z-10 flex items-center gap-0.5">
+					{isAiGenerated && (
+						<Icon
+							name="sparkles"
+							className="size-3 text-violet-500 drop-shadow"
+						/>
+					)}
+					{isFavorite && (
 						<Icon
 							name="heart-filled"
 							className="size-3 text-red-500 drop-shadow"
 						/>
-					</div>
-				)}
+					)}
+				</div>
 				{imageObjectKey ? (
 					<Img
 						src={`/resources/images?objectKey=${encodeURIComponent(imageObjectKey)}`}

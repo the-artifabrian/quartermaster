@@ -1,17 +1,14 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { addDays } from 'date-fns'
-import { useMemo, useRef } from 'react'
-import { Link, useFetcher, useSearchParams } from 'react-router'
-import { toast } from 'sonner'
+import { useMemo } from 'react'
+import { Link, useSearchParams } from 'react-router'
 import { GettingStartedChecklist } from '#app/components/getting-started-checklist.tsx'
 import {
 	RecipeCard,
 	RecipeCardGrid,
 	RecipeListRow,
 } from '#app/components/recipe-card.tsx'
-import { SubstitutionHint } from '#app/components/ingredient-substitution.tsx'
 import {
-	IngredientHaveItButton,
 	RecipeMatchCard,
 	RecipeMatchCardGrid,
 } from '#app/components/recipe-match-card.tsx'
@@ -30,7 +27,6 @@ import { getUserTier } from '#app/utils/subscription.server.ts'
 import { cn, useDebounce } from '#app/utils/misc.tsx'
 import {
 	buildInventoryLookup,
-	getCanonicalIngredientName,
 	ingredientMatchesAnyInventoryItem,
 	matchRecipesWithInventory,
 	type RecipeMatch,
@@ -212,8 +208,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			name: string
 			daysUntilExpiry: number
 		}>
-		nearMatches: RecipeMatch[]
-		uniqueMissingNames: string[]
 		cookingStats: Record<
 			string,
 			{ lastCookedAt: string | null; cookCount: number }
@@ -256,30 +250,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 				.slice(0, 6)
 		}
 
-		// Near-matches: recipes missing 1-3 ingredients
-		const nearMatches = matches.filter(
-			(m) =>
-				!m.canMake &&
-				m.missingIngredients.length > 0 &&
-				m.missingIngredients.length <= 3,
-		)
-
-		// Deduplicate missing ingredient names
-		const uniqueMissingNames = (() => {
-			const seen = new Set<string>()
-			const names: string[] = []
-			for (const m of nearMatches) {
-				for (const i of m.missingIngredients) {
-					const canonical = getCanonicalIngredientName(i.name)
-					if (!seen.has(canonical)) {
-						seen.add(canonical)
-						names.push(i.name)
-					}
-				}
-			}
-			return names
-		})()
-
 		// Cooking stats for match cards
 		const cookingStats: Record<
 			string,
@@ -318,8 +288,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 					),
 				),
 			})),
-			nearMatches,
-			uniqueMissingNames,
 			cookingStats,
 		}
 	}
@@ -361,35 +329,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		matchData,
 	} = loaderData
 	const [searchParams, setSearchParams] = useSearchParams()
-	const fetcher = useFetcher<{
-		status: string
-		intent?: string
-		addedCount: number
-	}>()
-	const prevFetcherState = useRef(fetcher.state)
-
-	// Show toast when fetcher transitions from loading → idle with data
-	if (
-		prevFetcherState.current === 'loading' &&
-		fetcher.state === 'idle' &&
-		fetcher.data
-	) {
-		const { intent } = fetcher.data
-		if (intent !== 'addToInventory') {
-			if (fetcher.data.status === 'success') {
-				const count = fetcher.data.addedCount
-				if (count > 0) {
-					toast.success(
-						`Added ${count} item${count === 1 ? '' : 's'} to your shopping list`,
-					)
-				} else {
-					toast.info('All items are already on your shopping list')
-				}
-			}
-		}
-	}
-	prevFetcherState.current = fetcher.state
-
 	// Build match lookup for rendering
 	const matchLookup = useMemo(() => {
 		if (!matchData) return null
@@ -731,7 +670,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					<MatchModeUI
 						matchData={matchData}
 						makeableOnly={makeableOnly}
-						fetcher={fetcher}
 						isProActive={isProActive}
 					/>
 				)}
@@ -846,21 +784,13 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 function MatchModeUI({
 	matchData,
 	makeableOnly,
-	fetcher,
 	isProActive,
 }: {
 	matchData: NonNullable<Awaited<ReturnType<typeof loader>>['matchData']>
 	makeableOnly: boolean
-	fetcher: ReturnType<typeof useFetcher>
 	isProActive: boolean
 }) {
-	const {
-		expiringMatches,
-		expiringItems,
-		nearMatches,
-		uniqueMissingNames,
-		cookingStats,
-	} = matchData
+	const { expiringMatches, expiringItems, cookingStats } = matchData
 
 	return (
 		<>
@@ -914,66 +844,6 @@ function MatchModeUI({
 				</div>
 			)}
 
-			{/* Almost There — slim banner */}
-			{nearMatches.length > 0 && !makeableOnly && (
-				<div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 dark:border-emerald-900/50 dark:bg-emerald-950/30">
-					<div className="flex items-center gap-2">
-						<Icon
-							name="star"
-							className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
-						/>
-						<span className="text-sm text-emerald-800 dark:text-emerald-200">
-							<span className="font-semibold">{uniqueMissingNames.length}</span>{' '}
-							ingredient{uniqueMissingNames.length !== 1 ? 's' : ''} from{' '}
-							<span className="font-semibold">{nearMatches.length}</span> more
-							recipe{nearMatches.length !== 1 ? 's' : ''}
-						</span>
-					</div>
-					<div className="flex flex-wrap gap-1">
-						{uniqueMissingNames.slice(0, 6).map((name) => (
-							<span
-								key={name}
-								className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 py-0.5 pr-0.5 pl-2 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-							>
-								<SubstitutionHint
-									ingredientName={name}
-									isProActive={isProActive}
-								>
-									{name}
-								</SubstitutionHint>
-								<IngredientHaveItButton name={name} variant="banner" />
-							</span>
-						))}
-						{uniqueMissingNames.length > 6 && (
-							<span className="text-xs leading-5 text-emerald-600 dark:text-emerald-400">
-								+{uniqueMissingNames.length - 6}
-							</span>
-						)}
-					</div>
-					<fetcher.Form
-						method="POST"
-						action="/resources/discover-actions"
-						className="ml-auto shrink-0"
-					>
-						<input type="hidden" name="intent" value="addMissing" />
-						<input
-							type="hidden"
-							name="recipeIds"
-							value={nearMatches.map((m) => m.recipe.id).join(',')}
-						/>
-						<Button
-							type="submit"
-							size="sm"
-							variant="outline"
-							className="h-7 border-emerald-300 text-xs text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
-							disabled={fetcher.state !== 'idle'}
-						>
-							<Icon name="plus" size="sm" />
-							{fetcher.state !== 'idle' ? 'Adding...' : 'Add to list'}
-						</Button>
-					</fetcher.Form>
-				</div>
-			)}
 		</>
 	)
 }

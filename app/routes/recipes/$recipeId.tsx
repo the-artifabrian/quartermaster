@@ -155,7 +155,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		status: 403,
 	})
 
-	const [cookingLogs, tierInfo] = await Promise.all([
+	const [cookingLogs, tierInfo, inventoryItems] = await Promise.all([
 		prisma.cookingLog.findMany({
 			where: { recipeId, userId },
 			orderBy: { cookedAt: 'desc' },
@@ -167,21 +167,19 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			},
 		}),
 		getUserTier(userId),
+		prisma.inventoryItem.findMany({
+			where: { householdId },
+			select: { name: true },
+		}),
 	])
 
 	const missingIngredientIds: string[] = []
-	if (tierInfo.isProActive) {
-		const inventoryItems = await prisma.inventoryItem.findMany({
-			where: { householdId },
-			select: { name: true },
-		})
-		const lookup = buildInventoryLookup(inventoryItems)
-		for (const ingredient of recipe.ingredients) {
-			if (ingredient.isHeading) continue
-			if (isStapleIngredient(ingredient)) continue
-			if (!ingredientMatchesAnyInventoryItem(ingredient, lookup)) {
-				missingIngredientIds.push(ingredient.id)
-			}
+	const lookup = buildInventoryLookup(inventoryItems)
+	for (const ingredient of recipe.ingredients) {
+		if (ingredient.isHeading) continue
+		if (isStapleIngredient(ingredient)) continue
+		if (!ingredientMatchesAnyInventoryItem(ingredient, lookup)) {
+			missingIngredientIds.push(ingredient.id)
 		}
 	}
 
@@ -297,7 +295,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 	}
 
 	if (intent === 'add-to-shopping-list') {
-		if (!isProActive) return { success: false, requiresPro: true }
 		const servingRatio = parseFloat(String(formData.get('servingRatio') ?? '1'))
 		const safeRatio =
 			isNaN(servingRatio) || servingRatio <= 0 ? 1 : servingRatio
@@ -501,11 +498,13 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(() => new Set())
 	const cookFetcher = useFetcher({ key: 'log-cook' })
 	const previewFetcher = useFetcher({ key: 'preview-subtraction' })
-	const needFetcher = useFetcher({ key: 'what-do-i-need' })
+	const shoppingFetcher = useFetcher({ key: 'add-to-shopping' })
 	const prevCookFetcherState = useRef(cookFetcher.state)
 	const [showIMadeThisModal, setShowIMadeThisModal] = useState(false)
-	const [showNeedModal, setShowNeedModal] = useState(false)
 	const [historyExpanded, setHistoryExpanded] = useState(false)
+	const [substitutions, setSubstitutions] = useState<
+		Map<string, AppliedSubstitution>
+	>(() => new Map())
 
 	const servingsParam = searchParams.get('servings')
 	const currentServings = servingsParam
@@ -598,13 +597,27 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		}
 	}
 
-	function handleWhatDoINeed() {
-		setShowNeedModal(true)
-		const formData = new FormData()
-		formData.set('intent', 'previewSubtraction')
-		formData.set('servingRatio', ratio.toString())
-		formData.set('source', 'whatDoINeed')
-		void needFetcher.submit(formData, { method: 'POST' })
+	function applySubstitution(
+		ingredientId: string,
+		originalName: string,
+		replacement: string,
+	) {
+		setSubstitutions((prev) => {
+			const next = new Map(prev)
+			next.set(ingredientId, {
+				originalName,
+				replacementShort: extractPrimaryIngredient(replacement),
+			})
+			return next
+		})
+	}
+
+	function revertSubstitution(ingredientId: string) {
+		setSubstitutions((prev) => {
+			const next = new Map(prev)
+			next.delete(ingredientId)
+			return next
+		})
 	}
 
 	async function handleShare() {
@@ -877,18 +890,14 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								checkedIngredients={checkedIngredients}
 								onToggle={toggleIngredient}
 								ratio={ratio}
+								missingIngredientIds={missingIngredientIds}
+								isProActive={isProActive}
+								recipeId={recipe.id}
+								substitutions={substitutions}
+								onApplySubstitution={applySubstitution}
+								onRevertSubstitution={revertSubstitution}
+								shoppingFetcher={shoppingFetcher}
 							/>
-							{isProActive && (
-								<Button
-									variant="ghost"
-									size="sm"
-									className="mt-3 w-full gap-1.5 text-xs print:hidden"
-									onClick={handleWhatDoINeed}
-								>
-									<Icon name="magnifying-glass" size="sm" />
-									What do I need?
-								</Button>
-							)}
 						</div>
 					</div>
 
@@ -933,7 +942,14 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 											)}
 										>
 											<InstructionWithTimers
-												content={instruction.content}
+												content={
+													substitutions.size > 0
+														? applySubstitutionsToText(
+																instruction.content,
+																substitutions,
+															)
+														: instruction.content
+												}
 												stepNumber={index + 1}
 												recipeName={recipe.title}
 											/>
@@ -1040,16 +1056,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				/>
 			)}
 
-			{/* "What Do I Need?" modal */}
-			{showNeedModal && (
-				<WhatDoINeedModal
-					recipe={recipe}
-					ratio={ratio}
-					needFetcher={needFetcher}
-					onClose={() => setShowNeedModal(false)}
-					isProActive={isProActive}
-				/>
-			)}
 		</>
 	)
 }
@@ -1233,273 +1239,20 @@ function IMadeThisModal({
 	)
 }
 
-// --- "What Do I Need?" modal ---
-
-function WhatDoINeedModal({
-	recipe,
-	ratio,
-	needFetcher,
-	onClose,
-	isProActive,
-}: {
-	recipe: {
-		id: string
-		ingredients: Array<{
-			name: string
-			amount: string | null
-			unit: string | null
-			isHeading: boolean
-		}>
-	}
-	ratio: number
-	needFetcher: ReturnType<typeof useFetcher>
-	onClose: () => void
-	isProActive: boolean
-}) {
-	const [checked, setChecked] = useState<Set<number>>(() => new Set())
-	const shoppingFetcher = useFetcher()
-
-	useEffect(() => {
-		function handleEscape(e: KeyboardEvent) {
-			if (e.key === 'Escape') onClose()
-		}
-		document.addEventListener('keydown', handleEscape)
-		return () => document.removeEventListener('keydown', handleEscape)
-	}, [onClose])
-
-	const data = needFetcher.data as
-		| { preview?: SubtractionPreviewData }
-		| undefined
-	const preview = data?.preview
-	const isLoading = needFetcher.state !== 'idle'
-
-	const shoppingData = shoppingFetcher.data as
-		| { addedToShoppingList?: number }
-		| undefined
-	const addedToList = shoppingData?.addedToShoppingList
-	const isAddingToList = shoppingFetcher.state !== 'idle'
-
-	// Build list of missing items
-	const missingItems: Array<{
-		name: string
-		amount: string | null
-		unit: string | null
-	}> = []
-
-	if (preview) {
-		// Items not in inventory at all
-		for (const ingredientName of preview.noMatch) {
-			const ingredient = recipe.ingredients.find(
-				(i) =>
-					!i.isHeading && i.name.toLowerCase() === ingredientName.toLowerCase(),
-			)
-			if (ingredient) {
-				missingItems.push({
-					name: ingredient.name,
-					amount: ingredient.amount
-						? scaleAmount(ingredient.amount, ratio)
-						: null,
-					unit: ingredient.unit,
-				})
-			} else {
-				missingItems.push({ name: ingredientName, amount: null, unit: null })
-			}
-		}
-
-		// Items with insufficient inventory (deficit)
-		for (const item of preview.willSubtract) {
-			if (
-				item.subtractAmount !== null &&
-				item.currentQuantity !== null &&
-				item.subtractAmount > item.currentQuantity
-			) {
-				const deficit = item.subtractAmount - item.currentQuantity
-				missingItems.push({
-					name: item.name,
-					amount: formatQuantity(deficit),
-					unit: item.currentUnit,
-				})
-			}
-		}
-	}
-
-	function toggleItem(index: number) {
-		setChecked((prev) => {
-			const next = new Set(prev)
-			if (next.has(index)) {
-				next.delete(index)
-			} else {
-				next.add(index)
-			}
-			return next
-		})
-	}
-
-	function handleAddToShoppingList() {
-		const formData = new FormData()
-		formData.set('intent', 'add-to-shopping-list')
-		formData.set('servingRatio', ratio.toString())
-		void shoppingFetcher.submit(formData, { method: 'POST' })
-	}
-
-	const remaining = missingItems.length - checked.size
-	const allChecked = missingItems.length > 0 && remaining === 0
-
-	return (
-		<div
-			className="fixed inset-0 z-60 flex items-end justify-center sm:items-center"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="what-do-i-need-title"
-		>
-			{/* Backdrop */}
-			<div
-				className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-				onClick={onClose}
-			/>
-			{/* Modal */}
-			<div className="bg-card shadow-warm-lg relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl p-6 sm:rounded-2xl">
-				<div className="mb-1 flex items-center justify-between">
-					<h2
-						id="what-do-i-need-title"
-						className="font-serif text-xl font-bold"
-					>
-						What Do I Need?
-					</h2>
-					<button
-						onClick={onClose}
-						aria-label="Close"
-						className="text-muted-foreground hover:text-foreground rounded-md p-1"
-					>
-						<Icon name="cross-1" size="sm" />
-					</button>
-				</div>
-
-				{isLoading ? (
-					<p className="text-muted-foreground py-6 text-center text-sm">
-						Checking your inventory...
-					</p>
-				) : missingItems.length === 0 ? (
-					<div className="py-6 text-center">
-						<Icon name="check" className="mx-auto mb-2 size-8 text-green-600" />
-						<p className="font-medium">You have everything you need!</p>
-						<p className="text-muted-foreground mt-1 text-sm">
-							All ingredients are in your inventory.
-						</p>
-					</div>
-				) : allChecked ? (
-					<div className="py-6 text-center">
-						<Icon name="check" className="mx-auto mb-2 size-8 text-green-600" />
-						<p className="font-medium">All sorted!</p>
-						<p className="text-muted-foreground mt-1 text-sm">
-							You've got everything checked off.
-						</p>
-					</div>
-				) : (
-					<>
-						<p className="text-muted-foreground mb-3 text-sm">
-							{remaining} of {missingItems.length} item
-							{missingItems.length !== 1 ? 's' : ''} still needed:
-						</p>
-						<ul className="space-y-0.5">
-							{missingItems.map((item, i) => {
-								const isChecked = checked.has(i)
-								return (
-									<li
-										key={i}
-										role="checkbox"
-										aria-checked={isChecked}
-										tabIndex={0}
-										className={cn(
-											'flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors select-none',
-											'hover:bg-accent/5',
-										)}
-										onClick={() => toggleItem(i)}
-										onKeyDown={(e) => {
-											if (e.key === 'Enter' || e.key === ' ') {
-												e.preventDefault()
-												toggleItem(i)
-											}
-										}}
-									>
-										<span
-											className={cn(
-												'flex size-5 shrink-0 items-center justify-center rounded border transition-colors',
-												isChecked
-													? 'border-primary bg-primary text-primary-foreground'
-													: 'border-muted-foreground/25',
-											)}
-										>
-											{isChecked && <Icon name="check" className="size-3.5" />}
-										</span>
-										<span
-											className={cn(
-												'transition-colors',
-												isChecked && 'text-muted-foreground/50 line-through',
-											)}
-										>
-											{item.amount && (
-												<span className="font-medium">{item.amount} </span>
-											)}
-											{item.unit && <span>{item.unit} </span>}
-											<SubstitutionHint
-												ingredientName={item.name}
-												isProActive={isProActive}
-												recipeId={recipe.id}
-											>
-												{item.name}
-											</SubstitutionHint>
-										</span>
-									</li>
-								)
-							})}
-						</ul>
-
-						{/* Add to Shopping List */}
-						<div className="mt-4 border-t pt-3">
-							{addedToList !== undefined ? (
-								<div className="text-center">
-									<p className="text-sm text-green-600">
-										<Icon name="check" className="mr-1 inline size-4" />
-										Added {addedToList} item
-										{addedToList !== 1 ? 's' : ''} to shopping list
-									</p>
-									<Link
-										to="/shopping"
-										className="text-primary mt-2 inline-flex items-center gap-1 text-sm font-medium hover:underline"
-									>
-										View Shopping List
-										<Icon name="arrow-right" size="sm" />
-									</Link>
-								</div>
-							) : (
-								<Button
-									variant="outline"
-									className="w-full gap-1.5"
-									onClick={handleAddToShoppingList}
-									disabled={isAddingToList}
-								>
-									<Icon name="plus" size="sm" />
-									{isAddingToList
-										? 'Adding...'
-										: `Add ${missingItems.length} to Shopping List`}
-								</Button>
-							)}
-						</div>
-					</>
-				)}
-			</div>
-		</div>
-	)
-}
-
-// --- Ingredient list with heading support ---
+// --- Ingredient list with heading support, inventory status, substitutions ---
 
 function IngredientList({
 	ingredients,
 	checkedIngredients,
 	onToggle,
 	ratio,
+	missingIngredientIds,
+	isProActive,
+	recipeId,
+	substitutions,
+	onApplySubstitution,
+	onRevertSubstitution,
+	shoppingFetcher,
 }: {
 	ingredients: Array<{
 		id: string
@@ -1512,75 +1265,224 @@ function IngredientList({
 	checkedIngredients: Set<string>
 	onToggle: (id: string) => void
 	ratio: number
+	missingIngredientIds: string[]
+	isProActive: boolean
+	recipeId: string
+	substitutions: Map<string, AppliedSubstitution>
+	onApplySubstitution: (
+		ingredientId: string,
+		originalName: string,
+		replacement: string,
+	) => void
+	onRevertSubstitution: (ingredientId: string) => void
+	shoppingFetcher: ReturnType<typeof useFetcher>
 }) {
-	return (
-		<ul className="space-y-1">
-			{ingredients.map((ingredient) => {
-				if (ingredient.isHeading) {
-					return (
-						<li key={ingredient.id}>
-							<p className="text-muted-foreground mt-3 mb-1 px-2 text-sm font-semibold tracking-wide first:mt-0">
-								{ingredient.name}
-							</p>
-						</li>
-					)
-				}
+	const missingSet = new Set(missingIngredientIds)
+	const nonHeadingCount = ingredients.filter((i) => !i.isHeading).length
+	const haveCount = nonHeadingCount - missingIngredientIds.length
+	const missingCount = missingIngredientIds.length
 
-				const isChecked = checkedIngredients.has(ingredient.id)
-				return (
-					<li
-						key={ingredient.id}
-						role="checkbox"
-						aria-checked={isChecked}
-						tabIndex={0}
-						className="hover:bg-accent/5 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors select-none"
-						onClick={() => onToggle(ingredient.id)}
-						onKeyDown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.preventDefault()
-								onToggle(ingredient.id)
-							}
-						}}
-					>
-						<span
+	const shoppingData = shoppingFetcher.data as
+		| { addedToShoppingList?: number }
+		| undefined
+	const addedToList = shoppingData?.addedToShoppingList
+	const isAddingToList = shoppingFetcher.state !== 'idle'
+
+	function handleAddToShoppingList() {
+		const formData = new FormData()
+		formData.set('intent', 'add-to-shopping-list')
+		formData.set('servingRatio', ratio.toString())
+		void shoppingFetcher.submit(formData, { method: 'POST' })
+	}
+
+	return (
+		<>
+			<ul className="space-y-1">
+				{ingredients.map((ingredient) => {
+					if (ingredient.isHeading) {
+						return (
+							<li key={ingredient.id}>
+								<p className="text-muted-foreground mt-3 mb-1 px-2 text-sm font-semibold tracking-wide first:mt-0">
+									{ingredient.name}
+								</p>
+							</li>
+						)
+					}
+
+					const isChecked = checkedIngredients.has(ingredient.id)
+					const isMissing = missingSet.has(ingredient.id)
+					const sub = substitutions.get(ingredient.id)
+
+					return (
+						<li
+							key={ingredient.id}
+							role="checkbox"
+							aria-checked={isChecked}
+							tabIndex={0}
 							className={cn(
-								'flex size-5 shrink-0 items-center justify-center rounded border transition-colors',
-								isChecked
-									? 'border-primary bg-primary text-primary-foreground'
-									: 'border-muted-foreground/25',
+								'flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors select-none',
+								'hover:bg-accent/5',
+								sub && 'bg-amber-50 dark:bg-amber-950/20',
 							)}
+							onClick={() => onToggle(ingredient.id)}
+							onKeyDown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault()
+									onToggle(ingredient.id)
+								}
+							}}
 						>
-							{isChecked && <Icon name="check" className="size-3.5" />}
-						</span>
-						<span
-							className={cn(
-								'transition-colors',
-								isChecked && 'text-muted-foreground/50 line-through',
-							)}
-						>
-							{ingredient.amount && (
-								<span className="font-medium">
-									{scaleAmount(ingredient.amount, ratio)}{' '}
-								</span>
-							)}
-							{ingredient.unit && <span>{ingredient.unit} </span>}
-							<span>{ingredient.name}</span>
-							{ingredient.notes && (
-								<span className={isChecked ? '' : 'text-muted-foreground'}>
-									, {ingredient.notes}
-								</span>
-							)}
-						</span>
-					</li>
-				)
-			})}
-		</ul>
+							<span
+								className={cn(
+									'flex size-5 shrink-0 items-center justify-center rounded border transition-colors',
+									isChecked
+										? 'border-primary bg-primary text-primary-foreground'
+										: 'border-muted-foreground/25',
+								)}
+							>
+								{isChecked && <Icon name="check" className="size-3.5" />}
+							</span>
+							<span
+								className={cn(
+									'min-w-0 flex-1 transition-colors',
+									isChecked && 'text-muted-foreground/50 line-through',
+								)}
+							>
+								{ingredient.amount && (
+									<span className="font-medium">
+										{scaleAmount(ingredient.amount, ratio)}{' '}
+									</span>
+								)}
+								{ingredient.unit && <span>{ingredient.unit} </span>}
+								{sub ? (
+									<>
+										<span className="font-medium text-amber-700 dark:text-amber-400">
+											{sub.replacementShort}
+										</span>
+										<span className="text-muted-foreground ml-1 text-xs line-through">
+											{sub.originalName}
+										</span>
+										<button
+											type="button"
+											aria-label="Revert substitution"
+											className="ml-1 inline-flex text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+											onClick={(e) => {
+												e.stopPropagation()
+												onRevertSubstitution(ingredient.id)
+											}}
+										>
+											<Icon name="reset" className="size-3.5" />
+										</button>
+									</>
+								) : isMissing && isProActive ? (
+									<SubstitutionHint
+										ingredientName={ingredient.name}
+										isProActive={isProActive}
+										recipeId={recipeId}
+										onApply={(replacement) =>
+											onApplySubstitution(
+												ingredient.id,
+												ingredient.name,
+												replacement,
+											)
+										}
+									>
+										{ingredient.name}
+									</SubstitutionHint>
+								) : (
+									<span>{ingredient.name}</span>
+								)}
+								{ingredient.notes && (
+									<span
+										className={isChecked ? '' : 'text-muted-foreground'}
+									>
+										, {ingredient.notes}
+									</span>
+								)}
+							</span>
+							</li>
+					)
+				})}
+			</ul>
+
+			{/* Summary footer */}
+			<div className="mt-5 space-y-2 border-t pt-3 print:hidden">
+				<p className="text-muted-foreground px-1 text-xs">
+					You have {haveCount}/{nonHeadingCount} ingredients
+				</p>
+				{missingCount > 0 && (
+					<>
+						{addedToList !== undefined ? (
+							<div className="px-1 text-center">
+								<p className="text-xs text-green-600">
+									<Icon name="check" className="mr-1 inline size-3.5" />
+									Added {addedToList} item
+									{addedToList !== 1 ? 's' : ''} to shopping list
+								</p>
+								<Link
+									to="/shopping"
+									className="text-primary mt-1 inline-flex items-center gap-1 text-xs font-medium hover:underline"
+								>
+									View Shopping List
+									<Icon name="arrow-right" className="size-3" />
+								</Link>
+							</div>
+						) : (
+							<Button
+								variant="outline"
+								size="sm"
+								className="w-full gap-1.5 text-xs"
+								onClick={handleAddToShoppingList}
+								disabled={isAddingToList}
+							>
+								<Icon name="plus" size="sm" />
+								{isAddingToList
+									? 'Adding...'
+									: `Add ${missingCount} missing to Shopping List`}
+							</Button>
+						)}
+					</>
+				)}
+			</div>
+		</>
 	)
 }
 
 function formatQuantity(q: number | null): string {
 	if (q === null) return '?'
 	return Number.isInteger(q) ? q.toString() : q.toFixed(1)
+}
+
+// --- Substitution utilities ---
+
+type AppliedSubstitution = {
+	originalName: string
+	replacementShort: string
+}
+
+function extractPrimaryIngredient(replacement: string): string {
+	// Split on common combiners, take first part
+	const primary = replacement.split(/\s*(?:\+|&|\band\b|\bwith\b)\s*/i)[0]!
+	// Strip leading amounts/units (e.g., "1 cup butter" → "butter")
+	return primary
+		.replace(
+			/^\d[\d./]*\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?|pounds?|g|grams?|ml|liters?|litres?)?\s*/i,
+			'',
+		)
+		.trim()
+}
+
+function applySubstitutionsToText(
+	text: string,
+	substitutions: Map<string, AppliedSubstitution>,
+): string {
+	let result = text
+	for (const sub of substitutions.values()) {
+		const escaped = sub.originalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+		const regex = new RegExp(`\\b${escaped}\\b`, 'gi')
+		result = result.replace(regex, sub.replacementShort)
+	}
+	return result
 }
 
 // --- Cooking log entry ---

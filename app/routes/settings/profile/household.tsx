@@ -21,10 +21,10 @@ import {
 import { useDoubleCheck } from '#app/utils/misc.tsx'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/household.ts'
-import { type BreadcrumbHandle } from './_layout.tsx'
+import { type SettingsPageHandle } from './_layout.tsx'
 
-export const handle: BreadcrumbHandle & SEOHandle = {
-	breadcrumb: <Icon name="home">Household</Icon>,
+export const handle: SettingsPageHandle & SEOHandle = {
+	pageTitle: 'Household',
 	getSitemapEntries: () => null,
 }
 

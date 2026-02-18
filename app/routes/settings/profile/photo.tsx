@@ -19,10 +19,10 @@ import {
 } from '#app/utils/misc.tsx'
 import { uploadProfileImage } from '#app/utils/storage.server.ts'
 import { type Route } from './+types/photo.ts'
-import { type BreadcrumbHandle } from './_layout.tsx'
+import { type SettingsPageHandle } from './_layout.tsx'
 
-export const handle: BreadcrumbHandle & SEOHandle = {
-	breadcrumb: <Icon name="avatar">Photo</Icon>,
+export const handle: SettingsPageHandle & SEOHandle = {
+	pageTitle: 'Photo',
 	getSitemapEntries: () => null,
 }
 

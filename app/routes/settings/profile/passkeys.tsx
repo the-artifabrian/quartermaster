@@ -5,12 +5,15 @@ import { Form, useRevalidator } from 'react-router'
 import { z } from 'zod'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { type Route } from './+types/passkeys.ts'
+import { type SettingsPageHandle } from './_layout.tsx'
 
-export const handle = {
-	breadcrumb: <Icon name="passkey">Passkeys</Icon>,
+export const handle: SettingsPageHandle & SEOHandle = {
+	pageTitle: 'Passkeys',
+	getSitemapEntries: () => null,
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

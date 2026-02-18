@@ -11,8 +11,10 @@ import {
 } from '#app/utils/invite-codes.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/invite-codes.ts'
+import { type SettingsPageHandle } from './_layout.tsx'
 
-export const handle: SEOHandle = {
+export const handle: SettingsPageHandle & SEOHandle = {
+	pageTitle: 'Invite Codes',
 	getSitemapEntries: () => null,
 }
 

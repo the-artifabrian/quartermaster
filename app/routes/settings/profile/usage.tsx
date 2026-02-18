@@ -2,8 +2,10 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { getUsageStats } from '#app/utils/usage-stats.server.ts'
 import { type Route } from './+types/usage.ts'
+import { type SettingsPageHandle } from './_layout.tsx'
 
-export const handle: SEOHandle = {
+export const handle: SettingsPageHandle & SEOHandle = {
+	pageTitle: 'Usage Stats',
 	getSitemapEntries: () => null,
 }
 

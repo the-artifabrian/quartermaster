@@ -1,24 +1,19 @@
-import { getFormProps, getInputProps, useForm } from '@conform-to/react'
-import { getZodConstraint, parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Img } from 'openimg/react'
-import { data, Form, Link, useFetcher } from 'react-router'
-import { z } from 'zod'
-import { ErrorList, Field } from '#app/components/forms.tsx'
+import { Form, Link, useFetcher } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { ThemeSwitch } from '#app/routes/resources/theme-switch.tsx'
 import { requireUserId, sessionKey } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { cn, getUserImgSrc, useDoubleCheck } from '#app/utils/misc.tsx'
-import { authSessionStorage } from '#app/utils/session.server.ts'
-import { useRequestInfo } from '#app/utils/request-info.ts'
-import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { getAvailableCodeCount } from '#app/utils/invite-codes.server.ts'
+import { cn, getUserImgSrc, useDoubleCheck } from '#app/utils/misc.tsx'
+import { useRequestInfo } from '#app/utils/request-info.ts'
+import { authSessionStorage } from '#app/utils/session.server.ts'
 import { getUserTier, type TierInfo } from '#app/utils/subscription.server.ts'
-import { NameSchema, UsernameSchema } from '#app/utils/user-validation.ts'
+import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/index.ts'
 import { twoFAVerificationType } from './two-factor/_layout.tsx'
 
@@ -26,10 +21,8 @@ export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
 }
 
-const ProfileFormSchema = z.object({
-	name: NameSchema.nullable().default(null),
-	username: UsernameSchema,
-})
+const signOutOfSessionsActionIntent = 'sign-out-of-sessions'
+const deleteDataActionIntent = 'delete-data'
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const userId = await requireUserId(request)
@@ -84,18 +77,12 @@ type ProfileActionArgs = {
 	userId: string
 	formData: FormData
 }
-const profileUpdateActionIntent = 'update-profile'
-const signOutOfSessionsActionIntent = 'sign-out-of-sessions'
-const deleteDataActionIntent = 'delete-data'
 
 export async function action({ request }: Route.ActionArgs) {
 	const userId = await requireUserId(request)
 	const formData = await request.formData()
 	const intent = formData.get('intent')
 	switch (intent) {
-		case profileUpdateActionIntent: {
-			return profileUpdateAction({ request, userId, formData })
-		}
 		case signOutOfSessionsActionIntent: {
 			return signOutOfSessionsAction({ request, userId, formData })
 		}
@@ -108,285 +95,246 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 }
 
-export default function EditUserProfile({ loaderData }: Route.ComponentProps) {
+export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
+	const { user, tierInfo, isProActive, availableInviteCodeCount } = loaderData
 	const requestInfo = useRequestInfo()
+	const tierLabel = tierInfo.isProActive ? 'Pro' : 'Free'
+
 	return (
-		<div className="flex flex-col gap-12">
-			<div className="flex justify-center">
-				<div className="relative size-52">
+		<div className="flex flex-col gap-6">
+			{/* Profile Banner */}
+			<Link
+				to="edit"
+				className="bg-card hover:bg-accent/5 flex items-center gap-4 rounded-xl border p-4 transition-colors"
+			>
+				<div className="relative size-16 shrink-0">
 					<Img
-						src={getUserImgSrc(loaderData.user.image?.objectKey)}
-						alt={loaderData.user.name ?? loaderData.user.username}
-						className="ring-accent/20 h-full w-full rounded-full object-cover ring-4"
-						width={832}
-						height={832}
+						src={getUserImgSrc(user.image?.objectKey)}
+						alt={user.name ?? user.username}
+						className="ring-accent/20 h-full w-full rounded-full object-cover ring-2"
+						width={256}
+						height={256}
 						isAboveFold
 					/>
-					<Button
-						asChild
-						variant="outline"
-						className="absolute top-3 -right-3 flex size-10 items-center justify-center rounded-full p-0"
-					>
-						<Link
-							preventScrollReset
-							to="photo"
-							title="Change profile photo"
-							aria-label="Change profile photo"
-						>
-							<Icon name="camera" className="size-4" />
-						</Link>
-					</Button>
-				</div>
-			</div>
-			<UpdateProfile loaderData={loaderData} />
-
-			{/* Preferences */}
-			<div className="bg-card shadow-warm rounded-xl border p-4">
-				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
-					Preferences
-				</h3>
-				<div className="flex items-center justify-between px-4 py-3">
-					<span>Theme</span>
-					<ThemeSwitch userPreference={requestInfo.userPrefs.theme} />
-				</div>
-			</div>
-
-			{/* Subscription */}
-			<SubscriptionCard tierInfo={loaderData.tierInfo} />
-
-			{/* Account */}
-			<div className="bg-card shadow-warm rounded-xl border p-4">
-				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
-					Account
-				</h3>
-				<div className="flex flex-col">
-					<Link
-						to="change-email"
-						className="hover:bg-accent/5 rounded-lg px-4 py-3"
-					>
-						<Icon name="envelope-closed">
-							Change email from {loaderData.user.email}
-						</Icon>
-					</Link>
-					<Link
-						to={loaderData.hasPassword ? 'password' : 'password/create'}
-						className="hover:bg-accent/5 rounded-lg px-4 py-3"
-					>
-						<Icon name="dots-horizontal">
-							{loaderData.hasPassword ? 'Change Password' : 'Create a Password'}
-						</Icon>
-					</Link>
-					<Link
-						to="two-factor"
-						className="hover:bg-accent/5 rounded-lg px-4 py-3"
-					>
-						{loaderData.isTwoFactorEnabled ? (
-							<Icon name="lock-closed">2FA is enabled</Icon>
-						) : (
-							<Icon name="lock-open-1">Enable 2FA</Icon>
-						)}
-					</Link>
-				</div>
-			</div>
-
-			{/* Household */}
-			<div className="bg-card shadow-warm rounded-xl border p-4">
-				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
-					Household
-				</h3>
-				<div className="flex flex-col">
-					<Link
-						to="household"
-						className="hover:bg-accent/5 rounded-lg px-4 py-3"
-					>
-						<Icon name="home">Manage household</Icon>
-					</Link>
-				</div>
-			</div>
-
-			{/* Invite Codes (Pro only) */}
-			{loaderData.isProActive ? (
-				<div className="bg-card shadow-warm rounded-xl border p-4">
-					<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
-						Invite Codes
-					</h3>
-					<div className="flex flex-col">
-						<Link
-							to="invite-codes"
-							className="hover:bg-accent/5 flex items-center justify-between rounded-lg px-4 py-3"
-						>
-							<Icon name="share">Invite codes</Icon>
-							{loaderData.availableInviteCodeCount > 0 ? (
-								<span className="bg-primary text-primary-foreground inline-flex size-5 items-center justify-center rounded-full text-xs font-bold">
-									{loaderData.availableInviteCodeCount}
-								</span>
-							) : null}
-						</Link>
+					<div className="bg-background/80 absolute right-0 bottom-0 flex size-5 items-center justify-center rounded-full">
+						<Icon name="camera" className="size-3" />
 					</div>
 				</div>
-			) : null}
+				<div className="min-w-0 flex-1">
+					<p className="truncate font-medium">
+						{user.name ?? user.username}
+					</p>
+					<p className="text-muted-foreground truncate text-sm">
+						{user.email}
+					</p>
+				</div>
+				<Icon
+					name="chevron-right"
+					className="text-muted-foreground size-5 shrink-0"
+				/>
+			</Link>
+
+			{/* General */}
+			<SettingsSection label="General">
+				<SettingsRow to="household" icon="home" label="Household" />
+				<SettingsRow
+					to="/upgrade"
+					icon="sparkles"
+					label="Subscription"
+					badge={
+						<span
+							className={cn(
+								'rounded-full px-2 py-0.5 text-xs font-medium',
+								tierInfo.isProActive
+									? 'bg-primary/10 text-primary'
+									: 'bg-muted text-muted-foreground',
+							)}
+						>
+							{tierLabel}
+						</span>
+					}
+				/>
+				<SettingsRow icon="sun" label="Theme">
+					<ThemeSwitch userPreference={requestInfo.userPrefs.theme} />
+				</SettingsRow>
+			</SettingsSection>
+
+			{/* Account */}
+			<SettingsSection label="Account">
+				<SettingsRow
+					to="change-email"
+					icon="envelope-closed"
+					label="Email"
+					value={user.email}
+				/>
+				<SettingsRow
+					to={loaderData.hasPassword ? 'password' : 'password/create'}
+					icon="dots-horizontal"
+					label={loaderData.hasPassword ? 'Password' : 'Create Password'}
+				/>
+				<SettingsRow
+					to="two-factor"
+					icon={
+						loaderData.isTwoFactorEnabled ? 'lock-closed' : 'lock-open-1'
+					}
+					label="Two-Factor Auth"
+					value={loaderData.isTwoFactorEnabled ? 'On' : 'Off'}
+				/>
+			</SettingsSection>
 
 			{/* Connections */}
-			<div className="bg-card shadow-warm rounded-xl border p-4">
-				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
-					Connections
-				</h3>
-				<div className="flex flex-col">
-					<Link
-						to="connections"
-						className="hover:bg-accent/5 rounded-lg px-4 py-3"
-					>
-						<Icon name="link-2">Manage connections</Icon>
-					</Link>
-					<Link
-						to="passkeys"
-						className="hover:bg-accent/5 rounded-lg px-4 py-3"
-					>
-						<Icon name="passkey">Manage passkeys</Icon>
-					</Link>
-				</div>
-			</div>
+			<SettingsSection label="Connections">
+				<SettingsRow to="connections" icon="link-2" label="Connections" />
+				<SettingsRow to="passkeys" icon="passkey" label="Passkeys" />
+			</SettingsSection>
+
+			{/* Invite Codes (Pro only) */}
+			{isProActive ? (
+				<SettingsSection label="Invite Codes">
+					<SettingsRow
+						to="invite-codes"
+						icon="share"
+						label="Invite Codes"
+						badge={
+							availableInviteCodeCount > 0 ? (
+								<span className="bg-primary text-primary-foreground inline-flex size-5 items-center justify-center rounded-full text-xs font-bold">
+									{availableInviteCodeCount}
+								</span>
+							) : undefined
+						}
+					/>
+				</SettingsSection>
+			) : null}
 
 			{/* Data */}
-			<div className="bg-card shadow-warm rounded-xl border p-4">
-				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
-					Data
-				</h3>
-				<div className="flex flex-col">
-					<Link to="usage" className="hover:bg-accent/5 rounded-lg px-4 py-3">
-						<Icon name="dashboard">Usage stats</Icon>
-					</Link>
-					<Link to="import" className="hover:bg-accent/5 rounded-lg px-4 py-3">
-						<Icon name="update">Import data</Icon>
-					</Link>
-					<a
-						href="/resources/export-all-data"
-						download
-						className="hover:bg-accent/5 rounded-lg px-4 py-3"
+			<SettingsSection label="Data">
+				<SettingsRow to="usage" icon="dashboard" label="Usage Stats" />
+				<SettingsRow to="import" icon="update" label="Import Data" />
+				<SettingsRow
+					href="/resources/export-all-data"
+					download
+					icon="download"
+					label="Export All Data"
+				/>
+				<SettingsRow
+					href="/resources/export-recipes"
+					download
+					icon="download"
+					label="Export Recipes"
+				/>
+			</SettingsSection>
+
+			{/* Log out */}
+			<SettingsSection>
+				<Form action="/logout" method="POST">
+					<button
+						type="submit"
+						className="flex min-h-[44px] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/5"
 					>
-						<Icon name="download">Export all data</Icon>
-					</a>
-					<a
-						href="/resources/export-recipes"
-						download
-						className="hover:bg-accent/5 rounded-lg px-4 py-3"
-					>
-						<Icon name="download">Export recipes as JSON</Icon>
-					</a>
-				</div>
-			</div>
+						<Icon
+							name="exit"
+							className="text-muted-foreground size-5 shrink-0"
+						/>
+						<span>Log Out</span>
+					</button>
+				</Form>
+			</SettingsSection>
 
 			{/* Danger Zone */}
-			<div className="bg-card shadow-warm rounded-xl border p-4">
-				<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
-					Danger Zone
-				</h3>
-				<div className="col-span-full flex flex-col gap-4 px-4 py-3">
+			<SettingsSection>
+				<div className="px-4 py-3">
 					<SignOutOfSessions loaderData={loaderData} />
+				</div>
+				<div className="px-4 py-3">
 					<DeleteData />
 				</div>
+			</SettingsSection>
+		</div>
+	)
+}
+
+function SettingsSection({
+	label,
+	children,
+}: {
+	label?: string
+	children: React.ReactNode
+}) {
+	return (
+		<div>
+			{label ? (
+				<h3 className="text-muted-foreground mb-1.5 px-1 text-xs font-semibold tracking-wider uppercase">
+					{label}
+				</h3>
+			) : null}
+			<div className="bg-card divide-border divide-y overflow-hidden rounded-xl border">
+				{children}
 			</div>
 		</div>
 	)
 }
 
-async function profileUpdateAction({ userId, formData }: ProfileActionArgs) {
-	const submission = await parseWithZod(formData, {
-		async: true,
-		schema: ProfileFormSchema.superRefine(async ({ username }, ctx) => {
-			const existingUsername = await prisma.user.findUnique({
-				where: { username },
-				select: { id: true },
-			})
-			if (existingUsername && existingUsername.id !== userId) {
-				ctx.addIssue({
-					path: ['username'],
-					code: z.ZodIssueCode.custom,
-					message: 'A user already exists with this username',
-				})
-			}
-		}),
-	})
-	if (submission.status !== 'success') {
-		return data(
-			{ result: submission.reply() },
-			{ status: submission.status === 'error' ? 400 : 200 },
+type IconName = React.ComponentProps<typeof Icon>['name']
+
+function SettingsRow({
+	to,
+	href,
+	download,
+	icon,
+	label,
+	value,
+	badge,
+	children,
+}: {
+	to?: string
+	href?: string
+	download?: boolean
+	icon: IconName
+	label: string
+	value?: string
+	badge?: React.ReactNode
+	children?: React.ReactNode
+}) {
+	const content = (
+		<>
+			<Icon name={icon} className="text-muted-foreground size-5 shrink-0" />
+			<span className="min-w-0 flex-1">{label}</span>
+			{value ? (
+				<span className="text-muted-foreground max-w-[40%] truncate text-sm">
+					{value}
+				</span>
+			) : null}
+			{badge}
+			{children}
+			{(to || href) && !children ? (
+				<Icon
+					name={download ? 'download' : 'chevron-right'}
+					className="text-muted-foreground size-4 shrink-0"
+				/>
+			) : null}
+		</>
+	)
+
+	const className =
+		'flex items-center gap-3 px-4 py-3 min-h-[44px] hover:bg-accent/5 transition-colors'
+
+	if (to) {
+		return (
+			<Link to={to} className={className}>
+				{content}
+			</Link>
 		)
 	}
 
-	const { username, name } = submission.value
-
-	await prisma.user.update({
-		select: { username: true },
-		where: { id: userId },
-		data: {
-			name: name,
-			username: username,
-		},
-	})
-
-	return {
-		result: submission.reply(),
+	if (href) {
+		return (
+			<a href={href} download={download} className={className}>
+				{content}
+			</a>
+		)
 	}
-}
 
-function UpdateProfile({
-	loaderData,
-}: {
-	loaderData: Route.ComponentProps['loaderData']
-}) {
-	const fetcher = useFetcher<typeof profileUpdateAction>()
-
-	const [form, fields] = useForm({
-		id: 'edit-profile',
-		constraint: getZodConstraint(ProfileFormSchema),
-		lastResult: fetcher.data?.result,
-		onValidate({ formData }) {
-			return parseWithZod(formData, { schema: ProfileFormSchema })
-		},
-		defaultValue: {
-			username: loaderData.user.username,
-			name: loaderData.user.name,
-		},
-	})
-
-	return (
-		<fetcher.Form method="POST" {...getFormProps(form)}>
-			<div className="grid grid-cols-6 gap-x-10">
-				<Field
-					className="col-span-3"
-					labelProps={{
-						htmlFor: fields.username.id,
-						children: 'Username',
-					}}
-					inputProps={getInputProps(fields.username, { type: 'text' })}
-					errors={fields.username.errors}
-				/>
-				<Field
-					className="col-span-3"
-					labelProps={{ htmlFor: fields.name.id, children: 'Name' }}
-					inputProps={getInputProps(fields.name, { type: 'text' })}
-					errors={fields.name.errors}
-				/>
-			</div>
-
-			<ErrorList errors={form.errors} id={form.errorId} />
-
-			<div className="mt-8 flex justify-center">
-				<StatusButton
-					type="submit"
-					size="wide"
-					name="intent"
-					value={profileUpdateActionIntent}
-					status={
-						fetcher.state !== 'idle' ? 'pending' : (form.status ?? 'idle')
-					}
-				>
-					Save changes
-				</StatusButton>
-			</div>
-		</fetcher.Form>
-	)
+	return <div className={className}>{content}</div>
 }
 
 async function signOutOfSessionsAction({ request, userId }: ProfileActionArgs) {
@@ -413,9 +361,9 @@ function SignOutOfSessions({
 	loaderData: Route.ComponentProps['loaderData']
 }) {
 	const dc = useDoubleCheck()
-
 	const fetcher = useFetcher<typeof signOutOfSessionsAction>()
 	const otherSessionsCount = loaderData.user._count.sessions - 1
+
 	return (
 		<div>
 			{otherSessionsCount ? (
@@ -432,6 +380,8 @@ function SignOutOfSessions({
 								? 'pending'
 								: (fetcher.data?.status ?? 'idle')
 						}
+						className="w-full"
+						size="sm"
 					>
 						<Icon name="avatar">
 							{dc.doubleCheck
@@ -441,7 +391,9 @@ function SignOutOfSessions({
 					</StatusButton>
 				</fetcher.Form>
 			) : (
-				<Icon name="avatar">This is your only session</Icon>
+				<p className="text-muted-foreground text-sm">
+					<Icon name="avatar">This is your only session</Icon>
+				</p>
 			)}
 		</div>
 	)
@@ -458,8 +410,8 @@ async function deleteDataAction({ userId }: ProfileActionArgs) {
 
 function DeleteData() {
 	const dc = useDoubleCheck()
-
 	const fetcher = useFetcher<typeof deleteDataAction>()
+
 	return (
 		<div>
 			<fetcher.Form method="POST">
@@ -471,118 +423,14 @@ function DeleteData() {
 					})}
 					variant={dc.doubleCheck ? 'destructive' : 'default'}
 					status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
+					className="w-full"
+					size="sm"
 				>
 					<Icon name="trash">
 						{dc.doubleCheck ? `Are you sure?` : `Delete all your data`}
 					</Icon>
 				</StatusButton>
 			</fetcher.Form>
-		</div>
-	)
-}
-
-function SubscriptionCard({ tierInfo }: { tierInfo: TierInfo }) {
-	const tierLabel = tierInfo.tier === 'pro' ? 'Pro' : 'Free'
-
-	const daysLeftBadge =
-		tierInfo.daysUntilExpiry !== null && tierInfo.daysUntilExpiry <= 14 ? (
-			<span
-				className={cn(
-					'text-xs font-medium',
-					tierInfo.daysUntilExpiry <= 3
-						? 'text-destructive font-bold'
-						: tierInfo.daysUntilExpiry <= 7
-							? 'text-amber-600 dark:text-amber-400'
-							: 'text-muted-foreground',
-				)}
-			>
-				{tierInfo.daysUntilExpiry === 0
-					? ' · Expires today'
-					: ` · ${tierInfo.daysUntilExpiry} day${tierInfo.daysUntilExpiry === 1 ? '' : 's'} left`}
-			</span>
-		) : null
-
-	return (
-		<div className="bg-card shadow-warm rounded-xl border p-4">
-			<h3 className="text-muted-foreground mb-2 px-4 text-xs font-semibold tracking-wider uppercase">
-				Subscription
-			</h3>
-			<div className="flex flex-col gap-2 px-4 py-3">
-				{tierInfo.hasStripeSubscription ? (
-					<>
-						<p className="text-sm">
-							<span className="font-medium">{tierLabel} plan</span>
-							{tierInfo.subscriptionExpiresAt ? (
-								<>
-									{' '}
-									&middot; Renews{' '}
-									{new Date(tierInfo.subscriptionExpiresAt).toLocaleDateString(
-										'en-US',
-										{
-											month: 'long',
-											day: 'numeric',
-											year: 'numeric',
-										},
-									)}
-								</>
-							) : null}
-						</p>
-						<Form method="POST" action="/resources/stripe-portal">
-							<Button variant="outline" size="sm">
-								Manage Subscription
-							</Button>
-						</Form>
-					</>
-				) : !tierInfo.isProActive && tierInfo.wasProPreviously ? (
-					<>
-						<p className="text-sm font-medium">
-							Pro access ended &mdash; your data is safe
-						</p>
-						<p className="text-muted-foreground text-xs">
-							Subscribe or redeem a new invite code to continue.
-						</p>
-						<div className="mt-1 flex gap-2">
-							<Button asChild variant="default" size="sm">
-								<Link to="/upgrade">Subscribe</Link>
-							</Button>
-							<Button asChild variant="outline" size="sm">
-								<Link to="/upgrade">Redeem code</Link>
-							</Button>
-						</div>
-					</>
-				) : tierInfo.isProActive && tierInfo.isTrialing ? (
-					<>
-						<p className="text-sm">
-							<span className="font-medium">Pro access</span> via invite code
-							until{' '}
-							{tierInfo.trialEndsAt
-								? new Date(tierInfo.trialEndsAt).toLocaleDateString('en-US', {
-										month: 'long',
-										day: 'numeric',
-										year: 'numeric',
-									})
-								: 'unknown'}
-							{daysLeftBadge}
-						</p>
-						<Button asChild variant="outline" size="sm">
-							<Link to="/upgrade">Subscribe</Link>
-						</Button>
-					</>
-				) : tierInfo.isProActive ? (
-					<p className="text-sm">
-						<span className="font-medium">{tierLabel} plan</span>
-					</p>
-				) : (
-					<>
-						<p className="text-sm">
-							<span className="font-medium">Free plan</span>
-						</p>
-						<Button asChild variant="outline" size="sm">
-							<Link to="/upgrade">Upgrade</Link>
-						</Button>
-					</>
-				)}
-			</div>
 		</div>
 	)
 }

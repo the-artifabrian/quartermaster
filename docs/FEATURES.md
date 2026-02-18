@@ -68,7 +68,11 @@ Complete feature catalog. For the roadmap, see
 - Items with optional quantity, unit, expiration, and low-stock flag
 - Client-side search/filter across all items and location tabs
 - Quick-add with optional inline quantity/unit fields + 33 common ingredient
-  shortcuts
+  shortcuts. Duplicate detection via canonical name matching (same location) --
+  warns with "Update existing" / "Add anyway" choice
+- Full add form (`/inventory/new`) also detects duplicates with merge/add-anyway
+  banner
+- Bulk add (pantry staples onboarding) silently skips duplicates
 - Ingredient normalization pipeline: ~40 modifier strippers, ~25 synonym groups,
   pluralization, compound ingredient protection, non-equivalent exclusions.
   Powers matching, shopping consolidation, overlap scoring, and waste detection
@@ -123,8 +127,9 @@ Complete feature catalog. For the roadmap, see
     layout
   - Inventory-aware: subtracts items already in stock and staple ingredients
   - Check-off -> inventory pipeline: pre-filled name, location, quantity, and
-    auto-suggested expiry (shelf-life lookup, ~60 entries). Household items
-    cleared but not added to inventory
+    auto-suggested expiry (shelf-life lookup, ~60 entries). Auto-merges with
+    existing inventory items (canonical name match, same location) -- clears
+    low-stock flag on merge. Household items cleared but not added to inventory
   - Low-stock nudge: amber chip banner for low-stock items not already on list,
     one-tap add or "Add All"
 

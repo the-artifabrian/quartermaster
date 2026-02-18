@@ -24,10 +24,10 @@ import { pipeHeaders } from '#app/utils/headers.server.js'
 import { makeTimings } from '#app/utils/timing.server.ts'
 import { createToastHeaders } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/connections.ts'
-import { type BreadcrumbHandle } from './_layout.tsx'
+import { type SettingsPageHandle } from './_layout.tsx'
 
-export const handle: BreadcrumbHandle & SEOHandle = {
-	breadcrumb: <Icon name="link-2">Connections</Icon>,
+export const handle: SettingsPageHandle & SEOHandle = {
+	pageTitle: 'Connections',
 	getSitemapEntries: () => null,
 }
 

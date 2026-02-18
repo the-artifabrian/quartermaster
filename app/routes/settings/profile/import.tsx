@@ -11,8 +11,10 @@ import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
+import { type SettingsPageHandle } from './_layout.tsx'
 
-export const handle: SEOHandle = {
+export const handle: SettingsPageHandle & SEOHandle = {
+	pageTitle: 'Import Data',
 	getSitemapEntries: () => null,
 }
 

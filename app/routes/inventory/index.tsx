@@ -366,115 +366,79 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
 			<div className="from-card to-background border-border/50 border-b bg-linear-to-b">
-				<div className="container flex items-center justify-between py-4">
-					<h1 className="text-2xl font-bold">
-						My Inventory{' '}
-						<span className="text-muted-foreground text-base font-normal">
-							{search
-								? `(${filteredItems.length} of ${items.length})`
-								: `(${items.length})`}
-						</span>
-					</h1>
-					<div className="flex gap-2">
-						{inventoryUsage.isAtLimit ? (
-							<Button asChild>
-								<Link to="/upgrade">Upgrade to Pro</Link>
-							</Button>
-						) : (
-							<Button asChild>
-								<Link to="/inventory/new">
-									<Icon name="plus" size="sm" />
-									Add Item
-								</Link>
-							</Button>
-						)}
+				<div className="container py-4">
+					<div className="flex items-center justify-between">
+						<h1 className="text-2xl font-bold">
+							My Inventory{' '}
+							<span className="text-muted-foreground text-base font-normal">
+								{search
+									? `(${filteredItems.length} of ${items.length})`
+									: `(${items.length})`}
+							</span>
+						</h1>
+						<div className="flex gap-2">
+							{inventoryUsage.isAtLimit ? (
+								<Button asChild>
+									<Link to="/upgrade">Upgrade to Pro</Link>
+								</Button>
+							) : (
+								<Button asChild>
+									<Link to="/inventory/new">
+										<Icon name="plus" size="sm" />
+										Add Item
+									</Link>
+								</Button>
+							)}
+						</div>
 					</div>
+					{/* Compact status badges */}
+					{(expiringSoonCount > 0 ||
+						lowStockCount > 0 ||
+						inventoryUsage.limit !== null) && (
+						<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+							{expiringSoonCount > 0 && (
+								<span className="text-amber-600 dark:text-amber-400">
+									{expiringSoonCount} expiring soon
+								</span>
+							)}
+							{lowStockCount > 0 && (
+								<>
+									{expiringSoonCount > 0 && (
+										<span className="text-muted-foreground/40">
+											·
+										</span>
+									)}
+									<span className="text-amber-600 dark:text-amber-400">
+										{lowStockCount} low stock
+									</span>
+								</>
+							)}
+							{inventoryUsage.limit !== null && (
+								<>
+									{(expiringSoonCount > 0 ||
+										lowStockCount > 0) && (
+										<span className="text-muted-foreground/40">
+											·
+										</span>
+									)}
+									<span
+										className={cn(
+											inventoryUsage.isAtLimit
+												? 'text-amber-600 dark:text-amber-400'
+												: 'text-muted-foreground',
+										)}
+									>
+										{inventoryUsage.count}/
+										{inventoryUsage.limit} free items
+									</span>
+								</>
+							)}
+						</div>
+					)}
 				</div>
 			</div>
 
 			<div className="container py-6">
-				{/* Dashboard Summary Strip */}
-				<div className="mb-6 flex gap-3 pb-1">
-					<div
-						className={cn(
-							'bg-card flex flex-1 flex-col items-center rounded-xl border p-3 text-center',
-							expiringSoonCount > 0 && 'border-amber-200 dark:border-amber-800',
-						)}
-					>
-						<span
-							className={cn(
-								'text-2xl font-bold',
-								expiringSoonCount > 0
-									? 'text-amber-600 dark:text-amber-400'
-									: 'text-foreground',
-							)}
-						>
-							{expiringSoonCount}
-						</span>
-						<span className="text-muted-foreground text-xs">Expiring Soon</span>
-					</div>
-					<div
-						className={cn(
-							'bg-card flex flex-1 flex-col items-center rounded-xl border p-3 text-center',
-							lowStockCount > 0 && 'border-amber-200 dark:border-amber-800',
-						)}
-					>
-						<span
-							className={cn(
-								'text-2xl font-bold',
-								lowStockCount > 0
-									? 'text-amber-600 dark:text-amber-400'
-									: 'text-foreground',
-							)}
-						>
-							{lowStockCount}
-						</span>
-						<span className="text-muted-foreground text-xs">Low Stock</span>
-					</div>
-					{inventoryUsage.limit !== null ? (
-						<div
-							className={cn(
-								'bg-card flex flex-1 flex-col items-center rounded-xl border p-3 text-center',
-								inventoryUsage.isAtLimit &&
-									'border-amber-200 dark:border-amber-800',
-							)}
-						>
-							<span
-								className={cn(
-									'text-2xl font-bold',
-									inventoryUsage.isAtLimit
-										? 'text-amber-600 dark:text-amber-400'
-										: 'text-foreground',
-								)}
-							>
-								{inventoryUsage.count} / {inventoryUsage.limit}
-							</span>
-							<span className="text-muted-foreground text-xs">
-								Free Items
-							</span>
-							<div className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full">
-								<div
-									className={cn(
-										'h-full rounded-full transition-all',
-										inventoryUsage.isAtLimit
-											? 'bg-amber-500'
-											: 'bg-primary',
-									)}
-									style={{
-										width: `${Math.min(100, (inventoryUsage.count / inventoryUsage.limit) * 100)}%`,
-									}}
-								/>
-							</div>
-						</div>
-					) : (
-						<div className="bg-card flex flex-1 flex-col items-center rounded-xl border p-3 text-center">
-							<span className="text-2xl font-bold">{totalItemCount}</span>
-							<span className="text-muted-foreground text-xs">
-								Total Items
-							</span>
-						</div>
-					)}
-				</div>
 
 				{/* Free plan limit banner */}
 				{inventoryUsage.isAtLimit && (

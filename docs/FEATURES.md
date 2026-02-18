@@ -63,9 +63,8 @@ Complete feature catalog. For the roadmap, see
 
 ## Inventory System
 
-- Three locations: Pantry, Fridge, Freezer with summary strip
-  (expiring/low-stock/total counts), location tints, human-readable expiry
-  countdowns
+- Three locations: Pantry, Fridge, Freezer with compact inline status badges
+  expiry countdowns
 - Items with optional quantity, unit, expiration, and low-stock flag
 - Client-side search/filter across all items and location tabs
 - Quick-add with optional inline quantity/unit fields + 33 common ingredient
@@ -99,9 +98,11 @@ Complete feature catalog. For the roadmap, see
 - Mark meals as "cooked" with optimistic toggle; quick "I made this" one-tap
   action (logs cook + subtracts inventory)
 - Uncooked meal reminders: site-wide amber banner for planned-but-uncooked meals
-  from today or yesterday. Shows one meal at a time with "Yes, I made it"
-  (triggers cook log + inventory subtraction with toast summary) and "Skip"
-  (session-only dismiss). Pro-only, self-loads via resource route fetcher
+  from today or yesterday. Time-of-day gated — breakfast after 11am, lunch after
+  3pm, dinner/snack after 9pm (yesterday's meals always show). Shows one meal at
+  a time with "Yes, I made it" (triggers cook log + inventory subtraction with
+  toast summary) and "Skip" (session-only dismiss). Pro-only, self-loads via
+  resource route fetcher
 - "Up next" banner (current week): next chronological meal to cook today with
   time-of-day awareness. Empty state suggests a favorite with one-tap add
 - Copy week to next week (preserves servings, skips duplicates)

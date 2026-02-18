@@ -6,10 +6,19 @@ import { serializeDate } from '#app/utils/date.ts'
 
 const MEAL_TYPE_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'] as const
 
+// Only show "did you make X?" after the meal would reasonably be done
+const MEAL_REMINDER_AFTER_HOUR: Record<string, number> = {
+	breakfast: 11, // 11am
+	lunch: 15, // 3pm
+	dinner: 21, // 9pm
+	snack: 21, // 9pm
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId } = await requireProTier(request)
 
 	const now = new Date()
+	const currentHour = now.getHours()
 	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 	const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
 
@@ -28,8 +37,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 		},
 	})
 
+	// Filter out today's meals where it's too early to remind
+	const filtered = entries.filter((entry) => {
+		const entryDate = new Date(entry.date)
+		const isToday = entryDate.getTime() === today.getTime()
+		if (!isToday) return true // yesterday's meals always show
+		const threshold = MEAL_REMINDER_AFTER_HOUR[entry.mealType] ?? 21
+		return currentHour >= threshold
+	})
+
 	// Sort by yesterday first, then by meal type order
-	const sorted = entries.sort((a, b) => {
+	const sorted = filtered.sort((a, b) => {
 		const dateA = new Date(a.date).getTime()
 		const dateB = new Date(b.date).getTime()
 		if (dateA !== dateB) return dateA - dateB

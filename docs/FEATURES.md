@@ -110,8 +110,6 @@ Complete feature catalog. For the roadmap, see
 - Pairing suggestions when adding recipes: ranked by ingredient overlap with
   planned recipes, weeknight-aware sorting (Mon-Thu quick-cook recipes first)
 - Single-use ingredient waste alerts with recipe suggestions
-- Plan efficiency dashboard: total/unique ingredient stats, shared ingredient
-  bridges
 - Standalone shopping list at `/shopping` with:
   - Generate from meal plan (week picker for prev/current/next week) with
     dedup against existing manual/recipe items
@@ -186,7 +184,7 @@ Complete feature catalog. For the roadmap, see
   per-section error isolation
 - Security: CSP (nonce-based), streaming upload size enforcement, MIME
   validation, Zod on all bulk ops, SSRF protection, input length limits
-- Usage analytics via `UsageEvent` model: pairing selections, efficiency
-  snapshots, discovery stats. Stats page at Settings > Data
+- Usage analytics via `UsageEvent` model: pairing selections, discovery stats.
+  Stats page at Settings > Data
 - Vitest unit/integration tests + Playwright e2e tests
 - Deployed on Fly.io with LiteFS, custom domain, HTTPS

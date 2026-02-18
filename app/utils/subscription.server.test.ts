@@ -90,22 +90,6 @@ describe('getUserTier', () => {
 		expect(tier.isTrialing).toBe(false)
 	})
 
-	test('returns pro active for household tier', async () => {
-		const user = await setupUser()
-		await prisma.subscription.create({
-			data: {
-				userId: user.id,
-				tier: 'household',
-			},
-		})
-
-		const tier = await getUserTier(user.id)
-
-		expect(tier.tier).toBe('household')
-		expect(tier.isProActive).toBe(true)
-		expect(tier.isTrialing).toBe(false)
-	})
-
 	test('expired subscription with active trial is still pro', async () => {
 		const user = await setupUser()
 		const pastDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)

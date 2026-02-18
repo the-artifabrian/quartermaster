@@ -83,6 +83,12 @@ app/
 ├── components/
 │   ├── ui/              # shadcn/ui primitives
 │   ├── recipe-*.tsx     # Recipe cards, form, match cards, selector
+│   ├── recipe-action-bar.tsx        # Unified desktop+mobile action bar
+│   ├── recipe-cooking-log-entry.tsx # Cooking log entry card
+│   ├── recipe-i-made-this-modal.tsx # "I Made This" modal
+│   ├── recipe-ingredient-list.tsx   # Ingredient list + substitutions
+│   ├── recipe-instructions-list.tsx # Instructions with step checkboxes
+│   ├── recipe-metadata-card.tsx     # Prep/cook/source metadata card
 │   ├── inventory-*.tsx  # Item cards, quick-add, location tabs
 │   ├── meal-*.tsx       # Calendar, slot cards
 │   ├── shopping-list-*.tsx  # Shopping list items, inventory pipeline
@@ -118,6 +124,7 @@ app/
 │   ├── category-location-map.ts    # Ingredient → store section mapping
 │   ├── shelf-life.ts              # Shelf-life lookup → auto-suggest expiry dates
 │   ├── relative-time.ts            # Human-readable relative timestamps
+│   ├── recipe-detail.ts            # Shared recipe types + pure utility functions
 │   ├── fractions.ts                # Fraction display (1.5 → "1½")
 │   ├── usage-tracking.server.ts   # Fire-and-forget usage event tracking
 │   └── usage-stats.server.ts      # Shared usage stats query logic
@@ -149,9 +156,22 @@ tests/
   sort, favorites, makeable-only toggle, `?quality=flagged` support
 - `app/routes/recipes/new.tsx` - Create recipe (manual, URL import, bulk
   text/file import)
-- `app/routes/recipes/$recipeId.tsx` - View with interactive cooking mode
-  (ingredient checkboxes, instruction cross-off, inline timers, temperature
-  conversion tooltips, "I Made This", "What Do I Need?")
+- `app/routes/recipes/$recipeId.tsx` - View with interactive cooking mode.
+  Orchestrates state (servings, checked ingredients/steps, substitutions,
+  fetchers) and delegates rendering to extracted sub-components:
+  - `app/components/recipe-action-bar.tsx` - Unified desktop (tooltips) + mobile
+    (floating card) action bar
+  - `app/components/recipe-ingredient-list.tsx` - Ingredient checkboxes,
+    substitution hints, "Add missing to shopping list"
+  - `app/components/recipe-instructions-list.tsx` - Step cross-off with
+    substitution text replacement
+  - `app/components/recipe-i-made-this-modal.tsx` - Cook logging +
+    inventory subtraction preview
+  - `app/components/recipe-cooking-log-entry.tsx` - Cooking history cards
+  - `app/components/recipe-metadata-card.tsx` - Prep/cook time + source URL
+- `app/utils/recipe-detail.ts` - Shared types (`SubtractionPreviewData`,
+  `AppliedSubstitution`) and pure utility functions (`getRecipeJsonLd`,
+  `formatQuantity`, `extractPrimaryIngredient`, `applySubstitutionsToText`)
 - `app/routes/recipes/$recipeId.edit.tsx` - Edit recipe form
 - `app/components/recipe-form.tsx` - Shared form with drag-and-drop ingredients
   (`@dnd-kit/sortable`), collapsible sections
@@ -205,12 +225,20 @@ detail. The `/discover` route redirects to
 **Key Files**:
 
 - `app/routes/plan/index.tsx` - Weekly calendar (Mon-Sun, 4 meal types/day),
-  per-entry serving overrides, cook toggle, "Up next" banner, copy week,
-  templates, pairing suggestions, waste alerts, efficiency dashboard
+  per-entry serving overrides, cook toggle, "Up next" banner, pairing
+  suggestions, waste alerts, efficiency dashboard. Action handles 5 intents:
+  assign, updateServings, toggleCooked, remove, quickCook
+- `app/routes/resources/meal-plan-copy-week.tsx` - Copy week entries +7 days
+- `app/routes/resources/meal-plan-templates.tsx` - Template save/apply/delete
+  (3 intents)
+- `app/components/template-modal.tsx` - Save/apply template modals (submit to
+  template resource route)
 - `app/routes/shopping.tsx` - Standalone shopping list with generate from meal
-  plan, collapsible quick add with duplicate/inventory warnings, low-stock nudge
-  chips, household item category, flat item list, check-off → inventory pipeline
-  (with shelf-life auto-suggest expiry dates), print layout
+  plan, quick add (open by default), duplicate/inventory warnings, low-stock
+  nudge chips, household item category, flat item list, check-off → inventory
+  pipeline (with shelf-life auto-suggest expiry dates), print layout
+- `app/routes/resources/shopping-to-inventory.tsx` - Shopping list check-off →
+  inventory creation pipeline (extracted from shopping action)
 - `app/routes/plan/shopping-list.tsx` - Redirect to `/shopping`
 - `app/utils/shopping-list.server.ts` - Shopping list generation logic
 - `app/utils/ingredient-overlap.server.ts` - Pairwise overlap scoring for
@@ -286,7 +314,6 @@ Admin routes: `/admin/cache` (cache management), `/admin/subscriptions` (tier
   `getCodeStatus()` UI helper (used by settings and admin pages)
 - `app/routes/resources/redeem-invite-code.tsx` — POST resource route for code
   redemption (used by `/upgrade` and potentially other pages via `useFetcher`)
-  checkout buttons, billing period toggle
 - `app/routes/settings/profile/invite-codes.tsx` — Pro-only settings page
   showing user's codes
 - `app/routes/admin/subscriptions.tsx` — Admin code generation + management
@@ -310,9 +337,7 @@ Stripe subscriptions coexist — user has Pro if either `trialEndsAt` or
   (authenticated, POST only)
 
 **Env vars** (all optional — app runs without Stripe in invite-code-only mode):
-`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_MONTHLY_PRICE_ID`,
-`STRIPE_PRO_YEARLY_PRICE_ID`, `STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID`,
-`STRIPE_HOUSEHOLD_YEARLY_PRICE_ID`
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_YEARLY_PRICE_ID`
 
 ### Ingredient Substitutions (AI Integration)
 

@@ -56,8 +56,8 @@ export function GettingStartedChecklist({
 		},
 	]
 
-	// Free users only see the first step (recipe) — inventory and plan are Pro
-	const steps = isProActive ? allSteps : allSteps.slice(0, 1)
+	// Free users see recipe + inventory steps — meal plan is Pro-only
+	const steps = isProActive ? allSteps : allSteps.slice(0, 2)
 
 	const completedCount = steps.filter((s) => s.done).length
 	const allComplete = completedCount === steps.length

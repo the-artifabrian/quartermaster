@@ -17,7 +17,7 @@ const mockRetrieveSubscription = async () => ({
 	items: {
 		data: [
 			{
-				price: { id: 'price_pro_monthly_test' },
+				price: { id: 'price_pro_yearly_test' },
 				current_period_end: mockPeriodEnd,
 			},
 		],
@@ -29,32 +29,9 @@ async function setupUser() {
 }
 
 describe('getSubscriptionTierFromPriceId', () => {
-	test('returns pro for unknown price IDs', () => {
+	test('returns pro for any price ID', () => {
 		expect(getSubscriptionTierFromPriceId('price_random')).toBe('pro')
-	})
-
-	test('returns household for household monthly price', () => {
-		const original = process.env.STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID
-		process.env.STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID = 'price_household_monthly'
-		try {
-			expect(getSubscriptionTierFromPriceId('price_household_monthly')).toBe(
-				'household',
-			)
-		} finally {
-			process.env.STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID = original
-		}
-	})
-
-	test('returns household for household yearly price', () => {
-		const original = process.env.STRIPE_HOUSEHOLD_YEARLY_PRICE_ID
-		process.env.STRIPE_HOUSEHOLD_YEARLY_PRICE_ID = 'price_household_yearly'
-		try {
-			expect(getSubscriptionTierFromPriceId('price_household_yearly')).toBe(
-				'household',
-			)
-		} finally {
-			process.env.STRIPE_HOUSEHOLD_YEARLY_PRICE_ID = original
-		}
+		expect(getSubscriptionTierFromPriceId('price_yearly_test')).toBe('pro')
 	})
 })
 
@@ -181,40 +158,39 @@ describe('handleInvoicePaid', () => {
 })
 
 describe('handleSubscriptionUpdated', () => {
-	test('syncs tier from price change', async () => {
+	test('syncs tier and period end', async () => {
 		const user = await setupUser()
-		const original = process.env.STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID
-		process.env.STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID = 'price_household_monthly'
 
-		try {
-			await prisma.subscription.create({
-				data: {
-					userId: user.id,
-					tier: 'pro',
-					stripeCustomerId: 'cus_update_test',
-					stripeSubscriptionId: 'sub_update_123',
-				},
-			})
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'pro',
+				stripeCustomerId: 'cus_update_test',
+				stripeSubscriptionId: 'sub_update_123',
+			},
+		})
 
-			await handleSubscriptionUpdated({
-				id: 'sub_update_123',
-				items: {
-					data: [
-						{
-							price: { id: 'price_household_monthly' },
-							current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400,
-						},
-					],
-				},
-			} as any)
+		const newPeriodEnd = Math.floor(Date.now() / 1000) + 30 * 86400
 
-			const subscription = await prisma.subscription.findUnique({
-				where: { userId: user.id },
-			})
-			expect(subscription!.tier).toBe('household')
-		} finally {
-			process.env.STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID = original
-		}
+		await handleSubscriptionUpdated({
+			id: 'sub_update_123',
+			items: {
+				data: [
+					{
+						price: { id: 'price_pro_yearly' },
+						current_period_end: newPeriodEnd,
+					},
+				],
+			},
+		} as any)
+
+		const subscription = await prisma.subscription.findUnique({
+			where: { userId: user.id },
+		})
+		expect(subscription!.tier).toBe('pro')
+		expect(subscription!.subscriptionExpiresAt!.getTime()).toBeGreaterThan(
+			Date.now(),
+		)
 	})
 })
 

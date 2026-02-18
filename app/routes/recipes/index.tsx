@@ -117,9 +117,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 				},
 				orderBy,
 			}),
-			isProActive
-				? prisma.inventoryItem.findMany({ where: { householdId } })
-				: Promise.resolve([]),
+			prisma.inventoryItem.findMany({ where: { householdId } }),
 			isProActive
 				? prisma.mealPlanEntry.count({
 						where: { mealPlan: { householdId } },

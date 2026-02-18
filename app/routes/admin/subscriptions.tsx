@@ -140,7 +140,7 @@ export async function action({ request }: Route.ActionArgs) {
 			return data({ error: 'Invalid form data' }, { status: 400 })
 		}
 
-		if (!['free', 'pro', 'household'].includes(tier)) {
+		if (!['free', 'pro'].includes(tier)) {
 			return data({ error: 'Invalid tier' }, { status: 400 })
 		}
 
@@ -186,8 +186,6 @@ export async function action({ request }: Route.ActionArgs) {
 
 const tierStyles: Record<string, string> = {
 	pro: 'border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-400',
-	household:
-		'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-400',
 	free: 'border-gray-300 bg-gray-50 text-gray-600 dark:border-gray-600 dark:bg-gray-800/50 dark:text-gray-400',
 }
 
@@ -237,7 +235,6 @@ function UserRow({ user }: { user: UserRow }) {
 				>
 					<option value="free">free</option>
 					<option value="pro">pro</option>
-					<option value="household">household</option>
 				</select>
 				<StatusButton
 					type="submit"

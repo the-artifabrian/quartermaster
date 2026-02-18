@@ -114,8 +114,8 @@ Complete feature catalog. For the roadmap, see
 - Standalone shopping list at `/shopping` with:
   - Generate from meal plan (week picker for prev/current/next week) with
     dedup against existing manual/recipe items
-  - Collapsible quick add with smart duplicate/inventory warnings and "Add
-    Anyway" bypass
+  - Quick add (open by default, collapsible) with smart duplicate/inventory
+    warnings and "Add Anyway" bypass
   - Auto-categorization (produce, dairy, meat, pantry, frozen, bakery,
     household, other)
   - Inline item editing (name, quantity, unit)

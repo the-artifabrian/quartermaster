@@ -95,9 +95,8 @@ export function ShoppingListToInventory({
 		if (allItems.length === 0) return
 
 		const formData = new FormData()
-		formData.set('intent', 'add-to-inventory')
 		formData.set('items', JSON.stringify(allItems))
-		void fetcher.submit(formData, { method: 'POST' })
+		void fetcher.submit(formData, { method: 'POST', action: '/resources/shopping-to-inventory' })
 	}
 
 	return (

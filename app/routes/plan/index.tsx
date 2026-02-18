@@ -1,9 +1,9 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { addDays, differenceInCalendarDays, isSameDay } from 'date-fns'
+import { isSameDay } from 'date-fns'
 import { useState } from 'react'
-import { Form, Link, redirect } from 'react-router'
+import { Form, Link } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
 import {
 	ApplyTemplateModal,
@@ -31,11 +31,6 @@ import {
 } from '#app/utils/ingredient-overlap.server.ts'
 import { subtractRecipeIngredientsFromInventory } from '#app/utils/inventory-subtract.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
-import {
-	SaveTemplateSchema,
-	ApplyTemplateSchema,
-	DeleteTemplateSchema,
-} from '#app/utils/meal-template-validation.ts'
 import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { type Route } from './+types/index.ts'
 
@@ -444,72 +439,6 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const }
 	}
 
-	if (intent === 'copyWeek') {
-		const weekStartStr = formData.get('weekStart')
-		invariantResponse(
-			typeof weekStartStr === 'string',
-			'Week start is required',
-		)
-
-		const weekStart = getWeekStart(parseDate(weekStartStr))
-		const mealPlan = await prisma.mealPlan.findFirst({
-			where: { householdId, weekStart },
-			include: { entries: true },
-		})
-		invariantResponse(
-			mealPlan && mealPlan.entries.length > 0,
-			'No entries to copy',
-		)
-
-		const nextWeekStart = getNextWeek(weekStart)
-
-		// Get or create next week's meal plan
-		let nextMealPlan = await prisma.mealPlan.findFirst({
-			where: { householdId, weekStart: nextWeekStart },
-		})
-
-		if (!nextMealPlan) {
-			nextMealPlan = await prisma.mealPlan.create({
-				data: { userId, householdId, weekStart: nextWeekStart },
-			})
-		}
-
-		// Duplicate entries with dates shifted +7 days
-		for (const entry of mealPlan.entries) {
-			const newDate = addDays(new Date(entry.date), 7)
-			const existing = await prisma.mealPlanEntry.findUnique({
-				where: {
-					mealPlanId_date_mealType_recipeId: {
-						mealPlanId: nextMealPlan.id,
-						date: newDate,
-						mealType: entry.mealType,
-						recipeId: entry.recipeId,
-					},
-				},
-			})
-			if (!existing) {
-				await prisma.mealPlanEntry.create({
-					data: {
-						mealPlanId: nextMealPlan.id,
-						date: newDate,
-						mealType: entry.mealType,
-						recipeId: entry.recipeId,
-						servings: entry.servings,
-					},
-				})
-			}
-		}
-
-		void emitHouseholdEvent({
-			type: 'meal_plan_week_copied',
-			payload: {},
-			userId,
-			householdId,
-		})
-
-		return redirect(`/plan?weekStart=${serializeDate(nextWeekStart)}`)
-	}
-
 	if (intent === 'quickCook') {
 		const entryId = formData.get('entryId')
 		invariantResponse(typeof entryId === 'string', 'Entry ID is required')
@@ -570,143 +499,6 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 	}
 
-	if (intent === 'saveTemplate') {
-		const submission = parseWithZod(formData, { schema: SaveTemplateSchema })
-		if (submission.status !== 'success') {
-			return { status: 'error' as const }
-		}
-
-		const { name, weekStart: weekStartStr } = submission.value
-		const weekStart = getWeekStart(parseDate(weekStartStr))
-
-		const mealPlan = await prisma.mealPlan.findFirst({
-			where: { householdId, weekStart },
-			include: { entries: true },
-		})
-		invariantResponse(
-			mealPlan && mealPlan.entries.length > 0,
-			'No entries to save as template',
-		)
-
-		const template = await prisma.mealPlanTemplate.create({
-			data: {
-				name,
-				userId,
-				householdId,
-				entries: {
-					create: mealPlan.entries.map((entry) => ({
-						dayOfWeek: differenceInCalendarDays(
-							new Date(entry.date),
-							weekStart,
-						),
-						mealType: entry.mealType,
-						recipeId: entry.recipeId,
-						servings: entry.servings,
-					})),
-				},
-			},
-		})
-
-		void emitHouseholdEvent({
-			type: 'meal_plan_template_saved',
-			payload: { name: template.name },
-			userId,
-			householdId,
-		})
-
-		return { status: 'success' as const }
-	}
-
-	if (intent === 'applyTemplate') {
-		const submission = parseWithZod(formData, {
-			schema: ApplyTemplateSchema,
-		})
-		if (submission.status !== 'success') {
-			return { status: 'error' as const }
-		}
-
-		const { templateId, weekStart: weekStartStr } = submission.value
-		const weekStart = getWeekStart(parseDate(weekStartStr))
-
-		const template = await prisma.mealPlanTemplate.findFirst({
-			where: { id: templateId, householdId },
-			include: { entries: true },
-		})
-		invariantResponse(template, 'Template not found', { status: 404 })
-
-		// Get or create meal plan for this week
-		let mealPlan = await prisma.mealPlan.findFirst({
-			where: { householdId, weekStart },
-		})
-
-		if (!mealPlan) {
-			mealPlan = await prisma.mealPlan.create({
-				data: { userId, householdId, weekStart },
-			})
-		}
-
-		// Create entries from template, skipping duplicates (same pattern as copyWeek)
-		// Use serializeDate+new Date to produce UTC midnight dates, matching how
-		// the assign action stores dates via z.coerce.date()
-		for (const tEntry of template.entries) {
-			const entryDate = new Date(
-				serializeDate(addDays(weekStart, tEntry.dayOfWeek)),
-			)
-			const existing = await prisma.mealPlanEntry.findUnique({
-				where: {
-					mealPlanId_date_mealType_recipeId: {
-						mealPlanId: mealPlan.id,
-						date: entryDate,
-						mealType: tEntry.mealType,
-						recipeId: tEntry.recipeId,
-					},
-				},
-			})
-			if (!existing) {
-				await prisma.mealPlanEntry.create({
-					data: {
-						mealPlanId: mealPlan.id,
-						date: entryDate,
-						mealType: tEntry.mealType,
-						recipeId: tEntry.recipeId,
-						servings: tEntry.servings,
-					},
-				})
-			}
-		}
-
-		void emitHouseholdEvent({
-			type: 'meal_plan_template_applied',
-			payload: { name: template.name },
-			userId,
-			householdId,
-		})
-
-		return { status: 'success' as const }
-	}
-
-	if (intent === 'deleteTemplate') {
-		const submission = parseWithZod(formData, {
-			schema: DeleteTemplateSchema,
-		})
-		if (submission.status !== 'success') {
-			return { status: 'error' as const }
-		}
-
-		const { templateId } = submission.value
-
-		const template = await prisma.mealPlanTemplate.findFirst({
-			where: { id: templateId, householdId },
-		})
-		invariantResponse(template, 'Template not found', { status: 404 })
-
-		await prisma.mealPlanTemplate.delete({
-			where: { id: templateId },
-		})
-
-		return { status: 'success' as const }
-	}
-
 	return { status: 'error' as const }
 }
 
@@ -755,8 +547,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 							</Button>
 						)}
 						{entries.length > 0 && (
-							<Form method="POST">
-								<input type="hidden" name="intent" value="copyWeek" />
+							<Form method="POST" action="/resources/meal-plan-copy-week">
 								<input type="hidden" name="weekStart" value={weekStart} />
 								<Button type="submit" variant="outline" size="sm">
 									<Icon name="arrow-right" size="sm" />

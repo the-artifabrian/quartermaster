@@ -69,55 +69,17 @@ development is **not blocked** by this gate.
 
 ### Contingency: Light Inventory Mode
 
-The entire value proposition rests on users maintaining inventory. If daily
-driving reveals that inventory tracking feels like a chore, the fallback is a
-**passive "light inventory" mode** that removes the maintenance burden.
+If inventory tracking feels like a chore, the fallback is a **passive mode**:
+input only via shopping check-offs / "I have this" / post-cooking subtraction,
+boolean have/don't-have instead of quantities, aggressive auto-expire via
+shelf-life lookup. The core loop survives — just less precise.
 
 **Trigger criteria** (assess at March 12 gate check):
 
-- Inventory updates happen less than 2x/week despite regular cooking
-- Inventory drift > 30% (items marked in-stock that are actually gone, or items
-  in stock that were never tracked)
-- Qualitative: you or external users actively avoid opening the inventory page
+- Inventory updates < 2x/week despite regular cooking
+- Drift > 30%, or users actively avoid the inventory page
 
-**What changes:**
-
-- **Input becomes passive** — inventory is populated exclusively through:
-  - Shopping list check-offs (already built)
-  - "I have this" buttons on recipe cards and detail pages (already built)
-  - Post-cooking subtraction (already built)
-  - No manual entry page; the current add/edit flow becomes optional "power mode"
-- **Boolean instead of quantities** — items are "have" or "don't have," no
-  amount/unit tracking. Eliminates the hardest maintenance task (updating
-  quantities after partial use)
-- **Auto-expire aggressively** — items auto-expire based on shelf-life lookup
-  (already built, ~60 entries). No manual expiry management. Expired items
-  silently drop off rather than requiring user action
-- **Match rings become suggestions** — "You might be able to make this" instead
-  of "You can make 8/10 ingredients." Fuzzy confidence rather than precise counts
-
-**Affected files/systems:**
-
-- `app/routes/inventory/index.tsx` — simplified view, hide quantity/unit columns,
-  prominent "populated from your shopping" messaging
-- `app/routes/inventory/new.tsx` — hide or gate behind "detailed mode" toggle
-- `app/utils/recipe-matching.server.ts` — boolean matching (have/don't have)
-  instead of quantity-aware. Scoring becomes binary per-ingredient
-- `app/routes/shopping.tsx` — check-off pipeline becomes the primary inventory
-  input path, emphasized in UI
-- `app/components/recipe-match-card.tsx` — softer language ("likely makeable"
-  vs "8/10 ingredients")
-- `app/utils/inventory-subtract.server.ts` — boolean subtract (remove item
-  entirely) instead of quantity math
-- User setting toggle: full vs. light inventory mode, persisted in DB
-
-**What stays the same:** Recipe matching still works (just fuzzier), shopping
-list generation still works, meal planning still works. The core loop survives
-— it's just less precise.
-
-> This is a contingency, not a plan. Build it only if the trigger criteria are
-> met. The goal is to have a clear fallback so that inventory friction doesn't
-> kill the product.
+> Contingency, not a plan. Build only if trigger criteria are met.
 
 ### Friction Log
 
@@ -132,11 +94,11 @@ monitor during daily driving before building. `fixed` = resolved.
 | 2026-02-18 | cooking   | `UncookedMealReminder` shows recipe name but doesn't link to it — no 1-tap path to tonight's recipe from any page   | fixed   |
 | 2026-02-18 | shopping  | Generate button is icon-only on mobile — new users won't recognize the calendar icon                                | fixed   |
 | 2026-02-18 | shopping  | Week selector for generation hidden on mobile (`hidden sm:block`) — can't generate for next week from phone         | fixed   |
-| 2026-02-18 | shopping  | Checkbox toggle is blocking `<Form>` POST, no optimistic UI — may lag on cellular, fails offline                    | watch   |
-| 2026-02-18 | planning  | Recipe selector is text-only (no thumbnails) — may cause hesitation scanning 135+ recipes                           | watch   |
-| 2026-02-18 | shopping  | Inventory pipeline review shows all items with location/expiry fields expanded — visual overwhelm may cause skipping | watch   |
-| 2026-02-18 | inventory | No inline editing on inventory cards — requires separate edit page for qty/expiry changes                            | watch   |
-| 2026-02-18 | shopping  | Shopping list doesn't live-refresh when partner adds items — SSE toast fires but data requires manual refresh        | watch   |
+| 2026-02-18 | shopping  | Checkbox toggle is blocking `<Form>` POST, no optimistic UI — may lag on cellular, fails offline                    | fixed   |
+| 2026-02-18 | planning  | Recipe selector is text-only (no thumbnails) — may cause hesitation scanning 135+ recipes                           | fixed   |
+| 2026-02-18 | shopping  | Inventory pipeline review shows all items with location/expiry fields expanded — visual overwhelm may cause skipping | fixed   |
+| 2026-02-18 | inventory | No inline editing on inventory cards — requires separate edit page for qty/expiry changes                            | fixed   |
+| 2026-02-18 | shopping  | Shopping list doesn't live-refresh when partner adds items — SSE toast fires but data requires manual refresh        | fixed   |
 
 > Add entries as friction surfaces. Resolve `open` items promptly; promote
 > `watch` items to `open` if they cause real friction.
@@ -145,60 +107,25 @@ monitor during daily driving before building. `fixed` = resolved.
 
 ## Strategic Priorities
 
-Identified during a full-app UX and strategy review (February 2026). Highest-
-impact changes before monetization, ordered by priority (High before Medium).
+Identified during a full-app UX and strategy review (February 2026).
 
-### 1. ~~Free tier taste of inventory~~ ✓
-
-Completed. Free users can add up to 15 inventory items — enough for the "aha"
-moment with match rings and discovery. Limit enforced in inventory page action
-(create + bulk-create), with status badges, limit banner, and upgrade CTA.
-Getting started checklist shows recipe + inventory steps for free users. Match
-rings and "Almost There" banner work for all users with inventory (no Pro gate).
-Upgrade page copy updated to reflect "Up to 15 inventory items" in Free and
-"Unlimited inventory" in Pro.
-
-### 2. ~~UX debt cleanup~~ ✓
-
-Completed. Quick Add now open by default. Recipe detail route extracted from
-1,640 → 590 lines (7 new component files + shared utils). Plan action reduced
-from 9 → 5 intents (copy week, templates extracted to resource routes). Shopping
-action reduced from 9 → 8 intents (add-to-inventory extracted to resource
-route).
+1. ~~**Free tier taste of inventory**~~ ✓ — 15-item free inventory with match
+   rings, limit enforcement, upgrade CTA
+2. ~~**UX debt cleanup**~~ ✓ — Recipe detail 1,640→590 lines (7 components),
+   resource route extraction, Quick Add open by default
 
 ---
 
 ### AI Integration
 
-AI enhancements integrated into existing flows. The bar for AI features is "would
-I actually use this while cooking?" — not "is this technically possible." The
-inventory loop is the moat, not AI. Principles: no chat UI, user stays in
-control (editable drafts), cost-aware (gate on action, cache, never in loaders).
+Principles: no chat UI, user stays in control, cost-aware (gate on action,
+cache, never in loaders). ~$0.05/month per active Pro user.
 
-- [x] **Ingredient substitutions** — static DB + LLM fallback, inventory-aware.
-      Strongest AI feature — solves a real in-the-moment cooking problem
-- [x] **Recipe generation from inventory** — Claude Haiku, preview before save.
-      Useful occasionally for inspiration, but the matching system is the real
-      answer to "what can I make?"
-- [x] **Recipe enhance** — one-click metadata inference (description, times,
-      servings) with review modal. 10/day rate limit. Primarily a one-time
-      cleanup tool for bulk-imported recipes
-- [ ] **Receipt scanning → inventory** — photo upload, OCR + AI extraction,
-      review before bulk-adding. Build only if daily driving reveals inventory
-      input as the main friction point
-
-> ~~Smart meal plan generation~~ — deprioritized. Pairing suggestions already
-> handle the smart part (ingredient overlap, weeknight-aware sorting). Full
-> auto-generation removes the personal judgment that makes meal planning work —
-> you pick meals based on what you feel like, what happened this week, what's in
-> season. An algorithm can't know you want something light tonight.
-
-#### Cost notes
-
-~$0.05/month per active Pro user. Well under 2% of a $35/yr subscription.
-Details: substitution ~$0.001/call (cached 30 days), generation ~$0.003/call
-(daily limit of 10), enhance ~$0.0014/call (daily limit of 10, max ~$0.42/month
-if maxed daily).
+- [x] Ingredient substitutions — static DB + LLM fallback, inventory-aware
+- [x] Recipe generation from inventory — preview before save
+- [x] Recipe enhance — one-click metadata inference with review modal
+- [ ] **Receipt scanning → inventory** — build only if inventory input is the
+      main friction point
 
 ### Monetization
 
@@ -211,13 +138,7 @@ are proven in daily use — the marketing pitch needs to be real first.
 
 ---
 
-## Debt
-
-### UX
-
-Resolved — see [Strategic Priority #2](#2-ux-debt-cleanup-).
-
-### Technical
+## Technical Debt
 
 - **Fire-and-forget event emission** — `emitHouseholdEvent()` runs async without
   awaiting. Risk of SQLite concurrency under load. Tests need `vi.mock()`

@@ -1,10 +1,20 @@
-import { type Recipe } from '@prisma/client'
 import { useState } from 'react'
 import { Form } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { type MealType, serializeDate } from '#app/utils/date.ts'
+
+export type RecipeSelectorRecipe = {
+	id: string
+	title: string
+	description: string | null
+	prepTime: number | null
+	cookTime: number | null
+	servings: number
+	isFavorite: boolean
+	image: { objectKey: string } | null
+}
 
 export type PairingData = Record<
 	string,
@@ -14,7 +24,7 @@ export type PairingData = Record<
 export type MatchData = Record<string, { matched: number; total: number }>
 
 type RecipeSelectorProps = {
-	recipes: Recipe[]
+	recipes: RecipeSelectorRecipe[]
 	date: Date
 	mealType: MealType
 	excludeRecipeIds?: string[]
@@ -24,15 +34,36 @@ type RecipeSelectorProps = {
 	matchData?: MatchData
 }
 
-function getTotalTime(recipe: Recipe): number | null {
+function getTotalTime(recipe: RecipeSelectorRecipe): number | null {
 	const total = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
 	return total > 0 ? total : null
 }
 
-function sortByTime(a: Recipe, b: Recipe): number {
+function sortByTime(a: RecipeSelectorRecipe, b: RecipeSelectorRecipe): number {
 	const aTime = getTotalTime(a) ?? 45
 	const bTime = getTotalTime(b) ?? 45
 	return aTime - bTime
+}
+
+// Deterministic color from recipe title
+const PLACEHOLDER_COLORS = [
+	'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+	'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+	'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+	'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+	'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
+	'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-300',
+]
+
+function getRecipePlaceholder(title: string) {
+	const letter = title.charAt(0).toUpperCase()
+	let hash = 0
+	for (let i = 0; i < title.length; i++) {
+		hash = (hash * 31 + title.charCodeAt(i)) | 0
+	}
+	const colorClass =
+		PLACEHOLDER_COLORS[Math.abs(hash) % PLACEHOLDER_COLORS.length]
+	return { letter, colorClass }
 }
 
 export function RecipeSelector({
@@ -145,7 +176,7 @@ function RecipeOption({
 	match,
 	onSelect,
 }: {
-	recipe: Recipe
+	recipe: RecipeSelectorRecipe
 	date: Date
 	mealType: MealType
 	pairing?: {
@@ -171,41 +202,65 @@ function RecipeOption({
 				type="submit"
 				className="bg-background hover:bg-muted w-full rounded-lg border p-3 text-left transition-colors"
 			>
-				<div className="flex items-start justify-between gap-2">
+				<div className="flex items-start gap-3">
+					{/* Thumbnail */}
+					{recipe.image?.objectKey ? (
+						<img
+							src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}&w=80&h=80&fit=cover`}
+							alt=""
+							className="size-10 shrink-0 rounded-md object-cover"
+						/>
+					) : (
+						(() => {
+							const { letter, colorClass } = getRecipePlaceholder(recipe.title)
+							return (
+								<div
+									className={`flex size-10 shrink-0 items-center justify-center rounded-md text-sm font-bold ${colorClass}`}
+								>
+									{letter}
+								</div>
+							)
+						})()
+					)}
+
 					<div className="min-w-0 flex-1">
-						<p className="text-sm font-medium">{recipe.title}</p>
-						{recipe.description && (
-							<p className="text-muted-foreground mt-1 line-clamp-1 text-xs">
-								{recipe.description}
+						<div className="flex items-start justify-between gap-2">
+							<div className="min-w-0">
+								<p className="text-sm font-medium">{recipe.title}</p>
+								{recipe.description && (
+									<p className="text-muted-foreground mt-0.5 line-clamp-1 text-xs">
+										{recipe.description}
+									</p>
+								)}
+							</div>
+							<div className="flex shrink-0 items-center gap-1.5">
+								{match && (
+									<span
+										className={`inline-flex items-center gap-0.5 text-xs ${match.matched === match.total ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}
+									>
+										{match.matched}/{match.total}
+									</span>
+								)}
+								{totalTime != null && (
+									<span className="text-muted-foreground inline-flex items-center gap-0.5 text-xs">
+										<Icon name="clock" className="size-3" />
+										{totalTime}m
+									</span>
+								)}
+								{pairing && pairing.overlapCount > 0 && (
+									<span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
+										{pairing.overlapCount} shared
+									</span>
+								)}
+							</div>
+						</div>
+						{pairing && pairing.overlapCount > 0 && (
+							<p className="text-muted-foreground mt-1 text-xs">
+								{pairing.overlapIngredients.join(', ')}
 							</p>
 						)}
 					</div>
-					<div className="flex shrink-0 items-center gap-1.5">
-						{match && (
-							<span
-								className={`inline-flex items-center gap-0.5 text-xs ${match.matched === match.total ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}
-							>
-								{match.matched}/{match.total}
-							</span>
-						)}
-						{totalTime != null && (
-							<span className="text-muted-foreground inline-flex items-center gap-0.5 text-xs">
-								<Icon name="clock" className="size-3" />
-								{totalTime}m
-							</span>
-						)}
-						{pairing && pairing.overlapCount > 0 && (
-							<span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
-								{pairing.overlapCount} shared
-							</span>
-						)}
-					</div>
 				</div>
-				{pairing && pairing.overlapCount > 0 && (
-					<p className="text-muted-foreground mt-1 text-xs">
-						{pairing.overlapIngredients.join(', ')}
-					</p>
-				)}
 			</button>
 		</Form>
 	)

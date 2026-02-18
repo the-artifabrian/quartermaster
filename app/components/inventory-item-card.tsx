@@ -1,9 +1,11 @@
 import { type InventoryItem } from '@prisma/client'
-import { Form, Link } from 'react-router'
+import { useRef, useState } from 'react'
+import { Form, Link, useFetcher } from 'react-router'
 import { LOCATION_LABELS } from '#app/utils/inventory-validation.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
+import { Input } from './ui/input.tsx'
 import { StatusButton } from './ui/status-button.tsx'
 
 const locationBadgeColors: Record<string, string> = {
@@ -57,12 +59,37 @@ function getExpiryDisplay(expiresAt: Date | string) {
 	}
 }
 
+function formatDateForInput(date: Date | string | null): string {
+	if (!date) return ''
+	const d = new Date(date)
+	return d.toISOString().split('T')[0] ?? ''
+}
+
 export function InventoryItemCard({
 	item,
 	showActions = true,
 	showLocation = true,
 }: InventoryItemCardProps) {
 	const dc = useDoubleCheck()
+	const [isQuickEditing, setIsQuickEditing] = useState(false)
+	const quickEditFetcher = useFetcher()
+	const lowStockFetcher = useFetcher()
+	const prevQuickEditState = useRef(quickEditFetcher.state)
+
+	// Close edit mode when fetcher transitions from submitting/loading → idle
+	// (only on success — if server returned an error, keep editing open)
+	if (prevQuickEditState.current !== 'idle' && quickEditFetcher.state === 'idle') {
+		if (isQuickEditing && quickEditFetcher.data?.status !== 'error') {
+			setIsQuickEditing(false)
+		}
+	}
+	prevQuickEditState.current = quickEditFetcher.state
+
+	// Optimistic low-stock state
+	const optimisticLowStock =
+		lowStockFetcher.formData?.get('intent') === 'toggle-low-stock'
+			? !item.lowStock
+			: item.lowStock
 
 	return (
 		<div className="group bg-card text-card-foreground shadow-warm hover:shadow-warm-md rounded-xl border transition-all duration-200 hover:-translate-y-0.5">
@@ -81,47 +108,124 @@ export function InventoryItemCard({
 								{LOCATION_LABELS[item.location as keyof typeof LOCATION_LABELS]}
 							</span>
 						)}
-						{item.lowStock && (
+						{optimisticLowStock && (
 							<span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-200">
 								Low
 							</span>
 						)}
 					</div>
 
-					<div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-2 text-sm">
-						{item.quantity && (
-							<span>
-								{item.quantity} {item.unit}
-							</span>
-						)}
-						{item.expiresAt &&
-							(() => {
-								const expiry = getExpiryDisplay(item.expiresAt)
-								return (
-									<>
-										<span>•</span>
-										{expiry.className ? (
-											<span
-												className={cn(
-													'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-													expiry.className,
-												)}
-											>
-												{expiry.text}
-											</span>
-										) : (
-											<span>{expiry.text}</span>
-										)}
-									</>
-								)
-							})()}
-					</div>
+					{isQuickEditing ? (
+						<quickEditFetcher.Form
+							method="POST"
+							className="mt-2 space-y-2"
+							onKeyDown={(e) => {
+								if (e.key === 'Escape') setIsQuickEditing(false)
+							}}
+						>
+							<input type="hidden" name="intent" value="quick-update" />
+							<input type="hidden" name="itemId" value={item.id} />
+							<div className="flex gap-2">
+								<Input
+									name="quantity"
+									defaultValue={item.quantity ?? ''}
+									placeholder="Qty"
+									className="w-20"
+									autoFocus
+								/>
+								<Input
+									name="unit"
+									defaultValue={item.unit ?? ''}
+									placeholder="Unit"
+									className="w-24"
+								/>
+								<Input
+									name="expiresAt"
+									type="date"
+									defaultValue={formatDateForInput(item.expiresAt)}
+									className="w-[130px]"
+									aria-label="Expiry date"
+								/>
+							</div>
+							<div className="flex justify-end gap-2">
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									onClick={() => setIsQuickEditing(false)}
+								>
+									Cancel
+								</Button>
+								<Button type="submit" size="sm">
+									<Icon name="check" size="sm" />
+									Save
+								</Button>
+							</div>
+						</quickEditFetcher.Form>
+					) : (
+						<div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-2 text-sm">
+							{item.quantity && (
+								<span>
+									{item.quantity} {item.unit}
+								</span>
+							)}
+							{item.expiresAt &&
+								(() => {
+									const expiry = getExpiryDisplay(item.expiresAt)
+									return (
+										<>
+											<span>•</span>
+											{expiry.className ? (
+												<span
+													className={cn(
+														'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+														expiry.className,
+													)}
+												>
+													{expiry.text}
+												</span>
+											) : (
+												<span>{expiry.text}</span>
+											)}
+										</>
+									)
+								})()}
+						</div>
+					)}
 				</div>
 
-				{showActions && (
+				{showActions && !isQuickEditing && (
 					<div className="flex items-center gap-1">
+						<lowStockFetcher.Form method="POST">
+							<input type="hidden" name="intent" value="toggle-low-stock" />
+							<input type="hidden" name="itemId" value={item.id} />
+							<Button
+								type="submit"
+								size="sm"
+								variant="ghost"
+								title={optimisticLowStock ? 'Clear low stock' : 'Mark as low stock'}
+								className={cn(
+									optimisticLowStock
+										? 'text-amber-600 hover:text-amber-700'
+										: 'hover:text-amber-600',
+								)}
+							>
+								<Icon
+									name="question-mark-circled"
+									size="sm"
+								/>
+							</Button>
+						</lowStockFetcher.Form>
+						<Button
+							size="sm"
+							variant="ghost"
+							onClick={() => setIsQuickEditing(true)}
+							title="Quick edit"
+						>
+							<Icon name="pencil-1" size="sm" />
+						</Button>
 						<Button asChild size="sm" variant="ghost">
-							<Link to={`/inventory/${item.id}/edit`}>
+							<Link to={`/inventory/${item.id}/edit`} title="Full edit">
 								<Icon name="pencil-2" size="sm" />
 							</Link>
 						</Button>

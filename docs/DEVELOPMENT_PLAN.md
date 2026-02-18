@@ -44,18 +44,33 @@ Daily driving started **February 12, 2026**. The app is being used for real
 cooking and meal planning. 3 external users onboarded (girlfriend as household
 co-user, plus a friend and his girlfriend as a separate household).
 
+**After one week:** recipe management and cooking features are clearly
+validated — daily use, fully replaced Apple Notes. Shopping list is used at the
+store (generated from plan + manual additions). All three AI features
+(substitutions, generation, enhance) used for real cooking decisions. Meal
+planning is partial (2-3 days ahead, not full-week commitment). Household
+sharing is light (partner uses occasionally, not a habit). Inventory
+sustainability and expiry/low-stock value are the open questions — see
+[Inventory Mode](#inventory-mode-active-evaluation) below.
+
 ### Critical Path
 
 1. **Daily drive for 4+ weeks** — Plan the week, shop from the list, cook from
    the app. Fix friction as it surfaces.
 2. **Stress-test inventory** — Track inventory honestly for a month. Measure
    drift. Determine whether overhead is justified or whether inventory needs to
-   be more passive (auto-populate from shopping list check-offs only).
+   be more passive (auto-populate from shopping list check-offs only). Track
+   weekly: how many manual inventory updates? What percentage of items are
+   accurate? Does it feel like homework?
+3. **Find 2-3 non-friend testers** — Friendly users won't surface what's
+   confusing. Find people who meal plan (colleagues, online communities) and ask
+   them to try it for 2 weeks. This isn't a launch — it's learning whether the
+   app makes sense to someone who didn't watch you build it.
 
 ### Proven Gate
 
-The app has **fully replaced Apple Notes** and **weekly meal planning happens
-in-app** for 4+ consecutive weeks before monetization activates. Feature
+The app has **fully replaced Apple Notes** and **meal planning happens in-app**
+for 4+ consecutive weeks before monetization activates. Feature
 development is **not blocked** by this gate.
 
 **Personal criteria:**
@@ -67,19 +82,40 @@ development is **not blocked** by this gate.
 > **Check-in: March 12, 2026.** Assess daily driving progress. If the app isn't
 > sticking, identify UX friction and fix it. Don't defer indefinitely.
 
-### Contingency: Light Inventory Mode
+### Inventory Mode: Active Evaluation
 
-If inventory tracking feels like a chore, the fallback is a **passive mode**:
-input only via shopping check-offs / "I have this" / post-cooking subtraction,
-boolean have/don't-have instead of quantities, aggressive auto-expire via
-shelf-life lookup. The core loop survives — just less precise.
+After one week of daily driving, inventory tracking is **tolerable but not
+natural** — it works but requires conscious effort. The entire value proposition
+(matching, subtraction, the "full loop" pitch) rests on this being sustainable.
 
-**Trigger criteria** (assess at March 12 gate check):
+**What's valued in practice:** match rings on recipe cards, shopping list
+generation (subtracting what you have), post-cook inventory subtraction. All
+three power the core loop. **What's not valued:** expiry dates, low-stock flags,
+shelf-life auto-suggest, "use these up soon" callout — significant feature
+investment with no daily-use payoff.
 
-- Inventory updates < 2x/week despite regular cooking
-- Drift > 30%, or users actively avoid the inventory page
+**Key insight:** all three valued features work with less precise input. Match
+rings just need to know you _have_ an ingredient. Shopping generation can
+subtract "you have flour" instead of "you have 2 cups flour." The heavy
+maintenance (quantities, units, expiry) adds precision that isn't paying for
+itself.
 
-> Contingency, not a plan. Build only if trigger criteria are met.
+**The test:** the shopping check-off → inventory pipeline (untested — built
+after the last shopping trip). If checking off groceries at the store and
+flowing them into inventory feels natural, the lifecycle becomes mostly passive:
+shopping check-offs add items, post-cook subtraction removes them, "I have this"
+buttons handle the rest. No manual inventory page visits needed.
+
+**Decision criteria** (assess at March 12 gate check):
+
+- Shopping → inventory pipeline feels natural → keep inventory, shift to passive
+  input model
+- Pipeline feels like overhead, or inventory updates < 2x/week → simplify to
+  boolean have/don't-have
+- Users actively avoid the inventory page → reconsider whether persistent
+  tracking is the right model
+
+Track weekly: update frequency, accuracy spot-checks, subjective friction.
 
 ### Friction Log
 
@@ -133,8 +169,8 @@ Infrastructure is complete (Stripe, invite codes, tier enforcement, graceful
 downgrade). See [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md) for
 strategy, pricing, and go-live requirements.
 
-Ship after the no-waste planning features (pairing, efficiency, waste alerts)
-are proven in daily use — the marketing pitch needs to be real first.
+Ship after the core loop is proven in daily use — the marketing pitch needs to
+be real first.
 
 ---
 
@@ -166,8 +202,10 @@ checklist (business registration, Stripe, legal), see
 
 ## Backlog
 
-Lower-priority items. Graduate when daily use reveals friction or user feedback
-requests them.
+Items directly tied to the cooking loop. Graduate when daily use reveals
+friction. Everything else (nutrition APIs, subscription management, email
+digests, dashboards) is premature — revisit after monetization is live and
+there's user feedback to act on.
 
 - [ ] **Defrost & prep-ahead reminders** — "You're cooking Chicken Tikka
       tomorrow — the chicken is in your freezer." Connects meal plan entries +
@@ -182,21 +220,9 @@ requests them.
       that's 3 meals not 1. The meal plan has no concept of this — you plan 7
       dinners when you really only need to cook 4-5. Watch for friction signal
       during daily driving before building
-- [ ] **Progressive onboarding & contextual nudges** — post-action milestone
-      nudges (e.g., "Generate a shopping list from your plan" after first meal
-      planned). Inventory-first AI recipe path for users with no recipes.
-      Build when strangers are signing up, not while testers are past onboarding
-- [ ] **Dashboard homepage** — aggregates today's meals, top matches, expiring
-      items, low-stock nudges. Risk: becomes stale UI that duplicates individual
-      pages. Build only if user feedback requests it post-launch
-- [ ] **Performance audit** — query profiling, lazy load images, bundle analysis
-- [ ] **Nutrition estimates** — Nutritionix or Edamam API
-- [ ] **Subscription pause** — 1-3 month pause option instead of cancel (Stripe
-      supports this via `pause_collection`)
-- [ ] **Cancel flow** — show what they'll lose, offer "switch to annual" before
-      confirming. Proactive JSON export in cancel flow
-- [ ] **Monthly cooking summary** — email digest of cooking stats (requires
-      transactional email infrastructure)
+- [ ] **Progressive onboarding** — post-action contextual nudges and
+      inventory-first AI recipe path. Build when non-friend testers are signing
+      up, not before
 
 ---
 
@@ -210,10 +236,9 @@ requests them.
 - [ ] Weekly meal planning in-app for 4+ consecutive weeks
 - [ ] Inventory tracking feels sustainable (not a chore)
 - [ ] Testers use the app without prompting
+- [ ] 2-3 non-friend testers used the app for 2+ weeks
 
 ### Monetization (future)
-
-- [ ] A few strangers tried it and found it useful
 - [ ] Someone paid for it
 
 ---

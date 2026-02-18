@@ -162,14 +162,13 @@ describe('parseIngredient', () => {
 		})
 	})
 
-	test('"to taste" does not capture amount+unit inputs', () => {
-		// "2 tsp salt to taste" should parse amount/unit, not treat as name-only
+	test('"to taste" extracts to notes when amount+unit present', () => {
 		const result = parseIngredient('2 tsp salt to taste')
 		expect(result).toEqual({
-			name: 'salt to taste',
+			name: 'salt',
 			amount: '2',
 			unit: 'tsp',
-			notes: undefined,
+			notes: 'to taste',
 		})
 	})
 
@@ -189,6 +188,97 @@ describe('parseIngredient', () => {
 			name: 'vanilla',
 			amount: '1-2',
 			unit: 'tsp',
+			notes: undefined,
+		})
+	})
+
+	test('parses mixed unicode fraction with space: "1 ½ cups flour"', () => {
+		const result = parseIngredient('1 ½ cups flour')
+		expect(result).toEqual({
+			name: 'flour',
+			amount: '1½',
+			unit: 'cups',
+			notes: undefined,
+		})
+	})
+
+	test('parses mixed unicode fraction without space: "1½ cups flour"', () => {
+		const result = parseIngredient('1½ cups flour')
+		expect(result).toEqual({
+			name: 'flour',
+			amount: '1½',
+			unit: 'cups',
+			notes: undefined,
+		})
+	})
+
+	test('parses standalone unicode fraction: "¾ cup butter"', () => {
+		const result = parseIngredient('¾ cup butter')
+		expect(result).toEqual({
+			name: 'butter',
+			amount: '¾',
+			unit: 'cup',
+			notes: undefined,
+		})
+	})
+
+	test('strips "about" prefix: "about 2 cups flour"', () => {
+		const result = parseIngredient('about 2 cups flour')
+		expect(result).toEqual({
+			name: 'flour',
+			amount: '2',
+			unit: 'cups',
+			notes: undefined,
+		})
+	})
+
+	test('strips "approximately" prefix: "approximately 500g chicken"', () => {
+		const result = parseIngredient('approximately 500g chicken')
+		expect(result).toEqual({
+			name: 'chicken',
+			amount: '500',
+			unit: 'g',
+			notes: undefined,
+		})
+	})
+
+	test('parses "2 tbsp ginger to taste" with to-taste in notes', () => {
+		const result = parseIngredient('2 tbsp ginger to taste')
+		expect(result).toEqual({
+			name: 'ginger',
+			amount: '2',
+			unit: 'tbsp',
+			notes: 'to taste',
+		})
+	})
+
+	test('parses stick as a unit: "2 sticks butter"', () => {
+		const result = parseIngredient('2 sticks butter')
+		expect(result).toEqual({
+			name: 'butter',
+			amount: '2',
+			unit: 'sticks',
+			notes: undefined,
+		})
+	})
+
+	test('handles all uncommon unicode fractions', () => {
+		expect(parseIngredient('⅜ tsp nutmeg')).toEqual({
+			name: 'nutmeg',
+			amount: '⅜',
+			unit: 'tsp',
+			notes: undefined,
+		})
+		expect(parseIngredient('⅝ cup cream')).toEqual({
+			name: 'cream',
+			amount: '⅝',
+			unit: 'cup',
+			notes: undefined,
+		})
+		expect(parseIngredient('⅞ lb beef')).toEqual({
+			name: 'beef',
+			amount: '⅞',
+			unit: 'lb',
 			notes: undefined,
 		})
 	})

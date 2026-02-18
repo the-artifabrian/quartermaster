@@ -124,11 +124,23 @@ describe('buildMergeData', () => {
 		expect(result.quantity).toBeCloseTo(1.25, 1)
 	})
 
-	test('adds quantities with incompatible units', () => {
-		const existing = makeItem({ quantity: 2, unit: 'lbs' })
-		const result = buildMergeData(existing, 3, 'cups', null)
-		// Incompatible (weight vs volume) — just adds numerically
-		expect(result.quantity).toBe(5)
+	test('does not merge quantities with incompatible units (weight vs volume)', () => {
+		const existing = makeItem({ quantity: 200, unit: 'g' })
+		const result = buildMergeData(existing, 2, 'tbsp', null)
+		// Incompatible (weight vs volume) — don't touch quantity
+		expect(result.quantity).toBeUndefined()
+	})
+
+	test('merges count-like units with unitless (count + none)', () => {
+		const existing = makeItem({ quantity: 12, unit: 'count' })
+		const result = buildMergeData(existing, 3, null, null)
+		expect(result.quantity).toBe(15)
+	})
+
+	test('merges count-like units with each other (each + count)', () => {
+		const existing = makeItem({ quantity: 5, unit: 'each' })
+		const result = buildMergeData(existing, 3, 'count', null)
+		expect(result.quantity).toBe(8)
 	})
 
 	test('sets quantity when existing has none', () => {

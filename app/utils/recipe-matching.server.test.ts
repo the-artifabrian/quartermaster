@@ -127,6 +127,12 @@ describe('normalizeIngredientName', () => {
 		expect(normalizeIngredientName('roasted peanuts')).toBe('peanut')
 		expect(normalizeIngredientName('toasted sesame seeds')).toBe('sesame seed')
 	})
+
+	test('strips trailing "to taste"', () => {
+		expect(normalizeIngredientName('salt to taste')).toBe('salt')
+		expect(normalizeIngredientName('ginger to taste')).toBe('ginger')
+		expect(normalizeIngredientName('chili flakes to taste')).toBe('chili flake')
+	})
 })
 
 describe('getCanonicalIngredientName', () => {
@@ -152,6 +158,18 @@ describe('getCanonicalIngredientName', () => {
 		const fromStock = getCanonicalIngredientName('stock')
 		const fromBroth = getCanonicalIngredientName('broth')
 		expect(fromStock).toBe(fromBroth)
+	})
+
+	test('beef stock and beef broth share canonical name', () => {
+		expect(getCanonicalIngredientName('beef stock')).toBe(
+			getCanonicalIngredientName('beef broth'),
+		)
+	})
+
+	test('vegetable stock and vegetable broth share canonical name', () => {
+		expect(getCanonicalIngredientName('vegetable stock')).toBe(
+			getCanonicalIngredientName('vegetable broth'),
+		)
 	})
 
 	test('canonical name is alphabetically first among equivalents', () => {

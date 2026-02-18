@@ -26,6 +26,7 @@ const UNIT_FAMILIES: UnitFamily[] = [
 			pint: 473.176,
 			quart: 946.353,
 			l: 1000,
+			gallon: 3785.41,
 		},
 	},
 	{
@@ -59,6 +60,8 @@ const UNIT_ALIASES: Record<string, string> = {
 	quarts: 'quart',
 	qt: 'quart',
 	qts: 'quart',
+	gallons: 'gallon',
+	gal: 'gallon',
 	// US weight
 	ounce: 'oz',
 	ounces: 'oz',
@@ -91,6 +94,20 @@ const UNIT_ALIASES: Record<string, string> = {
 export function normalizeUnit(unit: string): string {
 	const lower = unit.toLowerCase().trim()
 	return UNIT_ALIASES[lower] ?? lower
+}
+
+/**
+ * Count-like units that are equivalent to unitless (empty string).
+ * "3 eggs" and "3 count eggs" should be treated the same.
+ */
+const COUNT_UNITS = new Set(['count', 'each', 'whole', 'piece', 'pieces'])
+
+/**
+ * Check if a normalized unit is a count-like unit (or empty).
+ * Used by subtraction and dedup to treat "3 eggs" and "3 count eggs" as compatible.
+ */
+export function isCountUnit(normalizedUnit: string): boolean {
+	return normalizedUnit === '' || COUNT_UNITS.has(normalizedUnit)
 }
 
 /**

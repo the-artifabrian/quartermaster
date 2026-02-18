@@ -707,6 +707,205 @@ const SUBSTITUTION_DATA: SubstitutionEntry[] = [
 			},
 		],
 	},
+
+	// --- Alliums & Aromatics ---
+	{
+		keys: ['garlic'],
+		substitutions: [
+			{
+				replacement: 'garlic powder',
+				ratio: 'per 1 clove',
+				context: '⅛ tsp garlic powder per clove. Add early in cooking.',
+			},
+			{
+				replacement: 'shallot',
+				context: 'Milder, slightly sweet. Use 1 small shallot per 2 cloves.',
+			},
+		],
+	},
+	{
+		keys: ['onion'],
+		substitutions: [
+			{
+				replacement: 'shallot',
+				context: 'Milder, sweeter. 3 shallots ≈ 1 medium onion.',
+			},
+			{
+				replacement: 'onion powder',
+				ratio: 'per 1 medium onion',
+				context: '1 tbsp onion powder. For cooked dishes.',
+			},
+		],
+	},
+	{
+		keys: ['ginger'],
+		substitutions: [
+			{
+				replacement: 'ground ginger',
+				ratio: 'per 1 tbsp fresh',
+				context: '¼ tsp ground ginger. Less pungent.',
+			},
+			{
+				replacement: 'galangal',
+				context: 'Citrusy, piney. Works in Thai/Southeast Asian dishes.',
+			},
+		],
+	},
+
+	// --- Spices ---
+	{
+		keys: ['cumin'],
+		substitutions: [
+			{
+				replacement: 'coriander',
+				context: 'Earthy but different. Use same amount.',
+			},
+			{
+				replacement: 'chili powder',
+				context: 'Most chili powders contain cumin. Use slightly less.',
+			},
+		],
+	},
+	{
+		keys: ['cinnamon'],
+		substitutions: [
+			{
+				replacement: 'allspice',
+				ratio: 'per 1 tsp cinnamon',
+				context: '¼ to ½ tsp allspice. Stronger — use less.',
+			},
+			{
+				replacement: 'nutmeg',
+				ratio: 'per 1 tsp cinnamon',
+				context: '¼ tsp nutmeg. Warmer, more pungent.',
+			},
+		],
+	},
+	{
+		keys: ['nutmeg'],
+		substitutions: [
+			{
+				replacement: 'cinnamon',
+				context: 'Sweeter, less pungent. Use same amount.',
+			},
+			{
+				replacement: 'allspice',
+				ratio: 'per 1 tsp nutmeg',
+				context: '½ tsp allspice. Similar warmth.',
+			},
+		],
+	},
+	{
+		keys: ['paprika'],
+		substitutions: [
+			{
+				replacement: 'chili powder',
+				context: 'More heat. Use half the amount to start.',
+			},
+			{
+				replacement: 'cayenne + sugar',
+				ratio: 'per 1 tsp paprika',
+				context: 'Pinch of cayenne + pinch of sugar. For color and mild heat.',
+			},
+		],
+	},
+
+	// --- Proteins ---
+	{
+		keys: ['ground beef'],
+		substitutions: [
+			{
+				replacement: 'ground turkey',
+				context: 'Leaner. Add a splash of oil for moisture.',
+			},
+			{
+				replacement: 'ground pork',
+				context: 'Richer flavor. Equal swap.',
+			},
+		],
+	},
+	{
+		keys: ['chicken breast'],
+		substitutions: [
+			{
+				replacement: 'chicken thigh',
+				context: 'More flavorful and forgiving. Adjust cook time.',
+			},
+			{
+				replacement: 'turkey breast',
+				context: 'Leaner, similar texture. Equal swap.',
+			},
+		],
+	},
+	{
+		keys: ['bacon'],
+		substitutions: [
+			{
+				replacement: 'pancetta',
+				context: 'Italian unsmoked bacon. Dice and crisp.',
+			},
+			{
+				replacement: 'smoked turkey',
+				context: 'Leaner. Provides smoky flavor.',
+			},
+		],
+	},
+
+	// --- Cheeses ---
+	{
+		keys: ['cheddar'],
+		substitutions: [
+			{
+				replacement: 'gruyère',
+				context: 'Nuttier, melts beautifully. Great for mac and cheese.',
+			},
+			{
+				replacement: 'gouda',
+				context: 'Creamy, slightly sweet. Similar melt.',
+			},
+		],
+	},
+	{
+		keys: ['mozzarella'],
+		substitutions: [
+			{
+				replacement: 'provolone',
+				context: 'Sharper flavor, similar melt for pizza and bakes.',
+			},
+			{
+				replacement: 'monterey jack',
+				context: 'Mild, great melting cheese. Equal swap.',
+			},
+		],
+	},
+
+	// --- Other ---
+	{
+		keys: ['tofu'],
+		substitutions: [
+			{
+				replacement: 'tempeh',
+				context: 'Firmer, nuttier. Slice thin and marinate.',
+			},
+			{
+				replacement: 'paneer',
+				context: 'Indian fresh cheese. Similar texture when cubed.',
+			},
+		],
+	},
+	{
+		keys: ['coconut cream'],
+		substitutions: [
+			{
+				replacement: 'heavy cream',
+				context: 'Equal swap. No coconut flavor.',
+			},
+			{
+				replacement: 'full-fat coconut milk',
+				context: 'Refrigerate overnight, scoop the thick top layer.',
+			},
+		],
+	},
 ]
 
 /**

@@ -38,6 +38,10 @@ export const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 	broth: ['stock'],
 	'chicken stock': ['chicken broth'],
 	'chicken broth': ['chicken stock'],
+	'beef stock': ['beef broth'],
+	'beef broth': ['beef stock'],
+	'vegetable stock': ['vegetable broth'],
+	'vegetable broth': ['vegetable stock'],
 	mirin: ['sake', 'white wine', 'rice wine'],
 	sake: ['mirin', 'white wine', 'rice wine'],
 	// Cooking oils - neutral oils are interchangeable
@@ -327,6 +331,9 @@ export function normalizeIngredientName(name: string): string {
 	if (normalized.includes('/')) {
 		normalized = normalized.split('/')[0]!.trim()
 	}
+
+	// Strip trailing "to taste": "ginger to taste" → "ginger"
+	normalized = normalized.replace(/\s+to\s+taste$/i, '')
 
 	// Protect compound ingredients where modifiers are part of the identity.
 	// Find which modifiers are "protected" (part of a compound like "green onion").

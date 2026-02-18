@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useFetcher } from 'react-router'
+import { Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -95,7 +95,12 @@ export function UncookedMealReminder() {
 				/>
 				<p className="min-w-0 flex-1 text-sm text-amber-900 dark:text-amber-200">
 					Did you make{' '}
-					<span className="font-semibold">{current.recipeTitle}</span>{' '}
+					<Link
+						to={`/recipes/${current.recipeId}`}
+						className="font-semibold underline decoration-amber-400 underline-offset-2 hover:decoration-amber-600 dark:decoration-amber-500 dark:hover:decoration-amber-300"
+					>
+						{current.recipeTitle}
+					</Link>{' '}
 					{context}?
 				</p>
 				<div className="flex shrink-0 items-center gap-2">

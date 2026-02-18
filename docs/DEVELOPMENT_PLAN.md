@@ -129,9 +129,9 @@ monitor during daily driving before building. `fixed` = resolved.
 
 | Date       | Area      | Observation                                                                                                         | Status  |
 | ---------- | --------- | ------------------------------------------------------------------------------------------------------------------- | ------- |
-| 2026-02-18 | cooking   | `UncookedMealReminder` shows recipe name but doesn't link to it — no 1-tap path to tonight's recipe from any page   | open    |
-| 2026-02-18 | shopping  | Generate button is icon-only on mobile — new users won't recognize the calendar icon                                | open    |
-| 2026-02-18 | shopping  | Week selector for generation hidden on mobile (`hidden sm:block`) — can't generate for next week from phone         | open    |
+| 2026-02-18 | cooking   | `UncookedMealReminder` shows recipe name but doesn't link to it — no 1-tap path to tonight's recipe from any page   | fixed   |
+| 2026-02-18 | shopping  | Generate button is icon-only on mobile — new users won't recognize the calendar icon                                | fixed   |
+| 2026-02-18 | shopping  | Week selector for generation hidden on mobile (`hidden sm:block`) — can't generate for next week from phone         | fixed   |
 | 2026-02-18 | shopping  | Checkbox toggle is blocking `<Form>` POST, no optimistic UI — may lag on cellular, fails offline                    | watch   |
 | 2026-02-18 | planning  | Recipe selector is text-only (no thumbnails) — may cause hesitation scanning 135+ recipes                           | watch   |
 | 2026-02-18 | shopping  | Inventory pipeline review shows all items with location/expiry fields expanded — visual overwhelm may cause skipping | watch   |

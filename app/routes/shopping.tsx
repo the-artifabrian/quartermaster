@@ -566,11 +566,7 @@ export default function ShoppingListRoute({
 											))}
 										</select>
 									)}
-									<Button
-										type="submit"
-										variant="outline"
-										size="sm"
-									>
+									<Button type="submit" variant="outline" size="sm">
 										<Icon name="update" size="sm" />
 										Generate
 									</Button>
@@ -763,7 +759,9 @@ export default function ShoppingListRoute({
 									return (
 										<div key={item.id}>
 											{showHeader && (
-												<h3 className={`text-muted-foreground mb-1 text-xs font-semibold tracking-wider uppercase ${index > 0 ? 'mt-3' : ''}`}>
+												<h3
+													className={`text-muted-foreground mb-1 text-xs font-semibold tracking-wider uppercase ${index > 0 ? 'mt-3' : ''}`}
+												>
 													{CATEGORY_LABELS[item.category ?? 'other'] ?? 'Other'}
 												</h3>
 											)}
@@ -858,7 +856,7 @@ function ShoppingListLiveRefresh() {
 			if (debounceRef.current) clearTimeout(debounceRef.current)
 			debounceRef.current = setTimeout(() => {
 				debounceRef.current = null
-				revalidate()
+				void revalidate()
 			}, 500)
 		})
 

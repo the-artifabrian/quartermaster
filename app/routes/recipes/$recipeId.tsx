@@ -28,6 +28,7 @@ import { scaleAmount } from '#app/utils/fractions.ts'
 import {
 	subtractRecipeIngredientsFromInventory,
 	previewInventorySubtraction,
+	type SubtractionSummary,
 } from '#app/utils/inventory-subtract.server.ts'
 import {
 	buildInventoryLookup,
@@ -465,6 +466,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const shoppingFetcher = useFetcher({ key: 'add-to-shopping' })
 	const prevCookFetcherState = useRef(cookFetcher.state)
 	const [showIMadeThisModal, setShowIMadeThisModal] = useState(false)
+	const [cookResult, setCookResult] = useState<SubtractionSummary | null>(null)
 	const [historyExpanded, setHistoryExpanded] = useState(false)
 	const [substitutions, setSubstitutions] = useState<
 		Map<string, AppliedSubstitution>
@@ -483,35 +485,40 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const ratio = currentServings / recipe.servings
 	const isScaled = currentServings !== recipe.servings
 
-	// Close modal after successful cook log submission
+	// Handle cook log submission result
 	useEffect(() => {
 		if (
 			prevCookFetcherState.current !== 'idle' &&
 			cookFetcher.state === 'idle' &&
 			cookFetcher.data?.success
 		) {
-			setShowIMadeThisModal(false)
+			const summary = cookFetcher.data.inventorySummary as
+				| SubtractionSummary
+				| null
 
-			const summary = cookFetcher.data.inventorySummary
-			if (summary) {
-				const parts: string[] = []
-				if (summary.removed.length > 0) {
-					parts.push(`Removed ${summary.removed.join(', ')}.`)
-				}
-				if (summary.updated.length > 0) {
-					parts.push(`Updated ${summary.updated.join(', ')}.`)
-				}
-				if (summary.flaggedLow.length > 0) {
-					parts.push(`${summary.flaggedLow.join(', ')} marked low.`)
-				}
-				toast.success('Inventory updated', {
-					description:
-						parts.length > 0
-							? parts.join(' ')
-							: 'No matching inventory items found.',
-				})
+			if (summary && summary.skipped.length > 0) {
+				// Transition modal to review state
+				setCookResult(summary)
 			} else {
-				toast.success('Cook logged!')
+				// No skipped items — close modal and show toast
+				setShowIMadeThisModal(false)
+				if (summary) {
+					const parts: string[] = []
+					if (summary.removed.length > 0) {
+						parts.push(`Removed ${summary.removed.join(', ')}.`)
+					}
+					if (summary.updated.length > 0) {
+						parts.push(`Updated ${summary.updated.join(', ')}.`)
+					}
+					toast.success('Inventory updated', {
+						description:
+							parts.length > 0
+								? parts.join(' ')
+								: 'No matching inventory items found.',
+					})
+				} else {
+					toast.success('Cook logged!')
+				}
 			}
 		}
 		prevCookFetcherState.current = cookFetcher.state
@@ -582,6 +589,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	}
 
 	function handleIMadeThis() {
+		setCookResult(null)
 		setShowIMadeThisModal(true)
 		// Fire preview fetch (Pro only — free users just log the cook)
 		if (isProActive) {
@@ -613,6 +621,23 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			next.delete(ingredientId)
 			return next
 		})
+	}
+
+	function handleModalClose() {
+		if (cookResult) {
+			const parts: string[] = []
+			if (cookResult.removed.length > 0) {
+				parts.push(`Removed ${cookResult.removed.join(', ')}.`)
+			}
+			if (cookResult.updated.length > 0) {
+				parts.push(`Updated ${cookResult.updated.join(', ')}.`)
+			}
+			if (parts.length > 0) {
+				toast.success('Inventory updated', { description: parts.join(' ') })
+			}
+		}
+		setShowIMadeThisModal(false)
+		setCookResult(null)
 	}
 
 	async function handleShare() {
@@ -820,8 +845,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					ratio={ratio}
 					cookFetcher={cookFetcher}
 					previewFetcher={previewFetcher}
-					onClose={() => setShowIMadeThisModal(false)}
+					onClose={handleModalClose}
 					isProActive={isProActive}
+					cookResult={cookResult}
 				/>
 			)}
 

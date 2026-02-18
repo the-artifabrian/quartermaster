@@ -88,7 +88,7 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		})
 		expect(item!.quantity).toBe(3)
 		expect(item!.lowStock).toBe(false)
-		expect(summary).toEqual({ updated: ['flour'], removed: [], flaggedLow: [] })
+		expect(summary).toEqual({ updated: ['flour'], removed: [], skipped: [] })
 	})
 
 	test('deletes item when quantity reaches 0', async () => {
@@ -109,7 +109,7 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			where: { householdId: user.householdId, name: 'flour' },
 		})
 		expect(item).toBeNull()
-		expect(summary).toEqual({ removed: ['flour'], updated: [], flaggedLow: [] })
+		expect(summary).toEqual({ removed: ['flour'], updated: [], skipped: [] })
 	})
 
 	test('deletes item when quantity would go below 0', async () => {
@@ -130,7 +130,7 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			where: { householdId: user.householdId, name: 'flour' },
 		})
 		expect(item).toBeNull()
-		expect(summary).toEqual({ removed: ['flour'], updated: [], flaggedLow: [] })
+		expect(summary).toEqual({ removed: ['flour'], updated: [], skipped: [] })
 	})
 
 	test('skips staple ingredients', async () => {
@@ -151,7 +151,7 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			where: { householdId: user.householdId, name: 'salt' },
 		})
 		expect(item!.quantity).toBe(10) // unchanged
-		expect(summary).toEqual({ removed: [], updated: [], flaggedLow: [] })
+		expect(summary).toEqual({ removed: [], updated: [], skipped: [] })
 	})
 
 	test('skips ingredients with no inventory match', async () => {
@@ -174,10 +174,10 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			where: { householdId: user.householdId, name: 'flour' },
 		})
 		expect(item!.quantity).toBe(5) // unchanged
-		expect(summary).toEqual({ removed: [], updated: [], flaggedLow: [] })
+		expect(summary).toEqual({ removed: [], updated: [], skipped: [] })
 	})
 
-	test('flags low stock for incompatible units (volume vs weight)', async () => {
+	test('reports skipped for incompatible units (volume vs weight)', async () => {
 		const user = await setupUser()
 		const recipe = await setupRecipe(user.id, user.householdId, [
 			{ name: 'butter', amount: '2', unit: 'tbsp' },
@@ -195,11 +195,11 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			where: { householdId: user.householdId, name: 'butter' },
 		})
 		expect(item!.quantity).toBe(200) // unchanged — volume vs weight
-		expect(item!.lowStock).toBe(true) // flagged as low
+		expect(item!.lowStock).toBe(false) // not flagged
 		expect(summary).toEqual({
 			removed: [],
 			updated: [],
-			flaggedLow: ['butter'],
+			skipped: [{ name: 'butter', inventoryItemId: expect.any(String), reason: 'incompatible_units' }],
 		})
 	})
 
@@ -225,7 +225,7 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		expect(summary).toEqual({
 			updated: ['sesame oil'],
 			removed: [],
-			flaggedLow: [],
+			skipped: [],
 		})
 	})
 
@@ -251,7 +251,7 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		expect(summary).toEqual({
 			updated: ['chicken'],
 			removed: [],
-			flaggedLow: [],
+			skipped: [],
 		})
 	})
 
@@ -278,7 +278,7 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		expect(summary).toEqual({
 			updated: ['butter'],
 			removed: [],
-			flaggedLow: [],
+			skipped: [],
 		})
 	})
 
@@ -302,10 +302,10 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			where: { householdId: user.householdId, name: 'flour' },
 		})
 		expect(item!.quantity).toBe(6) // 10 - (2 * 2) = 6
-		expect(summary).toEqual({ updated: ['flour'], removed: [], flaggedLow: [] })
+		expect(summary).toEqual({ updated: ['flour'], removed: [], skipped: [] })
 	})
 
-	test('flags lowStock when inventory item has no quantity', async () => {
+	test('reports skipped when inventory item has no quantity', async () => {
 		const user = await setupUser()
 		const recipe = await setupRecipe(user.id, user.householdId, [
 			{ name: 'cucumber', amount: '2', unit: '' },
@@ -325,17 +325,20 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			where: { householdId: user.householdId, name: 'cucumber' },
 		})
 		expect(cucumber!.quantity).toBeNull()
-		expect(cucumber!.lowStock).toBe(true)
+		expect(cucumber!.lowStock).toBe(false) // not flagged
 
 		const vinegar = await prisma.inventoryItem.findFirst({
 			where: { householdId: user.householdId, name: 'rice vinegar' },
 		})
 		expect(vinegar!.quantity).toBeNull()
-		expect(vinegar!.lowStock).toBe(true)
+		expect(vinegar!.lowStock).toBe(false) // not flagged
 		expect(summary).toEqual({
-			flaggedLow: ['cucumber', 'rice vinegar'],
 			removed: [],
 			updated: [],
+			skipped: [
+				{ name: 'cucumber', inventoryItemId: expect.any(String), reason: 'no_quantity' },
+				{ name: 'rice vinegar', inventoryItemId: expect.any(String), reason: 'no_quantity' },
+			],
 		})
 	})
 
@@ -355,7 +358,7 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			where: { householdId: user.householdId, name: 'flour' },
 		})
 		expect(item!.quantity).toBe(5) // unchanged
-		expect(summary).toEqual({ removed: [], updated: [], flaggedLow: [] })
+		expect(summary).toEqual({ removed: [], updated: [], skipped: [] })
 	})
 })
 
@@ -375,13 +378,14 @@ describe('previewInventorySubtraction', () => {
 		)
 
 		expect(preview.noMatch).toEqual([])
+		expect(preview.willSkip).toEqual([])
 		expect(preview.willSubtract).toHaveLength(1)
 		expect(preview.willSubtract[0]!.name).toBe('sesame oil')
 		expect(preview.willSubtract[0]!.subtractAmount).toBeCloseTo(4.929, 0)
 		expect(preview.willSubtract[0]!.willBeRemoved).toBe(false)
 	})
 
-	test('previews incompatible units as flagged low (volume vs weight)', async () => {
+	test('reports willSkip for incompatible units in preview (volume vs weight)', async () => {
 		const user = await setupUser()
 		const recipe = await setupRecipe(user.id, user.householdId, [
 			{ name: 'butter', amount: '2', unit: 'tbsp' },
@@ -396,9 +400,31 @@ describe('previewInventorySubtraction', () => {
 		)
 
 		expect(preview.noMatch).toEqual([])
-		expect(preview.willSubtract).toHaveLength(1)
-		expect(preview.willSubtract[0]!.name).toBe('butter')
-		expect(preview.willSubtract[0]!.willBeFlaggedLow).toBe(true)
-		expect(preview.willSubtract[0]!.subtractAmount).toBeNull()
+		expect(preview.willSubtract).toHaveLength(0)
+		expect(preview.willSkip).toEqual([{ name: 'butter', reason: 'incompatible_units' }])
+	})
+
+	test('reports willSkip for inventory items without quantity', async () => {
+		const user = await setupUser()
+		const recipe = await setupRecipe(user.id, user.householdId, [
+			{ name: 'cucumber', amount: '2', unit: '' },
+			{ name: 'rice vinegar', amount: '3', unit: 'tbsp' },
+		])
+		await setupInventory(user.id, user.householdId, [
+			{ name: 'cucumber' },
+			{ name: 'rice vinegar' },
+		])
+
+		const preview = await previewInventorySubtraction(
+			recipe.id,
+			user.householdId,
+		)
+
+		expect(preview.noMatch).toEqual([])
+		expect(preview.willSubtract).toHaveLength(0)
+		expect(preview.willSkip).toEqual([
+			{ name: 'cucumber', reason: 'no_quantity' },
+			{ name: 'rice vinegar', reason: 'no_quantity' },
+		])
 	})
 })

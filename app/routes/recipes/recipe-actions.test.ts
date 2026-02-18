@@ -220,7 +220,7 @@ describe('recipe detail actions', () => {
 		// butter (1 tbsp) has no inventory match, so only flour appears
 		expect(result).toEqual({
 			success: true,
-			inventorySummary: { updated: ['flour'], removed: [], flaggedLow: [] },
+			inventorySummary: { updated: ['flour'], removed: [], skipped: [] },
 		})
 	})
 

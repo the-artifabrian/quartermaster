@@ -32,7 +32,7 @@ type QuickCookData = {
 	inventorySummary?: {
 		removed: string[]
 		updated: string[]
-		flaggedLow: string[]
+		skipped: Array<{ name: string; inventoryItemId: string; reason: string }>
 	} | null
 }
 
@@ -79,8 +79,15 @@ function EntryRow({
 				if (summary.updated.length > 0) {
 					parts.push(`Updated ${summary.updated.join(', ')}.`)
 				}
-				if (summary.flaggedLow.length > 0) {
-					parts.push(`${summary.flaggedLow.join(', ')} marked low.`)
+				if (summary.skipped.length > 0) {
+					const names = summary.skipped.map((s) => s.name)
+					if (names.length <= 3) {
+						parts.push(`Skipped ${names.join(', ')}.`)
+					} else {
+						parts.push(
+							`Skipped ${names.slice(0, 3).join(', ')} +${names.length - 3} more.`,
+						)
+					}
 				}
 				toast.success(`Cooked ${cookedFetcher.data.recipeTitle}`, {
 					description:

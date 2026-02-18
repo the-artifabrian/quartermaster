@@ -149,16 +149,18 @@ Complete feature catalog. For the roadmap, see
 ## Onboarding
 
 - "Getting Started" checklist on `/recipes`: tracks 3 steps (add recipe, stock
-  inventory, plan a meal) with progress bar. Free users see recipe step only.
-  Dismissible, auto-hides on completion
+  inventory, plan a meal) with progress bar. Free users see recipe + inventory
+  steps. Dismissible, auto-hides on completion
 - Pantry staples onboarding on empty inventory
 - Planned: inventory-first AI recipe path, post-action contextual nudges (see
   [Backlog in DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md#backlog))
 
+- Two-tier model: Free (unlimited recipes, up to 15 inventory items, smart
   Stripe coexist — user has Pro if either is active
   redemption. Admins generate codes at `/admin/subscriptions`
-- Pro-only routes redirect to `/upgrade` with lock icons in nav. Mixed-access
-  routes degrade gracefully (no match data, no inventory features)
+- Pro-only routes redirect to `/upgrade` with lock icons in nav. Free users get
+  inventory (up to 15 items) and recipe matching; meal planning, shopping lists,
+  and AI features require Pro
 - Pro expiry awareness: days-remaining badge (color-coded), toast nudges at
   7d/3d, graceful downgrade with data preservation
 - Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (tier

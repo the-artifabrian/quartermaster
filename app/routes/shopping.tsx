@@ -2,8 +2,8 @@ import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useState } from 'react'
-import { Form, Link, useFetcher } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Form, Link, useFetcher, useRevalidator } from 'react-router'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { ShoppingListToInventory } from '#app/components/shopping-list-to-inventory.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -11,6 +11,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
+import { subscribeToHouseholdEvents } from '#app/utils/household-event-source.client.tsx'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
@@ -533,6 +534,7 @@ export default function ShoppingListRoute({
 
 	return (
 		<div className="pb-20 md:pb-6">
+			<ShoppingListLiveRefresh />
 			{/* Page Header */}
 			<div className="from-card to-background border-border/50 border-b bg-linear-to-b print:border-0">
 				<div className="container py-4">
@@ -835,6 +837,38 @@ export default function ShoppingListRoute({
 			</div>
 		</div>
 	)
+}
+
+// --- Live refresh via SSE ---
+
+const SHOPPING_EVENT_TYPES = new Set([
+	'shopping_list_generated',
+	'shopping_list_item_added',
+	'shopping_list_cleared',
+	'shopping_list_to_inventory',
+])
+
+function ShoppingListLiveRefresh() {
+	const { revalidate } = useRevalidator()
+	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+	useEffect(() => {
+		const unsubscribe = subscribeToHouseholdEvents((event) => {
+			if (!SHOPPING_EVENT_TYPES.has(event.type)) return
+			if (debounceRef.current) clearTimeout(debounceRef.current)
+			debounceRef.current = setTimeout(() => {
+				debounceRef.current = null
+				revalidate()
+			}, 500)
+		})
+
+		return () => {
+			unsubscribe()
+			if (debounceRef.current) clearTimeout(debounceRef.current)
+		}
+	}, [revalidate])
+
+	return null
 }
 
 // --- Low stock nudge ---

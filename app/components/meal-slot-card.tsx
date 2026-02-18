@@ -1,4 +1,3 @@
-import { type Recipe } from '@prisma/client'
 import { useState, useEffect, useRef } from 'react'
 import { Form, Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
@@ -10,6 +9,7 @@ import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import {
 	type MatchData,
 	type PairingData,
+	type RecipeSelectorRecipe,
 	RecipeSelector,
 } from './recipe-selector.tsx'
 
@@ -20,9 +20,9 @@ type MealSlotCardProps = {
 		id: string
 		servings: number | null
 		cooked: boolean
-		recipe: Recipe
+		recipe: RecipeSelectorRecipe
 	}>
-	recipes: Recipe[]
+	recipes: RecipeSelectorRecipe[]
 	weekStart: string
 }
 
@@ -43,7 +43,7 @@ function EntryRow({
 		id: string
 		servings: number | null
 		cooked: boolean
-		recipe: Recipe
+		recipe: RecipeSelectorRecipe
 	}
 }) {
 	const dc = useDoubleCheck()

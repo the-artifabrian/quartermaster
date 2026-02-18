@@ -1,4 +1,3 @@
-import { type Recipe } from '@prisma/client'
 import { useEffect, useRef } from 'react'
 import {
 	MEAL_TYPES,
@@ -8,6 +7,7 @@ import {
 } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { MealSlotCard } from './meal-slot-card.tsx'
+import { type RecipeSelectorRecipe } from './recipe-selector.tsx'
 
 type Entry = {
 	id: string
@@ -15,13 +15,13 @@ type Entry = {
 	mealType: string
 	servings: number | null
 	cooked: boolean
-	recipe: Recipe
+	recipe: RecipeSelectorRecipe
 }
 
 type MealPlanCalendarProps = {
 	weekDays: Date[]
 	entries: Entry[]
-	recipes: Recipe[]
+	recipes: RecipeSelectorRecipe[]
 	weekStart: string
 }
 

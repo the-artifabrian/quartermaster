@@ -378,6 +378,47 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const }
 	}
 
+	if (intent === 'quick-update') {
+		const itemId = formData.get('itemId')
+		invariantResponse(typeof itemId === 'string', 'Item ID is required')
+
+		const item = await prisma.inventoryItem.findFirst({
+			where: { id: itemId, householdId },
+		})
+		invariantResponse(item, 'Item not found', { status: 404 })
+
+		const data: Record<string, unknown> = {}
+
+		if (formData.has('quantity')) {
+			const raw = formData.get('quantity')
+			data.quantity =
+				typeof raw === 'string' && raw.trim()
+					? parseFloat(raw) || null
+					: null
+		}
+		if (formData.has('unit')) {
+			const raw = formData.get('unit')
+			data.unit =
+				typeof raw === 'string' && raw.trim() ? raw.trim() : null
+		}
+		if (formData.has('expiresAt')) {
+			const raw = formData.get('expiresAt')
+			data.expiresAt =
+				typeof raw === 'string' && raw.trim()
+					? new Date(raw)
+					: null
+		}
+
+		if (Object.keys(data).length > 0) {
+			await prisma.inventoryItem.update({
+				where: { id: itemId },
+				data,
+			})
+		}
+
+		return { status: 'success' as const }
+	}
+
 	if (intent === 'toggle-low-stock') {
 		const itemId = formData.get('itemId')
 		invariantResponse(typeof itemId === 'string', 'Item ID is required')

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Form, useFetcher } from 'react-router'
+import { useFetcher } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -19,29 +19,42 @@ type ShoppingListItemCardProps = {
 export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 	const dc = useDoubleCheck()
 	const [isEditing, setIsEditing] = useState(false)
-	const fetcher = useFetcher()
-	const prevFetcherState = useRef(fetcher.state)
+	const editFetcher = useFetcher()
+	const toggleFetcher = useFetcher()
+	const deleteFetcher = useFetcher()
+	const prevEditFetcherState = useRef(editFetcher.state)
 
 	// Close edit mode when fetcher transitions from submitting/loading → idle
 	// (only on success — if server returned an error, keep editing open)
-	if (prevFetcherState.current !== 'idle' && fetcher.state === 'idle') {
-		if (isEditing && fetcher.data?.status !== 'error') {
+	if (prevEditFetcherState.current !== 'idle' && editFetcher.state === 'idle') {
+		if (isEditing && editFetcher.data?.status !== 'error') {
 			setIsEditing(false)
 		}
 	}
-	prevFetcherState.current = fetcher.state
+	prevEditFetcherState.current = editFetcher.state
+
+	// Optimistic checked state
+	const optimisticChecked =
+		toggleFetcher.formData?.get('intent') === 'toggle'
+			? !item.checked
+			: item.checked
+
+	// Hide if delete is in-flight
+	if (deleteFetcher.formData?.get('intent') === 'delete') {
+		return null
+	}
 
 	const serverError =
 		isEditing &&
-		fetcher.data?.status === 'error' &&
-		fetcher.data?.submission?.error
+		editFetcher.data?.status === 'error' &&
+		editFetcher.data?.submission?.error
 			? 'Please check your input and try again.'
 			: null
 
 	if (isEditing) {
 		return (
 			<div className="bg-card rounded-lg border p-3 print:border-0 print:p-1">
-				<fetcher.Form
+				<editFetcher.Form
 					method="POST"
 					onKeyDown={(e) => {
 						if (e.key === 'Escape') setIsEditing(false)
@@ -93,23 +106,23 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 							</Button>
 						</div>
 					</div>
-				</fetcher.Form>
+				</editFetcher.Form>
 			</div>
 		)
 	}
 
 	return (
 		<div className="bg-card flex items-start gap-3 rounded-lg border p-3 print:border-0 print:p-1">
-			<Form method="POST" className="pt-1 print:hidden">
+			<toggleFetcher.Form method="POST" className="pt-1 print:hidden">
 				<input type="hidden" name="intent" value="toggle" />
 				<input type="hidden" name="itemId" value={item.id} />
 				<button type="submit" className="-m-2.5 cursor-pointer p-2.5">
 					<div
 						className={`flex size-6 items-center justify-center rounded border-2 ${
-							item.checked ? 'border-primary bg-primary' : 'border-input'
+							optimisticChecked ? 'border-primary bg-primary' : 'border-input'
 						}`}
 					>
-						{item.checked && (
+						{optimisticChecked && (
 							<Icon
 								name="check"
 								size="xs"
@@ -118,14 +131,14 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 						)}
 					</div>
 				</button>
-			</Form>
+			</toggleFetcher.Form>
 			<span className="hidden pt-0.5 text-base print:inline">
-				{item.checked ? '\u2611' : '\u2610'}
+				{optimisticChecked ? '\u2611' : '\u2610'}
 			</span>
 
 			<div className="flex-1">
 				<p
-					className={`font-medium ${item.checked ? 'text-muted-foreground/60 line-through' : ''}`}
+					className={`font-medium ${optimisticChecked ? 'text-muted-foreground/60 line-through' : ''}`}
 				>
 					{item.name}
 				</p>
@@ -136,7 +149,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 				)}
 			</div>
 
-			{!item.checked && (
+			{!optimisticChecked && (
 				<Button
 					variant="ghost"
 					size="sm"
@@ -148,7 +161,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 				</Button>
 			)}
 
-			<Form method="POST" className="print:hidden">
+			<deleteFetcher.Form method="POST" className="print:hidden">
 				<input type="hidden" name="intent" value="delete" />
 				<input type="hidden" name="itemId" value={item.id} />
 				<StatusButton
@@ -164,7 +177,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 						<Icon name="trash" size="sm" />
 					)}
 				</StatusButton>
-			</Form>
+			</deleteFetcher.Form>
 		</div>
 	)
 }

@@ -34,11 +34,9 @@ Complete feature catalog. For the roadmap, see
 - Import quality flags: filterable via `?quality=flagged` (missing ingredients,
   missing instructions, or duplicate titles) — computed from main query, no
   persistent banner
-- AI recipe generation from inventory (Pro): "Generate Recipe" button on recipes
-  page. Pick optional meal type and quick-meal toggle, single LLM call (Claude
-  Haiku) generates a full recipe from current inventory items (prioritizing
-  expiring items). Preview with ingredients and instructions before saving. Saved recipes marked `isAiGenerated` with violet "AI Generated"
-  badge on detail page, share page, and recipe cards
+- AI recipe generation from inventory (Pro): pick meal type, generates a recipe
+  from current inventory (prioritizing expiring items). Preview before saving,
+  "AI Generated" badge on saved recipes
 - "I Made This" cook logging with inventory impact preview
 - Inline inventory status on recipe detail ingredient list: summary footer shows
   "You have X/Y ingredients" with "Add N missing to Shopping List" button
@@ -46,26 +44,21 @@ Complete feature catalog. For the roadmap, see
 - Ingredient headings: section dividers within ingredient lists displayed as
   styled headers. Skipped by shopping list, matching, subtraction, and JSON-LD
 - Drag-and-drop ingredient reordering (`@dnd-kit/sortable`)
-- AI recipe enhance (Pro): one-click "Enhance with AI" button on recipe detail
-  page. Sends recipe to Claude Haiku to infer missing metadata (description,
-  servings, prep/cook times). Before/after modal with per-field checkboxes —
-  missing fields pre-checked, existing fields opt-in. 10/day rate limit.
-  Sparkles button in desktop and mobile action bars (violet, spinner while
-  loading). No-changes case handled gracefully
+- AI recipe enhance (Pro): one-click metadata inference (description, servings,
+  prep/cook times) with before/after review modal. Primarily for cleaning up
+  bulk-imported recipes
 - Ingredient substitution hints (Pro): click missing-ingredient pills to see
-  substitutions. ~50 common static entries + Claude Haiku LLM fallback (cached
-  30 days). Inventory-aware (highlights substitutes you have), recipe-context-
-  aware (LLM receives recipe title + ingredients for dish-appropriate suggestions).
-  Appears on recipe detail, recipe cards, and "Almost There" banner. "Use this"
-  temporarily swaps ingredient in both list and instruction text (client-side,
-  revertible). Safety: culinary-function matching, allergen flagging, no non-food
-  suggestions. "AI suggestion" badge for LLM-sourced results
+  substitutions. Static DB + LLM fallback (cached). Inventory-aware (highlights
+  substitutes you have), recipe-context-aware. "Use this" temporarily swaps
+  ingredient in both list and instruction text (client-side, revertible)
 
 ## Inventory System
 
 - Three locations: Pantry, Fridge, Freezer with compact inline status badges
   expiry countdowns
 - Items with optional quantity, unit, expiration, and low-stock flag
+- Inline quick editing: tap pencil to edit quantity/unit/expiry without leaving
+  the list. One-tap low-stock toggle with optimistic UI
 - Client-side search/filter across all items and location tabs
 - Quick-add with optional inline quantity/unit fields + 33 common ingredient
   shortcuts. Duplicate detection via canonical name matching (same location) --
@@ -97,16 +90,14 @@ Complete feature catalog. For the roadmap, see
 
 - Weekly calendar view (Monday-start, two-row 4+3 layout, today emphasis, 4 meal
   types per day)
-- Click-to-assign recipes to meal slots, multiple recipes per slot
+- Click-to-assign recipes to meal slots with thumbnail previews (or letter
+  placeholders), multiple recipes per slot
 - Per-entry serving size overrides with +/- controls
 - Mark meals as "cooked" with optimistic toggle; quick "I made this" one-tap
   action (logs cook + subtracts inventory)
-- Uncooked meal reminders: site-wide amber banner for planned-but-uncooked meals
-  from today or yesterday. Time-of-day gated — breakfast after 11am, lunch after
-  3pm, dinner/snack after 9pm (yesterday's meals always show). Shows one meal at
-  a time with linked recipe name (1-tap navigation), "Yes, I made it" (triggers
-  cook log + inventory subtraction with toast summary), and "Skip" (session-only
-  dismiss). Pro-only, self-loads via resource route fetcher
+- Uncooked meal reminders: site-wide banner for planned-but-uncooked meals from
+  today or yesterday (time-of-day gated). 1-tap "Yes, I made it" (cook log +
+  inventory subtraction) or "Skip" (session dismiss)
 - "Up next" banner (current week): next chronological meal to cook today with
   time-of-day awareness. Empty state suggests a favorite with one-tap add
 - Copy week to next week (preserves servings, skips duplicates)
@@ -126,10 +117,16 @@ Complete feature catalog. For the roadmap, see
   - Client-side search/filter (headers hidden during search), print-friendly
     layout
   - Inventory-aware: subtracts items already in stock and staple ingredients
-  - Check-off -> inventory pipeline: pre-filled name, location, quantity, and
-    auto-suggested expiry (shelf-life lookup, ~60 entries). Auto-merges with
-    existing inventory items (canonical name match, same location) -- clears
-    low-stock flag on merge. Household items cleared but not added to inventory
+  - Optimistic UI on checkbox toggle and delete (instant response via
+    `useFetcher`)
+  - Live-refresh via SSE: partner's shopping list changes auto-revalidate
+    the page (debounced 500ms)
+  - Check-off -> inventory pipeline: compact collapsed rows with location
+    badges and short expiry dates, tap to expand controls, select all/deselect
+    all. Pre-filled location and auto-suggested expiry (shelf-life lookup,
+    ~60 entries). Auto-merges with existing inventory items (canonical name
+    match, same location) -- clears low-stock flag on merge. Household items
+    cleared but not added to inventory
   - Low-stock nudge: amber chip banner for low-stock items not already on list,
     one-tap add or "Add All"
 
@@ -160,16 +157,11 @@ Complete feature catalog. For the roadmap, see
 - Planned: inventory-first AI recipe path, post-action contextual nudges (see
   [Backlog in DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md#backlog))
 
-- Two-tier model: Free (unlimited recipes, up to 15 inventory items, smart
-  Stripe coexist — user has Pro if either is active
-  redemption. Admins generate codes at `/admin/subscriptions`
-- Pro-only routes redirect to `/upgrade` with lock icons in nav. Free users get
-  inventory (up to 15 items) and recipe matching; meal planning, shopping lists,
-  and AI features require Pro
-- Pro expiry awareness: days-remaining badge (color-coded), toast nudges at
-  7d/3d, graceful downgrade with data preservation
-- Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (tier
-  management + code generation)
+- Free: unlimited recipes, up to 15 inventory items, smart matching. Pro:
+  60 days Pro, grants 2 starter codes) coexist with Stripe
+- Pro-only routes redirect to `/upgrade` with lock icons in nav. Graceful
+  downgrade with data preservation, expiry nudges at 7d/3d
+- Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (codes + tiers)
 
 ## UI & Infrastructure
 

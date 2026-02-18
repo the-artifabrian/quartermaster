@@ -121,6 +121,8 @@ export async function action({ request }: Route.ActionArgs) {
 const freeFeatures = [
 	'Unlimited recipes',
 	'Import from URL or paste',
+	'Up to 15 inventory items',
+	'Smart recipe matching',
 	'Interactive cooking view',
 	'Cooking log & history',
 	'Recipe sharing & print',
@@ -129,13 +131,13 @@ const freeFeatures = [
 
 const proFeatures = [
 	'Everything in Free, plus:',
-	'Inventory tracking',
-	'Smart recipe matching',
+	'Unlimited inventory',
 	'Meal planning calendar',
 	'Shopping list generation',
 	'Post-cook inventory subtraction',
 	'Household sharing',
 	'AI substitution hints',
+	'AI recipe generation',
 ]
 
 export default function UpgradePage({ loaderData }: Route.ComponentProps) {
@@ -164,7 +166,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					Upgrade Your Kitchen
 				</h1>
 				<p className="text-muted-foreground mt-2 text-lg">
-					Unlock inventory tracking, meal planning, and smart shopping lists.
+					Unlock unlimited inventory, meal planning, and smart shopping lists.
 				</p>
 				{tierInfo.isProActive && tierInfo.isTrialing && tierInfo.trialEndsAt ? (
 					<p className="text-primary mt-2 text-sm font-medium">

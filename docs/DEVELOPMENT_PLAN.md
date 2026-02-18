@@ -137,29 +137,15 @@ Issues discovered during daily driving. Format: date, area, observation, status.
 Identified during a full-app UX and strategy review (February 2026). Highest-
 impact changes before monetization, ordered by priority (High before Medium).
 
-### 1. Free tier taste of inventory
+### 1. ~~Free tier taste of inventory~~ ✓
 
-**Impact:** High — makes the app better for everyone.
-
-Free users see 3/4 nav tabs locked and can't experience match rings or discovery.
-Let free users add 10-15 inventory items — enough for the "aha" moment. Upgrade
-trigger becomes "I want more than 15 items" rather than "I have to pay to try."
-
-**Affected files/systems:**
-
-- `app/utils/subscription.server.ts` — add `FREE_INVENTORY_LIMIT` constant,
-  `canAddInventoryItem(userId)` check
-- `app/routes/inventory/index.tsx` — show items up to limit, upgrade CTA when
-  near/at limit
-- `app/routes/inventory/new.tsx` — enforce limit in action, show upgrade nudge
-- `app/routes/recipes/index.tsx` — enable match rings and "Almost There" banner
-  for free users who have inventory items
-- `app/components/getting-started-checklist.tsx` — unlock inventory step for
-  free users (currently hidden)
-- `app/routes/upgrade.tsx` — update copy to emphasize "unlock unlimited
-  inventory"
-- `app/components/nav-links.tsx` — unlock inventory tab for free tier (keep
-  lock on plan/shopping until upgrade)
+Completed. Free users can add up to 15 inventory items — enough for the "aha"
+moment with match rings and discovery. Limit enforced in inventory page action
+(create + bulk-create), with status badges, limit banner, and upgrade CTA.
+Getting started checklist shows recipe + inventory steps for free users. Match
+rings and "Almost There" banner work for all users with inventory (no Pro gate).
+Upgrade page copy updated to reflect "Up to 15 inventory items" in Free and
+"Unlimited inventory" in Pro.
 
 ### 2. ~~UX debt cleanup~~ ✓
 

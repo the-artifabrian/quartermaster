@@ -235,7 +235,7 @@ detail. The `/discover` route redirects to
   template resource route)
 - `app/routes/shopping.tsx` - Standalone shopping list with generate from meal
   plan, quick add (open by default), duplicate/inventory warnings, low-stock
-  nudge chips, household item category, flat item list, check-off → inventory
+  nudge chips, household item category, category section headers, check-off → inventory
   pipeline (with shelf-life auto-suggest expiry dates), print layout
 - `app/routes/resources/shopping-to-inventory.tsx` - Shopping list check-off →
   inventory creation pipeline (extracted from shopping action)

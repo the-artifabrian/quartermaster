@@ -11,6 +11,8 @@ export type PairingData = Record<
 	{ overlapCount: number; overlapIngredients: string[]; score: number }
 >
 
+export type MatchData = Record<string, { matched: number; total: number }>
+
 type RecipeSelectorProps = {
 	recipes: Recipe[]
 	date: Date
@@ -19,6 +21,7 @@ type RecipeSelectorProps = {
 	onCancel: () => void
 	onSelect?: () => void
 	pairingData?: PairingData
+	matchData?: MatchData
 }
 
 function getTotalTime(recipe: Recipe): number | null {
@@ -40,6 +43,7 @@ export function RecipeSelector({
 	onCancel,
 	onSelect,
 	pairingData,
+	matchData,
 }: RecipeSelectorProps) {
 	const [search, setSearch] = useState('')
 
@@ -105,6 +109,7 @@ export function RecipeSelector({
 										date={date}
 										mealType={mealType}
 										pairing={pairingData?.[recipe.id]}
+										match={matchData?.[recipe.id]}
 										onSelect={onSelect}
 									/>
 								))}
@@ -121,6 +126,7 @@ export function RecipeSelector({
 								recipe={recipe}
 								date={date}
 								mealType={mealType}
+								match={matchData?.[recipe.id]}
 								onSelect={onSelect}
 							/>
 						))}
@@ -136,6 +142,7 @@ function RecipeOption({
 	date,
 	mealType,
 	pairing,
+	match,
 	onSelect,
 }: {
 	recipe: Recipe
@@ -146,6 +153,7 @@ function RecipeOption({
 		overlapIngredients: string[]
 		score: number
 	}
+	match?: { matched: number; total: number }
 	onSelect?: () => void
 }) {
 	const totalTime = getTotalTime(recipe)
@@ -173,6 +181,13 @@ function RecipeOption({
 						)}
 					</div>
 					<div className="flex shrink-0 items-center gap-1.5">
+						{match && (
+							<span
+								className={`inline-flex items-center gap-0.5 text-xs ${match.matched === match.total ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}
+							>
+								{match.matched}/{match.total}
+							</span>
+						)}
 						{totalTime != null && (
 							<span className="text-muted-foreground inline-flex items-center gap-0.5 text-xs">
 								<Icon name="clock" className="size-3" />

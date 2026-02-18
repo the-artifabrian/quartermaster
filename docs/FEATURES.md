@@ -110,7 +110,8 @@ Complete feature catalog. For the roadmap, see
 - Copy week to next week (preserves servings, skips duplicates)
 - Meal plan templates: save/apply/delete named templates, household-scoped
 - Pairing suggestions when adding recipes: ranked by ingredient overlap with
-  planned recipes, weeknight-aware sorting (Mon-Thu quick-cook recipes first)
+  planned recipes, weeknight-aware sorting (Mon-Thu quick-cook recipes first),
+  inventory match indicators (X/Y ingredients in stock, green at 100%)
 - Single-use ingredient waste alerts with recipe suggestions
 - Standalone shopping list at `/shopping` with:
   - Generate from meal plan (week picker for prev/current/next week) with
@@ -118,9 +119,10 @@ Complete feature catalog. For the roadmap, see
   - Quick add (open by default, collapsible) with smart duplicate/inventory
     warnings and "Add Anyway" bypass
   - Auto-categorization (produce, dairy, meat, pantry, frozen, bakery,
-    household, other)
+    household, other) with section headers in the list
   - Inline item editing (name, quantity, unit)
-  - Client-side search/filter, print-friendly layout
+  - Client-side search/filter (headers hidden during search), print-friendly
+    layout
   - Inventory-aware: subtracts items already in stock and staple ingredients
   - Check-off -> inventory pipeline: pre-filled name, location, quantity, and
     auto-suggested expiry (shelf-life lookup, ~60 entries). Household items

@@ -7,7 +7,11 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { type MealType, MEAL_TYPE_LABELS } from '#app/utils/date.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
-import { type PairingData, RecipeSelector } from './recipe-selector.tsx'
+import {
+	type MatchData,
+	type PairingData,
+	RecipeSelector,
+} from './recipe-selector.tsx'
 
 type MealSlotCardProps = {
 	date: Date
@@ -200,9 +204,13 @@ export function MealSlotCard({
 	weekStart,
 }: MealSlotCardProps) {
 	const [isSelectingRecipe, setIsSelectingRecipe] = useState(false)
-	const pairingFetcher = useFetcher<{ pairings: PairingData }>()
+	const pairingFetcher = useFetcher<{
+		pairings: PairingData
+		matchData: MatchData
+	}>()
 
 	const pairingData = pairingFetcher.data?.pairings
+	const matchData = pairingFetcher.data?.matchData
 
 	function openRecipeSelector() {
 		setIsSelectingRecipe(true)
@@ -231,6 +239,7 @@ export function MealSlotCard({
 						onCancel={() => setIsSelectingRecipe(false)}
 						onSelect={() => setIsSelectingRecipe(false)}
 						pairingData={pairingData}
+						matchData={matchData}
 					/>
 				</div>
 			)
@@ -282,6 +291,7 @@ export function MealSlotCard({
 							onCancel={() => setIsSelectingRecipe(false)}
 							onSelect={() => setIsSelectingRecipe(false)}
 							pairingData={pairingData}
+							matchData={matchData}
 						/>
 					</div>
 				)}

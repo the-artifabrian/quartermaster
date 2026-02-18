@@ -38,6 +38,17 @@ import {
 } from '#app/utils/shopping-list.server.ts'
 import { type Route } from './+types/shopping.ts'
 
+const CATEGORY_LABELS: Record<string, string> = {
+	produce: 'Produce',
+	dairy: 'Dairy',
+	meat: 'Meat & Seafood',
+	pantry: 'Pantry',
+	frozen: 'Frozen',
+	bakery: 'Bakery',
+	household: 'Household',
+	other: 'Other',
+}
+
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
 }
@@ -508,7 +519,6 @@ export default function ShoppingListRoute({
 	const checkedItemsList = allItems.filter((item) => item.checked)
 	const checkedItems = checkedItemsList.length
 
-	// Flat filtered list (no category grouping)
 	const searchLower = search.toLowerCase()
 	const filteredItems = search
 		? allItems.filter((i) => i.name.toLowerCase().includes(searchLower))
@@ -727,7 +737,7 @@ export default function ShoppingListRoute({
 					</div>
 				)}
 
-				{/* Item List — flat, no category headers */}
+				{/* Item List */}
 				{totalItems > 0 ? (
 					<div className="space-y-4">
 						{search && filteredItems.length === 0 ? (
@@ -754,9 +764,21 @@ export default function ShoppingListRoute({
 							</div>
 						) : (
 							<div className="space-y-2">
-								{filteredItems.map((item) => (
-									<ShoppingListItemCard key={item.id} item={item} />
-								))}
+								{filteredItems.map((item, index) => {
+									const prevCategory =
+										index > 0 ? filteredItems[index - 1]?.category : null
+									const showHeader = !search && item.category !== prevCategory
+									return (
+										<div key={item.id}>
+											{showHeader && (
+												<h3 className={`text-muted-foreground mb-1 text-xs font-semibold tracking-wider uppercase ${index > 0 ? 'mt-3' : ''}`}>
+													{CATEGORY_LABELS[item.category ?? 'other'] ?? 'Other'}
+												</h3>
+											)}
+											<ShoppingListItemCard item={item} />
+										</div>
+									)
+								})}
 							</div>
 						)}
 

@@ -157,8 +157,6 @@ Complete feature catalog. For the roadmap, see
   inventory, plan a meal) with progress bar. Free users see recipe + inventory
   steps. Dismissible, auto-hides on completion
 - Pantry staples onboarding on empty inventory
-- Planned: inventory-first AI recipe path, post-action contextual nudges (see
-  [Backlog in DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md#backlog))
 
 - Free: unlimited recipes, up to 15 inventory items, smart matching. Pro:
   60 days Pro, grants 2 starter codes) coexist with Stripe

@@ -118,14 +118,25 @@ list generation still works, meal planning still works. The core loop survives
 
 ### Friction Log
 
-Issues discovered during daily driving. Format: date, area, observation, status.
+Issues discovered during daily driving and UX review. Format: date, area,
+observation, status.
 
-| Date       | Area      | Observation                                          | Status   |
-| ---------- | --------- | ---------------------------------------------------- | -------- |
-| 2026-02-17 | _example_ | _Shopping list: hard to tell which items are checked_ | _open_   |
-| 2026-02-17 | _example_ | _Meal plan: "Up next" banner flickers on page load_   | _fixed_  |
+Status: `open` = confirmed friction, needs fix. `watch` = potential issue,
+monitor during daily driving before building. `fixed` = resolved.
 
-> Add entries as friction surfaces. Resolve or promote to Strategic Priorities.
+| Date       | Area      | Observation                                                                                                         | Status  |
+| ---------- | --------- | ------------------------------------------------------------------------------------------------------------------- | ------- |
+| 2026-02-18 | cooking   | `UncookedMealReminder` shows recipe name but doesn't link to it — no 1-tap path to tonight's recipe from any page   | open    |
+| 2026-02-18 | shopping  | Generate button is icon-only on mobile — new users won't recognize the calendar icon                                | open    |
+| 2026-02-18 | shopping  | Week selector for generation hidden on mobile (`hidden sm:block`) — can't generate for next week from phone         | open    |
+| 2026-02-18 | shopping  | Checkbox toggle is blocking `<Form>` POST, no optimistic UI — may lag on cellular, fails offline                    | watch   |
+| 2026-02-18 | planning  | Recipe selector is text-only (no thumbnails) — may cause hesitation scanning 135+ recipes                           | watch   |
+| 2026-02-18 | shopping  | Inventory pipeline review shows all items with location/expiry fields expanded — visual overwhelm may cause skipping | watch   |
+| 2026-02-18 | inventory | No inline editing on inventory cards — requires separate edit page for qty/expiry changes                            | watch   |
+| 2026-02-18 | shopping  | Shopping list doesn't live-refresh when partner adds items — SSE toast fires but data requires manual refresh        | watch   |
+
+> Add entries as friction surfaces. Resolve `open` items promptly; promote
+> `watch` items to `open` if they cause real friction.
 
 ---
 

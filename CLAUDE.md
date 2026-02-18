@@ -85,7 +85,7 @@ app/
 │   ├── recipe-*.tsx     # Recipe cards, form, match cards, selector
 │   ├── recipe-action-bar.tsx        # Unified desktop+mobile action bar
 │   ├── recipe-cooking-log-entry.tsx # Cooking log entry card
-│   ├── recipe-i-made-this-modal.tsx # "I Made This" modal
+│   ├── recipe-i-made-this-modal.tsx # "I Made This" modal + post-cook review
 │   ├── recipe-ingredient-list.tsx   # Ingredient list + substitutions
 │   ├── recipe-instructions-list.tsx # Instructions with step checkboxes
 │   ├── recipe-metadata-card.tsx     # Prep/cook/source metadata card
@@ -166,7 +166,7 @@ tests/
   - `app/components/recipe-instructions-list.tsx` - Step cross-off with
     substitution text replacement
   - `app/components/recipe-i-made-this-modal.tsx` - Cook logging +
-    inventory subtraction preview
+    inventory subtraction preview + post-cook review (skipped item chips)
   - `app/components/recipe-cooking-log-entry.tsx` - Cooking history cards
   - `app/components/recipe-metadata-card.tsx` - Prep/cook time + source URL
 - `app/utils/recipe-detail.ts` - Shared types (`SubtractionPreviewData`,
@@ -201,6 +201,9 @@ list, subtraction, or JSON-LD.
 - `app/routes/inventory/$id.edit.tsx` - Edit/delete inventory item
 - `app/utils/inventory-validation.ts` - Zod schemas
 - `app/utils/inventory-subtract.server.ts` - Post-cooking inventory subtraction
+  with skip tracking (no-quantity and incompatible-units reasons)
+- `app/routes/resources/inventory-remove.tsx` - Lightweight POST-only delete for
+  post-cook review step (mark skipped items as used up)
 
 **Normalization Pipeline** (`recipe-matching.server.ts`): ~40 modifier
 strippers, ~25 synonym groups, pluralization, compound ingredient protection

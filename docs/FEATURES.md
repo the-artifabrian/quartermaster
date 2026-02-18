@@ -38,7 +38,9 @@ Complete feature catalog. For the roadmap, see
 - AI recipe generation from inventory (Pro): pick meal type, generates a recipe
   from current inventory (prioritizing expiring items). Preview before saving,
   "AI Generated" badge on saved recipes
-- "I Made This" cook logging with inventory impact preview
+- "I Made This" cook logging with inventory impact preview (shows what will be
+  subtracted, what won't auto-adjust with reasons, and post-cook review step
+  for marking skipped items as used up)
 - Inline inventory status on recipe detail ingredient list: summary footer shows
   "You have X/Y ingredients" with "Add N missing to Shopping List" button
 - "Last cooked" stats on recipe cards (cook count + relative time)
@@ -86,7 +88,8 @@ Complete feature catalog. For the roadmap, see
   uncovered items shown prominently with "Find recipes" CTA). Per-item dismiss
   via localStorage (keyed by item ID + expiry date, resets if expiry changes)
 - Automatic inventory subtraction after cooking (cross-system unit conversion,
-  feedback toast). Incompatible unit types flag as low stock
+  feedback toast). Items with no tracked quantity or incompatible units are
+  reported as skipped (with reason) — surfaced in toasts and post-cook review
 
 ## Meal Planning & Shopping
 
@@ -96,10 +99,10 @@ Complete feature catalog. For the roadmap, see
   placeholders), multiple recipes per slot
 - Per-entry serving size overrides with +/- controls
 - Mark meals as "cooked" with optimistic toggle; quick "I made this" one-tap
-  action (logs cook + subtracts inventory)
+  action (logs cook + subtracts inventory, skipped items shown in toast)
 - Uncooked meal reminders: site-wide banner for planned-but-uncooked meals from
   today or yesterday (time-of-day gated). 1-tap "Yes, I made it" (cook log +
-  inventory subtraction) or "Skip" (session dismiss)
+  inventory subtraction + skipped item toast) or "Skip" (session dismiss)
 - "Up next" banner (current week): next chronological meal to cook today with
   time-of-day awareness. Empty state suggests a favorite with one-tap add
 - Copy week to next week (preserves servings, skips duplicates)

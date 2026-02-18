@@ -64,8 +64,15 @@ export function UncookedMealReminder() {
 			if (inventorySummary.removed.length > 0) {
 				parts.push(`Removed: ${inventorySummary.removed.join(', ')}`)
 			}
-			if (inventorySummary.flaggedLow.length > 0) {
-				parts.push(`Low stock: ${inventorySummary.flaggedLow.join(', ')}`)
+			if (inventorySummary.skipped.length > 0) {
+				const names = inventorySummary.skipped.map((s) => s.name)
+				if (names.length <= 3) {
+					parts.push(`Skipped: ${names.join(', ')}`)
+				} else {
+					parts.push(
+						`Skipped: ${names.slice(0, 3).join(', ')} +${names.length - 3} more`,
+					)
+				}
 			}
 			toast.success(`Marked "${recipeTitle}" as cooked`, {
 				description:

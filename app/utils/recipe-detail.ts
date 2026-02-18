@@ -8,9 +8,9 @@ export type SubtractionPreviewData = {
 		subtractAmount: number | null
 		newQuantity: number | null
 		willBeRemoved: boolean
-		willBeFlaggedLow: boolean
 	}>
 	noMatch: string[]
+	willSkip: Array<{ name: string; reason: 'no_quantity' | 'incompatible_units' }>
 }
 
 export type AppliedSubstitution = {

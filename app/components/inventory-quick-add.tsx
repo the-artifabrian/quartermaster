@@ -34,15 +34,15 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 		fetcher.data?.status === 'duplicate_warning' && name === lastWarningName
 
 	// Track which name triggered the warning so editing dismisses it
-	if (fetcher.data?.status === 'duplicate_warning' && lastWarningName !== name) {
+	if (
+		fetcher.data?.status === 'duplicate_warning' &&
+		lastWarningName !== name
+	) {
 		setLastWarningName(name)
 	}
 
 	// Reset form after success or merge
-	if (
-		fetcher.data?.status === 'success' ||
-		fetcher.data?.status === 'merged'
-	) {
+	if (fetcher.data?.status === 'success' || fetcher.data?.status === 'merged') {
 		if (name || quantity || unit) {
 			setName('')
 			setQuantity('')
@@ -60,7 +60,7 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 		if (quantity) formData.set('quantity', quantity)
 		if (unit) formData.set('unit', unit)
 		formData.set('force', force)
-		fetcher.submit(formData, { method: 'POST' })
+		void fetcher.submit(formData, { method: 'POST' })
 	}
 
 	if (!isOpen) {
@@ -144,9 +144,8 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 			{isDuplicateWarning && fetcher.data?.existingItem && (
 				<div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-800 dark:bg-amber-950/40">
 					<p className="text-sm text-amber-800 dark:text-amber-300">
-						You already have{' '}
-						<strong>{fetcher.data.existingItem.name}</strong> in the{' '}
-						{fetcher.data.existingItem.location}
+						You already have <strong>{fetcher.data.existingItem.name}</strong>{' '}
+						in the {fetcher.data.existingItem.location}
 						{fetcher.data.existingItem.quantity
 							? ` (${fetcher.data.existingItem.quantity}${fetcher.data.existingItem.unit ? ` ${fetcher.data.existingItem.unit}` : ''})`
 							: ''}

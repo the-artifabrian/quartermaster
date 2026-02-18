@@ -6,10 +6,16 @@ import {
 } from './recipe-matching.server.ts'
 import { normalizeUnit, getUnitFamily } from './unit-conversion.ts'
 
+export type SkipReason = 'no_quantity' | 'incompatible_units'
+
 export type SubtractionSummary = {
 	removed: string[]
-	flaggedLow: string[]
 	updated: string[]
+	skipped: Array<{
+		name: string
+		inventoryItemId: string
+		reason: SkipReason
+	}>
 }
 
 /**
@@ -23,10 +29,9 @@ export type SubtractionSummary = {
  * - Find a matching inventory item
  * - If both have numeric quantities with compatible units, subtract
  * - If the inventory quantity drops to 0 or below, delete the item
- * - If units are incompatible but name matches, flag as low stock
- * - If quantities are missing, skip silently
+ * - If units are incompatible or quantities are missing, report as skipped
  *
- * Returns a summary of what changed.
+ * Returns a summary of what changed, including skipped items with reasons.
  */
 export async function subtractRecipeIngredientsFromInventory(
 	recipeId: string,
@@ -38,15 +43,15 @@ export async function subtractRecipeIngredientsFromInventory(
 		include: { ingredients: true },
 	})
 
-	if (!recipe) return { removed: [], flaggedLow: [], updated: [] }
+	if (!recipe) return { removed: [], updated: [], skipped: [] }
 
 	const inventoryItems = await prisma.inventoryItem.findMany({
 		where: { householdId },
 	})
 
 	const removed: string[] = []
-	const flaggedLow: string[] = []
 	const updated: string[] = []
+	const skipped: SubtractionSummary['skipped'] = []
 
 	for (const ingredient of recipe.ingredients) {
 		if (ingredient.isHeading) continue
@@ -57,13 +62,13 @@ export async function subtractRecipeIngredientsFromInventory(
 		)
 		if (!match) continue
 
-		// If inventory has no tracked quantity, just flag as low stock
+		// If inventory has no tracked quantity, report as skipped
 		if (match.quantity === null) {
-			await prisma.inventoryItem.update({
-				where: { id: match.id },
-				data: { lowStock: true },
+			skipped.push({
+				name: match.name,
+				inventoryItemId: match.id,
+				reason: 'no_quantity',
 			})
-			flaggedLow.push(match.name)
 			continue
 		}
 
@@ -123,15 +128,15 @@ export async function subtractRecipeIngredientsFromInventory(
 			}
 		}
 
-		// Units are incompatible but name matched — flag as low stock
-		await prisma.inventoryItem.update({
-			where: { id: match.id },
-			data: { lowStock: true },
+		// Units are incompatible but name matched — report as skipped
+		skipped.push({
+			name: match.name,
+			inventoryItemId: match.id,
+			reason: 'incompatible_units',
 		})
-		flaggedLow.push(match.name)
 	}
 
-	return { removed, flaggedLow, updated }
+	return { removed, updated, skipped }
 }
 
 export type SubtractionPreview = {
@@ -142,9 +147,9 @@ export type SubtractionPreview = {
 		subtractAmount: number | null
 		newQuantity: number | null
 		willBeRemoved: boolean
-		willBeFlaggedLow: boolean
 	}>
 	noMatch: string[]
+	willSkip: Array<{ name: string; reason: SkipReason }>
 }
 
 /**
@@ -161,7 +166,7 @@ export async function previewInventorySubtraction(
 		include: { ingredients: true },
 	})
 
-	if (!recipe) return { willSubtract: [], noMatch: [] }
+	if (!recipe) return { willSubtract: [], noMatch: [], willSkip: [] }
 
 	const inventoryItems = await prisma.inventoryItem.findMany({
 		where: { householdId },
@@ -169,6 +174,7 @@ export async function previewInventorySubtraction(
 
 	const willSubtract: SubtractionPreview['willSubtract'] = []
 	const noMatch: string[] = []
+	const willSkip: SubtractionPreview['willSkip'] = []
 
 	for (const ingredient of recipe.ingredients) {
 		if (ingredient.isHeading) continue
@@ -182,17 +188,9 @@ export async function previewInventorySubtraction(
 			continue
 		}
 
-		// If inventory has no tracked quantity, will be flagged as low stock
+		// If inventory has no tracked quantity, report as willSkip
 		if (match.quantity === null) {
-			willSubtract.push({
-				name: match.name,
-				currentQuantity: null,
-				currentUnit: match.unit,
-				subtractAmount: null,
-				newQuantity: null,
-				willBeRemoved: false,
-				willBeFlaggedLow: true,
-			})
+			willSkip.push({ name: match.name, reason: 'no_quantity' })
 			continue
 		}
 
@@ -215,7 +213,6 @@ export async function previewInventorySubtraction(
 				subtractAmount: scaledAmount,
 				newQuantity: newQuantity <= 0 ? 0 : newQuantity,
 				willBeRemoved: newQuantity <= 0,
-				willBeFlaggedLow: false,
 			})
 			continue
 		}
@@ -240,23 +237,14 @@ export async function previewInventorySubtraction(
 					subtractAmount: ingredientInInventoryUnit,
 					newQuantity: newQuantity <= 0 ? 0 : newQuantity,
 					willBeRemoved: newQuantity <= 0,
-					willBeFlaggedLow: false,
-				})
+					})
 				continue
 			}
 		}
 
-		// Units are incompatible but name matched — show as flagged low
-		willSubtract.push({
-			name: match.name,
-			currentQuantity: match.quantity,
-			currentUnit: match.unit,
-			subtractAmount: null,
-			newQuantity: null,
-			willBeRemoved: false,
-			willBeFlaggedLow: true,
-		})
+		// Units are incompatible but name matched — report as willSkip
+		willSkip.push({ name: match.name, reason: 'incompatible_units' })
 	}
 
-	return { willSubtract, noMatch }
+	return { willSubtract, noMatch, willSkip }
 }

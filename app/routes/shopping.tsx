@@ -554,7 +554,7 @@ export default function ShoppingListRoute({
 										<select
 											value={selectedWeek}
 											onChange={(e) => setSelectedWeek(e.target.value)}
-											className="border-input bg-background hidden h-9 rounded-md border px-2 text-sm sm:block"
+											className="border-input bg-background h-9 rounded-md border px-2 text-sm"
 										>
 											{weeksWithPlans.map((week) => (
 												<option key={week.weekStart} value={week.weekStart}>
@@ -567,17 +567,7 @@ export default function ShoppingListRoute({
 									<Button
 										type="submit"
 										variant="outline"
-										size="icon"
-										className="sm:hidden"
-										aria-label="Generate from meal plan"
-									>
-										<Icon name="update" size="sm" />
-									</Button>
-									<Button
-										type="submit"
-										variant="outline"
 										size="sm"
-										className="hidden sm:inline-flex"
 									>
 										<Icon name="update" size="sm" />
 										Generate

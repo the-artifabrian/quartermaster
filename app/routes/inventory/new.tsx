@@ -1,12 +1,21 @@
-import { getFormProps, getInputProps, useForm } from '@conform-to/react'
+import {
+	getFormProps,
+	getInputProps,
+	useForm,
+	type Submission,
+} from '@conform-to/react'
 import { parseWithZod } from '@conform-to/zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Form, data, redirect } from 'react-router'
+import { Form, data, redirect, useActionData } from 'react-router'
 import { Field, CheckboxField } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
+import {
+	findMatchingInventoryItem,
+	buildMergeData,
+} from '#app/utils/inventory-dedup.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	getInventoryUsage,
@@ -20,6 +29,21 @@ import {
 	LOCATION_LABELS,
 } from '#app/utils/inventory-validation.ts'
 import { type Route } from './+types/new.ts'
+
+type DuplicateWarning = {
+	existingId: string
+	existingName: string
+	existingLocation: string
+	existingQuantity: number | null
+	existingUnit: string | null
+}
+
+type ActionData = {
+	result: Submission<unknown>['reply'] extends (...args: any[]) => infer R
+		? R
+		: never
+	duplicateWarning?: DuplicateWarning
+}
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
@@ -62,6 +86,62 @@ export async function action({ request }: Route.ActionArgs) {
 		return data({ result: submission.reply() }, { status: 400 })
 	}
 
+	const force = formData.get('force')
+
+	// Check for duplicates unless force is set
+	if (!force) {
+		const existingItems = await prisma.inventoryItem.findMany({
+			where: { householdId, location: submission.value.location },
+		})
+		const match = findMatchingInventoryItem(
+			submission.value.name,
+			submission.value.location,
+			existingItems,
+		)
+		if (match) {
+			return data({
+				result: submission.reply(),
+				duplicateWarning: {
+					existingId: match.id,
+					existingName: match.name,
+					existingLocation: match.location,
+					existingQuantity: match.quantity,
+					existingUnit: match.unit,
+				},
+			})
+		}
+	}
+
+	if (force === 'merge') {
+		const existingItems = await prisma.inventoryItem.findMany({
+			where: { householdId, location: submission.value.location },
+		})
+		const match = findMatchingInventoryItem(
+			submission.value.name,
+			submission.value.location,
+			existingItems,
+		)
+		if (match) {
+			const mergeData = buildMergeData(
+				match,
+				submission.value.quantity,
+				submission.value.unit,
+				submission.value.expiresAt,
+			)
+			if (Object.keys(mergeData).length > 0) {
+				await prisma.inventoryItem.update({
+					where: { id: match.id },
+					data: mergeData,
+				})
+			}
+			return redirectWithToast('/inventory', {
+				type: 'success',
+				description: `Merged into existing ${match.name}`,
+			})
+		}
+	}
+
+	// force === 'add' or no duplicate found — create normally
 	await prisma.inventoryItem.create({
 		data: {
 			...submission.value,
@@ -84,8 +164,13 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function NewInventoryItem() {
+	const rawActionData = useActionData<typeof action>()
+	const actionData = rawActionData as ActionData | undefined
+	const duplicateWarning = actionData?.duplicateWarning ?? null
+
 	const [form, fields] = useForm({
 		id: 'new-inventory-item',
+		lastResult: actionData?.result,
 		defaultValue: {
 			lowStock: false,
 		},
@@ -106,6 +191,105 @@ export default function NewInventoryItem() {
 				</Button>
 				<h1 className="text-2xl font-bold">Add Inventory Item</h1>
 			</div>
+
+			{duplicateWarning && (
+				<div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-800 dark:bg-amber-950/40">
+					<p className="text-sm text-amber-800 dark:text-amber-300">
+						You already have{' '}
+						<strong>{duplicateWarning.existingName}</strong> in the{' '}
+						{duplicateWarning.existingLocation}
+						{duplicateWarning.existingQuantity
+							? ` (${duplicateWarning.existingQuantity}${duplicateWarning.existingUnit ? ` ${duplicateWarning.existingUnit}` : ''})`
+							: ''}
+						.
+					</p>
+					<div className="mt-3 flex gap-2">
+						<Form method="POST">
+							{/* Re-send all form values with force=merge */}
+							<input
+								type="hidden"
+								name="name"
+								value={fields.name.value ?? ''}
+							/>
+							<input
+								type="hidden"
+								name="location"
+								value={fields.location.value ?? ''}
+							/>
+							<input
+								type="hidden"
+								name="quantity"
+								value={fields.quantity.value ?? ''}
+							/>
+							<input
+								type="hidden"
+								name="unit"
+								value={fields.unit.value ?? ''}
+							/>
+							<input
+								type="hidden"
+								name="expiresAt"
+								value={fields.expiresAt.value ?? ''}
+							/>
+							<input
+								type="hidden"
+								name="lowStock"
+								value={fields.lowStock.value ?? ''}
+							/>
+							<input type="hidden" name="force" value="merge" />
+							<Button
+								type="submit"
+								size="sm"
+								variant="outline"
+								className="border-amber-300 bg-amber-100/50 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/50"
+							>
+								Update existing
+							</Button>
+						</Form>
+						<Form method="POST">
+							<input
+								type="hidden"
+								name="name"
+								value={fields.name.value ?? ''}
+							/>
+							<input
+								type="hidden"
+								name="location"
+								value={fields.location.value ?? ''}
+							/>
+							<input
+								type="hidden"
+								name="quantity"
+								value={fields.quantity.value ?? ''}
+							/>
+							<input
+								type="hidden"
+								name="unit"
+								value={fields.unit.value ?? ''}
+							/>
+							<input
+								type="hidden"
+								name="expiresAt"
+								value={fields.expiresAt.value ?? ''}
+							/>
+							<input
+								type="hidden"
+								name="lowStock"
+								value={fields.lowStock.value ?? ''}
+							/>
+							<input type="hidden" name="force" value="add" />
+							<Button
+								type="submit"
+								size="sm"
+								variant="ghost"
+								className="text-amber-700 dark:text-amber-400"
+							>
+								Add anyway
+							</Button>
+						</Form>
+					</div>
+				</div>
+			)}
 
 			<Form method="POST" {...getFormProps(form)}>
 				<div className="space-y-4">

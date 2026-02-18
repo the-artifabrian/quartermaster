@@ -24,6 +24,10 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import {
+	findMatchingInventoryItem,
+	buildMergeData,
+} from '#app/utils/inventory-dedup.server.ts'
 import { ingredientMatchesInventoryItem } from '#app/utils/recipe-matching.server.ts'
 import {
 	getInventoryUsage,
@@ -175,6 +179,60 @@ export async function action({ request }: Route.ActionArgs) {
 			return { status: 'error' as const, submission: submission.reply() }
 		}
 
+		const force = formData.get('force')
+
+		// Check for duplicates unless force is set
+		if (!force) {
+			const existingItems = await prisma.inventoryItem.findMany({
+				where: { householdId, location: submission.value.location },
+			})
+			const match = findMatchingInventoryItem(
+				submission.value.name,
+				submission.value.location,
+				existingItems,
+			)
+			if (match) {
+				return {
+					status: 'duplicate_warning' as const,
+					existingItem: {
+						id: match.id,
+						name: match.name,
+						location: match.location,
+						quantity: match.quantity,
+						unit: match.unit,
+					},
+				}
+			}
+		}
+
+		if (force === 'merge') {
+			// Find the existing item and merge into it
+			const existingItems = await prisma.inventoryItem.findMany({
+				where: { householdId, location: submission.value.location },
+			})
+			const match = findMatchingInventoryItem(
+				submission.value.name,
+				submission.value.location,
+				existingItems,
+			)
+			if (match) {
+				const mergeData = buildMergeData(
+					match,
+					submission.value.quantity,
+					submission.value.unit,
+					submission.value.expiresAt,
+				)
+				if (Object.keys(mergeData).length > 0) {
+					await prisma.inventoryItem.update({
+						where: { id: match.id },
+						data: mergeData,
+					})
+				}
+				return { status: 'merged' as const, mergedInto: match.name }
+			}
+		}
+
+		// force === 'add' or no duplicate found — create normally
 		await prisma.inventoryItem.create({
 			data: {
 				...submission.value,
@@ -231,28 +289,72 @@ export async function action({ request }: Route.ActionArgs) {
 			return { status: 'error' as const, message: 'Free plan limit reached' }
 		}
 
-		await prisma.$transaction(
-			items.map((item) =>
-				prisma.inventoryItem.create({
-					data: {
-						name: item.name,
-						location: item.location,
-						userId,
-						householdId,
-					},
-				}),
-			),
-		)
+		// Load existing items for dedup; track in-place for intra-batch dedup
+		const existingItems = await prisma.inventoryItem.findMany({
+			where: { householdId },
+		})
+		const trackingItems = [...existingItems]
+
+		const toCreate: typeof items = []
+		let skippedCount = 0
+
+		for (const item of items) {
+			const match = findMatchingInventoryItem(
+				item.name,
+				item.location,
+				trackingItems,
+			)
+			if (match) {
+				skippedCount++
+			} else {
+				toCreate.push(item)
+				// Add to tracking so subsequent items in the batch can detect it
+				trackingItems.push({
+					id: `pending-${toCreate.length}`,
+					name: item.name,
+					location: item.location,
+					quantity: null,
+					unit: null,
+					expiresAt: null,
+					lowStock: false,
+					userId,
+					householdId,
+					createdAt: new Date(),
+					updatedAt: new Date(),
+				})
+			}
+		}
+
+		if (toCreate.length > 0) {
+			await prisma.$transaction(
+				toCreate.map((item) =>
+					prisma.inventoryItem.create({
+						data: {
+							name: item.name,
+							location: item.location,
+							userId,
+							householdId,
+						},
+					}),
+				),
+			)
+		}
 
 		const location = items[0]?.location ?? 'pantry'
-		void emitHouseholdEvent({
-			type: 'inventory_items_bulk_added',
-			payload: { count: items.length, location },
-			userId,
-			householdId,
-		})
+		if (toCreate.length > 0) {
+			void emitHouseholdEvent({
+				type: 'inventory_items_bulk_added',
+				payload: { count: toCreate.length, location },
+				userId,
+				householdId,
+			})
+		}
 
-		return { status: 'success' as const }
+		return {
+			status: 'success' as const,
+			createdCount: toCreate.length,
+			skippedCount,
+		}
 	}
 
 	if (intent === 'delete') {

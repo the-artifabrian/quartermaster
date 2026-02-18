@@ -1,6 +1,10 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import {
+	findMatchingInventoryItem,
+	buildMergeData,
+} from '#app/utils/inventory-dedup.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { parseAmount } from '#app/utils/fractions.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
@@ -66,25 +70,73 @@ export async function action({ request }: Route.ActionArgs) {
 		(i) => itemMap.get(i.itemId)!.category === 'household',
 	)
 
-	const operations = [
-		// Create inventory items for food only
-		...foodItems.map((item) => {
-			const shoppingItem = itemMap.get(item.itemId)!
-			const quantity = shoppingItem.quantity
-				? parseAmount(shoppingItem.quantity)
-				: null
-			return prisma.inventoryItem.create({
+	// Load existing inventory for dedup
+	const existingInventory = await prisma.inventoryItem.findMany({
+		where: { householdId },
+	})
+	const trackingItems = [...existingInventory]
+
+	const creates: Array<Parameters<typeof prisma.inventoryItem.create>[0]> = []
+	// Accumulate merges per inventory item to avoid redundant updates
+	const updateMap = new Map<string, Record<string, unknown>>()
+	let mergedCount = 0
+
+	for (const item of foodItems) {
+		const shoppingItem = itemMap.get(item.itemId)!
+		const quantity = shoppingItem.quantity
+			? parseAmount(shoppingItem.quantity)
+			: null
+		const expiresAt = parseExpiresAt(item.expiresAt)
+
+		const match = findMatchingInventoryItem(
+			shoppingItem.name,
+			item.location,
+			trackingItems,
+		)
+
+		if (match) {
+			const mergeData = buildMergeData(match, quantity, shoppingItem.unit, expiresAt)
+			// Always clear lowStock — buying from shopping list means restocked
+			mergeData.lowStock = false
+			// Update tracking item in-place so subsequent matches see accumulated state
+			Object.assign(match, mergeData)
+			// Store only the latest accumulated state per item
+			updateMap.set(match.id, { ...mergeData })
+			mergedCount++
+		} else {
+			creates.push({
 				data: {
 					name: shoppingItem.name,
 					location: item.location,
 					quantity,
 					unit: shoppingItem.unit,
-					expiresAt: parseExpiresAt(item.expiresAt),
+					expiresAt,
 					userId,
 					householdId,
 				},
 			})
-		}),
+			// Add to tracking for intra-batch dedup
+			trackingItems.push({
+				id: `pending-${creates.length}`,
+				name: shoppingItem.name,
+				location: item.location,
+				quantity,
+				unit: shoppingItem.unit,
+				expiresAt,
+				lowStock: false,
+				userId,
+				householdId,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			})
+		}
+	}
+
+	const operations = [
+		...creates.map((c) => prisma.inventoryItem.create(c)),
+		...[...updateMap.entries()].map(([id, data]) =>
+			prisma.inventoryItem.update({ where: { id }, data }),
+		),
 		// Delete all checked items from shopping list (both food and household)
 		prisma.shoppingListItem.deleteMany({
 			where: {
@@ -97,15 +149,20 @@ export async function action({ request }: Route.ActionArgs) {
 
 	void emitHouseholdEvent({
 		type: 'shopping_list_to_inventory',
-		payload: { count: foodItems.length },
+		payload: { count: creates.length + mergedCount },
 		userId,
 		householdId,
 	})
 
 	const parts: string[] = []
-	if (foodItems.length > 0) {
+	if (creates.length > 0) {
 		parts.push(
-			`${foodItems.length} item${foodItems.length !== 1 ? 's' : ''} added to inventory`,
+			`${creates.length} item${creates.length !== 1 ? 's' : ''} added to inventory`,
+		)
+	}
+	if (mergedCount > 0) {
+		parts.push(
+			`${mergedCount} merged with existing`,
 		)
 	}
 	if (householdItems.length > 0) {

@@ -5,11 +5,13 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { generateTOTP } from '#app/utils/totp.server.ts'
+import { type SettingsPageHandle } from '../../profile/_layout.tsx'
 import { type Route } from './+types/index.ts'
 import { twoFAVerificationType } from './_layout.tsx'
 import { twoFAVerifyVerificationType } from './verify.tsx'
 
-export const handle: SEOHandle = {
+export const handle: SettingsPageHandle & SEOHandle = {
+	pageTitle: 'Two-Factor Auth',
 	getSitemapEntries: () => null,
 }
 

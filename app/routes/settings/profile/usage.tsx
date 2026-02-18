@@ -23,7 +23,6 @@ export default function UsageStats({ loaderData }: Route.ComponentProps) {
 		uniqueRecipesCooked,
 		mostCookedRecipe,
 		mealPlanWeekCount,
-		avgEfficiency,
 		pairingAssignments,
 		discoverViews,
 		surpriseMeUses,
@@ -68,10 +67,6 @@ export default function UsageStats({ loaderData }: Route.ComponentProps) {
 				</h3>
 				<div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
 					<StatCard label="Weeks planned" value={mealPlanWeekCount} />
-					<StatCard
-						label="Avg efficiency"
-						value={avgEfficiency !== null ? `${avgEfficiency}%` : '--'}
-					/>
 					<StatCard label="Pairing selections" value={pairingAssignments} />
 				</div>
 			</div>

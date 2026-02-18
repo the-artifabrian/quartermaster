@@ -226,7 +226,7 @@ detail. The `/discover` route redirects to
 
 - `app/routes/plan/index.tsx` - Weekly calendar (Mon-Sun, 4 meal types/day),
   per-entry serving overrides, cook toggle, "Up next" banner, pairing
-  suggestions, waste alerts, efficiency dashboard. Action handles 5 intents:
+  suggestions, waste alerts. Action handles 5 intents:
   assign, updateServings, toggleCooked, remove, quickCook
 - `app/routes/resources/meal-plan-copy-week.tsx` - Copy week entries +7 days
 - `app/routes/resources/meal-plan-templates.tsx` - Template save/apply/delete
@@ -242,7 +242,7 @@ detail. The `/discover` route redirects to
 - `app/routes/plan/shopping-list.tsx` - Redirect to `/shopping`
 - `app/utils/shopping-list.server.ts` - Shopping list generation logic
 - `app/utils/ingredient-overlap.server.ts` - Pairwise overlap scoring for
-  pairing suggestions and efficiency stats
+  pairing suggestions and waste alerts
 - `app/utils/unit-conversion.ts` - Unit conversion across merged US/metric
   families (volume: ml↔tsp↔tbsp↔cup↔l, weight: g↔oz↔lb↔kg)
 

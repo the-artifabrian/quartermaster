@@ -8,7 +8,6 @@ export async function getUsageStats(userId: string, householdId: string) {
 		cookCount,
 		mealPlanWeekCount,
 		eventCounts,
-		efficiencySnapshots,
 		pairingCount,
 		mostCookedRaw,
 		uniqueRecipesCooked,
@@ -22,16 +21,6 @@ export async function getUsageStats(userId: string, householdId: string) {
 			by: ['type'],
 			where: { householdId, createdAt: { gte: ninetyDaysAgo } },
 			_count: { id: true },
-		}),
-		prisma.usageEvent.findMany({
-			where: {
-				householdId,
-				type: 'efficiency_snapshot',
-				createdAt: { gte: ninetyDaysAgo },
-			},
-			orderBy: { createdAt: 'desc' },
-			take: 30,
-			select: { payload: true, createdAt: true },
 		}),
 		prisma.usageEvent.count({
 			where: {
@@ -52,28 +41,6 @@ export async function getUsageStats(userId: string, householdId: string) {
 			where: { userId },
 		}),
 	])
-
-	// Parse efficiency snapshots
-	const parsedSnapshots = efficiencySnapshots
-		.map((s) => {
-			try {
-				return JSON.parse(s.payload) as { efficiencyPct?: number }
-			} catch {
-				return {}
-			}
-		})
-		.filter(
-			(s): s is { efficiencyPct: number } =>
-				typeof s.efficiencyPct === 'number',
-		)
-
-	const avgEfficiency =
-		parsedSnapshots.length > 0
-			? Math.round(
-					parsedSnapshots.reduce((sum, s) => sum + s.efficiencyPct, 0) /
-						parsedSnapshots.length,
-				)
-			: null
 
 	// Count distinct weeks from pairing events
 	const pairingEvents = await prisma.usageEvent.findMany({
@@ -120,13 +87,11 @@ export async function getUsageStats(userId: string, householdId: string) {
 		uniqueRecipesCooked: uniqueRecipesCooked.length,
 		mostCookedRecipe,
 		mealPlanWeekCount,
-		avgEfficiency,
 		pairingAssignments: pairingCount,
 		weeksWithPairings: pairingWeeks.size,
 		discoverViews: eventCountMap['discover_viewed'] ?? 0,
 		surpriseMeUses: eventCountMap['surprise_me'] ?? 0,
 		whatDoINeedUses: eventCountMap['what_do_i_need'] ?? 0,
 		eventCounts: eventCountMap,
-		efficiencySnapshots: parsedSnapshots,
 	}
 }

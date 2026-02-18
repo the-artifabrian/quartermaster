@@ -25,10 +25,6 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import {
-	analyzeIngredientOverlap,
-	generateWasteAlerts,
-} from '#app/utils/ingredient-overlap.server.ts'
 import { subtractRecipeIngredientsFromInventory } from '#app/utils/inventory-subtract.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
 import { trackEvent } from '#app/utils/usage-tracking.server.ts'
@@ -100,90 +96,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 	})
 
 	const weekDays = getWeekDays(weekStart)
-
-	// Compute overlap stats and recipe suggestions when 2+ unique recipes planned
-	let overlapSummary: {
-		efficiencyPct: number
-		sharedCount: number
-		suggestions: Array<{
-			id: string
-			title: string
-			sharedCount: number
-			ingredients: string[]
-		}>
-	} | null = null
-
-	if (mealPlan.entries.length >= 2) {
-		const plannedRecipes = mealPlan.entries.map((e) => e.recipe)
-		const uniquePlanned = [
-			...new Map(plannedRecipes.map((r) => [r.id, r])).values(),
-		]
-
-		if (uniquePlanned.length >= 2) {
-			// Only load all recipes with ingredients when overlap analysis is needed
-			const recipesWithIngredients = await prisma.recipe.findMany({
-				where: { householdId },
-				include: { ingredients: true },
-			})
-
-			const overlap = analyzeIngredientOverlap(uniquePlanned)
-			const alerts = generateWasteAlerts(uniquePlanned, recipesWithIngredients)
-
-			// Aggregate suggestions by recipe, ranked by shared ingredient count
-			const recipeMap = new Map<
-				string,
-				{ title: string; ingredients: Set<string> }
-			>()
-			for (const alert of alerts) {
-				for (const recipe of alert.suggestedRecipes) {
-					const existing = recipeMap.get(recipe.id)
-					if (existing) {
-						existing.ingredients.add(alert.ingredientName)
-					} else {
-						recipeMap.set(recipe.id, {
-							title: recipe.title,
-							ingredients: new Set([alert.ingredientName]),
-						})
-					}
-				}
-			}
-
-			const suggestions = [...recipeMap.entries()]
-				.map(([id, { title, ingredients }]) => ({
-					id,
-					title,
-					sharedCount: ingredients.size,
-					ingredients: [...ingredients],
-				}))
-				.sort((a, b) => b.sharedCount - a.sharedCount)
-				.slice(0, 3)
-
-			overlapSummary = {
-				efficiencyPct: Math.round((1 - overlap.efficiencyScore) * 100),
-				sharedCount: overlap.sharedIngredients.size,
-				suggestions,
-			}
-
-			// Deduplicate: only snapshot once per household per week
-			const weekKey = serializeDate(weekStart)
-			const existing = await prisma.usageEvent.findFirst({
-				where: {
-					householdId,
-					type: 'efficiency_snapshot',
-					payload: { contains: weekKey },
-				},
-				select: { id: true },
-			})
-			if (!existing) {
-				void trackEvent(userId, householdId, 'efficiency_snapshot', {
-					efficiencyPct: overlapSummary.efficiencyPct,
-					sharedCount: overlapSummary.sharedCount,
-					recipeCount: uniquePlanned.length,
-					weekStart: weekKey,
-				})
-			}
-		}
-	}
 
 	// Tonight banner data (only for current week)
 	const isCurrentWeek =
@@ -287,7 +199,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		recipes,
 		weekDays,
 		weekStart: serializeDate(weekStart),
-		overlapSummary,
 		tonightData,
 		templates,
 	}
@@ -508,7 +419,6 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 		recipes,
 		weekDays,
 		weekStart,
-		overlapSummary,
 		tonightData,
 		templates,
 	} = loaderData
@@ -602,37 +512,6 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 							suggestion={tonightData.suggestion}
 						/>
 					)}
-
-				{/* Overlap summary + recipe suggestions */}
-				{overlapSummary && (
-					<div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-						<span className="bg-accent text-accent-foreground inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium">
-							<Icon name="cookie" size="xs" />
-							{overlapSummary.efficiencyPct}% overlap &middot;{' '}
-							{overlapSummary.sharedCount} shared ingredients
-						</span>
-						{overlapSummary.suggestions.length > 0 && (
-							<span className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
-								Pairs well:
-								{overlapSummary.suggestions.map((s, i) => (
-									<span key={s.id}>
-										<Link
-											to={`/recipes/${s.id}`}
-											className="text-foreground underline decoration-dotted underline-offset-2"
-										>
-											{s.title}
-										</Link>
-										<span className="text-muted-foreground">
-											{' '}
-											({s.sharedCount})
-										</span>
-										{i < overlapSummary.suggestions.length - 1 && ', '}
-									</span>
-								))}
-							</span>
-						)}
-					</div>
-				)}
 
 				{/* Empty State Guidance */}
 				{entries.length === 0 && (

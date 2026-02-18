@@ -7,7 +7,12 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
-import { requireProTier } from '#app/utils/subscription.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import {
+	getInventoryUsage,
+	getUserTier,
+} from '#app/utils/subscription.server.ts'
+import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
@@ -25,12 +30,30 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	await requireProTier(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { isProActive } = await getUserTier(userId)
+	const usage = await getInventoryUsage(householdId, isProActive)
+	if (usage.isAtLimit) {
+		throw await redirectWithToast('/inventory', {
+			type: 'message',
+			title: 'Free plan limit reached',
+			description: `You can have up to ${usage.limit} items on the free plan. Upgrade to Pro for unlimited inventory.`,
+		})
+	}
 	return {}
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireProTier(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { isProActive } = await getUserTier(userId)
+	const usage = await getInventoryUsage(householdId, isProActive)
+	if (usage.isAtLimit) {
+		throw await redirectWithToast('/inventory', {
+			type: 'message',
+			title: 'Free plan limit reached',
+			description: `You can have up to ${usage.limit} items on the free plan.`,
+		})
+	}
 	const formData = await request.formData()
 
 	const submission = parseWithZod(formData, { schema: InventoryItemSchema })

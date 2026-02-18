@@ -69,7 +69,7 @@ export const handlers: Array<HttpHandler> = [
 				data: [
 					{
 						price: {
-							id: 'price_mock_pro_monthly',
+							id: 'price_mock_pro_yearly',
 							product: 'prod_mock_pro',
 						},
 						current_period_end: periodEnd,

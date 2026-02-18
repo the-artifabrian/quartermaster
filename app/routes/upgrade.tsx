@@ -1,7 +1,6 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useState } from 'react'
 import { data, Form, Link, redirect, useFetcher } from 'react-router'
 import { ErrorList } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -9,7 +8,6 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { RedeemCodeSchema } from '#app/utils/invite-code-status.ts'
-import { cn } from '#app/utils/misc.tsx'
 import {
 	createCheckoutSession,
 	getStripeClient,
@@ -79,14 +77,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 	return {
 		tierInfo,
 		stripeConfigured,
-		prices: stripeConfigured
-			? {
-					proMonthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID!,
-					proYearly: process.env.STRIPE_PRO_YEARLY_PRICE_ID!,
-					householdMonthly:
-						process.env.STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID ?? null,
-					householdYearly: process.env.STRIPE_HOUSEHOLD_YEARLY_PRICE_ID ?? null,
-				}
+		proYearlyPriceId: stripeConfigured
+			? process.env.STRIPE_PRO_YEARLY_PRICE_ID!
 			: null,
 	}
 }
@@ -126,71 +118,31 @@ export async function action({ request }: Route.ActionArgs) {
 	return data({ error: 'Invalid intent' }, { status: 400 })
 }
 
-const tierDefinitions = [
-	{
-		key: 'free' as const,
-		name: 'Free',
-		monthlyPrice: 0,
-		yearlyPrice: 0,
-		description: 'A complete recipe manager',
-		features: [
-			'Unlimited recipes',
-			'Import from URL or paste',
-			'Interactive cooking view',
-			'Cooking log & history',
-			'Recipe sharing & print',
-			'Data export',
-		],
-	},
-	{
-		key: 'pro' as const,
-		name: 'Pro',
-		monthlyPrice: 5,
-		yearlyPrice: 49,
-		description: 'The full kitchen intelligence loop',
-		features: [
-			'Everything in Free',
-			'Inventory tracking',
-			'Smart recipe matching',
-			'Meal planning calendar',
-			'Shopping list generation',
-			'Post-cook inventory subtraction',
-			'"What do I need?" checklist',
-			'Expiring ingredient alerts',
-		],
-		highlighted: true,
-	},
-	{
-		key: 'household' as const,
-		name: 'Household',
-		monthlyPrice: 7,
-		yearlyPrice: 69,
-		description: 'Pro for the whole household',
-		features: [
-			'Everything in Pro',
-			'Shared recipes & inventory',
-			'Shared meal plans',
-			'Real-time activity feed',
-			'Multiple household members',
-		],
-	},
+const freeFeatures = [
+	'Unlimited recipes',
+	'Import from URL or paste',
+	'Interactive cooking view',
+	'Cooking log & history',
+	'Recipe sharing & print',
+	'Data export',
+]
+
+const proFeatures = [
+	'Everything in Free, plus:',
+	'Inventory tracking',
+	'Smart recipe matching',
+	'Meal planning calendar',
+	'Shopping list generation',
+	'Post-cook inventory subtraction',
+	'Household sharing',
+	'AI substitution hints',
 ]
 
 export default function UpgradePage({ loaderData }: Route.ComponentProps) {
-	const { tierInfo, stripeConfigured, prices } = loaderData
-	const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>(
-		'yearly',
-	)
-
-	const currentTierKey =
-		tierInfo.isProActive && tierInfo.tier !== 'free'
-			? tierInfo.tier
-			: tierInfo.isProActive
-				? 'pro'
-				: 'free'
+	const { tierInfo, stripeConfigured, proYearlyPriceId } = loaderData
 
 	return (
-		<div className="container max-w-5xl px-4 py-8 md:py-12">
+		<div className="container max-w-3xl px-4 py-8 md:py-12">
 			{!tierInfo.isProActive && tierInfo.wasProPreviously ? (
 				<div className="bg-card border-border mx-auto mb-8 max-w-2xl rounded-2xl border p-6 text-center">
 					<Icon
@@ -225,108 +177,71 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					</p>
 				) : tierInfo.isProActive ? (
 					<p className="text-primary mt-2 text-sm font-medium">
-						You&apos;re on the {tierInfo.tier} plan
+						You&apos;re on the Pro plan
 					</p>
 				) : null}
 			</div>
 
-			{stripeConfigured ? (
-				<div className="mb-8 flex justify-center">
-					<div className="bg-muted inline-flex rounded-full p-1">
-						<button
-							type="button"
-							onClick={() => setBillingPeriod('monthly')}
-							className={cn(
-								'rounded-full px-4 py-1.5 text-sm font-medium transition-all',
-								billingPeriod === 'monthly'
-									? 'bg-card text-foreground shadow-sm'
-									: 'text-muted-foreground',
-							)}
-						>
-							Monthly
-						</button>
-						<button
-							type="button"
-							onClick={() => setBillingPeriod('yearly')}
-							className={cn(
-								'rounded-full px-4 py-1.5 text-sm font-medium transition-all',
-								billingPeriod === 'yearly'
-									? 'bg-card text-foreground shadow-sm'
-									: 'text-muted-foreground',
-							)}
-						>
-							Yearly
-							<span className="text-primary ml-1 text-xs font-bold">
-								Save 18%
-							</span>
-						</button>
+			<div className="grid gap-6 md:grid-cols-2">
+				{/* Free tier */}
+				<div className="bg-card rounded-2xl border p-6">
+					<div className="mb-4">
+						<h2 className="text-xl font-semibold">Free</h2>
+						<p className="text-muted-foreground mt-1 text-sm">
+							A complete recipe manager
+						</p>
+						<p className="mt-3 text-2xl font-bold">$0</p>
+					</div>
+					<ul className="space-y-2">
+						{freeFeatures.map((feature) => (
+							<li key={feature} className="flex items-start gap-2 text-sm">
+								<Icon
+									name="check"
+									size="sm"
+									className="text-primary mt-0.5 shrink-0"
+								/>
+								{feature}
+							</li>
+						))}
+					</ul>
+					<div className="mt-6">
+						<Button variant="outline" className="w-full" disabled>
+							Current Plan
+						</Button>
 					</div>
 				</div>
-			) : null}
 
-			<div className="grid gap-6 md:grid-cols-3">
-				{tierDefinitions.map((tier) => {
-					const isCurrent = currentTierKey === tier.key
-					const price =
-						billingPeriod === 'monthly' ? tier.monthlyPrice : tier.yearlyPrice
-					const priceLabel =
-						tier.key === 'free'
-							? '$0'
-							: billingPeriod === 'monthly'
-								? `$${price}/mo`
-								: `$${price}/yr`
-
-					let priceId: string | null = null
-					if (prices && tier.key === 'pro') {
-						priceId =
-							billingPeriod === 'monthly' ? prices.proMonthly : prices.proYearly
-					} else if (prices && tier.key === 'household') {
-						priceId =
-							billingPeriod === 'monthly'
-								? prices.householdMonthly
-								: prices.householdYearly
-					}
-
-					return (
-						<div
-							key={tier.key}
-							className={cn(
-								'bg-card rounded-2xl border p-6',
-								tier.highlighted && 'border-primary ring-primary/20 ring-2',
-							)}
-						>
-							<div className="mb-4">
-								<h2 className="text-xl font-semibold">{tier.name}</h2>
-								<p className="text-muted-foreground mt-1 text-sm">
-									{tier.description}
-								</p>
-								<p className="mt-3 text-2xl font-bold">{priceLabel}</p>
-							</div>
-							<ul className="space-y-2">
-								{tier.features.map((feature) => (
-									<li key={feature} className="flex items-start gap-2 text-sm">
-										<Icon
-											name="check"
-											size="sm"
-											className="text-primary mt-0.5 shrink-0"
-										/>
-										{feature}
-									</li>
-								))}
-							</ul>
-							<div className="mt-6">
-								<TierButton
-									tierKey={tier.key}
-									isCurrent={isCurrent}
-									isHighlighted={tier.highlighted ?? false}
-									priceId={priceId}
-									stripeConfigured={stripeConfigured}
-									hasStripeSubscription={tierInfo.hasStripeSubscription}
+				{/* Pro tier */}
+				<div className="border-primary ring-primary/20 bg-card rounded-2xl border p-6 ring-2">
+					<div className="mb-4">
+						<h2 className="text-xl font-semibold">Pro</h2>
+						<p className="text-muted-foreground mt-1 text-sm">
+							The full kitchen intelligence loop
+						</p>
+						<p className="mt-3 text-2xl font-bold">
+							$35<span className="text-muted-foreground text-sm font-normal">/yr</span>
+						</p>
+					</div>
+					<ul className="space-y-2">
+						{proFeatures.map((feature) => (
+							<li key={feature} className="flex items-start gap-2 text-sm">
+								<Icon
+									name="check"
+									size="sm"
+									className="text-primary mt-0.5 shrink-0"
 								/>
-							</div>
-						</div>
-					)
-				})}
+								{feature}
+							</li>
+						))}
+					</ul>
+					<div className="mt-6">
+						<ProButton
+							tierInfo={tierInfo}
+							stripeConfigured={stripeConfigured}
+							proYearlyPriceId={proYearlyPriceId}
+						/>
+					</div>
+				</div>
 			</div>
 
 			{!tierInfo.isProActive ? <InviteCodeSection /> : null}
@@ -343,23 +258,17 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 	)
 }
 
-function TierButton({
-	tierKey,
-	isCurrent,
-	isHighlighted,
-	priceId,
+function ProButton({
+	tierInfo,
 	stripeConfigured,
-	hasStripeSubscription,
+	proYearlyPriceId,
 }: {
-	tierKey: string
-	isCurrent: boolean
-	isHighlighted: boolean
-	priceId: string | null
+	tierInfo: TierInfo
 	stripeConfigured: boolean
-	hasStripeSubscription: boolean
+	proYearlyPriceId: string | null
 }) {
-	if (isCurrent) {
-		if (hasStripeSubscription) {
+	if (tierInfo.isProActive) {
+		if (tierInfo.hasStripeSubscription) {
 			return (
 				<Form method="POST" action="/resources/stripe-portal">
 					<Button variant="outline" className="w-full">
@@ -375,52 +284,33 @@ function TierButton({
 		)
 	}
 
-	if (tierKey === 'free') {
-		return (
-			<Button variant="outline" className="w-full" disabled>
-				Current Plan
-			</Button>
-		)
-	}
-
-	// For paid tiers: if user has existing Stripe subscription, show manage button
-	if (hasStripeSubscription) {
+	// If user has an existing (possibly lapsed) Stripe subscription, show manage
+	if (tierInfo.hasStripeSubscription) {
 		return (
 			<Form method="POST" action="/resources/stripe-portal">
-				<Button
-					variant={isHighlighted ? 'default' : 'outline'}
-					className="w-full"
-				>
+				<Button variant="default" className="w-full">
 					Manage Subscription
 				</Button>
 			</Form>
 		)
 	}
 
-	// Show checkout button if Stripe is configured and we have a price ID
-	if (stripeConfigured && priceId) {
+	// Show checkout button if Stripe is configured
+	if (stripeConfigured && proYearlyPriceId) {
 		return (
 			<Form method="POST">
 				<input type="hidden" name="intent" value="checkout" />
-				<input type="hidden" name="priceId" value={priceId} />
-				<Button
-					type="submit"
-					variant={isHighlighted ? 'default' : 'outline'}
-					className="w-full"
-				>
+				<input type="hidden" name="priceId" value={proYearlyPriceId} />
+				<Button type="submit" variant="default" className="w-full">
 					Subscribe
 				</Button>
 			</Form>
 		)
 	}
 
-	// Stripe not configured — show disabled button
+	// Stripe not configured
 	return (
-		<Button
-			variant={isHighlighted ? 'default' : 'outline'}
-			className="w-full"
-			disabled
-		>
+		<Button variant="default" className="w-full" disabled>
 			Coming Soon
 		</Button>
 	)

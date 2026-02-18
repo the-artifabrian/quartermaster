@@ -24,7 +24,11 @@ function getInitialState(): CheckedState {
 	return state
 }
 
-export function PantryStaplesOnboarding() {
+export function PantryStaplesOnboarding({
+	maxItems,
+}: {
+	maxItems?: number
+}) {
 	const [checked, setChecked] = useState<CheckedState>(getInitialState)
 	const fetcher = useFetcher()
 	const isSubmitting = fetcher.state !== 'idle'
@@ -75,12 +79,15 @@ export function PantryStaplesOnboarding() {
 
 	const selectedItems = getSelectedItems()
 	const totalSelected = selectedItems.length
+	const overLimit = maxItems !== undefined && totalSelected > maxItems
 
 	function handleSubmit() {
 		if (totalSelected === 0) return
+		const itemsToSubmit =
+			maxItems !== undefined ? selectedItems.slice(0, maxItems) : selectedItems
 		const formData = new FormData()
 		formData.set('intent', 'bulk-create')
-		formData.set('items', JSON.stringify(selectedItems))
+		formData.set('items', JSON.stringify(itemsToSubmit))
 		void fetcher.submit(formData, { method: 'POST' })
 	}
 
@@ -148,9 +155,23 @@ export function PantryStaplesOnboarding() {
 			</div>
 
 			<div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-				<p className="text-muted-foreground text-sm">
-					{totalSelected} item{totalSelected !== 1 ? 's' : ''} selected
-				</p>
+				<div>
+					<p className="text-muted-foreground text-sm">
+						{totalSelected} item{totalSelected !== 1 ? 's' : ''} selected
+						{maxItems !== undefined && ` (max ${maxItems} on free plan)`}
+					</p>
+					{overLimit && (
+						<p className="text-sm text-amber-600 dark:text-amber-400">
+							Only the first {maxItems} items will be added.{' '}
+							<a
+								href="/upgrade"
+								className="font-medium underline underline-offset-2"
+							>
+								Upgrade for unlimited
+							</a>
+						</p>
+					)}
+				</div>
 				<div className="flex gap-3">
 					<Button variant="ghost" asChild>
 						<a href="/inventory/new">Skip, add manually</a>

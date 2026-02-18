@@ -38,7 +38,7 @@ const navItems: NavItem[] = [
 	},
 ]
 
-const PRO_PATHS = new Set(['/inventory', '/plan', '/shopping'])
+const PRO_PATHS = new Set(['/plan', '/shopping'])
 
 export function BottomNav() {
 	const location = useLocation()

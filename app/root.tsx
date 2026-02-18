@@ -389,13 +389,6 @@ function App() {
 												}
 											>
 												Inventory
-												{!isPro && (
-													<Icon
-														name="lock-closed"
-														size="xs"
-														className="ml-1 inline opacity-40"
-													/>
-												)}
 											</NavLink>
 											<NavLink
 												to="/plan"

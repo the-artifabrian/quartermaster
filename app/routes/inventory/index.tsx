@@ -23,8 +23,12 @@ import {
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { ingredientMatchesInventoryItem } from '#app/utils/recipe-matching.server.ts'
-import { requireProTier } from '#app/utils/subscription.server.ts'
+import {
+	getInventoryUsage,
+	getUserTier,
+} from '#app/utils/subscription.server.ts'
 import {
 	InventoryItemLocationSchema,
 	InventoryItemNameSchema,
@@ -42,7 +46,9 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { householdId } = await requireProTier(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { isProActive } = await getUserTier(userId)
+	const inventoryUsage = await getInventoryUsage(householdId, isProActive)
 	const url = new URL(request.url)
 	const location = url.searchParams.get('location') ?? ''
 
@@ -147,15 +153,23 @@ export async function loader({ request }: Route.LoaderArgs) {
 		expiringSoonCount,
 		lowStockCount,
 		urgentExpiringItems,
+		inventoryUsage,
+		isProActive,
 	}
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireProTier(request)
+	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { isProActive } = await getUserTier(userId)
 	const formData = await request.formData()
 	const intent = formData.get('intent')
 
 	if (intent === 'create') {
+		const usage = await getInventoryUsage(householdId, isProActive)
+		if (usage.isAtLimit) {
+			return { status: 'error' as const, message: 'Free plan limit reached' }
+		}
+
 		const submission = parseWithZod(formData, { schema: InventoryItemSchema })
 		if (submission.status !== 'success') {
 			return { status: 'error' as const, submission: submission.reply() }
@@ -183,6 +197,7 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	if (intent === 'bulk-create') {
+		const usage = await getInventoryUsage(householdId, isProActive)
 		const itemsJson = formData.get('items')
 		invariantResponse(typeof itemsJson === 'string', 'Items are required')
 
@@ -206,7 +221,15 @@ export async function action({ request }: Route.ActionArgs) {
 		if (!parsed.success) {
 			return { status: 'error' as const }
 		}
-		const items = parsed.data
+		// Truncate to remaining slots for free users
+		const items =
+			usage.remaining !== null
+				? parsed.data.slice(0, usage.remaining)
+				: parsed.data
+
+		if (items.length === 0) {
+			return { status: 'error' as const, message: 'Free plan limit reached' }
+		}
 
 		await prisma.$transaction(
 			items.map((item) =>
@@ -281,6 +304,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		expiringSoonCount,
 		lowStockCount,
 		urgentExpiringItems,
+		inventoryUsage,
 	} = loaderData
 
 	const [search, setSearch] = useState('')
@@ -301,7 +325,9 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	if (totalItemCount === 0) {
 		return (
 			<div className="container py-6 pb-20 md:pb-6">
-				<PantryStaplesOnboarding />
+				<PantryStaplesOnboarding
+					maxItems={inventoryUsage.limit ?? undefined}
+				/>
 			</div>
 		)
 	}
@@ -350,12 +376,18 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						</span>
 					</h1>
 					<div className="flex gap-2">
-						<Button asChild>
-							<Link to="/inventory/new">
-								<Icon name="plus" size="sm" />
-								Add Item
-							</Link>
-						</Button>
+						{inventoryUsage.isAtLimit ? (
+							<Button asChild>
+								<Link to="/upgrade">Upgrade to Pro</Link>
+							</Button>
+						) : (
+							<Button asChild>
+								<Link to="/inventory/new">
+									<Icon name="plus" size="sm" />
+									Add Item
+								</Link>
+							</Button>
+						)}
 					</div>
 				</div>
 			</div>
@@ -399,11 +431,68 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						</span>
 						<span className="text-muted-foreground text-xs">Low Stock</span>
 					</div>
-					<div className="bg-card flex flex-1 flex-col items-center rounded-xl border p-3 text-center">
-						<span className="text-2xl font-bold">{totalItemCount}</span>
-						<span className="text-muted-foreground text-xs">Total Items</span>
-					</div>
+					{inventoryUsage.limit !== null ? (
+						<div
+							className={cn(
+								'bg-card flex flex-1 flex-col items-center rounded-xl border p-3 text-center',
+								inventoryUsage.isAtLimit &&
+									'border-amber-200 dark:border-amber-800',
+							)}
+						>
+							<span
+								className={cn(
+									'text-2xl font-bold',
+									inventoryUsage.isAtLimit
+										? 'text-amber-600 dark:text-amber-400'
+										: 'text-foreground',
+								)}
+							>
+								{inventoryUsage.count} / {inventoryUsage.limit}
+							</span>
+							<span className="text-muted-foreground text-xs">
+								Free Items
+							</span>
+							<div className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full">
+								<div
+									className={cn(
+										'h-full rounded-full transition-all',
+										inventoryUsage.isAtLimit
+											? 'bg-amber-500'
+											: 'bg-primary',
+									)}
+									style={{
+										width: `${Math.min(100, (inventoryUsage.count / inventoryUsage.limit) * 100)}%`,
+									}}
+								/>
+							</div>
+						</div>
+					) : (
+						<div className="bg-card flex flex-1 flex-col items-center rounded-xl border p-3 text-center">
+							<span className="text-2xl font-bold">{totalItemCount}</span>
+							<span className="text-muted-foreground text-xs">
+								Total Items
+							</span>
+						</div>
+					)}
 				</div>
+
+				{/* Free plan limit banner */}
+				{inventoryUsage.isAtLimit && (
+					<div className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/30 sm:flex-row sm:items-center sm:justify-between">
+						<div>
+							<p className="font-medium text-amber-900 dark:text-amber-200">
+								Free plan limit reached
+							</p>
+							<p className="text-sm text-amber-700 dark:text-amber-400">
+								Upgrade to Pro for unlimited inventory, meal planning,
+								and shopping lists.
+							</p>
+						</div>
+						<Button asChild size="sm" className="shrink-0">
+							<Link to="/upgrade">Upgrade to Pro</Link>
+						</Button>
+					</div>
+				)}
 
 				{/* Urgent Expiring Items Callout */}
 				<ExpiringItemsCallout
@@ -438,7 +527,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 				</div>
 
 				{/* Quick Add */}
-				{showingLocation && (
+				{showingLocation && !inventoryUsage.isAtLimit && (
 					<div className="mb-6">
 						<InventoryQuickAdd location={showingLocation} />
 					</div>

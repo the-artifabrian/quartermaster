@@ -25,10 +25,7 @@ const schema = z.object({
 	// Stripe (all optional — app runs without Stripe in invite-code-only mode)
 	STRIPE_SECRET_KEY: z.string().optional(),
 	STRIPE_WEBHOOK_SECRET: z.string().optional(),
-	STRIPE_PRO_MONTHLY_PRICE_ID: z.string().optional(),
 	STRIPE_PRO_YEARLY_PRICE_ID: z.string().optional(),
-	STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID: z.string().optional(),
-	STRIPE_HOUSEHOLD_YEARLY_PRICE_ID: z.string().optional(),
 
 	// Tigris Object Storage Configuration
 	AWS_ACCESS_KEY_ID: z.string(),

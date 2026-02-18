@@ -482,12 +482,7 @@ function DeleteData() {
 }
 
 function SubscriptionCard({ tierInfo }: { tierInfo: TierInfo }) {
-	const tierLabel =
-		tierInfo.tier === 'household'
-			? 'Household'
-			: tierInfo.tier === 'pro'
-				? 'Pro'
-				: 'Free'
+	const tierLabel = tierInfo.tier === 'pro' ? 'Pro' : 'Free'
 
 	const daysLeftBadge =
 		tierInfo.daysUntilExpiry !== null && tierInfo.daysUntilExpiry <= 14 ? (

@@ -1,6 +1,33 @@
 import { prisma } from './db.server.ts'
 import { requireUserWithHousehold } from './household.server.ts'
 import { redirectWithToast } from './toast.server.ts'
+import { FREE_INVENTORY_LIMIT } from './subscription.ts'
+
+export { FREE_INVENTORY_LIMIT }
+
+export type InventoryUsage = {
+	count: number
+	limit: number | null
+	remaining: number | null
+	isAtLimit: boolean
+}
+
+export async function getInventoryUsage(
+	householdId: string,
+	isProActive: boolean,
+): Promise<InventoryUsage> {
+	const count = await prisma.inventoryItem.count({ where: { householdId } })
+	if (isProActive) {
+		return { count, limit: null, remaining: null, isAtLimit: false }
+	}
+	const remaining = Math.max(0, FREE_INVENTORY_LIMIT - count)
+	return {
+		count,
+		limit: FREE_INVENTORY_LIMIT,
+		remaining,
+		isAtLimit: remaining === 0,
+	}
+}
 
 export type TierInfo = {
 	tier: string
@@ -51,7 +78,7 @@ export async function getUserTier(userId: string): Promise<TierInfo> {
 
 	// Pro is active if paid tier is not expired, OR trial is active
 	const isPaidActive =
-		(subscription.tier === 'pro' || subscription.tier === 'household') &&
+		subscription.tier === 'pro' &&
 		(subscription.subscriptionExpiresAt === null ||
 			subscription.subscriptionExpiresAt > now)
 

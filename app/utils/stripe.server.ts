@@ -23,23 +23,17 @@ export function getStripeClient(): Stripe | null {
 export function isStripeConfigured(): boolean {
 	return Boolean(
 		process.env.STRIPE_SECRET_KEY &&
-		process.env.STRIPE_PRO_MONTHLY_PRICE_ID &&
 		process.env.STRIPE_PRO_YEARLY_PRICE_ID,
 	)
 }
 
 /**
  * Maps a Stripe Price ID to a subscription tier.
+ * All Stripe subscriptions map to 'pro' (single paid tier).
  */
 export function getSubscriptionTierFromPriceId(
-	priceId: string,
-): 'pro' | 'household' {
-	if (
-		priceId === process.env.STRIPE_HOUSEHOLD_MONTHLY_PRICE_ID ||
-		priceId === process.env.STRIPE_HOUSEHOLD_YEARLY_PRICE_ID
-	) {
-		return 'household'
-	}
+	_priceId: string,
+): 'pro' {
 	return 'pro'
 }
 
@@ -223,7 +217,7 @@ export async function handleInvoicePaid(
 
 /**
  * Handles customer.subscription.updated webhook event.
- * Syncs tier changes (upgrade/downgrade between Pro and Household).
+ * Syncs tier and period end from Stripe.
  */
 export async function handleSubscriptionUpdated(
 	subscription: Stripe.Subscription,

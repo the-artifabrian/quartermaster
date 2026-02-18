@@ -30,6 +30,7 @@ The app is feature-complete for solo and shared daily use.
 | AI integration     | Ingredient substitutions (static DB + LLM), recipe generation from inventory, recipe metadata enhance |
 | Inventory drift    | Uncooked meal reminders, smarter expiring-items callout                                  |
 | UX review          | Recipes page simplification — match stats in filter bar, grid visible without scrolling  |
+| UX debt cleanup    | Recipe detail extraction (1640→590 lines, 7 components), resource route extraction (plan 9→5 intents, shopping 9→8), Quick Add open by default |
 
 ---
 
@@ -160,33 +161,13 @@ trigger becomes "I want more than 15 items" rather than "I have to pay to try."
 - `app/components/nav-links.tsx` — unlock inventory tab for free tier (keep
   lock on plan/shopping until upgrade)
 
-### 2. UX debt cleanup
+### 2. ~~UX debt cleanup~~ ✓
 
-**Impact:** High — affects daily use quality.
-
-These affect every session. More impactful than onboarding nudges for testers
-who are already past onboarding.
-
-- **Shopping list Quick Add collapsed by default** — adding items is the primary
-  action but requires a click to access
-- **Recipe detail is 1500+ lines** — modal, ingredient list, cooking history,
-  and mobile action bar all inline. Extract to components
-- **Large action handlers** — `shopping.tsx` and `plan/index.tsx` each have 9
-  intents. Consider extracting to resource routes
-
-### 3. Implement merged single tier
-
-**Impact:** Medium — resolved decision, just needs implementation.
-
-Collapse Pro + Household into one paid tier. Annual-only at launch.
-
-**Files:**
-
-- `prisma/schema.prisma` — remove `household` tier enum value
-- `app/utils/subscription.server.ts` — simplify tier checks
-- `app/routes/upgrade.tsx` — single pricing card, remove billing toggle
-- `app/routes/admin/subscriptions.tsx` — update admin UI
-- Stripe Dashboard — archive Household prices, remove monthly Price IDs
+Completed. Quick Add now open by default. Recipe detail route extracted from
+1,640 → 590 lines (7 new component files + shared utils). Plan action reduced
+from 9 → 5 intents (copy week, templates extracted to resource routes). Shopping
+action reduced from 9 → 8 intents (add-to-inventory extracted to resource
+route).
 
 ---
 
@@ -237,7 +218,7 @@ are proven in daily use — the marketing pitch needs to be real first.
 
 ### UX
 
-Promoted to [Strategic Priority #2](#2-ux-debt-cleanup).
+Resolved — see [Strategic Priority #2](#2-ux-debt-cleanup-).
 
 ### Technical
 
@@ -319,4 +300,4 @@ requests them.
 
 ---
 
-_Last updated: February 17, 2026._
+_Last updated: February 18, 2026._

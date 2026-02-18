@@ -3,6 +3,7 @@ import {
 	normalizeUnit,
 	getUnitFamily,
 	convertAndSum,
+	isCountUnit,
 } from './unit-conversion.ts'
 
 describe('normalizeUnit', () => {
@@ -20,6 +21,11 @@ describe('normalizeUnit', () => {
 		expect(normalizeUnit('milliliters')).toBe('ml')
 		expect(normalizeUnit('liters')).toBe('l')
 		expect(normalizeUnit('litres')).toBe('l')
+	})
+
+	test('normalizes gallon aliases', () => {
+		expect(normalizeUnit('gallons')).toBe('gallon')
+		expect(normalizeUnit('gal')).toBe('gallon')
 	})
 
 	test('passes through unknown units', () => {
@@ -65,6 +71,13 @@ describe('getUnitFamily', () => {
 	test('returns null for unknown units', () => {
 		expect(getUnitFamily('cloves')).toBeNull()
 		expect(getUnitFamily('bunch')).toBeNull()
+	})
+
+	test('finds gallon in volume family', () => {
+		const gallon = getUnitFamily('gallon')
+		expect(gallon).not.toBeNull()
+		expect(gallon!.family.name).toBe('volume')
+		expect(gallon!.factor).toBeCloseTo(3785.41)
 	})
 })
 
@@ -195,5 +208,26 @@ describe('convertAndSum', () => {
 		const oz = getUnitFamily('oz')
 		const g = getUnitFamily('g')
 		expect(oz!.family.name).toBe(g!.family.name)
+	})
+})
+
+describe('isCountUnit', () => {
+	test('empty string is a count unit', () => {
+		expect(isCountUnit('')).toBe(true)
+	})
+
+	test('count-like units are recognized', () => {
+		expect(isCountUnit('count')).toBe(true)
+		expect(isCountUnit('each')).toBe(true)
+		expect(isCountUnit('whole')).toBe(true)
+		expect(isCountUnit('piece')).toBe(true)
+		expect(isCountUnit('pieces')).toBe(true)
+	})
+
+	test('measurement units are not count units', () => {
+		expect(isCountUnit('cup')).toBe(false)
+		expect(isCountUnit('tsp')).toBe(false)
+		expect(isCountUnit('g')).toBe(false)
+		expect(isCountUnit('lb')).toBe(false)
 	})
 })

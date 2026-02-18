@@ -41,6 +41,29 @@ describe('parseAmount', () => {
 	test('handles whitespace', () => {
 		expect(parseAmount('  3  ')).toBe(3)
 	})
+
+	test('parses standalone unicode fractions', () => {
+		expect(parseAmount('½')).toBe(0.5)
+		expect(parseAmount('⅓')).toBeCloseTo(1 / 3)
+		expect(parseAmount('⅔')).toBeCloseTo(2 / 3)
+		expect(parseAmount('¼')).toBe(0.25)
+		expect(parseAmount('¾')).toBe(0.75)
+		expect(parseAmount('⅛')).toBe(0.125)
+		expect(parseAmount('⅜')).toBe(0.375)
+		expect(parseAmount('⅝')).toBe(0.625)
+		expect(parseAmount('⅞')).toBe(0.875)
+	})
+
+	test('parses mixed unicode fractions (no space)', () => {
+		expect(parseAmount('1½')).toBe(1.5)
+		expect(parseAmount('2¾')).toBe(2.75)
+		expect(parseAmount('3⅓')).toBeCloseTo(3 + 1 / 3)
+	})
+
+	test('parses mixed unicode fractions (with space)', () => {
+		expect(parseAmount('1 ½')).toBe(1.5)
+		expect(parseAmount('2 ¼')).toBe(2.25)
+	})
 })
 
 describe('formatAmount', () => {

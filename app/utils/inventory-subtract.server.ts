@@ -4,7 +4,7 @@ import {
 	ingredientMatchesInventoryItem,
 	isStapleIngredient,
 } from './recipe-matching.server.ts'
-import { normalizeUnit, getUnitFamily } from './unit-conversion.ts'
+import { normalizeUnit, getUnitFamily, isCountUnit } from './unit-conversion.ts'
 
 export type SkipReason = 'no_quantity' | 'incompatible_units'
 
@@ -83,8 +83,11 @@ export async function subtractRecipeIngredientsFromInventory(
 		const ingredientUnit = ingredient.unit ? normalizeUnit(ingredient.unit) : ''
 		const inventoryUnit = match.unit ? normalizeUnit(match.unit) : ''
 
-		// Same unit after normalization — subtract directly
-		if (ingredientUnit === inventoryUnit) {
+		// Same unit after normalization, or both are count-like — subtract directly
+		if (
+			ingredientUnit === inventoryUnit ||
+			(isCountUnit(ingredientUnit) && isCountUnit(inventoryUnit))
+		) {
 			const newQuantity = match.quantity - scaledAmount
 			if (newQuantity <= 0) {
 				await prisma.inventoryItem.delete({ where: { id: match.id } })
@@ -203,8 +206,11 @@ export async function previewInventorySubtraction(
 		const ingredientUnit = ingredient.unit ? normalizeUnit(ingredient.unit) : ''
 		const inventoryUnit = match.unit ? normalizeUnit(match.unit) : ''
 
-		// Same unit after normalization
-		if (ingredientUnit === inventoryUnit) {
+		// Same unit after normalization, or both are count-like — subtract directly
+		if (
+			ingredientUnit === inventoryUnit ||
+			(isCountUnit(ingredientUnit) && isCountUnit(inventoryUnit))
+		) {
 			const newQuantity = match.quantity - scaledAmount
 			willSubtract.push({
 				name: match.name,

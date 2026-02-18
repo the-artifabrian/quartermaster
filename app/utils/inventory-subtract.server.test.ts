@@ -342,6 +342,48 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		})
 	})
 
+	test('subtracts unitless recipe ingredient from count-unit inventory', async () => {
+		const user = await setupUser()
+		const recipe = await setupRecipe(user.id, user.householdId, [
+			{ name: 'eggs', amount: '3' },
+		])
+		await setupInventory(user.id, user.householdId, [
+			{ name: 'eggs', quantity: 12, unit: 'count' },
+		])
+
+		const summary = await subtractRecipeIngredientsFromInventory(
+			recipe.id,
+			user.householdId,
+		)
+
+		const item = await prisma.inventoryItem.findFirst({
+			where: { householdId: user.householdId, name: 'eggs' },
+		})
+		expect(item!.quantity).toBe(9) // 12 - 3
+		expect(summary).toEqual({ updated: ['eggs'], removed: [], skipped: [] })
+	})
+
+	test('subtracts count-unit recipe ingredient from unitless inventory', async () => {
+		const user = await setupUser()
+		const recipe = await setupRecipe(user.id, user.householdId, [
+			{ name: 'lemons', amount: '2', unit: 'each' },
+		])
+		await setupInventory(user.id, user.householdId, [
+			{ name: 'lemons', quantity: 5 },
+		])
+
+		const summary = await subtractRecipeIngredientsFromInventory(
+			recipe.id,
+			user.householdId,
+		)
+
+		const item = await prisma.inventoryItem.findFirst({
+			where: { householdId: user.householdId, name: 'lemons' },
+		})
+		expect(item!.quantity).toBe(3) // 5 - 2
+		expect(summary).toEqual({ updated: ['lemons'], removed: [], skipped: [] })
+	})
+
 	test('nonexistent recipe is a no-op', async () => {
 		const user = await setupUser()
 		await setupInventory(user.id, user.householdId, [

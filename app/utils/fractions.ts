@@ -1,10 +1,41 @@
+/** Unicode fraction characters → numeric values */
+const UNICODE_FRACTIONS: Record<string, number> = {
+	'½': 1 / 2,
+	'⅓': 1 / 3,
+	'⅔': 2 / 3,
+	'¼': 1 / 4,
+	'¾': 3 / 4,
+	'⅛': 1 / 8,
+	'⅜': 3 / 8,
+	'⅝': 5 / 8,
+	'⅞': 7 / 8,
+}
+
+const UNICODE_FRACTION_PATTERN = /[½⅓⅔¼¾⅛⅜⅝⅞]/
+
 /**
  * Parse a string amount into a number.
- * Handles fractions ("1/2"), mixed numbers ("1 1/2"), and decimals ("1.5").
+ * Handles fractions ("1/2"), mixed numbers ("1 1/2"), decimals ("1.5"),
+ * unicode fractions ("½", "¾"), and mixed unicode ("1½", "1 ½").
  */
 export function parseAmount(amount: string): number | null {
 	const trimmed = amount.trim()
 	if (!trimmed) return null
+
+	// Unicode fraction (standalone): "½", "¾"
+	if (trimmed.length === 1 && UNICODE_FRACTIONS[trimmed] !== undefined) {
+		return UNICODE_FRACTIONS[trimmed]!
+	}
+
+	// Mixed unicode fraction: "1½", "1 ½", "2¾", "2 ¼"
+	if (UNICODE_FRACTION_PATTERN.test(trimmed)) {
+		const mixedUnicode = trimmed.match(/^(\d+)\s*([½⅓⅔¼¾⅛⅜⅝⅞])$/)
+		if (mixedUnicode) {
+			const whole = parseInt(mixedUnicode[1]!, 10)
+			const frac = UNICODE_FRACTIONS[mixedUnicode[2]!]
+			if (frac !== undefined) return whole + frac
+		}
+	}
 
 	// Mixed number: "1 1/2"
 	const mixedMatch = trimmed.match(/^(\d+)\s+(\d+)\/(\d+)$/)

@@ -1,5 +1,5 @@
 import { getCanonicalIngredientName } from './recipe-matching.server.ts'
-import { normalizeUnit, getUnitFamily } from './unit-conversion.ts'
+import { normalizeUnit, getUnitFamily, isCountUnit } from './unit-conversion.ts'
 
 type InventoryItemLike = {
 	id: string
@@ -55,11 +55,14 @@ export function buildMergeData(
 		} else {
 			const existingNormUnit = existing.unit
 				? normalizeUnit(existing.unit)
-				: null
-			const newNormUnit = newUnit ? normalizeUnit(newUnit) : null
+				: ''
+			const newNormUnit = newUnit ? normalizeUnit(newUnit) : ''
 
-			if (existingNormUnit === newNormUnit) {
-				// Same unit (or both null) — simple addition
+			if (
+				existingNormUnit === newNormUnit ||
+				(isCountUnit(existingNormUnit) && isCountUnit(newNormUnit))
+			) {
+				// Same unit, or both are count-like — simple addition
 				updates.quantity = existing.quantity + newQty
 			} else if (existingNormUnit && newNormUnit) {
 				// Try unit conversion
@@ -75,13 +78,12 @@ export function buildMergeData(
 					const newInBase = newQty * newFamily.factor
 					const newInExistingUnit =
 						newInBase / existingFamily.factor
-					updates.quantity = Math.round(
-						(existing.quantity + newInExistingUnit) * 100,
-					) / 100
-				} else {
-					// Incompatible units — just add the quantity as-is
-					updates.quantity = existing.quantity + newQty
+					updates.quantity =
+						Math.round(
+							(existing.quantity + newInExistingUnit) * 100,
+						) / 100
 				}
+				// Incompatible unit families — don't touch quantity (would produce garbage)
 			} else {
 				// One has a unit, the other doesn't — just add
 				updates.quantity = existing.quantity + newQty

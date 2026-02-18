@@ -65,4 +65,39 @@ describe('getStaticSubstitutions', () => {
 		const result = getStaticSubstitutions('dijon mustard')
 		expect(result).not.toBeNull()
 	})
+
+	test('returns substitutions for garlic', () => {
+		const result = getStaticSubstitutions('garlic')
+		expect(result).not.toBeNull()
+		expect(result!.some((s) => s.replacement === 'garlic powder')).toBe(true)
+	})
+
+	test('returns substitutions for ginger', () => {
+		const result = getStaticSubstitutions('ginger')
+		expect(result).not.toBeNull()
+		expect(result!.some((s) => s.replacement === 'ground ginger')).toBe(true)
+	})
+
+	test('returns substitutions for cinnamon', () => {
+		const result = getStaticSubstitutions('cinnamon')
+		expect(result).not.toBeNull()
+		expect(result!.some((s) => s.replacement === 'allspice')).toBe(true)
+	})
+
+	test('returns substitutions for ground beef', () => {
+		const result = getStaticSubstitutions('ground beef')
+		expect(result).not.toBeNull()
+		expect(result!.some((s) => s.replacement === 'ground turkey')).toBe(true)
+	})
+
+	test('returns substitutions for cheddar', () => {
+		const result = getStaticSubstitutions('cheddar')
+		expect(result).not.toBeNull()
+	})
+
+	test('returns substitutions for tofu', () => {
+		const result = getStaticSubstitutions('tofu')
+		expect(result).not.toBeNull()
+		expect(result!.some((s) => s.replacement === 'tempeh')).toBe(true)
+	})
 })

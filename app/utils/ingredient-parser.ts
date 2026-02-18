@@ -55,6 +55,8 @@ export const COMMON_UNITS = new Set([
 	'stalks',
 	'sprig',
 	'sprigs',
+	'stick',
+	'sticks',
 	'pinch',
 	'dash',
 	'handful',
@@ -68,12 +70,15 @@ export function parseIngredient(line: string): {
 	notes?: string
 	isHeading?: boolean
 } | null {
-	const cleaned = line
+	let cleaned = line
 		.replace(/^-\s*\[[ x]\]\s*/, '')
 		.replace(/\+\+\[([^\]]+)\]\([^)]+\)\+\+/g, '$1')
 		.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
 		.trim()
 	if (!cleaned) return null
+
+	// Strip "about"/"approximately" prefix: "about 2 cups flour" → "2 cups flour"
+	cleaned = cleaned.replace(/^(?:about|approximately)\s+/i, '')
 
 	// Handle "X to taste" pattern (without comma).
 	// Only match when not starting with a digit (avoids capturing "2 tsp salt to taste"
@@ -83,9 +88,16 @@ export function parseIngredient(line: string): {
 		return { name: toTasteMatch[1]!.trim(), notes: 'to taste' }
 	}
 
+	// Handle mixed unicode fractions with space: "1 ½ cups flour" → combine to "1½ cups flour"
+	// Must come before the main regex which would split "1" and "½" incorrectly
+	cleaned = cleaned.replace(
+		/^(\d+)\s+([½⅓⅔¼¾⅛⅜⅝⅞])/,
+		'$1$2',
+	)
+
 	// Handle "N (X unit) container name" → e.g. "1 (14.5 oz) can diced tomatoes"
 	const nestedMatch = cleaned.match(
-		/^([\d.\/\-–½⅓⅔¼¾⅛~]+)\s*\(([^)]+)\)\s*([a-zA-Z]+)\s+(.+)$/,
+		/^([\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞~]+)\s*\(([^)]+)\)\s*([a-zA-Z]+)\s+(.+)$/,
 	)
 	if (nestedMatch) {
 		const [, nestedAmount, parenthetical, possibleUnit, rest] = nestedMatch
@@ -103,7 +115,10 @@ export function parseIngredient(line: string): {
 
 	// Try to match: amount + optional unit + name
 	// Handle both "600 g broccoli" and "600g broccoli"
-	const match = cleaned.match(/^(~?[\d.\/\-–½⅓⅔¼¾⅛]+)\s*([a-zA-Z]+)?\s+(.+)$/)
+	// Unicode fractions (½⅓⅔¼¾⅛⅜⅝⅞) included in amount character class
+	const match = cleaned.match(
+		/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]+)\s*([a-zA-Z]+)?\s+(.+)$/,
+	)
 
 	if (match) {
 		const amount = match[1]
@@ -140,6 +155,13 @@ export function parseIngredient(line: string): {
 			const parts = name.split(',').map((s) => s.trim())
 			name = parts[0] || ''
 			notes = parts.slice(1).join(', ')
+		}
+
+		// Extract trailing "to taste" from name to notes
+		const toTasteSuffix = name.match(/^(.+?)\s+to\s+taste$/i)
+		if (toTasteSuffix) {
+			name = toTasteSuffix[1]!
+			notes = notes ? notes + ', to taste' : 'to taste'
 		}
 
 		return { name: name?.trim() || '', amount, unit, notes }

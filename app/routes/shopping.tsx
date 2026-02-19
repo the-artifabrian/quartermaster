@@ -329,6 +329,13 @@ export async function action({ request }: Route.ActionArgs) {
 			data: { checked: !item.checked },
 		})
 
+		void emitHouseholdEvent({
+			type: 'shopping_list_item_toggled',
+			payload: { name: item.name, checked: !item.checked },
+			userId,
+			householdId,
+		})
+
 		return { status: 'success' as const }
 	}
 
@@ -345,6 +352,13 @@ export async function action({ request }: Route.ActionArgs) {
 		invariantResponse(item, 'Item not found', { status: 404 })
 
 		await prisma.shoppingListItem.delete({ where: { id: itemId } })
+
+		void emitHouseholdEvent({
+			type: 'shopping_list_item_deleted',
+			payload: { name: item.name },
+			userId,
+			householdId,
+		})
 
 		return { status: 'success' as const }
 	}
@@ -375,6 +389,13 @@ export async function action({ request }: Route.ActionArgs) {
 				quantity: submission.value.quantity,
 				unit: submission.value.unit,
 			},
+		})
+
+		void emitHouseholdEvent({
+			type: 'shopping_list_item_edited',
+			payload: { name: submission.value.name },
+			userId,
+			householdId,
 		})
 
 		return { status: 'success' as const }
@@ -844,6 +865,9 @@ const SHOPPING_EVENT_TYPES = new Set([
 	'shopping_list_item_added',
 	'shopping_list_cleared',
 	'shopping_list_to_inventory',
+	'shopping_list_item_toggled',
+	'shopping_list_item_edited',
+	'shopping_list_item_deleted',
 ])
 
 function ShoppingListLiveRefresh() {

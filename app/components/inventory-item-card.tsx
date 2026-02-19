@@ -1,5 +1,5 @@
 import { type InventoryItem } from '@prisma/client'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useFetcher } from 'react-router'
 import { LOCATION_LABELS } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
@@ -84,12 +84,14 @@ export function InventoryItemCard({
 
 	// Close edit mode when fetcher transitions from submitting/loading → idle
 	// (only on success — if server returned an error, keep editing open)
-	if (prevQuickEditState.current !== 'idle' && quickEditFetcher.state === 'idle') {
-		if (isQuickEditing && quickEditFetcher.data?.status !== 'error') {
-			setIsQuickEditing(false)
+	useEffect(() => {
+		if (prevQuickEditState.current !== 'idle' && quickEditFetcher.state === 'idle') {
+			if (isQuickEditing && quickEditFetcher.data?.status !== 'error') {
+				setIsQuickEditing(false)
+			}
 		}
-	}
-	prevQuickEditState.current = quickEditFetcher.state
+		prevQuickEditState.current = quickEditFetcher.state
+	}, [quickEditFetcher.state, quickEditFetcher.data?.status, isQuickEditing])
 
 	// Optimistic delete — hide card immediately
 	if (deleteFetcher.state !== 'idle') return null
@@ -209,7 +211,7 @@ export function InventoryItemCard({
 							size="sm"
 							variant="ghost"
 							onClick={() => setIsQuickEditing(true)}
-							title="Quick edit"
+							aria-label="Quick edit"
 						>
 							<Icon name="pencil-1" size="sm" />
 						</Button>
@@ -219,7 +221,7 @@ export function InventoryItemCard({
 							}}
 						>
 							<DropdownMenuTrigger asChild>
-								<Button size="sm" variant="ghost" title="More actions">
+								<Button size="sm" variant="ghost" aria-label="More actions">
 									<Icon name="dots-horizontal" size="sm" />
 								</Button>
 							</DropdownMenuTrigger>

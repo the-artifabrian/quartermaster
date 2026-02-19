@@ -132,7 +132,7 @@ function EntryRow({
 								? 'border-green-500 bg-green-500 text-white'
 								: 'border-muted-foreground/30 hover:border-green-500',
 						)}
-						title={
+						aria-label={
 							isCooked
 								? 'Mark as not cooked'
 								: 'Mark as cooked (logs cook + updates inventory)'

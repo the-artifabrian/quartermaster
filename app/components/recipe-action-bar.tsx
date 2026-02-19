@@ -109,7 +109,7 @@ export function RecipeActionBar({
 		return (
 			<Tooltip>
 				<TooltipTrigger asChild>{button}</TooltipTrigger>
-				<TooltipContent>Share recipe</TooltipContent>
+				<TooltipContent>Copy public link</TooltipContent>
 			</Tooltip>
 		)
 	}

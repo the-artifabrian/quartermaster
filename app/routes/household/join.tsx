@@ -92,8 +92,15 @@ export async function action({ request }: Route.ActionArgs) {
 			description: 'You are now a member of the household',
 		})
 	} catch (error) {
+		const knownMessages = [
+			'Invalid or expired invite',
+			'Already a member of this household',
+			'Invite already used',
+		]
 		const message =
-			error instanceof Error ? error.message : 'Failed to join household'
+			error instanceof Error && knownMessages.includes(error.message)
+				? error.message
+				: 'Failed to join household'
 		return redirectWithToast('/', {
 			type: 'error',
 			description: message,

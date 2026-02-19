@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -26,12 +26,14 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 
 	// Close edit mode when fetcher transitions from submitting/loading → idle
 	// (only on success — if server returned an error, keep editing open)
-	if (prevEditFetcherState.current !== 'idle' && editFetcher.state === 'idle') {
-		if (isEditing && editFetcher.data?.status !== 'error') {
-			setIsEditing(false)
+	useEffect(() => {
+		if (prevEditFetcherState.current !== 'idle' && editFetcher.state === 'idle') {
+			if (isEditing && editFetcher.data?.status !== 'error') {
+				setIsEditing(false)
+			}
 		}
-	}
-	prevEditFetcherState.current = editFetcher.state
+		prevEditFetcherState.current = editFetcher.state
+	}, [editFetcher.state, editFetcher.data?.status, isEditing])
 
 	// Optimistic checked state
 	const optimisticChecked =
@@ -116,7 +118,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 			<toggleFetcher.Form method="POST" className="pt-1 print:hidden">
 				<input type="hidden" name="intent" value="toggle" />
 				<input type="hidden" name="itemId" value={item.id} />
-				<button type="submit" className="-m-2.5 cursor-pointer p-2.5">
+				<button type="submit" className="-m-2.5 cursor-pointer p-2.5" aria-label={optimisticChecked ? 'Uncheck item' : 'Check off item'}>
 					<div
 						className={`flex size-6 items-center justify-center rounded border-2 ${
 							optimisticChecked ? 'border-primary bg-primary' : 'border-input'

@@ -27,6 +27,10 @@ export type HouseholdEventType =
 	| 'household_member_left'
 	| 'meal_plan_template_saved'
 	| 'meal_plan_template_applied'
+	| 'shopping_list_item_toggled'
+	| 'shopping_list_item_edited'
+	| 'shopping_list_item_deleted'
+	| 'inventory_item_low_stock_toggled'
 
 export interface HouseholdEventData {
 	id: string

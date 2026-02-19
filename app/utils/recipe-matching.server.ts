@@ -590,7 +590,6 @@ export type RecipeMatch<R extends MatchableRecipe = MatchableRecipe> = {
 	matchPercentage: number
 	matchedIngredientsCount: number
 	totalIngredientsCount: number
-	missingIngredients: Ingredient[]
 	canMake: boolean
 }
 
@@ -771,14 +770,11 @@ export function matchRecipesWithInventory<R extends MatchableRecipe>(
 
 			const totalIngredientsCount = nonStapleIngredients.length
 			let matchedIngredientsCount = 0
-			const missingIngredients: Ingredient[] = []
 
 			// Check each non-staple ingredient against inventory via lookup
 			for (const ingredient of nonStapleIngredients) {
 				if (ingredientMatchesAnyInventoryItem(ingredient, lookup)) {
 					matchedIngredientsCount++
-				} else {
-					missingIngredients.push(ingredient)
 				}
 			}
 
@@ -794,7 +790,6 @@ export function matchRecipesWithInventory<R extends MatchableRecipe>(
 				matchPercentage,
 				matchedIngredientsCount,
 				totalIngredientsCount,
-				missingIngredients,
 				canMake,
 			}
 		})

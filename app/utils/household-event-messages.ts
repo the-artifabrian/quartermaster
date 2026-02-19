@@ -156,6 +156,26 @@ export function formatEventMessage(
 				message: `${username} applied template "${payload.name}"`,
 				url: '/plan',
 			}
+		case 'shopping_list_item_toggled':
+			return {
+				message: `${username} ${payload.checked ? 'checked off' : 'unchecked'} ${payload.name} on the shopping list`,
+				url: '/shopping',
+			}
+		case 'shopping_list_item_edited':
+			return {
+				message: `${username} edited ${payload.name} on the shopping list`,
+				url: '/shopping',
+			}
+		case 'shopping_list_item_deleted':
+			return {
+				message: `${username} removed ${payload.name} from the shopping list`,
+				url: '/shopping',
+			}
+		case 'inventory_item_low_stock_toggled':
+			return {
+				message: `${username} marked ${payload.name} as ${payload.lowStock ? 'low stock' : 'in stock'}`,
+				url: '/inventory',
+			}
 		default:
 			return {
 				message: `${username} performed an action`,

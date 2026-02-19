@@ -19,7 +19,7 @@ const faqs = [
 			'Several ways: paste a URL and Quartermaster extracts the recipe automatically, bulk-import by pasting text from Apple Notes (separate recipes with ---), or drag and drop .md/.txt files. You can also import a full data export from Settings > Data.',
 	},
 	{
-		question: 'How does "Discover" know what I can make?',
+		question: 'How does recipe matching know what I can make?',
 		answer:
 			'It compares your inventory against recipe ingredients using smart matching that understands different names for the same thing (like cilantro and coriander), then ranks recipes by how many ingredients you already have. It also highlights recipes that use ingredients about to expire.',
 	},

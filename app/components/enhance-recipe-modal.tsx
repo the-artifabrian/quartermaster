@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
+import { useModal } from '#app/utils/use-modal.ts'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 
@@ -50,14 +51,7 @@ export function EnhanceRecipeModal({
 		prepTime: hasPrepTimeChange && !recipe.prepTime,
 		cookTime: hasCookTimeChange && !recipe.cookTime,
 	}))
-	// Close on escape
-	useEffect(() => {
-		function handleEscape(e: KeyboardEvent) {
-			if (e.key === 'Escape') onClose()
-		}
-		document.addEventListener('keydown', handleEscape)
-		return () => document.removeEventListener('keydown', handleEscape)
-	}, [onClose])
+	const dialogRef = useModal(onClose)
 
 	// Close after successful apply (prevState ref prevents firing on mount with stale data)
 	const prevApplyState = useRef(fetcher.state)
@@ -111,6 +105,7 @@ export function EnhanceRecipeModal({
 
 	return (
 		<div
+			ref={dialogRef}
 			className="fixed inset-0 z-60 flex items-end justify-center sm:items-center"
 			role="dialog"
 			aria-modal="true"

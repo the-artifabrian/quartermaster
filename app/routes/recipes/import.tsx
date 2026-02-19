@@ -230,7 +230,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 			const response = await fetch(url, {
 				signal: controller.signal,
-				redirect: 'manual',
+				redirect: 'follow',
 				headers: {
 					'User-Agent':
 						'Mozilla/5.0 (compatible; Quartermaster/1.0; +recipe-import)',
@@ -239,11 +239,13 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 			clearTimeout(timeout)
 
-			if (response.status >= 300 && response.status < 400) {
+			// Validate final URL after redirects to prevent SSRF via redirect
+			if (response.url && !isAllowedUrl(response.url)) {
 				return data(
 					{
 						intent: 'fetch' as const,
-						error: 'URL redirected. Please use the final URL directly.',
+						error:
+							'This URL cannot be imported. Please use a public HTTP(S) URL.',
 						recipe: null,
 						result: null,
 						duplicates: null,

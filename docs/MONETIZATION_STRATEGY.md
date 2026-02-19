@@ -118,6 +118,9 @@ Consult accountant for CAEN code and VAT strategy (OSS for EU cross-border).
 - [ ] Terms of Service updated for paid tier
 - [ ] Automated backups operational (Litestream or cron → S3)
 - [ ] Monitoring & alerting operational
+- [ ] GDPR: verify Prisma `onDelete: Cascade` chains delete all user data
+  (HouseholdEvents, InviteCodes, UsageEvents, etc.). Confirm Sentry doesn't
+  set non-essential cookies (would require consent banner)
 
 ---
 
@@ -160,7 +163,7 @@ doesn't count.
   clear ongoing value to justify recurring fees
 - **Inventory loop friction** — the entire value proposition rests on users
   maintaining inventory. Contingency plan in
-  [DEVELOPMENT_PLAN.md § Light Inventory Mode](./DEVELOPMENT_PLAN.md#contingency-light-inventory-mode)
+  [DEVELOPMENT_PLAN.md § Inventory Mode](./DEVELOPMENT_PLAN.md#inventory-mode-active-evaluation)
 - **No native app (PWA)** — some users expect a native app for a paid
   subscription. PWA is intentional: avoids app store cuts, enables self-hosting,
   allows rapid iteration, works on all platforms. iOS limitations (no push

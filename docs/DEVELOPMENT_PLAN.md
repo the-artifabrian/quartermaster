@@ -79,6 +79,12 @@ development is **not blocked** by this gate.
 - Am I using the app every week? Has it fully replaced Apple Notes?
 - Is inventory tracking sustainable, or does light mode need to ship?
 - Do the testers find it useful without prompting?
+- Is the 15-item inventory limit the right Pro gate? Do free users reach 15
+  items and want more, or do they bounce before experiencing the "aha"?
+- What do real users actually use vs. ignore? Which features does the household
+  co-user touch daily? What does the friend's household never open?
+- Does the pitch work on strangers? If non-friend testers don't get past
+  inventory onboarding, the pitch needs rework — not more features.
 
 > **Check-in: March 12, 2026.** Assess daily driving progress. If the app isn't
 > sticking, identify UX friction and fix it. Don't defer indefinitely.
@@ -136,6 +142,9 @@ monitor during daily driving before building. `fixed` = resolved.
 | 2026-02-18 | shopping  | Inventory pipeline review shows all items with location/expiry fields expanded — visual overwhelm may cause skipping | fixed   |
 | 2026-02-18 | inventory | No inline editing on inventory cards — requires separate edit page for qty/expiry changes                            | fixed   |
 | 2026-02-18 | shopping  | Shopping list doesn't live-refresh when partner adds items — SSE toast fires but data requires manual refresh        | fixed   |
+| 2026-02-19 | planning  | Recipe selector has no search/filter — scanning 135+ recipes visually is slow, especially on mobile                 | open    |
+| 2026-02-19 | navigation | No global loading indicator — page transitions show no feedback until loader resolves, feels broken on slow cellular | open    |
+| 2026-02-19 | AI        | LLM error messages are generic toasts — paid Pro features should say what happened, not just "Something went wrong"  | open    |
 
 > Add entries as friction surfaces. Resolve `open` items promptly; promote
 > `watch` items to `open` if they cause real friction.
@@ -182,6 +191,23 @@ be real first.
 - **In-memory matching at scale** — loads all recipes + inventory for matching.
   Fine at ~135 recipes, profile at 500+
 - **Profile photo S3 orphans** — photo updates never clean up old S3 objects
+- **`shopping.tsx` is 1,021 lines** — last remaining mega-file. Combines
+  generation, CRUD, check-off, SSE, and inventory pipeline in one route. Extract
+  sub-components following the recipe detail pattern (1,640 → 590 lines)
+- **Missing HTTP security headers** — no `X-Frame-Options`, `X-Content-Type-Options`,
+  `Referrer-Policy`, `Strict-Transport-Security`. `@nichtsam/helmet` is already
+  a dependency — check if configured, otherwise add headers in `server/index.ts`
+- **Service worker caches stale URL** — `sw.js` line 113 caches
+  `/plan/shopping-list` (old URL), should cache `/shopping`
+- **Dead code** — 3 unused components: `cooking-timer.tsx` (superseded by
+  `timer-widget.tsx`), `floating-toolbar.tsx` (no imports),
+  `recipe-match-card.tsx` (superseded by `recipe-card.tsx`). Also
+  `routes/discover/index.tsx` (redirect to `/recipes`, concept abandoned)
+- **`trialEndsAt` on Subscription model** — vestigial field from removed
+  auto-trial system. Drop in next migration if unreferenced
+- **No E2E test for shopping → inventory pipeline** — this is the feature being
+  evaluated to determine inventory viability. If it breaks silently during daily
+  driving, the evaluation is invalid
 
 ---
 
@@ -237,6 +263,39 @@ there's user feedback to act on.
       test: if the pipeline makes input mostly passive, voice may be
       unnecessary. Revisit if inventory input friction persists after the
       pipeline is proven
+
+---
+
+## Deferred / Rejected
+
+Ideas evaluated and deliberately set aside. Documented here to prevent
+relitigating.
+
+- **Step-by-step cooking mode** — current cooking view already has checkboxes,
+  timers, wake lock, progress persistence, and temp tooltips. A separate
+  step-by-step UI is a substantial new feature. Revisit only if daily driving
+  reveals the current view is insufficient for actual cooking (hasn't surfaced
+  in friction log)
+- **Fuzzy/typo-tolerant search** — at 135 personal recipes, users know the
+  names. No search-miss complaints. Revisit if library scale or user feedback
+  demands it
+- **Ingredient-based recipe search** — the matching system already does this
+  via inventory. A separate search UI is a second path to the same destination
+- **Offline mutations** — background sync with conflict resolution on a
+  server-rendered form app is massive complexity. Service worker caches pages
+  for reading. Optimistic UI (already on shopping checkboxes) is the 80/20
+  solution for slow connections
+- **Collections/cookbooks** — tags were built and removed as overengineered.
+  Same risk. Revisit at 300+ recipes if users can't find things
+- **Nutrition estimates** — large effort (API integration, per-ingredient
+  lookup, serving math). No user demand. Revisit post-launch
+- **Public profiles / social features** — growth lever but massive scope for a
+  "passive income, not a startup" product. Revisit post-launch with user base
+- **Multi-store shopping lists** — niche. Most users have one primary store
+- **Push notifications** — SSE covers the active-use case. iOS web push is
+  possible but adds complexity for marginal value
+- **Preventive `React.memo()` / pagination** — no performance problem exists at
+  135 recipes. Profile when there's a problem, not before
 
 ---
 

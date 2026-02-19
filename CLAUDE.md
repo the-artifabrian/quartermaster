@@ -52,6 +52,11 @@ each route file can export `loader` (data fetching), `action` (mutations), and a
 React component. All data is scoped to **households** (not individual users) for
 shared access.
 
+**Routing conventions**: `app/routes/recipes/index.tsx` → `/recipes`,
+`app/routes/recipes/$recipeId.tsx` → `/recipes/:recipeId`. `_` prefix on folder
+or file name = layout route, no URL segment (e.g., `_auth/login.tsx` →
+`/login`). `resources/` = API-only routes (no UI).
+
 ### Tech Stack
 
 - **Framework**: React Router v7 with React 19
@@ -80,60 +85,13 @@ app/
 │   ├── _marketing/      # Landing page, about, privacy, ToS
 │   ├── _seo/            # robots.txt
 │   └── share.$recipeId.tsx  # Public recipe sharing page
-├── components/
-│   ├── ui/              # shadcn/ui primitives
-│   ├── recipe-*.tsx     # Recipe cards, form, match cards, selector
-│   ├── recipe-action-bar.tsx        # Unified desktop+mobile action bar
-│   ├── recipe-cooking-log-entry.tsx # Cooking log entry card
-│   ├── recipe-i-made-this-modal.tsx # "I Made This" modal + post-cook review
-│   ├── recipe-ingredient-list.tsx   # Ingredient list + substitutions
-│   ├── recipe-instructions-list.tsx # Instructions with step checkboxes
-│   ├── recipe-metadata-card.tsx     # Prep/cook/source metadata card
-│   ├── inventory-*.tsx  # Item cards, quick-add, location tabs
-│   ├── meal-*.tsx       # Calendar, slot cards
-│   ├── shopping-list-*.tsx  # Shopping list items, inventory pipeline
-│   ├── inline-temperature.tsx # Temperature conversion tooltip (F↔C)
-│   ├── cooking-timer.tsx    # Timer provider + alarm sound
-│   ├── timer-widget.tsx     # Floating timer display
-│   ├── notification-bell.tsx    # Header notification dropdown
-│   ├── household-activity-notifier.tsx  # SSE client + toast notifications
-│   ├── getting-started-checklist.tsx    # New user onboarding
-│   ├── pantry-staples-onboarding.tsx   # Empty inventory onboarding
-│   ├── template-modal.tsx   # Meal plan template save/apply
-│   ├── today-banner.tsx     # "Up next" meal banner
-│   └── forms.tsx            # Form field wrappers
-├── utils/
-│   ├── db.server.ts             # Prisma client singleton
-│   ├── auth.server.ts           # Auth helpers (getUserId, requireUserId, login, signup)
-│   ├── household.server.ts      # Household auth, invite/join/leave, data transfer
-│   ├── household-events.server.ts   # SSE event emission + pruning
-│   ├── household-event-messages.ts  # Event formatting + priority classification
-│   ├── recipe-matching.server.ts    # 4-level fuzzy ingredient matching
-│   ├── recipe-validation.ts         # Recipe Zod schemas
-│   ├── ingredient-parser.server.ts  # Ingredient string parsing (amounts, units, notes)
-│   ├── ingredient-overlap.server.ts # Pairwise ingredient overlap scoring
-│   ├── inventory-subtract.server.ts # Post-cooking inventory subtraction
-│   ├── shopping-list.server.ts      # Shopping list generation from meal plan
-│   ├── unit-conversion.ts          # Unit conversion + best-unit selection
-│   ├── bulk-recipe-parser.ts       # Plain-text recipe parsing (Apple Notes format)
-│   ├── surprise-scoring.server.ts  # Weighted random recipe selection
-│   ├── time-detection.ts           # Instruction text → timer pill detection
-│   ├── temperature-detection.ts    # Instruction text → temperature conversion tooltips
-│   ├── storage.server.ts           # S3-compatible image upload
-│   ├── pantry-staples.ts           # Staple ingredient definitions
-│   ├── category-location-map.ts    # Ingredient → store section mapping
-│   ├── shelf-life.ts              # Shelf-life lookup → auto-suggest expiry dates
-│   ├── relative-time.ts            # Human-readable relative timestamps
-│   ├── recipe-detail.ts            # Shared recipe types + pure utility functions
-│   ├── fractions.ts                # Fraction display (1.5 → "1½")
-│   ├── use-cooking-progress.ts    # localStorage persistence for cooking checkboxes (7-day expiry)
-│   ├── usage-tracking.server.ts   # Fire-and-forget usage event tracking
-│   └── usage-stats.server.ts      # Shared usage stats query logic
+├── components/          # shadcn/ui primitives in ui/, feature components named by domain
+├── utils/               # Server utilities (.server.ts) and shared helpers
 ├── styles/              # Global CSS and Tailwind config
 └── root.tsx             # Root layout with theme, toaster, timer provider, SSE
 
 prisma/
-├── schema.prisma        # Database schema (see below)
+├── schema.prisma        # Database schema (source of truth)
 ├── migrations/          # Migration history
 ├── seed.ts              # Dev seed: infrastructure + test users (kody, kody2)
 ├── seed-infrastructure.ts   # Permissions, roles (runs in prod via litefs)
@@ -145,135 +103,71 @@ tests/
 └── setup/               # Vitest configuration and global setup
 ```
 
+**Icon pipeline**: Drop SVGs in `other/svg-icons/` → auto-generated sprite via
+`vite-plugin-icons-spritesheet` → use `<Icon name="..." />` component.
+
 ## Core Systems
 
 ### Recipe System
 
-**Data Model**: Recipe → Ingredients[] + Instructions[] + RecipeImage?
+**Key Files**: `routes/recipes/index.tsx` (list + search + matching),
+`routes/recipes/new.tsx` (create, URL import, bulk text/file import),
+`routes/recipes/$recipeId.tsx` (view + cooking mode, delegates to
+`recipe-*.tsx` sub-components), `routes/recipes/$recipeId.edit.tsx`,
+`components/recipe-form.tsx` (shared form with `@dnd-kit/sortable` ingredients),
+`utils/recipe-validation.ts`, `utils/bulk-recipe-parser.ts`,
+`utils/recipe-detail.ts` (shared types + pure helpers).
 
-**Key Files**:
+**Import**: URL import (JSON-LD scraping with text fallback via
+`parseRecipeText()`), bulk paste (`---` separators), file upload (.md/.txt).
+Duplicate detection by title. Sub-section headers become heading rows
+(`isHeading: true`).
 
-- `app/routes/recipes/index.tsx` - Recipe list with search, cook-time filter,
-  sort, favorites, makeable-only toggle, `?quality=flagged` support
-- `app/routes/recipes/new.tsx` - Create recipe (manual, URL import, bulk
-  text/file import)
-- `app/routes/recipes/$recipeId.tsx` - View with interactive cooking mode.
-  Orchestrates state (servings, checked ingredients/steps with localStorage
-  persistence, substitutions, fetchers) and delegates rendering to extracted
-  sub-components:
-  - `app/components/recipe-action-bar.tsx` - Unified desktop (tooltips) + mobile
-    (floating card) action bar
-  - `app/components/recipe-ingredient-list.tsx` - Ingredient checkboxes,
-    substitution hints, "Add missing to shopping list"
-  - `app/components/recipe-instructions-list.tsx` - Step cross-off with
-    substitution text replacement
-  - `app/components/recipe-i-made-this-modal.tsx` - Cook logging +
-    inventory subtraction preview + post-cook review (skipped item chips)
-  - `app/components/recipe-cooking-log-entry.tsx` - Cooking history cards
-  - `app/components/recipe-metadata-card.tsx` - Prep/cook time + source URL
-- `app/utils/recipe-detail.ts` - Shared types (`SubtractionPreviewData`,
-  `AppliedSubstitution`) and pure utility functions (`getRecipeJsonLd`,
-  `formatQuantity`, `extractPrimaryIngredient`, `applySubstitutionsToText`)
-- `app/routes/recipes/$recipeId.edit.tsx` - Edit recipe form
-- `app/components/recipe-form.tsx` - Shared form with drag-and-drop ingredients
-  (`@dnd-kit/sortable`), collapsible sections
-- `app/utils/recipe-validation.ts` - Zod schemas
-- `app/utils/bulk-recipe-parser.ts` - Plain-text/markdown recipe parsing
-
-**Import**: URL import (JSON-LD scraping with text fallback — when extraction
-fails, user can paste recipe text for parsing via `parseRecipeText()`), quick
-text entry, bulk paste (with `---` separators for multiple recipes), file upload
-(.md/.txt). Duplicate detection by title. Sub-section headers in ingredients
-become heading rows (`isHeading: true`).
-
-**Ingredient Headings**: Ingredients with `isHeading: true` are section dividers
-(e.g., "Gremolata Topping"). They have only a `name`, no amount/unit/notes.
-**Always skip heading rows** when iterating ingredients for matching, shopping
-list, subtraction, or JSON-LD.
+**Ingredient Headings**: Ingredients with `isHeading: true` are section dividers.
+They have only a `name`, no amount/unit/notes. **Always skip heading rows** when
+iterating ingredients for matching, shopping list, subtraction, or JSON-LD.
 
 ### Inventory System
 
-**Data Model**: InventoryItem with free-text name, location
-(pantry/fridge/freezer), optional quantity/unit/expiresAt/lowStock
-
-**Key Files**:
-
-- `app/routes/inventory/index.tsx` - Inventory list with location tabs, search
-- `app/routes/inventory/new.tsx` - Add inventory item
-- `app/routes/inventory/$id.edit.tsx` - Edit/delete inventory item
-- `app/utils/inventory-validation.ts` - Zod schemas
-- `app/utils/inventory-subtract.server.ts` - Post-cooking inventory subtraction
-  with skip tracking (no-quantity and incompatible-units reasons)
-- `app/routes/resources/inventory-remove.tsx` - Lightweight POST-only delete for
-  post-cook review step (mark skipped items as used up)
+**Key Files**: `routes/inventory/` (CRUD), `utils/inventory-subtract.server.ts`
+(post-cooking subtraction with skip tracking), `routes/resources/inventory-remove.tsx`
+(POST-only delete for post-cook review).
 
 **Normalization Pipeline** (`recipe-matching.server.ts`): ~40 modifier
 strippers, ~25 synonym groups, pluralization, compound ingredient protection
 (green onion, brown sugar preserved), non-equivalent exclusions (rice ≠ rice
 vinegar). Powers matching, shopping consolidation, and inventory subtraction.
 
-### Recipe Matching & Discovery
+### Recipe Matching
 
-**Location**: `app/utils/recipe-matching.server.ts`
-
-Matches inventory against recipe ingredients with 4-level fuzzy matching: exact
-(post-normalization) → synonym lookup → core word → multi-word containment.
-Calculates match percentage per recipe. Always-on when the user has inventory
-items — recipe cards show subtle match progress rings, default sort is by match
-percentage (when no explicit sort chosen), and "Almost There" banner displays as
-a contextual section. Also used by the "What Do I Need?" checklist on recipe
-detail. The `/discover` route redirects to
-`/recipes`.
+`app/utils/recipe-matching.server.ts` — Matches inventory against recipe
+ingredients with 4-level fuzzy matching: exact (post-normalization) → synonym
+lookup → core word → multi-word containment. Calculates match percentage per
+recipe. Always-on when user has inventory items.
 
 ### Meal Planning & Shopping
 
-**Key Files**:
-
-- `app/routes/plan/index.tsx` - Weekly calendar (Mon-Sun, 4 meal types/day),
-  per-entry serving overrides, cook toggle, "Up next" banner, pairing
-  suggestions, waste alerts. Action handles 5 intents:
-  assign, updateServings, toggleCooked, remove, quickCook
-- `app/routes/resources/meal-plan-copy-week.tsx` - Copy week entries +7 days
-- `app/routes/resources/meal-plan-templates.tsx` - Template save/apply/delete
-  (3 intents)
-- `app/components/template-modal.tsx` - Save/apply template modals (submit to
-  template resource route)
-- `app/routes/shopping.tsx` - Standalone shopping list with generate from meal
-  plan, quick add (open by default), duplicate/inventory warnings, low-stock
-  nudge chips, household item category, category section headers, check-off → inventory
-  pipeline (with shelf-life auto-suggest expiry dates), print layout
-- `app/routes/resources/shopping-to-inventory.tsx` - Shopping list check-off →
-  inventory creation pipeline (extracted from shopping action)
-- `app/routes/plan/shopping-list.tsx` - Redirect to `/shopping`
-- `app/utils/shopping-list.server.ts` - Shopping list generation logic
-- `app/utils/ingredient-overlap.server.ts` - Pairwise overlap scoring for
-  pairing suggestions and waste alerts
-- `app/utils/unit-conversion.ts` - Unit conversion across merged US/metric
-  families (volume: ml↔tsp↔tbsp↔cup↔l, weight: g↔oz↔lb↔kg)
+**Key Files**: `routes/plan/index.tsx` (weekly calendar, 5 action intents),
+`routes/resources/meal-plan-copy-week.tsx`, `routes/resources/meal-plan-templates.tsx`,
+`routes/shopping.tsx` (standalone shopping list + generate + check-off → inventory),
+`routes/resources/shopping-to-inventory.tsx`, `utils/shopping-list.server.ts`,
+`utils/ingredient-overlap.server.ts`, `utils/unit-conversion.ts`.
 
 ### Household Sharing
 
-All data (recipes, inventory, meal plans, shopping lists) is scoped to a
-**household**, not a user. Every user belongs to exactly one household
-(auto-created on signup). Users within a household share all data.
+All data is scoped to a **household**, not a user. Every user belongs to exactly
+one household (auto-created on signup).
 
-**Key Files**:
+**Key Files**: `utils/household.server.ts` (`requireUserWithHousehold(request)`,
+invite/accept/leave, data transfer), `utils/household-events.server.ts`
+(fire-and-forget event emission), `utils/household-event-messages.ts` (event
+formatting + two-tier priority), `routes/resources/household-events.tsx` (SSE),
+`routes/resources/notifications.tsx`, `routes/settings/profile/household.tsx`,
+`routes/household/join.tsx`.
 
-- `app/utils/household.server.ts` - `requireUserWithHousehold(request)` (primary
-  auth helper), invite/accept/leave logic, data transfer on join/leave
-- `app/utils/household-events.server.ts` - Fire-and-forget event emission via
-  in-memory EventEmitter, persisted to `HouseholdEvent` table
-- `app/utils/household-event-messages.ts` - 24 event types, two-tier priority
-  (notify = badge+toast, silent = activity feed only)
-- `app/routes/resources/household-events.tsx` - SSE endpoint
-- `app/routes/resources/notifications.tsx` - GET/POST for notification dropdown
-- `app/routes/settings/profile/household.tsx` - Household management, invite,
-  activity feed
-- `app/routes/household/join.tsx` - Accept invite flow
-
-**Data ownership pattern**: Write queries include both `userId` (attribution)
-and `householdId` (scoping). Read queries use `where: { householdId }`.
-CookingLog stays user-scoped.
+**Data ownership**: Write queries include both `userId` (attribution) and
+`householdId` (scoping). Read queries use `where: { householdId }`. CookingLog
+stays user-scoped.
 
 ### Authentication & Authorization
 
@@ -291,14 +185,8 @@ CookingLog stays user-scoped.
 - Only use `requireUserId` for user-scoped routes: `me.tsx`,
   `resources/download-user-data.tsx`, `settings/` routes
 
-**New User Flow**: Signup creates user + household + membership atomically.
-Empty recipe library shows a "Getting Started" checklist. Empty inventory shows
-pantry staples onboarding.
-
-**Admin Role**: The `admin` role is created by the infrastructure seed
-(`prisma/seed-infrastructure.ts`), which runs automatically on every deploy via
-`litefs.yml`. In development, the `kody` test user gets admin automatically. In
-production, promote a user to admin via Fly SSH (one-time):
+**Admin Role**: Created by infrastructure seed (`prisma/seed-infrastructure.ts`),
+runs on every deploy. `kody` gets admin in dev. In production, promote via Fly SSH:
 
 ```bash
 fly ssh console -C "sqlite3 \$DATABASE_PATH \"
@@ -309,147 +197,42 @@ fly ssh console -C "sqlite3 \$DATABASE_PATH \"
 \""
 ```
 
-Admin routes: `/admin/cache` (cache management), `/admin/subscriptions` (tier
-management + invite code generation).
+**New User Flow**: Signup creates user + household + membership atomically.
+Empty recipe library shows `getting-started-checklist.tsx`. Empty inventory shows
+`pantry-staples-onboarding.tsx`.
 
-### Invite Code System
+Admin routes: `/admin/cache`, `/admin/subscriptions`.
 
-**Growth model**: Open signup gives free tier. Pro access via invite codes,
-Stripe subscription, or admin override (no auto-trial on signup). When a user
-redeems an invite code and becomes Pro, they immediately receive 2 starter
-invite codes to share with friends. Admins can also generate codes for launches.
+### Invite Codes & Stripe
 
-**Key Files**:
+**Invite codes**: `utils/invite-codes.server.ts` (generation `QM-XXXXXX`,
+redemption, starter code granting), `utils/invite-code-status.ts` (shared Zod
+schema + UI helper), `routes/resources/redeem-invite-code.tsx`. Pro access via
+invite codes, Stripe subscription, or admin override. Redemption grants 2
+starter codes.
 
-- `app/utils/invite-codes.server.ts` — Code generation (`QM-XXXXXX` format),
-  redemption with concurrent-use guard, starter code granting on redemption
-- `app/utils/invite-code-status.ts` — Shared `RedeemCodeSchema` (Zod) and
-  `getCodeStatus()` UI helper (used by settings and admin pages)
-- `app/routes/resources/redeem-invite-code.tsx` — POST resource route for code
-  redemption (used by `/upgrade` and potentially other pages via `useFetcher`)
-- `app/routes/upgrade.tsx` — Pricing page with invite code input, Stripe
-  checkout button (annual-only)
-- `app/routes/settings/profile/invite-codes.tsx` — Pro-only settings page
-  showing user's codes
-- `app/routes/admin/subscriptions.tsx` — Admin code generation + management
+**Stripe**: `utils/stripe.server.ts` (Checkout/Portal/webhooks),
+`routes/resources/stripe-webhook.tsx` (signature verification, always returns
+200), `routes/resources/stripe-portal.tsx`. Webhooks are authoritative; success
+redirect is optimistic. Env vars (all optional): `STRIPE_SECRET_KEY`,
+`STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_YEARLY_PRICE_ID`.
 
-### Stripe Integration
+### Ingredient Substitutions (AI)
 
-**Pattern**: Stripe Checkout (hosted redirect) + Customer Portal (self-service).
-Webhooks are authoritative; success redirect is optimistic. Invite codes and
-Stripe subscriptions coexist — user has Pro if either `trialEndsAt` or
-`subscriptionExpiresAt` is in the future.
-
-**Key Files**:
-
-- `app/utils/stripe.server.ts` — Stripe client singleton, Checkout/Portal
-  session creation, webhook handlers (`handleCheckoutCompleted`,
-  `handleInvoicePaid`, `handleSubscriptionUpdated`,
-  `handleSubscriptionDeleted`), price-to-tier mapping
-- `app/routes/resources/stripe-webhook.tsx` — Webhook endpoint (POST only, no
-  session auth, Stripe signature verification). Always returns 200 after valid
-  signature to prevent retries
-- `app/routes/resources/stripe-portal.tsx` — Customer Portal redirect
-  (authenticated, POST only)
-
-**Env vars** (all optional — app runs without Stripe in invite-code-only mode):
-`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_YEARLY_PRICE_ID`
-
-### Ingredient Substitutions (AI Integration)
-
-**Architecture**: Static database first, LLM fallback, cached aggressively.
-Pro-tier feature — free users see no substitution indicators.
-
-**Key Files**:
-
-- `app/utils/ingredient-substitutions.ts` — Static database of ~50 common
-  substitutions (zero API cost). Keyed by normalized name, substring matching.
-  Also exports `stripDescriptors()` to clean quantity/size prefixes from
-  ingredient names before lookup and for popover header display
-- `app/utils/substitution-lookup.server.ts` — Orchestrates static → cache → LLM
-  cascade. Cross-references substitutions against user's inventory
-- `app/utils/substitution-llm.server.ts` — Direct HTTP fetch to Anthropic
-  Messages API (Claude Haiku). Accepts optional `RecipeContext` (title +
-  ingredients) for dish-appropriate suggestions. Returns null on any error
-  (graceful degradation). Prompt enforces culinary-function matching
-  (liquid→liquid, fat→fat), allergen flagging, and no non-food suggestions
-- `app/routes/resources/substitutions.tsx` — POST-only resource route (Pro-gated
-  via `requireProTier`). Accepts optional `recipeId`; when present, looks up
-  recipe title + ingredients to pass as LLM context. Never called in loaders
-- `app/components/ingredient-substitution.tsx` — `SubstitutionHint` Popover
-  component wrapping missing-ingredient pills. Optional `recipeId` prop for
-  recipe-context-aware LLM suggestions. Optional `onApply` callback makes
-  substitution items clickable ("Use this") and auto-closes popover on select.
-  Shows "AI suggestion" badge for LLM-sourced results and allergen/flavor
-  disclaimer footer on all results. Uses `stripDescriptors()` for clean header
-- `app/components/ui/popover.tsx` — Radix Popover primitive (shadcn pattern)
-
-**Integration points**: Recipe detail ingredient list (`recipes/$recipeId.tsx`),
-missing ingredient pills on recipe cards (`recipe-match-card.tsx`), "Almost
-There" banner pills (`recipes/index.tsx`), "What Do I Need?" modal
-(`recipes/$recipeId.tsx`). Recipe detail, recipe cards, and What Do I Need pass
-`recipeId` for contextual LLM results; Almost There banner omits it (ingredients
-are deduplicated across multiple recipes). Recipe detail passes `onApply` to
-enable temporary ingredient swaps (client-side
-`Map<ingredientId, AppliedSubstitution>` state in `RecipeDetail`); instruction
-text preprocessed via `applySubstitutionsToText()` with word-boundary regex.
-Other integration points (cards, banner, What Do I Need modal) omit `onApply` —
-read-only.
-
-**Env vars**: `ANTHROPIC_API_KEY` (optional — app works with static
-substitutions only when unset). LLM results cached 30 days in SQLite via
-`cachified()`. Negative results (no subs found) are also cached to prevent
-repeated API calls. Cache key is per-ingredient when no recipe context, or
-per-ingredient-per-recipe-title when context is provided. Ingredient list in
-prompt capped at 30 items. 8-second timeout on API calls.
+Static database first (`utils/ingredient-substitutions.ts`, ~50 entries), LLM
+fallback (`utils/substitution-llm.server.ts`, Claude Haiku), cached 30 days.
+Orchestrated by `utils/substitution-lookup.server.ts`. POST resource route at
+`routes/resources/substitutions.tsx` (Pro-gated). UI: `SubstitutionHint` popover
+in `components/ingredient-substitution.tsx`. Env: `ANTHROPIC_API_KEY` (optional —
+app works with static substitutions only when unset).
 
 ### Image Handling
 
-**Storage**: S3-compatible storage (configured in `app/utils/storage.server.ts`)
+**Storage**: S3-compatible (configured in `app/utils/storage.server.ts`)
 
-**Upload Flow**:
-
-1. Form submitted with `multipart/form-data`
-2. `@mjackson/form-data-parser` extracts files
-3. `uploadRecipeImage(userId, recipeId, file)` uploads to storage
-4. Returns `objectKey` stored in `RecipeImage.objectKey`
-5. `getImageUrl(objectKey, {h, w, fit})` generates optimized URLs
-
-**Validation**: Max 3MB, JPEG/PNG/WebP only. Stream-level size enforcement.
-
-### Form Handling Pattern
-
-**Stack**: Conform (form state) + Zod (validation)
-
-**Typical Pattern**:
-
-```tsx
-// In route action
-export async function action({ request }: Route.ActionArgs) {
-	const formData = await request.formData()
-	const submission = parseWithZod(formData, { schema: RecipeSchema })
-
-	if (submission.status !== 'success') {
-		return { result: submission.reply() }
-	}
-
-	// Create/update database record
-	await prisma.recipe.create({ data: submission.value })
-	return redirect(`/recipes/${recipeId}`)
-}
-
-// In component
-const [form, fields] = useForm({
-	lastResult,
-	onValidate({ formData }) {
-		return parseWithZod(formData, { schema: RecipeSchema })
-	},
-})
-```
-
-**Dynamic Arrays**: Recipe form uses `fields.ingredients.getFieldList()` and
-`fields.instructions.getFieldList()` to render dynamic ingredient/instruction
-fields.
+**Upload Flow**: `multipart/form-data` → `@mjackson/form-data-parser` →
+`uploadRecipeImage()` → `objectKey` in `RecipeImage` → `getImageUrl()` for
+optimized URLs. Max 3MB, JPEG/PNG/WebP only.
 
 ## React Guidelines
 
@@ -465,73 +248,16 @@ Per `.cursor/rules/avoid-use-effect.mdc`, prefer alternatives to `useEffect`:
 
 ## Database Schema
 
-### Core Models
+Source of truth: `prisma/schema.prisma`. Key patterns:
 
-**Recipe**: title, description, servings, prepTime, cookTime, isFavorite,
-sourceUrl?, rawText?, notes?, userId, householdId? → Ingredient[],
-Instruction[], RecipeImage?, MealPlanEntry[], CookingLog[],
-MealPlanTemplateEntry[]
-
-**Ingredient**: name, amount?, unit?, notes?, isHeading, order, recipeId
-
-**Instruction**: content, order, recipeId
-
-**RecipeImage**: altText, objectKey, recipeId (1-to-1)
-
-**InventoryItem**: name, location (pantry|fridge|freezer), quantity?, unit?,
-expiresAt?, lowStock, userId, householdId?
-
-**MealPlan**: weekStart, userId, householdId? → MealPlanEntry[]
-
-**MealPlanEntry**: date, mealType (breakfast|lunch|dinner|snack), servings?,
-cooked, mealPlanId, recipeId
-
-**ShoppingList**: name, userId, householdId? → ShoppingListItem[]
-
-**ShoppingListItem**: name, quantity?, unit?, category?
-(produce|dairy|meat|pantry|frozen|bakery|household|other), checked, source
-(manual|generated|recipe|discover), listId
-
-**CookingLog**: cookedAt, notes?, recipeId, userId (user-scoped, not household)
-
-**Household**: name → HouseholdMember[], HouseholdInvite[], HouseholdEvent[],
-Recipe[], InventoryItem[], MealPlan[], ShoppingList[], MealPlanTemplate[]
-
-**HouseholdMember**: role (owner|member), notificationsLastSeenAt?, householdId,
-userId
-
-**HouseholdInvite**: token, expiresAt, usedAt?, householdId, createdById
-
-**HouseholdEvent**: type, payload (JSON string), householdId, userId
-
-**MealPlanTemplate**: name, userId, householdId? → MealPlanTemplateEntry[]
-
-**MealPlanTemplateEntry**: dayOfWeek (0-6, Mon-Sun), mealType, servings?,
-templateId, recipeId
-
-**UsageEvent**: type, payload (JSON string), createdAt, userId, householdId?
-(long-term analytics, separate from HouseholdEvent notification system)
-
-**Subscription**: tier, stripeCustomerId?, stripeSubscriptionId?,
-subscriptionExpiresAt?, trialEndsAt?, userId (1-to-1)
-
-**InviteCode**: code (unique, "QM-XXXXXX"), type ("admin"|"earned"), grantsDays,
-expiresAt?, redeemedAt?, createdById, redeemedById?
-
-**User**: Epic Stack default model with roles, permissions, connections (OAuth),
-sessions, passkeys
-
-### Key Relationships
-
-- Household has many: Recipe, InventoryItem, MealPlan, ShoppingList,
-  MealPlanTemplate, HouseholdMember, HouseholdInvite, HouseholdEvent, UsageEvent
-- User has many: Recipe, InventoryItem, MealPlan, ShoppingList, CookingLog,
-  MealPlanTemplate, HouseholdMember, UsageEvent, InviteCode (created + redeemed)
-- Recipe has many: Ingredient, Instruction, MealPlanEntry, CookingLog,
-  MealPlanTemplateEntry; has one: RecipeImage
-- MealPlan has many MealPlanEntry; ShoppingList has many ShoppingListItem
-- All household-scoped models have both `userId` (attribution) and `householdId`
-  (data scoping)
+- **Household scoping**: All shared models have `userId` (attribution) +
+  `householdId` (data scoping). Reads use `where: { householdId }`.
+- **CookingLog** is user-scoped, not household-scoped
+- **Ingredient `isHeading`**: Boolean flag for section dividers — skip when
+  iterating for matching/shopping/subtraction/JSON-LD
+- **Key relationships**: Household → Recipe, InventoryItem, MealPlan,
+  ShoppingList, MealPlanTemplate. Recipe → Ingredient[], Instruction[],
+  RecipeImage?, MealPlanEntry[], CookingLog[]
 
 ## Testing
 
@@ -622,25 +348,23 @@ export async function action({ request }: Route.ActionArgs) {
 }
 ```
 
-### Dynamic Form Arrays (Ingredients/Instructions)
+## Gotchas
 
-```tsx
-const [form, fields] = useForm({ ... })
-
-{fields.ingredients.getFieldList().map((ingredient, index) => (
-  <div key={ingredient.key}>
-    <input {...getInputProps(ingredient.fields.name, { type: 'text' })} />
-    <input {...getInputProps(ingredient.fields.amount, { type: 'text' })} />
-    <button {...form.remove.getButtonProps({ name: fields.ingredients.name, index })}>
-      Remove
-    </button>
-  </div>
-))}
-
-<button {...form.insert.getButtonProps({ name: fields.ingredients.name })}>
-  Add Ingredient
-</button>
-```
+- **Adding Recipe fields** → also update test `makeRecipe` helpers in
+  `recipe-matching.server.test.ts` and `shopping-list.server.test.ts`
+- **Adding `HouseholdEventType` values** → also update `formatEventMessage` in
+  `household-event-messages.ts` + its test, and classify in `NOTIFY_EVENT_TYPES`
+- **Iterating `recipe.ingredients`** → always `if (ingredient.isHeading) continue`
+- **Synonym keys** must use post-normalization names (e.g., "sugar" not
+  "powdered sugar" since modifiers are stripped)
+- **`emitHouseholdEvent()`** is fire-and-forget (`void`) — never await it
+- **Adding household-scoped models** → also update `acceptInvite` sole-member
+  data transfer in `household.server.ts`
+- **Meal template dates**: `z.coerce.date()` creates UTC midnight vs local
+  midnight — normalize with `new Date(serializeDate(addDays(...)))` for
+  consistent storage
+- **Shopping list `guessCategory()`**: household check must come BEFORE pantry —
+  "toilet" contains "oil"
 
 ## Deployment
 
@@ -662,3 +386,16 @@ npm run start
 ```
 
 Requires: `DATABASE_URL` and `SESSION_SECRET` environment variables.
+
+## Response Style
+
+- Don't narrate tool calls ("Let me read..." / "Now I'll edit..."). Just do it.
+- Keep explanations proportional to complexity. Simple changes need one sentence.
+- Don't echo back file contents just read — the user can see them.
+- Markdown tables: use minimum separator (`|-|-|`). Never use box-drawing characters (┌─│└ etc.).
+
+## Subagent Discipline
+
+- Under ~50k context: prefer inline work for tasks under ~5 tool calls.
+- Over ~50k context: prefer subagents for self-contained tasks — the per-call token tax adds up.
+- Include output constraints for subagents: "Final response under 2000 chars. List outcomes, not process."

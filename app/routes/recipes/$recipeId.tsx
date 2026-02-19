@@ -3,6 +3,7 @@ import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
+import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
 import {
 	Link,
 	useFetcher,
@@ -457,10 +458,13 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		favoriteFetcher.formData?.get('intent') === 'toggleFavorite'
 			? !recipe.isFavorite
 			: recipe.isFavorite
-	const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
-		() => new Set(),
-	)
-	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(() => new Set())
+	const {
+		checkedIngredients,
+		checkedSteps,
+		toggleIngredient,
+		toggleStep,
+		clearProgress,
+	} = useCookingProgress(recipe.id)
 	const cookFetcher = useFetcher({ key: 'log-cook' })
 	const previewFetcher = useFetcher({ key: 'preview-subtraction' })
 	const shoppingFetcher = useFetcher({ key: 'add-to-shopping' })
@@ -492,6 +496,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			cookFetcher.state === 'idle' &&
 			cookFetcher.data?.success
 		) {
+			clearProgress()
 			const summary = cookFetcher.data.inventorySummary as
 				| SubtractionSummary
 				| null
@@ -522,7 +527,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			}
 		}
 		prevCookFetcherState.current = cookFetcher.state
-	}, [cookFetcher.state, cookFetcher.data])
+	}, [cookFetcher.state, cookFetcher.data, clearProgress])
 
 	// Open enhance modal or show error when enhance fetch completes
 	useEffect(() => {
@@ -562,30 +567,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			},
 			{ replace: true },
 		)
-	}
-
-	function toggleIngredient(id: string) {
-		setCheckedIngredients((prev) => {
-			const next = new Set(prev)
-			if (next.has(id)) {
-				next.delete(id)
-			} else {
-				next.add(id)
-			}
-			return next
-		})
-	}
-
-	function toggleStep(id: string) {
-		setCheckedSteps((prev) => {
-			const next = new Set(prev)
-			if (next.has(id)) {
-				next.delete(id)
-			} else {
-				next.add(id)
-			}
-			return next
-		})
 	}
 
 	function handleIMadeThis() {

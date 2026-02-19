@@ -119,7 +119,7 @@ const DropdownMenuItem = ({
 		data-slot="dropdown-menu-item"
 		data-inset={inset}
 		className={cn(
-			'focus:bg-accent/10 focus:text-accent-foreground relative flex items-center rounded-lg px-2 py-2.5 text-sm outline-hidden transition-colors select-none data-disabled:pointer-events-none data-disabled:opacity-50',
+			'focus:bg-accent/10 focus:text-accent-foreground relative flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm outline-hidden transition-colors select-none data-disabled:pointer-events-none data-disabled:opacity-50',
 			inset && 'pl-8',
 			className,
 		)}

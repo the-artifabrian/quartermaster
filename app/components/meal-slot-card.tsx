@@ -103,7 +103,7 @@ function EntryRow({
 	}, [cookedFetcher.state, cookedFetcher.data])
 
 	function updateServings(newServings: number) {
-		const clamped = Math.max(1, newServings)
+		const clamped = Math.min(999, Math.max(1, newServings))
 		void servingsFetcher.submit(
 			{
 				intent: 'updateServings',
@@ -148,7 +148,12 @@ function EntryRow({
 					)}
 				>
 					<Link
-						to={`/recipes/${entry.recipe.id}`}
+						to={
+							entry.servings &&
+							entry.servings !== entry.recipe.servings
+								? `/recipes/${entry.recipe.id}?servings=${entry.servings}`
+								: `/recipes/${entry.recipe.id}`
+						}
 						className="hover:underline"
 						onClick={(e) => e.stopPropagation()}
 					>

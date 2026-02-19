@@ -127,7 +127,7 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 								errors={fields.password.errors}
 							/>
 
-							<div className="flex justify-between">
+							<div className="flex justify-between pt-3">
 								<CheckboxField
 									labelProps={{
 										htmlFor: fields.remember.id,

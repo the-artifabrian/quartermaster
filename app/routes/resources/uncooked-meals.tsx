@@ -1,7 +1,8 @@
 import { data } from 'react-router'
 import { type Route } from './+types/uncooked-meals.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { requireProTier } from '#app/utils/subscription.server.ts'
+import { getUserId } from '#app/utils/auth.server.ts'
+import { getUserTier } from '#app/utils/subscription.server.ts'
 import { serializeDate } from '#app/utils/date.ts'
 
 const MEAL_TYPE_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'] as const
@@ -15,7 +16,22 @@ const MEAL_REMINDER_AFTER_HOUR: Record<string, number> = {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { householdId } = await requireProTier(request)
+	// Gracefully return empty when not authenticated — this is a fetcher-only
+	// route, so redirecting to /login would cause the browser to navigate to
+	// /login?redirectTo=/resources/uncooked-meals (a resource route with no UI).
+	const userId = await getUserId(request)
+	if (!userId) return data({ entries: [] })
+
+	const tierInfo = await getUserTier(userId)
+	if (!tierInfo.isProActive) return data({ entries: [] })
+
+	const member = await prisma.householdMember.findFirst({
+		where: { userId },
+		select: { householdId: true },
+	})
+	if (!member) return data({ entries: [] })
+
+	const householdId = member.householdId
 
 	const now = new Date()
 	const currentHour = now.getHours()

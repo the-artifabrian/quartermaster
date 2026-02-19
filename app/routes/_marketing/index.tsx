@@ -12,7 +12,7 @@ export const handle: SEOHandle = {
 }
 
 const description =
-	'Your recipes, your pantry, your meal plan, your shopping list — all in one place. Quartermaster figures out what you can cook tonight and writes your grocery list when you\u2019re ready.'
+	'Your recipes, your pantry, your meal plan — all connected. Quartermaster matches recipes to what\u2019s in your kitchen, plans your week, writes your grocery list, and updates your inventory as you cook.'
 
 export const meta: Route.MetaFunction = ({ matches }) => [
 	{ title: 'Quartermaster' },
@@ -72,9 +72,9 @@ export default function Index() {
 						data-paragraph
 						className="animate-slide-top text-muted-foreground fill-mode-[backwards] mx-auto mt-8 max-w-lg text-lg/7 [animation-delay:0.4s]"
 					>
-						Quartermaster connects your recipes to what's actually in your
-						kitchen, plans your week, and writes your shopping list. All in one
-						place.
+						Import your recipes, track what's in your kitchen, and
+						Quartermaster tells you what you can cook tonight. Plan the week,
+						shop the list, cook from the app — your pantry updates itself.
 					</p>
 
 					<div className="animate-slide-top fill-mode-[backwards] mt-10 flex flex-col items-center gap-4 [animation-delay:0.6s] sm:flex-row sm:justify-center">
@@ -151,42 +151,52 @@ export default function Index() {
 					{/* Feature 2 — right visual */}
 					<div className="flex flex-col items-center gap-8 md:flex-row-reverse">
 						<div className="bg-card shadow-warm flex-1 rounded-2xl border p-6">
-							<div className="mb-3 flex items-center gap-2">
-								<span className="inline-block size-2.5 rounded-full bg-amber-500" />
-								<span className="text-sm font-semibold">Pantry</span>
-								<span className="text-muted-foreground text-xs">12 items</span>
-							</div>
-							<div className="flex flex-wrap gap-2">
+							<div className="space-y-2.5">
 								{[
-									'Rice',
-									'Olive oil',
-									'Garlic',
-									'Onions',
-									'Soy sauce',
-									'Flour',
-								].map((item) => (
-									<span
-										key={item}
-										className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
-									>
-										{item}
-									</span>
-								))}
-							</div>
-							<div className="mt-3 flex items-center gap-2">
-								<span className="inline-block size-2.5 rounded-full bg-blue-500" />
-								<span className="text-sm font-semibold">Fridge</span>
-								<span className="text-muted-foreground text-xs">8 items</span>
-							</div>
-							<div className="mt-2 flex flex-wrap gap-2">
-								{['Chicken', 'Eggs', 'Butter', 'Milk'].map((item) => (
-									<span
-										key={item}
-										className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800 dark:bg-blue-950/30 dark:text-blue-300"
-									>
-										{item}
-									</span>
-								))}
+									{ name: 'Chicken Tikka Masala', pct: 100 },
+									{ name: 'Garlic Butter Pasta', pct: 85 },
+									{ name: 'Veggie Stir Fry', pct: 70 },
+								].map((r) => {
+									const circumference = 2 * Math.PI * 15.5
+									const dash = (r.pct / 100) * circumference
+									return (
+										<div key={r.name} className="flex items-center gap-3">
+											<div className="relative size-8 shrink-0">
+												<svg
+													viewBox="0 0 36 36"
+													className="-rotate-90 size-full"
+												>
+													<circle
+														cx="18"
+														cy="18"
+														r="15.5"
+														fill="none"
+														className="stroke-muted"
+														strokeWidth="3"
+													/>
+													<circle
+														cx="18"
+														cy="18"
+														r="15.5"
+														fill="none"
+														className="stroke-accent"
+														strokeWidth="3"
+														strokeDasharray={`${dash} ${circumference}`}
+														strokeLinecap="round"
+													/>
+												</svg>
+											</div>
+											<div className="min-w-0 flex-1">
+												<p className="truncate text-sm font-medium">
+													{r.name}
+												</p>
+												<p className="text-muted-foreground text-xs">
+													{r.pct}% of ingredients in stock
+												</p>
+											</div>
+										</div>
+									)
+								})}
 							</div>
 						</div>
 						<div className="flex-1 text-center md:text-right">
@@ -194,12 +204,12 @@ export default function Index() {
 								Step 2
 							</p>
 							<h3 className="text-2xl font-bold">
-								Track what's in your kitchen
+								See what you can cook tonight
 							</h3>
 							<p className="text-muted-foreground mt-2">
-								Pantry, fridge, freezer. Know what you have at a glance.
-								Quartermaster tells you what you can cook right now and alerts
-								you when things are about to expire.
+								Log what's in your pantry, fridge, and freezer. Quartermaster
+								matches every recipe against your inventory and shows you
+								what's ready to cook right now.
 							</p>
 						</div>
 					</div>
@@ -229,10 +239,10 @@ export default function Index() {
 							</div>
 							<div className="mt-3 flex items-center justify-center gap-2">
 								<span className="bg-accent text-accent-foreground inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold">
-									67% overlap
+									4 dinners planned
 								</span>
 								<span className="text-muted-foreground text-[10px]">
-									3 shared ingredients
+									shopping list ready
 								</span>
 							</div>
 						</div>
@@ -240,13 +250,11 @@ export default function Index() {
 							<p className="text-accent mb-2 font-serif text-sm font-medium">
 								Step 3
 							</p>
-							<h3 className="text-2xl font-bold">
-								Plan meals that share ingredients
-							</h3>
+							<h3 className="text-2xl font-bold">Plan your week</h3>
 							<p className="text-muted-foreground mt-2">
-								Add recipes to your weekly plan. Quartermaster spots ingredient
-								overlaps so you buy less and waste less. It also warns you about
-								single-use ingredients before you shop.
+								Add recipes to a weekly calendar with breakfast, lunch, dinner,
+								and snack slots. Adjust servings per meal and generate a
+								shopping list when you're ready.
 							</p>
 						</div>
 					</div>
@@ -254,41 +262,54 @@ export default function Index() {
 					{/* Feature 4 — right visual */}
 					<div className="flex flex-col items-center gap-8 md:flex-row-reverse">
 						<div className="bg-card shadow-warm flex-1 rounded-2xl border p-6">
-							<div className="space-y-2">
-								{[
-									{ name: 'Chicken thighs', checked: true },
-									{ name: 'Yogurt', checked: true },
-									{ name: 'Tortillas', checked: false },
-									{ name: 'Avocados', checked: false },
-									{ name: 'Lime', checked: false },
-								].map((item) => (
-									<div
-										key={item.name}
-										className="flex items-center gap-2 text-sm"
-									>
+							<div className="space-y-3">
+								<div className="flex items-center gap-2 text-xs font-medium">
+									<Icon name="cart" className="text-accent size-4" />
+									<span>Shop</span>
+									<span className="text-muted-foreground">&rarr;</span>
+									<Icon name="timer" className="text-accent size-4" />
+									<span>Cook</span>
+									<span className="text-muted-foreground">&rarr;</span>
+									<Icon name="reset" className="text-accent size-4" />
+									<span>Restocked</span>
+								</div>
+								<div className="space-y-1.5">
+									{[
+										{ name: 'Chicken thighs', checked: true },
+										{ name: 'Yogurt', checked: true },
+										{ name: 'Tortillas', checked: false },
+										{ name: 'Avocados', checked: false },
+									].map((item) => (
 										<div
-											className={`flex size-4 items-center justify-center rounded border-2 ${item.checked ? 'border-primary bg-primary' : 'border-input'}`}
+											key={item.name}
+											className="flex items-center gap-2 text-sm"
 										>
-											{item.checked && (
-												<Icon
-													name="check"
-													size="xs"
-													className="text-primary-foreground"
-												/>
-											)}
+											<div
+												className={`flex size-4 items-center justify-center rounded border-2 ${item.checked ? 'border-primary bg-primary' : 'border-input'}`}
+											>
+												{item.checked && (
+													<Icon
+														name="check"
+														size="xs"
+														className="text-primary-foreground"
+													/>
+												)}
+											</div>
+											<span
+												className={
+													item.checked
+														? 'text-muted-foreground line-through'
+														: ''
+												}
+											>
+												{item.name}
+											</span>
 										</div>
-										<span
-											className={
-												item.checked ? 'text-muted-foreground line-through' : ''
-											}
-										>
-											{item.name}
-										</span>
-									</div>
-								))}
-							</div>
-							<div className="bg-muted mt-3 h-1.5 overflow-hidden rounded-full">
-								<div className="bg-accent h-full w-2/5 rounded-full" />
+									))}
+								</div>
+								<div className="bg-accent/10 text-accent rounded-lg px-3 py-1.5 text-center text-[10px] font-medium">
+									Checked items flow into your inventory
+								</div>
 							</div>
 						</div>
 						<div className="flex-1 text-center md:text-right">
@@ -296,11 +317,13 @@ export default function Index() {
 								Step 4
 							</p>
 							<h3 className="text-2xl font-bold">
-								Generate a smart shopping list
+								Shop, cook, repeat
 							</h3>
 							<p className="text-muted-foreground mt-2">
 								One tap generates a shopping list from your meal plan, minus
-								what you already have. Check items off as you shop.
+								what you already have. Check items off at the store and they
+								flow into your inventory. Cook from the app and your pantry
+								updates automatically.
 							</p>
 						</div>
 					</div>
@@ -314,20 +337,20 @@ export default function Index() {
 						Built for the kitchen
 					</h2>
 					<p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
-						Quartermaster is designed to be used while you cook, not just for
-						planning ahead.
+						Hands-free cooking, real-time sync, and full control over your
+						data.
 					</p>
 					<div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 						{[
 							{
 								icon: 'timer' as const,
-								title: 'Inline timers',
-								desc: 'Tap time references in recipe steps to start named timers. Multiple timers run at once.',
+								title: 'Cooking mode',
+								desc: 'Inline timers, tap-to-cross-off ingredients and steps, wake lock, and temperature conversions — built for messy hands.',
 							},
 							{
-								icon: 'check' as const,
-								title: 'Tap to cross off',
-								desc: 'Check off ingredients and steps as you go. Your screen stays awake so you can cook hands-free.',
+								icon: 'sparkles' as const,
+								title: 'Smart matching',
+								desc: 'Every recipe shows how many ingredients you have in stock. Sort by match percentage to find the best fit.',
 							},
 							{
 								icon: 'home' as const,

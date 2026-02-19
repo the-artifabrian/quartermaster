@@ -226,7 +226,7 @@ export function InventoryItemCard({
 							<DropdownMenuContent align="end">
 								<DropdownMenuItem
 									onSelect={() => {
-										lowStockFetcher.submit(
+										void lowStockFetcher.submit(
 											{ intent: 'toggle-low-stock', itemId: item.id },
 											{ method: 'POST' },
 										)
@@ -258,7 +258,7 @@ export function InventoryItemCard({
 											e.preventDefault()
 											setConfirmDelete(true)
 										} else {
-											deleteFetcher.submit(
+											void deleteFetcher.submit(
 												{ intent: 'delete', itemId: item.id },
 												{ method: 'POST' },
 											)

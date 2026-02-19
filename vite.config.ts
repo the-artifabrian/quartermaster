@@ -43,7 +43,7 @@ export default defineConfig((config) => {
 				}
 			},
 
-			sourcemap: true,
+			sourcemap: !!process.env.SENTRY_AUTH_TOKEN,
 		},
 		server: {
 			watch: {

@@ -625,7 +625,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		const url = `${origin ?? window.location.origin}/share/${recipe.id}`
 		try {
 			await navigator.clipboard.writeText(url)
-			toast.success('Link copied to clipboard')
+			toast.success('Public link copied', {
+				description: 'Anyone with this link can view the recipe.',
+			})
 		} catch {
 			toast.error('Unable to copy — try copying the URL manually')
 		}

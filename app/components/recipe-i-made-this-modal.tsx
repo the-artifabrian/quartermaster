@@ -1,10 +1,11 @@
 import { format } from 'date-fns'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { type useFetcher } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import type { SubtractionSummary } from '#app/utils/inventory-subtract.server.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { useModal } from '#app/utils/use-modal.ts'
 import {
 	type SubtractionPreviewData,
 	formatQuantity,
@@ -45,13 +46,7 @@ export function IMadeThisModal({
 	isProActive: boolean
 	cookResult?: SubtractionSummary | null
 }) {
-	useEffect(() => {
-		function handleEscape(e: KeyboardEvent) {
-			if (e.key === 'Escape') onClose()
-		}
-		document.addEventListener('keydown', handleEscape)
-		return () => document.removeEventListener('keydown', handleEscape)
-	}, [onClose])
+	const dialogRef = useModal(onClose)
 
 	// Review state: post-cook review of skipped items
 	if (cookResult && cookResult.skipped.length > 0) {
@@ -70,6 +65,7 @@ export function IMadeThisModal({
 
 	return (
 		<div
+			ref={dialogRef}
 			className="fixed inset-0 z-60 flex items-end justify-center sm:items-center"
 			role="dialog"
 			aria-modal="true"
@@ -238,6 +234,7 @@ function ReviewState({
 	cookResult: SubtractionSummary
 	onClose: () => void
 }) {
+	const reviewDialogRef = useModal(onClose)
 	const [usedUpIds, setUsedUpIds] = useState<Set<string>>(() => new Set())
 
 	function markUsedUp(inventoryItemId: string) {
@@ -263,6 +260,7 @@ function ReviewState({
 
 	return (
 		<div
+			ref={reviewDialogRef}
 			className="fixed inset-0 z-60 flex items-end justify-center sm:items-center"
 			role="dialog"
 			aria-modal="true"

@@ -89,9 +89,6 @@ export async function getUsageStats(userId: string, householdId: string) {
 		mealPlanWeekCount,
 		pairingAssignments: pairingCount,
 		weeksWithPairings: pairingWeeks.size,
-		discoverViews: eventCountMap['discover_viewed'] ?? 0,
-		surpriseMeUses: eventCountMap['surprise_me'] ?? 0,
-		whatDoINeedUses: eventCountMap['what_do_i_need'] ?? 0,
 		eventCounts: eventCountMap,
 	}
 }

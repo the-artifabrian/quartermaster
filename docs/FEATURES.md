@@ -5,7 +5,7 @@ kitchen, see what you can cook, plan the week, generate a shopping list, and
 watch inventory update as you cook. The whole loop — from "what do I have?" to
 "what should I make?" to "what do I need to buy?" — in one app.
 
-Complete feature catalog. For the roadmap, see
+High-level feature reference (not exhaustive). For the roadmap, see
 [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy, see
 [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md).
 
@@ -21,15 +21,18 @@ Complete feature catalog. For the roadmap, see
 - Recipe scaling with +/- servings controls and fraction display
 - Cooking mode: interactive ingredient checkboxes and instruction cross-off
   with localStorage persistence (keyed by recipeId, 7-day auto-expiry, cleared
-  on cook log), auto-detected inline timer buttons ("simmer for 15 minutes" ->
-  one-tap start, up to 5 concurrent timers with floating widget, alarm sound,
-  wake lock), auto-detected temperature conversion tooltips (F<->C on hover/tap)
+  on cook log)
+- Inline timers: auto-detected from instruction text ("simmer for 15 minutes"
+  → one-tap start), up to 5 concurrent timers with floating widget that persists
+  across navigation, alarm sound, wake lock
+- Auto-detected temperature conversion tooltips (F↔C on hover/tap)
 - Print-friendly recipe layout
-- Share via Web Share API (clipboard fallback). Public share page
-  (`/share/$recipeId`) with OG meta tags, JSON-LD, recipe scaling, "Save to My
-  Recipes" for logged-in users, sign-up CTA for non-users
-- Import from URL (JSON-LD scraping with text fallback), quick text entry, JSON
-  export
+- Recipe share button copies a public link to clipboard (`/share/$recipeId`)
+  with explicit "public link" warning in tooltip and toast
+- Public share page (`/share/$recipeId`) with OG meta tags, JSON-LD, recipe
+  scaling, "Save to My Recipes" for logged-in users, sign-up CTA for non-users
+- Import from URL (JSON-LD scraping with text fallback, follows redirects),
+  quick text entry, JSON export
 - Bulk import: paste plain-text recipes or upload `.md`/`.txt` files. `---`
   separator for multiple recipes per batch (max 50). Handles checkbox format and
   sub-section headers (become ingredient heading rows). Post-import nudge CTA
@@ -78,11 +81,6 @@ Complete feature catalog. For the roadmap, see
 - "What can I make?" always-on when inventory exists -- recipe cards show SVG
   match progress rings, default sort by match percentage, 4-level fuzzy matching
   (exact, synonym, core word, multi-word containment)
-- "Almost there" banner for near-miss recipes (1-3 missing): ingredient pills
-  with "Add to shopping list" and "I have this" (smart location + auto-suggested
-  expiry from shelf-life lookup)
-- Per-card missing ingredient pills with "I have this" buttons (up to 4 visible,
-  overflow count) plus "add all missing to shopping list"
 - "Use these up soon" callout for items expiring within 3 days: meal plan
   coverage detection (checks upcoming 2 weeks of uncooked meals for ingredient
   matches — covered items shown muted with recipe name, day, and meal type;
@@ -126,8 +124,8 @@ Complete feature catalog. For the roadmap, see
   - Inventory-aware: subtracts items already in stock and staple ingredients
   - Optimistic UI on checkbox toggle and delete (instant response via
     `useFetcher`)
-  - Live-refresh via SSE: partner's shopping list changes auto-revalidate
-    the page (debounced 500ms)
+  - Live-refresh via SSE for all shopping list events (generate, add, clear,
+    to-inventory, toggle, edit, delete; debounced 500ms)
   - Check-off -> inventory pipeline: compact collapsed rows with location
     badges and short expiry dates, tap to expand controls, select all/deselect
     all. Pre-filled location and auto-suggested expiry (shelf-life lookup,
@@ -146,7 +144,7 @@ Complete feature catalog. For the roadmap, see
 - Member management: rename household, remove members, revoke invites, leave
 - Data on leave: sole members move all data; multi-member leaves deep-copy
   recipes
-- Real-time activity via SSE + 30s database polling fallback: 24 event types
+- Real-time activity via SSE + 30s database polling fallback: 25+ event types
   with two-tier priority — **notify** (shopping list generated, meal plan
   changes, member join/leave) triggers toast + badge; **silent** (edits,
   deletes, inventory CRUD) appears in activity feed only. Client-side dedup
@@ -164,11 +162,12 @@ Complete feature catalog. For the roadmap, see
 
 ## Subscription & Invite Codes
 
-- Free: unlimited recipes, up to 15 inventory items, smart matching. Pro:
-  everything ($35/yr early-adopter, $49/yr standard, annual-only)
+- Free: unlimited recipes, up to 15 inventory items, smart matching, household
+  sharing (beta). Pro: unlimited inventory + planning/shopping/AI
+  ($35/yr early-adopter, $49/yr standard, annual-only)
 - Stripe Checkout + Customer Portal + webhooks. Invite codes (`QM-XXXXXX`,
   60 days Pro, grants 2 starter codes) coexist with Stripe
-- Pro-only routes redirect to `/upgrade` with lock icons in nav. Graceful
+- Pro-gated routes redirect to `/upgrade` with lock icons in nav. Graceful
   downgrade with data preservation, expiry nudges at 7d/3d
 - Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (codes + tiers)
 - Full pricing and go-live strategy in
@@ -183,8 +182,11 @@ Complete feature catalog. For the roadmap, see
 - Mobile-first responsive layout with bottom nav (sliding pill indicator)
 - 44px minimum touch targets across all interactive elements (Apple HIG),
   `touch-action: manipulation` to eliminate 300ms tap delay
-- Accessibility: skip-to-content, navigation landmarks, modal focus trapping,
-  aria-labels on icon-only buttons, `prefers-reduced-motion` support
+- Accessibility: skip-to-content link, semantic HTML landmarks (`<header>`,
+  `<main>`), aria-labels on all interactive controls, focus-visible ring
+  indicators on custom checkbox lists, consistent modal keyboard behavior
+  (focus trap, focus restore, Escape to close via shared `useModal` hook),
+  `prefers-reduced-motion` CSS support
 - SEO: descriptive titles, canonical URLs, OG/Twitter meta, JSON-LD (Recipe,
   WebApplication, FAQPage), sitemap, robots.txt
 - PWA with service worker for offline access, iOS standalone meta tags, and
@@ -193,8 +195,16 @@ Complete feature catalog. For the roadmap, see
 - Full data export (JSON) + import round-trip with duplicate detection and
   per-section error isolation
 - Security: CSP (nonce-based), streaming upload size enforcement, MIME
-  validation, Zod on all bulk ops, SSRF protection, input length limits
-- Usage analytics via `UsageEvent` model: pairing selections, discovery stats.
-  Stats page at Settings > Data
+  validation, Zod on all bulk ops, SSRF protection (including post-redirect
+  validation), input length limits, production sourcemaps disabled by default
+  (only generated when Sentry is configured), error message sanitization on
+  public-facing pages
+- Usage analytics via `UsageEvent` model (pairing selections, recipe actions,
+  event counts). Stats page at Settings > Data (cooking activity, meal planning,
+  event log)
 - Vitest unit/integration tests + Playwright e2e tests
 - Deployed on Fly.io with LiteFS, custom domain, HTTPS
+
+---
+
+_Last updated: February 19, 2026._

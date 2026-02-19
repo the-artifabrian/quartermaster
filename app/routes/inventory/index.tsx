@@ -414,6 +414,13 @@ export async function action({ request }: Route.ActionArgs) {
 				where: { id: itemId },
 				data,
 			})
+
+			void emitHouseholdEvent({
+				type: 'inventory_item_updated',
+				payload: { name: item.name },
+				userId,
+				householdId,
+			})
 		}
 
 		return { status: 'success' as const }
@@ -431,6 +438,13 @@ export async function action({ request }: Route.ActionArgs) {
 		await prisma.inventoryItem.update({
 			where: { id: itemId },
 			data: { lowStock: !item.lowStock },
+		})
+
+		void emitHouseholdEvent({
+			type: 'inventory_item_low_stock_toggled',
+			payload: { name: item.name, lowStock: !item.lowStock },
+			userId,
+			householdId,
 		})
 
 		return { status: 'success' as const }

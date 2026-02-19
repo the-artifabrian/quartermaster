@@ -11,6 +11,14 @@ see [FEATURES.md](./FEATURES.md).
 
 ---
 
+## Scope Note
+
+Internal strategy document for planning. Market and competitor statements are
+working assumptions as of February 2026 and should be re-verified before any
+external use.
+
+---
+
 ## Why Freemium
 
 The cooking app market is consolidating — Yummly shut down (Dec 2024), PlateJoy
@@ -35,8 +43,11 @@ and experience the "aha" moment:
 - Unlimited recipes (CRUD, search, images, scaling)
 - Import from URL, bulk import, JSON export
 - Interactive cooking view (timers, temperature tooltips, checkboxes)
-- Recipe sharing, cooking log, favorites, "Surprise me"
-- 10-15 inventory items (enough for match rings and discovery)
+- Recipe sharing, cooking log, favorites
+- Up to 15 inventory items (enough for match rings and discovery)
+
+Meal planning, shopping lists, AI features, and unlimited inventory require
+Pro. Household sharing is currently available to all beta users.
 
 The upgrade trigger is experiential: "I want more than 15 items in my kitchen."
 URL import is free because it's a growth lever — users build a library, get
@@ -58,8 +69,8 @@ Everything. Annual-only. One tier, no complexity.
 - Ingredient overlap planning, pairing suggestions
 - AI substitution hints, recipe generation from inventory, recipe metadata
   enhance
-- Household sharing: shared recipe library, inventory, meal plan, real-time
-  activity notifications
+- Household sharing + real-time activity notifications (currently also available
+  on Free during beta)
 
 > **Early-adopter pricing:** Launch at $35/yr for the first year or first 100
 > users. Raise to $49 once there's social proof. Add monthly pricing later when
@@ -166,6 +177,11 @@ doesn't count.
   [DEVELOPMENT_PLAN.md § Inventory Mode](./DEVELOPMENT_PLAN.md#inventory-mode-active-evaluation)
 - **No native app (PWA)** — some users expect a native app for a paid
   subscription. PWA is intentional: avoids app store cuts, enables self-hosting,
-  allows rapid iteration, works on all platforms. iOS limitations (no push
-  notifications, no background sync) are the main trade-off. No app store
+  allows rapid iteration, works on all platforms. iOS supports web push since
+  16.4 (home-screen PWAs only) but Quartermaster uses SSE for active-session
+  updates; no background sync is the main platform trade-off. No app store
   discoverability — offset by SEO, community posts, and word of mouth
+
+---
+
+_Last updated: February 19, 2026._

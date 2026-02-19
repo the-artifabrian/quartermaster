@@ -40,11 +40,13 @@ export function NotificationBell() {
 	const prevServerCount = useRef(serverUnreadCount)
 
 	// Reset cleared flag when root loader revalidates with a fresh count
-	if (prevServerCount.current !== serverUnreadCount) {
-		prevServerCount.current = serverUnreadCount
-		setCleared(false)
-		setClientIncrements(0)
-	}
+	useEffect(() => {
+		if (prevServerCount.current !== serverUnreadCount) {
+			prevServerCount.current = serverUnreadCount
+			setCleared(false)
+			setClientIncrements(0)
+		}
+	}, [serverUnreadCount])
 
 	// Subscribe to SSE events and increment client counter (notify-tier only)
 	useEffect(() => {

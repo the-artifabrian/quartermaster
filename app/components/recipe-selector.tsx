@@ -117,7 +117,7 @@ export function RecipeSelector({
 					onChange={(e) => setSearch(e.target.value)}
 					autoFocus
 				/>
-				<Button variant="ghost" size="icon" onClick={onCancel}>
+				<Button variant="ghost" size="icon" onClick={onCancel} aria-label="Close recipe selector">
 					<Icon name="cross-1" size="sm" />
 				</Button>
 			</div>

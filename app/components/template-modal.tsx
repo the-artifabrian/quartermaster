@@ -3,9 +3,7 @@ import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-
-const FOCUSABLE_SELECTOR =
-	'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+import { useModal } from '#app/utils/use-modal.ts'
 
 function ModalShell({
 	title,
@@ -16,56 +14,7 @@ function ModalShell({
 	onClose: () => void
 	children: React.ReactNode
 }) {
-	const dialogRef = useRef<HTMLDivElement>(null)
-	// Capture the previously focused element during render (before autoFocus fires)
-	const previouslyFocusedRef = useRef<HTMLElement | null>(
-		document.activeElement as HTMLElement | null,
-	)
-
-	useEffect(() => {
-		const dialog = dialogRef.current
-		// If an element with autoFocus already claimed focus inside the dialog,
-		// don't override it. Otherwise, focus the first focusable element.
-		if (dialog && !dialog.contains(document.activeElement)) {
-			const first = dialog.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
-			first?.focus()
-		}
-
-		return () => {
-			previouslyFocusedRef.current?.focus()
-		}
-	}, [])
-
-	useEffect(() => {
-		function handleKeyDown(e: KeyboardEvent) {
-			if (e.key === 'Escape') {
-				onClose()
-				return
-			}
-
-			if (e.key === 'Tab') {
-				const dialog = dialogRef.current
-				if (!dialog) return
-				const focusable = Array.from(
-					dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-				)
-				if (focusable.length === 0) return
-
-				const first = focusable[0]!
-				const last = focusable[focusable.length - 1]!
-
-				if (e.shiftKey && document.activeElement === first) {
-					e.preventDefault()
-					last.focus()
-				} else if (!e.shiftKey && document.activeElement === last) {
-					e.preventDefault()
-					first.focus()
-				}
-			}
-		}
-		document.addEventListener('keydown', handleKeyDown)
-		return () => document.removeEventListener('keydown', handleKeyDown)
-	}, [onClose])
+	const dialogRef = useModal(onClose)
 
 	return (
 		<div

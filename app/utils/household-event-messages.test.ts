@@ -35,6 +35,10 @@ describe('getEventPriority', () => {
 		'meal_plan_removed',
 		'meal_plan_cooked',
 		'meal_plan_template_saved',
+		'shopping_list_item_toggled',
+		'shopping_list_item_edited',
+		'shopping_list_item_deleted',
+		'inventory_item_low_stock_toggled',
 	])('%s is silent priority', (type) => {
 		expect(getEventPriority(type)).toBe('silent')
 	})
@@ -295,6 +299,66 @@ describe('formatEventMessage', () => {
 		)
 		expect(result.message).toBe('Sam applied template "Entertaining Week"')
 		expect(result.url).toBe('/plan')
+	})
+
+	test('shopping_list_item_toggled - checked', () => {
+		const result = formatEventMessage(
+			'shopping_list_item_toggled',
+			{ name: 'Milk', checked: true },
+			'Alex',
+		)
+		expect(result.message).toBe('Alex checked off Milk on the shopping list')
+		expect(result.url).toBe('/shopping')
+	})
+
+	test('shopping_list_item_toggled - unchecked', () => {
+		const result = formatEventMessage(
+			'shopping_list_item_toggled',
+			{ name: 'Milk', checked: false },
+			'Alex',
+		)
+		expect(result.message).toBe('Alex unchecked Milk on the shopping list')
+	})
+
+	test('shopping_list_item_edited', () => {
+		const result = formatEventMessage(
+			'shopping_list_item_edited',
+			{ name: 'Whole Milk' },
+			'Alex',
+		)
+		expect(result.message).toBe('Alex edited Whole Milk on the shopping list')
+		expect(result.url).toBe('/shopping')
+	})
+
+	test('shopping_list_item_deleted', () => {
+		const result = formatEventMessage(
+			'shopping_list_item_deleted',
+			{ name: 'Butter' },
+			'Alex',
+		)
+		expect(result.message).toBe(
+			'Alex removed Butter from the shopping list',
+		)
+		expect(result.url).toBe('/shopping')
+	})
+
+	test('inventory_item_low_stock_toggled - low stock', () => {
+		const result = formatEventMessage(
+			'inventory_item_low_stock_toggled',
+			{ name: 'Rice', lowStock: true },
+			'Alex',
+		)
+		expect(result.message).toBe('Alex marked Rice as low stock')
+		expect(result.url).toBe('/inventory')
+	})
+
+	test('inventory_item_low_stock_toggled - in stock', () => {
+		const result = formatEventMessage(
+			'inventory_item_low_stock_toggled',
+			{ name: 'Rice', lowStock: false },
+			'Alex',
+		)
+		expect(result.message).toBe('Alex marked Rice as in stock')
 	})
 
 	test('unknown event type', () => {

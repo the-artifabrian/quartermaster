@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -33,24 +33,29 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 	const isDuplicateWarning =
 		fetcher.data?.status === 'duplicate_warning' && name === lastWarningName
 
-	// Track which name triggered the warning so editing dismisses it
-	if (
-		fetcher.data?.status === 'duplicate_warning' &&
-		lastWarningName !== name
-	) {
-		setLastWarningName(name)
-	}
+	const prevFetcherData = useRef(fetcher.data)
 
-	// Reset form after success or merge
-	if (fetcher.data?.status === 'success' || fetcher.data?.status === 'merged') {
-		if (name || quantity || unit) {
+	// Track which name triggered the warning so editing dismisses it,
+	// and reset form after success or merge
+	useEffect(() => {
+		if (fetcher.data === prevFetcherData.current) return
+		prevFetcherData.current = fetcher.data
+
+		if (fetcher.data?.status === 'duplicate_warning') {
+			setLastWarningName(name)
+		}
+
+		if (
+			fetcher.data?.status === 'success' ||
+			fetcher.data?.status === 'merged'
+		) {
 			setName('')
 			setQuantity('')
 			setUnit('')
 			setIsOpen(false)
 			setLastWarningName('')
 		}
-	}
+	}, [fetcher.data, name])
 
 	function handleForceSubmit(force: 'merge' | 'add') {
 		const formData = new FormData()

@@ -26,9 +26,6 @@ export default function UsageStats({ loaderData }: Route.ComponentProps) {
 		mostCookedRecipe,
 		mealPlanWeekCount,
 		pairingAssignments,
-		discoverViews,
-		surpriseMeUses,
-		whatDoINeedUses,
 		eventCounts,
 	} = loaderData
 
@@ -70,18 +67,6 @@ export default function UsageStats({ loaderData }: Route.ComponentProps) {
 				<div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
 					<StatCard label="Weeks planned" value={mealPlanWeekCount} />
 					<StatCard label="Pairing selections" value={pairingAssignments} />
-				</div>
-			</div>
-
-			{/* Discovery */}
-			<div className="bg-card shadow-warm rounded-xl border p-5">
-				<h3 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
-					Discovery
-				</h3>
-				<div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-					<StatCard label="Discover visits" value={discoverViews} />
-					<StatCard label="Surprise Me uses" value={surpriseMeUses} />
-					<StatCard label="What Do I Need? uses" value={whatDoINeedUses} />
 				</div>
 			</div>
 

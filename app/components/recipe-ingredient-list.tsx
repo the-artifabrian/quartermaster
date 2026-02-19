@@ -96,6 +96,7 @@ export function IngredientList({
 							className={cn(
 								'flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors select-none',
 								'hover:bg-accent/5',
+								'focus-visible:ring-primary/50 focus-visible:outline-none focus-visible:ring-2',
 							)}
 							onClick={() => onToggle(ingredient.id)}
 							onKeyDown={(e) => {

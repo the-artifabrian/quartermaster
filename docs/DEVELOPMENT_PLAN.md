@@ -19,38 +19,38 @@ generation.
 
 The app is feature-complete for solo and shared daily use.
 
-| Phase              | Summary                                                                                 |
-|-|-|
-| 1-4                | Recipe CRUD, inventory tracking, meal planning calendar, shopping list generation        |
-| 5-8                | Inventory matching ("What can I make?"), cooking logs, inventory subtraction, unit conversion |
-| 9-12               | Recipe scaling, cooking mode (timers, temps), ingredient headings, bulk import           |
-| 13a-e              | Household sharing, SSE real-time events, notification bell                               |
-| Polish + UX        | Color system, mobile-first layout, print/share, meal templates, shelf-life, pairing/waste, cooking progress, card streamlining |
-| Monetization       | Stripe, invite codes, free tier (15-item inventory limit), admin dashboard, graceful downgrade |
-| AI                 | Ingredient substitutions (static DB + LLM), recipe generation, metadata enhance          |
-| Beta hardening     | Dead code cleanup, a11y (focus traps, aria-labels, focus rings), render-time setState fixes, SSRF + sourcemap + error sanitization, shopping live-refresh |
+| Phase          | Summary                                                                                                                                                   |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1-4            | Recipe CRUD, inventory tracking, meal planning calendar, shopping list generation                                                                         |
+| 5-8            | Inventory matching ("What can I make?"), cooking logs, inventory subtraction, unit conversion                                                             |
+| 9-12           | Recipe scaling, cooking mode (timers, temps), ingredient headings, bulk import                                                                            |
+| 13a-e          | Household sharing, SSE real-time events, notification bell                                                                                                |
+| Polish + UX    | Color system, mobile-first layout, print/share, meal templates, shelf-life, pairing/waste, cooking progress, card streamlining                            |
+| Monetization   | Stripe, invite codes, free tier (15-item inventory limit), admin dashboard, graceful downgrade                                                            |
+| AI             | Ingredient substitutions (static DB + LLM), recipe generation, metadata enhance                                                                           |
+| Beta hardening | Dead code cleanup, a11y (focus traps, aria-labels, focus rings), render-time setState fixes, SSRF + sourcemap + error sanitization, shopping live-refresh |
 
 ---
 
 ## Phase Now: Iterate and Refine
 
 The core loop is complete — plan, shop, cook, subtract, repeat. The app doesn't
-need more features; it needs the existing ones to be smooth enough for daily use.
-New ideas come from the friction log, not a roadmap. New AI surface-area work is
-frozen until core-loop reliability items are closed and daily-driver retention is
-stable.
+need more features; it needs the existing ones to be smooth enough for daily
+use. New ideas come from the friction log, not a roadmap. New AI surface-area
+work is frozen until core-loop reliability items are closed and daily-driver
+retention is stable.
 
 Daily driving started **February 12, 2026**. The app is being used for real
 cooking and meal planning. 3 external users onboarded (girlfriend as household
 co-user, plus a friend and his girlfriend as a separate household).
 
-**After one week:** recipe management and cooking features are clearly
-validated — daily use, fully replaced Apple Notes. Shopping list is used at the
-store (generated from plan + manual additions). All three AI features
-(substitutions, generation, enhance) used for real cooking decisions. Meal
-planning is partial (2-3 days ahead, not full-week commitment). Household
-sharing is light (partner uses occasionally, not a habit). Inventory
-sustainability and expiry/low-stock value are the open questions — see
+**After one week:** recipe management and cooking features are clearly validated
+— daily use, fully replaced Apple Notes. Shopping list is used at the store
+(generated from plan + manual additions). All 3 AI features (substitutions,
+generation, enhance) used for real cooking decisions. Meal planning is partial
+(2-3 days ahead, not full-week commitment). Household sharing is light (partner
+uses occasionally, not a habit). Inventory sustainability and expiry/low-stock
+value are the open questions — see
 [Inventory Mode](#inventory-mode-active-evaluation) below.
 
 ### Critical Path
@@ -70,8 +70,8 @@ sustainability and expiry/low-stock value are the open questions — see
 ### Proven Gate
 
 The app has **fully replaced Apple Notes** and **meal planning happens in-app**
-for 4+ consecutive weeks before monetization activates. Feature
-development is **not blocked** by this gate.
+for 4+ consecutive weeks before monetization activates. Feature development is
+**not blocked** by this gate.
 
 **Personal criteria:**
 
@@ -132,23 +132,22 @@ Status: `open` = confirmed friction, needs fix. `watch` = potential issue,
 monitor during daily driving before building. `fixed` = resolved. Actionable
 items graduate to the [Public Beta Action List](#public-beta-action-list).
 
-| Date       | Area       | Observation                                                                                                    | Status |
-|-|-|-|-|
-| 2026-02-19 | a11y       | Inventory "Location" label isn't properly associated with the select on `/inventory/new`                       | open   |
+| Date       | Area       | Observation                                                                                                         | Status |
+| ---------- | ---------- | ------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-02-19 | a11y       | Inventory "Location" label isn't properly associated with the select on `/inventory/new`                            | open   |
 | 2026-02-19 | AI         | LLM error messages are generic toasts — paid Pro features should say what happened, not just "Something went wrong" | open   |
-| 2026-02-19 | auth       | Forgot password leaks user existence — returns "No user exists" instead of a generic success message           | watch  |
-| 2026-02-19 | cooking    | `UncookedMealReminder` loads once on mount — may miss newly-created uncooked entries later in-session          | watch  |
-| 2026-02-19 | navigation | Pro lock icons have no tooltip or aria-label — free users see unexplained locks with no context                | watch  |
-| 2026-02-19 | shopping   | Quick Add form is keyed by total items and can remount on count changes, dropping in-progress input            | watch  |
-| 2026-02-19 | shopping   | "Clear checked items" has no confirmation — plain form POST, no double-check, no undo                         | watch  |
-| 2026-02-19 | onboarding | Pantry staples onboarding has no "next step" CTA — user stays on `/inventory` with no guidance forward        | watch  |
-| 2026-02-19 | onboarding | Getting Started dismissal uses one localStorage key shared across users on same device                         | watch  |
+| 2026-02-19 | auth       | Forgot password leaks user existence — returns "No user exists" instead of a generic success message                | watch  |
+| 2026-02-19 | cooking    | `UncookedMealReminder` loads once on mount — may miss newly-created uncooked entries later in-session               | watch  |
+| 2026-02-19 | navigation | Pro lock icons have no tooltip or aria-label — free users see unexplained locks with no context                     | watch  |
+| 2026-02-19 | shopping   | Quick Add form is keyed by total items and can remount on count changes, dropping in-progress input                 | watch  |
+| 2026-02-19 | shopping   | "Clear checked items" has no confirmation — plain form POST, no double-check, no undo                               | watch  |
+| 2026-02-19 | onboarding | Pantry staples onboarding has no "next step" CTA — user stays on `/inventory` with no guidance forward              | watch  |
+| 2026-02-19 | onboarding | Getting Started dismissal uses one localStorage key shared across users on same device                              | watch  |
 
 > 14 items fixed Feb 18-19 (shopping UX, live-refresh, inline editing,
-> optimistic UI, recipe selector search, loading indicator, sourcemaps,
-> invite token, error sanitization). Add entries as friction surfaces.
-> Resolve `open` items promptly; promote `watch` to `open` if they cause
-> real friction.
+> optimistic UI, recipe selector search, loading indicator, sourcemaps, invite
+> token, error sanitization). Add entries as friction surfaces. Resolve `open`
+> items promptly; promote `watch` to `open` if they cause real friction.
 
 ### Public Beta Action List
 
@@ -159,16 +158,22 @@ warning, join page error sanitization). Detail in git history.
 
 #### Should fix soon
 
-- [ ] Pick one timezone/date strategy for meal-plan write/read/query paths and apply it consistently.
-- [ ] Add error feedback and rollback path for post-cook "used up" fire-and-forget actions.
+- [ ] Pick one timezone/date strategy for meal-plan write/read/query paths and
+      apply it consistently.
+- [ ] Add error feedback and rollback path for post-cook "used up"
+      fire-and-forget actions.
 - [ ] Fix `/inventory/new` location label/select association.
-- [ ] Refresh uncooked meal reminders after relevant plan changes during long sessions.
-- [ ] Reduce heavy fetch patterns on recipe index, inventory index, and meal-plan pairing for larger datasets.
+- [ ] Refresh uncooked meal reminders after relevant plan changes during long
+      sessions.
+- [ ] Reduce heavy fetch patterns on recipe index, inventory index, and
+      meal-plan pairing for larger datasets.
 
 #### Watch
 
-- [ ] Keep shopping quick-add mounted while list count changes so in-progress input is not dropped.
-- [ ] Scope getting-started dismissal per user, not just one browser-level localStorage key.
+- [ ] Keep shopping quick-add mounted while list count changes so in-progress
+      input is not dropped.
+- [ ] Scope getting-started dismissal per user, not just one browser-level
+      localStorage key.
 
 ---
 
@@ -238,9 +243,9 @@ there's user feedback to act on.
 - [ ] **Google OAuth (replace GitHub)** — GitHub login signals "developer tool"
       on a consumer recipe app. Swap to Google OAuth for non-technical tester
       onboarding. Epic Stack's `remix-auth` provider pattern makes this a swap,
-      not a rebuild. Requires Google Cloud Console project + OAuth consent screen
-      (unverified apps show a warning, fine under 100 users). Do before inviting
-      non-friend testers, after the March 12 check-in
+      not a rebuild. Requires Google Cloud Console project + OAuth consent
+      screen (unverified apps show a warning, fine under 100 users). Do before
+      inviting non-friend testers, after the March 12 check-in
 - [ ] **Progressive onboarding** — post-action contextual nudges (next-best
       action prompts) for non-friend testers. Build when they are actively
       signing up, not before
@@ -248,8 +253,8 @@ there's user feedback to act on.
       auto-populate inventory. Build only if inventory input remains the main
       friction point after the shopping pipeline is proven
 - [ ] **Voice inventory input** — dictate updates like "add 2 pounds chicken
-      breast to the fridge." Cloud STT is accurate and cheap (Deepgram Nova-3
-      is the top pick), but parsing transcripts into structured actions adds
+      breast to the fridge." Cloud STT is accurate and cheap (Deepgram Nova-3 is
+      the top pick), but parsing transcripts into structured actions adds
       complexity. Deferred pending the shopping → inventory pipeline test: if
       the pipeline makes input mostly passive, voice may be unnecessary
 
@@ -268,8 +273,8 @@ relitigating.
 - **Fuzzy/typo-tolerant search** — at 135 personal recipes, users know the
   names. No search-miss complaints. Revisit if library scale or user feedback
   demands it
-- **Ingredient-based recipe search** — the matching system already does this
-  via inventory. A separate search UI is a second path to the same destination
+- **Ingredient-based recipe search** — the matching system already does this via
+  inventory. A separate search UI is a second path to the same destination
 - **Offline mutations** — background sync with conflict resolution on a
   server-rendered form app is massive complexity. Service worker caches pages
   for reading. Optimistic UI (already on shopping checkboxes) is the 80/20
@@ -301,6 +306,7 @@ relitigating.
 - [ ] 2-3 non-friend testers used the app for 2+ weeks
 
 ### Monetization (future)
+
 - [ ] Someone paid for it
 
 ---

@@ -31,6 +31,7 @@ The app is feature-complete for solo and shared daily use.
 | Inventory drift    | Uncooked meal reminders, smarter expiring-items callout                                  |
 | UX review          | Recipes page simplification — match stats in filter bar, grid visible without scrolling  |
 | UX debt cleanup    | Recipe detail extraction (1640→590 lines, 7 components), resource route extraction (plan 9→5 intents, shopping 9→8), Quick Add open by default |
+| Daily-driving polish | Cooking progress persistence (localStorage), inventory card streamlining (overflow menu), meal plan → recipe servings passthrough |
 
 ---
 
@@ -223,6 +224,19 @@ there's user feedback to act on.
 - [ ] **Progressive onboarding** — post-action contextual nudges and
       inventory-first AI recipe path. Build when non-friend testers are signing
       up, not before
+- [ ] **Voice inventory input** — dictate updates like "add 2 pounds chicken
+      breast to the fridge." Evaluated Feb 2026: browser Web Speech API is still
+      too inconsistent (tried and dropped earlier). Cloud STT APIs are now
+      accurate and cheap — **Deepgram Nova-3** is the top pick (keyterm
+      prompting for ingredient vocabulary, $200 free credits, per-second
+      billing). Architecture: record-then-send via MediaRecorder → server →
+      Deepgram, ~1-2s round-trip. However, STT is only half the problem —
+      parsing transcripts into structured actions (item, quantity, unit,
+      location) requires either brittle regex or an LLM call, adding latency
+      and complexity. **Deferred** pending the shopping → inventory pipeline
+      test: if the pipeline makes input mostly passive, voice may be
+      unnecessary. Revisit if inventory input friction persists after the
+      pipeline is proven
 
 ---
 
@@ -243,4 +257,4 @@ there's user feedback to act on.
 
 ---
 
-_Last updated: February 18, 2026._
+_Last updated: February 19, 2026._

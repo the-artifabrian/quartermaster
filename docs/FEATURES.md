@@ -18,10 +18,11 @@ Complete feature catalog. For the roadmap, see
 - Full-text search across title, ingredients, and description
 - Sort (5 options), cook-time filter, favorites filter, makeable-only toggle
 - Recipe scaling with +/- servings controls and fraction display
-- Cooking mode: interactive ingredient checkboxes and instruction cross-off,
-  auto-detected inline timer buttons ("simmer for 15 minutes" -> one-tap start,
-  up to 5 concurrent timers with floating widget, alarm sound, wake lock),
-  auto-detected temperature conversion tooltips (F<->C on hover/tap)
+- Cooking mode: interactive ingredient checkboxes and instruction cross-off
+  with localStorage persistence (keyed by recipeId, 7-day auto-expiry, cleared
+  on cook log), auto-detected inline timer buttons ("simmer for 15 minutes" ->
+  one-tap start, up to 5 concurrent timers with floating widget, alarm sound,
+  wake lock), auto-detected temperature conversion tooltips (F<->C on hover/tap)
 - Print-friendly recipe layout
 - Share via Web Share API (clipboard fallback). Public share page
   (`/share/$recipeId`) with OG meta tags, JSON-LD, recipe scaling, "Save to My
@@ -59,8 +60,8 @@ Complete feature catalog. For the roadmap, see
 - Three locations: Pantry, Fridge, Freezer with compact inline status badges
   expiry countdowns
 - Items with optional quantity, unit, expiration, and low-stock flag
-- Inline quick editing: tap pencil to edit quantity/unit/expiry without leaving
-  the list. One-tap low-stock toggle with optimistic UI
+- Streamlined card actions: pencil (quick edit) + overflow menu (low-stock
+  toggle, full edit, delete with two-tap confirmation). Optimistic delete
 - Client-side search/filter across all items and location tabs
 - Quick-add with optional inline quantity/unit fields + 33 common ingredient
   shortcuts. Duplicate detection via canonical name matching (same location) --
@@ -95,7 +96,8 @@ Complete feature catalog. For the roadmap, see
   types per day)
 - Click-to-assign recipes to meal slots with thumbnail previews (or letter
   placeholders), multiple recipes per slot
-- Per-entry serving size overrides with +/- controls
+- Per-entry serving size overrides with +/- controls (clamped 1-999);
+  passthrough to recipe detail via `?servings=N` query param
 - Mark meals as "cooked" with optimistic toggle; quick "I made this" one-tap
   action (logs cook + subtracts inventory, skipped items shown in toast)
 - Uncooked meal reminders: site-wide banner for planned-but-uncooked meals from

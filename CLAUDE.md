@@ -126,6 +126,7 @@ app/
 │   ├── relative-time.ts            # Human-readable relative timestamps
 │   ├── recipe-detail.ts            # Shared recipe types + pure utility functions
 │   ├── fractions.ts                # Fraction display (1.5 → "1½")
+│   ├── use-cooking-progress.ts    # localStorage persistence for cooking checkboxes (7-day expiry)
 │   ├── usage-tracking.server.ts   # Fire-and-forget usage event tracking
 │   └── usage-stats.server.ts      # Shared usage stats query logic
 ├── styles/              # Global CSS and Tailwind config
@@ -157,8 +158,9 @@ tests/
 - `app/routes/recipes/new.tsx` - Create recipe (manual, URL import, bulk
   text/file import)
 - `app/routes/recipes/$recipeId.tsx` - View with interactive cooking mode.
-  Orchestrates state (servings, checked ingredients/steps, substitutions,
-  fetchers) and delegates rendering to extracted sub-components:
+  Orchestrates state (servings, checked ingredients/steps with localStorage
+  persistence, substitutions, fetchers) and delegates rendering to extracted
+  sub-components:
   - `app/components/recipe-action-bar.tsx` - Unified desktop (tooltips) + mobile
     (floating card) action bar
   - `app/components/recipe-ingredient-list.tsx` - Ingredient checkboxes,

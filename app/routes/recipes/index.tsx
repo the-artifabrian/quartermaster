@@ -348,25 +348,25 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
 								<DropdownMenuItem asChild>
-									<Link to="/recipes/new" className="gap-2">
+									<Link to="/recipes/new">
 										<Icon name="pencil-1" size="sm" />
 										Full Recipe
 									</Link>
 								</DropdownMenuItem>
 								<DropdownMenuItem asChild>
-									<Link to="/recipes/quick" className="gap-2">
+									<Link to="/recipes/quick">
 										<Icon name="file-text" size="sm" />
 										Quick Entry
 									</Link>
 								</DropdownMenuItem>
 								<DropdownMenuItem asChild>
-									<Link to="/recipes/import" className="gap-2">
+									<Link to="/recipes/import">
 										<Icon name="link-2" size="sm" />
 										Import from URL
 									</Link>
 								</DropdownMenuItem>
 								<DropdownMenuItem asChild>
-									<Link to="/recipes/bulk-import" className="gap-2">
+									<Link to="/recipes/bulk-import">
 										<Icon name="download" size="sm" />
 										Bulk Import
 									</Link>

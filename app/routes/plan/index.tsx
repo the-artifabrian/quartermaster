@@ -293,7 +293,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const servingsStr = formData.get('servings')
 		const servings = servingsStr
-			? Math.min(999, parseInt(String(servingsStr), 10))
+			? Math.min(999, Math.max(1, parseInt(String(servingsStr), 10)))
 			: null
 
 		const entry = await prisma.mealPlanEntry.findFirst({

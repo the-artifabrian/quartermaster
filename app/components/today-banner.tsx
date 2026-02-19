@@ -114,7 +114,14 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 
 				{/* Action */}
 				<Button asChild size="sm" className="shrink-0">
-					<Link to={`/recipes/${recipe.id}`}>
+					<Link
+						to={
+							primary.servings &&
+							primary.servings !== recipe.servings
+								? `/recipes/${recipe.id}?servings=${primary.servings}`
+								: `/recipes/${recipe.id}`
+						}
+					>
 						<Icon name="file-text" size="sm" />
 						<span className="hidden sm:inline">View Recipe</span>
 						<span className="sm:hidden">View</span>

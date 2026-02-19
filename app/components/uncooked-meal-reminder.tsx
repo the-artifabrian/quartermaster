@@ -103,7 +103,11 @@ export function UncookedMealReminder() {
 				<p className="min-w-0 flex-1 text-sm text-amber-900 dark:text-amber-200">
 					Did you make{' '}
 					<Link
-						to={`/recipes/${current.recipeId}`}
+						to={
+							current.servings
+								? `/recipes/${current.recipeId}?servings=${current.servings}`
+								: `/recipes/${current.recipeId}`
+						}
 						className="font-semibold underline decoration-amber-400 underline-offset-2 hover:decoration-amber-600 dark:decoration-amber-500 dark:hover:decoration-amber-300"
 					>
 						{current.recipeTitle}

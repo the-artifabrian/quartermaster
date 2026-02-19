@@ -1,12 +1,17 @@
 import { type InventoryItem } from '@prisma/client'
 import { useRef, useState } from 'react'
-import { Form, Link, useFetcher } from 'react-router'
+import { Link, useFetcher } from 'react-router'
 import { LOCATION_LABELS } from '#app/utils/inventory-validation.ts'
-import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
+import { cn } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from './ui/dropdown-menu.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
-import { StatusButton } from './ui/status-button.tsx'
 
 const locationBadgeColors: Record<string, string> = {
 	pantry: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-200',
@@ -70,10 +75,11 @@ export function InventoryItemCard({
 	showActions = true,
 	showLocation = true,
 }: InventoryItemCardProps) {
-	const dc = useDoubleCheck()
 	const [isQuickEditing, setIsQuickEditing] = useState(false)
+	const [confirmDelete, setConfirmDelete] = useState(false)
 	const quickEditFetcher = useFetcher()
 	const lowStockFetcher = useFetcher()
+	const deleteFetcher = useFetcher()
 	const prevQuickEditState = useRef(quickEditFetcher.state)
 
 	// Close edit mode when fetcher transitions from submitting/loading → idle
@@ -84,6 +90,9 @@ export function InventoryItemCard({
 		}
 	}
 	prevQuickEditState.current = quickEditFetcher.state
+
+	// Optimistic delete — hide card immediately
+	if (deleteFetcher.state !== 'idle') return null
 
 	// Optimistic low-stock state
 	const optimisticLowStock =
@@ -196,26 +205,6 @@ export function InventoryItemCard({
 
 				{showActions && !isQuickEditing && (
 					<div className="flex items-center gap-1">
-						<lowStockFetcher.Form method="POST">
-							<input type="hidden" name="intent" value="toggle-low-stock" />
-							<input type="hidden" name="itemId" value={item.id} />
-							<Button
-								type="submit"
-								size="sm"
-								variant="ghost"
-								title={optimisticLowStock ? 'Clear low stock' : 'Mark as low stock'}
-								className={cn(
-									optimisticLowStock
-										? 'text-amber-600 hover:text-amber-700'
-										: 'hover:text-amber-600',
-								)}
-							>
-								<Icon
-									name="question-mark-circled"
-									size="sm"
-								/>
-							</Button>
-						</lowStockFetcher.Form>
 						<Button
 							size="sm"
 							variant="ghost"
@@ -224,30 +213,63 @@ export function InventoryItemCard({
 						>
 							<Icon name="pencil-1" size="sm" />
 						</Button>
-						<Button asChild size="sm" variant="ghost">
-							<Link to={`/inventory/${item.id}/edit`} title="Full edit">
-								<Icon name="pencil-2" size="sm" />
-							</Link>
-						</Button>
-						<Form method="POST">
-							<input type="hidden" name="intent" value="delete" />
-							<input type="hidden" name="itemId" value={item.id} />
-							<StatusButton
-								{...dc.getButtonProps({
-									type: 'submit',
-									name: 'intent',
-									value: 'delete',
-								})}
-								size="sm"
-								variant={dc.doubleCheck ? 'destructive' : 'ghost'}
-								status="idle"
-								className={dc.doubleCheck ? '' : 'hover:text-destructive'}
-							>
-								<Icon name="trash" size="sm">
-									{dc.doubleCheck ? 'Sure?' : ''}
-								</Icon>
-							</StatusButton>
-						</Form>
+						<DropdownMenu
+							onOpenChange={(open) => {
+								if (!open) setConfirmDelete(false)
+							}}
+						>
+							<DropdownMenuTrigger asChild>
+								<Button size="sm" variant="ghost" title="More actions">
+									<Icon name="dots-horizontal" size="sm" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end">
+								<DropdownMenuItem
+									onSelect={() => {
+										lowStockFetcher.submit(
+											{ intent: 'toggle-low-stock', itemId: item.id },
+											{ method: 'POST' },
+										)
+									}}
+								>
+									<Icon
+										name="question-mark-circled"
+										size="sm"
+										className={cn(optimisticLowStock && 'text-amber-600')}
+									/>
+									{optimisticLowStock
+										? 'Clear low stock'
+										: 'Mark as low stock'}
+								</DropdownMenuItem>
+								<DropdownMenuItem asChild>
+									<Link to={`/inventory/${item.id}/edit`}>
+										<Icon name="pencil-2" size="sm" />
+										Full edit
+									</Link>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									className={cn(
+										confirmDelete
+											? 'bg-destructive text-destructive-foreground focus:bg-destructive focus:text-destructive-foreground'
+											: 'text-destructive focus:text-destructive',
+									)}
+									onSelect={(e) => {
+										if (!confirmDelete) {
+											e.preventDefault()
+											setConfirmDelete(true)
+										} else {
+											deleteFetcher.submit(
+												{ intent: 'delete', itemId: item.id },
+												{ method: 'POST' },
+											)
+										}
+									}}
+								>
+									<Icon name="trash" size="sm" />
+									{confirmDelete ? 'Are you sure?' : 'Delete'}
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
 					</div>
 				)}
 			</div>

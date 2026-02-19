@@ -141,9 +141,23 @@ monitor during daily driving before building. `fixed` = resolved.
 | 2026-02-19 | planning  | Recipe selector has no search/filter — scanning 135+ recipes visually is slow, especially on mobile                 | open    |
 | 2026-02-19 | navigation | No global loading indicator — page transitions show no feedback until loader resolves, feels broken on slow cellular | open    |
 | 2026-02-19 | AI        | LLM error messages are generic toasts — paid Pro features should say what happened, not just "Something went wrong"  | open    |
+| 2026-02-19 | auth      | Household join loses invite token — `requireUserId` redirects to `/login` without `redirectTo`, `?token=` is lost   | open    |
+| 2026-02-19 | auth      | Forgot password leaks user existence — returns "No user exists" instead of a generic success message                 | watch   |
+| 2026-02-19 | navigation | Pro lock icons have no tooltip or aria-label — free users see unexplained locks with no context                     | watch   |
+| 2026-02-19 | shopping  | "Clear checked items" has no confirmation — plain form POST, no double-check, no undo                               | watch   |
+| 2026-02-19 | onboarding | Pantry staples onboarding has no "next step" CTA — user stays on `/inventory` with no guidance forward              | watch   |
+| 2026-02-19 | household | Join page catch block forwards raw `error.message` to toast — could expose Prisma errors                            | open    |
 
 > Add entries as friction surfaces. Resolve `open` items promptly; promote
 > `watch` items to `open` if they cause real friction.
+
+> **Automated code audit (Feb 19, 2026):** three-pass codebase analysis
+> (journey mapping, empty/error states, feature surface area) with verification
+> round. ~30% of initial findings were false — always verify before acting.
+> Known false positives: bulk import missing CTA (exists), AI generation
+> missing guard (double-guarded), uncooked meal reminder redundant with
+> notifications (different purpose), share page duplicates recipe detail
+> (overstated — shares interactivity but omits mutations).
 
 ---
 
@@ -217,6 +231,12 @@ there's user feedback to act on.
       that's 3 meals not 1. The meal plan has no concept of this — you plan 7
       dinners when you really only need to cook 4-5. Watch for friction signal
       during daily driving before building
+- [ ] **Google OAuth (replace GitHub)** — GitHub login signals "developer tool"
+      on a consumer recipe app. Swap to Google OAuth for non-technical tester
+      onboarding. Epic Stack's `remix-auth` provider pattern makes this a swap,
+      not a rebuild. Requires Google Cloud Console project + OAuth consent screen
+      (unverified apps show a warning, fine under 100 users). Do before inviting
+      non-friend testers, after the March 12 check-in
 - [ ] **Progressive onboarding** — post-action contextual nudges and
       inventory-first AI recipe path. Build when non-friend testers are signing
       up, not before

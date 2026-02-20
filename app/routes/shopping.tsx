@@ -835,9 +835,9 @@ export default function ShoppingListRoute({
 								className="size-7 text-muted-foreground/40"
 							/>
 						</div>
-						<h3 className="mt-4 font-serif text-lg">
+						<h2 className="mt-4 font-serif text-lg">
 							Nothing on the list
-						</h3>
+						</h2>
 						<p className="text-muted-foreground mx-auto mt-2 max-w-sm text-sm">
 							{hasMealPlan ? (
 								<>

@@ -12,6 +12,13 @@ import {
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
 
+function formatQuantity(quantity: number): string {
+	if (Number.isInteger(quantity)) return String(quantity)
+	if (quantity >= 100) return String(Math.round(quantity))
+	if (quantity >= 10) return quantity.toFixed(1).replace(/\.0$/, '')
+	return quantity.toFixed(2).replace(/\.?0+$/, '')
+}
+
 const locationDotColors: Record<string, string> = {
 	pantry: 'bg-amber-500',
 	fridge: 'bg-blue-500',
@@ -191,7 +198,7 @@ export function InventoryItemCard({
 						{/* Qty/unit */}
 						{item.quantity && (
 							<span className="shrink-0 text-sm text-muted-foreground">
-								· {item.quantity}
+								· {formatQuantity(item.quantity)}
 								{item.unit ? ` ${item.unit}` : ''}
 							</span>
 						)}

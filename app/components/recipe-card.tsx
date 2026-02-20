@@ -47,7 +47,7 @@ export function RecipeCard({
 					'relative shrink-0 overflow-hidden',
 					imageObjectKey
 						? 'w-12 md:w-full md:aspect-[4/3]'
-						: 'w-12 md:h-36 md:w-full',
+						: 'w-12 md:h-28 md:w-full',
 				)}
 			>
 				{/* Desktop badges overlay */}
@@ -92,7 +92,7 @@ export function RecipeCard({
 					>
 						<span
 							className={cn(
-								'font-serif text-xl font-light md:text-5xl',
+								'font-serif text-xl font-light md:text-4xl',
 								placeholder!.letterColorClass,
 							)}
 						>
@@ -154,9 +154,9 @@ export function RecipeCard({
 					</div>
 				)}
 
-				{/* Desktop-only: description */}
+				{/* Description */}
 				{description && (
-					<p className="mt-1 hidden line-clamp-2 text-sm text-muted-foreground md:block">
+					<p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground md:mt-1 md:line-clamp-2 md:text-sm">
 						{description}
 					</p>
 				)}

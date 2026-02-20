@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
 	MEAL_TYPES,
 	formatDayLabel,
@@ -37,6 +38,58 @@ function mobileDayOrder(weekDays: Date[]): Date[] {
 		...weekDays.slice(todayIdx), // today → end of week
 		...weekDays.slice(0, todayIdx), // start of week → yesterday
 	]
+}
+
+/**
+ * On mobile, empty days collapse to a single "Add a meal" button.
+ * Tapping expands to show all 4 meal type slots.
+ */
+function CollapsibleDaySlots({
+	date,
+	entryMap,
+	recipes,
+	weekStart,
+}: {
+	date: Date
+	entryMap: Map<string, Entry[]>
+	recipes: RecipeSelectorRecipe[]
+	weekStart: string
+}) {
+	const [expanded, setExpanded] = useState(false)
+
+	if (!expanded) {
+		return (
+			<button
+				type="button"
+				onClick={() => setExpanded(true)}
+				className="text-muted-foreground hover:text-foreground hover:border-accent/30 flex w-full items-center gap-1.5 rounded-lg border border-dashed px-3 py-2 text-xs transition-colors"
+			>
+				<span className="bg-muted flex size-5 items-center justify-center rounded-full text-[10px]">
+					+
+				</span>
+				Add a meal
+			</button>
+		)
+	}
+
+	return (
+		<div className="space-y-1.5">
+			{MEAL_TYPES.map((mealType) => {
+				const key = `${serializeDate(date)}-${mealType}`
+				const slotEntries = entryMap.get(key) || []
+				return (
+					<MealSlotCard
+						key={mealType}
+						date={date}
+						mealType={mealType}
+						entries={slotEntries}
+						recipes={recipes}
+						weekStart={weekStart}
+					/>
+				)
+			})}
+		</div>
+	)
 }
 
 export function MealPlanCalendar({
@@ -149,22 +202,31 @@ export function MealPlanCalendar({
 										: 'Nothing planned'}
 								</span>
 							</div>
-							<div className="space-y-1.5">
-								{MEAL_TYPES.map((mealType) => {
-									const key = `${serializeDate(date)}-${mealType}`
-									const slotEntries = entryMap.get(key) || []
-									return (
-										<MealSlotCard
-											key={mealType}
-											date={date}
-											mealType={mealType}
-											entries={slotEntries}
-											recipes={recipes}
-											weekStart={weekStart}
-										/>
-									)
-								})}
-							</div>
+							{dayCount > 0 ? (
+								<div className="space-y-1.5">
+									{MEAL_TYPES.map((mealType) => {
+										const key = `${serializeDate(date)}-${mealType}`
+										const slotEntries = entryMap.get(key) || []
+										return (
+											<MealSlotCard
+												key={mealType}
+												date={date}
+												mealType={mealType}
+												entries={slotEntries}
+												recipes={recipes}
+												weekStart={weekStart}
+											/>
+										)
+									})}
+								</div>
+							) : (
+								<CollapsibleDaySlots
+									date={date}
+									entryMap={entryMap}
+									recipes={recipes}
+									weekStart={weekStart}
+								/>
+							)}
 						</div>
 					)
 				})}

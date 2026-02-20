@@ -19,13 +19,14 @@ type ShoppingListItemCardProps = {
 export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 	const dc = useDoubleCheck()
 	const [isEditing, setIsEditing] = useState(false)
+	const [showActions, setShowActions] = useState(false)
 	const editFetcher = useFetcher()
 	const toggleFetcher = useFetcher()
 	const deleteFetcher = useFetcher()
 	const prevEditFetcherState = useRef(editFetcher.state)
+	const actionsRef = useRef<HTMLDivElement>(null)
 
 	// Close edit mode when fetcher transitions from submitting/loading → idle
-	// (only on success — if server returned an error, keep editing open)
 	useEffect(() => {
 		if (
 			prevEditFetcherState.current !== 'idle' &&
@@ -37,6 +38,21 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 		}
 		prevEditFetcherState.current = editFetcher.state
 	}, [editFetcher.state, editFetcher.data?.status, isEditing])
+
+	// Close actions menu on outside click
+	useEffect(() => {
+		if (!showActions) return
+		function handleClick(e: MouseEvent) {
+			if (
+				actionsRef.current &&
+				!actionsRef.current.contains(e.target as Node)
+			) {
+				setShowActions(false)
+			}
+		}
+		document.addEventListener('click', handleClick)
+		return () => document.removeEventListener('click', handleClick)
+	}, [showActions])
 
 	// Optimistic checked state
 	const optimisticChecked =
@@ -58,7 +74,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 
 	if (isEditing) {
 		return (
-			<div className="bg-card rounded-lg border p-3 print:border-0 print:p-1">
+			<div className="p-3 print:p-1">
 				<editFetcher.Form
 					method="POST"
 					onKeyDown={(e) => {
@@ -102,11 +118,9 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 								size="sm"
 								onClick={() => setIsEditing(false)}
 							>
-								<Icon name="cross-1" size="sm" />
 								Cancel
 							</Button>
 							<Button type="submit" size="sm">
-								<Icon name="check" size="sm" />
 								Save
 							</Button>
 						</div>
@@ -117,18 +131,21 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 	}
 
 	return (
-		<div className="bg-card flex items-start gap-3 rounded-lg border p-3 print:border-0 print:p-1">
-			<toggleFetcher.Form method="POST" className="pt-1 print:hidden">
+		<div className="group flex items-center gap-3 py-3 print:py-1">
+			{/* Whole row toggles checkbox */}
+			<toggleFetcher.Form method="POST" className="flex min-w-0 flex-1 items-center gap-3 print:contents">
 				<input type="hidden" name="intent" value="toggle" />
 				<input type="hidden" name="itemId" value={item.id} />
 				<button
 					type="submit"
-					className="-m-2.5 cursor-pointer p-2.5"
+					className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
 					aria-label={optimisticChecked ? 'Uncheck item' : 'Check off item'}
 				>
 					<div
-						className={`flex size-6 items-center justify-center rounded border-2 ${
-							optimisticChecked ? 'border-primary bg-primary' : 'border-input'
+						className={`flex size-6 shrink-0 items-center justify-center rounded border-2 transition-colors duration-150 print:hidden ${
+							optimisticChecked
+								? 'border-primary bg-primary'
+								: 'border-border bg-muted/30'
 						}`}
 					>
 						{optimisticChecked && (
@@ -139,54 +156,81 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 							/>
 						)}
 					</div>
+					<span className="hidden pt-0.5 text-base print:inline">
+						{optimisticChecked ? '\u2611' : '\u2610'}
+					</span>
+
+					<div className="min-w-0 flex-1">
+						<p
+							className={`text-base ${
+								optimisticChecked
+									? 'text-muted-foreground/50 line-through decoration-muted-foreground/60 decoration-2 animate-strikethrough'
+									: ''
+							}`}
+						>
+							{item.name}
+						</p>
+						{(item.quantity || item.unit) && (
+							<p
+								className={`text-sm ${
+									optimisticChecked
+										? 'text-muted-foreground/40'
+										: 'text-muted-foreground'
+								}`}
+							>
+								<ProduceCountLine item={item} />
+							</p>
+						)}
+					</div>
 				</button>
 			</toggleFetcher.Form>
-			<span className="hidden pt-0.5 text-base print:inline">
-				{optimisticChecked ? '\u2611' : '\u2610'}
-			</span>
 
-			<div className="flex-1">
-				<p
-					className={`font-medium ${optimisticChecked ? 'text-muted-foreground/60 line-through' : ''}`}
-				>
-					{item.name}
-				</p>
-				{(item.quantity || item.unit) && (
-					<p className="text-muted-foreground text-sm">
-						<ProduceCountLine item={item} />
-					</p>
-				)}
-			</div>
-
+			{/* Overflow menu — visible on hover/focus, hidden by default */}
 			{!optimisticChecked && (
-				<Button
-					variant="ghost"
-					size="sm"
-					onClick={() => setIsEditing(true)}
-					className="print:hidden"
-					aria-label="Edit item"
-				>
-					<Icon name="pencil-1" size="sm" />
-				</Button>
-			)}
-
-			<deleteFetcher.Form method="POST" className="print:hidden">
-				<input type="hidden" name="intent" value="delete" />
-				<input type="hidden" name="itemId" value={item.id} />
-				<StatusButton
-					type="submit"
-					variant={dc.doubleCheck ? 'destructive' : 'ghost'}
-					size="sm"
-					status="idle"
-					{...dc.getButtonProps()}
-				>
-					{dc.doubleCheck ? (
-						<span className="text-xs">Sure?</span>
-					) : (
-						<Icon name="trash" size="sm" />
+				<div ref={actionsRef} className={`relative shrink-0 print:hidden ${showActions ? '' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'} transition-opacity`}>
+					<button
+						type="button"
+						onClick={() => setShowActions((v) => !v)}
+						className="flex size-8 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:bg-muted hover:text-muted-foreground"
+						aria-label="Item actions"
+					>
+						<Icon name="dots-horizontal" className="size-4" />
+					</button>
+					{showActions && (
+						<div className="absolute right-0 z-10 mt-1 flex items-center gap-1 rounded-lg border bg-card p-1 shadow-warm-md animate-fade-up-reveal">
+							<button
+								type="button"
+								onClick={() => {
+									setIsEditing(true)
+									setShowActions(false)
+								}}
+								className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+								aria-label="Edit item"
+							>
+								<Icon name="pencil-1" size="sm" />
+							</button>
+							<deleteFetcher.Form method="POST">
+								<input type="hidden" name="intent" value="delete" />
+								<input type="hidden" name="itemId" value={item.id} />
+								<StatusButton
+									type="submit"
+									variant={dc.doubleCheck ? 'destructive' : 'ghost'}
+									size="sm"
+									status="idle"
+									className="size-8 p-0"
+									{...dc.getButtonProps()}
+								>
+									{dc.doubleCheck ? (
+										<span className="text-xs">Sure?</span>
+									) : (
+										<Icon name="trash" size="sm" />
+									)}
+								</StatusButton>
+							</deleteFetcher.Form>
+						</div>
 					)}
-				</StatusButton>
-			</deleteFetcher.Form>
+				</div>
+			)}
 		</div>
 	)
 }

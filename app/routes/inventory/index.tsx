@@ -674,7 +674,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						<p className="mt-2 max-w-sm text-muted-foreground">
 							{selectedLocation === 'all'
 								? 'Start tracking your pantry, fridge, and freezer items to discover what you can cook.'
-								: `Your ${selectedLocation} is empty. Add items to start tracking.`}
+								: `Your ${selectedLocation} is empty. Add items to see what recipes you can make.`}
 						</p>
 						<Button asChild className="mt-6">
 							<Link to="/inventory/new">

@@ -227,7 +227,7 @@ export async function action({ request }: Route.ActionArgs) {
 			householdId,
 		})
 
-		return { status: 'success' as const, removedCount }
+		return { status: 'success' as const, removedCount, weekLabel: formatWeekRange(weekStart) }
 	}
 
 	if (intent === 'add') {
@@ -601,14 +601,14 @@ export default function ShoppingListRoute({
 						</div>
 					</div>
 				</div>
-				{actionData &&
-					'removedCount' in actionData &&
-					typeof actionData.removedCount === 'number' &&
-					actionData.removedCount > 0 && (
-						<p className="text-muted-foreground container-narrow pb-4 text-center text-sm">
-							{actionData.removedCount} items already in inventory or staples
-						</p>
-					)}
+				{actionData?.status === 'success' && 'weekLabel' in actionData && (
+					<p className="text-muted-foreground container-narrow pb-4 text-center text-sm">
+						Generated for {actionData.weekLabel}
+						{typeof actionData.removedCount === 'number' &&
+							actionData.removedCount > 0 &&
+							` · ${actionData.removedCount} already in stock`}
+					</p>
+				)}
 			</div>
 
 			{/* Progress bar */}
@@ -826,7 +826,7 @@ export default function ShoppingListRoute({
 							{hasMealPlan ? (
 								<>
 									Hit Generate to build your list from the meal plan, or
-									type above to add items.
+									add items manually. Check things off as you shop.
 								</>
 							) : (
 								<>
@@ -838,6 +838,8 @@ export default function ShoppingListRoute({
 										meal plan
 									</Link>{' '}
 									to auto-generate your list, or type above to add items.
+									Check things off as you shop and add them to your
+									inventory.
 								</>
 							)}
 						</p>

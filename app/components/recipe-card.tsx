@@ -170,7 +170,7 @@ export function RecipeCard({
 						</span>
 					)}
 					{cookCount != null && cookCount > 0 && lastCookedAt && (
-						<span className="text-xs text-muted-foreground">
+						<span className="text-xs text-muted-foreground/60">
 							{cookCount === 1 ? 'Made once' : `Made ${cookCount} times`} ·
 							Last: {formatTimeAgo(new Date(lastCookedAt))}
 						</span>

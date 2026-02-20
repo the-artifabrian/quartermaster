@@ -250,115 +250,53 @@ Still needs manual visual verification:
 
 ---
 
-## Phase 8: Inventory — "The Pantry Shelf"
+## Phase 8: Inventory — "The Pantry Shelf" — DONE
 
-Redesign `app/routes/inventory/index.tsx` and
-`app/components/inventory-item-card.tsx`. The inventory is the last major
-surface still using the pre-redesign card-heavy layout. Goal: dramatically
-increase item density (especially on mobile), bring visual consistency with the
-shopping list and recipe list, and maintain all existing functionality.
+Redesign of `app/routes/inventory/index.tsx`, `app/components/inventory-item-card.tsx`,
+`app/components/inventory-quick-add.tsx`, `app/components/inventory-location-tabs.tsx`,
+and `app/components/pantry-staples-onboarding.tsx`.
 
-### 8A: Layout & Container
+**What shipped:**
 
-- [ ] Wrap content in `container-grid` (1080px max)
-- [ ] Page title: `font-serif` Crimson Pro 400, drop the item count from the
-      heading (move to a subtle muted line or remove entirely)
-- [ ] "+ Add Item" button: consistent with recipe list header — circular `+` on
-      mobile, full button on desktop
-
-### 8B: Location Sections
-
-Replace heavy colored background sections with lightweight category headers
-matching the shopping list pattern.
-
-- [ ] Location headers: DM Sans 12px, uppercase, `tracking-[0.08em]`, hai color.
-      32px space above, 12px below. Keep semantic color dot (amber/blue/cyan) as
-      a small `size-2 rounded-full` indicator inline with the name. Item count
-      as muted parenthetical.
-- [ ] Drop the full-width colored background panels (`bg-amber-50/30`,
-      `bg-blue-50/30`, `bg-cyan-50/30`) — the dot provides enough location
-      signal without the visual weight.
-- [ ] "All" tab view: show all items in a single flat list with location dot per
-      item (no section grouping). Single-location tabs: grouped with headers.
-
-### 8C: Item Row Redesign
-
-Replace bordered cards with compact flat rows (closer to shopping list density).
-
-- [ ] `app/components/inventory-item-card.tsx` — restyle:
-  - **Row layout**: no card border, no background, no shadow. Subtle
-    `border-b border-border/40` separator between items. ~48px row height.
-  - **Name**: DM Sans 15px (not bold — `font-normal`), left-aligned
-  - **Quantity/unit**: inline after name as muted text
-    (`text-muted-foreground text-sm`), separated by `·`. If no quantity, show
-    nothing (no "—").
-  - **Expiry badge**: compact inline pill, same color logic (red expired, amber
-    soon). Only shown when ≤7 days or expired. Positioned after qty/unit.
-  - **Low-stock indicator**: small kawa dot (`size-1.5 rounded-full bg-accent`)
-    next to name, replacing the "Low" pill badge. Tooltip on hover.
-  - **Actions**: edit pencil + `···` overflow hidden until hover/focus
-    (`opacity-0 group-hover:opacity-100 focus-within:opacity-100`), matching
-    shopping list pattern. On mobile, overflow always visible (touch has no
-    hover).
-  - **Hover**: subtle `bg-muted/30` row highlight, no lift/shadow
-  - **Quick-edit inline**: keep existing expand-in-place UX, restyle inputs to
-    match shopping list (warm borders, compact `h-8` inputs)
-- [ ] Remove the `sm:grid-cols-2 md:grid-cols-3` grid — use single-column list
-      on all breakpoints for scannability and consistency with shopping list.
-      Desktop width is constrained by `container-grid` (1080px) which prevents
-      lines from getting too wide.
-
-### 8D: Quick Add
-
-- [ ] Restyle to match shopping list quick-add: bottom-border-only input, DM
-      Sans placeholder _"Add an item..."_, ghost `+` button at right edge
-- [ ] Keep duplicate-detection warning, restyle with `bg-accent/10` warm palette
-- [ ] Position at top of the current location section (below header, above
-      items), not as a separate floating element
-
-### 8E: Search & Filters
-
-- [ ] Search: `rounded-full bg-secondary/50`, warm border — match recipe list
-      search styling. Hide until 15+ items (like shopping list).
-- [ ] Location tabs: restyle as filter chips matching recipe list pattern —
-      `rounded-full bg-secondary/50 text-xs`, active state
-      `bg-primary text-primary-foreground`.
-- [ ] Collapse search + filters into single row on desktop, stack on mobile
-
-### 8F: Status Indicators
-
-- [ ] Expiring-soon callout (`ExpiringItemsCallout`): restyle as warm card with
-      `bg-accent/8` background (matching shopping list low-stock pattern).
-      Accent-colored header, compact item chips showing days remaining. "Find
-      recipes" CTA as text link.
-- [ ] Low-stock summary: if multiple low-stock items, show a single muted line
-      below the header (e.g., _"3 items running low"_) instead of relying on
-      per-item badges alone
-- [ ] Free plan usage banner: restyle to match warm palette, understated
-
-### 8G: Empty States
-
-- [ ] Zero inventory: keep pantry staples onboarding as primary flow. Restyle
-      the onboarding component to match warm palette (already partially done
-      with accent token migration in Phase 7).
-- [ ] Empty location tab: dashed border circle pattern, warm messaging
-      (consistent with recipe list and shopping list empty states)
-- [ ] Search no-results: same dashed circle pattern
-
-### Phase 8 Definition of Done
-
-- [ ] Inventory items are dramatically more compact (~48px rows vs ~80px+ cards)
-- [ ] 20-item inventory is fully visible without scrolling on desktop
-- [ ] Location sections feel like natural grouping, not heavy colored panels
-- [ ] Edit/overflow actions discoverable but not visually noisy
-- [ ] Quick-add feels consistent with shopping list
-- [ ] All existing functionality preserved: quick-edit, low-stock toggle, expiry
-      tracking, duplicate detection, bulk create, pantry onboarding
-- [ ] `npm run typecheck` passes
-- [ ] `npm test` passes
-- [ ] Commit, wait for review
+- **Layout**: `container-grid` (1080px), serif page title ("Inventory"), circular
+  `+` button on mobile (full "Add Item" on desktop). Status line below title
+  (expiring/low-stock/usage counts as muted inline text). Removed gradient header
+  background.
+- **Item rows** (`inventory-item-card.tsx`): flat `py-2` rows with `divide-y
+  divide-border/40` separators (was bordered card grid). Name `text-[15px]`
+  (not bold), qty/unit inline with `·`, expiry as compact pill only when ≤7d or
+  expired (red/amber), low-stock as small `bg-accent` dot with tooltip. Removed
+  `InventoryItemGrid` component (was multi-col grid). `hover:bg-muted/30` row
+  highlight.
+- **Actions**: overflow `···` always visible on mobile, pencil hidden
+  (`hidden sm:inline-flex`). Both appear on desktop hover (`sm:opacity-0
+  sm:group-hover:opacity-100`). Buttons `size-7`. Quick-edit inline kept with
+  compact `h-8` inputs.
+- **"All" tab**: flat single-column list, each item shows location as `size-2`
+  colored dot (amber/blue/cyan). No section grouping.
+- **Single-location tabs**: lightweight uppercase category header (hai color,
+  `tracking-[0.08em]`, colored dot + count) replacing full-width colored panels.
+- **Location tabs** (`inventory-location-tabs.tsx`): filter chip style — `h-8
+  rounded-full border`, `bg-secondary/50` inactive, `bg-primary` active.
+- **Quick add** (`inventory-quick-add.tsx`): always-visible bottom-border input
+  ("Add an item..."), ghost `+` button, collapsible "+ Qty / Unit" link.
+  Duplicate warning in `bg-accent/10`. Removed open/close toggle.
+- **Search**: `rounded-full bg-secondary/50`, hidden until 15+ items. Same row
+  as location tabs on desktop, stacked on mobile.
+- **Expiring callout**: `bg-accent/8 rounded-lg`, uppercase accent header, text
+  link CTA ("Find recipes to use these"). Replaced amber palette.
+- **Free plan banner**: `bg-accent/8`, uppercase accent header. Replaced amber
+  bordered panel.
+- **Empty states**: dashed border circle + serif title for search no-results and
+  empty location tab (was rounded-2xl bg panels).
+- **Pantry staples onboarding**: `bg-secondary/30` section wrappers (was
+  `bg-muted/50`), serif title on "Stock Your Kitchen" heading.
+- **Shopping list fix**: removed `divide-y divide-border/40` between items in
+  same category — category headers provide visual grouping via spacing.
 
 **Files:** `app/routes/inventory/index.tsx`,
 `app/components/inventory-item-card.tsx`,
 `app/components/inventory-quick-add.tsx`,
-`app/components/pantry-staples-onboarding.tsx`
+`app/components/inventory-location-tabs.tsx`,
+`app/components/pantry-staples-onboarding.tsx`,
+`app/routes/shopping.tsx`

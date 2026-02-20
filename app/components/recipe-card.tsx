@@ -103,7 +103,7 @@ export function RecipeCard({
 			</div>
 
 			{/* Content */}
-			<div className="flex min-w-0 flex-1 flex-col justify-center px-3 py-2 md:p-5">
+			<div className="flex min-w-0 flex-1 flex-col justify-center px-3 py-2 md:justify-start md:p-5">
 				<div className="flex items-center gap-1.5">
 					<h3 className="min-w-0 truncate font-serif text-base font-normal group-hover:text-primary md:text-[1.125rem] md:font-semibold">
 						{title}

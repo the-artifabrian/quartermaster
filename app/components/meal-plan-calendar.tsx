@@ -68,8 +68,8 @@ export function MealPlanCalendar({
 
 	return (
 		<>
-			{/* Desktop: 7-col grid at lg, 4-col at md */}
-			<div className="hidden gap-2 md:grid md:grid-cols-4 lg:grid-cols-7">
+			{/* Desktop: 4+3 two-row layout */}
+			<div className="hidden flex-wrap gap-2 md:flex">
 				{weekDays.map((date) => {
 					const today = isToday(date)
 					const past = isPast(date)
@@ -78,6 +78,7 @@ export function MealPlanCalendar({
 							key={serializeDate(date)}
 							className={cn(
 								'bg-card rounded-xl p-3 shadow-warm transition-shadow',
+								'basis-[calc(25%-6px)]',
 								today && 'border-accent border-t-2',
 								!today && 'hover:shadow-warm-md hover:border-accent/20 border border-transparent',
 								past && !today && 'opacity-80',

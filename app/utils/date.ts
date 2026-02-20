@@ -83,6 +83,27 @@ export function isToday(date: Date): boolean {
 	)
 }
 
+/**
+ * True if the stored UTC semantic date is strictly before the user's local today.
+ * Same cross-domain comparison as `isToday`.
+ */
+export function isPast(date: Date): boolean {
+	const now = new Date()
+	const todayYear = now.getFullYear()
+	const todayMonth = now.getMonth()
+	const todayDate = now.getDate()
+
+	const y = date.getUTCFullYear()
+	const m = date.getUTCMonth()
+	const d = date.getUTCDate()
+
+	return (
+		y < todayYear ||
+		(y === todayYear && m < todayMonth) ||
+		(y === todayYear && m === todayMonth && d < todayDate)
+	)
+}
+
 /** Serialize to `yyyy-MM-dd` using UTC fields. */
 export function serializeDate(date: Date): string {
 	return date.toISOString().slice(0, 10)

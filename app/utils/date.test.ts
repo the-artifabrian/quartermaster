@@ -8,6 +8,7 @@ import {
 	serializeDate,
 	parseDate,
 	isToday,
+	isPast,
 	formatTimeAgo,
 	formatDayLabel,
 	formatWeekRange,
@@ -178,6 +179,51 @@ describe('isToday', () => {
 			Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1),
 		)
 		expect(isToday(yesterdayUTC)).toBe(false)
+	})
+})
+
+describe('isPast', () => {
+	test('returns true for yesterday', () => {
+		const now = new Date()
+		const yesterdayUTC = new Date(
+			Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1),
+		)
+		expect(isPast(yesterdayUTC)).toBe(true)
+	})
+
+	test('returns false for today', () => {
+		const now = new Date()
+		const todayUTC = new Date(
+			Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+		)
+		expect(isPast(todayUTC)).toBe(false)
+	})
+
+	test('returns false for tomorrow', () => {
+		const now = new Date()
+		const tomorrowUTC = new Date(
+			Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 1),
+		)
+		expect(isPast(tomorrowUTC)).toBe(false)
+	})
+
+	test('returns true for last year', () => {
+		const now = new Date()
+		const lastYear = new Date(
+			Date.UTC(now.getFullYear() - 1, now.getMonth(), now.getDate()),
+		)
+		expect(isPast(lastYear)).toBe(true)
+	})
+
+	test('returns true for earlier month same year', () => {
+		const now = new Date()
+		// Only test if we're past January
+		if (now.getMonth() > 0) {
+			const earlierMonth = new Date(
+				Date.UTC(now.getFullYear(), now.getMonth() - 1, 15),
+			)
+			expect(isPast(earlierMonth)).toBe(true)
+		}
 	})
 })
 

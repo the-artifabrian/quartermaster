@@ -4,6 +4,8 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { type MealType, serializeDate } from '#app/utils/date.ts'
+import { cn } from '#app/utils/misc.tsx'
+import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 
 export type RecipeSelectorRecipe = {
 	id: string
@@ -43,27 +45,6 @@ function sortByTime(a: RecipeSelectorRecipe, b: RecipeSelectorRecipe): number {
 	const aTime = getTotalTime(a) ?? 45
 	const bTime = getTotalTime(b) ?? 45
 	return aTime - bTime
-}
-
-// Deterministic color from recipe title
-const PLACEHOLDER_COLORS = [
-	'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
-	'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
-	'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-	'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-	'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
-	'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-300',
-]
-
-function getRecipePlaceholder(title: string) {
-	const letter = title.charAt(0).toUpperCase()
-	let hash = 0
-	for (let i = 0; i < title.length; i++) {
-		hash = (hash * 31 + title.charCodeAt(i)) | 0
-	}
-	const colorClass =
-		PLACEHOLDER_COLORS[Math.abs(hash) % PLACEHOLDER_COLORS.length]
-	return { letter, colorClass }
 }
 
 export function RecipeSelector({
@@ -126,7 +107,7 @@ export function RecipeSelector({
 					<Icon name="cross-1" size="sm" />
 				</Button>
 			</div>
-			<div className="max-h-[300px] space-y-2 overflow-y-auto">
+			<div className="scrollbar-thin max-h-[300px] space-y-1.5 overflow-y-auto">
 				{sortedRecipes.length === 0 ? (
 					<p className="text-muted-foreground py-4 text-center text-sm">
 						No recipes found
@@ -135,7 +116,7 @@ export function RecipeSelector({
 					<>
 						{pairsWell.length > 0 && (
 							<>
-								<p className="text-muted-foreground px-1 text-xs font-medium">
+								<p className="text-muted-foreground px-1 text-[11px] font-medium uppercase tracking-wider">
 									Pairs well
 								</p>
 								{pairsWell.map((recipe) => (
@@ -150,7 +131,7 @@ export function RecipeSelector({
 									/>
 								))}
 								{otherRecipes.length > 0 && (
-									<p className="text-muted-foreground px-1 pt-1 text-xs font-medium">
+									<p className="text-muted-foreground px-1 pt-2 text-[11px] font-medium uppercase tracking-wider">
 										Other recipes
 									</p>
 								)}
@@ -193,6 +174,7 @@ function RecipeOption({
 	onSelect?: () => void
 }) {
 	const totalTime = getTotalTime(recipe)
+	const placeholder = getRecipePlaceholder(recipe.title)
 
 	return (
 		<Form method="POST" onSubmit={onSelect}>
@@ -205,7 +187,7 @@ function RecipeOption({
 			)}
 			<button
 				type="submit"
-				className="bg-background hover:bg-muted w-full rounded-lg border p-3 text-left transition-colors"
+				className="hover:bg-muted/50 w-full rounded-lg p-2.5 text-left transition-colors"
 			>
 				<div className="flex items-start gap-3">
 					{/* Thumbnail */}
@@ -213,19 +195,24 @@ function RecipeOption({
 						<img
 							src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}&w=80&h=80&fit=cover`}
 							alt=""
-							className="size-10 shrink-0 rounded-md object-cover"
+							className="size-9 shrink-0 rounded-full object-cover"
 						/>
 					) : (
-						(() => {
-							const { letter, colorClass } = getRecipePlaceholder(recipe.title)
-							return (
-								<div
-									className={`flex size-10 shrink-0 items-center justify-center rounded-md text-sm font-bold ${colorClass}`}
-								>
-									{letter}
-								</div>
-							)
-						})()
+						<div
+							className={cn(
+								'flex size-9 shrink-0 items-center justify-center rounded-full',
+								placeholder.bgClass,
+							)}
+						>
+							<span
+								className={cn(
+									'font-serif text-sm font-bold',
+									placeholder.letterColorClass,
+								)}
+							>
+								{placeholder.letter}
+							</span>
+						</div>
 					)}
 
 					<div className="min-w-0 flex-1">
@@ -241,7 +228,7 @@ function RecipeOption({
 							<div className="flex shrink-0 items-center gap-1.5">
 								{match && (
 									<span
-										className={`inline-flex items-center gap-0.5 text-xs ${match.matched === match.total ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}
+										className={`inline-flex items-center gap-0.5 text-xs ${match.matched === match.total ? 'text-primary' : 'text-muted-foreground'}`}
 									>
 										{match.matched}/{match.total}
 									</span>
@@ -253,7 +240,7 @@ function RecipeOption({
 									</span>
 								)}
 								{pairing && pairing.overlapCount > 0 && (
-									<span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
+									<span className="bg-primary/10 text-primary inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium">
 										{pairing.overlapCount} shared
 									</span>
 								)}

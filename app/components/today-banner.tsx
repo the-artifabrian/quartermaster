@@ -48,7 +48,7 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 	const remaining = entries.length - 1
 
 	return (
-		<div className="shadow-warm mb-6 overflow-hidden rounded-2xl border border-amber-200/60 bg-linear-to-r from-amber-50 to-orange-50 dark:border-amber-800/40 dark:from-amber-950/30 dark:to-orange-950/20">
+		<div className="shadow-warm mb-4 overflow-hidden rounded-2xl bg-linear-to-r from-background to-secondary dark:from-card dark:to-secondary/20">
 			<div className="flex items-center gap-4 p-4 sm:gap-5 sm:p-5">
 				{/* Recipe image */}
 				<div className="bg-muted hidden size-16 shrink-0 overflow-hidden rounded-xl sm:block">
@@ -72,7 +72,7 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 								>
 									<span
 										className={cn(
-											'text-2xl font-bold',
+											'font-serif text-2xl font-bold',
 											placeholder.letterColorClass,
 										)}
 									>
@@ -86,10 +86,12 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 
 				{/* Content */}
 				<div className="min-w-0 flex-1">
-					<p className="text-xs font-medium tracking-wide text-amber-700 dark:text-amber-400">
+					<p className="text-accent text-xs font-medium tracking-wide">
 						Up next &middot; {mealLabel}
 					</p>
-					<h3 className="truncate text-lg font-semibold">{recipe.title}</h3>
+					<h3 className="font-serif truncate text-lg font-semibold">
+						{recipe.title}
+					</h3>
 					<div className="text-muted-foreground flex items-center gap-3 text-xs">
 						{totalTime > 0 && (
 							<span className="flex items-center gap-1">
@@ -118,8 +120,8 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 						}
 					>
 						<Icon name="file-text" size="sm" />
-						<span className="hidden sm:inline">View Recipe</span>
-						<span className="sm:hidden">View</span>
+						<span className="hidden sm:inline">Let's cook</span>
+						<span className="sm:hidden">Cook</span>
 					</Link>
 				</Button>
 			</div>
@@ -132,14 +134,12 @@ function EmptyBanner({ suggestion }: { suggestion: TodaySuggestion | null }) {
 	const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
 	return (
-		<div className="border-border/60 from-card to-muted/30 shadow-warm mb-6 overflow-hidden rounded-2xl border bg-linear-to-r">
+		<div className="shadow-warm mb-4 overflow-hidden rounded-2xl bg-linear-to-r from-background to-secondary dark:from-card dark:to-secondary/20">
 			<div className="flex items-center gap-4 p-4 sm:gap-5 sm:p-5">
-				<div className="bg-muted hidden size-16 shrink-0 items-center justify-center rounded-xl sm:flex">
-					<Icon name="cookie" className="text-muted-foreground/50 size-8" />
-				</div>
-
 				<div className="min-w-0 flex-1">
-					<p className="text-sm font-medium">Nothing planned for today</p>
+					<p className="font-serif text-sm font-medium">
+						Nothing planned for today
+					</p>
 					{suggestion ? (
 						<p className="text-muted-foreground mt-0.5 text-xs">
 							How about{' '}
@@ -153,7 +153,7 @@ function EmptyBanner({ suggestion }: { suggestion: TodaySuggestion | null }) {
 						</p>
 					) : (
 						<p className="text-muted-foreground mt-0.5 text-xs">
-							Browse your recipes or discover what you can make.
+							Browse your recipes and pick something to make.
 						</p>
 					)}
 				</div>
@@ -179,7 +179,7 @@ function EmptyBanner({ suggestion }: { suggestion: TodaySuggestion | null }) {
 					<Button asChild variant="outline" size="sm" className="shrink-0">
 						<Link to="/recipes">
 							<Icon name="magnifying-glass" size="sm" />
-							Find a Match
+							Browse
 						</Link>
 					</Button>
 				)}

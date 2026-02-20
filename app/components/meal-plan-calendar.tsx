@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react'
 import {
 	MEAL_TYPES,
 	formatDayLabel,
+	isPast,
 	isToday,
 	serializeDate,
 } from '#app/utils/date.ts'
@@ -25,23 +25,26 @@ type MealPlanCalendarProps = {
 	weekStart: string
 }
 
+/**
+ * Reorder days for mobile: today first, then future days, then past days.
+ * This keeps today always at the top so you don't have to scroll past
+ * Mon–Thu to reach Friday.
+ */
+function mobileDayOrder(weekDays: Date[]): Date[] {
+	const todayIdx = weekDays.findIndex(isToday)
+	if (todayIdx === -1) return weekDays // not current week, keep chronological
+	return [
+		...weekDays.slice(todayIdx), // today → end of week
+		...weekDays.slice(0, todayIdx), // start of week → yesterday
+	]
+}
+
 export function MealPlanCalendar({
 	weekDays,
 	entries,
 	recipes,
 	weekStart,
 }: MealPlanCalendarProps) {
-	const todayRef = useRef<HTMLDivElement>(null)
-
-	// Auto-scroll to today's card on mobile
-	useEffect(() => {
-		todayRef.current?.scrollIntoView({
-			behavior: 'smooth',
-			inline: 'center',
-			block: 'nearest',
-		})
-	}, [])
-
 	// Group entries by date and mealType (multiple entries per slot)
 	const entryMap = new Map<string, Entry[]>()
 	for (const entry of entries) {
@@ -61,107 +64,109 @@ export function MealPlanCalendar({
 		return count
 	}
 
-	const weekdayRow = weekDays.slice(0, 4) // Mon–Thu
-	const weekendRow = weekDays.slice(4) // Fri–Sun
+	const mobileDays = mobileDayOrder(weekDays)
 
 	return (
 		<>
-			{/* Desktop: two rows — Mon–Thu (4 cols), Fri–Sun (3 cols) */}
-			<div className="hidden space-y-4 md:block">
-				{[weekdayRow, weekendRow].map((rowDays, rowIdx) => (
-					<div key={rowIdx} className="grid grid-cols-4 gap-1">
-						{rowDays.map((date) => (
-							<div key={serializeDate(date)}>
-								<div className="pb-2 text-center">
-									<span
-										className={cn(
-											'inline-block text-sm font-medium',
-											isToday(date)
-												? 'bg-accent text-accent-foreground rounded-full px-3 py-0.5 text-xs font-semibold'
-												: 'text-muted-foreground',
-										)}
-									>
-										{formatDayLabel(date)}
-									</span>
-								</div>
-								<div
+			{/* Desktop: 7-col grid at lg, 4-col at md */}
+			<div className="hidden gap-2 md:grid md:grid-cols-4 lg:grid-cols-7">
+				{weekDays.map((date) => {
+					const today = isToday(date)
+					const past = isPast(date)
+					return (
+						<div
+							key={serializeDate(date)}
+							className={cn(
+								'bg-card rounded-xl p-3 shadow-warm transition-shadow',
+								today && 'border-accent border-t-2',
+								!today && 'hover:shadow-warm-md hover:border-accent/20 border border-transparent',
+								past && !today && 'opacity-80',
+							)}
+						>
+							<div className="mb-2 text-center">
+								<span
 									className={cn(
-										'space-y-2 rounded-xl p-1.5',
-										isToday(date) && 'bg-accent/5',
+										'font-serif text-sm',
+										today
+											? 'text-accent font-semibold'
+											: 'text-muted-foreground',
 									)}
 								>
-									{MEAL_TYPES.map((mealType) => {
-										const key = `${serializeDate(date)}-${mealType}`
-										const slotEntries = entryMap.get(key) || []
-										return (
-											<MealSlotCard
-												key={mealType}
-												date={date}
-												mealType={mealType}
-												entries={slotEntries}
-												recipes={recipes}
-												weekStart={weekStart}
-											/>
-										)
-									})}
-								</div>
+									{formatDayLabel(date)}
+								</span>
 							</div>
-						))}
-					</div>
-				))}
+							<div className="space-y-1.5">
+								{MEAL_TYPES.map((mealType) => {
+									const key = `${serializeDate(date)}-${mealType}`
+									const slotEntries = entryMap.get(key) || []
+									return (
+										<MealSlotCard
+											key={mealType}
+											date={date}
+											mealType={mealType}
+											entries={slotEntries}
+											recipes={recipes}
+											weekStart={weekStart}
+										/>
+									)
+								})}
+							</div>
+						</div>
+					)
+				})}
 			</div>
 
-			{/* Mobile: horizontal snap-scroll, one day per card */}
-			<div className="md:hidden">
-				<div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
-					{weekDays.map((date) => {
-						const dayCount = getEntriesForDay(date)
-						const today = isToday(date)
-						return (
-							<div
-								key={serializeDate(date)}
-								ref={today ? todayRef : undefined}
-								className={cn(
-									'w-[85vw] shrink-0 snap-start rounded-xl',
-									today && 'border-accent border-t-2',
-								)}
-							>
-								<div className="mb-2">
-									<p
-										className={cn(
-											'text-sm font-medium',
-											today &&
-												'text-primary bg-accent/10 inline-block rounded-full px-3 py-1',
-										)}
-									>
-										{formatDayLabel(date)}
-									</p>
-									<p className="text-muted-foreground mt-0.5 text-xs">
-										{dayCount > 0
-											? `${dayCount} meal${dayCount !== 1 ? 's' : ''} planned`
-											: 'Nothing planned yet'}
-									</p>
-								</div>
-								<div className="space-y-2">
-									{MEAL_TYPES.map((mealType) => {
-										const key = `${serializeDate(date)}-${mealType}`
-										const slotEntries = entryMap.get(key) || []
-										return (
-											<MealSlotCard
-												key={mealType}
-												date={date}
-												mealType={mealType}
-												entries={slotEntries}
-												recipes={recipes}
-												weekStart={weekStart}
-											/>
-										)
-									})}
-								</div>
+			{/* Mobile: vertical day stack, today first */}
+			<div className="space-y-3 md:hidden">
+				{mobileDays.map((date) => {
+					const dayCount = getEntriesForDay(date)
+					const today = isToday(date)
+					const past = isPast(date)
+					return (
+						<div
+							key={serializeDate(date)}
+							className={cn(
+								'rounded-xl',
+								today && 'bg-accent/5 p-3',
+								past && !today && 'opacity-80',
+							)}
+						>
+							<div className="mb-1.5 flex items-baseline justify-between">
+								<span
+									className={cn(
+										'font-serif font-semibold',
+										today
+											? 'border-accent text-accent border-b-2 text-base'
+											: 'text-sm',
+									)}
+								>
+									{formatDayLabel(date)}
+								</span>
+								<span className="text-muted-foreground text-xs">
+									{dayCount > 0
+										? `${dayCount} meal${dayCount !== 1 ? 's' : ''}`
+										: 'Nothing planned'}
+								</span>
 							</div>
-						)
-					})}
-				</div>
+							<div className="space-y-1.5">
+								{MEAL_TYPES.map((mealType) => {
+									const key = `${serializeDate(date)}-${mealType}`
+									const slotEntries = entryMap.get(key) || []
+									return (
+										<MealSlotCard
+											key={mealType}
+											date={date}
+											mealType={mealType}
+											entries={slotEntries}
+											recipes={recipes}
+											weekStart={weekStart}
+										/>
+									)
+								})}
+							</div>
+						</div>
+					)
+				})}
 			</div>
 		</>
 	)

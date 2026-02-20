@@ -445,51 +445,67 @@ Redesign `app/routes/plan/index.tsx`.
 
 ### 5A: Mobile Layout
 
-- [ ] Vertical day stack: each day is a row, no forced equal-height cards
-- [ ] Day name in `font-serif` Crimson Pro 600
-- [ ] Today: kawa underline, slightly larger text, warm background
+- [x] Vertical day stack: each day is a row, no forced equal-height cards
+- [x] Day name in `font-serif` Crimson Pro 600
+- [x] Today: kawa underline, slightly larger text, warm background
       (`bg-accent/5`)
-- [ ] Past days: 80% opacity. Future days: full contrast
-- [ ] Empty days: muted DM Sans _"Nothing planned"_ + ghost `+` button
-- [ ] Meal entries: DM Sans, 32px circular recipe thumbnails
+- [x] Past days: 80% opacity. Future days: full contrast
+- [x] Empty days: muted DM Sans _"Nothing planned"_ + ghost `+` button
+- [x] Mobile day order: today first → future → past (so today is always at top)
+- [x] Meal entries: DM Sans, compact layout (thumbnails removed for tighter fit)
 
 ### 5B: Desktop Layout
 
-- [ ] Compact 7-day grid (`grid-cols-7` at `lg`, `grid-cols-4` + `grid-cols-3`
-      rows at `md`)
-- [ ] Each day: warm shiro card, natural height variation, generous internal
-      padding (20px), Crimson Pro day header
-- [ ] Today's card: subtle kawa top-border (`border-t-2 border-accent`)
-- [ ] Cards feel like index cards on a table, not calendar cells — warm shadows,
+- [x] Compact 7-day grid (`grid-cols-7` at `lg`, `grid-cols-4` at `md` with
+      wrap)
+- [x] Each day: warm shiro card, natural height variation, `p-3` internal
+      padding, Crimson Pro day header
+- [x] Today's card: subtle kawa top-border (`border-t-2 border-accent`)
+- [x] Cards feel like index cards on a table, not calendar cells — warm shadows,
       rounded corners, warm border on hover
+      (`hover:shadow-warm-md hover:border-accent/20`)
 
 ### 5C: Tonight Banner
 
-- [ ] Redesign as warm card: subtle gradient (washi → kinari)
-- [ ] Has meal: recipe photo, time, "Let's cook" link
-- [ ] Empty: DM Sans suggestion with recipe from favorites
-- [ ] Applies to current-week view only
+- [x] Redesign as warm card: subtle gradient (washi → kinari)
+      `bg-linear-to-r from-background to-secondary`
+- [x] Has meal: recipe photo, time, "Let's cook" link
+- [x] Empty: DM Sans suggestion with recipe from favorites, softer messaging,
+      removed cookie icon
+- [x] Applies to current-week view only
 
 ### 5D: Interactions
 
-- [ ] Recipe selector (`app/components/recipe-selector.tsx`): warm styling
-      consistent with the new palette
-- [ ] Add-recipe animation: element-reveal curve (280ms fade-in)
-- [ ] Week navigation: restyle date range display in Crimson Pro
-- [ ] Action buttons (Save Template, Copy Week, etc.): updated button styles
+- [x] Recipe selector (`app/components/recipe-selector.tsx`): warm styling,
+      circular thumbnails, uppercase tracking-wider section headers, shared
+      `getRecipePlaceholder`, `scrollbar-thin`
+- [x] Add-recipe animation: element-reveal curve (280ms fade-in)
+      `animate-fade-up-reveal`
+- [x] Week navigation: restyle date range display in Crimson Pro
+- [x] Action buttons (Save Template, Copy Week): updated button styles.
+      Removed Shopping List button (redundant with bottom nav)
+- [x] Template modal: warm card bg, `<Input>` component for consistency,
+      `bg-secondary/30` template items, `font-serif` title
+- [x] Entry rows: compact checkbox + title + servings stepper layout. Matcha
+      (primary) cooked checkbox. Servings stepper with `size-6` tap targets
+      and `hover:bg-muted` feedback
+- [x] `isPast(date)` helper added to `app/utils/date.ts` (same cross-domain
+      UTC-vs-local pattern as `isToday`), with 5 unit tests
 
 ### Phase 5 Definition of Done
 
-- [ ] Desktop: whole week visible at a glance, styled as index cards
-- [ ] Mobile: vertical stack scrolls naturally, today is visually prominent
-- [ ] Tonight banner feels like a friendly nudge
-- [ ] Adding a recipe feels like penciling it in (subtle animation)
-- [ ] `npm run typecheck` passes
+- [x] Desktop: whole week visible at a glance, styled as index cards
+- [x] Mobile: vertical stack scrolls naturally, today is visually prominent
+- [x] Tonight banner feels like a friendly nudge
+- [x] Adding a recipe feels like penciling it in (subtle animation)
+- [x] `npm run typecheck` passes
+- [x] `npm test` passes (37 date tests including isPast)
 - [ ] Commit, wait for review
 
 **Files:** `app/routes/plan/index.tsx`, `app/components/recipe-selector.tsx`,
 `app/components/meal-slot-card.tsx`, `app/components/today-banner.tsx`,
-`app/components/template-modal.tsx`
+`app/components/template-modal.tsx`, `app/components/meal-plan-calendar.tsx`,
+`app/utils/date.ts`, `app/utils/date.test.ts`
 
 ---
 

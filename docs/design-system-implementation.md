@@ -188,54 +188,70 @@ impression.
 
 ### 2A: Hero Section
 
-- [ ] Replace current hero content with the single-question design:
+- [x] Replace current hero content with the single-question design:
   - Crimson Pro 300 (decorative), `text-[2.5rem] md:text-[3.5rem]`
   - _"What are we making this week?"_
   - Subtitle in DM Sans, cha color
   - Two CTAs: "Start cooking" (matcha primary) + "See how it works" (ghost)
-- [ ] Full viewport height (`min-h-svh`), vertically centered, generous
+- [x] Full viewport height (`min-h-svh`), vertically centered, generous
       breathing room
-- [ ] Subtle entrance animation: hero text fades in with page-settle curve,
+- [x] Subtle entrance animation: hero text fades in with page-settle curve,
       320ms
 
 ### 2B: Artifacts Section
 
-- [ ] Build three static artifact components (inline in the route file or
+- [x] Build three static artifact components (inline in the route file or
       extracted if large):
   1. **Recipe card artifact** — styled card at 2° rotation with shadow, showing
      a sample recipe title (Crimson Pro), a few ingredients, a placeholder image
      area
-  2. **Week view artifact** — 7-day row with a few meal names in Caveat,
-     checkbox-style marks
+  2. **Week view artifact** — 7-day row with a few meal names in DM Sans,
+     empty day slots with `+` indicator
   3. **Shopping list artifact** — narrow card with items, some struck through,
      torn-paper-edge effect (clip-path or SVG border)
-- [ ] Each artifact fades up on scroll (IntersectionObserver or CSS
+- [x] Each artifact fades up on scroll (IntersectionObserver or CSS
       `animation-timeline: view()` if supported, with JS fallback)
-- [ ] Staggered left-right-left positioning on desktop; stacked centered on
+- [x] Staggered left-right-left positioning on desktop; stacked centered on
       mobile
-- [ ] Use `container-landing` (960px max)
+- [x] Use `container-landing` (960px max)
 
 ### 2C: Closing Section
 
-- [ ] "Your recipes deserve a home." in Crimson Pro 400
-- [ ] Single CTA button
-- [ ] Generous vertical padding (64-80px above/below)
+- [x] "Your recipes deserve a home." in Crimson Pro 400
+- [x] Single CTA button
+- [x] Generous vertical padding (64-80px above/below)
 
 ### 2D: Cleanup
 
-- [ ] Remove old feature grid sections, "Built for Kitchen" grid, old hero
+- [x] Remove old feature grid sections, "Built for Kitchen" grid, old hero
       gradient
-- [ ] Preserve: JSON-LD schema, meta tags, `getUserId` redirect logic, sitemap
+- [x] Preserve: JSON-LD schema, meta tags, `getUserId` redirect logic, sitemap
       export
 - [ ] Responsive check at 375px, 768px, 1280px
 - [ ] Dark mode check (artifacts should still feel warm)
+
+### 2E: Review Fixes
+
+- [x] Scroll-reveal content visible without JS (JS hides then reveals, no-JS
+      users see everything)
+- [x] Removed dead `opacity-50` class on hero radial glow (inline style wins)
+- [x] Shopping list artifact: removed `border` to avoid clipped-border artifact
+      from `clipPath` — shadow provides definition
+- [x] Added `scroll-behavior: smooth` to `html` in tailwind.css for "See how
+      it works" anchor link (respects `prefers-reduced-motion`)
+- [x] Fixed "Drag recipes" copy → "Add recipes" (matches actual app behavior)
+- [x] Removed Caveat from week view artifact — DM Sans at 11px for readability
+- [x] Hero: replaced mini recipe card previews with subtle radial glow +
+      decorative Divider (avoids implying pre-loaded content)
+- [x] Updated subtitle/meta description to "Keep your recipes. Plan your week.
+      Cook from what you have."
 
 ### Phase 2 Definition of Done
 
 - [ ] Landing page feels quiet, confident, and distinct from a SaaS template
 - [ ] All three artifacts render correctly at mobile + desktop
 - [ ] No layout shifts during scroll animations
-- [ ] JSON-LD and meta tags intact
+- [x] JSON-LD and meta tags intact
 - [ ] Commit, wait for review
 
 **Files:** `app/routes/_marketing/index.tsx`

@@ -178,7 +178,6 @@ export function RecipeActionBar({
 						{renderFavoriteButton(false)}
 					</favoriteFetcher.Form>
 					{renderEditButton(false)}
-					{renderPrintButton(false)}
 					{renderShareButton(false)}
 					{renderEnhanceButton(false)}
 				</div>

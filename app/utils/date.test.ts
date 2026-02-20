@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
+	addDaysUTC,
 	getWeekStart,
 	getWeekDays,
 	getNextWeek,
@@ -8,107 +9,175 @@ import {
 	parseDate,
 	isToday,
 	formatTimeAgo,
+	formatDayLabel,
+	formatWeekRange,
 	MEAL_TYPES,
 } from './date.ts'
+
+describe('parseDate', () => {
+	test('produces UTC midnight', () => {
+		const d = parseDate('2026-02-06')
+		expect(d.toISOString()).toBe('2026-02-06T00:00:00.000Z')
+	})
+
+	test('round-trips with serializeDate', () => {
+		const d = parseDate('2026-02-06')
+		expect(serializeDate(d)).toBe('2026-02-06')
+	})
+})
+
+describe('serializeDate', () => {
+	test('uses UTC fields', () => {
+		// A date at UTC 23:00 on Feb 5 — which is Feb 6 in UTC+2
+		// serializeDate should return the UTC date, not local
+		const d = new Date('2026-02-05T23:00:00.000Z')
+		expect(serializeDate(d)).toBe('2026-02-05')
+	})
+
+	test('formats as yyyy-MM-dd', () => {
+		const d = new Date('2026-01-01T00:00:00.000Z')
+		expect(serializeDate(d)).toBe('2026-01-01')
+	})
+})
+
+describe('addDaysUTC', () => {
+	test('adds days using ms arithmetic', () => {
+		const d = parseDate('2026-02-06')
+		const result = addDaysUTC(d, 3)
+		expect(result.toISOString()).toBe('2026-02-09T00:00:00.000Z')
+	})
+
+	test('subtracts days with negative n', () => {
+		const d = parseDate('2026-02-06')
+		const result = addDaysUTC(d, -2)
+		expect(result.toISOString()).toBe('2026-02-04T00:00:00.000Z')
+	})
+
+	test('is DST-safe (stays at UTC midnight across spring-forward)', () => {
+		// US DST spring-forward 2026: March 8
+		const d = parseDate('2026-03-07')
+		const result = addDaysUTC(d, 2)
+		expect(result.toISOString()).toBe('2026-03-09T00:00:00.000Z')
+	})
+})
 
 describe('getWeekStart', () => {
 	test('returns Monday for a Wednesday', () => {
 		// 2026-02-04 is a Wednesday
-		const wed = new Date(2026, 1, 4)
+		const wed = new Date('2026-02-04T00:00:00.000Z')
 		const result = getWeekStart(wed)
-		expect(result.getDay()).toBe(1) // Monday
+		expect(result.getUTCDay()).toBe(1) // Monday
 		expect(serializeDate(result)).toBe('2026-02-02')
+		expect(result.toISOString()).toBe('2026-02-02T00:00:00.000Z')
 	})
 
 	test('returns Monday unchanged for a Monday', () => {
-		// 2026-02-02 is a Monday
-		const mon = new Date(2026, 1, 2)
+		const mon = new Date('2026-02-02T00:00:00.000Z')
 		const result = getWeekStart(mon)
-		expect(result.getDay()).toBe(1)
+		expect(result.getUTCDay()).toBe(1)
 		expect(serializeDate(result)).toBe('2026-02-02')
 	})
 
 	test('returns previous Monday for a Sunday', () => {
-		// 2026-02-08 is a Sunday
-		const sun = new Date(2026, 1, 8)
+		const sun = new Date('2026-02-08T00:00:00.000Z')
 		const result = getWeekStart(sun)
-		expect(result.getDay()).toBe(1)
+		expect(result.getUTCDay()).toBe(1)
 		expect(serializeDate(result)).toBe('2026-02-02')
+	})
+
+	test('result is UTC midnight', () => {
+		const d = new Date('2026-02-04T00:00:00.000Z')
+		const result = getWeekStart(d)
+		expect(result.getUTCHours()).toBe(0)
+		expect(result.getUTCMinutes()).toBe(0)
+		expect(result.getUTCSeconds()).toBe(0)
+		expect(result.getUTCMilliseconds()).toBe(0)
 	})
 })
 
 describe('getWeekDays', () => {
 	test('returns 7 days Monday through Sunday', () => {
-		const weekStart = new Date(2026, 1, 2) // Monday
+		const weekStart = new Date('2026-02-02T00:00:00.000Z')
 		const days = getWeekDays(weekStart)
 		expect(days).toHaveLength(7)
-		expect(days[0]!.getDay()).toBe(1) // Monday
-		expect(days[6]!.getDay()).toBe(0) // Sunday
+		expect(days[0]!.getUTCDay()).toBe(1) // Monday
+		expect(days[6]!.getUTCDay()).toBe(0) // Sunday
 	})
 
 	test('days are consecutive', () => {
-		const weekStart = new Date(2026, 1, 2)
+		const weekStart = new Date('2026-02-02T00:00:00.000Z')
 		const days = getWeekDays(weekStart)
 		for (let i = 1; i < days.length; i++) {
 			const diff = days[i]!.getTime() - days[i - 1]!.getTime()
-			expect(diff).toBe(24 * 60 * 60 * 1000) // 1 day in ms
+			expect(diff).toBe(24 * 60 * 60 * 1000)
+		}
+	})
+
+	test('all days are UTC midnight', () => {
+		const weekStart = new Date('2026-02-02T00:00:00.000Z')
+		const days = getWeekDays(weekStart)
+		for (const day of days) {
+			expect(day.toISOString()).toMatch(/T00:00:00\.000Z$/)
 		}
 	})
 })
 
 describe('getNextWeek / getPreviousWeek', () => {
 	test('getNextWeek returns date 7 days later', () => {
-		const weekStart = new Date(2026, 1, 2) // Monday Feb 2
+		const weekStart = new Date('2026-02-02T00:00:00.000Z')
 		const next = getNextWeek(weekStart)
 		expect(serializeDate(next)).toBe('2026-02-09')
-		expect(next.getDay()).toBe(1)
+		expect(next.getUTCDay()).toBe(1)
 	})
 
 	test('getPreviousWeek returns date 7 days earlier', () => {
-		const weekStart = new Date(2026, 1, 9) // Monday Feb 9
+		const weekStart = new Date('2026-02-09T00:00:00.000Z')
 		const prev = getPreviousWeek(weekStart)
 		expect(serializeDate(prev)).toBe('2026-02-02')
-		expect(prev.getDay()).toBe(1)
+		expect(prev.getUTCDay()).toBe(1)
 	})
 
 	test('round-trip: next then previous returns original', () => {
-		const weekStart = new Date(2026, 1, 2)
+		const weekStart = new Date('2026-02-02T00:00:00.000Z')
 		const result = getPreviousWeek(getNextWeek(weekStart))
 		expect(serializeDate(result)).toBe(serializeDate(weekStart))
 	})
 })
 
-describe('serializeDate / parseDate', () => {
-	test('round-trip preserves date', () => {
-		const date = new Date(2026, 1, 6) // Feb 6, 2026
-		const serialized = serializeDate(date)
-		expect(serialized).toBe('2026-02-06')
-		const parsed = parseDate(serialized)
-		expect(serializeDate(parsed)).toBe('2026-02-06')
+describe('formatDayLabel', () => {
+	test('formats using UTC fields', () => {
+		const mon = new Date('2026-02-02T00:00:00.000Z')
+		expect(formatDayLabel(mon)).toBe('Mon 2/2')
 	})
 
-	test('serializeDate formats as yyyy-MM-dd', () => {
-		const date = new Date(2026, 0, 1)
-		expect(serializeDate(date)).toBe('2026-01-01')
+	test('formats Sunday', () => {
+		const sun = new Date('2026-02-08T00:00:00.000Z')
+		expect(formatDayLabel(sun)).toBe('Sun 2/8')
 	})
+})
 
-	test('parseDate returns start of day', () => {
-		const date = parseDate('2026-02-06')
-		expect(date.getHours()).toBe(0)
-		expect(date.getMinutes()).toBe(0)
-		expect(date.getSeconds()).toBe(0)
+describe('formatWeekRange', () => {
+	test('formats week range using UTC fields', () => {
+		const weekStart = new Date('2026-02-02T00:00:00.000Z')
+		expect(formatWeekRange(weekStart)).toBe('Feb 2 - 8, 2026')
 	})
 })
 
 describe('isToday', () => {
-	test('returns true for today', () => {
-		expect(isToday(new Date())).toBe(true)
+	test('returns true for today (UTC midnight of local today)', () => {
+		const now = new Date()
+		const todayUTC = new Date(
+			Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+		)
+		expect(isToday(todayUTC)).toBe(true)
 	})
 
 	test('returns false for yesterday', () => {
-		const yesterday = new Date()
-		yesterday.setDate(yesterday.getDate() - 1)
-		expect(isToday(yesterday)).toBe(false)
+		const now = new Date()
+		const yesterdayUTC = new Date(
+			Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1),
+		)
+		expect(isToday(yesterdayUTC)).toBe(false)
 	})
 })
 

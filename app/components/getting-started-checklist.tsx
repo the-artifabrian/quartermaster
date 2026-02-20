@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { Icon, type IconName } from '#app/components/ui/icon.tsx'
 import { cn } from '#app/utils/misc.tsx'
-
-const STORAGE_KEY = 'getting-started-dismissed'
+import { useUser } from '#app/utils/user.ts'
 
 interface Step {
 	title: string
@@ -24,13 +23,15 @@ export function GettingStartedChecklist({
 	}
 	isProActive?: boolean
 }) {
+	const user = useUser()
+	const storageKey = `getting-started-dismissed:${user.id}`
 	const [dismissed, setDismissed] = useState(false)
 
 	useEffect(() => {
-		if (localStorage.getItem(STORAGE_KEY) === 'true') {
+		if (localStorage.getItem(storageKey) === 'true') {
 			setDismissed(true)
 		}
-	}, [])
+	}, [storageKey])
 
 	const allSteps: Step[] = [
 		{
@@ -65,7 +66,7 @@ export function GettingStartedChecklist({
 	if (allComplete || dismissed) return null
 
 	const handleDismiss = () => {
-		localStorage.setItem(STORAGE_KEY, 'true')
+		localStorage.setItem(storageKey, 'true')
 		setDismissed(true)
 	}
 

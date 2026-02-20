@@ -95,7 +95,12 @@ export async function action({ request }: Route.ActionArgs) {
 		)
 
 		if (match) {
-			const mergeData = buildMergeData(match, quantity, shoppingItem.unit, expiresAt)
+			const mergeData = buildMergeData(
+				match,
+				quantity,
+				shoppingItem.unit,
+				expiresAt,
+			)
 			// Always clear lowStock — buying from shopping list means restocked
 			mergeData.lowStock = false
 			// Update tracking item in-place so subsequent matches see accumulated state
@@ -161,9 +166,7 @@ export async function action({ request }: Route.ActionArgs) {
 		)
 	}
 	if (mergedCount > 0) {
-		parts.push(
-			`${mergedCount} merged with existing`,
-		)
+		parts.push(`${mergedCount} merged with existing`)
 	}
 	if (householdItems.length > 0) {
 		parts.push(

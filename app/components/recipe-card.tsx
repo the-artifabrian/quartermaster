@@ -124,7 +124,7 @@ export function RecipeCard({
 						{formatTimeAgo(new Date(lastCookedAt))}
 					</p>
 				)}
-							</div>
+			</div>
 		</Link>
 	)
 }

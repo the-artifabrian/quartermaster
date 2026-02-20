@@ -19,14 +19,10 @@ function formatSkipReason(
 
 	const parts: string[] = []
 	if (noQty.length > 0) {
-		parts.push(
-			`${noQty.map((i) => i.name).join(', ')} (no quantity tracked)`,
-		)
+		parts.push(`${noQty.map((i) => i.name).join(', ')} (no quantity tracked)`)
 	}
 	if (badUnits.length > 0) {
-		parts.push(
-			`${badUnits.map((i) => i.name).join(', ')} (incompatible units)`,
-		)
+		parts.push(`${badUnits.map((i) => i.name).join(', ')} (incompatible units)`)
 	}
 	return parts.join('; ')
 }
@@ -60,8 +56,7 @@ export function IMadeThisModal({
 	const isLoadingPreview = previewFetcher.state !== 'idle'
 	const hasSubtractions = preview && preview.willSubtract.length > 0
 	const hasInventoryImpact =
-		preview &&
-		(preview.willSubtract.length > 0 || preview.willSkip.length > 0)
+		preview && (preview.willSubtract.length > 0 || preview.willSkip.length > 0)
 
 	return (
 		<div
@@ -173,8 +168,7 @@ export function IMadeThisModal({
 										)}
 										{preview.willSkip.length > 0 && (
 											<p className="text-muted-foreground mt-2 text-xs">
-												Won't auto-adjust:{' '}
-												{formatSkipReason(preview.willSkip)}
+												Won't auto-adjust: {formatSkipReason(preview.willSkip)}
 											</p>
 										)}
 									</>
@@ -190,8 +184,7 @@ export function IMadeThisModal({
 										)}
 										{preview.willSkip.length > 0 && (
 											<p className="text-muted-foreground mt-1 text-xs">
-												Won't auto-adjust:{' '}
-												{formatSkipReason(preview.willSkip)}
+												Won't auto-adjust: {formatSkipReason(preview.willSkip)}
 											</p>
 										)}
 									</>

@@ -27,7 +27,10 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 	// Close edit mode when fetcher transitions from submitting/loading → idle
 	// (only on success — if server returned an error, keep editing open)
 	useEffect(() => {
-		if (prevEditFetcherState.current !== 'idle' && editFetcher.state === 'idle') {
+		if (
+			prevEditFetcherState.current !== 'idle' &&
+			editFetcher.state === 'idle'
+		) {
 			if (isEditing && editFetcher.data?.status !== 'error') {
 				setIsEditing(false)
 			}
@@ -118,7 +121,11 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 			<toggleFetcher.Form method="POST" className="pt-1 print:hidden">
 				<input type="hidden" name="intent" value="toggle" />
 				<input type="hidden" name="itemId" value={item.id} />
-				<button type="submit" className="-m-2.5 cursor-pointer p-2.5" aria-label={optimisticChecked ? 'Uncheck item' : 'Check off item'}>
+				<button
+					type="submit"
+					className="-m-2.5 cursor-pointer p-2.5"
+					aria-label={optimisticChecked ? 'Uncheck item' : 'Check off item'}
+				>
 					<div
 						className={`flex size-6 items-center justify-center rounded border-2 ${
 							optimisticChecked ? 'border-primary bg-primary' : 'border-input'

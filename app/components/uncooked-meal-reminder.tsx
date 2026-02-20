@@ -29,7 +29,11 @@ function formatEntryContext(entry: UncookedEntry): string {
 	// Use local date components to match server's serializeDate (date-fns format)
 	const pad = (n: number) => String(n).padStart(2, '0')
 	const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-	const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+	const yesterday = new Date(
+		now.getFullYear(),
+		now.getMonth(),
+		now.getDate() - 1,
+	)
 	const yesterdayStr = `${yesterday.getFullYear()}-${pad(yesterday.getMonth() + 1)}-${pad(yesterday.getDate())}`
 
 	if (entry.date === yesterdayStr) return 'yesterday'
@@ -75,8 +79,7 @@ export function UncookedMealReminder() {
 				}
 			}
 			toast.success(`Marked "${recipeTitle}" as cooked`, {
-				description:
-					parts.length > 0 ? parts.join('. ') : 'Inventory updated.',
+				description: parts.length > 0 ? parts.join('. ') : 'Inventory updated.',
 				duration: 5000,
 			})
 		}

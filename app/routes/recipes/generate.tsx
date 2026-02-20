@@ -59,7 +59,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 	return {
 		inventoryCount,
 		expiringCount,
-		generationsRemaining: Math.max(0, DAILY_GENERATION_LIMIT - todayGenerations),
+		generationsRemaining: Math.max(
+			0,
+			DAILY_GENERATION_LIMIT - todayGenerations,
+		),
 	}
 }
 
@@ -106,7 +109,8 @@ export async function action({ request }: Route.ActionArgs) {
 			return data({
 				intent: 'generate' as const,
 				recipe: null,
-				error: 'You need at least a few inventory items to generate a recipe. Add some items to your pantry first!',
+				error:
+					'You need at least a few inventory items to generate a recipe. Add some items to your pantry first!',
 			})
 		}
 
@@ -116,31 +120,30 @@ export async function action({ request }: Route.ActionArgs) {
 		const preferences = {
 			...(mealType &&
 				['breakfast', 'lunch', 'dinner', 'snack'].includes(mealType) && {
-					mealType: mealType as
-						| 'breakfast'
-						| 'lunch'
-						| 'dinner'
-						| 'snack',
+					mealType: mealType as 'breakfast' | 'lunch' | 'dinner' | 'snack',
 				}),
 			...(quickMeal && { quickMeal: true }),
 		}
 
-		const recipe = await generateRecipeFromInventory(inventory, preferences)
+		const result = await generateRecipeFromInventory(inventory, preferences)
 
+		const isError = 'error' in result
 		trackEvent(userId, householdId, 'recipe_generation_llm_call', {
 			inventoryCount: inventory.length,
 			mealType: preferences.mealType ?? null,
 			quickMeal: preferences.quickMeal ?? false,
-			success: recipe !== null,
+			success: !isError,
 		})
 
-		if (!recipe) {
+		if (isError) {
 			return data({
 				intent: 'generate' as const,
 				recipe: null,
-				error: 'Could not generate a recipe right now. Please try again.',
+				error: result.error,
 			})
 		}
+
+		const recipe = result
 
 		return data({
 			intent: 'generate' as const,
@@ -159,19 +162,13 @@ export async function action({ request }: Route.ActionArgs) {
 		const prepTime = formData.get('prepTime')
 			? Math.min(
 					1440,
-					Math.max(
-						0,
-						parseInt(formData.get('prepTime') as string, 10) || 0,
-					),
+					Math.max(0, parseInt(formData.get('prepTime') as string, 10) || 0),
 				)
 			: null
 		const cookTime = formData.get('cookTime')
 			? Math.min(
 					1440,
-					Math.max(
-						0,
-						parseInt(formData.get('cookTime') as string, 10) || 0,
-					),
+					Math.max(0, parseInt(formData.get('cookTime') as string, 10) || 0),
 				)
 			: null
 
@@ -189,14 +186,10 @@ export async function action({ request }: Route.ActionArgs) {
 				ingredients.push({
 					name,
 					amount:
-						(formData.get(`ingredients[${i}].amount`) as string) ||
-						undefined,
-					unit:
-						(formData.get(`ingredients[${i}].unit`) as string) ||
-						undefined,
+						(formData.get(`ingredients[${i}].amount`) as string) || undefined,
+					unit: (formData.get(`ingredients[${i}].unit`) as string) || undefined,
 					notes:
-						(formData.get(`ingredients[${i}].notes`) as string) ||
-						undefined,
+						(formData.get(`ingredients[${i}].notes`) as string) || undefined,
 				})
 			}
 			i++
@@ -277,9 +270,7 @@ export async function action({ request }: Route.ActionArgs) {
 	)
 }
 
-export default function GenerateRecipe({
-	loaderData,
-}: Route.ComponentProps) {
+export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
 	const { inventoryCount, expiringCount, generationsRemaining } = loaderData
 	const actionData = useActionData<typeof action>() as ActionData | undefined
 	const navigation = useNavigation()
@@ -303,10 +294,7 @@ export default function GenerateRecipe({
 				Back to recipes
 			</Link>
 			<div className="mb-6 flex items-center gap-2">
-				<Icon
-					name="sparkles"
-					className="h-6 w-6 text-violet-500"
-				/>
+				<Icon name="sparkles" className="h-6 w-6 text-violet-500" />
 				<h1 className="text-2xl font-bold">Generate Recipe</h1>
 			</div>
 
@@ -317,11 +305,7 @@ export default function GenerateRecipe({
 						Create a recipe from your {inventoryCount} inventory item
 						{inventoryCount !== 1 ? 's' : ''}
 						{expiringCount > 0 && (
-							<>
-								{' '}
-								({expiringCount} expiring soon — they'll be
-								prioritized)
-							</>
+							<> ({expiringCount} expiring soon — they'll be prioritized)</>
 						)}
 						.
 					</p>
@@ -329,10 +313,7 @@ export default function GenerateRecipe({
 					{inventoryCount === 0 && (
 						<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
 							You need some inventory items first.{' '}
-							<Link
-								to="/inventory"
-								className="font-medium underline"
-							>
+							<Link to="/inventory" className="font-medium underline">
 								Add items to your pantry
 							</Link>{' '}
 							to get started.
@@ -383,9 +364,7 @@ export default function GenerateRecipe({
 								name="quickMeal"
 								className="border-input h-4 w-4 rounded"
 							/>
-							<span className="text-sm">
-								Quick meal (30 minutes or less)
-							</span>
+							<span className="text-sm">Quick meal (30 minutes or less)</span>
 						</label>
 
 						<div className="flex flex-col-reverse items-end gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
@@ -406,11 +385,7 @@ export default function GenerateRecipe({
 								</Button>
 								<StatusButton
 									type="submit"
-									status={
-										submittingIntent === 'generate'
-											? 'pending'
-											: 'idle'
-									}
+									status={submittingIntent === 'generate' ? 'pending' : 'idle'}
 									disabled={
 										isSubmitting ||
 										inventoryCount === 0 ||
@@ -444,14 +419,9 @@ export default function GenerateRecipe({
 				<div className="space-y-6">
 					<div className="space-y-4 rounded-lg border p-6">
 						<div className="flex items-start justify-between gap-2">
-							<h2 className="text-xl font-semibold">
-								{recipe.title}
-							</h2>
+							<h2 className="text-xl font-semibold">{recipe.title}</h2>
 							<span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
-								<Icon
-									name="sparkles"
-									className="size-3"
-								/>
+								<Icon name="sparkles" className="size-3" />
 								AI Generated
 							</span>
 						</div>
@@ -478,17 +448,11 @@ export default function GenerateRecipe({
 								<ul className="space-y-1 text-sm">
 									{recipe.ingredients.map((ing, i) => (
 										<li key={i} className="flex gap-1">
-											<span className="text-muted-foreground">
-												-
-											</span>
+											<span className="text-muted-foreground">-</span>
 											{ing.amount && (
-												<span className="font-medium">
-													{ing.amount}
-												</span>
+												<span className="font-medium">{ing.amount}</span>
 											)}
-											{ing.unit && (
-												<span>{ing.unit}</span>
-											)}
+											{ing.unit && <span>{ing.unit}</span>}
 											<span>{ing.name}</span>
 											{ing.notes && (
 												<span className="text-muted-foreground">
@@ -504,8 +468,7 @@ export default function GenerateRecipe({
 						{recipe.instructions.length > 0 && (
 							<div>
 								<h3 className="mb-2 font-medium">
-									Instructions ({recipe.instructions.length}{' '}
-									steps)
+									Instructions ({recipe.instructions.length} steps)
 								</h3>
 								<ol className="space-y-2 text-sm">
 									{recipe.instructions.map((inst, i) => (
@@ -524,34 +487,18 @@ export default function GenerateRecipe({
 					{/* Save form */}
 					<Form method="POST">
 						<input type="hidden" name="intent" value="save" />
-						<input
-							type="hidden"
-							name="title"
-							value={recipe.title}
-						/>
+						<input type="hidden" name="title" value={recipe.title} />
 						<input
 							type="hidden"
 							name="description"
 							value={recipe.description ?? ''}
 						/>
-						<input
-							type="hidden"
-							name="servings"
-							value={recipe.servings}
-						/>
+						<input type="hidden" name="servings" value={recipe.servings} />
 						{recipe.prepTime != null && (
-							<input
-								type="hidden"
-								name="prepTime"
-								value={recipe.prepTime}
-							/>
+							<input type="hidden" name="prepTime" value={recipe.prepTime} />
 						)}
 						{recipe.cookTime != null && (
-							<input
-								type="hidden"
-								name="cookTime"
-								value={recipe.cookTime}
-							/>
+							<input type="hidden" name="cookTime" value={recipe.cookTime} />
 						)}
 						{recipe.ingredients.map((ing, i) => (
 							<div key={i}>
@@ -595,11 +542,7 @@ export default function GenerateRecipe({
 							</Button>
 							<StatusButton
 								type="submit"
-								status={
-									submittingIntent === 'save'
-										? 'pending'
-										: 'idle'
-								}
+								status={submittingIntent === 'save' ? 'pending' : 'idle'}
 								disabled={isSubmitting}
 							>
 								Save Recipe

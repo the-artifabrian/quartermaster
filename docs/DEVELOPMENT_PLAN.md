@@ -154,7 +154,7 @@ warning, join page error sanitization). Detail in git history.
 
 #### Should fix soon
 
-- [ ] Pick one timezone/date strategy for meal-plan write/read/query paths and
+- [x] Pick one timezone/date strategy for meal-plan write/read/query paths and
       apply it consistently.
 - [ ] Add error feedback and rollback path for post-cook "used up"
       fire-and-forget actions.

@@ -30,14 +30,11 @@ export function EnhanceRecipeModal({
 		suggestions.description !== null &&
 		suggestions.description !== recipe.description
 	const hasServingsChange =
-		suggestions.servings !== null &&
-		suggestions.servings !== recipe.servings
+		suggestions.servings !== null && suggestions.servings !== recipe.servings
 	const hasPrepTimeChange =
-		suggestions.prepTime !== null &&
-		suggestions.prepTime !== recipe.prepTime
+		suggestions.prepTime !== null && suggestions.prepTime !== recipe.prepTime
 	const hasCookTimeChange =
-		suggestions.cookTime !== null &&
-		suggestions.cookTime !== recipe.cookTime
+		suggestions.cookTime !== null && suggestions.cookTime !== recipe.cookTime
 	const hasAnyChange =
 		hasDescriptionChange ||
 		hasServingsChange ||
@@ -123,10 +120,7 @@ export function EnhanceRecipeModal({
 						id="enhance-title"
 						className="flex items-center gap-2 font-serif text-xl font-bold"
 					>
-						<Icon
-							name="sparkles"
-							className="size-5 text-violet-500"
-						/>
+						<Icon name="sparkles" className="size-5 text-violet-500" />
 						Enhance Recipe
 					</h2>
 					<button
@@ -168,11 +162,7 @@ export function EnhanceRecipeModal({
 							{hasPrepTimeChange && (
 								<FieldRow
 									label="Prep Time"
-									current={
-										recipe.prepTime
-											? `${recipe.prepTime} min`
-											: '—'
-									}
+									current={recipe.prepTime ? `${recipe.prepTime} min` : '—'}
 									suggested={`${suggestions.prepTime} min`}
 									checked={checked.prepTime}
 									onToggle={() => toggleField('prepTime')}
@@ -182,11 +172,7 @@ export function EnhanceRecipeModal({
 							{hasCookTimeChange && (
 								<FieldRow
 									label="Cook Time"
-									current={
-										recipe.cookTime
-											? `${recipe.cookTime} min`
-											: '—'
-									}
+									current={recipe.cookTime ? `${recipe.cookTime} min` : '—'}
 									suggested={`${suggestions.cookTime} min`}
 									checked={checked.cookTime}
 									onToggle={() => toggleField('cookTime')}
@@ -197,29 +183,19 @@ export function EnhanceRecipeModal({
 						<div className="mt-5 flex gap-2">
 							<Button
 								onClick={handleApply}
-								disabled={
-									!hasAnySelected ||
-									fetcher.state !== 'idle'
-								}
+								disabled={!hasAnySelected || fetcher.state !== 'idle'}
 								className="flex-1 gap-2"
 							>
 								{fetcher.state !== 'idle' ? (
 									<>
-										<Icon
-											name="update"
-											className="size-4 animate-spin"
-										/>
+										<Icon name="update" className="size-4 animate-spin" />
 										Applying...
 									</>
 								) : (
 									'Apply Selected'
 								)}
 							</Button>
-							<Button
-								type="button"
-								variant="ghost"
-								onClick={onClose}
-							>
+							<Button type="button" variant="ghost" onClick={onClose}>
 								Cancel
 							</Button>
 						</div>
@@ -227,14 +203,9 @@ export function EnhanceRecipeModal({
 				) : (
 					<>
 						<p className="text-muted-foreground mt-2 mb-5 text-sm">
-							This recipe looks complete! No improvements
-							suggested.
+							This recipe looks complete! No improvements suggested.
 						</p>
-						<Button
-							variant="ghost"
-							onClick={onClose}
-							className="w-full"
-						>
+						<Button variant="ghost" onClick={onClose} className="w-full">
 							Close
 						</Button>
 					</>
@@ -268,8 +239,7 @@ function FieldRow({
 			<div className="min-w-0 flex-1">
 				<p className="text-sm font-medium">{label}</p>
 				<p className="text-muted-foreground mt-0.5 text-xs">
-					<span className="text-muted-foreground/70">Current:</span>{' '}
-					{current}
+					<span className="text-muted-foreground/70">Current:</span> {current}
 				</p>
 				<p className="mt-0.5 text-xs text-violet-600 dark:text-violet-400">
 					<span className="text-violet-500/70 dark:text-violet-400/70">

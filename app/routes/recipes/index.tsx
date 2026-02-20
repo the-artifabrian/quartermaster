@@ -2,10 +2,7 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { GettingStartedChecklist } from '#app/components/getting-started-checklist.tsx'
-import {
-	RecipeCard,
-	RecipeCardGrid,
-} from '#app/components/recipe-card.tsx'
+import { RecipeCard, RecipeCardGrid } from '#app/components/recipe-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import {
 	DropdownMenu,
@@ -452,10 +449,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 										!makeableOnly && 'bg-background',
 									)}
 								>
-									<Icon
-										name={makeableOnly ? 'check' : 'cookie'}
-										size="sm"
-									/>
+									<Icon name={makeableOnly ? 'check' : 'cookie'} size="sm" />
 									Makeable ({matchData.makeableCount})
 								</Button>
 							)}

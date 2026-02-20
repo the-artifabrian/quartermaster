@@ -37,7 +37,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					select: { content: true },
 					orderBy: { order: 'asc' },
 				},
-					image: { select: { objectKey: true, altText: true } },
+				image: { select: { objectKey: true, altText: true } },
 			},
 			orderBy: { title: 'asc' },
 		}),

@@ -10,7 +10,10 @@ export type SubtractionPreviewData = {
 		willBeRemoved: boolean
 	}>
 	noMatch: string[]
-	willSkip: Array<{ name: string; reason: 'no_quantity' | 'incompatible_units' }>
+	willSkip: Array<{
+		name: string
+		reason: 'no_quantity' | 'incompatible_units'
+	}>
 }
 
 export type AppliedSubstitution = {

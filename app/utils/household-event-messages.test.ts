@@ -336,9 +336,7 @@ describe('formatEventMessage', () => {
 			{ name: 'Butter' },
 			'Alex',
 		)
-		expect(result.message).toBe(
-			'Alex removed Butter from the shopping list',
-		)
+		expect(result.message).toBe('Alex removed Butter from the shopping list')
 		expect(result.url).toBe('/shopping')
 	})
 

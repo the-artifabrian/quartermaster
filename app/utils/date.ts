@@ -1,61 +1,96 @@
-import {
-	startOfWeek,
-	endOfWeek,
-	eachDayOfInterval,
-	format,
-	addWeeks,
-	subWeeks,
-	startOfDay,
-	isSameDay,
-	parseISO,
-} from 'date-fns'
+const DAY_MS = 86_400_000
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+const MONTH_NAMES = [
+	'Jan',
+	'Feb',
+	'Mar',
+	'Apr',
+	'May',
+	'Jun',
+	'Jul',
+	'Aug',
+	'Sep',
+	'Oct',
+	'Nov',
+	'Dec',
+] as const
+
+/** Add `n` days using UTC-safe millisecond arithmetic. */
+export function addDaysUTC(date: Date, n: number): Date {
+	return new Date(date.getTime() + n * DAY_MS)
+}
 
 export function getCurrentWeekStart(): Date {
-	return startOfDay(startOfWeek(new Date(), { weekStartsOn: 1 }))
+	return getWeekStart(new Date())
 }
 
+/** Return UTC midnight of the Monday at-or-before `date`. */
 export function getWeekStart(date: Date): Date {
-	return startOfDay(startOfWeek(date, { weekStartsOn: 1 }))
+	const d = new Date(
+		Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+	)
+	// getUTCDay(): 0=Sun … 6=Sat → offset to Monday
+	const day = d.getUTCDay()
+	const diff = day === 0 ? 6 : day - 1
+	d.setUTCDate(d.getUTCDate() - diff)
+	return d
 }
 
+/** UTC midnight of Sunday (weekStart + 6 days). */
 export function getWeekEnd(weekStart: Date): Date {
-	return endOfWeek(weekStart, { weekStartsOn: 1 })
+	return addDaysUTC(weekStart, 6)
 }
 
+/** Return 7 UTC-midnight dates, Monday through Sunday. */
 export function getWeekDays(weekStart: Date): Date[] {
-	return eachDayOfInterval({
-		start: weekStart,
-		end: getWeekEnd(weekStart),
-	})
+	return Array.from({ length: 7 }, (_, i) => addDaysUTC(weekStart, i))
 }
 
 export function getNextWeek(weekStart: Date): Date {
-	return startOfDay(addWeeks(weekStart, 1))
+	return addDaysUTC(weekStart, 7)
 }
 
 export function getPreviousWeek(weekStart: Date): Date {
-	return startOfDay(subWeeks(weekStart, 1))
+	return addDaysUTC(weekStart, -7)
 }
 
+/** Format like "Mon 2/9" using UTC fields. */
 export function formatDayLabel(date: Date): string {
-	return format(date, 'EEE M/d') // "Mon 12/25"
+	const day = DAY_NAMES[date.getUTCDay()]
+	return `${day} ${date.getUTCMonth() + 1}/${date.getUTCDate()}`
 }
 
+/** Format like "Feb 9 - 15, 2026" using UTC fields. */
 export function formatWeekRange(weekStart: Date): string {
 	const weekEnd = getWeekEnd(weekStart)
-	return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'd, yyyy')}`
+	const startMonth = MONTH_NAMES[weekStart.getUTCMonth()]
+	return `${startMonth} ${weekStart.getUTCDate()} - ${weekEnd.getUTCDate()}, ${weekEnd.getUTCFullYear()}`
 }
 
+/**
+ * Compare a stored UTC semantic date with the user's local "today".
+ *
+ * Stored dates encode their semantic day in UTC fields (`getUTCDate()`), while
+ * "today" is the user's local date. This cross-domain comparison is intentional.
+ */
 export function isToday(date: Date): boolean {
-	return isSameDay(date, new Date())
+	const now = new Date()
+	return (
+		date.getUTCFullYear() === now.getFullYear() &&
+		date.getUTCMonth() === now.getMonth() &&
+		date.getUTCDate() === now.getDate()
+	)
 }
 
+/** Serialize to `yyyy-MM-dd` using UTC fields. */
 export function serializeDate(date: Date): string {
-	return format(date, 'yyyy-MM-dd')
+	return date.toISOString().slice(0, 10)
 }
 
+/** Parse `yyyy-MM-dd` → UTC midnight Date. */
 export function parseDate(dateString: string): Date {
-	return startOfDay(parseISO(dateString))
+	return new Date(dateString + 'T00:00:00.000Z')
 }
 
 export function formatTimeAgo(date: Date): string {

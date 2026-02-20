@@ -90,7 +90,9 @@ export function BottomNav() {
 							)}
 						>
 							<Icon name={isLocked ? 'lock-closed' : item.icon} size="lg" />
-							<span className={cn('text-xs leading-4', isActive && 'font-semibold')}>
+							<span
+								className={cn('text-xs leading-4', isActive && 'font-semibold')}
+							>
 								{item.label}
 							</span>
 						</NavLink>

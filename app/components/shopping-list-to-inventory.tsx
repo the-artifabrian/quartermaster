@@ -62,7 +62,8 @@ export function ShoppingListToInventory({
 	const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
 	const selectedCount = reviewItems.filter((i) => i.included).length
-	const allSelected = reviewItems.length > 0 && selectedCount === reviewItems.length
+	const allSelected =
+		reviewItems.length > 0 && selectedCount === reviewItems.length
 
 	function handleToggle(id: string) {
 		setReviewItems((prev) =>
@@ -131,7 +132,10 @@ export function ShoppingListToInventory({
 
 		const formData = new FormData()
 		formData.set('items', JSON.stringify(allItems))
-		void fetcher.submit(formData, { method: 'POST', action: '/resources/shopping-to-inventory' })
+		void fetcher.submit(formData, {
+			method: 'POST',
+			action: '/resources/shopping-to-inventory',
+		})
 	}
 
 	return (
@@ -165,10 +169,7 @@ export function ShoppingListToInventory({
 						{reviewItems.map((item) => {
 							const isExpanded = expandedIds.has(item.id)
 							return (
-								<div
-									key={item.id}
-									className="bg-background rounded-lg"
-								>
+								<div key={item.id} className="bg-background rounded-lg">
 									{/* Compact row */}
 									<div
 										className="flex cursor-pointer items-center gap-3 px-3 py-2.5"
@@ -200,7 +201,11 @@ export function ShoppingListToInventory({
 													'bg-muted text-muted-foreground',
 											)}
 										>
-											{LOCATION_LABELS[item.location as keyof typeof LOCATION_LABELS]}
+											{
+												LOCATION_LABELS[
+													item.location as keyof typeof LOCATION_LABELS
+												]
+											}
 										</span>
 										{item.expiresAt && (
 											<span className="text-muted-foreground shrink-0 text-xs">
@@ -247,10 +252,7 @@ export function ShoppingListToInventory({
 													type="date"
 													value={item.expiresAt ?? ''}
 													onChange={(e) =>
-														handleExpiryChange(
-															item.id,
-															e.target.value || null,
-														)
+														handleExpiryChange(item.id, e.target.value || null)
 													}
 													className="bg-muted w-[130px] rounded-md border px-2 py-1 text-sm"
 													aria-label={`Expiry date for ${item.name}`}

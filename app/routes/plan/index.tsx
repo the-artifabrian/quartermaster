@@ -1,7 +1,6 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { isSameDay } from 'date-fns'
 import { useState } from 'react'
 import { Form, Link } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
@@ -148,7 +147,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 
 		const tonightEntries = mealPlan.entries
-			.filter((e) => isSameDay(new Date(e.date), today) && !e.cooked)
+			.filter(
+				(e) =>
+					serializeDate(new Date(e.date)) === serializeDate(today) && !e.cooked,
+			)
 			.map((e) => ({
 				id: e.id,
 				recipe: {
@@ -424,14 +426,8 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
-	const {
-		entries,
-		recipes,
-		weekDays,
-		weekStart,
-		tonightData,
-		templates,
-	} = loaderData
+	const { entries, recipes, weekDays, weekStart, tonightData, templates } =
+		loaderData
 
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
 	const nextWeek = serializeDate(getNextWeek(parseDate(weekStart)))

@@ -25,7 +25,10 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if (!parsed.success) {
 		return data(
-			{ error: 'Invalid request', suggestions: null as EnhanceableFields | null },
+			{
+				error: 'Invalid request',
+				suggestions: null as EnhanceableFields | null,
+			},
 			{ status: 400 },
 		)
 	}
@@ -77,7 +80,10 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if (!recipe) {
 		return data(
-			{ error: 'Recipe not found', suggestions: null as EnhanceableFields | null },
+			{
+				error: 'Recipe not found',
+				suggestions: null as EnhanceableFields | null,
+			},
 			{ status: 404 },
 		)
 	}
@@ -92,9 +98,9 @@ export async function action({ request }: Route.ActionArgs) {
 		instructions: recipe.instructions,
 	})
 
-	if (!suggestions) {
+	if ('error' in suggestions) {
 		return data({
-			error: 'Unable to generate suggestions. Please try again.',
+			error: suggestions.error,
 			suggestions: null as EnhanceableFields | null,
 		})
 	}

@@ -27,16 +27,15 @@ export type RecipeInput = {
 /**
  * Call Claude Haiku to suggest metadata improvements for a recipe.
  *
- * Returns null if:
- * - No API key is configured
- * - The API call fails or times out
- * - The response can't be parsed
+ * Returns the suggestions on success, or `{ error: string }` on failure.
  */
 export async function enhanceRecipeMetadata(
 	input: RecipeInput,
-): Promise<EnhanceableFields | null> {
+): Promise<EnhanceableFields | { error: string }> {
 	const apiKey = process.env.ANTHROPIC_API_KEY
-	if (!apiKey) return null
+	if (!apiKey) {
+		return { error: 'AI features are not configured. Contact support.' }
+	}
 
 	try {
 		const response = await fetch(ANTHROPIC_API_URL, {
@@ -65,7 +64,14 @@ export async function enhanceRecipeMetadata(
 			console.error(
 				`Recipe enhance LLM error: ${response.status} ${response.statusText}`,
 			)
-			return null
+			if (response.status === 429) {
+				return {
+					error: 'Too many requests. Please wait a moment and try again.',
+				}
+			}
+			return {
+				error: 'The AI service returned an error. Please try again later.',
+			}
 		}
 
 		const data = (await response.json()) as {
@@ -73,12 +79,30 @@ export async function enhanceRecipeMetadata(
 		}
 
 		const text = data.content?.[0]?.text
-		if (!text) return null
+		if (!text) {
+			return {
+				error: 'Received an unexpected response. Please try again.',
+			}
+		}
 
-		return parseEnhanceResponse(text)
+		const result = parseEnhanceResponse(text)
+		if (!result) {
+			return {
+				error: 'Received an unexpected response. Please try again.',
+			}
+		}
+
+		return result
 	} catch (error) {
 		console.error('Recipe enhance LLM error:', error)
-		return null
+		if (error instanceof DOMException && error.name === 'TimeoutError') {
+			return {
+				error: 'The AI service took too long. Please try again.',
+			}
+		}
+		return {
+			error: 'The AI service returned an error. Please try again later.',
+		}
 	}
 }
 

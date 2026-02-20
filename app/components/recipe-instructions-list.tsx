@@ -34,7 +34,7 @@ export function RecipeInstructionsList({
 							className={cn(
 								'flex cursor-pointer gap-4 rounded-lg px-3 py-3 transition-all select-none',
 								'hover:bg-muted/50',
-								'focus-visible:ring-primary/50 focus-visible:outline-none focus-visible:ring-2',
+								'focus-visible:ring-primary/50 focus-visible:ring-2 focus-visible:outline-none',
 							)}
 							onClick={() => onToggleStep(instruction.id)}
 							onKeyDown={(e) => {

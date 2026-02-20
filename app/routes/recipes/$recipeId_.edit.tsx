@@ -64,7 +64,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 				},
 				orderBy: { order: 'asc' },
 			},
-			},
+		},
 	})
 
 	invariantResponse(recipe, 'Recipe not found', { status: 404 })

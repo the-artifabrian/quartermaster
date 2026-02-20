@@ -1,5 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { GettingStartedChecklist } from '#app/components/getting-started-checklist.tsx'
 import { RecipeCard, RecipeCardGrid } from '#app/components/recipe-card.tsx'
@@ -11,7 +11,6 @@ import {
 	DropdownMenuTrigger,
 } from '#app/components/ui/dropdown-menu.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { Input } from '#app/components/ui/input.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
@@ -248,6 +247,12 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	}, [matchData])
 
 	const makeableOnly = searchParams.get('makeable') === 'true'
+	const [filtersOpen, setFiltersOpen] = useState(false)
+	const activeFilterCount =
+		(favoritesOnly ? 1 : 0) +
+		(maxTime ? 1 : 0) +
+		(sort !== 'recent' ? 1 : 0) +
+		(makeableOnly ? 1 : 0)
 
 	const handleSearchChange = useDebounce((value: string) => {
 		const params = new URLSearchParams(searchParams)
@@ -318,9 +323,9 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="from-card to-background border-border/50 border-b bg-linear-to-b">
-				<div className="container flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between">
-					<h1 className="text-2xl font-bold">
+			<div className="border-b border-border/50">
+				<div className="container-grid flex items-center justify-between gap-3 py-3 md:py-4">
+					<h1 className="font-serif text-2xl font-normal">
 						My Recipes{' '}
 						<span className="text-muted-foreground text-base font-normal">
 							({totalRecipeCount})
@@ -328,7 +333,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					</h1>
 					<div className="flex gap-2">
 						{isProActive && loaderData.hasInventory && (
-							<Button asChild variant="secondary">
+							<Button asChild variant="secondary" className="hidden md:inline-flex">
 								<Link to="/recipes/generate">
 									<Icon name="sparkles" size="sm" />
 									Generate Recipe
@@ -337,13 +342,21 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						)}
 						<DropdownMenu modal={false}>
 							<DropdownMenuTrigger asChild>
-								<Button>
+								<Button className="size-10 rounded-full p-0 sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2">
 									<Icon name="plus" size="sm" />
-									New Recipe
-									<Icon name="chevron-down" size="sm" />
+									<span className="hidden sm:inline">New Recipe</span>
+									<Icon name="chevron-down" size="sm" className="hidden sm:inline" />
 								</Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
+								{isProActive && loaderData.hasInventory && (
+									<DropdownMenuItem asChild className="md:hidden">
+										<Link to="/recipes/generate">
+											<Icon name="sparkles" size="sm" />
+											Generate Recipe
+										</Link>
+									</DropdownMenuItem>
+								)}
 								<DropdownMenuItem asChild>
 									<Link to="/recipes/new">
 										<Icon name="pencil-1" size="sm" />
@@ -374,32 +387,58 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 				</div>
 			</div>
 
-			<div className="container py-4">
+			<div className="container-grid py-4">
 				{/* Search & Filters */}
-				<div className="bg-card border-border/50 shadow-warm mb-4 space-y-2 rounded-2xl border p-2.5">
-					{/* Search bar — full width row */}
-					<div className="relative">
-						<Icon
-							name="magnifying-glass"
-							className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
-							size="sm"
-						/>
-						<Input
-							type="search"
-							placeholder="Search recipes..."
-							defaultValue={search}
-							onChange={(e) => handleSearchChange(e.target.value)}
-							className="bg-background pl-10"
-						/>
+				<div className="mb-3 space-y-1.5">
+					{/* Search bar + mobile filter toggle */}
+					<div className="flex items-center gap-1.5">
+						<div className="relative flex-1">
+							<Icon
+								name="magnifying-glass"
+								className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
+								size="sm"
+							/>
+							<input
+								type="search"
+								placeholder="Search recipes..."
+								defaultValue={search}
+								onChange={(e) => handleSearchChange(e.target.value)}
+								className="h-10 w-full rounded-full border border-border/50 bg-secondary/50 pl-10 pr-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/20"
+							/>
+						</div>
+						<button
+							type="button"
+							onClick={() => setFiltersOpen((o) => !o)}
+							aria-expanded={filtersOpen}
+							aria-label="Toggle filters"
+							className={cn(
+								'relative flex size-10 shrink-0 items-center justify-center rounded-full border transition-colors md:hidden',
+								filtersOpen
+									? 'border-primary/30 bg-primary/10 text-primary'
+									: 'border-border/50 bg-secondary/50 text-muted-foreground',
+							)}
+						>
+							<Icon name="mixer-horizontal" size="sm" />
+							{activeFilterCount > 0 && (
+								<span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+									{activeFilterCount}
+								</span>
+							)}
+						</button>
 					</div>
 
-					{/* Filter controls row */}
-					<div className="flex flex-wrap items-center gap-2">
+					{/* Filter controls — collapsible on mobile, always visible on desktop */}
+					<div
+						className={cn(
+							'flex-wrap items-center gap-1.5 md:flex',
+							filtersOpen ? 'flex' : 'hidden',
+						)}
+					>
 						<select
 							value={sort}
 							onChange={(e) => handleSortChange(e.target.value)}
 							aria-label="Sort recipes"
-							className="bg-card border-input min-h-11 min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
+							className="h-8 min-w-0 rounded-full border border-border/50 bg-secondary/50 px-2.5 text-xs text-muted-foreground"
 						>
 							{SORT_OPTIONS.map((option) => (
 								<option key={option.value} value={option.value}>
@@ -411,59 +450,64 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							value={maxTime?.toString() ?? ''}
 							onChange={(e) => handleMaxTimeChange(e.target.value)}
 							aria-label="Filter by cook time"
-							className="bg-card border-input min-h-11 min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
+							className="h-8 min-w-0 rounded-full border border-border/50 bg-secondary/50 px-2.5 text-xs text-muted-foreground"
 						>
 							<option value="">Any time</option>
 							<option value="30">Under 30 min</option>
 							<option value="60">Under 1 hour</option>
 							<option value="120">Under 2 hours</option>
 						</select>
-						<div className="flex items-center gap-1">
-							<Button
-								variant={favoritesOnly ? 'default' : 'outline'}
-								size="icon"
-								onClick={handleFavoritesToggle}
-								aria-label={
-									favoritesOnly ? 'Show all recipes' : 'Show favorites only'
-								}
-								aria-pressed={favoritesOnly}
-								className={cn(!favoritesOnly && 'bg-background')}
-							>
-								<Icon
-									name={favoritesOnly ? 'heart-filled' : 'heart'}
-									size="sm"
-								/>
-							</Button>
-							{matchData && (
-								<Button
-									variant={makeableOnly ? 'default' : 'outline'}
-									onClick={handleMakeableToggle}
-									aria-label={
-										makeableOnly
-											? 'Show all recipes'
-											: 'Show only makeable recipes'
-									}
-									aria-pressed={makeableOnly}
-									className={cn(
-										'h-11 gap-1.5 rounded-lg px-3 text-sm',
-										!makeableOnly && 'bg-background',
-									)}
-								>
-									<Icon name={makeableOnly ? 'check' : 'cookie'} size="sm" />
-									Makeable ({matchData.makeableCount})
-								</Button>
+						<button
+							type="button"
+							onClick={handleFavoritesToggle}
+							aria-label={
+								favoritesOnly ? 'Show all recipes' : 'Show favorites only'
+							}
+							aria-pressed={favoritesOnly}
+							className={cn(
+								'flex h-8 items-center gap-1 rounded-full border px-2.5 text-xs transition-colors',
+								favoritesOnly
+									? 'border-primary bg-primary text-primary-foreground'
+									: 'border-border/50 bg-secondary/50 text-muted-foreground hover:bg-secondary',
 							)}
-						</div>
+						>
+							<Icon
+								name={favoritesOnly ? 'heart-filled' : 'heart'}
+								size="xs"
+							/>
+							Favorites
+						</button>
+						{matchData && (
+							<button
+								type="button"
+								onClick={handleMakeableToggle}
+								aria-label={
+									makeableOnly
+										? 'Show all recipes'
+										: 'Show only makeable recipes'
+								}
+								aria-pressed={makeableOnly}
+								className={cn(
+									'flex h-8 items-center gap-1 rounded-full border px-2.5 text-xs transition-colors',
+									makeableOnly
+										? 'border-primary bg-primary text-primary-foreground'
+										: 'border-border/50 bg-secondary/50 text-muted-foreground hover:bg-secondary',
+								)}
+							>
+								<Icon name={makeableOnly ? 'check' : 'cookie'} size="xs" />
+								Makeable ({matchData.makeableCount})
+							</button>
+						)}
 						{/* Active filter summary */}
 						{hasFilters && (
-							<div className="text-muted-foreground text-sm">
+							<div className="text-xs text-muted-foreground">
 								{displayRecipes.length} of {totalRecipeCount}{' '}
 								{totalRecipeCount === 1 ? 'recipe' : 'recipes'}
 								<span className="mx-2">·</span>
 								<button
 									type="button"
 									onClick={handleClearFilters}
-									className="text-primary hover:text-primary/80 font-medium"
+									className="font-medium text-muted-foreground hover:text-foreground"
 								>
 									Clear filters
 								</button>
@@ -507,13 +551,13 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					/>
 				) : hasFilters ? (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
+						<div className="flex size-20 items-center justify-center rounded-full border-2 border-dashed border-border">
 							<Icon
 								name="magnifying-glass"
-								className="text-accent/50 size-10"
+								className="size-8 text-muted-foreground/40"
 							/>
 						</div>
-						<h2 className="mt-4 font-serif text-xl font-semibold">
+						<h2 className="mt-4 text-xl font-semibold">
 							Nothing matches those filters
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
@@ -530,10 +574,10 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				) : (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
-							<Icon name="cookie" className="text-accent/50 size-10" />
+						<div className="flex size-20 items-center justify-center rounded-full border-2 border-dashed border-border">
+							<Icon name="cookie" className="size-8 text-muted-foreground/40" />
 						</div>
-						<h2 className="mt-4 font-serif text-xl font-semibold">
+						<h2 className="mt-4 text-xl font-semibold">
 							Your cookbook is empty
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
@@ -581,10 +625,10 @@ function MatchEmptyState({
 	if (inventoryItemCount === 0) {
 		return (
 			<div className="flex flex-col items-center justify-center py-16 text-center">
-				<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
-					<Icon name="file-text" className="text-accent/50 size-10" />
+				<div className="flex size-20 items-center justify-center rounded-full border-2 border-dashed border-border">
+					<Icon name="file-text" className="size-8 text-muted-foreground/40" />
 				</div>
-				<h2 className="mt-4 font-serif text-xl font-semibold">
+				<h2 className="mt-4 text-xl font-semibold">
 					What's in your kitchen?
 				</h2>
 				<p className="text-muted-foreground mt-2 max-w-sm">
@@ -603,10 +647,13 @@ function MatchEmptyState({
 
 	return (
 		<div className="flex flex-col items-center justify-center py-16 text-center">
-			<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
-				<Icon name="magnifying-glass" className="text-accent/50 size-10" />
+			<div className="flex size-20 items-center justify-center rounded-full border-2 border-dashed border-border">
+				<Icon
+					name="magnifying-glass"
+					className="size-8 text-muted-foreground/40"
+				/>
 			</div>
-			<h2 className="mt-4 font-serif text-xl font-semibold">
+			<h2 className="mt-4 text-xl font-semibold">
 				{makeableOnly
 					? 'No perfect matches yet'
 					: 'No recipes match your filter'}

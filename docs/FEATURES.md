@@ -60,8 +60,9 @@ High-level feature reference (not exhaustive). For the roadmap, see
 
 ## Inventory System
 
-- Three locations: Pantry, Fridge, Freezer with compact inline status badges
-  expiry countdowns
+- Three locations: Pantry, Fridge, Freezer. "All" tab groups items by location
+  with section headers; individual tabs show a single location. Status badges
+  countdowns
 - Items with optional quantity, unit, expiration, and low-stock flag
 - Streamlined card actions: pencil (quick edit) + overflow menu (low-stock
   toggle, full edit, delete with two-tap confirmation). Optimistic delete

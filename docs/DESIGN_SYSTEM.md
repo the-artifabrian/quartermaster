@@ -74,19 +74,19 @@ Light:
 Dark:
 --background:           #1A1816
 --foreground:           #E2DBD1
---card:                 #232019
+--card:                 #2A2620
 --card-foreground:      #E2DBD1
---primary:              #7FA085
+--primary:              #8CB393
 --primary-foreground:   #1A1816
 --secondary:            #2E2B26
 --secondary-foreground: #D4CCC0
---muted:                #282420
---muted-foreground:     #9A8E80
+--muted:                #302C26
+--muted-foreground:     #B5A99B
 --accent:               #D4A87A
 --accent-foreground:    #1A1816
---border:               #33302B
---destructive:          #C46B58
---ring:                 #7FA085
+--border:               #3D3830
+--destructive:          #D07A68
+--ring:                 #8CB393
 ```
 
 ### Typography
@@ -459,21 +459,21 @@ satisfaction of having a loose plan without the pressure of a packed calendar.
 **Mobile**: A vertical stack. Each day is a row:
 
 - Day name in Crimson Pro 600 (Mon, Tue, Wed...). Today is highlighted with a
-  warm kawa underline and slightly larger text.
+  kawa pill label and a subtle ring (`bg-accent/10`, `ring-1 ring-accent/20`).
 - Meals listed below in DM Sans, indented slightly, with small recipe thumbnails
   (32px circles, like stamps in a passport).
-- Empty days show a muted DM Sans line: _"Nothing planned"_ with a subtle +
-  button.
+- Empty days show _"Nothing planned"_ with a ghost + button (no border, hover
+  reveals background). Keeps visual noise low when many days are empty.
 - Days scroll naturally. No forced equal-height cards. Past days are slightly
-  faded (80% opacity). Future days are full contrast. Today has a warm,
-  barely-there background (kawa at 5% opacity).
+  faded (80% opacity). Future days are full contrast.
 
 **Desktop**: A compact **7-day grid** that preserves the at-a-glance weekly view
 (meal planning is fundamentally about seeing the whole week — variety, balance,
 rhythm). But styled as a row of index cards, not a spreadsheet: each day is a
 warm card with natural height variation, generous internal padding, Crimson Pro
-day headers. Today's card has a subtle kawa top-border. The grid should feel
-like seven recipe cards laid out on a table, not cells in Google Calendar.
+day headers. Today's card has a kawa top-border (3px), a subtle accent ring, and
+a pill-style day label. The grid should feel like seven recipe cards laid out on
+a table, not cells in Google Calendar.
 
 **Tonight banner**: Redesigned as a warm card at the top with a subtle gradient
 (washi → kinari). Shows tonight's meal with its photo, time, and a "Let's cook"

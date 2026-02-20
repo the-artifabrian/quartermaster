@@ -62,7 +62,7 @@ function CollapsibleDaySlots({
 			<button
 				type="button"
 				onClick={() => setExpanded(true)}
-				className="text-muted-foreground hover:text-foreground hover:border-accent/30 flex w-full items-center gap-1.5 rounded-lg border border-dashed px-3 py-2 text-xs transition-colors"
+				className="text-muted-foreground hover:text-foreground hover:bg-muted/40 flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-xs transition-colors"
 			>
 				<span className="bg-muted flex size-5 items-center justify-center rounded-full text-[10px]">
 					+
@@ -132,7 +132,7 @@ export function MealPlanCalendar({
 							className={cn(
 								'bg-card rounded-xl p-3 shadow-warm transition-shadow',
 								'basis-[calc(25%-6px)]',
-								today && 'border-accent border-t-2',
+								today && 'border-accent border-t-[3px] ring-2 ring-accent/30',
 								!today && 'hover:shadow-warm-md hover:border-accent/20 border border-transparent',
 								past && !today && 'opacity-80',
 							)}
@@ -142,7 +142,7 @@ export function MealPlanCalendar({
 									className={cn(
 										'font-serif text-sm',
 										today
-											? 'text-accent font-semibold'
+											? 'bg-accent text-accent-foreground rounded-full px-2 py-0.5 text-xs font-semibold'
 											: 'text-muted-foreground',
 									)}
 								>
@@ -181,7 +181,7 @@ export function MealPlanCalendar({
 							key={serializeDate(date)}
 							className={cn(
 								'rounded-xl',
-								today && 'bg-accent/5 p-3',
+								today && 'bg-accent/10 p-3 ring-1 ring-accent/20',
 								past && !today && 'opacity-80',
 							)}
 						>
@@ -190,7 +190,7 @@ export function MealPlanCalendar({
 									className={cn(
 										'font-serif font-semibold',
 										today
-											? 'border-accent text-accent border-b-2 text-base'
+											? 'bg-accent text-accent-foreground rounded-full px-2 py-0.5 text-sm font-semibold'
 											: 'text-sm',
 									)}
 								>

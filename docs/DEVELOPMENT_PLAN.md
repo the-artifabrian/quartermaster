@@ -32,11 +32,12 @@ The app is feature-complete for solo and shared daily use.
 
 ## Phase Now: Iterate and Refine
 
-The core loop is complete — plan, shop, cook, subtract, repeat. The app doesn't
-need more features; it needs the existing ones to be smooth enough for daily
-use. New ideas come from the friction log, not a roadmap. New AI surface-area
-work is frozen until core-loop reliability items are closed and daily-driver
-retention is stable.
+The core loop is complete — plan, shop, cook, subtract, repeat. Priority is
+making the existing flow smooth enough for daily use, but that doesn't mean new
+work only comes from friction. UX improvements, design system implementation,
+and ideas that make the app more pleasant to use are all fair game alongside
+reliability fixes. New AI surface-area work is paused until core-loop
+reliability items are closed and daily-driver retention is stable.
 
 Daily driving started **February 12, 2026**. The app is being used for real
 cooking and meal planning. 3 external users onboarded (girlfriend as household
@@ -195,9 +196,9 @@ warning, join page error sanitization). Detail in git history.
 
 ## Backlog
 
-Items directly tied to the cooking loop. Graduate when daily use reveals
-friction. Everything else (nutrition APIs, subscription management, email
-there's user feedback to act on.
+Items tied to the cooking loop and app experience. Daily use and judgment both
+inform what to pick up next — not everything needs a friction log entry to
+justify building. Larger-scope items (nutrition APIs, email digests, dashboards)
 
 - [ ] **Weekly reset flow** — one-tap prefill next week from favorites +
       low-stock + expiring items, then generate shopping draft. Targets the
@@ -238,10 +239,10 @@ there's user feedback to act on.
 
 ---
 
-## Deferred / Rejected
+## Deferred
 
-Ideas evaluated and deliberately set aside. Documented here to prevent
-relitigating.
+Ideas evaluated and set aside for now. Documented to capture reasoning, not to
+close the door — revisit any of these if circumstances or priorities change.
 
 - **Step-by-step cooking mode** — current cooking view already has checkboxes,
   timers, wake lock, progress persistence, and temp tooltips. A separate

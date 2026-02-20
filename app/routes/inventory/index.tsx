@@ -1,3 +1,4 @@
+import { type InventoryItem } from '@prisma/client'
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
@@ -617,16 +618,8 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 				{/* Items List */}
 				{filteredItems.length > 0 ? (
 					selectedLocation === 'all' ? (
-						/* All tab: flat list with location dots */
-						<div className="divide-y divide-border/40">
-							{filteredItems.map((item) => (
-								<InventoryItemCard
-									key={item.id}
-									item={item}
-									showLocation={true}
-								/>
-							))}
-						</div>
+						/* All tab: grouped by location with section headers */
+						<AllTabGrouped items={filteredItems} />
 					) : (
 						/* Single location: items with lightweight header */
 						<div>
@@ -640,7 +633,6 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 									<InventoryItemCard
 										key={item.id}
 										item={item}
-										showLocation={false}
 									/>
 								))}
 							</div>
@@ -727,11 +719,41 @@ function LocationSectionHeader({
 						locationDotColors[location] ?? 'bg-muted-foreground',
 					)}
 				/>
-				<span className="text-[0.75rem] font-medium tracking-[0.08em] uppercase text-[#A69B8F] dark:text-[#8A7F73]">
+				<span className="text-[0.75rem] font-medium tracking-[0.08em] uppercase text-muted-foreground">
 					{locationLabels[location] ?? location}
 				</span>
 				<span className="text-[0.75rem] text-muted-foreground">({count})</span>
 			</div>
+		</div>
+	)
+}
+
+const LOCATION_ORDER = ['pantry', 'fridge', 'freezer'] as const
+
+function AllTabGrouped({ items }: { items: InventoryItem[] }) {
+	const firstLocation = LOCATION_ORDER.find((loc) =>
+		items.some((item) => item.location === loc),
+	)
+	return (
+		<div>
+			{LOCATION_ORDER.map((loc) => {
+				const locItems = items.filter((item) => item.location === loc)
+				if (locItems.length === 0) return null
+				return (
+					<div key={loc}>
+						<LocationSectionHeader
+							location={loc}
+							count={locItems.length}
+							isFirst={loc === firstLocation}
+						/>
+						<div className="divide-y divide-border/40">
+							{locItems.map((item) => (
+								<InventoryItemCard key={item.id} item={item} />
+							))}
+						</div>
+					</div>
+				)
+			})}
 		</div>
 	)
 }

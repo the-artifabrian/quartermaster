@@ -19,16 +19,9 @@ function formatQuantity(quantity: number): string {
 	return quantity.toFixed(2).replace(/\.?0+$/, '')
 }
 
-const locationDotColors: Record<string, string> = {
-	pantry: 'bg-amber-500',
-	fridge: 'bg-blue-500',
-	freezer: 'bg-cyan-500',
-}
-
 type InventoryItemCardProps = {
 	item: InventoryItem
 	showActions?: boolean
-	showLocation?: boolean
 }
 
 function getExpiryDisplay(expiresAt: Date | string) {
@@ -86,7 +79,6 @@ function formatDateForInput(date: Date | string | null): string {
 export function InventoryItemCard({
 	item,
 	showActions = true,
-	showLocation = true,
 }: InventoryItemCardProps) {
 	const [isQuickEditing, setIsQuickEditing] = useState(false)
 	const [confirmDelete, setConfirmDelete] = useState(false)
@@ -118,23 +110,11 @@ export function InventoryItemCard({
 			? !item.lowStock
 			: item.lowStock
 
-	const expiryInfo =
-		item.expiresAt ? getExpiryDisplay(item.expiresAt) : null
+	const expiryInfo = item.expiresAt ? getExpiryDisplay(item.expiresAt) : null
 	const showExpiry = expiryInfo?.urgent
 
 	return (
-		<div className="group flex items-center gap-3 py-2 transition-colors hover:bg-muted/30">
-			{/* Location dot (All tab) */}
-			{showLocation && (
-				<span
-					className={cn(
-						'size-2 shrink-0 rounded-full',
-						locationDotColors[item.location] ?? 'bg-muted-foreground',
-					)}
-					title={item.location}
-				/>
-			)}
-
+		<div className="group hover:bg-muted/30 flex items-center gap-3 py-2 transition-colors">
 			{/* Main content */}
 			<div className="min-w-0 flex-1">
 				{isQuickEditing ? (
@@ -165,7 +145,7 @@ export function InventoryItemCard({
 								name="expiresAt"
 								type="date"
 								defaultValue={formatDateForInput(item.expiresAt)}
-								className="h-8 w-[130px]"
+								className="h-8 w-32.5"
 								aria-label="Expiry date"
 							/>
 						</div>
@@ -189,7 +169,7 @@ export function InventoryItemCard({
 						{/* Low stock dot */}
 						{optimisticLowStock && (
 							<span
-								className="size-1.5 shrink-0 rounded-full bg-accent"
+								className="bg-accent size-1.5 shrink-0 rounded-full"
 								title="Low stock"
 							/>
 						)}
@@ -197,7 +177,7 @@ export function InventoryItemCard({
 						<span className="line-clamp-1 text-[15px]">{item.name}</span>
 						{/* Qty/unit */}
 						{item.quantity && (
-							<span className="shrink-0 text-sm text-muted-foreground">
+							<span className="text-muted-foreground shrink-0 text-sm">
 								· {formatQuantity(item.quantity)}
 								{item.unit ? ` ${item.unit}` : ''}
 							</span>
@@ -206,7 +186,7 @@ export function InventoryItemCard({
 						{showExpiry && expiryInfo && (
 							<span
 								className={cn(
-									'shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-medium leading-none',
+									'shrink-0 rounded-full px-1.5 py-0.5 text-[11px] leading-none font-medium',
 									expiryInfo.className,
 								)}
 							>

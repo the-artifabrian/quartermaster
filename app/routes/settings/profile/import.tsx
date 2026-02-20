@@ -4,7 +4,6 @@ import { data, Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { Button } from '#app/components/ui/button.tsx'
-import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
@@ -627,15 +626,7 @@ export default function ImportData() {
 	}
 
 	return (
-		<div className="container max-w-2xl py-6">
-			<Link
-				to="/settings/profile"
-				className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm"
-			>
-				<Icon name="arrow-left" size="sm" />
-				Back to settings
-			</Link>
-			<h1 className="mb-2 text-2xl font-bold">Import Data</h1>
+		<div>
 			<p className="text-muted-foreground mb-6">
 				Import a previously exported Quartermaster file. Both full exports and
 				recipe-only exports are supported. Duplicates are automatically skipped.

@@ -128,8 +128,7 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="flex flex-col gap-6">
-			<div className="flex justify-between gap-4">
-				<h1 className="text-h1">Passkeys</h1>
+			<div className="flex justify-end">
 				<form action={handlePasskeyRegistration}>
 					<Button
 						type="submit"

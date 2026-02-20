@@ -265,68 +265,83 @@ Redesign recipe browsing in `app/routes/recipes/index.tsx` and
 
 ### 3A: Recipe Card Redesign
 
-- [ ] `app/components/recipe-card.tsx` — Restructure the card:
-  - **With photo**: 4/3 aspect image with 1px sugi border, 6px radius. Title in
-    `font-serif font-semibold` (Crimson Pro 600). Cook time caption in cha
-    color. Reduce badge visual weight (smaller, less saturated).
-  - **Without photo**: shorter card, no forced image area. Larger serif title.
-    Subtle initial-letter motif using existing `getRecipePlaceholder()` logic
-    but with serif font and lighter color
-  - **Hover**: 2px lift via `shadow-hover`, border warms
-    (`hover:border-accent/20`), image scales 1.02x. Use `--ease-hover-lift`
-    180ms.
-  - Match ring: keep but reduce visual weight (smaller size, lower opacity
-    background)
-- [ ] `app/components/recipe-card.tsx` — Add a `variant` prop: `'card' | 'row'`
-  - `card` = current vertical layout (desktop grid)
-  - `row` = horizontal layout for mobile (64px square photo left, content right)
+- [x] `app/components/recipe-card.tsx` — Single responsive component (no
+      variant prop). Uses responsive Tailwind classes to transform from
+      horizontal row (mobile) to vertical card (desktop):
+  - **Mobile row**: 48px (`w-12`) placeholder/image left, content right.
+    Placeholder stretches full card height. Title in `font-serif` 16px/400.
+    Badges (heart, sparkles) in a `shrink-0` span outside the truncated title
+    so they're always visible. Match % as muted text with colored dot
+    (`● 83%`), not a ring.
+  - **Desktop card**: 4/3 aspect image (or `h-36` placeholder). Title in
+    `font-serif` 18px/600. Badges as small overlays on image area. Match as
+    30px progress ring with lower-opacity backdrop.
+  - **Hover**: lift via `shadow-warm-md`, `hover:border-accent/20`, image
+    scales 1.02x. Uses `--ease-hover-lift` 180ms.
+  - **Without photo**: serif initial letter (`font-serif font-light`,
+    `text-xl` mobile / `text-5xl` desktop) in muted warm color. No cookie icon.
+- [x] `RecipeCardGrid` — `grid grid-cols-1 gap-2 md:gap-4 md:grid-cols-2
+      lg:grid-cols-3` (equal-height rows on desktop, tight gaps on mobile)
 
 ### 3B: Grid & Layout
 
-- [ ] `app/routes/recipes/index.tsx` — Replace `RecipeCardGrid` usage:
-  - Mobile (`< md`): single-column list using `row` variant, 16px gap
-  - Desktop (`md`): 2-column grid, `lg`: 3-column grid, using `card` variant
-  - Grid uses `items-start` (not `items-stretch`) to allow natural height
-    variation
-- [ ] Wrap content in `container-grid` (1080px max)
-- [ ] Page title in `font-serif` (Crimson Pro 400)
+- [x] `app/routes/recipes/index.tsx` — `container-grid` (1080px max)
+- [x] Page header: single row on mobile (title left, circular `+` button
+      right). "Generate Recipe" hidden on mobile, folded into dropdown.
+      Title in `font-serif` Crimson Pro 400, flat `border-b` (no gradient).
+- [x] Page title in `font-serif` (Crimson Pro 400)
 
 ### 3C: Search & Filters
 
-- [ ] Restyle search input: warm background, DM Sans placeholder _"Search
-      recipes..."_
-- [ ] Restyle filter chips: kinari background, rounded-full, cha text, smaller
-      size. Active state: matcha background with primary-foreground text
-- [ ] Result count + clear link: cha color, understated
+- [x] Search input: `rounded-full bg-secondary/50`, warm border, DM Sans
+      placeholder
+- [x] Filter chips: `rounded-full bg-secondary/50 text-xs`, active state
+      `bg-primary text-primary-foreground`. Height `h-8` with `px-2.5`.
+- [x] Collapsible on mobile: filter row hidden behind a circular toggle
+      button with `mixer-horizontal` icon. Badge shows active filter count.
+      Always visible on desktop (`md:flex`).
+- [x] Result count + clear link: `text-muted-foreground`, understated
 
 ### 3D: Recipe Placeholders
 
-- [ ] `app/utils/recipe-placeholder.ts` — Replace the 6 hardcoded Tailwind
-      color themes (`bg-orange-50`, `text-emerald-400`, etc.) with colors from
-      the design system palette. Use warm, muted tones derived from the material
-      palette (e.g., variations on kinari, sugi, kawa) instead of the current
-      rainbow of orange/emerald/amber/rose/sky/purple. The initial letter should
-      use `font-serif` for the serif motif described in the design system.
+- [x] `app/utils/recipe-placeholder.ts` — 6 warm color themes using specific
+      colors with dark mode variants (amber, emerald, rose, stone, sky, violet
+      at low opacity). Letter colors per-theme at `/50` light / `/30` dark.
+      Removed `iconName`/`iconColorClass` from return — placeholders show only
+      the serif initial letter.
 
 ### 3E: Empty & Onboarding States
 
-- [ ] `app/components/getting-started-checklist.tsx` — restyle with warm
-      palette, DM Sans (no Caveat), dashed border empty-state pattern
-- [ ] Match empty state: warm messaging, no handwritten font
+- [x] `app/components/getting-started-checklist.tsx` — warm palette:
+      `bg-secondary/30` (done), `bg-muted/30` (pending)
+- [x] Empty states: dashed border circle (`border-2 border-dashed
+      border-border rounded-full`), `text-muted-foreground/40` icon,
+      non-serif headings (`text-xl font-semibold`)
+- [x] Match empty state: same dashed circle pattern, warm messaging
+
+### 3F: Supporting Changes
+
+- [x] `app/components/match-progress-ring.tsx` — stroke width 3 → 2.5
+- [x] `app/components/user-dropdown.tsx` — fixed avatar centering on mobile
+      (`p-1` uniform padding, `sm:pr-3` only when name visible)
+- [x] Added `other/svg-icons/mixer-horizontal.svg` — filter toggle icon
 
 ### Phase 3 Definition of Done
 
-- [ ] Recipe cards feel like index cards, not SaaS cards
-- [ ] Mobile row layout is scannable and tappable at 375px
-- [ ] Desktop grid has natural height variation (visible with mix of
-      photo/no-photo recipes)
-- [ ] Search and filters feel warm, not clinical
-- [ ] `npm run typecheck` passes
+- [x] Recipe cards: horizontal rows on mobile, vertical cards on desktop
+- [x] Mobile row layout is compact and scannable at 375px
+- [x] Desktop grid has equal-height rows within each row
+- [x] Search and filters feel warm, collapsible on mobile
+- [x] `npm run typecheck` passes
+- [x] `npm test` passes (617 tests)
 - [ ] Commit, wait for review
 
 **Files:** `app/components/recipe-card.tsx`, `app/routes/recipes/index.tsx`,
+`app/utils/recipe-placeholder.ts`,
 `app/components/getting-started-checklist.tsx`,
-`app/components/match-progress-ring.tsx`
+`app/components/match-progress-ring.tsx`,
+`app/components/user-dropdown.tsx`,
+`other/svg-icons/mixer-horizontal.svg`
 
 ---
 

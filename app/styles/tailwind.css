@@ -61,28 +61,28 @@
 	--popover: #232019;
 	--popover-foreground: #E2DBD1;
 
-	--primary: #7FA085;
+	--primary: #8CB393;
 	--primary-foreground: #1A1816;
 
 	--secondary: #2E2B26;
 	--secondary-foreground: #D4CCC0;
 
 	--muted: #282420;
-	--muted-foreground: #9A8E80;
+	--muted-foreground: #A69A8C;
 
 	--accent: #D4A87A;
 	--accent-foreground: #1A1816;
 
 	--border: #33302B;
 	--input: #33302B;
-	--input-invalid: #C46B58;
+	--input-invalid: #D07A68;
 
-	--destructive: #C46B58;
+	--destructive: #D07A68;
 	--destructive-foreground: #E2DBD1;
 	/* prefixed with foreground because it should look good on the background */
-	--foreground-destructive: #C46B58;
+	--foreground-destructive: #D07A68;
 
-	--ring: #7FA085;
+	--ring: #8CB393;
 }
 
 @theme inline {

@@ -157,7 +157,7 @@ export function PantryStaplesOnboarding({ maxItems }: { maxItems?: number }) {
 						{maxItems !== undefined && ` (max ${maxItems} on free plan)`}
 					</p>
 					{overLimit && (
-						<p className="text-sm text-amber-600 dark:text-amber-400">
+						<p className="text-sm text-accent">
 							Only the first {maxItems} items will be added.{' '}
 							<a
 								href="/upgrade"

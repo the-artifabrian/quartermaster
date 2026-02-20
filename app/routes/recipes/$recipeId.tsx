@@ -651,7 +651,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							{recipe.title}
 						</h1>
 						{recipe.isAiGenerated && (
-							<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
+							<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary dark:border-primary/30 dark:bg-primary/10 dark:text-primary">
 								<Icon name="sparkles" className="size-3" />
 								AI Generated
 							</span>

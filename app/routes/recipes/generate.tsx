@@ -420,7 +420,7 @@ export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
 					<div className="space-y-4 rounded-lg border p-6">
 						<div className="flex items-start justify-between gap-2">
 							<h2 className="text-xl font-semibold">{recipe.title}</h2>
-							<span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
+							<span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary dark:border-primary/30 dark:bg-primary/10 dark:text-primary">
 								<Icon name="sparkles" className="size-3" />
 								AI Generated
 							</span>

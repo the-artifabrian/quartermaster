@@ -71,12 +71,12 @@ export function IngredientList({
 
 	return (
 		<>
-			<ul className="space-y-1">
+			<ul className="space-y-0.5 leading-[1.7]">
 				{ingredients.map((ingredient) => {
 					if (ingredient.isHeading) {
 						return (
 							<li key={ingredient.id}>
-								<p className="text-muted-foreground mt-3 mb-1 px-2 text-sm font-semibold tracking-wide first:mt-0">
+								<p className="text-muted-foreground font-serif mt-4 mb-1.5 border-b border-border/50 px-2 pb-1 text-sm font-semibold tracking-wider [font-variant:small-caps] first:mt-0">
 									{ingredient.name}
 								</p>
 							</li>
@@ -108,18 +108,18 @@ export function IngredientList({
 						>
 							<span
 								className={cn(
-									'flex size-5 shrink-0 items-center justify-center rounded border transition-colors',
+									'flex size-6 shrink-0 items-center justify-center rounded border transition-colors',
 									isChecked
 										? 'border-primary bg-primary text-primary-foreground'
-										: 'border-muted-foreground/25',
+										: 'border-muted-foreground/25 bg-muted/30',
 								)}
 							>
-								{isChecked && <Icon name="check" className="size-3.5" />}
+								{isChecked && <Icon name="check" className="size-4" />}
 							</span>
 							<span
 								className={cn(
 									'min-w-0 flex-1 transition-colors',
-									isChecked && 'text-muted-foreground/50 line-through',
+									isChecked && 'text-muted-foreground/40 line-through decoration-muted-foreground/30',
 								)}
 							>
 								{ingredient.amount && (

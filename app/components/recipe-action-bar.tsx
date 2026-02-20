@@ -148,10 +148,7 @@ export function RecipeActionBar({
 		<>
 			{/* Desktop: inline bar with Tooltips */}
 			<div className="mt-6 hidden items-center gap-2 md:flex print:hidden">
-				<Button
-					onClick={onIMadeThis}
-					className="gap-2 bg-green-600 hover:bg-green-700"
-				>
+				<Button onClick={onIMadeThis} className="gap-2">
 					<Icon name="check" size="sm" />I Made This
 				</Button>
 				<favoriteFetcher.Form method="POST">
@@ -164,13 +161,10 @@ export function RecipeActionBar({
 				{renderEnhanceButton(true)}
 			</div>
 
-			{/* Mobile: fixed floating card, no Tooltips */}
+			{/* Mobile: fixed floating card */}
 			<div className="fixed inset-x-4 bottom-18 z-30 md:hidden print:hidden">
-				<div className="bg-card/95 shadow-warm-lg flex items-center gap-1.5 rounded-2xl border p-2.5 backdrop-blur-md">
-					<Button
-						onClick={onIMadeThis}
-						className="flex-1 gap-2 bg-green-600 hover:bg-green-700"
-					>
+				<div className="bg-secondary/95 shadow-warm-lg flex items-center gap-1.5 rounded-2xl border p-2.5 backdrop-blur-md">
+					<Button onClick={onIMadeThis} className="flex-1 gap-2">
 						<Icon name="check" size="sm" />I Made This
 					</Button>
 					<favoriteFetcher.Form method="POST">

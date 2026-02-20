@@ -352,20 +352,20 @@ sub-components.
 
 ### 4A: Hero Area
 
-- [ ] `app/routes/recipes/$recipeId.tsx` — Recipe title in `font-serif` Crimson
+- [x] `app/routes/recipes/$recipeId.tsx` — Recipe title in `font-serif` Crimson
       Pro 400, `text-[2.25rem]`
-- [ ] Add `<Divider variant="accent" />` below title
-- [ ] `app/components/recipe-metadata-card.tsx` — restyle: remove card border,
+- [x] Add `<Divider variant="accent" />` below title
+- [x] `app/components/recipe-metadata-card.tsx` — restyle: remove card border,
       display as inline text row in cha color. Prep/cook/total time + source URL
       as a quiet metadata line, not a card.
-- [ ] Image: on desktop, position beside title area at up to 400px width. 1px
+- [x] Image: on desktop, position beside title area at up to 400px width. 1px
       sugi border, 6px radius. On mobile, full-width below title with 16px
       horizontal margin.
-- [ ] Wrap in `container-content` (880px max)
+- [x] Wrap in `container-content` (880px max)
 
 ### 4B: Ingredients List
 
-- [ ] `app/components/recipe-ingredient-list.tsx`:
+- [x] `app/components/recipe-ingredient-list.tsx`:
   - Line spacing 1.7, amounts in `font-medium`
   - Heading rows (`isHeading`): `font-serif` small-caps with subtle underline
   - Checkboxes bumped to 24px, matcha fill when checked
@@ -374,30 +374,47 @@ sub-components.
 
 ### 4C: Instructions List
 
-- [ ] `app/components/recipe-instructions-list.tsx`:
+- [x] `app/components/recipe-instructions-list.tsx`:
   - Step numbers in `font-serif` Crimson Pro 400, oversized (1.5rem), cha color
-  - Step text in DM Sans, line-height 1.75, 24px bottom margin between steps
+  - Step text in DM Sans, line-height 1.75, 16px bottom margin between steps
+    (`space-y-4` — tightened from 24px to show more content per screen on mobile)
   - Checked steps: 40% opacity + subtle line-through
   - Mobile: base font bumped to 17px (`text-[1.0625rem]`)
+  - Section heading: `font-serif font-normal` to match Ingredients heading
 
 ### 4D: Personal Notes
 
-- [ ] Notes section in `$recipeId.tsx`:
+- [x] Notes section in `$recipeId.tsx`:
   - **Has notes**: left border 3px kawa, warm background (`bg-accent/5`), text
     in `font-handwritten` (Caveat 400), 1.125rem
-  - **Empty state**: dashed border, DM Sans prompt _"Add your notes..."_ in cha
-    color (Caveat appears only after notes are written)
+  - **Empty state**: not applicable on detail page — notes are edited from the
+    edit page. No empty prompt displayed.
 
 ### 4E: Action Bar & Cooking Mode
 
-- [ ] `app/components/recipe-action-bar.tsx`:
-  - Mobile floating bar: kinari background, `shadow-elevated`, rounded corners
-  - "I Made This" as primary action in matcha
-  - Serving scaler: simple +/- stepper styling
-- [ ] `app/components/recipe-i-made-this-modal.tsx` — warm palette, updated
+- [x] `app/components/recipe-action-bar.tsx`:
+  - Mobile floating bar: kinari background (`bg-secondary/95`), `shadow-warm-lg`,
+    rounded corners
+  - "I Made This" uses default primary (matcha) instead of hardcoded green
+  - Serving scaler: simple +/- stepper styling (unchanged)
+- [x] `app/components/recipe-i-made-this-modal.tsx` — warm palette, updated
       button colors
-- [ ] Cooking log entries: `app/components/recipe-cooking-log-entry.tsx` —
-      restyle with cha color metadata
+- [x] Cooking log entries: `app/components/recipe-cooking-log-entry.tsx` —
+      lighter border (`border-border/50`), cha color date, no card background
+
+### 4F: Review Fixes
+
+- [x] Removed "← Recipes" back link (redundant with bottom nav)
+- [x] Description font: `text-lg` → `text-base` for less visual weight
+- [x] Instructions: removed `rounded-lg` + `hover:bg-muted/50` that caused
+      visible border artifact on checked steps in dark mode. Focus ring only on
+      `focus-visible`.
+- [x] Unchecked ingredient checkboxes: added `bg-muted/30` subtle fill for
+      better tappability affordance
+- [x] Hero image: `<img>` → `<Img>` (openimg) with width/height for optimized
+      responsive images
+- [x] Inline styles → Tailwind: `style={{ lineHeight }}` → `leading-[1.7]`,
+      `style={{ fontVariant }}` → `[font-variant:small-caps]`
 
 ### Phase 4 Definition of Done
 
@@ -407,7 +424,7 @@ sub-components.
       cleanly on mobile
 - [ ] Personal notes in Caveat look like margin annotations, not gimmicky
 - [ ] Print view (`Ctrl+P`) still produces a clean output
-- [ ] `npm run typecheck` passes
+- [x] `npm run typecheck` passes
 - [ ] Commit, wait for review
 
 **Files:** `app/routes/recipes/$recipeId.tsx`,

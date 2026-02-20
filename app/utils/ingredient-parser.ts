@@ -90,10 +90,7 @@ export function parseIngredient(line: string): {
 
 	// Handle mixed unicode fractions with space: "1 ½ cups flour" → combine to "1½ cups flour"
 	// Must come before the main regex which would split "1" and "½" incorrectly
-	cleaned = cleaned.replace(
-		/^(\d+)\s+([½⅓⅔¼¾⅛⅜⅝⅞])/,
-		'$1$2',
-	)
+	cleaned = cleaned.replace(/^(\d+)\s+([½⅓⅔¼¾⅛⅜⅝⅞])/, '$1$2')
 
 	// Handle "N (X unit) container name" → e.g. "1 (14.5 oz) can diced tomatoes"
 	const nestedMatch = cleaned.match(

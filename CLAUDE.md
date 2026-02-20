@@ -112,8 +112,8 @@ tests/
 
 **Key Files**: `routes/recipes/index.tsx` (list + search + matching),
 `routes/recipes/new.tsx` (create, URL import, bulk text/file import),
-`routes/recipes/$recipeId.tsx` (view + cooking mode, delegates to
-`recipe-*.tsx` sub-components), `routes/recipes/$recipeId.edit.tsx`,
+`routes/recipes/$recipeId.tsx` (view + cooking mode, delegates to `recipe-*.tsx`
+sub-components), `routes/recipes/$recipeId.edit.tsx`,
 `components/recipe-form.tsx` (shared form with `@dnd-kit/sortable` ingredients),
 `utils/recipe-validation.ts`, `utils/bulk-recipe-parser.ts`,
 `utils/recipe-detail.ts` (shared types + pure helpers).
@@ -123,15 +123,16 @@ tests/
 Duplicate detection by title. Sub-section headers become heading rows
 (`isHeading: true`).
 
-**Ingredient Headings**: Ingredients with `isHeading: true` are section dividers.
-They have only a `name`, no amount/unit/notes. **Always skip heading rows** when
-iterating ingredients for matching, shopping list, subtraction, or JSON-LD.
+**Ingredient Headings**: Ingredients with `isHeading: true` are section
+dividers. They have only a `name`, no amount/unit/notes. **Always skip heading
+rows** when iterating ingredients for matching, shopping list, subtraction, or
+JSON-LD.
 
 ### Inventory System
 
 **Key Files**: `routes/inventory/` (CRUD), `utils/inventory-subtract.server.ts`
-(post-cooking subtraction with skip tracking), `routes/resources/inventory-remove.tsx`
-(POST-only delete for post-cook review).
+(post-cooking subtraction with skip tracking),
+`routes/resources/inventory-remove.tsx` (POST-only delete for post-cook review).
 
 **Normalization Pipeline** (`recipe-matching.server.ts`): ~40 modifier
 strippers, ~25 synonym groups, pluralization, compound ingredient protection
@@ -148,8 +149,9 @@ recipe. Always-on when user has inventory items.
 ### Meal Planning & Shopping
 
 **Key Files**: `routes/plan/index.tsx` (weekly calendar, 5 action intents),
-`routes/resources/meal-plan-copy-week.tsx`, `routes/resources/meal-plan-templates.tsx`,
-`routes/shopping.tsx` (standalone shopping list + generate + check-off → inventory),
+`routes/resources/meal-plan-copy-week.tsx`,
+`routes/resources/meal-plan-templates.tsx`, `routes/shopping.tsx` (standalone
+shopping list + generate + check-off → inventory),
 `routes/resources/shopping-to-inventory.tsx`, `utils/shopping-list.server.ts`,
 `utils/ingredient-overlap.server.ts`, `utils/unit-conversion.ts`.
 
@@ -185,8 +187,9 @@ stays user-scoped.
 - Only use `requireUserId` for user-scoped routes: `me.tsx`,
   `resources/download-user-data.tsx`, `settings/` routes
 
-**Admin Role**: Created by infrastructure seed (`prisma/seed-infrastructure.ts`),
-runs on every deploy. `kody` gets admin in dev. In production, promote via Fly SSH:
+**Admin Role**: Created by infrastructure seed
+(`prisma/seed-infrastructure.ts`), runs on every deploy. `kody` gets admin in
+dev. In production, promote via Fly SSH:
 
 ```bash
 fly ssh console -C "sqlite3 \$DATABASE_PATH \"
@@ -198,8 +201,8 @@ fly ssh console -C "sqlite3 \$DATABASE_PATH \"
 ```
 
 **New User Flow**: Signup creates user + household + membership atomically.
-Empty recipe library shows `getting-started-checklist.tsx`. Empty inventory shows
-`pantry-staples-onboarding.tsx`.
+Empty recipe library shows `getting-started-checklist.tsx`. Empty inventory
+shows `pantry-staples-onboarding.tsx`.
 
 Admin routes: `/admin/cache`, `/admin/subscriptions`.
 
@@ -223,8 +226,8 @@ Static database first (`utils/ingredient-substitutions.ts`, ~50 entries), LLM
 fallback (`utils/substitution-llm.server.ts`, Claude Haiku), cached 30 days.
 Orchestrated by `utils/substitution-lookup.server.ts`. POST resource route at
 `routes/resources/substitutions.tsx` (Pro-gated). UI: `SubstitutionHint` popover
-in `components/ingredient-substitution.tsx`. Env: `ANTHROPIC_API_KEY` (optional —
-app works with static substitutions only when unset).
+in `components/ingredient-substitution.tsx`. Env: `ANTHROPIC_API_KEY` (optional
+— app works with static substitutions only when unset).
 
 ### Image Handling
 
@@ -354,7 +357,8 @@ export async function action({ request }: Route.ActionArgs) {
   `recipe-matching.server.test.ts` and `shopping-list.server.test.ts`
 - **Adding `HouseholdEventType` values** → also update `formatEventMessage` in
   `household-event-messages.ts` + its test, and classify in `NOTIFY_EVENT_TYPES`
-- **Iterating `recipe.ingredients`** → always `if (ingredient.isHeading) continue`
+- **Iterating `recipe.ingredients`** → always
+  `if (ingredient.isHeading) continue`
 - **Synonym keys** must use post-normalization names (e.g., "sugar" not
   "powdered sugar" since modifiers are stripped)
 - **`emitHouseholdEvent()`** is fire-and-forget (`void`) — never await it
@@ -375,8 +379,8 @@ Configured for **Fly.io** with `fly.toml`:
 - Automatic HTTPS
 - Environment variables managed via Fly secrets
 - LiteFS exec chain (`other/litefs.yml`): `prisma migrate deploy` →
-  `run-seed-infrastructure.ts` (permissions, roles) → WAL pragma →
-  `npm start`. Infrastructure seed runs on every deploy (idempotent upserts)
+  `run-seed-infrastructure.ts` (permissions, roles) → WAL pragma → `npm start`.
+  Infrastructure seed runs on every deploy (idempotent upserts)
 
 For self-hosting, standard Node.js app:
 
@@ -390,12 +394,16 @@ Requires: `DATABASE_URL` and `SESSION_SECRET` environment variables.
 ## Response Style
 
 - Don't narrate tool calls ("Let me read..." / "Now I'll edit..."). Just do it.
-- Keep explanations proportional to complexity. Simple changes need one sentence.
+- Keep explanations proportional to complexity. Simple changes need one
+  sentence.
 - Don't echo back file contents just read — the user can see them.
-- Markdown tables: use minimum separator (`|-|-|`). Never use box-drawing characters (┌─│└ etc.).
+- Markdown tables: use minimum separator (`|-|-|`). Never use box-drawing
+  characters (┌─│└ etc.).
 
 ## Subagent Discipline
 
 - Under ~50k context: prefer inline work for tasks under ~5 tool calls.
-- Over ~50k context: prefer subagents for self-contained tasks — the per-call token tax adds up.
-- Include output constraints for subagents: "Final response under 2000 chars. List outcomes, not process."
+- Over ~50k context: prefer subagents for self-contained tasks — the per-call
+  token tax adds up.
+- Include output constraints for subagents: "Final response under 2000 chars.
+  List outcomes, not process."

@@ -60,8 +60,8 @@ export function useCookingProgress(recipeId: string) {
 	const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
 		() => (saved.current ? new Set(saved.current.ingredients) : new Set()),
 	)
-	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(
-		() => (saved.current ? new Set(saved.current.steps) : new Set()),
+	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(() =>
+		saved.current ? new Set(saved.current.steps) : new Set(),
 	)
 
 	// Skip the initial mount write — only persist actual user changes

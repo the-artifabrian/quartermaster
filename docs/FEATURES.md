@@ -19,11 +19,11 @@ High-level feature reference (not exhaustive). For the roadmap, see
 - Full-text search across title, ingredients, and description
 - Sort (5 options), cook-time filter, favorites filter, makeable-only toggle
 - Recipe scaling with +/- servings controls and fraction display
-- Cooking mode: interactive ingredient checkboxes and instruction cross-off
-  with localStorage persistence (keyed by recipeId, 7-day auto-expiry, cleared
-  on cook log)
-- Inline timers: auto-detected from instruction text ("simmer for 15 minutes"
-  → one-tap start), up to 5 concurrent timers with floating widget that persists
+- Cooking mode: interactive ingredient checkboxes and instruction cross-off with
+  localStorage persistence (keyed by recipeId, 7-day auto-expiry, cleared on
+  cook log)
+- Inline timers: auto-detected from instruction text ("simmer for 15 minutes" →
+  one-tap start), up to 5 concurrent timers with floating widget that persists
   across navigation, alarm sound, wake lock
 - Auto-detected temperature conversion tooltips (F↔C on hover/tap)
 - Print-friendly recipe layout
@@ -43,8 +43,8 @@ High-level feature reference (not exhaustive). For the roadmap, see
   from current inventory (prioritizing expiring items). Preview before saving,
   "AI Generated" badge on saved recipes
 - "I Made This" cook logging with inventory impact preview (shows what will be
-  subtracted, what won't auto-adjust with reasons, and post-cook review step
-  for marking skipped items as used up)
+  subtracted, what won't auto-adjust with reasons, and post-cook review step for
+  marking skipped items as used up)
 - Inline inventory status on recipe detail ingredient list: summary footer shows
   "You have X/Y ingredients" with "Add N missing to Shopping List" button
 - "Last cooked" stats on recipe cards (cook count + relative time)
@@ -112,8 +112,8 @@ High-level feature reference (not exhaustive). For the roadmap, see
   inventory match indicators (X/Y ingredients in stock, green at 100%)
 - Single-use ingredient waste alerts with recipe suggestions
 - Standalone shopping list at `/shopping` with:
-  - Generate from meal plan (week picker for prev/current/next week) with
-    dedup against existing manual/recipe items
+  - Generate from meal plan (week picker for prev/current/next week) with dedup
+    against existing manual/recipe items
   - Quick add (open by default, collapsible) with smart duplicate/inventory
     warnings and "Add Anyway" bypass
   - Auto-categorization (produce, dairy, meat, pantry, frozen, bakery,
@@ -126,12 +126,12 @@ High-level feature reference (not exhaustive). For the roadmap, see
     `useFetcher`)
   - Live-refresh via SSE for all shopping list events (generate, add, clear,
     to-inventory, toggle, edit, delete; debounced 500ms)
-  - Check-off -> inventory pipeline: compact collapsed rows with location
-    badges and short expiry dates, tap to expand controls, select all/deselect
-    all. Pre-filled location and auto-suggested expiry (shelf-life lookup,
-    ~60 entries). Auto-merges with existing inventory items (canonical name
-    match, same location) -- clears low-stock flag on merge. Household items
-    cleared but not added to inventory
+  - Check-off -> inventory pipeline: compact collapsed rows with location badges
+    and short expiry dates, tap to expand controls, select all/deselect all.
+    Pre-filled location and auto-suggested expiry (shelf-life lookup, ~60
+    entries). Auto-merges with existing inventory items (canonical name match,
+    same location) -- clears low-stock flag on merge. Household items cleared
+    but not added to inventory
   - Low-stock nudge: amber chip banner for low-stock items not already on list,
     one-tap add or "Add All"
 
@@ -163,13 +163,14 @@ High-level feature reference (not exhaustive). For the roadmap, see
 ## Subscription & Invite Codes
 
 - Free: unlimited recipes, up to 15 inventory items, smart matching, household
-  sharing (beta). Pro: unlimited inventory + planning/shopping/AI
-  ($35/yr early-adopter, $49/yr standard, annual-only)
-- Stripe Checkout + Customer Portal + webhooks. Invite codes (`QM-XXXXXX`,
-  60 days Pro, grants 2 starter codes) coexist with Stripe
+  sharing (beta). Pro: unlimited inventory + planning/shopping/AI ($35/yr
+  early-adopter, $49/yr standard, annual-only)
+- Stripe Checkout + Customer Portal + webhooks. Invite codes (`QM-XXXXXX`, 60
+  days Pro, grants 2 starter codes) coexist with Stripe
 - Pro-gated routes redirect to `/upgrade` with lock icons in nav. Graceful
   downgrade with data preservation, expiry nudges at 7d/3d
-- Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (codes + tiers)
+- Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (codes +
+  tiers)
 - Full pricing and go-live strategy in
   [MONETIZATION_STRATEGY.md](./MONETIZATION_STRATEGY.md)
 
@@ -184,8 +185,8 @@ High-level feature reference (not exhaustive). For the roadmap, see
   `touch-action: manipulation` to eliminate 300ms tap delay
 - Accessibility: skip-to-content link, semantic HTML landmarks (`<header>`,
   `<main>`), aria-labels on all interactive controls, focus-visible ring
-  indicators on custom checkbox lists, consistent modal keyboard behavior
-  (focus trap, focus restore, Escape to close via shared `useModal` hook),
+  indicators on custom checkbox lists, consistent modal keyboard behavior (focus
+  trap, focus restore, Escape to close via shared `useModal` hook),
   `prefers-reduced-motion` CSS support
 - SEO: descriptive titles, canonical URLs, OG/Twitter meta, JSON-LD (Recipe,
   WebApplication, FAQPage), sitemap, robots.txt

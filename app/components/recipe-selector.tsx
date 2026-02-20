@@ -83,7 +83,7 @@ export function RecipeSelector({
 		.filter((r) => r.title.toLowerCase().includes(search.toLowerCase()))
 
 	// Mon=1..Thu=4 are weeknights
-	const isWeeknight = date.getDay() >= 1 && date.getDay() <= 4
+	const isWeeknight = date.getUTCDay() >= 1 && date.getUTCDay() <= 4
 
 	// Sort by pairing overlap if data is available
 	const sortedRecipes = pairingData
@@ -117,7 +117,12 @@ export function RecipeSelector({
 					onChange={(e) => setSearch(e.target.value)}
 					autoFocus
 				/>
-				<Button variant="ghost" size="icon" onClick={onCancel} aria-label="Close recipe selector">
+				<Button
+					variant="ghost"
+					size="icon"
+					onClick={onCancel}
+					aria-label="Close recipe selector"
+				>
 					<Icon name="cross-1" size="sm" />
 				</Button>
 			</div>

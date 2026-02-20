@@ -20,9 +20,14 @@ const sampleInput: RecipeInput = {
 	],
 	instructions: [
 		{ content: 'Boil a large pot of salted water and cook spaghetti.' },
-		{ content: 'Cut guanciale into strips and cook until crispy, about 8 minutes.' },
+		{
+			content:
+				'Cut guanciale into strips and cook until crispy, about 8 minutes.',
+		},
 		{ content: 'Mix egg yolks with grated pecorino and pepper.' },
-		{ content: 'Toss hot pasta with guanciale, then add egg mixture off heat.' },
+		{
+			content: 'Toss hot pasta with guanciale, then add egg mixture off heat.',
+		},
 	],
 }
 
@@ -79,7 +84,8 @@ describe('parseEnhanceResponse', () => {
 	})
 
 	it('handles markdown code block wrapping', () => {
-		const text = '```json\n{"description": "A test recipe.", "servings": 2, "prepTime": 5, "cookTime": 10}\n```'
+		const text =
+			'```json\n{"description": "A test recipe.", "servings": 2, "prepTime": 5, "cookTime": 10}\n```'
 		const result = parseEnhanceResponse(text)
 		expect(result?.description).toBe('A test recipe.')
 		expect(result?.servings).toBe(2)

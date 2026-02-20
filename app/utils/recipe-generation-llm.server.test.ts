@@ -52,7 +52,10 @@ function makeInventory(
 		},
 	]
 	if (overrides) {
-		return overrides.map((o, i) => ({ ...defaults[i % defaults.length]!, ...o }))
+		return overrides.map((o, i) => ({
+			...defaults[i % defaults.length]!,
+			...o,
+		}))
 	}
 	return defaults
 }
@@ -287,28 +290,28 @@ describe('generateRecipeFromInventory', () => {
 		}
 	})
 
-	test('returns null when API key is not set', async () => {
+	test('returns error when API key is not set', async () => {
 		delete process.env.ANTHROPIC_API_KEY
 		const result = await generateRecipeFromInventory(makeInventory())
-		expect(result).toBeNull()
+		expect(result).toEqual({ error: expect.stringContaining('not configured') })
 	})
 
-	test('returns null on fetch error', async () => {
+	test('returns error on fetch error', async () => {
 		process.env.ANTHROPIC_API_KEY = 'test-key'
 		vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'))
 
 		const result = await generateRecipeFromInventory(makeInventory())
-		expect(result).toBeNull()
+		expect(result).toHaveProperty('error')
 	})
 
-	test('returns null on non-OK response', async () => {
+	test('returns error on non-OK response', async () => {
 		process.env.ANTHROPIC_API_KEY = 'test-key'
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
 			new Response('', { status: 500 }),
 		)
 
 		const result = await generateRecipeFromInventory(makeInventory())
-		expect(result).toBeNull()
+		expect(result).toHaveProperty('error')
 	})
 
 	test('returns parsed recipe on successful response', async () => {
@@ -323,19 +326,19 @@ describe('generateRecipeFromInventory', () => {
 		)
 
 		const result = await generateRecipeFromInventory(makeInventory())
-		expect(result).not.toBeNull()
-		expect(result!.title).toBe('Chicken Stir Fry')
-		expect(result!.ingredients).toHaveLength(3)
+		expect(result).not.toHaveProperty('error')
+		expect((result as { title: string }).title).toBe('Chicken Stir Fry')
+		expect((result as { ingredients: unknown[] }).ingredients).toHaveLength(3)
 	})
 
-	test('returns null when response has no content', async () => {
+	test('returns error when response has no content', async () => {
 		process.env.ANTHROPIC_API_KEY = 'test-key'
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
 			new Response(JSON.stringify({ content: [] }), { status: 200 }),
 		)
 
 		const result = await generateRecipeFromInventory(makeInventory())
-		expect(result).toBeNull()
+		expect(result).toHaveProperty('error')
 	})
 
 	test('passes preferences to prompt', async () => {

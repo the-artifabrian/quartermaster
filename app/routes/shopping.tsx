@@ -309,7 +309,10 @@ export async function action({ request }: Route.ActionArgs) {
 			householdId,
 		})
 
-		return { status: 'success' as const }
+		return {
+			status: 'success' as const,
+			submission: submission.reply({ resetForm: true }),
+		}
 	}
 
 	if (intent === 'toggle') {
@@ -521,7 +524,10 @@ export default function ShoppingListRoute({
 	const isPending = useIsPending()
 
 	const [form, fields] = useForm({
-		lastResult: actionData?.status === 'error' ? actionData.submission : null,
+		lastResult:
+			actionData?.status === 'error' || actionData?.status === 'success'
+				? actionData.submission
+				: null,
 		onValidate({ formData }) {
 			return parseWithZod(formData, { schema: ShoppingListItemSchema })
 		},
@@ -655,7 +661,6 @@ export default function ShoppingListRoute({
 							)}
 
 							<Form
-								key={totalItems}
 								method="POST"
 								{...getFormProps(form)}
 								onChange={() => setWarningDismissed(false)}

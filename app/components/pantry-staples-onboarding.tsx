@@ -24,11 +24,7 @@ function getInitialState(): CheckedState {
 	return state
 }
 
-export function PantryStaplesOnboarding({
-	maxItems,
-}: {
-	maxItems?: number
-}) {
+export function PantryStaplesOnboarding({ maxItems }: { maxItems?: number }) {
 	const [checked, setChecked] = useState<CheckedState>(getInitialState)
 	const fetcher = useFetcher()
 	const isSubmitting = fetcher.state !== 'idle'

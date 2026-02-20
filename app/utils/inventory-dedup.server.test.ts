@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import { findMatchingInventoryItem, buildMergeData } from './inventory-dedup.server.ts'
+import {
+	findMatchingInventoryItem,
+	buildMergeData,
+} from './inventory-dedup.server.ts'
 
 function makeItem(
 	overrides: Partial<{
@@ -62,11 +65,7 @@ describe('findMatchingInventoryItem', () => {
 
 	test('different location returns null', () => {
 		const items = [makeItem({ name: 'Chicken Breast', location: 'fridge' })]
-		const result = findMatchingInventoryItem(
-			'Chicken Breast',
-			'freezer',
-			items,
-		)
+		const result = findMatchingInventoryItem('Chicken Breast', 'freezer', items)
 		expect(result).toBeNull()
 	})
 

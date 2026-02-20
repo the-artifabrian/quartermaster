@@ -53,9 +53,7 @@ export function buildMergeData(
 			updates.quantity = newQty
 			if (newUnit) updates.unit = newUnit
 		} else {
-			const existingNormUnit = existing.unit
-				? normalizeUnit(existing.unit)
-				: ''
+			const existingNormUnit = existing.unit ? normalizeUnit(existing.unit) : ''
 			const newNormUnit = newUnit ? normalizeUnit(newUnit) : ''
 
 			if (
@@ -76,12 +74,9 @@ export function buildMergeData(
 				) {
 					// Convert new quantity to existing unit
 					const newInBase = newQty * newFamily.factor
-					const newInExistingUnit =
-						newInBase / existingFamily.factor
+					const newInExistingUnit = newInBase / existingFamily.factor
 					updates.quantity =
-						Math.round(
-							(existing.quantity + newInExistingUnit) * 100,
-						) / 100
+						Math.round((existing.quantity + newInExistingUnit) * 100) / 100
 				}
 				// Incompatible unit families — don't touch quantity (would produce garbage)
 			} else {

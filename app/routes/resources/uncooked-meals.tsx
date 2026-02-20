@@ -35,8 +35,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const now = new Date()
 	const currentHour = now.getHours()
-	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-	const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
+	const todayStr = now.toISOString().slice(0, 10)
+	const today = new Date(todayStr + 'T00:00:00.000Z')
+	const yesterday = new Date(today.getTime() - 86_400_000)
 
 	const entries = await prisma.mealPlanEntry.findMany({
 		where: {
@@ -55,8 +56,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	// Filter out today's meals where it's too early to remind
 	const filtered = entries.filter((entry) => {
-		const entryDate = new Date(entry.date)
-		const isToday = entryDate.getTime() === today.getTime()
+		const entryDateStr = new Date(entry.date).toISOString().slice(0, 10)
+		const isToday = entryDateStr === todayStr
 		if (!isToday) return true // yesterday's meals always show
 		const threshold = MEAL_REMINDER_AFTER_HOUR[entry.mealType] ?? 21
 		return currentHour >= threshold

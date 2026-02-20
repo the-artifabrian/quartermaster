@@ -1,13 +1,8 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
-import { addDays, differenceInCalendarDays } from 'date-fns'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import {
-	getWeekStart,
-	parseDate,
-	serializeDate,
-} from '#app/utils/date.ts'
+import { addDaysUTC, getWeekStart, parseDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	SaveTemplateSchema,
@@ -46,9 +41,9 @@ export async function action({ request }: Route.ActionArgs) {
 				householdId,
 				entries: {
 					create: mealPlan.entries.map((entry) => ({
-						dayOfWeek: differenceInCalendarDays(
-							new Date(entry.date),
-							weekStart,
+						dayOfWeek: Math.round(
+							(new Date(entry.date).getTime() - weekStart.getTime()) /
+								86_400_000,
 						),
 						mealType: entry.mealType,
 						recipeId: entry.recipeId,
@@ -97,12 +92,8 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 
 		// Create entries from template, skipping duplicates (same pattern as copyWeek)
-		// Use serializeDate+new Date to produce UTC midnight dates, matching how
-		// the assign action stores dates via z.coerce.date()
 		for (const tEntry of template.entries) {
-			const entryDate = new Date(
-				serializeDate(addDays(weekStart, tEntry.dayOfWeek)),
-			)
+			const entryDate = addDaysUTC(weekStart, tEntry.dayOfWeek)
 			const existing = await prisma.mealPlanEntry.findUnique({
 				where: {
 					mealPlanId_date_mealType_recipeId: {

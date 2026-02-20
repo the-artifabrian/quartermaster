@@ -72,9 +72,9 @@ export default function Index() {
 						data-paragraph
 						className="animate-slide-top text-muted-foreground fill-mode-[backwards] mx-auto mt-8 max-w-lg text-lg/7 [animation-delay:0.4s]"
 					>
-						Import your recipes, track what's in your kitchen, and
-						Quartermaster tells you what you can cook tonight. Plan the week,
-						shop the list, cook from the app — your pantry updates itself.
+						Import your recipes, track what's in your kitchen, and Quartermaster
+						tells you what you can cook tonight. Plan the week, shop the list,
+						cook from the app — your pantry updates itself.
 					</p>
 
 					<div className="animate-slide-top fill-mode-[backwards] mt-10 flex flex-col items-center gap-4 [animation-delay:0.6s] sm:flex-row sm:justify-center">
@@ -164,7 +164,7 @@ export default function Index() {
 											<div className="relative size-8 shrink-0">
 												<svg
 													viewBox="0 0 36 36"
-													className="-rotate-90 size-full"
+													className="size-full -rotate-90"
 												>
 													<circle
 														cx="18"
@@ -187,9 +187,7 @@ export default function Index() {
 												</svg>
 											</div>
 											<div className="min-w-0 flex-1">
-												<p className="truncate text-sm font-medium">
-													{r.name}
-												</p>
+												<p className="truncate text-sm font-medium">{r.name}</p>
 												<p className="text-muted-foreground text-xs">
 													{r.pct}% of ingredients in stock
 												</p>
@@ -208,8 +206,8 @@ export default function Index() {
 							</h3>
 							<p className="text-muted-foreground mt-2">
 								Log what's in your pantry, fridge, and freezer. Quartermaster
-								matches every recipe against your inventory and shows you
-								what's ready to cook right now.
+								matches every recipe against your inventory and shows you what's
+								ready to cook right now.
 							</p>
 						</div>
 					</div>
@@ -316,9 +314,7 @@ export default function Index() {
 							<p className="text-accent mb-2 font-serif text-sm font-medium">
 								Step 4
 							</p>
-							<h3 className="text-2xl font-bold">
-								Shop, cook, repeat
-							</h3>
+							<h3 className="text-2xl font-bold">Shop, cook, repeat</h3>
 							<p className="text-muted-foreground mt-2">
 								One tap generates a shopping list from your meal plan, minus
 								what you already have. Check items off at the store and they
@@ -337,8 +333,7 @@ export default function Index() {
 						Built for the kitchen
 					</h2>
 					<p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
-						Hands-free cooking, real-time sync, and full control over your
-						data.
+						Hands-free cooking, real-time sync, and full control over your data.
 					</p>
 					<div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 						{[

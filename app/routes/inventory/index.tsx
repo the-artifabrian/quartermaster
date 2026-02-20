@@ -392,21 +392,16 @@ export async function action({ request }: Route.ActionArgs) {
 		if (formData.has('quantity')) {
 			const raw = formData.get('quantity')
 			data.quantity =
-				typeof raw === 'string' && raw.trim()
-					? parseFloat(raw) || null
-					: null
+				typeof raw === 'string' && raw.trim() ? parseFloat(raw) || null : null
 		}
 		if (formData.has('unit')) {
 			const raw = formData.get('unit')
-			data.unit =
-				typeof raw === 'string' && raw.trim() ? raw.trim() : null
+			data.unit = typeof raw === 'string' && raw.trim() ? raw.trim() : null
 		}
 		if (formData.has('expiresAt')) {
 			const raw = formData.get('expiresAt')
 			data.expiresAt =
-				typeof raw === 'string' && raw.trim()
-					? new Date(raw)
-					: null
+				typeof raw === 'string' && raw.trim() ? new Date(raw) : null
 		}
 
 		if (Object.keys(data).length > 0) {
@@ -482,9 +477,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	if (totalItemCount === 0) {
 		return (
 			<div className="container py-6 pb-20 md:pb-6">
-				<PantryStaplesOnboarding
-					maxItems={inventoryUsage.limit ?? undefined}
-				/>
+				<PantryStaplesOnboarding maxItems={inventoryUsage.limit ?? undefined} />
 			</div>
 		)
 	}
@@ -561,9 +554,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 							{lowStockCount > 0 && (
 								<>
 									{expiringSoonCount > 0 && (
-										<span className="text-muted-foreground/40">
-											·
-										</span>
+										<span className="text-muted-foreground/40">·</span>
 									)}
 									<span className="text-amber-600 dark:text-amber-400">
 										{lowStockCount} low stock
@@ -572,11 +563,8 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 							)}
 							{inventoryUsage.limit !== null && (
 								<>
-									{(expiringSoonCount > 0 ||
-										lowStockCount > 0) && (
-										<span className="text-muted-foreground/40">
-											·
-										</span>
+									{(expiringSoonCount > 0 || lowStockCount > 0) && (
+										<span className="text-muted-foreground/40">·</span>
 									)}
 									<span
 										className={cn(
@@ -585,8 +573,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 												: 'text-muted-foreground',
 										)}
 									>
-										{inventoryUsage.count}/
-										{inventoryUsage.limit} free items
+										{inventoryUsage.count}/{inventoryUsage.limit} free items
 									</span>
 								</>
 							)}
@@ -596,17 +583,16 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container py-6">
-
 				{/* Free plan limit banner */}
 				{inventoryUsage.isAtLimit && (
-					<div className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/30 sm:flex-row sm:items-center sm:justify-between">
+					<div className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-amber-800 dark:bg-amber-950/30">
 						<div>
 							<p className="font-medium text-amber-900 dark:text-amber-200">
 								Free plan limit reached
 							</p>
 							<p className="text-sm text-amber-700 dark:text-amber-400">
-								Upgrade to Pro for unlimited inventory, meal planning,
-								and shopping lists.
+								Upgrade to Pro for unlimited inventory, meal planning, and
+								shopping lists.
 							</p>
 						</div>
 						<Button asChild size="sm" className="shrink-0">

@@ -497,9 +497,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			cookFetcher.data?.success
 		) {
 			clearProgress()
-			const summary = cookFetcher.data.inventorySummary as
-				| SubtractionSummary
-				| null
+			const summary = cookFetcher.data
+				.inventorySummary as SubtractionSummary | null
 
 			if (summary && summary.skipped.length > 0) {
 				// Transition modal to review state
@@ -841,7 +840,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					onClose={() => setShowEnhanceModal(false)}
 				/>
 			)}
-
 		</>
 	)
 }

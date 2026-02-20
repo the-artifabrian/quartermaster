@@ -120,12 +120,8 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				</div>
 				<div className="min-w-0 flex-1">
-					<p className="truncate font-medium">
-						{user.name ?? user.username}
-					</p>
-					<p className="text-muted-foreground truncate text-sm">
-						{user.email}
-					</p>
+					<p className="truncate font-medium">{user.name ?? user.username}</p>
+					<p className="text-muted-foreground truncate text-sm">{user.email}</p>
 				</div>
 				<Icon
 					name="chevron-right"
@@ -173,9 +169,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				/>
 				<SettingsRow
 					to="two-factor"
-					icon={
-						loaderData.isTwoFactorEnabled ? 'lock-closed' : 'lock-open-1'
-					}
+					icon={loaderData.isTwoFactorEnabled ? 'lock-closed' : 'lock-open-1'}
 					label="Two-Factor Auth"
 					value={loaderData.isTwoFactorEnabled ? 'On' : 'Off'}
 				/>
@@ -228,7 +222,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				<Form action="/logout" method="POST">
 					<button
 						type="submit"
-						className="flex min-h-[44px] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/5"
+						className="hover:bg-accent/5 flex min-h-[44px] w-full items-center gap-3 px-4 py-3 text-left transition-colors"
 					>
 						<Icon
 							name="exit"

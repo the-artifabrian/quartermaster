@@ -199,7 +199,13 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 		expect(summary).toEqual({
 			removed: [],
 			updated: [],
-			skipped: [{ name: 'butter', inventoryItemId: expect.any(String), reason: 'incompatible_units' }],
+			skipped: [
+				{
+					name: 'butter',
+					inventoryItemId: expect.any(String),
+					reason: 'incompatible_units',
+				},
+			],
 		})
 	})
 
@@ -336,8 +342,16 @@ describe('subtractRecipeIngredientsFromInventory', () => {
 			removed: [],
 			updated: [],
 			skipped: [
-				{ name: 'cucumber', inventoryItemId: expect.any(String), reason: 'no_quantity' },
-				{ name: 'rice vinegar', inventoryItemId: expect.any(String), reason: 'no_quantity' },
+				{
+					name: 'cucumber',
+					inventoryItemId: expect.any(String),
+					reason: 'no_quantity',
+				},
+				{
+					name: 'rice vinegar',
+					inventoryItemId: expect.any(String),
+					reason: 'no_quantity',
+				},
 			],
 		})
 	})
@@ -443,7 +457,9 @@ describe('previewInventorySubtraction', () => {
 
 		expect(preview.noMatch).toEqual([])
 		expect(preview.willSubtract).toHaveLength(0)
-		expect(preview.willSkip).toEqual([{ name: 'butter', reason: 'incompatible_units' }])
+		expect(preview.willSkip).toEqual([
+			{ name: 'butter', reason: 'incompatible_units' },
+		])
 	})
 
 	test('reports willSkip for inventory items without quantity', async () => {

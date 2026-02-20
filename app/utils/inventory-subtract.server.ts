@@ -243,7 +243,7 @@ export async function previewInventorySubtraction(
 					subtractAmount: ingredientInInventoryUnit,
 					newQuantity: newQuantity <= 0 ? 0 : newQuantity,
 					willBeRemoved: newQuantity <= 0,
-					})
+				})
 				continue
 			}
 		}

@@ -107,7 +107,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 				},
 				orderBy: { order: 'asc' },
 			},
-			},
+		},
 	})
 
 	if (!recipe) {
@@ -319,9 +319,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 
 			{/* Meta card + content */}
 			<div className="container max-w-4xl px-4 md:px-8">
-				{(recipe.prepTime ||
-					recipe.cookTime ||
-					recipe.sourceUrl) && (
+				{(recipe.prepTime || recipe.cookTime || recipe.sourceUrl) && (
 					<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-3 md:p-5">
 						<div className="flex flex-wrap items-center gap-3 text-sm">
 							{recipe.prepTime && (

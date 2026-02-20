@@ -22,8 +22,7 @@ export function getStripeClient(): Stripe | null {
  */
 export function isStripeConfigured(): boolean {
 	return Boolean(
-		process.env.STRIPE_SECRET_KEY &&
-		process.env.STRIPE_PRO_YEARLY_PRICE_ID,
+		process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRO_YEARLY_PRICE_ID,
 	)
 }
 
@@ -31,9 +30,7 @@ export function isStripeConfigured(): boolean {
  * Maps a Stripe Price ID to a subscription tier.
  * All Stripe subscriptions map to 'pro' (single paid tier).
  */
-export function getSubscriptionTierFromPriceId(
-	_priceId: string,
-): 'pro' {
+export function getSubscriptionTierFromPriceId(_priceId: string): 'pro' {
 	return 'pro'
 }
 
@@ -106,9 +103,7 @@ export async function createPortalSession({
 	})
 }
 
-type SubscriptionRetriever = (
-	id: string,
-) => Promise<{
+type SubscriptionRetriever = (id: string) => Promise<{
 	items: { data: Array<{ price: { id: string }; current_period_end: number }> }
 }>
 

@@ -408,7 +408,7 @@ function SortableHeadingRow({
 			ref={setNodeRef}
 			style={style}
 			className={cn(
-				'border-accent/30 bg-accent/5 flex items-center gap-2 rounded-lg border-l-4 py-3 px-2 first:pt-2 last:pb-2',
+				'border-accent/30 bg-accent/5 flex items-center gap-2 rounded-lg border-l-4 px-2 py-3 first:pt-2 last:pb-2',
 				isDragging && 'z-10 opacity-80 shadow-lg',
 			)}
 		>

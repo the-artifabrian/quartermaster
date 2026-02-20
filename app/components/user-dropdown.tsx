@@ -2,10 +2,7 @@ import { Img } from 'openimg/react'
 import { Link, useRouteLoaderData } from 'react-router'
 import { type loader as rootLoader } from '#app/root.tsx'
 import { cn, getUserImgSrc } from '#app/utils/misc.tsx'
-import {
-	useDaysUntilExpiry,
-	useIsProActive,
-} from '#app/utils/subscription.ts'
+import { useDaysUntilExpiry, useIsProActive } from '#app/utils/subscription.ts'
 import { useUser } from '#app/utils/user.ts'
 
 export function UserDropdown() {
@@ -34,9 +31,7 @@ export function UserDropdown() {
 					{user.name ?? user.username}
 				</span>
 				{householdName && householdName !== 'My Household' && (
-					<span className="text-muted-foreground text-xs">
-						{householdName}
-					</span>
+					<span className="text-muted-foreground text-xs">{householdName}</span>
 				)}
 				{isPro && daysLeft !== null && daysLeft <= 14 ? (
 					<span
@@ -49,9 +44,7 @@ export function UserDropdown() {
 									: 'text-muted-foreground',
 						)}
 					>
-						{daysLeft === 0
-							? 'Pro expires today'
-							: `Pro · ${daysLeft}d left`}
+						{daysLeft === 0 ? 'Pro expires today' : `Pro · ${daysLeft}d left`}
 					</span>
 				) : null}
 			</div>

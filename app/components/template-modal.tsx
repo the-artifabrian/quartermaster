@@ -78,7 +78,11 @@ export function SaveTemplateModal({
 			<p className="text-muted-foreground mb-4 text-sm">
 				Save this week's meal plan as a reusable template.
 			</p>
-			<fetcher.Form method="POST" action="/resources/meal-plan-templates" className="space-y-4">
+			<fetcher.Form
+				method="POST"
+				action="/resources/meal-plan-templates"
+				className="space-y-4"
+			>
 				<input type="hidden" name="intent" value="saveTemplate" />
 				<input type="hidden" name="weekStart" value={weekStart} />
 				<div>
@@ -182,7 +186,10 @@ export function ApplyTemplateModal({
 									{template._count.entries !== 1 ? 's' : ''}
 								</p>
 							</div>
-							<applyFetcher.Form method="POST" action="/resources/meal-plan-templates">
+							<applyFetcher.Form
+								method="POST"
+								action="/resources/meal-plan-templates"
+							>
 								<input type="hidden" name="intent" value="applyTemplate" />
 								<input type="hidden" name="templateId" value={template.id} />
 								<input type="hidden" name="weekStart" value={weekStart} />
@@ -192,7 +199,10 @@ export function ApplyTemplateModal({
 							</applyFetcher.Form>
 							{pendingDeleteId === template.id ? (
 								<div className="flex gap-1">
-									<deleteFetcher.Form method="POST" action="/resources/meal-plan-templates">
+									<deleteFetcher.Form
+										method="POST"
+										action="/resources/meal-plan-templates"
+									>
 										<input type="hidden" name="intent" value="deleteTemplate" />
 										<input
 											type="hidden"

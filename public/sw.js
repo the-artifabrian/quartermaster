@@ -100,7 +100,7 @@ self.addEventListener('fetch', (event) => {
  * Matches:
  *   /recipes/<id>  (but not /recipes, /recipes/new, /recipes/<id>/edit)
  *   /plan
- *   /plan/shopping-list
+ *   /shopping
  * Also matches the .data suffix variants for client-side navigations.
  */
 function isCacheablePage(url) {
@@ -109,9 +109,8 @@ function isCacheablePage(url) {
 	// /plan or /plan.data
 	if (p === '/plan' || p === '/plan.data') return true
 
-	// /plan/shopping-list or /plan/shopping-list.data
-	if (p === '/plan/shopping-list' || p === '/plan/shopping-list.data')
-		return true
+	// /shopping or /shopping.data
+	if (p === '/shopping' || p === '/shopping.data') return true
 
 	// /recipes/<id> but not /recipes, /recipes/new, /recipes/<id>/edit
 	const recipeMatch = p.match(/^\/recipes\/([^/]+?)(\.data)?$/)

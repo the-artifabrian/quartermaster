@@ -221,7 +221,10 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 							The full kitchen intelligence loop
 						</p>
 						<p className="mt-3 text-2xl font-bold">
-							$35<span className="text-muted-foreground text-sm font-normal">/yr</span>
+							$35
+							<span className="text-muted-foreground text-sm font-normal">
+								/yr
+							</span>
 						</p>
 					</div>
 					<ul className="space-y-2">

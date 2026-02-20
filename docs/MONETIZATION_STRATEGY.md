@@ -2,9 +2,9 @@
 
 Quartermaster is a personal tool first — built by a developer who cooks to
 replace Apple Notes and actually manage what's in the kitchen. Monetization is
-secondary: passive income potential, not a startup. The goal is a great daily-use
-app that happens to be worth paying for. Business infrastructure ships when there
-are actual paying users, not before.
+secondary: passive income potential, not a startup. The goal is a great
+daily-use app that happens to be worth paying for. Business infrastructure ships
+when there are actual paying users, not before.
 
 For the roadmap, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For features,
 see [FEATURES.md](./FEATURES.md).
@@ -28,8 +28,8 @@ fatigue is real — one-time purchase apps (Paprika, Mela) are gaining mindshare
 Quartermaster's closed-loop pipeline (track → discover → plan → shop → subtract
 → repeat) remains genuinely differentiated. One-time purchase doesn't sustain
 development. Pure subscription scares users post-Yummly. Freemium with a
-generous free tier and JSON export builds trust; the intelligence layer justifies
-the upgrade.
+generous free tier and JSON export builds trust; the intelligence layer
+justifies the upgrade.
 
 ---
 
@@ -46,8 +46,8 @@ and experience the "aha" moment:
 - Recipe sharing, cooking log, favorites
 - Up to 15 inventory items (enough for match rings and discovery)
 
-Meal planning, shopping lists, AI features, and unlimited inventory require
-Pro. Household sharing is currently available to all beta users.
+Meal planning, shopping lists, AI features, and unlimited inventory require Pro.
+Household sharing is currently available to all beta users.
 
 The upgrade trigger is experiential: "I want more than 15 items in my kitchen."
 URL import is free because it's a growth lever — users build a library, get
@@ -105,9 +105,10 @@ traditional tier.
 
 ## "Proven" Gate
 
-Defined in [DEVELOPMENT_PLAN.md § Proven Gate](./DEVELOPMENT_PLAN.md#proven-gate).
-In short: 4+ weeks of daily use with planning features, gate check on
-**March 12, 2026**. Don't monetize until the pitch is real.
+Defined in
+[DEVELOPMENT_PLAN.md § Proven Gate](./DEVELOPMENT_PLAN.md#proven-gate). In
+short: 4+ weeks of daily use with planning features, gate check on **March 12,
+2026**. Don't monetize until the pitch is real.
 
 ---
 
@@ -115,8 +116,8 @@ In short: 4+ weeks of daily use with planning features, gate check on
 
 ### Business Registration
 
-Register a PFA (Persoana Fizica Autorizata) with ONRC under CAEN code 6201 or
-6209. Takes a few weeks — start in parallel. Romanian bank account required.
+Register a PFA (Persoana Fizica Autorizata) with ONRC under CAEN code 6201
+or 6209. Takes a few weeks — start in parallel. Romanian bank account required.
 Consult accountant for CAEN code and VAT strategy (OSS for EU cross-border).
 
 ### Checklist
@@ -130,8 +131,8 @@ Consult accountant for CAEN code and VAT strategy (OSS for EU cross-border).
 - [ ] Automated backups operational (Litestream or cron → S3)
 - [ ] Monitoring & alerting operational
 - [ ] GDPR: verify Prisma `onDelete: Cascade` chains delete all user data
-  (HouseholdEvents, InviteCodes, UsageEvents, etc.). Confirm Sentry doesn't
-  set non-essential cookies (would require consent banner)
+      (HouseholdEvents, InviteCodes, UsageEvents, etc.). Confirm Sentry doesn't
+      set non-essential cookies (would require consent banner)
 
 ---
 
@@ -146,7 +147,8 @@ doesn't count.
 - **Recipe sharing** — `/share/$recipeId` with JSON-LD and OG tags. Every shared
   recipe is a landing page with import CTA
 - **Data portability** — JSON export as trust signal ("Your recipes, your data")
-- **Self-hosting** — Standard Node.js, no Docker. Differentiator vs. Mealie et al
+- **Self-hosting** — Standard Node.js, no Docker. Differentiator vs. Mealie et
+  al
 - **Invite codes** — QM-XXXXXX format, 60 days Pro + 2 starter codes. Social
   currency: "try this app — here's a code"
 - **Public recipe pages** — every `/share/$recipeId` is already SEO-indexed with
@@ -158,7 +160,8 @@ doesn't count.
 - r/selfhosted, r/mealprepsunday, r/Cooking — angle by subreddit. Note:
   r/selfhosted users resist SaaS pricing — lead with self-hosting option and
   data portability, not the subscription
-- Hacker News — "Show HN: inventory-aware meal planner" (technical depth appeals)
+- Hacker News — "Show HN: inventory-aware meal planner" (technical depth
+  appeals)
 - Word of mouth — household sharing makes every user a recruiter
 
 ---
@@ -168,10 +171,10 @@ doesn't count.
 - **Small addressable market** — "people who track inventory AND meal plan AND
   pay" is narrow. Tool for serious home cooks, not mass market
 - **AI competitors moving fast** — Ollie already ships pantry scanning and AI
-  meal plans at $84/yr. The inventory loop is the moat but users need to get
-  far enough to experience it
-- **Subscription fatigue** — one-time purchase apps gaining mindshare. Users need
-  clear ongoing value to justify recurring fees
+  meal plans at $84/yr. The inventory loop is the moat but users need to get far
+  enough to experience it
+- **Subscription fatigue** — one-time purchase apps gaining mindshare. Users
+  need clear ongoing value to justify recurring fees
 - **Inventory loop friction** — the entire value proposition rests on users
   maintaining inventory. Contingency plan in
   [DEVELOPMENT_PLAN.md § Inventory Mode](./DEVELOPMENT_PLAN.md#inventory-mode-active-evaluation)

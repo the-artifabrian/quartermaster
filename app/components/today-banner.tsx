@@ -1,10 +1,6 @@
 import { Img } from 'openimg/react'
 import { Form, Link } from 'react-router'
-import {
-	MEAL_TYPE_LABELS,
-	type MealType,
-	serializeDate,
-} from '#app/utils/date.ts'
+import { MEAL_TYPE_LABELS, type MealType } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import { Button } from './ui/button.tsx'
@@ -116,8 +112,7 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 				<Button asChild size="sm" className="shrink-0">
 					<Link
 						to={
-							primary.servings &&
-							primary.servings !== recipe.servings
+							primary.servings && primary.servings !== recipe.servings
 								? `/recipes/${recipe.id}?servings=${primary.servings}`
 								: `/recipes/${recipe.id}`
 						}
@@ -133,7 +128,8 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 }
 
 function EmptyBanner({ suggestion }: { suggestion: TodaySuggestion | null }) {
-	const today = serializeDate(new Date())
+	const now = new Date()
+	const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
 	return (
 		<div className="border-border/60 from-card to-muted/30 shadow-warm mb-6 overflow-hidden rounded-2xl border bg-linear-to-r">

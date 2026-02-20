@@ -149,8 +149,7 @@ function EntryRow({
 				>
 					<Link
 						to={
-							entry.servings &&
-							entry.servings !== entry.recipe.servings
+							entry.servings && entry.servings !== entry.recipe.servings
 								? `/recipes/${entry.recipe.id}?servings=${entry.servings}`
 								: `/recipes/${entry.recipe.id}`
 						}

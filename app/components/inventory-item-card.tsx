@@ -85,7 +85,10 @@ export function InventoryItemCard({
 	// Close edit mode when fetcher transitions from submitting/loading → idle
 	// (only on success — if server returned an error, keep editing open)
 	useEffect(() => {
-		if (prevQuickEditState.current !== 'idle' && quickEditFetcher.state === 'idle') {
+		if (
+			prevQuickEditState.current !== 'idle' &&
+			quickEditFetcher.state === 'idle'
+		) {
 			if (isQuickEditing && quickEditFetcher.data?.status !== 'error') {
 				setIsQuickEditing(false)
 			}
@@ -239,9 +242,7 @@ export function InventoryItemCard({
 										size="sm"
 										className={cn(optimisticLowStock && 'text-amber-600')}
 									/>
-									{optimisticLowStock
-										? 'Clear low stock'
-										: 'Mark as low stock'}
+									{optimisticLowStock ? 'Clear low stock' : 'Mark as low stock'}
 								</DropdownMenuItem>
 								<DropdownMenuItem asChild>
 									<Link to={`/inventory/${item.id}/edit`}>

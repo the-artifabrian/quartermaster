@@ -16,13 +16,13 @@ export function CookingLogEntry({
 	const dc = useDoubleCheck()
 
 	return (
-		<div className="bg-card shadow-warm flex items-start gap-3 rounded-2xl border p-4">
+		<div className="flex items-start gap-3 rounded-lg border border-border/50 px-4 py-3">
 			<div className="min-w-0 flex-1">
-				<span className="text-sm font-medium">
+				<span className="text-muted-foreground text-sm font-medium">
 					{format(new Date(log.cookedAt), 'MMM d, yyyy')}
 				</span>
 				{log.notes && (
-					<p className="text-muted-foreground mt-1 text-sm">{log.notes}</p>
+					<p className="text-foreground/80 mt-1 text-sm">{log.notes}</p>
 				)}
 			</div>
 			<Form method="POST">

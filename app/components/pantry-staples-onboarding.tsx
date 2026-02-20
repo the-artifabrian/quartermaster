@@ -91,7 +91,7 @@ export function PantryStaplesOnboarding({ maxItems }: { maxItems?: number }) {
 		<div className="bg-card shadow-warm mx-auto max-w-2xl rounded-2xl border px-6 py-8">
 			<div className="mb-8 text-center">
 				<Icon name="home" className="text-muted-foreground mx-auto size-12" />
-				<h2 className="mt-4 text-2xl font-bold">Stock Your Kitchen</h2>
+				<h2 className="mt-4 font-serif text-2xl font-normal">Stock Your Kitchen</h2>
 				<p className="text-muted-foreground mt-2">
 					Select the staples you already have on hand. You can always add more
 					later.
@@ -113,7 +113,7 @@ export function PantryStaplesOnboarding({ maxItems }: { maxItems?: number }) {
 						Object.values(locationChecked).filter(Boolean).length
 					const allSelected = checkedCount === items.length
 					return (
-						<div key={location} className="bg-muted/50 rounded-xl border p-5">
+						<div key={location} className="bg-secondary/30 rounded-xl border p-5">
 							<div className="mb-3 flex items-center justify-between">
 								<h3 className="flex items-center gap-2 text-lg font-semibold">
 									<Icon name={config.icon} className="size-5" />

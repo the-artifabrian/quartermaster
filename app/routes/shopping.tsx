@@ -777,7 +777,7 @@ export default function ShoppingListRoute({
 								</button>
 							</div>
 						) : (
-							<div className="divide-y divide-border/40">
+							<div>
 								{filteredItems.map((item, index) => {
 									const prevCategory =
 										index > 0 ? filteredItems[index - 1]?.category : null

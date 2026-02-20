@@ -60,7 +60,7 @@ export function BottomNav() {
 			aria-label="Main"
 			className="bg-card/95 border-border fixed inset-x-0 bottom-0 z-50 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden print:hidden"
 		>
-			<div className="relative flex h-16 items-center justify-around">
+			<div className="relative grid h-16 grid-cols-4 items-center">
 				{/* Sliding pill indicator */}
 				{activeIndex >= 0 && (
 					<div
@@ -83,7 +83,7 @@ export function BottomNav() {
 							key={item.to}
 							to={item.to}
 							className={cn(
-								'relative z-10 flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors duration-200',
+								'relative z-10 flex flex-col items-center justify-center gap-1 py-2 transition-colors duration-200',
 								isActive
 									? 'text-primary'
 									: 'text-muted-foreground hover:text-foreground',

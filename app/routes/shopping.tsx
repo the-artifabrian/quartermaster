@@ -513,12 +513,10 @@ export default function ShoppingListRoute({
 }: Route.ComponentProps) {
 	const { shoppingList, hasMealPlan, weeksWithPlans, lowStockSuggestions } =
 		loaderData
-	const [selectedWeek, setSelectedWeek] = useState(
-		() =>
-			weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
-			weeksWithPlans[0]?.weekStart ??
-			'',
-	)
+	const defaultWeek =
+		weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
+		weeksWithPlans[0]?.weekStart ??
+		''
 	const isPending = useIsPending()
 
 	const [form, fields] = useForm({
@@ -571,21 +569,7 @@ export default function ShoppingListRoute({
 							{hasMealPlan && (
 								<Form method="POST" className="flex items-center gap-2">
 									<input type="hidden" name="intent" value="generate" />
-									<input type="hidden" name="weekStart" value={selectedWeek} />
-									{weeksWithPlans.length > 1 && (
-										<select
-											value={selectedWeek}
-											onChange={(e) => setSelectedWeek(e.target.value)}
-											className="h-8 rounded-md border border-border bg-background px-2 text-sm"
-										>
-											{weeksWithPlans.map((week) => (
-												<option key={week.weekStart} value={week.weekStart}>
-													{week.label}
-													{week.isCurrent ? ' (this week)' : ''}
-												</option>
-											))}
-										</select>
-									)}
+									<input type="hidden" name="weekStart" value={defaultWeek} />
 									<Button type="submit" variant="outline" size="sm">
 										<Icon name="update" size="sm" />
 										Generate

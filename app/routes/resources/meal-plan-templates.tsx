@@ -1,14 +1,14 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
-import { requireProTier } from '#app/utils/subscription.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { addDaysUTC, getWeekStart, parseDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	SaveTemplateSchema,
 	ApplyTemplateSchema,
 	DeleteTemplateSchema,
 } from '#app/utils/meal-template-validation.ts'
+import { requireProTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/meal-plan-templates.ts'
 
 export async function action({ request }: Route.ActionArgs) {

@@ -3,7 +3,7 @@ import { Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import type { SubtractionSummary } from '#app/utils/inventory-subtract.server.ts'
+import { type SubtractionSummary } from '#app/utils/inventory-subtract.server.ts'
 
 type UncookedEntry = {
 	entryId: string

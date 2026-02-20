@@ -1,7 +1,7 @@
-import { requireProTier } from '#app/utils/subscription.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { scoreRecipePairings } from '#app/utils/ingredient-overlap.server.ts'
 import { matchRecipesWithInventory } from '#app/utils/recipe-matching.server.ts'
+import { requireProTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/meal-plan-pairing.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {

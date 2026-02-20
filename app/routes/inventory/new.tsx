@@ -12,22 +12,22 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
+import { prisma } from '#app/utils/db.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	findMatchingInventoryItem,
 	buildMergeData,
 } from '#app/utils/inventory-dedup.server.ts'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import {
+	InventoryItemSchema,
+	LOCATION_LABELS,
+} from '#app/utils/inventory-validation.ts'
 import {
 	getInventoryUsage,
 	getUserTier,
 } from '#app/utils/subscription.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import { prisma } from '#app/utils/db.server.ts'
-import {
-	InventoryItemSchema,
-	LOCATION_LABELS,
-} from '#app/utils/inventory-validation.ts'
 import { type Route } from './+types/new.ts'
 
 type DuplicateWarning = {

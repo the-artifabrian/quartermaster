@@ -1,12 +1,12 @@
-import { describe, expect, test, vi } from 'vitest'
 import { type AppLoadContext } from 'react-router'
+import { describe, expect, test, vi } from 'vitest'
 
 vi.mock('#app/utils/household-events.server.ts', () => ({
 	emitHouseholdEvent: vi.fn(),
 }))
-import { prisma } from '#app/utils/db.server.ts'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getCurrentWeekStart } from '#app/utils/date.ts'
+import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { action } from '../shopping.tsx'

@@ -1,10 +1,10 @@
-import { type Route } from './+types/household-events.ts'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	householdEventBus,
 	pruneOldEvents,
 	type HouseholdEventData,
 } from '#app/utils/household-events.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { type Route } from './+types/household-events.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)

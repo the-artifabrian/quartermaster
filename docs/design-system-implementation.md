@@ -188,13 +188,17 @@ Final pass across all surfaces after the six phase implementations.
   - `--destructive` / `--input-invalid` / `--foreground-destructive`: `#C46B58`
     → `#D07A68` (~5.2:1)
   - `--ring` updated to match primary
+- [x] Migrated remaining hardcoded colors to design tokens (see 7E)
 - [ ] Fix any remaining broken contrast or color mismatches
 
 ### 7B: Accessibility Check
 
 - [ ] Run axe-core or Lighthouse accessibility audit on each surface
-- [ ] Verify all interactive elements have visible focus indicators (ring in
-      matcha)
+- [x] All modal/widget close buttons have `focus-visible:ring-2 ring-ring`
+      (i-made-this ×2, template, timer, enhance recipe)
+- [x] Notification bell badge has `aria-hidden="true"` (button aria-label
+      conveys count)
+- [x] All modals use `useModal` hook (Escape key + focus trap + focus restore)
 - [x] Fix heading hierarchy: h3 → h2 in `plan/index.tsx` (empty state) and
       `shopping.tsx` (empty state). Low-stock h3 kept (sub-section label).
 - [ ] Screen reader test on recipe detail page (the most complex surface)
@@ -224,11 +228,26 @@ Migrated hardcoded colors to design tokens on non-redesigned surfaces:
 - [x] AI badges (recipe detail, share page, generate page) — violet → `primary`
       palette
 - [x] Pantry staples onboarding — `text-amber-600` → `text-accent`
+- [x] Invite code badges — green/gray/blue → `primary`/`muted`/`accent` tokens
+      (`invite-code-status.ts`, `admin/users.tsx`, `admin/subscriptions.tsx`)
+- [x] Code block backgrounds — `bg-gray-100`/`bg-gray-800` → `bg-muted`
+      (`invite-codes.tsx`, `admin/subscriptions.tsx`)
+- [x] Household invite success — `bg-green-50`/`bg-green-950` →
+      `border-primary/30 bg-primary/10` (`household.tsx`)
+- [x] Substitution icons — `text-amber-*` → `text-accent`; "You have this"
+      badge → `bg-primary/10 text-primary` (`ingredient-substitution.tsx`)
+- [x] User dropdown Pro countdown — `text-amber-600` → `text-accent`
+- [x] Recipe card match dots — `bg-green-500`/`bg-amber-500` →
+      `bg-primary`/`bg-accent`
 
 Intentionally kept as-is:
 
 - Enhance recipe modal — violet for AI brand color (intentional distinction)
 - Recipe card sparkle badges — violet decorative accent
+- Inventory location dots (pantry/fridge/freezer) — distinct amber/blue/cyan
+  for visual differentiation
+- Inventory expiry pills — red/amber semantic status colors
+- Modal backdrops — `bg-black/50` is standard overlay pattern
 
 Still needs manual visual verification:
 
@@ -238,14 +257,23 @@ Still needs manual visual verification:
 - [ ] Inline temperature, notification bell, user dropdown
 - [ ] Toasts and modals across the app
 
+### 7F: Lint & Test Cleanup
+
+- [x] ESLint auto-fix: 86 import-order warnings resolved
+- [x] Unused imports/variables removed (11 instances across 9 files)
+- [x] `react-hooks/exhaustive-deps` warning fixed in `use-modal.ts` (ref
+      captured before cleanup)
+- [x] Remaining warnings: 5 Playwright `no-raw-locators` (style preference,
+      non-blocking)
+
 ### Phase 7 Definition of Done
 
 - [ ] All surfaces (including inventory after Phase 8) pass dark mode +
       accessibility + responsive checks
 - [ ] Non-redesigned pages look coherent with the new palette
 - [x] `npm run typecheck` passes
-- [ ] `npm run lint` passes
-- [ ] `npm test` passes (unit tests)
+- [x] `npm run lint` passes (0 errors, 5 non-blocking Playwright style warnings)
+- [x] `npm test` passes (622/622 unit tests)
 - [ ] Commit final polish, wait for review
 
 ---

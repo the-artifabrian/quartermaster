@@ -7,8 +7,8 @@
  * Output goes to public/splash/. These are committed to git so the build
  * doesn't need sharp at deploy time.
  */
-import sharp from 'sharp'
 import { mkdirSync } from 'fs'
+import sharp from 'sharp'
 
 // Every iOS screen size that needs a startup image.
 // Portrait only — phones lock to portrait in standalone PWA mode.

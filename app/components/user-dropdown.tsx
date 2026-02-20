@@ -40,7 +40,7 @@ export function UserDropdown() {
 							daysLeft <= 3
 								? 'text-destructive font-bold'
 								: daysLeft <= 7
-									? 'text-amber-600 dark:text-amber-400'
+									? 'text-accent'
 									: 'text-muted-foreground',
 						)}
 					>

@@ -23,19 +23,19 @@ export function getCodeStatus(code: {
 		return {
 			label: 'Redeemed',
 			className:
-				'border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-400',
+				'border-primary/30 bg-primary/10 text-primary',
 		}
 	}
 	if (code.expiresAt && new Date(code.expiresAt) < new Date()) {
 		return {
 			label: 'Expired',
 			className:
-				'border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-600 dark:bg-gray-800/50 dark:text-gray-400',
+				'border-muted-foreground/30 bg-muted text-muted-foreground',
 		}
 	}
 	return {
 		label: 'Available',
 		className:
-			'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-400',
+			'border-accent/30 bg-accent/10 text-accent-foreground',
 	}
 }

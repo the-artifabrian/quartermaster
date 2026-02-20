@@ -9,9 +9,6 @@ import { ShoppingListToInventory } from '#app/components/shopping-list-to-invent
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
-import { subscribeToHouseholdEvents } from '#app/utils/household-event-source.client.tsx'
-import { requireProTier } from '#app/utils/subscription.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	getCurrentWeekStart,
 	getPreviousWeek,
@@ -22,6 +19,8 @@ import {
 	formatWeekRange,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { subscribeToHouseholdEvents } from '#app/utils/household-event-source.client.tsx'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
 import {
 	getCanonicalIngredientName,
@@ -35,6 +34,7 @@ import {
 	generateShoppingListFromRecipes,
 	subtractInventoryFromShoppingList,
 } from '#app/utils/shopping-list.server.ts'
+import { requireProTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/shopping.ts'
 
 const CATEGORY_LABELS: Record<string, string> = {

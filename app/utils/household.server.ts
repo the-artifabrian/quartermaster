@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
-import { prisma } from './db.server.ts'
 import { requireUserId } from './auth.server.ts'
+import { prisma } from './db.server.ts'
 
 /**
  * Returns the current user's household info.
@@ -278,7 +278,6 @@ export async function revokeInvite(
 	})
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function deepCopyRecipes(
 	tx: any,
 	userId: string,

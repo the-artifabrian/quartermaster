@@ -11,8 +11,6 @@ import {
 import { TodayBanner } from '#app/components/today-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { requireProTier } from '#app/utils/subscription.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	getCurrentWeekStart,
 	getWeekDays,
@@ -24,8 +22,10 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { subtractRecipeIngredientsFromInventory } from '#app/utils/inventory-subtract.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
+import { requireProTier } from '#app/utils/subscription.server.ts'
 import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { type Route } from './+types/index.ts'
 

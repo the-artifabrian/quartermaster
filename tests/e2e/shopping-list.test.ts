@@ -1,5 +1,5 @@
-import { prisma } from '#app/utils/db.server.ts'
 import { getCurrentWeekStart } from '#app/utils/date.ts'
+import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
 test('Shopping list flow: generate → verify items → add manual → check → clear', async ({

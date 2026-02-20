@@ -1,9 +1,5 @@
+import { getCurrentWeekStart, getWeekDays } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import {
-	getCurrentWeekStart,
-	getWeekDays,
-	serializeDate,
-} from '#app/utils/date.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
 test('Meal plan: view entries and mark as cooked', async ({ page, login }) => {

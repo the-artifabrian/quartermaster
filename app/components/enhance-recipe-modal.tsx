@@ -126,7 +126,7 @@ export function EnhanceRecipeModal({
 					<button
 						onClick={onClose}
 						aria-label="Close"
-						className="text-muted-foreground hover:text-foreground rounded-md p-1"
+						className="text-muted-foreground hover:text-foreground rounded-md p-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2"
 					>
 						<Icon name="cross-1" size="sm" />
 					</button>

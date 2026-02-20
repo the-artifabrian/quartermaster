@@ -1,8 +1,8 @@
 import { redirect } from 'react-router'
-import { type Route } from './+types/stripe-portal.ts'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createPortalSession } from '#app/utils/stripe.server.ts'
+import { type Route } from './+types/stripe-portal.ts'
 
 /**
  * POST-only route that creates a Stripe Customer Portal session

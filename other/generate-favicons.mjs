@@ -2,9 +2,9 @@
  * Generate raster favicons from the recipe card icon.
  * Run: node other/generate-favicons.mjs
  */
-import sharp from 'sharp'
 import { execSync } from 'child_process'
 import { mkdirSync } from 'fs'
+import sharp from 'sharp'
 
 // Shared recipe card on green background — used by all icon sizes
 const makeAppIcon = (size) => `

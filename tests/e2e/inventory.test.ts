@@ -5,7 +5,7 @@ test('Inventory flow: empty state → add item → verify → edit → delete', 
 	page,
 	login,
 }) => {
-	const user = await login()
+	await login()
 
 	// 1. Navigate to inventory (empty state should show onboarding)
 	await page.goto('/inventory')

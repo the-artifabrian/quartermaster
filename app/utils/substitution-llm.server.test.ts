@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { describe, expect, test, vi } from 'vitest'
-import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { server } from '#tests/mocks/index.ts'
+import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { getLLMSubstitutions } from './substitution-llm.server.ts'
 
 describe('getLLMSubstitutions', () => {

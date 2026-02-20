@@ -1,5 +1,5 @@
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { type Route } from './+types/ingredient-suggestions.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {

@@ -5,7 +5,6 @@ import {
 	ingredientMatchesInventoryItem,
 	isStapleIngredient,
 	matchRecipesWithInventory,
-	INGREDIENT_SYNONYMS,
 } from './recipe-matching.server.ts'
 
 describe('normalizeIngredientName', () => {
@@ -315,7 +314,7 @@ describe('matchRecipesWithInventory', () => {
 	function makeInventory(
 		names: string[],
 	): Parameters<typeof matchRecipesWithInventory>[1] {
-		return names.map((name, i) => ({
+		return names.map((name) => ({
 			name,
 			quantity: null,
 		}))

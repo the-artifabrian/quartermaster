@@ -185,8 +185,8 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 const tierStyles: Record<string, string> = {
-	pro: 'border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-400',
-	free: 'border-gray-300 bg-gray-50 text-gray-600 dark:border-gray-600 dark:bg-gray-800/50 dark:text-gray-400',
+	pro: 'border-primary/30 bg-primary/10 text-primary',
+	free: 'border-muted-foreground/30 bg-muted text-muted-foreground',
 }
 
 function TierBadge({ tier }: { tier: string }) {
@@ -264,7 +264,7 @@ function InviteCodeRow({ code }: { code: InviteCodeRow }) {
 			className={`flex items-center justify-between rounded-lg border p-3 ${isDeleting ? 'opacity-50' : ''}`}
 		>
 			<div className="flex items-center gap-3">
-				<code className="rounded bg-gray-100 px-2 py-1 font-mono text-sm dark:bg-gray-800">
+				<code className="rounded bg-muted px-2 py-1 font-mono text-sm">
 					{code.code}
 				</code>
 				<span

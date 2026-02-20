@@ -8,9 +8,8 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { formatEventMessage } from '#app/utils/household-event-messages.ts'
-import { getRelativeTime } from '#app/utils/relative-time.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	requireUserWithHousehold,
 	createHouseholdInvite,
@@ -19,6 +18,7 @@ import {
 	leaveHousehold,
 } from '#app/utils/household.server.ts'
 import { useDoubleCheck } from '#app/utils/misc.tsx'
+import { getRelativeTime } from '#app/utils/relative-time.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/household.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
@@ -333,7 +333,7 @@ function InviteSection({
 			</createFetcher.Form>
 
 			{newToken ? (
-				<div className="mt-4 rounded-lg border bg-green-50 p-4 dark:bg-green-950">
+				<div className="mt-4 rounded-lg border border-primary/30 bg-primary/10 p-4">
 					<p className="mb-2 text-sm font-medium">
 						Invite link created! Share this link:
 					</p>

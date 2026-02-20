@@ -3,14 +3,14 @@ import { parseFormData, type FileUpload } from '@mjackson/form-data-parser'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { data, redirect } from 'react-router'
 import { RecipeForm } from '#app/components/recipe-form.tsx'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
 	ACCEPTED_RECIPE_IMAGE_TYPES,
 } from '#app/utils/recipe-validation.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { uploadRecipeImage } from '#app/utils/storage.server.ts'
 import { type Route } from './+types/new.ts'
 
@@ -150,7 +150,7 @@ export async function action({ request }: Route.ActionArgs) {
 	return redirect(`/recipes/${recipe.id}`)
 }
 
-export default function NewRecipe({ loaderData }: Route.ComponentProps) {
+export default function NewRecipe() {
 	return (
 		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
 			<h1 className="mb-6 text-2xl font-bold">New Recipe</h1>

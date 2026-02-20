@@ -1,9 +1,9 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { data } from 'react-router'
-import { type Route } from './+types/inventory-remove.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { type Route } from './+types/inventory-remove.ts'
 
 export async function action({ request }: Route.ActionArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)

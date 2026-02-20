@@ -1,9 +1,9 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
-import { z } from 'zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { z } from 'zod'
 import { InventoryItemCard } from '#app/components/inventory-item-card.tsx'
 import { InventoryLocationTabs } from '#app/components/inventory-location-tabs.tsx'
 import { InventoryQuickAdd } from '#app/components/inventory-quick-add.tsx'
@@ -24,17 +24,17 @@ import {
 	findMatchingInventoryItem,
 	buildMergeData,
 } from '#app/utils/inventory-dedup.server.ts'
-import { ingredientMatchesInventoryItem } from '#app/utils/recipe-matching.server.ts'
-import {
-	getInventoryUsage,
-	getUserTier,
-} from '#app/utils/subscription.server.ts'
 import {
 	InventoryItemLocationSchema,
 	InventoryItemNameSchema,
 	InventoryItemSchema,
 } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { ingredientMatchesInventoryItem } from '#app/utils/recipe-matching.server.ts'
+import {
+	getInventoryUsage,
+	getUserTier,
+} from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {

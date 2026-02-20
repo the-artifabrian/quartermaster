@@ -5,7 +5,7 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 	page,
 	login,
 }) => {
-	const user = await login()
+	await login()
 
 	// 1. Create recipe
 	await page.goto('/recipes/new')

@@ -80,7 +80,7 @@ export function TimerWidget() {
 					<span className="text-sm font-semibold">Timers</span>
 					<button
 						onClick={() => setIsExpanded(false)}
-						className="text-muted-foreground hover:text-foreground rounded-md p-1"
+						className="text-muted-foreground hover:text-foreground rounded-md p-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2"
 						aria-label="Collapse timers"
 					>
 						<Icon name="cross-1" size="sm" />

@@ -1,3 +1,4 @@
+import { type ShoppingListItem } from '@prisma/client'
 import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
@@ -10,7 +11,6 @@ import {
 	getProduceCountDisplay,
 	isWeightUnit,
 } from '#app/utils/produce-weights.ts'
-import { type ShoppingListItem } from '@prisma/client'
 
 type ShoppingListItemCardProps = {
 	item: ShoppingListItem

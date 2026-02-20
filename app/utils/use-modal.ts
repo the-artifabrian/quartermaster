@@ -26,8 +26,9 @@ export function useModal(onClose: () => void) {
 			first?.focus()
 		}
 
+		const previouslyFocused = previouslyFocusedRef.current
 		return () => {
-			previouslyFocusedRef.current?.focus()
+			previouslyFocused?.focus()
 		}
 	}, [])
 

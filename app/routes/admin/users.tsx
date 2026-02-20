@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { useState } from 'react'
 import { Link, redirect } from 'react-router'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
@@ -116,10 +116,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 const tierStyles: Record<string, string> = {
-	pro: 'border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-400',
-	household:
-		'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-400',
-	free: 'border-gray-300 bg-gray-50 text-gray-600 dark:border-gray-600 dark:bg-gray-800/50 dark:text-gray-400',
+	pro: 'border-primary/30 bg-primary/10 text-primary',
+	household: 'border-accent/30 bg-accent/10 text-accent-foreground',
+	free: 'border-muted-foreground/30 bg-muted text-muted-foreground',
 }
 
 function TierBadge({ tier }: { tier: string }) {

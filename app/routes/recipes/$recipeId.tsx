@@ -2,14 +2,13 @@ import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Img } from 'openimg/react'
-import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
-import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
 import {
 	useFetcher,
 	useRouteLoaderData,
 	useSearchParams,
 } from 'react-router'
+import { toast } from 'sonner'
 import { Divider } from '#app/components/divider.tsx'
 import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
 import { RecipeActionBar } from '#app/components/recipe-action-bar.tsx'
@@ -20,24 +19,16 @@ import { RecipeInstructionsList } from '#app/components/recipe-instructions-list
 import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
-import { getUserTier } from '#app/utils/subscription.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { CookingLogSchema } from '#app/utils/cooking-log-validation.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { scaleAmount } from '#app/utils/fractions.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	subtractRecipeIngredientsFromInventory,
 	previewInventorySubtraction,
 	type SubtractionSummary,
 } from '#app/utils/inventory-subtract.server.ts'
-import {
-	buildInventoryLookup,
-	getCanonicalIngredientName,
-	ingredientMatchesAnyInventoryItem,
-	isStapleIngredient,
-} from '#app/utils/recipe-matching.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
 	type AppliedSubstitution,
@@ -45,8 +36,17 @@ import {
 	formatQuantity,
 	getRecipeJsonLd,
 } from '#app/utils/recipe-detail.ts'
+import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
+import {
+	buildInventoryLookup,
+	getCanonicalIngredientName,
+	ingredientMatchesAnyInventoryItem,
+	isStapleIngredient,
+} from '#app/utils/recipe-matching.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
+import { getUserTier } from '#app/utils/subscription.server.ts'
 import { trackEvent } from '#app/utils/usage-tracking.server.ts'
+import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
 import { type Route } from './+types/$recipeId.ts'
 
 export const handle: SEOHandle = {
@@ -222,11 +222,10 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	if (intent === 'previewSubtraction') {
 		if (!isProActive) return { success: false, requiresPro: true }
-		const servingRatio = parseFloat(String(formData.get('servingRatio') ?? '1'))
 		const preview = await previewInventorySubtraction(
 			recipeId,
 			householdId,
-			isNaN(servingRatio) || servingRatio <= 0 ? 1 : servingRatio,
+			parseServingRatio(formData),
 		)
 		if (formData.get('source') === 'whatDoINeed') {
 			void trackEvent(userId, householdId, 'what_do_i_need', { recipeId })
@@ -259,13 +258,10 @@ export async function action({ request, params }: Route.ActionArgs) {
 		const subtractInventory =
 			isProActive && formData.get('subtractInventory') === 'on'
 		if (subtractInventory) {
-			const servingRatio = parseFloat(
-				String(formData.get('servingRatio') ?? '1'),
-			)
 			const inventorySummary = await subtractRecipeIngredientsFromInventory(
 				recipeId,
 				householdId,
-				isNaN(servingRatio) || servingRatio <= 0 ? 1 : servingRatio,
+				parseServingRatio(formData),
 			)
 			return { success: true, inventorySummary }
 		}
@@ -320,7 +316,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			householdId,
 		})
 
-		trackEvent(userId, householdId, 'recipe_enhance_applied', {
+		void trackEvent(userId, householdId, 'recipe_enhance_applied', {
 			recipeId,
 			fields: Object.keys(updateData),
 		})
@@ -329,9 +325,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	}
 
 	if (intent === 'add-to-shopping-list') {
-		const servingRatio = parseFloat(String(formData.get('servingRatio') ?? '1'))
-		const safeRatio =
-			isNaN(servingRatio) || servingRatio <= 0 ? 1 : servingRatio
+		const safeRatio = parseServingRatio(formData)
 
 		// Re-run preview to get missing items
 		const preview = await previewInventorySubtraction(
@@ -444,7 +438,23 @@ export async function action({ request, params }: Route.ActionArgs) {
 	return { success: false }
 }
 
-// --- Main component ---
+function parseServingRatio(formData: FormData): number {
+	const raw = parseFloat(String(formData.get('servingRatio') ?? '1'))
+	return isNaN(raw) || raw <= 0 ? 1 : raw
+}
+
+function buildInventoryToast(summary: SubtractionSummary) {
+	const parts: string[] = []
+	if (summary.removed.length > 0) {
+		parts.push(`Removed ${summary.removed.join(', ')}.`)
+	}
+	if (summary.updated.length > 0) {
+		parts.push(`Updated ${summary.updated.join(', ')}.`)
+	}
+	return parts.length > 0
+		? parts.join(' ')
+		: 'No matching inventory items found.'
+}
 
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const { recipe, cookingLogs, isProActive, missingIngredientIds } = loaderData
@@ -508,18 +518,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				// No skipped items — close modal and show toast
 				setShowIMadeThisModal(false)
 				if (summary) {
-					const parts: string[] = []
-					if (summary.removed.length > 0) {
-						parts.push(`Removed ${summary.removed.join(', ')}.`)
-					}
-					if (summary.updated.length > 0) {
-						parts.push(`Updated ${summary.updated.join(', ')}.`)
-					}
 					toast.success('Inventory updated', {
-						description:
-							parts.length > 0
-								? parts.join(' ')
-								: 'No matching inventory items found.',
+						description: buildInventoryToast(summary),
 					})
 				} else {
 					toast.success('Cook logged!')
@@ -606,16 +606,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 	function handleModalClose() {
 		if (cookResult) {
-			const parts: string[] = []
-			if (cookResult.removed.length > 0) {
-				parts.push(`Removed ${cookResult.removed.join(', ')}.`)
-			}
-			if (cookResult.updated.length > 0) {
-				parts.push(`Updated ${cookResult.updated.join(', ')}.`)
-			}
-			if (parts.length > 0) {
-				toast.success('Inventory updated', { description: parts.join(' ') })
-			}
+			toast.success('Inventory updated', {
+				description: buildInventoryToast(cookResult),
+			})
 		}
 		setShowIMadeThisModal(false)
 		setCookResult(null)
@@ -642,16 +635,15 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				}}
 			/>
 
-			{/* Hero area */}
 			<div className="container-content pt-4 md:pt-6">
-				{/* Title + Image layout */}
+				{/* Hero: Title + Image */}
 				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
 					<div className="min-w-0 flex-1">
 						<h1 className="font-serif text-[2.25rem] leading-tight font-normal tracking-tight">
 							{recipe.title}
 						</h1>
 						{recipe.isAiGenerated && (
-							<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary dark:border-primary/30 dark:bg-primary/10 dark:text-primary">
+							<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
 								<Icon name="sparkles" className="size-3" />
 								AI Generated
 							</span>
@@ -677,10 +669,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						</div>
 					)}
 				</div>
-			</div>
-
-			{/* Content */}
-			<div className="container-content">
 				{/* Description */}
 				{recipe.description && (
 					<p className="text-muted-foreground mt-5 text-base leading-relaxed">
@@ -801,7 +789,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					<div className="mt-10 print:hidden">
 						<button
 							onClick={() => setHistoryExpanded((v) => !v)}
-							className="text-foreground hover:text-foreground mb-4 flex w-full items-center gap-2 text-left font-serif text-lg font-normal"
+							className="text-foreground mb-4 flex w-full items-center gap-2 text-left font-serif text-lg font-normal"
 						>
 							<Icon
 								name="chevron-down"

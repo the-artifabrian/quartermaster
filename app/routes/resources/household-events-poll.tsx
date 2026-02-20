@@ -1,7 +1,7 @@
 import { data } from 'react-router'
 import { prisma } from '#app/utils/db.server.ts'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { type HouseholdEventData } from '#app/utils/household-events.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { type Route } from './+types/household-events-poll.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {

@@ -12,7 +12,6 @@ import {
 	createAdminCodes,
 	redeemInviteCode,
 	getAvailableCodeCount,
-	getUserInviteCodes,
 } from './invite-codes.server.ts'
 
 async function setupUser() {

@@ -16,8 +16,8 @@ import {
 } from '#app/utils/stripe.server.ts'
 import { getUserTier, type TierInfo } from '#app/utils/subscription.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
-import { type action as redeemAction } from './resources/redeem-invite-code.tsx'
 import { type Route } from './+types/upgrade.ts'
+import { type action as redeemAction } from './resources/redeem-invite-code.tsx'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,

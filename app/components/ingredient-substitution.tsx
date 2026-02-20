@@ -103,7 +103,7 @@ function SubstitutionPopover({
 						{children}
 						<Icon
 							name="shuffle"
-							className="size-3.5 shrink-0 text-amber-500/70 transition-colors hover:text-amber-600"
+							className="size-3.5 shrink-0 text-accent/70 transition-colors hover:text-accent"
 						/>
 					</span>
 				</PopoverTrigger>
@@ -195,7 +195,7 @@ function SubstitutionItem({
 			<div className="flex items-start gap-1.5">
 				<span className="text-sm font-medium">{sub.replacement}</span>
 				{sub.inInventory && (
-					<span className="mt-0.5 shrink-0 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+					<span className="mt-0.5 shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
 						You have this
 					</span>
 				)}

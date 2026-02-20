@@ -1,17 +1,17 @@
-import { describe, expect, test, vi } from 'vitest'
 import { type AppLoadContext } from 'react-router'
+import { describe, expect, test, vi } from 'vitest'
 
 vi.mock('#app/utils/household-events.server.ts', () => ({
 	emitHouseholdEvent: vi.fn(),
 }))
-import { prisma } from '#app/utils/db.server.ts'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getWeekStart, parseDate, serializeDate } from '#app/utils/date.ts'
+import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
-import { action as planAction } from './index.tsx'
 import { action as copyWeekAction } from '../resources/meal-plan-copy-week.tsx'
 import { action as templateAction } from '../resources/meal-plan-templates.tsx'
+import { action as planAction } from './index.tsx'
 
 const PLAN_ACTION_ARGS = {
 	params: {},

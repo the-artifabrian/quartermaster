@@ -13,12 +13,12 @@ import {
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { getUserTier } from '#app/utils/subscription.server.ts'
 import { cn, useDebounce } from '#app/utils/misc.tsx'
 import {
 	matchRecipesWithInventory,
 	type RecipeMatch,
 } from '#app/utils/recipe-matching.server.ts'
+import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {

@@ -3,13 +3,13 @@ import { useState } from 'react'
 import { type useFetcher } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import type { SubtractionSummary } from '#app/utils/inventory-subtract.server.ts'
+import { type SubtractionSummary } from '#app/utils/inventory-subtract.server.ts'
 import { cn } from '#app/utils/misc.tsx'
-import { useModal } from '#app/utils/use-modal.ts'
 import {
 	type SubtractionPreviewData,
 	formatQuantity,
 } from '#app/utils/recipe-detail.ts'
+import { useModal } from '#app/utils/use-modal.ts'
 
 function formatSkipReason(
 	items: Array<{ name: string; reason: string }>,
@@ -80,7 +80,7 @@ export function IMadeThisModal({
 					<button
 						onClick={onClose}
 						aria-label="Close"
-						className="text-muted-foreground hover:text-foreground rounded-md p-1"
+						className="text-muted-foreground hover:text-foreground rounded-md p-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2"
 					>
 						<Icon name="cross-1" size="sm" />
 					</button>
@@ -271,7 +271,7 @@ function ReviewState({
 					<button
 						onClick={onClose}
 						aria-label="Close"
-						className="text-muted-foreground hover:text-foreground rounded-md p-1"
+						className="text-muted-foreground hover:text-foreground rounded-md p-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2"
 					>
 						<Icon name="cross-1" size="sm" />
 					</button>

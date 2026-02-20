@@ -1,5 +1,4 @@
 import type Stripe from 'stripe'
-import { type Route } from './+types/stripe-webhook.ts'
 import {
 	getStripeClient,
 	handleCheckoutCompleted,
@@ -7,6 +6,7 @@ import {
 	handleSubscriptionUpdated,
 	handleSubscriptionDeleted,
 } from '#app/utils/stripe.server.ts'
+import { type Route } from './+types/stripe-webhook.ts'
 
 /**
  * Stripe webhook endpoint. No session auth — uses Stripe signature verification.

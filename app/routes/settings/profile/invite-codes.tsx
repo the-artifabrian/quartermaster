@@ -77,7 +77,7 @@ export default function InviteCodesPage({ loaderData }: Route.ComponentProps) {
 									className="flex items-center justify-between rounded-lg px-4 py-2"
 								>
 									<div className="flex items-center gap-3">
-										<code className="rounded bg-gray-100 px-2 py-1 font-mono text-sm dark:bg-gray-800">
+										<code className="rounded bg-muted px-2 py-1 font-mono text-sm">
 											{code.code}
 										</code>
 										<span

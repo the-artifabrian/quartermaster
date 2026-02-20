@@ -142,9 +142,9 @@ export function RecipeCard({
 									className={cn(
 										'inline-block size-1.5 rounded-full',
 										matchPercentage >= 80
-											? 'bg-green-500'
+											? 'bg-primary'
 											: matchPercentage >= 50
-												? 'bg-amber-500'
+												? 'bg-accent'
 												: 'bg-muted-foreground/40',
 									)}
 								/>
@@ -162,7 +162,7 @@ export function RecipeCard({
 				)}
 
 				{/* Desktop-only: cook stats + time */}
-				<div className="mt-2 hidden items-center gap-3 md:flex">
+				<div className="mt-auto hidden items-center gap-3 pt-2 md:flex">
 					{totalTime > 0 && (
 						<span className="flex items-center gap-1 text-xs text-muted-foreground">
 							<Icon name="clock" size="xs" />

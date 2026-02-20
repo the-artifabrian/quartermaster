@@ -21,7 +21,7 @@ export function RecipeInstructionsList({
 }) {
 	return (
 		<div>
-			<h2 className="mb-4 text-lg font-semibold">Instructions</h2>
+			<h2 className="mb-4 font-serif text-lg font-normal">Instructions</h2>
 			<ol className="space-y-4">
 				{instructions.map((instruction, index) => {
 					const isChecked = checkedSteps.has(instruction.id)
@@ -32,9 +32,8 @@ export function RecipeInstructionsList({
 							aria-checked={isChecked}
 							tabIndex={0}
 							className={cn(
-								'flex cursor-pointer gap-4 rounded-lg px-3 py-3 transition-all select-none',
-								'hover:bg-muted/50',
-								'focus-visible:ring-primary/50 focus-visible:ring-2 focus-visible:outline-none',
+								'flex cursor-pointer gap-4 px-1 py-2 transition-all select-none',
+								'focus-visible:ring-primary/50 focus-visible:rounded-lg focus-visible:ring-2 focus-visible:outline-none',
 							)}
 							onClick={() => onToggleStep(instruction.id)}
 							onKeyDown={(e) => {
@@ -46,18 +45,18 @@ export function RecipeInstructionsList({
 						>
 							<span
 								className={cn(
-									'flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors',
+									'font-serif flex size-8 shrink-0 items-center justify-center text-[1.5rem] leading-none font-normal transition-colors',
 									isChecked
-										? 'bg-primary/20 text-primary'
-										: 'bg-accent/10 text-accent border-accent/20 border',
+										? 'text-primary/40'
+										: 'text-muted-foreground',
 								)}
 							>
-								{isChecked ? <Icon name="check" size="sm" /> : index + 1}
+								{isChecked ? <Icon name="check" className="size-5 text-primary" /> : index + 1}
 							</span>
 							<p
 								className={cn(
-									'pt-1 text-base transition-colors',
-									isChecked && 'text-muted-foreground/50 line-through',
+									'pt-0.5 text-[1.0625rem] leading-[1.75] transition-colors md:text-base md:leading-[1.75]',
+									isChecked && 'text-muted-foreground/40 line-through decoration-muted-foreground/30',
 								)}
 							>
 								<InstructionWithTimers

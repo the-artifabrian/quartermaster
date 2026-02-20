@@ -438,9 +438,9 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="from-card to-background border-border/50 border-b bg-linear-to-b">
-				<div className="container flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between">
-					<h1 className="text-2xl font-bold">Meal Plan</h1>
+			<div className="container-grid py-4">
+				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+					<h1 className="font-serif text-2xl">Meal Plan</h1>
 					<div className="flex flex-wrap gap-2">
 						{entries.length > 0 && (
 							<Button
@@ -471,19 +471,11 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 								</Button>
 							</Form>
 						)}
-						<Button asChild variant="outline" size="sm">
-							<Link to="/shopping">
-								<Icon name="file-text" size="sm" />
-								Shopping List
-							</Link>
-						</Button>
 					</div>
 				</div>
-			</div>
 
-			<div className="container py-6">
 				{/* Week Navigation */}
-				<div className="mb-6 flex items-center justify-between">
+				<div className="mt-4 flex items-center justify-between">
 					<Button asChild variant="ghost" size="sm">
 						<Link to={`/plan?weekStart=${prevWeek}`}>
 							<Icon name="arrow-left" size="sm" />
@@ -492,7 +484,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					</Button>
 
 					<div className="text-center">
-						<p className="text-lg font-semibold">
+						<p className="font-serif text-lg">
 							{formatWeekRange(parseDate(weekStart))}
 						</p>
 						{weekStart !== currentWeek && (
@@ -509,7 +501,9 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						</Link>
 					</Button>
 				</div>
+			</div>
 
+			<div className="container-grid">
 				{/* Tonight banner (current week only) */}
 				{tonightData &&
 					(tonightData.entries.length > 0 || tonightData.suggestion) && (
@@ -521,9 +515,9 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 
 				{/* Empty State Guidance */}
 				{entries.length === 0 && (
-					<div className="bg-card shadow-warm-lg mb-6 rounded-2xl p-8 text-center">
-						<h3 className="font-serif text-xl">Plan Your Week</h3>
-						<p className="text-muted-foreground mx-auto mt-2 max-w-md text-sm">
+					<div className="bg-card shadow-warm-lg mb-4 rounded-2xl p-6 text-center">
+						<h2 className="font-serif text-xl">Plan Your Week</h2>
+						<p className="text-muted-foreground mx-auto mt-1.5 max-w-md text-sm">
 							Pick recipes for each day, then generate a shopping list with
 							everything you need. Tap any slot below to get started.
 						</p>

@@ -9,8 +9,6 @@ import { ShoppingListToInventory } from '#app/components/shopping-list-to-invent
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
-import { Label } from '#app/components/ui/label.tsx'
-import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { subscribeToHouseholdEvents } from '#app/utils/household-event-source.client.tsx'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
@@ -537,7 +535,7 @@ export default function ShoppingListRoute({
 
 	const [search, setSearch] = useState('')
 	const [showReview, setShowReview] = useState(false)
-	const [quickAddOpen, setQuickAddOpen] = useState(true)
+	const [quickAddOpen, setQuickAddOpen] = useState(false)
 
 	// Warning dismiss state
 	const [warningDismissed, setWarningDismissed] = useState(false)
@@ -563,16 +561,11 @@ export default function ShoppingListRoute({
 		<div className="pb-20 md:pb-6">
 			<ShoppingListLiveRefresh />
 			{/* Page Header */}
-			<div className="from-card to-background border-border/50 border-b bg-linear-to-b print:border-0">
-				<div className="container py-4">
+			<div className="border-border/50 border-b print:border-0">
+				<div className="container-narrow py-4">
 					<div className="flex items-center gap-3">
-						<h1 className="text-2xl font-bold">
+						<h1 className="font-serif text-2xl font-normal">
 							Shopping List
-							{totalItems > 0 && (
-								<span className="text-muted-foreground ml-2 text-base font-normal">
-									{checkedItems}/{totalItems}
-								</span>
-							)}
 						</h1>
 						<div className="ml-auto flex items-center gap-2 print:hidden">
 							{hasMealPlan && (
@@ -583,7 +576,7 @@ export default function ShoppingListRoute({
 										<select
 											value={selectedWeek}
 											onChange={(e) => setSelectedWeek(e.target.value)}
-											className="border-input bg-background h-9 rounded-md border px-2 text-sm"
+											className="h-8 rounded-md border border-border bg-background px-2 text-sm"
 										>
 											{weeksWithPlans.map((week) => (
 												<option key={week.weekStart} value={week.weekStart}>
@@ -605,7 +598,7 @@ export default function ShoppingListRoute({
 									size="icon"
 									onClick={() => window.print()}
 									aria-label="Print shopping list"
-									className="sm:hidden"
+									className="h-9 w-9 sm:hidden"
 								>
 									<Icon name="file-text" size="sm" />
 								</Button>
@@ -628,114 +621,130 @@ export default function ShoppingListRoute({
 					'removedCount' in actionData &&
 					typeof actionData.removedCount === 'number' &&
 					actionData.removedCount > 0 && (
-						<p className="text-muted-foreground container pb-4 text-center text-sm">
+						<p className="text-muted-foreground container-narrow pb-4 text-center text-sm">
 							{actionData.removedCount} items already in inventory or staples
 						</p>
 					)}
 			</div>
 
-			<div className="container py-6">
-				{/* Quick Add — collapsible */}
-				<div className="mb-6 print:hidden">
-					<button
-						type="button"
-						onClick={() => setQuickAddOpen((v) => !v)}
-						className="bg-card flex w-full items-center gap-2 rounded-lg border px-4 py-3 text-left text-sm font-semibold"
-					>
-						<Icon name="plus" size="sm" />
-						Quick Add
-						<Icon
-							name="chevron-down"
-							size="sm"
-							className={`text-muted-foreground ml-auto transition-transform ${!quickAddOpen ? '-rotate-90' : ''}`}
+			{/* Progress bar */}
+			{totalItems > 0 && (
+				<div className="container-narrow pt-5 print:hidden">
+					<div className="h-1 overflow-hidden rounded-full bg-muted">
+						<div
+							className="h-full rounded-full bg-primary transition-all duration-300"
+							style={{
+								width: `${(checkedItems / totalItems) * 100}%`,
+							}}
 						/>
-					</button>
-					{quickAddOpen && (
-						<div className="bg-card rounded-b-lg border border-t-0 p-4">
-							{/* Warning banner */}
-							{showWarning && (
-								<WarningBanner
-									actionData={actionData}
-									onDismiss={() => setWarningDismissed(true)}
-								/>
-							)}
-
-							<Form
-								method="POST"
-								{...getFormProps(form)}
-								onChange={() => setWarningDismissed(false)}
-							>
-								<input type="hidden" name="intent" value="add" />
-								{showWarning && (
-									<input type="hidden" name="force" value="true" />
-								)}
-								<div className="space-y-3">
-									<div>
-										<Label htmlFor={fields.name.id}>Item Name</Label>
-										<Input
-											{...getInputProps(fields.name, { type: 'text' })}
-											placeholder="e.g., Milk, Eggs, Toilet Paper"
-											defaultValue={
-												showWarning && 'submittedName' in actionData
-													? (actionData.submittedName as string)
-													: undefined
-											}
-										/>
-										{fields.name.errors && (
-											<p className="text-destructive mt-1 text-sm">
-												{fields.name.errors}
-											</p>
-										)}
-									</div>
-									<div className="flex gap-2">
-										<div className="flex-1">
-											<Label htmlFor={fields.quantity.id}>Quantity</Label>
-											<Input
-												{...getInputProps(fields.quantity, { type: 'text' })}
-												placeholder="e.g., 2, 1/2"
-												defaultValue={
-													showWarning && 'submittedQuantity' in actionData
-														? ((actionData.submittedQuantity as string) ?? '')
-														: undefined
-												}
-											/>
-										</div>
-										<div className="flex-1">
-											<Label htmlFor={fields.unit.id}>Unit</Label>
-											<Input
-												{...getInputProps(fields.unit, { type: 'text' })}
-												placeholder="e.g., cups, lbs"
-												defaultValue={
-													showWarning && 'submittedUnit' in actionData
-														? ((actionData.submittedUnit as string) ?? '')
-														: undefined
-												}
-											/>
-										</div>
-									</div>
-									<StatusButton
-										type="submit"
-										status={isPending ? 'pending' : 'idle'}
-										disabled={isPending}
-										className="w-full"
-									>
-										<Icon name="plus" size="sm" />
-										{showWarning ? 'Add Anyway' : 'Add to List'}
-									</StatusButton>
-								</div>
-							</Form>
-						</div>
-					)}
+					</div>
 				</div>
+			)}
 
+			<div className="container-narrow py-4">
 				{/* Low Stock Nudge */}
 				{lowStockSuggestions.length > 0 && !showReview && (
-					<LowStockNudge items={lowStockSuggestions} />
+					<div className="mb-4">
+						<LowStockNudge items={lowStockSuggestions} />
+					</div>
 				)}
 
-				{/* Search */}
-				{totalItems > 0 && (
-					<div className="relative mb-4 print:hidden">
+				{/* Quick Add — ruled line */}
+				<div className="mb-2 print:hidden">
+					{/* Warning banner */}
+					{showWarning && (
+						<WarningBanner
+							actionData={actionData}
+							onDismiss={() => setWarningDismissed(true)}
+						/>
+					)}
+
+					<Form
+						method="POST"
+						{...getFormProps(form)}
+						onChange={() => setWarningDismissed(false)}
+					>
+						<input type="hidden" name="intent" value="add" />
+						{showWarning && (
+							<input type="hidden" name="force" value="true" />
+						)}
+						<div className="flex items-end gap-2 border-b border-border pb-2">
+							<div className="min-w-0 flex-1">
+								<Input
+									{...getInputProps(fields.name, { type: 'text' })}
+									placeholder="Add an item..."
+									defaultValue={
+										showWarning && 'submittedName' in actionData
+											? (actionData.submittedName as string)
+											: undefined
+									}
+									className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+								/>
+								{fields.name.errors && (
+									<p className="text-destructive mt-1 text-sm">
+										{fields.name.errors}
+									</p>
+								)}
+							</div>
+							<button
+								type="submit"
+								disabled={isPending}
+								className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+								aria-label={showWarning ? 'Add anyway' : 'Add to list'}
+							>
+								<Icon name="plus" className="size-5" />
+							</button>
+						</div>
+						{quickAddOpen && (
+							<div className="flex items-end gap-3 border-b border-border/50 pt-1 pb-2">
+								<div className="min-w-0 flex-1">
+									<Input
+										{...getInputProps(fields.quantity, { type: 'text' })}
+										placeholder="Qty"
+										defaultValue={
+											showWarning && 'submittedQuantity' in actionData
+												? ((actionData.submittedQuantity as string) ?? '')
+												: undefined
+										}
+										className="border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
+									/>
+								</div>
+								<div className="min-w-0 flex-1">
+									<Input
+										{...getInputProps(fields.unit, { type: 'text' })}
+										placeholder="Unit"
+										defaultValue={
+											showWarning && 'submittedUnit' in actionData
+												? ((actionData.submittedUnit as string) ?? '')
+												: undefined
+										}
+										className="border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
+									/>
+								</div>
+								<button
+									type="button"
+									onClick={() => setQuickAddOpen(false)}
+									className="mb-0.5 shrink-0 text-xs text-muted-foreground/50 hover:text-muted-foreground"
+								>
+									Hide
+								</button>
+							</div>
+						)}
+						{!quickAddOpen && (
+							<button
+								type="button"
+								onClick={() => setQuickAddOpen(true)}
+								className="pt-1 text-xs text-muted-foreground/50 hover:text-muted-foreground"
+							>
+								+ Qty / Unit
+							</button>
+						)}
+					</Form>
+				</div>
+
+				{/* Search — only shown with 15+ items */}
+				{totalItems >= 15 && (
+					<div className="relative mt-4 print:hidden">
 						<Icon
 							name="magnifying-glass"
 							size="sm"
@@ -753,42 +762,35 @@ export default function ShoppingListRoute({
 
 				{/* Item List */}
 				{totalItems > 0 ? (
-					<div className="space-y-4">
+					<div className="mt-2">
 						{search && filteredItems.length === 0 ? (
-							<div className="flex flex-col items-center justify-center py-16 text-center">
-								<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
-									<Icon
-										name="magnifying-glass"
-										className="text-accent/50 size-10"
-									/>
-								</div>
-								<h3 className="mt-4 font-serif text-lg font-semibold">
+							<div className="py-12 text-center">
+								<p className="text-muted-foreground text-sm">
 									No items matching &ldquo;{search}&rdquo;
-								</h3>
-								<p className="text-muted-foreground mt-2 max-w-sm text-sm">
-									Try a different search term.
 								</p>
-								<Button
-									variant="outline"
-									className="mt-4"
+								<button
+									type="button"
+									className="mt-2 text-sm text-primary underline underline-offset-2"
 									onClick={() => setSearch('')}
 								>
-									Clear Search
-								</Button>
+									Clear search
+								</button>
 							</div>
 						) : (
-							<div className="space-y-2">
+							<div>
 								{filteredItems.map((item, index) => {
 									const prevCategory =
 										index > 0 ? filteredItems[index - 1]?.category : null
-									const showHeader = !search && item.category !== prevCategory
+									const showHeader =
+										!search && item.category !== prevCategory
 									return (
 										<div key={item.id}>
 											{showHeader && (
 												<h3
-													className={`text-muted-foreground mb-1 text-xs font-semibold tracking-wider uppercase ${index > 0 ? 'mt-3' : ''}`}
+													className={`text-[0.75rem] font-medium tracking-[0.08em] uppercase ${index > 0 ? 'pt-5' : 'pt-1'} pb-0 text-[#A69B8F] dark:text-[#8A7F73]`}
 												>
-													{CATEGORY_LABELS[item.category ?? 'other'] ?? 'Other'}
+													{CATEGORY_LABELS[item.category ?? 'other'] ??
+														'Other'}
 												</h3>
 											)}
 											<ShoppingListItemCard item={item} />
@@ -800,48 +802,47 @@ export default function ShoppingListRoute({
 
 						{/* Checked Item Actions */}
 						{checkedItems > 0 && !showReview && !search && (
-							<div className="space-y-2 print:hidden">
-								<Button
-									variant="default"
-									className="w-full"
+							<div className="flex items-center justify-center gap-4 pt-4 animate-slide-up-reveal print:hidden">
+								<button
+									type="button"
 									onClick={() => setShowReview(true)}
+									className="text-sm text-primary hover:text-primary/80 underline underline-offset-2"
 								>
-									<Icon name="plus" size="sm" />
-									Add Checked to Inventory ({checkedItems})
-								</Button>
-								<Form method="POST">
-									<input type="hidden" name="intent" value="clear-checked" />
-									<Button type="submit" variant="outline" className="w-full">
-										<Icon name="trash" size="sm" />
-										Clear Checked Items ({checkedItems})
-									</Button>
+									Add to inventory ({checkedItems})
+								</button>
+								<span className="text-border">·</span>
+								<Form method="POST" className="inline">
+									<input
+										type="hidden"
+										name="intent"
+										value="clear-checked"
+									/>
+									<button
+										type="submit"
+										className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
+									>
+										Clear checked
+									</button>
 								</Form>
-							</div>
-						)}
-
-						{/* Inventory Review Panel */}
-						{showReview && checkedItems > 0 && !search && (
-							<div className="print:hidden">
-								<ShoppingListToInventory
-									items={checkedItemsList}
-									onCancel={() => setShowReview(false)}
-								/>
 							</div>
 						)}
 					</div>
 				) : (
-					<div className="rounded-2xl border border-dashed p-8 text-center">
-						<div className="bg-accent/10 mx-auto flex size-20 items-center justify-center rounded-2xl">
-							<Icon name="cart" className="text-accent/50 size-10" />
+					<div className="py-12 text-center">
+						<div className="mx-auto flex size-16 items-center justify-center rounded-full border-2 border-dashed border-border">
+							<Icon
+								name="cart"
+								className="size-7 text-muted-foreground/40"
+							/>
 						</div>
-						<h3 className="mt-4 font-serif text-lg font-semibold">
+						<h2 className="mt-4 font-serif text-lg">
 							Nothing on the list
-						</h3>
+						</h2>
 						<p className="text-muted-foreground mx-auto mt-2 max-w-sm text-sm">
 							{hasMealPlan ? (
 								<>
-									Hit Generate to build your list from the meal plan, or add
-									items manually.
+									Hit Generate to build your list from the meal plan, or
+									type above to add items.
 								</>
 							) : (
 								<>
@@ -852,12 +853,27 @@ export default function ShoppingListRoute({
 									>
 										meal plan
 									</Link>{' '}
-									to auto-generate your list, or add items manually.
+									to auto-generate your list, or type above to add items.
 								</>
 							)}
 						</p>
 					</div>
 				)}
+
+				{/* Inventory Review Panel */}
+				{showReview && checkedItems > 0 && !search && (
+					<div className="mt-4 print:hidden">
+						<ShoppingListToInventory
+							items={checkedItemsList}
+							onCancel={() => setShowReview(false)}
+						/>
+					</div>
+				)}
+
+				{/* Print footer */}
+				<p className="hidden pt-8 text-center text-xs text-muted-foreground print:block">
+					Quartermaster
+				</p>
 			</div>
 		</div>
 	)
@@ -913,10 +929,9 @@ function LowStockNudge({ items }: { items: LowStockItem[] }) {
 	const isAddingAll = addAllFetcher.state !== 'idle'
 
 	return (
-		<div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950/30 print:hidden">
+		<div className="mb-6 rounded-lg bg-accent/8 p-4 print:hidden">
 			<div className="mb-3 flex items-center justify-between gap-2">
-				<h3 className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200">
-					<Icon name="question-mark-circled" className="size-4" />
+				<h3 className="text-[0.75rem] font-medium tracking-[0.08em] uppercase text-accent">
 					Running low
 				</h3>
 				<addAllFetcher.Form method="POST">
@@ -926,15 +941,13 @@ function LowStockNudge({ items }: { items: LowStockItem[] }) {
 						name="names"
 						value={JSON.stringify(items.map((i) => i.name))}
 					/>
-					<Button
+					<button
 						type="submit"
-						variant="ghost"
-						size="sm"
-						className="h-7 text-xs text-amber-800 dark:text-amber-200"
+						className="text-xs text-accent underline underline-offset-2 hover:text-accent/80 disabled:opacity-50"
 						disabled={isAddingAll}
 					>
-						{isAddingAll ? 'Adding...' : `Add All (${items.length})`}
-					</Button>
+						{isAddingAll ? 'Adding...' : `Add all (${items.length})`}
+					</button>
 				</addAllFetcher.Form>
 			</div>
 			<div className="flex flex-wrap gap-2">
@@ -952,7 +965,7 @@ function LowStockChip({ item }: { item: LowStockItem }) {
 
 	if (isAdding) {
 		return (
-			<span className="inline-flex items-center gap-1 rounded-full border border-green-300 bg-green-50 px-3 py-1 text-xs font-medium text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-400">
+			<span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
 				<Icon name="check" className="size-3" />
 				{item.name}
 			</span>
@@ -965,10 +978,10 @@ function LowStockChip({ item }: { item: LowStockItem }) {
 			<input type="hidden" name="itemName" value={item.name} />
 			<button
 				type="submit"
-				className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/50"
+				className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium transition-colors hover:border-accent/30 hover:bg-accent/5"
 			>
 				{item.name}
-				<Icon name="plus" className="size-3" />
+				<Icon name="plus" className="size-3 text-muted-foreground" />
 			</button>
 		</fetcher.Form>
 	)
@@ -988,22 +1001,22 @@ function WarningBanner({
 			? `${actionData.existingQuantity}${actionData.existingUnit ? ` ${actionData.existingUnit}` : ''}`
 			: null
 		return (
-			<div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950/30">
+			<div className="mb-3 flex items-start gap-2 rounded-lg bg-accent/10 p-3">
 				<Icon
 					name="question-mark-circled"
-					className="mt-0.5 size-4 shrink-0 text-amber-600"
+					className="mt-0.5 size-4 shrink-0 text-accent"
 				/>
 				<div className="flex-1 text-sm">
-					<p className="font-medium text-amber-800 dark:text-amber-200">
+					<p className="font-medium">
 						{actionData.existingName as string} is already on your list
 						{qty ? ` (${qty})` : ''}.
 					</p>
 					<p className="text-muted-foreground mt-0.5">
-						Submit again to add anyway, or{' '}
+						Tap + to add anyway, or{' '}
 						<button
 							type="button"
 							onClick={onDismiss}
-							className="text-primary underline"
+							className="text-primary underline underline-offset-2"
 						>
 							cancel
 						</button>
@@ -1020,22 +1033,22 @@ function WarningBanner({
 			? `${actionData.inventoryQuantity}${actionData.inventoryUnit ? ` ${actionData.inventoryUnit}` : ''}`
 			: null
 		return (
-			<div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950/30">
+			<div className="mb-3 flex items-start gap-2 rounded-lg bg-accent/10 p-3">
 				<Icon
 					name="question-mark-circled"
-					className="mt-0.5 size-4 shrink-0 text-amber-600"
+					className="mt-0.5 size-4 shrink-0 text-accent"
 				/>
 				<div className="flex-1 text-sm">
-					<p className="font-medium text-amber-800 dark:text-amber-200">
+					<p className="font-medium">
 						{actionData.inventoryName as string} is in your {loc}
 						{qty ? ` (${qty})` : ''}.
 					</p>
 					<p className="text-muted-foreground mt-0.5">
-						Submit again to add anyway, or{' '}
+						Tap + to add anyway, or{' '}
 						<button
 							type="button"
 							onClick={onDismiss}
-							className="text-primary underline"
+							className="text-primary underline underline-offset-2"
 						>
 							cancel
 						</button>

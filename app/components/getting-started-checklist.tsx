@@ -105,7 +105,7 @@ export function GettingStartedChecklist({
 						key={step.title}
 						className={cn(
 							'flex items-center gap-3 rounded-xl px-4 py-3',
-							step.done ? 'bg-primary/5' : 'bg-muted/50',
+							step.done ? 'bg-secondary/30' : 'bg-muted/30',
 						)}
 					>
 						<div

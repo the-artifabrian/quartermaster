@@ -10,9 +10,9 @@ import { Checkbox } from './ui/checkbox.tsx'
 import { Icon } from './ui/icon.tsx'
 
 const locationBadgeColors: Record<string, string> = {
-	pantry: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-200',
-	fridge: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-200',
-	freezer: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-200',
+	pantry: 'bg-accent/10 text-accent dark:bg-accent/20',
+	fridge: 'bg-primary/10 text-primary dark:bg-primary/20',
+	freezer: 'bg-muted text-muted-foreground',
 }
 
 type InventoryReviewItem = {
@@ -139,14 +139,11 @@ export function ShoppingListToInventory({
 	}
 
 	return (
-		<div className="bg-muted/50 rounded-xl border p-5">
+		<div className="rounded-xl border border-border/50 bg-secondary/30 p-5">
 			<div className="mb-4">
-				<h3 className="flex items-center gap-2 text-lg font-semibold">
-					<Icon name="plus" className="size-5" />
-					Add to Inventory
-				</h3>
+				<h3 className="font-serif text-lg font-normal">Add to Inventory</h3>
 				<p className="text-muted-foreground mt-1 text-sm">
-					Tap a row to adjust storage or expiry. Defaults are usually right.
+					Tap a row to adjust storage or expiry.
 				</p>
 			</div>
 
@@ -158,21 +155,21 @@ export function ShoppingListToInventory({
 							onClick={handleSelectAll}
 							className="text-primary text-xs font-medium hover:underline"
 						>
-							{allSelected ? 'Deselect All' : 'Select All'}
+							{allSelected ? 'Deselect all' : 'Select all'}
 						</button>
 						<span className="text-muted-foreground text-xs">
-							{selectedCount}/{reviewItems.length} selected
+							{selectedCount}/{reviewItems.length}
 						</span>
 					</div>
 
-					<div className="space-y-1">
+					<div className="divide-y divide-border/40">
 						{reviewItems.map((item) => {
 							const isExpanded = expandedIds.has(item.id)
 							return (
-								<div key={item.id} className="bg-background rounded-lg">
+								<div key={item.id}>
 									{/* Compact row */}
 									<div
-										className="flex cursor-pointer items-center gap-3 px-3 py-2.5"
+										className="flex cursor-pointer items-center gap-3 py-3"
 										onClick={() => toggleExpanded(item.id)}
 									>
 										<div
@@ -224,7 +221,7 @@ export function ShoppingListToInventory({
 
 									{/* Expanded controls */}
 									{isExpanded && (
-										<div className="flex flex-wrap items-center gap-3 border-t px-3 py-2.5">
+										<div className="flex flex-wrap items-center gap-3 border-t border-border/30 px-3 py-2.5">
 											<div className="flex items-center gap-2">
 												<label className="text-muted-foreground text-xs">
 													Location
@@ -237,7 +234,7 @@ export function ShoppingListToInventory({
 															e.target.value as 'pantry' | 'fridge' | 'freezer',
 														)
 													}
-													className="bg-muted rounded-md border px-2 py-1 text-sm"
+													className="bg-background rounded-md border border-border px-2 py-1 text-sm"
 												>
 													<option value="pantry">Pantry</option>
 													<option value="fridge">Fridge</option>
@@ -254,7 +251,7 @@ export function ShoppingListToInventory({
 													onChange={(e) =>
 														handleExpiryChange(item.id, e.target.value || null)
 													}
-													className="bg-muted w-[130px] rounded-md border px-2 py-1 text-sm"
+													className="bg-background w-[130px] rounded-md border border-border px-2 py-1 text-sm"
 													aria-label={`Expiry date for ${item.name}`}
 												/>
 											</div>
@@ -274,12 +271,18 @@ export function ShoppingListToInventory({
 				</p>
 			)}
 
-			<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
-				<Button variant="ghost" onClick={onCancel} disabled={isSubmitting}>
+			<div className="mt-4 flex items-center justify-end gap-4">
+				<button
+					type="button"
+					onClick={onCancel}
+					disabled={isSubmitting}
+					className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-50"
+				>
 					Cancel
-				</Button>
+				</button>
 				<Button
 					onClick={handleSubmit}
+					size="sm"
 					disabled={
 						(selectedCount === 0 && householdCount === 0) || isSubmitting
 					}
@@ -287,15 +290,9 @@ export function ShoppingListToInventory({
 					{isSubmitting ? (
 						'Processing...'
 					) : selectedCount === 0 && householdCount > 0 ? (
-						<>
-							<Icon name="trash" size="sm" />
-							Clear Household Items
-						</>
+						<>Clear Household Items</>
 					) : (
-						<>
-							<Icon name="plus" size="sm" />
-							Add {selectedCount} to Inventory
-						</>
+						<>Add {selectedCount} to Inventory</>
 					)}
 				</Button>
 			</div>

@@ -32,7 +32,7 @@ export function MatchProgressRing({
 					cx="20"
 					cy="20"
 					r="16"
-					strokeWidth="3"
+					strokeWidth="2.5"
 					className="stroke-muted"
 				/>
 				{/* Filled arc */}
@@ -40,7 +40,7 @@ export function MatchProgressRing({
 					cx="20"
 					cy="20"
 					r="16"
-					strokeWidth="3"
+					strokeWidth="2.5"
 					strokeLinecap="round"
 					strokeDasharray={CIRCUMFERENCE}
 					strokeDashoffset={offset}

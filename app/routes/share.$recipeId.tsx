@@ -8,6 +8,7 @@ import {
 	useRouteLoaderData,
 	useSearchParams,
 } from 'react-router'
+import { Divider } from '#app/components/divider.tsx'
 import { InstructionWithTimers } from '#app/components/instruction-with-timers.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -283,115 +284,117 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 				}}
 			/>
 
-			{/* Header */}
-			<div className="container max-w-4xl px-4 pt-4 md:px-8 md:pt-6">
+			{/* Hero area */}
+			<div className="container-content pt-4 md:pt-6">
 				<p className="text-muted-foreground mb-2 text-sm">
 					Shared{recipe.user.name ? ` by ${recipe.user.name}` : ''} on{' '}
 					<Link to="/" className="text-primary hover:underline">
 						Quartermaster
 					</Link>
 				</p>
-				<h1 className="font-serif text-3xl font-bold tracking-tight md:text-4xl">
-					{recipe.title}
-				</h1>
-				{recipe.isAiGenerated && (
-					<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
-						<Icon name="sparkles" className="size-3" />
-						AI Generated
-					</span>
-				)}
+
+				{/* Title + Image layout */}
+				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
+					<div className="min-w-0 flex-1">
+						<h1 className="font-serif text-[2.25rem] leading-tight font-normal tracking-tight">
+							{recipe.title}
+						</h1>
+						{recipe.isAiGenerated && (
+							<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary dark:border-primary/30 dark:bg-primary/10 dark:text-primary">
+								<Icon name="sparkles" className="size-3" />
+								AI Generated
+							</span>
+						)}
+						<Divider variant="accent" className="mt-3 mb-2 max-w-xs" />
+
+						{/* Metadata inline */}
+						{(recipe.prepTime || recipe.cookTime || recipe.sourceUrl) && (
+							<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+								{recipe.prepTime && (
+									<span className="text-muted-foreground flex items-center gap-1">
+										<Icon name="clock" size="sm" className="text-muted-foreground/70" />
+										Prep: {recipe.prepTime} min
+									</span>
+								)}
+								{recipe.cookTime && (
+									<>
+										{recipe.prepTime && (
+											<span className="text-border hidden md:inline">·</span>
+										)}
+										<span className="text-muted-foreground flex items-center gap-1">
+											<Icon name="clock" size="sm" className="text-muted-foreground/70" />
+											Cook: {recipe.cookTime} min
+										</span>
+									</>
+								)}
+								{totalTime > 0 && (
+									<>
+										<span className="text-border hidden md:inline">·</span>
+										<span className="text-foreground/80 font-medium">
+											Total: {totalTime} min
+										</span>
+									</>
+								)}
+								{recipe.sourceUrl && (
+									<>
+										{(recipe.prepTime || recipe.cookTime) && (
+											<span className="text-border hidden md:inline">·</span>
+										)}
+										<a
+											href={recipe.sourceUrl}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline"
+										>
+											<Icon name="link-2" size="sm" />
+											{(() => {
+												try {
+													return new URL(recipe.sourceUrl).hostname.replace(
+														/^www\./,
+														'',
+													)
+												} catch {
+													return 'Source'
+												}
+											})()}
+										</a>
+									</>
+								)}
+							</div>
+						)}
+					</div>
+
+					{/* Image beside title on desktop, below on mobile */}
+					{recipe.image && (
+						<div className="mt-4 shrink-0 md:mt-0 md:w-[400px]">
+							<Img
+								src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
+								alt={recipe.image.altText ?? recipe.title}
+								className="border-border w-full rounded-md border object-cover md:aspect-[4/3]"
+								width={800}
+								height={600}
+							/>
+						</div>
+					)}
+				</div>
 			</div>
 
-			{/* Hero image */}
-			{recipe.image && (
-				<div className="container max-w-4xl px-4 md:px-8">
-					<div className="mt-4 overflow-hidden rounded-2xl">
-						<Img
-							src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
-							alt={recipe.image.altText ?? recipe.title}
-							className="aspect-[2/1] w-full object-cover"
-							width={1200}
-							height={600}
-						/>
-					</div>
-				</div>
-			)}
-
-			{/* Meta card + content */}
-			<div className="container max-w-4xl px-4 md:px-8">
-				{(recipe.prepTime || recipe.cookTime || recipe.sourceUrl) && (
-					<div className="bg-card shadow-warm-lg mt-4 rounded-2xl border p-3 md:p-5">
-						<div className="flex flex-wrap items-center gap-3 text-sm">
-							{recipe.prepTime && (
-								<span className="text-muted-foreground flex items-center gap-1">
-									<Icon name="clock" size="sm" className="text-accent" />
-									Prep: {recipe.prepTime} min
-								</span>
-							)}
-							{recipe.cookTime && (
-								<>
-									{recipe.prepTime && (
-										<span className="text-border hidden md:inline">|</span>
-									)}
-									<span className="text-muted-foreground flex items-center gap-1">
-										<Icon name="clock" size="sm" className="text-accent" />
-										Cook: {recipe.cookTime} min
-									</span>
-								</>
-							)}
-							{totalTime > 0 && (
-								<>
-									<span className="text-border hidden md:inline">|</span>
-									<span className="text-foreground font-medium">
-										Total: {totalTime} min
-									</span>
-								</>
-							)}
-
-							{/* Source URL inline */}
-							{recipe.sourceUrl && (
-								<>
-									{(recipe.prepTime || recipe.cookTime) && (
-										<span className="text-border hidden md:inline">|</span>
-									)}
-									<a
-										href={recipe.sourceUrl}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline"
-									>
-										<Icon name="link-2" size="sm" />
-										{(() => {
-											try {
-												return new URL(recipe.sourceUrl).hostname.replace(
-													/^www\./,
-													'',
-												)
-											} catch {
-												return 'Source'
-											}
-										})()}
-									</a>
-								</>
-							)}
-						</div>
-					</div>
-				)}
-
+			{/* Content */}
+			<div className="container-content">
 				{/* Description */}
 				{recipe.description && (
-					<p className="text-muted-foreground mt-6 text-lg">
+					<p className="text-muted-foreground mt-5 text-base leading-relaxed">
 						{recipe.description}
 					</p>
 				)}
 
 				{/* Content zone: Ingredients + Instructions */}
-				<div className="mt-5 grid gap-5 md:mt-8 md:grid-cols-[2fr_3fr] md:gap-8">
+				<div className="mt-6 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8">
 					{/* Ingredients */}
 					<div className="md:sticky md:top-20 md:self-start">
 						<div className="bg-card shadow-warm rounded-2xl border p-4 md:p-6">
 							<div className="mb-3 flex items-center gap-2 md:mb-4">
-								<h2 className="text-lg font-semibold">Ingredients</h2>
+								<h2 className="font-serif text-lg font-normal">Ingredients</h2>
 								<span className="ml-auto flex items-center gap-1">
 									<Button
 										variant="outline"
@@ -427,12 +430,12 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 									)}
 								</span>
 							</div>
-							<ul className="space-y-1">
+							<ul className="space-y-0.5 leading-[1.7]">
 								{recipe.ingredients.map((ingredient) => {
 									if (ingredient.isHeading) {
 										return (
 											<li key={ingredient.id}>
-												<p className="text-muted-foreground mt-3 mb-1 px-2 text-sm font-semibold tracking-wide first:mt-0">
+												<p className="text-muted-foreground font-serif mt-4 mb-1.5 border-b border-border/50 px-2 pb-1 text-sm font-semibold tracking-wider [font-variant:small-caps] first:mt-0">
 													{ingredient.name}
 												</p>
 											</li>
@@ -457,18 +460,18 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 										>
 											<span
 												className={cn(
-													'flex size-4 shrink-0 items-center justify-center rounded border transition-colors',
+													'flex size-6 shrink-0 items-center justify-center rounded border transition-colors',
 													isChecked
 														? 'border-primary bg-primary text-primary-foreground'
-														: 'border-muted-foreground/25',
+														: 'border-muted-foreground/25 bg-muted/30',
 												)}
 											>
-												{isChecked && <Icon name="check" className="size-3" />}
+												{isChecked && <Icon name="check" className="size-4" />}
 											</span>
 											<span
 												className={cn(
 													'transition-colors',
-													isChecked && 'text-muted-foreground/50 line-through',
+													isChecked && 'text-muted-foreground/40 line-through decoration-muted-foreground/30',
 												)}
 											>
 												{ingredient.amount && (
@@ -495,7 +498,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 
 					{/* Instructions */}
 					<div>
-						<h2 className="mb-4 text-lg font-semibold">Instructions</h2>
+						<h2 className="mb-4 font-serif text-lg font-normal">Instructions</h2>
 						<ol className="space-y-4">
 							{recipe.instructions.map((instruction, index) => {
 								const isChecked = checkedSteps.has(instruction.id)
@@ -506,8 +509,8 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 										aria-checked={isChecked}
 										tabIndex={0}
 										className={cn(
-											'flex cursor-pointer gap-4 rounded-lg px-2 py-2 transition-all select-none',
-											'hover:bg-muted/50',
+											'flex cursor-pointer gap-4 px-1 py-2 transition-all select-none',
+											'focus-visible:ring-primary/50 focus-visible:rounded-lg focus-visible:ring-2 focus-visible:outline-none',
 										)}
 										onClick={() => toggleStep(instruction.id)}
 										onKeyDown={(e) => {
@@ -519,18 +522,18 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 									>
 										<span
 											className={cn(
-												'flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors',
+												'font-serif flex size-8 shrink-0 items-center justify-center text-[1.5rem] leading-none font-normal transition-colors',
 												isChecked
-													? 'bg-primary/20 text-primary'
-													: 'bg-accent/10 text-accent border-accent/20 border',
+													? 'text-primary/40'
+													: 'text-muted-foreground',
 											)}
 										>
-											{isChecked ? <Icon name="check" size="sm" /> : index + 1}
+											{isChecked ? <Icon name="check" className="size-5 text-primary" /> : index + 1}
 										</span>
 										<p
 											className={cn(
-												'pt-1 text-base transition-colors',
-												isChecked && 'text-muted-foreground/50 line-through',
+												'pt-0.5 text-[1.0625rem] leading-[1.75] transition-colors md:text-base md:leading-[1.75]',
+												isChecked && 'text-muted-foreground/40 line-through decoration-muted-foreground/30',
 											)}
 										>
 											<InstructionWithTimers
@@ -551,7 +554,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 					<div className="bg-accent/5 inline-block rounded-2xl border px-8 py-6">
 						{isLoggedIn ? (
 							<>
-								<p className="text-lg font-semibold">Like this recipe?</p>
+								<p className="font-serif text-lg">Like this recipe?</p>
 								<p className="text-muted-foreground mt-1 text-sm">
 									Save it to your recipes to cook later, add to meal plans, and
 									more.
@@ -575,7 +578,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 							</>
 						) : (
 							<>
-								<p className="text-lg font-semibold">Like this recipe?</p>
+								<p className="font-serif text-lg">Like this recipe?</p>
 								<p className="text-muted-foreground mt-1 text-sm">
 									Sign up for Quartermaster to save recipes, plan meals, and
 									track your pantry.

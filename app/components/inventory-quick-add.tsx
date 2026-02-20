@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
-import { Input } from './ui/input.tsx'
-import { StatusButton } from './ui/status-button.tsx'
 
 type InventoryQuickAddProps = {
 	location: 'pantry' | 'fridge' | 'freezer'
@@ -23,12 +21,13 @@ type ActionData = {
 }
 
 export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
-	const [isOpen, setIsOpen] = useState(false)
 	const [name, setName] = useState('')
+	const [showQty, setShowQty] = useState(false)
 	const [quantity, setQuantity] = useState('')
 	const [unit, setUnit] = useState('')
 	const fetcher = useFetcher<ActionData>()
 	const [lastWarningName, setLastWarningName] = useState('')
+	const nameRef = useRef<HTMLInputElement>(null)
 
 	const isDuplicateWarning =
 		fetcher.data?.status === 'duplicate_warning' && name === lastWarningName
@@ -52,8 +51,9 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 			setName('')
 			setQuantity('')
 			setUnit('')
-			setIsOpen(false)
+			setShowQty(false)
 			setLastWarningName('')
+			nameRef.current?.focus()
 		}
 	}, [fetcher.data, name])
 
@@ -68,26 +68,11 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 		void fetcher.submit(formData, { method: 'POST' })
 	}
 
-	if (!isOpen) {
-		return (
-			<Button
-				type="button"
-				variant="outline"
-				size="sm"
-				onClick={() => setIsOpen(true)}
-				className="w-full"
-			>
-				<Icon name="plus" size="sm" />
-				Quick Add
-			</Button>
-		)
-	}
-
 	return (
-		<div className="space-y-2">
+		<div>
 			<fetcher.Form
 				method="POST"
-				className="flex flex-wrap gap-2"
+				className="flex items-end gap-2 border-b border-border pb-2"
 				onSubmit={(e) => {
 					if (!name.trim()) {
 						e.preventDefault()
@@ -97,58 +82,60 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 			>
 				<input type="hidden" name="intent" value="create" />
 				<input type="hidden" name="location" value={location} />
-				<Input
-					name="name"
-					placeholder="Item name..."
-					value={name}
-					onChange={(e) => setName(e.target.value)}
-					autoFocus
-					className="min-w-[120px] flex-1"
-				/>
-				<Input
-					name="quantity"
-					type="number"
-					step="0.1"
-					min="0"
-					placeholder="Qty"
-					value={quantity}
-					onChange={(e) => setQuantity(e.target.value)}
-					className="w-20 min-w-0 shrink"
-				/>
-				<Input
-					name="unit"
-					placeholder="Unit"
-					value={unit}
-					onChange={(e) => setUnit(e.target.value)}
-					className="w-24 min-w-0 shrink"
-				/>
-				<StatusButton
-					type="submit"
-					size="sm"
-					status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
-					disabled={!name.trim()}
-				>
-					Add
-				</StatusButton>
+				<div className="min-w-0 flex-1">
+					<input
+						ref={nameRef}
+						name="name"
+						placeholder="Add an item..."
+						value={name}
+						onChange={(e) => setName(e.target.value)}
+						className="h-9 w-full border-0 bg-transparent px-0 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0"
+					/>
+					{showQty && (
+						<div className="flex gap-2 pb-1">
+							<input
+								name="quantity"
+								type="number"
+								step="0.1"
+								min="0"
+								placeholder="Qty"
+								value={quantity}
+								onChange={(e) => setQuantity(e.target.value)}
+								className="h-7 w-16 rounded border border-border/50 bg-transparent px-2 text-sm outline-none focus:border-primary/30"
+							/>
+							<input
+								name="unit"
+								placeholder="Unit"
+								value={unit}
+								onChange={(e) => setUnit(e.target.value)}
+								className="h-7 w-20 rounded border border-border/50 bg-transparent px-2 text-sm outline-none focus:border-primary/30"
+							/>
+						</div>
+					)}
+					{!showQty && (
+						<button
+							type="button"
+							onClick={() => setShowQty(true)}
+							className="pb-1 text-xs text-muted-foreground hover:text-foreground"
+						>
+							+ Qty / Unit
+						</button>
+					)}
+				</div>
 				<Button
-					type="button"
+					type="submit"
 					variant="ghost"
 					size="sm"
-					aria-label="Close quick add"
-					onClick={() => {
-						setIsOpen(false)
-						setName('')
-						setQuantity('')
-						setUnit('')
-					}}
+					className="size-8 shrink-0 rounded-full p-0 text-muted-foreground hover:bg-muted"
+					disabled={!name.trim() || fetcher.state !== 'idle'}
 				>
-					<Icon name="cross-1" size="sm" />
+					<Icon name="plus" size="sm" />
 				</Button>
 			</fetcher.Form>
 
 			{isDuplicateWarning && fetcher.data?.existingItem && (
-				<div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-800 dark:bg-amber-950/40">
-					<p className="text-sm text-amber-800 dark:text-amber-300">
+				<div className="mt-2 rounded-lg bg-accent/10 p-3">
+					<p className="text-sm">
 						You already have <strong>{fetcher.data.existingItem.name}</strong>{' '}
 						in the {fetcher.data.existingItem.location}
 						{fetcher.data.existingItem.quantity
@@ -161,7 +148,6 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 							type="button"
 							size="sm"
 							variant="outline"
-							className="border-amber-300 bg-amber-100/50 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/50"
 							onClick={() => handleForceSubmit('merge')}
 						>
 							Update existing
@@ -170,7 +156,6 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 							type="button"
 							size="sm"
 							variant="ghost"
-							className="text-amber-700 dark:text-amber-400"
 							onClick={() => handleForceSubmit('add')}
 						>
 							Add anyway

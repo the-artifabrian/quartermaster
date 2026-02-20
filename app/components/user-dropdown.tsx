@@ -15,7 +15,7 @@ export function UserDropdown() {
 		<Link
 			to="/settings/profile"
 			prefetch="intent"
-			className="bg-card hover:bg-muted/50 border-border/50 shadow-warm flex items-center gap-2 rounded-full border px-1 py-1 pr-2 transition-colors sm:pr-3"
+			className="bg-card hover:bg-muted/50 border-border/50 shadow-warm flex items-center gap-2 rounded-full border p-1 transition-colors sm:pr-3"
 			aria-label="Settings"
 		>
 			<Img

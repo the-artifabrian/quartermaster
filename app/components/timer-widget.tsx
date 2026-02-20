@@ -48,7 +48,7 @@ export function TimerWidget() {
 				className={cn(
 					'fixed right-4 bottom-20 z-50 flex items-center gap-2 rounded-full px-4 shadow-lg transition-all hover:scale-105 md:right-6 md:bottom-6 print:hidden',
 					hasAlarming
-						? 'h-14 animate-pulse bg-red-500 text-white'
+						? 'h-14 animate-pulse bg-destructive text-destructive-foreground'
 						: 'bg-primary text-primary-foreground h-14',
 				)}
 				aria-label={
@@ -102,7 +102,7 @@ export function TimerWidget() {
 									className={cn(
 										'flex items-center gap-2 rounded-lg px-3 py-2',
 										isAlarming
-											? 'animate-pulse bg-red-100 dark:bg-red-900/30'
+											? 'animate-pulse bg-destructive/10 dark:bg-destructive/20'
 											: 'bg-muted/50',
 									)}
 								>
@@ -113,7 +113,7 @@ export function TimerWidget() {
 										<p
 											className={cn(
 												'font-mono text-lg font-bold tabular-nums',
-												isAlarming && 'text-red-500',
+												isAlarming && 'text-foreground-destructive',
 											)}
 										>
 											{formatTime(remaining)}

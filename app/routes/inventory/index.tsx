@@ -4,16 +4,12 @@ import { z } from 'zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import {
-	InventoryItemCard,
-	InventoryItemGrid,
-} from '#app/components/inventory-item-card.tsx'
+import { InventoryItemCard } from '#app/components/inventory-item-card.tsx'
 import { InventoryLocationTabs } from '#app/components/inventory-location-tabs.tsx'
 import { InventoryQuickAdd } from '#app/components/inventory-quick-add.tsx'
 import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboarding.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { Input } from '#app/components/ui/input.tsx'
 import {
 	getWeekStart,
 	getNextWeek,
@@ -448,6 +444,8 @@ export async function action({ request }: Route.ActionArgs) {
 	return { status: 'error' as const }
 }
 
+const SEARCH_THRESHOLD = 15
+
 export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	const {
 		items,
@@ -476,7 +474,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 
 	if (totalItemCount === 0) {
 		return (
-			<div className="container py-6 pb-20 md:pb-6">
+			<div className="container-content py-6 pb-20 md:pb-6">
 				<PantryStaplesOnboarding maxItems={inventoryUsage.limit ?? undefined} />
 			</div>
 		)
@@ -488,21 +486,6 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 			)
 		: items
 
-	const pantryItems = filteredItems.filter((item) => item.location === 'pantry')
-	const fridgeItems = filteredItems.filter((item) => item.location === 'fridge')
-	const freezerItems = filteredItems.filter(
-		(item) => item.location === 'freezer',
-	)
-
-	const displayItems =
-		selectedLocation === 'all'
-			? filteredItems
-			: selectedLocation === 'pantry'
-				? pantryItems
-				: selectedLocation === 'fridge'
-					? fridgeItems
-					: freezerItems
-
 	const showingLocation =
 		selectedLocation === 'pantry'
 			? 'pantry'
@@ -512,85 +495,76 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					? 'freezer'
 					: null
 
+	const showSearch = totalItemCount >= SEARCH_THRESHOLD
+
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="from-card to-background border-border/50 border-b bg-linear-to-b">
-				<div className="container py-4">
-					<div className="flex items-center justify-between">
-						<h1 className="text-2xl font-bold">
-							My Inventory{' '}
-							<span className="text-muted-foreground text-base font-normal">
-								{search
-									? `(${filteredItems.length} of ${items.length})`
-									: `(${items.length})`}
-							</span>
-						</h1>
-						<div className="flex gap-2">
-							{inventoryUsage.isAtLimit ? (
-								<Button asChild>
-									<Link to="/upgrade">Upgrade to Pro</Link>
-								</Button>
-							) : (
-								<Button asChild>
-									<Link to="/inventory/new">
-										<Icon name="plus" size="sm" />
-										Add Item
-									</Link>
-								</Button>
-							)}
-						</div>
-					</div>
-					{/* Compact status badges */}
+			<div className="container-content flex items-center justify-between gap-3 py-3 md:py-4">
+				<div>
+					<h1 className="font-serif text-2xl font-normal">Inventory</h1>
+					{/* Status line */}
 					{(expiringSoonCount > 0 ||
 						lowStockCount > 0 ||
 						inventoryUsage.limit !== null) && (
-						<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+						<p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
 							{expiringSoonCount > 0 && (
 								<span className="text-amber-600 dark:text-amber-400">
 									{expiringSoonCount} expiring soon
 								</span>
 							)}
+							{expiringSoonCount > 0 && lowStockCount > 0 && (
+								<span className="text-muted-foreground/40">·</span>
+							)}
 							{lowStockCount > 0 && (
-								<>
-									{expiringSoonCount > 0 && (
-										<span className="text-muted-foreground/40">·</span>
-									)}
-									<span className="text-amber-600 dark:text-amber-400">
-										{lowStockCount} low stock
-									</span>
-								</>
+								<span className="text-amber-600 dark:text-amber-400">
+									{lowStockCount} low stock
+								</span>
 							)}
+							{(expiringSoonCount > 0 || lowStockCount > 0) &&
+								inventoryUsage.limit !== null && (
+									<span className="text-muted-foreground/40">·</span>
+								)}
 							{inventoryUsage.limit !== null && (
-								<>
-									{(expiringSoonCount > 0 || lowStockCount > 0) && (
-										<span className="text-muted-foreground/40">·</span>
+								<span
+									className={cn(
+										inventoryUsage.isAtLimit
+											? 'text-amber-600 dark:text-amber-400'
+											: '',
 									)}
-									<span
-										className={cn(
-											inventoryUsage.isAtLimit
-												? 'text-amber-600 dark:text-amber-400'
-												: 'text-muted-foreground',
-										)}
-									>
-										{inventoryUsage.count}/{inventoryUsage.limit} free items
-									</span>
-								</>
+								>
+									{inventoryUsage.count}/{inventoryUsage.limit} free items
+								</span>
 							)}
-						</div>
+						</p>
 					)}
 				</div>
+				{inventoryUsage.isAtLimit ? (
+					<Button asChild size="sm">
+						<Link to="/upgrade">Upgrade</Link>
+					</Button>
+				) : (
+					<Button
+						asChild
+						className="size-10 rounded-full p-0 sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2"
+					>
+						<Link to="/inventory/new">
+							<Icon name="plus" size="sm" />
+							<span className="hidden sm:inline">Add Item</span>
+						</Link>
+					</Button>
+				)}
 			</div>
 
-			<div className="container py-6">
+			<div className="container-content py-2">
 				{/* Free plan limit banner */}
 				{inventoryUsage.isAtLimit && (
-					<div className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-amber-800 dark:bg-amber-950/30">
+					<div className="mb-6 flex flex-col gap-3 rounded-lg bg-accent/8 p-4 sm:flex-row sm:items-center sm:justify-between">
 						<div>
-							<p className="font-medium text-amber-900 dark:text-amber-200">
+							<p className="text-[0.75rem] font-medium tracking-[0.08em] uppercase text-accent">
 								Free plan limit reached
 							</p>
-							<p className="text-sm text-amber-700 dark:text-amber-400">
+							<p className="mt-1 text-sm text-muted-foreground">
 								Upgrade to Pro for unlimited inventory, meal planning, and
 								shopping lists.
 							</p>
@@ -612,124 +586,78 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					}}
 				/>
 
-				{/* Search */}
-				<div className="relative mb-6">
-					<Icon
-						name="magnifying-glass"
-						size="sm"
-						className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
-					/>
-					<Input
-						type="search"
-						placeholder="Search inventory..."
-						value={search}
-						onChange={(e) => setSearch(e.target.value)}
-						className="pl-9"
-					/>
-				</div>
-
-				{/* Location Tabs */}
-				<div className="mb-6">
+				{/* Search + Location Tabs */}
+				<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<InventoryLocationTabs />
+					{showSearch && (
+						<div className="relative sm:w-56">
+							<Icon
+								name="magnifying-glass"
+								size="sm"
+								className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+							/>
+							<input
+								type="search"
+								placeholder="Search inventory..."
+								value={search}
+								onChange={(e) => setSearch(e.target.value)}
+								className="h-9 w-full rounded-full border border-border/50 bg-secondary/50 pl-9 pr-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/20"
+							/>
+						</div>
+					)}
 				</div>
 
-				{/* Quick Add */}
+				{/* Quick Add — shown when a specific location is selected */}
 				{showingLocation && !inventoryUsage.isAtLimit && (
-					<div className="mb-6">
+					<div className="mb-2">
 						<InventoryQuickAdd location={showingLocation} />
 					</div>
 				)}
 
-				{/* Items Grid */}
-				{displayItems.length > 0 ? (
-					<div className="space-y-8">
-						{selectedLocation === 'all' ? (
-							<>
-								{pantryItems.length > 0 && (
-									<section className="rounded-xl bg-amber-50/30 p-4 dark:bg-amber-950/20">
-										<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
-											<span className="inline-block size-2.5 rounded-full bg-amber-500" />
-											Pantry
-											<span className="text-muted-foreground ml-1 text-sm font-normal">
-												({pantryItems.length})
-											</span>
-										</h2>
-										<InventoryItemGrid>
-											{pantryItems.map((item) => (
-												<InventoryItemCard
-													key={item.id}
-													item={item}
-													showLocation={false}
-												/>
-											))}
-										</InventoryItemGrid>
-									</section>
-								)}
-								{fridgeItems.length > 0 && (
-									<section className="rounded-xl bg-blue-50/30 p-4 dark:bg-blue-950/20">
-										<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
-											<span className="inline-block size-2.5 rounded-full bg-blue-500" />
-											Fridge
-											<span className="text-muted-foreground ml-1 text-sm font-normal">
-												({fridgeItems.length})
-											</span>
-										</h2>
-										<InventoryItemGrid>
-											{fridgeItems.map((item) => (
-												<InventoryItemCard
-													key={item.id}
-													item={item}
-													showLocation={false}
-												/>
-											))}
-										</InventoryItemGrid>
-									</section>
-								)}
-								{freezerItems.length > 0 && (
-									<section className="rounded-xl bg-cyan-50/30 p-4 dark:bg-cyan-950/20">
-										<h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
-											<span className="inline-block size-2.5 rounded-full bg-cyan-500" />
-											Freezer
-											<span className="text-muted-foreground ml-1 text-sm font-normal">
-												({freezerItems.length})
-											</span>
-										</h2>
-										<InventoryItemGrid>
-											{freezerItems.map((item) => (
-												<InventoryItemCard
-													key={item.id}
-													item={item}
-													showLocation={false}
-												/>
-											))}
-										</InventoryItemGrid>
-									</section>
-								)}
-							</>
-						) : (
-							<InventoryItemGrid>
-								{displayItems.map((item) => (
+				{/* Items List */}
+				{filteredItems.length > 0 ? (
+					selectedLocation === 'all' ? (
+						/* All tab: flat list with location dots */
+						<div className="divide-y divide-border/40">
+							{filteredItems.map((item) => (
+								<InventoryItemCard
+									key={item.id}
+									item={item}
+									showLocation={true}
+								/>
+							))}
+						</div>
+					) : (
+						/* Single location: items with lightweight header */
+						<div>
+							<LocationSectionHeader
+								location={selectedLocation}
+								count={filteredItems.length}
+								isFirst
+							/>
+							<div className="divide-y divide-border/40">
+								{filteredItems.map((item) => (
 									<InventoryItemCard
 										key={item.id}
 										item={item}
 										showLocation={false}
 									/>
 								))}
-							</InventoryItemGrid>
-						)}
-					</div>
+							</div>
+						</div>
+					)
 				) : search ? (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
+						<div className="mx-auto flex size-16 items-center justify-center rounded-full border-2 border-dashed border-border">
 							<Icon
 								name="magnifying-glass"
-								className="text-accent/50 size-10"
+								className="size-6 text-muted-foreground"
 							/>
 						</div>
-						<h2 className="mt-4 font-serif text-xl font-semibold">
+						<h2 className="mt-4 font-serif text-xl font-normal">
 							No items matching &ldquo;{search}&rdquo;
 						</h2>
-						<p className="text-muted-foreground mt-2 max-w-sm">
+						<p className="mt-2 max-w-sm text-muted-foreground">
 							Try a different search term.
 						</p>
 						<Button
@@ -742,13 +670,16 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				) : (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="bg-accent/10 flex size-20 items-center justify-center rounded-2xl">
-							<Icon name="file-text" className="text-accent/50 size-10" />
+						<div className="mx-auto flex size-16 items-center justify-center rounded-full border-2 border-dashed border-border">
+							<Icon
+								name="file-text"
+								className="size-6 text-muted-foreground"
+							/>
 						</div>
-						<h2 className="mt-4 font-serif text-xl font-semibold">
+						<h2 className="mt-4 font-serif text-xl font-normal">
 							Nothing here yet
 						</h2>
-						<p className="text-muted-foreground mt-2 max-w-sm">
+						<p className="mt-2 max-w-sm text-muted-foreground">
 							{selectedLocation === 'all'
 								? 'Start tracking your pantry, fridge, and freezer items to discover what you can cook.'
 								: `Your ${selectedLocation} is empty. Add items to start tracking.`}
@@ -761,6 +692,45 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						</Button>
 					</div>
 				)}
+			</div>
+		</div>
+	)
+}
+
+const locationDotColors: Record<string, string> = {
+	pantry: 'bg-amber-500',
+	fridge: 'bg-blue-500',
+	freezer: 'bg-cyan-500',
+}
+
+const locationLabels: Record<string, string> = {
+	pantry: 'Pantry',
+	fridge: 'Fridge',
+	freezer: 'Freezer',
+}
+
+function LocationSectionHeader({
+	location,
+	count,
+	isFirst = false,
+}: {
+	location: string
+	count: number
+	isFirst?: boolean
+}) {
+	return (
+		<div className={cn('pb-3', isFirst ? 'pt-1' : 'pt-8')}>
+			<div className="flex items-center gap-2">
+				<span
+					className={cn(
+						'size-2 rounded-full',
+						locationDotColors[location] ?? 'bg-muted-foreground',
+					)}
+				/>
+				<span className="text-[0.75rem] font-medium tracking-[0.08em] uppercase text-[#A69B8F] dark:text-[#8A7F73]">
+					{locationLabels[location] ?? location}
+				</span>
+				<span className="text-[0.75rem] text-muted-foreground">({count})</span>
 			</div>
 		</div>
 	)
@@ -800,16 +770,10 @@ function ExpiringItemsCallout({
 	const covered = visible.filter((item) => item.coveredBy)
 
 	return (
-		<div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
-			<div className="mb-2 flex items-center gap-2">
-				<Icon
-					name="clock"
-					className="size-5 text-amber-600 dark:text-amber-400"
-				/>
-				<h2 className="font-semibold text-amber-900 dark:text-amber-200">
-					Use these up soon
-				</h2>
-			</div>
+		<div className="mb-6 rounded-lg bg-accent/8 p-4">
+			<h2 className="mb-2 text-[0.75rem] font-medium tracking-[0.08em] uppercase text-accent">
+				Use these up soon
+			</h2>
 
 			{/* Uncovered items — prominent */}
 			{uncovered.length > 0 && (
@@ -817,11 +781,11 @@ function ExpiringItemsCallout({
 					{uncovered.map((item) => (
 						<li
 							key={item.id}
-							className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-300"
+							className="flex items-center gap-2 text-sm"
 						>
 							<span className="min-w-0 flex-1">
 								<span className="font-medium">{item.name}</span>
-								<span className="text-amber-600 dark:text-amber-400">
+								<span className="text-muted-foreground">
 									{' — '}
 									{item.daysLeft === 0
 										? 'expires today'
@@ -833,7 +797,7 @@ function ExpiringItemsCallout({
 							<button
 								type="button"
 								onClick={() => onDismiss(item)}
-								className="shrink-0 rounded-md p-0.5 text-amber-500 transition-colors hover:text-amber-800 dark:hover:text-amber-200"
+								className="shrink-0 rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground"
 								aria-label={`Dismiss ${item.name}`}
 							>
 								<Icon name="cross-1" size="xs" />
@@ -845,17 +809,13 @@ function ExpiringItemsCallout({
 
 			{/* "Find recipes" CTA — only show if there are uncovered items */}
 			{uncovered.length > 0 && (
-				<Button
-					asChild
-					size="sm"
-					variant="outline"
-					className="mb-3 border-amber-300 bg-amber-100/50 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/50"
+				<Link
+					to="/recipes"
+					className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
 				>
-					<Link to="/recipes">
-						<Icon name="cookie" size="sm" />
-						Find recipes to use these
-					</Link>
-				</Button>
+					<Icon name="cookie" size="sm" />
+					Find recipes to use these
+				</Link>
 			)}
 
 			{/* Covered items — muted */}
@@ -864,7 +824,7 @@ function ExpiringItemsCallout({
 					{covered.map((item) => (
 						<li
 							key={item.id}
-							className="flex items-center gap-2 text-sm text-amber-700/60 dark:text-amber-400/50"
+							className="flex items-center gap-2 text-sm text-muted-foreground"
 						>
 							<span className="min-w-0 flex-1">
 								<span className="font-medium">{item.name}</span>
@@ -883,7 +843,7 @@ function ExpiringItemsCallout({
 							<button
 								type="button"
 								onClick={() => onDismiss(item)}
-								className="shrink-0 rounded-md p-0.5 text-amber-400/60 transition-colors hover:text-amber-700 dark:hover:text-amber-300"
+								className="shrink-0 rounded-md p-0.5 text-muted-foreground/60 transition-colors hover:text-foreground"
 								aria-label={`Dismiss ${item.name}`}
 							>
 								<Icon name="cross-1" size="xs" />

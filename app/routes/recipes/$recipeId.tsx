@@ -1,15 +1,16 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { Img } from 'openimg/react'
 import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
 import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
 import {
-	Link,
 	useFetcher,
 	useRouteLoaderData,
 	useSearchParams,
 } from 'react-router'
+import { Divider } from '#app/components/divider.tsx'
 import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
 import { RecipeActionBar } from '#app/components/recipe-action-bar.tsx'
 import { CookingLogEntry } from '#app/components/recipe-cooking-log-entry.tsx'
@@ -641,49 +642,60 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				}}
 			/>
 
-			{/* Header */}
-			<div className="container max-w-4xl px-4 pt-4 md:px-8 md:pt-6">
-				<Link
-					to="/recipes"
-					className="text-muted-foreground hover:text-foreground mb-2 inline-flex items-center gap-1 text-sm md:mb-3 print:hidden"
-				>
-					<Icon name="arrow-left" size="sm" />
-					Recipes
-				</Link>
-				<h1 className="font-serif text-3xl font-bold tracking-tight md:text-4xl">
-					{recipe.title}
-				</h1>
-				{recipe.isAiGenerated && (
-					<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
-						<Icon name="sparkles" className="size-3" />
-						AI Generated
-					</span>
-				)}
+			{/* Hero area */}
+			<div className="container-content pt-4 md:pt-6">
+				{/* Title + Image layout */}
+				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
+					<div className="min-w-0 flex-1">
+						<h1 className="font-serif text-[2.25rem] leading-tight font-normal tracking-tight">
+							{recipe.title}
+						</h1>
+						{recipe.isAiGenerated && (
+							<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary dark:border-primary/30 dark:bg-primary/10 dark:text-primary">
+								<Icon name="sparkles" className="size-3" />
+								AI Generated
+							</span>
+						)}
+						<Divider variant="accent" className="mt-3 mb-2 max-w-xs" />
+						<RecipeMetadataCard
+							prepTime={recipe.prepTime}
+							cookTime={recipe.cookTime}
+							sourceUrl={recipe.sourceUrl}
+						/>
+					</div>
+
+					{/* Image beside title on desktop, below on mobile */}
+					{recipe.image && (
+						<div className="mt-4 shrink-0 md:mt-0 md:w-[400px]">
+							<Img
+								src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
+								alt={recipe.image.altText ?? recipe.title}
+								className="border-border w-full rounded-md border object-cover md:aspect-[4/3]"
+								width={800}
+								height={600}
+							/>
+						</div>
+					)}
+				</div>
 			</div>
 
-			{/* Meta card + content */}
-			<div className="container max-w-4xl px-4 md:px-8">
-				<RecipeMetadataCard
-					prepTime={recipe.prepTime}
-					cookTime={recipe.cookTime}
-					sourceUrl={recipe.sourceUrl}
-				/>
-
+			{/* Content */}
+			<div className="container-content">
 				{/* Description */}
 				{recipe.description && (
-					<p className="text-muted-foreground mt-6 text-lg">
+					<p className="text-muted-foreground mt-5 text-base leading-relaxed">
 						{recipe.description}
 					</p>
 				)}
 
-				{/* My Notes - promoted above content */}
+				{/* My Notes */}
 				{recipe.notes && (
 					<div className="mt-6">
-						<div className="border-accent/30 bg-accent/5 rounded-lg border-l-4 py-3 pr-4 pl-4">
-							<p className="text-accent mb-1 text-xs font-semibold tracking-wide uppercase">
+						<div className="border-accent bg-accent/5 rounded-lg border-l-[3px] py-3 pr-4 pl-4">
+							<p className="text-muted-foreground mb-1 text-xs font-semibold tracking-wide uppercase">
 								My Notes
 							</p>
-							<pre className="font-sans text-sm whitespace-pre-wrap">
+							<pre className="font-handwritten text-[1.125rem] leading-relaxed whitespace-pre-wrap">
 								{recipe.notes}
 							</pre>
 						</div>
@@ -717,12 +729,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				/>
 
 				{/* Content zone: Ingredients + Instructions */}
-				<div className="mt-5 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8 print:grid-cols-1 print:gap-4">
+				<div className="mt-6 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8 print:grid-cols-1 print:gap-4">
 					{/* Ingredients - sticky on desktop, interactive checkboxes */}
 					<div className="md:sticky md:top-20 md:self-start print:static">
 						<div className="bg-card shadow-warm rounded-2xl border p-4 md:p-6 print:border-0 print:p-2 print:shadow-none">
 							<div className="mb-3 flex items-center gap-2 md:mb-4">
-								<h2 className="text-lg font-semibold">Ingredients</h2>
+								<h2 className="font-serif text-lg font-normal">Ingredients</h2>
 								<span className="ml-auto flex items-center gap-1 print:hidden">
 									<Button
 										variant="outline"
@@ -789,20 +801,20 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					<div className="mt-10 print:hidden">
 						<button
 							onClick={() => setHistoryExpanded((v) => !v)}
-							className="hover:text-foreground mb-4 flex w-full items-center gap-2 text-left text-lg font-semibold"
+							className="text-foreground hover:text-foreground mb-4 flex w-full items-center gap-2 text-left font-serif text-lg font-normal"
 						>
 							<Icon
 								name="chevron-down"
 								size="sm"
 								className={cn(
-									'transition-transform',
+									'text-muted-foreground transition-transform',
 									!historyExpanded && '-rotate-90',
 								)}
 							/>
 							Cooking History ({cookingLogs.length})
 						</button>
 						{historyExpanded && (
-							<div className="space-y-3">
+							<div className="space-y-2">
 								{cookingLogs.map((log) => (
 									<CookingLogEntry key={log.id} log={log} />
 								))}
@@ -811,7 +823,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</div>
 				) : (
 					<div className="mt-10 print:hidden">
-						<p className="text-muted-foreground text-sm italic">
+						<p className="text-muted-foreground text-sm">
 							You haven't cooked this yet. Give it a try!
 						</p>
 					</div>

@@ -1,7 +1,8 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { useEffect, useRef } from 'react'
 import { data, Link, redirect } from 'react-router'
+import { Divider } from '#app/components/divider.tsx'
 import { Button } from '#app/components/ui/button.tsx'
-import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
@@ -12,7 +13,7 @@ export const handle: SEOHandle = {
 }
 
 const description =
-	'Your recipes, your pantry, your meal plan — all connected. Quartermaster matches recipes to what\u2019s in your kitchen, plans your week, writes your grocery list, and updates your inventory as you cook.'
+	'Keep your recipes. Plan your week. Cook from what you have.'
 
 export const meta: Route.MetaFunction = ({ matches }) => [
 	{ title: 'Quartermaster' },
@@ -24,7 +25,6 @@ export const meta: Route.MetaFunction = ({ matches }) => [
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const userId = await getUserId(request)
-	// Redirect logged-in users to recipes page
 	if (userId) {
 		throw redirect('/recipes')
 	}
@@ -54,345 +54,296 @@ export default function Index() {
 				type="application/ld+json"
 				dangerouslySetInnerHTML={{ __html: webApplicationJsonLd }}
 			/>
-			{/* Hero Section */}
-			<section className="relative overflow-hidden px-4 py-20 text-center">
-				{/* Background pattern */}
-				<div className="from-accent/5 via-primary/3 to-background absolute inset-0 bg-linear-to-b" />
-				<div className="relative mx-auto max-w-3xl">
-					<h1
-						data-heading
-						className="animate-slide-top text-foreground fill-mode-[backwards] mt-6 font-serif text-5xl font-bold tracking-tight [animation-delay:0.2s] md:text-7xl"
-					>
-						Stop wondering
+
+			{/* Hero */}
+			<section className="relative flex min-h-[70svh] flex-col items-center justify-center px-4 pt-12 pb-16 md:pt-20 md:pb-24">
+				{/* Warm radial glow */}
+				<div
+					className="pointer-events-none absolute inset-0"
+					style={{
+						background:
+							'radial-gradient(ellipse 80% 60% at 50% 40%, var(--accent) 0%, transparent 70%)',
+						opacity: 0.06,
+					}}
+				/>
+				<div
+					className="relative text-center"
+					style={{
+						animation: '320ms var(--ease-page-settle) both fade-up-reveal',
+					}}
+				>
+					<h1 className="text-foreground font-serif text-[2.5rem] leading-[1.15] font-light tracking-[-0.02em] md:text-[3.5rem]">
+						What are we making
 						<br />
-						<span className="text-accent">what's for dinner</span>
+						this week?
 					</h1>
-
-					<p
-						data-paragraph
-						className="animate-slide-top text-muted-foreground fill-mode-[backwards] mx-auto mt-8 max-w-lg text-lg/7 [animation-delay:0.4s]"
-					>
-						Import your recipes, track what's in your kitchen, and Quartermaster
-						tells you what you can cook tonight. Plan the week, shop the list,
-						cook from the app — your pantry updates itself.
+					<p className="text-muted-foreground mx-auto mt-6 max-w-md text-lg/7">
+						Keep your recipes. Plan your week. Cook from what you have.
 					</p>
 
-					<div className="animate-slide-top fill-mode-[backwards] mt-10 flex flex-col items-center gap-4 [animation-delay:0.6s] sm:flex-row sm:justify-center">
+					{/* Decorative divider */}
+					<div className="mx-auto mt-8 max-w-[200px]">
+						<Divider variant="accent" />
+					</div>
+
+					<div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+						<Button asChild size="lg" className="rounded-full px-8">
+							<Link to="/signup">Start cooking</Link>
+						</Button>
 						<Button
 							asChild
+							variant="ghost"
 							size="lg"
-							className="shadow-warm-md rounded-full px-8"
+							className="text-muted-foreground rounded-full"
 						>
-							<Link to="/signup">
-								Get started
-								<Icon name="arrow-right" size="sm" />
-							</Link>
-						</Button>
-						<Button asChild variant="ghost" size="lg" className="rounded-full">
-							<a href="#features">
-								See how it works
-								<Icon name="chevron-down" size="sm" />
-							</a>
+							<a href="#glimpse">See how it works</a>
 						</Button>
 					</div>
 				</div>
 			</section>
 
-			{/* Feature Story Section */}
-			<section
-				id="features"
-				className="animate-slide-top fill-mode-[backwards] px-4 pb-20 [animation-delay:0.8s]"
-			>
-				<div className="mx-auto max-w-4xl space-y-16 md:space-y-24">
-					{/* Feature 1 — left visual */}
-					<div className="flex flex-col items-center gap-8 md:flex-row">
-						<div className="bg-card shadow-warm flex-1 rounded-2xl border p-6">
-							<div className="flex items-center gap-3">
-								<div className="bg-accent/10 flex size-10 items-center justify-center rounded-xl">
-									<Icon name="file-text" className="text-accent size-5" />
-								</div>
-								<div>
-									<p className="text-sm font-semibold">Chicken Tikka Masala</p>
-									<p className="text-muted-foreground text-xs">
-										45 min · 4 servings
-									</p>
-								</div>
-							</div>
-							<div className="mt-4 space-y-1.5">
-								{[
-									'Chicken thighs',
-									'Yogurt',
-									'Garam masala',
-									'Tomato sauce',
-								].map((ing) => (
-									<div
-										key={ing}
-										className="bg-muted/50 rounded-md px-3 py-1.5 text-sm"
-									>
-										{ing}
-									</div>
-								))}
-							</div>
+			{/* Artifacts */}
+			<section id="glimpse" className="container-landing py-16 md:py-24">
+				<div className="space-y-20 md:space-y-32">
+					{/* Recipe card artifact — left on desktop */}
+					<ScrollReveal className="flex flex-col items-center gap-10 md:flex-row">
+						<div className="w-full max-w-[340px] shrink-0 rotate-[-2deg]">
+							<RecipeCardArtifact />
 						</div>
-						<div className="flex-1 text-center md:text-left">
-							<p className="text-accent mb-2 font-serif text-sm font-medium">
-								Step 1
-							</p>
-							<h3 className="text-2xl font-bold">
-								Import your favorite recipes
-							</h3>
-							<p className="text-muted-foreground mt-2">
-								Paste a URL, bulk-import dozens at once, or type it in by hand.
-								Your whole collection in one searchable place.
+						<div className="text-center md:text-left">
+							<h2 className="font-serif text-2xl font-normal">
+								Your recipes, all in one place
+							</h2>
+							<p className="text-muted-foreground mt-3 text-base/7">
+								Paste a URL, import dozens at once, or type it in by hand.
+								Searchable, sortable, and matched against what's in your kitchen.
 							</p>
 						</div>
-					</div>
+					</ScrollReveal>
 
-					{/* Feature 2 — right visual */}
-					<div className="flex flex-col items-center gap-8 md:flex-row-reverse">
-						<div className="bg-card shadow-warm flex-1 rounded-2xl border p-6">
-							<div className="space-y-2.5">
-								{[
-									{ name: 'Chicken Tikka Masala', pct: 100 },
-									{ name: 'Garlic Butter Pasta', pct: 85 },
-									{ name: 'Veggie Stir Fry', pct: 70 },
-								].map((r) => {
-									const circumference = 2 * Math.PI * 15.5
-									const dash = (r.pct / 100) * circumference
-									return (
-										<div key={r.name} className="flex items-center gap-3">
-											<div className="relative size-8 shrink-0">
-												<svg
-													viewBox="0 0 36 36"
-													className="size-full -rotate-90"
-												>
-													<circle
-														cx="18"
-														cy="18"
-														r="15.5"
-														fill="none"
-														className="stroke-muted"
-														strokeWidth="3"
-													/>
-													<circle
-														cx="18"
-														cy="18"
-														r="15.5"
-														fill="none"
-														className="stroke-accent"
-														strokeWidth="3"
-														strokeDasharray={`${dash} ${circumference}`}
-														strokeLinecap="round"
-													/>
-												</svg>
-											</div>
-											<div className="min-w-0 flex-1">
-												<p className="truncate text-sm font-medium">{r.name}</p>
-												<p className="text-muted-foreground text-xs">
-													{r.pct}% of ingredients in stock
-												</p>
-											</div>
-										</div>
-									)
-								})}
-							</div>
+					{/* Week view artifact — right on desktop */}
+					<ScrollReveal className="flex flex-col items-center gap-10 md:flex-row-reverse">
+						<div className="w-full max-w-[400px] shrink-0 rotate-[1deg]">
+							<WeekViewArtifact />
 						</div>
-						<div className="flex-1 text-center md:text-right">
-							<p className="text-accent mb-2 font-serif text-sm font-medium">
-								Step 2
-							</p>
-							<h3 className="text-2xl font-bold">
-								See what you can cook tonight
-							</h3>
-							<p className="text-muted-foreground mt-2">
-								Log what's in your pantry, fridge, and freezer. Quartermaster
-								matches every recipe against your inventory and shows you what's
-								ready to cook right now.
+						<div className="text-center md:text-right">
+							<h2 className="font-serif text-2xl font-normal">
+								A week penciled in
+							</h2>
+							<p className="text-muted-foreground mt-3 text-base/7">
+								Add recipes to a weekly calendar. See tonight's dinner at a
+								glance. Adjust servings, swap meals, and generate a shopping list
+								when you're ready.
 							</p>
 						</div>
-					</div>
+					</ScrollReveal>
 
-					{/* Feature 3 — left visual */}
-					<div className="flex flex-col items-center gap-8 md:flex-row">
-						<div className="bg-card shadow-warm flex-1 rounded-2xl border p-6">
-							<div className="grid grid-cols-4 gap-2 text-center text-xs">
-								{['Mon', 'Tue', 'Wed', 'Thu'].map((day) => (
-									<div key={day}>
-										<p className="text-muted-foreground mb-1 font-medium">
-											{day}
-										</p>
-										<div className="bg-accent/10 rounded-lg p-2">
-											<p className="truncate text-[10px] font-medium">
-												{day === 'Mon'
-													? 'Pasta'
-													: day === 'Tue'
-														? 'Stir Fry'
-														: day === 'Wed'
-															? 'Tacos'
-															: 'Soup'}
-											</p>
-										</div>
-									</div>
-								))}
-							</div>
-							<div className="mt-3 flex items-center justify-center gap-2">
-								<span className="bg-accent text-accent-foreground inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold">
-									4 dinners planned
-								</span>
-								<span className="text-muted-foreground text-[10px]">
-									shopping list ready
-								</span>
-							</div>
+					{/* Shopping list artifact — left on desktop */}
+					<ScrollReveal className="flex flex-col items-center gap-10 md:flex-row">
+						<div className="w-full max-w-[280px] shrink-0 rotate-[-1deg]">
+							<ShoppingListArtifact />
 						</div>
-						<div className="flex-1 text-center md:text-left">
-							<p className="text-accent mb-2 font-serif text-sm font-medium">
-								Step 3
-							</p>
-							<h3 className="text-2xl font-bold">Plan your week</h3>
-							<p className="text-muted-foreground mt-2">
-								Add recipes to a weekly calendar with breakfast, lunch, dinner,
-								and snack slots. Adjust servings per meal and generate a
-								shopping list when you're ready.
+						<div className="text-center md:text-left">
+							<h2 className="font-serif text-2xl font-normal">
+								The list writes itself
+							</h2>
+							<p className="text-muted-foreground mt-3 text-base/7">
+								One tap generates a shopping list from your meal plan, minus what
+								you already have. Check items off at the store and they flow back
+								into your pantry.
 							</p>
 						</div>
-					</div>
-
-					{/* Feature 4 — right visual */}
-					<div className="flex flex-col items-center gap-8 md:flex-row-reverse">
-						<div className="bg-card shadow-warm flex-1 rounded-2xl border p-6">
-							<div className="space-y-3">
-								<div className="flex items-center gap-2 text-xs font-medium">
-									<Icon name="cart" className="text-accent size-4" />
-									<span>Shop</span>
-									<span className="text-muted-foreground">&rarr;</span>
-									<Icon name="timer" className="text-accent size-4" />
-									<span>Cook</span>
-									<span className="text-muted-foreground">&rarr;</span>
-									<Icon name="reset" className="text-accent size-4" />
-									<span>Restocked</span>
-								</div>
-								<div className="space-y-1.5">
-									{[
-										{ name: 'Chicken thighs', checked: true },
-										{ name: 'Yogurt', checked: true },
-										{ name: 'Tortillas', checked: false },
-										{ name: 'Avocados', checked: false },
-									].map((item) => (
-										<div
-											key={item.name}
-											className="flex items-center gap-2 text-sm"
-										>
-											<div
-												className={`flex size-4 items-center justify-center rounded border-2 ${item.checked ? 'border-primary bg-primary' : 'border-input'}`}
-											>
-												{item.checked && (
-													<Icon
-														name="check"
-														size="xs"
-														className="text-primary-foreground"
-													/>
-												)}
-											</div>
-											<span
-												className={
-													item.checked
-														? 'text-muted-foreground line-through'
-														: ''
-												}
-											>
-												{item.name}
-											</span>
-										</div>
-									))}
-								</div>
-								<div className="bg-accent/10 text-accent rounded-lg px-3 py-1.5 text-center text-[10px] font-medium">
-									Checked items flow into your inventory
-								</div>
-							</div>
-						</div>
-						<div className="flex-1 text-center md:text-right">
-							<p className="text-accent mb-2 font-serif text-sm font-medium">
-								Step 4
-							</p>
-							<h3 className="text-2xl font-bold">Shop, cook, repeat</h3>
-							<p className="text-muted-foreground mt-2">
-								One tap generates a shopping list from your meal plan, minus
-								what you already have. Check items off at the store and they
-								flow into your inventory. Cook from the app and your pantry
-								updates automatically.
-							</p>
-						</div>
-					</div>
+					</ScrollReveal>
 				</div>
 			</section>
 
-			{/* Built for the kitchen */}
-			<section className="px-4 pb-16">
-				<div className="mx-auto max-w-4xl">
-					<h2 className="text-center font-serif text-2xl font-bold">
-						Built for the kitchen
-					</h2>
-					<p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
-						Hands-free cooking, real-time sync, and full control over your data.
-					</p>
-					<div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-						{[
-							{
-								icon: 'timer' as const,
-								title: 'Cooking mode',
-								desc: 'Inline timers, tap-to-cross-off ingredients and steps, wake lock, and temperature conversions — built for messy hands.',
-							},
-							{
-								icon: 'sparkles' as const,
-								title: 'Smart matching',
-								desc: 'Every recipe shows how many ingredients you have in stock. Sort by match percentage to find the best fit.',
-							},
-							{
-								icon: 'home' as const,
-								title: 'Share a kitchen',
-								desc: 'Invite your partner or housemates. Recipes, inventory, and meal plans stay in sync in real time.',
-							},
-							{
-								icon: 'download' as const,
-								title: 'Your data, always',
-								desc: 'Full JSON export anytime. Import it back if you ever need to. No lock-in.',
-							},
-						].map((f) => (
-							<div key={f.title} className="text-center">
-								<div className="bg-accent/10 mx-auto flex size-10 items-center justify-center rounded-xl">
-									<Icon name={f.icon} className="text-accent size-5" />
-								</div>
-								<h3 className="mt-3 text-sm font-semibold">{f.title}</h3>
-								<p className="text-muted-foreground mt-1 text-xs/5">{f.desc}</p>
-							</div>
-						))}
-					</div>
+			{/* Close */}
+			<section className="px-4 py-16 text-center md:py-20">
+				<h2 className="font-serif text-[1.75rem] font-normal md:text-[2.25rem]">
+					Your recipes deserve a home.
+				</h2>
+				<div className="mt-8">
+					<Button asChild size="lg" className="rounded-full px-8">
+						<Link to="/signup">Start cooking</Link>
+					</Button>
 				</div>
 			</section>
+		</div>
+	)
+}
 
-			{/* Final CTA */}
-			<section className="px-4 pb-20 text-center">
-				<div className="from-primary/5 to-accent/5 mx-auto max-w-xl rounded-3xl bg-linear-to-r p-12">
-					<h2 className="font-serif text-2xl font-bold">
-						Ready to get organized?
-					</h2>
-					<p className="text-muted-foreground mt-2">
-						Free to use. No credit card required.
-					</p>
-					<div className="mt-6">
-						<Button
-							asChild
-							size="lg"
-							className="shadow-warm-md rounded-full px-8"
+// ---------------------------------------------------------------------------
+// Scroll-reveal wrapper
+// ---------------------------------------------------------------------------
+
+function ScrollReveal({
+	children,
+	className,
+}: {
+	children: React.ReactNode
+	className?: string
+}) {
+	const ref = useRef<HTMLDivElement>(null)
+
+	useEffect(() => {
+		const el = ref.current
+		if (!el) return
+
+		// Hide the element so the observer can reveal it
+		el.style.opacity = '0'
+		el.style.transform = 'translateY(24px)'
+		el.style.transition =
+			'opacity 280ms var(--ease-reveal), transform 280ms var(--ease-reveal)'
+
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				if (entry?.isIntersecting) {
+					el.style.opacity = '1'
+					el.style.transform = 'translateY(0)'
+					observer.unobserve(el)
+				}
+			},
+			{ threshold: 0.15 },
+		)
+
+		observer.observe(el)
+		return () => observer.disconnect()
+	}, [])
+
+	return (
+		<div ref={ref} className={className}>
+			{children}
+		</div>
+	)
+}
+
+// ---------------------------------------------------------------------------
+// Artifacts
+// ---------------------------------------------------------------------------
+
+function RecipeCardArtifact() {
+	return (
+		<div className="bg-card rounded-lg border p-5 shadow-warm-md">
+			{/* Placeholder image area */}
+			<div className="bg-secondary flex aspect-[4/3] items-center justify-center rounded">
+				<span className="text-muted-foreground/40 font-serif text-6xl">
+					M
+				</span>
+			</div>
+			<h3 className="mt-4 font-serif text-lg font-semibold">
+				Miso-Glazed Salmon
+			</h3>
+			<p className="text-muted-foreground mt-1 text-sm">
+				25 min &middot; 2 servings
+			</p>
+			<div className="mt-3 space-y-1.5">
+				{['Salmon fillets', 'White miso', 'Mirin', 'Sesame oil'].map(
+					(ing) => (
+						<div
+							key={ing}
+							className="text-muted-foreground border-border/60 border-b pb-1.5 text-sm last:border-0"
 						>
-							<Link to="/signup">
-								Create your account
-								<Icon name="arrow-right" size="sm" />
-							</Link>
-						</Button>
+							{ing}
+						</div>
+					),
+				)}
+			</div>
+		</div>
+	)
+}
+
+function WeekViewArtifact() {
+	const days = [
+		{ day: 'Mon', meal: 'Pasta al limone' },
+		{ day: 'Tue', meal: 'Chicken tikka' },
+		{ day: 'Wed', meal: '' },
+		{ day: 'Thu', meal: 'Black bean tacos' },
+		{ day: 'Fri', meal: 'Salmon bowl' },
+		{ day: 'Sat', meal: '' },
+		{ day: 'Sun', meal: 'Ramen' },
+	]
+
+	return (
+		<div className="bg-card rounded-lg border p-5 shadow-warm-md">
+			<div className="grid grid-cols-7 gap-2">
+				{days.map(({ day, meal }) => (
+					<div key={day} className="text-center">
+						<p className="text-muted-foreground mb-2 text-xs font-medium">
+							{day}
+						</p>
+						<div className="bg-secondary/60 min-h-[52px] rounded px-1 py-2">
+							{meal ? (
+								<p className="text-foreground/80 text-[11px] leading-tight">
+									{meal}
+								</p>
+							) : (
+								<p className="text-border text-lg leading-tight">+</p>
+							)}
+						</div>
 					</div>
-				</div>
-			</section>
+				))}
+			</div>
+		</div>
+	)
+}
+
+function ShoppingListArtifact() {
+	const items = [
+		{ name: 'Salmon fillets', checked: true },
+		{ name: 'White miso paste', checked: true },
+		{ name: 'Mirin', checked: false },
+		{ name: 'Limes (3)', checked: false },
+		{ name: 'Spaghetti', checked: false },
+		{ name: 'Black beans', checked: true },
+	]
+
+	return (
+		<div
+			className="bg-card rounded-t-lg p-5 shadow-warm-md"
+			style={{
+				clipPath:
+					'polygon(0 0, 100% 0, 100% calc(100% - 12px), 92% 100%, 84% calc(100% - 4px), 76% calc(100% - 10px), 68% 100%, 60% calc(100% - 6px), 52% calc(100% - 12px), 44% calc(100% - 2px), 36% calc(100% - 8px), 28% 100%, 20% calc(100% - 5px), 12% calc(100% - 11px), 4% calc(100% - 3px), 0 calc(100% - 8px))',
+			}}
+		>
+			<p className="text-muted-foreground mb-3 text-xs font-medium uppercase tracking-wider">
+				Shopping list
+			</p>
+			<div className="space-y-2.5">
+				{items.map((item) => (
+					<div key={item.name} className="flex items-center gap-2.5">
+						<div
+							className={`flex size-4 shrink-0 items-center justify-center rounded-sm border ${
+								item.checked
+									? 'border-primary bg-primary'
+									: 'border-muted-foreground/40'
+							}`}
+						>
+							{item.checked ? (
+								<svg viewBox="0 0 8 8" className="size-2.5">
+									<path
+										d="M1,4 L3,6 L7,2"
+										stroke="currentColor"
+										strokeWidth="1.5"
+										fill="none"
+										className="text-primary-foreground"
+									/>
+								</svg>
+							) : null}
+						</div>
+						<span
+							className={`text-sm ${
+								item.checked
+									? 'text-muted-foreground/50 line-through'
+									: 'text-foreground'
+							}`}
+						>
+							{item.name}
+						</span>
+					</div>
+				))}
+			</div>
+			{/* Extra padding for torn edge */}
+			<div className="h-4" />
 		</div>
 	)
 }

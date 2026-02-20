@@ -515,65 +515,81 @@ Redesign `app/routes/shopping.tsx`.
 
 ### 6A: Layout & Container
 
-- [ ] Wrap content in `container-narrow` (480px max)
-- [ ] Page title in `font-serif` Crimson Pro 400
+- [x] Wrap content in `container-narrow` (480px max)
+- [x] Page title in `font-serif` Crimson Pro 400
 
 ### 6B: Item Styling
 
 The main item UI lives in `app/components/shopping-list-item.tsx`
 (ShoppingListItemCard), not in the route file itself.
 
-- [ ] `app/components/shopping-list-item.tsx` — restyle the item card:
+- [x] `app/components/shopping-list-item.tsx` — restyle the item card:
   - Checkboxes: 24px, matcha fill when checked
-  - Item name: DM Sans 16px, quantity/unit as subtle caption
+  - Item name: DM Sans 16px regular weight, quantity/unit as subtle caption
   - Checked items: 2px line-through in cha color, 50% opacity. Animated
     left-to-right (200ms, `--ease-micro`)
   - Generous vertical padding (16px per item) for easy touch targets
   - Inline edit mode: warm input styling consistent with quick-add
   - Delete double-check: warm destructive styling
-- [ ] Category headers: DM Sans 12px, uppercase, `tracking-wider`, hai color.
-      32px space above, 12px below.
+  - Whole row is tappable to toggle checkbox (biggest tap target wins)
+  - Edit/delete behind `···` overflow button, hidden until hover/focus
+    (`opacity-0 group-hover:opacity-100`)
+- [x] Category headers: DM Sans 12px, uppercase, `tracking-[0.08em]`, hai
+      color (`#A69B8F` / `#8A7F73` dark). Tight spacing to first item.
 
 ### 6C: Quick Add
 
-- [ ] Restyle input: bottom-border only (no full border), DM Sans placeholder
-      _"Add an item..."_
-- [ ] Ghost `+` icon button at right edge for discoverability
-- [ ] Preserve existing duplicate-check warning logic, just restyle the warning
-      banner
+- [x] Restyle input: bottom-border only (no full border), DM Sans placeholder
+      _"Add an item..."_ — inline ruled-line style, no card wrapper
+- [x] Ghost `+` icon button at right edge for discoverability
+- [x] Optional Qty / Unit row collapsed by default, same borderless style
+- [x] Preserve existing duplicate-check warning logic, restyle warning banner
+      with warm `bg-accent/10` palette
 
 ### 6D: Checked Item Actions & Inventory Review
 
-- [ ] "Add to Inventory" / "Clear Checked" as understated text-style
-      links/buttons
-- [ ] Appear with subtle slide-up animation when checked items exist
-- [ ] `app/components/shopping-list-to-inventory.tsx` (ShoppingListToInventory)
-      — restyle the review panel: location badges, expiry date pickers, expand/
-      collapse rows, select-all toggle. Warm palette, consistent with new card
-      and input styling.
+- [x] "Add to Inventory" / "Clear Checked" as understated text-style
+      links/buttons separated by `·`
+- [x] Appear with subtle slide-up animation when checked items exist
+- [x] `app/components/shopping-list-to-inventory.tsx` (ShoppingListToInventory)
+      — restyle the review panel: warm `bg-secondary/30`, serif title, location
+      badges using design system palette, divider-based item list, cancel as
+      text link
 
 ### 6E: Low Stock & Generate
 
-- [ ] Restyle low-stock nudge banner: warm amber tones, updated button styles
-- [ ] Restyle generate button / week selector: consistent with new palette
+- [x] Restyle low-stock nudge banner: warm `bg-accent/8`, accent-colored
+      header, understated "Add all" text link, warm chip styling
+- [x] Restyle generate button / week selector: consistent with new palette
+- [x] Fix button height mismatch: print icon button `h-9` to match Generate
 
 ### 6F: Print View
 
-- [ ] Verify print styles still produce a clean single-column list
-- [ ] Unicode checkboxes (☐/☑), compact spacing
-- [ ] Minimal branding at bottom
+- [x] Verify print styles still produce a clean single-column list
+- [x] Unicode checkboxes (☐/☑), compact spacing
+- [x] Minimal branding at bottom ("Quartermaster" wordmark)
+
+### 6G: Review Polish
+
+- [x] Removed title item count (progress bar is sufficient)
+- [x] Added matcha progress bar below header showing checked/total
+- [x] Search input hidden until 15+ items (short lists don't need it)
+- [x] Added `strikethrough` (200ms ease-micro) and `slide-up-reveal` (280ms
+      ease-reveal) keyframe animations in `tailwind.css`
+- [x] Empty state: dashed border circle pattern, serif heading, warm messaging
+      (consistent with other surfaces)
 
 ### Phase 6 Definition of Done
 
-- [ ] Shopping list feels narrow, focused, and tactile
-- [ ] Checking off items is satisfying (animation + opacity shift)
-- [ ] Quick-add is discoverable on mobile (visible submit button)
-- [ ] Print produces a clean, usable list
-- [ ] `npm run typecheck` passes
+- [x] Shopping list feels narrow, focused, and tactile
+- [x] Checking off items is satisfying (animation + opacity shift)
+- [x] Quick-add is discoverable on mobile (visible submit button)
+- [x] Print produces a clean, usable list
+- [x] `npm run typecheck` passes
 - [ ] Commit, wait for review
 
 **Files:** `app/routes/shopping.tsx`, `app/components/shopping-list-item.tsx`,
-`app/components/shopping-list-to-inventory.tsx`
+`app/components/shopping-list-to-inventory.tsx`, `app/styles/tailwind.css`
 
 ---
 

@@ -58,7 +58,7 @@ export function BottomNav() {
 	return (
 		<nav
 			aria-label="Main"
-			className="bg-card/95 border-border/50 fixed inset-x-0 bottom-0 z-50 border-t pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_oklch(20%_0.01_55/0.05)] backdrop-blur-sm md:hidden print:hidden"
+			className="bg-card/95 border-border fixed inset-x-0 bottom-0 z-50 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden print:hidden"
 		>
 			<div className="relative flex h-16 items-center justify-around">
 				{/* Sliding pill indicator */}

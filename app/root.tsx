@@ -81,7 +81,7 @@ export const links: Route.LinksFunction = () => {
 		} as const,
 		{
 			rel: 'stylesheet',
-			href: 'https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&display=swap',
+			href: 'https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=Crimson+Pro:wght@300;400;600&family=Caveat:wght@400;700&display=swap',
 		},
 		{
 			rel: 'icon',
@@ -106,7 +106,7 @@ export const meta: Route.MetaFunction = ({ data }) => {
 	return [
 		{ title: data ? 'Quartermaster' : 'Error | Quartermaster' },
 		{ name: 'description', content: `Your personal recipe manager` },
-		{ name: 'theme-color', content: '#52a868' },
+		{ name: 'theme-color', content: '#4E7A54' },
 		{ property: 'og:site_name', content: 'Quartermaster' },
 		{ property: 'og:title', content: 'Quartermaster' },
 		{
@@ -373,8 +373,8 @@ function App() {
 												to="/recipes"
 												className={({ isActive }) =>
 													isActive
-														? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-														: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-all duration-200'
 												}
 											>
 												Recipes
@@ -383,8 +383,8 @@ function App() {
 												to="/inventory"
 												className={({ isActive }) =>
 													isActive
-														? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-														: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-all duration-200'
 												}
 											>
 												Inventory
@@ -393,8 +393,8 @@ function App() {
 												to="/plan"
 												className={({ isActive }) =>
 													isActive
-														? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-														: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-all duration-200'
 												}
 											>
 												Plan
@@ -410,8 +410,8 @@ function App() {
 												to="/shopping"
 												className={({ isActive }) =>
 													isActive
-														? 'bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-														: 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
+														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-all duration-200'
 												}
 											>
 												Shopping
@@ -457,7 +457,7 @@ function App() {
 function Logo() {
 	return (
 		<Link to="/" className="group flex items-center gap-2">
-			<span className="text-foreground text-lg font-semibold">
+			<span className="text-foreground font-serif text-xl font-medium tracking-tight">
 				Quartermaster
 			</span>
 		</Link>

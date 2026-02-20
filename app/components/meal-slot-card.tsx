@@ -115,8 +115,9 @@ function EntryRow({
 	}
 
 	return (
-		<div className={cn('space-y-1', isCooked && 'opacity-60')}>
+		<div className={cn(isCooked && 'opacity-50')}>
 			<div className="flex items-center gap-2">
+				{/* Cooked checkbox */}
 				<cookedFetcher.Form method="POST" className="shrink-0">
 					<input
 						type="hidden"
@@ -127,10 +128,10 @@ function EntryRow({
 					<button
 						type="submit"
 						className={cn(
-							'flex size-6 items-center justify-center rounded-full border-2 transition-colors',
+							'flex size-5 items-center justify-center rounded-full border-2 transition-colors',
 							isCooked
-								? 'border-green-500 bg-green-500 text-white'
-								: 'border-muted-foreground/30 hover:border-green-500',
+								? 'border-primary bg-primary text-primary-foreground'
+								: 'border-muted-foreground/30 hover:border-primary',
 						)}
 						aria-label={
 							isCooked
@@ -138,28 +139,56 @@ function EntryRow({
 								: 'Mark as cooked (logs cook + updates inventory)'
 						}
 					>
-						{isCooked && <Icon name="check" size="xs" />}
+						{isCooked && <Icon name="check" className="size-3" />}
 					</button>
 				</cookedFetcher.Form>
-				<h4
-					className={cn(
-						'line-clamp-2 flex-1 text-sm font-semibold',
-						isCooked && 'line-through',
-					)}
-				>
-					<Link
-						to={
-							entry.servings && entry.servings !== entry.recipe.servings
-								? `/recipes/${entry.recipe.id}?servings=${entry.servings}`
-								: `/recipes/${entry.recipe.id}`
-						}
-						className="hover:underline"
-						onClick={(e) => e.stopPropagation()}
+
+				{/* Title + servings inline */}
+				<div className="min-w-0 flex-1">
+					<h4
+						className={cn(
+							'line-clamp-1 text-sm font-medium',
+							isCooked && 'text-muted-foreground line-through',
+						)}
 					>
-						{entry.recipe.title}
-					</Link>
-				</h4>
-				<Form method="POST">
+						<Link
+							to={
+								entry.servings && entry.servings !== entry.recipe.servings
+									? `/recipes/${entry.recipe.id}?servings=${entry.servings}`
+									: `/recipes/${entry.recipe.id}`
+							}
+							className="hover:underline"
+							onClick={(e) => e.stopPropagation()}
+						>
+							{entry.recipe.title}
+						</Link>
+					</h4>
+					<div className="mt-0.5 flex items-center gap-0.5">
+						<button
+							type="button"
+							className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-6 items-center justify-center rounded-md transition-colors disabled:opacity-40"
+							onClick={() => updateServings(currentServings - 1)}
+							disabled={currentServings <= 1}
+							aria-label="Decrease servings"
+						>
+							−
+						</button>
+						<span className="text-muted-foreground min-w-[2ch] text-center text-xs">
+							{currentServings}
+						</span>
+						<button
+							type="button"
+							className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-6 items-center justify-center rounded-md transition-colors"
+							onClick={() => updateServings(currentServings + 1)}
+							aria-label="Increase servings"
+						>
+							+
+						</button>
+					</div>
+				</div>
+
+				{/* Remove */}
+				<Form method="POST" className="shrink-0">
 					<input type="hidden" name="intent" value="remove" />
 					<input type="hidden" name="entryId" value={entry.id} />
 					<StatusButton
@@ -168,40 +197,16 @@ function EntryRow({
 						variant={dc.doubleCheck ? 'destructive' : 'ghost'}
 						status="idle"
 						aria-label="Remove from meal plan"
+						className={dc.doubleCheck ? undefined : 'size-7 p-0'}
 						{...dc.getButtonProps()}
 					>
 						{dc.doubleCheck ? (
 							<span className="text-xs">Sure?</span>
 						) : (
-							<Icon name="trash" size="sm" />
+							<Icon name="trash" className="size-3.5" />
 						)}
 					</StatusButton>
 				</Form>
-			</div>
-			<div className="flex items-center gap-1 text-xs">
-				<Button
-					variant="outline"
-					size="sm"
-					className="h-9 w-9 p-0 text-xs"
-					onClick={() => updateServings(currentServings - 1)}
-					disabled={currentServings <= 1}
-					aria-label="Decrease servings"
-				>
-					-
-				</Button>
-				<span className="text-muted-foreground min-w-[4ch] text-center">
-					{currentServings}
-				</span>
-				<Button
-					variant="outline"
-					size="sm"
-					className="h-9 w-9 p-0 text-xs"
-					onClick={() => updateServings(currentServings + 1)}
-					aria-label="Increase servings"
-				>
-					+
-				</Button>
-				<span className="text-muted-foreground">servings</span>
 			</div>
 		</div>
 	)
@@ -234,11 +239,11 @@ export function MealSlotCard({
 
 	const assignedRecipeIds = entries.map((e) => e.recipe.id)
 
-	// Empty slot: compact button that expands to RecipeSelector
+	// Empty slot: ghost + button
 	if (entries.length === 0) {
 		if (isSelectingRecipe) {
 			return (
-				<div className="bg-card shadow-warm rounded-xl border border-dashed p-3">
+				<div className="animate-fade-up-reveal rounded-xl border border-dashed p-3">
 					<div className="text-muted-foreground mb-2 text-xs font-medium">
 						{MEAL_TYPE_LABELS[mealType]}
 					</div>
@@ -260,18 +265,20 @@ export function MealSlotCard({
 			<button
 				type="button"
 				onClick={openRecipeSelector}
-				className="text-muted-foreground hover:text-foreground hover:border-accent/40 hover:bg-accent/5 flex w-full items-center gap-1.5 rounded-xl border border-dashed px-3 py-2.5 text-xs transition-colors"
+				className="text-muted-foreground hover:text-foreground hover:border-accent/30 flex w-full items-center gap-1.5 rounded-lg border border-dashed px-3 py-1.5 text-xs transition-colors"
 			>
-				<Icon name="plus" size="xs" />
+				<span className="bg-muted flex size-5 items-center justify-center rounded-full text-[10px]">
+					+
+				</span>
 				{MEAL_TYPE_LABELS[mealType]}
 			</button>
 		)
 	}
 
-	// Filled slot: card with entries + add button in header
+	// Filled slot: warm card with entries
 	return (
-		<div className="group bg-card shadow-warm hover:shadow-warm-md overflow-hidden rounded-xl border transition-shadow">
-			<div className="bg-muted/30 flex items-center justify-between border-b px-3 py-1.5">
+		<div className="bg-card shadow-warm hover:shadow-warm-md group overflow-hidden rounded-xl transition-shadow">
+			<div className="flex items-center justify-between px-3 pt-2">
 				<p className="text-muted-foreground text-xs font-medium">
 					{MEAL_TYPE_LABELS[mealType]}
 				</p>
@@ -279,21 +286,24 @@ export function MealSlotCard({
 					<button
 						type="button"
 						onClick={openRecipeSelector}
-						className="text-muted-foreground hover:text-foreground -m-1 rounded p-2 transition-colors"
+						className="text-muted-foreground hover:text-foreground -m-1 rounded p-1.5 transition-colors"
 						title="Add another recipe"
 					>
 						<Icon name="plus" className="size-3.5" />
 					</button>
 				)}
 			</div>
-			<div className="divide-border/50 divide-y p-3">
-				{entries.map((entry) => (
-					<div key={entry.id} className="py-2 first:pt-0 last:pb-0">
+			<div className="p-3 pt-2">
+				{entries.map((entry, i) => (
+					<div
+						key={entry.id}
+						className={cn(i > 0 && 'border-border/50 mt-2 border-t pt-2')}
+					>
 						<EntryRow entry={entry} />
 					</div>
 				))}
 				{isSelectingRecipe && (
-					<div className="border-t pt-2">
+					<div className="border-border/50 mt-2 border-t pt-2">
 						<RecipeSelector
 							recipes={recipes}
 							date={date}

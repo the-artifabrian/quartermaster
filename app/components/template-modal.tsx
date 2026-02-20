@@ -3,6 +3,7 @@ import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { Input } from '#app/components/ui/input.tsx'
 import { useModal } from '#app/utils/use-modal.ts'
 
 function ModalShell({
@@ -32,7 +33,7 @@ function ModalShell({
 				<div className="mb-4 flex items-center justify-between">
 					<h2
 						id="template-modal-title"
-						className="font-serif text-xl font-bold"
+						className="font-serif text-xl"
 					>
 						{title}
 					</h2>
@@ -92,14 +93,13 @@ export function SaveTemplateModal({
 					>
 						Template Name
 					</label>
-					<input
+					<Input
 						type="text"
 						id="templateName"
 						name="name"
 						value={name}
 						onChange={(e) => setName(e.target.value)}
 						placeholder="e.g., Weeknight Easy, Entertaining Week"
-						className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
 						autoFocus
 						required
 					/>
@@ -175,7 +175,7 @@ export function ApplyTemplateModal({
 					{visibleTemplates.map((template) => (
 						<div
 							key={template.id}
-							className="bg-muted/30 flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center"
+							className="bg-secondary/30 flex flex-col gap-3 rounded-xl p-3 sm:flex-row sm:items-center"
 						>
 							<div className="min-w-0 flex-1">
 								<p className="truncate text-sm font-semibold">

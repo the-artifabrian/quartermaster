@@ -151,6 +151,7 @@ export async function action({ request }: Route.ActionArgs) {
 			where: { householdId, weekStart },
 			include: {
 				entries: {
+					where: { cooked: false },
 					include: {
 						recipe: {
 							include: {

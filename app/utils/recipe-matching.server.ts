@@ -6,6 +6,7 @@ import { type Ingredient, type InventoryItem } from '@prisma/client'
  */
 const STAPLE_INGREDIENTS = new Set([
 	'water',
+	'ice water',
 	'salt',
 	'sea salt',
 	'kosher salt',
@@ -18,6 +19,9 @@ const STAPLE_INGREDIENTS = new Set([
 	'cooking oil',
 	'olive oil',
 	'canola oil',
+	'cooking spray',
+	'nonstick spray',
+	'nonstick cooking spray',
 ])
 
 /**
@@ -186,6 +190,10 @@ const PROTECTED_COMPOUNDS = new Set([
 	'light soy sauce',
 	'black bean',
 	'black tea',
+	'hot sauce',
+	'hot pepper',
+	'hot dog',
+	'cold brew',
 ])
 
 // Common descriptive words that don't affect ingredient identity
@@ -261,6 +269,13 @@ const MODIFIERS = [
 	'skinless',
 	'skin-on',
 	'bone-in',
+	// Temperature
+	'cold',
+	'warm',
+	'hot',
+	'lukewarm',
+	'boiling',
+	'room temperature',
 	// Processing
 	'smoked',
 	'roasted',

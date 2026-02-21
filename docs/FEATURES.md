@@ -111,8 +111,8 @@ High-level feature reference (not exhaustive). For the roadmap, see
   inventory match indicators (X/Y ingredients in stock, green at 100%)
 - Single-use ingredient waste alerts with recipe suggestions
 - Standalone shopping list at `/shopping` with:
-  - Generate from meal plan (week picker for prev/current/next week) with dedup
-    against existing manual/recipe items
+  - Generate from meal plan (week picker for prev/current/next week, skips
+    cooked meals) with dedup against existing manual/recipe items
   - Quick add (open by default, collapsible) with smart duplicate/inventory
     warnings and "Add Anyway" bypass
   - Auto-categorization (produce, dairy, meat, pantry, frozen, bakery,

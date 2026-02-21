@@ -2,8 +2,18 @@ import { z } from 'zod'
 
 export const ShoppingListItemSchema = z.object({
 	name: z.string().min(1, { message: 'Item name is required' }).max(100),
-	quantity: z.string().max(50).optional(),
-	unit: z.string().max(20).optional(),
+	quantity: z
+		.string()
+		.max(50)
+		.optional()
+		.transform((v) => (v === '' ? null : v))
+		.nullable(),
+	unit: z
+		.string()
+		.max(20)
+		.optional()
+		.transform((v) => (v === '' ? null : v))
+		.nullable(),
 	category: z
 		.enum([
 			'produce',

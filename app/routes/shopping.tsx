@@ -565,8 +565,8 @@ export default function ShoppingListRoute({
 									<input type="hidden" name="intent" value="generate" />
 									<input type="hidden" name="weekStart" value={defaultWeek} />
 									<Button type="submit" variant="outline" size="sm">
-										<Icon name="update" size="sm" />
-										Generate
+										<Icon name="calendar" size="sm" />
+										From Plan
 									</Button>
 								</Form>
 							)}
@@ -789,8 +789,9 @@ export default function ShoppingListRoute({
 						<p className="text-muted-foreground mx-auto mt-2 max-w-sm text-sm">
 							{hasMealPlan ? (
 								<>
-									Hit Generate to build your list from the meal plan, or
-									add items manually. Check things off as you shop.
+									Hit <strong>From Plan</strong> to build your list from the
+									meal plan, or add items manually. Check things off as you
+									shop.
 								</>
 							) : (
 								<>
@@ -801,7 +802,7 @@ export default function ShoppingListRoute({
 									>
 										meal plan
 									</Link>{' '}
-									to auto-generate your list, or type above to add items.
+									to build your list from it, or type above to add items.
 									Check things off as you shop and add them to your
 									inventory.
 								</>

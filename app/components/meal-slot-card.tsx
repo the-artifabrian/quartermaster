@@ -2,6 +2,16 @@ import { useState, useEffect, useRef } from 'react'
 import { Form, Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
 
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '#app/components/ui/alert-dialog.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { type MealType, MEAL_TYPE_LABELS } from '#app/utils/date.ts'
@@ -50,6 +60,7 @@ function EntryRow({
 	const servingsFetcher = useFetcher()
 	const cookedFetcher = useFetcher<QuickCookData>()
 	const prevCookedFetcherState = useRef(cookedFetcher.state)
+	const [showCookConfirm, setShowCookConfirm] = useState(false)
 
 	const currentServings = entry.servings ?? entry.recipe.servings
 
@@ -118,30 +129,53 @@ function EntryRow({
 		<div className={cn(isCooked && 'opacity-50')}>
 			<div className="flex items-center gap-2">
 				{/* Cooked checkbox */}
-				<cookedFetcher.Form method="POST" className="shrink-0">
-					<input
-						type="hidden"
-						name="intent"
-						value={entry.cooked ? 'toggleCooked' : 'quickCook'}
-					/>
-					<input type="hidden" name="entryId" value={entry.id} />
-					<button
-						type="submit"
-						className={cn(
-							'flex size-5 items-center justify-center rounded-full border-2 transition-colors',
-							isCooked
-								? 'border-primary bg-primary text-primary-foreground'
-								: 'border-muted-foreground/30 hover:border-primary',
-						)}
-						aria-label={
-							isCooked
-								? 'Mark as not cooked'
-								: 'Mark as cooked (logs cook + updates inventory)'
-						}
-					>
-						{isCooked && <Icon name="check" className="size-3" />}
-					</button>
-				</cookedFetcher.Form>
+				{isCooked ? (
+					<cookedFetcher.Form method="POST" className="shrink-0">
+						<input type="hidden" name="intent" value="toggleCooked" />
+						<input type="hidden" name="entryId" value={entry.id} />
+						<button
+							type="submit"
+							className="border-primary bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors"
+							aria-label="Mark as not cooked"
+						>
+							<Icon name="check" className="size-3" />
+						</button>
+					</cookedFetcher.Form>
+				) : (
+					<AlertDialog open={showCookConfirm} onOpenChange={setShowCookConfirm}>
+						<button
+							type="button"
+							onClick={() => setShowCookConfirm(true)}
+							className="border-muted-foreground/30 hover:border-primary flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
+							aria-label="Mark as cooked"
+						/>
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>Mark as cooked?</AlertDialogTitle>
+								<AlertDialogDescription>
+									This will log the cook and subtract ingredients from your
+									inventory.
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogCancel>Cancel</AlertDialogCancel>
+								<AlertDialogAction
+									onClick={() => {
+										void cookedFetcher.submit(
+											{
+												intent: 'quickCook',
+												entryId: entry.id,
+											},
+											{ method: 'POST' },
+										)
+									}}
+								>
+									Cooked
+								</AlertDialogAction>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
+				)}
 
 				{/* Title + servings inline */}
 				<div className="min-w-0 flex-1">

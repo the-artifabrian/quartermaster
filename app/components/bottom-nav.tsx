@@ -7,6 +7,7 @@ import { Icon, type IconName } from './ui/icon.tsx'
 type NavItem = {
 	to: string
 	icon: IconName
+	iconFilled: IconName
 	label: string
 	matchPaths?: string[]
 }
@@ -15,24 +16,28 @@ const navItems: NavItem[] = [
 	{
 		to: '/recipes',
 		icon: 'cookie' as IconName,
+		iconFilled: 'cookie-filled' as IconName,
 		label: 'Recipes',
 		matchPaths: ['/recipes'],
 	},
 	{
 		to: '/inventory',
 		icon: 'file-text' as IconName,
+		iconFilled: 'file-text-filled' as IconName,
 		label: 'Inventory',
 		matchPaths: ['/inventory'],
 	},
 	{
 		to: '/plan',
-		icon: 'clock' as IconName,
+		icon: 'calendar' as IconName,
+		iconFilled: 'calendar-filled' as IconName,
 		label: 'Plan',
 		matchPaths: ['/plan'],
 	},
 	{
 		to: '/shopping',
 		icon: 'cart' as IconName,
+		iconFilled: 'cart-filled' as IconName,
 		label: 'Shop',
 		matchPaths: ['/shopping'],
 	},
@@ -47,29 +52,12 @@ export function BottomNav() {
 
 	if (!user) return null
 
-	const activeIndex = navItems.findIndex((item) =>
-		item.matchPaths?.some((path) =>
-			path === '/'
-				? location.pathname === '/'
-				: location.pathname.startsWith(path),
-		),
-	)
-
 	return (
 		<nav
 			aria-label="Main"
 			className="bg-card/95 border-border fixed inset-x-0 bottom-0 z-50 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden print:hidden"
 		>
-			<div className="relative grid h-16 grid-cols-4 items-center">
-				{/* Sliding pill indicator */}
-				{activeIndex >= 0 && (
-					<div
-						className="bg-primary/10 absolute top-1/2 h-11 w-[calc(25%-8px)] -translate-y-1/2 rounded-xl transition-[left] duration-300 ease-out"
-						style={{
-							left: `calc(${activeIndex} * 25% + 4px)`,
-						}}
-					/>
-				)}
+			<div className="grid h-16 grid-cols-4 items-center">
 				{navItems.map((item) => {
 					const isActive = item.matchPaths?.some((path) =>
 						path === '/'
@@ -77,19 +65,24 @@ export function BottomNav() {
 							: location.pathname.startsWith(path),
 					)
 					const isLocked = !isPro && PRO_PATHS.has(item.to)
+					const iconName = isLocked
+						? 'lock-closed'
+						: isActive
+							? item.iconFilled
+							: item.icon
 
 					return (
 						<NavLink
 							key={item.to}
 							to={item.to}
 							className={cn(
-								'relative z-10 flex flex-col items-center justify-center gap-1 py-2 transition-colors duration-200',
+								'flex flex-col items-center justify-center gap-1 py-2 transition-colors duration-200',
 								isActive
 									? 'text-primary'
 									: 'text-muted-foreground hover:text-foreground',
 							)}
 						>
-							<Icon name={isLocked ? 'lock-closed' : item.icon} size="lg" />
+							<Icon name={iconName} size="lg" />
 							<span
 								className={cn('text-xs leading-4', isActive && 'font-semibold')}
 							>

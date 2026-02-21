@@ -29,14 +29,23 @@ type TodaySuggestion = {
 type TodayBannerProps = {
 	entries: TodayEntry[]
 	suggestion: TodaySuggestion | null
+	dismissed?: boolean
+	onDismiss?: () => void
 }
 
-export function TodayBanner({ entries, suggestion }: TodayBannerProps) {
+export function TodayBanner({
+	entries,
+	suggestion,
+	dismissed,
+	onDismiss,
+}: TodayBannerProps) {
 	if (entries.length > 0) {
 		return <HasMealsBanner entries={entries} />
 	}
 
-	return <EmptyBanner suggestion={suggestion} />
+	if (dismissed) return null
+
+	return <EmptyBanner suggestion={suggestion} onDismiss={onDismiss} />
 }
 
 function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
@@ -129,7 +138,13 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 	)
 }
 
-function EmptyBanner({ suggestion }: { suggestion: TodaySuggestion | null }) {
+function EmptyBanner({
+	suggestion,
+	onDismiss,
+}: {
+	suggestion: TodaySuggestion | null
+	onDismiss?: () => void
+}) {
 	const now = new Date()
 	const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
@@ -182,6 +197,16 @@ function EmptyBanner({ suggestion }: { suggestion: TodaySuggestion | null }) {
 							Browse
 						</Link>
 					</Button>
+				)}
+				{onDismiss && (
+					<button
+						type="button"
+						onClick={onDismiss}
+						className="shrink-0 p-1 text-muted-foreground/50 hover:text-muted-foreground"
+						aria-label="Dismiss"
+					>
+						<Icon name="cross-1" size="sm" />
+					</button>
 				)}
 			</div>
 		</div>

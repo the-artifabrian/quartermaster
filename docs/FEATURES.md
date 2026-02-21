@@ -116,10 +116,11 @@ High-level feature reference (not exhaustive). For the roadmap, see
   - Quick add (open by default, collapsible) with smart duplicate/inventory
     warnings and "Add Anyway" bypass
   - Auto-categorization (produce, dairy, meat, pantry, frozen, bakery,
-    household, other) with section headers in the list
+    household, other) for inventory pipeline and sorting (no visible category
+    headers in the list)
   - Inline item editing (name, quantity, unit)
-  - Client-side search/filter (headers hidden during search), print-friendly
-    layout
+  - Checked/total counter in the page header (e.g. "Shopping List (3/10)")
+  - Client-side search/filter, print-friendly layout
   - Inventory-aware: subtracts items already in stock and staple ingredients
   - Optimistic UI on checkbox toggle and delete (instant response via
     `useFetcher`)

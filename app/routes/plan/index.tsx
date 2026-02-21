@@ -434,6 +434,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const currentWeek = serializeDate(getCurrentWeekStart())
 	const [showSaveTemplate, setShowSaveTemplate] = useState(false)
 	const [showApplyTemplate, setShowApplyTemplate] = useState(false)
+	const [bannerDismissed, setBannerDismissed] = useState(false)
 
 	return (
 		<div className="pb-20 md:pb-6">
@@ -510,6 +511,8 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						<TodayBanner
 							entries={tonightData.entries}
 							suggestion={tonightData.suggestion}
+							dismissed={bannerDismissed}
+							onDismiss={() => setBannerDismissed(true)}
 						/>
 					)}
 

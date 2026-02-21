@@ -478,8 +478,8 @@ a table, not cells in Google Calendar.
 **Tonight banner**: Redesigned as a warm card at the top with a subtle gradient
 (washi → kinari). Shows tonight's meal with its photo, time, and a "Let's cook"
 link. If nothing's planned, shows a DM Sans suggestion: _"Nothing planned for
-tonight"_ with a recipe suggestion from favorites. Gentle nudge, not
-notification.
+tonight"_ with a recipe suggestion from favorites. Dismissible via an X button
+(session-scoped). Gentle nudge, not notification.
 
 **Adding a recipe**: Tapping the + on a day opens a bottom sheet (mobile) or
 inline dropdown (desktop) with a simple search. Selected recipe appears with a
@@ -519,9 +519,11 @@ and focused, like a physical shopping list, not a sprawled interface.
   when the checkbox is tapped.
 - Items have generous vertical padding (16px) for easy touch targets.
 
-**Categories**: Minimal dividers. Category name in DM Sans 12px, all-caps,
-letter-spacing 0.08em, in hai (ash) color. 32px of space above a category
-header, 12px below. The categories create rhythm without creating visual blocks.
+**Progress**: No progress bar. The page header shows a checked/total counter
+(e.g. "Shopping List (3/10)") — information-dense without taking up space.
+
+**Categories**: Items are sorted by category internally but no visible category
+headers are rendered — the list reads as a flat, scannable column.
 
 **Quick add**: A simple input at the top with DM Sans placeholder: _"Add an
 item..."_ A subtle ghost + icon button sits at the right edge (discoverable on

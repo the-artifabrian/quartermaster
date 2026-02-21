@@ -37,17 +37,6 @@ import {
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/shopping.ts'
 
-const CATEGORY_LABELS: Record<string, string> = {
-	produce: 'Produce',
-	dairy: 'Dairy',
-	meat: 'Meat & Seafood',
-	pantry: 'Pantry',
-	frozen: 'Frozen',
-	bakery: 'Bakery',
-	household: 'Household',
-	other: 'Other',
-}
-
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
 }
@@ -564,6 +553,11 @@ export default function ShoppingListRoute({
 					<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
 						<h1 className="font-serif text-2xl font-normal">
 							Shopping List
+							{totalItems > 0 && (
+								<span className="text-muted-foreground ml-2 text-lg font-normal">
+									({checkedItems}/{totalItems})
+								</span>
+							)}
 						</h1>
 						<div className="ml-auto flex items-center gap-2 print:hidden">
 							{hasMealPlan && (
@@ -610,20 +604,6 @@ export default function ShoppingListRoute({
 					</p>
 				)}
 			</div>
-
-			{/* Progress bar */}
-			{totalItems > 0 && (
-				<div className="container-narrow pt-5 print:hidden">
-					<div className="h-1 overflow-hidden rounded-full bg-muted">
-						<div
-							className="h-full rounded-full bg-primary transition-all duration-300"
-							style={{
-								width: `${(checkedItems / totalItems) * 100}%`,
-							}}
-						/>
-					</div>
-				</div>
-			)}
 
 			<div className="container-narrow py-4">
 				{/* Low Stock Nudge */}
@@ -762,25 +742,9 @@ export default function ShoppingListRoute({
 							</div>
 						) : (
 							<div>
-								{filteredItems.map((item, index) => {
-									const prevCategory =
-										index > 0 ? filteredItems[index - 1]?.category : null
-									const showHeader =
-										!search && item.category !== prevCategory
-									return (
-										<div key={item.id}>
-											{showHeader && (
-												<h3
-													className={`text-[0.75rem] font-medium tracking-[0.08em] uppercase ${index > 0 ? 'pt-5' : 'pt-1'} pb-0 text-[#A69B8F] dark:text-[#8A7F73]`}
-												>
-													{CATEGORY_LABELS[item.category ?? 'other'] ??
-														'Other'}
-												</h3>
-											)}
-											<ShoppingListItemCard item={item} />
-										</div>
-									)
-								})}
+								{filteredItems.map((item) => (
+									<ShoppingListItemCard key={item.id} item={item} />
+								))}
 							</div>
 						)}
 

@@ -185,9 +185,9 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 				</button>
 			</toggleFetcher.Form>
 
-			{/* Overflow menu — visible on hover/focus, hidden by default */}
+			{/* Overflow menu */}
 			{!optimisticChecked && (
-				<div ref={actionsRef} className={`relative shrink-0 print:hidden ${showActions ? '' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'} transition-opacity`}>
+				<div ref={actionsRef} className="relative shrink-0 print:hidden">
 					<button
 						type="button"
 						onClick={() => setShowActions((v) => !v)}

@@ -613,8 +613,8 @@ export default function ShoppingListRoute({
 					</div>
 				)}
 
-				{/* Quick Add — ruled line */}
-				<div className="mb-2 print:hidden">
+				{/* Quick Add */}
+				<div className="mb-2 border-b border-border/30 print:hidden">
 					{/* Warning banner */}
 					{showWarning && (
 						<WarningBanner
@@ -632,7 +632,7 @@ export default function ShoppingListRoute({
 						{showWarning && (
 							<input type="hidden" name="force" value="true" />
 						)}
-						<div className="flex items-end gap-2 border-b border-border pb-2">
+						<div className="flex items-center gap-2">
 							<div className="min-w-0 flex-1">
 								<Input
 									{...getInputProps(fields.name, { type: 'text' })}
@@ -642,7 +642,7 @@ export default function ShoppingListRoute({
 											? (actionData.submittedName as string)
 											: undefined
 									}
-									className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+									className="h-10 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
 								/>
 								{fields.name.errors && (
 									<p className="text-destructive mt-1 text-sm">
@@ -650,17 +650,26 @@ export default function ShoppingListRoute({
 									</p>
 								)}
 							</div>
+							{!quickAddOpen && (
+								<button
+									type="button"
+									onClick={() => setQuickAddOpen(true)}
+									className="shrink-0 text-xs text-muted-foreground/40 hover:text-muted-foreground"
+								>
+									+ Qty
+								</button>
+							)}
 							<button
 								type="submit"
 								disabled={isPending}
-								className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+								className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
 								aria-label={showWarning ? 'Add anyway' : 'Add to list'}
 							>
 								<Icon name="plus" className="size-5" />
 							</button>
 						</div>
 						{quickAddOpen && (
-							<div className="flex items-end gap-3 border-b border-border/50 pt-1 pb-2">
+							<div className="flex items-center gap-3 pb-1">
 								<div className="min-w-0 flex-1">
 									<Input
 										{...getInputProps(fields.quantity, { type: 'text' })}
@@ -670,7 +679,7 @@ export default function ShoppingListRoute({
 												? ((actionData.submittedQuantity as string) ?? '')
 												: undefined
 										}
-										className="border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
+										className="h-8 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
 									/>
 								</div>
 								<div className="min-w-0 flex-1">
@@ -682,26 +691,17 @@ export default function ShoppingListRoute({
 												? ((actionData.submittedUnit as string) ?? '')
 												: undefined
 										}
-										className="border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
+										className="h-8 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
 									/>
 								</div>
 								<button
 									type="button"
 									onClick={() => setQuickAddOpen(false)}
-									className="mb-0.5 shrink-0 text-xs text-muted-foreground/50 hover:text-muted-foreground"
+									className="shrink-0 text-xs text-muted-foreground/40 hover:text-muted-foreground"
 								>
 									Hide
 								</button>
 							</div>
-						)}
-						{!quickAddOpen && (
-							<button
-								type="button"
-								onClick={() => setQuickAddOpen(true)}
-								className="pt-1 text-xs text-muted-foreground/50 hover:text-muted-foreground"
-							>
-								+ Qty / Unit
-							</button>
 						)}
 					</Form>
 				</div>

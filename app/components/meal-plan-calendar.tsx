@@ -196,11 +196,11 @@ export function MealPlanCalendar({
 								>
 									{formatDayLabel(date)}
 								</span>
-								<span className="text-muted-foreground text-xs">
-									{dayCount > 0
-										? `${dayCount} meal${dayCount !== 1 ? 's' : ''}`
-										: 'Nothing planned'}
-								</span>
+								{dayCount > 0 && (
+									<span className="text-muted-foreground text-xs">
+										{dayCount} meal{dayCount !== 1 ? 's' : ''}
+									</span>
+								)}
 							</div>
 							{dayCount > 0 ? (
 								<div className="space-y-1.5">

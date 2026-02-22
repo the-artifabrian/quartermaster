@@ -212,6 +212,45 @@ describe('parseIngredient', () => {
 		})
 	})
 
+	test('parses mixed ASCII fraction with unit: "1 3/4 cups flour"', () => {
+		const result = parseIngredient('1 3/4 cups flour')
+		expect(result).toEqual({
+			name: 'flour',
+			amount: '1 3/4',
+			unit: 'cups',
+			notes: undefined,
+		})
+	})
+
+	test('parses mixed ASCII fraction: "1 1/2 tsp cinnamon"', () => {
+		const result = parseIngredient('1 1/2 tsp cinnamon')
+		expect(result).toEqual({
+			name: 'cinnamon',
+			amount: '1 1/2',
+			unit: 'tsp',
+			notes: undefined,
+		})
+	})
+
+	test('parses mixed ASCII fraction without unit: "1 1/2 eggs"', () => {
+		const result = parseIngredient('1 1/2 eggs')
+		expect(result).toEqual({
+			name: 'eggs',
+			amount: '1 1/2',
+			notes: undefined,
+		})
+	})
+
+	test('parses mixed ASCII fraction with notes: "1 3/4 cups carrots, finely shredded"', () => {
+		const result = parseIngredient('1 3/4 cups carrots, finely shredded')
+		expect(result).toEqual({
+			name: 'carrots',
+			amount: '1 3/4',
+			unit: 'cups',
+			notes: 'finely shredded',
+		})
+	})
+
 	test('parses standalone unicode fraction: "¾ cup butter"', () => {
 		const result = parseIngredient('¾ cup butter')
 		expect(result).toEqual({
@@ -219,6 +258,56 @@ describe('parseIngredient', () => {
 			amount: '¾',
 			unit: 'cup',
 			notes: undefined,
+		})
+	})
+
+	test('extracts trailing parenthetical as notes: "4 oz cream cheese (at room temp)"', () => {
+		const result = parseIngredient('4 oz cream cheese (at room temp)')
+		expect(result).toEqual({
+			name: 'cream cheese',
+			amount: '4',
+			unit: 'oz',
+			notes: 'at room temp',
+		})
+	})
+
+	test('extracts parenthetical from name with unit: "2 cups carrots (finely shredded)"', () => {
+		const result = parseIngredient('2 cups carrots (finely shredded)')
+		expect(result).toEqual({
+			name: 'carrots',
+			amount: '2',
+			unit: 'cups',
+			notes: 'finely shredded',
+		})
+	})
+
+	test('extracts parenthetical alternative: "1/2 cup olive oil (or vegetable oil)"', () => {
+		const result = parseIngredient('1/2 cup olive oil (or vegetable oil)')
+		expect(result).toEqual({
+			name: 'olive oil',
+			amount: '1/2',
+			unit: 'cup',
+			notes: 'or vegetable oil',
+		})
+	})
+
+	test('extracts parenthetical from no-amount ingredient: "salt (to taste)"', () => {
+		const result = parseIngredient('salt (to taste)')
+		expect(result).toEqual({
+			name: 'salt',
+			notes: 'to taste',
+		})
+	})
+
+	test('mixed fraction + comma notes + parenthetical: "1 3/4 cups cream cheese (softened), divided"', () => {
+		const result = parseIngredient(
+			'1 3/4 cups cream cheese (softened), divided',
+		)
+		expect(result).toEqual({
+			name: 'cream cheese',
+			amount: '1 3/4',
+			unit: 'cups',
+			notes: 'divided, softened',
 		})
 	})
 

@@ -1,6 +1,7 @@
 import { InstructionWithTimers } from '#app/components/instruction-with-timers.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { cn } from '#app/utils/misc.tsx'
+import { convertTemperatures } from '#app/utils/metric-conversion.ts'
 import {
 	type AppliedSubstitution,
 	applySubstitutionsToText,
@@ -12,12 +13,14 @@ export function RecipeInstructionsList({
 	onToggleStep,
 	substitutions,
 	recipeName,
+	useMetric,
 }: {
 	instructions: Array<{ id: string; content: string }>
 	checkedSteps: Set<string>
 	onToggleStep: (id: string) => void
 	substitutions: Map<string, AppliedSubstitution>
 	recipeName: string
+	useMetric?: boolean
 }) {
 	return (
 		<div>
@@ -60,14 +63,17 @@ export function RecipeInstructionsList({
 								)}
 							>
 								<InstructionWithTimers
-									content={
-										substitutions.size > 0
-											? applySubstitutionsToText(
-													instruction.content,
-													substitutions,
-												)
-											: instruction.content
-									}
+									content={(() => {
+										let c =
+											substitutions.size > 0
+												? applySubstitutionsToText(
+														instruction.content,
+														substitutions,
+													)
+												: instruction.content
+										if (useMetric) c = convertTemperatures(c)
+										return c
+									})()}
 									stepNumber={index + 1}
 									recipeName={recipeName}
 								/>

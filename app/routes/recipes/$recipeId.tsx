@@ -492,6 +492,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	}>({ key: 'enhance-recipe' })
 	const [showEnhanceModal, setShowEnhanceModal] = useState(false)
 	const prevEnhanceFetcherState = useRef(enhanceFetcher.state)
+	const [useMetric, setUseMetric] = useState(false)
+	useEffect(() => {
+		setUseMetric(localStorage.getItem('qm-use-metric') === 'true')
+	}, [])
 
 	const servingsParam = searchParams.get('servings')
 	const currentServings = servingsParam
@@ -567,6 +571,13 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			},
 			{ replace: true },
 		)
+	}
+
+	function toggleMetric() {
+		setUseMetric((prev) => {
+			localStorage.setItem('qm-use-metric', String(!prev))
+			return !prev
+		})
 	}
 
 	function handleIMadeThis() {
@@ -770,6 +781,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								onApplySubstitution={applySubstitution}
 								onRevertSubstitution={revertSubstitution}
 								shoppingFetcher={shoppingFetcher}
+								useMetric={useMetric}
+								onToggleMetric={toggleMetric}
 							/>
 						</div>
 					</div>
@@ -781,6 +794,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						onToggleStep={toggleStep}
 						substitutions={substitutions}
 						recipeName={recipe.title}
+						useMetric={useMetric}
 					/>
 				</div>
 

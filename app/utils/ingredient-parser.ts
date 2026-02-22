@@ -62,6 +62,26 @@ export const COMMON_UNITS = new Set([
 	'handful',
 ])
 
+/**
+ * Extract trailing parenthetical from ingredient name into notes.
+ * "cream cheese (at room temp)" → { name: "cream cheese", extracted: "at room temp" }
+ * "olive oil (or vegetable oil)" → { name: "olive oil", extracted: "or vegetable oil" }
+ */
+function extractTrailingParenthetical(
+	name: string,
+	existingNotes: string | undefined,
+): { name: string; notes: string | undefined } {
+	const parenMatch = name.match(/^(.+?)\s*\(([^)]+)\)\s*$/)
+	if (parenMatch) {
+		const extracted = parenMatch[2]!.trim()
+		return {
+			name: parenMatch[1]!.trim(),
+			notes: existingNotes ? existingNotes + ', ' + extracted : extracted,
+		}
+	}
+	return { name, notes: existingNotes }
+}
+
 // Parse an ingredient string into structured parts
 export function parseIngredient(line: string): {
 	name: string
@@ -91,6 +111,42 @@ export function parseIngredient(line: string): {
 	// Handle mixed unicode fractions with space: "1 ½ cups flour" → combine to "1½ cups flour"
 	// Must come before the main regex which would split "1" and "½" incorrectly
 	cleaned = cleaned.replace(/^(\d+)\s+([½⅓⅔¼¾⅛⅜⅝⅞])/, '$1$2')
+
+	// Handle mixed ASCII fractions: "1 3/4 cups flour", "1 1/2 eggs"
+	// The main regex can't capture "1 3/4" as one token due to the internal space
+	const mixedFractionMatch = cleaned.match(
+		/^(~?\d+)\s+(\d+\/\d+)\s+(.+)$/,
+	)
+	if (mixedFractionMatch) {
+		const [, whole, frac, rest] = mixedFractionMatch
+		const amount = `${whole} ${frac}`
+		const words = rest!.trim().split(/\s+/)
+		let unit: string | undefined
+		let name: string
+		if (
+			words.length > 1 &&
+			words[0] &&
+			COMMON_UNITS.has(words[0].toLowerCase())
+		) {
+			unit = words[0]
+			name = words.slice(1).join(' ')
+		} else {
+			name = words.join(' ')
+		}
+		let notes: string | undefined
+		if (name.includes(',')) {
+			const parts = name.split(',').map((s) => s.trim())
+			name = parts[0]!
+			notes = parts.slice(1).join(', ')
+		}
+		const toTasteSuffix = name.match(/^(.+?)\s+to\s+taste$/i)
+		if (toTasteSuffix) {
+			name = toTasteSuffix[1]!
+			notes = notes ? notes + ', to taste' : 'to taste'
+		}
+		;({ name, notes } = extractTrailingParenthetical(name, notes))
+		return { name, amount, unit, notes }
+	}
 
 	// Handle "N (X unit) container name" → e.g. "1 (14.5 oz) can diced tomatoes"
 	const nestedMatch = cleaned.match(
@@ -161,6 +217,8 @@ export function parseIngredient(line: string): {
 			notes = notes ? notes + ', to taste' : 'to taste'
 		}
 
+		;({ name, notes } = extractTrailingParenthetical(name, notes))
+
 		return { name: name?.trim() || '', amount, unit, notes }
 	}
 
@@ -173,6 +231,8 @@ export function parseIngredient(line: string): {
 		name = parts[0] || ''
 		notes = parts.slice(1).join(', ')
 	}
+
+	;({ name, notes } = extractTrailingParenthetical(name, notes))
 
 	return { name, notes }
 }

@@ -7,7 +7,11 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from '#app/components/ui/tooltip.tsx'
-import { scaleAmount } from '#app/utils/fractions.ts'
+import { parseAmount, scaleAmount } from '#app/utils/fractions.ts'
+import {
+	convertToMetric,
+	formatMetricAmount,
+} from '#app/utils/metric-conversion.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { type AppliedSubstitution } from '#app/utils/recipe-detail.ts'
 
@@ -23,6 +27,8 @@ export function IngredientList({
 	onApplySubstitution,
 	onRevertSubstitution,
 	shoppingFetcher,
+	useMetric,
+	onToggleMetric,
 }: {
 	ingredients: Array<{
 		id: string
@@ -46,6 +52,8 @@ export function IngredientList({
 	) => void
 	onRevertSubstitution: (ingredientId: string) => void
 	shoppingFetcher: ReturnType<typeof useFetcher>
+	useMetric?: boolean
+	onToggleMetric?: () => void
 }) {
 	const missingSet = new Set(missingIngredientIds)
 	const nonHeadingCount = ingredients.filter((i) => !i.isHeading).length
@@ -122,12 +130,41 @@ export function IngredientList({
 									isChecked && 'text-muted-foreground/40 line-through decoration-muted-foreground/30',
 								)}
 							>
-								{ingredient.amount && (
-									<span className="font-medium">
-										{scaleAmount(ingredient.amount, ratio)}{' '}
-									</span>
-								)}
-								{ingredient.unit && <span>{ingredient.unit} </span>}
+								{(() => {
+									const scaledAmount = ingredient.amount
+										? scaleAmount(ingredient.amount, ratio)
+										: null
+									const parsed =
+										scaledAmount !== null
+											? parseAmount(scaledAmount)
+											: null
+									const metricResult =
+										useMetric && parsed !== null && ingredient.unit
+											? convertToMetric(
+													parsed,
+													ingredient.unit,
+													ingredient.name,
+												)
+											: null
+
+									return metricResult ? (
+										<span className="font-medium">
+											{metricResult.approximate ? '~ ' : ''}
+											{formatMetricAmount(metricResult)}{' '}
+										</span>
+									) : (
+										<>
+											{scaledAmount !== null && (
+												<span className="font-medium">
+													{scaledAmount}{' '}
+												</span>
+											)}
+											{ingredient.unit && (
+												<span>{ingredient.unit} </span>
+											)}
+										</>
+									)
+								})()}
 								{sub ? (
 									<>
 										<span className="text-amber-700 dark:text-amber-400">
@@ -183,9 +220,25 @@ export function IngredientList({
 
 			{/* Summary footer */}
 			<div className="mt-5 space-y-2 border-t pt-3 print:hidden">
-				<p className="text-muted-foreground px-1 text-xs">
-					You have {haveCount}/{nonHeadingCount} ingredients
-				</p>
+				<div className="flex items-center px-1">
+					<p className="text-muted-foreground text-xs">
+						You have {haveCount}/{nonHeadingCount} ingredients
+					</p>
+					{onToggleMetric && (
+						<button
+							type="button"
+							onClick={onToggleMetric}
+							className={cn(
+								'ml-auto rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+								useMetric
+									? 'border-primary bg-primary text-primary-foreground'
+									: 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30',
+							)}
+						>
+							g/ml
+						</button>
+					)}
+				</div>
 				{missingCount > 0 && (
 					<>
 						{addedToList !== undefined ? (

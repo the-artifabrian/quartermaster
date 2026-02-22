@@ -18,6 +18,10 @@ High-level feature reference (not exhaustive). For the roadmap, see
 - Full-text search across title, ingredients, and description
 - Sort (5 options), cook-time filter, favorites filter, makeable-only toggle
 - Recipe scaling with +/- servings controls and fraction display
+- Metric/imperial toggle: one-tap g/ml conversion for ingredients (cups, oz,
+  lb). Density-aware cup→gram conversion (~65 ingredients), volume fallback
+  for unknowns (marked approximate). Temperature conversion in instructions
+  (°F→°C). Composes with serving scaling. Persists via localStorage
 - Cooking mode: interactive ingredient checkboxes and instruction cross-off with
   localStorage persistence (keyed by recipeId, 7-day auto-expiry, cleared on
   cook log)
@@ -201,4 +205,4 @@ High-level feature reference (not exhaustive). For the roadmap, see
 
 ---
 
-_Last updated: February 19, 2026._
+_Last updated: February 22, 2026._

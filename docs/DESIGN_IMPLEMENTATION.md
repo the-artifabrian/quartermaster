@@ -66,46 +66,14 @@ cleanup.
 Copper should mark "where you are" and "what matters now." Several places
 currently use sage (primary) or red where copper is specified.
 
-### Navigation
-
-- [ ] Bottom tab bar (`bottom-nav.tsx`): Add copper dot or underline indicator
-  below the active tab icon. Currently uses `text-primary` (sage) — keep sage
-  for the icon fill, add copper for the indicator
-- [ ] Bottom tab bar: inactive tabs should use stone color
-  (`text-muted-foreground`)
-- [ ] Header wordmark: verify "Quartermaster" is DM Sans 500 (`font-sans
-  font-medium`)
-- [ ] Header active page indicator: if applicable, add copper treatment for
-  current route
-
-### Recipe detail
-
-- [ ] Add thin copper left-edge strip on desktop (2-3px) as a bookmark accent.
-  Apply to the recipe detail container, visible only at `md:` and above
-- [ ] Verify personal notes copper left border is already correct (audit shows
-  `border-accent border-l-[3px]` — this should be fine)
-
-### Favorites
-
-- [ ] Change favorite heart fill from red to copper (`text-accent` instead of
-  `text-red-*` or `text-destructive`)
-- [ ] Update in `recipe-card.tsx` and `$recipeId.tsx` (both places where
-  favorite heart appears)
-
-### Meal plan (verify existing)
-
-- [ ] Confirm today's card has 3px copper top-border (audit says yes)
-- [ ] Confirm "Up next" / tonight banner has copper accent border — add if
-  missing
-
-### Verification
-
-- [ ] Bottom nav: copper indicator visible on active tab
-- [ ] Recipe detail: copper strip on left edge (desktop only)
-- [ ] Favorite hearts are copper, not red
-- [ ] Meal plan today: copper top-border
-- [ ] Copper usage is limited to the 5 specified contexts — no stray `accent`
-  usage elsewhere that contradicts the structural intent
+- [x] Bottom nav: copper underline indicator below active tab, sage icon fill,
+  stone inactive tabs
+- [x] Header wordmark: verified DM Sans 500 (fixed in Phase 1)
+- [x] Recipe detail: 3px copper left-edge strip on desktop
+- [x] Personal notes: copper left border already correct
+- [x] Favorite hearts: red → copper (`text-accent`) in recipe cards + action bar
+- [x] Meal plan today: 3px copper top-border (already existed)
+- [x] Today banner: copper left border accent added
 
 ---
 

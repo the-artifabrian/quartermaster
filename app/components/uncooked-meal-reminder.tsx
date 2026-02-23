@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, useFetcher } from 'react-router'
+import { useEffect, useState } from 'react'
+import { Link, useFetcher, useLocation } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -46,16 +46,18 @@ export function UncookedMealReminder() {
 	const cookFetcher = useFetcher<CookResult>()
 	const [skipped, setSkipped] = useState<Set<string>>(new Set())
 	const [cooked, setCooked] = useState<Set<string>>(new Set())
-	const hasLoaded = useRef(false)
+	const location = useLocation()
 
-	// Load uncooked meals on mount
+	// Re-fetch on route changes (catches cooks done via /plan or /recipes/:id)
+	// and on a 30-minute interval (catches time-of-day threshold changes)
 	useEffect(() => {
-		if (!hasLoaded.current) {
-			hasLoaded.current = true
+		void loadFetcher.load('/resources/uncooked-meals')
+		const interval = setInterval(() => {
 			void loadFetcher.load('/resources/uncooked-meals')
-		}
+		}, 30 * 60 * 1000)
+		return () => clearInterval(interval)
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [])
+	}, [location.pathname])
 
 	// Handle cook success
 	useEffect(() => {

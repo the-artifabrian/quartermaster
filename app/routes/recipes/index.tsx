@@ -67,52 +67,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	})()
 
-	const [recipes, inventoryItems, mealPlanEntryCount, totalRecipeCount] =
+	// Query inventory first to decide whether ingredient data is needed
+	const [inventoryItems, mealPlanEntryCount, totalRecipeCount] =
 		await Promise.all([
-			prisma.recipe.findMany({
-				where: {
-					householdId,
-					...(favoritesOnly && { isFavorite: true }),
-					...(search && {
-						OR: [
-							{ title: { contains: search } },
-							{ description: { contains: search } },
-							{ ingredients: { some: { name: { contains: search } } } },
-						],
-					}),
-				},
-				select: {
-					id: true,
-					title: true,
-					description: true,
-					prepTime: true,
-					cookTime: true,
-					isFavorite: true,
-					isAiGenerated: true,
-					servings: true,
-					image: { select: { objectKey: true } },
-					cookingLogs: {
-						select: { cookedAt: true },
-						orderBy: { cookedAt: 'desc' as const },
-						take: 1,
-					},
-					_count: { select: { cookingLogs: true, instructions: true } },
-					ingredients: {
-						select: {
-							id: true,
-							name: true,
-							amount: true,
-							unit: true,
-							notes: true,
-							isHeading: true,
-							order: true,
-							recipeId: true,
-						},
-						orderBy: { order: 'asc' as const },
-					},
-				},
-				orderBy,
-			}),
 			prisma.inventoryItem.findMany({ where: { householdId } }),
 			isProActive
 				? prisma.mealPlanEntry.count({
@@ -124,6 +81,59 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const hasInventory = inventoryItems.length > 0
 	const useMatchSort = hasInventory && !explicitSort
+
+	const recipes = await prisma.recipe.findMany({
+		where: {
+			householdId,
+			...(favoritesOnly && { isFavorite: true }),
+			...(search && {
+				OR: [
+					{ title: { contains: search } },
+					{ description: { contains: search } },
+					{ ingredients: { some: { name: { contains: search } } } },
+				],
+			}),
+		},
+		select: {
+			id: true,
+			title: true,
+			description: true,
+			prepTime: true,
+			cookTime: true,
+			isFavorite: true,
+			isAiGenerated: true,
+			servings: true,
+			image: { select: { objectKey: true } },
+			cookingLogs: {
+				select: { cookedAt: true },
+				orderBy: { cookedAt: 'desc' as const },
+				take: 1,
+			},
+			_count: {
+				select: {
+					cookingLogs: true,
+					instructions: true,
+					...(hasInventory ? {} : { ingredients: true }),
+				},
+			},
+			...(hasInventory && {
+				ingredients: {
+					select: {
+						id: true,
+						name: true,
+						amount: true,
+						unit: true,
+						notes: true,
+						isHeading: true,
+						order: true,
+						recipeId: true,
+					},
+					orderBy: { order: 'asc' as const },
+				},
+			}),
+		},
+		orderBy,
+	})
 
 	// Post-filter by total cook time (prepTime + cookTime).
 	// Recipes with no time data (both null) are included since unknown ≠ slow.
@@ -165,7 +175,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 		filteredRecipes = filteredRecipes.filter(
 			(r) =>
-				r.ingredients.length === 0 ||
+				(hasInventory
+					? r.ingredients.length === 0
+					: r._count.ingredients === 0) ||
 				r._count.instructions === 0 ||
 				duplicateIds.has(r.id),
 		)

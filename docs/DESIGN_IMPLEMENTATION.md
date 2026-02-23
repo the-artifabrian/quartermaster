@@ -19,21 +19,13 @@ test recipe card titles immediately after the swap.
 
 ### Font swap
 
-- [ ] Replace `Crimson Pro:wght@300;400;600` with `Young Serif` in the Google
-  Fonts `<link>` in `root.tsx` (line 84)
-- [ ] Update `--font-serif` in `tailwind.css` from `'Crimson Pro', Georgia,
-  serif` to `'Young Serif', Georgia, serif`
-- [ ] Search codebase for `font-semibold`, `font-light`, `font-bold` paired
-  with `font-serif` — Young Serif only has weight 400, so all weight modifiers
-  on serif text must be removed. Known locations:
-  - `recipe-card.tsx`: `md:font-semibold` on grid titles
-  - `_marketing/index.tsx`: `font-light` on hero title, `font-semibold` on
-    artifact headings
-  - `recipe-ingredient-list.tsx`: `font-semibold` on ingredient headings
-  - `meal-plan-calendar.tsx`: `font-semibold` on day labels
-  - `getting-started-checklist.tsx`: `font-semibold` on heading
-- [ ] Visual test: recipe card titles at 18px in Young Serif 400 — if they feel
-  too light, bump to 19-20px before proceeding
+- [x] Replace `Crimson Pro:wght@300;400;600` with `Young Serif` in the Google
+  Fonts `<link>` in `root.tsx`
+- [x] Update `--font-serif` in `tailwind.css` to `'Young Serif', Georgia, serif`
+- [x] Remove all `font-semibold`/`font-light`/`font-bold` from `font-serif`
+  elements (17 instances across 12 files). Ingredient section headings changed
+  to `font-sans font-medium` per design spec. Wordmark changed to `font-sans`.
+- [x] Visual test: Young Serif 400 at 18px looks good on recipe cards
 
 ### Type scale cleanup
 
@@ -53,50 +45,19 @@ purpose-driven scale. These need to be reconciled.
 
 ### Verification
 
-- [ ] All pages render correctly with Young Serif
-- [ ] No `font-semibold`/`font-light`/`font-bold` on any `font-serif` element
+- [x] All pages render correctly with Young Serif
+- [x] No `font-semibold`/`font-light`/`font-bold` on any `font-serif` element
 - [ ] Recipe cards, recipe detail, meal plan, landing page all use correct sizes
   from the type scale table
 
 ---
 
-## Phase 2: Signature Strikethrough
+## Phase 2: Signature Strikethrough — SKIPPED
 
-The pen-stroke check-off is one of two distinctive elements. The current
-implementation fades `text-decoration-color` from transparent to currentColor —
-a fade-in, not a directional sweep. The design system specifies a left-to-right
-`scaleX` on a `::after` pseudo-element.
-
-### Build the animation
-
-- [ ] Create a CSS class (e.g., `.pen-stroke-strikethrough`) that uses a
-  `::after` pseudo-element:
-  - Positioned absolutely over the text line
-  - Height: 1.5px, background: stone color (`var(--muted-foreground)`)
-  - `transform: scaleX(0)` → `scaleX(1)` with `transform-origin: left`
-  - Duration: 200ms, easing: `var(--ease-micro)`
-- [ ] Update the existing `@keyframes strikethrough` in `tailwind.css` or
-  replace with the new approach
-- [ ] Add `prefers-reduced-motion` fallback: instant strikethrough (no
-  animation), `text-decoration: line-through` is fine
-
-### Apply to components
-
-- [ ] `shopping-list-item.tsx`: Replace `animate-strikethrough` +
-  `line-through` with the new pen-stroke class on checked items
-- [ ] Recipe ingredient list (`recipe-ingredient-list.tsx`): Apply same
-  pen-stroke treatment when ingredients are checked during cooking
-- [ ] Verify the animation looks correct on both single-line and wrapping text
-- [ ] Shopping list strikethrough line: 2px in stone (slightly thicker than
-  recipe ingredient's 1.5px, per design doc)
-
-### Verification
-
-- [ ] Check off an ingredient on recipe detail — left-to-right sweep visible
-- [ ] Check off a shopping list item — same sweep, slightly thicker line
-- [ ] Toggle `prefers-reduced-motion` in OS settings — animation disabled,
-  strikethrough still appears instantly
-- [ ] Performance: animation uses only `transform` (GPU-composited)
+Pen-stroke `scaleX` animation was implemented and tested but wasn't visible
+enough in practice. Reverted to standard CSS `line-through`. The old
+`@keyframes strikethrough` and `animate-strikethrough` class were removed as
+cleanup.
 
 ---
 

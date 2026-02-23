@@ -33,7 +33,7 @@ export function RecipeActionBar({
 				variant="ghost"
 				size="icon"
 				aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-				className={isFavorite ? 'text-red-500 hover:text-red-600' : ''}
+				className={isFavorite ? 'text-accent hover:text-accent/80' : ''}
 			>
 				<Icon name={isFavorite ? 'heart-filled' : 'heart'} size="md" />
 			</Button>

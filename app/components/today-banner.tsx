@@ -57,7 +57,7 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 	const remaining = entries.length - 1
 
 	return (
-		<div className="shadow-warm mb-4 overflow-hidden rounded-2xl bg-linear-to-r from-background to-secondary dark:from-card dark:to-secondary/20">
+		<div className="border-accent/40 shadow-warm mb-4 overflow-hidden rounded-2xl border-l-[3px] bg-linear-to-r from-background to-secondary dark:from-card dark:to-secondary/20">
 			<div className="flex items-center gap-4 p-4 sm:gap-5 sm:p-5">
 				{/* Recipe image */}
 				<div className="bg-muted hidden size-16 shrink-0 overflow-hidden rounded-xl sm:block">

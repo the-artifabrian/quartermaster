@@ -76,7 +76,7 @@ export function BottomNav() {
 							key={item.to}
 							to={item.to}
 							className={cn(
-								'flex flex-col items-center justify-center gap-1 py-2 transition-colors duration-200',
+								'relative flex flex-col items-center justify-center gap-1 py-2 transition-colors duration-200',
 								isActive
 									? 'text-primary'
 									: 'text-muted-foreground hover:text-foreground',
@@ -84,10 +84,13 @@ export function BottomNav() {
 						>
 							<Icon name={iconName} size="lg" />
 							<span
-								className={cn('text-xs leading-4', isActive && 'font-semibold')}
+								className={cn('text-xs leading-4', isActive && 'font-medium')}
 							>
 								{item.label}
 							</span>
+							{isActive && (
+								<span className="bg-accent absolute bottom-1 h-0.5 w-4 rounded-full" />
+							)}
 						</NavLink>
 					)
 				})}

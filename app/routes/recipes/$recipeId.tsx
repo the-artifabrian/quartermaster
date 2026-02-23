@@ -678,7 +678,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				}}
 			/>
 
-			<div className="container-content pt-4 md:pt-6">
+			<div className="container-content pt-4 md:border-l-[3px] md:border-l-accent md:pt-6">
 				{/* Hero: Title + Image */}
 				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
 					<div className="min-w-0 flex-1">

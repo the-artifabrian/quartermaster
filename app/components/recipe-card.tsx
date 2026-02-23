@@ -61,7 +61,7 @@ export function RecipeCard({
 					{isFavorite && (
 						<Icon
 							name="heart-filled"
-							className="size-4 text-red-400/70 drop-shadow"
+							className="size-4 text-accent drop-shadow"
 						/>
 					)}
 				</div>
@@ -114,7 +114,7 @@ export function RecipeCard({
 							{isFavorite && (
 								<Icon
 									name="heart-filled"
-									className="size-3.5 text-red-400/70"
+									className="size-3.5 text-accent"
 								/>
 							)}
 							{isAiGenerated && (

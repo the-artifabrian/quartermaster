@@ -163,9 +163,9 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 
 					<div className="min-w-0 flex-1">
 						<p
-							className={`text-base ${
+							className={`pen-stroke pen-stroke-thick text-base ${
 								optimisticChecked
-									? 'text-muted-foreground/50 line-through decoration-muted-foreground/60 decoration-2 animate-strikethrough'
+									? 'pen-stroke-active text-muted-foreground/50'
 									: ''
 							}`}
 						>

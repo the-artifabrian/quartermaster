@@ -174,18 +174,7 @@
 	--animate-caret-blink: caret-blink 1.25s ease-out infinite;
 	--animate-fade-up: fade-up 0.4s var(--ease-reveal);
 	--animate-fade-up-reveal: fade-up-reveal 280ms var(--ease-reveal);
-	--animate-strikethrough: strikethrough 200ms var(--ease-micro);
 	--animate-slide-up-reveal: slide-up-reveal 280ms var(--ease-reveal);
-
-	@keyframes strikethrough {
-		from {
-			text-decoration-color: transparent;
-		}
-
-		to {
-			text-decoration-color: currentColor;
-		}
-	}
 
 	@keyframes slide-up-reveal {
 		from {
@@ -364,6 +353,41 @@ html {
 
 :is(.dark) .paper-grain::before {
 	opacity: 0.08;
+}
+
+/* Pen-stroke strikethrough — signature interaction
+   Left-to-right sweep via scaleX on ::after pseudo-element.
+   Add .pen-stroke to the text container, .pen-stroke-active to trigger. */
+.pen-stroke {
+	position: relative;
+}
+
+.pen-stroke::after {
+	content: '';
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 50%;
+	height: 1.5px;
+	background: var(--color-muted-foreground);
+	transform: scaleX(0);
+	transform-origin: left;
+	transition: transform 200ms var(--ease-micro);
+}
+
+.pen-stroke-active::after {
+	transform: scaleX(1);
+}
+
+/* Shopping list variant: slightly thicker line */
+.pen-stroke-thick::after {
+	height: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.pen-stroke::after {
+		transition: none;
+	}
 }
 
 @layer base {

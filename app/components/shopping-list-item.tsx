@@ -4,9 +4,7 @@ import { useFetcher } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
-import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { parseAmount } from '#app/utils/fractions.ts'
-import { useDoubleCheck } from '#app/utils/misc.tsx'
 import {
 	getProduceCountDisplay,
 	isWeightUnit,
@@ -17,7 +15,6 @@ type ShoppingListItemCardProps = {
 }
 
 export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
-	const dc = useDoubleCheck()
 	const [isEditing, setIsEditing] = useState(false)
 	const [showActions, setShowActions] = useState(false)
 	const editFetcher = useFetcher()
@@ -60,8 +57,12 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 			? !item.checked
 			: item.checked
 
-	// Hide if delete is in-flight
-	if (deleteFetcher.formData?.get('intent') === 'delete') {
+	// Hide once delete is submitted — formData covers in-flight,
+	// fetcher.data covers the idle frame before loaderData refreshes
+	if (
+		deleteFetcher.formData?.get('intent') === 'delete' ||
+		deleteFetcher.data?.status === 'success'
+	) {
 		return null
 	}
 
@@ -212,20 +213,13 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 							<deleteFetcher.Form method="POST">
 								<input type="hidden" name="intent" value="delete" />
 								<input type="hidden" name="itemId" value={item.id} />
-								<StatusButton
+								<button
 									type="submit"
-									variant={dc.doubleCheck ? 'destructive' : 'ghost'}
-									size="sm"
-									status="idle"
-									className="size-8 p-0"
-									{...dc.getButtonProps()}
+									className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+									aria-label="Delete item"
 								>
-									{dc.doubleCheck ? (
-										<span className="text-xs">Sure?</span>
-									) : (
-										<Icon name="trash" size="sm" />
-									)}
-								</StatusButton>
+									<Icon name="trash" size="sm" />
+								</button>
 							</deleteFetcher.Form>
 						</div>
 					)}

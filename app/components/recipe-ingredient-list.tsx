@@ -74,6 +74,9 @@ export function IngredientList({
 		const formData = new FormData()
 		formData.set('intent', 'add-to-shopping-list')
 		formData.set('servingRatio', ratio.toString())
+		if (useMetric) {
+			formData.set('useMetric', '1')
+		}
 		void shoppingFetcher.submit(formData, { method: 'POST' })
 	}
 

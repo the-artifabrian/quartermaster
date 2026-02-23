@@ -18,6 +18,39 @@ made by hand, or something assembled from components?_
 
 ---
 
+## Signature Elements — What Makes This Stand Out
+
+Most recipe apps are either clinical (white cards, system fonts, blue links) or
+over-decorated (illustrations everywhere, novelty fonts, forced whimsy). This
+design occupies a specific gap: **a handmade journal that's also a sharp tool.**
+
+These are the 5 elements that create that feeling. They're non-negotiable — if
+implementation pressure forces cuts, cut from surface-specific details before
+cutting any of these:
+
+1. **Paper grain texture** — the CSS `feTurbulence` overlay on the page
+   background. Without it, washi is just a beige hex code. With it, the screen
+   reads as a surface.
+2. **The hand-drawn divider** — a single organic SVG line used under recipe
+   titles and between sections. This is the visual element people will
+   associate with Quartermaster. It must look hand-drawn, not wobbly-on-purpose.
+3. **Serif/sans typography pairing** — Crimson Pro for titles and ingredient
+   amounts, DM Sans for everything functional. The constant font switching
+   creates the "printed cookbook annotated by hand" tension.
+4. **Kawa as bookmark ribbon** — the aged-leather accent used structurally
+   (today's date, active states, recipe page edge) rather than scattered as a
+   generic "accent color." It anchors attention.
+5. **Ingredient check-off animation** — the left-to-right pen-stroke line
+   through on ingredients. This happens dozens of times per cooking session and
+   is the moment users will feel the difference between "app" and "journal."
+
+Everything else supports these five. If a recipe detail page has paper grain, a
+hand-drawn divider under the serif title, serif ingredient amounts, a kawa
+bookmark edge, and the pen-stroke check-off — it will feel like a cookbook
+regardless of what the cards or buttons look like.
+
+---
+
 ## Aesthetic Foundation
 
 ### Material Palette
@@ -105,10 +138,19 @@ Google Fonts: Crimson Pro 300, 400, 600
 | Use                       | Weight | Size            | Line height | Letter spacing |
 | ------------------------- | ------ | --------------- | ----------- | -------------- |
 | Landing hero (decorative) | 300    | 2.5rem (40px)   | 1.2         | -0.02em        |
-| Page title (functional)   | 400    | 2.25rem (36px)  | 1.2         | -0.015em       |
+| Page title (functional)   | 400    | 2.25rem (36px)  | 1.15        | -0.02em        |
+| Recipe detail title       | 400    | 2.5rem (40px)   | 1.15        | -0.02em        |
 | Section heading           | 600    | 1.5rem (24px)   | 1.3         | -0.01em        |
 | Recipe card title         | 600    | 1.125rem (18px) | 1.3         | -0.005em       |
 | Recipe card title (list)  | 400    | 1rem (16px)     | 1.4         | 0              |
+
+The **recipe detail title** gets its own row because it needs to work at arm's
+length while cooking — slightly larger than other page titles, but still a
+cookbook page header, not a magazine cover.
+
+**Page section headers** ("Recipes," "This Week," "Shopping List") use Crimson
+Pro 400 at page-title size. They should read as chapter titles in a book — warm
+and unhurried — not as app navigation labels. Give them room to breathe.
 
 **DM Sans** (Sans-serif) — _The steady hand_ Kept from the current system.
 Handles body text, UI labels, metadata — everything that needs to be functional
@@ -207,13 +249,42 @@ ink spreading. Never mechanical, never theatrical.
 **Stagger delay for lists: 40ms** between items, max 6 items animated (rest
 appear instantly).
 
+**Signature interaction — ingredient check-off**: When a user checks an
+ingredient, the line-through animates left-to-right via a `scaleX` transform on
+a `::after` pseudo-element (200ms, micro-interaction curve). The line is 1.5px,
+cha-colored, slightly rough — more pen stroke than CSS rule. This is the single
+micro-interaction worth investing in because it happens dozens of times per
+cooking session and directly reinforces the "crossing off a handwritten list"
+metaphor. All other check/toggle animations use standard opacity transitions.
+
 ### Texture & Details
 
 Subtle cues that the surface is paper, not glass:
 
-- **Dividers**: 1px lines using `border-color` (sugi), never heavy. Consider
-  using a slightly irregular SVG line for key dividers (recipe title underline)
-  — a single, hand-drawn-feeling horizontal rule.
+- **Paper grain overlay**: A CSS-only noise texture applied to the page
+  background via an inline SVG `feTurbulence` filter at 2-3% opacity. This is
+  not an image — it's a few lines of CSS that make washi feel like washi instead
+  of `#F6F1EB`. The single biggest bang-for-buck visual upgrade. Apply to
+  `<body>` or the root layout wrapper.
+
+  ```css
+  .paper-grain::before {
+  	content: '';
+  	position: fixed;
+  	inset: 0;
+  	z-index: 50;
+  	pointer-events: none;
+  	opacity: 0.03;
+  	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  ```
+
+- **Hand-drawn divider — a signature element**: The SVG divider line is not a
+  nice-to-have — it's a core identity piece. Use it prominently: under recipe
+  titles, between the hero and metadata on recipe detail, between landing page
+  sections. It should be the visual element people associate with Quartermaster.
+  A single wavy path, 1-2px stroke in sugi color, with slight organic
+  irregularity. Keep one SVG, reuse everywhere via a `<Divider />` component.
 - **Card borders**: 1px solid, muted. On hover, the border warms slightly (shift
   toward `kawa` at 20% opacity).
 - **Image treatment**: Recipe photos get `border-radius: 6px` and a 1px border
@@ -222,6 +293,23 @@ Subtle cues that the surface is paper, not glass:
 - **Empty states**: DM Sans in muted cha color, dashed borders using 6px dash /
   8px gap. Warm and inviting, not clinical — but no handwritten font (Caveat
   reserved for personal notes + landing page only).
+
+### Kawa as Structural Accent
+
+The kawa (aged leather) color currently has a vague "accent" role. Give it a
+specific, recurring physical job — it's the **leather bookmark ribbon** that
+runs through the app:
+
+- **Today's date** on the meal plan: 3px kawa top-border on the card
+- **Active/current page** in navigation: a small kawa underline or dot
+- **Recipe detail "bookmark"**: a thin kawa vertical strip on the left edge of
+  the page (desktop), like a ribbon marking your place in a cookbook
+- **Favorite heart fill**: kawa, not red — favorites are warm, not urgent
+- **"Tonight" banner accent**: kawa left-border or top-border
+
+This gives the warm copper tone a consistent physical metaphor (bookmark/marker)
+rather than scattering it as a generic "accent." Users will subconsciously
+associate kawa with "this is where you are / what matters now."
 
 ---
 
@@ -363,12 +451,14 @@ and placeholder text in DM Sans: _"Search recipes..."_ Filter chips below: time,
 favorites, "can make." Filters feel like sticky notes — kinari background,
 rounded, gentle.
 
-**Desktop (>768px)**: A standard grid (two columns at `md`, three at `lg`) but
-cards have **natural height variation** — no forced equal heights or fixed
-aspect ratios. A card with a photo, description, and cook history is taller than
-one with just a title. This creates the "index cards of different ages" feel
-without masonry layout complexity (CSS `columns` would break sort order; JS
-masonry libraries add weight for minimal benefit).
+**Desktop (>768px)**: A standard grid (two columns at `md`, three at `lg`).
+Cards align to uniform row heights (CSS grid's default) but vary their **content
+density** — a card with a photo, description, and cook count fills its space
+richly, while a text-only card uses the extra vertical room for generous
+padding and a large initial letter. The "index cards of different ages" feeling
+comes from this content variation within a consistent frame, not from literal
+height differences (which would require masonry layout and create visual gaps in
+a standard grid).
 
 **Recipe cards (redesigned)**:
 
@@ -389,7 +479,15 @@ chips and serif card titles signal "your space."
 
 ---
 
-### 3. Recipe Detail — "The Open Cookbook"
+### 3. Recipe Detail — "The Open Cookbook" _(Signature Surface)_
+
+This is the page to get right first. Users spend more time here than anywhere
+else, and it's where every design principle converges — the serif typography,
+the paper grain, the hand-drawn divider, the handwritten notes, the kawa
+bookmark. If this page feels like a cookbook, the whole app feels like a
+cookbook. If this page feels like a component library, nothing else matters.
+**Implement this surface first and let it set the standard for everything
+else.**
 
 **Concept**: You've laid a cookbook flat on the counter next to the cutting
 board. The page is open to a recipe you've made before — there's a small sauce
@@ -401,21 +499,27 @@ everything is. There's no cognitive overhead — just the recipe, ready to cook.
 
 **Structure**:
 
-**Hero area**: The recipe title in Crimson Pro 400 (readable at arm's length —
-this is the page you stare at while cooking). Below it, a thin hand-drawn-style
-SVG divider line. Then metadata: prep time, cook time, source — in small DM
-Sans, muted, with minimal visual weight. If there's an image, it's prominent —
-on desktop it sits beside the title area at up to **400px** width, with a subtle
-1px sugi border and 6px radius (photograph-in-a-book treatment, not a hero
-banner). On mobile, the image is below the title, full-width but with 16px
-horizontal margin so it doesn't feel edge-to-edge corporate.
+**Hero area**: The recipe title in Crimson Pro 400 at **2.5rem** with comfortable
+leading (1.15) — readable at arm's length, warm but not showy. Below it, the
+**hand-drawn SVG divider** (the signature element from Texture & Details).
+Then metadata: prep time, cook time, source — in small DM Sans, muted, with
+minimal visual weight. A thin **kawa vertical strip** on the left edge of the
+page (desktop only, 2-3px wide) acts as a bookmark ribbon — a subtle structural
+accent that anchors the page. If there's an image, it's prominent — on desktop
+it sits beside the title area at up to **400px** width, with a subtle 1px sugi
+border and 6px radius (photograph-in-a-book treatment, not a hero banner). On
+mobile, the image is below the title, full-width but with 16px horizontal
+margin so it doesn't feel edge-to-edge corporate.
 
 **Two-column body (desktop)**:
 
 - **Left (sticky): Ingredients**. A simple list with generous line spacing
-  (1.7). Ingredient amounts in slightly bolder weight. Section headings
-  (isHeading rows) in small-caps Crimson Pro with a subtle underline. Checkboxes
-  are large (24px) and warm-colored when checked (matcha).
+  (1.7). Ingredient amounts and units in **Crimson Pro 400** while ingredient
+  names stay in DM Sans — the font switch creates a visual rhythm that mirrors
+  how people scan ingredient lists (amounts first, then names): "**2 tbsp**
+  olive oil." Section headings (isHeading rows) in small-caps Crimson Pro with a
+  subtle underline. Checkboxes are large (24px) and warm-colored when checked
+  (matcha).
 - **Right: Instructions**. Numbered with large, light-weight numbers (Crimson
   Pro 400, oversized — like chapter numbers in a book). Step text in DM Sans
   with very generous line-height (1.75). Each step has breathing room below it
@@ -574,8 +678,8 @@ component code doesn't need to change — just the values behind the variables.
 
 - Caveat and Crimson Pro add ~60KB combined (woff2). Acceptable for the
   character they bring.
-- No texture images or background patterns — all visual texture comes from color
-  and typography.
+- Paper grain texture is CSS-only (inline SVG `feTurbulence`) — no image
+  downloads. All other visual texture comes from color and typography.
 - Animations use transform and opacity only (GPU-composited).
 - `prefers-reduced-motion` respected: all animations already gate on this
   (existing CSS in tailwind.css).

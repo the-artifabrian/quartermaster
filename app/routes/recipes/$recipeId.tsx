@@ -21,7 +21,11 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { CookingLogSchema } from '#app/utils/cooking-log-validation.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { scaleAmount } from '#app/utils/fractions.ts'
+import { parseAmount, scaleAmount } from '#app/utils/fractions.ts'
+import {
+	convertToMetric,
+	roundMetricAmount,
+} from '#app/utils/metric-conversion.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
@@ -326,6 +330,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	if (intent === 'add-to-shopping-list') {
 		const safeRatio = parseServingRatio(formData)
+		const useMetric = formData.get('useMetric') === '1'
 
 		// Re-run preview to get missing items
 		const preview = await previewInventorySubtraction(
@@ -357,11 +362,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 				const amount = ingredient.amount
 					? scaleAmount(ingredient.amount, safeRatio)
 					: null
-				shoppingItems.push({
-					name: ingredient.name,
-					quantity: amount,
-					unit: ingredient.unit,
-				})
+				shoppingItems.push(
+					toShoppingItem(ingredient.name, amount, ingredient.unit, useMetric),
+				)
 			} else {
 				shoppingItems.push({
 					name: ingredientName,
@@ -379,11 +382,14 @@ export async function action({ request, params }: Route.ActionArgs) {
 				item.subtractAmount > item.currentQuantity
 			) {
 				const deficit = item.subtractAmount - item.currentQuantity
-				shoppingItems.push({
-					name: item.name,
-					quantity: formatQuantity(deficit),
-					unit: item.currentUnit,
-				})
+				shoppingItems.push(
+					toShoppingItem(
+						item.name,
+						formatQuantity(deficit),
+						item.currentUnit,
+						useMetric,
+					),
+				)
 			}
 		}
 
@@ -441,6 +447,32 @@ export async function action({ request, params }: Route.ActionArgs) {
 function parseServingRatio(formData: FormData): number {
 	const raw = parseFloat(String(formData.get('servingRatio') ?? '1'))
 	return isNaN(raw) || raw <= 0 ? 1 : raw
+}
+
+function toShoppingItem(
+	name: string,
+	quantity: string | null,
+	unit: string | null,
+	useMetric: boolean,
+): { name: string; quantity: string | null; unit: string | null } {
+	if (!useMetric || !quantity || !unit) {
+		return { name, quantity, unit }
+	}
+	const parsed = parseAmount(quantity)
+	if (parsed === null) return { name, quantity, unit }
+
+	const metric = convertToMetric(parsed, unit, name)
+	if (!metric) return { name, quantity, unit }
+
+	const rounded = roundMetricAmount(metric)
+	const metricQty =
+		metric.unit === 'kg' || metric.unit === 'L'
+			? rounded % 1 === 0
+				? rounded.toString()
+				: rounded.toFixed(1)
+			: rounded.toString()
+
+	return { name, quantity: metricQty, unit: metric.unit }
 }
 
 function buildInventoryToast(summary: SubtractionSummary) {

@@ -108,20 +108,23 @@ function scaleUp(
  * Format a metric result for display.
  * Rounds to nearest 5 for amounts >50, nearest 1 below.
  */
+/** Round a metric amount to a display-friendly number. */
+export function roundMetricAmount(result: MetricResult): number {
+	if (result.unit === 'kg' || result.unit === 'L') {
+		return Math.round(result.amount * 10) / 10
+	}
+	if (result.amount > 50) {
+		return Math.round(result.amount / 5) * 5
+	}
+	return Math.round(result.amount)
+}
+
 export function formatMetricAmount(result: MetricResult): string {
-	let value: number
+	const value = roundMetricAmount(result)
 
 	if (result.unit === 'kg' || result.unit === 'L') {
-		// For kg/L, show 1 decimal when fractional
-		value = Math.round(result.amount * 10) / 10
 		const formatted = value % 1 === 0 ? value.toString() : value.toFixed(1)
 		return `${formatted} ${result.unit}`
-	}
-
-	if (result.amount > 50) {
-		value = Math.round(result.amount / 5) * 5
-	} else {
-		value = Math.round(result.amount)
 	}
 
 	return `${value} ${result.unit}`

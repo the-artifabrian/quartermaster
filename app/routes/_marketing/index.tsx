@@ -56,14 +56,14 @@ export default function Index() {
 			/>
 
 			{/* Hero */}
-			<section className="relative flex min-h-[70svh] flex-col items-center justify-center px-4 pt-12 pb-16 md:pt-20 md:pb-24">
+			<section className="relative flex min-h-[60svh] flex-col items-center justify-center px-4 pt-12 pb-8 md:pt-16 md:pb-12">
 				{/* Warm radial glow */}
 				<div
 					className="pointer-events-none absolute inset-0"
 					style={{
 						background:
 							'radial-gradient(ellipse 80% 60% at 50% 40%, var(--accent) 0%, transparent 70%)',
-						opacity: 0.06,
+						opacity: 0.12,
 					}}
 				/>
 				<div
@@ -111,7 +111,7 @@ export default function Index() {
 							<RecipeCardArtifact />
 						</div>
 						<div className="text-center md:text-left">
-							<h2 className="font-serif text-2xl font-normal">
+							<h2 className="font-serif text-2xl md:text-3xl font-normal">
 								Your recipes, all in one place
 							</h2>
 							<p className="text-muted-foreground mt-3 text-base/7">
@@ -121,22 +121,24 @@ export default function Index() {
 						</div>
 					</ScrollReveal>
 
-					{/* Week view artifact — right on desktop */}
-					<ScrollReveal className="flex flex-col items-center gap-10 md:flex-row-reverse">
-						<div className="w-full max-w-[400px] shrink-0 rotate-[1deg]">
-							<WeekViewArtifact />
-						</div>
-						<div className="text-center md:text-right">
-							<h2 className="font-serif text-2xl font-normal">
-								A week penciled in
-							</h2>
-							<p className="text-muted-foreground mt-3 text-base/7">
-								Add recipes to a weekly calendar. See tonight's dinner at a
-								glance. Adjust servings, swap meals, and generate a shopping list
-								when you're ready.
-							</p>
-						</div>
-					</ScrollReveal>
+					{/* Week view artifact — right on desktop, warm band */}
+					<div className="-mx-4 bg-secondary/30 px-4 py-10 sm:-mx-8 sm:px-8 md:py-14">
+						<ScrollReveal className="container-landing flex flex-col items-center gap-10 md:flex-row-reverse">
+							<div className="w-full max-w-[400px] shrink-0 rotate-[1deg]">
+								<WeekViewArtifact />
+							</div>
+							<div className="text-center md:text-right">
+								<h2 className="font-serif text-2xl md:text-3xl font-normal">
+									A week penciled in
+								</h2>
+								<p className="text-muted-foreground mt-3 text-base/7">
+									Add recipes to a weekly calendar. See tonight's dinner at a
+									glance. Adjust servings, swap meals, and generate a shopping
+									list when you're ready.
+								</p>
+							</div>
+						</ScrollReveal>
+					</div>
 
 					{/* Shopping list artifact — left on desktop */}
 					<ScrollReveal className="flex flex-col items-center gap-10 md:flex-row">
@@ -144,7 +146,7 @@ export default function Index() {
 							<ShoppingListArtifact />
 						</div>
 						<div className="text-center md:text-left">
-							<h2 className="font-serif text-2xl font-normal">
+							<h2 className="font-serif text-2xl md:text-3xl font-normal">
 								The list writes itself
 							</h2>
 							<p className="text-muted-foreground mt-3 text-base/7">
@@ -158,8 +160,11 @@ export default function Index() {
 			</section>
 
 			{/* Close */}
-			<section className="px-4 py-16 text-center md:py-20">
-				<h2 className="font-serif text-[1.75rem] font-normal md:text-[2.25rem]">
+			<section className="bg-secondary/40 px-4 py-20 text-center md:py-28">
+				<div className="mx-auto max-w-[200px]">
+					<Divider variant="accent" />
+				</div>
+				<h2 className="mt-8 font-serif text-[1.75rem] font-normal md:text-[2.25rem]">
 					Your recipes deserve a home.
 				</h2>
 				<div className="mt-8">
@@ -224,9 +229,9 @@ function ScrollReveal({
 function RecipeCardArtifact() {
 	return (
 		<div className="bg-card rounded-lg border p-5 shadow-warm-md">
-			{/* Placeholder image area */}
+			{/* Large serif initial on warm background */}
 			<div className="bg-secondary flex aspect-[4/3] items-center justify-center rounded">
-				<span className="text-muted-foreground/40 font-serif text-6xl">
+				<span className="text-accent/25 font-serif text-8xl font-light select-none">
 					M
 				</span>
 			</div>
@@ -273,7 +278,7 @@ function WeekViewArtifact() {
 						</p>
 						<div className="bg-secondary/60 min-h-[52px] rounded px-1 py-2">
 							{meal ? (
-								<p className="text-foreground/80 text-[11px] leading-tight">
+								<p className="text-foreground/80 font-handwritten text-[13px] leading-tight">
 									{meal}
 								</p>
 							) : (

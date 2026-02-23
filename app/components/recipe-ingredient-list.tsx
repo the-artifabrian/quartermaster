@@ -129,8 +129,8 @@ export function IngredientList({
 							</span>
 							<span
 								className={cn(
-									'pen-stroke min-w-0 flex-1 transition-colors',
-									isChecked && 'pen-stroke-active text-muted-foreground/40',
+									'min-w-0 flex-1 transition-colors',
+									isChecked && 'text-muted-foreground/40 line-through decoration-muted-foreground/30',
 								)}
 							>
 								{(() => {

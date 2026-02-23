@@ -152,19 +152,19 @@ export function IngredientList({
 											: null
 
 									return metricResult ? (
-										<span className="font-serif font-medium">
+										<span className="font-medium">
 											{metricResult.approximate ? '~ ' : ''}
 											{formatMetricAmount(metricResult)}{' '}
 										</span>
 									) : (
 										<>
 											{scaledAmount !== null && (
-												<span className="font-serif font-medium">
+												<span className="font-medium">
 													{scaledAmount}{' '}
 												</span>
 											)}
 											{ingredient.unit && (
-												<span className="font-serif">{ingredient.unit} </span>
+												<span>{ingredient.unit} </span>
 											)}
 										</>
 									)

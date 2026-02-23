@@ -412,7 +412,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							aria-expanded={filtersOpen}
 							aria-label="Toggle filters"
 							className={cn(
-								'relative flex size-10 shrink-0 items-center justify-center rounded-full border transition-colors md:hidden',
+								'relative flex size-11 shrink-0 items-center justify-center rounded-full border transition-colors md:hidden',
 								filtersOpen
 									? 'border-primary/30 bg-primary/10 text-primary'
 									: 'border-border/50 bg-secondary/50 text-muted-foreground',

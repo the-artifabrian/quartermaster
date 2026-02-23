@@ -496,8 +496,11 @@ subtly warm background. Empty state: dashed border, DM Sans prompt "Add your
 notes..." — Caveat only appears when notes exist (it's the user's handwriting,
 not the app's).
 
-**Floating action bar (mobile)**: Warm linen background, softly elevated. "I
-Made This" as primary action. Serving scaler: simple +/- stepper.
+**Action bar**: Inline icon row below the description, shared by mobile and
+desktop. Mobile shows icon-only buttons (cook in emerald, favorite, edit, share,
+enhance) with an overflow menu for less common actions; desktop adds a text "I
+Made This" button and print. Serving scaler: simple +/- stepper in the
+ingredients card header.
 
 **Print view**: Young Serif titles + clean ingredient columns print beautifully
 — lean into the cookbook identity. No chrome, no colors (save ink). Ingredients
@@ -548,8 +551,9 @@ are not items to check off.
 
 **Progress**: Header counter — "Shopping List (3/10)". No progress bar.
 
-**Categories**: Sorted by category internally. No visible category headers —
-flat, scannable column.
+**Sorting**: Items sort by checked status first, then alphabetically by name.
+No visible category headers — flat, scannable column. Categories are stored
+for inventory pipeline use but do not affect display order.
 
 **Quick add**: Inline input at top on desktop (DM Sans placeholder "Add an
 item...", ghost + button). On mobile, a floating action button (FAB) in the

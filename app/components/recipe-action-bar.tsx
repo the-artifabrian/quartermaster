@@ -26,156 +26,113 @@ export function RecipeActionBar({
 	onShare: () => void
 	onEnhance: () => void
 }) {
-	function renderFavoriteButton(withTooltip: boolean) {
-		const button = (
-			<Button
-				type="submit"
-				variant="ghost"
-				size="icon"
-				aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-				className={isFavorite ? 'text-accent hover:text-accent/80' : ''}
-			>
-				<Icon name={isFavorite ? 'heart-filled' : 'heart'} size="md" />
+	return (
+		<div className="mt-4 flex items-center gap-1 md:mt-6 md:gap-2 print:hidden">
+			{/* "I Made This" — text+icon on desktop, icon-only on mobile */}
+			<Button onClick={onIMadeThis} className="gap-2 max-md:hidden">
+				<Icon name="check" size="sm" />I Made This
 			</Button>
-		)
-
-		if (!withTooltip) return button
-
-		return (
 			<Tooltip>
-				<TooltipTrigger asChild>{button}</TooltipTrigger>
-				<TooltipContent>
-					{isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-				</TooltipContent>
+				<TooltipTrigger asChild>
+					<Button
+						onClick={onIMadeThis}
+						variant="ghost"
+						size="icon"
+						aria-label="I Made This"
+						className="text-emerald-500 hover:text-emerald-600 md:hidden"
+					>
+						<Icon name="check" className="size-6" />
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>I Made This</TooltipContent>
 			</Tooltip>
-		)
-	}
 
-	function renderEditButton(withTooltip: boolean) {
-		const button = (
-			<Button asChild variant="ghost" size="icon" aria-label="Edit recipe">
-				<Link to={`/recipes/${recipeId}/edit`}>
-					<Icon name="pencil-1" size="md" />
-				</Link>
-			</Button>
-		)
+			{/* Favorite */}
+			<favoriteFetcher.Form method="POST">
+				<input type="hidden" name="intent" value="toggleFavorite" />
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							type="submit"
+							variant="ghost"
+							size="icon"
+							aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+							className={isFavorite ? 'text-accent hover:text-accent/80' : ''}
+						>
+							<Icon name={isFavorite ? 'heart-filled' : 'heart'} size="md" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>
+						{isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+					</TooltipContent>
+				</Tooltip>
+			</favoriteFetcher.Form>
 
-		if (!withTooltip) return button
-
-		return (
+			{/* Edit */}
 			<Tooltip>
-				<TooltipTrigger asChild>{button}</TooltipTrigger>
+				<TooltipTrigger asChild>
+					<Button asChild variant="ghost" size="icon" aria-label="Edit recipe">
+						<Link to={`/recipes/${recipeId}/edit`}>
+							<Icon name="pencil-1" size="md" />
+						</Link>
+					</Button>
+				</TooltipTrigger>
 				<TooltipContent>Edit recipe</TooltipContent>
 			</Tooltip>
-		)
-	}
 
-	function renderPrintButton(withTooltip: boolean) {
-		const button = (
-			<Button
-				variant="ghost"
-				size="icon"
-				aria-label="Print recipe"
-				onClick={() => window.print()}
-			>
-				<Icon name="file-text" size="md" />
-			</Button>
-		)
-
-		if (!withTooltip) return button
-
-		return (
+			{/* Share */}
 			<Tooltip>
-				<TooltipTrigger asChild>{button}</TooltipTrigger>
-				<TooltipContent>Print recipe</TooltipContent>
-			</Tooltip>
-		)
-	}
-
-	function renderShareButton(withTooltip: boolean) {
-		const button = (
-			<Button
-				variant="ghost"
-				size="icon"
-				aria-label="Share recipe"
-				onClick={onShare}
-			>
-				<Icon name="share" size="md" />
-			</Button>
-		)
-
-		if (!withTooltip) return button
-
-		return (
-			<Tooltip>
-				<TooltipTrigger asChild>{button}</TooltipTrigger>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						aria-label="Share recipe"
+						onClick={onShare}
+					>
+						<Icon name="share" size="md" />
+					</Button>
+				</TooltipTrigger>
 				<TooltipContent>Copy public link</TooltipContent>
 			</Tooltip>
-		)
-	}
 
-	function renderEnhanceButton(withTooltip: boolean) {
-		if (!isProActive) return null
-
-		const button = (
-			<Button
-				variant="ghost"
-				size="icon"
-				aria-label="Enhance with AI"
-				onClick={onEnhance}
-				disabled={enhanceFetcher.state !== 'idle'}
-				className="text-violet-500 hover:text-violet-600"
-			>
-				{enhanceFetcher.state !== 'idle' ? (
-					<Icon name="update" className="size-5 animate-spin" />
-				) : (
-					<Icon name="sparkles" size="md" />
-				)}
-			</Button>
-		)
-
-		if (!withTooltip) return button
-
-		return (
+			{/* Print — desktop only */}
 			<Tooltip>
-				<TooltipTrigger asChild>{button}</TooltipTrigger>
-				<TooltipContent>Enhance with AI</TooltipContent>
-			</Tooltip>
-		)
-	}
-
-	return (
-		<>
-			{/* Desktop: inline bar with Tooltips */}
-			<div className="mt-6 hidden items-center gap-2 md:flex print:hidden">
-				<Button onClick={onIMadeThis} className="gap-2">
-					<Icon name="check" size="sm" />I Made This
-				</Button>
-				<favoriteFetcher.Form method="POST">
-					<input type="hidden" name="intent" value="toggleFavorite" />
-					{renderFavoriteButton(true)}
-				</favoriteFetcher.Form>
-				{renderEditButton(true)}
-				{renderPrintButton(true)}
-				{renderShareButton(true)}
-				{renderEnhanceButton(true)}
-			</div>
-
-			{/* Mobile: fixed floating card */}
-			<div className="fixed inset-x-4 bottom-18 z-30 md:hidden print:hidden">
-				<div className="bg-secondary/95 shadow-warm-lg flex items-center gap-1.5 rounded-2xl border p-2.5 backdrop-blur-md">
-					<Button onClick={onIMadeThis} className="flex-1 gap-2">
-						<Icon name="check" size="sm" />I Made This
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						aria-label="Print recipe"
+						onClick={() => window.print()}
+						className="max-md:hidden"
+					>
+						<Icon name="file-text" size="md" />
 					</Button>
-					<favoriteFetcher.Form method="POST">
-						<input type="hidden" name="intent" value="toggleFavorite" />
-						{renderFavoriteButton(false)}
-					</favoriteFetcher.Form>
-					{renderEditButton(false)}
-					{renderShareButton(false)}
-					{renderEnhanceButton(false)}
-				</div>
-			</div>
-		</>
+				</TooltipTrigger>
+				<TooltipContent>Print recipe</TooltipContent>
+			</Tooltip>
+
+			{/* Enhance */}
+			{isProActive && (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Enhance with AI"
+							onClick={onEnhance}
+							disabled={enhanceFetcher.state !== 'idle'}
+							className="text-violet-500 hover:text-violet-600"
+						>
+							{enhanceFetcher.state !== 'idle' ? (
+								<Icon name="update" className="size-5 animate-spin" />
+							) : (
+								<Icon name="sparkles" size="md" />
+							)}
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>Enhance with AI</TooltipContent>
+				</Tooltip>
+			)}
+		</div>
 	)
 }

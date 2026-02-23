@@ -61,11 +61,15 @@ export function formatDayLabel(date: Date): string {
 	return `${day} ${date.getUTCMonth() + 1}/${date.getUTCDate()}`
 }
 
-/** Format like "Feb 9 - 15, 2026" using UTC fields. */
+/** Format like "Feb 9 - 15, 2026" using UTC fields. Shows end month when spanning months. */
 export function formatWeekRange(weekStart: Date): string {
 	const weekEnd = getWeekEnd(weekStart)
 	const startMonth = MONTH_NAMES[weekStart.getUTCMonth()]
-	return `${startMonth} ${weekStart.getUTCDate()} - ${weekEnd.getUTCDate()}, ${weekEnd.getUTCFullYear()}`
+	const endPart =
+		weekStart.getUTCMonth() !== weekEnd.getUTCMonth()
+			? `${MONTH_NAMES[weekEnd.getUTCMonth()]} ${weekEnd.getUTCDate()}`
+			: `${weekEnd.getUTCDate()}`
+	return `${startMonth} ${weekStart.getUTCDate()} - ${endPart}, ${weekEnd.getUTCFullYear()}`
 }
 
 /**

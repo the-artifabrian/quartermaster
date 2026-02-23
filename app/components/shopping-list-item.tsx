@@ -192,7 +192,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 					<button
 						type="button"
 						onClick={() => setShowActions((v) => !v)}
-						className="flex size-8 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:bg-muted hover:text-muted-foreground"
+						className="flex size-10 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:bg-muted hover:text-muted-foreground"
 						aria-label="Item actions"
 					>
 						<Icon name="dots-horizontal" className="size-4" />
@@ -205,7 +205,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 									setIsEditing(true)
 									setShowActions(false)
 								}}
-								className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+								className="flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 								aria-label="Edit item"
 							>
 								<Icon name="pencil-1" size="sm" />
@@ -215,7 +215,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 								<input type="hidden" name="itemId" value={item.id} />
 								<button
 									type="submit"
-									className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+									className="flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
 									aria-label="Delete item"
 								>
 									<Icon name="trash" size="sm" />

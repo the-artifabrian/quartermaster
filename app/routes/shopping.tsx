@@ -53,7 +53,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		where: { householdId },
 		include: {
 			items: {
-				orderBy: [{ checked: 'asc' }, { category: 'asc' }, { name: 'asc' }],
+				orderBy: [{ checked: 'asc' }, { name: 'asc' }],
 			},
 		},
 	})

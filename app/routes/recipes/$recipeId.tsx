@@ -748,7 +748,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 
-				{/* Action bar (desktop inline + mobile floating) */}
+				{/* Action bar */}
 				<RecipeActionBar
 					recipeId={recipe.id}
 					isFavorite={isFavorite}
@@ -761,7 +761,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				/>
 
 				{/* Content zone: Ingredients + Instructions */}
-				<div className="mt-6 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8 print:grid-cols-1 print:gap-4">
+				<div className="mt-4 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8 print:grid-cols-1 print:gap-4">
 					{/* Ingredients - sticky on desktop, interactive checkboxes */}
 					<div className="md:sticky md:top-20 md:self-start print:static">
 						<div className="bg-card shadow-warm rounded-2xl border p-4 md:p-6 print:border-0 print:p-2 print:shadow-none">
@@ -893,9 +893,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						Source: {recipe.sourceUrl}
 					</p>
 				)}
-
-				{/* Bottom spacer for mobile floating bar */}
-				<div className="h-24 md:hidden print:hidden" />
 			</div>
 
 			{/* "I Made This" modal */}

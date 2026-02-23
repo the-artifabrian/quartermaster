@@ -162,6 +162,18 @@ describe('formatWeekRange', () => {
 		const weekStart = new Date('2026-02-02T00:00:00.000Z')
 		expect(formatWeekRange(weekStart)).toBe('Feb 2 - 8, 2026')
 	})
+
+	test('shows end month when week spans months', () => {
+		// Mon Feb 23 - Sun Mar 1, 2026
+		const weekStart = new Date('2026-02-23T00:00:00.000Z')
+		expect(formatWeekRange(weekStart)).toBe('Feb 23 - Mar 1, 2026')
+	})
+
+	test('shows end month when week spans year boundary', () => {
+		// Mon Dec 28, 2026 - Sun Jan 3, 2027
+		const weekStart = new Date('2026-12-28T00:00:00.000Z')
+		expect(formatWeekRange(weekStart)).toBe('Dec 28 - Jan 3, 2027')
+	})
 })
 
 describe('isToday', () => {

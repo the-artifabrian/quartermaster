@@ -84,7 +84,7 @@ export function NotificationBell() {
 		<DropdownMenu modal={false} onOpenChange={handleOpenChange}>
 			<DropdownMenuTrigger asChild>
 				<button
-					className="text-muted-foreground hover:text-foreground relative inline-flex items-center justify-center p-2.5 transition-colors"
+					className="text-muted-foreground hover:text-foreground relative inline-flex items-center justify-center p-3 transition-colors"
 					aria-label={
 						unreadCount > 0
 							? `Notifications (${unreadCount} unread)`

@@ -135,10 +135,12 @@ function EntryRow({
 						<input type="hidden" name="entryId" value={entry.id} />
 						<button
 							type="submit"
-							className="border-primary bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors"
+							className="flex min-h-11 min-w-11 shrink-0 items-center justify-center"
 							aria-label="Mark as not cooked"
 						>
-							<Icon name="check" className="size-3" />
+							<span className="border-primary bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
+								<Icon name="check" className="size-3" />
+							</span>
 						</button>
 					</cookedFetcher.Form>
 				) : (
@@ -146,9 +148,11 @@ function EntryRow({
 						<button
 							type="button"
 							onClick={() => setShowCookConfirm(true)}
-							className="border-muted-foreground/30 hover:border-primary flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
+							className="flex min-h-11 min-w-11 shrink-0 items-center justify-center"
 							aria-label="Mark as cooked"
-						/>
+						>
+							<span className="border-muted-foreground/30 hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
+						</button>
 						<AlertDialogContent>
 							<AlertDialogHeader>
 								<AlertDialogTitle>Mark as cooked?</AlertDialogTitle>
@@ -200,7 +204,7 @@ function EntryRow({
 					<div className="mt-0.5 flex items-center gap-0.5">
 						<button
 							type="button"
-							className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-6 items-center justify-center rounded-md transition-colors disabled:opacity-40"
+							className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-8 min-h-11 min-w-8 items-center justify-center rounded-md transition-colors disabled:opacity-40"
 							onClick={() => updateServings(currentServings - 1)}
 							disabled={currentServings <= 1}
 							aria-label="Decrease servings"
@@ -212,7 +216,7 @@ function EntryRow({
 						</span>
 						<button
 							type="button"
-							className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-6 items-center justify-center rounded-md transition-colors"
+							className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-8 min-h-11 min-w-8 items-center justify-center rounded-md transition-colors"
 							onClick={() => updateServings(currentServings + 1)}
 							aria-label="Increase servings"
 						>
@@ -231,7 +235,7 @@ function EntryRow({
 						variant={dc.doubleCheck ? 'destructive' : 'ghost'}
 						status="idle"
 						aria-label="Remove from meal plan"
-						className={dc.doubleCheck ? undefined : 'size-7 p-0'}
+						className={dc.doubleCheck ? undefined : 'size-9 p-0'}
 						{...dc.getButtonProps()}
 					>
 						{dc.doubleCheck ? (

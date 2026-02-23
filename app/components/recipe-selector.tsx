@@ -206,7 +206,7 @@ function RecipeOption({
 						>
 							<span
 								className={cn(
-									'font-serif text-sm font-bold',
+									'font-serif text-sm',
 									placeholder.letterColorClass,
 								)}
 							>

@@ -87,7 +87,7 @@ export function IngredientList({
 					if (ingredient.isHeading) {
 						return (
 							<li key={ingredient.id}>
-								<p className="text-muted-foreground font-serif mt-4 mb-1.5 border-b border-border/50 px-2 pb-1 text-sm font-semibold tracking-wider [font-variant:small-caps] first:mt-0">
+								<p className="text-muted-foreground font-sans mt-4 mb-1.5 border-b border-border/50 px-2 pb-1 text-sm font-medium tracking-wider [font-variant:small-caps] first:mt-0">
 									{ingredient.name}
 								</p>
 							</li>

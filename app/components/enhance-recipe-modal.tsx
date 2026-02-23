@@ -118,7 +118,7 @@ export function EnhanceRecipeModal({
 				<div className="mb-1 flex items-center justify-between">
 					<h2
 						id="enhance-title"
-						className="flex items-center gap-2 font-serif text-xl font-bold"
+						className="flex items-center gap-2 font-serif text-xl"
 					>
 						<Icon name="sparkles" className="size-5 text-violet-500" />
 						Enhance Recipe

@@ -81,7 +81,7 @@ export const links: Route.LinksFunction = () => {
 		} as const,
 		{
 			rel: 'stylesheet',
-			href: 'https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=Crimson+Pro:wght@300;400;600&family=Caveat:wght@400;700&display=swap',
+			href: 'https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=Young+Serif&family=Caveat:wght@400;700&display=swap',
 		},
 		{
 			rel: 'icon',

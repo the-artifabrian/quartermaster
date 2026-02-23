@@ -161,7 +161,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 			) : null}
 
 			<div className="mb-8 text-center md:mb-12">
-				<h1 className="font-serif text-3xl font-bold tracking-tight md:text-4xl">
+				<h1 className="font-serif text-3xl tracking-tight md:text-4xl">
 					Upgrade Your Kitchen
 				</h1>
 				<p className="text-muted-foreground mt-2 text-lg">

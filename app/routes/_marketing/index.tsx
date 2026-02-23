@@ -72,7 +72,7 @@ export default function Index() {
 						animation: '320ms var(--ease-page-settle) both fade-up-reveal',
 					}}
 				>
-					<h1 className="text-foreground font-serif text-[2.5rem] leading-[1.15] font-light tracking-[-0.02em] md:text-[3.5rem]">
+					<h1 className="text-foreground font-serif text-[2.5rem] leading-[1.15] tracking-[-0.02em] md:text-[3.5rem]">
 						What are we making
 						<br />
 						this week?
@@ -231,11 +231,11 @@ function RecipeCardArtifact() {
 		<div className="bg-card rounded-lg border p-5 shadow-warm-md">
 			{/* Large serif initial on warm background */}
 			<div className="bg-secondary flex aspect-[4/3] items-center justify-center rounded">
-				<span className="text-accent/25 font-serif text-8xl font-light select-none">
+				<span className="text-accent/25 font-serif text-8xl select-none">
 					M
 				</span>
 			</div>
-			<h3 className="mt-4 font-serif text-lg font-semibold">
+			<h3 className="mt-4 font-serif text-lg">
 				Miso-Glazed Salmon
 			</h3>
 			<p className="text-muted-foreground mt-1 text-sm">

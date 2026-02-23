@@ -75,7 +75,7 @@ export function GettingStartedChecklist({
 			{/* Header */}
 			<div className="mb-4 flex items-center justify-between">
 				<div>
-					<h2 className="font-serif text-lg font-semibold">Getting Started</h2>
+					<h2 className="font-serif text-lg">Getting Started</h2>
 					<p className="text-muted-foreground text-sm">
 						{completedCount} of {steps.length} complete
 					</p>

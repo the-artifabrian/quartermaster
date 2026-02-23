@@ -74,7 +74,7 @@ export function IMadeThisModal({
 			{/* Modal */}
 			<div className="bg-card shadow-warm-lg relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl p-6 sm:rounded-2xl">
 				<div className="mb-1 flex items-center justify-between">
-					<h2 id="i-made-this-title" className="font-serif text-xl font-bold">
+					<h2 id="i-made-this-title" className="font-serif text-xl">
 						I Made This
 					</h2>
 					<button
@@ -265,7 +265,7 @@ function ReviewState({
 			/>
 			<div className="bg-card shadow-warm-lg relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl p-6 sm:rounded-2xl">
 				<div className="mb-1 flex items-center justify-between">
-					<h2 id="review-title" className="font-serif text-xl font-bold">
+					<h2 id="review-title" className="font-serif text-xl">
 						{hasChanges ? 'Inventory Updated' : 'Cook Logged'}
 					</h2>
 					<button

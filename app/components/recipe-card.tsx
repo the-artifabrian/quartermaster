@@ -92,7 +92,7 @@ export function RecipeCard({
 					>
 						<span
 							className={cn(
-								'font-serif text-xl font-light md:text-4xl',
+								'font-serif text-xl md:text-4xl',
 								placeholder!.letterColorClass,
 							)}
 						>
@@ -105,7 +105,7 @@ export function RecipeCard({
 			{/* Content */}
 			<div className="flex min-w-0 flex-1 flex-col justify-center px-3 py-2 md:justify-start md:p-5">
 				<div className="flex items-center gap-1.5">
-					<h3 className="min-w-0 truncate font-serif text-lg font-normal group-hover:text-primary md:text-xl md:font-semibold">
+					<h3 className="min-w-0 truncate font-serif text-lg group-hover:text-primary md:text-xl">
 						{title}
 					</h3>
 					{/* Mobile-only inline badges */}

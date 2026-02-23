@@ -81,7 +81,7 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 								>
 									<span
 										className={cn(
-											'font-serif text-2xl font-bold',
+											'font-serif text-2xl',
 											placeholder.letterColorClass,
 										)}
 									>
@@ -98,7 +98,7 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 					<p className="text-accent text-xs font-medium tracking-wide">
 						Up next &middot; {mealLabel}
 					</p>
-					<h3 className="font-serif truncate text-lg font-semibold">
+					<h3 className="font-serif truncate text-lg">
 						{recipe.title}
 					</h3>
 					<div className="text-muted-foreground flex items-center gap-3 text-xs">

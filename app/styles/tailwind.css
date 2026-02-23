@@ -117,7 +117,7 @@
 	--shadow-warm-lg:
 		0 4px 16px oklch(25% 0.02 60 / 0.08), 0 1px 4px oklch(25% 0.02 60 / 0.05);
 	--font-sans: 'DM Sans', system-ui, sans-serif;
-	--font-serif: 'Crimson Pro', Georgia, serif;
+	--font-serif: 'Young Serif', Georgia, serif;
 	--font-handwritten: 'Caveat', cursive;
 	--ease-page-settle: var(--ease-page-settle);
 	--ease-hover-lift: var(--ease-hover-lift);

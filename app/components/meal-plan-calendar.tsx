@@ -188,9 +188,9 @@ export function MealPlanCalendar({
 							<div className="mb-1.5 flex items-baseline justify-between">
 								<span
 									className={cn(
-										'font-serif font-semibold',
+										'font-serif',
 										today
-											? 'bg-accent text-accent-foreground rounded-full px-2 py-0.5 text-sm font-semibold'
+											? 'bg-accent text-accent-foreground rounded-full px-2 py-0.5 text-sm'
 											: 'text-sm',
 									)}
 								>

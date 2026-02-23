@@ -82,12 +82,12 @@ export function IngredientList({
 
 	return (
 		<>
-			<ul className="space-y-0.5 leading-[1.7]">
+			<ul className="space-y-0.5 leading-[1.7] print:columns-2 print:gap-x-6 print:space-y-0 print:text-sm print:leading-[1.5]">
 				{ingredients.map((ingredient) => {
 					if (ingredient.isHeading) {
 						return (
 							<li key={ingredient.id}>
-								<p className="text-muted-foreground font-sans mt-4 mb-1.5 border-b border-border/50 px-2 pb-1 text-sm font-medium tracking-wider [font-variant:small-caps] first:mt-0">
+								<p className="text-muted-foreground font-sans mt-4 mb-1.5 border-b border-border/50 px-2 pb-1 text-xs font-medium uppercase tracking-widest print:mt-2 print:mb-0.5 print:px-0 print:text-[10px] print:break-inside-avoid-column first:mt-0">
 									{ingredient.name}
 								</p>
 							</li>
@@ -108,6 +108,7 @@ export function IngredientList({
 								'flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors select-none',
 								'hover:bg-accent/5',
 								'focus-visible:ring-primary/50 focus-visible:ring-2 focus-visible:outline-none',
+								'print:gap-1.5 print:rounded-none print:px-0 print:py-0.5',
 							)}
 							onClick={() => onToggle(ingredient.id)}
 							onKeyDown={(e) => {
@@ -119,7 +120,7 @@ export function IngredientList({
 						>
 							<span
 								className={cn(
-									'flex size-6 shrink-0 items-center justify-center rounded border transition-colors',
+									'flex size-6 shrink-0 items-center justify-center rounded border transition-colors print:hidden',
 									isChecked
 										? 'border-primary bg-primary text-primary-foreground'
 										: 'border-muted-foreground/25 bg-muted/30',
@@ -151,19 +152,19 @@ export function IngredientList({
 											: null
 
 									return metricResult ? (
-										<span className="font-medium">
+										<span className="font-serif font-medium">
 											{metricResult.approximate ? '~ ' : ''}
 											{formatMetricAmount(metricResult)}{' '}
 										</span>
 									) : (
 										<>
 											{scaledAmount !== null && (
-												<span className="font-medium">
+												<span className="font-serif font-medium">
 													{scaledAmount}{' '}
 												</span>
 											)}
 											{ingredient.unit && (
-												<span>{ingredient.unit} </span>
+												<span className="font-serif">{ingredient.unit} </span>
 											)}
 										</>
 									)

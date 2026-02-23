@@ -524,6 +524,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	}>({ key: 'enhance-recipe' })
 	const [showEnhanceModal, setShowEnhanceModal] = useState(false)
 	const prevEnhanceFetcherState = useRef(enhanceFetcher.state)
+	const [ingredientsExpanded, setIngredientsExpanded] = useState(true)
 	const [useMetric, setUseMetric] = useState(false)
 	useEffect(() => {
 		setUseMetric(localStorage.getItem('qm-use-metric') === 'true')
@@ -678,20 +679,20 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				}}
 			/>
 
-			<div className="container-content pt-4 md:border-l-[3px] md:border-l-accent md:pt-6">
+			<div className="container-content pt-4 md:border-l-[3px] md:border-l-accent md:pt-6 print:border-l-0 print:pt-0">
 				{/* Hero: Title + Image */}
 				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
 					<div className="min-w-0 flex-1">
-						<h1 className="font-serif text-[2.25rem] leading-tight font-normal tracking-tight">
+						<h1 className="font-serif text-[2.5rem] leading-[1.15] font-normal tracking-[-0.02em]">
 							{recipe.title}
 						</h1>
 						{recipe.isAiGenerated && (
-							<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+							<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary print:hidden">
 								<Icon name="sparkles" className="size-3" />
 								AI Generated
 							</span>
 						)}
-						<Divider variant="accent" className="mt-3 mb-2 max-w-xs" />
+						<Divider variant="accent" className="mt-3 mb-2 max-w-xs print:hidden" />
 						<RecipeMetadataCard
 							prepTime={recipe.prepTime}
 							cookTime={recipe.cookTime}
@@ -701,7 +702,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 					{/* Image beside title on desktop, below on mobile */}
 					{recipe.image && (
-						<div className="mt-4 shrink-0 md:mt-0 md:w-[400px]">
+						<div className="mt-4 shrink-0 md:mt-0 md:w-[400px] print:hidden">
 							<Img
 								src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
 								alt={recipe.image.altText ?? recipe.title}
@@ -765,7 +766,21 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					<div className="md:sticky md:top-20 md:self-start print:static">
 						<div className="bg-card shadow-warm rounded-2xl border p-4 md:p-6 print:border-0 print:p-2 print:shadow-none">
 							<div className="mb-3 flex items-center gap-2 md:mb-4">
-								<h2 className="font-serif text-lg font-normal">Ingredients</h2>
+								<button
+									type="button"
+									className="flex items-center gap-1.5 md:pointer-events-none"
+									onClick={() => setIngredientsExpanded((v) => !v)}
+								>
+									<Icon
+										name="chevron-down"
+										size="sm"
+										className={cn(
+											'text-muted-foreground transition-transform md:hidden',
+											!ingredientsExpanded && '-rotate-90',
+										)}
+									/>
+									<h2 className="font-serif text-lg font-normal">Ingredients</h2>
+								</button>
 								<span className="ml-auto flex items-center gap-1 print:hidden">
 									<Button
 										variant="outline"
@@ -801,6 +816,11 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									)}
 								</span>
 							</div>
+							<div
+								className={cn(
+									!ingredientsExpanded && 'hidden md:block',
+								)}
+							>
 							<IngredientList
 								ingredients={recipe.ingredients}
 								checkedIngredients={checkedIngredients}
@@ -816,6 +836,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								useMetric={useMetric}
 								onToggleMetric={toggleMetric}
 							/>
+							</div>
 						</div>
 					</div>
 
@@ -861,6 +882,13 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							You haven't cooked this yet. Give it a try!
 						</p>
 					</div>
+				)}
+
+				{/* Print-only source URL footer */}
+				{recipe.sourceUrl && (
+					<p className="mt-8 hidden text-xs text-gray-500 print:block">
+						Source: {recipe.sourceUrl}
+					</p>
 				)}
 
 				{/* Bottom spacer for mobile floating bar */}

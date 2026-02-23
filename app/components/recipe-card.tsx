@@ -41,23 +41,17 @@ export function RecipeCard({
 			to={`/recipes/${id}`}
 			className="group flex flex-row items-stretch overflow-hidden rounded-lg border border-border/60 bg-card text-card-foreground shadow-warm transition-all ease-[var(--ease-hover-lift)] duration-[180ms] hover:-translate-y-0.5 hover:border-accent/20 hover:shadow-warm-md md:flex-col md:rounded-xl"
 		>
-			{/* Image / Placeholder */}
+			{/* Image / Placeholder — desktop only for grid view */}
 			<div
 				className={cn(
 					'relative shrink-0 overflow-hidden',
 					imageObjectKey
-						? 'w-12 md:w-full md:aspect-[4/3]'
-						: 'w-12 md:h-28 md:w-full',
+						? 'hidden md:block md:w-full md:aspect-[4/3]'
+						: 'hidden md:flex md:h-28 md:w-full',
 				)}
 			>
 				{/* Desktop badges overlay */}
-				<div className="absolute top-2 right-2 z-10 hidden items-center gap-1 md:flex">
-					{isAiGenerated && (
-						<Icon
-							name="sparkles"
-							className="size-3.5 text-violet-400/70 drop-shadow"
-						/>
-					)}
+				<div className="absolute top-2 right-2 z-10 flex items-center gap-1">
 					{isFavorite && (
 						<Icon
 							name="heart-filled"
@@ -67,7 +61,7 @@ export function RecipeCard({
 				</div>
 				{/* Desktop match ring overlay */}
 				{matchPercentage != null && (
-					<div className="absolute bottom-2 left-2 hidden md:block">
+					<div className="absolute bottom-2 left-2">
 						<div className="rounded-full bg-white/70 p-0.5 shadow-lg backdrop-blur-sm dark:bg-black/50">
 							<MatchProgressRing percentage={matchPercentage} size={30} />
 						</div>
@@ -86,13 +80,13 @@ export function RecipeCard({
 						role="img"
 						aria-label={`${title} recipe`}
 						className={cn(
-							'flex h-full w-full items-center justify-center transition-transform group-hover:scale-[1.02]',
+							'flex h-full w-full items-center justify-center',
 							placeholder!.bgClass,
 						)}
 					>
 						<span
 							className={cn(
-								'font-serif text-xl md:text-4xl',
+								'font-serif text-4xl',
 								placeholder!.letterColorClass,
 							)}
 						>
@@ -103,65 +97,70 @@ export function RecipeCard({
 			</div>
 
 			{/* Content */}
-			<div className="flex min-w-0 flex-1 flex-col justify-center px-3 py-2 md:justify-start md:p-5">
+			<div
+				className={cn(
+					'flex min-w-0 flex-1 flex-col justify-center px-3 py-2 md:justify-start',
+					imageObjectKey ? 'md:p-5' : 'md:p-6',
+				)}
+			>
 				<div className="flex items-center gap-1.5">
-					<h3 className="min-w-0 truncate font-serif text-lg group-hover:text-primary md:text-xl">
-						{title}
+					<h3 className="min-w-0 font-serif text-base leading-[1.4] group-hover:text-primary md:text-[1.125rem] md:leading-[1.3] md:tracking-[-0.005em]">
+						<span className="line-clamp-2 md:line-clamp-1">{title}</span>
 					</h3>
 					{/* Mobile-only inline badges */}
-					{(isFavorite || isAiGenerated) && (
-						<span className="flex shrink-0 items-center gap-0.5 md:hidden">
-							{isFavorite && (
-								<Icon
-									name="heart-filled"
-									className="size-3.5 text-accent"
-								/>
-							)}
-							{isAiGenerated && (
-								<Icon
-									name="sparkles"
-									className="size-3 text-violet-400/70"
-								/>
-							)}
+					{isFavorite && (
+						<span className="shrink-0 md:hidden">
+							<Icon
+								name="heart-filled"
+								className="size-3.5 text-accent"
+							/>
 						</span>
 					)}
 				</div>
 
-				{/* Mobile-only: time + match % inline */}
-				{(totalTime > 0 || matchPercentage != null) && (
-					<div className="mt-0.5 flex items-center gap-2 md:hidden">
-						{totalTime > 0 && (
-							<span className="flex items-center gap-1 text-xs text-muted-foreground">
-								<Icon name="clock" size="xs" />
-								{totalTime} min
-							</span>
-						)}
-						{matchPercentage != null && (
-							<span className="flex items-center gap-1 text-xs text-muted-foreground">
-								<span
-									className={cn(
-										'inline-block size-1.5 rounded-full',
-										matchPercentage >= 80
-											? 'bg-primary'
-											: matchPercentage >= 50
-												? 'bg-accent'
-												: 'bg-muted-foreground/40',
-									)}
-								/>
-								{matchPercentage}%
-							</span>
-						)}
-					</div>
-				)}
+				{/* Mobile-only: time + match % + AI inline */}
+				<div className="mt-0.5 flex items-center gap-2 md:hidden">
+					{totalTime > 0 && (
+						<span className="flex items-center gap-1 text-xs text-muted-foreground">
+							<Icon name="clock" size="xs" />
+							{totalTime} min
+						</span>
+					)}
+					{matchPercentage != null && (
+						<span className="flex items-center gap-1 text-xs text-muted-foreground">
+							<span
+								className={cn(
+									'inline-block size-1.5 rounded-full',
+									matchPercentage >= 80
+										? 'bg-primary'
+										: matchPercentage >= 50
+											? 'bg-accent'
+											: 'bg-muted-foreground/40',
+								)}
+							/>
+							{matchPercentage}%
+						</span>
+					)}
+					{isAiGenerated && (
+						<span className="text-xs text-muted-foreground/60">AI</span>
+					)}
+				</div>
 
 				{/* Description */}
 				{description && (
-					<p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground md:mt-1 md:line-clamp-2 md:text-sm">
+					<p
+						className={cn(
+							'mt-0.5 text-xs text-muted-foreground md:mt-1 md:text-sm',
+							imageObjectKey
+								? 'line-clamp-1 md:line-clamp-2'
+								: 'line-clamp-1 md:line-clamp-3',
+						)}
+					>
 						{description}
 					</p>
 				)}
 
-				{/* Desktop-only: cook stats + time */}
+				{/* Desktop-only: cook stats + time + AI label */}
 				<div className="mt-auto hidden items-center gap-3 pt-2 md:flex">
 					{totalTime > 0 && (
 						<span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -173,6 +172,11 @@ export function RecipeCard({
 						<span className="text-xs text-muted-foreground/60">
 							{cookCount === 1 ? 'Made once' : `Made ${cookCount} times`} ·
 							Last: {formatTimeAgo(new Date(lastCookedAt))}
+						</span>
+					)}
+					{isAiGenerated && (
+						<span className="ml-auto text-xs text-muted-foreground/60">
+							AI
 						</span>
 					)}
 				</div>

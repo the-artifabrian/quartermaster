@@ -82,47 +82,17 @@ currently use sage (primary) or red where copper is specified.
 The most important screen. This is where the typography-forward identity is most
 visible.
 
-### Card titles
-
-- [ ] Grid view: recipe card title → `font-serif text-[1.125rem] leading-[1.3]
-  tracking-[-0.005em]` (18px). Remove any `font-semibold`
-- [ ] List view: recipe card title → `font-serif text-[1rem] leading-[1.4]`
-  (16px)
-- [ ] Allow wrapping to 2 lines on mobile list view before truncating
-
-### Letter avatars
-
-- [ ] Remove letter avatar circles from recipe cards
-- [ ] Test the list without them — if it feels flat, try a thin (3px) colored
-  left border per card as the fallback
-- [ ] If removing avatars, also remove the color-generation logic
-
-### AI Generated indicator
-
-- [ ] Replace the green badge + sparkle icon with a small muted text label in
-  the metadata row (e.g., `text-muted-foreground text-xs`)
-- [ ] Remove the sparkle icon import if no longer used elsewhere
-
-### No-image cards (grid)
-
-- [ ] Increase padding on cards without images — the card is a typographic
-  composition, not a card missing its photo
-- [ ] Give description more space on no-image cards (2-3 lines instead of 1)
-- [ ] Ensure the card feels intentional, not empty
-
-### Hover states
-
-- [ ] Card hover: `shadow-hover` transition at 180ms
-- [ ] Border warms slightly on hover (shift toward copper at 20% opacity)
-- [ ] Image cards: image scales 1.02x on hover
-
-### Verification
-
-- [ ] Grid view with mix of image/no-image cards looks cohesive
-- [ ] List view with 40+ recipes scans well without avatars
-- [ ] Title sizes match type scale exactly
-- [ ] AI badge is demoted to metadata
-- [ ] Hover effects are smooth, not jarring
+- [x] Title sizes: grid `text-[1.125rem] leading-[1.3] tracking-[-0.005em]`,
+  list `text-base leading-[1.4]`. 2-line wrap on mobile before truncating.
+- [x] Letter avatars removed from mobile list view. Desktop grid keeps
+  placeholder backgrounds (large serif letter) for visual variety.
+  `recipe-placeholder.ts` kept — used by today-banner and recipe-selector too.
+- [x] AI Generated: sparkle icon + green badge → muted "AI" text label in
+  metadata row. Sparkles icon kept (used in 6 other files).
+- [x] No-image cards: `md:p-6` (vs `md:p-5` for image cards), description
+  `md:line-clamp-3` (vs 2 for image cards).
+- [x] Hover states: shadow-warm-md + border-accent/20 + translate-y-0.5 at
+  180ms already existed. Image scale-[1.02] on hover already existed.
 
 ---
 

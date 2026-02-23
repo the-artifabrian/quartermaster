@@ -145,7 +145,7 @@ export function RecipeCard({
 						</span>
 					)}
 					{isAiGenerated && (
-						<span className="text-xs text-muted-foreground/60">AI</span>
+						<Icon name="sparkles" size="xs" className="text-muted-foreground/50" />
 					)}
 				</div>
 
@@ -178,9 +178,7 @@ export function RecipeCard({
 						</span>
 					)}
 					{isAiGenerated && (
-						<span className="ml-auto text-xs text-muted-foreground/60">
-							AI
-						</span>
+						<Icon name="sparkles" size="xs" className="ml-auto text-muted-foreground/50" />
 					)}
 				</div>
 			</div>

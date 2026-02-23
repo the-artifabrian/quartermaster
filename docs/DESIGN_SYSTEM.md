@@ -26,10 +26,10 @@ Two things. Everything else is good execution.
    Serif titles on every recipe make Quartermaster instantly recognizable. Since
    most recipes don't have photos, the titles carry the visual identity. A recipe
    list should read like a beautiful table of contents.
-2. **Ingredient check-off animation** — Left-to-right pen-stroke strikethrough
-   when checking ingredients during cooking. Happens dozens of times per session.
-   This is the moment the app feels like crossing off a handwritten list instead
-   of ticking a database checkbox.
+2. **Ingredient check-off** — Standard CSS `line-through` with 2px stone-color
+   line and text fade to 50% opacity. Pen-stroke `scaleX` animation was
+   prototyped but wasn't visible enough in practice — the standard treatment
+   reads clearly at arm's length and feels satisfying without being showy.
 
 ---
 
@@ -38,11 +38,9 @@ Two things. Everything else is good execution.
 Three voices:
 
 **Young Serif** (Display) — Warm, slightly rounded, approachable. Used for all
-headings, recipe titles, and ingredient amounts. Only has one weight (400),
-which forces consistency — differentiate by size, not by weight. **Note:** the
-current recipe card titles use Crimson Pro 600 (semibold). Young Serif 400 at
-18px may feel lighter than expected on grid cards — test this early and adjust
-sizes if needed.
+headings and recipe titles. Only has one weight (400), which forces
+consistency — differentiate by size, not by weight. Never apply `font-semibold`,
+`font-bold`, or `font-light` to `font-serif` elements.
 
 ```
 Google Fonts: Young Serif 400
@@ -74,11 +72,11 @@ Google Fonts: Caveat 400, 700
 |-|-|-|-|-|
 | Landing hero | Young Serif | 2.5rem (40px) | 1.2 | -0.02em |
 | Page title | Young Serif | 2.25rem (36px) | 1.15 | -0.02em |
-| Recipe detail title | Young Serif | 2.5rem (40px) | 1.15 | -0.02em |
+| Recipe detail title | Young Serif | 2rem (32px) | 1.15 | -0.02em |
 | Section heading | Young Serif | 1.5rem (24px) | 1.3 | -0.01em |
 | Recipe card title (grid) | Young Serif | 1.125rem (18px) | 1.3 | -0.005em |
 | Recipe card title (list) | Young Serif | 1rem (16px) | 1.4 | 0 |
-| Ingredient amount/unit | Young Serif | 1rem (16px) | 1.65 | 0 |
+| Ingredient amount/unit | DM Sans 400 | 1rem (16px) | 1.65 | 0 |
 | Body text | DM Sans 400 | 1rem (16px) | 1.65 | 0 |
 | Small body | DM Sans 400 | 0.875rem (14px) | 1.5 | 0 |
 | UI label | DM Sans 500 | 0.875rem (14px) | 1.4 | 0 |
@@ -88,11 +86,12 @@ Google Fonts: Caveat 400, 700
 | Landing artifact label | Caveat 700 | 1.25rem (20px) | 1.35 | 0 |
 
 **Recipe detail title** is intentionally larger than other page titles — it
-needs to work at arm's length while cooking.
+needs to work at arm's length while cooking. Reduced from the spec's 2.5rem to
+2rem for better proportion with the rest of the page.
 
-**Ingredient amounts** in Young Serif next to ingredient names in DM Sans
-creates a scanning rhythm: you see the amount first, then the ingredient.
-"**2 tbsp** olive oil."
+**Ingredient amounts** use DM Sans like ingredient names — serif amounts were
+prototyped but looked too heavy on mobile and created visual disconnect. The
+consistent sans-serif treatment scans better in practice.
 
 ---
 
@@ -194,7 +193,8 @@ instead of scattering it as a generic accent:
 - Within a group: 8-12px
 - Between groups: 24-32px
 - Between sections: 48-64px
-- Page top padding: 32px mobile, 48px desktop
+- Page top padding: 16px (`py-4`) — the spec's 32px/48px created excessive
+  whitespace in an app context
 - Card internal padding: 20-24px
 - Running text line-height: 1.5-1.7
 
@@ -242,13 +242,13 @@ the longer end (280-300ms) for page-level reveals and list staggers.
 
 **List stagger:** 40ms between items, max 6 animated (rest appear instantly).
 
-### Ingredient Check-Off (Signature Interaction)
+### Ingredient Check-Off
 
-When a user checks an ingredient, the strikethrough animates left-to-right via
-`scaleX` on a `::after` pseudo-element. 200ms, micro-interaction curve. Line is
-1.5px in stone color. This is the one micro-interaction worth investing in — it
-happens dozens of times per cooking session. All other check/toggle animations
-use standard opacity transitions.
+Checked ingredients and shopping list items use standard CSS `line-through` with
+`decoration-2 decoration-muted-foreground/60` (2px stone-color line). Text fades
+to 50% opacity. Pen-stroke `scaleX` animation was prototyped but the effect
+wasn't visible enough at normal reading distance — the standard treatment is
+cleaner and more reliable across browsers.
 
 ---
 
@@ -402,12 +402,15 @@ screenshots, not wireframes. These need to feel like designed objects:
    beautifully typeset cookbook page, not a UI mockup.
 2. **A week view** — Days of the week with a few meals in Caveat. Feels like a
    note stuck to the fridge.
-3. **A shopping list** — A few items, some with pen-stroke strikethrough. Clean,
-   narrow, satisfying.
+3. **A shopping list** — A few items, some with line-through strikethrough. Torn
+   edge clip-path at the bottom. Clean, narrow, satisfying.
 
-Each artifact fades up on scroll (element reveal, 280ms, staggered). The
-current artifacts look like placeholder wireframes — they need to be the most
-visually striking elements on the page.
+Each artifact has a Caveat 700 label in copper ("Tonight's dinner", "This
+week", "Shopping list") and fades up on scroll via `IntersectionObserver`
+(element reveal, 280ms). Natural stagger from scroll position rather than
+explicit delays. `ScrollReveal` uses CSS-first `opacity-0` class to avoid
+hydration flash, with `prefers-reduced-motion` check that skips animation
+entirely.
 
 **Close**: Simple final CTA section. No footer clutter on the landing page.
 
@@ -434,11 +437,11 @@ the visual. Don't fill the gap with letter avatars.
 - Favorite: small copper heart to the right of the title.
 - If a recipe has an image: small thumbnail (48-56px) on the left.
 
-**Letter avatars — needs testing.** The current colored letter circles look
-like a contacts app and don't reinforce the cookbook identity. The preferred
-direction is to remove them entirely and let titles carry the visual. But a
-removing avatars makes the list feel flat, try a thin (3px) colored left border
-per card as a subtler alternative before adding them back.
+**No-image treatment**: Mobile list cards use a thin (3px) colored left border
+for subtle visual variation without the contacts-app feel of letter circles.
+Desktop grid cards keep colored letter backgrounds as placeholder art. No-image
+cards get extra padding (`md:p-6` vs `md:p-5`) and an additional line of
+description (`md:line-clamp-3` vs 2) to fill the space intentionally.
 
 **Desktop (grid view)**:
 
@@ -455,9 +458,9 @@ per card as a subtler alternative before adding them back.
 **Search and filters**: Search input at top, DM Sans placeholder. Filter pills
 (time, favorites, "can make") below — linen background, rounded, gentle.
 
-**"AI Generated" indicator**: Demote significantly. A small muted text label in
-the metadata row, not a green badge with a sparkle. This is metadata, not a
-feature.
+**"AI Generated" indicator**: Heavily demoted — a small muted sparkles icon
+(`text-muted-foreground/50`) in the metadata row. No text, no badge. This is
+background metadata, not a feature to advertise.
 
 ---
 
@@ -466,20 +469,20 @@ feature.
 Users spend the most time here during cooking. Every decision optimized for
 arm's-length readability and focus.
 
-**Hero area**: Title in Young Serif at 2.5rem. Below it, a clean `<hr>` in
-cedar. Then metadata: prep, cook, total time in small DM Sans, muted. On
-desktop, a thin copper left-edge strip (2-3px) acts as a bookmark accent.
+**Hero area**: Title in Young Serif at 2rem. Below it, a clean `<hr>` in cedar.
+Then metadata: prep, cook, total time in small DM Sans, muted. On desktop, a
+thin copper left-edge strip (2-3px) acts as a bookmark accent.
 
 If there's an image: up to 400px wide on desktop beside the title, full-width
 with 16px horizontal margin on mobile. 1px cedar border, 6px radius.
 
 **Two-column body (desktop)**:
 
-- **Left (sticky): Ingredients.** Generous line spacing (1.7). Amounts/units in
-  Young Serif, ingredient names in DM Sans. Section headings (`isHeading` rows)
-  in DM Sans 500, small-caps or uppercase at 12px with a subtle underline —
-  clearly distinct from checkable items (no checkbox). Checkboxes: 24px, sage
-  fill when checked.
+- **Left (sticky): Ingredients.** Generous line spacing (1.7). Both amounts and
+  ingredient names in DM Sans — serif amounts were prototyped but looked too
+  heavy on mobile. Section headings (`isHeading` rows) in DM Sans 500, uppercase
+  at 12px with a subtle underline — clearly distinct from checkable items (no
+  checkbox). Checkboxes: 24px, sage fill when checked.
 - **Right: Instructions.** Step numbers in Young Serif, oversized. Step text in
   DM Sans, line-height 1.75. 24px spacing between steps. Checked steps dim to
   40% opacity with subtle strikethrough.
@@ -534,8 +537,8 @@ Narrow, focused, satisfying to cross off.
 
 - Large checkboxes (24px), sage fill when checked.
 - Item name in DM Sans 16px. Quantity/unit as a small caption below.
-- Checked items: pen-stroke strikethrough animation (the signature interaction).
-  Text fades to 50% opacity. Line is 2px in stone color.
+- Checked items: standard `line-through` (2px stone color, `decoration-2
+  decoration-muted-foreground/60`). Text fades to 50% opacity.
 - 16px vertical padding per item for touch targets.
 
 **Section headings** (`isHeading` items like "For the Cake"): **Must be visually
@@ -548,8 +551,10 @@ are not items to check off.
 **Categories**: Sorted by category internally. No visible category headers —
 flat, scannable column.
 
-**Quick add**: Input at top, DM Sans placeholder "Add an item...". Ghost +
-button at right edge.
+**Quick add**: Inline input at top on desktop (DM Sans placeholder "Add an
+item...", ghost + button). On mobile, a floating action button (FAB) in the
+bottom-right opens a small dialog with name input and optional qty/unit fields
+— designed for one-handed use while at the store.
 
 **Checked item actions**: Subtle footer slides up when items are checked: "Add
 to inventory" and "Clear checked" as text links.
@@ -575,11 +580,16 @@ long and needs efficient scrolling.
 Colored dot indicator (amber pantry, blue fridge, etc.) and item count. Sticky
 on scroll so you always know which section you're in.
 
+**Mobile FAB**: Floating action button in the bottom-right opens a quick-add
+dialog with name input and location pills (Pantry/Fridge/Freezer). Defaults to
+the currently selected tab. Same pattern as the shopping list FAB — designed
+for one-handed use.
+
 **What makes it different from the shopping list**: Inventory is dense and
 scannable — you're looking up what you have. Shopping list is spacious and
 interactive — you're checking items off. Inventory rows are tighter (12px
-vertical padding vs shopping list's 16px). No checkboxes, no strikethrough
-animation. The visual language says "reference" not "task list."
+vertical padding vs shopping list's 16px). No checkboxes, no strikethrough. The
+visual language says "reference" not "task list."
 
 ---
 
@@ -591,8 +601,8 @@ When adding a screen not described above, start from these defaults:
   nothing fits, use 880px — it works for most content-focused pages.
 - **Page title**: Young Serif, 2.25rem (36px). One title per page.
 - **Body text**: DM Sans 400, 16px, line-height 1.65.
-- **Spacing**: 8px grid. 32px top padding mobile, 48px desktop. 24-32px between
-  content groups.
+- **Spacing**: 8px grid. 16px top padding (`py-4`). 24-32px between content
+  groups.
 - **Cards**: Paper background, 1px cedar border, 8px radius, 20-24px internal
   padding. Minimal shadow (shadow-rest).
 - **Interactive elements**: Sage for primary actions, cedar borders on inputs,
@@ -605,30 +615,30 @@ When adding a screen not described above, start from these defaults:
 
 ## Implementation Notes
 
-### Font loading
+### Fonts
 
-Add Young Serif and Caveat via Google Fonts `<link>` tags in `root.tsx`
-alongside existing DM Sans. Use `font-display: swap`. Preconnect already in
-place. Young Serif adds ~15KB (woff2, single weight).
+Young Serif and Caveat loaded via Google Fonts `<link>` tags in `root.tsx`
+alongside DM Sans. `font-display: swap`. ~45KB combined (woff2).
 
-### Color migration
+### CSS architecture
 
-Replace oklch values in `tailwind.css` with hex values. Semantic variable names
-stay the same — component code doesn't need to change.
+- Colors use hex values in CSS variables. Semantic names (`--primary`,
+  `--accent`, etc.) stay the same — component code doesn't change between
+  themes.
+- Shadow definitions use `oklch` intentionally for warm-tinted transparency;
+  palette variables are hex.
+- No generic type scale tokens — all sizing uses standard Tailwind classes
+  directly. Purpose-driven sizes from the type scale table above.
+- `prefers-reduced-motion`: global CSS rule sets `animation-duration: 0.01ms
+  !important` and `transition-duration: 0.01ms !important`. `ScrollReveal`
+  also checks via JS and skips animation entirely.
 
-### What changes about shadcn/ui
+### Shadow tokens
 
-Components restyled (new colors, radii, typography): Button, Input, Checkbox,
-Dialog, DropdownMenu, Select, Label, Popover.
+Three tiers, all warm-tinted:
 
-Significant restyling: Card (reduced shadow, warmer borders), Badge (softer,
-more muted), Toast (warmer).
+- `shadow-warm` — resting state (cards, containers)
+- `shadow-warm-md` — hover state (card hover, elevated interactions)
+- `shadow-warm-lg` — elevated state (modals, FAB dialogs)
 
-New: `PageContainer` component for max-width layouts.
-
-### Performance
-
-- Young Serif + Caveat: ~45KB combined (woff2). DM Sans already loaded.
-- Paper grain is CSS-only (inline SVG filter).
-- Animations use transform and opacity only.
-- `prefers-reduced-motion` respected throughout.
+UI primitives (dropdowns, dialogs) use standard `shadow-lg`.

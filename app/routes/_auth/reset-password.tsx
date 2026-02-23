@@ -98,8 +98,8 @@ export default function ResetPasswordPage({
 	return (
 		<div className="container flex flex-col justify-center pt-20 pb-32">
 			<div className="text-center">
-				<h1 className="text-h1">Password Reset</h1>
-				<p className="text-body-md text-muted-foreground mt-3">
+				<h1 className="font-serif text-2xl">Password Reset</h1>
+				<p className="text-lg text-muted-foreground mt-3">
 					Hi, {loaderData.resetPasswordUsername}. No worries. It happens all the
 					time.
 				</p>

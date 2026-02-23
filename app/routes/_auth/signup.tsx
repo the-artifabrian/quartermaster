@@ -129,8 +129,8 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 	return (
 		<div className="container flex flex-col justify-center pt-20 pb-32">
 			<div className="text-center">
-				<h1 className="text-h1">Let's start your journey!</h1>
-				<p className="text-body-md text-muted-foreground mt-3">
+				<h1 className="font-serif text-2xl">Let's start your journey!</h1>
+				<p className="text-lg text-muted-foreground mt-3">
 					Please enter your email.
 				</p>
 			</div>

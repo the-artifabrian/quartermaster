@@ -95,8 +95,8 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 		<div className="flex min-h-full flex-col justify-center pt-20 pb-32">
 			<div className="mx-auto w-full max-w-md">
 				<div className="flex flex-col gap-3 text-center">
-					<h1 className="text-h1">Welcome back!</h1>
-					<p className="text-body-md text-muted-foreground">
+					<h1 className="font-serif text-2xl">Welcome back!</h1>
+					<p className="text-lg text-muted-foreground">
 						Please enter your details.
 					</p>
 				</div>
@@ -141,7 +141,7 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 								<div>
 									<Link
 										to="/forgot-password"
-										className="text-body-xs font-semibold"
+										className="text-sm font-semibold"
 									>
 										Forgot password?
 									</Link>

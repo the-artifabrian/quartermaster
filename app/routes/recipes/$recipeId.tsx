@@ -683,7 +683,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				{/* Hero: Title + Image */}
 				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
 					<div className="min-w-0 flex-1">
-						<h1 className="font-serif text-[2.5rem] leading-[1.15] font-normal tracking-[-0.02em]">
+						<h1 className="font-serif text-[2rem] leading-[1.15] font-normal tracking-[-0.02em]">
 							{recipe.title}
 						</h1>
 						{recipe.isAiGenerated && (
@@ -770,6 +770,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									type="button"
 									className="flex items-center gap-1.5 md:pointer-events-none"
 									onClick={() => setIngredientsExpanded((v) => !v)}
+									aria-expanded={ingredientsExpanded}
+									aria-controls="ingredients-list"
 								>
 									<Icon
 										name="chevron-down"
@@ -817,6 +819,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								</span>
 							</div>
 							<div
+								id="ingredients-list"
 								className={cn(
 									!ingredientsExpanded && 'hidden md:block',
 								)}

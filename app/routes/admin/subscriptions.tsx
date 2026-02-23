@@ -328,7 +328,7 @@ export default function SubscriptionsAdminRoute({
 					Cache
 				</Link>
 			</div>
-			<h1 className="text-h2 mt-2">Subscription Management</h1>
+			<h1 className="text-xl font-semibold mt-2">Subscription Management</h1>
 
 			{/* Invite Code Generation */}
 			<Spacer size="2xs" />

@@ -45,8 +45,8 @@ export default function VerifyRoute({ actionData }: Route.ComponentProps) {
 
 	const checkEmail = (
 		<>
-			<h1 className="text-h1">Check your email</h1>
-			<p className="text-body-md text-muted-foreground mt-3">
+			<h1 className="font-serif text-2xl">Check your email</h1>
+			<p className="text-lg text-muted-foreground mt-3">
 				We've sent you a code to verify your email address.
 			</p>
 		</>
@@ -58,8 +58,8 @@ export default function VerifyRoute({ actionData }: Route.ComponentProps) {
 		'change-email': checkEmail,
 		'2fa': (
 			<>
-				<h1 className="text-h1">Check your 2FA app</h1>
-				<p className="text-body-md text-muted-foreground mt-3">
+				<h1 className="font-serif text-2xl">Check your 2FA app</h1>
+				<p className="text-lg text-muted-foreground mt-3">
 					Please enter your 2FA code to verify your identity.
 				</p>
 			</>

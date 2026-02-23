@@ -115,8 +115,8 @@ export default function JoinHousehold({ loaderData }: Route.ComponentProps) {
 		<div className="m-auto mt-16 mb-24 max-w-md">
 			<div className="container">
 				<div className="bg-muted rounded-3xl px-8 py-12 text-center">
-					<h1 className="text-h3 mb-4">Join Household</h1>
-					<p className="text-body-md text-muted-foreground mb-8">
+					<h1 className="font-serif text-xl mb-4">Join Household</h1>
+					<p className="text-lg text-muted-foreground mb-8">
 						You've been invited to join{' '}
 						<strong className="text-foreground">{householdName}</strong>
 					</p>

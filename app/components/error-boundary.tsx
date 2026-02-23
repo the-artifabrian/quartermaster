@@ -41,7 +41,7 @@ export function GeneralErrorBoundary({
 	}, [error, isResponse])
 
 	return (
-		<div className="text-h2 container flex items-center justify-center p-20">
+		<div className="text-xl font-semibold container flex items-center justify-center p-20">
 			{isResponse
 				? (statusHandlers?.[error.status] ?? defaultStatusHandler)({
 						error,

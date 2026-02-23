@@ -98,7 +98,7 @@ export default function CacheAdminRoute({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="container">
-			<h1 className="text-h1">Cache Admin</h1>
+			<h1 className="text-xl font-semibold">Cache Admin</h1>
 			<Spacer size="2xs" />
 			<Form
 				method="get"
@@ -167,7 +167,7 @@ export default function CacheAdminRoute({ loaderData }: Route.ComponentProps) {
 			</Form>
 			<Spacer size="2xs" />
 			<div className="flex flex-col gap-4">
-				<h2 className="text-h2">LRU Cache:</h2>
+				<h2 className="text-xl font-semibold">LRU Cache:</h2>
 				{loaderData.cacheKeys.lru.map((key) => (
 					<CacheKeyRow
 						key={key}
@@ -179,7 +179,7 @@ export default function CacheAdminRoute({ loaderData }: Route.ComponentProps) {
 			</div>
 			<Spacer size="3xs" />
 			<div className="flex flex-col gap-4">
-				<h2 className="text-h2">SQLite Cache:</h2>
+				<h2 className="text-xl font-semibold">SQLite Cache:</h2>
 				{loaderData.cacheKeys.sqlite.map((key) => (
 					<CacheKeyRow
 						key={key}

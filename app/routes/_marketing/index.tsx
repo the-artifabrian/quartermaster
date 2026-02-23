@@ -4,6 +4,7 @@ import { data, Link, redirect } from 'react-router'
 import { Divider } from '#app/components/divider.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
+import { cn } from '#app/utils/misc.tsx'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
 import { type Route } from './+types/index.ts'
@@ -72,7 +73,7 @@ export default function Index() {
 						animation: '320ms var(--ease-page-settle) both fade-up-reveal',
 					}}
 				>
-					<h1 className="text-foreground font-serif text-[2.5rem] leading-[1.15] tracking-[-0.02em] md:text-[3.5rem]">
+					<h1 className="text-foreground font-serif text-[2.5rem] leading-[1.2] tracking-[-0.02em] md:text-[3.5rem]">
 						What are we making
 						<br />
 						this week?
@@ -194,8 +195,12 @@ function ScrollReveal({
 		const el = ref.current
 		if (!el) return
 
-		// Hide the element so the observer can reveal it
-		el.style.opacity = '0'
+		// Skip animation if user prefers reduced motion
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			el.classList.remove('opacity-0')
+			return
+		}
+
 		el.style.transform = 'translateY(24px)'
 		el.style.transition =
 			'opacity 280ms var(--ease-reveal), transform 280ms var(--ease-reveal)'
@@ -203,7 +208,7 @@ function ScrollReveal({
 		const observer = new IntersectionObserver(
 			([entry]) => {
 				if (entry?.isIntersecting) {
-					el.style.opacity = '1'
+					el.classList.remove('opacity-0')
 					el.style.transform = 'translateY(0)'
 					observer.unobserve(el)
 				}
@@ -216,7 +221,7 @@ function ScrollReveal({
 	}, [])
 
 	return (
-		<div ref={ref} className={className}>
+		<div ref={ref} className={cn('opacity-0', className)}>
 			{children}
 		</div>
 	)
@@ -229,6 +234,9 @@ function ScrollReveal({
 function RecipeCardArtifact() {
 	return (
 		<div className="bg-card rounded-lg border p-5 shadow-warm-md">
+			<p className="font-handwritten mb-3 text-[20px] font-bold text-accent">
+				Tonight's dinner
+			</p>
 			{/* Large serif initial on warm background */}
 			<div className="bg-secondary flex aspect-[4/3] items-center justify-center rounded">
 				<span className="text-accent/25 font-serif text-8xl select-none">
@@ -270,6 +278,9 @@ function WeekViewArtifact() {
 
 	return (
 		<div className="bg-card rounded-lg border p-5 shadow-warm-md">
+			<p className="font-handwritten mb-3 text-[20px] font-bold text-accent">
+				This week
+			</p>
 			<div className="grid grid-cols-7 gap-2">
 				{days.map(({ day, meal }) => (
 					<div key={day} className="text-center">
@@ -310,7 +321,7 @@ function ShoppingListArtifact() {
 					'polygon(0 0, 100% 0, 100% calc(100% - 12px), 92% 100%, 84% calc(100% - 4px), 76% calc(100% - 10px), 68% 100%, 60% calc(100% - 6px), 52% calc(100% - 12px), 44% calc(100% - 2px), 36% calc(100% - 8px), 28% 100%, 20% calc(100% - 5px), 12% calc(100% - 11px), 4% calc(100% - 3px), 0 calc(100% - 8px))',
 			}}
 		>
-			<p className="text-muted-foreground mb-3 text-xs font-medium uppercase tracking-wider">
+			<p className="font-handwritten mb-3 text-[20px] font-bold text-accent">
 				Shopping list
 			</p>
 			<div className="space-y-2.5">

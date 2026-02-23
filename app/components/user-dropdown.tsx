@@ -27,7 +27,7 @@ export function UserDropdown() {
 				aria-hidden="true"
 			/>
 			<div className="hidden flex-col items-start sm:flex">
-				<span className="text-body-sm font-bold">
+				<span className="text-base font-bold">
 					{user.name ?? user.username}
 				</span>
 				{householdName && householdName !== 'My Household' && (

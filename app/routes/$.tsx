@@ -32,11 +32,11 @@ export function ErrorBoundary() {
 					<div className="flex flex-col gap-6">
 						<div className="flex flex-col gap-3">
 							<h1>We can't find this page:</h1>
-							<pre className="text-body-lg break-all whitespace-pre-wrap">
+							<pre className="text-xl break-all whitespace-pre-wrap">
 								{location.pathname}
 							</pre>
 						</div>
-						<Link to="/" className="text-body-md underline">
+						<Link to="/" className="text-lg underline">
 							<Icon name="arrow-left">Back to home</Icon>
 						</Link>
 					</div>

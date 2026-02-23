@@ -211,7 +211,7 @@ export default function UsersAdminRoute({ loaderData }: Route.ComponentProps) {
 					Cache
 				</Link>
 			</div>
-			<h1 className="text-h2 mt-2">User Analytics</h1>
+			<h1 className="text-xl font-semibold mt-2">User Analytics</h1>
 			<p className="text-muted-foreground mt-1 text-sm">
 				{loaderData.users.length} user
 				{loaderData.users.length === 1 ? '' : 's'}

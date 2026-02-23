@@ -2,8 +2,8 @@ import { type InventoryItem } from '@prisma/client'
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useFetcher } from 'react-router'
 import { z } from 'zod'
 import { InventoryItemCard } from '#app/components/inventory-item-card.tsx'
 import { InventoryLocationTabs } from '#app/components/inventory-location-tabs.tsx'
@@ -460,6 +460,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 
 	const [search, setSearch] = useState('')
 	const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
+	const [fabOpen, setFabOpen] = useState(false)
 
 	// Load dismissed IDs from localStorage on mount
 	useEffect(() => {
@@ -547,11 +548,11 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 				) : (
 					<Button
 						asChild
-						className="size-10 rounded-full p-0 sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2"
+						className="hidden sm:inline-flex"
 					>
 						<Link to="/inventory/new">
 							<Icon name="plus" size="sm" />
-							<span className="hidden sm:inline">Add Item</span>
+							Add Item
 						</Link>
 					</Button>
 				)}
@@ -685,6 +686,135 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 			</div>
+
+			{/* Mobile FAB + quick-add popover */}
+			{!inventoryUsage.isAtLimit && (
+				<InventoryMobileFabAdd
+					open={fabOpen}
+					onOpenChange={setFabOpen}
+					defaultLocation={selectedLocation}
+				/>
+			)}
+		</div>
+	)
+}
+
+const FAB_LOCATIONS = [
+	{ value: 'pantry', label: 'Pantry' },
+	{ value: 'fridge', label: 'Fridge' },
+	{ value: 'freezer', label: 'Freezer' },
+] as const
+
+function InventoryMobileFabAdd({
+	open,
+	onOpenChange,
+	defaultLocation,
+}: {
+	open: boolean
+	onOpenChange: (open: boolean) => void
+	defaultLocation: string
+}) {
+	const fetcher = useFetcher<{ status: string }>()
+	const [name, setName] = useState('')
+	const [location, setLocation] = useState(
+		defaultLocation && defaultLocation !== 'all' ? defaultLocation : 'pantry',
+	)
+	const inputRef = useRef<HTMLInputElement>(null)
+
+	useEffect(() => {
+		if (open) {
+			setTimeout(() => inputRef.current?.focus(), 50)
+		}
+	}, [open])
+
+	useEffect(() => {
+		if (defaultLocation && defaultLocation !== 'all') {
+			setLocation(defaultLocation)
+		}
+	}, [defaultLocation])
+
+	const prevState = useRef(fetcher.state)
+	useEffect(() => {
+		if (
+			prevState.current !== 'idle' &&
+			fetcher.state === 'idle' &&
+			fetcher.data?.status === 'success'
+		) {
+			setName('')
+			inputRef.current?.focus()
+		}
+		prevState.current = fetcher.state
+	}, [fetcher.state, fetcher.data])
+
+	return (
+		<div className="md:hidden print:hidden">
+			{open && (
+				<div
+					className="fixed inset-0 z-40"
+					onClick={() => onOpenChange(false)}
+				/>
+			)}
+			{open && (
+				<div className="fixed bottom-[9rem] right-4 z-50 w-[calc(100vw-2rem)] max-w-xs animate-fade-up-reveal rounded-xl border border-border/60 bg-card p-3 shadow-warm-lg">
+					<fetcher.Form
+						method="POST"
+						onSubmit={(e) => {
+							if (!name.trim()) e.preventDefault()
+						}}
+					>
+						<input type="hidden" name="intent" value="create" />
+						<input type="hidden" name="location" value={location} />
+						<input type="hidden" name="force" value="add" />
+						<div className="flex items-center gap-2">
+							<input
+								ref={inputRef}
+								name="name"
+								value={name}
+								onChange={(e) => setName(e.target.value)}
+								placeholder="Add an item..."
+								className="h-10 min-w-0 flex-1 rounded-lg border border-border/50 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/20"
+							/>
+							<button
+								type="submit"
+								disabled={!name.trim() || fetcher.state !== 'idle'}
+								className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"
+							>
+								<Icon name="plus" className="size-5" />
+							</button>
+						</div>
+						<div className="mt-2 flex gap-1.5">
+							{FAB_LOCATIONS.map((loc) => (
+								<button
+									key={loc.value}
+									type="button"
+									onClick={() => setLocation(loc.value)}
+									className={cn(
+										'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+										location === loc.value
+											? 'bg-primary text-primary-foreground'
+											: 'bg-muted text-muted-foreground',
+									)}
+								>
+									{loc.label}
+								</button>
+							))}
+						</div>
+					</fetcher.Form>
+				</div>
+			)}
+			<button
+				type="button"
+				className={cn(
+					'fixed bottom-[5.5rem] right-4 z-50 flex size-12 items-center justify-center rounded-full shadow-warm-md transition-all active:scale-95',
+					open
+						? 'bg-muted text-muted-foreground'
+						: 'bg-primary text-primary-foreground',
+				)}
+				aria-label={open ? 'Close' : 'Add item'}
+				onClick={() => onOpenChange(!open)}
+			>
+				<Icon name={open ? 'cross-1' : 'plus'} className="size-6" />
+			</button>
 		</div>
 	)
 }
@@ -711,7 +841,7 @@ function LocationSectionHeader({
 	isFirst?: boolean
 }) {
 	return (
-		<div className={cn('pb-3', isFirst ? 'pt-1' : 'pt-8')}>
+		<div className={cn('sticky top-0 z-10 border-b border-border/30 bg-background pb-3', isFirst ? 'pt-1' : 'pt-8')}>
 			<div className="flex items-center gap-2">
 				<span
 					className={cn(

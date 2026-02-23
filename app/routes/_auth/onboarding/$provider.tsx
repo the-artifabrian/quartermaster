@@ -185,8 +185,8 @@ export default function OnboardingProviderRoute({
 		<div className="container flex min-h-full flex-col justify-center pt-20 pb-32">
 			<div className="mx-auto w-full max-w-lg">
 				<div className="flex flex-col gap-3 text-center">
-					<h1 className="text-h1">Welcome aboard {loaderData.email}!</h1>
-					<p className="text-body-md text-muted-foreground">
+					<h1 className="font-serif text-2xl">Welcome aboard {loaderData.email}!</h1>
+					<p className="text-lg text-muted-foreground">
 						Please enter your details.
 					</p>
 				</div>
@@ -203,7 +203,7 @@ export default function OnboardingProviderRoute({
 								alt="Profile"
 								className="size-24 rounded-full"
 							/>
-							<p className="text-body-sm text-muted-foreground">
+							<p className="text-base text-muted-foreground">
 								You can change your photo later
 							</p>
 							<input {...getInputProps(fields.imageUrl, { type: 'hidden' })} />

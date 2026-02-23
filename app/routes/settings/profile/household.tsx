@@ -172,7 +172,7 @@ export default function HouseholdSettings({
 
 	return (
 		<div className="grid gap-8">
-			<h2 className="text-h5">Household Settings</h2>
+			<h2 className="text-lg font-semibold">Household Settings</h2>
 
 			{isOwner ? (
 				<RenameHouseholdForm name={household.name} />
@@ -186,7 +186,7 @@ export default function HouseholdSettings({
 			<div className="border-foreground my-2 h-1 border-b-[1.5px]" />
 
 			<div>
-				<h3 className="text-h6 mb-4">Members</h3>
+				<h3 className="text-base font-medium mb-4">Members</h3>
 				<ul className="flex flex-col gap-3">
 					{household.members.map((member) => (
 						<MemberRow
@@ -323,7 +323,7 @@ function InviteSection({
 
 	return (
 		<div>
-			<h3 className="text-h6 mb-4">Invites</h3>
+			<h3 className="text-base font-medium mb-4">Invites</h3>
 
 			<createFetcher.Form method="POST">
 				<Button type="submit" name="intent" value="create-invite">
@@ -423,7 +423,7 @@ function LeaveHousehold() {
 
 	return (
 		<div>
-			<h3 className="text-h6 mb-4">Leave Household</h3>
+			<h3 className="text-base font-medium mb-4">Leave Household</h3>
 			<p className="text-muted-foreground mb-4 text-sm">
 				Leaving will create a new solo household for you. Your recipes will be
 				copied, but shared inventory and meal plans will stay with the current
@@ -461,7 +461,7 @@ function ActivityFeed({
 }) {
 	return (
 		<div>
-			<h3 className="text-h6 mb-4">Recent Activity</h3>
+			<h3 className="text-base font-medium mb-4">Recent Activity</h3>
 			<ul className="flex flex-col gap-2">
 				{events.map((event) => {
 					const payload = JSON.parse(event.payload) as Record<string, unknown>

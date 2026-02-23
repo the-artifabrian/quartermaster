@@ -39,7 +39,10 @@ export function RecipeCard({
 	return (
 		<Link
 			to={`/recipes/${id}`}
-			className="group flex flex-row items-stretch overflow-hidden rounded-lg border border-border/60 bg-card text-card-foreground shadow-warm transition-all ease-[var(--ease-hover-lift)] duration-[180ms] hover:-translate-y-0.5 hover:border-accent/20 hover:shadow-warm-md md:flex-col md:rounded-xl"
+			className={cn(
+				'group flex flex-row items-stretch overflow-hidden rounded-lg border border-border/60 bg-card text-card-foreground shadow-warm transition-all ease-[var(--ease-hover-lift)] duration-[180ms] hover:-translate-y-0.5 hover:border-accent/20 hover:shadow-warm-md md:flex-col md:rounded-xl',
+				placeholder && `border-l-[3px] md:border-l ${placeholder.borderClass}`,
+			)}
 		>
 			{/* Image / Placeholder — desktop only for grid view */}
 			<div

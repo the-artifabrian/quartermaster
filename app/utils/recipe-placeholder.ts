@@ -6,12 +6,12 @@
  */
 
 const PLACEHOLDER_THEMES = [
-	{ bg: 'bg-amber-50/80 dark:bg-amber-900/20' },
-	{ bg: 'bg-emerald-50/80 dark:bg-emerald-900/15' },
-	{ bg: 'bg-rose-50/80 dark:bg-rose-900/15' },
-	{ bg: 'bg-stone-100/80 dark:bg-stone-800/20' },
-	{ bg: 'bg-sky-50/80 dark:bg-sky-900/15' },
-	{ bg: 'bg-violet-50/80 dark:bg-violet-900/15' },
+	{ bg: 'bg-amber-50/80 dark:bg-amber-900/20', border: 'border-l-amber-400/50 dark:border-l-amber-500/40' },
+	{ bg: 'bg-emerald-50/80 dark:bg-emerald-900/15', border: 'border-l-emerald-400/50 dark:border-l-emerald-500/40' },
+	{ bg: 'bg-rose-50/80 dark:bg-rose-900/15', border: 'border-l-rose-400/50 dark:border-l-rose-500/40' },
+	{ bg: 'bg-stone-100/80 dark:bg-stone-800/20', border: 'border-l-stone-400/50 dark:border-l-stone-400/40' },
+	{ bg: 'bg-sky-50/80 dark:bg-sky-900/15', border: 'border-l-sky-400/50 dark:border-l-sky-500/40' },
+	{ bg: 'bg-violet-50/80 dark:bg-violet-900/15', border: 'border-l-violet-400/50 dark:border-l-violet-500/40' },
 ] as const
 
 const LETTER_COLORS = [
@@ -42,6 +42,7 @@ export function getRecipePlaceholder(title: string) {
 
 	return {
 		bgClass: PLACEHOLDER_THEMES[index]!.bg,
+		borderClass: PLACEHOLDER_THEMES[index]!.border,
 		letterColorClass: LETTER_COLORS[index]!,
 		letter: title.charAt(0).toUpperCase(),
 	}

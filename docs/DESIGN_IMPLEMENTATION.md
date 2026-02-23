@@ -84,9 +84,9 @@ visible.
 
 - [x] Title sizes: grid `text-[1.125rem] leading-[1.3] tracking-[-0.005em]`,
   list `text-base leading-[1.4]`. 2-line wrap on mobile before truncating.
-- [x] Letter avatars removed from mobile list view. Desktop grid keeps
-  placeholder backgrounds (large serif letter) for visual variety.
-  `recipe-placeholder.ts` kept — used by today-banner and recipe-selector too.
+- [~] Letter avatars removed from mobile list view, replaced with thin (3px)
+  colored left border per card. Better than bare text but still not fully
+  convincing — may revisit. Desktop grid keeps placeholder backgrounds.
 - [x] AI Generated: sparkle icon + green badge → muted "AI" text label in
   metadata row. Sparkles icon kept (used in 6 other files).
 - [x] No-image cards: `md:p-6` (vs `md:p-5` for image cards), description

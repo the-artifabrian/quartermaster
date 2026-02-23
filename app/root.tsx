@@ -359,7 +359,7 @@ function App() {
 				getSrc={getImgSrc}
 			>
 				<div className="flex min-h-screen flex-col justify-between">
-					<header className="bg-card/80 border-border/50 sticky top-0 z-40 border-b backdrop-blur-sm">
+					<header className="bg-card/80 border-border/50 md:sticky md:top-0 z-40 border-b backdrop-blur-sm">
 						<nav
 							aria-label="Main"
 							className="container flex flex-wrap items-center justify-between gap-4 py-3 sm:flex-nowrap md:gap-8"

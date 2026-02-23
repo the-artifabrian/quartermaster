@@ -131,10 +131,10 @@ items graduate to the [Public Beta Action List](#public-beta-action-list).
 
 | Date       | Area       | Observation                                                                                                         | Status |
 | ---------- | ---------- | ------------------------------------------------------------------------------------------------------------------- | ------ |
-| 2026-02-19 | a11y       | Inventory "Location" label isn't properly associated with the select on `/inventory/new`                            | open   |
+| 2026-02-19 | a11y       | Inventory "Location" label isn't properly associated with the select on `/inventory/new`                            | fixed  |
 | 2026-02-19 | AI         | LLM error messages are generic toasts — paid Pro features should say what happened, not just "Something went wrong" | open   |
 | 2026-02-19 | auth       | Forgot password leaks user existence — returns "No user exists" instead of a generic success message                | watch  |
-| 2026-02-19 | cooking    | `UncookedMealReminder` loads once on mount — may miss newly-created uncooked entries later in-session               | watch  |
+| 2026-02-19 | cooking    | `UncookedMealReminder` loads once on mount — may miss newly-created uncooked entries later in-session               | fixed  |
 | 2026-02-19 | navigation | Pro lock icons have no tooltip or aria-label — free users see unexplained locks with no context                     | watch  |
 | 2026-02-19 | shopping   | Quick Add form is keyed by total items and can remount on count changes, dropping in-progress input                 | watch  |
 | 2026-02-19 | shopping   | "Clear checked items" has no confirmation — plain form POST, no double-check, no undo                               | watch  |
@@ -157,13 +157,14 @@ warning, join page error sanitization). Detail in git history.
 
 - [x] Pick one timezone/date strategy for meal-plan write/read/query paths and
       apply it consistently.
-- [ ] Add error feedback and rollback path for post-cook "used up"
+- [x] Add error feedback and rollback path for post-cook "used up"
       fire-and-forget actions.
-- [ ] Fix `/inventory/new` location label/select association.
-- [ ] Refresh uncooked meal reminders after relevant plan changes during long
+- [x] Fix `/inventory/new` location label/select association.
+- [x] Refresh uncooked meal reminders after relevant plan changes during long
       sessions.
-- [ ] Reduce heavy fetch patterns on recipe index, inventory index, and
-      meal-plan pairing for larger datasets.
+- [x] Reduce heavy fetch patterns on recipe index (skip ingredient fetch when
+      no inventory). Inventory index and meal-plan pairing are fast at current
+      scale (~135 recipes) — profile at 500+.
 
 #### Watch
 

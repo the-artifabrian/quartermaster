@@ -1,6 +1,7 @@
 import {
 	getFormProps,
 	getInputProps,
+	getSelectProps,
 	useForm,
 	type Submission,
 } from '@conform-to/react'
@@ -172,6 +173,7 @@ export default function NewInventoryItem() {
 		id: 'new-inventory-item',
 		lastResult: actionData?.result,
 		defaultValue: {
+			location: 'pantry',
 			lowStock: false,
 		},
 		onValidate({ formData }) {
@@ -305,8 +307,7 @@ export default function NewInventoryItem() {
 					<div>
 						<Label htmlFor={fields.location.id}>Location</Label>
 						<select
-							{...getInputProps(fields.location, { type: 'text' })}
-							defaultValue="pantry"
+							{...getSelectProps(fields.location)}
 							className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-base focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
 						>
 							<option value="pantry">{LOCATION_LABELS.pantry}</option>

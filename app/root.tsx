@@ -457,7 +457,7 @@ function App() {
 function Logo() {
 	return (
 		<Link to="/" className="group flex items-center gap-2">
-			<span className="text-foreground font-serif text-xl font-medium tracking-tight">
+			<span className="text-foreground font-sans text-xl font-medium tracking-tight">
 				Quartermaster
 			</span>
 		</Link>

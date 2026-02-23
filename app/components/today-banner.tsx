@@ -152,7 +152,7 @@ function EmptyBanner({
 		<div className="shadow-warm mb-4 overflow-hidden rounded-2xl bg-linear-to-r from-background to-secondary dark:from-card dark:to-secondary/20">
 			<div className="flex items-center gap-4 p-4 sm:gap-5 sm:p-5">
 				<div className="min-w-0 flex-1">
-					<p className="font-serif text-sm font-medium">
+					<p className="font-serif text-sm">
 						Nothing planned for today
 					</p>
 					{suggestion ? (

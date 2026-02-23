@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import { useState } from 'react'
 import { type useFetcher } from 'react-router'
+import { toast } from 'sonner'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { type SubtractionSummary } from '#app/utils/inventory-subtract.server.ts'
@@ -234,9 +235,25 @@ function ReviewState({
 		setUsedUpIds((prev) => new Set(prev).add(inventoryItemId))
 		// Use plain fetch to allow concurrent deletions (useFetcher would
 		// abort the previous in-flight request on rapid taps)
-		void fetch('/resources/inventory-remove', {
+		fetch('/resources/inventory-remove', {
 			method: 'POST',
 			body: new URLSearchParams({ inventoryItemId }),
+		}).then((response) => {
+			if (!response.ok) {
+				setUsedUpIds((prev) => {
+					const next = new Set(prev)
+					next.delete(inventoryItemId)
+					return next
+				})
+				toast.error('Failed to remove item from inventory')
+			}
+		}).catch(() => {
+			setUsedUpIds((prev) => {
+				const next = new Set(prev)
+				next.delete(inventoryItemId)
+				return next
+			})
+			toast.error('Failed to remove item from inventory')
 		})
 	}
 

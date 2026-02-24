@@ -1,21 +1,5 @@
 // Pure utility functions and types extracted from recipe detail route
 
-export type SubtractionPreviewData = {
-	willSubtract: Array<{
-		name: string
-		currentQuantity: number | null
-		currentUnit: string | null
-		subtractAmount: number | null
-		newQuantity: number | null
-		willBeRemoved: boolean
-	}>
-	noMatch: string[]
-	willSkip: Array<{
-		name: string
-		reason: 'no_quantity' | 'incompatible_units'
-	}>
-}
-
 export type AppliedSubstitution = {
 	originalName: string
 	replacementShort: string
@@ -74,11 +58,6 @@ export function getRecipeJsonLd(
 	}
 
 	return jsonLd
-}
-
-export function formatQuantity(q: number | null): string {
-	if (q === null) return '?'
-	return Number.isInteger(q) ? q.toString() : q.toFixed(1)
 }
 
 export function extractPrimaryIngredient(replacement: string): string {

@@ -21,10 +21,10 @@ The app is feature-complete for solo and shared daily use.
 | Phase          | Summary                                                                                                                                                   |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1-4            | Recipe CRUD, inventory tracking, meal planning calendar, shopping list generation                                                                         |
-| 5-8            | Inventory matching ("What can I make?"), cooking logs, inventory subtraction, unit conversion                                                             |
+| 5-8            | Inventory matching ("What can I make?"), cooking logs, unit conversion                                                                                    |
 | 9-12           | Recipe scaling, cooking mode (timers, temps), ingredient headings, bulk import                                                                            |
 | 13a-e          | Household sharing, SSE real-time events, notification bell                                                                                                |
-| Polish + UX    | Color system, mobile-first layout, print/share, meal templates, shelf-life, pairing/waste, cooking progress, card streamlining                            |
+| Polish + UX    | Color system, mobile-first layout, print/share, meal templates, shelf-life, pairing/waste, cooking progress, card streamlining, weekly inventory sweep     |
 | AI             | Ingredient substitutions (static DB + LLM), recipe generation, metadata enhance                                                                           |
 | Beta hardening | Dead code cleanup, a11y (focus traps, aria-labels, focus rings), render-time setState fixes, SSRF + sourcemap + error sanitization, shopping live-refresh |
 
@@ -32,12 +32,14 @@ The app is feature-complete for solo and shared daily use.
 
 ## Phase Now: Iterate and Refine
 
-The core loop is complete — plan, shop, cook, subtract, repeat. Priority is
-making the existing flow smooth enough for daily use, but that doesn't mean new
-work only comes from friction. UX improvements, design system implementation,
-and ideas that make the app more pleasant to use are all fair game alongside
-reliability fixes. New AI surface-area work is paused until core-loop
-reliability items are closed and daily-driver retention is stable.
+The core loop is complete — plan, shop, cook, review, repeat. Inventory is
+treated as a rough signal rather than a source of truth: no auto-subtraction,
+advisory shopping deductions (pre-checked not omitted), and lightweight post-cook
+check-ins. Priority is making the existing flow smooth enough for daily use, but
+that doesn't mean new work only comes from friction. UX improvements, design
+system implementation, and ideas that make the app more pleasant to use are all
+fair game alongside reliability fixes. New AI surface-area work is paused until
+core-loop reliability items are closed and daily-driver retention is stable.
 
 Daily driving started **February 12, 2026**. The app is being used for real
 cooking and meal planning. 3 external users onboarded (girlfriend as household
@@ -56,11 +58,11 @@ value are the open questions — see
 
 1. **Daily drive for 4+ weeks** — Plan the week, shop from the list, cook from
    the app. Fix friction as it surfaces.
-2. **Stress-test inventory** — Track inventory honestly for a month. Measure
-   drift. Determine whether overhead is justified or whether inventory needs to
-   be more passive (auto-populate from shopping list check-offs only). Track
-   weekly: how many manual inventory updates? What percentage of items are
-   accurate? Does it feel like homework?
+2. ~~**Stress-test inventory**~~ — Resolved. Auto-subtraction removed; inventory
+   shifted to rough-signal model (advisory shopping deductions, post-cook
+   check-ins, weekly sweep). Input is mostly passive via shopping check-off →
+   inventory pipeline. Monitor whether rough-signal accuracy is sufficient for
+   match rings and shopping list pre-checks
 3. ~~**Ship Google OAuth**~~ — Code done. Replaced GitHub with Google OAuth
    using `remix-auth-oauth2`. Provider-agnostic routes unchanged; only the
    provider config, registry, mock handlers, and UI references were swapped.
@@ -86,7 +88,7 @@ The app has **fully replaced Apple Notes** and **meal planning happens in-app**
 **Personal criteria:**
 
 - Am I using the app every week? Has it fully replaced Apple Notes?
-- Is inventory tracking sustainable, or does light mode need to ship?
+- Is the rough-signal inventory model sustainable long-term?
 - Do the testers find it useful without prompting?
   items and want more, or do they bounce before experiencing the "aha"?
 - What do real users actually use vs. ignore? Which features does the household
@@ -106,40 +108,36 @@ The app has **fully replaced Apple Notes** and **meal planning happens in-app**
 > **Check-in: March 12, 2026.** Assess daily driving progress. If the app isn't
 > sticking, identify UX friction and fix it. Don't defer indefinitely.
 
-### Inventory Mode: Active Evaluation
+### Inventory Mode: Rough Signal (Resolved)
 
-After one week of daily driving, inventory tracking is **tolerable but not
-natural** — it works but requires conscious effort. The entire value proposition
-(matching, subtraction, the "full loop" pitch) rests on this being sustainable.
+After two weeks of daily driving, inventory tracking proved **tolerable but not
+natural** — conscious effort was required, and digital quantities inevitably
+drifted from physical reality. The critical asymmetry: an item wrongly excluded
+from a shopping list (missed grocery trip) is far worse than an item wrongly
+included (mild duplicate).
 
-**What's valued in practice:** match rings on recipe cards, shopping list
-generation (subtracting what you have), post-cook inventory subtraction. All
-three power the core loop. **What's not valued:** expiry dates, low-stock flags,
-shelf-life auto-suggest, "use these up soon" callout — significant feature
-investment with no daily-use payoff.
+**Resolution: inventory as rough signal.** Auto-subtraction was removed entirely.
+Inventory now serves three advisory purposes:
 
-**Key insight:** all three valued features work with less precise input. Match
-rings just need to know you _have_ an ingredient. Shopping generation can
-subtract "you have flour" instead of "you have 2 cups flour." The heavy
-maintenance (quantities, units, expiry) adds precision that isn't paying for
-itself.
+1. **Match rings** — recipe cards show what percentage of ingredients you have.
+   Just needs to know you _have_ an ingredient, not how much
+2. **Advisory shopping deductions** — items matching non-low-stock inventory are
+   created as pre-checked (appear in the checked section). Users can uncheck any
+   they actually need. Staples still filtered entirely
+3. **Post-cook check-in** — after "I Made This", matched inventory items are
+   shown in a lightweight "Anything running low?" modal with tap-to-cycle UX
+   (keep → running low → used up). No quantity math. Quick-cook paths skip the
+   check-in entirely
 
-**The test:** the shopping check-off → inventory pipeline (untested — built
-after the last shopping trip). If checking off groceries at the store and
-flowing them into inventory feels natural, the lifecycle becomes mostly passive:
-shopping check-offs add items, post-cook subtraction removes them, "I have this"
-buttons handle the rest. No manual inventory page visits needed.
+**Weekly sweep** remains the primary drift-correction mechanism: a once-per-week
+banner on the plan page opens a "still have these?" modal for batch review.
+Priority items (perishables, low-stock, stale 7+ days) shown first; everything
+else behind an expand toggle. Items cycle keep → running low → used up.
 
-**Decision criteria** (assess at March 12 gate check):
-
-- Shopping → inventory pipeline feels natural → keep inventory, shift to passive
-  input model
-- Pipeline feels like overhead, or inventory updates < 2x/week → simplify to
-  boolean have/don't-have
-- Users actively avoid the inventory page → reconsider whether persistent
-  tracking is the right model
-
-Track weekly: update frequency, accuracy spot-checks, subjective friction.
+**Shopping check-off → inventory pipeline** handles the input side: checking off
+groceries at the store flows them into inventory. Combined with weekly sweep and
+post-cook check-ins, the lifecycle is mostly passive — no manual inventory page
+visits needed for routine use.
 
 ### Friction Log
 
@@ -236,10 +234,9 @@ justify building. Larger-scope items (nutrition APIs, email digests, dashboards)
       recipe ingredients + inventory locations. Also supports user-editable
       prep-ahead notes on recipes (marinating, soaking, dough rising) that
       surface the day before a planned cook
-- [ ] **Quick restock** — after shopping, show recently depleted/subtracted
-      inventory items for one-tap re-add. Targets the exact moment inventory
-      maintenance feels like overhead — items bought off-list that aren't
-      covered by the shopping list → inventory pipeline
+- [ ] **Quick restock** — after shopping, show recently removed inventory items
+      for one-tap re-add. Targets items bought off-list that aren't covered by
+      the shopping list → inventory pipeline
 - [ ] **Leftovers/batch awareness** — if a recipe serves 6 and you're 2 people,
       that's 3 meals not 1. The meal plan has no concept of this — you plan 7
       dinners when you really only need to cook 4-5. Watch for friction signal
@@ -265,6 +262,10 @@ justify building. Larger-scope items (nutrition APIs, email digests, dashboards)
       action prompts) guiding users through recipe → inventory → meal plan →
       shopping list. Reusable `OnboardingNudge` component, localStorage dismiss,
       no schema changes
+- [x] **Weekly inventory sweep** — batch-correct inventory drift from the plan
+      page. Priority-filtered modal (perishables, low-stock, stale items first),
+      tri-state cycling (keep/low/gone), skip fatigue prevention. Resource route
+      with loader + action, household event integration
 - [ ] **Receipt scanning → inventory** — camera capture of grocery receipts to
       auto-populate inventory. Build only if inventory input remains the main
       friction point after the shopping pipeline is proven

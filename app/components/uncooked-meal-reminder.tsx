@@ -3,7 +3,6 @@ import { Link, useFetcher, useLocation } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { type SubtractionSummary } from '#app/utils/inventory-subtract.server.ts'
 
 type UncookedEntry = {
 	entryId: string
@@ -21,7 +20,6 @@ type LoaderData = {
 type CookResult = {
 	status: 'success'
 	recipeTitle: string
-	inventorySummary: SubtractionSummary
 }
 
 function formatEntryContext(entry: UncookedEntry): string {
@@ -62,28 +60,7 @@ export function UncookedMealReminder() {
 	// Handle cook success
 	useEffect(() => {
 		if (cookFetcher.data?.status === 'success') {
-			const { recipeTitle, inventorySummary } = cookFetcher.data
-			const parts: string[] = []
-			if (inventorySummary.updated.length > 0) {
-				parts.push(`Updated: ${inventorySummary.updated.join(', ')}`)
-			}
-			if (inventorySummary.removed.length > 0) {
-				parts.push(`Removed: ${inventorySummary.removed.join(', ')}`)
-			}
-			if (inventorySummary.skipped.length > 0) {
-				const names = inventorySummary.skipped.map((s) => s.name)
-				if (names.length <= 3) {
-					parts.push(`Skipped: ${names.join(', ')}`)
-				} else {
-					parts.push(
-						`Skipped: ${names.slice(0, 3).join(', ')} +${names.length - 3} more`,
-					)
-				}
-			}
-			toast.success(`Marked "${recipeTitle}" as cooked`, {
-				description: parts.length > 0 ? parts.join('. ') : 'Inventory updated.',
-				duration: 5000,
-			})
+			toast.success(`Marked "${cookFetcher.data.recipeTitle}" as cooked`)
 		}
 	}, [cookFetcher.data])
 

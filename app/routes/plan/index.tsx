@@ -1,8 +1,9 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useState } from 'react'
-import { Form, Link } from 'react-router'
+import { useEffect, useState } from 'react'
+import { Form, Link, useRevalidator } from 'react-router'
+import { InventorySweepModal } from '#app/components/inventory-sweep-modal.tsx'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { SuggestMealsModal } from '#app/components/suggest-meals-modal.tsx'
@@ -25,7 +26,6 @@ import {
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import { subtractRecipeIngredientsFromInventory } from '#app/utils/inventory-subtract.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { trackEvent } from '#app/utils/usage-tracking.server.ts'
@@ -208,6 +208,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 		where: { list: { householdId } },
 	})
 
+	const inventoryItemCount = await prisma.inventoryItem.count({
+		where: { householdId },
+	})
+
 	return {
 		mealPlan,
 		entries: mealPlan.entries.map((entry) => ({
@@ -217,9 +221,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		recipes,
 		weekDays,
 		weekStart: serializeDate(weekStart),
+		isCurrentWeek,
 		tonightData,
 		templates,
 		shoppingListItemCount,
+		inventoryItemCount,
 	}
 }
 
@@ -397,17 +403,6 @@ export async function action({ request }: Route.ActionArgs) {
 			},
 		})
 
-		// Subtract ingredients from inventory
-		const servingRatio =
-			entry.servings && entry.recipe.servings
-				? entry.servings / entry.recipe.servings
-				: 1
-		const inventorySummary = await subtractRecipeIngredientsFromInventory(
-			entry.recipe.id,
-			householdId,
-			servingRatio,
-		)
-
 		void emitHouseholdEvent({
 			type: 'meal_plan_cooked',
 			payload: { title: entry.recipe.title, cooked: true },
@@ -425,11 +420,32 @@ export async function action({ request }: Route.ActionArgs) {
 		return {
 			status: 'success' as const,
 			recipeTitle: entry.recipe.title,
-			inventorySummary,
 		}
 	}
 
 	return { status: 'error' as const }
+}
+
+const SWEEP_DISMISS_PREFIX = 'inventory-sweep:'
+const SWEEP_SKIP_COUNT_KEY = 'inventory-sweep:skip-count'
+const SWEEP_MAX_SKIPS = 3
+
+function getSweepDismissKey(weekStart: string) {
+	return `${SWEEP_DISMISS_PREFIX}${weekStart}`
+}
+
+function getSweepPermanentlyDismissed(): boolean {
+	const count = parseInt(localStorage.getItem(SWEEP_SKIP_COUNT_KEY) ?? '0', 10)
+	return count >= SWEEP_MAX_SKIPS
+}
+
+function incrementSweepSkipCount() {
+	const count = parseInt(localStorage.getItem(SWEEP_SKIP_COUNT_KEY) ?? '0', 10)
+	localStorage.setItem(SWEEP_SKIP_COUNT_KEY, String(count + 1))
+}
+
+function resetSweepSkipCount() {
+	localStorage.removeItem(SWEEP_SKIP_COUNT_KEY)
 }
 
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
@@ -438,9 +454,11 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 		recipes,
 		weekDays,
 		weekStart,
+		isCurrentWeek,
 		tonightData,
 		templates,
 		shoppingListItemCount,
+		inventoryItemCount,
 	} = loaderData
 
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
@@ -450,6 +468,38 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const [showSaveTemplate, setShowSaveTemplate] = useState(false)
 	const [showApplyTemplate, setShowApplyTemplate] = useState(false)
 	const [bannerDismissed, setBannerDismissed] = useState(false)
+	const [showSweep, setShowSweep] = useState(false)
+	const [sweepDismissed, setSweepDismissed] = useState(true)
+	const revalidator = useRevalidator()
+
+	// Check localStorage for sweep dismissal (client-only)
+	useEffect(() => {
+		const key = getSweepDismissKey(currentWeek)
+		const dismissed =
+			localStorage.getItem(key) === 'true' ||
+			getSweepPermanentlyDismissed()
+		setSweepDismissed(dismissed)
+	}, [currentWeek])
+
+	function skipSweep() {
+		const key = getSweepDismissKey(currentWeek)
+		localStorage.setItem(key, 'true')
+		incrementSweepSkipCount()
+		setSweepDismissed(true)
+		setShowSweep(false)
+	}
+
+	function completeSweep() {
+		const key = getSweepDismissKey(currentWeek)
+		localStorage.setItem(key, 'true')
+		resetSweepSkipCount()
+		setSweepDismissed(true)
+		setShowSweep(false)
+		revalidator.revalidate()
+	}
+
+	const showSweepBanner =
+		isCurrentWeek && inventoryItemCount > 0 && !sweepDismissed
 
 	return (
 		<div className="pb-20 md:pb-6">
@@ -539,6 +589,33 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						/>
 					)}
 
+				{/* Weekly inventory sweep banner */}
+				{showSweepBanner && (
+					<div className="bg-card shadow-warm-lg mb-4 rounded-2xl p-5">
+						<h2 className="font-serif text-lg">
+							Anything you've used up this week?
+						</h2>
+						<p className="text-muted-foreground mt-1 text-sm">
+							Quick review before you plan.
+						</p>
+						<div className="mt-3 flex items-center gap-3">
+							<Button
+								size="sm"
+								onClick={() => setShowSweep(true)}
+							>
+								Quick Review
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={skipSweep}
+							>
+								Skip
+							</Button>
+						</div>
+					</div>
+				)}
+
 				{/* Empty State Guidance */}
 				{entries.length === 0 && (
 					<div className="bg-card shadow-warm-lg mb-4 rounded-2xl p-6 text-center">
@@ -575,7 +652,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						nudgeId="generate-shopping-list"
 						icon="cart"
 						title="Generate your shopping list"
-						description="Head to the shopping list to see exactly what you need to buy — items already in your inventory are automatically subtracted."
+						description="Head to the shopping list to see exactly what you need to buy — items you already have are pre-checked so you can skip them."
 						ctaText="Go to Shopping List"
 						ctaHref="/shopping"
 						className="mt-4"
@@ -604,6 +681,13 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					templates={templates}
 					weekStart={weekStart}
 					onClose={() => setShowApplyTemplate(false)}
+				/>
+			)}
+
+			{showSweep && (
+				<InventorySweepModal
+					onClose={() => setShowSweep(false)}
+					onApplied={completeSweep}
 				/>
 			)}
 		</div>

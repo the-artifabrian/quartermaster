@@ -40,6 +40,7 @@ describe('getEventPriority', () => {
 		'shopping_list_item_edited',
 		'shopping_list_item_deleted',
 		'inventory_item_low_stock_toggled',
+		'inventory_sweep_completed',
 	])('%s is silent priority', (type) => {
 		expect(getEventPriority(type)).toBe('silent')
 	})
@@ -368,6 +369,27 @@ describe('formatEventMessage', () => {
 			'Alex',
 		)
 		expect(result.message).toBe('Alex marked Rice as in stock')
+	})
+
+	test('inventory_sweep_completed', () => {
+		const result = formatEventMessage(
+			'inventory_sweep_completed',
+			{ deleted: 3, markedLow: 2 },
+			'Alex',
+		)
+		expect(result.message).toBe(
+			'Alex swept inventory (removed 3, marked 2 low)',
+		)
+		expect(result.url).toBe('/inventory')
+	})
+
+	test('inventory_sweep_completed - no changes', () => {
+		const result = formatEventMessage(
+			'inventory_sweep_completed',
+			{ deleted: 0, markedLow: 0 },
+			'Alex',
+		)
+		expect(result.message).toBe('Alex swept inventory (no changes)')
 	})
 
 	test('unknown event type', () => {

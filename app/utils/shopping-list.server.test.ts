@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
 	generateShoppingListFromRecipes,
-	subtractInventoryFromShoppingList,
+	annotateInventoryMatches,
 	type ShoppingListItemInput,
 } from './shopping-list.server.ts'
 
@@ -183,7 +183,7 @@ describe('generateShoppingListFromRecipes', () => {
 	})
 })
 
-describe('subtractInventoryFromShoppingList', () => {
+describe('annotateInventoryMatches', () => {
 	function makeInventory(items: Array<{ name: string; lowStock?: boolean }>) {
 		return items.map((item, i) => ({
 			id: `inv-${i}`,
@@ -210,32 +210,36 @@ describe('subtractInventoryFromShoppingList', () => {
 		}
 	}
 
-	test('removes staple ingredients', () => {
+	test('strips staple ingredients entirely', () => {
 		const items = [makeShoppingItem('salt'), makeShoppingItem('chicken')]
-		const result = subtractInventoryFromShoppingList(items, [])
+		const result = annotateInventoryMatches(items, [])
 		expect(result.items).toHaveLength(1)
 		expect(result.items[0]!.name).toBe('chicken')
-		expect(result.removedCount).toBe(1)
-		expect(result.removedItems).toContain('salt')
+		expect(result.items[0]!.inStock).toBe(false)
+		expect(result.stapleCount).toBe(1)
 	})
 
-	test('removes items already in inventory', () => {
+	test('annotates items in inventory as inStock instead of removing', () => {
 		const items = [makeShoppingItem('chicken'), makeShoppingItem('rice')]
 		const inventory = makeInventory([{ name: 'chicken' }])
-		const result = subtractInventoryFromShoppingList(items, inventory)
-		expect(result.items).toHaveLength(1)
-		expect(result.items[0]!.name).toBe('rice')
+		const result = annotateInventoryMatches(items, inventory)
+		expect(result.items).toHaveLength(2)
+		const chicken = result.items.find((i) => i.name === 'chicken')!
+		const rice = result.items.find((i) => i.name === 'rice')!
+		expect(chicken.inStock).toBe(true)
+		expect(rice.inStock).toBe(false)
+		expect(result.inStockCount).toBe(1)
 	})
 
-	test('keeps low-stock inventory items on the list', () => {
+	test('keeps low-stock inventory items as not inStock', () => {
 		const items = [makeShoppingItem('chicken')]
 		const inventory = makeInventory([{ name: 'chicken', lowStock: true }])
-		const result = subtractInventoryFromShoppingList(items, inventory)
+		const result = annotateInventoryMatches(items, inventory)
 		expect(result.items).toHaveLength(1)
-		expect(result.items[0]!.name).toBe('chicken')
+		expect(result.items[0]!.inStock).toBe(false)
 	})
 
-	test('returns correct removedCount', () => {
+	test('returns correct stapleCount and inStockCount', () => {
 		const items = [
 			makeShoppingItem('salt'),
 			makeShoppingItem('water'),
@@ -243,15 +247,18 @@ describe('subtractInventoryFromShoppingList', () => {
 			makeShoppingItem('broccoli'),
 		]
 		const inventory = makeInventory([{ name: 'chicken' }])
-		const result = subtractInventoryFromShoppingList(items, inventory)
-		expect(result.removedCount).toBe(3) // salt, water, chicken
-		expect(result.items).toHaveLength(1) // broccoli
+		const result = annotateInventoryMatches(items, inventory)
+		expect(result.stapleCount).toBe(2) // salt, water
+		expect(result.items).toHaveLength(2) // chicken, broccoli
+		expect(result.inStockCount).toBe(1) // chicken
 	})
 
-	test('empty inventory only removes staples', () => {
+	test('empty inventory only strips staples, marks nothing as inStock', () => {
 		const items = [makeShoppingItem('chicken'), makeShoppingItem('olive oil')]
-		const result = subtractInventoryFromShoppingList(items, [])
+		const result = annotateInventoryMatches(items, [])
 		expect(result.items).toHaveLength(1)
 		expect(result.items[0]!.name).toBe('chicken')
+		expect(result.items[0]!.inStock).toBe(false)
+		expect(result.stapleCount).toBe(1) // olive oil is a staple
 	})
 })

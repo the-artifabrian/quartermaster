@@ -34,7 +34,7 @@ import {
 } from '#app/utils/shopping-list-validation.ts'
 import {
 	generateShoppingListFromRecipes,
-	subtractInventoryFromShoppingList,
+	annotateInventoryMatches,
 } from '#app/utils/shopping-list.server.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/shopping.ts'
@@ -175,11 +175,11 @@ export async function action({ request }: Route.ActionArgs) {
 		}))
 		const rawItems = generateShoppingListFromRecipes(recipeEntries)
 
-		// Subtract items already in inventory (unless low stock) and staples
+		// Annotate items with inventory match info (staples still stripped)
 		const inventoryItems = await prisma.inventoryItem.findMany({
 			where: { householdId },
 		})
-		const { items, removedCount } = subtractInventoryFromShoppingList(
+		const { items, inStockCount } = annotateInventoryMatches(
 			rawItems,
 			inventoryItems,
 		)
@@ -204,10 +204,11 @@ export async function action({ request }: Route.ActionArgs) {
 			(item) => !existingCanonicals.has(getCanonicalIngredientName(item.name)),
 		)
 
-		// Create new items
+		// Create new items — in-stock items are pre-checked
 		await prisma.shoppingListItem.createMany({
-			data: dedupedItems.map((item) => ({
+			data: dedupedItems.map(({ inStock, ...item }) => ({
 				...item,
+				checked: inStock,
 				listId: shoppingList.id,
 			})),
 		})
@@ -219,7 +220,7 @@ export async function action({ request }: Route.ActionArgs) {
 			householdId,
 		})
 
-		return { status: 'success' as const, removedCount, weekLabel: formatWeekRange(weekStart) }
+		return { status: 'success' as const, inStockCount, weekLabel: formatWeekRange(weekStart) }
 	}
 
 	if (intent === 'add') {
@@ -610,9 +611,9 @@ export default function ShoppingListRoute({
 				{actionData?.status === 'success' && 'weekLabel' in actionData && (
 					<p className="text-muted-foreground container-narrow pb-4 text-center text-sm">
 						Generated for {actionData.weekLabel}
-						{typeof actionData.removedCount === 'number' &&
-							actionData.removedCount > 0 &&
-							` · ${actionData.removedCount} already in stock`}
+						{typeof actionData.inStockCount === 'number' &&
+							actionData.inStockCount > 0 &&
+							` · ${actionData.inStockCount} pre-checked (in stock)`}
 					</p>
 				)}
 			</div>

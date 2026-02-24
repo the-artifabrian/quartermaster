@@ -31,6 +31,7 @@ export type HouseholdEventType =
 	| 'shopping_list_item_edited'
 	| 'shopping_list_item_deleted'
 	| 'inventory_item_low_stock_toggled'
+	| 'inventory_sweep_completed'
 	| 'meal_plan_weekly_reset'
 
 export interface HouseholdEventData {

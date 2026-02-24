@@ -11,6 +11,7 @@ import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
 import { RecipeActionBar } from '#app/components/recipe-action-bar.tsx'
 import { CookingLogEntry } from '#app/components/recipe-cooking-log-entry.tsx'
 import { IMadeThisModal } from '#app/components/recipe-i-made-this-modal.tsx'
+import { PostCookCheckInModal } from '#app/components/post-cook-checkin-modal.tsx'
 import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
 import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
 import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
@@ -25,16 +26,14 @@ import {
 } from '#app/utils/metric-conversion.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import {
-	subtractRecipeIngredientsFromInventory,
-	previewInventorySubtraction,
-	type SubtractionSummary,
-} from '#app/utils/inventory-subtract.server.ts'
 import { cn } from '#app/utils/misc.tsx'
+import {
+	type CheckInItem,
+	getPostCookCheckInItems,
+} from '#app/utils/post-cook-checkin.server.ts'
 import {
 	type AppliedSubstitution,
 	extractPrimaryIngredient,
-	formatQuantity,
 	getRecipeJsonLd,
 } from '#app/utils/recipe-detail.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
@@ -42,6 +41,7 @@ import {
 	buildInventoryLookup,
 	getCanonicalIngredientName,
 	ingredientMatchesAnyInventoryItem,
+	ingredientMatchesInventoryItem,
 	isStapleIngredient,
 } from '#app/utils/recipe-matching.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
@@ -222,19 +222,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 		return { success: true }
 	}
 
-	if (intent === 'previewSubtraction') {
-		if (!isProActive) return { success: false, requiresPro: true }
-		const preview = await previewInventorySubtraction(
-			recipeId,
-			householdId,
-			parseServingRatio(formData),
-		)
-		if (formData.get('source') === 'whatDoINeed') {
-			void trackEvent(userId, householdId, 'what_do_i_need', { recipeId })
-		}
-		return { success: true, preview }
-	}
-
 	if (intent === 'logCook') {
 		const submission = parseWithZod(formData, { schema: CookingLogSchema })
 		if (submission.status !== 'success') {
@@ -257,18 +244,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 			householdId,
 		})
 
-		const subtractInventory =
-			isProActive && formData.get('subtractInventory') === 'on'
-		if (subtractInventory) {
-			const inventorySummary = await subtractRecipeIngredientsFromInventory(
-				recipeId,
-				householdId,
-				parseServingRatio(formData),
-			)
-			return { success: true, inventorySummary }
-		}
-
-		return { success: true, inventorySummary: null }
+		const checkInItems = await getPostCookCheckInItems(recipeId, householdId)
+		return { success: true, checkInItems }
 	}
 
 	if (intent === 'deleteCookLog') {
@@ -330,19 +307,16 @@ export async function action({ request, params }: Route.ActionArgs) {
 		const safeRatio = parseServingRatio(formData)
 		const useMetric = formData.get('useMetric') === '1'
 
-		// Re-run preview to get missing items
-		const preview = await previewInventorySubtraction(
-			recipeId,
-			householdId,
-			safeRatio,
-		)
-
-		// Build items to add from noMatch + deficit items
 		const fullRecipe = await prisma.recipe.findUnique({
 			where: { id: recipeId },
 			include: { ingredients: true },
 		})
 		invariantResponse(fullRecipe, 'Recipe not found')
+
+		const inventoryItems = await prisma.inventoryItem.findMany({
+			where: { householdId },
+			select: { name: true },
+		})
 
 		const shoppingItems: Array<{
 			name: string
@@ -350,45 +324,21 @@ export async function action({ request, params }: Route.ActionArgs) {
 			unit: string | null
 		}> = []
 
-		// Items not in inventory at all
-		for (const ingredientName of preview.noMatch) {
-			const ingredient = fullRecipe.ingredients.find(
-				(i) =>
-					!i.isHeading && i.name.toLowerCase() === ingredientName.toLowerCase(),
-			)
-			if (ingredient) {
-				const amount = ingredient.amount
-					? scaleAmount(ingredient.amount, safeRatio)
-					: null
-				shoppingItems.push(
-					toShoppingItem(ingredient.name, amount, ingredient.unit, useMetric),
-				)
-			} else {
-				shoppingItems.push({
-					name: ingredientName,
-					quantity: null,
-					unit: null,
-				})
-			}
-		}
+		for (const ingredient of fullRecipe.ingredients) {
+			if (ingredient.isHeading) continue
+			if (isStapleIngredient(ingredient)) continue
 
-		// Items with insufficient inventory (deficit)
-		for (const item of preview.willSubtract) {
-			if (
-				item.subtractAmount !== null &&
-				item.currentQuantity !== null &&
-				item.subtractAmount > item.currentQuantity
-			) {
-				const deficit = item.subtractAmount - item.currentQuantity
-				shoppingItems.push(
-					toShoppingItem(
-						item.name,
-						formatQuantity(deficit),
-						item.currentUnit,
-						useMetric,
-					),
-				)
-			}
+			const inStock = inventoryItems.some((inv) =>
+				ingredientMatchesInventoryItem(ingredient, inv),
+			)
+			if (inStock) continue
+
+			const amount = ingredient.amount
+				? scaleAmount(ingredient.amount, safeRatio)
+				: null
+			shoppingItems.push(
+				toShoppingItem(ingredient.name, amount, ingredient.unit, useMetric),
+			)
 		}
 
 		if (shoppingItems.length === 0) {
@@ -473,19 +423,6 @@ function toShoppingItem(
 	return { name, quantity: metricQty, unit: metric.unit }
 }
 
-function buildInventoryToast(summary: SubtractionSummary) {
-	const parts: string[] = []
-	if (summary.removed.length > 0) {
-		parts.push(`Removed ${summary.removed.join(', ')}.`)
-	}
-	if (summary.updated.length > 0) {
-		parts.push(`Updated ${summary.updated.join(', ')}.`)
-	}
-	return parts.length > 0
-		? parts.join(' ')
-		: 'No matching inventory items found.'
-}
-
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const {
 		recipe,
@@ -513,11 +450,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		clearProgress,
 	} = useCookingProgress(recipe.id)
 	const cookFetcher = useFetcher({ key: 'log-cook' })
-	const previewFetcher = useFetcher({ key: 'preview-subtraction' })
 	const shoppingFetcher = useFetcher({ key: 'add-to-shopping' })
 	const prevCookFetcherState = useRef(cookFetcher.state)
 	const [showIMadeThisModal, setShowIMadeThisModal] = useState(false)
-	const [cookResult, setCookResult] = useState<SubtractionSummary | null>(null)
+	const [checkInItems, setCheckInItems] = useState<CheckInItem[] | null>(null)
 	const [historyExpanded, setHistoryExpanded] = useState(false)
 	const [substitutions, setSubstitutions] = useState<
 		Map<string, AppliedSubstitution>
@@ -549,22 +485,13 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			cookFetcher.data?.success
 		) {
 			clearProgress()
-			const summary = cookFetcher.data
-				.inventorySummary as SubtractionSummary | null
+			const items = cookFetcher.data.checkInItems as CheckInItem[] | undefined
 
-			if (summary && summary.skipped.length > 0) {
-				// Transition modal to review state
-				setCookResult(summary)
+			setShowIMadeThisModal(false)
+			if (items && items.length > 0) {
+				setCheckInItems(items)
 			} else {
-				// No skipped items — close modal and show toast
-				setShowIMadeThisModal(false)
-				if (summary) {
-					toast.success('Inventory updated', {
-						description: buildInventoryToast(summary),
-					})
-				} else {
-					toast.success('Cook logged!')
-				}
+				toast.success('Cook logged!')
 			}
 		}
 		prevCookFetcherState.current = cookFetcher.state
@@ -618,15 +545,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	}
 
 	function handleIMadeThis() {
-		setCookResult(null)
 		setShowIMadeThisModal(true)
-		// Fire preview fetch (Pro only — free users just log the cook)
-		if (isProActive) {
-			const formData = new FormData()
-			formData.set('intent', 'previewSubtraction')
-			formData.set('servingRatio', ratio.toString())
-			void previewFetcher.submit(formData, { method: 'POST' })
-		}
 	}
 
 	function applySubstitution(
@@ -653,13 +572,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	}
 
 	function handleModalClose() {
-		if (cookResult) {
-			toast.success('Inventory updated', {
-				description: buildInventoryToast(cookResult),
-			})
-		}
 		setShowIMadeThisModal(false)
-		setCookResult(null)
 	}
 
 	async function handleShare() {
@@ -919,10 +832,15 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				<IMadeThisModal
 					ratio={ratio}
 					cookFetcher={cookFetcher}
-					previewFetcher={previewFetcher}
 					onClose={handleModalClose}
-					isProActive={isProActive}
-					cookResult={cookResult}
+				/>
+			)}
+
+			{/* Post-cook check-in modal */}
+			{checkInItems && checkInItems.length > 0 && (
+				<PostCookCheckInModal
+					items={checkInItems}
+					onClose={() => setCheckInItems(null)}
 				/>
 			)}
 

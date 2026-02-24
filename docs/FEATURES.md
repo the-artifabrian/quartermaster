@@ -1,9 +1,9 @@
 # Quartermaster - Feature Reference
 
 Built to replace 100+ recipes scattered across Apple Notes. Track what's in your
-kitchen, see what you can cook, plan the week, generate a shopping list, and
-watch inventory update as you cook. The whole loop — from "what do I have?" to
-"what should I make?" to "what do I need to buy?" — in one app.
+kitchen, see what you can cook, plan the week, and generate a shopping list. The
+whole loop — from "what do I have?" to "what should I make?" to "what do I need
+to buy?" — in one app.
 
 High-level feature reference (not exhaustive). For the roadmap, see
 [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy, see
@@ -46,14 +46,16 @@ High-level feature reference (not exhaustive). For the roadmap, see
   from current inventory (prioritizing expiring items). Preview before saving,
   "AI Generated" badge on saved recipes. Feature-specific error messages
   (rate limit, timeout, parse failure) instead of generic toasts
-- "I Made This" cook logging with inventory impact preview (shows what will be
-  subtracted, what won't auto-adjust with reasons, and post-cook review step for
-  marking skipped items as used up)
+- "I Made This" cook logging with post-cook check-in: after logging, matched
+  inventory items are shown in a lightweight "Anything running low?" modal with
+  tap-to-cycle UX (keep → running low → used up). No quantity math — inventory
+  is treated as a rough signal. Quick-cook paths skip the check-in (weekly sweep
+  covers drift)
 - Inline inventory status on recipe detail ingredient list: summary footer shows
   "You have X/Y ingredients" with "Add N missing to Shopping List" button
 - "Last cooked" stats on recipe cards (cook count + relative time)
 - Ingredient headings: section dividers within ingredient lists displayed as
-  styled headers. Skipped by shopping list, matching, subtraction, and JSON-LD
+  styled headers. Skipped by shopping list, matching, check-in, and JSON-LD
 - Drag-and-drop ingredient reordering (`@dnd-kit/sortable`)
 - AI recipe enhance (Pro): one-click metadata inference (description, servings,
   prep/cook times) with before/after review modal. Feature-specific error
@@ -96,9 +98,12 @@ High-level feature reference (not exhaustive). For the roadmap, see
   matches — covered items shown muted with recipe name, day, and meal type;
   uncovered items shown prominently with "Find recipes" CTA). Per-item dismiss
   via localStorage (keyed by item ID + expiry date, resets if expiry changes)
-- Automatic inventory subtraction after cooking (cross-system unit conversion,
-  feedback toast). Items with no tracked quantity or incompatible units are
-  reported as skipped (with reason) — surfaced in toasts and post-cook review
+- Weekly inventory sweep: banner on the plan page (current week only) prompts a
+  quick batch review. Modal shows priority items first (perishables, low-stock,
+  stale 7+ days) grouped by location, with remaining items behind an expand
+  toggle. Items cycle through keep → running low → used up on tap. One-tap apply
+  with batch transaction. Skip fatigue: 3 consecutive skips permanently dismiss
+  the banner; completing a sweep resets the counter
 
 ## Meal Planning & Shopping
 
@@ -109,10 +114,10 @@ High-level feature reference (not exhaustive). For the roadmap, see
 - Per-entry serving size overrides with +/- controls (clamped 1-999);
   passthrough to recipe detail via `?servings=N` query param
 - Mark meals as "cooked" with optimistic toggle; quick "I made this" one-tap
-  action (logs cook + subtracts inventory, skipped items shown in toast)
+  action (logs cook, simple toast)
 - Uncooked meal reminders: site-wide banner for planned-but-uncooked meals from
-  today or yesterday (time-of-day gated). 1-tap "Yes, I made it" (cook log +
-  inventory subtraction + skipped item toast) or "Skip" (session dismiss)
+  today or yesterday (time-of-day gated). 1-tap "Yes, I made it" (logs cook)
+  or "Skip" (session dismiss)
 - "Up next" banner (current week): next chronological meal to cook today with
   time-of-day awareness. Empty state suggests a favorite with one-tap add
 - Copy week to next week (preserves servings, skips duplicates)
@@ -138,7 +143,9 @@ High-level feature reference (not exhaustive). For the roadmap, see
   - Inline item editing (name, quantity, unit)
   - Checked/total counter in the page header (e.g. "Shopping List (3/10)")
   - Client-side search/filter, print-friendly layout
-  - Inventory-aware: subtracts items already in stock and staple ingredients
+  - Inventory-aware: items already in stock (not low) are pre-checked instead
+    of omitted — users can uncheck any they actually need. Staple ingredients
+    (salt, pepper, water, oil) are still filtered out entirely
   - Optimistic UI on checkbox toggle and delete (instant response via
     `useFetcher`)
   - Live-refresh via SSE for all shopping list events (generate, add, clear,

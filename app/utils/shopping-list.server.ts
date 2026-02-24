@@ -188,42 +188,40 @@ export function consolidateQuantities(
 }
 
 /**
- * Remove items from the shopping list that the user already has in inventory
- * (unless low stock) and items that are common staples.
+ * Annotate shopping list items with inventory match info instead of filtering.
+ * - Staples (salt, pepper, water, oil) are still removed entirely.
+ * - Items matching non-low-stock inventory get `inStock: true` (will be pre-checked).
+ * - Everything else gets `inStock: false`.
  */
-export function subtractInventoryFromShoppingList(
+export function annotateInventoryMatches(
 	items: ShoppingListItemInput[],
 	inventoryItems: InventoryItem[],
 ): {
-	items: ShoppingListItemInput[]
-	removedCount: number
-	removedItems: string[]
+	items: Array<ShoppingListItemInput & { inStock: boolean }>
+	stapleCount: number
+	inStockCount: number
 } {
 	const availableInventory = inventoryItems.filter((item) => !item.lowStock)
-	const removedItems: string[] = []
+	let stapleCount = 0
+	const result: Array<ShoppingListItemInput & { inStock: boolean }> = []
 
-	const filtered = items.filter((item) => {
-		// Remove staple ingredients
+	for (const item of items) {
+		// Still strip staples entirely — nobody needs "salt" on their list
 		if (isStapleIngredient({ name: item.name })) {
-			removedItems.push(item.name)
-			return false
+			stapleCount++
+			continue
 		}
 
-		// Remove items the user already has (not low stock)
 		const hasInInventory = availableInventory.some((inv) =>
 			ingredientMatchesInventoryItem({ name: item.name }, inv),
 		)
-		if (hasInInventory) {
-			removedItems.push(item.name)
-			return false
-		}
 
-		return true
-	})
+		result.push({ ...item, inStock: hasInInventory })
+	}
 
 	return {
-		items: filtered,
-		removedCount: removedItems.length,
-		removedItems,
+		items: result,
+		stapleCount,
+		inStockCount: result.filter((i) => i.inStock).length,
 	}
 }

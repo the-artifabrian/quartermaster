@@ -39,11 +39,6 @@ type MealSlotCardProps = {
 type QuickCookData = {
 	status: string
 	recipeTitle?: string
-	inventorySummary?: {
-		removed: string[]
-		updated: string[]
-		skipped: Array<{ name: string; inventoryItemId: string; reason: string }>
-	} | null
 }
 
 function EntryRow({
@@ -81,34 +76,7 @@ function EntryRow({
 			cookedFetcher.data?.status === 'success' &&
 			cookedFetcher.data?.recipeTitle
 		) {
-			const summary = cookedFetcher.data.inventorySummary
-			if (summary) {
-				const parts: string[] = []
-				if (summary.removed.length > 0) {
-					parts.push(`Removed ${summary.removed.join(', ')}.`)
-				}
-				if (summary.updated.length > 0) {
-					parts.push(`Updated ${summary.updated.join(', ')}.`)
-				}
-				if (summary.skipped.length > 0) {
-					const names = summary.skipped.map((s) => s.name)
-					if (names.length <= 3) {
-						parts.push(`Skipped ${names.join(', ')}.`)
-					} else {
-						parts.push(
-							`Skipped ${names.slice(0, 3).join(', ')} +${names.length - 3} more.`,
-						)
-					}
-				}
-				toast.success(`Cooked ${cookedFetcher.data.recipeTitle}`, {
-					description:
-						parts.length > 0
-							? parts.join(' ')
-							: 'No matching inventory items found.',
-				})
-			} else {
-				toast.success(`Cooked ${cookedFetcher.data.recipeTitle}`)
-			}
+			toast.success(`Cooked ${cookedFetcher.data.recipeTitle}`)
 		}
 		prevCookedFetcherState.current = cookedFetcher.state
 	}, [cookedFetcher.state, cookedFetcher.data])
@@ -157,8 +125,7 @@ function EntryRow({
 							<AlertDialogHeader>
 								<AlertDialogTitle>Mark as cooked?</AlertDialogTitle>
 								<AlertDialogDescription>
-									This will log the cook and subtract ingredients from your
-									inventory.
+									This will log the cook to your history.
 								</AlertDialogDescription>
 							</AlertDialogHeader>
 							<AlertDialogFooter>

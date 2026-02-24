@@ -2,7 +2,6 @@ import { invariantResponse } from '@epic-web/invariant'
 import { data } from 'react-router'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import { subtractRecipeIngredientsFromInventory } from '#app/utils/inventory-subtract.server.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/quick-cook.ts'
 
@@ -36,17 +35,6 @@ export async function action({ request }: Route.ActionArgs) {
 		},
 	})
 
-	// Subtract ingredients from inventory
-	const servingRatio =
-		entry.servings && entry.recipe.servings
-			? entry.servings / entry.recipe.servings
-			: 1
-	const inventorySummary = await subtractRecipeIngredientsFromInventory(
-		entry.recipe.id,
-		householdId,
-		servingRatio,
-	)
-
 	void emitHouseholdEvent({
 		type: 'meal_plan_cooked',
 		payload: { title: entry.recipe.title, cooked: true },
@@ -64,6 +52,5 @@ export async function action({ request }: Route.ActionArgs) {
 	return data({
 		status: 'success' as const,
 		recipeTitle: entry.recipe.title,
-		inventorySummary,
 	})
 }

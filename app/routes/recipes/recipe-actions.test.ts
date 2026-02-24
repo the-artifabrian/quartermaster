@@ -179,7 +179,7 @@ describe('recipe detail actions', () => {
 			notes: 'Turned out great!',
 		})
 		const result = await action({ request, ...makeActionArgs(recipe.id) })
-		expect(result).toEqual({ success: true, inventorySummary: null })
+		expect(result).toEqual({ success: true, checkInItems: [] })
 
 		const logs = await prisma.cookingLog.findMany({
 			where: { recipeId: recipe.id, userId: session.userId },
@@ -188,7 +188,7 @@ describe('recipe detail actions', () => {
 		expect(logs[0]!.notes).toBe('Turned out great!')
 	})
 
-	test('log cook with subtractInventory subtracts from inventory', async () => {
+	test('log cook returns matched inventory items for check-in', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 
@@ -207,21 +207,22 @@ describe('recipe detail actions', () => {
 		const request = await makeRequest(session, recipe.id, {
 			intent: 'logCook',
 			cookedAt: '2026-02-06',
-			subtractInventory: 'on',
 			servingRatio: '1',
 		})
-		const result = await action({ request, ...makeActionArgs(recipe.id) })
+		const result = (await action({
+			request,
+			...makeActionArgs(recipe.id),
+		})) as { success: boolean; checkInItems: Array<{ name: string }> }
 
+		// Inventory is NOT subtracted — just returns matched items for check-in
 		const flour = await prisma.inventoryItem.findFirst({
-			where: { userId: session.userId, name: 'flour' },
+			where: { householdId: session.householdId, name: 'flour' },
 		})
-		// Recipe uses 2 cups flour; started with 10
-		expect(flour!.quantity).toBe(8)
-		// butter (1 tbsp) has no inventory match, so only flour appears
-		expect(result).toEqual({
-			success: true,
-			inventorySummary: { updated: ['flour'], removed: [], skipped: [] },
-		})
+		expect(flour!.quantity).toBe(10) // unchanged
+
+		expect(result.success).toBe(true)
+		expect(result.checkInItems).toHaveLength(1)
+		expect(result.checkInItems[0]!.name).toBe('flour')
 	})
 
 	test('delete cook log', async () => {

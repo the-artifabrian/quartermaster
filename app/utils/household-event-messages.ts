@@ -182,6 +182,16 @@ export function formatEventMessage(
 				message: `${username} marked ${payload.name} as ${payload.lowStock ? 'low stock' : 'in stock'}`,
 				url: '/inventory',
 			}
+		case 'inventory_sweep_completed': {
+			const parts: string[] = []
+			if (payload.deleted) parts.push(`removed ${payload.deleted}`)
+			if (payload.markedLow) parts.push(`marked ${payload.markedLow} low`)
+			const summary = parts.length > 0 ? parts.join(', ') : 'no changes'
+			return {
+				message: `${username} swept inventory (${summary})`,
+				url: '/inventory',
+			}
+		}
 		default:
 			return {
 				message: `${username} performed an action`,

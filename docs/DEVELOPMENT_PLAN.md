@@ -61,7 +61,12 @@ value are the open questions — see
    be more passive (auto-populate from shopping list check-offs only). Track
    weekly: how many manual inventory updates? What percentage of items are
    accurate? Does it feel like homework?
-3. **Find 2-3 non-friend testers** — Friendly users won't surface what's
+3. **Ship Google OAuth** — GitHub login signals "developer tool" on a consumer
+   recipe app. Replace with Google OAuth before inviting non-friend testers.
+   Epic Stack's `remix-auth` provider pattern makes this a swap, not a rebuild
+4. **Ship 14-day trial** — Every new signup gets full Pro access for 14 days,
+   without needing a code. Ship before inviting non-friend testers
+5. **Find 2-3 non-friend testers** — Friendly users won't surface what's
    confusing. Find people who meal plan (colleagues, online communities) and ask
    them to try it for 2 weeks. This isn't a launch — it's learning whether the
    app makes sense to someone who didn't watch you build it.
@@ -81,6 +86,15 @@ The app has **fully replaced Apple Notes** and **meal planning happens in-app**
   co-user touch daily? What does the friend's household never open?
 - Does the pitch work on strangers? If non-friend testers don't get past
   inventory onboarding, the pitch needs rework — not more features.
+
+**Trial-specific questions** (assess after first cohort):
+
+- What % of trial users engage with meal planning?
+- What % use shopping list generation?
+- What % touch inventory at all?
+- What's trial → paid conversion?
+- Do trial users invite household members?
+  "recipes + planning + basic shopping" (Phase 2 restructure)?
 
 > **Check-in: March 12, 2026.** Assess daily driving progress. If the app isn't
 > sticking, identify UX friction and fix it. Don't defer indefinitely.
@@ -188,7 +202,6 @@ warning, join page error sanitization). Detail in git history.
 - **Service worker caches stale URL** — `sw.js` line 113 caches
   `/plan/shopping-list` (old URL), should cache `/shopping`
 - **Subscription state complexity** — `trialEndsAt` is active and intentional
-  simplify only if the trial/invite model changes
 - **No E2E test for shopping → inventory pipeline** — this is the feature being
   evaluated to determine inventory viability. If it breaks silently during daily
   driving, the evaluation is invalid
@@ -221,12 +234,23 @@ justify building. Larger-scope items (nutrition APIs, email digests, dashboards)
       that's 3 meals not 1. The meal plan has no concept of this — you plan 7
       dinners when you really only need to cook 4-5. Watch for friction signal
       during daily driving before building
+      testers. See
+      like a bait-and-switch for mass-market users who didn't come for
+      their top 15, or skip inventory entirely with a clear path to planning
 - [ ] **Google OAuth (replace GitHub)** — GitHub login signals "developer tool"
       on a consumer recipe app. Swap to Google OAuth for non-technical tester
       onboarding. Epic Stack's `remix-auth` provider pattern makes this a swap,
       not a rebuild. Requires Google Cloud Console project + OAuth consent
-      screen (unverified apps show a warning, fine under 100 users). Do before
-      inviting non-friend testers, after the March 12 check-in
+      screen (unverified apps show a warning, fine under 100 users). Ship
+      before trial launch and non-friend testers
+- [ ] **Social media recipe import** — save recipes from TikTok, Instagram
+      Reels, and YouTube Shorts. Recipe saving is the universal download
+      trigger; social-media import is a major growth trend (Pestle, ReciMe,
+      Flavorish are all building on it). Feeds directly into the trial funnel:
+      save → plan → shop. Non-trivial (video parsing / OCR / LLM extraction),
+      but high-leverage for acquisition. Evaluate build vs. integrate (existing
+      services like Pestle's API or a lightweight LLM approach on
+      screenshots/transcripts)
 - [ ] **Progressive onboarding** — post-action contextual nudges (next-best
       action prompts) for non-friend testers. Build when they are actively
       signing up, not before

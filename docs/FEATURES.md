@@ -171,7 +171,7 @@ High-level feature reference (not exhaustive). For the roadmap, see
 - Pantry staples onboarding on empty inventory
 
 - Free: unlimited recipes, up to 15 inventory items, smart matching, household
-  days Pro, grants 2 starter codes) coexist with Stripe
+  days Pro, grants 2 starter codes) coexist with Stripe and trial
 - Pro-gated routes redirect to `/upgrade` with lock icons in nav. Graceful
   downgrade with data preservation, expiry nudges at 7d/3d
 - Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (codes +

@@ -16,17 +16,14 @@ export type RecipeContext = {
  * full ingredient list so the model can give contextually appropriate
  * suggestions (e.g. won't suggest broth as a water substitute in a cake).
  *
- * Returns null if:
- * - No API key is configured
- * - The API call fails or times out
- * - The response can't be parsed
- *
- * Errors are logged server-side but never surfaced to the user.
+ * Returns `{ substitutions }` on success (possibly empty),
+ * or `{ error }` when the API call fails.
+ * Returns `null` only when no API key is configured.
  */
 export async function getLLMSubstitutions(
 	ingredientName: string,
 	recipeContext?: RecipeContext,
-): Promise<Substitution[] | null> {
+): Promise<{ substitutions: Substitution[] } | { error: string } | null> {
 	const apiKey = process.env.ANTHROPIC_API_KEY
 	if (!apiKey) return null
 
@@ -57,7 +54,10 @@ export async function getLLMSubstitutions(
 			console.error(
 				`Substitution LLM error: ${response.status} ${response.statusText}`,
 			)
-			return null
+			if (response.status === 429) {
+				return { error: 'Too many requests. Please wait a moment and try again.' }
+			}
+			return { error: 'AI substitution lookup failed. Please try again later.' }
 		}
 
 		const data = (await response.json()) as {
@@ -65,12 +65,16 @@ export async function getLLMSubstitutions(
 		}
 
 		const text = data.content?.[0]?.text
-		if (!text) return null
+		if (!text) return { error: 'AI substitution lookup returned an empty response.' }
 
-		return parseSubstitutionResponse(text)
+		const parsed = parseSubstitutionResponse(text)
+		return { substitutions: parsed ?? [] }
 	} catch (error) {
 		console.error('Substitution LLM error:', error)
-		return null
+		if (error instanceof DOMException && error.name === 'TimeoutError') {
+			return { error: 'AI substitution lookup timed out. Please try again.' }
+		}
+		return { error: 'AI substitution lookup failed. Please try again later.' }
 	}
 }
 

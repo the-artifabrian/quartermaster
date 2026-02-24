@@ -50,7 +50,11 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 	}
 
-	return data(result)
+	return data({
+		substitutions: result.substitutions,
+		source: result.source,
+		error: result.error ?? null,
+	})
 }
 
 async function getRecipeContext(

@@ -76,11 +76,11 @@ export async function generateRecipeFromInventory(
 			)
 			if (response.status === 429) {
 				return {
-					error: 'Too many requests. Please wait a moment and try again.',
+					error: 'Recipe generation hit a rate limit. Please wait a moment and try again.',
 				}
 			}
 			return {
-				error: 'The AI service returned an error. Please try again later.',
+				error: 'Recipe generation failed — the AI service returned an error. Please try again later.',
 			}
 		}
 
@@ -91,14 +91,14 @@ export async function generateRecipeFromInventory(
 		const text = data.content?.[0]?.text
 		if (!text) {
 			return {
-				error: 'Received an unexpected response. Please try again.',
+				error: 'Recipe generation returned an empty response. Please try again.',
 			}
 		}
 
 		const result = parseRecipeResponse(text)
 		if (!result) {
 			return {
-				error: 'Received an unexpected response. Please try again.',
+				error: 'Recipe generation returned an unexpected response. Please try again.',
 			}
 		}
 
@@ -107,11 +107,11 @@ export async function generateRecipeFromInventory(
 		console.error('Recipe generation LLM error:', error)
 		if (error instanceof DOMException && error.name === 'TimeoutError') {
 			return {
-				error: 'The AI service took too long. Please try again.',
+				error: 'Recipe generation timed out. Please try again.',
 			}
 		}
 		return {
-			error: 'The AI service returned an error. Please try again later.',
+			error: 'Recipe generation failed — the AI service returned an error. Please try again later.',
 		}
 	}
 }

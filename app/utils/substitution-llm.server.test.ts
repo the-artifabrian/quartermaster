@@ -40,9 +40,15 @@ describe('getLLMSubstitutions', () => {
 
 		const result = await getLLMSubstitutions('tamarind paste')
 		expect(result).not.toBeNull()
-		expect(result).toHaveLength(2)
-		expect(result![0]!.replacement).toBe('lime juice + brown sugar')
-		expect(result![0]!.context).toBe(
+		expect(result).toHaveProperty('substitutions')
+		const { substitutions } = result as { substitutions: unknown[] }
+		expect(substitutions).toHaveLength(2)
+		expect(substitutions[0]).toHaveProperty(
+			'replacement',
+			'lime juice + brown sugar',
+		)
+		expect(substitutions[0]).toHaveProperty(
+			'context',
 			'Mix 1 tbsp lime juice with 1 tsp brown sugar.',
 		)
 	})
@@ -65,10 +71,11 @@ describe('getLLMSubstitutions', () => {
 
 		const result = await getLLMSubstitutions('mirin')
 		expect(result).not.toBeNull()
-		expect(result![0]!.replacement).toBe('vinegar + sugar')
+		const { substitutions } = result as { substitutions: unknown[] }
+		expect(substitutions[0]).toHaveProperty('replacement', 'vinegar + sugar')
 	})
 
-	test('returns null on API error', async () => {
+	test('returns error object on API error', async () => {
 		vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
 		consoleError.mockImplementation(() => {})
 
@@ -79,10 +86,11 @@ describe('getLLMSubstitutions', () => {
 		)
 
 		const result = await getLLMSubstitutions('saffron')
-		expect(result).toBeNull()
+		expect(result).toHaveProperty('error')
+		expect((result as { error: string }).error).toContain('Too many requests')
 	})
 
-	test('returns null on malformed response', async () => {
+	test('returns empty substitutions on malformed response', async () => {
 		vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
 
 		server.use(
@@ -94,7 +102,9 @@ describe('getLLMSubstitutions', () => {
 		)
 
 		const result = await getLLMSubstitutions('dragon fruit')
-		expect(result).toBeNull()
+		expect(result).not.toBeNull()
+		const { substitutions } = result as { substitutions: unknown[] }
+		expect(substitutions).toHaveLength(0)
 	})
 
 	test('caps at 4 substitutions', async () => {
@@ -122,7 +132,8 @@ describe('getLLMSubstitutions', () => {
 
 		const result = await getLLMSubstitutions('obscure ingredient')
 		expect(result).not.toBeNull()
-		expect(result).toHaveLength(4)
+		const { substitutions } = result as { substitutions: unknown[] }
+		expect(substitutions).toHaveLength(4)
 	})
 
 	test('sends system message in API request', async () => {

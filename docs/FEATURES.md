@@ -44,7 +44,8 @@ High-level feature reference (not exhaustive). For the roadmap, see
   persistent banner
 - AI recipe generation from inventory (Pro): pick meal type, generates a recipe
   from current inventory (prioritizing expiring items). Preview before saving,
-  "AI Generated" badge on saved recipes
+  "AI Generated" badge on saved recipes. Feature-specific error messages
+  (rate limit, timeout, parse failure) instead of generic toasts
 - "I Made This" cook logging with inventory impact preview (shows what will be
   subtracted, what won't auto-adjust with reasons, and post-cook review step for
   marking skipped items as used up)
@@ -55,12 +56,14 @@ High-level feature reference (not exhaustive). For the roadmap, see
   styled headers. Skipped by shopping list, matching, subtraction, and JSON-LD
 - Drag-and-drop ingredient reordering (`@dnd-kit/sortable`)
 - AI recipe enhance (Pro): one-click metadata inference (description, servings,
-  prep/cook times) with before/after review modal. Primarily for cleaning up
-  bulk-imported recipes
+  prep/cook times) with before/after review modal. Feature-specific error
+  messages. Primarily for cleaning up bulk-imported recipes
 - Ingredient substitution hints (Pro): click missing-ingredient pills to see
-  substitutions. Static DB + LLM fallback (cached). Inventory-aware (highlights
-  substitutes you have), recipe-context-aware. "Use this" temporarily swaps
-  ingredient in both list and instruction text (client-side, revertible)
+  substitutions. Static DB + LLM fallback (cached, errors bypass cache).
+  Inventory-aware (highlights substitutes you have), recipe-context-aware.
+  Distinguishes "no substitutions found" from "AI unavailable" in the UI.
+  "Use this" temporarily swaps ingredient in both list and instruction text
+  (client-side, revertible)
 
 ## Inventory System
 
@@ -206,7 +209,8 @@ High-level feature reference (not exhaustive). For the roadmap, see
 - Usage analytics via `UsageEvent` model (pairing selections, recipe actions,
   event counts). Stats page at Settings > Data (cooking activity, meal planning,
   event log)
-- Vitest unit/integration tests + Playwright e2e tests
+- Vitest unit/integration tests + Playwright e2e tests (including shopping →
+  inventory pipeline end-to-end coverage)
 - Deployed on Fly.io with LiteFS, custom domain, HTTPS
 
 ---

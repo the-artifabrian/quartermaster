@@ -18,6 +18,8 @@ export type EnrichedSubstitution = Substitution & {
 export type SubstitutionResult = {
 	substitutions: EnrichedSubstitution[]
 	source: 'static' | 'cached' | 'llm' | 'none'
+	/** When source is 'none', distinguishes "no results" from "AI unavailable" */
+	error?: 'ai_unavailable'
 }
 
 /**
@@ -49,6 +51,9 @@ export async function getSubstitutions(
 		recipeContext,
 	)
 	if (llmResult) {
+		if ('error' in llmResult) {
+			return { substitutions: [], source: 'none', error: 'ai_unavailable' }
+		}
 		return {
 			substitutions: enrichWithInventory(
 				llmResult.substitutions,
@@ -84,24 +89,42 @@ const EMPTY_SENTINEL: Substitution[] = []
 async function getLLMSubstitutionsWithCache(
 	normalizedName: string,
 	recipeContext?: RecipeContext,
-): Promise<{ substitutions: Substitution[]; source: 'cached' | 'llm' } | null> {
+): Promise<
+	| { substitutions: Substitution[]; source: 'cached' | 'llm' }
+	| { error: string }
+	| null
+> {
 	if (!process.env.ANTHROPIC_API_KEY) return null
 
 	const cacheKey = recipeContext
 		? `substitution:${normalizedName}:recipe:${recipeContext.title.toLowerCase().trim()}`
 		: `substitution:${normalizedName}`
 
-	const result = await cachified({
-		key: cacheKey,
-		cache,
-		ttl: THIRTY_DAYS_MS,
-		staleWhileRevalidate: THIRTY_DAYS_MS,
-		async getFreshValue() {
-			const llmResult = await getLLMSubstitutions(normalizedName, recipeContext)
-			// Cache empty array as negative result (prevents repeated failed calls)
-			return llmResult ?? EMPTY_SENTINEL
-		},
-	})
+	// Errors throw so cachified never stores them. If a stale cache value
+	// exists, staleWhileRevalidate serves it (better than "unavailable").
+	let substitutions: Substitution[]
+	try {
+		substitutions = await cachified({
+			key: cacheKey,
+			cache,
+			ttl: THIRTY_DAYS_MS,
+			staleWhileRevalidate: THIRTY_DAYS_MS,
+			async getFreshValue() {
+				const llmResult = await getLLMSubstitutions(
+					normalizedName,
+					recipeContext,
+				)
+				if (llmResult === null) return EMPTY_SENTINEL
+				if ('error' in llmResult) throw new Error(llmResult.error)
+				// Cache empty array as negative result (prevents repeated failed calls)
+				return llmResult.substitutions.length > 0
+					? llmResult.substitutions
+					: EMPTY_SENTINEL
+			},
+		})
+	} catch {
+		return { error: 'AI substitution lookup is temporarily unavailable.' }
+	}
 
 	// Distinguish fresh LLM call from cache hit by checking if cachified
 	// returned a previously-stored value (it sets metadata.createdTime).
@@ -110,10 +133,10 @@ async function getLLMSubstitutionsWithCache(
 	// used for usage tracking, not user-facing logic.
 	const isFresh = await isFreshResult(cacheKey)
 
-	if (result.length === 0) return null
+	if (substitutions.length === 0) return null
 
 	return {
-		substitutions: result,
+		substitutions,
 		source: isFresh ? 'llm' : 'cached',
 	}
 }

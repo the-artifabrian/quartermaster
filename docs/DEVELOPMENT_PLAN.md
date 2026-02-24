@@ -152,7 +152,7 @@ items graduate to the [Public Beta Action List](#public-beta-action-list).
 | Date       | Area       | Observation                                                                                                         | Status |
 | ---------- | ---------- | ------------------------------------------------------------------------------------------------------------------- | ------ |
 | 2026-02-19 | a11y       | Inventory "Location" label isn't properly associated with the select on `/inventory/new`                            | fixed  |
-| 2026-02-19 | AI         | LLM error messages are generic toasts — paid Pro features should say what happened, not just "Something went wrong" | open   |
+| 2026-02-19 | AI         | LLM error messages are generic toasts — paid Pro features should say what happened, not just "Something went wrong" | fixed  |
 | 2026-02-19 | auth       | Forgot password leaks user existence — returns "No user exists" instead of a generic success message                | watch  |
 | 2026-02-19 | cooking    | `UncookedMealReminder` loads once on mount — may miss newly-created uncooked entries later in-session               | fixed  |
 | 2026-02-19 | navigation | Pro lock icons have no tooltip or aria-label — free users see unexplained locks with no context                     | watch  |
@@ -205,12 +205,12 @@ warning, join page error sanitization). Detail in git history.
 - **`shopping.tsx` is 1,021 lines** — last remaining mega-file. Combines
   generation, CRUD, check-off, SSE, and inventory pipeline in one route. Extract
   sub-components following the recipe detail pattern (1,640 → 590 lines)
-- **Service worker caches stale URL** — `sw.js` line 113 caches
-  `/plan/shopping-list` (old URL), should cache `/shopping`
+- ~~**Service worker caches stale URL**~~ — fixed, `sw.js` correctly caches
+  `/shopping`
 - **Subscription state complexity** — `trialEndsAt` is active and intentional
-- **No E2E test for shopping → inventory pipeline** — this is the feature being
-  evaluated to determine inventory viability. If it breaks silently during daily
-  driving, the evaluation is invalid
+- ~~**No E2E test for shopping → inventory pipeline**~~ — added: generate from
+  plan, check off, review panel, add to inventory, verify in DB + UI. Also tests
+  merge-with-existing-inventory path
 
 ---
 

@@ -51,11 +51,13 @@ function SubstitutionPopover({
 	const fetcher = useFetcher<{
 		substitutions: EnrichedSubstitution[]
 		source: string
+		error: string | null
 	}>()
 
 	const isLoading = fetcher.state !== 'idle'
 	const substitutions = fetcher.data?.substitutions ?? []
 	const source = fetcher.data?.source
+	const aiError = fetcher.data?.error
 	const isAISuggestion = source === 'llm' || source === 'cached'
 	const displayName = stripDescriptors(ingredientName)
 
@@ -150,6 +152,10 @@ function SubstitutionPopover({
 									texture.
 								</p>
 							</>
+						) : aiError ? (
+							<p className="text-muted-foreground py-2 text-center text-xs">
+								AI substitution lookup unavailable. Try again later.
+							</p>
 						) : (
 							<p className="text-muted-foreground py-2 text-center text-xs">
 								No common substitutions found

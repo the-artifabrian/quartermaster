@@ -66,11 +66,11 @@ export async function enhanceRecipeMetadata(
 			)
 			if (response.status === 429) {
 				return {
-					error: 'Too many requests. Please wait a moment and try again.',
+					error: 'Recipe enhance hit a rate limit. Please wait a moment and try again.',
 				}
 			}
 			return {
-				error: 'The AI service returned an error. Please try again later.',
+				error: 'Recipe enhance failed — the AI service returned an error. Please try again later.',
 			}
 		}
 
@@ -81,14 +81,14 @@ export async function enhanceRecipeMetadata(
 		const text = data.content?.[0]?.text
 		if (!text) {
 			return {
-				error: 'Received an unexpected response. Please try again.',
+				error: 'Recipe enhance returned an empty response. Please try again.',
 			}
 		}
 
 		const result = parseEnhanceResponse(text)
 		if (!result) {
 			return {
-				error: 'Received an unexpected response. Please try again.',
+				error: 'Recipe enhance returned an unexpected response. Please try again.',
 			}
 		}
 
@@ -97,11 +97,11 @@ export async function enhanceRecipeMetadata(
 		console.error('Recipe enhance LLM error:', error)
 		if (error instanceof DOMException && error.name === 'TimeoutError') {
 			return {
-				error: 'The AI service took too long. Please try again.',
+				error: 'Recipe enhance timed out. Please try again.',
 			}
 		}
 		return {
-			error: 'The AI service returned an error. Please try again later.',
+			error: 'Recipe enhance failed — the AI service returned an error. Please try again later.',
 		}
 	}
 }

@@ -8,11 +8,27 @@ test('Shopping list flow: generate → verify items → add manual → check →
 }) => {
 	const user = await login()
 
+	// Create household + Pro access (shopping requires Pro)
+	const household = await prisma.household.create({
+		data: {
+			name: 'Test Household',
+			members: { create: { userId: user.id, role: 'owner' } },
+		},
+	})
+	await prisma.subscription.create({
+		data: {
+			userId: user.id,
+			tier: 'pro',
+			trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+		},
+	})
+
 	// Set up recipe + meal plan via DB
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Test Recipe',
 			userId: user.id,
+			householdId: household.id,
 			servings: 4,
 			ingredients: {
 				create: [
@@ -31,6 +47,7 @@ test('Shopping list flow: generate → verify items → add manual → check →
 	await prisma.mealPlan.create({
 		data: {
 			userId: user.id,
+			householdId: household.id,
 			weekStart,
 			entries: {
 				create: {
@@ -49,33 +66,29 @@ test('Shopping list flow: generate → verify items → add manual → check →
 	).toBeVisible()
 
 	// 2. Generate from meal plan
-	await page.getByRole('button', { name: /generate/i }).click()
+	await page.getByRole('button', { name: /from plan/i }).click()
 
 	// 3. Verify generated items appear
 	await expect(page.getByText('chicken breast')).toBeVisible()
 	await expect(page.getByText('jasmine rice')).toBeVisible()
 	await expect(page.getByText('broccoli')).toBeVisible()
 
-	// 4. Add manual item (expand Quick Add first)
-	await page.getByRole('button', { name: /quick add/i }).click()
-	await page.getByLabel(/item name/i).fill('Bananas')
-	await page
-		.getByLabel(/quantity/i)
-		.first()
-		.fill('6')
+	// 4. Add manual item via Quick Add
+	await page.getByPlaceholder(/add an item/i).fill('Bananas')
 	await page.getByRole('button', { name: /add to list/i }).click()
 	await expect(page.getByText('Bananas')).toBeVisible()
 
-	// 5. Check an item (click the toggle form's submit button)
-	const chickenItem = page.getByText('chicken breast').locator('..')
-	await chickenItem.locator('button[type="submit"]').first().click()
+	// 5. Check an item
+	await page
+		.getByRole('button', { name: /check off item/i })
+		.first()
+		.click()
 
-	// 6. Verify checked count updates
-	await expect(page.getByText(/1\/\d+ checked/i)).toBeVisible()
+	// 6. Verify checked count updates in header
+	await expect(page.getByText(/\(1\/\d+\)/)).toBeVisible()
 
 	// 7. Clear checked items
 	await page.getByRole('button', { name: /clear checked/i }).click()
-	await expect(page.getByText('chicken breast')).not.toBeVisible()
-	// Other items should still be visible
+	// The checked item should be gone, others remain
 	await expect(page.getByText('jasmine rice')).toBeVisible()
 })

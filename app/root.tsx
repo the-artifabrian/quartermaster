@@ -403,6 +403,7 @@ function App() {
 														name="lock-closed"
 														size="xs"
 														className="ml-1 inline opacity-40"
+														title="Pro feature"
 													/>
 												)}
 											</NavLink>
@@ -420,6 +421,7 @@ function App() {
 														name="lock-closed"
 														size="xs"
 														className="ml-1 inline opacity-40"
+														title="Pro feature"
 													/>
 												)}
 											</NavLink>

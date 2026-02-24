@@ -171,7 +171,8 @@ High-level feature reference (not exhaustive). For the roadmap, see
 - "Getting Started" checklist on `/recipes`: tracks 3 steps (add recipe, stock
   inventory, plan a meal) with progress bar. Free users see recipe + inventory
   steps. Dismissible, auto-hides on completion
-- Pantry staples onboarding on empty inventory
+- Pantry staples onboarding on empty inventory with post-add success CTA
+  (browse recipes or view inventory)
 
 - Free: unlimited recipes, up to 50 inventory items, smart matching, household
   days Pro, grants 2 starter codes) coexist with Stripe and trial
@@ -205,7 +206,7 @@ High-level feature reference (not exhaustive). For the roadmap, see
   validation, Zod on all bulk ops, SSRF protection (including post-redirect
   validation), input length limits, production sourcemaps disabled by default
   (only generated when Sentry is configured), error message sanitization on
-  public-facing pages
+  public-facing pages, user enumeration prevention on forgot-password
 - Usage analytics via `UsageEvent` model (pairing selections, recipe actions,
   event counts). Stats page at Settings > Data (cooking activity, meal planning,
   event log)

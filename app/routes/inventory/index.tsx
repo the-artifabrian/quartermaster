@@ -2,7 +2,7 @@ import { type InventoryItem } from '@prisma/client'
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useFetcher } from 'react-router'
 import { z } from 'zod'
 import { InventoryItemCard } from '#app/components/inventory-item-card.tsx'
@@ -474,10 +474,24 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		if (dismissed.size > 0) setDismissedIds(dismissed)
 	}, [urgentExpiringItems])
 
-	if (totalItemCount === 0) {
+	const [showStaplesSuccess, setShowStaplesSuccess] = useState(false)
+	const handleStaplesSuccess = useCallback(
+		() => setShowStaplesSuccess(true),
+		[],
+	)
+	const handleStaplesDismiss = useCallback(
+		() => setShowStaplesSuccess(false),
+		[],
+	)
+
+	if (totalItemCount === 0 || showStaplesSuccess) {
 		return (
 			<div className="container-content py-6 pb-20 md:pb-6">
-				<PantryStaplesOnboarding maxItems={inventoryUsage.limit ?? undefined} />
+				<PantryStaplesOnboarding
+					maxItems={inventoryUsage.limit ?? undefined}
+					onSuccess={handleStaplesSuccess}
+					onDismiss={handleStaplesDismiss}
+				/>
 			</div>
 		)
 	}

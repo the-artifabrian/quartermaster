@@ -154,12 +154,12 @@ items graduate to the [Public Beta Action List](#public-beta-action-list).
 | ---------- | ---------- | ------------------------------------------------------------------------------------------------------------------- | ------ |
 | 2026-02-19 | a11y       | Inventory "Location" label isn't properly associated with the select on `/inventory/new`                            | fixed  |
 | 2026-02-19 | AI         | LLM error messages are generic toasts — paid Pro features should say what happened, not just "Something went wrong" | fixed  |
-| 2026-02-19 | auth       | Forgot password leaks user existence — returns "No user exists" instead of a generic success message                | watch  |
+| 2026-02-19 | auth       | Forgot password leaks user existence — returns "No user exists" instead of a generic success message                | fixed  |
 | 2026-02-19 | cooking    | `UncookedMealReminder` loads once on mount — may miss newly-created uncooked entries later in-session               | fixed  |
-| 2026-02-19 | navigation | Pro lock icons have no tooltip or aria-label — free users see unexplained locks with no context                     | watch  |
+| 2026-02-19 | navigation | Pro lock icons have no tooltip or aria-label — free users see unexplained locks with no context                     | fixed  |
 | 2026-02-19 | shopping   | Quick Add form is keyed by total items and can remount on count changes, dropping in-progress input                 | fixed  |
-| 2026-02-19 | shopping   | "Clear checked items" has no confirmation — plain form POST, no double-check, no undo                               | watch  |
-| 2026-02-19 | onboarding | Pantry staples onboarding has no "next step" CTA — user stays on `/inventory` with no guidance forward              | watch  |
+| 2026-02-19 | shopping   | "Clear checked items" has no confirmation — plain form POST, no double-check, no undo                               | fixed  |
+| 2026-02-19 | onboarding | Pantry staples onboarding has no "next step" CTA — user stays on `/inventory` with no guidance forward              | fixed  |
 | 2026-02-19 | onboarding | Getting Started dismissal uses one localStorage key shared across users on same device                              | fixed  |
 
 > 14 items fixed Feb 18-19 (shopping UX, live-refresh, inline editing,

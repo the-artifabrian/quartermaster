@@ -75,6 +75,11 @@ export function BottomNav() {
 						<NavLink
 							key={item.to}
 							to={item.to}
+							aria-label={
+								isLocked
+									? `${item.label} (Pro feature)`
+									: undefined
+							}
 							className={cn(
 								'relative flex flex-col items-center justify-center gap-1 py-2 transition-colors duration-200',
 								isActive
@@ -82,7 +87,11 @@ export function BottomNav() {
 									: 'text-muted-foreground hover:text-foreground',
 							)}
 						>
-							<Icon name={iconName} size="lg" />
+							<Icon
+								name={iconName}
+								size="lg"
+								title={isLocked ? 'Pro feature' : undefined}
+							/>
 							<span
 								className={cn('text-xs leading-4', isActive && 'font-medium')}
 							>

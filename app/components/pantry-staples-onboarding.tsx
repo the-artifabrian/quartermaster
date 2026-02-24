@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useFetcher } from 'react-router'
+import { useEffect, useState } from 'react'
+import { Link, useFetcher } from 'react-router'
 import { RECOMMENDED_STAPLES } from '#app/utils/pantry-staples.ts'
 import { Button } from './ui/button.tsx'
 import { Checkbox } from './ui/checkbox.tsx'
@@ -24,10 +24,26 @@ function getInitialState(): CheckedState {
 	return state
 }
 
-export function PantryStaplesOnboarding({ maxItems }: { maxItems?: number }) {
+export function PantryStaplesOnboarding({
+	maxItems,
+	onSuccess,
+	onDismiss,
+}: {
+	maxItems?: number
+	onSuccess?: () => void
+	onDismiss?: () => void
+}) {
 	const [checked, setChecked] = useState<CheckedState>(getInitialState)
-	const fetcher = useFetcher()
+	const [done, setDone] = useState(false)
+	const fetcher = useFetcher<{ status: string; createdCount?: number }>()
 	const isSubmitting = fetcher.state !== 'idle'
+
+	useEffect(() => {
+		if (fetcher.data?.status === 'success') {
+			setDone(true)
+			onSuccess?.()
+		}
+	}, [fetcher.data, onSuccess])
 
 	function handleToggle(location: string, name: string) {
 		setChecked((prev) => ({
@@ -85,6 +101,39 @@ export function PantryStaplesOnboarding({ maxItems }: { maxItems?: number }) {
 		formData.set('intent', 'bulk-create')
 		formData.set('items', JSON.stringify(itemsToSubmit))
 		void fetcher.submit(formData, { method: 'POST' })
+	}
+
+	if (done) {
+		const count = fetcher.data?.createdCount ?? totalSelected
+		return (
+			<div className="bg-card shadow-warm mx-auto max-w-2xl rounded-2xl border px-6 py-8">
+				<div className="text-center">
+					<Icon
+						name="check"
+						className="text-primary mx-auto size-12"
+					/>
+					<h2 className="mt-4 font-serif text-2xl font-normal">
+						Kitchen Stocked
+					</h2>
+					<p className="text-muted-foreground mt-2">
+						{count} item{count !== 1 ? 's' : ''} added to your
+						inventory. Now see what you can make.
+					</p>
+					<div className="mt-6 flex flex-col items-center gap-3">
+						<Button asChild>
+							<Link to="/recipes">Browse Recipes</Link>
+						</Button>
+						<button
+							type="button"
+							onClick={onDismiss}
+							className="text-muted-foreground hover:text-foreground text-sm underline underline-offset-2"
+						>
+							View inventory
+						</button>
+					</div>
+				</div>
+			</div>
+		)
 	}
 
 	return (

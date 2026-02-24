@@ -2,7 +2,7 @@ import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import * as E from '@react-email/components'
-import { data, redirect, Link, useFetcher } from 'react-router'
+import { data, Link, useFetcher } from 'react-router'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { ErrorList, Field } from '#app/components/forms.tsx'
@@ -23,64 +23,51 @@ const ForgotPasswordSchema = z.object({
 
 export async function action({ request }: Route.ActionArgs) {
 	const formData = await request.formData()
-	const submission = await parseWithZod(formData, {
-		schema: ForgotPasswordSchema.superRefine(async (data, ctx) => {
-			const user = await prisma.user.findFirst({
-				where: {
-					OR: [
-						{ email: data.usernameOrEmail },
-						{ username: data.usernameOrEmail },
-					],
-				},
-				select: { id: true },
-			})
-			if (!user) {
-				ctx.addIssue({
-					path: ['usernameOrEmail'],
-					code: z.ZodIssueCode.custom,
-					message: 'No user exists with this username or email',
-				})
-				return
-			}
-		}),
-		async: true,
-	})
+	const submission = parseWithZod(formData, { schema: ForgotPasswordSchema })
 	if (submission.status !== 'success') {
 		return data(
-			{ result: submission.reply() },
-			{ status: submission.status === 'error' ? 400 : 200 },
+			{ result: submission.reply(), status: 'error' as const },
+			{ status: 400 },
 		)
 	}
 	const { usernameOrEmail } = submission.value
 
-	const user = await prisma.user.findFirstOrThrow({
-		where: { OR: [{ email: usernameOrEmail }, { username: usernameOrEmail }] },
+	// Always return the same response to prevent user enumeration
+	const user = await prisma.user.findFirst({
+		where: {
+			OR: [
+				{ email: usernameOrEmail },
+				{ username: usernameOrEmail },
+			],
+		},
 		select: { email: true, username: true },
 	})
 
-	const { verifyUrl, redirectTo, otp } = await prepareVerification({
-		period: 10 * 60,
-		request,
-		type: 'reset-password',
-		target: usernameOrEmail,
-	})
+	if (user) {
+		try {
+			const { verifyUrl, otp } = await prepareVerification({
+				period: 10 * 60,
+				request,
+				type: 'reset-password',
+				target: usernameOrEmail,
+			})
 
-	const response = await sendEmail({
-		to: user.email,
-		subject: `Quartermaster Password Reset`,
-		react: (
-			<ForgotPasswordEmail onboardingUrl={verifyUrl.toString()} otp={otp} />
-		),
-	})
-
-	if (response.status === 'success') {
-		return redirect(redirectTo.toString())
-	} else {
-		return data(
-			{ result: submission.reply({ formErrors: [response.error.message] }) },
-			{ status: 500 },
-		)
+			await sendEmail({
+				to: user.email,
+				subject: `Quartermaster Password Reset`,
+				react: (
+					<ForgotPasswordEmail
+						onboardingUrl={verifyUrl.toString()}
+						otp={otp}
+					/>
+				),
+			})
+		} catch {
+			// Swallow errors to prevent user enumeration via error responses
+		}
 	}
+
+	return data({ result: submission.reply(), status: 'sent' as const })
 }
 
 function ForgotPasswordEmail({
@@ -127,53 +114,76 @@ export default function ForgotPasswordRoute() {
 		shouldRevalidate: 'onBlur',
 	})
 
+	const isSent = forgotPassword.data?.status === 'sent'
+
 	return (
 		<div className="container pt-20 pb-32">
 			<div className="flex flex-col justify-center">
 				<div className="text-center">
 					<h1 className="font-serif text-2xl">Forgot Password</h1>
 					<p className="text-lg text-muted-foreground mt-3">
-						No worries, we'll send you reset instructions.
+						{isSent
+							? 'Check your email for reset instructions.'
+							: "No worries, we'll send you reset instructions."}
 					</p>
 				</div>
 				<div className="mx-auto mt-16 max-w-sm min-w-full sm:min-w-[368px]">
-					<forgotPassword.Form method="POST" {...getFormProps(form)}>
-						<div>
-							<Field
-								labelProps={{
-									htmlFor: fields.usernameOrEmail.id,
-									children: 'Username or Email',
-								}}
-								inputProps={{
-									autoFocus: true,
-									...getInputProps(fields.usernameOrEmail, { type: 'text' }),
-								}}
-								errors={fields.usernameOrEmail.errors}
-							/>
-						</div>
-						<ErrorList errors={form.errors} id={form.errorId} />
-
-						<div className="mt-6">
-							<StatusButton
-								className="w-full"
-								status={
-									forgotPassword.state === 'submitting'
-										? 'pending'
-										: (form.status ?? 'idle')
-								}
-								type="submit"
-								disabled={forgotPassword.state !== 'idle'}
+					{isSent ? (
+						<div className="text-center">
+							<p className="text-muted-foreground">
+								If an account exists with that username or email,
+								you'll receive a password reset link shortly.
+							</p>
+							<Link
+								to="/login"
+								className="mt-8 inline-block text-base font-bold"
 							>
-								Recover password
-							</StatusButton>
+								Back to Login
+							</Link>
 						</div>
-					</forgotPassword.Form>
-					<Link
-						to="/login"
-						className="text-base mt-11 text-center font-bold"
-					>
-						Back to Login
-					</Link>
+					) : (
+						<>
+							<forgotPassword.Form method="POST" {...getFormProps(form)}>
+								<div>
+									<Field
+										labelProps={{
+											htmlFor: fields.usernameOrEmail.id,
+											children: 'Username or Email',
+										}}
+										inputProps={{
+											autoFocus: true,
+											...getInputProps(fields.usernameOrEmail, {
+												type: 'text',
+											}),
+										}}
+										errors={fields.usernameOrEmail.errors}
+									/>
+								</div>
+								<ErrorList errors={form.errors} id={form.errorId} />
+
+								<div className="mt-6">
+									<StatusButton
+										className="w-full"
+										status={
+											forgotPassword.state === 'submitting'
+												? 'pending'
+												: (form.status ?? 'idle')
+										}
+										type="submit"
+										disabled={forgotPassword.state !== 'idle'}
+									>
+										Recover password
+									</StatusButton>
+								</div>
+							</forgotPassword.Form>
+							<Link
+								to="/login"
+								className="text-base mt-11 text-center font-bold"
+							>
+								Back to Login
+							</Link>
+						</>
+					)}
 				</div>
 			</div>
 		</div>

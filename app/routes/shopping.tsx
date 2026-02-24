@@ -766,7 +766,19 @@ export default function ShoppingListRoute({
 									Add to inventory ({checkedItems})
 								</button>
 								<span className="text-border">·</span>
-								<Form method="POST" className="inline">
+								<Form
+									method="POST"
+									className="inline"
+									onSubmit={(e) => {
+										if (
+											!confirm(
+												`Clear ${checkedItems} checked item${checkedItems !== 1 ? 's' : ''}?`,
+											)
+										) {
+											e.preventDefault()
+										}
+									}}
+								>
 									<input
 										type="hidden"
 										name="intent"

@@ -283,7 +283,7 @@ export default function BulkImport() {
 			</p>
 
 			{sessionCount > 0 && (
-				<div className="bg-accent/10 text-accent-foreground mb-4 rounded-lg px-4 py-2 text-sm">
+				<div className="bg-accent/20 text-foreground mb-4 rounded-lg px-4 py-2 text-sm">
 					{sessionCount} recipe{sessionCount === 1 ? '' : 's'} imported this
 					session
 				</div>

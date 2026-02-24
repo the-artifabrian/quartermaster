@@ -218,9 +218,10 @@ justify building. Larger-scope items (nutrition APIs, email digests, dashboards)
       recipes by expiring inventory matches, favorites, and inventory match %.
       Review modal with reason badges, inline picker, confirm → toast with
       shopping list link
-- [ ] **Value recap panel** — lightweight summary of user benefit (items used
-      before expiry, planned meals cooked, checked shopping items). Makes the
-      app's value visible rather than invisible
+- [ ] **Value recap panel** — lightweight summary of user benefit (meals cooked,
+      plan completion, recipes added this week). Makes the app's value visible
+      rather than invisible. Lives on a future dashboard/homepage — too much
+      vertical space on the recipes page where recipe cards should dominate
 - [ ] **Defrost & prep-ahead reminders** — "You're cooking Chicken Tikka
       tomorrow — the chicken is in your freezer." Connects meal plan entries +
       recipe ingredients + inventory locations. Also supports user-editable

@@ -61,9 +61,15 @@ value are the open questions — see
    be more passive (auto-populate from shopping list check-offs only). Track
    weekly: how many manual inventory updates? What percentage of items are
    accurate? Does it feel like homework?
-3. ~~**Ship Google OAuth**~~ — Done. Replaced GitHub with Google OAuth using
-   `remix-auth-oauth2`. Provider-agnostic routes unchanged; only the provider
-   config, registry, mock handlers, and UI references were swapped
+3. ~~**Ship Google OAuth**~~ — Code done. Replaced GitHub with Google OAuth
+   using `remix-auth-oauth2`. Provider-agnostic routes unchanged; only the
+   provider config, registry, mock handlers, and UI references were swapped.
+   **Still needs production setup before deploy:**
+   - Create Google Cloud Console OAuth 2.0 Client ID (Web application)
+   - Add authorized redirect URI: `https://<prod-domain>/auth/google/callback`
+   - Configure OAuth consent screen (External, unverified fine under 100 users)
+   - Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` in
+     production env
 4. **Ship 14-day trial** — Every new signup gets full Pro access for 14 days,
    without needing a code. Ship before inviting non-friend testers
 5. **Find 2-3 non-friend testers** — Friendly users won't surface what's

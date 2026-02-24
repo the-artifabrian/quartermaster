@@ -201,9 +201,10 @@ Items tied to the cooking loop and app experience. Daily use and judgment both
 inform what to pick up next — not everything needs a friction log entry to
 justify building. Larger-scope items (nutrition APIs, email digests, dashboards)
 
-- [ ] **Weekly reset flow** — one-tap prefill next week from favorites +
-      low-stock + expiring items, then generate shopping draft. Targets the
-      "what should I cook this week?" moment
+- [x] **Weekly reset flow** — "Suggest Meals" button on plan page. Ranks
+      recipes by expiring inventory matches, favorites, and inventory match %.
+      Review modal with reason badges, inline picker, confirm → toast with
+      shopping list link
 - [ ] **Value recap panel** — lightweight summary of user benefit (items used
       before expiry, planned meals cooked, checked shopping items). Makes the
       app's value visible rather than invisible

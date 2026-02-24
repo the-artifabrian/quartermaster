@@ -4,6 +4,7 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useState } from 'react'
 import { Form, Link } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
+import { SuggestMealsModal } from '#app/components/suggest-meals-modal.tsx'
 import {
 	ApplyTemplateModal,
 	SaveTemplateModal,
@@ -432,6 +433,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
 	const nextWeek = serializeDate(getNextWeek(parseDate(weekStart)))
 	const currentWeek = serializeDate(getCurrentWeekStart())
+	const [showSuggest, setShowSuggest] = useState(false)
 	const [showSaveTemplate, setShowSaveTemplate] = useState(false)
 	const [showApplyTemplate, setShowApplyTemplate] = useState(false)
 	const [bannerDismissed, setBannerDismissed] = useState(false)
@@ -443,6 +445,14 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 					<h1 className="font-serif text-2xl">Meal Plan</h1>
 					<div className="flex flex-wrap gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => setShowSuggest(true)}
+						>
+							<Icon name="sparkles" size="sm" />
+							Suggest Meals
+						</Button>
 						{entries.length > 0 && (
 							<Button
 								variant="outline"
@@ -547,6 +557,15 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					weekStart={weekStart}
 				/>
 			</div>
+
+			{showSuggest && (
+				<SuggestMealsModal
+					weekStart={weekStart}
+					recipes={recipes}
+					existingEntries={entries}
+					onClose={() => setShowSuggest(false)}
+				/>
+			)}
 
 			{showSaveTemplate && (
 				<SaveTemplateModal

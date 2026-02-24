@@ -13,6 +13,7 @@ describe('getEventPriority', () => {
 		'meal_plan_assigned',
 		'meal_plan_template_applied',
 		'meal_plan_week_copied',
+		'meal_plan_weekly_reset',
 		'household_member_joined',
 		'household_member_left',
 		'recipe_created',
@@ -298,6 +299,16 @@ describe('formatEventMessage', () => {
 			'Sam',
 		)
 		expect(result.message).toBe('Sam applied template "Entertaining Week"')
+		expect(result.url).toBe('/plan')
+	})
+
+	test('meal_plan_weekly_reset', () => {
+		const result = formatEventMessage(
+			'meal_plan_weekly_reset',
+			{ count: 5 },
+			'Alex',
+		)
+		expect(result.message).toBe('Alex planned 5 meals for the week')
 		expect(result.url).toBe('/plan')
 	})
 

@@ -8,6 +8,7 @@ const NOTIFY_EVENT_TYPES = new Set([
 	'meal_plan_assigned',
 	'meal_plan_template_applied',
 	'meal_plan_week_copied',
+	'meal_plan_weekly_reset',
 	'household_member_joined',
 	'household_member_left',
 	'recipe_created',
@@ -170,6 +171,11 @@ export function formatEventMessage(
 			return {
 				message: `${username} removed ${payload.name} from the shopping list`,
 				url: '/shopping',
+			}
+		case 'meal_plan_weekly_reset':
+			return {
+				message: `${username} planned ${payload.count} meals for the week`,
+				url: '/plan',
 			}
 		case 'inventory_item_low_stock_toggled':
 			return {

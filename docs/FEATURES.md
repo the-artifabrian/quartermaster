@@ -110,6 +110,12 @@ High-level feature reference (not exhaustive). For the roadmap, see
   time-of-day awareness. Empty state suggests a favorite with one-tap add
 - Copy week to next week (preserves servings, skips duplicates)
 - Meal plan templates: save/apply/delete named templates, household-scoped
+- Suggest Meals: one-tap "Suggest Meals" button fills the week with dinner
+  suggestions ranked by priority — recipes using expiring inventory (2+ matches),
+  favorites not recently cooked, then highest inventory match %. Review modal
+  shows 7 day rows with reason badges (Expiring/Favorite/Good match), inline
+  recipe picker for empty or swapped days, and "Fill Plan" confirm. Post-confirm
+  toast links to shopping list generation
 - Pairing suggestions when adding recipes: ranked by ingredient overlap with
   planned recipes, weeknight-aware sorting (Mon-Thu quick-cook recipes first),
   inventory match indicators (X/Y ingredients in stock, green at 100%)
@@ -205,4 +211,4 @@ High-level feature reference (not exhaustive). For the roadmap, see
 
 ---
 
-_Last updated: February 22, 2026._
+_Last updated: February 24, 2026._

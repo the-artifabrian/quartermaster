@@ -81,7 +81,7 @@ export function SuggestMealsModal({
 
 	// Load suggestions on mount
 	useEffect(() => {
-		suggestFetcher.load(
+		void suggestFetcher.load(
 			`/resources/meal-plan-suggest?weekStart=${weekStart}`,
 		)
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -157,7 +157,7 @@ export function SuggestMealsModal({
 		const formData = new FormData()
 		formData.set('weekStart', weekStart)
 		formData.set('recipeIds', JSON.stringify(recipeIds))
-		confirmFetcher.submit(formData, {
+		void confirmFetcher.submit(formData, {
 			method: 'POST',
 			action: '/resources/meal-plan-suggest',
 		})

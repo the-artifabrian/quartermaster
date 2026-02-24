@@ -1,7 +1,7 @@
 import { prisma } from '#app/utils/db.server.ts'
-import { MOCK_CODE_GITHUB } from '#app/utils/providers/constants.ts'
+import { MOCK_CODE_GOOGLE } from '#app/utils/providers/constants.ts'
 import { createPassword, getUserImages } from '#tests/db-utils.ts'
-import { insertGitHubUser } from '#tests/mocks/github.ts'
+import { insertGoogleUser } from '#tests/mocks/google.ts'
 import { seedInfrastructure } from './seed-infrastructure.ts'
 
 async function seed() {
@@ -24,7 +24,7 @@ async function seed() {
 	})
 
 	if (!kody) {
-		const githubUser = await insertGitHubUser(MOCK_CODE_GITHUB)
+		const googleUser = await insertGoogleUser(MOCK_CODE_GOOGLE)
 
 		kody = await prisma.user.create({
 			select: { id: true },
@@ -35,8 +35,8 @@ async function seed() {
 				password: { create: createPassword('kodylovesyou') },
 				connections: {
 					create: {
-						providerName: 'github',
-						providerId: String(githubUser.profile.id),
+						providerName: 'google',
+						providerId: googleUser.profile.id,
 					},
 				},
 				roles: { connect: [{ name: 'admin' }, { name: 'user' }] },

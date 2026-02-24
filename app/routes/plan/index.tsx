@@ -495,7 +495,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 		resetSweepSkipCount()
 		setSweepDismissed(true)
 		setShowSweep(false)
-		revalidator.revalidate()
+		void revalidator.revalidate()
 	}
 
 	const showSweepBanner =

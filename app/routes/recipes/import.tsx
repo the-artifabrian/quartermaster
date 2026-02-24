@@ -124,11 +124,40 @@ function parseServings(value: unknown): number {
 	return match ? parseInt(match[0], 10) : 4
 }
 
+/** Decode HTML entities and strip tags from JSON-LD text values */
+function cleanJsonLdText(text: string): string {
+	return (
+		text
+			// Replace <br> variants with spaces
+			.replace(/<br\s*\/?>/gi, ' ')
+			// Strip remaining HTML tags
+			.replace(/<[^>]+>/g, '')
+			// Decode common HTML entities
+			.replace(/&nbsp;/gi, ' ')
+			.replace(/&amp;/gi, '&')
+			.replace(/&lt;/gi, '<')
+			.replace(/&gt;/gi, '>')
+			.replace(/&quot;/gi, '"')
+			.replace(/&#39;/gi, "'")
+			.replace(/&#x27;/gi, "'")
+			// Decode numeric HTML entities: &#40; → ( , &#x28; → (
+			.replace(/&#(\d+);/g, (_, code) =>
+				String.fromCharCode(parseInt(code, 10)),
+			)
+			.replace(/&#x([0-9a-fA-F]+);/g, (_, code) =>
+				String.fromCharCode(parseInt(code, 16)),
+			)
+			// Collapse multiple spaces into one
+			.replace(/\s{2,}/g, ' ')
+			.trim()
+	)
+}
+
 function parseInstructions(value: unknown): Array<{ content: string }> {
 	if (!value) return []
 
 	if (typeof value === 'string') {
-		return value
+		return cleanJsonLdText(value)
 			.split(/\n+/)
 			.map((s) => s.trim())
 			.filter(Boolean)
@@ -139,13 +168,13 @@ function parseInstructions(value: unknown): Array<{ content: string }> {
 		const result: Array<{ content: string }> = []
 		for (const item of value) {
 			if (typeof item === 'string') {
-				const cleaned = item.trim()
+				const cleaned = cleanJsonLdText(item)
 				if (cleaned) result.push({ content: cleaned })
 			} else if (item && typeof item === 'object') {
 				const obj = item as Record<string, unknown>
 				// HowToStep
 				if (obj.text) {
-					const text = String(obj.text).trim()
+					const text = cleanJsonLdText(String(obj.text))
 					if (text) result.push({ content: text })
 				}
 				// HowToSection
@@ -167,14 +196,16 @@ function extractRecipe(
 ): ExtractedRecipe {
 	const rawIngredients = (jsonLd.recipeIngredient as string[]) || []
 	const ingredients = rawIngredients
-		.map((line) => parseIngredient(line))
+		.map((line) => parseIngredient(cleanJsonLdText(line)))
 		.filter((ing): ing is NonNullable<typeof ing> => ing !== null)
 
 	const instructions = parseInstructions(jsonLd.recipeInstructions)
 
 	return {
-		title: String(jsonLd.name || 'Untitled Recipe'),
-		description: jsonLd.description ? String(jsonLd.description) : null,
+		title: cleanJsonLdText(String(jsonLd.name || 'Untitled Recipe')),
+		description: jsonLd.description
+			? cleanJsonLdText(String(jsonLd.description))
+			: null,
 		servings: parseServings(jsonLd.recipeYield),
 		prepTime: jsonLd.prepTime
 			? (parseISODuration(String(jsonLd.prepTime)) ?? null)

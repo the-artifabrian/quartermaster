@@ -106,7 +106,7 @@ export function PantryStaplesOnboarding({
 	if (done) {
 		const count = fetcher.data?.createdCount ?? totalSelected
 		return (
-			<div className="bg-card shadow-warm mx-auto max-w-2xl rounded-2xl border px-6 py-8">
+			<div className="bg-card shadow-warm mx-auto max-w-2xl rounded-2xl border px-4 py-6 sm:px-6 sm:py-8">
 				<div className="text-center">
 					<Icon
 						name="check"
@@ -137,8 +137,8 @@ export function PantryStaplesOnboarding({
 	}
 
 	return (
-		<div className="bg-card shadow-warm mx-auto max-w-2xl rounded-2xl border px-6 py-8">
-			<div className="mb-8 text-center">
+		<div className="bg-card shadow-warm mx-auto max-w-2xl rounded-2xl border px-4 py-6 sm:px-6 sm:py-8">
+			<div className="mb-6 text-center sm:mb-8">
 				<Icon name="home" className="text-muted-foreground mx-auto size-12" />
 				<h2 className="mt-4 font-serif text-2xl font-normal">Stock Your Kitchen</h2>
 				<p className="text-muted-foreground mt-2">
@@ -147,7 +147,7 @@ export function PantryStaplesOnboarding({
 				</p>
 			</div>
 
-			<div className="space-y-6">
+			<div className="space-y-4 sm:space-y-6">
 				{(
 					Object.entries(RECOMMENDED_STAPLES) as Array<
 						[
@@ -162,7 +162,7 @@ export function PantryStaplesOnboarding({
 						Object.values(locationChecked).filter(Boolean).length
 					const allSelected = checkedCount === items.length
 					return (
-						<div key={location} className="bg-secondary/30 rounded-xl border p-5">
+						<div key={location} className="bg-secondary/30 rounded-xl border p-3 sm:p-5">
 							<div className="mb-3 flex items-center justify-between">
 								<h3 className="flex items-center gap-2 text-lg font-semibold">
 									<Icon name={config.icon} className="size-5" />
@@ -180,17 +180,18 @@ export function PantryStaplesOnboarding({
 									{allSelected ? 'Deselect all' : 'Select all'}
 								</button>
 							</div>
-							<div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+							<div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2">
 								{items.map((item) => (
 									<label
 										key={item.name}
-										className="bg-background flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 select-none"
+										className="bg-background flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 select-none sm:gap-2.5 sm:px-3 sm:py-2.5"
 									>
 										<Checkbox
 											checked={locationChecked[item.name] ?? false}
 											onCheckedChange={() => handleToggle(location, item.name)}
+											className="shrink-0"
 										/>
-										<span className="text-sm capitalize">{item.name}</span>
+										<span className="text-xs leading-tight capitalize sm:text-sm">{item.name}</span>
 									</label>
 								))}
 							</div>
@@ -199,7 +200,7 @@ export function PantryStaplesOnboarding({
 				})}
 			</div>
 
-			<div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+			<div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
 				<div>
 					<p className="text-muted-foreground text-sm">
 						{totalSelected} item{totalSelected !== 1 ? 's' : ''} selected

@@ -571,7 +571,7 @@ export default function ShoppingListRoute({
 								</span>
 							)}
 						</h1>
-						<div className="ml-auto flex items-center gap-2 print:hidden">
+						<div className="flex items-center gap-2 sm:ml-auto print:hidden">
 							{hasMealPlan && (
 								<Form method="POST" className="flex items-center gap-2">
 									<input type="hidden" name="intent" value="generate" />

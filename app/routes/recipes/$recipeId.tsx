@@ -3,11 +3,7 @@ import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Img } from 'openimg/react'
 import { useState, useEffect, useRef } from 'react'
-import {
-	useFetcher,
-	useRouteLoaderData,
-	useSearchParams,
-} from 'react-router'
+import { useFetcher, useRouteLoaderData, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Divider } from '#app/components/divider.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
@@ -491,8 +487,13 @@ function buildInventoryToast(summary: SubtractionSummary) {
 }
 
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
-	const { recipe, cookingLogs, isProActive, missingIngredientIds, hasInventory } =
-		loaderData
+	const {
+		recipe,
+		cookingLogs,
+		isProActive,
+		missingIngredientIds,
+		hasInventory,
+	} = loaderData
 	const rootData = useRouteLoaderData('root') as
 		| { requestInfo?: { origin?: string } }
 		| undefined
@@ -682,7 +683,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				}}
 			/>
 
-			<div className="container-content pt-4 md:border-l-[3px] md:border-l-accent md:pt-6 print:border-l-0 print:pt-0">
+			<div className="container-content pt-4 md:pt-6 print:border-l-0 print:pt-0">
 				{/* Hero: Title + Image */}
 				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
 					<div className="min-w-0 flex-1">
@@ -690,12 +691,15 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							{recipe.title}
 						</h1>
 						{recipe.isAiGenerated && (
-							<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary print:hidden">
+							<span className="border-primary/30 bg-primary/10 text-primary mt-2 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium print:hidden">
 								<Icon name="sparkles" className="size-3" />
 								AI Generated
 							</span>
 						)}
-						<Divider variant="accent" className="mt-3 mb-2 max-w-xs print:hidden" />
+						<Divider
+							variant="accent"
+							className="mt-3 mb-2 max-w-xs print:hidden"
+						/>
 						<RecipeMetadataCard
 							prepTime={recipe.prepTime}
 							cookTime={recipe.cookTime}
@@ -705,11 +709,11 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 					{/* Image beside title on desktop, below on mobile */}
 					{recipe.image && (
-						<div className="mt-4 shrink-0 md:mt-0 md:w-[400px] print:hidden">
+						<div className="mt-4 shrink-0 md:mt-0 md:w-100 print:hidden">
 							<Img
 								src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
 								alt={recipe.image.altText ?? recipe.title}
-								className="border-border w-full rounded-md border object-cover md:aspect-[4/3]"
+								className="border-border w-full rounded-md border object-cover md:aspect-4/3"
 								width={800}
 								height={600}
 							/>
@@ -796,7 +800,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 											!ingredientsExpanded && '-rotate-90',
 										)}
 									/>
-									<h2 className="font-serif text-lg font-normal">Ingredients</h2>
+									<h2 className="font-serif text-lg font-normal">
+										Ingredients
+									</h2>
 								</button>
 								<span className="ml-auto flex items-center gap-1 print:hidden">
 									<Button
@@ -835,25 +841,23 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							</div>
 							<div
 								id="ingredients-list"
-								className={cn(
-									!ingredientsExpanded && 'hidden md:block',
-								)}
+								className={cn(!ingredientsExpanded && 'hidden md:block')}
 							>
-							<IngredientList
-								ingredients={recipe.ingredients}
-								checkedIngredients={checkedIngredients}
-								onToggle={toggleIngredient}
-								ratio={ratio}
-								missingIngredientIds={missingIngredientIds}
-								isProActive={isProActive}
-								recipeId={recipe.id}
-								substitutions={substitutions}
-								onApplySubstitution={applySubstitution}
-								onRevertSubstitution={revertSubstitution}
-								shoppingFetcher={shoppingFetcher}
-								useMetric={useMetric}
-								onToggleMetric={toggleMetric}
-							/>
+								<IngredientList
+									ingredients={recipe.ingredients}
+									checkedIngredients={checkedIngredients}
+									onToggle={toggleIngredient}
+									ratio={ratio}
+									missingIngredientIds={missingIngredientIds}
+									isProActive={isProActive}
+									recipeId={recipe.id}
+									substitutions={substitutions}
+									onApplySubstitution={applySubstitution}
+									onRevertSubstitution={revertSubstitution}
+									shoppingFetcher={shoppingFetcher}
+									useMetric={useMetric}
+									onToggleMetric={toggleMetric}
+								/>
 							</div>
 						</div>
 					</div>

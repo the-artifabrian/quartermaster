@@ -132,7 +132,7 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 	}
 
 	return (
-		<div className="group flex items-center gap-3 py-4 print:py-1">
+		<div className="group flex items-center gap-3 py-2.5 sm:py-4 print:py-1">
 			{/* Whole row toggles checkbox */}
 			<toggleFetcher.Form method="POST" className="flex min-w-0 flex-1 items-center gap-3 print:contents">
 				<input type="hidden" name="intent" value="toggle" />

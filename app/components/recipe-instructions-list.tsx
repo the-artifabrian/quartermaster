@@ -25,7 +25,7 @@ export function RecipeInstructionsList({
 	return (
 		<div>
 			<h2 className="mb-4 font-serif text-lg font-normal">Instructions</h2>
-			<ol className="space-y-6 print:space-y-2">
+			<ol className="space-y-2">
 				{instructions.map((instruction, index) => {
 					const isChecked = checkedSteps.has(instruction.id)
 					return (
@@ -48,15 +48,16 @@ export function RecipeInstructionsList({
 						>
 							<span
 								className={cn(
-									'font-serif flex size-8 shrink-0 items-center justify-center text-xl leading-none font-normal transition-colors print:size-5 print:text-sm',
-									isChecked
-										? 'text-primary/40'
-										: 'text-muted-foreground',
+									'flex size-8 shrink-0 items-center justify-center font-serif text-xl leading-none font-normal transition-colors print:size-5 print:text-sm',
+									isChecked ? 'text-primary/40' : 'text-muted-foreground',
 								)}
 							>
 								{isChecked ? (
 									<>
-										<Icon name="check" className="size-5 text-primary print:hidden" />
+										<Icon
+											name="check"
+											className="text-primary size-5 print:hidden"
+										/>
 										<span className="hidden print:inline">{index + 1}</span>
 									</>
 								) : (
@@ -66,7 +67,8 @@ export function RecipeInstructionsList({
 							<p
 								className={cn(
 									'pt-0.5 text-[1.0625rem] leading-[1.75] transition-colors md:text-base md:leading-[1.75] print:pt-0 print:text-sm print:leading-[1.5]',
-									isChecked && 'text-muted-foreground/40 line-through decoration-muted-foreground/30',
+									isChecked &&
+										'text-muted-foreground/40 decoration-muted-foreground/30 line-through',
 								)}
 							>
 								<InstructionWithTimers

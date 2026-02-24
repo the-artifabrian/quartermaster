@@ -83,7 +83,11 @@ High-level feature reference (not exhaustive). For the roadmap, see
 - Ingredient normalization pipeline: ~40 modifier strippers, ~25 synonym groups,
   pluralization, compound ingredient protection, non-equivalent exclusions.
   Powers matching, shopping consolidation, overlap scoring, and waste detection
-- Ingredient parser: nested parenthetical quantities, "to taste", ranges
+- Ingredient parser: nested parenthetical quantities, "to taste", ranges,
+  written-out numbers, "juice/zest of", fl oz, period-tolerant unit
+  abbreviations, JSON-LD cleanup (broken/double/orphaned parens, approx.
+  markers, comma-wrapped parens), descriptor-aware comma splitting (keeps
+  "boneless, skinless" together)
 - "What can I make?" always-on when inventory exists -- recipe cards show SVG
   match progress rings, default sort by match percentage, 4-level fuzzy matching
   (exact, synonym, core word, multi-word containment)

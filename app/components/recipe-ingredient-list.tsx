@@ -212,7 +212,13 @@ export function IngredientList({
 									<span>{ingredient.name}</span>
 								)}
 								{ingredient.notes && (
-									<span className={isChecked ? '' : 'text-muted-foreground'}>
+									<span
+										className={
+											isChecked
+												? ''
+												: 'text-muted-foreground'
+										}
+									>
 										, {ingredient.notes}
 									</span>
 								)}

@@ -374,9 +374,10 @@ user has recipes.
 
 ```ts
 {
-  id, name: string, quantity: number | null,
-  unit: string | null,
+  id, name: string,
   location: 'pantry'|'fridge'|'freezer',
+  expiresAt: string | null,
+  lowStock: boolean,
   householdId: string
 }
 ```
@@ -576,9 +577,9 @@ closer to a spreadsheet than a cookbook.
 **Layout**: Single column, 1080px max. Category tabs at top (All, Pantry,
 Fridge, Freezer). Search input below.
 
-**Items**: Flat list, DM Sans 16px. Item name left-aligned, quantity/unit as
-muted caption. Overflow dots at right. Minimal row height — this list can be
-long and needs efficient scrolling.
+**Items**: Flat list, DM Sans 16px. Item name left-aligned, expiry and
+low-stock status as muted caption. Overflow dots at right. Minimal row
+height — this list can be long and needs efficient scrolling.
 
 **Category headers** (PANTRY, FRIDGE, FREEZER): DM Sans 500, 12px, uppercase.
 Colored dot indicator (amber pantry, blue fridge, etc.) and item count. Sticky

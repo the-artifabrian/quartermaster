@@ -197,8 +197,6 @@ describe('recipe detail actions', () => {
 			data: {
 				name: 'flour',
 				location: 'pantry',
-				quantity: 10,
-				unit: 'cups',
 				userId: session.userId,
 				householdId: session.householdId,
 			},
@@ -214,11 +212,11 @@ describe('recipe detail actions', () => {
 			...makeActionArgs(recipe.id),
 		})) as { success: boolean; checkInItems: Array<{ name: string }> }
 
-		// Inventory is NOT subtracted — just returns matched items for check-in
+		// Inventory exists — just returns matched items for check-in
 		const flour = await prisma.inventoryItem.findFirst({
 			where: { householdId: session.householdId, name: 'flour' },
 		})
-		expect(flour!.quantity).toBe(10) // unchanged
+		expect(flour).toBeTruthy()
 
 		expect(result.success).toBe(true)
 		expect(result.checkInItems).toHaveLength(1)

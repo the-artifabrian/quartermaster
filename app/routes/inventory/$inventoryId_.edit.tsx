@@ -103,8 +103,6 @@ export default function EditInventoryItem({
 		defaultValue: {
 			name: item.name,
 			location: item.location,
-			quantity: item.quantity ?? undefined,
-			unit: item.unit ?? undefined,
 			expiresAt: item.expiresAt
 				? new Date(item.expiresAt).toISOString().split('T')[0]
 				: undefined,
@@ -173,28 +171,6 @@ export default function EditInventoryItem({
 								</p>
 							)}
 						</div>
-					</div>
-
-					<div className="grid gap-4 sm:grid-cols-2">
-						<Field
-							labelProps={{ children: 'Quantity (optional)' }}
-							inputProps={{
-								...getInputProps(fields.quantity, { type: 'number' }),
-								placeholder: 'e.g., 2.5',
-								step: '0.1',
-							}}
-							errors={fields.quantity.errors}
-						/>
-
-						<Field
-							labelProps={{ children: 'Unit (optional)' }}
-							inputProps={{
-								...getInputProps(fields.unit, { type: 'text' }),
-								placeholder: 'e.g., lbs, cups, count',
-								autoComplete: 'off',
-							}}
-							errors={fields.unit.errors}
-						/>
 					</div>
 
 					<Field

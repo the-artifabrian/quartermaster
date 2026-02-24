@@ -15,16 +15,6 @@ export const InventoryItemLocationSchema = z.enum(
 export const InventoryItemSchema = z.object({
 	name: InventoryItemNameSchema,
 	location: InventoryItemLocationSchema,
-	quantity: z
-		.literal('')
-		.transform(() => undefined)
-		.or(
-			z.coerce
-				.number({ invalid_type_error: 'Quantity must be a number' })
-				.positive({ message: 'Quantity must be positive' }),
-		)
-		.optional(),
-	unit: z.string().max(20, { message: 'Unit is too long' }).optional(),
 	expiresAt: z
 		.literal('')
 		.transform(() => undefined)

@@ -40,9 +40,6 @@ export function WarningBanner({
 
 	if (actionData.warningType === 'in_inventory') {
 		const loc = actionData.inventoryLocation as string
-		const qty = actionData.inventoryQuantity
-			? `${actionData.inventoryQuantity}${actionData.inventoryUnit ? ` ${actionData.inventoryUnit}` : ''}`
-			: null
 		return (
 			<div className="mb-3 flex items-start gap-2 rounded-lg bg-accent/10 p-3">
 				<Icon
@@ -51,8 +48,7 @@ export function WarningBanner({
 				/>
 				<div className="flex-1 text-sm">
 					<p className="font-medium">
-						{actionData.inventoryName as string} is in your {loc}
-						{qty ? ` (${qty})` : ''}.
+						{actionData.inventoryName as string} is in your {loc}.
 					</p>
 					<p className="text-muted-foreground mt-0.5">
 						Tap + to add anyway, or{' '}

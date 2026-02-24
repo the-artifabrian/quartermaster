@@ -766,15 +766,10 @@ export function ingredientMatchesAnyInventoryItem(
  */
 export function matchRecipesWithInventory<R extends MatchableRecipe>(
 	recipes: R[],
-	inventoryItems: Array<Pick<InventoryItem, 'name' | 'quantity'>>,
+	inventoryItems: Array<Pick<InventoryItem, 'name'>>,
 ): RecipeMatch<R>[] {
-	// Exclude depleted items (quantity explicitly tracked to 0)
-	const availableItems = inventoryItems.filter(
-		(item) => item.quantity === null || item.quantity > 0,
-	)
-
 	// Pre-build lookup structure for O(1) matching instead of O(n) per ingredient
-	const lookup = buildInventoryLookup(availableItems)
+	const lookup = buildInventoryLookup(inventoryItems)
 
 	return recipes
 		.map((recipe) => {

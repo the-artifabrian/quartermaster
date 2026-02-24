@@ -8,8 +8,6 @@ export type CheckInItem = {
 	id: string
 	name: string
 	location: string
-	quantity: number | null
-	unit: string | null
 	lowStock: boolean
 }
 
@@ -52,8 +50,6 @@ export async function getPostCookCheckInItems(
 			id: match.id,
 			name: match.name,
 			location: match.location,
-			quantity: match.quantity,
-			unit: match.unit,
 			lowStock: match.lowStock,
 		})
 	}

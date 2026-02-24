@@ -316,7 +316,6 @@ describe('matchRecipesWithInventory', () => {
 	): Parameters<typeof matchRecipesWithInventory>[1] {
 		return names.map((name) => ({
 			name,
-			quantity: null,
 		}))
 	}
 
@@ -380,27 +379,6 @@ describe('matchRecipesWithInventory', () => {
 		const results = matchRecipesWithInventory(recipes, inventory)
 		expect(results[0]!.recipe.id).toBe('fewer')
 		expect(results[1]!.recipe.id).toBe('more')
-	})
-
-	test('excludes depleted items (quantity 0) from matching', () => {
-		const recipes = [makeRecipe('r1', ['chicken', 'rice'])]
-		const inventory = makeInventory(['chicken', 'rice'])
-		// Mark rice as depleted
-		inventory[1]!.quantity = 0
-
-		const results = matchRecipesWithInventory(recipes, inventory)
-		expect(results[0]!.matchedIngredientsCount).toBe(1) // only chicken
-		expect(results[0]!.matchPercentage).toBe(50)
-	})
-
-	test('includes items with null quantity in matching', () => {
-		const recipes = [makeRecipe('r1', ['chicken', 'rice'])]
-		const inventory = makeInventory(['chicken', 'rice'])
-		// null quantity = user has it but didn't track amount
-
-		const results = matchRecipesWithInventory(recipes, inventory)
-		expect(results[0]!.matchedIngredientsCount).toBe(2)
-		expect(results[0]!.matchPercentage).toBe(100)
 	})
 
 	test('recipe with only staple ingredients gets 0% with no inventory', () => {

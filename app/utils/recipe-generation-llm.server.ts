@@ -27,8 +27,6 @@ export type GenerationPreferences = {
 
 export type InventoryInput = {
 	name: string
-	quantity: number | null
-	unit: string | null
 	location: string
 	expiresAt: Date | null
 }
@@ -141,11 +139,6 @@ export function buildPrompt(
 
 	const inventoryLines = sorted.map((item) => {
 		const parts = [item.name]
-		if (item.quantity && item.unit) {
-			parts.push(`(${item.quantity} ${item.unit})`)
-		} else if (item.quantity) {
-			parts.push(`(${item.quantity})`)
-		}
 		parts.push(`[${item.location}]`)
 		if (
 			item.expiresAt &&

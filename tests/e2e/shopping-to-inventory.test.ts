@@ -141,8 +141,6 @@ test('Shopping → inventory pipeline: merges with existing inventory', async ({
 		data: {
 			name: 'garlic',
 			location: 'pantry',
-			quantity: 2,
-			unit: 'heads',
 			userId: user.id,
 			householdId,
 		},

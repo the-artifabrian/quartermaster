@@ -12,13 +12,6 @@ import {
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
 
-function formatQuantity(quantity: number): string {
-	if (Number.isInteger(quantity)) return String(quantity)
-	if (quantity >= 100) return String(Math.round(quantity))
-	if (quantity >= 10) return quantity.toFixed(1).replace(/\.0$/, '')
-	return quantity.toFixed(2).replace(/\.?0+$/, '')
-}
-
 type InventoryItemCardProps = {
 	item: InventoryItem
 	showActions?: boolean
@@ -129,24 +122,12 @@ export function InventoryItemCard({
 						<input type="hidden" name="itemId" value={item.id} />
 						<div className="flex flex-wrap gap-2">
 							<Input
-								name="quantity"
-								defaultValue={item.quantity ?? ''}
-								placeholder="Qty"
-								className="h-8 w-20"
-								autoFocus
-							/>
-							<Input
-								name="unit"
-								defaultValue={item.unit ?? ''}
-								placeholder="Unit"
-								className="h-8 w-24"
-							/>
-							<Input
 								name="expiresAt"
 								type="date"
 								defaultValue={formatDateForInput(item.expiresAt)}
 								className="h-8 w-32.5"
 								aria-label="Expiry date"
+								autoFocus
 							/>
 						</div>
 						<div className="flex justify-end gap-2">
@@ -175,13 +156,6 @@ export function InventoryItemCard({
 						)}
 						{/* Name */}
 						<span className="line-clamp-1 text-[15px]">{item.name}</span>
-						{/* Qty/unit */}
-						{item.quantity && (
-							<span className="text-muted-foreground shrink-0 text-sm">
-								· {formatQuantity(item.quantity)}
-								{item.unit ? ` ${item.unit}` : ''}
-							</span>
-						)}
 						{/* Expiry pill — only when ≤7 days or expired */}
 						{showExpiry && expiryInfo && (
 							<span

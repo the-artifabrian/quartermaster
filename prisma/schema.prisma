@@ -306,8 +306,6 @@ model InventoryItem {
   id        String    @id @default(cuid())
   name      String    // Free-text: "chicken breast", "Chicken Breasts"
   location  String    // "pantry", "fridge", "freezer"
-  quantity  Float?    // Optional: 2.5
-  unit      String?   // Optional: "lbs", "cups", "count"
   expiresAt DateTime?
   lowStock  Boolean   @default(false)
 

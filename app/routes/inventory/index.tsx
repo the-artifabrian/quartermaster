@@ -22,10 +22,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import {
-	findMatchingInventoryItem,
-	buildMergeData,
-} from '#app/utils/inventory-dedup.server.ts'
+import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
 import {
 	InventoryItemLocationSchema,
 	InventoryItemNameSchema,
@@ -203,15 +200,13 @@ export async function action({ request }: Route.ActionArgs) {
 						id: match.id,
 						name: match.name,
 						location: match.location,
-						quantity: match.quantity,
-						unit: match.unit,
 					},
 				}
 			}
 		}
 
 		if (force === 'merge') {
-			// Find the existing item and merge into it
+			// Find the existing item and refresh it
 			const existingItems = await prisma.inventoryItem.findMany({
 				where: { householdId, location: submission.value.location },
 			})
@@ -221,18 +216,19 @@ export async function action({ request }: Route.ActionArgs) {
 				existingItems,
 			)
 			if (match) {
-				const mergeData = buildMergeData(
-					match,
-					submission.value.quantity,
-					submission.value.unit,
-					submission.value.expiresAt,
-				)
-				if (Object.keys(mergeData).length > 0) {
-					await prisma.inventoryItem.update({
-						where: { id: match.id },
-						data: mergeData,
-					})
+				const newExpiry = submission.value.expiresAt
+				const updateData: Record<string, unknown> = { lowStock: false }
+				if (
+					newExpiry &&
+					(!match.expiresAt ||
+						newExpiry.getTime() > match.expiresAt.getTime())
+				) {
+					updateData.expiresAt = newExpiry
 				}
+				await prisma.inventoryItem.update({
+					where: { id: match.id },
+					data: updateData,
+				})
 				return { status: 'merged' as const, mergedInto: match.name }
 			}
 		}
@@ -318,8 +314,6 @@ export async function action({ request }: Route.ActionArgs) {
 					id: `pending-${toCreate.length}`,
 					name: item.name,
 					location: item.location,
-					quantity: null,
-					unit: null,
 					expiresAt: null,
 					lowStock: false,
 					userId,
@@ -394,15 +388,6 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const data: Record<string, unknown> = {}
 
-		if (formData.has('quantity')) {
-			const raw = formData.get('quantity')
-			data.quantity =
-				typeof raw === 'string' && raw.trim() ? parseFloat(raw) || null : null
-		}
-		if (formData.has('unit')) {
-			const raw = formData.get('unit')
-			data.unit = typeof raw === 'string' && raw.trim() ? raw.trim() : null
-		}
 		if (formData.has('expiresAt')) {
 			const raw = formData.get('expiresAt')
 			data.expiresAt =

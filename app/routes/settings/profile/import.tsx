@@ -334,8 +334,6 @@ export async function action({ request }: Route.ActionArgs) {
 						data: {
 							name: item.name,
 							location: item.location,
-							quantity: item.quantity ?? null,
-							unit: item.unit || null,
 							expiresAt: item.expiresAt ? new Date(item.expiresAt) : null,
 							lowStock: item.lowStock ?? false,
 							userId,

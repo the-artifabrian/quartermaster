@@ -52,7 +52,7 @@ generation, enhance) used for real cooking decisions. Meal planning is partial
 (2-3 days ahead, not full-week commitment). Household sharing is light (partner
 uses occasionally, not a habit). Inventory sustainability and expiry/low-stock
 value are the open questions — see
-[Inventory Mode](#inventory-mode-active-evaluation) below.
+[Inventory Mode](#inventory-mode-rough-signal-resolved) below.
 
 ### Critical Path
 
@@ -269,11 +269,11 @@ justify building. Larger-scope items (nutrition APIs, email digests, dashboards)
 - [ ] **Receipt scanning → inventory** — camera capture of grocery receipts to
       auto-populate inventory. Build only if inventory input remains the main
       friction point after the shopping pipeline is proven
-- [ ] **Voice inventory input** — dictate updates like "add 2 pounds chicken
-      breast to the fridge." Cloud STT is accurate and cheap (Deepgram Nova-3 is
-      the top pick), but parsing transcripts into structured actions adds
-      complexity. Deferred pending the shopping → inventory pipeline test: if
-      the pipeline makes input mostly passive, voice may be unnecessary
+- [ ] **Voice inventory input** — dictate updates like "add chicken breast to
+      the fridge." Cloud STT is accurate and cheap (Deepgram Nova-3 is the top
+      pick), but parsing transcripts into structured actions adds complexity.
+      Deferred pending the shopping → inventory pipeline test: if the pipeline
+      makes input mostly passive, voice may be unnecessary
 
 ---
 

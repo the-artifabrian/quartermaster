@@ -25,8 +25,6 @@ test('Inventory flow: empty state → add item → verify → edit → delete', 
 	await page.getByLabel(/item name/i).fill('Chicken Breast')
 	// Select location (fridge) - label not properly associated via conform, use locator
 	await page.locator('select').selectOption('fridge')
-	await page.getByLabel(/quantity/i).fill('2')
-	await page.getByLabel(/unit \(optional\)/i).fill('lbs')
 
 	await page.getByRole('button', { name: /add item/i }).click()
 
@@ -40,8 +38,8 @@ test('Inventory flow: empty state → add item → verify → edit → delete', 
 	await page.locator('a[href*="/edit"]').first().click()
 	await expect(page).toHaveURL(/\/inventory\/[a-z0-9]+\/edit/)
 
-	// Edit quantity
-	await page.getByLabel(/quantity/i).fill('5')
+	// Edit expiration date
+	await page.getByLabel(/expiration date/i).fill('2026-12-31')
 	await page.getByRole('button', { name: /save changes/i }).click()
 
 	// 5. Verify back on inventory page
@@ -71,8 +69,6 @@ test('Inventory location tabs filter items', async ({ page, login }) => {
 		data: {
 			name: 'Whole Milk',
 			location: 'fridge',
-			quantity: 1,
-			unit: 'gallon',
 			userId: user.id,
 		},
 	})
@@ -80,8 +76,6 @@ test('Inventory location tabs filter items', async ({ page, login }) => {
 		data: {
 			name: 'Brown Rice',
 			location: 'pantry',
-			quantity: 5,
-			unit: 'lbs',
 			userId: user.id,
 		},
 	})
@@ -89,8 +83,6 @@ test('Inventory location tabs filter items', async ({ page, login }) => {
 		data: {
 			name: 'Frozen Peas',
 			location: 'freezer',
-			quantity: 1,
-			unit: 'bag',
 			userId: user.id,
 		},
 	})

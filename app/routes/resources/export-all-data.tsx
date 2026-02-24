@@ -46,8 +46,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			select: {
 				name: true,
 				location: true,
-				quantity: true,
-				unit: true,
 				expiresAt: true,
 				lowStock: true,
 			},
@@ -149,8 +147,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		inventory: inventory.map((item) => ({
 			name: item.name,
 			location: item.location,
-			quantity: item.quantity,
-			unit: item.unit,
 			expiresAt: item.expiresAt?.toISOString() ?? null,
 			lowStock: item.lowStock,
 		})),

@@ -31,22 +31,16 @@ function makeInventory(
 	const defaults: InventoryInput[] = [
 		{
 			name: 'chicken breast',
-			quantity: 2,
-			unit: 'lbs',
 			location: 'fridge',
 			expiresAt: null,
 		},
 		{
 			name: 'bell pepper',
-			quantity: 3,
-			unit: null,
 			location: 'fridge',
 			expiresAt: null,
 		},
 		{
 			name: 'rice',
-			quantity: 5,
-			unit: 'lbs',
 			location: 'pantry',
 			expiresAt: null,
 		},
@@ -70,11 +64,10 @@ describe('buildPrompt', () => {
 		expect(prompt).toContain('rice')
 	})
 
-	test('shows quantity and unit when present', () => {
+	test('shows location tags', () => {
 		const inventory = makeInventory()
 		const prompt = buildPrompt(inventory)
 
-		expect(prompt).toContain('(2 lbs)')
 		expect(prompt).toContain('[fridge]')
 		expect(prompt).toContain('[pantry]')
 	})
@@ -96,15 +89,11 @@ describe('buildPrompt', () => {
 		const inventory: InventoryInput[] = [
 			{
 				name: 'rice',
-				quantity: null,
-				unit: null,
 				location: 'pantry',
 				expiresAt: null,
 			},
 			{
 				name: 'milk',
-				quantity: 1,
-				unit: 'gallon',
 				location: 'fridge',
 				expiresAt: tomorrow,
 			},
@@ -119,8 +108,6 @@ describe('buildPrompt', () => {
 	test('caps inventory at 80 items', () => {
 		const inventory: InventoryInput[] = Array.from({ length: 100 }, (_, i) => ({
 			name: `item-${i}`,
-			quantity: 1,
-			unit: null,
 			location: 'pantry',
 			expiresAt: null,
 		}))

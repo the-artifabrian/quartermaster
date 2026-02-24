@@ -1,11 +1,7 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { prisma } from '#app/utils/db.server.ts'
-import { parseAmount } from '#app/utils/fractions.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import {
-	findMatchingInventoryItem,
-	buildMergeData,
-} from '#app/utils/inventory-dedup.server.ts'
+import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/shopping-to-inventory.ts'
@@ -77,15 +73,12 @@ export async function action({ request }: Route.ActionArgs) {
 	const trackingItems = [...existingInventory]
 
 	const creates: Array<Parameters<typeof prisma.inventoryItem.create>[0]> = []
-	// Accumulate merges per inventory item to avoid redundant updates
+	// Accumulate refreshes per inventory item to avoid redundant updates
 	const updateMap = new Map<string, Record<string, unknown>>()
-	let mergedCount = 0
+	let updatedCount = 0
 
 	for (const item of foodItems) {
 		const shoppingItem = itemMap.get(item.itemId)!
-		const quantity = shoppingItem.quantity
-			? parseAmount(shoppingItem.quantity)
-			: null
 		const expiresAt = parseExpiresAt(item.expiresAt)
 
 		const match = findMatchingInventoryItem(
@@ -95,26 +88,22 @@ export async function action({ request }: Route.ActionArgs) {
 		)
 
 		if (match) {
-			const mergeData = buildMergeData(
-				match,
-				quantity,
-				shoppingItem.unit,
-				expiresAt,
-			)
-			// Always clear lowStock — buying from shopping list means restocked
-			mergeData.lowStock = false
-			// Update tracking item in-place so subsequent matches see accumulated state
-			Object.assign(match, mergeData)
-			// Store only the latest accumulated state per item
-			updateMap.set(match.id, { ...mergeData })
-			mergedCount++
+			const updateData: Record<string, unknown> = { lowStock: false }
+			if (
+				expiresAt &&
+				(!match.expiresAt ||
+					expiresAt.getTime() > match.expiresAt.getTime())
+			) {
+				updateData.expiresAt = expiresAt
+			}
+			Object.assign(match, updateData)
+			updateMap.set(match.id, { ...updateData })
+			updatedCount++
 		} else {
 			creates.push({
 				data: {
 					name: shoppingItem.name,
 					location: item.location,
-					quantity,
-					unit: shoppingItem.unit,
 					expiresAt,
 					userId,
 					householdId,
@@ -125,8 +114,6 @@ export async function action({ request }: Route.ActionArgs) {
 				id: `pending-${creates.length}`,
 				name: shoppingItem.name,
 				location: item.location,
-				quantity,
-				unit: shoppingItem.unit,
 				expiresAt,
 				lowStock: false,
 				userId,
@@ -154,7 +141,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 	void emitHouseholdEvent({
 		type: 'shopping_list_to_inventory',
-		payload: { count: creates.length + mergedCount },
+		payload: { count: creates.length + updatedCount },
 		userId,
 		householdId,
 	})
@@ -165,8 +152,8 @@ export async function action({ request }: Route.ActionArgs) {
 			`${creates.length} item${creates.length !== 1 ? 's' : ''} added to inventory`,
 		)
 	}
-	if (mergedCount > 0) {
-		parts.push(`${mergedCount} merged with existing`)
+	if (updatedCount > 0) {
+		parts.push(`${updatedCount} updated in inventory`)
 	}
 	if (householdItems.length > 0) {
 		parts.push(

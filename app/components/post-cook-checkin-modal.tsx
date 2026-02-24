@@ -16,12 +16,6 @@ const LOCATION_LABELS: Record<string, string> = {
 
 const LOCATION_ORDER = ['fridge', 'freezer', 'pantry'] as const
 
-function formatQuantity(quantity: number): string {
-	if (Number.isInteger(quantity)) return String(quantity)
-	if (quantity >= 10) return quantity.toFixed(1).replace(/\.0$/, '')
-	return quantity.toFixed(2).replace(/\.?0+$/, '')
-}
-
 export function PostCookCheckInModal({
 	items,
 	onClose,
@@ -171,12 +165,6 @@ export function PostCookCheckInModal({
 														>
 															{item.name}
 														</span>
-														{item.quantity && (
-															<span className="text-muted-foreground ml-1.5 text-sm">
-																· {formatQuantity(item.quantity)}
-																{item.unit ? ` ${item.unit}` : ''}
-															</span>
-														)}
 														{item.lowStock && !action && (
 															<span className="ml-1.5 text-xs text-amber-600">
 																low

@@ -10,8 +10,6 @@ type SweepItem = {
 	id: string
 	name: string
 	location: string
-	quantity: number | null
-	unit: string | null
 	lowStock: boolean
 	priority: boolean
 }
@@ -23,12 +21,6 @@ const LOCATION_LABELS: Record<string, string> = {
 	pantry: 'Pantry',
 	fridge: 'Fridge',
 	freezer: 'Freezer',
-}
-
-function formatQuantity(quantity: number): string {
-	if (Number.isInteger(quantity)) return String(quantity)
-	if (quantity >= 10) return quantity.toFixed(1).replace(/\.0$/, '')
-	return quantity.toFixed(2).replace(/\.?0+$/, '')
 }
 
 function ItemsByLocation({
@@ -312,12 +304,6 @@ function SweepItemRow({
 				>
 					{item.name}
 				</span>
-				{item.quantity && (
-					<span className="text-muted-foreground ml-1.5 text-sm">
-						· {formatQuantity(item.quantity)}
-						{item.unit ? ` ${item.unit}` : ''}
-					</span>
-				)}
 				{item.lowStock && !action && (
 					<span className="ml-1.5 text-xs text-amber-600">low</span>
 				)}

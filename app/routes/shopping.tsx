@@ -105,8 +105,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			id: true,
 			name: true,
 			location: true,
-			quantity: true,
-			unit: true,
 		},
 	})
 
@@ -269,8 +267,6 @@ export async function action({ request }: Route.ActionArgs) {
 					warningType: 'in_inventory' as const,
 					inventoryName: inInventory.name,
 					inventoryLocation: inInventory.location,
-					inventoryQuantity: inInventory.quantity,
-					inventoryUnit: inInventory.unit,
 					submittedName: submission.value.name,
 					submittedQuantity: submission.value.quantity,
 					submittedUnit: submission.value.unit,

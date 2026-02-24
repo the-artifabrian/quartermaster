@@ -13,8 +13,6 @@ type ActionData = {
 		id: string
 		name: string
 		location: string
-		quantity: number | null
-		unit: string | null
 	}
 	mergedInto?: string
 	message?: string
@@ -22,9 +20,6 @@ type ActionData = {
 
 export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 	const [name, setName] = useState('')
-	const [showQty, setShowQty] = useState(false)
-	const [quantity, setQuantity] = useState('')
-	const [unit, setUnit] = useState('')
 	const fetcher = useFetcher<ActionData>()
 	const [lastWarningName, setLastWarningName] = useState('')
 	const nameRef = useRef<HTMLInputElement>(null)
@@ -49,9 +44,6 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 			fetcher.data?.status === 'merged'
 		) {
 			setName('')
-			setQuantity('')
-			setUnit('')
-			setShowQty(false)
 			setLastWarningName('')
 			nameRef.current?.focus()
 		}
@@ -62,8 +54,6 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 		formData.set('intent', 'create')
 		formData.set('location', location)
 		formData.set('name', name)
-		if (quantity) formData.set('quantity', quantity)
-		if (unit) formData.set('unit', unit)
 		formData.set('force', force)
 		void fetcher.submit(formData, { method: 'POST' })
 	}
@@ -91,36 +81,6 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 						onChange={(e) => setName(e.target.value)}
 						className="h-9 w-full border-0 bg-transparent px-0 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0"
 					/>
-					{showQty && (
-						<div className="flex gap-2 pb-1">
-							<input
-								name="quantity"
-								type="number"
-								step="0.1"
-								min="0"
-								placeholder="Qty"
-								value={quantity}
-								onChange={(e) => setQuantity(e.target.value)}
-								className="h-7 w-16 rounded border border-border/50 bg-transparent px-2 text-sm outline-none focus:border-primary/30"
-							/>
-							<input
-								name="unit"
-								placeholder="Unit"
-								value={unit}
-								onChange={(e) => setUnit(e.target.value)}
-								className="h-7 w-20 rounded border border-border/50 bg-transparent px-2 text-sm outline-none focus:border-primary/30"
-							/>
-						</div>
-					)}
-					{!showQty && (
-						<button
-							type="button"
-							onClick={() => setShowQty(true)}
-							className="pb-1 text-xs text-muted-foreground hover:text-foreground"
-						>
-							+ Qty / Unit
-						</button>
-					)}
 				</div>
 				<Button
 					type="submit"
@@ -137,11 +97,7 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 				<div className="mt-2 rounded-lg bg-accent/10 p-3">
 					<p className="text-sm">
 						You already have <strong>{fetcher.data.existingItem.name}</strong>{' '}
-						in the {fetcher.data.existingItem.location}
-						{fetcher.data.existingItem.quantity
-							? ` (${fetcher.data.existingItem.quantity}${fetcher.data.existingItem.unit ? ` ${fetcher.data.existingItem.unit}` : ''})`
-							: ''}
-						.
+						in the {fetcher.data.existingItem.location}.
 					</p>
 					<div className="mt-2 flex gap-2">
 						<Button

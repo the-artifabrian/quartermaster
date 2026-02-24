@@ -17,7 +17,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}),
 		prisma.inventoryItem.findMany({
 			where: { householdId },
-			select: { name: true, quantity: true },
+			select: { name: true },
 		}),
 	])
 

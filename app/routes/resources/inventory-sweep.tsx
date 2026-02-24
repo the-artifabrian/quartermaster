@@ -14,8 +14,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			id: true,
 			name: true,
 			location: true,
-			quantity: true,
-			unit: true,
 			lowStock: true,
 			updatedAt: true,
 		},
@@ -33,8 +31,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			id: item.id,
 			name: item.name,
 			location: item.location,
-			quantity: item.quantity,
-			unit: item.unit,
 			lowStock: item.lowStock,
 			priority,
 		}

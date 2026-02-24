@@ -5,8 +5,6 @@ export type LowStockItem = {
 	id: string
 	name: string
 	location: string
-	quantity: number | null
-	unit: string | null
 }
 
 export function LowStockNudge({ items }: { items: LowStockItem[] }) {

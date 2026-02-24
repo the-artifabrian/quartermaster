@@ -67,7 +67,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		where: { householdId },
 		select: {
 			name: true,
-			quantity: true,
 			expiresAt: true,
 		},
 	})
@@ -79,8 +78,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		(item) =>
 			item.expiresAt &&
 			item.expiresAt > now &&
-			item.expiresAt <= sevenDaysFromNow &&
-			(item.quantity === null || item.quantity > 0),
+			item.expiresAt <= sevenDaysFromNow,
 	)
 	const expiringCanonicalNames = new Set(
 		expiringItems.map((item) => getCanonicalIngredientName(item.name)),

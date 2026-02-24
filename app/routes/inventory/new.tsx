@@ -16,10 +16,7 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import {
-	findMatchingInventoryItem,
-	buildMergeData,
-} from '#app/utils/inventory-dedup.server.ts'
+import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
 import {
 	InventoryItemSchema,
 	LOCATION_LABELS,
@@ -35,8 +32,6 @@ type DuplicateWarning = {
 	existingId: string
 	existingName: string
 	existingLocation: string
-	existingQuantity: number | null
-	existingUnit: string | null
 }
 
 type ActionData = {
@@ -106,8 +101,6 @@ export async function action({ request }: Route.ActionArgs) {
 					existingId: match.id,
 					existingName: match.name,
 					existingLocation: match.location,
-					existingQuantity: match.quantity,
-					existingUnit: match.unit,
 				},
 			})
 		}
@@ -123,21 +116,22 @@ export async function action({ request }: Route.ActionArgs) {
 			existingItems,
 		)
 		if (match) {
-			const mergeData = buildMergeData(
-				match,
-				submission.value.quantity,
-				submission.value.unit,
-				submission.value.expiresAt,
-			)
-			if (Object.keys(mergeData).length > 0) {
-				await prisma.inventoryItem.update({
-					where: { id: match.id },
-					data: mergeData,
-				})
+			const newExpiry = submission.value.expiresAt
+			const updateData: Record<string, unknown> = { lowStock: false }
+			if (
+				newExpiry &&
+				(!match.expiresAt ||
+					newExpiry.getTime() > match.expiresAt.getTime())
+			) {
+				updateData.expiresAt = newExpiry
 			}
+			await prisma.inventoryItem.update({
+				where: { id: match.id },
+				data: updateData,
+			})
 			return redirectWithToast('/inventory', {
 				type: 'success',
-				description: `Merged into existing ${match.name}`,
+				description: `Updated existing ${match.name}`,
 			})
 		}
 	}
@@ -198,11 +192,7 @@ export default function NewInventoryItem() {
 				<div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-800 dark:bg-amber-950/40">
 					<p className="text-sm text-amber-800 dark:text-amber-300">
 						You already have <strong>{duplicateWarning.existingName}</strong> in
-						the {duplicateWarning.existingLocation}
-						{duplicateWarning.existingQuantity
-							? ` (${duplicateWarning.existingQuantity}${duplicateWarning.existingUnit ? ` ${duplicateWarning.existingUnit}` : ''})`
-							: ''}
-						.
+						the {duplicateWarning.existingLocation}.
 					</p>
 					<div className="mt-3 flex gap-2">
 						<Form method="POST">
@@ -216,16 +206,6 @@ export default function NewInventoryItem() {
 								type="hidden"
 								name="location"
 								value={fields.location.value ?? ''}
-							/>
-							<input
-								type="hidden"
-								name="quantity"
-								value={fields.quantity.value ?? ''}
-							/>
-							<input
-								type="hidden"
-								name="unit"
-								value={fields.unit.value ?? ''}
 							/>
 							<input
 								type="hidden"
@@ -257,16 +237,6 @@ export default function NewInventoryItem() {
 								type="hidden"
 								name="location"
 								value={fields.location.value ?? ''}
-							/>
-							<input
-								type="hidden"
-								name="quantity"
-								value={fields.quantity.value ?? ''}
-							/>
-							<input
-								type="hidden"
-								name="unit"
-								value={fields.unit.value ?? ''}
 							/>
 							<input
 								type="hidden"
@@ -321,28 +291,6 @@ export default function NewInventoryItem() {
 								</p>
 							)}
 						</div>
-					</div>
-
-					<div className="grid gap-4 sm:grid-cols-2">
-						<Field
-							labelProps={{ children: 'Quantity (optional)' }}
-							inputProps={{
-								...getInputProps(fields.quantity, { type: 'number' }),
-								placeholder: 'e.g., 2.5',
-								step: '0.1',
-							}}
-							errors={fields.quantity.errors}
-						/>
-
-						<Field
-							labelProps={{ children: 'Unit (optional)' }}
-							inputProps={{
-								...getInputProps(fields.unit, { type: 'text' }),
-								placeholder: 'e.g., lbs, cups, count',
-								autoComplete: 'off',
-							}}
-							errors={fields.unit.errors}
-						/>
 					</div>
 
 					<Field

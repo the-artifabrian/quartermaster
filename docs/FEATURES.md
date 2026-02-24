@@ -72,14 +72,14 @@ High-level feature reference (not exhaustive). For the roadmap, see
 - Three locations: Pantry, Fridge, Freezer. "All" tab groups items by location
   with section headers; individual tabs show a single location. Status badges
   countdowns
-- Items with optional quantity, unit, expiration, and low-stock flag
-- Streamlined card actions: pencil (quick edit) + overflow menu (low-stock
+- Items with optional expiration and low-stock flag (no quantities — inventory
+  is a rough signal of what you have, not a ledger of how much)
+- Streamlined card actions: pencil (quick edit expiry) + overflow menu (low-stock
   toggle, full edit, delete with two-tap confirmation). Optimistic delete
 - Client-side search/filter across all items and location tabs
-- Quick-add with optional inline quantity/unit fields + 33 common ingredient
-  shortcuts. Duplicate detection via canonical name matching (same location) --
-  warns with "Update existing" / "Add anyway" choice
-- Full add form (`/inventory/new`) also detects duplicates with merge/add-anyway
+- Quick-add with duplicate detection via canonical name matching (same location)
+  — warns with "Update existing" / "Add anyway" choice
+- Full add form (`/inventory/new`) also detects duplicates with update/add-anyway
   banner
 - Bulk add (pantry staples onboarding) silently skips duplicates
 - Ingredient normalization pipeline: ~40 modifier strippers, ~25 synonym groups,
@@ -153,8 +153,8 @@ High-level feature reference (not exhaustive). For the roadmap, see
   - Check-off -> inventory pipeline: compact collapsed rows with location badges
     and short expiry dates, tap to expand controls, select all/deselect all.
     Pre-filled location and auto-suggested expiry (shelf-life lookup, ~60
-    entries). Auto-merges with existing inventory items (canonical name match,
-    same location) -- clears low-stock flag on merge. Household items cleared
+    entries). Auto-updates existing inventory items (canonical name match,
+    same location) — refreshes expiry and clears low-stock flag. Household items cleared
     but not added to inventory
   - Low-stock nudge: amber chip banner for low-stock items not already on list,
     one-tap add or "Add All"
@@ -200,7 +200,7 @@ High-level feature reference (not exhaustive). For the roadmap, see
 
 ## UI & Infrastructure
 
-- Custom color system (sage green + peach accent, OKLch), Fraunces/DM Sans
+- Custom color system (sage green + peach accent, OKLch), Young Serif/DM Sans
   typography
 - Landing page with serif hero, 4-step feature story, dual CTAs
 - Warm empty states with serif headings across all pages

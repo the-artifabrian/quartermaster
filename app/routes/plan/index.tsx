@@ -4,6 +4,7 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useState } from 'react'
 import { Form, Link } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
+import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { SuggestMealsModal } from '#app/components/suggest-meals-modal.tsx'
 import {
 	ApplyTemplateModal,
@@ -203,6 +204,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 		},
 	})
 
+	const shoppingListItemCount = await prisma.shoppingListItem.count({
+		where: { list: { householdId } },
+	})
+
 	return {
 		mealPlan,
 		entries: mealPlan.entries.map((entry) => ({
@@ -214,6 +219,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		weekStart: serializeDate(weekStart),
 		tonightData,
 		templates,
+		shoppingListItemCount,
 	}
 }
 
@@ -427,8 +433,15 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
-	const { entries, recipes, weekDays, weekStart, tonightData, templates } =
-		loaderData
+	const {
+		entries,
+		recipes,
+		weekDays,
+		weekStart,
+		tonightData,
+		templates,
+		shoppingListItemCount,
+	} = loaderData
 
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
 	const nextWeek = serializeDate(getNextWeek(parseDate(weekStart)))
@@ -556,6 +569,18 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					recipes={recipes}
 					weekStart={weekStart}
 				/>
+
+				{entries.length > 0 && shoppingListItemCount === 0 && (
+					<OnboardingNudge
+						nudgeId="generate-shopping-list"
+						icon="cart"
+						title="Generate your shopping list"
+						description="Head to the shopping list to see exactly what you need to buy — items already in your inventory are automatically subtracted."
+						ctaText="Go to Shopping List"
+						ctaHref="/shopping"
+						className="mt-4"
+					/>
+				)}
 			</div>
 
 			{showSuggest && (

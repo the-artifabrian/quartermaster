@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { InventoryItemCard } from '#app/components/inventory-item-card.tsx'
 import { InventoryLocationTabs } from '#app/components/inventory-location-tabs.tsx'
 import { InventoryQuickAdd } from '#app/components/inventory-quick-add.tsx'
+import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboarding.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -147,6 +148,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	})
 
+	const mealPlanEntryCount = isProActive
+		? await prisma.mealPlanEntry.count({
+				where: { mealPlan: { householdId } },
+			})
+		: 0
+
 	return {
 		items,
 		totalItemCount,
@@ -156,6 +163,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		urgentExpiringItems,
 		inventoryUsage,
 		isProActive,
+		mealPlanEntryCount,
 	}
 }
 
@@ -456,6 +464,8 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		lowStockCount,
 		urgentExpiringItems,
 		inventoryUsage,
+		isProActive,
+		mealPlanEntryCount,
 	} = loaderData
 
 	const [search, setSearch] = useState('')
@@ -589,6 +599,18 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 							<Link to="/upgrade">Upgrade to Pro</Link>
 						</Button>
 					</div>
+				)}
+
+				{totalItemCount > 0 && mealPlanEntryCount === 0 && isProActive && (
+					<OnboardingNudge
+						nudgeId="plan-your-week"
+						icon="calendar"
+						title="Ready to plan your week?"
+						description="Add recipes to your meal plan and we'll generate a shopping list with exactly what you need to buy."
+						ctaText="Plan Meals"
+						ctaHref="/plan"
+						className="mb-4"
+					/>
 				)}
 
 				{/* Urgent Expiring Items Callout */}

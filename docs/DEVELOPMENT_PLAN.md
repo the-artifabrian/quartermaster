@@ -261,9 +261,10 @@ justify building. Larger-scope items (nutrition APIs, email digests, dashboards)
       but high-leverage for acquisition. Evaluate build vs. integrate (existing
       services like Pestle's API or a lightweight LLM approach on
       screenshots/transcripts)
-- [ ] **Progressive onboarding** — post-action contextual nudges (next-best
-      action prompts) for non-friend testers. Build when they are actively
-      signing up, not before
+- [x] **Progressive onboarding** — post-action contextual nudges (next-best
+      action prompts) guiding users through recipe → inventory → meal plan →
+      shopping list. Reusable `OnboardingNudge` component, localStorage dismiss,
+      no schema changes
 - [ ] **Receipt scanning → inventory** — camera capture of grocery receipts to
       auto-populate inventory. Build only if inventory input remains the main
       friction point after the shopping pipeline is proven

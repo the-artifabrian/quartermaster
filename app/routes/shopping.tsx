@@ -6,6 +6,7 @@ import { Form, Link, useFetcher } from 'react-router'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { ShoppingListToInventory } from '#app/components/shopping-list-to-inventory.tsx'
 import { ShoppingListLiveRefresh } from '#app/components/shopping-live-refresh.tsx'
+import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { LowStockNudge } from '#app/components/shopping-low-stock-nudge.tsx'
 import { MobileFabAdd } from '#app/components/shopping-mobile-fab.tsx'
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
@@ -623,6 +624,18 @@ export default function ShoppingListRoute({
 						<LowStockNudge items={lowStockSuggestions} />
 					</div>
 				)}
+
+				{shoppingList.items.length > 0 &&
+					shoppingList.items.every((i) => !i.checked) && (
+						<OnboardingNudge
+							nudgeId="check-items-off"
+							icon="check"
+							title="Check items off as you shop"
+							description="Tap items to mark them done. When you're done shopping, you can add checked items straight to your inventory."
+							dismissText="Got it"
+							className="mb-4"
+						/>
+					)}
 
 				{/* Quick Add — desktop only, FAB replaces this on mobile */}
 				<div className="mb-2 hidden border-b border-border/30 print:hidden md:block">

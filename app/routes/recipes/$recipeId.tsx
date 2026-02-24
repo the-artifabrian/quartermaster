@@ -10,6 +10,7 @@ import {
 } from 'react-router'
 import { toast } from 'sonner'
 import { Divider } from '#app/components/divider.tsx'
+import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
 import { RecipeActionBar } from '#app/components/recipe-action-bar.tsx'
 import { CookingLogEntry } from '#app/components/recipe-cooking-log-entry.tsx'
@@ -184,6 +185,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		cookingLogs,
 		isProActive: tierInfo.isProActive,
 		missingIngredientIds,
+		hasInventory: inventoryItems.length > 0,
 	}
 }
 
@@ -489,7 +491,8 @@ function buildInventoryToast(summary: SubtractionSummary) {
 }
 
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
-	const { recipe, cookingLogs, isProActive, missingIngredientIds } = loaderData
+	const { recipe, cookingLogs, isProActive, missingIngredientIds, hasInventory } =
+		loaderData
 	const rootData = useRouteLoaderData('root') as
 		| { requestInfo?: { origin?: string } }
 		| undefined
@@ -759,6 +762,18 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					onShare={handleShare}
 					onEnhance={handleEnhance}
 				/>
+
+				{!hasInventory && (
+					<OnboardingNudge
+						nudgeId="stock-kitchen"
+						icon="home"
+						title="Next up: stock your kitchen"
+						description="Add what's in your pantry, fridge, and freezer — we'll show you which recipes you can make with what you have."
+						ctaText="Stock Inventory"
+						ctaHref="/inventory"
+						className="mt-4 print:hidden"
+					/>
+				)}
 
 				{/* Content zone: Ingredients + Instructions */}
 				<div className="mt-4 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8 print:grid-cols-1 print:gap-4">

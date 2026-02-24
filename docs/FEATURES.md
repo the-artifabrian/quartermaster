@@ -173,6 +173,12 @@ High-level feature reference (not exhaustive). For the roadmap, see
   steps. Dismissible, auto-hides on completion
 - Pantry staples onboarding on empty inventory with post-add success CTA
   (browse recipes or view inventory)
+- Progressive post-action nudges: contextual banners that guide users through
+  the core loop (recipe → inventory → meal plan → shopping list). Each nudge
+  appears only when the prior milestone is complete and the next is not.
+  Dismissible per-user via localStorage. 4 nudges: "Stock your kitchen" on
+  recipe detail, "Plan your week" on inventory (Pro), "Generate shopping list"
+  on meal plan, "Check items off" on shopping list
 
 - Free: unlimited recipes, up to 50 inventory items, smart matching, household
   days Pro, grants 2 starter codes) coexist with Stripe and trial

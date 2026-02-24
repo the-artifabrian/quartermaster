@@ -61,9 +61,9 @@ value are the open questions — see
    be more passive (auto-populate from shopping list check-offs only). Track
    weekly: how many manual inventory updates? What percentage of items are
    accurate? Does it feel like homework?
-3. **Ship Google OAuth** — GitHub login signals "developer tool" on a consumer
-   recipe app. Replace with Google OAuth before inviting non-friend testers.
-   Epic Stack's `remix-auth` provider pattern makes this a swap, not a rebuild
+3. ~~**Ship Google OAuth**~~ — Done. Replaced GitHub with Google OAuth using
+   `remix-auth-oauth2`. Provider-agnostic routes unchanged; only the provider
+   config, registry, mock handlers, and UI references were swapped
 4. **Ship 14-day trial** — Every new signup gets full Pro access for 14 days,
    without needing a code. Ship before inviting non-friend testers
 5. **Find 2-3 non-friend testers** — Friendly users won't surface what's
@@ -238,12 +238,9 @@ justify building. Larger-scope items (nutrition APIs, email digests, dashboards)
       testers. See
       like a bait-and-switch for mass-market users who didn't come for
       their top 15, or skip inventory entirely with a clear path to planning
-- [ ] **Google OAuth (replace GitHub)** — GitHub login signals "developer tool"
-      on a consumer recipe app. Swap to Google OAuth for non-technical tester
-      onboarding. Epic Stack's `remix-auth` provider pattern makes this a swap,
-      not a rebuild. Requires Google Cloud Console project + OAuth consent
-      screen (unverified apps show a warning, fine under 100 users). Ship
-      before trial launch and non-friend testers
+- [x] **Google OAuth (replace GitHub)** — Replaced GitHub OAuth with Google
+      using `remix-auth-oauth2`. Google Cloud Console project + OAuth consent
+      screen needed for production (unverified fine under 100 users)
 - [ ] **Social media recipe import** — save recipes from TikTok, Instagram
       Reels, and YouTube Shorts. Recipe saving is the universal download
       trigger; social-media import is a major growth trend (Pestle, ReciMe,

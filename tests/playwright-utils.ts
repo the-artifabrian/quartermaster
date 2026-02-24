@@ -8,15 +8,15 @@ import {
 	sessionKey,
 } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { MOCK_CODE_GITHUB_HEADER } from '#app/utils/providers/constants.ts'
+import { MOCK_CODE_GOOGLE_HEADER } from '#app/utils/providers/constants.ts'
 import { normalizeEmail } from '#app/utils/providers/provider.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { createUser } from './db-utils.ts'
 import {
-	type GitHubUser,
-	deleteGitHubUser,
-	insertGitHubUser,
-} from './mocks/github.ts'
+	type GoogleUser,
+	deleteGoogleUser,
+	insertGoogleUser,
+} from './mocks/google.ts'
 
 export * from './db-utils.ts'
 
@@ -72,7 +72,7 @@ export const test = base.extend<{
 	) => Promise<null | Response>
 	insertNewUser(options?: GetOrInsertUserOptions): Promise<User>
 	login(options?: GetOrInsertUserOptions): Promise<User>
-	prepareGitHubUser(): Promise<GitHubUser>
+	prepareGoogleUser(): Promise<GoogleUser>
 }>({
 	navigate: async ({ page }, use) => {
 		await use((...args) => {
@@ -117,31 +117,31 @@ export const test = base.extend<{
 		})
 		await prisma.user.deleteMany({ where: { id: userId } })
 	},
-	prepareGitHubUser: async ({ page }, use, testInfo) => {
-		await page.route(/\/auth\/github(?!\/callback)/, async (route, request) => {
+	prepareGoogleUser: async ({ page }, use, testInfo) => {
+		await page.route(/\/auth\/google(?!\/callback)/, async (route, request) => {
 			const headers = {
 				...request.headers(),
-				[MOCK_CODE_GITHUB_HEADER]: testInfo.testId,
+				[MOCK_CODE_GOOGLE_HEADER]: testInfo.testId,
 			}
 			await route.continue({ headers })
 		})
 
-		let ghUser: GitHubUser | null = null
+		let googleUser: GoogleUser | null = null
 		await use(async () => {
-			const newGitHubUser = await insertGitHubUser(testInfo.testId)!
-			ghUser = newGitHubUser
-			return newGitHubUser
+			const newGoogleUser = await insertGoogleUser(testInfo.testId)!
+			googleUser = newGoogleUser
+			return newGoogleUser
 		})
 
 		const user = await prisma.user.findUnique({
 			select: { id: true, name: true },
-			where: { email: normalizeEmail(ghUser!.primaryEmail) },
+			where: { email: normalizeEmail(googleUser!.primaryEmail) },
 		})
 		if (user) {
 			await prisma.user.delete({ where: { id: user.id } })
 			await prisma.session.deleteMany({ where: { userId: user.id } })
 		}
-		await deleteGitHubUser(ghUser!.primaryEmail)
+		await deleteGoogleUser(googleUser!.primaryEmail)
 	},
 })
 export const { expect } = test

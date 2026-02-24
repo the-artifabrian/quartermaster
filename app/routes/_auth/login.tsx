@@ -11,6 +11,10 @@ import { Spacer } from '#app/components/spacer.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { login, requireAnonymous } from '#app/utils/auth.server.ts'
+import {
+	GOOGLE_PROVIDER_NAME,
+	ProviderConnectionForm,
+} from '#app/utils/connections.tsx'
 import { getErrorMessage, useIsPending } from '#app/utils/misc.tsx'
 import { PasswordSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/login.ts'
@@ -171,6 +175,16 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 								remember={fields.remember.value === 'on'}
 							/>
 						</div>
+						<div className="my-4 flex items-center gap-4">
+							<hr className="flex-1" />
+							<span className="text-sm text-muted-foreground">or</span>
+							<hr className="flex-1" />
+						</div>
+						<ProviderConnectionForm
+							type="Login"
+							providerName={GOOGLE_PROVIDER_NAME}
+							redirectTo={redirectTo}
+						/>
 						<div className="flex items-center justify-center gap-2 pt-6">
 							<span className="text-muted-foreground">New here?</span>
 							<Link

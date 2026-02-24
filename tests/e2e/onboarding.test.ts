@@ -144,36 +144,38 @@ test('onboarding with a short code', async ({
 	await expect(page).toHaveURL(`/onboarding`)
 })
 
-test('completes onboarding after GitHub OAuth given valid user details', async ({
+test('completes onboarding after Google OAuth given valid user details', async ({
 	page,
 	navigate,
-	prepareGitHubUser,
+	prepareGoogleUser,
 }) => {
-	const ghUser = await prepareGitHubUser()
+	const googleUser = await prepareGoogleUser()
 
 	// let's verify we do not have user with that email in our system:
 	expect(
 		await prisma.user.findUnique({
-			where: { email: normalizeEmail(ghUser.primaryEmail) },
+			where: { email: normalizeEmail(googleUser.primaryEmail) },
 		}),
 	).toBeNull()
 
 	await navigate('/signup')
-	await page.getByRole('button', { name: /signup with github/i }).click()
+	await page.getByRole('button', { name: /signup with google/i }).click()
 
-	await expect(page).toHaveURL(/\/onboarding\/github/)
+	await expect(page).toHaveURL(/\/onboarding\/google/)
 	await expect(
-		page.getByText(new RegExp(`welcome aboard ${ghUser.primaryEmail}`, 'i')),
+		page.getByText(
+			new RegExp(`welcome aboard ${googleUser.primaryEmail}`, 'i'),
+		),
 	).toBeVisible()
 
 	// fields are pre-populated for the user, so we only need to accept
-	// terms of service and hit the 'crete an account' button
+	// terms of service and hit the 'create an account' button
 	const usernameInput = page.getByRole('textbox', { name: /username/i })
 	await expect(usernameInput).toHaveValue(
-		normalizeUsername(ghUser.profile.login),
+		normalizeUsername(googleUser.primaryEmail.split('@')[0]!),
 	)
 	await expect(page.getByRole('textbox', { name: /^name/i })).toHaveValue(
-		ghUser.profile.name,
+		googleUser.profile.name,
 	)
 	const createAccountButton = page.getByRole('button', {
 		name: /create an account/i,
@@ -190,21 +192,21 @@ test('completes onboarding after GitHub OAuth given valid user details', async (
 
 	// internally, a user has been created:
 	await prisma.user.findUniqueOrThrow({
-		where: { email: normalizeEmail(ghUser.primaryEmail) },
+		where: { email: normalizeEmail(googleUser.primaryEmail) },
 	})
 })
 
-test('logs user in after GitHub OAuth if they are already registered', async ({
+test('logs user in after Google OAuth if they are already registered', async ({
 	page,
 	navigate,
-	prepareGitHubUser,
+	prepareGoogleUser,
 }) => {
-	const ghUser = await prepareGitHubUser()
+	const googleUser = await prepareGoogleUser()
 
 	// let's verify we do not have user with that email in our system ...
 	expect(
 		await prisma.user.findUnique({
-			where: { email: normalizeEmail(ghUser.primaryEmail) },
+			where: { email: normalizeEmail(googleUser.primaryEmail) },
 		}),
 	).toBeNull()
 	// ... and create one:
@@ -212,27 +214,29 @@ test('logs user in after GitHub OAuth if they are already registered', async ({
 	const user = await prisma.user.create({
 		select: { id: true, name: true },
 		data: {
-			email: normalizeEmail(ghUser.primaryEmail),
-			username: normalizeUsername(ghUser.profile.login),
+			email: normalizeEmail(googleUser.primaryEmail),
+			username: normalizeUsername(
+				googleUser.primaryEmail.split('@')[0]!,
+			),
 			name,
 		},
 	})
 
-	// let's verify there is no connection between the GitHub user
-	// and out app's user:
+	// let's verify there is no connection between the Google user
+	// and our app's user:
 	const connection = await prisma.connection.findFirst({
-		where: { providerName: 'github', userId: user.id },
+		where: { providerName: 'google', userId: user.id },
 	})
 	expect(connection).toBeNull()
 
 	await navigate('/signup')
-	await page.getByRole('button', { name: /signup with github/i }).click()
+	await page.getByRole('button', { name: /signup with google/i }).click()
 
 	await expect(page).toHaveURL(`/recipes`)
 	await expect(
 		page.getByText(
 			new RegExp(
-				`your "${ghUser!.profile.login}" github account has been connected`,
+				`your "${googleUser.primaryEmail.split('@')[0]}" google account has been connected`,
 				'i',
 			),
 		),
@@ -240,23 +244,25 @@ test('logs user in after GitHub OAuth if they are already registered', async ({
 
 	// internally, a connection (rather than a new user) has been created:
 	await prisma.connection.findFirstOrThrow({
-		where: { providerName: 'github', userId: user.id },
+		where: { providerName: 'google', userId: user.id },
 	})
 })
 
-test('shows help texts on entering invalid details on onboarding page after GitHub OAuth', async ({
+test('shows help texts on entering invalid details on onboarding page after Google OAuth', async ({
 	page,
 	navigate,
-	prepareGitHubUser,
+	prepareGoogleUser,
 }) => {
-	const ghUser = await prepareGitHubUser()
+	const googleUser = await prepareGoogleUser()
 
 	await navigate('/signup')
-	await page.getByRole('button', { name: /signup with github/i }).click()
+	await page.getByRole('button', { name: /signup with google/i }).click()
 
-	await expect(page).toHaveURL(/\/onboarding\/github/)
+	await expect(page).toHaveURL(/\/onboarding\/google/)
 	await expect(
-		page.getByText(new RegExp(`welcome aboard ${ghUser.primaryEmail}`, 'i')),
+		page.getByText(
+			new RegExp(`welcome aboard ${googleUser.primaryEmail}`, 'i'),
+		),
 	).toBeVisible()
 
 	const usernameInput = page.getByRole('textbox', { name: /username/i })
@@ -285,13 +291,13 @@ test('shows help texts on entering invalid details on onboarding page after GitH
 			/you must agree to the terms of service and privacy policy/i,
 		),
 	).toBeVisible()
-	await expect(page).toHaveURL(/\/onboarding\/github/)
+	await expect(page).toHaveURL(/\/onboarding\/google/)
 
 	// empty username
 	await usernameInput.fill('')
 	await createAccountButton.click()
 	await expect(page.getByText(/username is required/i)).toBeVisible()
-	await expect(page).toHaveURL(/\/onboarding\/github/)
+	await expect(page).toHaveURL(/\/onboarding\/google/)
 
 	// too short username
 	await usernameInput.fill(
@@ -319,7 +325,7 @@ test('shows help texts on entering invalid details on onboarding page after GitH
 	await expect(
 		page.getByText(/must agree to the terms of service and privacy policy/i),
 	).toBeVisible()
-	await expect(page).toHaveURL(/\/onboarding\/github/)
+	await expect(page).toHaveURL(/\/onboarding\/google/)
 
 	// we are all set up and ...
 

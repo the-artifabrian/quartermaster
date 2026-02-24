@@ -11,11 +11,10 @@ const schema = z.object({
 	SENTRY_DSN: z.string().optional(),
 	// If you plan to use Resend, remove the .optional()
 	RESEND_API_KEY: z.string().optional(),
-	// If you plan to use GitHub auth, remove the .optional()
-	GITHUB_CLIENT_ID: z.string().optional(),
-	GITHUB_CLIENT_SECRET: z.string().optional(),
-	GITHUB_REDIRECT_URI: z.string().optional(),
-	GITHUB_TOKEN: z.string().optional(),
+	// If you plan to use Google auth, remove the .optional()
+	GOOGLE_CLIENT_ID: z.string().optional(),
+	GOOGLE_CLIENT_SECRET: z.string().optional(),
+	GOOGLE_REDIRECT_URI: z.string().optional(),
 
 	ALLOW_INDEXING: z.enum(['true', 'false']).optional(),
 

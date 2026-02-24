@@ -150,17 +150,44 @@ describe('redeemInviteCode', () => {
 		})
 	})
 
-	it('rejects if user has active trial', async () => {
+	it('allows redemption during active auto-trial', async () => {
 		await prisma.subscription.update({
 			where: { userId: redeemer.userId },
 			data: { trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+		})
+
+		const [code] = await createAdminCodes(creator.userId, 1, {
+			grantsDays: 60,
+		})
+		const result = await redeemInviteCode(code!.code, redeemer.userId)
+		expect(result.success).toBe(true)
+		if (result.success) {
+			// Should extend to 60 days from now, not 7
+			const daysUntil = Math.round(
+				(result.trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000),
+			)
+			expect(daysUntil).toBe(60)
+		}
+	})
+
+	it('rejects if user has paid Pro subscription', async () => {
+		await prisma.subscription.update({
+			where: { userId: redeemer.userId },
+			data: {
+				tier: 'pro',
+				stripeCustomerId: 'cus_test',
+				stripeSubscriptionId: 'sub_test',
+				subscriptionExpiresAt: new Date(
+					Date.now() + 30 * 24 * 60 * 60 * 1000,
+				),
+			},
 		})
 
 		const [code] = await createAdminCodes(creator.userId, 1)
 		const result = await redeemInviteCode(code!.code, redeemer.userId)
 		expect(result.success).toBe(false)
 		if (!result.success) {
-			expect(result.error).toMatch(/You have Pro access until/)
+			expect(result.error).toMatch(/already have an active Pro subscription/)
 		}
 	})
 

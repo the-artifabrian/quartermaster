@@ -1,12 +1,61 @@
+import { faker } from '@faker-js/faker'
 import { describe, expect, test } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
+import { AUTO_TRIAL_DAYS, signup } from './auth.server.ts'
 import { getUserTier } from './subscription.server.ts'
 
 async function setupUser() {
 	const user = await prisma.user.create({ data: createUser() })
 	return user
 }
+
+/** Ensure the 'user' role exists (migrations create the table but tests skip seed). */
+async function ensureUserRole() {
+	await prisma.role.upsert({
+		where: { name: 'user' },
+		create: { name: 'user' },
+		update: {},
+	})
+}
+
+describe('auto-trial on signup', () => {
+	test('AUTO_TRIAL_DAYS is 14', () => {
+		expect(AUTO_TRIAL_DAYS).toBe(14)
+	})
+
+	test('signup() creates subscription with trialEndsAt ~14 days out', async () => {
+		await ensureUserRole()
+
+		const before = Date.now()
+		const session = await signup({
+			email: `${faker.string.alphanumeric(8)}@example.com`,
+			username: faker.string.alphanumeric(10).toLowerCase(),
+			name: faker.person.fullName(),
+			password: faker.internet.password({ length: 12 }),
+		})
+		const after = Date.now()
+
+		const sub = await prisma.subscription.findUnique({
+			where: { userId: session.userId },
+		})
+		expect(sub).toBeTruthy()
+		expect(sub!.tier).toBe('free')
+		expect(sub!.trialEndsAt).toBeInstanceOf(Date)
+
+		const trialEnd = sub!.trialEndsAt!.getTime()
+		const expectedMin = before + 14 * 24 * 60 * 60 * 1000
+		const expectedMax = after + 14 * 24 * 60 * 60 * 1000
+		expect(trialEnd).toBeGreaterThanOrEqual(expectedMin)
+		expect(trialEnd).toBeLessThanOrEqual(expectedMax)
+
+		// Verify getUserTier sees the trial as active
+		const tier = await getUserTier(session.userId)
+		expect(tier.isProActive).toBe(true)
+		expect(tier.isTrialing).toBe(true)
+		expect(tier.daysUntilExpiry).toBe(14)
+	})
+})
 
 describe('getUserTier', () => {
 	test('returns free tier when no Subscription record exists', async () => {

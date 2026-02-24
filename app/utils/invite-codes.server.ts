@@ -63,40 +63,11 @@ export async function redeemInviteCode(
 	// Check user's current subscription state
 	const tierInfo = await getUserTier(userId)
 
-	if (tierInfo.tier === 'pro') {
-		// Paid Pro (not trial) — reject
-		if (!tierInfo.isTrialing) {
-			return {
-				success: false,
-				error: 'You already have an active Pro subscription.',
-			}
-		}
-		// Active trial — reject
-		if (tierInfo.isProActive && tierInfo.isTrialing) {
-			const dateStr = tierInfo.trialEndsAt
-				? tierInfo.trialEndsAt.toLocaleDateString('en-US', {
-						month: 'long',
-						day: 'numeric',
-						year: 'numeric',
-					})
-				: 'soon'
-			return {
-				success: false,
-				error: `You have Pro access until ${dateStr}.`,
-			}
-		}
-	}
-
-	// Active trial on free tier
-	if (tierInfo.isTrialing && tierInfo.trialEndsAt) {
-		const dateStr = tierInfo.trialEndsAt.toLocaleDateString('en-US', {
-			month: 'long',
-			day: 'numeric',
-			year: 'numeric',
-		})
+	// Paid Pro (not trialing) — reject
+	if (tierInfo.tier === 'pro' && !tierInfo.isTrialing) {
 		return {
 			success: false,
-			error: `You have Pro access until ${dateStr}.`,
+			error: 'You already have an active Pro subscription.',
 		}
 	}
 

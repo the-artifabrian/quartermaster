@@ -154,7 +154,11 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	return redirectWithToast(
 		safeRedirect(redirectTo, '/recipes'),
-		{ title: 'Welcome', description: 'Thanks for signing up!' },
+		{
+			title: 'Welcome',
+			description:
+				'You have 14 days of full Pro access — explore everything!',
+		},
 		{ headers },
 	)
 }

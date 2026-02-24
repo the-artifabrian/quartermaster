@@ -11,6 +11,8 @@ import { type ProviderUser } from './providers/provider.ts'
 import { authSessionStorage } from './session.server.ts'
 import { uploadProfileImage } from './storage.server.ts'
 
+export const AUTO_TRIAL_DAYS = 14
+
 export const SESSION_EXPIRATION_TIME = 1000 * 60 * 60 * 24 * 30
 export const getSessionExpirationDate = () =>
 	new Date(Date.now() + SESSION_EXPIRATION_TIME)
@@ -156,11 +158,14 @@ export async function signup({
 			},
 		})
 
-		// Create a free subscription (Pro via invite codes only)
+		// Create a free subscription with auto-trial
 		await tx.subscription.create({
 			data: {
 				userId: newSession.userId,
 				tier: 'free',
+				trialEndsAt: new Date(
+					Date.now() + AUTO_TRIAL_DAYS * 24 * 60 * 60 * 1000,
+				),
 			},
 		})
 
@@ -207,11 +212,14 @@ export async function signupWithConnection({
 			},
 		})
 
-		// Create a free subscription (Pro via invite codes only)
+		// Create a free subscription with auto-trial
 		await tx.subscription.create({
 			data: {
 				userId: newUser.id,
 				tier: 'free',
+				trialEndsAt: new Date(
+					Date.now() + AUTO_TRIAL_DAYS * 24 * 60 * 60 * 1000,
+				),
 			},
 		})
 

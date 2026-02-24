@@ -245,7 +245,9 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 				</div>
 			</div>
 
-			{!tierInfo.isProActive ? <InviteCodeSection /> : null}
+			{!tierInfo.isProActive ||
+				<InviteCodeSection />
+			) : null}
 
 			<div className="mt-8 text-center">
 				<Button asChild variant="ghost">

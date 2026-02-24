@@ -120,7 +120,7 @@ export async function action({ request }: Route.ActionArgs) {
 const freeFeatures = [
 	'Unlimited recipes',
 	'Import from URL or paste',
-	'Up to 15 inventory items',
+	'Up to 50 inventory items',
 	'Smart recipe matching',
 	'Interactive cooking view',
 	'Cooking log & history',

@@ -1,7 +1,7 @@
 import { useRouteLoaderData } from 'react-router'
 import { type loader as rootLoader } from '#app/root.tsx'
 
-export const FREE_INVENTORY_LIMIT = 15
+export const FREE_INVENTORY_LIMIT = 50
 
 export function useSubscriptionTier() {
 	const data = useRouteLoaderData<typeof rootLoader>('root')

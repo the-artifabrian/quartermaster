@@ -70,8 +70,9 @@ value are the open questions — see
    - Configure OAuth consent screen (External, unverified fine under 100 users)
    - Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` in
      production env
-4. **Ship 14-day trial** — Every new signup gets full Pro access for 14 days,
-   without needing a code. Ship before inviting non-friend testers
+4. ~~**Ship 14-day trial**~~ — Done. Every new signup gets 14 days of
+   redeem codes (previously blocked). Tests cover signup trial creation and
+   `getUserTier` trial detection.
 5. **Find 2-3 non-friend testers** — Friendly users won't surface what's
    confusing. Find people who meal plan (colleagues, online communities) and ask
    them to try it for 2 weeks. This isn't a launch — it's learning whether the
@@ -207,7 +208,9 @@ warning, join page error sanitization). Detail in git history.
   sub-components following the recipe detail pattern (1,640 → 590 lines)
 - ~~**Service worker caches stale URL**~~ — fixed, `sw.js` correctly caches
   `/shopping`
-- **Subscription state complexity** — `trialEndsAt` is active and intentional
+- ~~**Subscription state complexity**~~ — resolved. Two trial sources now
+  or replaces). `getUserTier()` handles both via the same `trialEndsAt` field.
+  (upgrades their trial), only paid Pro users are blocked
 - ~~**No E2E test for shopping → inventory pipeline**~~ — added: generate from
   plan, check off, review panel, add to inventory, verify in DB + UI. Also tests
   merge-with-existing-inventory path
@@ -241,9 +244,12 @@ justify building. Larger-scope items (nutrition APIs, email digests, dashboards)
       that's 3 meals not 1. The meal plan has no concept of this — you plan 7
       dinners when you really only need to cook 4-5. Watch for friction signal
       during daily driving before building
-      testers. See
-      like a bait-and-switch for mass-market users who didn't come for
-      their top 15, or skip inventory entirely with a clear path to planning
+- [x] **14-day full-access trial** — Every new signup gets 14 days of
+      can redeem codes to extend. See
+- [x] **Bump free inventory limit to 50** — Was 15, which caused a
+      bait-and-switch feel: pantry staples onboarding shows 33 items but free
+      tier silently truncated at 15. At 50, all 33 staples fit comfortably.
+      The real Pro gate is features (planning, shopping, AI), not item count
 - [x] **Google OAuth (replace GitHub)** — Replaced GitHub OAuth with Google
       using `remix-auth-oauth2`. Google Cloud Console project + OAuth consent
       screen needed for production (unverified fine under 100 users)

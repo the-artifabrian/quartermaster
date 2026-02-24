@@ -157,10 +157,10 @@ items graduate to the [Public Beta Action List](#public-beta-action-list).
 | 2026-02-19 | auth       | Forgot password leaks user existence — returns "No user exists" instead of a generic success message                | watch  |
 | 2026-02-19 | cooking    | `UncookedMealReminder` loads once on mount — may miss newly-created uncooked entries later in-session               | fixed  |
 | 2026-02-19 | navigation | Pro lock icons have no tooltip or aria-label — free users see unexplained locks with no context                     | watch  |
-| 2026-02-19 | shopping   | Quick Add form is keyed by total items and can remount on count changes, dropping in-progress input                 | watch  |
+| 2026-02-19 | shopping   | Quick Add form is keyed by total items and can remount on count changes, dropping in-progress input                 | fixed  |
 | 2026-02-19 | shopping   | "Clear checked items" has no confirmation — plain form POST, no double-check, no undo                               | watch  |
 | 2026-02-19 | onboarding | Pantry staples onboarding has no "next step" CTA — user stays on `/inventory` with no guidance forward              | watch  |
-| 2026-02-19 | onboarding | Getting Started dismissal uses one localStorage key shared across users on same device                              | watch  |
+| 2026-02-19 | onboarding | Getting Started dismissal uses one localStorage key shared across users on same device                              | fixed  |
 
 > 14 items fixed Feb 18-19 (shopping UX, live-refresh, inline editing,
 > optimistic UI, recipe selector search, loading indicator, sourcemaps, invite
@@ -189,9 +189,9 @@ warning, join page error sanitization). Detail in git history.
 
 #### Watch
 
-- [ ] Keep shopping quick-add mounted while list count changes so in-progress
+- [x] Keep shopping quick-add mounted while list count changes so in-progress
       input is not dropped.
-- [ ] Scope getting-started dismissal per user, not just one browser-level
+- [x] Scope getting-started dismissal per user, not just one browser-level
       localStorage key.
 
 ---
@@ -203,9 +203,9 @@ warning, join page error sanitization). Detail in git history.
 - **In-memory matching at scale** — loads all recipes + inventory for matching.
   Fine at ~135 recipes, profile at 500+
 - **Profile photo S3 orphans** — photo updates never clean up old S3 objects
-- **`shopping.tsx` is 1,021 lines** — last remaining mega-file. Combines
-  generation, CRUD, check-off, SSE, and inventory pipeline in one route. Extract
-  sub-components following the recipe detail pattern (1,640 → 590 lines)
+- ~~**`shopping.tsx` is 1,021 lines**~~ — extracted 4 sub-components
+  (MobileFabAdd, ShoppingListLiveRefresh, LowStockNudge, WarningBanner). Route
+  file is now ~850 lines (loader + action + main component)
 - ~~**Service worker caches stale URL**~~ — fixed, `sw.js` correctly caches
   `/shopping`
 - ~~**Subscription state complexity**~~ — resolved. Two trial sources now

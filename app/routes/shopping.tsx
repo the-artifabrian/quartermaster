@@ -1,11 +1,14 @@
-import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useEffect, useRef, useState } from 'react'
-import { Form, Link, useFetcher, useRevalidator } from 'react-router'
+import { Form, Link, useFetcher } from 'react-router'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { ShoppingListToInventory } from '#app/components/shopping-list-to-inventory.tsx'
+import { ShoppingListLiveRefresh } from '#app/components/shopping-live-refresh.tsx'
+import { LowStockNudge } from '#app/components/shopping-low-stock-nudge.tsx'
+import { MobileFabAdd } from '#app/components/shopping-mobile-fab.tsx'
+import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -19,9 +22,7 @@ import {
 	formatWeekRange,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { subscribeToHouseholdEvents } from '#app/utils/household-event-source.client.tsx'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import { cn, useIsPending } from '#app/utils/misc.tsx'
 import {
 	getCanonicalIngredientName,
 	ingredientMatchesInventoryItem,
@@ -507,27 +508,35 @@ export default function ShoppingListRoute({
 		weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
 		weeksWithPlans[0]?.weekStart ??
 		''
-	const isPending = useIsPending()
-
-	const [form, fields] = useForm({
-		lastResult:
-			actionData?.status === 'error' || actionData?.status === 'success'
-				? actionData.submission
-				: null,
-		onValidate({ formData }) {
-			return parseWithZod(formData, { schema: ShoppingListItemSchema })
-		},
-		shouldValidate: 'onBlur',
-		shouldRevalidate: 'onInput',
-	})
+	// Quick-add uses fetcher so form state survives SSE-triggered revalidations
+	const quickAddFetcher = useFetcher<Record<string, unknown>>()
+	const [qaName, setQaName] = useState('')
+	const [qaQuantity, setQaQuantity] = useState('')
+	const [qaUnit, setQaUnit] = useState('')
+	const qaInputRef = useRef<HTMLInputElement>(null)
 
 	const [search, setSearch] = useState('')
 	const [showReview, setShowReview] = useState(false)
 	const [quickAddOpen, setQuickAddOpen] = useState(false)
 	const [fabOpen, setFabOpen] = useState(false)
-
-	// Warning dismiss state
 	const [warningDismissed, setWarningDismissed] = useState(false)
+
+	// Reset quick-add on success, preserve values on warning
+	const prevQaState = useRef(quickAddFetcher.state)
+	useEffect(() => {
+		if (
+			prevQaState.current !== 'idle' &&
+			quickAddFetcher.state === 'idle' &&
+			quickAddFetcher.data?.status === 'success'
+		) {
+			setQaName('')
+			setQaQuantity('')
+			setQaUnit('')
+			setWarningDismissed(false)
+			qaInputRef.current?.focus()
+		}
+		prevQaState.current = quickAddFetcher.state
+	}, [quickAddFetcher.state, quickAddFetcher.data])
 
 	const allItems = shoppingList.items
 	const totalItems = allItems.length
@@ -539,12 +548,12 @@ export default function ShoppingListRoute({
 		? allItems.filter((i) => i.name.toLowerCase().includes(searchLower))
 		: allItems
 
-	// Determine if we should show a warning
+	// Determine if we should show a warning (from quick-add fetcher, not route actionData)
 	const showWarning =
 		!warningDismissed &&
-		actionData &&
-		'warningType' in actionData &&
-		actionData.status === 'warning'
+		quickAddFetcher.data &&
+		'warningType' in quickAddFetcher.data &&
+		quickAddFetcher.data.status === 'warning'
 
 	return (
 		<div className="pb-20 md:pb-6">
@@ -620,15 +629,18 @@ export default function ShoppingListRoute({
 					{/* Warning banner */}
 					{showWarning && (
 						<WarningBanner
-							actionData={actionData}
+							actionData={
+								quickAddFetcher.data as Record<string, unknown>
+							}
 							onDismiss={() => setWarningDismissed(true)}
 						/>
 					)}
 
-					<Form
+					<quickAddFetcher.Form
 						method="POST"
-						{...getFormProps(form)}
-						onChange={() => setWarningDismissed(false)}
+						onSubmit={(e) => {
+							if (!qaName.trim()) e.preventDefault()
+						}}
 					>
 						<input type="hidden" name="intent" value="add" />
 						{showWarning && (
@@ -637,20 +649,16 @@ export default function ShoppingListRoute({
 						<div className="flex items-center gap-2">
 							<div className="min-w-0 flex-1">
 								<Input
-									{...getInputProps(fields.name, { type: 'text' })}
+									ref={qaInputRef}
+									name="name"
+									value={qaName}
+									onChange={(e) => {
+										setQaName(e.target.value)
+										setWarningDismissed(false)
+									}}
 									placeholder="Add an item..."
-									defaultValue={
-										showWarning && 'submittedName' in actionData
-											? (actionData.submittedName as string)
-											: undefined
-									}
 									className="h-10 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
 								/>
-								{fields.name.errors && (
-									<p className="text-destructive mt-1 text-sm">
-										{fields.name.errors}
-									</p>
-								)}
 							</div>
 							{!quickAddOpen && (
 								<button
@@ -663,7 +671,10 @@ export default function ShoppingListRoute({
 							)}
 							<button
 								type="submit"
-								disabled={isPending}
+								disabled={
+									!qaName.trim() ||
+									quickAddFetcher.state !== 'idle'
+								}
 								className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
 								aria-label={showWarning ? 'Add anyway' : 'Add to list'}
 							>
@@ -674,25 +685,19 @@ export default function ShoppingListRoute({
 							<div className="flex items-center gap-3 pb-1">
 								<div className="min-w-0 flex-1">
 									<Input
-										{...getInputProps(fields.quantity, { type: 'text' })}
+										name="quantity"
+										value={qaQuantity}
+										onChange={(e) => setQaQuantity(e.target.value)}
 										placeholder="Qty"
-										defaultValue={
-											showWarning && 'submittedQuantity' in actionData
-												? ((actionData.submittedQuantity as string) ?? '')
-												: undefined
-										}
 										className="h-8 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
 									/>
 								</div>
 								<div className="min-w-0 flex-1">
 									<Input
-										{...getInputProps(fields.unit, { type: 'text' })}
+										name="unit"
+										value={qaUnit}
+										onChange={(e) => setQaUnit(e.target.value)}
 										placeholder="Unit"
-										defaultValue={
-											showWarning && 'submittedUnit' in actionData
-												? ((actionData.submittedUnit as string) ?? '')
-												: undefined
-										}
 										className="h-8 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
 									/>
 								</div>
@@ -705,7 +710,7 @@ export default function ShoppingListRoute({
 								</button>
 							</div>
 						)}
-					</Form>
+					</quickAddFetcher.Form>
 				</div>
 
 				{/* Search — only shown with 15+ items */}
@@ -836,312 +841,4 @@ export default function ShoppingListRoute({
 			/>
 		</div>
 	)
-}
-
-// --- Mobile FAB quick-add ---
-
-function MobileFabAdd({
-	open,
-	onOpenChange,
-}: {
-	open: boolean
-	onOpenChange: (open: boolean) => void
-}) {
-	const fetcher = useFetcher<{ status: string }>()
-	const [name, setName] = useState('')
-	const [quantity, setQuantity] = useState('')
-	const [unit, setUnit] = useState('')
-	const [showQty, setShowQty] = useState(false)
-	const inputRef = useRef<HTMLInputElement>(null)
-
-	useEffect(() => {
-		if (open) {
-			setTimeout(() => inputRef.current?.focus(), 50)
-		}
-	}, [open])
-
-	const prevState = useRef(fetcher.state)
-	useEffect(() => {
-		if (
-			prevState.current !== 'idle' &&
-			fetcher.state === 'idle' &&
-			fetcher.data?.status === 'success'
-		) {
-			setName('')
-			setQuantity('')
-			setUnit('')
-			inputRef.current?.focus()
-		}
-		prevState.current = fetcher.state
-	}, [fetcher.state, fetcher.data])
-
-	return (
-		<div className="md:hidden print:hidden">
-			{open && (
-				<div
-					className="fixed inset-0 z-40"
-					onClick={() => onOpenChange(false)}
-				/>
-			)}
-			{open && (
-				<div className="fixed bottom-[9rem] right-4 z-50 w-[calc(100vw-2rem)] max-w-xs animate-fade-up-reveal rounded-xl border border-border/60 bg-card p-3 shadow-warm-lg">
-					<fetcher.Form
-						method="POST"
-						onSubmit={(e) => {
-							if (!name.trim()) e.preventDefault()
-						}}
-					>
-						<input type="hidden" name="intent" value="add" />
-						<input type="hidden" name="force" value="true" />
-						<div className="flex items-center gap-2">
-							<input
-								ref={inputRef}
-								name="name"
-								value={name}
-								onChange={(e) => setName(e.target.value)}
-								placeholder="Add an item..."
-								className="h-10 min-w-0 flex-1 rounded-lg border border-border/50 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/20"
-							/>
-							<button
-								type="submit"
-								disabled={!name.trim() || fetcher.state !== 'idle'}
-								className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"
-							>
-								<Icon name="plus" className="size-5" />
-							</button>
-						</div>
-						{showQty ? (
-							<div className="mt-2 flex items-center gap-2">
-								<input
-									name="quantity"
-									value={quantity}
-									onChange={(e) => setQuantity(e.target.value)}
-									placeholder="Qty"
-									className="h-8 w-16 rounded-lg border border-border/50 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30"
-								/>
-								<input
-									name="unit"
-									value={unit}
-									onChange={(e) => setUnit(e.target.value)}
-									placeholder="Unit"
-									className="h-8 min-w-0 flex-1 rounded-lg border border-border/50 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30"
-								/>
-								<button
-									type="button"
-									onClick={() => setShowQty(false)}
-									className="shrink-0 text-xs text-muted-foreground/60 hover:text-muted-foreground"
-								>
-									Hide
-								</button>
-							</div>
-						) : (
-							<button
-								type="button"
-								onClick={() => setShowQty(true)}
-								className="mt-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground"
-							>
-								+ Qty &amp; unit
-							</button>
-						)}
-					</fetcher.Form>
-				</div>
-			)}
-			<button
-				type="button"
-				className={cn(
-					'fixed bottom-[5.5rem] right-4 z-50 flex size-12 items-center justify-center rounded-full shadow-warm-md transition-all active:scale-95',
-					open
-						? 'bg-muted text-muted-foreground'
-						: 'bg-primary text-primary-foreground',
-				)}
-				aria-label={open ? 'Close' : 'Add item'}
-				onClick={() => onOpenChange(!open)}
-			>
-				<Icon name={open ? 'cross-1' : 'plus'} className="size-6" />
-			</button>
-		</div>
-	)
-}
-
-// --- Live refresh via SSE ---
-
-const SHOPPING_EVENT_TYPES = new Set([
-	'shopping_list_generated',
-	'shopping_list_item_added',
-	'shopping_list_cleared',
-	'shopping_list_to_inventory',
-	'shopping_list_item_toggled',
-	'shopping_list_item_edited',
-	'shopping_list_item_deleted',
-])
-
-function ShoppingListLiveRefresh() {
-	const { revalidate } = useRevalidator()
-	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-	useEffect(() => {
-		const unsubscribe = subscribeToHouseholdEvents((event) => {
-			if (!SHOPPING_EVENT_TYPES.has(event.type)) return
-			if (debounceRef.current) clearTimeout(debounceRef.current)
-			debounceRef.current = setTimeout(() => {
-				debounceRef.current = null
-				void revalidate()
-			}, 500)
-		})
-
-		return () => {
-			unsubscribe()
-			if (debounceRef.current) clearTimeout(debounceRef.current)
-		}
-	}, [revalidate])
-
-	return null
-}
-
-// --- Low stock nudge ---
-
-type LowStockItem = {
-	id: string
-	name: string
-	location: string
-	quantity: number | null
-	unit: string | null
-}
-
-function LowStockNudge({ items }: { items: LowStockItem[] }) {
-	const addAllFetcher = useFetcher()
-	const isAddingAll = addAllFetcher.state !== 'idle'
-
-	return (
-		<div className="mb-6 rounded-lg bg-accent/8 p-4 print:hidden">
-			<div className="mb-3 flex items-center justify-between gap-2">
-				<h3 className="text-[0.75rem] font-medium tracking-[0.08em] uppercase text-accent">
-					Running low
-				</h3>
-				<addAllFetcher.Form method="POST">
-					<input type="hidden" name="intent" value="add-all-low-stock" />
-					<input
-						type="hidden"
-						name="names"
-						value={JSON.stringify(items.map((i) => i.name))}
-					/>
-					<button
-						type="submit"
-						className="text-xs text-accent underline underline-offset-2 hover:text-accent/80 disabled:opacity-50"
-						disabled={isAddingAll}
-					>
-						{isAddingAll ? 'Adding...' : `Add all (${items.length})`}
-					</button>
-				</addAllFetcher.Form>
-			</div>
-			<div className="flex flex-wrap gap-2">
-				{items.map((item) => (
-					<LowStockChip key={item.id} item={item} />
-				))}
-			</div>
-		</div>
-	)
-}
-
-function LowStockChip({ item }: { item: LowStockItem }) {
-	const fetcher = useFetcher()
-	const isAdding = fetcher.state !== 'idle'
-
-	if (isAdding) {
-		return (
-			<span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-				<Icon name="check" className="size-3" />
-				{item.name}
-			</span>
-		)
-	}
-
-	return (
-		<fetcher.Form method="POST">
-			<input type="hidden" name="intent" value="add-low-stock" />
-			<input type="hidden" name="itemName" value={item.name} />
-			<button
-				type="submit"
-				className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium transition-colors hover:border-accent/30 hover:bg-accent/5"
-			>
-				{item.name}
-				<Icon name="plus" className="size-3 text-muted-foreground" />
-			</button>
-		</fetcher.Form>
-	)
-}
-
-// --- Warning banner for duplicate/inventory items ---
-
-function WarningBanner({
-	actionData,
-	onDismiss,
-}: {
-	actionData: Record<string, unknown>
-	onDismiss: () => void
-}) {
-	if (actionData.warningType === 'already_on_list') {
-		const qty = actionData.existingQuantity
-			? `${actionData.existingQuantity}${actionData.existingUnit ? ` ${actionData.existingUnit}` : ''}`
-			: null
-		return (
-			<div className="mb-3 flex items-start gap-2 rounded-lg bg-accent/10 p-3">
-				<Icon
-					name="question-mark-circled"
-					className="mt-0.5 size-4 shrink-0 text-accent"
-				/>
-				<div className="flex-1 text-sm">
-					<p className="font-medium">
-						{actionData.existingName as string} is already on your list
-						{qty ? ` (${qty})` : ''}.
-					</p>
-					<p className="text-muted-foreground mt-0.5">
-						Tap + to add anyway, or{' '}
-						<button
-							type="button"
-							onClick={onDismiss}
-							className="text-primary underline underline-offset-2"
-						>
-							cancel
-						</button>
-						.
-					</p>
-				</div>
-			</div>
-		)
-	}
-
-	if (actionData.warningType === 'in_inventory') {
-		const loc = actionData.inventoryLocation as string
-		const qty = actionData.inventoryQuantity
-			? `${actionData.inventoryQuantity}${actionData.inventoryUnit ? ` ${actionData.inventoryUnit}` : ''}`
-			: null
-		return (
-			<div className="mb-3 flex items-start gap-2 rounded-lg bg-accent/10 p-3">
-				<Icon
-					name="question-mark-circled"
-					className="mt-0.5 size-4 shrink-0 text-accent"
-				/>
-				<div className="flex-1 text-sm">
-					<p className="font-medium">
-						{actionData.inventoryName as string} is in your {loc}
-						{qty ? ` (${qty})` : ''}.
-					</p>
-					<p className="text-muted-foreground mt-0.5">
-						Tap + to add anyway, or{' '}
-						<button
-							type="button"
-							onClick={onDismiss}
-							className="text-primary underline underline-offset-2"
-						>
-							cancel
-						</button>
-						.
-					</p>
-				</div>
-			</div>
-		)
-	}
-
-	return null
 }

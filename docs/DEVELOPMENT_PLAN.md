@@ -80,11 +80,7 @@ person. Inventory sustainability is the open question — see
 
 ### Critical Path
 
-1. **Post for beta testers THIS WEEK** — This is the single highest-value
-   action. Friends tolerate friction. Strangers bounce — and *where* they
-   bounce tells you what's actually broken. Post on r/SideProject (self-promo
-   is the point) and r/alphaandbetausers (purpose-built for beta recruitment).
-   Skip r/Cooking and r/MealPrepSunday — strict anti-promotion rules. See
+1. ~~**Post for beta testers THIS WEEK**~~ — Done. Posted on r/SideProject
 2. **Watch and fix** — At 3-5 testers, conversations beat analytics. Pay
    attention to where testers stop and what they ask. Fix the top 2-3
    confusion points. Don't polish speculatively — let strangers show you
@@ -95,12 +91,8 @@ person. Inventory sustainability is the open question — see
 4. **Daily drive for 4+ weeks** — Plan the week, shop from the list, cook from
    the app. Fix friction as it surfaces.
 5. ~~**Stress-test inventory**~~ — Resolved. Shifted to rough-signal model.
-6. ~~**Ship Google OAuth**~~ — Code done. **Needs production setup:**
-   - Create Google Cloud Console OAuth 2.0 Client ID (Web application)
-   - Add authorized redirect URI: `https://<prod-domain>/auth/google/callback`
-   - Configure OAuth consent screen (External, unverified fine under 100 users)
-   - Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` in
-     production env
+6. ~~**Ship Google OAuth**~~ — Done. Production credentials configured
+     (February 25, 2026). Unverified app — fine under 100 users
    codes.
 
 ### Proven Gate

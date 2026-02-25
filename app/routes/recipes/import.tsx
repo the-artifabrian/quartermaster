@@ -18,7 +18,6 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
 import { parseRecipeText } from '#app/utils/bulk-recipe-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	parseIngredient,
@@ -591,13 +590,6 @@ export async function action({ request }: Route.ActionArgs) {
 				},
 			},
 			select: { id: true },
-		})
-
-		void emitHouseholdEvent({
-			type: 'recipe_imported',
-			payload: { recipeId: recipe.id, title },
-			userId,
-			householdId,
 		})
 
 		return redirect(`/recipes/${recipe.id}`)

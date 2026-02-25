@@ -1,5 +1,7 @@
 import { NavLink, useLocation } from 'react-router'
 import { cn } from '#app/utils/misc.tsx'
+import { useIsProActive } from '#app/utils/subscription.ts'
+import { useShoppingActivityDot } from '#app/utils/use-shopping-activity-dot.ts'
 import { useOptionalUser } from '#app/utils/user.ts'
 import { Icon, type IconName } from './ui/icon.tsx'
 
@@ -45,6 +47,8 @@ const navItems: NavItem[] = [
 export function BottomNav() {
 	const location = useLocation()
 	const user = useOptionalUser()
+	const isProActive = useIsProActive()
+	const showShoppingDot = useShoppingActivityDot(isProActive)
 
 	if (!user) return null
 
@@ -73,7 +77,12 @@ export function BottomNav() {
 									: 'text-muted-foreground hover:text-foreground',
 							)}
 						>
-							<Icon name={iconName} size="lg" />
+							<span className="relative">
+								<Icon name={iconName} size="lg" />
+								{item.to === '/shopping' && showShoppingDot && (
+									<span className="bg-accent absolute -top-0.5 -right-0.5 size-2 rounded-full" />
+								)}
+							</span>
 							<span
 								className={cn('text-xs leading-4', isActive && 'font-medium')}
 							>

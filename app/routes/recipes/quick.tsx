@@ -20,7 +20,6 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { parseRecipeText } from '#app/utils/bulk-recipe-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { QuickRecipeSchema } from '#app/utils/recipe-validation.ts'
 import { type Route } from './+types/quick.ts'
@@ -83,13 +82,6 @@ export async function action({ request }: Route.ActionArgs) {
 					: undefined,
 		},
 		select: { id: true },
-	})
-
-	void emitHouseholdEvent({
-		type: 'recipe_created',
-		payload: { recipeId: recipe.id, title },
-		userId,
-		householdId,
 	})
 
 	return redirect(`/recipes/${recipe.id}`)

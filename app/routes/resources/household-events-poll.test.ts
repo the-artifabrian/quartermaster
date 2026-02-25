@@ -94,8 +94,8 @@ describe('household-events-poll loader', () => {
 		// Create events from the other user
 		await prisma.householdEvent.create({
 			data: {
-				type: 'recipe_created',
-				payload: JSON.stringify({ recipeId: 'r1', title: 'Pasta' }),
+				type: 'shopping_list_item_added',
+				payload: JSON.stringify({ name: 'Pasta' }),
 				householdId: user.householdId,
 				userId: otherUser.userId,
 			},
@@ -104,8 +104,8 @@ describe('household-events-poll loader', () => {
 		// Create an event from the current user (should be excluded)
 		await prisma.householdEvent.create({
 			data: {
-				type: 'recipe_created',
-				payload: JSON.stringify({ recipeId: 'r2', title: 'Salad' }),
+				type: 'shopping_list_item_added',
+				payload: JSON.stringify({ name: 'Salad' }),
 				householdId: user.householdId,
 				userId: user.userId,
 			},
@@ -121,11 +121,8 @@ describe('household-events-poll loader', () => {
 		})) as { data: { events: any[] } }
 
 		expect(result.data.events).toHaveLength(1)
-		expect(result.data.events[0].type).toBe('recipe_created')
-		expect(result.data.events[0].payload).toEqual({
-			recipeId: 'r1',
-			title: 'Pasta',
-		})
+		expect(result.data.events[0].type).toBe('shopping_list_item_added')
+		expect(result.data.events[0].payload).toEqual({ name: 'Pasta' })
 		expect(result.data.events[0].userId).toBe(otherUser.userId)
 		expect(result.data.events[0].householdId).toBe(user.householdId)
 	})
@@ -140,8 +137,8 @@ describe('household-events-poll loader', () => {
 
 		await prisma.householdEvent.create({
 			data: {
-				type: 'inventory_item_added',
-				payload: JSON.stringify({ name: 'Milk', location: 'fridge' }),
+				type: 'shopping_list_generated',
+				payload: JSON.stringify({ count: 12 }),
 				householdId: user.householdId,
 				userId: otherUser.userId,
 			},
@@ -179,8 +176,8 @@ describe('household-events-poll loader', () => {
 		// Create an event first
 		await prisma.householdEvent.create({
 			data: {
-				type: 'recipe_created',
-				payload: JSON.stringify({ recipeId: 'r1', title: 'Old' }),
+				type: 'shopping_list_item_added',
+				payload: JSON.stringify({ name: 'Old Item' }),
 				householdId: user.householdId,
 				userId: otherUser.userId,
 			},

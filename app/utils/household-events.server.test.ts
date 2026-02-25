@@ -22,8 +22,8 @@ describe('emitHouseholdEvent', () => {
 		const user = await setupUser()
 
 		await emitHouseholdEvent({
-			type: 'recipe_created',
-			payload: { recipeId: 'abc', title: 'Test Recipe' },
+			type: 'shopping_list_item_added',
+			payload: { name: 'Butter' },
 			userId: user.id,
 			householdId: user.householdId,
 		})
@@ -33,11 +33,8 @@ describe('emitHouseholdEvent', () => {
 		})
 
 		expect(events).toHaveLength(1)
-		expect(events[0]!.type).toBe('recipe_created')
-		expect(JSON.parse(events[0]!.payload)).toEqual({
-			recipeId: 'abc',
-			title: 'Test Recipe',
-		})
+		expect(events[0]!.type).toBe('shopping_list_item_added')
+		expect(JSON.parse(events[0]!.payload)).toEqual({ name: 'Butter' })
 		expect(events[0]!.userId).toBe(user.id)
 		expect(events[0]!.householdId).toBe(user.householdId)
 	})
@@ -49,8 +46,8 @@ describe('emitHouseholdEvent', () => {
 		householdEventBus.on(`household:${user.householdId}`, listener)
 
 		await emitHouseholdEvent({
-			type: 'inventory_item_added',
-			payload: { name: 'Milk', location: 'fridge' },
+			type: 'shopping_list_generated',
+			payload: { count: 12 },
 			userId: user.id,
 			householdId: user.householdId,
 		})
@@ -59,8 +56,8 @@ describe('emitHouseholdEvent', () => {
 
 		expect(listener).toHaveBeenCalledTimes(1)
 		const eventData = listener.mock.calls[0]![0]
-		expect(eventData.type).toBe('inventory_item_added')
-		expect(eventData.payload).toEqual({ name: 'Milk', location: 'fridge' })
+		expect(eventData.type).toBe('shopping_list_generated')
+		expect(eventData.payload).toEqual({ count: 12 })
 		expect(eventData.userId).toBe(user.id)
 		expect(eventData.householdId).toBe(user.householdId)
 		expect(typeof eventData.username).toBe('string')

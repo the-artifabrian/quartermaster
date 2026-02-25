@@ -285,9 +285,8 @@ cleaner and more reliable across browsers.
 
 ### Navigation
 
-**Header**: "Quartermaster" wordmark on the left in DM Sans 500. Notification
-bell and user avatar on the right. Clean, minimal — the header shouldn't compete
-with page content. On landing page (logged out): wordmark left, "Log In" button
+**Header**: "Quartermaster" wordmark on the left in DM Sans 500. User avatar on
+the right. Clean, minimal — the header shouldn't compete with page content. On landing page (logged out): wordmark left, "Log In" button
 right.
 
 **Bottom tab bar (mobile)**: Four tabs — Recipes, Inventory, Plan, Shop. DM Sans

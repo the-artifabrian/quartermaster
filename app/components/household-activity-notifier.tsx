@@ -1,10 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
-import {
-	formatEventMessage,
-	getEventPriority,
-} from '#app/utils/household-event-messages.ts'
+import { formatEventMessage } from '#app/utils/household-event-messages.ts'
 import { subscribeToHouseholdEvents } from '#app/utils/household-event-source.client.tsx'
 
 export function HouseholdActivityNotifier() {
@@ -12,8 +9,6 @@ export function HouseholdActivityNotifier() {
 
 	useEffect(() => {
 		const unsubscribe = subscribeToHouseholdEvents((event) => {
-			if (getEventPriority(event.type) !== 'notify') return
-
 			const { message, url } = formatEventMessage(
 				event.type,
 				event.payload,

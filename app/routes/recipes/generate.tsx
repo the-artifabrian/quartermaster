@@ -11,7 +11,6 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	generateRecipeFromInventory,
 	type GeneratedRecipe,
@@ -246,13 +245,6 @@ export async function action({ request }: Route.ActionArgs) {
 				},
 			},
 			select: { id: true },
-		})
-
-		void emitHouseholdEvent({
-			type: 'recipe_created',
-			payload: { recipeId: recipe.id, title },
-			userId,
-			householdId,
 		})
 
 		trackEvent(userId, householdId, 'recipe_generation_saved', {

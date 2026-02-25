@@ -7,7 +7,6 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	getCanonicalIngredientName,
 	isOptionalIngredient,
@@ -276,15 +275,6 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 			created++
 		}
-	}
-
-	if (created > 0) {
-		void emitHouseholdEvent({
-			type: 'meal_plan_weekly_reset',
-			payload: { count: created },
-			userId,
-			householdId,
-		})
 	}
 
 	return data({

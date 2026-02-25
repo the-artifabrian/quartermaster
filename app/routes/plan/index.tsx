@@ -1,16 +1,11 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useEffect, useState } from 'react'
-import { Form, Link, useRevalidator } from 'react-router'
-import { InventorySweepModal } from '#app/components/inventory-sweep-modal.tsx'
+import { useState } from 'react'
+import { Form, Link } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { SuggestMealsModal } from '#app/components/suggest-meals-modal.tsx'
-import {
-	ApplyTemplateModal,
-	SaveTemplateModal,
-} from '#app/components/template-modal.tsx'
 import { TodayBanner } from '#app/components/today-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -25,7 +20,6 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { trackEvent } from '#app/utils/usage-tracking.server.ts'
@@ -194,25 +188,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 		tonightData = { entries: tonightEntries, suggestion }
 	}
 
-	// Fetch meal plan templates for this household (Pro-only feature)
-	const templates = isProActive
-		? await prisma.mealPlanTemplate.findMany({
-				where: { householdId },
-				orderBy: { updatedAt: 'desc' },
-				select: {
-					id: true,
-					name: true,
-					_count: { select: { entries: true } },
-				},
-			})
-		: []
-
 	const shoppingListItemCount = await prisma.shoppingListItem.count({
 		where: { list: { householdId } },
-	})
-
-	const inventoryItemCount = await prisma.inventoryItem.count({
-		where: { householdId },
 	})
 
 	return {
@@ -226,9 +203,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		weekStart: serializeDate(weekStart),
 		isCurrentWeek,
 		tonightData,
-		templates,
 		shoppingListItemCount,
-		inventoryItemCount,
 		isProActive,
 	}
 }
@@ -281,21 +256,11 @@ export async function action({ request }: Route.ActionArgs) {
 				},
 			})
 
-			const recipe = await prisma.recipe.findUnique({
-				where: { id: recipeId },
-				select: { title: true },
-			})
-			const dayName = new Date(date).toLocaleDateString('en-US', {
-				weekday: 'long',
-			})
-			void emitHouseholdEvent({
-				type: 'meal_plan_assigned',
-				payload: { title: recipe?.title ?? 'a recipe', day: dayName, mealType },
-				userId,
-				householdId,
-			})
-
 			if (formData.get('fromPairing') === 'true') {
+				const recipe = await prisma.recipe.findUnique({
+					where: { id: recipeId },
+					select: { title: true },
+				})
 				void trackEvent(userId, householdId, 'pairing_recipe_assigned', {
 					recipeId,
 					recipeTitle: recipe?.title,
@@ -334,20 +299,12 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const entry = await prisma.mealPlanEntry.findFirst({
 			where: { id: entryId, mealPlan: { householdId } },
-			include: { recipe: { select: { title: true } } },
 		})
 		invariantResponse(entry, 'Entry not found', { status: 404 })
 
 		await prisma.mealPlanEntry.update({
 			where: { id: entryId },
 			data: { cooked: !entry.cooked },
-		})
-
-		void emitHouseholdEvent({
-			type: 'meal_plan_cooked',
-			payload: { title: entry.recipe.title, cooked: !entry.cooked },
-			userId,
-			householdId,
 		})
 
 		return { status: 'success' as const }
@@ -363,18 +320,10 @@ export async function action({ request }: Route.ActionArgs) {
 				id: entryId,
 				mealPlan: { householdId },
 			},
-			include: { recipe: { select: { title: true } } },
 		})
 		invariantResponse(entry, 'Entry not found', { status: 404 })
 
 		await prisma.mealPlanEntry.delete({ where: { id: entryId } })
-
-		void emitHouseholdEvent({
-			type: 'meal_plan_removed',
-			payload: { title: entry.recipe.title },
-			userId,
-			householdId,
-		})
 
 		return { status: 'success' as const }
 	}
@@ -407,20 +356,6 @@ export async function action({ request }: Route.ActionArgs) {
 			},
 		})
 
-		void emitHouseholdEvent({
-			type: 'meal_plan_cooked',
-			payload: { title: entry.recipe.title, cooked: true },
-			userId,
-			householdId,
-		})
-
-		void emitHouseholdEvent({
-			type: 'cook_logged',
-			payload: { recipeId: entry.recipe.id, title: entry.recipe.title },
-			userId,
-			householdId,
-		})
-
 		return {
 			status: 'success' as const,
 			recipeTitle: entry.recipe.title,
@@ -428,28 +363,6 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	return { status: 'error' as const }
-}
-
-const SWEEP_DISMISS_PREFIX = 'inventory-sweep:'
-const SWEEP_SKIP_COUNT_KEY = 'inventory-sweep:skip-count'
-const SWEEP_MAX_SKIPS = 3
-
-function getSweepDismissKey(weekStart: string) {
-	return `${SWEEP_DISMISS_PREFIX}${weekStart}`
-}
-
-function getSweepPermanentlyDismissed(): boolean {
-	const count = parseInt(localStorage.getItem(SWEEP_SKIP_COUNT_KEY) ?? '0', 10)
-	return count >= SWEEP_MAX_SKIPS
-}
-
-function incrementSweepSkipCount() {
-	const count = parseInt(localStorage.getItem(SWEEP_SKIP_COUNT_KEY) ?? '0', 10)
-	localStorage.setItem(SWEEP_SKIP_COUNT_KEY, String(count + 1))
-}
-
-function resetSweepSkipCount() {
-	localStorage.removeItem(SWEEP_SKIP_COUNT_KEY)
 }
 
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
@@ -460,9 +373,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 		weekStart,
 		isCurrentWeek,
 		tonightData,
-		templates,
 		shoppingListItemCount,
-		inventoryItemCount,
 		isProActive,
 	} = loaderData
 
@@ -470,41 +381,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const nextWeek = serializeDate(getNextWeek(parseDate(weekStart)))
 	const currentWeek = serializeDate(getCurrentWeekStart())
 	const [showSuggest, setShowSuggest] = useState(false)
-	const [showSaveTemplate, setShowSaveTemplate] = useState(false)
-	const [showApplyTemplate, setShowApplyTemplate] = useState(false)
 	const [bannerDismissed, setBannerDismissed] = useState(false)
-	const [showSweep, setShowSweep] = useState(false)
-	const [sweepDismissed, setSweepDismissed] = useState(true)
-	const revalidator = useRevalidator()
-
-	// Check localStorage for sweep dismissal (client-only)
-	useEffect(() => {
-		const key = getSweepDismissKey(currentWeek)
-		const dismissed =
-			localStorage.getItem(key) === 'true' ||
-			getSweepPermanentlyDismissed()
-		setSweepDismissed(dismissed)
-	}, [currentWeek])
-
-	function skipSweep() {
-		const key = getSweepDismissKey(currentWeek)
-		localStorage.setItem(key, 'true')
-		incrementSweepSkipCount()
-		setSweepDismissed(true)
-		setShowSweep(false)
-	}
-
-	function completeSweep() {
-		const key = getSweepDismissKey(currentWeek)
-		localStorage.setItem(key, 'true')
-		resetSweepSkipCount()
-		setSweepDismissed(true)
-		setShowSweep(false)
-		void revalidator.revalidate()
-	}
-
-	const showSweepBanner =
-		isProActive && isCurrentWeek && inventoryItemCount > 0 && !sweepDismissed
 
 	return (
 		<div className="pb-20 md:pb-6">
@@ -523,26 +400,6 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 							>
 								<Icon name="sparkles" size="sm" />
 								Suggest Meals
-							</Button>
-						)}
-						{isProActive && entries.length > 0 && (
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setShowSaveTemplate(true)}
-							>
-								<Icon name="plus" size="sm" />
-								Save Template
-							</Button>
-						)}
-						{isProActive && templates.length > 0 && (
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setShowApplyTemplate(true)}
-							>
-								<Icon name="update" size="sm" />
-								Use Template
 							</Button>
 						)}
 						{isProActive && entries.length > 0 && (
@@ -597,33 +454,6 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 							onDismiss={() => setBannerDismissed(true)}
 						/>
 					)}
-
-				{/* Weekly inventory sweep banner */}
-				{showSweepBanner && (
-					<div className="bg-card shadow-warm-lg mb-4 rounded-2xl p-5">
-						<h2 className="font-serif text-lg">
-							Anything you've used up this week?
-						</h2>
-						<p className="text-muted-foreground mt-1 text-sm">
-							Quick review before you plan.
-						</p>
-						<div className="mt-3 flex items-center gap-3">
-							<Button
-								size="sm"
-								onClick={() => setShowSweep(true)}
-							>
-								Quick Review
-							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={skipSweep}
-							>
-								Skip
-							</Button>
-						</div>
-					</div>
-				)}
 
 				{/* Empty State Guidance */}
 				{entries.length === 0 && (
@@ -680,27 +510,6 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 				/>
 			)}
 
-			{showSaveTemplate && (
-				<SaveTemplateModal
-					weekStart={weekStart}
-					onClose={() => setShowSaveTemplate(false)}
-				/>
-			)}
-
-			{showApplyTemplate && (
-				<ApplyTemplateModal
-					templates={templates}
-					weekStart={weekStart}
-					onClose={() => setShowApplyTemplate(false)}
-				/>
-			)}
-
-			{showSweep && (
-				<InventorySweepModal
-					onClose={() => setShowSweep(false)}
-					onApplied={completeSweep}
-				/>
-			)}
 		</div>
 	)
 }

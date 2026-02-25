@@ -206,16 +206,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 			where: { id: recipeId },
 			data: { isFavorite: !recipe.isFavorite },
 		})
-		void emitHouseholdEvent({
-			type: 'recipe_favorited',
-			payload: {
-				recipeId,
-				title: recipe.title,
-				isFavorite: !recipe.isFavorite,
-			},
-			userId,
-			householdId,
-		})
 		return { success: true }
 	}
 
@@ -232,13 +222,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 				cookedAt: submission.value.cookedAt ?? new Date(),
 				notes: submission.value.notes || null,
 			},
-		})
-
-		void emitHouseholdEvent({
-			type: 'cook_logged',
-			payload: { recipeId, title: recipe.title },
-			userId,
-			householdId,
 		})
 
 		return { success: true }
@@ -282,13 +265,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 		await prisma.recipe.update({
 			where: { id: recipeId },
 			data: updateData,
-		})
-
-		void emitHouseholdEvent({
-			type: 'recipe_updated',
-			payload: { recipeId, title: recipe.title },
-			userId,
-			householdId,
 		})
 
 		void trackEvent(userId, householdId, 'recipe_enhance_applied', {

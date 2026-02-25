@@ -6,7 +6,6 @@ import { z } from 'zod'
 import { Button } from '#app/components/ui/button.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
@@ -100,18 +99,6 @@ const ImportCookingLogSchema = z.object({
 	recipe: z.string().min(1).max(100),
 })
 
-const ImportMealPlanTemplateEntrySchema = z.object({
-	dayOfWeek: z.number().int().min(0).max(6),
-	mealType: z.string().max(50),
-	servings: z.number().int().positive().nullable().optional(),
-	recipe: z.string().min(1).max(100),
-})
-
-const ImportMealPlanTemplateSchema = z.object({
-	name: z.string().min(1).max(200),
-	entries: z.array(ImportMealPlanTemplateEntrySchema).max(50),
-})
-
 const FullExportSchema = z
 	.object({
 		format: z.literal('quartermaster-full-export-v1'),
@@ -120,10 +107,6 @@ const FullExportSchema = z
 		mealPlans: z.array(ImportMealPlanSchema).max(200).optional(),
 		shoppingLists: z.array(ImportShoppingListSchema).max(100).optional(),
 		cookingLogs: z.array(ImportCookingLogSchema).max(5000).optional(),
-		mealPlanTemplates: z
-			.array(ImportMealPlanTemplateSchema)
-			.max(100)
-			.optional(),
 	})
 	.passthrough()
 
@@ -177,7 +160,6 @@ interface ImportPreview {
 	mealPlans: number
 	shoppingLists: number
 	cookingLogs: number
-	mealPlanTemplates: number
 	isFullExport: boolean
 }
 
@@ -187,7 +169,6 @@ interface ImportResults {
 	mealPlans: { created: number; skipped: number }
 	shoppingLists: { created: number }
 	cookingLogs: { created: number; skipped: number }
-	mealPlanTemplates: { created: number; skipped: number }
 }
 
 // --- Action ---
@@ -277,8 +258,8 @@ export async function action({ request }: Route.ActionArgs) {
 	const { isProActive } = await getUserTier(userId)
 
 	const recipes = importResult.data.recipes
-	// Pro-only data (inventory, meal plans, shopping lists, templates) is
-	// skipped for free users — only recipes are imported.
+	// Pro-only data (inventory, meal plans, shopping lists) is skipped for
+	// free users — only recipes are imported.
 	const fullData =
 		importResult.type === 'full' && isProActive ? importResult.data : null
 
@@ -288,7 +269,6 @@ export async function action({ request }: Route.ActionArgs) {
 		mealPlans: { created: 0, skipped: 0 },
 		shoppingLists: { created: 0 },
 		cookingLogs: { created: 0, skipped: 0 },
-		mealPlanTemplates: { created: 0, skipped: 0 },
 	}
 
 	// --- 1. Recipes ---
@@ -446,57 +426,6 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 	}
 
-	// --- 6. Meal Plan Templates ---
-	if (fullData?.mealPlanTemplates) {
-		for (const template of fullData.mealPlanTemplates) {
-			try {
-				const entries = template.entries
-					.map((entry) => {
-						const recipeId = titleToIdMap.get(entry.recipe.toLowerCase())
-						if (!recipeId) return null
-						return {
-							dayOfWeek: entry.dayOfWeek,
-							mealType: entry.mealType,
-							servings: entry.servings ?? null,
-							recipeId,
-						}
-					})
-					.filter((e): e is NonNullable<typeof e> => e != null)
-
-				if (entries.length === 0) {
-					results.mealPlanTemplates.skipped++
-					continue
-				}
-
-				await prisma.mealPlanTemplate.create({
-					data: {
-						name: template.name,
-						userId,
-						householdId,
-						entries: { create: entries },
-					},
-				})
-				results.mealPlanTemplates.created++
-			} catch {
-				results.mealPlanTemplates.skipped++
-			}
-		}
-	}
-
-	// Emit household event
-	const totalCreated = results.recipes.created + results.inventory.created
-	if (totalCreated > 0) {
-		void emitHouseholdEvent({
-			type: 'data_imported',
-			payload: {
-				recipeCount: results.recipes.created,
-				inventoryCount: results.inventory.created,
-			},
-			userId,
-			householdId,
-		})
-	}
-
 	return { error: null, results }
 }
 
@@ -516,7 +445,6 @@ function getPreview(jsonData: unknown): ImportPreview | null {
 			fullData?.mealPlans?.reduce((sum, p) => sum + p.entries.length, 0) ?? 0,
 		shoppingLists: fullData?.shoppingLists?.length ?? 0,
 		cookingLogs: fullData?.cookingLogs?.length ?? 0,
-		mealPlanTemplates: fullData?.mealPlanTemplates?.length ?? 0,
 		isFullExport,
 	}
 }
@@ -546,8 +474,7 @@ export default function ImportData() {
 				r.inventory.created +
 				r.mealPlans.created +
 				r.shoppingLists.created +
-				r.cookingLogs.created +
-				r.mealPlanTemplates.created
+				r.cookingLogs.created
 			if (total > 0) {
 				toast.success(`Imported ${total} items`)
 			} else {
@@ -672,14 +599,6 @@ export default function ImportData() {
 									skipped={results.cookingLogs.skipped}
 								/>
 							)}
-							{(results.mealPlanTemplates.created > 0 ||
-								results.mealPlanTemplates.skipped > 0) && (
-								<ResultRow
-									label="Meal plan templates"
-									created={results.mealPlanTemplates.created}
-									skipped={results.mealPlanTemplates.skipped}
-								/>
-							)}
 						</div>
 					</div>
 					<div className="flex gap-3">
@@ -750,12 +669,6 @@ export default function ImportData() {
 										<PreviewRow
 											label="Cooking logs"
 											count={preview.cookingLogs}
-										/>
-									)}
-									{preview.mealPlanTemplates > 0 && (
-										<PreviewRow
-											label="Meal plan templates"
-											count={preview.mealPlanTemplates}
 										/>
 									)}
 								</div>

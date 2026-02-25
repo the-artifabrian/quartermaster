@@ -34,7 +34,6 @@ model User {
   householdMembers HouseholdMember[]
   householdInvites HouseholdInvite[]
   householdEvents    HouseholdEvent[]
-  mealPlanTemplates  MealPlanTemplate[]
   subscription       Subscription?
   usageEvents        UsageEvent[]
   inviteCodesCreated  InviteCode[] @relation("CreatedInviteCodes")
@@ -177,15 +176,12 @@ model Household {
   inventoryItems    InventoryItem[]
   mealPlans         MealPlan[]
   shoppingLists     ShoppingList[]
-  mealPlanTemplates MealPlanTemplate[]
   usageEvents       UsageEvent[]
 }
 
 model HouseholdMember {
   id   String @id @default(cuid())
   role String @default("owner")
-
-  notificationsLastSeenAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -257,7 +253,6 @@ model Recipe {
   instructions    Instruction[]
   mealPlanEntries      MealPlanEntry[]
   cookingLogs          CookingLog[]
-  mealPlanTemplateEntries MealPlanTemplateEntry[]
 
   @@index([userId])
   @@index([householdId])
@@ -419,38 +414,6 @@ model HouseholdEvent {
   @@index([householdId, createdAt])
   @@index([householdId, userId])
   @@index([householdId, type, createdAt])
-}
-
-model MealPlanTemplate {
-  id   String @id @default(cuid())
-  name String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      String
-  household   Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
-  householdId String?
-  entries     MealPlanTemplateEntry[]
-
-  @@index([userId])
-  @@index([householdId])
-}
-
-model MealPlanTemplateEntry {
-  id        String @id @default(cuid())
-  dayOfWeek Int    // 0 = Monday, 1 = Tuesday, ... 6 = Sunday
-  mealType  String // "breakfast", "lunch", "dinner", "snack"
-  servings  Int?
-
-  template   MealPlanTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  templateId String
-  recipe     Recipe           @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  recipeId   String
-
-  @@index([templateId])
-  @@index([recipeId])
 }
 
 model InviteCode {

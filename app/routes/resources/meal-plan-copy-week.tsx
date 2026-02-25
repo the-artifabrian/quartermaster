@@ -8,7 +8,6 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/meal-plan-copy-week.ts'
 
@@ -67,13 +66,6 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 		}
 	}
-
-	void emitHouseholdEvent({
-		type: 'meal_plan_week_copied',
-		payload: {},
-		userId,
-		householdId,
-	})
 
 	return redirect(`/plan?weekStart=${serializeDate(nextWeekStart)}`)
 }

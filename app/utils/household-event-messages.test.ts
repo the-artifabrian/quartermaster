@@ -1,212 +1,7 @@
 import { describe, expect, test } from 'vitest'
-import {
-	formatEventMessage,
-	getEventPriority,
-} from './household-event-messages.ts'
-
-describe('getEventPriority', () => {
-	test.each([
-		'shopping_list_generated',
-		'shopping_list_item_added',
-		'shopping_list_cleared',
-		'shopping_list_to_inventory',
-		'meal_plan_assigned',
-		'meal_plan_template_applied',
-		'meal_plan_week_copied',
-		'meal_plan_weekly_reset',
-		'household_member_joined',
-		'household_member_left',
-		'recipe_created',
-		'recipe_imported',
-		'recipes_bulk_imported',
-		'data_imported',
-	])('%s is notify priority', (type) => {
-		expect(getEventPriority(type)).toBe('notify')
-	})
-
-	test.each([
-		'recipe_updated',
-		'recipe_deleted',
-		'recipe_favorited',
-		'cook_logged',
-		'inventory_item_added',
-		'inventory_items_bulk_added',
-		'inventory_item_updated',
-		'inventory_item_deleted',
-		'meal_plan_removed',
-		'meal_plan_cooked',
-		'meal_plan_template_saved',
-		'shopping_list_item_toggled',
-		'shopping_list_item_edited',
-		'shopping_list_item_deleted',
-		'inventory_item_low_stock_toggled',
-		'inventory_sweep_completed',
-	])('%s is silent priority', (type) => {
-		expect(getEventPriority(type)).toBe('silent')
-	})
-
-	test('unknown event type defaults to silent', () => {
-		expect(getEventPriority('something_unknown')).toBe('silent')
-	})
-})
+import { formatEventMessage } from './household-event-messages.ts'
 
 describe('formatEventMessage', () => {
-	test('recipe_created', () => {
-		const result = formatEventMessage(
-			'recipe_created',
-			{ recipeId: '123', title: 'Chicken Tikka' },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex added "Chicken Tikka"')
-		expect(result.url).toBe('/recipes/123')
-	})
-
-	test('recipe_updated', () => {
-		const result = formatEventMessage(
-			'recipe_updated',
-			{ recipeId: '123', title: 'Chicken Tikka' },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex updated "Chicken Tikka"')
-		expect(result.url).toBe('/recipes/123')
-	})
-
-	test('recipe_deleted', () => {
-		const result = formatEventMessage(
-			'recipe_deleted',
-			{ recipeId: '123', title: 'Chicken Tikka' },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex deleted "Chicken Tikka"')
-		expect(result.url).toBeNull()
-	})
-
-	test('recipe_imported', () => {
-		const result = formatEventMessage(
-			'recipe_imported',
-			{ recipeId: '123', title: 'Pad Thai' },
-			'Sam',
-		)
-		expect(result.message).toBe('Sam imported "Pad Thai"')
-		expect(result.url).toBe('/recipes/123')
-	})
-
-	test('recipe_favorited - favorite', () => {
-		const result = formatEventMessage(
-			'recipe_favorited',
-			{ recipeId: '123', title: 'Pasta', isFavorite: true },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex favorited "Pasta"')
-		expect(result.url).toBe('/recipes/123')
-	})
-
-	test('recipe_favorited - unfavorite', () => {
-		const result = formatEventMessage(
-			'recipe_favorited',
-			{ recipeId: '123', title: 'Pasta', isFavorite: false },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex unfavorited "Pasta"')
-	})
-
-	test('cook_logged', () => {
-		const result = formatEventMessage(
-			'cook_logged',
-			{ recipeId: '123', title: 'Stir Fry' },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex cooked "Stir Fry"')
-		expect(result.url).toBe('/recipes/123')
-	})
-
-	test('inventory_item_added', () => {
-		const result = formatEventMessage(
-			'inventory_item_added',
-			{ name: 'Chicken', location: 'fridge' },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex added Chicken to the fridge')
-		expect(result.url).toBe('/inventory?location=fridge')
-	})
-
-	test('inventory_items_bulk_added', () => {
-		const result = formatEventMessage(
-			'inventory_items_bulk_added',
-			{ count: 5, location: 'pantry' },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex added 5 items to the pantry')
-		expect(result.url).toBe('/inventory?location=pantry')
-	})
-
-	test('inventory_item_updated', () => {
-		const result = formatEventMessage(
-			'inventory_item_updated',
-			{ name: 'Milk' },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex updated Milk')
-		expect(result.url).toBe('/inventory')
-	})
-
-	test('inventory_item_deleted', () => {
-		const result = formatEventMessage(
-			'inventory_item_deleted',
-			{ name: 'Eggs' },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex removed Eggs from the inventory')
-		expect(result.url).toBe('/inventory')
-	})
-
-	test('meal_plan_assigned', () => {
-		const result = formatEventMessage(
-			'meal_plan_assigned',
-			{ title: 'Chicken Tikka', day: 'Thursday', mealType: 'dinner' },
-			'Alex',
-		)
-		expect(result.message).toBe(
-			'Alex planned Chicken Tikka for Thursday dinner',
-		)
-		expect(result.url).toBe('/plan')
-	})
-
-	test('meal_plan_removed', () => {
-		const result = formatEventMessage(
-			'meal_plan_removed',
-			{ title: 'Chicken Tikka' },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex removed Chicken Tikka from the meal plan')
-		expect(result.url).toBe('/plan')
-	})
-
-	test('meal_plan_cooked', () => {
-		const result = formatEventMessage(
-			'meal_plan_cooked',
-			{ title: 'Stir Fry', cooked: true },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex marked Stir Fry as cooked')
-		expect(result.url).toBe('/plan')
-	})
-
-	test('meal_plan_cooked - uncooked', () => {
-		const result = formatEventMessage(
-			'meal_plan_cooked',
-			{ title: 'Stir Fry', cooked: false },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex marked Stir Fry as uncooked')
-	})
-
-	test('meal_plan_week_copied', () => {
-		const result = formatEventMessage('meal_plan_week_copied', {}, 'Alex')
-		expect(result.message).toBe('Alex copied the meal plan to next week')
-		expect(result.url).toBe('/plan')
-	})
-
 	test('shopping_list_generated', () => {
 		const result = formatEventMessage(
 			'shopping_list_generated',
@@ -225,92 +20,6 @@ describe('formatEventMessage', () => {
 		)
 		expect(result.message).toBe('Alex added Butter to the shopping list')
 		expect(result.url).toBe('/shopping')
-	})
-
-	test('shopping_list_cleared', () => {
-		const result = formatEventMessage('shopping_list_cleared', {}, 'Alex')
-		expect(result.message).toBe(
-			'Alex cleared checked items from the shopping list',
-		)
-		expect(result.url).toBe('/shopping')
-	})
-
-	test('shopping_list_to_inventory', () => {
-		const result = formatEventMessage(
-			'shopping_list_to_inventory',
-			{ count: 3 },
-			'Alex',
-		)
-		expect(result.message).toBe(
-			'Alex moved 3 items from the shopping list to inventory',
-		)
-		expect(result.url).toBe('/inventory')
-	})
-
-	test('data_imported - recipes and inventory', () => {
-		const result = formatEventMessage(
-			'data_imported',
-			{ recipeCount: 42, inventoryCount: 15 },
-			'Alex',
-		)
-		expect(result.message).toBe(
-			'Alex imported 42 recipes and 15 inventory items',
-		)
-		expect(result.url).toBe('/recipes')
-	})
-
-	test('data_imported - recipes only', () => {
-		const result = formatEventMessage(
-			'data_imported',
-			{ recipeCount: 10, inventoryCount: 0 },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex imported 10 recipes')
-		expect(result.url).toBe('/recipes')
-	})
-
-	test('household_member_joined', () => {
-		const result = formatEventMessage('household_member_joined', {}, 'Sam')
-		expect(result.message).toBe('Sam joined the household')
-		expect(result.url).toBeNull()
-	})
-
-	test('household_member_left', () => {
-		const result = formatEventMessage('household_member_left', {}, 'Sam')
-		expect(result.message).toBe('Sam left the household')
-		expect(result.url).toBeNull()
-	})
-
-	test('meal_plan_template_saved', () => {
-		const result = formatEventMessage(
-			'meal_plan_template_saved',
-			{ name: 'Weeknight Easy' },
-			'Alex',
-		)
-		expect(result.message).toBe(
-			'Alex saved meal plan template "Weeknight Easy"',
-		)
-		expect(result.url).toBe('/plan')
-	})
-
-	test('meal_plan_template_applied', () => {
-		const result = formatEventMessage(
-			'meal_plan_template_applied',
-			{ name: 'Entertaining Week' },
-			'Sam',
-		)
-		expect(result.message).toBe('Sam applied template "Entertaining Week"')
-		expect(result.url).toBe('/plan')
-	})
-
-	test('meal_plan_weekly_reset', () => {
-		const result = formatEventMessage(
-			'meal_plan_weekly_reset',
-			{ count: 5 },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex planned 5 meals for the week')
-		expect(result.url).toBe('/plan')
 	})
 
 	test('shopping_list_item_toggled - checked', () => {
@@ -352,44 +61,36 @@ describe('formatEventMessage', () => {
 		expect(result.url).toBe('/shopping')
 	})
 
-	test('inventory_item_low_stock_toggled - low stock', () => {
-		const result = formatEventMessage(
-			'inventory_item_low_stock_toggled',
-			{ name: 'Rice', lowStock: true },
-			'Alex',
+	test('shopping_list_cleared', () => {
+		const result = formatEventMessage('shopping_list_cleared', {}, 'Alex')
+		expect(result.message).toBe(
+			'Alex cleared checked items from the shopping list',
 		)
-		expect(result.message).toBe('Alex marked Rice as low stock')
-		expect(result.url).toBe('/inventory')
+		expect(result.url).toBe('/shopping')
 	})
 
-	test('inventory_item_low_stock_toggled - in stock', () => {
+	test('shopping_list_to_inventory', () => {
 		const result = formatEventMessage(
-			'inventory_item_low_stock_toggled',
-			{ name: 'Rice', lowStock: false },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex marked Rice as in stock')
-	})
-
-	test('inventory_sweep_completed', () => {
-		const result = formatEventMessage(
-			'inventory_sweep_completed',
-			{ deleted: 3, markedLow: 2 },
+			'shopping_list_to_inventory',
+			{ count: 3 },
 			'Alex',
 		)
 		expect(result.message).toBe(
-			'Alex swept inventory (removed 3, marked 2 low)',
+			'Alex moved 3 items from the shopping list to inventory',
 		)
 		expect(result.url).toBe('/inventory')
 	})
 
-	test('inventory_sweep_completed - no changes', () => {
-		const result = formatEventMessage(
-			'inventory_sweep_completed',
-			{ deleted: 0, markedLow: 0 },
-			'Alex',
-		)
-		expect(result.message).toBe('Alex swept inventory (no changes)')
+	test('household_member_joined', () => {
+		const result = formatEventMessage('household_member_joined', {}, 'Sam')
+		expect(result.message).toBe('Sam joined the household')
+		expect(result.url).toBeNull()
+	})
+
+	test('household_member_left', () => {
+		const result = formatEventMessage('household_member_left', {}, 'Sam')
+		expect(result.message).toBe('Sam left the household')
+		expect(result.url).toBeNull()
 	})
 
 	test('unknown event type', () => {

@@ -5,15 +5,8 @@ import { type Route } from './+types/export-all-data.ts'
 export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
 
-	const [
-		user,
-		recipes,
-		inventory,
-		mealPlans,
-		shoppingLists,
-		cookingLogs,
-		mealPlanTemplates,
-	] = await Promise.all([
+	const [user, recipes, inventory, mealPlans, shoppingLists, cookingLogs] =
+		await Promise.all([
 		prisma.user.findUniqueOrThrow({
 			where: { id: userId },
 			select: { username: true, email: true, name: true },
@@ -95,22 +88,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			},
 			orderBy: { cookedAt: 'desc' },
 		}),
-		prisma.mealPlanTemplate.findMany({
-			where: { householdId },
-			select: {
-				name: true,
-				entries: {
-					select: {
-						dayOfWeek: true,
-						mealType: true,
-						servings: true,
-						recipe: { select: { title: true } },
-					},
-					orderBy: [{ dayOfWeek: 'asc' }, { mealType: 'asc' }],
-				},
-			},
-			orderBy: { name: 'asc' },
-		}),
 	])
 
 	const exportData = {
@@ -175,15 +152,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			cookedAt: log.cookedAt.toISOString(),
 			notes: log.notes,
 			recipe: log.recipe.title,
-		})),
-		mealPlanTemplates: mealPlanTemplates.map((template) => ({
-			name: template.name,
-			entries: template.entries.map((entry) => ({
-				dayOfWeek: entry.dayOfWeek,
-				mealType: entry.mealType,
-				servings: entry.servings,
-				recipe: entry.recipe.title,
-			})),
 		})),
 	}
 

@@ -12,7 +12,6 @@ import {
 	type ParsedRecipe,
 } from '#app/utils/bulk-recipe-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { useDebounce } from '#app/utils/misc.tsx'
 import { type Route } from './+types/bulk-import.ts'
@@ -143,15 +142,6 @@ export async function action({ request }: Route.ActionArgs) {
 				error: 'Failed to save recipe',
 			})
 		}
-	}
-
-	if (created.length > 0) {
-		void emitHouseholdEvent({
-			type: 'recipes_bulk_imported',
-			payload: { count: created.length },
-			userId,
-			householdId,
-		})
 	}
 
 	return { created: created.length, skipped, errors }

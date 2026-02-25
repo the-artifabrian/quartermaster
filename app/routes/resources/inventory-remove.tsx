@@ -1,7 +1,6 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { data } from 'react-router'
 import { prisma } from '#app/utils/db.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { type Route } from './+types/inventory-remove.ts'
 
@@ -20,13 +19,6 @@ export async function action({ request }: Route.ActionArgs) {
 	invariantResponse(item, 'Inventory item not found', { status: 404 })
 
 	await prisma.inventoryItem.delete({ where: { id: inventoryItemId } })
-
-	void emitHouseholdEvent({
-		type: 'inventory_item_deleted',
-		payload: { name: item.name },
-		userId,
-		householdId,
-	})
 
 	return data({ success: true })
 }

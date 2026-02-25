@@ -20,7 +20,6 @@ import {
 	type MealType,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
 import {
@@ -240,16 +239,6 @@ export async function action({ request }: Route.ActionArgs) {
 			},
 		})
 
-		void emitHouseholdEvent({
-			type: 'inventory_item_added',
-			payload: {
-				name: submission.value.name,
-				location: submission.value.location,
-			},
-			userId,
-			householdId,
-		})
-
 		return { status: 'success' as const }
 	}
 
@@ -337,16 +326,6 @@ export async function action({ request }: Route.ActionArgs) {
 			)
 		}
 
-		const location = items[0]?.location ?? 'pantry'
-		if (toCreate.length > 0) {
-			void emitHouseholdEvent({
-				type: 'inventory_items_bulk_added',
-				payload: { count: toCreate.length, location },
-				userId,
-				householdId,
-			})
-		}
-
 		return {
 			status: 'success' as const,
 			createdCount: toCreate.length,
@@ -364,13 +343,6 @@ export async function action({ request }: Route.ActionArgs) {
 		invariantResponse(item, 'Item not found', { status: 404 })
 
 		await prisma.inventoryItem.delete({ where: { id: itemId } })
-
-		void emitHouseholdEvent({
-			type: 'inventory_item_deleted',
-			payload: { name: item.name },
-			userId,
-			householdId,
-		})
 
 		return { status: 'success' as const }
 	}
@@ -397,13 +369,6 @@ export async function action({ request }: Route.ActionArgs) {
 				where: { id: itemId },
 				data,
 			})
-
-			void emitHouseholdEvent({
-				type: 'inventory_item_updated',
-				payload: { name: item.name },
-				userId,
-				householdId,
-			})
 		}
 
 		return { status: 'success' as const }
@@ -421,13 +386,6 @@ export async function action({ request }: Route.ActionArgs) {
 		await prisma.inventoryItem.update({
 			where: { id: itemId },
 			data: { lowStock: !item.lowStock },
-		})
-
-		void emitHouseholdEvent({
-			type: 'inventory_item_low_stock_toggled',
-			payload: { name: item.name, lowStock: !item.lowStock },
-			userId,
-			householdId,
 		})
 
 		return { status: 'success' as const }

@@ -26,13 +26,13 @@ The app is feature-complete for solo and shared daily use.
 | 1-4            | Recipe CRUD, inventory tracking, meal planning calendar, shopping list generation                                                                         |
 | 5-8            | Inventory matching ("What can I make?"), cooking logs, unit conversion                                                                                    |
 | 9-12           | Recipe scaling, cooking mode (timers, temps), ingredient headings, bulk import                                                                            |
-| 13a-e          | Household sharing, SSE real-time events, notification bell                                                                                                |
-| Polish + UX    | Color system, mobile-first layout, print/share, meal templates, shelf-life, pairing/waste, cooking progress, card streamlining, weekly inventory sweep    |
+| 13a-e          | Household sharing, SSE real-time shopping sync                                                                                                            |
+| Polish + UX    | Color system, mobile-first layout, print/share, shelf-life, pairing/waste, cooking progress, card streamlining                                            |
 | AI             | Ingredient substitutions (static DB + LLM), recipe generation, metadata enhance                                                                           |
 | Beta hardening | Dead code cleanup, a11y (focus traps, aria-labels, focus rings), render-time setState fixes, SSRF + sourcemap + error sanitization, shopping live-refresh |
 
-onboarding nudges, weekly inventory sweep, suggest meals with meal type picker,
-free inventory limit bumped to 50, copy/UX polish pass across all pages.
+onboarding nudges, suggest meals with meal type picker, free inventory limit
+bumped to 50, copy/UX polish pass across all pages.
 
 ---
 
@@ -40,8 +40,7 @@ free inventory limit bumped to 50, copy/UX polish pass across all pages.
 
 The core loop is complete — plan, shop, cook, review, repeat. Inventory is
 treated as a rough signal rather than a source of truth: no auto-subtraction,
-advisory shopping deductions (pre-checked not omitted), and a weekly inventory
-sweep for drift correction.
+advisory shopping deductions (pre-checked not omitted).
 
 **The binding constraint is now validation, not features.** The app has more
 features than most mature cooking apps. What it doesn't have is evidence that
@@ -141,11 +140,11 @@ that was always about replacing Apple Notes first and making money second.
 
 ### Inventory Mode: Rough Signal
 
-Inventory as rough signal — no quantities, no auto-subtraction. Three purposes:
-match rings (do you have the ingredient?), advisory shopping deductions
-(pre-checked not omitted), and weekly sweep for drift correction. Input flows in
-via shopping check-off → inventory pipeline. Monitor whether rough-signal
-accuracy is sufficient for match rings and shopping list pre-checks.
+Inventory as rough signal — no quantities, no auto-subtraction. Two purposes:
+match rings (do you have the ingredient?) and advisory shopping deductions
+(pre-checked not omitted). Input flows in via shopping check-off → inventory
+pipeline. Monitor whether rough-signal accuracy is sufficient for match rings
+and shopping list pre-checks.
 
 **Adoption risk:** The inventory loop is the intellectual core of the product,
 but it may not be what most users want. If non-friend testers engage with

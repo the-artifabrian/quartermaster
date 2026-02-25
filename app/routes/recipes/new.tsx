@@ -4,7 +4,6 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { data, redirect } from 'react-router'
 import { RecipeForm } from '#app/components/recipe-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	RecipeSchema,
@@ -141,12 +140,6 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 	}
 
-	void emitHouseholdEvent({
-		type: 'recipe_created',
-		payload: { recipeId: recipe.id, title },
-		userId,
-		householdId,
-	})
 	return redirect(`/recipes/${recipe.id}`)
 }
 

@@ -132,10 +132,9 @@ const freeFeatures = [
 const proFeatures = [
 	'Everything in Free, plus:',
 	'Unlimited inventory tracking',
-	'Smart meal suggestions & templates',
+	'Smart meal suggestions',
 	'Advanced shopping (live-refresh, inventory sync)',
-	'Weekly inventory sweep',
-	'Real-time household notifications',
+	'Real-time shopping list sync',
 	'AI substitution hints',
 	'AI recipe generation',
 ]

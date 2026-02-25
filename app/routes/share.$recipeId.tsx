@@ -15,7 +15,6 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { scaleAmount } from '#app/utils/fractions.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
@@ -200,13 +199,6 @@ export async function action({ params, request }: Route.ActionArgs) {
 				: {}),
 		},
 		select: { id: true },
-	})
-
-	void emitHouseholdEvent({
-		householdId,
-		userId,
-		type: 'recipe_created',
-		payload: { recipeId: newRecipe.id, recipeTitle: recipe.title },
 	})
 
 	return redirect(`/recipes/${newRecipe.id}`)

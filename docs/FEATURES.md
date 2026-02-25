@@ -69,8 +69,7 @@ execution quality, not differentiation.
   inventory (prioritizing expiring items). Preview before saving, "AI Generated"
   badge on saved recipes. Feature-specific error messages (rate limit, timeout,
   parse failure) instead of generic toasts
-- "I Made This" cook logging with success toast. Inventory drift is handled by
-  the weekly sweep rather than per-cook prompts
+- "I Made This" cook logging with success toast
 - Inline inventory status on recipe detail ingredient list: summary footer shows
   "You have X/Y ingredients" with "Add N missing to Shopping List" button
 - "Last cooked" stats on recipe cards (cook count + relative time)
@@ -122,13 +121,6 @@ execution quality, not differentiation.
   matches — covered items shown muted with recipe name, day, and meal type;
   uncovered items shown prominently with "Find recipes" CTA). Per-item dismiss
   via localStorage (keyed by item ID + expiry date, resets if expiry changes)
-- Weekly inventory sweep: banner on the plan page (current week only) prompts a
-  quick batch review. Modal shows priority items first (perishables, low-stock,
-  stale 7+ days) grouped by location, with remaining items behind an expand
-  toggle. Items cycle through keep → running low → used up on tap. One-tap apply
-  with batch transaction. Skip fatigue: 3 consecutive skips permanently dismiss
-  the banner; completing a sweep resets the counter
-
 ## Meal Planning & Shopping
 
 - Weekly calendar view (Monday-start, two-row 4+3 layout, today emphasis, 4 meal
@@ -145,7 +137,6 @@ execution quality, not differentiation.
 - "Up next" banner (current week): next chronological meal to cook today with
   time-of-day awareness. Empty state suggests a favorite with one-tap add
 - Copy week to next week (preserves servings, skips duplicates)
-- Meal plan templates: save/apply/delete named templates, household-scoped
 - Suggest Meals: one-tap "Suggest Meals" button fills the week with suggestions
   ranked by priority — recipes using expiring inventory (2+ matches), favorites
   not recently cooked, then highest inventory match %. Meal type selector
@@ -196,13 +187,11 @@ execution quality, not differentiation.
 - Member management: rename household, remove members, revoke invites, leave
 - Data on leave: sole members move all data; multi-member leaves deep-copy
   recipes
-- Real-time activity via SSE + 30s database polling fallback: 25+ event types
-  with two-tier priority — **notify** (shopping list generated, meal plan
-  changes, member join/leave) triggers toast + badge; **silent** (edits,
-  deletes, inventory CRUD) appears in activity feed only. Client-side dedup
-- Notification bell in header with unread badge, dropdown with formatted
-  messages, "mark as read", and "View all activity" link
-- Activity feed on household settings page (last 20 events)
+- Real-time shopping list sync via SSE + 30s database polling fallback:
+  shopping list events and member join/leave trigger toasts. Client-side dedup.
+  Copper activity dot on Shop bottom-nav tab when shopping events arrive from
+  household members — auto-clears when visiting `/shopping` (session-scoped,
+  Pro-only)
 - Auto-prune events older than 30 days
 
 ## Onboarding
@@ -221,14 +210,12 @@ execution quality, not differentiation.
 
 - Free: unlimited recipes, up to 50 inventory items, smart matching, basic meal
   planning calendar, basic shopping list generation, household sharing. Pro:
-  unlimited inventory, planning intelligence (templates, suggest meals, copy
-  week, pairing, waste alerts), full shopping pipeline (live-refresh, low-stock
-  nudge, inventory sync), weekly sweep, real-time notifications, all AI features
+  unlimited inventory, planning intelligence (suggest meals, copy week, pairing,
+  waste alerts), full shopping pipeline (live-refresh, low-stock nudge,
   days Pro, grants 2 starter codes) coexist with Stripe and trial
   redeemed a code (localStorage dismiss, inline redeem form)
-- Pro-only features gated inline (buttons/panels hidden for free users). Inventory
-  sweep redirects to `/upgrade`. Graceful downgrade with data preservation, expiry
-  nudges at 7d/3d
+- Pro-only features gated inline (buttons/panels hidden for free users). Graceful
+  downgrade with data preservation, expiry nudges at 7d/3d
 - Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (codes +
   tiers)
 

@@ -16,7 +16,6 @@ import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
-import { NotificationBell } from './components/notification-bell.tsx'
 import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { ProExpiryNudge } from './components/pro-expiry-nudge.tsx'
 import { Progress } from './components/progress-bar.tsx'
@@ -33,7 +32,6 @@ import { ClientHintCheck, getHints } from './utils/client-hints.tsx'
 import { prisma } from './utils/db.server.ts'
 import { getEnv } from './utils/env.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
-import { NOTIFY_EVENT_TYPES_LIST } from './utils/household-event-messages.ts'
 import { getAvailableCodeCount } from './utils/invite-codes.server.ts'
 import { combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
 import { useNonce } from './utils/nonce-provider.ts'
@@ -169,7 +167,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		daysUntilExpiry: null,
 		wasProPreviously: false,
 	}
-	let unreadNotificationCount = 0
 	let householdName: string | null = null
 	let availableInviteCodeCount = 0
 	let hasRedeemedCode = false
@@ -178,25 +175,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		const member = await prisma.householdMember.findFirst({
 			where: { userId },
 			select: {
-				householdId: true,
-				notificationsLastSeenAt: true,
 				household: { select: { name: true } },
 			},
 		})
 		if (member) {
 			householdName = member.household.name
-			if (tierInfo.isProActive) {
-				unreadNotificationCount = await prisma.householdEvent.count({
-					where: {
-						householdId: member.householdId,
-						userId: { not: userId },
-						type: { in: NOTIFY_EVENT_TYPES_LIST },
-						...(member.notificationsLastSeenAt
-							? { createdAt: { gt: member.notificationsLastSeenAt } }
-							: {}),
-					},
-				})
-			}
 		}
 		if (tierInfo.isProActive) {
 			availableInviteCodeCount = await getAvailableCodeCount(userId)
@@ -213,7 +196,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		{
 			user,
 			tierInfo,
-			unreadNotificationCount,
 			householdName,
 			availableInviteCodeCount,
 			hasRedeemedCode,
@@ -418,7 +400,6 @@ function App() {
 												Shopping
 											</NavLink>
 										</div>
-										{isPro && <NotificationBell />}
 										<UserDropdown />
 									</>
 								) : (

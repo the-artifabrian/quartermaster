@@ -1,9 +1,9 @@
 /**
  * Pure client-side metric conversion for recipe ingredients.
  *
- * Converts imperial measurements (cups, oz, lb) to metric (g, ml, kg, L).
- * Uses ingredient density for accurate cup→gram conversions.
- * Falls back to volume→volume (cup→ml) for unknown ingredients.
+ * Converts imperial measurements to metric by weight (grams/kg).
+ * All volume units use ingredient density for accurate weight conversion.
+ * Falls back to volume (ml/L) only for unknown ingredients.
  */
 
 import { getDensity } from '#app/utils/ingredient-densities.ts'
@@ -21,6 +21,18 @@ const SKIP_UNITS = new Set(['tsp', 'tbsp'])
 /** Units already in metric */
 const METRIC_UNITS = new Set(['g', 'kg', 'ml', 'l'])
 
+/** ml per US cup — matches the density table's gramsPerCup baseline */
+const ML_PER_CUP = 240
+
+/** Volume unit → ml conversion factors */
+const VOLUME_ML_FACTORS: Record<string, number> = {
+	'fl oz': 29.57,
+	cup: ML_PER_CUP,
+	pint: 473.18,
+	quart: 946.35,
+	gallon: 3785.41,
+}
+
 /**
  * Convert an imperial amount+unit to metric.
  *
@@ -37,54 +49,54 @@ export function convertToMetric(
 	if (SKIP_UNITS.has(normalized)) return null
 	if (METRIC_UNITS.has(normalized)) return null
 
-	if (normalized === 'cup') {
-		return convertCup(amount, ingredientName)
-	}
+	// Volume units — convert to weight via density, fall back to ml
+	const volumeResult = convertVolume(amount, normalized, ingredientName)
+	if (volumeResult) return volumeResult
 
+	// Weight units — direct conversion
 	if (normalized === 'oz') {
-		// Treat oz as weight (most common in recipes)
+		// "oz" is ambiguous: weight ounces for solids, fluid ounces for liquids.
+		// Use density table to disambiguate — known liquids get volume→weight.
+		const density = getDensity(ingredientName)
+		if (density?.isLiquid) {
+			const totalMl = amount * 29.57 // fl oz → ml
+			const gramsPerMl = density.gramsPerCup / ML_PER_CUP
+			return scaleUp(totalMl * gramsPerMl, 'g')
+		}
 		return scaleUp(amount * 28.35, 'g')
-	}
-
-	if (normalized === 'fl oz') {
-		return scaleUp(amount * 29.57, 'ml')
 	}
 
 	if (normalized === 'lb') {
 		return scaleUp(amount * 453.6, 'g')
 	}
 
-	if (normalized === 'pint') {
-		return scaleUp(amount * 473.18, 'ml')
-	}
-
-	if (normalized === 'quart') {
-		return scaleUp(amount * 946.35, 'ml')
-	}
-
-	if (normalized === 'gallon') {
-		return scaleUp(amount * 3785.41, 'ml')
-	}
-
 	// Unknown unit — no conversion
 	return null
 }
 
-function convertCup(
+/**
+ * Convert a volume amount to weight (grams) using ingredient density.
+ * Falls back to ml for unknown ingredients.
+ * Returns null if the unit isn't a known volume unit.
+ */
+function convertVolume(
 	amount: number,
+	normalizedUnit: string,
 	ingredientName: string,
-): MetricResult {
+): MetricResult | null {
+	const mlFactor = VOLUME_ML_FACTORS[normalizedUnit]
+	if (mlFactor === undefined) return null
+
+	const totalMl = amount * mlFactor
 	const density = getDensity(ingredientName)
 
 	if (density) {
-		if (density.isLiquid) {
-			return scaleUp(amount * 240, 'ml')
-		}
-		return scaleUp(amount * density.gramsPerCup, 'g')
+		const gramsPerMl = density.gramsPerCup / ML_PER_CUP
+		return scaleUp(totalMl * gramsPerMl, 'g')
 	}
 
-	// Unknown ingredient — fall back to volume (cup → 240ml)
-	return { ...scaleUp(amount * 240, 'ml'), approximate: true }
+	// Unknown ingredient — fall back to volume
+	return { ...scaleUp(totalMl, 'ml'), approximate: true }
 }
 
 /**
@@ -104,10 +116,6 @@ function scaleUp(
 	return { amount: value, unit: baseUnit, approximate: false }
 }
 
-/**
- * Format a metric result for display.
- * Rounds to nearest 5 for amounts >50, nearest 1 below.
- */
 /** Round a metric amount to a display-friendly number. */
 export function roundMetricAmount(result: MetricResult): number {
 	if (result.unit === 'kg' || result.unit === 'L') {
@@ -121,6 +129,18 @@ export function roundMetricAmount(result: MetricResult): number {
 
 export function formatMetricAmount(result: MetricResult): string {
 	const value = roundMetricAmount(result)
+
+	// Post-rounding scale-up: rounding can push values to 1000+
+	if (result.unit === 'g' && value >= 1000) {
+		const kg = value / 1000
+		const formatted = kg % 1 === 0 ? kg.toString() : kg.toFixed(1)
+		return `${formatted} kg`
+	}
+	if (result.unit === 'ml' && value >= 1000) {
+		const l = value / 1000
+		const formatted = l % 1 === 0 ? l.toString() : l.toFixed(1)
+		return `${formatted} L`
+	}
 
 	if (result.unit === 'kg' || result.unit === 'L') {
 		const formatted = value % 1 === 0 ? value.toString() : value.toFixed(1)

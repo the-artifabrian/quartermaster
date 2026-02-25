@@ -95,6 +95,36 @@ const DENSITY_DATA: DensityEntry[] = [
 		isLiquid: true,
 	},
 	{
+		keys: ['coconut cream'],
+		gramsPerCup: 280,
+		isLiquid: true,
+	},
+	{
+		keys: ['almond milk'],
+		gramsPerCup: 240,
+		isLiquid: true,
+	},
+	{
+		keys: ['oat milk'],
+		gramsPerCup: 245,
+		isLiquid: true,
+	},
+	{
+		keys: ['soy milk'],
+		gramsPerCup: 243,
+		isLiquid: true,
+	},
+	{
+		keys: ['evaporated milk'],
+		gramsPerCup: 252,
+		isLiquid: true,
+	},
+	{
+		keys: ['condensed milk', 'sweetened condensed milk'],
+		gramsPerCup: 306,
+		isLiquid: true,
+	},
+	{
 		keys: ['yogurt', 'greek yogurt'],
 		gramsPerCup: 245,
 		isLiquid: true,

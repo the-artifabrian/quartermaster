@@ -55,14 +55,24 @@ describe('convertToMetric', () => {
 		expect(result).toEqual({ amount: 200, unit: 'g', approximate: false })
 	})
 
-	test('cup of water → ml (liquid)', () => {
+	test('cup of water → grams (density-aware)', () => {
 		const result = convertToMetric(1, 'cup', 'water')
-		expect(result).toEqual({ amount: 240, unit: 'ml', approximate: false })
+		expect(result).toEqual({ amount: 240, unit: 'g', approximate: false })
 	})
 
-	test('cup of milk → ml (liquid)', () => {
+	test('cup of milk → grams (density-aware)', () => {
 		const result = convertToMetric(1, 'cup', 'milk')
-		expect(result).toEqual({ amount: 240, unit: 'ml', approximate: false })
+		expect(result).toEqual({ amount: 240, unit: 'g', approximate: false })
+	})
+
+	test('cup of oil → grams (lighter than water)', () => {
+		const result = convertToMetric(1, 'cup', 'olive oil')
+		expect(result).toEqual({ amount: 216, unit: 'g', approximate: false })
+	})
+
+	test('cup of honey → grams (heavier than water)', () => {
+		const result = convertToMetric(1, 'cup', 'honey')
+		expect(result).toEqual({ amount: 340, unit: 'g', approximate: false })
 	})
 
 	test('cup of unknown ingredient → ml with approximate', () => {
@@ -70,19 +80,55 @@ describe('convertToMetric', () => {
 		expect(result).toEqual({ amount: 240, unit: 'ml', approximate: true })
 	})
 
-	test('oz → grams', () => {
+	test('oz of solid → weight grams', () => {
 		const result = convertToMetric(8, 'oz', 'chicken')
 		expect(result).not.toBeNull()
 		expect(result!.unit).toBe('g')
+		// 8 weight oz * 28.35 = 226.8g
 		expect(result!.amount).toBeCloseTo(226.8, 0)
 		expect(result!.approximate).toBe(false)
 	})
 
-	test('fl oz → ml', () => {
+	test('oz of liquid → fluid oz grams (density-aware)', () => {
+		const result = convertToMetric(8, 'oz', 'milk')
+		expect(result).not.toBeNull()
+		expect(result!.unit).toBe('g')
+		// 8 fl oz * 29.57ml * (240g / 240ml) = 236.56g
+		expect(result!.amount).toBeCloseTo(236.56, 0)
+		expect(result!.approximate).toBe(false)
+	})
+
+	test('oz of oil → fluid oz grams (lighter density)', () => {
+		const result = convertToMetric(8, 'oz', 'olive oil')
+		expect(result).not.toBeNull()
+		expect(result!.unit).toBe('g')
+		// 8 fl oz * 29.57ml * (216g / 240ml) = 213g
+		expect(result!.amount).toBeCloseTo(29.57 * 8 * (216 / 240), 0)
+		expect(result!.approximate).toBe(false)
+	})
+
+	test('oz of unknown → weight grams (no density)', () => {
+		const result = convertToMetric(8, 'oz', 'unicorn dust')
+		expect(result).not.toBeNull()
+		expect(result!.unit).toBe('g')
+		expect(result!.amount).toBeCloseTo(226.8, 0)
+	})
+
+	test('fl oz → grams (density-aware)', () => {
 		const result = convertToMetric(4, 'fl oz', 'water')
+		expect(result).not.toBeNull()
+		expect(result!.unit).toBe('g')
+		// 4 fl oz = 118.28ml, water density = 1 g/ml → 118.28g
+		expect(result!.amount).toBeCloseTo(118.28, 0)
+		expect(result!.approximate).toBe(false)
+	})
+
+	test('fl oz of unknown → ml (fallback)', () => {
+		const result = convertToMetric(4, 'fl oz', 'unicorn dust')
 		expect(result).not.toBeNull()
 		expect(result!.unit).toBe('ml')
 		expect(result!.amount).toBeCloseTo(118.28, 0)
+		expect(result!.approximate).toBe(true)
 	})
 
 	test('lb → grams', () => {
@@ -115,25 +161,47 @@ describe('convertToMetric', () => {
 		expect(convertToMetric(250, 'ml', 'water')).toBeNull()
 	})
 
-	test('pint → ml', () => {
+	test('pint → grams (density-aware)', () => {
 		const result = convertToMetric(1, 'pint', 'cream')
+		expect(result).not.toBeNull()
+		expect(result!.unit).toBe('g')
+		// 1 pint = 473.18ml, cream density = 240g/cup = 1 g/ml → 473g
+		expect(result!.amount).toBeCloseTo(473.18, 0)
+		expect(result!.approximate).toBe(false)
+	})
+
+	test('pint of unknown → ml (fallback)', () => {
+		const result = convertToMetric(1, 'pint', 'unicorn dust')
 		expect(result).not.toBeNull()
 		expect(result!.unit).toBe('ml')
 		expect(result!.amount).toBeCloseTo(473.18, 0)
+		expect(result!.approximate).toBe(true)
 	})
 
-	test('quart → ml', () => {
+	test('quart → grams (density-aware)', () => {
 		const result = convertToMetric(1, 'quart', 'broth')
 		expect(result).not.toBeNull()
-		expect(result!.unit).toBe('ml')
+		expect(result!.unit).toBe('g')
+		// 1 quart = 946.35ml, broth density = 240g/cup = 1 g/ml → 946g
 		expect(result!.amount).toBeCloseTo(946.35, 0)
+		expect(result!.approximate).toBe(false)
 	})
 
-	test('gallon → L', () => {
+	test('gallon → kg (density-aware)', () => {
 		const result = convertToMetric(1, 'gallon', 'water')
+		expect(result).not.toBeNull()
+		expect(result!.unit).toBe('kg')
+		// 1 gallon = 3785.41ml, water density = 1 g/ml → 3785g → 3.785kg
+		expect(result!.amount).toBeCloseTo(3.785, 1)
+		expect(result!.approximate).toBe(false)
+	})
+
+	test('gallon of unknown → L (fallback)', () => {
+		const result = convertToMetric(1, 'gallon', 'unicorn dust')
 		expect(result).not.toBeNull()
 		expect(result!.unit).toBe('L')
 		expect(result!.amount).toBeCloseTo(3.785, 1)
+		expect(result!.approximate).toBe(true)
 	})
 
 	test('handles unit aliases', () => {
@@ -152,11 +220,21 @@ describe('convertToMetric', () => {
 		expect(convertToMetric(1, 'bunch', 'parsley')).toBeNull()
 	})
 
-	test('5 cups liquid → L', () => {
+	test('5 cups water → kg (density-aware)', () => {
 		const result = convertToMetric(5, 'cup', 'water')
 		expect(result).not.toBeNull()
-		expect(result!.unit).toBe('L')
+		expect(result!.unit).toBe('kg')
+		// 5 cups * 240 g/cup = 1200g → 1.2kg
 		expect(result!.amount).toBeCloseTo(1.2, 1)
+	})
+
+	test('pint of oil → grams (lighter density)', () => {
+		const result = convertToMetric(1, 'pint', 'vegetable oil')
+		expect(result).not.toBeNull()
+		expect(result!.unit).toBe('g')
+		// 1 pint = 473.18ml, oil density = 216g/cup = 0.9 g/ml → ~426g
+		expect(result!.amount).toBeCloseTo(473.18 * (216 / 240), 0)
+		expect(result!.approximate).toBe(false)
 	})
 })
 
@@ -207,6 +285,18 @@ describe('formatMetricAmount', () => {
 		expect(
 			formatMetricAmount({ amount: 1.2, unit: 'L', approximate: false }),
 		).toBe('1.2 L')
+	})
+
+	test('post-rounding scale-up: 998g rounds to 1000 → displays as 1 kg', () => {
+		expect(
+			formatMetricAmount({ amount: 998, unit: 'g', approximate: false }),
+		).toBe('1 kg')
+	})
+
+	test('post-rounding scale-up: 998ml rounds to 1000 → displays as 1 L', () => {
+		expect(
+			formatMetricAmount({ amount: 998, unit: 'ml', approximate: false }),
+		).toBe('1 L')
 	})
 })
 
@@ -273,6 +363,32 @@ describe('getDensity edge cases', () => {
 	test('handles "sauces" pluralization', () => {
 		// "sauces" -> "sauce" (not "sauc")
 		expect(getDensity('tomato sauces')).not.toBeNull()
+	})
+
+	test('almond milk matches its own entry (not "almond")', () => {
+		const result = getDensity('almond milk')
+		expect(result).not.toBeNull()
+		expect(result!.isLiquid).toBe(true)
+		expect(result!.gramsPerCup).toBe(240)
+	})
+
+	test('coconut cream matches its own entry (not "cream")', () => {
+		const result = getDensity('coconut cream')
+		expect(result).not.toBeNull()
+		expect(result!.gramsPerCup).toBe(280)
+	})
+
+	test('oat milk is a known liquid', () => {
+		expect(getDensity('oat milk')).toEqual({
+			gramsPerCup: 245,
+			isLiquid: true,
+		})
+	})
+
+	test('condensed milk matches (not plain "milk")', () => {
+		const result = getDensity('sweetened condensed milk')
+		expect(result).not.toBeNull()
+		expect(result!.gramsPerCup).toBe(306)
 	})
 })
 

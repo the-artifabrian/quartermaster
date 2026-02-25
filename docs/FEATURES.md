@@ -65,7 +65,7 @@ execution quality, not differentiation.
   persistent banner
 - AI recipe generation from inventory (Pro): prompt-first UI with optional
   meal-type filter chips and quick-meal toggle. Generates a recipe from current
-  inventory. Preview before saving, "AI Generated"
+  inventory. Metric units by default (except tsp/tbsp). Preview before saving, "AI Generated"
   badge on saved recipes. Feature-specific error messages (rate limit, timeout,
   parse failure) instead of generic toasts
 - "I Made This" cook logging with success toast

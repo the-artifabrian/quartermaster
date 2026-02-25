@@ -145,13 +145,13 @@ export function buildPrompt(
 		? `Rules:
 - Follow the description above — it takes priority
 - Use ingredients from my inventory where possible, but MAY include common ingredients not listed
-- Use specific amounts and units for each ingredient
+- Use metric units (grams, ml, liters, etc.) for all measurements EXCEPT teaspoons (tsp) and tablespoons (tbsp) which should stay as-is
 - Write clear, beginner-friendly instructions
 - prepTime and cookTime are in minutes (use null if unknown)
 - Create a complete, practical, everyday recipe — not overly fancy`
 		: `Rules:
 - Use ONLY ingredients from my inventory list above, plus common pantry staples (salt, pepper, oil, water, basic spices)
-- Use specific amounts and units for each ingredient
+- Use metric units (grams, ml, liters, etc.) for all measurements EXCEPT teaspoons (tsp) and tablespoons (tbsp) which should stay as-is
 - Write clear, beginner-friendly instructions
 - prepTime and cookTime are in minutes (use null if unknown)
 - Create a complete, practical, everyday recipe — not overly fancy`
@@ -169,7 +169,8 @@ ${prefLines.length > 0 ? `Preferences:\n${prefLines.join('\n')}\n` : ''}Return a
   "prepTime": 15,
   "cookTime": 30,
   "ingredients": [
-    {"name": "ingredient name", "amount": "2", "unit": "cups", "notes": "diced"}
+    {"name": "ingredient name", "amount": "250", "unit": "g", "notes": "diced"},
+    {"name": "soy sauce", "amount": "2", "unit": "tbsp", "notes": null}
   ],
   "instructions": [
     {"content": "Step description"}

@@ -7,6 +7,10 @@ replace 100+ recipes scattered across Apple Notes. It provides searchable recipe
 storage, kitchen inventory tracking, meal planning, and smart shopping list
 generation.
 
+Built in ~3 weeks (starting February 6, 2026) using Claude Code as an AI coding
+assistant for rapid iteration. The scope reflects the development speed that
+AI-assisted coding enables, not months of traditional engineering.
+
 > For tech stack, architecture, commands, database schema, and route structure,
 > see [CLAUDE.md](../CLAUDE.md). For the full feature catalog, see
 > [FEATURES.md](./FEATURES.md). For business strategy, see

@@ -34,8 +34,8 @@ The app is feature-complete for solo and shared daily use.
 
 The core loop is complete — plan, shop, cook, review, repeat. Inventory is
 treated as a rough signal rather than a source of truth: no auto-subtraction,
-advisory shopping deductions (pre-checked not omitted), and lightweight
-post-cook check-ins. Priority is making the existing flow smooth enough for
+advisory shopping deductions (pre-checked not omitted), and a weekly inventory
+sweep for drift correction. Priority is making the existing flow smooth enough for
 daily use, but that doesn't mean new work only comes from friction. UX
 improvements, design system implementation, and ideas that make the app more
 pleasant to use are all fair game alongside reliability fixes. New AI
@@ -60,10 +60,10 @@ value are the open questions — see
 1. **Daily drive for 4+ weeks** — Plan the week, shop from the list, cook from
    the app. Fix friction as it surfaces.
 2. ~~**Stress-test inventory**~~ — Resolved. Auto-subtraction removed; inventory
-   shifted to rough-signal model (advisory shopping deductions, post-cook
-   check-ins, weekly sweep). Input is mostly passive via shopping check-off →
-   inventory pipeline. Monitor whether rough-signal accuracy is sufficient for
-   match rings and shopping list pre-checks
+   shifted to rough-signal model (advisory shopping deductions, weekly sweep).
+   Input is mostly passive via shopping check-off → inventory pipeline. Monitor
+   whether rough-signal accuracy is sufficient for match rings and shopping list
+   pre-checks
 3. ~~**Ship Google OAuth**~~ — Code done. Replaced GitHub with Google OAuth
    using `remix-auth-oauth2`. Provider-agnostic routes unchanged; only the
    provider config, registry, mock handlers, and UI references were swapped.
@@ -125,20 +125,15 @@ entirely. Inventory now serves three advisory purposes:
 2. **Advisory shopping deductions** — items matching non-low-stock inventory are
    created as pre-checked (appear in the checked section). Users can uncheck any
    they actually need. Staples still filtered entirely
-3. **Post-cook check-in** — after "I Made This", matched inventory items are
-   shown in a lightweight "Anything running low?" modal with tap-to-cycle UX
-   (keep → running low → used up). No quantity math. Quick-cook paths skip the
-   check-in entirely
-
-**Weekly sweep** remains the primary drift-correction mechanism: a once-per-week
+**Weekly sweep** is the primary drift-correction mechanism: a once-per-week
 banner on the plan page opens a "still have these?" modal for batch review.
 Priority items (perishables, low-stock, stale 7+ days) shown first; everything
 else behind an expand toggle. Items cycle keep → running low → used up.
 
 **Shopping check-off → inventory pipeline** handles the input side: checking off
-groceries at the store flows them into inventory. Combined with weekly sweep and
-post-cook check-ins, the lifecycle is mostly passive — no manual inventory page
-visits needed for routine use.
+groceries at the store flows them into inventory. Combined with the weekly sweep,
+the lifecycle is mostly passive — no manual inventory page visits needed for
+routine use.
 
 ### Friction Log
 
@@ -177,8 +172,6 @@ warning, join page error sanitization). Detail in git history.
 
 - [x] Pick one timezone/date strategy for meal-plan write/read/query paths and
       apply it consistently.
-- [x] Add error feedback and rollback path for post-cook "used up"
-      fire-and-forget actions.
 - [x] Fix `/inventory/new` location label/select association.
 - [x] Refresh uncooked meal reminders after relevant plan changes during long
       sessions.

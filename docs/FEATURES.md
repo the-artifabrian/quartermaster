@@ -46,16 +46,13 @@ High-level feature reference (not exhaustive). For the roadmap, see
   from current inventory (prioritizing expiring items). Preview before saving,
   "AI Generated" badge on saved recipes. Feature-specific error messages
   (rate limit, timeout, parse failure) instead of generic toasts
-- "I Made This" cook logging with post-cook check-in: after logging, matched
-  inventory items are shown in a lightweight "Anything running low?" modal with
-  tap-to-cycle UX (keep → running low → used up). No quantity math — inventory
-  is treated as a rough signal. Quick-cook paths skip the check-in (weekly sweep
-  covers drift)
+- "I Made This" cook logging with success toast. Inventory drift is handled by
+  the weekly sweep rather than per-cook prompts
 - Inline inventory status on recipe detail ingredient list: summary footer shows
   "You have X/Y ingredients" with "Add N missing to Shopping List" button
 - "Last cooked" stats on recipe cards (cook count + relative time)
 - Ingredient headings: section dividers within ingredient lists displayed as
-  styled headers. Skipped by shopping list, matching, check-in, and JSON-LD
+  styled headers. Skipped by shopping list, matching, and JSON-LD
 - Drag-and-drop ingredient reordering (`@dnd-kit/sortable`)
 - AI recipe enhance (Pro): one-click metadata inference (description, servings,
   prep/cook times) with before/after review modal. Feature-specific error

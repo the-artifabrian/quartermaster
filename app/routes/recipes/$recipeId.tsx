@@ -11,7 +11,6 @@ import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
 import { RecipeActionBar } from '#app/components/recipe-action-bar.tsx'
 import { CookingLogEntry } from '#app/components/recipe-cooking-log-entry.tsx'
 import { IMadeThisModal } from '#app/components/recipe-i-made-this-modal.tsx'
-import { PostCookCheckInModal } from '#app/components/post-cook-checkin-modal.tsx'
 import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
 import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
 import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
@@ -27,10 +26,6 @@ import {
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { cn } from '#app/utils/misc.tsx'
-import {
-	type CheckInItem,
-	getPostCookCheckInItems,
-} from '#app/utils/post-cook-checkin.server.ts'
 import {
 	type AppliedSubstitution,
 	extractPrimaryIngredient,
@@ -244,8 +239,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			householdId,
 		})
 
-		const checkInItems = await getPostCookCheckInItems(recipeId, householdId)
-		return { success: true, checkInItems }
+		return { success: true }
 	}
 
 	if (intent === 'deleteCookLog') {
@@ -453,7 +447,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const shoppingFetcher = useFetcher({ key: 'add-to-shopping' })
 	const prevCookFetcherState = useRef(cookFetcher.state)
 	const [showIMadeThisModal, setShowIMadeThisModal] = useState(false)
-	const [checkInItems, setCheckInItems] = useState<CheckInItem[] | null>(null)
 	const [historyExpanded, setHistoryExpanded] = useState(false)
 	const [substitutions, setSubstitutions] = useState<
 		Map<string, AppliedSubstitution>
@@ -485,14 +478,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			cookFetcher.data?.success
 		) {
 			clearProgress()
-			const items = cookFetcher.data.checkInItems as CheckInItem[] | undefined
-
 			setShowIMadeThisModal(false)
-			if (items && items.length > 0) {
-				setCheckInItems(items)
-			} else {
-				toast.success('Cook logged!')
-			}
+			toast.success('Cook logged!')
 		}
 		prevCookFetcherState.current = cookFetcher.state
 	}, [cookFetcher.state, cookFetcher.data, clearProgress])
@@ -833,14 +820,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					ratio={ratio}
 					cookFetcher={cookFetcher}
 					onClose={handleModalClose}
-				/>
-			)}
-
-			{/* Post-cook check-in modal */}
-			{checkInItems && checkInItems.length > 0 && (
-				<PostCookCheckInModal
-					items={checkInItems}
-					onClose={() => setCheckInItems(null)}
 				/>
 			)}
 

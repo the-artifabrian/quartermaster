@@ -179,48 +179,13 @@ describe('recipe detail actions', () => {
 			notes: 'Turned out great!',
 		})
 		const result = await action({ request, ...makeActionArgs(recipe.id) })
-		expect(result).toEqual({ success: true, checkInItems: [] })
+		expect(result).toEqual({ success: true })
 
 		const logs = await prisma.cookingLog.findMany({
 			where: { recipeId: recipe.id, userId: session.userId },
 		})
 		expect(logs).toHaveLength(1)
 		expect(logs[0]!.notes).toBe('Turned out great!')
-	})
-
-	test('log cook returns matched inventory items for check-in', async () => {
-		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId, session.householdId)
-
-		// Set up inventory with flour
-		await prisma.inventoryItem.create({
-			data: {
-				name: 'flour',
-				location: 'pantry',
-				userId: session.userId,
-				householdId: session.householdId,
-			},
-		})
-
-		const request = await makeRequest(session, recipe.id, {
-			intent: 'logCook',
-			cookedAt: '2026-02-06',
-			servingRatio: '1',
-		})
-		const result = (await action({
-			request,
-			...makeActionArgs(recipe.id),
-		})) as { success: boolean; checkInItems: Array<{ name: string }> }
-
-		// Inventory exists — just returns matched items for check-in
-		const flour = await prisma.inventoryItem.findFirst({
-			where: { householdId: session.householdId, name: 'flour' },
-		})
-		expect(flour).toBeTruthy()
-
-		expect(result.success).toBe(true)
-		expect(result.checkInItems).toHaveLength(1)
-		expect(result.checkInItems[0]!.name).toBe('flour')
 	})
 
 	test('delete cook log', async () => {

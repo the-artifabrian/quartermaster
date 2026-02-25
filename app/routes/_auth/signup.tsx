@@ -138,7 +138,7 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 					Please enter your email.
 				</p>
 			</div>
-			<div className="mx-auto mt-16 max-w-sm min-w-full sm:min-w-[368px]">
+			<div className="mx-auto mt-8 max-w-sm min-w-full sm:min-w-[368px]">
 				<Form method="POST" {...getFormProps(form)}>
 					<Field
 						labelProps={{
@@ -153,6 +153,7 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 						errors={fields.email.errors}
 					/>
 					<ErrorList errors={form.errors} id={form.errorId} />
+					<div className="mt-4" />
 					<StatusButton
 						className="w-full"
 						status={isPending ? 'pending' : (form.status ?? 'idle')}

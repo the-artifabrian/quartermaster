@@ -160,10 +160,10 @@ export default function OnboardingRoute({
 						Please enter your details.
 					</p>
 				</div>
-				<Spacer size="xs" />
+				<Spacer size="3xs" />
 				<Form
 					method="POST"
-					className="mx-auto max-w-sm min-w-full sm:min-w-[368px]"
+					className="mx-auto max-w-sm min-w-full space-y-4 sm:min-w-[368px]"
 					{...getFormProps(form)}
 				>
 					<Field
@@ -205,6 +205,7 @@ export default function OnboardingRoute({
 					/>
 
 					<CheckboxField
+						className="pt-2"
 						labelProps={{
 							htmlFor: fields.agreeToTermsOfServiceAndPrivacyPolicy.id,
 							children:

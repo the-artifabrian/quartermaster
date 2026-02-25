@@ -126,13 +126,16 @@ The app has **fully replaced Apple Notes** and **meal planning happens in-app**
 - What % touch inventory at all?
 - What's trial → paid conversion?
 - Do trial users invite household members?
-  "recipes + planning + basic shopping" (Phase 2 restructure)?
+  "recipes + planning + basic shopping" (Phase 2 restructure)?~~ **Resolved:**
+  April). March 12 data confirms the direction, doesn't decide it. See
 
-**Instrumentation required to answer these.** The existing `UsageEvent` model
-tracks feature-level actions, but the trial questions need funnel-level
-visibility: how far does each user get through the core loop (signup → recipe →
-inventory → plan → shop → check off)? Build a simple funnel query before
-recruiting non-friend testers so the March 12 check-in has data, not anecdotes.
+**Instrumentation deferred.** The existing `UsageEvent` model tracks AI/Pro
+feature usage (generation, enhance, substitutions, pairing selections). Funnel-
+level visibility (how far each user gets through signup → recipe → inventory →
+plan → shop → check off) would require ~8 additional `trackEvent()` calls in
+existing route actions + an admin query. At 3-5 beta testers, conversations are
+more valuable than funnel data — just talk to them. Add instrumentation later if
+volume warrants it.
 
 > **Check-in: March 12, 2026.** Assess based on non-friend tester feedback.
 > Have testers completed the core loop (import → plan → shop → check off)?

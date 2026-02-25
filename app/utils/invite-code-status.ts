@@ -36,6 +36,6 @@ export function getCodeStatus(code: {
 	return {
 		label: 'Available',
 		className:
-			'border-accent/30 bg-accent/10 text-accent-foreground',
+			'border-accent/30 bg-accent/10 text-accent-foreground dark:text-foreground',
 	}
 }

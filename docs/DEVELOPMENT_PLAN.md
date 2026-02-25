@@ -49,6 +49,13 @@ strangers find it useful, data on which features drive retention, or a sustained
 path to users. Priority is: get the app in front of non-friend testers, instrument
 the funnel, and polish the first 5 minutes of the experience.
 
+**The real competitor is inertia.** Most home cooks use Apple Notes, browser
+bookmarks, or memory — and it works fine for them. They don't comparison-shop
+recipe apps. The pitch doesn't need to beat Paprika or Mela; it needs to clear
+the bar of "why change from what I'm already doing." Feature comparisons are
+irrelevant until a stranger decides their current mess is worth fixing. Every
+acquisition conversation starts there, not at the feature matrix.
+
 That said — rapid iteration with an AI coding assistant means the cost of
 building is low. Don't stop coding. But let daily-use friction and tester
 feedback drive what you build, not the backlog. "I watched a stranger get
@@ -134,6 +141,11 @@ recruiting non-friend testers so the March 12 check-in has data, not anecdotes.
 > **Check-in: March 12, 2026.** Assess daily driving progress with data from
 > funnel instrumentation and non-friend tester feedback. If the app isn't
 > sticking, identify UX friction and fix it. Don't defer indefinitely.
+>
+> **Honest expectation:** as of February 25, non-friend testers aren't recruited
+> and funnel instrumentation isn't built. If neither happens by March 12, push
+> the check-in rather than do a gut-check without data. A vague check-in is
+> worse than a delayed one.
 
 ### If Validation Fails
 
@@ -146,6 +158,11 @@ data, the project doesn't fail — it changes shape. Options worth having in min
   management + planning does, the paid tier should gate something else (AI
   features, advanced import, premium design themes). The inventory loop is the
   current bet, not the only possible one.
+- **Technical case study.** The project has standalone value regardless of
+  Stripe billing, household sharing — designed and shipped in ~3 weeks with
+  AI-assisted development. That's a compelling story for blog posts, Hacker
+  News, conference talks, and hiring conversations. This isn't a consolation
+  prize — it's a legitimate outcome that's already been earned.
 
 None of these are failures — they're different outcomes for a personal tool
 that was always about replacing Apple Notes first and making money second.
@@ -157,6 +174,14 @@ match rings (do you have the ingredient?), advisory shopping deductions
 (pre-checked not omitted), and weekly sweep for drift correction. Input flows in
 via shopping check-off → inventory pipeline. Monitor whether rough-signal
 accuracy is sufficient for match rings and shopping list pre-checks.
+
+**Adoption risk:** The inventory loop is the intellectual core of the product,
+but it may not be what most users want. If non-friend testers engage with
+recipes + planning but not inventory, that's signal — not failure. The product
+can succeed without the inventory loop being the differentiator. The risk is
+holding onto inventory as identity when users are telling you they want something
+simpler. Watch for this in tester behavior and be willing to pivot the value prop
+around recipe management + planning if that's where the energy is.
 
 ### Friction Log
 

@@ -37,40 +37,64 @@ free inventory limit bumped to 50, copy/UX polish pass across all pages.
 The core loop is complete — plan, shop, cook, review, repeat. Inventory is
 treated as a rough signal rather than a source of truth: no auto-subtraction,
 advisory shopping deductions (pre-checked not omitted), and a weekly inventory
-sweep for drift correction. Priority is making the existing flow smooth enough for
-daily use, but that doesn't mean new work only comes from friction. UX
-improvements, design system implementation, and ideas that make the app more
-pleasant to use are all fair game alongside reliability fixes. New AI
-surface-area work is paused until core-loop reliability items are closed and
-daily-driver retention is stable.
+sweep for drift correction.
+
+**The binding constraint is now validation, not features.** The app has more
+features than most mature cooking apps. What it doesn't have is evidence that
+strangers find it useful, data on which features drive retention, or a sustained
+path to users. Priority is: get the app in front of non-friend testers, instrument
+the funnel, and polish the first 5 minutes of the experience.
+
+That said — rapid iteration with an AI coding assistant means the cost of
+building is low. Don't stop coding. But let daily-use friction and tester
+feedback drive what you build, not the backlog. "I watched a stranger get
+confused and fixed it in 20 minutes" is high-value iteration. "I spent a week
+on defrost reminders nobody asked for" is not. The test: is this fixing
+something a real person hit, or something the backlog says might matter?
 
 Daily driving started **February 12, 2026**. The app is being used for real
 cooking and meal planning. 3 external users onboarded (girlfriend as household
 co-user, plus a friend and his girlfriend as a separate household).
 
-**After one week:** recipe management and cooking features are clearly validated
-— daily use, fully replaced Apple Notes. Shopping list is used at the store
-(generated from plan + manual additions). All 3 AI features used for real cooking
-decisions. Meal planning is partial (2-3 days ahead, not full-week commitment).
-Household sharing is light. Inventory sustainability is the open question — see
+**After two weeks:** recipe management and cooking features are clearly
+validated — daily use, fully replaced Apple Notes. Shopping list is used at the
+store (generated from plan + manual additions). All 3 AI features used for real
+cooking decisions. Meal planning is partial (2-3 days ahead, not full-week
+commitment). Household sharing is light. Usage varies across users — the
+developer uses the full loop, but beta testers engage with different subsets.
+This is consistent with the dual-audience hypothesis (broad: recipes + planning,
+deep: inventory loop) but means the inventory loop is currently validated by one
+person. Inventory sustainability is the open question — see
 [Inventory Mode](#inventory-mode-rough-signal) below.
 
 ### Critical Path
 
-1. **Daily drive for 4+ weeks** — Plan the week, shop from the list, cook from
+1. **Find 2-3 non-friend testers NOW** — This is the single highest-value
+   action before March 12. Friends tolerate friction. Strangers bounce — and
+   *where* they bounce tells you what's actually broken. Post in
+   r/mealprepsunday or r/Cooking as "looking for beta testers," not a launch.
+   The feedback is more valuable than any feature you could build in the next 2
+   weeks. Ask them to try it for 2 weeks. Watch where they get confused.
+2. **Instrument the funnel** — The trial evaluation criteria are excellent
+   questions, but they need actual tracking to answer. Before March 12,
+   instrument: signed up → added recipe → opened inventory → created meal plan →
+   generated shopping list → checked items off. Also track: inventory decay rate
+   (how stale does the average user's inventory get between sweeps?). Without
+   this, March 12 is a gut-check, not a data-informed decision.
+3. **Polish the first 5 minutes** — Can a stranger sign up, import 3 recipes,
+   plan 2 dinners, and generate a shopping list without getting confused? The
+   onboarding flow exists but hasn't been tested on anyone who didn't watch you
+   build it. Watch non-friend testers and fix what's confusing.
+4. **Daily drive for 4+ weeks** — Plan the week, shop from the list, cook from
    the app. Fix friction as it surfaces.
-2. ~~**Stress-test inventory**~~ — Resolved. Shifted to rough-signal model.
-3. ~~**Ship Google OAuth**~~ — Code done. **Needs production setup:**
+5. ~~**Stress-test inventory**~~ — Resolved. Shifted to rough-signal model.
+6. ~~**Ship Google OAuth**~~ — Code done. **Needs production setup:**
    - Create Google Cloud Console OAuth 2.0 Client ID (Web application)
    - Add authorized redirect URI: `https://<prod-domain>/auth/google/callback`
    - Configure OAuth consent screen (External, unverified fine under 100 users)
    - Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` in
      production env
    codes.
-5. **Find 2-3 non-friend testers** — Friendly users won't surface what's
-   confusing. Find people who meal plan (colleagues, online communities) and ask
-   them to try it for 2 weeks. This isn't a launch — it's learning whether the
-   app makes sense to someone who didn't watch you build it.
 
 ### Proven Gate
 
@@ -97,8 +121,30 @@ The app has **fully replaced Apple Notes** and **meal planning happens in-app**
 - Do trial users invite household members?
   "recipes + planning + basic shopping" (Phase 2 restructure)?
 
-> **Check-in: March 12, 2026.** Assess daily driving progress. If the app isn't
+**Instrumentation required to answer these.** The existing `UsageEvent` model
+tracks feature-level actions, but the trial questions need funnel-level
+visibility: how far does each user get through the core loop (signup → recipe →
+inventory → plan → shop → check off)? Build a simple funnel query before
+recruiting non-friend testers so the March 12 check-in has data, not anecdotes.
+
+> **Check-in: March 12, 2026.** Assess daily driving progress with data from
+> funnel instrumentation and non-friend tester feedback. If the app isn't
 > sticking, identify UX friction and fix it. Don't defer indefinitely.
+
+### If Validation Fails
+
+If non-friend testers bounce hard or the March 12 check-in produces discouraging
+data, the project doesn't fail — it changes shape. Options worth having in mind:
+
+  Stop building for scale, keep maintaining for personal use.
+- **Open-source.** Let the self-hosting community carry it. Removes the
+- **Rethink the value prop.** If inventory doesn't resonate but recipe
+  management + planning does, the paid tier should gate something else (AI
+  features, advanced import, premium design themes). The inventory loop is the
+  current bet, not the only possible one.
+
+None of these are failures — they're different outcomes for a personal tool
+that was always about replacing Apple Notes first and making money second.
 
 ### Inventory Mode: Rough Signal
 
@@ -128,7 +174,12 @@ git history. Add new entries as friction surfaces.
 
 ## Backlog
 
-Daily use and judgment both inform what to pick up next. Larger-scope items
+**Backlog items are low priority until March 12.** The app has more features
+than most paid competitors. The next 2 weeks should emphasize: finding testers,
+watching them use it, and fixing what's confusing. Keep iterating — the
+dev-with-AI-assistant loop is fast and cheap — but draw from daily-use friction
+and tester feedback, not from this list. None of the items below matter until a
+stranger can complete the core loop without getting lost. Larger-scope items
 (nutrition APIs, email digests, dashboards) are better suited for
 
 - [ ] **Value recap panel** — lightweight summary of user benefit (meals cooked,

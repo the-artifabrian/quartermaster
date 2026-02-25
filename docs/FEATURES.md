@@ -8,6 +8,25 @@ to buy?" — in one app.
 High-level feature reference (not exhaustive). For the roadmap, see
 [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy, see
 
+### What makes this different
+
+Most of the features below are table stakes for a recipe app. Three things
+aren't:
+
+1. **Inventory-aware recipe matching** — "What can I make?" with 4-level fuzzy
+   matching, match rings on every recipe card, expiring-item meal suggestions.
+   No competitor offers this.
+2. **Closed-loop pipeline** — Plan → shop → check off → restock inventory →
+   discover recipes → plan again. The shopping list feeds inventory, inventory
+   feeds recipe discovery, discovery feeds planning. One loop, not disconnected
+   features.
+3. **Cookbook-quality design without photos** — Most recipes don't have images.
+   The app is designed around that reality with warm serif typography, not
+   around it.
+
+Everything else (cooking timers, scaling, household sharing, AI features) is
+execution quality, not differentiation.
+
 ---
 
 ## Recipe Management

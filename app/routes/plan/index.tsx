@@ -29,6 +29,7 @@ import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { trackEvent } from '#app/utils/usage-tracking.server.ts'
+import { UncookedMealReminder } from '#app/components/uncooked-meal-reminder.tsx'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -503,6 +504,8 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="pb-20 md:pb-6">
+			<UncookedMealReminder />
+
 			{/* Page Header */}
 			<div className="container-grid py-4">
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

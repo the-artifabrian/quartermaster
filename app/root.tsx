@@ -25,7 +25,6 @@ import { useToast } from './components/toaster.tsx'
 import { Button } from './components/ui/button.tsx'
 import { Icon, href as iconsHref } from './components/ui/icon.tsx'
 import { Toaster } from './components/ui/sonner.tsx'
-import { UncookedMealReminder } from './components/uncooked-meal-reminder.tsx'
 import { UserDropdown } from './components/user-dropdown.tsx'
 import { useOptionalTheme, useTheme } from './routes/resources/theme-switch.tsx'
 import tailwindStyleSheetUrl from './styles/tailwind.css?url'
@@ -437,8 +436,6 @@ function App() {
 							</div>
 						</nav>
 					</header>
-
-					{isPro ? <UncookedMealReminder /> : null}
 
 					<main id="main-content" className="flex flex-1 flex-col">
 						<Outlet />

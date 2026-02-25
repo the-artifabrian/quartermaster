@@ -112,7 +112,7 @@ High-level feature reference (not exhaustive). For the roadmap, see
   passthrough to recipe detail via `?servings=N` query param
 - Mark meals as "cooked" with optimistic toggle; quick "I made this" one-tap
   action (logs cook, simple toast)
-- Uncooked meal reminders: site-wide banner for planned-but-uncooked meals from
+- Uncooked meal reminders: plan page banner for planned-but-uncooked meals from
   today or yesterday (time-of-day gated). 1-tap "Yes, I made it" (logs cook)
   or "Skip" (session dismiss)
 - "Up next" banner (current week): next chronological meal to cook today with

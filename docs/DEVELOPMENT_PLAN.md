@@ -24,7 +24,7 @@ The app is feature-complete for solo and shared daily use.
 | 5-8            | Inventory matching ("What can I make?"), cooking logs, unit conversion                                                                                    |
 | 9-12           | Recipe scaling, cooking mode (timers, temps), ingredient headings, bulk import                                                                            |
 | 13a-e          | Household sharing, SSE real-time events, notification bell                                                                                                |
-| Polish + UX    | Color system, mobile-first layout, print/share, meal templates, shelf-life, pairing/waste, cooking progress, card streamlining, weekly inventory sweep     |
+| Polish + UX    | Color system, mobile-first layout, print/share, meal templates, shelf-life, pairing/waste, cooking progress, card streamlining, weekly inventory sweep    |
 | AI             | Ingredient substitutions (static DB + LLM), recipe generation, metadata enhance                                                                           |
 | Beta hardening | Dead code cleanup, a11y (focus traps, aria-labels, focus rings), render-time setState fixes, SSRF + sourcemap + error sanitization, shopping live-refresh |
 
@@ -34,12 +34,13 @@ The app is feature-complete for solo and shared daily use.
 
 The core loop is complete — plan, shop, cook, review, repeat. Inventory is
 treated as a rough signal rather than a source of truth: no auto-subtraction,
-advisory shopping deductions (pre-checked not omitted), and lightweight post-cook
-check-ins. Priority is making the existing flow smooth enough for daily use, but
-that doesn't mean new work only comes from friction. UX improvements, design
-system implementation, and ideas that make the app more pleasant to use are all
-fair game alongside reliability fixes. New AI surface-area work is paused until
-core-loop reliability items are closed and daily-driver retention is stable.
+advisory shopping deductions (pre-checked not omitted), and lightweight
+post-cook check-ins. Priority is making the existing flow smooth enough for
+daily use, but that doesn't mean new work only comes from friction. UX
+improvements, design system implementation, and ideas that make the app more
+pleasant to use are all fair game alongside reliability fixes. New AI
+surface-area work is paused until core-loop reliability items are closed and
+daily-driver retention is stable.
 
 Daily driving started **February 12, 2026**. The app is being used for real
 cooking and meal planning. 3 external users onboarded (girlfriend as household
@@ -73,7 +74,7 @@ value are the open questions — see
    - Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` in
      production env
 4. ~~**Ship 14-day trial**~~ — Done. Every new signup gets 14 days of
-   redeem codes (previously blocked). Tests cover signup trial creation and
+   codes (previously blocked). Tests cover signup trial creation and
    `getUserTier` trial detection.
 5. **Find 2-3 non-friend testers** — Friendly users won't surface what's
    confusing. Find people who meal plan (colleagues, online communities) and ask
@@ -116,8 +117,8 @@ drifted from physical reality. The critical asymmetry: an item wrongly excluded
 from a shopping list (missed grocery trip) is far worse than an item wrongly
 included (mild duplicate).
 
-**Resolution: inventory as rough signal.** Auto-subtraction was removed entirely.
-Inventory now serves three advisory purposes:
+**Resolution: inventory as rough signal.** Auto-subtraction was removed
+entirely. Inventory now serves three advisory purposes:
 
 1. **Match rings** — recipe cards show what percentage of ingredients you have.
    Just needs to know you _have_ an ingredient, not how much
@@ -181,8 +182,8 @@ warning, join page error sanitization). Detail in git history.
 - [x] Fix `/inventory/new` location label/select association.
 - [x] Refresh uncooked meal reminders after relevant plan changes during long
       sessions.
-- [x] Reduce heavy fetch patterns on recipe index (skip ingredient fetch when
-      no inventory). Inventory index and meal-plan pairing are fast at current
+- [x] Reduce heavy fetch patterns on recipe index (skip ingredient fetch when no
+      inventory). Inventory index and meal-plan pairing are fast at current
       scale (~135 recipes) — profile at 500+.
 
 #### Watch
@@ -221,10 +222,10 @@ Items tied to the cooking loop and app experience. Daily use and judgment both
 inform what to pick up next — not everything needs a friction log entry to
 justify building. Larger-scope items (nutrition APIs, email digests, dashboards)
 
-- [x] **Weekly reset flow** — "Suggest Meals" button on plan page. Ranks
-      recipes by expiring inventory matches, favorites, and inventory match %.
-      Review modal with reason badges, inline picker, confirm → toast with
-      shopping list link
+- [x] **Weekly reset flow** — "Suggest Meals" button on plan page. Ranks recipes
+      by expiring inventory matches, favorites, and inventory match %. Review
+      modal with reason badges, inline picker, confirm → toast with shopping
+      list link
 - [ ] **Value recap panel** — lightweight summary of user benefit (meals cooked,
       plan completion, recipes added this week). Makes the app's value visible
       rather than invisible. Lives on a future dashboard/homepage — too much
@@ -242,11 +243,11 @@ justify building. Larger-scope items (nutrition APIs, email digests, dashboards)
       dinners when you really only need to cook 4-5. Watch for friction signal
       during daily driving before building
 - [x] **14-day full-access trial** — Every new signup gets 14 days of
-      can redeem codes to extend. See
+      redeem codes to extend. See
 - [x] **Bump free inventory limit to 50** — Was 15, which caused a
       bait-and-switch feel: pantry staples onboarding shows 33 items but free
-      tier silently truncated at 15. At 50, all 33 staples fit comfortably.
-      The real Pro gate is features (planning, shopping, AI), not item count
+      tier silently truncated at 15. At 50, all 33 staples fit comfortably. The
+      real Pro gate is features (planning, shopping, AI), not item count
 - [x] **Google OAuth (replace GitHub)** — Replaced GitHub OAuth with Google
       using `remix-auth-oauth2`. Google Cloud Console project + OAuth consent
       screen needed for production (unverified fine under 100 users)

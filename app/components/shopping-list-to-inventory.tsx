@@ -23,6 +23,7 @@ type InventoryReviewItem = {
 	location: 'pantry' | 'fridge' | 'freezer'
 	expiresAt: string | null
 	included: boolean
+	inInventory: string | null
 }
 
 function formatShortDate(dateStr: string): string {
@@ -32,9 +33,13 @@ function formatShortDate(dateStr: string): string {
 
 export function ShoppingListToInventory({
 	items,
+	inventoryByCanonical,
+	itemCanonicals,
 	onCancel,
 }: {
 	items: ShoppingListItem[]
+	inventoryByCanonical: Record<string, string[]>
+	itemCanonicals: Record<string, string>
 	onCancel: () => void
 }) {
 	const fetcher = useFetcher()
@@ -47,6 +52,13 @@ export function ShoppingListToInventory({
 	const [reviewItems, setReviewItems] = useState<InventoryReviewItem[]>(() =>
 		foodItems.map((item) => {
 			const location = categoryToLocation(item.category ?? 'other')
+			const canonical = itemCanonicals[item.id]
+			const locations = canonical
+				? inventoryByCanonical[canonical]
+				: undefined
+			const alreadyStocked = locations?.includes(location)
+				? location
+				: null
 			return {
 				id: item.id,
 				name: item.name,
@@ -54,7 +66,8 @@ export function ShoppingListToInventory({
 				unit: item.unit,
 				location,
 				expiresAt: suggestExpiryDate(item.name, location),
-				included: true,
+				included: !alreadyStocked,
+				inInventory: alreadyStocked,
 			}
 		}),
 	)
@@ -64,6 +77,9 @@ export function ShoppingListToInventory({
 	const selectedCount = reviewItems.filter((i) => i.included).length
 	const allSelected =
 		reviewItems.length > 0 && selectedCount === reviewItems.length
+	const alreadyStockedCount = reviewItems.filter(
+		(i) => i.inInventory && !i.included,
+	).length
 
 	function handleToggle(id: string) {
 		setReviewItems((prev) =>
@@ -97,15 +113,22 @@ export function ShoppingListToInventory({
 		location: 'pantry' | 'fridge' | 'freezer',
 	) {
 		setReviewItems((prev) =>
-			prev.map((item) =>
-				item.id === id
-					? {
-							...item,
-							location,
-							expiresAt: suggestExpiryDate(item.name, location),
-						}
-					: item,
-			),
+			prev.map((item) => {
+				if (item.id !== id) return item
+				const canonical = itemCanonicals[item.id]
+				const locations = canonical
+					? inventoryByCanonical[canonical]
+					: undefined
+				const alreadyStocked = locations?.includes(location)
+					? location
+					: null
+				return {
+					...item,
+					location,
+					expiresAt: suggestExpiryDate(item.name, location),
+					inInventory: alreadyStocked,
+				}
+			}),
 		)
 	}
 
@@ -166,7 +189,14 @@ export function ShoppingListToInventory({
 						{reviewItems.map((item) => {
 							const isExpanded = expandedIds.has(item.id)
 							return (
-								<div key={item.id}>
+								<div
+									key={item.id}
+									className={
+										item.inInventory && !item.included
+											? 'opacity-60'
+											: undefined
+									}
+								>
 									{/* Compact row */}
 									<div
 										className="flex cursor-pointer items-center gap-3 py-3"
@@ -191,23 +221,36 @@ export function ShoppingListToInventory({
 												</p>
 											)}
 										</div>
-										<span
-											className={cn(
-												'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
-												locationBadgeColors[item.location] ??
-													'bg-muted text-muted-foreground',
-											)}
-										>
-											{
-												LOCATION_LABELS[
-													item.location as keyof typeof LOCATION_LABELS
-												]
-											}
-										</span>
-										{item.expiresAt && (
-											<span className="text-muted-foreground shrink-0 text-xs">
-												{formatShortDate(item.expiresAt)}
+										{item.inInventory && !item.included ? (
+											<span className="shrink-0 text-xs italic text-muted-foreground">
+												Already in{' '}
+												{
+													LOCATION_LABELS[
+														item.inInventory as keyof typeof LOCATION_LABELS
+													]
+												}
 											</span>
+										) : (
+											<>
+												<span
+													className={cn(
+														'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
+														locationBadgeColors[item.location] ??
+															'bg-muted text-muted-foreground',
+													)}
+												>
+													{
+														LOCATION_LABELS[
+															item.location as keyof typeof LOCATION_LABELS
+														]
+													}
+												</span>
+												{item.expiresAt && (
+													<span className="text-muted-foreground shrink-0 text-xs">
+														{formatShortDate(item.expiresAt)}
+													</span>
+												)}
+											</>
 										)}
 										<Icon
 											name="chevron-down"
@@ -262,6 +305,14 @@ export function ShoppingListToInventory({
 						})}
 					</div>
 				</>
+			)}
+
+			{alreadyStockedCount > 0 && (
+				<p className="text-muted-foreground mt-3 text-sm">
+					{alreadyStockedCount} item
+					{alreadyStockedCount !== 1 ? 's' : ''} already in your inventory
+					(deselected).
+				</p>
 			)}
 
 			{householdCount > 0 && (

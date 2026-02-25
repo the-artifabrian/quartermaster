@@ -112,11 +112,12 @@ export const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 	'soy sauce': ['tamari', 'shoyu'],
 	tamari: ['soy sauce', 'shoyu'],
 	shoyu: ['soy sauce', 'tamari'],
-	// Proteins — "chicken breast" and "chicken thigh" already match "chicken"
-	// via the core-word matching logic, but explicit synonyms help the reverse case
+	// Proteins — bare "chicken" matches common cuts via synonyms.
+	// Specific cuts do NOT match each other (breast ≠ thigh ≠ back).
+	// Core-word matching is blocked for proteins via CUT_SENSITIVE_WORDS.
 	chicken: ['chicken breast', 'chicken thigh'],
-	'chicken breast': ['chicken', 'chicken thigh'],
-	'chicken thigh': ['chicken', 'chicken breast'],
+	'chicken breast': ['chicken'],
+	'chicken thigh': ['chicken'],
 	// Hard cheeses
 	parmesan: ['pecorino', 'parmigiano reggiano', 'grana padano'],
 	pecorino: ['parmesan', 'parmigiano reggiano', 'grana padano'],
@@ -484,6 +485,23 @@ const NON_EQUIVALENT_COMPOUNDS = new Map<string, string[]>([
 	['chili', ['chili oil', 'chili paste', 'chili flake']],
 ])
 
+/**
+ * Core words for proteins where different compound forms are NOT interchangeable.
+ * "chicken breast" should NOT match "chicken thigh" via core-word or
+ * word-containment matching — only explicit synonyms or exact normalization.
+ */
+const CUT_SENSITIVE_WORDS = new Set([
+	'chicken',
+	'beef',
+	'pork',
+	'lamb',
+	'turkey',
+	'duck',
+	'fish',
+	'salmon',
+	'tuna',
+])
+
 function isNonEquivalentCompoundMatch(
 	normalizedA: string,
 	normalizedB: string,
@@ -532,9 +550,11 @@ export function ingredientMatchesInventoryItem(
 	const ingredientCore = getCoreIngredientWord(ingredient.name)
 	const inventoryCore = getCoreIngredientWord(inventoryItem.name)
 
-	// Match on core words, but exclude non-equivalent compounds
+	// Match on core words, but exclude non-equivalent compounds and
+	// cut-sensitive proteins (chicken breast ≠ chicken thigh)
 	if (
 		ingredientCore === inventoryCore &&
+		!CUT_SENSITIVE_WORDS.has(ingredientCore) &&
 		!isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory)
 	) {
 		return true
@@ -553,6 +573,7 @@ export function ingredientMatchesInventoryItem(
 	if (ingredientWords.length === 1 && inventoryWords.length > 1) {
 		if (isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory))
 			return false
+		if (CUT_SENSITIVE_WORDS.has(ingredientWords[0]!)) return false
 		const word = ingredientWords[0]
 		return (
 			inventoryWords[0] === word ||
@@ -563,6 +584,7 @@ export function ingredientMatchesInventoryItem(
 	if (inventoryWords.length === 1 && ingredientWords.length > 1) {
 		if (isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory))
 			return false
+		if (CUT_SENSITIVE_WORDS.has(inventoryWords[0]!)) return false
 		const word = inventoryWords[0]
 		return (
 			ingredientWords[0] === word ||

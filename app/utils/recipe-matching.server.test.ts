@@ -224,7 +224,26 @@ describe('ingredientMatchesInventoryItem', () => {
 	})
 
 	test('core word match', () => {
-		expect(match('chicken breast', 'chicken thigh')).toBe(true)
+		expect(match('roasted broccoli', 'steamed broccoli')).toBe(true)
+	})
+
+	test('bare chicken matches common cuts via synonym', () => {
+		expect(match('chicken', 'chicken breast')).toBe(true)
+		expect(match('chicken breast', 'chicken')).toBe(true)
+		expect(match('chicken', 'chicken thigh')).toBe(true)
+	})
+
+	test('negative: different chicken cuts do NOT match each other', () => {
+		expect(match('chicken breast', 'chicken thigh')).toBe(false)
+		expect(match('chicken breast', 'chicken back')).toBe(false)
+		expect(match('chicken breast', 'chicken feet')).toBe(false)
+		expect(match('chicken breast', 'chicken wings')).toBe(false)
+	})
+
+	test('negative: different protein cuts do NOT match', () => {
+		expect(match('pork chop', 'pork belly')).toBe(false)
+		expect(match('ground beef', 'beef brisket')).toBe(false)
+		expect(match('lamb chop', 'lamb shank')).toBe(false)
 	})
 
 	test('single-word ingredient matches multi-word inventory (first/last word)', () => {

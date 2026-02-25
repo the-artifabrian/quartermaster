@@ -98,29 +98,46 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const hasMealPlan = weeksWithPlans.length > 0
 
-	// Low-stock inventory items as suggestions
-	const lowStockItems = await prisma.inventoryItem.findMany({
-		where: { householdId, lowStock: true },
-		select: {
-			id: true,
-			name: true,
-			location: true,
-		},
+	// All inventory items — used for low-stock suggestions + review panel matching
+	const allInventoryItems = await prisma.inventoryItem.findMany({
+		where: { householdId },
+		select: { id: true, name: true, location: true, lowStock: true },
 	})
 
 	// Filter out items already on the shopping list by canonical name
 	const shoppingCanonicals = new Set(
 		shoppingList.items.map((item) => getCanonicalIngredientName(item.name)),
 	)
-	const lowStockSuggestions = lowStockItems.filter(
-		(item) => !shoppingCanonicals.has(getCanonicalIngredientName(item.name)),
-	)
+	const lowStockSuggestions = allInventoryItems
+		.filter((item) => item.lowStock)
+		.filter(
+			(item) =>
+				!shoppingCanonicals.has(getCanonicalIngredientName(item.name)),
+		)
+
+	// Canonical inventory lookup for review panel "already stocked" indicator
+	const inventoryByCanonical: Record<string, string[]> = {}
+	for (const inv of allInventoryItems) {
+		const canonical = getCanonicalIngredientName(inv.name)
+		if (!inventoryByCanonical[canonical]) {
+			inventoryByCanonical[canonical] = []
+		}
+		if (!inventoryByCanonical[canonical].includes(inv.location)) {
+			inventoryByCanonical[canonical].push(inv.location)
+		}
+	}
+	const itemCanonicals: Record<string, string> = {}
+	for (const item of shoppingList.items) {
+		itemCanonicals[item.id] = getCanonicalIngredientName(item.name)
+	}
 
 	return {
 		shoppingList,
 		hasMealPlan,
 		weeksWithPlans,
 		lowStockSuggestions,
+		inventoryByCanonical,
+		itemCanonicals,
 	}
 }
 
@@ -500,8 +517,14 @@ export default function ShoppingListRoute({
 	loaderData,
 	actionData,
 }: Route.ComponentProps) {
-	const { shoppingList, hasMealPlan, weeksWithPlans, lowStockSuggestions } =
-		loaderData
+	const {
+		shoppingList,
+		hasMealPlan,
+		weeksWithPlans,
+		lowStockSuggestions,
+		inventoryByCanonical,
+		itemCanonicals,
+	} = loaderData
 	const defaultWeek =
 		weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
 		weeksWithPlans[0]?.weekStart ??
@@ -845,6 +868,8 @@ export default function ShoppingListRoute({
 					<div className="mt-4 print:hidden">
 						<ShoppingListToInventory
 							items={checkedItemsList}
+							inventoryByCanonical={inventoryByCanonical}
+							itemCanonicals={itemCanonicals}
 							onCancel={() => setShowReview(false)}
 						/>
 					</div>

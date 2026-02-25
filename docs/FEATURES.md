@@ -153,9 +153,12 @@ High-level feature reference (not exhaustive). For the roadmap, see
   - Check-off -> inventory pipeline: compact collapsed rows with location badges
     and short expiry dates, tap to expand controls, select all/deselect all.
     Pre-filled location and auto-suggested expiry (shelf-life lookup, ~60
-    entries). Auto-updates existing inventory items (canonical name match,
-    same location) — refreshes expiry and clears low-stock flag. Household items cleared
-    but not added to inventory
+    entries). "Already in [location]" indicator for items matching existing
+    inventory (canonical name + location match) — pre-deselected with muted
+    styling, clears when user re-selects or changes to an unstocked location.
+    Auto-updates existing inventory items (canonical name match, same location)
+    — refreshes expiry and clears low-stock flag. Household items cleared but
+    not added to inventory
   - Low-stock nudge: amber chip banner for low-stock items not already on list,
     one-tap add or "Add All"
 

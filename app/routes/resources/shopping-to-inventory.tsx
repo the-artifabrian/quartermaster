@@ -6,13 +6,6 @@ import { requireProTier } from '#app/utils/subscription.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/shopping-to-inventory.ts'
 
-function parseExpiresAt(value?: string | null): Date | null {
-	if (!value) return null
-	const d = new Date(value)
-	if (isNaN(d.getTime())) return null
-	return d
-}
-
 export async function action({ request }: Route.ActionArgs) {
 	const { userId, householdId } = await requireProTier(request)
 	const formData = await request.formData()
@@ -31,13 +24,11 @@ export async function action({ request }: Route.ActionArgs) {
 	let items: Array<{
 		itemId: string
 		location: string
-		expiresAt?: string | null
 	}>
 	try {
 		items = JSON.parse(rawItems) as Array<{
 			itemId: string
 			location: string
-			expiresAt?: string | null
 		}>
 	} catch {
 		throw new Response('Invalid items data', { status: 400 })
@@ -79,7 +70,6 @@ export async function action({ request }: Route.ActionArgs) {
 
 	for (const item of foodItems) {
 		const shoppingItem = itemMap.get(item.itemId)!
-		const expiresAt = parseExpiresAt(item.expiresAt)
 
 		const match = findMatchingInventoryItem(
 			shoppingItem.name,
@@ -89,13 +79,6 @@ export async function action({ request }: Route.ActionArgs) {
 
 		if (match) {
 			const updateData: Record<string, unknown> = { lowStock: false }
-			if (
-				expiresAt &&
-				(!match.expiresAt ||
-					expiresAt.getTime() > match.expiresAt.getTime())
-			) {
-				updateData.expiresAt = expiresAt
-			}
 			Object.assign(match, updateData)
 			updateMap.set(match.id, { ...updateData })
 			updatedCount++
@@ -104,7 +87,6 @@ export async function action({ request }: Route.ActionArgs) {
 				data: {
 					name: shoppingItem.name,
 					location: item.location,
-					expiresAt,
 					userId,
 					householdId,
 				},
@@ -114,7 +96,6 @@ export async function action({ request }: Route.ActionArgs) {
 				id: `pending-${creates.length}`,
 				name: shoppingItem.name,
 				location: item.location,
-				expiresAt,
 				lowStock: false,
 				userId,
 				householdId,

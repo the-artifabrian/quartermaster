@@ -32,19 +32,11 @@ const DAILY_GENERATION_LIMIT = 10
 export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireProTier(request)
 
-	const now = new Date()
-	const startOfDay = new Date(now)
+	const startOfDay = new Date()
 	startOfDay.setHours(0, 0, 0, 0)
-	const threeDaysFromNow = new Date(now.getTime() + 3 * 86400000)
 
-	const [inventoryCount, expiringCount, todayGenerations] = await Promise.all([
+	const [inventoryCount, todayGenerations] = await Promise.all([
 		prisma.inventoryItem.count({ where: { householdId } }),
-		prisma.inventoryItem.count({
-			where: {
-				householdId,
-				expiresAt: { gte: now, lte: threeDaysFromNow },
-			},
-		}),
 		prisma.usageEvent.count({
 			where: {
 				userId,
@@ -56,7 +48,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	return {
 		inventoryCount,
-		expiringCount,
 		generationsRemaining: Math.max(
 			0,
 			DAILY_GENERATION_LIMIT - todayGenerations,
@@ -97,7 +88,6 @@ export async function action({ request }: Route.ActionArgs) {
 			select: {
 				name: true,
 				location: true,
-				expiresAt: true,
 			},
 		})
 
@@ -265,7 +255,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
-	const { inventoryCount, expiringCount, generationsRemaining } = loaderData
+	const { inventoryCount, generationsRemaining } = loaderData
 	const actionData = useActionData<typeof action>() as ActionData | undefined
 	const navigation = useNavigation()
 	const isSubmitting = navigation.state === 'submitting'
@@ -297,11 +287,7 @@ export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
 				<div className="space-y-6">
 					<p className="text-muted-foreground">
 						Create a recipe from your {inventoryCount} inventory item
-						{inventoryCount !== 1 ? 's' : ''}
-						{expiringCount > 0 && (
-							<> ({expiringCount} expiring soon — they'll be prioritized)</>
-						)}
-						.
+						{inventoryCount !== 1 ? 's' : ''}.
 					</p>
 
 					{inventoryCount === 0 && (

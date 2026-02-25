@@ -15,11 +15,6 @@ export const InventoryItemLocationSchema = z.enum(
 export const InventoryItemSchema = z.object({
 	name: InventoryItemNameSchema,
 	location: InventoryItemLocationSchema,
-	expiresAt: z
-		.literal('')
-		.transform(() => undefined)
-		.or(z.coerce.date())
-		.optional(),
 	lowStock: z.coerce.boolean().default(false),
 })
 

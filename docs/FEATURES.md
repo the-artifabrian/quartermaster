@@ -14,8 +14,7 @@ Most of the features below are table stakes for a recipe app. Three things
 aren't:
 
 1. **Inventory-aware recipe matching** — "What can I make?" with 4-level fuzzy
-   matching, match rings on every recipe card, expiring-item meal suggestions.
-   No competitor offers this.
+   matching, match rings on every recipe card. No competitor offers this.
 2. **Closed-loop pipeline** — Plan → shop → check off → restock inventory →
    discover recipes → plan again. The shopping list feeds inventory, inventory
    feeds recipe discovery, discovery feeds planning. One loop, not disconnected
@@ -66,7 +65,7 @@ execution quality, not differentiation.
   persistent banner
 - AI recipe generation from inventory (Pro): prompt-first UI with optional
   meal-type filter chips and quick-meal toggle. Generates a recipe from current
-  inventory (prioritizing expiring items). Preview before saving, "AI Generated"
+  inventory. Preview before saving, "AI Generated"
   badge on saved recipes. Feature-specific error messages (rate limit, timeout,
   parse failure) instead of generic toasts
 - "I Made This" cook logging with success toast
@@ -94,11 +93,10 @@ execution quality, not differentiation.
 
 - Three locations: Pantry, Fridge, Freezer. "All" tab groups items by location
   with section headers; individual tabs show a single location. Status badges
-  countdowns
-- Items with optional expiration and low-stock flag (no quantities — inventory
-  is a rough signal of what you have, not a ledger of how much)
-- Streamlined card actions: pencil (quick edit expiry) + overflow menu (low-stock
-  toggle, full edit, delete with two-tap confirmation). Optimistic delete
+- Items with low-stock flag (no quantities or expiry — inventory is a rough
+  signal of what you have, not a ledger of how much)
+- Card actions: overflow menu (low-stock toggle, full edit, delete with two-tap
+  confirmation). Optimistic delete
 - Client-side search/filter across all items and location tabs
 - Quick-add with duplicate detection via canonical name matching (same location)
   — warns with "Update existing" / "Add anyway" choice
@@ -116,11 +114,6 @@ execution quality, not differentiation.
 - "What can I make?" always-on when inventory exists -- recipe cards show SVG
   match progress rings, default sort by match percentage, 4-level fuzzy matching
   (exact, synonym, core word, multi-word containment)
-- "Use these up soon" callout for items expiring within 3 days: meal plan
-  coverage detection (checks upcoming 2 weeks of uncooked meals for ingredient
-  matches — covered items shown muted with recipe name, day, and meal type;
-  uncovered items shown prominently with "Find recipes" CTA). Per-item dismiss
-  via localStorage (keyed by item ID + expiry date, resets if expiry changes)
 ## Meal Planning & Shopping
 
 - Weekly calendar view (Monday-start, two-row 4+3 layout, today emphasis, 4 meal
@@ -138,10 +131,10 @@ execution quality, not differentiation.
   time-of-day awareness. Empty state suggests a favorite with one-tap add
 - Copy week to next week (preserves servings, skips duplicates)
 - Suggest Meals: one-tap "Suggest Meals" button fills the week with suggestions
-  ranked by priority — recipes using expiring inventory (2+ matches), favorites
-  not recently cooked, then highest inventory match %. Meal type selector
-  (dinner, lunch, breakfast, snack) with per-type slot detection. Review modal
-  shows 7 day rows with reason badges (Expiring/Favorite/Good match), inline
+  ranked by priority — favorites not recently cooked, then highest inventory
+  match %. Meal type selector (dinner, lunch, breakfast, snack) with per-type
+  slot detection. Review modal shows 7 day rows with reason badges
+  (Favorite/Good match), inline
   recipe picker for empty or swapped days, and "Fill Plan" confirm. Post-confirm
   toast links to shopping list generation
 - Pairing suggestions when adding recipes: ranked by ingredient overlap with
@@ -166,15 +159,13 @@ execution quality, not differentiation.
     `useFetcher`)
   - Live-refresh via SSE for all shopping list events (generate, add, clear,
     to-inventory, toggle, edit, delete; debounced 500ms)
-  - Check-off -> inventory pipeline: compact collapsed rows with location badges
-    and short expiry dates, tap to expand controls, select all/deselect all.
-    Pre-filled location and auto-suggested expiry (shelf-life lookup, ~60
-    entries). "Already in [location]" indicator for items matching existing
-    inventory (canonical name + location match) — pre-deselected with muted
-    styling, clears when user re-selects or changes to an unstocked location.
+  - Check-off -> inventory pipeline: compact collapsed rows with location badges,
+    tap to expand controls, select all/deselect all. Pre-filled location.
+    "Already in [location]" indicator for items matching existing inventory
+    (canonical name + location match) — pre-deselected with muted styling,
+    clears when user re-selects or changes to an unstocked location.
     Auto-updates existing inventory items (canonical name match, same location)
-    — refreshes expiry and clears low-stock flag. Household items cleared but
-    not added to inventory
+    — clears low-stock flag. Household items cleared but not added to inventory
   - Low-stock nudge: amber chip banner for low-stock items not already on list,
     one-tap add or "Add All"
 

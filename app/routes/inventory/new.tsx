@@ -115,18 +115,9 @@ export async function action({ request }: Route.ActionArgs) {
 			existingItems,
 		)
 		if (match) {
-			const newExpiry = submission.value.expiresAt
-			const updateData: Record<string, unknown> = { lowStock: false }
-			if (
-				newExpiry &&
-				(!match.expiresAt ||
-					newExpiry.getTime() > match.expiresAt.getTime())
-			) {
-				updateData.expiresAt = newExpiry
-			}
 			await prisma.inventoryItem.update({
 				where: { id: match.id },
-				data: updateData,
+				data: { lowStock: false },
 			})
 			return redirectWithToast('/inventory', {
 				type: 'success',
@@ -198,11 +189,6 @@ export default function NewInventoryItem() {
 							/>
 							<input
 								type="hidden"
-								name="expiresAt"
-								value={fields.expiresAt.value ?? ''}
-							/>
-							<input
-								type="hidden"
 								name="lowStock"
 								value={fields.lowStock.value ?? ''}
 							/>
@@ -226,11 +212,6 @@ export default function NewInventoryItem() {
 								type="hidden"
 								name="location"
 								value={fields.location.value ?? ''}
-							/>
-							<input
-								type="hidden"
-								name="expiresAt"
-								value={fields.expiresAt.value ?? ''}
 							/>
 							<input
 								type="hidden"
@@ -281,14 +262,6 @@ export default function NewInventoryItem() {
 							)}
 						</div>
 					</div>
-
-					<Field
-						labelProps={{ children: 'Expiration Date (optional)' }}
-						inputProps={{
-							...getInputProps(fields.expiresAt, { type: 'date' }),
-						}}
-						errors={fields.expiresAt.errors}
-					/>
 
 					<CheckboxField
 						labelProps={{ children: 'Mark as low stock' }}

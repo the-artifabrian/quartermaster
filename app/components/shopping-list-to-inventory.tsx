@@ -4,7 +4,6 @@ import { useFetcher } from 'react-router'
 import { categoryToLocation } from '#app/utils/category-location-map.ts'
 import { LOCATION_LABELS } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
-import { suggestExpiryDate } from '#app/utils/shelf-life.ts'
 import { Button } from './ui/button.tsx'
 import { Checkbox } from './ui/checkbox.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -21,14 +20,8 @@ type InventoryReviewItem = {
 	quantity: string | null
 	unit: string | null
 	location: 'pantry' | 'fridge' | 'freezer'
-	expiresAt: string | null
 	included: boolean
 	inInventory: string | null
-}
-
-function formatShortDate(dateStr: string): string {
-	const date = new Date(dateStr + 'T12:00:00')
-	return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 export function ShoppingListToInventory({
@@ -65,7 +58,6 @@ export function ShoppingListToInventory({
 				quantity: item.quantity,
 				unit: item.unit,
 				location,
-				expiresAt: suggestExpiryDate(item.name, location),
 				included: !alreadyStocked,
 				inInventory: alreadyStocked,
 			}
@@ -125,16 +117,9 @@ export function ShoppingListToInventory({
 				return {
 					...item,
 					location,
-					expiresAt: suggestExpiryDate(item.name, location),
 					inInventory: alreadyStocked,
 				}
 			}),
-		)
-	}
-
-	function handleExpiryChange(id: string, expiresAt: string | null) {
-		setReviewItems((prev) =>
-			prev.map((item) => (item.id === id ? { ...item, expiresAt } : item)),
 		)
 	}
 
@@ -144,12 +129,11 @@ export function ShoppingListToInventory({
 			.map((i) => ({
 				itemId: i.id,
 				location: i.location,
-				expiresAt: i.expiresAt || null,
 			}))
 		// Include household items too — server will clear them but skip inventory creation
 		const householdItemEntries = items
 			.filter((item) => item.category === 'household')
-			.map((item) => ({ itemId: item.id, location: 'pantry', expiresAt: null }))
+			.map((item) => ({ itemId: item.id, location: 'pantry' }))
 		const allItems = [...selected, ...householdItemEntries]
 		if (allItems.length === 0) return
 
@@ -166,7 +150,7 @@ export function ShoppingListToInventory({
 			<div className="mb-4">
 				<h3 className="font-serif text-lg font-normal">Add to Inventory</h3>
 				<p className="text-muted-foreground mt-1 text-sm">
-					Tap a row to adjust storage or expiry.
+					Tap a row to adjust storage location.
 				</p>
 			</div>
 
@@ -231,26 +215,19 @@ export function ShoppingListToInventory({
 												}
 											</span>
 										) : (
-											<>
-												<span
-													className={cn(
-														'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
-														locationBadgeColors[item.location] ??
-															'bg-muted text-muted-foreground',
-													)}
-												>
-													{
-														LOCATION_LABELS[
-															item.location as keyof typeof LOCATION_LABELS
-														]
-													}
-												</span>
-												{item.expiresAt && (
-													<span className="text-muted-foreground shrink-0 text-xs">
-														{formatShortDate(item.expiresAt)}
-													</span>
+											<span
+												className={cn(
+													'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
+													locationBadgeColors[item.location] ??
+														'bg-muted text-muted-foreground',
 												)}
-											</>
+											>
+												{
+													LOCATION_LABELS[
+														item.location as keyof typeof LOCATION_LABELS
+													]
+												}
+											</span>
 										)}
 										<Icon
 											name="chevron-down"
@@ -283,20 +260,6 @@ export function ShoppingListToInventory({
 													<option value="fridge">Fridge</option>
 													<option value="freezer">Freezer</option>
 												</select>
-											</div>
-											<div className="flex items-center gap-2">
-												<label className="text-muted-foreground text-xs">
-													Expires
-												</label>
-												<input
-													type="date"
-													value={item.expiresAt ?? ''}
-													onChange={(e) =>
-														handleExpiryChange(item.id, e.target.value || null)
-													}
-													className="bg-background w-[130px] rounded-md border border-border px-2 py-1 text-sm"
-													aria-label={`Expiry date for ${item.name}`}
-												/>
 											</div>
 										</div>
 									)}

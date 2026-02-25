@@ -12,13 +12,6 @@ import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboarding.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import {
-	getWeekStart,
-	getNextWeek,
-	serializeDate,
-	MEAL_TYPE_LABELS,
-	type MealType,
-} from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
@@ -28,7 +21,6 @@ import {
 	InventoryItemSchema,
 } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
-import { ingredientMatchesInventoryItem } from '#app/utils/recipe-matching.server.ts'
 import {
 	getInventoryUsage,
 	getUserTier,
@@ -50,14 +42,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const url = new URL(request.url)
 	const location = url.searchParams.get('location') ?? ''
 
-	const now = new Date()
-	const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
-	const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-
 	// Single query for all items — filter by location in JS
 	const allItems = await prisma.inventoryItem.findMany({
 		where: { householdId },
-		orderBy: [{ lowStock: 'desc' }, { expiresAt: 'asc' }, { name: 'asc' }],
+		orderBy: [{ lowStock: 'desc' }, { name: 'asc' }],
 	})
 
 	const totalItemCount = allItems.length
@@ -66,83 +54,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			? allItems.filter((item) => item.location === location)
 			: allItems
 
-	const expiringSoonCount = allItems.filter(
-		(item) =>
-			item.expiresAt &&
-			new Date(item.expiresAt) >= now &&
-			new Date(item.expiresAt) <= sevenDaysFromNow,
-	).length
-
 	const lowStockCount = allItems.filter((item) => item.lowStock).length
-
-	// Items expiring within 3 days for the urgent callout
-	const expiringRaw = allItems.filter(
-		(item) =>
-			item.expiresAt &&
-			new Date(item.expiresAt) >= now &&
-			new Date(item.expiresAt) <= threeDaysFromNow,
-	)
-
-	// Load upcoming uncooked meal plan entries to detect coverage
-	const weekStart = getWeekStart(now)
-	const twoWeeksEnd = getNextWeek(getNextWeek(weekStart))
-	const upcomingEntries = await prisma.mealPlanEntry.findMany({
-		where: {
-			cooked: false,
-			date: { gte: weekStart, lt: twoWeeksEnd },
-			mealPlan: { householdId },
-		},
-		include: {
-			recipe: {
-				select: {
-					title: true,
-					ingredients: {
-						where: { isHeading: false },
-						select: { name: true },
-					},
-				},
-			},
-		},
-	})
-
-	const urgentExpiringItems = expiringRaw.map((item) => {
-		// Check if any upcoming recipe ingredient matches this expiring item
-		let coveredBy: {
-			recipeTitle: string
-			date: string
-			mealType: string
-		} | null = null
-
-		for (const entry of upcomingEntries) {
-			const matches = entry.recipe.ingredients.some((ing) =>
-				ingredientMatchesInventoryItem(ing, item),
-			)
-			if (matches) {
-				coveredBy = {
-					recipeTitle: entry.recipe.title,
-					date: serializeDate(new Date(entry.date)),
-					mealType: entry.mealType,
-				}
-				break
-			}
-		}
-
-		return {
-			id: item.id,
-			name: item.name,
-			expiresAt: item.expiresAt
-				? serializeDate(new Date(item.expiresAt))
-				: null,
-			daysLeft: Math.max(
-				0,
-				Math.ceil(
-					(new Date(item.expiresAt!).getTime() - now.getTime()) /
-						(1000 * 60 * 60 * 24),
-				),
-			),
-			coveredBy,
-		}
-	})
 
 	const mealPlanEntryCount = await prisma.mealPlanEntry.count({
 		where: { mealPlan: { householdId } },
@@ -152,9 +64,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		items,
 		totalItemCount,
 		selectedLocation: location || 'all',
-		expiringSoonCount,
 		lowStockCount,
-		urgentExpiringItems,
 		inventoryUsage,
 		isProActive,
 		mealPlanEntryCount,
@@ -213,18 +123,9 @@ export async function action({ request }: Route.ActionArgs) {
 				existingItems,
 			)
 			if (match) {
-				const newExpiry = submission.value.expiresAt
-				const updateData: Record<string, unknown> = { lowStock: false }
-				if (
-					newExpiry &&
-					(!match.expiresAt ||
-						newExpiry.getTime() > match.expiresAt.getTime())
-				) {
-					updateData.expiresAt = newExpiry
-				}
 				await prisma.inventoryItem.update({
 					where: { id: match.id },
-					data: updateData,
+					data: { lowStock: false },
 				})
 				return { status: 'merged' as const, mergedInto: match.name }
 			}
@@ -301,7 +202,6 @@ export async function action({ request }: Route.ActionArgs) {
 					id: `pending-${toCreate.length}`,
 					name: item.name,
 					location: item.location,
-					expiresAt: null,
 					lowStock: false,
 					userId,
 					householdId,
@@ -347,33 +247,6 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const }
 	}
 
-	if (intent === 'quick-update') {
-		const itemId = formData.get('itemId')
-		invariantResponse(typeof itemId === 'string', 'Item ID is required')
-
-		const item = await prisma.inventoryItem.findFirst({
-			where: { id: itemId, householdId },
-		})
-		invariantResponse(item, 'Item not found', { status: 404 })
-
-		const data: Record<string, unknown> = {}
-
-		if (formData.has('expiresAt')) {
-			const raw = formData.get('expiresAt')
-			data.expiresAt =
-				typeof raw === 'string' && raw.trim() ? new Date(raw) : null
-		}
-
-		if (Object.keys(data).length > 0) {
-			await prisma.inventoryItem.update({
-				where: { id: itemId },
-				data,
-			})
-		}
-
-		return { status: 'success' as const }
-	}
-
 	if (intent === 'toggle-low-stock') {
 		const itemId = formData.get('itemId')
 		invariantResponse(typeof itemId === 'string', 'Item ID is required')
@@ -401,29 +274,14 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		items,
 		totalItemCount,
 		selectedLocation,
-		expiringSoonCount,
 		lowStockCount,
-		urgentExpiringItems,
 		inventoryUsage,
 		isProActive,
 		mealPlanEntryCount,
 	} = loaderData
 
 	const [search, setSearch] = useState('')
-	const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
 	const [fabOpen, setFabOpen] = useState(false)
-
-	// Load dismissed IDs from localStorage on mount
-	useEffect(() => {
-		const dismissed = new Set<string>()
-		for (const item of urgentExpiringItems) {
-			const key = `dismissed-expiring-${item.id}-${item.expiresAt}`
-			if (localStorage.getItem(key) === 'true') {
-				dismissed.add(item.id)
-			}
-		}
-		if (dismissed.size > 0) setDismissedIds(dismissed)
-	}, [urgentExpiringItems])
 
 	const [showStaplesSuccess, setShowStaplesSuccess] = useState(false)
 	const handleStaplesSuccess = useCallback(
@@ -471,27 +329,16 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 				<div>
 					<h1 className="font-serif text-2xl font-normal">Inventory</h1>
 					{/* Status line */}
-					{(expiringSoonCount > 0 ||
-						lowStockCount > 0 ||
-						inventoryUsage.limit !== null) && (
+					{(lowStockCount > 0 || inventoryUsage.limit !== null) && (
 						<p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
-							{expiringSoonCount > 0 && (
-								<span className="text-amber-600 dark:text-amber-400">
-									{expiringSoonCount} expiring soon
-								</span>
-							)}
-							{expiringSoonCount > 0 && lowStockCount > 0 && (
-								<span className="text-muted-foreground/40">·</span>
-							)}
 							{lowStockCount > 0 && (
 								<span className="text-amber-600 dark:text-amber-400">
 									{lowStockCount} low stock
 								</span>
 							)}
-							{(expiringSoonCount > 0 || lowStockCount > 0) &&
-								inventoryUsage.limit !== null && (
-									<span className="text-muted-foreground/40">·</span>
-								)}
+							{lowStockCount > 0 && inventoryUsage.limit !== null && (
+								<span className="text-muted-foreground/40">·</span>
+							)}
 							{inventoryUsage.limit !== null && (
 								<span
 									className={cn(
@@ -553,17 +400,6 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						className="mb-4"
 					/>
 				)}
-
-				{/* Urgent Expiring Items Callout */}
-				<ExpiringItemsCallout
-					items={urgentExpiringItems}
-					dismissedIds={dismissedIds}
-					onDismiss={(item) => {
-						const key = `dismissed-expiring-${item.id}-${item.expiresAt}`
-						localStorage.setItem(key, 'true')
-						setDismissedIds((prev) => new Set(prev).add(item.id))
-					}}
-				/>
 
 				{/* Search + Location Tabs */}
 				<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -865,122 +701,3 @@ function AllTabGrouped({ items }: { items: InventoryItem[] }) {
 	)
 }
 
-type ExpiringItem = {
-	id: string
-	name: string
-	expiresAt: string | null
-	daysLeft: number
-	coveredBy: {
-		recipeTitle: string
-		date: string
-		mealType: string
-	} | null
-}
-
-function formatCoverageDay(dateStr: string): string {
-	const date = new Date(dateStr + 'T12:00:00') // avoid timezone issues
-	const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-	return days[date.getDay()] ?? dateStr
-}
-
-function ExpiringItemsCallout({
-	items,
-	dismissedIds,
-	onDismiss,
-}: {
-	items: ExpiringItem[]
-	dismissedIds: Set<string>
-	onDismiss: (item: ExpiringItem) => void
-}) {
-	const visible = items.filter((item) => !dismissedIds.has(item.id))
-	if (visible.length === 0) return null
-
-	const uncovered = visible.filter((item) => !item.coveredBy)
-	const covered = visible.filter((item) => item.coveredBy)
-
-	return (
-		<div className="mb-6 rounded-lg bg-accent/8 p-4">
-			<h2 className="mb-2 text-[0.75rem] font-medium tracking-[0.08em] uppercase text-accent">
-				Use these up soon
-			</h2>
-
-			{/* Uncovered items — prominent */}
-			{uncovered.length > 0 && (
-				<ul className="mb-3 space-y-1">
-					{uncovered.map((item) => (
-						<li
-							key={item.id}
-							className="flex items-center gap-2 text-sm"
-						>
-							<span className="min-w-0 flex-1">
-								<span className="font-medium">{item.name}</span>
-								<span className="text-muted-foreground">
-									{' — '}
-									{item.daysLeft === 0
-										? 'expires today'
-										: item.daysLeft === 1
-											? 'expires tomorrow'
-											: `${item.daysLeft} days left`}
-								</span>
-							</span>
-							<button
-								type="button"
-								onClick={() => onDismiss(item)}
-								className="shrink-0 rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground"
-								aria-label={`Dismiss ${item.name}`}
-							>
-								<Icon name="cross-1" size="xs" />
-							</button>
-						</li>
-					))}
-				</ul>
-			)}
-
-			{/* "Find recipes" CTA — only show if there are uncovered items */}
-			{uncovered.length > 0 && (
-				<Link
-					to="/recipes"
-					className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
-				>
-					<Icon name="cookie" size="sm" />
-					Find recipes to use these
-				</Link>
-			)}
-
-			{/* Covered items — muted */}
-			{covered.length > 0 && (
-				<ul className="space-y-1">
-					{covered.map((item) => (
-						<li
-							key={item.id}
-							className="flex items-center gap-2 text-sm text-muted-foreground"
-						>
-							<span className="min-w-0 flex-1">
-								<span className="font-medium">{item.name}</span>
-								<span>
-									{' — in '}
-									{item.coveredBy!.recipeTitle}
-									{' on '}
-									{formatCoverageDay(item.coveredBy!.date)}
-									{' ('}
-									{MEAL_TYPE_LABELS[
-										item.coveredBy!.mealType as MealType
-									]?.toLowerCase() ?? item.coveredBy!.mealType}
-									{')'}
-								</span>
-							</span>
-							<button
-								type="button"
-								onClick={() => onDismiss(item)}
-								className="shrink-0 rounded-md p-0.5 text-muted-foreground/60 transition-colors hover:text-foreground"
-								aria-label={`Dismiss ${item.name}`}
-							>
-								<Icon name="cross-1" size="xs" />
-							</button>
-						</li>
-					))}
-				</ul>
-			)}
-		</div>
-	)
-}

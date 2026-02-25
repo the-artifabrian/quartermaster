@@ -89,9 +89,6 @@ export default function EditInventoryItem({
 		defaultValue: {
 			name: item.name,
 			location: item.location,
-			expiresAt: item.expiresAt
-				? new Date(item.expiresAt).toISOString().split('T')[0]
-				: undefined,
 			lowStock: item.lowStock,
 		},
 		onValidate({ formData }) {
@@ -158,14 +155,6 @@ export default function EditInventoryItem({
 							)}
 						</div>
 					</div>
-
-					<Field
-						labelProps={{ children: 'Expiration Date (optional)' }}
-						inputProps={{
-							...getInputProps(fields.expiresAt, { type: 'date' }),
-						}}
-						errors={fields.expiresAt.errors}
-					/>
 
 					<CheckboxField
 						labelProps={{ children: 'Mark as low stock' }}

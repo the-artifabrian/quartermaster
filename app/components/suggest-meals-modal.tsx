@@ -16,7 +16,7 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
 	snack: 'Snack',
 }
 
-type SuggestionReason = 'expiring' | 'favorite' | 'match'
+type SuggestionReason = 'favorite' | 'match'
 
 type Suggestion = {
 	recipe: {
@@ -25,7 +25,6 @@ type Suggestion = {
 		image: { objectKey: string } | null
 	}
 	reason: SuggestionReason
-	expiringItems?: string[]
 }
 
 type PickerRecipe = {
@@ -45,10 +44,6 @@ const REASON_BADGES: Record<
 	SuggestionReason,
 	{ label: string; className: string }
 > = {
-	expiring: {
-		label: 'Expiring',
-		className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-	},
 	favorite: {
 		label: 'Favorite',
 		className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
@@ -163,9 +158,6 @@ export function SuggestMealsModal({
 
 	// Count stats for footer
 	const selectionCount = selections.size
-	const expiringCount = [...selections.values()].filter(
-		(s) => s.reason === 'expiring',
-	).length
 
 	// Build recipeIds array for POST
 	function handleConfirm() {
@@ -426,9 +418,6 @@ export function SuggestMealsModal({
 					<div className="border-t p-4 pt-3">
 						<p className="text-muted-foreground mb-3 text-center text-xs">
 							{selectionCount} meal{selectionCount !== 1 ? 's' : ''}
-							{expiringCount > 0
-								? ` \u00b7 ${expiringCount} use${expiringCount !== 1 ? '' : 's'} expiring ingredients`
-								: ''}
 						</p>
 						<div className="flex gap-2">
 							<Button

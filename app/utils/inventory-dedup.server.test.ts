@@ -6,14 +6,12 @@ function makeItem(
 		id: string
 		name: string
 		location: string
-		expiresAt: Date | null
 	}> = {},
 ) {
 	return {
 		id: overrides.id ?? 'item-1',
 		name: overrides.name ?? 'Chicken Breast',
 		location: overrides.location ?? 'fridge',
-		expiresAt: overrides.expiresAt ?? null,
 	}
 }
 

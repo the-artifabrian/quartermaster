@@ -4,7 +4,6 @@ type InventoryItemLike = {
 	id: string
 	name: string
 	location: string
-	expiresAt: Date | null
 }
 
 /**

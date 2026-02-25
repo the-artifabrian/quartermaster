@@ -29,7 +29,6 @@ export type GenerationPreferences = {
 export type InventoryInput = {
 	name: string
 	location: string
-	expiresAt: Date | null
 }
 
 /**
@@ -120,37 +119,14 @@ export function buildPrompt(
 	inventory: InventoryInput[],
 	preferences?: GenerationPreferences,
 ): string {
-	const now = new Date()
-
-	// Sort: expiring items first, then by location
+	// Sort by location for readability
 	const sorted = [...inventory]
-		.sort((a, b) => {
-			const aExpiring =
-				a.expiresAt &&
-				a.expiresAt >= now &&
-				a.expiresAt.getTime() - now.getTime() < 3 * 86400000
-			const bExpiring =
-				b.expiresAt &&
-				b.expiresAt >= now &&
-				b.expiresAt.getTime() - now.getTime() < 3 * 86400000
-			if (aExpiring && !bExpiring) return -1
-			if (!aExpiring && bExpiring) return 1
-			return a.location.localeCompare(b.location)
-		})
+		.sort((a, b) => a.location.localeCompare(b.location))
 		.slice(0, MAX_INVENTORY_ITEMS)
 
-	const inventoryLines = sorted.map((item) => {
-		const parts = [item.name]
-		parts.push(`[${item.location}]`)
-		if (
-			item.expiresAt &&
-			item.expiresAt >= now &&
-			item.expiresAt.getTime() - now.getTime() < 3 * 86400000
-		) {
-			parts.push('[EXPIRING SOON]')
-		}
-		return parts.join(' ')
-	})
+	const inventoryLines = sorted.map(
+		(item) => `${item.name} [${item.location}]`,
+	)
 
 	const prefLines: string[] = []
 	if (preferences?.description) {
@@ -169,14 +145,12 @@ export function buildPrompt(
 		? `Rules:
 - Follow the description above — it takes priority
 - Use ingredients from my inventory where possible, but MAY include common ingredients not listed
-- Prioritize items marked [EXPIRING SOON]
 - Use specific amounts and units for each ingredient
 - Write clear, beginner-friendly instructions
 - prepTime and cookTime are in minutes (use null if unknown)
 - Create a complete, practical, everyday recipe — not overly fancy`
 		: `Rules:
 - Use ONLY ingredients from my inventory list above, plus common pantry staples (salt, pepper, oil, water, basic spices)
-- Prioritize items marked [EXPIRING SOON]
 - Use specific amounts and units for each ingredient
 - Write clear, beginner-friendly instructions
 - prepTime and cookTime are in minutes (use null if unknown)

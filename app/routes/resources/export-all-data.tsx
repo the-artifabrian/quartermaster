@@ -39,7 +39,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			select: {
 				name: true,
 				location: true,
-				expiresAt: true,
 				lowStock: true,
 			},
 			orderBy: [{ location: 'asc' }, { name: 'asc' }],
@@ -124,7 +123,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		inventory: inventory.map((item) => ({
 			name: item.name,
 			location: item.location,
-			expiresAt: item.expiresAt?.toISOString() ?? null,
 			lowStock: item.lowStock,
 		})),
 		mealPlans: mealPlans.map((plan) => ({

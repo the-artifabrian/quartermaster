@@ -61,7 +61,7 @@ const ImportInventoryItemSchema = z.object({
 	location: z.enum(['pantry', 'fridge', 'freezer']),
 	quantity: z.number().nullable().optional(),
 	unit: z.string().max(50).nullable().optional(),
-	expiresAt: z.string().nullable().optional(),
+	expiresAt: z.string().nullable().optional(), // accepted for backward compat (ignored)
 	lowStock: z.boolean().optional(),
 })
 
@@ -314,7 +314,6 @@ export async function action({ request }: Route.ActionArgs) {
 						data: {
 							name: item.name,
 							location: item.location,
-							expiresAt: item.expiresAt ? new Date(item.expiresAt) : null,
 							lowStock: item.lowStock ?? false,
 							userId,
 							householdId,

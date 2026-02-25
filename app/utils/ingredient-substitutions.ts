@@ -6,7 +6,7 @@
  * Lookup is keyed by normalized ingredient name (uses substring matching
  * against post-normalization names, sorted longest-first).
  *
- * Pattern follows shelf-life.ts and pantry-staples.ts.
+ * Pattern follows pantry-staples.ts.
  */
 
 export type Substitution = {
@@ -926,7 +926,7 @@ const SORTED_KEYS = [...SUBSTITUTION_MAP.keys()].sort(
 
 /**
  * Lightweight normalization: lowercase, trim, strip trailing "s"/"es".
- * Matches the approach in shelf-life.ts for client-importable code.
+ * Lightweight normalization for client-importable code.
  */
 function simplifyName(name: string): string {
 	let s = name.toLowerCase().trim()

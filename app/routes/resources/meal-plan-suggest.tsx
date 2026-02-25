@@ -7,16 +7,11 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import {
-	getCanonicalIngredientName,
-	isOptionalIngredient,
-	isStapleIngredient,
-	matchRecipesWithInventory,
-} from '#app/utils/recipe-matching.server.ts'
+import { matchRecipesWithInventory } from '#app/utils/recipe-matching.server.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/meal-plan-suggest.ts'
 
-type SuggestionReason = 'expiring' | 'favorite' | 'match'
+type SuggestionReason = 'favorite' | 'match'
 
 type Suggestion = {
 	recipe: {
@@ -25,7 +20,6 @@ type Suggestion = {
 		image: { objectKey: string } | null
 	}
 	reason: SuggestionReason
-	expiringItems?: string[]
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -63,27 +57,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		},
 	})
 
-	// 4. Household inventory items (for matching + expiry check)
+	// 4. Household inventory items (for matching)
 	const inventoryItems = await prisma.inventoryItem.findMany({
 		where: { householdId },
-		select: {
-			name: true,
-			expiresAt: true,
-		},
+		select: { name: true },
 	})
-
-	// Build expiring items set: items expiring within 7 days
-	const now = new Date()
-	const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-	const expiringItems = inventoryItems.filter(
-		(item) =>
-			item.expiresAt &&
-			item.expiresAt > now &&
-			item.expiresAt <= sevenDaysFromNow,
-	)
-	const expiringCanonicalNames = new Set(
-		expiringItems.map((item) => getCanonicalIngredientName(item.name)),
-	)
 
 	// Get match results for all recipes
 	const matchResults = matchRecipesWithInventory(allRecipes, inventoryItems)
@@ -92,52 +70,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const suggestions: Suggestion[] = []
 	const usedRecipeIds = new Set<string>()
 
-	// Pool 1: Recipes using expiring items (2+ non-staple expiring ingredients)
-	if (expiringCanonicalNames.size > 0) {
-		const expiringRecipes: Array<{
-			recipe: (typeof allRecipes)[number]
-			expiringIngredients: string[]
-		}> = []
-
-		for (const recipe of allRecipes) {
-			if (plannedRecipeIds.has(recipe.id)) continue
-			const expiringIngredients: string[] = []
-			for (const ing of recipe.ingredients) {
-				if (ing.isHeading) continue
-				if (isStapleIngredient(ing)) continue
-				if (isOptionalIngredient(ing)) continue
-				const canonical = getCanonicalIngredientName(ing.name)
-				if (expiringCanonicalNames.has(canonical)) {
-					expiringIngredients.push(ing.name)
-				}
-			}
-			if (expiringIngredients.length >= 2) {
-				expiringRecipes.push({ recipe, expiringIngredients })
-			}
-		}
-
-		// Sort by expiring ingredient count desc
-		expiringRecipes.sort(
-			(a, b) => b.expiringIngredients.length - a.expiringIngredients.length,
-		)
-
-		for (const { recipe, expiringIngredients } of expiringRecipes) {
-			if (suggestions.length >= 7) break
-			if (usedRecipeIds.has(recipe.id)) continue
-			usedRecipeIds.add(recipe.id)
-			suggestions.push({
-				recipe: {
-					id: recipe.id,
-					title: recipe.title,
-					image: recipe.image,
-				},
-				reason: 'expiring',
-				expiringItems: expiringIngredients,
-			})
-		}
-	}
-
-	// Pool 2: Favorites not recently cooked
+	// Pool 1: Favorites not recently cooked
 	if (suggestions.length < 7) {
 		const favoriteRecipes = allRecipes
 			.filter(
@@ -170,7 +103,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	}
 
-	// Pool 3: High match percentage (not already in expiring or favorites)
+	// Pool 2: High match percentage (not already in favorites)
 	if (suggestions.length < 7) {
 		for (const match of matchResults) {
 			if (suggestions.length >= 7) break

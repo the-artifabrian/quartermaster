@@ -34,21 +34,7 @@ test('Inventory flow: empty state → add item → verify → edit → delete', 
 		page.getByRole('heading', { name: 'Chicken Breast' }),
 	).toBeVisible()
 
-	// 4. Click the edit link on the item card
-	await page.locator('a[href*="/edit"]').first().click()
-	await expect(page).toHaveURL(/\/inventory\/[a-z0-9]+\/edit/)
-
-	// Edit expiration date
-	await page.getByLabel(/expiration date/i).fill('2026-12-31')
-	await page.getByRole('button', { name: /save changes/i }).click()
-
-	// 5. Verify back on inventory page
-	await expect(page).toHaveURL(/\/inventory/)
-	await expect(
-		page.getByRole('heading', { name: 'Chicken Breast' }),
-	).toBeVisible()
-
-	// 6. Delete item via edit page
+	// 4. Delete item via edit page
 	await page.locator('a[href*="/edit"]').first().click()
 	await page.getByRole('button', { name: /delete/i }).click()
 	// Double-check confirmation

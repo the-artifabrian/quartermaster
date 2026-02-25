@@ -301,7 +301,6 @@ model InventoryItem {
   id        String    @id @default(cuid())
   name      String    // Free-text: "chicken breast", "Chicken Breasts"
   location  String    // "pantry", "fridge", "freezer"
-  expiresAt DateTime?
   lowStock  Boolean   @default(false)
 
   createdAt DateTime @default(now())

@@ -32,17 +32,14 @@ function makeInventory(
 		{
 			name: 'chicken breast',
 			location: 'fridge',
-			expiresAt: null,
 		},
 		{
 			name: 'bell pepper',
 			location: 'fridge',
-			expiresAt: null,
 		},
 		{
 			name: 'rice',
 			location: 'pantry',
-			expiresAt: null,
 		},
 	]
 	if (overrides) {
@@ -72,44 +69,10 @@ describe('buildPrompt', () => {
 		expect(prompt).toContain('[pantry]')
 	})
 
-	test('marks expiring items', () => {
-		const now = new Date()
-		const tomorrow = new Date(now.getTime() + 86400000)
-		const inventory = makeInventory([
-			{ name: 'milk', expiresAt: tomorrow, location: 'fridge' },
-		])
-		const prompt = buildPrompt(inventory)
-
-		expect(prompt).toContain('[EXPIRING SOON]')
-	})
-
-	test('sorts expiring items first', () => {
-		const now = new Date()
-		const tomorrow = new Date(now.getTime() + 86400000)
-		const inventory: InventoryInput[] = [
-			{
-				name: 'rice',
-				location: 'pantry',
-				expiresAt: null,
-			},
-			{
-				name: 'milk',
-				location: 'fridge',
-				expiresAt: tomorrow,
-			},
-		]
-		const prompt = buildPrompt(inventory)
-
-		const milkIdx = prompt.indexOf('milk')
-		const riceIdx = prompt.indexOf('rice')
-		expect(milkIdx).toBeLessThan(riceIdx)
-	})
-
 	test('caps inventory at 80 items', () => {
 		const inventory: InventoryInput[] = Array.from({ length: 100 }, (_, i) => ({
 			name: `item-${i}`,
 			location: 'pantry',
-			expiresAt: null,
 		}))
 		const prompt = buildPrompt(inventory)
 

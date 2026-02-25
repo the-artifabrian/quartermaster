@@ -496,7 +496,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								aria-label={
 									makeableOnly
 										? 'Show all recipes'
-										: 'Show only makeable recipes'
+										: 'Show only recipes you can cook now'
 								}
 								aria-pressed={makeableOnly}
 								className={cn(
@@ -507,7 +507,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								)}
 							>
 								<Icon name={makeableOnly ? 'check' : 'cookie'} size="xs" />
-								Makeable ({matchData.makeableCount})
+								Ready to cook ({matchData.makeableCount})
 							</button>
 						)}
 						{/* Active filter summary */}
@@ -644,8 +644,8 @@ function MatchEmptyState({
 					What's in your kitchen?
 				</h2>
 				<p className="text-muted-foreground mt-2 max-w-sm">
-					Tell us what's in your pantry, fridge, and freezer so we can match
-					recipes to your ingredients.
+					Add what's in your pantry, fridge, and freezer. We'll highlight
+					which recipes you can cook with what you already have.
 				</p>
 				<Button asChild className="mt-6">
 					<Link to="/inventory">

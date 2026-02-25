@@ -16,7 +16,7 @@ High-level feature reference (not exhaustive). For the roadmap, see
   instructions, personal notes
 - Image uploads (S3-compatible, max 3MB, JPEG/PNG/WebP)
 - Full-text search across title, ingredients, and description
-- Sort (5 options), cook-time filter, favorites filter, makeable-only toggle
+- Sort (5 options), cook-time filter, favorites filter, ready-to-cook toggle
 - Recipe scaling with +/- servings controls and fraction display
 - Metric/imperial toggle: one-tap weight conversion for ingredients. All
   volume units (cups, fl oz, pints, quarts, gallons) convert to grams via
@@ -122,9 +122,10 @@ High-level feature reference (not exhaustive). For the roadmap, see
   time-of-day awareness. Empty state suggests a favorite with one-tap add
 - Copy week to next week (preserves servings, skips duplicates)
 - Meal plan templates: save/apply/delete named templates, household-scoped
-- Suggest Meals: one-tap "Suggest Meals" button fills the week with dinner
-  suggestions ranked by priority — recipes using expiring inventory (2+ matches),
-  favorites not recently cooked, then highest inventory match %. Review modal
+- Suggest Meals: one-tap "Suggest Meals" button fills the week with suggestions
+  ranked by priority — recipes using expiring inventory (2+ matches), favorites
+  not recently cooked, then highest inventory match %. Meal type selector
+  (dinner, lunch, breakfast, snack) with per-type slot detection. Review modal
   shows 7 day rows with reason badges (Expiring/Favorite/Good match), inline
   recipe picker for empty or swapped days, and "Fill Plan" confirm. Post-confirm
   toast links to shopping list generation
@@ -236,4 +237,4 @@ High-level feature reference (not exhaustive). For the roadmap, see
 
 ---
 
-_Last updated: February 24, 2026._
+_Last updated: February 25, 2026._

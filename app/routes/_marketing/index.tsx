@@ -117,7 +117,8 @@ export default function Index() {
 							</h2>
 							<p className="text-muted-foreground mt-3 text-base/7">
 								Paste a URL, import dozens at once, or type it in by hand.
-								Searchable, sortable, and matched against what's in your kitchen.
+								Searchable, sortable, and matched to what's in your kitchen,
+								so you can see which recipes you can cook tonight.
 							</p>
 						</div>
 					</ScrollReveal>
@@ -133,9 +134,9 @@ export default function Index() {
 									A week penciled in
 								</h2>
 								<p className="text-muted-foreground mt-3 text-base/7">
-									Add recipes to a weekly calendar. See tonight's dinner at a
-									glance. Adjust servings, swap meals, and generate a shopping
-									list when you're ready.
+									Add recipes to a weekly calendar. Adjust servings, swap
+									meals, and generate a shopping list. You only buy what you
+									need.
 								</p>
 							</div>
 						</ScrollReveal>
@@ -151,9 +152,10 @@ export default function Index() {
 								The list writes itself
 							</h2>
 							<p className="text-muted-foreground mt-3 text-base/7">
-								One tap generates a shopping list from your meal plan, minus what
-								you already have. Check items off at the store and they flow back
-								into your pantry.
+								One tap generates a shopping list from your meal plan. Items
+								you already have are pre-checked so you can skip them. Check
+								things off at the store and they flow straight into your
+								pantry.
 							</p>
 						</div>
 					</ScrollReveal>

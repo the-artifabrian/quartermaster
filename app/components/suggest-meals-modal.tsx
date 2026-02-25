@@ -1,10 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { addDaysUTC, formatDayLabel, parseDate } from '#app/utils/date.ts'
 import { useModal } from '#app/utils/use-modal.ts'
+
+const MEAL_TYPES = ['dinner', 'lunch', 'breakfast', 'snack'] as const
+type MealType = (typeof MEAL_TYPES)[number]
+
+const MEAL_TYPE_LABELS: Record<MealType, string> = {
+	dinner: 'Dinner',
+	lunch: 'Lunch',
+	breakfast: 'Breakfast',
+	snack: 'Snack',
+}
 
 type SuggestionReason = 'expiring' | 'favorite' | 'match'
 
@@ -72,6 +82,7 @@ export function SuggestMealsModal({
 	}>()
 	const prevConfirmState = useRef(confirmFetcher.state)
 
+	const [mealType, setMealType] = useState<MealType>('dinner')
 	const [selections, setSelections] = useState<Map<number, Selection>>(
 		new Map(),
 	)
@@ -79,13 +90,21 @@ export function SuggestMealsModal({
 	const [pickerSearch, setPickerSearch] = useState('')
 	const [initialized, setInitialized] = useState(false)
 
-	// Load suggestions on mount
+	// Load suggestions on mount and when meal type changes
 	useEffect(() => {
 		void suggestFetcher.load(
-			`/resources/meal-plan-suggest?weekStart=${weekStart}`,
+			`/resources/meal-plan-suggest?weekStart=${weekStart}&mealType=${mealType}`,
 		)
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [weekStart])
+	}, [weekStart, mealType])
+
+	const handleMealTypeChange = useCallback((type: MealType) => {
+		setMealType(type)
+		setSelections(new Map())
+		setInitialized(false)
+		setPickingDay(null)
+		setPickerSearch('')
+	}, [])
 
 	// Initialize selections from suggestions once loaded
 	useEffect(() => {
@@ -123,7 +142,9 @@ export function SuggestMealsModal({
 			confirmFetcher.data?.status === 'success'
 		) {
 			const count = confirmFetcher.data.count
-			toast.success(`Added ${count} meal${count !== 1 ? 's' : ''} to your plan`, {
+			const typeLabel = MEAL_TYPE_LABELS[mealType].toLowerCase()
+			const noun = count !== 1 ? `${typeLabel}s` : typeLabel
+			toast.success(`Added ${count} ${noun} to your plan`, {
 				action: {
 					label: 'Generate shopping list \u2192',
 					onClick: () => {
@@ -134,7 +155,7 @@ export function SuggestMealsModal({
 			onClose()
 		}
 		prevConfirmState.current = confirmFetcher.state
-	}, [confirmFetcher.state, confirmFetcher.data, onClose, weekStart])
+	}, [confirmFetcher.state, confirmFetcher.data, onClose, weekStart, mealType])
 
 	const isLoading = suggestFetcher.state !== 'idle'
 	const isSubmitting = confirmFetcher.state !== 'idle'
@@ -156,6 +177,7 @@ export function SuggestMealsModal({
 
 		const formData = new FormData()
 		formData.set('weekStart', weekStart)
+		formData.set('mealType', mealType)
 		formData.set('recipeIds', JSON.stringify(recipeIds))
 		void confirmFetcher.submit(formData, {
 			method: 'POST',
@@ -225,6 +247,24 @@ export function SuggestMealsModal({
 					>
 						<Icon name="cross-1" size="sm" />
 					</button>
+				</div>
+
+				{/* Meal type pills */}
+				<div className="flex gap-1.5 border-b px-4 pt-3 pb-3">
+					{MEAL_TYPES.map((type) => (
+						<button
+							key={type}
+							type="button"
+							onClick={() => handleMealTypeChange(type)}
+							className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+								mealType === type
+									? 'bg-primary text-primary-foreground'
+									: 'bg-secondary/50 text-muted-foreground hover:bg-secondary'
+							}`}
+						>
+							{MEAL_TYPE_LABELS[type]}
+						</button>
+					))}
 				</div>
 
 				{/* Body */}

@@ -33,6 +33,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const url = new URL(request.url)
 	const weekStartStr = url.searchParams.get('weekStart')
 	invariantResponse(weekStartStr, 'weekStart is required')
+	const mealType = url.searchParams.get('mealType') ?? 'dinner'
 
 	const weekStart = getWeekStart(parseDate(weekStartStr))
 
@@ -187,11 +188,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	}
 
-	// Determine which days already have dinner entries
+	// Determine which days already have entries for the requested meal type
 	const filledDays = new Set<number>()
 	if (existingPlan) {
 		for (const entry of existingPlan.entries) {
-			if (entry.mealType !== 'dinner') continue
+			if (entry.mealType !== mealType) continue
 			const entryDate = new Date(entry.date)
 			const dayOffset = Math.round(
 				(entryDate.getTime() - weekStart.getTime()) / 86_400_000,
@@ -217,6 +218,8 @@ export async function action({ request }: Route.ActionArgs) {
 		typeof weekStartStr === 'string',
 		'weekStart is required',
 	)
+	const mealType =
+		(formData.get('mealType') as string | null) ?? 'dinner'
 
 	const weekStart = getWeekStart(parseDate(weekStartStr))
 
@@ -254,7 +257,7 @@ export async function action({ request }: Route.ActionArgs) {
 				mealPlanId_date_mealType_recipeId: {
 					mealPlanId: mealPlan.id,
 					date: entryDate,
-					mealType: 'dinner',
+					mealType,
 					recipeId,
 				},
 			},
@@ -265,7 +268,7 @@ export async function action({ request }: Route.ActionArgs) {
 				data: {
 					mealPlanId: mealPlan.id,
 					date: entryDate,
-					mealType: 'dinner',
+					mealType,
 					recipeId,
 				},
 			})

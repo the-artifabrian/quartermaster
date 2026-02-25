@@ -624,8 +624,9 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					<div className="bg-card shadow-warm-lg mb-4 rounded-2xl p-6 text-center">
 						<h2 className="font-serif text-xl">Plan Your Week</h2>
 						<p className="text-muted-foreground mx-auto mt-1.5 max-w-md text-sm">
-							Pick recipes for each day, then generate a shopping list with
-							everything you need. Tap any slot below to get started.
+							Pick recipes for the days ahead and generate a shopping list
+							with what you need to buy. Tap any slot below to get
+							started.
 						</p>
 						{recipes.length === 0 ? (
 							<Button asChild className="mt-5">

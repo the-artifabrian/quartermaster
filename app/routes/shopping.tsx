@@ -651,7 +651,7 @@ export default function ShoppingListRoute({
 							nudgeId="check-items-off"
 							icon="check"
 							title="Check items off as you shop"
-							description="Tap items to mark them done. When you're done shopping, you can add checked items straight to your inventory."
+							description="Tap items as you shop. When you're done, checked items flow into your inventory, keeping everything in sync."
 							dismissText="Got it"
 							className="mb-4"
 						/>
@@ -841,9 +841,9 @@ export default function ShoppingListRoute({
 						<p className="text-muted-foreground mx-auto mt-2 max-w-sm text-sm">
 							{hasMealPlan ? (
 								<>
-									Hit <strong>From Plan</strong> to build your list from the
-									meal plan, or add items manually. Check things off as you
-									shop.
+									Hit <strong>From Plan</strong> to generate your list from the
+									meal plan. Things you already have are pre-checked. Add
+									anything else you need by hand.
 								</>
 							) : (
 								<>
@@ -854,8 +854,8 @@ export default function ShoppingListRoute({
 									>
 										meal plan
 									</Link>{' '}
-									to build your list from it, or type above to add items.
-									Check things off as you shop and add them to your
+									to auto-generate your list, or add items by hand. Check
+									things off at the store and they'll flow into your
 									inventory.
 								</>
 							)}

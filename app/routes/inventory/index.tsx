@@ -591,7 +591,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						nudgeId="plan-your-week"
 						icon="calendar"
 						title="Ready to plan your week?"
-						description="Add recipes to your meal plan and we'll generate a shopping list with exactly what you need to buy."
+						description="Add recipes to your meal plan and we'll generate a shopping list, so you only buy what you actually need."
 						ctaText="Plan Meals"
 						ctaHref="/plan"
 						className="mb-4"
@@ -695,8 +695,8 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						</h2>
 						<p className="mt-2 max-w-sm text-muted-foreground">
 							{selectedLocation === 'all'
-								? 'Start tracking your pantry, fridge, and freezer items to discover what you can cook.'
-								: `Your ${selectedLocation} is empty. Add items to see what recipes you can make.`}
+								? "Add what you have on hand. No need to count, just the items. We'll match them to your recipes and keep your shopping list smart."
+								: `Your ${selectedLocation} is empty. Add what you have and we'll match it to your recipes.`}
 						</p>
 						<Button asChild className="mt-6">
 							<Link to="/inventory/new">

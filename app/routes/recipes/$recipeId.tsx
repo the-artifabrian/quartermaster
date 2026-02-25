@@ -672,7 +672,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						nudgeId="stock-kitchen"
 						icon="home"
 						title="Next up: stock your kitchen"
-						description="Add what's in your pantry, fridge, and freezer — we'll show you which recipes you can make with what you have."
+						description="Add what's in your pantry, fridge, and freezer. Just the items, no quantities. We'll show you which recipes you can cook tonight."
 						ctaText="Stock Inventory"
 						ctaHref="/inventory"
 						className="mt-4 print:hidden"

@@ -43,14 +43,14 @@ export function GettingStartedChecklist({
 		},
 		{
 			title: 'Stock your kitchen',
-			description: "Tell us what's in your pantry, fridge, and freezer",
+			description: "Add what you have and we'll match it to recipes you can cook",
 			icon: 'home',
 			href: '/inventory',
 			done: onboarding.hasInventory,
 		},
 		{
 			title: 'Plan a meal',
-			description: 'Add a recipe to your weekly meal plan',
+			description: 'Plan your week and generate a shopping list',
 			icon: 'cookie',
 			href: '/plan',
 			done: onboarding.hasMealPlan,

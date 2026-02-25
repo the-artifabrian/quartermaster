@@ -130,10 +130,10 @@ const freeFeatures = [
 
 const proFeatures = [
 	'Everything in Free, plus:',
-	'Unlimited inventory',
-	'Meal planning calendar',
+	'Unlimited inventory tracking',
+	'Meal planning & smart suggestions',
 	'Shopping list generation',
-	'Post-cook inventory subtraction',
+	'Weekly inventory sweep',
 	'Household sharing',
 	'AI substitution hints',
 	'AI recipe generation',
@@ -167,14 +167,21 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 				<p className="text-muted-foreground mt-2 text-lg">
 					Unlock unlimited inventory, meal planning, and smart shopping lists.
 				</p>
-					<p className="text-primary mt-2 text-sm font-medium">
-						You have Pro access until{' '}
-						{new Date(tierInfo.trialEndsAt).toLocaleDateString('en-US', {
-							month: 'long',
-							day: 'numeric',
-							year: 'numeric',
-						})}
-					</p>
+					<>
+						<p className="text-primary mt-2 text-sm font-medium">
+							You have Pro access until{' '}
+							{new Date(tierInfo.trialEndsAt).toLocaleDateString('en-US', {
+								month: 'long',
+								day: 'numeric',
+								year: 'numeric',
+							})}
+						</p>
+						<p className="text-muted-foreground mt-1 text-sm">
+							After your trial, you'll keep all your recipes on the Free
+							plan. Meal planning, shopping lists, and unlimited inventory
+							need Pro.
+						</p>
+					</>
 				) : tierInfo.isProActive ? (
 					<p className="text-primary mt-2 text-sm font-medium">
 						You&apos;re on the Pro plan

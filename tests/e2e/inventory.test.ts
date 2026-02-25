@@ -1,7 +1,7 @@
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
-test('Inventory flow: empty state → add item → verify → edit → delete', async ({
+test('Inventory flow: empty state → add item → verify → delete', async ({
 	page,
 	login,
 }) => {
@@ -30,24 +30,29 @@ test('Inventory flow: empty state → add item → verify → edit → delete', 
 
 	// 3. Verify item appears in inventory
 	await expect(page).toHaveURL(/\/inventory/)
-	await expect(
-		page.getByRole('heading', { name: 'Chicken Breast' }),
-	).toBeVisible()
+	await expect(page.getByText('Chicken Breast')).toBeVisible()
 
-	// 4. Delete item via edit page
-	await page.locator('a[href*="/edit"]').first().click()
-	await page.getByRole('button', { name: /delete/i }).click()
+	// 4. Delete item via dropdown menu
+	await page.getByRole('button', { name: /more actions/i }).first().click()
+	await page.getByRole('menuitem', { name: /delete/i }).click()
 	// Double-check confirmation
-	await page.getByRole('button', { name: /are you sure/i }).click()
+	await page.getByRole('menuitem', { name: /are you sure/i }).click()
 
 	await expect(page).toHaveURL(/\/inventory/)
-	await expect(
-		page.getByRole('heading', { name: 'Chicken Breast' }),
-	).not.toBeVisible()
+	await expect(page.getByText('Chicken Breast')).not.toBeVisible()
 })
 
 test('Inventory location tabs filter items', async ({ page, login }) => {
 	const user = await login()
+
+	// Visit inventory first to trigger household auto-creation
+	await page.goto('/inventory')
+
+	// Look up the user's householdId
+	const member = await prisma.householdMember.findFirstOrThrow({
+		where: { userId: user.id },
+		select: { householdId: true },
+	})
 
 	// Create items in different locations via DB
 	// Use unique names that won't collide with common ingredients quick-add buttons
@@ -56,6 +61,7 @@ test('Inventory location tabs filter items', async ({ page, login }) => {
 			name: 'Whole Milk',
 			location: 'fridge',
 			userId: user.id,
+			householdId: member.householdId,
 		},
 	})
 	await prisma.inventoryItem.create({
@@ -63,6 +69,7 @@ test('Inventory location tabs filter items', async ({ page, login }) => {
 			name: 'Brown Rice',
 			location: 'pantry',
 			userId: user.id,
+			householdId: member.householdId,
 		},
 	})
 	await prisma.inventoryItem.create({
@@ -70,6 +77,7 @@ test('Inventory location tabs filter items', async ({ page, login }) => {
 			name: 'Frozen Peas',
 			location: 'freezer',
 			userId: user.id,
+			householdId: member.householdId,
 		},
 	})
 

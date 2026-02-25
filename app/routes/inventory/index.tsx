@@ -19,6 +19,7 @@ import {
 	InventoryItemLocationSchema,
 	InventoryItemNameSchema,
 	InventoryItemSchema,
+	LOCATION_LABELS,
 } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
@@ -243,6 +244,86 @@ export async function action({ request }: Route.ActionArgs) {
 		invariantResponse(item, 'Item not found', { status: 404 })
 
 		await prisma.inventoryItem.delete({ where: { id: itemId } })
+
+		return { status: 'success' as const }
+	}
+
+	if (intent === 'rename') {
+		const itemId = formData.get('itemId')
+		const name = formData.get('name')
+		invariantResponse(typeof itemId === 'string', 'Item ID is required')
+		invariantResponse(typeof name === 'string', 'Name is required')
+
+		const parsed = InventoryItemNameSchema.safeParse(name)
+		if (!parsed.success) {
+			return { status: 'error' as const, message: 'Invalid name' }
+		}
+
+		const item = await prisma.inventoryItem.findFirst({
+			where: { id: itemId, householdId },
+		})
+		invariantResponse(item, 'Item not found', { status: 404 })
+
+		// Dedup check: another item with the same canonical name in the same location
+		const existingItems = await prisma.inventoryItem.findMany({
+			where: { householdId, location: item.location },
+		})
+		const match = findMatchingInventoryItem(
+			parsed.data,
+			item.location,
+			existingItems.filter((i) => i.id !== itemId),
+		)
+		if (match) {
+			return {
+				status: 'error' as const,
+				message: `"${match.name}" already exists in this location`,
+			}
+		}
+
+		await prisma.inventoryItem.update({
+			where: { id: itemId },
+			data: { name: parsed.data },
+		})
+
+		return { status: 'success' as const }
+	}
+
+	if (intent === 'move') {
+		const itemId = formData.get('itemId')
+		const location = formData.get('location')
+		invariantResponse(typeof itemId === 'string', 'Item ID is required')
+		invariantResponse(typeof location === 'string', 'Location is required')
+
+		const parsed = InventoryItemLocationSchema.safeParse(location)
+		if (!parsed.success) {
+			return { status: 'error' as const, message: 'Invalid location' }
+		}
+
+		const item = await prisma.inventoryItem.findFirst({
+			where: { id: itemId, householdId },
+		})
+		invariantResponse(item, 'Item not found', { status: 404 })
+
+		// Dedup check: same canonical name in target location
+		const existingItems = await prisma.inventoryItem.findMany({
+			where: { householdId, location: parsed.data },
+		})
+		const match = findMatchingInventoryItem(
+			item.name,
+			parsed.data,
+			existingItems,
+		)
+		if (match) {
+			return {
+				status: 'error' as const,
+				message: `"${item.name}" already exists in ${LOCATION_LABELS[parsed.data]}`,
+			}
+		}
+
+		await prisma.inventoryItem.update({
+			where: { id: itemId },
+			data: { location: parsed.data },
+		})
 
 		return { status: 'success' as const }
 	}
@@ -638,12 +719,6 @@ const locationDotColors: Record<string, string> = {
 	freezer: 'bg-cyan-500',
 }
 
-const locationLabels: Record<string, string> = {
-	pantry: 'Pantry',
-	fridge: 'Fridge',
-	freezer: 'Freezer',
-}
-
 function LocationSectionHeader({
 	location,
 	count,
@@ -663,7 +738,7 @@ function LocationSectionHeader({
 					)}
 				/>
 				<span className="text-[0.75rem] font-medium tracking-[0.08em] uppercase text-muted-foreground">
-					{locationLabels[location] ?? location}
+					{LOCATION_LABELS[location as keyof typeof LOCATION_LABELS] ?? location}
 				</span>
 				<span className="text-[0.75rem] text-muted-foreground">({count})</span>
 			</div>

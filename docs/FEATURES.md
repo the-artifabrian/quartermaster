@@ -95,8 +95,11 @@ execution quality, not differentiation.
   with section headers; individual tabs show a single location. Status badges
 - Items with low-stock flag (no quantities or expiry — inventory is a rough
   signal of what you have, not a ledger of how much)
-- Card actions: overflow menu (low-stock toggle, full edit, delete with two-tap
-  confirmation). Optimistic delete
+- Inline editing: tap item name to rename in-place (save on blur/Enter, cancel
+  on Escape). Dedup check prevents renaming to a name that already exists in the
+  same location
+- Card actions: overflow menu (low-stock toggle, move to another location,
+  delete with two-tap confirmation). Optimistic updates for all actions
 - Client-side search/filter across all items and location tabs
 - Quick-add with duplicate detection via canonical name matching (same location)
   — warns with "Update existing" / "Add anyway" choice

@@ -34,6 +34,7 @@ type MealSlotCardProps = {
 	}>
 	recipes: RecipeSelectorRecipe[]
 	weekStart: string
+	isProActive?: boolean
 }
 
 type QuickCookData = {
@@ -223,6 +224,7 @@ export function MealSlotCard({
 	entries,
 	recipes,
 	weekStart,
+	isProActive,
 }: MealSlotCardProps) {
 	const [isSelectingRecipe, setIsSelectingRecipe] = useState(false)
 	const pairingFetcher = useFetcher<{
@@ -235,7 +237,11 @@ export function MealSlotCard({
 
 	function openRecipeSelector() {
 		setIsSelectingRecipe(true)
-		if (!pairingFetcher.data && pairingFetcher.state === 'idle') {
+		if (
+			isProActive &&
+			!pairingFetcher.data &&
+			pairingFetcher.state === 'idle'
+		) {
 			void pairingFetcher.load(
 				`/resources/meal-plan-pairing?weekStart=${weekStart}`,
 			)

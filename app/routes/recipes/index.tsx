@@ -526,10 +526,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 				<div className="mb-4">
 					<InviteCodeBanner />
 				</div>
-				<GettingStartedChecklist
-					onboarding={onboarding}
-					isProActive={isProActive}
-				/>
+				<GettingStartedChecklist onboarding={onboarding} />
 
 				{/* Recipe Grid */}
 				{displayRecipes.length > 0 ? (

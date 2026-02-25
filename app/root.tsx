@@ -185,16 +185,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 		})
 		if (member) {
 			householdName = member.household.name
-			unreadNotificationCount = await prisma.householdEvent.count({
-				where: {
-					householdId: member.householdId,
-					userId: { not: userId },
-					type: { in: NOTIFY_EVENT_TYPES_LIST },
-					...(member.notificationsLastSeenAt
-						? { createdAt: { gt: member.notificationsLastSeenAt } }
-						: {}),
-				},
-			})
+			if (tierInfo.isProActive) {
+				unreadNotificationCount = await prisma.householdEvent.count({
+					where: {
+						householdId: member.householdId,
+						userId: { not: userId },
+						type: { in: NOTIFY_EVENT_TYPES_LIST },
+						...(member.notificationsLastSeenAt
+							? { createdAt: { gt: member.notificationsLastSeenAt } }
+							: {}),
+					},
+				})
+			}
 		}
 		if (tierInfo.isProActive) {
 			availableInviteCodeCount = await getAvailableCodeCount(userId)
@@ -404,14 +406,6 @@ function App() {
 												}
 											>
 												Plan
-												{!isPro && (
-													<Icon
-														name="lock-closed"
-														size="xs"
-														className="ml-1 inline opacity-40"
-														title="Pro feature"
-													/>
-												)}
 											</NavLink>
 											<NavLink
 												to="/shopping"
@@ -422,17 +416,9 @@ function App() {
 												}
 											>
 												Shopping
-												{!isPro && (
-													<Icon
-														name="lock-closed"
-														size="xs"
-														className="ml-1 inline opacity-40"
-														title="Pro feature"
-													/>
-												)}
 											</NavLink>
 										</div>
-										<NotificationBell />
+										{isPro && <NotificationBell />}
 										<UserDropdown />
 									</>
 								) : (
@@ -451,7 +437,7 @@ function App() {
 				<BottomNav />
 				<Toaster closeButton position="top-center" theme={theme} />
 				<OfflineIndicator />
-				{user ? <HouseholdActivityNotifier /> : null}
+				{user && isPro ? <HouseholdActivityNotifier /> : null}
 				{user ? <ProExpiryNudge /> : null}
 				{user ? <TimerWidget /> : null}
 				<Progress />

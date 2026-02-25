@@ -145,11 +145,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	})
 
-	const mealPlanEntryCount = isProActive
-		? await prisma.mealPlanEntry.count({
-				where: { mealPlan: { householdId } },
-			})
-		: 0
+	const mealPlanEntryCount = await prisma.mealPlanEntry.count({
+		where: { mealPlan: { householdId } },
+	})
 
 	return {
 		items,
@@ -576,8 +574,8 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 								Free plan limit reached
 							</p>
 							<p className="mt-1 text-sm text-muted-foreground">
-								Upgrade to Pro for unlimited inventory, meal planning, and
-								shopping lists.
+								Upgrade to Pro for unlimited inventory, smart suggestions,
+								and advanced shopping features.
 							</p>
 						</div>
 						<Button asChild size="sm" className="shrink-0">
@@ -586,7 +584,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 
-				{totalItemCount > 0 && mealPlanEntryCount === 0 && isProActive && (
+				{totalItemCount > 0 && mealPlanEntryCount === 0 && (
 					<OnboardingNudge
 						nudgeId="plan-your-week"
 						icon="calendar"

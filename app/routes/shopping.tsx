@@ -36,7 +36,7 @@ import {
 	generateShoppingListFromRecipes,
 	annotateInventoryMatches,
 } from '#app/utils/shopping-list.server.ts'
-import { requireProTier } from '#app/utils/subscription.server.ts'
+import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/shopping.ts'
 
 export const handle: SEOHandle = {
@@ -48,7 +48,7 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { userId, householdId } = await requireProTier(request)
+	const { userId, householdId, isProActive } = await requireUserWithTier(request)
 
 	// Get or create shopping list
 	let shoppingList = await prisma.shoppingList.findFirst({
@@ -98,37 +98,50 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const hasMealPlan = weeksWithPlans.length > 0
 
-	// All inventory items — used for low-stock suggestions + review panel matching
-	const allInventoryItems = await prisma.inventoryItem.findMany({
-		where: { householdId },
-		select: { id: true, name: true, location: true, lowStock: true },
-	})
+	// Pro-only: low-stock suggestions + review panel matching
+	let lowStockSuggestions: Array<{
+		id: string
+		name: string
+		location: string
+		lowStock: boolean
+	}> = []
+	let inventoryByCanonical: Record<string, string[]> = {}
+	let itemCanonicals: Record<string, string> = {}
 
-	// Filter out items already on the shopping list by canonical name
-	const shoppingCanonicals = new Set(
-		shoppingList.items.map((item) => getCanonicalIngredientName(item.name)),
-	)
-	const lowStockSuggestions = allInventoryItems
-		.filter((item) => item.lowStock)
-		.filter(
-			(item) =>
-				!shoppingCanonicals.has(getCanonicalIngredientName(item.name)),
+	if (isProActive) {
+		const allInventoryItems = await prisma.inventoryItem.findMany({
+			where: { householdId },
+			select: { id: true, name: true, location: true, lowStock: true },
+		})
+
+		// Filter out items already on the shopping list by canonical name
+		const shoppingCanonicals = new Set(
+			shoppingList.items.map((item) =>
+				getCanonicalIngredientName(item.name),
+			),
 		)
+		lowStockSuggestions = allInventoryItems
+			.filter((item) => item.lowStock)
+			.filter(
+				(item) =>
+					!shoppingCanonicals.has(
+						getCanonicalIngredientName(item.name),
+					),
+			)
 
-	// Canonical inventory lookup for review panel "already stocked" indicator
-	const inventoryByCanonical: Record<string, string[]> = {}
-	for (const inv of allInventoryItems) {
-		const canonical = getCanonicalIngredientName(inv.name)
-		if (!inventoryByCanonical[canonical]) {
-			inventoryByCanonical[canonical] = []
+		// Canonical inventory lookup for review panel "already stocked" indicator
+		for (const inv of allInventoryItems) {
+			const canonical = getCanonicalIngredientName(inv.name)
+			if (!inventoryByCanonical[canonical]) {
+				inventoryByCanonical[canonical] = []
+			}
+			if (!inventoryByCanonical[canonical].includes(inv.location)) {
+				inventoryByCanonical[canonical].push(inv.location)
+			}
 		}
-		if (!inventoryByCanonical[canonical].includes(inv.location)) {
-			inventoryByCanonical[canonical].push(inv.location)
+		for (const item of shoppingList.items) {
+			itemCanonicals[item.id] = getCanonicalIngredientName(item.name)
 		}
-	}
-	const itemCanonicals: Record<string, string> = {}
-	for (const item of shoppingList.items) {
-		itemCanonicals[item.id] = getCanonicalIngredientName(item.name)
 	}
 
 	return {
@@ -138,11 +151,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 		lowStockSuggestions,
 		inventoryByCanonical,
 		itemCanonicals,
+		isProActive,
 	}
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireProTier(request)
+	const { userId, householdId } = await requireUserWithTier(request)
 	const formData = await request.formData()
 	const intent = formData.get('intent')
 
@@ -524,6 +538,7 @@ export default function ShoppingListRoute({
 		lowStockSuggestions,
 		inventoryByCanonical,
 		itemCanonicals,
+		isProActive,
 	} = loaderData
 	const defaultWeek =
 		weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
@@ -578,7 +593,7 @@ export default function ShoppingListRoute({
 
 	return (
 		<div className="pb-20 md:pb-6">
-			<ShoppingListLiveRefresh />
+			{isProActive && <ShoppingListLiveRefresh />}
 			{/* Page Header */}
 			<div className="border-border/50 border-b print:border-0">
 				<div className="container-narrow py-4">
@@ -638,8 +653,8 @@ export default function ShoppingListRoute({
 			</div>
 
 			<div className="container-narrow py-4">
-				{/* Low Stock Nudge */}
-				{lowStockSuggestions.length > 0 && !showReview && (
+				{/* Low Stock Nudge (Pro) */}
+				{isProActive && lowStockSuggestions.length > 0 && !showReview && (
 					<div className="mb-4">
 						<LowStockNudge items={lowStockSuggestions} />
 					</div>
@@ -791,14 +806,18 @@ export default function ShoppingListRoute({
 						{/* Checked Item Actions */}
 						{checkedItems > 0 && !showReview && !search && (
 							<div className="flex items-center justify-center gap-4 pt-4 animate-slide-up-reveal print:hidden">
-								<button
-									type="button"
-									onClick={() => setShowReview(true)}
-									className="text-sm text-primary hover:text-primary/80 underline underline-offset-2"
-								>
-									Add to inventory ({checkedItems})
-								</button>
-								<span className="text-border">·</span>
+								{isProActive && (
+									<>
+										<button
+											type="button"
+											onClick={() => setShowReview(true)}
+											className="text-sm text-primary hover:text-primary/80 underline underline-offset-2"
+										>
+											Add to inventory ({checkedItems})
+										</button>
+										<span className="text-border">·</span>
+									</>
+								)}
 								<Form
 									method="POST"
 									className="inline"
@@ -863,8 +882,8 @@ export default function ShoppingListRoute({
 					</div>
 				)}
 
-				{/* Inventory Review Panel */}
-				{showReview && checkedItems > 0 && !search && (
+				{/* Inventory Review Panel (Pro) */}
+				{isProActive && showReview && checkedItems > 0 && !search && (
 					<div className="mt-4 print:hidden">
 						<ShoppingListToInventory
 							items={checkedItemsList}

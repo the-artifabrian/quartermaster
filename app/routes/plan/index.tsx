@@ -27,7 +27,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
-import { requireProTier } from '#app/utils/subscription.server.ts'
+import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { UncookedMealReminder } from '#app/components/uncooked-meal-reminder.tsx'
 import { type Route } from './+types/index.ts'
@@ -41,7 +41,7 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { userId, householdId } = await requireProTier(request)
+	const { userId, householdId, isProActive } = await requireUserWithTier(request)
 	const url = new URL(request.url)
 	const weekStartParam = url.searchParams.get('weekStart')
 
@@ -194,16 +194,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 		tonightData = { entries: tonightEntries, suggestion }
 	}
 
-	// Fetch meal plan templates for this household
-	const templates = await prisma.mealPlanTemplate.findMany({
-		where: { householdId },
-		orderBy: { updatedAt: 'desc' },
-		select: {
-			id: true,
-			name: true,
-			_count: { select: { entries: true } },
-		},
-	})
+	// Fetch meal plan templates for this household (Pro-only feature)
+	const templates = isProActive
+		? await prisma.mealPlanTemplate.findMany({
+				where: { householdId },
+				orderBy: { updatedAt: 'desc' },
+				select: {
+					id: true,
+					name: true,
+					_count: { select: { entries: true } },
+				},
+			})
+		: []
 
 	const shoppingListItemCount = await prisma.shoppingListItem.count({
 		where: { list: { householdId } },
@@ -227,11 +229,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 		templates,
 		shoppingListItemCount,
 		inventoryItemCount,
+		isProActive,
 	}
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireProTier(request)
+	const { userId, householdId } = await requireUserWithTier(request)
 	const formData = await request.formData()
 	const intent = formData.get('intent')
 
@@ -460,6 +463,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 		templates,
 		shoppingListItemCount,
 		inventoryItemCount,
+		isProActive,
 	} = loaderData
 
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
@@ -500,7 +504,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	}
 
 	const showSweepBanner =
-		isCurrentWeek && inventoryItemCount > 0 && !sweepDismissed
+		isProActive && isCurrentWeek && inventoryItemCount > 0 && !sweepDismissed
 
 	return (
 		<div className="pb-20 md:pb-6">
@@ -511,15 +515,17 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 					<h1 className="font-serif text-2xl">Meal Plan</h1>
 					<div className="flex flex-wrap gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => setShowSuggest(true)}
-						>
-							<Icon name="sparkles" size="sm" />
-							Suggest Meals
-						</Button>
-						{entries.length > 0 && (
+						{isProActive && (
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setShowSuggest(true)}
+							>
+								<Icon name="sparkles" size="sm" />
+								Suggest Meals
+							</Button>
+						)}
+						{isProActive && entries.length > 0 && (
 							<Button
 								variant="outline"
 								size="sm"
@@ -529,7 +535,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 								Save Template
 							</Button>
 						)}
-						{templates.length > 0 && (
+						{isProActive && templates.length > 0 && (
 							<Button
 								variant="outline"
 								size="sm"
@@ -539,7 +545,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 								Use Template
 							</Button>
 						)}
-						{entries.length > 0 && (
+						{isProActive && entries.length > 0 && (
 							<Form method="POST" action="/resources/meal-plan-copy-week">
 								<input type="hidden" name="weekStart" value={weekStart} />
 								<Button type="submit" variant="outline" size="sm">
@@ -649,6 +655,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					entries={entries}
 					recipes={recipes}
 					weekStart={weekStart}
+					isProActive={isProActive}
 				/>
 
 				{entries.length > 0 && shoppingListItemCount === 0 && (

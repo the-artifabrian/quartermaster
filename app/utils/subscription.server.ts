@@ -136,6 +136,17 @@ export async function getUserTier(userId: string): Promise<TierInfo> {
 }
 
 /**
+ * Returns auth + tier info without redirecting.
+ * Use on routes that are accessible to all tiers but need to conditionally
+ * show/hide Pro features.
+ */
+export async function requireUserWithTier(request: Request) {
+	const { userId, householdId, role } = await requireUserWithHousehold(request)
+	const tierInfo = await getUserTier(userId)
+	return { userId, householdId, role, ...tierInfo }
+}
+
+/**
  * Drop-in replacement for `requireUserWithHousehold` on Pro-only routes.
  * Redirects to /upgrade if the user doesn't have an active Pro subscription.
  */

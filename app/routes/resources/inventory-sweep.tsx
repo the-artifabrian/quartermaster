@@ -1,11 +1,11 @@
 import { z } from 'zod'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { requireProTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/inventory-sweep.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { householdId } = await requireUserWithHousehold(request)
+	const { householdId } = await requireProTier(request)
 
 	const items = await prisma.inventoryItem.findMany({
 		where: { householdId },
@@ -49,7 +49,7 @@ const SweepChangeSchema = z.object({
 })
 
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { userId, householdId } = await requireProTier(request)
 
 	const body = await request.json()
 	const parsed = SweepChangeSchema.safeParse(body)

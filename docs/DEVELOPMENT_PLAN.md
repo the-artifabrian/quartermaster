@@ -49,19 +49,10 @@ strangers find it useful, data on which features drive retention, or a sustained
 path to users. Priority is: get the app in front of non-friend testers, instrument
 the funnel, and polish the first 5 minutes of the experience.
 
-**The real competitor is inertia.** Most home cooks use Apple Notes, browser
-bookmarks, or memory — and it works fine for them. They don't comparison-shop
-recipe apps. The pitch doesn't need to beat Paprika or Mela; it needs to clear
-the bar of "why change from what I'm already doing." Feature comparisons are
-irrelevant until a stranger decides their current mess is worth fixing. Every
-acquisition conversation starts there, not at the feature matrix.
-
-That said — rapid iteration with an AI coding assistant means the cost of
-building is low. Don't stop coding. But let daily-use friction and tester
-feedback drive what you build, not the backlog. "I watched a stranger get
-confused and fixed it in 20 minutes" is high-value iteration. "I spent a week
-on defrost reminders nobody asked for" is not. The test: is this fixing
-something a real person hit, or something the backlog says might matter?
+**The real competitor is inertia** — most home cooks use Apple Notes or
+bookmarks, not other recipe apps. See
+for the full analysis. Let daily-use friction and tester feedback drive what you
+build, not the backlog.
 
 Daily driving started **February 12, 2026**. The app is being used for real
 cooking and meal planning. 3 external users onboarded (girlfriend as household
@@ -80,20 +71,16 @@ person. Inventory sustainability is the open question — see
 
 ### Critical Path
 
-1. ~~**Post for beta testers THIS WEEK**~~ — Done. Posted on r/SideProject
-2. **Watch and fix** — At 3-5 testers, conversations beat analytics. Pay
-   attention to where testers stop and what they ask. Fix the top 2-3
-   confusion points. Don't polish speculatively — let strangers show you
-   what's broken. Funnel instrumentation can wait until there's enough volume
-   to make data meaningful.
-3. **Don't build new features** — The app has more features than most paid
-   competitors. The next 2 weeks are about validation, not development.
-4. **Daily drive for 4+ weeks** — Plan the week, shop from the list, cook from
+**Completed:** Beta post (r/SideProject, Feb 25), Google OAuth (production),
+
+**Active:**
+
+1. **Watch and fix** — At 3-5 testers, conversations beat analytics. Fix the
+   top 2-3 confusion points. Don't polish speculatively.
+2. **Don't build new features** — The next 2 weeks are about validation, not
+   development.
+3. **Daily drive for 4+ weeks** — Plan the week, shop from the list, cook from
    the app. Fix friction as it surfaces.
-5. ~~**Stress-test inventory**~~ — Resolved. Shifted to rough-signal model.
-6. ~~**Ship Google OAuth**~~ — Done. Production credentials configured
-     (February 25, 2026). Unverified app — fine under 100 users
-   codes.
 
 ### Proven Gate
 
@@ -111,15 +98,8 @@ The app has **fully replaced Apple Notes** and **meal planning happens in-app**
 - Does the pitch work on strangers? If non-friend testers don't get past
   inventory onboarding, the pitch needs rework — not more features.
 
-**Trial-specific questions** (assess after first cohort):
-
-- What % of trial users engage with meal planning?
-- What % use shopping list generation?
-- What % touch inventory at all?
-- What's trial → paid conversion?
-- Do trial users invite household members?
-  "recipes + planning + basic shopping" (Phase 2 restructure)?~~ **Resolved:**
-  April). March 12 data confirms the direction, doesn't decide it. See
+**Trial-specific questions:** See
+basic planning + shopping.
 
 **Instrumentation deferred.** The existing `UsageEvent` model tracks AI/Pro
 feature usage (generation, enhance, substitutions, pairing selections). Funnel-

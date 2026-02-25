@@ -203,22 +203,27 @@ execution quality, not differentiation.
 ## Onboarding
 
 - "Getting Started" checklist on `/recipes`: tracks 3 steps (add recipe, stock
-  inventory, plan a meal) with progress bar. Free users see recipe + inventory
-  steps. Dismissible, auto-hides on completion
+  inventory, plan a meal) with progress bar. All users see all 3 steps.
+  Dismissible, auto-hides on completion
 - Pantry staples onboarding on empty inventory with post-add success CTA
   (browse recipes or view inventory)
 - Progressive post-action nudges: contextual banners that guide users through
   the core loop (recipe → inventory → meal plan → shopping list). Each nudge
   appears only when the prior milestone is complete and the next is not.
   Dismissible per-user via localStorage. 4 nudges: "Stock your kitchen" on
-  recipe detail, "Plan your week" on inventory (Pro), "Generate shopping list"
+  recipe detail, "Plan your week" on inventory, "Generate shopping list"
   on meal plan, "Check items off" on shopping list
 
-- Free: unlimited recipes, up to 50 inventory items, smart matching, household
+- Free: unlimited recipes, up to 50 inventory items, smart matching, basic meal
+  planning calendar, basic shopping list generation, household sharing. Pro:
+  unlimited inventory, planning intelligence (templates, suggest meals, copy
+  week, pairing, waste alerts), full shopping pipeline (live-refresh, low-stock
+  nudge, inventory sync), weekly sweep, real-time notifications, all AI features
   days Pro, grants 2 starter codes) coexist with Stripe and trial
   redeemed a code (localStorage dismiss, inline redeem form)
-- Pro-gated routes redirect to `/upgrade` with lock icons in nav. Graceful
-  downgrade with data preservation, expiry nudges at 7d/3d
+- Pro-only features gated inline (buttons/panels hidden for free users). Inventory
+  sweep redirects to `/upgrade`. Graceful downgrade with data preservation, expiry
+  nudges at 7d/3d
 - Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (codes +
   tiers)
 

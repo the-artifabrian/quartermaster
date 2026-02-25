@@ -1,6 +1,5 @@
 import { NavLink, useLocation } from 'react-router'
 import { cn } from '#app/utils/misc.tsx'
-import { useIsProActive } from '#app/utils/subscription.ts'
 import { useOptionalUser } from '#app/utils/user.ts'
 import { Icon, type IconName } from './ui/icon.tsx'
 
@@ -43,12 +42,9 @@ const navItems: NavItem[] = [
 	},
 ]
 
-const PRO_PATHS = new Set(['/plan', '/shopping'])
-
 export function BottomNav() {
 	const location = useLocation()
 	const user = useOptionalUser()
-	const isPro = useIsProActive()
 
 	if (!user) return null
 
@@ -64,22 +60,12 @@ export function BottomNav() {
 							? location.pathname === '/'
 							: location.pathname.startsWith(path),
 					)
-					const isLocked = !isPro && PRO_PATHS.has(item.to)
-					const iconName = isLocked
-						? 'lock-closed'
-						: isActive
-							? item.iconFilled
-							: item.icon
+					const iconName = isActive ? item.iconFilled : item.icon
 
 					return (
 						<NavLink
 							key={item.to}
 							to={item.to}
-							aria-label={
-								isLocked
-									? `${item.label} (Pro feature)`
-									: undefined
-							}
 							className={cn(
 								'relative flex flex-col items-center justify-center gap-1 py-2 transition-colors duration-200',
 								isActive
@@ -87,11 +73,7 @@ export function BottomNav() {
 									: 'text-muted-foreground hover:text-foreground',
 							)}
 						>
-							<Icon
-								name={iconName}
-								size="lg"
-								title={isLocked ? 'Pro feature' : undefined}
-							/>
+							<Icon name={iconName} size="lg" />
 							<span
 								className={cn('text-xs leading-4', isActive && 'font-medium')}
 							>

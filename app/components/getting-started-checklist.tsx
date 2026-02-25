@@ -14,14 +14,12 @@ interface Step {
 
 export function GettingStartedChecklist({
 	onboarding,
-	isProActive = true,
 }: {
 	onboarding: {
 		hasRecipes: boolean
 		hasInventory: boolean
 		hasMealPlan: boolean
 	}
-	isProActive?: boolean
 }) {
 	const user = useUser()
 	const storageKey = `getting-started-dismissed:${user.id}`
@@ -57,8 +55,7 @@ export function GettingStartedChecklist({
 		},
 	]
 
-	// Free users see recipe + inventory steps — meal plan is Pro-only
-	const steps = isProActive ? allSteps : allSteps.slice(0, 2)
+	const steps = allSteps
 
 	const completedCount = steps.filter((s) => s.done).length
 	const allComplete = completedCount === steps.length

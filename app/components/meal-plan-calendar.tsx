@@ -24,6 +24,7 @@ type MealPlanCalendarProps = {
 	entries: Entry[]
 	recipes: RecipeSelectorRecipe[]
 	weekStart: string
+	isProActive?: boolean
 }
 
 /**
@@ -49,11 +50,13 @@ function CollapsibleDaySlots({
 	entryMap,
 	recipes,
 	weekStart,
+	isProActive,
 }: {
 	date: Date
 	entryMap: Map<string, Entry[]>
 	recipes: RecipeSelectorRecipe[]
 	weekStart: string
+	isProActive?: boolean
 }) {
 	const [expanded, setExpanded] = useState(false)
 
@@ -85,6 +88,7 @@ function CollapsibleDaySlots({
 						entries={slotEntries}
 						recipes={recipes}
 						weekStart={weekStart}
+						isProActive={isProActive}
 					/>
 				)
 			})}
@@ -97,6 +101,7 @@ export function MealPlanCalendar({
 	entries,
 	recipes,
 	weekStart,
+	isProActive,
 }: MealPlanCalendarProps) {
 	// Group entries by date and mealType (multiple entries per slot)
 	const entryMap = new Map<string, Entry[]>()
@@ -161,6 +166,7 @@ export function MealPlanCalendar({
 											entries={slotEntries}
 											recipes={recipes}
 											weekStart={weekStart}
+											isProActive={isProActive}
 										/>
 									)
 								})}
@@ -215,6 +221,7 @@ export function MealPlanCalendar({
 												entries={slotEntries}
 												recipes={recipes}
 												weekStart={weekStart}
+												isProActive={isProActive}
 											/>
 										)
 									})}
@@ -225,6 +232,7 @@ export function MealPlanCalendar({
 									entryMap={entryMap}
 									recipes={recipes}
 									weekStart={weekStart}
+									isProActive={isProActive}
 								/>
 							)}
 						</div>

@@ -120,21 +120,22 @@ export async function action({ request }: Route.ActionArgs) {
 const freeFeatures = [
 	'Unlimited recipes',
 	'Import from URL or paste',
+	'Meal planning calendar',
+	'Basic shopping list generation',
 	'Up to 50 inventory items',
 	'Smart recipe matching',
 	'Interactive cooking view',
-	'Cooking log & history',
-	'Recipe sharing & print',
+	'Household sharing',
 	'Data export',
 ]
 
 const proFeatures = [
 	'Everything in Free, plus:',
 	'Unlimited inventory tracking',
-	'Meal planning & smart suggestions',
-	'Shopping list generation',
+	'Smart meal suggestions & templates',
+	'Advanced shopping (live-refresh, inventory sync)',
 	'Weekly inventory sweep',
-	'Household sharing',
+	'Real-time household notifications',
 	'AI substitution hints',
 	'AI recipe generation',
 ]
@@ -165,7 +166,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					Upgrade Your Kitchen
 				</h1>
 				<p className="text-muted-foreground mt-2 text-lg">
-					Unlock unlimited inventory, meal planning, and smart shopping lists.
+					Unlock smart suggestions, inventory sync, and the full intelligence loop.
 				</p>
 					<>
 						<p className="text-primary mt-2 text-sm font-medium">
@@ -177,9 +178,9 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 							})}
 						</p>
 						<p className="text-muted-foreground mt-1 text-sm">
-							After your trial, you'll keep all your recipes on the Free
-							plan. Meal planning, shopping lists, and unlimited inventory
-							need Pro.
+							After your trial, you'll keep recipes, meal planning, and
+							basic shopping on the Free plan. Smart suggestions, inventory
+							sync, and unlimited inventory need Pro.
 						</p>
 					</>
 				) : tierInfo.isProActive ? (

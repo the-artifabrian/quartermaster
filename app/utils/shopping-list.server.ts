@@ -7,6 +7,7 @@ import { parseAmount, formatAmount } from './fractions.ts'
 import {
 	getCanonicalIngredientName,
 	ingredientMatchesInventoryItem,
+	isOptionalIngredient,
 	isStapleIngredient,
 } from './recipe-matching.server.ts'
 import { guessCategory } from './shopping-list-validation.ts'
@@ -59,6 +60,7 @@ export function generateShoppingListFromRecipes(
 
 		for (const ingredient of recipe.ingredients) {
 			if (ingredient.isHeading) continue
+			if (isOptionalIngredient(ingredient)) continue
 			const normalizedName = getCanonicalIngredientName(ingredient.name)
 
 			// Scale the amount by the serving ratio

@@ -64,10 +64,11 @@ execution quality, not differentiation.
 - Import quality flags: filterable via `?quality=flagged` (missing ingredients,
   missing instructions, or duplicate titles) — computed from main query, no
   persistent banner
-- AI recipe generation from inventory (Pro): pick meal type, generates a recipe
-  from current inventory (prioritizing expiring items). Preview before saving,
-  "AI Generated" badge on saved recipes. Feature-specific error messages
-  (rate limit, timeout, parse failure) instead of generic toasts
+- AI recipe generation from inventory (Pro): prompt-first UI with optional
+  meal-type filter chips and quick-meal toggle. Generates a recipe from current
+  inventory (prioritizing expiring items). Preview before saving, "AI Generated"
+  badge on saved recipes. Feature-specific error messages (rate limit, timeout,
+  parse failure) instead of generic toasts
 - "I Made This" cook logging with success toast. Inventory drift is handled by
   the weekly sweep rather than per-cook prompts
 - Inline inventory status on recipe detail ingredient list: summary footer shows
@@ -75,6 +76,10 @@ execution quality, not differentiation.
 - "Last cooked" stats on recipe cards (cook count + relative time)
 - Ingredient headings: section dividers within ingredient lists displayed as
   styled headers. Skipped by shopping list, matching, and JSON-LD
+- Optional ingredient detection: ingredients with "optional" in their notes
+  field are excluded from inventory matching, match percentage rings, X/Y
+  ingredient counts, shopping list generation, meal suggestions, and
+  ingredient overlap scoring — same treatment as staples and headings
 - Drag-and-drop ingredient reordering (`@dnd-kit/sortable`)
 - AI recipe enhance (Pro): one-click metadata inference (description, servings,
   prep/cook times) with before/after review modal. Feature-specific error
@@ -165,7 +170,7 @@ execution quality, not differentiation.
   - Client-side search/filter, print-friendly layout
   - Inventory-aware: items already in stock (not low) are pre-checked instead
     of omitted — users can uncheck any they actually need. Staple ingredients
-    (salt, pepper, water, oil) are still filtered out entirely
+    (salt, pepper, water, oil) and optional ingredients are filtered out entirely
   - Optimistic UI on checkbox toggle and delete (instant response via
     `useFetcher`)
   - Live-refresh via SSE for all shopping list events (generate, add, clear,

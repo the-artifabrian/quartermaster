@@ -3,6 +3,7 @@ import {
 	normalizeIngredientName,
 	getCanonicalIngredientName,
 	ingredientMatchesInventoryItem,
+	isOptionalIngredient,
 	isStapleIngredient,
 	matchRecipesWithInventory,
 } from './recipe-matching.server.ts'
@@ -303,6 +304,21 @@ describe('isStapleIngredient', () => {
 	})
 })
 
+describe('isOptionalIngredient', () => {
+	test('recognizes "optional" in notes', () => {
+		expect(isOptionalIngredient({ notes: 'optional' })).toBe(true)
+		expect(isOptionalIngredient({ notes: 'Optional' })).toBe(true)
+		expect(isOptionalIngredient({ notes: 'for garnish, optional' })).toBe(true)
+		expect(isOptionalIngredient({ notes: '(optional)' })).toBe(true)
+	})
+
+	test('returns false when notes do not contain optional', () => {
+		expect(isOptionalIngredient({ notes: null })).toBe(false)
+		expect(isOptionalIngredient({ notes: 'diced' })).toBe(false)
+		expect(isOptionalIngredient({ notes: 'room temperature' })).toBe(false)
+	})
+})
+
 describe('matchRecipesWithInventory', () => {
 	// Helper to create a minimal recipe-like object
 	function makeRecipe(
@@ -407,5 +423,19 @@ describe('matchRecipesWithInventory', () => {
 		const results = matchRecipesWithInventory(recipes, inventory)
 		expect(results[0]!.totalIngredientsCount).toBe(0)
 		expect(results[0]!.matchPercentage).toBe(0)
+	})
+
+	test('excludes optional ingredients from matching calculation', () => {
+		const recipe = makeRecipe('r1', ['chicken', 'rice', 'cilantro'])
+		// Mark cilantro as optional
+		recipe.ingredients[2]!.notes = 'for garnish, optional'
+		const inventory = makeInventory(['chicken', 'rice'])
+
+		const results = matchRecipesWithInventory([recipe], inventory)
+		// Only 2 non-optional ingredients, both matched → 100%
+		expect(results[0]!.totalIngredientsCount).toBe(2)
+		expect(results[0]!.matchedIngredientsCount).toBe(2)
+		expect(results[0]!.matchPercentage).toBe(100)
+		expect(results[0]!.canMake).toBe(true)
 	})
 })

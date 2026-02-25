@@ -37,6 +37,7 @@ import {
 	getCanonicalIngredientName,
 	ingredientMatchesAnyInventoryItem,
 	ingredientMatchesInventoryItem,
+	isOptionalIngredient,
 	isStapleIngredient,
 } from '#app/utils/recipe-matching.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
@@ -166,6 +167,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	for (const ingredient of recipe.ingredients) {
 		if (ingredient.isHeading) continue
 		if (isStapleIngredient(ingredient)) continue
+		if (isOptionalIngredient(ingredient)) continue
 		if (!ingredientMatchesAnyInventoryItem(ingredient, lookup)) {
 			missingIngredientIds.push(ingredient.id)
 		}
@@ -321,6 +323,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		for (const ingredient of fullRecipe.ingredients) {
 			if (ingredient.isHeading) continue
 			if (isStapleIngredient(ingredient)) continue
+			if (isOptionalIngredient(ingredient)) continue
 
 			const inStock = inventoryItems.some((inv) =>
 				ingredientMatchesInventoryItem(ingredient, inv),

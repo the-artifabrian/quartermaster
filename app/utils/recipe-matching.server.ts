@@ -641,6 +641,17 @@ export function isStapleIngredient(
 }
 
 /**
+ * Check if an ingredient is marked as optional in its notes field.
+ * Optional ingredients are excluded from inventory matching and shopping lists.
+ */
+export function isOptionalIngredient(
+	ingredient: Pick<Ingredient, 'notes'>,
+): boolean {
+	if (!ingredient.notes) return false
+	return /\boptional\b/i.test(ingredient.notes)
+}
+
+/**
  * Pre-built lookup structure for O(1) inventory matching.
  * Instead of scanning all inventory items for each ingredient,
  * we pre-normalize all inventory names and build sets for fast lookup.
@@ -795,9 +806,12 @@ export function matchRecipesWithInventory<R extends MatchableRecipe>(
 
 	return recipes
 		.map((recipe) => {
-			// Filter out headings and staple ingredients from the matching calculation
+			// Filter out headings, staples, and optional ingredients from matching
 			const nonStapleIngredients = recipe.ingredients.filter(
-				(ing) => !ing.isHeading && !isStapleIngredient(ing),
+				(ing) =>
+					!ing.isHeading &&
+					!isStapleIngredient(ing) &&
+					!isOptionalIngredient(ing),
 			)
 
 			const totalIngredientsCount = nonStapleIngredients.length

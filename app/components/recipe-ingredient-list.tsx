@@ -56,7 +56,11 @@ export function IngredientList({
 	onToggleMetric?: () => void
 }) {
 	const missingSet = new Set(missingIngredientIds)
-	const nonHeadingCount = ingredients.filter((i) => !i.isHeading).length
+	const isOptional = (notes: string | null) =>
+		notes ? /\boptional\b/i.test(notes) : false
+	const nonHeadingCount = ingredients.filter(
+		(i) => !i.isHeading && !isOptional(i.notes),
+	).length
 	const substitutedCount = missingIngredientIds.filter((id) =>
 		substitutions.has(id),
 	).length

@@ -141,6 +141,38 @@ describe('buildPrompt', () => {
 		const prompt = buildPrompt(makeInventory())
 		expect(prompt).not.toContain('Preferences:')
 	})
+
+	test('includes description in preferences', () => {
+		const prompt = buildPrompt(makeInventory(), {
+			description: 'gyoza dipping sauce',
+		})
+		expect(prompt).toContain('Description: gyoza dipping sauce')
+	})
+
+	test('description relaxes ingredient rules', () => {
+		const prompt = buildPrompt(makeInventory(), {
+			description: 'gyoza dipping sauce',
+		})
+		expect(prompt).not.toContain('Use ONLY')
+		expect(prompt).toContain('MAY include common ingredients not listed')
+	})
+
+	test('no description keeps strict rules', () => {
+		const prompt = buildPrompt(makeInventory())
+		expect(prompt).toContain('Use ONLY')
+		expect(prompt).not.toContain('MAY include')
+	})
+
+	test('description combines with other preferences', () => {
+		const prompt = buildPrompt(makeInventory(), {
+			description: 'quick pasta',
+			mealType: 'dinner',
+			quickMeal: true,
+		})
+		expect(prompt).toContain('Description: quick pasta')
+		expect(prompt).toContain('Meal type: dinner')
+		expect(prompt).toContain('30 minutes or less')
+	})
 })
 
 describe('parseRecipeResponse', () => {
@@ -326,6 +358,49 @@ describe('generateRecipeFromInventory', () => {
 
 		const result = await generateRecipeFromInventory(makeInventory())
 		expect(result).toHaveProperty('error')
+	})
+
+	test('description changes system message', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		let capturedBody: string | undefined
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
+			capturedBody = opts?.body as string
+			return new Response(
+				JSON.stringify({
+					content: [{ type: 'text', text: JSON.stringify(validResponse) }],
+				}),
+				{ status: 200 },
+			)
+		})
+
+		await generateRecipeFromInventory(makeInventory(), {
+			description: 'gyoza dipping sauce',
+		})
+
+		const body = JSON.parse(capturedBody!) as { system: string }
+		expect(body.system).toContain("following the user's description")
+		expect(body.system).toContain('treat it only as a cooking intent')
+		expect(body.system).not.toContain('using ONLY')
+	})
+
+	test('no description keeps strict system message', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		let capturedBody: string | undefined
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
+			capturedBody = opts?.body as string
+			return new Response(
+				JSON.stringify({
+					content: [{ type: 'text', text: JSON.stringify(validResponse) }],
+				}),
+				{ status: 200 },
+			)
+		})
+
+		await generateRecipeFromInventory(makeInventory())
+
+		const body = JSON.parse(capturedBody!) as { system: string }
+		expect(body.system).toContain('using ONLY')
+		expect(body.system).not.toContain("following the user's description")
 	})
 
 	test('passes preferences to prompt', async () => {

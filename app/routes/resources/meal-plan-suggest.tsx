@@ -10,6 +10,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	getCanonicalIngredientName,
+	isOptionalIngredient,
 	isStapleIngredient,
 	matchRecipesWithInventory,
 } from '#app/utils/recipe-matching.server.ts'
@@ -105,6 +106,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			for (const ing of recipe.ingredients) {
 				if (ing.isHeading) continue
 				if (isStapleIngredient(ing)) continue
+				if (isOptionalIngredient(ing)) continue
 				const canonical = getCanonicalIngredientName(ing.name)
 				if (expiringCanonicalNames.has(canonical)) {
 					expiringIngredients.push(ing.name)

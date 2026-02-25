@@ -1,6 +1,7 @@
 import { type Ingredient, type Recipe } from '@prisma/client'
 import {
 	getCanonicalIngredientName,
+	isOptionalIngredient,
 	isStapleIngredient,
 } from './recipe-matching.server.ts'
 
@@ -42,7 +43,7 @@ function getRecipeCanonicalIngredients(
 ): Set<string> {
 	const result = new Set<string>()
 	for (const ing of recipe.ingredients) {
-		if (!ing.isHeading && !isStapleIngredient(ing)) {
+		if (!ing.isHeading && !isStapleIngredient(ing) && !isOptionalIngredient(ing)) {
 			result.add(getCanonicalIngredientName(ing.name))
 		}
 	}

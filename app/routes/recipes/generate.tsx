@@ -9,7 +9,6 @@ import {
 } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
@@ -114,6 +113,9 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const mealType = formData.get('mealType') as string | null
 		const quickMeal = formData.get('quickMeal') === 'on'
+		const rawDescription = ((formData.get('description') as string) || '')
+			.trim()
+			.slice(0, 200)
 
 		const preferences = {
 			...(mealType &&
@@ -121,6 +123,7 @@ export async function action({ request }: Route.ActionArgs) {
 					mealType: mealType as 'breakfast' | 'lunch' | 'dinner' | 'snack',
 				}),
 			...(quickMeal && { quickMeal: true }),
+			...(rawDescription && { description: rawDescription }),
 		}
 
 		const result = await generateRecipeFromInventory(inventory, preferences)
@@ -130,6 +133,7 @@ export async function action({ request }: Route.ActionArgs) {
 			inventoryCount: inventory.length,
 			mealType: preferences.mealType ?? null,
 			quickMeal: preferences.quickMeal ?? false,
+			hasDescription: Boolean(preferences.description),
 			success: !isError,
 		})
 
@@ -324,48 +328,73 @@ export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
 						</div>
 					)}
 
-					<Form method="POST" className="space-y-6">
+					<Form method="POST" className="space-y-5">
 						<input type="hidden" name="intent" value="generate" />
 
-						<fieldset className="space-y-3">
-							<Label asChild>
-								<legend>Meal type (optional)</legend>
-							</Label>
-							<div className="flex flex-wrap gap-2">
-								{[
-									{ value: '', label: 'Any' },
-									{ value: 'breakfast', label: 'Breakfast' },
-									{ value: 'lunch', label: 'Lunch' },
-									{ value: 'dinner', label: 'Dinner' },
-									{ value: 'snack', label: 'Snack' },
-								].map((option) => (
-									<label
-										key={option.value}
-										className="border-input has-[:checked]:border-primary has-[:checked]:bg-primary/5 flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm"
-									>
-										<input
-											type="radio"
-											name="mealType"
-											value={option.value}
-											defaultChecked={option.value === ''}
-											className="sr-only"
-										/>
-										{option.label}
-									</label>
-								))}
-							</div>
-						</fieldset>
-
-						<label className="flex items-center gap-2">
-							<input
-								type="checkbox"
-								name="quickMeal"
-								className="border-input h-4 w-4 rounded"
+						<div>
+							<textarea
+								name="description"
+								maxLength={200}
+								rows={2}
+								placeholder="What do you want to make? e.g. gyoza dipping sauce, quick pasta for two"
+								className="border-input bg-background placeholder:text-muted-foreground/60 w-full rounded-lg border px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-ring"
 							/>
-							<span className="text-sm">Quick meal (30 minutes or less)</span>
-						</label>
+							<p className="text-muted-foreground mt-1 text-xs">
+								Leave blank for a surprise — or describe what you're in the mood
+								for
+							</p>
+						</div>
 
-						<div className="flex flex-col-reverse items-end gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+						<div className="flex flex-wrap items-center gap-2">
+							{[
+								{ value: '', label: 'Any' },
+								{ value: 'breakfast', label: 'Breakfast' },
+								{ value: 'lunch', label: 'Lunch' },
+								{ value: 'dinner', label: 'Dinner' },
+								{ value: 'snack', label: 'Snack' },
+							].map((option) => (
+								<label
+									key={option.value}
+									className="border-input has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:checked]:text-primary cursor-pointer rounded-full border px-3 py-1 text-sm transition-colors"
+								>
+									<input
+										type="radio"
+										name="mealType"
+										value={option.value}
+										defaultChecked={option.value === ''}
+										className="sr-only"
+									/>
+									{option.label}
+								</label>
+							))}
+
+							<span className="text-border mx-1 hidden sm:inline">|</span>
+
+							<label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-input px-3 py-1 text-sm transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:checked]:text-primary">
+								<input
+									type="checkbox"
+									name="quickMeal"
+									className="sr-only"
+								/>
+								<Icon name="clock" size="sm" />
+								Under 30 min
+							</label>
+						</div>
+
+						<div className="flex flex-col items-center gap-2 pt-2">
+							<StatusButton
+								type="submit"
+								size="lg"
+								status={submittingIntent === 'generate' ? 'pending' : 'idle'}
+								disabled={
+									isSubmitting ||
+									inventoryCount === 0 ||
+									generationsRemaining === 0
+								}
+							>
+								<Icon name="sparkles" size="sm" />
+								Generate Recipe
+							</StatusButton>
 							{generationsRemaining <= 3 && (
 								<p className="text-muted-foreground text-xs">
 									{generationsRemaining === 0
@@ -373,27 +402,6 @@ export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
 										: `${generationsRemaining} generation${generationsRemaining !== 1 ? 's' : ''} remaining today`}
 								</p>
 							)}
-							<div className="flex gap-2">
-								<Button
-									type="button"
-									variant="outline"
-									onClick={() => history.back()}
-								>
-									Cancel
-								</Button>
-								<StatusButton
-									type="submit"
-									status={submittingIntent === 'generate' ? 'pending' : 'idle'}
-									disabled={
-										isSubmitting ||
-										inventoryCount === 0 ||
-										generationsRemaining === 0
-									}
-								>
-									<Icon name="sparkles" size="sm" />
-									Generate Recipe
-								</StatusButton>
-							</div>
 						</div>
 					</Form>
 				</div>

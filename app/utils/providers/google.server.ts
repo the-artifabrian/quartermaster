@@ -60,7 +60,6 @@ export class GoogleProvider implements AuthProvider {
 					email: user.email,
 					name: user.name,
 					username: emailPrefix,
-					imageUrl: user.picture,
 				}
 			},
 		)

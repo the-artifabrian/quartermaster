@@ -135,7 +135,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 							id: true,
 							name: true,
 							username: true,
-							image: { select: { objectKey: true } },
 							roles: {
 								select: {
 									name: true,

@@ -1,6 +1,6 @@
 import { prisma } from '#app/utils/db.server.ts'
 import { MOCK_CODE_GOOGLE } from '#app/utils/providers/constants.ts'
-import { createPassword, getUserImages } from '#tests/db-utils.ts'
+import { createPassword } from '#tests/db-utils.ts'
 import { insertGoogleUser } from '#tests/mocks/google.ts'
 import { seedInfrastructure } from './seed-infrastructure.ts'
 
@@ -12,8 +12,6 @@ async function seed() {
 	await seedInfrastructure()
 
 	// Test data below — only runs via `prisma db seed` in development
-
-	const userImages = await getUserImages()
 
 	console.time(`🐨 Find or create admin user "kody"`)
 
@@ -43,15 +41,6 @@ async function seed() {
 			},
 		})
 
-		const kodyImage = userImages[0]
-		if (kodyImage) {
-			await prisma.userImage.create({
-				data: {
-					userId: kody.id,
-					objectKey: kodyImage.objectKey,
-				},
-			})
-		}
 	}
 
 	console.timeEnd(`🐨 Find or create admin user "kody"`)

@@ -1,6 +1,5 @@
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { getDomainUrl, getUserImgSrc } from '#app/utils/misc.tsx'
 import { type Route } from './+types/download-user-data.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -13,14 +12,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		// want to send back the entire blob of the image. We'll send a URL they can
 		// use to download it instead.
 		include: {
-			image: {
-				select: {
-					id: true,
-					createdAt: true,
-					updatedAt: true,
-					objectKey: true,
-				},
-			},
 			password: false, // <-- intentionally omit password
 			sessions: {
 				select: {
@@ -32,17 +23,5 @@ export async function loader({ request }: Route.LoaderArgs) {
 		},
 	})
 
-	const domain = getDomainUrl(request)
-
-	return Response.json({
-		user: {
-			...user,
-			image: user.image
-				? {
-						...user.image,
-						url: domain + getUserImgSrc(user.image.objectKey),
-					}
-				: null,
-		},
-	})
+	return Response.json({ user })
 }

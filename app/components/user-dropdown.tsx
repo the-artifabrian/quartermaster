@@ -1,7 +1,6 @@
-import { Img } from 'openimg/react'
 import { Link, useRouteLoaderData } from 'react-router'
 import { type loader as rootLoader } from '#app/root.tsx'
-import { cn, getUserImgSrc } from '#app/utils/misc.tsx'
+import { cn } from '#app/utils/misc.tsx'
 import { useDaysUntilExpiry, useIsProActive } from '#app/utils/subscription.ts'
 import { useUser } from '#app/utils/user.ts'
 
@@ -11,6 +10,7 @@ export function UserDropdown() {
 	const householdName = rootData?.householdName
 	const isPro = useIsProActive()
 	const daysLeft = useDaysUntilExpiry()
+	const initial = (user.name ?? user.username).charAt(0).toUpperCase()
 	return (
 		<Link
 			to="/settings/profile"
@@ -18,14 +18,12 @@ export function UserDropdown() {
 			className="bg-card hover:bg-muted/50 border-border/50 shadow-warm flex items-center gap-2 rounded-full border p-1 transition-colors sm:pr-3"
 			aria-label="Settings"
 		>
-			<Img
-				className="ring-accent/20 size-8 rounded-full object-cover ring-2"
-				alt={user.name ?? user.username}
-				src={getUserImgSrc(user.image?.objectKey)}
-				width={256}
-				height={256}
+			<div
+				className="bg-accent/20 text-accent-foreground flex size-8 items-center justify-center rounded-full text-sm font-bold"
 				aria-hidden="true"
-			/>
+			>
+				{initial}
+			</div>
 			<div className="hidden flex-col items-start sm:flex">
 				<span className="text-base font-bold">
 					{user.name ?? user.username}

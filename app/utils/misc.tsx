@@ -5,12 +5,6 @@ import { useFormAction, useNavigation } from 'react-router'
 import { useSpinDelay } from 'spin-delay'
 import { twMerge } from 'tailwind-merge'
 
-export function getUserImgSrc(objectKey?: string | null) {
-	return objectKey
-		? `/resources/images?objectKey=${encodeURIComponent(objectKey)}`
-		: '/img/user.png'
-}
-
 export function getImgSrc({
 	height,
 	optimizerEndpoint,
@@ -268,21 +262,3 @@ export function useDebounce<
 	)
 }
 
-export async function downloadFile(url: string, retries: number = 0) {
-	const MAX_RETRIES = 3
-	try {
-		const response = await fetch(url)
-		if (!response.ok) {
-			throw new Error(`Failed to fetch image with status ${response.status}`)
-		}
-		const contentType = response.headers.get('content-type') ?? 'image/jpg'
-		const arrayBuffer = await response.arrayBuffer()
-		const file = new File([arrayBuffer], 'downloaded-file', {
-			type: contentType,
-		})
-		return file
-	} catch (e) {
-		if (retries > MAX_RETRIES) throw e
-		return downloadFile(url, retries + 1)
-	}
-}

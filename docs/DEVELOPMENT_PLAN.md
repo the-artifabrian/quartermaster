@@ -168,7 +168,6 @@ git history. Add new entries as friction surfaces.
   awaiting. Risk of SQLite concurrency under load. Tests need `vi.mock()`
 - **In-memory matching at scale** — loads all recipes + inventory for matching.
   Fine at ~135 recipes, profile at 500+
-- **Profile photo S3 orphans** — photo updates never clean up old S3 objects
 
 ---
 

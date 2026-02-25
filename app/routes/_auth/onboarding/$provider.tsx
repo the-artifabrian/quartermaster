@@ -36,7 +36,6 @@ export const providerIdKey = 'providerId'
 export const prefilledProfileKey = 'prefilledProfile'
 
 const SignupFormSchema = z.object({
-	imageUrl: z.string().optional(),
 	username: UsernameSchema,
 	name: NameSchema,
 	agreeToTermsOfServiceAndPrivacyPolicy: z.boolean({
@@ -200,19 +199,6 @@ export default function OnboardingProviderRoute({
 					className="mx-auto max-w-sm min-w-full sm:min-w-[368px]"
 					{...getFormProps(form)}
 				>
-					{fields.imageUrl.initialValue ? (
-						<div className="mb-4 flex flex-col items-center justify-center gap-4">
-							<img
-								src={fields.imageUrl.initialValue}
-								alt="Profile"
-								className="size-24 rounded-full"
-							/>
-							<p className="text-base text-muted-foreground">
-								You can change your photo later
-							</p>
-							<input {...getInputProps(fields.imageUrl, { type: 'hidden' })} />
-						</div>
-					) : null}
 					<Field
 						labelProps={{ htmlFor: fields.username.id, children: 'Username' }}
 						inputProps={{

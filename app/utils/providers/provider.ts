@@ -7,7 +7,6 @@ export type ProviderUser = {
 	email: string
 	username?: string
 	name?: string
-	imageUrl?: string
 }
 
 export interface AuthProvider {

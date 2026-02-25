@@ -1,16 +1,12 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Img } from 'openimg/react'
-import { data, Link, useFetcher } from 'react-router'
+import { data, useFetcher } from 'react-router'
 import { z } from 'zod'
 import { ErrorList, Field } from '#app/components/forms.tsx'
-import { Button } from '#app/components/ui/button.tsx'
-import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { getUserImgSrc } from '#app/utils/misc.tsx'
 import { NameSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/edit.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
@@ -35,9 +31,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			id: true,
 			name: true,
 			username: true,
-			image: {
-				select: { objectKey: true },
-			},
 		},
 	})
 	return { user }
@@ -92,29 +85,11 @@ export default function EditProfile({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="flex flex-col gap-8">
 			<div className="flex justify-center">
-				<div className="relative size-32">
-					<Img
-						src={getUserImgSrc(user.image?.objectKey)}
-						alt={user.name ?? user.username}
-						className="ring-accent/20 h-full w-full rounded-full object-cover ring-4"
-						width={512}
-						height={512}
-						isAboveFold
-					/>
-					<Button
-						asChild
-						variant="outline"
-						className="absolute right-0 bottom-0 flex size-9 items-center justify-center rounded-full p-0"
-					>
-						<Link
-							preventScrollReset
-							to="../photo"
-							title="Change profile photo"
-							aria-label="Change profile photo"
-						>
-							<Icon name="camera" className="size-4" />
-						</Link>
-					</Button>
+				<div
+					className="bg-accent/20 text-accent-foreground flex size-32 items-center justify-center rounded-full text-4xl font-bold"
+					aria-hidden="true"
+				>
+					{(user.name ?? user.username).charAt(0).toUpperCase()}
 				</div>
 			</div>
 			<UpdateProfileForm user={user} />

@@ -48,21 +48,6 @@ export async function deleteRecipeImage(objectKey: string) {
 	return deleteFromStorage(objectKey)
 }
 
-export async function deleteProfileImage(objectKey: string) {
-	return deleteFromStorage(objectKey)
-}
-
-export async function uploadProfileImage(
-	userId: string,
-	file: File | FileUpload,
-) {
-	const fileId = createId()
-	const fileExtension = file.name.split('.').pop() || ''
-	const timestamp = Date.now()
-	const key = `users/${userId}/profile-images/${timestamp}-${fileId}.${fileExtension}`
-	return uploadToStorage(file, key)
-}
-
 export async function uploadNoteImage(
 	userId: string,
 	noteId: string,

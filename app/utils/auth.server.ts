@@ -6,10 +6,9 @@ import { Authenticator } from 'remix-auth'
 import { safeRedirect } from 'remix-utils/safe-redirect'
 import { providers } from './connections.server.ts'
 import { prisma } from './db.server.ts'
-import { combineHeaders, downloadFile } from './misc.tsx'
+import { combineHeaders } from './misc.tsx'
 import { type ProviderUser } from './providers/provider.ts'
 import { authSessionStorage } from './session.server.ts'
-import { uploadProfileImage } from './storage.server.ts'
 
 export const AUTO_TRIAL_DAYS = 14
 
@@ -181,16 +180,14 @@ export async function signupWithConnection({
 	name,
 	providerId,
 	providerName,
-	imageUrl,
 }: {
 	email: User['email']
 	username: User['username']
 	name: User['name']
 	providerId: Connection['providerId']
 	providerName: Connection['providerName']
-	imageUrl?: string
 }) {
-	const { user, session } = await prisma.$transaction(async (tx) => {
+	const { session } = await prisma.$transaction(async (tx) => {
 		const newUser = await tx.user.create({
 			data: {
 				email: email.toLowerCase(),
@@ -233,20 +230,6 @@ export async function signupWithConnection({
 
 		return { user: newUser, session: newSession }
 	})
-
-	if (imageUrl) {
-		const imageFile = await downloadFile(imageUrl)
-		await prisma.user.update({
-			where: { id: user.id },
-			data: {
-				image: {
-					create: {
-						objectKey: await uploadProfileImage(user.id, imageFile),
-					},
-				},
-			},
-		})
-	}
 
 	return session
 }

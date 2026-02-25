@@ -35,15 +35,3 @@ export function createPassword(password: string = faker.internet.password()) {
 	}
 }
 
-let userImages: Array<{ objectKey: string }> | undefined
-export async function getUserImages() {
-	if (userImages) return userImages
-
-	userImages = await Promise.all(
-		Array.from({ length: 10 }, (_, index) => ({
-			objectKey: `user/${index}.jpg`,
-		})),
-	)
-
-	return userImages
-}

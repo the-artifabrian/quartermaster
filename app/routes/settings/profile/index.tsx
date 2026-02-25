@@ -1,6 +1,5 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Img } from 'openimg/react'
 import { Form, Link, useFetcher } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
@@ -8,7 +7,7 @@ import { ThemeSwitch } from '#app/routes/resources/theme-switch.tsx'
 import { requireUserId, sessionKey } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { getAvailableCodeCount } from '#app/utils/invite-codes.server.ts'
-import { cn, getUserImgSrc, useDoubleCheck } from '#app/utils/misc.tsx'
+import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import { useRequestInfo } from '#app/utils/request-info.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
@@ -32,9 +31,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			name: true,
 			username: true,
 			email: true,
-			image: {
-				select: { objectKey: true },
-			},
 			_count: {
 				select: {
 					sessions: {
@@ -106,18 +102,11 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				to="edit"
 				className="bg-card hover:bg-accent/5 flex items-center gap-4 rounded-xl border p-4 transition-colors"
 			>
-				<div className="relative size-16 shrink-0">
-					<Img
-						src={getUserImgSrc(user.image?.objectKey)}
-						alt={user.name ?? user.username}
-						className="ring-accent/20 h-full w-full rounded-full object-cover ring-2"
-						width={256}
-						height={256}
-						isAboveFold
-					/>
-					<div className="bg-background/80 absolute right-0 bottom-0 flex size-5 items-center justify-center rounded-full">
-						<Icon name="camera" className="size-3" />
-					</div>
+				<div
+					className="bg-accent/20 text-accent-foreground flex size-16 shrink-0 items-center justify-center rounded-full text-xl font-bold"
+					aria-hidden="true"
+				>
+					{(user.name ?? user.username).charAt(0).toUpperCase()}
 				</div>
 				<div className="min-w-0 flex-1">
 					<p className="truncate font-medium">{user.name ?? user.username}</p>

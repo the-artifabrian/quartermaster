@@ -140,7 +140,7 @@ export async function action({ request }: Route.ActionArgs) {
 		} catch (err) {
 			errors.push({
 				title: recipe.title,
-				error: err instanceof Error ? err.message : 'Unknown error',
+				error: 'Failed to save recipe',
 			})
 		}
 	}

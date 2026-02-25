@@ -2,6 +2,7 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { GettingStartedChecklist } from '#app/components/getting-started-checklist.tsx'
+import { InviteCodeBanner } from '#app/components/invite-code-banner.tsx'
 import { RecipeCard, RecipeCardGrid } from '#app/components/recipe-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import {
@@ -387,12 +388,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 										Import from URL
 									</Link>
 								</DropdownMenuItem>
-								<DropdownMenuItem asChild>
-									<Link to="/recipes/bulk-import">
-										<Icon name="download" size="sm" />
-										Bulk Import
-									</Link>
-								</DropdownMenuItem>
 							</DropdownMenuContent>
 						</DropdownMenu>
 					</div>
@@ -528,6 +523,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				</div>
 
+				<InviteCodeBanner />
 				<GettingStartedChecklist
 					onboarding={onboarding}
 					isProActive={isProActive}

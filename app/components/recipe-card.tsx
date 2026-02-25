@@ -107,7 +107,7 @@ export function RecipeCard({
 				)}
 			>
 				<div className="flex items-center gap-1.5">
-					<h3 className="min-w-0 font-serif text-base leading-[1.4] group-hover:text-primary md:text-[1.125rem] md:leading-[1.3] md:tracking-[-0.005em]">
+					<h3 className="min-w-0 font-serif text-base leading-[1.4] group-hover:text-primary md:text-base md:leading-[1.3] md:tracking-[-0.005em]">
 						<span className="line-clamp-2 md:line-clamp-1">{title}</span>
 					</h3>
 					{/* Mobile-only inline badges */}

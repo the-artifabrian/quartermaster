@@ -80,22 +80,18 @@ person. Inventory sustainability is the open question — see
 
 ### Critical Path
 
-1. **Find 2-3 non-friend testers NOW** — This is the single highest-value
-   action before March 12. Friends tolerate friction. Strangers bounce — and
-   *where* they bounce tells you what's actually broken. Post in
-   r/mealprepsunday or r/Cooking as "looking for beta testers," not a launch.
-   The feedback is more valuable than any feature you could build in the next 2
-   weeks. Ask them to try it for 2 weeks. Watch where they get confused.
-2. **Instrument the funnel** — The trial evaluation criteria are excellent
-   questions, but they need actual tracking to answer. Before March 12,
-   instrument: signed up → added recipe → opened inventory → created meal plan →
-   generated shopping list → checked items off. Also track: inventory decay rate
-   (how stale does the average user's inventory get between sweeps?). Without
-   this, March 12 is a gut-check, not a data-informed decision.
-3. **Polish the first 5 minutes** — Can a stranger sign up, import 3 recipes,
-   plan 2 dinners, and generate a shopping list without getting confused? The
-   onboarding flow exists but hasn't been tested on anyone who didn't watch you
-   build it. Watch non-friend testers and fix what's confusing.
+1. **Post for beta testers THIS WEEK** — This is the single highest-value
+   action. Friends tolerate friction. Strangers bounce — and *where* they
+   bounce tells you what's actually broken. Post on r/SideProject (self-promo
+   is the point) and r/alphaandbetausers (purpose-built for beta recruitment).
+   Skip r/Cooking and r/MealPrepSunday — strict anti-promotion rules. See
+2. **Watch and fix** — At 3-5 testers, conversations beat analytics. Pay
+   attention to where testers stop and what they ask. Fix the top 2-3
+   confusion points. Don't polish speculatively — let strangers show you
+   what's broken. Funnel instrumentation can wait until there's enough volume
+   to make data meaningful.
+3. **Don't build new features** — The app has more features than most paid
+   competitors. The next 2 weeks are about validation, not development.
 4. **Daily drive for 4+ weeks** — Plan the week, shop from the list, cook from
    the app. Fix friction as it surfaces.
 5. ~~**Stress-test inventory**~~ — Resolved. Shifted to rough-signal model.
@@ -138,14 +134,15 @@ visibility: how far does each user get through the core loop (signup → recipe 
 inventory → plan → shop → check off)? Build a simple funnel query before
 recruiting non-friend testers so the March 12 check-in has data, not anecdotes.
 
-> **Check-in: March 12, 2026.** Assess daily driving progress with data from
-> funnel instrumentation and non-friend tester feedback. If the app isn't
-> sticking, identify UX friction and fix it. Don't defer indefinitely.
+> **Check-in: March 12, 2026.** Assess based on non-friend tester feedback.
+> Have testers completed the core loop (import → plan → shop → check off)?
+> Where did they get confused? What did they ask? This is a qualitative
+> check — conversations with 3-5 strangers, not funnel metrics.
 >
-> **Honest expectation:** as of February 25, non-friend testers aren't recruited
-> and funnel instrumentation isn't built. If neither happens by March 12, push
-> the check-in rather than do a gut-check without data. A vague check-in is
-> worse than a delayed one.
+> **This checkpoint is not movable.** The previous version had an escape hatch
+> ("push the check-in if prerequisites aren't met") that made the deadline
+> toothless. If testers aren't recruited by March 12, that itself is the
+> signal — the blocker is posting, not building.
 
 ### If Validation Fails
 

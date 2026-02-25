@@ -172,6 +172,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	let unreadNotificationCount = 0
 	let householdName: string | null = null
 	let availableInviteCodeCount = 0
+	let hasRedeemedCode = false
 	if (userId) {
 		tierInfo = await getUserTier(userId)
 		const member = await prisma.householdMember.findFirst({
@@ -198,6 +199,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		if (tierInfo.isProActive) {
 			availableInviteCodeCount = await getAvailableCodeCount(userId)
 		}
+			hasRedeemedCode =
+				(await prisma.inviteCode.count({
+					where: { redeemedById: userId },
+				})) > 0
+		}
 	}
 
 	const { toast, headers: toastHeaders } = await getToast(request)
@@ -208,6 +214,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			unreadNotificationCount,
 			householdName,
 			availableInviteCodeCount,
+			hasRedeemedCode,
 			requestInfo: {
 				hints: getHints(request),
 				origin: getDomainUrl(request),

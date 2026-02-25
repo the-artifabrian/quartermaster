@@ -216,6 +216,7 @@ execution quality, not differentiation.
 
 - Free: unlimited recipes, up to 50 inventory items, smart matching, household
   days Pro, grants 2 starter codes) coexist with Stripe and trial
+  redeemed a code (localStorage dismiss, inline redeem form)
 - Pro-gated routes redirect to `/upgrade` with lock icons in nav. Graceful
   downgrade with data preservation, expiry nudges at 7d/3d
 - Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (codes +

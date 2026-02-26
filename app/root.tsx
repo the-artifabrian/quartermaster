@@ -9,6 +9,7 @@ import {
 	Scripts,
 	ScrollRestoration,
 	useLoaderData,
+	useLocation,
 } from 'react-router'
 import { type Route } from './+types/root.ts'
 import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
@@ -402,9 +403,7 @@ function App() {
 										<UserDropdown />
 									</>
 								) : (
-									<Button asChild variant="default" size="lg">
-										<Link to="/login">Log In</Link>
-									</Button>
+									<HeaderAuthButton />
 								)}
 							</div>
 						</nav>
@@ -433,6 +432,18 @@ function Logo() {
 				Quartermaster
 			</span>
 		</Link>
+	)
+}
+
+function HeaderAuthButton() {
+	const { pathname } = useLocation()
+	const isLogin = pathname === '/login'
+	return (
+		<Button asChild variant="default" size="lg">
+			<Link to={isLogin ? '/signup' : '/login'}>
+				{isLogin ? 'Sign Up' : 'Log In'}
+			</Link>
+		</Button>
 	)
 }
 

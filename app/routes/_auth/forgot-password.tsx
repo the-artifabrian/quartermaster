@@ -178,7 +178,7 @@ export default function ForgotPasswordRoute() {
 							</forgotPassword.Form>
 							<Link
 								to="/login"
-								className="text-base mt-11 text-center font-bold"
+								className="mt-6 block text-center text-base font-bold"
 							>
 								Back to Login
 							</Link>

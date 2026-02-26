@@ -64,12 +64,6 @@ app.use((_, res, next) => {
 	next()
 })
 
-app.get([/^\/img\/.*/, /^\/favicons\/.*/], (_req, res) => {
-	// if we made it past the express.static for these, then we're missing something.
-	// So we'll just send a 404 and won't bother calling other middleware.
-	return res.status(404).send('Not found')
-})
-
 morgan.token('url', (req) => {
 	try {
 		return decodeURIComponent(req.url ?? '')
@@ -168,6 +162,14 @@ if (IS_DEV) {
 		}),
 	)
 	app.use(viteDevServer.middlewares)
+	// Vite's middleware should serve public/ files, but as a fallback
+	// explicitly serve favicons so the webmanifest icons resolve correctly.
+	app.use('/favicons', express.static('public/favicons'))
+	// if we made it past both Vite and the explicit static for these, then we're missing something.
+	// So we'll just send a 404 and won't bother calling other middleware.
+	app.get([/^\/img\/.*/], (_req, res) => {
+		return res.status(404).send('Not found')
+	})
 	app.use(async (req, res, next) => {
 		try {
 			const source = await viteDevServer.ssrLoadModule('./server/app.ts')
@@ -198,6 +200,11 @@ if (IS_DEV) {
 	// Everything else (like favicon.ico) is cached for an hour. You may want to be
 	// more aggressive with this caching.
 	app.use(express.static('build/client', { maxAge: '1h' }))
+	// if we made it past the express.static for these, then we're missing something.
+	// So we'll just send a 404 and won't bother calling other middleware.
+	app.get([/^\/img\/.*/, /^\/favicons\/.*/], (_req, res) => {
+		return res.status(404).send('Not found')
+	})
 	app.use(await import(BUILD_PATH).then((mod) => mod.app))
 }
 

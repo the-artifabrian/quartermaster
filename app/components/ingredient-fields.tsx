@@ -14,14 +14,13 @@ import {
 	verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useId, useRef } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { COMMON_INGREDIENTS } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
-import { Label } from './ui/label.tsx'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip.tsx'
 
 export type IngredientFieldValue = {
@@ -52,6 +51,16 @@ function ensureSortKeys(
 	)
 }
 
+function ingredientSummary(ing: IngredientFieldValue): string {
+	const parts: string[] = []
+	if (ing.amount) parts.push(ing.amount)
+	if (ing.unit) parts.push(ing.unit)
+	parts.push(ing.name || 'Untitled ingredient')
+	let summary = parts.join(' ')
+	if (ing.notes) summary += `, ${ing.notes}`
+	return summary
+}
+
 export function IngredientFields({
 	ingredients: rawIngredients,
 	onChange,
@@ -59,6 +68,19 @@ export function IngredientFields({
 	const ingredients = ensureSortKeys(rawIngredients)
 	const baseId = useId()
 	const datalistId = `${baseId}-suggestions`
+	const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
+
+	const toggleExpanded = (sortKey: string) => {
+		setExpandedKeys((prev) => {
+			const next = new Set(prev)
+			if (next.has(sortKey)) {
+				next.delete(sortKey)
+			} else {
+				next.add(sortKey)
+			}
+			return next
+		})
+	}
 
 	const fetcher = useFetcher<{ ingredients: string[] }>({
 		key: 'ingredient-suggestions',
@@ -98,18 +120,22 @@ export function IngredientFields({
 	)
 
 	const addIngredient = () => {
+		const key = getSortKey()
 		onChange([
 			...ingredients,
-			{ name: '', amount: '', unit: '', notes: '', sortKey: getSortKey() },
+			{ name: '', amount: '', unit: '', notes: '', sortKey: key },
 		])
+		setExpandedKeys((prev) => new Set(prev).add(key))
 		scrollToLastItem()
 	}
 
 	const addHeading = () => {
+		const key = getSortKey()
 		onChange([
 			...ingredients,
-			{ name: '', isHeading: true, sortKey: getSortKey() },
+			{ name: '', isHeading: true, sortKey: key },
 		])
+		setExpandedKeys((prev) => new Set(prev).add(key))
 		scrollToLastItem()
 	}
 
@@ -128,21 +154,6 @@ export function IngredientFields({
 		const current = updated[index]
 		if (current) {
 			updated[index] = { ...current, [field]: value }
-			onChange(updated)
-		}
-	}
-
-	const convertToHeading = (index: number) => {
-		const updated = [...ingredients]
-		const current = updated[index]
-		if (current) {
-			updated[index] = {
-				...current,
-				isHeading: true,
-				amount: '',
-				unit: '',
-				notes: '',
-			}
 			onChange(updated)
 		}
 	}
@@ -174,28 +185,25 @@ export function IngredientFields({
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-				<Label className="text-base font-semibold">Ingredients</Label>
-				<div className="flex gap-2">
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						onClick={addHeading}
-					>
-						<Icon name="plus" size="sm" />
-						Heading
-					</Button>
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						onClick={addIngredient}
-					>
-						<Icon name="plus" size="sm" />
-						Ingredient
-					</Button>
-				</div>
+			<div className="flex gap-2 sm:justify-end">
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					onClick={addHeading}
+				>
+					<Icon name="plus" size="sm" />
+					Heading
+				</Button>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					onClick={addIngredient}
+				>
+					<Icon name="plus" size="sm" />
+					Ingredient
+				</Button>
 			</div>
 
 			<datalist id={datalistId}>
@@ -214,8 +222,11 @@ export function IngredientFields({
 					strategy={verticalListSortingStrategy}
 				>
 					<div ref={listRef} className="divide-border divide-y">
-						{ingredients.map((ingredient, index) =>
-							ingredient.isHeading ? (
+						{ingredients.map((ingredient, index) => {
+							const isExpanded =
+								!ingredient.name ||
+								expandedKeys.has(ingredient.sortKey!)
+							return ingredient.isHeading ? (
 								<SortableHeadingRow
 									key={ingredient.sortKey}
 									sortKey={ingredient.sortKey!}
@@ -225,7 +236,9 @@ export function IngredientFields({
 									}
 									onRemove={() => removeIngredient(index)}
 									canRemove={ingredients.length > 1}
-									onConvertToIngredient={() => convertToIngredient(index)}
+									onConvertToIngredient={() =>
+										convertToIngredient(index)
+									}
 								/>
 							) : (
 								<SortableIngredientRow
@@ -233,15 +246,18 @@ export function IngredientFields({
 									sortKey={ingredient.sortKey!}
 									ingredient={ingredient}
 									datalistId={datalistId}
+									isExpanded={isExpanded}
+									onToggleExpand={() =>
+										toggleExpanded(ingredient.sortKey!)
+									}
 									onUpdate={(field, value) =>
 										updateIngredient(index, field, value)
 									}
 									onRemove={() => removeIngredient(index)}
 									canRemove={ingredients.length > 1}
-									onConvertToHeading={() => convertToHeading(index)}
 								/>
-							),
-						)}
+							)
+						})}
 					</div>
 				</SortableContext>
 			</DndContext>
@@ -253,18 +269,20 @@ function SortableIngredientRow({
 	sortKey,
 	ingredient,
 	datalistId,
+	isExpanded,
+	onToggleExpand,
 	onUpdate,
 	onRemove,
 	canRemove,
-	onConvertToHeading,
 }: {
 	sortKey: string
 	ingredient: IngredientFieldValue
 	datalistId: string
+	isExpanded: boolean
+	onToggleExpand: () => void
 	onUpdate: (field: keyof IngredientFieldValue, value: string) => void
 	onRemove: () => void
 	canRemove: boolean
-	onConvertToHeading: () => void
 }) {
 	const id = useId()
 	const {
@@ -286,89 +304,122 @@ function SortableIngredientRow({
 			ref={setNodeRef}
 			style={style}
 			className={cn(
-				'space-y-2 rounded-lg py-3 first:pt-0 last:pb-0',
+				'rounded-lg py-2 first:pt-0 last:pb-0',
 				isDragging && 'z-10 opacity-80 shadow-lg',
 			)}
 		>
-			<div className="flex items-start gap-2">
-				<button
-					type="button"
-					className="text-muted-foreground/40 hover:text-muted-foreground hidden cursor-grab touch-none pt-2.5 active:cursor-grabbing sm:block"
-					{...attributes}
-					{...listeners}
-					tabIndex={-1}
-				>
-					<Icon name="dots-horizontal" size="sm" />
-				</button>
-				<div className="min-w-0 flex-1 space-y-2">
+			{isExpanded ? (
+				<div className="space-y-2 py-1">
+					<div className="flex items-center gap-1">
+						<button
+							type="button"
+							className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none rounded-md p-2 active:cursor-grabbing"
+							{...attributes}
+							{...listeners}
+							tabIndex={-1}
+						>
+							<Icon name="dots-horizontal" size="sm" />
+						</button>
+						{ingredient.name && (
+							<button
+								type="button"
+								onClick={onToggleExpand}
+								className="text-muted-foreground/60 hover:text-muted-foreground rounded-md p-2"
+								aria-label="Collapse ingredient"
+							>
+								<Icon name="chevron-down" size="sm" />
+							</button>
+						)}
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							onClick={onRemove}
+							disabled={!canRemove}
+							className={cn(
+								'size-9',
+								!canRemove && 'opacity-30',
+							)}
+							aria-label="Remove ingredient"
+						>
+							<Icon name="cross-1" size="sm" />
+						</Button>
+					</div>
 					<Input
 						id={`${id}-name`}
 						placeholder="Ingredient name"
 						value={ingredient.name}
 						onChange={(e) => onUpdate('name', e.target.value)}
 						list={datalistId}
-						className="w-full"
 					/>
-					<div className="flex gap-2">
-						<div className="flex-1 sm:w-20 sm:flex-none">
-							<Input
-								id={`${id}-amount`}
-								placeholder="Amount"
-								value={ingredient.amount ?? ''}
-								onChange={(e) => onUpdate('amount', e.target.value)}
-							/>
-						</div>
-						<div className="flex-1 sm:w-20 sm:flex-none">
-							<Input
-								id={`${id}-unit`}
-								placeholder="Unit"
-								value={ingredient.unit ?? ''}
-								onChange={(e) => onUpdate('unit', e.target.value)}
-							/>
-						</div>
+					<div className="flex items-center gap-2">
 						<Input
-							id={`${id}-notes`}
-							placeholder="Notes (e.g., diced)"
-							value={ingredient.notes ?? ''}
-							onChange={(e) => onUpdate('notes', e.target.value)}
-							className="hidden flex-1 text-sm sm:block"
+							id={`${id}-amount`}
+							placeholder="Amount"
+							value={ingredient.amount ?? ''}
+							onChange={(e) =>
+								onUpdate('amount', e.target.value)
+							}
+							className="flex-1"
+						/>
+						<Input
+							id={`${id}-unit`}
+							placeholder="Unit"
+							value={ingredient.unit ?? ''}
+							onChange={(e) =>
+								onUpdate('unit', e.target.value)
+							}
+							className="flex-1"
 						/>
 					</div>
 					<Input
-						id={`${id}-notes-mobile`}
-						placeholder="Notes (e.g., diced, room temperature)"
+						id={`${id}-notes`}
+						placeholder="Notes (e.g., diced)"
 						value={ingredient.notes ?? ''}
 						onChange={(e) => onUpdate('notes', e.target.value)}
-						className="text-sm sm:hidden"
 					/>
 				</div>
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon"
-							onClick={onConvertToHeading}
-							className="size-9"
-							aria-label="Convert to section heading"
-						>
-							<Icon name="rows" size="sm" />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent>Convert to section heading</TooltipContent>
-				</Tooltip>
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon"
-					onClick={onRemove}
-					disabled={!canRemove}
-					className={cn('size-9', !canRemove && 'opacity-30')}
-					aria-label="Remove ingredient"
-				>
-					<Icon name="cross-1" size="sm" />
-				</Button>
-			</div>
+			) : (
+				<div className="flex items-center gap-2">
+					<button
+						type="button"
+						className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none rounded-md p-2 active:cursor-grabbing"
+						{...attributes}
+						{...listeners}
+						tabIndex={-1}
+					>
+						<Icon name="dots-horizontal" size="sm" />
+					</button>
+					<button
+						type="button"
+						onClick={onToggleExpand}
+						className="text-foreground flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
+					>
+						<Icon
+							name="chevron-down"
+							size="sm"
+							className="text-muted-foreground/60 shrink-0 -rotate-90"
+						/>
+						<span className="truncate">
+							{ingredientSummary(ingredient)}
+						</span>
+					</button>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						onClick={onRemove}
+						disabled={!canRemove}
+						className={cn(
+							'size-9 shrink-0',
+							!canRemove && 'opacity-30',
+						)}
+						aria-label="Remove ingredient"
+					>
+						<Icon name="cross-1" size="sm" />
+					</Button>
+				</div>
+			)}
 		</div>
 	)
 }
@@ -414,7 +465,7 @@ function SortableHeadingRow({
 		>
 			<button
 				type="button"
-				className="text-muted-foreground/40 hover:text-muted-foreground hidden cursor-grab touch-none active:cursor-grabbing sm:block"
+				className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none rounded-md p-2 active:cursor-grabbing"
 				{...attributes}
 				{...listeners}
 				tabIndex={-1}

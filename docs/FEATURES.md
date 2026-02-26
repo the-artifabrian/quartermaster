@@ -73,12 +73,15 @@ execution quality, not differentiation.
   "You have X/Y ingredients" with "Add N missing to Shopping List" button
 - "Last cooked" stats on recipe cards (cook count + relative time)
 - Ingredient headings: section dividers within ingredient lists displayed as
-  styled headers. Skipped by shopping list, matching, and JSON-LD
+  styled headers. Created via "+ Heading" button and positioned with
+  drag-and-drop. Skipped by shopping list, matching, and JSON-LD
 - Optional ingredient detection: ingredients with "optional" in their notes
   field are excluded from inventory matching, match percentage rings, X/Y
   ingredient counts, shopping list generation, meal suggestions, and
   ingredient overlap scoring — same treatment as staples and headings
-- Drag-and-drop ingredient reordering (`@dnd-kit/sortable`)
+- Drag-and-drop ingredient reordering (`@dnd-kit/sortable`). Collapsed rows
+  show a one-line summary; expanded rows show a controls toolbar (drag, collapse,
+  remove) above full-width name/amount/unit/notes inputs
 - AI recipe enhance (Pro): one-click metadata inference (description, servings,
   prep/cook times) with before/after review modal. Feature-specific error
   messages. Primarily for cleaning up bulk-imported recipes

@@ -61,7 +61,7 @@ function FormSection({
 			open={defaultOpen}
 			className="group/section rounded-xl border [&>summary]:list-none [&>summary::-webkit-details-marker]:hidden"
 		>
-			<summary className="flex cursor-pointer items-center gap-2 p-6 select-none">
+			<summary className="flex cursor-pointer items-center gap-2 p-4 select-none">
 				<Icon
 					name="chevron-down"
 					size="sm"
@@ -72,7 +72,7 @@ function FormSection({
 					<span className="text-muted-foreground text-sm">{summary}</span>
 				)}
 			</summary>
-			<div className="px-6 pb-6">{children}</div>
+			<div className="px-4 pb-4">{children}</div>
 		</details>
 	)
 }
@@ -175,7 +175,7 @@ export function RecipeForm({
 			<FormSection
 				title="Photo"
 				summary={imagePreview ? 'Has photo' : 'No photo'}
-				defaultOpen={isEditing}
+				defaultOpen={false}
 			>
 				<div className="flex flex-col gap-4 sm:flex-row sm:items-start">
 					<div className="border-border/60 bg-muted/30 relative aspect-[4/3] w-full overflow-hidden rounded-lg border-2 border-dashed sm:w-40">

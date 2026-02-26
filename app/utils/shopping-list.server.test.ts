@@ -171,6 +171,78 @@ describe('generateShoppingListFromRecipes', () => {
 		expect(items[0]!.quantity).toBeUndefined()
 	})
 
+	test('re-parses ingredients with amount baked into name', () => {
+		const recipe = makeRecipe('r1', [
+			{ name: '1 (14.5 oz) can crushed tomatoes' },
+		])
+		const items = generateShoppingListFromRecipes([recipe])
+		const tomato = items.find((i) =>
+			i.name.toLowerCase().includes('tomato'),
+		)!
+		expect(tomato.name).toBe('crushed tomatoes')
+		expect(tomato.quantity).toBe('1')
+		expect(tomato.unit).toBe('can')
+	})
+
+	test('re-parses "2 cups flour" baked into name', () => {
+		const recipe = makeRecipe('r1', [{ name: '2 cups flour' }])
+		const items = generateShoppingListFromRecipes([recipe])
+		const flour = items.find((i) => i.name.toLowerCase().includes('flour'))!
+		expect(flour.name).toBe('flour')
+		expect(flour.quantity).toBe('2')
+		expect(flour.unit).toBe('cups')
+	})
+
+	test('does NOT re-parse when amount is already set', () => {
+		const recipe = makeRecipe('r1', [
+			{ name: 'crushed tomatoes', amount: '1', unit: 'can' },
+		])
+		const items = generateShoppingListFromRecipes([recipe])
+		const tomato = items.find((i) =>
+			i.name.toLowerCase().includes('tomato'),
+		)!
+		expect(tomato.name).toBe('crushed tomatoes')
+		expect(tomato.quantity).toBe('1')
+	})
+
+	test('does NOT re-parse names not starting with quantity', () => {
+		const recipe = makeRecipe('r1', [{ name: 'fresh basil leaves' }])
+		const items = generateShoppingListFromRecipes([recipe])
+		expect(items[0]!.name).toBe('fresh basil leaves')
+		expect(items[0]!.quantity).toBeUndefined()
+	})
+
+	test('strips leading "of " from display name', () => {
+		// parseIngredient("1 stalk of celery") → name="of celery"
+		const recipe = makeRecipe('r1', [{ name: '1 stalk of celery' }])
+		const items = generateShoppingListFromRecipes([recipe])
+		const celery = items.find((i) =>
+			i.name.toLowerCase().includes('celery'),
+		)!
+		expect(celery.name).toBe('celery')
+	})
+
+	test('re-parsed items consolidate with properly-parsed ones', () => {
+		const recipes = [
+			makeRecipe('r1', [{ name: '2 cups flour' }]),
+			makeRecipe('r2', [{ name: 'flour', amount: '1', unit: 'cups' }]),
+		]
+		const items = generateShoppingListFromRecipes(recipes)
+		const flourItems = items.filter((i) =>
+			i.name.toLowerCase().includes('flour'),
+		)
+		expect(flourItems).toHaveLength(1)
+		expect(flourItems[0]!.quantity).toBe('3')
+	})
+
+	test('scaling works on re-parsed ingredients', () => {
+		const recipe = makeRecipe('r1', [{ name: '2 cups flour' }])
+		// recipe.servings = 4, entry servings = 8 → ratio = 2
+		const items = generateShoppingListFromRecipes([{ recipe, servings: 8 }])
+		const flour = items.find((i) => i.name.toLowerCase().includes('flour'))!
+		expect(flour.quantity).toBe('4')
+	})
+
 	test('servings=0 falls back to ratio=1', () => {
 		const recipe = {
 			...makeRecipe('r1', [{ name: 'flour', amount: '2', unit: 'cups' }]),

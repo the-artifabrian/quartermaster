@@ -281,6 +281,8 @@ const MODIFIERS = [
 	'smoked',
 	'roasted',
 	'toasted',
+	'cracked',
+	'freshly',
 ] as const
 
 // Pre-compile modifier regexes once at module level (~50 regexes, not per call)
@@ -637,7 +639,15 @@ export function isStapleIngredient(
 	ingredient: Pick<Ingredient, 'name'>,
 ): boolean {
 	const normalized = normalizeIngredientName(ingredient.name)
-	return STAPLE_INGREDIENTS.has(normalized)
+	if (STAPLE_INGREDIENTS.has(normalized)) return true
+
+	// Compound splitting: "salt and black pepper" → ["salt", "black pepper"]
+	const parts = normalized.split(/\s+(?:and|&)\s+/)
+	if (parts.length > 1) {
+		return parts.every((part) => STAPLE_INGREDIENTS.has(part.trim()))
+	}
+
+	return false
 }
 
 /**
@@ -645,10 +655,11 @@ export function isStapleIngredient(
  * Optional ingredients are excluded from inventory matching and shopping lists.
  */
 export function isOptionalIngredient(
-	ingredient: Pick<Ingredient, 'notes'>,
+	ingredient: Pick<Ingredient, 'notes'> & Partial<Pick<Ingredient, 'name'>>,
 ): boolean {
-	if (!ingredient.notes) return false
-	return /\boptional\b/i.test(ingredient.notes)
+	if (ingredient.notes && /\boptional\b/i.test(ingredient.notes)) return true
+	if (ingredient.name && /\boptional\b/i.test(ingredient.name)) return true
+	return false
 }
 
 /**

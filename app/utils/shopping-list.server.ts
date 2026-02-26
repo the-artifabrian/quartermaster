@@ -4,6 +4,7 @@ import {
 	type InventoryItem,
 } from '@prisma/client'
 import { parseAmount, formatAmount } from './fractions.ts'
+import { parseIngredient } from './ingredient-parser.ts'
 import {
 	getCanonicalIngredientName,
 	ingredientMatchesInventoryItem,
@@ -61,21 +62,43 @@ export function generateShoppingListFromRecipes(
 		for (const ingredient of recipe.ingredients) {
 			if (ingredient.isHeading) continue
 			if (isOptionalIngredient(ingredient)) continue
-			const normalizedName = getCanonicalIngredientName(ingredient.name)
+
+			// Re-parse ingredients that have no amount but name starts with a quantity
+			let effectiveName = ingredient.name
+			let effectiveAmount = ingredient.amount
+			let effectiveUnit = ingredient.unit
+			if (
+				!effectiveAmount &&
+				/^(?:~?\d|[½⅓⅔¼¾⅛⅜⅝⅞])/.test(effectiveName)
+			) {
+				const reparsed = parseIngredient(effectiveName)
+				if (reparsed?.name && reparsed?.amount) {
+					effectiveName = reparsed.name
+					effectiveAmount = reparsed.amount
+					effectiveUnit = reparsed.unit ?? null
+				}
+			}
+
+			// Strip leading "of " from display names (parser artifact)
+			if (effectiveName.startsWith('of ')) {
+				effectiveName = effectiveName.slice(3)
+			}
+
+			const normalizedName = getCanonicalIngredientName(effectiveName)
 
 			// Scale the amount by the serving ratio
-			const scaledAmount = scaleAmountString(ingredient.amount, ratio)
+			const scaledAmount = scaleAmountString(effectiveAmount, ratio)
 
 			if (ingredientMap.has(normalizedName)) {
 				ingredientMap.get(normalizedName)!.quantities.push({
 					amount: scaledAmount,
-					unit: ingredient.unit,
+					unit: effectiveUnit,
 				})
 			} else {
 				ingredientMap.set(normalizedName, {
-					name: ingredient.name,
-					quantities: [{ amount: scaledAmount, unit: ingredient.unit }],
-					category: guessCategory(ingredient.name),
+					name: effectiveName,
+					quantities: [{ amount: scaledAmount, unit: effectiveUnit }],
+					category: guessCategory(effectiveName),
 				})
 			}
 		}

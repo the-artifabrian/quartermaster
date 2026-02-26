@@ -128,6 +128,15 @@ describe('normalizeIngredientName', () => {
 		expect(normalizeIngredientName('toasted sesame seeds')).toBe('sesame seed')
 	})
 
+	test('strips "cracked" and "freshly" modifiers', () => {
+		expect(normalizeIngredientName('cracked black pepper')).toBe(
+			'black pepper',
+		)
+		expect(normalizeIngredientName('freshly cracked black pepper')).toBe(
+			'black pepper',
+		)
+	})
+
 	test('strips trailing "to taste"', () => {
 		expect(normalizeIngredientName('salt to taste')).toBe('salt')
 		expect(normalizeIngredientName('ginger to taste')).toBe('ginger')
@@ -297,6 +306,22 @@ describe('isStapleIngredient', () => {
 		)
 	})
 
+	test('recognizes compound staples with "and"/"&"', () => {
+		expect(isStapleIngredient({ name: 'salt and pepper' })).toBe(true)
+		expect(isStapleIngredient({ name: 'salt and black pepper' })).toBe(true)
+		expect(isStapleIngredient({ name: 'Salt & Pepper' })).toBe(true)
+	})
+
+	test('compound with non-staple part returns false', () => {
+		expect(isStapleIngredient({ name: 'salt and garlic' })).toBe(false)
+	})
+
+	test('freshly cracked black pepper is a staple', () => {
+		expect(
+			isStapleIngredient({ name: 'Freshly cracked black pepper to taste' }),
+		).toBe(true)
+	})
+
 	test('non-staples return false', () => {
 		expect(isStapleIngredient({ name: 'chicken' })).toBe(false)
 		expect(isStapleIngredient({ name: 'flour' })).toBe(false)
@@ -310,6 +335,15 @@ describe('isOptionalIngredient', () => {
 		expect(isOptionalIngredient({ notes: 'Optional' })).toBe(true)
 		expect(isOptionalIngredient({ notes: 'for garnish, optional' })).toBe(true)
 		expect(isOptionalIngredient({ notes: '(optional)' })).toBe(true)
+	})
+
+	test('recognizes "(optional)" in name field', () => {
+		expect(
+			isOptionalIngredient({
+				name: 'Pinch of gremolata (optional)',
+				notes: null,
+			}),
+		).toBe(true)
 	})
 
 	test('returns false when notes do not contain optional', () => {

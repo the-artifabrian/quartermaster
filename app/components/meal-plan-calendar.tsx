@@ -135,7 +135,7 @@ export function MealPlanCalendar({
 						<div
 							key={serializeDate(date)}
 							className={cn(
-								'bg-card rounded-xl p-4 shadow-warm transition-shadow',
+								'bg-card rounded-xl p-2.5 shadow-warm transition-shadow',
 								'basis-[calc(25%-6px)]',
 								today && 'border-accent border-t-[3px] ring-2 ring-accent/30',
 								!today && 'hover:shadow-warm-md hover:border-accent/20 border border-transparent',

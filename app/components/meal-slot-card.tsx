@@ -96,7 +96,7 @@ function EntryRow({
 
 	return (
 		<div className={cn(isCooked && 'opacity-50')}>
-			<div className="flex items-center gap-2">
+			<div className="flex items-center gap-1">
 				{/* Cooked checkbox */}
 				{isCooked ? (
 					<cookedFetcher.Form method="POST" className="shrink-0">
@@ -104,7 +104,7 @@ function EntryRow({
 						<input type="hidden" name="entryId" value={entry.id} />
 						<button
 							type="submit"
-							className="flex min-h-11 min-w-11 shrink-0 items-center justify-center"
+							className="flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-0 md:min-w-0 md:p-1"
 							aria-label="Mark as not cooked"
 						>
 							<span className="border-primary bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
@@ -117,7 +117,7 @@ function EntryRow({
 						<button
 							type="button"
 							onClick={() => setShowCookConfirm(true)}
-							className="flex min-h-11 min-w-11 shrink-0 items-center justify-center"
+							className="flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-0 md:min-w-0 md:p-1"
 							aria-label="Mark as cooked"
 						>
 							<span className="border-muted-foreground/30 hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
@@ -153,7 +153,7 @@ function EntryRow({
 				<div className="min-w-0 flex-1">
 					<h4
 						className={cn(
-							'line-clamp-1 text-sm font-medium',
+							'line-clamp-2 text-sm leading-snug font-semibold',
 							isCooked && 'text-muted-foreground line-through',
 						)}
 					>
@@ -163,32 +163,32 @@ function EntryRow({
 									? `/recipes/${entry.recipe.id}?servings=${entry.servings}`
 									: `/recipes/${entry.recipe.id}`
 							}
-							className="hover:underline"
+							className={cn('hover:underline', !isCooked && 'text-foreground')}
 							onClick={(e) => e.stopPropagation()}
 						>
 							{entry.recipe.title}
 						</Link>
 					</h4>
-					<div className="mt-0.5 flex items-center gap-0.5">
+					<div className="flex items-center gap-0.5">
 						<button
 							type="button"
-							className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-8 min-h-11 min-w-8 items-center justify-center rounded-md transition-colors disabled:opacity-40"
+							className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-6 min-h-8 min-w-6 items-center justify-center rounded transition-colors disabled:opacity-40 md:size-5 md:min-h-0 md:min-w-0"
 							onClick={() => updateServings(currentServings - 1)}
 							disabled={currentServings <= 1}
 							aria-label="Decrease servings"
 						>
-							−
+							<span className="text-xs">−</span>
 						</button>
 						<span className="text-muted-foreground min-w-[2ch] text-center text-xs">
 							{currentServings}
 						</span>
 						<button
 							type="button"
-							className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-8 min-h-11 min-w-8 items-center justify-center rounded-md transition-colors"
+							className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-6 min-h-8 min-w-6 items-center justify-center rounded transition-colors md:size-5 md:min-h-0 md:min-w-0"
 							onClick={() => updateServings(currentServings + 1)}
 							aria-label="Increase servings"
 						>
-							+
+							<span className="text-xs">+</span>
 						</button>
 					</div>
 				</div>
@@ -203,7 +203,7 @@ function EntryRow({
 						variant={dc.doubleCheck ? 'destructive' : 'ghost'}
 						status="idle"
 						aria-label="Remove from meal plan"
-						className={dc.doubleCheck ? undefined : 'size-9 p-0'}
+						className={dc.doubleCheck ? undefined : 'size-9 p-0 md:size-7'}
 						{...dc.getButtonProps()}
 					>
 						{dc.doubleCheck ? (
@@ -289,7 +289,7 @@ export function MealSlotCard({
 	// Filled slot: warm card with entries
 	return (
 		<div className="bg-card shadow-warm hover:shadow-warm-md group overflow-hidden rounded-xl transition-shadow">
-			<div className="flex items-center justify-between px-3 pt-2">
+			<div className="flex items-center justify-between px-3 pt-2 md:px-2 md:pt-1.5">
 				<p className="text-muted-foreground text-xs font-medium">
 					{MEAL_TYPE_LABELS[mealType]}
 				</p>
@@ -304,7 +304,7 @@ export function MealSlotCard({
 					</button>
 				)}
 			</div>
-			<div className="p-3 pt-2">
+			<div className="p-3 pt-2 md:px-2 md:pt-1 md:pb-2">
 				{entries.map((entry, i) => (
 					<div
 						key={entry.id}

@@ -124,8 +124,8 @@ execution quality, not differentiation.
 
 - Weekly calendar view (Monday-start, two-row 4+3 layout, today emphasis, 4 meal
   types per day)
-- Click-to-assign recipes to meal slots with thumbnail previews (or letter
-  placeholders), multiple recipes per slot
+- Click-to-assign recipes to meal slots (inline dropdown with search),
+  multiple recipes per slot
 - Per-entry serving size overrides with +/- controls (clamped 1-999);
   passthrough to recipe detail via `?servings=N` query param
 - Mark meals as "cooked" with optimistic toggle; quick "I made this" one-tap

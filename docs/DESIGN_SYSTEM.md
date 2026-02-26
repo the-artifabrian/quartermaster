@@ -515,9 +515,9 @@ a page torn from a well-designed cookbook.
 ### 4. Meal Plan
 
 **Mobile**: Vertical day stack. Day name in Young Serif. Today highlighted with
-copper pill background and subtle ring. Meals in DM Sans with small recipe
-thumbnails (32px circles) if available. Empty days: ghost "+" button. Past
-days faded (80% opacity).
+copper pill background and subtle ring. Meals in DM Sans, text-only — no
+thumbnails, which keeps the view clean and scannable. Empty days: ghost "+"
+button. Past days faded (80% opacity).
 
 **Desktop**: 7-day grid. Each day is a warm card with Young Serif day header
 and generous padding. Today's card: 3px copper top-border. Should feel like
@@ -527,8 +527,9 @@ index cards on a table, not spreadsheet cells.
 time and "Cook" action. Nothing planned: simple DM Sans suggestion. Gentle
 nudge, not notification.
 
-**Adding meals**: Bottom sheet (mobile) or inline dropdown (desktop) with
-search. New meal fades in with element-reveal curve.
+**Adding meals**: Inline dropdown with search, same on mobile and desktop.
+Opens below the meal slot, scrollable list with recipe names and cook times.
+New meal fades in with element-reveal curve.
 
 ---
 

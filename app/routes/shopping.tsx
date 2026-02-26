@@ -601,7 +601,7 @@ export default function ShoppingListRoute({
 						<h1 className="font-serif text-2xl font-normal">
 							Shopping List
 							{totalItems > 0 && (
-								<span className="text-muted-foreground ml-2 text-lg font-normal">
+								<span className="ml-2 text-lg font-sans font-normal tabular-nums text-muted-foreground">
 									({checkedItems}/{totalItems})
 								</span>
 							)}
@@ -763,7 +763,7 @@ export default function ShoppingListRoute({
 
 				{/* Search — only shown with 15+ items */}
 				{totalItems >= 15 && (
-					<div className="relative mt-4 print:hidden">
+					<div className="relative mt-2 print:hidden">
 						<Icon
 							name="magnifying-glass"
 							size="sm"

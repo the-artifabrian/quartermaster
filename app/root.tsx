@@ -23,7 +23,7 @@ import { Progress } from './components/progress-bar.tsx'
 import { TimerWidget } from './components/timer-widget.tsx'
 import { useToast } from './components/toaster.tsx'
 import { Button } from './components/ui/button.tsx'
-import { Icon, href as iconsHref } from './components/ui/icon.tsx'
+import { Icon } from './components/ui/icon.tsx'
 import { Toaster } from './components/ui/sonner.tsx'
 import { UserDropdown } from './components/user-dropdown.tsx'
 import { useOptionalTheme, useTheme } from './routes/resources/theme-switch.tsx'
@@ -68,8 +68,6 @@ const iosStartupImages = [
 
 export const links: Route.LinksFunction = () => {
 	return [
-		// Preload svg sprite as a resource to avoid render blocking
-		{ rel: 'preload', href: iconsHref, as: 'image' },
 		// Google Fonts
 		{ rel: 'preconnect', href: 'https://fonts.googleapis.com' },
 		{

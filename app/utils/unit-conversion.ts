@@ -126,10 +126,15 @@ export function getUnitFamily(
 	return null
 }
 
+/** Round to at most 2 decimal places, stripping trailing zeroes. */
+function round2(n: number): number {
+	return Math.round(n * 100) / 100
+}
+
 /**
  * Pick the best display unit for a value in base units.
  * Prefers units that appeared in the input (inputUnits).
- * Among candidates, chooses the largest where value ≥ 1.
+ * Among candidates, chooses the largest where value ≥ ~1 (0.99 tolerance for floating point).
  */
 function pickBestUnit(
 	baseValue: number,
@@ -143,21 +148,22 @@ function pickBestUnit(
 	for (const [unitName, factor] of sorted) {
 		if (!inputUnits.has(unitName)) continue
 		const converted = baseValue / factor
-		if (converted >= 1) {
-			return { value: converted, unit: unitName }
+		// Use small tolerance to avoid floating point near-misses (e.g., 0.9999… < 1)
+		if (converted >= 0.99) {
+			return { value: round2(converted), unit: unitName }
 		}
 	}
 
 	// Second pass: any unit in the family
 	for (const [unitName, factor] of sorted) {
 		const converted = baseValue / factor
-		if (converted >= 1) {
-			return { value: converted, unit: unitName }
+		if (converted >= 0.99) {
+			return { value: round2(converted), unit: unitName }
 		}
 	}
 
 	// Fallback to base unit
-	return { value: baseValue, unit: family.baseUnit }
+	return { value: round2(baseValue), unit: family.baseUnit }
 }
 
 /**

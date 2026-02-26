@@ -108,7 +108,7 @@ export function RecipeCard({
 			>
 				<div className="flex items-center gap-1.5">
 					<h3 className="min-w-0 font-serif text-base leading-[1.4] group-hover:text-primary md:text-base md:leading-[1.3] md:tracking-[-0.005em]">
-						<span className="line-clamp-2 md:line-clamp-1">{title}</span>
+						<span className="line-clamp-2">{title}</span>
 					</h3>
 					{/* Mobile-only inline badges */}
 					{isFavorite && (
@@ -130,19 +130,16 @@ export function RecipeCard({
 						</span>
 					)}
 					{matchPercentage != null && (
-						<span className="flex items-center gap-1 text-xs text-muted-foreground">
-							<span
-								className={cn(
-									'inline-block size-1.5 rounded-full',
-									matchPercentage >= 80
-										? 'bg-primary'
-										: matchPercentage >= 50
-											? 'bg-accent'
-											: 'bg-muted-foreground/40',
-								)}
-							/>
-							{matchPercentage}%
-						</span>
+						<span
+							className={cn(
+								'inline-block size-1.5 rounded-full',
+								matchPercentage >= 80
+									? 'bg-primary'
+									: matchPercentage >= 50
+										? 'bg-accent'
+										: 'bg-muted-foreground/40',
+							)}
+						/>
 					)}
 					{isAiGenerated && (
 						<Icon name="sparkles" size="xs" className="text-muted-foreground/50" />

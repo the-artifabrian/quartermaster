@@ -562,21 +562,14 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				}}
 			/>
 
-			<div className="container-content pt-4 md:pt-6 print:border-l-0 print:pt-0">
+			<div className="container-content pt-4 pb-20 md:pt-6 md:pb-6 print:pt-0">
 				{/* Hero: Title + Image */}
 				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
 					<div className="min-w-0 flex-1">
 						<h1 className="font-serif text-[2rem] leading-[1.15] font-normal tracking-[-0.02em]">
 							{recipe.title}
 						</h1>
-						{recipe.isAiGenerated && (
-							<span className="border-primary/30 bg-primary/10 text-primary mt-2 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium print:hidden">
-								<Icon name="sparkles" className="size-3" />
-								AI Generated
-							</span>
-						)}
 						<Divider
-							variant="accent"
 							className="mt-3 mb-2 max-w-xs print:hidden"
 						/>
 						<RecipeMetadataCard

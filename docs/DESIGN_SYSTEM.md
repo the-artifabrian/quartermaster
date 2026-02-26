@@ -180,7 +180,6 @@ instead of scattering it as a generic accent:
 
 - **Today's date** on the meal plan: 3px copper top-border
 - **Active page** in navigation: copper indicator
-- **Recipe detail bookmark**: thin copper left-edge strip (desktop, 2-3px)
 - **Favorite heart fill**: copper, not red
 - **"Up next" banner**: copper accent border
 
@@ -474,8 +473,7 @@ Users spend the most time here during cooking. Every decision optimized for
 arm's-length readability and focus.
 
 **Hero area**: Title in Young Serif at 2rem. Below it, a clean `<hr>` in cedar.
-Then metadata: prep, cook, total time in small DM Sans, muted. On desktop, a
-thin copper left-edge strip (2-3px) acts as a bookmark accent.
+Then metadata: prep, cook, total time in small DM Sans, muted.
 
 If there's an image: up to 400px wide on desktop beside the title, full-width
 with 16px horizontal margin on mobile. 1px cedar border, 6px radius.

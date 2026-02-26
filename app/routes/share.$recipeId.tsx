@@ -288,16 +288,10 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 				{/* Title + Image layout */}
 				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
 					<div className="min-w-0 flex-1">
-						<h1 className="font-serif text-[2.25rem] leading-tight font-normal tracking-tight">
+						<h1 className="font-serif text-[2rem] leading-[1.15] font-normal tracking-[-0.02em]">
 							{recipe.title}
 						</h1>
-						{recipe.isAiGenerated && (
-							<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary dark:border-primary/30 dark:bg-primary/10 dark:text-primary">
-								<Icon name="sparkles" className="size-3" />
-								AI Generated
-							</span>
-						)}
-						<Divider variant="accent" className="mt-3 mb-2 max-w-xs" />
+						<Divider className="mt-3 mb-2 max-w-xs" />
 
 						{/* Metadata inline */}
 						{(recipe.prepTime || recipe.cookTime || recipe.sourceUrl) && (
@@ -372,7 +366,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			{/* Content */}
-			<div className="container-content">
+			<div className="container-content pb-20 md:pb-6">
 				{/* Description */}
 				{recipe.description && (
 					<p className="text-muted-foreground mt-5 text-base leading-relaxed">

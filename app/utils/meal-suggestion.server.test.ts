@@ -302,9 +302,9 @@ describe('extractPrimaryProtein', () => {
 
 	test('ignores non-protein compounds', () => {
 		// "chicken broth" is not a protein — broth is a non-protein suffix
-		expect(extractPrimaryProtein(makeIngredients(['chicken broth', 'noodles', 'carrots']))).toBe(null)
-		expect(extractPrimaryProtein(makeIngredients(['fish sauce', 'rice', 'lime']))).toBe(null)
-		expect(extractPrimaryProtein(makeIngredients(['duck fat', 'potatoes', 'rosemary']))).toBe(null)
+		expect(extractPrimaryProtein(makeIngredients(['chicken broth', 'noodles', 'carrots']))).toBeNull()
+		expect(extractPrimaryProtein(makeIngredients(['fish sauce', 'rice', 'lime']))).toBeNull()
+		expect(extractPrimaryProtein(makeIngredients(['duck fat', 'potatoes', 'rosemary']))).toBeNull()
 	})
 
 	test('skips heading ingredients', () => {
@@ -312,11 +312,11 @@ describe('extractPrimaryProtein', () => {
 			{ name: 'For the chicken', isHeading: true, notes: null },
 			{ name: 'garlic', isHeading: false, notes: null },
 		]
-		expect(extractPrimaryProtein(ingredients)).toBe(null)
+		expect(extractPrimaryProtein(ingredients)).toBeNull()
 	})
 
 	test('returns null when no protein found', () => {
-		expect(extractPrimaryProtein(makeIngredients(['pasta', 'garlic', 'olive oil', 'parmesan']))).toBe(null)
+		expect(extractPrimaryProtein(makeIngredients(['pasta', 'garlic', 'olive oil', 'parmesan']))).toBeNull()
 	})
 })
 

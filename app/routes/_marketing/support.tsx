@@ -21,12 +21,12 @@ const faqs = [
 	{
 		question: 'How does recipe matching know what I can make?',
 		answer:
-			'It compares your inventory against recipe ingredients using smart matching that understands different names for the same thing (like cilantro and coriander), then ranks recipes by how many ingredients you already have. It also highlights recipes that use ingredients about to expire.',
+			'It compares your inventory against recipe ingredients using smart matching that understands different names for the same thing (like cilantro and coriander), then ranks recipes by how many ingredients you already have.',
 	},
 	{
 		question: 'Can I share with my partner or household?',
 		answer:
-			'Yes. Go to Settings > Household to invite members via a link. Everyone in the household shares the same recipe library, inventory, meal plans, and shopping lists, with real-time activity notifications.',
+			'Yes. Go to Settings > Household to invite members via a link. Everyone in the household shares the same recipe library, inventory, meal plans, and shopping lists, with real-time sync.',
 	},
 	{
 		question: 'Can I export my data?',

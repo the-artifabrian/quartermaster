@@ -51,6 +51,7 @@ const webApplicationJsonLd = JSON.stringify({
 export default function Index() {
 	return (
 		<div>
+			{/* Static JSON-LD structured data (no user input) */}
 			<script
 				type="application/ld+json"
 				dangerouslySetInnerHTML={{ __html: webApplicationJsonLd }}
@@ -78,8 +79,9 @@ export default function Index() {
 						<br />
 						this week?
 					</h1>
-					<p className="text-muted-foreground mx-auto mt-6 max-w-md text-lg/7">
-						Keep your recipes. Plan your week. Cook from what you have.
+					<p className="text-muted-foreground mx-auto mt-6 max-w-lg text-lg/7">
+						Your recipes, your pantry, your meal plan, your shopping list — one
+						place that closes the loop so dinner answers itself.
 					</p>
 
 					{/* Decorative divider */}
@@ -100,65 +102,116 @@ export default function Index() {
 							<a href="#glimpse">See how it works</a>
 						</Button>
 					</div>
+					<p className="text-muted-foreground/70 mt-4 text-sm">
+						Free for 14 days. No credit card needed.
+					</p>
 				</div>
 			</section>
 
-			{/* Artifacts */}
+			{/* Pipeline — four artifacts that tell the loop story */}
 			<section id="glimpse" className="container-landing py-16 md:py-24">
 				<div className="space-y-20 md:space-y-32">
-					{/* Recipe card artifact — left on desktop */}
+					{/* 1. Recipe collection — left on desktop */}
 					<ScrollReveal className="flex flex-col items-center gap-10 md:flex-row">
 						<div className="w-full max-w-[340px] shrink-0 rotate-[-2deg]">
 							<RecipeCardArtifact />
 						</div>
 						<div className="text-center md:text-left">
-							<h2 className="font-serif text-2xl md:text-3xl font-normal">
+							<h2 className="font-serif text-2xl font-normal md:text-3xl">
 								Your recipes, all in one place
 							</h2>
 							<p className="text-muted-foreground mt-3 text-base/7">
-								Paste a URL, import dozens at once, or type it in by hand.
-								Searchable, sortable, and matched to what's in your kitchen,
-								so you can see which recipes you can cook tonight.
+								Paste a URL, import dozens from Apple Notes, or type one in
+								by hand. Every recipe is searchable, scalable, and ready to
+								cook — no more digging through bookmarks and screenshots.
 							</p>
 						</div>
 					</ScrollReveal>
 
-					{/* Week view artifact — right on desktop, warm band */}
+					{/* 2. Discovery / matching — right on desktop, warm band */}
 					<div className="-mx-4 bg-secondary/30 px-4 py-10 sm:-mx-8 sm:px-8 md:py-14">
 						<ScrollReveal className="container-landing flex flex-col items-center gap-10 md:flex-row-reverse">
-							<div className="w-full max-w-[400px] shrink-0 rotate-[1deg]">
-								<WeekViewArtifact />
+							<div className="w-full max-w-[340px] shrink-0 rotate-[1.5deg]">
+								<DiscoveryArtifact />
 							</div>
 							<div className="text-center md:text-right">
-								<h2 className="font-serif text-2xl md:text-3xl font-normal">
-									A week penciled in
+								<h2 className="font-serif text-2xl font-normal md:text-3xl">
+									What can I make tonight?
 								</h2>
 								<p className="text-muted-foreground mt-3 text-base/7">
-									Add recipes to a weekly calendar. Adjust servings, swap
-									meals, and generate a shopping list. You only buy what you
-									need.
+									Tell Quartermaster what's in your kitchen and it shows
+									which recipes you can cook right now — ranked by how many
+									ingredients you already have. No more staring at the fridge.
 								</p>
 							</div>
 						</ScrollReveal>
 					</div>
 
-					{/* Shopping list artifact — left on desktop */}
+					{/* 3. Meal planning — left on desktop */}
 					<ScrollReveal className="flex flex-col items-center gap-10 md:flex-row">
-						<div className="w-full max-w-[280px] shrink-0 rotate-[-1deg]">
-							<ShoppingListArtifact />
+						<div className="w-full max-w-[400px] shrink-0 rotate-[-1deg]">
+							<WeekViewArtifact />
 						</div>
 						<div className="text-center md:text-left">
-							<h2 className="font-serif text-2xl md:text-3xl font-normal">
-								The list writes itself
+							<h2 className="font-serif text-2xl font-normal md:text-3xl">
+								A week penciled in
 							</h2>
 							<p className="text-muted-foreground mt-3 text-base/7">
-								One tap generates a shopping list from your meal plan. Items
-								you already have are pre-checked so you can skip them. Check
-								things off at the store and they flow straight into your
-								pantry.
+								Add recipes to a weekly calendar. Adjust servings, swap
+								meals around, or ask for suggestions that use overlapping
+								ingredients so nothing goes to waste.
 							</p>
 						</div>
 					</ScrollReveal>
+
+					{/* 4. Shopping list — right on desktop, warm band */}
+					<div className="-mx-4 bg-secondary/30 px-4 py-10 sm:-mx-8 sm:px-8 md:py-14">
+						<ScrollReveal className="container-landing flex flex-col items-center gap-10 md:flex-row-reverse">
+							<div className="w-full max-w-[280px] shrink-0 rotate-[1deg]">
+								<ShoppingListArtifact />
+							</div>
+							<div className="text-center md:text-right">
+								<h2 className="font-serif text-2xl font-normal md:text-3xl">
+									The list writes itself
+								</h2>
+								<p className="text-muted-foreground mt-3 text-base/7">
+									One tap generates a shopping list from your meal plan.
+									Items you already have are pre-checked. Check things off
+									at the store and they flow back into your pantry — closing
+									the loop for next week.
+								</p>
+							</div>
+						</ScrollReveal>
+					</div>
+				</div>
+			</section>
+
+			{/* Feature strip — compact grid */}
+			<section className="container-landing py-16 md:py-20">
+				<div className="grid gap-8 sm:grid-cols-3 sm:gap-12">
+					<div className="text-center">
+						<p className="font-serif text-lg">Built for the kitchen</p>
+						<p className="text-muted-foreground mt-2 text-sm/6">
+							Tap ingredients to cross them off. Start timers from recipe
+							steps. Scale servings on the fly — all designed for when your
+							hands are busy.
+						</p>
+					</div>
+					<div className="text-center">
+						<p className="font-serif text-lg">Cook together</p>
+						<p className="text-muted-foreground mt-2 text-sm/6">
+							Share your recipe library, meal plan, and shopping list with
+							your household. Changes sync in real time so you're always on
+							the same page.
+						</p>
+					</div>
+					<div className="text-center">
+						<p className="font-serif text-lg">Your data is yours</p>
+						<p className="text-muted-foreground mt-2 text-sm/6">
+							Export everything as JSON anytime. No lock-in, no data
+							hostage. Import it right back if you ever need to.
+						</p>
+					</div>
 				</div>
 			</section>
 
@@ -170,6 +223,10 @@ export default function Index() {
 				<h2 className="mt-8 font-serif text-[1.75rem] font-normal md:text-[2.25rem]">
 					Your recipes deserve a home.
 				</h2>
+				<p className="text-muted-foreground mx-auto mt-4 max-w-sm text-base/7">
+					Try everything free for 14 days. Keep your recipes forever on the
+					free plan.
+				</p>
 				<div className="mt-8">
 					<Button asChild size="lg" className="rounded-full px-8">
 						<Link to="/signup">Start cooking</Link>
@@ -245,9 +302,7 @@ function RecipeCardArtifact() {
 					M
 				</span>
 			</div>
-			<h3 className="mt-4 font-serif text-lg">
-				Miso-Glazed Salmon
-			</h3>
+			<h3 className="mt-4 font-serif text-lg">Miso-Glazed Salmon</h3>
 			<p className="text-muted-foreground mt-1 text-sm">
 				25 min &middot; 2 servings
 			</p>
@@ -264,6 +319,81 @@ function RecipeCardArtifact() {
 				)}
 			</div>
 		</div>
+	)
+}
+
+function DiscoveryArtifact() {
+	const recipes = [
+		{ name: 'Pasta al limone', match: 100 },
+		{ name: 'Miso-Glazed Salmon', match: 75 },
+		{ name: 'Black bean tacos', match: 50 },
+	]
+
+	return (
+		<div className="bg-card rounded-lg border p-5 shadow-warm-md">
+			<p className="font-handwritten mb-3 text-[20px] font-bold text-accent">
+				What can I make?
+			</p>
+			<div className="space-y-3">
+				{recipes.map(({ name, match }) => (
+					<div key={name} className="flex items-center gap-3">
+						<MatchRing percent={match} />
+						<div className="min-w-0 flex-1">
+							<p className="font-serif text-sm">{name}</p>
+							<p className="text-muted-foreground text-xs">
+								{match === 100
+									? 'Ready to cook'
+									: match >= 75
+										? 'Missing 1 item'
+										: 'Missing 2 items'}
+							</p>
+						</div>
+					</div>
+				))}
+			</div>
+		</div>
+	)
+}
+
+function MatchRing({ percent }: { percent: number }) {
+	const r = 16
+	const circumference = 2 * Math.PI * r
+	const offset = circumference - (percent / 100) * circumference
+
+	return (
+		<svg viewBox="0 0 40 40" className="size-10 shrink-0">
+			<circle
+				cx="20"
+				cy="20"
+				r={r}
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="3"
+				className="text-secondary"
+			/>
+			<circle
+				cx="20"
+				cy="20"
+				r={r}
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="3"
+				strokeDasharray={circumference}
+				strokeDashoffset={offset}
+				strokeLinecap="round"
+				className="text-primary"
+				transform="rotate(-90 20 20)"
+			/>
+			<text
+				x="20"
+				y="20"
+				textAnchor="middle"
+				dominantBaseline="central"
+				className="fill-foreground text-[10px] font-medium"
+			>
+				{percent}%
+			</text>
+		</svg>
 	)
 }
 

@@ -77,8 +77,8 @@ export default function AboutRoute() {
 						<span className="text-foreground font-medium">
 							Track your kitchen
 						</span>{' '}
-						— Keep a running inventory of what's in your pantry, fridge, and
-						freezer with expiration tracking and low-stock alerts.
+						— Keep a running list of what's in your pantry, fridge, and
+						freezer so Quartermaster knows what you have on hand.
 					</p>
 				</div>
 				<div className="flex gap-3">
@@ -90,9 +90,8 @@ export default function AboutRoute() {
 						<span className="text-foreground font-medium">
 							Discover what to cook
 						</span>{' '}
-						— See which recipes you can make with what you already have, ranked
-						by match percentage. Get suggestions for expiring ingredients before
-						they go to waste.
+						— See which recipes you can make with what you already have,
+						ranked by match percentage.
 					</p>
 				</div>
 				<div className="flex gap-3">
@@ -100,7 +99,7 @@ export default function AboutRoute() {
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Plan and shop</span> —
 						Plan meals for the week with ingredient overlap analysis. Generate a
-						consolidated shopping list grouped by store section, minus what you
+						consolidated shopping list from your meal plan, minus what you
 						already have.
 					</p>
 				</div>
@@ -109,8 +108,7 @@ export default function AboutRoute() {
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Cook together</span> —
 						Invite your partner or housemates to share a recipe library,
-						inventory, and meal plan. Changes sync in real time with activity
-						notifications.
+						inventory, and meal plan. Changes sync in real time.
 					</p>
 				</div>
 			</div>
@@ -119,9 +117,8 @@ export default function AboutRoute() {
 			<p className="text-muted-foreground mt-3 text-base/7">
 				Most recipe apps are great for browsing but terrible for actually
 				cooking. Quartermaster is the opposite — tap ingredients and steps to
-				cross them off, start timers right from recipe instructions, scale
-				servings on the fly, and your screen stays awake so you're not unlocking
-				your phone with floury fingers. It works offline too.
+				cross them off, start timers right from recipe instructions, and scale
+				servings on the fly.
 			</p>
 
 			<div className="mt-10">

@@ -435,7 +435,7 @@ the visual. Don't fill the gap with letter avatars.
   truncating — titles are the most important thing on this screen.
 - Description (if present) below in small DM Sans, muted, 1 line max.
 - Metadata (cook time, match %) as tiny captions in stone color. Match
-  percentage: a small sage dot, no number visible unless tapped.
+  percentage: a small colored dot only — no number, no text.
 - 16px vertical padding per row. Subtle 1px cedar bottom border between rows.
 - Favorite: small copper heart to the right of the title.
 - If a recipe has an image: small thumbnail (48-56px) on the left.

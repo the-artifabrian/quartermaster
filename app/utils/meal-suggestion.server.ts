@@ -38,6 +38,8 @@ const CONDIMENT_HEAD_NOUNS = new Set([
 	'guacamole',
 	'tzatziki',
 	'raita',
+	'chimichurri',
+	'gremolata',
 ])
 
 // Also catch pickled/preserved items as condiments
@@ -218,6 +220,7 @@ const MAIN_DISH_PHRASES = [
 	'shepherd pie',
 	'shepherds pie',
 	"shepherd's pie",
+	'biscuits and gravy',
 ]
 
 const BREAKFAST_WORDS = new Set([
@@ -251,6 +254,8 @@ const BREAKFAST_PHRASES = [
 	'poached eggs',
 	'hash brown',
 	'hash browns',
+	'smoothie bowl',
+	'acai bowl',
 ]
 
 /** Dessert words detected anywhere in title (not just head noun).
@@ -289,7 +294,14 @@ type RecipeCategory =
 
 /**
  * Classify a recipe by its title using head-noun heuristics.
- * Protein/main-dish indicators override head-noun classification.
+ *
+ * Priority order:
+ * 1. Multi-word phrases — highest confidence ("pot pie", "biscuits and gravy")
+ * 2. Head noun condiment/beverage — hard-filtered categories ("sauce", "glaze")
+ * 3. Condiment words anywhere ("pickles", "pickled")
+ * 4. Single-word protein/main/breakfast indicators
+ * 5. Single-word beverage/dessert indicators
+ * 6. Head noun dessert/side
  */
 export function classifyRecipe(title: string): RecipeCategory {
 	const lower = title.toLowerCase()
@@ -299,14 +311,30 @@ export function classifyRecipe(title: string): RecipeCategory {
 		.map((w) => w.replace(/[^a-z]/g, ''))
 		.filter(Boolean)
 
-	// Check positive indicators first (these override head-noun classification)
-	// Check phrases before single words
+	// 1. Phrases first — multi-word matches are highest confidence and override
+	// head-noun classification (e.g. "biscuits and gravy" is a meal, not a condiment)
 	for (const phrase of MAIN_DISH_PHRASES) {
 		if (lower.includes(phrase)) return 'main'
 	}
 	for (const phrase of BREAKFAST_PHRASES) {
 		if (lower.includes(phrase)) return 'breakfast'
 	}
+
+	// 2. Head noun condiment/beverage — "Gyoza dipping sauce" should be condiment
+	// even though "gyoza" is a main-dish word. The last word determines the actual
+	// dish type when it's a condiment/beverage term.
+	const headNoun = words[words.length - 1]
+	if (headNoun) {
+		if (CONDIMENT_HEAD_NOUNS.has(headNoun)) return 'condiment'
+		if (BEVERAGE_WORDS.has(headNoun)) return 'beverage'
+	}
+
+	// 3. Condiment words anywhere in title (e.g. "quick cucumber pickles")
+	for (const word of words) {
+		if (CONDIMENT_WORDS.has(word)) return 'condiment'
+	}
+
+	// 4. Single-word positive indicators
 	for (const word of words) {
 		if (PROTEIN_WORDS.has(word)) return 'main'
 	}
@@ -317,25 +345,17 @@ export function classifyRecipe(title: string): RecipeCategory {
 		if (BREAKFAST_WORDS.has(word)) return 'breakfast'
 	}
 
-	// Beverage detection — anywhere in title (hard filter like condiments)
+	// 5. Beverage/dessert words anywhere in title (catches non-final beverage
+	// words like "chai" in "Chai with Cream"; final-position already caught above)
 	for (const word of words) {
 		if (BEVERAGE_WORDS.has(word)) return 'beverage'
 	}
-
-	// Dessert words anywhere in title (e.g. "carrot cake loaf")
 	for (const word of words) {
 		if (DESSERT_WORDS.has(word)) return 'dessert'
 	}
 
-	// Condiment words anywhere in title (e.g. "quick cucumber pickles")
-	for (const word of words) {
-		if (CONDIMENT_WORDS.has(word)) return 'condiment'
-	}
-
-	// Head noun classification — last word of title
-	const headNoun = words[words.length - 1]
+	// 6. Head noun classification for remaining categories
 	if (headNoun) {
-		if (CONDIMENT_HEAD_NOUNS.has(headNoun)) return 'condiment'
 		if (DESSERT_HEAD_NOUNS.has(headNoun)) return 'dessert'
 		if (SIDE_HEAD_NOUNS.has(headNoun)) return 'side'
 	}

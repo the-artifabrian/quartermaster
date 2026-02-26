@@ -412,7 +412,11 @@ explicit delays. `ScrollReveal` uses CSS-first `opacity-0` class to avoid
 hydration flash, with `prefers-reduced-motion` check that skips animation
 entirely.
 
-**Close**: Simple final CTA section. No footer clutter on the landing page.
+**Close**: Simple final CTA section. Below, a shared marketing footer
+(from `_marketing.tsx` layout) renders links to About, Support, Privacy,
+and Terms — muted text, cedar top border, centered. All `_marketing/`
+pages share this footer. The upgrade page (`upgrade.tsx`) is outside
+`_marketing/` and has its own back-nav instead.
 
 ---
 

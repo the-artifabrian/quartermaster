@@ -190,7 +190,7 @@ export default function Index() {
 			<section className="container-landing py-16 md:py-20">
 				<div className="grid gap-8 sm:grid-cols-3 sm:gap-12">
 					<div className="text-center">
-						<p className="font-serif text-lg">Built for the kitchen</p>
+						<h3 className="font-serif text-lg">Built for the kitchen</h3>
 						<p className="text-muted-foreground mt-2 text-sm/6">
 							Tap ingredients to cross them off. Start timers from recipe
 							steps. Scale servings on the fly — all designed for when your
@@ -198,7 +198,7 @@ export default function Index() {
 						</p>
 					</div>
 					<div className="text-center">
-						<p className="font-serif text-lg">Cook together</p>
+						<h3 className="font-serif text-lg">Cook together</h3>
 						<p className="text-muted-foreground mt-2 text-sm/6">
 							Share your recipe library, meal plan, and shopping list with
 							your household. Changes sync in real time so you're always on
@@ -206,7 +206,7 @@ export default function Index() {
 						</p>
 					</div>
 					<div className="text-center">
-						<p className="font-serif text-lg">Your data is yours</p>
+						<h3 className="font-serif text-lg">Your data is yours</h3>
 						<p className="text-muted-foreground mt-2 text-sm/6">
 							Export everything as JSON anytime. No lock-in, no data
 							hostage. Import it right back if you ever need to.

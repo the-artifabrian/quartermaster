@@ -226,7 +226,10 @@ execution quality, not differentiation.
 
 - Custom color system (sage green + peach accent, OKLch), Young Serif/DM Sans
   typography
-- Landing page with serif hero, 4-step feature story, dual CTAs
+- Landing page with serif hero, 4-step feature story, dual CTAs. Shared
+  marketing footer (About, Support, Privacy, Terms) on all public pages
+  via `_marketing.tsx` layout route. Secondary pages (about, privacy, tos,
+  support) use Young Serif headings and back-nav links
 - Warm empty states with serif headings across all pages
 - Mobile-first responsive layout with bottom nav (sliding pill indicator)
 - 44px minimum touch targets across all interactive elements (Apple HIG),

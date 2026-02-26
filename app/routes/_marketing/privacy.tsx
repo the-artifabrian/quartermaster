@@ -1,5 +1,6 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { data } from 'react-router'
+import { data, Link } from 'react-router'
+import { Icon } from '#app/components/ui/icon.tsx'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
 import { type Route } from './+types/privacy.ts'
@@ -32,14 +33,14 @@ export const headers: Route.HeadersFunction = pipeHeaders
 export default function PrivacyRoute() {
 	return (
 		<div className="container max-w-2xl py-12">
-			<h1 className="text-3xl font-bold tracking-tight">Privacy Policy</h1>
+			<h1 className="font-serif text-[2.25rem] leading-[1.15] tracking-[-0.02em]">Privacy Policy</h1>
 			<p className="text-muted-foreground mt-2 text-sm">
 				Last updated: February 2026
 			</p>
 
 			<div className="mt-8 space-y-6 text-sm/6">
 				<section>
-					<h2 className="text-lg font-semibold">What we collect</h2>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">What we collect</h2>
 					<p className="text-muted-foreground mt-2">
 						Quartermaster collects the minimum data needed to provide the
 						service: your email address, username, and password (hashed) for
@@ -49,7 +50,7 @@ export default function PrivacyRoute() {
 				</section>
 
 				<section>
-					<h2 className="text-lg font-semibold">How we use your data</h2>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">How we use your data</h2>
 					<p className="text-muted-foreground mt-2">
 						Your data is used solely to provide the Quartermaster service to
 						content. We do not use your data for advertising or analytics
@@ -58,7 +59,7 @@ export default function PrivacyRoute() {
 				</section>
 
 				<section>
-					<h2 className="text-lg font-semibold">Data storage</h2>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Data storage</h2>
 					<p className="text-muted-foreground mt-2">
 						Your data is stored in a SQLite database hosted on Fly.io
 						infrastructure. Recipe images are stored in S3-compatible object
@@ -67,7 +68,7 @@ export default function PrivacyRoute() {
 				</section>
 
 				<section>
-					<h2 className="text-lg font-semibold">Cookies</h2>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Cookies</h2>
 					<p className="text-muted-foreground mt-2">
 						We use a single httpOnly session cookie for authentication and a
 						theme preference cookie. We do not use tracking cookies or
@@ -76,21 +77,31 @@ export default function PrivacyRoute() {
 				</section>
 
 				<section>
-					<h2 className="text-lg font-semibold">Data export and deletion</h2>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Data export and deletion</h2>
 					<p className="text-muted-foreground mt-2">
-						You can export your recipes as JSON at any time. To delete your
-						account and all associated data, contact us through the support
-						page.
+						You can export all your data (recipes, inventory, meal plans,
+						shopping lists) as JSON at any time. Go to Settings &gt; Profile
+						to manage your account.
 					</p>
 				</section>
 
 				<section>
-					<h2 className="text-lg font-semibold">Changes</h2>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Changes</h2>
 					<p className="text-muted-foreground mt-2">
 						We may update this policy as the service evolves. Significant
 						changes will be communicated through the app.
 					</p>
 				</section>
+			</div>
+
+			<div className="mt-8">
+				<Link
+					to="/"
+					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+				>
+					<Icon name="arrow-left" size="sm" />
+					Back to home
+				</Link>
 			</div>
 		</div>
 	)

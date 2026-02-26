@@ -83,9 +83,9 @@ export default function SupportRoute() {
 				type="application/ld+json"
 				dangerouslySetInnerHTML={{ __html: faqJsonLd }}
 			/>
-			<h1 className="text-3xl font-bold tracking-tight">Support</h1>
+			<h1 className="font-serif text-[2.25rem] leading-[1.15] tracking-[-0.02em]">Support</h1>
 			<p className="text-muted-foreground mt-3 text-base/7">
-				Need help with Quartermaster? Here are a few ways to get answers.
+				Need help with Quartermaster? Here are answers to common questions.
 			</p>
 
 			<div className="mt-8 space-y-4">
@@ -93,10 +93,10 @@ export default function SupportRoute() {
 					<div className="flex gap-3">
 						<Icon
 							name="question-mark-circled"
-							className="text-primary mt-0.5 size-5 shrink-0"
+							className="text-primary mt-1.5 size-5 shrink-0"
 						/>
 						<div>
-							<h2 className="font-semibold">Common questions</h2>
+							<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Common questions</h2>
 							<dl className="text-muted-foreground mt-3 space-y-3 text-sm">
 								{faqs.map((faq) => (
 									<div key={faq.question}>

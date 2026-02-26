@@ -34,7 +34,7 @@ export const headers: Route.HeadersFunction = pipeHeaders
 export default function AboutRoute() {
 	return (
 		<div className="container max-w-2xl py-12">
-			<h1 className="text-3xl font-bold tracking-tight">About Quartermaster</h1>
+			<h1 className="font-serif text-[2.25rem] leading-[1.15] tracking-[-0.02em]">About Quartermaster</h1>
 
 			<div className="text-muted-foreground mt-6 space-y-4 text-base/7">
 				<p>
@@ -58,7 +58,7 @@ export default function AboutRoute() {
 				</p>
 			</div>
 
-			<h2 className="mt-10 text-xl font-semibold">What you can do</h2>
+			<h2 className="mt-10 font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">What you can do</h2>
 			<div className="mt-4 space-y-3">
 				<div className="flex gap-3">
 					<Icon
@@ -113,7 +113,7 @@ export default function AboutRoute() {
 				</div>
 			</div>
 
-			<h2 className="mt-10 text-xl font-semibold">Built for messy hands</h2>
+			<h2 className="mt-10 font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Built for messy hands</h2>
 			<p className="text-muted-foreground mt-3 text-base/7">
 				Most recipe apps are great for browsing but terrible for actually
 				cooking. Quartermaster is the opposite — tap ingredients and steps to

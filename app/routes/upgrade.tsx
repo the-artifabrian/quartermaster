@@ -76,6 +76,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	return {
 		tierInfo,
 		stripeConfigured,
+		isLoggedIn: !!userId,
 		proYearlyPriceId: stripeConfigured
 			? process.env.STRIPE_PRO_YEARLY_PRICE_ID!
 			: null,
@@ -140,7 +141,8 @@ const proFeatures = [
 ]
 
 export default function UpgradePage({ loaderData }: Route.ComponentProps) {
-	const { tierInfo, stripeConfigured, proYearlyPriceId } = loaderData
+	const { tierInfo, stripeConfigured, isLoggedIn, proYearlyPriceId } =
+		loaderData
 
 	return (
 		<div className="container max-w-3xl px-4 py-8 md:py-12">
@@ -165,7 +167,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					Upgrade Your Kitchen
 				</h1>
 				<p className="text-muted-foreground mt-2 text-lg">
-					Unlock smart suggestions, inventory sync, and the full intelligence loop.
+					Unlock smart suggestions, inventory sync, and the full cooking workflow.
 				</p>
 					<>
 						<p className="text-primary mt-2 text-sm font-medium">
@@ -211,9 +213,15 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 						))}
 					</ul>
 					<div className="mt-6">
-						<Button variant="outline" className="w-full" disabled>
-							Current Plan
-						</Button>
+						{isLoggedIn ? (
+							<Button variant="outline" className="w-full" disabled>
+								Current Plan
+							</Button>
+						) : (
+							<Button asChild variant="outline" className="w-full">
+								<Link to="/signup">Sign Up Free</Link>
+							</Button>
+						)}
 					</div>
 				</div>
 
@@ -221,7 +229,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					<div className="mb-4">
 						<h2 className="text-xl font-semibold">Pro</h2>
 						<p className="text-muted-foreground mt-1 text-sm">
-							The full kitchen intelligence loop
+							The complete kitchen toolkit
 						</p>
 						<p className="mt-3 text-2xl font-bold">
 							$35
@@ -258,9 +266,9 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 
 			<div className="mt-8 text-center">
 				<Button asChild variant="ghost">
-					<Link to="/recipes">
+					<Link to={isLoggedIn ? '/recipes' : '/'}>
 						<Icon name="arrow-left" size="sm" className="mr-1" />
-						Back to Recipes
+						{isLoggedIn ? 'Back to Recipes' : 'Back to home'}
 					</Link>
 				</Button>
 			</div>

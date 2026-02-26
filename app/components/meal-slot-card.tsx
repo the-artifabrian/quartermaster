@@ -17,8 +17,6 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { type MealType, MEAL_TYPE_LABELS } from '#app/utils/date.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import {
-	type MatchData,
-	type PairingData,
 	type RecipeSelectorRecipe,
 	RecipeSelector,
 } from './recipe-selector.tsx'
@@ -33,8 +31,6 @@ type MealSlotCardProps = {
 		recipe: RecipeSelectorRecipe
 	}>
 	recipes: RecipeSelectorRecipe[]
-	weekStart: string
-	isProActive?: boolean
 }
 
 type QuickCookData = {
@@ -223,86 +219,64 @@ export function MealSlotCard({
 	mealType,
 	entries,
 	recipes,
-	weekStart,
-	isProActive,
 }: MealSlotCardProps) {
 	const [isSelectingRecipe, setIsSelectingRecipe] = useState(false)
-	const pairingFetcher = useFetcher<{
-		pairings: PairingData
-		matchData: MatchData
-	}>()
-
-	const pairingData = pairingFetcher.data?.pairings
-	const matchData = pairingFetcher.data?.matchData
-
-	function openRecipeSelector() {
-		setIsSelectingRecipe(true)
-		if (
-			isProActive &&
-			!pairingFetcher.data &&
-			pairingFetcher.state === 'idle'
-		) {
-			void pairingFetcher.load(
-				`/resources/meal-plan-pairing?weekStart=${weekStart}`,
-			)
-		}
-	}
 
 	const assignedRecipeIds = entries.map((e) => e.recipe.id)
 
+	const selectorDropdown = isSelectingRecipe ? (
+		<div className="bg-card animate-fade-up-reveal absolute left-0 right-0 top-full z-20 mt-1 rounded-xl border p-3 shadow-lg md:min-w-[280px]">
+			<RecipeSelector
+				recipes={recipes}
+				date={date}
+				mealType={mealType}
+				excludeRecipeIds={assignedRecipeIds}
+				onCancel={() => setIsSelectingRecipe(false)}
+				onSelect={() => setIsSelectingRecipe(false)}
+			/>
+		</div>
+	) : null
+
 	// Empty slot: ghost + button
 	if (entries.length === 0) {
-		if (isSelectingRecipe) {
-			return (
-				<div className="animate-fade-up-reveal rounded-xl border border-dashed p-3">
-					<div className="text-muted-foreground mb-2 text-xs font-medium">
-						{MEAL_TYPE_LABELS[mealType]}
-					</div>
-					<RecipeSelector
-						recipes={recipes}
-						date={date}
-						mealType={mealType}
-						excludeRecipeIds={assignedRecipeIds}
-						onCancel={() => setIsSelectingRecipe(false)}
-						onSelect={() => setIsSelectingRecipe(false)}
-						pairingData={pairingData}
-						matchData={matchData}
-					/>
-				</div>
-			)
-		}
-
 		return (
-			<button
-				type="button"
-				onClick={openRecipeSelector}
-				className="text-muted-foreground hover:text-foreground hover:border-accent/30 flex w-full items-center gap-1.5 rounded-lg border border-dashed px-3 py-1.5 text-xs transition-colors"
-			>
-				<span className="bg-muted flex size-5 items-center justify-center rounded-full text-[10px]">
-					+
-				</span>
-				{MEAL_TYPE_LABELS[mealType]}
-			</button>
+			<div className="relative">
+				<button
+					type="button"
+					onClick={() => setIsSelectingRecipe(true)}
+					className={cn(
+						'text-muted-foreground hover:text-foreground hover:border-accent/30 flex w-full items-center gap-1.5 rounded-lg border border-dashed px-3 py-1.5 text-xs transition-colors',
+						isSelectingRecipe && 'border-accent/30 text-foreground',
+					)}
+				>
+					<span className="bg-muted flex size-5 items-center justify-center rounded-full text-[10px]">
+						+
+					</span>
+					{MEAL_TYPE_LABELS[mealType]}
+				</button>
+				{selectorDropdown}
+			</div>
 		)
 	}
 
 	// Filled slot: warm card with entries
 	return (
-		<div className="bg-card shadow-warm hover:shadow-warm-md group overflow-hidden rounded-xl transition-shadow">
+		<div className="bg-card shadow-warm hover:shadow-warm-md group relative rounded-xl transition-shadow">
 			<div className="flex items-center justify-between px-3 pt-2 md:px-2 md:pt-1.5">
 				<p className="text-muted-foreground text-xs font-medium">
 					{MEAL_TYPE_LABELS[mealType]}
 				</p>
-				{!isSelectingRecipe && (
-					<button
-						type="button"
-						onClick={openRecipeSelector}
-						className="text-muted-foreground hover:text-foreground -m-1 rounded p-1.5 transition-colors"
-						title="Add another recipe"
-					>
-						<Icon name="plus" className="size-3.5" />
-					</button>
-				)}
+				<button
+					type="button"
+					onClick={() => setIsSelectingRecipe(!isSelectingRecipe)}
+					className="text-muted-foreground hover:text-foreground -m-1 rounded p-1.5 transition-colors"
+					title={isSelectingRecipe ? 'Close' : 'Add another recipe'}
+				>
+					<Icon
+						name={isSelectingRecipe ? 'cross-1' : 'plus'}
+						className="size-3.5"
+					/>
+				</button>
 			</div>
 			<div className="p-3 pt-2 md:px-2 md:pt-1 md:pb-2">
 				{entries.map((entry, i) => (
@@ -313,21 +287,8 @@ export function MealSlotCard({
 						<EntryRow entry={entry} />
 					</div>
 				))}
-				{isSelectingRecipe && (
-					<div className="border-border/50 mt-2 border-t pt-2">
-						<RecipeSelector
-							recipes={recipes}
-							date={date}
-							mealType={mealType}
-							excludeRecipeIds={assignedRecipeIds}
-							onCancel={() => setIsSelectingRecipe(false)}
-							onSelect={() => setIsSelectingRecipe(false)}
-							pairingData={pairingData}
-							matchData={matchData}
-						/>
-					</div>
-				)}
 			</div>
+			{selectorDropdown}
 		</div>
 	)
 }

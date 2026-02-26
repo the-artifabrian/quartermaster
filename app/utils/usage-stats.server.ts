@@ -8,7 +8,6 @@ export async function getUsageStats(userId: string, householdId: string) {
 		cookCount,
 		mealPlanWeekCount,
 		eventCounts,
-		pairingCount,
 		mostCookedRaw,
 		uniqueRecipesCooked,
 	] = await Promise.all([
@@ -22,13 +21,6 @@ export async function getUsageStats(userId: string, householdId: string) {
 			where: { householdId, createdAt: { gte: ninetyDaysAgo } },
 			_count: { id: true },
 		}),
-		prisma.usageEvent.count({
-			where: {
-				householdId,
-				type: 'pairing_recipe_assigned',
-				createdAt: { gte: ninetyDaysAgo },
-			},
-		}),
 		prisma.cookingLog.groupBy({
 			by: ['recipeId'],
 			where: { userId },
@@ -41,26 +33,6 @@ export async function getUsageStats(userId: string, householdId: string) {
 			where: { userId },
 		}),
 	])
-
-	// Count distinct weeks from pairing events
-	const pairingEvents = await prisma.usageEvent.findMany({
-		where: {
-			householdId,
-			type: 'pairing_recipe_assigned',
-			createdAt: { gte: ninetyDaysAgo },
-		},
-		select: { createdAt: true },
-	})
-	const pairingWeeks = new Set(
-		pairingEvents.map((e) => {
-			const d = new Date(e.createdAt)
-			const jan1 = new Date(d.getFullYear(), 0, 1)
-			const weekNum = Math.ceil(
-				((d.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7,
-			)
-			return `${d.getFullYear()}-W${weekNum}`
-		}),
-	)
 
 	// Most cooked recipe title
 	let mostCookedRecipe: { title: string; count: number } | null = null
@@ -87,8 +59,6 @@ export async function getUsageStats(userId: string, householdId: string) {
 		uniqueRecipesCooked: uniqueRecipesCooked.length,
 		mostCookedRecipe,
 		mealPlanWeekCount,
-		pairingAssignments: pairingCount,
-		weeksWithPairings: pairingWeeks.size,
 		eventCounts: eventCountMap,
 	}
 }

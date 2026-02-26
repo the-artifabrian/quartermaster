@@ -10,19 +10,20 @@ import { TodayBanner } from '#app/components/today-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
+	addDaysUTC,
 	getCurrentWeekStart,
 	getWeekDays,
 	getWeekStart,
 	formatWeekRange,
 	getNextWeek,
 	getPreviousWeek,
+	isPast,
 	parseDate,
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
-import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { UncookedMealReminder } from '#app/components/uncooked-meal-reminder.tsx'
 import { type Route } from './+types/index.ts'
 
@@ -163,8 +164,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 			}))
 			.sort((a, b) => mealTypeSortKey(a.mealType) - mealTypeSortKey(b.mealType))
 
+		// Check if today had meals that are now all cooked
+		const hasCookedEntriesToday = mealPlan.entries.some(
+			(e) =>
+				serializeDate(new Date(e.date)) === serializeDate(today) &&
+				e.cooked,
+		)
+
 		let suggestion = null
-		if (tonightEntries.length === 0) {
+		if (tonightEntries.length === 0 && !hasCookedEntriesToday) {
 			const plannedRecipeIds = [
 				...new Set(mealPlan.entries.map((e) => e.recipeId)),
 			]
@@ -256,16 +264,6 @@ export async function action({ request }: Route.ActionArgs) {
 				},
 			})
 
-			if (formData.get('fromPairing') === 'true') {
-				const recipe = await prisma.recipe.findUnique({
-					where: { id: recipeId },
-					select: { title: true },
-				})
-				void trackEvent(userId, householdId, 'pairing_recipe_assigned', {
-					recipeId,
-					recipeTitle: recipe?.title,
-				})
-			}
 		}
 
 		return { status: 'success' as const }
@@ -380,6 +378,9 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
 	const nextWeek = serializeDate(getNextWeek(parseDate(weekStart)))
 	const currentWeek = serializeDate(getCurrentWeekStart())
+	// Hide "Suggest Meals" if the entire week is in the past (Sunday has passed)
+	const weekSunday = addDaysUTC(parseDate(weekStart), 6)
+	const isWeekPast = isPast(weekSunday)
 	const [showSuggest, setShowSuggest] = useState(false)
 	const [bannerDismissed, setBannerDismissed] = useState(false)
 
@@ -392,7 +393,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 					<h1 className="font-serif text-2xl">Meal Plan</h1>
 					<div className="flex flex-wrap gap-2">
-						{isProActive && (
+						{isProActive && !isWeekPast && (
 							<Button
 								variant="outline"
 								size="sm"
@@ -484,8 +485,6 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					weekDays={weekDays}
 					entries={entries}
 					recipes={recipes}
-					weekStart={weekStart}
-					isProActive={isProActive}
 				/>
 
 				{entries.length > 0 && shoppingListItemCount === 0 && (

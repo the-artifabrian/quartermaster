@@ -3,8 +3,24 @@ import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { addDaysUTC, formatDayLabel, parseDate } from '#app/utils/date.ts'
+import {
+	addDaysUTC,
+	formatDayLabel,
+	getCurrentWeekStart,
+	isPast,
+	isToday,
+	parseDate,
+	serializeDate,
+} from '#app/utils/date.ts'
 import { useModal } from '#app/utils/use-modal.ts'
+
+/** Hour thresholds after which a meal type is considered "past" for today. */
+const MEAL_TYPE_CUTOFF_HOUR: Record<MealType, number> = {
+	breakfast: 11,
+	lunch: 15,
+	dinner: 21,
+	snack: 23,
+}
 
 const MEAL_TYPES = ['dinner', 'lunch', 'breakfast', 'snack'] as const
 type MealType = (typeof MEAL_TYPES)[number]
@@ -83,7 +99,11 @@ export function SuggestMealsModal({
 	)
 	const [pickingDay, setPickingDay] = useState<number | null>(null)
 	const [pickerSearch, setPickerSearch] = useState('')
-	const [initialized, setInitialized] = useState(false)
+	// Track which meal type selections are ready for (null = never initialized)
+	const [readyForType, setReadyForType] = useState<string | null>(null)
+	// Guards against stale data: only initialize after fetcher completes a
+	// loading→idle cycle, preventing use of the previous tab's cached data.
+	const hasFreshData = useRef(false)
 
 	// Load suggestions on mount and when meal type changes
 	useEffect(() => {
@@ -93,27 +113,36 @@ export function SuggestMealsModal({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [weekStart, mealType])
 
+	// Mark data as fresh once fetcher enters loading state
+	useEffect(() => {
+		if (suggestFetcher.state === 'loading') {
+			hasFreshData.current = true
+		}
+	}, [suggestFetcher.state])
+
 	const handleMealTypeChange = useCallback((type: MealType) => {
 		setMealType(type)
 		setSelections(new Map())
-		setInitialized(false)
+		hasFreshData.current = false
 		setPickingDay(null)
 		setPickerSearch('')
 	}, [])
 
 	// Initialize selections from suggestions once loaded
 	useEffect(() => {
-		if (initialized) return
+		if (readyForType === mealType) return
 		if (suggestFetcher.state !== 'idle' || !suggestFetcher.data) return
+		if (!hasFreshData.current) return
 
 		const { suggestions, filledDays } = suggestFetcher.data
 		const filledSet = new Set(filledDays)
 		const newSelections = new Map<number, Selection>()
 
-		// Assign suggestions to empty days (0=Mon through 6=Sun)
+		// Assign suggestions to empty future days (0=Mon through 6=Sun)
 		let suggestionIdx = 0
 		for (let day = 0; day < 7; day++) {
 			if (filledSet.has(day)) continue
+			if (pastDays.has(day)) continue
 			if (suggestionIdx >= suggestions.length) break
 			const s = suggestions[suggestionIdx]!
 			newSelections.set(day, {
@@ -126,8 +155,8 @@ export function SuggestMealsModal({
 		}
 
 		setSelections(newSelections)
-		setInitialized(true)
-	}, [suggestFetcher.state, suggestFetcher.data, initialized])
+		setReadyForType(mealType)
+	}, [suggestFetcher.state, suggestFetcher.data, readyForType, mealType])
 
 	// Handle successful confirm
 	useEffect(() => {
@@ -152,9 +181,18 @@ export function SuggestMealsModal({
 		prevConfirmState.current = confirmFetcher.state
 	}, [confirmFetcher.state, confirmFetcher.data, onClose, weekStart, mealType])
 
-	const isLoading = suggestFetcher.state !== 'idle'
+	const isFetching = suggestFetcher.state !== 'idle'
+	// Full spinner only on very first load (no data to show yet)
+	const isInitialLoad = isFetching && readyForType === null
+	// Dimmed transition state for tab switches
+	const isTransitioning = readyForType !== mealType
 	const isSubmitting = confirmFetcher.state !== 'idle'
-	const filledDays = new Set(suggestFetcher.data?.filledDays ?? [])
+	// Only use filledDays when data matches current meal type
+	const filledDays = new Set(
+		readyForType === mealType
+			? (suggestFetcher.data?.filledDays ?? [])
+			: [],
+	)
 
 	// Count stats for footer
 	const selectionCount = selections.size
@@ -202,6 +240,24 @@ export function SuggestMealsModal({
 
 	// Get the week date for a day index
 	const weekStartDate = parseDate(weekStart)
+
+	// Determine which days are "past" (can't plan for them)
+	// Uses isPast/isToday which correctly compare UTC calendar dates against local time
+	const isCurrentWeek =
+		serializeDate(weekStartDate) === serializeDate(getCurrentWeekStart())
+	const pastDays = new Set<number>()
+	if (isCurrentWeek) {
+		const hour = new Date().getHours()
+		for (let i = 0; i < 7; i++) {
+			const dayDate = addDaysUTC(weekStartDate, i)
+			if (isPast(dayDate)) {
+				pastDays.add(i)
+			} else if (isToday(dayDate) && hour >= MEAL_TYPE_CUTOFF_HOUR[mealType]) {
+				// Today but meal type time has passed
+				pastDays.add(i)
+			}
+		}
+	}
 
 	// Filter recipes for picker: exclude already-selected and already-planned
 	const selectedRecipeIds = new Set([...selections.values()].map((s) => s.recipeId))
@@ -261,7 +317,7 @@ export function SuggestMealsModal({
 
 				{/* Body */}
 				<div className="flex-1 overflow-y-auto p-4">
-					{isLoading ? (
+					{isInitialLoad ? (
 						<div className="flex flex-col items-center justify-center py-12">
 							<Icon name="update" size="md" className="text-muted-foreground animate-spin" />
 							<p className="text-muted-foreground mt-2 text-sm">Finding recipes...</p>
@@ -323,17 +379,21 @@ export function SuggestMealsModal({
 						</div>
 					) : (
 						/* Day rows */
-						<div className="space-y-2">
+						<div
+							className={`space-y-2 transition-opacity duration-150 ${isTransitioning ? 'pointer-events-none opacity-40' : ''}`}
+						>
 							{Array.from({ length: 7 }, (_, i) => {
 								const dayDate = addDaysUTC(weekStartDate, i)
+								const isDayPast = pastDays.has(i)
 								const isFilled = filledDays.has(i)
 								const selection = selections.get(i)
+								const isDisabled = isDayPast || isFilled
 
 								return (
 									<div
 										key={i}
 										className={`flex items-center gap-3 rounded-xl p-2.5 ${
-											isFilled
+											isDisabled
 												? 'bg-secondary/20 opacity-60'
 												: 'bg-secondary/30'
 										}`}
@@ -345,7 +405,11 @@ export function SuggestMealsModal({
 
 										{/* Content */}
 										<div className="min-w-0 flex-1">
-											{isFilled ? (
+											{isDayPast ? (
+												<span className="text-muted-foreground text-sm italic">
+													Past
+												</span>
+											) : isFilled ? (
 												<span className="text-muted-foreground text-sm italic">
 													Already planned
 												</span>
@@ -380,7 +444,7 @@ export function SuggestMealsModal({
 										</div>
 
 										{/* Actions */}
-										{!isFilled && selection ? (
+										{!isDisabled && selection ? (
 											<div className="flex shrink-0 gap-1">
 												<button
 													onClick={() => setPickingDay(i)}
@@ -397,7 +461,7 @@ export function SuggestMealsModal({
 													<Icon name="cross-1" size="sm" />
 												</button>
 											</div>
-										) : !isFilled && !selection ? (
+										) : !isDisabled && !selection ? (
 											<button
 												onClick={() => setPickingDay(i)}
 												aria-label="Pick recipe"
@@ -414,7 +478,7 @@ export function SuggestMealsModal({
 				</div>
 
 				{/* Footer */}
-				{pickingDay === null && !isLoading && (
+				{pickingDay === null && !isInitialLoad && (
 					<div className="border-t p-4 pt-3">
 						<p className="text-muted-foreground mb-3 text-center text-xs">
 							{selectionCount} meal{selectionCount !== 1 ? 's' : ''}
@@ -422,7 +486,7 @@ export function SuggestMealsModal({
 						<div className="flex gap-2">
 							<Button
 								className="flex-1"
-								disabled={selectionCount === 0 || isSubmitting}
+								disabled={selectionCount === 0 || isSubmitting || isTransitioning}
 								onClick={handleConfirm}
 							>
 								{isSubmitting ? (

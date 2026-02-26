@@ -27,12 +27,13 @@ The app is feature-complete for solo and shared daily use.
 | 5-8            | Inventory matching ("What can I make?"), cooking logs, unit conversion                                                                                    |
 | 9-12           | Recipe scaling, cooking mode (timers, temps), ingredient headings, bulk import                                                                            |
 | 13a-e          | Household sharing, SSE real-time shopping sync                                                                                                            |
-| Polish + UX    | Color system, mobile-first layout, print/share, pairing/waste, cooking progress, card streamlining                                                        |
+| Polish + UX    | Color system, mobile-first layout, print/share, waste alerts, cooking progress, card streamlining                                                         |
 | AI             | Ingredient substitutions (static DB + LLM), recipe generation, metadata enhance                                                                           |
 | Beta hardening | Dead code cleanup, a11y (focus traps, aria-labels, focus rings), render-time setState fixes, SSRF + sourcemap + error sanitization, shopping live-refresh |
 
-onboarding nudges, suggest meals with meal type picker, free inventory limit
-bumped to 50, copy/UX polish pass across all pages.
+onboarding nudges, smart meal suggestions (title-based recipe classification,
+composite scoring, variety enforcement, past-day/meal-type awareness), free
+inventory limit bumped to 50, copy/UX polish pass across all pages.
 
 ---
 
@@ -101,7 +102,7 @@ The app has **fully replaced Apple Notes** and **meal planning happens in-app**
 basic planning + shopping.
 
 **Instrumentation deferred.** The existing `UsageEvent` model tracks AI/Pro
-feature usage (generation, enhance, substitutions, pairing selections). Funnel-
+feature usage (generation, enhance, substitutions). Funnel-
 level visibility (how far each user gets through signup → recipe → inventory →
 plan → shop → check off) would require ~8 additional `trackEvent()` calls in
 existing route actions + an admin query. At 3-5 beta testers, conversations are

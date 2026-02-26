@@ -136,16 +136,22 @@ execution quality, not differentiation.
 - "Up next" banner (current week): next chronological meal to cook today with
   time-of-day awareness. Empty state suggests a favorite with one-tap add
 - Copy week to next week (preserves servings, skips duplicates)
-- Suggest Meals: one-tap "Suggest Meals" button fills the week with suggestions
-  ranked by priority — favorites not recently cooked, then highest inventory
-  match %. Meal type selector (dinner, lunch, breakfast, snack) with per-type
-  slot detection. Review modal shows 7 day rows with reason badges
-  (Favorite/Good match), inline
-  recipe picker for empty or swapped days, and "Fill Plan" confirm. Post-confirm
-  toast links to shopping list generation
-- Pairing suggestions when adding recipes: ranked by ingredient overlap with
-  planned recipes, weeknight-aware sorting (Mon-Thu quick-cook recipes first),
-  inventory match indicators (X/Y ingredients in stock, green at 100%)
+- Suggest Meals (Pro): fills the week with smart suggestions. Two pools —
+  favorites not recently cooked, then highest inventory match — scored by
+  composite (inventory match % × meal type fit). Title-based recipe
+  classification (main/dessert/breakfast/side/condiment/beverage) with priority
+  chain (protein words override head-noun, so "Chicken with Cream Sauce" is a
+  main course not a condiment). Condiments and beverages hard-filtered; desserts
+  deprioritized for dinner, promoted for snack. Variety enforcement: max 2 of
+  same protein per week, Jaccard ingredient overlap > 0.5 rejected. Existing
+  planned entries seed the variety state. Recently cooked recipes (14 days)
+  excluded. Past days and past meal types (time-of-day aware) skipped in modal.
+  Button hidden for fully past weeks. Meal type selector (dinner, lunch,
+  breakfast, snack) with per-type slot detection. Review modal shows day rows
+  with reason badges (Favorite/Good match), inline recipe picker for swaps, and
+  "Fill Plan" confirm. Post-confirm toast links to shopping list generation
+- Recipe selector dropdown (floating overlay, doesn't break calendar grid):
+  weeknight-aware sorting (Mon-Thu quick-cook recipes first), cook time display
 - Single-use ingredient waste alerts with recipe suggestions
 - Standalone shopping list at `/shopping` with:
   - Generate from meal plan (week picker for prev/current/next week, skips
@@ -207,7 +213,7 @@ execution quality, not differentiation.
 
 - Free: unlimited recipes, up to 50 inventory items, smart matching, basic meal
   planning calendar, basic shopping list generation, household sharing. Pro:
-  unlimited inventory, planning intelligence (suggest meals, copy week, pairing,
+  unlimited inventory, planning intelligence (suggest meals, copy week,
   waste alerts), full shopping pipeline (live-refresh, low-stock nudge,
   days Pro, grants 2 starter codes) coexist with Stripe and trial
   redeemed a code (localStorage dismiss, inline redeem form)
@@ -242,13 +248,12 @@ execution quality, not differentiation.
   validation), input length limits, production sourcemaps disabled by default
   (only generated when Sentry is configured), error message sanitization on
   public-facing pages, user enumeration prevention on forgot-password
-- Usage analytics via `UsageEvent` model (pairing selections, recipe actions,
-  event counts). Stats page at Settings > Data (cooking activity, meal planning,
-  event log)
+- Usage analytics via `UsageEvent` model (recipe actions, event counts). Stats
+  page at Settings > Data (cooking activity, meal planning, event log)
 - Vitest unit/integration tests + Playwright e2e tests (including shopping →
   inventory pipeline end-to-end coverage)
 - Deployed on Fly.io with LiteFS, custom domain, HTTPS
 
 ---
 
-_Last updated: February 25, 2026._
+_Last updated: February 26, 2026._

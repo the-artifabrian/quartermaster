@@ -7,6 +7,13 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import {
+	MIN_FIT_THRESHOLD,
+	createVarietyState,
+	isTooSimilar,
+	recordSelection,
+	scoreMealTypeFit,
+} from '#app/utils/meal-suggestion.server.ts'
 import { matchRecipesWithInventory } from '#app/utils/recipe-matching.server.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/meal-plan-suggest.ts'
@@ -66,9 +73,36 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// Get match results for all recipes
 	const matchResults = matchRecipesWithInventory(allRecipes, inventoryItems)
 
+	// Build a match lookup for quick access
+	const matchByRecipeId = new Map(
+		matchResults.map((m) => [m.recipe.id, m]),
+	)
+
+	// Composite scoring helper
+	function compositeScore(recipeId: string, title: string, ingredients: { isHeading: boolean }[]) {
+		const matchPct = (matchByRecipeId.get(recipeId)?.matchPercentage ?? 0) / 100
+		const ingredientCount = ingredients.filter((i) => !i.isHeading).length
+		const fit = scoreMealTypeFit(title, ingredientCount, mealType)
+		return { composite: matchPct * fit, fit }
+	}
+
 	// Build suggestion pools
 	const suggestions: Suggestion[] = []
 	const usedRecipeIds = new Set<string>()
+	const varietyState = createVarietyState()
+
+	// Seed variety state from existing entries for this meal type
+	// so suggestions don't duplicate proteins/ingredients already planned
+	const recipeById = new Map(allRecipes.map((r) => [r.id, r]))
+	if (existingPlan) {
+		for (const entry of existingPlan.entries) {
+			if (entry.mealType !== mealType) continue
+			const recipe = recipeById.get(entry.recipeId)
+			if (recipe) {
+				recordSelection(recipe.ingredients, varietyState)
+			}
+		}
+	}
 
 	// Pool 1: Favorites not recently cooked
 	if (suggestions.length < 7) {
@@ -80,18 +114,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 					!recentlyCookedIds.has(r.id) &&
 					!usedRecipeIds.has(r.id),
 			)
-			// Sort favorites by match percentage (use matchResults)
-			.sort((a, b) => {
-				const matchA =
-					matchResults.find((m) => m.recipe.id === a.id)?.matchPercentage ?? 0
-				const matchB =
-					matchResults.find((m) => m.recipe.id === b.id)?.matchPercentage ?? 0
-				return matchB - matchA
-			})
+			.map((r) => ({ recipe: r, ...compositeScore(r.id, r.title, r.ingredients) }))
+			// Filter poor meal-type fits (condiments, beverages, wrong-category recipes)
+			.filter((r) => r.fit >= MIN_FIT_THRESHOLD)
+			// Sort by composite score desc, then fit as tiebreaker
+			.sort((a, b) => b.composite - a.composite || b.fit - a.fit)
 
-		for (const recipe of favoriteRecipes) {
+		for (const { recipe } of favoriteRecipes) {
 			if (suggestions.length >= 7) break
+			if (isTooSimilar(recipe.ingredients, varietyState)) continue
 			usedRecipeIds.add(recipe.id)
+			recordSelection(recipe.ingredients, varietyState)
 			suggestions.push({
 				recipe: {
 					id: recipe.id,
@@ -105,12 +138,26 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	// Pool 2: High match percentage (not already in favorites)
 	if (suggestions.length < 7) {
-		for (const match of matchResults) {
+		const scored = matchResults
+			.filter(
+				(m) =>
+					!usedRecipeIds.has(m.recipe.id) &&
+					!plannedRecipeIds.has(m.recipe.id) &&
+					!recentlyCookedIds.has(m.recipe.id) &&
+					m.matchPercentage > 0,
+			)
+			.map((m) => ({
+				match: m,
+				...compositeScore(m.recipe.id, m.recipe.title, m.recipe.ingredients),
+			}))
+			.filter((r) => r.fit >= MIN_FIT_THRESHOLD)
+			.sort((a, b) => b.composite - a.composite || b.fit - a.fit)
+
+		for (const { match } of scored) {
 			if (suggestions.length >= 7) break
-			if (usedRecipeIds.has(match.recipe.id)) continue
-			if (plannedRecipeIds.has(match.recipe.id)) continue
-			if (match.matchPercentage === 0) continue
+			if (isTooSimilar(match.recipe.ingredients, varietyState)) continue
 			usedRecipeIds.add(match.recipe.id)
+			recordSelection(match.recipe.ingredients, varietyState)
 			suggestions.push({
 				recipe: {
 					id: match.recipe.id,
@@ -185,7 +232,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const entryDate = addDaysUTC(weekStart, i)
 
-		// Skip if this exact recipe is already assigned to this dinner slot
+		// Skip if this exact recipe is already assigned to this slot
 		const existing = await prisma.mealPlanEntry.findUnique({
 			where: {
 				mealPlanId_date_mealType_recipeId: {

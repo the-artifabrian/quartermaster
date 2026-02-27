@@ -550,7 +550,8 @@ Narrow, focused, satisfying to cross off.
 - Item name in DM Sans 16px. Quantity/unit as a small caption below.
 - Checked items: standard `line-through` (2px stone color, `decoration-2
   decoration-muted-foreground/60`). Text fades to 50% opacity.
-- 16px vertical padding per item for touch targets.
+- 10px vertical padding per item — tighter than default for efficient
+  scrolling through long lists.
 
 **Section headings** (`isHeading` items like "For the Cake"): **Must be visually
 distinct from checkable items.** No checkbox. DM Sans 500, uppercase or
@@ -560,8 +561,9 @@ are not items to check off.
 **Progress**: Header counter — "Shopping List (3/10)". No progress bar.
 
 **Sorting**: Items sort by checked status first, then alphabetically by name.
-No visible category headers — flat, scannable column. Categories are stored
-for inventory pipeline use but do not affect display order.
+No visible category headers — flat, scannable column. Category grouping was
+tried and removed; it added visual noise without helping real shopping trips.
+Categories are stored for inventory pipeline use but do not affect display.
 
 **Quick add**: Inline input at top on desktop (DM Sans placeholder "Add an
 item...", ghost + button). On mobile, a floating action button (FAB) in the
@@ -600,7 +602,7 @@ for one-handed use.
 **What makes it different from the shopping list**: Inventory is dense and
 scannable — you're looking up what you have. Shopping list is spacious and
 interactive — you're checking items off. Inventory rows are tighter (12px
-vertical padding vs shopping list's 16px). No checkboxes, no strikethrough. The
+vertical padding vs shopping list's 10px). No checkboxes, no strikethrough. The
 visual language says "reference" not "task list."
 
 ---

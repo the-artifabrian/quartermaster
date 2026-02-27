@@ -162,9 +162,10 @@ execution quality, not differentiation.
   - Quick add (open by default, collapsible) with smart duplicate/inventory
     warnings and "Add Anyway" bypass
   - Auto-categorization (produce, dairy, meat, pantry, frozen, bakery,
-    household, other) with sticky section headers per category. Unchecked
-    items grouped by category, checked items flat at the bottom under a
-    "Checked" header
+    household, other) for inventory pipeline and household item filtering.
+    Flat alphabetical list — no category headers (intentional: category
+    grouping was tried and removed as it added visual noise without
+    helping real shopping trips)
   - Inline item editing (name, quantity, unit)
   - Checked/total counter in the page header (e.g. "Shopping List (3/10)")
   - Client-side search/filter, print-friendly layout

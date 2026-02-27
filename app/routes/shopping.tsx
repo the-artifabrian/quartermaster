@@ -527,28 +527,6 @@ export async function action({ request }: Route.ActionArgs) {
 	return { status: 'error' as const }
 }
 
-const CATEGORY_ORDER = [
-	'produce',
-	'dairy',
-	'meat',
-	'bakery',
-	'frozen',
-	'pantry',
-	'household',
-	'other',
-]
-
-const CATEGORY_LABELS: Record<string, string> = {
-	produce: 'Produce',
-	dairy: 'Dairy & Eggs',
-	meat: 'Meat & Seafood',
-	bakery: 'Bakery',
-	frozen: 'Frozen',
-	pantry: 'Pantry',
-	household: 'Household',
-	other: 'Other',
-}
-
 export default function ShoppingListRoute({
 	loaderData,
 	actionData,
@@ -605,27 +583,6 @@ export default function ShoppingListRoute({
 	const filteredItems = search
 		? allItems.filter((i) => i.name.toLowerCase().includes(searchLower))
 		: allItems
-
-	// Group unchecked items by category, checked items flat at the bottom
-	const uncheckedItems = filteredItems.filter((i) => !i.checked)
-	const checkedFilteredItems = filteredItems.filter((i) => i.checked)
-	const groupedByCategory = new Map<string, typeof uncheckedItems>()
-	for (const item of uncheckedItems) {
-		const cat = item.category ?? 'other'
-		const group = groupedByCategory.get(cat)
-		if (group) {
-			group.push(item)
-		} else {
-			groupedByCategory.set(cat, [item])
-		}
-	}
-	const sortedCategories = CATEGORY_ORDER.filter((c) =>
-		groupedByCategory.has(c),
-	)
-	// Include any categories not in CATEGORY_ORDER
-	for (const cat of groupedByCategory.keys()) {
-		if (!CATEGORY_ORDER.includes(cat)) sortedCategories.push(cat)
-	}
 
 	// Determine if we should show a warning (from quick-add fetcher, not route actionData)
 	const showWarning =
@@ -840,49 +797,9 @@ export default function ShoppingListRoute({
 							</div>
 						) : (
 							<div>
-								{sortedCategories.map((cat, idx) => {
-									const items = groupedByCategory.get(cat)!
-									return (
-										<div key={cat}>
-											<div
-												className={`sticky top-0 z-10 flex items-center gap-2 bg-background/95 backdrop-blur-sm px-1 py-2 ${idx > 0 ? 'mt-3 border-t border-border pt-3' : ''}`}
-											>
-												<span className="text-[0.75rem] font-medium tracking-[0.08em] uppercase text-muted-foreground">
-													{CATEGORY_LABELS[cat] ?? cat}
-												</span>
-												<span className="text-[0.75rem] text-muted-foreground">
-													({items.length})
-												</span>
-											</div>
-											{items.map((item) => (
-												<ShoppingListItemCard
-													key={item.id}
-													item={item}
-												/>
-											))}
-										</div>
-									)
-								})}
-								{checkedFilteredItems.length > 0 && (
-									<div>
-										<div
-											className={`sticky top-0 z-10 flex items-center gap-2 bg-background/95 backdrop-blur-sm px-1 py-2 ${sortedCategories.length > 0 ? 'mt-3 border-t border-border pt-3' : ''}`}
-										>
-											<span className="text-[0.75rem] font-medium tracking-[0.08em] uppercase text-muted-foreground">
-												Checked
-											</span>
-											<span className="text-[0.75rem] text-muted-foreground">
-												({checkedFilteredItems.length})
-											</span>
-										</div>
-										{checkedFilteredItems.map((item) => (
-											<ShoppingListItemCard
-												key={item.id}
-												item={item}
-											/>
-										))}
-									</div>
-								)}
+								{filteredItems.map((item) => (
+									<ShoppingListItemCard key={item.id} item={item} />
+								))}
 							</div>
 						)}
 

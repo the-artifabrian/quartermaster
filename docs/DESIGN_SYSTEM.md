@@ -553,11 +553,6 @@ Narrow, focused, satisfying to cross off.
 - 10px vertical padding per item — tighter than default for efficient
   scrolling through long lists.
 
-**Section headings** (`isHeading` items like "For the Cake"): **Must be visually
-distinct from checkable items.** No checkbox. DM Sans 500, uppercase or
-small-caps at 12px. A subtle cedar line below. They organize the list — they
-are not items to check off.
-
 **Progress**: Header counter — "Shopping List (3/10)". No progress bar.
 
 **Sorting**: Items sort by checked status first, then alphabetically by name.

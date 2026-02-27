@@ -157,7 +157,7 @@ around recipe management + planning if that's where the energy is.
 
 ### Friction Log
 
-23 items surfaced and fixed during daily driving and beta hardening (a11y,
+25 items surfaced and fixed during daily driving and beta hardening (a11y,
 shopping UX, live-refresh, optimistic UI, error handling, onboarding). Detail in
 git history. Add new entries as friction surfaces.
 

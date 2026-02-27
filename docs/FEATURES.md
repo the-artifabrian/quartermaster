@@ -171,7 +171,8 @@ execution quality, not differentiation.
   - Client-side search/filter, print-friendly layout
   - Inventory-aware: items already in stock (not low) are pre-checked instead
     of omitted — users can uncheck any they actually need. Staple ingredients
-    (salt, pepper, water, oil) and optional ingredients are filtered out entirely
+    (salt, pepper, water, oil), optional ingredients, and ingredient headings
+    are filtered out entirely
   - Optimistic UI on checkbox toggle and delete (instant response via
     `useFetcher`)
   - Live-refresh via SSE for all shopping list events (generate, add, clear,

@@ -56,9 +56,11 @@ function FormSection({
 	defaultOpen?: boolean
 	children: React.ReactNode
 }) {
+	const [isOpen, setIsOpen] = useState(defaultOpen ?? false)
 	return (
 		<details
-			open={defaultOpen}
+			open={isOpen}
+			onToggle={(e) => setIsOpen(e.currentTarget.open)}
 			className="group/section rounded-xl border [&>summary]:list-none [&>summary::-webkit-details-marker]:hidden"
 		>
 			<summary className="flex cursor-pointer items-center gap-2 p-4 select-none">

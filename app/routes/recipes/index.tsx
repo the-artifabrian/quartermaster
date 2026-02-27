@@ -1,5 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { GettingStartedChecklist } from '#app/components/getting-started-checklist.tsx'
 import { InviteCodeBanner } from '#app/components/invite-code-banner.tsx'
@@ -249,6 +249,29 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		matchData,
 	} = loaderData
 	const [searchParams, setSearchParams] = useSearchParams()
+
+	// Save/restore scroll position for tab-style navigation
+	useEffect(() => {
+		const SCROLL_KEY = 'scroll:/recipes'
+		const saved = sessionStorage.getItem(SCROLL_KEY)
+		if (saved) {
+			requestAnimationFrame(() => window.scrollTo(0, parseInt(saved, 10)))
+		}
+
+		let ticking = false
+		const onScroll = () => {
+			if (!ticking) {
+				requestAnimationFrame(() => {
+					sessionStorage.setItem(SCROLL_KEY, String(window.scrollY))
+					ticking = false
+				})
+				ticking = true
+			}
+		}
+		window.addEventListener('scroll', onScroll, { passive: true })
+		return () => window.removeEventListener('scroll', onScroll)
+	}, [])
+
 	// Build match lookup for rendering
 	const matchLookup = useMemo(() => {
 		if (!matchData) return null

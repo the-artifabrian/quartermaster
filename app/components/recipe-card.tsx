@@ -130,16 +130,26 @@ export function RecipeCard({
 						</span>
 					)}
 					{matchPercentage != null && (
-						<span
-							className={cn(
-								'inline-block size-1.5 rounded-full',
-								matchPercentage >= 80
-									? 'bg-primary'
-									: matchPercentage >= 50
-										? 'bg-accent'
-										: 'bg-muted-foreground/40',
-							)}
-						/>
+						<span className="flex items-center gap-1">
+							<MatchProgressRing
+								percentage={matchPercentage}
+								size={16}
+								hideText
+								className="shrink-0"
+							/>
+							<span
+								className={cn(
+									'text-xs font-medium tabular-nums',
+									matchPercentage >= 80
+										? 'text-green-600 dark:text-green-400'
+										: matchPercentage >= 50
+											? 'text-amber-600 dark:text-amber-400'
+											: 'text-muted-foreground',
+								)}
+							>
+								{matchPercentage}%
+							</span>
+						</span>
 					)}
 					{isAiGenerated && (
 						<Icon name="sparkles" size="xs" className="text-muted-foreground/50" />

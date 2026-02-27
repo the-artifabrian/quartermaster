@@ -440,7 +440,9 @@ the visual. Don't fill the gap with letter avatars.
   truncating — titles are the most important thing on this screen.
 - Description (if present) below in small DM Sans, muted, 1 line max.
 - Metadata (cook time, match %) as tiny captions in stone color. Match
-  percentage: a small colored dot only — no number, no text.
+  percentage shown as a small (16px) progress ring + text percentage.
+  Color tiers: green ≥80%, amber ≥50%, muted foreground below.
+  `tabular-nums` for consistent widths. Ring uses `hideText` at this size.
 - 16px vertical padding per row. Subtle 1px cedar bottom border between rows.
 - Favorite: small copper heart to the right of the title.
 - If a recipe has an image: small thumbnail (48-56px) on the left.
@@ -491,8 +493,9 @@ with 16px horizontal margin on mobile. 1px cedar border, 6px radius.
   at 12px with a subtle underline — clearly distinct from checkable items (no
   checkbox). Checkboxes: 24px, sage fill when checked.
 - **Right: Instructions.** Step numbers in Young Serif, oversized. Step text in
-  DM Sans, line-height 1.75. 24px spacing between steps. Checked steps dim to
-  40% opacity with subtle strikethrough.
+  DM Sans, line-height 1.75. Steps separated by subtle border dividers for
+  scannability. Checked steps dim to 40% opacity with subtle strikethrough.
+  Checking a step auto-scrolls to center the next unchecked step.
 
 **Mobile (single column)**: Ingredients first (collapsible, starts expanded),
 then instructions. 17px base text for arm's-length reading. Full-row tap

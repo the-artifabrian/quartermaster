@@ -45,7 +45,8 @@ execution quality, not differentiation.
   localStorage
 - Cooking mode: interactive ingredient checkboxes and instruction cross-off with
   localStorage persistence (keyed by recipeId, 7-day auto-expiry, cleared on
-  cook log)
+  cook log). Auto-scrolls to next unchecked step when checking off a step.
+  Instructions separated by subtle dividers for scannability
 - Inline timers: auto-detected from instruction text ("simmer for 15 minutes" →
   one-tap start), up to 5 concurrent timers with floating widget that persists
   across navigation, alarm sound, wake lock

@@ -86,7 +86,7 @@ export function IngredientList({
 
 	return (
 		<>
-			<ul className="space-y-0.5 leading-[1.7] print:columns-2 print:gap-x-6 print:space-y-0 print:text-sm print:leading-[1.5]">
+			<ul className="space-y-1 leading-[1.7] print:columns-2 print:gap-x-6 print:space-y-0 print:text-sm print:leading-[1.5]">
 				{ingredients.map((ingredient) => {
 					if (ingredient.isHeading) {
 						return (
@@ -109,7 +109,7 @@ export function IngredientList({
 							aria-checked={isChecked}
 							tabIndex={0}
 							className={cn(
-								'flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors select-none',
+								'flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 transition-colors select-none',
 								'hover:bg-accent/5',
 								'focus-visible:ring-primary/50 focus-visible:ring-2 focus-visible:outline-none',
 								'print:gap-1.5 print:rounded-none print:px-0 print:py-0.5',
@@ -243,7 +243,7 @@ export function IngredientList({
 							type="button"
 							onClick={onToggleMetric}
 							className={cn(
-								'ml-auto rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+								'ml-auto rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
 								useMetric
 									? 'border-primary bg-primary text-primary-foreground'
 									: 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30',
@@ -274,7 +274,7 @@ export function IngredientList({
 							<Button
 								variant="outline"
 								size="sm"
-								className="w-full gap-1.5 text-xs"
+								className="w-full min-h-[44px] gap-1.5 text-xs"
 								onClick={handleAddToShoppingList}
 								disabled={isAddingToList}
 							>

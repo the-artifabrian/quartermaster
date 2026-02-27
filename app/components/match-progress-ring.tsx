@@ -11,10 +11,12 @@ function getColorClass(percentage: number) {
 export function MatchProgressRing({
 	percentage,
 	size = 40,
+	hideText,
 	className,
 }: {
 	percentage: number
 	size?: number
+	hideText?: boolean
 	className?: string
 }) {
 	const offset = CIRCUMFERENCE * (1 - percentage / 100)
@@ -51,12 +53,14 @@ export function MatchProgressRing({
 					stroke="currentColor"
 				/>
 			</svg>
-			<span
-				className="absolute text-center leading-none font-bold"
-				style={{ fontSize: size * 0.28 }}
-			>
-				{percentage}
-			</span>
+			{!hideText && (
+				<span
+					className="absolute text-center leading-none font-bold"
+					style={{ fontSize: size * 0.28 }}
+				>
+					{percentage}
+				</span>
+			)}
 		</div>
 	)
 }

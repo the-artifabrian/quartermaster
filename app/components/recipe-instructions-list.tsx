@@ -22,27 +22,49 @@ export function RecipeInstructionsList({
 	recipeName: string
 	useMetric?: boolean
 }) {
+	function handleToggle(id: string) {
+		const wasChecked = checkedSteps.has(id)
+		onToggleStep(id)
+
+		// If checking off (not unchecking), scroll to the next unchecked step
+		if (!wasChecked) {
+			const currentIndex = instructions.findIndex((i) => i.id === id)
+			const nextUnchecked = instructions.find(
+				(i, idx) => idx > currentIndex && !checkedSteps.has(i.id),
+			)
+			if (nextUnchecked) {
+				requestAnimationFrame(() => {
+					const el = document.querySelector(
+						`[data-step-id="${nextUnchecked.id}"]`,
+					)
+					el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+				})
+			}
+		}
+	}
+
 	return (
 		<div>
 			<h2 className="mb-4 font-serif text-lg font-normal">Instructions</h2>
-			<ol className="space-y-2">
+			<ol className="space-y-1">
 				{instructions.map((instruction, index) => {
 					const isChecked = checkedSteps.has(instruction.id)
 					return (
 						<li
 							key={instruction.id}
+							data-step-id={instruction.id}
 							role="checkbox"
 							aria-checked={isChecked}
 							tabIndex={0}
 							className={cn(
-								'flex cursor-pointer gap-4 px-1 py-2 transition-all select-none print:gap-2 print:px-0 print:py-0',
+								'flex cursor-pointer gap-4 border-b border-border/30 px-1 py-3 transition-all select-none last:border-b-0 print:gap-2 print:border-b-0 print:px-0 print:py-0',
 								'focus-visible:ring-primary/50 focus-visible:rounded-lg focus-visible:ring-2 focus-visible:outline-none',
 							)}
-							onClick={() => onToggleStep(instruction.id)}
+							onClick={() => handleToggle(instruction.id)}
 							onKeyDown={(e) => {
 								if (e.key === 'Enter' || e.key === ' ') {
 									e.preventDefault()
-									onToggleStep(instruction.id)
+									handleToggle(instruction.id)
 								}
 							}}
 						>

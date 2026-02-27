@@ -55,7 +55,11 @@ execution quality, not differentiation.
 - Recipe share button copies a public link to clipboard (`/share/$recipeId`)
   with explicit "public link" warning in tooltip and toast
 - Public share page (`/share/$recipeId`) with OG meta tags, JSON-LD, recipe
-  scaling, "Save to My Recipes" for logged-in users, sign-up CTA for non-users
+  scaling, interactive cooking mode (checkboxes, cross-off, auto-scroll,
+  dividers), inline timers, collapsible ingredients on mobile, "Save to My
+  Recipes" for logged-in users, sign-up CTA for non-users. Shares components
+  with recipe detail page (`RecipeMetadataCard`, `IngredientList`,
+  `RecipeInstructionsList`) for consistent UX
 - Import from URL (JSON-LD scraping with text fallback, follows redirects),
   quick text entry, JSON export
 - Bulk import: paste plain-text recipes or upload `.md`/`.txt` files. `---`

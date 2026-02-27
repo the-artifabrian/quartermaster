@@ -29,6 +29,7 @@ export function IngredientList({
 	shoppingFetcher,
 	useMetric,
 	onToggleMetric,
+	showFooter,
 }: {
 	ingredients: Array<{
 		id: string
@@ -54,6 +55,7 @@ export function IngredientList({
 	shoppingFetcher: ReturnType<typeof useFetcher>
 	useMetric?: boolean
 	onToggleMetric?: () => void
+	showFooter?: boolean
 }) {
 	const missingSet = new Set(missingIngredientIds)
 	const isOptional = (notes: string | null) =>
@@ -233,60 +235,62 @@ export function IngredientList({
 			</ul>
 
 			{/* Summary footer */}
-			<div className="mt-5 space-y-2 border-t pt-3 print:hidden">
-				<div className="flex items-center px-1">
-					<p className="text-muted-foreground text-xs">
-						You have {haveCount}/{nonHeadingCount} ingredients
-					</p>
-					{onToggleMetric && (
-						<button
-							type="button"
-							onClick={onToggleMetric}
-							className={cn(
-								'ml-auto rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-								useMetric
-									? 'border-primary bg-primary text-primary-foreground'
-									: 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30',
+			{showFooter !== false && (
+				<div className="mt-5 space-y-2 border-t pt-3 print:hidden">
+					<div className="flex items-center px-1">
+						<p className="text-muted-foreground text-xs">
+							You have {haveCount}/{nonHeadingCount} ingredients
+						</p>
+						{onToggleMetric && (
+							<button
+								type="button"
+								onClick={onToggleMetric}
+								className={cn(
+									'ml-auto rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+									useMetric
+										? 'border-primary bg-primary text-primary-foreground'
+										: 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30',
+								)}
+							>
+								g/ml
+							</button>
+						)}
+					</div>
+					{missingCount > 0 && (
+						<>
+							{addedToList !== undefined ? (
+								<div className="px-1 text-center">
+									<p className="text-xs text-green-600">
+										<Icon name="check" className="mr-1 inline size-3.5" />
+										Added {addedToList} item
+										{addedToList !== 1 ? 's' : ''} to shopping list
+									</p>
+									<Link
+										to="/shopping"
+										className="text-primary mt-1 inline-flex items-center gap-1 text-xs font-medium hover:underline"
+									>
+										View Shopping List
+										<Icon name="arrow-right" className="size-3" />
+									</Link>
+								</div>
+							) : (
+								<Button
+									variant="outline"
+									size="sm"
+									className="w-full min-h-[44px] gap-1.5 text-xs"
+									onClick={handleAddToShoppingList}
+									disabled={isAddingToList}
+								>
+									<Icon name="plus" size="sm" />
+									{isAddingToList
+										? 'Adding...'
+										: `Add ${missingCount} missing to Shopping List`}
+								</Button>
 							)}
-						>
-							g/ml
-						</button>
+						</>
 					)}
 				</div>
-				{missingCount > 0 && (
-					<>
-						{addedToList !== undefined ? (
-							<div className="px-1 text-center">
-								<p className="text-xs text-green-600">
-									<Icon name="check" className="mr-1 inline size-3.5" />
-									Added {addedToList} item
-									{addedToList !== 1 ? 's' : ''} to shopping list
-								</p>
-								<Link
-									to="/shopping"
-									className="text-primary mt-1 inline-flex items-center gap-1 text-xs font-medium hover:underline"
-								>
-									View Shopping List
-									<Icon name="arrow-right" className="size-3" />
-								</Link>
-							</div>
-						) : (
-							<Button
-								variant="outline"
-								size="sm"
-								className="w-full min-h-[44px] gap-1.5 text-xs"
-								onClick={handleAddToShoppingList}
-								disabled={isAddingToList}
-							>
-								<Icon name="plus" size="sm" />
-								{isAddingToList
-									? 'Adding...'
-									: `Add ${missingCount} missing to Shopping List`}
-							</Button>
-						)}
-					</>
-				)}
-			</div>
+			)}
 		</>
 	)
 }

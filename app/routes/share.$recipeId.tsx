@@ -9,15 +9,19 @@ import {
 	useSearchParams,
 } from 'react-router'
 import { Divider } from '#app/components/divider.tsx'
-import { InstructionWithTimers } from '#app/components/instruction-with-timers.tsx'
+import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
+import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
+import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { scaleAmount } from '#app/utils/fractions.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { cn } from '#app/utils/misc.tsx'
-import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
+import {
+	type AppliedSubstitution,
+	getRecipeJsonLd,
+} from '#app/utils/recipe-detail.ts'
 import { type Route } from './+types/share.$recipeId.ts'
 
 export const handle: SEOHandle = {
@@ -206,6 +210,9 @@ export async function action({ params, request }: Route.ActionArgs) {
 
 // --- Main component ---
 
+const noSubstitutions = new Map<string, AppliedSubstitution>()
+function noop() {}
+
 export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 	const { recipe, isLoggedIn, alreadySaved } = loaderData
 	const saveFetcher = useFetcher()
@@ -214,12 +221,12 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 		| undefined
 	const origin = rootData?.requestInfo?.origin
 	const recipeJsonLd = getRecipeJsonLd(recipe, origin)
-	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
 	const [searchParams, setSearchParams] = useSearchParams()
 	const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
 		() => new Set(),
 	)
 	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(() => new Set())
+	const [ingredientsExpanded, setIngredientsExpanded] = useState(true)
 
 	const servingsParam = searchParams.get('servings')
 	const currentServings = servingsParam
@@ -276,8 +283,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 				}}
 			/>
 
-			{/* Hero area */}
-			<div className="container-content pt-4 md:pt-6">
+			<div className="container-content pt-4 pb-20 md:pt-6 md:pb-6">
 				<p className="text-muted-foreground mb-2 text-sm">
 					Shared{recipe.user.name ? ` by ${recipe.user.name}` : ''} on{' '}
 					<Link to="/" className="text-primary hover:underline">
@@ -292,62 +298,11 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 							{recipe.title}
 						</h1>
 						<Divider className="mt-3 mb-2 max-w-xs" />
-
-						{/* Metadata inline */}
-						{(recipe.prepTime || recipe.cookTime || recipe.sourceUrl) && (
-							<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-								{recipe.prepTime && (
-									<span className="text-muted-foreground flex items-center gap-1">
-										<Icon name="clock" size="sm" className="text-muted-foreground/70" />
-										Prep: {recipe.prepTime} min
-									</span>
-								)}
-								{recipe.cookTime && (
-									<>
-										{recipe.prepTime && (
-											<span className="text-border hidden md:inline">·</span>
-										)}
-										<span className="text-muted-foreground flex items-center gap-1">
-											<Icon name="clock" size="sm" className="text-muted-foreground/70" />
-											Cook: {recipe.cookTime} min
-										</span>
-									</>
-								)}
-								{totalTime > 0 && (
-									<>
-										<span className="text-border hidden md:inline">·</span>
-										<span className="text-foreground/80 font-medium">
-											Total: {totalTime} min
-										</span>
-									</>
-								)}
-								{recipe.sourceUrl && (
-									<>
-										{(recipe.prepTime || recipe.cookTime) && (
-											<span className="text-border hidden md:inline">·</span>
-										)}
-										<a
-											href={recipe.sourceUrl}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline"
-										>
-											<Icon name="link-2" size="sm" />
-											{(() => {
-												try {
-													return new URL(recipe.sourceUrl).hostname.replace(
-														/^www\./,
-														'',
-													)
-												} catch {
-													return 'Source'
-												}
-											})()}
-										</a>
-									</>
-								)}
-							</div>
-						)}
+						<RecipeMetadataCard
+							prepTime={recipe.prepTime}
+							cookTime={recipe.cookTime}
+							sourceUrl={recipe.sourceUrl}
+						/>
 					</div>
 
 					{/* Image beside title on desktop, below on mobile */}
@@ -363,10 +318,6 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 						</div>
 					)}
 				</div>
-			</div>
-
-			{/* Content */}
-			<div className="container-content pb-20 md:pb-6">
 				{/* Description */}
 				{recipe.description && (
 					<p className="text-muted-foreground mt-5 text-base leading-relaxed">
@@ -375,12 +326,30 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Content zone: Ingredients + Instructions */}
-				<div className="mt-6 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8">
+				<div className="mt-4 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8">
 					{/* Ingredients */}
 					<div className="md:sticky md:top-20 md:self-start">
 						<div className="bg-card shadow-warm rounded-2xl border p-4 md:p-6">
 							<div className="mb-3 flex items-center gap-2 md:mb-4">
-								<h2 className="font-serif text-lg font-normal">Ingredients</h2>
+								<button
+									type="button"
+									className="flex items-center gap-1.5 md:pointer-events-none"
+									onClick={() => setIngredientsExpanded((v) => !v)}
+									aria-expanded={ingredientsExpanded}
+									aria-controls="ingredients-list"
+								>
+									<Icon
+										name="chevron-down"
+										size="sm"
+										className={cn(
+											'text-muted-foreground transition-transform md:hidden',
+											!ingredientsExpanded && '-rotate-90',
+										)}
+									/>
+									<h2 className="font-serif text-lg font-normal">
+										Ingredients
+									</h2>
+								</button>
 								<span className="ml-auto flex items-center gap-1">
 									<Button
 										variant="outline"
@@ -416,123 +385,36 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 									)}
 								</span>
 							</div>
-							<ul className="space-y-0.5 leading-[1.7]">
-								{recipe.ingredients.map((ingredient) => {
-									if (ingredient.isHeading) {
-										return (
-											<li key={ingredient.id}>
-												<p className="text-muted-foreground font-sans mt-4 mb-1.5 border-b border-border/50 px-2 pb-1 text-sm font-medium tracking-wider [font-variant:small-caps] first:mt-0">
-													{ingredient.name}
-												</p>
-											</li>
-										)
-									}
-
-									const isChecked = checkedIngredients.has(ingredient.id)
-									return (
-										<li
-											key={ingredient.id}
-											role="checkbox"
-											aria-checked={isChecked}
-											tabIndex={0}
-											className="hover:bg-accent/5 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors select-none"
-											onClick={() => toggleIngredient(ingredient.id)}
-											onKeyDown={(e) => {
-												if (e.key === 'Enter' || e.key === ' ') {
-													e.preventDefault()
-													toggleIngredient(ingredient.id)
-												}
-											}}
-										>
-											<span
-												className={cn(
-													'flex size-6 shrink-0 items-center justify-center rounded border transition-colors',
-													isChecked
-														? 'border-primary bg-primary text-primary-foreground'
-														: 'border-muted-foreground/25 bg-muted/30',
-												)}
-											>
-												{isChecked && <Icon name="check" className="size-4" />}
-											</span>
-											<span
-												className={cn(
-													'transition-colors',
-													isChecked && 'text-muted-foreground/40 line-through decoration-muted-foreground/30',
-												)}
-											>
-												{ingredient.amount && (
-													<span className="font-medium">
-														{scaleAmount(ingredient.amount, ratio)}{' '}
-													</span>
-												)}
-												{ingredient.unit && <span>{ingredient.unit} </span>}
-												<span>{ingredient.name}</span>
-												{ingredient.notes && (
-													<span
-														className={isChecked ? '' : 'text-muted-foreground'}
-													>
-														, {ingredient.notes}
-													</span>
-												)}
-											</span>
-										</li>
-									)
-								})}
-							</ul>
+							<div
+								id="ingredients-list"
+								className={cn(!ingredientsExpanded && 'hidden md:block')}
+							>
+								<IngredientList
+									ingredients={recipe.ingredients}
+									checkedIngredients={checkedIngredients}
+									onToggle={toggleIngredient}
+									ratio={ratio}
+									missingIngredientIds={[]}
+									isProActive={false}
+									recipeId={recipe.id}
+									substitutions={noSubstitutions}
+									onApplySubstitution={noop}
+									onRevertSubstitution={noop}
+									shoppingFetcher={saveFetcher}
+									showFooter={false}
+								/>
+							</div>
 						</div>
 					</div>
 
 					{/* Instructions */}
-					<div>
-						<h2 className="mb-4 font-serif text-lg font-normal">Instructions</h2>
-						<ol className="space-y-4">
-							{recipe.instructions.map((instruction, index) => {
-								const isChecked = checkedSteps.has(instruction.id)
-								return (
-									<li
-										key={instruction.id}
-										role="checkbox"
-										aria-checked={isChecked}
-										tabIndex={0}
-										className={cn(
-											'flex cursor-pointer gap-4 px-1 py-2 transition-all select-none',
-											'focus-visible:ring-primary/50 focus-visible:rounded-lg focus-visible:ring-2 focus-visible:outline-none',
-										)}
-										onClick={() => toggleStep(instruction.id)}
-										onKeyDown={(e) => {
-											if (e.key === 'Enter' || e.key === ' ') {
-												e.preventDefault()
-												toggleStep(instruction.id)
-											}
-										}}
-									>
-										<span
-											className={cn(
-												'font-serif flex size-8 shrink-0 items-center justify-center text-[1.5rem] leading-none font-normal transition-colors',
-												isChecked
-													? 'text-primary/40'
-													: 'text-muted-foreground',
-											)}
-										>
-											{isChecked ? <Icon name="check" className="size-5 text-primary" /> : index + 1}
-										</span>
-										<p
-											className={cn(
-												'pt-0.5 text-[1.0625rem] leading-[1.75] transition-colors md:text-base md:leading-[1.75]',
-												isChecked && 'text-muted-foreground/40 line-through decoration-muted-foreground/30',
-											)}
-										>
-											<InstructionWithTimers
-												content={instruction.content}
-												stepNumber={index + 1}
-												recipeName={recipe.title}
-											/>
-										</p>
-									</li>
-								)
-							})}
-						</ol>
-					</div>
+					<RecipeInstructionsList
+						instructions={recipe.instructions}
+						checkedSteps={checkedSteps}
+						onToggleStep={toggleStep}
+						substitutions={noSubstitutions}
+						recipeName={recipe.title}
+					/>
 				</div>
 
 				{/* Save / Sign-up CTA */}

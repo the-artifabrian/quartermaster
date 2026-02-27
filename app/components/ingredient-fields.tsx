@@ -213,6 +213,7 @@ export function IngredientFields({
 			</datalist>
 
 			<DndContext
+				id={`${baseId}-dnd`}
 				sensors={sensors}
 				collisionDetection={closestCenter}
 				onDragEnd={handleDragEnd}

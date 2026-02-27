@@ -57,7 +57,10 @@ export type RecipeFormData = z.infer<typeof RecipeSchema>
 
 export const QuickRecipeSchema = z.object({
 	title: RecipeTitleSchema,
-	rawText: z.string().min(1, 'Recipe text is required').max(10000),
+	rawText: z
+		.string({ required_error: 'Recipe text is required' })
+		.min(1, 'Recipe text is required')
+		.max(10000),
 })
 
 export const ImportUrlSchema = z.object({

@@ -14,6 +14,7 @@ import {
 	verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { useId } from 'react'
 import { cn } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -48,6 +49,7 @@ export function InstructionFields({
 	onChange,
 }: InstructionFieldsProps) {
 	const instructions = ensureSortKeys(rawInstructions)
+	const dndId = useId()
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
@@ -105,6 +107,7 @@ export function InstructionFields({
 			</div>
 
 			<DndContext
+				id={dndId}
 				sensors={sensors}
 				collisionDetection={closestCenter}
 				onDragEnd={handleDragEnd}
@@ -192,7 +195,7 @@ function SortableInstructionRow({
 					value={instruction.content}
 					onChange={(e) => onUpdate(e.target.value)}
 					rows={2}
-					className="resize-none"
+					className="resize-none [field-sizing:content]"
 				/>
 			</div>
 			<Button

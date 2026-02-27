@@ -288,7 +288,11 @@ export function RecipeForm({
 			{/* Ingredients Section */}
 			<FormSection
 				title="Ingredients"
-				summary={`${ingredients.filter((i) => i.name).length} items`}
+				summary={(() => {
+					const count = ingredients.filter((i) => i.name).length
+					if (count === 0) return undefined
+					return `${count} ${count === 1 ? 'item' : 'items'}`
+				})()}
 				defaultOpen={isEditing || ingredients.length <= 1}
 			>
 				<IngredientFields ingredients={ingredients} onChange={setIngredients} />
@@ -334,7 +338,11 @@ export function RecipeForm({
 			{/* Instructions Section */}
 			<FormSection
 				title="Instructions"
-				summary={`${instructions.filter((i) => i.content).length} steps`}
+				summary={(() => {
+					const count = instructions.filter((i) => i.content).length
+					if (count === 0) return undefined
+					return `${count} ${count === 1 ? 'step' : 'steps'}`
+				})()}
 				defaultOpen={isEditing || instructions.length <= 1}
 			>
 				<InstructionFields

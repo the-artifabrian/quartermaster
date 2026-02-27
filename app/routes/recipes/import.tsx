@@ -637,8 +637,8 @@ export default function ImportRecipe() {
 			</Link>
 			<h1 className="mb-6 text-2xl font-bold">Import from URL</h1>
 			<p className="text-muted-foreground mb-6">
-				Paste a URL from a recipe website. We'll extract the recipe details
-				automatically from sites that use structured data.
+				Paste a URL from a recipe website and we'll try to extract the recipe
+				details automatically.
 			</p>
 
 			{/* Phase A: URL input */}

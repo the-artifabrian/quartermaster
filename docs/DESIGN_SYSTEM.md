@@ -294,6 +294,11 @@ tiny label (12px) below icons. Active tab: sage icon fill + copper dot or
 underline indicator below. Inactive: stone color. The tab bar is functional
 chrome — keep it clean, don't over-design it.
 
+**No back links**: Sub-pages (recipe detail, import, generate, quick entry, bulk
+import) do not render "Back to recipes" links. The bottom tab bar already
+provides navigation back to each section, so inline back links are redundant and
+waste vertical space on mobile.
+
 ### Empty States & Onboarding
 
 New users see empty surfaces first. These set the tone.

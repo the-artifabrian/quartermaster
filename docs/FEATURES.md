@@ -68,6 +68,9 @@ execution quality, not differentiation.
   inventory. Metric units by default (except tsp/tbsp). Preview before saving, subtle
   sparkles icon on recipe cards for AI-generated recipes. Feature-specific error messages (rate limit, timeout,
   parse failure) instead of generic toasts
+- Add to meal plan from recipe detail: calendar icon in action bar opens a
+  popover with 7-day date picker (Today + next 6 days) and meal type selector.
+  Submits to `/plan` assign intent, success toast confirms day and meal
 - "I Made This" cook logging with success toast
 - Inline inventory status on recipe detail ingredient list: summary footer shows
   "You have X/Y ingredients" with "Add N missing to Shopping List" button
@@ -159,8 +162,9 @@ execution quality, not differentiation.
   - Quick add (open by default, collapsible) with smart duplicate/inventory
     warnings and "Add Anyway" bypass
   - Auto-categorization (produce, dairy, meat, pantry, frozen, bakery,
-    household, other) for inventory pipeline and household item filtering
-    (items sort by checked status then name; no visible category headers)
+    household, other) with sticky section headers per category. Unchecked
+    items grouped by category, checked items flat at the bottom under a
+    "Checked" header
   - Inline item editing (name, quantity, unit)
   - Checked/total counter in the page header (e.g. "Shopping List (3/10)")
   - Client-side search/filter, print-friendly layout
@@ -259,4 +263,4 @@ execution quality, not differentiation.
 
 ---
 
-_Last updated: February 26, 2026._
+_Last updated: February 27, 2026._

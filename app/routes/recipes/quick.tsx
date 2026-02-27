@@ -10,13 +10,11 @@ import {
 	data,
 	redirect,
 	Form,
-	Link,
 	useActionData,
 	useNavigation,
 } from 'react-router'
 import { Field, TextareaField } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
-import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { parseRecipeText } from '#app/utils/bulk-recipe-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
@@ -106,13 +104,6 @@ export default function QuickRecipeEntry() {
 
 	return (
 		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
-			<Link
-				to="/recipes"
-				className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm"
-			>
-				<Icon name="arrow-left" size="sm" />
-				Back to recipes
-			</Link>
 			<h1 className="mb-6 text-2xl font-bold">Quick Entry</h1>
 			<p className="text-muted-foreground mb-6">
 				Paste or type a recipe as freeform text. You can add structure later by

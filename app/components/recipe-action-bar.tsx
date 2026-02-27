@@ -14,6 +14,7 @@ export function RecipeActionBar({
 	favoriteFetcher,
 	enhanceFetcher,
 	onIMadeThis,
+	onAddToPlan,
 	onShare,
 	onEnhance,
 }: {
@@ -23,6 +24,7 @@ export function RecipeActionBar({
 	favoriteFetcher: ReturnType<typeof useFetcher>
 	enhanceFetcher: ReturnType<typeof useFetcher>
 	onIMadeThis: () => void
+	onAddToPlan: () => void
 	onShare: () => void
 	onEnhance: () => void
 }) {
@@ -67,6 +69,21 @@ export function RecipeActionBar({
 					</TooltipContent>
 				</Tooltip>
 			</favoriteFetcher.Form>
+
+			{/* Add to Plan */}
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						aria-label="Add to meal plan"
+						onClick={onAddToPlan}
+					>
+						<Icon name="calendar" size="md" />
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>Add to meal plan</TooltipContent>
+			</Tooltip>
 
 			{/* Edit */}
 			<Tooltip>

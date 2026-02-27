@@ -16,7 +16,21 @@ import { RecipeInstructionsList } from '#app/components/recipe-instructions-list
 import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import {
+	Popover,
+	PopoverAnchor,
+	PopoverContent,
+} from '#app/components/ui/popover.tsx'
 import { CookingLogSchema } from '#app/utils/cooking-log-validation.ts'
+import {
+	addDaysUTC,
+	formatDayLabel,
+	isToday,
+	MEAL_TYPES,
+	MEAL_TYPE_LABELS,
+	type MealType,
+	serializeDate,
+} from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { parseAmount, scaleAmount } from '#app/utils/fractions.ts'
 import {
@@ -442,6 +456,18 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		setUseMetric(localStorage.getItem('qm-use-metric') === 'true')
 	}, [])
 
+	// Add-to-plan popover state
+	const [planPickerOpen, setPlanPickerOpen] = useState(false)
+	const planFetcher = useFetcher({ key: 'add-to-plan' })
+	const prevPlanFetcherState = useRef(planFetcher.state)
+	const submittedPlanRef = useRef({ date: '', mealType: '' as MealType })
+	const today = new Date()
+	const todayUTC = new Date(
+		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
+	)
+	const [planDate, setPlanDate] = useState(() => serializeDate(todayUTC))
+	const [planMealType, setPlanMealType] = useState<MealType>('dinner')
+
 	const servingsParam = searchParams.get('servings')
 	const currentServings = servingsParam
 		? Math.min(999, Math.max(1, parseInt(servingsParam, 10) || recipe.servings))
@@ -478,6 +504,38 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		}
 		prevEnhanceFetcherState.current = enhanceFetcher.state
 	}, [enhanceFetcher.state, enhanceFetcher.data])
+
+	// Close plan picker on success
+	useEffect(() => {
+		if (
+			prevPlanFetcherState.current !== 'idle' &&
+			planFetcher.state === 'idle' &&
+			planFetcher.data?.status === 'success'
+		) {
+			setPlanPickerOpen(false)
+			const { date, mealType } = submittedPlanRef.current
+			const d = new Date(date + 'T00:00:00.000Z')
+			const dayLabel = isToday(d) ? 'Today' : formatDayLabel(d)
+			toast.success(`Added to ${dayLabel} ${MEAL_TYPE_LABELS[mealType]}`)
+		}
+		prevPlanFetcherState.current = planFetcher.state
+	}, [planFetcher.state, planFetcher.data])
+
+	function handleAddToPlanSubmit() {
+		submittedPlanRef.current = { date: planDate, mealType: planMealType }
+		const formData = new FormData()
+		formData.set('intent', 'assign')
+		formData.set('date', planDate)
+		formData.set('mealType', planMealType)
+		formData.set('recipeId', recipe.id)
+		if (currentServings !== recipe.servings) {
+			formData.set('servings', currentServings.toString())
+		}
+		void planFetcher.submit(formData, {
+			method: 'POST',
+			action: '/plan',
+		})
+	}
 
 	function handleEnhance() {
 		const formData = new FormData()
@@ -628,16 +686,91 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Action bar */}
-				<RecipeActionBar
-					recipeId={recipe.id}
-					isFavorite={isFavorite}
-					isProActive={isProActive}
-					favoriteFetcher={favoriteFetcher}
-					enhanceFetcher={enhanceFetcher}
-					onIMadeThis={handleIMadeThis}
-					onShare={handleShare}
-					onEnhance={handleEnhance}
-				/>
+				<Popover open={planPickerOpen} onOpenChange={setPlanPickerOpen}>
+					<PopoverAnchor>
+						<RecipeActionBar
+							recipeId={recipe.id}
+							isFavorite={isFavorite}
+							isProActive={isProActive}
+							favoriteFetcher={favoriteFetcher}
+							enhanceFetcher={enhanceFetcher}
+							onIMadeThis={handleIMadeThis}
+							onAddToPlan={() => setPlanPickerOpen(true)}
+							onShare={handleShare}
+							onEnhance={handleEnhance}
+						/>
+					</PopoverAnchor>
+					<PopoverContent
+						align="start"
+						className="w-72 p-4"
+					>
+						<p className="mb-3 text-sm font-medium">Add to meal plan</p>
+						<div className="mb-3">
+							<p className="text-muted-foreground mb-1.5 text-xs">
+								Day
+							</p>
+							<div className="flex flex-wrap gap-1.5">
+								{Array.from({ length: 7 }, (_, i) => {
+									const d = addDaysUTC(todayUTC, i)
+									const val = serializeDate(d)
+									const label =
+										i === 0
+											? 'Today'
+											: i === 1
+												? 'Tomorrow'
+												: formatDayLabel(d)
+									return (
+										<button
+											key={val}
+											type="button"
+											onClick={() => setPlanDate(val)}
+											className={cn(
+												'rounded-full border px-2.5 py-1 text-xs transition-colors',
+												planDate === val
+													? 'border-primary bg-primary text-primary-foreground'
+													: 'border-border hover:border-primary/50',
+											)}
+										>
+											{label}
+										</button>
+									)
+								})}
+							</div>
+						</div>
+						<div className="mb-4">
+							<p className="text-muted-foreground mb-1.5 text-xs">
+								Meal
+							</p>
+							<div className="flex gap-1.5">
+								{MEAL_TYPES.map((mt) => (
+									<button
+										key={mt}
+										type="button"
+										onClick={() => setPlanMealType(mt)}
+										className={cn(
+											'rounded-full border px-2.5 py-1 text-xs transition-colors',
+											planMealType === mt
+												? 'border-primary bg-primary text-primary-foreground'
+												: 'border-border hover:border-primary/50',
+										)}
+									>
+										{MEAL_TYPE_LABELS[mt]}
+									</button>
+								))}
+							</div>
+						</div>
+						<Button
+							size="sm"
+							className="w-full"
+							onClick={handleAddToPlanSubmit}
+							disabled={planFetcher.state !== 'idle'}
+						>
+							{planFetcher.state !== 'idle'
+								? 'Adding...'
+								: 'Add to Plan'}
+						</Button>
+					</PopoverContent>
+				</Popover>
 
 				{!hasInventory && (
 					<OnboardingNudge

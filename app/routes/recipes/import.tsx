@@ -628,13 +628,6 @@ export default function ImportRecipe() {
 
 	return (
 		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
-			<Link
-				to="/recipes"
-				className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm"
-			>
-				<Icon name="arrow-left" size="sm" />
-				Back to recipes
-			</Link>
 			<h1 className="mb-6 text-2xl font-bold">Import from URL</h1>
 			<p className="text-muted-foreground mb-6">
 				Paste a URL from a recipe website and we'll try to extract the recipe

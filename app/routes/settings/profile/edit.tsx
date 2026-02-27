@@ -83,10 +83,10 @@ export default function EditProfile({ loaderData }: Route.ComponentProps) {
 	const { user } = loaderData
 
 	return (
-		<div className="flex flex-col gap-8">
+		<div className="flex flex-col gap-6">
 			<div className="flex justify-center">
 				<div
-					className="bg-accent/20 text-accent-foreground flex size-32 items-center justify-center rounded-full text-4xl font-bold"
+					className="bg-accent/20 text-accent-foreground flex size-16 items-center justify-center rounded-full text-xl font-bold"
 					aria-hidden="true"
 				>
 					{(user.name ?? user.username).charAt(0).toUpperCase()}
@@ -119,9 +119,8 @@ function UpdateProfileForm({
 
 	return (
 		<fetcher.Form method="POST" {...getFormProps(form)}>
-			<div className="grid grid-cols-6 gap-x-10">
+			<div className="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
 				<Field
-					className="col-span-3"
 					labelProps={{
 						htmlFor: fields.username.id,
 						children: 'Username',
@@ -130,7 +129,6 @@ function UpdateProfileForm({
 					errors={fields.username.errors}
 				/>
 				<Field
-					className="col-span-3"
 					labelProps={{ htmlFor: fields.name.id, children: 'Name' }}
 					inputProps={getInputProps(fields.name, { type: 'text' })}
 					errors={fields.name.errors}

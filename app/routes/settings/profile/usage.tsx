@@ -25,17 +25,13 @@ export default function UsageStats({ loaderData }: Route.ComponentProps) {
 		uniqueRecipesCooked,
 		mostCookedRecipe,
 		mealPlanWeekCount,
-		eventCounts,
 	} = loaderData
 
 	return (
 		<div className="space-y-8">
-			<div>
-				<h2 className="text-lg font-bold">Usage Stats</h2>
-				<p className="text-muted-foreground text-sm">
-					Your cooking activity over the last 90 days
-				</p>
-			</div>
+			<p className="text-muted-foreground text-sm">
+				Your cooking activity over the last 90 days
+			</p>
 
 			{/* Cooking Activity */}
 			<div className="bg-card shadow-warm rounded-xl border p-5">
@@ -68,29 +64,6 @@ export default function UsageStats({ loaderData }: Route.ComponentProps) {
 				</div>
 			</div>
 
-			{/* Event Log */}
-			{Object.keys(eventCounts).length > 0 && (
-				<div className="bg-card shadow-warm rounded-xl border p-5">
-					<h3 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
-						Event Log (90 days)
-					</h3>
-					<div className="divide-y">
-						{Object.entries(eventCounts)
-							.sort(([, a], [, b]) => b - a)
-							.map(([type, count]) => (
-								<div
-									key={type}
-									className="flex items-center justify-between py-2 text-sm"
-								>
-									<span className="text-muted-foreground font-mono text-xs">
-										{type}
-									</span>
-									<span className="font-medium">{count}</span>
-								</div>
-							))}
-					</div>
-				</div>
-			)}
 		</div>
 	)
 }

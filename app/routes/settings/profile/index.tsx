@@ -356,7 +356,7 @@ function SignOutOfSessions({
 							name: 'intent',
 							value: signOutOfSessionsActionIntent,
 						})}
-						variant={dc.doubleCheck ? 'destructive' : 'default'}
+						variant={dc.doubleCheck ? 'destructive' : 'outline'}
 						status={
 							fetcher.state !== 'idle'
 								? 'pending'
@@ -403,7 +403,7 @@ function DeleteData() {
 						name: 'intent',
 						value: deleteDataActionIntent,
 					})}
-					variant={dc.doubleCheck ? 'destructive' : 'default'}
+					variant="destructive"
 					status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
 					className="w-full"
 					size="sm"

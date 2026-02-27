@@ -156,8 +156,6 @@ export default function HouseholdSettings({
 
 	return (
 		<div className="grid gap-8">
-			<h2 className="text-lg font-semibold">Household Settings</h2>
-
 			{isOwner ? (
 				<RenameHouseholdForm name={household.name} />
 			) : (

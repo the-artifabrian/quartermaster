@@ -252,7 +252,7 @@ execution quality, not differentiation.
   (only generated when Sentry is configured), error message sanitization on
   public-facing pages, user enumeration prevention on forgot-password
 - Usage analytics via `UsageEvent` model (recipe actions, event counts). Stats
-  page at Settings > Data (cooking activity, meal planning, event log)
+  page at Settings > Data (cooking activity, meal planning)
 - Vitest unit/integration tests + Playwright e2e tests (including shopping →
   inventory pipeline end-to-end coverage)
 - Deployed on Fly.io with LiteFS, custom domain, HTTPS

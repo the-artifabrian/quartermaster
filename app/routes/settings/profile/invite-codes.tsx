@@ -50,17 +50,15 @@ export default function InviteCodesPage({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="flex flex-col gap-8">
-			<div>
-				<p className="text-muted-foreground mt-1 text-sm">
-				</p>
-			</div>
+			<p className="text-muted-foreground text-sm">
+			</p>
 
 			<div className="bg-card shadow-warm rounded-xl border p-4">
 				<h3 className="text-muted-foreground mb-3 px-4 text-xs font-semibold tracking-wider uppercase">
 					Your Codes
 					{availableCount > 0 ? (
-						<span className="bg-primary text-primary-foreground ml-2 inline-flex size-5 items-center justify-center rounded-full text-xs font-bold">
-							{availableCount}
+						<span className="bg-primary/10 text-primary ml-2 rounded-full px-2 py-0.5 text-xs font-medium normal-case tracking-normal">
+							{availableCount} available
 						</span>
 					) : null}
 				</h3>
@@ -77,7 +75,7 @@ export default function InviteCodesPage({ loaderData }: Route.ComponentProps) {
 									className="flex items-center justify-between rounded-lg px-4 py-2"
 								>
 									<div className="flex items-center gap-3">
-										<code className="rounded bg-muted px-2 py-1 font-mono text-sm">
+										<code className="whitespace-nowrap rounded bg-muted px-2 py-1 font-mono text-sm">
 											{code.code}
 										</code>
 										<span

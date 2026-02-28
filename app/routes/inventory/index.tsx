@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react'
 import { Link } from 'react-router'
 import { z } from 'zod'
 import { InventoryItemCard } from '#app/components/inventory-item-card.tsx'
+import { InventoryMobileFab } from '#app/components/inventory-mobile-fab.tsx'
 import { InventoryQuickAdd } from '#app/components/inventory-quick-add.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboarding.tsx'
@@ -271,6 +272,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	} = loaderData
 
 	const [search, setSearch] = useState('')
+	const [fabOpen, setFabOpen] = useState(false)
 
 	const [showStaplesSuccess, setShowStaplesSuccess] = useState(false)
 	const handleStaplesSuccess = useCallback(
@@ -303,11 +305,17 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	const showSearch = items.length >= SEARCH_THRESHOLD
 
 	return (
-		<div className="pb-20 md:pb-6">
+		<div className="pb-28 md:pb-6">
 			{/* Page Header */}
 			<div className="container-content flex items-center justify-between gap-3 py-3 md:py-4">
 				<div>
 					<h1 className="font-serif text-2xl font-normal">Inventory</h1>
+					{/* Item count for Pro users (free users see X/Y below) */}
+					{items.length > 0 && inventoryUsage.limit === null && (
+						<p className="mt-0.5 text-sm text-muted-foreground">
+							{items.length} {items.length === 1 ? 'item' : 'items'}
+						</p>
+					)}
 					{/* Status line */}
 					{inventoryUsage.limit !== null && (
 						<p className="mt-0.5 text-sm text-muted-foreground">
@@ -372,7 +380,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Search */}
-				<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					{showSearch && (
 						<div className="relative sm:w-56">
 							<Icon
@@ -391,18 +399,29 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					)}
 				</div>
 
-				{/* Quick Add */}
+				{/* Quick Add (desktop only — mobile uses FAB) */}
 				{!inventoryUsage.isAtLimit && (
-					<div className="mb-2">
+					<div className="hidden md:block mb-2">
 						<InventoryQuickAdd isProActive={isProActive} />
 					</div>
 				)}
 
 				{/* Items List */}
 				{filteredItems.length > 0 ? (
-					<div className="divide-y divide-border/40">
-						{filteredItems.map((item) => (
-							<InventoryItemCard key={item.id} item={item} />
+					<div>
+						{groupByFirstLetter(filteredItems).map(({ letter, items: groupItems }) => (
+							<div key={letter}>
+								<div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm px-1 py-0.5">
+									<span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+										{letter}
+									</span>
+								</div>
+								<div className="divide-y divide-border/40">
+									{groupItems.map((item) => (
+										<InventoryItemCard key={item.id} item={item} />
+									))}
+								</div>
+							</div>
 						))}
 					</div>
 				) : search ? (
@@ -450,6 +469,28 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 			</div>
+
+			{!inventoryUsage.isAtLimit && (
+				<InventoryMobileFab
+					open={fabOpen}
+					onOpenChange={setFabOpen}
+					isProActive={isProActive}
+				/>
+			)}
 		</div>
 	)
+}
+
+function groupByFirstLetter<T extends { name: string }>(items: T[]) {
+	const groups: Array<{ letter: string; items: T[] }> = []
+	let currentLetter = ''
+	for (const item of items) {
+		const letter = item.name[0]?.toUpperCase() ?? '#'
+		if (letter !== currentLetter) {
+			currentLetter = letter
+			groups.push({ letter, items: [] })
+		}
+		groups[groups.length - 1]!.items.push(item)
+	}
+	return groups
 }

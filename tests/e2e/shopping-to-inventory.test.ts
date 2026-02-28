@@ -117,7 +117,7 @@ test('Shopping → inventory pipeline: generate, check off, add to inventory', a
 	// 8. Verify items are now in the database
 	const inventoryItems = await prisma.inventoryItem.findMany({
 		where: { householdId },
-		select: { name: true, location: true },
+		select: { name: true },
 	})
 	const names = inventoryItems.map((i) => i.name.toLowerCase())
 	expect(names).toContain('salmon fillet')
@@ -140,7 +140,6 @@ test('Shopping → inventory pipeline: merges with existing inventory', async ({
 	await prisma.inventoryItem.create({
 		data: {
 			name: 'garlic',
-			location: 'pantry',
 			userId: user.id,
 			householdId,
 		},

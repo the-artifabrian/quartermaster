@@ -28,7 +28,6 @@ export type GenerationPreferences = {
 
 export type InventoryInput = {
 	name: string
-	location: string
 }
 
 /**
@@ -119,14 +118,9 @@ export function buildPrompt(
 	inventory: InventoryInput[],
 	preferences?: GenerationPreferences,
 ): string {
-	// Sort by location for readability
-	const sorted = [...inventory]
-		.sort((a, b) => a.location.localeCompare(b.location))
-		.slice(0, MAX_INVENTORY_ITEMS)
+	const items = inventory.slice(0, MAX_INVENTORY_ITEMS)
 
-	const inventoryLines = sorted.map(
-		(item) => `${item.name} [${item.location}]`,
-	)
+	const inventoryLines = items.map((item) => item.name)
 
 	const prefLines: string[] = []
 	if (preferences?.description) {

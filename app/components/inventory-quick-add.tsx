@@ -10,7 +10,6 @@ import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 
 type InventoryQuickAddProps = {
-	location: 'pantry' | 'fridge' | 'freezer'
 	isProActive: boolean
 }
 
@@ -19,14 +18,12 @@ type ActionData = {
 	existingItem?: {
 		id: string
 		name: string
-		location: string
 	}
 	mergedInto?: string
 	message?: string
 }
 
 export function InventoryQuickAdd({
-	location,
 	isProActive,
 }: InventoryQuickAddProps) {
 	const [name, setName] = useState('')
@@ -62,7 +59,6 @@ export function InventoryQuickAdd({
 	function handleForceSubmit(force: 'merge' | 'add') {
 		const formData = new FormData()
 		formData.set('intent', 'create')
-		formData.set('location', location)
 		formData.set('name', name)
 		formData.set('force', force)
 		void fetcher.submit(formData, { method: 'POST' })
@@ -89,13 +85,13 @@ export function InventoryQuickAdd({
 				fd.set('intent', 'bulk-create')
 				fd.set(
 					'items',
-					JSON.stringify(items.map((i) => ({ name: i.name, location }))),
+					JSON.stringify(items.map((i) => ({ name: i.name }))),
 				)
 				void bulkFetcher.submit(fd, { method: 'POST' })
 				toast.success(`Added ${items.length} items`)
 			}
 		},
-		[bulkFetcher, location],
+		[bulkFetcher],
 	)
 	const handleSpeechError = useCallback((msg: string) => toast.error(msg), [])
 	const { isRecording, isTranscribing, startRecording, stopRecording } =
@@ -117,7 +113,6 @@ export function InventoryQuickAdd({
 				}}
 			>
 				<input type="hidden" name="intent" value="create" />
-				<input type="hidden" name="location" value={location} />
 				<div className="min-w-0 flex-1">
 					<input
 						ref={nameRef}
@@ -171,7 +166,7 @@ export function InventoryQuickAdd({
 				<div className="mt-2 rounded-lg bg-accent/10 p-3">
 					<p className="text-sm">
 						You already have <strong>{fetcher.data.existingItem.name}</strong>{' '}
-						in the {fetcher.data.existingItem.location}.
+						in your inventory.
 					</p>
 					<div className="mt-2 flex gap-2">
 						<Button

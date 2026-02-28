@@ -287,7 +287,6 @@ model Instruction {
 model InventoryItem {
   id        String    @id @default(cuid())
   name      String    // Free-text: "chicken breast", "Chicken Breasts"
-  location  String    // "pantry", "fridge", "freezer"
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -298,7 +297,6 @@ model InventoryItem {
   householdId String?
 
   @@index([userId])
-  @@index([userId, location])
   @@index([householdId])
 }
 

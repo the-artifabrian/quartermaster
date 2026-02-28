@@ -87,7 +87,6 @@ export async function action({ request }: Route.ActionArgs) {
 			where: { householdId },
 			select: {
 				name: true,
-				location: true,
 			},
 		})
 

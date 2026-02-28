@@ -1,4 +1,3 @@
-import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
 test('Inventory flow: empty state → add item → verify → delete', async ({
@@ -23,8 +22,6 @@ test('Inventory flow: empty state → add item → verify → delete', async ({
 	).toBeVisible()
 
 	await page.getByLabel(/item name/i).fill('Chicken Breast')
-	// Select location (fridge) - label not properly associated via conform, use locator
-	await page.locator('select').selectOption('fridge')
 
 	await page.getByRole('button', { name: /add item/i }).click()
 
@@ -40,64 +37,4 @@ test('Inventory flow: empty state → add item → verify → delete', async ({
 
 	await expect(page).toHaveURL(/\/inventory/)
 	await expect(page.getByText('Chicken Breast')).not.toBeVisible()
-})
-
-test('Inventory location tabs filter items', async ({ page, login }) => {
-	const user = await login()
-
-	// Visit inventory first to trigger household auto-creation
-	await page.goto('/inventory')
-
-	// Look up the user's householdId
-	const member = await prisma.householdMember.findFirstOrThrow({
-		where: { userId: user.id },
-		select: { householdId: true },
-	})
-
-	// Create items in different locations via DB
-	// Use unique names that won't collide with common ingredients quick-add buttons
-	await prisma.inventoryItem.create({
-		data: {
-			name: 'Whole Milk',
-			location: 'fridge',
-			userId: user.id,
-			householdId: member.householdId,
-		},
-	})
-	await prisma.inventoryItem.create({
-		data: {
-			name: 'Brown Rice',
-			location: 'pantry',
-			userId: user.id,
-			householdId: member.householdId,
-		},
-	})
-	await prisma.inventoryItem.create({
-		data: {
-			name: 'Frozen Peas',
-			location: 'freezer',
-			userId: user.id,
-			householdId: member.householdId,
-		},
-	})
-
-	await page.goto('/inventory')
-
-	// All items visible by default
-	await expect(page.getByText('Whole Milk')).toBeVisible()
-	await expect(page.getByText('Brown Rice')).toBeVisible()
-	await expect(page.getByText('Frozen Peas')).toBeVisible()
-
-	// Filter by fridge
-	await page.getByRole('link', { name: /^fridge$/i }).click()
-	await expect(page).toHaveURL(/location=fridge/)
-	await expect(page.getByText('Whole Milk')).toBeVisible()
-	await expect(page.getByText('Brown Rice')).not.toBeVisible()
-	await expect(page.getByText('Frozen Peas')).not.toBeVisible()
-
-	// Filter by pantry
-	await page.getByRole('link', { name: /^pantry$/i }).click()
-	await expect(page).toHaveURL(/location=pantry/)
-	await expect(page.getByText('Brown Rice')).toBeVisible()
-	await expect(page.getByText('Whole Milk')).not.toBeVisible()
 })

@@ -19,16 +19,12 @@ export async function action({ request }: Route.ActionArgs) {
 	const rawItems = formData.get('items')
 	invariantResponse(typeof rawItems === 'string', 'Items are required')
 
-	const VALID_LOCATIONS = new Set(['pantry', 'fridge', 'freezer'])
-
 	let items: Array<{
 		itemId: string
-		location: string
 	}>
 	try {
 		items = JSON.parse(rawItems) as Array<{
 			itemId: string
-			location: string
 		}>
 	} catch {
 		throw new Response('Invalid items data', { status: 400 })
@@ -44,9 +40,7 @@ export async function action({ request }: Route.ActionArgs) {
 	})
 
 	const itemMap = new Map(shoppingListItems.map((i) => [i.id, i]))
-	const validItems = items.filter(
-		(i) => itemMap.has(i.itemId) && VALID_LOCATIONS.has(i.location),
-	)
+	const validItems = items.filter((i) => itemMap.has(i.itemId))
 	invariantResponse(validItems.length > 0, 'No valid items found')
 
 	// Separate household items (skip inventory creation) from food items
@@ -71,7 +65,6 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const match = findMatchingInventoryItem(
 			shoppingItem.name,
-			item.location,
 			trackingItems,
 		)
 
@@ -81,7 +74,6 @@ export async function action({ request }: Route.ActionArgs) {
 			creates.push({
 				data: {
 					name: shoppingItem.name,
-					location: item.location,
 					userId,
 					householdId,
 				},
@@ -90,12 +82,11 @@ export async function action({ request }: Route.ActionArgs) {
 			trackingItems.push({
 				id: `pending-${creates.length}`,
 				name: shoppingItem.name,
-				location: item.location,
 				userId,
 				householdId,
 				createdAt: new Date(),
 				updatedAt: new Date(),
-			})
+			} as typeof existingInventory[number])
 		}
 	}
 

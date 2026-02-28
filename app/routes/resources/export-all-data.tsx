@@ -38,9 +38,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 			where: { householdId },
 			select: {
 				name: true,
-				location: true,
 			},
-			orderBy: [{ location: 'asc' }, { name: 'asc' }],
+			orderBy: [{ name: 'asc' }],
 		}),
 		prisma.mealPlan.findMany({
 			where: { householdId },
@@ -121,7 +120,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		})),
 		inventory: inventory.map((item) => ({
 			name: item.name,
-			location: item.location,
 		})),
 		mealPlans: mealPlans.map((plan) => ({
 			weekStart: plan.weekStart.toISOString(),

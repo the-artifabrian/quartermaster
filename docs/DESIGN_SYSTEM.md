@@ -308,9 +308,9 @@ direct. Encourage importing recipes (URL paste, bulk text) rather than creating
 from scratch — the fastest path to a collection that feels like "theirs." No
 illustrations, no Caveat font. A dashed-border card with clear action links.
 
-**Empty inventory** (`pantry-staples-onboarding.tsx`): Offer common pantry
-staples as tappable chips. Quick bulk-add so the inventory feels useful
-immediately.
+**Empty inventory** (`pantry-staples-onboarding.tsx`): Offer common kitchen
+staples as tappable chips in a single flat grid. Quick bulk-add so the inventory
+feels useful immediately.
 
 **Empty meal plan / shopping list**: Simple one-line prompt in stone color with
 a ghost action button. Minimal — these screens are self-explanatory once the
@@ -379,7 +379,6 @@ user has recipes.
 ```ts
 {
   id, name: string,
-  location: 'pantry'|'fridge'|'freezer',
   householdId: string
 }
 ```
@@ -583,24 +582,16 @@ page for a typical weekly shop.
 The densest, most utilitarian surface. A reference tool you scan quickly —
 closer to a spreadsheet than a cookbook.
 
-**Layout**: Single column, 1080px max. Category tabs at top (All, Pantry,
-Fridge, Freezer). Search input below.
+**Layout**: Single column, 1080px max. Search input at top (shown when 15+
+items). Always-visible quick-add input below search.
 
-**Items**: Flat list, DM Sans 16px. Item name left-aligned. Overflow dots at
-right. Minimal row height — this list can be long and needs efficient scrolling.
+**Items**: Flat alphabetical list, DM Sans 16px. Item name left-aligned.
+Overflow dots at right. Minimal row height — this list can be long and needs
+efficient scrolling.
 **Swipe-to-delete**: on mobile, swiping left reveals an 80px destructive-red
 delete button behind the row. `touch-action: pan-y` for native scroll vs swipe
 discrimination, 10px dead zone, rubber-band resistance past bounds. Only one row
 open at a time. Overflow menu remains as the desktop and accessibility fallback.
-
-**Category headers** (PANTRY, FRIDGE, FREEZER): DM Sans 500, 12px, uppercase.
-Colored dot indicator (amber pantry, blue fridge, etc.) and item count. Sticky
-on scroll so you always know which section you're in.
-
-**Mobile FAB**: Floating action button in the bottom-right opens a quick-add
-dialog with name input and location pills (Pantry/Fridge/Freezer). Defaults to
-the currently selected tab. Same pattern as the shopping list FAB — designed
-for one-handed use.
 
 **What makes it different from the shopping list**: Inventory is dense and
 scannable — you're looking up what you have. Shopping list is spacious and

@@ -101,24 +101,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const hasMealPlan = weeksWithPlans.length > 0
 
 	// Pro-only: review panel matching
-	let inventoryByCanonical: Record<string, string[]> = {}
+	let inventoryCanonicals = new Set<string>()
 	let itemCanonicals: Record<string, string> = {}
 
 	if (isProActive) {
 		const allInventoryItems = await prisma.inventoryItem.findMany({
 			where: { householdId },
-			select: { id: true, name: true, location: true },
+			select: { id: true, name: true },
 		})
 
 		// Canonical inventory lookup for review panel "already stocked" indicator
 		for (const inv of allInventoryItems) {
-			const canonical = getCanonicalIngredientName(inv.name)
-			if (!inventoryByCanonical[canonical]) {
-				inventoryByCanonical[canonical] = []
-			}
-			if (!inventoryByCanonical[canonical].includes(inv.location)) {
-				inventoryByCanonical[canonical].push(inv.location)
-			}
+			inventoryCanonicals.add(getCanonicalIngredientName(inv.name))
 		}
 		for (const item of shoppingList.items) {
 			itemCanonicals[item.id] = getCanonicalIngredientName(item.name)
@@ -129,7 +123,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		shoppingList,
 		hasMealPlan,
 		weeksWithPlans,
-		inventoryByCanonical,
+		inventoryCanonicals: Array.from(inventoryCanonicals),
 		itemCanonicals,
 		isProActive,
 	}
@@ -277,7 +271,6 @@ export async function action({ request }: Route.ActionArgs) {
 					status: 'warning' as const,
 					warningType: 'in_inventory' as const,
 					inventoryName: inInventory.name,
-					inventoryLocation: inInventory.location,
 					submittedName: submission.value.name,
 					submittedQuantity: submission.value.quantity,
 					submittedUnit: submission.value.unit,
@@ -480,10 +473,11 @@ export default function ShoppingListRoute({
 		shoppingList,
 		hasMealPlan,
 		weeksWithPlans,
-		inventoryByCanonical,
+		inventoryCanonicals: inventoryCanonicalsList,
 		itemCanonicals,
 		isProActive,
 	} = loaderData
+	const inventoryCanonicals = new Set(inventoryCanonicalsList)
 	const defaultWeek =
 		weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
 		weeksWithPlans[0]?.weekStart ??
@@ -918,7 +912,7 @@ export default function ShoppingListRoute({
 					<div className="mt-4 print:hidden">
 						<ShoppingListToInventory
 							items={checkedItemsList}
-							inventoryByCanonical={inventoryByCanonical}
+							inventoryCanonicals={inventoryCanonicals}
 							itemCanonicals={itemCanonicals}
 							onCancel={() => setShowReview(false)}
 						/>

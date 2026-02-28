@@ -1,17 +1,10 @@
-import { type InventoryItem } from '@prisma/client'
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useFetcher, useRevalidator } from 'react-router'
-import { toast } from 'sonner'
-import {
-	useSpeechToText,
-	type TranscribedItem,
-} from '#app/hooks/use-speech-to-text.ts'
+import { useCallback, useState } from 'react'
+import { Link } from 'react-router'
 import { z } from 'zod'
 import { InventoryItemCard } from '#app/components/inventory-item-card.tsx'
-import { InventoryLocationTabs } from '#app/components/inventory-location-tabs.tsx'
 import { InventoryQuickAdd } from '#app/components/inventory-quick-add.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboarding.tsx'
@@ -21,10 +14,8 @@ import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
 import {
-	InventoryItemLocationSchema,
 	InventoryItemNameSchema,
 	InventoryItemSchema,
-	LOCATION_LABELS,
 } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
@@ -45,20 +36,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
 	const { isProActive } = await getUserTier(userId)
 	const inventoryUsage = await getInventoryUsage(householdId, isProActive)
-	const url = new URL(request.url)
-	const location = url.searchParams.get('location') ?? ''
 
-	// Single query for all items — filter by location in JS
-	const allItems = await prisma.inventoryItem.findMany({
+	const items = await prisma.inventoryItem.findMany({
 		where: { householdId },
 		orderBy: [{ name: 'asc' }],
 	})
-
-	const totalItemCount = allItems.length
-	const items =
-		location && location !== 'all'
-			? allItems.filter((item) => item.location === location)
-			: allItems
 
 	const mealPlanEntryCount = await prisma.mealPlanEntry.count({
 		where: { mealPlan: { householdId } },
@@ -66,8 +48,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	return {
 		items,
-		totalItemCount,
-		selectedLocation: location || 'all',
 		inventoryUsage,
 		isProActive,
 		mealPlanEntryCount,
@@ -96,11 +76,10 @@ export async function action({ request }: Route.ActionArgs) {
 		// Check for duplicates unless force is set
 		if (!force) {
 			const existingItems = await prisma.inventoryItem.findMany({
-				where: { householdId, location: submission.value.location },
+				where: { householdId },
 			})
 			const match = findMatchingInventoryItem(
 				submission.value.name,
-				submission.value.location,
 				existingItems,
 			)
 			if (match) {
@@ -109,7 +88,6 @@ export async function action({ request }: Route.ActionArgs) {
 					existingItem: {
 						id: match.id,
 						name: match.name,
-						location: match.location,
 					},
 				}
 			}
@@ -118,11 +96,10 @@ export async function action({ request }: Route.ActionArgs) {
 		if (force === 'merge') {
 			// Acknowledge the existing item — don't create a duplicate
 			const existingItems = await prisma.inventoryItem.findMany({
-				where: { householdId, location: submission.value.location },
+				where: { householdId },
 			})
 			const match = findMatchingInventoryItem(
 				submission.value.name,
-				submission.value.location,
 				existingItems,
 			)
 			if (match) {
@@ -133,7 +110,7 @@ export async function action({ request }: Route.ActionArgs) {
 		// force === 'add' or no duplicate found — create normally
 		await prisma.inventoryItem.create({
 			data: {
-				...submission.value,
+				name: submission.value.name,
 				userId,
 				householdId,
 			},
@@ -151,7 +128,6 @@ export async function action({ request }: Route.ActionArgs) {
 			.array(
 				z.object({
 					name: InventoryItemNameSchema,
-					location: InventoryItemLocationSchema,
 				}),
 			)
 			.min(1)
@@ -189,7 +165,6 @@ export async function action({ request }: Route.ActionArgs) {
 		for (const item of items) {
 			const match = findMatchingInventoryItem(
 				item.name,
-				item.location,
 				trackingItems,
 			)
 			if (match) {
@@ -200,12 +175,11 @@ export async function action({ request }: Route.ActionArgs) {
 				trackingItems.push({
 					id: `pending-${toCreate.length}`,
 					name: item.name,
-					location: item.location,
 					userId,
 					householdId,
 					createdAt: new Date(),
 					updatedAt: new Date(),
-				})
+				} as typeof existingItems[number])
 			}
 		}
 
@@ -215,7 +189,6 @@ export async function action({ request }: Route.ActionArgs) {
 					prisma.inventoryItem.create({
 						data: {
 							name: item.name,
-							location: item.location,
 							userId,
 							householdId,
 						},
@@ -261,65 +234,24 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 		invariantResponse(item, 'Item not found', { status: 404 })
 
-		// Dedup check: another item with the same canonical name in the same location
+		// Dedup check: another item with the same canonical name
 		const existingItems = await prisma.inventoryItem.findMany({
-			where: { householdId, location: item.location },
+			where: { householdId },
 		})
 		const match = findMatchingInventoryItem(
 			parsed.data,
-			item.location,
 			existingItems.filter((i) => i.id !== itemId),
 		)
 		if (match) {
 			return {
 				status: 'error' as const,
-				message: `"${match.name}" already exists in this location`,
+				message: `"${match.name}" already exists in your inventory`,
 			}
 		}
 
 		await prisma.inventoryItem.update({
 			where: { id: itemId },
 			data: { name: parsed.data },
-		})
-
-		return { status: 'success' as const }
-	}
-
-	if (intent === 'move') {
-		const itemId = formData.get('itemId')
-		const location = formData.get('location')
-		invariantResponse(typeof itemId === 'string', 'Item ID is required')
-		invariantResponse(typeof location === 'string', 'Location is required')
-
-		const parsed = InventoryItemLocationSchema.safeParse(location)
-		if (!parsed.success) {
-			return { status: 'error' as const, message: 'Invalid location' }
-		}
-
-		const item = await prisma.inventoryItem.findFirst({
-			where: { id: itemId, householdId },
-		})
-		invariantResponse(item, 'Item not found', { status: 404 })
-
-		// Dedup check: same canonical name in target location
-		const existingItems = await prisma.inventoryItem.findMany({
-			where: { householdId, location: parsed.data },
-		})
-		const match = findMatchingInventoryItem(
-			item.name,
-			parsed.data,
-			existingItems,
-		)
-		if (match) {
-			return {
-				status: 'error' as const,
-				message: `"${item.name}" already exists in ${LOCATION_LABELS[parsed.data]}`,
-			}
-		}
-
-		await prisma.inventoryItem.update({
-			where: { id: itemId },
-			data: { location: parsed.data },
 		})
 
 		return { status: 'success' as const }
@@ -333,15 +265,12 @@ const SEARCH_THRESHOLD = 15
 export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	const {
 		items,
-		totalItemCount,
-		selectedLocation,
 		inventoryUsage,
 		isProActive,
 		mealPlanEntryCount,
 	} = loaderData
 
 	const [search, setSearch] = useState('')
-	const [fabOpen, setFabOpen] = useState(false)
 
 	const [showStaplesSuccess, setShowStaplesSuccess] = useState(false)
 	const handleStaplesSuccess = useCallback(
@@ -353,7 +282,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		[],
 	)
 
-	if (totalItemCount === 0 || showStaplesSuccess) {
+	if (items.length === 0 || showStaplesSuccess) {
 		return (
 			<div className="container-content py-6 pb-20 md:pb-6">
 				<PantryStaplesOnboarding
@@ -371,16 +300,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 			)
 		: items
 
-	const showingLocation =
-		selectedLocation === 'pantry'
-			? 'pantry'
-			: selectedLocation === 'fridge'
-				? 'fridge'
-				: selectedLocation === 'freezer'
-					? 'freezer'
-					: null
-
-	const showSearch = totalItemCount >= SEARCH_THRESHOLD
+	const showSearch = items.length >= SEARCH_THRESHOLD
 
 	return (
 		<div className="pb-20 md:pb-6">
@@ -439,7 +359,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 
-				{totalItemCount > 0 && mealPlanEntryCount === 0 && (
+				{items.length > 0 && mealPlanEntryCount === 0 && (
 					<OnboardingNudge
 						nudgeId="plan-your-week"
 						icon="calendar"
@@ -451,9 +371,8 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					/>
 				)}
 
-				{/* Search + Location Tabs */}
+				{/* Search */}
 				<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-					<InventoryLocationTabs />
 					{showSearch && (
 						<div className="relative sm:w-56">
 							<Icon
@@ -472,36 +391,20 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					)}
 				</div>
 
-				{/* Quick Add — shown when a specific location is selected */}
-				{showingLocation && !inventoryUsage.isAtLimit && (
+				{/* Quick Add */}
+				{!inventoryUsage.isAtLimit && (
 					<div className="mb-2">
-						<InventoryQuickAdd location={showingLocation} isProActive={isProActive} />
+						<InventoryQuickAdd isProActive={isProActive} />
 					</div>
 				)}
 
 				{/* Items List */}
 				{filteredItems.length > 0 ? (
-					selectedLocation === 'all' ? (
-						/* All tab: grouped by location with section headers */
-						<AllTabGrouped items={filteredItems} />
-					) : (
-						/* Single location: items with lightweight header */
-						<div>
-							<LocationSectionHeader
-								location={selectedLocation}
-								count={filteredItems.length}
-								isFirst
-							/>
-							<div className="divide-y divide-border/40">
-								{filteredItems.map((item) => (
-									<InventoryItemCard
-										key={item.id}
-										item={item}
-									/>
-								))}
-							</div>
-						</div>
-					)
+					<div className="divide-y divide-border/40">
+						{filteredItems.map((item) => (
+							<InventoryItemCard key={item.id} item={item} />
+						))}
+					</div>
 				) : search ? (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
 						<div className="mx-auto flex size-16 items-center justify-center rounded-full border-2 border-dashed border-border">
@@ -536,9 +439,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 							Nothing here yet
 						</h2>
 						<p className="mt-2 max-w-sm text-muted-foreground">
-							{selectedLocation === 'all'
-								? "Add what you have on hand. No need to count, just the items. We'll match them to your recipes and keep your shopping list smart."
-								: `Your ${selectedLocation} is empty. Add what you have and we'll match it to your recipes.`}
+							Add what you have on hand. No need to count, just the items. We'll match them to your recipes and keep your shopping list smart.
 						</p>
 						<Button asChild className="mt-6">
 							<Link to="/inventory/new">
@@ -549,265 +450,6 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 			</div>
-
-			{/* Mobile FAB + quick-add popover */}
-			{!inventoryUsage.isAtLimit && (
-				<InventoryMobileFabAdd
-					open={fabOpen}
-					onOpenChange={setFabOpen}
-					defaultLocation={selectedLocation}
-					isProActive={isProActive}
-				/>
-			)}
 		</div>
 	)
 }
-
-const FAB_LOCATIONS = [
-	{ value: 'pantry', label: 'Pantry' },
-	{ value: 'fridge', label: 'Fridge' },
-	{ value: 'freezer', label: 'Freezer' },
-] as const
-
-function InventoryMobileFabAdd({
-	open,
-	onOpenChange,
-	defaultLocation,
-	isProActive,
-}: {
-	open: boolean
-	onOpenChange: (open: boolean) => void
-	defaultLocation: string
-	isProActive: boolean
-}) {
-	const fetcher = useFetcher<{ status: string }>()
-	const [name, setName] = useState('')
-	const [location, setLocation] = useState(
-		defaultLocation && defaultLocation !== 'all' ? defaultLocation : 'pantry',
-	)
-	const inputRef = useRef<HTMLInputElement>(null)
-
-	useEffect(() => {
-		if (open) {
-			setTimeout(() => inputRef.current?.focus(), 50)
-		}
-	}, [open])
-
-	useEffect(() => {
-		if (defaultLocation && defaultLocation !== 'all') {
-			setLocation(defaultLocation)
-		}
-	}, [defaultLocation])
-
-	const prevState = useRef(fetcher.state)
-	useEffect(() => {
-		if (
-			prevState.current !== 'idle' &&
-			fetcher.state === 'idle' &&
-			fetcher.data?.status === 'success'
-		) {
-			setName('')
-			inputRef.current?.focus()
-		}
-		prevState.current = fetcher.state
-	}, [fetcher.state, fetcher.data])
-
-	const bulkFetcher = useFetcher()
-	const revalidator = useRevalidator()
-
-	const prevBulkState = useRef(bulkFetcher.state)
-	useEffect(() => {
-		if (prevBulkState.current !== 'idle' && bulkFetcher.state === 'idle') {
-			void revalidator.revalidate()
-		}
-		prevBulkState.current = bulkFetcher.state
-	}, [bulkFetcher.state, revalidator])
-
-	const handleSpeechResult = useCallback(
-		(items: TranscribedItem[]) => {
-			if (items.length === 1) {
-				setName(items[0]!.name)
-				inputRef.current?.focus()
-			} else {
-				const fd = new FormData()
-				fd.set('intent', 'bulk-create')
-				fd.set(
-					'items',
-					JSON.stringify(items.map((i) => ({ name: i.name, location }))),
-				)
-				void bulkFetcher.submit(fd, { method: 'POST' })
-				toast.success(`Added ${items.length} items`)
-				onOpenChange(false)
-			}
-		},
-		[bulkFetcher, location, onOpenChange],
-	)
-	const handleSpeechError = useCallback((msg: string) => toast.error(msg), [])
-	const { isRecording, isTranscribing, startRecording, stopRecording } =
-		useSpeechToText({
-			onResult: handleSpeechResult,
-			onError: handleSpeechError,
-		})
-
-	return (
-		<div className="md:hidden print:hidden">
-			{open && (
-				<div
-					className="fixed inset-0 z-40"
-					onClick={() => onOpenChange(false)}
-				/>
-			)}
-			{open && (
-				<div className="fixed bottom-[9rem] right-4 z-50 w-[calc(100vw-2rem)] max-w-xs animate-fade-up-reveal rounded-xl border border-border/60 bg-card p-3 shadow-warm-lg">
-					<fetcher.Form
-						method="POST"
-						onSubmit={(e) => {
-							if (!name.trim()) e.preventDefault()
-						}}
-					>
-						<input type="hidden" name="intent" value="create" />
-						<input type="hidden" name="location" value={location} />
-						<input type="hidden" name="force" value="add" />
-						<div className="flex items-center gap-2">
-							<input
-								ref={inputRef}
-								name="name"
-								value={name}
-								onChange={(e) => setName(e.target.value)}
-								placeholder="Add an item..."
-								className="h-10 min-w-0 flex-1 rounded-lg border border-border/50 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/20"
-							/>
-							{isProActive && (
-								<button
-									type="button"
-									onClick={isRecording ? stopRecording : startRecording}
-									disabled={isTranscribing}
-									className={cn(
-										'flex size-10 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50',
-										isRecording
-											? 'animate-pulse bg-destructive text-destructive-foreground'
-											: 'bg-muted text-muted-foreground',
-									)}
-									aria-label={
-										isRecording
-											? 'Stop recording'
-											: isTranscribing
-												? 'Transcribing...'
-												: 'Voice input'
-									}
-								>
-									{isTranscribing ? (
-										<Icon name="update" className="size-4 animate-spin" />
-									) : (
-										<Icon name="microphone" className="size-5" />
-									)}
-								</button>
-							)}
-							<button
-								type="submit"
-								disabled={!name.trim() || fetcher.state !== 'idle'}
-								className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"
-							>
-								<Icon name="plus" className="size-5" />
-							</button>
-						</div>
-						<div className="mt-2 flex gap-1.5">
-							{FAB_LOCATIONS.map((loc) => (
-								<button
-									key={loc.value}
-									type="button"
-									onClick={() => setLocation(loc.value)}
-									className={cn(
-										'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-										location === loc.value
-											? 'bg-primary text-primary-foreground'
-											: 'bg-muted text-muted-foreground',
-									)}
-								>
-									{loc.label}
-								</button>
-							))}
-						</div>
-					</fetcher.Form>
-				</div>
-			)}
-			<button
-				type="button"
-				className={cn(
-					'fixed bottom-[5.5rem] right-4 z-50 flex size-12 items-center justify-center rounded-full shadow-warm-md transition-all active:scale-95',
-					open
-						? 'bg-muted text-muted-foreground'
-						: 'bg-primary text-primary-foreground',
-				)}
-				aria-label={open ? 'Close' : 'Add item'}
-				onClick={() => onOpenChange(!open)}
-			>
-				<Icon name={open ? 'cross-1' : 'plus'} className="size-6" />
-			</button>
-		</div>
-	)
-}
-
-const locationDotColors: Record<string, string> = {
-	pantry: 'bg-amber-500',
-	fridge: 'bg-blue-500',
-	freezer: 'bg-cyan-500',
-}
-
-function LocationSectionHeader({
-	location,
-	count,
-	isFirst = false,
-}: {
-	location: string
-	count: number
-	isFirst?: boolean
-}) {
-	return (
-		<div className={cn('sticky top-0 z-10 border-b border-border/30 bg-background pb-3', isFirst ? 'pt-1' : 'pt-8')}>
-			<div className="flex items-center gap-2">
-				<span
-					className={cn(
-						'size-2 rounded-full',
-						locationDotColors[location] ?? 'bg-muted-foreground',
-					)}
-				/>
-				<span className="text-[0.75rem] font-medium tracking-[0.08em] uppercase text-muted-foreground">
-					{LOCATION_LABELS[location as keyof typeof LOCATION_LABELS] ?? location}
-				</span>
-				<span className="text-[0.75rem] text-muted-foreground">({count})</span>
-			</div>
-		</div>
-	)
-}
-
-const LOCATION_ORDER = ['pantry', 'fridge', 'freezer'] as const
-
-function AllTabGrouped({ items }: { items: InventoryItem[] }) {
-	const firstLocation = LOCATION_ORDER.find((loc) =>
-		items.some((item) => item.location === loc),
-	)
-	return (
-		<div>
-			{LOCATION_ORDER.map((loc) => {
-				const locItems = items.filter((item) => item.location === loc)
-				if (locItems.length === 0) return null
-				return (
-					<div key={loc}>
-						<LocationSectionHeader
-							location={loc}
-							count={locItems.length}
-							isFirst={loc === firstLocation}
-						/>
-						<div className="divide-y divide-border/40">
-							{locItems.map((item) => (
-								<InventoryItemCard key={item.id} item={item} />
-							))}
-						</div>
-					</div>
-				)
-			})}
-		</div>
-	)
-}
-

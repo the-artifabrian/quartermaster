@@ -1,7 +1,6 @@
 import {
 	getFormProps,
 	getInputProps,
-	getSelectProps,
 	useForm,
 	type Submission,
 } from '@conform-to/react'
@@ -11,14 +10,12 @@ import { Form, data, redirect, useActionData } from 'react-router'
 import { Field } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
 import {
 	InventoryItemSchema,
-	LOCATION_LABELS,
 } from '#app/utils/inventory-validation.ts'
 import {
 	getInventoryUsage,
@@ -30,7 +27,6 @@ import { type Route } from './+types/new.ts'
 type DuplicateWarning = {
 	existingId: string
 	existingName: string
-	existingLocation: string
 }
 
 type ActionData = {
@@ -86,11 +82,10 @@ export async function action({ request }: Route.ActionArgs) {
 	// Check for duplicates unless force is set
 	if (!force) {
 		const existingItems = await prisma.inventoryItem.findMany({
-			where: { householdId, location: submission.value.location },
+			where: { householdId },
 		})
 		const match = findMatchingInventoryItem(
 			submission.value.name,
-			submission.value.location,
 			existingItems,
 		)
 		if (match) {
@@ -99,7 +94,6 @@ export async function action({ request }: Route.ActionArgs) {
 				duplicateWarning: {
 					existingId: match.id,
 					existingName: match.name,
-					existingLocation: match.location,
 				},
 			})
 		}
@@ -107,11 +101,10 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if (force === 'merge') {
 		const existingItems = await prisma.inventoryItem.findMany({
-			where: { householdId, location: submission.value.location },
+			where: { householdId },
 		})
 		const match = findMatchingInventoryItem(
 			submission.value.name,
-			submission.value.location,
 			existingItems,
 		)
 		if (match) {
@@ -125,7 +118,7 @@ export async function action({ request }: Route.ActionArgs) {
 	// force === 'add' or no duplicate found — create normally
 	await prisma.inventoryItem.create({
 		data: {
-			...submission.value,
+			name: submission.value.name,
 			userId,
 			householdId,
 		},
@@ -142,9 +135,6 @@ export default function NewInventoryItem() {
 	const [form, fields] = useForm({
 		id: 'new-inventory-item',
 		lastResult: actionData?.result,
-		defaultValue: {
-			location: 'pantry',
-		},
 		onValidate({ formData }) {
 			return parseWithZod(formData, { schema: InventoryItemSchema })
 		},
@@ -167,7 +157,7 @@ export default function NewInventoryItem() {
 				<div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-800 dark:bg-amber-950/40">
 					<p className="text-sm text-amber-800 dark:text-amber-300">
 						You already have <strong>{duplicateWarning.existingName}</strong> in
-						the {duplicateWarning.existingLocation}.
+						your inventory.
 					</p>
 					<div className="mt-3 flex gap-2">
 						<Form method="POST">
@@ -176,11 +166,6 @@ export default function NewInventoryItem() {
 								type="hidden"
 								name="name"
 								value={fields.name.value ?? ''}
-							/>
-							<input
-								type="hidden"
-								name="location"
-								value={fields.location.value ?? ''}
 							/>
 							<input type="hidden" name="force" value="merge" />
 							<Button
@@ -197,11 +182,6 @@ export default function NewInventoryItem() {
 								type="hidden"
 								name="name"
 								value={fields.name.value ?? ''}
-							/>
-							<input
-								type="hidden"
-								name="location"
-								value={fields.location.value ?? ''}
 							/>
 							<input type="hidden" name="force" value="add" />
 							<Button
@@ -228,25 +208,6 @@ export default function NewInventoryItem() {
 						}}
 						errors={fields.name.errors}
 					/>
-
-					<div>
-						<Label htmlFor={fields.location.id}>Location</Label>
-						<select
-							{...getSelectProps(fields.location)}
-							className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-base focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-						>
-							<option value="pantry">{LOCATION_LABELS.pantry}</option>
-							<option value="fridge">{LOCATION_LABELS.fridge}</option>
-							<option value="freezer">{LOCATION_LABELS.freezer}</option>
-						</select>
-						<div className="min-h-[32px] px-4 pt-1 pb-3">
-							{fields.location.errors && (
-								<p className="text-destructive text-sm">
-									{fields.location.errors}
-								</p>
-							)}
-						</div>
-					</div>
 
 					<div className="flex gap-4 pt-4">
 						<StatusButton

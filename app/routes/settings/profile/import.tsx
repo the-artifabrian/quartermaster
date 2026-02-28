@@ -58,7 +58,7 @@ const ImportRecipeSchema = z.object({
 
 const ImportInventoryItemSchema = z.object({
 	name: z.string().min(1).max(200),
-	location: z.enum(['pantry', 'fridge', 'freezer']),
+	location: z.enum(['pantry', 'fridge', 'freezer']).optional(), // accepted for backward compat (ignored)
 	quantity: z.number().nullable().optional(),
 	unit: z.string().max(50).nullable().optional(),
 	expiresAt: z.string().nullable().optional(), // accepted for backward compat (ignored)
@@ -297,14 +297,14 @@ export async function action({ request }: Route.ActionArgs) {
 		try {
 			const existingInventory = await prisma.inventoryItem.findMany({
 				where: { householdId },
-				select: { name: true, location: true },
+				select: { name: true },
 			})
 			const existingKeys = new Set(
-				existingInventory.map((i) => `${i.name.toLowerCase()}|${i.location}`),
+				existingInventory.map((i) => i.name.toLowerCase()),
 			)
 
 			for (const item of fullData.inventory) {
-				const key = `${item.name.toLowerCase()}|${item.location}`
+				const key = item.name.toLowerCase()
 				if (existingKeys.has(key)) {
 					results.inventory.skipped++
 					continue
@@ -313,7 +313,6 @@ export async function action({ request }: Route.ActionArgs) {
 					await prisma.inventoryItem.create({
 						data: {
 							name: item.name,
-							location: item.location,
 							userId,
 							householdId,
 						},
@@ -672,7 +671,7 @@ export default function ImportData() {
 								</div>
 								<p className="text-muted-foreground mt-3 text-xs">
 									Existing recipes (matched by title) and inventory items
-									(matched by name + location) will be automatically skipped.
+									(matched by name) will be automatically skipped.
 								</p>
 							</div>
 

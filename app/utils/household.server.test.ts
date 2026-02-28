@@ -118,7 +118,6 @@ describe('acceptInvite', () => {
 		await prisma.inventoryItem.create({
 			data: {
 				name: 'flour',
-				location: 'pantry',
 				userId: joiner.id,
 				householdId: joiner.householdId,
 			},

@@ -29,18 +29,9 @@ function makeInventory(
 	overrides?: Partial<InventoryInput>[],
 ): InventoryInput[] {
 	const defaults: InventoryInput[] = [
-		{
-			name: 'chicken breast',
-			location: 'fridge',
-		},
-		{
-			name: 'bell pepper',
-			location: 'fridge',
-		},
-		{
-			name: 'rice',
-			location: 'pantry',
-		},
+		{ name: 'chicken breast' },
+		{ name: 'bell pepper' },
+		{ name: 'rice' },
 	]
 	if (overrides) {
 		return overrides.map((o, i) => ({
@@ -61,18 +52,9 @@ describe('buildPrompt', () => {
 		expect(prompt).toContain('rice')
 	})
 
-	test('shows location tags', () => {
-		const inventory = makeInventory()
-		const prompt = buildPrompt(inventory)
-
-		expect(prompt).toContain('[fridge]')
-		expect(prompt).toContain('[pantry]')
-	})
-
 	test('caps inventory at 80 items', () => {
 		const inventory: InventoryInput[] = Array.from({ length: 100 }, (_, i) => ({
 			name: `item-${i}`,
-			location: 'pantry',
 		}))
 		const prompt = buildPrompt(inventory)
 

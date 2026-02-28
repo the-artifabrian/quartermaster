@@ -5,21 +5,12 @@ import { Button } from './ui/button.tsx'
 import { Checkbox } from './ui/checkbox.tsx'
 import { Icon } from './ui/icon.tsx'
 
-const SECTION_CONFIG = {
-	pantry: { title: 'Pantry Essentials', icon: 'home' },
-	fridge: { title: 'Fridge Basics', icon: 'cookie' },
-	freezer: { title: 'Freezer Staples', icon: 'cookie' },
-} as const
-
-type CheckedState = Record<string, Record<string, boolean>>
+type CheckedState = Record<string, boolean>
 
 function getInitialState(): CheckedState {
 	const state: CheckedState = {}
-	for (const [location, items] of Object.entries(RECOMMENDED_STAPLES)) {
-		state[location] = {}
-		for (const item of items) {
-			state[location][item.name] = item.checked
-		}
+	for (const item of RECOMMENDED_STAPLES) {
+		state[item.name] = item.checked
 	}
 	return state
 }
@@ -45,53 +36,37 @@ export function PantryStaplesOnboarding({
 		}
 	}, [fetcher.data, onSuccess])
 
-	function handleToggle(location: string, name: string) {
+	function handleToggle(name: string) {
 		setChecked((prev) => ({
 			...prev,
-			[location]: {
-				...prev[location],
-				[name]: !prev[location]?.[name],
-			},
+			[name]: !prev[name],
 		}))
 	}
 
-	function handleSelectAll(location: string) {
-		setChecked((prev) => ({
-			...prev,
-			[location]: Object.fromEntries(
-				RECOMMENDED_STAPLES[location as keyof typeof RECOMMENDED_STAPLES].map(
-					(item) => [item.name, true],
-				),
-			),
-		}))
+	function handleSelectAll() {
+		setChecked(
+			Object.fromEntries(RECOMMENDED_STAPLES.map((item) => [item.name, true])),
+		)
 	}
 
-	function handleDeselectAll(location: string) {
-		setChecked((prev) => ({
-			...prev,
-			[location]: Object.fromEntries(
-				RECOMMENDED_STAPLES[location as keyof typeof RECOMMENDED_STAPLES].map(
-					(item) => [item.name, false],
-				),
+	function handleDeselectAll() {
+		setChecked(
+			Object.fromEntries(
+				RECOMMENDED_STAPLES.map((item) => [item.name, false]),
 			),
-		}))
+		)
 	}
 
 	function getSelectedItems() {
-		const items: Array<{ name: string; location: string }> = []
-		for (const [location, itemStates] of Object.entries(checked)) {
-			for (const [name, isChecked] of Object.entries(itemStates)) {
-				if (isChecked) {
-					items.push({ name, location })
-				}
-			}
-		}
-		return items
+		return Object.entries(checked)
+			.filter(([, isChecked]) => isChecked)
+			.map(([name]) => ({ name }))
 	}
 
 	const selectedItems = getSelectedItems()
 	const totalSelected = selectedItems.length
 	const overLimit = maxItems !== undefined && totalSelected > maxItems
+	const allSelected = totalSelected === RECOMMENDED_STAPLES.length
 
 	function handleSubmit() {
 		if (totalSelected === 0) return
@@ -147,57 +122,34 @@ export function PantryStaplesOnboarding({
 				</p>
 			</div>
 
-			<div className="space-y-4 sm:space-y-6">
-				{(
-					Object.entries(RECOMMENDED_STAPLES) as Array<
-						[
-							keyof typeof RECOMMENDED_STAPLES,
-							(typeof RECOMMENDED_STAPLES)[keyof typeof RECOMMENDED_STAPLES],
-						]
+			<div className="bg-secondary/30 rounded-xl border p-3 sm:p-5">
+				<div className="mb-3 flex items-center justify-between">
+					<h3 className="text-lg font-semibold">Common Staples</h3>
+					<button
+						type="button"
+						className="text-muted-foreground hover:text-foreground text-sm"
+						onClick={() =>
+							allSelected ? handleDeselectAll() : handleSelectAll()
+						}
 					>
-				).map(([location, items]) => {
-					const config = SECTION_CONFIG[location]
-					const locationChecked = checked[location] ?? {}
-					const checkedCount =
-						Object.values(locationChecked).filter(Boolean).length
-					const allSelected = checkedCount === items.length
-					return (
-						<div key={location} className="bg-secondary/30 rounded-xl border p-3 sm:p-5">
-							<div className="mb-3 flex items-center justify-between">
-								<h3 className="flex items-center gap-2 text-lg font-semibold">
-									<Icon name={config.icon} className="size-5" />
-									{config.title}
-								</h3>
-								<button
-									type="button"
-									className="text-muted-foreground hover:text-foreground text-sm"
-									onClick={() =>
-										allSelected
-											? handleDeselectAll(location)
-											: handleSelectAll(location)
-									}
-								>
-									{allSelected ? 'Deselect all' : 'Select all'}
-								</button>
-							</div>
-							<div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2">
-								{items.map((item) => (
-									<label
-										key={item.name}
-										className="bg-background flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 select-none sm:gap-2.5 sm:px-3 sm:py-2.5"
-									>
-										<Checkbox
-											checked={locationChecked[item.name] ?? false}
-											onCheckedChange={() => handleToggle(location, item.name)}
-											className="shrink-0"
-										/>
-										<span className="text-xs leading-tight capitalize sm:text-sm">{item.name}</span>
-									</label>
-								))}
-							</div>
-						</div>
-					)
-				})}
+						{allSelected ? 'Deselect all' : 'Select all'}
+					</button>
+				</div>
+				<div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2">
+					{RECOMMENDED_STAPLES.map((item) => (
+						<label
+							key={item.name}
+							className="bg-background flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 select-none sm:gap-2.5 sm:px-3 sm:py-2.5"
+						>
+							<Checkbox
+								checked={checked[item.name] ?? false}
+								onCheckedChange={() => handleToggle(item.name)}
+								className="shrink-0"
+							/>
+							<span className="text-xs leading-tight capitalize sm:text-sm">{item.name}</span>
+						</label>
+					))}
+				</div>
 			</div>
 
 			<div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:items-center sm:justify-between sm:gap-4">

@@ -122,22 +122,20 @@ execution quality, not differentiation.
 
 ## Inventory System
 
-- Three locations: Pantry, Fridge, Freezer. "All" tab groups items by location
-  with section headers; individual tabs show a single location. Status badges
+- Flat alphabetical list of items. No locations/categories — inventory is just
 - No quantities or expiry — inventory is a rough signal of what you have, not a
   ledger of how much
 - Inline editing: tap item name to rename in-place (save on blur/Enter, cancel
-  on Escape). Dedup check prevents renaming to a name that already exists in the
-  same location
+  on Escape). Dedup check prevents renaming to a name that already exists
 - Card actions: swipe-left-to-delete (mobile, tap revealed button to confirm),
-  overflow menu (move to another location, delete with two-tap confirmation).
+  overflow menu (delete with two-tap confirmation).
   Optimistic updates for all actions
-- Client-side search/filter across all items and location tabs
-- Quick-add with duplicate detection via canonical name matching (same location)
-  — warns with "Update existing" / "Add anyway" choice
+- Client-side search/filter across all items
+- Quick-add with duplicate detection via canonical name matching — warns with
+  "Update existing" / "Add anyway" choice
 - Full add form (`/inventory/new`) also detects duplicates with update/add-anyway
   banner
-- Bulk add (pantry staples onboarding) silently skips duplicates
+- Bulk add (staples onboarding) silently skips duplicates
 - Ingredient normalization pipeline: ~40 modifier strippers, ~25 synonym groups,
   pluralization, compound ingredient protection, non-equivalent exclusions.
   Powers matching, shopping consolidation, overlap scoring, and waste detection
@@ -205,12 +203,9 @@ execution quality, not differentiation.
     `useFetcher`)
   - Live-refresh via SSE for all shopping list events (generate, add, clear,
     to-inventory, toggle, edit, delete; debounced 500ms)
-  - Check-off -> inventory pipeline: compact collapsed rows with location badges,
-    tap to expand controls, select all/deselect all. Pre-filled location.
-    "Already in [location]" indicator for items matching existing inventory
-    (canonical name + location match) — pre-deselected with muted styling,
-    clears when user re-selects or changes to an unstocked location.
-    Auto-updates existing inventory items (canonical name match, same location).
+  - Check-off -> inventory pipeline: select all/deselect all, checkbox per item.
+    "Already in inventory" indicator for items matching existing inventory
+    (canonical name match) — pre-deselected with muted styling.
     Household items cleared but not added to inventory
 
 ## Household Sharing

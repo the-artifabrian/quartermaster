@@ -1,7 +1,6 @@
 import { type InventoryItem } from '@prisma/client'
 import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
-import { LOCATION_LABELS } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { SwipeableRow } from './swipeable-row.tsx'
 import { Button } from './ui/button.tsx'
@@ -9,29 +8,18 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from './ui/dropdown-menu.tsx'
 import { Icon } from './ui/icon.tsx'
 
-const locationDotColors: Record<string, string> = {
-	pantry: 'bg-amber-500',
-	fridge: 'bg-blue-500',
-	freezer: 'bg-cyan-500',
-}
-
-const ALL_LOCATIONS = ['pantry', 'fridge', 'freezer'] as const
-
 type InventoryItemCardProps = {
 	item: InventoryItem
 	showActions?: boolean
-	showLocation?: boolean
 }
 
 export function InventoryItemCard({
 	item,
 	showActions = true,
-	showLocation = false,
 }: InventoryItemCardProps) {
 	const [confirmDelete, setConfirmDelete] = useState(false)
 	const [editing, setEditing] = useState(false)
@@ -39,7 +27,6 @@ export function InventoryItemCard({
 	const inputRef = useRef<HTMLInputElement>(null)
 	const deleteFetcher = useFetcher()
 	const renameFetcher = useFetcher<{ status: string; message?: string }>()
-	const moveFetcher = useFetcher()
 
 	// Focus input when entering edit mode
 	useEffect(() => {
@@ -58,9 +45,6 @@ export function InventoryItemCard({
 
 	// Optimistic delete — hide row immediately
 	if (deleteFetcher.state !== 'idle') return null
-
-	// Optimistic move — hide from current location view
-	if (moveFetcher.state !== 'idle') return null
 
 	// Optimistic name
 	const optimisticName =
@@ -81,8 +65,6 @@ export function InventoryItemCard({
 		)
 		setEditing(false)
 	}
-
-	const otherLocations = ALL_LOCATIONS.filter((loc) => loc !== item.location)
 
 	const row = (
 		<div className="group hover:bg-muted/30 flex items-center gap-3 py-3 transition-colors">
@@ -128,18 +110,6 @@ export function InventoryItemCard({
 							{optimisticName}
 						</button>
 					)}
-					{/* Location badge (for All tab) */}
-					{showLocation && (
-						<span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-							<span
-								className={cn(
-									'size-1.5 rounded-full',
-									locationDotColors[item.location] ?? 'bg-muted-foreground',
-								)}
-							/>
-							{LOCATION_LABELS[item.location as keyof typeof LOCATION_LABELS]}
-						</span>
-					)}
 				</div>
 			</div>
 
@@ -162,21 +132,6 @@ export function InventoryItemCard({
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
-							{otherLocations.map((loc) => (
-								<DropdownMenuItem
-									key={loc}
-									onSelect={() => {
-										void moveFetcher.submit(
-											{ intent: 'move', itemId: item.id, location: loc },
-											{ method: 'POST' },
-										)
-									}}
-								>
-									<Icon name="update" size="sm" />
-									Move to {LOCATION_LABELS[loc]}
-								</DropdownMenuItem>
-							))}
-							<DropdownMenuSeparator />
 							<DropdownMenuItem
 								className={cn(
 									confirmDelete

@@ -42,6 +42,7 @@ const UNITS = [
 	'cartons?',
 	'containers?',
 	'sticks?',
+	'cases?',
 	'pints?',
 	'quarts?',
 	'tins?',
@@ -124,15 +125,20 @@ function normalizeUnit(unit: string): string {
 }
 
 const FILLER_PATTERN =
-	/^(?:um|uh|uh+m*|hmm?|oh|like|so|well|okay|ok)\s+/i
+	/^(?:um|uh|uh+m*|hmm?|oh|like|so|well|okay|ok|yeah|yep|yup|right|actually|and|also)\s+/i
+
+// Instructional prefixes people use when dictating to an app
+const PREFIX_PATTERN =
+	/^(?:I\s+need|we\s+need|I\s+want|we\s+want|get\s+me|get|add|buy|grab)\s+/i
 
 const VAGUE_QUANTIFIER_PATTERN =
 	/^(?:some|a\s+few|a\s+lot\s+of|a\s+bit\s+of)\s+/i
 
 /**
  * Clean up raw Whisper transcript text:
- * - Strip trailing punctuation
- * - Strip leading filler words ("um", "uh", "like", etc.) — repeatable
+ * - Strip trailing punctuation and internal commas (Whisper noise)
+ * - Strip leading filler words ("um", "uh", "like", "yeah", etc.) — repeatable
+ * - Strip instructional prefixes ("I need", "we need", "get", "add", etc.)
  * - Strip vague quantifiers ("some", "a few", "a lot of", "a bit of")
  * - Normalize compound word-numbers ("a hundred" → "100", "half a dozen" → "6")
  * - Normalize "<word> hundred" compounds ("three hundred" → "300")
@@ -144,13 +150,20 @@ function normalizeTranscript(raw: string): string {
 	// Strip trailing punctuation and whitespace
 	let text = raw.trim().replace(/[.,!?;:]+$/, '').trim()
 
-	// Strip leading filler words (repeatable for chains like "um like oh")
-	while (FILLER_PATTERN.test(text)) {
-		text = text.replace(FILLER_PATTERN, '')
-	}
+	// Strip commas — Whisper inserts them between filler words and clauses
+	// (e.g. "Um, like, some Cheerios"). By the time text reaches here, commas
+	// from multi-item splitting have already been consumed by parseSpeechItems.
+	text = text.replace(/,/g, ' ').replace(/\s{2,}/g, ' ').trim()
 
-	// Strip vague quantifiers ("some milk" → "milk", "a few lemons" → "lemons")
-	text = text.replace(VAGUE_QUANTIFIER_PATTERN, '')
+	// Strip filler words, instructional prefixes, and vague quantifiers in a
+	// loop — they can appear in any combination ("oh I need like some milk")
+	let prev
+	do {
+		prev = text
+		text = text.replace(FILLER_PATTERN, '')
+		text = text.replace(PREFIX_PATTERN, '')
+		text = text.replace(VAGUE_QUANTIFIER_PATTERN, '')
+	} while (text !== prev)
 
 	// Compound word-numbers first (must come before single word-number check)
 	for (const [pattern, replacement] of COMPOUND_NUMBERS) {

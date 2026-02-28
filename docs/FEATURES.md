@@ -101,8 +101,10 @@ execution quality, not differentiation.
   ("a dozen", "half a dozen", "a couple", "three hundred"), mixed fractions
   ("1 1/2 cups"), unit normalization aligned with unit-conversion canonical
   forms (pounds→lb, liters→l, cups→cup), vague quantifier stripping ("some",
-  "a few", "a lot of"), repeatable filler word stripping, and compound grocery
-  name protection ("mac and cheese" not split on "and").
+  "a few", "a lot of"), Whisper comma cleanup, instructional prefix stripping
+  ("I need", "we need", "get", "add", "buy", "grab"), repeatable filler word
+  stripping (handles chains like "um yeah I need like some garlic"), and
+  compound grocery name protection ("mac and cheese" not split on "and").
   Available on shopping list (desktop + mobile FAB) and inventory
   (desktop quick-add + mobile FAB). 30s max recording safety net, iOS Safari
   AudioContext handling

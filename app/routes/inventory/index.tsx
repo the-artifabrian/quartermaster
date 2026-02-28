@@ -3,7 +3,12 @@ import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useFetcher } from 'react-router'
+import { Link, useFetcher, useRevalidator } from 'react-router'
+import { toast } from 'sonner'
+import {
+	useSpeechToText,
+	type TranscribedItem,
+} from '#app/hooks/use-speech-to-text.ts'
 import { z } from 'zod'
 import { InventoryItemCard } from '#app/components/inventory-item-card.tsx'
 import { InventoryLocationTabs } from '#app/components/inventory-location-tabs.tsx'
@@ -506,7 +511,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 				{/* Quick Add — shown when a specific location is selected */}
 				{showingLocation && !inventoryUsage.isAtLimit && (
 					<div className="mb-2">
-						<InventoryQuickAdd location={showingLocation} />
+						<InventoryQuickAdd location={showingLocation} isProActive={isProActive} />
 					</div>
 				)}
 
@@ -587,6 +592,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					open={fabOpen}
 					onOpenChange={setFabOpen}
 					defaultLocation={selectedLocation}
+					isProActive={isProActive}
 				/>
 			)}
 		</div>
@@ -603,10 +609,12 @@ function InventoryMobileFabAdd({
 	open,
 	onOpenChange,
 	defaultLocation,
+	isProActive,
 }: {
 	open: boolean
 	onOpenChange: (open: boolean) => void
 	defaultLocation: string
+	isProActive: boolean
 }) {
 	const fetcher = useFetcher<{ status: string }>()
 	const [name, setName] = useState('')
@@ -640,6 +648,43 @@ function InventoryMobileFabAdd({
 		prevState.current = fetcher.state
 	}, [fetcher.state, fetcher.data])
 
+	const bulkFetcher = useFetcher()
+	const revalidator = useRevalidator()
+
+	const prevBulkState = useRef(bulkFetcher.state)
+	useEffect(() => {
+		if (prevBulkState.current !== 'idle' && bulkFetcher.state === 'idle') {
+			revalidator.revalidate()
+		}
+		prevBulkState.current = bulkFetcher.state
+	}, [bulkFetcher.state, revalidator])
+
+	const handleSpeechResult = useCallback(
+		(items: TranscribedItem[]) => {
+			if (items.length === 1) {
+				setName(items[0]!.name)
+				inputRef.current?.focus()
+			} else {
+				const fd = new FormData()
+				fd.set('intent', 'bulk-create')
+				fd.set(
+					'items',
+					JSON.stringify(items.map((i) => ({ name: i.name, location }))),
+				)
+				bulkFetcher.submit(fd, { method: 'POST' })
+				toast.success(`Added ${items.length} items`)
+				onOpenChange(false)
+			}
+		},
+		[bulkFetcher, location, onOpenChange],
+	)
+	const handleSpeechError = useCallback((msg: string) => toast.error(msg), [])
+	const { isRecording, isTranscribing, startRecording, stopRecording } =
+		useSpeechToText({
+			onResult: handleSpeechResult,
+			onError: handleSpeechError,
+		})
+
 	return (
 		<div className="md:hidden print:hidden">
 			{open && (
@@ -668,6 +713,32 @@ function InventoryMobileFabAdd({
 								placeholder="Add an item..."
 								className="h-10 min-w-0 flex-1 rounded-lg border border-border/50 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/20"
 							/>
+							{isProActive && (
+								<button
+									type="button"
+									onClick={isRecording ? stopRecording : startRecording}
+									disabled={isTranscribing}
+									className={cn(
+										'flex size-10 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50',
+										isRecording
+											? 'animate-pulse bg-destructive text-destructive-foreground'
+											: 'bg-muted text-muted-foreground',
+									)}
+									aria-label={
+										isRecording
+											? 'Stop recording'
+											: isTranscribing
+												? 'Transcribing...'
+												: 'Voice input'
+									}
+								>
+									{isTranscribing ? (
+										<Icon name="update" className="size-4 animate-spin" />
+									) : (
+										<Icon name="microphone" className="size-5" />
+									)}
+								</button>
+							)}
 							<button
 								type="submit"
 								disabled={!name.trim() || fetcher.state !== 'idle'}

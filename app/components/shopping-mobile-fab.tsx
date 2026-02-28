@@ -1,14 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
-import { useFetcher } from 'react-router'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useFetcher, useRevalidator } from 'react-router'
+import { toast } from 'sonner'
+import {
+	useSpeechToText,
+	type TranscribedItem,
+} from '#app/hooks/use-speech-to-text.ts'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { cn } from '#app/utils/misc.tsx'
 
 export function MobileFabAdd({
 	open,
 	onOpenChange,
+	isProActive,
 }: {
 	open: boolean
 	onOpenChange: (open: boolean) => void
+	isProActive: boolean
 }) {
 	const fetcher = useFetcher<{ status: string }>()
 	const [name, setName] = useState('')
@@ -38,6 +45,46 @@ export function MobileFabAdd({
 		prevState.current = fetcher.state
 	}, [fetcher.state, fetcher.data])
 
+	const bulkAddFetcher = useFetcher()
+	const revalidator = useRevalidator()
+
+	const prevBulkState = useRef(bulkAddFetcher.state)
+	useEffect(() => {
+		if (prevBulkState.current !== 'idle' && bulkAddFetcher.state === 'idle') {
+			revalidator.revalidate()
+		}
+		prevBulkState.current = bulkAddFetcher.state
+	}, [bulkAddFetcher.state, revalidator])
+
+	const handleSpeechResult = useCallback(
+		(items: TranscribedItem[]) => {
+			if (items.length === 1) {
+				const item = items[0]!
+				setName(item.name)
+				if (item.quantity || item.unit) {
+					setQuantity(item.quantity)
+					setUnit(item.unit)
+					setShowQty(true)
+				}
+				inputRef.current?.focus()
+			} else {
+				const fd = new FormData()
+				fd.set('intent', 'bulk-add')
+				fd.set('items', JSON.stringify(items))
+				bulkAddFetcher.submit(fd, { method: 'POST' })
+				toast.success(`Added ${items.length} items`)
+				onOpenChange(false)
+			}
+		},
+		[bulkAddFetcher, onOpenChange],
+	)
+	const handleSpeechError = useCallback((msg: string) => toast.error(msg), [])
+	const { isRecording, isTranscribing, startRecording, stopRecording } =
+		useSpeechToText({
+			onResult: handleSpeechResult,
+			onError: handleSpeechError,
+		})
+
 	return (
 		<div className="md:hidden print:hidden">
 			{open && (
@@ -65,6 +112,32 @@ export function MobileFabAdd({
 								placeholder="Add an item..."
 								className="h-10 min-w-0 flex-1 rounded-lg border border-border/50 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/20"
 							/>
+							{isProActive && (
+								<button
+									type="button"
+									onClick={isRecording ? stopRecording : startRecording}
+									disabled={isTranscribing}
+									className={cn(
+										'flex size-10 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50',
+										isRecording
+											? 'animate-pulse bg-destructive text-destructive-foreground'
+											: 'bg-muted text-muted-foreground',
+									)}
+									aria-label={
+										isRecording
+											? 'Stop recording'
+											: isTranscribing
+												? 'Transcribing...'
+												: 'Voice input'
+									}
+								>
+									{isTranscribing ? (
+										<Icon name="update" className="size-4 animate-spin" />
+									) : (
+										<Icon name="microphone" className="size-5" />
+									)}
+								</button>
+							)}
 							<button
 								type="submit"
 								disabled={!name.trim() || fetcher.state !== 'idle'}

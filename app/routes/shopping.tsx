@@ -1,8 +1,10 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useEffect, useRef, useState } from 'react'
-import { Form, Link, useFetcher } from 'react-router'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Form, Link, useFetcher, useRevalidator } from 'react-router'
+import { toast } from 'sonner'
+import { useSpeechToText, type TranscribedItem } from '#app/hooks/use-speech-to-text.ts'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { ShoppingListToInventory } from '#app/components/shopping-list-to-inventory.tsx'
 import { ShoppingListLiveRefresh } from '#app/components/shopping-live-refresh.tsx'
@@ -36,6 +38,7 @@ import {
 	generateShoppingListFromRecipes,
 	annotateInventoryMatches,
 } from '#app/utils/shopping-list.server.ts'
+import { cn } from '#app/utils/misc.tsx'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/shopping.ts'
 
@@ -524,6 +527,55 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const }
 	}
 
+	if (intent === 'bulk-add') {
+		const rawItems = formData.get('items')
+		invariantResponse(typeof rawItems === 'string', 'Items are required')
+
+		let items: Array<{ name: string; quantity?: string; unit?: string }>
+		try {
+			items = JSON.parse(rawItems) as typeof items
+		} catch {
+			throw new Response('Invalid items data', { status: 400 })
+		}
+		invariantResponse(Array.isArray(items) && items.length > 0, 'No items')
+
+		// Dedup against existing unchecked items
+		const existingItems = await prisma.shoppingListItem.findMany({
+			where: { listId: shoppingList.id, checked: false },
+			select: { name: true },
+		})
+		const existingCanonicals = new Set(
+			existingItems.map((item) => getCanonicalIngredientName(item.name)),
+		)
+		const newItems = items.filter(
+			(item) =>
+				item.name.trim() &&
+				!existingCanonicals.has(getCanonicalIngredientName(item.name)),
+		)
+
+		if (newItems.length > 0) {
+			await prisma.shoppingListItem.createMany({
+				data: newItems.map((item) => ({
+					name: item.name.trim(),
+					quantity: item.quantity?.trim() || null,
+					unit: item.unit?.trim() || null,
+					category: guessCategory(item.name),
+					listId: shoppingList.id,
+					source: 'manual' as const,
+				})),
+			})
+
+			void emitHouseholdEvent({
+				type: 'shopping_list_item_added',
+				payload: { count: newItems.length, source: 'voice' },
+				userId,
+				householdId,
+			})
+		}
+
+		return { status: 'success' as const, addedCount: newItems.length }
+	}
+
 	return { status: 'error' as const }
 }
 
@@ -556,6 +608,48 @@ export default function ShoppingListRoute({
 	const [quickAddOpen, setQuickAddOpen] = useState(false)
 	const [fabOpen, setFabOpen] = useState(false)
 	const [warningDismissed, setWarningDismissed] = useState(false)
+
+	const bulkAddFetcher = useFetcher()
+	const revalidator = useRevalidator()
+
+	// Revalidate after bulk-add completes so the new items appear
+	const prevBulkState = useRef(bulkAddFetcher.state)
+	useEffect(() => {
+		if (prevBulkState.current !== 'idle' && bulkAddFetcher.state === 'idle') {
+			revalidator.revalidate()
+		}
+		prevBulkState.current = bulkAddFetcher.state
+	}, [bulkAddFetcher.state, revalidator])
+
+	const handleSpeechResult = useCallback(
+		(items: TranscribedItem[]) => {
+			if (items.length === 1) {
+				// Single item: populate the input for review
+				const item = items[0]!
+				setQaName(item.name)
+				if (item.quantity || item.unit) {
+					setQaQuantity(item.quantity)
+					setQaUnit(item.unit)
+					setQuickAddOpen(true)
+				}
+				qaInputRef.current?.focus()
+			} else {
+				// Multiple items: bulk-add directly
+				const fd = new FormData()
+				fd.set('intent', 'bulk-add')
+				fd.set('items', JSON.stringify(items))
+				bulkAddFetcher.submit(fd, { method: 'POST' })
+				toast.success(`Added ${items.length} items`)
+			}
+		},
+		[bulkAddFetcher],
+	)
+	const handleSpeechError = useCallback((msg: string) => toast.error(msg), [])
+	const { isRecording, isTranscribing, startRecording, stopRecording } =
+		useSpeechToText({
+			onResult: handleSpeechResult,
+			onError: handleSpeechError,
+		})
 
 	// Reset quick-add on success, preserve values on warning
 	const prevQaState = useRef(quickAddFetcher.state)
@@ -715,6 +809,32 @@ export default function ShoppingListRoute({
 									className="shrink-0 text-xs text-muted-foreground/40 hover:text-muted-foreground"
 								>
 									+ Qty
+								</button>
+							)}
+							{isProActive && (
+								<button
+									type="button"
+									onClick={isRecording ? stopRecording : startRecording}
+									disabled={isTranscribing}
+									className={cn(
+										'flex size-8 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50',
+										isRecording
+											? 'animate-pulse bg-destructive text-destructive-foreground'
+											: 'text-muted-foreground hover:bg-muted hover:text-foreground',
+									)}
+									aria-label={
+										isRecording
+											? 'Stop recording'
+											: isTranscribing
+												? 'Transcribing...'
+												: 'Voice input'
+									}
+								>
+									{isTranscribing ? (
+										<Icon name="update" className="size-4 animate-spin" />
+									) : (
+										<Icon name="microphone" className="size-4" />
+									)}
 								</button>
 							)}
 							<button
@@ -904,6 +1024,7 @@ export default function ShoppingListRoute({
 			<MobileFabAdd
 				open={fabOpen}
 				onOpenChange={setFabOpen}
+				isProActive={isProActive}
 			/>
 		</div>
 	)

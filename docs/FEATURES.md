@@ -91,6 +91,15 @@ execution quality, not differentiation.
 - Drag-and-drop ingredient reordering (`@dnd-kit/sortable`). Collapsed rows
   show a one-line summary; expanded rows show a controls toolbar (drag, collapse,
   remove) above full-width name/amount/unit/notes inputs
+- Voice-to-text input (Pro): one-tap mic button records audio, auto-stops on
+  silence (~1.5s), transcribes via Groq-hosted Whisper (whisper-large-v3-turbo),
+  and parses structured qty/unit/name from natural speech. Single item populates
+  the input for review; multiple items (comma or "and" separated) are bulk-added
+  directly. Handles word numbers ("two pounds"), compound numbers ("a dozen",
+  "half a dozen"), unit normalization (kilogram→kg, pounds→lbs), and filler word
+  stripping. Available on shopping list (desktop + mobile FAB) and inventory
+  (desktop quick-add + mobile FAB). 30s max recording safety net, iOS Safari
+  AudioContext handling
 - AI recipe enhance (Pro): one-click metadata inference (description, servings,
   prep/cook times) with before/after review modal. Feature-specific error
   messages. Primarily for cleaning up bulk-imported recipes
@@ -273,4 +282,4 @@ execution quality, not differentiation.
 
 ---
 
-_Last updated: February 27, 2026._
+_Last updated: February 28, 2026._

@@ -1,10 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
-import { useFetcher } from 'react-router'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useFetcher, useRevalidator } from 'react-router'
+import { toast } from 'sonner'
+import {
+	useSpeechToText,
+	type TranscribedItem,
+} from '#app/hooks/use-speech-to-text.ts'
+import { cn } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 
 type InventoryQuickAddProps = {
 	location: 'pantry' | 'fridge' | 'freezer'
+	isProActive: boolean
 }
 
 type ActionData = {
@@ -18,7 +25,10 @@ type ActionData = {
 	message?: string
 }
 
-export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
+export function InventoryQuickAdd({
+	location,
+	isProActive,
+}: InventoryQuickAddProps) {
 	const [name, setName] = useState('')
 	const fetcher = useFetcher<ActionData>()
 	const [lastWarningName, setLastWarningName] = useState('')
@@ -58,6 +68,42 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 		void fetcher.submit(formData, { method: 'POST' })
 	}
 
+	const bulkFetcher = useFetcher()
+	const revalidator = useRevalidator()
+
+	const prevBulkState = useRef(bulkFetcher.state)
+	useEffect(() => {
+		if (prevBulkState.current !== 'idle' && bulkFetcher.state === 'idle') {
+			revalidator.revalidate()
+		}
+		prevBulkState.current = bulkFetcher.state
+	}, [bulkFetcher.state, revalidator])
+
+	const handleSpeechResult = useCallback(
+		(items: TranscribedItem[]) => {
+			if (items.length === 1) {
+				setName(items[0]!.name)
+				nameRef.current?.focus()
+			} else {
+				const fd = new FormData()
+				fd.set('intent', 'bulk-create')
+				fd.set(
+					'items',
+					JSON.stringify(items.map((i) => ({ name: i.name, location }))),
+				)
+				bulkFetcher.submit(fd, { method: 'POST' })
+				toast.success(`Added ${items.length} items`)
+			}
+		},
+		[bulkFetcher, location],
+	)
+	const handleSpeechError = useCallback((msg: string) => toast.error(msg), [])
+	const { isRecording, isTranscribing, startRecording, stopRecording } =
+		useSpeechToText({
+			onResult: handleSpeechResult,
+			onError: handleSpeechError,
+		})
+
 	return (
 		<div>
 			<fetcher.Form
@@ -82,6 +128,34 @@ export function InventoryQuickAdd({ location }: InventoryQuickAddProps) {
 						className="h-9 w-full border-0 bg-transparent px-0 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0"
 					/>
 				</div>
+				{isProActive && (
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						onClick={isRecording ? stopRecording : startRecording}
+						disabled={isTranscribing}
+						className={cn(
+							'size-8 shrink-0 rounded-full p-0',
+							isRecording
+								? 'animate-pulse bg-destructive text-destructive-foreground hover:bg-destructive/90'
+								: 'text-muted-foreground hover:bg-muted',
+						)}
+						aria-label={
+							isRecording
+								? 'Stop recording'
+								: isTranscribing
+									? 'Transcribing...'
+									: 'Voice input'
+						}
+					>
+						{isTranscribing ? (
+							<Icon name="update" className="animate-spin" size="sm" />
+						) : (
+							<Icon name="microphone" size="sm" />
+						)}
+					</Button>
+				)}
 				<Button
 					type="submit"
 					variant="ghost"

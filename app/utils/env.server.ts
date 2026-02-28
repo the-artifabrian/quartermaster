@@ -21,6 +21,9 @@ const schema = z.object({
 	// Anthropic API (optional — app works with static substitutions only)
 	ANTHROPIC_API_KEY: z.string().optional(),
 
+	// Groq API (optional — used for Whisper speech-to-text)
+	GROQ_API_KEY: z.string().optional(),
+
 	// Stripe (all optional — app runs without Stripe in invite-code-only mode)
 	STRIPE_SECRET_KEY: z.string().optional(),
 	STRIPE_WEBHOOK_SECRET: z.string().optional(),

@@ -1,5 +1,6 @@
 import { type FileUpload } from '@mjackson/form-data-parser'
 import { parseSpeechItems, type ParsedItem } from './parse-speech-item.ts'
+import { parseSpeechItemsWithLLM } from './speech-parse-llm.server.ts'
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/audio/transcriptions'
 const MODEL = 'whisper-large-v3-turbo'
@@ -27,7 +28,6 @@ export async function transcribeAudio(
 			}),
 		)
 		formData.append('model', MODEL)
-		formData.append('language', 'en')
 		formData.append(
 			'prompt',
 			'Grocery shopping list items, food ingredients, cooking supplies.',
@@ -61,7 +61,9 @@ export async function transcribeAudio(
 			return { error: "Couldn't understand the audio. Please try again." }
 		}
 
-		const items = parseSpeechItems(transcription)
+		const items =
+			(await parseSpeechItemsWithLLM(transcription)) ??
+			parseSpeechItems(transcription)
 
 		if (items.length === 0) {
 			return { error: "Couldn't understand the audio. Please try again." }

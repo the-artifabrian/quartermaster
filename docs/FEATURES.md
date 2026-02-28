@@ -92,22 +92,24 @@ execution quality, not differentiation.
   show a one-line summary; expanded rows show a controls toolbar (drag, collapse,
   remove) above full-width name/amount/unit/notes inputs
 - Voice-to-text input (Pro): one-tap mic button records audio, auto-stops on
-  silence (~1.5s), transcribes via Groq-hosted Whisper (whisper-large-v3-turbo),
-  and parses structured qty/unit/name from natural speech. Single item populates
+  silence (~1.5s), transcribes via Groq-hosted Whisper (whisper-large-v3-turbo)
+  with auto language detection (multi-language support), and parses structured
+  qty/unit/name via Claude Haiku LLM with regex fallback. Single item populates
   the input for review; multiple items (comma or "and" separated) are bulk-added
   directly with ephemeral highlight (subtle background + mic icon) so
   bulk-added items are easy to spot for review — auto-clears after 60s.
-  Handles word numbers 1-20 ("two pounds", "fifteen eggs"), compound numbers
-  ("a dozen", "half a dozen", "a couple", "three hundred"), mixed fractions
-  ("1 1/2 cups"), unit normalization aligned with unit-conversion canonical
-  forms (pounds→lb, liters→l, cups→cup), vague quantifier stripping ("some",
-  "a few", "a lot of"), Whisper comma cleanup, instructional prefix stripping
-  ("I need", "we need", "get", "add", "buy", "grab"), repeatable filler word
-  stripping (handles chains like "um yeah I need like some garlic"), and
-  compound grocery name protection ("mac and cheese" not split on "and").
-  Available on shopping list (desktop + mobile FAB) and inventory
-  (desktop quick-add + mobile FAB). 30s max recording safety net, iOS Safari
-  AudioContext handling
+  LLM parsing handles conversational sentences, numbers in product names, and
+  any language naturally. Regex fallback handles word numbers 1-20 ("two pounds",
+  "fifteen eggs"), compound numbers ("a dozen", "half a dozen", "a couple",
+  "three hundred"), mixed fractions ("1 1/2 cups"), unit normalization aligned
+  with unit-conversion canonical forms (pounds→lb, liters→l, cups→cup), vague
+  quantifier stripping ("some", "a few", "a lot of"), Whisper comma cleanup,
+  instructional prefix stripping ("I need", "we need", "get", "add", "buy",
+  "grab"), repeatable filler word stripping (handles chains like "um yeah I need
+  like some garlic"), and compound grocery name protection ("mac and cheese" not
+  split on "and"). Available on shopping list (desktop + mobile FAB) and
+  inventory (desktop quick-add + mobile FAB). 30s max recording safety net, iOS
+  Safari AudioContext handling
 - AI recipe enhance (Pro): one-click metadata inference (description, servings,
   prep/cook times) with before/after review modal. Feature-specific error
   messages. Primarily for cleaning up bulk-imported recipes

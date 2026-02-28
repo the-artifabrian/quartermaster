@@ -587,8 +587,11 @@ closer to a spreadsheet than a cookbook.
 Fridge, Freezer). Search input below.
 
 **Items**: Flat list, DM Sans 16px. Item name left-aligned. Overflow dots at
-right. Minimal row
-height — this list can be long and needs efficient scrolling.
+right. Minimal row height — this list can be long and needs efficient scrolling.
+**Swipe-to-delete**: on mobile, swiping left reveals an 80px destructive-red
+delete button behind the row. `touch-action: pan-y` for native scroll vs swipe
+discrimination, 10px dead zone, rubber-band resistance past bounds. Only one row
+open at a time. Overflow menu remains as the desktop and accessibility fallback.
 
 **Category headers** (PANTRY, FRIDGE, FREEZER): DM Sans 500, 12px, uppercase.
 Colored dot indicator (amber pantry, blue fridge, etc.) and item count. Sticky

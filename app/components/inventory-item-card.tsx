@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { LOCATION_LABELS } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { SwipeableRow } from './swipeable-row.tsx'
 import { Button } from './ui/button.tsx'
 import {
 	DropdownMenu,
@@ -83,7 +84,7 @@ export function InventoryItemCard({
 
 	const otherLocations = ALL_LOCATIONS.filter((loc) => loc !== item.location)
 
-	return (
+	const row = (
 		<div className="group hover:bg-muted/30 flex items-center gap-3 py-3 transition-colors">
 			{/* Main content */}
 			<div className="min-w-0 flex-1">
@@ -202,5 +203,20 @@ export function InventoryItemCard({
 				</div>
 			)}
 		</div>
+	)
+
+	if (!showActions) return row
+
+	return (
+		<SwipeableRow
+			onAction={() => {
+				void deleteFetcher.submit(
+					{ intent: 'delete', itemId: item.id },
+					{ method: 'POST' },
+				)
+			}}
+		>
+			{row}
+		</SwipeableRow>
 	)
 }

@@ -129,8 +129,9 @@ execution quality, not differentiation.
 - Inline editing: tap item name to rename in-place (save on blur/Enter, cancel
   on Escape). Dedup check prevents renaming to a name that already exists in the
   same location
-- Card actions: overflow menu (move to another location, delete with two-tap
-  confirmation). Optimistic updates for all actions
+- Card actions: swipe-left-to-delete (mobile, tap revealed button to confirm),
+  overflow menu (move to another location, delete with two-tap confirmation).
+  Optimistic updates for all actions
 - Client-side search/filter across all items and location tabs
 - Quick-add with duplicate detection via canonical name matching (same location)
   — warns with "Update existing" / "Add anyway" choice

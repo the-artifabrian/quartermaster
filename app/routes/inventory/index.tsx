@@ -51,7 +51,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// Single query for all items — filter by location in JS
 	const allItems = await prisma.inventoryItem.findMany({
 		where: { householdId },
-		orderBy: [{ lowStock: 'desc' }, { name: 'asc' }],
+		orderBy: [{ name: 'asc' }],
 	})
 
 	const totalItemCount = allItems.length
@@ -59,8 +59,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		location && location !== 'all'
 			? allItems.filter((item) => item.location === location)
 			: allItems
-
-	const lowStockCount = allItems.filter((item) => item.lowStock).length
 
 	const mealPlanEntryCount = await prisma.mealPlanEntry.count({
 		where: { mealPlan: { householdId } },
@@ -70,7 +68,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		items,
 		totalItemCount,
 		selectedLocation: location || 'all',
-		lowStockCount,
 		inventoryUsage,
 		isProActive,
 		mealPlanEntryCount,
@@ -119,7 +116,7 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 
 		if (force === 'merge') {
-			// Find the existing item and refresh it
+			// Acknowledge the existing item — don't create a duplicate
 			const existingItems = await prisma.inventoryItem.findMany({
 				where: { householdId, location: submission.value.location },
 			})
@@ -129,10 +126,6 @@ export async function action({ request }: Route.ActionArgs) {
 				existingItems,
 			)
 			if (match) {
-				await prisma.inventoryItem.update({
-					where: { id: match.id },
-					data: { lowStock: false },
-				})
 				return { status: 'merged' as const, mergedInto: match.name }
 			}
 		}
@@ -208,7 +201,6 @@ export async function action({ request }: Route.ActionArgs) {
 					id: `pending-${toCreate.length}`,
 					name: item.name,
 					location: item.location,
-					lowStock: false,
 					userId,
 					householdId,
 					createdAt: new Date(),
@@ -333,23 +325,6 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const }
 	}
 
-	if (intent === 'toggle-low-stock') {
-		const itemId = formData.get('itemId')
-		invariantResponse(typeof itemId === 'string', 'Item ID is required')
-
-		const item = await prisma.inventoryItem.findFirst({
-			where: { id: itemId, householdId },
-		})
-		invariantResponse(item, 'Item not found', { status: 404 })
-
-		await prisma.inventoryItem.update({
-			where: { id: itemId },
-			data: { lowStock: !item.lowStock },
-		})
-
-		return { status: 'success' as const }
-	}
-
 	return { status: 'error' as const }
 }
 
@@ -360,7 +335,6 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		items,
 		totalItemCount,
 		selectedLocation,
-		lowStockCount,
 		inventoryUsage,
 		isProActive,
 		mealPlanEntryCount,
@@ -415,27 +389,17 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 				<div>
 					<h1 className="font-serif text-2xl font-normal">Inventory</h1>
 					{/* Status line */}
-					{(lowStockCount > 0 || inventoryUsage.limit !== null) && (
-						<p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
-							{lowStockCount > 0 && (
-								<span className="text-amber-600 dark:text-amber-400">
-									{lowStockCount} low stock
-								</span>
-							)}
-							{lowStockCount > 0 && inventoryUsage.limit !== null && (
-								<span className="text-muted-foreground/40">·</span>
-							)}
-							{inventoryUsage.limit !== null && (
-								<span
-									className={cn(
-										inventoryUsage.isAtLimit
-											? 'text-amber-600 dark:text-amber-400'
-											: '',
-									)}
-								>
-									{inventoryUsage.count}/{inventoryUsage.limit} free items
-								</span>
-							)}
+					{inventoryUsage.limit !== null && (
+						<p className="mt-0.5 text-sm text-muted-foreground">
+							<span
+								className={cn(
+									inventoryUsage.isAtLimit
+										? 'text-amber-600 dark:text-amber-400'
+										: '',
+								)}
+							>
+								{inventoryUsage.count}/{inventoryUsage.limit} free items
+							</span>
 						</p>
 					)}
 				</div>

@@ -380,7 +380,6 @@ user has recipes.
 {
   id, name: string,
   location: 'pantry'|'fridge'|'freezer',
-  lowStock: boolean,
   householdId: string
 }
 ```
@@ -587,8 +586,8 @@ closer to a spreadsheet than a cookbook.
 **Layout**: Single column, 1080px max. Category tabs at top (All, Pantry,
 Fridge, Freezer). Search input below.
 
-**Items**: Flat list, DM Sans 16px. Item name left-aligned, low-stock status
-as muted caption. Overflow dots at right. Minimal row
+**Items**: Flat list, DM Sans 16px. Item name left-aligned. Overflow dots at
+right. Minimal row
 height — this list can be long and needs efficient scrolling.
 
 **Category headers** (PANTRY, FRIDGE, FREEZER): DM Sans 500, 12px, uppercase.

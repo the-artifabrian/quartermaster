@@ -256,12 +256,11 @@ describe('generateShoppingListFromRecipes', () => {
 })
 
 describe('annotateInventoryMatches', () => {
-	function makeInventory(items: Array<{ name: string; lowStock?: boolean }>) {
+	function makeInventory(items: Array<{ name: string }>) {
 		return items.map((item, i) => ({
 			id: `inv-${i}`,
 			name: item.name,
 			location: 'pantry' as const,
-			lowStock: item.lowStock ?? false,
 			householdId: null,
 			userId: 'user-1',
 			createdAt: new Date(),
@@ -298,14 +297,6 @@ describe('annotateInventoryMatches', () => {
 		expect(chicken.inStock).toBe(true)
 		expect(rice.inStock).toBe(false)
 		expect(result.inStockCount).toBe(1)
-	})
-
-	test('keeps low-stock inventory items as not inStock', () => {
-		const items = [makeShoppingItem('chicken')]
-		const inventory = makeInventory([{ name: 'chicken', lowStock: true }])
-		const result = annotateInventoryMatches(items, inventory)
-		expect(result.items).toHaveLength(1)
-		expect(result.items[0]!.inStock).toBe(false)
 	})
 
 	test('returns correct stapleCount and inStockCount', () => {

@@ -215,7 +215,7 @@ export function consolidateQuantities(
 /**
  * Annotate shopping list items with inventory match info instead of filtering.
  * - Staples (salt, pepper, water, oil) are still removed entirely.
- * - Items matching non-low-stock inventory get `inStock: true` (will be pre-checked).
+ * - Items matching inventory get `inStock: true` (will be pre-checked).
  * - Everything else gets `inStock: false`.
  */
 export function annotateInventoryMatches(
@@ -226,7 +226,6 @@ export function annotateInventoryMatches(
 	stapleCount: number
 	inStockCount: number
 } {
-	const availableInventory = inventoryItems.filter((item) => !item.lowStock)
 	let stapleCount = 0
 	const result: Array<ShoppingListItemInput & { inStock: boolean }> = []
 
@@ -237,7 +236,7 @@ export function annotateInventoryMatches(
 			continue
 		}
 
-		const hasInInventory = availableInventory.some((inv) =>
+		const hasInInventory = inventoryItems.some((inv) =>
 			ingredientMatchesInventoryItem({ name: item.name }, inv),
 		)
 

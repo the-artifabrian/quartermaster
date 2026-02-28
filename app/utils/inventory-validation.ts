@@ -15,7 +15,6 @@ export const InventoryItemLocationSchema = z.enum(
 export const InventoryItemSchema = z.object({
 	name: InventoryItemNameSchema,
 	location: InventoryItemLocationSchema,
-	lowStock: z.coerce.boolean().default(false),
 })
 
 export type InventoryItemFormData = z.infer<typeof InventoryItemSchema>

@@ -62,7 +62,7 @@ const ImportInventoryItemSchema = z.object({
 	quantity: z.number().nullable().optional(),
 	unit: z.string().max(50).nullable().optional(),
 	expiresAt: z.string().nullable().optional(), // accepted for backward compat (ignored)
-	lowStock: z.boolean().optional(),
+	lowStock: z.boolean().optional(), // accepted for backward compat (ignored)
 })
 
 const ImportMealPlanEntrySchema = z.object({
@@ -314,7 +314,6 @@ export async function action({ request }: Route.ActionArgs) {
 						data: {
 							name: item.name,
 							location: item.location,
-							lowStock: item.lowStock ?? false,
 							userId,
 							householdId,
 						},

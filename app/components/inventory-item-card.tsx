@@ -36,7 +36,6 @@ export function InventoryItemCard({
 	const [editing, setEditing] = useState(false)
 	const [editName, setEditName] = useState(item.name)
 	const inputRef = useRef<HTMLInputElement>(null)
-	const lowStockFetcher = useFetcher()
 	const deleteFetcher = useFetcher()
 	const renameFetcher = useFetcher<{ status: string; message?: string }>()
 	const moveFetcher = useFetcher()
@@ -61,12 +60,6 @@ export function InventoryItemCard({
 
 	// Optimistic move — hide from current location view
 	if (moveFetcher.state !== 'idle') return null
-
-	// Optimistic low-stock state
-	const optimisticLowStock =
-		lowStockFetcher.formData?.get('intent') === 'toggle-low-stock'
-			? !item.lowStock
-			: item.lowStock
 
 	// Optimistic name
 	const optimisticName =
@@ -95,13 +88,6 @@ export function InventoryItemCard({
 			{/* Main content */}
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">
-					{/* Low stock dot */}
-					{optimisticLowStock && (
-						<span
-							className="bg-accent size-1.5 shrink-0 rounded-full"
-							title="Low stock"
-						/>
-					)}
 					{/* Name — inline edit */}
 					{editing ? (
 						<input
@@ -175,22 +161,6 @@ export function InventoryItemCard({
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
-							<DropdownMenuItem
-								onSelect={() => {
-									void lowStockFetcher.submit(
-										{ intent: 'toggle-low-stock', itemId: item.id },
-										{ method: 'POST' },
-									)
-								}}
-							>
-								<Icon
-									name="question-mark-circled"
-									size="sm"
-									className={cn(optimisticLowStock && 'text-amber-600')}
-								/>
-								{optimisticLowStock ? 'Clear low stock' : 'Mark as low stock'}
-							</DropdownMenuItem>
-							<DropdownMenuSeparator />
 							{otherLocations.map((loc) => (
 								<DropdownMenuItem
 									key={loc}

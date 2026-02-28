@@ -64,9 +64,7 @@ export async function action({ request }: Route.ActionArgs) {
 	const trackingItems = [...existingInventory]
 
 	const creates: Array<Parameters<typeof prisma.inventoryItem.create>[0]> = []
-	// Accumulate refreshes per inventory item to avoid redundant updates
-	const updateMap = new Map<string, Record<string, unknown>>()
-	let updatedCount = 0
+	let skippedCount = 0
 
 	for (const item of foodItems) {
 		const shoppingItem = itemMap.get(item.itemId)!
@@ -78,10 +76,7 @@ export async function action({ request }: Route.ActionArgs) {
 		)
 
 		if (match) {
-			const updateData: Record<string, unknown> = { lowStock: false }
-			Object.assign(match, updateData)
-			updateMap.set(match.id, { ...updateData })
-			updatedCount++
+			skippedCount++
 		} else {
 			creates.push({
 				data: {
@@ -96,7 +91,6 @@ export async function action({ request }: Route.ActionArgs) {
 				id: `pending-${creates.length}`,
 				name: shoppingItem.name,
 				location: item.location,
-				lowStock: false,
 				userId,
 				householdId,
 				createdAt: new Date(),
@@ -107,9 +101,6 @@ export async function action({ request }: Route.ActionArgs) {
 
 	const operations = [
 		...creates.map((c) => prisma.inventoryItem.create(c)),
-		...[...updateMap.entries()].map(([id, data]) =>
-			prisma.inventoryItem.update({ where: { id }, data }),
-		),
 		// Delete all checked items from shopping list (both food and household)
 		prisma.shoppingListItem.deleteMany({
 			where: {
@@ -122,7 +113,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 	void emitHouseholdEvent({
 		type: 'shopping_list_to_inventory',
-		payload: { count: creates.length + updatedCount },
+		payload: { count: creates.length },
 		userId,
 		householdId,
 	})
@@ -133,8 +124,8 @@ export async function action({ request }: Route.ActionArgs) {
 			`${creates.length} item${creates.length !== 1 ? 's' : ''} added to inventory`,
 		)
 	}
-	if (updatedCount > 0) {
-		parts.push(`${updatedCount} updated in inventory`)
+	if (skippedCount > 0) {
+		parts.push(`${skippedCount} already in inventory`)
 	}
 	if (householdItems.length > 0) {
 		parts.push(

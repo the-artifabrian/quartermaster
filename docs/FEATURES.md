@@ -124,13 +124,13 @@ execution quality, not differentiation.
 
 - Three locations: Pantry, Fridge, Freezer. "All" tab groups items by location
   with section headers; individual tabs show a single location. Status badges
-- Items with low-stock flag (no quantities or expiry — inventory is a rough
-  signal of what you have, not a ledger of how much)
+- No quantities or expiry — inventory is a rough signal of what you have, not a
+  ledger of how much
 - Inline editing: tap item name to rename in-place (save on blur/Enter, cancel
   on Escape). Dedup check prevents renaming to a name that already exists in the
   same location
-- Card actions: overflow menu (low-stock toggle, move to another location,
-  delete with two-tap confirmation). Optimistic updates for all actions
+- Card actions: overflow menu (move to another location, delete with two-tap
+  confirmation). Optimistic updates for all actions
 - Client-side search/filter across all items and location tabs
 - Quick-add with duplicate detection via canonical name matching (same location)
   — warns with "Update existing" / "Add anyway" choice
@@ -196,8 +196,8 @@ execution quality, not differentiation.
   - Inline item editing (name, quantity, unit)
   - Checked/total counter in the page header (e.g. "Shopping List (3/10)")
   - Client-side search/filter, print-friendly layout
-  - Inventory-aware: items already in stock (not low) are pre-checked instead
-    of omitted — users can uncheck any they actually need. Staple ingredients
+  - Inventory-aware: items already in stock are pre-checked instead of omitted
+    — users can uncheck any they actually need. Staple ingredients
     (salt, pepper, water, oil), optional ingredients, and ingredient headings
     are filtered out entirely
   - Optimistic UI on checkbox toggle and delete (instant response via
@@ -209,10 +209,8 @@ execution quality, not differentiation.
     "Already in [location]" indicator for items matching existing inventory
     (canonical name + location match) — pre-deselected with muted styling,
     clears when user re-selects or changes to an unstocked location.
-    Auto-updates existing inventory items (canonical name match, same location)
-    — clears low-stock flag. Household items cleared but not added to inventory
-  - Low-stock nudge: amber chip banner for low-stock items not already on list,
-    one-tap add or "Add All"
+    Auto-updates existing inventory items (canonical name match, same location).
+    Household items cleared but not added to inventory
 
 ## Household Sharing
 
@@ -247,7 +245,7 @@ execution quality, not differentiation.
 - Free: unlimited recipes, up to 50 inventory items, smart matching, basic meal
   planning calendar, basic shopping list generation, household sharing. Pro:
   unlimited inventory, planning intelligence (suggest meals, copy week,
-  waste alerts), full shopping pipeline (live-refresh, low-stock nudge,
+  waste alerts), full shopping pipeline (live-refresh,
   days Pro, grants 2 starter codes) coexist with Stripe and trial
   redeemed a code (localStorage dismiss, inline redeem form)
 - Pro-only features gated inline (buttons/panels hidden for free users). Graceful

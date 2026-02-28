@@ -9,7 +9,6 @@ import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { ShoppingListToInventory } from '#app/components/shopping-list-to-inventory.tsx'
 import { ShoppingListLiveRefresh } from '#app/components/shopping-live-refresh.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
-import { LowStockNudge } from '#app/components/shopping-low-stock-nudge.tsx'
 import { MobileFabAdd } from '#app/components/shopping-mobile-fab.tsx'
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -101,36 +100,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const hasMealPlan = weeksWithPlans.length > 0
 
-	// Pro-only: low-stock suggestions + review panel matching
-	let lowStockSuggestions: Array<{
-		id: string
-		name: string
-		location: string
-		lowStock: boolean
-	}> = []
+	// Pro-only: review panel matching
 	let inventoryByCanonical: Record<string, string[]> = {}
 	let itemCanonicals: Record<string, string> = {}
 
 	if (isProActive) {
 		const allInventoryItems = await prisma.inventoryItem.findMany({
 			where: { householdId },
-			select: { id: true, name: true, location: true, lowStock: true },
+			select: { id: true, name: true, location: true },
 		})
-
-		// Filter out items already on the shopping list by canonical name
-		const shoppingCanonicals = new Set(
-			shoppingList.items.map((item) =>
-				getCanonicalIngredientName(item.name),
-			),
-		)
-		lowStockSuggestions = allInventoryItems
-			.filter((item) => item.lowStock)
-			.filter(
-				(item) =>
-					!shoppingCanonicals.has(
-						getCanonicalIngredientName(item.name),
-					),
-			)
 
 		// Canonical inventory lookup for review panel "already stocked" indicator
 		for (const inv of allInventoryItems) {
@@ -151,7 +129,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		shoppingList,
 		hasMealPlan,
 		weeksWithPlans,
-		lowStockSuggestions,
 		inventoryByCanonical,
 		itemCanonicals,
 		isProActive,
@@ -443,90 +420,6 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const }
 	}
 
-	if (intent === 'add-low-stock') {
-		const itemName = formData.get('itemName')
-		invariantResponse(
-			typeof itemName === 'string' && itemName.trim(),
-			'Item name is required',
-		)
-
-		const trimmed = itemName.trim()
-		const canonicalName = getCanonicalIngredientName(trimmed)
-
-		// Dedup: skip if already on the list
-		const existingItems = await prisma.shoppingListItem.findMany({
-			where: { listId: shoppingList.id, checked: false },
-			select: { name: true },
-		})
-		const alreadyOnList = existingItems.some(
-			(item) => getCanonicalIngredientName(item.name) === canonicalName,
-		)
-		if (!alreadyOnList) {
-			await prisma.shoppingListItem.create({
-				data: {
-					name: trimmed,
-					category: guessCategory(trimmed),
-					listId: shoppingList.id,
-					source: 'manual',
-				},
-			})
-
-			void emitHouseholdEvent({
-				type: 'shopping_list_item_added',
-				payload: { name: trimmed },
-				userId,
-				householdId,
-			})
-		}
-
-		return { status: 'success' as const }
-	}
-
-	if (intent === 'add-all-low-stock') {
-		const rawNames = formData.get('names')
-		invariantResponse(typeof rawNames === 'string', 'Names are required')
-
-		let names: string[]
-		try {
-			names = JSON.parse(rawNames) as string[]
-		} catch {
-			throw new Response('Invalid names data', { status: 400 })
-		}
-		invariantResponse(Array.isArray(names) && names.length > 0, 'No names')
-
-		// Dedup: filter out items already on the list
-		const existingItems = await prisma.shoppingListItem.findMany({
-			where: { listId: shoppingList.id, checked: false },
-			select: { name: true },
-		})
-		const existingCanonicals = new Set(
-			existingItems.map((item) => getCanonicalIngredientName(item.name)),
-		)
-		const newNames = names.filter(
-			(name) => !existingCanonicals.has(getCanonicalIngredientName(name)),
-		)
-
-		if (newNames.length > 0) {
-			await prisma.shoppingListItem.createMany({
-				data: newNames.map((name) => ({
-					name,
-					category: guessCategory(name),
-					listId: shoppingList.id,
-					source: 'manual' as const,
-				})),
-			})
-
-			void emitHouseholdEvent({
-				type: 'shopping_list_item_added',
-				payload: { count: newNames.length, source: 'low-stock' },
-				userId,
-				householdId,
-			})
-		}
-
-		return { status: 'success' as const }
-	}
-
 	if (intent === 'bulk-add') {
 		const rawItems = formData.get('items')
 		invariantResponse(typeof rawItems === 'string', 'Items are required')
@@ -587,7 +480,6 @@ export default function ShoppingListRoute({
 		shoppingList,
 		hasMealPlan,
 		weeksWithPlans,
-		lowStockSuggestions,
 		inventoryByCanonical,
 		itemCanonicals,
 		isProActive,
@@ -773,13 +665,6 @@ export default function ShoppingListRoute({
 			</div>
 
 			<div className="container-narrow py-4">
-				{/* Low Stock Nudge (Pro) */}
-				{isProActive && lowStockSuggestions.length > 0 && !showReview && (
-					<div className="mb-4">
-						<LowStockNudge items={lowStockSuggestions} />
-					</div>
-				)}
-
 				{shoppingList.items.length > 0 &&
 					shoppingList.items.every((i) => !i.checked) && (
 						<OnboardingNudge

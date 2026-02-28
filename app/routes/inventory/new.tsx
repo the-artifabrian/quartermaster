@@ -8,7 +8,7 @@ import {
 import { parseWithZod } from '@conform-to/zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Form, data, redirect, useActionData } from 'react-router'
-import { Field, CheckboxField } from '#app/components/forms.tsx'
+import { Field } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Label } from '#app/components/ui/label.tsx'
@@ -115,13 +115,9 @@ export async function action({ request }: Route.ActionArgs) {
 			existingItems,
 		)
 		if (match) {
-			await prisma.inventoryItem.update({
-				where: { id: match.id },
-				data: { lowStock: false },
-			})
 			return redirectWithToast('/inventory', {
 				type: 'success',
-				description: `Updated existing ${match.name}`,
+				description: `${match.name} is already in your inventory`,
 			})
 		}
 	}
@@ -148,7 +144,6 @@ export default function NewInventoryItem() {
 		lastResult: actionData?.result,
 		defaultValue: {
 			location: 'pantry',
-			lowStock: false,
 		},
 		onValidate({ formData }) {
 			return parseWithZod(formData, { schema: InventoryItemSchema })
@@ -187,11 +182,6 @@ export default function NewInventoryItem() {
 								name="location"
 								value={fields.location.value ?? ''}
 							/>
-							<input
-								type="hidden"
-								name="lowStock"
-								value={fields.lowStock.value ?? ''}
-							/>
 							<input type="hidden" name="force" value="merge" />
 							<Button
 								type="submit"
@@ -212,11 +202,6 @@ export default function NewInventoryItem() {
 								type="hidden"
 								name="location"
 								value={fields.location.value ?? ''}
-							/>
-							<input
-								type="hidden"
-								name="lowStock"
-								value={fields.lowStock.value ?? ''}
 							/>
 							<input type="hidden" name="force" value="add" />
 							<Button
@@ -262,16 +247,6 @@ export default function NewInventoryItem() {
 							)}
 						</div>
 					</div>
-
-					<CheckboxField
-						labelProps={{ children: 'Mark as low stock' }}
-						buttonProps={{
-							...getInputProps(fields.lowStock, { type: 'checkbox' }),
-							form: form.id,
-							defaultChecked: false,
-						}}
-						errors={fields.lowStock.errors}
-					/>
 
 					<div className="flex gap-4 pt-4">
 						<StatusButton

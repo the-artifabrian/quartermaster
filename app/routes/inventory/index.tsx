@@ -654,7 +654,7 @@ function InventoryMobileFabAdd({
 	const prevBulkState = useRef(bulkFetcher.state)
 	useEffect(() => {
 		if (prevBulkState.current !== 'idle' && bulkFetcher.state === 'idle') {
-			revalidator.revalidate()
+			void revalidator.revalidate()
 		}
 		prevBulkState.current = bulkFetcher.state
 	}, [bulkFetcher.state, revalidator])
@@ -671,7 +671,7 @@ function InventoryMobileFabAdd({
 					'items',
 					JSON.stringify(items.map((i) => ({ name: i.name, location }))),
 				)
-				bulkFetcher.submit(fd, { method: 'POST' })
+				void bulkFetcher.submit(fd, { method: 'POST' })
 				toast.success(`Added ${items.length} items`)
 				onOpenChange(false)
 			}

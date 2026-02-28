@@ -51,7 +51,7 @@ export function MobileFabAdd({
 	const prevBulkState = useRef(bulkAddFetcher.state)
 	useEffect(() => {
 		if (prevBulkState.current !== 'idle' && bulkAddFetcher.state === 'idle') {
-			revalidator.revalidate()
+			void revalidator.revalidate()
 		}
 		prevBulkState.current = bulkAddFetcher.state
 	}, [bulkAddFetcher.state, revalidator])
@@ -71,7 +71,7 @@ export function MobileFabAdd({
 				const fd = new FormData()
 				fd.set('intent', 'bulk-add')
 				fd.set('items', JSON.stringify(items))
-				bulkAddFetcher.submit(fd, { method: 'POST' })
+				void bulkAddFetcher.submit(fd, { method: 'POST' })
 				toast.success(`Added ${items.length} items`)
 				onOpenChange(false)
 			}

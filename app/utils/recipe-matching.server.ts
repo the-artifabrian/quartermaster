@@ -285,6 +285,11 @@ const MODIFIERS = [
 	'freshly',
 ] as const
 
+// Set of single-word modifiers for quick lookup (used in "or" split heuristic)
+const SINGLE_MODIFIER_WORDS = new Set(
+	MODIFIERS.filter((m) => !m.includes(' ')),
+)
+
 // Pre-compile modifier regexes once at module level (~50 regexes, not per call)
 const MODIFIER_REGEXES = MODIFIERS.map((m) => ({
 	modifier: m,
@@ -339,9 +344,22 @@ export function normalizeIngredientName(name: string): string {
 	}
 
 	// Handle "or" alternatives: "plain flour or all purpose flour" → "plain flour"
-	// Take the first option before "or"
+	// Take the first option before "or", BUT skip when the first part is only
+	// modifiers/numbers (e.g. "large or 2 medium yellow onions" — the "or" is
+	// a quantity alternative, not an ingredient alternative).
+	let hasQuantityOr = false
 	if (normalized.includes(' or ')) {
-		normalized = normalized.split(' or ')[0]!.trim()
+		const firstPart = normalized.split(' or ')[0]!.trim()
+		const isOnlyModifiersOrNumbers = firstPart
+			.split(/\s+/)
+			.every(
+				(w) => SINGLE_MODIFIER_WORDS.has(w) || /^\d+([./]\d+)?$/.test(w),
+			)
+		if (!isOnlyModifiersOrNumbers) {
+			normalized = firstPart
+		} else {
+			hasQuantityOr = true
+		}
 	}
 
 	// Handle slash alternatives: "mirin/sake/white wine" → "mirin"
@@ -375,6 +393,13 @@ export function normalizeIngredientName(name: string): string {
 	for (const { modifier, regex } of MODIFIER_REGEXES) {
 		if (protectedModifiers.has(modifier)) continue
 		normalized = normalized.replace(regex, '')
+	}
+
+	// Strip standalone numbers and "or" that leak from quantity descriptions
+	// e.g. "large or 2 medium yellow onions" → after modifier stripping → "or 2 yellow onion"
+	if (hasQuantityOr) {
+		normalized = normalized.replace(/\b\d+([./]\d+)?\b/g, '')
+		normalized = normalized.replace(/\bor\b/g, '')
 	}
 
 	// Clean up extra spaces

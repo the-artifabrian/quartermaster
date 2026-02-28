@@ -29,6 +29,16 @@ describe('normalizeIngredientName', () => {
 		expect(normalizeIngredientName('mirin or sake')).toBe('mirin')
 	})
 
+	test('skips "or" split when first part is only modifiers/numbers', () => {
+		// "large" is a modifier — the "or" separates quantity alternatives, not ingredients
+		expect(normalizeIngredientName('large or 2 medium yellow onions')).toBe(
+			'yellow onion',
+		)
+		expect(normalizeIngredientName('large white or red onion')).toBe(
+			'red onion',
+		)
+	})
+
 	test('handles slash alternatives — takes first option', () => {
 		expect(normalizeIngredientName('mirin/sake/white wine')).toBe('mirin')
 	})
@@ -279,6 +289,19 @@ describe('ingredientMatchesInventoryItem', () => {
 
 	test('negative: tomato does NOT match tomato paste', () => {
 		expect(match('tomato', 'tomato paste')).toBe(false)
+	})
+
+	test('color-variant onions match bare "onion" in inventory', () => {
+		expect(match('yellow onions', 'onion')).toBe(true)
+		expect(match('red onion', 'onion')).toBe(true)
+		expect(match('white onion', 'onions')).toBe(true)
+	})
+
+	test('ingredient names with quantity "or" alternatives match inventory', () => {
+		// "large or 2 medium yellow onions" → normalizes to "yellow onion"
+		expect(match('large or 2 medium yellow onions', 'onion')).toBe(true)
+		// "large white or red onion" → normalizes to "red onion"
+		expect(match('large white or red onion', 'onion')).toBe(true)
 	})
 
 	test('negative: completely unrelated ingredients do not match', () => {

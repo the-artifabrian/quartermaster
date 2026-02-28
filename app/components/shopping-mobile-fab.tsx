@@ -12,10 +12,12 @@ export function MobileFabAdd({
 	open,
 	onOpenChange,
 	isProActive,
+	onVoiceItemsAdded,
 }: {
 	open: boolean
 	onOpenChange: (open: boolean) => void
 	isProActive: boolean
+	onVoiceItemsAdded?: (names: string[]) => void
 }) {
 	const fetcher = useFetcher<{ status: string }>()
 	const [name, setName] = useState('')
@@ -72,11 +74,12 @@ export function MobileFabAdd({
 				fd.set('intent', 'bulk-add')
 				fd.set('items', JSON.stringify(items))
 				void bulkAddFetcher.submit(fd, { method: 'POST' })
+				onVoiceItemsAdded?.(items.map((i) => i.name))
 				toast.success(`Added ${items.length} items`)
 				onOpenChange(false)
 			}
 		},
-		[bulkAddFetcher, onOpenChange],
+		[bulkAddFetcher, onOpenChange, onVoiceItemsAdded],
 	)
 	const handleSpeechError = useCallback((msg: string) => toast.error(msg), [])
 	const { isRecording, isTranscribing, startRecording, stopRecording } =

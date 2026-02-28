@@ -9,12 +9,14 @@ import {
 	getProduceCountDisplay,
 	isWeightUnit,
 } from '#app/utils/produce-weights.ts'
+import { cn } from '#app/utils/misc.tsx'
 
 type ShoppingListItemCardProps = {
 	item: ShoppingListItem
+	isVoiceAdded?: boolean
 }
 
-export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
+export function ShoppingListItemCard({ item, isVoiceAdded }: ShoppingListItemCardProps) {
 	const [isEditing, setIsEditing] = useState(false)
 	const [showActions, setShowActions] = useState(false)
 	const editFetcher = useFetcher()
@@ -132,7 +134,10 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 	}
 
 	return (
-		<div className="group flex items-center gap-3 py-2.5 print:py-1">
+		<div className={cn(
+			"group flex items-center gap-3 py-2.5 print:py-1",
+			isVoiceAdded && !optimisticChecked && "rounded-lg bg-primary/[0.06] px-2 -mx-2",
+		)}>
 			{/* Whole row toggles checkbox */}
 			<toggleFetcher.Form method="POST" className="flex min-w-0 flex-1 items-center gap-3 print:contents">
 				<input type="hidden" name="intent" value="toggle" />
@@ -170,6 +175,12 @@ export function ShoppingListItemCard({ item }: ShoppingListItemCardProps) {
 							}`}
 						>
 							{item.name}
+							{isVoiceAdded && !optimisticChecked && (
+								<Icon
+									name="microphone"
+									className="ml-1.5 inline size-3 align-middle text-primary/40"
+								/>
+							)}
 						</p>
 						{(item.quantity || item.unit) && (
 							<p

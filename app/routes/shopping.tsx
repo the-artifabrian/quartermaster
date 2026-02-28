@@ -608,6 +608,16 @@ export default function ShoppingListRoute({
 	const [quickAddOpen, setQuickAddOpen] = useState(false)
 	const [fabOpen, setFabOpen] = useState(false)
 	const [warningDismissed, setWarningDismissed] = useState(false)
+	const [voiceAddedNames, setVoiceAddedNames] = useState<Set<string>>(
+		new Set(),
+	)
+
+	// Auto-clear voice highlights after 60 seconds
+	useEffect(() => {
+		if (voiceAddedNames.size === 0) return
+		const timer = setTimeout(() => setVoiceAddedNames(new Set()), 60_000)
+		return () => clearTimeout(timer)
+	}, [voiceAddedNames])
 
 	const bulkAddFetcher = useFetcher()
 	const revalidator = useRevalidator()
@@ -639,10 +649,26 @@ export default function ShoppingListRoute({
 				fd.set('intent', 'bulk-add')
 				fd.set('items', JSON.stringify(items))
 				void bulkAddFetcher.submit(fd, { method: 'POST' })
+				setVoiceAddedNames(
+					(prev) =>
+						new Set([
+							...prev,
+							...items.map((i) => i.name.toLowerCase().trim()),
+						]),
+				)
 				toast.success(`Added ${items.length} items`)
 			}
 		},
 		[bulkAddFetcher],
+	)
+	const handleMobileVoiceItems = useCallback(
+		(names: string[]) => {
+			setVoiceAddedNames(
+				(prev) =>
+					new Set([...prev, ...names.map((n) => n.toLowerCase().trim())]),
+			)
+		},
+		[],
 	)
 	const handleSpeechError = useCallback((msg: string) => toast.error(msg), [])
 	const { isRecording, isTranscribing, startRecording, stopRecording } =
@@ -918,7 +944,7 @@ export default function ShoppingListRoute({
 						) : (
 							<div>
 								{filteredItems.map((item) => (
-									<ShoppingListItemCard key={item.id} item={item} />
+									<ShoppingListItemCard key={item.id} item={item} isVoiceAdded={voiceAddedNames.has(item.name.toLowerCase().trim())} />
 								))}
 							</div>
 						)}
@@ -1025,6 +1051,7 @@ export default function ShoppingListRoute({
 				open={fabOpen}
 				onOpenChange={setFabOpen}
 				isProActive={isProActive}
+				onVoiceItemsAdded={handleMobileVoiceItems}
 			/>
 		</div>
 	)

@@ -95,9 +95,15 @@ execution quality, not differentiation.
   silence (~1.5s), transcribes via Groq-hosted Whisper (whisper-large-v3-turbo),
   and parses structured qty/unit/name from natural speech. Single item populates
   the input for review; multiple items (comma or "and" separated) are bulk-added
-  directly. Handles word numbers ("two pounds"), compound numbers ("a dozen",
-  "half a dozen"), unit normalization (kilogram→kg, pounds→lbs), and filler word
-  stripping. Available on shopping list (desktop + mobile FAB) and inventory
+  directly with ephemeral highlight (subtle background + mic icon) so
+  bulk-added items are easy to spot for review — auto-clears after 60s.
+  Handles word numbers 1-20 ("two pounds", "fifteen eggs"), compound numbers
+  ("a dozen", "half a dozen", "a couple", "three hundred"), mixed fractions
+  ("1 1/2 cups"), unit normalization aligned with unit-conversion canonical
+  forms (pounds→lb, liters→l, cups→cup), vague quantifier stripping ("some",
+  "a few", "a lot of"), repeatable filler word stripping, and compound grocery
+  name protection ("mac and cheese" not split on "and").
+  Available on shopping list (desktop + mobile FAB) and inventory
   (desktop quick-add + mobile FAB). 30s max recording safety net, iOS Safari
   AudioContext handling
 - AI recipe enhance (Pro): one-click metadata inference (description, servings,

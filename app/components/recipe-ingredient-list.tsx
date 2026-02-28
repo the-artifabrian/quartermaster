@@ -252,7 +252,7 @@ export function IngredientList({
 										: 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30',
 								)}
 							>
-								g/ml
+								Metric
 							</button>
 						)}
 					</div>

@@ -52,23 +52,33 @@ function saveProgress(
 }
 
 export function useCookingProgress(recipeId: string) {
-	const saved = useRef<StoredProgress | null>(undefined as never)
-	if (saved.current === (undefined as never)) {
-		saved.current = loadProgress(recipeId)
-	}
-
 	const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
-		() => (saved.current ? new Set(saved.current.ingredients) : new Set()),
+		() => new Set(),
 	)
-	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(() =>
-		saved.current ? new Set(saved.current.steps) : new Set(),
+	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(
+		() => new Set(),
 	)
 
-	// Skip the initial mount write — only persist actual user changes
-	const isInitial = useRef(true)
+	// 0 = waiting for hydrate, 1 = hydrated (skip save), 2 = normal
+	const hydratePhase = useRef(0)
+
+	// Load from localStorage after mount (avoids SSR mismatch)
 	useEffect(() => {
-		if (isInitial.current) {
-			isInitial.current = false
+		const saved = loadProgress(recipeId)
+		if (saved) {
+			hydratePhase.current = 1
+			setCheckedIngredients(new Set(saved.ingredients))
+			setCheckedSteps(new Set(saved.steps))
+		} else {
+			hydratePhase.current = 2
+		}
+	}, [recipeId])
+
+	// Persist changes to localStorage (skip the hydrate-triggered update)
+	useEffect(() => {
+		if (hydratePhase.current === 0) return
+		if (hydratePhase.current === 1) {
+			hydratePhase.current = 2
 			return
 		}
 		saveProgress(recipeId, checkedIngredients, checkedSteps)

@@ -135,7 +135,7 @@ export function RecipeActionBar({
 						<Button
 							variant="ghost"
 							size="icon"
-							aria-label="Enhance with AI"
+							aria-label="Suggest description, times & servings"
 							onClick={onEnhance}
 							disabled={enhanceFetcher.state !== 'idle'}
 							className="text-violet-500 hover:text-violet-600"
@@ -147,7 +147,7 @@ export function RecipeActionBar({
 							)}
 						</Button>
 					</TooltipTrigger>
-					<TooltipContent>Enhance with AI</TooltipContent>
+					<TooltipContent>Suggest description, times & servings</TooltipContent>
 				</Tooltip>
 			)}
 		</div>

@@ -154,6 +154,9 @@ export function RecipeCard({
 					{isAiGenerated && (
 						<Icon name="sparkles" size="xs" className="text-muted-foreground/50" />
 					)}
+					{cookCount != null && cookCount > 0 && (
+						<span className="text-xs text-muted-foreground/60">Made {cookCount}x</span>
+					)}
 				</div>
 
 				{/* Description */}

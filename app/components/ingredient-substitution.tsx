@@ -103,10 +103,12 @@ function SubstitutionPopover({
 						className="inline-flex cursor-pointer items-center gap-0.5"
 					>
 						{children}
-						<Icon
-							name="shuffle"
-							className="size-3.5 shrink-0 text-accent/70 transition-colors hover:text-accent"
-						/>
+						<span className="inline-flex items-center rounded bg-accent/10 px-1 py-0.5">
+							<Icon
+								name="shuffle"
+								className="size-3.5 shrink-0 text-accent/70 transition-colors hover:text-accent"
+							/>
+						</span>
 					</span>
 				</PopoverTrigger>
 				<PopoverContent

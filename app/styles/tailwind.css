@@ -353,6 +353,13 @@ html {
 	}
 }
 
+/* Tooltips are hover-only — suppress on touch devices to prevent tap-flash */
+@media (hover: none) {
+	[data-slot='tooltip-content'] {
+		display: none !important;
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	*,
 	::before,

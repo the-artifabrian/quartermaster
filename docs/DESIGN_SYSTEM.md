@@ -536,8 +536,11 @@ time and "Cook" action. Nothing planned: simple DM Sans suggestion. Gentle
 nudge, not notification.
 
 **Adding meals**: Inline dropdown with search, same on mobile and desktop.
-Opens below the meal slot, scrollable list with recipe names and cook times.
-New meal fades in with element-reveal curve.
+Opens below the meal slot, scrollable list partitioned into "Favorites" and
+"All Recipes" sections (headers shown when both groups exist). Each recipe shows
+a heart icon (favorites), cook count badge, and cook time. Weeknight sort
+(Mon-Thu quick recipes first) applied within each group. New meal fades in with
+element-reveal curve.
 
 ---
 

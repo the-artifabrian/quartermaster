@@ -87,7 +87,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	}
 
 	// Load user's recipes for the picker (lightweight — no ingredients)
-	const recipes = await prisma.recipe.findMany({
+	const rawRecipes = await prisma.recipe.findMany({
 		where: { householdId },
 		orderBy: { title: 'asc' },
 		select: {
@@ -99,8 +99,19 @@ export async function loader({ request }: Route.LoaderArgs) {
 			servings: true,
 			isFavorite: true,
 			image: { select: { objectKey: true } },
+			cookingLogs: {
+				select: { cookedAt: true },
+				orderBy: { cookedAt: 'desc' },
+				take: 1,
+			},
+			_count: { select: { cookingLogs: true } },
 		},
 	})
+	const recipes = rawRecipes.map(({ cookingLogs, _count, ...r }) => ({
+		...r,
+		cookCount: _count.cookingLogs,
+		lastCookedAt: cookingLogs[0]?.cookedAt?.toISOString() ?? null,
+	}))
 
 	const weekDays = getWeekDays(weekStart)
 

@@ -79,7 +79,8 @@ execution quality, not differentiation.
 - "I Made This" cook logging with success toast
 - Inline inventory status on recipe detail ingredient list: summary footer shows
   "You have X/Y ingredients" with "Add N missing to Shopping List" button
-- "Last cooked" stats on recipe cards (cook count + relative time)
+- "Last cooked" stats on recipe cards: desktop shows cook count + relative time;
+  mobile shows compact "Made Nx" badge in the metadata row
 - Ingredient headings: section dividers within ingredient lists displayed as
   styled headers. Created via "+ Heading" button and positioned with
   drag-and-drop. Skipped by shopping list, matching, and JSON-LD
@@ -159,7 +160,9 @@ execution quality, not differentiation.
   with reason badges (Favorite/Good match), inline recipe picker for swaps, and
   "Fill Plan" confirm. Post-confirm toast links to shopping list generation
 - Recipe selector dropdown (floating overlay, doesn't break calendar grid):
-  weeknight-aware sorting (Mon-Thu quick-cook recipes first), cook time display
+  favorites-first partition with section headers ("Favorites" / "All Recipes"),
+  weeknight-aware sorting (Mon-Thu quick-cook recipes first) within each group,
+  heart icon on favorites, cook count badge, cook time display
 - Single-use ingredient waste alerts with recipe suggestions
 - Standalone shopping list at `/shopping` with:
   - Generate from meal plan (week picker for prev/current/next week, skips

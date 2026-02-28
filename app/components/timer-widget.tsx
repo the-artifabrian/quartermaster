@@ -46,7 +46,7 @@ export function TimerWidget() {
 			<button
 				onClick={() => setIsExpanded(true)}
 				className={cn(
-					'fixed right-4 bottom-20 z-50 flex items-center gap-2 rounded-full px-4 shadow-lg transition-all hover:scale-105 md:right-6 md:bottom-6 print:hidden',
+					'fixed right-4 bottom-[6.5rem] z-50 flex items-center gap-2 rounded-full px-4 shadow-lg transition-all hover:scale-105 md:right-6 md:bottom-6 print:hidden',
 					hasAlarming
 						? 'h-14 animate-pulse bg-destructive text-destructive-foreground'
 						: 'bg-primary text-primary-foreground h-14',
@@ -73,7 +73,7 @@ export function TimerWidget() {
 	}
 
 	return (
-		<div className="fixed right-4 bottom-20 z-50 md:right-6 md:bottom-6 print:hidden">
+		<div className="fixed right-4 bottom-[6.5rem] z-50 md:right-6 md:bottom-6 print:hidden">
 			<div className="bg-card shadow-warm-lg w-80 rounded-2xl border p-4">
 				{/* Header */}
 				<div className="mb-3 flex items-center justify-between">

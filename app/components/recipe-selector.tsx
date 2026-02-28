@@ -14,6 +14,8 @@ export type RecipeSelectorRecipe = {
 	servings: number
 	isFavorite: boolean
 	image: { objectKey: string } | null
+	cookCount?: number
+	lastCookedAt?: string | null
 }
 
 type RecipeSelectorProps = {
@@ -52,9 +54,13 @@ export function RecipeSelector({
 
 	// Mon=1..Thu=4 are weeknights — sort by cook time
 	const isWeeknight = date.getUTCDay() >= 1 && date.getUTCDay() <= 4
-	const sortedRecipes = isWeeknight
-		? [...filteredRecipes].sort(sortByTime)
-		: filteredRecipes
+	const applySorting = (list: RecipeSelectorRecipe[]) =>
+		isWeeknight ? [...list].sort(sortByTime) : list
+
+	// Partition into favorites first, then the rest
+	const favorites = applySorting(filteredRecipes.filter((r) => r.isFavorite))
+	const rest = applySorting(filteredRecipes.filter((r) => !r.isFavorite))
+	const hasBothGroups = favorites.length > 0 && rest.length > 0
 
 	return (
 		<div className="space-y-2">
@@ -75,20 +81,49 @@ export function RecipeSelector({
 				</Button>
 			</div>
 			<div className="scrollbar-thin max-h-[300px] space-y-0.5 overflow-y-auto">
-				{sortedRecipes.length === 0 ? (
+				{favorites.length === 0 && rest.length === 0 ? (
 					<p className="text-muted-foreground py-4 text-center text-sm">
 						No recipes found
 					</p>
 				) : (
-					sortedRecipes.map((recipe) => (
-						<RecipeOption
-							key={recipe.id}
-							recipe={recipe}
-							date={date}
-							mealType={mealType}
-							onSelect={onSelect}
-						/>
-					))
+					<>
+						{favorites.length > 0 && (
+							<>
+								{hasBothGroups && (
+									<p className="text-muted-foreground px-2 pt-1 pb-0.5 text-xs font-medium uppercase tracking-wide">
+										Favorites
+									</p>
+								)}
+								{favorites.map((recipe) => (
+									<RecipeOption
+										key={recipe.id}
+										recipe={recipe}
+										date={date}
+										mealType={mealType}
+										onSelect={onSelect}
+									/>
+								))}
+							</>
+						)}
+						{rest.length > 0 && (
+							<>
+								{hasBothGroups && (
+									<p className="text-muted-foreground px-2 pt-2 pb-0.5 text-xs font-medium uppercase tracking-wide">
+										All Recipes
+									</p>
+								)}
+								{rest.map((recipe) => (
+									<RecipeOption
+										key={recipe.id}
+										recipe={recipe}
+										date={date}
+										mealType={mealType}
+										onSelect={onSelect}
+									/>
+								))}
+							</>
+						)}
+					</>
 				)}
 			</div>
 		</div>
@@ -120,14 +155,27 @@ function RecipeOption({
 			>
 				<div className="flex items-center justify-between gap-2">
 					<p className="min-w-0 truncate text-sm font-medium">
+						{recipe.isFavorite && (
+							<Icon
+								name="heart-filled"
+								className="mr-1 inline size-3 text-accent"
+							/>
+						)}
 						{recipe.title}
 					</p>
-					{totalTime != null && (
-						<span className="text-muted-foreground inline-flex shrink-0 items-center gap-0.5 text-xs">
-							<Icon name="clock" className="size-3" />
-							{totalTime}m
-						</span>
-					)}
+					<span className="inline-flex shrink-0 items-center gap-1.5">
+						{recipe.cookCount != null && recipe.cookCount > 0 && (
+							<span className="text-muted-foreground/60 text-xs tabular-nums">
+								{recipe.cookCount}x
+							</span>
+						)}
+						{totalTime != null && (
+							<span className="text-muted-foreground inline-flex items-center gap-0.5 text-xs">
+								<Icon name="clock" className="size-3" />
+								{totalTime}m
+							</span>
+						)}
+					</span>
 				</div>
 			</button>
 		</Form>

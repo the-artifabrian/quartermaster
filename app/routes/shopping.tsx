@@ -592,7 +592,7 @@ export default function ShoppingListRoute({
 		quickAddFetcher.data.status === 'warning'
 
 	return (
-		<div className="pb-20 md:pb-6">
+		<div className="pb-28 md:pb-6">
 			{isProActive && <ShoppingListLiveRefresh />}
 			{/* Page Header */}
 			<div className="border-border/50 border-b print:border-0">
@@ -611,7 +611,7 @@ export default function ShoppingListRoute({
 								<Form method="POST" className="flex items-center gap-2">
 									<input type="hidden" name="intent" value="generate" />
 									<input type="hidden" name="weekStart" value={defaultWeek} />
-									<Button type="submit" variant="outline" size="sm">
+									<Button type="submit" variant="outline" size="sm" aria-label="Generate shopping list from meal plan">
 										<Icon name="calendar" size="sm" />
 										From Plan
 									</Button>

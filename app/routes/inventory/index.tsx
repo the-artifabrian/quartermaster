@@ -1,7 +1,7 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { z } from 'zod'
 import { InventoryItemCard } from '#app/components/inventory-item-card.tsx'
@@ -12,17 +12,21 @@ import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboardi
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
 import {
 	InventoryItemNameSchema,
 	InventoryItemSchema,
 } from '#app/utils/inventory-validation.ts'
+import { STALE_DAYS } from '#app/utils/date.ts'
+import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
 	getInventoryUsage,
 	getUserTier,
 } from '#app/utils/subscription.server.ts'
+import { useUser } from '#app/utils/user.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -258,6 +262,43 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const }
 	}
 
+	if (intent === 'add-to-shopping') {
+		const itemId = formData.get('itemId')
+		invariantResponse(typeof itemId === 'string', 'Item ID is required')
+
+		const item = await prisma.inventoryItem.findFirst({
+			where: { id: itemId, householdId },
+		})
+		invariantResponse(item, 'Item not found', { status: 404 })
+
+		let shoppingList = await prisma.shoppingList.findFirst({
+			where: { householdId },
+		})
+		if (!shoppingList) {
+			shoppingList = await prisma.shoppingList.create({
+				data: { userId, householdId },
+			})
+		}
+
+		await prisma.shoppingListItem.create({
+			data: {
+				name: item.name,
+				category: guessCategory(item.name),
+				source: 'manual',
+				listId: shoppingList.id,
+			},
+		})
+
+		void emitHouseholdEvent({
+			type: 'shopping_list_item_added',
+			payload: { name: item.name },
+			userId,
+			householdId,
+		})
+
+		return { status: 'success' as const, action: 'add-to-shopping' as const }
+	}
+
 	return { status: 'error' as const }
 }
 
@@ -271,8 +312,11 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		mealPlanEntryCount,
 	} = loaderData
 
+	const user = useUser()
 	const [search, setSearch] = useState('')
 	const [fabOpen, setFabOpen] = useState(false)
+	const [reviewingStale, setReviewingStale] = useState(false)
+	const [staleBannerVisible, setStaleBannerVisible] = useState(false)
 
 	const [showStaplesSuccess, setShowStaplesSuccess] = useState(false)
 	const handleStaplesSuccess = useCallback(
@@ -283,6 +327,43 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		() => setShowStaplesSuccess(false),
 		[],
 	)
+
+	const staleItems = items.filter((item) => {
+		const ageMs = Date.now() - new Date(item.createdAt).getTime()
+		return ageMs >= STALE_DAYS * 24 * 60 * 60 * 1000
+	})
+
+	const staleDismissKey = `stale-review-dismissed:${user.id}`
+
+	useEffect(() => {
+		if (staleItems.length < 5) {
+			setStaleBannerVisible(false)
+			return
+		}
+		const dismissed = localStorage.getItem(staleDismissKey)
+		if (dismissed) {
+			const elapsed = Date.now() - Number(dismissed)
+			if (elapsed < 7 * 24 * 60 * 60 * 1000) return
+		}
+		setStaleBannerVisible(true)
+	}, [staleDismissKey, staleItems.length])
+
+	const handleDismissStale = useCallback(() => {
+		localStorage.setItem(staleDismissKey, String(Date.now()))
+		setStaleBannerVisible(false)
+	}, [staleDismissKey])
+
+	const handleReviewStale = useCallback(() => {
+		localStorage.setItem(staleDismissKey, String(Date.now()))
+		setStaleBannerVisible(false)
+		setReviewingStale(true)
+		setSearch('')
+	}, [staleDismissKey])
+
+	const handleExitReview = useCallback(() => {
+		setReviewingStale(false)
+		setSearch('')
+	}, [])
 
 	if (items.length === 0 || showStaplesSuccess) {
 		return (
@@ -296,11 +377,12 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		)
 	}
 
+	const baseItems = reviewingStale ? staleItems : items
 	const filteredItems = search
-		? items.filter((item) =>
+		? baseItems.filter((item) =>
 				item.name.toLowerCase().includes(search.toLowerCase()),
 			)
-		: items
+		: baseItems
 
 	const showSearch = items.length >= SEARCH_THRESHOLD
 
@@ -379,6 +461,36 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					/>
 				)}
 
+				{/* Stale items review banner */}
+				{staleBannerVisible && !reviewingStale && (
+					<div className="mb-4 rounded-lg bg-amber-50 p-4 dark:bg-amber-950/30">
+						<p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+							{staleItems.length} items over a month old
+						</p>
+						<p className="mt-0.5 text-xs text-amber-700/70 dark:text-amber-300/60">
+							Still in your kitchen? A quick review keeps your
+							inventory useful.
+						</p>
+						<div className="mt-3 flex items-center gap-2">
+							<Button
+								size="sm"
+								className="bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
+								onClick={handleReviewStale}
+							>
+								Review
+							</Button>
+							<Button
+								size="sm"
+								variant="ghost"
+								className="text-amber-800 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/40"
+								onClick={handleDismissStale}
+							>
+								Not now
+							</Button>
+						</div>
+					</div>
+				)}
+
 				{/* Search */}
 				<div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					{showSearch && (
@@ -406,8 +518,48 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 
+				{/* Review mode header */}
+				{reviewingStale && staleItems.length > 0 && (
+					<div className="mb-3 flex items-center justify-between rounded-lg bg-amber-50 px-4 py-2.5 dark:bg-amber-950/30">
+						<p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+							Reviewing {staleItems.length} stale{' '}
+							{staleItems.length === 1 ? 'item' : 'items'}
+						</p>
+						<Button
+							size="sm"
+							variant="ghost"
+							className="text-amber-800 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/40"
+							onClick={handleExitReview}
+						>
+							Show all
+						</Button>
+					</div>
+				)}
+
 				{/* Items List */}
-				{filteredItems.length > 0 ? (
+				{reviewingStale && staleItems.length === 0 ? (
+					<div className="flex flex-col items-center justify-center py-16 text-center">
+						<div className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30">
+							<Icon
+								name="check"
+								className="size-6 text-emerald-600 dark:text-emerald-400"
+							/>
+						</div>
+						<h2 className="mt-4 font-serif text-xl font-normal">
+							All caught up!
+						</h2>
+						<p className="mt-2 max-w-sm text-muted-foreground">
+							No more stale items to review.
+						</p>
+						<Button
+							variant="outline"
+							className="mt-4"
+							onClick={handleExitReview}
+						>
+							Back to inventory
+						</Button>
+					</div>
+				) : filteredItems.length > 0 ? (
 					<div>
 						{groupByFirstLetter(filteredItems).map(({ letter, items: groupItems }) => (
 							<div key={letter}>

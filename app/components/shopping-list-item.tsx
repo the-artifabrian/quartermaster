@@ -241,14 +241,15 @@ export function ShoppingListItemCard({ item, isVoiceAdded }: ShoppingListItemCar
 }
 
 function ProduceCountLine({ item }: { item: ShoppingListItem }) {
-	if (item.quantity && item.unit && isWeightUnit(item.unit)) {
-		const parsed = parseAmount(item.quantity)
+	const quantity = item.quantity?.replace(/^["']+|["']+$/g, '') || null
+	if (quantity && item.unit && isWeightUnit(item.unit)) {
+		const parsed = parseAmount(quantity)
 		if (parsed !== null) {
 			const countDisplay = getProduceCountDisplay(item.name, parsed, item.unit)
 			if (countDisplay) {
 				return (
 					<>
-						{countDisplay} ({item.quantity} {item.unit})
+						{countDisplay} ({quantity} {item.unit})
 					</>
 				)
 			}
@@ -256,7 +257,7 @@ function ProduceCountLine({ item }: { item: ShoppingListItem }) {
 	}
 	return (
 		<>
-			{item.quantity} {item.unit}
+			{quantity} {item.unit}
 		</>
 	)
 }

@@ -10,8 +10,10 @@ import {
 	isToday,
 	isPast,
 	formatTimeAgo,
+	formatItemAge,
 	formatDayLabel,
 	formatWeekRange,
+	STALE_DAYS,
 	MEAL_TYPES,
 } from './date.ts'
 
@@ -292,6 +294,61 @@ describe('formatTimeAgo', () => {
 
 	test('returns "X years ago" for 730+ days', () => {
 		expect(formatTimeAgo(daysAgo(730))).toBe('2 years ago')
+	})
+})
+
+describe('formatItemAge', () => {
+	function daysAgo(days: number): Date {
+		const d = new Date()
+		d.setDate(d.getDate() - days)
+		return d
+	}
+
+	test('returns "today" for today', () => {
+		expect(formatItemAge(new Date())).toBe('today')
+	})
+
+	test('returns "yesterday" for 1 day ago', () => {
+		expect(formatItemAge(daysAgo(1))).toBe('yesterday')
+	})
+
+	test('returns "X days" for 2-6 days', () => {
+		expect(formatItemAge(daysAgo(3))).toBe('3 days')
+		expect(formatItemAge(daysAgo(6))).toBe('6 days')
+	})
+
+	test('returns "1 week" for 7-13 days', () => {
+		expect(formatItemAge(daysAgo(7))).toBe('1 week')
+		expect(formatItemAge(daysAgo(13))).toBe('1 week')
+	})
+
+	test('returns "X weeks" for 14-29 days', () => {
+		expect(formatItemAge(daysAgo(14))).toBe('2 weeks')
+		expect(formatItemAge(daysAgo(21))).toBe('3 weeks')
+	})
+
+	test('returns "1 month" for 30-59 days', () => {
+		expect(formatItemAge(daysAgo(30))).toBe('1 month')
+		expect(formatItemAge(daysAgo(59))).toBe('1 month')
+	})
+
+	test('returns "X months" for 60-364 days', () => {
+		expect(formatItemAge(daysAgo(60))).toBe('2 months')
+		expect(formatItemAge(daysAgo(180))).toBe('6 months')
+	})
+
+	test('returns "1 year" for 365 days', () => {
+		expect(formatItemAge(daysAgo(365))).toBe('1 year')
+	})
+
+	test('returns "X years" for 730+ days', () => {
+		expect(formatItemAge(daysAgo(730))).toBe('2 years')
+	})
+})
+
+describe('STALE_DAYS', () => {
+	test('is 30', () => {
+		expect(STALE_DAYS).toBe(30)
 	})
 })
 

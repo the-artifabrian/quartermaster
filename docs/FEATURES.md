@@ -125,11 +125,19 @@ execution quality, not differentiation.
 - Flat alphabetical list of items. No locations/categories — inventory is just
 - No quantities or expiry — inventory is a rough signal of what you have, not a
   ledger of how much
+- Item age labels: every item shows a compact relative age next to its name
+  ("today", "3 days", "2 weeks", "1 month") — subtle metadata, not competing
+  with the name
+- Stale items review: when 5+ items are older than 30 days, an amber banner
+  nudges the user to review. "Review" filters the list to stale items only for
+  quick swipe-to-delete cleanup; count updates in real-time. "All caught up!"
+  empty state when done. Dismisses for 7 days via localStorage, then reappears
+  if stale items remain
 - Inline editing: tap item name to rename in-place (save on blur/Enter, cancel
   on Escape). Dedup check prevents renaming to a name that already exists
 - Card actions: swipe-left-to-delete (mobile, tap revealed button to confirm),
-  overflow menu (delete with two-tap confirmation).
-  Optimistic updates for all actions
+  overflow menu ("Add to shopping list" with success toast, delete with two-tap
+  confirmation). Optimistic updates for all actions
 - Client-side search/filter across all items
 - Quick-add with duplicate detection via canonical name matching — warns with
   "Update existing" / "Add anyway" choice
@@ -286,4 +294,4 @@ execution quality, not differentiation.
 
 ---
 
-_Last updated: February 28, 2026._
+_Last updated: March 1, 2026._

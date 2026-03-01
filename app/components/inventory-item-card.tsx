@@ -1,6 +1,8 @@
 import { type InventoryItem } from '@prisma/client'
 import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
+import { toast } from 'sonner'
+import { formatItemAge } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { SwipeableRow } from './swipeable-row.tsx'
 import { Button } from './ui/button.tsx'
@@ -27,6 +29,7 @@ export function InventoryItemCard({
 	const inputRef = useRef<HTMLInputElement>(null)
 	const deleteFetcher = useFetcher()
 	const renameFetcher = useFetcher<{ status: string; message?: string }>()
+	const shoppingFetcher = useFetcher<{ status: string; action?: string }>()
 
 	// Focus input when entering edit mode
 	useEffect(() => {
@@ -42,6 +45,18 @@ export function InventoryItemCard({
 			setEditName(item.name)
 		}
 	}, [renameFetcher.state, renameFetcher.data, item.name])
+
+	// Toast on add-to-shopping completion
+	useEffect(() => {
+		if (
+			shoppingFetcher.state === 'idle' &&
+			shoppingFetcher.data?.action === 'add-to-shopping'
+		) {
+			if (shoppingFetcher.data.status === 'success') {
+				toast.success('Added to shopping list')
+			}
+		}
+	}, [shoppingFetcher.state, shoppingFetcher.data])
 
 	// Optimistic delete — hide row immediately
 	if (deleteFetcher.state !== 'idle') return null
@@ -93,22 +108,27 @@ export function InventoryItemCard({
 							maxLength={100}
 						/>
 					) : (
-						<button
-							type="button"
-							onClick={() => {
-								if (showActions) {
-									setEditName(item.name)
-									setEditing(true)
-								}
-							}}
-							className={cn(
-								'line-clamp-1 text-left text-[15px]',
-								showActions &&
-									'cursor-text rounded px-1.5 py-0.5 -ml-1.5 hover:bg-muted/50',
-							)}
-						>
-							{optimisticName}
-						</button>
+						<>
+							<button
+								type="button"
+								onClick={() => {
+									if (showActions) {
+										setEditName(item.name)
+										setEditing(true)
+									}
+								}}
+								className={cn(
+									'line-clamp-1 text-left text-[15px]',
+									showActions &&
+										'cursor-text rounded px-1.5 py-0.5 -ml-1.5 hover:bg-muted/50',
+								)}
+							>
+								{optimisticName}
+							</button>
+							<span className="shrink-0 text-xs text-muted-foreground/50">
+								{formatItemAge(new Date(item.createdAt))}
+							</span>
+						</>
 					)}
 				</div>
 			</div>
@@ -132,6 +152,17 @@ export function InventoryItemCard({
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
+							<DropdownMenuItem
+								onSelect={() => {
+									void shoppingFetcher.submit(
+										{ intent: 'add-to-shopping', itemId: item.id },
+										{ method: 'POST' },
+									)
+								}}
+							>
+								<Icon name="cart" size="sm" />
+								Add to shopping list
+							</DropdownMenuItem>
 							<DropdownMenuItem
 								className={cn(
 									confirmDelete

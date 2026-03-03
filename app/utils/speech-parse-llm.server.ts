@@ -28,8 +28,12 @@ export async function parseSpeechItemsWithLLM(
 			body: JSON.stringify({
 				model: MODEL,
 				max_tokens: 512,
-				system:
-					'You are a grocery list parser. Return only a JSON array — no markdown, no explanation.',
+				system: `You are a grocery list parser that extracts items from speech-to-text transcripts.
+Return ONLY a valid JSON array — no markdown fences, no explanation.
+
+CRITICAL: Speech-to-text often produces garbage, hallucinated, or nonsensical output.
+If the transcript is gibberish, unintelligible, or does not contain any recognizable grocery/food items, return an empty array: []
+Do NOT invent or guess items that aren't clearly present in the transcript.`,
 				messages: [
 					{
 						role: 'user',
@@ -71,7 +75,8 @@ Return a JSON array of objects with these fields:
 - "unit": one of [lb, oz, g, kg, cup, tbsp, tsp, ml, l, pint, quart, gallon, bag, box, can, bottle, pack, package, dozen, each, piece, slice, loaf, head, clove, stalk, jar, carton, container, stick, bunch, roll, bar] or "" if not a known unit
 
 Rules:
-- Only include actual grocery/food items
+- If the transcript is gibberish, nonsensical, or contains no recognizable food/grocery items, return []
+- Only include actual grocery/food items — ignore filler words, background noise artifacts, or non-food text
 - Fix misspellings and missing diacritics from speech recognition (e.g. "saleninuta" → "slăninuță", "pasta de fasole" → "păstăi de fasole")
 - Keep item names in the original language of the transcript
 - Normalize units to the canonical list above (e.g. "pounds" → "lb", "ounces" → "oz")
@@ -120,7 +125,7 @@ function parseResponse(text: string): ParsedItem[] | null {
 			items.push({ name, quantity, unit })
 		}
 
-		return items.length > 0 ? items : null
+		return items
 	} catch {
 		return null
 	}

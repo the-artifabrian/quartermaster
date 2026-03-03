@@ -518,7 +518,7 @@ export default function ShoppingListRoute({
 	}, [bulkAddFetcher.state, revalidator])
 
 	const handleSpeechResult = useCallback(
-		(items: TranscribedItem[]) => {
+		(items: TranscribedItem[], transcription: string | null) => {
 			if (items.length === 1) {
 				// Single item: populate the input for review
 				const item = items[0]!
@@ -527,6 +527,9 @@ export default function ShoppingListRoute({
 					setQaQuantity(item.quantity)
 					setQaUnit(item.unit)
 					setQuickAddOpen(true)
+				}
+				if (transcription) {
+					toast.info(`Heard: "${transcription}"`)
 				}
 				qaInputRef.current?.focus()
 			} else {
@@ -542,7 +545,16 @@ export default function ShoppingListRoute({
 							...items.map((i) => i.name.toLowerCase().trim()),
 						]),
 				)
-				toast.success(`Added ${items.length} items`)
+				const heard =
+					transcription &&
+					(transcription.length > 60
+						? transcription.slice(0, 60) + '…'
+						: transcription)
+				toast.success(
+					heard
+						? `Heard: "${heard}" — added ${items.length} items`
+						: `Added ${items.length} items`,
+				)
 			}
 		},
 		[bulkAddFetcher],

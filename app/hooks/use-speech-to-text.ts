@@ -7,7 +7,7 @@ export type TranscribedItem = {
 }
 
 type SpeechToTextOptions = {
-	onResult: (items: TranscribedItem[]) => void
+	onResult: (items: TranscribedItem[], transcription: string | null) => void
 	onError?: (message: string) => void
 }
 
@@ -144,12 +144,13 @@ export function useSpeechToText({ onResult, onError }: SpeechToTextOptions) {
 					const data = (await response.json()) as {
 						error: string | null
 						items: TranscribedItem[]
+						transcription: string | null
 					}
 
 					if (data.error) {
 						onError?.(data.error)
 					} else {
-						onResult(data.items)
+						onResult(data.items, data.transcription)
 					}
 				} catch {
 					onError?.('Failed to transcribe audio. Please try again.')

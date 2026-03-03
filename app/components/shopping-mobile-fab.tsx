@@ -59,7 +59,7 @@ export function MobileFabAdd({
 	}, [bulkAddFetcher.state, revalidator])
 
 	const handleSpeechResult = useCallback(
-		(items: TranscribedItem[]) => {
+		(items: TranscribedItem[], transcription: string | null) => {
 			if (items.length === 1) {
 				const item = items[0]!
 				setName(item.name)
@@ -68,6 +68,9 @@ export function MobileFabAdd({
 					setUnit(item.unit)
 					setShowQty(true)
 				}
+				if (transcription) {
+					toast.info(`Heard: "${transcription}"`)
+				}
 				inputRef.current?.focus()
 			} else {
 				const fd = new FormData()
@@ -75,7 +78,16 @@ export function MobileFabAdd({
 				fd.set('items', JSON.stringify(items))
 				void bulkAddFetcher.submit(fd, { method: 'POST' })
 				onVoiceItemsAdded?.(items.map((i) => i.name))
-				toast.success(`Added ${items.length} items`)
+				const heard =
+					transcription &&
+					(transcription.length > 60
+						? transcription.slice(0, 60) + '…'
+						: transcription)
+				toast.success(
+					heard
+						? `Heard: "${heard}" — added ${items.length} items`
+						: `Added ${items.length} items`,
+				)
 				onOpenChange(false)
 			}
 		},

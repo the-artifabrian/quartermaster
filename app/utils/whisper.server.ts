@@ -6,6 +6,52 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/audio/transcriptions'
 const MODEL = 'whisper-large-v3-turbo'
 const TIMEOUT_MS = 15_000
 
+/**
+ * Whisper hallucinates these phrases when given silence, noise, or very short
+ * audio. They are never valid grocery items.
+ */
+/**
+ * Whisper hallucinates these phrases when given silence, noise, or very short
+ * audio. Checked as exact matches only to avoid false positives.
+ */
+const WHISPER_HALLUCINATION_EXACT = new Set([
+	'thank you',
+	'thank you.',
+	'thanks',
+	'thanks.',
+	'thanks for watching',
+	'subscribe',
+	'like and subscribe',
+	'please subscribe',
+	'see you next time',
+	'bye',
+	'bye bye',
+	'goodbye',
+	'you',
+	'the end',
+	'subtitles by',
+	'amara.org',
+	'music',
+	'applause',
+	'silence',
+])
+
+function isWhisperHallucination(text: string): boolean {
+	const normalized = text.toLowerCase().replace(/[.,!?;:\s]+/g, ' ').trim()
+
+	// Too short to be a real grocery item
+	if (normalized.length < 2) return true
+
+	// Mostly non-letter characters (noise artifacts)
+	const letterRatio =
+		(normalized.match(/[a-zA-Z\u00C0-\u024F]/g)?.length ?? 0) /
+		normalized.length
+	if (letterRatio < 0.5) return true
+
+	// Known hallucination phrases (exact match only)
+	return WHISPER_HALLUCINATION_EXACT.has(normalized)
+}
+
 type TranscribeResult = {
 	transcription: string
 	items: ParsedItem[]
@@ -30,7 +76,7 @@ export async function transcribeAudio(
 		formData.append('model', MODEL)
 		formData.append(
 			'prompt',
-			'Grocery shopping list items, food ingredients, cooking supplies.',
+			'Grocery shopping list dictation. Items include fruits, vegetables, meat, dairy, bread, eggs, rice, pasta, spices, snacks, beverages, and household supplies. Quantities like pounds, ounces, bags, boxes, cans, bottles, and dozen are common. Items may be in English, Romanian, or other languages.',
 		)
 
 		const response = await fetch(GROQ_API_URL, {
@@ -61,9 +107,18 @@ export async function transcribeAudio(
 			return { error: "Couldn't understand the audio. Please try again." }
 		}
 
-		const items =
-			(await parseSpeechItemsWithLLM(transcription)) ??
-			parseSpeechItems(transcription)
+		// Reject known Whisper hallucination artifacts — these appear when the
+		// model receives mostly silence or noise and "hallucinates" common
+		// YouTube/podcast phrases instead of real speech.
+		if (isWhisperHallucination(transcription)) {
+			return { error: "Couldn't understand the audio. Please try again." }
+		}
+
+		// parseSpeechItemsWithLLM returns:
+		//   ParsedItem[] (possibly empty) on success — empty means Haiku found no grocery items
+		//   null on API/parse failure — fall back to regex
+		const llmResult = await parseSpeechItemsWithLLM(transcription)
+		const items = llmResult ?? parseSpeechItems(transcription)
 
 		if (items.length === 0) {
 			return { error: "Couldn't understand the audio. Please try again." }

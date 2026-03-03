@@ -99,10 +99,20 @@ execution quality, not differentiation.
   directly with ephemeral highlight (subtle background + mic icon) so
   bulk-added items are easy to spot for review — auto-clears after 60s.
   LLM parsing handles conversational sentences, numbers in product names, and
-  any language naturally. Regex fallback handles word numbers 1-20 ("two pounds",
-  "fifteen eggs"), compound numbers ("a dozen", "half a dozen", "a couple",
-  "three hundred"), mixed fractions ("1 1/2 cups"), unit normalization aligned
-  with unit-conversion canonical forms (pounds→lb, liters→l, cups→cup), vague
+  any language naturally; the system prompt instructs Haiku to return an empty
+  array for gibberish/unintelligible transcripts rather than guessing, and the
+  regex fallback only activates on LLM API failure (not when Haiku deliberately
+  returns no items). Pre-LLM quality gate rejects known Whisper hallucination
+  artifacts ("thank you", "subscribe", "see you next time", etc.) and
+  low-quality transcripts (too short or mostly non-letter characters). Whisper
+  prompt hint includes grocery vocabulary and common units for better
+  transcription accuracy. Transcript feedback: single-item results show an info
+  toast with the raw transcript ("Heard: …"); multi-item bulk-adds show the
+  transcript (truncated at 60 chars) alongside the item count in the success
+  toast. Regex fallback handles word numbers 1-20 ("two pounds", "fifteen
+  eggs"), compound numbers ("a dozen", "half a dozen", "a couple", "three
+  hundred"), mixed fractions ("1 1/2 cups"), unit normalization aligned with
+  unit-conversion canonical forms (pounds→lb, liters→l, cups→cup), vague
   quantifier stripping ("some", "a few", "a lot of"), Whisper comma cleanup,
   instructional prefix stripping ("I need", "we need", "get", "add", "buy",
   "grab"), repeatable filler word stripping (handles chains like "um yeah I need

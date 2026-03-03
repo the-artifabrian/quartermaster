@@ -41,7 +41,11 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if (!audioFile) {
 		return data(
-			{ error: 'No audio file provided', items: [] as ParsedItem[] },
+			{
+				error: 'No audio file provided',
+				items: [] as ParsedItem[],
+				transcription: null as string | null,
+			},
 			{ status: 400 },
 		)
 	}
@@ -50,7 +54,11 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if ('error' in result) {
 		return data(
-			{ error: result.error, items: [] as ParsedItem[] },
+			{
+				error: result.error,
+				items: [] as ParsedItem[],
+				transcription: null as string | null,
+			},
 			{ status: 422 },
 		)
 	}
@@ -58,5 +66,6 @@ export async function action({ request }: Route.ActionArgs) {
 	return data({
 		error: null,
 		items: result.items,
+		transcription: result.transcription,
 	})
 }

@@ -249,7 +249,7 @@ describe('parseSpeechItemsWithLLM', () => {
 		expect(result![0]!.name).toBe('parmesan cheese')
 	})
 
-	test('returns null on empty array', async () => {
+	test('returns empty array when LLM returns no items', async () => {
 		vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
 
 		server.use(
@@ -261,7 +261,7 @@ describe('parseSpeechItemsWithLLM', () => {
 		)
 
 		const result = await parseSpeechItemsWithLLM('um yeah')
-		expect(result).toBeNull()
+		expect(result).toEqual([])
 	})
 
 	test('caps at 50 items', async () => {

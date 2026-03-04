@@ -28,7 +28,7 @@ The app is feature-complete for solo and shared daily use.
 | 9-12           | Recipe scaling, cooking mode (timers, temps), ingredient headings, bulk import                                                                            |
 | 13a-e          | Household sharing, SSE real-time shopping sync                                                                                                            |
 | Polish + UX    | Color system, mobile-first layout, print/share, waste alerts, cooking progress, card streamlining                                                         |
-| AI             | Ingredient substitutions (static DB + LLM), recipe generation, metadata enhance, voice-to-text input (Groq Whisper)                                        |
+| AI             | Ingredient substitutions (static DB + LLM), recipe generation, metadata enhance, voice-to-text input (Groq Whisper), social media/image recipe extraction   |
 | Beta hardening | Dead code cleanup, a11y (focus traps, aria-labels, focus rings), render-time setState fixes, SSRF + sourcemap + error sanitization, shopping live-refresh |
 
 onboarding nudges, smart meal suggestions (title-based recipe classification,

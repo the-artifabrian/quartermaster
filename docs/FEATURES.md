@@ -61,7 +61,10 @@ execution quality, not differentiation.
   with recipe detail page (`RecipeMetadataCard`, `IngredientList`,
   `RecipeInstructionsList`) for consistent UX
 - Import from URL (JSON-LD scraping with text fallback, follows redirects),
-  quick text entry, JSON export
+  quick text entry, JSON export. AI recipe extraction (Pro): paste informal
+  text (social media captions, blog posts) or upload a screenshot and extract
+  a structured recipe via Claude Haiku vision. Same import preview/save flow.
+  10/day rate limit
 - Bulk import: paste plain-text recipes or upload `.md`/`.txt` files. `---`
   separator for multiple recipes per batch (max 50). Handles checkbox format and
   sub-section headers (become ingredient heading rows). Post-import nudge CTA
@@ -304,4 +307,4 @@ execution quality, not differentiation.
 
 ---
 
-_Last updated: March 1, 2026._
+_Last updated: March 4, 2026._

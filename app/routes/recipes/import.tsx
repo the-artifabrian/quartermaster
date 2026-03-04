@@ -1,4 +1,5 @@
 import { parseWithZod } from '@conform-to/zod'
+import { parseFormData, type FileUpload } from '@mjackson/form-data-parser'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import * as cheerio from 'cheerio'
 import { useState } from 'react'
@@ -18,12 +19,18 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
 import { parseRecipeText } from '#app/utils/bulk-recipe-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	parseIngredient,
 	parseISODuration,
 } from '#app/utils/ingredient-parser.server.ts'
+import {
+	ALLOWED_IMAGE_MEDIA_TYPES,
+	extractRecipeFromImage,
+	extractRecipeFromText,
+} from '#app/utils/recipe-extract-llm.server.ts'
 import { ImportUrlSchema } from '#app/utils/recipe-validation.ts'
+import { requireUserWithTier } from '#app/utils/subscription.server.ts'
+import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { type Route } from './+types/import.ts'
 
 export const handle: SEOHandle = {
@@ -34,9 +41,11 @@ export const meta: Route.MetaFunction = () => {
 	return [{ title: 'Import Recipe | Quartermaster' }]
 }
 
+type ImportTab = 'url' | 'text'
+
 export async function loader({ request }: Route.LoaderArgs) {
-	await requireUserWithHousehold(request)
-	return {}
+	const { isProActive } = await requireUserWithTier(request)
+	return { isProActive }
 }
 
 type ExtractedRecipe = {
@@ -218,9 +227,81 @@ function extractRecipe(
 	}
 }
 
+const DAILY_EXTRACT_LIMIT = 10
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_RAW_TEXT_LENGTH = 50_000 // 50KB cap on pasted text
+
+/**
+ * Detect image media type from magic bytes.
+ * Returns null if the bytes don't match any supported format.
+ */
+function detectImageMediaType(buffer: ArrayBuffer): string | null {
+	if (buffer.byteLength < 12) return null
+	const bytes = new Uint8Array(buffer, 0, 12)
+
+	// JPEG: FF D8 FF
+	if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+		return 'image/jpeg'
+	}
+
+	// PNG: 89 50 4E 47 0D 0A 1A 0A
+	if (
+		bytes[0] === 0x89 &&
+		bytes[1] === 0x50 &&
+		bytes[2] === 0x4e &&
+		bytes[3] === 0x47 &&
+		bytes[4] === 0x0d &&
+		bytes[5] === 0x0a &&
+		bytes[6] === 0x1a &&
+		bytes[7] === 0x0a
+	) {
+		return 'image/png'
+	}
+
+	// WebP: RIFF....WEBP
+	if (
+		bytes[0] === 0x52 &&
+		bytes[1] === 0x49 &&
+		bytes[2] === 0x46 &&
+		bytes[3] === 0x46 &&
+		bytes[8] === 0x57 &&
+		bytes[9] === 0x45 &&
+		bytes[10] === 0x42 &&
+		bytes[11] === 0x50
+	) {
+		return 'image/webp'
+	}
+
+	return null
+}
+
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireUserWithHousehold(request)
-	const formData = await request.formData()
+	const { userId, householdId, isProActive } =
+		await requireUserWithTier(request)
+
+	let imageFile: FileUpload | null = null
+	let formData: FormData
+
+	const contentType = request.headers.get('content-type') || ''
+	if (contentType.includes('multipart/form-data')) {
+		formData = await parseFormData(
+			request,
+			{ maxFileSize: MAX_IMAGE_SIZE },
+			async (file) => {
+				if (file.fieldName === 'image') {
+					if (file.size > MAX_IMAGE_SIZE) return undefined
+					if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) return undefined
+					imageFile = file
+					return file
+				}
+				return undefined
+			},
+		)
+	} else {
+		formData = await request.formData()
+	}
+
 	const intent = formData.get('intent')
 
 	if (intent === 'fetch') {
@@ -422,6 +503,19 @@ export async function action({ request }: Route.ActionArgs) {
 			)
 		}
 
+		if (rawText.length > MAX_RAW_TEXT_LENGTH) {
+			return data(
+				{
+					intent: 'parse-text' as const,
+					error: 'Text is too long. Please shorten it and try again.',
+					recipe: null,
+					result: null,
+					duplicates: null,
+				},
+				{ status: 400 },
+			)
+		}
+
 		const parsed = parseRecipeText(rawText)
 
 		if (
@@ -488,6 +582,174 @@ export async function action({ request }: Route.ActionArgs) {
 
 		return data({
 			intent: 'parse-text' as const,
+			recipe,
+			error: null,
+			result: null,
+			duplicates: duplicates.length > 0 ? duplicates : null,
+		})
+	}
+
+	if (intent === 'extract-text') {
+		if (!isProActive) {
+			return data(
+				{
+					intent: 'extract-text' as const,
+					error: 'AI extraction requires a Pro subscription.',
+					recipe: null,
+					result: null,
+					duplicates: null,
+				},
+				{ status: 403 },
+			)
+		}
+
+		const rawText = (formData.get('rawText') as string) || ''
+
+		if (!rawText.trim() && !imageFile) {
+			return data(
+				{
+					intent: 'extract-text' as const,
+					error: 'Please paste some text or upload an image.',
+					recipe: null,
+					result: null,
+					duplicates: null,
+				},
+				{ status: 400 },
+			)
+		}
+
+		if (rawText.length > MAX_RAW_TEXT_LENGTH) {
+			return data(
+				{
+					intent: 'extract-text' as const,
+					error: 'Text is too long. Please shorten it and try again.',
+					recipe: null,
+					result: null,
+					duplicates: null,
+				},
+				{ status: 400 },
+			)
+		}
+
+		// Rate limit: 10/day
+		const startOfDay = new Date()
+		startOfDay.setHours(0, 0, 0, 0)
+		const todayCount = await prisma.usageEvent.count({
+			where: {
+				userId,
+				type: 'recipe_extract_llm_call',
+				createdAt: { gte: startOfDay },
+			},
+		})
+		if (todayCount >= DAILY_EXTRACT_LIMIT) {
+			return data(
+				{
+					intent: 'extract-text' as const,
+					error: `You've reached the daily limit of ${DAILY_EXTRACT_LIMIT} AI extractions. Try again tomorrow!`,
+					recipe: null,
+					result: null,
+					duplicates: null,
+				},
+				{ status: 429 },
+			)
+		}
+
+		let llmResult: Awaited<ReturnType<typeof extractRecipeFromText>>
+
+		if (imageFile) {
+			const buffer = await (imageFile as FileUpload).arrayBuffer()
+
+			// Re-check actual buffer size (stream-level check may use client-reported size)
+			if (buffer.byteLength > MAX_IMAGE_SIZE) {
+				return data(
+					{
+						intent: 'extract-text' as const,
+						error: 'Image is too large. Maximum size is 5MB.',
+						recipe: null,
+						result: null,
+						duplicates: null,
+					},
+					{ status: 400 },
+				)
+			}
+
+			// Validate magic bytes — don't trust client-provided Content-Type
+			const detectedType = detectImageMediaType(buffer)
+			if (
+				!detectedType ||
+				!ALLOWED_IMAGE_MEDIA_TYPES.includes(
+					detectedType as (typeof ALLOWED_IMAGE_MEDIA_TYPES)[number],
+				)
+			) {
+				return data(
+					{
+						intent: 'extract-text' as const,
+						error:
+							'Invalid image file. Please upload a JPEG, PNG, or WebP image.',
+						recipe: null,
+						result: null,
+						duplicates: null,
+					},
+					{ status: 400 },
+				)
+			}
+
+			const base64 = Buffer.from(buffer).toString('base64')
+			llmResult = await extractRecipeFromImage(base64, detectedType)
+		} else {
+			llmResult = await extractRecipeFromText(rawText)
+		}
+
+		const success = !('error' in llmResult)
+		trackEvent(userId, householdId, 'recipe_extract_llm_call', {
+			source: imageFile ? 'image' : 'text',
+			success,
+		})
+
+		if ('error' in llmResult) {
+			return data(
+				{
+					intent: 'extract-text' as const,
+					error: llmResult.error,
+					recipe: null,
+					result: null,
+					duplicates: null,
+				},
+				{ status: 422 },
+			)
+		}
+
+		const recipe: ExtractedRecipe = {
+			title: llmResult.title,
+			description: llmResult.description,
+			servings: llmResult.servings,
+			prepTime: llmResult.prepTime,
+			cookTime: llmResult.cookTime,
+			sourceUrl: '',
+			ingredients: llmResult.ingredients.map((ing) => ({
+				name: ing.name,
+				amount: ing.amount ?? undefined,
+				unit: ing.unit ?? undefined,
+				notes: ing.notes ?? undefined,
+			})),
+			instructions: llmResult.instructions,
+		}
+
+		// Check for duplicates
+		const duplicates: DuplicateMatch[] = []
+		const titleMatches = await prisma.recipe.findMany({
+			where: {
+				householdId,
+				title: { equals: recipe.title },
+			},
+			select: { id: true, title: true, sourceUrl: true },
+		})
+		for (const match of titleMatches) {
+			duplicates.push({ ...match, matchReason: 'similar-title' })
+		}
+
+		return data({
+			intent: 'extract-text' as const,
 			recipe,
 			error: null,
 			result: null,
@@ -607,7 +869,10 @@ export async function action({ request }: Route.ActionArgs) {
 	)
 }
 
-export default function ImportRecipe() {
+export default function ImportRecipe({
+	loaderData,
+}: Route.ComponentProps) {
+	const { isProActive } = loaderData
 	const actionData = useActionData<typeof action>()
 	const navigation = useNavigation()
 	const isSubmitting = navigation.state === 'submitting'
@@ -615,7 +880,6 @@ export default function ImportRecipe() {
 		isSubmitting && navigation.formData
 			? navigation.formData.get('intent')
 			: null
-	const [urlValue, setUrlValue] = useState('')
 
 	const recipe = actionData && 'recipe' in actionData ? actionData.recipe : null
 	const error = actionData && 'error' in actionData ? actionData.error : null
@@ -624,97 +888,186 @@ export default function ImportRecipe() {
 	const duplicates =
 		actionData && 'duplicates' in actionData ? actionData.duplicates : null
 	const hasRecipe = recipe && !error
-	const showTextFallback = error && actionIntent !== 'save'
+
+	const urlError = error && actionIntent === 'fetch' ? error : null
+	const textError =
+		error &&
+		(actionIntent === 'parse-text' || actionIntent === 'extract-text')
+			? error
+			: null
+
+	// Default to text tab if last action was text/extract, or URL tab otherwise
+	const defaultTab: ImportTab =
+		actionIntent === 'parse-text' || actionIntent === 'extract-text'
+			? 'text'
+			: 'url'
+	const [activeTab, setActiveTab] = useState<ImportTab>(defaultTab)
 
 	return (
 		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
-			<h1 className="mb-6 text-2xl font-bold">Import from URL</h1>
+			<h1 className="mb-2 text-2xl font-bold">Import Recipe</h1>
 			<p className="text-muted-foreground mb-6">
-				Paste a URL from a recipe website and we'll try to extract the recipe
-				details automatically.
+				Import a recipe from a URL, paste text, or upload a screenshot.
 			</p>
 
-			{/* Phase A: URL input */}
+			{/* Input forms */}
 			{!hasRecipe && (
 				<>
-					<Form method="POST" className="space-y-4">
-						<input type="hidden" name="intent" value="fetch" />
-						<div className="space-y-2">
-							<Label htmlFor="url">Recipe URL</Label>
-							<Input
-								id="url"
-								name="url"
-								type="url"
-								placeholder="https://example.com/recipe/..."
-								autoFocus
-								required
-								onChange={(e) => setUrlValue(e.target.value)}
-							/>
-						</div>
-						{error && (
-							<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
-								{error}
-							</div>
-						)}
-						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => history.back()}
-							>
-								Cancel
-							</Button>
-							<StatusButton
-								type="submit"
-								status={submittingIntent === 'fetch' ? 'pending' : 'idle'}
-								disabled={isSubmitting}
-							>
-								{submittingIntent === 'fetch' ? 'Fetching...' : 'Fetch Recipe'}
-							</StatusButton>
-						</div>
-					</Form>
+					{/* Tab bar */}
+					<div className="mb-6 flex gap-1 rounded-lg border p-1">
+						<button
+							type="button"
+							className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+								activeTab === 'url'
+									? 'bg-accent text-accent-foreground'
+									: 'text-muted-foreground hover:text-foreground'
+							}`}
+							onClick={() => setActiveTab('url')}
+						>
+							From URL
+						</button>
+						<button
+							type="button"
+							className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+								activeTab === 'text'
+									? 'bg-accent text-accent-foreground'
+									: 'text-muted-foreground hover:text-foreground'
+							}`}
+							onClick={() => setActiveTab('text')}
+						>
+							From Text / Image
+						</button>
+					</div>
 
-					{/* Text fallback when URL extraction fails */}
-					{showTextFallback && (
-						<div className="mt-6 space-y-4 rounded-lg border p-6">
-							<div className="space-y-1">
-								<h2 className="font-medium">Paste recipe text instead</h2>
-								<p className="text-muted-foreground text-sm">
-									Copy the recipe text from the page and paste it below. We'll
-									do our best to parse the title, ingredients, and instructions.
-								</p>
-							</div>
-							<Form method="POST" className="space-y-4">
-								<input type="hidden" name="intent" value="parse-text" />
-								<input type="hidden" name="sourceUrl" value={urlValue} />
-								<Textarea
-									name="rawText"
-									placeholder={
-										'Chicken Parmesan\n\nIngredients:\n2 chicken breasts\n1 cup breadcrumbs\n1 cup marinara sauce\n...\n\nInstructions:\n1. Preheat oven to 400°F\n2. Bread the chicken...'
-									}
-									rows={10}
+					{/* URL tab */}
+					{activeTab === 'url' && (
+						<Form method="POST" className="space-y-4">
+							<input type="hidden" name="intent" value="fetch" />
+							<div className="space-y-2">
+								<Label htmlFor="url">Recipe URL</Label>
+								<Input
+									id="url"
+									name="url"
+									type="url"
+									placeholder="https://example.com/recipe/..."
+									autoFocus
 									required
 								/>
-								<div className="flex justify-end">
+							</div>
+							{urlError && (
+								<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
+									{urlError}
+								</div>
+							)}
+							<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => history.back()}
+								>
+									Cancel
+								</Button>
+								<StatusButton
+									type="submit"
+									status={submittingIntent === 'fetch' ? 'pending' : 'idle'}
+									disabled={isSubmitting}
+								>
+									{submittingIntent === 'fetch'
+										? 'Fetching...'
+										: 'Fetch Recipe'}
+								</StatusButton>
+							</div>
+						</Form>
+					)}
+
+					{/* Text / Image tab */}
+					{activeTab === 'text' && (
+						<Form
+							method="POST"
+							encType="multipart/form-data"
+							className="space-y-4"
+						>
+							<div className="space-y-2">
+								<Label htmlFor="rawText">Recipe text</Label>
+								<Textarea
+									id="rawText"
+									name="rawText"
+									placeholder={
+										'Paste a recipe from social media, a blog post, or any text source...'
+									}
+									rows={8}
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="image">Or upload a screenshot</Label>
+								<Input
+									id="image"
+									name="image"
+									type="file"
+									accept="image/jpeg,image/png,image/webp"
+								/>
+								<p className="text-muted-foreground text-xs">
+									JPEG, PNG, or WebP, max 5MB
+								</p>
+							</div>
+							{textError && (
+								<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
+									{textError}
+								</div>
+							)}
+							<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
+								<StatusButton
+									type="submit"
+									name="intent"
+									value="parse-text"
+									variant="outline"
+									status={
+										submittingIntent === 'parse-text' ? 'pending' : 'idle'
+									}
+									disabled={isSubmitting}
+								>
+									{submittingIntent === 'parse-text'
+										? 'Parsing...'
+										: 'Parse Recipe'}
+								</StatusButton>
+								{isProActive ? (
 									<StatusButton
 										type="submit"
+										name="intent"
+										value="extract-text"
 										status={
-											submittingIntent === 'parse-text' ? 'pending' : 'idle'
+											submittingIntent === 'extract-text'
+												? 'pending'
+												: 'idle'
 										}
 										disabled={isSubmitting}
 									>
-										{submittingIntent === 'parse-text'
-											? 'Parsing...'
-											: 'Parse Recipe'}
+										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
+										{submittingIntent === 'extract-text'
+											? 'Extracting...'
+											: 'Extract with AI'}
 									</StatusButton>
-								</div>
-							</Form>
-						</div>
+								) : (
+									<Button asChild>
+										<Link to="/upgrade">
+											<Icon
+												name="sparkles"
+												className="mr-1.5 inline h-4 w-4"
+											/>
+											Extract with AI
+											<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
+												Pro
+											</span>
+										</Link>
+									</Button>
+								)}
+							</div>
+						</Form>
 					)}
 				</>
 			)}
 
-			{/* Phase B: Preview & Save */}
+			{/* Preview & Save */}
 			{hasRecipe && (
 				<div className="space-y-6">
 					<div className="space-y-4 rounded-lg border p-6">
@@ -726,8 +1079,12 @@ export default function ImportRecipe() {
 						)}
 						<div className="text-muted-foreground flex flex-wrap gap-4 text-sm">
 							<span>Servings: {recipe.servings}</span>
-							{recipe.prepTime && <span>Prep: {recipe.prepTime} min</span>}
-							{recipe.cookTime && <span>Cook: {recipe.cookTime} min</span>}
+							{recipe.prepTime != null && recipe.prepTime > 0 && (
+								<span>Prep: {recipe.prepTime} min</span>
+							)}
+							{recipe.cookTime != null && recipe.cookTime > 0 && (
+								<span>Cook: {recipe.cookTime} min</span>
+							)}
 						</div>
 
 						{recipe.ingredients.length > 0 && (
@@ -738,11 +1095,13 @@ export default function ImportRecipe() {
 								<ul className="space-y-1 text-sm">
 									{recipe.ingredients.map((ing, i) => (
 										<li key={i} className="flex gap-1">
-											<span className="text-muted-foreground">-</span>
+											<span className="text-muted-foreground">–</span>
 											{ing.amount && (
 												<span className="font-medium">{ing.amount}</span>
 											)}
-											{ing.unit && <span>{ing.unit}</span>}
+											{ing.unit && (
+												<span>{ing.unit}</span>
+											)}
 											<span>{ing.name}</span>
 											{ing.notes && (
 												<span className="text-muted-foreground">
@@ -822,10 +1181,10 @@ export default function ImportRecipe() {
 							value={recipe.description ?? ''}
 						/>
 						<input type="hidden" name="servings" value={recipe.servings} />
-						{recipe.prepTime && (
+						{recipe.prepTime != null && recipe.prepTime > 0 && (
 							<input type="hidden" name="prepTime" value={recipe.prepTime} />
 						)}
-						{recipe.cookTime && (
+						{recipe.cookTime != null && recipe.cookTime > 0 && (
 							<input type="hidden" name="cookTime" value={recipe.cookTime} />
 						)}
 						<input type="hidden" name="sourceUrl" value={recipe.sourceUrl} />
@@ -867,7 +1226,7 @@ export default function ImportRecipe() {
 								variant="outline"
 								onClick={() => window.location.reload()}
 							>
-								Try Another URL
+								Import Another
 							</Button>
 							<StatusButton
 								type="submit"

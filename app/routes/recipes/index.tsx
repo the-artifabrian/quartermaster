@@ -359,7 +359,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-20 md:pb-6">
 			{/* Page Header */}
-			<div className="border-b border-border/50">
+			<div className="border-border/50 border-b">
 				<div className="container-grid flex items-center justify-between gap-3 py-3 md:py-4">
 					<h1 className="font-serif text-2xl font-normal">
 						My Recipes{' '}
@@ -369,7 +369,11 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					</h1>
 					<div className="flex gap-2">
 						{isProActive && loaderData.hasInventory && (
-							<Button asChild variant="secondary" className="hidden md:inline-flex">
+							<Button
+								asChild
+								variant="secondary"
+								className="hidden md:inline-flex"
+							>
 								<Link to="/recipes/generate">
 									<Icon name="sparkles" size="sm" />
 									Generate Recipe
@@ -381,7 +385,11 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								<Button className="size-10 rounded-full p-0 sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2">
 									<Icon name="plus" size="sm" />
 									<span className="hidden sm:inline">New Recipe</span>
-									<Icon name="chevron-down" size="sm" className="hidden sm:inline" />
+									<Icon
+										name="chevron-down"
+										size="sm"
+										className="hidden sm:inline"
+									/>
 								</Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
@@ -408,7 +416,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								<DropdownMenuItem asChild>
 									<Link to="/recipes/import">
 										<Icon name="link-2" size="sm" />
-										Import from URL
+										Import
 									</Link>
 								</DropdownMenuItem>
 							</DropdownMenuContent>
@@ -433,7 +441,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								placeholder="Search recipes..."
 								defaultValue={search}
 								onChange={(e) => handleSearchChange(e.target.value)}
-								className="h-10 w-full rounded-full border border-border/50 bg-secondary/50 pl-10 pr-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/20"
+								className="border-border/50 bg-secondary/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-10 w-full rounded-full border pr-4 pl-10 text-sm transition-colors outline-none focus:ring-1"
 							/>
 						</div>
 						<button
@@ -450,7 +458,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						>
 							<Icon name="mixer-horizontal" size="sm" />
 							{activeFilterCount > 0 && (
-								<span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+								<span className="bg-primary text-primary-foreground absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full text-[10px] font-bold">
 									{activeFilterCount}
 								</span>
 							)}
@@ -468,7 +476,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							value={sort}
 							onChange={(e) => handleSortChange(e.target.value)}
 							aria-label="Sort recipes"
-							className="h-8 min-w-0 rounded-full border border-border/50 bg-secondary/50 px-2.5 text-xs text-muted-foreground"
+							className="border-border/50 bg-secondary/50 text-muted-foreground h-8 min-w-0 rounded-full border px-2.5 text-xs"
 						>
 							{SORT_OPTIONS.map((option) => (
 								<option key={option.value} value={option.value}>
@@ -480,7 +488,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							value={maxTime?.toString() ?? ''}
 							onChange={(e) => handleMaxTimeChange(e.target.value)}
 							aria-label="Filter by cook time"
-							className="h-8 min-w-0 rounded-full border border-border/50 bg-secondary/50 px-2.5 text-xs text-muted-foreground"
+							className="border-border/50 bg-secondary/50 text-muted-foreground h-8 min-w-0 rounded-full border px-2.5 text-xs"
 						>
 							<option value="">Any time</option>
 							<option value="30">Under 30 min</option>
@@ -501,10 +509,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 									: 'border-border/50 bg-secondary/50 text-muted-foreground hover:bg-secondary',
 							)}
 						>
-							<Icon
-								name={favoritesOnly ? 'heart-filled' : 'heart'}
-								size="xs"
-							/>
+							<Icon name={favoritesOnly ? 'heart-filled' : 'heart'} size="xs" />
 							Favorites
 						</button>
 						{matchData && (
@@ -530,14 +535,14 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						)}
 						{/* Active filter summary */}
 						{hasFilters && (
-							<div className="text-xs text-muted-foreground">
+							<div className="text-muted-foreground text-xs">
 								{displayRecipes.length} of {totalRecipeCount}{' '}
 								{totalRecipeCount === 1 ? 'recipe' : 'recipes'}
 								<span className="mx-2">·</span>
 								<button
 									type="button"
 									onClick={handleClearFilters}
-									className="font-medium text-muted-foreground hover:text-foreground"
+									className="text-muted-foreground hover:text-foreground font-medium"
 								>
 									Clear filters
 								</button>
@@ -581,10 +586,10 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					/>
 				) : hasFilters ? (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="flex size-20 items-center justify-center rounded-full border-2 border-dashed border-border">
+						<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
 							<Icon
 								name="magnifying-glass"
-								className="size-8 text-muted-foreground/40"
+								className="text-muted-foreground/40 size-8"
 							/>
 						</div>
 						<h2 className="mt-4 text-xl font-semibold">
@@ -604,8 +609,8 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				) : (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="flex size-20 items-center justify-center rounded-full border-2 border-dashed border-border">
-							<Icon name="cookie" className="size-8 text-muted-foreground/40" />
+						<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
+							<Icon name="cookie" className="text-muted-foreground/40 size-8" />
 						</div>
 						<h2 className="mt-4 text-xl font-semibold">
 							Your cookbook is empty
@@ -624,7 +629,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							<Button asChild variant="outline">
 								<Link to="/recipes/import">
 									<Icon name="link-2" size="sm" />
-									Import from URL
+									Import
 								</Link>
 							</Button>
 							{isProActive && loaderData.hasInventory && (
@@ -655,15 +660,13 @@ function MatchEmptyState({
 	if (inventoryItemCount === 0) {
 		return (
 			<div className="flex flex-col items-center justify-center py-16 text-center">
-				<div className="flex size-20 items-center justify-center rounded-full border-2 border-dashed border-border">
-					<Icon name="file-text" className="size-8 text-muted-foreground/40" />
+				<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
+					<Icon name="file-text" className="text-muted-foreground/40 size-8" />
 				</div>
-				<h2 className="mt-4 text-xl font-semibold">
-					What's in your kitchen?
-				</h2>
+				<h2 className="mt-4 text-xl font-semibold">What's in your kitchen?</h2>
 				<p className="text-muted-foreground mt-2 max-w-sm">
-					Add what's in your pantry, fridge, and freezer. We'll highlight
-					which recipes you can cook with what you already have.
+					Add what's in your pantry, fridge, and freezer. We'll highlight which
+					recipes you can cook with what you already have.
 				</p>
 				<Button asChild className="mt-6">
 					<Link to="/inventory">
@@ -677,10 +680,10 @@ function MatchEmptyState({
 
 	return (
 		<div className="flex flex-col items-center justify-center py-16 text-center">
-			<div className="flex size-20 items-center justify-center rounded-full border-2 border-dashed border-border">
+			<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
 				<Icon
 					name="magnifying-glass"
-					className="size-8 text-muted-foreground/40"
+					className="text-muted-foreground/40 size-8"
 				/>
 			</div>
 			<h2 className="mt-4 text-xl font-semibold">

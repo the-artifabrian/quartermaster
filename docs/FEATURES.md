@@ -63,8 +63,9 @@ execution quality, not differentiation.
 - Import from URL (JSON-LD scraping with text fallback, follows redirects),
   quick text entry, JSON export. AI recipe extraction (Pro): paste informal
   text (social media captions, blog posts) or upload a screenshot and extract
-  a structured recipe via Claude Haiku vision. Same import preview/save flow.
-  10/day rate limit
+  a structured recipe via LLM vision (Claude Sonnet for images with sharp
+  downscaling to 1024px JPEG for cost control, Haiku for text). Same import
+  preview/save flow. 10/day rate limit
 - Bulk import: paste plain-text recipes or upload `.md`/`.txt` files. `---`
   separator for multiple recipes per batch (max 50). Handles checkbox format and
   sub-section headers (become ingredient heading rows). Post-import nudge CTA

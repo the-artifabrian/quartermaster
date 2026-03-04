@@ -1,6 +1,8 @@
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-haiku-4-5-20251001'
-const TIMEOUT_MS = 15_000
+const MODEL_FAST = 'claude-haiku-4-5-20251001'
+const MODEL_VISION = 'claude-sonnet-4-6'
+const TIMEOUT_TEXT_MS = 15_000
+const TIMEOUT_IMAGE_MS = 30_000
 const MAX_TOKENS = 2048
 const MAX_TEXT_LENGTH = 16_000
 const MAX_INGREDIENTS = 50
@@ -57,7 +59,7 @@ export function buildExtractPrompt(
 
 Rules:
 - Infer the recipe title if not explicitly stated
-- Translate non-English ingredients to English (keep original in notes)
+- Translate non-English ingredients to English (keep original text in notes). Be precise with food terminology — e.g. Romanian "roșie" = tomato (not rosemary), "căței de usturoi" = garlic cloves (not sausage), "smântână" = sour cream. If unsure of a translation, keep the original name and note it
 - Keep the original units from the source text. Do not convert between metric and imperial
 - Use null for unit when the quantity is a count (e.g., "2 lemons" → amount: "2", unit: null, name: "lemons"). Never use "unit" as a unit value
 - Convert informal measurements to concrete quantities ("a handful" → "1/2 cup", "a pinch" → "1/4 tsp", "a couple twists" → "1/4 tsp")
@@ -212,7 +214,7 @@ export async function extractRecipeFromText(
 				'anthropic-version': '2023-06-01',
 			},
 			body: JSON.stringify({
-				model: MODEL,
+				model: MODEL_FAST,
 				max_tokens: MAX_TOKENS,
 				system: SYSTEM_PROMPT,
 				messages: [
@@ -222,7 +224,7 @@ export async function extractRecipeFromText(
 					},
 				],
 			}),
-			signal: AbortSignal.timeout(TIMEOUT_MS),
+			signal: AbortSignal.timeout(TIMEOUT_TEXT_MS),
 		})
 
 		if (!response.ok) {
@@ -274,8 +276,25 @@ export async function extractRecipeFromText(
 	}
 }
 
+const IMAGE_MAX_DIMENSION = 1024
+
+async function prepareImage(
+	imageBase64: string,
+): Promise<{ data: string; media_type: string }> {
+	const { default: sharp } = await import('sharp')
+	const buf = Buffer.from(imageBase64, 'base64')
+	const optimized = await sharp(buf)
+		.resize(IMAGE_MAX_DIMENSION, IMAGE_MAX_DIMENSION, {
+			fit: 'inside',
+			withoutEnlargement: true,
+		})
+		.jpeg({ quality: 80 })
+		.toBuffer()
+	return { data: optimized.toString('base64'), media_type: 'image/jpeg' }
+}
+
 /**
- * Extract a recipe from an image (screenshot, photo) using Claude Haiku vision.
+ * Extract a recipe from an image (screenshot, photo) using Claude Sonnet vision.
  */
 export async function extractRecipeFromImage(
 	imageBase64: string,
@@ -296,6 +315,17 @@ export async function extractRecipeFromImage(
 		return { error: 'AI features are not configured. Contact support.' }
 	}
 
+	let image: { data: string; media_type: string }
+	try {
+		image = await prepareImage(imageBase64)
+	} catch (error) {
+		console.error('Image preparation error:', error)
+		return {
+			error:
+				'Could not process the image. Please try a different image or format.',
+		}
+	}
+
 	try {
 		const response = await fetch(ANTHROPIC_API_URL, {
 			method: 'POST',
@@ -305,7 +335,7 @@ export async function extractRecipeFromImage(
 				'anthropic-version': '2023-06-01',
 			},
 			body: JSON.stringify({
-				model: MODEL,
+				model: MODEL_VISION,
 				max_tokens: MAX_TOKENS,
 				system: SYSTEM_PROMPT,
 				messages: [
@@ -316,8 +346,8 @@ export async function extractRecipeFromImage(
 								type: 'image',
 								source: {
 									type: 'base64',
-									media_type: mediaType,
-									data: imageBase64,
+									media_type: image.media_type,
+									data: image.data,
 								},
 							},
 							{
@@ -328,7 +358,7 @@ export async function extractRecipeFromImage(
 					},
 				],
 			}),
-			signal: AbortSignal.timeout(TIMEOUT_MS),
+			signal: AbortSignal.timeout(TIMEOUT_IMAGE_MS),
 		})
 
 		if (!response.ok) {

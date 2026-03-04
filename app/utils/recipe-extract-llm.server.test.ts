@@ -1,4 +1,15 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
+
+vi.mock('sharp', () => ({
+	default: () => ({
+		resize: () => ({
+			jpeg: () => ({
+				toBuffer: () => Promise.resolve(Buffer.from('optimized')),
+			}),
+		}),
+	}),
+}))
+
 import {
 	buildExtractPrompt,
 	parseExtractResponse,
@@ -354,7 +365,7 @@ describe('extractRecipeFromImage', () => {
 		const imageBlock = body.messages[0]!.content[0]!
 		expect(imageBlock.type).toBe('image')
 		expect(imageBlock.source!.media_type).toBe('image/jpeg')
-		expect(imageBlock.source!.data).toBe('base64data')
+		expect(imageBlock.source!.data).toBe(Buffer.from('optimized').toString('base64'))
 	})
 
 	test('rejects unsupported media type without calling API', async () => {

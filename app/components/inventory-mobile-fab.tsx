@@ -23,10 +23,12 @@ export function InventoryMobileFab({
 	open,
 	onOpenChange,
 	isProActive,
+	onVoiceItemsAdded,
 }: {
 	open: boolean
 	onOpenChange: (open: boolean) => void
 	isProActive: boolean
+	onVoiceItemsAdded?: (names: string[]) => void
 }) {
 	const [name, setName] = useState('')
 	const [lastWarningName, setLastWarningName] = useState('')
@@ -97,6 +99,7 @@ export function InventoryMobileFab({
 					JSON.stringify(items.map((i) => ({ name: i.name }))),
 				)
 				void bulkFetcher.submit(fd, { method: 'POST' })
+				onVoiceItemsAdded?.(items.map((i) => i.name))
 				const heard =
 					transcription &&
 					(transcription.length > 60
@@ -110,7 +113,7 @@ export function InventoryMobileFab({
 				onOpenChange(false)
 			}
 		},
-		[bulkFetcher, onOpenChange],
+		[bulkFetcher, onOpenChange, onVoiceItemsAdded],
 	)
 	const handleSpeechError = useCallback((msg: string) => toast.error(msg), [])
 	const { isRecording, isTranscribing, startRecording, stopRecording } =

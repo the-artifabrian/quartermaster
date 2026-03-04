@@ -137,11 +137,11 @@ export function SwipeableRow({
 	return (
 		<div ref={containerRef} className="relative overflow-hidden">
 			{/* Action layer — full width so red bg extends on long swipes */}
-			<div className="absolute inset-0 flex items-stretch justify-end bg-destructive">
+			<div className="bg-destructive absolute inset-0 flex items-stretch justify-end">
 				<button
 					type="button"
 					onClick={onAction}
-					className="flex w-[80px] items-center justify-center bg-destructive text-destructive-foreground text-sm font-medium"
+					className="bg-destructive text-destructive-foreground flex w-20 items-center justify-center text-sm font-medium"
 				>
 					{actionLabel}
 				</button>
@@ -151,7 +151,7 @@ export function SwipeableRow({
 			   handle vertical scroll while JS handles horizontal swipe */}
 			<div
 				ref={foregroundRef}
-				className="relative touch-pan-y bg-background"
+				className="bg-background relative touch-pan-y"
 				onTouchStart={handleTouchStart}
 				onTouchMove={handleTouchMove}
 				onTouchEnd={handleTouchEnd}

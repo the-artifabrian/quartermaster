@@ -168,10 +168,7 @@ export async function action({ request }: Route.ActionArgs) {
 		let skippedCount = 0
 
 		for (const item of items) {
-			const match = findMatchingInventoryItem(
-				item.name,
-				trackingItems,
-			)
+			const match = findMatchingInventoryItem(item.name, trackingItems)
 			if (match) {
 				skippedCount++
 			} else {
@@ -184,7 +181,7 @@ export async function action({ request }: Route.ActionArgs) {
 					householdId,
 					createdAt: new Date(),
 					updatedAt: new Date(),
-				} as typeof existingItems[number])
+				} as (typeof existingItems)[number])
 			}
 		}
 
@@ -305,12 +302,7 @@ export async function action({ request }: Route.ActionArgs) {
 const SEARCH_THRESHOLD = 15
 
 export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
-	const {
-		items,
-		inventoryUsage,
-		isProActive,
-		mealPlanEntryCount,
-	} = loaderData
+	const { items, inventoryUsage, isProActive, mealPlanEntryCount } = loaderData
 
 	const user = useUser()
 	const [search, setSearch] = useState('')
@@ -327,6 +319,18 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		() => setShowStaplesSuccess(false),
 		[],
 	)
+
+	const [voiceAddedNames, setVoiceAddedNames] = useState<Set<string>>(new Set())
+	const handleVoiceItemsAdded = useCallback((names: string[]) => {
+		setVoiceAddedNames(
+			(prev) => new Set([...prev, ...names.map((n) => n.toLowerCase().trim())]),
+		)
+	}, [])
+	useEffect(() => {
+		if (voiceAddedNames.size === 0) return
+		const timer = setTimeout(() => setVoiceAddedNames(new Set()), 60_000)
+		return () => clearTimeout(timer)
+	}, [voiceAddedNames])
 
 	const staleItems = items.filter((item) => {
 		const ageMs = Date.now() - new Date(item.createdAt).getTime()
@@ -387,20 +391,20 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	const showSearch = items.length >= SEARCH_THRESHOLD
 
 	return (
-		<div className="pb-28 md:pb-6">
+		<div className="overflow-x-clip pb-28 md:pb-6">
 			{/* Page Header */}
 			<div className="container-content flex items-center justify-between gap-3 py-3 md:py-4">
 				<div>
 					<h1 className="font-serif text-2xl font-normal">Inventory</h1>
 					{/* Item count for Pro users (free users see X/Y below) */}
 					{items.length > 0 && inventoryUsage.limit === null && (
-						<p className="mt-0.5 text-sm text-muted-foreground">
+						<p className="text-muted-foreground mt-0.5 text-sm">
 							{items.length} {items.length === 1 ? 'item' : 'items'}
 						</p>
 					)}
 					{/* Status line */}
 					{inventoryUsage.limit !== null && (
-						<p className="mt-0.5 text-sm text-muted-foreground">
+						<p className="text-muted-foreground mt-0.5 text-sm">
 							<span
 								className={cn(
 									inventoryUsage.isAtLimit
@@ -418,10 +422,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						<Link to="/upgrade">Upgrade</Link>
 					</Button>
 				) : (
-					<Button
-						asChild
-						className="hidden sm:inline-flex"
-					>
+					<Button asChild className="hidden sm:inline-flex">
 						<Link to="/inventory/new">
 							<Icon name="plus" size="sm" />
 							Add Item
@@ -433,14 +434,14 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 			<div className="container-content py-2">
 				{/* Free plan limit banner */}
 				{inventoryUsage.isAtLimit && (
-					<div className="mb-6 flex flex-col gap-3 rounded-lg bg-accent/8 p-4 sm:flex-row sm:items-center sm:justify-between">
+					<div className="bg-accent/8 mb-6 flex flex-col gap-3 rounded-lg p-4 sm:flex-row sm:items-center sm:justify-between">
 						<div>
-							<p className="text-[0.75rem] font-medium tracking-[0.08em] uppercase text-accent">
+							<p className="text-accent text-[0.75rem] font-medium tracking-[0.08em] uppercase">
 								Free plan limit reached
 							</p>
-							<p className="mt-1 text-sm text-muted-foreground">
-								Upgrade to Pro for unlimited inventory, smart suggestions,
-								and advanced shopping features.
+							<p className="text-muted-foreground mt-1 text-sm">
+								Upgrade to Pro for unlimited inventory, smart suggestions, and
+								advanced shopping features.
 							</p>
 						</div>
 						<Button asChild size="sm" className="shrink-0">
@@ -468,8 +469,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 							{staleItems.length} items over a month old
 						</p>
 						<p className="mt-0.5 text-xs text-amber-700/70 dark:text-amber-300/60">
-							Still in your kitchen? A quick review keeps your
-							inventory useful.
+							Still in your kitchen? A quick review keeps your inventory useful.
 						</p>
 						<div className="mt-3 flex items-center gap-2">
 							<Button
@@ -498,14 +498,14 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 							<Icon
 								name="magnifying-glass"
 								size="sm"
-								className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+								className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
 							/>
 							<input
 								type="search"
 								placeholder="Search inventory..."
 								value={search}
 								onChange={(e) => setSearch(e.target.value)}
-								className="h-9 w-full rounded-full border border-border/50 bg-secondary/50 pl-9 pr-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/20"
+								className="border-border/50 bg-secondary/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-9 w-full rounded-full border pr-4 pl-9 text-sm transition-colors outline-none focus:ring-1"
 							/>
 						</div>
 					)}
@@ -513,8 +513,11 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 
 				{/* Quick Add (desktop only — mobile uses FAB) */}
 				{!inventoryUsage.isAtLimit && (
-					<div className="hidden md:block mb-2">
-						<InventoryQuickAdd isProActive={isProActive} />
+					<div className="mb-2 hidden md:block">
+						<InventoryQuickAdd
+							isProActive={isProActive}
+							onVoiceItemsAdded={handleVoiceItemsAdded}
+						/>
 					</div>
 				)}
 
@@ -548,7 +551,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 						<h2 className="mt-4 font-serif text-xl font-normal">
 							All caught up!
 						</h2>
-						<p className="mt-2 max-w-sm text-muted-foreground">
+						<p className="text-muted-foreground mt-2 max-w-sm">
 							No more stale items to review.
 						</p>
 						<Button
@@ -561,33 +564,45 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				) : filteredItems.length > 0 ? (
 					<div>
-						{groupByFirstLetter(filteredItems).map(({ letter, items: groupItems }) => (
-							<div key={letter}>
-								<div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm px-1 py-0.5">
-									<span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-										{letter}
-									</span>
+						{groupByFirstLetter(filteredItems).map(
+							({ letter, items: groupItems }) => (
+								<div key={letter}>
+									<div className="bg-background/95 sticky top-0 z-10 px-1 py-0.5 backdrop-blur-sm">
+										<span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+											{letter}
+										</span>
+									</div>
+									<div className="divide-border/40 divide-y">
+										{groupItems.map((item) => {
+											const isVoiceAdded = voiceAddedNames.has(
+												item.name.toLowerCase().trim(),
+											)
+											return (
+												<div key={item.id}>
+													<InventoryItemCard
+														item={item}
+														isVoiceAdded={isVoiceAdded}
+													/>
+												</div>
+											)
+										})}
+									</div>
 								</div>
-								<div className="divide-y divide-border/40">
-									{groupItems.map((item) => (
-										<InventoryItemCard key={item.id} item={item} />
-									))}
-								</div>
-							</div>
-						))}
+							),
+						)}
 					</div>
 				) : search ? (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="mx-auto flex size-16 items-center justify-center rounded-full border-2 border-dashed border-border">
+						<div className="border-border mx-auto flex size-16 items-center justify-center rounded-full border-2 border-dashed">
 							<Icon
 								name="magnifying-glass"
-								className="size-6 text-muted-foreground"
+								className="text-muted-foreground size-6"
 							/>
 						</div>
 						<h2 className="mt-4 font-serif text-xl font-normal">
 							No items matching &ldquo;{search}&rdquo;
 						</h2>
-						<p className="mt-2 max-w-sm text-muted-foreground">
+						<p className="text-muted-foreground mt-2 max-w-sm">
 							Try a different search term.
 						</p>
 						<Button
@@ -600,17 +615,15 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				) : (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="mx-auto flex size-16 items-center justify-center rounded-full border-2 border-dashed border-border">
-							<Icon
-								name="file-text"
-								className="size-6 text-muted-foreground"
-							/>
+						<div className="border-border mx-auto flex size-16 items-center justify-center rounded-full border-2 border-dashed">
+							<Icon name="file-text" className="text-muted-foreground size-6" />
 						</div>
 						<h2 className="mt-4 font-serif text-xl font-normal">
 							Nothing here yet
 						</h2>
-						<p className="mt-2 max-w-sm text-muted-foreground">
-							Add what you have on hand. No need to count, just the items. We'll match them to your recipes and keep your shopping list smart.
+						<p className="text-muted-foreground mt-2 max-w-sm">
+							Add what you have on hand. No need to count, just the items. We'll
+							match them to your recipes and keep your shopping list smart.
 						</p>
 						<Button asChild className="mt-6">
 							<Link to="/inventory/new">
@@ -627,6 +640,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					open={fabOpen}
 					onOpenChange={setFabOpen}
 					isProActive={isProActive}
+					onVoiceItemsAdded={handleVoiceItemsAdded}
 				/>
 			)}
 		</div>

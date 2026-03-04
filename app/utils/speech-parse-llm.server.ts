@@ -77,7 +77,7 @@ Return a JSON array of objects with these fields:
 Rules:
 - If the transcript is gibberish, nonsensical, or contains no recognizable food/grocery items, return []
 - Only include actual grocery/food items — ignore filler words, background noise artifacts, or non-food text
-- Fix misspellings and missing diacritics from speech recognition (e.g. "saleninuta" → "slăninuță", "pasta de fasole" → "păstăi de fasole")
+- IMPORTANT: Speech-to-text often garbles grocery item names. Always correct to the real grocery item name, even if the transcription looks like a real word (e.g. "cardone" → "cardamom", "paprica" → "paprika", "tumeric" → "turmeric", "saleninuta" → "slăninuță", "pasta de fasole" → "păstăi de fasole"). Use your knowledge of common grocery items to fix these.
 - Keep item names in the original language of the transcript
 - Normalize units to the canonical list above (e.g. "pounds" → "lb", "ounces" → "oz")
 - If quantity is not mentioned, use ""

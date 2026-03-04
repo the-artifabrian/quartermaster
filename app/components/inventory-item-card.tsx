@@ -15,6 +15,7 @@ import {
 import { Icon } from './ui/icon.tsx'
 
 type InventoryItemCardProps = {
+	isVoiceAdded?: boolean
 	item: InventoryItem
 	showActions?: boolean
 }
@@ -22,6 +23,7 @@ type InventoryItemCardProps = {
 export function InventoryItemCard({
 	item,
 	showActions = true,
+	isVoiceAdded,
 }: InventoryItemCardProps) {
 	const [confirmDelete, setConfirmDelete] = useState(false)
 	const [editing, setEditing] = useState(false)
@@ -82,7 +84,7 @@ export function InventoryItemCard({
 	}
 
 	const row = (
-		<div className="group hover:bg-muted/30 flex items-center gap-3 py-3 transition-colors">
+		<div className={"group hover:bg-muted/30 flex items-center gap-3 py-3 transition-colors"}>
 			{/* Main content */}
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">
@@ -121,6 +123,7 @@ export function InventoryItemCard({
 									'line-clamp-1 text-left text-[15px]',
 									showActions &&
 										'cursor-text rounded px-1.5 py-0.5 -ml-1.5 hover:bg-muted/50',
+									isVoiceAdded && 'text-amber-500/80',
 								)}
 							>
 								{optimisticName}
@@ -128,6 +131,12 @@ export function InventoryItemCard({
 							<span className="shrink-0 text-xs text-muted-foreground/50">
 								{formatItemAge(new Date(item.createdAt))}
 							</span>
+							{isVoiceAdded && (
+								<Icon
+									name="microphone"
+									className="ml-1.5 inline size-4 shrink-0 text-amber-500/80"
+								/>
+							)}
 						</>
 					)}
 				</div>

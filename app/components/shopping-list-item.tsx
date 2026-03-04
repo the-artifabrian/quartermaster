@@ -134,10 +134,7 @@ export function ShoppingListItemCard({ item, isVoiceAdded }: ShoppingListItemCar
 	}
 
 	return (
-		<div className={cn(
-			"group flex items-center gap-3 py-2.5 print:py-1",
-			isVoiceAdded && !optimisticChecked && "rounded-lg bg-primary/[0.06] px-2 -mx-2",
-		)}>
+		<div className="group flex items-center gap-3 py-2.5 print:py-1">
 			{/* Whole row toggles checkbox */}
 			<toggleFetcher.Form method="POST" className="flex min-w-0 flex-1 items-center gap-3 print:contents">
 				<input type="hidden" name="intent" value="toggle" />
@@ -168,17 +165,18 @@ export function ShoppingListItemCard({ item, isVoiceAdded }: ShoppingListItemCar
 
 					<div className="min-w-0 flex-1">
 						<p
-							className={`text-base ${
+							className={cn(
+								'text-base',
 								optimisticChecked
 									? 'text-muted-foreground/50 line-through decoration-muted-foreground/60 decoration-2'
-									: ''
-							}`}
+									: isVoiceAdded && 'text-amber-500/80',
+							)}
 						>
 							{item.name}
 							{isVoiceAdded && !optimisticChecked && (
 								<Icon
 									name="microphone"
-									className="ml-1.5 inline size-3 align-middle text-primary/40"
+									className="ml-1.5 inline size-4 align-middle text-amber-500/80"
 								/>
 							)}
 						</p>

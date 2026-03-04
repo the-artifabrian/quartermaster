@@ -11,6 +11,7 @@ import { Icon } from './ui/icon.tsx'
 
 type InventoryQuickAddProps = {
 	isProActive: boolean
+	onVoiceItemsAdded?: (names: string[]) => void
 }
 
 type ActionData = {
@@ -25,6 +26,7 @@ type ActionData = {
 
 export function InventoryQuickAdd({
 	isProActive,
+	onVoiceItemsAdded,
 }: InventoryQuickAddProps) {
 	const [name, setName] = useState('')
 	const fetcher = useFetcher<ActionData>()
@@ -91,6 +93,7 @@ export function InventoryQuickAdd({
 					JSON.stringify(items.map((i) => ({ name: i.name }))),
 				)
 				void bulkFetcher.submit(fd, { method: 'POST' })
+				onVoiceItemsAdded?.(items.map((i) => i.name))
 				const heard =
 					transcription &&
 					(transcription.length > 60
@@ -103,7 +106,7 @@ export function InventoryQuickAdd({
 				)
 			}
 		},
-		[bulkFetcher],
+		[bulkFetcher, onVoiceItemsAdded],
 	)
 	const handleSpeechError = useCallback((msg: string) => toast.error(msg), [])
 	const { isRecording, isTranscribing, startRecording, stopRecording } =

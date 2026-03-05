@@ -80,14 +80,11 @@ export default function Index() {
 						this week?
 					</h1>
 					<p className="text-muted-foreground mx-auto mt-6 max-w-lg text-lg/7">
-						Plan your meals, know what to buy, cook from what you have.
-						No more figuring out "what's for dinner?" from scratch every night.
+						Plan your meals, know what to buy, cook from what you have. No more
+						figuring out "what's for dinner?" from scratch every night.
 					</p>
 
-					{/* Decorative divider */}
-					<div className="mx-auto mt-8 max-w-[200px]">
-						<Divider variant="accent" />
-					</div>
+					<HeroPreviewCards />
 
 					<div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
 						<Button asChild size="lg" className="rounded-full px-8">
@@ -121,15 +118,15 @@ export default function Index() {
 								Your recipes, all in one place
 							</h2>
 							<p className="text-muted-foreground mt-3 text-base/7">
-								Paste a URL, import dozens from Apple Notes, or type one in
-								by hand. Every recipe is searchable, scalable, and ready to
-								cook. No more digging through bookmarks and screenshots.
+								Paste a URL, import dozens from Apple Notes, or type one in by
+								hand. Every recipe is searchable, scalable, and ready to cook.
+								No more digging through bookmarks and screenshots.
 							</p>
 						</div>
 					</ScrollReveal>
 
 					{/* 2. Discovery / matching — right on desktop, warm band */}
-					<div className="-mx-4 bg-secondary/30 px-4 py-10 sm:-mx-8 sm:px-8 md:py-14">
+					<div className="bg-secondary/30 -mx-4 px-4 py-10 sm:-mx-8 sm:px-8 md:py-14">
 						<ScrollReveal className="container-landing flex flex-col items-center gap-10 md:flex-row-reverse">
 							<div className="w-full max-w-[340px] shrink-0 rotate-[1.5deg]">
 								<DiscoveryArtifact />
@@ -139,9 +136,9 @@ export default function Index() {
 									What can I make tonight?
 								</h2>
 								<p className="text-muted-foreground mt-3 text-base/7">
-									Tell Quartermaster what's in your kitchen and it shows
-									which recipes you can cook right now, ranked by how many
-									ingredients you already have. No more staring at the fridge.
+									Tell Quartermaster what's in your kitchen and it shows which
+									recipes you can cook right now, ranked by how many ingredients
+									you already have. No more staring at the fridge.
 								</p>
 							</div>
 						</ScrollReveal>
@@ -157,15 +154,15 @@ export default function Index() {
 								A week penciled in
 							</h2>
 							<p className="text-muted-foreground mt-3 text-base/7">
-								Add recipes to a weekly calendar. Adjust servings, swap
-								meals around, or ask for suggestions that use overlapping
-								ingredients so nothing goes to waste.
+								Add recipes to a weekly calendar. Adjust servings, swap meals
+								around, or ask for suggestions that use overlapping ingredients
+								so nothing goes to waste.
 							</p>
 						</div>
 					</ScrollReveal>
 
 					{/* 4. Shopping list — right on desktop, warm band */}
-					<div className="-mx-4 bg-secondary/30 px-4 py-10 sm:-mx-8 sm:px-8 md:py-14">
+					<div className="bg-secondary/30 -mx-4 px-4 py-10 sm:-mx-8 sm:px-8 md:py-14">
 						<ScrollReveal className="container-landing flex flex-col items-center gap-10 md:flex-row-reverse">
 							<div className="w-full max-w-[280px] shrink-0 rotate-[1deg]">
 								<ShoppingListArtifact />
@@ -175,10 +172,9 @@ export default function Index() {
 									The list writes itself
 								</h2>
 								<p className="text-muted-foreground mt-3 text-base/7">
-									One tap generates a shopping list from your meal plan.
-									Stuff you already have is checked off. Cross things off
-									at the store and they go back into your pantry
-									automatically.
+									One tap generates a shopping list from your meal plan. Stuff
+									you already have is checked off. Cross things off at the store
+									and they go back into your pantry automatically.
 								</p>
 							</div>
 						</ScrollReveal>
@@ -192,24 +188,23 @@ export default function Index() {
 					<div className="text-center">
 						<h3 className="font-serif text-lg">Built for the kitchen</h3>
 						<p className="text-muted-foreground mt-2 text-sm/6">
-							Tap ingredients to cross them off. Start timers from recipe
-							steps. Scale servings on the fly. Designed for when your
-							hands are busy.
+							Tap ingredients to cross them off. Start timers from recipe steps.
+							Scale servings on the fly. Designed for when your hands are busy.
 						</p>
 					</div>
 					<div className="text-center">
 						<h3 className="font-serif text-lg">Cook together</h3>
 						<p className="text-muted-foreground mt-2 text-sm/6">
-							Share your recipe library, meal plan, and shopping list with
-							your household. Changes sync in real time so you're always on
-							the same page.
+							Share your recipe library, meal plan, and shopping list with your
+							household. Changes sync in real time so you're always on the same
+							page.
 						</p>
 					</div>
 					<div className="text-center">
 						<h3 className="font-serif text-lg">Your data is yours</h3>
 						<p className="text-muted-foreground mt-2 text-sm/6">
-							Export everything as JSON anytime. No lock-in, no data
-							hostage. Import it right back if you ever need to.
+							Export everything as JSON anytime. No lock-in, no data hostage.
+							Import it right back if you ever need to.
 						</p>
 					</div>
 				</div>
@@ -224,8 +219,8 @@ export default function Index() {
 					Stop wondering what's for dinner.
 				</h2>
 				<p className="text-muted-foreground mx-auto mt-4 max-w-sm text-base/7">
-					Try everything free for 14 days. Keep your recipes forever on the
-					free plan.
+					Try everything free for 14 days. Keep your recipes forever on the free
+					plan.
 				</p>
 				<div className="mt-8">
 					<Button asChild size="lg" className="rounded-full px-8">
@@ -287,13 +282,118 @@ function ScrollReveal({
 }
 
 // ---------------------------------------------------------------------------
+// Hero preview cards (decorative fan)
+// ---------------------------------------------------------------------------
+
+function HeroPreviewCards() {
+	const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+	const meals = ['', 'Pasta', '', 'Tacos', '', 'Salmon', '']
+	const listItems = [
+		{ name: 'Salmon fillets', checked: true },
+		{ name: 'Mirin', checked: false },
+		{ name: 'Limes (3)', checked: false },
+		{ name: 'White miso', checked: false },
+	]
+
+	return (
+		<div className="relative mx-auto mt-8 flex h-[150px] w-[340px] items-end justify-center sm:h-[175px] sm:w-[430px]">
+			{/* Left card — Week view */}
+			<div className="bg-card shadow-warm-md absolute bottom-0 left-0 w-[155px] origin-bottom rotate-[-4deg] rounded-lg border p-3 sm:w-[180px] sm:p-3.5">
+				<p className="font-handwritten text-accent mb-1.5 text-[11px] font-bold sm:text-xs">
+					This week
+				</p>
+				<div className="flex gap-[3px]">
+					{days.map((d, i) => (
+						<div key={i} className="flex-1 text-center">
+							<p className="text-muted-foreground text-[7px] sm:text-[8px]">
+								{d}
+							</p>
+							<div className="bg-secondary/60 mt-0.5 rounded-sm px-0.5 py-1">
+								{meals[i] ? (
+									<p className="font-handwritten text-foreground/70 text-[7px] leading-tight sm:text-[8px]">
+										{meals[i]}
+									</p>
+								) : (
+									<p className="text-border text-[8px] leading-tight">+</p>
+								)}
+							</div>
+						</div>
+					))}
+				</div>
+			</div>
+
+			{/* Center card — Recipe (on top) */}
+			<div className="bg-card shadow-warm-md relative z-10 w-[155px] rounded-lg border p-3.5 sm:w-[180px] sm:p-4">
+				<p className="font-handwritten text-accent mb-1.5 text-[11px] font-bold sm:text-xs">
+					Tonight's dinner
+				</p>
+				<p className="font-serif text-sm leading-snug sm:text-[15px]">
+					Miso-Glazed Salmon
+				</p>
+				<p className="text-muted-foreground mt-0.5 text-[10px] sm:text-[11px]">
+					25 min · 2 servings
+				</p>
+			</div>
+
+			{/* Right card — Shopping list */}
+			<div
+				className="bg-card shadow-warm-md absolute right-0 bottom-0 w-[120px] origin-bottom rotate-[4deg] rounded-t-lg border p-2.5 sm:w-[140px] sm:p-3"
+				style={{
+					clipPath:
+						'polygon(0 0, 100% 0, 100% calc(100% - 6px), 85% 100%, 70% calc(100% - 3px), 55% calc(100% - 6px), 40% 100%, 25% calc(100% - 4px), 10% calc(100% - 6px), 0 calc(100% - 2px))',
+				}}
+			>
+				<p className="font-handwritten text-accent mb-1.5 text-[11px] font-bold sm:text-xs">
+					Shopping list
+				</p>
+				<div className="space-y-1">
+					{listItems.map((item) => (
+						<div key={item.name} className="flex items-center gap-1.5">
+							<div
+								className={`flex size-2.5 shrink-0 items-center justify-center rounded-[2px] border ${
+									item.checked
+										? 'border-primary bg-primary'
+										: 'border-muted-foreground/40'
+								}`}
+							>
+								{item.checked ? (
+									<svg viewBox="0 0 8 8" className="size-1.5">
+										<path
+											d="M1,4 L3,6 L7,2"
+											stroke="currentColor"
+											strokeWidth="1.5"
+											fill="none"
+											className="text-primary-foreground"
+										/>
+									</svg>
+								) : null}
+							</div>
+							<span
+								className={`text-[10px] sm:text-[11px] ${
+									item.checked
+										? 'text-muted-foreground/50 line-through'
+										: 'text-foreground'
+								}`}
+							>
+								{item.name}
+							</span>
+						</div>
+					))}
+				</div>
+				<div className="h-2" />
+			</div>
+		</div>
+	)
+}
+
+// ---------------------------------------------------------------------------
 // Artifacts
 // ---------------------------------------------------------------------------
 
 function RecipeCardArtifact() {
 	return (
-		<div className="bg-card rounded-lg border p-5 shadow-warm-md">
-			<p className="font-handwritten mb-3 text-[20px] font-bold text-accent">
+		<div className="bg-card shadow-warm-md rounded-lg border p-5">
+			<p className="font-handwritten text-accent mb-3 text-[20px] font-bold">
 				Tonight's dinner
 			</p>
 			<h3 className="font-serif text-2xl">Miso-Glazed Salmon</h3>
@@ -301,16 +401,14 @@ function RecipeCardArtifact() {
 				25 min &middot; 2 servings
 			</p>
 			<div className="mt-3 space-y-1.5">
-				{['Salmon fillets', 'White miso', 'Mirin', 'Sesame oil'].map(
-					(ing) => (
-						<div
-							key={ing}
-							className="text-muted-foreground border-border/60 border-b pb-1.5 text-sm last:border-0"
-						>
-							{ing}
-						</div>
-					),
-				)}
+				{['Salmon fillets', 'White miso', 'Mirin', 'Sesame oil'].map((ing) => (
+					<div
+						key={ing}
+						className="text-muted-foreground border-border/60 border-b pb-1.5 text-sm last:border-0"
+					>
+						{ing}
+					</div>
+				))}
 			</div>
 		</div>
 	)
@@ -324,8 +422,8 @@ function DiscoveryArtifact() {
 	]
 
 	return (
-		<div className="bg-card rounded-lg border p-5 shadow-warm-md">
-			<p className="font-handwritten mb-3 text-[20px] font-bold text-accent">
+		<div className="bg-card shadow-warm-md rounded-lg border p-5">
+			<p className="font-handwritten text-accent mb-3 text-[20px] font-bold">
 				What can I make?
 			</p>
 			<div className="space-y-3">
@@ -403,8 +501,8 @@ function WeekViewArtifact() {
 	]
 
 	return (
-		<div className="bg-card rounded-lg border p-5 shadow-warm-md">
-			<p className="font-handwritten mb-3 text-[20px] font-bold text-accent">
+		<div className="bg-card shadow-warm-md rounded-lg border p-5">
+			<p className="font-handwritten text-accent mb-3 text-[20px] font-bold">
 				This week
 			</p>
 			<div className="grid grid-cols-7 gap-2">
@@ -441,13 +539,13 @@ function ShoppingListArtifact() {
 
 	return (
 		<div
-			className="bg-card rounded-t-lg p-5 shadow-warm-md"
+			className="bg-card shadow-warm-md rounded-t-lg p-5"
 			style={{
 				clipPath:
 					'polygon(0 0, 100% 0, 100% calc(100% - 12px), 92% 100%, 84% calc(100% - 4px), 76% calc(100% - 10px), 68% 100%, 60% calc(100% - 6px), 52% calc(100% - 12px), 44% calc(100% - 2px), 36% calc(100% - 8px), 28% 100%, 20% calc(100% - 5px), 12% calc(100% - 11px), 4% calc(100% - 3px), 0 calc(100% - 8px))',
 			}}
 		>
-			<p className="font-handwritten mb-3 text-[20px] font-bold text-accent">
+			<p className="font-handwritten text-accent mb-3 text-[20px] font-bold">
 				Shopping list
 			</p>
 			<div className="space-y-2.5">

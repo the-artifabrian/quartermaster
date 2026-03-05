@@ -10,7 +10,7 @@ export const handle: SEOHandle = {
 }
 
 const pageDescription =
-	'Got a question about Quartermaster? Answers to the most common ones — importing recipes, sharing with your household, meal planning, exporting your data.'
+	'Got a question about Quartermaster? Answers to the most common ones: importing recipes, sharing with your household, meal planning, exporting your data.'
 
 const faqs = [
 	{
@@ -31,7 +31,7 @@ const faqs = [
 	{
 		question: 'Can I export my data?',
 		answer:
-			'Yes. Go to Settings > Data to export all your data (recipes, inventory, meal plans, shopping lists, cooking logs) as JSON. You can also import this export back in — your data is never locked in.',
+			'Yes. Go to Settings > Data to export all your data (recipes, inventory, meal plans, shopping lists, cooking logs) as JSON. You can also import this export back in. Your data is never locked in.',
 	},
 	{
 		question: 'How does meal planning work?',
@@ -84,9 +84,6 @@ export default function SupportRoute() {
 				dangerouslySetInnerHTML={{ __html: faqJsonLd }}
 			/>
 			<h1 className="font-serif text-[2.25rem] leading-[1.15] tracking-[-0.02em]">Support</h1>
-			<p className="text-muted-foreground mt-3 text-base/7">
-				Need help with Quartermaster? Here are answers to common questions.
-			</p>
 
 			<div className="mt-8 space-y-4">
 				<div className="bg-muted/50 rounded-xl p-5">

@@ -80,8 +80,8 @@ export default function Index() {
 						this week?
 					</h1>
 					<p className="text-muted-foreground mx-auto mt-6 max-w-lg text-lg/7">
-						Your recipes, your pantry, your meal plan, your shopping list — one
-						place that closes the loop so dinner answers itself.
+						Plan your meals, know what to buy, cook from what you have.
+						No more figuring out "what's for dinner?" from scratch every night.
 					</p>
 
 					{/* Decorative divider */}
@@ -123,7 +123,7 @@ export default function Index() {
 							<p className="text-muted-foreground mt-3 text-base/7">
 								Paste a URL, import dozens from Apple Notes, or type one in
 								by hand. Every recipe is searchable, scalable, and ready to
-								cook — no more digging through bookmarks and screenshots.
+								cook. No more digging through bookmarks and screenshots.
 							</p>
 						</div>
 					</ScrollReveal>
@@ -140,7 +140,7 @@ export default function Index() {
 								</h2>
 								<p className="text-muted-foreground mt-3 text-base/7">
 									Tell Quartermaster what's in your kitchen and it shows
-									which recipes you can cook right now — ranked by how many
+									which recipes you can cook right now, ranked by how many
 									ingredients you already have. No more staring at the fridge.
 								</p>
 							</div>
@@ -176,9 +176,9 @@ export default function Index() {
 								</h2>
 								<p className="text-muted-foreground mt-3 text-base/7">
 									One tap generates a shopping list from your meal plan.
-									Items you already have are pre-checked. Check things off
-									at the store and they flow back into your pantry — closing
-									the loop for next week.
+									Stuff you already have is checked off. Cross things off
+									at the store and they go back into your pantry
+									automatically.
 								</p>
 							</div>
 						</ScrollReveal>
@@ -193,7 +193,7 @@ export default function Index() {
 						<h3 className="font-serif text-lg">Built for the kitchen</h3>
 						<p className="text-muted-foreground mt-2 text-sm/6">
 							Tap ingredients to cross them off. Start timers from recipe
-							steps. Scale servings on the fly — all designed for when your
+							steps. Scale servings on the fly. Designed for when your
 							hands are busy.
 						</p>
 					</div>
@@ -221,7 +221,7 @@ export default function Index() {
 					<Divider variant="accent" />
 				</div>
 				<h2 className="mt-8 font-serif text-[1.75rem] font-normal md:text-[2.25rem]">
-					Your recipes deserve a home.
+					Stop wondering what's for dinner.
 				</h2>
 				<p className="text-muted-foreground mx-auto mt-4 max-w-sm text-base/7">
 					Try everything free for 14 days. Keep your recipes forever on the
@@ -296,14 +296,8 @@ function RecipeCardArtifact() {
 			<p className="font-handwritten mb-3 text-[20px] font-bold text-accent">
 				Tonight's dinner
 			</p>
-			{/* Large serif initial on warm background */}
-			<div className="bg-secondary flex aspect-[4/3] items-center justify-center rounded">
-				<span className="text-accent/25 font-serif text-8xl select-none">
-					M
-				</span>
-			</div>
-			<h3 className="mt-4 font-serif text-lg">Miso-Glazed Salmon</h3>
-			<p className="text-muted-foreground mt-1 text-sm">
+			<h3 className="font-serif text-2xl">Miso-Glazed Salmon</h3>
+			<p className="text-muted-foreground mt-1.5 text-sm">
 				25 min &middot; 2 servings
 			</p>
 			<div className="mt-3 space-y-1.5">

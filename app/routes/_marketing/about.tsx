@@ -44,7 +44,7 @@ export default function AboutRoute() {
 					30-minute research project.
 				</p>
 				<p>
-					So we built the tool we wanted — one place for your recipes, your
+					So we built the tool we wanted. One place for your recipes, your
 					pantry, your meal plan, and your shopping list. The idea is
 					straightforward: if you know what you have and what you like to cook,
 					the rest should take care of itself. Quartermaster tells you what you
@@ -52,7 +52,7 @@ export default function AboutRoute() {
 					shopping list when you're ready.
 				</p>
 				<p>
-					It's built for people who actually cook at home — not food bloggers or
+					It's built for people who actually cook at home, not food bloggers or
 					professional chefs, just anyone who wants to spend less time figuring
 					out meals and more time eating them.
 				</p>
@@ -66,7 +66,7 @@ export default function AboutRoute() {
 						className="text-primary mt-0.5 size-5 shrink-0"
 					/>
 					<p className="text-muted-foreground text-sm">
-						<span className="text-foreground font-medium">Store recipes</span> —
+						<span className="text-foreground font-medium">Store recipes.</span>{' '}
 						Import from URLs, bulk-import from Apple Notes or text files, or
 						build from scratch with ingredients, instructions, and photos.
 					</p>
@@ -75,9 +75,9 @@ export default function AboutRoute() {
 					<Icon name="home" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">
-							Track your kitchen
+							Track your kitchen.
 						</span>{' '}
-						— Keep a running list of what's in your pantry, fridge, and
+						Keep a running list of what's in your pantry, fridge, and
 						freezer so Quartermaster knows what you have on hand.
 					</p>
 				</div>
@@ -88,25 +88,25 @@ export default function AboutRoute() {
 					/>
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">
-							Discover what to cook
+							Discover what to cook.
 						</span>{' '}
-						— See which recipes you can make with what you already have,
+						See which recipes you can make with what you already have,
 						ranked by match percentage.
 					</p>
 				</div>
 				<div className="flex gap-3">
 					<Icon name="clock" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
-						<span className="text-foreground font-medium">Plan and shop</span> —
-						Plan meals for the week with ingredient overlap analysis. Generate a
-						consolidated shopping list from your meal plan, minus what you
-						already have.
+						<span className="text-foreground font-medium">Plan and shop.</span>{' '}
+						Plan meals for the week. Quartermaster spots shared ingredients
+						across meals and builds one shopping list, minus what you already
+						have.
 					</p>
 				</div>
 				<div className="flex gap-3">
 					<Icon name="avatar" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
-						<span className="text-foreground font-medium">Cook together</span> —
+						<span className="text-foreground font-medium">Cook together.</span>{' '}
 						Invite your partner or housemates to share a recipe library,
 						inventory, and meal plan. Changes sync in real time.
 					</p>
@@ -116,7 +116,7 @@ export default function AboutRoute() {
 			<h2 className="mt-10 font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Built for messy hands</h2>
 			<p className="text-muted-foreground mt-3 text-base/7">
 				Most recipe apps are great for browsing but terrible for actually
-				cooking. Quartermaster is the opposite — tap ingredients and steps to
+				cooking. Quartermaster is the opposite: tap ingredients and steps to
 				cross them off, start timers right from recipe instructions, and scale
 				servings on the fly.
 			</p>

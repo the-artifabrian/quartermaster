@@ -6,7 +6,8 @@ whole loop — from "what do I have?" to "what should I make?" to "what do I nee
 to buy?" — in one app.
 
 High-level feature reference (not exhaustive). For the roadmap, see
-[DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For business strategy, see
+[DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For design system, see
+[DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md).
 
 ### What makes this different
 
@@ -96,34 +97,12 @@ execution quality, not differentiation.
   show a one-line summary; expanded rows show a controls toolbar (drag, collapse,
   remove) above full-width name/amount/unit/notes inputs
 - Voice-to-text input (Pro): one-tap mic button records audio, auto-stops on
-  silence (~1.5s), transcribes via Groq-hosted Whisper (whisper-large-v3-turbo)
-  with auto language detection (multi-language support), and parses structured
-  qty/unit/name via Claude Haiku LLM with regex fallback. Single item populates
-  the input for review; multiple items (comma or "and" separated) are bulk-added
-  directly with ephemeral highlight (subtle background + mic icon) so
-  bulk-added items are easy to spot for review — auto-clears after 60s.
-  LLM parsing handles conversational sentences, numbers in product names, and
-  any language naturally; the system prompt instructs Haiku to return an empty
-  array for gibberish/unintelligible transcripts rather than guessing, and the
-  regex fallback only activates on LLM API failure (not when Haiku deliberately
-  returns no items). Pre-LLM quality gate rejects known Whisper hallucination
-  artifacts ("thank you", "subscribe", "see you next time", etc.) and
-  low-quality transcripts (too short or mostly non-letter characters). Whisper
-  prompt hint includes grocery vocabulary and common units for better
-  transcription accuracy. Transcript feedback: single-item results show an info
-  toast with the raw transcript ("Heard: …"); multi-item bulk-adds show the
-  transcript (truncated at 60 chars) alongside the item count in the success
-  toast. Regex fallback handles word numbers 1-20 ("two pounds", "fifteen
-  eggs"), compound numbers ("a dozen", "half a dozen", "a couple", "three
-  hundred"), mixed fractions ("1 1/2 cups"), unit normalization aligned with
-  unit-conversion canonical forms (pounds→lb, liters→l, cups→cup), vague
-  quantifier stripping ("some", "a few", "a lot of"), Whisper comma cleanup,
-  instructional prefix stripping ("I need", "we need", "get", "add", "buy",
-  "grab"), repeatable filler word stripping (handles chains like "um yeah I need
-  like some garlic"), and compound grocery name protection ("mac and cheese" not
-  split on "and"). Available on shopping list (desktop + mobile FAB) and
-  inventory (desktop quick-add + mobile FAB). 30s max recording safety net, iOS
-  Safari AudioContext handling
+  silence (~1.5s), transcribes via Groq Whisper (whisper-large-v3-turbo,
+  multi-language), and parses structured qty/unit/name via Claude Haiku LLM
+  with regex fallback. Single items populate the input for review; multiple
+  items are bulk-added with ephemeral highlight. Pre-LLM quality gate rejects
+  Whisper hallucination artifacts. Available on shopping list and inventory
+  (desktop + mobile FAB). 30s max recording, iOS Safari AudioContext handling
 - AI recipe enhance (Pro): one-click metadata inference (description, servings,
   prep/cook times) with before/after review modal. Feature-specific error
   messages. Primarily for cleaning up bulk-imported recipes
@@ -159,13 +138,11 @@ execution quality, not differentiation.
   banner
 - Bulk add (staples onboarding) silently skips duplicates
 - Ingredient normalization pipeline: ~40 modifier strippers, ~25 synonym groups,
-  pluralization, compound ingredient protection, non-equivalent exclusions.
-  Powers matching, shopping consolidation, overlap scoring, and waste detection
+  pluralization, compound ingredient protection. Powers matching, shopping
+  consolidation, overlap scoring, and waste detection
 - Ingredient parser: nested parenthetical quantities, "to taste", ranges,
-  written-out numbers, "juice/zest of", fl oz, period-tolerant unit
-  abbreviations, JSON-LD cleanup (broken/double/orphaned parens, approx.
-  markers, comma-wrapped parens), descriptor-aware comma splitting (keeps
-  "boneless, skinless" together)
+  written-out numbers, fl oz, period-tolerant unit abbreviations, JSON-LD
+  cleanup, descriptor-aware comma splitting
 - "What can I make?" always-on when inventory exists -- recipe cards show SVG
   match progress rings, default sort by match percentage, 4-level fuzzy matching
   (exact, synonym, core word, multi-word containment)
@@ -308,4 +285,4 @@ execution quality, not differentiation.
 
 ---
 
-_Last updated: March 4, 2026._
+_Last updated: March 6, 2026._

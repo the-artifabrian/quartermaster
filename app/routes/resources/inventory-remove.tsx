@@ -5,7 +5,7 @@ import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { type Route } from './+types/inventory-remove.ts'
 
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { householdId } = await requireUserWithHousehold(request)
 	const formData = await request.formData()
 	const inventoryItemId = formData.get('inventoryItemId')
 	invariantResponse(

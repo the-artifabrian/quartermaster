@@ -1,3 +1,4 @@
+import { type Page } from '@playwright/test'
 import { getCurrentWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
@@ -26,7 +27,7 @@ async function setupProUser(userId: string) {
 }
 
 /** Check off all unchecked items on the shopping list page */
-async function checkOffAllItems(page: import('@playwright/test').Page) {
+async function checkOffAllItems(page: Page) {
 	const checkButtons = page.getByRole('button', { name: /check off item/i })
 	let count = await checkButtons.count()
 	while (count > 0) {

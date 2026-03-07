@@ -3,8 +3,7 @@ import { getDomainUrl } from '#app/utils/misc.tsx'
 import { type Route } from './+types/sitemap[.]xml.ts'
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-	// TODO: This is typeerror is coming up since of the remix-run/server-runtime package. We might need to remove/update that one.
-	// @ts-expect-error
+	// @ts-expect-error remix-seo expects remix-run/server-runtime route types
 	return generateSitemap(request, context.serverBuild.routes, {
 		siteUrl: getDomainUrl(request),
 		headers: {

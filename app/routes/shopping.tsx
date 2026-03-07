@@ -4,16 +4,16 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Form, Link, useFetcher, useRevalidator } from 'react-router'
 import { toast } from 'sonner'
-import { useSpeechToText, type TranscribedItem } from '#app/hooks/use-speech-to-text.ts'
+import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { ShoppingListToInventory } from '#app/components/shopping-list-to-inventory.tsx'
 import { ShoppingListLiveRefresh } from '#app/components/shopping-live-refresh.tsx'
-import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { MobileFabAdd } from '#app/components/shopping-mobile-fab.tsx'
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
+import { useSpeechToText, type TranscribedItem } from '#app/hooks/use-speech-to-text.ts'
 import {
 	getCurrentWeekStart,
 	getPreviousWeek,
@@ -25,6 +25,7 @@ import {
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { cn } from '#app/utils/misc.tsx'
 import {
 	getCanonicalIngredientName,
 	ingredientMatchesInventoryItem,
@@ -37,7 +38,6 @@ import {
 	generateShoppingListFromRecipes,
 	annotateInventoryMatches,
 } from '#app/utils/shopping-list.server.ts'
-import { cn } from '#app/utils/misc.tsx'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/shopping.ts'
 

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useFetcher, useRouteLoaderData } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { useUser } from '#app/utils/user.ts'
 import { type loader as rootLoader } from '#app/root.tsx'
+import { useUser } from '#app/utils/user.ts'
 
 export function InviteCodeBanner() {
 	const user = useUser()

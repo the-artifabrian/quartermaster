@@ -7,8 +7,6 @@ what you have.
 Built with React Router v7, SQLite, Tailwind CSS, and AI features (Claude,
 Whisper). Daily-driven for personal use since February 2026.
 
-<!-- TODO: Add 2-3 screenshots here (recipe list, cooking mode, meal plan) -->
-
 ## What makes this different
 
 Most recipe apps store recipes. Quartermaster connects recipes to your kitchen:
@@ -59,7 +57,7 @@ Most recipe apps store recipes. Quartermaster connects recipes to your kitchen:
 | Real-time | Server-Sent Events for shopping list sync |
 | Image storage | S3-compatible (Tigris) with Sharp processing |
 | Deployment | [Fly.io](https://fly.io/) with LiteFS + Docker |
-| Testing | [Vitest](https://vitest.dev/) (39 unit/integration) + [Playwright](https://playwright.dev/) (10 e2e) |
+| Testing | [Vitest](https://vitest.dev/) (860+ unit/integration) + [Playwright](https://playwright.dev/) (10 e2e) |
 
 Bootstrapped from the [Epic Stack](https://www.epicweb.dev/epic-stack) by Kent
 C. Dodds.

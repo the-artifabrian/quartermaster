@@ -11,6 +11,7 @@ import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboarding.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { STALE_DAYS } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -19,9 +20,8 @@ import {
 	InventoryItemNameSchema,
 	InventoryItemSchema,
 } from '#app/utils/inventory-validation.ts'
-import { STALE_DAYS } from '#app/utils/date.ts'
-import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import {
 	getInventoryUsage,
 	getUserTier,

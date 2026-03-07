@@ -4,9 +4,9 @@ import { data, Link, redirect } from 'react-router'
 import { Divider } from '#app/components/divider.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
-import { cn } from '#app/utils/misc.tsx'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
+import { cn } from '#app/utils/misc.tsx'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {

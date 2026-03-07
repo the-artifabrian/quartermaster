@@ -156,6 +156,7 @@ export function SuggestMealsModal({
 
 		setSelections(newSelections)
 		setReadyForType(mealType)
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- pastDays is derived from render and would cause infinite loops
 	}, [suggestFetcher.state, suggestFetcher.data, readyForType, mealType])
 
 	// Handle successful confirm

@@ -1,7 +1,7 @@
 import { InstructionWithTimers } from '#app/components/instruction-with-timers.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { cn } from '#app/utils/misc.tsx'
 import { convertTemperatures } from '#app/utils/metric-conversion.ts'
+import { cn } from '#app/utils/misc.tsx'
 import {
 	type AppliedSubstitution,
 	applySubstitutionsToText,

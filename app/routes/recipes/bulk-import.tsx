@@ -136,7 +136,7 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 			created.push(recipe.title)
 			existingTitles.add(recipe.title.toLowerCase())
-		} catch (err) {
+		} catch {
 			errors.push({
 				title: recipe.title,
 				error: 'Failed to save recipe',

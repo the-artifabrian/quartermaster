@@ -5,11 +5,11 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { parseAmount } from '#app/utils/fractions.ts'
+import { cn } from '#app/utils/misc.tsx'
 import {
 	getProduceCountDisplay,
 	isWeightUnit,
 } from '#app/utils/produce-weights.ts'
-import { cn } from '#app/utils/misc.tsx'
 
 type ShoppingListItemCardProps = {
 	item: ShoppingListItem

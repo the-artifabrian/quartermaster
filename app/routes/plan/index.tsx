@@ -9,6 +9,7 @@ import { SuggestMealsModal } from '#app/components/suggest-meals-modal.tsx'
 import { TodayBanner } from '#app/components/today-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { UncookedMealReminder } from '#app/components/uncooked-meal-reminder.tsx'
 import {
 	addDaysUTC,
 	getCurrentWeekStart,
@@ -24,7 +25,6 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
-import { UncookedMealReminder } from '#app/components/uncooked-meal-reminder.tsx'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -380,7 +380,6 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 		recipes,
 		weekDays,
 		weekStart,
-		isCurrentWeek,
 		tonightData,
 		shoppingListItemCount,
 		isProActive,

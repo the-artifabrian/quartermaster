@@ -6,8 +6,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useFetcher, useRouteLoaderData, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Divider } from '#app/components/divider.tsx'
-import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
+import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { RecipeActionBar } from '#app/components/recipe-action-bar.tsx'
 import { CookingLogEntry } from '#app/components/recipe-cooking-log-entry.tsx'
 import { IMadeThisModal } from '#app/components/recipe-i-made-this-modal.tsx'
@@ -33,12 +33,12 @@ import {
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { parseAmount, scaleAmount } from '#app/utils/fractions.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	convertToMetric,
 	roundMetricAmount,
 } from '#app/utils/metric-conversion.ts'
-import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
 	type AppliedSubstitution,

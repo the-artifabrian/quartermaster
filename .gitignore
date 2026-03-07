@@ -29,3 +29,9 @@ node_modules
 
 # worktrees
 .worktrees/
+
+# personal data
+apple-notes-export/
+
+# claude code config
+.claude/

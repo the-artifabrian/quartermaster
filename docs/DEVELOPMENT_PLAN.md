@@ -10,9 +10,8 @@ generation.
 Built in ~3 weeks (starting February 6, 2026) using Claude Code as an AI coding
 assistant for rapid iteration.
 
-> For tech stack, architecture, commands, database schema, and route structure,
-> see [CLAUDE.md](../CLAUDE.md). For the full feature catalog, see
-> [FEATURES.md](./FEATURES.md).
+> For the full feature catalog, see [FEATURES.md](./FEATURES.md). For design
+> system details, see [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md).
 
 ---
 
@@ -22,29 +21,19 @@ The app is feature-complete and in maintenance mode. Daily-driven since
 February 12, 2026, fully replacing Apple Notes for recipe management, meal
 planning, and shopping.
 
-### Validation Outcome
+### Retrospective
 
-Beta testers (friends/partners) import recipes and stock some inventory but
-don't commit to the plan→shop→restock loop. The Reddit post (r/SideProject,
-February 25) generated minimal response. The core differentiator —
-inventory-aware recipe matching and the closed-loop pipeline — is used daily
-by the builder but not adopted by other users.
+Beta testers import recipes and stock inventory but don't commit to the full
+plan→shop→restock loop. The core differentiator — inventory-aware matching and
+the closed-loop pipeline — requires weekly discipline that most people won't
+sustain. There's a genuine gap in the self-hosted space (no app combines good
+cooking UX + inventory intelligence + the full pipeline), but serving that
+audience would require Docker packaging, community management, and ongoing
+support.
 
-This is a category problem, not an app problem. Meal planning requires
-weekly discipline that most people won't sustain. The self-hosted space has
-a genuine gap (no self-hosted app combines good cooking UX + inventory
-intelligence + the closed-loop pipeline), but serving that audience would
-require Docker, open-source licensing, community management, and ongoing
-support — incompatible with the current maintenance posture.
-
-No self-hosted pivot. Fix friction as it surfaces; don't build new features
-speculatively.
-
-### Portfolio Value
-
-Full-stack app with AI integration (Claude, Whisper), real-time SSE, Stripe
-billing, household sharing, PWA — built in ~3 weeks with AI-assisted
-development. Daily-driven for real cooking and meal planning.
+**Current posture:** Personal/household tool. Fix friction as it surfaces;
+don't build new features speculatively. Subscription system is implemented
+but not actively marketed.
 
 ### Inventory Mode: Rough Signal
 
@@ -111,21 +100,4 @@ Ideas evaluated and set aside. Revisit if circumstances change.
 
 ---
 
-## Success Metrics
-
-### Achieved
-
-- [x] All Apple Notes recipes imported (~135 bulk imported)
-- [x] Partner uses the app as a real co-user
-- [x] Apple Notes fully replaced for recipes
-- [x] App daily-driven for 4+ weeks
-
-### Ongoing (personal use)
-
-- [ ] Inventory tracking feels sustainable (not a chore)
-- [ ] Weekly meal planning in-app remains consistent
-
----
-
-_Last updated: March 6, 2026. Project transitioned to personal tool /
-maintenance mode._
+_Last updated: March 2026._

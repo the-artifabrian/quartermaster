@@ -247,6 +247,8 @@ execution quality, not differentiation.
   downgrade with data preservation, expiry nudges at 7d/3d
 - Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (codes +
   tiers)
+- Subscription system is implemented but not actively marketed — tiers remain
+  in code as a reference implementation
 
 ## UI & Infrastructure
 

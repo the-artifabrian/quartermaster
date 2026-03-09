@@ -25,6 +25,7 @@ export const IngredientSchema = z.object({
 	unit: z.string().max(50, { message: 'Unit is too long' }).optional(),
 	notes: z.string().max(500, { message: 'Notes are too long' }).optional(),
 	isHeading: z.preprocess((v) => v === 'true', z.boolean()).optional(),
+	linkedRecipeId: z.string().optional(),
 })
 
 export const InstructionSchema = z.object({

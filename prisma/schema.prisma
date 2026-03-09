@@ -236,7 +236,8 @@ model Recipe {
   householdId String?
 
   image           RecipeImage?
-  ingredients     Ingredient[]
+  ingredients     Ingredient[]    @relation("RecipeIngredients")
+  linkedFromIngredients Ingredient[] @relation("LinkedRecipe")
   instructions    Instruction[]
   mealPlanEntries      MealPlanEntry[]
   cookingLogs          CookingLog[]
@@ -267,8 +268,11 @@ model Ingredient {
   isHeading Boolean @default(false)
   order     Int     @default(0)
 
-  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipe   Recipe @relation("RecipeIngredients", fields: [recipeId], references: [id], onDelete: Cascade)
   recipeId String
+
+  linkedRecipe   Recipe? @relation("LinkedRecipe", fields: [linkedRecipeId], references: [id], onDelete: SetNull)
+  linkedRecipeId String?
 
   @@index([recipeId])
 }

@@ -38,6 +38,8 @@ export function IngredientList({
 		unit: string | null
 		notes: string | null
 		isHeading: boolean
+		linkedRecipeId?: string | null
+		linkedRecipe?: { title: string } | null
 	}>
 	checkedIngredients: Set<string>
 	onToggle: (id: string) => void
@@ -214,6 +216,14 @@ export function IngredientList({
 									>
 										{ingredient.name}
 									</SubstitutionHint>
+								) : ingredient.linkedRecipeId ? (
+									<Link
+										to={`/recipes/${ingredient.linkedRecipeId}`}
+										className="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary/60"
+										onClick={(e) => e.stopPropagation()}
+									>
+										{ingredient.name}
+									</Link>
 								) : (
 									<span>{ingredient.name}</span>
 								)}

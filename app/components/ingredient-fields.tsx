@@ -14,13 +14,14 @@ import {
 	verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useId, useRef, useState } from 'react'
+import { useId, useRef, useState, useEffect, useCallback } from 'react'
 import { useFetcher } from 'react-router'
 import { COMMON_INGREDIENTS } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip.tsx'
 
 export type IngredientFieldValue = {
@@ -30,6 +31,8 @@ export type IngredientFieldValue = {
 	unit?: string
 	notes?: string
 	isHeading?: boolean
+	linkedRecipeId?: string
+	linkedRecipeTitle?: string
 	/** Stable key for DnD — persists across re-renders */
 	sortKey?: string
 }
@@ -37,6 +40,8 @@ export type IngredientFieldValue = {
 type IngredientFieldsProps = {
 	ingredients: IngredientFieldValue[]
 	onChange: (ingredients: IngredientFieldValue[]) => void
+	/** Exclude this recipe from the link picker (prevents self-linking) */
+	excludeRecipeId?: string
 }
 
 function getSortKey() {
@@ -64,6 +69,7 @@ function ingredientSummary(ing: IngredientFieldValue): string {
 export function IngredientFields({
 	ingredients: rawIngredients,
 	onChange,
+	excludeRecipeId,
 }: IngredientFieldsProps) {
 	const ingredients = ensureSortKeys(rawIngredients)
 	const baseId = useId()
@@ -131,10 +137,7 @@ export function IngredientFields({
 
 	const addHeading = () => {
 		const key = getSortKey()
-		onChange([
-			...ingredients,
-			{ name: '', isHeading: true, sortKey: key },
-		])
+		onChange([...ingredients, { name: '', isHeading: true, sortKey: key }])
 		setExpandedKeys((prev) => new Set(prev).add(key))
 		scrollToLastItem()
 	}
@@ -154,6 +157,32 @@ export function IngredientFields({
 		const current = updated[index]
 		if (current) {
 			updated[index] = { ...current, [field]: value }
+			onChange(updated)
+		}
+	}
+
+	const linkRecipe = (index: number, recipeId: string, recipeTitle: string) => {
+		const updated = [...ingredients]
+		const current = updated[index]
+		if (current) {
+			updated[index] = {
+				...current,
+				linkedRecipeId: recipeId,
+				linkedRecipeTitle: recipeTitle,
+			}
+			onChange(updated)
+		}
+	}
+
+	const unlinkRecipe = (index: number) => {
+		const updated = [...ingredients]
+		const current = updated[index]
+		if (current) {
+			updated[index] = {
+				...current,
+				linkedRecipeId: undefined,
+				linkedRecipeTitle: undefined,
+			}
 			onChange(updated)
 		}
 	}
@@ -186,12 +215,7 @@ export function IngredientFields({
 	return (
 		<div className="space-y-4">
 			<div className="flex gap-2 sm:justify-end">
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					onClick={addHeading}
-				>
+				<Button type="button" variant="outline" size="sm" onClick={addHeading}>
 					<Icon name="plus" size="sm" />
 					Heading
 				</Button>
@@ -225,8 +249,7 @@ export function IngredientFields({
 					<div ref={listRef} className="divide-border divide-y">
 						{ingredients.map((ingredient, index) => {
 							const isExpanded =
-								!ingredient.name ||
-								expandedKeys.has(ingredient.sortKey!)
+								!ingredient.name || expandedKeys.has(ingredient.sortKey!)
 							return ingredient.isHeading ? (
 								<SortableHeadingRow
 									key={ingredient.sortKey}
@@ -237,9 +260,7 @@ export function IngredientFields({
 									}
 									onRemove={() => removeIngredient(index)}
 									canRemove={ingredients.length > 1}
-									onConvertToIngredient={() =>
-										convertToIngredient(index)
-									}
+									onConvertToIngredient={() => convertToIngredient(index)}
 								/>
 							) : (
 								<SortableIngredientRow
@@ -248,13 +269,16 @@ export function IngredientFields({
 									ingredient={ingredient}
 									datalistId={datalistId}
 									isExpanded={isExpanded}
-									onToggleExpand={() =>
-										toggleExpanded(ingredient.sortKey!)
-									}
+									onToggleExpand={() => toggleExpanded(ingredient.sortKey!)}
 									onUpdate={(field, value) =>
 										updateIngredient(index, field, value)
 									}
 									onRemove={() => removeIngredient(index)}
+									onLinkRecipe={(recipeId, recipeTitle) =>
+										linkRecipe(index, recipeId, recipeTitle)
+									}
+									onUnlinkRecipe={() => unlinkRecipe(index)}
+									excludeRecipeId={excludeRecipeId}
 									canRemove={ingredients.length > 1}
 								/>
 							)
@@ -274,6 +298,9 @@ function SortableIngredientRow({
 	onToggleExpand,
 	onUpdate,
 	onRemove,
+	onLinkRecipe,
+	onUnlinkRecipe,
+	excludeRecipeId,
 	canRemove,
 }: {
 	sortKey: string
@@ -283,6 +310,9 @@ function SortableIngredientRow({
 	onToggleExpand: () => void
 	onUpdate: (field: keyof IngredientFieldValue, value: string) => void
 	onRemove: () => void
+	onLinkRecipe: (recipeId: string, recipeTitle: string) => void
+	onUnlinkRecipe: () => void
+	excludeRecipeId?: string
 	canRemove: boolean
 }) {
 	const id = useId()
@@ -337,10 +367,7 @@ function SortableIngredientRow({
 							size="icon"
 							onClick={onRemove}
 							disabled={!canRemove}
-							className={cn(
-								'size-9',
-								!canRemove && 'opacity-30',
-							)}
+							className={cn('size-9', !canRemove && 'opacity-30')}
 							aria-label="Remove ingredient"
 						>
 							<Icon name="cross-1" size="sm" />
@@ -358,18 +385,14 @@ function SortableIngredientRow({
 							id={`${id}-amount`}
 							placeholder="Amount"
 							value={ingredient.amount ?? ''}
-							onChange={(e) =>
-								onUpdate('amount', e.target.value)
-							}
+							onChange={(e) => onUpdate('amount', e.target.value)}
 							className="flex-1"
 						/>
 						<Input
 							id={`${id}-unit`}
 							placeholder="Unit"
 							value={ingredient.unit ?? ''}
-							onChange={(e) =>
-								onUpdate('unit', e.target.value)
-							}
+							onChange={(e) => onUpdate('unit', e.target.value)}
 							className="flex-1"
 						/>
 					</div>
@@ -378,6 +401,13 @@ function SortableIngredientRow({
 						placeholder="Notes (e.g., diced)"
 						value={ingredient.notes ?? ''}
 						onChange={(e) => onUpdate('notes', e.target.value)}
+					/>
+					<RecipeLinkPicker
+						linkedRecipeId={ingredient.linkedRecipeId}
+						linkedRecipeTitle={ingredient.linkedRecipeTitle}
+						onLink={onLinkRecipe}
+						onUnlink={onUnlinkRecipe}
+						excludeRecipeId={excludeRecipeId}
 					/>
 				</div>
 			) : (
@@ -401,9 +431,10 @@ function SortableIngredientRow({
 							size="sm"
 							className="text-muted-foreground/60 shrink-0 -rotate-90"
 						/>
-						<span className="truncate">
-							{ingredientSummary(ingredient)}
-						</span>
+						<span className="truncate">{ingredientSummary(ingredient)}</span>
+						{ingredient.linkedRecipeTitle && (
+							<Icon name="link-2" size="sm" className="text-primary shrink-0" />
+						)}
 					</button>
 					<Button
 						type="button"
@@ -411,10 +442,7 @@ function SortableIngredientRow({
 						size="icon"
 						onClick={onRemove}
 						disabled={!canRemove}
-						className={cn(
-							'size-9 shrink-0',
-							!canRemove && 'opacity-30',
-						)}
+						className={cn('size-9 shrink-0', !canRemove && 'opacity-30')}
 						aria-label="Remove ingredient"
 					>
 						<Icon name="cross-1" size="sm" />
@@ -422,6 +450,123 @@ function SortableIngredientRow({
 				</div>
 			)}
 		</div>
+	)
+}
+
+function RecipeLinkPicker({
+	linkedRecipeId,
+	linkedRecipeTitle,
+	onLink,
+	onUnlink,
+	excludeRecipeId,
+}: {
+	linkedRecipeId?: string
+	linkedRecipeTitle?: string
+	onLink: (recipeId: string, recipeTitle: string) => void
+	onUnlink: () => void
+	excludeRecipeId?: string
+}) {
+	const [open, setOpen] = useState(false)
+	const [query, setQuery] = useState('')
+	const fetcher = useFetcher<{
+		recipes: Array<{ id: string; title: string }>
+	}>()
+	const inputRef = useRef<HTMLInputElement>(null)
+
+	const doSearch = useCallback(
+		(q: string) => {
+			if (q.length >= 2) {
+				const params = new URLSearchParams({ q })
+				if (excludeRecipeId) params.set('exclude', excludeRecipeId)
+				void fetcher.load(`/resources/recipe-search?${params}`)
+			}
+		},
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[excludeRecipeId],
+	)
+
+	useEffect(() => {
+		if (open) {
+			setTimeout(() => inputRef.current?.focus(), 0)
+		}
+	}, [open])
+
+	const results = fetcher.data?.recipes ?? []
+
+	if (linkedRecipeId && linkedRecipeTitle) {
+		return (
+			<div className="flex items-center gap-2 rounded-md border px-3 py-2">
+				<Icon name="link-2" size="sm" className="text-primary shrink-0" />
+				<span className="min-w-0 flex-1 truncate text-sm">
+					{linkedRecipeTitle}
+				</span>
+				<button
+					type="button"
+					onClick={onUnlink}
+					className="text-muted-foreground hover:text-destructive shrink-0"
+					aria-label="Remove recipe link"
+				>
+					<Icon name="cross-1" size="sm" />
+				</button>
+			</div>
+		)
+	}
+
+	return (
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger asChild>
+				<button
+					type="button"
+					className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 rounded-md px-1 py-1 text-xs transition-colors"
+				>
+					<Icon name="link-2" size="sm" />
+					Link recipe
+				</button>
+			</PopoverTrigger>
+			<PopoverContent align="start" className="w-72 p-2">
+				<Input
+					ref={inputRef}
+					placeholder="Search recipes..."
+					value={query}
+					onChange={(e) => {
+						setQuery(e.target.value)
+						doSearch(e.target.value)
+					}}
+					className="mb-2"
+				/>
+				{query.length < 2 ? (
+					<p className="text-muted-foreground px-2 py-3 text-center text-xs">
+						Type to search your recipes
+					</p>
+				) : fetcher.state !== 'idle' ? (
+					<p className="text-muted-foreground px-2 py-3 text-center text-xs">
+						Searching...
+					</p>
+				) : results.length === 0 ? (
+					<p className="text-muted-foreground px-2 py-3 text-center text-xs">
+						No recipes found
+					</p>
+				) : (
+					<ul className="max-h-48 overflow-y-auto">
+						{results.map((recipe) => (
+							<li key={recipe.id}>
+								<button
+									type="button"
+									className="hover:bg-accent w-full rounded-md px-2 py-1.5 text-left text-sm"
+									onClick={() => {
+										onLink(recipe.id, recipe.title)
+										setOpen(false)
+										setQuery('')
+									}}
+								>
+									{recipe.title}
+								</button>
+							</li>
+						))}
+					</ul>
+				)}
+			</PopoverContent>
+		</Popover>
 	)
 }
 

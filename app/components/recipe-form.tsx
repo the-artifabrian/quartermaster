@@ -36,6 +36,8 @@ type RecipeFormProps = {
 			unit?: string | null
 			notes?: string | null
 			isHeading?: boolean
+			linkedRecipeId?: string | null
+			linkedRecipeTitle?: string | null
 		}>
 		instructions: Array<{
 			id: string
@@ -99,6 +101,8 @@ export function RecipeForm({
 			unit: i.unit ?? '',
 			notes: i.notes ?? '',
 			isHeading: i.isHeading ?? false,
+			linkedRecipeId: i.linkedRecipeId ?? undefined,
+			linkedRecipeTitle: i.linkedRecipeTitle ?? undefined,
 		})) ?? [{ name: '', amount: '', unit: '', notes: '' }],
 	)
 
@@ -297,7 +301,11 @@ export function RecipeForm({
 				})()}
 				defaultOpen={isEditing || ingredients.length <= 1}
 			>
-				<IngredientFields ingredients={ingredients} onChange={setIngredients} />
+				<IngredientFields
+					ingredients={ingredients}
+					onChange={setIngredients}
+					excludeRecipeId={recipe?.id}
+				/>
 			</FormSection>
 			{/* Hidden inputs for ingredients */}
 			{ingredients.map((ingredient, index) => (
@@ -334,6 +342,13 @@ export function RecipeForm({
 						name={`ingredients[${index}].isHeading`}
 						value={ingredient.isHeading ? 'true' : ''}
 					/>
+					{ingredient.linkedRecipeId && (
+						<input
+							type="hidden"
+							name={`ingredients[${index}].linkedRecipeId`}
+							value={ingredient.linkedRecipeId}
+						/>
+					)}
 				</div>
 			))}
 

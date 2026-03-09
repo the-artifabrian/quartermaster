@@ -89,6 +89,11 @@ execution quality, not differentiation.
 - Ingredient headings: section dividers within ingredient lists displayed as
   styled headers. Created via "+ Heading" button and positioned with
   drag-and-drop. Skipped by shopping list, matching, and JSON-LD
+- Linked ingredients: any ingredient can hyperlink to another recipe (e.g.
+  "200g sausage" linking to a fennel sausage recipe). Set via recipe search
+  popover on the edit page, renders as a navigable link on the detail page.
+  Self-linking prevented, links nullified on target recipe deletion
+  (`onDelete: SetNull`). Not rendered on the public share page
 - Optional ingredient detection: ingredients with "optional" in their notes
   field are excluded from inventory matching, match percentage rings, X/Y
   ingredient counts, shopping list generation, meal suggestions, and
@@ -287,4 +292,4 @@ execution quality, not differentiation.
 
 ---
 
-_Last updated: March 6, 2026._
+_Last updated: March 9, 2026._

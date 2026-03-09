@@ -140,6 +140,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 					unit: true,
 					notes: true,
 					isHeading: true,
+					linkedRecipeId: true,
+					linkedRecipe: { select: { title: true } },
 				},
 				orderBy: { order: 'asc' },
 			},

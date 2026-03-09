@@ -56,6 +56,7 @@ export async function action({ request }: Route.ActionArgs) {
 		unit?: string
 		notes?: string
 		isHeading?: boolean
+		linkedRecipeId?: string
 	}> = []
 	let i = 0
 	while (formData.has(`ingredients[${i}].name`)) {
@@ -65,6 +66,9 @@ export async function action({ request }: Route.ActionArgs) {
 			unit: (formData.get(`ingredients[${i}].unit`) as string) || undefined,
 			notes: (formData.get(`ingredients[${i}].notes`) as string) || undefined,
 			isHeading: formData.get(`ingredients[${i}].isHeading`) === 'true',
+			linkedRecipeId:
+				(formData.get(`ingredients[${i}].linkedRecipeId`) as string) ||
+				undefined,
 		})
 		i++
 	}
@@ -114,6 +118,7 @@ export async function action({ request }: Route.ActionArgs) {
 						unit: ing.unit || null,
 						notes: ing.notes || null,
 						isHeading: ing.isHeading ?? false,
+						linkedRecipeId: ing.linkedRecipeId || null,
 						order,
 					})),
 			},

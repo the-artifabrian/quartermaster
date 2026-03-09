@@ -399,6 +399,7 @@ describe('matchRecipesWithInventory', () => {
 				isHeading: false,
 				order: i,
 				recipeId: id,
+				linkedRecipeId: null,
 			})),
 		}
 	}

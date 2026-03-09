@@ -34,6 +34,7 @@ function makeRecipe(
 			isHeading: false,
 			order: i,
 			recipeId: id,
+			linkedRecipeId: null,
 		})),
 	}
 }

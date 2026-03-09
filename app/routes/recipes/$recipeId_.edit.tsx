@@ -53,6 +53,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 					unit: true,
 					notes: true,
 					isHeading: true,
+					linkedRecipeId: true,
+					linkedRecipe: { select: { title: true } },
 				},
 				orderBy: { order: 'asc' },
 			},
@@ -71,7 +73,16 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		status: 403,
 	})
 
-	return { recipe }
+	// Map linkedRecipe.title to linkedRecipeTitle for the form
+	const recipeForForm = {
+		...recipe,
+		ingredients: recipe.ingredients.map((ing) => ({
+			...ing,
+			linkedRecipeTitle: ing.linkedRecipe?.title ?? null,
+		})),
+	}
+
+	return { recipe: recipeForForm }
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -139,6 +150,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		unit?: string
 		notes?: string
 		isHeading?: boolean
+		linkedRecipeId?: string
 	}> = []
 	let i = 0
 	while (formData.has(`ingredients[${i}].name`)) {
@@ -149,6 +161,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 			unit: (formData.get(`ingredients[${i}].unit`) as string) || undefined,
 			notes: (formData.get(`ingredients[${i}].notes`) as string) || undefined,
 			isHeading: formData.get(`ingredients[${i}].isHeading`) === 'true',
+			linkedRecipeId:
+				(formData.get(`ingredients[${i}].linkedRecipeId`) as string) ||
+				undefined,
 		})
 		i++
 	}
@@ -202,6 +217,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 							unit: ing.unit || null,
 							notes: ing.notes || null,
 							isHeading: ing.isHeading ?? false,
+							linkedRecipeId: ing.linkedRecipeId || null,
 							order,
 						})),
 				},

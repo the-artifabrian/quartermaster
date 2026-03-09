@@ -16,7 +16,6 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { useId, useRef, useState, useEffect, useCallback } from 'react'
 import { useFetcher } from 'react-router'
-import { COMMON_INGREDIENTS } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -73,7 +72,6 @@ export function IngredientFields({
 }: IngredientFieldsProps) {
 	const ingredients = ensureSortKeys(rawIngredients)
 	const baseId = useId()
-	const datalistId = `${baseId}-suggestions`
 	const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
 
 	const toggleExpanded = (sortKey: string) => {
@@ -87,25 +85,6 @@ export function IngredientFields({
 			return next
 		})
 	}
-
-	const fetcher = useFetcher<{ ingredients: string[] }>({
-		key: 'ingredient-suggestions',
-	})
-
-	// Load suggestions on first render (skip during SSR)
-	if (
-		typeof document !== 'undefined' &&
-		!fetcher.data &&
-		fetcher.state === 'idle'
-	) {
-		void fetcher.load('/resources/ingredient-suggestions')
-	}
-
-	// Merge DB results with common ingredients, deduped and sorted
-	const dbNames = fetcher.data?.ingredients ?? []
-	const allSuggestions = [...new Set([...dbNames, ...COMMON_INGREDIENTS])].sort(
-		(a, b) => a.localeCompare(b),
-	)
 
 	const listRef = useRef<HTMLDivElement>(null)
 
@@ -230,12 +209,6 @@ export function IngredientFields({
 				</Button>
 			</div>
 
-			<datalist id={datalistId}>
-				{allSuggestions.map((name) => (
-					<option key={name} value={name} />
-				))}
-			</datalist>
-
 			<DndContext
 				id={`${baseId}-dnd`}
 				sensors={sensors}
@@ -267,7 +240,6 @@ export function IngredientFields({
 									key={ingredient.sortKey}
 									sortKey={ingredient.sortKey!}
 									ingredient={ingredient}
-									datalistId={datalistId}
 									isExpanded={isExpanded}
 									onToggleExpand={() => toggleExpanded(ingredient.sortKey!)}
 									onUpdate={(field, value) =>
@@ -293,7 +265,6 @@ export function IngredientFields({
 function SortableIngredientRow({
 	sortKey,
 	ingredient,
-	datalistId,
 	isExpanded,
 	onToggleExpand,
 	onUpdate,
@@ -305,7 +276,6 @@ function SortableIngredientRow({
 }: {
 	sortKey: string
 	ingredient: IngredientFieldValue
-	datalistId: string
 	isExpanded: boolean
 	onToggleExpand: () => void
 	onUpdate: (field: keyof IngredientFieldValue, value: string) => void
@@ -378,7 +348,6 @@ function SortableIngredientRow({
 						placeholder="Ingredient name"
 						value={ingredient.name}
 						onChange={(e) => onUpdate('name', e.target.value)}
-						list={datalistId}
 					/>
 					<div className="flex items-center gap-2">
 						<Input

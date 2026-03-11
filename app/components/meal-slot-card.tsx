@@ -225,7 +225,7 @@ export function MealSlotCard({
 	const assignedRecipeIds = entries.map((e) => e.recipe.id)
 
 	const selectorDropdown = isSelectingRecipe ? (
-		<div className="bg-card animate-fade-up-reveal absolute left-0 right-0 top-full z-20 mt-1 rounded-xl border p-3 shadow-lg md:min-w-[280px]">
+		<div className="bg-card animate-fade-up-reveal absolute left-0 right-0 top-full z-20 mt-1 rounded-xl border p-3 shadow-xl ring-1 ring-accent/20 md:min-w-[280px]">
 			<RecipeSelector
 				recipes={recipes}
 				date={date}

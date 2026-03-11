@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Form } from 'react-router'
+import { Form, Link } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -82,9 +82,17 @@ export function RecipeSelector({
 			</div>
 			<div className="scrollbar-thin max-h-[300px] space-y-0.5 overflow-y-auto">
 				{favorites.length === 0 && rest.length === 0 ? (
-					<p className="text-muted-foreground py-4 text-center text-sm">
-						No recipes found
-					</p>
+					<div className="py-4 text-center">
+						<p className="text-muted-foreground text-sm">
+							No recipes found
+						</p>
+						<Link
+							to="/recipes/new"
+							className="text-accent mt-1 inline-block text-sm hover:underline"
+						>
+							Create a new recipe
+						</Link>
+					</div>
 				) : (
 					<>
 						{favorites.length > 0 && (

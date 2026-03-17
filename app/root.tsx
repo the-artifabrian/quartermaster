@@ -157,6 +157,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	let tierInfo: TierInfo = {
 		tier: 'free',
 		isProActive: false,
+		isTrialing: false,
 		trialEndsAt: null,
 		subscriptionExpiresAt: null,
 		hasStripeSubscription: false,
@@ -181,11 +182,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 		if (tierInfo.isProActive) {
 			availableInviteCodeCount = await getAvailableCodeCount(userId)
 		}
-			hasRedeemedCode =
-				(await prisma.inviteCode.count({
-					where: { redeemedById: userId },
-				})) > 0
-		}
+		hasRedeemedCode =
+			(await prisma.inviteCode.count({
+				where: { redeemedById: userId },
+			})) > 0
 	}
 
 	const { toast, headers: toastHeaders } = await getToast(request)

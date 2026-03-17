@@ -32,6 +32,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	let tierInfo: TierInfo = {
 		tier: 'free',
 		isProActive: false,
+		isTrialing: false,
 		trialEndsAt: null,
 		subscriptionExpiresAt: null,
 		hasStripeSubscription: false,
@@ -169,10 +170,11 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 				<p className="text-muted-foreground mt-2 text-lg">
 					Unlock smart suggestions, inventory sync, and the full cooking workflow.
 				</p>
+				{tierInfo.isTrialing ? (
 					<>
 						<p className="text-primary mt-2 text-sm font-medium">
 							You have Pro access until{' '}
-							{new Date(tierInfo.trialEndsAt).toLocaleDateString('en-US', {
+							{new Date(tierInfo.trialEndsAt!).toLocaleDateString('en-US', {
 								month: 'long',
 								day: 'numeric',
 								year: 'numeric',
@@ -260,7 +262,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 				</div>
 			</div>
 
-			{!tierInfo.isProActive ||
+			{tierInfo.isProActive ? (
 				<InviteCodeSection />
 			) : null}
 

@@ -33,5 +33,7 @@ node_modules
 # personal data
 apple-notes-export/
 
-# claude code config
+# editor/AI tool config
 .claude/
+.agents/
+.cursor/

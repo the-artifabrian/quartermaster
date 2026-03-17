@@ -14,10 +14,12 @@ import { type Route } from './+types/invite-codes.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
 
 export const handle: SettingsPageHandle & SEOHandle = {
+	pageTitle: 'Invite Codes',
 	getSitemapEntries: () => null,
 }
 
 export const meta: Route.MetaFunction = () => {
+	return [{ title: 'Invite Codes | Quartermaster' }]
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

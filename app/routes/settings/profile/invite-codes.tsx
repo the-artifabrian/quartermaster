@@ -52,9 +52,6 @@ export default function InviteCodesPage({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="flex flex-col gap-8">
-			<p className="text-muted-foreground text-sm">
-			</p>
-
 			<div className="bg-card shadow-warm rounded-xl border p-4">
 				<h3 className="text-muted-foreground mb-3 px-4 text-xs font-semibold tracking-wider uppercase">
 					Your Codes
@@ -66,6 +63,7 @@ export default function InviteCodesPage({ loaderData }: Route.ComponentProps) {
 				</h3>
 				{codes.length === 0 ? (
 					<p className="text-muted-foreground px-4 py-2 text-sm">
+						No invite codes yet.
 					</p>
 				) : (
 					<ul className="flex flex-col gap-2">
@@ -111,6 +109,8 @@ function ShareButton({ code }: { code: string }) {
 
 	async function handleShare() {
 		const shareData = {
+			title: 'Quartermaster Invite Code',
+			text: `Use my invite code to get Pro access on Quartermaster: ${code}`,
 		}
 		if (navigator.share && navigator.canShare(shareData)) {
 			await navigator.share(shareData)

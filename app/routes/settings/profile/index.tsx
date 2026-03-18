@@ -6,7 +6,6 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { ThemeSwitch } from '#app/routes/resources/theme-switch.tsx'
 import { requireUserId, sessionKey } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { getAvailableCodeCount } from '#app/utils/invite-codes.server.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import { useRequestInfo } from '#app/utils/request-info.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
@@ -48,22 +47,19 @@ export async function loader({ request }: Route.LoaderArgs) {
 		where: { target_type: { type: twoFAVerificationType, target: userId } },
 	})
 
-	const [password, tierInfo, availableInviteCodeCount] = await Promise.all([
+	const [password, tierInfo] = await Promise.all([
 		prisma.password.findUnique({
 			select: { userId: true },
 			where: { userId },
 		}),
 		getUserTier(userId),
-		getAvailableCodeCount(userId),
 	])
 
 	return {
 		user,
 		hasPassword: Boolean(password),
 		isTwoFactorEnabled: Boolean(twoFactorVerification),
-		isProActive: tierInfo.isProActive,
 		tierInfo,
-		availableInviteCodeCount,
 	}
 }
 
@@ -91,7 +87,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
-	const { user, tierInfo, isProActive, availableInviteCodeCount } = loaderData
+	const { user, tierInfo } = loaderData
 	const requestInfo = useRequestInfo()
 	const tierLabel = tierInfo.isProActive ? 'Pro' : 'Free'
 
@@ -170,27 +166,8 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				<SettingsRow to="passkeys" icon="passkey" label="Passkeys" />
 			</SettingsSection>
 
-			{/* Invite Codes (Pro only) */}
-			{isProActive ? (
-				<SettingsSection label="Invite Codes">
-					<SettingsRow
-						to="invite-codes"
-						icon="share"
-						label="Invite Codes"
-						badge={
-							availableInviteCodeCount > 0 ? (
-								<span className="bg-primary text-primary-foreground inline-flex size-5 items-center justify-center rounded-full text-xs font-bold">
-									{availableInviteCodeCount}
-								</span>
-							) : undefined
-						}
-					/>
-				</SettingsSection>
-			) : null}
-
 			{/* Data */}
 			<SettingsSection label="Data">
-				<SettingsRow to="usage" icon="dashboard" label="Usage Stats" />
 				<SettingsRow to="import" icon="update" label="Import Data" />
 				<SettingsRow
 					href="/resources/export-all-data"

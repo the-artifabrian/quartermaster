@@ -21,7 +21,7 @@ export function ProExpiryNudge() {
 				toast.warning(
 					`Your Pro access expires in ${tierInfo.daysUntilExpiry} day${tierInfo.daysUntilExpiry === 1 ? '' : 's'}`,
 					{
-						description: 'Subscribe or redeem a new code to keep Pro features.',
+						description: 'Subscribe to keep Pro features.',
 						duration: 10000,
 						action: {
 							label: 'Upgrade',
@@ -35,7 +35,7 @@ export function ProExpiryNudge() {
 			if (!localStorage.getItem(key)) {
 				localStorage.setItem(key, '1')
 				toast.info(`Pro access expires in ${tierInfo.daysUntilExpiry} days`, {
-					description: 'Subscribe or redeem a new invite code to continue.',
+					description: 'Subscribe to continue.',
 					duration: 8000,
 					action: {
 						label: 'Upgrade',

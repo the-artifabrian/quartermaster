@@ -17,6 +17,7 @@ import { Input } from '#app/components/ui/input.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
+import { checkAndRecordAiUsage } from '#app/utils/ai-rate-limit.server.ts'
 import { parseRecipeText } from '#app/utils/bulk-recipe-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
@@ -30,7 +31,6 @@ import {
 } from '#app/utils/recipe-extract-llm.server.ts'
 import { ImportUrlSchema } from '#app/utils/recipe-validation.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
-import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { type Route } from './+types/import.ts'
 
 export const handle: SEOHandle = {
@@ -631,17 +631,12 @@ export async function action({ request }: Route.ActionArgs) {
 			)
 		}
 
-		// Rate limit: 10/day
-		const startOfDay = new Date()
-		startOfDay.setHours(0, 0, 0, 0)
-		const todayCount = await prisma.usageEvent.count({
-			where: {
-				userId,
-				type: 'recipe_extract_llm_call',
-				createdAt: { gte: startOfDay },
-			},
-		})
-		if (todayCount >= DAILY_EXTRACT_LIMIT) {
+		const { allowed } = await checkAndRecordAiUsage(
+			userId,
+			'recipe_extract_llm_call',
+			DAILY_EXTRACT_LIMIT,
+		)
+		if (!allowed) {
 			return data(
 				{
 					intent: 'extract-text' as const,
@@ -699,12 +694,6 @@ export async function action({ request }: Route.ActionArgs) {
 		} else {
 			llmResult = await extractRecipeFromText(rawText)
 		}
-
-		const success = !('error' in llmResult)
-		trackEvent(userId, householdId, 'recipe_extract_llm_call', {
-			source: imageFile ? 'image' : 'text',
-			success,
-		})
 
 		if ('error' in llmResult) {
 			return data(

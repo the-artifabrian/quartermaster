@@ -34,7 +34,6 @@ type UserRow = {
 	recipeCount: number
 	inventoryCount: number
 	cookLogCount: number
-	codesRedeemed: number
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -73,10 +72,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			_count: {
 				select: { recipes: true, inventoryItems: true, cookingLogs: true },
 			},
-			inviteCodesCreated: {
-				select: { id: true },
-				where: { redeemedById: { not: null } },
-			},
 		},
 		orderBy: { createdAt: 'asc' },
 	})
@@ -108,7 +103,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			recipeCount: user._count.recipes,
 			inventoryCount: user._count.inventoryItems,
 			cookLogCount: user._count.cookingLogs,
-			codesRedeemed: user.inviteCodesCreated.length,
 		}
 	})
 
@@ -145,7 +139,6 @@ const columns: { key: SortKey; label: string; numeric?: boolean }[] = [
 	{ key: 'recipeCount', label: 'Recipes', numeric: true },
 	{ key: 'inventoryCount', label: 'Inventory', numeric: true },
 	{ key: 'cookLogCount', label: 'Cooks', numeric: true },
-	{ key: 'codesRedeemed', label: 'Codes Redeemed', numeric: true },
 ]
 
 function compareRows(a: UserRow, b: UserRow, key: SortKey, dir: SortDir) {
@@ -284,11 +277,6 @@ export default function UsersAdminRoute({ loaderData }: Route.ComponentProps) {
 									className={`px-3 py-2 text-right tabular-nums ${user.cookLogCount === 0 ? 'text-muted-foreground' : ''}`}
 								>
 									{user.cookLogCount}
-								</td>
-								<td
-									className={`px-3 py-2 text-right tabular-nums ${user.codesRedeemed === 0 ? 'text-muted-foreground' : ''}`}
-								>
-									{user.codesRedeemed}
 								</td>
 							</tr>
 						))}

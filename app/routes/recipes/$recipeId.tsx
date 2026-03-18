@@ -56,7 +56,6 @@ import {
 } from '#app/utils/recipe-matching.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
-import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
 import { type Route } from './+types/$recipeId.ts'
 
@@ -281,11 +280,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 		await prisma.recipe.update({
 			where: { id: recipeId },
 			data: updateData,
-		})
-
-		void trackEvent(userId, householdId, 'recipe_enhance_applied', {
-			recipeId,
-			fields: Object.keys(updateData),
 		})
 
 		return { success: true }

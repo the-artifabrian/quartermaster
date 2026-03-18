@@ -6,7 +6,6 @@ import {
 	type RecipeContext,
 	getSubstitutions,
 } from '#app/utils/substitution-lookup.server.ts'
-import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { type Route } from './+types/substitutions.ts'
 
 const SubstitutionRequestSchema = z.object({
@@ -15,7 +14,7 @@ const SubstitutionRequestSchema = z.object({
 })
 
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireProTier(request)
+	const { householdId } = await requireProTier(request)
 
 	const formData = await request.formData()
 	const parsed = SubstitutionRequestSchema.safeParse({
@@ -42,13 +41,6 @@ export async function action({ request }: Route.ActionArgs) {
 		inventoryItems,
 		recipeContext ?? undefined,
 	)
-
-	if (result.source === 'llm') {
-		trackEvent(userId, householdId, 'SUBSTITUTION_LLM_CALL', {
-			ingredientName,
-			recipeId,
-		})
-	}
 
 	return data({
 		substitutions: result.substitutions,

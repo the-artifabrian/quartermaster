@@ -148,10 +148,6 @@ export async function acceptInvite(token: string, userId: string) {
 				where: { householdId: currentHouseholdId },
 				data: { householdId: targetHouseholdId },
 			})
-			await tx.usageEvent.updateMany({
-				where: { householdId: currentHouseholdId },
-				data: { householdId: targetHouseholdId },
-			})
 			// Delete old household (cascades HouseholdMember)
 			await tx.household.delete({
 				where: { id: currentHouseholdId },

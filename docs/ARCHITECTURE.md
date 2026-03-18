@@ -32,8 +32,8 @@ Deployed on Fly.io with LiteFS. Bootstrapped from the
 
 ## Database (24 Models)
 
-All user data is household-scoped — recipes, inventory, meal plans, and
-shopping lists belong to the household, not the user.
+All user data is household-scoped: recipes, inventory, meal plans, and shopping
+lists belong to the household, not the user.
 
 ```
   User
@@ -91,6 +91,7 @@ shopping lists belong to the household, not the user.
 ```
 
 **Shopping list generation flow:**
+
 1. Collect ingredients across planned recipes
 2. Scale amounts by per-entry serving overrides
 3. Consolidate duplicates via canonical name matching
@@ -120,10 +121,10 @@ shopping lists belong to the household, not the user.
   Canonical name (used for matching, dedup, consolidation)
 ```
 
-The parser handles real-world edge cases: unicode fractions, "juice of 1
-lemon" patterns, fl oz as a two-word unit, written-out numbers, malformed
-JSON-LD from recipe sites. The normalizer protects compound ingredients
-("green onion" keeps "green" because it's in the protected compounds list).
+The parser handles real-world edge cases: unicode fractions, "juice of 1 lemon"
+patterns, fl oz as a two-word unit, written-out numbers, malformed JSON-LD from
+recipe sites. The normalizer protects compound ingredients ("green onion" keeps
+"green" because it's in the protected compounds list).
 
 ---
 
@@ -173,28 +174,28 @@ displayed as SVG progress rings on recipe cards.
        SSE endpoint → filters out acting user → User B sees toast
 ```
 
-Fallback polling endpoint (`?since=<ISO timestamp>`) for reconnection.
-30-second keepalive prevents proxy timeouts.
+Fallback polling endpoint (`?since=<ISO timestamp>`) for reconnection. 30-second
+keepalive prevents proxy timeouts.
 
 ---
 
 ## AI Integrations
 
-All optional — the app works fully without any API keys.
+All optional. The app works fully without any API keys.
 
-| Feature | Model | Timeout |
-|---------|-------|---------|
-| Recipe extraction (text) | Claude Haiku | 15s |
-| Recipe extraction (image) | Claude Sonnet | 30s |
-| Recipe generation | Claude Haiku | 15s |
-| Recipe enhancement | Claude Haiku | 10s |
-| Substitution hints | Claude Haiku | 8s |
-| Voice transcription | Groq Whisper | 15s |
-| Speech item parsing | Claude Haiku | 4s |
+| Feature                   | Model         | Timeout |
+| ------------------------- | ------------- | ------- |
+| Recipe extraction (text)  | Claude Haiku  | 15s     |
+| Recipe extraction (image) | Claude Sonnet | 30s     |
+| Recipe generation         | Claude Haiku  | 15s     |
+| Recipe enhancement        | Claude Haiku  | 10s     |
+| Substitution hints        | Claude Haiku  | 8s      |
+| Voice transcription       | Groq Whisper  | 15s     |
+| Speech item parsing       | Claude Haiku  | 4s      |
 
-Rate limited to 10/day per user per feature via `UsageEvent` table.
-Shared `checkAndRecordAiUsage()` utility — DB write failures are
-non-fatal (rate limiting is a safety net, not a correctness gate).
+Rate limited to 10/day per user per feature via `UsageEvent` table. Shared
+`checkAndRecordAiUsage()` utility. DB write failures are non-fatal (rate
+limiting is a safety net, not a correctness gate).
 
 ---
 
@@ -203,8 +204,8 @@ non-fatal (rate limiting is a safety net, not a correctness gate).
 **Infrastructure (Express):** 10/min on auth routes, 100/min on mutations,
 1000/min general. Uses `fly-client-ip` to prevent IP spoofing.
 
-**Application:** 10 AI calls/day per user per feature, tracked in
-`UsageEvent` table.
+**Application:** 10 AI calls/day per user per feature, tracked in `UsageEvent`
+table.
 
 ---
 
@@ -223,8 +224,8 @@ non-fatal (rate limiting is a safety net, not a correctness gate).
 857 tests across 39 files (Vitest) + Playwright e2e.
 
 Key coverage: ingredient parser (263 tests), recipe matching, shopping list
-generation, household events, LLM integrations (MSW mocks), AI rate
-limiting, Stripe webhooks, shopping → inventory pipeline (e2e).
+generation, household events, LLM integrations (MSW mocks), AI rate limiting,
+Stripe webhooks, shopping → inventory pipeline (e2e).
 
 ---
 

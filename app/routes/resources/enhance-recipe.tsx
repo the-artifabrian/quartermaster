@@ -1,12 +1,12 @@
 import { data } from 'react-router'
 import { z } from 'zod'
+import { checkAndRecordAiUsage } from '#app/utils/ai-rate-limit.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	type EnhanceableFields,
 	enhanceRecipeMetadata,
 } from '#app/utils/recipe-enhance-llm.server.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
-import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { type Route } from './+types/enhance-recipe.ts'
 
 const DAILY_LIMIT = 10
@@ -35,19 +35,12 @@ export async function action({ request }: Route.ActionArgs) {
 
 	const { recipeId } = parsed.data
 
-	// Rate limit: 10/day per user
-	const todayStart = new Date()
-	todayStart.setHours(0, 0, 0, 0)
-
-	const usageCount = await prisma.usageEvent.count({
-		where: {
-			userId,
-			type: 'recipe_enhance_llm_call',
-			createdAt: { gte: todayStart },
-		},
-	})
-
-	if (usageCount >= DAILY_LIMIT) {
+	const { allowed } = await checkAndRecordAiUsage(
+		userId,
+		'recipe_enhance_llm_call',
+		DAILY_LIMIT,
+	)
+	if (!allowed) {
 		return data(
 			{
 				error: `You've reached the daily limit of ${DAILY_LIMIT} recipe enhancements. Try again tomorrow.`,
@@ -104,9 +97,6 @@ export async function action({ request }: Route.ActionArgs) {
 			suggestions: null as EnhanceableFields | null,
 		})
 	}
-
-	// Track only after successful LLM response (so failures don't eat rate limit)
-	trackEvent(userId, householdId, 'recipe_enhance_llm_call', { recipeId })
 
 	return data({ error: null, suggestions })
 }

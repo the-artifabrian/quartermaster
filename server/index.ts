@@ -123,7 +123,6 @@ app.use((req, res, next) => {
 		'/onboarding',
 		'/reset-password',
 		'/forgot-password',
-		'/resources/redeem-invite-code',
 		'/settings/profile',
 		'/resources/login',
 		'/resources/verify',

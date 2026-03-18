@@ -23,7 +23,3 @@ export function useWasProPreviously() {
 	return tierInfo?.wasProPreviously ?? false
 }
 
-export function useAvailableInviteCodeCount() {
-	const data = useRouteLoaderData<typeof rootLoader>('root')
-	return data?.availableInviteCodeCount ?? 0
-}

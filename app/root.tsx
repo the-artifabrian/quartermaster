@@ -32,7 +32,6 @@ import { ClientHintCheck, getHints } from './utils/client-hints.tsx'
 import { prisma } from './utils/db.server.ts'
 import { getEnv } from './utils/env.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
-import { getAvailableCodeCount } from './utils/invite-codes.server.ts'
 import { combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
 import { useNonce } from './utils/nonce-provider.ts'
 import { getUserTier, type TierInfo } from './utils/subscription.server.ts'
@@ -166,8 +165,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		wasProPreviously: false,
 	}
 	let householdName: string | null = null
-	let availableInviteCodeCount = 0
-	let hasRedeemedCode = false
 	if (userId) {
 		tierInfo = await getUserTier(userId)
 		const member = await prisma.householdMember.findFirst({
@@ -179,13 +176,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		if (member) {
 			householdName = member.household.name
 		}
-		if (tierInfo.isProActive) {
-			availableInviteCodeCount = await getAvailableCodeCount(userId)
-		}
-		hasRedeemedCode =
-			(await prisma.inviteCode.count({
-				where: { redeemedById: userId },
-			})) > 0
 	}
 
 	const { toast, headers: toastHeaders } = await getToast(request)
@@ -194,8 +184,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			user,
 			tierInfo,
 			householdName,
-			availableInviteCodeCount,
-			hasRedeemedCode,
 			requestInfo: {
 				hints: getHints(request),
 				origin: getDomainUrl(request),

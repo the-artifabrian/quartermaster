@@ -10,13 +10,16 @@ import {
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
+import {
+	checkAndRecordAiUsage,
+	getAiUsageRemaining,
+} from '#app/utils/ai-rate-limit.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	generateRecipeFromInventory,
 	type GeneratedRecipe,
 } from '#app/utils/recipe-generation-llm.server.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
-import { trackEvent } from '#app/utils/usage-tracking.server.ts'
 import { type Route } from './+types/generate.ts'
 
 export const handle: SEOHandle = {
@@ -32,27 +35,16 @@ const DAILY_GENERATION_LIMIT = 10
 export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireProTier(request)
 
-	const startOfDay = new Date()
-	startOfDay.setHours(0, 0, 0, 0)
-
-	const [inventoryCount, todayGenerations] = await Promise.all([
+	const [inventoryCount, generationsRemaining] = await Promise.all([
 		prisma.inventoryItem.count({ where: { householdId } }),
-		prisma.usageEvent.count({
-			where: {
-				userId,
-				type: 'recipe_generation_llm_call',
-				createdAt: { gte: startOfDay },
-			},
-		}),
+		getAiUsageRemaining(
+			userId,
+			'recipe_generation_llm_call',
+			DAILY_GENERATION_LIMIT,
+		),
 	])
 
-	return {
-		inventoryCount,
-		generationsRemaining: Math.max(
-			0,
-			DAILY_GENERATION_LIMIT - todayGenerations,
-		),
-	}
+	return { inventoryCount, generationsRemaining }
 }
 
 type ActionData =
@@ -65,17 +57,12 @@ export async function action({ request }: Route.ActionArgs) {
 	const intent = formData.get('intent')
 
 	if (intent === 'generate') {
-		// Check daily generation limit
-		const startOfDay = new Date()
-		startOfDay.setHours(0, 0, 0, 0)
-		const todayCount = await prisma.usageEvent.count({
-			where: {
-				userId,
-				type: 'recipe_generation_llm_call',
-				createdAt: { gte: startOfDay },
-			},
-		})
-		if (todayCount >= DAILY_GENERATION_LIMIT) {
+		const { allowed } = await checkAndRecordAiUsage(
+			userId,
+			'recipe_generation_llm_call',
+			DAILY_GENERATION_LIMIT,
+		)
+		if (!allowed) {
 			return data({
 				intent: 'generate' as const,
 				recipe: null,
@@ -116,16 +103,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const result = await generateRecipeFromInventory(inventory, preferences)
 
-		const isError = 'error' in result
-		trackEvent(userId, householdId, 'recipe_generation_llm_call', {
-			inventoryCount: inventory.length,
-			mealType: preferences.mealType ?? null,
-			quickMeal: preferences.quickMeal ?? false,
-			hasDescription: Boolean(preferences.description),
-			success: !isError,
-		})
-
-		if (isError) {
+		if ('error' in result) {
 			return data({
 				intent: 'generate' as const,
 				recipe: null,
@@ -234,10 +212,6 @@ export async function action({ request }: Route.ActionArgs) {
 				},
 			},
 			select: { id: true },
-		})
-
-		trackEvent(userId, householdId, 'recipe_generation_saved', {
-			recipeId: recipe.id,
 		})
 
 		return redirect(`/recipes/${recipe.id}`)

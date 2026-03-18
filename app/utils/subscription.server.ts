@@ -160,7 +160,7 @@ export async function requireProTier(request: Request) {
 				type: 'message',
 				title: 'Pro access ended',
 				description:
-					'Your data is safe. Subscribe or redeem a code to continue.',
+					'Your data is safe. Subscribe to continue.',
 			})
 		}
 		throw await redirectWithToast('/upgrade', {

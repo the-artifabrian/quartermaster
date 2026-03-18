@@ -35,8 +35,6 @@ model User {
   householdEvents    HouseholdEvent[]
   subscription       Subscription?
   usageEvents        UsageEvent[]
-  inviteCodesCreated  InviteCode[] @relation("CreatedInviteCodes")
-  inviteCodesRedeemed InviteCode[] @relation("RedeemedInviteCodes")
 }
 
 model Password {
@@ -163,7 +161,6 @@ model Household {
   inventoryItems    InventoryItem[]
   mealPlans         MealPlan[]
   shoppingLists     ShoppingList[]
-  usageEvents       UsageEvent[]
 }
 
 model HouseholdMember {
@@ -403,38 +400,13 @@ model HouseholdEvent {
   @@index([householdId, type, createdAt])
 }
 
-model InviteCode {
-  id           String    @id @default(cuid())
-  code         String    @unique
-  type         String    // "admin" | "earned"
-  grantsDays   Int       @default(60)
-  expiresAt    DateTime?
-  redeemedAt   DateTime?
-  milestoneKey String?
-
-  createdBy   User   @relation("CreatedInviteCodes", fields: [createdById], references: [id], onDelete: Cascade)
-  createdById String
-
-  redeemedBy   User?   @relation("RedeemedInviteCodes", fields: [redeemedById], references: [id], onDelete: SetNull)
-  redeemedById String?
-
-  createdAt DateTime @default(now())
-
-  @@index([createdById])
-  @@index([redeemedById])
-}
-
 model UsageEvent {
-  id          String     @id @default(cuid())
-  type        String
-  payload     String     @default("{}")
-  createdAt   DateTime   @default(now())
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      String
-  household   Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
-  householdId String?
+  id        String   @id @default(cuid())
+  type      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
 
   @@index([type, createdAt])
-  @@index([householdId, createdAt])
   @@index([userId, createdAt])
 }

@@ -2,7 +2,6 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { GettingStartedChecklist } from '#app/components/getting-started-checklist.tsx'
-import { InviteCodeBanner } from '#app/components/invite-code-banner.tsx'
 import { RecipeCard, RecipeCardGrid } from '#app/components/recipe-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import {
@@ -551,9 +550,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				</div>
 
-				<div className="mb-4">
-					<InviteCodeBanner />
-				</div>
 				<GettingStartedChecklist onboarding={onboarding} />
 
 				{/* Recipe Grid */}

@@ -58,7 +58,7 @@ what to make":
 | Real-time | Server-Sent Events |
 | Storage | S3-compatible (Tigris) with Sharp image processing |
 | Deployment | [Fly.io](https://fly.io/) with LiteFS + Docker |
-| Testing | [Vitest](https://vitest.dev/) (860+ unit/integration) + [Playwright](https://playwright.dev/) (e2e) |
+| Testing | [Vitest](https://vitest.dev/) (850+ unit/integration) + [Playwright](https://playwright.dev/) (e2e) |
 
 Bootstrapped from the [Epic Stack](https://www.epicweb.dev/epic-stack).
 
@@ -104,6 +104,7 @@ npx prisma studio    # Database GUI
 
 ## Docs
 
+- [Architecture](docs/ARCHITECTURE.md) — System design, data flow, matching algorithm
 - [Development Plan](docs/DEVELOPMENT_PLAN.md) — Status, technical debt, backlog
 - [Design System](docs/DESIGN_SYSTEM.md) — Typography, colors, spacing, components
 - [Features](docs/FEATURES.md) — Detailed feature reference

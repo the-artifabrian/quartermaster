@@ -1,295 +1,101 @@
 # Quartermaster - Feature Reference
 
-Built to replace 100+ recipes scattered across Apple Notes. Track what's in your
-kitchen, see what you can cook, plan the week, and generate a shopping list. The
-whole loop — from "what do I have?" to "what should I make?" to "what do I need
-to buy?" — in one app.
-
-High-level feature reference (not exhaustive). For the roadmap, see
-[DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md). For design system, see
-[DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md).
+Track what's in your kitchen, see what you can cook, plan the week, and
+generate a shopping list. The whole loop — from "what do I have?" to "what
+should I make?" to "what do I need to buy?" — in one app.
 
 ### What makes this different
 
-Most of the features below are table stakes for a recipe app. Three things
-aren't:
-
-1. **Inventory-aware recipe matching** — "What can I make?" with 4-level fuzzy
-   matching, match rings on every recipe card. No competitor offers this.
+1. **Inventory-aware recipe matching** — 4-level fuzzy matching with match
+   rings on every recipe card
 2. **Closed-loop pipeline** — Plan → shop → check off → restock inventory →
-   discover recipes → plan again. The shopping list feeds inventory, inventory
-   feeds recipe discovery, discovery feeds planning. One loop, not disconnected
-   features.
-3. **Cookbook-quality design without photos** — Most recipes don't have images.
-   The app is designed around that reality with warm serif typography, not
-   around it.
-
-Everything else (cooking timers, scaling, household sharing, AI features) is
-execution quality, not differentiation.
+   discover recipes → plan again
+3. **Cookbook-quality design without photos** — warm serif typography treats
+   the recipe text as the main event
 
 ---
 
-## Recipe Management
+## Recipes
 
-- Full CRUD with title, description, servings, prep/cook time, ingredients,
-  instructions, personal notes
-- Image uploads (S3-compatible, max 3MB, JPEG/PNG/WebP)
-- Full-text search across title, ingredients, and description
-- Sort (5 options), cook-time filter, favorites filter, ready-to-cook toggle
-- Recipe scaling with +/- servings controls and fraction display
-- Metric/imperial toggle: one-tap weight conversion for ingredients. All
-  volume units (cups, fl oz, pints, quarts, gallons) convert to grams via
-  ingredient density table (~70 ingredients); unknown ingredients fall back to
-  ml (marked approximate). Weight units (oz, lb) convert to g/kg; oz
-  auto-detects fluid ounces for known liquids. Temperature conversion in
-  instructions (°F→°C). Composes with serving scaling. Persists via
-  localStorage
-- Cooking mode: interactive ingredient checkboxes and instruction cross-off with
-  localStorage persistence (keyed by recipeId, 7-day auto-expiry, cleared on
-  cook log). Auto-scrolls to next unchecked step when checking off a step.
-  Instructions separated by subtle dividers for scannability
-- Inline timers: auto-detected from instruction text ("simmer for 15 minutes" →
-  one-tap start), up to 5 concurrent timers with floating widget that persists
-  across navigation, alarm sound, wake lock
-- Auto-detected temperature conversion tooltips (F↔C on hover/tap)
-- Print-friendly recipe layout
-- Recipe share button copies a public link to clipboard (`/share/$recipeId`)
-  with explicit "public link" warning in tooltip and toast
-- Public share page (`/share/$recipeId`) with OG meta tags, JSON-LD, recipe
-  scaling, interactive cooking mode (checkboxes, cross-off, auto-scroll,
-  dividers), inline timers, collapsible ingredients on mobile, "Save to My
-  Recipes" for logged-in users, sign-up CTA for non-users. Shares components
-  with recipe detail page (`RecipeMetadataCard`, `IngredientList`,
-  `RecipeInstructionsList`) for consistent UX
-- Import from URL (JSON-LD scraping with text fallback, follows redirects),
-  quick text entry, JSON export. AI recipe extraction (Pro): paste informal
-  text (social media captions, blog posts) or upload a screenshot and extract
-  a structured recipe via LLM vision (Claude Sonnet for images with sharp
-  downscaling to 1024px JPEG for cost control, Haiku for text). Same import
-  preview/save flow. 10/day rate limit
-- Bulk import: paste plain-text recipes or upload `.md`/`.txt` files. `---`
-  separator for multiple recipes per batch (max 50). Handles checkbox format and
-  sub-section headers (become ingredient heading rows). Post-import nudge CTA
-- Import quality flags: filterable via `?quality=flagged` (missing ingredients,
-  missing instructions, or duplicate titles) — computed from main query, no
-  persistent banner
-- AI recipe generation from inventory (Pro): prompt-first UI with optional
-  meal-type filter chips and quick-meal toggle. Generates a recipe from current
-  inventory. Metric units by default (except tsp/tbsp). Preview before saving, subtle
-  sparkles icon on recipe cards for AI-generated recipes. Feature-specific error messages (rate limit, timeout,
-  parse failure) instead of generic toasts
-- Add to meal plan from recipe detail: calendar icon in action bar opens a
-  popover with 7-day date picker (Today + next 6 days) and meal type selector.
-  Submits to `/plan` assign intent, success toast confirms day and meal
-- "I Made This" cook logging with success toast
-- Inline inventory status on recipe detail ingredient list: summary footer shows
-  "You have X/Y ingredients" with "Add N missing to Shopping List" button
-- "Last cooked" stats on recipe cards: desktop shows cook count + relative time;
-  mobile shows compact "Made Nx" badge in the metadata row
-- Ingredient headings: section dividers within ingredient lists displayed as
-  styled headers. Created via "+ Heading" button and positioned with
-  drag-and-drop. Skipped by shopping list, matching, and JSON-LD
-- Linked ingredients: any ingredient can hyperlink to another recipe (e.g.
-  "200g sausage" linking to a fennel sausage recipe). Set via recipe search
-  popover on the edit page, renders as a navigable link on the detail page.
-  Self-linking prevented, links nullified on target recipe deletion
-  (`onDelete: SetNull`). Not rendered on the public share page
-- Optional ingredient detection: ingredients with "optional" in their notes
-  field are excluded from inventory matching, match percentage rings, X/Y
-  ingredient counts, shopping list generation, meal suggestions, and
-  ingredient overlap scoring — same treatment as staples and headings
-- Drag-and-drop ingredient reordering (`@dnd-kit/sortable`). Collapsed rows
-  show a one-line summary; expanded rows show a controls toolbar (drag, collapse,
-  remove) above full-width name/amount/unit/notes inputs
-- Voice-to-text input (Pro): one-tap mic button records audio, auto-stops on
-  silence (~1.5s), transcribes via Groq Whisper (whisper-large-v3-turbo,
-  multi-language), and parses structured qty/unit/name via Claude Haiku LLM
-  with regex fallback. Single items populate the input for review; multiple
-  items are bulk-added with ephemeral highlight. Pre-LLM quality gate rejects
-  Whisper hallucination artifacts. Available on shopping list and inventory
-  (desktop + mobile FAB). 30s max recording, iOS Safari AudioContext handling
-- AI recipe enhance (Pro): one-click metadata inference (description, servings,
-  prep/cook times) with before/after review modal. Feature-specific error
-  messages. Primarily for cleaning up bulk-imported recipes
-- Ingredient substitution hints (Pro): click missing-ingredient pills to see
-  substitutions. Static DB + LLM fallback (cached, errors bypass cache).
-  Inventory-aware (highlights substitutes you have), recipe-context-aware.
-  Distinguishes "no substitutions found" from "AI unavailable" in the UI.
-  "Use this" temporarily swaps ingredient in both list and instruction text
-  (client-side, revertible)
+- Full CRUD, image uploads, full-text search, sort/filter, favorites
+- Serving scaling with fraction display, metric/imperial toggle with
+  ingredient density table (~70 ingredients)
+- Cooking mode: ingredient checkboxes, instruction cross-off, auto-scroll,
+  localStorage persistence with 7-day expiry
+- Inline timers auto-detected from instruction text, up to 5 concurrent
+  with floating widget, alarm sound, wake lock
+- Temperature conversion tooltips (F/C), print layout
+- Public share pages with OG tags, JSON-LD, full cooking mode
+- Import: URL (JSON-LD scraping), quick text entry, bulk import (.md/.txt,
+  max 50 per batch), import quality flags
+- AI recipe extraction: paste text or upload screenshot, Claude Sonnet for
+  images (1024px downscale), Haiku for text. 10/day rate limit
+- AI recipe generation: create recipes from current inventory with meal-type
+  filters and quick-meal toggle
+- AI recipe enhance: infer missing metadata (description, servings, times)
+- Voice-to-text: Groq Whisper transcription with hallucination detection,
+  Claude Haiku structured parsing with regex fallback
+- Ingredient substitution hints: static DB + LLM fallback, inventory-aware,
+  recipe-context-aware, temporary client-side ingredient swap
+- Add to meal plan from recipe detail, cook logging, ingredient headings,
+  linked ingredients (cross-recipe hyperlinks), optional ingredient detection
+- Drag-and-drop ingredient reordering
 
-## Inventory System
+## Inventory
 
-- Flat alphabetical list of items. No locations/categories — inventory is just
-- No quantities or expiry — inventory is a rough signal of what you have, not a
-  ledger of how much
-- Item age labels: every item shows a compact relative age next to its name
-  ("today", "3 days", "2 weeks", "1 month") — subtle metadata, not competing
-  with the name
-- Stale items review: when 5+ items are older than 30 days, an amber banner
-  nudges the user to review. "Review" filters the list to stale items only for
-  quick swipe-to-delete cleanup; count updates in real-time. "All caught up!"
-  empty state when done. Dismisses for 7 days via localStorage, then reappears
-  if stale items remain
-- Inline editing: tap item name to rename in-place (save on blur/Enter, cancel
-  on Escape). Dedup check prevents renaming to a name that already exists
-- Card actions: swipe-left-to-delete (mobile, tap revealed button to confirm),
-  overflow menu ("Add to shopping list" with success toast, delete with two-tap
-  confirmation). Optimistic updates for all actions
-- Client-side search/filter across all items
-- Quick-add with duplicate detection via canonical name matching — warns with
-  "Update existing" / "Add anyway" choice
-- Full add form (`/inventory/new`) also detects duplicates with update/add-anyway
-  banner
-- Bulk add (staples onboarding) silently skips duplicates
-- Ingredient normalization pipeline: ~40 modifier strippers, ~25 synonym groups,
-  pluralization, compound ingredient protection. Powers matching, shopping
-  consolidation, overlap scoring, and waste detection
-- Ingredient parser: nested parenthetical quantities, "to taste", ranges,
-  written-out numbers, fl oz, period-tolerant unit abbreviations, JSON-LD
-  cleanup, descriptor-aware comma splitting
-- "What can I make?" always-on when inventory exists -- recipe cards show SVG
-  match progress rings, default sort by match percentage, 4-level fuzzy matching
-  (exact, synonym, core word, multi-word containment)
+- Flat alphabetical list — no categories, no quantities, no expiry
+- Item age labels, stale item review (30-day threshold)
+- Inline editing, swipe-to-delete, quick-add with duplicate detection
+- Bulk add (staples onboarding), canonical name dedup
+- Normalization pipeline: ~40 modifier strippers, ~25 synonym groups,
+  pluralization, compound ingredient protection
+- "What can I make?" — SVG match rings on recipe cards, default sort by
+  match %, 4-level fuzzy matching (exact → synonym → core word → containment)
+
 ## Meal Planning & Shopping
 
-- Weekly calendar view (Monday-start, two-row 4+3 layout, today emphasis, 4 meal
-  types per day)
-- Click-to-assign recipes to meal slots (inline dropdown with search),
-  multiple recipes per slot
-- Per-entry serving size overrides with +/- controls (clamped 1-999);
-  passthrough to recipe detail via `?servings=N` query param
-- Mark meals as "cooked" with optimistic toggle; quick "I made this" one-tap
-  action (logs cook, simple toast)
-- Uncooked meal reminders: plan page banner for planned-but-uncooked meals from
-  today or yesterday (time-of-day gated). 1-tap "Yes, I made it" (logs cook)
-  or "Skip" (session dismiss)
-- "Up next" banner (current week): next chronological meal to cook today with
-  time-of-day awareness. Empty state suggests a favorite with one-tap add
-- Copy week to next week (preserves servings, skips duplicates)
-- Suggest Meals (Pro): fills the week with smart suggestions. Two pools —
-  favorites not recently cooked, then highest inventory match — scored by
-  composite (inventory match % × meal type fit). Title-based recipe
-  classification (main/dessert/breakfast/side/condiment/beverage) with priority
-  chain (protein words override head-noun, so "Chicken with Cream Sauce" is a
-  main course not a condiment). Condiments and beverages hard-filtered; desserts
-  deprioritized for dinner, promoted for snack. Variety enforcement: max 2 of
-  same protein per week, Jaccard ingredient overlap > 0.5 rejected. Existing
-  planned entries seed the variety state. Recently cooked recipes (14 days)
-  excluded. Past days and past meal types (time-of-day aware) skipped in modal.
-  Button hidden for fully past weeks. Meal type selector (dinner, lunch,
-  breakfast, snack) with per-type slot detection. Review modal shows day rows
-  with reason badges (Favorite/Good match), inline recipe picker for swaps, and
-  "Fill Plan" confirm. Post-confirm toast links to shopping list generation
-- Recipe selector dropdown (floating overlay, doesn't break calendar grid):
-  favorites-first partition with section headers ("Favorites" / "All Recipes"),
-  weeknight-aware sorting (Mon-Thu quick-cook recipes first) within each group,
-  heart icon on favorites, cook count badge, cook time display
-- Single-use ingredient waste alerts with recipe suggestions
-- Standalone shopping list at `/shopping` with:
-  - Generate from meal plan (week picker for prev/current/next week, skips
-    cooked meals) with dedup against existing manual/recipe items
-  - Quick add (open by default, collapsible) with smart duplicate/inventory
-    warnings and "Add Anyway" bypass
-  - Auto-categorization (produce, dairy, meat, pantry, frozen, bakery,
-    household, other) for inventory pipeline and household item filtering.
-    Flat alphabetical list — no category headers (intentional: category
-    grouping was tried and removed as it added visual noise without
-    helping real shopping trips)
-  - Inline item editing (name, quantity, unit)
-  - Checked/total counter in the page header (e.g. "Shopping List (3/10)")
-  - Client-side search/filter, print-friendly layout
-  - Inventory-aware: items already in stock are pre-checked instead of omitted
-    — users can uncheck any they actually need. Staple ingredients
-    (salt, pepper, water, oil), optional ingredients, and ingredient headings
-    are filtered out entirely
-  - Optimistic UI on checkbox toggle and delete (instant response via
-    `useFetcher`)
-  - Live-refresh via SSE for all shopping list events (generate, add, clear,
-    to-inventory, toggle, edit, delete; debounced 500ms)
-  - Check-off -> inventory pipeline: select all/deselect all, checkbox per item.
-    "Already in inventory" indicator for items matching existing inventory
-    (canonical name match) — pre-deselected with muted styling.
-    Household items cleared but not added to inventory
+- Weekly calendar (Mon-start, 4 meal types/day), per-entry serving overrides
+- Cooked/uncooked tracking, uncooked meal reminders, "up next" banner
+- Copy week, suggest meals (favorites + inventory match scoring, variety
+  enforcement, meal-type classification, Jaccard overlap filtering)
+- Recipe selector: favorites-first, weeknight-aware sorting, cook stats
+- Single-use ingredient waste alerts
+
+**Shopping list:**
+- Generate from meal plan (week picker, skips cooked, dedup, inventory-aware)
+- Quick add with duplicate/inventory warnings
+- Auto-categorization, inline editing, checked counter, search/filter, print
+- Inventory-aware: in-stock items pre-checked, staples/optionals filtered out
+- Optimistic UI, live-refresh via SSE (debounced 500ms)
+- Check-off → inventory pipeline with canonical name matching
 
 ## Household Sharing
 
-- One household per user (auto-created on signup), owner/member roles
-- All data scoped to household (recipes, inventory, meal plans, shopping lists).
-  CookingLog stays user-scoped
-- Invite system: token-based links with 7-day expiry, concurrent-accept guard
-- Member management: rename household, remove members, revoke invites, leave
-- Data on leave: sole members move all data; multi-member leaves deep-copy
-  recipes
-- Real-time shopping list sync via SSE + 30s database polling fallback:
-  shopping list events and member join/leave trigger toasts. Client-side dedup.
-  Copper activity dot on Shop bottom-nav tab when shopping events arrive from
-  household members — auto-clears when visiting `/shopping` (session-scoped,
-  Pro-only)
-- Auto-prune events older than 30 days
+- One household per user (auto-created), owner/member roles
+- All data household-scoped, CookingLog user-scoped
+- Token-based invites (7-day expiry), member management, data-on-leave handling
+- Real-time shopping sync via SSE + 30s polling fallback
+- Activity dot on Shop tab, auto-prune events after 30 days
 
-## Onboarding
+## Onboarding & Subscriptions
 
-- "Getting Started" checklist on `/recipes`: tracks 3 steps (add recipe, stock
-  inventory, plan a meal) with progress bar. All users see all 3 steps.
-  Dismissible, auto-hides on completion
-- Pantry staples onboarding on empty inventory with post-add success CTA
-  (browse recipes or view inventory)
-- Progressive post-action nudges: contextual banners that guide users through
-  the core loop (recipe → inventory → meal plan → shopping list). Each nudge
-  appears only when the prior milestone is complete and the next is not.
-  Dismissible per-user via localStorage. 4 nudges: "Stock your kitchen" on
-  recipe detail, "Plan your week" on inventory, "Generate shopping list"
-  on meal plan, "Check items off" on shopping list
-
-- Free: unlimited recipes, up to 50 inventory items, smart matching, basic meal
-  planning calendar, basic shopping list generation, household sharing. Pro:
-  unlimited inventory, planning intelligence (suggest meals, copy week,
-  waste alerts), full shopping pipeline (live-refresh,
-  days Pro, grants 2 starter codes) coexist with Stripe and trial
-  redeemed a code (localStorage dismiss, inline redeem form)
-- Pro-only features gated inline (buttons/panels hidden for free users). Graceful
-  downgrade with data preservation, expiry nudges at 7d/3d
-- Admin pages: `/admin/users` (analytics), `/admin/subscriptions` (codes +
-  tiers)
-- Subscription system is implemented but not actively marketed — tiers remain
-  in code as a reference implementation
+- Getting Started checklist (3 steps), pantry staples onboarding
+- Progressive nudges through the core loop (4 contextual banners)
+- Optional Stripe subscription (Free/Pro tiers) with graceful downgrade
+- Admin pages for user analytics and tier management
 
 ## UI & Infrastructure
 
-- Custom color system (sage green + peach accent, OKLch), Young Serif/DM Sans
-  typography
-- Landing page with serif hero, 4-step feature story, dual CTAs. Shared
-  marketing footer (About, Support, Privacy, Terms) on all public pages
-  via `_marketing.tsx` layout route. Secondary pages (about, privacy, tos,
-  support) use Young Serif headings and back-nav links
-- Warm empty states with serif headings across all pages
-- Mobile-first responsive layout with bottom nav (sliding pill indicator)
-- 44px minimum touch targets across all interactive elements (Apple HIG),
-  `touch-action: manipulation` to eliminate 300ms tap delay
-- Accessibility: skip-to-content link, semantic HTML landmarks (`<header>`,
-  `<main>`), aria-labels on all interactive controls, focus-visible ring
-  indicators on custom checkbox lists, consistent modal keyboard behavior (focus
-  trap, focus restore, Escape to close via shared `useModal` hook),
-  `prefers-reduced-motion` CSS support
-- SEO: descriptive titles, canonical URLs, OG/Twitter meta, JSON-LD (Recipe,
-  WebApplication, FAQPage), sitemap, robots.txt
-- PWA with service worker for offline access, iOS standalone meta tags, and
-  `apple-touch-startup-image` splash screens for all device sizes (light + dark,
-  generated by `other/generate-splash-screens.mjs`)
-- Full data export (JSON) + import round-trip with duplicate detection and
-  per-section error isolation
-- Security: CSP (nonce-based), streaming upload size enforcement, MIME
-  validation, Zod on all bulk ops, SSRF protection (including post-redirect
-  validation), input length limits, production sourcemaps disabled by default
-  (only generated when Sentry is configured), error message sanitization on
-  public-facing pages, user enumeration prevention on forgot-password
-- Usage analytics via `UsageEvent` model (recipe actions, event counts). Stats
-  page at Settings > Data (cooking activity, meal planning)
-- Vitest unit/integration tests + Playwright e2e tests (including shopping →
-  inventory pipeline end-to-end coverage)
-- Deployed on Fly.io with LiteFS, custom domain, HTTPS
+- Custom color system (sage/peach, OKLch), Young Serif + DM Sans typography
+- Mobile-first with bottom nav, 44px touch targets, PWA with offline support
+- Accessibility: skip-to-content, semantic landmarks, aria-labels, focus
+  management, `prefers-reduced-motion`
+- SEO: OG/Twitter meta, JSON-LD, sitemap, canonical URLs
+- Security: nonce-based CSP, SSRF protection, Zod validation, magic-byte
+  MIME checks, PwnedPasswords, user enumeration prevention
+- Full data export/import with duplicate detection
+- 857 Vitest tests + Playwright e2e, deployed on Fly.io with LiteFS
 
 ---
 
-_Last updated: March 9, 2026._
+_Last updated: March 18, 2026._

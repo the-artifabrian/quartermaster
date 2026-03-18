@@ -1,102 +1,84 @@
-# Quartermaster - Development Plan
+# Development Plan
 
-## Project Overview
+## Status
 
-**Quartermaster** is a personal recipe management web application built to
-replace 100+ recipes scattered across Apple Notes. It provides searchable recipe
-storage, kitchen inventory tracking, meal planning, and smart shopping list
-generation.
+Feature-complete and daily-driven since February 2026. Built in ~3 weeks
+using Claude Code for rapid iteration.
 
-Built in ~3 weeks (starting February 6, 2026) using Claude Code as an AI coding
-assistant for rapid iteration.
-
-> For the full feature catalog, see [FEATURES.md](./FEATURES.md). For design
-> system details, see [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md).
+For the full feature catalog, see [FEATURES.md](./FEATURES.md). For
+architecture, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ---
 
-## Current Status: Personal Tool (March 2026)
+## Design Decisions
 
-The app is feature-complete and in maintenance mode. Daily-driven since
-February 12, 2026, fully replacing Apple Notes for recipe management, meal
-planning, and shopping.
+**Inventory as rough signal** — no quantities, no expiry dates, no
+auto-subtraction. Inventory serves two purposes: match rings on recipe
+cards (do you have the ingredient?) and advisory shopping deductions
+(in-stock items are pre-checked, not omitted). This keeps the mental
+overhead low — you're answering "do I have chicken?" not "do I have
+325g of chicken?"
 
-### Retrospective
+**No category grouping on shopping list** — was built, tried, and removed.
+Flat alphabetical list works better for real shopping trips than
+produce/dairy/meat sections.
 
-Beta testers import recipes and stock inventory but don't commit to the full
-plan→shop→restock loop. The core differentiator — inventory-aware matching and
-the closed-loop pipeline — requires weekly discipline that most people won't
-sustain. There's a genuine gap in the self-hosted space (no app combines good
-cooking UX + inventory intelligence + the full pipeline), but serving that
-audience would require Docker packaging, community management, and ongoing
-support.
-
-**Current posture:** Personal/household tool. Fix friction as it surfaces;
-don't build new features speculatively. Subscription system is implemented
-but not actively marketed.
-
-### Inventory Mode: Rough Signal
-
-Inventory as rough signal — no quantities, no auto-subtraction. Two purposes:
-match rings (do you have the ingredient?) and advisory shopping deductions
-(pre-checked not omitted). Input flows in via shopping check-off → inventory
-pipeline.
+**No recipe photos required** — most home cooks don't photograph their
+food. The UI is designed around that reality with typography-first cards
+instead of image placeholders.
 
 ---
 
-## Technical Debt
+## Known Technical Debt
 
-- **Fire-and-forget event emission** — `emitHouseholdEvent()` runs async without
-  awaiting. Risk of SQLite concurrency under load. Tests need `vi.mock()`
-- **In-memory matching at scale** — loads all recipes + inventory for matching.
-  Fine at ~135 recipes, profile at 500+
+- **Fire-and-forget event emission** — `emitHouseholdEvent()` runs async
+  without awaiting. Risk of SQLite write contention under heavy concurrent
+  use
+- **In-memory matching at scale** — loads all recipes + ingredients for
+  matching. Fine for hundreds of recipes, may need profiling at 500+
 
 ---
 
-## Infrastructure (Nice-to-Have)
+## Infrastructure Wishlist
 
-- [ ] **Automated backups** — scheduled SQLite backup to S3 (Litestream or
-      cron)
-- [ ] **Monitoring & alerting** — uptime monitoring, error rate alerts
+- [ ] Automated SQLite backups to S3 (Litestream or cron)
+- [ ] Uptime monitoring and error rate alerts
 
 ---
 
 ## Backlog
 
-Personal-use wishlist. Build only if friction surfaces during daily use.
+Ideas for future development. Contributions welcome.
 
-- [ ] **Value recap panel** — lightweight summary of user benefit (meals cooked,
-      plan completion, recipes added this week)
 - [ ] **Defrost & prep-ahead reminders** — "You're cooking Chicken Tikka
-      tomorrow — the chicken is in your freezer." Also supports user-editable
-      prep-ahead notes (marinating, soaking, dough rising)
-- [ ] **Quick restock** — after shopping, show recently removed inventory items
-      for one-tap re-add
-- [ ] **Leftovers/batch awareness** — if a recipe serves 6 and you're 2 people,
-      that's 3 meals not 1
-- [ ] **Social media recipe import** — save recipes from TikTok, Instagram
-      Reels, YouTube Shorts (video parsing / OCR / LLM extraction)
+      tomorrow — the chicken is in your freezer." Supports prep-ahead
+      notes (marinating, soaking, dough rising)
+- [ ] **Quick restock** — after shopping, show recently removed inventory
+      items for one-tap re-add
+- [ ] **Leftovers/batch awareness** — if a recipe serves 6 and you cook
+      for 2, that's 3 meals not 1
+- [ ] **Video recipe import** — save recipes from TikTok/Instagram/YouTube
+      via video parsing or LLM extraction
 - [ ] **Receipt scanning → inventory** — camera capture of grocery receipts
 
 ---
 
-## Deferred
+## Deferred (and why)
 
-Ideas evaluated and set aside. Revisit if circumstances change.
+Ideas evaluated and intentionally set aside.
 
-- **Step-by-step cooking mode** — current cooking view already has checkboxes,
-  timers, wake lock, and temp tooltips
-- **Fuzzy/typo-tolerant search** — at 135 recipes, users know the names
-- **Ingredient-based recipe search** — the matching system already does this via
-  inventory
-- **Offline mutations** — massive complexity on a server-rendered form app.
-  Service worker caches pages for reading; optimistic UI is the 80/20 solution
-- **Collections/cookbooks** — tags were built and removed as overengineered.
-  Revisit at 300+ recipes
-- **Nutrition estimates** — large effort (API integration, per-ingredient lookup)
-- **Push notifications** — SSE covers the active-use case
-- **Preventive `React.memo()` / pagination** — no performance problem exists.
-  Profile when there's a problem
+- **Step-by-step cooking mode** — the existing cooking view already has
+  checkboxes, inline timers, wake lock, and temperature tooltips
+- **Fuzzy/typo-tolerant search** — not needed when you know your recipe
+  names. Revisit if the recipe count grows significantly
+- **Offline mutations** — massive complexity for a server-rendered app.
+  Service worker handles read caching; optimistic UI covers the rest
+- **Collections/tags** — was built and removed as overengineered at
+  current scale. Revisit at 300+ recipes
+- **Nutrition estimates** — large effort (API integration, per-ingredient
+  lookup) for uncertain value
+- **Push notifications** — SSE covers the active-use case; push adds
+  platform-specific complexity
 
 ---
 

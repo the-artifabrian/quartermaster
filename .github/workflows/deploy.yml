@@ -184,7 +184,6 @@ jobs:
             --push \
             --image-label ${{ github.sha }} \
             --build-arg COMMIT_SHA=${{ github.sha }} \
-            --build-secret SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }} \
             --app ${{ steps.app_name.outputs.value }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

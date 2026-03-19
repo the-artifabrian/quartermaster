@@ -37,3 +37,4 @@ apple-notes-export/
 .claude/
 .agents/
 .cursor/
+prisma/shadow.db

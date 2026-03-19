@@ -17,34 +17,23 @@ without thinking. Plan meals for the week and it generates a shopping list,
 minus what's already in inventory. Check items off at the store and they flow
 back into inventory for next time.
 
-The UI is built around the reality that most home cooks don't photograph their
-food. No grey placeholders -- warm serif typography and the recipe text carry
-the design.
+## Under the hood
 
-## Features
+The ingredient matching is the core of the app. "Chicken breast" shouldn't match
+"chicken thigh," but "cilantro" should match "coriander," and "rice" absolutely
+should not match "rice vinegar." It uses a 4-level system (exact, synonym, core
+word, multi-word containment) with guards for compounds and cut-sensitive
+proteins.
 
-**Recipes:** URL import, bulk import (Apple Notes, text files), full-text
-search, favorites, serving scaling with fractions, metric/imperial toggle, print
-view, public sharing with OG tags and JSON-LD.
+Shopping list generation is trickier than it sounds: deduplicate ingredients
+across recipes, handle unit conversion, subtract what's already in inventory,
+filter out pantry staples. Add household sharing and now two people need
+real-time sync via SSE so they can check things off the same list at the store.
 
-**Cooking mode:** check off ingredients and steps as you go, inline timers
-auto-detected from recipe text, temperature conversion tooltips, wake lock.
-
-**Inventory:** flat item list with 4-level fuzzy matching (exact, synonym, core
-word, multi-word containment), stale item review, swipe-to-delete.
-
-**Meal planning:** weekly calendar, per-entry serving overrides, uncooked meal
-reminders, copy week, single-use ingredient waste alerts.
-
-**Shopping list:** auto-generated from meal plan (deduped, inventory-aware),
-real-time sync across household members via SSE, check-off to inventory.
-
-**Household sharing:** invite-based, all data scoped to household, real-time
-shopping list sync.
-
-**AI features** (all optional): recipe extraction from text or screenshots,
-recipe generation from inventory, ingredient substitutions, voice input via
-Whisper.
+The AI features chain multiple models (Claude for recipe extraction from
+screenshots and text, Groq Whisper for voice input) with regex fallbacks for
+when the LLM gets creative. All optional, the app runs fine without any API
+keys.
 
 ## Tech stack
 
@@ -69,39 +58,14 @@ Requires Node.js >= 22.
 
 ```bash
 npm install
-cp .env.example .env    # edit with your config -- all API keys are optional
-npm run setup            # database + Playwright
+cp .env.example .env
+npm run setup
 npm run dev              # http://localhost:3000
 ```
 
-### Environment variables
-
-The app runs fully functional with just a database. Everything else is optional:
-
-| Variable                | Required | Purpose                   |
-| ----------------------- | -------- | ------------------------- |
-| `SESSION_SECRET`        | Yes      | Session encryption        |
-| `DATABASE_URL`          | Yes      | SQLite connection string  |
-| `ANTHROPIC_API_KEY`     | No       | AI recipe features        |
-| `GROQ_API_KEY`          | No       | Voice-to-text via Whisper |
-| `STRIPE_SECRET_KEY`     | No       | Subscription billing      |
-| `AWS_*` / `BUCKET_NAME` | No       | Recipe image uploads      |
-| `GOOGLE_CLIENT_ID`      | No       | Google OAuth              |
-| `RESEND_API_KEY`        | No       | Transactional emails      |
-
-## Scripts
-
-```bash
-npm run dev          # Dev server with mocks
-npm run build        # Production build
-npm run start        # Production server
-npm run test         # Unit/integration tests
-npm run test:e2e     # Playwright e2e tests
-npm run typecheck    # Type checking
-npm run lint         # ESLint
-npm run validate     # All checks
-npx prisma studio    # Database GUI
-```
+All external services (Stripe, S3, Google OAuth, email) are mocked in dev, so
+you can clone and run without configuring a single account. See
+[`.env.example`](.env.example) for the full list of options.
 
 ## Docs
 

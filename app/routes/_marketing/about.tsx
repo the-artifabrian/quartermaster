@@ -11,7 +11,7 @@ export const handle: SEOHandle = {
 }
 
 const description =
-	'Quartermaster started from a familiar frustration: recipes scattered everywhere and no idea what\u2019s for dinner. So we built one place for your recipes, your pantry, and your week.'
+	'I had 100+ recipes scattered across Apple Notes and no idea what was for dinner. So I built one place for my recipes, my pantry, and my week.'
 
 export const meta: Route.MetaFunction = ({ matches }) => {
 	return [
@@ -38,23 +38,20 @@ export default function AboutRoute() {
 
 			<div className="text-muted-foreground mt-6 space-y-4 text-base/7">
 				<p>
-					Quartermaster started from a familiar frustration: recipes scattered
-					across bookmarks, screenshots, notes apps, and half-remembered
-					conversations. "What should we have for dinner?" shouldn't be a
-					30-minute research project.
+					I had 100+ recipes scattered across bookmarks, screenshots, Apple
+					Notes, and half-remembered conversations. "What should we have for
+					dinner?" shouldn't be a 30-minute research project every night.
 				</p>
 				<p>
-					So we built the tool we wanted. One place for your recipes, your
-					pantry, your meal plan, and your shopping list. The idea is
-					straightforward: if you know what you have and what you like to cook,
-					the rest should take care of itself. Quartermaster tells you what you
-					can make tonight, helps you plan the week ahead, and writes your
-					shopping list when you're ready.
+					So I built the tool I wanted. One place for your recipes, your
+					pantry, your meal plan, and your shopping list. If you know what you
+					have and what you like to cook, the rest should take care of itself.
+					Quartermaster tells you what you can make tonight, helps you plan the
+					week ahead, and writes your shopping list when you're ready.
 				</p>
 				<p>
-					It's built for people who actually cook at home, not food bloggers or
-					professional chefs, just anyone who wants to spend less time figuring
-					out meals and more time eating them.
+					It's built for people who actually cook at home, not food bloggers
+					or professional chefs. Just anyone who'd rather eat than plan.
 				</p>
 			</div>
 

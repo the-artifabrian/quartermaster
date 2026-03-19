@@ -65,7 +65,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 						type: 'success',
 						title: 'Welcome to Pro!',
 						description:
-							'Your subscription is active. Enjoy the full kitchen experience.',
+							'Your subscription is active. You have access to everything.',
 					})
 				}
 			} catch (err) {
@@ -191,7 +191,8 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					Upgrade Your Kitchen
 				</h1>
 				<p className="text-muted-foreground mt-2 text-lg">
-					Unlock smart suggestions, inventory sync, and the full cooking workflow.
+					Smart suggestions, unlimited inventory, real-time shopping sync, and
+					AI features.
 				</p>
 				{tierInfo.isTrialing ? (
 					<>

@@ -16,6 +16,11 @@ import {
 } from '#app/utils/ai-rate-limit.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
+	AI_FEATURE_USED,
+	RECIPE_AI_GENERATED,
+} from '#app/utils/posthog-events.ts'
+import { captureServerEvent } from '#app/utils/posthog.server.ts'
+import {
 	generateRecipeFromInventory,
 	type GeneratedRecipe,
 } from '#app/utils/recipe-generation-llm.server.ts'
@@ -112,6 +117,14 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 
 		const recipe = result
+
+		captureServerEvent(userId, RECIPE_AI_GENERATED, {
+			recipe_title: recipe.title,
+			ingredient_count: recipe.ingredients.length,
+		})
+		captureServerEvent(userId, AI_FEATURE_USED, {
+			feature: 'recipe_generation',
+		})
 
 		return data({
 			intent: 'generate' as const,

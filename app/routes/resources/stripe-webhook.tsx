@@ -1,4 +1,6 @@
 import type Stripe from 'stripe'
+import { SUBSCRIPTION_ACTIVATED } from '#app/utils/posthog-events.ts'
+import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import {
 	getStripeClient,
 	handleCheckoutCompleted,
@@ -42,9 +44,15 @@ export async function action({ request }: Route.ActionArgs) {
 	try {
 		switch (event.type) {
 			case 'checkout.session.completed': {
-				await handleCheckoutCompleted(
-					event.data.object as Stripe.Checkout.Session,
-				)
+				const session = event.data.object as Stripe.Checkout.Session
+				await handleCheckoutCompleted(session)
+				if (session.client_reference_id) {
+					captureServerEvent(
+						session.client_reference_id,
+						SUBSCRIPTION_ACTIVATED,
+						{ session_id: session.id },
+					)
+				}
 				break
 			}
 			case 'invoice.paid': {

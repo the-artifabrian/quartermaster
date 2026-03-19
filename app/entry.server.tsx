@@ -3,7 +3,6 @@ import { PassThrough } from 'node:stream'
 import { styleText } from 'node:util'
 import { contentSecurity } from '@nichtsam/helmet/content'
 import { createReadableStreamFromReadable } from '@react-router/node'
-import * as Sentry from '@sentry/react-router'
 import { isbot } from 'isbot'
 import { renderToPipeableStream } from 'react-dom/server'
 import {
@@ -34,10 +33,6 @@ export default async function handleRequest(...args: DocRequestArgs) {
 	responseHeaders.set('fly-app', process.env.FLY_APP_NAME ?? 'unknown')
 	responseHeaders.set('fly-primary-instance', primaryInstance)
 	responseHeaders.set('fly-instance', currentInstance)
-
-	if (process.env.NODE_ENV === 'production' && process.env.SENTRY_DSN) {
-		responseHeaders.append('Document-Policy', 'js-profiling')
-	}
 
 	const callbackName = isbot(request.headers.get('user-agent'))
 		? 'onAllReady'
@@ -72,7 +67,13 @@ export default async function handleRequest(...args: DocRequestArgs) {
 									'default-src': ["'self'"],
 									'connect-src': [
 										MODE === 'development' ? 'ws:' : undefined,
-										process.env.SENTRY_DSN ? '*.sentry.io' : undefined,
+										process.env.POSTHOG_HOST ?? undefined,
+										process.env.POSTHOG_HOST
+											? process.env.POSTHOG_HOST.replace(
+													/^(https?:\/\/)([^.]+)/,
+													'$1$2-assets',
+												)
+											: undefined,
 										"'self'",
 									],
 									'font-src': ["'self'", 'https://fonts.gstatic.com'],
@@ -153,5 +154,11 @@ export function handleError(
 		console.error(error)
 	}
 
-	Sentry.captureException(error)
+	void import('./utils/posthog.server.ts').then(({ captureServerEvent }) => {
+		captureServerEvent('server', 'server_error', {
+			error: error instanceof Error ? error.message : String(error),
+			stack: error instanceof Error ? error.stack : undefined,
+			url: request.url,
+		})
+	})
 }

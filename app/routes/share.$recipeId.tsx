@@ -18,10 +18,7 @@ import { getUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { cn } from '#app/utils/misc.tsx'
-import {
-	type AppliedSubstitution,
-	getRecipeJsonLd,
-} from '#app/utils/recipe-detail.ts'
+import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type Route } from './+types/share.$recipeId.ts'
 
 export const handle: SEOHandle = {
@@ -210,9 +207,6 @@ export async function action({ params, request }: Route.ActionArgs) {
 
 // --- Main component ---
 
-const noSubstitutions = new Map<string, AppliedSubstitution>()
-function noop() {}
-
 export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 	const { recipe, isLoggedIn, alreadySaved } = loaderData
 	const saveFetcher = useFetcher()
@@ -395,11 +389,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 									onToggle={toggleIngredient}
 									ratio={ratio}
 									missingIngredientIds={[]}
-									isProActive={false}
 									recipeId={recipe.id}
-									substitutions={noSubstitutions}
-									onApplySubstitution={noop}
-									onRevertSubstitution={noop}
 									shoppingFetcher={saveFetcher}
 									showFooter={false}
 								/>
@@ -412,7 +402,6 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 						instructions={recipe.instructions}
 						checkedSteps={checkedSteps}
 						onToggleStep={toggleStep}
-						substitutions={noSubstitutions}
 						recipeName={recipe.title}
 					/>
 				</div>

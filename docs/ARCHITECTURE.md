@@ -189,7 +189,6 @@ All optional. The app works fully without any API keys.
 | Recipe extraction (image) | Claude Sonnet | 30s     |
 | Recipe generation         | Claude Haiku  | 15s     |
 | Recipe enhancement        | Claude Haiku  | 10s     |
-| Substitution hints        | Claude Haiku  | 8s      |
 | Voice transcription       | Groq Whisper  | 15s     |
 | Speech item parsing       | Claude Haiku  | 4s      |
 

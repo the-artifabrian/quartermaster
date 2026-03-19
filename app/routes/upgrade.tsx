@@ -131,7 +131,6 @@ const proFeatures = [
 	'Smart meal suggestions',
 	'Advanced shopping (live-refresh, inventory sync)',
 	'Real-time shopping list sync',
-	'AI substitution hints',
 	'AI recipe generation',
 ]
 

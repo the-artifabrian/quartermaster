@@ -40,11 +40,7 @@ import {
 	roundMetricAmount,
 } from '#app/utils/metric-conversion.ts'
 import { cn } from '#app/utils/misc.tsx'
-import {
-	type AppliedSubstitution,
-	extractPrimaryIngredient,
-	getRecipeJsonLd,
-} from '#app/utils/recipe-detail.ts'
+import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import {
 	buildInventoryLookup,
@@ -53,7 +49,9 @@ import {
 	ingredientMatchesInventoryItem,
 	isOptionalIngredient,
 	isStapleIngredient,
+	normalizeIngredientName,
 } from '#app/utils/recipe-matching.server.ts'
+import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
@@ -285,6 +283,111 @@ export async function action({ request, params }: Route.ActionArgs) {
 		return { success: true }
 	}
 
+	if (intent === 'mark-have-ingredient') {
+		const ingredientId = formData.get('ingredientId')
+		invariantResponse(
+			typeof ingredientId === 'string',
+			'Ingredient ID is required',
+		)
+
+		const ingredient = await prisma.ingredient.findFirst({
+			where: { id: ingredientId, recipeId },
+			select: { name: true },
+		})
+		invariantResponse(ingredient, 'Ingredient not found', { status: 404 })
+
+		// Check for existing duplicate in inventory
+		const existingItems = await prisma.inventoryItem.findMany({
+			where: { householdId },
+			select: { id: true, name: true },
+		})
+
+		const match = findMatchingInventoryItem(ingredient.name, existingItems)
+		if (!match) {
+			// Clean up the ingredient name for inventory display:
+			// "mashed ripe banana" → "banana", "boneless skinless chicken thighs" → "chicken thigh"
+			const cleaned = normalizeIngredientName(ingredient.name)
+			const displayName =
+				cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+
+			await prisma.inventoryItem.create({
+				data: {
+					name: displayName,
+					userId,
+					householdId,
+				},
+			})
+		}
+
+		return { success: true, markedHave: ingredientId }
+	}
+
+	if (intent === 'add-single-to-shopping-list') {
+		const ingredientId = formData.get('ingredientId')
+		invariantResponse(
+			typeof ingredientId === 'string',
+			'Ingredient ID is required',
+		)
+		const safeRatio = parseServingRatio(formData)
+		const useMetric = formData.get('useMetric') === '1'
+
+		const ingredient = await prisma.ingredient.findFirst({
+			where: { id: ingredientId, recipeId },
+			select: { name: true, amount: true, unit: true },
+		})
+		invariantResponse(ingredient, 'Ingredient not found', { status: 404 })
+
+		const amount = ingredient.amount
+			? scaleAmount(ingredient.amount, safeRatio)
+			: null
+		const shoppingItem = toShoppingItem(
+			ingredient.name,
+			amount,
+			ingredient.unit,
+			useMetric,
+		)
+
+		let shoppingList = await prisma.shoppingList.findFirst({
+			where: { householdId },
+			include: { items: { where: { checked: false } } },
+		})
+		if (!shoppingList) {
+			shoppingList = await prisma.shoppingList.create({
+				data: { userId, householdId },
+				include: { items: { where: { checked: false } } },
+			})
+		}
+
+		const existingCanonical = new Set(
+			shoppingList.items.map((item) => getCanonicalIngredientName(item.name)),
+		)
+		const isNew = !existingCanonical.has(
+			getCanonicalIngredientName(shoppingItem.name),
+		)
+
+		if (isNew) {
+			await prisma.shoppingListItem.create({
+				data: {
+					name: shoppingItem.name,
+					quantity: shoppingItem.quantity,
+					unit: shoppingItem.unit,
+					category: guessCategory(shoppingItem.name),
+					source: 'recipe',
+					listId: shoppingList.id,
+				},
+			})
+
+			void emitHouseholdEvent({
+				type: 'shopping_list_item_added',
+				payload: { name: ingredient.name, source: 'recipe' },
+				userId,
+				householdId,
+			})
+		}
+
+		return { success: true, addedSingle: ingredientId, wasNew: isNew }
+	}
+
 	if (intent === 'add-to-shopping-list') {
 		const safeRatio = parseServingRatio(formData)
 		const useMetric = formData.get('useMetric') === '1'
@@ -437,9 +540,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const prevCookFetcherState = useRef(cookFetcher.state)
 	const [showIMadeThisModal, setShowIMadeThisModal] = useState(false)
 	const [historyExpanded, setHistoryExpanded] = useState(false)
-	const [substitutions, setSubstitutions] = useState<
-		Map<string, AppliedSubstitution>
-	>(() => new Map())
 	const enhanceFetcher = useFetcher<{
 		error: string | null
 		suggestions: EnhanceableFields | null
@@ -566,29 +666,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 	function handleIMadeThis() {
 		setShowIMadeThisModal(true)
-	}
-
-	function applySubstitution(
-		ingredientId: string,
-		originalName: string,
-		replacement: string,
-	) {
-		setSubstitutions((prev) => {
-			const next = new Map(prev)
-			next.set(ingredientId, {
-				originalName,
-				replacementShort: extractPrimaryIngredient(replacement),
-			})
-			return next
-		})
-	}
-
-	function revertSubstitution(ingredientId: string) {
-		setSubstitutions((prev) => {
-			const next = new Map(prev)
-			next.delete(ingredientId)
-			return next
-		})
 	}
 
 	function handleModalClose() {
@@ -850,11 +927,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									onToggle={toggleIngredient}
 									ratio={ratio}
 									missingIngredientIds={missingIngredientIds}
-									isProActive={isProActive}
 									recipeId={recipe.id}
-									substitutions={substitutions}
-									onApplySubstitution={applySubstitution}
-									onRevertSubstitution={revertSubstitution}
 									shoppingFetcher={shoppingFetcher}
 									useMetric={useMetric}
 									onToggleMetric={toggleMetric}
@@ -868,7 +941,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						instructions={recipe.instructions}
 						checkedSteps={checkedSteps}
 						onToggleStep={toggleStep}
-						substitutions={substitutions}
 						recipeName={recipe.title}
 						useMetric={useMetric}
 					/>

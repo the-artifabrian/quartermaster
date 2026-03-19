@@ -35,8 +35,8 @@ to "what do I need to buy?", in one app.
 - AI recipe enhance: infer missing metadata (description, servings, times)
 - Voice-to-text: Groq Whisper transcription with hallucination detection, Claude
   Haiku structured parsing with regex fallback
-- Ingredient substitution hints: static DB + LLM fallback, inventory-aware,
-  recipe-context-aware, temporary client-side ingredient swap
+- Per-ingredient actions on recipe detail: "I have this" (quick inventory
+  correction) and "Add to shopping list" (single-item add) for missing ingredients
 - Add to meal plan from recipe detail, cook logging, ingredient headings, linked
   ingredients (cross-recipe hyperlinks), optional ingredient detection
 - Drag-and-drop ingredient reordering

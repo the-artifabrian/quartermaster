@@ -1,10 +1,5 @@
 // Pure utility functions and types extracted from recipe detail route
 
-export type AppliedSubstitution = {
-	originalName: string
-	replacementShort: string
-}
-
 export function toIsoDuration(
 	minutes: number | null | undefined,
 ): string | undefined {
@@ -58,29 +53,4 @@ export function getRecipeJsonLd(
 	}
 
 	return jsonLd
-}
-
-export function extractPrimaryIngredient(replacement: string): string {
-	// Split on common combiners, take first part
-	const primary = replacement.split(/\s*(?:\+|&|\band\b|\bwith\b)\s*/i)[0]!
-	// Strip leading amounts/units (e.g., "1 cup butter" → "butter")
-	return primary
-		.replace(
-			/^\d[\d./]*\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?|pounds?|g|grams?|ml|liters?|litres?)?\s*/i,
-			'',
-		)
-		.trim()
-}
-
-export function applySubstitutionsToText(
-	text: string,
-	substitutions: Map<string, AppliedSubstitution>,
-): string {
-	let result = text
-	for (const sub of substitutions.values()) {
-		const escaped = sub.originalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-		const regex = new RegExp(`\\b${escaped}\\b`, 'gi')
-		result = result.replace(regex, sub.replacementShort)
-	}
-	return result
 }

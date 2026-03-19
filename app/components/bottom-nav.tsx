@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import { cn } from '#app/utils/misc.tsx'
 import { useIsProActive } from '#app/utils/subscription.ts'
@@ -49,6 +50,21 @@ export function BottomNav() {
 	const user = useOptionalUser()
 	const isProActive = useIsProActive()
 	const showShoppingDot = useShoppingActivityDot(isProActive)
+	const lastPathPerTab = useRef<Record<string, string>>({})
+
+	// Track the last visited path for each tab section
+	useEffect(() => {
+		for (const item of navItems) {
+			const matches = item.matchPaths?.some((path) =>
+				location.pathname.startsWith(path),
+			)
+			if (matches) {
+				lastPathPerTab.current[item.to] =
+					location.pathname + location.search
+				break
+			}
+		}
+	}, [location.pathname, location.search])
 
 	if (!user) return null
 
@@ -65,11 +81,24 @@ export function BottomNav() {
 							: location.pathname.startsWith(path),
 					)
 					const iconName = isActive ? item.iconFilled : item.icon
+					const isOnSubPage =
+						isActive && location.pathname !== item.to
+					// Switching tabs: restore last position. Active tab on sub-page: go to root.
+					const linkTo = isActive
+						? item.to
+						: (lastPathPerTab.current[item.to] ?? item.to)
 
 					return (
 						<NavLink
 							key={item.to}
-							to={item.to}
+							to={linkTo}
+							onClick={
+								isOnSubPage
+									? () => {
+											delete lastPathPerTab.current[item.to]
+										}
+									: undefined
+							}
 							className={cn(
 								'relative flex flex-col items-center justify-center gap-1 py-2 transition-colors duration-200',
 								isActive

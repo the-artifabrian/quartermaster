@@ -1,5 +1,5 @@
-import { Link, type useFetcher } from 'react-router'
-import { SubstitutionHint } from '#app/components/ingredient-substitution.tsx'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useFetcher } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
@@ -13,7 +13,6 @@ import {
 	formatMetricAmount,
 } from '#app/utils/metric-conversion.ts'
 import { cn } from '#app/utils/misc.tsx'
-import { type AppliedSubstitution } from '#app/utils/recipe-detail.ts'
 
 export function IngredientList({
 	ingredients,
@@ -21,11 +20,7 @@ export function IngredientList({
 	onToggle,
 	ratio,
 	missingIngredientIds,
-	isProActive,
 	recipeId,
-	substitutions,
-	onApplySubstitution,
-	onRevertSubstitution,
 	shoppingFetcher,
 	useMetric,
 	onToggleMetric,
@@ -45,32 +40,37 @@ export function IngredientList({
 	onToggle: (id: string) => void
 	ratio: number
 	missingIngredientIds: string[]
-	isProActive: boolean
 	recipeId: string
-	substitutions: Map<string, AppliedSubstitution>
-	onApplySubstitution: (
-		ingredientId: string,
-		originalName: string,
-		replacement: string,
-	) => void
-	onRevertSubstitution: (ingredientId: string) => void
 	shoppingFetcher: ReturnType<typeof useFetcher>
 	useMetric?: boolean
 	onToggleMetric?: () => void
 	showFooter?: boolean
 }) {
-	const missingSet = new Set(missingIngredientIds)
-	const isOptional = (notes: string | null) =>
-		notes ? /\boptional\b/i.test(notes) : false
+	const [localHaveIds, setLocalHaveIds] = useState<Set<string>>(
+		() => new Set(),
+	)
+
+	// Clear optimistic state when loader revalidates (server is now authoritative)
+	const prevMissingRef = useRef(missingIngredientIds)
+	useEffect(() => {
+		if (prevMissingRef.current !== missingIngredientIds) {
+			prevMissingRef.current = missingIngredientIds
+			setLocalHaveIds(new Set())
+		}
+	}, [missingIngredientIds])
+
+	const isOptional = (ingredient: { notes: string | null; name: string }) =>
+		(ingredient.notes && /\boptional\b/i.test(ingredient.notes)) ||
+		/\boptional\b/i.test(ingredient.name)
 	const nonHeadingCount = ingredients.filter(
-		(i) => !i.isHeading && !isOptional(i.notes),
+		(i) => !i.isHeading && !isOptional(i),
 	).length
-	const substitutedCount = missingIngredientIds.filter((id) =>
-		substitutions.has(id),
-	).length
-	const haveCount =
-		nonHeadingCount - missingIngredientIds.length + substitutedCount
-	const missingCount = missingIngredientIds.length - substitutedCount
+	const effectiveMissingIds = missingIngredientIds.filter(
+		(id) => !localHaveIds.has(id),
+	)
+	const effectiveMissingSet = new Set(effectiveMissingIds)
+	const haveCount = nonHeadingCount - effectiveMissingIds.length
+	const missingCount = effectiveMissingIds.length
 
 	const shoppingData = shoppingFetcher.data as
 		| { addedToShoppingList?: number }
@@ -88,6 +88,10 @@ export function IngredientList({
 		void shoppingFetcher.submit(formData, { method: 'POST' })
 	}
 
+	function handleMarkedHave(ingredientId: string) {
+		setLocalHaveIds((prev) => new Set([...prev, ingredientId]))
+	}
+
 	return (
 		<>
 			<ul className="space-y-1 leading-[1.7] print:columns-2 print:gap-x-6 print:space-y-0 print:text-sm print:leading-[1.5]">
@@ -103,8 +107,7 @@ export function IngredientList({
 					}
 
 					const isChecked = checkedIngredients.has(ingredient.id)
-					const isMissing = missingSet.has(ingredient.id)
-					const sub = substitutions.get(ingredient.id)
+					const isMissing = effectiveMissingSet.has(ingredient.id)
 
 					return (
 						<li
@@ -177,46 +180,7 @@ export function IngredientList({
 										</>
 									)
 								})()}
-								{sub ? (
-									<>
-										<span className="text-amber-700 dark:text-amber-400">
-											{sub.replacementShort}
-										</span>
-										<Tooltip>
-											<TooltipTrigger asChild>
-												<button
-													type="button"
-													aria-label={`Revert to ${sub.originalName}`}
-													className="ml-0.5 inline-flex translate-y-px text-amber-500/70 hover:text-amber-700 dark:hover:text-amber-300"
-													onClick={(e) => {
-														e.stopPropagation()
-														onRevertSubstitution(ingredient.id)
-													}}
-												>
-													<Icon name="reset" className="size-3" />
-												</button>
-											</TooltipTrigger>
-											<TooltipContent>
-												Revert to {sub.originalName}
-											</TooltipContent>
-										</Tooltip>
-									</>
-								) : isMissing && isProActive ? (
-									<SubstitutionHint
-										ingredientName={ingredient.name}
-										isProActive={isProActive}
-										recipeId={recipeId}
-										onApply={(replacement) =>
-											onApplySubstitution(
-												ingredient.id,
-												ingredient.name,
-												replacement,
-											)
-										}
-									>
-										{ingredient.name}
-									</SubstitutionHint>
-								) : ingredient.linkedRecipeId ? (
+								{ingredient.linkedRecipeId ? (
 									<Link
 										to={`/recipes/${ingredient.linkedRecipeId}`}
 										className="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary/60"
@@ -239,6 +203,15 @@ export function IngredientList({
 									</span>
 								)}
 							</span>
+							{isMissing && !isChecked && !ingredient.linkedRecipeId && (
+								<MissingIngredientActions
+									ingredientId={ingredient.id}
+									recipeId={recipeId}
+									ratio={ratio}
+									useMetric={useMetric}
+									onMarkedHave={handleMarkedHave}
+								/>
+							)}
 						</li>
 					)
 				})}
@@ -302,5 +275,102 @@ export function IngredientList({
 				</div>
 			)}
 		</>
+	)
+}
+
+function MissingIngredientActions({
+	ingredientId,
+	recipeId,
+	ratio,
+	useMetric,
+	onMarkedHave,
+}: {
+	ingredientId: string
+	recipeId: string
+	ratio: number
+	useMetric?: boolean
+	onMarkedHave: (id: string) => void
+}) {
+	const haveFetcher = useFetcher()
+	const cartFetcher = useFetcher()
+
+	const cartData = cartFetcher.data as
+		| { addedSingle?: string; wasNew?: boolean }
+		| undefined
+	const addedToCart = cartData?.addedSingle === ingredientId
+
+	return (
+		<span
+			className="ml-auto flex shrink-0 items-center print:hidden"
+			onClick={(e) => e.stopPropagation()}
+			onKeyDown={(e) => e.stopPropagation()}
+		>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<button
+						type="button"
+						aria-label="I have this"
+						className="flex size-[44px] items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:text-primary"
+						disabled={haveFetcher.state !== 'idle'}
+						onClick={() => {
+							onMarkedHave(ingredientId)
+							haveFetcher.submit(
+								{
+									intent: 'mark-have-ingredient',
+									ingredientId,
+								},
+								{
+									method: 'POST',
+									action: `/recipes/${recipeId}`,
+								},
+							)
+						}}
+					>
+						<Icon name="file-text" className="size-4" />
+					</button>
+				</TooltipTrigger>
+				<TooltipContent>I have this</TooltipContent>
+			</Tooltip>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<button
+						type="button"
+						aria-label="Add to shopping list"
+						className={cn(
+							'flex size-[44px] items-center justify-center rounded-md transition-colors',
+							addedToCart
+								? 'text-primary'
+								: 'text-muted-foreground/50 hover:text-accent',
+						)}
+						disabled={cartFetcher.state !== 'idle' || addedToCart}
+						onClick={() => {
+							const formData = new FormData()
+							formData.set('intent', 'add-single-to-shopping-list')
+							formData.set('ingredientId', ingredientId)
+							formData.set('servingRatio', ratio.toString())
+							if (useMetric) {
+								formData.set('useMetric', '1')
+							}
+							cartFetcher.submit(formData, {
+								method: 'POST',
+								action: `/recipes/${recipeId}`,
+							})
+						}}
+					>
+						<Icon
+							name={addedToCart ? 'check' : 'cart'}
+							className="size-4"
+						/>
+					</button>
+				</TooltipTrigger>
+				<TooltipContent>
+					{addedToCart
+						? cartData?.wasNew === false
+							? 'Already on list'
+							: 'Added!'
+						: 'Add to shopping list'}
+				</TooltipContent>
+			</Tooltip>
+		</span>
 	)
 }

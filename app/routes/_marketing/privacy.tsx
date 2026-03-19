@@ -35,7 +35,7 @@ export default function PrivacyRoute() {
 		<div className="container max-w-2xl py-12">
 			<h1 className="font-serif text-[2.25rem] leading-[1.15] tracking-[-0.02em]">Privacy Policy</h1>
 			<p className="text-muted-foreground mt-2 text-sm">
-				Last updated: February 2026
+				Last updated: March 2026
 			</p>
 
 			<div className="mt-8 space-y-6 text-sm/6">
@@ -52,9 +52,24 @@ export default function PrivacyRoute() {
 				<section>
 					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">How we use your data</h2>
 					<p className="text-muted-foreground mt-2">
-						Your data is used solely to provide the Quartermaster service to
-						content. We do not use your data for advertising or analytics
-						profiling.
+						Your data is used solely to provide and improve the Quartermaster
+						service. We use PostHog for product analytics to understand how
+						features are used and to fix bugs. We do not sell your data or use
+						it for advertising.
+					</p>
+				</section>
+
+				<section>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Analytics and session replay</h2>
+					<p className="text-muted-foreground mt-2">
+						Quartermaster uses PostHog to capture anonymous pageviews, clicks,
+						and session recordings (DOM snapshots — visible page text is
+						recorded, but form input values are masked by default). This helps
+						us understand usage patterns and diagnose issues. You can opt out at any time by running{' '}
+						<code className="bg-muted rounded px-1 py-0.5 text-xs">
+							posthog.opt_out_capturing()
+						</code>{' '}
+						in your browser console.
 					</p>
 				</section>
 
@@ -71,8 +86,12 @@ export default function PrivacyRoute() {
 					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Cookies</h2>
 					<p className="text-muted-foreground mt-2">
 						We use a single httpOnly session cookie for authentication and a
-						theme preference cookie. We do not use tracking cookies or
-						third-party analytics.
+						theme preference cookie. PostHog sets an analytics cookie for
+						identified users (only created after you log in, per our{' '}
+						<code className="bg-muted rounded px-1 py-0.5 text-xs">
+							person_profiles: &apos;identified_only&apos;
+						</code>{' '}
+						configuration). We do not use advertising cookies.
 					</p>
 				</section>
 

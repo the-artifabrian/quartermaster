@@ -314,7 +314,7 @@ function MissingIngredientActions({
 						disabled={haveFetcher.state !== 'idle'}
 						onClick={() => {
 							onMarkedHave(ingredientId)
-							haveFetcher.submit(
+							void haveFetcher.submit(
 								{
 									intent: 'mark-have-ingredient',
 									ingredientId,
@@ -351,7 +351,7 @@ function MissingIngredientActions({
 							if (useMetric) {
 								formData.set('useMetric', '1')
 							}
-							cartFetcher.submit(formData, {
+							void cartFetcher.submit(formData, {
 								method: 'POST',
 								action: `/recipes/${recipeId}`,
 							})

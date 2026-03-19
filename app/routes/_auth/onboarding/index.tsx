@@ -15,6 +15,8 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
 import { authSessionStorage } from '#app/utils/session.server.ts'
+import { captureServerEvent } from '#app/utils/posthog.server.ts'
+import { USER_SIGNED_UP } from '#app/utils/posthog-events.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import {
 	NameSchema,
@@ -99,6 +101,8 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	const { session, remember, redirectTo } = submission.value
+
+	captureServerEvent(session.userId, USER_SIGNED_UP, { method: 'email' })
 
 	const authSession = await authSessionStorage.getSession(
 		request.headers.get('cookie'),

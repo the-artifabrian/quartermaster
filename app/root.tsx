@@ -39,6 +39,10 @@ import { type Theme, getTheme } from './utils/theme.server.ts'
 import { TimerProvider } from './utils/timer-context.tsx'
 import { makeTimings, time } from './utils/timing.server.ts'
 import { getToast } from './utils/toast.server.ts'
+import {
+	PostHogIdentify,
+	PostHogPageview,
+} from './utils/posthog-provider.tsx'
 import { useOptionalUser } from './utils/user.ts'
 
 // iOS PWA startup images — one per device size × theme.
@@ -164,16 +168,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 		daysUntilExpiry: null,
 		wasProPreviously: false,
 	}
+	let householdId: string | null = null
 	let householdName: string | null = null
 	if (userId) {
 		tierInfo = await getUserTier(userId)
 		const member = await prisma.householdMember.findFirst({
 			where: { userId },
 			select: {
-				household: { select: { name: true } },
+				household: { select: { id: true, name: true } },
 			},
 		})
 		if (member) {
+			householdId = member.household.id
 			householdName = member.household.name
 		}
 	}
@@ -183,6 +189,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		{
 			user,
 			tierInfo,
+			householdId,
 			householdName,
 			requestInfo: {
 				hints: getHints(request),
@@ -330,6 +337,11 @@ function App() {
 
 	return (
 		<TimerProvider>
+			<PostHogPageview />
+			<PostHogIdentify
+				user={user ? { id: user.id, name: user.name, username: user.username } : null}
+				householdId={data.householdId}
+			/>
 			<OpenImgContextProvider
 				optimizerEndpoint="/resources/images"
 				getSrc={getImgSrc}

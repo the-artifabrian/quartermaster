@@ -1,4 +1,4 @@
-import { captureException } from '@sentry/react-router'
+import { usePostHog } from '@posthog/react'
 import { useEffect, type ReactElement } from 'react'
 import {
 	type ErrorResponse,
@@ -29,6 +29,7 @@ export function GeneralErrorBoundary({
 	const error = useRouteError()
 	const params = useParams()
 	const isResponse = isRouteErrorResponse(error)
+	const posthog = usePostHog()
 
 	if (typeof document !== 'undefined') {
 		console.error(error)
@@ -37,8 +38,8 @@ export function GeneralErrorBoundary({
 	useEffect(() => {
 		if (isResponse) return
 
-		captureException(error)
-	}, [error, isResponse])
+		posthog?.captureException(error)
+	}, [error, isResponse, posthog])
 
 	return (
 		<div className="text-xl font-semibold container flex items-center justify-center p-20">

@@ -25,6 +25,11 @@ import {
 	parseISODuration,
 } from '#app/utils/ingredient-parser.server.ts'
 import {
+	AI_FEATURE_USED,
+	RECIPE_IMPORTED,
+} from '#app/utils/posthog-events.ts'
+import { captureServerEvent } from '#app/utils/posthog.server.ts'
+import {
 	ALLOWED_IMAGE_MEDIA_TYPES,
 	extractRecipeFromImage,
 	extractRecipeFromText,
@@ -737,6 +742,11 @@ export async function action({ request }: Route.ActionArgs) {
 			duplicates.push({ ...match, matchReason: 'similar-title' })
 		}
 
+		captureServerEvent(userId, AI_FEATURE_USED, {
+			feature: 'recipe_extract',
+			source: imageFile ? 'image' : 'text',
+		})
+
 		return data({
 			intent: 'extract-text' as const,
 			recipe,
@@ -841,6 +851,11 @@ export async function action({ request }: Route.ActionArgs) {
 				},
 			},
 			select: { id: true },
+		})
+
+		captureServerEvent(userId, RECIPE_IMPORTED, {
+			recipe_title: title,
+			ingredient_count: ingredients.length,
 		})
 
 		return redirect(`/recipes/${recipe.id}`)

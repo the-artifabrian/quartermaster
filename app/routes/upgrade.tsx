@@ -4,6 +4,14 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import {
+	CHECKOUT_STARTED,
+	UPGRADE_PAGE_VIEWED,
+} from '#app/utils/posthog-events.ts'
+import {
+	captureServerEvent,
+	getFeatureFlag,
+} from '#app/utils/posthog.server.ts'
+import {
 	createCheckoutSession,
 	getStripeClient,
 	handleCheckoutCompleted,
@@ -66,7 +74,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	}
 
+	if (userId && !sessionId) {
+		captureServerEvent(userId, UPGRADE_PAGE_VIEWED, {
+			tier: tierInfo.tier,
+			is_trialing: tierInfo.isTrialing,
+		})
+	}
+
 	const stripeConfigured = isStripeConfigured()
+
+	const pricingVariant = userId
+		? ((await getFeatureFlag(userId, 'pricing-page-variant')) ?? 'control')
+		: 'control'
 
 	return {
 		tierInfo,
@@ -75,6 +94,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		proYearlyPriceId: stripeConfigured
 			? process.env.STRIPE_PRO_YEARLY_PRICE_ID!
 			: null,
+		pricingVariant,
 	}
 }
 
@@ -92,6 +112,8 @@ export async function action({ request }: Route.ActionArgs) {
 		if (typeof priceId !== 'string' || !priceId) {
 			return data({ error: 'Missing price ID' }, { status: 400 })
 		}
+
+		captureServerEvent(userId, CHECKOUT_STARTED, { price_id: priceId })
 
 		const origin = new URL(request.url).origin
 		const session = await createCheckoutSession({
@@ -135,11 +157,19 @@ const proFeatures = [
 ]
 
 export default function UpgradePage({ loaderData }: Route.ComponentProps) {
-	const { tierInfo, stripeConfigured, isLoggedIn, proYearlyPriceId } =
-		loaderData
+	const {
+		tierInfo,
+		stripeConfigured,
+		isLoggedIn,
+		proYearlyPriceId,
+		pricingVariant,
+	} = loaderData
 
 	return (
-		<div className="container max-w-3xl px-4 py-8 md:py-12">
+		<div
+			className="container max-w-3xl px-4 py-8 md:py-12"
+			data-pricing-variant={pricingVariant}
+		>
 			{!tierInfo.isProActive && tierInfo.wasProPreviously ? (
 				<div className="bg-card border-border mx-auto mb-8 max-w-2xl rounded-2xl border p-6 text-center">
 					<Icon

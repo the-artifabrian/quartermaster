@@ -14,6 +14,8 @@ import {
 	recordSelection,
 	scoreMealTypeFit,
 } from '#app/utils/meal-suggestion.server.ts'
+import { MEAL_PLAN_SUGGESTED } from '#app/utils/posthog-events.ts'
+import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import { matchRecipesWithInventory } from '#app/utils/recipe-matching.server.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/meal-plan-suggest.ts'
@@ -183,6 +185,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 			}
 		}
 	}
+
+	captureServerEvent(userId, MEAL_PLAN_SUGGESTED, {
+		suggestion_count: suggestions.length,
+		meal_type: mealType,
+	})
 
 	return data({
 		suggestions,

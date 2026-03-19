@@ -11,7 +11,6 @@ import radixUI from './radix.svg'
 import reactEmail from './react-email.svg'
 import remix from './remix.svg'
 import resend from './resend.svg'
-import sentry from './sentry.svg'
 import shadcnUI from './shadcn-ui.svg'
 import sqlite from './sqlite.svg'
 import tailwind from './tailwind.svg'
@@ -162,12 +161,5 @@ export const logos = [
 		href: 'https://eslint.org',
 		column: 5,
 		row: 4,
-	},
-	{
-		src: sentry,
-		alt: 'Sentry',
-		href: 'https://sentry.io',
-		column: 5,
-		row: 5,
 	},
 ]

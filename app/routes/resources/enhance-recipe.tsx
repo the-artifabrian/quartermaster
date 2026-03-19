@@ -2,6 +2,8 @@ import { data } from 'react-router'
 import { z } from 'zod'
 import { checkAndRecordAiUsage } from '#app/utils/ai-rate-limit.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { AI_FEATURE_USED } from '#app/utils/posthog-events.ts'
+import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import {
 	type EnhanceableFields,
 	enhanceRecipeMetadata,
@@ -97,6 +99,11 @@ export async function action({ request }: Route.ActionArgs) {
 			suggestions: null as EnhanceableFields | null,
 		})
 	}
+
+	captureServerEvent(userId, AI_FEATURE_USED, {
+		feature: 'recipe_enhance',
+		recipe_id: recipeId,
+	})
 
 	return data({ error: null, suggestions })
 }

@@ -35,6 +35,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { parseAmount, scaleAmount } from '#app/utils/fractions.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
 import {
 	convertToMetric,
 	roundMetricAmount,
@@ -51,7 +52,6 @@ import {
 	isStapleIngredient,
 	normalizeIngredientName,
 } from '#app/utils/recipe-matching.server.ts'
-import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'

@@ -20,15 +20,16 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: ⬇️ Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: ⎔ Setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: 📥 Download deps
-        uses: bahmutov/npm-install@v1
+        run: npm ci
 
       - name: 🏄 Copy test env vars
         run: cp .env.example .env
@@ -44,15 +45,16 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: ⬇️ Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: ⎔ Setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: 📥 Download deps
-        uses: bahmutov/npm-install@v1
+        run: npm ci
 
       - name: 🏗 Build
         run: npm run build
@@ -71,15 +73,16 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: ⬇️ Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: ⎔ Setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: 📥 Download deps
-        uses: bahmutov/npm-install@v1
+        run: npm ci
 
       - name: 🏄 Copy test env vars
         run: cp .env.example .env
@@ -96,7 +99,7 @@ jobs:
   #   timeout-minutes: 60
   #   steps:
   #     - name: ⬇️ Checkout repo
-  #       uses: actions/checkout@v4
+  #       uses: actions/checkout@v6
 
   #     - name: 🏄 Copy test env vars
   #       run: cp .env.example .env
@@ -150,16 +153,13 @@ jobs:
     if: ${{ github.event_name == 'push' }}
     steps:
       - name: ⬇️ Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 50
 
       - name: 👀 Read app name
-        uses: SebRollen/toml-action@v1.2.0
         id: app_name
-        with:
-          file: 'fly.toml'
-          field: 'app'
+        run: echo "value=$(grep '^app' fly.toml | sed 's/.*= *"\(.*\)"/\1/')" >> "$GITHUB_OUTPUT"
 
       - name: 🎈 Setup Fly
         uses: superfly/flyctl-actions/setup-flyctl@1.5
@@ -196,16 +196,13 @@ jobs:
     if: ${{ github.event_name == 'push' }}
     steps:
       - name: ⬇️ Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: '50'
 
       - name: 👀 Read app name
-        uses: SebRollen/toml-action@v1.2.0
         id: app_name
-        with:
-          file: 'fly.toml'
-          field: 'app'
+        run: echo "value=$(grep '^app' fly.toml | sed 's/.*= *"\(.*\)"/\1/')" >> "$GITHUB_OUTPUT"
 
       - name: 🎈 Setup Fly
         uses: superfly/flyctl-actions/setup-flyctl@1.5

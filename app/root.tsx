@@ -34,15 +34,15 @@ import { getEnv } from './utils/env.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
 import { combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
 import { useNonce } from './utils/nonce-provider.ts'
+import {
+	PostHogIdentify,
+	PostHogPageview,
+} from './utils/posthog-provider.tsx'
 import { getUserTier, type TierInfo } from './utils/subscription.server.ts'
 import { type Theme, getTheme } from './utils/theme.server.ts'
 import { TimerProvider } from './utils/timer-context.tsx'
 import { makeTimings, time } from './utils/timing.server.ts'
 import { getToast } from './utils/toast.server.ts'
-import {
-	PostHogIdentify,
-	PostHogPageview,
-} from './utils/posthog-provider.tsx'
 import { useOptionalUser } from './utils/user.ts'
 
 // iOS PWA startup images — one per device size × theme.

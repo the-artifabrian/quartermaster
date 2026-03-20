@@ -71,9 +71,10 @@ export async function action({ request }: Route.ActionArgs) {
 		if (match) {
 			skippedCount++
 		} else {
+			const normalizedName = shoppingItem.name.toLowerCase()
 			creates.push({
 				data: {
-					name: shoppingItem.name,
+					name: normalizedName,
 					userId,
 					householdId,
 				},
@@ -81,7 +82,7 @@ export async function action({ request }: Route.ActionArgs) {
 			// Add to tracking for intra-batch dedup
 			trackingItems.push({
 				id: `pending-${creates.length}`,
-				name: shoppingItem.name,
+				name: normalizedName,
 				userId,
 				householdId,
 				createdAt: new Date(),

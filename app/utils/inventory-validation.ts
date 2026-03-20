@@ -4,6 +4,7 @@ export const InventoryItemNameSchema = z
 	.string({ required_error: 'Name is required' })
 	.min(1, { message: 'Name is required' })
 	.max(100, { message: 'Name is too long' })
+	.transform((s) => s.toLowerCase())
 
 export const InventoryItemSchema = z.object({
 	name: InventoryItemNameSchema,

@@ -307,12 +307,10 @@ export async function action({ request, params }: Route.ActionArgs) {
 			// Clean up the ingredient name for inventory display:
 			// "mashed ripe banana" → "banana", "boneless skinless chicken thighs" → "chicken thigh"
 			const cleaned = normalizeIngredientName(ingredient.name)
-			const displayName =
-				cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
 
 			await prisma.inventoryItem.create({
 				data: {
-					name: displayName,
+					name: cleaned,
 					userId,
 					householdId,
 				},

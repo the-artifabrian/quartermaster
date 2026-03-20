@@ -57,7 +57,7 @@ const ImportRecipeSchema = z.object({
 })
 
 const ImportInventoryItemSchema = z.object({
-	name: z.string().min(1).max(200),
+	name: z.string().min(1).max(200).transform((s) => s.toLowerCase()),
 	location: z.enum(['pantry', 'fridge', 'freezer']).optional(), // accepted for backward compat (ignored)
 	quantity: z.number().nullable().optional(),
 	unit: z.string().max(50).nullable().optional(),
@@ -304,7 +304,7 @@ export async function action({ request }: Route.ActionArgs) {
 			)
 
 			for (const item of fullData.inventory) {
-				const key = item.name.toLowerCase()
+				const key = item.name
 				if (existingKeys.has(key)) {
 					results.inventory.skipped++
 					continue

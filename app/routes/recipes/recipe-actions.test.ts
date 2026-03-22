@@ -22,7 +22,12 @@ async function setupUser() {
 	const session = await prisma.session.create({
 		data: {
 			expirationDate: getSessionExpirationDate(),
-			user: { create: createUser() },
+			user: {
+				create: {
+					...createUser(),
+					subscription: { create: { tier: 'pro' } },
+				},
+			},
 		},
 		select: { id: true, userId: true },
 	})
@@ -31,9 +36,6 @@ async function setupUser() {
 			name: 'Test Household',
 			members: { create: { userId: session.userId, role: 'owner' } },
 		},
-	})
-	await prisma.subscription.create({
-		data: { userId: session.userId, tier: 'pro' },
 	})
 	return { ...session, householdId: household.id }
 }

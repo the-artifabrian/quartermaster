@@ -660,6 +660,37 @@ Instructions
 		expect(result.ingredients[2]!.notes).toBeUndefined()
 	})
 
+	test('splits inline bullet-separated ingredients on one line', () => {
+		const text = `Raising Canes Chicken Tenders
+
+Ingredients
+For the Chicken
+• 2 lbs chicken breast, cut into strips • Oil for frying
+Dry Batter
+• 2 cups all-purpose flour • 3 tbsp cornstarch • 1½ tsp smoked paprika • 2 tsp garlic powder • 2 tsp black pepper • 1 tsp salt
+Wet Batter
+• 2 cups buttermilk • 2 tsp garlic powder • 2 tsp black pepper • 1 tsp smoked paprika • 1 tsp salt
+Cane's Sauce
+• 1 cup mayonnaise • 4 tbsp ketchup • 2 tbsp Worcestershire sauce • 1 tbsp garlic powder • 2 tsp black pepper • 1 tsp smoked paprika
+
+Instructions
+1. In a bowl whisk together the buttermilk and spices.`
+
+		const result = parseRecipeText(text)
+		expect(result.title).toBe("Raising Canes Chicken Tenders")
+		// 4 sub-headers + 17 ingredients
+		const headings = result.ingredients.filter((i) => i.isHeading)
+		const items = result.ingredients.filter((i) => !i.isHeading)
+		expect(headings).toHaveLength(4)
+		expect(items.length).toBeGreaterThanOrEqual(17)
+		// Spot-check: first group should have 2 items
+		expect(items[0]!.name).toBe('chicken breast')
+		expect(items[0]!.amount).toBe('2')
+		expect(items[0]!.unit).toBe('lbs')
+		// Oil for frying should be its own item
+		expect(items[1]!.name.toLowerCase()).toContain('oil')
+	})
+
 	test('full complex recipe with sub-headers and checkboxes', () => {
 		const text = `Braised Short Ribs with Polenta
 

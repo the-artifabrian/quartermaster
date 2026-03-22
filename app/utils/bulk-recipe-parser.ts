@@ -54,6 +54,8 @@ function normalizeText(text: string): string {
 			.replace(/_/g, '')
 			// Join continuation lines: indented non-bullet lines rejoin previous line
 			.replace(/\n[ \t]{2,}(?=\S)(?![-*•]\s)(?!\d+[.)]\s)(?!\[[ x]\])/g, ' ')
+			// Split inline bullet separators: "flour • sugar" → separate lines
+			.replace(/(\S)\s+•\s+/g, '$1\n• ')
 	)
 }
 

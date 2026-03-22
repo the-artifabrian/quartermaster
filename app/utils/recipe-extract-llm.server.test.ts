@@ -14,7 +14,7 @@ import {
 	buildExtractPrompt,
 	parseExtractResponse,
 	extractRecipeFromText,
-	extractRecipeFromImage,
+	extractRecipeFromImages,
 } from './recipe-extract-llm.server.ts'
 
 const validResponse = {
@@ -61,7 +61,7 @@ describe('buildExtractPrompt', () => {
 
 	test('works for image mode', () => {
 		const prompt = buildExtractPrompt('image')
-		expect(prompt).toContain('Extract a structured recipe from this image')
+		expect(prompt).toContain('Extract a structured recipe from the provided image(s)')
 		expect(prompt).not.toContain('---')
 	})
 
@@ -72,7 +72,7 @@ describe('buildExtractPrompt', () => {
 			'Extract a structured recipe from the following text',
 		)
 		expect(imagePrompt).toContain(
-			'Extract a structured recipe from this image',
+			'Extract a structured recipe from the provided image(s)',
 		)
 	})
 
@@ -81,6 +81,12 @@ describe('buildExtractPrompt', () => {
 		expect(prompt).toContain('Infer the recipe title')
 		expect(prompt).toContain('original units')
 		expect(prompt).toContain('no_recipe_found')
+	})
+
+	test('includes sub-section handling rule', () => {
+		const prompt = buildExtractPrompt('text', 'some text')
+		expect(prompt).toContain('Do NOT merge or sum quantities')
+		expect(prompt).toContain('sub-section')
 	})
 })
 
@@ -324,7 +330,7 @@ describe('extractRecipeFromText', () => {
 	})
 })
 
-describe('extractRecipeFromImage', () => {
+describe('extractRecipeFromImages', () => {
 	const originalEnv = process.env.ANTHROPIC_API_KEY
 
 	beforeEach(() => {
@@ -352,7 +358,9 @@ describe('extractRecipeFromImage', () => {
 			)
 		})
 
-		await extractRecipeFromImage('base64data', 'image/jpeg')
+		await extractRecipeFromImages([
+			{ base64: 'base64data', mediaType: 'image/jpeg' },
+		])
 
 		const body = JSON.parse(capturedBody!) as {
 			messages: Array<{
@@ -368,11 +376,50 @@ describe('extractRecipeFromImage', () => {
 		expect(imageBlock.source!.data).toBe(Buffer.from('optimized').toString('base64'))
 	})
 
+	test('sends multiple image content blocks for multiple images', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		let capturedBody: string | undefined
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
+			capturedBody = opts?.body as string
+			return new Response(
+				JSON.stringify({
+					content: [{ type: 'text', text: JSON.stringify(validResponse) }],
+				}),
+				{ status: 200 },
+			)
+		})
+
+		// Use same base64 data for all images to work with the sharp mock
+		await extractRecipeFromImages([
+			{ base64: 'base64data', mediaType: 'image/jpeg' },
+			{ base64: 'base64data', mediaType: 'image/jpeg' },
+			{ base64: 'base64data', mediaType: 'image/jpeg' },
+		])
+
+		const body = JSON.parse(capturedBody!) as {
+			messages: Array<{
+				content: Array<{
+					type: string
+					source?: { media_type: string; data: string }
+				}>
+			}>
+		}
+		const contentBlocks = body.messages[0]!.content
+		// 3 image blocks + 1 text block
+		expect(contentBlocks).toHaveLength(4)
+		expect(contentBlocks[0]!.type).toBe('image')
+		expect(contentBlocks[1]!.type).toBe('image')
+		expect(contentBlocks[2]!.type).toBe('image')
+		expect(contentBlocks[3]!.type).toBe('text')
+	})
+
 	test('rejects unsupported media type without calling API', async () => {
 		process.env.ANTHROPIC_API_KEY = 'test-key'
 		const fetchSpy = vi.spyOn(globalThis, 'fetch')
 
-		const result = await extractRecipeFromImage('base64', 'image/gif')
+		const result = await extractRecipeFromImages([
+			{ base64: 'base64', mediaType: 'image/gif' },
+		])
 		expect(result).toHaveProperty('error')
 		expect((result as { error: string }).error).toContain('Unsupported')
 		expect(fetchSpy).not.toHaveBeenCalled()
@@ -382,17 +429,18 @@ describe('extractRecipeFromImage', () => {
 		process.env.ANTHROPIC_API_KEY = 'test-key'
 		const fetchSpy = vi.spyOn(globalThis, 'fetch')
 
-		const result = await extractRecipeFromImage(
-			'base64',
-			'application/x-executable',
-		)
+		const result = await extractRecipeFromImages([
+			{ base64: 'base64', mediaType: 'application/x-executable' },
+		])
 		expect(result).toHaveProperty('error')
 		expect(fetchSpy).not.toHaveBeenCalled()
 	})
 
 	test('returns error when API key is missing', async () => {
 		delete process.env.ANTHROPIC_API_KEY
-		const result = await extractRecipeFromImage('base64', 'image/png')
+		const result = await extractRecipeFromImages([
+			{ base64: 'base64', mediaType: 'image/png' },
+		])
 		expect(result).toEqual({ error: expect.stringContaining('not configured') })
 	})
 
@@ -402,7 +450,9 @@ describe('extractRecipeFromImage', () => {
 			new Response('', { status: 500 }),
 		)
 
-		const result = await extractRecipeFromImage('base64', 'image/png')
+		const result = await extractRecipeFromImages([
+			{ base64: 'base64', mediaType: 'image/png' },
+		])
 		expect(result).toHaveProperty('error')
 	})
 
@@ -417,7 +467,9 @@ describe('extractRecipeFromImage', () => {
 			),
 		)
 
-		const result = await extractRecipeFromImage('base64', 'image/png')
+		const result = await extractRecipeFromImages([
+			{ base64: 'base64', mediaType: 'image/png' },
+		])
 		expect(result).not.toHaveProperty('error')
 		expect((result as { title: string }).title).toBe('Creamy Garlic Pasta')
 		expect((result as { ingredients: unknown[] }).ingredients).toHaveLength(4)

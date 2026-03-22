@@ -31,7 +31,7 @@ import {
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import {
 	ALLOWED_IMAGE_MEDIA_TYPES,
-	extractRecipeFromImage,
+	extractRecipeFromImages,
 	extractRecipeFromText,
 } from '#app/utils/recipe-extract-llm.server.ts'
 import { ImportUrlSchema } from '#app/utils/recipe-validation.ts'
@@ -46,7 +46,7 @@ export const meta: Route.MetaFunction = () => {
 	return [{ title: 'Import Recipe | Quartermaster' }]
 }
 
-type ImportTab = 'url' | 'text'
+type ImportTab = 'url' | 'text' | 'image'
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const { isProActive } = await requireUserWithTier(request)
@@ -234,6 +234,7 @@ function extractRecipe(
 
 const DAILY_EXTRACT_LIMIT = 10
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_IMAGE_COUNT = 5
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_RAW_TEXT_LENGTH = 50_000 // 50KB cap on pasted text
 
@@ -285,7 +286,7 @@ export async function action({ request }: Route.ActionArgs) {
 	const { userId, householdId, isProActive } =
 		await requireUserWithTier(request)
 
-	let imageFile: FileUpload | null = null
+	const imageFiles: FileUpload[] = []
 	let formData: FormData
 
 	const contentType = request.headers.get('content-type') || ''
@@ -295,9 +296,10 @@ export async function action({ request }: Route.ActionArgs) {
 			{ maxFileSize: MAX_IMAGE_SIZE },
 			async (file) => {
 				if (file.fieldName === 'image') {
+					if (imageFiles.length >= MAX_IMAGE_COUNT) return undefined
 					if (file.size > MAX_IMAGE_SIZE) return undefined
 					if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) return undefined
-					imageFile = file
+					imageFiles.push(file)
 					return file
 				}
 				return undefined
@@ -594,11 +596,13 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 	}
 
-	if (intent === 'extract-text') {
+	if (intent === 'extract-text' || intent === 'extract-image') {
+		const intentKey = intent as 'extract-text' | 'extract-image'
+
 		if (!isProActive) {
 			return data(
 				{
-					intent: 'extract-text' as const,
+					intent: intentKey,
 					error: 'AI extraction requires a Pro subscription.',
 					recipe: null,
 					result: null,
@@ -610,11 +614,24 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const rawText = (formData.get('rawText') as string) || ''
 
-		if (!rawText.trim() && !imageFile) {
+		if (intentKey === 'extract-text' && !rawText.trim()) {
 			return data(
 				{
-					intent: 'extract-text' as const,
-					error: 'Please paste some text or upload an image.',
+					intent: intentKey,
+					error: 'Please paste some recipe text.',
+					recipe: null,
+					result: null,
+					duplicates: null,
+				},
+				{ status: 400 },
+			)
+		}
+
+		if (intentKey === 'extract-image' && imageFiles.length === 0) {
+			return data(
+				{
+					intent: intentKey,
+					error: 'Please upload at least one image.',
 					recipe: null,
 					result: null,
 					duplicates: null,
@@ -626,7 +643,7 @@ export async function action({ request }: Route.ActionArgs) {
 		if (rawText.length > MAX_RAW_TEXT_LENGTH) {
 			return data(
 				{
-					intent: 'extract-text' as const,
+					intent: intentKey,
 					error: 'Text is too long. Please shorten it and try again.',
 					recipe: null,
 					result: null,
@@ -644,7 +661,7 @@ export async function action({ request }: Route.ActionArgs) {
 		if (!allowed) {
 			return data(
 				{
-					intent: 'extract-text' as const,
+					intent: intentKey,
 					error: `You've reached the daily limit of ${DAILY_EXTRACT_LIMIT} AI extractions. Try again tomorrow!`,
 					recipe: null,
 					result: null,
@@ -656,46 +673,55 @@ export async function action({ request }: Route.ActionArgs) {
 
 		let llmResult: Awaited<ReturnType<typeof extractRecipeFromText>>
 
-		if (imageFile) {
-			const buffer = await (imageFile as FileUpload).arrayBuffer()
+		if (intentKey === 'extract-image') {
+			const validatedImages: Array<{ base64: string; mediaType: string }> =
+				[]
 
-			// Re-check actual buffer size (stream-level check may use client-reported size)
-			if (buffer.byteLength > MAX_IMAGE_SIZE) {
-				return data(
-					{
-						intent: 'extract-text' as const,
-						error: 'Image is too large. Maximum size is 5MB.',
-						recipe: null,
-						result: null,
-						duplicates: null,
-					},
-					{ status: 400 },
-				)
+			for (const file of imageFiles) {
+				const buffer = await file.arrayBuffer()
+
+				// Re-check actual buffer size (stream-level check may use client-reported size)
+				if (buffer.byteLength > MAX_IMAGE_SIZE) {
+					return data(
+						{
+							intent: intentKey,
+							error: 'One or more images are too large. Maximum size is 5MB each.',
+							recipe: null,
+							result: null,
+							duplicates: null,
+						},
+						{ status: 400 },
+					)
+				}
+
+				// Validate magic bytes — don't trust client-provided Content-Type
+				const detectedType = detectImageMediaType(buffer)
+				if (
+					!detectedType ||
+					!ALLOWED_IMAGE_MEDIA_TYPES.includes(
+						detectedType as (typeof ALLOWED_IMAGE_MEDIA_TYPES)[number],
+					)
+				) {
+					return data(
+						{
+							intent: intentKey,
+							error:
+								'Invalid image file. Please upload JPEG, PNG, or WebP images.',
+							recipe: null,
+							result: null,
+							duplicates: null,
+						},
+						{ status: 400 },
+					)
+				}
+
+				validatedImages.push({
+					base64: Buffer.from(buffer).toString('base64'),
+					mediaType: detectedType,
+				})
 			}
 
-			// Validate magic bytes — don't trust client-provided Content-Type
-			const detectedType = detectImageMediaType(buffer)
-			if (
-				!detectedType ||
-				!ALLOWED_IMAGE_MEDIA_TYPES.includes(
-					detectedType as (typeof ALLOWED_IMAGE_MEDIA_TYPES)[number],
-				)
-			) {
-				return data(
-					{
-						intent: 'extract-text' as const,
-						error:
-							'Invalid image file. Please upload a JPEG, PNG, or WebP image.',
-						recipe: null,
-						result: null,
-						duplicates: null,
-					},
-					{ status: 400 },
-				)
-			}
-
-			const base64 = Buffer.from(buffer).toString('base64')
-			llmResult = await extractRecipeFromImage(base64, detectedType)
+			llmResult = await extractRecipeFromImages(validatedImages)
 		} else {
 			llmResult = await extractRecipeFromText(rawText)
 		}
@@ -703,7 +729,7 @@ export async function action({ request }: Route.ActionArgs) {
 		if ('error' in llmResult) {
 			return data(
 				{
-					intent: 'extract-text' as const,
+					intent: intentKey,
 					error: llmResult.error,
 					recipe: null,
 					result: null,
@@ -744,11 +770,14 @@ export async function action({ request }: Route.ActionArgs) {
 
 		captureServerEvent(userId, AI_FEATURE_USED, {
 			feature: 'recipe_extract',
-			source: imageFile ? 'image' : 'text',
+			source: intentKey === 'extract-image' ? 'image' : 'text',
+			...(intentKey === 'extract-image' && {
+				image_count: imageFiles.length,
+			}),
 		})
 
 		return data({
-			intent: 'extract-text' as const,
+			intent: intentKey,
 			recipe,
 			error: null,
 			result: null,
@@ -899,19 +928,23 @@ export default function ImportRecipe({
 		(actionIntent === 'parse-text' || actionIntent === 'extract-text')
 			? error
 			: null
+	const imageError =
+		error && actionIntent === 'extract-image' ? error : null
 
-	// Default to text tab if last action was text/extract, or URL tab otherwise
+	// Default to the tab that matches the last action
 	const defaultTab: ImportTab =
 		actionIntent === 'parse-text' || actionIntent === 'extract-text'
 			? 'text'
-			: 'url'
+			: actionIntent === 'extract-image'
+				? 'image'
+				: 'url'
 	const [activeTab, setActiveTab] = useState<ImportTab>(defaultTab)
 
 	return (
 		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
 			<h1 className="mb-2 text-2xl font-bold">Import Recipe</h1>
 			<p className="text-muted-foreground mb-6">
-				Import a recipe from a URL, paste text, or upload a screenshot.
+				Import a recipe from a URL, paste text, or upload screenshots.
 			</p>
 
 			{/* Input forms */}
@@ -939,7 +972,18 @@ export default function ImportRecipe({
 							}`}
 							onClick={() => setActiveTab('text')}
 						>
-							From Text / Image
+							From Text
+						</button>
+						<button
+							type="button"
+							className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+								activeTab === 'image'
+									? 'bg-accent text-accent-foreground'
+									: 'text-muted-foreground hover:text-foreground'
+							}`}
+							onClick={() => setActiveTab('image')}
+						>
+							From Image
 						</button>
 					</div>
 
@@ -984,13 +1028,9 @@ export default function ImportRecipe({
 						</Form>
 					)}
 
-					{/* Text / Image tab */}
+					{/* Text tab */}
 					{activeTab === 'text' && (
-						<Form
-							method="POST"
-							encType="multipart/form-data"
-							className="space-y-4"
-						>
+						<Form method="POST" className="space-y-4">
 							<div className="space-y-2">
 								<Label htmlFor="rawText">Recipe text</Label>
 								<Textarea
@@ -1002,24 +1042,19 @@ export default function ImportRecipe({
 									rows={8}
 								/>
 							</div>
-							<div className="space-y-2">
-								<Label htmlFor="image">Or upload a screenshot</Label>
-								<Input
-									id="image"
-									name="image"
-									type="file"
-									accept="image/jpeg,image/png,image/webp"
-								/>
-								<p className="text-muted-foreground text-xs">
-									JPEG, PNG, or WebP, max 5MB
-								</p>
-							</div>
 							{textError && (
 								<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
 									{textError}
 								</div>
 							)}
 							<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => history.back()}
+								>
+									Cancel
+								</Button>
 								<StatusButton
 									type="submit"
 									name="intent"
@@ -1048,6 +1083,76 @@ export default function ImportRecipe({
 									>
 										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
 										{submittingIntent === 'extract-text'
+											? 'Extracting...'
+											: 'Extract with AI'}
+									</StatusButton>
+								) : (
+									<Button asChild>
+										<Link to="/upgrade">
+											<Icon
+												name="sparkles"
+												className="mr-1.5 inline h-4 w-4"
+											/>
+											Extract with AI
+											<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
+												Pro
+											</span>
+										</Link>
+									</Button>
+								)}
+							</div>
+						</Form>
+					)}
+
+					{/* Image tab */}
+					{activeTab === 'image' && (
+						<Form
+							method="POST"
+							encType="multipart/form-data"
+							className="space-y-4"
+						>
+							<input type="hidden" name="intent" value="extract-image" />
+							<div className="space-y-2">
+								<Label htmlFor="image">
+									Upload screenshots (up to 5)
+								</Label>
+								<Input
+									id="image"
+									name="image"
+									type="file"
+									accept="image/jpeg,image/png,image/webp"
+									multiple
+								/>
+								<p className="text-muted-foreground text-xs">
+									JPEG, PNG, or WebP, max 5MB each. Multiple images will be
+									combined into one recipe.
+								</p>
+							</div>
+							{imageError && (
+								<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
+									{imageError}
+								</div>
+							)}
+							<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => history.back()}
+								>
+									Cancel
+								</Button>
+								{isProActive ? (
+									<StatusButton
+										type="submit"
+										status={
+											submittingIntent === 'extract-image'
+												? 'pending'
+												: 'idle'
+										}
+										disabled={isSubmitting}
+									>
+										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
+										{submittingIntent === 'extract-image'
 											? 'Extracting...'
 											: 'Extract with AI'}
 									</StatusButton>

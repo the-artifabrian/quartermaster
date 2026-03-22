@@ -48,7 +48,7 @@ export function buildExtractPrompt(
 	const intro =
 		mode === 'text'
 			? 'Extract a structured recipe from the following text:'
-			: 'Extract a structured recipe from this image.'
+			: 'Extract a structured recipe from the provided image(s). If the recipe spans multiple images, combine the information from all images into a single complete recipe.'
 
 	const textBlock =
 		mode === 'text' && rawText
@@ -66,6 +66,7 @@ Rules:
 - Strip emojis, hashtags, and non-recipe content from output
 - Convert conversational instructions to imperative form
 - Separate combined ingredients ("salt and pepper" → two items)
+- When ingredients are grouped into sub-sections (e.g., "For the Sauce", "Dry Batter", "Wet Batter"), list every ingredient from every sub-section individually. Do NOT merge or sum quantities of the same ingredient across different sub-sections — they are used separately. Include the sub-section name in the notes field (e.g., notes: "for dry batter")
 - If multiple recipes are present, extract only the main or primary recipe
 - If only a total time is given (no prep/cook split), use it as cookTime
 - If no recognizable recipe is found, return {"error": "no_recipe_found"}
@@ -80,7 +81,7 @@ Return a single JSON object with this exact structure:
   "ingredients": [
     {"name": "chicken breast", "amount": "2", "unit": null, "notes": "diced"},
     {"name": "soy sauce", "amount": "2", "unit": "tbsp", "notes": null},
-    {"name": "flour", "amount": "1", "unit": "cup", "notes": null}
+    {"name": "flour", "amount": "1", "unit": "cup", "notes": "for dry batter"}
   ],
   "instructions": [
     {"content": "Step description in imperative form"}
@@ -294,19 +295,24 @@ async function prepareImage(
 }
 
 /**
- * Extract a recipe from an image (screenshot, photo) using Claude Sonnet vision.
+ * Extract a recipe from one or more images (screenshots, photos) using Claude Sonnet vision.
  */
-export async function extractRecipeFromImage(
-	imageBase64: string,
-	mediaType: string,
+export async function extractRecipeFromImages(
+	images: Array<{ base64: string; mediaType: string }>,
 ): Promise<ExtractedRecipeFromLLM | { error: string }> {
-	if (
-		!ALLOWED_IMAGE_MEDIA_TYPES.includes(
-			mediaType as (typeof ALLOWED_IMAGE_MEDIA_TYPES)[number],
-		)
-	) {
-		return {
-			error: 'Unsupported image format. Please use JPEG, PNG, or WebP.',
+	if (images.length === 0) {
+		return { error: 'No images provided.' }
+	}
+
+	for (const img of images) {
+		if (
+			!ALLOWED_IMAGE_MEDIA_TYPES.includes(
+				img.mediaType as (typeof ALLOWED_IMAGE_MEDIA_TYPES)[number],
+			)
+		) {
+			return {
+				error: 'Unsupported image format. Please use JPEG, PNG, or WebP.',
+			}
 		}
 	}
 
@@ -315,18 +321,29 @@ export async function extractRecipeFromImage(
 		return { error: 'AI features are not configured. Contact support.' }
 	}
 
-	let image: { data: string; media_type: string }
+	const preparedImages: Array<{ data: string; media_type: string }> = []
 	try {
-		image = await prepareImage(imageBase64)
+		for (const img of images) {
+			preparedImages.push(await prepareImage(img.base64))
+		}
 	} catch (error) {
 		console.error('Image preparation error:', error)
 		return {
 			error:
-				'Could not process the image. Please try a different image or format.',
+				'Could not process the image(s). Please try different images or formats.',
 		}
 	}
 
 	try {
+		const imageBlocks = preparedImages.map((img) => ({
+			type: 'image' as const,
+			source: {
+				type: 'base64' as const,
+				media_type: img.media_type,
+				data: img.data,
+			},
+		}))
+
 		const response = await fetch(ANTHROPIC_API_URL, {
 			method: 'POST',
 			headers: {
@@ -342,14 +359,7 @@ export async function extractRecipeFromImage(
 					{
 						role: 'user',
 						content: [
-							{
-								type: 'image',
-								source: {
-									type: 'base64',
-									media_type: image.media_type,
-									data: image.data,
-								},
-							},
+							...imageBlocks,
 							{
 								type: 'text',
 								text: buildExtractPrompt('image'),
@@ -393,7 +403,7 @@ export async function extractRecipeFromImage(
 		if (!result) {
 			return {
 				error:
-					"Couldn't find a recipe in the provided image. Make sure the image contains recipe text or ingredients.",
+					"Couldn't find a recipe in the provided image(s). Make sure the image contains recipe text or ingredients.",
 			}
 		}
 

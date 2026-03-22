@@ -178,12 +178,14 @@ export function parseRecipeText(text: string): ParsedRecipe {
 	if (ingredientSectionIndex >= 0) {
 		const ingredientLines = getSectionLines(ingredientSectionIndex)
 		const usesBullets = ingredientLines.some(hasBulletPrefix)
+		let currentHeading: string | undefined
 
 		for (const line of ingredientLines) {
 			// In bulleted sections, non-bulleted lines are sub-headers
 			if (usesBullets && !hasBulletPrefix(line)) {
 				const heading = line.replace(/:$/, '').trim()
 				if (heading) {
+					currentHeading = heading
 					ingredients.push({ name: heading, isHeading: true })
 				}
 				continue
@@ -200,6 +202,15 @@ export function parseRecipeText(text: string): ParsedRecipe {
 			}
 			const parsed = parseIngredient(stripped)
 			if (parsed) {
+				// Carry sub-section context into ingredient notes
+				if (currentHeading) {
+					const headingNote = /^for\b/i.test(currentHeading)
+						? currentHeading
+						: `for ${currentHeading}`
+					parsed.notes = parsed.notes
+						? `${parsed.notes}, ${headingNote}`
+						: headingNote
+				}
 				ingredients.push(parsed)
 			}
 		}

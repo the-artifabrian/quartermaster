@@ -2,7 +2,6 @@ import { useState } from 'react'
 import {
 	MEAL_TYPES,
 	formatDayLabel,
-	isPast,
 	isToday,
 	serializeDate,
 } from '#app/utils/date.ts'
@@ -120,7 +119,6 @@ export function MealPlanCalendar({
 			<div className="hidden flex-wrap gap-2 md:flex">
 				{weekDays.map((date) => {
 					const today = isToday(date)
-					const past = isPast(date)
 					return (
 						<div
 							key={serializeDate(date)}
@@ -129,7 +127,6 @@ export function MealPlanCalendar({
 								'basis-[calc(25%-6px)]',
 								today && 'border-accent border-t-[3px] ring-2 ring-accent/30',
 								!today && 'hover:shadow-warm-md hover:border-accent/20 border border-transparent',
-								past && !today && 'opacity-80',
 							)}
 						>
 							<div className="mb-2 text-center">
@@ -169,14 +166,12 @@ export function MealPlanCalendar({
 				{mobileDays.map((date) => {
 					const dayCount = getEntriesForDay(date)
 					const today = isToday(date)
-					const past = isPast(date)
 					return (
 						<div
 							key={serializeDate(date)}
 							className={cn(
 								'rounded-xl',
 								today && 'bg-accent/10 p-3 ring-1 ring-accent/20',
-								past && !today && 'opacity-80',
 							)}
 						>
 							<div className="mb-1.5 flex items-baseline justify-between">

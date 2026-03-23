@@ -17,23 +17,27 @@ const LOADER_ARGS_BASE = {
 }
 
 async function setupUser() {
-	const session = await prisma.session.create({
-		data: {
-			expirationDate: getSessionExpirationDate(),
-			user: { create: createUser() },
-		},
-		select: { id: true, userId: true },
+	return prisma.$transaction(async (tx) => {
+		const session = await tx.session.create({
+			data: {
+				expirationDate: getSessionExpirationDate(),
+				user: {
+					create: {
+						...createUser(),
+						subscription: { create: { tier: 'pro' } },
+					},
+				},
+			},
+			select: { id: true, userId: true },
+		})
+		const household = await tx.household.create({
+			data: {
+				name: 'Test Household',
+				members: { create: { userId: session.userId, role: 'owner' } },
+			},
+		})
+		return { ...session, householdId: household.id }
 	})
-	const household = await prisma.household.create({
-		data: {
-			name: 'Test Household',
-			members: { create: { userId: session.userId, role: 'owner' } },
-		},
-	})
-	await prisma.subscription.create({
-		data: { userId: session.userId, tier: 'pro' },
-	})
-	return { ...session, householdId: household.id }
 }
 
 async function setupOtherUser(householdId: string) {

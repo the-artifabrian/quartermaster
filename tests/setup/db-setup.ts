@@ -19,6 +19,12 @@ if (cacheDatabasePath && cacheDatabasePath !== ':memory:') {
 }
 
 beforeEach(async () => {
+	// Remove stale SQLite WAL/SHM files before copying fresh DB.
+	// In WAL mode, these sidecar files can contain uncommitted transactions
+	// from previous tests that get replayed on the new database, causing
+	// FK violations and stale reads.
+	await fsExtra.remove(`${databasePath}-wal`)
+	await fsExtra.remove(`${databasePath}-shm`)
 	await fsExtra.copyFile(BASE_DATABASE_PATH, databasePath)
 })
 

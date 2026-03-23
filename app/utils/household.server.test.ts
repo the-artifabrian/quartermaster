@@ -11,14 +11,16 @@ import {
 } from './household.server.ts'
 
 async function setupUser() {
-	const user = await prisma.user.create({ data: createUser() })
-	const household = await prisma.household.create({
-		data: {
-			name: 'Test Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
+	return prisma.$transaction(async (tx) => {
+		const user = await tx.user.create({ data: createUser() })
+		const household = await tx.household.create({
+			data: {
+				name: 'Test Household',
+				members: { create: { userId: user.id, role: 'owner' } },
+			},
+		})
+		return { id: user.id, householdId: household.id }
 	})
-	return { id: user.id, householdId: household.id }
 }
 
 async function setupUserWithRecipe(recipeName = 'Test Recipe') {

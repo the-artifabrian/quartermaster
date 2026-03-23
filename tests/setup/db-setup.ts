@@ -19,6 +19,14 @@ if (cacheDatabasePath && cacheDatabasePath !== ':memory:') {
 }
 
 beforeEach(async () => {
+	// Disconnect Prisma so SQLite releases file handles and page caches.
+	// Without this, the open connection may read stale cached pages after
+	// the database file is replaced, causing FK violations and null reads.
+	const { prisma } = await import('#app/utils/db.server.ts')
+	await prisma.$disconnect()
+	// Remove stale SQLite WAL/SHM sidecar files from the previous test.
+	await fsExtra.remove(`${databasePath}-wal`)
+	await fsExtra.remove(`${databasePath}-shm`)
 	await fsExtra.copyFile(BASE_DATABASE_PATH, databasePath)
 })
 

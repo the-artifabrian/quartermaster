@@ -19,25 +19,27 @@ function makeActionArgs(recipeId: string) {
 }
 
 async function setupUser() {
-	const session = await prisma.session.create({
-		data: {
-			expirationDate: getSessionExpirationDate(),
-			user: {
-				create: {
-					...createUser(),
-					subscription: { create: { tier: 'pro' } },
+	return prisma.$transaction(async (tx) => {
+		const session = await tx.session.create({
+			data: {
+				expirationDate: getSessionExpirationDate(),
+				user: {
+					create: {
+						...createUser(),
+						subscription: { create: { tier: 'pro' } },
+					},
 				},
 			},
-		},
-		select: { id: true, userId: true },
+			select: { id: true, userId: true },
+		})
+		const household = await tx.household.create({
+			data: {
+				name: 'Test Household',
+				members: { create: { userId: session.userId, role: 'owner' } },
+			},
+		})
+		return { ...session, householdId: household.id }
 	})
-	const household = await prisma.household.create({
-		data: {
-			name: 'Test Household',
-			members: { create: { userId: session.userId, role: 'owner' } },
-		},
-	})
-	return { ...session, householdId: household.id }
 }
 
 async function setupRecipe(

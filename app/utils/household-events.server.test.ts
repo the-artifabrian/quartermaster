@@ -7,14 +7,16 @@ import {
 } from './household-events.server.ts'
 
 async function setupUser() {
-	const user = await prisma.user.create({ data: createUser() })
-	const household = await prisma.household.create({
-		data: {
-			name: 'Test Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
+	return prisma.$transaction(async (tx) => {
+		const user = await tx.user.create({ data: createUser() })
+		const household = await tx.household.create({
+			data: {
+				name: 'Test Household',
+				members: { create: { userId: user.id, role: 'owner' } },
+			},
+		})
+		return { id: user.id, householdId: household.id, username: user.username }
 	})
-	return { id: user.id, householdId: household.id, username: user.username }
 }
 
 describe('emitHouseholdEvent', () => {

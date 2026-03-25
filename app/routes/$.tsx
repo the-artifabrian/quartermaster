@@ -29,14 +29,20 @@ export function ErrorBoundary() {
 		<GeneralErrorBoundary
 			statusHandlers={{
 				404: () => (
-					<div className="flex flex-col gap-6">
+					<div className="flex flex-col items-center gap-6 py-12 text-center">
 						<div className="flex flex-col gap-3">
-							<h1>We can't find this page:</h1>
-							<pre className="text-xl break-all whitespace-pre-wrap">
-								{location.pathname}
-							</pre>
+							<h1 className="font-serif text-2xl">Page not found</h1>
+							<p className="text-muted-foreground">
+								There's nothing at{' '}
+								<code className="bg-muted rounded px-1.5 py-0.5 text-sm break-all">
+									{location.pathname}
+								</code>
+							</p>
 						</div>
-						<Link to="/" className="text-lg underline">
+						<Link
+							to="/"
+							className="text-primary underline underline-offset-4"
+						>
 							<Icon name="arrow-left">Back to home</Icon>
 						</Link>
 					</div>

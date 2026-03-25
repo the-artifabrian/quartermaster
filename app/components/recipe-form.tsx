@@ -385,7 +385,7 @@ export function RecipeForm({
 				</div>
 			))}
 
-			<div className="flex justify-end gap-4 border-t pt-6">
+			<div className="bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm sticky bottom-16 z-10 flex justify-end gap-4 border-t py-3 md:static md:bottom-auto md:z-auto md:bg-transparent md:pt-6 md:pb-0 md:backdrop-blur-none">
 				<Button type="button" variant="outline" onClick={() => history.back()}>
 					Cancel
 				</Button>

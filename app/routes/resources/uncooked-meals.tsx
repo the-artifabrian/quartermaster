@@ -15,6 +15,9 @@ const MEAL_REMINDER_AFTER_HOUR: Record<string, number> = {
 	snack: 21, // 9pm
 }
 
+// Don't nag about meals added in the last 2 hours
+const RECENTLY_ADDED_GRACE_MS = 2 * 60 * 60 * 1000
+
 export async function loader({ request }: Route.LoaderArgs) {
 	// Gracefully return empty when not authenticated — this is a fetcher-only
 	// route, so redirecting to /login would cause the browser to navigate to
@@ -50,12 +53,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 			date: true,
 			mealType: true,
 			servings: true,
+			createdAt: true,
 			recipe: { select: { id: true, title: true } },
 		},
 	})
 
 	// Filter out today's meals where it's too early to remind
 	const filtered = entries.filter((entry) => {
+		// Grace period: skip recently-added meals
+		if (now.getTime() - entry.createdAt.getTime() < RECENTLY_ADDED_GRACE_MS) {
+			return false
+		}
+
 		const entryDateStr = new Date(entry.date).toISOString().slice(0, 10)
 		const isToday = entryDateStr === todayStr
 		if (!isToday) return true // yesterday's meals always show

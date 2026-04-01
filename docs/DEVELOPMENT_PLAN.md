@@ -16,7 +16,9 @@ architecture, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 auto-subtraction. Inventory serves two purposes: match rings on recipe cards (do
 you have the ingredient?) and advisory shopping deductions (in-stock items are
 pre-checked, not omitted). This keeps the mental overhead low. You're answering
-"do I have chicken?" not "do I have 325g of chicken?"
+"do I have chicken?" not "do I have 325g of chicken?" Post-cook inventory review
+nudges removal of used-up ingredients but the user always decides — the system
+never auto-removes.
 
 **No category grouping on shopping list.** Was built, tried, and removed. Flat
 alphabetical list works better for real shopping trips than produce/dairy/meat
@@ -80,4 +82,4 @@ Ideas evaluated and intentionally set aside.
 
 ---
 
-_Last updated: March 2026._
+_Last updated: April 2026._

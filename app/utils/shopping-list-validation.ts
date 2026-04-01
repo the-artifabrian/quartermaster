@@ -72,7 +72,7 @@ export function guessCategory(ingredientName: string): string {
 	}
 	if (
 		name.match(
-			/flour|sugar|rice|pasta|oil|sauce|can|jar|spice|salt|pepper|stock|broth|bean|lentil|oat/,
+			/flour|sugar|rice|pasta|oil|sauce|can|jar|spice|salt|pepper|stock|broth|bean|lentil|oat|baking powder|baking soda|vanilla|cornstarch|corn starch|vinegar|extract|honey|maple syrup|cocoa|yeast|mustard|sesame|molasses|gelatin|cornmeal|cumin|paprika|cinnamon|nutmeg|oregano|thyme|turmeric|curry powder|chili powder|cayenne/,
 		)
 	) {
 		return 'pantry'

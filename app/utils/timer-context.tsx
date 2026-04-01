@@ -16,6 +16,7 @@ export type Timer = {
 	endTime: number | null // absolute ms when running
 	remainingMs: number // stored when paused/idle
 	status: TimerStatus
+	alarmStartedAt: number | null // ms when timer first entered alarming state
 }
 
 type TimerContextValue = {
@@ -33,6 +34,7 @@ const TimerContext = createContext<TimerContextValue | null>(null)
 const MAX_TIMERS = 5
 const STORAGE_KEY = 'qm-timers'
 const TICK_INTERVAL = 250
+const AUTO_DISMISS_MS = 60_000 // auto-dismiss alarming timers after 60s
 
 function generateId(): string {
 	return Math.random().toString(36).slice(2, 9)
@@ -88,10 +90,15 @@ function loadTimersFromStorage(): Timer[] {
 						status: 'alarming' as const,
 						endTime: null,
 						remainingMs: 0,
+						alarmStartedAt: timer.alarmStartedAt ?? timer.endTime,
 					}
 				}
 				// Still running, keep endTime as-is
 				return timer
+			}
+			// Backfill alarmStartedAt for alarming timers from before this field existed
+			if (timer.status === 'alarming' && !timer.alarmStartedAt) {
+				return { ...timer, alarmStartedAt: now }
 			}
 			return timer
 		})
@@ -174,12 +181,33 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 								status: 'alarming' as const,
 								endTime: null,
 								remainingMs: 0,
+								alarmStartedAt: now,
 							}
 						}
 						return timer
 					}),
 				)
 				playAlarmSound()
+			}
+
+			// Auto-dismiss timers that have been alarming for too long
+			const hasStaleAlarms = current.some(
+				(t) =>
+					t.status === 'alarming' &&
+					t.alarmStartedAt &&
+					now - t.alarmStartedAt >= AUTO_DISMISS_MS,
+			)
+			if (hasStaleAlarms) {
+				setTimers((prev) =>
+					prev.filter(
+						(t) =>
+							!(
+								t.status === 'alarming' &&
+								t.alarmStartedAt &&
+								now - t.alarmStartedAt >= AUTO_DISMISS_MS
+							),
+					),
+				)
 			}
 
 			// Force re-render to update countdown displays
@@ -236,6 +264,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 				endTime: Date.now() + durationSeconds * 1000,
 				remainingMs: durationSeconds * 1000,
 				status: 'running',
+				alarmStartedAt: null,
 			}
 			return [...prev, newTimer]
 		})
@@ -280,6 +309,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 					status: 'idle' as const,
 					endTime: null,
 					remainingMs: timer.durationSeconds * 1000,
+					alarmStartedAt: null,
 				}
 			}),
 		)

@@ -15,34 +15,29 @@ import { Checkbox } from '#app/components/ui/checkbox.tsx'
 
 type MatchedItem = { id: string; name: string; preChecked?: boolean }
 
-export function PostCookInventoryReview({
-	open,
-	onOpenChange,
+/**
+ * The inner content for the post-cook inventory review.
+ * Used directly inside a combined dialog (meal-slot-card) or
+ * wrapped in its own AlertDialog (uncooked-meal-reminder).
+ */
+export function PostCookInventoryReviewContent({
 	recipeTitle,
 	matchedItems,
-	onComplete,
+	onDone,
 }: {
-	open: boolean
-	onOpenChange: (open: boolean) => void
 	recipeTitle: string
 	matchedItems: MatchedItem[]
-	onComplete: () => void
+	onDone: () => void
 }) {
-	const [selected, setSelected] = useState<Set<string>>(() => new Set())
+	const [selected, setSelected] = useState<Set<string>>(
+		() =>
+			new Set(
+				matchedItems
+					.filter((i) => i.preChecked !== false)
+					.map((i) => i.id),
+			),
+	)
 	const fetcher = useFetcher<{ success: boolean; deletedCount?: number }>()
-
-	// Pre-select perishable items when the dialog opens
-	useEffect(() => {
-		if (open && matchedItems.length > 0) {
-			setSelected(
-				new Set(
-					matchedItems
-						.filter((i) => i.preChecked !== false)
-						.map((i) => i.id),
-				),
-			)
-		}
-	}, [open, matchedItems])
 
 	// Handle successful removal
 	useEffect(() => {
@@ -51,8 +46,7 @@ export function PostCookInventoryReview({
 			toast.success(
 				`Removed ${count} item${count !== 1 ? 's' : ''} from inventory`,
 			)
-			onOpenChange(false)
-			onComplete()
+			onDone()
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [fetcher.data])
@@ -80,50 +74,76 @@ export function PostCookInventoryReview({
 		})
 	}
 
-	function handleSkip() {
-		onOpenChange(false)
-		onComplete()
-	}
-
 	const isSubmitting = fetcher.state !== 'idle'
 
 	return (
+		<>
+			<AlertDialogHeader>
+				<AlertDialogTitle>Update your inventory?</AlertDialogTitle>
+				<AlertDialogDescription>
+					You cooked {recipeTitle}. Tap items you've used up.
+				</AlertDialogDescription>
+			</AlertDialogHeader>
+			<div className="grid grid-cols-2 gap-1.5">
+				{matchedItems.map((item) => (
+					<label
+						key={item.id}
+						className="flex cursor-pointer items-center gap-2 rounded-lg bg-secondary/30 px-2.5 py-2 select-none"
+					>
+						<Checkbox
+							checked={selected.has(item.id)}
+							onCheckedChange={() => toggleItem(item.id)}
+							className="shrink-0"
+						/>
+						<span className="text-xs leading-tight capitalize sm:text-sm">
+							{item.name}
+						</span>
+					</label>
+				))}
+			</div>
+			<AlertDialogFooter>
+				<AlertDialogCancel onClick={onDone}>Skip</AlertDialogCancel>
+				<Button
+					onClick={handleRemove}
+					disabled={selected.size === 0 || isSubmitting}
+				>
+					{isSubmitting
+						? 'Removing...'
+						: `Remove ${selected.size} item${selected.size !== 1 ? 's' : ''}`}
+				</Button>
+			</AlertDialogFooter>
+		</>
+	)
+}
+
+/**
+ * Standalone dialog wrapper — used by uncooked-meal-reminder
+ * where there's no preceding confirmation dialog.
+ */
+export function PostCookInventoryReview({
+	open,
+	onOpenChange,
+	recipeTitle,
+	matchedItems,
+	onComplete,
+}: {
+	open: boolean
+	onOpenChange: (open: boolean) => void
+	recipeTitle: string
+	matchedItems: MatchedItem[]
+	onComplete: () => void
+}) {
+	return (
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
 			<AlertDialogContent>
-				<AlertDialogHeader>
-					<AlertDialogTitle>Update your inventory?</AlertDialogTitle>
-					<AlertDialogDescription>
-						You cooked {recipeTitle}. Tap items you've used up.
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<div className="grid grid-cols-2 gap-1.5">
-					{matchedItems.map((item) => (
-						<label
-							key={item.id}
-							className="flex cursor-pointer items-center gap-2 rounded-lg bg-secondary/30 px-2.5 py-2 select-none"
-						>
-							<Checkbox
-								checked={selected.has(item.id)}
-								onCheckedChange={() => toggleItem(item.id)}
-								className="shrink-0"
-							/>
-							<span className="text-xs leading-tight capitalize sm:text-sm">
-								{item.name}
-							</span>
-						</label>
-					))}
-				</div>
-				<AlertDialogFooter>
-					<AlertDialogCancel onClick={handleSkip}>Skip</AlertDialogCancel>
-					<Button
-						onClick={handleRemove}
-						disabled={selected.size === 0 || isSubmitting}
-					>
-						{isSubmitting
-							? 'Removing...'
-							: `Remove ${selected.size} item${selected.size !== 1 ? 's' : ''}`}
-					</Button>
-				</AlertDialogFooter>
+				<PostCookInventoryReviewContent
+					recipeTitle={recipeTitle}
+					matchedItems={matchedItems}
+					onDone={() => {
+						onOpenChange(false)
+						onComplete()
+					}}
+				/>
 			</AlertDialogContent>
 		</AlertDialog>
 	)

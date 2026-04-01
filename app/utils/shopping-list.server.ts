@@ -35,6 +35,30 @@ export type ShoppingListItemInput = {
 	source: string
 }
 
+// Safety net: detect ingredients that look like section headings but aren't
+// marked with isHeading (e.g. from manual entry or import paths that don't
+// detect headings).
+const HEADING_EXACT =
+	/^(?:sauce|marinade|filling|topping|glaze|garnish|dressing|batter|crust|frosting|assembly|spice mix|dry ingredients|wet ingredients|meat and marinade|stir[- ]?fry|quick marinade|broth)$/i
+const HEADING_PREFIX =
+	/^(?:for the |for |the |quick (?:marinade|sauce|dressing) )/i
+
+function looksLikeHeading(ingredient: {
+	name: string
+	amount: string | null
+	unit: string | null
+}): boolean {
+	if (ingredient.amount || ingredient.unit) return false
+	const name = ingredient.name.trim()
+	if (!name || name.length > 60) return false
+	// Ends with colon (e.g. "For the sauce:")
+	if (name.endsWith(':')) return true
+	// Matches known heading patterns
+	if (HEADING_EXACT.test(name)) return true
+	if (HEADING_PREFIX.test(name)) return true
+	return false
+}
+
 // Generate shopping list from recipe entries, consolidate duplicates
 // Accepts either RecipeWithIngredients[] (backwards-compatible) or RecipeEntry[]
 export function generateShoppingListFromRecipes(
@@ -61,6 +85,7 @@ export function generateShoppingListFromRecipes(
 
 		for (const ingredient of recipe.ingredients) {
 			if (ingredient.isHeading) continue
+			if (looksLikeHeading(ingredient)) continue
 			if (isOptionalIngredient(ingredient)) continue
 
 			// Re-parse ingredients that have no amount but name starts with a quantity

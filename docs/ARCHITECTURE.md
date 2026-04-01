@@ -78,27 +78,40 @@ lists belong to the household, not the user.
   ┌─────────────────────────────────────────────────────────┐
   │                                                         │
   │  RECIPES ──────▶ INVENTORY ──────▶ MATCHING             │
-  │     │              ▲                   │                 │
-  │     │              │                   ▼                 │
-  │     │         Check off at       "What can I make?"     │
-  │     │          the store               │                 │
-  │     │              │                   ▼                 │
+  │     │              ▲    ▲              │                 │
+  │     │              │    │              ▼                 │
+  │     │         Check off │        "What can I make?"     │
+  │     │          at store │              │                 │
+  │     │              │    │              ▼                 │
   │  SHOPPING ◀──── MEAL PLAN ◀──── Recipe discovery        │
   │  LIST              │                                     │
   │     └──────────────┘                                     │
   │       Generate from planned meals                        │
   └─────────────────────────────────────────────────────────┘
+           MEAL PLAN ──mark cooked──▶ review used-up
+                        ingredients ──▶ remove from INVENTORY
 ```
 
 **Shopping list generation flow:**
 
-1. Collect ingredients across planned recipes
+1. Collect ingredients across planned recipes (filter headings + heading
+   heuristic for untagged headings)
 2. Scale amounts by per-entry serving overrides
 3. Consolidate duplicates via canonical name matching
 4. Sum compatible units (cups + tbsp → total volume)
 5. Annotate items already in inventory (pre-checked, not omitted)
 6. Filter out staples and optional ingredients
 7. After shopping: checked items → new InventoryItem records → feeds matching
+
+**Post-cook inventory review flow:**
+
+1. User marks a meal as cooked (quickCook intent)
+2. Server matches recipe ingredients against household inventory
+3. Filters out staples (salt, oil, pepper) and optional ingredients
+4. Returns matched inventory items with pre-check flag (perishables checked,
+   pantry items unchecked)
+5. Dialog prompts user to confirm which items they used up
+6. Selected items bulk-deleted from inventory via resource route
 
 ---
 
@@ -116,7 +129,7 @@ lists belong to the household, not the user.
        │
        │  lowercase → strip parens → split comma → handle "or"
        │  → check protected compounds → strip modifiers
-       │  → normalize plurals → cache
+       │  → strip compound prep phrases → normalize plurals → cache
        ▼
   Canonical name (used for matching, dedup, consolidation)
 ```
@@ -220,7 +233,7 @@ table.
 
 ## Testing
 
-857 tests across 39 files (Vitest) + Playwright e2e.
+831 tests across 36 files (Vitest) + Playwright e2e.
 
 Key coverage: ingredient parser (263 tests), recipe matching, shopping list
 generation, household events, LLM integrations (MSW mocks), AI rate limiting,
@@ -228,4 +241,4 @@ Stripe webhooks, shopping → inventory pipeline (e2e).
 
 ---
 
-_Last updated: March 18, 2026._
+_Last updated: April 1, 2026._

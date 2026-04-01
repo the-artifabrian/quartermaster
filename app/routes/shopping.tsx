@@ -195,9 +195,9 @@ export async function action({ request }: Route.ActionArgs) {
 			},
 		})
 
-		// Dedup against remaining unchecked items (manual, recipe, discover sources)
+		// Dedup against all existing items (checked or not) to avoid visual duplicates
 		const existingItems = await prisma.shoppingListItem.findMany({
-			where: { listId: shoppingList.id, checked: false },
+			where: { listId: shoppingList.id },
 			select: { name: true },
 		})
 		const existingCanonicals = new Set(
@@ -425,9 +425,9 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 		invariantResponse(Array.isArray(items) && items.length > 0, 'No items')
 
-		// Dedup against existing unchecked items
+		// Dedup against all existing items to avoid visual duplicates
 		const existingItems = await prisma.shoppingListItem.findMany({
-			where: { listId: shoppingList.id, checked: false },
+			where: { listId: shoppingList.id },
 			select: { name: true },
 		})
 		const existingCanonicals = new Set(

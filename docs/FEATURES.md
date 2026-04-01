@@ -23,7 +23,7 @@ to "what do I need to buy?", in one app.
 - Cooking mode: ingredient checkboxes, instruction cross-off, auto-scroll,
   localStorage persistence with 7-day expiry
 - Inline timers auto-detected from instruction text, up to 5 concurrent with
-  floating widget, alarm sound, wake lock
+  floating widget, alarm sound, wake lock, auto-dismiss after 60s
 - Temperature conversion tooltips (F/C), print layout
 - Public share pages with OG tags, JSON-LD, full cooking mode
 - Import: URL (JSON-LD scraping), quick text entry, bulk import (.md/.txt, max
@@ -47,7 +47,8 @@ to "what do I need to buy?", in one app.
 - Item age labels, stale item review (30-day threshold)
 - Inline editing, swipe-to-delete, quick-add with duplicate detection
 - Bulk add (staples onboarding), canonical name dedup
-- Normalization pipeline: ~40 modifier strippers, ~25 synonym groups,
+- Normalization pipeline: ~40 modifier strippers (incl. ground, smoked,
+  diced...), compound prep phrase stripping, ~25 synonym groups,
   pluralization, compound ingredient protection
 - "What can I make?": SVG match rings on recipe cards, default sort by match %,
   4-level fuzzy matching (exact, synonym, core word, containment)
@@ -55,7 +56,12 @@ to "what do I need to buy?", in one app.
 ## Meal Planning & Shopping
 
 - Weekly calendar (Mon-start, 4 meal types/day), per-entry serving overrides
-- Cooked/uncooked tracking, uncooked meal reminders, "up next" banner
+- Cooked/uncooked tracking, uncooked meal reminders (time-of-day gated,
+  2-hour grace period for recently added meals), "up next" banner
+- Post-cook inventory review: after marking a meal cooked, prompts to remove
+  used-up ingredients from inventory. Matches recipe ingredients against
+  inventory using fuzzy matching, filters staples/optionals, pre-checks
+  perishables (produce, dairy, meat) and leaves pantry items unchecked
 - Copy week, suggest meals (favorites + inventory match scoring, variety
   enforcement, meal-type classification, Jaccard overlap filtering)
 - Recipe selector: favorites-first, weeknight-aware sorting, cook stats
@@ -95,8 +101,8 @@ to "what do I need to buy?", in one app.
 - Security: nonce-based CSP, SSRF protection, Zod validation, magic-byte MIME
   checks, PwnedPasswords, user enumeration prevention
 - Full data export/import with duplicate detection
-- 857 Vitest tests + Playwright e2e, deployed on Fly.io with LiteFS
+- 831 Vitest tests + Playwright e2e, deployed on Fly.io with LiteFS
 
 ---
 
-_Last updated: March 18, 2026._
+_Last updated: April 1, 2026._

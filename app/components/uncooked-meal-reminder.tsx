@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useFetcher, useLocation } from 'react-router'
 import { toast } from 'sonner'
+import { PostCookInventoryReview } from '#app/components/post-cook-inventory-review.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 
@@ -20,6 +21,7 @@ type LoaderData = {
 type CookResult = {
 	status: 'success'
 	recipeTitle: string
+	matchedInventoryItems?: Array<{ id: string; name: string; preChecked: boolean }>
 }
 
 function formatEntryContext(entry: UncookedEntry): string {
@@ -44,6 +46,10 @@ export function UncookedMealReminder() {
 	const cookFetcher = useFetcher<CookResult>()
 	const [skipped, setSkipped] = useState<Set<string>>(new Set())
 	const [cooked, setCooked] = useState<Set<string>>(new Set())
+	const [reviewData, setReviewData] = useState<{
+		recipeTitle: string
+		items: Array<{ id: string; name: string }>
+	} | null>(null)
 	const location = useLocation()
 
 	// Re-fetch on route changes (catches cooks done via /plan or /recipes/:id)
@@ -60,7 +66,19 @@ export function UncookedMealReminder() {
 	// Handle cook success
 	useEffect(() => {
 		if (cookFetcher.data?.status === 'success') {
-			toast.success(`Marked "${cookFetcher.data.recipeTitle}" as cooked`)
+			if (
+				cookFetcher.data.matchedInventoryItems &&
+				cookFetcher.data.matchedInventoryItems.length > 0
+			) {
+				setReviewData({
+					recipeTitle: cookFetcher.data.recipeTitle,
+					items: cookFetcher.data.matchedInventoryItems,
+				})
+			} else {
+				toast.success(
+					`Marked "${cookFetcher.data.recipeTitle}" as cooked`,
+				)
+			}
 		}
 	}, [cookFetcher.data])
 
@@ -124,6 +142,20 @@ export function UncookedMealReminder() {
 					</button>
 				</div>
 			</div>
+			{reviewData && (
+				<PostCookInventoryReview
+					open={true}
+					onOpenChange={() => setReviewData(null)}
+					recipeTitle={reviewData.recipeTitle}
+					matchedItems={reviewData.items}
+					onComplete={() => {
+						toast.success(
+							`Marked "${reviewData.recipeTitle}" as cooked`,
+						)
+						setReviewData(null)
+					}}
+				/>
+			)}
 		</div>
 	)
 }

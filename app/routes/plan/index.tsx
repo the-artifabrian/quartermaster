@@ -23,6 +23,7 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { getPostCookInventoryMatches } from '#app/utils/post-cook-matching.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
@@ -365,9 +366,15 @@ export async function action({ request }: Route.ActionArgs) {
 			},
 		})
 
+		const matchedInventoryItems = await getPostCookInventoryMatches(
+			entry.recipe.id,
+			householdId,
+		)
+
 		return {
 			status: 'success' as const,
 			recipeTitle: entry.recipe.title,
+			matchedInventoryItems,
 		}
 	}
 

@@ -125,8 +125,16 @@ export function parseDate(dateString: string): Date {
 
 export function formatTimeAgo(date: Date): string {
 	const now = new Date()
-	const diffMs = now.getTime() - date.getTime()
-	const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+	// Normalize to midnight to avoid DST off-by-one errors
+	const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+	const startOfDate = new Date(
+		date.getFullYear(),
+		date.getMonth(),
+		date.getDate(),
+	)
+	const diffDays = Math.round(
+		(startOfToday.getTime() - startOfDate.getTime()) / (1000 * 60 * 60 * 24),
+	)
 
 	if (diffDays === 0) return 'today'
 	if (diffDays === 1) return 'yesterday'
@@ -148,8 +156,16 @@ export const STALE_DAYS = 30
  */
 export function formatItemAge(date: Date): string {
 	const now = new Date()
-	const diffMs = now.getTime() - date.getTime()
-	const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+	// Normalize to midnight to avoid DST off-by-one errors
+	const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+	const startOfDate = new Date(
+		date.getFullYear(),
+		date.getMonth(),
+		date.getDate(),
+	)
+	const diffDays = Math.round(
+		(startOfToday.getTime() - startOfDate.getTime()) / (1000 * 60 * 60 * 24),
+	)
 
 	if (diffDays === 0) return 'today'
 	if (diffDays === 1) return 'yesterday'

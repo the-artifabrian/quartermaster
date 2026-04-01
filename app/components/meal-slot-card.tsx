@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Form, Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
 
+import { PostCookInventoryReview } from '#app/components/post-cook-inventory-review.tsx'
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -36,6 +37,7 @@ type MealSlotCardProps = {
 type QuickCookData = {
 	status: string
 	recipeTitle?: string
+	matchedInventoryItems?: Array<{ id: string; name: string; preChecked: boolean }>
 }
 
 function EntryRow({
@@ -53,6 +55,7 @@ function EntryRow({
 	const cookedFetcher = useFetcher<QuickCookData>()
 	const prevCookedFetcherState = useRef(cookedFetcher.state)
 	const [showCookConfirm, setShowCookConfirm] = useState(false)
+	const [showInventoryReview, setShowInventoryReview] = useState(false)
 
 	const currentServings = entry.servings ?? entry.recipe.servings
 
@@ -65,7 +68,7 @@ function EntryRow({
 				? !entry.cooked
 				: entry.cooked
 
-	// Show toast when quickCook completes
+	// Show inventory review or toast when quickCook completes
 	useEffect(() => {
 		if (
 			prevCookedFetcherState.current !== 'idle' &&
@@ -73,7 +76,14 @@ function EntryRow({
 			cookedFetcher.data?.status === 'success' &&
 			cookedFetcher.data?.recipeTitle
 		) {
-			toast.success(`Cooked ${cookedFetcher.data.recipeTitle}`)
+			if (
+				cookedFetcher.data.matchedInventoryItems &&
+				cookedFetcher.data.matchedInventoryItems.length > 0
+			) {
+				setShowInventoryReview(true)
+			} else {
+				toast.success(`Cooked ${cookedFetcher.data.recipeTitle}`)
+			}
 		}
 		prevCookedFetcherState.current = cookedFetcher.state
 	}, [cookedFetcher.state, cookedFetcher.data])
@@ -210,6 +220,17 @@ function EntryRow({
 					</StatusButton>
 				</Form>
 			</div>
+			<PostCookInventoryReview
+				open={showInventoryReview}
+				onOpenChange={setShowInventoryReview}
+				recipeTitle={cookedFetcher.data?.recipeTitle ?? ''}
+				matchedItems={cookedFetcher.data?.matchedInventoryItems ?? []}
+				onComplete={() => {
+					toast.success(
+						`Cooked ${cookedFetcher.data?.recipeTitle}`,
+					)
+				}}
+			/>
 		</div>
 	)
 }

@@ -7,6 +7,18 @@ import { type Route } from './+types/inventory-remove.ts'
 export async function action({ request }: Route.ActionArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
 	const formData = await request.formData()
+
+	// Bulk delete path
+	const rawIds = formData.get('inventoryItemIds')
+	if (typeof rawIds === 'string') {
+		const ids = JSON.parse(rawIds) as string[]
+		const result = await prisma.inventoryItem.deleteMany({
+			where: { id: { in: ids }, householdId },
+		})
+		return data({ success: true, deletedCount: result.count })
+	}
+
+	// Single delete path
 	const inventoryItemId = formData.get('inventoryItemId')
 	invariantResponse(
 		typeof inventoryItemId === 'string',

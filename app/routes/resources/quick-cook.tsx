@@ -1,6 +1,7 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { data } from 'react-router'
 import { prisma } from '#app/utils/db.server.ts'
+import { getPostCookInventoryMatches } from '#app/utils/post-cook-matching.server.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/quick-cook.ts'
 
@@ -34,8 +35,14 @@ export async function action({ request }: Route.ActionArgs) {
 		},
 	})
 
+	const matchedInventoryItems = await getPostCookInventoryMatches(
+		entry.recipe.id,
+		householdId,
+	)
+
 	return data({
 		status: 'success' as const,
 		recipeTitle: entry.recipe.title,
+		matchedInventoryItems,
 	})
 }

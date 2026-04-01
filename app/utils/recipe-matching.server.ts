@@ -186,6 +186,12 @@ const PROTECTED_COMPOUNDS = new Set([
 	'brown rice',
 	'brown butter',
 	'brown lentil',
+	// Ground proteins — "ground" changes the product category, not just preparation
+	'ground chicken',
+	'ground beef',
+	'ground pork',
+	'ground turkey',
+	'ground lamb',
 	'dark chocolate',
 	'dark soy sauce',
 	'light soy sauce',
@@ -593,12 +599,19 @@ export function ingredientMatchesInventoryItem(
 	const ingredientCore = getCoreIngredientWord(ingredient.name)
 	const inventoryCore = getCoreIngredientWord(inventoryItem.name)
 
-	// Match on core words, but exclude non-equivalent compounds and
-	// cut-sensitive proteins (chicken breast ≠ chicken thigh)
+	// Match on core words, but exclude non-equivalent compounds,
+	// cut-sensitive proteins (chicken breast ≠ chicken thigh),
+	// and different protected compounds (red onion ≠ red lentil,
+	// green tea ≠ black tea, ground chicken ≠ ground nutmeg)
 	if (
 		ingredientCore === inventoryCore &&
 		!CUT_SENSITIVE_WORDS.has(ingredientCore) &&
-		!isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory)
+		!isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory) &&
+		!(
+			normalizedIngredient !== normalizedInventory &&
+			PROTECTED_COMPOUNDS.has(normalizedIngredient) &&
+			PROTECTED_COMPOUNDS.has(normalizedInventory)
+		)
 	) {
 		return true
 	}

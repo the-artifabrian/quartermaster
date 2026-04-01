@@ -138,6 +138,18 @@ describe('normalizeIngredientName', () => {
 		expect(normalizeIngredientName('toasted sesame seeds')).toBe('sesame seed')
 	})
 
+	test('protects ground proteins from modifier stripping', () => {
+		expect(normalizeIngredientName('ground chicken')).toBe('ground chicken')
+		expect(normalizeIngredientName('ground beef')).toBe('ground beef')
+		expect(normalizeIngredientName('ground turkey')).toBe('ground turkey')
+	})
+
+	test('strips ground from spices (not protected)', () => {
+		expect(normalizeIngredientName('ground cumin')).toBe('cumin')
+		expect(normalizeIngredientName('ground nutmeg')).toBe('nutmeg')
+		expect(normalizeIngredientName('ground coriander')).toBe('coriander')
+	})
+
 	test('strips "cracked" and "freshly" modifiers', () => {
 		expect(normalizeIngredientName('cracked black pepper')).toBe(
 			'black pepper',
@@ -264,6 +276,27 @@ describe('ingredientMatchesInventoryItem', () => {
 		expect(match('pork chop', 'pork belly')).toBe(false)
 		expect(match('ground beef', 'beef brisket')).toBe(false)
 		expect(match('lamb chop', 'lamb shank')).toBe(false)
+	})
+
+	test('negative: ground protein does NOT match different cuts', () => {
+		expect(match('ground chicken', 'chicken breast')).toBe(false)
+		expect(match('ground chicken', 'chicken thigh')).toBe(false)
+		expect(match('ground beef', 'beef steak')).toBe(false)
+	})
+
+	test('ground protein matches itself', () => {
+		expect(match('ground chicken', 'Ground Chicken')).toBe(true)
+		expect(match('ground beef', 'Ground Beef')).toBe(true)
+	})
+
+	test('negative: different protected compounds do NOT match via core word', () => {
+		expect(match('red onion', 'red lentils')).toBe(false)
+		expect(match('green onion', 'green lentils')).toBe(false)
+		expect(match('white wine', 'white bean')).toBe(false)
+		expect(match('green tea', 'black tea')).toBe(false)
+		expect(match('red wine', 'white wine')).toBe(false)
+		expect(match('dark chocolate', 'white chocolate')).toBe(false)
+		expect(match('ground chicken', 'ground turkey')).toBe(false)
 	})
 
 	test('single-word ingredient matches multi-word inventory (first/last word)', () => {

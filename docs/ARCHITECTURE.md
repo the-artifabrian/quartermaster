@@ -162,8 +162,9 @@ Each level is progressively looser:
 **Performance:** Pre-built O(1) lookup from inventory (Sets for normalized
 names, synonyms, core words). O(n) containment only runs as last resort.
 
-**Guards:** Core-word matching skips cut-sensitive proteins (thigh ≠ breast).
-Non-equivalent compounds blocked (rice ≠ rice vinegar).
+**Guards:** Core-word matching skips cut-sensitive proteins (thigh ≠ breast),
+non-equivalent compounds (rice ≠ rice vinegar), and different protected
+compounds (red onion ≠ red lentil, ground chicken ≠ ground turkey).
 
 **Match %:** `matched / (total - staples - optional - headings) × 100`,
 displayed as SVG progress rings on recipe cards.

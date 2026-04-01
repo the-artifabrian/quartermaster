@@ -76,8 +76,20 @@ describe('guessCategory', () => {
 	})
 
 	test('falls back to "other" for unknown items', () => {
-		expect(guessCategory('nutritional yeast')).toBe('other')
 		expect(guessCategory('tofu')).toBe('other')
 		expect(guessCategory('tempeh')).toBe('other')
+	})
+
+	test('categorizes expanded pantry items', () => {
+		expect(guessCategory('nutritional yeast')).toBe('pantry')
+		expect(guessCategory('baking powder')).toBe('pantry')
+		expect(guessCategory('baking soda')).toBe('pantry')
+		expect(guessCategory('vanilla extract')).toBe('pantry')
+		expect(guessCategory('cornstarch')).toBe('pantry')
+		expect(guessCategory('cumin')).toBe('pantry')
+		expect(guessCategory('honey')).toBe('pantry')
+		expect(guessCategory('white vinegar')).toBe('pantry')
+		expect(guessCategory('cinnamon')).toBe('pantry')
+		expect(guessCategory('maple syrup')).toBe('pantry')
 	})
 })

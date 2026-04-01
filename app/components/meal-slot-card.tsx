@@ -2,10 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { Form, Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
 
-import { PostCookInventoryReview } from '#app/components/post-cook-inventory-review.tsx'
+import { PostCookInventoryReviewContent } from '#app/components/post-cook-inventory-review.tsx'
 import {
 	AlertDialog,
-	AlertDialogAction,
 	AlertDialogCancel,
 	AlertDialogContent,
 	AlertDialogDescription,
@@ -13,6 +12,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '#app/components/ui/alert-dialog.tsx'
+import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { type MealType, MEAL_TYPE_LABELS } from '#app/utils/date.ts'
@@ -40,6 +40,8 @@ type QuickCookData = {
 	matchedInventoryItems?: Array<{ id: string; name: string; preChecked: boolean }>
 }
 
+type CookDialogPhase = 'closed' | 'confirm' | 'review'
+
 function EntryRow({
 	entry,
 }: {
@@ -54,8 +56,7 @@ function EntryRow({
 	const servingsFetcher = useFetcher()
 	const cookedFetcher = useFetcher<QuickCookData>()
 	const prevCookedFetcherState = useRef(cookedFetcher.state)
-	const [showCookConfirm, setShowCookConfirm] = useState(false)
-	const [showInventoryReview, setShowInventoryReview] = useState(false)
+	const [dialogPhase, setDialogPhase] = useState<CookDialogPhase>('closed')
 
 	const currentServings = entry.servings ?? entry.recipe.servings
 
@@ -68,7 +69,7 @@ function EntryRow({
 				? !entry.cooked
 				: entry.cooked
 
-	// Show inventory review or toast when quickCook completes
+	// Transition dialog when quickCook completes
 	useEffect(() => {
 		if (
 			prevCookedFetcherState.current !== 'idle' &&
@@ -77,16 +78,26 @@ function EntryRow({
 			cookedFetcher.data?.recipeTitle
 		) {
 			if (
+				dialogPhase !== 'closed' &&
 				cookedFetcher.data.matchedInventoryItems &&
 				cookedFetcher.data.matchedInventoryItems.length > 0
 			) {
-				setShowInventoryReview(true)
+				setDialogPhase('review')
 			} else {
+				setDialogPhase('closed')
 				toast.success(`Cooked ${cookedFetcher.data.recipeTitle}`)
 			}
 		}
 		prevCookedFetcherState.current = cookedFetcher.state
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [cookedFetcher.state, cookedFetcher.data])
+
+	function handleCook() {
+		void cookedFetcher.submit(
+			{ intent: 'quickCook', entryId: entry.id },
+			{ method: 'POST' },
+		)
+	}
 
 	function updateServings(newServings: number) {
 		const clamped = Math.min(999, Math.max(1, newServings))
@@ -99,6 +110,8 @@ function EntryRow({
 			{ method: 'POST' },
 		)
 	}
+
+	const isCooking = cookedFetcher.state !== 'idle'
 
 	return (
 		<div className={cn(isCooked && 'opacity-50')}>
@@ -119,40 +132,14 @@ function EntryRow({
 						</button>
 					</cookedFetcher.Form>
 				) : (
-					<AlertDialog open={showCookConfirm} onOpenChange={setShowCookConfirm}>
-						<button
-							type="button"
-							onClick={() => setShowCookConfirm(true)}
-							className="flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-0 md:min-w-0 md:p-1"
-							aria-label="Mark as cooked"
-						>
-							<span className="border-muted-foreground/30 hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
-						</button>
-						<AlertDialogContent>
-							<AlertDialogHeader>
-								<AlertDialogTitle>Mark as cooked?</AlertDialogTitle>
-								<AlertDialogDescription>
-									This will log the cook to your history.
-								</AlertDialogDescription>
-							</AlertDialogHeader>
-							<AlertDialogFooter>
-								<AlertDialogCancel>Cancel</AlertDialogCancel>
-								<AlertDialogAction
-									onClick={() => {
-										void cookedFetcher.submit(
-											{
-												intent: 'quickCook',
-												entryId: entry.id,
-											},
-											{ method: 'POST' },
-										)
-									}}
-								>
-									Cooked
-								</AlertDialogAction>
-							</AlertDialogFooter>
-						</AlertDialogContent>
-					</AlertDialog>
+					<button
+						type="button"
+						onClick={() => setDialogPhase('confirm')}
+						className="flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-0 md:min-w-0 md:p-1"
+						aria-label="Mark as cooked"
+					>
+						<span className="border-muted-foreground/30 hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
+					</button>
 				)}
 
 				{/* Title + servings inline */}
@@ -220,17 +207,47 @@ function EntryRow({
 					</StatusButton>
 				</Form>
 			</div>
-			<PostCookInventoryReview
-				open={showInventoryReview}
-				onOpenChange={setShowInventoryReview}
-				recipeTitle={cookedFetcher.data?.recipeTitle ?? ''}
-				matchedItems={cookedFetcher.data?.matchedInventoryItems ?? []}
-				onComplete={() => {
-					toast.success(
-						`Cooked ${cookedFetcher.data?.recipeTitle}`,
-					)
+
+			{/* Combined cook confirmation + inventory review dialog */}
+			<AlertDialog
+				open={dialogPhase !== 'closed'}
+				onOpenChange={(open) => {
+					if (!open) setDialogPhase('closed')
 				}}
-			/>
+			>
+				<AlertDialogContent>
+					{dialogPhase === 'confirm' && (
+						<>
+							<AlertDialogHeader>
+								<AlertDialogTitle>Mark as cooked?</AlertDialogTitle>
+								<AlertDialogDescription>
+									This will log the cook to your history.
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogCancel>Cancel</AlertDialogCancel>
+								<Button onClick={handleCook} disabled={isCooking}>
+									{isCooking ? 'Saving...' : 'Cooked'}
+								</Button>
+							</AlertDialogFooter>
+						</>
+					)}
+					{dialogPhase === 'review' && (
+						<PostCookInventoryReviewContent
+							recipeTitle={cookedFetcher.data?.recipeTitle ?? ''}
+							matchedItems={
+								cookedFetcher.data?.matchedInventoryItems ?? []
+							}
+							onDone={() => {
+								setDialogPhase('closed')
+								toast.success(
+									`Cooked ${cookedFetcher.data?.recipeTitle}`,
+								)
+							}}
+						/>
+					)}
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	)
 }

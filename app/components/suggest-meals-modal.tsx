@@ -274,7 +274,7 @@ export function SuggestMealsModal({
 	return (
 		<div
 			ref={dialogRef}
-			className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+			className="fixed inset-0 z-60 flex items-end justify-center sm:items-center"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="suggest-modal-title"
@@ -395,7 +395,7 @@ export function SuggestMealsModal({
 										key={i}
 										className={`flex items-center gap-3 rounded-xl p-2.5 ${
 											isDisabled
-												? 'bg-secondary/20 opacity-60'
+												? 'pointer-events-none bg-secondary/20 opacity-60'
 												: 'bg-secondary/30'
 										}`}
 									>
@@ -423,16 +423,18 @@ export function SuggestMealsModal({
 															className="h-8 w-8 shrink-0 rounded object-cover"
 														/>
 													) : null}
-													<span className="truncate text-sm font-medium">
-														{selection.title}
-													</span>
-													{selection.reason !== 'manual' && (
-														<span
-															className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${REASON_BADGES[selection.reason].className}`}
-														>
-															{REASON_BADGES[selection.reason].label}
+													<div className="min-w-0">
+														<span className="block truncate text-sm font-medium">
+															{selection.title}
 														</span>
-													)}
+														{selection.reason !== 'manual' && (
+															<span
+																className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${REASON_BADGES[selection.reason].className}`}
+															>
+																{REASON_BADGES[selection.reason].label}
+															</span>
+														)}
+													</div>
 												</div>
 											) : (
 												<button
@@ -480,7 +482,7 @@ export function SuggestMealsModal({
 
 				{/* Footer */}
 				{pickingDay === null && !isInitialLoad && (
-					<div className="border-t p-4 pt-3">
+					<div className="border-t p-4 pt-3 pb-20 sm:pb-4">
 						<p className="text-muted-foreground mb-3 text-center text-xs">
 							{selectionCount} meal{selectionCount !== 1 ? 's' : ''}
 						</p>

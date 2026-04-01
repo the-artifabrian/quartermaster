@@ -212,6 +212,7 @@ const MODIFIERS = [
 	'diced',
 	'sliced',
 	'minced',
+	'ground',
 	'grated',
 	'shredded',
 	'crushed',
@@ -403,6 +404,12 @@ export function normalizeIngredientName(name: string): string {
 		if (protectedModifiers.has(modifier)) continue
 		normalized = normalized.replace(regex, '')
 	}
+
+	// Strip compound prep phrases like "separated into bite-sized florets"
+	normalized = normalized.replace(
+		/\s+(?:separated|cut|torn|broken|divided|pulled|trimmed)\s+(?:into|in|for)\s+.+$/i,
+		'',
+	)
 
 	// Strip standalone numbers and "or" that leak from quantity descriptions
 	// e.g. "large or 2 medium yellow onions" → after modifier stripping → "or 2 yellow onion"

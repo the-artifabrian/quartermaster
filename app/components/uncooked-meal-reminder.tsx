@@ -48,7 +48,7 @@ export function UncookedMealReminder() {
 	const [cooked, setCooked] = useState<Set<string>>(new Set())
 	const [reviewData, setReviewData] = useState<{
 		recipeTitle: string
-		items: Array<{ id: string; name: string }>
+		items: Array<{ id: string; name: string; preChecked: boolean }>
 	} | null>(null)
 	const location = useLocation()
 

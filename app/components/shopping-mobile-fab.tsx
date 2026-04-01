@@ -25,12 +25,19 @@ export function MobileFabAdd({
 	const [unit, setUnit] = useState('')
 	const [showQty, setShowQty] = useState(false)
 	const inputRef = useRef<HTMLInputElement>(null)
+	const qtyInputRef = useRef<HTMLInputElement>(null)
 
 	useEffect(() => {
 		if (open) {
 			setTimeout(() => inputRef.current?.focus(), 50)
 		}
 	}, [open])
+
+	useEffect(() => {
+		if (showQty) {
+			qtyInputRef.current?.focus()
+		}
+	}, [showQty])
 
 	const prevState = useRef(fetcher.state)
 	useEffect(() => {
@@ -164,11 +171,12 @@ export function MobileFabAdd({
 						{showQty ? (
 							<div className="mt-2 flex items-center gap-2">
 								<input
+									ref={qtyInputRef}
 									name="quantity"
 									value={quantity}
 									onChange={(e) => setQuantity(e.target.value)}
 									placeholder="Qty"
-									className="h-8 w-16 rounded-lg border border-border/50 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30"
+className="h-8 w-16 rounded-lg border border-border/50 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30"
 								/>
 								<input
 									name="unit"
@@ -179,7 +187,11 @@ export function MobileFabAdd({
 								/>
 								<button
 									type="button"
-									onClick={() => setShowQty(false)}
+									onPointerDown={(e) => {
+										e.preventDefault()
+										setShowQty(false)
+										inputRef.current?.focus()
+									}}
 									className="shrink-0 text-xs text-muted-foreground/60 hover:text-muted-foreground"
 								>
 									Hide
@@ -188,7 +200,10 @@ export function MobileFabAdd({
 						) : (
 							<button
 								type="button"
-								onClick={() => setShowQty(true)}
+								onPointerDown={(e) => {
+									e.preventDefault()
+									setShowQty(true)
+								}}
 								className="mt-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground"
 							>
 								+ Qty &amp; unit

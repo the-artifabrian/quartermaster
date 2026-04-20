@@ -1,4 +1,7 @@
-import { type Ingredient, type InventoryItem } from '@prisma/client'
+import {
+	type Ingredient,
+	type InventoryItem,
+} from '#app/generated/prisma/client.ts'
 
 /**
  * Common staple ingredients that are assumed to be available

@@ -1,7 +1,7 @@
-import { type InventoryItem } from '@prisma/client'
 import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
+import { type InventoryItem } from '#app/generated/prisma/client.ts'
 import { formatItemAge } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { SwipeableRow } from './swipeable-row.tsx'

@@ -48,19 +48,19 @@ keys.
 | Real-time  | Server-Sent Events                                                                                  |
 | Storage    | S3-compatible (Tigris) with Sharp image processing                                                  |
 | Deployment | [Fly.io](https://fly.io/) with LiteFS + Docker                                                      |
-| Testing    | [Vitest](https://vitest.dev/) (850+ unit/integration) + [Playwright](https://playwright.dev/) (e2e) |
+| Testing    | [Vitest](https://vitest.dev/) (830+ unit/integration) + [Playwright](https://playwright.dev/) (e2e) |
 
 Bootstrapped from the [Epic Stack](https://www.epicweb.dev/epic-stack).
 
 ## Getting started
 
-Requires Node.js >= 22.
+Requires [Bun](https://bun.com/) >= 1.3.13.
 
 ```bash
-npm install
+bun install
 cp .env.example .env
-npm run setup
-npm run dev              # http://localhost:3000
+bun run setup
+bun run dev              # http://localhost:3000
 ```
 
 All external services (Stripe, S3, Google OAuth, email) are mocked in dev, so

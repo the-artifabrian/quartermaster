@@ -25,8 +25,8 @@ For features, see [FEATURES.md](./FEATURES.md). For design system, see
       └── Auth (sessions, OAuth, passkeys)
 ```
 
-Deployed on Fly.io with LiteFS. Bootstrapped from the
-[Epic Stack](https://www.epicweb.dev/epic-stack).
+Deployed on Fly.io with LiteFS, running on bun 1.3.13 (alpine/musl).
+Bootstrapped from the [Epic Stack](https://www.epicweb.dev/epic-stack).
 
 ---
 
@@ -234,7 +234,7 @@ table.
 
 ## Testing
 
-831 tests across 36 files (Vitest) + Playwright e2e.
+837 tests across 36 files (Vitest) + Playwright e2e.
 
 Key coverage: ingredient parser (263 tests), recipe matching, shopping list
 generation, household events, LLM integrations (MSW mocks), AI rate limiting,
@@ -242,4 +242,4 @@ Stripe webhooks, shopping → inventory pipeline (e2e).
 
 ---
 
-_Last updated: April 1, 2026._
+_Last updated: April 20, 2026._

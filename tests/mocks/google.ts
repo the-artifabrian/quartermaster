@@ -1,7 +1,7 @@
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { faker } from '@faker-js/faker'
-import fsExtra from 'fs-extra'
 import { HttpResponse, passthrough, http, type HttpHandler } from 'msw'
 
 const { json } = HttpResponse
@@ -18,7 +18,7 @@ const googleUserFixturePath = path.join(
 	),
 )
 
-await fsExtra.ensureDir(path.dirname(googleUserFixturePath))
+await fs.mkdir(path.dirname(googleUserFixturePath), { recursive: true })
 
 function createGoogleUser(code?: string | null) {
 	const primaryEmail = faker.internet.email()
@@ -41,12 +41,17 @@ export type GoogleUser = ReturnType<typeof createGoogleUser>
 
 async function getGoogleUsers() {
 	try {
-		if (await fsExtra.pathExists(googleUserFixturePath)) {
-			const json = await fsExtra.readJson(googleUserFixturePath)
-			return json as Array<GoogleUser>
+		const raw = await fs.readFile(googleUserFixturePath, 'utf8')
+		return JSON.parse(raw) as Array<GoogleUser>
+	} catch (error: unknown) {
+		if (
+			typeof error === 'object' &&
+			error !== null &&
+			'code' in error &&
+			(error as NodeJS.ErrnoException).code === 'ENOENT'
+		) {
+			return []
 		}
-		return []
-	} catch (error) {
 		console.error(error)
 		return []
 	}
@@ -61,11 +66,11 @@ export async function deleteGoogleUser(primaryEmail: string) {
 }
 
 export async function deleteGoogleUsers() {
-	await fsExtra.remove(googleUserFixturePath)
+	await fs.rm(googleUserFixturePath, { force: true })
 }
 
 async function setGoogleUsers(users: Array<GoogleUser>) {
-	await fsExtra.writeJson(googleUserFixturePath, users, { spaces: 2 })
+	await fs.writeFile(googleUserFixturePath, JSON.stringify(users, null, 2))
 }
 
 export async function insertGoogleUser(code?: string | null) {

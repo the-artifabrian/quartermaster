@@ -2,8 +2,22 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { invariantResponse } from '@epic-web/invariant'
-import { lookup as getMimeType } from 'mime-types'
 import { http, HttpResponse } from 'msw'
+
+const MIME_BY_EXT: Record<string, string> = {
+	'.jpg': 'image/jpeg',
+	'.jpeg': 'image/jpeg',
+	'.png': 'image/png',
+	'.webp': 'image/webp',
+	'.avif': 'image/avif',
+	'.gif': 'image/gif',
+}
+
+function getMimeType(filename: string): string | false {
+	const dot = filename.lastIndexOf('.')
+	if (dot < 0) return false
+	return MIME_BY_EXT[filename.slice(dot).toLowerCase()] ?? false
+}
 
 // Ensure we have a valid URL by explicitly creating it from the import.meta.url
 const __filename = fileURLToPath(import.meta.url)

@@ -1,6 +1,6 @@
-import { type ShoppingListItem } from '@prisma/client'
 import { useState } from 'react'
 import { useFetcher } from 'react-router'
+import { type ShoppingListItem } from '#app/generated/prisma/client.ts'
 import { Button } from './ui/button.tsx'
 import { Checkbox } from './ui/checkbox.tsx'
 

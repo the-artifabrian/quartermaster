@@ -46,14 +46,7 @@ export async function setup() {
 
 	await run(
 		'bunx',
-		[
-			'prisma',
-			'migrate',
-			'reset',
-			'--force',
-			'--skip-seed',
-			'--skip-generate',
-		],
+		['prisma', 'migrate', 'reset', '--force'],
 		{
 			env: {
 				...process.env,

@@ -7,3 +7,12 @@
 /.cache
 /public/build
 /build
+
+# generated files — copied from the build stage; don't let a local stale
+# copy leak in via `ADD . .` when someone runs `docker build` by hand
+/app/generated
+/app/components/ui/icons
+
+# local dev sqlite (prod db lives in LiteFS at /litefs/data)
+/prisma/data.db
+/prisma/data.db-journal

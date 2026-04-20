@@ -1,4 +1,7 @@
-import { type Ingredient, type Recipe } from '@prisma/client'
+import {
+	type Ingredient,
+	type Recipe,
+} from '#app/generated/prisma/client.ts'
 import {
 	getCanonicalIngredientName,
 	isOptionalIngredient,

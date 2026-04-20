@@ -1,4 +1,4 @@
-import { type Ingredient } from '@prisma/client'
+import { type Ingredient } from '#app/generated/prisma/client.ts'
 import {
 	isOptionalIngredient,
 	isStapleIngredient,

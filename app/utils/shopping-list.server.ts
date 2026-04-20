@@ -2,7 +2,7 @@ import {
 	type Recipe,
 	type Ingredient,
 	type InventoryItem,
-} from '@prisma/client'
+} from '#app/generated/prisma/client.ts'
 import { parseAmount, formatAmount } from './fractions.ts'
 import { parseIngredient } from './ingredient-parser.ts'
 import {

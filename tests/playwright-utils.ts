@@ -106,8 +106,11 @@ export const test = base.extend<{
 			const cookieConfig = setCookieParser.parseString(
 				await authSessionStorage.commitSession(authSession),
 			)
+			if (!cookieConfig) throw new Error('Failed to parse session cookie')
 			const newConfig = {
 				...cookieConfig,
+				name: cookieConfig.name,
+				value: cookieConfig.value,
 				domain: 'localhost',
 				expires: cookieConfig.expires?.getTime(),
 				sameSite: cookieConfig.sameSite as 'Strict' | 'Lax' | 'None',

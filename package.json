@@ -9,22 +9,22 @@
   },
   "scripts": {
     "build": "react-router build",
-    "dev": "cross-env NODE_ENV=development MOCKS=true node index.ts",
-    "dev:no-mocks": "cross-env NODE_ENV=development node index.ts",
+    "dev": "NODE_ENV=development MOCKS=true node index.ts",
+    "dev:no-mocks": "NODE_ENV=development node index.ts",
     "format": "prettier --write .",
     "lint": "eslint .",
-    "setup": "npm run build && prisma migrate deploy && prisma generate && prisma db seed && playwright install",
-    "start": "cross-env NODE_ENV=production node index.ts",
-    "start:mocks": "cross-env NODE_ENV=production MOCKS=true node index.ts",
+    "setup": "bun run build && prisma migrate deploy && prisma generate && prisma db seed && playwright install",
+    "start": "NODE_ENV=production node index.ts",
+    "start:mocks": "NODE_ENV=production MOCKS=true node index.ts",
     "test": "vitest",
     "coverage": "vitest run --coverage",
-    "test:e2e": "npm run test:e2e:dev --silent",
+    "test:e2e": "bun run test:e2e:dev --silent",
     "test:e2e:dev": "playwright test --ui",
-    "pretest:e2e:run": "npm run build",
-    "test:e2e:run": "cross-env CI=true playwright test",
-    "test:e2e:install": "npx playwright install --with-deps chromium",
+    "pretest:e2e:run": "bun run build",
+    "test:e2e:run": "CI=true playwright test",
+    "test:e2e:install": "bunx playwright install --with-deps chromium",
     "typecheck": "react-router typegen && tsc",
-    "validate": "run-p \"test -- --run\" lint typecheck test:e2e:run"
+    "validate": "bun run test --run && bun run lint && bun run typecheck && bun run test:e2e:run"
   },
   "prettier": "@epic-web/config/prettier",
   "dependencies": {
@@ -47,7 +47,6 @@
     "@paralleldrive/cuid2": "^3.3.0",
     "@posthog/react": "^1.8.2",
     "@prisma/client": "^6.19.2",
-    "@prisma/instrumentation": "^6.19.2",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -58,7 +57,6 @@
     "@react-email/components": "^1.0.6",
     "@react-router/express": "^7.13.0",
     "@react-router/node": "^7.13.0",
-    "@remix-run/server-runtime": "^2.17.4",
     "@simplewebauthn/browser": "^13.2.2",
     "@simplewebauthn/server": "^13.2.2",
     "@tailwindcss/vite": "^4.1.18",
@@ -71,7 +69,6 @@
     "clsx": "^2.1.1",
     "compression": "^1.8.1",
     "cookie": "^1.1.1",
-    "cross-env": "^10.1.0",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "execa": "^9.6.1",
@@ -137,24 +134,19 @@
     "fs-extra": "^11.3.3",
     "jsdom": "^27.4.0",
     "msw": "^2.12.7",
-    "npm-run-all": "^4.1.5",
     "prettier": "^3.8.1",
     "prettier-plugin-sql": "^0.19.2",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "react-router-auto-routes": "^0.7.1",
     "react-router-devtools": "^6.2.0",
-    "tsx": "^4.21.0",
     "tw-animate-css": "^1.4.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vite-plugin-icons-spritesheet": "^3.0.1",
     "vitest": "^4.0.18"
   },
-  "engines": {
-    "node": "^22.18.0"
-  },
   "prisma": {
-    "seed": "node prisma/seed.ts"
+    "seed": "bun prisma/seed.ts"
   },
   "epic-stack": {
     "head": "d1c3dde718e1e98ba49a542a1eb13985ad484d5d",

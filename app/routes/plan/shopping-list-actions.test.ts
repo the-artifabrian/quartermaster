@@ -15,6 +15,7 @@ const ACTION_ARGS_BASE = {
 	params: {},
 	context: {} as AppLoadContext,
 	unstable_pattern: '/shopping',
+	unstable_url: new URL(`${BASE_URL}/shopping`),
 }
 
 async function setupUser() {

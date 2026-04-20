@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { server } from '#tests/mocks/index.ts'
 import { consoleWarn } from '#tests/setup/setup-test-env.ts'
 import { checkIsCommonPassword, getPasswordHashParts } from './auth.server.ts'
@@ -58,26 +58,25 @@ test('checkIsCommonPassword returns false when API returns 500', async () => {
 
 test('checkIsCommonPassword returns false when response has invalid format', async () => {
 	consoleWarn.mockImplementation(() => {})
-	const password = 'testpassword'
-	const [prefix] = getPasswordHashParts(password)
+	// Spy on fetch directly rather than going through MSW: MSW's interceptor
+	// reconstructs the Response, so an Object.defineProperty override on
+	// `.text` gets lost. We want `.text()` to resolve to null so the caller's
+	// `data.split(...)` throws a TypeError, exercising the catch branch.
+	const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+		ok: true,
+		text: () => Promise.resolve(null as unknown as string),
+	} as unknown as Response)
 
-	server.use(
-		http.get(`https://api.pwnedpasswords.com/range/${prefix}`, () => {
-			// Create a response that will cause a TypeError when text() is called
-			const response = new Response()
-			Object.defineProperty(response, 'text', {
-				value: () => Promise.resolve(null),
-			})
-			return response
-		}),
-	)
-
-	const result = await checkIsCommonPassword(password)
-	expect(result).toBe(false)
-	expect(consoleWarn).toHaveBeenCalledWith(
-		'Unknown error during password check',
-		expect.any(TypeError),
-	)
+	try {
+		const result = await checkIsCommonPassword('testpassword')
+		expect(result).toBe(false)
+		expect(consoleWarn).toHaveBeenCalledWith(
+			'Unknown error during password check',
+			expect.any(TypeError),
+		)
+	} finally {
+		fetchSpy.mockRestore()
+	}
 })
 
 describe('timeout handling', () => {

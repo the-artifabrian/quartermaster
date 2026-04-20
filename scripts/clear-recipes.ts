@@ -1,4 +1,4 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env bun
 
 import { prisma } from '#app/utils/db.server.ts'
 

@@ -15,6 +15,7 @@ function makeActionArgs(recipeId: string) {
 		params: { recipeId },
 		context: {} as AppLoadContext,
 		unstable_pattern: '/recipes/:recipeId',
+		unstable_url: new URL(`${BASE_URL}/recipes/${recipeId}`),
 	}
 }
 

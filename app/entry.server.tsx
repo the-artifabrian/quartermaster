@@ -1,10 +1,8 @@
 import crypto from 'node:crypto'
-import { PassThrough } from 'node:stream'
 import { styleText } from 'node:util'
 import { contentSecurity } from '@nichtsam/helmet/content'
-import { createReadableStreamFromReadable } from '@react-router/node'
 import { isbot } from 'isbot'
-import { renderToPipeableStream } from 'react-dom/server'
+import { renderToReadableStream } from 'react-dom/server'
 import {
 	ServerRouter,
 	type LoaderFunctionArgs,
@@ -34,97 +32,103 @@ export default async function handleRequest(...args: DocRequestArgs) {
 	responseHeaders.set('fly-primary-instance', primaryInstance)
 	responseHeaders.set('fly-instance', currentInstance)
 
-	const callbackName = isbot(request.headers.get('user-agent'))
-		? 'onAllReady'
-		: 'onShellReady'
-
 	const nonce = crypto.randomBytes(16).toString('hex')
-	return new Promise(async (resolve, reject) => {
-		let didError = false
-		// NOTE: this timing will only include things that are rendered in the shell
-		// and will not include suspended components and deferred loaders
-		const timings = makeTimings('render', 'renderToPipeableStream')
+	const timings = makeTimings('render', 'renderToReadableStream')
 
-		const { pipe, abort } = renderToPipeableStream(
-			<NonceProvider value={nonce}>
-				<ServerRouter
-					nonce={nonce}
-					context={reactRouterContext}
-					url={request.url}
-				/>
-			</NonceProvider>,
-			{
-				[callbackName]: () => {
-					const body = new PassThrough()
-					responseHeaders.set('Content-Type', 'text/html')
-					responseHeaders.append('Server-Timing', timings.toString())
+	const controller = new AbortController()
+	const abortTimer = setTimeout(
+		() => controller.abort(),
+		streamTimeout + 5000,
+	)
 
-					contentSecurity(responseHeaders, {
-						crossOriginEmbedderPolicy: false,
-						contentSecurityPolicy: {
-							directives: {
-								fetch: {
-									'default-src': ["'self'"],
-									'connect-src': [
-										MODE === 'development' ? 'ws:' : undefined,
-										process.env.POSTHOG_HOST ?? undefined,
-										process.env.POSTHOG_HOST
-											? process.env.POSTHOG_HOST.replace(
-													/^(https?:\/\/)([^.]+)/,
-													'$1$2-assets',
-												)
-											: undefined,
-										"'self'",
-									],
-									'font-src': ["'self'", 'https://fonts.gstatic.com'],
-									'frame-src': ["'self'"],
-									'img-src': ["'self'", 'data:'],
-									'script-src': [
-										"'strict-dynamic'",
-										"'self'",
-										`'nonce-${nonce}'`,
-									],
-									'style-src': [
-										"'self'",
-										"'unsafe-inline'",
-										'https://fonts.googleapis.com',
-									],
-									'object-src': ["'none'"],
-									'media-src': ["'self'"],
-									'worker-src': ["'self'"],
-								},
-								document: {
-									'base-uri': ["'self'"],
-								},
-								navigation: {
-									'form-action': ["'self'"],
-								},
-								other: {
-									'upgrade-insecure-requests': MODE === 'production',
-								},
-							},
-						},
-					})
+	let didError = false
 
-					resolve(
-						new Response(createReadableStreamFromReadable(body), {
-							headers: responseHeaders,
-							status: didError ? 500 : responseStatusCode,
-						}),
-					)
-					pipe(body)
-				},
-				onShellError: (err: unknown) => {
-					reject(err)
-				},
-				onError: () => {
-					didError = true
-				},
-				nonce,
+	const body = await renderToReadableStream(
+		<NonceProvider value={nonce}>
+			<ServerRouter
+				nonce={nonce}
+				context={reactRouterContext}
+				url={request.url}
+			/>
+		</NonceProvider>,
+		{
+			signal: controller.signal,
+			nonce,
+			onError: (error: unknown) => {
+				didError = true
+				if (error instanceof Error) {
+					console.error(styleText('red', String(error.stack)))
+				} else {
+					console.error(error)
+				}
 			},
-		)
+		},
+	)
 
-		setTimeout(abort, streamTimeout + 5000)
+	// Bots need the full HTML (no progressive streaming) for indexability.
+	if (isbot(request.headers.get('user-agent'))) {
+		await body.allReady
+	}
+
+	// Cancel the abort timer once streaming completes cleanly.
+	body.allReady.then(
+		() => clearTimeout(abortTimer),
+		() => clearTimeout(abortTimer),
+	)
+
+	responseHeaders.set('Content-Type', 'text/html')
+	responseHeaders.append('Server-Timing', timings.toString())
+
+	contentSecurity(responseHeaders, {
+		crossOriginEmbedderPolicy: false,
+		contentSecurityPolicy: {
+			directives: {
+				fetch: {
+					'default-src': ["'self'"],
+					'connect-src': [
+						MODE === 'development' ? 'ws:' : undefined,
+						process.env.POSTHOG_HOST ?? undefined,
+						process.env.POSTHOG_HOST
+							? process.env.POSTHOG_HOST.replace(
+									/^(https?:\/\/)([^.]+)/,
+									'$1$2-assets',
+								)
+							: undefined,
+						"'self'",
+					],
+					'font-src': ["'self'", 'https://fonts.gstatic.com'],
+					'frame-src': ["'self'"],
+					'img-src': ["'self'", 'data:'],
+					'script-src': [
+						"'strict-dynamic'",
+						"'self'",
+						`'nonce-${nonce}'`,
+					],
+					'style-src': [
+						"'self'",
+						"'unsafe-inline'",
+						'https://fonts.googleapis.com',
+					],
+					'object-src': ["'none'"],
+					'media-src': ["'self'"],
+					'worker-src': ["'self'"],
+				},
+				document: {
+					'base-uri': ["'self'"],
+				},
+				navigation: {
+					'form-action': ["'self'"],
+				},
+				other: {
+					'upgrade-insecure-requests': MODE === 'production',
+				},
+			},
+		},
+	})
+
+	return new Response(body, {
+		headers: responseHeaders,
+		status: didError ? 500 : responseStatusCode,
 	})
 }
 

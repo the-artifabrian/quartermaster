@@ -1,6 +1,5 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { DatabaseSync } from 'node:sqlite'
 import {
 	cachified as baseCachified,
 	verboseReporter,
@@ -19,11 +18,34 @@ import { updatePrimaryCacheValue } from '#app/routes/admin/cache/sqlite.server.t
 import { getInstanceInfo, getInstanceInfoSync } from './litefs.server.ts'
 import { cachifiedTimingReporter, type Timings } from './timing.server.ts'
 
+// Minimal sqlite surface used by the cache. Both bun:sqlite (Database)
+// and node:sqlite (DatabaseSync) satisfy this shape for `.exec`,
+// `.prepare`, and the statement methods we call below. Swapping on the
+// `Bun` global at load keeps the file runtime-portable so Stage D's
+// Dockerfile swap to oven/bun doesn't require a second code change.
+type SqliteStatement = {
+	get(...params: Array<unknown>): unknown
+	run(...params: Array<unknown>): unknown
+	all(...params: Array<unknown>): Array<unknown>
+}
+type SqliteDatabase = {
+	exec(sql: string): void
+	prepare(sql: string): SqliteStatement
+}
+type SqliteDatabaseCtor = new (path: string) => SqliteDatabase
+
+const Database: SqliteDatabaseCtor =
+	typeof (globalThis as { Bun?: unknown }).Bun !== 'undefined'
+		? // @ts-expect-error bun:sqlite is a Bun-only module; guarded at runtime
+			(await import('bun:sqlite')).Database
+		: ((await import('node:sqlite'))
+				.DatabaseSync as unknown as SqliteDatabaseCtor)
+
 const CACHE_DATABASE_PATH = process.env.CACHE_DATABASE_PATH
 
 const cacheDb = remember('cacheDb', createDatabase)
 
-function createDatabase(tryAgain = true): DatabaseSync {
+function createDatabase(tryAgain = true): SqliteDatabase {
 	const databasePath = CACHE_DATABASE_PATH
 	if (!databasePath) {
 		throw new Error('CACHE_DATABASE_PATH is not set')
@@ -32,7 +54,7 @@ function createDatabase(tryAgain = true): DatabaseSync {
 	const parentDir = path.dirname(databasePath)
 	fs.mkdirSync(parentDir, { recursive: true })
 
-	const db = new DatabaseSync(databasePath)
+	const db = new Database(databasePath)
 	const { currentIsPrimary } = getInstanceInfoSync()
 	if (!currentIsPrimary) return db
 

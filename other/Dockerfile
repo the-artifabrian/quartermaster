@@ -1,14 +1,13 @@
 # This file is moved to the root directory before building the image
 
-# base node image
-FROM node:22-bookworm-slim as base
+# base bun image (Alpine / musl)
+FROM oven/bun:1.3.13-alpine as base
 
 # set for base and all layer that inherit from it
 ENV NODE_ENV production
 
-# Install openssl for Prisma, plus Bun for install/build/runtime
-RUN apt-get update && apt-get install -y fuse3 openssl sqlite3 ca-certificates
-RUN npm i -g bun@1.3.13
+# Install openssl/sqlite/fuse3/ca-certs
+RUN apk add --no-cache fuse3 openssl sqlite ca-certificates
 
 # Install all node_modules, including dev dependencies
 FROM base as deps

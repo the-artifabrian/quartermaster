@@ -14,6 +14,7 @@ const LOADER_ARGS_BASE = {
 	params: {},
 	context: {} as AppLoadContext,
 	unstable_pattern: '/resources/household-events-poll',
+	unstable_url: new URL(`${BASE_URL}/resources/household-events-poll`),
 }
 
 async function setupUser() {

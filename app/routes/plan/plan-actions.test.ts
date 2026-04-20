@@ -14,6 +14,7 @@ const ACTION_ARGS_BASE = {
 	params: {},
 	context: {} as AppLoadContext,
 	unstable_pattern: '/plan',
+	unstable_url: new URL(`${BASE_URL}/plan`),
 }
 
 async function setupUser() {

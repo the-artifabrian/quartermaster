@@ -1,0 +1,5 @@
+[install]
+# Match npm's legacy-peer-deps=true behavior: don't auto-install peerDependencies.
+# Without this, bun pulls in @remix-run/react (peer of @nasa-gcn/remix-seo)
+# which direct-deps react-router-dom@6, conflicting with react-router@7 at root.
+peer = false

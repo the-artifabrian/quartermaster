@@ -6,6 +6,7 @@ export const BASE_URL = 'https://useqm.app'
 
 export function convertSetCookieToCookie(setCookie: string) {
 	const parsedCookie = setCookieParser.parseString(setCookie)
+	if (!parsedCookie) throw new Error(`Failed to parse cookie: ${setCookie}`)
 	return new URLSearchParams({
 		[parsedCookie.name]: parsedCookie.value,
 	}).toString()

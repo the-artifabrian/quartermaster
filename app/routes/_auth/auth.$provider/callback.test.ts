@@ -23,6 +23,7 @@ const LOADER_ARGS_BASE = {
 	params: PARAMS,
 	context: {} as AppLoadContext,
 	unstable_pattern: ROUTE_PATH,
+	unstable_url: new URL(`${BASE_URL}${ROUTE_PATH}`),
 }
 
 afterEach(async () => {

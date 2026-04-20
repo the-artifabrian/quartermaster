@@ -1,6 +1,6 @@
+import { spawn } from 'node:child_process'
+import fs from 'node:fs/promises'
 import path from 'node:path'
-import { execaCommand } from 'execa'
-import fsExtra from 'fs-extra'
 import 'dotenv/config'
 import '#app/utils/env.server.ts'
 
@@ -9,25 +9,52 @@ export const BASE_DATABASE_PATH = path.join(
 	`./tests/prisma/base.db`,
 )
 
-export async function setup() {
-	const databaseExists = await fsExtra.pathExists(BASE_DATABASE_PATH)
+async function pathExists(target: string) {
+	try {
+		await fs.access(target)
+		return true
+	} catch {
+		return false
+	}
+}
 
-	if (databaseExists) {
-		const databaseLastModifiedAt = (await fsExtra.stat(BASE_DATABASE_PATH))
+function run(
+	cmd: string,
+	args: Array<string>,
+	opts: { env?: NodeJS.ProcessEnv },
+) {
+	return new Promise<void>((resolve, reject) => {
+		const child = spawn(cmd, args, { stdio: 'inherit', env: opts.env })
+		child.once('error', reject)
+		child.once('exit', (code) => {
+			if (code === 0) resolve()
+			else reject(new Error(`${cmd} exited with code ${code}`))
+		})
+	})
+}
+
+export async function setup() {
+	if (await pathExists(BASE_DATABASE_PATH)) {
+		const databaseLastModifiedAt = (await fs.stat(BASE_DATABASE_PATH)).mtime
+		const prismaSchemaLastModifiedAt = (await fs.stat('./prisma/schema.prisma'))
 			.mtime
-		const prismaSchemaLastModifiedAt = (
-			await fsExtra.stat('./prisma/schema.prisma')
-		).mtime
 
 		if (prismaSchemaLastModifiedAt < databaseLastModifiedAt) {
 			return
 		}
 	}
 
-	await execaCommand(
-		'npx prisma migrate reset --force --skip-seed --skip-generate',
+	await run(
+		'bunx',
+		[
+			'prisma',
+			'migrate',
+			'reset',
+			'--force',
+			'--skip-seed',
+			'--skip-generate',
+		],
 		{
-			stdio: 'inherit',
 			env: {
 				...process.env,
 				DATABASE_URL: `file:${BASE_DATABASE_PATH}`,

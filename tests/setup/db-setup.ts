@@ -1,5 +1,5 @@
+import fs from 'node:fs/promises'
 import path from 'node:path'
-import fsExtra from 'fs-extra'
 import { afterAll, beforeEach } from 'vitest'
 import { BASE_DATABASE_PATH } from './global-setup.ts'
 
@@ -25,9 +25,9 @@ beforeEach(async () => {
 	const { prisma } = await import('#app/utils/db.server.ts')
 	await prisma.$disconnect()
 	// Remove stale SQLite WAL/SHM sidecar files from the previous test.
-	await fsExtra.remove(`${databasePath}-wal`)
-	await fsExtra.remove(`${databasePath}-shm`)
-	await fsExtra.copyFile(BASE_DATABASE_PATH, databasePath)
+	await fs.rm(`${databasePath}-wal`, { force: true })
+	await fs.rm(`${databasePath}-shm`, { force: true })
+	await fs.copyFile(BASE_DATABASE_PATH, databasePath)
 })
 
 afterAll(async () => {
@@ -35,5 +35,5 @@ afterAll(async () => {
 	// before prisma is imported and initialized
 	const { prisma } = await import('#app/utils/db.server.ts')
 	await prisma.$disconnect()
-	await fsExtra.remove(databasePath)
+	await fs.rm(databasePath, { force: true })
 })

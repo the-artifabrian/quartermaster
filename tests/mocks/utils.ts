@@ -1,13 +1,17 @@
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import fsExtra from 'fs-extra'
 import { z } from 'zod'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const fixturesDirPath = path.join(__dirname, '..', 'fixtures')
 
 export async function readFixture(subdir: string, name: string) {
-	return fsExtra.readJSON(path.join(fixturesDirPath, subdir, `${name}.json`))
+	const raw = await fs.readFile(
+		path.join(fixturesDirPath, subdir, `${name}.json`),
+		'utf8',
+	)
+	return JSON.parse(raw)
 }
 
 export async function createFixture(
@@ -16,8 +20,8 @@ export async function createFixture(
 	data: unknown,
 ) {
 	const dir = path.join(fixturesDirPath, subdir)
-	await fsExtra.ensureDir(dir)
-	return fsExtra.writeJSON(path.join(dir, `./${name}.json`), data)
+	await fs.mkdir(dir, { recursive: true })
+	return fs.writeFile(path.join(dir, `./${name}.json`), JSON.stringify(data))
 }
 
 export const EmailSchema = z.object({

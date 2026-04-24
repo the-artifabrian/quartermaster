@@ -14,9 +14,7 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
-import {
-	InventoryItemSchema,
-} from '#app/utils/inventory-validation.ts'
+import { InventoryItemSchema } from '#app/utils/inventory-validation.ts'
 import {
 	getInventoryUsage,
 	getUserTier,
@@ -41,7 +39,7 @@ export const handle: SEOHandle = {
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Add Inventory Item | Quartermaster' }]
+	return [{ title: 'Add Pantry Item | Quartermaster' }]
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -52,7 +50,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		throw await redirectWithToast('/inventory', {
 			type: 'message',
 			title: 'Free plan limit reached',
-			description: `You can have up to ${usage.limit} items on the free plan. Upgrade to Pro for unlimited inventory.`,
+			description: `You can have up to ${usage.limit} Pantry items on the free plan. Upgrade to Pro for unlimited Pantry items.`,
 		})
 	}
 	return {}
@@ -66,7 +64,7 @@ export async function action({ request }: Route.ActionArgs) {
 		throw await redirectWithToast('/inventory', {
 			type: 'message',
 			title: 'Free plan limit reached',
-			description: `You can have up to ${usage.limit} items on the free plan.`,
+			description: `You can have up to ${usage.limit} Pantry items on the free plan.`,
 		})
 	}
 	const formData = await request.formData()
@@ -110,7 +108,7 @@ export async function action({ request }: Route.ActionArgs) {
 		if (match) {
 			return redirectWithToast('/inventory', {
 				type: 'success',
-				description: `${match.name} is already in your inventory`,
+				description: `${match.name} is already in your Pantry`,
 			})
 		}
 	}
@@ -150,14 +148,14 @@ export default function NewInventoryItem() {
 						<Icon name="arrow-left" size="sm" />
 					</a>
 				</Button>
-				<h1 className="text-2xl font-bold">Add Inventory Item</h1>
+				<h1 className="text-2xl font-bold">Add Pantry Item</h1>
 			</div>
 
 			{duplicateWarning && (
 				<div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-800 dark:bg-amber-950/40">
 					<p className="text-sm text-amber-800 dark:text-amber-300">
 						You already have <strong>{duplicateWarning.existingName}</strong> in
-						your inventory.
+						your Pantry.
 					</p>
 					<div className="mt-3 flex gap-2">
 						<Form method="POST">
@@ -200,10 +198,10 @@ export default function NewInventoryItem() {
 			<Form method="POST" {...getFormProps(form)}>
 				<div className="space-y-4">
 					<Field
-						labelProps={{ children: 'Item Name' }}
+						labelProps={{ children: 'Item name' }}
 						inputProps={{
 							...getInputProps(fields.name, { type: 'text' }),
-							placeholder: 'e.g., Chicken breast, Milk, Flour',
+							placeholder: 'e.g., chicken breast, milk, flour',
 							autoComplete: 'off',
 						}}
 						errors={fields.name.errors}
@@ -216,7 +214,7 @@ export default function NewInventoryItem() {
 							className="flex-1"
 							disabled={!form.valid}
 						>
-							Add Item
+							Add to Pantry
 						</StatusButton>
 						<Button type="button" variant="outline" asChild>
 							<a href="/inventory">Cancel</a>

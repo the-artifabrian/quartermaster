@@ -133,12 +133,11 @@ export default function Index() {
 							</div>
 							<div className="text-center md:text-right">
 								<h2 className="font-serif text-2xl font-normal md:text-3xl">
-									What can I make tonight?
+									What can I cook tonight?
 								</h2>
 								<p className="text-muted-foreground mt-3 text-base/7">
-									Tell Quartermaster what's in your kitchen and it shows which
-									recipes you can cook right now, ranked by how many ingredients
-									you already have. No more staring at the fridge.
+									Add ingredients you usually keep around and Quartermaster
+									shows which recipes need fewer things from the store.
 								</p>
 							</div>
 						</ScrollReveal>
@@ -172,9 +171,9 @@ export default function Index() {
 									The list writes itself
 								</h2>
 								<p className="text-muted-foreground mt-3 text-base/7">
-									One tap generates a shopping list from your meal plan. Stuff
-									you already have is checked off. Cross things off at the store
-									and they go back into your pantry automatically.
+									One tap generates a shopping list from your meal plan. Pantry
+									items are checked off, and anything you mark as usually on
+									hand is remembered for next time.
 								</p>
 							</div>
 						</ScrollReveal>
@@ -424,7 +423,7 @@ function DiscoveryArtifact() {
 	return (
 		<div className="bg-card shadow-warm-md rounded-lg border p-5">
 			<p className="font-handwritten text-accent mb-3 text-[20px] font-bold">
-				What can I make?
+				What can I cook?
 			</p>
 			<div className="space-y-3">
 				{recipes.map(({ name, match }) => (
@@ -434,7 +433,7 @@ function DiscoveryArtifact() {
 							<p className="font-serif text-sm">{name}</p>
 							<p className="text-muted-foreground text-xs">
 								{match === 100
-									? 'Ready to cook'
+									? 'Nothing to buy'
 									: match >= 75
 										? 'Missing 1 item'
 										: 'Missing 2 items'}

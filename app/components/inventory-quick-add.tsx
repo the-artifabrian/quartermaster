@@ -88,10 +88,7 @@ export function InventoryQuickAdd({
 			} else {
 				const fd = new FormData()
 				fd.set('intent', 'bulk-create')
-				fd.set(
-					'items',
-					JSON.stringify(items.map((i) => ({ name: i.name }))),
-				)
+				fd.set('items', JSON.stringify(items.map((i) => ({ name: i.name }))))
 				void bulkFetcher.submit(fd, { method: 'POST' })
 				onVoiceItemsAdded?.(items.map((i) => i.name))
 				const heard =
@@ -119,7 +116,7 @@ export function InventoryQuickAdd({
 		<div>
 			<fetcher.Form
 				method="POST"
-				className="flex items-end gap-2 border-b border-border pb-2"
+				className="border-border flex items-end gap-2 border-b pb-2"
 				onSubmit={(e) => {
 					if (!name.trim()) {
 						e.preventDefault()
@@ -135,7 +132,7 @@ export function InventoryQuickAdd({
 						placeholder="Add an item..."
 						value={name}
 						onChange={(e) => setName(e.target.value)}
-						className="h-9 w-full border-0 bg-transparent px-0 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0"
+						className="placeholder:text-muted-foreground h-9 w-full border-0 bg-transparent px-0 text-sm shadow-none outline-none focus-visible:ring-0"
 					/>
 				</div>
 				{isProActive && (
@@ -148,7 +145,7 @@ export function InventoryQuickAdd({
 						className={cn(
 							'size-8 shrink-0 rounded-full p-0',
 							isRecording
-								? 'animate-pulse bg-destructive text-destructive-foreground hover:bg-destructive/90'
+								? 'bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse'
 								: 'text-muted-foreground hover:bg-muted',
 						)}
 						aria-label={
@@ -170,7 +167,7 @@ export function InventoryQuickAdd({
 					type="submit"
 					variant="ghost"
 					size="sm"
-					className="size-8 shrink-0 rounded-full p-0 text-muted-foreground hover:bg-muted"
+					className="text-muted-foreground hover:bg-muted size-8 shrink-0 rounded-full p-0"
 					disabled={!name.trim() || fetcher.state !== 'idle'}
 				>
 					<Icon name="plus" size="sm" />
@@ -178,10 +175,10 @@ export function InventoryQuickAdd({
 			</fetcher.Form>
 
 			{isDuplicateWarning && fetcher.data?.existingItem && (
-				<div className="mt-2 rounded-lg bg-accent/10 p-3">
+				<div className="bg-accent/10 mt-2 rounded-lg p-3">
 					<p className="text-sm">
 						You already have <strong>{fetcher.data.existingItem.name}</strong>{' '}
-						in your inventory.
+						in your Pantry.
 					</p>
 					<div className="mt-2 flex gap-2">
 						<Button

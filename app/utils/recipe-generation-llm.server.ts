@@ -74,11 +74,13 @@ export async function generateRecipeFromInventory(
 			)
 			if (response.status === 429) {
 				return {
-					error: 'Recipe generation hit a rate limit. Please wait a moment and try again.',
+					error:
+						'Recipe generation hit a rate limit. Please wait a moment and try again.',
 				}
 			}
 			return {
-				error: 'Recipe generation failed — the AI service returned an error. Please try again later.',
+				error:
+					'Recipe generation failed — the AI service returned an error. Please try again later.',
 			}
 		}
 
@@ -89,14 +91,16 @@ export async function generateRecipeFromInventory(
 		const text = data.content?.[0]?.text
 		if (!text) {
 			return {
-				error: 'Recipe generation returned an empty response. Please try again.',
+				error:
+					'Recipe generation returned an empty response. Please try again.',
 			}
 		}
 
 		const result = parseRecipeResponse(text)
 		if (!result) {
 			return {
-				error: 'Recipe generation returned an unexpected response. Please try again.',
+				error:
+					'Recipe generation returned an unexpected response. Please try again.',
 			}
 		}
 
@@ -109,7 +113,8 @@ export async function generateRecipeFromInventory(
 			}
 		}
 		return {
-			error: 'Recipe generation failed — the AI service returned an error. Please try again later.',
+			error:
+				'Recipe generation failed — the AI service returned an error. Please try again later.',
 		}
 	}
 }
@@ -138,13 +143,13 @@ export function buildPrompt(
 	const rules = hasDescription
 		? `Rules:
 - Follow the description above — it takes priority
-- Use ingredients from my inventory where possible, but MAY include common ingredients not listed
+- Use ingredients from my Pantry where possible, but MAY include common ingredients not listed
 - Use metric units (grams, ml, liters, etc.) for all measurements EXCEPT teaspoons (tsp) and tablespoons (tbsp) which should stay as-is
 - Write clear, beginner-friendly instructions
 - prepTime and cookTime are in minutes (use null if unknown)
 - Create a complete, practical, everyday recipe — not overly fancy`
 		: `Rules:
-- Use ONLY ingredients from my inventory list above, plus common pantry staples (salt, pepper, oil, water, basic spices)
+- Use ONLY ingredients from my Pantry list above, plus common staples (salt, pepper, oil, water, basic spices)
 - Use metric units (grams, ml, liters, etc.) for all measurements EXCEPT teaspoons (tsp) and tablespoons (tbsp) which should stay as-is
 - Write clear, beginner-friendly instructions
 - prepTime and cookTime are in minutes (use null if unknown)
@@ -152,7 +157,7 @@ export function buildPrompt(
 
 	return `Create a recipe from my available ingredients.
 
-My inventory:
+My Pantry:
 ${inventoryLines.join('\n')}
 
 ${prefLines.length > 0 ? `Preferences:\n${prefLines.join('\n')}\n` : ''}Return a single JSON object with this exact structure:

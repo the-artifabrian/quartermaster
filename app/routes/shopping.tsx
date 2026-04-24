@@ -13,7 +13,10 @@ import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
-import { useSpeechToText, type TranscribedItem } from '#app/hooks/use-speech-to-text.ts'
+import {
+	useSpeechToText,
+	type TranscribedItem,
+} from '#app/hooks/use-speech-to-text.ts'
 import {
 	getCurrentWeekStart,
 	getPreviousWeek,
@@ -50,7 +53,8 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { userId, householdId, isProActive } = await requireUserWithTier(request)
+	const { userId, householdId, isProActive } =
+		await requireUserWithTier(request)
 
 	// Get or create shopping list
 	let shoppingList = await prisma.shoppingList.findFirst({
@@ -223,7 +227,11 @@ export async function action({ request }: Route.ActionArgs) {
 			householdId,
 		})
 
-		return { status: 'success' as const, inStockCount, weekLabel: formatWeekRange(weekStart) }
+		return {
+			status: 'success' as const,
+			inStockCount,
+			weekLabel: formatWeekRange(weekStart),
+		}
 	}
 
 	if (intent === 'add') {
@@ -494,9 +502,7 @@ export default function ShoppingListRoute({
 	const [quickAddOpen, setQuickAddOpen] = useState(false)
 	const [fabOpen, setFabOpen] = useState(false)
 	const [warningDismissed, setWarningDismissed] = useState(false)
-	const [voiceAddedNames, setVoiceAddedNames] = useState<Set<string>>(
-		new Set(),
-	)
+	const [voiceAddedNames, setVoiceAddedNames] = useState<Set<string>>(new Set())
 
 	// Auto-clear voice highlights after 60 seconds
 	useEffect(() => {
@@ -559,15 +565,11 @@ export default function ShoppingListRoute({
 		},
 		[bulkAddFetcher],
 	)
-	const handleMobileVoiceItems = useCallback(
-		(names: string[]) => {
-			setVoiceAddedNames(
-				(prev) =>
-					new Set([...prev, ...names.map((n) => n.toLowerCase().trim())]),
-			)
-		},
-		[],
-	)
+	const handleMobileVoiceItems = useCallback((names: string[]) => {
+		setVoiceAddedNames(
+			(prev) => new Set([...prev, ...names.map((n) => n.toLowerCase().trim())]),
+		)
+	}, [])
 	const handleSpeechError = useCallback((msg: string) => toast.error(msg), [])
 	const { isRecording, isTranscribing, startRecording, stopRecording } =
 		useSpeechToText({
@@ -619,7 +621,7 @@ export default function ShoppingListRoute({
 						<h1 className="font-serif text-2xl font-normal">
 							Shopping List
 							{totalItems > 0 && (
-								<span className="ml-2 text-lg font-sans font-normal tabular-nums text-muted-foreground">
+								<span className="text-muted-foreground ml-2 font-sans text-lg font-normal tabular-nums">
 									({checkedItems}/{totalItems})
 								</span>
 							)}
@@ -629,7 +631,12 @@ export default function ShoppingListRoute({
 								<Form method="POST" className="flex items-center gap-2">
 									<input type="hidden" name="intent" value="generate" />
 									<input type="hidden" name="weekStart" value={defaultWeek} />
-									<Button type="submit" variant="outline" size="sm" aria-label="Generate shopping list from meal plan">
+									<Button
+										type="submit"
+										variant="outline"
+										size="sm"
+										aria-label="Generate shopping list from meal plan"
+									>
 										<Icon name="calendar" size="sm" />
 										From Plan
 									</Button>
@@ -665,7 +672,7 @@ export default function ShoppingListRoute({
 						Generated for {actionData.weekLabel}
 						{typeof actionData.inStockCount === 'number' &&
 							actionData.inStockCount > 0 &&
-							` · ${actionData.inStockCount} pre-checked (in stock)`}
+							` · ${actionData.inStockCount} usually on hand`}
 					</p>
 				)}
 			</div>
@@ -677,20 +684,18 @@ export default function ShoppingListRoute({
 							nudgeId="check-items-off"
 							icon="check"
 							title="Check items off as you shop"
-							description="Tap items as you shop. When you're done, checked items flow into your inventory, keeping everything in sync."
+							description="Tap items as you shop. When you're done, remember anything you usually keep around."
 							dismissText="Got it"
 							className="mb-4"
 						/>
 					)}
 
 				{/* Quick Add — desktop only, FAB replaces this on mobile */}
-				<div className="mb-2 hidden border-b border-border/30 print:hidden md:block">
+				<div className="border-border/30 mb-2 hidden border-b md:block print:hidden">
 					{/* Warning banner */}
 					{showWarning && (
 						<WarningBanner
-							actionData={
-								quickAddFetcher.data as Record<string, unknown>
-							}
+							actionData={quickAddFetcher.data as Record<string, unknown>}
 							onDismiss={() => setWarningDismissed(true)}
 						/>
 					)}
@@ -702,9 +707,7 @@ export default function ShoppingListRoute({
 						}}
 					>
 						<input type="hidden" name="intent" value="add" />
-						{showWarning && (
-							<input type="hidden" name="force" value="true" />
-						)}
+						{showWarning && <input type="hidden" name="force" value="true" />}
 						<div className="flex items-center gap-2">
 							<div className="min-w-0 flex-1">
 								<Input
@@ -723,7 +726,7 @@ export default function ShoppingListRoute({
 								<button
 									type="button"
 									onClick={() => setQuickAddOpen(true)}
-									className="shrink-0 text-xs text-muted-foreground/40 hover:text-muted-foreground"
+									className="text-muted-foreground/40 hover:text-muted-foreground shrink-0 text-xs"
 								>
 									+ Qty
 								</button>
@@ -736,7 +739,7 @@ export default function ShoppingListRoute({
 									className={cn(
 										'flex size-8 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50',
 										isRecording
-											? 'animate-pulse bg-destructive text-destructive-foreground'
+											? 'bg-destructive text-destructive-foreground animate-pulse'
 											: 'text-muted-foreground hover:bg-muted hover:text-foreground',
 									)}
 									aria-label={
@@ -756,11 +759,8 @@ export default function ShoppingListRoute({
 							)}
 							<button
 								type="submit"
-								disabled={
-									!qaName.trim() ||
-									quickAddFetcher.state !== 'idle'
-								}
-								className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+								disabled={!qaName.trim() || quickAddFetcher.state !== 'idle'}
+								className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-8 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50"
 								aria-label={showWarning ? 'Add anyway' : 'Add to list'}
 							>
 								<Icon name="plus" className="size-5" />
@@ -789,7 +789,7 @@ export default function ShoppingListRoute({
 								<button
 									type="button"
 									onClick={() => setQuickAddOpen(false)}
-									className="shrink-0 text-xs text-muted-foreground/40 hover:text-muted-foreground"
+									className="text-muted-foreground/40 hover:text-muted-foreground shrink-0 text-xs"
 								>
 									Hide
 								</button>
@@ -826,7 +826,7 @@ export default function ShoppingListRoute({
 								</p>
 								<button
 									type="button"
-									className="mt-2 text-sm text-primary underline underline-offset-2"
+									className="text-primary mt-2 text-sm underline underline-offset-2"
 									onClick={() => setSearch('')}
 								>
 									Clear search
@@ -835,22 +835,28 @@ export default function ShoppingListRoute({
 						) : (
 							<div>
 								{filteredItems.map((item) => (
-									<ShoppingListItemCard key={item.id} item={item} isVoiceAdded={voiceAddedNames.has(item.name.toLowerCase().trim())} />
+									<ShoppingListItemCard
+										key={item.id}
+										item={item}
+										isVoiceAdded={voiceAddedNames.has(
+											item.name.toLowerCase().trim(),
+										)}
+									/>
 								))}
 							</div>
 						)}
 
 						{/* Checked Item Actions */}
 						{checkedItems > 0 && !showReview && !search && (
-							<div className="flex items-center justify-center gap-4 pt-4 animate-slide-up-reveal print:hidden">
+							<div className="animate-slide-up-reveal flex items-center justify-center gap-4 pt-4 print:hidden">
 								{isProActive && (
 									<>
 										<button
 											type="button"
 											onClick={() => setShowReview(true)}
-											className="text-sm text-primary hover:text-primary/80 underline underline-offset-2"
+											className="text-primary hover:text-primary/80 text-sm underline underline-offset-2"
 										>
-											Add to inventory ({checkedItems})
+											Remember for next time ({checkedItems})
 										</button>
 										<span className="text-border">·</span>
 									</>
@@ -868,14 +874,10 @@ export default function ShoppingListRoute({
 										}
 									}}
 								>
-									<input
-										type="hidden"
-										name="intent"
-										value="clear-checked"
-									/>
+									<input type="hidden" name="intent" value="clear-checked" />
 									<button
 										type="submit"
-										className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
+										className="text-muted-foreground hover:text-foreground text-sm underline underline-offset-2"
 									>
 										Clear checked
 									</button>
@@ -885,21 +887,16 @@ export default function ShoppingListRoute({
 					</div>
 				) : (
 					<div className="py-12 text-center">
-						<div className="mx-auto flex size-16 items-center justify-center rounded-full border-2 border-dashed border-border">
-							<Icon
-								name="cart"
-								className="size-7 text-muted-foreground/40"
-							/>
+						<div className="border-border mx-auto flex size-16 items-center justify-center rounded-full border-2 border-dashed">
+							<Icon name="cart" className="text-muted-foreground/40 size-7" />
 						</div>
-						<h2 className="mt-4 font-serif text-lg">
-							Nothing on the list
-						</h2>
+						<h2 className="mt-4 font-serif text-lg">Nothing on the list</h2>
 						<p className="text-muted-foreground mx-auto mt-2 max-w-sm text-sm">
 							{hasMealPlan ? (
 								<>
 									Hit <strong>From Plan</strong> to generate your list from the
-									meal plan. Things you already have are pre-checked. Add
-									anything else you need by hand.
+									meal plan. Usually-on-hand items are pre-checked. Add anything
+									else by hand.
 								</>
 							) : (
 								<>
@@ -910,16 +907,14 @@ export default function ShoppingListRoute({
 									>
 										meal plan
 									</Link>{' '}
-									to auto-generate your list, or add items by hand. Check
-									things off at the store and they'll flow into your
-									inventory.
+									to auto-generate your list, or add items by hand.
 								</>
 							)}
 						</p>
 					</div>
 				)}
 
-				{/* Inventory Review Panel (Pro) */}
+				{/* Pantry Review Panel (Pro) */}
 				{isProActive && showReview && checkedItems > 0 && !search && (
 					<div className="mt-4 print:hidden">
 						<ShoppingListToInventory
@@ -932,7 +927,7 @@ export default function ShoppingListRoute({
 				)}
 
 				{/* Print footer */}
-				<p className="hidden pt-8 text-center text-xs text-muted-foreground print:block">
+				<p className="text-muted-foreground hidden pt-8 text-center text-xs print:block">
 					Quartermaster
 				</p>
 			</div>

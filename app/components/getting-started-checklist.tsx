@@ -40,8 +40,8 @@ export function GettingStartedChecklist({
 			done: onboarding.hasRecipes,
 		},
 		{
-			title: 'Stock your kitchen',
-			description: "Add what you have and we'll match it to recipes you can cook",
+			title: 'Start your Pantry',
+			description: 'Add what you usually keep around',
 			icon: 'home',
 			href: '/inventory',
 			done: onboarding.hasInventory,

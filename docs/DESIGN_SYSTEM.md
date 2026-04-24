@@ -1,69 +1,39 @@
-# Quartermaster Design System
+# Design System
 
-## Identity
+Visual reference: typography, color, spacing, components, per-surface layouts.
+For product voice and copy, see [COPYWRITING.md](./COPYWRITING.md). For product
+direction and UX principles, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md).
 
-A well-used cookbook that happens to live on a screen. Not a food app, not a
-productivity tool. A personal cooking reference built for people who actually
-cook.
+## Context
 
-The design works through typography and warmth, not photography. Most recipes
-won't have images. That's fine. The best cookbooks are beautiful without a
-single photo.
+Primary use is cooking: phone propped on the counter, hands busy. Tap targets
+≥44px, body text ≥16px, interactions work one-handed. Hover is polish; tap is
+the design.
 
-One test for every decision: _does this feel like something you'd keep on the
-kitchen counter, or something you'd forget you downloaded?_
+## Distinctive Elements
 
-**Designed for the kitchen.** The primary use context is cooking: phone propped
-on the counter, hands busy or messy, reading at arm's length. Generous touch
-targets, text sized for distance, interactions that work one-handed. Hover
-states are polish; tap behavior is the real design.
-
-### What Makes This Distinctive
-
-Two things. Everything else is good execution.
-
-1. **Warm serif recipe titles everywhere.** In a sea of sans-serif apps, Young
-   Serif titles on every recipe make Quartermaster instantly recognizable. Since
-   most recipes don't have photos, the titles carry the visual identity. A
-   recipe list should read like a beautiful table of contents.
-2. **Ingredient check-off.** Standard CSS `line-through` with 2px stone-color
-   line (`decoration-2 decoration-muted-foreground/60`) and text fade to 50%
-   opacity. Pen-stroke `scaleX` animation was prototyped but wasn't visible
-   enough at reading distance. The standard treatment reads clearly at arm's
-   length and feels satisfying without being showy.
+1. **Young Serif titles on every recipe.** Since most recipes have no photos,
+   the titles carry the visual identity.
+2. **Ingredient check-off.** CSS `line-through` with
+   `decoration-2 decoration-muted-foreground/60` and text fade to 50% opacity. A
+   pen-stroke `scaleX` animation was prototyped and dropped — not readable at
+   arm's length.
 
 ---
 
 ## Typography
 
-Three voices:
+Three faces:
 
-**Young Serif** (Display): warm, slightly rounded, approachable. All headings
-and recipe titles. Only has one weight (400), which forces consistency.
-Differentiate by size, not by weight. Never apply `font-semibold`, `font-bold`,
-or `font-light` to `font-serif` elements.
+**Young Serif** (400 only): headings, recipe titles. Differentiate by size, not
+weight — never apply `font-semibold`, `font-bold`, or `font-light` to
+`font-serif` elements. Loaded via Google Fonts.
 
-```
-Google Fonts: Young Serif 400
-```
+**DM Sans** (300–700): body text, labels, metadata, navigation, all functional
+UI.
 
-**DM Sans** (Sans-serif): the workhorse. Body text, labels, metadata,
-navigation, everything functional. The constant serif/sans switching between
-titles and body text is what makes pages feel like a printed cookbook annotated
-by hand.
-
-```
-Already loaded: DM Sans 300-700
-```
-
-**Caveat** (Handwritten): strictly two contexts: **personal recipe notes** and
-**landing page artifacts**. Nowhere else. Caveat represents the user's voice,
-not the app's. A search placeholder or empty state in Caveat would be the app
-pretending to be handwritten.
-
-```
-Google Fonts: Caveat 400, 700
-```
+**Caveat** (400, 700): personal recipe notes and landing-page artifacts only.
+Represents the user's voice, not the app's. Loaded via Google Fonts.
 
 ### Type Scale
 
@@ -84,17 +54,15 @@ Google Fonts: Caveat 400, 700
 | Recipe personal note     | Caveat 400  | 1.125rem (18px)  | 1.4         | 0              |
 | Landing artifact label   | Caveat 700  | 1.25rem (20px)   | 1.35        | 0              |
 
-**Recipe detail title** is larger than other page titles for arm's-length
-readability while cooking. Reduced from 2.5rem to 2rem for better proportion.
-
-**Ingredient amounts** use DM Sans. Serif amounts were prototyped but looked too
-heavy on mobile.
+Recipe detail title is intentionally larger than other page titles for
+arm's-length readability. Ingredient amounts use DM Sans (serif amounts looked
+too heavy on mobile).
 
 ---
 
 ## Color Palette
 
-Kitchen and paper surfaces, not brand colors. Every color has a material origin.
+Material origins, not brand colors.
 
 | Name      | Hex       | Origin        | Role                                   |
 | --------- | --------- | ------------- | -------------------------------------- |
@@ -123,9 +91,8 @@ Kitchen and paper surfaces, not brand colors. Every color has a material origin.
 | Light copper | `#D4A87A` | Accent              |
 | Light clay   | `#D07A68` | Destructive actions |
 
-Dark mode serves a different emotional register. The material metaphors (aged
-paper, worn stone) are about light surfaces; don't replicate them. Dark mode
-should feel like cooking at night: warm, low-contrast, not blinding at midnight.
+Dark palette is defined independently; don't derive it from the light palette.
+Target warm, low-contrast rather than inverted-light.
 
 ### CSS Variables
 
@@ -194,7 +161,7 @@ Copper marks "where you are" and "what matters now":
 **Container widths:**
 
 - Recipe detail, settings: **880px** max
-- Recipe list, inventory: **1080px** max
+- Recipe list, Pantry: **1080px** max
 - Shopping list: **480px** max
 - Landing page: content within **960px**
 
@@ -203,10 +170,10 @@ Copper marks "where you are" and "what matters now":
 Minimal. Paper on a surface, not floating cards.
 
 ```css
---shadow-rest: 0 1px 2px oklch(25% 0.02 60 / 0.06);
---shadow-hover:
+--shadow-warm: 0 1px 2px oklch(25% 0.02 60 / 0.06);
+--shadow-warm-md:
 	0 2px 8px oklch(25% 0.02 60 / 0.08), 0 1px 2px oklch(25% 0.02 60 / 0.04);
---shadow-elevated:
+--shadow-warm-lg:
 	0 4px 16px oklch(25% 0.02 60 / 0.08), 0 1px 4px oklch(25% 0.02 60 / 0.05);
 ```
 
@@ -270,7 +237,7 @@ the longer end (280-300ms) for page-level reveals and list staggers.
 circle on the right (first letter of name/username, `bg-accent/20` background).
 On landing page (logged out): wordmark left, "Log In" button right.
 
-**Bottom tab bar (mobile)**: Four tabs: Recipes, Inventory, Plan, Shop. DM Sans
+**Bottom tab bar (mobile)**: Four tabs: Recipes, Pantry, Plan, Shop. DM Sans
 tiny label (12px) below icons. Active tab: sage icon fill + copper dot or
 underline indicator below. Inactive: stone color.
 
@@ -280,17 +247,14 @@ navigation; inline back links waste vertical space on mobile.
 
 ### Empty States & Onboarding
 
-New users see empty surfaces first. These set the tone.
+**Empty recipe list** (`getting-started-checklist.tsx`): DM Sans, dashed-border
+card. Favor import CTAs (URL paste, bulk text) over blank-form creation. No
+illustrations, no Caveat.
 
-**Empty recipe list** (`getting-started-checklist.tsx`): DM Sans, warm but
-direct. Encourage importing (URL paste, bulk text) over creating from scratch.
-No illustrations, no Caveat. Dashed-border card with clear action links.
+**Empty Pantry** (`pantry-staples-onboarding.tsx`): common usually-on-hand items
+as tappable chips in a flat grid. Bulk-add so Pantry feels useful immediately.
 
-**Empty inventory** (`pantry-staples-onboarding.tsx`): Common kitchen staples as
-tappable chips in a flat grid. Quick bulk-add so the inventory feels useful
-immediately.
-
-**Empty meal plan / shopping list**: One-line prompt in stone color with a ghost
+**Empty meal plan / shopping list**: one-line prompt in stone color with a ghost
 action button.
 
 ---
@@ -351,7 +315,7 @@ action button.
 }
 ```
 
-**Inventory item** (from `inventory/index.tsx` loader):
+**Pantry item** (from `inventory/index.tsx` loader):
 
 ```ts
 {
@@ -366,23 +330,20 @@ action button.
 
 ### 1. Landing Page
 
-The first impression. Restraint communicates confidence.
-
 **Hero (full viewport height)**: Cream background. "What are we making this
 week?" centered in Young Serif at 40px. Below: short tagline in DM Sans, muted
 stone color. "Start cooking" button (sage) and "See how it works" (text link).
 30-40% of the viewport is whitespace.
 
-**Artifacts section**: Three stylized representations of the app -- not
-screenshots, not wireframes. These need to feel like designed objects:
+**Artifacts section**: Three stylized representations, not screenshots or
+wireframes:
 
-1. **A recipe page.** Young Serif title, a short ingredient list, metadata.
-   Rendered at a slight angle (2-3deg rotation, warm shadow). Should look like a
-   beautifully typeset cookbook page.
-2. **A week view.** Days of the week with a few meals in Caveat. Feels like a
-   note stuck to the fridge.
-3. **A shopping list.** A few items, some with line-through strikethrough. Torn
-   edge clip-path at the bottom.
+1. **A recipe page.** Young Serif title, short ingredient list, metadata. Slight
+   angle (2–3deg rotation, warm shadow).
+2. **A week view.** Days of the week with a few meals in Caveat, fridge-note
+   aesthetic.
+3. **A shopping list.** A few items with line-through strikethrough. Torn-edge
+   clip-path at the bottom.
 
 Each artifact has a Caveat 700 label in copper ("Tonight's dinner", "This week",
 "Shopping list") and fades up on scroll via `IntersectionObserver` (element
@@ -400,22 +361,17 @@ own back-nav instead.
 
 ### 2. Recipe List
 
-The most important screen to get right. This is where the no-image reality is
-most felt.
-
-**The key insight**: Recipe titles describe food. "Pan-Seared Chicken with
-Creamy Garlic Pasta" is more evocative than most app content. Let the titles be
-the visual.
+Titles carry the visual weight in place of photos. Let them breathe.
 
 **Mobile (list view)**:
 
 - Recipe title in Young Serif at 16-17px. Allow wrapping to 2 lines before
   truncating.
 - Description (if present) below in small DM Sans, muted, 1 line max.
-- Metadata (cook time, match %) as tiny captions in stone color. Match
-  percentage shown as a small (16px) progress ring + text percentage. Color
-  tiers: green >=80%, amber >=50%, muted foreground below. `tabular-nums` for
-  consistent widths. Ring uses `hideText` at this size.
+- Metadata (cook time, Pantry fit, or "needs X things") as tiny captions in
+  stone color. Prefer concrete missing-ingredient counts over match percentages.
+  If a percentage appears, keep it visually quiet and do not imply the recipe
+  can definitely be cooked without shopping.
 - 16px vertical padding per row. Subtle 1px cedar bottom border between rows.
 - Favorite: small copper heart to the right of the title.
 - If a recipe has an image: small thumbnail (48-56px) on the left.
@@ -430,24 +386,23 @@ additional line of description (`md:line-clamp-3` vs 2) to fill the space.
 - Two columns at `md`, three at `lg`.
 - **Cards with image**: Photo fills card top (4:3 ratio), 1px cedar border.
   Title in Young Serif below. Cook time as tiny caption.
-- **Cards without image** (the default): Title in Young Serif at 18px, given
-  room to breathe. Description gets more space. Generous padding. The card
-  should feel intentional, not like a card missing its photo.
+- **Cards without image** (the default): Title in Young Serif at 18px, generous
+  padding, description gets more space.
 - Hover: shadow-hover transition, 180ms. Border warms slightly. If image, it
   scales 1.02x.
 
 **Search and filters**: Search input at top, DM Sans placeholder. Filter pills
-(time, favorites, "can make") below. Linen background, rounded.
+(time, favorites, "Nothing to buy") below. Linen background, rounded.
 
 **"AI Generated" indicator**: Heavily demoted: small muted sparkles icon
 (`text-muted-foreground/50`) in the metadata row. No text, no badge.
 
 ---
 
-### 3. Recipe Detail (Signature Surface)
+### 3. Recipe Detail
 
-Users spend the most time here during cooking. Optimized for arm's-length
-readability.
+The surface users spend the most time on while cooking. Optimized for
+arm's-length readability.
 
 **Hero area**: Title in Young Serif at 2rem. Below it, a clean `<hr>` in cedar.
 Then metadata: prep, cook, total time in small DM Sans, muted.
@@ -493,8 +448,7 @@ copper pill background and subtle ring. Meals in DM Sans, text-only, no
 thumbnails. Empty days: ghost "+" button. Past days faded (80% opacity).
 
 **Desktop**: 7-day grid. Each day is a warm card with Young Serif day header and
-generous padding. Today's card: 3px copper top-border. Should feel like index
-cards on a table, not spreadsheet cells.
+generous padding. Today's card: 3px copper top-border.
 
 **"Up next" banner**: Warm card at top (linen background). Tonight's meal with
 time and "Cook" action. Nothing planned: simple DM Sans suggestion.
@@ -510,8 +464,6 @@ element-reveal curve.
 
 ### 5. Shopping List
 
-Narrow, focused, satisfying to cross off.
-
 **Layout**: Single column, 480px max-width, centered.
 
 **Items**:
@@ -526,25 +478,25 @@ Narrow, focused, satisfying to cross off.
 **Progress**: Header counter: "Shopping List (3/10)". No progress bar.
 
 **Sorting**: Checked status first, then alphabetically. No visible category
-headers. Category grouping was tried and removed. Categories stored for
-inventory pipeline but don't affect display.
+headers. Category grouping was tried and removed. Categories stored for Pantry
+updates but don't affect display.
 
 **Quick add**: Inline input at top on desktop (DM Sans placeholder "Add an
 item...", ghost + button). On mobile, a floating action button (FAB) in the
 bottom-right opens a small dialog with name input and optional qty/unit fields,
 designed for one-handed use at the store.
 
-**Checked item actions**: Subtle footer slides up when items are checked: "Add
-to inventory" and "Clear checked" as text links.
+**Checked item actions**: Subtle footer slides up when items are checked:
+"Remember for next time" and "Clear checked" as text links.
 
 **Print view**: Unicode checkboxes, compact spacing, no chrome. Should fit one
 page for a typical weekly shop.
 
 ---
 
-### 6. Inventory
+### 6. Pantry
 
-The densest, most utilitarian surface. A reference tool you scan quickly.
+The densest, most utilitarian surface.
 
 **Layout**: Single column, 1080px max. Search input at top (shown when 15+
 items). Always-visible quick-add input below search.
@@ -557,10 +509,10 @@ delete button. `touch-action: pan-y` for native scroll vs swipe discrimination,
 10px dead zone, rubber-band resistance past bounds. Only one row open at a time.
 Overflow menu remains as the desktop and accessibility fallback.
 
-**What makes it different from the shopping list**: Inventory is dense and
-scannable (you're looking up what you have). Shopping list is spacious and
-interactive (you're checking items off). Inventory rows are tighter (12px
-vertical padding vs shopping's 10px). No checkboxes, no strikethrough.
+**What makes it different from the shopping list**: Pantry is dense and
+scannable (you're checking what you usually keep around). Shopping list is
+spacious and interactive (you're checking items off). Pantry rows are tighter
+(12px vertical padding vs shopping's 10px). No checkboxes, no strikethrough.
 
 ---
 
@@ -578,45 +530,18 @@ When adding a screen not described above, start from these defaults:
   padding. Minimal shadow (shadow-rest).
 - **Interactive elements**: Sage for primary actions, cedar borders on inputs,
   200ms transitions.
-- **The test**: Does this surface feel like a cookbook page, or like a settings
-  panel in a SaaS app? If the latter, add warmth.
+- **Warmth cues**: Paper background, `shadow-warm*` tokens, cedar borders. Avoid
+  cool greys and pure white.
 
 ---
 
 ## Voice & Copy
 
-The app should read like it was written by a person who cooks, not generated by
-a language model. AI-generated copy has a recognizable register: vague
-enthusiasm, filler phrases, bullet-point thinking. Every piece of text in the UI
-should pass a simple test: _would a real person actually say this?_
+See [COPYWRITING.md](./COPYWRITING.md). Design-specific notes:
 
-### Principles
-
-- **Be specific, not encouraging.** "You have 3 recipes that use chicken thighs"
-  is useful. "Great job building your collection!" is filler. Never congratulate
-  the user for using the product.
-- **Be direct, not padded.** Say what something does in the fewest words that
-  are still friendly. "Add a recipe" not "Get started by adding your first
-  recipe to begin your cooking journey."
-- **Avoid AI tells.** No "Unlock the power of...", "Elevate your cooking", "Dive
-  into", "Explore a world of", "Seamlessly", "Effortlessly", "Streamline",
-  "Supercharge", "Harness", "Leverage", "Delve". If a phrase sounds like it came
-  from a marketing template, rewrite it.
-- **No fake warmth.** Warmth comes from the typography and design, not from
-  exclamation marks or hollow phrases. "Welcome back" is fine. "Welcome back!
-  We're so excited to see you!" is not.
-- **Error messages are human.** "That email is already registered" not "An
-  account with this email address already exists in our system."
-- **Empty states are calm.** A blank page with a clear action link. No
-  illustrations of smiling vegetables, no "It's looking a little empty in
-  here!", no multi-paragraph explanations of what the feature does.
-
-### The same standard applies to design
-
-The visual equivalent of AI-generated copy is generic SaaS UI: gradient hero
-banners, stock illustrations, oversized feature grids, floating chat widgets.
-Quartermaster's design language is warm paper and ink. If a component looks like
-it belongs on a Y Combinator landing page template, it doesn't belong here.
+- Empty states: one sentence, one clear action.
+- Avoid gradient hero banners, stock illustrations, oversized feature grids,
+  floating chat widgets. The language is paper and ink.
 
 ---
 

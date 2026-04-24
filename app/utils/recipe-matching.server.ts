@@ -305,9 +305,7 @@ const MODIFIERS = [
 ] as const
 
 // Set of single-word modifiers for quick lookup (used in "or" split heuristic)
-const SINGLE_MODIFIER_WORDS = new Set(
-	MODIFIERS.filter((m) => !m.includes(' ')),
-)
+const SINGLE_MODIFIER_WORDS = new Set(MODIFIERS.filter((m) => !m.includes(' ')))
 
 // Pre-compile modifier regexes once at module level (~50 regexes, not per call)
 const MODIFIER_REGEXES = MODIFIERS.map((m) => ({
@@ -371,9 +369,7 @@ export function normalizeIngredientName(name: string): string {
 		const firstPart = normalized.split(' or ')[0]!.trim()
 		const isOnlyModifiersOrNumbers = firstPart
 			.split(/\s+/)
-			.every(
-				(w) => SINGLE_MODIFIER_WORDS.has(w) || /^\d+([./]\d+)?$/.test(w),
-			)
+			.every((w) => SINGLE_MODIFIER_WORDS.has(w) || /^\d+([./]\d+)?$/.test(w))
 		if (!isOnlyModifiersOrNumbers) {
 			normalized = firstPart
 		} else {
@@ -573,6 +569,22 @@ function isNonEquivalentCompoundMatch(
 }
 
 /**
+ * True when both names are protected compounds but not the same one.
+ * Blocks core-word or containment matches between distinct compounds like
+ * "red onion" vs "red lentil" or "ground chicken" vs "ground turkey".
+ */
+function isDifferentProtectedCompound(
+	normalizedA: string,
+	normalizedB: string,
+): boolean {
+	return (
+		normalizedA !== normalizedB &&
+		PROTECTED_COMPOUNDS.has(normalizedA) &&
+		PROTECTED_COMPOUNDS.has(normalizedB)
+	)
+}
+
+/**
  * Check if an ingredient matches an inventory item using improved fuzzy matching
  */
 export function ingredientMatchesInventoryItem(
@@ -610,11 +622,7 @@ export function ingredientMatchesInventoryItem(
 		ingredientCore === inventoryCore &&
 		!CUT_SENSITIVE_WORDS.has(ingredientCore) &&
 		!isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory) &&
-		!(
-			normalizedIngredient !== normalizedInventory &&
-			PROTECTED_COMPOUNDS.has(normalizedIngredient) &&
-			PROTECTED_COMPOUNDS.has(normalizedInventory)
-		)
+		!isDifferentProtectedCompound(normalizedIngredient, normalizedInventory)
 	) {
 		return true
 	}
@@ -803,7 +811,9 @@ export function ingredientMatchesAnyInventoryItem(
 			const invCore = getCoreIngredientWord(invItem.name)
 			if (
 				ingredientCore === invCore &&
-				!isNonEquivalentCompoundMatch(normalizedIngredient, invNorm)
+				!CUT_SENSITIVE_WORDS.has(ingredientCore) &&
+				!isNonEquivalentCompoundMatch(normalizedIngredient, invNorm) &&
+				!isDifferentProtectedCompound(normalizedIngredient, invNorm)
 			) {
 				return true
 			}
@@ -822,6 +832,7 @@ export function ingredientMatchesAnyInventoryItem(
 				isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory)
 			)
 				continue
+			if (CUT_SENSITIVE_WORDS.has(ingredientWords[0]!)) continue
 			const word = ingredientWords[0]
 			if (
 				inventoryWords[0] === word ||
@@ -836,6 +847,7 @@ export function ingredientMatchesAnyInventoryItem(
 				isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory)
 			)
 				continue
+			if (CUT_SENSITIVE_WORDS.has(inventoryWords[0]!)) continue
 			const word = inventoryWords[0]
 			if (
 				ingredientWords[0] === word ||
@@ -853,6 +865,14 @@ export function ingredientMatchesAnyInventoryItem(
 				ingredientWords.includes(word),
 			)
 			if (allIngredientWordsInInventory || allInventoryWordsInIngredient) {
+				if (
+					isDifferentProtectedCompound(
+						normalizedIngredient,
+						normalizedInventory,
+					)
+				) {
+					continue
+				}
 				return true
 			}
 		}

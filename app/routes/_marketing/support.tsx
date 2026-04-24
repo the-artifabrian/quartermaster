@@ -19,24 +19,24 @@ const faqs = [
 			'Several ways: paste a URL and Quartermaster extracts the recipe automatically, bulk-import by pasting text from Apple Notes (separate recipes with ---), or drag and drop .md/.txt files. You can also import a full data export from Settings > Data.',
 	},
 	{
-		question: 'How does recipe matching know what I can make?',
+		question: 'How does Quartermaster know what I can cook?',
 		answer:
-			'It compares your inventory against recipe ingredients using smart matching that understands different names for the same thing (like cilantro and coriander), then ranks recipes by how many ingredients you already have.',
+			'It compares your Pantry against recipe ingredients using smart matching that understands different names for the same thing (like cilantro and coriander), then shows recipes that need fewer things from the store.',
 	},
 	{
 		question: 'Can I share with my partner or household?',
 		answer:
-			'Yes. Go to Settings > Household to invite members via a link. Everyone in the household shares the same recipe library, inventory, meal plans, and shopping lists, with real-time sync.',
+			'Yes. Go to Settings > Household to invite members via a link. Everyone in the household shares the same recipe library, Pantry, meal plans, and shopping lists, with real-time sync.',
 	},
 	{
 		question: 'Can I export my data?',
 		answer:
-			'Yes. Go to Settings > Data to export all your data (recipes, inventory, meal plans, shopping lists, cooking logs) as JSON. You can also import this export back in. Your data is never locked in.',
+			'Yes. Go to Settings > Data to export all your data (recipes, Pantry, meal plans, shopping lists, cooking logs) as JSON. You can also import this export back in. Your data is never locked in.',
 	},
 	{
 		question: 'How does meal planning work?',
 		answer:
-			'The Planner shows a weekly calendar where you assign recipes to meal slots. Quartermaster analyzes ingredient overlap across your planned meals and suggests recipes that share ingredients to reduce waste. When you\u2019re ready, generate a shopping list that subtracts what you already have.',
+			'The Planner shows a weekly calendar where you assign recipes to meal slots. Quartermaster analyzes ingredient overlap across your planned meals and suggests recipes that share ingredients. When you\u2019re ready, generate a shopping list that marks what is usually on hand.',
 	},
 	{
 		question: 'How do I delete my account?',
@@ -83,7 +83,9 @@ export default function SupportRoute() {
 				type="application/ld+json"
 				dangerouslySetInnerHTML={{ __html: faqJsonLd }}
 			/>
-			<h1 className="font-serif text-[2.25rem] leading-[1.15] tracking-[-0.02em]">Support</h1>
+			<h1 className="font-serif text-[2.25rem] leading-[1.15] tracking-[-0.02em]">
+				Support
+			</h1>
 
 			<div className="mt-8 space-y-4">
 				<div className="bg-muted/50 rounded-xl p-5">
@@ -93,7 +95,9 @@ export default function SupportRoute() {
 							className="text-primary mt-1.5 size-5 shrink-0"
 						/>
 						<div>
-							<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Common questions</h2>
+							<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">
+								Common questions
+							</h2>
 							<dl className="text-muted-foreground mt-3 space-y-3 text-sm">
 								{faqs.map((faq) => (
 									<div key={faq.question}>

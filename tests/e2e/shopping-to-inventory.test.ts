@@ -33,13 +33,11 @@ async function checkOffAllItems(page: Page) {
 	while (count > 0) {
 		await checkButtons.first().click()
 		await page.waitForTimeout(300)
-		count = await page
-			.getByRole('button', { name: /check off item/i })
-			.count()
+		count = await page.getByRole('button', { name: /check off item/i }).count()
 	}
 }
 
-test('Shopping → inventory pipeline: generate, check off, add to inventory', async ({
+test('Shopping → Pantry pipeline: generate, check off, remember for next time', async ({
 	page,
 	login,
 }) => {
@@ -99,20 +97,18 @@ test('Shopping → inventory pipeline: generate, check off, add to inventory', a
 	await checkOffAllItems(page)
 
 	// 5. Open the review panel
-	const addToInventoryLink = page.getByText(/add to inventory/i)
-	await expect(addToInventoryLink).toBeVisible()
-	await addToInventoryLink.click()
+	const rememberLink = page.getByText(/remember for next time/i)
+	await expect(rememberLink).toBeVisible()
+	await rememberLink.click()
 
 	// 6. Verify the review panel appears
 	const reviewHeading = page.getByRole('heading', {
-		name: /add to inventory/i,
+		name: /remember for next time/i,
 	})
 	await expect(reviewHeading).toBeVisible()
 
-	// 7. Submit to inventory and wait for panel to disappear
-	await page
-		.getByRole('button', { name: /add \d+ to inventory/i })
-		.click()
+	// 7. Submit to Pantry and wait for panel to disappear
+	await page.getByRole('button', { name: /remember \d+/i }).click()
 	await expect(reviewHeading).not.toBeVisible({ timeout: 10000 })
 
 	// 8. Verify items are now in the database
@@ -124,20 +120,20 @@ test('Shopping → inventory pipeline: generate, check off, add to inventory', a
 	expect(names).toContain('salmon fillet')
 	expect(names).toContain('lemon')
 
-	// 9. Verify items show on the inventory page
+	// 9. Verify items show on the Pantry page
 	await page.goto('/inventory')
 	await expect(page.getByText('salmon fillet').first()).toBeVisible()
 	await expect(page.getByText('lemon').first()).toBeVisible()
 })
 
-test('Shopping → inventory pipeline: merges with existing inventory', async ({
+test('Shopping → Pantry pipeline: merges with existing Pantry items', async ({
 	page,
 	login,
 }) => {
 	const user = await login()
 	const householdId = await setupProUser(user.id)
 
-	// Pre-populate inventory with an existing item
+	// Pre-populate Pantry with an existing item
 	await prisma.inventoryItem.create({
 		data: {
 			name: 'garlic',
@@ -146,7 +142,7 @@ test('Shopping → inventory pipeline: merges with existing inventory', async ({
 		},
 	})
 
-	// Create recipe that uses a new ingredient (garlic is already in stock)
+	// Create recipe that uses a new ingredient (garlic is usually on hand)
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Merge Test Recipe',
@@ -192,14 +188,12 @@ test('Shopping → inventory pipeline: merges with existing inventory', async ({
 	await checkOffAllItems(page)
 
 	// Open review and submit
-	await page.getByText(/add to inventory/i).click()
+	await page.getByText(/remember for next time/i).click()
 	const reviewHeading = page.getByRole('heading', {
-		name: /add to inventory/i,
+		name: /remember for next time/i,
 	})
 	await expect(reviewHeading).toBeVisible()
-	await page
-		.getByRole('button', { name: /add \d+ to inventory/i })
-		.click()
+	await page.getByRole('button', { name: /remember \d+/i }).click()
 	await expect(reviewHeading).not.toBeVisible({ timeout: 10000 })
 
 	// Verify in database

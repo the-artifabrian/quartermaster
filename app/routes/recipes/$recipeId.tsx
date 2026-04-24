@@ -296,7 +296,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		})
 		invariantResponse(ingredient, 'Ingredient not found', { status: 404 })
 
-		// Check for existing duplicate in inventory
+		// Check for existing duplicate in Pantry
 		const existingItems = await prisma.inventoryItem.findMany({
 			where: { householdId },
 			select: { id: true, name: true },
@@ -304,7 +304,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 		const match = findMatchingInventoryItem(ingredient.name, existingItems)
 		if (!match) {
-			// Clean up the ingredient name for inventory display:
+			// Clean up the ingredient name for Pantry display:
 			// "mashed ripe banana" → "banana", "boneless skinless chicken thighs" → "chicken thigh"
 			const cleaned = normalizeIngredientName(ingredient.name)
 
@@ -698,9 +698,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						<h1 className="font-serif text-[2rem] leading-[1.15] font-normal tracking-[-0.02em]">
 							{recipe.title}
 						</h1>
-						<Divider
-							className="mt-3 mb-2 max-w-xs print:hidden"
-						/>
+						<Divider className="mt-3 mb-2 max-w-xs print:hidden" />
 						<RecipeMetadataCard
 							prepTime={recipe.prepTime}
 							cookTime={recipe.cookTime}
@@ -771,25 +769,16 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							onEnhance={handleEnhance}
 						/>
 					</PopoverAnchor>
-					<PopoverContent
-						align="start"
-						className="w-72 p-4"
-					>
+					<PopoverContent align="start" className="w-72 p-4">
 						<p className="mb-3 text-sm font-medium">Add to meal plan</p>
 						<div className="mb-3">
-							<p className="text-muted-foreground mb-1.5 text-xs">
-								Day
-							</p>
+							<p className="text-muted-foreground mb-1.5 text-xs">Day</p>
 							<div className="flex flex-wrap gap-1.5">
 								{Array.from({ length: 7 }, (_, i) => {
 									const d = addDaysUTC(todayUTC, i)
 									const val = serializeDate(d)
 									const label =
-										i === 0
-											? 'Today'
-											: i === 1
-												? 'Tomorrow'
-												: formatDayLabel(d)
+										i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : formatDayLabel(d)
 									return (
 										<button
 											key={val}
@@ -809,9 +798,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							</div>
 						</div>
 						<div className="mb-4">
-							<p className="text-muted-foreground mb-1.5 text-xs">
-								Meal
-							</p>
+							<p className="text-muted-foreground mb-1.5 text-xs">Meal</p>
 							<div className="flex gap-1.5">
 								{MEAL_TYPES.map((mt) => (
 									<button
@@ -836,9 +823,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							onClick={handleAddToPlanSubmit}
 							disabled={planFetcher.state !== 'idle'}
 						>
-							{planFetcher.state !== 'idle'
-								? 'Adding...'
-								: 'Add to Plan'}
+							{planFetcher.state !== 'idle' ? 'Adding...' : 'Add to Plan'}
 						</Button>
 					</PopoverContent>
 				</Popover>
@@ -847,9 +832,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					<OnboardingNudge
 						nudgeId="stock-kitchen"
 						icon="home"
-						title="Next up: stock your kitchen"
-						description="Add what's in your pantry, fridge, and freezer. Just the items, no quantities. We'll show you which recipes you can cook tonight."
-						ctaText="Stock Inventory"
+						title="Next up: start your Pantry"
+						description="Add ingredients you usually keep around. No quantities, no counting."
+						ctaText="Start Pantry"
 						ctaHref="/inventory"
 						className="mt-4 print:hidden"
 					/>

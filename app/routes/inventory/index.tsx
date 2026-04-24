@@ -11,7 +11,6 @@ import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboarding.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { STALE_DAYS } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -26,7 +25,6 @@ import {
 	getInventoryUsage,
 	getUserTier,
 } from '#app/utils/subscription.server.ts'
-import { useUser } from '#app/utils/user.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -34,7 +32,7 @@ export const handle: SEOHandle = {
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'My Inventory | Quartermaster' }]
+	return [{ title: 'My Pantry | Quartermaster' }]
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -247,7 +245,7 @@ export async function action({ request }: Route.ActionArgs) {
 		if (match) {
 			return {
 				status: 'error' as const,
-				message: `"${match.name}" already exists in your inventory`,
+				message: `"${match.name}" is already in your Pantry`,
 			}
 		}
 
@@ -304,11 +302,8 @@ const SEARCH_THRESHOLD = 15
 export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	const { items, inventoryUsage, isProActive, mealPlanEntryCount } = loaderData
 
-	const user = useUser()
 	const [search, setSearch] = useState('')
 	const [fabOpen, setFabOpen] = useState(false)
-	const [reviewingStale, setReviewingStale] = useState(false)
-	const [staleBannerVisible, setStaleBannerVisible] = useState(false)
 
 	const [showStaplesSuccess, setShowStaplesSuccess] = useState(false)
 	const handleStaplesSuccess = useCallback(
@@ -332,43 +327,6 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		return () => clearTimeout(timer)
 	}, [voiceAddedNames])
 
-	const staleItems = items.filter((item) => {
-		const ageMs = Date.now() - new Date(item.createdAt).getTime()
-		return ageMs >= STALE_DAYS * 24 * 60 * 60 * 1000
-	})
-
-	const staleDismissKey = `stale-review-dismissed:${user.id}`
-
-	useEffect(() => {
-		if (staleItems.length < 5) {
-			setStaleBannerVisible(false)
-			return
-		}
-		const dismissed = localStorage.getItem(staleDismissKey)
-		if (dismissed) {
-			const elapsed = Date.now() - Number(dismissed)
-			if (elapsed < 7 * 24 * 60 * 60 * 1000) return
-		}
-		setStaleBannerVisible(true)
-	}, [staleDismissKey, staleItems.length])
-
-	const handleDismissStale = useCallback(() => {
-		localStorage.setItem(staleDismissKey, String(Date.now()))
-		setStaleBannerVisible(false)
-	}, [staleDismissKey])
-
-	const handleReviewStale = useCallback(() => {
-		localStorage.setItem(staleDismissKey, String(Date.now()))
-		setStaleBannerVisible(false)
-		setReviewingStale(true)
-		setSearch('')
-	}, [staleDismissKey])
-
-	const handleExitReview = useCallback(() => {
-		setReviewingStale(false)
-		setSearch('')
-	}, [])
-
 	if (items.length === 0 || showStaplesSuccess) {
 		return (
 			<div className="container-content py-6 pb-20 md:pb-6">
@@ -381,12 +339,11 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		)
 	}
 
-	const baseItems = reviewingStale ? staleItems : items
 	const filteredItems = search
-		? baseItems.filter((item) =>
+		? items.filter((item) =>
 				item.name.toLowerCase().includes(search.toLowerCase()),
 			)
-		: baseItems
+		: items
 
 	const showSearch = items.length >= SEARCH_THRESHOLD
 
@@ -395,7 +352,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 			{/* Page Header */}
 			<div className="container-content flex items-center justify-between gap-3 py-3 md:py-4">
 				<div>
-					<h1 className="font-serif text-2xl font-normal">Inventory</h1>
+					<h1 className="font-serif text-2xl font-normal">Pantry</h1>
 					{/* Item count for Pro users (free users see X/Y below) */}
 					{items.length > 0 && inventoryUsage.limit === null && (
 						<p className="text-muted-foreground mt-0.5 text-sm">
@@ -412,7 +369,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 										: '',
 								)}
 							>
-								{inventoryUsage.count}/{inventoryUsage.limit} free items
+								{inventoryUsage.count}/{inventoryUsage.limit} free Pantry items
 							</span>
 						</p>
 					)}
@@ -425,7 +382,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					<Button asChild className="hidden sm:inline-flex">
 						<Link to="/inventory/new">
 							<Icon name="plus" size="sm" />
-							Add Item
+							Add
 						</Link>
 					</Button>
 				)}
@@ -440,8 +397,8 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 								Free plan limit reached
 							</p>
 							<p className="text-muted-foreground mt-1 text-sm">
-								Upgrade to Pro for unlimited inventory, smart suggestions, and
-								advanced shopping features.
+								Upgrade to Pro for unlimited Pantry items, real-time shopping
+								sync, and AI recipe tools.
 							</p>
 						</div>
 						<Button asChild size="sm" className="shrink-0">
@@ -462,35 +419,6 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					/>
 				)}
 
-				{/* Stale items review banner */}
-				{staleBannerVisible && !reviewingStale && (
-					<div className="mb-4 rounded-lg bg-amber-50 p-4 dark:bg-amber-950/30">
-						<p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-							{staleItems.length} items over a month old
-						</p>
-						<p className="mt-0.5 text-xs text-amber-700/70 dark:text-amber-300/60">
-							Still in your kitchen? A quick review keeps your inventory useful.
-						</p>
-						<div className="mt-3 flex items-center gap-2">
-							<Button
-								size="sm"
-								className="bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
-								onClick={handleReviewStale}
-							>
-								Review
-							</Button>
-							<Button
-								size="sm"
-								variant="ghost"
-								className="text-amber-800 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/40"
-								onClick={handleDismissStale}
-							>
-								Not now
-							</Button>
-						</div>
-					</div>
-				)}
-
 				{/* Search */}
 				<div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					{showSearch && (
@@ -502,7 +430,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 							/>
 							<input
 								type="search"
-								placeholder="Search inventory..."
+								placeholder="Search Pantry..."
 								value={search}
 								onChange={(e) => setSearch(e.target.value)}
 								className="border-border/50 bg-secondary/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-9 w-full rounded-full border pr-4 pl-9 text-sm transition-colors outline-none focus:ring-1"
@@ -521,48 +449,8 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 
-				{/* Review mode header */}
-				{reviewingStale && staleItems.length > 0 && (
-					<div className="mb-3 flex items-center justify-between rounded-lg bg-amber-50 px-4 py-2.5 dark:bg-amber-950/30">
-						<p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-							Reviewing {staleItems.length} stale{' '}
-							{staleItems.length === 1 ? 'item' : 'items'}
-						</p>
-						<Button
-							size="sm"
-							variant="ghost"
-							className="text-amber-800 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/40"
-							onClick={handleExitReview}
-						>
-							Show all
-						</Button>
-					</div>
-				)}
-
 				{/* Items List */}
-				{reviewingStale && staleItems.length === 0 ? (
-					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30">
-							<Icon
-								name="check"
-								className="size-6 text-emerald-600 dark:text-emerald-400"
-							/>
-						</div>
-						<h2 className="mt-4 font-serif text-xl font-normal">
-							All caught up!
-						</h2>
-						<p className="text-muted-foreground mt-2 max-w-sm">
-							No more stale items to review.
-						</p>
-						<Button
-							variant="outline"
-							className="mt-4"
-							onClick={handleExitReview}
-						>
-							Back to inventory
-						</Button>
-					</div>
-				) : filteredItems.length > 0 ? (
+				{filteredItems.length > 0 ? (
 					<div>
 						{groupByFirstLetter(filteredItems).map(
 							({ letter, items: groupItems }) => (
@@ -622,13 +510,13 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 							Nothing here yet
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
-							Add what you have on hand. No need to count, just the items. We'll
-							match them to your recipes and keep your shopping list smart.
+							Add ingredients you usually keep around. No quantities, no
+							counting.
 						</p>
 						<Button asChild className="mt-6">
 							<Link to="/inventory/new">
 								<Icon name="plus" size="sm" />
-								Add Item
+								Add
 							</Link>
 						</Button>
 					</div>

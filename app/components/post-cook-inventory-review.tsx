@@ -16,7 +16,7 @@ import { Checkbox } from '#app/components/ui/checkbox.tsx'
 type MatchedItem = { id: string; name: string; preChecked?: boolean }
 
 /**
- * The inner content for the post-cook inventory review.
+ * The inner content for the post-cook Pantry review.
  * Used directly inside a combined dialog (meal-slot-card) or
  * wrapped in its own AlertDialog (uncooked-meal-reminder).
  */
@@ -32,9 +32,7 @@ export function PostCookInventoryReviewContent({
 	const [selected, setSelected] = useState<Set<string>>(
 		() =>
 			new Set(
-				matchedItems
-					.filter((i) => i.preChecked !== false)
-					.map((i) => i.id),
+				matchedItems.filter((i) => i.preChecked !== false).map((i) => i.id),
 			),
 	)
 	const fetcher = useFetcher<{ success: boolean; deletedCount?: number }>()
@@ -44,7 +42,7 @@ export function PostCookInventoryReviewContent({
 		if (fetcher.data?.success) {
 			const count = fetcher.data.deletedCount ?? selected.size
 			toast.success(
-				`Removed ${count} item${count !== 1 ? 's' : ''} from inventory`,
+				`Removed ${count} item${count !== 1 ? 's' : ''} from Pantry`,
 			)
 			onDone()
 		}
@@ -79,16 +77,16 @@ export function PostCookInventoryReviewContent({
 	return (
 		<>
 			<AlertDialogHeader>
-				<AlertDialogTitle>Update your inventory?</AlertDialogTitle>
+				<AlertDialogTitle>Update your Pantry?</AlertDialogTitle>
 				<AlertDialogDescription>
-					You cooked {recipeTitle}. Tap items you've used up.
+					You cooked {recipeTitle}. Uncheck anything you still have.
 				</AlertDialogDescription>
 			</AlertDialogHeader>
 			<div className="grid grid-cols-2 gap-1.5">
 				{matchedItems.map((item) => (
 					<label
 						key={item.id}
-						className="flex cursor-pointer items-center gap-2 rounded-lg bg-secondary/30 px-2.5 py-2 select-none"
+						className="bg-secondary/30 flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 select-none"
 					>
 						<Checkbox
 							checked={selected.has(item.id)}

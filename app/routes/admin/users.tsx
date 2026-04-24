@@ -137,7 +137,7 @@ const columns: { key: SortKey; label: string; numeric?: boolean }[] = [
 	{ key: 'lastActive', label: 'Last Active' },
 	{ key: 'lastCooked', label: 'Last Cooked' },
 	{ key: 'recipeCount', label: 'Recipes', numeric: true },
-	{ key: 'inventoryCount', label: 'Inventory', numeric: true },
+	{ key: 'inventoryCount', label: 'Pantry', numeric: true },
 	{ key: 'cookLogCount', label: 'Cooks', numeric: true },
 ]
 
@@ -204,7 +204,7 @@ export default function UsersAdminRoute({ loaderData }: Route.ComponentProps) {
 					Cache
 				</Link>
 			</div>
-			<h1 className="text-xl font-semibold mt-2">User Analytics</h1>
+			<h1 className="mt-2 text-xl font-semibold">User Analytics</h1>
 			<p className="text-muted-foreground mt-1 text-sm">
 				{loaderData.users.length} user
 				{loaderData.users.length === 1 ? '' : 's'}

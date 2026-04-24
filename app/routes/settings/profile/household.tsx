@@ -168,7 +168,7 @@ export default function HouseholdSettings({
 			<div className="border-foreground my-2 h-1 border-b-[1.5px]" />
 
 			<div>
-				<h3 className="text-base font-medium mb-4">Members</h3>
+				<h3 className="mb-4 text-base font-medium">Members</h3>
 				<ul className="flex flex-col gap-3">
 					{household.members.map((member) => (
 						<MemberRow
@@ -194,7 +194,6 @@ export default function HouseholdSettings({
 					<LeaveHousehold />
 				</>
 			) : null}
-
 		</div>
 	)
 }
@@ -299,7 +298,7 @@ function InviteSection({
 
 	return (
 		<div>
-			<h3 className="text-base font-medium mb-4">Invites</h3>
+			<h3 className="mb-4 text-base font-medium">Invites</h3>
 
 			<createFetcher.Form method="POST">
 				<Button type="submit" name="intent" value="create-invite">
@@ -309,7 +308,7 @@ function InviteSection({
 			</createFetcher.Form>
 
 			{newToken ? (
-				<div className="mt-4 rounded-lg border border-primary/30 bg-primary/10 p-4">
+				<div className="border-primary/30 bg-primary/10 mt-4 rounded-lg border p-4">
 					<p className="mb-2 text-sm font-medium">
 						Invite link created! Share this link:
 					</p>
@@ -399,10 +398,10 @@ function LeaveHousehold() {
 
 	return (
 		<div>
-			<h3 className="text-base font-medium mb-4">Leave Household</h3>
+			<h3 className="mb-4 text-base font-medium">Leave Household</h3>
 			<p className="text-muted-foreground mb-4 text-sm">
 				Leaving will create a new solo household for you. Your recipes will be
-				copied, but shared inventory and meal plans will stay with the current
+				copied, but shared Pantry and meal plans will stay with the current
 				household.
 			</p>
 			<fetcher.Form method="POST">
@@ -423,4 +422,3 @@ function LeaveHousehold() {
 		</div>
 	)
 }
-

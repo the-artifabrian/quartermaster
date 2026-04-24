@@ -151,9 +151,7 @@ describe('normalizeIngredientName', () => {
 	})
 
 	test('strips "cracked" and "freshly" modifiers', () => {
-		expect(normalizeIngredientName('cracked black pepper')).toBe(
-			'black pepper',
-		)
+		expect(normalizeIngredientName('cracked black pepper')).toBe('black pepper')
 		expect(normalizeIngredientName('freshly cracked black pepper')).toBe(
 			'black pepper',
 		)
@@ -479,6 +477,36 @@ describe('matchRecipesWithInventory', () => {
 		const inventory = makeInventory(['chicken'])
 
 		const results = matchRecipesWithInventory(recipes, inventory)
+		expect(results[0]!.canMake).toBe(false)
+	})
+
+	test('does not count different chicken cuts as recipe matches', () => {
+		const recipes = [makeRecipe('r1', ['chicken thigh', 'rice'])]
+		const inventory = makeInventory(['chicken breast', 'rice'])
+
+		const results = matchRecipesWithInventory(recipes, inventory)
+		expect(results[0]!.matchedIngredientsCount).toBe(1)
+		expect(results[0]!.matchPercentage).toBe(50)
+		expect(results[0]!.canMake).toBe(false)
+	})
+
+	test('still counts same-cut chicken variants as recipe matches', () => {
+		const recipes = [makeRecipe('r1', ['chicken breast fillet', 'rice'])]
+		const inventory = makeInventory(['chicken breast', 'rice'])
+
+		const results = matchRecipesWithInventory(recipes, inventory)
+		expect(results[0]!.matchedIngredientsCount).toBe(2)
+		expect(results[0]!.matchPercentage).toBe(100)
+		expect(results[0]!.canMake).toBe(true)
+	})
+
+	test('does not count different protected compounds as recipe matches', () => {
+		const recipes = [makeRecipe('r1', ['red onion', 'rice'])]
+		const inventory = makeInventory(['red lentil', 'rice'])
+
+		const results = matchRecipesWithInventory(recipes, inventory)
+		expect(results[0]!.matchedIngredientsCount).toBe(1)
+		expect(results[0]!.matchPercentage).toBe(50)
 		expect(results[0]!.canMake).toBe(false)
 	})
 

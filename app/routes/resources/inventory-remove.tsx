@@ -22,13 +22,13 @@ export async function action({ request }: Route.ActionArgs) {
 	const inventoryItemId = formData.get('inventoryItemId')
 	invariantResponse(
 		typeof inventoryItemId === 'string',
-		'Inventory item ID is required',
+		'Pantry item ID is required',
 	)
 
 	const item = await prisma.inventoryItem.findFirst({
 		where: { id: inventoryItemId, householdId },
 	})
-	invariantResponse(item, 'Inventory item not found', { status: 404 })
+	invariantResponse(item, 'Pantry item not found', { status: 404 })
 
 	await prisma.inventoryItem.delete({ where: { id: inventoryItemId } })
 

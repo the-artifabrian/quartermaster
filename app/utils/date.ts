@@ -72,8 +72,7 @@ export function formatWeekRange(weekStart: Date): string {
 	const currentYear = new Date().getFullYear()
 	const spansYearBoundary =
 		weekStart.getUTCFullYear() !== weekEnd.getUTCFullYear()
-	const showYear =
-		spansYearBoundary || weekEnd.getUTCFullYear() !== currentYear
+	const showYear = spansYearBoundary || weekEnd.getUTCFullYear() !== currentYear
 	return `${startMonth} ${weekStart.getUTCDate()} – ${endPart}${showYear ? `, ${weekEnd.getUTCFullYear()}` : ''}`
 }
 
@@ -126,7 +125,11 @@ export function parseDate(dateString: string): Date {
 export function formatTimeAgo(date: Date): string {
 	const now = new Date()
 	// Normalize to midnight to avoid DST off-by-one errors
-	const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+	const startOfToday = new Date(
+		now.getFullYear(),
+		now.getMonth(),
+		now.getDate(),
+	)
 	const startOfDate = new Date(
 		date.getFullYear(),
 		date.getMonth(),
@@ -145,37 +148,6 @@ export function formatTimeAgo(date: Date): string {
 	if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`
 	const years = Math.floor(diffDays / 365)
 	return `${years} ${years === 1 ? 'year' : 'years'} ago`
-}
-
-/** How many days before an inventory item is considered stale. */
-export const STALE_DAYS = 30
-
-/**
- * Compact age label for inventory items.
- * Returns duration without "ago": "today", "yesterday", "3 days", "2 weeks", "1 month", etc.
- */
-export function formatItemAge(date: Date): string {
-	const now = new Date()
-	// Normalize to midnight to avoid DST off-by-one errors
-	const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-	const startOfDate = new Date(
-		date.getFullYear(),
-		date.getMonth(),
-		date.getDate(),
-	)
-	const diffDays = Math.round(
-		(startOfToday.getTime() - startOfDate.getTime()) / (1000 * 60 * 60 * 24),
-	)
-
-	if (diffDays === 0) return 'today'
-	if (diffDays === 1) return 'yesterday'
-	if (diffDays < 7) return `${diffDays} days`
-	if (diffDays < 14) return '1 week'
-	if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks`
-	if (diffDays < 60) return '1 month'
-	if (diffDays < 365) return `${Math.floor(diffDays / 30)} months`
-	const years = Math.floor(diffDays / 365)
-	return `${years} ${years === 1 ? 'year' : 'years'}`
 }
 
 export const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const

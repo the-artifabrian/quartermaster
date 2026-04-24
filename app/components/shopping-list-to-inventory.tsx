@@ -27,7 +27,7 @@ export function ShoppingListToInventory({
 	const fetcher = useFetcher()
 	const isSubmitting = fetcher.state !== 'idle'
 
-	// Separate household items — they won't become inventory
+	// Separate household items — they won't become Pantry items
 	const foodItems = items.filter((item) => item.category !== 'household')
 	const householdCount = items.length - foodItems.length
 
@@ -74,7 +74,7 @@ export function ShoppingListToInventory({
 		const selected = reviewItems
 			.filter((i) => i.included)
 			.map((i) => ({ itemId: i.id }))
-		// Include household items too — server will clear them but skip inventory creation
+		// Include household items too — server will clear them but skip Pantry creation
 		const householdItemEntries = items
 			.filter((item) => item.category === 'household')
 			.map((item) => ({ itemId: item.id }))
@@ -90,11 +90,13 @@ export function ShoppingListToInventory({
 	}
 
 	return (
-		<div className="rounded-xl border border-border/50 bg-secondary/30 p-5">
+		<div className="border-border/50 bg-secondary/30 rounded-xl border p-5">
 			<div className="mb-4">
-				<h3 className="font-serif text-lg font-normal">Add to Inventory</h3>
+				<h3 className="font-serif text-lg font-normal">
+					Remember for next time
+				</h3>
 				<p className="text-muted-foreground mt-1 text-sm">
-					Select the items you want to add to your inventory.
+					Select items you usually keep around.
 				</p>
 			</div>
 
@@ -113,14 +115,12 @@ export function ShoppingListToInventory({
 						</span>
 					</div>
 
-					<div className="divide-y divide-border/40">
+					<div className="divide-border/40 divide-y">
 						{reviewItems.map((item) => (
 							<div
 								key={item.id}
 								className={
-									item.inInventory && !item.included
-										? 'opacity-60'
-										: undefined
+									item.inInventory && !item.included ? 'opacity-60' : undefined
 								}
 							>
 								<div
@@ -137,9 +137,7 @@ export function ShoppingListToInventory({
 										/>
 									</div>
 									<div className="min-w-0 flex-1">
-										<p className="truncate text-sm font-medium">
-											{item.name}
-										</p>
+										<p className="truncate text-sm font-medium">{item.name}</p>
 										{(item.quantity || item.unit) && (
 											<p className="text-muted-foreground text-xs">
 												{item.quantity} {item.unit}
@@ -147,8 +145,8 @@ export function ShoppingListToInventory({
 										)}
 									</div>
 									{item.inInventory && !item.included && (
-										<span className="shrink-0 text-xs italic text-muted-foreground">
-											Already in inventory
+										<span className="text-muted-foreground shrink-0 text-xs italic">
+											Already in Pantry
 										</span>
 									)}
 								</div>
@@ -161,7 +159,7 @@ export function ShoppingListToInventory({
 			{alreadyStockedCount > 0 && (
 				<p className="text-muted-foreground mt-3 text-sm">
 					{alreadyStockedCount} item
-					{alreadyStockedCount !== 1 ? 's' : ''} already in your inventory
+					{alreadyStockedCount !== 1 ? 's' : ''} already in your Pantry
 					(deselected).
 				</p>
 			)}
@@ -169,7 +167,7 @@ export function ShoppingListToInventory({
 			{householdCount > 0 && (
 				<p className="text-muted-foreground mt-3 text-sm">
 					{householdCount} household item{householdCount !== 1 ? 's' : ''} will
-					be cleared from the list (not added to inventory).
+					be cleared from the list.
 				</p>
 			)}
 
@@ -178,7 +176,7 @@ export function ShoppingListToInventory({
 					type="button"
 					onClick={onCancel}
 					disabled={isSubmitting}
-					className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-50"
+					className="text-muted-foreground hover:text-foreground text-sm underline underline-offset-2 disabled:opacity-50"
 				>
 					Cancel
 				</button>
@@ -190,11 +188,11 @@ export function ShoppingListToInventory({
 					}
 				>
 					{isSubmitting ? (
-						'Processing...'
+						'Saving...'
 					) : selectedCount === 0 && householdCount > 0 ? (
 						<>Clear Household Items</>
 					) : (
-						<>Add {selectedCount} to Inventory</>
+						<>Remember {selectedCount}</>
 					)}
 				</Button>
 			</div>

@@ -32,8 +32,10 @@ Bootstrapped from the [Epic Stack](https://www.epicweb.dev/epic-stack).
 
 ## Database (24 Models)
 
-All user data is household-scoped: recipes, inventory, meal plans, and shopping
-lists belong to the household, not the user.
+All user data is household-scoped: recipes, Pantry items, meal plans, and
+shopping lists belong to the household, not the user. The database model still
+uses `InventoryItem`, but product language should treat these as "usually on
+hand" items rather than exact current stock.
 
 ```
   User
@@ -72,24 +74,44 @@ lists belong to the household, not the user.
 
 ---
 
+## Product Model
+
+Quartermaster should optimize for reducing the distance between saved recipes
+and a useful shopping list:
+
+```
+  IMPORT RECIPES ──▶ PLAN MEALS ──▶ GENERATE SHOPPING LIST
+         ▲                                  │
+         │                                  ▼
+      COOK / LOG ◀──────────────────── SHOP / CHECK OFF
+```
+
+Pantry supports the loop by remembering ingredients the household usually keeps
+around, including fridge-door condiments, sauces, freezer staples, and dry
+goods. It should not behave like warehouse inventory. Exact current-stock
+features are allowed only when they stay quiet and optional.
+
+AI features are accelerators for setup and import quality, not the core product
+promise. The app must remain useful without API keys.
+
+---
+
 ## The Core Loop
 
 ```
   ┌─────────────────────────────────────────────────────────┐
   │                                                         │
-  │  RECIPES ──────▶ INVENTORY ──────▶ MATCHING             │
-  │     │              ▲    ▲              │                 │
-  │     │              │    │              ▼                 │
-  │     │         Check off │        "What can I make?"     │
-  │     │          at store │              │                 │
-  │     │              │    │              ▼                 │
-  │  SHOPPING ◀──── MEAL PLAN ◀──── Recipe discovery        │
-  │  LIST              │                                     │
-  │     └──────────────┘                                     │
-  │       Generate from planned meals                        │
+  │  RECIPES ───────────────▶ MEAL PLAN                      │
+  │     ▲                         │                          │
+  │     │                         ▼                          │
+  │     │                  SHOPPING LIST                     │
+  │     │                         │                          │
+  │     │                         ▼                          │
+  │  COOKING MODE ◀────── SHOP / CHECK OFF                  │
+  │                                                         │
+  │  PANTRY ──────────▶ marks "usually on hand" items       │
+  │                    and shows what may need buying        │
   └─────────────────────────────────────────────────────────┘
-           MEAL PLAN ──mark cooked──▶ review used-up
-                        ingredients ──▶ remove from INVENTORY
 ```
 
 **Shopping list generation flow:**
@@ -99,19 +121,25 @@ lists belong to the household, not the user.
 2. Scale amounts by per-entry serving overrides
 3. Consolidate duplicates via canonical name matching
 4. Sum compatible units (cups + tbsp → total volume)
-5. Annotate items already in inventory (pre-checked, not omitted)
+5. Annotate items usually on hand (pre-checked/marked, not silently omitted)
 6. Filter out staples and optional ingredients
-7. After shopping: checked items → new InventoryItem records → feeds matching
+7. After shopping: checked items may be remembered for next time, but this must
+   be framed as "remember for next time," not exact stock synchronization
 
-**Post-cook inventory review flow:**
+**Post-cook Pantry review flow:**
 
 1. User marks a meal as cooked (quickCook intent)
-2. Server matches recipe ingredients against household inventory
+2. Server matches recipe ingredients against household Pantry
 3. Filters out staples (salt, oil, pepper) and optional ingredients
-4. Returns matched inventory items with pre-check flag (perishables checked,
-   pantry items unchecked)
-5. Dialog prompts user to confirm which items they used up
-6. Selected items bulk-deleted from inventory via resource route
+4. Returns matched Pantry items with pre-check flag (perishables checked,
+   shelf-stable items unchecked)
+5. Dialog may prompt user to confirm which items were used up, but this should
+   remain optional and low-pressure
+6. Selected items bulk-deleted from Pantry via resource route
+
+This flow is a UX risk because it can create after-dinner bookkeeping. Prefer
+opportunistic updates and contextual confirmation over recurring maintenance
+chores.
 
 ---
 
@@ -146,12 +174,14 @@ recipe sites. The normalizer protects compound ingredients ("green onion" keeps
 Each level is progressively looser:
 
 ```
-  Recipe: "chicken thighs"  vs  Inventory: "Chicken Breast"
+  Recipe: "chicken thighs"  vs  Pantry: "Chicken Breast"
 
   1. EXACT  →  "chicken thigh" === "chicken breast"?  NO
-  2. SYNONYM →  synonyms["chicken thigh"] has "chicken breast"?  YES ✓
+  2. SYNONYM →  synonyms["chicken thigh"] has "chicken breast"?  NO
+  3. CORE WORD → NO (cut-sensitive protein)
+  4. CONTAINMENT → NO (cut-sensitive protein)
 
-  Recipe: "bell pepper"  vs  Inventory: "red bell pepper"
+  Recipe: "bell pepper"  vs  Pantry: "red bell pepper"
 
   1. EXACT   → NO
   2. SYNONYM → NO
@@ -159,15 +189,19 @@ Each level is progressively looser:
   4. CONTAINMENT → all words of "bell pepper" in "red bell pepper"?  YES ✓
 ```
 
-**Performance:** Pre-built O(1) lookup from inventory (Sets for normalized
-names, synonyms, core words). O(n) containment only runs as last resort.
+**Performance:** Pre-built O(1) lookup from Pantry (Sets for normalized names,
+synonyms, core words). O(n) containment only runs as last resort.
 
 **Guards:** Core-word matching skips cut-sensitive proteins (thigh ≠ breast),
 non-equivalent compounds (rice ≠ rice vinegar), and different protected
 compounds (red onion ≠ red lentil, ground chicken ≠ ground turkey).
 
-**Match %:** `matched / (total - staples - optional - headings) × 100`,
-displayed as SVG progress rings on recipe cards.
+**Pantry fit:** currently computed as
+`matched / (total - staples - optional - headings) × 100` and displayed as SVG
+progress rings on recipe cards. The `canMake` boolean (100% fit) surfaces as
+the "Nothing to buy" filter on the recipe list. Product copy should avoid
+implying exact cookability. Prefer "pantry fit," "usually on hand," or concrete
+labels like "needs 3 things" where possible.
 
 ---
 
@@ -234,12 +268,12 @@ table.
 
 ## Testing
 
-837 tests across 36 files (Vitest) + Playwright e2e.
+830+ tests across Vitest and Playwright e2e.
 
 Key coverage: ingredient parser (263 tests), recipe matching, shopping list
 generation, household events, LLM integrations (MSW mocks), AI rate limiting,
-Stripe webhooks, shopping → inventory pipeline (e2e).
+Stripe webhooks, shopping → Pantry pipeline (e2e).
 
 ---
 
-_Last updated: April 20, 2026._
+_Last updated: April 24, 2026._

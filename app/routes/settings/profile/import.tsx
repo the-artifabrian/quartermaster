@@ -57,7 +57,11 @@ const ImportRecipeSchema = z.object({
 })
 
 const ImportInventoryItemSchema = z.object({
-	name: z.string().min(1).max(200).transform((s) => s.toLowerCase()),
+	name: z
+		.string()
+		.min(1)
+		.max(200)
+		.transform((s) => s.toLowerCase()),
 	location: z.enum(['pantry', 'fridge', 'freezer']).optional(), // accepted for backward compat (ignored)
 	quantity: z.number().nullable().optional(),
 	unit: z.string().max(50).nullable().optional(),
@@ -569,7 +573,7 @@ export default function ImportData() {
 							{(results.inventory.created > 0 ||
 								results.inventory.skipped > 0) && (
 								<ResultRow
-									label="Inventory items"
+									label="Pantry items"
 									created={results.inventory.created}
 									skipped={results.inventory.skipped}
 								/>
@@ -646,7 +650,7 @@ export default function ImportData() {
 									<PreviewRow label="Recipes" count={preview.recipes} />
 									{preview.inventory > 0 && (
 										<PreviewRow
-											label="Inventory items"
+											label="Pantry items"
 											count={preview.inventory}
 										/>
 									)}
@@ -670,8 +674,8 @@ export default function ImportData() {
 									)}
 								</div>
 								<p className="text-muted-foreground mt-3 text-xs">
-									Existing recipes (matched by title) and inventory items
-									(matched by name) will be automatically skipped.
+									Existing recipes (matched by title) and Pantry items (matched
+									by name) will be automatically skipped.
 								</p>
 							</div>
 

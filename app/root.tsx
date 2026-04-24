@@ -34,10 +34,7 @@ import { getEnv } from './utils/env.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
 import { combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
 import { useNonce } from './utils/nonce-provider.ts'
-import {
-	PostHogIdentify,
-	PostHogPageview,
-} from './utils/posthog-provider.tsx'
+import { PostHogIdentify, PostHogPageview } from './utils/posthog-provider.tsx'
 import { getUserTier, type TierInfo } from './utils/subscription.server.ts'
 import { type Theme, getTheme } from './utils/theme.server.ts'
 import { TimerProvider } from './utils/timer-context.tsx'
@@ -276,7 +273,10 @@ function Document({
 				<ClientHintCheck nonce={nonce} />
 				<Meta />
 				<meta charSet="utf-8" />
-				<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+				<meta
+					name="viewport"
+					content="width=device-width,initial-scale=1,maximum-scale=1"
+				/>
 				<meta name="mobile-web-app-capable" content="yes" />
 				<meta name="apple-mobile-web-app-capable" content="yes" />
 				<meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -339,7 +339,11 @@ function App() {
 		<TimerProvider>
 			<PostHogPageview />
 			<PostHogIdentify
-				user={user ? { id: user.id, name: user.name, username: user.username } : null}
+				user={
+					user
+						? { id: user.id, name: user.name, username: user.username }
+						: null
+				}
 				householdId={data.householdId}
 			/>
 			<OpenImgContextProvider
@@ -347,7 +351,7 @@ function App() {
 				getSrc={getImgSrc}
 			>
 				<div className="flex min-h-screen flex-col justify-between">
-					<header className="bg-card/80 border-border/50 md:sticky md:top-0 z-40 border-b backdrop-blur-sm">
+					<header className="bg-card/80 border-border/50 z-40 border-b backdrop-blur-sm md:sticky md:top-0">
 						<nav
 							aria-label="Main"
 							className="container flex flex-wrap items-center justify-between gap-4 py-3 sm:flex-nowrap md:gap-8"
@@ -375,7 +379,7 @@ function App() {
 														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-all duration-200'
 												}
 											>
-												Inventory
+												Pantry
 											</NavLink>
 											<NavLink
 												to="/plan"

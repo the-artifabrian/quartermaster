@@ -94,10 +94,7 @@ export function InventoryMobileFab({
 			} else {
 				const fd = new FormData()
 				fd.set('intent', 'bulk-create')
-				fd.set(
-					'items',
-					JSON.stringify(items.map((i) => ({ name: i.name }))),
-				)
+				fd.set('items', JSON.stringify(items.map((i) => ({ name: i.name }))))
 				void bulkFetcher.submit(fd, { method: 'POST' })
 				onVoiceItemsAdded?.(items.map((i) => i.name))
 				const heard =
@@ -131,7 +128,7 @@ export function InventoryMobileFab({
 				/>
 			)}
 			{open && (
-				<div className="fixed bottom-[9rem] right-4 z-50 w-[calc(100vw-2rem)] max-w-xs animate-fade-up-reveal rounded-xl border border-border/60 bg-card p-3 shadow-warm-lg">
+				<div className="animate-fade-up-reveal border-border/60 bg-card shadow-warm-lg fixed right-4 bottom-[9rem] z-50 w-[calc(100vw-2rem)] max-w-xs rounded-xl border p-3">
 					<fetcher.Form
 						method="POST"
 						onSubmit={(e) => {
@@ -146,7 +143,7 @@ export function InventoryMobileFab({
 								value={name}
 								onChange={(e) => setName(e.target.value)}
 								placeholder="Add an item..."
-								className="h-10 min-w-0 flex-1 rounded-lg border border-border/50 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/20"
+								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-10 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-sm outline-none focus:ring-1"
 							/>
 							{isProActive && (
 								<button
@@ -156,7 +153,7 @@ export function InventoryMobileFab({
 									className={cn(
 										'flex size-10 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50',
 										isRecording
-											? 'animate-pulse bg-destructive text-destructive-foreground'
+											? 'bg-destructive text-destructive-foreground animate-pulse'
 											: 'bg-muted text-muted-foreground',
 									)}
 									aria-label={
@@ -177,7 +174,7 @@ export function InventoryMobileFab({
 							<button
 								type="submit"
 								disabled={!name.trim() || fetcher.state !== 'idle'}
-								className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"
+								className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-full disabled:opacity-50"
 							>
 								<Icon name="plus" className="size-5" />
 							</button>
@@ -185,11 +182,11 @@ export function InventoryMobileFab({
 					</fetcher.Form>
 
 					{isDuplicateWarning && fetcher.data?.existingItem && (
-						<div className="mt-2 rounded-lg bg-accent/10 p-3">
+						<div className="bg-accent/10 mt-2 rounded-lg p-3">
 							<p className="text-sm">
 								You already have{' '}
 								<strong>{fetcher.data.existingItem.name}</strong> in your
-								inventory.
+								Pantry.
 							</p>
 							<div className="mt-2 flex gap-2">
 								<Button
@@ -216,7 +213,7 @@ export function InventoryMobileFab({
 			<button
 				type="button"
 				className={cn(
-					'fixed bottom-[5.5rem] right-4 z-50 flex size-12 items-center justify-center rounded-full shadow-warm-md transition-all active:scale-95',
+					'shadow-warm-md fixed right-4 bottom-[5.5rem] z-50 flex size-12 items-center justify-center rounded-full transition-all active:scale-95',
 					open
 						? 'bg-muted text-muted-foreground'
 						: 'bg-primary text-primary-foreground',

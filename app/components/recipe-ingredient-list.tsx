@@ -46,9 +46,7 @@ export function IngredientList({
 	onToggleMetric?: () => void
 	showFooter?: boolean
 }) {
-	const [localHaveIds, setLocalHaveIds] = useState<Set<string>>(
-		() => new Set(),
-	)
+	const [localHaveIds, setLocalHaveIds] = useState<Set<string>>(() => new Set())
 
 	// Clear optimistic state when loader revalidates (server is now authoritative)
 	const prevMissingRef = useRef(missingIngredientIds)
@@ -94,12 +92,12 @@ export function IngredientList({
 
 	return (
 		<>
-			<ul className="space-y-1 leading-[1.7] print:columns-2 print:gap-x-6 print:space-y-0 print:text-sm print:leading-[1.5]">
+			<ul className="space-y-1 leading-[1.7] print:columns-2 print:space-y-0 print:gap-x-6 print:text-sm print:leading-[1.5]">
 				{ingredients.map((ingredient) => {
 					if (ingredient.isHeading) {
 						return (
 							<li key={ingredient.id}>
-								<p className="text-muted-foreground font-sans mt-4 mb-1.5 border-b border-border/50 px-2 pb-1 text-xs font-medium uppercase tracking-widest print:mt-2 print:mb-0.5 print:px-0 print:text-[10px] print:break-inside-avoid-column first:mt-0">
+								<p className="text-muted-foreground border-border/50 mt-4 mb-1.5 border-b px-2 pb-1 font-sans text-xs font-medium tracking-widest uppercase first:mt-0 print:mt-2 print:mb-0.5 print:break-inside-avoid-column print:px-0 print:text-[10px]">
 									{ingredient.name}
 								</p>
 							</li>
@@ -142,7 +140,8 @@ export function IngredientList({
 							<span
 								className={cn(
 									'min-w-0 flex-1 transition-colors',
-									isChecked && 'text-muted-foreground/40 line-through decoration-muted-foreground/30',
+									isChecked &&
+										'text-muted-foreground/40 decoration-muted-foreground/30 line-through',
 								)}
 							>
 								{(() => {
@@ -150,9 +149,7 @@ export function IngredientList({
 										? scaleAmount(ingredient.amount, ratio)
 										: null
 									const parsed =
-										scaledAmount !== null
-											? parseAmount(scaledAmount)
-											: null
+										scaledAmount !== null ? parseAmount(scaledAmount) : null
 									const metricResult =
 										useMetric && parsed !== null && ingredient.unit
 											? convertToMetric(
@@ -170,20 +167,16 @@ export function IngredientList({
 									) : (
 										<>
 											{scaledAmount !== null && (
-												<span className="font-medium">
-													{scaledAmount}{' '}
-												</span>
+												<span className="font-medium">{scaledAmount} </span>
 											)}
-											{ingredient.unit && (
-												<span>{ingredient.unit} </span>
-											)}
+											{ingredient.unit && <span>{ingredient.unit} </span>}
 										</>
 									)
 								})()}
 								{ingredient.linkedRecipeId ? (
 									<Link
 										to={`/recipes/${ingredient.linkedRecipeId}`}
-										className="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary/60"
+										className="text-primary decoration-primary/30 hover:decoration-primary/60 underline underline-offset-2"
 										onClick={(e) => e.stopPropagation()}
 									>
 										{ingredient.name}
@@ -192,13 +185,7 @@ export function IngredientList({
 									<span>{ingredient.name}</span>
 								)}
 								{ingredient.notes && (
-									<span
-										className={
-											isChecked
-												? ''
-												: 'text-muted-foreground'
-										}
-									>
+									<span className={isChecked ? '' : 'text-muted-foreground'}>
 										, {ingredient.notes}
 									</span>
 								)}
@@ -260,7 +247,7 @@ export function IngredientList({
 								<Button
 									variant="outline"
 									size="sm"
-									className="w-full min-h-[44px] gap-1.5 text-xs"
+									className="min-h-[44px] w-full gap-1.5 text-xs"
 									onClick={handleAddToShoppingList}
 									disabled={isAddingToList}
 								>
@@ -309,8 +296,8 @@ function MissingIngredientActions({
 				<TooltipTrigger asChild>
 					<button
 						type="button"
-						aria-label="I have this"
-						className="flex size-[44px] items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:text-primary"
+						aria-label="Usually on hand"
+						className="text-muted-foreground/50 hover:text-primary flex size-[44px] items-center justify-center rounded-md transition-colors"
 						disabled={haveFetcher.state !== 'idle'}
 						onClick={() => {
 							onMarkedHave(ingredientId)
@@ -329,7 +316,7 @@ function MissingIngredientActions({
 						<Icon name="file-text" className="size-4" />
 					</button>
 				</TooltipTrigger>
-				<TooltipContent>I have this</TooltipContent>
+				<TooltipContent>Usually on hand</TooltipContent>
 			</Tooltip>
 			<Tooltip>
 				<TooltipTrigger asChild>
@@ -357,10 +344,7 @@ function MissingIngredientActions({
 							})
 						}}
 					>
-						<Icon
-							name={addedToCart ? 'check' : 'cart'}
-							className="size-4"
-						/>
+						<Icon name={addedToCart ? 'check' : 'cart'} className="size-4" />
 					</button>
 				</TooltipTrigger>
 				<TooltipContent>

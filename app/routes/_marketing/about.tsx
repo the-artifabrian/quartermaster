@@ -34,7 +34,9 @@ export const headers: Route.HeadersFunction = pipeHeaders
 export default function AboutRoute() {
 	return (
 		<div className="container max-w-2xl py-12">
-			<h1 className="font-serif text-[2.25rem] leading-[1.15] tracking-[-0.02em]">About Quartermaster</h1>
+			<h1 className="font-serif text-[2.25rem] leading-[1.15] tracking-[-0.02em]">
+				About Quartermaster
+			</h1>
 
 			<div className="text-muted-foreground mt-6 space-y-4 text-base/7">
 				<p>
@@ -43,19 +45,21 @@ export default function AboutRoute() {
 					dinner?" shouldn't be a 30-minute research project every night.
 				</p>
 				<p>
-					So I built the tool I wanted. One place for your recipes, your
-					pantry, your meal plan, and your shopping list. If you know what you
-					have and what you like to cook, the rest should take care of itself.
-					Quartermaster tells you what you can make tonight, helps you plan the
-					week ahead, and writes your shopping list when you're ready.
+					So I built the tool I wanted. One place for your recipes, your pantry,
+					your meal plan, and your shopping list. If you know what you have and
+					what you like to cook, the rest should take care of itself.
+					Quartermaster helps you find dinners that need fewer things, plan the
+					week ahead, and write your shopping list when you're ready.
 				</p>
 				<p>
-					It's built for people who actually cook at home, not food bloggers
-					or professional chefs. Just anyone who'd rather eat than plan.
+					It's built for people who actually cook at home, not food bloggers or
+					professional chefs. Just anyone who'd rather eat than plan.
 				</p>
 			</div>
 
-			<h2 className="mt-10 font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">What you can do</h2>
+			<h2 className="mt-10 font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">
+				What you can do
+			</h2>
 			<div className="mt-4 space-y-3">
 				<div className="flex gap-3">
 					<Icon
@@ -71,11 +75,10 @@ export default function AboutRoute() {
 				<div className="flex gap-3">
 					<Icon name="home" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
-						<span className="text-foreground font-medium">
-							Track your kitchen.
-						</span>{' '}
-						Keep a running list of what's in your pantry, fridge, and
-						freezer so Quartermaster knows what you have on hand.
+						<span className="text-foreground font-medium">Keep a Pantry.</span>{' '}
+						Add the things you usually keep around — fridge staples, condiments,
+						freezer items, dry goods. The shopping list uses it to flag what you
+						may need to buy.
 					</p>
 				</div>
 				<div className="flex gap-3">
@@ -87,8 +90,7 @@ export default function AboutRoute() {
 						<span className="text-foreground font-medium">
 							Discover what to cook.
 						</span>{' '}
-						See which recipes you can make with what you already have,
-						ranked by match percentage.
+						See which recipes need fewer things from the store.
 					</p>
 				</div>
 				<div className="flex gap-3">
@@ -96,21 +98,22 @@ export default function AboutRoute() {
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Plan and shop.</span>{' '}
 						Plan meals for the week. Quartermaster spots shared ingredients
-						across meals and builds one shopping list, minus what you already
-						have.
+						across meals and builds one shopping list.
 					</p>
 				</div>
 				<div className="flex gap-3">
 					<Icon name="avatar" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Cook together.</span>{' '}
-						Invite your partner or housemates to share a recipe library,
-						inventory, and meal plan. Changes sync in real time.
+						Invite your partner or housemates to share a recipe library, Pantry,
+						and meal plan. Changes sync in real time.
 					</p>
 				</div>
 			</div>
 
-			<h2 className="mt-10 font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Built for messy hands</h2>
+			<h2 className="mt-10 font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">
+				Built for messy hands
+			</h2>
 			<p className="text-muted-foreground mt-3 text-base/7">
 				Most recipe apps are great for browsing but terrible for actually
 				cooking. Quartermaster is the opposite: tap ingredients and steps to
@@ -120,7 +123,7 @@ export default function AboutRoute() {
 
 			<div className="mt-10">
 				<Button asChild size="lg">
-					<Link to="/signup">Get Started</Link>
+					<Link to="/signup">Get started</Link>
 				</Button>
 			</div>
 		</div>

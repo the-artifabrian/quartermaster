@@ -37,7 +37,8 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { userId, householdId, isProActive } = await requireUserWithTier(request)
+	const { userId, householdId, isProActive } =
+		await requireUserWithTier(request)
 	const url = new URL(request.url)
 	const weekStartParam = url.searchParams.get('weekStart')
 
@@ -179,8 +180,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		// Check if today had meals that are now all cooked
 		const hasCookedEntriesToday = mealPlan.entries.some(
 			(e) =>
-				serializeDate(new Date(e.date)) === serializeDate(today) &&
-				e.cooked,
+				serializeDate(new Date(e.date)) === serializeDate(today) && e.cooked,
 		)
 
 		let suggestion = null
@@ -275,7 +275,6 @@ export async function action({ request }: Route.ActionArgs) {
 					servings,
 				},
 			})
-
 		}
 
 		return { status: 'success' as const }
@@ -478,9 +477,8 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					<div className="bg-card shadow-warm-lg mb-4 rounded-2xl p-6 text-center">
 						<h2 className="font-serif text-xl">Plan Your Week</h2>
 						<p className="text-muted-foreground mx-auto mt-1.5 max-w-md text-sm">
-							Pick recipes for the days ahead and generate a shopping list
-							with what you need to buy. Tap any slot below to get
-							started.
+							Pick recipes for the days ahead and generate a shopping list with
+							what you need to buy. Tap any slot below to get started.
 						</p>
 						{recipes.length === 0 ? (
 							<Button asChild className="mt-5">
@@ -509,7 +507,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						nudgeId="generate-shopping-list"
 						icon="cart"
 						title="Generate your shopping list"
-						description="Head to the shopping list to see exactly what you need to buy — items you already have are pre-checked so you can skip them."
+						description="Head to the shopping list to see what you need to buy. Pantry items are pre-checked so you can skip them."
 						ctaText="Go to Shopping List"
 						ctaHref="/shopping"
 						className="mt-4"
@@ -525,7 +523,6 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					onClose={() => setShowSuggest(false)}
 				/>
 			)}
-
 		</div>
 	)
 }

@@ -1,34 +1,38 @@
 # Quartermaster
 
-A recipe app that actually knows what's in your kitchen.
+A personal cookbook that turns saved recipes into a weekly cooking plan and
+shopping list.
 
 I built this to replace 100+ recipes scattered across Apple Notes. It turned
-into a full meal planning system: track your inventory, see which recipes you
-can make right now, plan the week, generate a shopping list, and check things
-off at the store so your inventory stays up to date.
+into a full meal planning system: import recipes, plan the week, generate a
+shopping list, cook from the app, and remember what you usually keep on hand so
+the list focuses on what you may need to buy.
 
 **Live at [useqm.app](https://useqm.app)**
 
 ## How it works
 
-You tell the app what's in your kitchen. Every recipe gets a match percentage
-based on what you have on hand, so you can sort by "what can I cook tonight"
-without thinking. Plan meals for the week and it generates a shopping list,
-minus what's already in inventory. Check items off at the store and they flow
-back into inventory for next time.
+You save the recipes you actually cook, then add them to a weekly plan. From
+there Quartermaster generates a shopping list across the planned meals,
+deduplicates ingredients, handles unit conversion, and marks things you usually
+keep on hand so you can quickly see what needs buying.
+
+Pantry is intentionally low-maintenance. It is not a warehouse ledger for exact
+current stock. The app should work well even if you only tell it what you
+usually keep around.
 
 ## Under the hood
 
-The ingredient matching is the core of the app. "Chicken breast" shouldn't match
-"chicken thigh," but "cilantro" should match "coriander," and "rice" absolutely
-should not match "rice vinegar." It uses a 4-level system (exact, synonym, core
-word, multi-word containment) with guards for compounds and cut-sensitive
-proteins.
+Shopping list generation is the core utility of the app: deduplicate ingredients
+across planned recipes, handle unit conversion, separate usually-on-hand items
+from what probably needs buying, and keep the list usable in the store. Once
+two people share a household, they need real-time sync via SSE to check items
+off the same list.
 
-Shopping list generation is trickier than it sounds: deduplicate ingredients
-across recipes, handle unit conversion, subtract what's already in inventory,
-filter out pantry staples. Add household sharing and now two people need
-real-time sync via SSE so they can check things off the same list at the store.
+Ingredient matching supports that loop. "Chicken breast" should not match
+"chicken thigh," but "cilantro" should match "coriander," and "rice" should not
+match "rice vinegar." It uses a 4-level system (exact, synonym, core word,
+multi-word containment) with guards for compounds and cut-sensitive proteins.
 
 The AI features chain multiple models (Claude for recipe extraction from
 screenshots and text, Groq Whisper for voice input) with regex fallbacks for
@@ -74,6 +78,7 @@ you can clone and run without configuring a single account. See
 - [Development Plan](docs/DEVELOPMENT_PLAN.md): status, technical debt, backlog
 - [Design System](docs/DESIGN_SYSTEM.md): typography, colors, spacing,
   components
+- [Copywriting](docs/COPYWRITING.md): product voice and anti-AI-copy checklist
 - [Features](docs/FEATURES.md): detailed feature reference
 
 ## License

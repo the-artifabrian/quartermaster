@@ -140,7 +140,7 @@ const freeFeatures = [
 	'Import from URL or paste',
 	'Meal planning calendar',
 	'Basic shopping list generation',
-	'Up to 50 inventory items',
+	'Up to 50 Pantry items',
 	'Smart recipe matching',
 	'Interactive cooking view',
 	'Household sharing',
@@ -149,10 +149,10 @@ const freeFeatures = [
 
 const proFeatures = [
 	'Everything in Free, plus:',
-	'Unlimited inventory tracking',
+	'Unlimited Pantry items',
 	'Smart meal suggestions',
-	'Advanced shopping (live-refresh, inventory sync)',
 	'Real-time shopping list sync',
+	'Remember shopped items for Pantry',
 	'AI recipe generation',
 ]
 
@@ -179,20 +179,18 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					/>
 					<h2 className="text-lg font-semibold">Your Pro access has ended</h2>
 					<p className="text-muted-foreground mt-2 text-sm">
-						Your data is safe &mdash; recipes, inventory, meal plans, and
-						shopping lists are all preserved. Subscribe to pick up where you
-						left off.
+						Your data is safe &mdash; recipes, Pantry, meal plans, and shopping
+						lists are all preserved. Subscribe to pick up where you left off.
 					</p>
 				</div>
 			) : null}
 
 			<div className="mb-8 text-center md:mb-12">
 				<h1 className="font-serif text-3xl tracking-tight md:text-4xl">
-					Upgrade Your Kitchen
+					Upgrade your kitchen
 				</h1>
 				<p className="text-muted-foreground mt-2 text-lg">
-					Smart suggestions, unlimited inventory, real-time shopping sync, and
-					AI features.
+					Unlimited Pantry items, real-time shopping sync, and AI recipe tools.
 				</p>
 				{tierInfo.isTrialing ? (
 					<>
@@ -205,9 +203,9 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 							})}
 						</p>
 						<p className="text-muted-foreground mt-1 text-sm">
-							After your trial, you'll keep recipes, meal planning, and
-							basic shopping on the Free plan. Smart suggestions, inventory
-							sync, and unlimited inventory need Pro.
+							After your trial, you'll keep recipes, meal planning, and basic
+							shopping on the Free plan. Unlimited Pantry items, real-time sync,
+							and AI recipe tools need Pro.
 						</p>
 					</>
 				) : tierInfo.isProActive ? (
@@ -255,7 +253,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					<div className="mb-4">
 						<h2 className="text-xl font-semibold">Pro</h2>
 						<p className="text-muted-foreground mt-1 text-sm">
-							The complete kitchen toolkit
+							Everything in Free, with real-time sync and AI
 						</p>
 						<p className="mt-3 text-2xl font-bold">
 							$35
@@ -355,4 +353,3 @@ function ProButton({
 		</Button>
 	)
 }
-

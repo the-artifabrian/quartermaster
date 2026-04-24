@@ -33,24 +33,30 @@ export const headers: Route.HeadersFunction = pipeHeaders
 export default function PrivacyRoute() {
 	return (
 		<div className="container max-w-2xl py-12">
-			<h1 className="font-serif text-[2.25rem] leading-[1.15] tracking-[-0.02em]">Privacy Policy</h1>
+			<h1 className="font-serif text-[2.25rem] leading-[1.15] tracking-[-0.02em]">
+				Privacy Policy
+			</h1>
 			<p className="text-muted-foreground mt-2 text-sm">
 				Last updated: March 2026
 			</p>
 
 			<div className="mt-8 space-y-6 text-sm/6">
 				<section>
-					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">What we collect</h2>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">
+						What we collect
+					</h2>
 					<p className="text-muted-foreground mt-2">
 						Quartermaster collects the minimum data needed to provide the
 						service: your email address, username, and password (hashed) for
-						authentication, plus the recipes, inventory items, and meal plans
-						you create.
+						authentication, plus the recipes, Pantry items, and meal plans you
+						create.
 					</p>
 				</section>
 
 				<section>
-					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">How we use your data</h2>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">
+						How we use your data
+					</h2>
 					<p className="text-muted-foreground mt-2">
 						Your data is used solely to provide and improve the Quartermaster
 						service. We use PostHog for product analytics to understand how
@@ -60,12 +66,15 @@ export default function PrivacyRoute() {
 				</section>
 
 				<section>
-					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Analytics and session replay</h2>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">
+						Analytics and session replay
+					</h2>
 					<p className="text-muted-foreground mt-2">
 						Quartermaster uses PostHog to capture anonymous pageviews, clicks,
 						and session recordings (DOM snapshots — visible page text is
 						recorded, but form input values are masked by default). This helps
-						us understand usage patterns and diagnose issues. You can opt out at any time by running{' '}
+						us understand usage patterns and diagnose issues. You can opt out at
+						any time by running{' '}
 						<code className="bg-muted rounded px-1 py-0.5 text-xs">
 							posthog.opt_out_capturing()
 						</code>{' '}
@@ -74,7 +83,9 @@ export default function PrivacyRoute() {
 				</section>
 
 				<section>
-					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Data storage</h2>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">
+						Data storage
+					</h2>
 					<p className="text-muted-foreground mt-2">
 						Your data is stored in a SQLite database hosted on Fly.io
 						infrastructure. Recipe images are stored in S3-compatible object
@@ -83,7 +94,9 @@ export default function PrivacyRoute() {
 				</section>
 
 				<section>
-					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Cookies</h2>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">
+						Cookies
+					</h2>
 					<p className="text-muted-foreground mt-2">
 						We use a single httpOnly session cookie for authentication and a
 						theme preference cookie. PostHog sets an analytics cookie for
@@ -96,16 +109,20 @@ export default function PrivacyRoute() {
 				</section>
 
 				<section>
-					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Data export and deletion</h2>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">
+						Data export and deletion
+					</h2>
 					<p className="text-muted-foreground mt-2">
-						You can export all your data (recipes, inventory, meal plans,
-						shopping lists) as JSON at any time. Go to Settings &gt; Profile
-						to manage your account.
+						You can export all your data (recipes, Pantry, meal plans, shopping
+						lists) as JSON at any time. Go to Settings &gt; Profile to manage
+						your account.
 					</p>
 				</section>
 
 				<section>
-					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">Changes</h2>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">
+						Changes
+					</h2>
 					<p className="text-muted-foreground mt-2">
 						We may update this policy as the service evolves. Significant
 						changes will be communicated through the app.

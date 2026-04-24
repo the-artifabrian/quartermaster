@@ -518,7 +518,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								aria-label={
 									makeableOnly
 										? 'Show all recipes'
-										: 'Show only recipes you can cook now'
+										: 'Show only recipes with nothing left to buy'
 								}
 								aria-pressed={makeableOnly}
 								className={cn(
@@ -529,7 +529,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								)}
 							>
 								<Icon name={makeableOnly ? 'check' : 'cookie'} size="xs" />
-								Ready to cook ({matchData.makeableCount})
+								Nothing to buy ({matchData.makeableCount})
 							</button>
 						)}
 						{/* Active filter summary */}
@@ -632,7 +632,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								<Button asChild variant="outline">
 									<Link to="/recipes/generate">
 										<Icon name="sparkles" size="sm" />
-										Generate from Inventory
+										Generate from Pantry
 									</Link>
 								</Button>
 							)}
@@ -659,15 +659,15 @@ function MatchEmptyState({
 				<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
 					<Icon name="file-text" className="text-muted-foreground/40 size-8" />
 				</div>
-				<h2 className="mt-4 text-xl font-semibold">What's in your kitchen?</h2>
+				<h2 className="mt-4 text-xl font-semibold">Start your Pantry</h2>
 				<p className="text-muted-foreground mt-2 max-w-sm">
-					Add what's in your pantry, fridge, and freezer. We'll highlight which
-					recipes you can cook with what you already have.
+					Add ingredients you usually keep around. We'll show which recipes need
+					fewer things.
 				</p>
 				<Button asChild className="mt-6">
 					<Link to="/inventory">
 						<Icon name="plus" size="sm" />
-						Add to Inventory
+						Add to Pantry
 					</Link>
 				</Button>
 			</div>
@@ -689,7 +689,7 @@ function MatchEmptyState({
 			</h2>
 			<p className="text-muted-foreground mt-2 max-w-sm">
 				{makeableOnly
-					? "None of your recipes match what's in your kitchen right now. Time to go shopping or add new recipes?"
+					? 'You still need to buy something for every recipe right now.'
 					: 'Try adjusting your filters.'}
 			</p>
 			<div className="mt-6 flex gap-3">
@@ -697,7 +697,7 @@ function MatchEmptyState({
 				<Button variant="outline" asChild>
 					<Link to="/inventory">
 						<Icon name="plus" size="sm" />
-						Add to Inventory
+						Add to Pantry
 					</Link>
 				</Button>
 			</div>

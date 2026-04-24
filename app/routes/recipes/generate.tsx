@@ -87,7 +87,7 @@ export async function action({ request }: Route.ActionArgs) {
 				intent: 'generate' as const,
 				recipe: null,
 				error:
-					'You need at least a few inventory items to generate a recipe. Add some items to your pantry first!',
+					'You need at least a few Pantry items to generate a recipe. Add some first.',
 			})
 		}
 
@@ -265,15 +265,15 @@ export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
 			{!hasRecipe && submittingIntent !== 'generate' && (
 				<div className="space-y-6">
 					<p className="text-muted-foreground">
-						Create a recipe from your {inventoryCount} inventory item
+						Create a recipe from your {inventoryCount} Pantry item
 						{inventoryCount !== 1 ? 's' : ''}.
 					</p>
 
 					{inventoryCount === 0 && (
 						<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
-							You need some inventory items first.{' '}
+							You need some Pantry items first.{' '}
 							<Link to="/inventory" className="font-medium underline">
-								Add items to your pantry
+								Add items to Pantry
 							</Link>{' '}
 							to get started.
 						</div>
@@ -294,7 +294,7 @@ export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
 								maxLength={200}
 								rows={2}
 								placeholder="What do you want to make? e.g. gyoza dipping sauce, quick pasta for two"
-								className="border-input bg-background placeholder:text-muted-foreground/60 w-full rounded-lg border px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-ring"
+								className="border-input bg-background placeholder:text-muted-foreground/60 focus:ring-ring w-full rounded-lg border px-4 py-3 text-base focus:ring-2 focus:outline-none"
 							/>
 							<p className="text-muted-foreground mt-1 text-xs">
 								Leave blank for a surprise — or describe what you're in the mood
@@ -327,12 +327,8 @@ export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
 
 							<span className="text-border mx-1 hidden sm:inline">|</span>
 
-							<label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-input px-3 py-1 text-sm transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:checked]:text-primary">
-								<input
-									type="checkbox"
-									name="quickMeal"
-									className="sr-only"
-								/>
+							<label className="border-input has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:checked]:text-primary flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors">
+								<input type="checkbox" name="quickMeal" className="sr-only" />
 								<Icon name="clock" size="sm" />
 								Under 30 min
 							</label>
@@ -383,7 +379,7 @@ export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
 					<div className="space-y-4 rounded-lg border p-6">
 						<div className="flex items-start justify-between gap-2">
 							<h2 className="text-xl font-semibold">{recipe.title}</h2>
-							<span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary dark:border-primary/30 dark:bg-primary/10 dark:text-primary">
+							<span className="border-primary/30 bg-primary/10 text-primary dark:border-primary/30 dark:bg-primary/10 dark:text-primary inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium">
 								<Icon name="sparkles" className="size-3" />
 								AI Generated
 							</span>

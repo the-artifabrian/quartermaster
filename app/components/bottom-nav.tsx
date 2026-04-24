@@ -26,7 +26,7 @@ const navItems: NavItem[] = [
 		to: '/inventory',
 		icon: 'file-text' as IconName,
 		iconFilled: 'file-text-filled' as IconName,
-		label: 'Inventory',
+		label: 'Pantry',
 		matchPaths: ['/inventory'],
 	},
 	{
@@ -59,8 +59,7 @@ export function BottomNav() {
 				location.pathname.startsWith(path),
 			)
 			if (matches) {
-				lastPathPerTab.current[item.to] =
-					location.pathname + location.search
+				lastPathPerTab.current[item.to] = location.pathname + location.search
 				break
 			}
 		}
@@ -81,8 +80,7 @@ export function BottomNav() {
 							: location.pathname.startsWith(path),
 					)
 					const iconName = isActive ? item.iconFilled : item.icon
-					const isOnSubPage =
-						isActive && location.pathname !== item.to
+					const isOnSubPage = isActive && location.pathname !== item.to
 					// Switching tabs: restore last position. Active tab on sub-page: go to root.
 					const linkTo = isActive
 						? item.to

@@ -12,10 +12,10 @@ export function WarningBanner({
 			? `${actionData.existingQuantity}${actionData.existingUnit ? ` ${actionData.existingUnit}` : ''}`
 			: null
 		return (
-			<div className="mb-3 flex items-start gap-2 rounded-lg bg-accent/10 p-3">
+			<div className="bg-accent/10 mb-3 flex items-start gap-2 rounded-lg p-3">
 				<Icon
 					name="question-mark-circled"
-					className="mt-0.5 size-4 shrink-0 text-accent"
+					className="text-accent mt-0.5 size-4 shrink-0"
 				/>
 				<div className="flex-1 text-sm">
 					<p className="font-medium">
@@ -40,14 +40,14 @@ export function WarningBanner({
 
 	if (actionData.warningType === 'in_inventory') {
 		return (
-			<div className="mb-3 flex items-start gap-2 rounded-lg bg-accent/10 p-3">
+			<div className="bg-accent/10 mb-3 flex items-start gap-2 rounded-lg p-3">
 				<Icon
 					name="question-mark-circled"
-					className="mt-0.5 size-4 shrink-0 text-accent"
+					className="text-accent mt-0.5 size-4 shrink-0"
 				/>
 				<div className="flex-1 text-sm">
 					<p className="font-medium">
-						{actionData.inventoryName as string} is in your inventory.
+						{actionData.inventoryName as string} is usually on hand.
 					</p>
 					<p className="text-muted-foreground mt-0.5">
 						Tap + to add anyway, or{' '}

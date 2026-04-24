@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { type InventoryItem } from '#app/generated/prisma/client.ts'
-import { formatItemAge } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { SwipeableRow } from './swipeable-row.tsx'
 import { Button } from './ui/button.tsx'
@@ -43,7 +42,10 @@ export function InventoryItemCard({
 
 	// Reset edit name if rename fails (server returned error)
 	useEffect(() => {
-		if (renameFetcher.state === 'idle' && renameFetcher.data?.status === 'error') {
+		if (
+			renameFetcher.state === 'idle' &&
+			renameFetcher.data?.status === 'error'
+		) {
 			setEditName(item.name)
 		}
 	}, [renameFetcher.state, renameFetcher.data, item.name])
@@ -84,7 +86,11 @@ export function InventoryItemCard({
 	}
 
 	const row = (
-		<div className={"group hover:bg-muted/30 flex items-center gap-3 py-3 transition-colors"}>
+		<div
+			className={
+				'group hover:bg-muted/30 flex items-center gap-3 py-3 transition-colors'
+			}
+		>
 			{/* Main content */}
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">
@@ -106,7 +112,7 @@ export function InventoryItemCard({
 									setEditing(false)
 								}
 							}}
-							className="min-w-0 flex-1 rounded border border-border/50 bg-transparent px-1.5 py-0.5 text-[15px] outline-none focus:border-primary/30 focus:ring-1 focus:ring-primary/20"
+							className="border-border/50 focus:border-primary/30 focus:ring-primary/20 min-w-0 flex-1 rounded border bg-transparent px-1.5 py-0.5 text-[15px] outline-none focus:ring-1"
 							maxLength={100}
 						/>
 					) : (
@@ -122,15 +128,12 @@ export function InventoryItemCard({
 								className={cn(
 									'line-clamp-1 text-left text-[15px]',
 									showActions &&
-										'cursor-text rounded px-1.5 py-0.5 -ml-1.5 hover:bg-muted/50',
+										'hover:bg-muted/50 -ml-1.5 cursor-text rounded px-1.5 py-0.5',
 									isVoiceAdded && 'text-amber-500/80',
 								)}
 							>
 								{optimisticName}
 							</button>
-							<span className="shrink-0 text-xs text-muted-foreground/50">
-								{formatItemAge(new Date(item.createdAt))}
-							</span>
 							{isVoiceAdded && (
 								<Icon
 									name="microphone"

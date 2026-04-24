@@ -51,9 +51,7 @@ export function PantryStaplesOnboarding({
 
 	function handleDeselectAll() {
 		setChecked(
-			Object.fromEntries(
-				RECOMMENDED_STAPLES.map((item) => [item.name, false]),
-			),
+			Object.fromEntries(RECOMMENDED_STAPLES.map((item) => [item.name, false])),
 		)
 	}
 
@@ -83,16 +81,12 @@ export function PantryStaplesOnboarding({
 		return (
 			<div className="bg-card shadow-warm mx-auto max-w-2xl rounded-2xl border px-4 py-6 sm:px-6 sm:py-8">
 				<div className="text-center">
-					<Icon
-						name="check"
-						className="text-primary mx-auto size-12"
-					/>
+					<Icon name="check" className="text-primary mx-auto size-12" />
 					<h2 className="mt-4 font-serif text-2xl font-normal">
-						Kitchen Stocked
+						Pantry started
 					</h2>
 					<p className="text-muted-foreground mt-2">
-						{count} item{count !== 1 ? 's' : ''} added to your
-						inventory. Now see what you can make.
+						{count} item{count !== 1 ? 's' : ''} marked as usually on hand.
 					</p>
 					<div className="mt-6 flex flex-col items-center gap-3">
 						<Button asChild>
@@ -103,7 +97,7 @@ export function PantryStaplesOnboarding({
 							onClick={onDismiss}
 							className="text-muted-foreground hover:text-foreground text-sm underline underline-offset-2"
 						>
-							View inventory
+							View Pantry
 						</button>
 					</div>
 				</div>
@@ -115,16 +109,18 @@ export function PantryStaplesOnboarding({
 		<div className="bg-card shadow-warm mx-auto max-w-2xl rounded-2xl border px-4 py-6 sm:px-6 sm:py-8">
 			<div className="mb-6 text-center sm:mb-8">
 				<Icon name="home" className="text-muted-foreground mx-auto size-12" />
-				<h2 className="mt-4 font-serif text-2xl font-normal">Stock Your Kitchen</h2>
+				<h2 className="mt-4 font-serif text-2xl font-normal">
+					Start your Pantry
+				</h2>
 				<p className="text-muted-foreground mt-2">
-					Select the staples you already have on hand. You can always add more
+					Select ingredients you usually keep around. You can always add more
 					later.
 				</p>
 			</div>
 
 			<div className="bg-secondary/30 rounded-xl border p-3 sm:p-5">
 				<div className="mb-3 flex items-center justify-between">
-					<h3 className="text-lg font-semibold">Common Staples</h3>
+					<h3 className="text-lg font-semibold">Usually on hand</h3>
 					<button
 						type="button"
 						className="text-muted-foreground hover:text-foreground text-sm"
@@ -146,7 +142,9 @@ export function PantryStaplesOnboarding({
 								onCheckedChange={() => handleToggle(item.name)}
 								className="shrink-0"
 							/>
-							<span className="text-xs leading-tight capitalize sm:text-sm">{item.name}</span>
+							<span className="text-xs leading-tight capitalize sm:text-sm">
+								{item.name}
+							</span>
 						</label>
 					))}
 				</div>
@@ -159,13 +157,13 @@ export function PantryStaplesOnboarding({
 						{maxItems !== undefined && ` (max ${maxItems} on free plan)`}
 					</p>
 					{overLimit && (
-						<p className="text-sm text-accent">
+						<p className="text-accent text-sm">
 							Only the first {maxItems} items will be added.{' '}
 							<a
 								href="/upgrade"
 								className="font-medium underline underline-offset-2"
 							>
-								Upgrade for unlimited
+								Upgrade for unlimited Pantry items
 							</a>
 						</p>
 					)}
@@ -179,11 +177,11 @@ export function PantryStaplesOnboarding({
 						disabled={totalSelected === 0 || isSubmitting}
 					>
 						{isSubmitting ? (
-							'Adding...'
+							'Saving...'
 						) : (
 							<>
 								<Icon name="plus" size="sm" />
-								Add Selected Items
+								Save selected
 							</>
 						)}
 					</Button>

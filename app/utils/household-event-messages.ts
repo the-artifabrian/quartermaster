@@ -38,7 +38,7 @@ export function formatEventMessage(
 			}
 		case 'shopping_list_to_inventory':
 			return {
-				message: `${username} moved ${payload.count} items from the shopping list to inventory`,
+				message: `${username} added ${payload.count} items to Pantry from the shopping list`,
 				url: '/inventory',
 			}
 		case 'household_member_joined':

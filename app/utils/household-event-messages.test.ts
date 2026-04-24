@@ -76,7 +76,7 @@ describe('formatEventMessage', () => {
 			'Alex',
 		)
 		expect(result.message).toBe(
-			'Alex moved 3 items from the shopping list to inventory',
+			'Alex added 3 items to Pantry from the shopping list',
 		)
 		expect(result.url).toBe('/inventory')
 	})

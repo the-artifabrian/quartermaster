@@ -63,10 +63,7 @@ export async function action({ request }: Route.ActionArgs) {
 	for (const item of foodItems) {
 		const shoppingItem = itemMap.get(item.itemId)!
 
-		const match = findMatchingInventoryItem(
-			shoppingItem.name,
-			trackingItems,
-		)
+		const match = findMatchingInventoryItem(shoppingItem.name, trackingItems)
 
 		if (match) {
 			skippedCount++
@@ -87,7 +84,7 @@ export async function action({ request }: Route.ActionArgs) {
 				householdId,
 				createdAt: new Date(),
 				updatedAt: new Date(),
-			} as typeof existingInventory[number])
+			} as (typeof existingInventory)[number])
 		}
 	}
 
@@ -113,11 +110,11 @@ export async function action({ request }: Route.ActionArgs) {
 	const parts: string[] = []
 	if (creates.length > 0) {
 		parts.push(
-			`${creates.length} item${creates.length !== 1 ? 's' : ''} added to inventory`,
+			`${creates.length} item${creates.length !== 1 ? 's' : ''} remembered for next time`,
 		)
 	}
 	if (skippedCount > 0) {
-		parts.push(`${skippedCount} already in inventory`)
+		parts.push(`${skippedCount} already in Pantry`)
 	}
 	if (householdItems.length > 0) {
 		parts.push(

@@ -61,7 +61,9 @@ describe('buildExtractPrompt', () => {
 
 	test('works for image mode', () => {
 		const prompt = buildExtractPrompt('image')
-		expect(prompt).toContain('Extract a structured recipe from the provided image(s)')
+		expect(prompt).toContain(
+			'Extract a structured recipe from the provided image(s)',
+		)
 		expect(prompt).not.toContain('---')
 	})
 
@@ -85,8 +87,15 @@ describe('buildExtractPrompt', () => {
 
 	test('includes sub-section handling rule', () => {
 		const prompt = buildExtractPrompt('text', 'some text')
-		expect(prompt).toContain('Do NOT merge or sum quantities')
+		expect(prompt).toContain('do NOT merge or sum quantities')
 		expect(prompt).toContain('sub-section')
+	})
+
+	test('instructs heading rows instead of section-in-notes', () => {
+		const prompt = buildExtractPrompt('text', 'some text')
+		expect(prompt).toContain('isHeading')
+		expect(prompt).toContain('heading row')
+		expect(prompt).toContain('Do NOT put the section name into the notes field')
 	})
 })
 
@@ -224,6 +233,71 @@ describe('parseExtractResponse', () => {
 		}
 		const result = parseExtractResponse(JSON.stringify(longInst))
 		expect(result!.instructions[0]!.content).toHaveLength(5000)
+	})
+
+	test('preserves heading rows and marks them isHeading: true', () => {
+		const grouped = {
+			...validResponse,
+			ingredients: [
+				{
+					name: 'Pie Dough',
+					amount: null,
+					unit: null,
+					notes: null,
+					isHeading: true,
+				},
+				{ name: 'flour', amount: '212', unit: 'g', notes: null },
+				{
+					name: 'Streusel Topping',
+					amount: null,
+					unit: null,
+					notes: null,
+					isHeading: true,
+				},
+				{ name: 'brown sugar', amount: '80', unit: 'g', notes: null },
+			],
+		}
+		const result = parseExtractResponse(JSON.stringify(grouped))
+		expect(result).not.toBeNull()
+		expect(result!.ingredients).toHaveLength(4)
+		expect(result!.ingredients[0]!.isHeading).toBe(true)
+		expect(result!.ingredients[0]!.name).toBe('Pie Dough')
+		expect(result!.ingredients[0]!.amount).toBeNull()
+		expect(result!.ingredients[1]!.isHeading).toBe(false)
+		expect(result!.ingredients[1]!.name).toBe('flour')
+		expect(result!.ingredients[2]!.isHeading).toBe(true)
+		expect(result!.ingredients[3]!.isHeading).toBe(false)
+	})
+
+	test('defaults isHeading to false when omitted', () => {
+		const result = parseExtractResponse(JSON.stringify(validResponse))
+		expect(result).not.toBeNull()
+		for (const ing of result!.ingredients) {
+			expect(ing.isHeading).toBe(false)
+		}
+	})
+
+	test('returns null when response has only heading rows', () => {
+		const headingsOnly = {
+			...validResponse,
+			ingredients: [
+				{
+					name: 'Pie Dough',
+					amount: null,
+					unit: null,
+					notes: null,
+					isHeading: true,
+				},
+				{
+					name: 'Streusel',
+					amount: null,
+					unit: null,
+					notes: null,
+					isHeading: true,
+				},
+			],
+		}
+		expect(parseExtractResponse(JSON.stringify(headingsOnly))).toBeNull()
 	})
 
 	test('strips HTML in fields without executing it', () => {
@@ -373,7 +447,9 @@ describe('extractRecipeFromImages', () => {
 		const imageBlock = body.messages[0]!.content[0]!
 		expect(imageBlock.type).toBe('image')
 		expect(imageBlock.source!.media_type).toBe('image/jpeg')
-		expect(imageBlock.source!.data).toBe(Buffer.from('optimized').toString('base64'))
+		expect(imageBlock.source!.data).toBe(
+			Buffer.from('optimized').toString('base64'),
+		)
 	})
 
 	test('sends multiple image content blocks for multiple images', async () => {

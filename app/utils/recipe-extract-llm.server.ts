@@ -34,6 +34,7 @@ export type ExtractedRecipeFromLLM = {
 		amount: string | null
 		unit: string | null
 		notes: string | null
+		isHeading: boolean
 	}>
 	instructions: Array<{ content: string }>
 }
@@ -66,7 +67,7 @@ Rules:
 - Strip emojis, hashtags, and non-recipe content from output
 - Convert conversational instructions to imperative form
 - Separate combined ingredients ("salt and pepper" → two items)
-- When ingredients are grouped into sub-sections (e.g., "For the Sauce", "Dry Batter", "Wet Batter"), list every ingredient from every sub-section individually. Do NOT merge or sum quantities of the same ingredient across different sub-sections — they are used separately. Include the sub-section name in the notes field (e.g., notes: "for dry batter")
+- When ingredients are grouped into sub-sections (e.g., "For the Sauce", "Dry Batter", "Pie Dough", "Streusel Topping"), emit a heading row for each section immediately before the ingredients in that section. A heading row has isHeading: true, name set to the section title (cleaned up — drop a leading "For the" / "For "), and amount/unit/notes set to null. Regular ingredients have isHeading: false. List every ingredient from every sub-section individually; do NOT merge or sum quantities of the same ingredient across different sub-sections — they are used separately. Do NOT put the section name into the notes field — use a heading row instead
 - If multiple recipes are present, extract only the main or primary recipe
 - If only a total time is given (no prep/cook split), use it as cookTime
 - If no recognizable recipe is found, return {"error": "no_recipe_found"}
@@ -79,9 +80,12 @@ Return a single JSON object with this exact structure:
   "prepTime": 15,
   "cookTime": 30,
   "ingredients": [
-    {"name": "chicken breast", "amount": "2", "unit": null, "notes": "diced"},
-    {"name": "soy sauce", "amount": "2", "unit": "tbsp", "notes": null},
-    {"name": "flour", "amount": "1", "unit": "cup", "notes": "for dry batter"}
+    {"name": "Sauce", "amount": null, "unit": null, "notes": null, "isHeading": true},
+    {"name": "soy sauce", "amount": "2", "unit": "tbsp", "notes": null, "isHeading": false},
+    {"name": "garlic", "amount": "3", "unit": null, "notes": "cloves, minced", "isHeading": false},
+    {"name": "Stir Fry", "amount": null, "unit": null, "notes": null, "isHeading": true},
+    {"name": "chicken breast", "amount": "2", "unit": null, "notes": "diced", "isHeading": false},
+    {"name": "flour", "amount": "1", "unit": "cup", "notes": null, "isHeading": false}
   ],
   "instructions": [
     {"content": "Step description in imperative form"}
@@ -142,25 +146,29 @@ export function parseExtractResponse(
 					continue
 				}
 				const ing = item as Record<string, unknown>
+				const isHeading = ing.isHeading === true
 				recipe.ingredients.push({
 					name: (ing.name as string)
 						.trim()
 						.slice(0, MAX_INGREDIENT_NAME_LENGTH),
-					amount:
-						typeof ing.amount === 'string'
-							? ing.amount.trim().slice(0, MAX_INGREDIENT_AMOUNT_LENGTH) ||
-								null
+					amount: isHeading
+						? null
+						: typeof ing.amount === 'string'
+							? ing.amount.trim().slice(0, MAX_INGREDIENT_AMOUNT_LENGTH) || null
 							: typeof ing.amount === 'number'
 								? String(ing.amount)
 								: null,
-					unit:
-						typeof ing.unit === 'string'
+					unit: isHeading
+						? null
+						: typeof ing.unit === 'string'
 							? ing.unit.trim().slice(0, MAX_INGREDIENT_UNIT_LENGTH) || null
 							: null,
-					notes:
-						typeof ing.notes === 'string'
+					notes: isHeading
+						? null
+						: typeof ing.notes === 'string'
 							? ing.notes.trim().slice(0, MAX_INGREDIENT_NOTES_LENGTH) || null
 							: null,
+					isHeading,
 				})
 			}
 		}
@@ -184,8 +192,9 @@ export function parseExtractResponse(
 			}
 		}
 
-		// Must have at least one ingredient and one instruction
-		if (recipe.ingredients.length === 0 || recipe.instructions.length === 0) {
+		// Must have at least one real ingredient (not just headings) and one instruction
+		const hasRealIngredient = recipe.ingredients.some((ing) => !ing.isHeading)
+		if (!hasRealIngredient || recipe.instructions.length === 0) {
 			return null
 		}
 

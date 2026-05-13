@@ -71,6 +71,15 @@ export default defineConfig((config) => {
 			setupFiles: ['./tests/setup/setup-test-env.ts'],
 			globalSetup: ['./tests/setup/global-setup.ts'],
 			restoreMocks: true,
+			server: {
+				deps: {
+					// Workaround for vite module-runner choking on zod's `import * as z; export { z }`
+					// namespace re-export in v3.25 (https://github.com/vitejs/vite/issues — module-runner
+					// analyzeImportedModDifference reports `z` missing). Forcing inline routes zod
+					// through Vite's transform pipeline instead, which handles it correctly.
+					inline: ['zod'],
+				},
+			},
 			coverage: {
 				include: ['app/**/*.{ts,tsx}'],
 				all: true,

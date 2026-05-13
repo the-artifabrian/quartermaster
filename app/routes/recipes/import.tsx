@@ -24,10 +24,7 @@ import {
 	parseIngredient,
 	parseISODuration,
 } from '#app/utils/ingredient-parser.server.ts'
-import {
-	AI_FEATURE_USED,
-	RECIPE_IMPORTED,
-} from '#app/utils/posthog-events.ts'
+import { AI_FEATURE_USED, RECIPE_IMPORTED } from '#app/utils/posthog-events.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import {
 	ALLOWED_IMAGE_MEDIA_TYPES,
@@ -65,6 +62,7 @@ type ExtractedRecipe = {
 		amount?: string
 		unit?: string
 		notes?: string
+		isHeading?: boolean
 	}>
 	instructions: Array<{ content: string }>
 }
@@ -550,14 +548,13 @@ export async function action({ request }: Route.ActionArgs) {
 			prepTime: null,
 			cookTime: null,
 			sourceUrl: sourceUrl || '',
-			ingredients: parsed.ingredients
-				.filter((ing) => !ing.isHeading)
-				.map((ing) => ({
-					name: ing.name,
-					amount: ing.amount,
-					unit: ing.unit,
-					notes: ing.notes,
-				})),
+			ingredients: parsed.ingredients.map((ing) => ({
+				name: ing.name,
+				amount: ing.amount,
+				unit: ing.unit,
+				notes: ing.notes,
+				isHeading: ing.isHeading,
+			})),
 			instructions: parsed.instructions,
 		}
 
@@ -674,8 +671,7 @@ export async function action({ request }: Route.ActionArgs) {
 		let llmResult: Awaited<ReturnType<typeof extractRecipeFromText>>
 
 		if (intentKey === 'extract-image') {
-			const validatedImages: Array<{ base64: string; mediaType: string }> =
-				[]
+			const validatedImages: Array<{ base64: string; mediaType: string }> = []
 
 			for (const file of imageFiles) {
 				const buffer = await file.arrayBuffer()
@@ -685,7 +681,8 @@ export async function action({ request }: Route.ActionArgs) {
 					return data(
 						{
 							intent: intentKey,
-							error: 'One or more images are too large. Maximum size is 5MB each.',
+							error:
+								'One or more images are too large. Maximum size is 5MB each.',
 							recipe: null,
 							result: null,
 							duplicates: null,
@@ -751,6 +748,7 @@ export async function action({ request }: Route.ActionArgs) {
 				amount: ing.amount ?? undefined,
 				unit: ing.unit ?? undefined,
 				notes: ing.notes ?? undefined,
+				isHeading: ing.isHeading,
 			})),
 			instructions: llmResult.instructions,
 		}
@@ -812,18 +810,25 @@ export async function action({ request }: Route.ActionArgs) {
 			amount?: string
 			unit?: string
 			notes?: string
+			isHeading?: boolean
 		}> = []
 		let i = 0
 		while (formData.has(`ingredients[${i}].name`) && i < 200) {
 			const name = formData.get(`ingredients[${i}].name`) as string
 			if (name.trim()) {
+				const isHeading = formData.get(`ingredients[${i}].isHeading`) === 'true'
 				ingredients.push({
 					name,
-					amount:
-						(formData.get(`ingredients[${i}].amount`) as string) || undefined,
-					unit: (formData.get(`ingredients[${i}].unit`) as string) || undefined,
-					notes:
-						(formData.get(`ingredients[${i}].notes`) as string) || undefined,
+					amount: isHeading
+						? undefined
+						: (formData.get(`ingredients[${i}].amount`) as string) || undefined,
+					unit: isHeading
+						? undefined
+						: (formData.get(`ingredients[${i}].unit`) as string) || undefined,
+					notes: isHeading
+						? undefined
+						: (formData.get(`ingredients[${i}].notes`) as string) || undefined,
+					isHeading,
 				})
 			}
 			i++
@@ -869,6 +874,7 @@ export async function action({ request }: Route.ActionArgs) {
 						amount: ing.amount || null,
 						unit: ing.unit || null,
 						notes: ing.notes || null,
+						isHeading: ing.isHeading ?? false,
 						order,
 					})),
 				},
@@ -902,9 +908,7 @@ export async function action({ request }: Route.ActionArgs) {
 	)
 }
 
-export default function ImportRecipe({
-	loaderData,
-}: Route.ComponentProps) {
+export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	const { isProActive } = loaderData
 	const actionData = useActionData<typeof action>()
 	const navigation = useNavigation()
@@ -924,12 +928,10 @@ export default function ImportRecipe({
 
 	const urlError = error && actionIntent === 'fetch' ? error : null
 	const textError =
-		error &&
-		(actionIntent === 'parse-text' || actionIntent === 'extract-text')
+		error && (actionIntent === 'parse-text' || actionIntent === 'extract-text')
 			? error
 			: null
-	const imageError =
-		error && actionIntent === 'extract-image' ? error : null
+	const imageError = error && actionIntent === 'extract-image' ? error : null
 
 	// Default to the tab that matches the last action
 	const defaultTab: ImportTab =
@@ -1075,9 +1077,7 @@ export default function ImportRecipe({
 										name="intent"
 										value="extract-text"
 										status={
-											submittingIntent === 'extract-text'
-												? 'pending'
-												: 'idle'
+											submittingIntent === 'extract-text' ? 'pending' : 'idle'
 										}
 										disabled={isSubmitting}
 									>
@@ -1089,10 +1089,7 @@ export default function ImportRecipe({
 								) : (
 									<Button asChild>
 										<Link to="/upgrade">
-											<Icon
-												name="sparkles"
-												className="mr-1.5 inline h-4 w-4"
-											/>
+											<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
 											Extract with AI
 											<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
 												Pro
@@ -1113,9 +1110,7 @@ export default function ImportRecipe({
 						>
 							<input type="hidden" name="intent" value="extract-image" />
 							<div className="space-y-2">
-								<Label htmlFor="image">
-									Upload screenshots (up to 5)
-								</Label>
+								<Label htmlFor="image">Upload screenshots (up to 5)</Label>
 								<Input
 									id="image"
 									name="image"
@@ -1145,9 +1140,7 @@ export default function ImportRecipe({
 									<StatusButton
 										type="submit"
 										status={
-											submittingIntent === 'extract-image'
-												? 'pending'
-												: 'idle'
+											submittingIntent === 'extract-image' ? 'pending' : 'idle'
 										}
 										disabled={isSubmitting}
 									>
@@ -1159,10 +1152,7 @@ export default function ImportRecipe({
 								) : (
 									<Button asChild>
 										<Link to="/upgrade">
-											<Icon
-												name="sparkles"
-												className="mr-1.5 inline h-4 w-4"
-											/>
+											<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
 											Extract with AI
 											<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
 												Pro
@@ -1196,32 +1186,44 @@ export default function ImportRecipe({
 							)}
 						</div>
 
-						{recipe.ingredients.length > 0 && (
-							<div>
-								<h3 className="mb-2 font-medium">
-									Ingredients ({recipe.ingredients.length})
-								</h3>
-								<ul className="space-y-1 text-sm">
-									{recipe.ingredients.map((ing, i) => (
-										<li key={i} className="flex gap-1">
-											<span className="text-muted-foreground">–</span>
-											{ing.amount && (
-												<span className="font-medium">{ing.amount}</span>
+						{recipe.ingredients.length > 0 &&
+							(() => {
+								const realIngredientCount = recipe.ingredients.filter(
+									(ing) => !ing.isHeading,
+								).length
+								return (
+									<div>
+										<h3 className="mb-2 font-medium">
+											Ingredients ({realIngredientCount})
+										</h3>
+										<ul className="space-y-1 text-sm">
+											{recipe.ingredients.map((ing, i) =>
+												ing.isHeading ? (
+													<li key={i}>
+														<p className="text-muted-foreground border-border/50 mt-4 mb-1.5 border-b px-2 pb-1 font-sans text-xs font-medium tracking-widest uppercase first:mt-0">
+															{ing.name}
+														</p>
+													</li>
+												) : (
+													<li key={i} className="flex gap-1">
+														<span className="text-muted-foreground">–</span>
+														{ing.amount && (
+															<span className="font-medium">{ing.amount}</span>
+														)}
+														{ing.unit && <span>{ing.unit}</span>}
+														<span>{ing.name}</span>
+														{ing.notes && (
+															<span className="text-muted-foreground">
+																, {ing.notes}
+															</span>
+														)}
+													</li>
+												),
 											)}
-											{ing.unit && (
-												<span>{ing.unit}</span>
-											)}
-											<span>{ing.name}</span>
-											{ing.notes && (
-												<span className="text-muted-foreground">
-													, {ing.notes}
-												</span>
-											)}
-										</li>
-									))}
-								</ul>
-							</div>
-						)}
+										</ul>
+									</div>
+								)
+							})()}
 
 						{recipe.instructions.length > 0 && (
 							<div>
@@ -1318,6 +1320,11 @@ export default function ImportRecipe({
 									type="hidden"
 									name={`ingredients[${i}].notes`}
 									value={ing.notes ?? ''}
+								/>
+								<input
+									type="hidden"
+									name={`ingredients[${i}].isHeading`}
+									value={ing.isHeading ? 'true' : 'false'}
 								/>
 							</div>
 						))}

@@ -71,6 +71,18 @@ export default defineConfig((config) => {
 			setupFiles: ['./tests/setup/setup-test-env.ts'],
 			globalSetup: ['./tests/setup/global-setup.ts'],
 			restoreMocks: true,
+			server: {
+				deps: {
+					// Vite's module-runner mis-analyzes zod 3.25's `import * as z; export { z }`
+					// namespace re-export and reports `z` missing. Forcing zod inline routes it
+					// through Vite's transform pipeline, which handles the pattern correctly.
+					// Conform packages must be inlined together — otherwise zod loads twice
+					// (Vite-transformed for user code, native for conform), and `instanceof
+					// ZodNever` checks inside zod's strip logic fail across the boundary,
+					// causing "Expected never, received string" on any extra form field.
+					inline: ['zod', '@conform-to/zod', '@conform-to/dom'],
+				},
+			},
 			coverage: {
 				include: ['app/**/*.{ts,tsx}'],
 				all: true,

@@ -65,7 +65,7 @@ export const QuickRecipeSchema = z.object({
 })
 
 export const ImportUrlSchema = z.object({
-	url: z.string().url('Please enter a valid URL'),
+	url: z.string().url('Please enter a valid URL').max(2000, 'URL is too long'),
 })
 
 export const MAX_RECIPE_IMAGE_SIZE = 1024 * 1024 * 3 // 3MB

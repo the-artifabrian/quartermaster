@@ -3,7 +3,7 @@ const MODEL_FAST = 'claude-haiku-4-5-20251001'
 const MODEL_VISION = 'claude-sonnet-4-6'
 const TIMEOUT_TEXT_MS = 15_000
 const TIMEOUT_IMAGE_MS = 30_000
-const MAX_TOKENS = 2048
+const MAX_TOKENS = 4096
 const MAX_TEXT_LENGTH = 16_000
 const MAX_INGREDIENTS = 50
 const MAX_INSTRUCTIONS = 30
@@ -238,8 +238,9 @@ export async function extractRecipeFromText(
 		})
 
 		if (!response.ok) {
+			const body = await response.text().catch(() => '')
 			console.error(
-				`Recipe extraction LLM error: ${response.status} ${response.statusText}`,
+				`Recipe extraction LLM error: ${response.status} ${response.statusText} — ${body}`,
 			)
 			if (response.status === 429) {
 				return {
@@ -381,8 +382,9 @@ export async function extractRecipeFromImages(
 		})
 
 		if (!response.ok) {
+			const body = await response.text().catch(() => '')
 			console.error(
-				`Recipe extraction LLM error: ${response.status} ${response.statusText}`,
+				`Recipe extraction LLM error: ${response.status} ${response.statusText} — ${body}`,
 			)
 			if (response.status === 429) {
 				return {

@@ -1,7 +1,9 @@
 {
+	"id": "/",
 	"name": "Quartermaster",
 	"short_name": "Quartermaster",
-	"start_url": "/",
+	"start_url": "/recipes",
+	"scope": "/",
 	"icons": [
 		{
 			"src": "/favicons/android-chrome-192x192.png",
@@ -14,7 +16,7 @@
 			"type": "image/png"
 		}
 	],
-	"theme_color": "#52a868",
+	"theme_color": "#4E7A54",
 	"background_color": "#f8fdf9",
 	"description": "Your personal recipe manager. Store recipes, track ingredients, plan meals, and generate shopping lists.",
 	"display": "standalone"

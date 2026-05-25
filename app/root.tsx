@@ -77,7 +77,11 @@ export const links: Route.LinksFunction = () => {
 		{
 			rel: 'stylesheet',
 			href: 'https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=Young+Serif&family=Caveat:wght@400;700&display=swap',
-		},
+			// crossOrigin makes the stylesheet a CORS (non-opaque) response so the
+			// service worker can cache it via response.ok and replay it reliably;
+			// Google serves Access-Control-Allow-Origin: * on the CSS.
+			crossOrigin: 'anonymous',
+		} as const,
 		{
 			rel: 'icon',
 			href: '/favicon.ico',

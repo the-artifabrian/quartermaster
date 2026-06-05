@@ -146,7 +146,7 @@ export function IngredientList({
 							>
 								{(() => {
 									const scaledAmount = ingredient.amount
-										? scaleAmount(ingredient.amount, ratio)
+										? scaleAmount(ingredient.amount, ratio, ingredient.unit)
 										: null
 									const parsed =
 										scaledAmount !== null ? parseAmount(scaledAmount) : null

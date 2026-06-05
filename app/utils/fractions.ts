@@ -1,3 +1,5 @@
+import { isMetricUnit, round2 } from './unit-conversion.ts'
+
 /** Unicode fraction characters → numeric values */
 const UNICODE_FRACTIONS: Record<string, number> = {
 	'½': 1 / 2,
@@ -78,9 +80,18 @@ const COMMON_FRACTIONS: Array<{ value: number; display: string }> = [
  * Format a number as a human-readable amount.
  * Snaps to nearest common fraction (1/8, 1/4, 1/3, 1/2, 2/3, 3/4).
  * Returns mixed numbers for values > 1 (e.g., "1 1/2").
+ * Metric units (g, kg, ml, l) are kept as decimals — "0.4 g", not "3/8 g".
+ *
+ * This is the EXACT policy: author-written and scaled amounts keep their
+ * precision. Approximate density conversions use roundMetricAmount in
+ * metric-conversion.ts, which rounds shopper-friendly instead.
  */
-export function formatAmount(value: number): string {
+export function formatAmount(value: number, unit?: string | null): string {
 	if (value <= 0) return '0'
+
+	if (unit && isMetricUnit(unit)) {
+		return round2(value).toString()
+	}
 
 	const whole = Math.floor(value)
 	const fractional = value - whole
@@ -107,9 +118,7 @@ export function formatAmount(value: number): string {
 
 	// If not close enough to any common fraction, use decimal
 	if (minDiff > 0.05) {
-		// Round to 1 decimal
-		const rounded = Math.round(value * 10) / 10
-		return rounded.toString()
+		return round2(value).toString()
 	}
 
 	if (whole === 0) {
@@ -125,9 +134,10 @@ export function formatAmount(value: number): string {
 export function scaleAmount(
 	amount: string | null | undefined,
 	ratio: number,
+	unit?: string | null,
 ): string | null {
 	if (!amount) return null
 	const parsed = parseAmount(amount)
 	if (parsed === null) return amount
-	return formatAmount(parsed * ratio)
+	return formatAmount(parsed * ratio, unit)
 }

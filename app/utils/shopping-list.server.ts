@@ -3,8 +3,9 @@ import {
 	type Ingredient,
 	type InventoryItem,
 } from '#app/generated/prisma/client.ts'
-import { parseAmount, formatAmount } from './fractions.ts'
+import { parseAmount, formatAmount, scaleAmount } from './fractions.ts'
 import { parseIngredient } from './ingredient-parser.ts'
+import { scaleUpMetric } from './metric-conversion.ts'
 import {
 	getCanonicalIngredientName,
 	ingredientMatchesInventoryItem,
@@ -112,7 +113,7 @@ export function generateShoppingListFromRecipes(
 			const normalizedName = getCanonicalIngredientName(effectiveName)
 
 			// Scale the amount by the serving ratio
-			const scaledAmount = scaleAmountString(effectiveAmount, ratio)
+			const scaledAmount = scaleAmountString(effectiveAmount, ratio, effectiveUnit)
 
 			if (ingredientMap.has(normalizedName)) {
 				ingredientMap.get(normalizedName)!.quantities.push({
@@ -156,11 +157,10 @@ function isRecipeArray(
 export function scaleAmountString(
 	amount: string | null,
 	ratio: number,
+	unit?: string | null,
 ): string | null {
 	if (!amount || ratio === 1) return amount
-	const parsed = parseAmount(amount)
-	if (parsed === null) return amount
-	return formatAmount(parsed * ratio)
+	return scaleAmount(amount, ratio, unit)
 }
 
 // Sum numeric quantities with same unit, or convert compatible units, or show count
@@ -195,8 +195,18 @@ export function consolidateQuantities(
 
 		if (numericQuantities.length === quantities.length) {
 			const sum = numericQuantities.reduce((a, b) => a + b, 0)
+			// Metric sums scale up like the conversion branch: 1500 g → 1.5 kg
+			if (firstNormUnit === 'g' || firstNormUnit === 'ml') {
+				const scaled = scaleUpMetric(sum, firstNormUnit)
+				if (scaled.unit !== firstNormUnit) {
+					return {
+						quantity: formatAmount(scaled.amount, scaled.unit),
+						unit: scaled.unit,
+					}
+				}
+			}
 			return {
-				quantity: formatAmount(sum),
+				quantity: formatAmount(sum, normalized[0]!.unit),
 				unit: normalized[0]!.unit ?? undefined,
 			}
 		}
@@ -228,7 +238,7 @@ export function consolidateQuantities(
 				parsed[0]!.family,
 			)
 			return {
-				quantity: formatAmount(result.value),
+				quantity: formatAmount(result.value, result.unit),
 				unit: result.unit,
 			}
 		}

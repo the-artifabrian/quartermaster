@@ -4,6 +4,7 @@ import { getDensity } from '#app/utils/ingredient-densities.ts'
 import {
 	convertTemperatures,
 	convertToMetric,
+	displayMetricAmount,
 	formatMetricAmount,
 } from '#app/utils/metric-conversion.ts'
 
@@ -297,6 +298,35 @@ describe('formatMetricAmount', () => {
 		expect(
 			formatMetricAmount({ amount: 998, unit: 'ml', approximate: false }),
 		).toBe('1 L')
+	})
+
+	test('sub-1g amounts keep 2 decimals instead of collapsing to 0 or 1', () => {
+		expect(
+			formatMetricAmount({ amount: 0.71, unit: 'g', approximate: false }),
+		).toBe('0.71 g')
+		expect(
+			formatMetricAmount({ amount: 0.4, unit: 'ml', approximate: false }),
+		).toBe('0.4 ml')
+	})
+})
+
+describe('displayMetricAmount', () => {
+	test('returns quantity and unit separately', () => {
+		expect(
+			displayMetricAmount({ amount: 227, unit: 'g', approximate: false }),
+		).toEqual({ quantity: '225', unit: 'g' })
+	})
+
+	test('post-rounding scale-up changes the unit', () => {
+		expect(
+			displayMetricAmount({ amount: 998, unit: 'g', approximate: false }),
+		).toEqual({ quantity: '1', unit: 'kg' })
+	})
+
+	test('kg keeps 1 decimal', () => {
+		expect(
+			displayMetricAmount({ amount: 1.36, unit: 'kg', approximate: false }),
+		).toEqual({ quantity: '1.4', unit: 'kg' })
 	})
 })
 

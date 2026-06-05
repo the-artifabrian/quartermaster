@@ -99,6 +99,33 @@ describe('formatAmount', () => {
 	test('negative or zero returns "0"', () => {
 		expect(formatAmount(-1)).toBe('0')
 	})
+
+	test('keeps decimals for metric units instead of snapping to fractions', () => {
+		expect(formatAmount(0.15, 'g')).toBe('0.15')
+		expect(formatAmount(0.4, 'g')).toBe('0.4')
+		expect(formatAmount(0.5, 'ml')).toBe('0.5')
+		expect(formatAmount(1.5, 'kg')).toBe('1.5')
+	})
+
+	test('recognizes metric unit aliases', () => {
+		expect(formatAmount(0.4, 'grams')).toBe('0.4')
+		expect(formatAmount(0.25, 'milliliters')).toBe('0.25')
+	})
+
+	test('rounds metric decimals to 2 places', () => {
+		expect(formatAmount(0.225, 'g')).toBe('0.23')
+		expect(formatAmount(1 / 3, 'g')).toBe('0.33')
+	})
+
+	test('still uses fractions for imperial units', () => {
+		expect(formatAmount(0.5, 'cup')).toBe('1/2')
+		expect(formatAmount(0.25, 'tsp')).toBe('1/4')
+	})
+
+	test('decimal fallback keeps 2 decimals when no fraction is close', () => {
+		expect(formatAmount(0.06)).toBe('0.06')
+		expect(formatAmount(2.06)).toBe('2.06')
+	})
 })
 
 describe('scaleAmount', () => {
@@ -125,5 +152,12 @@ describe('scaleAmount', () => {
 	test('scales by fractional ratios', () => {
 		expect(scaleAmount('1', 0.5)).toBe('1/2')
 		expect(scaleAmount('2', 1.5)).toBe('3')
+	})
+
+	test('keeps metric amounts as decimals', () => {
+		expect(scaleAmount('0.15', 1, 'g')).toBe('0.15')
+		expect(scaleAmount('0.4', 1, 'g')).toBe('0.4')
+		expect(scaleAmount('0.4', 2, 'g')).toBe('0.8')
+		expect(scaleAmount('1', 0.5, 'ml')).toBe('0.5')
 	})
 })

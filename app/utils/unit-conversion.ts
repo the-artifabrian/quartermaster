@@ -96,6 +96,16 @@ export function normalizeUnit(unit: string): string {
 	return UNIT_ALIASES[lower] ?? lower
 }
 
+/** Metric units — displayed as decimals, never fractions. */
+const METRIC_UNITS = new Set(['g', 'kg', 'ml', 'l'])
+
+/**
+ * Check if a unit is metric (g, kg, ml, l), accepting aliases like "grams".
+ */
+export function isMetricUnit(unit: string): boolean {
+	return METRIC_UNITS.has(normalizeUnit(unit))
+}
+
 /**
  * Count-like units that are equivalent to unitless (empty string).
  * "3 eggs" and "3 count eggs" should be treated the same.
@@ -127,7 +137,7 @@ export function getUnitFamily(
 }
 
 /** Round to at most 2 decimal places, stripping trailing zeroes. */
-function round2(n: number): number {
+export function round2(n: number): number {
 	return Math.round(n * 100) / 100
 }
 

@@ -91,6 +91,54 @@ describe('generateShoppingListFromRecipes', () => {
 		expect(flourItems[0]!.unit).toBe('cups')
 	})
 
+	test('metric sums scale up: 750g + 750g → 1.5 kg', () => {
+		const recipes = [
+			makeRecipe('r1', [{ name: 'flour', amount: '750', unit: 'g' }]),
+			makeRecipe('r2', [{ name: 'flour', amount: '750', unit: 'g' }]),
+		]
+
+		const items = generateShoppingListFromRecipes(recipes)
+		const flourItems = items.filter((i) =>
+			i.name.toLowerCase().includes('flour'),
+		)
+
+		expect(flourItems).toHaveLength(1)
+		expect(flourItems[0]!.quantity).toBe('1.5')
+		expect(flourItems[0]!.unit).toBe('kg')
+	})
+
+	test('metric sums below 1000 keep their unit', () => {
+		const recipes = [
+			makeRecipe('r1', [{ name: 'flour', amount: '400', unit: 'g' }]),
+			makeRecipe('r2', [{ name: 'flour', amount: '500', unit: 'g' }]),
+		]
+
+		const items = generateShoppingListFromRecipes(recipes)
+		const flourItems = items.filter((i) =>
+			i.name.toLowerCase().includes('flour'),
+		)
+
+		expect(flourItems).toHaveLength(1)
+		expect(flourItems[0]!.quantity).toBe('900')
+		expect(flourItems[0]!.unit).toBe('g')
+	})
+
+	test('ml sums scale up to L', () => {
+		const recipes = [
+			makeRecipe('r1', [{ name: 'vegetable stock', amount: '600', unit: 'ml' }]),
+			makeRecipe('r2', [{ name: 'vegetable stock', amount: '600', unit: 'ml' }]),
+		]
+
+		const items = generateShoppingListFromRecipes(recipes)
+		const stockItems = items.filter((i) =>
+			i.name.toLowerCase().includes('stock'),
+		)
+
+		expect(stockItems).toHaveLength(1)
+		expect(stockItems[0]!.quantity).toBe('1.2')
+		expect(stockItems[0]!.unit).toBe('L')
+	})
+
 	test('consolidates compatible units via conversion (tbsp + cup)', () => {
 		const recipes = [
 			makeRecipe('r1', [{ name: 'butter', amount: '2', unit: 'tbsp' }]),

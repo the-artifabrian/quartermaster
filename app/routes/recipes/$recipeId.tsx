@@ -38,7 +38,7 @@ import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
 import {
 	convertToMetric,
-	roundMetricAmount,
+	displayMetricAmount,
 } from '#app/utils/metric-conversion.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
@@ -336,7 +336,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		invariantResponse(ingredient, 'Ingredient not found', { status: 404 })
 
 		const amount = ingredient.amount
-			? scaleAmount(ingredient.amount, safeRatio)
+			? scaleAmount(ingredient.amount, safeRatio, ingredient.unit)
 			: null
 		const shoppingItem = toShoppingItem(
 			ingredient.name,
@@ -418,7 +418,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			if (inStock) continue
 
 			const amount = ingredient.amount
-				? scaleAmount(ingredient.amount, safeRatio)
+				? scaleAmount(ingredient.amount, safeRatio, ingredient.unit)
 				: null
 			shoppingItems.push(
 				toShoppingItem(ingredient.name, amount, ingredient.unit, useMetric),
@@ -496,15 +496,8 @@ function toShoppingItem(
 	const metric = convertToMetric(parsed, unit, name)
 	if (!metric) return { name, quantity, unit }
 
-	const rounded = roundMetricAmount(metric)
-	const metricQty =
-		metric.unit === 'kg' || metric.unit === 'L'
-			? rounded % 1 === 0
-				? rounded.toString()
-				: rounded.toFixed(1)
-			: rounded.toString()
-
-	return { name, quantity: metricQty, unit: metric.unit }
+	const display = displayMetricAmount(metric)
+	return { name, quantity: display.quantity, unit: display.unit }
 }
 
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {

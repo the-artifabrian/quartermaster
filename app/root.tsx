@@ -17,6 +17,7 @@ import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
+import { NavTiming } from './components/nav-timing.tsx'
 import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { ProExpiryNudge } from './components/pro-expiry-nudge.tsx'
 import { Progress } from './components/progress-bar.tsx'
@@ -342,6 +343,7 @@ function App() {
 	return (
 		<TimerProvider>
 			<PostHogPageview />
+			<NavTiming />
 			<PostHogIdentify
 				user={
 					user
@@ -367,6 +369,7 @@ function App() {
 										<div className="hidden items-center gap-2 md:flex">
 											<NavLink
 												to="/recipes"
+												prefetch="intent"
 												className={({ isActive }) =>
 													isActive
 														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
@@ -377,6 +380,7 @@ function App() {
 											</NavLink>
 											<NavLink
 												to="/inventory"
+												prefetch="intent"
 												className={({ isActive }) =>
 													isActive
 														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
@@ -387,6 +391,7 @@ function App() {
 											</NavLink>
 											<NavLink
 												to="/plan"
+												prefetch="intent"
 												className={({ isActive }) =>
 													isActive
 														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
@@ -397,6 +402,7 @@ function App() {
 											</NavLink>
 											<NavLink
 												to="/shopping"
+												prefetch="intent"
 												className={({ isActive }) =>
 													isActive
 														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'

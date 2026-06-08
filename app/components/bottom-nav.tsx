@@ -90,6 +90,7 @@ export function BottomNav() {
 						<NavLink
 							key={item.to}
 							to={linkTo}
+							prefetch="intent"
 							onClick={
 								isOnSubPage
 									? () => {

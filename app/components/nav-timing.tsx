@@ -8,9 +8,12 @@ import { usePostHog } from '#app/utils/posthog-provider.tsx'
  * full time the user waits with the spinner showing (network + server + render),
  * captured per-route on the real (mobile) network.
  *
- * Pair it with the per-loader Server-Timing headers to split felt time into
- * network vs server: if nav_duration_ms p95 is ~3s but Server-Timing is ~200ms,
- * the rest is network/connection (→ SWR/connection fixes, not query work).
+ * To split felt time into network vs server, pair it with PostHog's built-in
+ * `network_timing` (enabled in entry.client) — the `.data` fetch's TTFB/download
+ * on session replay. (We deliberately did NOT add per-loader Server-Timing to the
+ * feature routes; only the root loader emits it.) If nav_duration_ms p95 is ~3s
+ * but the .data TTFB is ~200ms, the rest is network/connection — i.e. SWR/
+ * connection fixes, not query work.
  */
 export function NavTiming() {
 	const navigation = useNavigation()

@@ -7,6 +7,15 @@ const FONTS_CACHE = 'qm-fonts-v1'
 
 const MAX_PAGES = 50
 const MAX_IMAGES = 100
+const MAX_DATA = 64
+
+// Per-session (user+household) cache for authenticated `.data` (RR7 single-fetch).
+// The SW can't read the httpOnly session cookie, so the client posts an opaque
+// `<userId>-<householdId>` token after hydration. Until that token is known,
+// `.data` is network-only — never served or written from cache — so one
+// household's data can never be served to another on a shared device.
+const DATA_CACHE_PREFIX = 'qm-data-v1-'
+let dataCacheName = null
 
 // ── Install ─────────────────────────────────────────────────────────
 self.addEventListener('install', () => {
@@ -27,13 +36,51 @@ self.addEventListener('activate', (event) => {
 								k !== STATIC_CACHE &&
 								k !== PAGES_CACHE &&
 								k !== IMAGES_CACHE &&
-								k !== FONTS_CACHE,
+								k !== FONTS_CACHE &&
+								// Per-session `.data` caches are reaped on session change/logout,
+								// not on activate (they outlive a SW update for the same user).
+								!k.startsWith(DATA_CACHE_PREFIX),
 						)
 						.map((k) => caches.delete(k)),
 				),
 			)
 			.then(() => self.clients.claim()),
 	)
+})
+
+// ── Messages (session namespace + cache invalidation) ───────────────
+// The client (ServiceWorkerDataSync) drives the per-session `.data` cache:
+//  - qm-data-session {token}: adopt the `<userId>-<householdId>` namespace; on a
+//    real switch, drop the previous session's cached authenticated documents too.
+//  - qm-data-purge: logout — forget the namespace and reap all `.data` caches +
+//    authenticated documents.
+//  - qm-data-invalidate: after a mutation — drop this session's `.data` cache so
+//    the next navigation refetches fresh.
+self.addEventListener('message', (event) => {
+	const msg = event.data
+	if (!msg || typeof msg !== 'object') return
+
+	if (msg.type === 'qm-data-session' && typeof msg.token === 'string' && msg.token) {
+		const next = DATA_CACHE_PREFIX + msg.token
+		if (next === dataCacheName) return
+		// A non-null previous namespace means the user/household actually changed
+		// (vs. a first sync or a post-restart re-sync for the same session).
+		const switched = dataCacheName !== null
+		dataCacheName = next
+		event.waitUntil(
+			Promise.all([
+				reapDataCaches(next),
+				switched ? purgeAuthenticatedPages() : Promise.resolve(),
+			]),
+		)
+	} else if (msg.type === 'qm-data-purge') {
+		dataCacheName = null
+		event.waitUntil(
+			Promise.all([reapDataCaches(null), purgeAuthenticatedPages()]),
+		)
+	} else if (msg.type === 'qm-data-invalidate') {
+		if (dataCacheName) event.waitUntil(caches.delete(dataCacheName))
+	}
 })
 
 // ── Fetch ───────────────────────────────────────────────────────────
@@ -113,16 +160,44 @@ self.addEventListener('fetch', (event) => {
 
 	// ── Cacheable pages ──────────────────────────────────────────
 	// Document navigations use stale-while-revalidate: serve the cached page
-	// instantly (fast cold launch, no white flash), then refresh the cache in
-	// the background. Data requests (.data, RR7 single-fetch) stay network-first
-	// so client-side navigations always render fresh data, falling back to cache
-	// only when offline.
+	// instantly (fast cold launch, no white flash), then refresh in the background.
+	//
+	// `.data` (RR7 single-fetch) is authenticated + household-scoped, so it is
+	// cached ONLY in the per-session namespace (dataCacheName), and only once the
+	// client has told us that namespace:
+	//   - read-mostly routes (recipes list/detail, plan) → stale-while-revalidate
+	//     (instant nav on a cold connection, then refresh) — the iOS-effective win;
+	//   - /shopping (edited daily) → network-first, with the session's own copy
+	//     kept for offline;
+	//   - namespace unknown (pre-hydration / logged out) → network-only, never
+	//     served or written from cache (structural cross-household isolation).
+	// Each entry is keyed by its exact URL (including any ?_routes), so a cached
+	// payload always matches the shape RR7 asked for — no partial/full mismatch.
 	if (isCacheablePage(url)) {
-		const isData = url.pathname.endsWith('.data')
+		if (!url.pathname.endsWith('.data')) {
+			event.respondWith(staleWhileRevalidate(event, request, PAGES_CACHE, MAX_PAGES))
+			return
+		}
+		if (!dataCacheName) {
+			event.respondWith(networkOnlyData(request))
+			return
+		}
+		// Stale-while-revalidate is used ONLY for a read-mostly route requested as a
+		// PARTIAL client navigation. RR7 appends ?_routes when the root opts out of
+		// revalidation — i.e. an ordinary same-session tab nav, which is the
+		// perf-critical cold-resume path the SWR win targets. A PLAIN .data request
+		// (no ?_routes) is a FULL revalidation (a formAction redirect such as a
+		// household switch, or a useRevalidator/theme-change refresh). Those can
+		// straddle a session/household change before the post-commit client effect
+		// has told us the new namespace, so they must never be served stale from the
+		// previous session's cache. networkFirst keeps them fresh online (closing the
+		// cross-household serve window) while still falling back to this session's
+		// own cache when offline.
+		const partialNav = url.searchParams.has('_routes')
 		event.respondWith(
-			isData
-				? networkFirst(request, PAGES_CACHE, MAX_PAGES)
-				: staleWhileRevalidate(event, request, PAGES_CACHE, MAX_PAGES),
+			isReadMostly(url) && partialNav
+				? staleWhileRevalidateData(event, request, dataCacheName, MAX_DATA)
+				: networkFirst(request, dataCacheName, MAX_DATA),
 		)
 		return
 	}
@@ -183,6 +258,17 @@ function isCacheablePage(url) {
 	return false
 }
 
+/**
+ * Read-mostly cacheable routes (safe to serve stale-while-revalidate): the recipe
+ * list/detail and the plan. Excludes /shopping, which is edited daily and stays
+ * network-first. Only called for URLs already known to be cacheable pages.
+ */
+function isReadMostly(url) {
+	const p = url.pathname
+	if (p === '/shopping' || p === '/shopping.data') return false
+	return true
+}
+
 /** Cache-first: return cached response, or fetch and cache. */
 async function cacheFirst(request, cacheName, maxEntries) {
 	const cache = await caches.open(cacheName)
@@ -237,15 +323,66 @@ async function staleWhileRevalidate(event, request, cacheName, maxEntries) {
 	return response ?? offlineFallback()
 }
 
+/**
+ * Stale-while-revalidate tuned for `.data`: same as staleWhileRevalidate but on a
+ * total miss+failure returns a 503 (not the offline HTML), so React Router shows
+ * its ErrorBoundary instead of trying to parse HTML as a turbo-stream payload.
+ * Caches by exact request URL (incl. any ?_routes) so a served payload always
+ * matches the shape RR7 requested.
+ */
+async function staleWhileRevalidateData(event, request, cacheName, maxEntries) {
+	const cache = await caches.open(cacheName)
+	const cached = await cache.match(request)
+
+	const network = fetch(request)
+		.then((response) => {
+			// Only cache a plain 200. RR7 single-fetch encodes a loader/action
+			// redirect (e.g. expired session → /login) as an IN-BAND turbo-stream
+			// body with status 202 — which is `.ok` and NOT `.redirected`, so an
+			// `ok && !redirected` check would happily cache it and then pin the
+			// route to /login on the next launch. Requiring status === 200 rejects
+			// that 202 (and any 4xx/5xx); `!redirected` still rejects followed 3xx.
+			if (response.status === 200 && !response.redirected) {
+				cache.put(request, response.clone())
+				if (maxEntries) trimCache(cacheName, maxEntries)
+			}
+			return response
+		})
+		.catch(() => null)
+
+	if (cached) {
+		event.waitUntil(network)
+		return cached
+	}
+
+	const response = await network
+	return response ?? new Response('Offline', { status: 503 })
+}
+
+/**
+ * Network-only for `.data` when the per-session cache namespace isn't known yet
+ * (pre-hydration or logged out): never read or write a cache, so one household's
+ * data can never be served to another. 503 on failure → RR ErrorBoundary.
+ */
+async function networkOnlyData(request) {
+	try {
+		return await fetch(request)
+	} catch {
+		return new Response('Offline', { status: 503 })
+	}
+}
+
 /** Network-first: try network, fall back to cache, then offline page. */
 async function networkFirst(request, cacheName, maxEntries) {
 	const cache = await caches.open(cacheName)
 
 	try {
 		const response = await fetch(request)
-		// See staleWhileRevalidate: a redirected response can't satisfy a future
-		// navigation, so don't cache one.
-		if (response.ok && !response.redirected) {
+		// Only cache a plain 200 — see staleWhileRevalidateData: an RR7 single-fetch
+		// redirect rides in-band on a 202 body (.ok, not .redirected), and a
+		// redirected response can't satisfy a future navigation. Requiring 200
+		// rejects both.
+		if (response.status === 200 && !response.redirected) {
 			cache.put(request, response.clone())
 			if (maxEntries) trimCache(cacheName, maxEntries)
 		}
@@ -293,6 +430,37 @@ function offlineFallback() {
 		status: 503,
 		headers: { 'Content-Type': 'text/html; charset=utf-8' },
 	})
+}
+
+/** Delete every per-session `.data` cache except `keep` (null deletes them all). */
+async function reapDataCaches(keep) {
+	const keys = await caches.keys()
+	await Promise.all(
+		keys
+			.filter((k) => k.startsWith(DATA_CACHE_PREFIX) && k !== keep)
+			.map((k) => caches.delete(k)),
+	)
+}
+
+/**
+ * Drop cached authenticated documents (and any `.data` that predates the
+ * per-session cache) from PAGES_CACHE, so a prior session's server-rendered
+ * shell can't be served after logout or a session switch.
+ */
+async function purgeAuthenticatedPages() {
+	const cache = await caches.open(PAGES_CACHE)
+	const keys = await cache.keys()
+	await Promise.all(
+		keys
+			.filter((req) => {
+				try {
+					return isCacheablePage(new URL(req.url))
+				} catch {
+					return false
+				}
+			})
+			.map((req) => cache.delete(req)),
+	)
 }
 
 /** Trim a cache to maxEntries by deleting the oldest entries (FIFO). */

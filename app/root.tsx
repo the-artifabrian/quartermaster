@@ -21,6 +21,7 @@ import { NavTiming } from './components/nav-timing.tsx'
 import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { ProExpiryNudge } from './components/pro-expiry-nudge.tsx'
 import { Progress } from './components/progress-bar.tsx'
+import { ServiceWorkerDataSync } from './components/service-worker-data-sync.tsx'
 import { TimerWidget } from './components/timer-widget.tsx'
 import { useToast } from './components/toaster.tsx'
 import { Button } from './components/ui/button.tsx'
@@ -344,6 +345,10 @@ function App() {
 		<TimerProvider>
 			<PostHogPageview />
 			<NavTiming />
+			<ServiceWorkerDataSync
+				userId={user?.id ?? null}
+				householdId={data.householdId}
+			/>
 			<PostHogIdentify
 				user={
 					user

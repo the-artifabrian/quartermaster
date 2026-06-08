@@ -685,7 +685,10 @@ export type MatchableRecipe = {
 	cookTime?: number | null
 	servings?: number | null
 	isFavorite?: boolean
-	ingredients: Ingredient[]
+	// Only the fields the matcher actually reads, so callers can project a
+	// trimmed ingredient select (name/notes/isHeading) without an unsafe cast.
+	// A full Ingredient[] still satisfies this (Ingredient is assignable to the Pick).
+	ingredients: Array<Pick<Ingredient, 'name' | 'notes' | 'isHeading'>>
 	image?: { objectKey: string } | null
 }
 

@@ -16,6 +16,10 @@ if (posthogKey) {
 		enable_recording_console_log: true,
 		mask_all_text: false,
 		capture_exceptions: true,
+		// Built-in performance capture: Core Web Vitals (incl. INP) as standalone
+		// events, plus resource/network timing attached to session replay — gives
+		// the `.data` fetch TTFB/download split without custom instrumentation.
+		capture_performance: { web_vitals: true, network_timing: true },
 	})
 }
 

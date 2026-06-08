@@ -73,12 +73,21 @@ function resetState() {
 function connect() {
 	if (eventSource) return
 
+	// Don't open a stream while the tab/PWA is backgrounded — iOS suspends it
+	// anyway, so reopening on resume avoids churn. visibilitychange handles resume.
+	if (typeof document !== 'undefined' && document.hidden) return
+
 	// Initialize cursor so polling starts from connection time
 	if (!lastSeenTimestamp) {
 		lastSeenTimestamp = new Date().toISOString()
 	}
 
 	eventSource = new EventSource('/resources/household-events')
+
+	// SSE is healthy — drop the polling fallback if it was running.
+	eventSource.addEventListener('open', () => {
+		stopPolling()
+	})
 
 	eventSource.addEventListener('activity', (e) => {
 		try {
@@ -91,15 +100,20 @@ function connect() {
 
 	eventSource.addEventListener('error', () => {
 		cleanup()
-		// Reconnect with 3-5s jitter
+		// Fall back to polling while the stream is down...
+		startPolling()
+		// ...and reconnect with 3-5s jitter (unless backgrounded).
 		const delay = 3000 + Math.random() * 2000
 		reconnectTimer = setTimeout(() => {
 			reconnectTimer = null
-			if (listeners.size > 0) connect()
+			if (
+				listeners.size > 0 &&
+				!(typeof document !== 'undefined' && document.hidden)
+			) {
+				connect()
+			}
 		}, delay)
 	})
-
-	startPolling()
 }
 
 function cleanup() {
@@ -109,24 +123,46 @@ function cleanup() {
 	}
 }
 
+function teardownConnection() {
+	cleanup()
+	stopPolling()
+	if (reconnectTimer) {
+		clearTimeout(reconnectTimer)
+		reconnectTimer = null
+	}
+}
+
+function handleVisibilityChange() {
+	if (document.hidden) {
+		// Backgrounded (iOS suspends the PWA anyway): drop the stream + timers to
+		// stop radio/battery churn and avoid a revalidate storm on resume.
+		teardownConnection()
+	} else if (listeners.size > 0) {
+		// Foregrounded: reconnect and immediately catch up on anything missed.
+		connect()
+		void poll()
+	}
+}
+
 export function subscribeToHouseholdEvents(
 	callback: EventCallback,
 ): () => void {
 	listeners.add(callback)
 
 	if (listeners.size === 1) {
+		if (typeof document !== 'undefined') {
+			document.addEventListener('visibilitychange', handleVisibilityChange)
+		}
 		connect()
 	}
 
 	return () => {
 		listeners.delete(callback)
 		if (listeners.size === 0) {
-			cleanup()
-			stopPolling()
-			if (reconnectTimer) {
-				clearTimeout(reconnectTimer)
-				reconnectTimer = null
+			if (typeof document !== 'undefined') {
+				document.removeEventListener('visibilitychange', handleVisibilityChange)
 			}
+			teardownConnection()
 			resetState()
 		}
 	}

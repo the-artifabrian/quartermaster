@@ -118,15 +118,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 			},
 			...(hasInventory && {
 				ingredients: {
+					// Only the fields the inventory matcher + quality flag read; the
+					// other columns (id/amount/unit/order/recipeId) were unused
+					// over-fetch serialized to the client for the whole cookbook.
 					select: {
-						id: true,
 						name: true,
-						amount: true,
-						unit: true,
 						notes: true,
 						isHeading: true,
-						order: true,
-						recipeId: true,
 					},
 					orderBy: { order: 'asc' as const },
 				},
@@ -193,10 +191,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	let matchData: MatchData | null = null
 
 	if (hasInventory) {
-		const matches = matchRecipesWithInventory(
-			filteredRecipes as Parameters<typeof matchRecipesWithInventory>[0],
-			inventoryItems,
-		)
+		const matches = matchRecipesWithInventory(filteredRecipes, inventoryItems)
 
 		const makeableCount = matches.filter((m) => m.canMake).length
 

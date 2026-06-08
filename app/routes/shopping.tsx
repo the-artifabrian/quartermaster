@@ -2,7 +2,7 @@ import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Form, Link, useFetcher, useRevalidator } from 'react-router'
+import { Form, Link, useFetcher, useFetchers, useRevalidator } from 'react-router'
 import { toast } from 'sonner'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
@@ -13,6 +13,7 @@ import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
+import { type ShoppingListItem } from '#app/generated/prisma/client.ts'
 import {
 	useSpeechToText,
 	type TranscribedItem,
@@ -41,6 +42,10 @@ import {
 	generateShoppingListFromRecipes,
 	annotateInventoryMatches,
 } from '#app/utils/shopping-list.server.ts'
+import {
+	makeOptimisticShoppingItem,
+	mergeOptimisticShoppingItems,
+} from '#app/utils/shopping-optimistic.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/shopping.ts'
 
@@ -473,6 +478,60 @@ export async function action({ request }: Route.ActionArgs) {
 	return { status: 'error' as const }
 }
 
+/**
+ * Optimistically render items from in-flight `add` / `bulk-add` submissions so a
+ * newly added item appears instantly instead of waiting for the server round-trip
+ * + revalidation. Reads every shopping fetcher via useFetchers, so it captures all
+ * add entry points at once (desktop quick-add, mobile FAB, voice bulk-add). Items
+ * show only while the fetcher is non-idle; by the time it returns to idle the
+ * fetcher's own revalidation has landed the real row, and the merge dedups by name
+ * to avoid a duplicate during any overlap (e.g. a concurrent SSE revalidation).
+ */
+function usePendingShoppingItems(listId: string): ShoppingListItem[] {
+	const fetchers = useFetchers()
+	const pending: ShoppingListItem[] = []
+	for (const fetcher of fetchers) {
+		if (fetcher.state === 'idle' || !fetcher.formData) continue
+		const intent = fetcher.formData.get('intent')
+		if (intent === 'add') {
+			const name = String(fetcher.formData.get('name') ?? '')
+			if (!name.trim()) continue
+			pending.push(
+				makeOptimisticShoppingItem({
+					name,
+					quantity: fetcher.formData.get('quantity') as string | null,
+					unit: fetcher.formData.get('unit') as string | null,
+					listId,
+				}),
+			)
+		} else if (intent === 'bulk-add') {
+			const raw = fetcher.formData.get('items')
+			if (typeof raw !== 'string') continue
+			try {
+				const items = JSON.parse(raw) as Array<{
+					name?: string
+					quantity?: string
+					unit?: string
+				}>
+				for (const item of items) {
+					if (!item?.name?.trim()) continue
+					pending.push(
+						makeOptimisticShoppingItem({
+							name: item.name,
+							quantity: item.quantity ?? null,
+							unit: item.unit ?? null,
+							listId,
+						}),
+					)
+				}
+			} catch {
+				// Ignore malformed bulk payloads — the server rejects them too.
+			}
+		}
+	}
+	return pending
+}
+
 export default function ShoppingListRoute({
 	loaderData,
 	actionData,
@@ -594,7 +653,11 @@ export default function ShoppingListRoute({
 		prevQaState.current = quickAddFetcher.state
 	}, [quickAddFetcher.state, quickAddFetcher.data])
 
-	const allItems = shoppingList.items
+	const pendingAddedItems = usePendingShoppingItems(shoppingList.id)
+	const allItems = mergeOptimisticShoppingItems(
+		shoppingList.items,
+		pendingAddedItems,
+	)
 	const totalItems = allItems.length
 	const checkedItemsList = allItems.filter((item) => item.checked)
 	const checkedItems = checkedItemsList.length

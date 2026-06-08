@@ -57,7 +57,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 				include: {
 					recipe: {
 						include: {
-							ingredients: true,
+							// ingredients intentionally omitted — the calendar/slot card
+							// only render recipe id/title/servings/time/image, never
+							// ingredients. (This is the hot path: it runs on every load of
+							// an existing week's plan, so the over-fetch was shipped on the
+							// wire for every planned entry.)
 							image: { select: { objectKey: true } },
 						},
 					},
@@ -78,7 +82,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 					include: {
 						recipe: {
 							include: {
-								ingredients: true,
+								// ingredients intentionally omitted — see the findFirst branch
+								// above. (This create branch only runs for a brand-new, empty
+								// week, so it has no entries anyway.)
 								image: { select: { objectKey: true } },
 							},
 						},
@@ -213,7 +219,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 	})
 
 	return {
-		mealPlan,
+		// `mealPlan` itself is not returned — the component reads `entries`
+		// (mapped below); returning the whole object duplicated every entry on the wire.
 		entries: mealPlan.entries.map((entry) => ({
 			...entry,
 			date: new Date(entry.date),

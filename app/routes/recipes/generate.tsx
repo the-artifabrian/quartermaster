@@ -257,8 +257,8 @@ export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
 			<div className="mb-6 flex items-center gap-2">
-				<Icon name="sparkles" className="h-6 w-6 text-violet-500" />
-				<h1 className="text-2xl font-bold">Generate Recipe</h1>
+				<Icon name="sparkles" className="text-accent h-6 w-6" />
+				<h1 className="font-serif text-2xl font-normal">Generate Recipe</h1>
 			</div>
 
 			{/* Phase A: Preference selection */}

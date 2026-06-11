@@ -29,7 +29,7 @@ export function IMadeThisModal({
 				onClick={onClose}
 			/>
 			{/* Modal */}
-			<div className="bg-card shadow-warm-lg relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl p-6 sm:rounded-2xl">
+			<div className="bg-card shadow-warm-lg relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-xl p-6 sm:rounded-xl">
 				<div className="mb-1 flex items-center justify-between">
 					<h2 id="i-made-this-title" className="font-serif text-xl">
 						I Made This
@@ -37,7 +37,7 @@ export function IMadeThisModal({
 					<button
 						onClick={onClose}
 						aria-label="Close"
-						className="text-muted-foreground hover:text-foreground rounded-md p-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2"
+						className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md p-1 focus-visible:ring-2 focus-visible:outline-none"
 					>
 						<Icon name="cross-1" size="sm" />
 					</button>

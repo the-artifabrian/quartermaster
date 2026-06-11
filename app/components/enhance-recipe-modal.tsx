@@ -114,19 +114,19 @@ export function EnhanceRecipeModal({
 				onClick={onClose}
 			/>
 			{/* Modal */}
-			<div className="bg-card shadow-warm-lg relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl p-6 sm:rounded-2xl">
+			<div className="bg-card shadow-warm-lg relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-xl p-6 sm:rounded-xl">
 				<div className="mb-1 flex items-center justify-between">
 					<h2
 						id="enhance-title"
 						className="flex items-center gap-2 font-serif text-xl"
 					>
-						<Icon name="sparkles" className="size-5 text-violet-500" />
+						<Icon name="sparkles" className="text-accent size-5" />
 						Enhance Recipe
 					</h2>
 					<button
 						onClick={onClose}
 						aria-label="Close"
-						className="text-muted-foreground hover:text-foreground rounded-md p-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2"
+						className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md p-1 focus-visible:ring-2 focus-visible:outline-none"
 					>
 						<Icon name="cross-1" size="sm" />
 					</button>
@@ -241,11 +241,8 @@ function FieldRow({
 				<p className="text-muted-foreground mt-0.5 text-xs">
 					<span className="text-muted-foreground/70">Current:</span> {current}
 				</p>
-				<p className="mt-0.5 text-xs text-violet-600 dark:text-violet-400">
-					<span className="text-violet-500/70 dark:text-violet-400/70">
-						Suggested:
-					</span>{' '}
-					{suggested}
+				<p className="text-primary mt-0.5 text-xs">
+					<span className="text-primary/70">Suggested:</span> {suggested}
 				</p>
 			</div>
 		</label>

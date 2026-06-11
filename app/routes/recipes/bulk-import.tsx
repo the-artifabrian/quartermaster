@@ -255,7 +255,7 @@ export default function BulkImport() {
 
 	return (
 		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
-			<h1 className="mb-2 text-2xl font-bold">Bulk Import</h1>
+			<h1 className="mb-2 font-serif text-2xl font-normal">Bulk Import</h1>
 			<p className="text-muted-foreground mb-6">
 				Upload{' '}
 				<code className="bg-muted rounded px-1.5 py-0.5 text-xs">.md</code> or{' '}
@@ -273,7 +273,7 @@ export default function BulkImport() {
 			)}
 
 			{sessionCount > 0 && !nudgeDismissed && (
-				<div className="bg-card border-border shadow-warm relative mb-4 rounded-2xl border p-5">
+				<div className="bg-muted/40 relative mb-4 rounded-lg p-5">
 					<button
 						type="button"
 						onClick={() => setNudgeDismissed(true)}
@@ -314,7 +314,7 @@ export default function BulkImport() {
 
 			{/* File upload zone */}
 			{hasUploadedFiles ? (
-				<div className="border-border bg-card mb-4 rounded-lg border p-4">
+				<div className="bg-muted/40 mb-4 rounded-lg p-4">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<Icon
@@ -420,10 +420,7 @@ Instructions
 						{previews.length === 1 ? '' : 's'})
 					</h2>
 					{previews.map((recipe, i) => (
-						<div
-							key={i}
-							className="border-border bg-card rounded-lg border p-4"
-						>
+						<div key={i} className="bg-muted/40 rounded-lg p-4">
 							<div className="flex items-start justify-between gap-2">
 								<div>
 									<h3 className="font-medium">

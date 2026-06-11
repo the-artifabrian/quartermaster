@@ -944,7 +944,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
-			<h1 className="mb-2 text-2xl font-bold">Import Recipe</h1>
+			<h1 className="mb-2 font-serif text-2xl font-normal">Import Recipe</h1>
 			<p className="text-muted-foreground mb-6">
 				Import a recipe from a URL, paste text, or upload screenshots.
 			</p>

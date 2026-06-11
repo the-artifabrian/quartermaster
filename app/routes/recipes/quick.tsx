@@ -104,7 +104,7 @@ export default function QuickRecipeEntry() {
 
 	return (
 		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
-			<h1 className="mb-6 text-2xl font-bold">Quick Entry</h1>
+			<h1 className="mb-6 font-serif text-2xl font-normal">Quick Entry</h1>
 			<p className="text-muted-foreground mb-6">
 				Paste or type a recipe as freeform text. You can add structure later by
 				editing.

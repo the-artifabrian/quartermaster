@@ -468,8 +468,10 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container-grid">
-				{/* Tonight banner (current week only) */}
-				{tonightData &&
+				{/* Tonight banner (current week with meals only — the weekly empty
+				    state below covers the rest) */}
+				{entries.length > 0 &&
+					tonightData &&
 					(tonightData.entries.length > 0 || tonightData.suggestion) && (
 						<TodayBanner
 							entries={tonightData.entries}
@@ -479,23 +481,38 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						/>
 					)}
 
-				{/* Empty State Guidance */}
+				{/* Empty week */}
 				{entries.length === 0 && (
-					<div className="bg-card shadow-warm-lg mb-4 rounded-2xl p-6 text-center">
-						<h2 className="font-serif text-xl">Plan Your Week</h2>
+					<div className="mb-6 py-6 text-center">
+						<h2 className="font-serif text-xl">Plan your week</h2>
 						<p className="text-muted-foreground mx-auto mt-1.5 max-w-md text-sm">
-							Pick recipes for the days ahead and generate a shopping list with
-							what you need to buy. Tap any slot below to get started.
+							Pick recipes for the days ahead and we'll build the shopping list.
+							Tap any day below to get started
+							{tonightData?.suggestion ? (
+								<>
+									{' '}
+									&mdash; or start with{' '}
+									<Link
+										to={`/recipes/${tonightData.suggestion.id}`}
+										className="text-foreground underline decoration-dotted underline-offset-2"
+									>
+										{tonightData.suggestion.title}
+									</Link>
+									.
+								</>
+							) : (
+								'.'
+							)}
 						</p>
 						{recipes.length === 0 ? (
-							<Button asChild className="mt-5">
+							<Button asChild variant="outline" className="mt-4">
 								<Link to="/recipes/new">
 									<Icon name="plus" size="sm" />
 									Add Your First Recipe
 								</Link>
 							</Button>
 						) : (
-							<Button asChild className="mt-5">
+							<Button asChild variant="outline" className="mt-4">
 								<Link to="/recipes">Browse Recipes</Link>
 							</Button>
 						)}

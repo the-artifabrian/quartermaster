@@ -83,9 +83,7 @@ export function RecipeSelector({
 			<div className="scrollbar-thin max-h-[300px] space-y-0.5 overflow-y-auto">
 				{favorites.length === 0 && rest.length === 0 ? (
 					<div className="py-4 text-center">
-						<p className="text-muted-foreground text-sm">
-							No recipes found
-						</p>
+						<p className="text-muted-foreground text-sm">No recipes found</p>
 						<Link
 							to="/recipes/new"
 							className="text-accent mt-1 inline-block text-sm hover:underline"
@@ -98,7 +96,7 @@ export function RecipeSelector({
 						{favorites.length > 0 && (
 							<>
 								{hasBothGroups && (
-									<p className="text-muted-foreground px-2 pt-1 pb-0.5 text-xs font-medium uppercase tracking-wide">
+									<p className="text-muted-foreground px-2 pt-1 pb-0.5 text-xs font-medium tracking-wide uppercase">
 										Favorites
 									</p>
 								)}
@@ -116,7 +114,7 @@ export function RecipeSelector({
 						{rest.length > 0 && (
 							<>
 								{hasBothGroups && (
-									<p className="text-muted-foreground px-2 pt-2 pb-0.5 text-xs font-medium uppercase tracking-wide">
+									<p className="text-muted-foreground px-2 pt-2 pb-0.5 text-xs font-medium tracking-wide uppercase">
 										All Recipes
 									</p>
 								)}
@@ -166,17 +164,12 @@ function RecipeOption({
 						{recipe.isFavorite && (
 							<Icon
 								name="heart-filled"
-								className="mr-1 inline size-3 text-accent"
+								className="text-accent mr-1 inline size-3"
 							/>
 						)}
 						{recipe.title}
 					</p>
 					<span className="inline-flex shrink-0 items-center gap-1.5">
-						{recipe.cookCount != null && recipe.cookCount > 0 && (
-							<span className="text-muted-foreground/60 text-xs tabular-nums">
-								{recipe.cookCount}x
-							</span>
-						)}
 						{totalTime != null && (
 							<span className="text-muted-foreground inline-flex items-center gap-0.5 text-xs">
 								<Icon name="clock" className="size-3" />

@@ -123,19 +123,16 @@ export function MealPlanCalendar({
 						<div
 							key={serializeDate(date)}
 							className={cn(
-								'bg-card rounded-xl p-2.5 shadow-warm transition-shadow',
+								'border-t-[3px] p-2.5',
 								'basis-[calc(25%-6px)]',
-								today && 'border-accent border-t-[3px] ring-2 ring-accent/30',
-								!today && 'hover:shadow-warm-md hover:border-accent/20 border border-transparent',
+								today ? 'border-accent' : 'border-border/40',
 							)}
 						>
 							<div className="mb-2 text-center">
 								<span
 									className={cn(
 										'font-serif text-sm',
-										today
-											? 'bg-accent text-accent-foreground rounded-full px-2 py-0.5 text-xs font-semibold'
-											: 'text-muted-foreground',
+										today ? 'text-accent' : 'text-muted-foreground',
 									)}
 								>
 									{formatDayLabel(date)}
@@ -162,27 +159,23 @@ export function MealPlanCalendar({
 			</div>
 
 			{/* Mobile: vertical day stack, today first */}
-			<div className="space-y-3 md:hidden">
+			<div className="divide-border/40 divide-y md:hidden">
 				{mobileDays.map((date) => {
 					const dayCount = getEntriesForDay(date)
 					const today = isToday(date)
 					return (
 						<div
 							key={serializeDate(date)}
-							className={cn(
-								'rounded-xl',
-								today && 'bg-accent/10 p-3 ring-1 ring-accent/20',
-							)}
+							className="py-3 first:pt-0 last:pb-0"
 						>
 							<div className="mb-1.5 flex items-baseline justify-between">
-								<span
-									className={cn(
-										'font-serif',
-										today
-											? 'bg-accent text-accent-foreground rounded-full px-2 py-0.5 text-sm'
-											: 'text-sm',
+								<span className="flex items-center gap-1.5 font-serif text-sm">
+									{today && (
+										<span
+											aria-hidden
+											className="bg-accent size-1.5 rounded-full"
+										/>
 									)}
-								>
 									{formatDayLabel(date)}
 								</span>
 								{dayCount > 0 && (

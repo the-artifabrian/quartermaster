@@ -37,7 +37,11 @@ type MealSlotCardProps = {
 type QuickCookData = {
 	status: string
 	recipeTitle?: string
-	matchedInventoryItems?: Array<{ id: string; name: string; preChecked: boolean }>
+	matchedInventoryItems?: Array<{
+		id: string
+		name: string
+		preChecked: boolean
+	}>
 }
 
 type CookDialogPhase = 'closed' | 'confirm' | 'review'
@@ -235,14 +239,10 @@ function EntryRow({
 					{dialogPhase === 'review' && (
 						<PostCookInventoryReviewContent
 							recipeTitle={cookedFetcher.data?.recipeTitle ?? ''}
-							matchedItems={
-								cookedFetcher.data?.matchedInventoryItems ?? []
-							}
+							matchedItems={cookedFetcher.data?.matchedInventoryItems ?? []}
 							onDone={() => {
 								setDialogPhase('closed')
-								toast.success(
-									`Cooked ${cookedFetcher.data?.recipeTitle}`,
-								)
+								toast.success(`Cooked ${cookedFetcher.data?.recipeTitle}`)
 							}}
 						/>
 					)}
@@ -263,7 +263,7 @@ export function MealSlotCard({
 	const assignedRecipeIds = entries.map((e) => e.recipe.id)
 
 	const selectorDropdown = isSelectingRecipe ? (
-		<div className="bg-card animate-fade-up-reveal absolute left-0 right-0 top-full z-20 mt-1 rounded-xl border p-3 shadow-xl ring-1 ring-accent/20 md:min-w-[280px]">
+		<div className="bg-card animate-fade-up-reveal shadow-warm-lg absolute top-full right-0 left-0 z-20 mt-1 rounded-lg border p-3 md:min-w-[280px]">
 			<RecipeSelector
 				recipes={recipes}
 				date={date}
@@ -297,10 +297,10 @@ export function MealSlotCard({
 		)
 	}
 
-	// Filled slot: warm card with entries
+	// Filled slot: flat rows under the meal-type label
 	return (
-		<div className="bg-card shadow-warm hover:shadow-warm-md group relative rounded-xl transition-shadow">
-			<div className="flex items-center justify-between px-3 pt-2 md:px-2 md:pt-1.5">
+		<div className="group relative">
+			<div className="flex items-center justify-between pt-2 md:pt-1.5">
 				<p className="text-muted-foreground text-xs font-medium">
 					{MEAL_TYPE_LABELS[mealType]}
 				</p>
@@ -316,7 +316,7 @@ export function MealSlotCard({
 					/>
 				</button>
 			</div>
-			<div className="p-3 pt-2 md:px-2 md:pt-1 md:pb-2">
+			<div className="pt-2 pb-3 md:pt-1 md:pb-2">
 				{entries.map((entry, i) => (
 					<div
 						key={entry.id}

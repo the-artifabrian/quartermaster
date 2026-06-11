@@ -12,7 +12,7 @@ export function WarningBanner({
 			? `${actionData.existingQuantity}${actionData.existingUnit ? ` ${actionData.existingUnit}` : ''}`
 			: null
 		return (
-			<div className="bg-accent/10 mb-3 flex items-start gap-2 rounded-lg p-3">
+			<div className="bg-accent/10 mb-3 flex items-start gap-2 rounded-md p-3">
 				<Icon
 					name="question-mark-circled"
 					className="text-accent mt-0.5 size-4 shrink-0"
@@ -40,7 +40,7 @@ export function WarningBanner({
 
 	if (actionData.warningType === 'in_inventory') {
 		return (
-			<div className="bg-accent/10 mb-3 flex items-start gap-2 rounded-lg p-3">
+			<div className="bg-accent/10 mb-3 flex items-start gap-2 rounded-md p-3">
 				<Icon
 					name="question-mark-circled"
 					className="text-accent mt-0.5 size-4 shrink-0"

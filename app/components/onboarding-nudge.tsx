@@ -41,45 +41,29 @@ export function OnboardingNudge({
 	}
 
 	return (
-		<div
-			className={cn(
-				'flex items-start gap-3 rounded-lg bg-accent/8 p-4',
-				className,
-			)}
-		>
-			<div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-				<Icon name={icon} size="sm" />
-			</div>
-			<div className="min-w-0 flex-1">
-				<p className="text-sm font-medium">{title}</p>
-				<p className="mt-0.5 text-sm text-muted-foreground">
-					{description}
-				</p>
-				<div className="mt-2 flex items-center gap-3">
-					{ctaText && ctaHref ? (
+		<div className={cn('flex items-start gap-2 print:hidden', className)}>
+			<Icon name={icon} size="sm" className="text-accent mt-0.5 shrink-0" />
+			<p className="text-muted-foreground min-w-0 flex-1 text-sm">
+				<span className="text-foreground font-medium">{title}.</span>{' '}
+				{description}
+				{ctaText && ctaHref ? (
+					<>
+						{' '}
 						<Link
 							to={ctaHref}
-							className="text-sm font-medium text-accent hover:text-accent/80"
+							className="text-accent hover:text-accent/80 font-medium whitespace-nowrap"
 						>
 							{ctaText} &rarr;
 						</Link>
-					) : null}
-					<button
-						type="button"
-						onClick={handleDismiss}
-						className="text-sm text-muted-foreground hover:text-foreground"
-					>
-						{dismissText}
-					</button>
-				</div>
-			</div>
+					</>
+				) : null}
+			</p>
 			<button
 				type="button"
 				onClick={handleDismiss}
-				className="-mr-1 -mt-1 shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground"
-				aria-label={`Dismiss ${title}`}
+				className="text-muted-foreground hover:text-foreground shrink-0 text-sm font-medium"
 			>
-				<Icon name="cross-1" size="sm" />
+				{dismissText}
 			</button>
 		</div>
 	)

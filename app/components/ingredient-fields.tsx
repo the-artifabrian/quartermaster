@@ -306,7 +306,7 @@ function SortableIngredientRow({
 			style={style}
 			className={cn(
 				'rounded-lg py-2 first:pt-0 last:pb-0',
-				isDragging && 'z-10 opacity-80 shadow-lg',
+				isDragging && 'shadow-warm-lg z-10 opacity-80',
 			)}
 		>
 			{isExpanded ? (
@@ -575,7 +575,7 @@ function SortableHeadingRow({
 			style={style}
 			className={cn(
 				'border-accent/30 bg-accent/5 flex items-center gap-2 rounded-lg border-l-4 px-2 py-3 first:pt-2 last:pb-2',
-				isDragging && 'z-10 opacity-80 shadow-lg',
+				isDragging && 'shadow-warm-lg z-10 opacity-80',
 			)}
 		>
 			<button

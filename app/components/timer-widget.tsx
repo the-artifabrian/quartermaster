@@ -46,9 +46,9 @@ export function TimerWidget() {
 			<button
 				onClick={() => setIsExpanded(true)}
 				className={cn(
-					'fixed right-4 bottom-[16rem] z-50 flex items-center gap-2 rounded-full px-4 shadow-lg transition-all hover:scale-105 md:right-6 md:bottom-6 print:hidden',
+					'shadow-warm-lg fixed right-4 bottom-[16rem] z-50 flex items-center gap-2 rounded-full px-4 transition-all hover:scale-105 md:right-6 md:bottom-6 print:hidden',
 					hasAlarming
-						? 'h-14 animate-pulse bg-destructive text-destructive-foreground'
+						? 'bg-destructive text-destructive-foreground h-14 animate-pulse'
 						: 'bg-primary text-primary-foreground h-14',
 				)}
 				aria-label={
@@ -74,13 +74,13 @@ export function TimerWidget() {
 
 	return (
 		<div className="fixed right-4 bottom-[16rem] z-50 md:right-6 md:bottom-6 print:hidden">
-			<div className="bg-card shadow-warm-lg w-80 rounded-2xl border p-4">
+			<div className="bg-card shadow-warm-lg w-80 rounded-xl border p-4">
 				{/* Header */}
 				<div className="mb-3 flex items-center justify-between">
 					<span className="text-sm font-semibold">Timers</span>
 					<button
 						onClick={() => setIsExpanded(false)}
-						className="text-muted-foreground hover:text-foreground rounded-md p-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2"
+						className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md p-1 focus-visible:ring-2 focus-visible:outline-none"
 						aria-label="Collapse timers"
 					>
 						<Icon name="cross-1" size="sm" />
@@ -102,7 +102,7 @@ export function TimerWidget() {
 									className={cn(
 										'flex items-center gap-2 rounded-lg px-3 py-2',
 										isAlarming
-											? 'animate-pulse bg-destructive/10 dark:bg-destructive/20'
+											? 'bg-destructive/10 dark:bg-destructive/20 animate-pulse'
 											: 'bg-muted/50',
 									)}
 								>

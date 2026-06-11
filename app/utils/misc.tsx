@@ -51,6 +51,13 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs))
 }
 
+/**
+ * Small-caps section label — the one sanctioned grouping device for flat
+ * surfaces (ingredient groups, settings groups, form sections).
+ */
+export const sectionLabelClass =
+	'text-xs font-semibold tracking-wider uppercase text-muted-foreground'
+
 export function getDomainUrl(request: Request) {
 	const host =
 		request.headers.get('X-Forwarded-Host') ??
@@ -261,4 +268,3 @@ export function useDebounce<
 		[delay],
 	)
 }
-

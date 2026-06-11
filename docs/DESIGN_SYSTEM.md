@@ -167,23 +167,35 @@ Copper marks "where you are" and "what matters now":
 
 ### Shadows
 
-Minimal. Paper on a surface, not floating cards.
+**Elevation is for overlays only.** Static content — list rows, sections,
+banners, buttons — sits flat on the canvas: no resting shadows, no hover-lift
+shadows. Two tiers, both warm-tinted:
 
 ```css
---shadow-warm: 0 1px 2px oklch(25% 0.02 60 / 0.06);
 --shadow-warm-md:
 	0 2px 8px oklch(25% 0.02 60 / 0.08), 0 1px 2px oklch(25% 0.02 60 / 0.04);
 --shadow-warm-lg:
 	0 4px 16px oklch(25% 0.02 60 / 0.08), 0 1px 4px oklch(25% 0.02 60 / 0.05);
 ```
 
+- `shadow-warm-md`: small floating layers — dropdown menus, popovers, tooltips,
+  toasts, list-item action menus.
+- `shadow-warm-lg`: large floating layers — dialogs, bottom sheets, the FAB
+  panel, the timer widget.
+- `shadow-warm` (1px tier) still exists as a token but is retired from app
+  surfaces; don't introduce new usages.
+
 ### Corner Radius
 
 ```
---radius:    0.5rem (8px)   -- cards, inputs
 --radius-sm: 0.25rem (4px)  -- badges, chips
---radius-lg: 0.75rem (12px) -- modals, large containers
+--radius-md: 0.5rem (8px)   -- everything interactive inline: buttons, inputs, insets
+--radius-lg: 0.75rem (12px) -- floating layers: menus, popovers
+--radius-xl: 0.75rem (12px) -- dialogs, bottom sheets
 ```
+
+Inline content never exceeds 8px (`rounded-md`); 12px is reserved for things
+that float. `rounded-2xl` is banned on app surfaces (marketing pages excepted).
 
 ---
 
@@ -567,10 +579,10 @@ alongside DM Sans. `font-display: swap`. ~45KB combined (woff2).
 
 ### Shadow tokens
 
-Three tiers, all warm-tinted:
+Two active tiers, warm-tinted, overlays only (see Shadows above):
 
-- `shadow-warm`: resting state (cards, containers)
-- `shadow-warm-md`: hover state (card hover, elevated interactions)
-- `shadow-warm-lg`: elevated state (modals, FAB dialogs)
+- `shadow-warm-md`: menus, popovers, tooltips, toasts
+- `shadow-warm-lg`: dialogs, sheets, FAB panel, timer widget
+- `shadow-warm`: retired from app surfaces (token kept for compatibility)
 
-UI primitives (dropdowns, dialogs) use standard `shadow-lg`.
+UI primitives use the warm tiers — never standard `shadow-lg`.

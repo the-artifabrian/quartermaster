@@ -38,7 +38,7 @@ export function InlineTemperature({
 			</span>
 			<span
 				className={cn(
-					'bg-popover text-popover-foreground shadow-warm pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 rounded-lg border px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-opacity',
+					'bg-popover text-popover-foreground shadow-warm-md pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 rounded-lg border px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-opacity',
 					open ? 'opacity-100' : 'opacity-0',
 				)}
 				aria-hidden={!open}

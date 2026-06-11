@@ -1,5 +1,6 @@
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { recipeTitleSearchWhere } from '#app/utils/recipe-search.server.ts'
 import { type Route } from './+types/recipe-search.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -16,7 +17,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const recipes = await prisma.recipe.findMany({
 		where: {
 			householdId,
-			title: { contains: query },
+			...recipeTitleSearchWhere(query),
 			...(exclude ? { id: { not: exclude } } : {}),
 		},
 		select: { id: true, title: true },

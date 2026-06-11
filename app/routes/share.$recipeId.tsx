@@ -323,7 +323,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 				<div className="mt-4 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8">
 					{/* Ingredients */}
 					<div className="md:sticky md:top-20 md:self-start">
-						<div className="bg-card shadow-warm rounded-2xl border p-4 md:p-6">
+						<div>
 							<div className="mb-3 flex items-center gap-2 md:mb-4">
 								<button
 									type="button"
@@ -408,7 +408,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 
 				{/* Save / Sign-up CTA */}
 				<div className="mt-12 mb-8 text-center">
-					<div className="bg-accent/5 inline-block rounded-2xl border px-8 py-6">
+					<div className="bg-accent/5 inline-block rounded-lg px-8 py-6">
 						{isLoggedIn ? (
 							<>
 								<p className="font-serif text-lg">Like this recipe?</p>

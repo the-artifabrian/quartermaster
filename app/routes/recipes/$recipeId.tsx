@@ -9,7 +9,6 @@ import { Divider } from '#app/components/divider.tsx'
 import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { RecipeActionBar } from '#app/components/recipe-action-bar.tsx'
-import { CookingLogEntry } from '#app/components/recipe-cooking-log-entry.tsx'
 import { IMadeThisModal } from '#app/components/recipe-i-made-this-modal.tsx'
 import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
 import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
@@ -501,13 +500,7 @@ function toShoppingItem(
 }
 
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
-	const {
-		recipe,
-		cookingLogs,
-		isProActive,
-		missingIngredientIds,
-		hasInventory,
-	} = loaderData
+	const { recipe, isProActive, missingIngredientIds, hasInventory } = loaderData
 	const rootData = useRouteLoaderData('root') as
 		| { requestInfo?: { origin?: string } }
 		| undefined
@@ -530,7 +523,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const shoppingFetcher = useFetcher({ key: 'add-to-shopping' })
 	const prevCookFetcherState = useRef(cookFetcher.state)
 	const [showIMadeThisModal, setShowIMadeThisModal] = useState(false)
-	const [historyExpanded, setHistoryExpanded] = useState(false)
 	const enhanceFetcher = useFetcher<{
 		error: string | null
 		suggestions: EnhanceableFields | null
@@ -736,7 +728,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				{/* Raw Text */}
 				{recipe.rawText && (
 					<div className="mt-6 print:hidden">
-						<div className="bg-card shadow-warm rounded-2xl border p-4">
+						<div className="bg-muted/40 rounded-lg p-4">
 							<p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
 								Recipe Notes
 							</p>
@@ -837,7 +829,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				<div className="mt-4 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8 print:grid-cols-1 print:gap-4">
 					{/* Ingredients - sticky on desktop, interactive checkboxes */}
 					<div className="md:sticky md:top-20 md:self-start print:static">
-						<div className="bg-card shadow-warm rounded-2xl border p-4 md:p-6 print:border-0 print:p-2 print:shadow-none">
+						<div className="print:p-2">
 							<div className="mb-3 flex items-center gap-2 md:mb-4">
 								<button
 									type="button"
@@ -921,39 +913,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						useMetric={useMetric}
 					/>
 				</div>
-
-				{/* Cooking History - collapsible */}
-				{cookingLogs.length > 0 ? (
-					<div className="mt-10 print:hidden">
-						<button
-							onClick={() => setHistoryExpanded((v) => !v)}
-							className="text-foreground mb-4 flex w-full items-center gap-2 text-left font-serif text-lg font-normal"
-						>
-							<Icon
-								name="chevron-down"
-								size="sm"
-								className={cn(
-									'text-muted-foreground transition-transform',
-									!historyExpanded && '-rotate-90',
-								)}
-							/>
-							Cooking History ({cookingLogs.length})
-						</button>
-						{historyExpanded && (
-							<div className="space-y-2">
-								{cookingLogs.map((log) => (
-									<CookingLogEntry key={log.id} log={log} />
-								))}
-							</div>
-						)}
-					</div>
-				) : (
-					<div className="mt-10 print:hidden">
-						<p className="text-muted-foreground text-sm">
-							You haven't cooked this yet. Give it a try!
-						</p>
-					</div>
-				)}
 
 				{/* Print-only source URL footer */}
 				{recipe.sourceUrl && (

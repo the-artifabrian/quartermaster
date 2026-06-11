@@ -74,11 +74,20 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 test('Recipe search and filter', async ({ page, login }) => {
 	const user = await login()
 
+	// Recipes are household-scoped, so DB-seeded recipes need a household
+	const household = await prisma.household.create({
+		data: {
+			name: 'Test Household',
+			members: { create: { userId: user.id, role: 'owner' } },
+		},
+	})
+
 	// Create a couple recipes via DB for speed
 	await prisma.recipe.create({
 		data: {
 			title: 'Spicy Thai Curry',
 			userId: user.id,
+			householdId: household.id,
 			servings: 4,
 			prepTime: 10,
 			cookTime: 25,
@@ -94,6 +103,7 @@ test('Recipe search and filter', async ({ page, login }) => {
 		data: {
 			title: 'Simple Green Salad',
 			userId: user.id,
+			householdId: household.id,
 			servings: 2,
 			ingredients: {
 				create: [{ name: 'lettuce', amount: '1', unit: 'head', order: 0 }],
@@ -111,6 +121,12 @@ test('Recipe search and filter', async ({ page, login }) => {
 	// Search
 	await page.getByPlaceholder(/search/i).fill('curry')
 	// Wait for search to update (URL param based)
+	await page.waitForTimeout(500)
+	await expect(page.getByText('Spicy Thai Curry')).toBeVisible()
+	await expect(page.getByText('Simple Green Salad')).not.toBeVisible()
+
+	// Multi-word search where the words aren't adjacent in the title
+	await page.getByPlaceholder(/search/i).fill('spicy curry')
 	await page.waitForTimeout(500)
 	await expect(page.getByText('Spicy Thai Curry')).toBeVisible()
 	await expect(page.getByText('Simple Green Salad')).not.toBeVisible()

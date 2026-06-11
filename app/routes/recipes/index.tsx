@@ -18,6 +18,7 @@ import {
 	matchRecipesWithInventory,
 	type RecipeMatch,
 } from '#app/utils/recipe-matching.server.ts'
+import { recipeSearchWhere } from '#app/utils/recipe-search.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
 
@@ -43,7 +44,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
 	const { isProActive } = await getUserTier(userId)
 	const url = new URL(request.url)
-	const search = url.searchParams.get('search') ?? ''
+	// Trim so a whitespace-only query counts as "no search" — otherwise it is
+	// truthy for hasFilters/UI but produces no filter terms.
+	const search = url.searchParams.get('search')?.trim() ?? ''
 	const explicitSort = url.searchParams.get('sort')
 	const sort = (explicitSort ?? 'recent') as SortOption
 	const quality = url.searchParams.get('quality') ?? ''
@@ -86,13 +89,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		where: {
 			householdId,
 			...(favoritesOnly && { isFavorite: true }),
-			...(search && {
-				OR: [
-					{ title: { contains: search } },
-					{ description: { contains: search } },
-					{ ingredients: { some: { name: { contains: search } } } },
-				],
-			}),
+			...(search && recipeSearchWhere(search)),
 		},
 		select: {
 			id: true,
@@ -286,7 +283,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 
 	const handleSearchChange = useDebounce((value: string) => {
 		const params = new URLSearchParams(searchParams)
-		if (value) {
+		if (value.trim()) {
 			params.set('search', value)
 		} else {
 			params.delete('search')

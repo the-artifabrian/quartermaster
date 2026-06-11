@@ -558,11 +558,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								cookTime={recipe.cookTime}
 								isFavorite={recipe.isFavorite}
 								isAiGenerated={recipe.isAiGenerated}
-								lastCookedAt={
-									recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null
-								}
-								cookCount={recipe._count.cookingLogs}
-								matchPercentage={matchLookup?.get(recipe.id)?.matchPercentage}
 							/>
 						))}
 					</RecipeCardGrid>
@@ -580,7 +575,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								className="text-muted-foreground/40 size-8"
 							/>
 						</div>
-						<h2 className="mt-4 text-xl font-semibold">
+						<h2 className="mt-4 font-serif text-xl font-normal">
 							Nothing matches those filters
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
@@ -600,7 +595,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
 							<Icon name="cookie" className="text-muted-foreground/40 size-8" />
 						</div>
-						<h2 className="mt-4 text-xl font-semibold">
+						<h2 className="mt-4 font-serif text-xl font-normal">
 							Your cookbook is empty
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">

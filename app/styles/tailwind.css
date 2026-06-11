@@ -360,6 +360,12 @@ html {
 	}
 }
 
+/* Cross-document/page view transitions: quick, quiet cross-fade */
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: 180ms;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	*,
 	::before,
@@ -368,5 +374,11 @@ html {
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
 		scroll-behavior: auto !important;
+	}
+
+	::view-transition-group(*),
+	::view-transition-old(*),
+	::view-transition-new(*) {
+		animation: none !important;
 	}
 }

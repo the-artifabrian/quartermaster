@@ -91,6 +91,7 @@ export function BottomNav() {
 							key={item.to}
 							to={linkTo}
 							prefetch="intent"
+							viewTransition
 							onClick={
 								isOnSubPage
 									? () => {

@@ -31,6 +31,7 @@ export function RecipeCard({
 	return (
 		<Link
 			to={`/recipes/${id}`}
+			viewTransition
 			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center px-4 py-3 transition-colors sm:px-8 md:flex-col md:items-stretch md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-all md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
 		>
 			{/* Image / Placeholder — desktop grid only */}

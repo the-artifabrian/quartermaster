@@ -18,6 +18,11 @@ the design.
    `decoration-2 decoration-muted-foreground/60` and text fade to 50% opacity. A
    pen-stroke `scaleX` animation was prototyped and dropped — not readable at
    arm's length.
+3. **Flat divided lists.** Content sits directly on the cream canvas — rows
+   separated by hairline dividers (`divide-y divide-border/40`) and small-caps
+   section labels (`sectionLabelClass` in `app/utils/misc.tsx`), never boxed
+   cards. Elevation belongs to overlays only; grouping uses quiet insets
+   (`bg-muted/40 rounded-lg`, no border or shadow).
 
 ---
 
@@ -40,11 +45,11 @@ Represents the user's voice, not the app's. Loaded via Google Fonts.
 | Use                      | Font        | Size             | Line height | Letter spacing |
 | ------------------------ | ----------- | ---------------- | ----------- | -------------- |
 | Landing hero             | Young Serif | 2.5rem (40px)    | 1.2         | -0.02em        |
-| Page title               | Young Serif | 2.25rem (36px)   | 1.15        | -0.02em        |
+| Page title               | Young Serif | 1.5rem (24px)    | 1.15        | -0.02em        |
 | Recipe detail title      | Young Serif | 2rem (32px)      | 1.15        | -0.02em        |
 | Section heading          | Young Serif | 1.5rem (24px)    | 1.3         | -0.01em        |
 | Recipe card title (grid) | Young Serif | 1.125rem (18px)  | 1.3         | -0.005em       |
-| Recipe card title (list) | Young Serif | 1rem (16px)      | 1.4         | 0              |
+| Recipe row title (list)  | Young Serif | 1.0625rem (17px) | 1.4         | 0              |
 | Ingredient amount/unit   | DM Sans 400 | 1rem (16px)      | 1.65        | 0              |
 | Body text                | DM Sans 400 | 1rem (16px)      | 1.65        | 0              |
 | Small body               | DM Sans 400 | 0.875rem (14px)  | 1.5         | 0              |
@@ -139,10 +144,15 @@ Dark:
 
 Copper marks "where you are" and "what matters now":
 
-- **Today's date** on the meal plan: 3px copper top-border
+- **Today's date** on the meal plan: copper dot beside the day name (mobile),
+  3px copper top-border (desktop)
 - **Active page** in navigation: copper indicator
 - **Favorite heart fill**: copper, not red
-- **"Up next" banner**: copper accent border
+- **"Up next" banner**: copper accent left edge
+
+The flip side of the rule: **sage is reserved for interactive elements**
+(buttons, links, checkboxes, the active tab icon) and **headings are always
+ink**. If something isn't clickable and isn't "now", it doesn't get a color.
 
 ---
 
@@ -155,7 +165,7 @@ Copper marks "where you are" and "what matters now":
 - Between sections: 48-64px
 - Page top padding: 16px (`py-4`). The spec's 32px/48px created excessive
   whitespace in an app context
-- Card internal padding: 20-24px
+- Inset group internal padding (`bg-muted/40`): 16-24px
 - Running text line-height: 1.5-1.7
 
 **Container widths:**
@@ -235,8 +245,10 @@ the longer end (280-300ms) for page-level reveals and list staggers.
   }
   ```
 
-- **Card borders**: 1px solid cedar. On hover, border warms slightly (shift
-  toward copper at 20% opacity).
+- **Hairline dividers**: rows in a list separate with
+  `divide-y divide-border/40` — no per-row borders, backgrounds, or shadows.
+  Desktop grid tiles are the one surface that keeps a 1px cedar border (hover
+  warms it toward copper); they never carry shadows.
 - **Image treatment**: 6px radius, 1px cedar border. Prefer slight letterboxing
   over aggressive cropping.
 - **Dividers**: Clean `<hr>` in cedar color. No hand-drawn SVG lines.
@@ -259,9 +271,13 @@ navigation; inline back links waste vertical space on mobile.
 
 ### Empty States & Onboarding
 
-**Empty recipe list** (`getting-started-checklist.tsx`): DM Sans, dashed-border
-card. Favor import CTAs (URL paste, bulk text) over blank-form creation. No
-illustrations, no Caveat.
+**Empty recipe list** (`getting-started-checklist.tsx`): a quiet inset
+(`bg-muted/40`, no border/shadow). Favor import CTAs (URL paste, bulk text) over
+blank-form creation. No illustrations, no Caveat.
+
+**Passive hints** (`onboarding-nudge.tsx`): a single muted line — bold ink
+lead-in, copper inline CTA, friendly text dismiss ("Got it"). No panel, no icon
+disc; hidden in print.
 
 **Empty Pantry** (`pantry-staples-onboarding.tsx`): common usually-on-hand items
 as tappable chips in a flat grid. Bulk-add so Pantry feels useful immediately.
@@ -375,33 +391,27 @@ own back-nav instead.
 
 Titles carry the visual weight in place of photos. Let them breathe.
 
-**Mobile (list view)**:
+**Mobile (list view)**: a full-bleed flat divided list, deliberately spare.
 
-- Recipe title in Young Serif at 16-17px. Allow wrapping to 2 lines before
-  truncating.
-- Description (if present) below in small DM Sans, muted, 1 line max.
-- Metadata (cook time, Pantry fit, or "needs X things") as tiny captions in
-  stone color. Prefer concrete missing-ingredient counts over match percentages.
-  If a percentage appears, keep it visually quiet and do not imply the recipe
-  can definitely be cooked without shopping.
-- 16px vertical padding per row. Subtle 1px cedar bottom border between rows.
-- Favorite: small copper heart to the right of the title.
-- If a recipe has an image: small thumbnail (48-56px) on the left.
-
-**No-image treatment**: Mobile list cards use a thin (3px) colored left border
-for visual variation. Desktop grid cards keep colored letter backgrounds as
-placeholder art. No-image cards get extra padding (`md:p-6` vs `md:p-5`) and an
-additional line of description (`md:line-clamp-3` vs 2) to fill the space.
+- Each row: recipe title in Young Serif at 17px (wraps to 2 lines before
+  truncating) + total time as a 13px stone caption when present + a small copper
+  heart when favorited. **Nothing else** — no match percentages, no cook counts,
+  no descriptions, no thumbnails, no colored edges. (Pantry-match data lives in
+  the "Nothing to buy" filter and on the recipe detail page, where it's
+  actionable.)
+- Rows are edge-to-edge (`max-md:-mx-4`, padding restored per row) with hairline
+  dividers; 12px vertical padding; `active:bg-muted/40` press state.
 
 **Desktop (grid view)**:
 
 - Two columns at `md`, three at `lg`.
-- **Cards with image**: Photo fills card top (4:3 ratio), 1px cedar border.
-  Title in Young Serif below. Cook time as tiny caption.
-- **Cards without image** (the default): Title in Young Serif at 18px, generous
-  padding, description gets more space.
-- Hover: shadow-hover transition, 180ms. Border warms slightly. If image, it
-  scales 1.02x.
+- **Tiles with image**: Photo fills tile top (4:3 ratio). Title in Young Serif
+  below. Cook time as tiny caption.
+- **Tiles without image** (the default): warm letter-block placeholder (warm
+  hash palette only — amber/emerald/rose/stone), title at 18px, description gets
+  more space (`md:line-clamp-3` vs 2, `md:p-6` vs `md:p-5`).
+- Tile chrome: `bg-card` + 1px cedar border at 8px radius. **No shadows, no
+  hover lift** — hover warms the border toward copper, images scale 1.02x.
 
 **Search and filters**: Search input at top, DM Sans placeholder. Filter pills
 (time, favorites, "Nothing to buy") below. Linen background, rounded.
@@ -441,11 +451,16 @@ for checkboxes.
 subtly warm background. Empty state: dashed border, DM Sans prompt "Add your
 notes...". Caveat only appears when notes exist.
 
-**Action bar**: Inline icon row below the description, shared by mobile and
-desktop. Mobile shows icon-only buttons (cook in emerald, favorite, edit, share,
-enhance) with an overflow menu for less common actions; desktop adds a text "I
-Made This" button and print. Serving scaler: simple +/- stepper in the
-ingredients card header.
+**Action bar**: one labeled sage **Cook** button (logs a cook via the
+I-Made-This flow) followed by favorite / plan / edit / share icon buttons and an
+overflow menu holding Print and Enhance. Same on every breakpoint; no emerald or
+violet accents. Serving scaler: simple +/- stepper in the ingredients section
+header.
+
+**Ingredients/instructions are flat sections** — no card wrapper around the
+ingredient list (the desktop column keeps its `md:sticky` behavior). Raw
+imported text sits in a quiet `bg-muted/40` inset. Cooking history is not
+rendered (logging, sorts, and the post-cook review all still run underneath).
 
 **Print view**: Young Serif titles + clean ingredient columns. No chrome, no
 colors. Ingredients in a tight two-column layout (amount | name). Instructions
@@ -455,22 +470,24 @@ numbered, compact line-height. Source URL as small footer text.
 
 ### 4. Meal Plan
 
-**Mobile**: Vertical day stack. Day name in Young Serif. Today highlighted with
-copper pill background and subtle ring. Meals in DM Sans, text-only, no
-thumbnails. Empty days: ghost "+" button. Past days faded (80% opacity).
+**Mobile**: Vertical day stack as a flat divided list (hairlines between days).
+Day name in Young Serif ink; today gets a copper dot beside the name — no pill,
+ring, or tinted box. Meals are flat rows under small-caps meal-type labels.
+Empty days: ghost "+" button.
 
-**Desktop**: 7-day grid. Each day is a warm card with Young Serif day header and
-generous padding. Today's card: 3px copper top-border.
+**Desktop**: 7-day grid of flat columns (no card chrome, no shadows). Young
+Serif day header; every column carries a 3px top border — cedar hairline
+normally, copper for today.
 
-**"Up next" banner**: Warm card at top (linen background). Tonight's meal with
-time and "Cook" action. Nothing planned: simple DM Sans suggestion.
+**"Up next" banner**: copper-left-edged linen band, only rendered when the week
+has meals. **Empty week**: a single quiet inline state (serif one-liner,
+suggestion woven into the sentence, one outline button) — never stacked banners.
 
-**Adding meals**: Inline dropdown with search, same on mobile and desktop. Opens
-below the meal slot, scrollable list partitioned into "Favorites" and "All
-Recipes" sections (headers shown when both groups exist). Each recipe shows a
-heart icon (favorites), cook count badge, and cook time. Weeknight sort (Mon-Thu
-quick recipes first) applied within each group. New meal fades in with
-element-reveal curve.
+**Adding meals**: Inline dropdown with search (a true overlay: `bg-card`,
+border, `shadow-warm-lg`, 12px radius). Partitioned into "Favorites" and "All
+Recipes"; each recipe shows a heart icon (favorites) and cook time — no cook
+count badges. Weeknight sort (Mon-Thu quick recipes first) applied within each
+group. New meal fades in with element-reveal curve.
 
 ---
 
@@ -485,7 +502,8 @@ element-reveal curve.
 - Checked items: standard `line-through` (2px stone color,
   `decoration-2 decoration-muted-foreground/60`). Text fades to 50% opacity.
 - 10px vertical padding per item, tighter than default for efficient scrolling
-  through long lists.
+  through long lists. Hairline dividers between rows (`divide-border/40`,
+  suppressed in print).
 
 **Progress**: Header counter: "Shopping List (3/10)". No progress bar.
 
@@ -495,8 +513,10 @@ updates but don't affect display.
 
 **Quick add**: Inline input at top on desktop (DM Sans placeholder "Add an
 item...", ghost + button). On mobile, a floating action button (FAB) in the
-bottom-right opens a small dialog with name input and optional qty/unit fields,
-designed for one-handed use at the store.
+bottom-right opens a **bottom sheet**: full-width, anchored above the tab bar at
+`bottom-[calc(4rem+env(safe-area-inset-bottom))]`,
+`rounded-t-xl border-t shadow-warm-lg` over a light scrim, with a labeled header
+and close button. The FAB hides while the sheet is open. Same pattern on Pantry.
 
 **Checked item actions**: Subtle footer slides up when items are checked:
 "Remember for next time" and "Clear checked" as text links.
@@ -534,16 +554,19 @@ When adding a screen not described above, start from these defaults:
 
 - **Container**: Pick the closest width from the set (480 / 880 / 1080px). When
   nothing fits, use 880px.
-- **Page title**: Young Serif, 2.25rem (36px). One title per page.
+- **Page title**: Young Serif, `text-2xl`, ink. One title per page.
 - **Body text**: DM Sans 400, 16px, line-height 1.65.
 - **Spacing**: 8px grid. 16px top padding (`py-4`). 24-32px between content
   groups.
-- **Cards**: Paper background, 1px cedar border, 8px radius, 20-24px internal
-  padding. Minimal shadow (shadow-rest).
+- **Lists**: flat rows + `divide-y divide-border/40`. Never per-row boxes.
+- **Grouping**: small-caps `sectionLabelClass` headers; when containment is
+  genuinely needed, a quiet inset (`bg-muted/40 rounded-lg`, no border/shadow).
+- **Overlays** (the only elevated things): `bg-card`, 12px radius,
+  `shadow-warm-md` (menus/popovers) or `shadow-warm-lg` (dialogs/sheets).
 - **Interactive elements**: Sage for primary actions, cedar borders on inputs,
-  200ms transitions.
-- **Warmth cues**: Paper background, `shadow-warm*` tokens, cedar borders. Avoid
-  cool greys and pure white.
+  8px radius, 200ms transitions, `active:scale-[0.98]`.
+- **Warmth cues**: Cream canvas, serif headings, copper "now" markers, cedar
+  hairlines, paper grain. Avoid cool greys and pure white.
 
 ---
 

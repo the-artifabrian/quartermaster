@@ -252,7 +252,7 @@ function MemberRow({
 	const fetcher = useFetcher<typeof action>()
 
 	return (
-		<li className="flex items-center justify-between rounded-lg border p-3">
+		<li className="bg-muted/40 flex items-center justify-between rounded-lg p-3">
 			<div>
 				<p className="font-medium">
 					{member.user.name ?? member.user.username}
@@ -308,7 +308,7 @@ function InviteSection({
 			</createFetcher.Form>
 
 			{newToken ? (
-				<div className="border-primary/30 bg-primary/10 mt-4 rounded-lg border p-4">
+				<div className="bg-primary/10 mt-4 rounded-md p-4">
 					<p className="mb-2 text-sm font-medium">
 						Invite link created! Share this link:
 					</p>
@@ -356,7 +356,7 @@ function InviteRow({
 	const fetcher = useFetcher<typeof action>()
 
 	return (
-		<div className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center">
+		<div className="bg-muted/40 flex flex-col gap-3 rounded-lg p-3 sm:flex-row sm:items-center">
 			<div className="min-w-0 flex-1">
 				<code className="text-xs">{invite.token.slice(0, 8)}...</code>
 				<p className="text-muted-foreground text-xs">

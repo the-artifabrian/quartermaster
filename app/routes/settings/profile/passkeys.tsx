@@ -151,7 +151,7 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 					{loaderData.passkeys.map((passkey) => (
 						<li
 							key={passkey.id}
-							className="border-muted-foreground flex items-center justify-between gap-4 rounded-lg border p-4"
+							className="bg-muted/40 flex items-center justify-between gap-4 rounded-lg p-4"
 						>
 							<div className="flex flex-col gap-2">
 								<div className="flex items-center gap-2">

@@ -96,7 +96,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 			{/* Profile Banner */}
 			<Link
 				to="edit"
-				className="bg-card hover:bg-accent/5 flex items-center gap-4 rounded-xl border p-4 transition-colors"
+				className="bg-muted/40 hover:bg-muted/60 flex items-center gap-4 rounded-lg p-4 transition-colors"
 			>
 				<div
 					className="bg-accent/20 text-accent-foreground flex size-16 shrink-0 items-center justify-center rounded-full text-xl font-bold"
@@ -226,7 +226,7 @@ function SettingsSection({
 					{label}
 				</h3>
 			) : null}
-			<div className="bg-card divide-border divide-y overflow-hidden rounded-xl border">
+			<div className="bg-muted/40 divide-border/50 divide-y overflow-hidden rounded-lg">
 				{children}
 			</div>
 		</div>

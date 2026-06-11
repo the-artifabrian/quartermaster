@@ -561,7 +561,7 @@ export default function ImportData() {
 			{/* Phase 3: Results */}
 			{results ? (
 				<div className="space-y-4">
-					<div className="bg-card shadow-warm rounded-xl border p-6">
+					<div className="bg-muted/40 rounded-lg p-6">
 						<h2 className="mb-4 text-lg font-semibold">Import Complete</h2>
 						<div className="space-y-3">
 							<ResultRow
@@ -614,7 +614,7 @@ export default function ImportData() {
 			) : (
 				<>
 					{/* Phase 1: Upload */}
-					<div className="bg-card shadow-warm rounded-xl border p-6">
+					<div className="bg-muted/40 rounded-lg p-6">
 						<label className="block">
 							<span className="text-sm font-medium">Select export file</span>
 							<input
@@ -642,7 +642,7 @@ export default function ImportData() {
 					{/* Phase 2: Preview */}
 					{preview && (
 						<div className="mt-4 space-y-4">
-							<div className="bg-card shadow-warm rounded-xl border p-6">
+							<div className="bg-muted/40 rounded-lg p-6">
 								<h2 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
 									{preview.isFullExport ? 'Full Export' : 'Recipe-Only Export'}
 								</h2>

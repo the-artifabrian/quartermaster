@@ -90,7 +90,7 @@ export function ShoppingListToInventory({
 	}
 
 	return (
-		<div className="border-border/50 bg-secondary/30 rounded-xl border p-5">
+		<div className="bg-muted/40 rounded-lg p-5">
 			<div className="mb-4">
 				<h3 className="font-serif text-lg font-normal">
 					Remember for next time

@@ -111,12 +111,23 @@ export function MobileFabAdd({
 		<div className="md:hidden print:hidden">
 			{open && (
 				<div
-					className="fixed inset-0 z-40"
+					className="fixed inset-0 z-40 bg-black/15"
 					onClick={() => onOpenChange(false)}
 				/>
 			)}
 			{open && (
-				<div className="fixed bottom-[9rem] right-4 z-50 w-[calc(100vw-2rem)] max-w-xs animate-fade-up-reveal rounded-xl border border-border/60 bg-card p-3 shadow-warm-lg">
+				<div className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-50 rounded-t-xl border-t p-4">
+					<div className="mb-2 flex items-center justify-between">
+						<span className="text-sm font-medium">Add to list</span>
+						<button
+							type="button"
+							onClick={() => onOpenChange(false)}
+							className="text-muted-foreground hover:text-foreground -m-1 p-1"
+							aria-label="Close"
+						>
+							<Icon name="cross-1" size="sm" />
+						</button>
+					</div>
 					<fetcher.Form
 						method="POST"
 						onSubmit={(e) => {
@@ -132,7 +143,7 @@ export function MobileFabAdd({
 								value={name}
 								onChange={(e) => setName(e.target.value)}
 								placeholder="Add an item..."
-								className="h-10 min-w-0 flex-1 rounded-lg border border-border/50 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/20"
+								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-10 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-sm outline-none focus:ring-1"
 							/>
 							{isProActive && (
 								<button
@@ -142,7 +153,7 @@ export function MobileFabAdd({
 									className={cn(
 										'flex size-10 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50',
 										isRecording
-											? 'animate-pulse bg-destructive text-destructive-foreground'
+											? 'bg-destructive text-destructive-foreground animate-pulse'
 											: 'bg-muted text-muted-foreground',
 									)}
 									aria-label={
@@ -163,7 +174,7 @@ export function MobileFabAdd({
 							<button
 								type="submit"
 								disabled={!name.trim() || fetcher.state !== 'idle'}
-								className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"
+								className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-full disabled:opacity-50"
 							>
 								<Icon name="plus" className="size-5" />
 							</button>
@@ -176,14 +187,14 @@ export function MobileFabAdd({
 									value={quantity}
 									onChange={(e) => setQuantity(e.target.value)}
 									placeholder="Qty"
-className="h-8 w-16 rounded-lg border border-border/50 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30"
+									className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-8 w-16 rounded-lg border bg-transparent px-2 text-sm outline-none"
 								/>
 								<input
 									name="unit"
 									value={unit}
 									onChange={(e) => setUnit(e.target.value)}
 									placeholder="Unit"
-									className="h-8 min-w-0 flex-1 rounded-lg border border-border/50 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30"
+									className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-8 min-w-0 flex-1 rounded-lg border bg-transparent px-2 text-sm outline-none"
 								/>
 								<button
 									type="button"
@@ -192,7 +203,7 @@ className="h-8 w-16 rounded-lg border border-border/50 bg-transparent px-2 text-
 										setShowQty(false)
 										inputRef.current?.focus()
 									}}
-									className="shrink-0 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+									className="text-muted-foreground/60 hover:text-muted-foreground shrink-0 text-xs"
 								>
 									Hide
 								</button>
@@ -204,7 +215,7 @@ className="h-8 w-16 rounded-lg border border-border/50 bg-transparent px-2 text-
 									e.preventDefault()
 									setShowQty(true)
 								}}
-								className="mt-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+								className="text-muted-foreground/60 hover:text-muted-foreground mt-1.5 text-xs"
 							>
 								+ Qty &amp; unit
 							</button>
@@ -212,19 +223,16 @@ className="h-8 w-16 rounded-lg border border-border/50 bg-transparent px-2 text-
 					</fetcher.Form>
 				</div>
 			)}
-			<button
-				type="button"
-				className={cn(
-					'fixed bottom-[5.5rem] right-4 z-50 flex size-12 items-center justify-center rounded-full shadow-warm-md transition-all active:scale-95',
-					open
-						? 'bg-muted text-muted-foreground'
-						: 'bg-primary text-primary-foreground',
-				)}
-				aria-label={open ? 'Close' : 'Add item'}
-				onClick={() => onOpenChange(!open)}
-			>
-				<Icon name={open ? 'cross-1' : 'plus'} className="size-6" />
-			</button>
+			{!open && (
+				<button
+					type="button"
+					className="bg-primary text-primary-foreground shadow-warm-md fixed right-4 bottom-[5.5rem] z-50 flex size-12 items-center justify-center rounded-full transition-all active:scale-95"
+					aria-label="Add item"
+					onClick={() => onOpenChange(true)}
+				>
+					<Icon name="plus" className="size-6" />
+				</button>
+			)}
 		</div>
 	)
 }

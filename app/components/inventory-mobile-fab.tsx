@@ -123,12 +123,23 @@ export function InventoryMobileFab({
 		<div className="md:hidden print:hidden">
 			{open && (
 				<div
-					className="fixed inset-0 z-40"
+					className="fixed inset-0 z-40 bg-black/15"
 					onClick={() => onOpenChange(false)}
 				/>
 			)}
 			{open && (
-				<div className="animate-fade-up-reveal border-border/60 bg-card shadow-warm-lg fixed right-4 bottom-[9rem] z-50 w-[calc(100vw-2rem)] max-w-xs rounded-xl border p-3">
+				<div className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-50 rounded-t-xl border-t p-4">
+					<div className="mb-2 flex items-center justify-between">
+						<span className="text-sm font-medium">Add to Pantry</span>
+						<button
+							type="button"
+							onClick={() => onOpenChange(false)}
+							className="text-muted-foreground hover:text-foreground -m-1 p-1"
+							aria-label="Close"
+						>
+							<Icon name="cross-1" size="sm" />
+						</button>
+					</div>
 					<fetcher.Form
 						method="POST"
 						onSubmit={(e) => {
@@ -182,7 +193,7 @@ export function InventoryMobileFab({
 					</fetcher.Form>
 
 					{isDuplicateWarning && fetcher.data?.existingItem && (
-						<div className="bg-accent/10 mt-2 rounded-lg p-3">
+						<div className="bg-accent/10 mt-2 rounded-md p-3">
 							<p className="text-sm">
 								You already have{' '}
 								<strong>{fetcher.data.existingItem.name}</strong> in your
@@ -210,19 +221,16 @@ export function InventoryMobileFab({
 					)}
 				</div>
 			)}
-			<button
-				type="button"
-				className={cn(
-					'shadow-warm-md fixed right-4 bottom-[5.5rem] z-50 flex size-12 items-center justify-center rounded-full transition-all active:scale-95',
-					open
-						? 'bg-muted text-muted-foreground'
-						: 'bg-primary text-primary-foreground',
-				)}
-				aria-label={open ? 'Close' : 'Add item'}
-				onClick={() => onOpenChange(!open)}
-			>
-				<Icon name={open ? 'cross-1' : 'plus'} className="size-6" />
-			</button>
+			{!open && (
+				<button
+					type="button"
+					className="shadow-warm-md bg-primary text-primary-foreground fixed right-4 bottom-[5.5rem] z-50 flex size-12 items-center justify-center rounded-full transition-all active:scale-95"
+					aria-label="Add item"
+					onClick={() => onOpenChange(true)}
+				>
+					<Icon name="plus" className="size-6" />
+				</button>
+			)}
 		</div>
 	)
 }

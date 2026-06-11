@@ -2,7 +2,13 @@ import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Form, Link, useFetcher, useFetchers, useRevalidator } from 'react-router'
+import {
+	Form,
+	Link,
+	useFetcher,
+	useFetchers,
+	useRevalidator,
+} from 'react-router'
 import { toast } from 'sonner'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
@@ -896,7 +902,7 @@ export default function ShoppingListRoute({
 								</button>
 							</div>
 						) : (
-							<div>
+							<div className="divide-border/40 divide-y print:divide-y-0">
 								{filteredItems.map((item) => (
 									<ShoppingListItemCard
 										key={item.id}

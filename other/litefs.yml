@@ -29,6 +29,14 @@ lease:
     key: 'epic-stack-litefs_20250222/${FLY_APP_NAME}'
 
 exec:
+  # Prisma's schema engine always opens SQLite with locking_mode=EXCLUSIVE
+  # (prisma-engines#4675), which LiteFS rejects on a WAL-mode database
+  # (litefs#425) — applying any migration crash-loops the boot. Exclusive
+  # locking IS compatible with a rollback journal, so switch to DELETE for
+  # the migration step; WAL is restored below before the app starts.
+  - cmd: sqlite3 $DATABASE_PATH "PRAGMA journal_mode = DELETE;"
+    if-candidate: true
+
   - cmd: bunx prisma migrate deploy
     if-candidate: true
 

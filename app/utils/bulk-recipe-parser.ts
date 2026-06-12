@@ -1,8 +1,13 @@
-import { parseIngredient } from './ingredient-parser.ts'
+import {
+	detectIngredientHeading,
+	isAllCapsHouseStyle,
+	parseIngredient,
+} from './ingredient-parser.ts'
 
 export type ParsedRecipe = {
 	title: string
 	description?: string
+	servings?: number
 	ingredients: Array<{
 		name: string
 		amount?: string
@@ -16,6 +21,70 @@ export type ParsedRecipe = {
 
 const HEADING_PATTERN =
 	/^(ingredients|instructions|directions|steps|method|preparation)\s*:?\s*$/i
+
+// Trailing "(Serves 2)" / "— serves 4" on a recipe title
+const TITLE_SERVES_PATTERN =
+	/\s*(?:\(\s*serves\s+(\d+)(?:\s*[-–]\s*\d+)?\s*\)|[,—–-]\s*serves\s+(\d+)(?:\s*[-–]\s*\d+)?)\s*$/i
+
+// A standalone metadata line: "Serves 4", "Servings: 4", "Yield: 4 servings"
+const SERVES_LINE_PATTERN =
+	/^(?:serves|servings|yield|makes)\s*:?\s+(?:about\s+|approximately\s+)?(\d+)(?:\s*[-–]\s*\d+)?(?:\s+(?:servings?|people|portions?))?\s*\.?$/i
+
+/**
+ * Pull a trailing "(Serves N)" out of a recipe title. Returns the stripped
+ * title and the servings count, or the original title with null when the
+ * title doesn't carry one. An imported "(serves 2)" left in the title while
+ * the stepper defaults to 4 silently breaks scaling trust.
+ */
+export function extractServingsFromTitle(title: string): {
+	title: string
+	servings: number | null
+} {
+	const match = title.match(TITLE_SERVES_PATTERN)
+	if (!match) return { title, servings: null }
+	const value = parseInt(match[1] ?? match[2] ?? '', 10)
+	const stripped = title.slice(0, match.index).trim()
+	if (!stripped || !value || value < 1 || value > 100) {
+		return { title, servings: null }
+	}
+	return { title: stripped, servings: value }
+}
+
+function matchServesLine(line: string): number | null {
+	const match = line.match(SERVES_LINE_PATTERN)
+	if (!match) return null
+	const value = parseInt(match[1]!, 10)
+	return value >= 1 && value <= 100 ? value : null
+}
+
+const STEP_TRAILING_NUMBER = /\d(?:[\d.,/]*\d)?\s*°?$/
+const STEP_LEADING_UNIT =
+	/^(?:°\s*)?(?:F|C|Fahrenheit|Celsius|degrees?|minutes?|mins?|hours?|hrs?|seconds?|secs?|grams?|g|kg|ml|liters?|litres?|l|oz|ounces?|lbs?|pounds?|cups?|tablespoons?|tbsps?|teaspoons?|tsps?)\b/i
+
+/**
+ * Re-join instruction steps that were split in the middle of a number+unit
+ * pair ("Preheat oven to 350" ⏎ "F / 180 C"). A step ending in a bare number
+ * (no closing punctuation) followed by a step starting with a unit token is
+ * one sentence broken across a line break, not two steps.
+ */
+export function joinBrokenUnitSteps(
+	steps: Array<{ content: string }>,
+): Array<{ content: string }> {
+	const result: Array<{ content: string }> = []
+	for (const step of steps) {
+		const prev = result[result.length - 1]
+		if (
+			prev &&
+			STEP_TRAILING_NUMBER.test(prev.content) &&
+			STEP_LEADING_UNIT.test(step.content)
+		) {
+			prev.content = `${prev.content} ${step.content}`
+		} else {
+			result.push({ ...step })
+		}
+	}
+	return result
+}
 
 /**
  * Split a block of text into multiple recipes separated by `---` lines.
@@ -137,15 +206,30 @@ export function parseRecipeText(text: string): ParsedRecipe {
 		warnings.push('No title found')
 	}
 
-	// Description: non-empty lines between title and first heading
+	// "Pho (Serves 2)" → title "Pho", servings 2
+	let servings: number | undefined
+	if (title) {
+		const extracted = extractServingsFromTitle(title)
+		if (extracted.servings !== null) {
+			title = extracted.title
+			servings = extracted.servings
+		}
+	}
+
+	// Description: non-empty lines between title and first heading.
+	// Standalone "Serves 4" lines are metadata, not description.
 	let description: string | undefined
 	if (titleIndex >= 0 && firstHeadingIndex > titleIndex + 1) {
 		const descLines: string[] = []
 		for (let i = titleIndex + 1; i < firstHeadingIndex; i++) {
 			const trimmed = lines[i]!.trim()
-			if (trimmed) {
-				descLines.push(trimmed)
+			if (!trimmed) continue
+			const servesValue = matchServesLine(trimmed)
+			if (servesValue !== null) {
+				servings ??= servesValue
+				continue
 			}
+			descLines.push(trimmed)
 		}
 		if (descLines.length > 0) {
 			description = descLines.join(' ')
@@ -178,12 +262,25 @@ export function parseRecipeText(text: string): ParsedRecipe {
 	if (ingredientSectionIndex >= 0) {
 		const ingredientLines = getSectionLines(ingredientSectionIndex)
 		const usesBullets = ingredientLines.some(hasBulletPrefix)
+		// When the whole list is caps, caps is house style, not structure
+		const allCapsIsHeading = !isAllCapsHouseStyle(
+			ingredientLines.map(stripBullet),
+		)
 		let currentHeading: string | undefined
 
 		for (const line of ingredientLines) {
+			// "Serves 4" inside the ingredient list is metadata, not an ingredient
+			const servesValue = matchServesLine(stripBullet(line))
+			if (servesValue !== null) {
+				servings ??= servesValue
+				continue
+			}
+
 			// In bulleted sections, non-bulleted lines are sub-headers
 			if (usesBullets && !hasBulletPrefix(line)) {
-				const heading = line.replace(/:$/, '').trim()
+				const heading =
+					detectIngredientHeading(line, { allCapsIsHeading }) ??
+					line.replace(/:$/, '').trim()
 				if (heading) {
 					currentHeading = heading
 					ingredients.push({ name: heading, isHeading: true })
@@ -193,6 +290,16 @@ export function parseRecipeText(text: string): ParsedRecipe {
 
 			const stripped = stripBullet(line)
 			if (!stripped) continue
+
+			// Heading-ish lines ("For the crust:", "PIE DOUGH") become headings
+			// even when the source bullets them like ingredients
+			const heading = detectIngredientHeading(stripped, { allCapsIsHeading })
+			if (heading) {
+				currentHeading = heading
+				ingredients.push({ name: heading, isHeading: true })
+				continue
+			}
+
 			// Skip lines that are clearly not ingredients (paragraph-length text)
 			if (stripped.length > 200) {
 				warnings.push(
@@ -235,15 +342,21 @@ export function parseRecipeText(text: string): ParsedRecipe {
 		}
 	}
 
-	if (instructions.length === 0) {
+	const joinedInstructions = joinBrokenUnitSteps(instructions)
+	if (joinedInstructions.length < instructions.length) {
+		warnings.push('Joined steps that were split mid-measurement')
+	}
+
+	if (joinedInstructions.length === 0) {
 		warnings.push('No instructions found')
 	}
 
 	return {
 		title,
 		description,
+		servings,
 		ingredients,
-		instructions,
+		instructions: joinedInstructions,
 		warnings,
 	}
 }

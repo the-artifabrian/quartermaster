@@ -18,9 +18,15 @@ import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
 import { checkAndRecordAiUsage } from '#app/utils/ai-rate-limit.server.ts'
-import { parseRecipeText } from '#app/utils/bulk-recipe-parser.ts'
+import {
+	extractServingsFromTitle,
+	joinBrokenUnitSteps,
+	parseRecipeText,
+} from '#app/utils/bulk-recipe-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
+	detectIngredientHeading,
+	isAllCapsHouseStyle,
 	parseIngredient,
 	parseISODuration,
 } from '#app/utils/ingredient-parser.server.ts'
@@ -132,7 +138,8 @@ function parseServings(value: unknown): number {
 	if (!value) return 4
 	const str = Array.isArray(value) ? value[0] : String(value)
 	const match = String(str).match(/\d+/)
-	return match ? parseInt(match[0], 10) : 4
+	// Clamp — a recipeYield of "0" would otherwise divide-by-zero the scaler
+	return match ? Math.min(100, Math.max(1, parseInt(match[0], 10))) : 4
 }
 
 /** Decode HTML entities and strip tags from JSON-LD text values */
@@ -206,18 +213,35 @@ function extractRecipe(
 	url: string,
 ): ExtractedRecipe {
 	const rawIngredients = (jsonLd.recipeIngredient as string[]) || []
-	const ingredients = rawIngredients
-		.map((line) => parseIngredient(cleanJsonLdText(line)))
+	const cleanedLines = rawIngredients.map(cleanJsonLdText)
+	// When the whole list is caps, caps is house style, not structure
+	const allCapsIsHeading = !isAllCapsHouseStyle(cleanedLines)
+	const ingredients = cleanedLines
+		.map((cleaned) => {
+			// Sites stuff sub-section headers ("For the crust") into
+			// recipeIngredient — keep them as headings, not fake ingredients
+			const heading = detectIngredientHeading(cleaned, { allCapsIsHeading })
+			if (heading) return { name: heading, isHeading: true }
+			return parseIngredient(cleaned)
+		})
 		.filter((ing): ing is NonNullable<typeof ing> => ing !== null)
 
-	const instructions = parseInstructions(jsonLd.recipeInstructions)
+	const instructions = joinBrokenUnitSteps(
+		parseInstructions(jsonLd.recipeInstructions),
+	)
+
+	const { title, servings: titleServings } = extractServingsFromTitle(
+		cleanJsonLdText(String(jsonLd.name || 'Untitled Recipe')),
+	)
 
 	return {
-		title: cleanJsonLdText(String(jsonLd.name || 'Untitled Recipe')),
+		title,
 		description: jsonLd.description
 			? cleanJsonLdText(String(jsonLd.description))
 			: null,
-		servings: parseServings(jsonLd.recipeYield),
+		servings: jsonLd.recipeYield
+			? parseServings(jsonLd.recipeYield)
+			: (titleServings ?? 4),
 		prepTime: jsonLd.prepTime
 			? (parseISODuration(String(jsonLd.prepTime)) ?? null)
 			: null,
@@ -544,7 +568,7 @@ export async function action({ request }: Route.ActionArgs) {
 		const recipe: ExtractedRecipe = {
 			title: parsed.title || 'Untitled Recipe',
 			description: parsed.description || null,
-			servings: 4,
+			servings: parsed.servings ?? 4,
 			prepTime: null,
 			cookTime: null,
 			sourceUrl: sourceUrl || '',
@@ -736,10 +760,15 @@ export async function action({ request }: Route.ActionArgs) {
 			)
 		}
 
+		// The model can leave "(Serves 2)" in the title while defaulting
+		// servings — the title's own number is authoritative
+		const { title: llmTitle, servings: llmTitleServings } =
+			extractServingsFromTitle(llmResult.title)
+
 		const recipe: ExtractedRecipe = {
-			title: llmResult.title,
+			title: llmTitle,
 			description: llmResult.description,
-			servings: llmResult.servings,
+			servings: llmTitleServings ?? llmResult.servings,
 			prepTime: llmResult.prepTime,
 			cookTime: llmResult.cookTime,
 			sourceUrl: '',
@@ -943,7 +972,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	const [activeTab, setActiveTab] = useState<ImportTab>(defaultTab)
 
 	return (
-		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
+		<div className="container max-w-2xl py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
 			<h1 className="mb-2 font-serif text-2xl font-normal">Import Recipe</h1>
 			<p className="text-muted-foreground mb-6">
 				Import a recipe from a URL, paste text, or upload screenshots.

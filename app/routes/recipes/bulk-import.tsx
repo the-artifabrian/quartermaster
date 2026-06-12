@@ -34,11 +34,13 @@ const BulkImportIngredientSchema = z.object({
 	amount: z.string().max(50).optional(),
 	unit: z.string().max(50).optional(),
 	notes: z.string().max(500).optional(),
+	isHeading: z.boolean().optional(),
 })
 
 const BulkImportRecipeSchema = z.object({
 	title: z.string().min(1).max(100),
 	description: z.string().max(500).optional(),
+	servings: z.number().int().min(1).max(100).optional(),
 	ingredients: z.array(BulkImportIngredientSchema).max(200),
 	instructions: z
 		.array(z.object({ content: z.string().min(1).max(5000) }))
@@ -115,6 +117,7 @@ export async function action({ request }: Route.ActionArgs) {
 				data: {
 					title: recipe.title,
 					description: recipe.description || null,
+					servings: recipe.servings,
 					userId,
 					householdId,
 					ingredients: {
@@ -123,6 +126,7 @@ export async function action({ request }: Route.ActionArgs) {
 							amount: ing.amount || null,
 							unit: ing.unit || null,
 							notes: ing.notes || null,
+							isHeading: ing.isHeading ?? false,
 							order,
 						})),
 					},
@@ -245,6 +249,7 @@ export default function BulkImport() {
 		const payload = validPreviews.map((p) => ({
 			title: p.title,
 			description: p.description,
+			servings: p.servings,
 			ingredients: p.ingredients,
 			instructions: p.instructions,
 		}))
@@ -254,7 +259,7 @@ export default function BulkImport() {
 	}
 
 	return (
-		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
+		<div className="container max-w-2xl py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
 			<h1 className="mb-2 font-serif text-2xl font-normal">Bulk Import</h1>
 			<p className="text-muted-foreground mb-6">
 				Upload{' '}

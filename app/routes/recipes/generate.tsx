@@ -14,6 +14,7 @@ import {
 	checkAndRecordAiUsage,
 	getAiUsageRemaining,
 } from '#app/utils/ai-rate-limit.server.ts'
+import { extractServingsFromTitle } from '#app/utils/bulk-recipe-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	AI_FEATURE_USED,
@@ -134,12 +135,18 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	if (intent === 'save') {
-		const title = formData.get('title') as string
-		const description = (formData.get('description') as string) || null
-		const servings = Math.min(
-			999,
-			Math.max(1, parseInt(formData.get('servings') as string, 10) || 4),
+		// The model occasionally bakes "(Serves N)" into the title — strip
+		// it into servings, matching the import paths
+		const { title, servings: titleServings } = extractServingsFromTitle(
+			(formData.get('title') as string) || '',
 		)
+		const description = (formData.get('description') as string) || null
+		const servings =
+			titleServings ??
+			Math.min(
+				999,
+				Math.max(1, parseInt(formData.get('servings') as string, 10) || 4),
+			)
 		const prepTime = formData.get('prepTime')
 			? Math.min(
 					1440,
@@ -255,7 +262,7 @@ export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
 	const hasRecipe = recipe && !error
 
 	return (
-		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
+		<div className="container max-w-2xl py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
 			<div className="mb-6 flex items-center gap-2">
 				<Icon name="sparkles" className="text-accent h-6 w-6" />
 				<h1 className="font-serif text-2xl font-normal">Generate Recipe</h1>

@@ -1,8 +1,85 @@
 import { describe, expect, test } from 'vitest'
 import {
+	detectIngredientHeading,
+	isAllCapsHouseStyle,
 	parseIngredient,
 	parseISODuration,
 } from './ingredient-parser.server.ts'
+
+describe('detectIngredientHeading', () => {
+	test('detects "For the …" lines and drops the prefix', () => {
+		expect(detectIngredientHeading('For the crust')).toBe('Crust')
+		expect(detectIngredientHeading('For the filling:')).toBe('Filling')
+		expect(detectIngredientHeading('For frying')).toBe('Frying')
+	})
+
+	test('detects trailing-colon lines with no amount', () => {
+		expect(detectIngredientHeading('Topping:')).toBe('Topping')
+		expect(detectIngredientHeading('Pie Dough:')).toBe('Pie Dough')
+	})
+
+	test('detects short all-caps lines', () => {
+		expect(detectIngredientHeading('PIE DOUGH')).toBe('PIE DOUGH')
+		expect(detectIngredientHeading('STREUSEL')).toBe('STREUSEL')
+	})
+
+	test('rejects lines carrying an amount', () => {
+		expect(detectIngredientHeading('2 cups flour')).toBeNull()
+		expect(detectIngredientHeading('½ tsp salt')).toBeNull()
+		expect(detectIngredientHeading('Zest of 1 lemon:')).toBeNull()
+	})
+
+	test('rejects ordinary ingredient lines', () => {
+		expect(detectIngredientHeading('salt')).toBeNull()
+		expect(detectIngredientHeading('Lime wedges, for serving')).toBeNull()
+		expect(detectIngredientHeading('Oil for frying')).toBeNull()
+		expect(detectIngredientHeading('For serving: lime wedges')).toBeNull()
+	})
+
+	test('rejects long all-caps lines (shouty sites)', () => {
+		expect(detectIngredientHeading('SALT AND PEPPER TO TASTE')).toBeNull()
+	})
+
+	test('rejects empty and over-long lines', () => {
+		expect(detectIngredientHeading('')).toBeNull()
+		expect(detectIngredientHeading('x'.repeat(61) + ':')).toBeNull()
+	})
+
+	test('allCapsIsHeading: false disables only the all-caps rule', () => {
+		const opts = { allCapsIsHeading: false }
+		expect(detectIngredientHeading('SALT', opts)).toBeNull()
+		expect(detectIngredientHeading('OLIVE OIL', opts)).toBeNull()
+		// Explicit signals still fire on all-caps sources
+		expect(detectIngredientHeading('FOR THE SAUCE', opts)).toBe('SAUCE')
+		expect(detectIngredientHeading('TOPPING:', opts)).toBe('TOPPING')
+	})
+})
+
+describe('isAllCapsHouseStyle', () => {
+	test('detects a list written entirely in caps', () => {
+		expect(
+			isAllCapsHouseStyle(['SALT', 'PEPPER', '1 CUP FLOUR', '2 EGGS']),
+		).toBe(true)
+	})
+
+	test('mixed-case list with a few caps headings is not house style', () => {
+		expect(
+			isAllCapsHouseStyle([
+				'SAUCE',
+				'2 tbsp soy sauce',
+				'1 tsp sesame oil',
+				'NOODLES',
+				'200g rice noodles',
+				'1 carrot, julienned',
+			]),
+		).toBe(false)
+	})
+
+	test('needs at least three lines with letters to judge', () => {
+		expect(isAllCapsHouseStyle(['SALT', 'PEPPER'])).toBe(false)
+		expect(isAllCapsHouseStyle([])).toBe(false)
+	})
+})
 
 describe('parseIngredient', () => {
 	test('parses standard "amount unit name" format', () => {
@@ -468,14 +545,14 @@ describe('parseIngredient', () => {
 
 	// Fix 5: Leading parenthetical equivalents
 	test('extracts leading parenthetical: "2 cups (about 8 ounces) shredded cheddar"', () => {
-		expect(
-			parseIngredient('2 cups (about 8 ounces) shredded cheddar'),
-		).toEqual({
-			name: 'shredded cheddar',
-			amount: '2',
-			unit: 'cups',
-			notes: 'about 8 ounces',
-		})
+		expect(parseIngredient('2 cups (about 8 ounces) shredded cheddar')).toEqual(
+			{
+				name: 'shredded cheddar',
+				amount: '2',
+				unit: 'cups',
+				notes: 'about 8 ounces',
+			},
+		)
 	})
 
 	// Fix 6: "Juice of" / "Zest of" patterns
@@ -534,9 +611,7 @@ describe('parseIngredient', () => {
 	// Fix 8: extractTrailingParenthetical in nested match path
 	test('nested match with trailing parenthetical: "1 (15 oz) can black beans (rinsed and drained)"', () => {
 		expect(
-			parseIngredient(
-				'1 (15 oz) can black beans (rinsed and drained)',
-			),
+			parseIngredient('1 (15 oz) can black beans (rinsed and drained)'),
 		).toEqual({
 			name: 'black beans',
 			amount: '1',
@@ -557,9 +632,7 @@ describe('parseIngredient', () => {
 
 	// Edge case: fl oz with comma notes
 	test('fl oz with comma notes: "2 fl oz lime juice, freshly squeezed"', () => {
-		expect(
-			parseIngredient('2 fl oz lime juice, freshly squeezed'),
-		).toEqual({
+		expect(parseIngredient('2 fl oz lime juice, freshly squeezed')).toEqual({
 			name: 'lime juice',
 			amount: '2',
 			unit: 'fl oz',
@@ -627,14 +700,14 @@ describe('parseIngredient', () => {
 
 	// Embedded parenthetical extraction
 	test('extracts embedded parenthetical: "2 whole (8 ounces each) boneless chicken"', () => {
-		expect(
-			parseIngredient('2 whole (8 ounces each) boneless chicken'),
-		).toEqual({
-			name: 'whole boneless chicken',
-			amount: '2',
-			unit: undefined,
-			notes: '8 ounces each',
-		})
+		expect(parseIngredient('2 whole (8 ounces each) boneless chicken')).toEqual(
+			{
+				name: 'whole boneless chicken',
+				amount: '2',
+				unit: undefined,
+				notes: '8 ounces each',
+			},
+		)
 	})
 
 	// Adjective comma lists should stay in name
@@ -654,9 +727,7 @@ describe('parseIngredient', () => {
 	// Broken parenthetical fragments from poorly-formatted JSON-LD
 	test('fixes broken paren fragments: "chicken cutlets, sliced thin), (approx."', () => {
 		expect(
-			parseIngredient(
-				'1 1/2 lbs chicken cutlets, sliced thin), (approx.',
-			),
+			parseIngredient('1 1/2 lbs chicken cutlets, sliced thin), (approx.'),
 		).toEqual({
 			name: 'chicken cutlets',
 			amount: '1 1/2',
@@ -668,9 +739,7 @@ describe('parseIngredient', () => {
 	// Double parentheses from JSON-LD
 	test('strips double parens: "bread crumbs ((I like to use panko crumbs))"', () => {
 		expect(
-			parseIngredient(
-				'1½ -2 cups bread crumbs ((I like to use panko crumbs))',
-			),
+			parseIngredient('1½ -2 cups bread crumbs ((I like to use panko crumbs))'),
 		).toEqual({
 			name: 'bread crumbs',
 			amount: '1½-2',
@@ -692,9 +761,7 @@ describe('parseIngredient', () => {
 	})
 
 	test('strips orphaned opening paren: "bread crumbs (I like panko"', () => {
-		expect(
-			parseIngredient('2 cups bread crumbs (I like panko'),
-		).toEqual({
+		expect(parseIngredient('2 cups bread crumbs (I like panko')).toEqual({
 			name: 'bread crumbs I like panko',
 			amount: '2',
 			unit: 'cups',
@@ -705,9 +772,7 @@ describe('parseIngredient', () => {
 	// Double opening paren with comma inside: "((approx.), sliced thin)"
 	test('handles nested double-open paren from JSON-LD', () => {
 		expect(
-			parseIngredient(
-				'1½ lbs. chicken cutlets ((approx.), sliced thin)',
-			),
+			parseIngredient('1½ lbs. chicken cutlets ((approx.), sliced thin)'),
 		).toEqual({
 			name: 'chicken cutlets',
 			amount: '1½',

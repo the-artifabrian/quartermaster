@@ -7,12 +7,23 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from '#app/components/ui/tooltip.tsx'
-import { parseAmount, scaleAmount } from '#app/utils/fractions.ts'
+import { scaleAmountKitchen } from '#app/utils/fractions.ts'
 import {
 	convertToMetric,
 	formatMetricAmount,
 } from '#app/utils/metric-conversion.ts'
 import { cn } from '#app/utils/misc.tsx'
+
+export type IngredientListIngredient = {
+	id: string
+	name: string
+	amount: string | null
+	unit: string | null
+	notes: string | null
+	isHeading: boolean
+	linkedRecipeId?: string | null
+	linkedRecipe?: { title: string } | null
+}
 
 export function IngredientList({
 	ingredients,
@@ -26,16 +37,7 @@ export function IngredientList({
 	onToggleMetric,
 	showFooter,
 }: {
-	ingredients: Array<{
-		id: string
-		name: string
-		amount: string | null
-		unit: string | null
-		notes: string | null
-		isHeading: boolean
-		linkedRecipeId?: string | null
-		linkedRecipe?: { title: string } | null
-	}>
+	ingredients: Array<IngredientListIngredient>
 	checkedIngredients: Set<string>
 	onToggle: (id: string) => void
 	ratio: number
@@ -114,7 +116,7 @@ export function IngredientList({
 							aria-checked={isChecked}
 							tabIndex={0}
 							className={cn(
-								'flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 transition-colors select-none',
+								'flex cursor-pointer items-center gap-3 rounded-lg px-1 py-2.5 transition-colors select-none',
 								'hover:bg-accent/5',
 								'focus-visible:ring-primary/50 focus-visible:ring-2 focus-visible:outline-none',
 								'print:gap-1.5 print:rounded-none print:px-0 print:py-0.5',
@@ -145,15 +147,19 @@ export function IngredientList({
 								)}
 							>
 								{(() => {
-									const scaledAmount = ingredient.amount
-										? scaleAmount(ingredient.amount, ratio, ingredient.unit)
+									// Kitchen rounding (A5): scaled display values snap to
+									// measurable quantities; ratio 1 keeps author precision.
+									const kitchen = ingredient.amount
+										? scaleAmountKitchen(
+												ingredient.amount,
+												ratio,
+												ingredient.unit,
+											)
 										: null
-									const parsed =
-										scaledAmount !== null ? parseAmount(scaledAmount) : null
 									const metricResult =
-										useMetric && parsed !== null && ingredient.unit
+										useMetric && kitchen?.value != null && ingredient.unit
 											? convertToMetric(
-													parsed,
+													kitchen.value,
 													ingredient.unit,
 													ingredient.name,
 												)
@@ -166,8 +172,11 @@ export function IngredientList({
 										</span>
 									) : (
 										<>
-											{scaledAmount !== null && (
-												<span className="font-medium">{scaledAmount} </span>
+											{kitchen !== null && (
+												<span className="font-medium">
+													{kitchen.approximate ? '≈' : ''}
+													{kitchen.display}{' '}
+												</span>
 											)}
 											{ingredient.unit && <span>{ingredient.unit} </span>}
 										</>
@@ -216,7 +225,9 @@ export function IngredientList({
 								type="button"
 								onClick={onToggleMetric}
 								className={cn(
-									'ml-auto rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+									// after: pseudo stretches the hit area to ≥44px without
+									// growing the visual pill (D7)
+									"relative ml-auto rounded-full border px-3 py-1.5 text-xs font-medium transition-colors after:absolute after:inset-x-0 after:-inset-y-2 after:content-['']",
 									useMetric
 										? 'border-primary bg-primary text-primary-foreground'
 										: 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30',
@@ -327,7 +338,7 @@ function MissingIngredientActions({
 							'flex size-[44px] items-center justify-center rounded-md transition-colors',
 							addedToCart
 								? 'text-primary'
-								: 'text-muted-foreground/50 hover:text-accent',
+								: 'text-muted-foreground/50 hover:text-primary',
 						)}
 						disabled={cartFetcher.state !== 'idle' || addedToCart}
 						onClick={() => {

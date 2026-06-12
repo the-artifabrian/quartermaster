@@ -78,9 +78,11 @@ export function TimerWidget() {
 				{/* Header */}
 				<div className="mb-3 flex items-center justify-between">
 					<span className="text-sm font-semibold">Timers</span>
+					{/* after: pseudo widens the hit area to ≥44px without growing
+					    the visual control (D7) */}
 					<button
 						onClick={() => setIsExpanded(false)}
-						className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md p-1 focus-visible:ring-2 focus-visible:outline-none"
+						className="text-muted-foreground hover:text-foreground focus-visible:ring-ring relative rounded-md p-1 after:absolute after:-inset-2.5 after:content-[''] focus-visible:ring-2 focus-visible:outline-none"
 						aria-label="Collapse timers"
 					>
 						<Icon name="cross-1" size="sm" />

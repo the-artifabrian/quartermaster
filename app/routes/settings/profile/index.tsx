@@ -1,5 +1,6 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { useEffect, useState } from 'react'
 import { Form, Link, useFetcher } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
@@ -11,6 +12,10 @@ import { useRequestInfo } from '#app/utils/request-info.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
+import {
+	getKeepAwakePreference,
+	setKeepAwakePreference,
+} from '#app/utils/wake-lock.ts'
 import { type Route } from './+types/index.ts'
 import { twoFAVerificationType } from './two-factor/_layout.tsx'
 
@@ -137,6 +142,9 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				<SettingsRow icon="sun" label="Theme">
 					<ThemeSwitch userPreference={requestInfo.userPrefs.theme} />
 				</SettingsRow>
+				<SettingsRow icon="timer" label="Keep screen awake while cooking">
+					<KeepAwakeSwitch />
+				</SettingsRow>
 			</SettingsSection>
 
 			{/* Account */}
@@ -209,6 +217,43 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				</div>
 			</SettingsSection>
 		</div>
+	)
+}
+
+function KeepAwakeSwitch() {
+	// Device-local preference (localStorage), read after mount to avoid an SSR
+	// mismatch — same pattern as the recipe page's Metric toggle.
+	const [enabled, setEnabled] = useState(true)
+	const [hydrated, setHydrated] = useState(false)
+	useEffect(() => {
+		setEnabled(getKeepAwakePreference())
+		setHydrated(true)
+	}, [])
+
+	function handleToggle() {
+		setEnabled((prev) => {
+			setKeepAwakePreference(!prev)
+			return !prev
+		})
+	}
+
+	return (
+		<button
+			type="button"
+			role="switch"
+			aria-checked={enabled}
+			aria-label="Keep screen awake while a recipe is open"
+			onClick={handleToggle}
+			disabled={!hydrated}
+			className={cn(
+				'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+				enabled
+					? 'border-primary bg-primary text-primary-foreground'
+					: 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground',
+			)}
+		>
+			{enabled ? 'On' : 'Off'}
+		</button>
 	)
 }
 

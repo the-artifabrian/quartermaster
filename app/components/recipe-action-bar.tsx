@@ -36,10 +36,15 @@ export function RecipeActionBar({
 }) {
 	return (
 		<div className="mt-4 flex items-center gap-1 md:mt-6 md:gap-2 print:hidden">
-			{/* Primary: log a cook */}
-			<Button onClick={onIMadeThis} className="gap-2">
-				<Icon name="check" size="sm" />
-				Cook
+			{/* Log a cook — something you do after eating, so it doesn't get the
+			    filled-primary slot; the end of the steps list offers it at the
+			    natural moment. */}
+			<Button
+				onClick={onIMadeThis}
+				variant="outline"
+				className="shrink-0 gap-2 whitespace-nowrap"
+			>
+				<Icon name="check" size="sm" />I made this
 			</Button>
 
 			{/* Favorite */}

@@ -11,6 +11,7 @@ import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { RecipeActionBar } from '#app/components/recipe-action-bar.tsx'
 import { IMadeThisModal } from '#app/components/recipe-i-made-this-modal.tsx'
 import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
+import { RecipeIngredientsSheet } from '#app/components/recipe-ingredients-sheet.tsx'
 import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
 import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -54,6 +55,7 @@ import {
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
+import { getKeepAwakePreference, useWakeLock } from '#app/utils/wake-lock.ts'
 import { type Route } from './+types/$recipeId.ts'
 
 export const handle: SEOHandle = {
@@ -535,6 +537,15 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		setUseMetric(localStorage.getItem('qm-use-metric') === 'true')
 	}, [])
 
+	// Keep the screen awake while the recipe is open — cooking with wet hands is
+	// the primary context; don't make the cook unlock the phone mid-step.
+	// (Effect-gated so SSR and the keep-awake preference are respected.)
+	const [keepAwake, setKeepAwake] = useState(false)
+	useEffect(() => {
+		setKeepAwake(getKeepAwakePreference())
+	}, [])
+	useWakeLock(keepAwake)
+
 	// Add-to-plan popover state
 	const [planPickerOpen, setPlanPickerOpen] = useState(false)
 	const planFetcher = useFetcher({ key: 'add-to-plan' })
@@ -546,6 +557,28 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	)
 	const [planDate, setPlanDate] = useState(() => serializeDate(todayUTC))
 	const [planMealType, setPlanMealType] = useState<MealType>('dinner')
+
+	const allStepsChecked =
+		recipe.instructions.length > 0 &&
+		recipe.instructions.every((i) => checkedSteps.has(i.id))
+
+	// Mid-cook ingredient glances (mobile): show a sticky "Ingredients" pill
+	// once the inline ingredient list has scrolled out of view.
+	const ingredientsSectionRef = useRef<HTMLDivElement>(null)
+	const [ingredientsInView, setIngredientsInView] = useState(true)
+	useEffect(() => {
+		const el = ingredientsSectionRef.current
+		if (!el || typeof IntersectionObserver === 'undefined') return
+		const observer = new IntersectionObserver(([entry]) =>
+			setIngredientsInView(entry?.isIntersecting ?? true),
+		)
+		observer.observe(el)
+		return () => observer.disconnect()
+	}, [])
+	const nonHeadingIngredients = recipe.ingredients.filter((i) => !i.isHeading)
+	const checkedIngredientCount = nonHeadingIngredients.filter((i) =>
+		checkedIngredients.has(i.id),
+	).length
 
 	const servingsParam = searchParams.get('servings')
 	const currentServings = servingsParam
@@ -828,7 +861,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				{/* Content zone: Ingredients + Instructions */}
 				<div className="mt-4 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8 print:grid-cols-1 print:gap-4">
 					{/* Ingredients - sticky on desktop, interactive checkboxes */}
-					<div className="md:sticky md:top-20 md:self-start print:static">
+					<div
+						ref={ingredientsSectionRef}
+						className="md:sticky md:top-20 md:self-start print:static"
+					>
 						<div className="print:p-2">
 							<div className="mb-3 flex items-center gap-2 md:mb-4">
 								<button
@@ -851,12 +887,15 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									</h2>
 								</button>
 								<span className="ml-auto flex items-center gap-1 print:hidden">
+									{/* after: pseudo on both steppers widens the hit area to
+									    ~44px without growing the visual control (D7) */}
 									<Button
 										variant="outline"
 										size="sm"
-										className="h-8 w-8 p-0 text-xs"
+										className="relative h-8 w-8 p-0 text-xs after:absolute after:-inset-x-1 after:-inset-y-1.5 after:content-[''] md:after:hidden"
 										onClick={() => updateServings(currentServings - 1)}
 										disabled={currentServings <= 1}
+										aria-label="Decrease servings"
 									>
 										-
 									</Button>
@@ -866,8 +905,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									<Button
 										variant="outline"
 										size="sm"
-										className="h-8 w-8 p-0 text-xs"
+										className="relative h-8 w-8 p-0 text-xs after:absolute after:-inset-x-1 after:-inset-y-1.5 after:content-[''] md:after:hidden"
 										onClick={() => updateServings(currentServings + 1)}
+										aria-label="Increase servings"
 									>
 										+
 									</Button>
@@ -905,14 +945,46 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</div>
 
 					{/* Instructions - interactive crossable steps */}
-					<RecipeInstructionsList
-						instructions={recipe.instructions}
-						checkedSteps={checkedSteps}
-						onToggleStep={toggleStep}
-						recipeName={recipe.title}
-						useMetric={useMetric}
-					/>
+					<div>
+						<RecipeInstructionsList
+							instructions={recipe.instructions}
+							checkedSteps={checkedSteps}
+							onToggleStep={toggleStep}
+							recipeName={recipe.title}
+							useMetric={useMetric}
+						/>
+						{/* Logging belongs at the natural end of cooking, not behind a
+						    button at the top — slide in a quiet prompt when the last
+						    step is checked. */}
+						{allStepsChecked && (
+							<div className="animate-fade-up-reveal border-primary bg-primary/5 mt-5 flex items-center gap-3 rounded-lg border-l-[3px] py-3 pr-3 pl-4 print:hidden">
+								<p className="min-w-0 flex-1 font-serif text-base">
+									All done — log it?
+								</p>
+								<Button size="sm" onClick={handleIMadeThis}>
+									I made this
+								</Button>
+							</div>
+						)}
+					</div>
 				</div>
+
+				{/* Ingredients at hand while deep in the steps (mobile only).
+				    Hidden once every step is checked — the cook is done, and the
+				    pill would sit on top of the "All done — log it?" prompt. */}
+				<RecipeIngredientsSheet
+					visible={!ingredientsInView && !allStepsChecked}
+					checkedCount={checkedIngredientCount}
+					totalCount={nonHeadingIngredients.length}
+					ingredients={recipe.ingredients}
+					checkedIngredients={checkedIngredients}
+					onToggle={toggleIngredient}
+					ratio={ratio}
+					missingIngredientIds={missingIngredientIds}
+					recipeId={recipe.id}
+					shoppingFetcher={shoppingFetcher}
+					useMetric={useMetric}
+				/>
 
 				{/* Print-only source URL footer */}
 				{recipe.sourceUrl && (

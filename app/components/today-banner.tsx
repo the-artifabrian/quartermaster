@@ -95,7 +95,9 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 
 				{/* Content */}
 				<div className="min-w-0 flex-1">
-					<p className="text-accent text-xs font-medium tracking-wide">
+					{/* Copper marks the banner's left edge; the label itself stays stone
+					    (copper text at 12px fails AA on cream) */}
+					<p className="text-muted-foreground text-xs font-medium tracking-wide">
 						Up next &middot; {mealLabel}
 					</p>
 					<h3 className="line-clamp-2 font-serif text-lg leading-snug">

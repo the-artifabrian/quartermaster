@@ -118,7 +118,7 @@ export function RecipeSelector({
 						<p className="text-muted-foreground text-sm">No recipes found</p>
 						<Link
 							to="/recipes/new"
-							className="text-accent mt-1 inline-block text-sm hover:underline"
+							className="text-primary mt-1 inline-block text-sm hover:underline"
 						>
 							Create a new recipe
 						</Link>

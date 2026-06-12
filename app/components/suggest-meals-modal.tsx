@@ -62,7 +62,7 @@ const REASON_BADGES: Record<
 > = {
 	favorite: {
 		label: 'Favorite',
-		className: 'bg-accent/15 text-accent dark:bg-accent/20',
+		className: 'bg-accent/15 text-copper-text dark:bg-accent/20',
 	},
 	match: {
 		label: 'Good match',

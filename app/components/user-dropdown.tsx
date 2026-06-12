@@ -38,7 +38,7 @@ export function UserDropdown() {
 							daysLeft <= 3
 								? 'text-destructive font-bold'
 								: daysLeft <= 7
-									? 'text-accent'
+									? 'text-copper-text'
 									: 'text-muted-foreground',
 						)}
 					>

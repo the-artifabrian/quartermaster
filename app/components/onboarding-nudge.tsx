@@ -51,7 +51,7 @@ export function OnboardingNudge({
 						{' '}
 						<Link
 							to={ctaHref}
-							className="text-accent hover:text-accent/80 font-medium whitespace-nowrap"
+							className="text-primary hover:text-primary/80 font-medium whitespace-nowrap"
 						>
 							{ctaText} &rarr;
 						</Link>

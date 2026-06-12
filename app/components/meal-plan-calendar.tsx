@@ -2,12 +2,16 @@ import { useState } from 'react'
 import {
 	MEAL_TYPES,
 	formatDayLabel,
+	formatMonthDay,
+	formatWeekdayName,
+	isPast,
 	isToday,
 	serializeDate,
 } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { MealSlotCard } from './meal-slot-card.tsx'
 import { type RecipeSelectorRecipe } from './recipe-selector.tsx'
+import { Icon } from './ui/icon.tsx'
 
 type Entry = {
 	id: string
@@ -58,11 +62,9 @@ function CollapsibleDaySlots({
 			<button
 				type="button"
 				onClick={() => setExpanded(true)}
-				className="text-muted-foreground hover:text-foreground hover:bg-muted/40 flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-xs transition-colors"
+				className="text-muted-foreground hover:text-foreground flex min-h-9 w-full items-center gap-1.5 rounded-md py-1.5 text-[13px] transition-colors"
 			>
-				<span className="bg-muted flex size-5 items-center justify-center rounded-full text-[10px]">
-					+
-				</span>
+				<Icon name="plus" className="size-3.5" />
 				Add a meal
 			</button>
 		)
@@ -166,17 +168,23 @@ export function MealPlanCalendar({
 					return (
 						<div
 							key={serializeDate(date)}
-							className="py-3 first:pt-0 last:pb-0"
+							className="py-4 first:pt-0 last:pb-0"
 						>
-							<div className="mb-1.5 flex items-baseline justify-between">
-								<span className="flex items-center gap-1.5 font-serif text-sm">
-									{today && (
-										<span
-											aria-hidden
-											className="bg-accent size-1.5 rounded-full"
-										/>
-									)}
-									{formatDayLabel(date)}
+							<div className="mb-2 flex items-baseline justify-between">
+								<span className="flex items-baseline gap-2">
+									<span
+										className={cn(
+											'font-serif text-lg leading-none',
+											today
+												? 'text-accent'
+												: isPast(date) && 'text-muted-foreground/70',
+										)}
+									>
+										{today ? 'Today' : formatWeekdayName(date)}
+									</span>
+									<span className="text-muted-foreground text-xs">
+										{formatMonthDay(date)}
+									</span>
 								</span>
 								{dayCount > 0 && (
 									<span className="text-muted-foreground text-xs">

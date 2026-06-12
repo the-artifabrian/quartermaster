@@ -61,6 +61,26 @@ export function formatDayLabel(date: Date): string {
 	return `${day} ${date.getUTCMonth() + 1}/${date.getUTCDate()}`
 }
 
+const FULL_DAY_NAMES = [
+	'Sunday',
+	'Monday',
+	'Tuesday',
+	'Wednesday',
+	'Thursday',
+	'Friday',
+	'Saturday',
+] as const
+
+/** Full weekday name like "Thursday" using UTC fields. */
+export function formatWeekdayName(date: Date): string {
+	return FULL_DAY_NAMES[date.getUTCDay()]!
+}
+
+/** Format like "Jun 11" using UTC fields. */
+export function formatMonthDay(date: Date): string {
+	return `${MONTH_NAMES[date.getUTCMonth()]} ${date.getUTCDate()}`
+}
+
 /** Format like "Feb 9 – 15" (current year) or "Feb 9 – 15, 2025" (other years). */
 export function formatWeekRange(weekStart: Date): string {
 	const weekEnd = getWeekEnd(weekStart)

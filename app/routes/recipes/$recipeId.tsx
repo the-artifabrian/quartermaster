@@ -691,13 +691,13 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						/>
 					</div>
 
-					{/* Image beside title on desktop, below on mobile */}
+					{/* Image: full-bleed above the title on mobile, side column on desktop */}
 					{recipe.image && (
-						<div className="mt-4 shrink-0 md:mt-0 md:w-100 print:hidden">
+						<div className="order-first -mx-4 -mt-4 mb-5 shrink-0 sm:-mx-8 md:order-none md:mx-0 md:my-0 md:w-100 print:hidden">
 							<Img
 								src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
 								alt={recipe.image.altText ?? recipe.title}
-								className="border-border w-full rounded-md border object-cover md:aspect-4/3"
+								className="md:border-border aspect-[16/10] w-full object-cover md:aspect-4/3 md:rounded-md md:border"
 								width={800}
 								height={600}
 							/>

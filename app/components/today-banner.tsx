@@ -58,16 +58,16 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 
 	return (
 		<div className="border-accent/40 from-background to-secondary dark:from-card dark:to-secondary/20 mb-4 overflow-hidden rounded-md border-l-[3px] bg-linear-to-r">
-			<div className="flex items-center gap-4 p-4 sm:gap-5 sm:p-5">
+			<div className="flex items-center gap-3.5 p-4 sm:gap-5 sm:p-5">
 				{/* Recipe image */}
-				<div className="bg-muted hidden size-16 shrink-0 overflow-hidden rounded-md sm:block">
+				<div className="bg-muted size-14 shrink-0 overflow-hidden rounded-lg sm:size-16">
 					{recipe.image?.objectKey ? (
 						<Img
 							src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
 							alt={recipe.title}
 							className="h-full w-full object-cover"
-							width={64}
-							height={64}
+							width={128}
+							height={128}
 						/>
 					) : (
 						(() => {
@@ -98,7 +98,9 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 					<p className="text-accent text-xs font-medium tracking-wide">
 						Up next &middot; {mealLabel}
 					</p>
-					<h3 className="truncate font-serif text-lg">{recipe.title}</h3>
+					<h3 className="line-clamp-2 font-serif text-lg leading-snug">
+						{recipe.title}
+					</h3>
 					<div className="text-muted-foreground flex items-center gap-3 text-xs">
 						{totalTime > 0 && (
 							<span className="flex items-center gap-1">

@@ -1,3 +1,4 @@
+import { Img } from 'openimg/react'
 import { useState, useEffect, useRef } from 'react'
 import { Form, Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
@@ -17,6 +18,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { type MealType, MEAL_TYPE_LABELS } from '#app/utils/date.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
+import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import {
 	type RecipeSelectorRecipe,
 	RecipeSelector,
@@ -117,9 +119,13 @@ function EntryRow({
 
 	const isCooking = cookedFetcher.state !== 'idle'
 
+	const thumbPlaceholder = entry.recipe.image?.objectKey
+		? null
+		: getRecipePlaceholder(entry.recipe.title)
+
 	return (
 		<div className={cn(isCooked && 'opacity-50')}>
-			<div className="flex items-center gap-1">
+			<div className="flex items-center gap-2 md:gap-1">
 				{/* Cooked checkbox */}
 				{isCooked ? (
 					<cookedFetcher.Form method="POST" className="shrink-0">
@@ -146,11 +152,40 @@ function EntryRow({
 					</button>
 				)}
 
+				{/* Thumbnail — mobile only (desktop slots are too narrow) */}
+				<div className="size-11 shrink-0 overflow-hidden rounded-md md:hidden">
+					{entry.recipe.image?.objectKey ? (
+						<Img
+							src={`/resources/images?objectKey=${encodeURIComponent(entry.recipe.image.objectKey)}`}
+							alt=""
+							className="h-full w-full object-cover"
+							width={88}
+							height={88}
+						/>
+					) : (
+						<div
+							className={cn(
+								'flex h-full w-full items-center justify-center',
+								thumbPlaceholder!.bgClass,
+							)}
+						>
+							<span
+								className={cn(
+									'font-serif text-base',
+									thumbPlaceholder!.letterColorClass,
+								)}
+							>
+								{thumbPlaceholder!.letter}
+							</span>
+						</div>
+					)}
+				</div>
+
 				{/* Title + servings inline */}
 				<div className="min-w-0 flex-1">
 					<h4
 						className={cn(
-							'line-clamp-2 text-sm leading-snug font-semibold',
+							'line-clamp-2 font-serif text-[15px] leading-snug',
 							isCooked && 'text-muted-foreground line-through',
 						)}
 					>
@@ -275,7 +310,7 @@ export function MealSlotCard({
 		</div>
 	) : null
 
-	// Empty slot: ghost + button
+	// Empty slot: quiet add row
 	if (entries.length === 0) {
 		return (
 			<div className="relative">
@@ -283,13 +318,11 @@ export function MealSlotCard({
 					type="button"
 					onClick={() => setIsSelectingRecipe(true)}
 					className={cn(
-						'text-muted-foreground hover:text-foreground hover:border-accent/30 flex w-full items-center gap-1.5 rounded-lg border border-dashed px-3 py-1.5 text-xs transition-colors',
-						isSelectingRecipe && 'border-accent/30 text-foreground',
+						'text-muted-foreground hover:text-foreground flex min-h-9 w-full items-center gap-1.5 rounded-md py-1.5 text-[13px] transition-colors',
+						isSelectingRecipe && 'text-foreground',
 					)}
 				>
-					<span className="bg-muted flex size-5 items-center justify-center rounded-full text-[10px]">
-						+
-					</span>
+					<Icon name="plus" className="size-3.5" />
 					{MEAL_TYPE_LABELS[mealType]}
 				</button>
 				{selectorDropdown}
@@ -301,7 +334,7 @@ export function MealSlotCard({
 	return (
 		<div className="group relative">
 			<div className="flex items-center justify-between pt-2 md:pt-1.5">
-				<p className="text-muted-foreground text-xs font-medium">
+				<p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
 					{MEAL_TYPE_LABELS[mealType]}
 				</p>
 				<button

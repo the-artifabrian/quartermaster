@@ -12,8 +12,11 @@ the design.
 
 ## Distinctive Elements
 
-1. **Young Serif titles on every recipe.** Since most recipes have no photos,
-   the titles carry the visual identity.
+1. **Young Serif titles + a thumbnail on every recipe.** Every recipe row and
+   tile carries an image slot: the photo when one exists, otherwise a
+   deterministic warm gradient monogram (serif initial on a same-hue gradient).
+   Titles still lead; the monogram gives image-less collections rhythm and color
+   without badges or chrome.
 2. **Ingredient check-off.** CSS `line-through` with
    `decoration-2 decoration-muted-foreground/60` and text fade to 50% opacity. A
    pen-stroke `scaleX` animation was prototyped and dropped — not readable at
@@ -283,7 +286,34 @@ disc; hidden in print.
 as tappable chips in a flat grid. Bulk-add so Pantry feels useful immediately.
 
 **Empty meal plan / shopping list**: one-line prompt in stone color with a ghost
-action button.
+action button. The empty week on Plan may add a single suggestion chip (quiet
+inset with a 40px thumb, small-caps "Start with" kicker, serif recipe title) —
+one chip, never a grid of cards.
+
+---
+
+## Imagery & Monograms
+
+Photos and monogram tiles are the warmth carriers on list surfaces. Rules:
+
+- **Every recipe slot shows an image**: the recipe photo when present, otherwise
+  the deterministic monogram from `app/utils/recipe-placeholder.ts` — a Young
+  Serif initial on a same-hue diagonal gradient (amber / emerald / rose / stone,
+  hashed from the title). Letters are quiet (≈40% opacity ink tones) —
+  watermarks, not logos.
+- **Sizes** (square, `shrink-0`, `overflow-hidden`): 64px recipe-list rows,
+  56-64px "Up next" banner, 44px plan meal rows (mobile only — desktop plan
+  columns are too narrow), 36-40px picker/selector rows and suggestion chips.
+- **Radius**: `rounded-lg` (12px) at 56px and above, `rounded-md` (8px) below.
+  Hero/tile photos that span their container keep container rounding (none when
+  full-bleed).
+- **Mobile recipe detail hero**: when a photo exists it renders full-bleed above
+  the title (16:10, edge-to-edge, flush under the app header). Desktop keeps the
+  400px side column with border + 8px radius.
+- **Where images never go**: shopping list and pantry rows (flat utility lists —
+  deliberate), settings, forms (outside the upload preview).
+- Thumbnails are decorative next to a visible title: `alt=""` on the `Img`,
+  `role="img"` + label only when the monogram stands alone (recipe-card).
 
 ---
 
@@ -389,16 +419,16 @@ own back-nav instead.
 
 ### 2. Recipe List
 
-Titles carry the visual weight in place of photos. Let them breathe.
+Image-led rows on a flat canvas: photo or monogram first, serif title beside.
 
-**Mobile (list view)**: a full-bleed flat divided list, deliberately spare.
+**Mobile (list view)**: a full-bleed flat divided list.
 
-- Each row: recipe title in Young Serif at 17px (wraps to 2 lines before
-  truncating) + total time as a 13px stone caption when present + a small copper
-  heart when favorited. **Nothing else** — no match percentages, no cook counts,
-  no descriptions, no thumbnails, no colored edges. (Pantry-match data lives in
-  the "Nothing to buy" filter and on the recipe detail page, where it's
-  actionable.)
+- Each row: a 64px `rounded-lg` thumbnail (photo, else gradient monogram) +
+  recipe title in Young Serif at 17px (wraps to 2 lines before truncating) +
+  total time as a 13px stone caption when present + a small copper heart when
+  favorited. **Nothing else** — no match percentages, no cook counts, no
+  descriptions, no colored edges. (Pantry-match data lives in the "Nothing to
+  buy" filter and on the recipe detail page, where it's actionable.)
 - Rows are edge-to-edge (`max-md:-mx-4`, padding restored per row) with hairline
   dividers; 12px vertical padding; `active:bg-muted/40` press state.
 
@@ -407,9 +437,9 @@ Titles carry the visual weight in place of photos. Let them breathe.
 - Two columns at `md`, three at `lg`.
 - **Tiles with image**: Photo fills tile top (4:3 ratio). Title in Young Serif
   below. Cook time as tiny caption.
-- **Tiles without image** (the default): warm letter-block placeholder (warm
-  hash palette only — amber/emerald/rose/stone), title at 18px, description gets
-  more space (`md:line-clamp-3` vs 2, `md:p-6` vs `md:p-5`).
+- **Tiles without image** (the default): gradient monogram block (same-hue
+  gradients — amber/emerald/rose/stone), title at 18px, description gets more
+  space (`md:line-clamp-3` vs 2, `md:p-6` vs `md:p-5`).
 - Tile chrome: `bg-card` + 1px cedar border at 8px radius. **No shadows, no
   hover lift** — hover warms the border toward copper, images scale 1.02x.
 
@@ -429,8 +459,9 @@ arm's-length readability.
 **Hero area**: Title in Young Serif at 2rem. Below it, a clean `<hr>` in cedar.
 Then metadata: prep, cook, total time in small DM Sans, muted.
 
-If there's an image: up to 400px wide on desktop beside the title, full-width
-with 16px horizontal margin on mobile. 1px cedar border, 6px radius.
+If there's an image: full-bleed **above** the title on mobile (16:10,
+edge-to-edge, flush under the app header — no border, no radius); up to 400px
+wide on desktop beside the title with a 1px cedar border at 8px radius.
 
 **Two-column body (desktop)**:
 
@@ -470,24 +501,35 @@ numbered, compact line-height. Source URL as small footer text.
 
 ### 4. Meal Plan
 
-**Mobile**: Vertical day stack as a flat divided list (hairlines between days).
-Day name in Young Serif ink; today gets a copper dot beside the name — no pill,
-ring, or tinted box. Meals are flat rows under small-caps meal-type labels.
-Empty days: ghost "+" button.
+**Mobile**: Vertical day stack as a flat divided list (hairlines between days,
+16px vertical padding per day). Editorial day header: weekday name in Young
+Serif at 18px ("Today" in copper for the current day — no pill, ring, dot, or
+tinted box) + a 12px stone "Jun 11" caption beside it; past days dim the weekday
+to `text-muted-foreground/70`; a "N meals" count sits right-aligned. Planned
+meals are flat rows under small-caps meal-type labels (11px,
+`tracking-wider uppercase`): cooked-checkbox + 44px `rounded-md` thumbnail
+(photo or monogram, mobile only) + Young Serif title at 15px + servings stepper.
+Empty days and empty slots: quiet text rows — a plus icon and a 13px muted
+label, **no dashed borders, no disc icons**.
 
 **Desktop**: 7-day grid of flat columns (no card chrome, no shadows). Young
 Serif day header; every column carries a 3px top border — cedar hairline
-normally, copper for today.
+normally, copper for today. No thumbnails (columns are too narrow).
+
+**Week navigation**: icon-only chevron ghost buttons (aria-labels "Previous
+week"/"Next week") flanking the serif week range.
 
 **"Up next" banner**: copper-left-edged linen band, only rendered when the week
-has meals. **Empty week**: a single quiet inline state (serif one-liner,
-suggestion woven into the sentence, one outline button) — never stacked banners.
+has meals; its 56-64px thumbnail shows on all breakpoints. **Empty week**: a
+single quiet inline state — serif one-liner, then a suggestion chip (quiet
+inset, 40px thumb, small-caps "Start with" kicker, serif title, arrow) when a
+suggestion exists, else one outline button. Never stacked banners.
 
 **Adding meals**: Inline dropdown with search (a true overlay: `bg-card`,
 border, `shadow-warm-lg`, 12px radius). Partitioned into "Favorites" and "All
-Recipes"; each recipe shows a heart icon (favorites) and cook time — no cook
-count badges. Weeknight sort (Mon-Thu quick recipes first) applied within each
-group. New meal fades in with element-reveal curve.
+Recipes"; each recipe row shows a 36px thumbnail, a heart icon (favorites) and
+cook time — no cook count badges. Weeknight sort (Mon-Thu quick recipes first)
+applied within each group. New meal fades in with element-reveal curve.
 
 ---
 
@@ -559,6 +601,9 @@ When adding a screen not described above, start from these defaults:
 - **Spacing**: 8px grid. 16px top padding (`py-4`). 24-32px between content
   groups.
 - **Lists**: flat rows + `divide-y divide-border/40`. Never per-row boxes.
+- **Imagery**: recipe-shaped rows get a thumbnail (photo, else the gradient
+  monogram) per the Imagery & Monograms sizes. Utility lists (shopping, pantry,
+  settings) stay text-only.
 - **Grouping**: small-caps `sectionLabelClass` headers; when containment is
   genuinely needed, a quiet inset (`bg-muted/40 rounded-lg`, no border/shadow).
 - **Overlays** (the only elevated things): `bg-card`, 12px radius,

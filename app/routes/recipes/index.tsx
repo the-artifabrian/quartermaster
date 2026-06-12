@@ -646,7 +646,9 @@ function MatchEmptyState({
 				<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
 					<Icon name="file-text" className="text-muted-foreground/40 size-8" />
 				</div>
-				<h2 className="mt-4 text-xl font-semibold">Start your Pantry</h2>
+				<h2 className="mt-4 font-serif text-xl font-normal">
+					Start your Pantry
+				</h2>
 				<p className="text-muted-foreground mt-2 max-w-sm">
 					Add ingredients you usually keep around. We'll show which recipes need
 					fewer things.
@@ -669,7 +671,7 @@ function MatchEmptyState({
 					className="text-muted-foreground/40 size-8"
 				/>
 			</div>
-			<h2 className="mt-4 text-xl font-semibold">
+			<h2 className="mt-4 font-serif text-xl font-normal">
 				{makeableOnly
 					? 'No perfect matches yet'
 					: 'No recipes match your filter'}

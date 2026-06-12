@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useNavigation } from 'react-router'
+import { readDataTiming } from '#app/utils/nav-resource-timing.ts'
 import { usePostHog } from '#app/utils/posthog-provider.tsx'
 
 /**
@@ -8,12 +9,11 @@ import { usePostHog } from '#app/utils/posthog-provider.tsx'
  * full time the user waits with the spinner showing (network + server + render),
  * captured per-route on the real (mobile) network.
  *
- * To split felt time into network vs server, pair it with PostHog's built-in
- * `network_timing` (enabled in entry.client) — the `.data` fetch's TTFB/download
- * on session replay. (We deliberately did NOT add per-loader Server-Timing to the
- * feature routes; only the root loader emits it.) If nav_duration_ms p95 is ~3s
- * but the .data TTFB is ~200ms, the rest is network/connection — i.e. SWR/
- * connection fixes, not query work.
+ * Each event is enriched with the destination route's single-fetch `.data` request
+ * timing (see `nav-resource-timing.ts`) so felt latency can be attributed — in
+ * aggregate, not just on one session replay — to its actual cause: cold connection
+ * (`connect_ms` > 0), slow server (`ttfb_ms`), or a cache miss vs SWR hit
+ * (`transfer_size` === 0). So "p95 is 2s — why?" becomes a GROUP BY, not a guess.
  */
 export function NavTiming() {
 	const navigation = useNavigation()
@@ -32,7 +32,8 @@ export function NavTiming() {
 				toRef.current = navigation.location?.pathname ?? ''
 			}
 		} else if (navigation.state === 'idle' && startRef.current != null) {
-			const duration = performance.now() - startRef.current
+			const navStart = startRef.current
+			const duration = performance.now() - navStart
 			startRef.current = null
 			const connection = (
 				navigator as unknown as {
@@ -45,6 +46,9 @@ export function NavTiming() {
 				to: toRef.current,
 				effective_type: connection?.effectiveType,
 				rtt: connection?.rtt,
+				// Resource-timing breakdown of the `.data` fetch (omitted when the nav did
+				// no network): tells us cold-connection vs server vs cache-hit per event.
+				...readDataTiming(navStart, toRef.current),
 			})
 		}
 	}, [navigation.state, navigation.location, location.pathname, posthog])

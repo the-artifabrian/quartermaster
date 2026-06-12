@@ -1,9 +1,12 @@
+import { Img } from 'openimg/react'
 import { useState } from 'react'
 import { Form, Link } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { type MealType, serializeDate } from '#app/utils/date.ts'
+import { cn } from '#app/utils/misc.tsx'
+import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 
 export type RecipeSelectorRecipe = {
 	id: string
@@ -25,6 +28,35 @@ type RecipeSelectorProps = {
 	excludeRecipeIds?: string[]
 	onCancel: () => void
 	onSelect?: () => void
+}
+
+function RecipeOptionThumb({ recipe }: { recipe: RecipeSelectorRecipe }) {
+	if (recipe.image) {
+		return (
+			<span className="size-9 shrink-0 overflow-hidden rounded-md">
+				<Img
+					src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
+					alt=""
+					className="h-full w-full object-cover"
+					width={72}
+					height={72}
+				/>
+			</span>
+		)
+	}
+	const placeholder = getRecipePlaceholder(recipe.title)
+	return (
+		<span
+			className={cn(
+				'flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md',
+				placeholder.bgClass,
+			)}
+		>
+			<span className={cn('font-serif text-sm', placeholder.letterColorClass)}>
+				{placeholder.letter}
+			</span>
+		</span>
+	)
 }
 
 function getTotalTime(recipe: RecipeSelectorRecipe): number | null {
@@ -157,9 +189,10 @@ function RecipeOption({
 			<input type="hidden" name="recipeId" value={recipe.id} />
 			<button
 				type="submit"
-				className="hover:bg-muted/50 w-full rounded-lg px-2 py-1.5 text-left transition-colors"
+				className="hover:bg-muted/50 flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors"
 			>
-				<div className="flex items-center justify-between gap-2">
+				<RecipeOptionThumb recipe={recipe} />
+				<div className="flex min-w-0 flex-1 items-center justify-between gap-2">
 					<p className="min-w-0 truncate text-sm font-medium">
 						{recipe.isFavorite && (
 							<Icon

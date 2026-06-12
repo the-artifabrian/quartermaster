@@ -32,19 +32,19 @@ export function RecipeCard({
 		<Link
 			to={`/recipes/${id}`}
 			viewTransition
-			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center px-4 py-3 transition-colors sm:px-8 md:flex-col md:items-stretch md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-all md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
+			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-all md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
 		>
-			{/* Image / Placeholder — desktop grid only */}
+			{/* Image / Placeholder — thumbnail on mobile, full-width on desktop */}
 			<div
 				className={cn(
-					'relative shrink-0 overflow-hidden',
+					'relative shrink-0 overflow-hidden rounded-lg md:rounded-none',
 					imageObjectKey
-						? 'hidden md:block md:aspect-[4/3] md:w-full'
-						: 'hidden md:flex md:h-28 md:w-full',
+						? 'size-16 md:aspect-[4/3] md:h-auto md:w-full'
+						: 'flex size-16 md:h-28 md:w-full',
 				)}
 			>
 				{/* Desktop badges overlay */}
-				<div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+				<div className="absolute top-2 right-2 z-10 hidden items-center gap-1 md:flex">
 					{isFavorite && (
 						<Icon
 							name="heart-filled"
@@ -56,7 +56,7 @@ export function RecipeCard({
 					<Img
 						src={`/resources/images?objectKey=${encodeURIComponent(imageObjectKey)}`}
 						alt={title}
-						className="h-full w-full object-cover transition-transform group-hover:scale-[1.02] md:rounded-none"
+						className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
 						width={400}
 						height={300}
 					/>
@@ -71,7 +71,7 @@ export function RecipeCard({
 					>
 						<span
 							className={cn(
-								'font-serif text-4xl',
+								'font-serif text-2xl md:text-4xl',
 								placeholder!.letterColorClass,
 							)}
 						>

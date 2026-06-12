@@ -31,7 +31,7 @@ const faqs = [
 	{
 		question: 'Can I export my data?',
 		answer:
-			'Yes. Go to Settings > Data to export all your data (recipes, Pantry, meal plans, shopping lists, cooking logs) as JSON. You can also import this export back in. Your data is never locked in.',
+			'Yes. Go to Settings > Data to export all your data (recipes, Pantry, meal plans, shopping lists) as JSON. You can also import this export back in. Your data is never locked in.',
 	},
 	{
 		question: 'How does meal planning work?',

@@ -1,5 +1,5 @@
 import { Img } from 'openimg/react'
-import { Form, Link } from 'react-router'
+import { Link } from 'react-router'
 import { MEAL_TYPE_LABELS, type MealType } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
@@ -20,35 +20,8 @@ type TodayEntry = {
 	servings: number | null
 }
 
-type TodaySuggestion = {
-	id: string
-	title: string
-	image: { objectKey: string } | null
-}
-
-type TodayBannerProps = {
-	entries: TodayEntry[]
-	suggestion: TodaySuggestion | null
-	dismissed?: boolean
-	onDismiss?: () => void
-}
-
-export function TodayBanner({
-	entries,
-	suggestion,
-	dismissed,
-	onDismiss,
-}: TodayBannerProps) {
-	if (entries.length > 0) {
-		return <HasMealsBanner entries={entries} />
-	}
-
-	if (dismissed) return null
-
-	return <EmptyBanner suggestion={suggestion} onDismiss={onDismiss} />
-}
-
-function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
+export function TodayBanner({ entries }: { entries: TodayEntry[] }) {
+	if (entries.length === 0) return null
 	const primary = entries[0]!
 	const recipe = primary.recipe
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
@@ -136,77 +109,6 @@ function HasMealsBanner({ entries }: { entries: TodayEntry[] }) {
 					</Link>
 				</Button>
 			</div>
-		</div>
-	)
-}
-
-function EmptyBanner({
-	suggestion,
-	onDismiss,
-}: {
-	suggestion: TodaySuggestion | null
-	onDismiss?: () => void
-}) {
-	const now = new Date()
-	const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-
-	return (
-		<div className="mb-4 flex items-center gap-3">
-			<div className="min-w-0 flex-1 text-sm">
-				<span className="font-serif">Nothing planned for today.</span>{' '}
-				{suggestion ? (
-					<span className="text-muted-foreground">
-						How about{' '}
-						<Link
-							to={`/recipes/${suggestion.id}`}
-							className="text-foreground underline decoration-dotted underline-offset-2"
-						>
-							{suggestion.title}
-						</Link>
-						?
-					</span>
-				) : (
-					<span className="text-muted-foreground">
-						Browse your recipes and pick something to make.
-					</span>
-				)}
-			</div>
-
-			{suggestion ? (
-				<Form method="POST">
-					<input type="hidden" name="intent" value="assign" />
-					<input type="hidden" name="date" value={today} />
-					<input type="hidden" name="mealType" value="dinner" />
-					<input type="hidden" name="recipeId" value={suggestion.id} />
-					<Button
-						type="submit"
-						variant="outline"
-						size="sm"
-						className="shrink-0"
-					>
-						<Icon name="plus" size="sm" />
-						<span className="hidden sm:inline">Add to Today</span>
-						<span className="sm:hidden">Add</span>
-					</Button>
-				</Form>
-			) : (
-				<Button asChild variant="outline" size="sm" className="shrink-0">
-					<Link to="/recipes">
-						<Icon name="magnifying-glass" size="sm" />
-						Browse
-					</Link>
-				</Button>
-			)}
-			{onDismiss && (
-				<button
-					type="button"
-					onClick={onDismiss}
-					className="text-muted-foreground/50 hover:text-muted-foreground shrink-0 p-1"
-					aria-label="Dismiss"
-				>
-					<Icon name="cross-1" size="sm" />
-				</button>
-			)}
 		</div>
 	)
 }

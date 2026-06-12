@@ -30,10 +30,8 @@ type UserRow = {
 	source: string
 	joined: string
 	lastActive: string | null
-	lastCooked: string | null
 	recipeCount: number
 	inventoryCount: number
-	cookLogCount: number
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -64,13 +62,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 				orderBy: { updatedAt: 'desc' },
 				take: 1,
 			},
-			cookingLogs: {
-				select: { cookedAt: true },
-				orderBy: { cookedAt: 'desc' },
-				take: 1,
-			},
 			_count: {
-				select: { recipes: true, inventoryItems: true, cookingLogs: true },
+				select: { recipes: true, inventoryItems: true },
 			},
 		},
 		orderBy: { createdAt: 'asc' },
@@ -99,10 +92,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 			source,
 			joined: user.createdAt.toISOString(),
 			lastActive: user.sessions[0]?.updatedAt.toISOString() ?? null,
-			lastCooked: user.cookingLogs[0]?.cookedAt.toISOString() ?? null,
 			recipeCount: user._count.recipes,
 			inventoryCount: user._count.inventoryItems,
-			cookLogCount: user._count.cookingLogs,
 		}
 	})
 
@@ -135,10 +126,8 @@ const columns: { key: SortKey; label: string; numeric?: boolean }[] = [
 	{ key: 'householdName', label: 'Household' },
 	{ key: 'joined', label: 'Joined' },
 	{ key: 'lastActive', label: 'Last Active' },
-	{ key: 'lastCooked', label: 'Last Cooked' },
 	{ key: 'recipeCount', label: 'Recipes', numeric: true },
 	{ key: 'inventoryCount', label: 'Pantry', numeric: true },
-	{ key: 'cookLogCount', label: 'Cooks', numeric: true },
 ]
 
 function compareRows(a: UserRow, b: UserRow, key: SortKey, dir: SortDir) {
@@ -260,9 +249,6 @@ export default function UsersAdminRoute({ loaderData }: Route.ComponentProps) {
 								<td className="px-3 py-2 whitespace-nowrap">
 									<RelativeDate iso={user.lastActive} />
 								</td>
-								<td className="px-3 py-2 whitespace-nowrap">
-									<RelativeDate iso={user.lastCooked} />
-								</td>
 								<td
 									className={`px-3 py-2 text-right tabular-nums ${user.recipeCount === 0 ? 'text-muted-foreground' : ''}`}
 								>
@@ -272,11 +258,6 @@ export default function UsersAdminRoute({ loaderData }: Route.ComponentProps) {
 									className={`px-3 py-2 text-right tabular-nums ${user.inventoryCount === 0 ? 'text-muted-foreground' : ''}`}
 								>
 									{user.inventoryCount}
-								</td>
-								<td
-									className={`px-3 py-2 text-right tabular-nums ${user.cookLogCount === 0 ? 'text-muted-foreground' : ''}`}
-								>
-									{user.cookLogCount}
 								</td>
 							</tr>
 						))}

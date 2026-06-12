@@ -55,9 +55,7 @@ export function useCookingProgress(recipeId: string) {
 	const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
 		() => new Set(),
 	)
-	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(
-		() => new Set(),
-	)
+	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(() => new Set())
 
 	// 0 = waiting for hydrate, 1 = hydrated (skip save), 2 = normal
 	const hydratePhase = useRef(0)
@@ -108,21 +106,10 @@ export function useCookingProgress(recipeId: string) {
 		})
 	}, [])
 
-	const clearProgress = useCallback(() => {
-		setCheckedIngredients(new Set())
-		setCheckedSteps(new Set())
-		try {
-			localStorage.removeItem(getStorageKey(recipeId))
-		} catch {
-			// ignore
-		}
-	}, [recipeId])
-
 	return {
 		checkedIngredients,
 		checkedSteps,
 		toggleIngredient,
 		toggleStep,
-		clearProgress,
 	}
 }

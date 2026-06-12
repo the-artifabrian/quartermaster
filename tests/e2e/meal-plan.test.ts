@@ -5,11 +5,24 @@ import { expect, test } from '#tests/playwright-utils.ts'
 test('Meal plan: view entries and mark as cooked', async ({ page, login }) => {
 	const user = await login()
 
+	// The login fixture creates a bare user; the app expects a household
+	// (all plan/recipe data is household-scoped) and Copy Week is Pro-gated.
+	const household = await prisma.household.create({
+		data: {
+			name: 'Test Household',
+			members: { create: { userId: user.id, role: 'owner' } },
+		},
+	})
+	await prisma.subscription.create({
+		data: { userId: user.id, tier: 'pro' },
+	})
+
 	// Create a recipe via DB
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Test Stir Fry',
 			userId: user.id,
+			householdId: household.id,
 			servings: 4,
 			ingredients: {
 				create: [
@@ -29,6 +42,7 @@ test('Meal plan: view entries and mark as cooked', async ({ page, login }) => {
 	await prisma.mealPlan.create({
 		data: {
 			userId: user.id,
+			householdId: household.id,
 			weekStart,
 			entries: {
 				create: {
@@ -47,14 +61,21 @@ test('Meal plan: view entries and mark as cooked', async ({ page, login }) => {
 	// 2. Verify recipe appears in the calendar
 	await expect(page.getByText('Test Stir Fry').first()).toBeVisible()
 
-	// 3. Verify "Copy to Next Week" is visible (entries exist)
+	// 3. Verify "Copy Week" is visible (entries exist)
+	await expect(page.getByRole('button', { name: /copy week/i })).toBeVisible()
+
+	// 4. Mark as cooked (plain toggle — no confirmation dialog)
+	await page.getByRole('button', { name: 'Mark as cooked' }).first().click()
+
+	// 5. Verify cooked state (toggle label flips optimistically)
 	await expect(
-		page.getByRole('button', { name: /copy to next week/i }),
+		page.getByRole('button', { name: 'Mark as not cooked' }).first(),
 	).toBeVisible()
 
-	// 4. Mark as cooked (click the circle button)
-	await page.getByTitle('Mark as cooked').first().click()
-
-	// 5. Verify cooked state (toggle changes title)
-	await expect(page.getByTitle('Mark as not cooked').first()).toBeVisible()
+	// 6. Reload to confirm the state persisted — the optimistic flip above
+	// would pass even if the server action failed
+	await page.reload()
+	await expect(
+		page.getByRole('button', { name: 'Mark as not cooked' }).first(),
+	).toBeVisible()
 })

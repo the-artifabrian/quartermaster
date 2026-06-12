@@ -1,7 +1,6 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Img } from 'openimg/react'
 import { useState } from 'react'
 import { Form, Link } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
@@ -10,7 +9,6 @@ import { SuggestMealsModal } from '#app/components/suggest-meals-modal.tsx'
 import { TodayBanner } from '#app/components/today-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { UncookedMealReminder } from '#app/components/uncooked-meal-reminder.tsx'
 import {
 	addDaysUTC,
 	getCurrentWeekStart,
@@ -25,9 +23,6 @@ import {
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
-import { cn } from '#app/utils/misc.tsx'
-import { getPostCookInventoryMatches } from '#app/utils/post-cook-matching.server.ts'
-import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
 
@@ -98,57 +93,38 @@ export async function loader({ request }: Route.LoaderArgs) {
 	}
 
 	// Load user's recipes for the picker (lightweight — no ingredients)
-	const rawRecipes = await prisma.recipe.findMany({
+	const recipes = await prisma.recipe.findMany({
 		where: { householdId },
 		orderBy: { title: 'asc' },
 		select: {
 			id: true,
 			title: true,
-			description: true,
 			prepTime: true,
 			cookTime: true,
 			servings: true,
 			isFavorite: true,
 			image: { select: { objectKey: true } },
-			cookingLogs: {
-				select: { cookedAt: true },
-				orderBy: { cookedAt: 'desc' },
-				take: 1,
-			},
-			_count: { select: { cookingLogs: true } },
 		},
 	})
-	const recipes = rawRecipes.map(({ cookingLogs, _count, ...r }) => ({
-		...r,
-		cookCount: _count.cookingLogs,
-		lastCookedAt: cookingLogs[0]?.cookedAt?.toISOString() ?? null,
-	}))
 
 	const weekDays = getWeekDays(weekStart)
 
 	// Tonight banner data (only for current week)
 	const isCurrentWeek =
 		serializeDate(weekStart) === serializeDate(getCurrentWeekStart())
-	let tonightData: {
-		entries: Array<{
-			id: string
-			recipe: {
-				id: string
-				title: string
-				prepTime: number | null
-				cookTime: number | null
-				servings: number | null
-				image: { objectKey: string } | null
-			}
-			mealType: string
-			servings: number | null
-		}>
-		suggestion: {
+	let tonightEntries: Array<{
+		id: string
+		recipe: {
 			id: string
 			title: string
+			prepTime: number | null
+			cookTime: number | null
+			servings: number | null
 			image: { objectKey: string } | null
-		} | null
-	} | null = null
+		}
+		mealType: string
+		servings: number | null
+	}> = []
 
 	if (isCurrentWeek) {
 		const today = new Date()
@@ -171,7 +147,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			return (idx - currentMealIndex + 4) % 4
 		}
 
-		const tonightEntries = mealPlan.entries
+		tonightEntries = mealPlan.entries
 			.filter((e) => serializeDate(new Date(e.date)) === todayStr && !e.cooked)
 			.map((e) => ({
 				id: e.id,
@@ -187,35 +163,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 				servings: e.servings,
 			}))
 			.sort((a, b) => mealTypeSortKey(a.mealType) - mealTypeSortKey(b.mealType))
-
-		// Check if today had meals that are now all cooked
-		const hasCookedEntriesToday = mealPlan.entries.some(
-			(e) => serializeDate(new Date(e.date)) === todayStr && e.cooked,
-		)
-
-		let suggestion = null
-		if (tonightEntries.length === 0 && !hasCookedEntriesToday) {
-			const plannedRecipeIds = [
-				...new Set(mealPlan.entries.map((e) => e.recipeId)),
-			]
-			suggestion = await prisma.recipe.findFirst({
-				where: {
-					householdId,
-					id:
-						plannedRecipeIds.length > 0
-							? { notIn: plannedRecipeIds }
-							: undefined,
-				},
-				orderBy: [{ isFavorite: 'desc' }, { updatedAt: 'desc' }],
-				select: {
-					id: true,
-					title: true,
-					image: { select: { objectKey: true } },
-				},
-			})
-		}
-
-		tonightData = { entries: tonightEntries, suggestion }
 	}
 
 	const shoppingListItemCount = await prisma.shoppingListItem.count({
@@ -241,7 +188,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		weekDays,
 		weekStart: serializeDate(weekStart),
 		isCurrentWeek,
-		tonightData,
+		tonightEntries,
 		shoppingListItemCount,
 		prevWeekHasEntries: prevWeekEntryCount > 0,
 		isProActive,
@@ -325,6 +272,9 @@ export async function action({ request }: Route.ActionArgs) {
 	if (intent === 'toggleCooked') {
 		const entryId = formData.get('entryId')
 		invariantResponse(typeof entryId === 'string', 'Entry ID is required')
+		// The form submits the target state rather than asking the server to
+		// flip, so duplicate/rapid submissions are idempotent (last write wins).
+		const cooked = formData.get('cooked') === 'true'
 
 		const entry = await prisma.mealPlanEntry.findFirst({
 			where: { id: entryId, mealPlan: { householdId } },
@@ -333,7 +283,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		await prisma.mealPlanEntry.update({
 			where: { id: entryId },
-			data: { cooked: !entry.cooked },
+			data: { cooked },
 		})
 
 		return { status: 'success' as const }
@@ -357,46 +307,6 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const }
 	}
 
-	if (intent === 'quickCook') {
-		const entryId = formData.get('entryId')
-		invariantResponse(typeof entryId === 'string', 'Entry ID is required')
-
-		const entry = await prisma.mealPlanEntry.findFirst({
-			where: { id: entryId, mealPlan: { householdId } },
-			include: {
-				recipe: { select: { id: true, title: true, servings: true } },
-			},
-		})
-		invariantResponse(entry, 'Entry not found', { status: 404 })
-		invariantResponse(!entry.cooked, 'Entry already cooked')
-
-		// Mark as cooked
-		await prisma.mealPlanEntry.update({
-			where: { id: entryId },
-			data: { cooked: true },
-		})
-
-		// Create cooking log (quick cook — no notes)
-		await prisma.cookingLog.create({
-			data: {
-				recipeId: entry.recipe.id,
-				userId,
-				cookedAt: new Date(),
-			},
-		})
-
-		const matchedInventoryItems = await getPostCookInventoryMatches(
-			entry.recipe.id,
-			householdId,
-		)
-
-		return {
-			status: 'success' as const,
-			recipeTitle: entry.recipe.title,
-			matchedInventoryItems,
-		}
-	}
-
 	return { status: 'error' as const }
 }
 
@@ -406,7 +316,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 		recipes,
 		weekDays,
 		weekStart,
-		tonightData,
+		tonightEntries,
 		shoppingListItemCount,
 		prevWeekHasEntries,
 		isProActive,
@@ -419,12 +329,9 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const weekSunday = addDaysUTC(parseDate(weekStart), 6)
 	const isWeekPast = isPast(weekSunday)
 	const [showSuggest, setShowSuggest] = useState(false)
-	const [bannerDismissed, setBannerDismissed] = useState(false)
 
 	return (
 		<div className="pb-20 md:pb-6">
-			<UncookedMealReminder />
-
 			{/* Page Header */}
 			<div className="container-grid py-4">
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -495,18 +402,8 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container-grid">
-				{/* Tonight banner (current week with meals only — the weekly empty
-				    state below covers the rest) */}
-				{entries.length > 0 &&
-					tonightData &&
-					(tonightData.entries.length > 0 || tonightData.suggestion) && (
-						<TodayBanner
-							entries={tonightData.entries}
-							suggestion={tonightData.suggestion}
-							dismissed={bannerDismissed}
-							onDismiss={() => setBannerDismissed(true)}
-						/>
-					)}
+				{/* Tonight banner (current week with uncooked meals planned today) */}
+				{tonightEntries.length > 0 && <TodayBanner entries={tonightEntries} />}
 
 				{/* Empty week */}
 				{entries.length === 0 && (
@@ -516,34 +413,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 							Pick recipes for the days ahead and we'll build the shopping list.
 							Tap any day below to get started.
 						</p>
-						{tonightData?.suggestion ? (
-							<div className="mt-5 flex flex-col items-center gap-2">
-								<Link
-									to={`/recipes/${tonightData.suggestion.id}`}
-									className="bg-muted/40 hover:bg-muted/60 active:bg-muted/60 inline-flex items-center gap-3 rounded-lg py-2 pr-4 pl-2 transition-colors"
-								>
-									<SuggestionThumb suggestion={tonightData.suggestion} />
-									<span className="text-left">
-										<span className="text-muted-foreground block text-[11px] font-semibold tracking-wider uppercase">
-											Start with
-										</span>
-										<span className="font-serif text-[15px]">
-											{tonightData.suggestion.title}
-										</span>
-									</span>
-									<Icon
-										name="arrow-right"
-										size="sm"
-										className="text-muted-foreground"
-									/>
-								</Link>
-								{recipes.length > 0 && (
-									<Button asChild variant="link" size="sm">
-										<Link to="/recipes">Browse all recipes</Link>
-									</Button>
-								)}
-							</div>
-						) : recipes.length === 0 ? (
+						{recipes.length === 0 ? (
 							<Button asChild variant="outline" className="mt-4">
 								<Link to="/recipes/new">
 									<Icon name="plus" size="sm" />
@@ -587,38 +457,5 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 				/>
 			)}
 		</div>
-	)
-}
-
-function SuggestionThumb({
-	suggestion,
-}: {
-	suggestion: { title: string; image: { objectKey: string } | null }
-}) {
-	if (suggestion.image) {
-		return (
-			<span className="size-10 shrink-0 overflow-hidden rounded-md">
-				<Img
-					src={`/resources/images?objectKey=${encodeURIComponent(suggestion.image.objectKey)}`}
-					alt=""
-					className="h-full w-full object-cover"
-					width={80}
-					height={80}
-				/>
-			</span>
-		)
-	}
-	const placeholder = getRecipePlaceholder(suggestion.title)
-	return (
-		<span
-			className={cn(
-				'flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md',
-				placeholder.bgClass,
-			)}
-		>
-			<span className={cn('font-serif text-sm', placeholder.letterColorClass)}>
-				{placeholder.letter}
-			</span>
-		</span>
 	)
 }

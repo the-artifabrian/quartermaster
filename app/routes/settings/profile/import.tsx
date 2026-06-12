@@ -96,13 +96,8 @@ const ImportShoppingListSchema = z.object({
 	items: z.array(ImportShoppingListItemSchema).max(500),
 })
 
-const ImportCookingLogSchema = z.object({
-	cookedAt: z.string(),
-	rating: z.number().int().min(1).max(5).nullable().optional(),
-	notes: z.string().max(5000).nullable().optional(),
-	recipe: z.string().min(1).max(100),
-})
-
+// Older full exports may contain a `cookingLogs` array — the feature was
+// removed, and .passthrough() lets those files import with logs ignored.
 const FullExportSchema = z
 	.object({
 		format: z.literal('quartermaster-full-export-v1'),
@@ -110,7 +105,6 @@ const FullExportSchema = z
 		inventory: z.array(ImportInventoryItemSchema).max(1000).optional(),
 		mealPlans: z.array(ImportMealPlanSchema).max(200).optional(),
 		shoppingLists: z.array(ImportShoppingListSchema).max(100).optional(),
-		cookingLogs: z.array(ImportCookingLogSchema).max(5000).optional(),
 	})
 	.passthrough()
 
@@ -163,7 +157,6 @@ interface ImportPreview {
 	inventory: number
 	mealPlans: number
 	shoppingLists: number
-	cookingLogs: number
 	isFullExport: boolean
 }
 
@@ -172,7 +165,6 @@ interface ImportResults {
 	inventory: { created: number; skipped: number }
 	mealPlans: { created: number; skipped: number }
 	shoppingLists: { created: number }
-	cookingLogs: { created: number; skipped: number }
 }
 
 // --- Action ---
@@ -272,7 +264,6 @@ export async function action({ request }: Route.ActionArgs) {
 		inventory: { created: 0, skipped: 0 },
 		mealPlans: { created: 0, skipped: 0 },
 		shoppingLists: { created: 0 },
-		cookingLogs: { created: 0, skipped: 0 },
 	}
 
 	// --- 1. Recipes ---
@@ -403,30 +394,6 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 	}
 
-	// --- 5. Cooking Logs ---
-	if (fullData?.cookingLogs) {
-		for (const log of fullData.cookingLogs) {
-			const recipeId = titleToIdMap.get(log.recipe.toLowerCase())
-			if (!recipeId) {
-				results.cookingLogs.skipped++
-				continue
-			}
-			try {
-				await prisma.cookingLog.create({
-					data: {
-						cookedAt: new Date(log.cookedAt),
-						notes: log.notes || null,
-						recipeId,
-						userId,
-					},
-				})
-				results.cookingLogs.created++
-			} catch {
-				results.cookingLogs.skipped++
-			}
-		}
-	}
-
 	return { error: null, results }
 }
 
@@ -445,7 +412,6 @@ function getPreview(jsonData: unknown): ImportPreview | null {
 		mealPlans:
 			fullData?.mealPlans?.reduce((sum, p) => sum + p.entries.length, 0) ?? 0,
 		shoppingLists: fullData?.shoppingLists?.length ?? 0,
-		cookingLogs: fullData?.cookingLogs?.length ?? 0,
 		isFullExport,
 	}
 }
@@ -474,8 +440,7 @@ export default function ImportData() {
 				r.recipes.created +
 				r.inventory.created +
 				r.mealPlans.created +
-				r.shoppingLists.created +
-				r.cookingLogs.created
+				r.shoppingLists.created
 			if (total > 0) {
 				toast.success(`Imported ${total} items`)
 			} else {
@@ -592,14 +557,6 @@ export default function ImportData() {
 									created={results.shoppingLists.created}
 								/>
 							)}
-							{(results.cookingLogs.created > 0 ||
-								results.cookingLogs.skipped > 0) && (
-								<ResultRow
-									label="Cooking logs"
-									created={results.cookingLogs.created}
-									skipped={results.cookingLogs.skipped}
-								/>
-							)}
 						</div>
 					</div>
 					<div className="flex gap-3">
@@ -664,12 +621,6 @@ export default function ImportData() {
 										<PreviewRow
 											label="Shopping lists"
 											count={preview.shoppingLists}
-										/>
-									)}
-									{preview.cookingLogs > 0 && (
-										<PreviewRow
-											label="Cooking logs"
-											count={preview.cookingLogs}
 										/>
 									)}
 								</div>

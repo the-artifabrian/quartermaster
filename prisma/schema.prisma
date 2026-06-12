@@ -28,7 +28,6 @@ model User {
   inventoryItems   InventoryItem[]
   mealPlans        MealPlan[]
   shoppingLists    ShoppingList[]
-  cookingLogs      CookingLog[]
   householdMembers HouseholdMember[]
   householdInvites HouseholdInvite[]
   householdEvents    HouseholdEvent[]
@@ -236,7 +235,6 @@ model Recipe {
   linkedFromIngredients Ingredient[] @relation("LinkedRecipe")
   instructions    Instruction[]
   mealPlanEntries      MealPlanEntry[]
-  cookingLogs          CookingLog[]
 
   @@index([userId])
   @@index([householdId])
@@ -363,24 +361,6 @@ model ShoppingListItem {
 
   @@index([listId])
   @@index([listId, checked])
-}
-
-model CookingLog {
-  id       String   @id @default(cuid())
-  cookedAt DateTime @default(now())
-  notes    String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  recipeId String
-  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId   String
-
-  @@index([recipeId])
-  @@index([userId])
-  @@index([recipeId, userId])
 }
 
 model HouseholdEvent {

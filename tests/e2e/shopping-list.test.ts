@@ -65,8 +65,10 @@ test('Shopping list flow: generate → verify items → add manual → check →
 		page.getByRole('heading', { name: /shopping list/i }),
 	).toBeVisible()
 
-	// 2. Generate from meal plan
-	await page.getByRole('button', { name: /from plan/i }).click()
+	// 2. Generate from meal plan (the button's aria-label is its accessible name)
+	await page
+		.getByRole('button', { name: /generate shopping list from meal plan/i })
+		.click()
 
 	// 3. Verify generated items appear
 	await expect(page.getByText('chicken breast')).toBeVisible()

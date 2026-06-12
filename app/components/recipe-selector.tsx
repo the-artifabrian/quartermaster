@@ -11,14 +11,11 @@ import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 export type RecipeSelectorRecipe = {
 	id: string
 	title: string
-	description: string | null
 	prepTime: number | null
 	cookTime: number | null
 	servings: number
 	isFavorite: boolean
 	image: { objectKey: string } | null
-	cookCount?: number
-	lastCookedAt?: string | null
 }
 
 type RecipeSelectorProps = {

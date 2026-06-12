@@ -16,7 +16,10 @@ type ShoppingListItemCardProps = {
 	isVoiceAdded?: boolean
 }
 
-export function ShoppingListItemCard({ item, isVoiceAdded }: ShoppingListItemCardProps) {
+export function ShoppingListItemCard({
+	item,
+	isVoiceAdded,
+}: ShoppingListItemCardProps) {
 	const [isEditing, setIsEditing] = useState(false)
 	const [showActions, setShowActions] = useState(false)
 	const editFetcher = useFetcher()
@@ -77,7 +80,7 @@ export function ShoppingListItemCard({ item, isVoiceAdded }: ShoppingListItemCar
 
 	if (isEditing) {
 		return (
-			<div className="p-3 print:p-1">
+			<div className="p-3">
 				<editFetcher.Form
 					method="POST"
 					onKeyDown={(e) => {
@@ -134,9 +137,12 @@ export function ShoppingListItemCard({ item, isVoiceAdded }: ShoppingListItemCar
 	}
 
 	return (
-		<div className="group flex items-center gap-3 py-2.5 print:py-1">
+		<div className="group flex items-center gap-3 py-2.5">
 			{/* Whole row toggles checkbox */}
-			<toggleFetcher.Form method="POST" className="flex min-w-0 flex-1 items-center gap-3 print:contents">
+			<toggleFetcher.Form
+				method="POST"
+				className="flex min-w-0 flex-1 items-center gap-3"
+			>
 				<input type="hidden" name="intent" value="toggle" />
 				<input type="hidden" name="itemId" value={item.id} />
 				<button
@@ -145,7 +151,7 @@ export function ShoppingListItemCard({ item, isVoiceAdded }: ShoppingListItemCar
 					aria-label={optimisticChecked ? 'Uncheck item' : 'Check off item'}
 				>
 					<div
-						className={`flex size-6 shrink-0 items-center justify-center rounded border-2 transition-colors duration-150 print:hidden ${
+						className={`flex size-6 shrink-0 items-center justify-center rounded border-2 transition-colors duration-150 ${
 							optimisticChecked
 								? 'border-primary bg-primary'
 								: 'border-border bg-muted/30'
@@ -159,16 +165,13 @@ export function ShoppingListItemCard({ item, isVoiceAdded }: ShoppingListItemCar
 							/>
 						)}
 					</div>
-					<span className="hidden pt-0.5 text-base print:inline">
-						{optimisticChecked ? '\u2611' : '\u2610'}
-					</span>
 
 					<div className="min-w-0 flex-1">
 						<p
 							className={cn(
 								'text-base',
 								optimisticChecked
-									? 'text-muted-foreground/50 line-through decoration-muted-foreground/60 decoration-2'
+									? 'text-muted-foreground/50 decoration-muted-foreground/60 line-through decoration-2'
 									: isVoiceAdded && 'text-amber-500/80',
 							)}
 						>
@@ -197,24 +200,24 @@ export function ShoppingListItemCard({ item, isVoiceAdded }: ShoppingListItemCar
 
 			{/* Overflow menu */}
 			{!optimisticChecked && (
-				<div ref={actionsRef} className="relative shrink-0 print:hidden">
+				<div ref={actionsRef} className="relative shrink-0">
 					<button
 						type="button"
 						onClick={() => setShowActions((v) => !v)}
-						className="flex size-10 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:bg-muted hover:text-muted-foreground"
+						className="text-muted-foreground/40 hover:bg-muted hover:text-muted-foreground flex size-10 items-center justify-center rounded-full transition-colors"
 						aria-label="Item actions"
 					>
 						<Icon name="dots-horizontal" className="size-4" />
 					</button>
 					{showActions && (
-						<div className="absolute right-0 z-10 mt-1 flex items-center gap-1 rounded-lg border bg-card p-1 shadow-warm-md animate-fade-up-reveal">
+						<div className="bg-card shadow-warm-md animate-fade-up-reveal absolute right-0 z-10 mt-1 flex items-center gap-1 rounded-lg border p-1">
 							<button
 								type="button"
 								onClick={() => {
 									setIsEditing(true)
 									setShowActions(false)
 								}}
-								className="flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+								className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-10 items-center justify-center rounded-md transition-colors"
 								aria-label="Edit item"
 							>
 								<Icon name="pencil-1" size="sm" />
@@ -224,7 +227,7 @@ export function ShoppingListItemCard({ item, isVoiceAdded }: ShoppingListItemCar
 								<input type="hidden" name="itemId" value={item.id} />
 								<button
 									type="submit"
-									className="flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+									className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex size-10 items-center justify-center rounded-md transition-colors"
 									aria-label="Delete item"
 								>
 									<Icon name="trash" size="sm" />

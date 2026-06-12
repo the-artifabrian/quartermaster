@@ -1,19 +1,7 @@
 import { Img } from 'openimg/react'
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { Form, Link, useFetcher } from 'react-router'
-import { toast } from 'sonner'
 
-import { PostCookInventoryReviewContent } from '#app/components/post-cook-inventory-review.tsx'
-import {
-	AlertDialog,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from '#app/components/ui/alert-dialog.tsx'
-import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { type MealType, MEAL_TYPE_LABELS } from '#app/utils/date.ts'
@@ -36,18 +24,6 @@ type MealSlotCardProps = {
 	recipes: RecipeSelectorRecipe[]
 }
 
-type QuickCookData = {
-	status: string
-	recipeTitle?: string
-	matchedInventoryItems?: Array<{
-		id: string
-		name: string
-		preChecked: boolean
-	}>
-}
-
-type CookDialogPhase = 'closed' | 'confirm' | 'review'
-
 function EntryRow({
 	entry,
 }: {
@@ -60,50 +36,15 @@ function EntryRow({
 }) {
 	const dc = useDoubleCheck()
 	const servingsFetcher = useFetcher()
-	const cookedFetcher = useFetcher<QuickCookData>()
-	const prevCookedFetcherState = useRef(cookedFetcher.state)
-	const [dialogPhase, setDialogPhase] = useState<CookDialogPhase>('closed')
+	const cookedFetcher = useFetcher()
 
 	const currentServings = entry.servings ?? entry.recipe.servings
 
-	// Optimistic cooked state: consider both quickCook and toggleCooked
-	const cookedIntent = cookedFetcher.formData?.get('intent')
-	const isCooked =
-		cookedIntent === 'quickCook'
-			? true
-			: cookedIntent === 'toggleCooked'
-				? !entry.cooked
-				: entry.cooked
-
-	// Transition dialog when quickCook completes
-	useEffect(() => {
-		if (
-			prevCookedFetcherState.current !== 'idle' &&
-			cookedFetcher.state === 'idle' &&
-			cookedFetcher.data?.status === 'success' &&
-			cookedFetcher.data?.recipeTitle
-		) {
-			if (
-				dialogPhase !== 'closed' &&
-				cookedFetcher.data.matchedInventoryItems &&
-				cookedFetcher.data.matchedInventoryItems.length > 0
-			) {
-				setDialogPhase('review')
-			} else {
-				setDialogPhase('closed')
-				toast.success(`Cooked ${cookedFetcher.data.recipeTitle}`)
-			}
-		}
-		prevCookedFetcherState.current = cookedFetcher.state
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [cookedFetcher.state, cookedFetcher.data])
-
-	function handleCook() {
-		void cookedFetcher.submit(
-			{ intent: 'quickCook', entryId: entry.id },
-			{ method: 'POST' },
-		)
-	}
+	// Optimistic cooked state while the toggle is in flight — read the
+	// submitted target value so repeat taps each show their own state
+	const isCooked = cookedFetcher.formData
+		? cookedFetcher.formData.get('cooked') === 'true'
+		: entry.cooked
 
 	function updateServings(newServings: number) {
 		const clamped = Math.min(999, Math.max(1, newServings))
@@ -117,8 +58,6 @@ function EntryRow({
 		)
 	}
 
-	const isCooking = cookedFetcher.state !== 'idle'
-
 	const thumbPlaceholder = entry.recipe.image?.objectKey
 		? null
 		: getRecipePlaceholder(entry.recipe.title)
@@ -126,31 +65,27 @@ function EntryRow({
 	return (
 		<div className={cn(isCooked && 'opacity-50')}>
 			<div className="flex items-center gap-2 md:gap-1">
-				{/* Cooked checkbox */}
-				{isCooked ? (
-					<cookedFetcher.Form method="POST" className="shrink-0">
-						<input type="hidden" name="intent" value="toggleCooked" />
-						<input type="hidden" name="entryId" value={entry.id} />
-						<button
-							type="submit"
-							className="flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-0 md:min-w-0 md:p-1"
-							aria-label="Mark as not cooked"
-						>
+				{/* Cooked checkbox — plain toggle, optimistic */}
+				<cookedFetcher.Form method="POST" className="shrink-0">
+					<input type="hidden" name="intent" value="toggleCooked" />
+					<input type="hidden" name="entryId" value={entry.id} />
+					{/* Explicit target (not a server-side flip) so double-taps and
+					    concurrent household toggles stay last-write-wins */}
+					<input type="hidden" name="cooked" value={String(!isCooked)} />
+					<button
+						type="submit"
+						className="flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-0 md:min-w-0 md:p-1"
+						aria-label={isCooked ? 'Mark as not cooked' : 'Mark as cooked'}
+					>
+						{isCooked ? (
 							<span className="border-primary bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
 								<Icon name="check" className="size-3" />
 							</span>
-						</button>
-					</cookedFetcher.Form>
-				) : (
-					<button
-						type="button"
-						onClick={() => setDialogPhase('confirm')}
-						className="flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-0 md:min-w-0 md:p-1"
-						aria-label="Mark as cooked"
-					>
-						<span className="border-muted-foreground/30 hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
+						) : (
+							<span className="border-muted-foreground/30 hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
+						)}
 					</button>
-				)}
+				</cookedFetcher.Form>
 
 				{/* Thumbnail — mobile only (desktop slots are too narrow) */}
 				<div className="size-11 shrink-0 overflow-hidden rounded-md md:hidden">
@@ -250,43 +185,6 @@ function EntryRow({
 					</StatusButton>
 				</Form>
 			</div>
-
-			{/* Combined cook confirmation + inventory review dialog */}
-			<AlertDialog
-				open={dialogPhase !== 'closed'}
-				onOpenChange={(open) => {
-					if (!open) setDialogPhase('closed')
-				}}
-			>
-				<AlertDialogContent>
-					{dialogPhase === 'confirm' && (
-						<>
-							<AlertDialogHeader>
-								<AlertDialogTitle>Mark as cooked?</AlertDialogTitle>
-								<AlertDialogDescription>
-									This will log the cook to your history.
-								</AlertDialogDescription>
-							</AlertDialogHeader>
-							<AlertDialogFooter>
-								<AlertDialogCancel>Cancel</AlertDialogCancel>
-								<Button onClick={handleCook} disabled={isCooking}>
-									{isCooking ? 'Saving...' : 'Cooked'}
-								</Button>
-							</AlertDialogFooter>
-						</>
-					)}
-					{dialogPhase === 'review' && (
-						<PostCookInventoryReviewContent
-							recipeTitle={cookedFetcher.data?.recipeTitle ?? ''}
-							matchedItems={cookedFetcher.data?.matchedInventoryItems ?? []}
-							onDone={() => {
-								setDialogPhase('closed')
-								toast.success(`Cooked ${cookedFetcher.data?.recipeTitle}`)
-							}}
-						/>
-					)}
-				</AlertDialogContent>
-			</AlertDialog>
 		</div>
 	)
 }

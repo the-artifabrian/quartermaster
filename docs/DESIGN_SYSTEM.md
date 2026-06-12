@@ -121,6 +121,7 @@ Light:
 --muted-foreground:     #6F6358  (stone)
 --accent:               #C4956A  (copper)
 --accent-foreground:    #2D2926  (ink)
+--copper-text:          #8C5F3A  (copper as text — AA on cream)
 --border:               #DED6CA  (cedar)
 --destructive:          #B85C4A  (clay)
 --ring:                 #4E7A54  (sage)
@@ -138,6 +139,7 @@ Dark:
 --muted-foreground:     #B5A99B
 --accent:               #D4A87A
 --accent-foreground:    #1A1816
+--copper-text:          #D4A87A  (light copper clears AA on charcoal)
 --border:               #3D3830
 --destructive:          #D07A68
 --ring:                 #8CB393
@@ -156,6 +158,11 @@ Copper marks "where you are" and "what matters now":
 The flip side of the rule: **sage is reserved for interactive elements**
 (buttons, links, checkboxes, the active tab icon) and **headings are always
 ink**. If something isn't clickable and isn't "now", it doesn't get a color.
+
+**Copper never colors text below 24px in light mode** — `#C4956A` on cream is
+≈2.4:1, far short of AA. Copper marks structure (dots, edges, fills); text stays
+ink/stone. If a copper _word_ is truly wanted, use `--copper-text` (`#8C5F3A`,
+≥4.5:1 on cream; tracks light copper in dark mode) — never the raw accent.
 
 ---
 
@@ -279,8 +286,9 @@ navigation; inline back links waste vertical space on mobile.
 blank-form creation. No illustrations, no Caveat.
 
 **Passive hints** (`onboarding-nudge.tsx`): a single muted line — bold ink
-lead-in, copper inline CTA, friendly text dismiss ("Got it"). No panel, no icon
-disc; hidden in print.
+lead-in, sage inline CTA (it's a link: interactive means sage, per the copper
+rule above), friendly text dismiss ("Got it"). No panel, no icon disc; hidden in
+print.
 
 **Empty Pantry** (`pantry-staples-onboarding.tsx`): common usually-on-hand items
 as tappable chips in a flat grid. Bulk-add so Pantry feels useful immediately.
@@ -476,17 +484,33 @@ wide on desktop beside the title with a 1px cedar border at 8px radius.
 
 **Mobile (single column)**: Ingredients first (collapsible, starts expanded),
 then instructions. 17px base text for arm's-length reading. Full-row tap targets
-for checkboxes.
+for checkboxes. Once the ingredient list scrolls out of view, a quiet text pill
+("Ingredients · 7/16", bottom-left, opposite the timer pill) opens the same
+checkable, scaled ingredient list as a bottom sheet over the steps — glance,
+dismiss, never lose your step.
+
+**Scaled amounts read like a cook's pencil note, not a calculator.** When the
+servings stepper moves off the authored count, displayed amounts round to
+quantities a kitchen can measure: metric values snap to honest increments
+prefixed with ≈ ("≈310 g", never "312.5 g"), and eighths no spoon set has
+become qualifier phrases ("generous 1/2", "scant 2"). Author-written amounts
+at the original serving count keep their exact precision, as do shopping-list
+quantities (`scaleAmount` stays exact; display uses `scaleAmountKitchen`).
+The same spirit as temperature conversion's nearest-5° rounding — and bare
+"450 degrees" steps get the same quiet badge with ≈ marking the assumed °F.
 
 **Personal notes**: Left-bordered with copper line. Note text in Caveat on a
 subtly warm background. Empty state: dashed border, DM Sans prompt "Add your
 notes...". Caveat only appears when notes exist.
 
-**Action bar**: one labeled sage **Cook** button (logs a cook via the
-I-Made-This flow) followed by favorite / plan / edit / share icon buttons and an
-overflow menu holding Print and Enhance. Same on every breakpoint; no emerald or
-violet accents. Serving scaler: simple +/- stepper in the ingredients section
-header.
+**Action bar**: one labeled outline **"I made this"** button (logs a cook via
+the I-Made-This flow — a thing you do _after_ eating, so it doesn't get a
+filled-primary slot) followed by favorite / plan / edit / share icon buttons and
+an overflow menu holding Print and Enhance. Same on every breakpoint; no emerald
+or violet accents. Serving scaler: simple +/- stepper in the ingredients section
+header. When the last step is checked, a quiet sage-edged inline prompt ("All
+done — log it?") slides in below the steps and offers the same log at the
+natural moment.
 
 **Ingredients/instructions are flat sections** — no card wrapper around the
 ingredient list (the desktop column keeps its `md:sticky` behavior). Raw
@@ -503,14 +527,15 @@ numbered, compact line-height. Source URL as small footer text.
 
 **Mobile**: Vertical day stack as a flat divided list (hairlines between days,
 16px vertical padding per day). Editorial day header: weekday name in Young
-Serif at 18px ("Today" in copper for the current day — no pill, ring, dot, or
-tinted box) + a 12px stone "Jun 11" caption beside it; past days dim the weekday
-to `text-muted-foreground/70`; a "N meals" count sits right-aligned. Planned
-meals are flat rows under small-caps meal-type labels (11px,
-`tracking-wider uppercase`): cooked-checkbox + 44px `rounded-md` thumbnail
-(photo or monogram, mobile only) + Young Serif title at 15px + servings stepper.
-Empty days and empty slots: quiet text rows — a plus icon and a 13px muted
-label, **no dashed borders, no disc icons**.
+Serif at 18px, always ink — the current day gets a small copper **dot** beside
+"Today" (no pill, ring, or tinted box; copper text fails AA) + a 12px stone "Jun
+11" caption beside it; past days dim the weekday to `text-muted-foreground/70`;
+a "N meals" count sits right-aligned. Planned meals are flat rows under
+small-caps meal-type labels (11px, `tracking-wider uppercase`):
+cooked-checkbox + 44px `rounded-md` thumbnail (photo or monogram, mobile only) +
+Young Serif title at 15px + servings stepper. Empty days and empty slots: quiet
+text rows — a plus icon and a 13px muted label, **no dashed borders, no disc
+icons**.
 
 **Desktop**: 7-day grid of flat columns (no card chrome, no shadows). Young
 Serif day header; every column carries a 3px top border — cedar hairline

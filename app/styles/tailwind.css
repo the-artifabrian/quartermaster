@@ -26,6 +26,10 @@
 
 	--accent: #c4956a;
 	--accent-foreground: #2d2926;
+	/* Copper as *text* (≥4.5:1 on cream). The accent itself never colors text
+	   below 24px in light mode — see DESIGN_SYSTEM.md "Copper as Structural
+	   Accent". */
+	--copper-text: #8c5f3a;
 
 	--border: #ded6ca;
 	--input: #ded6ca;
@@ -72,6 +76,8 @@
 
 	--accent: #d4a87a;
 	--accent-foreground: #1a1816;
+	/* Light copper already clears AA on charcoal; text-copper matches accent */
+	--copper-text: #d4a87a;
 
 	--border: #3d3830;
 	--input: #3d3830;
@@ -104,6 +110,7 @@
 	--color-muted-foreground: var(--muted-foreground);
 	--color-accent: var(--accent);
 	--color-accent-foreground: var(--accent-foreground);
+	--color-copper-text: var(--copper-text);
 	--color-destructive: var(--destructive);
 	--color-border: var(--border);
 	--color-input: var(--input);

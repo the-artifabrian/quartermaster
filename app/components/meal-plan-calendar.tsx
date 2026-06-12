@@ -114,6 +114,11 @@ export function MealPlanCalendar({
 	}
 
 	const mobileDays = mobileDayOrder(weekDays)
+	// Index in mobileDays where the demoted past days begin (C1): today-first
+	// reordering moves Mon…yesterday to the end, and a small-caps seam marks
+	// where the week wraps so the shape stays scannable.
+	const todayIdx = weekDays.findIndex(isToday)
+	const earlierStartIdx = todayIdx > 0 ? mobileDays.length - todayIdx : -1
 
 	return (
 		<>
@@ -131,10 +136,12 @@ export function MealPlanCalendar({
 							)}
 						>
 							<div className="mb-2 text-center">
+								{/* The copper top-border marks today; the day name stays ink
+								    (copper text at this size fails AA in light mode) */}
 								<span
 									className={cn(
 										'font-serif text-sm',
-										today ? 'text-accent' : 'text-muted-foreground',
+										today ? 'text-foreground' : 'text-muted-foreground',
 									)}
 								>
 									{formatDayLabel(date)}
@@ -162,7 +169,7 @@ export function MealPlanCalendar({
 
 			{/* Mobile: vertical day stack, today first */}
 			<div className="divide-border/40 divide-y md:hidden">
-				{mobileDays.map((date) => {
+				{mobileDays.map((date, i) => {
 					const dayCount = getEntriesForDay(date)
 					const today = isToday(date)
 					return (
@@ -170,14 +177,24 @@ export function MealPlanCalendar({
 							key={serializeDate(date)}
 							className="py-4 first:pt-0 last:pb-0"
 						>
+							{i === earlierStartIdx && (
+								<p className="text-muted-foreground/70 mb-3 text-[11px] font-semibold tracking-wider uppercase">
+									Earlier this week
+								</p>
+							)}
 							<div className="mb-2 flex items-baseline justify-between">
 								<span className="flex items-baseline gap-2">
+									{/* Copper dot marks "now"; the day name stays ink */}
+									{today && (
+										<span
+											aria-hidden="true"
+											className="bg-accent size-1.5 shrink-0 self-center rounded-full"
+										/>
+									)}
 									<span
 										className={cn(
 											'font-serif text-lg leading-none',
-											today
-												? 'text-accent'
-												: isPast(date) && 'text-muted-foreground/70',
+											!today && isPast(date) && 'text-muted-foreground/70',
 										)}
 									>
 										{today ? 'Today' : formatWeekdayName(date)}

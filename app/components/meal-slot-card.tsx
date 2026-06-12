@@ -204,7 +204,7 @@ function EntryRow({
 					<div className="flex items-center gap-0.5">
 						<button
 							type="button"
-							className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-6 min-h-8 min-w-6 items-center justify-center rounded transition-colors disabled:opacity-40 md:size-5 md:min-h-0 md:min-w-0"
+							className="text-muted-foreground hover:bg-muted hover:text-foreground relative flex size-6 min-h-8 min-w-6 items-center justify-center rounded transition-colors after:absolute after:-inset-x-2.5 after:-inset-y-1.5 after:content-[''] disabled:opacity-40 md:size-5 md:min-h-0 md:min-w-0 md:after:hidden"
 							onClick={() => updateServings(currentServings - 1)}
 							disabled={currentServings <= 1}
 							aria-label="Decrease servings"
@@ -216,7 +216,7 @@ function EntryRow({
 						</span>
 						<button
 							type="button"
-							className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-6 min-h-8 min-w-6 items-center justify-center rounded transition-colors md:size-5 md:min-h-0 md:min-w-0"
+							className="text-muted-foreground hover:bg-muted hover:text-foreground relative flex size-6 min-h-8 min-w-6 items-center justify-center rounded transition-colors after:absolute after:-inset-x-2.5 after:-inset-y-1.5 after:content-[''] md:size-5 md:min-h-0 md:min-w-0 md:after:hidden"
 							onClick={() => updateServings(currentServings + 1)}
 							aria-label="Increase servings"
 						>
@@ -234,7 +234,11 @@ function EntryRow({
 						size="sm"
 						variant={dc.doubleCheck ? 'destructive' : 'ghost'}
 						status="idle"
-						aria-label="Remove from meal plan"
+						aria-label={
+							dc.doubleCheck
+								? 'Tap again to remove from meal plan'
+								: 'Remove from meal plan'
+						}
 						className={dc.doubleCheck ? undefined : 'size-9 p-0 md:size-7'}
 						{...dc.getButtonProps()}
 					>

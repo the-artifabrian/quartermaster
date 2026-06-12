@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'vitest'
-import { parseSpeechItem, parseSpeechItems } from './parse-speech-item.ts'
+import {
+	parseSpeechItem,
+	parseSpeechItems,
+	parseTypedItem,
+} from './parse-speech-item.ts'
 
 describe('parseSpeechItem', () => {
 	describe('basic parsing', () => {
@@ -14,39 +18,30 @@ describe('parseSpeechItem', () => {
 		test.each([
 			['3 eggs', { name: 'eggs', quantity: '3', unit: '' }],
 			['12 bananas', { name: 'bananas', quantity: '12', unit: '' }],
-			['2 chicken breasts', { name: 'chicken breasts', quantity: '2', unit: '' }],
+			[
+				'2 chicken breasts',
+				{ name: 'chicken breasts', quantity: '2', unit: '' },
+			],
 		])('quantity + name: "%s"', (input, expected) => {
 			expect(parseSpeechItem(input)).toEqual(expected)
 		})
 
 		test.each([
-			[
-				'2 pounds of chicken',
-				{ name: 'chicken', quantity: '2', unit: 'lb' },
-			],
+			['2 pounds of chicken', { name: 'chicken', quantity: '2', unit: 'lb' }],
 			['1 cup of flour', { name: 'flour', quantity: '1', unit: 'cup' }],
 			[
 				'3 tablespoons of olive oil',
 				{ name: 'olive oil', quantity: '3', unit: 'tbsp' },
 			],
 			['2 bags of chips', { name: 'chips', quantity: '2', unit: 'bags' }],
-			[
-				'1 can of tomatoes',
-				{ name: 'tomatoes', quantity: '1', unit: 'can' },
-			],
+			['1 can of tomatoes', { name: 'tomatoes', quantity: '1', unit: 'can' }],
 		])('quantity + unit + name: "%s"', (input, expected) => {
 			expect(parseSpeechItem(input)).toEqual(expected)
 		})
 
 		test.each([
-			[
-				'2 lbs chicken',
-				{ name: 'chicken', quantity: '2', unit: 'lb' },
-			],
-			[
-				'500 g flour',
-				{ name: 'flour', quantity: '500', unit: 'g' },
-			],
+			['2 lbs chicken', { name: 'chicken', quantity: '2', unit: 'lb' }],
+			['500 g flour', { name: 'flour', quantity: '500', unit: 'g' }],
 		])('quantity + unit + name without "of": "%s"', (input, expected) => {
 			expect(parseSpeechItem(input)).toEqual(expected)
 		})
@@ -77,14 +72,8 @@ describe('parseSpeechItem', () => {
 		})
 
 		test.each([
-			[
-				'two pounds of chicken',
-				{ name: 'chicken', quantity: '2', unit: 'lb' },
-			],
-			[
-				'three cups of flour',
-				{ name: 'flour', quantity: '3', unit: 'cup' },
-			],
+			['two pounds of chicken', { name: 'chicken', quantity: '2', unit: 'lb' }],
+			['three cups of flour', { name: 'flour', quantity: '3', unit: 'cup' }],
 		])('word number + unit: "%s"', (input, expected) => {
 			expect(parseSpeechItem(input)).toEqual(expected)
 		})
@@ -117,10 +106,7 @@ describe('parseSpeechItem', () => {
 
 		test.each([
 			['a couple bananas', { name: 'bananas', quantity: '2', unit: '' }],
-			[
-				'a couple of bananas',
-				{ name: 'bananas', quantity: '2', unit: '' },
-			],
+			['a couple of bananas', { name: 'bananas', quantity: '2', unit: '' }],
 		])('a couple: "%s"', (input, expected) => {
 			expect(parseSpeechItem(input)).toEqual(expected)
 		})
@@ -147,10 +133,7 @@ describe('parseSpeechItem', () => {
 			['um three apples', { name: 'apples', quantity: '3', unit: '' }],
 			['uh milk', { name: 'milk', quantity: '', unit: '' }],
 			['like 2 eggs', { name: 'eggs', quantity: '2', unit: '' }],
-			[
-				'um like three apples',
-				{ name: 'apples', quantity: '3', unit: '' },
-			],
+			['um like three apples', { name: 'apples', quantity: '3', unit: '' }],
 			[
 				'oh um well 2 pounds of chicken',
 				{ name: 'chicken', quantity: '2', unit: 'lb' },
@@ -162,14 +145,8 @@ describe('parseSpeechItem', () => {
 
 	describe('comma-laden Whisper output', () => {
 		test.each([
-			[
-				'Um, like, some Cheerios',
-				{ name: 'cheerios', quantity: '', unit: '' },
-			],
-			[
-				'Oh, three eggs',
-				{ name: 'eggs', quantity: '3', unit: '' },
-			],
+			['Um, like, some Cheerios', { name: 'cheerios', quantity: '', unit: '' }],
+			['Oh, three eggs', { name: 'eggs', quantity: '3', unit: '' }],
 			[
 				'Okay, two pounds of chicken',
 				{ name: 'chicken', quantity: '2', unit: 'lb' },
@@ -222,10 +199,7 @@ describe('parseSpeechItem', () => {
 				'oh yeah and like goldfish crackers',
 				{ name: 'goldfish crackers', quantity: '', unit: '' },
 			],
-			[
-				'oh I need some milk',
-				{ name: 'milk', quantity: '', unit: '' },
-			],
+			['oh I need some milk', { name: 'milk', quantity: '', unit: '' }],
 			[
 				'well actually grab a dozen eggs',
 				{ name: 'eggs', quantity: '12', unit: '' },
@@ -268,18 +242,9 @@ describe('parseSpeechItem', () => {
 	describe('additional units', () => {
 		test.each([
 			['1 pint of cream', { name: 'cream', quantity: '1', unit: 'pint' }],
-			[
-				'2 quarts of broth',
-				{ name: 'broth', quantity: '2', unit: 'quart' },
-			],
-			[
-				'1 package of bacon',
-				{ name: 'bacon', quantity: '1', unit: 'package' },
-			],
-			[
-				'2 tins of sardines',
-				{ name: 'sardines', quantity: '2', unit: 'tins' },
-			],
+			['2 quarts of broth', { name: 'broth', quantity: '2', unit: 'quart' }],
+			['1 package of bacon', { name: 'bacon', quantity: '1', unit: 'package' }],
+			['2 tins of sardines', { name: 'sardines', quantity: '2', unit: 'tins' }],
 			[
 				'1 tube of tomato paste',
 				{ name: 'tomato paste', quantity: '1', unit: 'tube' },
@@ -340,9 +305,7 @@ describe('parseSpeechItems', () => {
 	})
 
 	test('comma and "and" together', () => {
-		expect(
-			parseSpeechItems('eggs, milk, and bread'),
-		).toEqual([
+		expect(parseSpeechItems('eggs, milk, and bread')).toEqual([
 			{ name: 'eggs', quantity: '', unit: '' },
 			{ name: 'milk', quantity: '', unit: '' },
 			{ name: 'bread', quantity: '', unit: '' },
@@ -376,9 +339,7 @@ describe('parseSpeechItems', () => {
 		})
 
 		test('compound name in a list', () => {
-			expect(
-				parseSpeechItems('eggs, mac and cheese, and milk'),
-			).toEqual([
+			expect(parseSpeechItems('eggs, mac and cheese, and milk')).toEqual([
 				{ name: 'eggs', quantity: '', unit: '' },
 				{ name: 'mac and cheese', quantity: '', unit: '' },
 				{ name: 'milk', quantity: '', unit: '' },
@@ -386,9 +347,7 @@ describe('parseSpeechItems', () => {
 		})
 
 		test('compound name with quantity', () => {
-			expect(
-				parseSpeechItems('2 boxes of mac and cheese'),
-			).toEqual([
+			expect(parseSpeechItems('2 boxes of mac and cheese')).toEqual([
 				{ name: 'mac and cheese', quantity: '2', unit: 'boxes' },
 			])
 		})
@@ -416,5 +375,54 @@ describe('parseSpeechItems', () => {
 
 	test('whitespace only returns empty array', () => {
 		expect(parseSpeechItems('   ')).toEqual([])
+	})
+})
+
+describe('parseTypedItem', () => {
+	test('splits a leading quantity from the name', () => {
+		expect(parseTypedItem('2 lemons')).toEqual({
+			name: 'lemons',
+			quantity: '2',
+			unit: '',
+		})
+	})
+
+	test('recognizes units', () => {
+		expect(parseTypedItem('2 lbs chicken')).toEqual({
+			name: 'chicken',
+			quantity: '2',
+			unit: 'lb',
+		})
+		expect(parseTypedItem('1 1/2 cups flour')).toEqual({
+			name: 'flour',
+			quantity: '1 1/2',
+			unit: 'cup',
+		})
+	})
+
+	test('keeps typed capitalization (no transcript lowercasing)', () => {
+		expect(parseTypedItem('3 Honeycrisp apples')).toEqual({
+			name: 'Honeycrisp apples',
+			quantity: '3',
+			unit: '',
+		})
+	})
+
+	test('returns null when there is no leading quantity', () => {
+		expect(parseTypedItem('milk')).toBeNull()
+		expect(parseTypedItem('Shaoxing wine')).toBeNull()
+	})
+
+	test('does not treat percentages or attached digits as quantities', () => {
+		expect(parseTypedItem('2% milk')).toBeNull()
+		expect(parseTypedItem('7up')).toBeNull()
+	})
+
+	test('handles fractions', () => {
+		expect(parseTypedItem('1/2 watermelon')).toEqual({
+			name: 'watermelon',
+			quantity: '1/2',
+			unit: '',
+		})
 	})
 })

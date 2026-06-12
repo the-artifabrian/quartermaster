@@ -222,6 +222,14 @@ export async function loader({ request }: Route.LoaderArgs) {
 		where: { list: { householdId } },
 	})
 
+	// "Copy Last Week" on empty weeks (C3) needs to know there's something
+	// to copy — the copy-week resource 400s on an empty source week.
+	const prevWeekEntryCount = await prisma.mealPlanEntry.count({
+		where: {
+			mealPlan: { householdId, weekStart: getPreviousWeek(weekStart) },
+		},
+	})
+
 	return {
 		// `mealPlan` itself is not returned — the component reads `entries`
 		// (mapped below); returning the whole object duplicated every entry on the wire.
@@ -235,6 +243,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		isCurrentWeek,
 		tonightData,
 		shoppingListItemCount,
+		prevWeekHasEntries: prevWeekEntryCount > 0,
 		isProActive,
 	}
 }
@@ -399,6 +408,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 		weekStart,
 		tonightData,
 		shoppingListItemCount,
+		prevWeekHasEntries,
 		isProActive,
 	} = loaderData
 
@@ -439,6 +449,21 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 								</Button>
 							</Form>
 						)}
+						{/* Empty week: offer to pull last week's plan forward (C3) —
+						    the copy-week resource copies weekStart → weekStart+1, so
+						    posting the previous week fills this one */}
+						{isProActive &&
+							entries.length === 0 &&
+							prevWeekHasEntries &&
+							!isWeekPast && (
+								<Form method="POST" action="/resources/meal-plan-copy-week">
+									<input type="hidden" name="weekStart" value={prevWeek} />
+									<Button type="submit" variant="outline" size="sm">
+										<Icon name="arrow-right" size="sm" />
+										Copy Last Week
+									</Button>
+								</Form>
+							)}
 					</div>
 				</div>
 

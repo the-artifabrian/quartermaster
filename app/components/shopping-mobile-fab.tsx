@@ -7,6 +7,7 @@ import {
 	type TranscribedItem,
 } from '#app/hooks/use-speech-to-text.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { useModal } from '#app/utils/use-modal.ts'
 
 export function MobileFabAdd({
 	open,
@@ -110,24 +111,7 @@ export function MobileFabAdd({
 	return (
 		<div className="md:hidden print:hidden">
 			{open && (
-				<div
-					className="fixed inset-0 z-40 bg-black/15"
-					onClick={() => onOpenChange(false)}
-				/>
-			)}
-			{open && (
-				<div className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-50 rounded-t-xl border-t p-4">
-					<div className="mb-2 flex items-center justify-between">
-						<span className="text-sm font-medium">Add to list</span>
-						<button
-							type="button"
-							onClick={() => onOpenChange(false)}
-							className="text-muted-foreground hover:text-foreground -m-1 p-1"
-							aria-label="Close"
-						>
-							<Icon name="cross-1" size="sm" />
-						</button>
-					</div>
+				<AddItemSheet onClose={() => onOpenChange(false)}>
 					<fetcher.Form
 						method="POST"
 						onSubmit={(e) => {
@@ -221,7 +205,7 @@ export function MobileFabAdd({
 							</button>
 						)}
 					</fetcher.Form>
-				</div>
+				</AddItemSheet>
 			)}
 			{!open && (
 				<button
@@ -233,6 +217,48 @@ export function MobileFabAdd({
 					<Icon name="plus" className="size-6" />
 				</button>
 			)}
+		</div>
+	)
+}
+
+/**
+ * Sheet chrome with modal keyboard behavior (D5): Escape closes, focus is
+ * trapped while open and returns to the FAB on close — same pattern as the
+ * recipe ingredients sheet.
+ */
+function AddItemSheet({
+	onClose,
+	children,
+}: {
+	onClose: () => void
+	children: React.ReactNode
+}) {
+	const dialogRef = useModal(onClose)
+
+	return (
+		<div
+			ref={dialogRef}
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="shopping-add-sheet-title"
+		>
+			<div className="fixed inset-0 z-40 bg-black/15" onClick={onClose} />
+			<div className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-50 rounded-t-xl border-t p-4">
+				<div className="mb-2 flex items-center justify-between">
+					<span id="shopping-add-sheet-title" className="text-sm font-medium">
+						Add to list
+					</span>
+					<button
+						type="button"
+						onClick={onClose}
+						className="text-muted-foreground hover:text-foreground -m-1 p-1"
+						aria-label="Close"
+					>
+						<Icon name="cross-1" size="sm" />
+					</button>
+				</div>
+				{children}
+			</div>
 		</div>
 	)
 }

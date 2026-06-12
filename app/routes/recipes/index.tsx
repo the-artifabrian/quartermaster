@@ -32,8 +32,6 @@ export const meta: Route.MetaFunction = () => {
 
 const SORT_OPTIONS = [
 	{ value: 'recent', label: 'Recently Updated' },
-	{ value: 'most-cooked', label: 'Most Cooked' },
-	{ value: 'recently-cooked', label: 'Recently Cooked' },
 	{ value: 'alphabetical', label: 'Alphabetical' },
 	{ value: 'newest', label: 'Newest First' },
 ] as const
@@ -47,8 +45,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// Trim so a whitespace-only query counts as "no search" — otherwise it is
 	// truthy for hasFilters/UI but produces no filter terms.
 	const search = url.searchParams.get('search')?.trim() ?? ''
-	const explicitSort = url.searchParams.get('sort')
-	const sort = (explicitSort ?? 'recent') as SortOption
+	// Unknown values (e.g. removed sorts like 'most-cooked' in stale bookmarks
+	// or PWA-restored URLs) count as "no explicit sort".
+	const rawSort = url.searchParams.get('sort')
+	const explicitSort = SORT_OPTIONS.some((o) => o.value === rawSort)
+		? (rawSort as SortOption)
+		: null
+	const sort: SortOption = explicitSort ?? 'recent'
 	const quality = url.searchParams.get('quality') ?? ''
 	const favoritesOnly = url.searchParams.get('favorites') === 'true'
 	const rawMaxTime = url.searchParams.get('maxTime')
@@ -101,14 +104,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 			isAiGenerated: true,
 			servings: true,
 			image: { select: { objectKey: true } },
-			cookingLogs: {
-				select: { cookedAt: true },
-				orderBy: { cookedAt: 'desc' as const },
-				take: 1,
-			},
 			_count: {
 				select: {
-					cookingLogs: true,
 					instructions: true,
 					...(hasInventory ? {} : { ingredients: true }),
 				},
@@ -139,19 +136,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 				return total <= maxTime
 			})
 		: recipes
-
-	// Handle sort options that need JS-level sorting
-	if (sort === 'most-cooked') {
-		filteredRecipes = [...filteredRecipes].sort(
-			(a, b) => b._count.cookingLogs - a._count.cookingLogs,
-		)
-	} else if (sort === 'recently-cooked') {
-		filteredRecipes = [...filteredRecipes].sort((a, b) => {
-			const aDate = a.cookingLogs[0]?.cookedAt?.getTime() ?? 0
-			const bDate = b.cookingLogs[0]?.cookedAt?.getTime() ?? 0
-			return bDate - aDate
-		})
-	}
 
 	// Quality flags computed from main query data (no extra query needed)
 	if (quality === 'flagged') {

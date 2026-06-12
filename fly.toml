@@ -7,7 +7,10 @@ swap_size_mb = 512
 
 [experimental]
 allowed_public_ports = [ ]
-auto_rollback = true
+# Migrations run at boot and can be irreversible (e.g. DROP TABLE), so an
+# automatic rollback to a pre-migration release would 500 against the new
+# schema while healthchecks stay green. Roll back deliberately instead.
+auto_rollback = false
 
 [mounts]
 source = "data"

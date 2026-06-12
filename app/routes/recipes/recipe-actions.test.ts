@@ -99,7 +99,7 @@ async function makeRequest(
 }
 
 describe('recipe detail loader', () => {
-	test('loads recipe with ingredients, instructions, and logs', async () => {
+	test('loads recipe with ingredients and instructions', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 
@@ -107,13 +107,12 @@ describe('recipe detail loader', () => {
 		const result = (await loader({
 			request,
 			...makeActionArgs(recipe.id),
-		})) as { recipe: any; cookingLogs: any[] }
+		})) as { recipe: any }
 
 		expect(result.recipe.id).toBe(recipe.id)
 		expect(result.recipe.title).toBe('Test Recipe')
 		expect(result.recipe.ingredients).toHaveLength(2)
 		expect(result.recipe.instructions).toHaveLength(2)
-		expect(result.cookingLogs).toHaveLength(0)
 	})
 
 	test('returns 404 for nonexistent recipe', async () => {
@@ -172,51 +171,6 @@ describe('recipe detail actions', () => {
 			where: { id: recipe.id },
 		})
 		expect(reToggled!.isFavorite).toBe(false)
-	})
-
-	test('log cook creates cooking log', async () => {
-		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId, session.householdId)
-
-		const request = await makeRequest(session, recipe.id, {
-			intent: 'logCook',
-			cookedAt: '2026-02-06',
-			notes: 'Turned out great!',
-		})
-		const result = await action({ request, ...makeActionArgs(recipe.id) })
-		expect(result).toEqual({ success: true })
-
-		const logs = await prisma.cookingLog.findMany({
-			where: { recipeId: recipe.id, userId: session.userId },
-		})
-		expect(logs).toHaveLength(1)
-		expect(logs[0]!.notes).toBe('Turned out great!')
-	})
-
-	test('delete cook log', async () => {
-		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId, session.householdId)
-
-		// Create a cooking log
-		const log = await prisma.cookingLog.create({
-			data: {
-				recipeId: recipe.id,
-				userId: session.userId,
-				cookedAt: new Date(),
-			},
-		})
-
-		const request = await makeRequest(session, recipe.id, {
-			intent: 'deleteCookLog',
-			logId: log.id,
-		})
-		const result = await action({ request, ...makeActionArgs(recipe.id) })
-		expect(result).toEqual({ success: true })
-
-		const deleted = await prisma.cookingLog.findUnique({
-			where: { id: log.id },
-		})
-		expect(deleted).toBeNull()
 	})
 
 	test('action on nonexistent recipe returns 404', async () => {

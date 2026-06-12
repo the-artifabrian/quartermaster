@@ -42,7 +42,6 @@ hand" items rather than exact current stock.
     ├── Password, Session, Passkey, Connection (auth)
     ├── Role → Permission (RBAC)
     ├── Subscription (Pro/Free tier)
-    ├── CookingLog (user-scoped)
     │
     └── HouseholdMember → Household
                               ├── Recipe → Ingredient, Instruction, RecipeImage
@@ -83,7 +82,7 @@ and a useful shopping list:
   IMPORT RECIPES ──▶ PLAN MEALS ──▶ GENERATE SHOPPING LIST
          ▲                                  │
          │                                  ▼
-      COOK / LOG ◀──────────────────── SHOP / CHECK OFF
+      COOK ◀────────────────────────── SHOP / CHECK OFF
 ```
 
 Pantry supports the loop by remembering ingredients the household usually keeps
@@ -126,20 +125,10 @@ promise. The app must remain useful without API keys.
 7. After shopping: checked items may be remembered for next time, but this must
    be framed as "remember for next time," not exact stock synchronization
 
-**Post-cook Pantry review flow:**
-
-1. User marks a meal as cooked (quickCook intent)
-2. Server matches recipe ingredients against household Pantry
-3. Filters out staples (salt, oil, pepper) and optional ingredients
-4. Returns matched Pantry items with pre-check flag (perishables checked,
-   shelf-stable items unchecked)
-5. Dialog may prompt user to confirm which items were used up, but this should
-   remain optional and low-pressure
-6. Selected items bulk-deleted from Pantry via resource route
-
-This flow is a UX risk because it can create after-dinner bookkeeping. Prefer
-opportunistic updates and contextual confirmation over recurring maintenance
-chores.
+Marking a meal as cooked is a plain per-entry toggle on the plan page — the
+post-cook Pantry review flow was removed (June 2026) because it created
+after-dinner bookkeeping. Prefer opportunistic updates and contextual
+confirmation over recurring maintenance chores.
 
 ---
 
@@ -198,10 +187,10 @@ compounds (red onion ≠ red lentil, ground chicken ≠ ground turkey).
 
 **Pantry fit:** currently computed as
 `matched / (total - staples - optional - headings) × 100` and displayed as SVG
-progress rings on recipe cards. The `canMake` boolean (100% fit) surfaces as
-the "Nothing to buy" filter on the recipe list. Product copy should avoid
-implying exact cookability. Prefer "pantry fit," "usually on hand," or concrete
-labels like "needs 3 things" where possible.
+progress rings on recipe cards. The `canMake` boolean (100% fit) surfaces as the
+"Nothing to buy" filter on the recipe list. Product copy should avoid implying
+exact cookability. Prefer "pantry fit," "usually on hand," or concrete labels
+like "needs 3 things" where possible.
 
 ---
 

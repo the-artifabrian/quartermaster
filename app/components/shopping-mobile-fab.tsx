@@ -108,6 +108,8 @@ export function MobileFabAdd({
 			onError: handleSpeechError,
 		})
 
+	// print:hidden guards browser-initiated Cmd+P — print pages are narrower
+	// than the md breakpoint, so the fixed FAB would repeat on every page
 	return (
 		<div className="md:hidden print:hidden">
 			{open && (

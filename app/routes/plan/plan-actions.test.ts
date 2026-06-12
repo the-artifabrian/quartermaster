@@ -197,6 +197,7 @@ describe('meal plan actions', () => {
 			request: await makeRequest(session, {
 				intent: 'toggleCooked',
 				entryId: entry!.id,
+				cooked: 'true',
 			}),
 			...ACTION_ARGS_BASE,
 		})
@@ -205,6 +206,36 @@ describe('meal plan actions', () => {
 			where: { id: entry!.id },
 		})
 		expect(toggled!.cooked).toBe(true)
+
+		// The form submits the target state, so duplicate submissions (e.g. a
+		// double-tap) are idempotent rather than flipping back
+		await action({
+			request: await makeRequest(session, {
+				intent: 'toggleCooked',
+				entryId: entry!.id,
+				cooked: 'true',
+			}),
+			...ACTION_ARGS_BASE,
+		})
+
+		const repeated = await prisma.mealPlanEntry.findUnique({
+			where: { id: entry!.id },
+		})
+		expect(repeated!.cooked).toBe(true)
+
+		await action({
+			request: await makeRequest(session, {
+				intent: 'toggleCooked',
+				entryId: entry!.id,
+				cooked: 'false',
+			}),
+			...ACTION_ARGS_BASE,
+		})
+
+		const untoggled = await prisma.mealPlanEntry.findUnique({
+			where: { id: entry!.id },
+		})
+		expect(untoggled!.cooked).toBe(false)
 	})
 
 	test('remove entry', async () => {

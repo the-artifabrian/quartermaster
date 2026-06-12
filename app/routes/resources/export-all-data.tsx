@@ -5,87 +5,78 @@ import { type Route } from './+types/export-all-data.ts'
 export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
 
-	const [user, recipes, inventory, mealPlans, shoppingLists, cookingLogs] =
+	const [user, recipes, inventory, mealPlans, shoppingLists] =
 		await Promise.all([
-		prisma.user.findUniqueOrThrow({
-			where: { id: userId },
-			select: { username: true, email: true, name: true },
-		}),
-		prisma.recipe.findMany({
-			where: { householdId },
-			select: {
-				title: true,
-				description: true,
-				servings: true,
-				prepTime: true,
-				cookTime: true,
-				isFavorite: true,
-				sourceUrl: true,
-				notes: true,
-				ingredients: {
-					select: { name: true, amount: true, unit: true, notes: true },
-					orderBy: { order: 'asc' },
-				},
-				instructions: {
-					select: { content: true },
-					orderBy: { order: 'asc' },
-				},
-				image: { select: { objectKey: true, altText: true } },
-			},
-			orderBy: { title: 'asc' },
-		}),
-		prisma.inventoryItem.findMany({
-			where: { householdId },
-			select: {
-				name: true,
-			},
-			orderBy: [{ name: 'asc' }],
-		}),
-		prisma.mealPlan.findMany({
-			where: { householdId },
-			select: {
-				weekStart: true,
-				entries: {
-					select: {
-						date: true,
-						mealType: true,
-						servings: true,
-						cooked: true,
-						recipe: { select: { title: true } },
+			prisma.user.findUniqueOrThrow({
+				where: { id: userId },
+				select: { username: true, email: true, name: true },
+			}),
+			prisma.recipe.findMany({
+				where: { householdId },
+				select: {
+					title: true,
+					description: true,
+					servings: true,
+					prepTime: true,
+					cookTime: true,
+					isFavorite: true,
+					sourceUrl: true,
+					notes: true,
+					ingredients: {
+						select: { name: true, amount: true, unit: true, notes: true },
+						orderBy: { order: 'asc' },
 					},
-					orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
-				},
-			},
-			orderBy: { weekStart: 'desc' },
-		}),
-		prisma.shoppingList.findMany({
-			where: { householdId },
-			select: {
-				name: true,
-				items: {
-					select: {
-						name: true,
-						quantity: true,
-						unit: true,
-						category: true,
-						checked: true,
-						source: true,
+					instructions: {
+						select: { content: true },
+						orderBy: { order: 'asc' },
 					},
-					orderBy: { name: 'asc' },
+					image: { select: { objectKey: true, altText: true } },
 				},
-			},
-			orderBy: { updatedAt: 'desc' },
-		}),
-		prisma.cookingLog.findMany({
-			where: { userId },
-			select: {
-				cookedAt: true,
-				notes: true,
-				recipe: { select: { title: true } },
-			},
-			orderBy: { cookedAt: 'desc' },
-		}),
-	])
+				orderBy: { title: 'asc' },
+			}),
+			prisma.inventoryItem.findMany({
+				where: { householdId },
+				select: {
+					name: true,
+				},
+				orderBy: [{ name: 'asc' }],
+			}),
+			prisma.mealPlan.findMany({
+				where: { householdId },
+				select: {
+					weekStart: true,
+					entries: {
+						select: {
+							date: true,
+							mealType: true,
+							servings: true,
+							cooked: true,
+							recipe: { select: { title: true } },
+						},
+						orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
+					},
+				},
+				orderBy: { weekStart: 'desc' },
+			}),
+			prisma.shoppingList.findMany({
+				where: { householdId },
+				select: {
+					name: true,
+					items: {
+						select: {
+							name: true,
+							quantity: true,
+							unit: true,
+							category: true,
+							checked: true,
+							source: true,
+						},
+						orderBy: { name: 'asc' },
+					},
+				},
+				orderBy: { updatedAt: 'desc' },
+			}),
+		])
 
 	const exportData = {
 		exportedAt: new Date().toISOString(),
@@ -141,11 +132,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 				checked: item.checked,
 				source: item.source,
 			})),
-		})),
-		cookingLogs: cookingLogs.map((log) => ({
-			cookedAt: log.cookedAt.toISOString(),
-			notes: log.notes,
-			recipe: log.recipe.title,
 		})),
 	}
 

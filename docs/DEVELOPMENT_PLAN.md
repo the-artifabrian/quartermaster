@@ -49,9 +49,10 @@ currently have 325g of rice?" Any feature that makes the pantry feel like a
 warehouse-management system is suspect.
 
 **Avoid maintenance guilt.** Stale review, post-cook cleanup, uncooked meal
-reminders, waste alerts, and repeated nudges can all be useful in isolation, but
-together they risk making the app feel like it assigns chores. Prefer quiet,
-contextual prompts that remove work immediately.
+reminders, and cook logging were each built and later removed — useful in
+isolation, but together they made the app feel like it assigns chores. Waste
+alerts and repeated nudges carry the same risk. Prefer quiet, contextual prompts
+that remove work immediately.
 
 **Shopping-list markings must be transparent.** Items usually on hand may be
 pre-checked or visually separated, but they should not silently disappear in a
@@ -74,33 +75,30 @@ voice features are nice-to-have accelerators, not the core product identity.
 
 ## Implementation Priorities
 
-1. **Reframe language without schema churn.** _Shipped._ User-facing copy
-   now uses Pantry and "usually on hand" throughout. The `InventoryItem` model
-   is unchanged.
-2. **Make what needs buying primary.** _Partial._ The "Nothing to buy" filter
-   is live on recipe lists and the landing-page demo. Match rings and
-   percentages still appear on recipe cards; next step is replacing them with
-   concrete "needs X things" labels.
-3. **Soften bookkeeping flows.** _Partial._ Stale-review banner removed.
-   Post-cook Pantry review is still a default prompt. Shopping check-off is now
-   framed as "remember for next time."
+1. **Reframe language without schema churn.** _Shipped._ User-facing copy now
+   uses Pantry and "usually on hand" throughout. The `InventoryItem` model is
+   unchanged.
+2. **Make what needs buying primary.** _Partial._ The "Nothing to buy" filter is
+   live on recipe lists and the landing-page demo. Match rings and percentages
+   still appear on recipe cards; next step is replacing them with concrete
+   "needs X things" labels.
+3. **Soften bookkeeping flows.** _Shipped._ Stale-review banner, post-cook
+   Pantry review, uncooked-meal reminders, and cook logging are all removed;
+   marking a meal cooked is a plain toggle. Shopping check-off is framed as
+   "remember for next time."
 4. **Protect the setup path.** _Pending._ Early UX should push users toward
    importing a small recipe library, planning a few meals, and generating one
-   useful list. Full Pantry setup should improve the list, not block the
-   payoff.
+   useful list. Full Pantry setup should improve the list, not block the payoff.
 5. **Gate features by attention cost.** _Ongoing._ Quiet features can stay.
-   Features that prompt, nag, or demand maintenance need stronger
-   justification.
+   Features that prompt, nag, or demand maintenance need stronger justification.
 
 ---
 
 ## Product Questions To Revisit
 
 - Should the `/inventory` route eventually become `/pantry`?
-- Should recipe cards drop the percentage ring in favor of a concrete
-  "needs X things" label, or keep both?
-- Should post-cook Pantry review remain a default prompt, become opt-in, or
-  move behind a "keep Pantry updated" setting?
+- Should recipe cards drop the percentage ring in favor of a concrete "needs X
+  things" label, or keep both?
 - Is Pro primarily selling convenience, household collaboration, AI, or
   unlimited scale? The pricing page should lead with the strongest proven value.
 

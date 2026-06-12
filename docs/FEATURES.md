@@ -34,8 +34,8 @@ These are the features that make the product useful week after week.
   50 per batch), import quality flags
 - Per-ingredient actions on recipe detail: "Usually on hand" and "Add to
   shopping list" for missing ingredients
-- Add to meal plan from recipe detail, cook logging, ingredient headings, linked
-  ingredients (cross-recipe hyperlinks), optional ingredient detection
+- Add to meal plan from recipe detail, ingredient headings, linked ingredients
+  (cross-recipe hyperlinks), optional ingredient detection
 - Drag-and-drop ingredient reordering
 
 ### Pantry
@@ -61,13 +61,10 @@ items and making what needs buying easier to scan.
 ### Meal Planning
 
 - Weekly calendar (Mon-start, 4 meal types/day), per-entry serving overrides
-- Cooked/uncooked tracking, uncooked meal reminders (time-of-day gated, 2-hour
-  grace period for recently added meals), "up next" banner
-- Post-cook Pantry review should stay optional and low-pressure. Avoid making
-  users feel responsible for maintaining an exact ledger after dinner
+- Cooked/uncooked tracking (plain per-entry toggle), "up next" banner
 - Copy week, suggest meals (favorites + pantry fit scoring, variety enforcement,
   meal-type classification, Jaccard overlap filtering)
-- Recipe selector: favorites-first, weeknight-aware sorting, cook stats
+- Recipe selector: favorites-first, weeknight-aware sorting
 - Single-use ingredient waste alerts, if kept, should be quiet and contextual;
   avoid framing the user's plan as a mistake
 
@@ -75,7 +72,7 @@ items and making what needs buying easier to scan.
 
 - Generate from meal plan (week picker, skips cooked, dedup, pantry-aware)
 - Quick add with duplicate and Pantry warnings
-- Auto-categorization, inline editing, checked counter, search/filter, print
+- Auto-categorization, inline editing, checked counter, search/filter
 - Pantry-aware: items usually on hand are marked/pre-checked with clear copy so
   users understand they may still want to double-check before shopping
 - Optimistic UI, live-refresh via SSE (debounced 500ms)
@@ -89,7 +86,7 @@ These features support the core loop, but should not compete with it.
 ### Household Sharing
 
 - One household per user (auto-created), owner/member roles
-- All data household-scoped, CookingLog user-scoped
+- All data household-scoped
 - Token-based invites (7-day expiry), member management, data-on-leave handling
 - Real-time shopping sync via SSE + 30s polling fallback
 - Activity dot on Shop tab, auto-prune events after 30 days
@@ -130,4 +127,4 @@ proves they belong in the main path.
 
 ---
 
-_Last updated: April 24, 2026._
+_Last updated: June 12, 2026._

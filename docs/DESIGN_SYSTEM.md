@@ -294,9 +294,7 @@ print.
 as tappable chips in a flat grid. Bulk-add so Pantry feels useful immediately.
 
 **Empty meal plan / shopping list**: one-line prompt in stone color with a ghost
-action button. The empty week on Plan may add a single suggestion chip (quiet
-inset with a 40px thumb, small-caps "Start with" kicker, serif recipe title) —
-one chip, never a grid of cards.
+action button — one quiet state, never a grid of cards.
 
 ---
 
@@ -311,7 +309,7 @@ Photos and monogram tiles are the warmth carriers on list surfaces. Rules:
   watermarks, not logos.
 - **Sizes** (square, `shrink-0`, `overflow-hidden`): 64px recipe-list rows,
   56-64px "Up next" banner, 44px plan meal rows (mobile only — desktop plan
-  columns are too narrow), 36-40px picker/selector rows and suggestion chips.
+  columns are too narrow), 36-40px picker/selector rows.
 - **Radius**: `rounded-lg` (12px) at 56px and above, `rounded-md` (8px) below.
   Hero/tile photos that span their container keep container rounding (none when
   full-bleed).
@@ -340,8 +338,6 @@ Photos and monogram tiles are the warmth carriers on list surfaces. Rules:
   isAiGenerated: boolean
   servings: number | null          // 4
   image: { objectKey: string } | null
-  cookingLogs: [{ cookedAt: Date }]  // most recent cook
-  _count: { cookingLogs: number }    // total times cooked
   matchPercentage?: number           // 0-100, from recipe-matching
 }
 ```
@@ -357,7 +353,7 @@ Photos and monogram tiles are the warmth carriers on list surfaces. Rules:
     id, name, amount, unit, notes, isHeading  // isHeading = section divider
   }],
   instructions: [{ id, content }],
-  // Plus: cookingLogs[], isProActive, missingIngredientIds[]
+  // Plus: isProActive, missingIngredientIds[]
 }
 ```
 
@@ -492,30 +488,25 @@ dismiss, never lose your step.
 **Scaled amounts read like a cook's pencil note, not a calculator.** When the
 servings stepper moves off the authored count, displayed amounts round to
 quantities a kitchen can measure: metric values snap to honest increments
-prefixed with ≈ ("≈310 g", never "312.5 g"), and eighths no spoon set has
-become qualifier phrases ("generous 1/2", "scant 2"). Author-written amounts
-at the original serving count keep their exact precision, as do shopping-list
-quantities (`scaleAmount` stays exact; display uses `scaleAmountKitchen`).
-The same spirit as temperature conversion's nearest-5° rounding — and bare
-"450 degrees" steps get the same quiet badge with ≈ marking the assumed °F.
+prefixed with ≈ ("≈310 g", never "312.5 g"), and eighths no spoon set has become
+qualifier phrases ("generous 1/2", "scant 2"). Author-written amounts at the
+original serving count keep their exact precision, as do shopping-list
+quantities (`scaleAmount` stays exact; display uses `scaleAmountKitchen`). The
+same spirit as temperature conversion's nearest-5° rounding — and bare "450
+degrees" steps get the same quiet badge with ≈ marking the assumed °F.
 
 **Personal notes**: Left-bordered with copper line. Note text in Caveat on a
 subtly warm background. Empty state: dashed border, DM Sans prompt "Add your
 notes...". Caveat only appears when notes exist.
 
-**Action bar**: one labeled outline **"I made this"** button (logs a cook via
-the I-Made-This flow — a thing you do _after_ eating, so it doesn't get a
-filled-primary slot) followed by favorite / plan / edit / share icon buttons and
-an overflow menu holding Print and Enhance. Same on every breakpoint; no emerald
-or violet accents. Serving scaler: simple +/- stepper in the ingredients section
-header. When the last step is checked, a quiet sage-edged inline prompt ("All
-done — log it?") slides in below the steps and offers the same log at the
-natural moment.
+**Action bar**: favorite / plan / edit / share icon buttons and an overflow menu
+holding Print and Enhance. Same on every breakpoint; no emerald or violet
+accents. Serving scaler: simple +/- stepper in the ingredients section header.
 
 **Ingredients/instructions are flat sections** — no card wrapper around the
 ingredient list (the desktop column keeps its `md:sticky` behavior). Raw
-imported text sits in a quiet `bg-muted/40` inset. Cooking history is not
-rendered (logging, sorts, and the post-cook review all still run underneath).
+imported text sits in a quiet `bg-muted/40` inset. There is no cooking history —
+cook logging was removed entirely.
 
 **Print view**: Young Serif titles + clean ingredient columns. No chrome, no
 colors. Ingredients in a tight two-column layout (amount | name). Instructions
@@ -546,9 +537,8 @@ week"/"Next week") flanking the serif week range.
 
 **"Up next" banner**: copper-left-edged linen band, only rendered when the week
 has meals; its 56-64px thumbnail shows on all breakpoints. **Empty week**: a
-single quiet inline state — serif one-liner, then a suggestion chip (quiet
-inset, 40px thumb, small-caps "Start with" kicker, serif title, arrow) when a
-suggestion exists, else one outline button. Never stacked banners.
+single quiet inline state — serif one-liner, then one outline button. Never
+stacked banners.
 
 **Adding meals**: Inline dropdown with search (a true overlay: `bg-card`,
 border, `shadow-warm-lg`, 12px radius). Partitioned into "Favorites" and "All
@@ -569,8 +559,7 @@ applied within each group. New meal fades in with element-reveal curve.
 - Checked items: standard `line-through` (2px stone color,
   `decoration-2 decoration-muted-foreground/60`). Text fades to 50% opacity.
 - 10px vertical padding per item, tighter than default for efficient scrolling
-  through long lists. Hairline dividers between rows (`divide-border/40`,
-  suppressed in print).
+  through long lists. Hairline dividers between rows (`divide-border/40`).
 
 **Progress**: Header counter: "Shopping List (3/10)". No progress bar.
 
@@ -587,9 +576,6 @@ and close button. The FAB hides while the sheet is open. Same pattern on Pantry.
 
 **Checked item actions**: Subtle footer slides up when items are checked:
 "Remember for next time" and "Clear checked" as text links.
-
-**Print view**: Unicode checkboxes, compact spacing, no chrome. Should fit one
-page for a typical weekly shop.
 
 ---
 

@@ -1,4 +1,3 @@
-import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Img } from 'openimg/react'
@@ -9,7 +8,6 @@ import { Divider } from '#app/components/divider.tsx'
 import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { RecipeActionBar } from '#app/components/recipe-action-bar.tsx'
-import { IMadeThisModal } from '#app/components/recipe-i-made-this-modal.tsx'
 import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
 import { RecipeIngredientsSheet } from '#app/components/recipe-ingredients-sheet.tsx'
 import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
@@ -21,7 +19,6 @@ import {
 	PopoverAnchor,
 	PopoverContent,
 } from '#app/components/ui/popover.tsx'
-import { CookingLogSchema } from '#app/utils/cooking-log-validation.ts'
 import {
 	addDaysUTC,
 	formatDayLabel,
@@ -158,17 +155,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		status: 403,
 	})
 
-	const [cookingLogs, tierInfo, inventoryItems] = await Promise.all([
-		prisma.cookingLog.findMany({
-			where: { recipeId, userId },
-			orderBy: { cookedAt: 'desc' },
-			take: 10,
-			select: {
-				id: true,
-				cookedAt: true,
-				notes: true,
-			},
-		}),
+	const [tierInfo, inventoryItems] = await Promise.all([
 		getUserTier(userId),
 		prisma.inventoryItem.findMany({
 			where: { householdId },
@@ -189,7 +176,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
 	return {
 		recipe,
-		cookingLogs,
 		isProActive: tierInfo.isProActive,
 		missingIngredientIds,
 		hasInventory: inventoryItems.length > 0,
@@ -220,37 +206,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 			where: { id: recipeId },
 			data: { isFavorite: !recipe.isFavorite },
 		})
-		return { success: true }
-	}
-
-	if (intent === 'logCook') {
-		const submission = parseWithZod(formData, { schema: CookingLogSchema })
-		if (submission.status !== 'success') {
-			return { success: false }
-		}
-
-		await prisma.cookingLog.create({
-			data: {
-				recipeId,
-				userId,
-				cookedAt: submission.value.cookedAt ?? new Date(),
-				notes: submission.value.notes || null,
-			},
-		})
-
-		return { success: true }
-	}
-
-	if (intent === 'deleteCookLog') {
-		const logId = formData.get('logId')
-		invariantResponse(typeof logId === 'string', 'Log ID is required')
-
-		const log = await prisma.cookingLog.findFirst({
-			where: { id: logId, userId, recipeId },
-		})
-		invariantResponse(log, 'Log not found', { status: 404 })
-
-		await prisma.cookingLog.delete({ where: { id: logId } })
 		return { success: true }
 	}
 
@@ -514,17 +469,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		favoriteFetcher.formData?.get('intent') === 'toggleFavorite'
 			? !recipe.isFavorite
 			: recipe.isFavorite
-	const {
-		checkedIngredients,
-		checkedSteps,
-		toggleIngredient,
-		toggleStep,
-		clearProgress,
-	} = useCookingProgress(recipe.id)
-	const cookFetcher = useFetcher({ key: 'log-cook' })
+	const { checkedIngredients, checkedSteps, toggleIngredient, toggleStep } =
+		useCookingProgress(recipe.id)
 	const shoppingFetcher = useFetcher({ key: 'add-to-shopping' })
-	const prevCookFetcherState = useRef(cookFetcher.state)
-	const [showIMadeThisModal, setShowIMadeThisModal] = useState(false)
 	const enhanceFetcher = useFetcher<{
 		error: string | null
 		suggestions: EnhanceableFields | null
@@ -586,20 +533,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		: recipe.servings
 	const ratio = currentServings / recipe.servings
 	const isScaled = currentServings !== recipe.servings
-
-	// Handle cook log submission result
-	useEffect(() => {
-		if (
-			prevCookFetcherState.current !== 'idle' &&
-			cookFetcher.state === 'idle' &&
-			cookFetcher.data?.success
-		) {
-			clearProgress()
-			setShowIMadeThisModal(false)
-			toast.success('Cook logged!')
-		}
-		prevCookFetcherState.current = cookFetcher.state
-	}, [cookFetcher.state, cookFetcher.data, clearProgress])
 
 	// Open enhance modal or show error when enhance fetch completes
 	useEffect(() => {
@@ -678,14 +611,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			localStorage.setItem('qm-use-metric', String(!prev))
 			return !prev
 		})
-	}
-
-	function handleIMadeThis() {
-		setShowIMadeThisModal(true)
-	}
-
-	function handleModalClose() {
-		setShowIMadeThisModal(false)
 	}
 
 	async function handleShare() {
@@ -781,7 +706,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							isProActive={isProActive}
 							favoriteFetcher={favoriteFetcher}
 							enhanceFetcher={enhanceFetcher}
-							onIMadeThis={handleIMadeThis}
 							onAddToPlan={() => setPlanPickerOpen(true)}
 							onShare={handleShare}
 							onEnhance={handleEnhance}
@@ -953,25 +877,11 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							recipeName={recipe.title}
 							useMetric={useMetric}
 						/>
-						{/* Logging belongs at the natural end of cooking, not behind a
-						    button at the top — slide in a quiet prompt when the last
-						    step is checked. */}
-						{allStepsChecked && (
-							<div className="animate-fade-up-reveal border-primary bg-primary/5 mt-5 flex items-center gap-3 rounded-lg border-l-[3px] py-3 pr-3 pl-4 print:hidden">
-								<p className="min-w-0 flex-1 font-serif text-base">
-									All done — log it?
-								</p>
-								<Button size="sm" onClick={handleIMadeThis}>
-									I made this
-								</Button>
-							</div>
-						)}
 					</div>
 				</div>
 
 				{/* Ingredients at hand while deep in the steps (mobile only).
-				    Hidden once every step is checked — the cook is done, and the
-				    pill would sit on top of the "All done — log it?" prompt. */}
+				    Hidden once every step is checked — the cook is done. */}
 				<RecipeIngredientsSheet
 					visible={!ingredientsInView && !allStepsChecked}
 					checkedCount={checkedIngredientCount}
@@ -993,15 +903,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</p>
 				)}
 			</div>
-
-			{/* "I Made This" modal */}
-			{showIMadeThisModal && (
-				<IMadeThisModal
-					ratio={ratio}
-					cookFetcher={cookFetcher}
-					onClose={handleModalClose}
-				/>
-			)}
 
 			{showEnhanceModal && enhanceFetcher.data?.suggestions && (
 				<EnhanceRecipeModal

@@ -40,48 +40,44 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const weekStart = getWeekStart(parseDate(weekStartStr))
 
-	// 1. Existing entries for target week (to exclude already-planned recipes)
-	const existingPlan = await prisma.mealPlan.findFirst({
-		where: { householdId, weekStart },
-		include: { entries: { select: { recipeId: true, date: true, mealType: true } } },
-	})
+	const [existingPlan, allRecipes, inventoryItems] = await Promise.all([
+		// 1. Existing entries for target week (to exclude already-planned recipes)
+		prisma.mealPlan.findFirst({
+			where: { householdId, weekStart },
+			include: {
+				entries: { select: { recipeId: true, date: true, mealType: true } },
+			},
+		}),
+		// 2. All household recipes with ingredients (for matching)
+		prisma.recipe.findMany({
+			where: { householdId },
+			include: {
+				ingredients: true,
+				image: { select: { objectKey: true } },
+			},
+		}),
+		// 3. Household inventory items (for matching)
+		prisma.inventoryItem.findMany({
+			where: { householdId },
+			select: { name: true },
+		}),
+	])
 	const plannedRecipeIds = new Set(
 		existingPlan?.entries.map((e) => e.recipeId) ?? [],
 	)
-
-	// 2. Recently cooked recipes (CookingLog in last 14 days — user-scoped)
-	const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
-	const recentCookingLogs = await prisma.cookingLog.findMany({
-		where: { userId, cookedAt: { gte: fourteenDaysAgo } },
-		select: { recipeId: true },
-	})
-	const recentlyCookedIds = new Set(recentCookingLogs.map((l) => l.recipeId))
-
-	// 3. All household recipes with ingredients (for matching)
-	const allRecipes = await prisma.recipe.findMany({
-		where: { householdId },
-		include: {
-			ingredients: true,
-			image: { select: { objectKey: true } },
-		},
-	})
-
-	// 4. Household inventory items (for matching)
-	const inventoryItems = await prisma.inventoryItem.findMany({
-		where: { householdId },
-		select: { name: true },
-	})
 
 	// Get match results for all recipes
 	const matchResults = matchRecipesWithInventory(allRecipes, inventoryItems)
 
 	// Build a match lookup for quick access
-	const matchByRecipeId = new Map(
-		matchResults.map((m) => [m.recipe.id, m]),
-	)
+	const matchByRecipeId = new Map(matchResults.map((m) => [m.recipe.id, m]))
 
 	// Composite scoring helper
-	function compositeScore(recipeId: string, title: string, ingredients: { isHeading: boolean }[]) {
+	function compositeScore(
+		recipeId: string,
+		title: string,
+		ingredients: { isHeading: boolean }[],
+	) {
 		const matchPct = (matchByRecipeId.get(recipeId)?.matchPercentage ?? 0) / 100
 		const ingredientCount = ingredients.filter((i) => !i.isHeading).length
 		const fit = scoreMealTypeFit(title, ingredientCount, mealType)
@@ -106,17 +102,19 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	}
 
-	// Pool 1: Favorites not recently cooked
+	// Pool 1: Favorites
 	if (suggestions.length < 7) {
 		const favoriteRecipes = allRecipes
 			.filter(
 				(r) =>
 					r.isFavorite &&
 					!plannedRecipeIds.has(r.id) &&
-					!recentlyCookedIds.has(r.id) &&
 					!usedRecipeIds.has(r.id),
 			)
-			.map((r) => ({ recipe: r, ...compositeScore(r.id, r.title, r.ingredients) }))
+			.map((r) => ({
+				recipe: r,
+				...compositeScore(r.id, r.title, r.ingredients),
+			}))
 			// Filter poor meal-type fits (condiments, beverages, wrong-category recipes)
 			.filter((r) => r.fit >= MIN_FIT_THRESHOLD)
 			// Sort by composite score desc, then fit as tiebreaker
@@ -145,7 +143,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 				(m) =>
 					!usedRecipeIds.has(m.recipe.id) &&
 					!plannedRecipeIds.has(m.recipe.id) &&
-					!recentlyCookedIds.has(m.recipe.id) &&
 					m.matchPercentage > 0,
 			)
 			.map((m) => ({
@@ -202,21 +199,14 @@ export async function action({ request }: Route.ActionArgs) {
 	const formData = await request.formData()
 
 	const weekStartStr = formData.get('weekStart')
-	invariantResponse(
-		typeof weekStartStr === 'string',
-		'weekStart is required',
-	)
-	const mealType =
-		(formData.get('mealType') as string | null) ?? 'dinner'
+	invariantResponse(typeof weekStartStr === 'string', 'weekStart is required')
+	const mealType = (formData.get('mealType') as string | null) ?? 'dinner'
 
 	const weekStart = getWeekStart(parseDate(weekStartStr))
 
 	// Parse recipeIds — JSON array where index = day offset, null for empty days
 	const recipeIdsJson = formData.get('recipeIds')
-	invariantResponse(
-		typeof recipeIdsJson === 'string',
-		'recipeIds is required',
-	)
+	invariantResponse(typeof recipeIdsJson === 'string', 'recipeIds is required')
 	const parsed: unknown = JSON.parse(recipeIdsJson)
 	invariantResponse(Array.isArray(parsed), 'recipeIds must be an array')
 	const recipeIds = parsed as Array<string | null>

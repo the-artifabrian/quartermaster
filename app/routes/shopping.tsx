@@ -707,7 +707,7 @@ export default function ShoppingListRoute({
 		<div className="pb-28 md:pb-6">
 			{isProActive && <ShoppingListLiveRefresh />}
 			{/* Page Header */}
-			<div className="border-border/50 border-b print:border-0">
+			<div className="border-border/50 border-b">
 				<div className="container-narrow py-4">
 					<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
 						<h1 className="font-serif text-2xl font-normal">
@@ -718,7 +718,7 @@ export default function ShoppingListRoute({
 								</span>
 							)}
 						</h1>
-						<div className="flex items-center gap-2 sm:ml-auto print:hidden">
+						<div className="flex items-center gap-2 sm:ml-auto">
 							{hasMealPlan && (
 								<Form method="POST" className="flex items-center gap-2">
 									<input type="hidden" name="intent" value="generate" />
@@ -733,28 +733,6 @@ export default function ShoppingListRoute({
 										From Plan
 									</Button>
 								</Form>
-							)}
-							{totalItems > 0 && (
-								<Button
-									variant="outline"
-									size="icon"
-									onClick={() => window.print()}
-									aria-label="Print shopping list"
-									className="h-9 w-9 sm:hidden"
-								>
-									<Icon name="file-text" size="sm" />
-								</Button>
-							)}
-							{totalItems > 0 && (
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => window.print()}
-									className="hidden sm:inline-flex"
-								>
-									<Icon name="file-text" size="sm" />
-									Print
-								</Button>
 							)}
 						</div>
 					</div>
@@ -783,7 +761,7 @@ export default function ShoppingListRoute({
 					)}
 
 				{/* Quick Add — desktop only, FAB replaces this on mobile */}
-				<div className="border-border/30 mb-2 hidden border-b md:block print:hidden">
+				<div className="border-border/30 mb-2 hidden border-b md:block">
 					{/* Warning banner */}
 					{showWarning && (
 						<WarningBanner
@@ -892,7 +870,7 @@ export default function ShoppingListRoute({
 
 				{/* Search — only shown with 15+ items */}
 				{totalItems >= 15 && (
-					<div className="relative mt-2 print:hidden">
+					<div className="relative mt-2">
 						<Icon
 							name="magnifying-glass"
 							size="sm"
@@ -925,7 +903,7 @@ export default function ShoppingListRoute({
 								</button>
 							</div>
 						) : (
-							<div className="divide-border/40 divide-y print:divide-y-0">
+							<div className="divide-border/40 divide-y">
 								{filteredItems.map((item) => (
 									<ShoppingListItemCard
 										key={item.id}
@@ -940,7 +918,7 @@ export default function ShoppingListRoute({
 
 						{/* Checked Item Actions */}
 						{checkedItems > 0 && !showReview && !search && (
-							<div className="animate-slide-up-reveal flex items-center justify-center gap-4 pt-4 print:hidden">
+							<div className="animate-slide-up-reveal flex items-center justify-center gap-4 pt-4">
 								{isProActive && (
 									<>
 										<button
@@ -1008,7 +986,7 @@ export default function ShoppingListRoute({
 
 				{/* Pantry Review Panel (Pro) */}
 				{isProActive && showReview && checkedItems > 0 && !search && (
-					<div className="mt-4 print:hidden">
+					<div className="mt-4">
 						<ShoppingListToInventory
 							items={checkedItemsList}
 							inventoryCanonicals={inventoryCanonicals}
@@ -1017,11 +995,6 @@ export default function ShoppingListRoute({
 						/>
 					</div>
 				)}
-
-				{/* Print footer */}
-				<p className="text-muted-foreground hidden pt-8 text-center text-xs print:block">
-					Quartermaster
-				</p>
 			</div>
 
 			{/* Mobile FAB + quick-add popover */}

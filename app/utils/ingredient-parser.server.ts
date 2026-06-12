@@ -1,5 +1,10 @@
 // Re-export shared parsing utilities (available client-side too)
-export { COMMON_UNITS, parseIngredient } from './ingredient-parser.ts'
+export {
+	COMMON_UNITS,
+	detectIngredientHeading,
+	isAllCapsHouseStyle,
+	parseIngredient,
+} from './ingredient-parser.ts'
 
 // Convert ISO 8601 duration (PT30M, PT1H15M) to minutes
 export function parseISODuration(duration: string): number | undefined {

@@ -171,7 +171,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 			data-pricing-variant={pricingVariant}
 		>
 			{!tierInfo.isProActive && tierInfo.wasProPreviously ? (
-				<div className="bg-card border-border mx-auto mb-8 max-w-2xl rounded-2xl border p-6 text-center">
+				<div className="bg-card border-border mx-auto mb-8 max-w-2xl rounded-lg border p-6 text-center">
 					<Icon
 						name="lock-open-1"
 						size="lg"
@@ -216,7 +216,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="grid gap-6 md:grid-cols-2">
-				<div className="bg-card rounded-2xl border p-6">
+				<div className="bg-card rounded-lg border p-6">
 					<div className="mb-4">
 						<h2 className="text-xl font-semibold">Free</h2>
 						<p className="text-muted-foreground mt-1 text-sm">
@@ -249,7 +249,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					</div>
 				</div>
 
-				<div className="border-primary ring-primary/20 bg-card rounded-2xl border p-6 ring-2">
+				<div className="border-primary ring-primary/20 bg-card rounded-lg border p-6 ring-2">
 					<div className="mb-4">
 						<h2 className="text-xl font-semibold">Pro</h2>
 						<p className="text-muted-foreground mt-1 text-sm">

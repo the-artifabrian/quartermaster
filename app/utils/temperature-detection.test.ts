@@ -175,4 +175,56 @@ describe('detectTemperatures', () => {
 		const matches = detectTemperatures('Add 50F of water')
 		expect(matches).toHaveLength(0)
 	})
+
+	describe('bare "NNN degrees" with no unit (assumed Fahrenheit)', () => {
+		test('"450 degrees" assumes °F and flags with ≈', () => {
+			const matches = detectTemperatures('Roast at 450 degrees until charred')
+			expect(matches).toHaveLength(1)
+			expect(matches[0]).toMatchObject({
+				value: 450,
+				valueHigh: null,
+				unit: 'F',
+				converted: '≈230°C',
+			})
+		})
+
+		test('"300 degree oven" matches the singular form', () => {
+			const matches = detectTemperatures('Move to a 300 degree oven')
+			expect(matches).toHaveLength(1)
+			expect(matches[0]).toMatchObject({ value: 300, converted: '≈150°C' })
+			expect(matches[0]!.originalText).toBe('300 degree')
+		})
+
+		test('range: "350-400 degrees"', () => {
+			const matches = detectTemperatures('Grill at 350-400 degrees')
+			expect(matches).toHaveLength(1)
+			expect(matches[0]).toMatchObject({
+				value: 350,
+				valueHigh: 400,
+				unit: 'F',
+				converted: '≈175–205°C',
+			})
+		})
+
+		test('skips ambiguous values below 250 (could be °C or rotation)', () => {
+			expect(detectTemperatures('rotate the pan 180 degrees')).toHaveLength(0)
+			expect(detectTemperatures('whisk at 200 degrees')).toHaveLength(0)
+		})
+
+		test('does not double-match explicit "450 degrees F"', () => {
+			const matches = detectTemperatures('Preheat to 450 degrees F')
+			expect(matches).toHaveLength(1)
+			expect(matches[0]!.converted).toBe('230°C')
+		})
+
+		test('skips when an explicit-unit temp is nearby', () => {
+			const matches = detectTemperatures('Heat to 450 degrees (230 C)')
+			expect(matches.some((m) => m.converted.startsWith('≈'))).toBe(false)
+		})
+
+		test('skips ranges that dip below the Fahrenheit-only floor', () => {
+			const matches = detectTemperatures('Hold between 200-300 degrees')
+			expect(matches).toHaveLength(0)
+		})
+	})
 })

@@ -73,6 +73,17 @@ export function IngredientFields({
 	const ingredients = ensureSortKeys(rawIngredients)
 	const baseId = useId()
 	const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
+	// Fields a heading can't carry, stashed on convert-to-heading so an
+	// accidental tap is reversible until the form is submitted
+	const stashedFieldsRef = useRef(
+		new Map<
+			string,
+			Pick<
+				IngredientFieldValue,
+				'amount' | 'unit' | 'notes' | 'linkedRecipeId' | 'linkedRecipeTitle'
+			>
+		>(),
+	)
 
 	const toggleExpanded = (sortKey: string) => {
 		setExpandedKeys((prev) => {
@@ -170,7 +181,32 @@ export function IngredientFields({
 		const updated = [...ingredients]
 		const current = updated[index]
 		if (current) {
-			updated[index] = { ...current, isHeading: false }
+			const stashed = stashedFieldsRef.current.get(current.sortKey!)
+			stashedFieldsRef.current.delete(current.sortKey!)
+			updated[index] = { ...current, ...stashed, isHeading: false }
+			onChange(updated)
+		}
+	}
+
+	const convertToHeading = (index: number) => {
+		const updated = [...ingredients]
+		const current = updated[index]
+		if (current) {
+			// Headings carry only a name — drop amount/unit/notes/link, but
+			// stash them so converting back restores the row untouched
+			stashedFieldsRef.current.set(current.sortKey!, {
+				amount: current.amount,
+				unit: current.unit,
+				notes: current.notes,
+				linkedRecipeId: current.linkedRecipeId,
+				linkedRecipeTitle: current.linkedRecipeTitle,
+			})
+			updated[index] = {
+				id: current.id,
+				sortKey: current.sortKey,
+				name: current.name,
+				isHeading: true,
+			}
 			onChange(updated)
 		}
 	}
@@ -250,6 +286,7 @@ export function IngredientFields({
 										linkRecipe(index, recipeId, recipeTitle)
 									}
 									onUnlinkRecipe={() => unlinkRecipe(index)}
+									onConvertToHeading={() => convertToHeading(index)}
 									excludeRecipeId={excludeRecipeId}
 									canRemove={ingredients.length > 1}
 								/>
@@ -271,6 +308,7 @@ function SortableIngredientRow({
 	onRemove,
 	onLinkRecipe,
 	onUnlinkRecipe,
+	onConvertToHeading,
 	excludeRecipeId,
 	canRemove,
 }: {
@@ -282,6 +320,7 @@ function SortableIngredientRow({
 	onRemove: () => void
 	onLinkRecipe: (recipeId: string, recipeTitle: string) => void
 	onUnlinkRecipe: () => void
+	onConvertToHeading: () => void
 	excludeRecipeId?: string
 	canRemove: boolean
 }) {
@@ -306,7 +345,7 @@ function SortableIngredientRow({
 			style={style}
 			className={cn(
 				'rounded-lg py-2 first:pt-0 last:pb-0',
-				isDragging && 'z-10 opacity-80 shadow-lg',
+				isDragging && 'shadow-warm-lg z-10 opacity-80',
 			)}
 		>
 			{isExpanded ? (
@@ -331,6 +370,21 @@ function SortableIngredientRow({
 								<Icon name="chevron-down" size="sm" />
 							</button>
 						)}
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon"
+									onClick={onConvertToHeading}
+									className="size-9"
+									aria-label="Convert to section heading"
+								>
+									<Icon name="rows" size="sm" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Convert to section heading</TooltipContent>
+						</Tooltip>
 						<Button
 							type="button"
 							variant="ghost"
@@ -575,7 +629,7 @@ function SortableHeadingRow({
 			style={style}
 			className={cn(
 				'border-accent/30 bg-accent/5 flex items-center gap-2 rounded-lg border-l-4 px-2 py-3 first:pt-2 last:pb-2',
-				isDragging && 'z-10 opacity-80 shadow-lg',
+				isDragging && 'shadow-warm-lg z-10 opacity-80',
 			)}
 		>
 			<button

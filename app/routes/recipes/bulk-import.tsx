@@ -34,11 +34,13 @@ const BulkImportIngredientSchema = z.object({
 	amount: z.string().max(50).optional(),
 	unit: z.string().max(50).optional(),
 	notes: z.string().max(500).optional(),
+	isHeading: z.boolean().optional(),
 })
 
 const BulkImportRecipeSchema = z.object({
 	title: z.string().min(1).max(100),
 	description: z.string().max(500).optional(),
+	servings: z.number().int().min(1).max(100).optional(),
 	ingredients: z.array(BulkImportIngredientSchema).max(200),
 	instructions: z
 		.array(z.object({ content: z.string().min(1).max(5000) }))
@@ -115,6 +117,7 @@ export async function action({ request }: Route.ActionArgs) {
 				data: {
 					title: recipe.title,
 					description: recipe.description || null,
+					servings: recipe.servings,
 					userId,
 					householdId,
 					ingredients: {
@@ -123,6 +126,7 @@ export async function action({ request }: Route.ActionArgs) {
 							amount: ing.amount || null,
 							unit: ing.unit || null,
 							notes: ing.notes || null,
+							isHeading: ing.isHeading ?? false,
 							order,
 						})),
 					},
@@ -245,6 +249,7 @@ export default function BulkImport() {
 		const payload = validPreviews.map((p) => ({
 			title: p.title,
 			description: p.description,
+			servings: p.servings,
 			ingredients: p.ingredients,
 			instructions: p.instructions,
 		}))
@@ -254,8 +259,8 @@ export default function BulkImport() {
 	}
 
 	return (
-		<div className="container max-w-2xl py-6 pb-20 md:pb-6">
-			<h1 className="mb-2 text-2xl font-bold">Bulk Import</h1>
+		<div className="container max-w-2xl py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
+			<h1 className="mb-2 font-serif text-2xl font-normal">Bulk Import</h1>
 			<p className="text-muted-foreground mb-6">
 				Upload{' '}
 				<code className="bg-muted rounded px-1.5 py-0.5 text-xs">.md</code> or{' '}
@@ -273,7 +278,7 @@ export default function BulkImport() {
 			)}
 
 			{sessionCount > 0 && !nudgeDismissed && (
-				<div className="bg-card border-border shadow-warm relative mb-4 rounded-2xl border p-5">
+				<div className="bg-muted/40 relative mb-4 rounded-lg p-5">
 					<button
 						type="button"
 						onClick={() => setNudgeDismissed(true)}
@@ -314,7 +319,7 @@ export default function BulkImport() {
 
 			{/* File upload zone */}
 			{hasUploadedFiles ? (
-				<div className="border-border bg-card mb-4 rounded-lg border p-4">
+				<div className="bg-muted/40 mb-4 rounded-lg p-4">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<Icon
@@ -420,10 +425,7 @@ Instructions
 						{previews.length === 1 ? '' : 's'})
 					</h2>
 					{previews.map((recipe, i) => (
-						<div
-							key={i}
-							className="border-border bg-card rounded-lg border p-4"
-						>
+						<div key={i} className="bg-muted/40 rounded-lg p-4">
 							<div className="flex items-start justify-between gap-2">
 								<div>
 									<h3 className="font-medium">

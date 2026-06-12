@@ -11,6 +11,8 @@ import {
 	isPast,
 	formatTimeAgo,
 	formatDayLabel,
+	formatMonthDay,
+	formatWeekdayName,
 	formatWeekRange,
 	MEAL_TYPES,
 } from './date.ts'
@@ -154,6 +156,30 @@ describe('formatDayLabel', () => {
 	test('formats Sunday', () => {
 		const sun = new Date('2026-02-08T00:00:00.000Z')
 		expect(formatDayLabel(sun)).toBe('Sun 2/8')
+	})
+})
+
+describe('formatWeekdayName', () => {
+	test('formats using UTC fields', () => {
+		const mon = new Date('2026-02-02T00:00:00.000Z')
+		expect(formatWeekdayName(mon)).toBe('Monday')
+	})
+
+	test('formats Sunday', () => {
+		const sun = new Date('2026-02-08T00:00:00.000Z')
+		expect(formatWeekdayName(sun)).toBe('Sunday')
+	})
+})
+
+describe('formatMonthDay', () => {
+	test('formats using UTC fields', () => {
+		const date = new Date('2026-06-11T00:00:00.000Z')
+		expect(formatMonthDay(date)).toBe('Jun 11')
+	})
+
+	test('does not pad single-digit days', () => {
+		const date = new Date('2026-02-02T00:00:00.000Z')
+		expect(formatMonthDay(date)).toBe('Feb 2')
 	})
 })
 

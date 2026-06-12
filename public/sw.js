@@ -60,7 +60,11 @@ self.addEventListener('message', (event) => {
 	const msg = event.data
 	if (!msg || typeof msg !== 'object') return
 
-	if (msg.type === 'qm-data-session' && typeof msg.token === 'string' && msg.token) {
+	if (
+		msg.type === 'qm-data-session' &&
+		typeof msg.token === 'string' &&
+		msg.token
+	) {
 		const next = DATA_CACHE_PREFIX + msg.token
 		if (next === dataCacheName) return
 		// A non-null previous namespace means the user/household actually changed
@@ -81,6 +85,22 @@ self.addEventListener('message', (event) => {
 	} else if (msg.type === 'qm-data-invalidate') {
 		if (dataCacheName) event.waitUntil(caches.delete(dataCacheName))
 	}
+})
+
+// ── Notifications (kitchen timers) ──────────────────────────────────
+// Timer-done notifications are shown by the page (timer-notifications.ts);
+// tapping one should land back in the app, on an existing window if any.
+self.addEventListener('notificationclick', (event) => {
+	event.notification.close()
+	event.waitUntil(
+		self.clients
+			.matchAll({ type: 'window', includeUncontrolled: true })
+			.then((clientList) => {
+				const client = clientList.find((c) => 'focus' in c)
+				if (client) return client.focus()
+				return self.clients.openWindow('/recipes')
+			}),
+	)
 })
 
 // ── Fetch ───────────────────────────────────────────────────────────
@@ -175,7 +195,9 @@ self.addEventListener('fetch', (event) => {
 	// payload always matches the shape RR7 asked for — no partial/full mismatch.
 	if (isCacheablePage(url)) {
 		if (!url.pathname.endsWith('.data')) {
-			event.respondWith(staleWhileRevalidate(event, request, PAGES_CACHE, MAX_PAGES))
+			event.respondWith(
+				staleWhileRevalidate(event, request, PAGES_CACHE, MAX_PAGES),
+			)
 			return
 		}
 		if (!dataCacheName) {

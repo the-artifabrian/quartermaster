@@ -148,12 +148,18 @@ const VAGUE_QUANTIFIER_PATTERN =
  */
 function normalizeTranscript(raw: string): string {
 	// Strip trailing punctuation and whitespace
-	let text = raw.trim().replace(/[.,!?;:]+$/, '').trim()
+	let text = raw
+		.trim()
+		.replace(/[.,!?;:]+$/, '')
+		.trim()
 
 	// Strip commas — Whisper inserts them between filler words and clauses
 	// (e.g. "Um, like, some Cheerios"). By the time text reaches here, commas
 	// from multi-item splitting have already been consumed by parseSpeechItems.
-	text = text.replace(/,/g, ' ').replace(/\s{2,}/g, ' ').trim()
+	text = text
+		.replace(/,/g, ' ')
+		.replace(/\s{2,}/g, ' ')
+		.trim()
 
 	// Strip filler words, instructional prefixes, and vague quantifiers in a
 	// loop — they can appear in any combination ("oh I need like some milk")
@@ -193,10 +199,7 @@ function normalizeTranscript(raw: string): string {
 	}
 
 	// Strip dangling article between number and unit: "0.5 a pound" → "0.5 pound"
-	text = text.replace(
-		/^(\d+(?:\.\d+)?(?:\s*\/\s*\d+)?)\s+(?:a|an)\s+/i,
-		'$1 ',
-	)
+	text = text.replace(/^(\d+(?:\.\d+)?(?:\s*\/\s*\d+)?)\s+(?:a|an)\s+/i, '$1 ')
 
 	return text
 }
@@ -242,6 +245,36 @@ export function parseSpeechItem(transcript: string): ParsedItem {
 	return { name: text.toLowerCase(), quantity: '', unit: '' }
 }
 
+/**
+ * Parse a *typed* item like "2 lemons" or "2 lbs chicken" (E4). Unlike
+ * parseSpeechItem there's no transcript cleanup and no lowercasing — typed
+ * text is taken as written. Returns null when there's no leading quantity,
+ * so callers can fall back to the raw input untouched.
+ */
+export function parseTypedItem(text: string): ParsedItem | null {
+	const trimmed = text.trim()
+
+	const qtyUnitMatch = trimmed.match(QTY_UNIT_NAME)
+	if (qtyUnitMatch) {
+		return {
+			quantity: qtyUnitMatch[1]!,
+			unit: normalizeUnit(qtyUnitMatch[2]!),
+			name: qtyUnitMatch[3]!.trim(),
+		}
+	}
+
+	const qtyMatch = trimmed.match(QTY_NAME)
+	if (qtyMatch) {
+		return {
+			quantity: qtyMatch[1]!,
+			unit: '',
+			name: qtyMatch[2]!.trim(),
+		}
+	}
+
+	return null
+}
+
 // Compound grocery names containing "and" that should not be split
 const COMPOUND_NAMES = [
 	'mac and cheese',
@@ -266,7 +299,10 @@ const COMPOUND_PLACEHOLDER = '\x00COMPOUND'
  * → [{ name: "chicken", qty: "2", unit: "lb" }, { name: "eggs", qty: "12", unit: "" }, ...]
  */
 export function parseSpeechItems(transcript: string): ParsedItem[] {
-	let cleaned = transcript.trim().replace(/[.!?;:]+$/, '').trim()
+	let cleaned = transcript
+		.trim()
+		.replace(/[.!?;:]+$/, '')
+		.trim()
 	if (!cleaned) return []
 
 	// Protect compound names from being split on "and"
@@ -277,7 +313,9 @@ export function parseSpeechItems(transcript: string): ParsedItem[] {
 			const placeholder = `${COMPOUND_PLACEHOLDER}${restorations.length}`
 			restorations.push(cleaned.slice(idx, idx + compound.length))
 			cleaned =
-				cleaned.slice(0, idx) + placeholder + cleaned.slice(idx + compound.length)
+				cleaned.slice(0, idx) +
+				placeholder +
+				cleaned.slice(idx + compound.length)
 		}
 	}
 

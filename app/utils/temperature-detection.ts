@@ -44,6 +44,18 @@ function formatConverted(match: {
 // Window size for checking if the opposite unit is already nearby
 const BOTH_UNITS_WINDOW = 30
 
+// Bare "NNN degrees" with no unit letter: below this we stay silent — the
+// number could be Celsius, or not a temperature at all ("rotate the pan
+// 180 degrees"). At 250+ in English recipe text it can only be Fahrenheit
+// (a 250°C oven would be written with the C).
+const BARE_DEGREES_MIN_F = 250
+
+// An explicit-unit temperature near a bare "NNN degrees" means the author
+// (or another badge) already covers it. The 3-digit floor on the bare-letter
+// form keeps "2 c broth" from reading as a temperature.
+const EXPLICIT_TEMP_NEARBY =
+	/\d{3}\s*[FC]\b|\d+\s*(?:°\s*|º\s*|degrees?\s+)[FC]/i
+
 /**
  * Detects temperature references in instruction text and returns structured matches.
  */
@@ -92,6 +104,45 @@ export function detectTemperatures(text: string): TemperatureMatch[] {
 			valueHigh,
 			unit,
 			converted: formatConverted({ value, valueHigh, unit }),
+			startIndex: m.index,
+			endIndex: m.index + m[0].length,
+		})
+	}
+
+	// Second pass: bare "450 degrees" / "300 degree oven" with no unit letter.
+	// Assume Fahrenheit (see BARE_DEGREES_MIN_F) and flag the assumption with
+	// ≈ on the converted value. The negative lookahead keeps this pass off
+	// anything the explicit-unit pattern above already handled.
+	const barePattern =
+		/(\d+)\s*(?:[-–]\s*(\d+)\s*)?degrees?\b(?!\s*(?:F(?:ahrenheit)?|C(?:elsius|entigrade)?)\b)/gi
+
+	while ((m = barePattern.exec(text)) !== null) {
+		const value = parseInt(m[1]!, 10)
+		const valueHigh = m[2] ? parseInt(m[2], 10) : null
+
+		if (value < BARE_DEGREES_MIN_F || value > 1000) continue
+		if (
+			valueHigh !== null &&
+			(valueHigh < BARE_DEGREES_MIN_F || valueHigh > 1000)
+		) {
+			continue
+		}
+
+		const after = text.slice(
+			m.index + m[0].length,
+			m.index + m[0].length + BOTH_UNITS_WINDOW,
+		)
+		const before = text.slice(Math.max(0, m.index - BOTH_UNITS_WINDOW), m.index)
+		if (EXPLICIT_TEMP_NEARBY.test(after) || EXPLICIT_TEMP_NEARBY.test(before)) {
+			continue
+		}
+
+		matches.push({
+			originalText: m[0],
+			value,
+			valueHigh,
+			unit: 'F',
+			converted: `≈${formatConverted({ value, valueHigh, unit: 'F' })}`,
 			startIndex: m.index,
 			endIndex: m.index + m[0].length,
 		})

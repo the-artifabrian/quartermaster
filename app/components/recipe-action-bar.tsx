@@ -1,5 +1,11 @@
 import { type useFetcher, Link } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '#app/components/ui/dropdown-menu.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
 	Tooltip,
@@ -30,24 +36,16 @@ export function RecipeActionBar({
 }) {
 	return (
 		<div className="mt-4 flex items-center gap-1 md:mt-6 md:gap-2 print:hidden">
-			{/* "I Made This" — text+icon on desktop, icon-only on mobile */}
-			<Button onClick={onIMadeThis} className="gap-2 max-md:hidden">
-				<Icon name="check" size="sm" />I Made This
+			{/* Log a cook — something you do after eating, so it doesn't get the
+			    filled-primary slot; the end of the steps list offers it at the
+			    natural moment. */}
+			<Button
+				onClick={onIMadeThis}
+				variant="outline"
+				className="shrink-0 gap-2 whitespace-nowrap"
+			>
+				<Icon name="check" size="sm" />I made this
 			</Button>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						onClick={onIMadeThis}
-						variant="ghost"
-						size="icon"
-						aria-label="I Made This"
-						className="text-emerald-500 hover:text-emerald-600 md:hidden"
-					>
-						<Icon name="check" className="size-6" />
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent>I Made This</TooltipContent>
-			</Tooltip>
 
 			{/* Favorite */}
 			<favoriteFetcher.Form method="POST">
@@ -58,7 +56,9 @@ export function RecipeActionBar({
 							type="submit"
 							variant="ghost"
 							size="icon"
-							aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+							aria-label={
+								isFavorite ? 'Remove from favorites' : 'Add to favorites'
+							}
 							className={isFavorite ? 'text-accent hover:text-accent/80' : ''}
 						>
 							<Icon name={isFavorite ? 'heart-filled' : 'heart'} size="md" />
@@ -112,44 +112,33 @@ export function RecipeActionBar({
 				<TooltipContent>Copy public link</TooltipContent>
 			</Tooltip>
 
-			{/* Print — desktop only */}
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						variant="ghost"
-						size="icon"
-						aria-label="Print recipe"
-						onClick={() => window.print()}
-						className="max-md:hidden"
-					>
-						<Icon name="file-text" size="md" />
+			{/* Overflow: print, enhance */}
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<Button variant="ghost" size="icon" aria-label="More actions">
+						<Icon name="dots-horizontal" size="md" />
 					</Button>
-				</TooltipTrigger>
-				<TooltipContent>Print recipe</TooltipContent>
-			</Tooltip>
-
-			{/* Enhance */}
-			{isProActive && (
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<Button
-							variant="ghost"
-							size="icon"
-							aria-label="Suggest description, times & servings"
-							onClick={onEnhance}
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end">
+					<DropdownMenuItem onSelect={() => window.print()}>
+						<Icon name="file-text" size="sm" />
+						Print recipe
+					</DropdownMenuItem>
+					{isProActive && (
+						<DropdownMenuItem
+							onSelect={onEnhance}
 							disabled={enhanceFetcher.state !== 'idle'}
-							className="text-violet-500 hover:text-violet-600"
 						>
 							{enhanceFetcher.state !== 'idle' ? (
-								<Icon name="update" className="size-5 animate-spin" />
+								<Icon name="update" size="sm" className="animate-spin" />
 							) : (
-								<Icon name="sparkles" size="md" />
+								<Icon name="sparkles" size="sm" />
 							)}
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent>Suggest description, times & servings</TooltipContent>
-				</Tooltip>
-			)}
+							Suggest description & times
+						</DropdownMenuItem>
+					)}
+				</DropdownMenuContent>
+			</DropdownMenu>
 		</div>
 	)
 }

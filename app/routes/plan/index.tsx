@@ -1,6 +1,7 @@
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { Img } from 'openimg/react'
 import { useState } from 'react'
 import { Form, Link } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
@@ -23,8 +24,10 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { getPostCookInventoryMatches } from '#app/utils/post-cook-matching.server.ts'
 import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
+import { cn } from '#app/utils/misc.tsx'
+import { getPostCookInventoryMatches } from '#app/utils/post-cook-matching.server.ts'
+import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
 
@@ -150,6 +153,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 	if (isCurrentWeek) {
 		const today = new Date()
 		const hour = today.getHours()
+		// Local-date string, NOT serializeDate(today): stored entry dates encode
+		// their semantic day in UTC fields, but "today" is the user's local date
+		// (same cross-domain convention as isToday). serializeDate(new Date())
+		// would shift the banner to the wrong day near midnight in UTC+ zones.
+		const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
 		// Determine which meal type is "next" based on time of day
 		const mealTypeOrder = ['breakfast', 'lunch', 'dinner', 'snack']
@@ -164,10 +172,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 
 		const tonightEntries = mealPlan.entries
-			.filter(
-				(e) =>
-					serializeDate(new Date(e.date)) === serializeDate(today) && !e.cooked,
-			)
+			.filter((e) => serializeDate(new Date(e.date)) === todayStr && !e.cooked)
 			.map((e) => ({
 				id: e.id,
 				recipe: {
@@ -185,8 +190,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 		// Check if today had meals that are now all cooked
 		const hasCookedEntriesToday = mealPlan.entries.some(
-			(e) =>
-				serializeDate(new Date(e.date)) === serializeDate(today) && e.cooked,
+			(e) => serializeDate(new Date(e.date)) === todayStr && e.cooked,
 		)
 
 		let suggestion = null
@@ -218,6 +222,14 @@ export async function loader({ request }: Route.LoaderArgs) {
 		where: { list: { householdId } },
 	})
 
+	// "Copy Last Week" on empty weeks (C3) needs to know there's something
+	// to copy — the copy-week resource 400s on an empty source week.
+	const prevWeekEntryCount = await prisma.mealPlanEntry.count({
+		where: {
+			mealPlan: { householdId, weekStart: getPreviousWeek(weekStart) },
+		},
+	})
+
 	return {
 		// `mealPlan` itself is not returned — the component reads `entries`
 		// (mapped below); returning the whole object duplicated every entry on the wire.
@@ -231,6 +243,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		isCurrentWeek,
 		tonightData,
 		shoppingListItemCount,
+		prevWeekHasEntries: prevWeekEntryCount > 0,
 		isProActive,
 	}
 }
@@ -395,6 +408,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 		weekStart,
 		tonightData,
 		shoppingListItemCount,
+		prevWeekHasEntries,
 		isProActive,
 	} = loaderData
 
@@ -435,15 +449,29 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 								</Button>
 							</Form>
 						)}
+						{/* Empty week: offer to pull last week's plan forward (C3) —
+						    the copy-week resource copies weekStart → weekStart+1, so
+						    posting the previous week fills this one */}
+						{isProActive &&
+							entries.length === 0 &&
+							prevWeekHasEntries &&
+							!isWeekPast && (
+								<Form method="POST" action="/resources/meal-plan-copy-week">
+									<input type="hidden" name="weekStart" value={prevWeek} />
+									<Button type="submit" variant="outline" size="sm">
+										<Icon name="arrow-right" size="sm" />
+										Copy Last Week
+									</Button>
+								</Form>
+							)}
 					</div>
 				</div>
 
 				{/* Week Navigation */}
 				<div className="mt-4 flex items-center justify-between">
-					<Button asChild variant="ghost" size="sm">
-						<Link to={`/plan?weekStart=${prevWeek}`}>
+					<Button asChild variant="ghost" size="icon" className="rounded-full">
+						<Link to={`/plan?weekStart=${prevWeek}`} aria-label="Previous week">
 							<Icon name="arrow-left" size="sm" />
-							Previous
 						</Link>
 					</Button>
 
@@ -458,9 +486,8 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						)}
 					</div>
 
-					<Button asChild variant="ghost" size="sm">
-						<Link to={`/plan?weekStart=${nextWeek}`}>
-							Next
+					<Button asChild variant="ghost" size="icon" className="rounded-full">
+						<Link to={`/plan?weekStart=${nextWeek}`} aria-label="Next week">
 							<Icon name="arrow-right" size="sm" />
 						</Link>
 					</Button>
@@ -468,8 +495,10 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container-grid">
-				{/* Tonight banner (current week only) */}
-				{tonightData &&
+				{/* Tonight banner (current week with meals only — the weekly empty
+				    state below covers the rest) */}
+				{entries.length > 0 &&
+					tonightData &&
 					(tonightData.entries.length > 0 || tonightData.suggestion) && (
 						<TodayBanner
 							entries={tonightData.entries}
@@ -479,23 +508,50 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						/>
 					)}
 
-				{/* Empty State Guidance */}
+				{/* Empty week */}
 				{entries.length === 0 && (
-					<div className="bg-card shadow-warm-lg mb-4 rounded-2xl p-6 text-center">
-						<h2 className="font-serif text-xl">Plan Your Week</h2>
+					<div className="mb-6 py-6 text-center">
+						<h2 className="font-serif text-xl">Plan your week</h2>
 						<p className="text-muted-foreground mx-auto mt-1.5 max-w-md text-sm">
-							Pick recipes for the days ahead and generate a shopping list with
-							what you need to buy. Tap any slot below to get started.
+							Pick recipes for the days ahead and we'll build the shopping list.
+							Tap any day below to get started.
 						</p>
-						{recipes.length === 0 ? (
-							<Button asChild className="mt-5">
+						{tonightData?.suggestion ? (
+							<div className="mt-5 flex flex-col items-center gap-2">
+								<Link
+									to={`/recipes/${tonightData.suggestion.id}`}
+									className="bg-muted/40 hover:bg-muted/60 active:bg-muted/60 inline-flex items-center gap-3 rounded-lg py-2 pr-4 pl-2 transition-colors"
+								>
+									<SuggestionThumb suggestion={tonightData.suggestion} />
+									<span className="text-left">
+										<span className="text-muted-foreground block text-[11px] font-semibold tracking-wider uppercase">
+											Start with
+										</span>
+										<span className="font-serif text-[15px]">
+											{tonightData.suggestion.title}
+										</span>
+									</span>
+									<Icon
+										name="arrow-right"
+										size="sm"
+										className="text-muted-foreground"
+									/>
+								</Link>
+								{recipes.length > 0 && (
+									<Button asChild variant="link" size="sm">
+										<Link to="/recipes">Browse all recipes</Link>
+									</Button>
+								)}
+							</div>
+						) : recipes.length === 0 ? (
+							<Button asChild variant="outline" className="mt-4">
 								<Link to="/recipes/new">
 									<Icon name="plus" size="sm" />
 									Add Your First Recipe
 								</Link>
 							</Button>
 						) : (
-							<Button asChild className="mt-5">
+							<Button asChild variant="outline" className="mt-4">
 								<Link to="/recipes">Browse Recipes</Link>
 							</Button>
 						)}
@@ -531,5 +587,38 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 				/>
 			)}
 		</div>
+	)
+}
+
+function SuggestionThumb({
+	suggestion,
+}: {
+	suggestion: { title: string; image: { objectKey: string } | null }
+}) {
+	if (suggestion.image) {
+		return (
+			<span className="size-10 shrink-0 overflow-hidden rounded-md">
+				<Img
+					src={`/resources/images?objectKey=${encodeURIComponent(suggestion.image.objectKey)}`}
+					alt=""
+					className="h-full w-full object-cover"
+					width={80}
+					height={80}
+				/>
+			</span>
+		)
+	}
+	const placeholder = getRecipePlaceholder(suggestion.title)
+	return (
+		<span
+			className={cn(
+				'flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md',
+				placeholder.bgClass,
+			)}
+		>
+			<span className={cn('font-serif text-sm', placeholder.letterColorClass)}>
+				{placeholder.letter}
+			</span>
+		</span>
 	)
 }

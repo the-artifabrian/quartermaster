@@ -39,7 +39,9 @@ export default function SettingsLayout() {
 					</Link>
 				</div>
 			) : null}
-			<h1 className="mb-6 text-2xl font-bold">{pageTitle ?? 'Settings'}</h1>
+			<h1 className="mb-6 font-serif text-2xl font-normal">
+				{pageTitle ?? 'Settings'}
+			</h1>
 			<Outlet />
 		</div>
 	)

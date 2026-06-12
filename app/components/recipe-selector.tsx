@@ -1,9 +1,12 @@
+import { Img } from 'openimg/react'
 import { useState } from 'react'
 import { Form, Link } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { type MealType, serializeDate } from '#app/utils/date.ts'
+import { cn } from '#app/utils/misc.tsx'
+import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 
 export type RecipeSelectorRecipe = {
 	id: string
@@ -25,6 +28,35 @@ type RecipeSelectorProps = {
 	excludeRecipeIds?: string[]
 	onCancel: () => void
 	onSelect?: () => void
+}
+
+function RecipeOptionThumb({ recipe }: { recipe: RecipeSelectorRecipe }) {
+	if (recipe.image) {
+		return (
+			<span className="size-9 shrink-0 overflow-hidden rounded-md">
+				<Img
+					src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
+					alt=""
+					className="h-full w-full object-cover"
+					width={72}
+					height={72}
+				/>
+			</span>
+		)
+	}
+	const placeholder = getRecipePlaceholder(recipe.title)
+	return (
+		<span
+			className={cn(
+				'flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md',
+				placeholder.bgClass,
+			)}
+		>
+			<span className={cn('font-serif text-sm', placeholder.letterColorClass)}>
+				{placeholder.letter}
+			</span>
+		</span>
+	)
 }
 
 function getTotalTime(recipe: RecipeSelectorRecipe): number | null {
@@ -83,12 +115,10 @@ export function RecipeSelector({
 			<div className="scrollbar-thin max-h-[300px] space-y-0.5 overflow-y-auto">
 				{favorites.length === 0 && rest.length === 0 ? (
 					<div className="py-4 text-center">
-						<p className="text-muted-foreground text-sm">
-							No recipes found
-						</p>
+						<p className="text-muted-foreground text-sm">No recipes found</p>
 						<Link
 							to="/recipes/new"
-							className="text-accent mt-1 inline-block text-sm hover:underline"
+							className="text-primary mt-1 inline-block text-sm hover:underline"
 						>
 							Create a new recipe
 						</Link>
@@ -98,7 +128,7 @@ export function RecipeSelector({
 						{favorites.length > 0 && (
 							<>
 								{hasBothGroups && (
-									<p className="text-muted-foreground px-2 pt-1 pb-0.5 text-xs font-medium uppercase tracking-wide">
+									<p className="text-muted-foreground px-2 pt-1 pb-0.5 text-xs font-medium tracking-wide uppercase">
 										Favorites
 									</p>
 								)}
@@ -116,7 +146,7 @@ export function RecipeSelector({
 						{rest.length > 0 && (
 							<>
 								{hasBothGroups && (
-									<p className="text-muted-foreground px-2 pt-2 pb-0.5 text-xs font-medium uppercase tracking-wide">
+									<p className="text-muted-foreground px-2 pt-2 pb-0.5 text-xs font-medium tracking-wide uppercase">
 										All Recipes
 									</p>
 								)}
@@ -159,24 +189,20 @@ function RecipeOption({
 			<input type="hidden" name="recipeId" value={recipe.id} />
 			<button
 				type="submit"
-				className="hover:bg-muted/50 w-full rounded-lg px-2 py-1.5 text-left transition-colors"
+				className="hover:bg-muted/50 flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors"
 			>
-				<div className="flex items-center justify-between gap-2">
+				<RecipeOptionThumb recipe={recipe} />
+				<div className="flex min-w-0 flex-1 items-center justify-between gap-2">
 					<p className="min-w-0 truncate text-sm font-medium">
 						{recipe.isFavorite && (
 							<Icon
 								name="heart-filled"
-								className="mr-1 inline size-3 text-accent"
+								className="text-accent mr-1 inline size-3"
 							/>
 						)}
 						{recipe.title}
 					</p>
 					<span className="inline-flex shrink-0 items-center gap-1.5">
-						{recipe.cookCount != null && recipe.cookCount > 0 && (
-							<span className="text-muted-foreground/60 text-xs tabular-nums">
-								{recipe.cookCount}x
-							</span>
-						)}
 						{totalTime != null && (
 							<span className="text-muted-foreground inline-flex items-center gap-0.5 text-xs">
 								<Icon name="clock" className="size-3" />

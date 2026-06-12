@@ -2,7 +2,7 @@
 	"id": "/",
 	"name": "Quartermaster",
 	"short_name": "Quartermaster",
-	"start_url": "/recipes",
+	"start_url": "/plan",
 	"scope": "/",
 	"icons": [
 		{
@@ -16,8 +16,8 @@
 			"type": "image/png"
 		}
 	],
-	"theme_color": "#4E7A54",
-	"background_color": "#f8fdf9",
+	"theme_color": "#F6F1EB",
+	"background_color": "#F6F1EB",
 	"description": "Your personal recipe manager. Store recipes, track ingredients, plan meals, and generate shopping lists.",
 	"display": "standalone"
 }

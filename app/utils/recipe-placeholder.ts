@@ -1,26 +1,28 @@
 /**
  * Shared recipe placeholder utilities.
  *
- * Generates deterministic warm-toned placeholder styles for recipes
- * without images, based on a hash of the recipe title.
+ * Generates deterministic warm-toned monogram styles for recipes without
+ * images, based on a hash of the recipe title. Same-hue gradients keep the
+ * tiles quiet but give them enough presence to carry an image slot.
  */
 
 const PLACEHOLDER_THEMES = [
-	{ bg: 'bg-amber-50/80 dark:bg-amber-900/20', border: 'border-l-amber-400/50 dark:border-l-amber-500/40' },
-	{ bg: 'bg-emerald-50/80 dark:bg-emerald-900/15', border: 'border-l-emerald-400/50 dark:border-l-emerald-500/40' },
-	{ bg: 'bg-rose-50/80 dark:bg-rose-900/15', border: 'border-l-rose-400/50 dark:border-l-rose-500/40' },
-	{ bg: 'bg-stone-100/80 dark:bg-stone-800/20', border: 'border-l-stone-400/50 dark:border-l-stone-400/40' },
-	{ bg: 'bg-sky-50/80 dark:bg-sky-900/15', border: 'border-l-sky-400/50 dark:border-l-sky-500/40' },
-	{ bg: 'bg-violet-50/80 dark:bg-violet-900/15', border: 'border-l-violet-400/50 dark:border-l-violet-500/40' },
-] as const
-
-const LETTER_COLORS = [
-	'text-amber-400/50 dark:text-amber-500/30',
-	'text-emerald-400/50 dark:text-emerald-500/30',
-	'text-rose-400/50 dark:text-rose-500/30',
-	'text-stone-400/50 dark:text-stone-400/30',
-	'text-sky-400/50 dark:text-sky-500/30',
-	'text-violet-400/50 dark:text-violet-500/30',
+	{
+		bg: 'bg-gradient-to-br from-amber-100 to-amber-200/70 dark:from-amber-950/40 dark:to-amber-900/25',
+		letter: 'text-amber-700/45 dark:text-amber-400/35',
+	},
+	{
+		bg: 'bg-gradient-to-br from-emerald-100/90 to-emerald-200/60 dark:from-emerald-950/35 dark:to-emerald-900/20',
+		letter: 'text-emerald-800/40 dark:text-emerald-400/30',
+	},
+	{
+		bg: 'bg-gradient-to-br from-rose-100 to-rose-200/60 dark:from-rose-950/35 dark:to-rose-900/20',
+		letter: 'text-rose-800/40 dark:text-rose-400/30',
+	},
+	{
+		bg: 'bg-gradient-to-br from-stone-200/80 to-stone-300/50 dark:from-stone-800/50 dark:to-stone-700/30',
+		letter: 'text-stone-600/45 dark:text-stone-400/35',
+	},
 ] as const
 
 function hashTitle(title: string): number {
@@ -38,12 +40,11 @@ function hashTitle(title: string): number {
  */
 export function getRecipePlaceholder(title: string) {
 	const hash = hashTitle(title)
-	const index = hash % PLACEHOLDER_THEMES.length
+	const theme = PLACEHOLDER_THEMES[hash % PLACEHOLDER_THEMES.length]!
 
 	return {
-		bgClass: PLACEHOLDER_THEMES[index]!.bg,
-		borderClass: PLACEHOLDER_THEMES[index]!.border,
-		letterColorClass: LETTER_COLORS[index]!,
+		bgClass: theme.bg,
+		letterColorClass: theme.letter,
 		letter: title.charAt(0).toUpperCase(),
 	}
 }

@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'vitest'
-import { parseRecipeText, splitMultipleRecipes } from './bulk-recipe-parser.ts'
+import {
+	extractServingsFromTitle,
+	joinBrokenUnitSteps,
+	parseRecipeText,
+	splitMultipleRecipes,
+} from './bulk-recipe-parser.ts'
 
 describe('splitMultipleRecipes', () => {
 	test('returns single recipe when no separator', () => {
@@ -688,17 +693,19 @@ Instructions
 1. In a bowl whisk together the buttermilk and spices.`
 
 		const result = parseRecipeText(text)
-		expect(result.title).toBe("Raising Canes Chicken Tenders")
+		expect(result.title).toBe('Raising Canes Chicken Tenders')
 		// 4 sub-headers + 17 ingredients
 		const headings = result.ingredients.filter((i) => i.isHeading)
 		const items = result.ingredients.filter((i) => !i.isHeading)
 		expect(headings).toHaveLength(4)
 		expect(items.length).toBeGreaterThanOrEqual(17)
-		// Spot-check: first group should have 2 items with heading context
+		// Spot-check: first group should have 2 items with heading context.
+		// "For the Chicken" is cleaned to "Chicken" (same as the LLM path).
+		expect(headings[0]!.name).toBe('Chicken')
 		expect(items[0]!.name).toBe('chicken breast')
 		expect(items[0]!.amount).toBe('2')
 		expect(items[0]!.unit).toBe('lbs')
-		expect(items[0]!.notes).toContain('For the Chicken')
+		expect(items[0]!.notes).toContain('for Chicken')
 		// Oil for frying should be its own item
 		expect(items[1]!.name.toLowerCase()).toContain('oil')
 		// Ingredients under different headings get their own context
@@ -761,5 +768,297 @@ Day Of
 		expect(result.instructions[0]!.content).toBe('Braising (Day Before)')
 		expect(result.instructions[4]!.content).toBe('Day Of')
 		expect(result.warnings).toHaveLength(0)
+	})
+})
+
+describe('extractServingsFromTitle', () => {
+	test('strips parenthesized trailing serves', () => {
+		expect(
+			extractServingsFromTitle('Vermicelli Noodle Bowl (Serves 2)'),
+		).toEqual({ title: 'Vermicelli Noodle Bowl', servings: 2 })
+		expect(extractServingsFromTitle('Pho (serves 4-6)')).toEqual({
+			title: 'Pho',
+			servings: 4,
+		})
+	})
+
+	test('strips dash/comma trailing serves', () => {
+		expect(extractServingsFromTitle('Weeknight Curry — serves 4')).toEqual({
+			title: 'Weeknight Curry',
+			servings: 4,
+		})
+		expect(extractServingsFromTitle('Big Salad, serves 2')).toEqual({
+			title: 'Big Salad',
+			servings: 2,
+		})
+	})
+
+	test('leaves titles without serves untouched', () => {
+		expect(extractServingsFromTitle('Beef Bolognese')).toEqual({
+			title: 'Beef Bolognese',
+			servings: null,
+		})
+		expect(extractServingsFromTitle('Buns for 4th of July')).toEqual({
+			title: 'Buns for 4th of July',
+			servings: null,
+		})
+	})
+
+	test('never strips the whole title', () => {
+		expect(extractServingsFromTitle('(Serves 2)')).toEqual({
+			title: '(Serves 2)',
+			servings: null,
+		})
+	})
+})
+
+describe('joinBrokenUnitSteps', () => {
+	test('joins a step split inside a temperature pair', () => {
+		const result = joinBrokenUnitSteps([
+			{ content: 'Preheat oven to 350' },
+			{ content: 'F / 180 C. Bake until golden.' },
+		])
+		expect(result).toHaveLength(1)
+		expect(result[0]!.content).toBe(
+			'Preheat oven to 350 F / 180 C. Bake until golden.',
+		)
+	})
+
+	test('joins splits before degree and time words', () => {
+		const result = joinBrokenUnitSteps([
+			{ content: 'Roast at 425' },
+			{ content: 'degrees for 20' },
+			{ content: 'minutes, turning once.' },
+		])
+		expect(result).toHaveLength(1)
+		expect(result[0]!.content).toBe(
+			'Roast at 425 degrees for 20 minutes, turning once.',
+		)
+	})
+
+	test('leaves complete steps alone', () => {
+		const steps = [
+			{ content: 'Preheat oven to 350F.' },
+			{ content: 'Flour the pan.' },
+			{ content: 'Bake for 30 minutes.' },
+		]
+		expect(joinBrokenUnitSteps(steps)).toEqual(steps)
+	})
+
+	test('does not join when the number ends a sentence', () => {
+		const steps = [
+			{ content: 'Reduce the sauce to about 350.' },
+			{ content: 'Finish with butter.' },
+		]
+		expect(joinBrokenUnitSteps(steps)).toEqual(steps)
+	})
+
+	test('does not join when the next step starts with a regular word', () => {
+		const steps = [
+			{ content: 'Divide the dough into 8' },
+			{ content: 'Shape each piece into a ball.' },
+		]
+		expect(joinBrokenUnitSteps(steps)).toEqual(steps)
+	})
+})
+
+describe('parseRecipeText servings and headings', () => {
+	test('pulls "(Serves 2)" out of the title', () => {
+		const text = `Vermicelli Noodle Bowl (Serves 2)
+
+Ingredients
+- 200 g vermicelli noodles
+
+Instructions
+1. Cook the noodles.`
+
+		const result = parseRecipeText(text)
+		expect(result.title).toBe('Vermicelli Noodle Bowl')
+		expect(result.servings).toBe(2)
+	})
+
+	test('captures a standalone serves line and keeps it out of the description', () => {
+		const text = `Family Lasagna
+
+Serves 8
+A Sunday favorite.
+
+Ingredients
+- 1 box lasagna noodles
+
+Instructions
+1. Assemble and bake.`
+
+		const result = parseRecipeText(text)
+		expect(result.servings).toBe(8)
+		expect(result.description).toBe('A Sunday favorite.')
+	})
+
+	test('captures "Servings: N" and "Yield: N servings" forms', () => {
+		const base = (line: string) => `Soup
+
+${line}
+
+Ingredients
+- 2 cups broth
+
+Instructions
+1. Simmer.`
+
+		expect(parseRecipeText(base('Servings: 6')).servings).toBe(6)
+		expect(parseRecipeText(base('Yield: 4 servings')).servings).toBe(4)
+		expect(parseRecipeText(base('Makes 12 cookies')).servings).toBeUndefined()
+	})
+
+	test('title serves wins over a later body line', () => {
+		const text = `Stew (Serves 2)
+
+Serves 6
+
+Ingredients
+- 1 lb beef
+
+Instructions
+1. Braise.`
+
+		expect(parseRecipeText(text).servings).toBe(2)
+	})
+
+	test('serves line inside the ingredient list is metadata, not an ingredient', () => {
+		const text = `Pancakes
+
+Ingredients
+Serves 4
+- 2 cups flour
+
+Instructions
+1. Fry.`
+
+		const result = parseRecipeText(text)
+		expect(result.servings).toBe(4)
+		expect(result.ingredients).toHaveLength(1)
+		expect(result.ingredients[0]!.name).toBe('flour')
+	})
+
+	test('detects "For the …" headings on bulleted lines', () => {
+		const text = `Galette
+
+Ingredients
+- For the crust:
+- 2 cups flour
+- For the filling:
+- 3 apples
+
+Instructions
+1. Bake.`
+
+		const result = parseRecipeText(text)
+		expect(result.ingredients[0]).toEqual({ name: 'Crust', isHeading: true })
+		expect(result.ingredients[1]!.name).toBe('flour')
+		expect(result.ingredients[2]).toEqual({ name: 'Filling', isHeading: true })
+		expect(result.ingredients[3]!.name).toBe('apples')
+	})
+
+	test('detects all-caps headings in non-bulleted sections', () => {
+		const text = `Tart
+
+Ingredients
+PIE DOUGH
+2 cups flour
+FILLING
+3 pears
+
+Instructions
+1. Bake.`
+
+		const result = parseRecipeText(text)
+		expect(result.ingredients[0]).toEqual({
+			name: 'PIE DOUGH',
+			isHeading: true,
+		})
+		expect(result.ingredients[1]!.name).toBe('flour')
+		expect(result.ingredients[2]).toEqual({ name: 'FILLING', isHeading: true })
+		expect(result.ingredients[3]!.name).toBe('pears')
+	})
+
+	test('joins instruction lines split mid-measurement and warns', () => {
+		const text = `Roast Chicken
+
+Ingredients
+- 1 whole chicken
+
+Instructions
+1. Preheat oven to 425
+2. F / 220 C.
+3. Roast for 1 hour.`
+
+		const result = parseRecipeText(text)
+		expect(result.instructions).toHaveLength(2)
+		expect(result.instructions[0]!.content).toBe(
+			'Preheat oven to 425 F / 220 C.',
+		)
+		expect(result.warnings).toContain(
+			'Joined steps that were split mid-measurement',
+		)
+	})
+
+	test('all-caps house style: caps ingredients stay ingredients', () => {
+		const text = `Grandma's Stew
+
+Ingredients
+- BEEF CHUCK
+- SALT
+- PEPPER
+- ONIONS
+- 2 CUPS BEEF STOCK
+
+Instructions
+1. BROWN THE BEEF.`
+
+		const result = parseRecipeText(text)
+		const headings = result.ingredients.filter((i) => i.isHeading)
+		expect(headings).toHaveLength(0)
+		expect(result.ingredients.map((i) => i.name)).toContain('SALT')
+		expect(result.ingredients.map((i) => i.name)).toContain('BEEF CHUCK')
+	})
+
+	test('all-caps house style: explicit heading signals still work', () => {
+		const text = `Noodle Bowl
+
+Ingredients
+- FOR THE SAUCE
+- SOY SAUCE
+- SESAME OIL
+- RICE VINEGAR
+- HONEY
+
+Instructions
+1. WHISK EVERYTHING.`
+
+		const result = parseRecipeText(text)
+		expect(result.ingredients[0]).toEqual({ name: 'SAUCE', isHeading: true })
+		expect(result.ingredients.slice(1).every((i) => !i.isHeading)).toBe(true)
+	})
+
+	test('mixed-case recipes keep all-caps heading detection', () => {
+		const text = `Tart
+
+Ingredients
+- PIE DOUGH
+- 2 cups flour
+- 1 stick butter
+- FILLING
+- 3 pears
+- 2 tbsp sugar
+
+Instructions
+1. Bake.`
+
+		const result = parseRecipeText(text)
+		expect(result.ingredients[0]).toEqual({
+			name: 'PIE DOUGH',
+			isHeading: true,
+		})
+		expect(result.ingredients[3]).toEqual({ name: 'FILLING', isHeading: true })
 	})
 })

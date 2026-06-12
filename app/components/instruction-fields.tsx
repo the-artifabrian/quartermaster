@@ -123,9 +123,7 @@ export function InstructionFields({
 								sortKey={instruction.sortKey!}
 								instruction={instruction}
 								index={index}
-								onUpdate={(content) =>
-									updateInstruction(index, content)
-								}
+								onUpdate={(content) => updateInstruction(index, content)}
 								onRemove={() => removeInstruction(index)}
 								canRemove={instructions.length > 1}
 							/>
@@ -172,7 +170,7 @@ function SortableInstructionRow({
 			style={style}
 			className={cn(
 				'flex gap-3',
-				isDragging && 'z-10 opacity-80 shadow-lg',
+				isDragging && 'shadow-warm-lg z-10 opacity-80',
 			)}
 		>
 			<div className="flex shrink-0 flex-col items-center gap-1 pt-1">
@@ -195,7 +193,7 @@ function SortableInstructionRow({
 					value={instruction.content}
 					onChange={(e) => onUpdate(e.target.value)}
 					rows={2}
-					className="resize-none [field-sizing:content]"
+					className="[field-sizing:content] resize-none"
 				/>
 			</div>
 			<Button

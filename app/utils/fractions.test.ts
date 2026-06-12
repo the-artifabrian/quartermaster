@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'vitest'
-import { parseAmount, formatAmount, scaleAmount } from './fractions.ts'
+import {
+	parseAmount,
+	formatAmount,
+	scaleAmount,
+	scaleAmountKitchen,
+} from './fractions.ts'
 
 describe('parseAmount', () => {
 	test('parses integers', () => {
@@ -159,5 +164,78 @@ describe('scaleAmount', () => {
 		expect(scaleAmount('0.4', 1, 'g')).toBe('0.4')
 		expect(scaleAmount('0.4', 2, 'g')).toBe('0.8')
 		expect(scaleAmount('1', 0.5, 'ml')).toBe('0.5')
+	})
+})
+
+describe('scaleAmountKitchen', () => {
+	test('rounds scaled metric amounts to measurable values', () => {
+		// The review's flagship case: 250 g flour at 4→5 servings
+		expect(scaleAmountKitchen('250', 1.25, 'g')).toEqual({
+			display: '310',
+			approximate: true,
+			value: 312.5,
+		})
+		// 75 g sugar at 4→5
+		expect(scaleAmountKitchen('75', 1.25, 'g')).toEqual({
+			display: '95',
+			approximate: true,
+			value: 93.75,
+		})
+	})
+
+	test('does not flag metric values that needed no rounding', () => {
+		expect(scaleAmountKitchen('200', 1.5, 'g')).toEqual({
+			display: '300',
+			approximate: false,
+			value: 300,
+		})
+	})
+
+	test('kg and liters round to one decimal', () => {
+		expect(scaleAmountKitchen('1', 1.25, 'kg')).toEqual({
+			display: '1.3',
+			approximate: true,
+			value: 1.25,
+		})
+	})
+
+	test('translates spoonless eighths into cook qualifiers', () => {
+		// 1/2 tsp at 4→5 servings = 5/8 tsp — a spoon that doesn't exist
+		expect(scaleAmountKitchen('1/2', 1.25, 'tsp')?.display).toBe('generous 1/2')
+		expect(scaleAmountKitchen('1/2', 0.75, 'tsp')?.display).toBe('generous 1/3')
+		expect(scaleAmountKitchen('3/4', 2.5, 'tsp')?.display).toBe('scant 2')
+	})
+
+	test('keeps measurable fractions as-is when scaled', () => {
+		expect(scaleAmountKitchen('1/2', 1.5, 'tsp')?.display).toBe('3/4')
+		expect(scaleAmountKitchen('1', 0.5, 'cup')?.display).toBe('1/2')
+		expect(scaleAmountKitchen('2', 1.5)?.display).toBe('3')
+	})
+
+	test('ratio 1 keeps author precision exactly', () => {
+		expect(scaleAmountKitchen('312.5', 1, 'g')).toEqual({
+			display: '312.5',
+			approximate: false,
+			value: 312.5,
+		})
+		expect(scaleAmountKitchen('5/8', 1, 'tsp')?.display).toBe('5/8')
+	})
+
+	test('passes unparseable amounts through untouched', () => {
+		expect(scaleAmountKitchen('a pinch', 2)).toEqual({
+			display: 'a pinch',
+			approximate: false,
+			value: null,
+		})
+	})
+
+	test('returns null for empty input', () => {
+		expect(scaleAmountKitchen(null, 2)).toBeNull()
+		expect(scaleAmountKitchen('', 2)).toBeNull()
+	})
+
+	test('decimal fallback keeps precision when nothing snaps', () => {
+		// 0.19 sits >0.05 from every common fraction
+		expect(scaleAmountKitchen('0.38', 0.5)?.display).toBe('0.19')
 	})
 })

@@ -104,7 +104,22 @@ export function formatAmount(value: number, unit?: string | null): string {
 		return (whole + 1).toString()
 	}
 
-	// Find the nearest common fraction
+	const snapped = snapToCommonFraction(fractional)
+
+	// If not close enough to any common fraction, use decimal
+	if (!snapped) {
+		return round2(value).toString()
+	}
+
+	if (whole === 0) {
+		return snapped.display
+	}
+	return `${whole} ${snapped.display}`
+}
+
+function snapToCommonFraction(
+	fractional: number,
+): { value: number; display: string } | null {
 	let closest = COMMON_FRACTIONS[0]!
 	let minDiff = Math.abs(fractional - closest.value)
 
@@ -116,15 +131,7 @@ export function formatAmount(value: number, unit?: string | null): string {
 		}
 	}
 
-	// If not close enough to any common fraction, use decimal
-	if (minDiff > 0.05) {
-		return round2(value).toString()
-	}
-
-	if (whole === 0) {
-		return closest.display
-	}
-	return `${whole} ${closest.display}`
+	return minDiff > 0.05 ? null : closest
 }
 
 /**
@@ -140,4 +147,106 @@ export function scaleAmount(
 	const parsed = parseAmount(amount)
 	if (parsed === null) return amount
 	return formatAmount(parsed * ratio, unit)
+}
+
+export type KitchenAmount = {
+	display: string
+	/**
+	 * True when the display was numerically rounded away from the exact scaled
+	 * value (callers prefix ≈). Fraction translations ("generous 1/2") stay
+	 * false — the qualifier word already carries the approximation.
+	 */
+	approximate: boolean
+	/** Exact scaled numeric value, for downstream conversion (e.g. metric). */
+	value: number | null
+}
+
+/**
+ * Eighths that no measuring-spoon set has, translated to the nearest spoon
+ * that exists with a cook's qualifier: 5/8 tsp is "generous 1/2 tsp".
+ * 7/8 carries into "scant <next whole>".
+ */
+const KITCHEN_FRACTION_QUALIFIERS: Record<
+	string,
+	{ qualifier: 'generous' | 'scant'; display: string; carry?: boolean }
+> = {
+	'3/8': { qualifier: 'generous', display: '1/3' },
+	'5/8': { qualifier: 'generous', display: '1/2' },
+	'7/8': { qualifier: 'scant', display: '', carry: true },
+}
+
+/**
+ * Round a scaled metric amount to a measurable kitchen quantity. Slightly
+ * coarser than roundMetricAmount in metric-conversion.ts: scaling already
+ * introduced false precision, so 312.5 g reads better as "≈310 g" than as
+ * a number no scale shows.
+ */
+function roundKitchenMetric(value: number, unit: string): number {
+	if (isKgOrLiter(unit)) {
+		return Math.round(value * 10) / 10
+	}
+	if (value >= 200) return Math.round(value / 10) * 10
+	if (value > 50) return Math.round(value / 5) * 5
+	if (value < 1) return round2(value)
+	return Math.round(value)
+}
+
+function isKgOrLiter(unit: string): boolean {
+	return /^(kg|kilograms?|l|liters?|litres?)$/i.test(unit.trim())
+}
+
+/**
+ * Scale an ingredient amount for *display while cooking*: rounds to
+ * quantities a kitchen can actually measure (312.5 g → ≈310 g, 5/8 tsp →
+ * "generous 1/2" tsp). Author-written amounts (ratio 1) keep their exact
+ * precision — kitchen rounding only smooths what scaling itself invented.
+ * Shopping-list quantities keep using scaleAmount (exact policy).
+ */
+export function scaleAmountKitchen(
+	amount: string | null | undefined,
+	ratio: number,
+	unit?: string | null,
+): KitchenAmount | null {
+	if (!amount) return null
+	const parsed = parseAmount(amount)
+	if (parsed === null)
+		return { display: amount, approximate: false, value: null }
+
+	const value = parsed * ratio
+	if (ratio === 1) {
+		return { display: formatAmount(value, unit), approximate: false, value }
+	}
+
+	if (unit && isMetricUnit(unit)) {
+		const rounded = roundKitchenMetric(value, unit)
+		return {
+			display: rounded.toString(),
+			approximate: rounded !== round2(value),
+			value,
+		}
+	}
+
+	const exact = formatAmount(value, unit)
+	const whole = Math.floor(value)
+	const fractional = value - whole
+	if (fractional < 0.05 || fractional > 0.95) {
+		return { display: exact, approximate: false, value }
+	}
+
+	const snapped = snapToCommonFraction(fractional)
+	const kitchen = snapped ? KITCHEN_FRACTION_QUALIFIERS[snapped.display] : null
+	if (!kitchen) {
+		return { display: exact, approximate: false, value }
+	}
+
+	if (kitchen.carry) {
+		return { display: `scant ${whole + 1}`, approximate: false, value }
+	}
+	const fractionPart =
+		whole === 0 ? kitchen.display : `${whole} ${kitchen.display}`
+	return {
+		display: `${kitchen.qualifier} ${fractionPart}`,
+		approximate: false,
+		value,
+	}
 }

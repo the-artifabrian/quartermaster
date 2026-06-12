@@ -1,4 +1,4 @@
-import { promises as fs, constants } from 'node:fs'
+import { promises as fs, constants, existsSync } from 'node:fs'
 import { invariantResponse } from '@epic-web/invariant'
 import { getImgResponse } from 'openimg/node'
 import { getDomainUrl } from '#app/utils/misc.tsx'
@@ -43,6 +43,21 @@ export async function loader({ request }: Route.LoaderArgs) {
 		cacheFolder: await getCacheDir(),
 		getImgSource: () => {
 			if (objectKey) {
+				// In MOCKS mode the storage "bucket" is a local folder, so read it
+				// directly. Routing through the mocked fetch hands openimg a stream
+				// sharp can't consume under bun — the resulting async error escapes
+				// the request as an uncaughtException and takes down the dev server.
+				if (process.env.MOCKS === 'true') {
+					invariantResponse(!objectKey.includes('..'), 'Invalid object key', {
+						status: 400,
+					})
+					const fixturePath = `./tests/fixtures/images/${objectKey}`
+					const uploadedPath = `./tests/fixtures/uploaded/${objectKey}`
+					return {
+						type: 'fs',
+						path: existsSync(fixturePath) ? fixturePath : uploadedPath,
+					}
+				}
 				const { url: signedUrl, headers: signedHeaders } =
 					getSignedGetRequestInfo(objectKey)
 				return {

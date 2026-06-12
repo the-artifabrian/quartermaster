@@ -241,15 +241,16 @@ ${styleText('bold', 'Press Ctrl+C to stop')}
 })
 
 closeWithGrace(async ({ err }) => {
-	await new Promise((resolve, reject) => {
-		server.close((e) => (e ? reject(e) : resolve('ok')))
-	})
+	// Log the triggering error before awaiting close: open SSE connections
+	// (e.g. /resources/household-events) keep server.close() from resolving,
+	// so anything logged after it is lost when the grace timeout kills us.
 	if (err) {
 		console.error(styleText('red', String(err)))
 		console.error(styleText('red', String(err.stack)))
 	}
-	const { shutdownPostHog } = await import(
-		'../app/utils/posthog.server.ts'
-	)
+	await new Promise((resolve, reject) => {
+		server.close((e) => (e ? reject(e) : resolve('ok')))
+	})
+	const { shutdownPostHog } = await import('../app/utils/posthog.server.ts')
 	await shutdownPostHog()
 })

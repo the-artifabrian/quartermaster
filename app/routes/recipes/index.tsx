@@ -275,6 +275,8 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 
 	const makeableOnly = searchParams.get('makeable') === 'true'
 	const [filtersOpen, setFiltersOpen] = useState(false)
+	// Controlled so "Clear search" in the no-results state empties the box too
+	const [searchInput, setSearchInput] = useState(search)
 	const activeFilterCount =
 		(favoritesOnly ? 1 : 0) +
 		(maxTime ? 1 : 0) +
@@ -333,6 +335,13 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 
 	const hasFilters = search || favoritesOnly || maxTime
 
+	const handleClearSearch = () => {
+		setSearchInput('')
+		const params = new URLSearchParams(searchParams)
+		params.delete('search')
+		setSearchParams(params, { replace: true })
+	}
+
 	const handleClearFilters = () => {
 		// Preserve sort when clearing filters
 		const params = new URLSearchParams()
@@ -355,7 +364,11 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					<h1 className="font-serif text-2xl font-normal">
 						My Recipes{' '}
 						<span className="text-muted-foreground text-base font-normal">
-							({totalRecipeCount})
+							{/* While searching/filtering, the count says what you see (B2) */}
+							{(hasFilters || makeableOnly) &&
+							displayRecipes.length !== totalRecipeCount
+								? `(${displayRecipes.length} of ${totalRecipeCount})`
+								: `(${totalRecipeCount})`}
 						</span>
 					</h1>
 					<div className="flex gap-2">
@@ -430,8 +443,11 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							<input
 								type="search"
 								placeholder="Search recipes..."
-								defaultValue={search}
-								onChange={(e) => handleSearchChange(e.target.value)}
+								value={searchInput}
+								onChange={(e) => {
+									setSearchInput(e.target.value)
+									handleSearchChange(e.target.value)
+								}}
 								className="border-border/50 bg-secondary/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-10 w-full rounded-full border pr-4 pl-10 text-sm transition-colors outline-none focus:ring-1"
 							/>
 						</div>
@@ -558,14 +574,14 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								cookTime={recipe.cookTime}
 								isFavorite={recipe.isFavorite}
 								isAiGenerated={recipe.isAiGenerated}
-								lastCookedAt={
-									recipe.cookingLogs[0]?.cookedAt?.toISOString() ?? null
-								}
-								cookCount={recipe._count.cookingLogs}
-								matchPercentage={matchLookup?.get(recipe.id)?.matchPercentage}
 							/>
 						))}
 					</RecipeCardGrid>
+				) : search ? (
+					// A failed *search* isn't a pantry problem: name the query and
+					// offer the two real exits — clear it, or capture the recipe you
+					// just failed to find.
+					<SearchEmptyState query={search} onClearSearch={handleClearSearch} />
 				) : matchData ? (
 					<MatchEmptyState
 						inventoryItemCount={matchData.inventoryItemCount}
@@ -580,7 +596,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								className="text-muted-foreground/40 size-8"
 							/>
 						</div>
-						<h2 className="mt-4 text-xl font-semibold">
+						<h2 className="mt-4 font-serif text-xl font-normal">
 							Nothing matches those filters
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
@@ -600,7 +616,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
 							<Icon name="cookie" className="text-muted-foreground/40 size-8" />
 						</div>
-						<h2 className="mt-4 text-xl font-semibold">
+						<h2 className="mt-4 font-serif text-xl font-normal">
 							Your cookbook is empty
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
@@ -636,6 +652,42 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	)
 }
 
+function SearchEmptyState({
+	query,
+	onClearSearch,
+}: {
+	query: string
+	onClearSearch: () => void
+}) {
+	return (
+		<div className="flex flex-col items-center justify-center py-16 text-center">
+			<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
+				<Icon
+					name="magnifying-glass"
+					className="text-muted-foreground/40 size-8"
+				/>
+			</div>
+			<h2 className="mt-4 font-serif text-xl font-normal">
+				No recipes match &ldquo;{query}&rdquo;
+			</h2>
+			<p className="text-muted-foreground mt-2 max-w-sm">
+				Check the spelling — or this might be the one your cookbook is missing.
+			</p>
+			<div className="mt-6 flex gap-3">
+				<Button variant="outline" onClick={onClearSearch}>
+					Clear search
+				</Button>
+				<Button asChild>
+					<Link to="/recipes/import">
+						<Icon name="link-2" size="sm" />
+						Import a recipe
+					</Link>
+				</Button>
+			</div>
+		</div>
+	)
+}
+
 function MatchEmptyState({
 	inventoryItemCount,
 	makeableOnly,
@@ -651,7 +703,9 @@ function MatchEmptyState({
 				<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
 					<Icon name="file-text" className="text-muted-foreground/40 size-8" />
 				</div>
-				<h2 className="mt-4 text-xl font-semibold">Start your Pantry</h2>
+				<h2 className="mt-4 font-serif text-xl font-normal">
+					Start your Pantry
+				</h2>
 				<p className="text-muted-foreground mt-2 max-w-sm">
 					Add ingredients you usually keep around. We'll show which recipes need
 					fewer things.
@@ -674,7 +728,7 @@ function MatchEmptyState({
 					className="text-muted-foreground/40 size-8"
 				/>
 			</div>
-			<h2 className="mt-4 text-xl font-semibold">
+			<h2 className="mt-4 font-serif text-xl font-normal">
 				{makeableOnly
 					? 'No perfect matches yet'
 					: 'No recipes match your filter'}

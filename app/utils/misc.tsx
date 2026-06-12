@@ -51,6 +51,13 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs))
 }
 
+/**
+ * Small-caps section label — the one sanctioned grouping device for flat
+ * surfaces (ingredient groups, settings groups, form sections).
+ */
+export const sectionLabelClass =
+	'text-xs font-semibold tracking-wider uppercase text-muted-foreground'
+
 export function getDomainUrl(request: Request) {
 	const host =
 		request.headers.get('X-Forwarded-Host') ??
@@ -193,6 +200,15 @@ function callAll<Args extends Array<unknown>>(
 export function useDoubleCheck() {
 	const [doubleCheck, setDoubleCheck] = useState(false)
 
+	// Auto-disarm after a beat: an armed destructive button shouldn't wait
+	// indefinitely for a stray second tap minutes later. Blur still disarms
+	// sooner when focus moves on.
+	useEffect(() => {
+		if (!doubleCheck) return
+		const timeout = setTimeout(() => setDoubleCheck(false), 4000)
+		return () => clearTimeout(timeout)
+	}, [doubleCheck])
+
 	function getButtonProps(
 		props?: React.ButtonHTMLAttributes<HTMLButtonElement>,
 	) {
@@ -217,6 +233,10 @@ export function useDoubleCheck() {
 
 		return {
 			...props,
+			// The armed state swaps the button's content to "Sure?" — a polite
+			// live region announces that change to assistive tech, which
+			// otherwise only ever hears the unarmed aria-label.
+			'aria-live': 'polite' as const,
 			onBlur: callAll(onBlur, props?.onBlur),
 			onClick: callAll(onClick, props?.onClick),
 			onKeyUp: callAll(onKeyUp, props?.onKeyUp),
@@ -261,4 +281,3 @@ export function useDebounce<
 		[delay],
 	)
 }
-

@@ -391,9 +391,9 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 			<div className="container-content py-2">
 				{/* Free plan limit banner */}
 				{inventoryUsage.isAtLimit && (
-					<div className="bg-accent/8 mb-6 flex flex-col gap-3 rounded-lg p-4 sm:flex-row sm:items-center sm:justify-between">
+					<div className="bg-accent/8 mb-6 flex flex-col gap-3 rounded-md p-4 sm:flex-row sm:items-center sm:justify-between">
 						<div>
-							<p className="text-accent text-[0.75rem] font-medium tracking-[0.08em] uppercase">
+							<p className="text-copper-text text-[0.75rem] font-medium tracking-[0.08em] uppercase">
 								Free plan limit reached
 							</p>
 							<p className="text-muted-foreground mt-1 text-sm">

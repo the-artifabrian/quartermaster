@@ -1,5 +1,6 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { useEffect, useState } from 'react'
 import { Form, Link, useFetcher } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
@@ -11,6 +12,10 @@ import { useRequestInfo } from '#app/utils/request-info.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
+import {
+	getKeepAwakePreference,
+	setKeepAwakePreference,
+} from '#app/utils/wake-lock.ts'
 import { type Route } from './+types/index.ts'
 import { twoFAVerificationType } from './two-factor/_layout.tsx'
 
@@ -96,7 +101,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 			{/* Profile Banner */}
 			<Link
 				to="edit"
-				className="bg-card hover:bg-accent/5 flex items-center gap-4 rounded-xl border p-4 transition-colors"
+				className="bg-muted/40 hover:bg-muted/60 flex items-center gap-4 rounded-lg p-4 transition-colors"
 			>
 				<div
 					className="bg-accent/20 text-accent-foreground flex size-16 shrink-0 items-center justify-center rounded-full text-xl font-bold"
@@ -136,6 +141,9 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				/>
 				<SettingsRow icon="sun" label="Theme">
 					<ThemeSwitch userPreference={requestInfo.userPrefs.theme} />
+				</SettingsRow>
+				<SettingsRow icon="timer" label="Keep screen awake while cooking">
+					<KeepAwakeSwitch />
 				</SettingsRow>
 			</SettingsSection>
 
@@ -212,6 +220,43 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 	)
 }
 
+function KeepAwakeSwitch() {
+	// Device-local preference (localStorage), read after mount to avoid an SSR
+	// mismatch — same pattern as the recipe page's Metric toggle.
+	const [enabled, setEnabled] = useState(true)
+	const [hydrated, setHydrated] = useState(false)
+	useEffect(() => {
+		setEnabled(getKeepAwakePreference())
+		setHydrated(true)
+	}, [])
+
+	function handleToggle() {
+		setEnabled((prev) => {
+			setKeepAwakePreference(!prev)
+			return !prev
+		})
+	}
+
+	return (
+		<button
+			type="button"
+			role="switch"
+			aria-checked={enabled}
+			aria-label="Keep screen awake while a recipe is open"
+			onClick={handleToggle}
+			disabled={!hydrated}
+			className={cn(
+				'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+				enabled
+					? 'border-primary bg-primary text-primary-foreground'
+					: 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground',
+			)}
+		>
+			{enabled ? 'On' : 'Off'}
+		</button>
+	)
+}
+
 function SettingsSection({
 	label,
 	children,
@@ -226,7 +271,7 @@ function SettingsSection({
 					{label}
 				</h3>
 			) : null}
-			<div className="bg-card divide-border divide-y overflow-hidden rounded-xl border">
+			<div className="bg-muted/40 divide-border/50 divide-y overflow-hidden rounded-lg">
 				{children}
 			</div>
 		</div>

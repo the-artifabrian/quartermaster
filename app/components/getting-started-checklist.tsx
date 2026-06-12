@@ -68,7 +68,7 @@ export function GettingStartedChecklist({
 	}
 
 	return (
-		<div className="bg-card border-border/50 shadow-warm mb-6 rounded-2xl border p-5">
+		<div className="bg-muted/40 mb-6 rounded-lg p-5">
 			{/* Header */}
 			<div className="mb-4 flex items-center justify-between">
 				<div>
@@ -101,7 +101,7 @@ export function GettingStartedChecklist({
 					<div
 						key={step.title}
 						className={cn(
-							'flex items-center gap-3 rounded-xl px-4 py-3',
+							'flex items-center gap-3 rounded-md px-4 py-3',
 							step.done ? 'bg-secondary/30' : 'bg-muted/30',
 						)}
 					>

@@ -176,9 +176,7 @@ function splitNameNotes(text: string): {
 	}
 	const name = stripOrphanedParens(parts.slice(0, splitIndex).join(', '))
 	const rawNotes =
-		splitIndex < parts.length
-			? parts.slice(splitIndex).join(', ')
-			: undefined
+		splitIndex < parts.length ? parts.slice(splitIndex).join(', ') : undefined
 	const notes = rawNotes ? stripOrphanedParens(rawNotes) : undefined
 	return { name, notes }
 }
@@ -201,6 +199,67 @@ function extractTrailingParenthetical(
 		}
 	}
 	return { name, notes: existingNotes }
+}
+
+/**
+ * True when an ingredient list is written in all-caps house style (older
+ * sites, OCR'd text, shouty emails). When the whole list shouts, caps carry
+ * no heading signal and the all-caps heuristic must be disabled — otherwise
+ * "SALT" and "OLIVE OIL" import as section headings instead of ingredients.
+ */
+export function isAllCapsHouseStyle(lines: string[]): boolean {
+	const lettered = lines.filter((line) => /[a-zA-Z]/.test(line))
+	if (lettered.length < 3) return false
+	const caps = lettered.filter((line) => !/[a-z]/.test(line))
+	return caps.length > lettered.length / 2
+}
+
+/**
+ * Detect lines in an ingredient list that are sub-section headings rather
+ * than ingredients: "For the crust", "Topping:", "PIE DOUGH". Returns the
+ * cleaned heading name (leading "For the" dropped, trailing colon stripped),
+ * or null when the line reads like a real ingredient. Anything containing a
+ * digit or fraction is assumed to carry an amount and is never a heading.
+ *
+ * Pass `allCapsIsHeading: false` (see isAllCapsHouseStyle) to disable the
+ * all-caps heuristic; the explicit "For the …" and trailing-colon signals
+ * still apply.
+ */
+export function detectIngredientHeading(
+	line: string,
+	opts?: { allCapsIsHeading?: boolean },
+): string | null {
+	const trimmed = line.trim()
+	if (!trimmed || trimmed.length > 60) return null
+	if (/[\d½⅓⅔¼¾⅛⅜⅝⅞]/.test(trimmed)) return null
+	if (trimmed.includes(',')) return null
+
+	// "For the crust" / "For frying:" → "Crust" / "Frying"
+	const forMatch = trimmed.match(/^for\s+(?:the\s+)?([^:]+?):?$/i)
+	if (forMatch) {
+		const name = forMatch[1]!.trim()
+		if (name) return name[0]!.toUpperCase() + name.slice(1)
+	}
+
+	// "Topping:" — trailing colon with no amount
+	if (/^[^:]{2,}:$/.test(trimmed)) {
+		return trimmed.slice(0, -1).trim()
+	}
+
+	// "PIE DOUGH" — short all-caps line. Needs ≥3 letters (stray "XL"
+	// shouldn't trigger) and ≤3 words (an all-caps site writing
+	// "SALT AND PEPPER TO TASTE" is still an ingredient).
+	if (
+		(opts?.allCapsIsHeading ?? true) &&
+		trimmed.length <= 40 &&
+		/^[A-Z][A-Z\s&'-]*$/.test(trimmed) &&
+		trimmed.replace(/[^A-Z]/g, '').length >= 3 &&
+		trimmed.split(/\s+/).length <= 3
+	) {
+		return trimmed
+	}
+
+	return null
 }
 
 // Parse an ingredient string into structured parts
@@ -285,9 +344,7 @@ export function parseIngredient(line: string): {
 
 	// Handle mixed ASCII fractions: "1 3/4 cups flour", "1 1/2 eggs"
 	// The main regex can't capture "1 3/4" as one token due to the internal space
-	const mixedFractionMatch = cleaned.match(
-		/^(~?\d+)\s+(\d+\/\d+)\s+(.+)$/,
-	)
+	const mixedFractionMatch = cleaned.match(/^(~?\d+)\s+(\d+\/\d+)\s+(.+)$/)
 	if (mixedFractionMatch) {
 		const [, whole, frac, rest] = mixedFractionMatch
 		const amount = `${whole} ${frac}`
@@ -416,17 +473,12 @@ export function parseIngredient(line: string): {
 		// Extract embedded parenthetical: "whole (8 oz each) boneless" → notes + cleaned name
 		// Only matches when there's content after the closing paren (not trailing parens)
 		if (!leadingParen) {
-			const embeddedParen = name.match(
-				/^([^(]+?)\s*\(([^)]+)\)\s+(.+)$/,
-			)
+			const embeddedParen = name.match(/^([^(]+?)\s*\(([^)]+)\)\s+(.+)$/)
 			if (embeddedParen) {
 				notes = notes
 					? notes + ', ' + embeddedParen[2]!.trim()
 					: embeddedParen[2]!.trim()
-				name =
-					embeddedParen[1]!.trim() +
-					' ' +
-					embeddedParen[3]!.trim()
+				name = embeddedParen[1]!.trim() + ' ' + embeddedParen[3]!.trim()
 			}
 		}
 

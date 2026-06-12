@@ -148,11 +148,11 @@ export default function NewInventoryItem() {
 						<Icon name="arrow-left" size="sm" />
 					</a>
 				</Button>
-				<h1 className="text-2xl font-bold">Add Pantry Item</h1>
+				<h1 className="font-serif text-2xl font-normal">Add Pantry Item</h1>
 			</div>
 
 			{duplicateWarning && (
-				<div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-800 dark:bg-amber-950/40">
+				<div className="mb-6 rounded-md border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-800 dark:bg-amber-950/40">
 					<p className="text-sm text-amber-800 dark:text-amber-300">
 						You already have <strong>{duplicateWarning.existingName}</strong> in
 						your Pantry.

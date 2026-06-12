@@ -2,12 +2,16 @@ import { useState } from 'react'
 import {
 	MEAL_TYPES,
 	formatDayLabel,
+	formatMonthDay,
+	formatWeekdayName,
+	isPast,
 	isToday,
 	serializeDate,
 } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { MealSlotCard } from './meal-slot-card.tsx'
 import { type RecipeSelectorRecipe } from './recipe-selector.tsx'
+import { Icon } from './ui/icon.tsx'
 
 type Entry = {
 	id: string
@@ -58,11 +62,9 @@ function CollapsibleDaySlots({
 			<button
 				type="button"
 				onClick={() => setExpanded(true)}
-				className="text-muted-foreground hover:text-foreground hover:bg-muted/40 flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-xs transition-colors"
+				className="text-muted-foreground hover:text-foreground flex min-h-9 w-full items-center gap-1.5 rounded-md py-1.5 text-[13px] transition-colors"
 			>
-				<span className="bg-muted flex size-5 items-center justify-center rounded-full text-[10px]">
-					+
-				</span>
+				<Icon name="plus" className="size-3.5" />
 				Add a meal
 			</button>
 		)
@@ -112,6 +114,11 @@ export function MealPlanCalendar({
 	}
 
 	const mobileDays = mobileDayOrder(weekDays)
+	// Index in mobileDays where the demoted past days begin (C1): today-first
+	// reordering moves Mon…yesterday to the end, and a small-caps seam marks
+	// where the week wraps so the shape stays scannable.
+	const todayIdx = weekDays.findIndex(isToday)
+	const earlierStartIdx = todayIdx > 0 ? mobileDays.length - todayIdx : -1
 
 	return (
 		<>
@@ -123,19 +130,18 @@ export function MealPlanCalendar({
 						<div
 							key={serializeDate(date)}
 							className={cn(
-								'bg-card rounded-xl p-2.5 shadow-warm transition-shadow',
+								'border-t-[3px] p-2.5',
 								'basis-[calc(25%-6px)]',
-								today && 'border-accent border-t-[3px] ring-2 ring-accent/30',
-								!today && 'hover:shadow-warm-md hover:border-accent/20 border border-transparent',
+								today ? 'border-accent' : 'border-border/40',
 							)}
 						>
 							<div className="mb-2 text-center">
+								{/* The copper top-border marks today; the day name stays ink
+								    (copper text at this size fails AA in light mode) */}
 								<span
 									className={cn(
 										'font-serif text-sm',
-										today
-											? 'bg-accent text-accent-foreground rounded-full px-2 py-0.5 text-xs font-semibold'
-											: 'text-muted-foreground',
+										today ? 'text-foreground' : 'text-muted-foreground',
 									)}
 								>
 									{formatDayLabel(date)}
@@ -162,28 +168,40 @@ export function MealPlanCalendar({
 			</div>
 
 			{/* Mobile: vertical day stack, today first */}
-			<div className="space-y-3 md:hidden">
-				{mobileDays.map((date) => {
+			<div className="divide-border/40 divide-y md:hidden">
+				{mobileDays.map((date, i) => {
 					const dayCount = getEntriesForDay(date)
 					const today = isToday(date)
 					return (
 						<div
 							key={serializeDate(date)}
-							className={cn(
-								'rounded-xl',
-								today && 'bg-accent/10 p-3 ring-1 ring-accent/20',
-							)}
+							className="py-4 first:pt-0 last:pb-0"
 						>
-							<div className="mb-1.5 flex items-baseline justify-between">
-								<span
-									className={cn(
-										'font-serif',
-										today
-											? 'bg-accent text-accent-foreground rounded-full px-2 py-0.5 text-sm'
-											: 'text-sm',
+							{i === earlierStartIdx && (
+								<p className="text-muted-foreground/70 mb-3 text-[11px] font-semibold tracking-wider uppercase">
+									Earlier this week
+								</p>
+							)}
+							<div className="mb-2 flex items-baseline justify-between">
+								<span className="flex items-baseline gap-2">
+									{/* Copper dot marks "now"; the day name stays ink */}
+									{today && (
+										<span
+											aria-hidden="true"
+											className="bg-accent size-1.5 shrink-0 self-center rounded-full"
+										/>
 									)}
-								>
-									{formatDayLabel(date)}
+									<span
+										className={cn(
+											'font-serif text-lg leading-none',
+											!today && isPast(date) && 'text-muted-foreground/70',
+										)}
+									>
+										{today ? 'Today' : formatWeekdayName(date)}
+									</span>
+									<span className="text-muted-foreground text-xs">
+										{formatMonthDay(date)}
+									</span>
 								</span>
 								{dayCount > 0 && (
 									<span className="text-muted-foreground text-xs">

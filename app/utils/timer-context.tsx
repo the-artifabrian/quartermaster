@@ -6,6 +6,11 @@ import {
 	useRef,
 	useState,
 } from 'react'
+import {
+	maybeRequestTimerNotificationPermission,
+	showTimerDoneNotification,
+} from '#app/utils/timer-notifications.ts'
+import { useWakeLock } from '#app/utils/wake-lock.ts'
 
 export type TimerStatus = 'idle' | 'running' | 'paused' | 'alarming'
 
@@ -120,7 +125,6 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 	const [, setTick] = useState(0)
 	const timersRef = useRef(timers)
 	timersRef.current = timers
-	const wakeLockRef = useRef<WakeLockSentinel | null>(null)
 	const initializedRef = useRef(false)
 
 	// Load from localStorage on mount (client only)
@@ -169,6 +173,10 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 			}
 
 			if (needsUpdate) {
+				const finished = current.filter(
+					(timer) =>
+						timer.status === 'running' && timer.endTime && timer.endTime <= now,
+				)
 				setTimers((prev) =>
 					prev.map((timer) => {
 						if (
@@ -188,6 +196,13 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 					}),
 				)
 				playAlarmSound()
+				// The beep is page-bound: a backgrounded tab or app switch would
+				// fail silently. Hand off to a system notification when hidden.
+				if (document.visibilityState !== 'visible') {
+					for (const timer of finished) {
+						void showTimerDoneNotification(timer)
+					}
+				}
 			}
 
 			// Auto-dismiss timers that have been alarming for too long
@@ -217,44 +232,14 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 		return () => clearInterval(id)
 	}, [])
 
-	// Wake lock management: request when any timer is running
-	useEffect(() => {
-		const hasRunning = timers.some((t) => t.status === 'running')
-
-		async function manageWakeLock() {
-			if (hasRunning && !wakeLockRef.current) {
-				try {
-					if ('wakeLock' in navigator) {
-						wakeLockRef.current = await navigator.wakeLock.request('screen')
-					}
-				} catch {
-					// Wake Lock request failed
-				}
-			} else if (!hasRunning && wakeLockRef.current) {
-				try {
-					await wakeLockRef.current.release()
-				} catch {
-					// ignore
-				}
-				wakeLockRef.current = null
-			}
-		}
-
-		void manageWakeLock()
-
-		function handleVisibilityChange() {
-			if (document.visibilityState === 'visible' && hasRunning) {
-				void manageWakeLock()
-			}
-		}
-
-		document.addEventListener('visibilitychange', handleVisibilityChange)
-		return () => {
-			document.removeEventListener('visibilitychange', handleVisibilityChange)
-		}
-	}, [timers])
+	// Keep the screen awake while any timer is running (shared, refcounted
+	// manager — the recipe page holds its own claim while it's open).
+	useWakeLock(timers.some((t) => t.status === 'running'))
 
 	const addTimer = useCallback((label: string, durationSeconds: number) => {
+		// First timer start is a user gesture — the one moment a permission
+		// prompt is justified. Declining degrades to the in-page alarm.
+		maybeRequestTimerNotificationPermission()
 		setTimers((prev) => {
 			if (prev.length >= MAX_TIMERS) return prev
 			const newTimer: Timer = {

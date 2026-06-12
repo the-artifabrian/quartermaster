@@ -2,7 +2,13 @@ import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Form, Link, useFetcher, useFetchers, useRevalidator } from 'react-router'
+import {
+	Form,
+	Link,
+	useFetcher,
+	useFetchers,
+	useRevalidator,
+} from 'react-router'
 import { toast } from 'sonner'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
@@ -30,6 +36,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { parseTypedItem } from '#app/utils/parse-speech-item.ts'
 import {
 	getCanonicalIngredientName,
 	ingredientMatchesInventoryItem,
@@ -66,10 +73,19 @@ export async function loader({ request }: Route.LoaderArgs) {
 		where: { householdId },
 		include: {
 			items: {
-				orderBy: [{ checked: 'asc' }, { name: 'asc' }],
+				orderBy: [{ checked: 'asc' }],
 			},
 		},
 	})
+	if (shoppingList) {
+		// SQLite's name ordering is ASCII-cased ("Shaoxing wine" before
+		// "broccoli"); re-sort locale-aware so the flat list reads alphabetical.
+		shoppingList.items.sort(
+			(a, b) =>
+				Number(a.checked) - Number(b.checked) ||
+				a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+		)
+	}
 
 	if (!shoppingList) {
 		shoppingList = await prisma.shoppingList.create({
@@ -249,8 +265,22 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const force = formData.get('force') === 'true'
 
+		// "2 lemons" typed into the bare input becomes qty 2 + "lemons" (E4).
+		// Only when no explicit quantity came along — the Qty & unit fields win.
+		// Parsing happens before the duplicate/inventory checks so "2 lemons"
+		// matches an existing "lemons" row.
+		let { name, quantity, unit } = submission.value
+		if (!quantity) {
+			const parsed = parseTypedItem(name)
+			if (parsed && parsed.name) {
+				name = parsed.name
+				quantity = parsed.quantity
+				unit = parsed.unit || unit
+			}
+		}
+
 		if (!force) {
-			const canonicalName = getCanonicalIngredientName(submission.value.name)
+			const canonicalName = getCanonicalIngredientName(name)
 
 			// Check for existing unchecked shopping list items
 			const existingItems = await prisma.shoppingListItem.findMany({
@@ -266,9 +296,9 @@ export async function action({ request }: Route.ActionArgs) {
 					existingName: duplicate.name,
 					existingQuantity: duplicate.quantity,
 					existingUnit: duplicate.unit,
-					submittedName: submission.value.name,
-					submittedQuantity: submission.value.quantity,
-					submittedUnit: submission.value.unit,
+					submittedName: name,
+					submittedQuantity: quantity,
+					submittedUnit: unit,
 				}
 			}
 
@@ -277,29 +307,28 @@ export async function action({ request }: Route.ActionArgs) {
 				where: { householdId },
 			})
 			const inInventory = inventoryItems.find((inv) =>
-				ingredientMatchesInventoryItem({ name: submission.value.name }, inv),
+				ingredientMatchesInventoryItem({ name }, inv),
 			)
 			if (inInventory) {
 				return {
 					status: 'warning' as const,
 					warningType: 'in_inventory' as const,
 					inventoryName: inInventory.name,
-					submittedName: submission.value.name,
-					submittedQuantity: submission.value.quantity,
-					submittedUnit: submission.value.unit,
+					submittedName: name,
+					submittedQuantity: quantity,
+					submittedUnit: unit,
 				}
 			}
 		}
 
 		// Auto-categorize if no category provided
-		const category =
-			submission.value.category || guessCategory(submission.value.name)
+		const category = submission.value.category || guessCategory(name)
 
 		await prisma.shoppingListItem.create({
 			data: {
-				name: submission.value.name,
-				quantity: submission.value.quantity,
-				unit: submission.value.unit,
+				name,
+				quantity,
+				unit,
 				category,
 				listId: shoppingList.id,
 				source: 'manual',
@@ -308,7 +337,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		void emitHouseholdEvent({
 			type: 'shopping_list_item_added',
-			payload: { name: submission.value.name },
+			payload: { name },
 			userId,
 			householdId,
 		})
@@ -896,7 +925,7 @@ export default function ShoppingListRoute({
 								</button>
 							</div>
 						) : (
-							<div>
+							<div className="divide-border/40 divide-y print:divide-y-0">
 								{filteredItems.map((item) => (
 									<ShoppingListItemCard
 										key={item.id}

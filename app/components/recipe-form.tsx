@@ -3,6 +3,7 @@ import { getZodConstraint, parseWithZod } from '@conform-to/zod'
 import { Img } from 'openimg/react'
 import { useId, useState } from 'react'
 import { Form, useActionData, useNavigation } from 'react-router'
+import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { RecipeSchema } from '#app/utils/recipe-validation.ts'
 import { ErrorList, Field, TextareaField } from './forms.tsx'
 import {
@@ -63,20 +64,20 @@ function FormSection({
 		<details
 			open={isOpen}
 			onToggle={(e) => setIsOpen(e.currentTarget.open)}
-			className="group/section rounded-xl border [&>summary]:list-none [&>summary::-webkit-details-marker]:hidden"
+			className="group/section border-border/50 border-t [&>summary]:list-none [&>summary::-webkit-details-marker]:hidden"
 		>
-			<summary className="flex cursor-pointer items-center gap-2 p-4 select-none">
+			<summary className="flex cursor-pointer items-center gap-2 py-3.5 select-none">
 				<Icon
 					name="chevron-down"
 					size="sm"
 					className="text-muted-foreground transition-transform group-not-open/section:-rotate-90"
 				/>
-				<h3 className="text-lg font-semibold">{title}</h3>
+				<h3 className={sectionLabelClass}>{title}</h3>
 				{summary && (
-					<span className="text-muted-foreground text-sm">{summary}</span>
+					<span className="text-muted-foreground text-xs">{summary}</span>
 				)}
 			</summary>
-			<div className="px-4 pb-4">{children}</div>
+			<div className="pb-6">{children}</div>
 		</details>
 	)
 }
@@ -385,7 +386,7 @@ export function RecipeForm({
 				</div>
 			))}
 
-			<div className="bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm sticky bottom-16 z-10 flex justify-end gap-4 border-t py-3 md:static md:bottom-auto md:z-auto md:bg-transparent md:pt-6 md:pb-0 md:backdrop-blur-none">
+			<div className="bg-background/95 sticky bottom-16 z-10 flex justify-end gap-4 border-t py-3 supports-[backdrop-filter]:backdrop-blur-sm md:static md:bottom-auto md:z-auto md:bg-transparent md:pt-6 md:pb-0 md:backdrop-blur-none">
 				<Button type="button" variant="outline" onClick={() => history.back()}>
 					Cancel
 				</Button>

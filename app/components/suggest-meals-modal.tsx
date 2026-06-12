@@ -62,11 +62,11 @@ const REASON_BADGES: Record<
 > = {
 	favorite: {
 		label: 'Favorite',
-		className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+		className: 'bg-accent/15 text-copper-text dark:bg-accent/20',
 	},
 	match: {
 		label: 'Good match',
-		className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
+		className: 'bg-primary/10 text-primary dark:bg-primary/20',
 	},
 }
 
@@ -78,7 +78,11 @@ export function SuggestMealsModal({
 }: {
 	weekStart: string
 	recipes: PickerRecipe[]
-	existingEntries: Array<{ date: Date; mealType: string; recipe: { id: string } }>
+	existingEntries: Array<{
+		date: Date
+		mealType: string
+		recipe: { id: string }
+	}>
 	onClose: () => void
 }) {
 	const dialogRef = useModal(onClose)
@@ -190,9 +194,7 @@ export function SuggestMealsModal({
 	const isSubmitting = confirmFetcher.state !== 'idle'
 	// Only use filledDays when data matches current meal type
 	const filledDays = new Set(
-		readyForType === mealType
-			? (suggestFetcher.data?.filledDays ?? [])
-			: [],
+		readyForType === mealType ? (suggestFetcher.data?.filledDays ?? []) : [],
 	)
 
 	// Count stats for footer
@@ -261,7 +263,9 @@ export function SuggestMealsModal({
 	}
 
 	// Filter recipes for picker: exclude already-selected and already-planned
-	const selectedRecipeIds = new Set([...selections.values()].map((s) => s.recipeId))
+	const selectedRecipeIds = new Set(
+		[...selections.values()].map((s) => s.recipeId),
+	)
 	const plannedRecipeIds = new Set(existingEntries.map((e) => e.recipe.id))
 	const filteredRecipes = recipes.filter((r) => {
 		if (selectedRecipeIds.has(r.id) || plannedRecipeIds.has(r.id)) return false
@@ -283,7 +287,7 @@ export function SuggestMealsModal({
 				className="absolute inset-0 bg-black/50 backdrop-blur-sm"
 				onClick={onClose}
 			/>
-			<div className="bg-card shadow-warm-lg relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-t-2xl sm:max-h-[85vh] sm:rounded-2xl">
+			<div className="bg-card shadow-warm-lg relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-t-xl sm:max-h-[85vh] sm:rounded-xl">
 				{/* Header */}
 				<div className="flex items-center justify-between border-b p-4 pb-3">
 					<h2 id="suggest-modal-title" className="font-serif text-xl">
@@ -292,7 +296,7 @@ export function SuggestMealsModal({
 					<button
 						onClick={onClose}
 						aria-label="Close"
-						className="text-muted-foreground hover:text-foreground rounded-md p-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2"
+						className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md p-1 focus-visible:ring-2 focus-visible:outline-none"
 					>
 						<Icon name="cross-1" size="sm" />
 					</button>
@@ -320,8 +324,14 @@ export function SuggestMealsModal({
 				<div className="flex-1 overflow-y-auto p-4">
 					{isInitialLoad ? (
 						<div className="flex flex-col items-center justify-center py-12">
-							<Icon name="update" size="md" className="text-muted-foreground animate-spin" />
-							<p className="text-muted-foreground mt-2 text-sm">Finding recipes...</p>
+							<Icon
+								name="update"
+								size="md"
+								className="text-muted-foreground animate-spin"
+							/>
+							<p className="text-muted-foreground mt-2 text-sm">
+								Finding recipes...
+							</p>
 						</div>
 					) : pickingDay !== null ? (
 						/* Inline recipe picker */
@@ -347,7 +357,7 @@ export function SuggestMealsModal({
 								onChange={(e) => setPickerSearch(e.target.value)}
 								placeholder="Search recipes..."
 								autoFocus
-								className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring mb-3 flex h-9 w-full rounded-lg border px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+								className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring mb-3 flex h-9 w-full rounded-lg border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
 							/>
 							<div className="space-y-1">
 								{filteredRecipes.length === 0 ? (
@@ -369,7 +379,11 @@ export function SuggestMealsModal({
 												/>
 											) : (
 												<div className="bg-secondary flex h-8 w-8 items-center justify-center rounded">
-													<Icon name="pencil-1" size="sm" className="text-muted-foreground" />
+													<Icon
+														name="pencil-1"
+														size="sm"
+														className="text-muted-foreground"
+													/>
 												</div>
 											)}
 											<span className="truncate text-sm">{recipe.title}</span>
@@ -393,9 +407,9 @@ export function SuggestMealsModal({
 								return (
 									<div
 										key={i}
-										className={`flex items-center gap-3 rounded-xl p-2.5 ${
+										className={`flex items-center gap-3 rounded-md p-2.5 ${
 											isDisabled
-												? 'pointer-events-none bg-secondary/20 opacity-60'
+												? 'bg-secondary/20 pointer-events-none opacity-60'
 												: 'bg-secondary/30'
 										}`}
 									>
@@ -489,7 +503,9 @@ export function SuggestMealsModal({
 						<div className="flex gap-2">
 							<Button
 								className="flex-1"
-								disabled={selectionCount === 0 || isSubmitting || isTransitioning}
+								disabled={
+									selectionCount === 0 || isSubmitting || isTransitioning
+								}
 								onClick={handleConfirm}
 							>
 								{isSubmitting ? (

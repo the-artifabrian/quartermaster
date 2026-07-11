@@ -9,6 +9,20 @@ const MAX_PAGES = 50
 const MAX_IMAGES = 100
 const MAX_DATA = 64
 
+// Stale-while-revalidate serves the cached copy and only refreshes the cache in
+// the background, so the display is always one successful revalidation behind.
+// Bounded staleness: beyond this age the cached copy may not be flashed as
+// current (a two-week-old plan page reads as "this week") — prefer the network
+// instead, using the stale copy as the fallback when the network hangs or
+// errors. 48h, not 24h: daily use re-stamps each entry roughly every 24h, so a
+// 24h cutoff would make every slightly-late daily launch pay the network wait.
+const MAX_STALE_SERVE_MS = 48 * 60 * 60 * 1000
+
+// How long a too-stale-to-flash cached copy waits for the network before being
+// served anyway. A hung connection (captive portal, dead radio) must not blank
+// a page we can render from cache; the refresh keeps running in the background.
+const STALE_NETWORK_GRACE_MS = 3_000
+
 // Per-session (user+household) cache for authenticated `.data` (RR7 single-fetch).
 // The SW can't read the httpOnly session cookie, so the client posts an opaque
 // `<userId>-<householdId>` token after hydration. Until that token is known,
@@ -186,7 +200,8 @@ self.addEventListener('fetch', (event) => {
 	// cached ONLY in the per-session namespace (dataCacheName), and only once the
 	// client has told us that namespace:
 	//   - read-mostly routes (recipes list/detail, plan) → stale-while-revalidate
-	//     (instant nav on a cold connection, then refresh) — the iOS-effective win;
+	//     (instant nav on a cold connection, then refresh) — the iOS-effective win —
+	//     bounded by MAX_STALE_SERVE_MS so week-old data can't pose as current;
 	//   - /shopping (edited daily) → network-first, with the session's own copy
 	//     kept for offline;
 	//   - namespace unknown (pre-hydration / logged out) → network-only, never
@@ -281,6 +296,39 @@ function isCacheablePage(url) {
 }
 
 /**
+ * Age of a cached response in ms, derived from the `Date` header every response
+ * stamped by the server (and Fly's proxy) carries. Returns Infinity when the
+ * header is missing or unparseable, so an undatable entry is treated as too old
+ * to serve as current rather than infinitely fresh.
+ */
+function cachedAgeMs(response, now = Date.now()) {
+	const dateHeader = response.headers.get('date')
+	if (!dateHeader) return Infinity
+	const cachedAt = Date.parse(dateHeader)
+	if (Number.isNaN(cachedAt)) return Infinity
+	return now - cachedAt
+}
+
+/** May this cached copy still be flashed as current content? */
+function isFreshEnough(response, now = Date.now()) {
+	return cachedAgeMs(response, now) < MAX_STALE_SERVE_MS
+}
+
+/**
+ * May a network response displace a stale-but-servable cached copy? Server
+ * errors (5xx) lose, and so do redirect-shaped responses, which aren't
+ * renderable content here: an opaqueredirect (status 0 — a navigation 3xx,
+ * e.g. a captive portal grabbing the request) and a followed redirect
+ * (redirected: true — for `.data` that is portal/proxy HTML, never a valid
+ * turbo-stream payload). This gate only applies when a stale copy exists; on
+ * a cache miss the network response passes through regardless. RR7's in-band
+ * 202 redirect has none of those shapes and wins as a real navigation outcome.
+ */
+function beatsStaleCache(response) {
+	return response.status < 500 && response.status !== 0 && !response.redirected
+}
+
+/**
  * Read-mostly cacheable routes (safe to serve stale-while-revalidate): the recipe
  * list/detail and the plan. Excludes /shopping, which is edited daily and stays
  * network-first. Only called for URLs already known to be cacheable pages.
@@ -312,73 +360,101 @@ async function cacheFirst(request, cacheName, maxEntries) {
 }
 
 /**
- * Stale-while-revalidate: return the cached response immediately (instant
- * paint), while refreshing the cache from the network in the background. Falls
- * back to the network when there's no cache, and to the offline page on total
- * failure.
+ * Shared stale-while-revalidate core for documents and `.data` payloads:
+ *   - cached copy fresher than MAX_STALE_SERVE_MS → served instantly, network
+ *     refreshes the cache in the background;
+ *   - stale cached copy → the network gets STALE_NETWORK_GRACE_MS to produce
+ *     renderable content; on timeout, network failure, a 5xx, or a
+ *     redirect-shaped response the stale copy is served instead (see
+ *     beatsStaleCache — a hung origin, an error page, or a captive portal
+ *     must not beat content we can render). RR7's 202 in-band redirect is a
+ *     real navigation outcome and passes through untouched;
+ *   - no cached copy → whatever the network produced, else makeFallback().
+ * shouldCache decides what may be written to the cache (documents and .data
+ * have different redirect-safety rules — see the two wrappers).
  */
-async function staleWhileRevalidate(event, request, cacheName, maxEntries) {
+async function staleWhileRevalidateCore(
+	event,
+	request,
+	cacheName,
+	maxEntries,
+	shouldCache,
+	makeFallback,
+) {
 	const cache = await caches.open(cacheName)
 	const cached = await cache.match(request)
 
-	const network = fetch(request)
-		.then((response) => {
-			// Never cache a redirected response: browsers refuse to use one to
-			// satisfy a navigation, so a cached redirect (e.g. an expired session
-			// sending /recipes → /login) would break the next cold launch.
-			if (response.ok && !response.redirected) {
-				cache.put(request, response.clone())
-				if (maxEntries) trimCache(cacheName, maxEntries)
-			}
-			return response
-		})
-		.catch(() => null)
+	const network = fetch(request).catch(() => null)
+	// The background refresh must outlive this handler on EVERY path — iOS
+	// kills idle workers aggressively, and a lost put strands the entry on its
+	// old Date header (every later nav repeats the slow stale path). This
+	// promise settles only once the body has fully streamed into the cache
+	// (not at headers), so waitUntil genuinely covers the write.
+	const revalidated = network.then(async (response) => {
+		if (!response || !shouldCache(response)) return
+		try {
+			await cache.put(request, response.clone())
+			if (maxEntries) await trimCache(cacheName, maxEntries)
+		} catch {
+			// Quota pressure or a killed write — keep serving the old entry.
+		}
+	})
+	event.waitUntil(revalidated)
+
+	if (cached && isFreshEnough(cached)) return cached
 
 	if (cached) {
-		// Keep the worker alive until the background refresh finishes, but we've
-		// already served the cached response to the page.
-		event.waitUntil(network)
-		return cached
+		const response = await Promise.race([
+			network,
+			new Promise((resolve) =>
+				setTimeout(() => resolve(null), STALE_NETWORK_GRACE_MS),
+			),
+		])
+		return response && beatsStaleCache(response) ? response : cached
 	}
 
 	const response = await network
-	return response ?? offlineFallback()
+	return response ?? makeFallback()
 }
 
 /**
- * Stale-while-revalidate tuned for `.data`: same as staleWhileRevalidate but on a
- * total miss+failure returns a 503 (not the offline HTML), so React Router shows
- * its ErrorBoundary instead of trying to parse HTML as a turbo-stream payload.
- * Caches by exact request URL (incl. any ?_routes) so a served payload always
- * matches the shape RR7 requested.
+ * Stale-while-revalidate for document navigations. Never caches a redirected
+ * response: browsers refuse to use one to satisfy a navigation, so a cached
+ * redirect (e.g. an expired session sending /recipes → /login) would break the
+ * next cold launch.
+ */
+async function staleWhileRevalidate(event, request, cacheName, maxEntries) {
+	return staleWhileRevalidateCore(
+		event,
+		request,
+		cacheName,
+		maxEntries,
+		(response) => response.ok && !response.redirected,
+		offlineFallback,
+	)
+}
+
+/**
+ * Stale-while-revalidate tuned for `.data`: same core, but the total-failure
+ * fallback is a bare 503 (not the offline HTML), so React Router shows its
+ * ErrorBoundary instead of trying to parse HTML as a turbo-stream payload.
+ * Only caches a plain 200: RR7 single-fetch encodes a loader/action redirect
+ * (e.g. expired session → /login) as an IN-BAND turbo-stream body with status
+ * 202 — which is `.ok` and NOT `.redirected`, so an `ok && !redirected` check
+ * would happily cache it and then pin the route to /login on the next launch.
+ * Requiring status === 200 rejects that 202 (and any 4xx/5xx); `!redirected`
+ * still rejects followed 3xx. Caches by exact request URL (incl. any ?_routes)
+ * so a served payload always matches the shape RR7 requested.
  */
 async function staleWhileRevalidateData(event, request, cacheName, maxEntries) {
-	const cache = await caches.open(cacheName)
-	const cached = await cache.match(request)
-
-	const network = fetch(request)
-		.then((response) => {
-			// Only cache a plain 200. RR7 single-fetch encodes a loader/action
-			// redirect (e.g. expired session → /login) as an IN-BAND turbo-stream
-			// body with status 202 — which is `.ok` and NOT `.redirected`, so an
-			// `ok && !redirected` check would happily cache it and then pin the
-			// route to /login on the next launch. Requiring status === 200 rejects
-			// that 202 (and any 4xx/5xx); `!redirected` still rejects followed 3xx.
-			if (response.status === 200 && !response.redirected) {
-				cache.put(request, response.clone())
-				if (maxEntries) trimCache(cacheName, maxEntries)
-			}
-			return response
-		})
-		.catch(() => null)
-
-	if (cached) {
-		event.waitUntil(network)
-		return cached
-	}
-
-	const response = await network
-	return response ?? new Response('Offline', { status: 503 })
+	return staleWhileRevalidateCore(
+		event,
+		request,
+		cacheName,
+		maxEntries,
+		(response) => response.status === 200 && !response.redirected,
+		() => new Response('Offline', { status: 503 }),
+	)
 }
 
 /**

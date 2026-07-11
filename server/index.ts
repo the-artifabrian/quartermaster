@@ -35,6 +35,33 @@ app.use((req, res, next) => {
 	next()
 })
 
+// SSR requests grow the JSC heap ~1KB each and Bun never collects it on a
+// mostly-idle box, so steady probe traffic (uptime monitor + the healthcheck's
+// SSR self-probe) creeps the process into swap over weeks. Explicit periodic
+// GC keeps the heap bounded for every request path. BUN_GC_INTERVAL_MS=0
+// disables it; any other unusable value falls back to the default rather than
+// silently disabling the mitigation — and must never reach setInterval, which
+// clamps fractional or >2^31-1 inputs to ~1ms (a synchronous full GC that
+// often would peg the CPU).
+const bunGc = (globalThis as { Bun?: { gc?: (force: boolean) => void } }).Bun
+	?.gc
+const GC_INTERVAL_DEFAULT_MS = 5 * 60 * 1000
+let gcIntervalMs = Number(
+	process.env.BUN_GC_INTERVAL_MS || GC_INTERVAL_DEFAULT_MS,
+)
+if (
+	gcIntervalMs !== 0 &&
+	!(gcIntervalMs >= 1000 && gcIntervalMs <= 2 ** 31 - 1)
+) {
+	console.warn(
+		`⚠️ Ignoring invalid BUN_GC_INTERVAL_MS=${process.env.BUN_GC_INTERVAL_MS}; using ${GC_INTERVAL_DEFAULT_MS}ms`,
+	)
+	gcIntervalMs = GC_INTERVAL_DEFAULT_MS
+}
+if (typeof bunGc === 'function' && gcIntervalMs > 0) {
+	setInterval(() => bunGc(true), gcIntervalMs).unref?.()
+}
+
 // no ending slashes for SEO reasons
 // https://github.com/epicweb-dev/epic-stack/discussions/108
 app.get(/.*/, (req, res, next) => {

@@ -30,21 +30,33 @@ function loadServiceWorkerPredicates() {
 	// Append a probe that captures the predicates we want to test. They are
 	// top-level function declarations in sw.js, so they're in scope here.
 	vm.runInContext(
-		`${source}\n;self.__test = { isCacheablePage, isReadMostly };`,
+		`${source}\n;self.__test = { isCacheablePage, isReadMostly, cachedAgeMs, isFreshEnough, MAX_STALE_SERVE_MS };`,
 		sandbox,
 	)
 
 	const captured = sandbox.self.__test as {
 		isCacheablePage: (url: URL) => boolean
 		isReadMostly: (url: URL) => boolean
+		cachedAgeMs: (response: Response, now?: number) => number
+		isFreshEnough: (response: Response, now?: number) => boolean
+		MAX_STALE_SERVE_MS: number
 	}
 	expect(typeof captured?.isCacheablePage).toBe('function')
 	expect(typeof captured?.isReadMostly).toBe('function')
+	expect(typeof captured?.cachedAgeMs).toBe('function')
+	expect(typeof captured?.isFreshEnough).toBe('function')
 	return captured
 }
 
-const { isCacheablePage, isReadMostly } = loadServiceWorkerPredicates()
-const url = (pathname: string) => new URL(`https://quartermaster.test${pathname}`)
+const {
+	isCacheablePage,
+	isReadMostly,
+	cachedAgeMs,
+	isFreshEnough,
+	MAX_STALE_SERVE_MS,
+} = loadServiceWorkerPredicates()
+const url = (pathname: string) =>
+	new URL(`https://quartermaster.test${pathname}`)
 
 describe('isCacheablePage', () => {
 	test.each([
@@ -97,5 +109,282 @@ describe('isReadMostly', () => {
 	test('every shopping request is excluded from the stale-serve path', () => {
 		expect(isReadMostly(url('/shopping'))).toBe(false)
 		expect(isReadMostly(url('/shopping.data'))).toBe(false)
+	})
+})
+
+describe('bounded staleness (isFreshEnough / cachedAgeMs)', () => {
+	const NOW = Date.parse('2026-07-11T12:00:00Z')
+	const responseDated = (date: string | null) =>
+		new Response('x', { headers: date === null ? {} : { date } })
+
+	test('a copy cached an hour ago may be served stale', () => {
+		const cached = responseDated('Sat, 11 Jul 2026 11:00:00 GMT')
+		expect(cachedAgeMs(cached, NOW)).toBe(60 * 60 * 1000)
+		expect(isFreshEnough(cached, NOW)).toBe(true)
+	})
+
+	test('a copy cached two weeks ago must NOT be served as current', () => {
+		const cached = responseDated('Sat, 27 Jun 2026 12:00:00 GMT')
+		expect(isFreshEnough(cached, NOW)).toBe(false)
+	})
+
+	test('the cutoff is exactly MAX_STALE_SERVE_MS', () => {
+		const justInside = responseDated('Thu, 09 Jul 2026 12:00:01 GMT')
+		const justOutside = responseDated('Thu, 09 Jul 2026 12:00:00 GMT')
+		expect(isFreshEnough(justInside, NOW)).toBe(true)
+		expect(cachedAgeMs(justOutside, NOW)).toBe(MAX_STALE_SERVE_MS)
+		expect(isFreshEnough(justOutside, NOW)).toBe(false)
+	})
+
+	test('a missing or malformed Date header is treated as too old, not fresh', () => {
+		expect(cachedAgeMs(responseDated(null), NOW)).toBe(Infinity)
+		expect(isFreshEnough(responseDated(null), NOW)).toBe(false)
+		expect(isFreshEnough(responseDated('not-a-date'), NOW)).toBe(false)
+	})
+
+	test('clock skew (Date slightly in the future) still counts as fresh', () => {
+		const cached = responseDated('Sat, 11 Jul 2026 12:00:30 GMT')
+		expect(isFreshEnough(cached, NOW)).toBe(true)
+	})
+})
+
+/**
+ * Runtime harness: drive the REAL staleWhileRevalidate/staleWhileRevalidateData
+ * from sw.js with stubbed `caches`/`fetch`/`setTimeout`, so the serve-order
+ * policy (fresh → instant cached; stale → network wins only with renderable
+ * content, while hangs/5xx/redirect-shapes lose; miss → network else fallback)
+ * is pinned by tests — the pure-helper tests above can't catch a reverted
+ * `isFreshEnough` gate or a broken fallback chain.
+ */
+function loadServiceWorkerRuntime() {
+	const swPath = fileURLToPath(new URL('../../public/sw.js', import.meta.url))
+	const source = readFileSync(swPath, 'utf8')
+
+	// Timers registered by the SW's stale-path grace race. Tests fire them
+	// manually; nothing in the sandbox advances time on its own.
+	const timers: Array<{ fn: () => void; ms: number }> = []
+	const sandbox: Record<string, any> = {
+		self: { addEventListener: () => {} },
+		Response,
+		Headers,
+		setTimeout: (fn: () => void, ms: number) => {
+			timers.push({ fn, ms })
+			return 0
+		},
+		// caches/fetch are installed per scenario; sw.js resolves them at call
+		// time through the context's global scope.
+		caches: undefined,
+		fetch: undefined,
+	}
+	vm.createContext(sandbox)
+	vm.runInContext(
+		`${source}\n;self.__runtime = { staleWhileRevalidate, staleWhileRevalidateData };`,
+		sandbox,
+	)
+	return {
+		sandbox,
+		timers,
+		runtime: sandbox.self.__runtime as {
+			staleWhileRevalidate: (
+				event: unknown,
+				request: unknown,
+				cacheName: string,
+				maxEntries: number,
+			) => Promise<Response>
+			staleWhileRevalidateData: (
+				event: unknown,
+				request: unknown,
+				cacheName: string,
+				maxEntries: number,
+			) => Promise<Response>
+		},
+	}
+}
+
+describe('SWR runtime serve order (stubbed caches/fetch)', () => {
+	const { sandbox, timers, runtime } = loadServiceWorkerRuntime()
+
+	const bodyWithAge = (body: string, ageMs: number, status = 200) =>
+		new Response(body, {
+			status,
+			headers: { date: new Date(Date.now() - ageMs).toUTCString() },
+		})
+	const FRESH_MS = 60 * 1000
+	// Comfortably past the 48h MAX_STALE_SERVE_MS cutoff.
+	const STALE_MS = 72 * 60 * 60 * 1000
+
+	function scenario({
+		cached,
+		network,
+	}: {
+		cached: Response | undefined
+		network: 'hang' | 'reject' | Response
+	}) {
+		timers.length = 0
+		const puts: Array<Response> = []
+		const cacheStub = {
+			match: async () => cached,
+			put: async (_req: unknown, res: Response) => {
+				puts.push(res)
+			},
+			keys: async () => [],
+			delete: async () => true,
+		}
+		sandbox.caches = { open: async () => cacheStub }
+		sandbox.fetch = () =>
+			network === 'hang'
+				? new Promise(() => {})
+				: network === 'reject'
+					? Promise.reject(new Error('network down'))
+					: Promise.resolve(network)
+		const waited: Array<Promise<unknown>> = []
+		const event = { waitUntil: (p: Promise<unknown>) => waited.push(p) }
+		return { event, puts, waited }
+	}
+
+	const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+	test('fresh cached copy is served instantly, without touching the network', async () => {
+		const { event, waited } = scenario({
+			cached: bodyWithAge('CACHED', FRESH_MS),
+			network: 'hang',
+		})
+		const res = await runtime.staleWhileRevalidate(event, '/plan', 'pages', 50)
+		expect(await res.text()).toBe('CACHED')
+		// The instant path never builds the grace race…
+		expect(timers).toHaveLength(0)
+		// …but the background refresh is still kept alive on every path.
+		expect(waited).toHaveLength(1)
+	})
+
+	test('stale cached copy is NOT served when the network answers healthy (the bounded-staleness gate)', async () => {
+		const { event, puts } = scenario({
+			cached: bodyWithAge('CACHED', STALE_MS),
+			network: bodyWithAge('NETWORK', 0),
+		})
+		const res = await runtime.staleWhileRevalidate(event, '/plan', 'pages', 50)
+		expect(await res.text()).toBe('NETWORK')
+		await flush()
+		expect(puts).toHaveLength(1)
+	})
+
+	test('stale cached copy beats a 5xx from the origin', async () => {
+		const { event, puts, waited } = scenario({
+			cached: bodyWithAge('CACHED', STALE_MS),
+			network: bodyWithAge('BOOM', 0, 503),
+		})
+		const res = await runtime.staleWhileRevalidate(event, '/plan', 'pages', 50)
+		expect(res.status).toBe(200)
+		expect(await res.text()).toBe('CACHED')
+		// The error page must never poison the cache under a fresh Date header.
+		await flush()
+		expect(puts).toHaveLength(0)
+		expect(waited).toHaveLength(1)
+	})
+
+	test('stale cached copy beats a rejected fetch (offline)', async () => {
+		const { event } = scenario({
+			cached: bodyWithAge('CACHED', STALE_MS),
+			network: 'reject',
+		})
+		const res = await runtime.staleWhileRevalidate(event, '/plan', 'pages', 50)
+		expect(await res.text()).toBe('CACHED')
+	})
+
+	test('stale cached copy is served after the grace timeout when the network hangs', async () => {
+		const { event, waited } = scenario({
+			cached: bodyWithAge('CACHED', STALE_MS),
+			network: 'hang',
+		})
+		const pending = runtime.staleWhileRevalidate(event, '/plan', 'pages', 50)
+		await flush()
+		expect(timers).toHaveLength(1)
+		expect(timers[0]!.ms).toBe(3_000)
+		timers[0]!.fn()
+		const res = await pending
+		expect(await res.text()).toBe('CACHED')
+		// The still-pending refresh stays owned by waitUntil, not dropped.
+		expect(waited).toHaveLength(1)
+	})
+
+	test('cache miss + network failure yields the offline fallback (HTML page for documents, bare 503 for .data)', async () => {
+		const doc = scenario({ cached: undefined, network: 'reject' })
+		const docRes = await runtime.staleWhileRevalidate(
+			doc.event,
+			'/plan',
+			'pages',
+			50,
+		)
+		expect(docRes.status).toBe(503)
+		expect(docRes.headers.get('content-type')).toContain('text/html')
+
+		const data = scenario({ cached: undefined, network: 'reject' })
+		const dataRes = await runtime.staleWhileRevalidateData(
+			data.event,
+			'/plan.data',
+			'data',
+			64,
+		)
+		expect(dataRes.status).toBe(503)
+		expect(await dataRes.text()).toBe('Offline')
+	})
+
+	test('.data variant passes RR7 202 in-band redirects through without caching them', async () => {
+		const { event, puts } = scenario({
+			cached: bodyWithAge('CACHED', STALE_MS),
+			network: bodyWithAge('REDIRECT-PAYLOAD', 0, 202),
+		})
+		const res = await runtime.staleWhileRevalidateData(
+			event,
+			'/plan.data',
+			'data',
+			64,
+		)
+		// A 202 is a real navigation outcome (session expired), not a failure —
+		// it must reach React Router, but must never be cached.
+		expect(res.status).toBe(202)
+		await flush()
+		expect(puts).toHaveLength(0)
+	})
+
+	test('a fast navigation redirect (opaqueredirect, status 0) does not displace a stale copy', async () => {
+		// A captive portal answers navigations with an instant 302, which a
+		// redirect:"manual" navigation fetch surfaces as an opaqueredirect.
+		// Response can't construct status 0, so a minimal stand-in carries the
+		// fields the SW reads.
+		const opaqueRedirect = {
+			status: 0,
+			ok: false,
+			redirected: false,
+			type: 'opaqueredirect',
+		} as unknown as Response
+		const { event, puts } = scenario({
+			cached: bodyWithAge('CACHED', STALE_MS),
+			network: opaqueRedirect,
+		})
+		const res = await runtime.staleWhileRevalidate(event, '/plan', 'pages', 50)
+		expect(await res.text()).toBe('CACHED')
+		await flush()
+		expect(puts).toHaveLength(0)
+	})
+
+	test('.data: a followed redirect (portal/proxy HTML) does not displace a stale copy', async () => {
+		// .data fetches follow redirects, so a captive portal shows up as a 200
+		// with redirected:true — never a valid turbo-stream payload.
+		const portal = bodyWithAge('PORTAL-HTML', 0)
+		Object.defineProperty(portal, 'redirected', { value: true })
+		const { event, puts } = scenario({
+			cached: bodyWithAge('CACHED', STALE_MS),
+			network: portal,
+		})
+		const res = await runtime.staleWhileRevalidateData(
+			event,
+			'/plan.data',
+			'data',
+			64,
+		)
+		expect(await res.text()).toBe('CACHED')
+		await flush()
+		expect(puts).toHaveLength(0)
 	})
 })

@@ -1,5 +1,5 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
-import { getZodConstraint, parseWithZod } from '@conform-to/zod'
+import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { Img } from 'openimg/react'
 import { useId, useState } from 'react'
 import { Form, useActionData, useNavigation } from 'react-router'
@@ -130,9 +130,9 @@ export function RecipeForm({
 		defaultValue: {
 			title: recipe?.title ?? '',
 			description: recipe?.description ?? '',
-			servings: recipe?.servings ?? 4,
-			prepTime: recipe?.prepTime ?? undefined,
-			cookTime: recipe?.cookTime ?? undefined,
+			servings: String(recipe?.servings ?? 4),
+			prepTime: recipe?.prepTime?.toString(),
+			cookTime: recipe?.cookTime?.toString(),
 			sourceUrl: recipe?.sourceUrl ?? '',
 			notes: recipe?.notes ?? '',
 		},

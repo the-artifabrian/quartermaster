@@ -1,5 +1,5 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
-import { getZodConstraint, parseWithZod } from '@conform-to/zod'
+import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { startAuthentication } from '@simplewebauthn/browser'
 import { useOptimistic, useState, useTransition } from 'react'
@@ -100,7 +100,7 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 			<div className="mx-auto w-full max-w-md">
 				<div className="flex flex-col gap-3 text-center">
 					<h1 className="font-serif text-2xl">Welcome back!</h1>
-					<p className="text-lg text-muted-foreground">
+					<p className="text-muted-foreground text-lg">
 						Please enter your details.
 					</p>
 				</div>
@@ -143,10 +143,7 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 									errors={fields.remember.errors}
 								/>
 								<div>
-									<Link
-										to="/forgot-password"
-										className="text-sm font-semibold"
-									>
+									<Link to="/forgot-password" className="text-sm font-semibold">
 										Forgot password?
 									</Link>
 								</div>
@@ -177,7 +174,7 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 						</div>
 						<div className="my-4 flex items-center gap-4">
 							<hr className="flex-1" />
-							<span className="text-sm text-muted-foreground">or</span>
+							<span className="text-muted-foreground text-sm">or</span>
 							<hr className="flex-1" />
 						</div>
 						<ProviderConnectionForm

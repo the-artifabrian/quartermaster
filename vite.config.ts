@@ -26,7 +26,6 @@ export default defineConfig((config) => {
 			cssMinify: mode === 'production',
 
 			rollupOptions: {
-				input: config.isSsrBuild ? './server/app.ts' : undefined,
 				external: [/node:.*/, 'fsevents'],
 			},
 
@@ -48,6 +47,18 @@ export default defineConfig((config) => {
 		},
 		ssr: {
 			noExternal: ['posthog-js', '@posthog/react'],
+		},
+		environments: {
+			// RR8's Vite Environment API build ignores the legacy
+			// `config.isSsrBuild` signal, so the custom server entry must be
+			// declared on the ssr environment directly.
+			ssr: {
+				build: {
+					rollupOptions: {
+						input: './server/app.ts',
+					},
+				},
+			},
 		},
 		plugins: [
 			cacheServerStubPlugin,

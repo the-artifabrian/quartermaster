@@ -1,7 +1,10 @@
 import { z } from 'zod'
 
 export const RecipeTitleSchema = z
-	.string({ required_error: 'Title is required' })
+	.string({
+		error: (issue) =>
+			issue.input === undefined ? 'Title is required' : undefined,
+	})
 	.min(1, { message: 'Title is required' })
 	.max(100, { message: 'Title is too long' })
 
@@ -42,7 +45,7 @@ export const RecipeSchema = z.object({
 	servings: z.coerce.number().int().min(1).max(100).default(4),
 	prepTime: z.coerce.number().int().min(0).max(1440).optional(),
 	cookTime: z.coerce.number().int().min(0).max(1440).optional(),
-	sourceUrl: z.string().url().max(2000).optional().or(z.literal('')),
+	sourceUrl: z.url().max(2000).optional().or(z.literal('')),
 	notes: RecipeNotesSchema,
 	ingredients: z
 		.array(IngredientSchema)
@@ -59,13 +62,18 @@ export type RecipeFormData = z.infer<typeof RecipeSchema>
 export const QuickRecipeSchema = z.object({
 	title: RecipeTitleSchema,
 	rawText: z
-		.string({ required_error: 'Recipe text is required' })
+		.string({
+			error: (issue) =>
+				issue.input === undefined ? 'Recipe text is required' : undefined,
+		})
 		.min(1, 'Recipe text is required')
 		.max(10000),
 })
 
 export const ImportUrlSchema = z.object({
-	url: z.string().url('Please enter a valid URL').max(2000, 'URL is too long'),
+	url: z
+		.url({ error: 'Please enter a valid URL' })
+		.max(2000, 'URL is too long'),
 })
 
 export const MAX_RECIPE_IMAGE_SIZE = 1024 * 1024 * 3 // 3MB

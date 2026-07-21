@@ -1,4 +1,4 @@
-import { type AppLoadContext } from 'react-router'
+import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
 
 vi.mock('#app/utils/household-events.server.ts', () => ({
@@ -13,9 +13,9 @@ import { action } from '../shopping.tsx'
 
 const ACTION_ARGS_BASE = {
 	params: {},
-	context: {} as AppLoadContext,
-	unstable_pattern: '/shopping',
-	unstable_url: new URL(`${BASE_URL}/shopping`),
+	context: new RouterContextProvider(),
+	pattern: '/shopping',
+	url: new URL(`${BASE_URL}/shopping`),
 }
 
 async function setupUser() {

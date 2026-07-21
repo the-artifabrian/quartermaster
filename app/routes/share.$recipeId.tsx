@@ -25,8 +25,8 @@ export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
 }
 
-export const meta: Route.MetaFunction = ({ data, matches }) => {
-	const recipe = data?.recipe
+export const meta: Route.MetaFunction = ({ loaderData, matches }) => {
+	const recipe = loaderData?.recipe
 	const title = recipe?.title
 		? `${recipe.title} | Quartermaster`
 		: 'Recipe | Quartermaster'
@@ -35,7 +35,7 @@ export const meta: Route.MetaFunction = ({ data, matches }) => {
 
 	const rootMatch = matches.find((m) => m?.id === 'root')
 	const origin = (
-		rootMatch?.data as { requestInfo?: { origin?: string } } | undefined
+		rootMatch?.loaderData as { requestInfo?: { origin?: string } } | undefined
 	)?.requestInfo?.origin
 
 	const meta: ReturnType<Route.MetaFunction> = [
@@ -211,8 +211,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 	const { recipe, isLoggedIn, alreadySaved } = loaderData
 	const saveFetcher = useFetcher()
 	const rootData = useRouteLoaderData('root') as
-		| { requestInfo?: { origin?: string } }
-		| undefined
+		{ requestInfo?: { origin?: string } } | undefined
 	const origin = rootData?.requestInfo?.origin
 	const recipeJsonLd = getRecipeJsonLd(recipe, origin)
 	const [searchParams, setSearchParams] = useSearchParams()

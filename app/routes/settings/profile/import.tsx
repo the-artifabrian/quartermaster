@@ -97,23 +97,19 @@ const ImportShoppingListSchema = z.object({
 })
 
 // Older full exports may contain a `cookingLogs` array — the feature was
-// removed, and .passthrough() lets those files import with logs ignored.
-const FullExportSchema = z
-	.object({
-		format: z.literal('quartermaster-full-export-v1'),
-		recipes: z.array(ImportRecipeSchema).max(500),
-		inventory: z.array(ImportInventoryItemSchema).max(1000).optional(),
-		mealPlans: z.array(ImportMealPlanSchema).max(200).optional(),
-		shoppingLists: z.array(ImportShoppingListSchema).max(100).optional(),
-	})
-	.passthrough()
+// removed, and the loose object lets those files import with logs ignored.
+const FullExportSchema = z.looseObject({
+	format: z.literal('quartermaster-full-export-v1'),
+	recipes: z.array(ImportRecipeSchema).max(500),
+	inventory: z.array(ImportInventoryItemSchema).max(1000).optional(),
+	mealPlans: z.array(ImportMealPlanSchema).max(200).optional(),
+	shoppingLists: z.array(ImportShoppingListSchema).max(100).optional(),
+})
 
-const RecipeOnlyExportSchema = z
-	.object({
-		recipeCount: z.number(),
-		recipes: z.array(ImportRecipeSchema).max(500),
-	})
-	.passthrough()
+const RecipeOnlyExportSchema = z.looseObject({
+	recipeCount: z.number(),
+	recipes: z.array(ImportRecipeSchema).max(500),
+})
 
 type FullExport = z.infer<typeof FullExportSchema>
 type RecipeOnlyExport = z.infer<typeof RecipeOnlyExportSchema>
@@ -135,7 +131,7 @@ function parseImportData(
 		const result = FullExportSchema.safeParse(parsed)
 		if (result.success) return { type: 'full', data: result.data }
 		return {
-			error: `Invalid data: ${result.error.errors[0]?.message ?? 'validation failed'}`,
+			error: `Invalid data: ${result.error.issues[0]?.message ?? 'validation failed'}`,
 		}
 	}
 
@@ -143,7 +139,7 @@ function parseImportData(
 		const result = RecipeOnlyExportSchema.safeParse(parsed)
 		if (result.success) return { type: 'recipe-only', data: result.data }
 		return {
-			error: `Invalid data: ${result.error.errors[0]?.message ?? 'validation failed'}`,
+			error: `Invalid data: ${result.error.issues[0]?.message ?? 'validation failed'}`,
 		}
 	}
 

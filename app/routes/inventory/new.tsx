@@ -4,7 +4,7 @@ import {
 	useForm,
 	type Submission,
 } from '@conform-to/react'
-import { parseWithZod } from '@conform-to/zod'
+import { parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Form, data, redirect, useActionData } from 'react-router'
 import { Field } from '#app/components/forms.tsx'

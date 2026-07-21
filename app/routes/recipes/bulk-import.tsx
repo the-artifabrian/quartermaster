@@ -71,7 +71,7 @@ export async function action({ request }: Route.ActionArgs) {
 		recipes = BulkImportPayloadSchema.parse(parsed)
 	} catch (err) {
 		if (err instanceof z.ZodError) {
-			const details = err.errors
+			const details = err.issues
 				.slice(0, 5)
 				.map((e) => `${e.path.join('.')}: ${e.message}`)
 				.join('; ')

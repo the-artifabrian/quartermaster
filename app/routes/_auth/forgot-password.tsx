@@ -1,5 +1,5 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
-import { getZodConstraint, parseWithZod } from '@conform-to/zod'
+import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import * as E from '@react-email/components'
 import { data, Link, useFetcher } from 'react-router'
@@ -35,10 +35,7 @@ export async function action({ request }: Route.ActionArgs) {
 	// Always return the same response to prevent user enumeration
 	const user = await prisma.user.findFirst({
 		where: {
-			OR: [
-				{ email: usernameOrEmail },
-				{ username: usernameOrEmail },
-			],
+			OR: [{ email: usernameOrEmail }, { username: usernameOrEmail }],
 		},
 		select: { email: true, username: true },
 	})
@@ -56,10 +53,7 @@ export async function action({ request }: Route.ActionArgs) {
 				to: user.email,
 				subject: `Quartermaster Password Reset`,
 				react: (
-					<ForgotPasswordEmail
-						onboardingUrl={verifyUrl.toString()}
-						otp={otp}
-					/>
+					<ForgotPasswordEmail onboardingUrl={verifyUrl.toString()} otp={otp} />
 				),
 			})
 		} catch {
@@ -121,7 +115,7 @@ export default function ForgotPasswordRoute() {
 			<div className="flex flex-col justify-center">
 				<div className="text-center">
 					<h1 className="font-serif text-2xl">Forgot Password</h1>
-					<p className="text-lg text-muted-foreground mt-3">
+					<p className="text-muted-foreground mt-3 text-lg">
 						{isSent
 							? 'Check your email for reset instructions.'
 							: "No worries, we'll send you reset instructions."}
@@ -131,8 +125,8 @@ export default function ForgotPasswordRoute() {
 					{isSent ? (
 						<div className="text-center">
 							<p className="text-muted-foreground">
-								If an account exists with that username or email,
-								you'll receive a password reset link shortly.
+								If an account exists with that username or email, you'll receive
+								a password reset link shortly.
 							</p>
 							<Link
 								to="/login"

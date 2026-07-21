@@ -8,7 +8,7 @@ const schema = z.object({
 	INTERNAL_COMMAND_TOKEN: z.string(),
 	CACHE_DATABASE_PATH: z.string(),
 	POSTHOG_API_KEY: z.string().optional(),
-	POSTHOG_HOST: z.string().url().optional(),
+	POSTHOG_HOST: z.url().optional(),
 	// If you plan to use Resend, remove the .optional()
 	RESEND_API_KEY: z.string().optional(),
 	// If you plan to use Google auth, remove the .optional()
@@ -33,7 +33,7 @@ const schema = z.object({
 	AWS_ACCESS_KEY_ID: z.string(),
 	AWS_SECRET_ACCESS_KEY: z.string(),
 	AWS_REGION: z.string(),
-	AWS_ENDPOINT_URL_S3: z.string().url(),
+	AWS_ENDPOINT_URL_S3: z.url(),
 	BUCKET_NAME: z.string(),
 })
 
@@ -49,7 +49,7 @@ export function init() {
 	if (parsed.success === false) {
 		console.error(
 			'❌ Invalid environment variables:',
-			parsed.error.flatten().fieldErrors,
+			z.flattenError(parsed.error).fieldErrors,
 		)
 
 		throw new Error('Invalid environment variables')

@@ -1,7 +1,10 @@
 import { z } from 'zod'
 
 export const InventoryItemNameSchema = z
-	.string({ required_error: 'Name is required' })
+	.string({
+		error: (issue) =>
+			issue.input === undefined ? 'Name is required' : undefined,
+	})
 	.min(1, { message: 'Name is required' })
 	.max(100, { message: 'Name is too long' })
 	.transform((s) => s.toLowerCase())

@@ -1,5 +1,5 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
-import { getZodConstraint, parseWithZod } from '@conform-to/zod'
+import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { data, redirect, Form, useSearchParams } from 'react-router'
 import { safeRedirect } from 'remix-utils/safe-redirect'
 import { z } from 'zod'
@@ -33,8 +33,10 @@ const SignupFormSchema = z
 		username: UsernameSchema,
 		name: NameSchema,
 		agreeToTermsOfServiceAndPrivacyPolicy: z.boolean({
-			required_error:
-				'You must agree to the terms of service and privacy policy',
+			error: (issue) =>
+				issue.input === undefined
+					? 'You must agree to the terms of service and privacy policy'
+					: undefined,
 		}),
 		remember: z.boolean().optional(),
 		redirectTo: z.string().optional(),
@@ -125,8 +127,7 @@ export async function action({ request }: Route.ActionArgs) {
 		safeRedirect(redirectTo, '/recipes'),
 		{
 			title: 'Welcome',
-			description:
-				'You have 14 days of full Pro access — explore everything!',
+			description: 'You have 14 days of full Pro access — explore everything!',
 		},
 		{ headers },
 	)
@@ -159,8 +160,10 @@ export default function OnboardingRoute({
 		<div className="container flex min-h-full flex-col justify-center pt-20 pb-32">
 			<div className="mx-auto w-full max-w-lg">
 				<div className="flex flex-col gap-3 text-center">
-					<h1 className="font-serif text-2xl">Welcome aboard {loaderData.email}!</h1>
-					<p className="text-lg text-muted-foreground">
+					<h1 className="font-serif text-2xl">
+						Welcome aboard {loaderData.email}!
+					</h1>
+					<p className="text-muted-foreground text-lg">
 						Please enter your details.
 					</p>
 				</div>

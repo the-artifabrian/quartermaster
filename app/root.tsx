@@ -102,10 +102,10 @@ export const links: Route.LinksFunction = () => {
 	].filter(Boolean)
 }
 
-export const meta: Route.MetaFunction = ({ data }) => {
-	const origin = data?.requestInfo.origin ?? ''
+export const meta: Route.MetaFunction = ({ loaderData }) => {
+	const origin = loaderData?.requestInfo.origin ?? ''
 	return [
-		{ title: data ? 'Quartermaster' : 'Error | Quartermaster' },
+		{ title: loaderData ? 'Quartermaster' : 'Error | Quartermaster' },
 		{ name: 'description', content: `Your personal recipe manager` },
 		{ name: 'theme-color', content: '#4E7A54' },
 		{ property: 'og:site_name', content: 'Quartermaster' },

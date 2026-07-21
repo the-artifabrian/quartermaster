@@ -3,7 +3,8 @@ import { z } from 'zod'
 export const MealTypeSchema = z.enum(
 	['breakfast', 'lunch', 'dinner', 'snack'],
 	{
-		required_error: 'Meal type is required',
+		error: (issue) =>
+			issue.input === undefined ? 'Meal type is required' : undefined,
 	},
 )
 

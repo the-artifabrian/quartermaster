@@ -1,5 +1,5 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
-import { getZodConstraint, parseWithZod } from '@conform-to/zod'
+import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Form, useSearchParams } from 'react-router'
 import { z } from 'zod'
@@ -46,7 +46,7 @@ export default function VerifyRoute({ actionData }: Route.ComponentProps) {
 	const checkEmail = (
 		<>
 			<h1 className="font-serif text-2xl">Check your email</h1>
-			<p className="text-lg text-muted-foreground mt-3">
+			<p className="text-muted-foreground mt-3 text-lg">
 				We've sent you a code to verify your email address.
 			</p>
 		</>
@@ -59,7 +59,7 @@ export default function VerifyRoute({ actionData }: Route.ComponentProps) {
 		'2fa': (
 			<>
 				<h1 className="font-serif text-2xl">Check your 2FA app</h1>
-				<p className="text-lg text-muted-foreground mt-3">
+				<p className="text-muted-foreground mt-3 text-lg">
 					Please enter your 2FA code to verify your identity.
 				</p>
 			</>

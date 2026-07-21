@@ -1,5 +1,5 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
-import { getZodConstraint, parseWithZod } from '@conform-to/zod'
+import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { data, redirect, Form } from 'react-router'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
@@ -99,7 +99,7 @@ export default function ResetPasswordPage({
 		<div className="container flex flex-col justify-center pt-20 pb-32">
 			<div className="text-center">
 				<h1 className="font-serif text-2xl">Password Reset</h1>
-				<p className="text-lg text-muted-foreground mt-3">
+				<p className="text-muted-foreground mt-3 text-lg">
 					Hi, {loaderData.resetPasswordUsername}. No worries. It happens all the
 					time.
 				</p>

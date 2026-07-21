@@ -35,7 +35,13 @@ export async function action({ request }: Route.ActionArgs) {
 
 	let event
 	try {
-		event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
+		// constructEventAsync: the sync variant throws under Bun, which routes
+		// stripe to its SubtleCrypto-based worker build
+		event = await stripe.webhooks.constructEventAsync(
+			rawBody,
+			signature,
+			webhookSecret,
+		)
 	} catch (err) {
 		console.error('Stripe webhook signature verification failed:', err)
 		return new Response('Invalid signature', { status: 400 })

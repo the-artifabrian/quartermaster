@@ -2,7 +2,7 @@ import { invariant } from '@epic-web/invariant'
 import { faker } from '@faker-js/faker'
 import { SetCookie } from '@mjackson/headers'
 import { http } from 'msw'
-import { type AppLoadContext } from 'react-router'
+import { RouterContextProvider } from 'react-router'
 import { afterEach, expect, test } from 'vitest'
 import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_layout.tsx'
 import { getSessionExpirationDate, sessionKey } from '#app/utils/auth.server.ts'
@@ -21,9 +21,9 @@ const ROUTE_PATH = '/auth/google/callback'
 const PARAMS = { provider: 'google' }
 const LOADER_ARGS_BASE = {
 	params: PARAMS,
-	context: {} as AppLoadContext,
-	unstable_pattern: ROUTE_PATH,
-	unstable_url: new URL(`${BASE_URL}${ROUTE_PATH}`),
+	context: new RouterContextProvider(),
+	pattern: ROUTE_PATH,
+	url: new URL(`${BASE_URL}${ROUTE_PATH}`),
 }
 
 afterEach(async () => {
@@ -78,7 +78,9 @@ test('when a user is logged in, it creates the connection', async () => {
 		expect.objectContaining({
 			title: 'Connected',
 			type: 'success',
-			description: expect.stringContaining(googleUser.profile.email.split('@')[0]!),
+			description: expect.stringContaining(
+				googleUser.profile.email.split('@')[0]!,
+			),
 		}),
 	)
 	const connection = await prisma.connection.findFirst({
@@ -116,7 +118,9 @@ test(`when a user is logged in and has already connected, it doesn't do anything
 	await expect(response).toSendToast(
 		expect.objectContaining({
 			title: 'Already Connected',
-			description: expect.stringContaining(googleUser.profile.email.split('@')[0]!),
+			description: expect.stringContaining(
+				googleUser.profile.email.split('@')[0]!,
+			),
 		}),
 	)
 })
@@ -136,7 +140,9 @@ test('when a user exists with the same email, create connection and make session
 	await expect(response).toSendToast(
 		expect.objectContaining({
 			type: 'message',
-			description: expect.stringContaining(googleUser.profile.email.split('@')[0]!),
+			description: expect.stringContaining(
+				googleUser.profile.email.split('@')[0]!,
+			),
 		}),
 	)
 

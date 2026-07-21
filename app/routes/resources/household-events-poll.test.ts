@@ -1,4 +1,4 @@
-import { type AppLoadContext } from 'react-router'
+import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
 
 vi.mock('#app/utils/household-events.server.ts', () => ({
@@ -12,9 +12,9 @@ import { loader } from './household-events-poll.tsx'
 
 const LOADER_ARGS_BASE = {
 	params: {},
-	context: {} as AppLoadContext,
-	unstable_pattern: '/resources/household-events-poll',
-	unstable_url: new URL(`${BASE_URL}/resources/household-events-poll`),
+	context: new RouterContextProvider(),
+	pattern: '/resources/household-events-poll',
+	url: new URL(`${BASE_URL}/resources/household-events-poll`),
 }
 
 async function setupUser() {

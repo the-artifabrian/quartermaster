@@ -1,4 +1,4 @@
-import { type AppLoadContext } from 'react-router'
+import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
 
 vi.mock('#app/utils/household-events.server.ts', () => ({
@@ -13,9 +13,9 @@ import { loader, action } from './$recipeId.tsx'
 function makeActionArgs(recipeId: string) {
 	return {
 		params: { recipeId },
-		context: {} as AppLoadContext,
-		unstable_pattern: '/recipes/:recipeId',
-		unstable_url: new URL(`${BASE_URL}/recipes/${recipeId}`),
+		context: new RouterContextProvider(),
+		pattern: '/recipes/:recipeId',
+		url: new URL(`${BASE_URL}/recipes/${recipeId}`),
 	}
 }
 

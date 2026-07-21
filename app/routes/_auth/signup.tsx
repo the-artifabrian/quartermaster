@@ -1,5 +1,5 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
-import { getZodConstraint, parseWithZod } from '@conform-to/zod'
+import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import * as E from '@react-email/components'
 import { data, redirect, Form, Link } from 'react-router'
@@ -134,10 +134,10 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 		<div className="container flex flex-col justify-center pt-20 pb-32">
 			<div className="text-center">
 				<h1 className="font-serif text-2xl">Your recipes deserve a home.</h1>
-				<p className="text-lg text-muted-foreground mt-3">
+				<p className="text-muted-foreground mt-3 text-lg">
 					Enter your email to create an account.
 				</p>
-				<p className="text-sm text-muted-foreground mt-1">
+				<p className="text-muted-foreground mt-1 text-sm">
 					Free for 14 days. No credit card needed.
 				</p>
 			</div>
@@ -168,16 +168,16 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 				</Form>
 				<div className="my-4 flex items-center gap-4">
 					<hr className="flex-1" />
-					<span className="text-sm text-muted-foreground">or</span>
+					<span className="text-muted-foreground text-sm">or</span>
 					<hr className="flex-1" />
 				</div>
 				<ProviderConnectionForm
 					type="Signup"
 					providerName={GOOGLE_PROVIDER_NAME}
 				/>
-				<div className="mt-6 text-center text-sm text-muted-foreground">
+				<div className="text-muted-foreground mt-6 text-center text-sm">
 					Already have an account?{' '}
-					<Link to="/login" className="font-bold text-foreground">
+					<Link to="/login" className="text-foreground font-bold">
 						Log in
 					</Link>
 				</div>

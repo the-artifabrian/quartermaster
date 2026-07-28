@@ -84,9 +84,13 @@ function connect() {
 
 	eventSource = new EventSource('/resources/household-events')
 
-	// SSE is healthy — drop the polling fallback if it was running.
+	// SSE is healthy — drop the polling fallback if it was running, but first
+	// catch up on anything emitted during the gap: the fallback's first tick is
+	// 30s out, so it never covers the 3-5s reconnect window, and the server now
+	// deliberately ends every stream at its lifetime cap.
 	eventSource.addEventListener('open', () => {
 		stopPolling()
+		void poll()
 	})
 
 	eventSource.addEventListener('activity', (e) => {

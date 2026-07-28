@@ -22,12 +22,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 			const encoder = new TextEncoder()
 			const startedAt = Date.now()
 			let closed = false
+			let keepalive: ReturnType<typeof setInterval> | undefined
 
 			cleanup = () => {
 				if (closed) return
 				closed = true
 				clearInterval(keepalive)
 				householdEventBus.off(`household:${householdId}`, onEvent)
+				// Sever the signal → closure edge too: the adapter can retain the
+				// request long after we're done, and this listener would keep the
+				// whole closure graph reachable through it.
+				request.signal.removeEventListener('abort', cleanup)
 				try {
 					controller.close()
 				} catch {
@@ -56,7 +61,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			// draining (desiredSize stays negative); the lifetime cap bounds
 			// anything the probe can't see. EventSource reconnects transparently
 			// after either close.
-			const keepalive = setInterval(() => {
+			keepalive = setInterval(() => {
 				const stale = (controller.desiredSize ?? 0) < 0
 				const expired = Date.now() - startedAt > MAX_LIFETIME_MS
 				if (stale || expired) {

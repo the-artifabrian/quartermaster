@@ -78,7 +78,7 @@ export default defineConfig((config) => {
 			isTest ? null : reactRouter(),
 		],
 		test: {
-			include: ['./app/**/*.test.{ts,tsx}'],
+			include: ['./{app,server}/**/*.test.{ts,tsx}'],
 			setupFiles: ['./tests/setup/setup-test-env.ts'],
 			globalSetup: ['./tests/setup/global-setup.ts'],
 			restoreMocks: true,

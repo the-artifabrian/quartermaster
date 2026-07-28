@@ -7,6 +7,7 @@ import express from 'express'
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import getPort, { portNumbers } from 'get-port'
 import morgan from 'morgan'
+import { startMemoryWatchdog } from './memory-watchdog.ts'
 
 const MODE = process.env.NODE_ENV ?? 'development'
 const IS_PROD = MODE === 'production'
@@ -60,6 +61,15 @@ if (
 }
 if (typeof bunGc === 'function' && gcIntervalMs > 0) {
 	setInterval(() => bunGc(true), gcIntervalMs).unref?.()
+}
+
+// Periodic GC bounds collectable heap growth; the watchdog handles what GC
+// can't — rooted leaks and external pressure — by restarting the machine
+// before the box starts thrashing (Fly restarts on non-zero exit; policy
+// pinned in fly.toml). Prod-only: a low-memory Linux dev box should never
+// have its dev server killed.
+if (IS_PROD) {
+	startMemoryWatchdog({ gc: bunGc })
 }
 
 // no ending slashes for SEO reasons

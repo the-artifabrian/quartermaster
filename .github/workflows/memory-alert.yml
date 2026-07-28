@@ -1,0 +1,27 @@
+name: 🐕 prod memory alert
+
+# Fails loudly (→ GitHub failure email) when the prod box's memory headroom
+# degrades, giving days of warning before a slow leak causes user-visible
+# thrash. Complements the in-process watchdog (server/memory-watchdog.ts),
+# which self-restarts the machine as the last line of defense.
+on:
+  schedule:
+    # Twice an hour, off the congested top-of-hour slot.
+    - cron: '13,43 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    name: 🐕 memory headroom
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v6
+
+      - name: 🐕 Check prod memory headroom
+        env:
+          FLY_METRICS_TOKEN: ${{ secrets.FLY_METRICS_TOKEN }}
+        run: bash other/prod-memory-check.sh

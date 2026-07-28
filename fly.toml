@@ -12,6 +12,15 @@ allowed_public_ports = [ ]
 # schema while healthchecks stay green. Roll back deliberately instead.
 auto_rollback = false
 
+# The memory watchdog (server/memory-watchdog.ts) exits non-zero on sustained
+# memory exhaustion and relies on this policy to get the machine restarted.
+# It matches the platform default — pinned so a future deploy can't silently
+# change it.
+[[restart]]
+policy = "on-failure"
+retries = 10
+processes = [ "app" ]
+
 [mounts]
 source = "data"
 destination = "/data"

@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: 🎈 Setup Fly
-        uses: superfly/flyctl-actions/setup-flyctl@1.5
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # master
 
       - name: 👀 Read app name
         id: app_name

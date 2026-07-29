@@ -188,7 +188,7 @@ jobs:
         run: echo "value=$(grep '^app' fly.toml | sed 's/.*= *"\(.*\)"/\1/')" >> "$GITHUB_OUTPUT"
 
       - name: 🎈 Setup Fly
-        uses: superfly/flyctl-actions/setup-flyctl@1.5
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # master
 
       - name: 📦 Build Staging Container
         if: ${{ github.ref == 'refs/heads/dev' }}
@@ -231,7 +231,7 @@ jobs:
         run: echo "value=$(grep '^app' fly.toml | sed 's/.*= *"\(.*\)"/\1/')" >> "$GITHUB_OUTPUT"
 
       - name: 🎈 Setup Fly
-        uses: superfly/flyctl-actions/setup-flyctl@1.5
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # master
 
       - name: 🚀 Deploy Staging
         if: ${{ github.ref == 'refs/heads/dev' }}

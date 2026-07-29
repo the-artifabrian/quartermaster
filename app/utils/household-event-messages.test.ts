@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'vitest'
-import { formatEventMessage } from './household-event-messages.ts'
+import {
+	formatEventBatch,
+	formatEventMessage,
+	MAX_INDIVIDUAL_TOASTS,
+} from './household-event-messages.ts'
 
 describe('formatEventMessage', () => {
 	test('shopping_list_generated', () => {
@@ -97,5 +101,57 @@ describe('formatEventMessage', () => {
 		const result = formatEventMessage('something_unknown', {}, 'Alex')
 		expect(result.message).toBe('Alex performed an action')
 		expect(result.url).toBeNull()
+	})
+})
+
+describe('formatEventBatch', () => {
+	const event = (type: string, payload: Record<string, unknown> = {}) => ({
+		type,
+		payload,
+		username: 'Sam',
+	})
+
+	test('small batches toast one message per event', () => {
+		const result = formatEventBatch([
+			event('shopping_list_item_added', { name: 'Butter' }),
+			event('household_member_joined'),
+		])
+		expect(result).toHaveLength(2)
+		expect(result[0]?.message).toBe('Sam added Butter to the shopping list')
+		expect(result[1]?.message).toBe('Sam joined the household')
+	})
+
+	test('a batch at the cap is still one toast per event', () => {
+		const events = Array.from({ length: MAX_INDIVIDUAL_TOASTS }, () =>
+			event('shopping_list_item_added', { name: 'Butter' }),
+		)
+		expect(formatEventBatch(events)).toHaveLength(MAX_INDIVIDUAL_TOASTS)
+	})
+
+	test('a burst past the cap collapses into one summary toast', () => {
+		const events = Array.from({ length: 50 }, (_, i) =>
+			event('shopping_list_item_toggled', { name: `Item ${i}`, checked: true }),
+		)
+		const result = formatEventBatch(events)
+		expect(result).toHaveLength(1)
+		expect(result[0]?.message).toBe('50 household updates while you were away')
+		// Every event points at /shopping, so the summary can link there.
+		expect(result[0]?.url).toBe('/shopping')
+	})
+
+	test('a mixed burst drops the View link rather than guessing', () => {
+		const result = formatEventBatch([
+			event('shopping_list_item_added', { name: 'Butter' }),
+			event('shopping_list_item_added', { name: 'Eggs' }),
+			event('shopping_list_to_inventory', { count: 3 }),
+			event('household_member_joined'),
+		])
+		expect(result).toHaveLength(1)
+		expect(result[0]?.message).toBe('4 household updates while you were away')
+		expect(result[0]?.url).toBeNull()
+	})
+
+	test('an empty batch produces no toasts', () => {
+		expect(formatEventBatch([])).toEqual([])
 	})
 })

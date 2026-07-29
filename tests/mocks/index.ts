@@ -25,6 +25,16 @@ server.listen({
 		if (request.url.includes('__rrdt')) {
 			return
 		}
+		// Tests that spin up a real local server (e.g. the SSE/compression
+		// harness) talk to themselves — nothing to mock.
+		// `URL.hostname` keeps the brackets on IPv6 literals ('[::1]').
+		if (
+			['127.0.0.1', 'localhost', '[::1]'].includes(
+				new URL(request.url).hostname,
+			)
+		) {
+			return
+		}
 		// Print the regular MSW unhandled request warning otherwise.
 		print.warning()
 	},

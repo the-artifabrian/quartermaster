@@ -24,6 +24,12 @@ processes = [ "app" ]
 [mounts]
 source = "data"
 destination = "/data"
+# Fly's daily volume snapshots are the last-resort copy behind the offsite
+# backups (.github/workflows/backup.yml) — pinned rather than left at the
+# 5-day default so a leisurely "when did this data go wrong?" investigation
+# still has something to restore from. Max is 60.
+scheduled_snapshots = true
+snapshot_retention = 14
 
 [build]
 dockerfile = "/other/Dockerfile"

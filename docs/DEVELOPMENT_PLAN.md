@@ -118,7 +118,8 @@ voice features are nice-to-have accelerators, not the core product identity.
 
 ## Infrastructure Wishlist
 
-- [ ] Automated SQLite backups to S3 (Litestream or cron)
+- [x] Automated SQLite backups to S3 — daily snapshot to Tigris plus a
+      pre-migration dump; restore runbook in [RESTORE.md](./RESTORE.md)
 - [ ] Uptime monitoring and error rate alerts
 
 ---

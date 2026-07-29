@@ -12,7 +12,7 @@ import { type Route } from './+types/stripe-webhook.ts'
 
 /**
  * Stripe webhook endpoint. No session auth — uses Stripe signature verification.
- * Always returns 200 if signature is valid (even if handler errors) to avoid retries.
+ * Returns a retryable error when a verified event cannot be processed.
  */
 export async function action({ request }: Route.ActionArgs) {
 	const stripe = getStripeClient()
@@ -92,8 +92,8 @@ export async function action({ request }: Route.ActionArgs) {
 			}
 		}
 	} catch (err) {
-		// Log but still return 200 to avoid Stripe retrying
 		console.error(`Stripe webhook handler error for ${event.type}:`, err)
+		return new Response('Webhook handler failed', { status: 500 })
 	}
 
 	return new Response('ok', { status: 200 })

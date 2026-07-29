@@ -164,6 +164,21 @@ Restore is only real if it's been done. Add a line each time.
   box and stopped at the upload: the local `.env` carries mock credentials
   (`mock-bucket`) because dev serves images from MSW, and Fly secrets can't be
   read back out. Tigris did answer, and rejected the request as
-  `InvalidAccessKeyId` rather than a signature error. **Still to do: run
-  `backup-db.ts` on the production machine and restore that backup into a
-  scratch database.**
+  `InvalidAccessKeyId` rather than a signature error.
+- **2026-07-29** — Full exercise against production and the real bucket
+  (`epic-stack-quartermaster-94e5`), after deploying version 285:
+  - The boot-time dump ran on its own during the deploy —
+    `/data/backups/pre-migration/2026-07-29T13-12-32-630Z.db.gz`, 624 KB from a
+    2.7 MB database — and the machine came up with all checks passing, so the
+    fail-closed step doesn't block a normal deploy.
+  - `backup-db.ts` uploaded to `daily/` in 0.7s. SigV4 signing works against
+    Tigris; the earlier `--list` returned an empty prefix rather than a 403.
+  - `restore-db.ts --latest` downloaded, unpacked, and passed `quick_check`.
+    Row counts matched the live database exactly: 13 users, 321 recipes, 27
+    shopping list items. Restored file is smaller (2.34 MB vs 2.7 MB) because
+    `VACUUM INTO` drops free pages — expected, not data loss.
+  - The GitHub workflow ran green via `workflow_dispatch` in 15s, confirming
+    `FLY_API_TOKEN` is an org token that can open an SSH session.
+  - Not exercised: `litefs import` (step 3), which replaces the live database.
+    Verified only that the restored file is a sound SQLite database with the
+    right contents — the import itself is still first-run-in-anger.

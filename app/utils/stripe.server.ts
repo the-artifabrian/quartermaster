@@ -202,7 +202,12 @@ export async function handleInvoicePaid(
 	const existing = await prisma.subscription.findUnique({
 		where: { stripeSubscriptionId: subscriptionId },
 	})
-	if (!existing) return
+	if (!existing) {
+		console.warn(
+			`Stripe invoice.paid ignored: no local subscription for ${subscriptionId}`,
+		)
+		return
+	}
 
 	await prisma.subscription.update({
 		where: { stripeSubscriptionId: subscriptionId },
@@ -220,7 +225,12 @@ export async function handleSubscriptionUpdated(
 	const existing = await prisma.subscription.findUnique({
 		where: { stripeSubscriptionId: subscription.id },
 	})
-	if (!existing) return
+	if (!existing) {
+		console.warn(
+			`Stripe customer.subscription.updated ignored: no local subscription for ${subscription.id}`,
+		)
+		return
+	}
 
 	const priceId = subscription.items.data[0]?.price.id
 	if (!priceId) return
@@ -247,7 +257,12 @@ export async function handleSubscriptionDeleted(
 	const existing = await prisma.subscription.findUnique({
 		where: { stripeSubscriptionId: subscription.id },
 	})
-	if (!existing) return
+	if (!existing) {
+		console.warn(
+			`Stripe customer.subscription.deleted ignored: no local subscription for ${subscription.id}`,
+		)
+		return
+	}
 
 	await prisma.subscription.update({
 		where: { stripeSubscriptionId: subscription.id },

@@ -29,6 +29,21 @@ lease:
     key: 'epic-stack-litefs_20250222/${FLY_APP_NAME}'
 
 exec:
+  # Snapshot the database before migrations touch it. Migrations run against
+  # the live file with auto_rollback disabled (see fly.toml), and some in
+  # history are destructive, so this dump is the only way back from a bad one.
+  # Local-only on purpose: boot must not wait on the network. The offsite copy
+  # is the daily job in .github/workflows/backup.yml.
+  #
+  # This step fails the boot if it can't produce a verified snapshot — better a
+  # machine that won't start than a migration with no way back. If a full
+  # volume ever traps a deploy here, `fly secrets set SKIP_DB_BACKUP=true`
+  # releases it; see docs/RESTORE.md.
+  - cmd:
+      bun /myapp/scripts/backup-db.ts --local-only --label pre-migration
+      --skip-if-missing
+    if-candidate: true
+
   # Prisma's schema engine always opens SQLite with locking_mode=EXCLUSIVE
   # (prisma-engines#4675), which LiteFS rejects on a WAL-mode database
   # (litefs#425) — applying any migration crash-loops the boot. Exclusive

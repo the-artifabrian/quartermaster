@@ -1,0 +1,56 @@
+name: 💾 database backup
+
+# Daily offsite snapshot of the production database to the Tigris bucket.
+# Everything else — LiteFS replication, Fly volume snapshots — protects against
+# machine loss, not against a bad migration or a wrong DELETE.
+#
+# A failure here emails via GitHub, and is worth acting on the same day: the
+# retention floor (BACKUP_KEEP_MINIMUM) keeps old backups from aging out while
+# the job is broken, so the risk of a quiet failure is a stale restore point,
+# not a missing one.
+#
+# Needs FLY_API_TOKEN to be an org token that can open an SSH session — a
+# deploy token cannot. Restore procedure: docs/RESTORE.md.
+on:
+  schedule:
+    # 04:23 UTC — off the top of the hour, and outside the evening cooking peak
+    # in Europe when writes are heaviest.
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  backup:
+    name: 💾 snapshot to object storage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v6
+
+      - name: 🎈 Setup Fly
+        uses: superfly/flyctl-actions/setup-flyctl@1.5
+
+      - name: 👀 Read app name
+        id: app_name
+        run:
+          echo "value=$(grep '^app' fly.toml | sed 's/.*= *"\(.*\)"/\1/')" >>
+          "$GITHUB_OUTPUT"
+
+      - name: 💾 Run backup
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          APP: ${{ steps.app_name.outputs.value }}
+        run: |
+          set -uo pipefail
+          # `fly ssh console -C` does not reliably propagate the remote exit
+          # status, so success is judged by the line the script prints last.
+          # No `set -e`: flyctl failing (an expired token, most likely) has to
+          # reach the annotation below rather than ending the step silently.
+          output=$(flyctl ssh console --app "$APP" -C "bun /myapp/scripts/backup-db.ts" 2>&1)
+          echo "$output"
+          if ! grep -q '^BACKUP OK' <<<"$output"; then
+            echo "::error::Backup did not report success — see output above. An SSH failure usually means FLY_API_TOKEN expired or is a deploy token; runbook in docs/RESTORE.md"
+            exit 1
+          fi

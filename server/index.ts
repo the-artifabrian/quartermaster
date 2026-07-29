@@ -2,11 +2,11 @@ import { styleText } from 'node:util'
 import { helmet } from '@nichtsam/helmet/node-http'
 import { ip as ipAddress } from 'address'
 import closeWithGrace from 'close-with-grace'
-import compression from 'compression'
 import express from 'express'
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import getPort, { portNumbers } from 'get-port'
 import morgan from 'morgan'
+import { compressionMiddleware } from './compression.ts'
 import { startMemoryWatchdog } from './memory-watchdog.ts'
 
 const MODE = process.env.NODE_ENV ?? 'development'
@@ -84,7 +84,7 @@ app.get(/.*/, (req, res, next) => {
 	}
 })
 
-app.use(compression())
+app.use(compressionMiddleware())
 
 // http://expressjs.com/en/advanced/best-practice-security.html#at-a-minimum-disable-x-powered-by-header
 app.disable('x-powered-by')

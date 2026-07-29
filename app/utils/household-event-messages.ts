@@ -1,5 +1,45 @@
 type EventPayload = Record<string, unknown>
 
+/**
+ * Above this many events in one burst we collapse to a single summary toast.
+ * A burst that big means catch-up (returning to the app after a while, or a
+ * reconnect), not something the user can read one line at a time — and sonner
+ * only renders 3 toasts at once, so the rest would drip over the content for
+ * a minute.
+ */
+export const MAX_INDIVIDUAL_TOASTS = 3
+
+export type FormattedEvent = {
+	type: string
+	payload: EventPayload
+	username: string
+}
+
+/** Toasts to show for one burst of events: either one each, or one summary. */
+export function formatEventBatch(
+	events: Array<FormattedEvent>,
+): Array<{ message: string; url: string | null }> {
+	const formatted = events.map((event) =>
+		formatEventMessage(event.type, event.payload, event.username),
+	)
+	if (formatted.length <= MAX_INDIVIDUAL_TOASTS) return formatted
+
+	// Only offer "View" when every event points at the same place — otherwise
+	// the link would be arbitrary.
+	const [first, ...rest] = formatted
+	const sharedUrl =
+		first?.url && rest.every((item) => item.url === first.url)
+			? first.url
+			: null
+
+	return [
+		{
+			message: `${formatted.length} household updates while you were away`,
+			url: sharedUrl,
+		},
+	]
+}
+
 export function formatEventMessage(
 	type: string,
 	payload: EventPayload,

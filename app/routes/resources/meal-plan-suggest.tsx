@@ -8,6 +8,10 @@ import {
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
+	ensureMealPlan,
+	ensureMealPlanEntry,
+} from '#app/utils/meal-plan.server.ts'
+import {
 	MIN_FIT_THRESHOLD,
 	createVarietyState,
 	isTooSimilar,
@@ -42,8 +46,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const [existingPlan, allRecipes, inventoryItems] = await Promise.all([
 		// 1. Existing entries for target week (to exclude already-planned recipes)
-		prisma.mealPlan.findFirst({
-			where: { householdId, weekStart },
+		prisma.mealPlan.findUnique({
+			where: { householdId_weekStart: { householdId, weekStart } },
 			include: {
 				entries: { select: { recipeId: true, date: true, mealType: true } },
 			},
@@ -195,7 +199,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireProTier(request)
+	const { householdId } = await requireProTier(request)
 	const formData = await request.formData()
 
 	const weekStartStr = formData.get('weekStart')
@@ -211,16 +215,7 @@ export async function action({ request }: Route.ActionArgs) {
 	invariantResponse(Array.isArray(parsed), 'recipeIds must be an array')
 	const recipeIds = parsed as Array<string | null>
 
-	// Get or create MealPlan for the week
-	let mealPlan = await prisma.mealPlan.findFirst({
-		where: { householdId, weekStart },
-	})
-
-	if (!mealPlan) {
-		mealPlan = await prisma.mealPlan.create({
-			data: { userId, householdId, weekStart },
-		})
-	}
+	const mealPlan = await ensureMealPlan(prisma, { householdId, weekStart })
 
 	let created = 0
 	for (let i = 0; i < recipeIds.length && i < 7; i++) {
@@ -229,27 +224,14 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const entryDate = addDaysUTC(weekStart, i)
 
-		// Skip if this exact recipe is already assigned to this slot
-		const existing = await prisma.mealPlanEntry.findUnique({
-			where: {
-				mealPlanId_date_mealType_recipeId: {
-					mealPlanId: mealPlan.id,
-					date: entryDate,
-					mealType,
-					recipeId,
-				},
-			},
+		const result = await ensureMealPlanEntry(prisma, {
+			mealPlanId: mealPlan.id,
+			date: entryDate,
+			mealType,
+			recipeId,
 		})
 
-		if (!existing) {
-			await prisma.mealPlanEntry.create({
-				data: {
-					mealPlanId: mealPlan.id,
-					date: entryDate,
-					mealType,
-					recipeId,
-				},
-			})
+		if (result.created) {
 			created++
 		}
 	}

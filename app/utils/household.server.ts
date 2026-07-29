@@ -140,9 +140,90 @@ export async function acceptInvite(token: string, userId: string) {
 				where: { householdId: currentHouseholdId },
 				data: { householdId: targetHouseholdId },
 			})
-			await tx.mealPlan.updateMany({
+			// Move non-overlapping weeks in one statement. Their plan and entry IDs,
+			// timestamps, and relationships stay intact.
+			await tx.$executeRaw`
+				UPDATE "MealPlan" AS "source"
+				SET "householdId" = ${targetHouseholdId}
+				WHERE "source"."householdId" = ${currentHouseholdId}
+					AND NOT EXISTS (
+						SELECT 1
+						FROM "MealPlan" AS "target"
+						WHERE "target"."householdId" = ${targetHouseholdId}
+							AND "target"."weekStart" = "source"."weekStart"
+					)
+			`
+
+			// Only colliding weeks remain in the old household. Merge each one with
+			// set-based entry updates, then remove the superseded source plans.
+			const overlappingPlans = await tx.mealPlan.findMany({
 				where: { householdId: currentHouseholdId },
-				data: { householdId: targetHouseholdId },
+				select: { id: true, weekStart: true },
+			})
+			for (const sourcePlan of overlappingPlans) {
+				const targetPlan = await tx.mealPlan.findUniqueOrThrow({
+					where: {
+						householdId_weekStart: {
+							householdId: targetHouseholdId,
+							weekStart: sourcePlan.weekStart,
+						},
+					},
+				})
+				await tx.$executeRaw`
+					UPDATE "MealPlanEntry" AS "targetEntry"
+					SET
+						"cooked" = MAX(
+							"targetEntry"."cooked",
+							(
+								SELECT "sourceEntry"."cooked"
+								FROM "MealPlanEntry" AS "sourceEntry"
+								WHERE "sourceEntry"."mealPlanId" = ${sourcePlan.id}
+									AND "sourceEntry"."date" = "targetEntry"."date"
+									AND "sourceEntry"."mealType" = "targetEntry"."mealType"
+									AND "sourceEntry"."recipeId" = "targetEntry"."recipeId"
+							)
+						),
+						"servings" = COALESCE(
+							(
+								SELECT "sourceEntry"."servings"
+								FROM "MealPlanEntry" AS "sourceEntry"
+								WHERE "sourceEntry"."mealPlanId" = ${sourcePlan.id}
+									AND "sourceEntry"."date" = "targetEntry"."date"
+									AND "sourceEntry"."mealType" = "targetEntry"."mealType"
+									AND "sourceEntry"."recipeId" = "targetEntry"."recipeId"
+							),
+							"targetEntry"."servings"
+						)
+					WHERE "targetEntry"."mealPlanId" = ${targetPlan.id}
+						AND EXISTS (
+							SELECT 1
+							FROM "MealPlanEntry" AS "sourceEntry"
+							WHERE "sourceEntry"."mealPlanId" = ${sourcePlan.id}
+								AND "sourceEntry"."date" = "targetEntry"."date"
+								AND "sourceEntry"."mealType" = "targetEntry"."mealType"
+								AND "sourceEntry"."recipeId" = "targetEntry"."recipeId"
+						)
+				`
+				await tx.$executeRaw`
+					DELETE FROM "MealPlanEntry" AS "sourceEntry"
+					WHERE "sourceEntry"."mealPlanId" = ${sourcePlan.id}
+						AND EXISTS (
+							SELECT 1
+							FROM "MealPlanEntry" AS "targetEntry"
+							WHERE "targetEntry"."mealPlanId" = ${targetPlan.id}
+								AND "targetEntry"."date" = "sourceEntry"."date"
+								AND "targetEntry"."mealType" = "sourceEntry"."mealType"
+								AND "targetEntry"."recipeId" = "sourceEntry"."recipeId"
+						)
+				`
+				await tx.$executeRaw`
+					UPDATE "MealPlanEntry"
+					SET "mealPlanId" = ${targetPlan.id}
+					WHERE "mealPlanId" = ${sourcePlan.id}
+				`
+			}
+			await tx.mealPlan.deleteMany({
+				where: { householdId: currentHouseholdId },
 			})
 			await tx.shoppingList.updateMany({
 				where: { householdId: currentHouseholdId },

@@ -61,7 +61,6 @@ async function setupMealPlanWithRecipe(userId: string, householdId: string) {
 	const weekStart = getCurrentWeekStart()
 	const mealPlan = await prisma.mealPlan.create({
 		data: {
-			userId,
 			householdId,
 			weekStart,
 			entries: {

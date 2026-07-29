@@ -177,8 +177,8 @@ export async function action({ request }: Route.ActionArgs) {
 			typeof weekStartParam === 'string' && weekStartParam
 				? getWeekStart(parseDate(weekStartParam))
 				: getCurrentWeekStart()
-		const mealPlan = await prisma.mealPlan.findFirst({
-			where: { householdId, weekStart },
+		const mealPlan = await prisma.mealPlan.findUnique({
+			where: { householdId_weekStart: { householdId, weekStart } },
 			include: {
 				entries: {
 					where: { cooked: false },

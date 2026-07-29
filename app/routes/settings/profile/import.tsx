@@ -7,6 +7,10 @@ import { Button } from '#app/components/ui/button.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import {
+	ensureMealPlan,
+	ensureMealPlanEntry,
+} from '#app/utils/meal-plan.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
@@ -325,14 +329,10 @@ export async function action({ request }: Route.ActionArgs) {
 			try {
 				const weekStart = new Date(plan.weekStart)
 
-				let mealPlan = await prisma.mealPlan.findUnique({
-					where: { userId_weekStart: { userId, weekStart } },
+				const mealPlan = await ensureMealPlan(prisma, {
+					householdId,
+					weekStart,
 				})
-				if (!mealPlan) {
-					mealPlan = await prisma.mealPlan.create({
-						data: { weekStart, userId, householdId },
-					})
-				}
 
 				for (const entry of plan.entries) {
 					const recipeId = titleToIdMap.get(entry.recipe.toLowerCase())
@@ -341,17 +341,15 @@ export async function action({ request }: Route.ActionArgs) {
 						continue
 					}
 					try {
-						await prisma.mealPlanEntry.create({
-							data: {
-								date: new Date(entry.date),
-								mealType: entry.mealType,
-								servings: entry.servings ?? null,
-								cooked: entry.cooked ?? false,
-								mealPlanId: mealPlan.id,
-								recipeId,
-							},
+						const result = await ensureMealPlanEntry(prisma, {
+							date: new Date(entry.date),
+							mealType: entry.mealType,
+							servings: entry.servings ?? null,
+							cooked: entry.cooked ?? false,
+							mealPlanId: mealPlan.id,
+							recipeId,
 						})
-						results.mealPlans.created++
+						results.mealPlans[result.created ? 'created' : 'skipped']++
 					} catch {
 						results.mealPlans.skipped++
 					}

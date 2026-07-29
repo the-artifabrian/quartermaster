@@ -46,7 +46,6 @@ test('Shopping list flow: generate → verify items → add manual → check →
 	const weekStart = getCurrentWeekStart()
 	await prisma.mealPlan.create({
 		data: {
-			userId: user.id,
 			householdId: household.id,
 			weekStart,
 			entries: {

@@ -112,7 +112,7 @@ describe('meal plan resource routes', () => {
 
 		// Check next week has the copied entry
 		const nextWeekPlan = await prisma.mealPlan.findFirst({
-			where: { userId: session.userId },
+			where: { householdId: session.householdId },
 			orderBy: { weekStart: 'desc' },
 			include: { entries: true },
 		})
@@ -156,7 +156,7 @@ describe('meal plan resource routes', () => {
 		}).catch(() => {})
 
 		const nextWeekPlan = await prisma.mealPlan.findFirst({
-			where: { userId: session.userId },
+			where: { householdId: session.householdId },
 			orderBy: { weekStart: 'desc' },
 			include: { entries: true },
 		})

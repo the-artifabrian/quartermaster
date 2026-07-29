@@ -5,10 +5,11 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 	emitHouseholdEvent: vi.fn(),
 }))
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
-import { prisma } from '#app/utils/db.server.ts'
+import { createPrismaClient, prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
-import { action } from './index.tsx'
+import { action, loader } from './index.tsx'
+import { createPlanAction } from './plan-action.server.ts'
 
 const ACTION_ARGS_BASE = {
 	params: {},
@@ -38,6 +39,27 @@ async function setupUser() {
 			},
 		})
 		return { ...session, householdId: household.id }
+	})
+}
+
+async function setupHouseholdMember(householdId: string) {
+	return prisma.$transaction(async (tx) => {
+		const session = await tx.session.create({
+			data: {
+				expirationDate: getSessionExpirationDate(),
+				user: {
+					create: {
+						...createUser(),
+						subscription: { create: { tier: 'pro' } },
+					},
+				},
+			},
+			select: { id: true, userId: true },
+		})
+		await tx.householdMember.create({
+			data: { householdId, userId: session.userId, role: 'member' },
+		})
+		return { ...session, householdId }
 	})
 }
 
@@ -71,6 +93,13 @@ async function makeRequest(
 	})
 }
 
+async function makeLoaderRequest(session: { id: string }, weekStart: string) {
+	const cookie = await getSessionCookieHeader(session)
+	return new Request(`${BASE_URL}/plan?weekStart=${weekStart}`, {
+		headers: { cookie },
+	})
+}
+
 describe('meal plan actions', () => {
 	test('assign recipe to slot', async () => {
 		const session = await setupUser()
@@ -87,7 +116,7 @@ describe('meal plan actions', () => {
 		expect(result).toEqual({ status: 'success' })
 
 		const mealPlan = await prisma.mealPlan.findFirst({
-			where: { userId: session.userId },
+			where: { householdId: session.householdId },
 			include: { entries: true },
 		})
 		expect(mealPlan!.entries).toHaveLength(1)
@@ -115,10 +144,116 @@ describe('meal plan actions', () => {
 		})
 
 		const mealPlan = await prisma.mealPlan.findFirst({
-			where: { userId: session.userId },
+			where: { householdId: session.householdId },
 			include: { entries: true },
 		})
 		expect(mealPlan!.entries).toHaveLength(1)
+	})
+
+	test('concurrent household members assigning a fresh week share one plan', async () => {
+		const owner = await setupUser()
+		const member = await setupHouseholdMember(owner.householdId)
+		const [ownerRecipe, memberRecipe] = await Promise.all([
+			setupRecipe(owner.userId, owner.householdId),
+			setupRecipe(member.userId, member.householdId),
+		])
+
+		const clients = Array.from({ length: 7 }, () => createPrismaClient())
+		await Promise.all(clients.map((client) => client.$connect()))
+		await Promise.all(
+			clients.map((client) =>
+				client.$queryRawUnsafe('PRAGMA busy_timeout = 5000'),
+			),
+		)
+
+		try {
+			const requests = await Promise.all(
+				clients.map((_, index) => {
+					const session = index % 2 === 0 ? owner : member
+					return makeRequest(session, {
+						intent: 'assign',
+						date: `2026-02-${String(index + 2).padStart(2, '0')}`,
+						mealType: 'dinner',
+						recipeId: index % 2 === 0 ? ownerRecipe.id : memberRecipe.id,
+					})
+				}),
+			)
+			const results = await Promise.allSettled(
+				clients.map((client, index) =>
+					createPlanAction(client, async () =>
+						index % 2 === 0 ? owner : member,
+					)({
+						request: requests[index]!,
+						...ACTION_ARGS_BASE,
+					}),
+				),
+			)
+
+			expect(results).toEqual(
+				Array.from({ length: 7 }, () => ({
+					status: 'fulfilled',
+					value: { status: 'success' },
+				})),
+			)
+			const plans = await prisma.mealPlan.findMany({
+				where: {
+					householdId: owner.householdId,
+					weekStart: new Date('2026-02-02T00:00:00.000Z'),
+				},
+				include: { entries: true },
+			})
+			expect(plans).toHaveLength(1)
+			expect(plans[0]!.entries).toHaveLength(7)
+		} finally {
+			await Promise.all(clients.map((client) => client.$disconnect()))
+		}
+	})
+
+	test('member can open the same week after moving to another household', async () => {
+		const session = await setupUser()
+		await prisma.mealPlan.create({
+			data: {
+				householdId: session.householdId,
+				weekStart: new Date('2026-02-02T00:00:00.000Z'),
+			},
+		})
+		const nextHousehold = await prisma.$transaction(async (tx) => {
+			await tx.householdMember.delete({
+				where: {
+					householdId_userId: {
+						householdId: session.householdId,
+						userId: session.userId,
+					},
+				},
+			})
+			return tx.household.create({
+				data: {
+					name: 'Next Household',
+					members: {
+						create: { userId: session.userId, role: 'owner' },
+					},
+				},
+			})
+		})
+
+		const result = await loader({
+			request: await makeLoaderRequest(session, '2026-02-02'),
+			...ACTION_ARGS_BASE,
+		})
+
+		expect(result.entries).toEqual([])
+		await expect(
+			prisma.mealPlan.findUniqueOrThrow({
+				where: {
+					householdId_weekStart: {
+						householdId: nextHousehold.id,
+						weekStart: new Date('2026-02-02T00:00:00.000Z'),
+					},
+				},
+			}),
+		).resolves.toEqual(
+			expect.objectContaining({ householdId: nextHousehold.id }),
+		)
 	})
 
 	test('assign with servings override', async () => {
@@ -135,7 +270,7 @@ describe('meal plan actions', () => {
 		await action({ request, ...ACTION_ARGS_BASE })
 
 		const mealPlan = await prisma.mealPlan.findFirst({
-			where: { userId: session.userId },
+			where: { householdId: session.householdId },
 			include: { entries: true },
 		})
 		expect(mealPlan!.entries[0]!.servings).toBe(8)
@@ -157,7 +292,7 @@ describe('meal plan actions', () => {
 		})
 
 		const entry = await prisma.mealPlanEntry.findFirst({
-			where: { mealPlan: { userId: session.userId } },
+			where: { mealPlan: { householdId: session.householdId } },
 		})
 
 		const request = await makeRequest(session, {
@@ -189,7 +324,7 @@ describe('meal plan actions', () => {
 		})
 
 		const entry = await prisma.mealPlanEntry.findFirst({
-			where: { mealPlan: { userId: session.userId } },
+			where: { mealPlan: { householdId: session.householdId } },
 		})
 		expect(entry!.cooked).toBe(false)
 
@@ -253,7 +388,7 @@ describe('meal plan actions', () => {
 		})
 
 		const entry = await prisma.mealPlanEntry.findFirst({
-			where: { mealPlan: { userId: session.userId } },
+			where: { mealPlan: { householdId: session.householdId } },
 		})
 
 		const result = await action({
@@ -266,7 +401,7 @@ describe('meal plan actions', () => {
 		expect(result).toEqual({ status: 'success' })
 
 		const remaining = await prisma.mealPlanEntry.findMany({
-			where: { mealPlan: { userId: session.userId } },
+			where: { mealPlan: { householdId: session.householdId } },
 		})
 		expect(remaining).toHaveLength(0)
 	})

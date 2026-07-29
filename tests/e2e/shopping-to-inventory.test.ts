@@ -67,7 +67,6 @@ test('Shopping → Pantry pipeline: generate, check off, remember for next time'
 	const weekStart = getCurrentWeekStart()
 	await prisma.mealPlan.create({
 		data: {
-			userId: user.id,
 			householdId,
 			weekStart,
 			entries: {
@@ -164,7 +163,6 @@ test('Shopping → Pantry pipeline: merges with existing Pantry items', async ({
 	const weekStart = getCurrentWeekStart()
 	await prisma.mealPlan.create({
 		data: {
-			userId: user.id,
 			householdId,
 			weekStart,
 			entries: {

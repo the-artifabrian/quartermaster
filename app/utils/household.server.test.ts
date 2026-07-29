@@ -159,6 +159,145 @@ describe('acceptInvite', () => {
 		expect(membership!.role).toBe('member')
 	})
 
+	test('sole member: overlapping meal-plan weeks are merged', async () => {
+		const owner = await setupUserWithRecipe('Owner Dinner')
+		const joiner = await setupUserWithRecipe('Joiner Dinner')
+		const weekStart = new Date('2026-02-02T00:00:00.000Z')
+
+		await Promise.all([
+			prisma.mealPlan.create({
+				data: {
+					householdId: owner.householdId,
+					weekStart,
+					entries: {
+						create: {
+							date: weekStart,
+							mealType: 'dinner',
+							recipeId: owner.recipeId,
+						},
+					},
+				},
+			}),
+			prisma.mealPlan.create({
+				data: {
+					householdId: joiner.householdId,
+					weekStart,
+					entries: {
+						create: {
+							date: weekStart,
+							mealType: 'dinner',
+							recipeId: joiner.recipeId,
+						},
+					},
+				},
+			}),
+		])
+
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+		await acceptInvite(invite.token, joiner.id)
+
+		const mergedPlan = await prisma.mealPlan.findUniqueOrThrow({
+			where: {
+				householdId_weekStart: {
+					householdId: owner.householdId,
+					weekStart,
+				},
+			},
+			include: { entries: true },
+		})
+		expect(mergedPlan.entries.map((entry) => entry.recipeId).sort()).toEqual(
+			[owner.recipeId, joiner.recipeId].sort(),
+		)
+	})
+
+	test('sole member: duplicate entries merge into the existing target entry', async () => {
+		const owner = await setupUserWithRecipe('Shared Dinner')
+		const joiner = await setupUserWithRecipe('Joiner Dinner')
+		const weekStart = new Date('2026-02-02T00:00:00.000Z')
+		const targetPlan = await prisma.mealPlan.create({
+			data: {
+				householdId: owner.householdId,
+				weekStart,
+				entries: {
+					create: {
+						date: weekStart,
+						mealType: 'dinner',
+						recipeId: owner.recipeId,
+						servings: 2,
+						cooked: false,
+					},
+				},
+			},
+			include: { entries: true },
+		})
+		await prisma.mealPlan.create({
+			data: {
+				householdId: joiner.householdId,
+				weekStart,
+				entries: {
+					create: {
+						date: weekStart,
+						mealType: 'dinner',
+						recipeId: owner.recipeId,
+						servings: 6,
+						cooked: true,
+					},
+				},
+			},
+		})
+
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+		await acceptInvite(invite.token, joiner.id)
+
+		const mergedPlan = await prisma.mealPlan.findUniqueOrThrow({
+			where: { id: targetPlan.id },
+			include: { entries: true },
+		})
+		expect(mergedPlan.entries).toHaveLength(1)
+		expect(mergedPlan.entries[0]).toEqual(
+			expect.objectContaining({
+				id: targetPlan.entries[0]!.id,
+				cooked: true,
+				servings: 6,
+			}),
+		)
+	})
+
+	test('sole member: non-overlapping meal plans are moved without rebuilding', async () => {
+		const owner = await setupUserWithRecipe('Owner Dinner')
+		const joiner = await setupUserWithRecipe('Joiner Dinner')
+		const weekStart = new Date('2026-02-09T00:00:00.000Z')
+		const originalPlan = await prisma.mealPlan.create({
+			data: {
+				householdId: joiner.householdId,
+				weekStart,
+				entries: {
+					create: {
+						date: weekStart,
+						mealType: 'dinner',
+						recipeId: joiner.recipeId,
+					},
+				},
+			},
+			include: { entries: true },
+		})
+
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+		await acceptInvite(invite.token, joiner.id)
+
+		const movedPlan = await prisma.mealPlan.findUniqueOrThrow({
+			where: { id: originalPlan.id },
+			include: { entries: true },
+		})
+		expect(movedPlan.householdId).toBe(owner.householdId)
+		expect(movedPlan.createdAt).toEqual(originalPlan.createdAt)
+		expect(movedPlan.entries).toHaveLength(1)
+		expect(movedPlan.entries[0]!.id).toBe(originalPlan.entries[0]!.id)
+		expect(movedPlan.entries[0]!.createdAt).toEqual(
+			originalPlan.entries[0]!.createdAt,
+		)
+	})
+
 	test('multi-member: recipes are copied, inventory stays', async () => {
 		// Create a household with 2 members
 		const owner = await setupUser()

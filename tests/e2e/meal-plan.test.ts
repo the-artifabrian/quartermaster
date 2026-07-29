@@ -41,7 +41,6 @@ test('Meal plan: view entries and mark as cooked', async ({ page, login }) => {
 	const weekDays = getWeekDays(weekStart)
 	await prisma.mealPlan.create({
 		data: {
-			userId: user.id,
 			householdId: household.id,
 			weekStart,
 			entries: {

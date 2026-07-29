@@ -1,5 +1,3 @@
-import { parseWithZod } from '@conform-to/zod/v4'
-import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useState } from 'react'
 import { Form, Link } from 'react-router'
@@ -22,9 +20,10 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { MealPlanEntrySchema } from '#app/utils/meal-plan-validation.ts'
+import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
+import { createPlanAction } from './plan-action.server.ts'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
@@ -35,8 +34,7 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { userId, householdId, isProActive } =
-		await requireUserWithTier(request)
+	const { householdId, isProActive } = await requireUserWithTier(request)
 	const url = new URL(request.url)
 	const weekStartParam = url.searchParams.get('weekStart')
 
@@ -44,12 +42,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 		? getWeekStart(parseDate(weekStartParam))
 		: getCurrentWeekStart()
 
-	// Get or create meal plan for this week
-	let mealPlan = await prisma.mealPlan.findFirst({
-		where: {
-			householdId,
-			weekStart,
-		},
+	await ensureMealPlan(prisma, { householdId, weekStart })
+	const mealPlan = await prisma.mealPlan.findUniqueOrThrow({
+		where: { householdId_weekStart: { householdId, weekStart } },
 		include: {
 			entries: {
 				include: {
@@ -67,30 +62,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			},
 		},
 	})
-
-	if (!mealPlan) {
-		mealPlan = await prisma.mealPlan.create({
-			data: {
-				userId,
-				householdId,
-				weekStart,
-			},
-			include: {
-				entries: {
-					include: {
-						recipe: {
-							include: {
-								// ingredients intentionally omitted — see the findFirst branch
-								// above. (This create branch only runs for a brand-new, empty
-								// week, so it has no entries anyway.)
-								image: { select: { objectKey: true } },
-							},
-						},
-					},
-				},
-			},
-		})
-	}
 
 	// Load user's recipes for the picker (lightweight — no ingredients)
 	const recipes = await prisma.recipe.findMany({
@@ -195,120 +166,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	}
 }
 
-export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireUserWithTier(request)
-	const formData = await request.formData()
-	const intent = formData.get('intent')
-
-	if (intent === 'assign') {
-		const submission = parseWithZod(formData, { schema: MealPlanEntrySchema })
-		if (submission.status !== 'success') {
-			return { status: 'error' as const, submission: submission.reply() }
-		}
-
-		const { date, mealType, recipeId, servings } = submission.value
-
-		// Get the meal plan for this week
-		const weekStart = getWeekStart(date)
-		let mealPlan = await prisma.mealPlan.findFirst({
-			where: { householdId, weekStart },
-		})
-
-		if (!mealPlan) {
-			mealPlan = await prisma.mealPlan.create({
-				data: { userId, householdId, weekStart },
-			})
-		}
-
-		// Check if this exact recipe is already assigned to this slot
-		const existing = await prisma.mealPlanEntry.findUnique({
-			where: {
-				mealPlanId_date_mealType_recipeId: {
-					mealPlanId: mealPlan.id,
-					date,
-					mealType,
-					recipeId,
-				},
-			},
-		})
-
-		if (!existing) {
-			await prisma.mealPlanEntry.create({
-				data: {
-					mealPlanId: mealPlan.id,
-					date,
-					mealType,
-					recipeId,
-					servings,
-				},
-			})
-		}
-
-		return { status: 'success' as const }
-	}
-
-	if (intent === 'updateServings') {
-		const entryId = formData.get('entryId')
-		invariantResponse(typeof entryId === 'string', 'Entry ID is required')
-
-		const servingsStr = formData.get('servings')
-		const servings = servingsStr
-			? Math.min(999, Math.max(1, parseInt(String(servingsStr), 10)))
-			: null
-
-		const entry = await prisma.mealPlanEntry.findFirst({
-			where: { id: entryId, mealPlan: { householdId } },
-		})
-		invariantResponse(entry, 'Entry not found', { status: 404 })
-
-		await prisma.mealPlanEntry.update({
-			where: { id: entryId },
-			data: { servings: servings && servings > 0 ? servings : null },
-		})
-
-		return { status: 'success' as const }
-	}
-
-	if (intent === 'toggleCooked') {
-		const entryId = formData.get('entryId')
-		invariantResponse(typeof entryId === 'string', 'Entry ID is required')
-		// The form submits the target state rather than asking the server to
-		// flip, so duplicate/rapid submissions are idempotent (last write wins).
-		const cooked = formData.get('cooked') === 'true'
-
-		const entry = await prisma.mealPlanEntry.findFirst({
-			where: { id: entryId, mealPlan: { householdId } },
-		})
-		invariantResponse(entry, 'Entry not found', { status: 404 })
-
-		await prisma.mealPlanEntry.update({
-			where: { id: entryId },
-			data: { cooked },
-		})
-
-		return { status: 'success' as const }
-	}
-
-	if (intent === 'remove') {
-		const entryId = formData.get('entryId')
-		invariantResponse(typeof entryId === 'string', 'Entry ID is required')
-
-		// Verify ownership via meal plan
-		const entry = await prisma.mealPlanEntry.findFirst({
-			where: {
-				id: entryId,
-				mealPlan: { householdId },
-			},
-		})
-		invariantResponse(entry, 'Entry not found', { status: 404 })
-
-		await prisma.mealPlanEntry.delete({ where: { id: entryId } })
-
-		return { status: 'success' as const }
-	}
-
-	return { status: 'error' as const }
-}
+export const action = createPlanAction(prisma)
 
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const {

@@ -41,6 +41,7 @@ import {
 	getCanonicalIngredientName,
 	ingredientMatchesInventoryItem,
 } from '#app/utils/recipe-matching.server.ts'
+import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
 	ShoppingListItemSchema,
 	guessCategory,
@@ -68,31 +69,24 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId, isProActive } =
 		await requireUserWithTier(request)
 
-	// Get or create shopping list
-	let shoppingList = await prisma.shoppingList.findFirst({
-		where: { householdId },
-		include: {
-			items: {
-				orderBy: [{ checked: 'asc' }],
-			},
-		},
+	const ensuredShoppingList = await ensureShoppingList(prisma, {
+		userId,
+		householdId,
 	})
-	if (shoppingList) {
-		// SQLite's name ordering is ASCII-cased ("Shaoxing wine" before
-		// "broccoli"); re-sort locale-aware so the flat list reads alphabetical.
-		shoppingList.items.sort(
-			(a, b) =>
-				Number(a.checked) - Number(b.checked) ||
-				a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-		)
+	const shoppingList = {
+		...ensuredShoppingList,
+		items: await prisma.shoppingListItem.findMany({
+			where: { listId: ensuredShoppingList.id },
+			orderBy: [{ checked: 'asc' }],
+		}),
 	}
-
-	if (!shoppingList) {
-		shoppingList = await prisma.shoppingList.create({
-			data: { userId, householdId },
-			include: { items: true },
-		})
-	}
+	// SQLite's name ordering is ASCII-cased ("Shaoxing wine" before
+	// "broccoli"); re-sort locale-aware so the flat list reads alphabetical.
+	shoppingList.items.sort(
+		(a, b) =>
+			Number(a.checked) - Number(b.checked) ||
+			a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+	)
 
 	// Check prev/current/next weeks for meal plans
 	const currentWeek = getCurrentWeekStart()
@@ -159,16 +153,10 @@ export async function action({ request }: Route.ActionArgs) {
 	const formData = await request.formData()
 	const intent = formData.get('intent')
 
-	// Get user's shopping list
-	let shoppingList = await prisma.shoppingList.findFirst({
-		where: { householdId },
+	const shoppingList = await ensureShoppingList(prisma, {
+		userId,
+		householdId,
 	})
-
-	if (!shoppingList) {
-		shoppingList = await prisma.shoppingList.create({
-			data: { userId, householdId },
-		})
-	}
 
 	if (intent === 'generate') {
 		// Get meal plan for specified week (or current week)

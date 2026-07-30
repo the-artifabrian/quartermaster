@@ -6,10 +6,11 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 }))
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getCurrentWeekStart } from '#app/utils/date.ts'
-import { prisma } from '#app/utils/db.server.ts'
+import { createPrismaClient, prisma } from '#app/utils/db.server.ts'
+import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
-import { action } from '../shopping.tsx'
+import { action, loader } from '../shopping.tsx'
 
 const ACTION_ARGS_BASE = {
 	params: {},
@@ -92,7 +93,87 @@ async function makeRequest(
 	})
 }
 
+async function makeLoaderRequest(session: { id: string }) {
+	const cookie = await getSessionCookieHeader(session)
+	return new Request(`${BASE_URL}/shopping`, {
+		headers: { cookie },
+	})
+}
+
 describe('shopping list actions', () => {
+	test('a household cannot own a second shopping list', async () => {
+		const session = await setupUser()
+		await prisma.shoppingList.create({
+			data: {
+				userId: session.userId,
+				householdId: session.householdId,
+			},
+		})
+
+		await expect(
+			prisma.shoppingList.create({
+				data: {
+					userId: session.userId,
+					householdId: session.householdId,
+				},
+			}),
+		).rejects.toMatchObject({ code: 'P2002' })
+	})
+
+	test('concurrent first additions remain visible on the household list', async () => {
+		const session = await setupUser()
+		const [applesRequest, bananasRequest] = await Promise.all([
+			makeRequest(session, { intent: 'add', name: 'Apples' }),
+			makeRequest(session, { intent: 'add', name: 'Bananas' }),
+		])
+
+		await Promise.all([
+			action({ request: applesRequest, ...ACTION_ARGS_BASE }),
+			action({ request: bananasRequest, ...ACTION_ARGS_BASE }),
+		])
+
+		const result = await loader({
+			request: await makeLoaderRequest(session),
+			...ACTION_ARGS_BASE,
+		})
+		expect(result.shoppingList.items.map((item) => item.name).sort()).toEqual([
+			'Apples',
+			'Bananas',
+		])
+	})
+
+	test('concurrent database clients share one household shopping list', async () => {
+		const session = await setupUser()
+		const clients = [createPrismaClient(), createPrismaClient()]
+		await Promise.all(clients.map((client) => client.$connect()))
+		await Promise.all(
+			clients.map((client) =>
+				client.$queryRawUnsafe('PRAGMA busy_timeout = 100'),
+			),
+		)
+
+		try {
+			const results = await Promise.allSettled(
+				clients.map((client) =>
+					ensureShoppingList(client, {
+						userId: session.userId,
+						householdId: session.householdId,
+					}),
+				),
+			)
+
+			expect(results.every((result) => result.status === 'fulfilled')).toBe(
+				true,
+			)
+			const listIds = results.flatMap((result) =>
+				result.status === 'fulfilled' ? [result.value.id] : [],
+			)
+			expect(new Set(listIds).size).toBe(1)
+		} finally {
+			await Promise.all(clients.map((client) => client.$disconnect()))
+		}
+	})
+
 	test('generate from meal plan creates items', async () => {
 		const session = await setupUser()
 		await setupMealPlanWithRecipe(session.userId, session.householdId)

@@ -20,6 +20,7 @@ import {
 	InventoryItemSchema,
 } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import {
 	getInventoryUsage,
@@ -266,14 +267,10 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 		invariantResponse(item, 'Item not found', { status: 404 })
 
-		let shoppingList = await prisma.shoppingList.findFirst({
-			where: { householdId },
+		const shoppingList = await ensureShoppingList(prisma, {
+			userId,
+			householdId,
 		})
-		if (!shoppingList) {
-			shoppingList = await prisma.shoppingList.create({
-				data: { userId, householdId },
-			})
-		}
 
 		await prisma.shoppingListItem.create({
 			data: {

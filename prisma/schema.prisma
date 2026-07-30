@@ -332,13 +332,12 @@ model ShoppingList {
   userId      String
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   household   Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
-  householdId String?
+  householdId String? @unique
   items       ShoppingListItem[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([userId])
-  @@index([householdId])
 }
 
 model ShoppingListItem {

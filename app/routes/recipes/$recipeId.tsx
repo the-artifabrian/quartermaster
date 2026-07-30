@@ -49,6 +49,7 @@ import {
 	isStapleIngredient,
 	normalizeIngredientName,
 } from '#app/utils/recipe-matching.server.ts'
+import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
@@ -301,15 +302,15 @@ export async function action({ request, params }: Route.ActionArgs) {
 			useMetric,
 		)
 
-		let shoppingList = await prisma.shoppingList.findFirst({
-			where: { householdId },
-			include: { items: { where: { checked: false } } },
+		const ensuredShoppingList = await ensureShoppingList(prisma, {
+			userId,
+			householdId,
 		})
-		if (!shoppingList) {
-			shoppingList = await prisma.shoppingList.create({
-				data: { userId, householdId },
-				include: { items: { where: { checked: false } } },
-			})
+		const shoppingList = {
+			...ensuredShoppingList,
+			items: await prisma.shoppingListItem.findMany({
+				where: { listId: ensuredShoppingList.id, checked: false },
+			}),
 		}
 
 		const existingCanonical = new Set(
@@ -385,16 +386,15 @@ export async function action({ request, params }: Route.ActionArgs) {
 			return { success: true, addedToShoppingList: 0 }
 		}
 
-		// Get or create shopping list
-		let shoppingList = await prisma.shoppingList.findFirst({
-			where: { householdId },
-			include: { items: { where: { checked: false } } },
+		const ensuredShoppingList = await ensureShoppingList(prisma, {
+			userId,
+			householdId,
 		})
-		if (!shoppingList) {
-			shoppingList = await prisma.shoppingList.create({
-				data: { userId, householdId },
-				include: { items: { where: { checked: false } } },
-			})
+		const shoppingList = {
+			...ensuredShoppingList,
+			items: await prisma.shoppingListItem.findMany({
+				where: { listId: ensuredShoppingList.id, checked: false },
+			}),
 		}
 
 		// Deduplicate by canonical name

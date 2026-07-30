@@ -11,6 +11,7 @@ import {
 	ensureMealPlan,
 	ensureMealPlanEntry,
 } from '#app/utils/meal-plan.server.ts'
+import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
@@ -164,7 +165,27 @@ interface ImportResults {
 	recipes: { created: number; skipped: number; errored: number }
 	inventory: { created: number; skipped: number }
 	mealPlans: { created: number; skipped: number }
-	shoppingLists: { created: number }
+	shoppingLists: { created: number; skipped: number }
+}
+
+type ShoppingListItemImport = {
+	name: string
+	quantity: string | null
+	unit: string | null
+	category: string | null
+	checked: boolean
+	source: string
+}
+
+function getShoppingListItemImportKey(item: ShoppingListItemImport) {
+	return JSON.stringify([
+		item.name.trim().toLocaleLowerCase(),
+		item.quantity?.trim() || null,
+		item.unit?.trim().toLocaleLowerCase() || null,
+		item.category?.trim().toLocaleLowerCase() || null,
+		item.checked,
+		item.source.trim().toLocaleLowerCase(),
+	])
 }
 
 // --- Action ---
@@ -263,7 +284,7 @@ export async function action({ request }: Route.ActionArgs) {
 		recipes: { created: 0, skipped: 0, errored: 0 },
 		inventory: { created: 0, skipped: 0 },
 		mealPlans: { created: 0, skipped: 0 },
-		shoppingLists: { created: 0 },
+		shoppingLists: { created: 0, skipped: 0 },
 	}
 
 	// --- 1. Recipes ---
@@ -361,30 +382,64 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	// --- 4. Shopping Lists ---
-	if (fullData?.shoppingLists) {
-		for (const list of fullData.shoppingLists) {
-			try {
-				await prisma.shoppingList.create({
-					data: {
-						name: list.name,
-						userId,
-						householdId,
-						items: {
-							create: list.items.map((item) => ({
-								name: item.name,
-								quantity: item.quantity || null,
-								unit: item.unit || null,
-								category: item.category || null,
-								checked: item.checked ?? false,
-								source: item.source || 'manual',
-							})),
-						},
-					},
-				})
-				results.shoppingLists.created++
-			} catch {
-				// skip
+	if (fullData?.shoppingLists?.length) {
+		try {
+			const shoppingList = await ensureShoppingList(prisma, {
+				userId,
+				householdId,
+				name: fullData.shoppingLists[0]!.name,
+			})
+			const existingItems = await prisma.shoppingListItem.findMany({
+				where: { listId: shoppingList.id },
+				select: {
+					name: true,
+					quantity: true,
+					unit: true,
+					category: true,
+					checked: true,
+					source: true,
+				},
+			})
+			const existingKeys = new Set(
+				existingItems.map(getShoppingListItemImportKey),
+			)
+
+			for (const list of fullData.shoppingLists) {
+				const batchKeys = new Set<string>()
+				let skipped = 0
+				const newItems: ShoppingListItemImport[] = []
+				for (const item of list.items) {
+					const normalizedItem = {
+						name: item.name,
+						quantity: item.quantity || null,
+						unit: item.unit || null,
+						category: item.category || null,
+						checked: item.checked ?? false,
+						source: item.source || 'manual',
+					}
+					const key = getShoppingListItemImportKey(normalizedItem)
+					if (existingKeys.has(key) || batchKeys.has(key)) {
+						skipped++
+						continue
+					}
+					batchKeys.add(key)
+					newItems.push(normalizedItem)
+				}
+
+				if (newItems.length > 0) {
+					await prisma.shoppingListItem.createMany({
+						data: newItems.map((item) => ({
+							...item,
+							listId: shoppingList.id,
+						})),
+					})
+					for (const key of batchKeys) existingKeys.add(key)
+				}
+				results.shoppingLists.created += newItems.length
+				results.shoppingLists.skipped += skipped
 			}
+		} catch {
+			// skip shopping-list data on error
 		}
 	}
 
@@ -545,10 +600,12 @@ export default function ImportData() {
 									skipped={results.mealPlans.skipped}
 								/>
 							)}
-							{results.shoppingLists.created > 0 && (
+							{(results.shoppingLists.created > 0 ||
+								results.shoppingLists.skipped > 0) && (
 								<ResultRow
-									label="Shopping lists"
+									label="Shopping list items"
 									created={results.shoppingLists.created}
+									skipped={results.shoppingLists.skipped}
 								/>
 							)}
 						</div>

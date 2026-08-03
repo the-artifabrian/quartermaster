@@ -16,6 +16,20 @@ if (posthogKey) {
 		enable_recording_console_log: true,
 		mask_all_text: false,
 		capture_exceptions: true,
+		// Outlook SafeLinks scanners execute the page in an embedded browser and
+		// throw "Object Not Found Matching Id:N, MethodName:update" — pure bot
+		// noise (each Id:N gets its own error-tracking issue), so never send it.
+		before_send: (event) => {
+			if (
+				event?.event === '$exception' &&
+				JSON.stringify(event.properties ?? {}).includes(
+					'Object Not Found Matching Id',
+				)
+			) {
+				return null
+			}
+			return event
+		},
 		// Built-in performance capture: Core Web Vitals (incl. INP) as standalone
 		// events, plus resource/network timing attached to session replay — gives
 		// the `.data` fetch TTFB/download split without custom instrumentation.

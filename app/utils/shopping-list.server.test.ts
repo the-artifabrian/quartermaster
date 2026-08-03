@@ -348,6 +348,14 @@ describe('annotateInventoryMatches', () => {
 		expect(result.inStockCount).toBe(1)
 	})
 
+	test('a pantry "red wine" does not put "red wine vinegar" in stock', () => {
+		const items = [makeShoppingItem('red wine vinegar')]
+		const inventory = makeInventory([{ name: 'red wine' }])
+		const result = annotateInventoryMatches(items, inventory)
+		expect(result.items[0]!.inStock).toBe(false)
+		expect(result.inStockCount).toBe(0)
+	})
+
 	test('returns correct stapleCount and inStockCount', () => {
 		const items = [
 			makeShoppingItem('salt'),

@@ -2,6 +2,8 @@ import { describe, expect, test } from 'vitest'
 import {
 	normalizeIngredientName,
 	getCanonicalIngredientName,
+	buildInventoryLookup,
+	ingredientMatchesAnyInventoryItem,
 	ingredientMatchesInventoryItem,
 	isOptionalIngredient,
 	isStapleIngredient,
@@ -556,5 +558,127 @@ describe('matchRecipesWithInventory', () => {
 		expect(results[0]!.matchedIngredientsCount).toBe(2)
 		expect(results[0]!.matchPercentage).toBe(100)
 		expect(results[0]!.canMake).toBe(true)
+	})
+})
+
+describe('matcher entry points agree', () => {
+	/**
+	 * Names chosen to exercise every level of the matcher: protected compounds
+	 * that share a word ("red wine" / "red wine vinegar", "red onion" / "red
+	 * lentil"), cut-sensitive proteins, non-equivalent compounds, synonyms, and
+	 * plain containment ("butter" / "unsalted butter").
+	 */
+	const CORPUS = [
+		'red wine',
+		'red wine vinegar',
+		'white wine',
+		'white wine vinegar',
+		'rice',
+		'rice vinegar',
+		'rice wine',
+		'red onion',
+		'red lentil',
+		'green onion',
+		'scallion',
+		'green tea',
+		'black tea',
+		'chicken',
+		'chicken breast',
+		'chicken thigh',
+		'ground chicken',
+		'ground turkey',
+		'ground nutmeg',
+		'beef',
+		'beef chuck',
+		'salmon',
+		'butter',
+		'unsalted butter',
+		'peanut butter',
+		'almond butter',
+		'coconut',
+		'coconut milk',
+		'coconut oil',
+		'soy',
+		'soy sauce',
+		'tamari',
+		'tomato',
+		'tomato paste',
+		'cilantro',
+		'coriander',
+		'cucumber',
+		'persian cucumber',
+		'sesame',
+		'sesame oil',
+		'carrots',
+		'broccoli',
+	]
+
+	test('pairwise and lookup verdicts are identical across the corpus', () => {
+		const disagreements: string[] = []
+		for (const ingredientName of CORPUS) {
+			for (const inventoryName of CORPUS) {
+				const pairwise = ingredientMatchesInventoryItem(
+					{ name: ingredientName },
+					{ name: inventoryName },
+				)
+				const viaLookup = ingredientMatchesAnyInventoryItem(
+					{ name: ingredientName },
+					buildInventoryLookup([{ name: inventoryName }]),
+				)
+				if (pairwise !== viaLookup) {
+					disagreements.push(
+						`${ingredientName} ↔ ${inventoryName}: pairwise=${pairwise} lookup=${viaLookup}`,
+					)
+				}
+			}
+		}
+		expect(disagreements).toEqual([])
+	})
+
+	test('scanning a whole pantry agrees with the lookup over that pantry', () => {
+		// The lookup checks every name at level 1 before any name reaches level 4,
+		// so a multi-item pantry could in principle disagree with a per-item scan.
+		const pantry = CORPUS.map((name) => ({ name }))
+		const lookup = buildInventoryLookup(pantry)
+		const disagreements: string[] = []
+		for (const ingredientName of CORPUS) {
+			const byScan = pantry.some((item) =>
+				ingredientMatchesInventoryItem({ name: ingredientName }, item),
+			)
+			const byLookup = ingredientMatchesAnyInventoryItem(
+				{ name: ingredientName },
+				lookup,
+			)
+			if (byScan !== byLookup) {
+				disagreements.push(
+					`${ingredientName}: scan=${byScan} lookup=${byLookup}`,
+				)
+			}
+		}
+		expect(disagreements).toEqual([])
+	})
+
+	test('a protected compound is not stocked by its bare relative', () => {
+		const cases: Array<[string, string]> = [
+			['red wine vinegar', 'red wine'],
+			['white wine vinegar', 'white wine'],
+			['red lentil', 'red onion'],
+			['green tea', 'black tea'],
+			['ground turkey', 'ground chicken'],
+		]
+		for (const [ingredient, pantryItem] of cases) {
+			const lookup = buildInventoryLookup([{ name: pantryItem }])
+			expect(
+				ingredientMatchesAnyInventoryItem({ name: ingredient }, lookup),
+				`${ingredient} should not be stocked by ${pantryItem}`,
+			).toBe(false)
+			expect(
+				ingredientMatchesInventoryItem(
+					{ name: ingredient },
+					{ name: pantryItem },
+				),
+				`${ingredient} should not be stocked by ${pantryItem} (pairwise)`,
+			).toBe(false)
+		}
 	})
 })

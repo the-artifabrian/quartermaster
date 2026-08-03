@@ -9,8 +9,11 @@ const schema = z.object({
 	CACHE_DATABASE_PATH: z.string(),
 	POSTHOG_API_KEY: z.string().optional(),
 	POSTHOG_HOST: z.url().optional(),
-	// If you plan to use Resend, remove the .optional()
+	// Optional outside production; `init()` below requires it in production,
+	// where a missing key means silently undelivered mail rather than an error.
 	RESEND_API_KEY: z.string().optional(),
+	// Override for the email provider request timeout, in ms (default 10000).
+	RESEND_TIMEOUT_MS: z.string().optional(),
 	// If you plan to use Google auth, remove the .optional()
 	GOOGLE_CLIENT_ID: z.string().optional(),
 	GOOGLE_CLIENT_SECRET: z.string().optional(),
@@ -53,6 +56,24 @@ export function init() {
 		)
 
 		throw new Error('Invalid environment variables')
+	}
+
+	// Outside production a missing RESEND_API_KEY only makes sendEmail log the
+	// message instead of sending it, which is useful in dev. In production that
+	// silence is the failure: signup verification, password reset and
+	// email-change mail all stop arriving while every request still succeeds
+	// and the healthcheck stays green, so users lock themselves out and nothing
+	// reports it. A dropped or rotated secret should take the boot down instead.
+	if (
+		parsed.data.NODE_ENV === 'production' &&
+		!parsed.data.RESEND_API_KEY &&
+		!process.env.MOCKS
+	) {
+		console.error(
+			'❌ RESEND_API_KEY is required in production — without it every verification, password-reset and email-change email is dropped silently.',
+		)
+
+		throw new Error('Missing RESEND_API_KEY')
 	}
 }
 

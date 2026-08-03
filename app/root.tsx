@@ -223,6 +223,11 @@ export async function loader({ request }: Route.LoaderArgs) {
  * - After form submissions (toasts, state changes)
  * - Explicit revalidation (useRevalidator — e.g., OS color scheme change)
  * - Same-URL revalidation (defaultShouldRevalidate handles this)
+ * - The router forces it, which is how a loader-thrown `redirectWithToast`
+ *   gets its toast rendered: the redirect's Set-Cookie makes the server mark
+ *   the redirect `revalidate`, the client replays it as X-Remix-Revalidate,
+ *   and `defaultShouldRevalidate` comes back true. Returning false here would
+ *   leave the flash cookie in place to pop at some unrelated later moment.
  *
  * Skip when:
  * - Navigating between pages (root data doesn't depend on URL/params)
@@ -242,17 +247,21 @@ export function shouldRevalidate({
 	// Always revalidate after form submissions (actions)
 	if (formAction) return true
 
-	// Same URL — respect defaultShouldRevalidate (covers useRevalidator,
-	// X-Remix-Revalidate, and other explicit revalidation triggers)
+	// Search params changed on the same page (filters, pagination) — root data
+	// doesn't depend on them, so skip even though the router defaults to true.
+	// Loader redirects always land on a different pathname, so this can't
+	// swallow one.
 	if (
 		currentUrl.pathname === nextUrl.pathname &&
-		currentUrl.search === nextUrl.search
+		currentUrl.search !== nextUrl.search
 	) {
-		return defaultShouldRevalidate
+		return false
 	}
 
-	// URL changed — root loader data doesn't depend on URL or search params
-	return false
+	// Otherwise defer to the router. On an ordinary page-to-page navigation
+	// that's false (root data doesn't depend on the URL); it's true only for
+	// same-URL revalidation and forced revalidation.
+	return defaultShouldRevalidate
 }
 
 export const headers: Route.HeadersFunction = pipeHeaders

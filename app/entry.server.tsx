@@ -12,6 +12,7 @@ import {
 import { getEnv, init } from './utils/env.server.ts'
 import { getInstanceInfo } from './utils/litefs.server.ts'
 import { NonceProvider } from './utils/nonce-provider.ts'
+import { serializeError } from './utils/serialize-error.server.ts'
 import { makeTimings } from './utils/timing.server.ts'
 
 export const streamTimeout = 5000
@@ -36,10 +37,7 @@ export default async function handleRequest(...args: DocRequestArgs) {
 	const timings = makeTimings('render', 'renderToReadableStream')
 
 	const controller = new AbortController()
-	const abortTimer = setTimeout(
-		() => controller.abort(),
-		streamTimeout + 5000,
-	)
+	const abortTimer = setTimeout(() => controller.abort(), streamTimeout + 5000)
 
 	let didError = false
 
@@ -99,11 +97,7 @@ export default async function handleRequest(...args: DocRequestArgs) {
 					'font-src': ["'self'", 'https://fonts.gstatic.com'],
 					'frame-src': ["'self'"],
 					'img-src': ["'self'", 'data:'],
-					'script-src': [
-						"'strict-dynamic'",
-						"'self'",
-						`'nonce-${nonce}'`,
-					],
+					'script-src': ["'strict-dynamic'", "'self'", `'nonce-${nonce}'`],
 					'style-src': [
 						"'self'",
 						"'unsafe-inline'",
@@ -160,7 +154,7 @@ export function handleError(
 
 	void import('./utils/posthog.server.ts').then(({ captureServerEvent }) => {
 		captureServerEvent('server', 'server_error', {
-			error: error instanceof Error ? error.message : String(error),
+			error: serializeError(error),
 			stack: error instanceof Error ? error.stack : undefined,
 			url: request.url,
 		})

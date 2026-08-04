@@ -7,8 +7,9 @@ import { parseAmount, formatAmount, scaleAmount } from './fractions.ts'
 import { parseIngredient } from './ingredient-parser.ts'
 import { scaleUpMetric } from './metric-conversion.ts'
 import {
+	buildInventoryLookup,
 	getCanonicalIngredientName,
-	ingredientMatchesInventoryItem,
+	ingredientMatchesAnyInventoryItem,
 	isOptionalIngredient,
 	isStapleIngredient,
 } from './recipe-matching.server.ts'
@@ -263,6 +264,7 @@ export function annotateInventoryMatches(
 } {
 	let stapleCount = 0
 	const result: Array<ShoppingListItemInput & { inStock: boolean }> = []
+	const lookup = buildInventoryLookup(inventoryItems)
 
 	for (const item of items) {
 		// Still strip staples entirely — nobody needs "salt" on their list
@@ -271,8 +273,9 @@ export function annotateInventoryMatches(
 			continue
 		}
 
-		const hasInInventory = inventoryItems.some((inv) =>
-			ingredientMatchesInventoryItem({ name: item.name }, inv),
+		const hasInInventory = ingredientMatchesAnyInventoryItem(
+			{ name: item.name },
+			lookup,
 		)
 
 		result.push({ ...item, inStock: hasInInventory })

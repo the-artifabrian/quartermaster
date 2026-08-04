@@ -38,8 +38,10 @@ import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { parseTypedItem } from '#app/utils/parse-speech-item.ts'
 import {
+	buildInventoryLookup,
+	findInventoryMatch,
 	getCanonicalIngredientName,
-	ingredientMatchesInventoryItem,
+	ingredientMatchesAnyInventoryItem,
 } from '#app/utils/recipe-matching.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
@@ -119,9 +121,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const hasMealPlan = weeksWithPlans.length > 0
 
-	// Pro-only: review panel matching
-	let inventoryCanonicals = new Set<string>()
-	let itemCanonicals: Record<string, string> = {}
+	// Pro-only: review panel matching. Same fuzzy matcher that computes the
+	// rows' inStock flag — canonical-name equality here used to disagree with
+	// it on the same screen ("persian cucumber" struck through as usually on
+	// hand, then re-created next to "cucumber" in the pantry).
+	let alreadyStockedItemIds: string[] = []
 
 	if (isProActive) {
 		const allInventoryItems = await prisma.inventoryItem.findMany({
@@ -129,21 +133,19 @@ export async function loader({ request }: Route.LoaderArgs) {
 			select: { id: true, name: true },
 		})
 
-		// Canonical inventory lookup for review panel "already stocked" indicator
-		for (const inv of allInventoryItems) {
-			inventoryCanonicals.add(getCanonicalIngredientName(inv.name))
-		}
-		for (const item of shoppingList.items) {
-			itemCanonicals[item.id] = getCanonicalIngredientName(item.name)
-		}
+		const inventoryLookup = buildInventoryLookup(allInventoryItems)
+		alreadyStockedItemIds = shoppingList.items
+			.filter((item) =>
+				ingredientMatchesAnyInventoryItem({ name: item.name }, inventoryLookup),
+			)
+			.map((item) => item.id)
 	}
 
 	return {
 		shoppingList,
 		hasMealPlan,
 		weeksWithPlans,
-		inventoryCanonicals: Array.from(inventoryCanonicals),
-		itemCanonicals,
+		alreadyStockedItemIds,
 		isProActive,
 	}
 }
@@ -294,8 +296,9 @@ export async function action({ request }: Route.ActionArgs) {
 			const inventoryItems = await prisma.inventoryItem.findMany({
 				where: { householdId },
 			})
-			const inInventory = inventoryItems.find((inv) =>
-				ingredientMatchesInventoryItem({ name }, inv),
+			const inInventory = findInventoryMatch(
+				{ name },
+				buildInventoryLookup(inventoryItems),
 			)
 			if (inInventory) {
 				return {
@@ -557,11 +560,10 @@ export default function ShoppingListRoute({
 		shoppingList,
 		hasMealPlan,
 		weeksWithPlans,
-		inventoryCanonicals: inventoryCanonicalsList,
-		itemCanonicals,
+		alreadyStockedItemIds,
 		isProActive,
 	} = loaderData
-	const inventoryCanonicals = new Set(inventoryCanonicalsList)
+	const alreadyStockedIds = new Set(alreadyStockedItemIds)
 	const defaultWeek =
 		weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
 		weeksWithPlans[0]?.weekStart ??
@@ -977,8 +979,7 @@ export default function ShoppingListRoute({
 					<div className="mt-4">
 						<ShoppingListToInventory
 							items={checkedItemsList}
-							inventoryCanonicals={inventoryCanonicals}
-							itemCanonicals={itemCanonicals}
+							alreadyStockedIds={alreadyStockedIds}
 							onCancel={() => setShowReview(false)}
 						/>
 					</div>

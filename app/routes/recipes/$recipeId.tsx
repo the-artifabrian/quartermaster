@@ -44,7 +44,6 @@ import {
 	buildInventoryLookup,
 	getCanonicalIngredientName,
 	ingredientMatchesAnyInventoryItem,
-	ingredientMatchesInventoryItem,
 	isOptionalIngredient,
 	isStapleIngredient,
 	normalizeIngredientName,
@@ -308,8 +307,11 @@ export async function action({ request, params }: Route.ActionArgs) {
 		})
 		const shoppingList = {
 			...ensuredShoppingList,
+			// Dedup against all rows, checked or not — the generator's rule
+			// (shopping.tsx). Excluding checked rows put a second "butter" next
+			// to the one just checked off.
 			items: await prisma.shoppingListItem.findMany({
-				where: { listId: ensuredShoppingList.id, checked: false },
+				where: { listId: ensuredShoppingList.id },
 			}),
 		}
 
@@ -364,15 +366,16 @@ export async function action({ request, params }: Route.ActionArgs) {
 			unit: string | null
 		}> = []
 
+		const inventoryLookup = buildInventoryLookup(inventoryItems)
 		for (const ingredient of fullRecipe.ingredients) {
 			if (ingredient.isHeading) continue
 			if (isStapleIngredient(ingredient)) continue
 			if (isOptionalIngredient(ingredient)) continue
 
-			const inStock = inventoryItems.some((inv) =>
-				ingredientMatchesInventoryItem(ingredient, inv),
-			)
-			if (inStock) continue
+			// Same matcher the loader uses for missingIngredientIds — otherwise the
+			// page and the list it generates disagree about what's in the pantry.
+			if (ingredientMatchesAnyInventoryItem(ingredient, inventoryLookup))
+				continue
 
 			const amount = ingredient.amount
 				? scaleAmount(ingredient.amount, safeRatio, ingredient.unit)
@@ -392,8 +395,10 @@ export async function action({ request, params }: Route.ActionArgs) {
 		})
 		const shoppingList = {
 			...ensuredShoppingList,
+			// Dedup against all rows, checked or not — the generator's rule
+			// (shopping.tsx).
 			items: await prisma.shoppingListItem.findMany({
-				where: { listId: ensuredShoppingList.id, checked: false },
+				where: { listId: ensuredShoppingList.id },
 			}),
 		}
 

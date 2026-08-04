@@ -584,98 +584,6 @@ function isDifferentProtectedCompound(
 	)
 }
 
-/**
- * Check if an ingredient matches an inventory item using improved fuzzy matching
- */
-export function ingredientMatchesInventoryItem(
-	ingredient: Pick<Ingredient, 'name'>,
-	inventoryItem: Pick<InventoryItem, 'name'>,
-): boolean {
-	const normalizedIngredient = normalizeIngredientName(ingredient.name)
-	const normalizedInventory = normalizeIngredientName(inventoryItem.name)
-
-	// Exact match after normalization
-	if (normalizedIngredient === normalizedInventory) {
-		return true
-	}
-
-	// Check for synonyms
-	const synonymsForIngredient = INGREDIENT_SYNONYMS[normalizedIngredient] || []
-	const synonymsForInventory = INGREDIENT_SYNONYMS[normalizedInventory] || []
-
-	if (
-		synonymsForIngredient.includes(normalizedInventory) ||
-		synonymsForInventory.includes(normalizedIngredient)
-	) {
-		return true
-	}
-
-	// Get core ingredient words for both
-	const ingredientCore = getCoreIngredientWord(ingredient.name)
-	const inventoryCore = getCoreIngredientWord(inventoryItem.name)
-
-	// Match on core words, but exclude non-equivalent compounds,
-	// cut-sensitive proteins (chicken breast ≠ chicken thigh),
-	// and different protected compounds (red onion ≠ red lentil,
-	// green tea ≠ black tea, ground chicken ≠ ground nutmeg)
-	if (
-		ingredientCore === inventoryCore &&
-		!CUT_SENSITIVE_WORDS.has(ingredientCore) &&
-		!isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory) &&
-		!isDifferentProtectedCompound(normalizedIngredient, normalizedInventory)
-	) {
-		return true
-	}
-
-	// Check if one is a multi-word version of the other
-	// e.g., "butter" should match "unsalted butter" or "butter unsalted"
-	// e.g., "cucumber" should match "fabio cucumber" or "persian cucumber"
-	// But "rice" should NOT match "rice vinegar"
-	const ingredientWords = normalizedIngredient.split(' ')
-	const inventoryWords = normalizedInventory.split(' ')
-
-	// If the shorter name is just one word, check if it matches the first OR last word
-	// This handles both "unsalted butter" (match first) and "fabio cucumber" (match last)
-	// But skip non-equivalent compounds like "rice" vs "rice vinegar"
-	if (ingredientWords.length === 1 && inventoryWords.length > 1) {
-		if (isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory))
-			return false
-		if (CUT_SENSITIVE_WORDS.has(ingredientWords[0]!)) return false
-		const word = ingredientWords[0]
-		return (
-			inventoryWords[0] === word ||
-			inventoryWords[inventoryWords.length - 1] === word
-		)
-	}
-
-	if (inventoryWords.length === 1 && ingredientWords.length > 1) {
-		if (isNonEquivalentCompoundMatch(normalizedIngredient, normalizedInventory))
-			return false
-		if (CUT_SENSITIVE_WORDS.has(inventoryWords[0]!)) return false
-		const word = inventoryWords[0]
-		return (
-			ingredientWords[0] === word ||
-			ingredientWords[ingredientWords.length - 1] === word
-		)
-	}
-
-	// For multi-word matches, check if one contains all words of the other
-	if (ingredientWords.length > 1 && inventoryWords.length > 1) {
-		const allIngredientWordsInInventory = ingredientWords.every((word) =>
-			inventoryWords.includes(word),
-		)
-		const allInventoryWordsInIngredient = inventoryWords.every((word) =>
-			ingredientWords.includes(word),
-		)
-
-		if (allIngredientWordsInInventory || allInventoryWordsInIngredient) {
-			return true
-		}
-	}
-
-	return false
-}
-
 /** Minimal recipe shape needed for matching and display */
 export type MatchableRecipe = {
 	id: string
@@ -738,8 +646,8 @@ export function isOptionalIngredient(
 type InventoryLookup = {
 	/** Normalized inventory item names */
 	normalizedNames: Set<string>
-	/** All synonym expansions of inventory items */
-	synonymNames: Set<string>
+	/** Synonym expansion → the inventory item it expands from */
+	synonymToItem: Map<string, Pick<InventoryItem, 'name'>>
 	/** Core words from inventory items (for core-word matching) */
 	coreWords: Set<string>
 	/** Map from normalized name to item, for non-equivalent compound checks */
@@ -752,7 +660,7 @@ export function buildInventoryLookup(
 	items: Array<Pick<InventoryItem, 'name'>>,
 ): InventoryLookup {
 	const normalizedNames = new Set<string>()
-	const synonymNames = new Set<string>()
+	const synonymToItem = new Map<string, Pick<InventoryItem, 'name'>>()
 	const coreWords = new Set<string>()
 	const normalizedToItem = new Map<string, Pick<InventoryItem, 'name'>>()
 
@@ -765,7 +673,9 @@ export function buildInventoryLookup(
 		const synonyms = INGREDIENT_SYNONYMS[normalized]
 		if (synonyms) {
 			for (const syn of synonyms) {
-				synonymNames.add(syn)
+				if (!synonymToItem.has(syn)) {
+					synonymToItem.set(syn, item)
+				}
 			}
 		}
 
@@ -774,35 +684,47 @@ export function buildInventoryLookup(
 		coreWords.add(core)
 	}
 
-	return { normalizedNames, synonymNames, coreWords, normalizedToItem, items }
+	return { normalizedNames, synonymToItem, coreWords, normalizedToItem, items }
 }
 
 /**
- * Check if an ingredient matches ANY inventory item using the pre-built lookup.
+ * Find the inventory item an ingredient matches, or null.
+ *
+ * This is THE matcher — every notion of "is this in the pantry" (recipe match
+ * percentages, missing-ingredient lists, shopping-list annotation, the
+ * pantry-transfer dedup) must route through it, directly or via
+ * `ingredientMatchesAnyInventoryItem`. It used to have siblings — a pairwise
+ * copy that drifted (no protected-compound guard, so pantry "red wine" marked
+ * "red wine vinegar" as stocked) and canonical-name equality in the transfer
+ * path (which created "persian cucumber" next to "cucumber").
+ *
  * Uses O(1) set lookups for the common case, falls back to per-item comparison
  * only for multi-word containment matching.
  */
-export function ingredientMatchesAnyInventoryItem(
+export function findInventoryMatch(
 	ingredient: Pick<Ingredient, 'name'>,
 	lookup: InventoryLookup,
-): boolean {
+): Pick<InventoryItem, 'name'> | null {
 	const normalizedIngredient = normalizeIngredientName(ingredient.name)
 
-	// 1. Exact match after normalization — O(1) set lookup
-	if (lookup.normalizedNames.has(normalizedIngredient)) {
-		return true
+	// 1. Exact match after normalization — O(1) map lookup
+	const exact = lookup.normalizedToItem.get(normalizedIngredient)
+	if (exact) {
+		return exact
 	}
 
 	// 2. Synonym match — check if any inventory synonym matches the ingredient
 	const synonymsForIngredient = INGREDIENT_SYNONYMS[normalizedIngredient] || []
 	for (const syn of synonymsForIngredient) {
-		if (lookup.normalizedNames.has(syn)) {
-			return true
+		const viaSynonym = lookup.normalizedToItem.get(syn)
+		if (viaSynonym) {
+			return viaSynonym
 		}
 	}
 	// Check if the ingredient is a synonym of any inventory item
-	if (lookup.synonymNames.has(normalizedIngredient)) {
-		return true
+	const asSynonym = lookup.synonymToItem.get(normalizedIngredient)
+	if (asSynonym) {
+		return asSynonym
 	}
 
 	// 3. Core word match — O(1) set lookup
@@ -818,7 +740,7 @@ export function ingredientMatchesAnyInventoryItem(
 				!isNonEquivalentCompoundMatch(normalizedIngredient, invNorm) &&
 				!isDifferentProtectedCompound(normalizedIngredient, invNorm)
 			) {
-				return true
+				return invItem
 			}
 		}
 	}
@@ -841,7 +763,7 @@ export function ingredientMatchesAnyInventoryItem(
 				inventoryWords[0] === word ||
 				inventoryWords[inventoryWords.length - 1] === word
 			)
-				return true
+				return invItem
 		}
 
 		// Multi-word ingredient vs single inventory word
@@ -856,7 +778,7 @@ export function ingredientMatchesAnyInventoryItem(
 				ingredientWords[0] === word ||
 				ingredientWords[ingredientWords.length - 1] === word
 			)
-				return true
+				return invItem
 		}
 
 		// Multi-word vs multi-word containment
@@ -876,12 +798,23 @@ export function ingredientMatchesAnyInventoryItem(
 				) {
 					continue
 				}
-				return true
+				return invItem
 			}
 		}
 	}
 
-	return false
+	return null
+}
+
+/**
+ * Boolean form of `findInventoryMatch`, for callers that only need "is it in
+ * the pantry" — same lookup, same four levels, same verdicts.
+ */
+export function ingredientMatchesAnyInventoryItem(
+	ingredient: Pick<Ingredient, 'name'>,
+	lookup: InventoryLookup,
+): boolean {
+	return findInventoryMatch(ingredient, lookup) !== null
 }
 
 /**

@@ -1,7 +1,10 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
+import {
+	buildInventoryLookup,
+	findInventoryMatch,
+} from '#app/utils/recipe-matching.server.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/shopping-to-inventory.ts'
@@ -51,11 +54,15 @@ export async function action({ request }: Route.ActionArgs) {
 		(i) => itemMap.get(i.itemId)!.category === 'household',
 	)
 
-	// Load existing inventory for dedup
+	// Load existing inventory for dedup. Same fuzzy matcher that computed the
+	// review panel's "Already in Pantry" flag and the list's inStock strike —
+	// canonical-name equality here used to disagree with both and create
+	// "persian cucumber" as a new pantry row next to "cucumber".
 	const existingInventory = await prisma.inventoryItem.findMany({
 		where: { householdId },
 	})
-	const trackingItems = [...existingInventory]
+	const trackingItems: Array<{ name: string }> = [...existingInventory]
+	let lookup = buildInventoryLookup(trackingItems)
 
 	const creates: Array<Parameters<typeof prisma.inventoryItem.create>[0]> = []
 	let skippedCount = 0
@@ -63,7 +70,7 @@ export async function action({ request }: Route.ActionArgs) {
 	for (const item of foodItems) {
 		const shoppingItem = itemMap.get(item.itemId)!
 
-		const match = findMatchingInventoryItem(shoppingItem.name, trackingItems)
+		const match = findInventoryMatch({ name: shoppingItem.name }, lookup)
 
 		if (match) {
 			skippedCount++
@@ -76,15 +83,11 @@ export async function action({ request }: Route.ActionArgs) {
 					householdId,
 				},
 			})
-			// Add to tracking for intra-batch dedup
-			trackingItems.push({
-				id: `pending-${creates.length}`,
-				name: normalizedName,
-				userId,
-				householdId,
-				createdAt: new Date(),
-				updatedAt: new Date(),
-			} as (typeof existingInventory)[number])
+			// Rebuild the lookup so the rest of the batch dedups against this
+			// pending create too — batches are a shopping trip's checked items,
+			// so the rebuild cost is trivial.
+			trackingItems.push({ name: normalizedName })
+			lookup = buildInventoryLookup(trackingItems)
 		}
 	}
 

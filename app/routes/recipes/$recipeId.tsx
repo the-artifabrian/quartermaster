@@ -307,8 +307,11 @@ export async function action({ request, params }: Route.ActionArgs) {
 		})
 		const shoppingList = {
 			...ensuredShoppingList,
+			// Dedup against all rows, checked or not — the generator's rule
+			// (shopping.tsx). Excluding checked rows put a second "butter" next
+			// to the one just checked off.
 			items: await prisma.shoppingListItem.findMany({
-				where: { listId: ensuredShoppingList.id, checked: false },
+				where: { listId: ensuredShoppingList.id },
 			}),
 		}
 
@@ -392,8 +395,10 @@ export async function action({ request, params }: Route.ActionArgs) {
 		})
 		const shoppingList = {
 			...ensuredShoppingList,
+			// Dedup against all rows, checked or not — the generator's rule
+			// (shopping.tsx).
 			items: await prisma.shoppingListItem.findMany({
-				where: { listId: ensuredShoppingList.id, checked: false },
+				where: { listId: ensuredShoppingList.id },
 			}),
 		}
 

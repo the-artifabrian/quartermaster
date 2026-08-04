@@ -646,8 +646,8 @@ export function isOptionalIngredient(
 type InventoryLookup = {
 	/** Normalized inventory item names */
 	normalizedNames: Set<string>
-	/** All synonym expansions of inventory items */
-	synonymNames: Set<string>
+	/** Synonym expansion → the inventory item it expands from */
+	synonymToItem: Map<string, Pick<InventoryItem, 'name'>>
 	/** Core words from inventory items (for core-word matching) */
 	coreWords: Set<string>
 	/** Map from normalized name to item, for non-equivalent compound checks */
@@ -660,7 +660,7 @@ export function buildInventoryLookup(
 	items: Array<Pick<InventoryItem, 'name'>>,
 ): InventoryLookup {
 	const normalizedNames = new Set<string>()
-	const synonymNames = new Set<string>()
+	const synonymToItem = new Map<string, Pick<InventoryItem, 'name'>>()
 	const coreWords = new Set<string>()
 	const normalizedToItem = new Map<string, Pick<InventoryItem, 'name'>>()
 
@@ -673,7 +673,9 @@ export function buildInventoryLookup(
 		const synonyms = INGREDIENT_SYNONYMS[normalized]
 		if (synonyms) {
 			for (const syn of synonyms) {
-				synonymNames.add(syn)
+				if (!synonymToItem.has(syn)) {
+					synonymToItem.set(syn, item)
+				}
 			}
 		}
 
@@ -682,35 +684,47 @@ export function buildInventoryLookup(
 		coreWords.add(core)
 	}
 
-	return { normalizedNames, synonymNames, coreWords, normalizedToItem, items }
+	return { normalizedNames, synonymToItem, coreWords, normalizedToItem, items }
 }
 
 /**
- * Check if an ingredient matches ANY inventory item using the pre-built lookup.
+ * Find the inventory item an ingredient matches, or null.
+ *
+ * This is THE matcher — every notion of "is this in the pantry" (recipe match
+ * percentages, missing-ingredient lists, shopping-list annotation, the
+ * pantry-transfer dedup) must route through it, directly or via
+ * `ingredientMatchesAnyInventoryItem`. It used to have siblings — a pairwise
+ * copy that drifted (no protected-compound guard, so pantry "red wine" marked
+ * "red wine vinegar" as stocked) and canonical-name equality in the transfer
+ * path (which created "persian cucumber" next to "cucumber").
+ *
  * Uses O(1) set lookups for the common case, falls back to per-item comparison
  * only for multi-word containment matching.
  */
-export function ingredientMatchesAnyInventoryItem(
+export function findInventoryMatch(
 	ingredient: Pick<Ingredient, 'name'>,
 	lookup: InventoryLookup,
-): boolean {
+): Pick<InventoryItem, 'name'> | null {
 	const normalizedIngredient = normalizeIngredientName(ingredient.name)
 
-	// 1. Exact match after normalization — O(1) set lookup
-	if (lookup.normalizedNames.has(normalizedIngredient)) {
-		return true
+	// 1. Exact match after normalization — O(1) map lookup
+	const exact = lookup.normalizedToItem.get(normalizedIngredient)
+	if (exact) {
+		return exact
 	}
 
 	// 2. Synonym match — check if any inventory synonym matches the ingredient
 	const synonymsForIngredient = INGREDIENT_SYNONYMS[normalizedIngredient] || []
 	for (const syn of synonymsForIngredient) {
-		if (lookup.normalizedNames.has(syn)) {
-			return true
+		const viaSynonym = lookup.normalizedToItem.get(syn)
+		if (viaSynonym) {
+			return viaSynonym
 		}
 	}
 	// Check if the ingredient is a synonym of any inventory item
-	if (lookup.synonymNames.has(normalizedIngredient)) {
-		return true
+	const asSynonym = lookup.synonymToItem.get(normalizedIngredient)
+	if (asSynonym) {
+		return asSynonym
 	}
 
 	// 3. Core word match — O(1) set lookup
@@ -726,7 +740,7 @@ export function ingredientMatchesAnyInventoryItem(
 				!isNonEquivalentCompoundMatch(normalizedIngredient, invNorm) &&
 				!isDifferentProtectedCompound(normalizedIngredient, invNorm)
 			) {
-				return true
+				return invItem
 			}
 		}
 	}
@@ -749,7 +763,7 @@ export function ingredientMatchesAnyInventoryItem(
 				inventoryWords[0] === word ||
 				inventoryWords[inventoryWords.length - 1] === word
 			)
-				return true
+				return invItem
 		}
 
 		// Multi-word ingredient vs single inventory word
@@ -764,7 +778,7 @@ export function ingredientMatchesAnyInventoryItem(
 				ingredientWords[0] === word ||
 				ingredientWords[ingredientWords.length - 1] === word
 			)
-				return true
+				return invItem
 		}
 
 		// Multi-word vs multi-word containment
@@ -784,35 +798,23 @@ export function ingredientMatchesAnyInventoryItem(
 				) {
 					continue
 				}
-				return true
+				return invItem
 			}
 		}
 	}
 
-	return false
+	return null
 }
 
 /**
- * Check whether an ingredient matches a single inventory item.
- *
- * Delegates to `ingredientMatchesAnyInventoryItem` so one implementation
- * defines matching semantics. This used to be a second copy of the four-level
- * matcher and drifted from it: it lacked the protected-compound guard on
- * containment, so a pantry holding "red wine" reported "red wine vinegar" as in
- * stock while the recipe page said it was missing.
- *
- * Checking against a whole pantry? Build the lookup once and call
- * `ingredientMatchesAnyInventoryItem` — this wrapper builds a one-item lookup
- * per call and is for the rare case where you need the matching item itself.
+ * Boolean form of `findInventoryMatch`, for callers that only need "is it in
+ * the pantry" — same lookup, same four levels, same verdicts.
  */
-export function ingredientMatchesInventoryItem(
+export function ingredientMatchesAnyInventoryItem(
 	ingredient: Pick<Ingredient, 'name'>,
-	inventoryItem: Pick<InventoryItem, 'name'>,
+	lookup: InventoryLookup,
 ): boolean {
-	return ingredientMatchesAnyInventoryItem(
-		ingredient,
-		buildInventoryLookup([inventoryItem]),
-	)
+	return findInventoryMatch(ingredient, lookup) !== null
 }
 
 /**

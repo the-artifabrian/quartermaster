@@ -15,13 +15,16 @@ type InventoryReviewItem = {
 
 export function ShoppingListToInventory({
 	items,
-	inventoryCanonicals,
-	itemCanonicals,
+	alreadyStockedIds,
 	onCancel,
 }: {
 	items: ShoppingListItem[]
-	inventoryCanonicals: Set<string>
-	itemCanonicals: Record<string, string>
+	/**
+	 * Item ids the loader matched against the pantry with the same fuzzy
+	 * matcher that computes the list's inStock flag — this panel must agree
+	 * with the rest of the screen about what's already stocked.
+	 */
+	alreadyStockedIds: Set<string>
 	onCancel: () => void
 }) {
 	const fetcher = useFetcher()
@@ -33,10 +36,7 @@ export function ShoppingListToInventory({
 
 	const [reviewItems, setReviewItems] = useState<InventoryReviewItem[]>(() =>
 		foodItems.map((item) => {
-			const canonical = itemCanonicals[item.id]
-			const alreadyStocked = canonical
-				? inventoryCanonicals.has(canonical)
-				: false
+			const alreadyStocked = alreadyStockedIds.has(item.id)
 			return {
 				id: item.id,
 				name: item.name,

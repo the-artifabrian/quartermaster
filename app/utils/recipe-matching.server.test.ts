@@ -3,8 +3,8 @@ import {
 	normalizeIngredientName,
 	getCanonicalIngredientName,
 	buildInventoryLookup,
+	findInventoryMatch,
 	ingredientMatchesAnyInventoryItem,
-	ingredientMatchesInventoryItem,
 	isOptionalIngredient,
 	isStapleIngredient,
 	matchRecipesWithInventory,
@@ -230,11 +230,11 @@ describe('getCanonicalIngredientName', () => {
 	})
 })
 
-describe('ingredientMatchesInventoryItem', () => {
+describe('single-item pantry verdicts', () => {
 	const match = (ingredientName: string, inventoryName: string) =>
-		ingredientMatchesInventoryItem(
+		ingredientMatchesAnyInventoryItem(
 			{ name: ingredientName },
-			{ name: inventoryName },
+			buildInventoryLookup([{ name: inventoryName }]),
 		)
 
 	test('exact match after normalization', () => {
@@ -561,101 +561,86 @@ describe('matchRecipesWithInventory', () => {
 	})
 })
 
-describe('matcher entry points agree', () => {
+describe('whole-pantry verdicts', () => {
 	/**
-	 * Names chosen to exercise every level of the matcher: protected compounds
-	 * that share a word ("red wine" / "red wine vinegar", "red onion" / "red
-	 * lentil"), cut-sensitive proteins, non-equivalent compounds, synonyms, and
-	 * plain containment ("butter" / "unsalted butter").
+	 * The ingredients are deliberately DISJOINT from the pantry, so no verdict
+	 * can be earned by a level-1 self-match: every row exercises synonyms,
+	 * core words or containment against a multi-item pantry, including the
+	 * level interleaving the lookup does (an ingredient must fail levels 1-3
+	 * against every pantry item before any item's level 4 runs).
+	 *
+	 * Expected verdicts are stated by hand — if one of these flips, matching
+	 * semantics changed.
 	 */
-	const CORPUS = [
+	const pantry = [
 		'red wine',
-		'red wine vinegar',
-		'white wine',
-		'white wine vinegar',
-		'rice',
-		'rice vinegar',
-		'rice wine',
-		'red onion',
-		'red lentil',
-		'green onion',
-		'scallion',
-		'green tea',
-		'black tea',
-		'chicken',
-		'chicken breast',
-		'chicken thigh',
-		'ground chicken',
-		'ground turkey',
-		'ground nutmeg',
-		'beef',
-		'beef chuck',
-		'salmon',
-		'butter',
-		'unsalted butter',
-		'peanut butter',
-		'almond butter',
-		'coconut',
-		'coconut milk',
-		'coconut oil',
-		'soy',
-		'soy sauce',
-		'tamari',
-		'tomato',
-		'tomato paste',
-		'cilantro',
-		'coriander',
 		'cucumber',
-		'persian cucumber',
-		'sesame',
-		'sesame oil',
-		'carrots',
-		'broccoli',
+		'butter',
+		'coriander',
+		'chicken',
+		'rice vinegar',
+		'tomato paste',
+		'green onion',
+		'ground chicken',
+	].map((name) => ({ name }))
+	const lookup = buildInventoryLookup(pantry)
+
+	const CASES: Array<[ingredient: string, stocked: boolean]> = [
+		// Protected compounds are not stocked by their bare relatives.
+		['red wine vinegar', false],
+		['white wine vinegar', false],
+		// Containment (first/last word), both directions.
+		['persian cucumber', true],
+		['unsalted butter', true],
+		// Synonyms, both directions.
+		['cilantro', true],
+		['scallion', true],
+		['chicken breast', true],
+		['chicken thigh', true],
+		// Non-equivalent compounds don't leak back to their base word.
+		['rice', false],
+		['tomato', false],
+		// Cut-sensitive ground proteins don't cross species.
+		['ground turkey', false],
+		['ground beef', false],
+		// Unrelated.
+		['flour', false],
 	]
 
-	test('pairwise and lookup verdicts are identical across the corpus', () => {
-		const disagreements: string[] = []
-		for (const ingredientName of CORPUS) {
-			for (const inventoryName of CORPUS) {
-				const pairwise = ingredientMatchesInventoryItem(
-					{ name: ingredientName },
-					{ name: inventoryName },
-				)
-				const viaLookup = ingredientMatchesAnyInventoryItem(
-					{ name: ingredientName },
-					buildInventoryLookup([{ name: inventoryName }]),
-				)
-				if (pairwise !== viaLookup) {
-					disagreements.push(
-						`${ingredientName} ↔ ${inventoryName}: pairwise=${pairwise} lookup=${viaLookup}`,
-					)
-				}
-			}
-		}
-		expect(disagreements).toEqual([])
+	for (const [ingredient, stocked] of CASES) {
+		test(`${ingredient} is ${stocked ? 'stocked' : 'missing'}`, () => {
+			expect(
+				ingredientMatchesAnyInventoryItem({ name: ingredient }, lookup),
+			).toBe(stocked)
+		})
+	}
+
+	test('findInventoryMatch names the pantry item that matched', () => {
+		expect(findInventoryMatch({ name: 'persian cucumber' }, lookup)?.name).toBe(
+			'cucumber',
+		)
+		expect(findInventoryMatch({ name: 'unsalted butter' }, lookup)?.name).toBe(
+			'butter',
+		)
+		expect(findInventoryMatch({ name: 'cilantro' }, lookup)?.name).toBe(
+			'coriander',
+		)
+		expect(findInventoryMatch({ name: 'scallion' }, lookup)?.name).toBe(
+			'green onion',
+		)
+		expect(findInventoryMatch({ name: 'chicken breast' }, lookup)?.name).toBe(
+			'chicken',
+		)
+		expect(findInventoryMatch({ name: 'red wine vinegar' }, lookup)).toBeNull()
+		expect(findInventoryMatch({ name: 'flour' }, lookup)).toBeNull()
 	})
 
-	test('scanning a whole pantry agrees with the lookup over that pantry', () => {
-		// The lookup checks every name at level 1 before any name reaches level 4,
-		// so a multi-item pantry could in principle disagree with a per-item scan.
-		const pantry = CORPUS.map((name) => ({ name }))
-		const lookup = buildInventoryLookup(pantry)
-		const disagreements: string[] = []
-		for (const ingredientName of CORPUS) {
-			const byScan = pantry.some((item) =>
-				ingredientMatchesInventoryItem({ name: ingredientName }, item),
-			)
-			const byLookup = ingredientMatchesAnyInventoryItem(
-				{ name: ingredientName },
-				lookup,
-			)
-			if (byScan !== byLookup) {
-				disagreements.push(
-					`${ingredientName}: scan=${byScan} lookup=${byLookup}`,
-				)
-			}
+	test('the boolean form agrees with the item form', () => {
+		for (const [ingredient] of CASES) {
+			expect(
+				ingredientMatchesAnyInventoryItem({ name: ingredient }, lookup),
+			).toBe(findInventoryMatch({ name: ingredient }, lookup) !== null)
 		}
-		expect(disagreements).toEqual([])
 	})
 
 	test('a protected compound is not stocked by its bare relative', () => {
@@ -667,17 +652,12 @@ describe('matcher entry points agree', () => {
 			['ground turkey', 'ground chicken'],
 		]
 		for (const [ingredient, pantryItem] of cases) {
-			const lookup = buildInventoryLookup([{ name: pantryItem }])
 			expect(
-				ingredientMatchesAnyInventoryItem({ name: ingredient }, lookup),
-				`${ingredient} should not be stocked by ${pantryItem}`,
-			).toBe(false)
-			expect(
-				ingredientMatchesInventoryItem(
+				ingredientMatchesAnyInventoryItem(
 					{ name: ingredient },
-					{ name: pantryItem },
+					buildInventoryLookup([{ name: pantryItem }]),
 				),
-				`${ingredient} should not be stocked by ${pantryItem} (pairwise)`,
+				`${ingredient} should not be stocked by ${pantryItem}`,
 			).toBe(false)
 		}
 	})

@@ -29,6 +29,14 @@ lease:
     key: 'epic-stack-litefs_20250222/${FLY_APP_NAME}'
 
 exec:
+  # Validate the environment before anything mutates state. The app's init()
+  # would catch the same problems, but only after the migration and seed below
+  # have already changed the schema — and with auto_rollback disabled, a
+  # machine that migrated and then refused to boot has no automatic way back.
+  # A missing production secret should fail the deploy here, pre-migration.
+  - cmd: bun /myapp/scripts/validate-env.ts
+    if-candidate: true
+
   # Snapshot the database before migrations touch it. Migrations run against
   # the live file with auto_rollback disabled (see fly.toml), and some in
   # history are destructive, so this dump is the only way back from a bad one.

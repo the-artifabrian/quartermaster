@@ -2,7 +2,9 @@ import { describe, expect, test } from 'vitest'
 import {
 	normalizeIngredientName,
 	getCanonicalIngredientName,
-	ingredientMatchesInventoryItem,
+	buildInventoryLookup,
+	findInventoryMatch,
+	ingredientMatchesAnyInventoryItem,
 	isOptionalIngredient,
 	isStapleIngredient,
 	matchRecipesWithInventory,
@@ -228,11 +230,11 @@ describe('getCanonicalIngredientName', () => {
 	})
 })
 
-describe('ingredientMatchesInventoryItem', () => {
+describe('single-item pantry verdicts', () => {
 	const match = (ingredientName: string, inventoryName: string) =>
-		ingredientMatchesInventoryItem(
+		ingredientMatchesAnyInventoryItem(
 			{ name: ingredientName },
-			{ name: inventoryName },
+			buildInventoryLookup([{ name: inventoryName }]),
 		)
 
 	test('exact match after normalization', () => {
@@ -556,5 +558,107 @@ describe('matchRecipesWithInventory', () => {
 		expect(results[0]!.matchedIngredientsCount).toBe(2)
 		expect(results[0]!.matchPercentage).toBe(100)
 		expect(results[0]!.canMake).toBe(true)
+	})
+})
+
+describe('whole-pantry verdicts', () => {
+	/**
+	 * The ingredients are deliberately DISJOINT from the pantry, so no verdict
+	 * can be earned by a level-1 self-match: every row exercises synonyms,
+	 * core words or containment against a multi-item pantry, including the
+	 * level interleaving the lookup does (an ingredient must fail levels 1-3
+	 * against every pantry item before any item's level 4 runs).
+	 *
+	 * Expected verdicts are stated by hand — if one of these flips, matching
+	 * semantics changed.
+	 */
+	const pantry = [
+		'red wine',
+		'cucumber',
+		'butter',
+		'coriander',
+		'chicken',
+		'rice vinegar',
+		'tomato paste',
+		'green onion',
+		'ground chicken',
+	].map((name) => ({ name }))
+	const lookup = buildInventoryLookup(pantry)
+
+	const CASES: Array<[ingredient: string, stocked: boolean]> = [
+		// Protected compounds are not stocked by their bare relatives.
+		['red wine vinegar', false],
+		['white wine vinegar', false],
+		// Containment (first/last word), both directions.
+		['persian cucumber', true],
+		['unsalted butter', true],
+		// Synonyms, both directions.
+		['cilantro', true],
+		['scallion', true],
+		['chicken breast', true],
+		['chicken thigh', true],
+		// Non-equivalent compounds don't leak back to their base word.
+		['rice', false],
+		['tomato', false],
+		// Cut-sensitive ground proteins don't cross species.
+		['ground turkey', false],
+		['ground beef', false],
+		// Unrelated.
+		['flour', false],
+	]
+
+	for (const [ingredient, stocked] of CASES) {
+		test(`${ingredient} is ${stocked ? 'stocked' : 'missing'}`, () => {
+			expect(
+				ingredientMatchesAnyInventoryItem({ name: ingredient }, lookup),
+			).toBe(stocked)
+		})
+	}
+
+	test('findInventoryMatch names the pantry item that matched', () => {
+		expect(findInventoryMatch({ name: 'persian cucumber' }, lookup)?.name).toBe(
+			'cucumber',
+		)
+		expect(findInventoryMatch({ name: 'unsalted butter' }, lookup)?.name).toBe(
+			'butter',
+		)
+		expect(findInventoryMatch({ name: 'cilantro' }, lookup)?.name).toBe(
+			'coriander',
+		)
+		expect(findInventoryMatch({ name: 'scallion' }, lookup)?.name).toBe(
+			'green onion',
+		)
+		expect(findInventoryMatch({ name: 'chicken breast' }, lookup)?.name).toBe(
+			'chicken',
+		)
+		expect(findInventoryMatch({ name: 'red wine vinegar' }, lookup)).toBeNull()
+		expect(findInventoryMatch({ name: 'flour' }, lookup)).toBeNull()
+	})
+
+	test('the boolean form agrees with the item form', () => {
+		for (const [ingredient] of CASES) {
+			expect(
+				ingredientMatchesAnyInventoryItem({ name: ingredient }, lookup),
+			).toBe(findInventoryMatch({ name: ingredient }, lookup) !== null)
+		}
+	})
+
+	test('a protected compound is not stocked by its bare relative', () => {
+		const cases: Array<[string, string]> = [
+			['red wine vinegar', 'red wine'],
+			['white wine vinegar', 'white wine'],
+			['red lentil', 'red onion'],
+			['green tea', 'black tea'],
+			['ground turkey', 'ground chicken'],
+		]
+		for (const [ingredient, pantryItem] of cases) {
+			expect(
+				ingredientMatchesAnyInventoryItem(
+					{ name: ingredient },
+					buildInventoryLookup([{ name: pantryItem }]),
+				),
+				`${ingredient} should not be stocked by ${pantryItem}`,
+			).toBe(false)
+		}
 	})
 })

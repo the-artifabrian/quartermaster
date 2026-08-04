@@ -41,6 +41,7 @@ import { getUserTier, type TierInfo } from './utils/subscription.server.ts'
 import { type Theme, getTheme } from './utils/theme.server.ts'
 import { TimerProvider } from './utils/timer-context.tsx'
 import { makeTimings, time } from './utils/timing.server.ts'
+import { hasPendingToastCookie } from './utils/toast-pending.ts'
 import { getToast } from './utils/toast.server.ts'
 import { useOptionalUser } from './utils/user.ts'
 
@@ -123,6 +124,18 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
 	]
 }
 
+const DEFAULT_TIER_INFO: TierInfo = {
+	tier: 'free',
+	isProActive: false,
+	isTrialing: false,
+	trialEndsAt: null,
+	subscriptionExpiresAt: null,
+	hasStripeSubscription: false,
+	proExpiresAt: null,
+	daysUntilExpiry: null,
+	wasProPreviously: false,
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
 	const timings = makeTimings('root loader')
 	const userId = await time(() => getUserId(request), {
@@ -131,28 +144,43 @@ export async function loader({ request }: Route.LoaderArgs) {
 		desc: 'getUserId in root',
 	})
 
-	const user = userId
-		? await time(
-				() =>
-					prisma.user.findUnique({
-						select: {
-							id: true,
-							name: true,
-							username: true,
-							roles: {
-								select: {
-									name: true,
-									permissions: {
-										select: { entity: true, action: true, access: true },
+	// These four lookups are independent of each other — run them
+	// concurrently. This loader runs on every forced revalidation, so its
+	// latency is navigation latency.
+	const [user, tierInfo, member, toastResult] = await Promise.all([
+		userId
+			? time(
+					() =>
+						prisma.user.findUnique({
+							select: {
+								id: true,
+								name: true,
+								username: true,
+								roles: {
+									select: {
+										name: true,
+										permissions: {
+											select: { entity: true, action: true, access: true },
+										},
 									},
 								},
 							},
-						},
-						where: { id: userId },
-					}),
-				{ timings, type: 'find user', desc: 'find user in root' },
-			)
-		: null
+							where: { id: userId },
+						}),
+					{ timings, type: 'find user', desc: 'find user in root' },
+				)
+			: null,
+		userId ? getUserTier(userId) : DEFAULT_TIER_INFO,
+		userId
+			? prisma.householdMember.findFirst({
+					where: { userId },
+					select: {
+						household: { select: { id: true, name: true } },
+					},
+				})
+			: null,
+		getToast(request),
+	])
 	if (userId && !user) {
 		console.info('something weird happened')
 		// something weird happened... The user is authenticated but we can't find
@@ -160,34 +188,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 		await logout({ request, redirectTo: '/' })
 	}
 
-	let tierInfo: TierInfo = {
-		tier: 'free',
-		isProActive: false,
-		isTrialing: false,
-		trialEndsAt: null,
-		subscriptionExpiresAt: null,
-		hasStripeSubscription: false,
-		proExpiresAt: null,
-		daysUntilExpiry: null,
-		wasProPreviously: false,
-	}
-	let householdId: string | null = null
-	let householdName: string | null = null
-	if (userId) {
-		tierInfo = await getUserTier(userId)
-		const member = await prisma.householdMember.findFirst({
-			where: { userId },
-			select: {
-				household: { select: { id: true, name: true } },
-			},
-		})
-		if (member) {
-			householdId = member.household.id
-			householdName = member.household.name
-		}
-	}
-
-	const { toast, headers: toastHeaders } = await getToast(request)
+	const householdId = member?.household.id ?? null
+	const householdName = member?.household.name ?? null
+	const { toast, headers: toastHeaders } = toastResult
 	return data(
 		{
 			user,
@@ -220,37 +223,39 @@ export async function loader({ request }: Route.LoaderArgs) {
  * notification count (tracked client-side via SSE).
  *
  * Revalidate when:
- * - After form submissions (toasts, state changes)
- * - Explicit revalidation (useRevalidator — e.g., OS color scheme change)
- * - Same-URL revalidation (defaultShouldRevalidate handles this)
- * - The router forces it, which is how a loader-thrown `redirectWithToast`
- *   gets its toast rendered: the redirect's Set-Cookie makes the server mark
- *   the redirect `revalidate`, the client replays it as X-Remix-Revalidate,
- *   and `defaultShouldRevalidate` comes back true. Returning false here would
- *   leave the flash cookie in place to pop at some unrelated later moment.
+ * - A flash toast is pending (the `en_toast_pending` marker cookie set by
+ *   `createToastHeaders`): the next root-loader run renders and clears it.
+ *   This is an explicit signal, not an inference from URL shape — a
+ *   `redirectWithToast` that keeps the pathname and only changes the search
+ *   (e.g. /upgrade?session_id=… → /upgrade) still delivers its toast.
+ * - The router says so (`defaultShouldRevalidate`): same-URL revalidation,
+ *   forced revalidation (Set-Cookie redirects replayed as X-Remix-Revalidate,
+ *   useRevalidator), and successful form submissions.
  *
  * Skip when:
- * - Navigating between pages (root data doesn't depend on URL/params)
- * - Search params change on a child route
+ * - Search params change on the same page (filters, pagination) — root data
+ *   doesn't depend on them.
+ * - The router says so: ordinary page-to-page navigations, and after a failed
+ *   (4xx) action, where the router deliberately skips revalidation — the old
+ *   unconditional `if (formAction) return true` overrode that and re-ran the
+ *   root queries on every validation error.
  */
 export function shouldRevalidate({
 	defaultShouldRevalidate,
-	formAction,
 	currentUrl,
 	nextUrl,
 }: {
 	defaultShouldRevalidate: boolean
-	formAction?: string
 	currentUrl: URL
 	nextUrl: URL
 }) {
-	// Always revalidate after form submissions (actions)
-	if (formAction) return true
+	// A toast is waiting — never skip, whatever shape the navigation takes.
+	if (hasPendingToastCookie()) return true
 
 	// Search params changed on the same page (filters, pagination) — root data
 	// doesn't depend on them, so skip even though the router defaults to true.
-	// Loader redirects always land on a different pathname, so this can't
-	// swallow one.
+	// A pending toast can't be stranded here: it would have hit the marker
+	// check above.
 	if (
 		currentUrl.pathname === nextUrl.pathname &&
 		currentUrl.search !== nextUrl.search
@@ -259,8 +264,9 @@ export function shouldRevalidate({
 	}
 
 	// Otherwise defer to the router. On an ordinary page-to-page navigation
-	// that's false (root data doesn't depend on the URL); it's true only for
-	// same-URL revalidation and forced revalidation.
+	// that's false (root data doesn't depend on the URL); it's true for
+	// same-URL revalidation, forced revalidation and successful submissions,
+	// and false after failed (4xx) actions.
 	return defaultShouldRevalidate
 }
 

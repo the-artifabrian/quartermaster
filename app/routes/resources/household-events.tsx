@@ -1,4 +1,5 @@
 import { runInBackground } from '#app/utils/background.server.ts'
+import { registerEventStream } from '#app/utils/event-streams.server.ts'
 import {
 	householdEventBus,
 	pruneOldEvents,
@@ -17,6 +18,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	runInBackground(pruneOldEvents(), 'pruning old household events')
 
 	let cleanup = () => {}
+	let unregisterShutdown = () => false
 
 	const stream = new ReadableStream({
 		start(controller) {
@@ -28,6 +30,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			cleanup = () => {
 				if (closed) return
 				closed = true
+				unregisterShutdown()
 				clearInterval(keepalive)
 				householdEventBus.off(`household:${householdId}`, onEvent)
 				// Sever the signal → closure edge too: the adapter can retain the
@@ -40,7 +43,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 					// Already closed
 				}
 			}
-
 			function send(data: string) {
 				if (closed) return
 				try {
@@ -84,6 +86,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 			// Clean up on disconnect
 			request.signal.addEventListener('abort', cleanup)
+
+			// Register last: shutdown may already be in progress, in which case the
+			// registry invokes cleanup immediately. All resources must exist first.
+			unregisterShutdown = registerEventStream(cleanup)
 		},
 		cancel() {
 			cleanup()

@@ -2,6 +2,7 @@ import { RouterContextProvider } from 'react-router'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { closeEventStreams } from '#app/utils/event-streams.server.ts'
 import * as householdEvents from '#app/utils/household-events.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
@@ -150,5 +151,29 @@ describe('household-events SSE loader', () => {
 		await reader.read() // keepalive from the t=300s tick
 		const { done } = await reader.read()
 		expect(done).toBe(true)
+	})
+
+	// The registry intentionally remains closed once shutdown begins, so this
+	// process-terminal behavior belongs last in the file.
+	test('closes the stream when the server begins shutting down', async () => {
+		vi.useFakeTimers()
+		const { response, householdId } = await makeStream()
+		const reader = response.body!.getReader()
+		await reader.read()
+		expect(busListeners(householdId)).toBe(1)
+
+		closeEventStreams()
+
+		expect(busListeners(householdId)).toBe(0)
+		expect(await reader.read()).toEqual({ done: true, value: undefined })
+
+		const lateStream = await makeStream()
+		const lateReader = lateStream.response.body!.getReader()
+		expect(busListeners(lateStream.householdId)).toBe(0)
+		expect(new TextDecoder().decode((await lateReader.read()).value)).toContain(
+			'event: connected',
+		)
+		expect(await lateReader.read()).toEqual({ done: true, value: undefined })
+		expect(vi.getTimerCount()).toBe(0)
 	})
 })

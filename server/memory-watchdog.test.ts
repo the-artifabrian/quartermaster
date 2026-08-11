@@ -180,4 +180,46 @@ describe('startMemoryWatchdog', () => {
 		await vi.advanceTimersByTimeAsync(5 * 30_000)
 		expect(fatal).toHaveBeenCalledTimes(1)
 	})
+
+	test('flushes telemetry before the fatal path exits', async () => {
+		vi.useFakeTimers()
+		vi.spyOn(console, 'log').mockImplementation(() => {})
+		vi.spyOn(console, 'warn').mockImplementation(() => {})
+		vi.spyOn(console, 'error').mockImplementation(() => {})
+		const flushTelemetry = vi.fn().mockResolvedValue(undefined)
+		const exit = vi.fn()
+
+		startMemoryWatchdog({
+			readSample: () => BREACHING,
+			flushTelemetry,
+			exit,
+		})
+		await vi.advanceTimersByTimeAsync(13 * 30_000)
+
+		expect(flushTelemetry).toHaveBeenCalledOnce()
+		expect(exit).toHaveBeenCalledWith(1)
+		expect(flushTelemetry.mock.invocationCallOrder[0]).toBeLessThan(
+			exit.mock.invocationCallOrder[0]!,
+		)
+	})
+
+	test('still exits when the fatal-path telemetry flush fails', async () => {
+		vi.useFakeTimers()
+		vi.spyOn(console, 'log').mockImplementation(() => {})
+		vi.spyOn(console, 'warn').mockImplementation(() => {})
+		vi.spyOn(console, 'error').mockImplementation(() => {})
+		const flushError = new Error('flush failed')
+		const flushTelemetry = vi.fn().mockRejectedValue(flushError)
+		const exit = vi.fn()
+
+		startMemoryWatchdog({
+			readSample: () => BREACHING,
+			flushTelemetry,
+			exit,
+		})
+		await vi.advanceTimersByTimeAsync(13 * 30_000)
+
+		expect(flushTelemetry).toHaveBeenCalledOnce()
+		expect(exit).toHaveBeenCalledWith(1)
+	})
 })

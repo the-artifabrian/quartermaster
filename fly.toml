@@ -58,12 +58,16 @@ script_checks = [ ]
   port = 443
 
   [[services.tcp_checks]]
+  # Listener/process liveness. The HTTP check below verifies the persistent
+  # resources the process needs without rendering an application document.
   grace_period = "1s"
   interval = "15s"
   restart_limit = 0
   timeout = "2s"
 
   [[services.http_checks]]
+  # Keep this on the lightweight resource route. External uptime monitors
+  # should use this route as well rather than probing the SSR homepage.
   interval = "10s"
   grace_period = "5s"
   method = "get"

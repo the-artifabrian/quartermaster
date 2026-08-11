@@ -37,9 +37,9 @@ app.use((req, res, next) => {
 })
 
 // SSR requests grow the JSC heap ~1KB each and Bun never collects it on a
-// mostly-idle box, so steady probe traffic (uptime monitor + the healthcheck's
-// SSR self-probe) creeps the process into swap over weeks. Explicit periodic
-// GC keeps the heap bounded for every request path. BUN_GC_INTERVAL_MS=0
+// mostly-idle box, so traffic can creep the process into swap over weeks.
+// Explicit periodic GC keeps the heap bounded for every request path.
+// BUN_GC_INTERVAL_MS=0
 // disables it; any other unusable value falls back to the default rather than
 // silently disabling the mitigation — and must never reach setInterval, which
 // clamps fractional or >2^31-1 inputs to ~1ms (a synchronous full GC that

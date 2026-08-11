@@ -2,6 +2,7 @@ import { RouterContextProvider } from 'react-router'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { closeEventStreams } from '#app/utils/event-streams.server.ts'
 import * as householdEvents from '#app/utils/household-events.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
@@ -112,6 +113,18 @@ describe('household-events SSE loader', () => {
 
 		await reader.cancel()
 		expect(busListeners(householdId)).toBe(0)
+	})
+
+	test('closes the stream when the server begins shutting down', async () => {
+		const { response, householdId } = await makeStream()
+		const reader = response.body!.getReader()
+		await reader.read()
+		expect(busListeners(householdId)).toBe(1)
+
+		closeEventStreams()
+
+		expect(busListeners(householdId)).toBe(0)
+		expect(await reader.read()).toEqual({ done: true, value: undefined })
 	})
 
 	test('cleans up a zombie stream whose consumer never drains', async () => {

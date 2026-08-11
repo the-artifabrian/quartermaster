@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { shutdownPostHog } from '../app/utils/posthog.server.ts'
 
 // Last line of defense against slow memory leaks on the 512MB Fly box: two
 // separate leaks (SSR heap ratchet, zombie SSE streams) each took prod from
@@ -156,15 +157,32 @@ function readProcSample(): MemorySample {
 export function startMemoryWatchdog({
 	gc,
 	readSample = readProcSample,
-	fatal = (message: string) => {
-		console.error(message)
-		process.exit(1)
-	},
+	fatal,
+	flushTelemetry = shutdownPostHog,
+	exit = (code: number) => process.exit(code),
 }: {
 	gc?: (force: boolean) => void
 	readSample?: () => MemorySample
-	fatal?: (message: string) => void
+	fatal?: (message: string) => void | Promise<void>
+	flushTelemetry?: () => Promise<void>
+	exit?: (code: number) => void
 } = {}) {
+	const handleFatal =
+		fatal ??
+		(async (message: string) => {
+			console.error(message)
+			try {
+				// PostHog buffers both analytics and reported server errors.
+				await flushTelemetry()
+			} catch (error) {
+				console.error(
+					'🐕 memory-watchdog: telemetry flush failed during fatal exit',
+					error,
+				)
+			} finally {
+				exit(1)
+			}
+		})
 	const config = readWatchdogConfig()
 	if (config.intervalMs === 0) {
 		console.log('🐕 memory-watchdog disabled (MEMORY_WATCHDOG_INTERVAL_MS=0)')
@@ -206,7 +224,7 @@ export function startMemoryWatchdog({
 		}
 		if (shouldExit) {
 			clearInterval(timer)
-			fatal(
+			void handleFatal(
 				`🐕 memory-watchdog: ${reason} for ${count} consecutive samples after forced GC — exiting so Fly restarts us before the box starts thrashing`,
 			)
 		}

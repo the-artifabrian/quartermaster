@@ -1,6 +1,10 @@
 import { remember } from '@epic-web/remember'
 import { PostHog } from 'posthog-node'
 
+// Shutdown runs inside server/shutdown.ts's 4s grace period and the memory
+// watchdog's fatal path. PostHog defaults to 30s, which would outlive both.
+const POSTHOG_SHUTDOWN_TIMEOUT_MS = 3_000
+
 function createPostHogClient(): PostHog | null {
 	const apiKey = process.env.POSTHOG_API_KEY
 	if (!apiKey) return null
@@ -19,7 +23,7 @@ export function getPostHogClient(): PostHog | null {
 export async function shutdownPostHog(): Promise<void> {
 	const client = getPostHogClient()
 	if (client) {
-		await client.shutdown()
+		await client.shutdown(POSTHOG_SHUTDOWN_TIMEOUT_MS)
 	}
 }
 

@@ -1,4 +1,5 @@
 import { runInBackground } from '#app/utils/background.server.ts'
+import { registerEventStream } from '#app/utils/event-streams.server.ts'
 import {
 	householdEventBus,
 	pruneOldEvents,
@@ -17,6 +18,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	runInBackground(pruneOldEvents(), 'pruning old household events')
 
 	let cleanup = () => {}
+	let unregisterShutdown = () => false
 
 	const stream = new ReadableStream({
 		start(controller) {
@@ -28,6 +30,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			cleanup = () => {
 				if (closed) return
 				closed = true
+				unregisterShutdown()
 				clearInterval(keepalive)
 				householdEventBus.off(`household:${householdId}`, onEvent)
 				// Sever the signal → closure edge too: the adapter can retain the
@@ -40,6 +43,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					// Already closed
 				}
 			}
+			unregisterShutdown = registerEventStream(cleanup)
 
 			function send(data: string) {
 				if (closed) return

@@ -1,7 +1,9 @@
 app = "quartermaster-94e5"
 primary_region = "fra"
 kill_signal = "SIGINT"
-kill_timeout = 5
+# server/shutdown.ts bounds application cleanup at 4s. Leave enough platform
+# headroom for Fly to deliver SIGKILL only after that handler has completed.
+kill_timeout = 10
 processes = [ ]
 swap_size_mb = 512
 

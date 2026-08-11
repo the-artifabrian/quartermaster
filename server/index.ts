@@ -1,13 +1,13 @@
 import { styleText } from 'node:util'
 import { helmet } from '@nichtsam/helmet/node-http'
 import { ip as ipAddress } from 'address'
-import closeWithGrace from 'close-with-grace'
 import express from 'express'
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import getPort, { portNumbers } from 'get-port'
 import morgan from 'morgan'
 import { compressionMiddleware } from './compression.ts'
 import { startMemoryWatchdog } from './memory-watchdog.ts'
+import { registerGracefulShutdown } from './shutdown.ts'
 
 const MODE = process.env.NODE_ENV ?? 'development'
 const IS_PROD = MODE === 'production'
@@ -277,17 +277,4 @@ ${styleText('bold', 'Press Ctrl+C to stop')}
 	)
 })
 
-closeWithGrace(async ({ err }) => {
-	// Log the triggering error before awaiting close: open SSE connections
-	// (e.g. /resources/household-events) keep server.close() from resolving,
-	// so anything logged after it is lost when the grace timeout kills us.
-	if (err) {
-		console.error(styleText('red', String(err)))
-		console.error(styleText('red', String(err.stack)))
-	}
-	await new Promise((resolve, reject) => {
-		server.close((e) => (e ? reject(e) : resolve('ok')))
-	})
-	const { shutdownPostHog } = await import('../app/utils/posthog.server.ts')
-	await shutdownPostHog()
-})
+registerGracefulShutdown(server)

@@ -4,6 +4,7 @@ import { createUser } from '#tests/db-utils.ts'
 import {
 	emitHouseholdEvent,
 	householdEventBus,
+	pruneOldEvents,
 } from './household-events.server.ts'
 
 async function setupUser() {
@@ -64,5 +65,23 @@ describe('emitHouseholdEvent', () => {
 		expect(eventData.householdId).toBe(user.householdId)
 		expect(typeof eventData.username).toBe('string')
 		expect(eventData.username.length).toBeGreaterThan(0)
+	})
+})
+
+describe('pruneOldEvents', () => {
+	test('allows the next call to retry after a failed prune', async () => {
+		const pruneError = new Error('database busy')
+		const deleteManySpy = vi
+			.spyOn(prisma.householdEvent, 'deleteMany')
+			.mockRejectedValueOnce(pruneError)
+			.mockResolvedValueOnce({ count: 0 })
+
+		try {
+			await expect(pruneOldEvents()).rejects.toBe(pruneError)
+			await expect(pruneOldEvents()).resolves.toBeUndefined()
+			expect(deleteManySpy).toHaveBeenCalledTimes(2)
+		} finally {
+			deleteManySpy.mockRestore()
+		}
 	})
 })

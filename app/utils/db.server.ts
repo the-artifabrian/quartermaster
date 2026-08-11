@@ -2,6 +2,7 @@ import { styleText } from 'node:util'
 import { remember } from '@epic-web/remember'
 import { PrismaLibSql } from '@prisma/adapter-libsql'
 import { PrismaClient } from '#app/generated/prisma/client.ts'
+import { runInBackground } from './background.server.ts'
 
 export function createPrismaClient(databaseUrl = process.env.DATABASE_URL) {
 	// NOTE: if you change anything in this function you'll need to restart
@@ -37,9 +38,12 @@ export function createPrismaClient(databaseUrl = process.env.DATABASE_URL) {
 	// Set busy_timeout so SQLite waits for locks instead of failing with
 	// SQLITE_BUSY immediately. This prevents write contention between the main
 	// request and fire-and-forget background writes (household events, usage tracking).
-	void client
-		.$connect()
-		.then(() => client.$queryRawUnsafe('PRAGMA busy_timeout = 5000'))
+	runInBackground(
+		client
+			.$connect()
+			.then(() => client.$queryRawUnsafe('PRAGMA busy_timeout = 5000')),
+		'configuring the SQLite busy timeout',
+	)
 	return client
 }
 

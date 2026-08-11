@@ -9,6 +9,7 @@ import {
 	type ActionFunctionArgs,
 	type HandleDocumentRequestFunction,
 } from 'react-router'
+import { runInBackground } from './utils/background.server.ts'
 import { getEnv, init } from './utils/env.server.ts'
 import { getInstanceInfo } from './utils/litefs.server.ts'
 import { NonceProvider } from './utils/nonce-provider.ts'
@@ -152,11 +153,14 @@ export function handleError(
 		console.error(error)
 	}
 
-	void import('./utils/posthog.server.ts').then(({ captureServerEvent }) => {
-		captureServerEvent('server', 'server_error', {
-			error: serializeError(error),
-			stack: error instanceof Error ? error.stack : undefined,
-			url: request.url,
-		})
-	})
+	runInBackground(
+		import('./utils/posthog.server.ts').then(({ captureServerEvent }) => {
+			captureServerEvent('server', 'server_error', {
+				error: serializeError(error),
+				stack: error instanceof Error ? error.stack : undefined,
+				url: request.url,
+			})
+		}),
+		'reporting a server error',
+	)
 }

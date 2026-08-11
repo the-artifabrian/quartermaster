@@ -3,19 +3,15 @@
 // polyfill from being included. https://github.com/epicweb-dev/epic-stack/pull/331
 export {
 	getInstanceInfo,
-	getInstanceInfoSync,
 	TXID_NUM_COOKIE_NAME,
 	waitForUpToDateTxNumber,
 	getTxNumber,
 	getTxSetCookieHeader,
 	checkCookieForTransactionalConsistency,
-	getInternalInstanceDomain,
-	getAllInstances,
 } from 'litefs-js'
 
 export {
 	ensurePrimary,
-	ensureInstance,
 	getReplayResponse,
 	handleTransactionalConsistency,
 	appendTxNumberCookie,

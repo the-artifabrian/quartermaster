@@ -8,7 +8,7 @@
     "#tests/*": "./tests/*"
   },
   "scripts": {
-    "build": "prisma generate && react-router build",
+    "build": "prisma generate && react-router build && bun scripts/stamp-service-worker.mjs",
     "dev": "NODE_ENV=development MOCKS=true bun index.ts",
     "dev:no-mocks": "NODE_ENV=development bun index.ts",
     "format": "prettier --write .",

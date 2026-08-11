@@ -5,9 +5,16 @@ const PAGES_CACHE = 'qm-pages-v1'
 const IMAGES_CACHE = 'qm-images-v1'
 const FONTS_CACHE = 'qm-fonts-v1'
 
+// The build replaces this sentinel with every file in build/client/assets.
+// Embedding the list also changes sw.js whenever the hashed asset set changes,
+// which makes the browser install a new worker and run the activate-time prune.
+const CURRENT_ASSET_PATHS = new Set(['__QM_CLIENT_ASSET_PATHS__'])
+
 const MAX_PAGES = 50
 const MAX_IMAGES = 100
 const MAX_DATA = 64
+const MAX_FONTS = 16
+const START_URL = '/plan'
 
 // Stale-while-revalidate serves the cached copy and only refreshes the cache in
 // the background, so the display is always one successful revalidation behind.
@@ -39,26 +46,29 @@ self.addEventListener('install', () => {
 // ── Activate ────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
 	event.waitUntil(
-		caches
-			.keys()
-			.then((keys) =>
-				Promise.all(
-					keys
-						.filter(
-							(k) =>
-								k.startsWith('qm-') &&
-								k !== STATIC_CACHE &&
-								k !== PAGES_CACHE &&
-								k !== IMAGES_CACHE &&
-								k !== FONTS_CACHE &&
-								// Per-session `.data` caches are reaped on session change/logout,
-								// not on activate (they outlive a SW update for the same user).
-								!k.startsWith(DATA_CACHE_PREFIX),
-						)
-						.map((k) => caches.delete(k)),
-				),
-			)
-			.then(() => self.clients.claim()),
+		(async () => {
+			const keys = await caches.keys()
+			await Promise.all([
+				...keys
+					.filter(
+						(k) =>
+							k.startsWith('qm-') &&
+							k !== STATIC_CACHE &&
+							k !== PAGES_CACHE &&
+							k !== IMAGES_CACHE &&
+							k !== FONTS_CACHE &&
+							// Per-session `.data` caches are reaped on session change/logout,
+							// not on activate (they outlive a SW update for the same user).
+							!k.startsWith(DATA_CACHE_PREFIX),
+					)
+					.map((k) => caches.delete(k)),
+				pruneStaticAssets(),
+				// Google can change the font file URLs behind its stylesheet. Keep that
+				// long-lived cross-deploy cache useful without letting it grow forever.
+				trimCache(FONTS_CACHE, MAX_FONTS),
+			])
+			await self.clients.claim()
+		})(),
 	)
 })
 
@@ -133,7 +143,7 @@ self.addEventListener('fetch', (event) => {
 		url.hostname === 'fonts.googleapis.com' ||
 		url.hostname === 'fonts.gstatic.com'
 	) {
-		event.respondWith(cacheFirst(request, FONTS_CACHE))
+		event.respondWith(cacheFirst(event, request, FONTS_CACHE, MAX_FONTS))
 		return
 	}
 
@@ -154,11 +164,16 @@ self.addEventListener('fetch', (event) => {
 		'/resources/login',
 		'/resources/verify',
 	]
-	if (skipPaths.some((p) => url.pathname.startsWith(p))) return
+	if (skipPaths.some((p) => url.pathname.startsWith(p))) {
+		if (request.mode === 'navigate') {
+			event.respondWith(networkWithOfflineFallback(request))
+		}
+		return
+	}
 
 	// ── Static assets (cache-first) ──────────────────────────────
 	if (url.pathname.startsWith('/assets/')) {
-		event.respondWith(cacheFirst(request, STATIC_CACHE))
+		event.respondWith(cacheFirst(event, request, STATIC_CACHE))
 		return
 	}
 
@@ -169,7 +184,7 @@ self.addEventListener('fetch', (event) => {
 		url.pathname === '/site.webmanifest' ||
 		url.pathname === '/favicon.ico'
 	) {
-		event.respondWith(cacheFirst(request, STATIC_CACHE))
+		event.respondWith(cacheFirst(event, request, STATIC_CACHE))
 		return
 	}
 
@@ -178,14 +193,14 @@ self.addEventListener('fetch', (event) => {
 		url.pathname === '/resources/images' &&
 		url.searchParams.has('objectKey')
 	) {
-		event.respondWith(cacheFirst(request, IMAGES_CACHE, MAX_IMAGES))
+		event.respondWith(cacheFirst(event, request, IMAGES_CACHE, MAX_IMAGES))
 		return
 	}
 
-	// ── Root navigation: bridge to cached /recipes when offline ──
-	// start_url is /recipes, but an already-installed app may still launch "/"
-	// until iOS re-reads the manifest. Online, "/" redirects (to /recipes when
-	// signed in). Offline, serve the cached /recipes shell so a cold launch lands
+	// ── Root navigation: bridge to the cached start URL when offline ──
+	// start_url is /plan, but an already-installed app may still launch "/"
+	// until iOS re-reads the manifest. Online, "/" redirects. Offline, serve the
+	// cached /plan shell so a cold launch lands
 	// on usable content instead of the generic offline page.
 	if (request.mode === 'navigate' && url.pathname === '/') {
 		event.respondWith(rootNavigation(request))
@@ -199,7 +214,7 @@ self.addEventListener('fetch', (event) => {
 	// `.data` (RR7 single-fetch) is authenticated + household-scoped, so it is
 	// cached ONLY in the per-session namespace (dataCacheName), and only once the
 	// client has told us that namespace:
-	//   - read-mostly routes (recipes list/detail, plan) → stale-while-revalidate
+	//   - read-mostly routes (recipes list/detail, plan, Pantry) → stale-while-revalidate
 	//     (instant nav on a cold connection, then refresh) — the iOS-effective win —
 	//     bounded by MAX_STALE_SERVE_MS so week-old data can't pose as current;
 	//   - /shopping (edited daily) → network-first, with the session's own copy
@@ -234,25 +249,62 @@ self.addEventListener('fetch', (event) => {
 		event.respondWith(
 			isReadMostly(url) && partialNav
 				? staleWhileRevalidateData(event, request, dataCacheName, MAX_DATA)
-				: networkFirst(request, dataCacheName, MAX_DATA),
+				: networkFirst(event, request, dataCacheName, MAX_DATA),
 		)
 		return
 	}
+
+	// Every other same-origin document remains network-only, but still gets the
+	// app's offline response. Without this final navigation catch, an uncached
+	// route falls through to Safari/Chrome's own connection-error page.
+	if (request.mode === 'navigate') {
+		event.respondWith(networkWithOfflineFallback(request))
+	}
 })
 
-/** Root "/" navigation: try network, else fall back to cached /recipes shell. */
+/** Root "/" navigation: try network, else fall back to the cached start URL. */
 async function rootNavigation(request) {
 	try {
 		return await fetch(request)
 	} catch {
 		const cache = await caches.open(PAGES_CACHE)
-		const cached = await cache.match('/recipes')
+		const cached = await cache.match(START_URL)
 		if (cached) return cached
 		return offlineFallback()
 	}
 }
 
+/** Network-only navigation with the app's HTML fallback when offline. */
+async function networkWithOfflineFallback(request) {
+	try {
+		return await fetch(request)
+	} catch {
+		return offlineFallback()
+	}
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────
+
+/** Remove content-hashed assets that are absent from the current client build. */
+async function pruneStaticAssets() {
+	const cache = await caches.open(STATIC_CACHE)
+	const keys = await cache.keys()
+	await Promise.all(
+		keys
+			.filter((request) => {
+				try {
+					const pathname = new URL(request.url).pathname
+					return (
+						pathname.startsWith('/assets/') &&
+						!CURRENT_ASSET_PATHS.has(pathname)
+					)
+				} catch {
+					return false
+				}
+			})
+			.map((request) => cache.delete(request)),
+	)
+}
 
 /**
  * Determine if a URL represents a page we want to cache.
@@ -261,6 +313,7 @@ async function rootNavigation(request) {
  *   /recipes/<id>  (but not /recipes/<id>/edit)
  *   /plan
  *   /shopping
+ *   /inventory     (the user-facing Pantry tab)
  * Also matches the .data suffix variants for client-side navigations.
  */
 function isCacheablePage(url) {
@@ -275,6 +328,9 @@ function isCacheablePage(url) {
 
 	// /shopping or /shopping.data
 	if (p === '/shopping' || p === '/shopping.data') return true
+
+	// /inventory or /inventory.data (the user-facing Pantry tab)
+	if (p === '/inventory' || p === '/inventory.data') return true
 
 	// /recipes/<id> (detail page) but not /recipes/<id>/edit and not the named
 	// form sub-routes (new, import, generate, quick, bulk-import), which need the
@@ -330,8 +386,8 @@ function beatsStaleCache(response) {
 
 /**
  * Read-mostly cacheable routes (safe to serve stale-while-revalidate): the recipe
- * list/detail and the plan. Excludes /shopping, which is edited daily and stays
- * network-first. Only called for URLs already known to be cacheable pages.
+ * list/detail, plan, and Pantry. Excludes /shopping, which is edited daily and
+ * stays network-first. Only called for URLs already known to be cacheable pages.
  */
 function isReadMostly(url) {
 	const p = url.pathname
@@ -339,8 +395,21 @@ function isReadMostly(url) {
 	return true
 }
 
+/**
+ * Write a response and any follow-up trim as one promise. Callers attach this
+ * promise to the fetch event so the worker cannot be terminated mid-write.
+ */
+async function putAndTrim(cache, request, response, cacheName, maxEntries) {
+	try {
+		await cache.put(request, response.clone())
+		if (maxEntries) await trimCache(cacheName, maxEntries)
+	} catch {
+		// Quota pressure or a killed write must not fail the network response.
+	}
+}
+
 /** Cache-first: return cached response, or fetch and cache. */
-async function cacheFirst(request, cacheName, maxEntries) {
+async function cacheFirst(event, request, cacheName, maxEntries) {
 	const cache = await caches.open(cacheName)
 	const cached = await cache.match(request)
 	if (cached) return cached
@@ -350,8 +419,9 @@ async function cacheFirst(request, cacheName, maxEntries) {
 		// Cache successful responses, plus opaque ones (status 0) — cross-origin
 		// no-cors fonts come back opaque but are still safe to cache and reuse.
 		if (response.ok || response.type === 'opaque') {
-			cache.put(request, response.clone())
-			if (maxEntries) trimCache(cacheName, maxEntries)
+			event.waitUntil(
+				putAndTrim(cache, request, response, cacheName, maxEntries),
+			)
 		}
 		return response
 	} catch {
@@ -392,12 +462,7 @@ async function staleWhileRevalidateCore(
 	// (not at headers), so waitUntil genuinely covers the write.
 	const revalidated = network.then(async (response) => {
 		if (!response || !shouldCache(response)) return
-		try {
-			await cache.put(request, response.clone())
-			if (maxEntries) await trimCache(cacheName, maxEntries)
-		} catch {
-			// Quota pressure or a killed write — keep serving the old entry.
-		}
+		await putAndTrim(cache, request, response, cacheName, maxEntries)
 	})
 	event.waitUntil(revalidated)
 
@@ -471,7 +536,7 @@ async function networkOnlyData(request) {
 }
 
 /** Network-first: try network, fall back to cache, then offline page. */
-async function networkFirst(request, cacheName, maxEntries) {
+async function networkFirst(event, request, cacheName, maxEntries) {
 	const cache = await caches.open(cacheName)
 
 	try {
@@ -481,8 +546,9 @@ async function networkFirst(request, cacheName, maxEntries) {
 		// redirected response can't satisfy a future navigation. Requiring 200
 		// rejects both.
 		if (response.status === 200 && !response.redirected) {
-			cache.put(request, response.clone())
-			if (maxEntries) trimCache(cacheName, maxEntries)
+			event.waitUntil(
+				putAndTrim(cache, request, response, cacheName, maxEntries),
+			)
 		}
 		return response
 	} catch {

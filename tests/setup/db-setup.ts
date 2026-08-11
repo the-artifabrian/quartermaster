@@ -8,16 +8,6 @@ const databaseFile = `./tests/prisma/data.${poolId}.db`
 const databasePath = path.join(process.cwd(), databaseFile)
 process.env.DATABASE_URL = `file:${databasePath}`
 
-const cacheDatabasePath = process.env.CACHE_DATABASE_PATH
-if (cacheDatabasePath && cacheDatabasePath !== ':memory:') {
-	const parsed = path.parse(cacheDatabasePath)
-	const cacheFileName = parsed.ext
-		? `${parsed.name}.${poolId}${parsed.ext}`
-		: `${parsed.name}.${poolId}`
-	const cacheDir = parsed.dir || '.'
-	process.env.CACHE_DATABASE_PATH = path.join(cacheDir, cacheFileName)
-}
-
 beforeEach(async () => {
 	// Disconnect Prisma so SQLite releases file handles and page caches.
 	// Without this, the open connection may read stale cached pages after

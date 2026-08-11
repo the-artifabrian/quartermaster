@@ -1,11 +1,8 @@
-import { type CreateReporter } from '@epic-web/cachified'
-
 export type Timings = Record<
 	string,
 	Array<
 		{ desc?: string } & (
-			| { time: number; start?: never }
-			| { time?: never; start: number }
+			{ time: number; start?: never } | { time?: never; start: number }
 		)
 	>
 >
@@ -88,34 +85,4 @@ export function combineServerTimings(headers1: Headers, headers2: Headers) {
 	const newHeaders = new Headers(headers1)
 	newHeaders.append('Server-Timing', headers2.get('Server-Timing') ?? '')
 	return newHeaders.get('Server-Timing') ?? ''
-}
-
-export function cachifiedTimingReporter<Value>(
-	timings?: Timings,
-): undefined | CreateReporter<Value> {
-	if (!timings) return
-
-	return ({ key }) => {
-		const cacheRetrievalTimer = createTimer(
-			`cache:${key}`,
-			`${key} cache retrieval`,
-		)
-		let getFreshValueTimer: ReturnType<typeof createTimer> | undefined
-		return (event) => {
-			switch (event.name) {
-				case 'getFreshValueStart':
-					getFreshValueTimer = createTimer(
-						`getFreshValue:${key}`,
-						`request forced to wait for a fresh ${key} value`,
-					)
-					break
-				case 'getFreshValueSuccess':
-					getFreshValueTimer?.end(timings)
-					break
-				case 'done':
-					cacheRetrievalTimer.end(timings)
-					break
-			}
-		}
-	}
 }

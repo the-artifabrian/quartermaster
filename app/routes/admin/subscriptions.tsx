@@ -205,11 +205,8 @@ export default function SubscriptionsAdminRoute({
 					Users
 				</Link>
 				<span className="text-foreground font-medium">Subscriptions</span>
-				<Link to="/admin/cache" className="underline-offset-4 hover:underline">
-					Cache
-				</Link>
 			</div>
-			<h1 className="text-xl font-semibold mt-2">Subscription Management</h1>
+			<h1 className="mt-2 text-xl font-semibold">Subscription Management</h1>
 
 			{/* User List */}
 			<Spacer size="2xs" />

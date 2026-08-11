@@ -11,7 +11,6 @@ const schema = z.object({
 	DATA_VOLUME_PATH: z.string().optional(),
 	SESSION_SECRET: z.string(),
 	INTERNAL_COMMAND_TOKEN: z.string(),
-	CACHE_DATABASE_PATH: z.string(),
 	// Everything that reads this compares === 'true' (index.ts,
 	// resources/images.tsx, the production guard below). Validating it here
 	// keeps a typo like MOCKS=fasle from silently meaning anything at all.

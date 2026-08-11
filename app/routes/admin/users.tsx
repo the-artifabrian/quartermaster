@@ -189,9 +189,6 @@ export default function UsersAdminRoute({ loaderData }: Route.ComponentProps) {
 				>
 					Subscriptions
 				</Link>
-				<Link to="/admin/cache" className="underline-offset-4 hover:underline">
-					Cache
-				</Link>
 			</div>
 			<h1 className="mt-2 text-xl font-semibold">User Analytics</h1>
 			<p className="text-muted-foreground mt-1 text-sm">

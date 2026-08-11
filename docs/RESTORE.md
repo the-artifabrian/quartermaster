@@ -14,8 +14,7 @@ migration or a wrong `DELETE` except the copies below.
 
 Offsite backups are `VACUUM INTO` snapshots — a consistent copy taken under a
 read transaction — gzipped, integrity-checked with `PRAGMA quick_check`, and
-size-verified after upload. The cache database is not backed up; it rebuilds
-itself.
+size-verified after upload.
 
 Everything below assumes `fly ssh console --app quartermaster-94e5`, and an
 org-scoped Fly token (a deploy token cannot open an SSH session).

@@ -5,6 +5,7 @@ import {
 	requireRecentVerification,
 	type VerifyFunctionArgs,
 } from '#app/routes/_auth/verify.server.ts'
+import { runInBackground } from '#app/utils/background.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
@@ -47,11 +48,14 @@ export async function handleVerification({
 		data: { email: newEmail },
 	})
 
-	void sendEmail({
-		to: preUpdateUser.email,
-		subject: 'Quartermaster email changed',
-		react: <EmailChangeNoticeEmail userId={user.id} />,
-	})
+	runInBackground(
+		sendEmail({
+			to: preUpdateUser.email,
+			subject: 'Quartermaster email changed',
+			react: <EmailChangeNoticeEmail userId={user.id} />,
+		}),
+		'sending an email-change notification',
+	)
 
 	return redirectWithToast(
 		'/settings/profile',

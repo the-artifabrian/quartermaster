@@ -73,7 +73,9 @@ script_checks = [ ]
   method = "get"
   path = "/resources/healthcheck"
   protocol = "http"
-  timeout = "2s"
+  # Prisma waits up to 5s for a competing SQLite writer. Leave enough time for
+  # that bounded wait to finish and for the route to return a useful 500.
+  timeout = "7s"
   tls_skip_verify = false
   headers = { }
 

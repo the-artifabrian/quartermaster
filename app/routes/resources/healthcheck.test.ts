@@ -15,16 +15,14 @@ describe('healthcheck resource route', () => {
 		vi.clearAllMocks()
 	})
 
-	test('returns a non-cacheable success without making a self-request', async () => {
+	test('returns a non-cacheable success', async () => {
 		mocks.assertApplicationHealthy.mockResolvedValue(undefined)
-		const fetchSpy = vi.spyOn(globalThis, 'fetch')
 
 		const response = await loader()
 
 		expect(response.status).toBe(200)
 		expect(await response.text()).toBe('OK')
 		expect(response.headers.get('Cache-Control')).toBe('no-store')
-		expect(fetchSpy).not.toHaveBeenCalled()
 	})
 
 	test('returns 500 when a required resource is unhealthy', async () => {

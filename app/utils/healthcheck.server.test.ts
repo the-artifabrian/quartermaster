@@ -22,9 +22,10 @@ describe('healthcheck', () => {
 		vi.restoreAllMocks()
 	})
 
-	test('passes after a database write probe with enough disk headroom', async () => {
+	test('passes after local resource probes without making an HTTP request', async () => {
 		const writeDatabase = vi.fn().mockResolvedValue(undefined)
 		const getFileSystemStats = vi.fn().mockResolvedValue(fileSystemStats(512n))
+		const fetchSpy = vi.spyOn(globalThis, 'fetch')
 
 		await expect(
 			assertApplicationHealthy({
@@ -37,6 +38,7 @@ describe('healthcheck', () => {
 
 		expect(writeDatabase).toHaveBeenCalledOnce()
 		expect(getFileSystemStats).toHaveBeenCalledWith(VOLUME_PATH)
+		expect(fetchSpy).not.toHaveBeenCalled()
 	})
 
 	test('fails when the database write probe fails', async () => {
@@ -69,6 +71,21 @@ describe('healthcheck', () => {
 		} finally {
 			await readOnlyPrisma.$disconnect()
 			await chmod(databasePath, originalMode)
+		}
+	})
+
+	test('the real write probe rejects a connection that becomes read-only', async () => {
+		const client = createPrismaClient()
+
+		try {
+			await client.$connect()
+			await client.$queryRawUnsafe('PRAGMA query_only = ON')
+			await expect(
+				assertDatabaseWritable((query) => client.$executeRawUnsafe(query)),
+			).rejects.toThrow(/readonly/i)
+		} finally {
+			await client.$queryRawUnsafe('PRAGMA query_only = OFF')
+			await client.$disconnect()
 		}
 	})
 

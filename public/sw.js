@@ -4,17 +4,21 @@ const STATIC_CACHE = 'qm-static-v1'
 const PAGES_CACHE = 'qm-pages-v1'
 const IMAGES_CACHE = 'qm-images-v1'
 const FONTS_CACHE = 'qm-fonts-v1'
+const PUBLIC_ASSET_VERSION = '__QM_PUBLIC_ASSET_VERSION__'
+const PUBLIC_CACHE = `qm-public-${PUBLIC_ASSET_VERSION}`
 
 // The build replaces this sentinel with every file in build/client/assets.
 // Embedding the list also changes sw.js whenever the hashed asset set changes,
 // which makes the browser install a new worker and run the activate-time prune.
 const CURRENT_ASSET_PATHS = new Set(['__QM_CLIENT_ASSET_PATHS__'])
+// Keep the offline root bridge coupled to the PWA manifest instead of copying
+// its start_url by hand. The build replaces this sentinel too.
+const START_URL = '__QM_START_URL__'
 
 const MAX_PAGES = 50
 const MAX_IMAGES = 100
 const MAX_DATA = 64
 const MAX_FONTS = 16
-const START_URL = '/plan'
 
 // Stale-while-revalidate serves the cached copy and only refreshes the cache in
 // the background, so the display is always one successful revalidation behind.
@@ -57,6 +61,7 @@ self.addEventListener('activate', (event) => {
 							k !== PAGES_CACHE &&
 							k !== IMAGES_CACHE &&
 							k !== FONTS_CACHE &&
+							k !== PUBLIC_CACHE &&
 							// Per-session `.data` caches are reaped on session change/logout,
 							// not on activate (they outlive a SW update for the same user).
 							!k.startsWith(DATA_CACHE_PREFIX),
@@ -173,7 +178,12 @@ self.addEventListener('fetch', (event) => {
 
 	// ── Static assets (cache-first) ──────────────────────────────
 	if (url.pathname.startsWith('/assets/')) {
-		event.respondWith(cacheFirst(event, request, STATIC_CACHE))
+		// Only the exact URLs stamped from this build belong in the cache. Query
+		// variants and old paths stay network-only, so they cannot grow or evict
+		// the bounded current-build set between worker activations.
+		if (isCurrentBuildAsset(url)) {
+			event.respondWith(cacheFirst(event, request, STATIC_CACHE))
+		}
 		return
 	}
 
@@ -184,7 +194,12 @@ self.addEventListener('fetch', (event) => {
 		url.pathname === '/site.webmanifest' ||
 		url.pathname === '/favicon.ico'
 	) {
-		event.respondWith(cacheFirst(event, request, STATIC_CACHE))
+		// These files are not content-hashed, so the build fingerprints their
+		// cache as a generation. Query variants remain network-only and cannot
+		// multiply entries inside one generation.
+		if (url.search === '') {
+			event.respondWith(cacheFirst(event, request, PUBLIC_CACHE))
+		}
 		return
 	}
 
@@ -198,10 +213,9 @@ self.addEventListener('fetch', (event) => {
 	}
 
 	// ── Root navigation: bridge to the cached start URL when offline ──
-	// start_url is /plan, but an already-installed app may still launch "/"
-	// until iOS re-reads the manifest. Online, "/" redirects. Offline, serve the
-	// cached /plan shell so a cold launch lands
-	// on usable content instead of the generic offline page.
+	// An already-installed app may still launch "/" until iOS re-reads a changed
+	// manifest. Online, "/" redirects. Offline, redirect to the manifest-derived
+	// start URL; its normal navigation handler can then serve the cached shell.
 	if (request.mode === 'navigate' && url.pathname === '/') {
 		event.respondWith(rootNavigation(request))
 		return
@@ -262,15 +276,16 @@ self.addEventListener('fetch', (event) => {
 	}
 })
 
-/** Root "/" navigation: try network, else fall back to the cached start URL. */
+/** Root "/" navigation: try network, else redirect locally to the start URL. */
 async function rootNavigation(request) {
 	try {
 		return await fetch(request)
 	} catch {
-		const cache = await caches.open(PAGES_CACHE)
-		const cached = await cache.match(START_URL)
-		if (cached) return cached
-		return offlineFallback()
+		// Returning the cached start-url HTML directly leaves window.location at
+		// "/", so the client router hydrates the wrong route. A synthetic redirect
+		// updates the URL; the follow-up navigation is handled by the normal page
+		// cache and falls back to offlineFallback when it has not been cached yet.
+		return Response.redirect(new URL(START_URL, self.location.origin), 302)
 	}
 }
 
@@ -285,7 +300,15 @@ async function networkWithOfflineFallback(request) {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-/** Remove content-hashed assets that are absent from the current client build. */
+/** Is this the exact, query-free URL of an asset in the current client build? */
+function isCurrentBuildAsset(url) {
+	return url.search === '' && CURRENT_ASSET_PATHS.has(url.pathname)
+}
+
+/**
+ * Remove content-hashed assets absent from the current client build, plus
+ * non-asset entries left in this formerly-mixed cache by older workers.
+ */
 async function pruneStaticAssets() {
 	const cache = await caches.open(STATIC_CACHE)
 	const keys = await cache.keys()
@@ -293,11 +316,9 @@ async function pruneStaticAssets() {
 		keys
 			.filter((request) => {
 				try {
-					const pathname = new URL(request.url).pathname
-					return (
-						pathname.startsWith('/assets/') &&
-						!CURRENT_ASSET_PATHS.has(pathname)
-					)
+					const url = new URL(request.url)
+					if (!url.pathname.startsWith('/assets/')) return true
+					return !isCurrentBuildAsset(url)
 				} catch {
 					return false
 				}

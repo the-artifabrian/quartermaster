@@ -3,6 +3,13 @@ import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 import { describe, expect, test } from 'vitest'
 
+const webmanifestPath = fileURLToPath(
+	new URL('../../public/site.webmanifest', import.meta.url),
+)
+const WEBMANIFEST_START_URL = (
+	JSON.parse(readFileSync(webmanifestPath, 'utf8')) as { start_url: string }
+).start_url
+
 /**
  * These tests exercise the cache-routing predicates that decide whether a request
  * is cached at all (`isCacheablePage`) and whether it may be served stale
@@ -160,12 +167,21 @@ describe('bounded staleness (isFreshEnough / cachedAgeMs)', () => {
  */
 function loadServiceWorkerRuntime(
 	currentAssetPaths = ['/assets/current-build.js'],
+	publicAssetVersion = 'test-public',
 ) {
 	const swPath = fileURLToPath(new URL('../../public/sw.js', import.meta.url))
-	const source = readFileSync(swPath, 'utf8').replace(
-		"'__QM_CLIENT_ASSET_PATHS__'",
-		currentAssetPaths.map((assetPath) => JSON.stringify(assetPath)).join(', '),
-	)
+	const source = readFileSync(swPath, 'utf8')
+		.replace(
+			"'__QM_CLIENT_ASSET_PATHS__'",
+			currentAssetPaths
+				.map((assetPath) => JSON.stringify(assetPath))
+				.join(', '),
+		)
+		.replace("'__QM_START_URL__'", JSON.stringify(WEBMANIFEST_START_URL))
+		.replace(
+			"'__QM_PUBLIC_ASSET_VERSION__'",
+			JSON.stringify(publicAssetVersion),
+		)
 
 	// Timers registered by the SW's stale-path grace race. Tests fire them
 	// manually; nothing in the sandbox advances time on its own.
@@ -195,7 +211,7 @@ function loadServiceWorkerRuntime(
 	}
 	vm.createContext(sandbox)
 	vm.runInContext(
-		`${source}\n;self.__runtime = { cacheFirst, networkFirst, staleWhileRevalidate, staleWhileRevalidateData, rootNavigation, networkWithOfflineFallback, STATIC_CACHE, PAGES_CACHE, FONTS_CACHE, MAX_FONTS, START_URL };`,
+		`${source}\n;self.__runtime = { cacheFirst, networkFirst, staleWhileRevalidate, staleWhileRevalidateData, rootNavigation, networkWithOfflineFallback, isCurrentBuildAsset, STATIC_CACHE, PUBLIC_CACHE, PAGES_CACHE, FONTS_CACHE, MAX_FONTS, START_URL };`,
 		sandbox,
 	)
 	return {
@@ -229,7 +245,9 @@ function loadServiceWorkerRuntime(
 			) => Promise<Response>
 			rootNavigation: (request: unknown) => Promise<Response>
 			networkWithOfflineFallback: (request: unknown) => Promise<Response>
+			isCurrentBuildAsset: (url: URL) => boolean
 			STATIC_CACHE: string
+			PUBLIC_CACHE: string
 			PAGES_CACHE: string
 			FONTS_CACHE: string
 			MAX_FONTS: number
@@ -243,15 +261,17 @@ describe('service-worker lifecycle and navigation fallbacks', () => {
 		const cacheNames = new Set([
 			'qm-static-v0',
 			'qm-static-v1',
+			'qm-public-old',
 			'qm-pages-v1',
 			'qm-images-v1',
 			'qm-fonts-v1',
 			'qm-data-v1-user-household',
 		])
-		const staticEntryPaths = new Set([
-			'/assets/shared.js',
-			'/assets/build-a.js',
-			'/favicon.ico',
+		const staticEntryUrls = new Set([
+			'https://quartermaster.test/assets/shared.js',
+			'https://quartermaster.test/assets/build-a.js',
+			'https://quartermaster.test/assets/shared.js?v=stale',
+			'https://quartermaster.test/favicon.ico',
 		])
 		const fontEntries = new Set(
 			Array.from(
@@ -265,9 +285,14 @@ describe('service-worker lifecycle and navigation fallbacks', () => {
 				'/assets/shared.js',
 				`/assets/build-${buildVersion}.js`,
 			]
-			staticEntryPaths.add(`/assets/build-${buildVersion}.js`)
-			const { sandbox, listeners, runtime } =
-				loadServiceWorkerRuntime(currentAssetPaths)
+			staticEntryUrls.add(
+				`https://quartermaster.test/assets/build-${buildVersion}.js`,
+			)
+			const { sandbox, listeners, runtime } = loadServiceWorkerRuntime(
+				currentAssetPaths,
+				`public-${buildVersion}`,
+			)
+			cacheNames.add(runtime.PUBLIC_CACHE)
 			let claimed = false
 			sandbox.self.clients.claim = async () => {
 				claimed = true
@@ -278,12 +303,9 @@ describe('service-worker lifecycle and navigation fallbacks', () => {
 				open: async (cacheName: string) => {
 					if (cacheName === runtime.STATIC_CACHE) {
 						return {
-							keys: async () =>
-								[...staticEntryPaths].map((pathname) => ({
-									url: `https://quartermaster.test${pathname}`,
-								})),
+							keys: async () => [...staticEntryUrls].map((url) => ({ url })),
 							delete: async (request: { url: string }) => {
-								staticEntryPaths.delete(new URL(request.url).pathname)
+								staticEntryUrls.delete(request.url)
 								return true
 							},
 						}
@@ -309,37 +331,55 @@ describe('service-worker lifecycle and navigation fallbacks', () => {
 			})
 			await lifetime
 
-			expect(staticEntryPaths).toEqual(
-				new Set([...currentAssetPaths, '/favicon.ico']),
+			expect(staticEntryUrls).toEqual(
+				new Set([
+					...currentAssetPaths.map(
+						(pathname) => `https://quartermaster.test${pathname}`,
+					),
+				]),
 			)
+			expect(
+				[...cacheNames].filter((cacheName) =>
+					cacheName.startsWith('qm-public-'),
+				),
+			).toEqual([runtime.PUBLIC_CACHE])
 			expect(fontEntries.size).toBe(runtime.MAX_FONTS)
 			expect(claimed).toBe(true)
 		}
 		expect(cacheNames.has('qm-static-v0')).toBe(false)
 	})
 
-	test('offline root launch uses the manifest start URL shell', async () => {
+	test('only exact current-build asset URLs are cacheable', () => {
+		const { runtime } = loadServiceWorkerRuntime(['/assets/current.js'])
+
+		expect(
+			runtime.isCurrentBuildAsset(
+				new URL('https://quartermaster.test/assets/current.js'),
+			),
+		).toBe(true)
+		expect(
+			runtime.isCurrentBuildAsset(
+				new URL('https://quartermaster.test/assets/current.js?v=duplicate'),
+			),
+		).toBe(false)
+		expect(
+			runtime.isCurrentBuildAsset(
+				new URL('https://quartermaster.test/assets/old-build.js'),
+			),
+		).toBe(false)
+	})
+
+	test('offline root launch redirects to the manifest start URL', async () => {
 		const { sandbox, runtime } = loadServiceWorkerRuntime()
-		const cachedPlan = new Response('CACHED PLAN')
-		let matched: unknown
 		sandbox.fetch = () => Promise.reject(new Error('offline'))
-		sandbox.caches = {
-			open: async (cacheName: string) => {
-				expect(cacheName).toBe(runtime.PAGES_CACHE)
-				return {
-					match: async (request: unknown) => {
-						matched = request
-						return cachedPlan
-					},
-				}
-			},
-		}
 
 		const response = await runtime.rootNavigation('/')
 
-		expect(runtime.START_URL).toBe('/plan')
-		expect(matched).toBe('/plan')
-		expect(await response.text()).toBe('CACHED PLAN')
+		expect(runtime.START_URL).toBe(WEBMANIFEST_START_URL)
+		expect(response.status).toBe(302)
+		expect(response.headers.get('location')).toBe(
+			`https://quartermaster.test${WEBMANIFEST_START_URL}`,
+		)
 	})
 
 	test('an uncached Pantry navigation gets the app fallback offline', async () => {

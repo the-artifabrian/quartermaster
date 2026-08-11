@@ -43,8 +43,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 					// Already closed
 				}
 			}
-			unregisterShutdown = registerEventStream(cleanup)
-
 			function send(data: string) {
 				if (closed) return
 				try {
@@ -88,6 +86,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 			// Clean up on disconnect
 			request.signal.addEventListener('abort', cleanup)
+
+			// Register last: shutdown may already be in progress, in which case the
+			// registry invokes cleanup immediately. All resources must exist first.
+			unregisterShutdown = registerEventStream(cleanup)
 		},
 		cancel() {
 			cleanup()

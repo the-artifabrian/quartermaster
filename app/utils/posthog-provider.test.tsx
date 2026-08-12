@@ -4,6 +4,7 @@
 import { act, render, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { expect, test, vi } from 'vitest'
+import { consoleError } from '#tests/setup/setup-test-env.ts'
 import {
 	type AnalyticsClient,
 	PostHogIdentify,
@@ -30,7 +31,9 @@ function makeClient(): AnalyticsClient {
 	}
 }
 
-function setupAnalyticsEnvironment() {
+function setupAnalyticsEnvironment({
+	hasIdleCallback = true,
+}: { hasIdleCallback?: boolean } = {}) {
 	const originalEnv = window.ENV
 	runWhenIdle = undefined
 	vi.clearAllMocks()
@@ -40,14 +43,19 @@ function setupAnalyticsEnvironment() {
 		POSTHOG_HOST: 'https://analytics.example.com',
 		ALLOW_INDEXING: 'false',
 	}
-	vi.stubGlobal(
-		'requestIdleCallback',
-		vi.fn((callback: IdleRequestCallback) => {
-			runWhenIdle = callback
-			return 17
-		}),
-	)
-	vi.stubGlobal('cancelIdleCallback', vi.fn())
+	if (hasIdleCallback) {
+		vi.stubGlobal(
+			'requestIdleCallback',
+			vi.fn((callback: IdleRequestCallback) => {
+				runWhenIdle = callback
+				return 17
+			}),
+		)
+		vi.stubGlobal('cancelIdleCallback', vi.fn())
+	} else {
+		vi.stubGlobal('requestIdleCallback', undefined)
+		vi.stubGlobal('cancelIdleCallback', undefined)
+	}
 
 	return {
 		[Symbol.dispose]() {
@@ -116,4 +124,62 @@ test('does not load or queue analytics when PostHog is not configured', () => {
 
 	expect(requestIdleCallback).not.toHaveBeenCalled()
 	expect(posthogClientModule.initializePostHog).not.toHaveBeenCalled()
+})
+
+test('gives the main thread a grace period when idle callbacks are unavailable', async () => {
+	using _environment = setupAnalyticsEnvironment({ hasIdleCallback: false })
+	const client = makeClient()
+	posthogClientModule.initializePostHog.mockReturnValue(client)
+	using setTimeoutSpy = vi.spyOn(window, 'setTimeout')
+
+	render(
+		<PostHogProvider>
+			<MemoryRouter>
+				<PostHogPageview />
+			</MemoryRouter>
+		</PostHogProvider>,
+	)
+
+	expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 1_000)
+	expect(posthogClientModule.initializePostHog).not.toHaveBeenCalled()
+
+	const runFallback = setTimeoutSpy.mock.calls.find(
+		([, timeout]) => timeout === 1_000,
+	)?.[0]
+	if (typeof runFallback === 'function') runFallback()
+
+	await waitFor(() => {
+		expect(posthogClientModule.initializePostHog).toHaveBeenCalledOnce()
+	})
+	expect(client.capture).toHaveBeenCalledWith('$pageview', {
+		$current_url: window.location.href,
+	})
+})
+
+test('contains SDK initialization failures instead of failing the app', async () => {
+	using _environment = setupAnalyticsEnvironment()
+	const loadError = new Error('SDK unavailable')
+	posthogClientModule.initializePostHog.mockImplementation(() => {
+		throw loadError
+	})
+	consoleError.mockImplementation(() => undefined)
+
+	render(
+		<PostHogProvider>
+			<MemoryRouter>
+				<PostHogPageview />
+			</MemoryRouter>
+		</PostHogProvider>,
+	)
+
+	await act(async () => {
+		runWhenIdle?.({ didTimeout: false, timeRemaining: () => 50 })
+	})
+
+	await waitFor(() => {
+		expect(consoleError).toHaveBeenCalledWith(
+			'Failed to load analytics',
+			loadError,
+		)
+	})
 })

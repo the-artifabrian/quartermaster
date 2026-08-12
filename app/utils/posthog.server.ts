@@ -1,5 +1,6 @@
 import { remember } from '@epic-web/remember'
 import { PostHog } from 'posthog-node'
+import { getPostHogHost } from './posthog-config.ts'
 
 // Shutdown runs inside server/shutdown.ts's 4s grace period and the memory
 // watchdog's fatal path. PostHog defaults to 30s, which would outlive both.
@@ -10,7 +11,7 @@ function createPostHogClient(): PostHog | null {
 	if (!apiKey) return null
 
 	return new PostHog(apiKey, {
-		host: process.env.POSTHOG_HOST || 'https://eu.i.posthog.com',
+		host: getPostHogHost(process.env.POSTHOG_HOST),
 		flushAt: 20,
 		flushInterval: 10000,
 	})

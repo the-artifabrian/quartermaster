@@ -8,12 +8,7 @@ import {
 	type ReactNode,
 } from 'react'
 import { useLocation } from 'react-router'
-
-export const DEFAULT_POSTHOG_HOST = 'https://eu.i.posthog.com'
-
-export function getPostHogHost(host?: string) {
-	return host || DEFAULT_POSTHOG_HOST
-}
+import { getPostHogHost } from './posthog-config.ts'
 
 type AnalyticsProperties = Record<string, unknown>
 
@@ -39,22 +34,32 @@ const noopClient: AnalyticsClient = {
 type ClientBridge = {
 	client: AnalyticsClient
 	attach: (client: AnalyticsClient) => void
+	disable: () => void
 }
 
 /**
  * Give callers a usable client before the SDK arrives. Mutations are queued for
  * the brief idle-loading window, so an early navigation/error/identify event is
- * not lost. Without an API key the no-op client avoids retaining a pointless
- * queue forever.
+ * not lost. SDK-owned autocapture cannot observe interactions before the idle
+ * import and intentionally drops that short window to protect hydration.
+ * Without an API key, or after a failed import, the no-op path avoids retaining
+ * a pointless queue.
  */
 function createClientBridge(enabled: boolean): ClientBridge {
-	if (!enabled) return { client: noopClient, attach: () => undefined }
+	if (!enabled) {
+		return {
+			client: noopClient,
+			attach: () => undefined,
+			disable: () => undefined,
+		}
+	}
 
 	let delegate: AnalyticsClient | undefined
+	let acceptingEvents = true
 	const pending: Array<(client: AnalyticsClient) => void> = []
 	const run = (operation: (client: AnalyticsClient) => void) => {
 		if (delegate) operation(delegate)
-		else pending.push(operation)
+		else if (acceptingEvents) pending.push(operation)
 	}
 
 	return {
@@ -71,8 +76,15 @@ function createClientBridge(enabled: boolean): ClientBridge {
 			getFeatureFlag: (key) => delegate?.getFeatureFlag(key),
 		},
 		attach: (client) => {
+			if (!acceptingEvents) return
 			delegate = client
+			acceptingEvents = false
 			for (const operation of pending.splice(0)) operation(client)
+		},
+		disable: () => {
+			delegate = undefined
+			acceptingEvents = false
+			pending.length = 0
 		},
 	}
 }
@@ -85,7 +97,9 @@ function scheduleWhenIdle(task: () => void) {
 		return () => window.cancelIdleCallback?.(handle)
 	}
 
-	const handle = window.setTimeout(task, 0)
+	// Safari historically lacks requestIdleCallback. Keep the SDK off the task
+	// immediately following hydration while bounding the queued-event window.
+	const handle = window.setTimeout(task, 1_000)
 	return () => window.clearTimeout(handle)
 }
 
@@ -114,7 +128,10 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
 					setReady(true)
 				})
 				.catch((error: unknown) => {
-					if (!cancelled) console.error('Failed to load analytics', error)
+					if (!cancelled) {
+						bridge.disable()
+						console.error('Failed to load analytics', error)
+					}
 				})
 		})
 

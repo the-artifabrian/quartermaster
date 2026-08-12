@@ -13,6 +13,7 @@ import { runInBackground } from './utils/background.server.ts'
 import { getEnv, init } from './utils/env.server.ts'
 import { getInstanceInfo } from './utils/litefs.server.ts'
 import { NonceProvider } from './utils/nonce-provider.ts'
+import { getPostHogAssetHost, getPostHogHost } from './utils/posthog-config.ts'
 import { serializeError } from './utils/serialize-error.server.ts'
 import { makeTimings } from './utils/timing.server.ts'
 
@@ -22,6 +23,12 @@ init()
 global.ENV = getEnv()
 
 const MODE = process.env.NODE_ENV ?? 'development'
+const posthogHost = process.env.POSTHOG_API_KEY
+	? getPostHogHost(process.env.POSTHOG_HOST)
+	: undefined
+const posthogAssetHost = posthogHost
+	? getPostHogAssetHost(posthogHost)
+	: undefined
 
 type DocRequestArgs = Parameters<HandleDocumentRequestFunction>
 
@@ -86,13 +93,8 @@ export default async function handleRequest(...args: DocRequestArgs) {
 					'default-src': ["'self'"],
 					'connect-src': [
 						MODE === 'development' ? 'ws:' : undefined,
-						process.env.POSTHOG_HOST ?? undefined,
-						process.env.POSTHOG_HOST
-							? process.env.POSTHOG_HOST.replace(
-									/^(https?:\/\/)([^.]+)/,
-									'$1$2-assets',
-								)
-							: undefined,
+						posthogHost,
+						posthogAssetHost,
 						"'self'",
 					],
 					'font-src': ["'self'", 'https://fonts.gstatic.com'],

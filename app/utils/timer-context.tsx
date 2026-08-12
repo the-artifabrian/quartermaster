@@ -3,6 +3,7 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from 'react'
@@ -26,6 +27,7 @@ export type Timer = {
 
 type TimerContextValue = {
 	timers: Timer[]
+	now: number
 	addTimer: (label: string, durationSeconds: number) => void
 	pauseTimer: (id: string) => void
 	resumeTimer: (id: string) => void
@@ -122,15 +124,19 @@ function saveTimersToStorage(timers: Timer[]) {
 
 export function TimerProvider({ children }: { children: React.ReactNode }) {
 	const [timers, setTimers] = useState<Timer[]>([])
-	const [, setTick] = useState(0)
+	const [now, setNow] = useState(() => Date.now())
 	const timersRef = useRef(timers)
 	timersRef.current = timers
 	const initializedRef = useRef(false)
+	const hasTickingTimer = timers.some(
+		(timer) => timer.status === 'running' || timer.status === 'alarming',
+	)
 
 	// Load from localStorage on mount (client only)
 	useEffect(() => {
 		const loaded = loadTimersFromStorage()
 		if (loaded.length > 0) {
+			setNow(Date.now())
 			setTimers(loaded)
 			// Play alarm for any timers that expired while away
 			if (loaded.some((t) => t.status === 'alarming')) {
@@ -156,9 +162,12 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 
 	// Single tick interval for all timers
 	useEffect(() => {
+		if (!hasTickingTimer) return
+
 		const id = setInterval(() => {
 			const current = timersRef.current
 			const now = Date.now()
+			setNow(now)
 			let needsUpdate = false
 
 			for (const timer of current) {
@@ -224,13 +233,10 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 					),
 				)
 			}
-
-			// Force re-render to update countdown displays
-			setTick((t) => t + 1)
 		}, TICK_INTERVAL)
 
 		return () => clearInterval(id)
-	}, [])
+	}, [hasTickingTimer])
 
 	// Keep the screen awake while any timer is running (shared, refcounted
 	// manager — the recipe page holds its own claim while it's open).
@@ -240,13 +246,15 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 		// First timer start is a user gesture — the one moment a permission
 		// prompt is justified. Declining degrades to the in-page alarm.
 		maybeRequestTimerNotificationPermission()
+		const startedAt = Date.now()
+		setNow(startedAt)
 		setTimers((prev) => {
 			if (prev.length >= MAX_TIMERS) return prev
 			const newTimer: Timer = {
 				id: generateId(),
 				label,
 				durationSeconds,
-				endTime: Date.now() + durationSeconds * 1000,
+				endTime: startedAt + durationSeconds * 1000,
 				remainingMs: durationSeconds * 1000,
 				status: 'running',
 				alarmStartedAt: null,
@@ -256,11 +264,13 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 	}, [])
 
 	const pauseTimer = useCallback((id: string) => {
+		const pausedAt = Date.now()
+		setNow(pausedAt)
 		setTimers((prev) =>
 			prev.map((timer) => {
 				if (timer.id !== id || timer.status !== 'running') return timer
 				const remaining = timer.endTime
-					? Math.max(0, timer.endTime - Date.now())
+					? Math.max(0, timer.endTime - pausedAt)
 					: timer.remainingMs
 				return {
 					...timer,
@@ -273,13 +283,15 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 	}, [])
 
 	const resumeTimer = useCallback((id: string) => {
+		const resumedAt = Date.now()
+		setNow(resumedAt)
 		setTimers((prev) =>
 			prev.map((timer) => {
 				if (timer.id !== id || timer.status !== 'paused') return timer
 				return {
 					...timer,
 					status: 'running' as const,
-					endTime: Date.now() + timer.remainingMs,
+					endTime: resumedAt + timer.remainingMs,
 				}
 			}),
 		)
@@ -308,21 +320,30 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 		setTimers((prev) => prev.filter((timer) => timer.id !== id))
 	}, [])
 
-	return (
-		<TimerContext.Provider
-			value={{
-				timers,
-				addTimer,
-				pauseTimer,
-				resumeTimer,
-				resetTimer,
-				removeTimer,
-				dismissAlarm,
-			}}
-		>
-			{children}
-		</TimerContext.Provider>
+	const value = useMemo<TimerContextValue>(
+		() => ({
+			timers,
+			now,
+			addTimer,
+			pauseTimer,
+			resumeTimer,
+			resetTimer,
+			removeTimer,
+			dismissAlarm,
+		}),
+		[
+			timers,
+			now,
+			addTimer,
+			pauseTimer,
+			resumeTimer,
+			resetTimer,
+			removeTimer,
+			dismissAlarm,
+		],
 	)
+
+	return <TimerContext.Provider value={value}>{children}</TimerContext.Provider>
 }
 
 export function useTimers(): TimerContextValue {
@@ -336,9 +357,12 @@ export function useTimers(): TimerContextValue {
 /**
  * Get the remaining seconds for a timer, computed from endTime for running timers.
  */
-export function getTimerRemainingSeconds(timer: Timer): number {
+export function getTimerRemainingSeconds(
+	timer: Timer,
+	now: number = Date.now(),
+): number {
 	if (timer.status === 'running' && timer.endTime) {
-		return Math.max(0, Math.ceil((timer.endTime - Date.now()) / 1000))
+		return Math.max(0, Math.ceil((timer.endTime - now) / 1000))
 	}
 	return Math.max(0, Math.ceil(timer.remainingMs / 1000))
 }

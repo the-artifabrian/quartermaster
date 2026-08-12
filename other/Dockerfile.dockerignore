@@ -7,6 +7,14 @@
 /.cache
 /public/build
 /build
+/.git
+/.playwright-mcp
+/.react-router
+/coverage
+/docs
+/playwright-report
+/test-results
+/tests
 
 # generated files — copied from the build stage; don't let a local stale
 # copy leak in via `ADD . .` when someone runs `docker build` by hand

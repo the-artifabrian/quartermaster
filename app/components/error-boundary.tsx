@@ -1,4 +1,3 @@
-import { usePostHog } from '@posthog/react'
 import { useEffect, type ReactElement } from 'react'
 import {
 	type ErrorResponse,
@@ -7,6 +6,7 @@ import {
 	useRouteError,
 } from 'react-router'
 import { getErrorMessage } from '#app/utils/misc.tsx'
+import { usePostHog } from '#app/utils/posthog-provider.tsx'
 
 type StatusHandler = (info: {
 	error: ErrorResponse
@@ -38,11 +38,11 @@ export function GeneralErrorBoundary({
 	useEffect(() => {
 		if (isResponse) return
 
-		posthog?.captureException(error)
+		posthog.captureException(error)
 	}, [error, isResponse, posthog])
 
 	return (
-		<div className="text-xl font-semibold container flex items-center justify-center p-20">
+		<div className="container flex items-center justify-center p-20 text-xl font-semibold">
 			{isResponse
 				? (statusHandlers?.[error.status] ?? defaultStatusHandler)({
 						error,

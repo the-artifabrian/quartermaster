@@ -11,6 +11,7 @@ export default defineConfig((config) => {
 		build: {
 			target: 'es2022',
 			cssMinify: mode === 'production',
+			manifest: true,
 
 			rollupOptions: {
 				external: [/node:.*/, 'fsevents'],
@@ -31,9 +32,6 @@ export default defineConfig((config) => {
 			watch: {
 				ignored: ['**/playwright-report/**'],
 			},
-		},
-		ssr: {
-			noExternal: ['posthog-js', '@posthog/react'],
 		},
 		environments: {
 			// RR8's Vite Environment API build ignores the legacy

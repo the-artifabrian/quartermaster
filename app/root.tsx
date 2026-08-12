@@ -36,6 +36,7 @@ import { getEnv } from './utils/env.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
 import { combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
 import { useNonce } from './utils/nonce-provider.ts'
+import { getPostHogHost } from './utils/posthog-config.ts'
 import { PostHogIdentify, PostHogPageview } from './utils/posthog-provider.tsx'
 import { getUserTier, type TierInfo } from './utils/subscription.server.ts'
 import { type Theme, getTheme } from './utils/theme.server.ts'
@@ -288,11 +289,17 @@ function Document({
 	path?: string
 }) {
 	const allowIndexing = ENV.ALLOW_INDEXING !== 'false'
+	const posthogOrigin = env.POSTHOG_API_KEY
+		? new URL(getPostHogHost(env.POSTHOG_HOST)).origin
+		: null
 	return (
 		<html lang="en" className={`${theme} h-full overflow-x-hidden`}>
 			<head>
 				<ClientHintCheck nonce={nonce} />
 				<Meta />
+				{posthogOrigin ? (
+					<link rel="preconnect" href={posthogOrigin} crossOrigin="anonymous" />
+				) : null}
 				<meta charSet="utf-8" />
 				<meta
 					name="viewport"

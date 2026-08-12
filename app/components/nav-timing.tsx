@@ -40,7 +40,7 @@ export function NavTiming() {
 					connection?: { effectiveType?: string; rtt?: number }
 				}
 			).connection
-			posthog?.capture('nav_duration_ms', {
+			posthog.capture('nav_duration_ms', {
 				duration_ms: Math.round(duration),
 				from: fromRef.current,
 				to: toRef.current,

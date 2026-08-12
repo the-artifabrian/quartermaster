@@ -13,6 +13,7 @@ const PRESETS = [1, 5, 10, 15, 30] as const
 export function TimerWidget() {
 	const {
 		timers,
+		now,
 		addTimer,
 		pauseTimer,
 		resumeTimer,
@@ -32,8 +33,8 @@ export function TimerWidget() {
 	const shortestRunning =
 		runningTimers.length > 0
 			? runningTimers.reduce((shortest, t) => {
-					const remaining = getTimerRemainingSeconds(t)
-					const shortestRemaining = getTimerRemainingSeconds(shortest)
+					const remaining = getTimerRemainingSeconds(t, now)
+					const shortestRemaining = getTimerRemainingSeconds(shortest, now)
 					return remaining < shortestRemaining ? t : shortest
 				})
 			: null
@@ -53,14 +54,14 @@ export function TimerWidget() {
 				)}
 				aria-label={
 					displayTimer
-						? `Timer: ${formatTime(getTimerRemainingSeconds(displayTimer))}`
+						? `Timer: ${formatTime(getTimerRemainingSeconds(displayTimer, now))}`
 						: 'Open timers'
 				}
 			>
 				<Icon name="timer" size="md" />
 				{displayTimer && (
 					<span className="font-mono text-sm font-bold tabular-nums">
-						{formatTime(getTimerRemainingSeconds(displayTimer))}
+						{formatTime(getTimerRemainingSeconds(displayTimer, now))}
 					</span>
 				)}
 				{activeTimers.length > 1 && (
@@ -93,7 +94,7 @@ export function TimerWidget() {
 				{activeTimers.length > 0 && (
 					<div className="mb-3 space-y-2">
 						{activeTimers.map((timer) => {
-							const remaining = getTimerRemainingSeconds(timer)
+							const remaining = getTimerRemainingSeconds(timer, now)
 							const isAlarming = timer.status === 'alarming'
 							const isRunning = timer.status === 'running'
 							const isPaused = timer.status === 'paused'

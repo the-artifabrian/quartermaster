@@ -2,10 +2,12 @@ import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Link } from 'react-router'
 import { MenuPlaceholder } from '#app/components/menu-card.tsx'
+import { RecipeThumb } from '#app/components/recipe-selector.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { type Route } from './+types/$menuId.ts'
 
@@ -33,8 +35,29 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			defaultGuestCount: true,
 			householdId: true,
 			sections: {
-				select: { id: true, name: true },
 				orderBy: { order: 'asc' },
+				select: {
+					id: true,
+					name: true,
+					items: {
+						orderBy: { order: 'asc' },
+						select: {
+							id: true,
+							kind: true,
+							recipeTitle: true,
+							scaleMultiplier: true,
+							note: true,
+							recipe: {
+								select: {
+									id: true,
+									title: true,
+									householdId: true,
+									image: { select: { objectKey: true } },
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	})
@@ -44,7 +67,34 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		status: 403,
 	})
 
-	return { menu }
+	return {
+		menu: {
+			...menu,
+			sections: menu.sections.map((section) => ({
+				...section,
+				items: section.items.map((item) => {
+					// A reference that no longer resolves to a household Recipe reads
+					// as a clearly missing card with its frozen identity.
+					const recipe =
+						item.recipe && item.recipe.householdId === householdId
+							? {
+									id: item.recipe.id,
+									title: item.recipe.title,
+									image: item.recipe.image,
+								}
+							: null
+					return {
+						id: item.id,
+						kind: item.kind,
+						recipeTitle: item.recipeTitle,
+						scaleMultiplier: item.scaleMultiplier,
+						note: item.note,
+						recipe,
+					}
+				}),
+			})),
+		},
+	}
 }
 
 export default function MenuDetail({ loaderData }: Route.ComponentProps) {
@@ -97,12 +147,96 @@ export default function MenuDetail({ loaderData }: Route.ComponentProps) {
 						{section.name ? (
 							<h2 className={sectionLabelClass}>{section.name}</h2>
 						) : null}
-						<p className="text-muted-foreground border-border/60 rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm">
-							Nothing on this menu yet.
-						</p>
+						{section.items.length === 0 ? (
+							<p className="text-muted-foreground border-border/60 rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm">
+								Nothing on this menu yet.
+							</p>
+						) : (
+							<ul className="space-y-2">
+								{section.items.map((item) => (
+									<MenuRecipeCard key={item.id} item={item} />
+								))}
+							</ul>
+						)}
 					</section>
 				))}
 			</div>
 		</div>
+	)
+}
+
+type MenuDetailItem = {
+	id: string
+	kind: string
+	recipeTitle: string | null
+	scaleMultiplier: number | null
+	note: string | null
+	recipe: {
+		id: string
+		title: string
+		image: { objectKey: string } | null
+	} | null
+}
+
+function MenuRecipeCard({ item }: { item: MenuDetailItem }) {
+	const title = item.recipe?.title ?? item.recipeTitle ?? 'Recipe'
+	// "1×" is the default batch — only a real adjustment earns a badge.
+	const multiplier =
+		item.scaleMultiplier != null && item.scaleMultiplier !== 1
+			? `${formatScaleMultiplier(item.scaleMultiplier)}×`
+			: null
+
+	const content = (
+		<>
+			{item.recipe ? (
+				<RecipeThumb title={title} image={item.recipe.image} />
+			) : (
+				<span className="bg-muted/70 flex size-9 shrink-0 items-center justify-center rounded-md">
+					<Icon
+						name="question-mark-circled"
+						className="text-muted-foreground size-4"
+					/>
+				</span>
+			)}
+			<div className="min-w-0 flex-1">
+				<p className="line-clamp-2 min-w-0 font-serif text-[17px] leading-[1.4] break-words md:text-base">
+					{title}
+				</p>
+				{item.recipe ? null : (
+					<p className="text-destructive mt-0.5 text-xs">
+						No longer in your recipe library — edit the menu to replace or
+						remove it
+					</p>
+				)}
+				{item.note ? (
+					<p className="text-muted-foreground mt-0.5 text-sm leading-snug">
+						{item.note}
+					</p>
+				) : null}
+			</div>
+			{multiplier ? (
+				<span className="text-muted-foreground shrink-0 text-sm font-medium tabular-nums">
+					{multiplier}
+				</span>
+			) : null}
+		</>
+	)
+
+	if (item.recipe) {
+		return (
+			<li>
+				<Link
+					to={`/recipes/${item.recipe.id}`}
+					className="border-border/60 bg-card hover:bg-muted/40 flex items-center gap-3 rounded-lg border p-3 transition-colors"
+				>
+					{content}
+				</Link>
+			</li>
+		)
+	}
+	return (
+		<li className="border-border/60 bg-muted/30 flex items-center gap-3 rounded-lg border border-dashed p-3">
+			{content}
+		</li>
 	)
 }

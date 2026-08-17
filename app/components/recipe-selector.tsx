@@ -27,12 +27,23 @@ type RecipeSelectorProps = {
 	onSelect?: () => void
 }
 
-function RecipeOptionThumb({ recipe }: { recipe: RecipeSelectorRecipe }) {
-	if (recipe.image) {
+/**
+ * Small square recipe thumbnail — image when one exists, the deterministic
+ * warm monogram placeholder otherwise. Shared row language for anything that
+ * lists recipes compactly (Plan selector, Menu picker).
+ */
+export function RecipeThumb({
+	title,
+	image,
+}: {
+	title: string
+	image: { objectKey: string } | null
+}) {
+	if (image) {
 		return (
 			<span className="size-9 shrink-0 overflow-hidden rounded-md">
 				<Img
-					src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
+					src={`/resources/images?objectKey=${encodeURIComponent(image.objectKey)}`}
 					alt=""
 					className="h-full w-full object-cover"
 					width={72}
@@ -41,7 +52,7 @@ function RecipeOptionThumb({ recipe }: { recipe: RecipeSelectorRecipe }) {
 			</span>
 		)
 	}
-	const placeholder = getRecipePlaceholder(recipe.title)
+	const placeholder = getRecipePlaceholder(title)
 	return (
 		<span
 			className={cn(
@@ -56,14 +67,17 @@ function RecipeOptionThumb({ recipe }: { recipe: RecipeSelectorRecipe }) {
 	)
 }
 
-function getTotalTime(recipe: RecipeSelectorRecipe): number | null {
+export function getRecipeTotalTime(recipe: {
+	prepTime: number | null
+	cookTime: number | null
+}): number | null {
 	const total = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
 	return total > 0 ? total : null
 }
 
 function sortByTime(a: RecipeSelectorRecipe, b: RecipeSelectorRecipe): number {
-	const aTime = getTotalTime(a) ?? 45
-	const bTime = getTotalTime(b) ?? 45
+	const aTime = getRecipeTotalTime(a) ?? 45
+	const bTime = getRecipeTotalTime(b) ?? 45
 	return aTime - bTime
 }
 
@@ -109,7 +123,7 @@ export function RecipeSelector({
 					<Icon name="cross-1" size="sm" />
 				</Button>
 			</div>
-			<div className="scrollbar-thin max-h-[300px] space-y-0.5 overflow-y-auto">
+			<div className="max-h-[300px] scrollbar-thin space-y-0.5 overflow-y-auto">
 				{favorites.length === 0 && rest.length === 0 ? (
 					<div className="py-4 text-center">
 						<p className="text-muted-foreground text-sm">No recipes found</p>
@@ -176,7 +190,7 @@ function RecipeOption({
 	mealType: MealType
 	onSelect?: () => void
 }) {
-	const totalTime = getTotalTime(recipe)
+	const totalTime = getRecipeTotalTime(recipe)
 
 	return (
 		<Form method="POST" onSubmit={onSelect}>
@@ -188,7 +202,7 @@ function RecipeOption({
 				type="submit"
 				className="hover:bg-muted/50 flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors"
 			>
-				<RecipeOptionThumb recipe={recipe} />
+				<RecipeThumb title={recipe.title} image={recipe.image} />
 				<div className="flex min-w-0 flex-1 items-center justify-between gap-2">
 					<p className="min-w-0 truncate text-sm font-medium">
 						{recipe.isFavorite && (

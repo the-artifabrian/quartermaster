@@ -235,6 +235,7 @@ model Recipe {
   linkedFromIngredients Ingredient[] @relation("LinkedRecipe")
   instructions    Instruction[]
   mealPlanEntries      MealPlanEntry[]
+  menuItems       MenuItem[]
 
   @@index([userId])
   @@index([householdId])
@@ -316,7 +317,39 @@ model MenuSection {
   menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
   menuId String
 
+  items MenuItem[]
+
   @@index([menuId, order])
+}
+
+model MenuItem {
+  id    String @id @default(cuid())
+  /// Discriminator: 'recipe' today; note cards arrive with the same table (#102).
+  kind  String
+  order Int    @default(0)
+
+  /// Frozen at add/replace time so a deleted Recipe's card keeps its identity.
+  recipeTitle String?
+  /// Positive decimal batches of the Recipe's stored ingredient list ("1×" = one
+  /// batch). Deliberately not derived from legacy servings, which has no
+  /// reliability provenance (#98 readiness corrections).
+  scaleMultiplier Float?
+  /// Optional serving/preparation context displayed on the card.
+  note String?
+
+  /// Nulled when the Recipe is deleted — the card then reads as missing until
+  /// the user explicitly replaces or removes it.
+  recipe   Recipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  recipeId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  section   MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  sectionId String
+
+  @@index([sectionId, order])
+  @@index([recipeId])
 }
 
 model InventoryItem {

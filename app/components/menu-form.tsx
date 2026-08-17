@@ -329,14 +329,13 @@ function MenuItemRow({
 				aria-label={`Note for ${title}`}
 				className="mt-2 h-10"
 			/>
+			{/* Separate lists so each input's aria-describedby resolves */}
+			<ErrorList errors={itemMeta.errors} id={itemMeta.errorId} />
 			<ErrorList
-				errors={[
-					...(itemMeta.errors ?? []),
-					...(item.scaleMultiplier.errors ?? []),
-					...(item.note.errors ?? []),
-				]}
-				id={itemMeta.errorId}
+				errors={item.scaleMultiplier.errors}
+				id={item.scaleMultiplier.errorId}
 			/>
+			<ErrorList errors={item.note.errors} id={item.note.errorId} />
 		</li>
 	)
 }

@@ -18,10 +18,17 @@ import {
 	MenuBuilderSchema,
 	type MenuBuilderInput,
 	type MenuItemInput,
+	type MenuSectionInput,
 } from '#app/utils/menu-validation.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { ErrorList, Field, TextareaField } from './forms.tsx'
 import { Button } from './ui/button.tsx'
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from './ui/dropdown-menu.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
 import { StatusButton } from './ui/status-button.tsx'
@@ -35,6 +42,13 @@ export type MenuBuilderItem = {
 	note: string | null
 }
 
+export type MenuBuilderSection = {
+	id: string
+	/** null marks the durable unnamed section — never renamed or removed. */
+	name: string | null
+	items: MenuBuilderItem[]
+}
+
 type MenuFormProps = {
 	menu?: {
 		id: string
@@ -44,11 +58,12 @@ type MenuFormProps = {
 	}
 	submitLabel?: string
 	/**
-	 * When present, the form edits the Menu's Recipe cards too: existing items
-	 * plus the household Recipes the picker may add. Create stays metadata-only.
+	 * When present, the form edits the Menu's sections and Recipe cards too:
+	 * the stored sections plus the household Recipes the picker may add.
+	 * Create stays metadata-only.
 	 */
 	builder?: {
-		items: MenuBuilderItem[]
+		sections: MenuBuilderSection[]
 		recipes: RecipePickerRecipe[]
 	}
 }
@@ -65,8 +80,8 @@ export function MenuForm({
 	const isSubmitting = navigation.state === 'submitting'
 	const formId = useId()
 
-	// One schema for both modes: `items` is optional, so metadata-only create
-	// parses cleanly and the create action simply never reads items.
+	// One schema for both modes: `sections` is optional, so metadata-only
+	// create parses cleanly and the create action simply never reads sections.
 	const [form, fields] = useForm({
 		id: formId,
 		constraint: getZodConstraint(MenuBuilderSchema),
@@ -79,11 +94,15 @@ export function MenuForm({
 			description: menu?.description ?? '',
 			defaultGuestCount: menu?.defaultGuestCount?.toString() ?? '',
 			...(builder && {
-				items: builder.items.map((item) => ({
-					id: item.id,
-					recipeId: item.recipeId ?? '',
-					scaleMultiplier: formatScaleMultiplier(item.scaleMultiplier),
-					note: item.note ?? '',
+				sections: builder.sections.map((section) => ({
+					id: section.id,
+					name: section.name ?? '',
+					items: section.items.map((item) => ({
+						id: item.id,
+						recipeId: item.recipeId ?? '',
+						scaleMultiplier: formatScaleMultiplier(item.scaleMultiplier),
+						note: item.note ?? '',
+					})),
 				})),
 			}),
 		},
@@ -134,7 +153,7 @@ export function MenuForm({
 			/>
 
 			{builder ? (
-				<MenuItemsBuilder form={form} fields={fields} builder={builder} />
+				<MenuSectionsBuilder form={form} fields={fields} builder={builder} />
 			) : null}
 
 			<div className="flex items-center justify-end gap-3 pt-2">
@@ -157,8 +176,92 @@ export function MenuForm({
 
 type MenuFormMetadata = FormMetadata<MenuBuilderInput>
 type MenuFormFields = ReturnType<MenuFormMetadata['getFieldset']>
+type MenuSectionMetadata = FieldMetadata<MenuSectionInput>
 
-function MenuItemsBuilder({
+/**
+ * Paired labelled move up/down intent buttons. Reordering moves the row's DOM
+ * node, which drops keyboard focus; refocusing the moved row's control
+ * afterwards (or its twin once the row hits a boundary and this one disables)
+ * lets a keyboard user keep pressing Enter to walk a row through the list.
+ * The buttons are found again by accessible label — the row's title — because
+ * conform regenerates its row keys (and so the DOM ids) whenever the form
+ * revalidates, and the re-render lands asynchronously, so focus is re-asserted
+ * over a few frames rather than guessing the exact commit timing.
+ */
+function ReorderButtons({
+	form,
+	name,
+	index,
+	count,
+	label,
+}: {
+	form: MenuFormMetadata
+	name: string
+	index: number
+	count: number
+	label: string
+}) {
+	const upLabel = `Move ${label} up`
+	const downLabel = `Move ${label} down`
+	const refocus = (preferred: string, twin: string) => {
+		const find = (ariaLabel: string) =>
+			Array.from(
+				document.getElementById(form.id)?.querySelectorAll('button') ?? [],
+			).find((b) => b.getAttribute('aria-label') === ariaLabel && !b.disabled)
+		let attempts = 0
+		const tick = () => {
+			;(find(preferred) ?? find(twin))?.focus()
+			if (++attempts < 4) requestAnimationFrame(tick)
+		}
+		requestAnimationFrame(tick)
+	}
+	return (
+		<>
+			<Button
+				variant="ghost"
+				size="icon"
+				{...form.reorder.getButtonProps({ name, from: index, to: index - 1 })}
+				disabled={index === 0}
+				aria-label={upLabel}
+				onClick={() => refocus(upLabel, downLabel)}
+			>
+				<Icon name="arrow-up" size="sm" />
+			</Button>
+			<Button
+				variant="ghost"
+				size="icon"
+				{...form.reorder.getButtonProps({ name, from: index, to: index + 1 })}
+				disabled={index === count - 1}
+				aria-label={downLabel}
+				onClick={() => refocus(downLabel, upLabel)}
+			>
+				<Icon name="arrow-down" size="sm" />
+			</Button>
+		</>
+	)
+}
+
+/** Reads the builder's live values into the plain shape `form.update` takes. */
+function readSections(sectionList: MenuSectionMetadata[]) {
+	return sectionList.map((sectionMeta) => {
+		const section = sectionMeta.getFieldset()
+		return {
+			id: section.id.value ?? '',
+			name: section.name.value ?? '',
+			items: section.items.getFieldList().map((itemMeta) => {
+				const item = itemMeta.getFieldset()
+				return {
+					id: item.id.value ?? '',
+					recipeId: item.recipeId.value ?? '',
+					scaleMultiplier: item.scaleMultiplier.value ?? '',
+					note: item.note.value ?? '',
+				}
+			}),
+		}
+	})
+}
+
+function MenuSectionsBuilder({
 	form,
 	fields,
 	builder,
@@ -167,45 +270,227 @@ function MenuItemsBuilder({
 	fields: MenuFormFields
 	builder: NonNullable<MenuFormProps['builder']>
 }) {
-	const itemList = fields.items.getFieldList()
-	const itemsById = new Map(builder.items.map((item) => [item.id, item]))
+	const sectionList = fields.sections.getFieldList()
+	const itemsById = new Map(
+		builder.sections.flatMap((s) => s.items).map((item) => [item.id, item]),
+	)
 	const recipesById = new Map(builder.recipes.map((r) => [r.id, r]))
-	const usedRecipeIds = itemList
-		.map((itemMeta) => itemMeta.getFieldset().recipeId.value)
+	const unnamedSectionId = builder.sections.find((s) => s.name === null)?.id
+
+	// A Recipe appears once per Menu, so the pickers exclude every section's.
+	const usedRecipeIds = sectionList
+		.flatMap((sectionMeta) =>
+			sectionMeta
+				.getFieldset()
+				.items.getFieldList()
+				.map((itemMeta) => itemMeta.getFieldset().recipeId.value),
+		)
 		.filter((id): id is string => Boolean(id))
+
+	// How each section reads in move controls and menus right now.
+	const sectionLabels = sectionList.map((sectionMeta, index) => {
+		const section = sectionMeta.getFieldset()
+		if (section.id.value && section.id.value === unnamedSectionId) {
+			return 'Unnamed section'
+		}
+		return section.name.value?.trim() || `Section ${index + 1}`
+	})
+
+	function moveItemToSection(
+		fromSection: number,
+		itemIndex: number,
+		toSection: number,
+	) {
+		const sections = readSections(sectionList)
+		const [moved] = sections[fromSection]!.items.splice(itemIndex, 1)
+		if (!moved) return
+		sections[toSection]!.items.push(moved)
+		form.update({ name: fields.sections.name, value: sections })
+	}
+
+	function removeSection(sectionIndex: number) {
+		const sections = readSections(sectionList)
+		const [removed] = sections.splice(sectionIndex, 1)
+		if (!removed) return
+		// Removing a section keeps its food: items land in the unnamed section.
+		const unnamed =
+			sections.find((s) => s.id === unnamedSectionId) ?? sections[0]
+		unnamed?.items.push(...removed.items)
+		form.update({ name: fields.sections.name, value: sections })
+	}
 
 	return (
 		<fieldset className="pt-2">
 			<legend className={sectionLabelClass}>Recipes</legend>
-			<ErrorList errors={fields.items.errors} id={fields.items.errorId} />
+			<ErrorList errors={fields.sections.errors} id={fields.sections.errorId} />
+			<ul className="mt-3 space-y-6">
+				{sectionList.map((sectionMeta, sectionIndex) => (
+					<MenuSectionCard
+						key={sectionMeta.key}
+						form={form}
+						fields={fields}
+						sectionMeta={sectionMeta}
+						sectionIndex={sectionIndex}
+						sectionCount={sectionList.length}
+						sectionLabels={sectionLabels}
+						unnamedSectionId={unnamedSectionId}
+						itemsById={itemsById}
+						recipesById={recipesById}
+						recipes={builder.recipes}
+						usedRecipeIds={usedRecipeIds}
+						onMoveItem={moveItemToSection}
+						onRemoveSection={removeSection}
+					/>
+				))}
+			</ul>
+			<div className="mt-4">
+				<Button
+					type="button"
+					variant="outline"
+					className="h-11 md:h-10"
+					onClick={() =>
+						form.insert({
+							name: fields.sections.name,
+							defaultValue: { id: '', name: '', items: [] },
+						})
+					}
+				>
+					<Icon name="plus" size="sm" />
+					Add section
+				</Button>
+			</div>
+		</fieldset>
+	)
+}
+
+function MenuSectionCard({
+	form,
+	fields,
+	sectionMeta,
+	sectionIndex,
+	sectionCount,
+	sectionLabels,
+	unnamedSectionId,
+	itemsById,
+	recipesById,
+	recipes,
+	usedRecipeIds,
+	onMoveItem,
+	onRemoveSection,
+}: {
+	form: MenuFormMetadata
+	fields: MenuFormFields
+	sectionMeta: MenuSectionMetadata
+	sectionIndex: number
+	sectionCount: number
+	sectionLabels: string[]
+	unnamedSectionId: string | undefined
+	itemsById: Map<string, MenuBuilderItem>
+	recipesById: Map<string, RecipePickerRecipe>
+	recipes: RecipePickerRecipe[]
+	usedRecipeIds: string[]
+	onMoveItem: (
+		fromSection: number,
+		itemIndex: number,
+		toSection: number,
+	) => void
+	onRemoveSection: (sectionIndex: number) => void
+}) {
+	const section = sectionMeta.getFieldset()
+	const isUnnamed =
+		Boolean(section.id.value) && section.id.value === unnamedSectionId
+	const itemList = section.items.getFieldList()
+	const label = sectionLabels[sectionIndex]!
+	// A menu that is still one unnamed section keeps the sectionless look.
+	const soloUnnamed = isUnnamed && sectionCount === 1
+
+	const { key: idKey, ...idProps } = getInputProps(section.id, {
+		type: 'hidden',
+	})
+	const { key: nameKey, ...nameProps } = getInputProps(section.name, {
+		type: 'text',
+	})
+
+	return (
+		<li>
+			<input key={idKey} {...idProps} />
+			{soloUnnamed ? null : (
+				<div className="mb-2 flex items-start gap-1">
+					{isUnnamed ? (
+						<p className="text-muted-foreground flex h-11 min-w-0 flex-1 items-center text-sm italic">
+							Unnamed section
+						</p>
+					) : (
+						<div className="min-w-0 flex-1">
+							<Input
+								key={nameKey}
+								{...nameProps}
+								placeholder="Section name — e.g. Dessert"
+								aria-label="Section name"
+								className="h-11"
+							/>
+							<ErrorList
+								errors={section.name.errors}
+								id={section.name.errorId}
+							/>
+						</div>
+					)}
+					<ReorderButtons
+						form={form}
+						name={fields.sections.name}
+						index={sectionIndex}
+						count={sectionCount}
+						label={label}
+					/>
+					{isUnnamed ? null : (
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							onClick={() => onRemoveSection(sectionIndex)}
+							aria-label={`Remove ${label} — its recipes move to the unnamed section`}
+						>
+							<Icon name="trash" size="sm" />
+						</Button>
+					)}
+				</div>
+			)}
 			{itemList.length === 0 ? (
-				<p className="text-muted-foreground border-border/60 mt-3 rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm">
-					No recipes on this menu yet.
+				<p className="text-muted-foreground border-border/60 rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm">
+					{soloUnnamed
+						? 'No recipes on this menu yet.'
+						: 'No recipes in this section yet.'}
 				</p>
 			) : (
-				<ul className="mt-3 space-y-2">
+				<ul className="space-y-2">
 					{itemList.map((itemMeta, index) => (
 						<MenuItemRow
 							key={itemMeta.key}
 							form={form}
-							fields={fields}
+							itemsName={section.items.name}
 							itemMeta={itemMeta}
 							index={index}
+							itemCount={itemList.length}
+							sectionIndex={sectionIndex}
+							sectionLabels={sectionLabels}
 							itemsById={itemsById}
 							recipesById={recipesById}
-							recipes={builder.recipes}
+							recipes={recipes}
 							usedRecipeIds={usedRecipeIds}
+							onMoveToSection={(toSection) =>
+								onMoveItem(sectionIndex, index, toSection)
+							}
 						/>
 					))}
 				</ul>
 			)}
 			<div className="mt-3">
 				<RecipePicker
-					recipes={builder.recipes}
+					recipes={recipes}
 					excludeRecipeIds={usedRecipeIds}
 					onPick={(recipe) => {
 						form.insert({
-							name: fields.items.name,
+							name: section.items.name,
 							defaultValue: {
 								id: '',
 								recipeId: recipe.id,
@@ -216,28 +501,36 @@ function MenuItemsBuilder({
 					}}
 				/>
 			</div>
-		</fieldset>
+		</li>
 	)
 }
 
 function MenuItemRow({
 	form,
-	fields,
+	itemsName,
 	itemMeta,
 	index,
+	itemCount,
+	sectionIndex,
+	sectionLabels,
 	itemsById,
 	recipesById,
 	recipes,
 	usedRecipeIds,
+	onMoveToSection,
 }: {
 	form: MenuFormMetadata
-	fields: MenuFormFields
+	itemsName: string
 	itemMeta: FieldMetadata<MenuItemInput>
 	index: number
+	itemCount: number
+	sectionIndex: number
+	sectionLabels: string[]
 	itemsById: Map<string, MenuBuilderItem>
 	recipesById: Map<string, RecipePickerRecipe>
 	recipes: RecipePickerRecipe[]
 	usedRecipeIds: string[]
+	onMoveToSection: (toSection: number) => void
 }) {
 	const item = itemMeta.getFieldset()
 	const recipeId = item.recipeId.value
@@ -301,7 +594,7 @@ function MenuItemRow({
 					variant="ghost"
 					size="icon"
 					className="shrink-0"
-					{...form.remove.getButtonProps({ name: fields.items.name, index })}
+					{...form.remove.getButtonProps({ name: itemsName, index })}
 					aria-label={`Remove ${title} from menu`}
 				>
 					<Icon name="trash" size="sm" />
@@ -329,6 +622,44 @@ function MenuItemRow({
 				aria-label={`Note for ${title}`}
 				className="mt-2 h-10"
 			/>
+			{/* Labelled, keyboard-reachable ordering controls — dependable on
+			    phone where pointer drag is not (#101). */}
+			<div className="mt-2 flex items-center gap-1">
+				<ReorderButtons
+					form={form}
+					name={itemsName}
+					index={index}
+					count={itemCount}
+					label={title}
+				/>
+				{sectionLabels.length > 1 ? (
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								className="text-muted-foreground h-11 px-3 md:h-9"
+								aria-label={`Move ${title} to another section`}
+							>
+								Move to…
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="start">
+							{sectionLabels.map((label, target) =>
+								target === sectionIndex ? null : (
+									<DropdownMenuItem
+										key={target}
+										onSelect={() => onMoveToSection(target)}
+									>
+										{label}
+									</DropdownMenuItem>
+								),
+							)}
+						</DropdownMenuContent>
+					</DropdownMenu>
+				) : null}
+			</div>
 			{/* Separate lists so each input's aria-describedby resolves */}
 			<ErrorList errors={itemMeta.errors} id={itemMeta.errorId} />
 			<ErrorList

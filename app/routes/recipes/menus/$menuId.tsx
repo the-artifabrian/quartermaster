@@ -141,25 +141,40 @@ export default function MenuDetail({ loaderData }: Route.ComponentProps) {
 			)}
 
 			<div className="mt-8 space-y-8">
-				{menu.sections.map((section) => (
-					<section key={section.id}>
-						{/* The unnamed section stays headingless */}
-						{section.name ? (
-							<h2 className={sectionLabelClass}>{section.name}</h2>
-						) : null}
-						{section.items.length === 0 ? (
-							<p className="text-muted-foreground border-border/60 rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm">
-								Nothing on this menu yet.
-							</p>
-						) : (
-							<ul className="space-y-2">
-								{section.items.map((item) => (
-									<MenuRecipeCard key={item.id} item={item} />
-								))}
-							</ul>
-						)}
-					</section>
-				))}
+				{menu.sections
+					// The empty unnamed section stays quietly out of the way once
+					// custom sections carry the menu — durable in data, not on screen.
+					.filter(
+						(section) =>
+							section.name !== null ||
+							section.items.length > 0 ||
+							menu.sections.length === 1,
+					)
+					.map((section) => (
+						<section key={section.id}>
+							{/* The unnamed section stays headingless */}
+							{section.name ? (
+								<h2 className={`${sectionLabelClass} mb-3`}>{section.name}</h2>
+							) : null}
+							{section.items.length === 0 ? (
+								section.name ? (
+									<p className="text-muted-foreground text-sm">
+										Nothing in this section yet.
+									</p>
+								) : (
+									<p className="text-muted-foreground border-border/60 rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm">
+										Nothing on this menu yet.
+									</p>
+								)
+							) : (
+								<ul className="space-y-2">
+									{section.items.map((item) => (
+										<MenuRecipeCard key={item.id} item={item} />
+									))}
+								</ul>
+							)}
+						</section>
+					))}
 			</div>
 		</div>
 	)

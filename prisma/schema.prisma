@@ -158,6 +158,7 @@ model Household {
   inventoryItems    InventoryItem[]
   mealPlans         MealPlan[]
   shoppingLists     ShoppingList[]
+  menus             Menu[]
 }
 
 model HouseholdMember {
@@ -279,6 +280,43 @@ model Instruction {
   recipeId String
 
   @@index([recipeId])
+}
+
+model Menu {
+  id          String  @id @default(cuid())
+  title       String
+  /// Trimmed, Unicode-normalized (NFKC), lower-cased title — the Menu's
+  /// case-insensitive identity within its household.
+  titleKey    String
+  description String?
+  /// Optional context for later planning; never scales quantities by itself.
+  defaultGuestCount Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId String
+
+  sections MenuSection[]
+
+  @@unique([householdId, titleKey])
+  @@index([householdId, updatedAt])
+}
+
+model MenuSection {
+  id    String  @id @default(cuid())
+  /// null marks the durable unnamed section every Menu starts with.
+  name  String?
+  order Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  menuId String
+
+  @@index([menuId, order])
 }
 
 model InventoryItem {

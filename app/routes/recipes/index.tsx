@@ -2,6 +2,7 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { GettingStartedChecklist } from '#app/components/getting-started-checklist.tsx'
+import { LibrarySwitch } from '#app/components/library-switch.tsx'
 import { RecipeCard, RecipeCardGrid } from '#app/components/recipe-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import {
@@ -414,6 +415,8 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container-grid py-4">
+				<LibrarySwitch active="recipes" />
+
 				{/* Search & Filters */}
 				<div className="mb-3 space-y-1.5">
 					{/* Search bar + mobile filter toggle */}

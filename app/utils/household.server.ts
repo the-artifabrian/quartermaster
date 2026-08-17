@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import { requireUserId } from './auth.server.ts'
 import { prisma } from './db.server.ts'
+import { menuTitleKey } from './menu-validation.ts'
 
 /**
  * Returns the current user's household info.
@@ -229,6 +230,39 @@ export async function acceptInvite(token: string, userId: string) {
 				where: { householdId: currentHouseholdId },
 				data: { householdId: targetHouseholdId },
 			})
+			// Menus are household-owned and would be cascade-deleted with the
+			// old household. Move them, disambiguating title collisions with
+			// deterministic "Title (2)", "Title (3)" suffixes.
+			const targetMenus = await tx.menu.findMany({
+				where: { householdId: targetHouseholdId },
+				select: { titleKey: true },
+			})
+			const takenTitleKeys = new Set<string>(
+				targetMenus.map((m: { titleKey: string }) => m.titleKey),
+			)
+			const sourceMenus = await tx.menu.findMany({
+				where: { householdId: currentHouseholdId },
+				select: { id: true, title: true, titleKey: true },
+				orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+			})
+			for (const menu of sourceMenus) {
+				let { title, titleKey } = menu
+				if (takenTitleKeys.has(titleKey)) {
+					let suffix = 2
+					while (
+						takenTitleKeys.has(menuTitleKey(`${menu.title} (${suffix})`))
+					) {
+						suffix++
+					}
+					title = `${menu.title} (${suffix})`
+					titleKey = menuTitleKey(title)
+				}
+				takenTitleKeys.add(titleKey)
+				await tx.menu.update({
+					where: { id: menu.id },
+					data: { householdId: targetHouseholdId, title, titleKey },
+				})
+			}
 			// Delete old household (cascades HouseholdMember)
 			await tx.household.delete({
 				where: { id: currentHouseholdId },

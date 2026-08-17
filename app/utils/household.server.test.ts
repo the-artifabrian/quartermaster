@@ -159,6 +159,61 @@ describe('acceptInvite', () => {
 		expect(membership!.role).toBe('member')
 	})
 
+	test('sole member: menus move, colliding titles get deterministic suffixes', async () => {
+		const owner = await setupUser()
+		const joiner = await setupUser()
+
+		await prisma.menu.create({
+			data: {
+				title: 'Taco Night',
+				titleKey: 'taco night',
+				householdId: owner.householdId,
+				sections: { create: { name: null, order: 0 } },
+			},
+		})
+		await prisma.menu.create({
+			data: {
+				title: 'TACO NIGHT',
+				titleKey: 'taco night',
+				householdId: joiner.householdId,
+				sections: { create: { name: null, order: 0 } },
+			},
+		})
+		await prisma.menu.create({
+			data: {
+				title: 'Levantine Dinner',
+				titleKey: 'levantine dinner',
+				householdId: joiner.householdId,
+				sections: { create: { name: null, order: 0 } },
+			},
+		})
+
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+		await acceptInvite(invite.token, joiner.id)
+
+		const menus = await prisma.menu.findMany({
+			where: { householdId: owner.householdId },
+			orderBy: { titleKey: 'asc' },
+			include: { sections: true },
+		})
+		expect(menus.map((m) => m.title)).toEqual([
+			'Levantine Dinner',
+			'Taco Night',
+			'TACO NIGHT (2)',
+		])
+		expect(menus.map((m) => m.titleKey)).toEqual([
+			'levantine dinner',
+			'taco night',
+			'taco night (2)',
+		])
+		// Every menu kept its durable unnamed section
+		for (const menu of menus) {
+			expect(menu.sections).toHaveLength(1)
+		}
+		// Nothing left behind or deleted
+		expect(await prisma.menu.count()).toBe(3)
+	})
+
 	test('sole member: overlapping meal-plan weeks are merged', async () => {
 		const owner = await setupUserWithRecipe('Owner Dinner')
 		const joiner = await setupUserWithRecipe('Joiner Dinner')

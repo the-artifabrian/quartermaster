@@ -71,16 +71,52 @@ const MenuRecipeItemSchema = z
 		message: 'Pick a recipe for this card',
 	})
 
+export const SECTION_NAME_REQUIRED_MESSAGE = 'Section name is required'
+
+export const MenuSectionNameSchema = z
+	.string()
+	.trim()
+	.min(1, { message: SECTION_NAME_REQUIRED_MESSAGE })
+	.max(100, { message: 'Section name is too long' })
+
+const MenuBuilderSectionSchema = z
+	.object({
+		/** Existing MenuSection id; absent for a section added during this edit. */
+		id: z.string().optional(),
+		/** Absent on the durable unnamed section, which never carries a name. */
+		name: MenuSectionNameSchema.optional(),
+		items: z.array(MenuRecipeItemSchema).optional(),
+	})
+	// A new section is always custom, so it needs a name up front; existing
+	// custom sections are checked server-side against the stored unnamed id.
+	.refine((section) => section.id != null || section.name != null, {
+		message: SECTION_NAME_REQUIRED_MESSAGE,
+		path: ['name'],
+	})
+
 export const MenuBuilderSchema = MenuSchema.extend({
-	items: z
-		.array(MenuRecipeItemSchema)
-		.max(100, { message: 'A menu can hold at most 100 recipes' })
+	sections: z
+		.array(MenuBuilderSectionSchema)
+		.max(20, { message: 'A menu can hold at most 20 sections' })
+		.superRefine((sections, ctx) => {
+			const total = sections.reduce(
+				(count, section) => count + (section.items?.length ?? 0),
+				0,
+			)
+			if (total > 100) {
+				ctx.addIssue({
+					code: 'custom',
+					message: 'A menu can hold at most 100 recipes',
+				})
+			}
+		})
 		.optional(),
 })
 
 /** The builder form's pre-parse shape — what conform renders and submits. */
 export type MenuBuilderInput = z.input<typeof MenuBuilderSchema>
-export type MenuItemInput = NonNullable<MenuBuilderInput['items']>[number]
+export type MenuSectionInput = NonNullable<MenuBuilderInput['sections']>[number]
+export type MenuItemInput = NonNullable<MenuSectionInput['items']>[number]
 
 export const DUPLICATE_MENU_RECIPE_MESSAGE =
 	'Each recipe can appear only once per menu'

@@ -2,7 +2,10 @@ import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { data, redirect, useFetcher } from 'react-router'
-import { MenuForm, type MenuBuilderItem } from '#app/components/menu-form.tsx'
+import {
+	MenuForm,
+	type MenuBuilderSection,
+} from '#app/components/menu-form.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
@@ -13,6 +16,7 @@ import {
 	isUniqueConstraintError,
 	MenuBuilderSchema,
 	menuTitleKey,
+	SECTION_NAME_REQUIRED_MESSAGE,
 } from '#app/utils/menu-validation.ts'
 import { useDoubleCheck } from '#app/utils/misc.tsx'
 import { type Route } from './+types/$menuId_.edit.ts'
@@ -63,16 +67,19 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		status: 403,
 	})
 
-	const items: MenuBuilderItem[] = menu.sections
-		.flatMap((section) => section.items)
-		.filter((item) => item.kind === 'recipe')
-		.map((item) => ({
-			id: item.id,
-			recipeId: item.recipeId,
-			recipeTitle: item.recipeTitle ?? 'Recipe',
-			scaleMultiplier: item.scaleMultiplier ?? 1,
-			note: item.note,
-		}))
+	const sections: MenuBuilderSection[] = menu.sections.map((section) => ({
+		id: section.id,
+		name: section.name,
+		items: section.items
+			.filter((item) => item.kind === 'recipe')
+			.map((item) => ({
+				id: item.id,
+				recipeId: item.recipeId,
+				recipeTitle: item.recipeTitle ?? 'Recipe',
+				scaleMultiplier: item.scaleMultiplier ?? 1,
+				note: item.note,
+			})),
+	}))
 
 	const recipes = await prisma.recipe.findMany({
 		where: { householdId },
@@ -87,7 +94,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		orderBy: { title: 'asc' },
 	})
 
-	return { menu, items, recipes }
+	return { menu, sections, recipes }
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -103,6 +110,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 				orderBy: { order: 'asc' },
 				select: {
 					id: true,
+					name: true,
 					items: { select: { id: true, recipeId: true } },
 				},
 			},
@@ -128,19 +136,77 @@ export async function action({ request, params }: Route.ActionArgs) {
 	}
 
 	const { title, description, defaultGuestCount } = submission.value
-	const items = submission.value.items ?? []
 
-	// The durable unnamed section (#99) — where 1A composition lives until #101
-	// introduces custom sections.
-	const unnamedSection = menu.sections[0]
-	invariantResponse(unnamedSection, 'Menu has no section', { status: 500 })
+	// The durable unnamed section (#99) — it can be reordered among custom
+	// sections but never renamed or removed.
+	const unnamedSection = menu.sections.find((section) => section.name === null)
+	invariantResponse(unnamedSection, 'Menu has no unnamed section', {
+		status: 500,
+	})
+
+	// Full-state reconcile: the submission is the Menu's complete composition.
+	// An absent sections key resets it to the durable default — one empty
+	// unnamed section (#102's note items must join this round-trip).
+	const sections = (
+		submission.value.sections ?? [{ id: unnamedSection.id, items: [] }]
+	).map((section) => ({ ...section, items: section.items ?? [] }))
+
+	const storedSectionsById = new Map(menu.sections.map((s) => [s.id, s]))
+	const submittedSectionIds = sections.flatMap((section) =>
+		section.id != null ? [section.id] : [],
+	)
+	// Submitted section ids must belong to this menu, once each.
+	invariantResponse(
+		submittedSectionIds.every((id) => storedSectionsById.has(id)) &&
+			new Set(submittedSectionIds).size === submittedSectionIds.length,
+		'Invalid menu section',
+		{ status: 400 },
+	)
+	invariantResponse(
+		submittedSectionIds.includes(unnamedSection.id),
+		'A menu keeps its unnamed section',
+		{ status: 400 },
+	)
+
+	// An existing custom section must keep a non-empty name; a name submitted
+	// for the unnamed section is ignored rather than breaking its durability.
+	const sectionNameErrors = Object.fromEntries(
+		sections.flatMap((section, index): Array<[string, string[]]> =>
+			section.id != null &&
+			section.id !== unnamedSection.id &&
+			section.name == null
+				? [[`sections[${index}].name`, [SECTION_NAME_REQUIRED_MESSAGE]]]
+				: [],
+		),
+	)
+	if (Object.keys(sectionNameErrors).length > 0) {
+		return data(
+			{ result: submission.reply({ fieldErrors: sectionNameErrors }) },
+			{ status: 400 },
+		)
+	}
+
+	// Items flattened with their submitted position — a stored item appearing
+	// under a different section is an explicit cross-section move.
+	const items = sections.flatMap((section, sectionIndex) =>
+		section.items.map((item, itemIndex) => ({
+			...item,
+			sectionIndex,
+			itemIndex,
+		})),
+	)
 
 	const storedItems = menu.sections.flatMap((section) => section.items)
 	const storedById = new Map(storedItems.map((item) => [item.id, item]))
 
-	// Submitted item ids must belong to this menu — reject forged ids outright.
+	// Submitted item ids must belong to this menu, once each — reject forged
+	// or duplicated ids outright.
+	const submittedItemIds = items.flatMap((item) =>
+		item.id != null ? [item.id] : [],
+	)
 	invariantResponse(
-		items.every((item) => item.id == null || storedById.has(item.id)),
+		submittedItemIds.every((id) => storedById.has(id)) &&
+			new Set(submittedItemIds).size === submittedItemIds.length,
 		'Invalid menu item',
 		{ status: 400 },
 	)
@@ -195,16 +261,18 @@ export async function action({ request, params }: Route.ActionArgs) {
 		)
 	}
 
-	const submittedIds = new Set(
-		items.flatMap((item) => (item.id != null ? [item.id] : [])),
-	)
+	const submittedIds = new Set(submittedItemIds)
 	const removedItemIds = storedItems
 		.filter((item) => !submittedIds.has(item.id))
 		.map((item) => item.id)
+	const submittedSectionIdSet = new Set(submittedSectionIds)
+	const removedSectionIds = menu.sections
+		.filter((section) => !submittedSectionIdSet.has(section.id))
+		.map((section) => section.id)
 
 	try {
-		// One atomic Save — Menu fields and every card change persist together
-		// or not at all.
+		// One atomic Save — Menu fields and every section and card change
+		// persist together or not at all.
 		await prisma.$transaction(async (tx) => {
 			await tx.menu.update({
 				where: { id: menuId },
@@ -216,13 +284,32 @@ export async function action({ request, params }: Route.ActionArgs) {
 				},
 			})
 
-			if (removedItemIds.length > 0) {
-				await tx.menuItem.deleteMany({
-					where: { id: { in: removedItemIds } },
-				})
+			// Sections first: new ones need ids before their items persist, and
+			// every surviving section takes its submitted position.
+			const sectionIds: string[] = []
+			for (const [index, section] of sections.entries()) {
+				if (section.id != null) {
+					await tx.menuSection.update({
+						where: { id: section.id },
+						data: {
+							order: index,
+							...(section.id !== unnamedSection.id && {
+								name: section.name!,
+							}),
+						},
+					})
+					sectionIds.push(section.id)
+				} else {
+					const created = await tx.menuSection.create({
+						data: { menuId, name: section.name!, order: index },
+						select: { id: true },
+					})
+					sectionIds.push(created.id)
+				}
 			}
 
-			for (const [index, item] of items.entries()) {
+			for (const item of items) {
+				const sectionId = sectionIds[item.sectionIndex]!
 				if (item.id != null) {
 					const stored = storedById.get(item.id)!
 					const replacement =
@@ -232,7 +319,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 					await tx.menuItem.update({
 						where: { id: item.id },
 						data: {
-							order: index,
+							order: item.itemIndex,
+							sectionId,
 							scaleMultiplier: item.scaleMultiplier,
 							note: item.note ?? null,
 							// Replacing a card re-freezes the display title from the new
@@ -248,8 +336,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 					await tx.menuItem.create({
 						data: {
 							kind: 'recipe',
-							order: index,
-							sectionId: unnamedSection.id,
+							order: item.itemIndex,
+							sectionId,
 							recipeId: recipe.id,
 							recipeTitle: recipe.title,
 							scaleMultiplier: item.scaleMultiplier,
@@ -257,6 +345,19 @@ export async function action({ request, params }: Route.ActionArgs) {
 						},
 					})
 				}
+			}
+
+			if (removedItemIds.length > 0) {
+				await tx.menuItem.deleteMany({
+					where: { id: { in: removedItemIds } },
+				})
+			}
+			// After the item moves above, a removed section only cascades onto
+			// rows already deleted — surviving items were re-parented first.
+			if (removedSectionIds.length > 0) {
+				await tx.menuSection.deleteMany({
+					where: { id: { in: removedSectionIds } },
+				})
 			}
 		})
 		return redirect(`/recipes/menus/${menuId}`)
@@ -276,7 +377,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function EditMenu({ loaderData }: Route.ComponentProps) {
-	const { menu, items, recipes } = loaderData
+	const { menu, sections, recipes } = loaderData
 
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
@@ -284,7 +385,7 @@ export default function EditMenu({ loaderData }: Route.ComponentProps) {
 			<MenuForm
 				menu={menu}
 				submitLabel="Save Changes"
-				builder={{ items, recipes }}
+				builder={{ sections, recipes }}
 			/>
 			<div className="mt-8 border-t pt-8">
 				<DeleteMenu />

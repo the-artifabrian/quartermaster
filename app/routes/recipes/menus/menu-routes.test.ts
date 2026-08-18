@@ -2,8 +2,8 @@ import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { createUser } from '#tests/db-utils.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
+import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { loader as detailLoader } from './$menuId.tsx'
 import { action as editAction, loader as editLoader } from './$menuId_.edit.tsx'
@@ -146,8 +146,49 @@ async function saveMenu(
 function menuItems(menuId: string) {
 	return prisma.menuItem.findMany({
 		where: { section: { menuId } },
-		orderBy: { order: 'asc' },
+		orderBy: [{ section: { order: 'asc' } }, { order: 'asc' }],
 	})
+}
+
+function menuSections(menuId: string) {
+	return prisma.menuSection.findMany({
+		where: { menuId },
+		orderBy: { order: 'asc' },
+		include: { items: { orderBy: { order: 'asc' } } },
+	})
+}
+
+function unnamedSection(menuId: string) {
+	return prisma.menuSection.findFirstOrThrow({
+		where: { menuId, name: null },
+		select: { id: true },
+	})
+}
+
+/** Flattens per-section item fields into the form-encoded submission shape. */
+function sectionFields(
+	index: number,
+	section: { id?: string; name?: string },
+	items: Array<Record<string, string>> = [],
+) {
+	const fields: Record<string, string> = {}
+	if (section.id != null) fields[`sections[${index}].id`] = section.id
+	if (section.name != null) fields[`sections[${index}].name`] = section.name
+	items.forEach((item, itemIndex) => {
+		for (const [key, value] of Object.entries(item)) {
+			fields[`sections[${index}].items[${itemIndex}].${key}`] = value
+		}
+	})
+	return fields
+}
+
+/** The common single-section case: items submitted under the unnamed section. */
+async function unnamedItemsFields(
+	menuId: string,
+	items: Array<Record<string, string>>,
+) {
+	const section = await unnamedSection(menuId)
+	return sectionFields(0, { id: section.id }, items)
 }
 
 describe('menu create', () => {
@@ -446,11 +487,10 @@ describe('menu recipe items', () => {
 
 		const response = await saveMenu(session, menu.id, {
 			title: 'Terrace Dinner',
-			'items[0].recipeId': hummus.id,
-			'items[0].scaleMultiplier': '1',
-			'items[1].recipeId': pita.id,
-			'items[1].scaleMultiplier': '2.5',
-			'items[1].note': 'Two oven batches',
+			...(await unnamedItemsFields(menu.id, [
+				{ recipeId: hummus.id, scaleMultiplier: '1' },
+				{ recipeId: pita.id, scaleMultiplier: '2.5', note: 'Two oven batches' },
+			])),
 		})
 		expect(redirectLocation(response)).toBe(`/recipes/menus/${menu.id}`)
 
@@ -475,7 +515,10 @@ describe('menu recipe items', () => {
 
 		// A household member reopening the menu sees the same composition
 		const memberSession = await addHouseholdMember(session.householdId)
-		const request = await makeRequest(memberSession, `/recipes/menus/${menu.id}`)
+		const request = await makeRequest(
+			memberSession,
+			`/recipes/menus/${menu.id}`,
+		)
 		const result = (await detailLoader({
 			request,
 			...makeMenuArgs(menu.id),
@@ -500,8 +543,9 @@ describe('menu recipe items', () => {
 		redirectLocation(
 			await saveMenu(session, menu.id, {
 				title: 'Comma Locale',
-				'items[0].recipeId': recipe.id,
-				'items[0].scaleMultiplier': '1,5',
+				...(await unnamedItemsFields(menu.id, [
+					{ recipeId: recipe.id, scaleMultiplier: '1,5' },
+				])),
 			}),
 		)
 		const items = await menuItems(menu.id)
@@ -516,8 +560,9 @@ describe('menu recipe items', () => {
 		for (const bad of ['0', '-1', 'abc', '101', '1.234']) {
 			const result = (await saveMenu(session, menu.id, {
 				title: 'Strict Numbers',
-				'items[0].recipeId': recipe.id,
-				'items[0].scaleMultiplier': bad,
+				...(await unnamedItemsFields(menu.id, [
+					{ recipeId: recipe.id, scaleMultiplier: bad },
+				])),
 			})) as any
 			expect(result.init?.status, `multiplier ${bad}`).toBe(400)
 		}
@@ -531,10 +576,10 @@ describe('menu recipe items', () => {
 
 		const result = (await saveMenu(session, menu.id, {
 			title: 'No Doubles',
-			'items[0].recipeId': recipe.id,
-			'items[0].scaleMultiplier': '1',
-			'items[1].recipeId': recipe.id,
-			'items[1].scaleMultiplier': '2',
+			...(await unnamedItemsFields(menu.id, [
+				{ recipeId: recipe.id, scaleMultiplier: '1' },
+				{ recipeId: recipe.id, scaleMultiplier: '2' },
+			])),
 		})) as any
 		expect(result.init?.status).toBe(400)
 		expect(result.data.result.error['']).toEqual([
@@ -551,8 +596,9 @@ describe('menu recipe items', () => {
 
 		const result = (await saveMenu(session, menu.id, {
 			title: 'Boundaries',
-			'items[0].recipeId': foreign.id,
-			'items[0].scaleMultiplier': '1',
+			...(await unnamedItemsFields(menu.id, [
+				{ recipeId: foreign.id, scaleMultiplier: '1' },
+			])),
 		})) as any
 		expect(result.init?.status).toBe(400)
 		expect(result.data.result.error['']).toEqual([
@@ -569,8 +615,9 @@ describe('menu recipe items', () => {
 		redirectLocation(
 			await saveMenu(session, menuB.id, {
 				title: 'Menu B',
-				'items[0].recipeId': recipe.id,
-				'items[0].scaleMultiplier': '1',
+				...(await unnamedItemsFields(menuB.id, [
+					{ recipeId: recipe.id, scaleMultiplier: '1' },
+				])),
 			}),
 		)
 		const [foreignItem] = await menuItems(menuB.id)
@@ -578,8 +625,9 @@ describe('menu recipe items', () => {
 		await expect(
 			saveMenu(session, menuA.id, {
 				title: 'Menu A',
-				'items[0].id': foreignItem!.id,
-				'items[0].scaleMultiplier': '3',
+				...(await unnamedItemsFields(menuA.id, [
+					{ id: foreignItem!.id, scaleMultiplier: '3' },
+				])),
 			}),
 		).rejects.toEqual(expect.objectContaining({ status: 400 }))
 		const untouched = await menuItems(menuB.id)
@@ -595,12 +643,11 @@ describe('menu recipe items', () => {
 		redirectLocation(
 			await saveMenu(session, menu.id, {
 				title: 'Rework',
-				'items[0].recipeId': a.id,
-				'items[0].scaleMultiplier': '1',
-				'items[1].recipeId': b.id,
-				'items[1].scaleMultiplier': '1',
-				'items[2].recipeId': c.id,
-				'items[2].scaleMultiplier': '1',
+				...(await unnamedItemsFields(menu.id, [
+					{ recipeId: a.id, scaleMultiplier: '1' },
+					{ recipeId: b.id, scaleMultiplier: '1' },
+					{ recipeId: c.id, scaleMultiplier: '1' },
+				])),
 			}),
 		)
 		const before = await menuItems(menu.id)
@@ -609,13 +656,15 @@ describe('menu recipe items', () => {
 		redirectLocation(
 			await saveMenu(session, menu.id, {
 				title: 'Rework',
-				'items[0].id': before[2]!.id,
-				'items[0].recipeId': c.id,
-				'items[0].scaleMultiplier': '3',
-				'items[0].note': 'Triple batch',
-				'items[1].id': before[0]!.id,
-				'items[1].recipeId': a.id,
-				'items[1].scaleMultiplier': '0.5',
+				...(await unnamedItemsFields(menu.id, [
+					{
+						id: before[2]!.id,
+						recipeId: c.id,
+						scaleMultiplier: '3',
+						note: 'Triple batch',
+					},
+					{ id: before[0]!.id, recipeId: a.id, scaleMultiplier: '0.5' },
+				])),
 			}),
 		)
 
@@ -646,8 +695,9 @@ describe('menu recipe items', () => {
 		redirectLocation(
 			await saveMenu(session, menu.id, {
 				title: 'Mine',
-				'items[0].recipeId': a.id,
-				'items[0].scaleMultiplier': '1',
+				...(await unnamedItemsFields(menu.id, [
+					{ recipeId: a.id, scaleMultiplier: '1' },
+				])),
 			}),
 		)
 		const [item] = await menuItems(menu.id)
@@ -655,11 +705,10 @@ describe('menu recipe items', () => {
 		// Rename onto a taken title while also editing and adding items
 		const result = (await saveMenu(session, menu.id, {
 			title: 'TAKEN TITLE',
-			'items[0].id': item!.id,
-			'items[0].recipeId': a.id,
-			'items[0].scaleMultiplier': '4',
-			'items[1].recipeId': b.id,
-			'items[1].scaleMultiplier': '1',
+			...(await unnamedItemsFields(menu.id, [
+				{ id: item!.id, recipeId: a.id, scaleMultiplier: '4' },
+				{ recipeId: b.id, scaleMultiplier: '1' },
+			])),
 		})) as any
 		expect(result.init?.status).toBe(400)
 		expect(result.data.result.error.title).toEqual([
@@ -681,15 +730,18 @@ describe('menu recipe items', () => {
 		const session = await setupUser()
 		const menu = await createMenuWithId(session, 'Resilient')
 		const keeper = await createRecipe(session, session.householdId, 'Keeper')
-		const doomed = await createRecipe(session, session.householdId, 'Doomed Dish')
+		const doomed = await createRecipe(
+			session,
+			session.householdId,
+			'Doomed Dish',
+		)
 		redirectLocation(
 			await saveMenu(session, menu.id, {
 				title: 'Resilient',
-				'items[0].recipeId': doomed.id,
-				'items[0].scaleMultiplier': '2',
-				'items[0].note': 'Make ahead',
-				'items[1].recipeId': keeper.id,
-				'items[1].scaleMultiplier': '1',
+				...(await unnamedItemsFields(menu.id, [
+					{ recipeId: doomed.id, scaleMultiplier: '2', note: 'Make ahead' },
+					{ recipeId: keeper.id, scaleMultiplier: '1' },
+				])),
 			}),
 		)
 
@@ -728,12 +780,17 @@ describe('menu recipe items', () => {
 		const session = await setupUser()
 		const menu = await createMenuWithId(session, 'Recovery')
 		const doomed = await createRecipe(session, session.householdId, 'Old Star')
-		const substitute = await createRecipe(session, session.householdId, 'New Star')
+		const substitute = await createRecipe(
+			session,
+			session.householdId,
+			'New Star',
+		)
 		redirectLocation(
 			await saveMenu(session, menu.id, {
 				title: 'Recovery',
-				'items[0].recipeId': doomed.id,
-				'items[0].scaleMultiplier': '2',
+				...(await unnamedItemsFields(menu.id, [
+					{ recipeId: doomed.id, scaleMultiplier: '2' },
+				])),
 			}),
 		)
 		const [item] = await menuItems(menu.id)
@@ -744,9 +801,9 @@ describe('menu recipe items', () => {
 			await saveMenu(session, menu.id, {
 				title: 'Recovery',
 				description: 'Still hosting',
-				'items[0].id': item!.id,
-				'items[0].recipeId': '',
-				'items[0].scaleMultiplier': '2',
+				...(await unnamedItemsFields(menu.id, [
+					{ id: item!.id, recipeId: '', scaleMultiplier: '2' },
+				])),
 			}),
 		)
 		let items = await menuItems(menu.id)
@@ -761,9 +818,9 @@ describe('menu recipe items', () => {
 		redirectLocation(
 			await saveMenu(session, menu.id, {
 				title: 'Recovery',
-				'items[0].id': item!.id,
-				'items[0].recipeId': substitute.id,
-				'items[0].scaleMultiplier': '2',
+				...(await unnamedItemsFields(menu.id, [
+					{ id: item!.id, recipeId: substitute.id, scaleMultiplier: '2' },
+				])),
 			}),
 		)
 		items = await menuItems(menu.id)
@@ -779,7 +836,7 @@ describe('menu recipe items', () => {
 		expect(await menuItems(menu.id)).toEqual([])
 	})
 
-	test('the edit loader returns items and household recipes for the builder', async () => {
+	test('the edit loader returns ordered sections and household recipes for the builder', async () => {
 		const session = await setupUser()
 		const menu = await createMenuWithId(session, 'Builder Data')
 		const recipe = await createRecipe(session, session.householdId, 'Shakshuka')
@@ -788,8 +845,9 @@ describe('menu recipe items', () => {
 		redirectLocation(
 			await saveMenu(session, menu.id, {
 				title: 'Builder Data',
-				'items[0].recipeId': recipe.id,
-				'items[0].scaleMultiplier': '1.25',
+				...(await unnamedItemsFields(menu.id, [
+					{ recipeId: recipe.id, scaleMultiplier: '1.25' },
+				])),
 			}),
 		)
 
@@ -798,12 +856,344 @@ describe('menu recipe items', () => {
 			request,
 			...makeMenuArgs(menu.id, '/edit'),
 		})) as {
-			items: Array<{ recipeId: string | null; scaleMultiplier: number }>
+			sections: Array<{
+				name: string | null
+				items: Array<{ recipeId: string | null; scaleMultiplier: number }>
+			}>
 			recipes: Array<{ title: string }>
 		}
-		expect(result.items).toEqual([
-			expect.objectContaining({ recipeId: recipe.id, scaleMultiplier: 1.25 }),
+		expect(result.sections).toEqual([
+			expect.objectContaining({
+				name: null,
+				items: [
+					expect.objectContaining({
+						recipeId: recipe.id,
+						scaleMultiplier: 1.25,
+					}),
+				],
+			}),
 		])
 		expect(result.recipes.map((r) => r.title)).toEqual(['Shakshuka'])
+	})
+})
+
+describe('menu sections and ordering', () => {
+	/** A menu with Hummus in the unnamed section and a 'Dessert' section
+	 * holding Baklava then Knafeh — the base for most section tests. */
+	async function setupSectionedMenu() {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Feast')
+		const hummus = await createRecipe(session, session.householdId, 'Hummus')
+		const baklava = await createRecipe(session, session.householdId, 'Baklava')
+		const knafeh = await createRecipe(session, session.householdId, 'Knafeh')
+		const unnamed = await unnamedSection(menu.id)
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Feast',
+				...sectionFields(0, { id: unnamed.id }, [
+					{ recipeId: hummus.id, scaleMultiplier: '1' },
+				]),
+				...sectionFields(1, { name: 'Dessert' }, [
+					{ recipeId: baklava.id, scaleMultiplier: '1' },
+					{ recipeId: knafeh.id, scaleMultiplier: '2' },
+				]),
+			}),
+		)
+		return { session, menu, hummus, baklava, knafeh, unnamed }
+	}
+
+	test('adds a named section and persists section and item order for the household', async () => {
+		const { session, menu } = await setupSectionedMenu()
+
+		const sections = await menuSections(menu.id)
+		expect(sections).toHaveLength(2)
+		expect(sections[0]).toMatchObject({ name: null, order: 0 })
+		expect(sections[1]).toMatchObject({ name: 'Dessert', order: 1 })
+		expect(sections[0]!.items.map((i) => i.recipeTitle)).toEqual(['Hummus'])
+		expect(sections[1]!.items.map((i) => i.recipeTitle)).toEqual([
+			'Baklava',
+			'Knafeh',
+		])
+		expect(sections[1]!.items.map((i) => i.order)).toEqual([0, 1])
+
+		// A household member reopening the menu sees the same structure
+		const memberSession = await addHouseholdMember(session.householdId)
+		const request = await makeRequest(
+			memberSession,
+			`/recipes/menus/${menu.id}`,
+		)
+		const result = (await detailLoader({
+			request,
+			...makeMenuArgs(menu.id),
+		})) as {
+			menu: {
+				sections: Array<{
+					name: string | null
+					items: Array<{ recipeTitle: string | null }>
+				}>
+			}
+		}
+		expect(
+			result.menu.sections.map((s) => ({
+				name: s.name,
+				titles: s.items.map((i) => i.recipeTitle),
+			})),
+		).toEqual([
+			{ name: null, titles: ['Hummus'] },
+			{ name: 'Dessert', titles: ['Baklava', 'Knafeh'] },
+		])
+	})
+
+	test('reorders sections and items within a section in one save', async () => {
+		const { session, menu, hummus, baklava, knafeh, unnamed } =
+			await setupSectionedMenu()
+		const before = await menuSections(menu.id)
+		const dessert = before[1]!
+		const [baklavaItem, knafehItem] = dessert.items
+		const [hummusItem] = before[0]!.items
+
+		// Dessert first with its items reversed; the unnamed section moves last
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Feast',
+				...sectionFields(0, { id: dessert.id, name: 'Dessert' }, [
+					{ id: knafehItem!.id, recipeId: knafeh.id, scaleMultiplier: '2' },
+					{ id: baklavaItem!.id, recipeId: baklava.id, scaleMultiplier: '1' },
+				]),
+				...sectionFields(1, { id: unnamed.id }, [
+					{ id: hummusItem!.id, recipeId: hummus.id, scaleMultiplier: '1' },
+				]),
+			}),
+		)
+
+		const after = await menuSections(menu.id)
+		expect(after.map((s) => s.name)).toEqual(['Dessert', null])
+		expect(after[0]!.items.map((i) => i.recipeTitle)).toEqual([
+			'Knafeh',
+			'Baklava',
+		])
+		expect(after[1]!.items.map((i) => i.recipeTitle)).toEqual(['Hummus'])
+	})
+
+	test('moves an item to another section explicitly', async () => {
+		const { session, menu, hummus, baklava, knafeh, unnamed } =
+			await setupSectionedMenu()
+		const before = await menuSections(menu.id)
+		const dessert = before[1]!
+		const [baklavaItem, knafehItem] = dessert.items
+		const [hummusItem] = before[0]!.items
+
+		// Baklava leaves Dessert for the unnamed section
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Feast',
+				...sectionFields(0, { id: unnamed.id }, [
+					{ id: hummusItem!.id, recipeId: hummus.id, scaleMultiplier: '1' },
+					{ id: baklavaItem!.id, recipeId: baklava.id, scaleMultiplier: '1' },
+				]),
+				...sectionFields(1, { id: dessert.id, name: 'Dessert' }, [
+					{ id: knafehItem!.id, recipeId: knafeh.id, scaleMultiplier: '2' },
+				]),
+			}),
+		)
+
+		const after = await menuSections(menu.id)
+		expect(after[0]!.items.map((i) => i.recipeTitle)).toEqual([
+			'Hummus',
+			'Baklava',
+		])
+		expect(after[1]!.items.map((i) => i.recipeTitle)).toEqual(['Knafeh'])
+		const moved = after[0]!.items[1]!
+		expect(moved.id).toBe(baklavaItem!.id)
+		expect(moved.sectionId).toBe(unnamed.id)
+	})
+
+	test('renames a custom section', async () => {
+		const { session, menu, hummus, baklava, knafeh, unnamed } =
+			await setupSectionedMenu()
+		const before = await menuSections(menu.id)
+		const dessert = before[1]!
+		const [baklavaItem, knafehItem] = dessert.items
+		const [hummusItem] = before[0]!.items
+
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Feast',
+				...sectionFields(0, { id: unnamed.id }, [
+					{ id: hummusItem!.id, recipeId: hummus.id, scaleMultiplier: '1' },
+				]),
+				...sectionFields(1, { id: dessert.id, name: 'Sweets' }, [
+					{ id: baklavaItem!.id, recipeId: baklava.id, scaleMultiplier: '1' },
+					{ id: knafehItem!.id, recipeId: knafeh.id, scaleMultiplier: '2' },
+				]),
+			}),
+		)
+
+		const after = await menuSections(menu.id)
+		expect(after.map((s) => s.name)).toEqual([null, 'Sweets'])
+	})
+
+	test('removing a non-empty custom section moves its items to the unnamed section', async () => {
+		const { session, menu, hummus, baklava, knafeh, unnamed } =
+			await setupSectionedMenu()
+		const before = await menuSections(menu.id)
+		const [baklavaItem, knafehItem] = before[1]!.items
+		const [hummusItem] = before[0]!.items
+
+		// The builder submits the removed section's items under the unnamed one
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Feast',
+				...sectionFields(0, { id: unnamed.id }, [
+					{ id: hummusItem!.id, recipeId: hummus.id, scaleMultiplier: '1' },
+					{ id: baklavaItem!.id, recipeId: baklava.id, scaleMultiplier: '1' },
+					{ id: knafehItem!.id, recipeId: knafeh.id, scaleMultiplier: '2' },
+				]),
+			}),
+		)
+
+		const after = await menuSections(menu.id)
+		expect(after).toHaveLength(1)
+		expect(after[0]!.name).toBeNull()
+		expect(after[0]!.items.map((i) => i.recipeTitle)).toEqual([
+			'Hummus',
+			'Baklava',
+			'Knafeh',
+		])
+		// The items themselves survived — same rows, new home
+		expect(after[0]!.items.map((i) => i.id)).toContain(knafehItem!.id)
+	})
+
+	test('omitting a custom section and its items deletes both — the save is the full state', async () => {
+		const { session, menu, hummus, unnamed } = await setupSectionedMenu()
+		const [hummusItem] = (await menuSections(menu.id))[0]!.items
+
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Feast',
+				...sectionFields(0, { id: unnamed.id }, [
+					{ id: hummusItem!.id, recipeId: hummus.id, scaleMultiplier: '1' },
+				]),
+			}),
+		)
+
+		const after = await menuSections(menu.id)
+		expect(after).toHaveLength(1)
+		expect(await menuItems(menu.id)).toHaveLength(1)
+	})
+
+	test('the unnamed section cannot be removed and never takes a name', async () => {
+		const { session, menu, unnamed } = await setupSectionedMenu()
+		const dessert = (await menuSections(menu.id))[1]!
+
+		// A submission without the unnamed section is rejected outright
+		await expect(
+			saveMenu(session, menu.id, {
+				title: 'Feast',
+				...sectionFields(0, { id: dessert.id, name: 'Dessert' }),
+			}),
+		).rejects.toEqual(expect.objectContaining({ status: 400 }))
+
+		// A name submitted for the unnamed section is ignored, not persisted
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Feast',
+				...sectionFields(0, { id: unnamed.id, name: 'Sneaky Name' }),
+			}),
+		)
+		const stored = await prisma.menuSection.findUniqueOrThrow({
+			where: { id: unnamed.id },
+		})
+		expect(stored.name).toBeNull()
+	})
+
+	test('rejects forged and duplicated section ids', async () => {
+		const session = await setupUser()
+		const menuA = await createMenuWithId(session, 'Menu A')
+		const menuB = await createMenuWithId(session, 'Menu B')
+		const unnamedA = await unnamedSection(menuA.id)
+		const unnamedB = await unnamedSection(menuB.id)
+
+		await expect(
+			saveMenu(session, menuA.id, {
+				title: 'Menu A',
+				...sectionFields(0, { id: unnamedA.id }),
+				...sectionFields(1, { id: unnamedB.id }),
+			}),
+		).rejects.toEqual(expect.objectContaining({ status: 400 }))
+
+		await expect(
+			saveMenu(session, menuA.id, {
+				title: 'Menu A',
+				...sectionFields(0, { id: unnamedA.id }),
+				...sectionFields(1, { id: unnamedA.id }),
+			}),
+		).rejects.toEqual(expect.objectContaining({ status: 400 }))
+	})
+
+	test('a new section requires a name and an existing one cannot lose its name', async () => {
+		const { session, menu, unnamed } = await setupSectionedMenu()
+		const dessert = (await menuSections(menu.id))[1]!
+
+		const nameless = (await saveMenu(session, menu.id, {
+			title: 'Feast',
+			...sectionFields(0, { id: unnamed.id }),
+			...sectionFields(1, { name: '   ' }),
+		})) as any
+		expect(nameless.init?.status).toBe(400)
+		expect(nameless.data.result.error['sections[1].name']).toEqual([
+			'Section name is required',
+		])
+
+		const cleared = (await saveMenu(session, menu.id, {
+			title: 'Feast',
+			...sectionFields(0, { id: unnamed.id }),
+			...sectionFields(1, { id: dessert.id }),
+		})) as any
+		expect(cleared.init?.status).toBe(400)
+		expect(cleared.data.result.error['sections[1].name']).toEqual([
+			'Section name is required',
+		])
+		expect((await menuSections(menu.id))[1]!.name).toBe('Dessert')
+	})
+
+	test('rejects an item id submitted under two sections at once', async () => {
+		const { session, menu, hummus, unnamed } = await setupSectionedMenu()
+		const before = await menuSections(menu.id)
+		const dessert = before[1]!
+		const [hummusItem] = before[0]!.items
+
+		await expect(
+			saveMenu(session, menu.id, {
+				title: 'Feast',
+				...sectionFields(0, { id: unnamed.id }, [
+					{ id: hummusItem!.id, recipeId: hummus.id, scaleMultiplier: '1' },
+				]),
+				...sectionFields(1, { id: dessert.id, name: 'Dessert' }, [
+					{ id: hummusItem!.id, recipeId: hummus.id, scaleMultiplier: '1' },
+				]),
+			}),
+		).rejects.toEqual(expect.objectContaining({ status: 400 }))
+	})
+
+	test('a recipe still appears only once per menu across sections', async () => {
+		const { session, menu, hummus, unnamed } = await setupSectionedMenu()
+		const before = await menuSections(menu.id)
+		const dessert = before[1]!
+		const [hummusItem] = before[0]!.items
+
+		const result = (await saveMenu(session, menu.id, {
+			title: 'Feast',
+			...sectionFields(0, { id: unnamed.id }, [
+				{ id: hummusItem!.id, recipeId: hummus.id, scaleMultiplier: '1' },
+			]),
+			...sectionFields(1, { id: dessert.id, name: 'Dessert' }, [
+				{ recipeId: hummus.id, scaleMultiplier: '1' },
+			]),
+		})) as any
+		expect(result.init?.status).toBe(400)
+		expect(result.data.result.error['']).toEqual([
+			'Each recipe can appear only once per menu',
+		])
 	})
 })

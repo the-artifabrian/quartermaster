@@ -236,6 +236,7 @@ model Recipe {
   instructions    Instruction[]
   mealPlanEntries      MealPlanEntry[]
   menuItems       MenuItem[]
+  mealRecipeItems MealRecipeItem[]
 
   @@index([userId])
   @@index([householdId])
@@ -300,6 +301,7 @@ model Menu {
   householdId String
 
   sections MenuSection[]
+  meals    Meal[]
 
   @@unique([householdId, titleKey])
   @@index([householdId, updatedAt])
@@ -398,6 +400,7 @@ model MealPlan {
   household   Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
   householdId String
   entries     MealPlanEntry[]
+  meals       Meal[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -419,6 +422,82 @@ model MealPlanEntry {
   @@index([mealPlanId])
   @@index([recipeId])
   @@unique([mealPlanId, date, mealType, recipeId])
+}
+
+/// One scheduled Meal within the household/week Plan — the ordered parent
+/// Release 1B evolves the planner around (#104). Additive for now: legacy
+/// MealPlanEntry rows stay untouched and keep driving the current UI until
+/// #105 switches reads and #106 contracts them.
+model Meal {
+  id   String   @id @default(cuid())
+  /// Semantic date within the Plan week (midnight UTC, like MealPlanEntry.date).
+  date DateTime
+  /// Explicit within-day order — authoritative. Label and serving time are
+  /// display metadata and never silently reorder Meals.
+  order Int
+  /// Optional familiar label ("breakfast", "lunch", …).
+  label String?
+  /// Optional serving time, stored once as a UTC instant plus the IANA
+  /// timezone it was entered in. Date/time edits recompute the instant from
+  /// the Plan's semantic date; Release 5 reuses this representation.
+  servingAt       DateTime?
+  servingTimeZone String?
+  /// Generic text ("Leftovers") — mutually exclusive with Recipe items. A
+  /// text-only Meal has no Shopping behavior.
+  genericText String?
+  /// Completion for a text-only Meal. A Recipe Meal instead derives completion
+  /// from its items' cooked state; a Meal-level "mark cooked" action updates
+  /// all items explicitly.
+  completed  Boolean @default(false)
+  /// Planning context only — never scales quantities by itself.
+  guestCount Int?
+
+  /// Where this Meal was planned from, kept for a future explicit
+  /// Update-from-Menu action. revision = the Menu's updatedAt when the
+  /// snapshot was taken, so later Menu edits are detectable.
+  sourceMenu         Menu?     @relation(fields: [sourceMenuId], references: [id], onDelete: SetNull)
+  sourceMenuId       String?
+  sourceMenuRevision DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mealPlan   MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  mealPlanId String
+
+  recipeItems MealRecipeItem[]
+
+  @@index([mealPlanId, date, order])
+  @@index([sourceMenuId])
+}
+
+/// One ordered Recipe card inside a Meal. Cooked state lives here, not on the
+/// Meal (#98 readiness corrections).
+model MealRecipeItem {
+  id    String @id @default(cuid())
+  order Int
+  /// Frozen at add/replace time so a deleted Recipe's card keeps its identity.
+  recipeTitle String
+  /// Positive decimal batches of the Recipe's stored ingredient list ("1×" =
+  /// one batch). Migrated legacy serving overrides become
+  /// override / Recipe.servings — preserving the chosen ratio without
+  /// treating legacy servings as trustworthy yield (#98).
+  scaleMultiplier Float   @default(1)
+  cooked          Boolean @default(false)
+
+  /// Nulled when the Recipe is deleted — the card then reads as missing until
+  /// the user explicitly replaces or removes it.
+  recipe   Recipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  recipeId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  mealId String
+
+  @@index([mealId, order])
+  @@index([recipeId])
 }
 
 model ShoppingList {

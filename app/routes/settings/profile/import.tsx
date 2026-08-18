@@ -85,9 +85,43 @@ const ImportMealPlanEntrySchema = z.object({
 	recipe: z.string().min(1).max(100),
 })
 
+const ImportMealItemSchema = z.object({
+	// Export-local reference key. When present it alone decides the Recipe
+	// link — an unknown ref restores as a missing card, never a title guess.
+	recipeRef: z.string().max(50).nullable().optional(),
+	recipeTitle: z.string().min(1).max(100).nullable().optional(),
+	// Migrated multipliers are exact override/servings ratios, so unlike Menu
+	// cards they are not clamped to two decimals or 100 — recovery preserves
+	// the stored value.
+	scaleMultiplier: z.number().positive().max(1000).nullable().optional(),
+	cooked: z.boolean().optional(),
+})
+
+const ImportMealSchema = z
+	.object({
+		date: z.string(),
+		order: z.number().int().nonnegative().optional(),
+		label: z.string().max(50).nullable().optional(),
+		servingAt: z.string().nullable().optional(),
+		servingTimeZone: z.string().max(100).nullable().optional(),
+		genericText: z.string().max(1000).nullable().optional(),
+		completed: z.boolean().optional(),
+		guestCount: z.number().int().positive().max(999).nullable().optional(),
+		sourceMenuTitle: z.string().max(100).nullable().optional(),
+		sourceMenuRevision: z.string().nullable().optional(),
+		items: z.array(ImportMealItemSchema).max(100).optional(),
+	})
+	// Generic text and Recipe items are mutually exclusive on a saved Meal
+	// (#98 readiness corrections).
+	.refine((meal) => !(meal.genericText && (meal.items?.length ?? 0) > 0), {
+		message: 'A Meal cannot carry both generic text and Recipe items',
+	})
+
 const ImportMealPlanSchema = z.object({
 	weekStart: z.string(),
 	entries: z.array(ImportMealPlanEntrySchema).max(100),
+	// Optional so every pre-Meal export stays importable (#104).
+	meals: z.array(ImportMealSchema).max(200).optional(),
 })
 
 const ImportShoppingListItemSchema = z.object({
@@ -194,6 +228,7 @@ interface ImportPreview {
 	menus: number
 	inventory: number
 	mealPlans: number
+	meals: number
 	shoppingLists: number
 	isFullExport: boolean
 }
@@ -203,6 +238,7 @@ interface ImportResults {
 	menus: { created: number; skipped: number; errored: number }
 	inventory: { created: number; skipped: number }
 	mealPlans: { created: number; skipped: number }
+	meals: { created: number; skipped: number }
 	shoppingLists: { created: number; skipped: number }
 }
 
@@ -436,6 +472,223 @@ async function importMenus(
 	return stats
 }
 
+type ImportMeal = z.infer<typeof ImportMealSchema>
+
+/**
+ * How one restored or existing Meal is recognized on a later import: its full
+ * content except within-day order and source Menu revision. A file Meal whose
+ * key matches an existing Meal in the same week plan is skipped, so re-import
+ * stays idempotent without a natural unique identity.
+ */
+function getMealImportKey(meal: {
+	dateMs: number
+	label: string | null
+	genericText: string | null
+	completed: boolean
+	guestCount: number | null
+	servingAtMs: number | null
+	servingTimeZone: string | null
+	sourceMenuId: string | null
+	items: Array<{
+		recipeTitle: string
+		scaleMultiplier: number
+		cooked: boolean
+	}>
+}) {
+	return JSON.stringify([
+		meal.dateMs,
+		meal.label,
+		meal.genericText,
+		meal.completed,
+		meal.guestCount,
+		meal.servingAtMs,
+		meal.servingTimeZone,
+		meal.sourceMenuId,
+		meal.items.map((item) => [
+			item.recipeTitle.toLocaleLowerCase(),
+			item.scaleMultiplier,
+			item.cooked,
+		]),
+	])
+}
+
+/**
+ * Restores Meal parents and their ordered Recipe items into one ensured week
+ * plan (#104). Recipe references reconnect like Menu cards do: reference key
+ * first, normalized-title fallback only when a key is absent, unknown key ⇒
+ * missing card. Imported Meals append after any existing Meals on their day so
+ * explicit within-day order stays contiguous.
+ */
+async function importMeals(
+	meals: ImportMeal[],
+	mealPlanId: string,
+	recipeIndex: RecipeIndex,
+	menuIdByTitleKey: Map<string, string>,
+) {
+	const stats = { created: 0, skipped: 0 }
+
+	const existingMeals = await prisma.meal.findMany({
+		where: { mealPlanId },
+		select: {
+			date: true,
+			order: true,
+			label: true,
+			genericText: true,
+			completed: true,
+			guestCount: true,
+			servingAt: true,
+			servingTimeZone: true,
+			sourceMenuId: true,
+			recipeItems: {
+				select: { recipeTitle: true, scaleMultiplier: true, cooked: true },
+				orderBy: { order: 'asc' },
+			},
+		},
+	})
+	const takenKeys = new Set(
+		existingMeals.map((meal) =>
+			getMealImportKey({
+				dateMs: meal.date.getTime(),
+				label: meal.label,
+				genericText: meal.genericText,
+				completed: meal.completed,
+				guestCount: meal.guestCount,
+				servingAtMs: meal.servingAt?.getTime() ?? null,
+				servingTimeZone: meal.servingTimeZone,
+				sourceMenuId: meal.sourceMenuId,
+				items: meal.recipeItems,
+			}),
+		),
+	)
+	const nextOrderByDay = new Map<number, number>()
+	for (const meal of existingMeals) {
+		const day = meal.date.getTime()
+		nextOrderByDay.set(
+			day,
+			Math.max(nextOrderByDay.get(day) ?? 0, meal.order + 1),
+		)
+	}
+
+	for (const meal of meals) {
+		const date = new Date(meal.date)
+		if (Number.isNaN(date.getTime())) {
+			stats.skipped++
+			continue
+		}
+
+		const items = (meal.items ?? []).flatMap((item) => {
+			let recipeId: string | null = null
+			if (item.recipeRef != null) {
+				recipeId = recipeIndex.refToIdMap.get(item.recipeRef) ?? null
+			} else if (item.recipeTitle) {
+				recipeId =
+					recipeIndex.titleToIdMap.get(item.recipeTitle.toLowerCase()) ?? null
+			}
+			const recipeTitle =
+				item.recipeTitle ??
+				(recipeId != null
+					? (recipeIndex.titleById.get(recipeId) ?? null)
+					: null)
+			// Frozen display identity is required — an item that resolves to
+			// neither a Recipe nor a title cannot be represented.
+			if (recipeTitle == null) return []
+			return [
+				{
+					recipeId,
+					recipeTitle,
+					scaleMultiplier: item.scaleMultiplier ?? 1,
+					cooked: item.cooked ?? false,
+				},
+			]
+		})
+
+		const genericText = meal.genericText || null
+		// A Meal with neither generic text nor restorable Recipe items would be
+		// an empty shell — skip it.
+		if (genericText == null && items.length === 0) {
+			stats.skipped++
+			continue
+		}
+
+		// Parent completion belongs to text-only Meals; a Recipe Meal derives
+		// completion from its items' cooked state.
+		const completed = genericText != null ? (meal.completed ?? false) : false
+
+		// The serving time is one instant plus its originating timezone — a
+		// timezone without a valid instant is meaningless, so they restore as a
+		// pair.
+		const servingAtParsed = meal.servingAt ? new Date(meal.servingAt) : null
+		const servingAt =
+			servingAtParsed && !Number.isNaN(servingAtParsed.getTime())
+				? servingAtParsed
+				: null
+		const servingTimeZone = servingAt ? (meal.servingTimeZone ?? null) : null
+
+		const sourceMenuId = meal.sourceMenuTitle
+			? (menuIdByTitleKey.get(menuTitleKey(meal.sourceMenuTitle)) ?? null)
+			: null
+		const revisionParsed =
+			sourceMenuId && meal.sourceMenuRevision
+				? new Date(meal.sourceMenuRevision)
+				: null
+		const sourceMenuRevision =
+			revisionParsed && !Number.isNaN(revisionParsed.getTime())
+				? revisionParsed
+				: null
+
+		const key = getMealImportKey({
+			dateMs: date.getTime(),
+			label: meal.label ?? null,
+			genericText,
+			completed,
+			guestCount: meal.guestCount ?? null,
+			servingAtMs: servingAt?.getTime() ?? null,
+			servingTimeZone,
+			sourceMenuId,
+			items,
+		})
+		if (takenKeys.has(key)) {
+			stats.skipped++
+			continue
+		}
+
+		const day = date.getTime()
+		const order = nextOrderByDay.get(day) ?? 0
+		try {
+			// One nested create per Meal — it restores atomically or not at all.
+			await prisma.meal.create({
+				data: {
+					mealPlanId,
+					date,
+					order,
+					label: meal.label ?? null,
+					genericText,
+					completed,
+					guestCount: meal.guestCount ?? null,
+					servingAt,
+					servingTimeZone,
+					sourceMenuId,
+					sourceMenuRevision,
+					recipeItems: {
+						create: items.map((item, itemOrder) => ({
+							...item,
+							order: itemOrder,
+						})),
+					},
+				},
+				select: { id: true },
+			})
+			takenKeys.add(key)
+			nextOrderByDay.set(day, order + 1)
+			stats.created++
+		} catch {
+			stats.skipped++
+		}
+	}
+
+	return stats
+}
+
 export async function action({ request }: Route.ActionArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
 	const formData = await request.formData()
@@ -476,6 +729,7 @@ export async function action({ request }: Route.ActionArgs) {
 		menus: { created: 0, skipped: 0, errored: 0 },
 		inventory: { created: 0, skipped: 0 },
 		mealPlans: { created: 0, skipped: 0 },
+		meals: { created: 0, skipped: 0 },
 		shoppingLists: { created: 0, skipped: 0 },
 	}
 
@@ -557,6 +811,27 @@ export async function action({ request }: Route.ActionArgs) {
 
 	// --- 4. Meal Plans ---
 	if (fullData?.mealPlans) {
+		// Source Menu references on Meals reconnect by normalized household
+		// title — a Menu's identity (#98).
+		const menuIdByTitleKey = new Map<string, string>()
+		if (
+			fullData.mealPlans.some((plan) =>
+				plan.meals?.some((meal) => meal.sourceMenuTitle),
+			)
+		) {
+			try {
+				const householdMenus = await prisma.menu.findMany({
+					where: { householdId },
+					select: { id: true, titleKey: true },
+				})
+				for (const menu of householdMenus) {
+					menuIdByTitleKey.set(menu.titleKey, menu.id)
+				}
+			} catch {
+				// Meals still import — their source Menu link stays unset.
+			}
+		}
+
 		for (const plan of fullData.mealPlans) {
 			try {
 				const weekStart = new Date(plan.weekStart)
@@ -585,6 +860,17 @@ export async function action({ request }: Route.ActionArgs) {
 					} catch {
 						results.mealPlans.skipped++
 					}
+				}
+
+				if (plan.meals?.length) {
+					const mealStats = await importMeals(
+						plan.meals,
+						mealPlan.id,
+						recipeIndex,
+						menuIdByTitleKey,
+					)
+					results.meals.created += mealStats.created
+					results.meals.skipped += mealStats.skipped
 				}
 			} catch {
 				// skip this meal plan
@@ -672,6 +958,11 @@ function getPreview(jsonData: unknown): ImportPreview | null {
 		inventory: fullData?.inventory?.length ?? 0,
 		mealPlans:
 			fullData?.mealPlans?.reduce((sum, p) => sum + p.entries.length, 0) ?? 0,
+		meals:
+			fullData?.mealPlans?.reduce(
+				(sum, p) => sum + (p.meals?.length ?? 0),
+				0,
+			) ?? 0,
 		shoppingLists: fullData?.shoppingLists?.length ?? 0,
 		isFullExport,
 	}
@@ -702,6 +993,7 @@ export default function ImportData() {
 				r.menus.created +
 				r.inventory.created +
 				r.mealPlans.created +
+				r.meals.created +
 				r.shoppingLists.created
 			if (total > 0) {
 				toast.success(`Imported ${total} items`)
@@ -823,6 +1115,13 @@ export default function ImportData() {
 									skipped={results.mealPlans.skipped}
 								/>
 							)}
+							{(results.meals.created > 0 || results.meals.skipped > 0) && (
+								<ResultRow
+									label="Meals"
+									created={results.meals.created}
+									skipped={results.meals.skipped}
+								/>
+							)}
 							{(results.shoppingLists.created > 0 ||
 								results.shoppingLists.skipped > 0) && (
 								<ResultRow
@@ -893,6 +1192,9 @@ export default function ImportData() {
 											label="Meal plan entries"
 											count={preview.mealPlans}
 										/>
+									)}
+									{preview.meals > 0 && (
+										<PreviewRow label="Meals" count={preview.meals} />
 									)}
 									{preview.shoppingLists > 0 && (
 										<PreviewRow

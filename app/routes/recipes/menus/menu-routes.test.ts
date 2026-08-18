@@ -1197,3 +1197,332 @@ describe('menu sections and ordering', () => {
 		])
 	})
 })
+
+describe('menu note cards', () => {
+	function menuShoppingLines(menuId: string) {
+		return prisma.menuShoppingLine.findMany({
+			where: { item: { section: { menuId } } },
+			orderBy: [{ item: { order: 'asc' } }, { order: 'asc' }],
+		})
+	}
+
+	test('adds a note card with flexible text and ordered shopping lines', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Terrace Dinner')
+
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Terrace Dinner',
+				...(await unnamedItemsFields(menu.id, [
+					{
+						kind: 'note',
+						text: 'Lemonade with mint — mix just before serving',
+						'shoppingLines[0].name': 'mint',
+						'shoppingLines[0].quantity': '2',
+						'shoppingLines[0].unit': 'bunches',
+						'shoppingLines[1].name': 'lemons',
+					},
+				])),
+			}),
+		)
+
+		const [item] = await menuItems(menu.id)
+		expect(item).toMatchObject({
+			kind: 'note',
+			note: 'Lemonade with mint — mix just before serving',
+			recipeId: null,
+			recipeTitle: null,
+			scaleMultiplier: null,
+			order: 0,
+		})
+		const lines = await menuShoppingLines(menu.id)
+		expect(lines.map((l) => [l.name, l.quantity, l.unit, l.order])).toEqual([
+			['mint', '2', 'bunches', 0],
+			['lemons', null, null, 1],
+		])
+	})
+
+	test('recipe and note cards order freely within a section', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Terrace Dinner')
+		const hummus = await createRecipe(session, session.householdId, 'Hummus')
+
+		// The canonical shape: a drink note (with one Shopping line) between
+		// recipe cards' positions — note first, recipe second…
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Terrace Dinner',
+				...(await unnamedItemsFields(menu.id, [
+					{
+						kind: 'note',
+						text: 'Drinks: cold lemonade',
+						'shoppingLines[0].name': 'lemons',
+					},
+					{ kind: 'recipe', recipeId: hummus.id, scaleMultiplier: '1' },
+				])),
+			}),
+		)
+		let items = await menuItems(menu.id)
+		expect(items.map((i) => i.kind)).toEqual(['note', 'recipe'])
+
+		// …then reordered the other way round in one full-state save.
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Terrace Dinner',
+				...(await unnamedItemsFields(menu.id, [
+					{
+						id: items[1]!.id,
+						kind: 'recipe',
+						recipeId: hummus.id,
+						scaleMultiplier: '1',
+					},
+					{
+						id: items[0]!.id,
+						kind: 'note',
+						text: 'Drinks: cold lemonade',
+						'shoppingLines[0].name': 'lemons',
+					},
+				])),
+			}),
+		)
+		items = await menuItems(menu.id)
+		expect(items.map((i) => i.kind)).toEqual(['recipe', 'note'])
+		expect(items.map((i) => i.order)).toEqual([0, 1])
+		// The note kept its shopping line through the reorder
+		const lines = await menuShoppingLines(menu.id)
+		expect(lines.map((l) => l.name)).toEqual(['lemons'])
+	})
+
+	test('note text and line names are required', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Terrace Dinner')
+
+		const noText = (await saveMenu(session, menu.id, {
+			title: 'Terrace Dinner',
+			...(await unnamedItemsFields(menu.id, [{ kind: 'note' }])),
+		})) as any
+		expect(noText.init?.status).toBe(400)
+		expect(noText.data.result.error['sections[0].items[0].text']).toEqual([
+			'Note text is required',
+		])
+
+		const noLineName = (await saveMenu(session, menu.id, {
+			title: 'Terrace Dinner',
+			...(await unnamedItemsFields(menu.id, [
+				{ kind: 'note', text: 'Drinks', 'shoppingLines[0].quantity': '2' },
+			])),
+		})) as any
+		expect(noLineName.init?.status).toBe(400)
+		expect(
+			noLineName.data.result.error[
+				'sections[0].items[0].shoppingLines[0].name'
+			],
+		).toEqual(['Line name is required'])
+
+		expect(await menuItems(menu.id)).toHaveLength(0)
+	})
+
+	test('editing a note updates its text and rewrites lines in submitted order', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Terrace Dinner')
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Terrace Dinner',
+				...(await unnamedItemsFields(menu.id, [
+					{
+						kind: 'note',
+						text: 'Drinks',
+						'shoppingLines[0].name': 'lemons',
+						'shoppingLines[1].name': 'mint',
+					},
+				])),
+			}),
+		)
+		const [note] = await menuItems(menu.id)
+
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Terrace Dinner',
+				...(await unnamedItemsFields(menu.id, [
+					{
+						id: note!.id,
+						kind: 'note',
+						text: 'Drinks and dessert supplies',
+						'shoppingLines[0].name': 'mint',
+						'shoppingLines[0].quantity': '2',
+						'shoppingLines[0].unit': 'bunches',
+						'shoppingLines[1].name': 'sparkling water',
+					},
+				])),
+			}),
+		)
+
+		const [updated] = await menuItems(menu.id)
+		expect(updated!.id).toBe(note!.id)
+		expect(updated!.note).toBe('Drinks and dessert supplies')
+		const lines = await menuShoppingLines(menu.id)
+		expect(lines.map((l) => [l.name, l.quantity, l.unit, l.order])).toEqual([
+			['mint', '2', 'bunches', 0],
+			['sparkling water', null, null, 1],
+		])
+	})
+
+	test('removing a note card removes its shopping lines with it', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Terrace Dinner')
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Terrace Dinner',
+				...(await unnamedItemsFields(menu.id, [
+					{ kind: 'note', text: 'Drinks', 'shoppingLines[0].name': 'lemons' },
+				])),
+			}),
+		)
+		expect(await menuShoppingLines(menu.id)).toHaveLength(1)
+
+		// Full-state save without the note removes the card and its lines
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Terrace Dinner',
+				...(await unnamedItemsFields(menu.id, [])),
+			}),
+		)
+		expect(await menuItems(menu.id)).toHaveLength(0)
+		expect(await prisma.menuShoppingLine.findMany()).toHaveLength(0)
+	})
+
+	test('a stored card never changes kind', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Terrace Dinner')
+		const hummus = await createRecipe(session, session.householdId, 'Hummus')
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Terrace Dinner',
+				...(await unnamedItemsFields(menu.id, [
+					{ kind: 'recipe', recipeId: hummus.id, scaleMultiplier: '1' },
+				])),
+			}),
+		)
+		const [item] = await menuItems(menu.id)
+
+		await expect(
+			saveMenu(session, menu.id, {
+				title: 'Terrace Dinner',
+				...(await unnamedItemsFields(menu.id, [
+					{ id: item!.id, kind: 'note', text: 'now a note' },
+				])),
+			}),
+		).rejects.toEqual(expect.objectContaining({ status: 400 }))
+		const [unchanged] = await menuItems(menu.id)
+		expect(unchanged).toMatchObject({ kind: 'recipe', recipeId: hummus.id })
+	})
+
+	test('a note card moves to another section with its lines', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Terrace Dinner')
+		const unnamed = await unnamedSection(menu.id)
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Terrace Dinner',
+				...sectionFields(0, { id: unnamed.id }, [
+					{ kind: 'note', text: 'Drinks', 'shoppingLines[0].name': 'lemons' },
+				]),
+				...sectionFields(1, { name: 'Dessert' }, []),
+			}),
+		)
+		const before = await menuSections(menu.id)
+		const [note] = before[0]!.items
+		const dessert = before[1]!
+
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Terrace Dinner',
+				...sectionFields(0, { id: unnamed.id }, []),
+				...sectionFields(1, { id: dessert.id, name: 'Dessert' }, [
+					{ id: note!.id, kind: 'note', text: 'Drinks' },
+				]),
+			}),
+		)
+
+		const after = await menuSections(menu.id)
+		expect(after[0]!.items).toHaveLength(0)
+		expect(after[1]!.items.map((i) => i.id)).toEqual([note!.id])
+		// Careful: this save's note submitted no lines, so the full-state
+		// rewrite intentionally cleared them — submit lines to keep them.
+		expect(await menuShoppingLines(menu.id)).toHaveLength(0)
+	})
+
+	test('the detail loader returns note cards with ordered lines', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Terrace Dinner')
+		const hummus = await createRecipe(session, session.householdId, 'Hummus')
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Terrace Dinner',
+				...(await unnamedItemsFields(menu.id, [
+					{ kind: 'recipe', recipeId: hummus.id, scaleMultiplier: '1' },
+					{
+						kind: 'note',
+						text: 'Drinks',
+						'shoppingLines[0].name': 'lemons',
+						'shoppingLines[0].quantity': '6',
+						'shoppingLines[1].name': 'mint',
+					},
+				])),
+			}),
+		)
+
+		const request = await makeRequest(session, `/recipes/menus/${menu.id}`)
+		const result = (await detailLoader({
+			request,
+			...makeMenuArgs(menu.id),
+		})) as {
+			menu: {
+				sections: Array<{
+					items: Array<{
+						kind: string
+						note: string | null
+						shoppingLines: Array<{
+							name: string
+							quantity: string | null
+							unit: string | null
+						}>
+					}>
+				}>
+			}
+		}
+		const items = result.menu.sections[0]!.items
+		expect(items.map((i) => i.kind)).toEqual(['recipe', 'note'])
+		expect(items[1]!.note).toBe('Drinks')
+		expect(items[1]!.shoppingLines).toEqual([
+			expect.objectContaining({ name: 'lemons', quantity: '6', unit: null }),
+			expect.objectContaining({ name: 'mint', quantity: null, unit: null }),
+		])
+	})
+
+	test('the edit loader returns note cards for the builder round-trip', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Terrace Dinner')
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Terrace Dinner',
+				...(await unnamedItemsFields(menu.id, [
+					{ kind: 'note', text: 'Drinks', 'shoppingLines[0].name': 'lemons' },
+				])),
+			}),
+		)
+
+		const request = await makeRequest(session, `/recipes/menus/${menu.id}/edit`)
+		const result = (await editLoader({
+			request,
+			...makeMenuArgs(menu.id, '/edit'),
+		})) as {
+			sections: Array<{ items: Array<Record<string, unknown>> }>
+		}
+		expect(result.sections[0]!.items[0]).toMatchObject({
+			kind: 'note',
+			text: 'Drinks',
+			shoppingLines: [{ name: 'lemons', quantity: null, unit: null }],
+		})
+	})
+})

@@ -58,17 +58,77 @@ export const ScaleMultiplierSchema = z
 		message: 'Multiplier must be 100 or less',
 	})
 
-const MenuRecipeItemSchema = z
+export const NOTE_TEXT_REQUIRED_MESSAGE = 'Note text is required'
+export const LINE_NAME_REQUIRED_MESSAGE = 'Line name is required'
+
+/**
+ * An ordinary Shopping line on a note card: required name, optional free-text
+ * quantity and unit — structured enough to aggregate later (#108) while
+ * unresolved wording stays usable.
+ */
+export const MenuShoppingLineSchema = z.object({
+	name: z
+		.string({
+			error: (issue) =>
+				issue.input === undefined ? LINE_NAME_REQUIRED_MESSAGE : undefined,
+		})
+		.trim()
+		.min(1, { message: LINE_NAME_REQUIRED_MESSAGE })
+		.max(200, { message: 'Line name is too long' }),
+	quantity: z
+		.string()
+		.trim()
+		.max(50, { message: 'Quantity is too long' })
+		.optional(),
+	unit: z.string().trim().max(50, { message: 'Unit is too long' }).optional(),
+})
+
+/**
+ * One card in the builder — a Recipe card or a note card, discriminated by
+ * `kind` the way stored MenuItems are. One schema (with per-kind refinement)
+ * rather than a union keeps conform's field metadata simple; `kind` defaults
+ * to 'recipe' so pre-#102 submissions parse unchanged.
+ */
+const MenuBuilderItemSchema = z
 	.object({
-		/** Existing MenuItem id; absent for a Recipe picked during this edit. */
+		/** Existing MenuItem id; absent for a card added during this edit. */
 		id: z.string().optional(),
+		/** Mirrors MenuItem.kind; the stored kind is immutable server-side. */
+		kind: z.enum(['recipe', 'note']).default('recipe'),
 		/** Referenced Recipe; absent only on a missing card kept as-is. */
 		recipeId: z.string().optional(),
-		scaleMultiplier: ScaleMultiplierSchema,
+		scaleMultiplier: ScaleMultiplierSchema.optional(),
 		note: z.string().max(500, { message: 'Note is too long' }).optional(),
+		/** A note card's flexible text (stored in MenuItem.note). */
+		text: z
+			.string()
+			.trim()
+			.max(1000, { message: 'Note is too long' })
+			.optional(),
+		shoppingLines: z
+			.array(MenuShoppingLineSchema)
+			.max(20, { message: 'A note can hold at most 20 shopping lines' })
+			.optional(),
 	})
-	.refine((item) => item.id != null || item.recipeId != null, {
-		message: 'Pick a recipe for this card',
+	.superRefine((item, ctx) => {
+		if (item.kind === 'recipe') {
+			if (item.id == null && item.recipeId == null) {
+				ctx.addIssue({ code: 'custom', message: 'Pick a recipe for this card' })
+			}
+			if (item.scaleMultiplier == null) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['scaleMultiplier'],
+					message: 'Multiplier is required',
+				})
+			}
+		} else if (item.text == null || item.text.length === 0) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['text'],
+				message: NOTE_TEXT_REQUIRED_MESSAGE,
+			})
+		}
 	})
 
 export const SECTION_NAME_REQUIRED_MESSAGE = 'Section name is required'
@@ -85,7 +145,7 @@ const MenuBuilderSectionSchema = z
 		id: z.string().optional(),
 		/** Absent on the durable unnamed section, which never carries a name. */
 		name: MenuSectionNameSchema.optional(),
-		items: z.array(MenuRecipeItemSchema).optional(),
+		items: z.array(MenuBuilderItemSchema).optional(),
 	})
 	// A new section is always custom, so it needs a name up front; existing
 	// custom sections are checked server-side against the stored unnamed id.
@@ -106,7 +166,7 @@ export const MenuBuilderSchema = MenuSchema.extend({
 			if (total > 100) {
 				ctx.addIssue({
 					code: 'custom',
-					message: 'A menu can hold at most 100 recipes',
+					message: 'A menu can hold at most 100 cards',
 				})
 			}
 		})
@@ -117,6 +177,9 @@ export const MenuBuilderSchema = MenuSchema.extend({
 export type MenuBuilderInput = z.input<typeof MenuBuilderSchema>
 export type MenuSectionInput = NonNullable<MenuBuilderInput['sections']>[number]
 export type MenuItemInput = NonNullable<MenuSectionInput['items']>[number]
+export type MenuShoppingLineInput = NonNullable<
+	MenuItemInput['shoppingLines']
+>[number]
 
 export const DUPLICATE_MENU_RECIPE_MESSAGE =
 	'Each recipe can appear only once per menu'

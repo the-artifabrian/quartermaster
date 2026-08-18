@@ -11,6 +11,7 @@ import {
 	ensureMealPlan,
 	ensureMealPlanEntry,
 } from '#app/utils/meal-plan.server.ts'
+import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
@@ -40,6 +41,8 @@ const ImportIngredientSchema = z.object({
 })
 
 const ImportRecipeSchema = z.object({
+	// Export-local reference key — how Menus reconnect to their Recipes (#102).
+	ref: z.string().max(50).optional(),
 	title: z.string().min(1).max(100),
 	description: z.string().max(500).nullable().optional(),
 	servings: z.number().int().positive().nullable().optional(),
@@ -101,6 +104,37 @@ const ImportShoppingListSchema = z.object({
 	items: z.array(ImportShoppingListItemSchema).max(500),
 })
 
+const ImportMenuShoppingLineSchema = z.object({
+	name: z.string().min(1).max(200),
+	quantity: z.string().max(50).nullable().optional(),
+	unit: z.string().max(50).nullable().optional(),
+})
+
+// One schema for both card kinds — Recipe fields and note fields are each
+// optional so the other kind parses; `kind` decides which are read.
+const ImportMenuItemSchema = z.object({
+	kind: z.enum(['recipe', 'note']).optional().default('recipe'),
+	recipeRef: z.string().max(50).nullable().optional(),
+	recipeTitle: z.string().max(100).nullable().optional(),
+	scaleMultiplier: z.number().positive().max(100).nullable().optional(),
+	note: z.string().max(500).nullable().optional(),
+	text: z.string().max(1000).nullable().optional(),
+	shoppingLines: z.array(ImportMenuShoppingLineSchema).max(20).optional(),
+})
+
+const ImportMenuSectionSchema = z.object({
+	// null marks the durable unnamed section
+	name: z.string().min(1).max(100).nullable().optional(),
+	items: z.array(ImportMenuItemSchema).max(100).optional(),
+})
+
+const ImportMenuSchema = z.object({
+	title: z.string().trim().min(1).max(100),
+	description: z.string().max(500).nullable().optional(),
+	defaultGuestCount: z.number().int().positive().max(999).nullable().optional(),
+	sections: z.array(ImportMenuSectionSchema).max(20).optional(),
+})
+
 // Older full exports may contain a `cookingLogs` array — the feature was
 // removed, and the loose object lets those files import with logs ignored.
 const FullExportSchema = z.looseObject({
@@ -109,6 +143,8 @@ const FullExportSchema = z.looseObject({
 	inventory: z.array(ImportInventoryItemSchema).max(1000).optional(),
 	mealPlans: z.array(ImportMealPlanSchema).max(200).optional(),
 	shoppingLists: z.array(ImportShoppingListSchema).max(100).optional(),
+	// Optional so every pre-Menu export stays importable (#102).
+	menus: z.array(ImportMenuSchema).max(200).optional(),
 })
 
 const RecipeOnlyExportSchema = z.looseObject({
@@ -155,6 +191,7 @@ function parseImportData(
 
 interface ImportPreview {
 	recipes: number
+	menus: number
 	inventory: number
 	mealPlans: number
 	shoppingLists: number
@@ -163,6 +200,7 @@ interface ImportPreview {
 
 interface ImportResults {
 	recipes: { created: number; skipped: number; errored: number }
+	menus: { created: number; skipped: number; errored: number }
 	inventory: { created: number; skipped: number }
 	mealPlans: { created: number; skipped: number }
 	shoppingLists: { created: number; skipped: number }
@@ -190,9 +228,20 @@ function getShoppingListItemImportKey(item: ShoppingListItemImport) {
 
 // --- Action ---
 
+/**
+ * How the import file's Recipes resolve to household Recipe rows once the
+ * Recipe pass finishes: by export-local reference key, by normalized title,
+ * and back to a display title for freezing on Menu cards.
+ */
+interface RecipeIndex {
+	titleToIdMap: Map<string, string>
+	refToIdMap: Map<string, string>
+	titleById: Map<string, string>
+}
+
 async function importRecipes(
 	recipes: ImportRecipe[],
-	titleToIdMap: Map<string, string>,
+	{ titleToIdMap, refToIdMap, titleById }: RecipeIndex,
 	userId: string,
 	householdId: string,
 ) {
@@ -200,7 +249,11 @@ async function importRecipes(
 
 	for (const recipe of recipes) {
 		const lowerTitle = recipe.title.toLowerCase()
-		if (titleToIdMap.has(lowerTitle)) {
+		const existingId = titleToIdMap.get(lowerTitle)
+		if (existingId != null) {
+			// A skipped duplicate still resolves its reference key — Menus that
+			// point at it reconnect to the existing household Recipe.
+			if (recipe.ref) refToIdMap.set(recipe.ref, existingId)
 			stats.skipped++
 			continue
 		}
@@ -236,6 +289,143 @@ async function importRecipes(
 				select: { id: true },
 			})
 			titleToIdMap.set(lowerTitle, created.id)
+			titleById.set(created.id, recipe.title)
+			if (recipe.ref) refToIdMap.set(recipe.ref, created.id)
+			stats.created++
+		} catch {
+			stats.errored++
+		}
+	}
+
+	return stats
+}
+
+type ImportMenu = z.infer<typeof ImportMenuSchema>
+type ImportMenuItem = z.infer<typeof ImportMenuItemSchema>
+
+/**
+ * Restores Menus after the Recipe pass. References reconnect by export-local
+ * reference key, falling back to normalized Recipe title only when a key is
+ * absent (older or hand-edited data). On a normalized Menu-title collision
+ * the existing target Menu wins and the imported Menu is skipped wholesale;
+ * within one import the first occurrence wins.
+ */
+async function importMenus(
+	menus: ImportMenu[],
+	recipeIndex: RecipeIndex,
+	householdId: string,
+) {
+	const stats = { created: 0, skipped: 0, errored: 0 }
+
+	const existingMenus = await prisma.menu.findMany({
+		where: { householdId },
+		select: { titleKey: true },
+	})
+	const takenTitleKeys = new Set(existingMenus.map((menu) => menu.titleKey))
+
+	for (const menu of menus) {
+		const titleKey = menuTitleKey(menu.title)
+		if (takenTitleKeys.has(titleKey)) {
+			stats.skipped++
+			continue
+		}
+		takenTitleKeys.add(titleKey)
+
+		// The durable unnamed section every Menu keeps: the file's first
+		// unnamed section becomes it, later unnamed ones merge into it, and a
+		// file without one gets an empty one appended.
+		const sections: Array<{
+			name: string | null
+			items: ImportMenuItem[]
+		}> = []
+		let unnamedIndex = -1
+		for (const section of menu.sections ?? []) {
+			const items = section.items ?? []
+			if (section.name == null) {
+				if (unnamedIndex === -1) {
+					unnamedIndex = sections.length
+					sections.push({ name: null, items: [...items] })
+				} else {
+					sections[unnamedIndex]!.items.push(...items)
+				}
+			} else {
+				sections.push({ name: section.name, items: [...items] })
+			}
+		}
+		if (unnamedIndex === -1) sections.push({ name: null, items: [] })
+
+		// A Recipe appears once per Menu — a second resolved occurrence imports
+		// as a missing card so structure and frozen identity still survive.
+		const usedRecipeIds = new Set<string>()
+		const resolveItem = (item: ImportMenuItem) => {
+			if (item.kind === 'note') {
+				return {
+					kind: 'note' as const,
+					note: item.text ?? '',
+					shoppingLines: {
+						create: (item.shoppingLines ?? []).map((line, order) => ({
+							name: line.name,
+							quantity: line.quantity || null,
+							unit: line.unit || null,
+							order,
+						})),
+					},
+				}
+			}
+			let recipeId: string | null = null
+			if (item.recipeRef != null) {
+				recipeId = recipeIndex.refToIdMap.get(item.recipeRef) ?? null
+			} else if (item.recipeTitle) {
+				recipeId =
+					recipeIndex.titleToIdMap.get(item.recipeTitle.toLowerCase()) ?? null
+			}
+			if (recipeId != null) {
+				if (usedRecipeIds.has(recipeId)) recipeId = null
+				else usedRecipeIds.add(recipeId)
+			}
+			const recipeTitle =
+				item.recipeTitle ??
+				(recipeId != null
+					? (recipeIndex.titleById.get(recipeId) ?? null)
+					: null)
+			return {
+				kind: 'recipe' as const,
+				recipeId,
+				recipeTitle,
+				// Stored multipliers stay positive with at most two decimals; a
+				// crafted sub-0.005 value must not round down to zero.
+				scaleMultiplier:
+					item.scaleMultiplier != null
+						? Math.max(0.01, Math.round(item.scaleMultiplier * 100) / 100)
+						: 1,
+				note: item.note || null,
+			}
+		}
+
+		try {
+			// One nested create per Menu — it restores atomically or not at all.
+			await prisma.menu.create({
+				data: {
+					title: menu.title,
+					titleKey,
+					description: menu.description || null,
+					defaultGuestCount: menu.defaultGuestCount ?? null,
+					householdId,
+					sections: {
+						create: sections.map((section, order) => ({
+							name: section.name,
+							order,
+							items: {
+								create: section.items.map((item, itemOrder) => ({
+									order: itemOrder,
+									...resolveItem(item),
+								})),
+							},
+						})),
+					},
+				},
+				select: { id: true },
+			})
 			stats.created++
 		} catch {
 			stats.errored++
@@ -282,13 +472,19 @@ export async function action({ request }: Route.ActionArgs) {
 
 	const results: ImportResults = {
 		recipes: { created: 0, skipped: 0, errored: 0 },
+		menus: { created: 0, skipped: 0, errored: 0 },
 		inventory: { created: 0, skipped: 0 },
 		mealPlans: { created: 0, skipped: 0 },
 		shoppingLists: { created: 0, skipped: 0 },
 	}
 
 	// --- 1. Recipes ---
-	const titleToIdMap = new Map<string, string>()
+	const recipeIndex: RecipeIndex = {
+		titleToIdMap: new Map(),
+		refToIdMap: new Map(),
+		titleById: new Map(),
+	}
+	const { titleToIdMap } = recipeIndex
 	try {
 		const existingRecipes = await prisma.recipe.findMany({
 			where: { householdId },
@@ -296,11 +492,12 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 		for (const r of existingRecipes) {
 			titleToIdMap.set(r.title.toLowerCase(), r.id)
+			recipeIndex.titleById.set(r.id, r.title)
 		}
 
 		results.recipes = await importRecipes(
 			recipes,
-			titleToIdMap,
+			recipeIndex,
 			userId,
 			householdId,
 		)
@@ -308,7 +505,20 @@ export async function action({ request }: Route.ActionArgs) {
 		results.recipes.errored = recipes.length
 	}
 
-	// --- 2. Inventory ---
+	// --- 2. Menus (after Recipes, so references can reconnect) ---
+	// Menus are not Pro-gated in the product, so unlike the sections below
+	// they import for every tier.
+	const fullMenus =
+		importResult.type === 'full' ? (importResult.data.menus ?? null) : null
+	if (fullMenus?.length) {
+		try {
+			results.menus = await importMenus(fullMenus, recipeIndex, householdId)
+		} catch {
+			results.menus.errored = fullMenus.length
+		}
+	}
+
+	// --- 3. Inventory ---
 	if (fullData?.inventory) {
 		try {
 			const existingInventory = await prisma.inventoryItem.findMany({
@@ -344,7 +554,7 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 	}
 
-	// --- 3. Meal Plans ---
+	// --- 4. Meal Plans ---
 	if (fullData?.mealPlans) {
 		for (const plan of fullData.mealPlans) {
 			try {
@@ -381,7 +591,7 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 	}
 
-	// --- 4. Shopping Lists ---
+	// --- 5. Shopping Lists ---
 	if (fullData?.shoppingLists?.length) {
 		try {
 			const shoppingList = await ensureShoppingList(prisma, {
@@ -457,6 +667,7 @@ function getPreview(jsonData: unknown): ImportPreview | null {
 
 	return {
 		recipes: result.data.recipes.length,
+		menus: fullData?.menus?.length ?? 0,
 		inventory: fullData?.inventory?.length ?? 0,
 		mealPlans:
 			fullData?.mealPlans?.reduce((sum, p) => sum + p.entries.length, 0) ?? 0,
@@ -487,6 +698,7 @@ export default function ImportData() {
 			const r = fetcher.data.results
 			const total =
 				r.recipes.created +
+				r.menus.created +
 				r.inventory.created +
 				r.mealPlans.created +
 				r.shoppingLists.created
@@ -584,6 +796,16 @@ export default function ImportData() {
 								skipped={results.recipes.skipped}
 								errored={results.recipes.errored}
 							/>
+							{(results.menus.created > 0 ||
+								results.menus.skipped > 0 ||
+								results.menus.errored > 0) && (
+								<ResultRow
+									label="Menus"
+									created={results.menus.created}
+									skipped={results.menus.skipped}
+									errored={results.menus.errored}
+								/>
+							)}
 							{(results.inventory.created > 0 ||
 								results.inventory.skipped > 0) && (
 								<ResultRow
@@ -656,6 +878,9 @@ export default function ImportData() {
 								</h2>
 								<div className="space-y-1.5 text-sm">
 									<PreviewRow label="Recipes" count={preview.recipes} />
+									{preview.menus > 0 && (
+										<PreviewRow label="Menus" count={preview.menus} />
+									)}
 									{preview.inventory > 0 && (
 										<PreviewRow
 											label="Pantry items"
@@ -676,8 +901,8 @@ export default function ImportData() {
 									)}
 								</div>
 								<p className="text-muted-foreground mt-3 text-xs">
-									Existing recipes (matched by title) and Pantry items (matched
-									by name) will be automatically skipped.
+									Existing recipes and menus (matched by title) and Pantry items
+									(matched by name) will be automatically skipped.
 								</p>
 							</div>
 

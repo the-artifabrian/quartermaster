@@ -5,7 +5,7 @@ import { type Route } from './+types/export-all-data.ts'
 export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
 
-	const [user, recipes, inventory, mealPlans, shoppingLists] =
+	const [user, recipes, inventory, mealPlans, shoppingLists, menus] =
 		await Promise.all([
 			prisma.user.findUniqueOrThrow({
 				where: { id: userId },
@@ -14,6 +14,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			prisma.recipe.findMany({
 				where: { householdId },
 				select: {
+					id: true,
 					title: true,
 					description: true,
 					servings: true,
@@ -76,7 +77,43 @@ export async function loader({ request }: Route.LoaderArgs) {
 				},
 				orderBy: { updatedAt: 'desc' },
 			}),
+			prisma.menu.findMany({
+				where: { householdId },
+				select: {
+					title: true,
+					description: true,
+					defaultGuestCount: true,
+					sections: {
+						orderBy: { order: 'asc' },
+						select: {
+							name: true,
+							items: {
+								orderBy: { order: 'asc' },
+								select: {
+									kind: true,
+									recipeId: true,
+									recipeTitle: true,
+									scaleMultiplier: true,
+									note: true,
+									shoppingLines: {
+										orderBy: { order: 'asc' },
+										select: { name: true, quantity: true, unit: true },
+									},
+								},
+							},
+						},
+					},
+				},
+				orderBy: { title: 'asc' },
+			}),
 		])
+
+	// Export-local reference keys: import restores Menu Recipe references by
+	// key, so renamed Recipes still reconnect; title fallback is for older
+	// exports only (#102).
+	const recipeRefById = new Map(
+		recipes.map((recipe, index) => [recipe.id, `r${index + 1}`]),
+	)
 
 	const exportData = {
 		exportedAt: new Date().toISOString(),
@@ -87,6 +124,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			name: user.name,
 		},
 		recipes: recipes.map((recipe) => ({
+			ref: recipeRefById.get(recipe.id)!,
 			title: recipe.title,
 			description: recipe.description,
 			servings: recipe.servings,
@@ -131,6 +169,38 @@ export async function loader({ request }: Route.LoaderArgs) {
 				category: item.category,
 				checked: item.checked,
 				source: item.source,
+			})),
+		})),
+		// Menus are durable recovery data: sections, Recipe/note cards, scale
+		// multipliers, notes, ordering, and note Shopping lines — never
+		// transient UI state (#102). Missing cards export a null recipeRef with
+		// their frozen title.
+		menus: menus.map((menu) => ({
+			title: menu.title,
+			description: menu.description,
+			defaultGuestCount: menu.defaultGuestCount,
+			sections: menu.sections.map((section) => ({
+				name: section.name,
+				items: section.items.map((item) =>
+					item.kind === 'note'
+						? {
+								kind: 'note' as const,
+								text: item.note,
+								shoppingLines: item.shoppingLines.map((line) => ({
+									name: line.name,
+									quantity: line.quantity,
+									unit: line.unit,
+								})),
+							}
+						: {
+								kind: 'recipe' as const,
+								recipeRef:
+									(item.recipeId && recipeRefById.get(item.recipeId)) || null,
+								recipeTitle: item.recipeTitle,
+								scaleMultiplier: item.scaleMultiplier,
+								note: item.note,
+							},
+				),
 			})),
 		})),
 	}

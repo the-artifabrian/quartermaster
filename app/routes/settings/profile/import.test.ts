@@ -505,3 +505,360 @@ describe('menu import', () => {
 		expect(result.results.shoppingLists).toEqual({ created: 0, skipped: 0 })
 	})
 })
+
+// --- Meal parent recovery (#104) ---
+
+/** A week plan carrying the Meal shapes #104 must round-trip: a multi-Recipe
+ * dinner with multipliers, cooked state, serving instant/timezone, guest
+ * count, a source Menu link with revision, a missing card, and a completed
+ * text-only Meal. */
+async function seedMealFixture(session: {
+	userId: string
+	householdId: string
+}) {
+	const kofta = await prisma.recipe.create({
+		data: {
+			title: 'Kofta',
+			servings: 4,
+			userId: session.userId,
+			householdId: session.householdId,
+		},
+	})
+	const salad = await prisma.recipe.create({
+		data: {
+			title: 'Salad',
+			servings: 6,
+			userId: session.userId,
+			householdId: session.householdId,
+		},
+	})
+	const menu = await prisma.menu.create({
+		data: {
+			title: 'Terrace Feast',
+			titleKey: 'terrace feast',
+			householdId: session.householdId,
+			sections: { create: { name: null, order: 0 } },
+		},
+	})
+	const plan = await prisma.mealPlan.create({
+		data: {
+			householdId: session.householdId,
+			weekStart: new Date('2026-08-17T00:00:00.000Z'),
+		},
+	})
+	const revision = new Date('2026-08-18T09:00:00.000Z')
+	await prisma.meal.create({
+		data: {
+			mealPlanId: plan.id,
+			date: new Date('2026-08-19T00:00:00.000Z'),
+			order: 0,
+			label: 'dinner',
+			guestCount: 6,
+			servingAt: new Date('2026-08-19T17:30:00.000Z'),
+			servingTimeZone: 'Europe/Bucharest',
+			sourceMenuId: menu.id,
+			sourceMenuRevision: revision,
+			recipeItems: {
+				create: [
+					{
+						order: 0,
+						recipeId: kofta.id,
+						recipeTitle: 'Kofta',
+						scaleMultiplier: 2.25,
+						cooked: true,
+					},
+					{
+						order: 1,
+						recipeId: salad.id,
+						recipeTitle: 'Salad',
+						scaleMultiplier: 1,
+					},
+					{
+						order: 2,
+						recipeId: null,
+						recipeTitle: 'Gone Cake',
+						scaleMultiplier: 0.75,
+					},
+				],
+			},
+		},
+	})
+	await prisma.meal.create({
+		data: {
+			mealPlanId: plan.id,
+			date: new Date('2026-08-19T00:00:00.000Z'),
+			order: 1,
+			genericText: 'Leftovers',
+			completed: true,
+		},
+	})
+	return { kofta, salad, menu, plan, revision }
+}
+
+describe('meal export', () => {
+	test('full export carries Meal parents with items, refs, order, and serving context — no internal ids', async () => {
+		const session = await setupUser()
+		await seedMealFixture(session)
+
+		const exported = await exportHousehold(session)
+
+		expect(exported.mealPlans).toHaveLength(1)
+		const meals = exported.mealPlans[0].meals
+		expect(meals).toEqual([
+			{
+				date: '2026-08-19T00:00:00.000Z',
+				order: 0,
+				label: 'dinner',
+				servingAt: '2026-08-19T17:30:00.000Z',
+				servingTimeZone: 'Europe/Bucharest',
+				genericText: null,
+				completed: false,
+				guestCount: 6,
+				sourceMenuTitle: 'Terrace Feast',
+				sourceMenuRevision: '2026-08-18T09:00:00.000Z',
+				items: [
+					{
+						recipeRef: 'r1',
+						recipeTitle: 'Kofta',
+						scaleMultiplier: 2.25,
+						cooked: true,
+					},
+					{
+						recipeRef: 'r2',
+						recipeTitle: 'Salad',
+						scaleMultiplier: 1,
+						cooked: false,
+					},
+					{
+						recipeRef: null,
+						recipeTitle: 'Gone Cake',
+						scaleMultiplier: 0.75,
+						cooked: false,
+					},
+				],
+			},
+			{
+				date: '2026-08-19T00:00:00.000Z',
+				order: 1,
+				label: null,
+				servingAt: null,
+				servingTimeZone: null,
+				genericText: 'Leftovers',
+				completed: true,
+				guestCount: null,
+				sourceMenuTitle: null,
+				sourceMenuRevision: null,
+				items: [],
+			},
+		])
+		expect(JSON.stringify(exported.mealPlans)).not.toContain('"id"')
+	})
+})
+
+describe('meal import', () => {
+	test('a full export restores Meals into a fresh household with references, order, and serving context', async () => {
+		const source = await setupUser()
+		const { kofta, revision } = await seedMealFixture(source)
+		const exported = await exportHousehold(source)
+
+		const target = await setupUser()
+		const result = (await importPayload(target, exported)) as any
+		expect(result.results.meals).toEqual({ created: 2, skipped: 0 })
+
+		const meals = await prisma.meal.findMany({
+			where: { mealPlan: { householdId: target.householdId } },
+			orderBy: { order: 'asc' },
+			include: { recipeItems: { orderBy: { order: 'asc' } } },
+		})
+		expect(meals).toHaveLength(2)
+
+		const dinner = meals[0]!
+		const targetKofta = await prisma.recipe.findFirstOrThrow({
+			where: { householdId: target.householdId, title: 'Kofta' },
+		})
+		expect(targetKofta.id).not.toBe(kofta.id)
+		const targetMenu = await prisma.menu.findFirstOrThrow({
+			where: { householdId: target.householdId, titleKey: 'terrace feast' },
+		})
+		expect(dinner).toMatchObject({
+			date: new Date('2026-08-19T00:00:00.000Z'),
+			order: 0,
+			label: 'dinner',
+			guestCount: 6,
+			servingAt: new Date('2026-08-19T17:30:00.000Z'),
+			servingTimeZone: 'Europe/Bucharest',
+			genericText: null,
+			completed: false,
+			sourceMenuId: targetMenu.id,
+			sourceMenuRevision: revision,
+		})
+		expect(
+			dinner.recipeItems.map((item) => [
+				item.order,
+				item.recipeId,
+				item.recipeTitle,
+				item.scaleMultiplier,
+				item.cooked,
+			]),
+		).toEqual([
+			[0, targetKofta.id, 'Kofta', 2.25, true],
+			[1, expect.any(String), 'Salad', 1, false],
+			// The missing card stays honestly missing — frozen title, no link
+			[2, null, 'Gone Cake', 0.75, false],
+		])
+
+		const leftovers = meals[1]!
+		expect(leftovers).toMatchObject({
+			order: 1,
+			genericText: 'Leftovers',
+			completed: true,
+			label: null,
+		})
+		expect(leftovers.recipeItems).toHaveLength(0)
+
+		// Re-importing the same file is idempotent for Meals.
+		const again = (await importPayload(target, exported)) as any
+		expect(again.results.meals).toEqual({ created: 0, skipped: 2 })
+	})
+
+	test('reference keys win over titles for Meal items, unknown keys stay missing, and titles work without keys', async () => {
+		const session = await setupUser()
+		const result = (await importPayload(session, {
+			format: 'quartermaster-full-export-v1',
+			recipes: [
+				{ ref: 'a', title: 'Alpha', ingredients: [], instructions: [] },
+				{ ref: 'b', title: 'Beta', ingredients: [], instructions: [] },
+			],
+			mealPlans: [
+				{
+					weekStart: '2026-08-17T00:00:00.000Z',
+					entries: [],
+					meals: [
+						{
+							date: '2026-08-19T00:00:00.000Z',
+							order: 0,
+							items: [
+								{ recipeRef: 'a', recipeTitle: 'Beta' },
+								{ recipeRef: 'zz', recipeTitle: 'Ghost' },
+								{ recipeTitle: 'Beta' },
+							],
+						},
+					],
+				},
+			],
+		})) as any
+		expect(result.results.meals).toEqual({ created: 1, skipped: 0 })
+
+		const alpha = await prisma.recipe.findFirstOrThrow({
+			where: { householdId: session.householdId, title: 'Alpha' },
+		})
+		const beta = await prisma.recipe.findFirstOrThrow({
+			where: { householdId: session.householdId, title: 'Beta' },
+		})
+		const meal = await prisma.meal.findFirstOrThrow({
+			where: { mealPlan: { householdId: session.householdId } },
+			include: { recipeItems: { orderBy: { order: 'asc' } } },
+		})
+		expect(
+			meal.recipeItems.map((item) => [item.recipeId, item.recipeTitle]),
+		).toEqual([
+			// The key decides the link; the file's frozen title is preserved
+			[alpha.id, 'Beta'],
+			// An unknown key restores as a missing card, never a title guess
+			[null, 'Ghost'],
+			// No key: the normalized title fallback connects
+			[beta.id, 'Beta'],
+		])
+	})
+
+	test('imported Meals append after existing Meals on the same day so order stays contiguous', async () => {
+		const session = await setupUser()
+		const plan = await prisma.mealPlan.create({
+			data: {
+				householdId: session.householdId,
+				weekStart: new Date('2026-08-17T00:00:00.000Z'),
+			},
+		})
+		await prisma.meal.create({
+			data: {
+				mealPlanId: plan.id,
+				date: new Date('2026-08-19T00:00:00.000Z'),
+				order: 0,
+				genericText: 'Already here',
+			},
+		})
+
+		const result = (await importPayload(session, {
+			format: 'quartermaster-full-export-v1',
+			recipes: [],
+			mealPlans: [
+				{
+					weekStart: '2026-08-17T00:00:00.000Z',
+					entries: [],
+					meals: [
+						{
+							date: '2026-08-19T00:00:00.000Z',
+							order: 0,
+							genericText: 'Leftovers',
+						},
+					],
+				},
+			],
+		})) as any
+		expect(result.results.meals).toEqual({ created: 1, skipped: 0 })
+
+		const meals = await prisma.meal.findMany({
+			where: { mealPlanId: plan.id },
+			orderBy: { order: 'asc' },
+		})
+		expect(meals.map((meal) => [meal.order, meal.genericText])).toEqual([
+			[0, 'Already here'],
+			[1, 'Leftovers'],
+		])
+	})
+
+	test('a Meal carrying both generic text and Recipe items is rejected as invalid', async () => {
+		const session = await setupUser()
+		const result = (await importPayload(session, {
+			format: 'quartermaster-full-export-v1',
+			recipes: [],
+			mealPlans: [
+				{
+					weekStart: '2026-08-17T00:00:00.000Z',
+					entries: [],
+					meals: [
+						{
+							date: '2026-08-19T00:00:00.000Z',
+							genericText: 'Leftovers',
+							items: [{ recipeTitle: 'Kofta' }],
+						},
+					],
+				},
+			],
+		})) as any
+		const body = result.data ?? result
+		expect(body.error).toContain(
+			'A Meal cannot carry both generic text and Recipe items',
+		)
+		expect(
+			await prisma.meal.count({
+				where: { mealPlan: { householdId: session.householdId } },
+			}),
+		).toBe(0)
+	})
+
+	test('pre-Meal exports still import, reporting no Meal activity', async () => {
+		const session = await setupUser()
+		const result = (await importPayload(session, {
+			format: 'quartermaster-full-export-v1',
+			recipes: [],
+			mealPlans: [
+				{
+					weekStart: '2026-08-17T00:00:00.000Z',
+					entries: [],
+				},
+			],
+		})) as any
+		expect(result.results.meals).toEqual({ created: 0, skipped: 0 })
+	})
+})

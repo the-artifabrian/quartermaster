@@ -56,6 +56,30 @@ export async function loader({ request }: Route.LoaderArgs) {
 						},
 						orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
 					},
+					meals: {
+						select: {
+							date: true,
+							order: true,
+							label: true,
+							servingAt: true,
+							servingTimeZone: true,
+							genericText: true,
+							completed: true,
+							guestCount: true,
+							sourceMenu: { select: { title: true } },
+							sourceMenuRevision: true,
+							recipeItems: {
+								select: {
+									recipeId: true,
+									recipeTitle: true,
+									scaleMultiplier: true,
+									cooked: true,
+								},
+								orderBy: { order: 'asc' },
+							},
+						},
+						orderBy: [{ date: 'asc' }, { order: 'asc' }],
+					},
 				},
 				orderBy: { weekStart: 'desc' },
 			}),
@@ -158,6 +182,32 @@ export async function loader({ request }: Route.LoaderArgs) {
 				servings: entry.servings,
 				cooked: entry.cooked,
 				recipe: entry.recipe.title,
+			})),
+			// Meal parents are durable recovery data (#104): within-day order,
+			// serving instant/timezone, generic text, text-only completion, guest
+			// count, source Menu identity/revision, and each ordered Recipe item's
+			// frozen identity, multiplier, and cooked state. Missing cards export a
+			// null recipeRef with their frozen title, like Menu cards do.
+			meals: plan.meals.map((meal) => ({
+				date: meal.date.toISOString(),
+				order: meal.order,
+				label: meal.label,
+				servingAt: meal.servingAt?.toISOString() ?? null,
+				servingTimeZone: meal.servingTimeZone,
+				genericText: meal.genericText,
+				completed: meal.completed,
+				guestCount: meal.guestCount,
+				// Menus have no export-local refs — normalized household title is
+				// their identity, so import reconnects by title.
+				sourceMenuTitle: meal.sourceMenu?.title ?? null,
+				sourceMenuRevision: meal.sourceMenuRevision?.toISOString() ?? null,
+				items: meal.recipeItems.map((item) => ({
+					recipeRef:
+						(item.recipeId && recipeRefById.get(item.recipeId)) || null,
+					recipeTitle: item.recipeTitle,
+					scaleMultiplier: item.scaleMultiplier,
+					cooked: item.cooked,
+				})),
 			})),
 		})),
 		shoppingLists: shoppingLists.map((list) => ({

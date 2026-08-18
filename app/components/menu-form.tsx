@@ -1,6 +1,7 @@
 import {
 	getFormProps,
 	getInputProps,
+	getTextareaProps,
 	useForm,
 	type FieldMetadata,
 	type FormMetadata,
@@ -19,6 +20,7 @@ import {
 	type MenuBuilderInput,
 	type MenuItemInput,
 	type MenuSectionInput,
+	type MenuShoppingLineInput,
 } from '#app/utils/menu-validation.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { ErrorList, Field, TextareaField } from './forms.tsx'
@@ -32,15 +34,32 @@ import {
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
 import { StatusButton } from './ui/status-button.tsx'
+import { Textarea } from './ui/textarea.tsx'
 
-export type MenuBuilderItem = {
-	id: string
-	recipeId: string | null
-	/** Frozen display title — what a missing card keeps showing. */
-	recipeTitle: string
-	scaleMultiplier: number
-	note: string | null
+export type MenuBuilderShoppingLine = {
+	name: string
+	quantity: string | null
+	unit: string | null
 }
+
+export type MenuBuilderItem =
+	| {
+			id: string
+			kind: 'recipe'
+			recipeId: string | null
+			/** Frozen display title — what a missing card keeps showing. */
+			recipeTitle: string
+			scaleMultiplier: number
+			note: string | null
+	  }
+	| {
+			id: string
+			kind: 'note'
+			text: string
+			shoppingLines: MenuBuilderShoppingLine[]
+	  }
+
+type MenuBuilderRecipeItem = Extract<MenuBuilderItem, { kind: 'recipe' }>
 
 export type MenuBuilderSection = {
 	id: string
@@ -97,12 +116,26 @@ export function MenuForm({
 				sections: builder.sections.map((section) => ({
 					id: section.id,
 					name: section.name ?? '',
-					items: section.items.map((item) => ({
-						id: item.id,
-						recipeId: item.recipeId ?? '',
-						scaleMultiplier: formatScaleMultiplier(item.scaleMultiplier),
-						note: item.note ?? '',
-					})),
+					items: section.items.map((item) =>
+						item.kind === 'note'
+							? {
+									id: item.id,
+									kind: 'note',
+									text: item.text,
+									shoppingLines: item.shoppingLines.map((line) => ({
+										name: line.name,
+										quantity: line.quantity ?? '',
+										unit: line.unit ?? '',
+									})),
+								}
+							: {
+									id: item.id,
+									kind: 'recipe',
+									recipeId: item.recipeId ?? '',
+									scaleMultiplier: formatScaleMultiplier(item.scaleMultiplier),
+									note: item.note ?? '',
+								},
+					),
 				})),
 			}),
 		},
@@ -252,9 +285,19 @@ function readSections(sectionList: MenuSectionMetadata[]) {
 				const item = itemMeta.getFieldset()
 				return {
 					id: item.id.value ?? '',
+					kind: item.kind.value ?? 'recipe',
 					recipeId: item.recipeId.value ?? '',
 					scaleMultiplier: item.scaleMultiplier.value ?? '',
 					note: item.note.value ?? '',
+					text: item.text.value ?? '',
+					shoppingLines: item.shoppingLines.getFieldList().map((lineMeta) => {
+						const line = lineMeta.getFieldset()
+						return {
+							name: line.name.value ?? '',
+							quantity: line.quantity.value ?? '',
+							unit: line.unit.value ?? '',
+						}
+					}),
 				}
 			}),
 		}
@@ -271,8 +314,12 @@ function MenuSectionsBuilder({
 	builder: NonNullable<MenuFormProps['builder']>
 }) {
 	const sectionList = fields.sections.getFieldList()
+	// Stored Recipe cards by id — the frozen-title lookup for missing cards.
 	const itemsById = new Map(
-		builder.sections.flatMap((s) => s.items).map((item) => [item.id, item]),
+		builder.sections
+			.flatMap((s) => s.items)
+			.filter((item): item is MenuBuilderRecipeItem => item.kind === 'recipe')
+			.map((item) => [item.id, item]),
 	)
 	const recipesById = new Map(builder.recipes.map((r) => [r.id, r]))
 	const unnamedSectionId = builder.sections.find((s) => s.name === null)?.id
@@ -385,7 +432,7 @@ function MenuSectionCard({
 	sectionCount: number
 	sectionLabels: string[]
 	unnamedSectionId: string | undefined
-	itemsById: Map<string, MenuBuilderItem>
+	itemsById: Map<string, MenuBuilderRecipeItem>
 	recipesById: Map<string, RecipePickerRecipe>
 	recipes: RecipePickerRecipe[]
 	usedRecipeIds: string[]
@@ -463,28 +510,44 @@ function MenuSectionCard({
 				</p>
 			) : (
 				<ul className="space-y-2">
-					{itemList.map((itemMeta, index) => (
-						<MenuItemRow
-							key={itemMeta.key}
-							form={form}
-							itemsName={section.items.name}
-							itemMeta={itemMeta}
-							index={index}
-							itemCount={itemList.length}
-							sectionIndex={sectionIndex}
-							sectionLabels={sectionLabels}
-							itemsById={itemsById}
-							recipesById={recipesById}
-							recipes={recipes}
-							usedRecipeIds={usedRecipeIds}
-							onMoveToSection={(toSection) =>
-								onMoveItem(sectionIndex, index, toSection)
-							}
-						/>
-					))}
+					{itemList.map((itemMeta, index) =>
+						itemMeta.getFieldset().kind.value === 'note' ? (
+							<MenuNoteRow
+								key={itemMeta.key}
+								form={form}
+								itemsName={section.items.name}
+								itemMeta={itemMeta}
+								index={index}
+								itemCount={itemList.length}
+								sectionIndex={sectionIndex}
+								sectionLabels={sectionLabels}
+								onMoveToSection={(toSection) =>
+									onMoveItem(sectionIndex, index, toSection)
+								}
+							/>
+						) : (
+							<MenuItemRow
+								key={itemMeta.key}
+								form={form}
+								itemsName={section.items.name}
+								itemMeta={itemMeta}
+								index={index}
+								itemCount={itemList.length}
+								sectionIndex={sectionIndex}
+								sectionLabels={sectionLabels}
+								itemsById={itemsById}
+								recipesById={recipesById}
+								recipes={recipes}
+								usedRecipeIds={usedRecipeIds}
+								onMoveToSection={(toSection) =>
+									onMoveItem(sectionIndex, index, toSection)
+								}
+							/>
+						),
+					)}
 				</ul>
 			)}
-			<div className="mt-3">
+			<div className="mt-3 flex flex-wrap items-center gap-2">
 				<RecipePicker
 					recipes={recipes}
 					excludeRecipeIds={usedRecipeIds}
@@ -493,6 +556,7 @@ function MenuSectionCard({
 							name: section.items.name,
 							defaultValue: {
 								id: '',
+								kind: 'recipe',
 								recipeId: recipe.id,
 								scaleMultiplier: '1',
 								note: '',
@@ -500,6 +564,26 @@ function MenuSectionCard({
 						})
 					}}
 				/>
+				{/* Drinks, shared prep, serving reminders — flexible cards instead
+				    of dedicated subsystems (#102). */}
+				<Button
+					type="button"
+					variant="outline"
+					onClick={() =>
+						form.insert({
+							name: section.items.name,
+							defaultValue: {
+								id: '',
+								kind: 'note',
+								text: '',
+								shoppingLines: [],
+							},
+						})
+					}
+				>
+					<Icon name="pencil-2" size="sm" />
+					Add note
+				</Button>
 			</div>
 		</li>
 	)
@@ -526,7 +610,7 @@ function MenuItemRow({
 	itemCount: number
 	sectionIndex: number
 	sectionLabels: string[]
-	itemsById: Map<string, MenuBuilderItem>
+	itemsById: Map<string, MenuBuilderRecipeItem>
 	recipesById: Map<string, RecipePickerRecipe>
 	recipes: RecipePickerRecipe[]
 	usedRecipeIds: string[]
@@ -542,6 +626,9 @@ function MenuItemRow({
 	const title = recipe?.title ?? stored?.recipeTitle ?? 'Recipe'
 
 	const { key: idKey, ...idProps } = getInputProps(item.id, { type: 'hidden' })
+	const { key: kindKey, ...kindProps } = getInputProps(item.kind, {
+		type: 'hidden',
+	})
 	const { key: recipeIdKey, ...recipeIdProps } = getInputProps(item.recipeId, {
 		type: 'hidden',
 	})
@@ -556,6 +643,7 @@ function MenuItemRow({
 	return (
 		<li className="border-border/60 bg-card rounded-lg border p-3">
 			<input key={idKey} {...idProps} />
+			<input key={kindKey} {...kindProps} />
 			<input key={recipeIdKey} {...recipeIdProps} />
 			<div className="flex items-start gap-3">
 				{missing ? (
@@ -632,33 +720,12 @@ function MenuItemRow({
 					count={itemCount}
 					label={title}
 				/>
-				{sectionLabels.length > 1 ? (
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								className="text-muted-foreground h-11 px-3 md:h-9"
-								aria-label={`Move ${title} to another section`}
-							>
-								Move to…
-							</Button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="start">
-							{sectionLabels.map((label, target) =>
-								target === sectionIndex ? null : (
-									<DropdownMenuItem
-										key={target}
-										onSelect={() => onMoveToSection(target)}
-									>
-										{label}
-									</DropdownMenuItem>
-								),
-							)}
-						</DropdownMenuContent>
-					</DropdownMenu>
-				) : null}
+				<MoveToSectionMenu
+					label={title}
+					sectionIndex={sectionIndex}
+					sectionLabels={sectionLabels}
+					onMoveToSection={onMoveToSection}
+				/>
 			</div>
 			{/* Separate lists so each input's aria-describedby resolves */}
 			<ErrorList errors={itemMeta.errors} id={itemMeta.errorId} />
@@ -667,6 +734,235 @@ function MenuItemRow({
 				id={item.scaleMultiplier.errorId}
 			/>
 			<ErrorList errors={item.note.errors} id={item.note.errorId} />
+		</li>
+	)
+}
+
+/** The explicit cross-section move — no nested drag required (#101). */
+function MoveToSectionMenu({
+	label,
+	sectionIndex,
+	sectionLabels,
+	onMoveToSection,
+}: {
+	label: string
+	sectionIndex: number
+	sectionLabels: string[]
+	onMoveToSection: (toSection: number) => void
+}) {
+	if (sectionLabels.length <= 1) return null
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button
+					type="button"
+					variant="ghost"
+					size="sm"
+					className="text-muted-foreground h-11 px-3 md:h-9"
+					aria-label={`Move ${label} to another section`}
+				>
+					Move to…
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start">
+				{sectionLabels.map((sectionLabel, target) =>
+					target === sectionIndex ? null : (
+						<DropdownMenuItem
+							key={target}
+							onSelect={() => onMoveToSection(target)}
+						>
+							{sectionLabel}
+						</DropdownMenuItem>
+					),
+				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	)
+}
+
+/**
+ * How a note card reads in reorder/remove/move controls: named by its own
+ * text so labels stay tellable-apart when a section holds several notes.
+ */
+function noteCardLabel(text: string | undefined) {
+	const trimmed = text?.trim() ?? ''
+	if (!trimmed) return 'note'
+	return trimmed.length > 40
+		? `note “${trimmed.slice(0, 40)}…”`
+		: `note “${trimmed}”`
+}
+
+function MenuNoteRow({
+	form,
+	itemsName,
+	itemMeta,
+	index,
+	itemCount,
+	sectionIndex,
+	sectionLabels,
+	onMoveToSection,
+}: {
+	form: MenuFormMetadata
+	itemsName: string
+	itemMeta: FieldMetadata<MenuItemInput>
+	index: number
+	itemCount: number
+	sectionIndex: number
+	sectionLabels: string[]
+	onMoveToSection: (toSection: number) => void
+}) {
+	const item = itemMeta.getFieldset()
+	const label = noteCardLabel(item.text.value)
+	const lineList = item.shoppingLines.getFieldList()
+
+	const { key: idKey, ...idProps } = getInputProps(item.id, { type: 'hidden' })
+	const { key: kindKey, ...kindProps } = getInputProps(item.kind, {
+		type: 'hidden',
+	})
+	const { key: textKey, ...textProps } = getTextareaProps(item.text)
+
+	return (
+		<li className="border-border/60 bg-card rounded-lg border p-3">
+			<input key={idKey} {...idProps} />
+			<input key={kindKey} {...kindProps} />
+			<div className="flex items-start gap-3">
+				<span className="bg-muted/70 flex size-9 shrink-0 items-center justify-center rounded-md">
+					<Icon name="pencil-2" className="text-muted-foreground size-4" />
+				</span>
+				<div className="min-w-0 flex-1">
+					<Textarea
+						key={textKey}
+						{...textProps}
+						rows={2}
+						placeholder="e.g. Lemonade with mint — mix just before serving"
+						aria-label="Note text"
+					/>
+					<ErrorList errors={item.text.errors} id={item.text.errorId} />
+				</div>
+				<Button
+					variant="ghost"
+					size="icon"
+					className="shrink-0"
+					{...form.remove.getButtonProps({ name: itemsName, index })}
+					aria-label={`Remove ${label} from menu`}
+				>
+					<Icon name="trash" size="sm" />
+				</Button>
+			</div>
+			{lineList.length > 0 ? (
+				<ul className="mt-2 space-y-2">
+					{lineList.map((lineMeta, lineIndex) => (
+						<ShoppingLineRow
+							key={lineMeta.key}
+							form={form}
+							linesName={item.shoppingLines.name}
+							lineMeta={lineMeta}
+							lineIndex={lineIndex}
+						/>
+					))}
+				</ul>
+			) : null}
+			<div className="mt-2 flex flex-wrap items-center gap-1">
+				{/* Ordinary Shopping lines so supporting purchases travel with the
+				    Menu — required name, optional quantity/unit (#102). */}
+				<Button
+					type="button"
+					variant="ghost"
+					size="sm"
+					className="text-muted-foreground h-11 px-3 md:h-9"
+					onClick={() =>
+						form.insert({
+							name: item.shoppingLines.name,
+							defaultValue: { name: '', quantity: '', unit: '' },
+						})
+					}
+				>
+					<Icon name="cart" size="sm" />
+					Add shopping line
+				</Button>
+				<ReorderButtons
+					form={form}
+					name={itemsName}
+					index={index}
+					count={itemCount}
+					label={label}
+				/>
+				<MoveToSectionMenu
+					label={label}
+					sectionIndex={sectionIndex}
+					sectionLabels={sectionLabels}
+					onMoveToSection={onMoveToSection}
+				/>
+			</div>
+			<ErrorList errors={itemMeta.errors} id={itemMeta.errorId} />
+			<ErrorList
+				errors={item.shoppingLines.errors}
+				id={item.shoppingLines.errorId}
+			/>
+		</li>
+	)
+}
+
+function ShoppingLineRow({
+	form,
+	linesName,
+	lineMeta,
+	lineIndex,
+}: {
+	form: MenuFormMetadata
+	linesName: string
+	lineMeta: FieldMetadata<MenuShoppingLineInput>
+	lineIndex: number
+}) {
+	const line = lineMeta.getFieldset()
+	const { key: nameKey, ...nameProps } = getInputProps(line.name, {
+		type: 'text',
+	})
+	const { key: quantityKey, ...quantityProps } = getInputProps(line.quantity, {
+		type: 'text',
+	})
+	const { key: unitKey, ...unitProps } = getInputProps(line.unit, {
+		type: 'text',
+	})
+
+	return (
+		<li>
+			<div className="flex items-start gap-2">
+				<Input
+					key={nameKey}
+					{...nameProps}
+					placeholder="e.g. mint"
+					aria-label={`Shopping line ${lineIndex + 1} name`}
+					className="h-10 min-w-0 flex-1"
+				/>
+				<Input
+					key={quantityKey}
+					{...quantityProps}
+					placeholder="Qty"
+					aria-label={`Shopping line ${lineIndex + 1} quantity`}
+					className="h-10 w-14"
+				/>
+				<Input
+					key={unitKey}
+					{...unitProps}
+					placeholder="Unit"
+					aria-label={`Shopping line ${lineIndex + 1} unit`}
+					className="h-10 w-16"
+				/>
+				<Button
+					variant="ghost"
+					size="icon"
+					className="shrink-0"
+					{...form.remove.getButtonProps({ name: linesName, index: lineIndex })}
+					aria-label={`Remove shopping line ${lineIndex + 1}`}
+				>
+					<Icon name="cross-1" size="sm" />
+				</Button>
+			</div>
+			{/* Separate lists so each input's aria-describedby resolves */}
+			<ErrorList errors={line.name.errors} id={line.name.errorId} />
+			<ErrorList errors={line.quantity.errors} id={line.quantity.errorId} />
+			<ErrorList errors={line.unit.errors} id={line.unit.errorId} />
 		</li>
 	)
 }

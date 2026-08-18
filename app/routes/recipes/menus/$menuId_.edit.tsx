@@ -55,6 +55,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 							recipeTitle: true,
 							scaleMultiplier: true,
 							note: true,
+							shoppingLines: {
+								orderBy: { order: 'asc' },
+								select: { name: true, quantity: true, unit: true },
+							},
 						},
 					},
 				},
@@ -70,15 +74,23 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	const sections: MenuBuilderSection[] = menu.sections.map((section) => ({
 		id: section.id,
 		name: section.name,
-		items: section.items
-			.filter((item) => item.kind === 'recipe')
-			.map((item) => ({
-				id: item.id,
-				recipeId: item.recipeId,
-				recipeTitle: item.recipeTitle ?? 'Recipe',
-				scaleMultiplier: item.scaleMultiplier ?? 1,
-				note: item.note,
-			})),
+		items: section.items.map((item) =>
+			item.kind === 'note'
+				? {
+						id: item.id,
+						kind: 'note' as const,
+						text: item.note ?? '',
+						shoppingLines: item.shoppingLines,
+					}
+				: {
+						id: item.id,
+						kind: 'recipe' as const,
+						recipeId: item.recipeId,
+						recipeTitle: item.recipeTitle ?? 'Recipe',
+						scaleMultiplier: item.scaleMultiplier ?? 1,
+						note: item.note,
+					},
+		),
 	}))
 
 	const recipes = await prisma.recipe.findMany({
@@ -111,7 +123,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 				select: {
 					id: true,
 					name: true,
-					items: { select: { id: true, recipeId: true } },
+					items: { select: { id: true, kind: true, recipeId: true } },
 				},
 			},
 		},
@@ -210,11 +222,21 @@ export async function action({ request, params }: Route.ActionArgs) {
 		'Invalid menu item',
 		{ status: 400 },
 	)
+	// A card's kind is immutable — a Recipe card never mutates into a note.
+	invariantResponse(
+		items.every(
+			(item) => item.id == null || storedById.get(item.id)!.kind === item.kind,
+		),
+		'Invalid menu item',
+		{ status: 400 },
+	)
 
 	// Effective Recipe references after this save: an existing item keeps its
 	// stored reference unless the submission explicitly replaces it (a missing
-	// card submits an empty recipeId, which never unlinks a live one).
+	// card submits an empty recipeId, which never unlinks a live one). Note
+	// cards never reference a Recipe.
 	const effectiveRecipeIds = items.map((item) => {
+		if (item.kind === 'note') return null
 		if (item.id != null) {
 			const stored = storedById.get(item.id)!
 			return item.recipeId != null && item.recipeId !== stored.recipeId
@@ -310,6 +332,39 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 			for (const item of items) {
 				const sectionId = sectionIds[item.sectionIndex]!
+				if (item.kind === 'note') {
+					// A note card's lines are replaced wholesale from the submission —
+					// they carry no identity beyond their fields, so the full-state
+					// save simply rewrites them in submitted order.
+					const lines = (item.shoppingLines ?? []).map((line, order) => ({
+						name: line.name,
+						quantity: line.quantity ?? null,
+						unit: line.unit ?? null,
+						order,
+					}))
+					if (item.id != null) {
+						await tx.menuItem.update({
+							where: { id: item.id },
+							data: {
+								order: item.itemIndex,
+								sectionId,
+								note: item.text!,
+								shoppingLines: { deleteMany: {}, create: lines },
+							},
+						})
+					} else {
+						await tx.menuItem.create({
+							data: {
+								kind: 'note',
+								order: item.itemIndex,
+								sectionId,
+								note: item.text!,
+								shoppingLines: { create: lines },
+							},
+						})
+					}
+					continue
+				}
 				if (item.id != null) {
 					const stored = storedById.get(item.id)!
 					const replacement =

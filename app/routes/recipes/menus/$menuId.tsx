@@ -55,6 +55,15 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 									image: { select: { objectKey: true } },
 								},
 							},
+							shoppingLines: {
+								orderBy: { order: 'asc' },
+								select: {
+									id: true,
+									name: true,
+									quantity: true,
+									unit: true,
+								},
+							},
 						},
 					},
 				},
@@ -90,6 +99,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 						scaleMultiplier: item.scaleMultiplier,
 						note: item.note,
 						recipe,
+						shoppingLines: item.shoppingLines,
 					}
 				}),
 			})),
@@ -168,9 +178,13 @@ export default function MenuDetail({ loaderData }: Route.ComponentProps) {
 								)
 							) : (
 								<ul className="space-y-2">
-									{section.items.map((item) => (
-										<MenuRecipeCard key={item.id} item={item} />
-									))}
+									{section.items.map((item) =>
+										item.kind === 'note' ? (
+											<MenuNoteCard key={item.id} item={item} />
+										) : (
+											<MenuRecipeCard key={item.id} item={item} />
+										),
+									)}
 								</ul>
 							)}
 						</section>
@@ -191,6 +205,49 @@ type MenuDetailItem = {
 		title: string
 		image: { objectKey: string } | null
 	} | null
+	shoppingLines: Array<{
+		id: string
+		name: string
+		quantity: string | null
+		unit: string | null
+	}>
+}
+
+/**
+ * A flexible note card — drinks, shared prep, serving reminders — with its
+ * ordinary Shopping lines listed underneath (#102).
+ */
+function MenuNoteCard({ item }: { item: MenuDetailItem }) {
+	return (
+		<li className="border-border/60 bg-card flex items-start gap-3 rounded-lg border p-3">
+			<span className="bg-muted/70 flex size-9 shrink-0 items-center justify-center rounded-md">
+				<Icon name="pencil-2" className="text-muted-foreground size-4" />
+			</span>
+			<div className="min-w-0 flex-1">
+				<p className="min-w-0 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
+					{item.note}
+				</p>
+				{item.shoppingLines.length > 0 ? (
+					<ul className="mt-2 space-y-1">
+						{item.shoppingLines.map((line) => (
+							<li
+								key={line.id}
+								className="text-muted-foreground flex items-baseline gap-1.5 text-sm"
+							>
+								<Icon name="cart" size="xs" className="translate-y-px" />
+								<span className="min-w-0 break-words">{line.name}</span>
+								{line.quantity || line.unit ? (
+									<span className="shrink-0 tabular-nums">
+										{[line.quantity, line.unit].filter(Boolean).join(' ')}
+									</span>
+								) : null}
+							</li>
+						))}
+					</ul>
+				) : null}
+			</div>
+		</li>
+	)
 }
 
 function MenuRecipeCard({ item }: { item: MenuDetailItem }) {

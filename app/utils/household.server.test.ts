@@ -214,6 +214,92 @@ describe('acceptInvite', () => {
 		expect(await prisma.menu.count()).toBe(3)
 	})
 
+	test('sole member: menu cards, note shopping lines, and recipe references survive the move', async () => {
+		const owner = await setupUser()
+		const joiner = await setupUserWithRecipe('Joiner Dinner')
+
+		// A colliding title, so the moved menu also gets re-suffixed — the
+		// move must preserve content, not just retitle (#102).
+		await prisma.menu.create({
+			data: {
+				title: 'Feast',
+				titleKey: 'feast',
+				householdId: owner.householdId,
+				sections: { create: { name: null, order: 0 } },
+			},
+		})
+		await prisma.menu.create({
+			data: {
+				title: 'Feast',
+				titleKey: 'feast',
+				householdId: joiner.householdId,
+				sections: {
+					create: {
+						name: null,
+						order: 0,
+						items: {
+							create: [
+								{
+									kind: 'recipe',
+									order: 0,
+									recipeId: joiner.recipeId,
+									recipeTitle: 'Joiner Dinner',
+									scaleMultiplier: 1.5,
+								},
+								{
+									kind: 'note',
+									order: 1,
+									note: 'Drinks: lemonade',
+									shoppingLines: {
+										create: [
+											{ name: 'lemons', quantity: '6', order: 0 },
+											{ name: 'mint', order: 1 },
+										],
+									},
+								},
+							],
+						},
+					},
+				},
+			},
+		})
+
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+		await acceptInvite(invite.token, joiner.id)
+
+		const moved = await prisma.menu.findFirstOrThrow({
+			where: { titleKey: 'feast (2)' },
+			include: {
+				sections: {
+					include: {
+						items: {
+							orderBy: { order: 'asc' },
+							include: { shoppingLines: { orderBy: { order: 'asc' } } },
+						},
+					},
+				},
+			},
+		})
+		expect(moved.householdId).toBe(owner.householdId)
+		const items = moved.sections[0]!.items
+		expect(items.map((i) => i.kind)).toEqual(['recipe', 'note'])
+		// The recipe moved with the household, so the reference stays live
+		expect(items[0]).toMatchObject({
+			recipeId: joiner.recipeId,
+			recipeTitle: 'Joiner Dinner',
+			scaleMultiplier: 1.5,
+		})
+		const recipe = await prisma.recipe.findUniqueOrThrow({
+			where: { id: joiner.recipeId },
+		})
+		expect(recipe.householdId).toBe(owner.householdId)
+		expect(items[1]!.note).toBe('Drinks: lemonade')
+		expect(items[1]!.shoppingLines.map((l) => [l.name, l.quantity])).toEqual([
+			['lemons', '6'],
+			['mint', null],
+		])
+	})
+
 	test('sole member: overlapping meal-plan weeks are merged', async () => {
 		const owner = await setupUserWithRecipe('Owner Dinner')
 		const joiner = await setupUserWithRecipe('Joiner Dinner')

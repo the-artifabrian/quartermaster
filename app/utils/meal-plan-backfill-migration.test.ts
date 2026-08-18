@@ -28,7 +28,7 @@ async function runBackfill() {
 	const inserts = sql
 		.split(';')
 		.map((statement) => statement.trim())
-		.filter((statement) => statement.startsWith('INSERT INTO "Meal'))
+		.filter((statement) => statement.includes('INSERT INTO "Meal'))
 	expect(inserts).toHaveLength(2)
 	for (const statement of inserts) {
 		await prisma.$executeRawUnsafe(statement)
@@ -83,14 +83,6 @@ async function seedLegacyPlan() {
 		recipeId: string
 		createdAt: Date
 	}> = [
-		// dinner: created later than the tied pair below
-		{
-			id: 'e-din-late',
-			mealType: 'dinner',
-			servings: 8, // 8 / 4 servings = 2×
-			recipeId: kofta.id,
-			createdAt: new Date(3000),
-		},
 		{
 			id: 'e-din-tie-b',
 			mealType: 'dinner',
@@ -143,6 +135,15 @@ async function seedLegacyPlan() {
 			data: { ...entry, date: day, mealPlanId: plan.id },
 		})
 	}
+	// The current Prisma client stores DateTime as ISO TEXT; older rows in
+	// production are INTEGER epoch milliseconds (and not always
+	// midnight-aligned). This old-era dinner row must merge into the same
+	// dinner Meal as the TEXT rows above and order chronologically after the
+	// createdAt-1000ms tie pair.
+	await prisma.$executeRawUnsafe(
+		`INSERT INTO "MealPlanEntry" ("id", "date", "mealType", "servings", "cooked", "mealPlanId", "recipeId", "createdAt")
+		 VALUES ('e-din-late', ${day.getTime() + 2026}, 'dinner', 8, 0, '${plan.id}', '${kofta.id}', 3000)`,
+	)
 	return { plan, day, kofta, salad, cake }
 }
 

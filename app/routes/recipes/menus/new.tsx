@@ -38,7 +38,7 @@ export async function action({ request }: Route.ActionArgs) {
 	const { title, description, defaultGuestCount } = submission.value
 
 	try {
-		// One atomic create: the Menu and its durable unnamed section persist
+		// One atomic create: the Menu and its starting unnamed section persist
 		// together or not at all.
 		const menu = await prisma.menu.create({
 			data: {

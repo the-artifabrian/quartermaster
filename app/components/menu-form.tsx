@@ -63,7 +63,8 @@ type MenuBuilderRecipeItem = Extract<MenuBuilderItem, { kind: 'recipe' }>
 
 export type MenuBuilderSection = {
 	id: string
-	/** null marks the durable unnamed section — never renamed or removed. */
+	/** null = the headingless unnamed section; any section may gain or lose
+	 * its name in place. */
 	name: string | null
 	items: MenuBuilderItem[]
 }
@@ -322,7 +323,6 @@ function MenuSectionsBuilder({
 			.map((item) => [item.id, item]),
 	)
 	const recipesById = new Map(builder.recipes.map((r) => [r.id, r]))
-	const unnamedSectionId = builder.sections.find((s) => s.name === null)?.id
 
 	// A Recipe appears once per Menu, so the pickers exclude every section's.
 	const usedRecipeIds = sectionList
@@ -334,13 +334,11 @@ function MenuSectionsBuilder({
 		)
 		.filter((id): id is string => Boolean(id))
 
-	// How each section reads in move controls and menus right now.
-	const sectionLabels = sectionList.map((sectionMeta, index) => {
+	// How each section reads in move controls and menus right now — a blank
+	// name is the headingless unnamed section.
+	const sectionLabels = sectionList.map((sectionMeta) => {
 		const section = sectionMeta.getFieldset()
-		if (section.id.value && section.id.value === unnamedSectionId) {
-			return 'Unnamed section'
-		}
-		return section.name.value?.trim() || `Section ${index + 1}`
+		return section.name.value?.trim() || 'Unnamed section'
 	})
 
 	function moveItemToSection(
@@ -359,10 +357,21 @@ function MenuSectionsBuilder({
 		const sections = readSections(sectionList)
 		const [removed] = sections.splice(sectionIndex, 1)
 		if (!removed) return
-		// Removing a section keeps its food: items land in the unnamed section.
-		const unnamed =
-			sections.find((s) => s.id === unnamedSectionId) ?? sections[0]
-		unnamed?.items.push(...removed.items)
+		// Removing a section removes its heading, never its food: items land in
+		// the headingless section, created in place when every survivor is named.
+		if (removed.items.length > 0) {
+			const unnamed = sections.find((s) => !s.name.trim())
+			if (unnamed) unnamed.items.push(...removed.items)
+			else {
+				sections.splice(sectionIndex, 0, {
+					id: '',
+					name: '',
+					items: removed.items,
+				})
+			}
+		}
+		// Cards need somewhere to live — an emptied menu keeps one blank section.
+		if (sections.length === 0) sections.push({ id: '', name: '', items: [] })
 		form.update({ name: fields.sections.name, value: sections })
 	}
 
@@ -386,7 +395,6 @@ function MenuSectionsBuilder({
 						sectionIndex={sectionIndex}
 						sectionCount={sectionList.length}
 						sectionLabels={sectionLabels}
-						unnamedSectionId={unnamedSectionId}
 						itemsById={itemsById}
 						recipesById={recipesById}
 						recipes={builder.recipes}
@@ -423,7 +431,6 @@ function MenuSectionCard({
 	sectionIndex,
 	sectionCount,
 	sectionLabels,
-	unnamedSectionId,
 	itemsById,
 	recipesById,
 	recipes,
@@ -437,7 +444,6 @@ function MenuSectionCard({
 	sectionIndex: number
 	sectionCount: number
 	sectionLabels: string[]
-	unnamedSectionId: string | undefined
 	itemsById: Map<string, MenuBuilderRecipeItem>
 	recipesById: Map<string, RecipePickerRecipe>
 	recipes: RecipePickerRecipe[]
@@ -450,12 +456,14 @@ function MenuSectionCard({
 	onRemoveSection: (sectionIndex: number) => void
 }) {
 	const section = sectionMeta.getFieldset()
-	const isUnnamed =
-		Boolean(section.id.value) && section.id.value === unnamedSectionId
 	const itemList = section.items.getFieldList()
 	const label = sectionLabels[sectionIndex]!
-	// A menu that is still one unnamed section keeps the sectionless look.
-	const soloUnnamed = isUnnamed && sectionCount === 1
+	const solo = sectionCount === 1
+	// A blank name marks the headingless home for loose cards — deleting it
+	// would delete food (or, solo, do nothing), so the trash waits until the
+	// section is named or emptied.
+	const headinglessHome =
+		!section.name.value?.trim() && (itemList.length > 0 || solo)
 
 	const { key: idKey, ...idProps } = getInputProps(section.id, {
 		type: 'hidden',
@@ -466,30 +474,21 @@ function MenuSectionCard({
 
 	return (
 		// The tinted panel makes a section legible as the one unit its move
-		// arrows carry — the solo unnamed section keeps the flat sectionless look.
-		<li className={soloUnnamed ? undefined : 'bg-muted/40 rounded-xl p-3'}>
+		// arrows carry — a solo section keeps the flat sectionless look.
+		<li className={solo ? undefined : 'bg-muted/40 rounded-xl p-3'}>
 			<input key={idKey} {...idProps} />
-			{soloUnnamed ? null : (
-				<div className="mb-2 flex items-start gap-1">
-					{isUnnamed ? (
-						<p className="text-muted-foreground flex h-11 min-w-0 flex-1 items-center text-sm italic">
-							Unnamed section
-						</p>
-					) : (
-						<div className="min-w-0 flex-1">
-							<Input
-								key={nameKey}
-								{...nameProps}
-								placeholder="Section name — e.g. Dessert"
-								aria-label="Section name"
-								className="h-11"
-							/>
-							<ErrorList
-								errors={section.name.errors}
-								id={section.name.errorId}
-							/>
-						</div>
-					)}
+			<div className="mb-2 flex items-start gap-1">
+				<div className="min-w-0 flex-1">
+					<Input
+						key={nameKey}
+						{...nameProps}
+						placeholder="Section name (optional) — e.g. Dessert"
+						aria-label="Section name"
+						className="h-11"
+					/>
+					<ErrorList errors={section.name.errors} id={section.name.errorId} />
+				</div>
+				{solo ? null : (
 					<ReorderButtons
 						form={form}
 						name={fields.sections.name}
@@ -497,22 +496,22 @@ function MenuSectionCard({
 						count={sectionCount}
 						label={label}
 					/>
-					{isUnnamed ? null : (
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon"
-							onClick={() => onRemoveSection(sectionIndex)}
-							aria-label={`Remove ${label} — its recipes move to the unnamed section`}
-						>
-							<Icon name="trash" size="sm" />
-						</Button>
-					)}
-				</div>
-			)}
+				)}
+				{headinglessHome ? null : (
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						onClick={() => onRemoveSection(sectionIndex)}
+						aria-label={`Remove ${label} — its cards stay on the menu`}
+					>
+						<Icon name="trash" size="sm" />
+					</Button>
+				)}
+			</div>
 			{itemList.length === 0 ? (
 				<p className="text-muted-foreground border-border/60 rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm">
-					{soloUnnamed
+					{solo
 						? 'No recipes on this menu yet.'
 						: 'No recipes in this section yet.'}
 				</p>

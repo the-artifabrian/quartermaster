@@ -16,7 +16,6 @@ import {
 	isUniqueConstraintError,
 	MenuBuilderSchema,
 	menuTitleKey,
-	SECTION_NAME_REQUIRED_MESSAGE,
 } from '#app/utils/menu-validation.ts'
 import { useDoubleCheck } from '#app/utils/misc.tsx'
 import { type Route } from './+types/$menuId_.edit.ts'
@@ -149,18 +148,18 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	const { title, description, defaultGuestCount } = submission.value
 
-	// The durable unnamed section (#99) — it can be reordered among custom
-	// sections but never renamed or removed.
-	const unnamedSection = menu.sections.find((section) => section.name === null)
-	invariantResponse(unnamedSection, 'Menu has no unnamed section', {
-		status: 500,
-	})
+	// A blank name marks the headingless unnamed section; any section may take
+	// or lose a name in place (Gate 1A dogfood), so no stored row is special.
+	const storedUnnamed = menu.sections.find((section) => section.name === null)
 
 	// Full-state reconcile: the submission is the Menu's complete composition.
-	// An absent sections key resets it to the durable default — one empty
+	// An absent (or empty) sections key resets it to the default — one empty
 	// unnamed section (#102's note items must join this round-trip).
+	const submittedSections = submission.value.sections
 	const sections = (
-		submission.value.sections ?? [{ id: unnamedSection.id, items: [] }]
+		submittedSections?.length
+			? submittedSections
+			: [{ id: storedUnnamed?.id, name: undefined, items: [] }]
 	).map((section) => ({ ...section, items: section.items ?? [] }))
 
 	const storedSectionsById = new Map(menu.sections.map((s) => [s.id, s]))
@@ -174,29 +173,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 		'Invalid menu section',
 		{ status: 400 },
 	)
-	invariantResponse(
-		submittedSectionIds.includes(unnamedSection.id),
-		'A menu keeps its unnamed section',
-		{ status: 400 },
-	)
-
-	// An existing custom section must keep a non-empty name; a name submitted
-	// for the unnamed section is ignored rather than breaking its durability.
-	const sectionNameErrors = Object.fromEntries(
-		sections.flatMap((section, index): Array<[string, string[]]> =>
-			section.id != null &&
-			section.id !== unnamedSection.id &&
-			section.name == null
-				? [[`sections[${index}].name`, [SECTION_NAME_REQUIRED_MESSAGE]]]
-				: [],
-		),
-	)
-	if (Object.keys(sectionNameErrors).length > 0) {
-		return data(
-			{ result: submission.reply({ fieldErrors: sectionNameErrors }) },
-			{ status: 400 },
-		)
-	}
 
 	// Items flattened with their submitted position — a stored item appearing
 	// under a different section is an explicit cross-section move.
@@ -313,17 +289,12 @@ export async function action({ request, params }: Route.ActionArgs) {
 				if (section.id != null) {
 					await tx.menuSection.update({
 						where: { id: section.id },
-						data: {
-							order: index,
-							...(section.id !== unnamedSection.id && {
-								name: section.name!,
-							}),
-						},
+						data: { order: index, name: section.name ?? null },
 					})
 					sectionIds.push(section.id)
 				} else {
 					const created = await tx.menuSection.create({
-						data: { menuId, name: section.name!, order: index },
+						data: { menuId, name: section.name ?? null, order: index },
 						select: { id: true },
 					})
 					sectionIds.push(created.id)

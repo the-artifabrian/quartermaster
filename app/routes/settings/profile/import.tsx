@@ -123,7 +123,7 @@ const ImportMenuItemSchema = z.object({
 })
 
 const ImportMenuSectionSchema = z.object({
-	// null marks the durable unnamed section
+	// null marks the headingless unnamed section
 	name: z.string().min(1).max(100).nullable().optional(),
 	items: z.array(ImportMenuItemSchema).max(100).optional(),
 })
@@ -331,9 +331,10 @@ async function importMenus(
 		}
 		takenTitleKeys.add(titleKey)
 
-		// The durable unnamed section every Menu keeps: the file's first
-		// unnamed section becomes it, later unnamed ones merge into it, and a
-		// file without one gets an empty one appended.
+		// At most one unnamed section per Menu: the file's first unnamed
+		// section wins, later unnamed ones merge into it. A Menu with no
+		// unnamed section is valid; one with no sections at all still gets the
+		// starting empty unnamed section so its cards have somewhere to live.
 		const sections: Array<{
 			name: string | null
 			items: ImportMenuItem[]
@@ -352,7 +353,7 @@ async function importMenus(
 				sections.push({ name: section.name, items: [...items] })
 			}
 		}
-		if (unnamedIndex === -1) sections.push({ name: null, items: [] })
+		if (sections.length === 0) sections.push({ name: null, items: [] })
 
 		// A Recipe appears once per Menu — a second resolved occurrence imports
 		// as a missing card so structure and frozen identity still survive.

@@ -2,7 +2,10 @@ import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { menuTitleKey } from '#app/utils/menu-validation.ts'
+import {
+	menuTitleKey,
+	ONE_UNNAMED_SECTION_MESSAGE,
+} from '#app/utils/menu-validation.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { loader as detailLoader } from './$menuId.tsx'
@@ -1082,29 +1085,44 @@ describe('menu sections and ordering', () => {
 		expect(await menuItems(menu.id)).toHaveLength(1)
 	})
 
-	test('the unnamed section cannot be removed and never takes a name', async () => {
-		const { session, menu, unnamed } = await setupSectionedMenu()
-		const dessert = (await menuSections(menu.id))[1]!
+	test('the unnamed section renames in place and can be removed like any other', async () => {
+		const { session, menu, hummus, baklava, knafeh, unnamed } =
+			await setupSectionedMenu()
+		const before = await menuSections(menu.id)
+		const dessert = before[1]!
+		const [baklavaItem, knafehItem] = dessert.items
+		const [hummusItem] = before[0]!.items
 
-		// A submission without the unnamed section is rejected outright
-		await expect(
-			saveMenu(session, menu.id, {
-				title: 'Feast',
-				...sectionFields(0, { id: dessert.id, name: 'Dessert' }),
-			}),
-		).rejects.toEqual(expect.objectContaining({ status: 400 }))
-
-		// A name submitted for the unnamed section is ignored, not persisted
+		// Naming the unnamed section simply makes it a named section
 		redirectLocation(
 			await saveMenu(session, menu.id, {
 				title: 'Feast',
-				...sectionFields(0, { id: unnamed.id, name: 'Sneaky Name' }),
+				...sectionFields(0, { id: unnamed.id, name: 'Starters' }, [
+					{ id: hummusItem!.id, recipeId: hummus.id, scaleMultiplier: '1' },
+				]),
+				...sectionFields(1, { id: dessert.id, name: 'Dessert' }, [
+					{ id: baklavaItem!.id, recipeId: baklava.id, scaleMultiplier: '1' },
+					{ id: knafehItem!.id, recipeId: knafeh.id, scaleMultiplier: '2' },
+				]),
 			}),
 		)
-		const stored = await prisma.menuSection.findUniqueOrThrow({
-			where: { id: unnamed.id },
-		})
-		expect(stored.name).toBeNull()
+		expect((await menuSections(menu.id)).map((s) => s.name)).toEqual([
+			'Starters',
+			'Dessert',
+		])
+
+		// Omitting it removes it — the save is the full state, like any section
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Feast',
+				...sectionFields(0, { id: dessert.id, name: 'Dessert' }, [
+					{ id: baklavaItem!.id, recipeId: baklava.id, scaleMultiplier: '1' },
+				]),
+			}),
+		)
+		const after = await menuSections(menu.id)
+		expect(after.map((s) => s.name)).toEqual(['Dessert'])
+		expect(await menuItems(menu.id)).toHaveLength(1)
 	})
 
 	test('rejects forged and duplicated section ids', async () => {
@@ -1118,7 +1136,7 @@ describe('menu sections and ordering', () => {
 			saveMenu(session, menuA.id, {
 				title: 'Menu A',
 				...sectionFields(0, { id: unnamedA.id }),
-				...sectionFields(1, { id: unnamedB.id }),
+				...sectionFields(1, { id: unnamedB.id, name: 'Forged' }),
 			}),
 		).rejects.toEqual(expect.objectContaining({ status: 400 }))
 
@@ -1126,25 +1144,46 @@ describe('menu sections and ordering', () => {
 			saveMenu(session, menuA.id, {
 				title: 'Menu A',
 				...sectionFields(0, { id: unnamedA.id }),
-				...sectionFields(1, { id: unnamedA.id }),
+				...sectionFields(1, { id: unnamedA.id, name: 'Twice' }),
 			}),
 		).rejects.toEqual(expect.objectContaining({ status: 400 }))
 	})
 
-	test('a new section requires a name and an existing one cannot lose its name', async () => {
+	test('a section may lose its name and become the headingless one', async () => {
+		const { session, menu, hummus, baklava, knafeh, unnamed } =
+			await setupSectionedMenu()
+		const before = await menuSections(menu.id)
+		const dessert = before[1]!
+		const [baklavaItem, knafehItem] = dessert.items
+		const [hummusItem] = before[0]!.items
+
+		// Roles swap in one save: the unnamed section gains a name, Dessert
+		// loses its — food stays put throughout.
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Feast',
+				...sectionFields(0, { id: unnamed.id, name: 'Starters' }, [
+					{ id: hummusItem!.id, recipeId: hummus.id, scaleMultiplier: '1' },
+				]),
+				...sectionFields(1, { id: dessert.id }, [
+					{ id: baklavaItem!.id, recipeId: baklava.id, scaleMultiplier: '1' },
+					{ id: knafehItem!.id, recipeId: knafeh.id, scaleMultiplier: '2' },
+				]),
+			}),
+		)
+		const after = await menuSections(menu.id)
+		expect(after.map((s) => s.name)).toEqual(['Starters', null])
+		expect(after[1]!.items.map((i) => i.recipeTitle)).toEqual([
+			'Baklava',
+			'Knafeh',
+		])
+	})
+
+	test('at most one section can go without a name', async () => {
 		const { session, menu, unnamed } = await setupSectionedMenu()
 		const dessert = (await menuSections(menu.id))[1]!
 
-		const nameless = (await saveMenu(session, menu.id, {
-			title: 'Feast',
-			...sectionFields(0, { id: unnamed.id }),
-			...sectionFields(1, { name: '   ' }),
-		})) as any
-		expect(nameless.init?.status).toBe(400)
-		expect(nameless.data.result.error['sections[1].name']).toEqual([
-			'Section name is required',
-		])
-
+		// Clearing Dessert while the unnamed section stays blank
 		const cleared = (await saveMenu(session, menu.id, {
 			title: 'Feast',
 			...sectionFields(0, { id: unnamed.id }),
@@ -1152,7 +1191,18 @@ describe('menu sections and ordering', () => {
 		})) as any
 		expect(cleared.init?.status).toBe(400)
 		expect(cleared.data.result.error['sections[1].name']).toEqual([
-			'Section name is required',
+			ONE_UNNAMED_SECTION_MESSAGE,
+		])
+
+		// A whitespace-only name is a blank name, not a loophole
+		const whitespace = (await saveMenu(session, menu.id, {
+			title: 'Feast',
+			...sectionFields(0, { id: unnamed.id }),
+			...sectionFields(1, { id: dessert.id, name: '   ' }),
+		})) as any
+		expect(whitespace.init?.status).toBe(400)
+		expect(whitespace.data.result.error['sections[1].name']).toEqual([
+			ONE_UNNAMED_SECTION_MESSAGE,
 		])
 		expect((await menuSections(menu.id))[1]!.name).toBe('Dessert')
 	})

@@ -131,28 +131,27 @@ const MenuBuilderItemSchema = z
 		}
 	})
 
-export const SECTION_NAME_REQUIRED_MESSAGE = 'Section name is required'
+export const ONE_UNNAMED_SECTION_MESSAGE =
+	'Only one section can go without a name'
 
 export const MenuSectionNameSchema = z
 	.string()
 	.trim()
-	.min(1, { message: SECTION_NAME_REQUIRED_MESSAGE })
 	.max(100, { message: 'Section name is too long' })
 
-const MenuBuilderSectionSchema = z
-	.object({
-		/** Existing MenuSection id; absent for a section added during this edit. */
-		id: z.string().optional(),
-		/** Absent on the durable unnamed section, which never carries a name. */
-		name: MenuSectionNameSchema.optional(),
-		items: z.array(MenuBuilderItemSchema).optional(),
-	})
-	// A new section is always custom, so it needs a name up front; existing
-	// custom sections are checked server-side against the stored unnamed id.
-	.refine((section) => section.id != null || section.name != null, {
-		message: SECTION_NAME_REQUIRED_MESSAGE,
-		path: ['name'],
-	})
+const MenuBuilderSectionSchema = z.object({
+	/** Existing MenuSection id; absent for a section added during this edit. */
+	id: z.string().optional(),
+	/**
+	 * Optional on every section: a blank name IS the headingless unnamed
+	 * section, so naming and un-naming happen in place rather than through a
+	 * privileged durable row.
+	 */
+	name: MenuSectionNameSchema.optional().transform((value) =>
+		value === '' ? undefined : value,
+	),
+	items: z.array(MenuBuilderItemSchema).optional(),
+})
 
 export const MenuBuilderSchema = MenuSchema.extend({
 	sections: z
@@ -167,6 +166,18 @@ export const MenuBuilderSchema = MenuSchema.extend({
 				ctx.addIssue({
 					code: 'custom',
 					message: 'A menu can hold at most 100 cards',
+				})
+			}
+			// Two headingless blocks would read as one — the first blank name
+			// is the unnamed section, any further blank needs a name.
+			const unnamedIndexes = sections.flatMap((section, index) =>
+				section.name == null ? [index] : [],
+			)
+			for (const index of unnamedIndexes.slice(1)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [index, 'name'],
+					message: ONE_UNNAMED_SECTION_MESSAGE,
 				})
 			}
 		})

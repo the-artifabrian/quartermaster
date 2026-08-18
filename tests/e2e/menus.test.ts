@@ -84,9 +84,10 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 		).toBeVisible()
 	}
 
-	// …then a Dessert section with the fifth
+	// …then a Dessert section with the fifth (every section has a name input
+	// now — the new section's is the last one)
 	await page.getByRole('button', { name: 'Add section' }).click()
-	await page.getByLabel('Section name').fill('Dessert')
+	await page.getByLabel('Section name').last().fill('Dessert')
 	const sections = page.locator('fieldset > ul > li')
 	await visibleButton('Add recipe').nth(1).click()
 	await pickerSearch().fill('Orange Cake')
@@ -140,7 +141,8 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	await expect(page.getByLabel('Shopping line 1 name')).toHaveValue('mint')
 	await expect(page.getByLabel('Shopping line 1 quantity')).toHaveValue('2')
 	await expect(page.getByLabel('Shopping line 1 unit')).toHaveValue('bunches')
-	await expect(page.getByLabel('Section name')).toHaveValue('Dessert')
+	await expect(page.getByLabel('Section name').first()).toHaveValue('')
+	await expect(page.getByLabel('Section name').last()).toHaveValue('Dessert')
 	await expect(sections.nth(1)).toContainText('Orange Cake')
 
 	// 8. A deleted Recipe stays as a clearly missing card

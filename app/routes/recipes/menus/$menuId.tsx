@@ -1,7 +1,6 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Link } from 'react-router'
-import { MenuPlaceholder } from '#app/components/menu-card.tsx'
 import { RecipeThumb } from '#app/components/recipe-selector.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -121,12 +120,6 @@ export default function MenuDetail({ loaderData }: Route.ComponentProps) {
 				Menus
 			</Link>
 
-			<MenuPlaceholder
-				label={`${menu.title} menu`}
-				className="mb-6 h-32 rounded-lg md:h-40"
-				iconClassName="size-8 md:size-10"
-			/>
-
 			<div className="flex items-start justify-between gap-3">
 				<h1 className="font-serif text-2xl font-normal">{menu.title}</h1>
 				<Button asChild variant="outline">
@@ -152,8 +145,8 @@ export default function MenuDetail({ loaderData }: Route.ComponentProps) {
 
 			<div className="mt-8 space-y-8">
 				{menu.sections
-					// The empty unnamed section stays quietly out of the way once
-					// custom sections carry the menu — durable in data, not on screen.
+					// An empty unnamed section stays quietly out of the way once
+					// named sections carry the menu.
 					.filter(
 						(section) =>
 							section.name !== null ||

@@ -370,6 +370,12 @@ function MenuSectionsBuilder({
 		<fieldset className="pt-2">
 			<legend className={sectionLabelClass}>Recipes</legend>
 			<ErrorList errors={fields.sections.errors} id={fields.sections.errorId} />
+			{sectionList.length > 1 ? (
+				<p className="text-muted-foreground mt-2 text-sm">
+					A section’s arrows move it as one block, cards and all. To move a
+					single card between sections, use its “Move to…”.
+				</p>
+			) : null}
 			<ul className="mt-3 space-y-6">
 				{sectionList.map((sectionMeta, sectionIndex) => (
 					<MenuSectionCard
@@ -459,7 +465,9 @@ function MenuSectionCard({
 	})
 
 	return (
-		<li>
+		// The tinted panel makes a section legible as the one unit its move
+		// arrows carry — the solo unnamed section keeps the flat sectionless look.
+		<li className={soloUnnamed ? undefined : 'bg-muted/40 rounded-xl p-3'}>
 			<input key={idKey} {...idProps} />
 			{soloUnnamed ? null : (
 				<div className="mb-2 flex items-start gap-1">

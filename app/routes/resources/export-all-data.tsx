@@ -1,5 +1,6 @@
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { type Route } from './+types/export-all-data.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -58,12 +59,31 @@ export async function loader({ request }: Route.LoaderArgs) {
 							guestCount: true,
 							sourceMenu: { select: { title: true } },
 							sourceMenuRevision: true,
+							sections: {
+								orderBy: { order: 'asc' },
+								select: { id: true, name: true },
+							},
+							noteItems: {
+								orderBy: { order: 'asc' },
+								select: {
+									text: true,
+									order: true,
+									sectionId: true,
+									shoppingLines: {
+										orderBy: { order: 'asc' },
+										select: { name: true, quantity: true, unit: true },
+									},
+								},
+							},
 							recipeItems: {
 								select: {
 									recipeId: true,
 									recipeTitle: true,
 									scaleMultiplier: true,
 									cooked: true,
+									note: true,
+									order: true,
+									sectionId: true,
 								},
 								orderBy: { order: 'asc' },
 							},
@@ -170,29 +190,76 @@ export async function loader({ request }: Route.LoaderArgs) {
 			// since #106): within-day order, serving instant/timezone, generic
 			// text, text-only completion, guest count, source Menu
 			// identity/revision, and each ordered Recipe item's frozen identity,
-			// multiplier, and cooked state. Missing cards export a null recipeRef
-			// with their frozen title, like Menu cards do.
-			meals: plan.meals.map((meal) => ({
-				date: meal.date.toISOString(),
-				order: meal.order,
-				label: meal.label,
-				servingAt: meal.servingAt?.toISOString() ?? null,
-				servingTimeZone: meal.servingTimeZone,
-				genericText: meal.genericText,
-				completed: meal.completed,
-				guestCount: meal.guestCount,
-				// Menus have no export-local refs — normalized household title is
-				// their identity, so import reconnects by title.
-				sourceMenuTitle: meal.sourceMenu?.title ?? null,
-				sourceMenuRevision: meal.sourceMenuRevision?.toISOString() ?? null,
-				items: meal.recipeItems.map((item) => ({
+			// multiplier, display note, and cooked state. Since #107 a Meal may be
+			// a Menu snapshot: `sections` carries its frozen section structure with
+			// Recipe and note cards interleaved in their shared order, plus each
+			// note's ordinary Shopping lines; `items` stays the unsectioned list.
+			// Missing cards export a null recipeRef with their frozen title, like
+			// Menu cards do.
+			meals: plan.meals.map((meal) => {
+				const recipeEntry = (item: {
+					recipeId: string | null
+					recipeTitle: string
+					scaleMultiplier: number
+					cooked: boolean
+					note: string | null
+				}) => ({
+					kind: 'recipe' as const,
 					recipeRef:
 						(item.recipeId && recipeRefById.get(item.recipeId)) || null,
 					recipeTitle: item.recipeTitle,
 					scaleMultiplier: item.scaleMultiplier,
+					note: item.note,
 					cooked: item.cooked,
-				})),
-			})),
+				})
+				const noteEntry = (note: {
+					text: string
+					shoppingLines: Array<{
+						name: string
+						quantity: string | null
+						unit: string | null
+					}>
+				}) => ({
+					kind: 'note' as const,
+					text: note.text,
+					shoppingLines: note.shoppingLines.map((line) => ({
+						name: line.name,
+						quantity: line.quantity,
+						unit: line.unit,
+					})),
+				})
+				return {
+					date: meal.date.toISOString(),
+					order: meal.order,
+					label: meal.label,
+					servingAt: meal.servingAt?.toISOString() ?? null,
+					servingTimeZone: meal.servingTimeZone,
+					genericText: meal.genericText,
+					completed: meal.completed,
+					guestCount: meal.guestCount,
+					// Menus have no export-local refs — normalized household title is
+					// their identity, so import reconnects by title.
+					sourceMenuTitle: meal.sourceMenu?.title ?? null,
+					sourceMenuRevision: meal.sourceMenuRevision?.toISOString() ?? null,
+					// Note cards live only inside frozen sections — `items` is the
+					// unsectioned Recipe list (planner-created and later additions).
+					items: meal.recipeItems
+						.filter((item) => item.sectionId == null)
+						.map(recipeEntry),
+					sections: groupSnapshotEntries(
+						meal.sections,
+						meal.recipeItems,
+						meal.noteItems,
+					).map((group) => ({
+						name: group.name,
+						items: group.entries.map((entry) =>
+							entry.kind === 'recipe'
+								? recipeEntry(entry.item)
+								: noteEntry(entry.item),
+						),
+					})),
+				}
+			}),
 		})),
 		shoppingLists: shoppingLists.map((list) => ({
 			name: list.name,

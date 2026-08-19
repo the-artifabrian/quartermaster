@@ -618,24 +618,31 @@ describe('meal export', () => {
 				sourceMenuRevision: '2026-08-18T09:00:00.000Z',
 				items: [
 					{
+						kind: 'recipe',
 						recipeRef: 'r1',
 						recipeTitle: 'Kofta',
 						scaleMultiplier: 2.25,
+						note: null,
 						cooked: true,
 					},
 					{
+						kind: 'recipe',
 						recipeRef: 'r2',
 						recipeTitle: 'Salad',
 						scaleMultiplier: 1,
+						note: null,
 						cooked: false,
 					},
 					{
+						kind: 'recipe',
 						recipeRef: null,
 						recipeTitle: 'Gone Cake',
 						scaleMultiplier: 0.75,
+						note: null,
 						cooked: false,
 					},
 				],
+				sections: [],
 			},
 			{
 				date: '2026-08-19T00:00:00.000Z',
@@ -649,6 +656,7 @@ describe('meal export', () => {
 				sourceMenuTitle: null,
 				sourceMenuRevision: null,
 				items: [],
+				sections: [],
 			},
 		])
 		expect(JSON.stringify(exported.mealPlans)).not.toContain('"id"')
@@ -840,7 +848,7 @@ describe('meal import', () => {
 		})) as any
 		const body = result.data ?? result
 		expect(body.error).toContain(
-			'A Meal cannot carry both generic text and Recipe items',
+			'A Meal cannot carry both generic text and snapshot cards',
 		)
 		expect(
 			await prisma.meal.count({
@@ -991,5 +999,269 @@ describe('meal import', () => {
 		})
 		expect(meals).toHaveLength(1)
 		expect(meals[0]!.recipeItems).toHaveLength(1)
+	})
+})
+
+/** A planned Menu snapshot (#107): frozen sections, an item display note, a
+ * note card with ordinary Shopping lines, and a missing card. */
+async function seedSnapshotMealFixture(session: {
+	userId: string
+	householdId: string
+}) {
+	const hummus = await prisma.recipe.create({
+		data: {
+			title: 'Hummus',
+			userId: session.userId,
+			householdId: session.householdId,
+		},
+	})
+	const menu = await prisma.menu.create({
+		data: {
+			title: 'Levantine Feast',
+			titleKey: 'levantine feast',
+			householdId: session.householdId,
+			sections: { create: { name: null, order: 0 } },
+		},
+	})
+	const plan = await prisma.mealPlan.create({
+		data: {
+			householdId: session.householdId,
+			weekStart: new Date('2026-08-31T00:00:00.000Z'),
+		},
+	})
+	const revision = new Date('2026-08-30T10:00:00.000Z')
+	const meal = await prisma.meal.create({
+		data: {
+			mealPlanId: plan.id,
+			date: new Date('2026-09-01T00:00:00.000Z'),
+			order: 0,
+			label: 'dinner',
+			guestCount: 8,
+			sourceMenuId: menu.id,
+			sourceMenuRevision: revision,
+		},
+	})
+	const [starters, mains] = await Promise.all([
+		prisma.mealSection.create({
+			data: { mealId: meal.id, name: null, order: 0 },
+		}),
+		prisma.mealSection.create({
+			data: { mealId: meal.id, name: 'Mains', order: 1 },
+		}),
+	])
+	await prisma.mealRecipeItem.createMany({
+		data: [
+			{
+				mealId: meal.id,
+				sectionId: starters.id,
+				order: 0,
+				recipeId: hummus.id,
+				recipeTitle: 'Hummus',
+				scaleMultiplier: 1,
+				cooked: true,
+			},
+			{
+				mealId: meal.id,
+				sectionId: mains.id,
+				order: 0,
+				recipeId: null,
+				recipeTitle: 'Lost Baklava',
+				scaleMultiplier: 2.5,
+				note: 'Two oven batches',
+			},
+			// A Recipe added to the snapshot Meal later — unsectioned
+			{
+				mealId: meal.id,
+				sectionId: null,
+				order: 0,
+				recipeId: hummus.id,
+				recipeTitle: 'Hummus Extra',
+				scaleMultiplier: 0.5,
+			},
+		],
+	})
+	await prisma.mealNoteItem.create({
+		data: {
+			mealId: meal.id,
+			sectionId: mains.id,
+			order: 1,
+			text: 'Drinks and candles',
+			shoppingLines: {
+				create: [
+					{ name: 'Lemonade', quantity: '2', unit: 'l', order: 0 },
+					{ name: 'Candles', order: 1 },
+				],
+			},
+		},
+	})
+	return { meal, menu, revision }
+}
+
+describe('meal snapshot export/import (#107)', () => {
+	test('export carries the frozen snapshot and import restores it whole, idempotently', async () => {
+		const source = await setupUser()
+		await seedSnapshotMealFixture(source)
+		const exported = await exportHousehold(source)
+
+		const exportedMeal = exported.mealPlans[0].meals[0]
+		expect(exportedMeal.sections).toEqual([
+			{
+				name: null,
+				items: [
+					{
+						kind: 'recipe',
+						recipeRef: 'r1',
+						recipeTitle: 'Hummus',
+						scaleMultiplier: 1,
+						note: null,
+						cooked: true,
+					},
+				],
+			},
+			{
+				name: 'Mains',
+				items: [
+					{
+						kind: 'recipe',
+						recipeRef: null,
+						recipeTitle: 'Lost Baklava',
+						scaleMultiplier: 2.5,
+						note: 'Two oven batches',
+						cooked: false,
+					},
+					{
+						kind: 'note',
+						text: 'Drinks and candles',
+						shoppingLines: [
+							{ name: 'Lemonade', quantity: '2', unit: 'l' },
+							{ name: 'Candles', quantity: null, unit: null },
+						],
+					},
+				],
+			},
+		])
+		expect(exportedMeal.items).toEqual([
+			{
+				kind: 'recipe',
+				recipeRef: 'r1',
+				recipeTitle: 'Hummus Extra',
+				scaleMultiplier: 0.5,
+				note: null,
+				cooked: false,
+			},
+		])
+		expect(JSON.stringify(exported.mealPlans)).not.toContain('"id"')
+
+		const target = await setupUser()
+		const result = (await importPayload(target, exported)) as any
+		expect(result.results.meals).toEqual({ created: 1, skipped: 0 })
+
+		const restored = await prisma.meal.findFirstOrThrow({
+			where: { mealPlan: { householdId: target.householdId } },
+			include: {
+				sections: { orderBy: { order: 'asc' } },
+				noteItems: {
+					orderBy: { order: 'asc' },
+					include: { shoppingLines: { orderBy: { order: 'asc' } } },
+				},
+				recipeItems: { orderBy: { order: 'asc' } },
+			},
+		})
+		const targetHummus = await prisma.recipe.findFirstOrThrow({
+			where: { householdId: target.householdId, title: 'Hummus' },
+		})
+		const targetMenu = await prisma.menu.findFirstOrThrow({
+			where: { householdId: target.householdId, titleKey: 'levantine feast' },
+		})
+		expect(restored).toMatchObject({
+			label: 'dinner',
+			guestCount: 8,
+			sourceMenuId: targetMenu.id,
+			sourceMenuRevision: new Date('2026-08-30T10:00:00.000Z'),
+		})
+		expect(restored.sections.map((s) => [s.name, s.order])).toEqual([
+			[null, 0],
+			['Mains', 1],
+		])
+		const [starters, mains] = restored.sections
+		expect(
+			restored.recipeItems.map((item) => [
+				item.sectionId,
+				item.order,
+				item.recipeId,
+				item.recipeTitle,
+				item.scaleMultiplier,
+				item.note,
+				item.cooked,
+			]),
+		).toEqual(
+			expect.arrayContaining([
+				[starters!.id, 0, targetHummus.id, 'Hummus', 1, null, true],
+				[mains!.id, 0, null, 'Lost Baklava', 2.5, 'Two oven batches', false],
+				[null, 0, targetHummus.id, 'Hummus Extra', 0.5, null, false],
+			]),
+		)
+		expect(restored.noteItems).toMatchObject([
+			{ sectionId: mains!.id, order: 1, text: 'Drinks and candles' },
+		])
+		expect(restored.noteItems[0]!.shoppingLines).toMatchObject([
+			{ name: 'Lemonade', quantity: '2', unit: 'l', order: 0 },
+			{ name: 'Candles', quantity: null, unit: null, order: 1 },
+		])
+
+		// Idempotent: the same file again restores nothing new.
+		const again = (await importPayload(target, exported)) as any
+		expect(again.results.meals).toEqual({ created: 0, skipped: 1 })
+
+		// Deep round-trip: the target's own export reproduces the Meal payload.
+		const reExported = await exportHousehold(target)
+		expect(reExported.mealPlans).toEqual(exported.mealPlans)
+	})
+
+	test('a note-only snapshot Meal restores without Recipe items', async () => {
+		const source = await setupUser()
+		const plan = await prisma.mealPlan.create({
+			data: {
+				householdId: source.householdId,
+				weekStart: new Date('2026-08-31T00:00:00.000Z'),
+			},
+		})
+		const meal = await prisma.meal.create({
+			data: {
+				mealPlanId: plan.id,
+				date: new Date('2026-09-02T00:00:00.000Z'),
+				order: 0,
+			},
+		})
+		const section = await prisma.mealSection.create({
+			data: { mealId: meal.id, name: 'Reminders', order: 0 },
+		})
+		await prisma.mealNoteItem.create({
+			data: {
+				mealId: meal.id,
+				sectionId: section.id,
+				order: 0,
+				text: 'Set the table early',
+			},
+		})
+		const exported = await exportHousehold(source)
+
+		const target = await setupUser()
+		const result = (await importPayload(target, exported)) as any
+		expect(result.results.meals).toEqual({ created: 1, skipped: 0 })
+		const restored = await prisma.meal.findFirstOrThrow({
+			where: { mealPlan: { householdId: target.householdId } },
+			include: {
+				recipeItems: true,
+				sections: true,
+				noteItems: true,
+			},
+		})
+		expect(restored.genericText).toBeNull()
+		expect(restored.recipeItems).toHaveLength(0)
+		expect(restored.sections.map((s) => s.name)).toEqual(['Reminders'])
+		expect(restored.noteItems.map((n) => n.text)).toEqual([
+			'Set the table early',
+		])
 	})
 })

@@ -12,6 +12,7 @@ import {
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { MEAL_TYPES, MEAL_TYPE_LABELS, type MealType } from '#app/utils/date.ts'
+import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
@@ -26,6 +27,10 @@ export type PlanMealItem = {
 	recipeTitle: string
 	scaleMultiplier: number
 	cooked: boolean
+	/// Frozen display note copied from the Menu card (#107).
+	note: string | null
+	order: number
+	sectionId: string | null
 	recipe: {
 		id: string
 		title: string
@@ -34,6 +39,19 @@ export type PlanMealItem = {
 		cookTime: number | null
 		image: { objectKey: string } | null
 	} | null
+}
+
+export type PlanMealNote = {
+	id: string
+	text: string
+	order: number
+	sectionId: string | null
+	shoppingLines: Array<{
+		id: string
+		name: string
+		quantity: string | null
+		unit: string | null
+	}>
 }
 
 export type PlanMeal = {
@@ -45,6 +63,10 @@ export type PlanMeal = {
 	genericText: string | null
 	completed: boolean
 	guestCount: number | null
+	sourceMenu: { id: string; title: string } | null
+	/// Frozen Menu snapshot structure (#107); empty for planner-created Meals.
+	sections: Array<{ id: string; name: string | null }>
+	noteItems: PlanMealNote[]
 	items: PlanMealItem[]
 }
 
@@ -257,6 +279,11 @@ function ItemRow({
 				) : (
 					<MultiplierControl item={item} />
 				)}
+				{item.note ? (
+					<p className="text-muted-foreground text-xs leading-snug break-words">
+						{item.note}
+					</p>
+				) : null}
 			</div>
 
 			{/* Remove item */}
@@ -289,6 +316,81 @@ function ItemRow({
 			)}
 		</div>
 	)
+}
+
+/**
+ * A frozen snapshot note card (#107) — read-only text plus its ordinary
+ * Shopping lines, compact enough for the planner's day columns.
+ */
+function NoteRow({ note }: { note: PlanMealNote }) {
+	return (
+		<div className="text-muted-foreground flex items-start gap-2">
+			<Icon name="pencil-2" className="mt-0.5 size-3.5 shrink-0" />
+			<div className="min-w-0 flex-1">
+				<p className="text-[13px] leading-snug break-words whitespace-pre-wrap">
+					{note.text}
+				</p>
+				{note.shoppingLines.length > 0 ? (
+					<ul className="mt-1 space-y-0.5">
+						{note.shoppingLines.map((line) => (
+							<li key={line.id} className="flex items-baseline gap-1 text-xs">
+								<Icon name="cart" className="size-3 shrink-0 translate-y-px" />
+								<span className="min-w-0 break-words">{line.name}</span>
+								{line.quantity || line.unit ? (
+									<span className="shrink-0 tabular-nums">
+										{[line.quantity, line.unit].filter(Boolean).join(' ')}
+									</span>
+								) : null}
+							</li>
+						))}
+					</ul>
+				) : null}
+			</div>
+		</div>
+	)
+}
+
+type MealRow =
+	| { kind: 'heading'; key: string; name: string }
+	| { kind: 'recipe'; key: string; item: PlanMealItem }
+	| { kind: 'note'; key: string; note: PlanMealNote }
+
+/**
+ * Frozen sections first — each heading followed by its Recipe and note cards
+ * interleaved by their shared order — then unsectioned items: everything
+ * planner-created, plus Recipes added to a snapshot Meal later. Empty frozen
+ * sections stay stored but render nothing.
+ */
+function buildMealRows(meal: PlanMeal): MealRow[] {
+	const rows: MealRow[] = []
+	for (const group of groupSnapshotEntries(
+		meal.sections,
+		meal.items,
+		meal.noteItems,
+	)) {
+		if (group.entries.length === 0) continue
+		if (group.name) {
+			rows.push({ kind: 'heading', key: group.id, name: group.name })
+		}
+		rows.push(
+			...group.entries.map((entry) =>
+				entry.kind === 'recipe'
+					? { kind: 'recipe' as const, key: entry.item.id, item: entry.item }
+					: { kind: 'note' as const, key: entry.item.id, note: entry.item },
+			),
+		)
+	}
+	rows.push(
+		...meal.items
+			.filter((item) => item.sectionId == null)
+			.map((item) => ({ kind: 'recipe' as const, key: item.id, item })),
+		// Unsectioned notes have no write path today; render any rather than
+		// silently hiding stored content.
+		...meal.noteItems
+			.filter((note) => note.sectionId == null)
+			.map((note) => ({ kind: 'note' as const, key: note.id, note })),
+	)
+	return rows
 }
 
 function MealDetailsForm({
@@ -447,6 +549,8 @@ export function MealCard({
 			? formatServingTime(new Date(meal.servingAt), meal.servingTimeZone)
 			: null
 
+	const rows = isText ? [] : buildMealRows(meal)
+
 	function submitMealCooked(cooked: boolean) {
 		void mealCookedFetcher.submit(
 			{ intent: 'setMealCooked', mealId: meal.id, cooked: String(cooked) },
@@ -469,6 +573,16 @@ export function MealCard({
 					)}
 					{meal.guestCount != null && (
 						<span className="normal-case">· {meal.guestCount} guests</span>
+					)}
+					{/* Where the snapshot came from — a reference, not live data */}
+					{meal.sourceMenu && (
+						<Link
+							to={`/recipes/menus/${meal.sourceMenu.id}`}
+							className="hover:text-foreground inline-flex max-w-full min-w-0 items-center gap-0.5 normal-case transition-colors"
+						>
+							<Icon name="file-text" className="size-3 shrink-0" />
+							<span className="truncate">{meal.sourceMenu.title}</span>
+						</Link>
 					)}
 				</div>
 
@@ -589,12 +703,26 @@ export function MealCard({
 				</div>
 			) : (
 				<div className="space-y-0">
-					{meal.items.map((item, index) => (
+					{rows.map((row, index) => (
 						<div
-							key={item.id}
-							className={cn(index > 0 && 'border-border/50 mt-2 border-t pt-2')}
+							key={row.key}
+							className={cn(
+								row.kind === 'heading'
+									? index > 0 && 'mt-3'
+									: index > 0 &&
+											rows[index - 1]!.kind !== 'heading' &&
+											'border-border/50 mt-2 border-t pt-2',
+							)}
 						>
-							<ItemRow item={item} showRemove />
+							{row.kind === 'heading' ? (
+								<h5 className="text-muted-foreground/80 text-[10px] font-semibold tracking-wider uppercase">
+									{row.name}
+								</h5>
+							) : row.kind === 'recipe' ? (
+								<ItemRow item={row.item} showRemove />
+							) : (
+								<NoteRow note={row.note} />
+							)}
 						</div>
 					))}
 

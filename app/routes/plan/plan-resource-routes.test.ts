@@ -195,4 +195,115 @@ describe('meal plan resource routes', () => {
 		expect(nextWeekPlan!.meals).toHaveLength(1) // Not duplicated
 		expect(nextWeekPlan!.meals[0]!.recipeItems).toHaveLength(1)
 	})
+
+	test('copy week carries a Menu snapshot whole — sections, notes, lines, source revision — resetting cooked state', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const menu = await prisma.menu.create({
+			data: {
+				title: 'Feast',
+				titleKey: 'feast',
+				householdId: session.householdId,
+				sections: { create: { name: null, order: 0 } },
+			},
+		})
+		const plan = await prisma.mealPlan.create({
+			data: {
+				householdId: session.householdId,
+				weekStart: new Date('2026-02-02T00:00:00.000Z'),
+			},
+		})
+		const revision = new Date('2026-02-01T09:00:00.000Z')
+		const meal = await prisma.meal.create({
+			data: {
+				mealPlanId: plan.id,
+				date: new Date('2026-02-03T00:00:00.000Z'),
+				order: 0,
+				label: 'dinner',
+				guestCount: 8,
+				sourceMenuId: menu.id,
+				sourceMenuRevision: revision,
+			},
+		})
+		const section = await prisma.mealSection.create({
+			data: { mealId: meal.id, name: 'Mains', order: 0 },
+		})
+		await prisma.mealRecipeItem.create({
+			data: {
+				mealId: meal.id,
+				sectionId: section.id,
+				order: 0,
+				recipeId: recipe.id,
+				recipeTitle: 'Test Recipe',
+				scaleMultiplier: 2.5,
+				note: 'Two batches',
+				cooked: true,
+			},
+		})
+		await prisma.mealNoteItem.create({
+			data: {
+				mealId: meal.id,
+				sectionId: section.id,
+				order: 1,
+				text: 'Drinks',
+				shoppingLines: {
+					create: [{ name: 'Lemonade', quantity: '2', unit: 'l', order: 0 }],
+				},
+			},
+		})
+
+		// Twice — the second press must recognize the copied snapshot.
+		for (let i = 0; i < 2; i++) {
+			await copyWeekAction({
+				request: await makeRequest(session, '/resources/meal-plan-copy-week', {
+					weekStart: '2026-02-02',
+				}),
+				...COPY_WEEK_ARGS,
+			})
+		}
+
+		const copied = await prisma.meal.findMany({
+			where: {
+				mealPlan: {
+					householdId: session.householdId,
+					weekStart: new Date('2026-02-09T00:00:00.000Z'),
+				},
+			},
+			include: {
+				sections: { orderBy: { order: 'asc' } },
+				noteItems: {
+					orderBy: { order: 'asc' },
+					include: { shoppingLines: { orderBy: { order: 'asc' } } },
+				},
+				recipeItems: { orderBy: { order: 'asc' } },
+			},
+		})
+		expect(copied).toHaveLength(1)
+		const copy = copied[0]!
+		expect(copy).toMatchObject({
+			label: 'dinner',
+			guestCount: 8,
+			sourceMenuId: menu.id,
+		})
+		expect(copy.sourceMenuRevision?.getTime()).toBe(revision.getTime())
+		expect(serializeDate(new Date(copy.date))).toBe('2026-02-10')
+		expect(copy.sections.map((s) => s.name)).toEqual(['Mains'])
+		expect(copy.recipeItems).toMatchObject([
+			{
+				sectionId: copy.sections[0]!.id,
+				order: 0,
+				recipeId: recipe.id,
+				recipeTitle: 'Test Recipe',
+				scaleMultiplier: 2.5,
+				note: 'Two batches',
+				cooked: false, // next week starts fresh
+			},
+		])
+		expect(copy.noteItems).toMatchObject([
+			{ sectionId: copy.sections[0]!.id, order: 1, text: 'Drinks' },
+		])
+		expect(copy.noteItems[0]!.shoppingLines).toMatchObject([
+			{ name: 'Lemonade', quantity: '2', unit: 'l' },
+		])
+	})
 })

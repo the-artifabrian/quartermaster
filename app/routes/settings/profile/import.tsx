@@ -8,6 +8,8 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
+import { createMealWithItems } from '#app/utils/meal.server.ts'
+import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
@@ -85,7 +87,17 @@ const ImportMealPlanEntrySchema = z.object({
 	recipe: z.string().min(1).max(100),
 })
 
+// Shared by Menu note cards and Meal snapshot note cards (#107).
+const ImportMenuShoppingLineSchema = z.object({
+	name: z.string().min(1).max(200),
+	quantity: z.string().max(50).nullable().optional(),
+	unit: z.string().max(50).nullable().optional(),
+})
+
+// One schema for both snapshot card kinds, like Menu cards: `kind` decides
+// which fields are read, defaulting to 'recipe' so pre-#107 exports parse.
 const ImportMealItemSchema = z.object({
+	kind: z.enum(['recipe', 'note']).optional().default('recipe'),
 	// Export-local reference key. When present it alone decides the Recipe
 	// link — an unknown ref restores as a missing card, never a title guess.
 	recipeRef: z.string().max(50).nullable().optional(),
@@ -95,6 +107,16 @@ const ImportMealItemSchema = z.object({
 	// the stored value.
 	scaleMultiplier: z.number().positive().max(1000).nullable().optional(),
 	cooked: z.boolean().optional(),
+	note: z.string().max(500).nullable().optional(),
+	text: z.string().max(1000).nullable().optional(),
+	shoppingLines: z.array(ImportMenuShoppingLineSchema).max(20).optional(),
+})
+
+// A frozen snapshot section (#107): name (null = the unnamed section) plus
+// Recipe and note cards interleaved in their shared order.
+const ImportMealSectionSchema = z.object({
+	name: z.string().min(1).max(100).nullable().optional(),
+	items: z.array(ImportMealItemSchema).max(100).optional(),
 })
 
 const ImportMealSchema = z
@@ -110,12 +132,24 @@ const ImportMealSchema = z
 		sourceMenuTitle: z.string().max(100).nullable().optional(),
 		sourceMenuRevision: z.string().nullable().optional(),
 		items: z.array(ImportMealItemSchema).max(100).optional(),
+		// Optional so every pre-#107 export stays importable.
+		sections: z.array(ImportMealSectionSchema).max(20).optional(),
 	})
-	// Generic text and Recipe items are mutually exclusive on a saved Meal
-	// (#98 readiness corrections).
-	.refine((meal) => !(meal.genericText && (meal.items?.length ?? 0) > 0), {
-		message: 'A Meal cannot carry both generic text and Recipe items',
-	})
+	// Generic text and Recipe/snapshot content are mutually exclusive on a
+	// saved Meal (#98 readiness corrections).
+	.refine(
+		(meal) =>
+			!(
+				meal.genericText &&
+				((meal.items?.length ?? 0) > 0 ||
+					(meal.sections ?? []).some(
+						(section) => (section.items?.length ?? 0) > 0,
+					))
+			),
+		{
+			message: 'A Meal cannot carry both generic text and snapshot cards',
+		},
+	)
 
 const ImportMealPlanSchema = z.object({
 	weekStart: z.string(),
@@ -138,12 +172,6 @@ const ImportShoppingListItemSchema = z.object({
 const ImportShoppingListSchema = z.object({
 	name: z.string().min(1).max(200).optional().default('Shopping List'),
 	items: z.array(ImportShoppingListItemSchema).max(500),
-})
-
-const ImportMenuShoppingLineSchema = z.object({
-	name: z.string().min(1).max(200),
-	quantity: z.string().max(50).nullable().optional(),
-	unit: z.string().max(50).nullable().optional(),
 })
 
 // One schema for both card kinds — Recipe fields and note fields are each
@@ -528,6 +556,7 @@ function legacyEntriesToMeals(
 			items: [],
 		}
 		group.items.push({
+			kind: 'recipe',
 			recipeTitle: entry.recipe,
 			scaleMultiplier,
 			cooked: entry.cooked ?? false,
@@ -554,9 +583,53 @@ function legacyEntriesToMeals(
 }
 
 /**
+ * One restored or existing snapshot card, normalized for both dedupe keys and
+ * creation — the same discriminated shape the Meal write seam consumes.
+ */
+type ResolvedMealEntry =
+	| {
+			kind: 'recipe'
+			recipeId: string | null
+			recipeTitle: string
+			scaleMultiplier: number
+			cooked: boolean
+			note: string | null
+	  }
+	| {
+			kind: 'note'
+			text: string
+			shoppingLines: Array<{
+				name: string
+				quantity: string | null
+				unit: string | null
+			}>
+	  }
+
+function mealEntryKeyPart(entry: ResolvedMealEntry) {
+	return entry.kind === 'recipe'
+		? ([
+				'recipe',
+				entry.recipeTitle.toLocaleLowerCase(),
+				entry.scaleMultiplier,
+				entry.cooked,
+				entry.note,
+			] as const)
+		: ([
+				'note',
+				entry.text,
+				entry.shoppingLines.map((line) => [
+					line.name,
+					line.quantity,
+					line.unit,
+				]),
+			] as const)
+}
+
+/**
  * How one restored or existing Meal is recognized on a later import: its full
- * content except within-day order and source Menu revision. A file Meal whose
- * key matches an existing Meal in the same week plan is skipped, so re-import
+ * content — snapshot sections, notes, and note Shopping lines included —
+ * except within-day order and source Menu revision. A file Meal whose key
+ * matches an existing Meal in the same week plan is skipped, so re-import
  * stays idempotent without a natural unique identity.
  */
 function getMealImportKey(meal: {
@@ -568,11 +641,8 @@ function getMealImportKey(meal: {
 	servingAtMs: number | null
 	servingTimeZone: string | null
 	sourceMenuId: string | null
-	items: Array<{
-		recipeTitle: string
-		scaleMultiplier: number
-		cooked: boolean
-	}>
+	items: ResolvedMealEntry[]
+	sections: Array<{ name: string | null; items: ResolvedMealEntry[] }>
 }) {
 	return JSON.stringify([
 		meal.dateMs,
@@ -583,20 +653,21 @@ function getMealImportKey(meal: {
 		meal.servingAtMs,
 		meal.servingTimeZone,
 		meal.sourceMenuId,
-		meal.items.map((item) => [
-			item.recipeTitle.toLocaleLowerCase(),
-			item.scaleMultiplier,
-			item.cooked,
+		meal.items.map(mealEntryKeyPart),
+		meal.sections.map((section) => [
+			section.name,
+			section.items.map(mealEntryKeyPart),
 		]),
 	])
 }
 
 /**
- * Restores Meal parents and their ordered Recipe items into one ensured week
- * plan (#104). Recipe references reconnect like Menu cards do: reference key
- * first, normalized-title fallback only when a key is absent, unknown key ⇒
- * missing card. Imported Meals append after any existing Meals on their day so
- * explicit within-day order stays contiguous.
+ * Restores Meal parents, their ordered Recipe items, and their frozen Menu
+ * snapshot structure (#107: sections, note cards, note Shopping lines) into
+ * one ensured week plan (#104). Recipe references reconnect like Menu cards
+ * do: reference key first, normalized-title fallback only when a key is
+ * absent, unknown key ⇒ missing card. Imported Meals append after any
+ * existing Meals on their day so explicit within-day order stays contiguous.
  */
 async function importMeals(
 	meals: ImportMeal[],
@@ -618,15 +689,51 @@ async function importMeals(
 			servingAt: true,
 			servingTimeZone: true,
 			sourceMenuId: true,
+			sections: {
+				orderBy: { order: 'asc' },
+				select: { id: true, name: true },
+			},
+			noteItems: {
+				orderBy: { order: 'asc' },
+				select: {
+					text: true,
+					order: true,
+					sectionId: true,
+					shoppingLines: {
+						orderBy: { order: 'asc' },
+						select: { name: true, quantity: true, unit: true },
+					},
+				},
+			},
 			recipeItems: {
-				select: { recipeTitle: true, scaleMultiplier: true, cooked: true },
+				select: {
+					recipeTitle: true,
+					scaleMultiplier: true,
+					cooked: true,
+					note: true,
+					order: true,
+					sectionId: true,
+				},
 				orderBy: { order: 'asc' },
 			},
 		},
 	})
 	const takenKeys = new Set(
-		existingMeals.map((meal) =>
-			getMealImportKey({
+		existingMeals.map((meal) => {
+			const recipeEntry = (item: {
+				recipeTitle: string
+				scaleMultiplier: number
+				cooked: boolean
+				note: string | null
+			}): ResolvedMealEntry => ({
+				kind: 'recipe',
+				recipeId: null, // identity comes from the frozen title in the key
+				recipeTitle: item.recipeTitle,
+				scaleMultiplier: item.scaleMultiplier,
+				cooked: item.cooked,
+				note: item.note,
+			})
+			return getMealImportKey({
 				dateMs: meal.date.getTime(),
 				label: meal.label,
 				genericText: meal.genericText,
@@ -635,9 +742,27 @@ async function importMeals(
 				servingAtMs: meal.servingAt?.getTime() ?? null,
 				servingTimeZone: meal.servingTimeZone,
 				sourceMenuId: meal.sourceMenuId,
-				items: meal.recipeItems,
-			}),
-		),
+				items: meal.recipeItems
+					.filter((item) => item.sectionId == null)
+					.map(recipeEntry),
+				sections: groupSnapshotEntries(
+					meal.sections,
+					meal.recipeItems,
+					meal.noteItems,
+				).map((group) => ({
+					name: group.name,
+					items: group.entries.map((entry): ResolvedMealEntry =>
+						entry.kind === 'recipe'
+							? recipeEntry(entry.item)
+							: {
+									kind: 'note',
+									text: entry.item.text,
+									shoppingLines: entry.item.shoppingLines,
+								},
+					),
+				})),
+			})
+		}),
 	)
 	const nextOrderByDay = new Map<number, number>()
 	for (const meal of existingMeals) {
@@ -648,6 +773,52 @@ async function importMeals(
 		)
 	}
 
+	// Kind-aware entry resolution, shared by the unsectioned list and every
+	// snapshot section. Unrepresentable cards drop: a Recipe entry with
+	// neither a resolvable Recipe nor a frozen title, or a note entry with no
+	// text. Note entries are only meaningful inside sections — snapshots never
+	// store them unsectioned — so the unsectioned list keeps Recipe entries.
+	const resolveEntry = (
+		item: z.infer<typeof ImportMealItemSchema>,
+	): ResolvedMealEntry[] => {
+		if (item.kind === 'note') {
+			const text = item.text?.trim()
+			if (!text) return []
+			return [
+				{
+					kind: 'note',
+					text,
+					shoppingLines: (item.shoppingLines ?? []).map((line) => ({
+						name: line.name,
+						quantity: line.quantity || null,
+						unit: line.unit || null,
+					})),
+				},
+			]
+		}
+		let recipeId: string | null = null
+		if (item.recipeRef != null) {
+			recipeId = recipeIndex.refToIdMap.get(item.recipeRef) ?? null
+		} else if (item.recipeTitle) {
+			recipeId =
+				recipeIndex.titleToIdMap.get(item.recipeTitle.toLowerCase()) ?? null
+		}
+		const recipeTitle =
+			item.recipeTitle ??
+			(recipeId != null ? (recipeIndex.titleById.get(recipeId) ?? null) : null)
+		if (recipeTitle == null) return []
+		return [
+			{
+				kind: 'recipe',
+				recipeId,
+				recipeTitle,
+				scaleMultiplier: item.scaleMultiplier ?? 1,
+				cooked: item.cooked ?? false,
+				note: item.note || null,
+			},
+		]
+	}
+
 	for (const meal of meals) {
 		const date = new Date(meal.date)
 		if (Number.isNaN(date.getTime())) {
@@ -655,36 +826,25 @@ async function importMeals(
 			continue
 		}
 
-		const items = (meal.items ?? []).flatMap((item) => {
-			let recipeId: string | null = null
-			if (item.recipeRef != null) {
-				recipeId = recipeIndex.refToIdMap.get(item.recipeRef) ?? null
-			} else if (item.recipeTitle) {
-				recipeId =
-					recipeIndex.titleToIdMap.get(item.recipeTitle.toLowerCase()) ?? null
-			}
-			const recipeTitle =
-				item.recipeTitle ??
-				(recipeId != null
-					? (recipeIndex.titleById.get(recipeId) ?? null)
-					: null)
-			// Frozen display identity is required — an item that resolves to
-			// neither a Recipe nor a title cannot be represented.
-			if (recipeTitle == null) return []
-			return [
-				{
-					recipeId,
-					recipeTitle,
-					scaleMultiplier: item.scaleMultiplier ?? 1,
-					cooked: item.cooked ?? false,
-				},
-			]
-		})
+		const items = (meal.items ?? [])
+			.flatMap(resolveEntry)
+			.filter(
+				(entry): entry is Extract<ResolvedMealEntry, { kind: 'recipe' }> =>
+					entry.kind === 'recipe',
+			)
+		const sections = (meal.sections ?? []).map((section) => ({
+			name: section.name ?? null,
+			items: (section.items ?? []).flatMap(resolveEntry),
+		}))
 
 		const genericText = meal.genericText || null
-		// A Meal with neither generic text nor restorable Recipe items would be
-		// an empty shell — skip it.
-		if (genericText == null && items.length === 0) {
+		// A Meal with neither generic text nor restorable snapshot content
+		// would be an empty shell — skip it. A note-only snapshot Meal is valid
+		// (#98 readiness corrections) and restores.
+		const hasSectionContent = sections.some(
+			(section) => section.items.length > 0,
+		)
+		if (genericText == null && items.length === 0 && !hasSectionContent) {
 			stats.skipped++
 			continue
 		}
@@ -725,6 +885,7 @@ async function importMeals(
 			servingTimeZone,
 			sourceMenuId,
 			items,
+			sections,
 		})
 		if (takenKeys.has(key)) {
 			stats.skipped++
@@ -734,28 +895,22 @@ async function importMeals(
 		const day = date.getTime()
 		const order = nextOrderByDay.get(day) ?? 0
 		try {
-			// One nested create per Meal — it restores atomically or not at all.
-			await prisma.meal.create({
-				data: {
-					mealPlanId,
-					date,
-					order,
-					label: meal.label ?? null,
-					genericText,
-					completed,
-					guestCount: meal.guestCount ?? null,
-					servingAt,
-					servingTimeZone,
-					sourceMenuId,
-					sourceMenuRevision,
-					recipeItems: {
-						create: items.map((item, itemOrder) => ({
-							...item,
-							order: itemOrder,
-						})),
-					},
-				},
-				select: { id: true },
+			// The shared Meal write seam restores the Meal and its snapshot
+			// children in one transaction — atomically or not at all.
+			await createMealWithItems(prisma, {
+				mealPlanId,
+				date,
+				order,
+				label: meal.label ?? null,
+				genericText,
+				completed,
+				guestCount: meal.guestCount ?? null,
+				servingAt,
+				servingTimeZone,
+				sourceMenuId,
+				sourceMenuRevision,
+				items,
+				sections,
 			})
 			takenKeys.add(key)
 			nextOrderByDay.set(day, order + 1)

@@ -1,10 +1,12 @@
 import { createId } from '@paralleldrive/cuid2'
 import { type PrismaClient } from '#app/generated/prisma/client.ts'
+import { type SnapshotSectionSeed } from '#app/utils/menu-snapshot.ts'
 
 /**
  * Meal write seam for the planner (#105). Meal and MealRecipeItem are the
  * only Plan representation since #106 contracted the legacy fixed-slot
- * MealPlanEntry rows and their dual-write mirrors.
+ * MealPlanEntry rows and their dual-write mirrors; #107 added the frozen
+ * Menu-snapshot children (MealSection, MealNoteItem, MealShoppingLine).
  */
 
 async function nextMealOrder(db: PrismaClient, mealPlanId: string, date: Date) {
@@ -20,42 +22,58 @@ export type MealItemSeed = {
 	recipeTitle: string
 	scaleMultiplier: number
 	cooked?: boolean
+	note?: string | null
 }
 
 /**
- * Create one Meal with ordered Recipe items. The caller has already
- * authorized the plan and the Recipes for the household.
+ * Create one Meal with ordered Recipe items and, for Menu snapshots (#107),
+ * frozen sections whose Recipe and note cards share one order sequence. The
+ * caller has already authorized the plan and the Recipes for the household.
+ * `order` places the Meal within its day explicitly (import restores stored
+ * order); when absent the Meal appends after the day's existing Meals.
  */
 export async function createMealWithItems(
 	db: PrismaClient,
 	{
 		mealPlanId,
 		date,
+		order: explicitOrder,
 		label = null,
 		genericText = null,
 		servingAt = null,
 		servingTimeZone = null,
 		guestCount = null,
 		completed = false,
+		sourceMenuId = null,
+		sourceMenuRevision = null,
 		items,
+		sections = [],
 	}: {
 		mealPlanId: string
 		date: Date
+		order?: number
 		label?: string | null
 		genericText?: string | null
 		servingAt?: Date | null
 		servingTimeZone?: string | null
 		guestCount?: number | null
 		completed?: boolean
+		sourceMenuId?: string | null
+		sourceMenuRevision?: Date | null
 		items: MealItemSeed[]
+		sections?: SnapshotSectionSeed[]
 	},
 ) {
 	const mealId = createId()
-	const order = await nextMealOrder(db, mealPlanId, date)
+	const order = explicitOrder ?? (await nextMealOrder(db, mealPlanId, date))
 
 	// Everything (ids included) is computed up front so the write is one short
 	// batch transaction — long-held interactive transactions starve SQLite's
 	// single writer under concurrent planning.
+	const sectionSeeds = sections.map((section) => ({
+		...section,
+		id: createId(),
+	}))
 	await db.$transaction([
 		db.meal.create({
 			data: {
@@ -69,6 +87,8 @@ export async function createMealWithItems(
 				servingTimeZone,
 				guestCount,
 				completed,
+				sourceMenuId,
+				sourceMenuRevision,
 			},
 		}),
 		...items.map((item, index) =>
@@ -81,8 +101,55 @@ export async function createMealWithItems(
 					recipeTitle: item.recipeTitle,
 					scaleMultiplier: item.scaleMultiplier,
 					cooked: item.cooked ?? false,
+					note: item.note ?? null,
 				},
 			}),
+		),
+		...sectionSeeds.map((section, index) =>
+			db.mealSection.create({
+				data: {
+					id: section.id,
+					mealId,
+					name: section.name,
+					order: index,
+				},
+			}),
+		),
+		...sectionSeeds.flatMap((section) =>
+			section.items.map((item, index) =>
+				item.kind === 'recipe'
+					? db.mealRecipeItem.create({
+							data: {
+								id: createId(),
+								mealId,
+								sectionId: section.id,
+								order: index,
+								recipeId: item.recipeId,
+								recipeTitle: item.recipeTitle,
+								scaleMultiplier: item.scaleMultiplier,
+								cooked: item.cooked ?? false,
+								note: item.note ?? null,
+							},
+						})
+					: db.mealNoteItem.create({
+							data: {
+								id: createId(),
+								mealId,
+								sectionId: section.id,
+								order: index,
+								text: item.text,
+								shoppingLines: {
+									create: item.shoppingLines.map((line, lineOrder) => ({
+										id: createId(),
+										name: line.name,
+										quantity: line.quantity,
+										unit: line.unit,
+										order: lineOrder,
+									})),
+								},
+							},
+						}),
+			),
 		),
 	])
 	return mealId
@@ -154,9 +221,11 @@ export async function addRecipeToMeal(
 	})
 	if (duplicate) return { created: false as const }
 
+	// Later additions to a snapshot Meal append unsectioned, after the frozen
+	// sections — order sequences within the unsectioned group (#107).
 	const max = await db.mealRecipeItem.aggregate({
 		_max: { order: true },
-		where: { mealId: meal.id },
+		where: { mealId: meal.id, sectionId: null },
 	})
 	await db.mealRecipeItem.create({
 		data: {
@@ -223,7 +292,9 @@ export async function setItemMultiplier(
 
 /**
  * Remove one Recipe item. Removing the last item removes the Meal itself — a
- * Recipe Meal with nothing in it is not a planned thing.
+ * Recipe Meal with nothing in it is not a planned thing. Frozen snapshot note
+ * cards count as content: a note-only snapshot Meal is valid (#98 readiness
+ * corrections), so the Meal survives while any note card remains.
  */
 export async function removeRecipeItem(
 	db: PrismaClient,
@@ -231,10 +302,11 @@ export async function removeRecipeItem(
 ) {
 	return db.$transaction(async (tx) => {
 		await tx.mealRecipeItem.delete({ where: { id: item.id } })
-		const remaining = await tx.mealRecipeItem.count({
-			where: { mealId: item.mealId },
-		})
-		if (remaining === 0) {
+		const [remainingRecipes, remainingNotes] = await Promise.all([
+			tx.mealRecipeItem.count({ where: { mealId: item.mealId } }),
+			tx.mealNoteItem.count({ where: { mealId: item.mealId } }),
+		])
+		if (remainingRecipes === 0 && remainingNotes === 0) {
 			await tx.meal.delete({ where: { id: item.mealId } })
 			return { mealDeleted: true as const }
 		}

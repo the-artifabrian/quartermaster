@@ -447,9 +447,76 @@ model Meal {
   mealPlanId String
 
   recipeItems MealRecipeItem[]
+  sections    MealSection[]
+  noteItems   MealNoteItem[]
 
   @@index([mealPlanId, date, order])
   @@index([sourceMenuId])
+}
+
+/// One frozen Menu section inside a Meal snapshot (#107). Copied at planning
+/// time and never re-read from the Menu, so later Menu edits cannot mutate
+/// the planned event. Planner-created Meals have no sections.
+model MealSection {
+  id    String  @id @default(cuid())
+  /// null marks the snapshot of a Menu's durable unnamed section.
+  name  String?
+  order Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  mealId String
+
+  recipeItems MealRecipeItem[]
+  noteItems   MealNoteItem[]
+
+  @@index([mealId, order])
+}
+
+/// A note card frozen into a Meal snapshot — drinks, shared prep, serving
+/// reminders — with its ordinary Shopping lines underneath. Shares its
+/// section's order sequence with MealRecipeItem, like MenuItem's two kinds.
+model MealNoteItem {
+  id    String @id @default(cuid())
+  order Int
+  text  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  mealId String
+
+  /// Snapshot notes always sit in a section; SetNull mirrors the Menu rule
+  /// that structural cleanup never deletes content.
+  section   MealSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  sectionId String?
+
+  shoppingLines MealShoppingLine[]
+
+  @@index([mealId, order])
+  @@index([sectionId])
+}
+
+/// A note card's frozen ordinary Shopping line (#107) — the Meal-side twin of
+/// MenuShoppingLine. Distinct from the current-state Shopping contribution
+/// records #108 introduces.
+model MealShoppingLine {
+  id       String  @id @default(cuid())
+  name     String
+  quantity String?
+  unit     String?
+  order    Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  noteItem   MealNoteItem @relation(fields: [noteItemId], references: [id], onDelete: Cascade)
+  noteItemId String
+
+  @@index([noteItemId, order])
 }
 
 /// One ordered Recipe card inside a Meal. Cooked state lives here, not on the
@@ -465,6 +532,8 @@ model MealRecipeItem {
   /// treating legacy servings as trustworthy yield (#98).
   scaleMultiplier Float   @default(1)
   cooked          Boolean @default(false)
+  /// Frozen display note copied from the Menu card at planning time (#107).
+  note            String?
 
   /// Nulled when the Recipe is deleted — the card then reads as missing until
   /// the user explicitly replaces or removes it.
@@ -477,8 +546,14 @@ model MealRecipeItem {
   meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
   mealId String
 
+  /// Set on Menu-snapshot items (#107); planner-created items stay unsectioned
+  /// and `order` then sequences within the Meal instead of within a section.
+  section   MealSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  sectionId String?
+
   @@index([mealId, order])
   @@index([recipeId])
+  @@index([sectionId])
 }
 
 model ShoppingList {

@@ -31,6 +31,18 @@ export const AddTextMealSchema = z.object({
 		}),
 })
 
+// Real clock times only — Date.UTC would silently roll "39:99" over
+// into later days, storing a servingAt off the Meal's semantic date.
+const ServingTimeSchema = z
+	.string()
+	.regex(/^([01]?\d|2[0-3]):[0-5]\d$/, { message: 'Use a time like 18:30' })
+
+const GuestCountSchema = z.coerce
+	.number()
+	.int()
+	.positive()
+	.max(999, { message: 'Guest count must be 999 or less' })
+
 /**
  * The edit-details form always submits every field, so an absent (empty)
  * optional means "cleared". A submitted time needs the browser's IANA zone to
@@ -41,19 +53,9 @@ export const MealDetailsSchema = z
 	.object({
 		mealId: z.string().min(1),
 		label: MealLabelSchema.optional(),
-		time: z
-			.string()
-			// Real clock times only — Date.UTC would silently roll "39:99" over
-			// into later days, storing a servingAt off the Meal's semantic date.
-			.regex(/^([01]?\d|2[0-3]):[0-5]\d$/, { message: 'Use a time like 18:30' })
-			.optional(),
+		time: ServingTimeSchema.optional(),
 		timeZone: z.string().optional(),
-		guestCount: z.coerce
-			.number()
-			.int()
-			.positive()
-			.max(999, { message: 'Guest count must be 999 or less' })
-			.optional(),
+		guestCount: GuestCountSchema.optional(),
 		text: z
 			.string()
 			.trim()
@@ -62,6 +64,26 @@ export const MealDetailsSchema = z
 				message: `Keep it under ${GENERIC_TEXT_MAX_LENGTH} characters`,
 			})
 			.optional(),
+	})
+	.refine(
+		(value) =>
+			value.time == null ||
+			(value.timeZone != null && isValidTimeZone(value.timeZone)),
+		{ path: ['time'], message: 'Time is missing its timezone' },
+	)
+
+/**
+ * Add to Plan from Menu detail (#107): a date plus optional label, serving
+ * time, and guest count. Guest count is planning context only — the snapshot
+ * copies the Menu's multipliers unchanged regardless of it.
+ */
+export const PlanMenuSchema = z
+	.object({
+		date: z.coerce.date({ message: 'Pick a date' }),
+		label: MealLabelSchema.optional(),
+		time: ServingTimeSchema.optional(),
+		timeZone: z.string().optional(),
+		guestCount: GuestCountSchema.optional(),
 	})
 	.refine(
 		(value) =>

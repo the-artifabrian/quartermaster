@@ -59,6 +59,26 @@ export async function loader({ request }: Route.LoaderArgs) {
 					{ id: 'asc' },
 				],
 				include: {
+					// The live reference only names where the snapshot came from — all
+					// displayed structure below is the Meal's own frozen copy (#107).
+					sourceMenu: { select: { id: true, title: true } },
+					sections: {
+						orderBy: { order: 'asc' },
+						select: { id: true, name: true },
+					},
+					noteItems: {
+						orderBy: { order: 'asc' },
+						select: {
+							id: true,
+							text: true,
+							order: true,
+							sectionId: true,
+							shoppingLines: {
+								orderBy: { order: 'asc' },
+								select: { id: true, name: true, quantity: true, unit: true },
+							},
+						},
+					},
 					recipeItems: {
 						orderBy: { order: 'asc' },
 						include: {
@@ -105,11 +125,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 		genericText: meal.genericText,
 		completed: meal.completed,
 		guestCount: meal.guestCount,
+		sourceMenu: meal.sourceMenu,
+		sections: meal.sections,
+		noteItems: meal.noteItems,
 		items: meal.recipeItems.map((item) => ({
 			id: item.id,
 			recipeTitle: item.recipeTitle,
 			scaleMultiplier: item.scaleMultiplier,
 			cooked: item.cooked,
+			note: item.note,
+			order: item.order,
+			sectionId: item.sectionId,
 			recipe: item.recipe,
 		})),
 	}))

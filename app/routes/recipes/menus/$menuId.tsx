@@ -1,13 +1,30 @@
+import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Link } from 'react-router'
+import { useState } from 'react'
+import { data, Form, Link, redirect, useNavigation } from 'react-router'
 import { RecipeThumb } from '#app/components/recipe-selector.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { Input } from '#app/components/ui/input.tsx'
+import {
+	getWeekStart,
+	MEAL_TYPES,
+	MEAL_TYPE_LABELS,
+	serializeDate,
+} from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { PlanMenuSchema } from '#app/utils/meal-plan-validation.ts'
+import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
+import { createMealWithItems } from '#app/utils/meal.server.ts'
+import {
+	menuToSnapshotSections,
+	snapshotHasContent,
+} from '#app/utils/menu-snapshot.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
+import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
 import { type Route } from './+types/$menuId.ts'
 
 export const handle: SEOHandle = {
@@ -106,8 +123,237 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	}
 }
 
-export default function MenuDetail({ loaderData }: Route.ComponentProps) {
+/**
+ * Add to Plan (#107): copy this Menu into ONE stable Meal snapshot — section
+ * order, Recipe/note cards, display identity, multipliers, display notes, and
+ * note Shopping lines all frozen by value. Later Menu edits never mutate the
+ * Meal; sourceMenuId + the Menu's updatedAt are retained as the revision a
+ * future explicit Update-from-Menu action (not shipped here) can compare.
+ */
+export async function action({ request, params }: Route.ActionArgs) {
+	const { householdId } = await requireUserWithHousehold(request)
+	const formData = await request.formData()
+	const submission = parseWithZod(formData, { schema: PlanMenuSchema })
+	if (submission.status !== 'success') {
+		return data({ result: submission.reply() }, { status: 400 })
+	}
+	const { date, label, time, timeZone, guestCount } = submission.value
+
+	// Fresh household-scoped read at submit time — the snapshot freezes what
+	// the Menu holds now, and updatedAt is read in the same query it copies.
+	const menu = await prisma.menu.findFirst({
+		where: { id: params.menuId, householdId },
+		select: {
+			id: true,
+			updatedAt: true,
+			sections: {
+				orderBy: { order: 'asc' },
+				select: {
+					name: true,
+					items: {
+						orderBy: { order: 'asc' },
+						select: {
+							kind: true,
+							recipeTitle: true,
+							scaleMultiplier: true,
+							note: true,
+							recipe: {
+								select: { id: true, title: true, householdId: true },
+							},
+							shoppingLines: {
+								orderBy: { order: 'asc' },
+								select: { name: true, quantity: true, unit: true },
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	invariantResponse(menu, 'Menu not found', { status: 404 })
+
+	const sections = menuToSnapshotSections(menu, householdId)
+	if (!snapshotHasContent(sections)) {
+		return data(
+			{
+				result: submission.reply({
+					formErrors: [
+						'This menu has nothing to plan yet — add a recipe or note first.',
+					],
+				}),
+			},
+			{ status: 400 },
+		)
+	}
+
+	const mealPlan = await ensureMealPlan(prisma, {
+		householdId,
+		weekStart: getWeekStart(date),
+	})
+	// Serving time is one UTC instant plus its originating IANA zone, computed
+	// from the Meal's semantic date (#98). Guest count travels as context only.
+	const servingAt =
+		time != null ? servingInstantFromWallTime(date, time, timeZone!) : null
+	await createMealWithItems(prisma, {
+		mealPlanId: mealPlan.id,
+		date,
+		label: label ?? null,
+		servingAt,
+		servingTimeZone: servingAt ? (timeZone ?? null) : null,
+		guestCount: guestCount ?? null,
+		sourceMenuId: menu.id,
+		sourceMenuRevision: menu.updatedAt,
+		items: [],
+		sections,
+	})
+
+	return redirect(`/plan?weekStart=${serializeDate(getWeekStart(date))}`)
+}
+
+/** Local calendar date — the same "today" convention the planner uses. */
+function todayLocalDateString() {
+	const now = new Date()
+	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * The Add to Plan panel (#107): date plus optional label, serving time, and
+ * guest count. Guest count is prefilled from the Menu's default as context —
+ * it never scales quantities; multipliers copy unchanged.
+ */
+function AddToPlanPanel({
+	defaultGuestCount,
+	errors,
+	onCancel,
+}: {
+	defaultGuestCount: number | null
+	errors: string[]
+	onCancel: () => void
+}) {
+	// The instant is named by wall time plus the browser's IANA zone; the zone
+	// travels in a hidden input so the server can store the pair (#98).
+	const [timeZone] = useState(
+		() => Intl.DateTimeFormat().resolvedOptions().timeZone,
+	)
+	const [defaultDate] = useState(todayLocalDateString)
+	// Full-page POST with no server-side dedupe — a double-click would plan
+	// the Menu twice, so the submit locks while the navigation is in flight.
+	const navigation = useNavigation()
+	const submitting = navigation.state !== 'idle'
+
+	return (
+		<Form
+			method="POST"
+			className="border-border/60 bg-card mt-4 rounded-lg border p-4"
+		>
+			<input type="hidden" name="timeZone" value={timeZone} />
+			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+				<div className="col-span-2 sm:col-span-1">
+					<label
+						htmlFor="plan-date"
+						className="text-muted-foreground mb-1 block text-xs font-medium"
+					>
+						Date
+					</label>
+					<Input
+						id="plan-date"
+						type="date"
+						name="date"
+						required
+						defaultValue={defaultDate}
+						className="h-9"
+					/>
+				</div>
+				<div>
+					<label
+						htmlFor="plan-label"
+						className="text-muted-foreground mb-1 block text-xs font-medium"
+					>
+						Label
+					</label>
+					<select
+						id="plan-label"
+						name="label"
+						defaultValue=""
+						className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+					>
+						<option value="">No label</option>
+						{MEAL_TYPES.map((type) => (
+							<option key={type} value={type}>
+								{MEAL_TYPE_LABELS[type]}
+							</option>
+						))}
+					</select>
+				</div>
+				<div>
+					<label
+						htmlFor="plan-time"
+						className="text-muted-foreground mb-1 block text-xs font-medium"
+					>
+						Serving time
+					</label>
+					<Input id="plan-time" type="time" name="time" className="h-9" />
+				</div>
+				<div>
+					<label
+						htmlFor="plan-guests"
+						className="text-muted-foreground mb-1 block text-xs font-medium"
+					>
+						Guests
+					</label>
+					<Input
+						id="plan-guests"
+						type="number"
+						name="guestCount"
+						min={1}
+						max={999}
+						defaultValue={defaultGuestCount ?? ''}
+						className="h-9"
+					/>
+				</div>
+			</div>
+			<p className="text-muted-foreground mt-2 text-xs">
+				Quantities copy from the menu as they are — guest count is context and
+				never scales dishes.
+			</p>
+			{errors.length > 0 ? (
+				<ul className="text-destructive mt-2 space-y-0.5 text-sm">
+					{errors.map((error) => (
+						<li key={error}>{error}</li>
+					))}
+				</ul>
+			) : null}
+			<div className="mt-3 flex justify-end gap-2">
+				<Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+					Cancel
+				</Button>
+				<Button type="submit" size="sm" disabled={submitting}>
+					<Icon name="calendar" size="sm" />
+					{submitting ? 'Adding…' : 'Add to Plan'}
+				</Button>
+			</div>
+		</Form>
+	)
+}
+
+export default function MenuDetail({
+	loaderData,
+	actionData,
+}: Route.ComponentProps) {
 	const { menu } = loaderData
+	const [planning, setPlanning] = useState(false)
+	const [planFormDismissed, setPlanFormDismissed] = useState(false)
+	// A failed full-page POST re-renders with actionData — keep the panel open
+	// so its errors are visible, until the user cancels.
+	const showPlanPanel =
+		planning || (actionData?.result != null && !planFormDismissed)
+	const planErrors = actionData?.result?.error
+		? [
+				...new Set(
+					Object.values(actionData.result.error).flat().filter(Boolean),
+				),
+			]
+		: []
 
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
@@ -122,12 +368,25 @@ export default function MenuDetail({ loaderData }: Route.ComponentProps) {
 
 			<div className="flex items-start justify-between gap-3">
 				<h1 className="font-serif text-2xl font-normal">{menu.title}</h1>
-				<Button asChild variant="outline">
-					<Link to={`/recipes/menus/${menu.id}/edit`}>
-						<Icon name="pencil-1" size="sm" />
-						Edit
-					</Link>
-				</Button>
+				<div className="flex shrink-0 flex-wrap justify-end gap-2">
+					<Button asChild variant="outline">
+						<Link to={`/recipes/menus/${menu.id}/edit`}>
+							<Icon name="pencil-1" size="sm" />
+							Edit
+						</Link>
+					</Button>
+					{!showPlanPanel && (
+						<Button
+							onClick={() => {
+								setPlanning(true)
+								setPlanFormDismissed(false)
+							}}
+						>
+							<Icon name="calendar" size="sm" />
+							Add to Plan
+						</Button>
+					)}
+				</div>
 			</div>
 
 			{menu.defaultGuestCount ? (
@@ -141,6 +400,17 @@ export default function MenuDetail({ loaderData }: Route.ComponentProps) {
 				<p className="text-muted-foreground mt-3 leading-relaxed">
 					{menu.description}
 				</p>
+			)}
+
+			{showPlanPanel && (
+				<AddToPlanPanel
+					defaultGuestCount={menu.defaultGuestCount}
+					errors={planErrors}
+					onCancel={() => {
+						setPlanning(false)
+						setPlanFormDismissed(true)
+					}}
+				/>
 			)}
 
 			<div className="mt-8 space-y-8">

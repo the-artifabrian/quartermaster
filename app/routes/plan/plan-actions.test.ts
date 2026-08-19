@@ -119,14 +119,8 @@ function findHouseholdMeals(householdId: string) {
 	})
 }
 
-function findHouseholdEntries(householdId: string) {
-	return prisma.mealPlanEntry.findMany({
-		where: { mealPlan: { householdId } },
-	})
-}
-
 describe('meal plan actions', () => {
-	test('addMeal fast path creates an ordered Meal, one item, and its legacy mirror row', async () => {
+	test('addMeal fast path creates an ordered Meal with one item', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 
@@ -154,19 +148,6 @@ describe('meal plan actions', () => {
 			cooked: false,
 			order: 0,
 		})
-
-		// Dual-write (#105, until #106): the legacy row keeps week-wide Shopping
-		// generation working. mealType carries the Meal id — opaque but unique-
-		// safe — and the item id links back via the mri-bf- convention.
-		const entries = await findHouseholdEntries(session.householdId)
-		expect(entries).toHaveLength(1)
-		expect(entries[0]).toMatchObject({
-			recipeId: recipe.id,
-			mealType: meal.id,
-			servings: null,
-			cooked: false,
-		})
-		expect(meal.recipeItems[0]!.id).toBe(`mri-bf-${entries[0]!.id}`)
 	})
 
 	test('duplicate addMeal (same day, label, recipe) is idempotent', async () => {
@@ -183,10 +164,9 @@ describe('meal plan actions', () => {
 		await act(session, fields)
 
 		expect(await findHouseholdMeals(session.householdId)).toHaveLength(1)
-		expect(await findHouseholdEntries(session.householdId)).toHaveLength(1)
 	})
 
-	test('addMeal stores label and multiplier and mirrors the equivalent servings override', async () => {
+	test('addMeal stores label and multiplier', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 
@@ -201,9 +181,6 @@ describe('meal plan actions', () => {
 		const [meal] = await findHouseholdMeals(session.householdId)
 		expect(meal).toMatchObject({ label: 'lunch' })
 		expect(meal!.recipeItems[0]!.scaleMultiplier).toBe(1.5)
-		const [entry] = await findHouseholdEntries(session.householdId)
-		// 1.5 × 4 recipe servings
-		expect(entry!.servings).toBe(6)
 	})
 
 	test('concurrent household members adding to a fresh week share one plan', async () => {
@@ -302,7 +279,7 @@ describe('meal plan actions', () => {
 		expect(unchanged!.recipeItems[0]).toMatchObject({ cooked: false })
 	})
 
-	test('addTextMeal creates a text-only Meal with no items and no legacy mirror; completion lives on the Meal', async () => {
+	test('addTextMeal creates a text-only Meal with no items; completion lives on the Meal', async () => {
 		const session = await setupUser()
 
 		await act(session, {
@@ -319,8 +296,6 @@ describe('meal plan actions', () => {
 			completed: false,
 		})
 		expect(meal!.recipeItems).toHaveLength(0)
-		// No Shopping behavior: nothing mirrored for the legacy generator.
-		expect(await findHouseholdEntries(session.householdId)).toHaveLength(0)
 
 		await act(session, {
 			intent: 'setMealCooked',
@@ -331,7 +306,7 @@ describe('meal plan actions', () => {
 		expect(completed!.completed).toBe(true)
 	})
 
-	test('addRecipeToMeal appends an ordered item with its mirror; duplicates no-op; text Meals refuse', async () => {
+	test('addRecipeToMeal appends an ordered item; duplicates no-op; text Meals refuse', async () => {
 		const session = await setupUser()
 		const first = await setupRecipe(
 			session.userId,
@@ -369,7 +344,6 @@ describe('meal plan actions', () => {
 			[0, 'First'],
 			[1, 'Second'],
 		])
-		expect(await findHouseholdEntries(session.householdId)).toHaveLength(2)
 
 		await act(session, {
 			intent: 'addTextMeal',
@@ -388,7 +362,7 @@ describe('meal plan actions', () => {
 		).rejects.toEqual(expect.objectContaining({ status: 400 }))
 	})
 
-	test('setItemCooked updates the item and its legacy mirror; repeats are idempotent', async () => {
+	test('setItemCooked updates the item; repeats are idempotent', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 		await act(session, {
@@ -414,8 +388,6 @@ describe('meal plan actions', () => {
 			where: { id: item.id },
 		})
 		expect(toggled.cooked).toBe(true)
-		const [entry] = await findHouseholdEntries(session.householdId)
-		expect(entry!.cooked).toBe(true)
 
 		await act(session, {
 			intent: 'setItemCooked',
@@ -431,7 +403,7 @@ describe('meal plan actions', () => {
 		).toBe(false)
 	})
 
-	test('setMealCooked on a Recipe Meal updates every item explicitly, mirrors included', async () => {
+	test('setMealCooked on a Recipe Meal updates every item explicitly', async () => {
 		const session = await setupUser()
 		const first = await setupRecipe(
 			session.userId,
@@ -468,11 +440,9 @@ describe('meal plan actions', () => {
 		])
 		// Derived completion stays on items — the Meal row is not marked.
 		expect(updated!.completed).toBe(false)
-		const entries = await findHouseholdEntries(session.householdId)
-		expect(entries.map((entry) => entry.cooked)).toEqual([true, true])
 	})
 
-	test('setItemMultiplier persists the batch multiplier and mirrors rounded servings', async () => {
+	test('setItemMultiplier persists the batch multiplier', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 		await act(session, {
@@ -496,8 +466,6 @@ describe('meal plan actions', () => {
 				})
 			).scaleMultiplier,
 		).toBe(2.5)
-		const [entry] = await findHouseholdEntries(session.householdId)
-		expect(entry!.servings).toBe(10)
 
 		const invalid = await act(session, {
 			intent: 'setItemMultiplier',
@@ -507,7 +475,7 @@ describe('meal plan actions', () => {
 		expect(invalid).toMatchObject({ status: 'error' })
 	})
 
-	test('removeItem deletes the item and its mirror; removing the last item removes the Meal', async () => {
+	test('removeItem deletes the item; removing the last item removes the Meal', async () => {
 		const session = await setupUser()
 		const first = await setupRecipe(
 			session.userId,
@@ -538,17 +506,15 @@ describe('meal plan actions', () => {
 		})
 		;[current] = await findHouseholdMeals(session.householdId)
 		expect(current!.recipeItems).toHaveLength(1)
-		expect(await findHouseholdEntries(session.householdId)).toHaveLength(1)
 
 		await act(session, {
 			intent: 'removeItem',
 			itemId: current!.recipeItems[0]!.id,
 		})
 		expect(await findHouseholdMeals(session.householdId)).toHaveLength(0)
-		expect(await findHouseholdEntries(session.householdId)).toHaveLength(0)
 	})
 
-	test('removeMeal deletes the Meal, its items, and their mirrors', async () => {
+	test('removeMeal deletes the Meal and its items', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 		await act(session, {
@@ -564,7 +530,11 @@ describe('meal plan actions', () => {
 		})
 		expect(result).toEqual({ status: 'success' })
 		expect(await findHouseholdMeals(session.householdId)).toHaveLength(0)
-		expect(await findHouseholdEntries(session.householdId)).toHaveLength(0)
+		expect(
+			await prisma.mealRecipeItem.count({
+				where: { meal: { mealPlan: { householdId: session.householdId } } },
+			}),
+		).toBe(0)
 	})
 
 	test('moveMeal swaps explicit day order and no-ops at the edges', async () => {

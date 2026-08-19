@@ -7,10 +7,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import {
-	ensureMealPlan,
-	ensureMealPlanEntry,
-} from '#app/utils/meal-plan.server.ts'
+import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
@@ -77,6 +74,9 @@ const ImportInventoryItemSchema = z.object({
 	lowStock: z.boolean().optional(), // accepted for backward compat (ignored)
 })
 
+// The retired fixed-slot representation (#106). Pre-#104 exports carry only
+// this shape, so it stays parseable and restores as Meals; current exports
+// no longer contain it.
 const ImportMealPlanEntrySchema = z.object({
 	date: z.string(),
 	mealType: z.string().max(50),
@@ -119,7 +119,9 @@ const ImportMealSchema = z
 
 const ImportMealPlanSchema = z.object({
 	weekStart: z.string(),
-	entries: z.array(ImportMealPlanEntrySchema).max(100),
+	// Optional since #106 stopped exporting the legacy shape; when a file
+	// carries only entries (pre-#104 exports) they restore as Meals.
+	entries: z.array(ImportMealPlanEntrySchema).max(100).optional(),
 	// Optional so every pre-Meal export stays importable (#104).
 	meals: z.array(ImportMealSchema).max(200).optional(),
 })
@@ -473,6 +475,83 @@ async function importMenus(
 }
 
 type ImportMeal = z.infer<typeof ImportMealSchema>
+type ImportMealPlanEntry = z.infer<typeof ImportMealPlanEntrySchema>
+
+const LEGACY_SLOT_ORDER = ['breakfast', 'lunch', 'dinner', 'snack']
+
+/**
+ * Pre-#104 exports carry the retired fixed-slot `entries` shape. It restores
+ * as Meals under the #104 backfill's recovery rules: entries sharing a UTC
+ * day and meal type become one labeled Meal, a serving override becomes
+ * override / Recipe.servings, day order runs breakfast, lunch, dinner, snack,
+ * then unexpected labels lexically, and items keep file order. An entry whose
+ * Recipe title has no match is skipped like the legacy import path skipped
+ * it — the retired shape froze no display identity to keep as a missing card.
+ */
+function legacyEntriesToMeals(
+	entries: ImportMealPlanEntry[],
+	titleToIdMap: Map<string, string>,
+	servingsByRecipeId: Map<string, number>,
+): { meals: ImportMeal[]; skippedEntries: number } {
+	let skippedEntries = 0
+	const groups = new Map<
+		string,
+		{ day: string; mealType: string; items: NonNullable<ImportMeal['items']> }
+	>()
+	for (const entry of entries) {
+		const parsed = new Date(entry.date)
+		if (Number.isNaN(parsed.getTime())) {
+			skippedEntries++
+			continue
+		}
+		const recipeId = titleToIdMap.get(entry.recipe.toLowerCase())
+		if (!recipeId) {
+			skippedEntries++
+			continue
+		}
+		const day = new Date(
+			Date.UTC(
+				parsed.getUTCFullYear(),
+				parsed.getUTCMonth(),
+				parsed.getUTCDate(),
+			),
+		).toISOString()
+		const recipeServings = servingsByRecipeId.get(recipeId)
+		const scaleMultiplier =
+			entry.servings != null && recipeServings != null && recipeServings > 0
+				? entry.servings / recipeServings
+				: 1
+		const key = `${day}\u0000${entry.mealType}`
+		const group = groups.get(key) ?? {
+			day,
+			mealType: entry.mealType,
+			items: [],
+		}
+		group.items.push({
+			recipeTitle: entry.recipe,
+			scaleMultiplier,
+			cooked: entry.cooked ?? false,
+		})
+		groups.set(key, group)
+	}
+	const slotRank = (label: string) => {
+		const index = LEGACY_SLOT_ORDER.indexOf(label)
+		return index === -1 ? LEGACY_SLOT_ORDER.length : index
+	}
+	const meals = [...groups.values()]
+		.sort(
+			(a, b) =>
+				a.day.localeCompare(b.day) ||
+				slotRank(a.mealType) - slotRank(b.mealType) ||
+				a.mealType.localeCompare(b.mealType),
+		)
+		.map((group) => ({
+			date: group.day,
+			label: group.mealType,
+			items: group.items,
+		}))
+	return { meals, skippedEntries }
+}
 
 /**
  * How one restored or existing Meal is recognized on a later import: its full
@@ -832,6 +911,27 @@ export async function action({ request }: Route.ActionArgs) {
 			}
 		}
 
+		// Legacy-only plans need Recipe servings to recover multipliers
+		// (override / Recipe.servings, the #104 rule).
+		let servingsByRecipeId = new Map<string, number>()
+		if (
+			fullData.mealPlans.some(
+				(plan) => !plan.meals?.length && plan.entries?.length,
+			)
+		) {
+			try {
+				const householdRecipes = await prisma.recipe.findMany({
+					where: { householdId },
+					select: { id: true, servings: true },
+				})
+				servingsByRecipeId = new Map(
+					householdRecipes.map((recipe) => [recipe.id, recipe.servings]),
+				)
+			} catch {
+				// Entries still restore — overrides fall back to 1× multipliers.
+			}
+		}
+
 		for (const plan of fullData.mealPlans) {
 			try {
 				const weekStart = new Date(plan.weekStart)
@@ -841,30 +941,27 @@ export async function action({ request }: Route.ActionArgs) {
 					weekStart,
 				})
 
-				for (const entry of plan.entries) {
-					const recipeId = titleToIdMap.get(entry.recipe.toLowerCase())
-					if (!recipeId) {
-						results.mealPlans.skipped++
-						continue
-					}
-					try {
-						const result = await ensureMealPlanEntry(prisma, {
-							date: new Date(entry.date),
-							mealType: entry.mealType,
-							servings: entry.servings ?? null,
-							cooked: entry.cooked ?? false,
-							mealPlanId: mealPlan.id,
-							recipeId,
-						})
-						results.mealPlans[result.created ? 'created' : 'skipped']++
-					} catch {
-						results.mealPlans.skipped++
-					}
-				}
-
 				if (plan.meals?.length) {
+					// A file that carries Meals restores only them — its `entries`,
+					// when present (#104–#106 window exports), are the dual-write
+					// mirrors of those same Meals.
 					const mealStats = await importMeals(
 						plan.meals,
+						mealPlan.id,
+						recipeIndex,
+						menuIdByTitleKey,
+					)
+					results.meals.created += mealStats.created
+					results.meals.skipped += mealStats.skipped
+				} else if (plan.entries?.length) {
+					const { meals, skippedEntries } = legacyEntriesToMeals(
+						plan.entries,
+						titleToIdMap,
+						servingsByRecipeId,
+					)
+					results.mealPlans.skipped += skippedEntries
+					const mealStats = await importMeals(
+						meals,
 						mealPlan.id,
 						recipeIndex,
 						menuIdByTitleKey,
@@ -957,7 +1054,10 @@ function getPreview(jsonData: unknown): ImportPreview | null {
 		menus: fullData?.menus?.length ?? 0,
 		inventory: fullData?.inventory?.length ?? 0,
 		mealPlans:
-			fullData?.mealPlans?.reduce((sum, p) => sum + p.entries.length, 0) ?? 0,
+			fullData?.mealPlans?.reduce(
+				(sum, p) => sum + (p.entries?.length ?? 0),
+				0,
+			) ?? 0,
 		meals:
 			fullData?.mealPlans?.reduce(
 				(sum, p) => sum + (p.meals?.length ?? 0),

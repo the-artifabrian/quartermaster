@@ -234,7 +234,6 @@ model Recipe {
   ingredients     Ingredient[]    @relation("RecipeIngredients")
   linkedFromIngredients Ingredient[] @relation("LinkedRecipe")
   instructions    Instruction[]
-  mealPlanEntries      MealPlanEntry[]
   menuItems       MenuItem[]
   mealRecipeItems MealRecipeItem[]
 
@@ -399,7 +398,6 @@ model MealPlan {
   weekStart   DateTime // Monday midnight UTC
   household   Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
   householdId String
-  entries     MealPlanEntry[]
   meals       Meal[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -407,30 +405,13 @@ model MealPlan {
   @@unique([householdId, weekStart])
 }
 
-model MealPlanEntry {
-  id         String   @id @default(cuid())
-  date       DateTime // Specific date for this meal
-  mealType   String   // "breakfast", "lunch", "dinner", "snack"
-  servings   Int?     // Override recipe default servings
-  cooked     Boolean  @default(false)
-  mealPlanId String
-  mealPlan   MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
-  recipeId   String
-  recipe     Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-
-  @@index([mealPlanId])
-  @@index([recipeId])
-  @@unique([mealPlanId, date, mealType, recipeId])
-}
-
 /// One scheduled Meal within the household/week Plan — the ordered parent
-/// Release 1B evolves the planner around (#104). Additive for now: legacy
-/// MealPlanEntry rows stay untouched and keep driving the current UI until
-/// #105 switches reads and #106 contracts them.
+/// Release 1B evolves the planner around (#104/#105). The sole Plan
+/// representation since #106 contracted the legacy fixed-slot MealPlanEntry
+/// rows.
 model Meal {
   id   String   @id @default(cuid())
-  /// Semantic date within the Plan week (midnight UTC, like MealPlanEntry.date).
+  /// Semantic date within the Plan week (midnight UTC).
   date DateTime
   /// Explicit within-day order — authoritative. Label and serving time are
   /// display metadata and never silently reorder Meals.

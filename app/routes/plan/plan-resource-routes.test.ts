@@ -130,12 +130,11 @@ describe('meal plan resource routes', () => {
 		const location = (response as Response).headers.get('location')
 		expect(location).toContain('weekStart=2026-02-09')
 
-		// Check next week has the copied Meals with the legacy mirror in place
+		// Check next week has the copied Meals
 		const nextWeekPlan = await prisma.mealPlan.findFirst({
 			where: { householdId: session.householdId },
 			orderBy: { weekStart: 'desc' },
 			include: {
-				entries: true,
 				meals: {
 					orderBy: { order: 'asc' },
 					include: { recipeItems: true },
@@ -154,13 +153,6 @@ describe('meal plan resource routes', () => {
 		expect(textMeal).toMatchObject({
 			genericText: 'Leftovers',
 			completed: false,
-		})
-		// Dual-write: the copied Recipe item mirrors one legacy entry (1.5 x 4).
-		expect(nextWeekPlan!.entries).toHaveLength(1)
-		expect(nextWeekPlan!.entries[0]).toMatchObject({
-			recipeId: recipe.id,
-			servings: 6,
-			cooked: false,
 		})
 	})
 
@@ -198,9 +190,9 @@ describe('meal plan resource routes', () => {
 		const nextWeekPlan = await prisma.mealPlan.findFirst({
 			where: { householdId: session.householdId },
 			orderBy: { weekStart: 'desc' },
-			include: { entries: true, meals: true },
+			include: { meals: { include: { recipeItems: true } } },
 		})
 		expect(nextWeekPlan!.meals).toHaveLength(1) // Not duplicated
-		expect(nextWeekPlan!.entries).toHaveLength(1)
+		expect(nextWeekPlan!.meals[0]!.recipeItems).toHaveLength(1)
 	})
 })

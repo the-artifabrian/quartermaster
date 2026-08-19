@@ -42,12 +42,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 		? getWeekStart(parseDate(weekStartParam))
 		: getCurrentWeekStart()
 
-	await ensureMealPlan(prisma, { householdId, weekStart })
+	// Read back by the ensured plan's id — a raw householdId/weekStart lookup
+	// cannot see plans whose weekStart is stored in the INTEGER-ms era.
+	const ensuredPlan = await ensureMealPlan(prisma, { householdId, weekStart })
 	const mealPlan = await prisma.mealPlan.findUniqueOrThrow({
-		where: { householdId_weekStart: { householdId, weekStart } },
+		where: { id: ensuredPlan.id },
 		include: {
-			// The planner reads Meal parents and ordered items (#105); legacy
-			// MealPlanEntry rows are mirror-only until #106 removes them. Within a
+			// The planner reads Meal parents and ordered items (#105). Within a
 			// day the explicit manual order is authoritative — createdAt/id only
 			// break ties from concurrent adds.
 			meals: {

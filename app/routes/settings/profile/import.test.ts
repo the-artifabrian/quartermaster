@@ -652,6 +652,8 @@ describe('meal export', () => {
 			},
 		])
 		expect(JSON.stringify(exported.mealPlans)).not.toContain('"id"')
+		// The retired fixed-slot shape left the export in #106.
+		expect(exported.mealPlans[0].entries).toBeUndefined()
 	})
 })
 
@@ -860,5 +862,134 @@ describe('meal import', () => {
 			],
 		})) as any
 		expect(result.results.meals).toEqual({ created: 0, skipped: 0 })
+	})
+
+	test('a pre-#104 export restores its fixed-slot entries as Meals under the backfill rules', async () => {
+		const session = await setupUser()
+		const legacyPayload = {
+			format: 'quartermaster-full-export-v1',
+			recipes: [
+				{ title: 'Kofta', servings: 4, ingredients: [], instructions: [] },
+				{ title: 'Salad', servings: 6, ingredients: [], instructions: [] },
+			],
+			mealPlans: [
+				{
+					weekStart: '2026-08-17T00:00:00.000Z',
+					// No `meals` key at all — the pre-#104 shape.
+					entries: [
+						// Two dinner entries on one day (differing times of day)
+						// collapse into one multi-Recipe Meal by UTC day.
+						{
+							date: '2026-08-19T12:00:00.000Z',
+							mealType: 'dinner',
+							recipe: 'Kofta',
+							servings: 8,
+							cooked: true,
+						},
+						{
+							date: '2026-08-19T18:30:00.000Z',
+							mealType: 'dinner',
+							recipe: 'Salad',
+						},
+						{
+							date: '2026-08-19T00:00:00.000Z',
+							mealType: 'breakfast',
+							recipe: 'Salad',
+							servings: 3,
+						},
+						// A Recipe that no longer resolves is skipped, as the legacy
+						// import path skipped it.
+						{
+							date: '2026-08-19T00:00:00.000Z',
+							mealType: 'lunch',
+							recipe: 'Ghost',
+						},
+					],
+				},
+			],
+		}
+		const result = (await importPayload(session, legacyPayload)) as any
+		expect(result.results.meals).toEqual({ created: 2, skipped: 0 })
+		expect(result.results.mealPlans).toEqual({ created: 0, skipped: 1 })
+
+		const meals = await prisma.meal.findMany({
+			where: { mealPlan: { householdId: session.householdId } },
+			orderBy: { order: 'asc' },
+			include: { recipeItems: { orderBy: { order: 'asc' } } },
+		})
+		// Slot order: breakfast before dinner, dates normalized to UTC midnight.
+		expect(
+			meals.map((meal) => [
+				meal.order,
+				meal.label,
+				meal.date.toISOString(),
+				meal.recipeItems.map((item) => [
+					item.recipeTitle,
+					item.scaleMultiplier,
+					item.cooked,
+				]),
+			]),
+		).toEqual([
+			// 3 servings / 6 recipe servings = 0.5×
+			[0, 'breakfast', '2026-08-19T00:00:00.000Z', [['Salad', 0.5, false]]],
+			[
+				1,
+				'dinner',
+				'2026-08-19T00:00:00.000Z',
+				[
+					// 8 servings / 4 recipe servings = 2×; no override = 1×
+					['Kofta', 2, true],
+					['Salad', 1, false],
+				],
+			],
+		])
+
+		// Re-importing the same legacy file is idempotent.
+		const again = (await importPayload(session, legacyPayload)) as any
+		expect(again.results.meals).toEqual({ created: 0, skipped: 2 })
+		expect(
+			await prisma.meal.count({
+				where: { mealPlan: { householdId: session.householdId } },
+			}),
+		).toBe(2)
+	})
+
+	test('entries are ignored when the file also carries Meals — they are the dual-write mirrors', async () => {
+		const session = await setupUser()
+		const result = (await importPayload(session, {
+			format: 'quartermaster-full-export-v1',
+			recipes: [
+				{ title: 'Kofta', servings: 4, ingredients: [], instructions: [] },
+			],
+			mealPlans: [
+				{
+					weekStart: '2026-08-17T00:00:00.000Z',
+					entries: [
+						{
+							date: '2026-08-19T00:00:00.000Z',
+							mealType: 'dinner',
+							recipe: 'Kofta',
+						},
+					],
+					meals: [
+						{
+							date: '2026-08-19T00:00:00.000Z',
+							order: 0,
+							label: 'dinner',
+							items: [{ recipeTitle: 'Kofta', scaleMultiplier: 1 }],
+						},
+					],
+				},
+			],
+		})) as any
+		expect(result.results.meals).toEqual({ created: 1, skipped: 0 })
+		expect(result.results.mealPlans).toEqual({ created: 0, skipped: 0 })
+
+		const meals = await prisma.meal.findMany({
+			where: { mealPlan: { householdId: session.householdId } },
+			include: { recipeItems: true },
+		})
+		expect(meals).toHaveLength(1)
+		expect(meals[0]!.recipeItems).toHaveLength(1)
 	})
 })

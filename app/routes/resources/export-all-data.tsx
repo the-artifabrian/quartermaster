@@ -46,16 +46,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 				where: { householdId },
 				select: {
 					weekStart: true,
-					entries: {
-						select: {
-							date: true,
-							mealType: true,
-							servings: true,
-							cooked: true,
-							recipe: { select: { title: true } },
-						},
-						orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
-					},
 					meals: {
 						select: {
 							date: true,
@@ -176,18 +166,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 		})),
 		mealPlans: mealPlans.map((plan) => ({
 			weekStart: plan.weekStart.toISOString(),
-			entries: plan.entries.map((entry) => ({
-				date: entry.date.toISOString(),
-				mealType: entry.mealType,
-				servings: entry.servings,
-				cooked: entry.cooked,
-				recipe: entry.recipe.title,
-			})),
-			// Meal parents are durable recovery data (#104): within-day order,
-			// serving instant/timezone, generic text, text-only completion, guest
-			// count, source Menu identity/revision, and each ordered Recipe item's
-			// frozen identity, multiplier, and cooked state. Missing cards export a
-			// null recipeRef with their frozen title, like Menu cards do.
+			// Meals are the Plan's durable recovery data (#104, sole representation
+			// since #106): within-day order, serving instant/timezone, generic
+			// text, text-only completion, guest count, source Menu
+			// identity/revision, and each ordered Recipe item's frozen identity,
+			// multiplier, and cooked state. Missing cards export a null recipeRef
+			// with their frozen title, like Menu cards do.
 			meals: plan.meals.map((meal) => ({
 				date: meal.date.toISOString(),
 				order: meal.order,

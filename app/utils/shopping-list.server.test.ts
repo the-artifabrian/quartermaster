@@ -125,8 +125,12 @@ describe('generateShoppingListFromRecipes', () => {
 
 	test('ml sums scale up to L', () => {
 		const recipes = [
-			makeRecipe('r1', [{ name: 'vegetable stock', amount: '600', unit: 'ml' }]),
-			makeRecipe('r2', [{ name: 'vegetable stock', amount: '600', unit: 'ml' }]),
+			makeRecipe('r1', [
+				{ name: 'vegetable stock', amount: '600', unit: 'ml' },
+			]),
+			makeRecipe('r2', [
+				{ name: 'vegetable stock', amount: '600', unit: 'ml' },
+			]),
 		]
 
 		const items = generateShoppingListFromRecipes(recipes)
@@ -183,31 +187,35 @@ describe('generateShoppingListFromRecipes', () => {
 		expect(items).toHaveLength(2)
 	})
 
-	test('scales ingredients by serving ratio', () => {
+	test('scales ingredients by the stored batch multiplier', () => {
 		const recipe = makeRecipe('r1', [
 			{ name: 'flour', amount: '2', unit: 'cups' },
 		])
-		// recipe.servings = 4, entry servings = 8 → ratio = 2
-		const items = generateShoppingListFromRecipes([{ recipe, servings: 8 }])
+		const items = generateShoppingListFromRecipes([
+			{ recipe, scaleMultiplier: 2 },
+		])
 		const flourItem = items.find((i) => i.name.toLowerCase().includes('flour'))
 		expect(flourItem!.quantity).toBe('4')
 	})
 
-	test('scales down by serving ratio', () => {
+	test('scales down by a fractional multiplier', () => {
 		const recipe = makeRecipe('r1', [
 			{ name: 'flour', amount: '2', unit: 'cups' },
 		])
-		// recipe.servings = 4, entry servings = 2 → ratio = 0.5
-		const items = generateShoppingListFromRecipes([{ recipe, servings: 2 }])
+		const items = generateShoppingListFromRecipes([
+			{ recipe, scaleMultiplier: 0.5 },
+		])
 		const flourItem = items.find((i) => i.name.toLowerCase().includes('flour'))
 		expect(flourItem!.quantity).toBe('1')
 	})
 
-	test('no scaling when entry servings is null', () => {
+	test('no scaling when the multiplier is absent', () => {
 		const recipe = makeRecipe('r1', [
 			{ name: 'flour', amount: '2', unit: 'cups' },
 		])
-		const items = generateShoppingListFromRecipes([{ recipe, servings: null }])
+		const items = generateShoppingListFromRecipes([
+			{ recipe, scaleMultiplier: null },
+		])
 		const flourItem = items.find((i) => i.name.toLowerCase().includes('flour'))
 		expect(flourItem!.quantity).toBe('2')
 	})
@@ -216,7 +224,9 @@ describe('generateShoppingListFromRecipes', () => {
 		const recipe = makeRecipe('r1', [
 			{ name: 'salt', amount: undefined, unit: undefined },
 		])
-		const items = generateShoppingListFromRecipes([{ recipe, servings: 8 }])
+		const items = generateShoppingListFromRecipes([
+			{ recipe, scaleMultiplier: 2 },
+		])
 		expect(items[0]!.quantity).toBeUndefined()
 	})
 
@@ -225,9 +235,7 @@ describe('generateShoppingListFromRecipes', () => {
 			{ name: '1 (14.5 oz) can crushed tomatoes' },
 		])
 		const items = generateShoppingListFromRecipes([recipe])
-		const tomato = items.find((i) =>
-			i.name.toLowerCase().includes('tomato'),
-		)!
+		const tomato = items.find((i) => i.name.toLowerCase().includes('tomato'))!
 		expect(tomato.name).toBe('crushed tomatoes')
 		expect(tomato.quantity).toBe('1')
 		expect(tomato.unit).toBe('can')
@@ -247,9 +255,7 @@ describe('generateShoppingListFromRecipes', () => {
 			{ name: 'crushed tomatoes', amount: '1', unit: 'can' },
 		])
 		const items = generateShoppingListFromRecipes([recipe])
-		const tomato = items.find((i) =>
-			i.name.toLowerCase().includes('tomato'),
-		)!
+		const tomato = items.find((i) => i.name.toLowerCase().includes('tomato'))!
 		expect(tomato.name).toBe('crushed tomatoes')
 		expect(tomato.quantity).toBe('1')
 	})
@@ -265,9 +271,7 @@ describe('generateShoppingListFromRecipes', () => {
 		// parseIngredient("1 stalk of celery") → name="of celery"
 		const recipe = makeRecipe('r1', [{ name: '1 stalk of celery' }])
 		const items = generateShoppingListFromRecipes([recipe])
-		const celery = items.find((i) =>
-			i.name.toLowerCase().includes('celery'),
-		)!
+		const celery = items.find((i) => i.name.toLowerCase().includes('celery'))!
 		expect(celery.name).toBe('celery')
 	})
 
@@ -286,20 +290,21 @@ describe('generateShoppingListFromRecipes', () => {
 
 	test('scaling works on re-parsed ingredients', () => {
 		const recipe = makeRecipe('r1', [{ name: '2 cups flour' }])
-		// recipe.servings = 4, entry servings = 8 → ratio = 2
-		const items = generateShoppingListFromRecipes([{ recipe, servings: 8 }])
+		const items = generateShoppingListFromRecipes([
+			{ recipe, scaleMultiplier: 2 },
+		])
 		const flour = items.find((i) => i.name.toLowerCase().includes('flour'))!
 		expect(flour.quantity).toBe('4')
 	})
 
-	test('servings=0 falls back to ratio=1', () => {
-		const recipe = {
-			...makeRecipe('r1', [{ name: 'flour', amount: '2', unit: 'cups' }]),
-			servings: 0,
-		}
-		const items = generateShoppingListFromRecipes([{ recipe, servings: 4 }])
+	test('a non-positive multiplier falls back to one batch', () => {
+		const recipe = makeRecipe('r1', [
+			{ name: 'flour', amount: '2', unit: 'cups' },
+		])
+		const items = generateShoppingListFromRecipes([
+			{ recipe, scaleMultiplier: 0 },
+		])
 		const flourItem = items.find((i) => i.name.toLowerCase().includes('flour'))
-		// ratio = servings && recipe.servings > 0 → false, so ratio = 1
 		expect(flourItem!.quantity).toBe('2')
 	})
 })

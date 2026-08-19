@@ -586,11 +586,13 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		if (planMealType) formData.set('label', planMealType)
 		formData.set('recipeId', recipe.id)
 		// The page's servings stepper is a view-scaler; planning persists the
-		// equivalent batch multiplier instead (#98 quantity basis).
+		// equivalent batch multiplier instead (#98 quantity basis), clamped to
+		// the 100× the multiplier schema allows (a 1-serving recipe stepped to
+		// 999 would otherwise compose an out-of-range value the server rejects).
 		if (currentServings !== recipe.servings && recipe.servings > 0) {
 			formData.set(
 				'multiplier',
-				formatScaleMultiplier(currentServings / recipe.servings),
+				formatScaleMultiplier(Math.min(100, currentServings / recipe.servings)),
 			)
 		}
 		void planFetcher.submit(formData, {

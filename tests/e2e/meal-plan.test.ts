@@ -86,7 +86,10 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 	// (Polling the first click instead of networkidle — household-events
 	// long-polling never settles.)
 	await expect(async () => {
-		await page.getByRole('button', { name: /add meal/i }).first().click()
+		await page
+			.getByRole('button', { name: /add meal/i })
+			.first()
+			.click()
 		await expect(
 			page.getByPlaceholder('Search recipes...').first(),
 		).toBeVisible({ timeout: 2000 })
@@ -112,13 +115,17 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 
 	// 6. Verify cooked state (toggle label flips optimistically)
 	await expect(
-		page.getByRole('button', { name: 'Mark Test Stir Fry as not cooked' }).first(),
+		page
+			.getByRole('button', { name: 'Mark Test Stir Fry as not cooked' })
+			.first(),
 	).toBeVisible()
 
 	// 7. Reload to confirm the state persisted — the optimistic flip above
 	// would pass even if the server action failed
 	await page.reload()
 	await expect(
-		page.getByRole('button', { name: 'Mark Test Stir Fry as not cooked' }).first(),
+		page
+			.getByRole('button', { name: 'Mark Test Stir Fry as not cooked' })
+			.first(),
 	).toBeVisible()
 })

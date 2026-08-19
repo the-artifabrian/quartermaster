@@ -333,7 +333,11 @@ describe('meal plan actions', () => {
 
 	test('addRecipeToMeal appends an ordered item with its mirror; duplicates no-op; text Meals refuse', async () => {
 		const session = await setupUser()
-		const first = await setupRecipe(session.userId, session.householdId, 'First')
+		const first = await setupRecipe(
+			session.userId,
+			session.householdId,
+			'First',
+		)
 		const second = await setupRecipe(
 			session.userId,
 			session.householdId,
@@ -395,8 +399,16 @@ describe('meal plan actions', () => {
 		const [meal] = await findHouseholdMeals(session.householdId)
 		const item = meal!.recipeItems[0]!
 
-		await act(session, { intent: 'setItemCooked', itemId: item.id, cooked: 'true' })
-		await act(session, { intent: 'setItemCooked', itemId: item.id, cooked: 'true' })
+		await act(session, {
+			intent: 'setItemCooked',
+			itemId: item.id,
+			cooked: 'true',
+		})
+		await act(session, {
+			intent: 'setItemCooked',
+			itemId: item.id,
+			cooked: 'true',
+		})
 
 		const toggled = await prisma.mealRecipeItem.findUniqueOrThrow({
 			where: { id: item.id },
@@ -411,14 +423,21 @@ describe('meal plan actions', () => {
 			cooked: 'false',
 		})
 		expect(
-			(await prisma.mealRecipeItem.findUniqueOrThrow({ where: { id: item.id } }))
-				.cooked,
+			(
+				await prisma.mealRecipeItem.findUniqueOrThrow({
+					where: { id: item.id },
+				})
+			).cooked,
 		).toBe(false)
 	})
 
 	test('setMealCooked on a Recipe Meal updates every item explicitly, mirrors included', async () => {
 		const session = await setupUser()
-		const first = await setupRecipe(session.userId, session.householdId, 'First')
+		const first = await setupRecipe(
+			session.userId,
+			session.householdId,
+			'First',
+		)
 		const second = await setupRecipe(
 			session.userId,
 			session.householdId,
@@ -443,7 +462,10 @@ describe('meal plan actions', () => {
 		})
 
 		const [updated] = await findHouseholdMeals(session.householdId)
-		expect(updated!.recipeItems.map((item) => item.cooked)).toEqual([true, true])
+		expect(updated!.recipeItems.map((item) => item.cooked)).toEqual([
+			true,
+			true,
+		])
 		// Derived completion stays on items — the Meal row is not marked.
 		expect(updated!.completed).toBe(false)
 		const entries = await findHouseholdEntries(session.householdId)
@@ -468,8 +490,11 @@ describe('meal plan actions', () => {
 		})
 		expect(result).toEqual({ status: 'success' })
 		expect(
-			(await prisma.mealRecipeItem.findUniqueOrThrow({ where: { id: item.id } }))
-				.scaleMultiplier,
+			(
+				await prisma.mealRecipeItem.findUniqueOrThrow({
+					where: { id: item.id },
+				})
+			).scaleMultiplier,
 		).toBe(2.5)
 		const [entry] = await findHouseholdEntries(session.householdId)
 		expect(entry!.servings).toBe(10)
@@ -484,7 +509,11 @@ describe('meal plan actions', () => {
 
 	test('removeItem deletes the item and its mirror; removing the last item removes the Meal', async () => {
 		const session = await setupUser()
-		const first = await setupRecipe(session.userId, session.householdId, 'First')
+		const first = await setupRecipe(
+			session.userId,
+			session.householdId,
+			'First',
+		)
 		const second = await setupRecipe(
 			session.userId,
 			session.householdId,
@@ -540,7 +569,11 @@ describe('meal plan actions', () => {
 
 	test('moveMeal swaps explicit day order and no-ops at the edges', async () => {
 		const session = await setupUser()
-		const first = await setupRecipe(session.userId, session.householdId, 'First')
+		const first = await setupRecipe(
+			session.userId,
+			session.householdId,
+			'First',
+		)
 		const second = await setupRecipe(
 			session.userId,
 			session.householdId,

@@ -25,7 +25,10 @@ export function TodayBanner({ tonight }: { tonight: TonightData }) {
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
 	const linkServings =
 		scaleMultiplier !== 1
-			? Math.min(999, Math.max(1, Math.round(scaleMultiplier * recipe.servings)))
+			? Math.min(
+					999,
+					Math.max(1, Math.round(scaleMultiplier * recipe.servings)),
+				)
 			: null
 
 	return (

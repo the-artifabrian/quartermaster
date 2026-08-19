@@ -312,11 +312,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Calendar */}
-				<MealPlanCalendar
-					weekDays={weekDays}
-					meals={meals}
-					recipes={recipes}
-				/>
+				<MealPlanCalendar weekDays={weekDays} meals={meals} recipes={recipes} />
 
 				{meals.length > 0 && shoppingListItemCount === 0 && (
 					<OnboardingNudge

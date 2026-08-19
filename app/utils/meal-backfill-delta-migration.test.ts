@@ -244,7 +244,13 @@ test('the delta reconciles every kind of post-backfill legacy change and is idem
 			],
 		],
 		// The cascade-dropped lunch Meal is recreated at the entry's new day.
-		['meal-bf-l-only', '2026-08-20', 1, 'lunch', [['mri-bf-l-only', 0, 1, false]]],
+		[
+			'meal-bf-l-only',
+			'2026-08-20',
+			1,
+			'lunch',
+			[['mri-bf-l-only', 0, 1, false]],
+		],
 		// d-second moved here; its deterministic id was taken by the Wednesday
 		// meal, so the delta fell back to the 'meal-bf2-' prefix. Its changed
 		// cooked state and override (4 / 8 servings = 0.5×) reconciled too.
@@ -293,7 +299,12 @@ test('the delta never touches imported Meals beyond keeping them after backfille
 			mealPlanId: plan.id,
 			recipeItems: {
 				create: [
-					{ order: 0, recipeTitle: 'Stew', scaleMultiplier: 2, recipeId: stew.id },
+					{
+						order: 0,
+						recipeTitle: 'Stew',
+						scaleMultiplier: 2,
+						recipeId: stew.id,
+					},
 				],
 			},
 		},
@@ -324,7 +335,12 @@ test('the delta never touches imported Meals beyond keeping them after backfille
 	// existing relative order, contents untouched. The imported dinner is NOT
 	// merged with the legacy dinner group — import created a separate Meal.
 	expect(
-		meals.map((meal) => [meal.id, meal.order, meal.genericText, meal.completed]),
+		meals.map((meal) => [
+			meal.id,
+			meal.order,
+			meal.genericText,
+			meal.completed,
+		]),
 	).toEqual([
 		['meal-bf-f-dinner', 0, null, false],
 		[importedText.id, 1, 'Leftovers', true],

@@ -15,10 +15,7 @@ import { MEAL_TYPES, MEAL_TYPE_LABELS, type MealType } from '#app/utils/date.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
-import {
-	formatServingTime,
-	servingWallTime,
-} from '#app/utils/serving-time.ts'
+import { formatServingTime, servingWallTime } from '#app/utils/serving-time.ts'
 import {
 	type RecipeSelectorRecipe,
 	RecipeSelector,
@@ -125,7 +122,7 @@ function MultiplierControl({ item }: { item: PlanMealItem }) {
 				setInvalid(false)
 				setEditing(true)
 			}}
-			className="text-muted-foreground hover:bg-muted hover:text-foreground relative rounded px-1 py-0.5 text-xs tabular-nums transition-colors after:absolute after:-inset-y-1.5 after:-inset-x-1.5 after:content-[''] md:after:hidden"
+			className="text-muted-foreground hover:bg-muted hover:text-foreground relative rounded px-1 py-0.5 text-xs tabular-nums transition-colors after:absolute after:-inset-x-1.5 after:-inset-y-1.5 after:content-[''] md:after:hidden"
 			aria-label={`Edit multiplier for ${item.recipeTitle} (currently ${shown}×)`}
 		>
 			{shown}×
@@ -133,7 +130,13 @@ function MultiplierControl({ item }: { item: PlanMealItem }) {
 	)
 }
 
-function ItemRow({ item, showRemove }: { item: PlanMealItem; showRemove: boolean }) {
+function ItemRow({
+	item,
+	showRemove,
+}: {
+	item: PlanMealItem
+	showRemove: boolean
+}) {
 	const cookedFetcher = useFetcher()
 	const removeFetcher = useFetcher()
 	const [confirmingRemove, setConfirmingRemove] = useState(false)
@@ -164,7 +167,12 @@ function ItemRow({ item, showRemove }: { item: PlanMealItem; showRemove: boolean
 		: getRecipePlaceholder(item.recipeTitle)
 
 	return (
-		<div className={cn('flex items-center gap-2 md:gap-1', isCooked && 'opacity-50')}>
+		<div
+			className={cn(
+				'flex items-center gap-2 md:gap-1',
+				isCooked && 'opacity-50',
+			)}
+		>
 			{/* Cooked checkbox — independent per Recipe item (#98) */}
 			<cookedFetcher.Form method="POST" className="shrink-0">
 				<input type="hidden" name="intent" value="setItemCooked" />
@@ -507,9 +515,7 @@ export function MealCard({
 						</button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
-						<DropdownMenuItem
-							onSelect={() => submitMealCooked(!isComplete)}
-						>
+						<DropdownMenuItem onSelect={() => submitMealCooked(!isComplete)}>
 							<Icon name="check" size="sm" />
 							{isComplete ? 'Mark not cooked' : 'Mark meal cooked'}
 						</DropdownMenuItem>
@@ -555,14 +561,14 @@ export function MealCard({
 			{isText ? (
 				// Text-only Meal: parent completion state, no Recipe items, no
 				// Shopping behavior (#98).
-				<div className={cn('flex items-center gap-2', isComplete && 'opacity-50')}>
+				<div
+					className={cn('flex items-center gap-2', isComplete && 'opacity-50')}
+				>
 					<button
 						type="button"
 						onClick={() => submitMealCooked(!isComplete)}
 						className="flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-0 md:min-w-0 md:p-1"
-						aria-label={
-							isComplete ? 'Mark as not done' : 'Mark as done'
-						}
+						aria-label={isComplete ? 'Mark as not done' : 'Mark as done'}
 					>
 						{isComplete ? (
 							<span className="border-primary bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">

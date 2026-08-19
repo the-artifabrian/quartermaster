@@ -13,7 +13,10 @@ import {
 } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { type PlanMeal, MealCard } from './meal-card.tsx'
-import { type RecipeSelectorRecipe, RecipeSelector } from './recipe-selector.tsx'
+import {
+	type RecipeSelectorRecipe,
+	RecipeSelector,
+} from './recipe-selector.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'

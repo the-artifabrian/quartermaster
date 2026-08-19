@@ -140,9 +140,7 @@ export function createPlanAction(
 
 		if (intent === 'setItemMultiplier') {
 			const item = await requireItem(formData.get('itemId'))
-			const parsed = ScaleMultiplierSchema.safeParse(
-				formData.get('multiplier'),
-			)
+			const parsed = ScaleMultiplierSchema.safeParse(formData.get('multiplier'))
 			if (!parsed.success) {
 				return {
 					status: 'error' as const,

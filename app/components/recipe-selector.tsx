@@ -189,24 +189,24 @@ function RecipeOption({
 			onClick={() => onPick(recipe)}
 			className="hover:bg-muted/50 flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors"
 		>
-				<RecipeThumb title={recipe.title} image={recipe.image} />
-				<div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-					<p className="min-w-0 truncate text-sm font-medium">
-						{recipe.isFavorite && (
-							<Icon
-								name="heart-filled"
-								className="text-accent mr-1 inline size-3"
-							/>
-						)}
-						{recipe.title}
-					</p>
-					<span className="inline-flex shrink-0 items-center gap-1.5">
-						{totalTime != null && (
-							<span className="text-muted-foreground inline-flex items-center gap-0.5 text-xs">
-								<Icon name="clock" className="size-3" />
-								{totalTime}m
-							</span>
-						)}
+			<RecipeThumb title={recipe.title} image={recipe.image} />
+			<div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+				<p className="min-w-0 truncate text-sm font-medium">
+					{recipe.isFavorite && (
+						<Icon
+							name="heart-filled"
+							className="text-accent mr-1 inline size-3"
+						/>
+					)}
+					{recipe.title}
+				</p>
+				<span className="inline-flex shrink-0 items-center gap-1.5">
+					{totalTime != null && (
+						<span className="text-muted-foreground inline-flex items-center gap-0.5 text-xs">
+							<Icon name="clock" className="size-3" />
+							{totalTime}m
+						</span>
+					)}
 				</span>
 			</div>
 		</button>

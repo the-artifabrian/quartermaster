@@ -36,14 +36,13 @@ function mirrorServings(
 	recipeServings: number,
 ): number | null {
 	if (scaleMultiplier === 1) return null
-	return Math.min(999, Math.max(1, Math.round(scaleMultiplier * recipeServings)))
+	return Math.min(
+		999,
+		Math.max(1, Math.round(scaleMultiplier * recipeServings)),
+	)
 }
 
-async function nextMealOrder(
-	db: PrismaClient,
-	mealPlanId: string,
-	date: Date,
-) {
+async function nextMealOrder(db: PrismaClient, mealPlanId: string, date: Date) {
 	const max = await db.meal.aggregate({
 		_max: { order: true },
 		where: { mealPlanId, date },
@@ -188,7 +187,9 @@ export async function createRecipeMeal(
 		mealPlanId,
 		date,
 		label,
-		items: [{ recipeId: recipe.id, recipeTitle: recipe.title, scaleMultiplier }],
+		items: [
+			{ recipeId: recipe.id, recipeTitle: recipe.title, scaleMultiplier },
+		],
 	})
 	return { created: true as const, mealId }
 }
@@ -200,7 +201,12 @@ export async function addRecipeToMeal(
 		meal,
 		recipe,
 	}: {
-		meal: { id: string; mealPlanId: string; date: Date; genericText: string | null }
+		meal: {
+			id: string
+			mealPlanId: string
+			date: Date
+			genericText: string | null
+		}
 		recipe: { id: string; title: string }
 	},
 ) {
@@ -285,9 +291,7 @@ export async function setMealCooked(
 		where: { mealId: meal.id },
 		select: { id: true },
 	})
-	const legacyIds = items.flatMap(
-		(item) => legacyEntryIdForItem(item.id) ?? [],
-	)
+	const legacyIds = items.flatMap((item) => legacyEntryIdForItem(item.id) ?? [])
 	await db.$transaction([
 		db.mealRecipeItem.updateMany({
 			where: { mealId: meal.id },
@@ -390,7 +394,10 @@ export async function moveMealInDay(
 	const target = direction === 'up' ? index - 1 : index + 1
 	if (index === -1 || target < 0 || target >= dayMeals.length) return
 	const reordered = [...dayMeals]
-	;[reordered[index], reordered[target]] = [reordered[target]!, reordered[index]!]
+	;[reordered[index], reordered[target]] = [
+		reordered[target]!,
+		reordered[index]!,
+	]
 	await db.$transaction(
 		reordered.map((m, order) =>
 			db.meal.update({ where: { id: m.id }, data: { order } }),

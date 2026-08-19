@@ -264,7 +264,8 @@ export function SuggestMealsModal({
 	)
 	const plannedRecipeIdSet = new Set(plannedRecipeIds)
 	const filteredRecipes = recipes.filter((r) => {
-		if (selectedRecipeIds.has(r.id) || plannedRecipeIdSet.has(r.id)) return false
+		if (selectedRecipeIds.has(r.id) || plannedRecipeIdSet.has(r.id))
+			return false
 		if (pickerSearch) {
 			return r.title.toLowerCase().includes(pickerSearch.toLowerCase())
 		}

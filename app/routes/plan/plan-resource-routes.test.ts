@@ -82,18 +82,38 @@ async function makeRequest(
 }
 
 describe('meal plan resource routes', () => {
-	test('copy week duplicates entries +7 days and preserves servings', async () => {
+	test('copy week duplicates Meals +7 days, preserving label, multiplier, and text, resetting cooked state', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 		const weekStart = '2026-02-02'
 
 		await planAction({
 			request: await makeRequest(session, '/plan', {
-				intent: 'assign',
+				intent: 'addMeal',
 				date: '2026-02-03', // Tuesday
-				mealType: 'lunch',
+				label: 'lunch',
 				recipeId: recipe.id,
-				servings: '6',
+				multiplier: '1.5',
+			}),
+			...PLAN_ACTION_ARGS,
+		})
+		await planAction({
+			request: await makeRequest(session, '/plan', {
+				intent: 'addTextMeal',
+				date: '2026-02-03',
+				text: 'Leftovers',
+			}),
+			...PLAN_ACTION_ARGS,
+		})
+		// Cooked state does not travel to next week.
+		const sourceItem = await prisma.mealRecipeItem.findFirstOrThrow({
+			where: { meal: { mealPlan: { householdId: session.householdId } } },
+		})
+		await planAction({
+			request: await makeRequest(session, '/plan', {
+				intent: 'setItemCooked',
+				itemId: sourceItem.id,
+				cooked: 'true',
 			}),
 			...PLAN_ACTION_ARGS,
 		})
@@ -110,21 +130,41 @@ describe('meal plan resource routes', () => {
 		const location = (response as Response).headers.get('location')
 		expect(location).toContain('weekStart=2026-02-09')
 
-		// Check next week has the copied entry
+		// Check next week has the copied Meals with the legacy mirror in place
 		const nextWeekPlan = await prisma.mealPlan.findFirst({
 			where: { householdId: session.householdId },
 			orderBy: { weekStart: 'desc' },
-			include: { entries: true },
+			include: {
+				entries: true,
+				meals: {
+					orderBy: { order: 'asc' },
+					include: { recipeItems: true },
+				},
+			},
 		})
+		expect(nextWeekPlan!.meals).toHaveLength(2)
+		const [recipeMeal, textMeal] = nextWeekPlan!.meals
+		expect(recipeMeal).toMatchObject({ label: 'lunch', genericText: null })
+		expect(serializeDate(new Date(recipeMeal!.date))).toBe('2026-02-10')
+		expect(recipeMeal!.recipeItems[0]).toMatchObject({
+			recipeId: recipe.id,
+			scaleMultiplier: 1.5,
+			cooked: false,
+		})
+		expect(textMeal).toMatchObject({
+			genericText: 'Leftovers',
+			completed: false,
+		})
+		// Dual-write: the copied Recipe item mirrors one legacy entry (1.5 x 4).
 		expect(nextWeekPlan!.entries).toHaveLength(1)
-		expect(nextWeekPlan!.entries[0]!.mealType).toBe('lunch')
-		expect(nextWeekPlan!.entries[0]!.servings).toBe(6)
-		expect(serializeDate(new Date(nextWeekPlan!.entries[0]!.date))).toBe(
-			'2026-02-10', // Tuesday + 7
-		)
+		expect(nextWeekPlan!.entries[0]).toMatchObject({
+			recipeId: recipe.id,
+			servings: 6,
+			cooked: false,
+		})
 	})
 
-	test('copy week skips existing entries', async () => {
+	test('copy week pressed twice does not duplicate Meals', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 		const weekStart = '2026-02-02'
@@ -132,9 +172,9 @@ describe('meal plan resource routes', () => {
 		// Set up source week
 		await planAction({
 			request: await makeRequest(session, '/plan', {
-				intent: 'assign',
+				intent: 'addMeal',
 				date: '2026-02-03',
-				mealType: 'lunch',
+				label: 'lunch',
 				recipeId: recipe.id,
 			}),
 			...PLAN_ACTION_ARGS,
@@ -158,8 +198,9 @@ describe('meal plan resource routes', () => {
 		const nextWeekPlan = await prisma.mealPlan.findFirst({
 			where: { householdId: session.householdId },
 			orderBy: { weekStart: 'desc' },
-			include: { entries: true },
+			include: { entries: true, meals: true },
 		})
-		expect(nextWeekPlan!.entries).toHaveLength(1) // Not duplicated
+		expect(nextWeekPlan!.meals).toHaveLength(1) // Not duplicated
+		expect(nextWeekPlan!.entries).toHaveLength(1)
 	})
 })

@@ -75,16 +75,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 	})()
 
 	// Query inventory first to decide whether ingredient data is needed
-	const [inventoryItems, mealPlanEntryCount, totalRecipeCount] =
-		await Promise.all([
-			prisma.inventoryItem.findMany({ where: { householdId } }),
-			isProActive
-				? prisma.mealPlanEntry.count({
-						where: { mealPlan: { householdId } },
-					})
-				: Promise.resolve(0),
-			prisma.recipe.count({ where: { householdId } }),
-		])
+	const [inventoryItems, mealCount, totalRecipeCount] = await Promise.all([
+		prisma.inventoryItem.findMany({ where: { householdId } }),
+		isProActive
+			? prisma.meal.count({
+					where: { mealPlan: { householdId } },
+				})
+			: Promise.resolve(0),
+		prisma.recipe.count({ where: { householdId } }),
+	])
 
 	const hasInventory = inventoryItems.length > 0
 	const useMatchSort = hasInventory && !explicitSort
@@ -206,7 +205,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		onboarding: {
 			hasRecipes: totalRecipeCount > 0,
 			hasInventory,
-			hasMealPlan: mealPlanEntryCount > 0,
+			hasMealPlan: mealCount > 0,
 		},
 		matchData,
 	}

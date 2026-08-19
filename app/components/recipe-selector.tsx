@@ -1,10 +1,9 @@
 import { Img } from 'openimg/react'
 import { useState } from 'react'
-import { Form, Link } from 'react-router'
+import { Link } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
-import { type MealType, serializeDate } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 
@@ -20,11 +19,12 @@ export type RecipeSelectorRecipe = {
 
 type RecipeSelectorProps = {
 	recipes: RecipeSelectorRecipe[]
+	/** Weeknights (Mon-Thu) sort by cook time; the date only drives that. */
 	date: Date
-	mealType: MealType
 	excludeRecipeIds?: string[]
 	onCancel: () => void
-	onSelect?: () => void
+	/** Callback-based like the Menu RecipePicker — the parent owns the submit. */
+	onPick: (recipe: RecipeSelectorRecipe) => void
 }
 
 /**
@@ -84,10 +84,9 @@ function sortByTime(a: RecipeSelectorRecipe, b: RecipeSelectorRecipe): number {
 export function RecipeSelector({
 	recipes,
 	date,
-	mealType,
 	excludeRecipeIds = [],
 	onCancel,
-	onSelect,
+	onPick,
 }: RecipeSelectorProps) {
 	const [search, setSearch] = useState('')
 
@@ -147,9 +146,7 @@ export function RecipeSelector({
 									<RecipeOption
 										key={recipe.id}
 										recipe={recipe}
-										date={date}
-										mealType={mealType}
-										onSelect={onSelect}
+										onPick={onPick}
 									/>
 								))}
 							</>
@@ -165,9 +162,7 @@ export function RecipeSelector({
 									<RecipeOption
 										key={recipe.id}
 										recipe={recipe}
-										date={date}
-										mealType={mealType}
-										onSelect={onSelect}
+										onPick={onPick}
 									/>
 								))}
 							</>
@@ -181,27 +176,19 @@ export function RecipeSelector({
 
 function RecipeOption({
 	recipe,
-	date,
-	mealType,
-	onSelect,
+	onPick,
 }: {
 	recipe: RecipeSelectorRecipe
-	date: Date
-	mealType: MealType
-	onSelect?: () => void
+	onPick: (recipe: RecipeSelectorRecipe) => void
 }) {
 	const totalTime = getRecipeTotalTime(recipe)
 
 	return (
-		<Form method="POST" onSubmit={onSelect}>
-			<input type="hidden" name="intent" value="assign" />
-			<input type="hidden" name="date" value={serializeDate(date)} />
-			<input type="hidden" name="mealType" value={mealType} />
-			<input type="hidden" name="recipeId" value={recipe.id} />
-			<button
-				type="submit"
-				className="hover:bg-muted/50 flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors"
-			>
+		<button
+			type="button"
+			onClick={() => onPick(recipe)}
+			className="hover:bg-muted/50 flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors"
+		>
 				<RecipeThumb title={recipe.title} image={recipe.image} />
 				<div className="flex min-w-0 flex-1 items-center justify-between gap-2">
 					<p className="min-w-0 truncate text-sm font-medium">
@@ -220,9 +207,8 @@ function RecipeOption({
 								{totalTime}m
 							</span>
 						)}
-					</span>
-				</div>
-			</button>
-		</Form>
+				</span>
+			</div>
+		</button>
 	)
 }

@@ -46,16 +46,31 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const mealPlan = await prisma.mealPlan.findUniqueOrThrow({
 		where: { householdId_weekStart: { householdId, weekStart } },
 		include: {
-			entries: {
+			// The planner reads Meal parents and ordered items (#105); legacy
+			// MealPlanEntry rows are mirror-only until #106 removes them. Within a
+			// day the explicit manual order is authoritative — createdAt/id only
+			// break ties from concurrent adds.
+			meals: {
+				orderBy: [
+					{ date: 'asc' },
+					{ order: 'asc' },
+					{ createdAt: 'asc' },
+					{ id: 'asc' },
+				],
 				include: {
-					recipe: {
+					recipeItems: {
+						orderBy: { order: 'asc' },
 						include: {
-							// ingredients intentionally omitted — the calendar/slot card
-							// only render recipe id/title/servings/time/image, never
-							// ingredients. (This is the hot path: it runs on every load of
-							// an existing week's plan, so the over-fetch was shipped on the
-							// wire for every planned entry.)
-							image: { select: { objectKey: true } },
+							recipe: {
+								select: {
+									id: true,
+									title: true,
+									servings: true,
+									prepTime: true,
+									cookTime: true,
+									image: { select: { objectKey: true } },
+								},
+							},
 						},
 					},
 				},
@@ -80,60 +95,67 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const weekDays = getWeekDays(weekStart)
 
+	const meals = mealPlan.meals.map((meal) => ({
+		id: meal.id,
+		dateStr: serializeDate(meal.date),
+		label: meal.label,
+		servingAt: meal.servingAt?.toISOString() ?? null,
+		servingTimeZone: meal.servingTimeZone,
+		genericText: meal.genericText,
+		completed: meal.completed,
+		guestCount: meal.guestCount,
+		items: meal.recipeItems.map((item) => ({
+			id: item.id,
+			recipeTitle: item.recipeTitle,
+			scaleMultiplier: item.scaleMultiplier,
+			cooked: item.cooked,
+			recipe: item.recipe,
+		})),
+	}))
+
 	// Tonight banner data (only for current week)
 	const isCurrentWeek =
 		serializeDate(weekStart) === serializeDate(getCurrentWeekStart())
-	let tonightEntries: Array<{
-		id: string
+	let tonight: {
+		label: string | null
 		recipe: {
 			id: string
 			title: string
 			prepTime: number | null
 			cookTime: number | null
-			servings: number | null
+			servings: number
 			image: { objectKey: string } | null
 		}
-		mealType: string
-		servings: number | null
-	}> = []
+		scaleMultiplier: number
+		remainingCount: number
+	} | null = null
 
 	if (isCurrentWeek) {
 		const today = new Date()
-		const hour = today.getHours()
-		// Local-date string, NOT serializeDate(today): stored entry dates encode
+		// Local-date string, NOT serializeDate(today): stored Meal dates encode
 		// their semantic day in UTC fields, but "today" is the user's local date
 		// (same cross-domain convention as isToday). serializeDate(new Date())
 		// would shift the banner to the wrong day near midnight in UTC+ zones.
 		const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
-		// Determine which meal type is "next" based on time of day
-		const mealTypeOrder = ['breakfast', 'lunch', 'dinner', 'snack']
-		const currentMealIndex = hour < 11 ? 0 : hour < 15 ? 1 : hour < 21 ? 2 : 3
-
-		// Sort entries so the next meal type comes first, then later ones in order
-		function mealTypeSortKey(mealType: string) {
-			const idx = mealTypeOrder.indexOf(mealType)
-			if (idx === -1) return 999
-			// Rotate so currentMealIndex comes first
-			return (idx - currentMealIndex + 4) % 4
+		// First uncooked Recipe item in the day's manual Meal order — the order
+		// the user set is the plan for the day, so the banner follows it.
+		const todaysUncooked = meals
+			.filter((meal) => meal.dateStr === todayStr)
+			.flatMap((meal) =>
+				meal.items
+					.filter((item) => !item.cooked && item.recipe)
+					.map((item) => ({ meal, item })),
+			)
+		const first = todaysUncooked[0]
+		if (first) {
+			tonight = {
+				label: first.meal.label,
+				recipe: first.item.recipe!,
+				scaleMultiplier: first.item.scaleMultiplier,
+				remainingCount: todaysUncooked.length - 1,
+			}
 		}
-
-		tonightEntries = mealPlan.entries
-			.filter((e) => serializeDate(new Date(e.date)) === todayStr && !e.cooked)
-			.map((e) => ({
-				id: e.id,
-				recipe: {
-					id: e.recipe.id,
-					title: e.recipe.title,
-					prepTime: e.recipe.prepTime,
-					cookTime: e.recipe.cookTime,
-					servings: e.recipe.servings,
-					image: e.recipe.image,
-				},
-				mealType: e.mealType,
-				servings: e.servings,
-			}))
-			.sort((a, b) => mealTypeSortKey(a.mealType) - mealTypeSortKey(b.mealType))
 	}
 
 	const shoppingListItemCount = await prisma.shoppingListItem.count({
@@ -142,26 +164,21 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	// "Copy Last Week" on empty weeks (C3) needs to know there's something
 	// to copy — the copy-week resource 400s on an empty source week.
-	const prevWeekEntryCount = await prisma.mealPlanEntry.count({
+	const prevWeekMealCount = await prisma.meal.count({
 		where: {
 			mealPlan: { householdId, weekStart: getPreviousWeek(weekStart) },
 		},
 	})
 
 	return {
-		// `mealPlan` itself is not returned — the component reads `entries`
-		// (mapped below); returning the whole object duplicated every entry on the wire.
-		entries: mealPlan.entries.map((entry) => ({
-			...entry,
-			date: new Date(entry.date),
-		})),
+		meals,
 		recipes,
 		weekDays,
 		weekStart: serializeDate(weekStart),
 		isCurrentWeek,
-		tonightEntries,
+		tonight,
 		shoppingListItemCount,
-		prevWeekHasEntries: prevWeekEntryCount > 0,
+		prevWeekHasMeals: prevWeekMealCount > 0,
 		isProActive,
 	}
 }
@@ -170,13 +187,13 @@ export const action = createPlanAction(prisma)
 
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const {
-		entries,
+		meals,
 		recipes,
 		weekDays,
 		weekStart,
-		tonightEntries,
+		tonight,
 		shoppingListItemCount,
-		prevWeekHasEntries,
+		prevWeekHasMeals,
 		isProActive,
 	} = loaderData
 
@@ -187,6 +204,14 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const weekSunday = addDaysUTC(parseDate(weekStart), 6)
 	const isWeekPast = isPast(weekSunday)
 	const [showSuggest, setShowSuggest] = useState(false)
+
+	const plannedRecipeIds = [
+		...new Set(
+			meals.flatMap((meal) =>
+				meal.items.flatMap((item) => item.recipe?.id ?? []),
+			),
+		),
+	]
 
 	return (
 		<div className="pb-20 md:pb-6">
@@ -205,7 +230,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 								Suggest Meals
 							</Button>
 						)}
-						{isProActive && entries.length > 0 && (
+						{isProActive && meals.length > 0 && (
 							<Form method="POST" action="/resources/meal-plan-copy-week">
 								<input type="hidden" name="weekStart" value={weekStart} />
 								<Button type="submit" variant="outline" size="sm">
@@ -218,8 +243,8 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						    the copy-week resource copies weekStart → weekStart+1, so
 						    posting the previous week fills this one */}
 						{isProActive &&
-							entries.length === 0 &&
-							prevWeekHasEntries &&
+							meals.length === 0 &&
+							prevWeekHasMeals &&
 							!isWeekPast && (
 								<Form method="POST" action="/resources/meal-plan-copy-week">
 									<input type="hidden" name="weekStart" value={prevWeek} />
@@ -260,11 +285,11 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container-grid">
-				{/* Tonight banner (current week with uncooked meals planned today) */}
-				{tonightEntries.length > 0 && <TodayBanner entries={tonightEntries} />}
+				{/* Tonight banner (current week with an uncooked meal planned today) */}
+				{tonight && <TodayBanner tonight={tonight} />}
 
 				{/* Empty week */}
-				{entries.length === 0 && (
+				{meals.length === 0 && (
 					<div className="mb-6 py-6 text-center">
 						<h2 className="font-serif text-xl">Plan your week</h2>
 						<p className="text-muted-foreground mx-auto mt-1.5 max-w-md text-sm">
@@ -289,11 +314,11 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 				{/* Calendar */}
 				<MealPlanCalendar
 					weekDays={weekDays}
-					entries={entries}
+					meals={meals}
 					recipes={recipes}
 				/>
 
-				{entries.length > 0 && shoppingListItemCount === 0 && (
+				{meals.length > 0 && shoppingListItemCount === 0 && (
 					<OnboardingNudge
 						nudgeId="generate-shopping-list"
 						icon="cart"
@@ -310,7 +335,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 				<SuggestMealsModal
 					weekStart={weekStart}
 					recipes={recipes}
-					existingEntries={entries}
+					plannedRecipeIds={plannedRecipeIds}
 					onClose={() => setShowSuggest(false)}
 				/>
 			)}

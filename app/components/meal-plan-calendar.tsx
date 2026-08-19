@@ -105,7 +105,9 @@ function AddMealRow({
 
 	return (
 		<div className="relative">
-			<div className="bg-card animate-fade-up-reveal shadow-warm-lg rounded-lg border p-3">
+			{/* In flow on phones (an overlay would cover the next day's cards);
+			    floated on desktop so the 4+3 day grid doesn't reflow while open. */}
+			<div className="bg-card animate-fade-up-reveal shadow-warm-lg rounded-lg border p-3 md:absolute md:top-0 md:right-0 md:left-0 md:z-20 md:min-w-[280px]">
 				{/* Optional familiar label — a Meal without one stays unlabeled (#98) */}
 				<div className="mb-2 flex flex-wrap gap-1">
 					{MEAL_TYPES.map((type) => (

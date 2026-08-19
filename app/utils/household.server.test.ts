@@ -300,39 +300,65 @@ describe('acceptInvite', () => {
 		])
 	})
 
-	test('sole member: overlapping meal-plan weeks are merged', async () => {
+	test('sole member: colliding meal-plan weeks append the moved Meals after each day, whole and unmerged', async () => {
 		const owner = await setupUserWithRecipe('Owner Dinner')
 		const joiner = await setupUserWithRecipe('Joiner Dinner')
 		const weekStart = new Date('2026-02-02T00:00:00.000Z')
 
-		await Promise.all([
-			prisma.mealPlan.create({
-				data: {
-					householdId: owner.householdId,
-					weekStart,
-					entries: {
-						create: {
-							date: weekStart,
-							mealType: 'dinner',
-							recipeId: owner.recipeId,
+		await prisma.mealPlan.create({
+			data: {
+				householdId: owner.householdId,
+				weekStart,
+				meals: {
+					create: {
+						date: weekStart,
+						order: 0,
+						label: 'dinner',
+						recipeItems: {
+							create: {
+								order: 0,
+								recipeId: owner.recipeId,
+								recipeTitle: 'Owner Dinner',
+								scaleMultiplier: 1,
+							},
 						},
 					},
 				},
-			}),
-			prisma.mealPlan.create({
-				data: {
-					householdId: joiner.householdId,
-					weekStart,
-					entries: {
-						create: {
+			},
+		})
+		await prisma.mealPlan.create({
+			data: {
+				householdId: joiner.householdId,
+				weekStart,
+				meals: {
+					create: [
+						// Same day, even the same Recipe elsewhere: Meals have no slot
+						// identity, so nothing is merged or second-guessed — the moved
+						// Meal survives whole with its cooked state and multiplier.
+						{
 							date: weekStart,
-							mealType: 'dinner',
-							recipeId: joiner.recipeId,
+							order: 0,
+							label: 'dinner',
+							recipeItems: {
+								create: {
+									order: 0,
+									recipeId: joiner.recipeId,
+									recipeTitle: 'Joiner Dinner',
+									scaleMultiplier: 2.5,
+									cooked: true,
+								},
+							},
 						},
-					},
+						{
+							date: weekStart,
+							order: 1,
+							genericText: 'Leftovers',
+							completed: true,
+						},
+					],
 				},
-			}),
-		])
+			},
+		})
 
 		const invite = await createHouseholdInvite(owner.householdId, owner.id)
 		await acceptInvite(invite.token, joiner.id)
@@ -344,64 +370,35 @@ describe('acceptInvite', () => {
 					weekStart,
 				},
 			},
-			include: { entries: true },
-		})
-		expect(mergedPlan.entries.map((entry) => entry.recipeId).sort()).toEqual(
-			[owner.recipeId, joiner.recipeId].sort(),
-		)
-	})
-
-	test('sole member: duplicate entries merge into the existing target entry', async () => {
-		const owner = await setupUserWithRecipe('Shared Dinner')
-		const joiner = await setupUserWithRecipe('Joiner Dinner')
-		const weekStart = new Date('2026-02-02T00:00:00.000Z')
-		const targetPlan = await prisma.mealPlan.create({
-			data: {
-				householdId: owner.householdId,
-				weekStart,
-				entries: {
-					create: {
-						date: weekStart,
-						mealType: 'dinner',
-						recipeId: owner.recipeId,
-						servings: 2,
-						cooked: false,
-					},
-				},
-			},
-			include: { entries: true },
-		})
-		await prisma.mealPlan.create({
-			data: {
-				householdId: joiner.householdId,
-				weekStart,
-				entries: {
-					create: {
-						date: weekStart,
-						mealType: 'dinner',
-						recipeId: owner.recipeId,
-						servings: 6,
-						cooked: true,
-					},
+			include: {
+				meals: {
+					orderBy: { order: 'asc' },
+					include: { recipeItems: true },
 				},
 			},
 		})
-
-		const invite = await createHouseholdInvite(owner.householdId, owner.id)
-		await acceptInvite(invite.token, joiner.id)
-
-		const mergedPlan = await prisma.mealPlan.findUniqueOrThrow({
-			where: { id: targetPlan.id },
-			include: { entries: true },
-		})
-		expect(mergedPlan.entries).toHaveLength(1)
-		expect(mergedPlan.entries[0]).toEqual(
-			expect.objectContaining({
-				id: targetPlan.entries[0]!.id,
-				cooked: true,
-				servings: 6,
+		expect(
+			mergedPlan.meals.map((meal) => [
+				meal.order,
+				meal.label,
+				meal.genericText,
+				meal.recipeItems.map((item) => [
+					item.recipeId,
+					item.scaleMultiplier,
+					item.cooked,
+				]),
+			]),
+		).toEqual([
+			[0, 'dinner', null, [[owner.recipeId, 1, false]]],
+			[1, 'dinner', null, [[joiner.recipeId, 2.5, true]]],
+			[2, null, 'Leftovers', []],
+		])
+		// The superseded source plan is gone with its household.
+		expect(
+			await prisma.mealPlan.count({
+				where: { householdId: joiner.householdId },
 			}),
-		)
+		).toBe(0)
 	})
 
 	test('sole member: non-overlapping meal plans are moved without rebuilding', async () => {
@@ -412,15 +409,23 @@ describe('acceptInvite', () => {
 			data: {
 				householdId: joiner.householdId,
 				weekStart,
-				entries: {
+				meals: {
 					create: {
 						date: weekStart,
-						mealType: 'dinner',
-						recipeId: joiner.recipeId,
+						order: 0,
+						label: 'dinner',
+						recipeItems: {
+							create: {
+								order: 0,
+								recipeId: joiner.recipeId,
+								recipeTitle: 'Joiner Dinner',
+								scaleMultiplier: 1,
+							},
+						},
 					},
 				},
 			},
-			include: { entries: true },
+			include: { meals: { include: { recipeItems: true } } },
 		})
 
 		const invite = await createHouseholdInvite(owner.householdId, owner.id)
@@ -428,14 +433,17 @@ describe('acceptInvite', () => {
 
 		const movedPlan = await prisma.mealPlan.findUniqueOrThrow({
 			where: { id: originalPlan.id },
-			include: { entries: true },
+			include: { meals: { include: { recipeItems: true } } },
 		})
 		expect(movedPlan.householdId).toBe(owner.householdId)
 		expect(movedPlan.createdAt).toEqual(originalPlan.createdAt)
-		expect(movedPlan.entries).toHaveLength(1)
-		expect(movedPlan.entries[0]!.id).toBe(originalPlan.entries[0]!.id)
-		expect(movedPlan.entries[0]!.createdAt).toEqual(
-			originalPlan.entries[0]!.createdAt,
+		expect(movedPlan.meals).toHaveLength(1)
+		expect(movedPlan.meals[0]!.id).toBe(originalPlan.meals[0]!.id)
+		expect(movedPlan.meals[0]!.createdAt).toEqual(
+			originalPlan.meals[0]!.createdAt,
+		)
+		expect(movedPlan.meals[0]!.recipeItems[0]!.id).toBe(
+			originalPlan.meals[0]!.recipeItems[0]!.id,
 		)
 	})
 

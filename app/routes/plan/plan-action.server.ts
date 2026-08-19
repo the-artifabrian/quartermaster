@@ -53,7 +53,6 @@ export function createPlanAction(
 			invariantResponse(typeof itemId === 'string', 'Item ID is required')
 			const item = await db.mealRecipeItem.findFirst({
 				where: { id: itemId, meal: { mealPlan: { householdId } } },
-				include: { recipe: { select: { servings: true } } },
 			})
 			invariantResponse(item, 'Item not found', { status: 404 })
 			return item
@@ -147,7 +146,10 @@ export function createPlanAction(
 					multiplierError: parsed.error.issues[0]?.message ?? 'Invalid value',
 				}
 			}
-			await setItemMultiplier(db, { item, scaleMultiplier: parsed.data })
+			await setItemMultiplier(db, {
+				itemId: item.id,
+				scaleMultiplier: parsed.data,
+			})
 			return { status: 'success' as const }
 		}
 

@@ -95,6 +95,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const prevWeek = getPreviousWeek(currentWeek)
 	const nextWeek = getNextWeek(currentWeek)
 
+	// A week counts as planned when it has at least one Recipe item — text-only
+	// Meals have no Shopping behavior, so a week of only "Leftovers" offers
+	// nothing to generate from.
 	const mealPlans = await prisma.mealPlan.findMany({
 		where: {
 			householdId,
@@ -102,7 +105,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		},
 		select: {
 			weekStart: true,
-			_count: { select: { entries: true } },
+			meals: {
+				where: { recipeItems: { some: {} } },
+				select: { id: true },
+				take: 1,
+			},
 		},
 	})
 
@@ -110,7 +117,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		.filter((week) =>
 			mealPlans.some(
 				(mp) =>
-					mp.weekStart.getTime() === week.getTime() && mp._count.entries > 0,
+					mp.weekStart.getTime() === week.getTime() && mp.meals.length > 0,
 			),
 		)
 		.map((week) => ({
@@ -167,15 +174,22 @@ export async function action({ request }: Route.ActionArgs) {
 			typeof weekStartParam === 'string' && weekStartParam
 				? getWeekStart(parseDate(weekStartParam))
 				: getCurrentWeekStart()
+		// Week-wide generation reads Meal Recipe items (#106): uncooked items
+		// scale by their stored batch multiplier. Missing cards (recipeId null)
+		// produce no fresh demand, and text-only Meals have no items at all.
 		const mealPlan = await prisma.mealPlan.findUnique({
 			where: { householdId_weekStart: { householdId, weekStart } },
 			include: {
-				entries: {
-					where: { cooked: false },
+				meals: {
 					include: {
-						recipe: {
+						recipeItems: {
+							where: { cooked: false },
 							include: {
-								ingredients: true,
+								recipe: {
+									include: {
+										ingredients: true,
+									},
+								},
 							},
 						},
 					},
@@ -187,10 +201,13 @@ export async function action({ request }: Route.ActionArgs) {
 			status: 404,
 		})
 
-		const recipeEntries = mealPlan.entries.map((entry) => ({
-			recipe: entry.recipe,
-			servings: entry.servings,
-		}))
+		const recipeEntries = mealPlan.meals
+			.flatMap((meal) => meal.recipeItems)
+			.flatMap((item) =>
+				item.recipe
+					? [{ recipe: item.recipe, scaleMultiplier: item.scaleMultiplier }]
+					: [],
+			)
 		const rawItems = generateShoppingListFromRecipes(recipeEntries)
 
 		// Annotate items with inventory match info (staples still stripped)

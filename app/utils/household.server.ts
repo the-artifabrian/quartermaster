@@ -141,91 +141,82 @@ export async function acceptInvite(token: string, userId: string) {
 				where: { householdId: currentHouseholdId },
 				data: { householdId: targetHouseholdId },
 			})
-			// Move non-overlapping weeks in one statement. Their plan and entry IDs,
-			// timestamps, and relationships stay intact.
-			await tx.$executeRaw`
-				UPDATE "MealPlan" AS "source"
-				SET "householdId" = ${targetHouseholdId}
-				WHERE "source"."householdId" = ${currentHouseholdId}
-					AND NOT EXISTS (
-						SELECT 1
-						FROM "MealPlan" AS "target"
-						WHERE "target"."householdId" = ${targetHouseholdId}
-							AND "target"."weekStart" = "source"."weekStart"
-					)
-			`
-
-			// Only colliding weeks remain in the old household. Merge each one with
-			// set-based entry updates, then remove the superseded source plans.
-			const overlappingPlans = await tx.mealPlan.findMany({
-				where: { householdId: currentHouseholdId },
-				select: { id: true, weekStart: true },
-			})
-			for (const sourcePlan of overlappingPlans) {
-				const targetPlan = await tx.mealPlan.findUniqueOrThrow({
+			// Week plans move whole (#106): a non-colliding week just changes
+			// household; a colliding week re-parents its Meals into the target
+			// plan, appended after each day's existing Meals — like import does —
+			// so nothing is merged away and no cooked state or multiplier is
+			// second-guessed. Week matching happens in JS because raw SQL equality
+			// on `weekStart` is unsound across the column's two storage eras
+			// (INTEGER epoch-ms vs TEXT ISO); Prisma reads both correctly.
+			const [sourcePlans, targetPlans] = await Promise.all([
+				tx.mealPlan.findMany({
+					where: { householdId: currentHouseholdId },
+					select: { id: true, weekStart: true },
+				}),
+				tx.mealPlan.findMany({
+					where: { householdId: targetHouseholdId },
+					select: { id: true, weekStart: true },
+					// Deterministic fallback order when the household holds same-week
+					// twins from the two storage eras: oldest first.
+					orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+				}),
+			])
+			for (const sourcePlan of sourcePlans) {
+				// Same precedence as ensureMealPlan, so Meals merge into the plan
+				// the planner will actually resolve: the current-format row when
+				// one exists, otherwise the oldest same-instant plan.
+				const directTarget = await tx.mealPlan.findUnique({
 					where: {
 						householdId_weekStart: {
 							householdId: targetHouseholdId,
 							weekStart: sourcePlan.weekStart,
 						},
 					},
+					select: { id: true },
 				})
-				await tx.$executeRaw`
-					UPDATE "MealPlanEntry" AS "targetEntry"
-					SET
-						"cooked" = MAX(
-							"targetEntry"."cooked",
-							(
-								SELECT "sourceEntry"."cooked"
-								FROM "MealPlanEntry" AS "sourceEntry"
-								WHERE "sourceEntry"."mealPlanId" = ${sourcePlan.id}
-									AND "sourceEntry"."date" = "targetEntry"."date"
-									AND "sourceEntry"."mealType" = "targetEntry"."mealType"
-									AND "sourceEntry"."recipeId" = "targetEntry"."recipeId"
-							)
-						),
-						"servings" = COALESCE(
-							(
-								SELECT "sourceEntry"."servings"
-								FROM "MealPlanEntry" AS "sourceEntry"
-								WHERE "sourceEntry"."mealPlanId" = ${sourcePlan.id}
-									AND "sourceEntry"."date" = "targetEntry"."date"
-									AND "sourceEntry"."mealType" = "targetEntry"."mealType"
-									AND "sourceEntry"."recipeId" = "targetEntry"."recipeId"
-							),
-							"targetEntry"."servings"
-						)
-					WHERE "targetEntry"."mealPlanId" = ${targetPlan.id}
-						AND EXISTS (
-							SELECT 1
-							FROM "MealPlanEntry" AS "sourceEntry"
-							WHERE "sourceEntry"."mealPlanId" = ${sourcePlan.id}
-								AND "sourceEntry"."date" = "targetEntry"."date"
-								AND "sourceEntry"."mealType" = "targetEntry"."mealType"
-								AND "sourceEntry"."recipeId" = "targetEntry"."recipeId"
-						)
-				`
-				await tx.$executeRaw`
-					DELETE FROM "MealPlanEntry" AS "sourceEntry"
-					WHERE "sourceEntry"."mealPlanId" = ${sourcePlan.id}
-						AND EXISTS (
-							SELECT 1
-							FROM "MealPlanEntry" AS "targetEntry"
-							WHERE "targetEntry"."mealPlanId" = ${targetPlan.id}
-								AND "targetEntry"."date" = "sourceEntry"."date"
-								AND "targetEntry"."mealType" = "sourceEntry"."mealType"
-								AND "targetEntry"."recipeId" = "sourceEntry"."recipeId"
-						)
-				`
-				await tx.$executeRaw`
-					UPDATE "MealPlanEntry"
-					SET "mealPlanId" = ${targetPlan.id}
-					WHERE "mealPlanId" = ${sourcePlan.id}
-				`
+				const targetPlanId =
+					directTarget?.id ??
+					targetPlans.find(
+						(plan) =>
+							plan.weekStart.getTime() === sourcePlan.weekStart.getTime(),
+					)?.id
+				if (!targetPlanId) {
+					await tx.mealPlan.update({
+						where: { id: sourcePlan.id },
+						data: { householdId: targetHouseholdId },
+					})
+					continue
+				}
+				const [sourceMeals, targetMeals] = await Promise.all([
+					tx.meal.findMany({
+						where: { mealPlanId: sourcePlan.id },
+						orderBy: [{ date: 'asc' }, { order: 'asc' }, { id: 'asc' }],
+						select: { id: true, date: true },
+					}),
+					tx.meal.findMany({
+						where: { mealPlanId: targetPlanId },
+						select: { date: true, order: true },
+					}),
+				])
+				const nextOrderByDay = new Map<number, number>()
+				for (const meal of targetMeals) {
+					const day = meal.date.getTime()
+					nextOrderByDay.set(
+						day,
+						Math.max(nextOrderByDay.get(day) ?? 0, meal.order + 1),
+					)
+				}
+				for (const meal of sourceMeals) {
+					const day = meal.date.getTime()
+					const order = nextOrderByDay.get(day) ?? 0
+					nextOrderByDay.set(day, order + 1)
+					await tx.meal.update({
+						where: { id: meal.id },
+						data: { mealPlanId: targetPlanId, order },
+					})
+				}
+				await tx.mealPlan.delete({ where: { id: sourcePlan.id } })
 			}
-			await tx.mealPlan.deleteMany({
-				where: { householdId: currentHouseholdId },
-			})
 			await tx.shoppingList.updateMany({
 				where: { householdId: currentHouseholdId },
 				data: { householdId: targetHouseholdId },

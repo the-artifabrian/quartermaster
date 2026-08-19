@@ -48,11 +48,19 @@ test('Shopping list flow: generate → verify items → add manual → check →
 		data: {
 			householdId: household.id,
 			weekStart,
-			entries: {
+			meals: {
 				create: {
 					date: weekStart,
-					mealType: 'dinner',
-					recipeId: recipe.id,
+					order: 0,
+					label: 'dinner',
+					recipeItems: {
+						create: {
+							order: 0,
+							recipeId: recipe.id,
+							recipeTitle: recipe.title,
+							scaleMultiplier: 1,
+						},
+					},
 				},
 			},
 		},

@@ -26,7 +26,11 @@ type RecipeWithIngredients = Recipe & {
 
 type RecipeEntry = {
 	recipe: RecipeWithIngredients
-	servings?: number | null
+	/**
+	 * Positive decimal batches of the Recipe's stored ingredient list — the
+	 * Meal item's stored scale multiplier (#98). Absent means one batch.
+	 */
+	scaleMultiplier?: number | null
 }
 
 export type ShoppingListItemInput = {
@@ -81,9 +85,8 @@ export function generateShoppingListFromRecipes(
 	>()
 
 	for (const entry of entries) {
-		const { recipe, servings } = entry
-		const ratio =
-			servings && recipe.servings > 0 ? servings / recipe.servings : 1
+		const { recipe, scaleMultiplier } = entry
+		const ratio = scaleMultiplier && scaleMultiplier > 0 ? scaleMultiplier : 1
 
 		for (const ingredient of recipe.ingredients) {
 			if (ingredient.isHeading) continue
@@ -94,10 +97,7 @@ export function generateShoppingListFromRecipes(
 			let effectiveName = ingredient.name
 			let effectiveAmount = ingredient.amount
 			let effectiveUnit = ingredient.unit
-			if (
-				!effectiveAmount &&
-				/^(?:~?\d|[½⅓⅔¼¾⅛⅜⅝⅞])/.test(effectiveName)
-			) {
+			if (!effectiveAmount && /^(?:~?\d|[½⅓⅔¼¾⅛⅜⅝⅞])/.test(effectiveName)) {
 				const reparsed = parseIngredient(effectiveName)
 				if (reparsed?.name && reparsed?.amount) {
 					effectiveName = reparsed.name
@@ -114,7 +114,11 @@ export function generateShoppingListFromRecipes(
 			const normalizedName = getCanonicalIngredientName(effectiveName)
 
 			// Scale the amount by the serving ratio
-			const scaledAmount = scaleAmountString(effectiveAmount, ratio, effectiveUnit)
+			const scaledAmount = scaleAmountString(
+				effectiveAmount,
+				ratio,
+				effectiveUnit,
+			)
 
 			if (ingredientMap.has(normalizedName)) {
 				ingredientMap.get(normalizedName)!.quantities.push({

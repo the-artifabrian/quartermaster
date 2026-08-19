@@ -64,11 +64,19 @@ async function setupMealPlanWithRecipe(userId: string, householdId: string) {
 		data: {
 			householdId,
 			weekStart,
-			entries: {
+			meals: {
 				create: {
 					date: weekStart,
-					mealType: 'dinner',
-					recipeId: recipe.id,
+					order: 0,
+					label: 'dinner',
+					recipeItems: {
+						create: {
+							order: 0,
+							recipeId: recipe.id,
+							recipeTitle: recipe.title,
+							scaleMultiplier: 1,
+						},
+					},
 				},
 			},
 		},
@@ -190,6 +198,148 @@ describe('shopping list actions', () => {
 		})
 		expect(list!.items.length).toBeGreaterThan(0)
 		expect(list!.items.every((i) => i.source === 'generated')).toBe(true)
+	})
+
+	test('generate reads Meal items: multipliers scale, cooked items and missing cards contribute nothing', async () => {
+		const session = await setupUser()
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Kofta',
+				userId: session.userId,
+				householdId: session.householdId,
+				servings: 4,
+				ingredients: {
+					create: [{ name: 'ground lamb', amount: '500', unit: 'g', order: 0 }],
+				},
+			},
+		})
+		const cookedRecipe = await prisma.recipe.create({
+			data: {
+				title: 'Salad',
+				userId: session.userId,
+				householdId: session.householdId,
+				servings: 2,
+				ingredients: {
+					create: [{ name: 'cucumber', amount: '2', order: 0 }],
+				},
+			},
+		})
+		const weekStart = getCurrentWeekStart()
+		await prisma.mealPlan.create({
+			data: {
+				householdId: session.householdId,
+				weekStart,
+				meals: {
+					create: [
+						{
+							date: weekStart,
+							order: 0,
+							recipeItems: {
+								create: [
+									// 2× batches — the stored multiplier scales directly,
+									// no serving-denominator arithmetic.
+									{
+										order: 0,
+										recipeId: recipe.id,
+										recipeTitle: recipe.title,
+										scaleMultiplier: 2,
+									},
+									// Cooked: no demand.
+									{
+										order: 1,
+										recipeId: cookedRecipe.id,
+										recipeTitle: cookedRecipe.title,
+										scaleMultiplier: 1,
+										cooked: true,
+									},
+									// Missing card (Recipe deleted): no fresh demand.
+									{
+										order: 2,
+										recipeId: null,
+										recipeTitle: 'Retired Recipe',
+										scaleMultiplier: 1,
+									},
+								],
+							},
+						},
+						// Text-only Meal: no Shopping behavior.
+						{
+							date: weekStart,
+							order: 1,
+							genericText: 'Leftovers',
+						},
+					],
+				},
+			},
+		})
+
+		const request = await makeRequest(session, { intent: 'generate' })
+		const result = (await action({ request, ...ACTION_ARGS_BASE })) as {
+			status: string
+		}
+		expect(result.status).toBe('success')
+
+		const list = await prisma.shoppingList.findFirst({
+			where: { userId: session.userId },
+			include: { items: true },
+		})
+		expect(
+			list!.items.map((item) => [item.name, item.quantity, item.unit]),
+		).toEqual([['ground lamb', '1000', 'g']])
+	})
+
+	test('loader offers only weeks whose Meals hold Recipe items', async () => {
+		const session = await setupUser()
+		const weekStart = getCurrentWeekStart()
+		const mealPlan = await prisma.mealPlan.create({
+			data: {
+				householdId: session.householdId,
+				weekStart,
+				meals: {
+					create: [{ date: weekStart, order: 0, genericText: 'Leftovers' }],
+				},
+			},
+		})
+
+		// A week of only text-only Meals has nothing to generate from.
+		const before = await loader({
+			request: await makeLoaderRequest(session),
+			...ACTION_ARGS_BASE,
+		})
+		expect(before.hasMealPlan).toBe(false)
+		expect(before.weeksWithPlans).toEqual([])
+
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Stew',
+				userId: session.userId,
+				householdId: session.householdId,
+				servings: 4,
+				ingredients: { create: [{ name: 'beef', order: 0 }] },
+			},
+		})
+		await prisma.meal.create({
+			data: {
+				mealPlanId: mealPlan.id,
+				date: weekStart,
+				order: 1,
+				recipeItems: {
+					create: {
+						order: 0,
+						recipeId: recipe.id,
+						recipeTitle: recipe.title,
+						scaleMultiplier: 1,
+					},
+				},
+			},
+		})
+
+		const after = await loader({
+			request: await makeLoaderRequest(session),
+			...ACTION_ARGS_BASE,
+		})
+		expect(after.hasMealPlan).toBe(true)
+		expect(after.weeksWithPlans.map((week) => week.isCurrent)).toEqual([true])
 	})
 
 	test('generate replaces previous generated items', async () => {

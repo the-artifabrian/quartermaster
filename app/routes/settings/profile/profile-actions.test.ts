@@ -48,11 +48,19 @@ describe('profile actions', () => {
 					data: {
 						householdId: household.id,
 						weekStart: new Date('2026-02-02T00:00:00.000Z'),
-						entries: {
+						meals: {
 							create: {
 								date: new Date('2026-02-02T00:00:00.000Z'),
-								mealType: 'dinner',
-								recipeId: recipe.id,
+								order: 0,
+								label: 'dinner',
+								recipeItems: {
+									create: {
+										order: 0,
+										recipeId: recipe.id,
+										recipeTitle: 'Survivor Dinner',
+										scaleMultiplier: 1,
+									},
+								},
 							},
 						},
 					},
@@ -97,7 +105,7 @@ describe('profile actions', () => {
 			prisma.mealPlan.findUnique({ where: { id: mealPlan.id } }),
 		).resolves.toEqual(expect.objectContaining({ id: mealPlan.id }))
 		await expect(
-			prisma.mealPlanEntry.count({ where: { mealPlanId: mealPlan.id } }),
+			prisma.meal.count({ where: { mealPlanId: mealPlan.id } }),
 		).resolves.toBe(1)
 	})
 })

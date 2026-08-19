@@ -654,6 +654,17 @@ describe('meal plan actions', () => {
 		// 18:30 CET on the Meal's semantic day = 17:30 UTC.
 		expect(updated.servingAt?.toISOString()).toBe('2026-02-02T17:30:00.000Z')
 
+		// A forged non-clock time is rejected, not rolled over into later days.
+		const forged = await act(session, {
+			intent: 'updateMealDetails',
+			mealId: meal!.id,
+			time: '39:99',
+			timeZone: 'Europe/Berlin',
+		})
+		expect(forged).toMatchObject({ status: 'error' })
+		updated = await prisma.meal.findUniqueOrThrow({ where: { id: meal!.id } })
+		expect(updated.servingAt?.toISOString()).toBe('2026-02-02T17:30:00.000Z')
+
 		// The form always submits every field, so absence clears.
 		await act(session, { intent: 'updateMealDetails', mealId: meal!.id })
 		updated = await prisma.meal.findUniqueOrThrow({ where: { id: meal!.id } })

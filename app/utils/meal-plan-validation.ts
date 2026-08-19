@@ -43,7 +43,9 @@ export const MealDetailsSchema = z
 		label: MealLabelSchema.optional(),
 		time: z
 			.string()
-			.regex(/^\d{1,2}:\d{2}$/, { message: 'Use a time like 18:30' })
+			// Real clock times only — Date.UTC would silently roll "39:99" over
+			// into later days, storing a servingAt off the Meal's semantic date.
+			.regex(/^([01]?\d|2[0-3]):[0-5]\d$/, { message: 'Use a time like 18:30' })
 			.optional(),
 		timeZone: z.string().optional(),
 		guestCount: z.coerce

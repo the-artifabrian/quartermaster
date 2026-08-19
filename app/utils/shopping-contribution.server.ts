@@ -1,8 +1,10 @@
 import { createId } from '@paralleldrive/cuid2'
 import { type PrismaClient } from '#app/generated/prisma/client.ts'
 import { isUniqueConstraintError } from './menu-validation.ts'
-import { getCanonicalIngredientName } from './recipe-matching.server.ts'
-import { type ShoppingDemandLine } from './shopping-demand.server.ts'
+import {
+	demandIdentity,
+	type ShoppingDemandLine,
+} from './shopping-demand.server.ts'
 
 /**
  * Transactional contribution reconciliation — the second internal seam that
@@ -48,7 +50,7 @@ export async function reconcileMealShoppingContributions(
 	// the generator's long-standing rule.
 	const existingRowByCanonical = new Map<string, string>()
 	for (const item of existingItems) {
-		const canonical = getCanonicalIngredientName(item.name)
+		const canonical = demandIdentity(item.name)
 		if (!existingRowByCanonical.has(canonical)) {
 			existingRowByCanonical.set(canonical, item.id)
 		}

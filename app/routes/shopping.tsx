@@ -43,7 +43,10 @@ import {
 	getCanonicalIngredientName,
 	ingredientMatchesAnyInventoryItem,
 } from '#app/utils/recipe-matching.server.ts'
-import { buildShoppingDemand } from '#app/utils/shopping-demand.server.ts'
+import {
+	buildShoppingDemand,
+	demandIdentity,
+} from '#app/utils/shopping-demand.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
 	ShoppingListItemSchema,
@@ -235,13 +238,15 @@ export async function action({ request }: Route.ActionArgs) {
 			},
 		})
 
-		// Dedup against all existing items (checked or not) to avoid visual duplicates
+		// Dedup against all existing items (checked or not) to avoid visual
+		// duplicates — rows are keyed through the module's demand identity so
+		// fallback-identity lines still match their rows.
 		const existingItems = await prisma.shoppingListItem.findMany({
 			where: { listId: shoppingList.id },
 			select: { name: true },
 		})
 		const existingCanonicals = new Set(
-			existingItems.map((i) => getCanonicalIngredientName(i.name)),
+			existingItems.map((i) => demandIdentity(i.name)),
 		)
 		const dedupedItems = lines.filter(
 			(line) => !existingCanonicals.has(line.canonicalName),
@@ -495,7 +500,7 @@ export async function action({ request }: Route.ActionArgs) {
 			select: { name: true },
 		})
 		const existingCanonicals = new Set(
-			existingItems.map((item) => getCanonicalIngredientName(item.name)),
+			existingItems.map((item) => demandIdentity(item.name)),
 		)
 		const newItems = demandLines.filter((line) => {
 			if (existingCanonicals.has(line.canonicalName)) return false

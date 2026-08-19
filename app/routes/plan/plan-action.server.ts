@@ -209,7 +209,8 @@ export function createPlanAction(
 				lines,
 			})
 
-			if (result.createdRowCount > 0 || result.attachedCount > 0) {
+			// Attach-only reconciles change nothing displayed — no event then.
+			if (result.createdRowCount > 0) {
 				void emitHouseholdEvent({
 					type: 'shopping_list_generated',
 					payload: { count: result.createdRowCount },

@@ -49,7 +49,10 @@ import {
 	isStapleIngredient,
 	normalizeIngredientName,
 } from '#app/utils/recipe-matching.server.ts'
-import { buildShoppingDemand } from '#app/utils/shopping-demand.server.ts'
+import {
+	buildShoppingDemand,
+	demandIdentity,
+} from '#app/utils/shopping-demand.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { annotateInventoryMatches } from '#app/utils/shopping-list.server.ts'
@@ -391,9 +394,10 @@ export async function action({ request, params }: Route.ActionArgs) {
 			}),
 		}
 
-		// Deduplicate by canonical name
+		// Deduplicate by the module's demand identity so fallback-identity
+		// lines still match their rows
 		const existingCanonical = new Set(
-			shoppingList.items.map((item) => getCanonicalIngredientName(item.name)),
+			shoppingList.items.map((item) => demandIdentity(item.name)),
 		)
 
 		const newItems = lines.filter(
@@ -427,7 +431,14 @@ export async function action({ request, params }: Route.ActionArgs) {
 			householdId,
 		})
 
-		return { success: true, addedToShoppingList: newItems.length }
+		return {
+			success: true,
+			addedToShoppingList: newItems.length,
+			// Usually-on-hand lines now land pre-checked instead of silently
+			// dropping (#108) — the feedback names them so "Add N missing" adding
+			// more than N rows stays explicable.
+			addedInStock: newItems.filter((line) => line.inStock).length,
+		}
 	}
 
 	return { success: false }

@@ -65,6 +65,19 @@ const HEADING_EXACT =
 const HEADING_PREFIX =
 	/^(?:for the |for |the |quick (?:marinade|sauce|dressing) )/i
 
+/**
+ * Normalized demand identity. Falls back to the trimmed lowercased display
+ * name when canonicalization empties the string (e.g. "medium/small
+ * peaches") — an empty identity would collapse unrelated ingredients into
+ * one false total and collide contribution keys. Every consumer that
+ * compares demand lines against stored Shopping rows must derive the rows'
+ * identity through this same function, or fallback-identity lines can never
+ * match their rows.
+ */
+export function demandIdentity(name: string): string {
+	return getCanonicalIngredientName(name) || name.trim().toLowerCase()
+}
+
 function looksLikeHeading(ingredient: {
 	name: string
 	amount: string | null
@@ -134,7 +147,7 @@ export function buildShoppingDemand({
 				effectiveName = effectiveName.slice(3)
 			}
 
-			const normalizedName = getCanonicalIngredientName(effectiveName)
+			const normalizedName = demandIdentity(effectiveName)
 
 			// Scale the amount by the batch multiplier
 			const scaledAmount = scaleAmountString(
@@ -179,7 +192,7 @@ export function buildShoppingDemand({
 		if (!name) continue
 		lines.push({
 			name,
-			canonicalName: getCanonicalIngredientName(name),
+			canonicalName: demandIdentity(name),
 			quantity: line.quantity?.trim() || null,
 			unit: line.unit?.trim() || null,
 			category: guessCategory(name),

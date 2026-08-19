@@ -484,6 +484,44 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 		expect(await getContributions(session.householdId)).toHaveLength(2)
 	})
 
+	test('a fallback-identity ingredient still matches its existing row on re-add', async () => {
+		const session = await setupUser()
+		// 'medium/small peaches' defeats canonicalization — its demand identity
+		// falls back to the display name and must keep matching the stored row.
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Peach Galette',
+				userId: session.userId,
+				householdId: session.householdId,
+				servings: 4,
+				ingredients: {
+					create: [{ name: 'medium/small peaches', amount: '3', order: 0 }],
+				},
+			},
+		})
+		const meal = await setupMeal(session.householdId, recipe)
+
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+		const result = (await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})) as {
+			status: string
+			shopping: { createdRowCount: number; alreadyContributedCount: number }
+		}
+
+		expect(result.shopping.createdRowCount).toBe(0)
+		expect(result.shopping.alreadyContributedCount).toBe(1)
+		expect(await getShoppingRows(session.householdId)).toHaveLength(1)
+
+		// Week-wide regenerate must not duplicate it either.
+		await runShoppingAction(session, { intent: 'generate' })
+		expect(await getShoppingRows(session.householdId)).toHaveLength(1)
+	})
+
 	test('a Meal in another household is not reachable', async () => {
 		const owner = await setupUser()
 		const stranger = await setupUser()

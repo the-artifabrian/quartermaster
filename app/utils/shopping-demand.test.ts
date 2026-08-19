@@ -172,6 +172,24 @@ describe('buildShoppingDemand — Recipe ingredient batches', () => {
 		expect(lines[0]!.canonicalName).toBe(partner[0]!.canonicalName)
 	})
 
+	test('a name that defeats canonicalization keeps its own identity instead of an empty one', () => {
+		// normalizeIngredientName('medium/small peaches') is '' — unrelated
+		// ingredients must not collapse into one shared empty identity.
+		const lines = buildShoppingDemand({
+			recipeBatches: [
+				batch([
+					{ name: 'medium/small peaches', amount: '3' },
+					{ name: 'red/green chilies', amount: '2' },
+				]),
+			],
+		})
+		expect(lines).toHaveLength(2)
+		expect(lines.map((line) => line.canonicalName).sort()).toEqual([
+			'medium/small peaches',
+			'red/green chilies',
+		])
+	})
+
 	test('scales ingredients by the stored batch multiplier', () => {
 		const lines = buildShoppingDemand({
 			recipeBatches: [batch([{ name: 'flour', amount: '2', unit: 'cups' }], 2)],

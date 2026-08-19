@@ -401,6 +401,98 @@ describe('acceptInvite', () => {
 		).toBe(0)
 	})
 
+	test('sole member: a Menu snapshot Meal moves whole — sections, notes, lines, and source reference survive (#107)', async () => {
+		const owner = await setupUserWithRecipe('Owner Dinner')
+		const joiner = await setupUserWithRecipe('Joiner Dinner')
+		const weekStart = new Date('2026-02-02T00:00:00.000Z')
+
+		// Colliding week so the move exercises the Meal re-parent path — the
+		// snapshot children hang off the Meal and must ride along untouched.
+		await prisma.mealPlan.create({
+			data: { householdId: owner.householdId, weekStart },
+		})
+		const menu = await prisma.menu.create({
+			data: {
+				title: 'Feast',
+				titleKey: 'feast',
+				householdId: joiner.householdId,
+				sections: { create: { name: null, order: 0 } },
+			},
+		})
+		const revision = new Date('2026-02-01T09:00:00.000Z')
+		const joinerPlan = await prisma.mealPlan.create({
+			data: { householdId: joiner.householdId, weekStart },
+		})
+		const meal = await prisma.meal.create({
+			data: {
+				mealPlanId: joinerPlan.id,
+				date: weekStart,
+				order: 0,
+				sourceMenuId: menu.id,
+				sourceMenuRevision: revision,
+			},
+		})
+		const section = await prisma.mealSection.create({
+			data: { mealId: meal.id, name: 'Mains', order: 0 },
+		})
+		await prisma.mealRecipeItem.create({
+			data: {
+				mealId: meal.id,
+				sectionId: section.id,
+				order: 0,
+				recipeId: joiner.recipeId,
+				recipeTitle: 'Joiner Dinner',
+				scaleMultiplier: 2.5,
+				note: 'Two batches',
+			},
+		})
+		await prisma.mealNoteItem.create({
+			data: {
+				mealId: meal.id,
+				sectionId: section.id,
+				order: 1,
+				text: 'Drinks',
+				shoppingLines: {
+					create: [{ name: 'Lemonade', quantity: '2', unit: 'l', order: 0 }],
+				},
+			},
+		})
+
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+		await acceptInvite(invite.token, joiner.id)
+
+		const moved = await prisma.meal.findUniqueOrThrow({
+			where: { id: meal.id },
+			include: {
+				mealPlan: { select: { householdId: true } },
+				sourceMenu: { select: { householdId: true } },
+				sections: true,
+				noteItems: { include: { shoppingLines: true } },
+				recipeItems: true,
+			},
+		})
+		expect(moved.mealPlan.householdId).toBe(owner.householdId)
+		// The source Menu moved with the household, reference intact.
+		expect(moved.sourceMenu?.householdId).toBe(owner.householdId)
+		expect(moved.sourceMenuRevision?.getTime()).toBe(revision.getTime())
+		expect(moved.sections.map((s) => s.name)).toEqual(['Mains'])
+		expect(moved.recipeItems).toMatchObject([
+			{
+				sectionId: section.id,
+				recipeId: joiner.recipeId,
+				recipeTitle: 'Joiner Dinner',
+				scaleMultiplier: 2.5,
+				note: 'Two batches',
+			},
+		])
+		expect(moved.noteItems).toMatchObject([
+			{ sectionId: section.id, order: 1, text: 'Drinks' },
+		])
+		expect(moved.noteItems[0]!.shoppingLines).toMatchObject([
+			{ name: 'Lemonade', quantity: '2', unit: 'l' },
+		])
+	})
+
 	test('sole member: non-overlapping meal plans are moved without rebuilding', async () => {
 		const owner = await setupUserWithRecipe('Owner Dinner')
 		const joiner = await setupUserWithRecipe('Joiner Dinner')

@@ -2,7 +2,7 @@ import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useState } from 'react'
-import { data, Form, Link, redirect } from 'react-router'
+import { data, Form, Link, redirect, useNavigation } from 'react-router'
 import { RecipeThumb } from '#app/components/recipe-selector.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -236,6 +236,10 @@ function AddToPlanPanel({
 		() => Intl.DateTimeFormat().resolvedOptions().timeZone,
 	)
 	const [defaultDate] = useState(todayLocalDateString)
+	// Full-page POST with no server-side dedupe — a double-click would plan
+	// the Menu twice, so the submit locks while the navigation is in flight.
+	const navigation = useNavigation()
+	const submitting = navigation.state !== 'idle'
 
 	return (
 		<Form
@@ -323,9 +327,9 @@ function AddToPlanPanel({
 				<Button type="button" variant="ghost" size="sm" onClick={onCancel}>
 					Cancel
 				</Button>
-				<Button type="submit" size="sm">
+				<Button type="submit" size="sm" disabled={submitting}>
 					<Icon name="calendar" size="sm" />
-					Add to Plan
+					{submitting ? 'Adding…' : 'Add to Plan'}
 				</Button>
 			</div>
 		</Form>

@@ -7,10 +7,8 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import {
-	ensureMealPlan,
-	ensureMealPlanEntry,
-} from '#app/utils/meal-plan.server.ts'
+import { MealLabelSchema } from '#app/utils/meal-plan-validation.ts'
+import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
 import {
 	MIN_FIT_THRESHOLD,
 	createVarietyState,
@@ -18,6 +16,7 @@ import {
 	recordSelection,
 	scoreMealTypeFit,
 } from '#app/utils/meal-suggestion.server.ts'
+import { createRecipeMeal } from '#app/utils/meal.server.ts'
 import { MEAL_PLAN_SUGGESTED } from '#app/utils/posthog-events.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import { matchRecipesWithInventory } from '#app/utils/recipe-matching.server.ts'
@@ -45,11 +44,19 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const weekStart = getWeekStart(parseDate(weekStartStr))
 
 	const [existingPlan, allRecipes, inventoryItems] = await Promise.all([
-		// 1. Existing entries for target week (to exclude already-planned recipes)
+		// 1. Existing Meals for the target week (to exclude already-planned
+		// recipes). Suggestions read/write Meal parents (#105); the slot concept
+		// survives only as the optional label a suggested Meal is filed under.
 		prisma.mealPlan.findUnique({
 			where: { householdId_weekStart: { householdId, weekStart } },
 			include: {
-				entries: { select: { recipeId: true, date: true, mealType: true } },
+				meals: {
+					select: {
+						date: true,
+						label: true,
+						recipeItems: { select: { recipeId: true } },
+					},
+				},
 			},
 		}),
 		// 2. All household recipes with ingredients (for matching)
@@ -67,7 +74,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}),
 	])
 	const plannedRecipeIds = new Set(
-		existingPlan?.entries.map((e) => e.recipeId) ?? [],
+		existingPlan?.meals.flatMap((meal) =>
+			meal.recipeItems.flatMap((item) => item.recipeId ?? []),
+		) ?? [],
 	)
 
 	// Get match results for all recipes
@@ -93,15 +102,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const usedRecipeIds = new Set<string>()
 	const varietyState = createVarietyState()
 
-	// Seed variety state from existing entries for this meal type
+	// Seed variety state from Meals already labeled with this meal type
 	// so suggestions don't duplicate proteins/ingredients already planned
 	const recipeById = new Map(allRecipes.map((r) => [r.id, r]))
 	if (existingPlan) {
-		for (const entry of existingPlan.entries) {
-			if (entry.mealType !== mealType) continue
-			const recipe = recipeById.get(entry.recipeId)
-			if (recipe) {
-				recordSelection(recipe.ingredients, varietyState)
+		for (const meal of existingPlan.meals) {
+			if (meal.label !== mealType) continue
+			for (const item of meal.recipeItems) {
+				const recipe = item.recipeId ? recipeById.get(item.recipeId) : null
+				if (recipe) {
+					recordSelection(recipe.ingredients, varietyState)
+				}
 			}
 		}
 	}
@@ -172,14 +183,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	}
 
-	// Determine which days already have entries for the requested meal type
+	// Determine which days already have a Meal labeled with this meal type
 	const filledDays = new Set<number>()
 	if (existingPlan) {
-		for (const entry of existingPlan.entries) {
-			if (entry.mealType !== mealType) continue
-			const entryDate = new Date(entry.date)
+		for (const meal of existingPlan.meals) {
+			if (meal.label !== mealType) continue
 			const dayOffset = Math.round(
-				(entryDate.getTime() - weekStart.getTime()) / 86_400_000,
+				(new Date(meal.date).getTime() - weekStart.getTime()) / 86_400_000,
 			)
 			if (dayOffset >= 0 && dayOffset < 7) {
 				filledDays.add(dayOffset)
@@ -204,7 +214,11 @@ export async function action({ request }: Route.ActionArgs) {
 
 	const weekStartStr = formData.get('weekStart')
 	invariantResponse(typeof weekStartStr === 'string', 'weekStart is required')
-	const mealType = (formData.get('mealType') as string | null) ?? 'dinner'
+	// The suggested Meals are filed under this familiar label; anything but the
+	// four known labels falls back to dinner rather than minting new ones.
+	const mealType = MealLabelSchema.catch('dinner').parse(
+		formData.get('mealType') ?? 'dinner',
+	)
 
 	const weekStart = getWeekStart(parseDate(weekStartStr))
 
@@ -222,13 +236,19 @@ export async function action({ request }: Route.ActionArgs) {
 		const recipeId = recipeIds[i]
 		if (!recipeId) continue
 
-		const entryDate = addDaysUTC(weekStart, i)
+		const recipe = await prisma.recipe.findFirst({
+			where: { id: recipeId, householdId },
+			select: { id: true, title: true },
+		})
+		if (!recipe) continue
 
-		const result = await ensureMealPlanEntry(prisma, {
+		// One labeled Meal per accepted day; createRecipeMeal dedupes on
+		// (plan, day, label, Recipe) so re-submits don't stack duplicates.
+		const result = await createRecipeMeal(prisma, {
 			mealPlanId: mealPlan.id,
-			date: entryDate,
-			mealType,
-			recipeId,
+			date: addDaysUTC(weekStart, i),
+			label: mealType,
+			recipe,
 		})
 
 		if (result.created) {

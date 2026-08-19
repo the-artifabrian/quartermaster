@@ -86,7 +86,9 @@ test('Shopping → Pantry pipeline: generate, check off, remember for next time'
 	).toBeVisible()
 
 	// 2. Generate from meal plan
-	await page.getByRole('button', { name: /from plan/i }).click()
+	await page
+		.getByRole('button', { name: /generate shopping list from meal plan/i })
+		.click()
 
 	// 3. Verify generated items appear
 	await expect(page.getByText('salmon fillet')).toBeVisible()
@@ -177,7 +179,9 @@ test('Shopping → Pantry pipeline: merges with existing Pantry items', async ({
 
 	// Generate shopping list
 	await page.goto('/shopping')
-	await page.getByRole('button', { name: /from plan/i }).click()
+	await page
+		.getByRole('button', { name: /generate shopping list from meal plan/i })
+		.click()
 
 	// At least ginger should appear (soy sauce may or may not be a staple)
 	await expect(page.getByText('fresh ginger')).toBeVisible()

@@ -73,16 +73,12 @@ const REASON_BADGES: Record<
 export function SuggestMealsModal({
 	weekStart,
 	recipes,
-	existingEntries,
+	plannedRecipeIds,
 	onClose,
 }: {
 	weekStart: string
 	recipes: PickerRecipe[]
-	existingEntries: Array<{
-		date: Date
-		mealType: string
-		recipe: { id: string }
-	}>
+	plannedRecipeIds: string[]
 	onClose: () => void
 }) {
 	const dialogRef = useModal(onClose)
@@ -266,9 +262,10 @@ export function SuggestMealsModal({
 	const selectedRecipeIds = new Set(
 		[...selections.values()].map((s) => s.recipeId),
 	)
-	const plannedRecipeIds = new Set(existingEntries.map((e) => e.recipe.id))
+	const plannedRecipeIdSet = new Set(plannedRecipeIds)
 	const filteredRecipes = recipes.filter((r) => {
-		if (selectedRecipeIds.has(r.id) || plannedRecipeIds.has(r.id)) return false
+		if (selectedRecipeIds.has(r.id) || plannedRecipeIdSet.has(r.id))
+			return false
 		if (pickerSearch) {
 			return r.title.toLowerCase().includes(pickerSearch.toLowerCase())
 		}

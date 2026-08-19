@@ -46,7 +46,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		orderBy: [{ name: 'asc' }],
 	})
 
-	const mealPlanEntryCount = await prisma.mealPlanEntry.count({
+	const mealCount = await prisma.meal.count({
 		where: { mealPlan: { householdId } },
 	})
 
@@ -54,7 +54,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		items,
 		inventoryUsage,
 		isProActive,
-		mealPlanEntryCount,
+		mealCount,
 	}
 }
 
@@ -297,7 +297,7 @@ export async function action({ request }: Route.ActionArgs) {
 const SEARCH_THRESHOLD = 15
 
 export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
-	const { items, inventoryUsage, isProActive, mealPlanEntryCount } = loaderData
+	const { items, inventoryUsage, isProActive, mealCount } = loaderData
 
 	const [search, setSearch] = useState('')
 	const [fabOpen, setFabOpen] = useState(false)
@@ -404,7 +404,7 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 
-				{items.length > 0 && mealPlanEntryCount === 0 && (
+				{items.length > 0 && mealCount === 0 && (
 					<OnboardingNudge
 						nudgeId="plan-your-week"
 						icon="calendar"

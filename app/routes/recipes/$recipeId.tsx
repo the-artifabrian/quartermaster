@@ -33,6 +33,7 @@ import { parseAmount, scaleAmount } from '#app/utils/fractions.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
+import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import {
 	convertToMetric,
 	displayMetricAmount,
@@ -501,13 +502,16 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const [planPickerOpen, setPlanPickerOpen] = useState(false)
 	const planFetcher = useFetcher({ key: 'add-to-plan' })
 	const prevPlanFetcherState = useRef(planFetcher.state)
-	const submittedPlanRef = useRef({ date: '', mealType: '' as MealType })
+	const submittedPlanRef = useRef<{ date: string; label: MealType | null }>({
+		date: '',
+		label: null,
+	})
 	const today = new Date()
 	const todayUTC = new Date(
 		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
 	)
 	const [planDate, setPlanDate] = useState(() => serializeDate(todayUTC))
-	const [planMealType, setPlanMealType] = useState<MealType>('dinner')
+	const [planMealType, setPlanMealType] = useState<MealType | null>('dinner')
 
 	const allStepsChecked =
 		recipe.instructions.length > 0 &&
@@ -562,23 +566,34 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			planFetcher.data?.status === 'success'
 		) {
 			setPlanPickerOpen(false)
-			const { date, mealType } = submittedPlanRef.current
+			const { date, label } = submittedPlanRef.current
 			const d = new Date(date + 'T00:00:00.000Z')
 			const dayLabel = isToday(d) ? 'Today' : formatDayLabel(d)
-			toast.success(`Added to ${dayLabel} ${MEAL_TYPE_LABELS[mealType]}`)
+			toast.success(
+				label
+					? `Added to ${dayLabel} ${MEAL_TYPE_LABELS[label]}`
+					: `Added to ${dayLabel}`,
+			)
 		}
 		prevPlanFetcherState.current = planFetcher.state
 	}, [planFetcher.state, planFetcher.data])
 
 	function handleAddToPlanSubmit() {
-		submittedPlanRef.current = { date: planDate, mealType: planMealType }
+		submittedPlanRef.current = { date: planDate, label: planMealType }
 		const formData = new FormData()
-		formData.set('intent', 'assign')
+		formData.set('intent', 'addMeal')
 		formData.set('date', planDate)
-		formData.set('mealType', planMealType)
+		if (planMealType) formData.set('label', planMealType)
 		formData.set('recipeId', recipe.id)
-		if (currentServings !== recipe.servings) {
-			formData.set('servings', currentServings.toString())
+		// The page's servings stepper is a view-scaler; planning persists the
+		// equivalent batch multiplier instead (#98 quantity basis), clamped to
+		// the 100× the multiplier schema allows (a 1-serving recipe stepped to
+		// 999 would otherwise compose an out-of-range value the server rejects).
+		if (currentServings !== recipe.servings && recipe.servings > 0) {
+			formData.set(
+				'multiplier',
+				formatScaleMultiplier(Math.min(100, currentServings / recipe.servings)),
+			)
 		}
 		void planFetcher.submit(formData, {
 			method: 'POST',
@@ -744,13 +759,17 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							</div>
 						</div>
 						<div className="mb-4">
-							<p className="text-muted-foreground mb-1.5 text-xs">Meal</p>
+							<p className="text-muted-foreground mb-1.5 text-xs">
+								Label (optional)
+							</p>
 							<div className="flex gap-1.5">
 								{MEAL_TYPES.map((mt) => (
 									<button
 										key={mt}
 										type="button"
-										onClick={() => setPlanMealType(mt)}
+										onClick={() =>
+											setPlanMealType(planMealType === mt ? null : mt)
+										}
 										className={cn(
 											'rounded-full border px-2.5 py-1 text-xs transition-colors',
 											planMealType === mt

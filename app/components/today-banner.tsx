@@ -1,33 +1,35 @@
 import { Img } from 'openimg/react'
 import { Link } from 'react-router'
-import { MEAL_TYPE_LABELS, type MealType } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
+import { mealLabelText } from './meal-card.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 
-type TodayEntry = {
-	id: string
+export type TonightData = {
+	label: string | null
 	recipe: {
 		id: string
 		title: string
 		prepTime: number | null
 		cookTime: number | null
-		servings: number | null
+		servings: number
 		image: { objectKey: string } | null
 	}
-	mealType: string
-	servings: number | null
+	scaleMultiplier: number
+	remainingCount: number
 }
 
-export function TodayBanner({ entries }: { entries: TodayEntry[] }) {
-	if (entries.length === 0) return null
-	const primary = entries[0]!
-	const recipe = primary.recipe
+export function TodayBanner({ tonight }: { tonight: TonightData }) {
+	const { label, recipe, scaleMultiplier, remainingCount } = tonight
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
-	const mealLabel =
-		MEAL_TYPE_LABELS[primary.mealType as MealType] ?? primary.mealType
-	const remaining = entries.length - 1
+	const linkServings =
+		scaleMultiplier !== 1
+			? Math.min(
+					999,
+					Math.max(1, Math.round(scaleMultiplier * recipe.servings)),
+				)
+			: null
 
 	return (
 		<div className="border-accent/40 from-background to-secondary dark:from-card dark:to-secondary/20 mb-4 overflow-hidden rounded-md border-l-[3px] bg-linear-to-r">
@@ -71,7 +73,7 @@ export function TodayBanner({ entries }: { entries: TodayEntry[] }) {
 					{/* Copper marks the banner's left edge; the label itself stays stone
 					    (copper text at 12px fails AA on cream) */}
 					<p className="text-muted-foreground text-xs font-medium tracking-wide">
-						Up next &middot; {mealLabel}
+						Up next{label ? <> &middot; {mealLabelText(label)}</> : null}
 					</p>
 					<h3 className="line-clamp-2 font-serif text-lg leading-snug">
 						{recipe.title}
@@ -83,13 +85,11 @@ export function TodayBanner({ entries }: { entries: TodayEntry[] }) {
 								{totalTime} min
 							</span>
 						)}
-						{(primary.servings ?? recipe.servings) && (
-							<span>{primary.servings ?? recipe.servings} servings</span>
-						)}
+						{scaleMultiplier !== 1 && <span>{scaleMultiplier}× batch</span>}
 					</div>
-					{remaining > 0 && (
+					{remainingCount > 0 && (
 						<p className="text-muted-foreground mt-1 text-xs">
-							&amp; {remaining} more planned today
+							&amp; {remainingCount} more planned today
 						</p>
 					)}
 				</div>
@@ -98,8 +98,8 @@ export function TodayBanner({ entries }: { entries: TodayEntry[] }) {
 				<Button asChild size="sm" className="shrink-0">
 					<Link
 						to={
-							primary.servings && primary.servings !== recipe.servings
-								? `/recipes/${recipe.id}?servings=${primary.servings}`
+							linkServings && linkServings !== recipe.servings
+								? `/recipes/${recipe.id}?servings=${linkServings}`
 								: `/recipes/${recipe.id}`
 						}
 					>

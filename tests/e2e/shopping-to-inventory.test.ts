@@ -69,11 +69,19 @@ test('Shopping → Pantry pipeline: generate, check off, remember for next time'
 		data: {
 			householdId,
 			weekStart,
-			entries: {
+			meals: {
 				create: {
 					date: weekStart,
-					mealType: 'dinner',
-					recipeId: recipe.id,
+					order: 0,
+					label: 'dinner',
+					recipeItems: {
+						create: {
+							order: 0,
+							recipeId: recipe.id,
+							recipeTitle: recipe.title,
+							scaleMultiplier: 1,
+						},
+					},
 				},
 			},
 		},
@@ -167,11 +175,19 @@ test('Shopping → Pantry pipeline: merges with existing Pantry items', async ({
 		data: {
 			householdId,
 			weekStart,
-			entries: {
+			meals: {
 				create: {
 					date: weekStart,
-					mealType: 'dinner',
-					recipeId: recipe.id,
+					order: 0,
+					label: 'dinner',
+					recipeItems: {
+						create: {
+							order: 0,
+							recipeId: recipe.id,
+							recipeTitle: recipe.title,
+							scaleMultiplier: 1,
+						},
+					},
 				},
 			},
 		},

@@ -156,15 +156,30 @@ export async function acceptInvite(token: string, userId: string) {
 				tx.mealPlan.findMany({
 					where: { householdId: targetHouseholdId },
 					select: { id: true, weekStart: true },
+					// Deterministic fallback order when the household holds same-week
+					// twins from the two storage eras: oldest first.
+					orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
 				}),
 			])
-			const targetPlanByWeek = new Map(
-				targetPlans.map((plan) => [plan.weekStart.getTime(), plan.id]),
-			)
 			for (const sourcePlan of sourcePlans) {
-				const targetPlanId = targetPlanByWeek.get(
-					sourcePlan.weekStart.getTime(),
-				)
+				// Same precedence as ensureMealPlan, so Meals merge into the plan
+				// the planner will actually resolve: the current-format row when
+				// one exists, otherwise the oldest same-instant plan.
+				const directTarget = await tx.mealPlan.findUnique({
+					where: {
+						householdId_weekStart: {
+							householdId: targetHouseholdId,
+							weekStart: sourcePlan.weekStart,
+						},
+					},
+					select: { id: true },
+				})
+				const targetPlanId =
+					directTarget?.id ??
+					targetPlans.find(
+						(plan) =>
+							plan.weekStart.getTime() === sourcePlan.weekStart.getTime(),
+					)?.id
 				if (!targetPlanId) {
 					await tx.mealPlan.update({
 						where: { id: sourcePlan.id },

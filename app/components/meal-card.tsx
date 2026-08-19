@@ -1,6 +1,7 @@
 import { Img } from 'openimg/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useFetcher } from 'react-router'
+import { toast } from 'sonner'
 import { Button } from '#app/components/ui/button.tsx'
 import {
 	DropdownMenu,
@@ -527,6 +528,14 @@ export function MealCard({
 	const mealCookedFetcher = useFetcher()
 	const removeMealFetcher = useFetcher()
 	const addRecipeFetcher = useFetcher()
+	const addToShoppingFetcher = useFetcher<{
+		status: string
+		shopping?: {
+			createdRowCount: number
+			attachedCount: number
+			alreadyContributedCount: number
+		}
+	}>()
 	const [addingRecipe, setAddingRecipe] = useState(false)
 	const [editingDetails, setEditingDetails] = useState(false)
 	const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -550,6 +559,34 @@ export function MealCard({
 			: null
 
 	const rows = isText ? [] : buildMealRows(meal)
+
+	// Toast once the explicit Add-to-Shopping action settles (#108) — the
+	// result is otherwise invisible from the planner.
+	const prevShoppingState = useRef(addToShoppingFetcher.state)
+	useEffect(() => {
+		if (
+			prevShoppingState.current !== 'idle' &&
+			addToShoppingFetcher.state === 'idle'
+		) {
+			const data = addToShoppingFetcher.data
+			if (data?.status === 'success' && data.shopping) {
+				const { createdRowCount, attachedCount, alreadyContributedCount } =
+					data.shopping
+				if (createdRowCount > 0) {
+					toast.success(
+						`Added ${createdRowCount} item${createdRowCount === 1 ? '' : 's'} to Shopping`,
+					)
+				} else if (attachedCount > 0) {
+					toast.success('Everything is already on your Shopping list')
+				} else if (alreadyContributedCount > 0) {
+					toast.info('This meal is already on Shopping')
+				} else {
+					toast.info('Nothing to add to Shopping')
+				}
+			}
+		}
+		prevShoppingState.current = addToShoppingFetcher.state
+	}, [addToShoppingFetcher.state, addToShoppingFetcher.data])
 
 	function submitMealCooked(cooked: boolean) {
 		void mealCookedFetcher.submit(
@@ -637,6 +674,23 @@ export function MealCard({
 							<Icon name="pencil-1" size="sm" />
 							Edit details
 						</DropdownMenuItem>
+						{/* A Meal reaches Shopping only through this explicit action —
+						    planning never live-syncs Shopping. Text-only Meals have no
+						    Shopping behavior (#108). */}
+						{!isText && meal.items.length > 0 && (
+							<DropdownMenuItem
+								disabled={addToShoppingFetcher.state !== 'idle'}
+								onSelect={() => {
+									void addToShoppingFetcher.submit(
+										{ intent: 'addMealToShopping', mealId: meal.id },
+										{ method: 'POST' },
+									)
+								}}
+							>
+								<Icon name="cart" size="sm" />
+								Add to Shopping List
+							</DropdownMenuItem>
+						)}
 						<DropdownMenuSeparator />
 						<DropdownMenuItem
 							onSelect={(event) => {

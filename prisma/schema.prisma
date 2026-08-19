@@ -446,9 +446,10 @@ model Meal {
   mealPlan   MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
   mealPlanId String
 
-  recipeItems MealRecipeItem[]
-  sections    MealSection[]
-  noteItems   MealNoteItem[]
+  recipeItems           MealRecipeItem[]
+  sections              MealSection[]
+  noteItems             MealNoteItem[]
+  shoppingContributions MealShoppingContribution[]
 
   @@index([mealPlanId, date, order])
   @@index([sourceMenuId])
@@ -582,8 +583,45 @@ model ShoppingListItem {
   list       ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
 
+  mealContributions MealShoppingContribution[]
+
   @@index([listId])
   @@index([listId, checked])
+}
+
+/// Current-state provenance between one source Meal and the displayed
+/// Shopping row its generated demand feeds (#108). One record per
+/// (meal, canonical demand identity), reconciled in place — NOT an event
+/// ledger; no contribution history is kept. Distinct from MealShoppingLine,
+/// which is frozen snapshot display data. Contributions are durable recovery
+/// data, not transient UI state (#98 readiness corrections).
+model MealShoppingContribution {
+  id String @id @default(cuid())
+
+  /// Source Meal. Nulled when the Meal is deleted while its Shopping rows are
+  /// kept — the contribution then reads as safely orphaned current state.
+  meal   Meal?   @relation(fields: [mealId], references: [id], onDelete: SetNull)
+  mealId String?
+
+  /// The displayed Shopping row this contribution currently feeds. Deleting
+  /// the row removes the current contribution; a later explicit refresh may
+  /// add the demand again (#98 stories 66/67).
+  item   ShoppingListItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId String
+
+  /// Normalized demand identity within the Meal.
+  canonicalName String
+  /// The normalized demand that was actually added — the fingerprint a later
+  /// explicit refresh (#110) compares against freshly computed demand.
+  name     String
+  quantity String?
+  unit     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([mealId, canonicalName])
+  @@index([itemId])
 }
 
 model HouseholdEvent {

@@ -49,8 +49,10 @@ import {
 	isStapleIngredient,
 	normalizeIngredientName,
 } from '#app/utils/recipe-matching.server.ts'
+import { buildShoppingDemand } from '#app/utils/shopping-demand.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
+import { annotateInventoryMatches } from '#app/utils/shopping-list.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
 import { getKeepAwakePreference, useWakeLock } from '#app/utils/wake-lock.ts'
@@ -356,37 +358,23 @@ export async function action({ request, params }: Route.ActionArgs) {
 		})
 		invariantResponse(fullRecipe, 'Recipe not found')
 
+		// One demand module for every generation entry point (#108): the same
+		// heading/optional handling and consolidation as generate-from-Plan, then
+		// the same availability seam — in-stock lines are pre-checked rather than
+		// silently dropped (the divergence #76 recorded).
+		const demand = buildShoppingDemand({
+			recipeBatches: [
+				{ ingredients: fullRecipe.ingredients, scaleMultiplier: safeRatio },
+			],
+		})
+
 		const inventoryItems = await prisma.inventoryItem.findMany({
 			where: { householdId },
 			select: { name: true },
 		})
+		const { lines } = annotateInventoryMatches(demand, inventoryItems)
 
-		const shoppingItems: Array<{
-			name: string
-			quantity: string | null
-			unit: string | null
-		}> = []
-
-		const inventoryLookup = buildInventoryLookup(inventoryItems)
-		for (const ingredient of fullRecipe.ingredients) {
-			if (ingredient.isHeading) continue
-			if (isStapleIngredient(ingredient)) continue
-			if (isOptionalIngredient(ingredient)) continue
-
-			// Same matcher the loader uses for missingIngredientIds — otherwise the
-			// page and the list it generates disagree about what's in the pantry.
-			if (ingredientMatchesAnyInventoryItem(ingredient, inventoryLookup))
-				continue
-
-			const amount = ingredient.amount
-				? scaleAmount(ingredient.amount, safeRatio, ingredient.unit)
-				: null
-			shoppingItems.push(
-				toShoppingItem(ingredient.name, amount, ingredient.unit, useMetric),
-			)
-		}
-
-		if (shoppingItems.length === 0) {
+		if (lines.length === 0) {
 			return { success: true, addedToShoppingList: 0 }
 		}
 
@@ -408,20 +396,27 @@ export async function action({ request, params }: Route.ActionArgs) {
 			shoppingList.items.map((item) => getCanonicalIngredientName(item.name)),
 		)
 
-		const newItems = shoppingItems.filter(
-			(item) => !existingCanonical.has(getCanonicalIngredientName(item.name)),
+		const newItems = lines.filter(
+			(line) => !existingCanonical.has(line.canonicalName),
 		)
 
 		if (newItems.length > 0) {
 			await prisma.shoppingListItem.createMany({
-				data: newItems.map((item) => ({
-					name: item.name,
-					quantity: item.quantity,
-					unit: item.unit,
-					category: guessCategory(item.name),
-					source: 'recipe',
-					listId: shoppingList.id,
-				})),
+				data: newItems.map((line) => {
+					const converted = toShoppingItem(
+						line.name,
+						line.quantity,
+						line.unit,
+						useMetric,
+					)
+					return {
+						...converted,
+						category: line.category,
+						checked: line.inStock,
+						source: 'recipe',
+						listId: shoppingList.id,
+					}
+				}),
 			})
 		}
 

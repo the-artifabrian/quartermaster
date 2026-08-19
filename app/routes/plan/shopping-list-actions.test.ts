@@ -514,6 +514,61 @@ describe('shopping list actions', () => {
 		)
 	})
 
+	test('bulk-add normalizes note lines: trims, dedups by canonical identity, keeps explicit staples', async () => {
+		const session = await setupUser()
+
+		const result = (await action({
+			request: await makeRequest(session, {
+				intent: 'bulk-add',
+				items: JSON.stringify([
+					{ name: '  pita bread ', quantity: ' 12 ' },
+					// Same canonical identity — deduped within the batch.
+					{ name: 'pita bread' },
+					{ name: '   ' },
+					// Explicit manual intent: staples are NOT stripped here.
+					{ name: 'salt' },
+				]),
+			}),
+			...ACTION_ARGS_BASE,
+		})) as { status: string; addedCount: number }
+
+		expect(result.status).toBe('success')
+		expect(result.addedCount).toBe(2)
+		const list = await prisma.shoppingList.findFirst({
+			where: { userId: session.userId },
+			include: { items: true },
+		})
+		expect(
+			list!.items.map((i) => [i.name, i.quantity, i.source]).sort(),
+		).toEqual([
+			['pita bread', '12', 'manual'],
+			['salt', null, 'manual'],
+		])
+	})
+
+	test('bulk-add dedups against existing rows by canonical identity', async () => {
+		const session = await setupUser()
+		await action({
+			request: await makeRequest(session, { intent: 'add', name: 'Bananas' }),
+			...ACTION_ARGS_BASE,
+		})
+
+		const result = (await action({
+			request: await makeRequest(session, {
+				intent: 'bulk-add',
+				items: JSON.stringify([{ name: 'banana' }, { name: 'milk' }]),
+			}),
+			...ACTION_ARGS_BASE,
+		})) as { status: string; addedCount: number }
+
+		expect(result.addedCount).toBe(1)
+		const list = await prisma.shoppingList.findFirst({
+			where: { userId: session.userId },
+			include: { items: true },
+		})
+		expect(list!.items.map((i) => i.name).sort()).toEqual(['Bananas', 'milk'])
+	})
+
 	test('add item auto-categorizes household items', async () => {
 		const session = await setupUser()
 

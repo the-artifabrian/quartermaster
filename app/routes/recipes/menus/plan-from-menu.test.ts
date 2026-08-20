@@ -1,11 +1,12 @@
 import { RouterContextProvider } from 'react-router'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { removeRecipeItem } from '#app/utils/meal.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { createUser } from '#tests/db-utils.ts'
+import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { action as planAction } from './$menuId.tsx'
 
@@ -161,6 +162,111 @@ async function loadPlannedMeal(menuId: string) {
 }
 
 describe('add to plan from menu detail', () => {
+	test('Menu planning returns a transient schema-validated proposal with ordered Recipe context and no legacy servings', async () => {
+		const session = await setupUser()
+		await prisma.subscription.create({
+			data: { userId: session.userId, tier: 'pro' },
+		})
+		const { menu } = await seedHostedMenu(session, session.householdId)
+		await prisma.menuItem.deleteMany({
+			where: { section: { menuId: menu.id }, recipeId: null, kind: 'recipe' },
+		})
+		const recipeItems = await prisma.menuItem.findMany({
+			where: { section: { menuId: menu.id }, kind: 'recipe' },
+			orderBy: [{ section: { order: 'asc' } }, { order: 'asc' }],
+			select: { id: true, scaleMultiplier: true },
+		})
+		const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+			new Response(
+				JSON.stringify({
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify({
+								status: 'proposal',
+								assumptions: ['Shared dishes are served together.'],
+								items: recipeItems.map((item) => ({
+									itemKey: item.id,
+									scaleMultiplier: item.scaleMultiplier ?? 1,
+									scalingMode: 'flexible',
+									rationale: 'Keep the reviewed Menu batch.',
+									assumptions: ['Other dishes contribute to the meal.'],
+								})),
+							}),
+						},
+					],
+				}),
+				{ status: 200 },
+			),
+		)
+		vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
+		vi.stubGlobal('fetch', fetch)
+
+		try {
+			const response = await planMenu(session, menu.id, {
+				intent: 'proposeMenuQuantities',
+				date: '2026-09-01',
+				guestCount: '6',
+			})
+			expect(response).toMatchObject({
+				data: {
+					status: 'success',
+					quantityProposal: { status: 'proposal' },
+				},
+			})
+			expect(
+				await prisma.meal.count({ where: { sourceMenuId: menu.id } }),
+			).toBe(0)
+			expect(
+				await prisma.usageEvent.count({
+					where: {
+						userId: session.userId,
+						type: 'meal_quantity_proposal_llm_call',
+					},
+				}),
+			).toBe(1)
+
+			const requestBody = JSON.parse(
+				String((fetch.mock.calls[0]![1] as RequestInit).body),
+			) as { messages: Array<{ content: string }> }
+			const prompt = requestBody.messages[0]!.content
+			expect(prompt).toContain('"context": "menu-draft"')
+			expect(prompt).toContain('"guestCount": 6')
+			expect(prompt).toContain('"role": "Mains"')
+			expect(prompt).not.toMatch(/"servings"\s*:/)
+
+			consoleError.mockImplementation(() => {})
+			fetch.mockResolvedValueOnce(new Response('', { status: 503 }))
+			const failed = await planMenu(session, menu.id, {
+				intent: 'proposeMenuQuantities',
+				date: '2026-09-01',
+				guestCount: '6',
+			})
+			expect(failed).toMatchObject({ data: { status: 'error' } })
+			expect(
+				await prisma.usageEvent.count({
+					where: {
+						userId: session.userId,
+						type: 'meal_quantity_proposal_llm_call',
+					},
+				}),
+			).toBe(1)
+			expect(
+				await prisma.meal.count({ where: { sourceMenuId: menu.id } }),
+			).toBe(0)
+			expect(
+				await prisma.menuItem.findMany({
+					where: { id: { in: recipeItems.map((item) => item.id) } },
+					orderBy: { id: 'asc' },
+					select: { id: true, scaleMultiplier: true },
+				}),
+			).toEqual([...recipeItems].sort((a, b) => a.id.localeCompare(b.id)))
+		} finally {
+			vi.unstubAllGlobals()
+			vi.unstubAllEnvs()
+		}
+	})
+
 	test('copies the menu into one frozen Meal snapshot with context fields', async () => {
 		const session = await setupUser()
 		const { menu, hummus, pita, stew } = await seedHostedMenu(
@@ -310,6 +416,105 @@ describe('add to plan from menu detail', () => {
 		expect(meal.guestCount).toBe(40)
 		expect(meal.recipeItems.map((item) => item.scaleMultiplier).sort()).toEqual(
 			[1, 1, 2.5, 3],
+		)
+	})
+
+	test('explicit reviewed selections apply only to the new Meal and never update Menu defaults', async () => {
+		const session = await setupUser()
+		const { menu, hummus, pita } = await seedHostedMenu(
+			session,
+			session.householdId,
+		)
+		const menuItems = await prisma.menuItem.findMany({
+			where: {
+				section: { menuId: menu.id },
+				recipeId: { in: [hummus.id, pita.id] },
+			},
+			select: { id: true, recipeId: true, scaleMultiplier: true },
+		})
+		const hummusItem = menuItems.find((item) => item.recipeId === hummus.id)!
+		const pitaItem = menuItems.find((item) => item.recipeId === pita.id)!
+
+		await planMenu(session, menu.id, {
+			intent: 'planMenu',
+			date: '2026-09-02',
+			guestCount: '8',
+			quantitySelections: JSON.stringify([
+				// Accepted and edited in review.
+				{ itemKey: hummusItem.id, scaleMultiplier: 1.75 },
+				// Pita was accepted as proposed.
+				{ itemKey: pitaItem.id, scaleMultiplier: 3 },
+			]),
+		})
+
+		const meal = await loadPlannedMeal(menu.id)
+		expect(
+			meal.recipeItems.find((item) => item.recipeId === hummus.id)
+				?.scaleMultiplier,
+		).toBe(1.75)
+		expect(
+			meal.recipeItems.find((item) => item.recipeId === pita.id)
+				?.scaleMultiplier,
+		).toBe(3)
+
+		// Applying to this planned Meal is deliberately separate from any future
+		// explicit "Update Menu defaults" action.
+		const unchangedMenuItems = await prisma.menuItem.findMany({
+			where: { id: { in: [hummusItem.id, pitaItem.id] } },
+			select: { id: true, scaleMultiplier: true },
+		})
+		expect(
+			unchangedMenuItems.find((item) => item.id === hummusItem.id)
+				?.scaleMultiplier,
+		).toBe(1)
+		expect(
+			unchangedMenuItems.find((item) => item.id === pitaItem.id)
+				?.scaleMultiplier,
+		).toBe(2.5)
+
+		// Updating reusable defaults is available, but only as its own explicit
+		// action; it cannot retroactively mutate the frozen Meal snapshot.
+		const updateDefaults = await planMenu(session, menu.id, {
+			intent: 'updateMenuQuantityDefaults',
+			quantitySelections: JSON.stringify([
+				{ itemKey: hummusItem.id, scaleMultiplier: 2 },
+			]),
+		})
+		expect(updateDefaults).toMatchObject({
+			data: { status: 'success', menuDefaultsUpdated: 1 },
+		})
+		expect(
+			(
+				await prisma.menuItem.findUniqueOrThrow({
+					where: { id: hummusItem.id },
+				})
+			).scaleMultiplier,
+		).toBe(2)
+		expect(
+			(
+				await prisma.mealRecipeItem.findFirstOrThrow({
+					where: { meal: { sourceMenuId: menu.id }, recipeId: hummus.id },
+				})
+			).scaleMultiplier,
+		).toBe(1.75)
+	})
+
+	test('forged reviewed Menu selections plan nothing', async () => {
+		const session = await setupUser()
+		const { menu } = await seedHostedMenu(session, session.householdId)
+
+		await expect(
+			planMenu(session, menu.id, {
+				intent: 'planMenu',
+				date: '2026-09-02',
+				guestCount: '8',
+				quantitySelections: JSON.stringify([
+					{ itemKey: 'forged-menu-item', scaleMultiplier: 9 },
+				]),
+			}),
+		).rejects.toEqual(expect.objectContaining({ status: 400 }))
+		expect(await prisma.meal.count({ where: { sourceMenuId: menu.id } })).toBe(
+			0,
 		)
 	})
 

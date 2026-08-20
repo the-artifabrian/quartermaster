@@ -262,16 +262,18 @@ describe('service-worker lifecycle and navigation fallbacks', () => {
 			'qm-static-v0',
 			'qm-static-v1',
 			'qm-public-old',
-			// Pre-#106/#107 page/data caches: version-bumped away because their
-			// cached loader payloads no longer match the deployed shapes.
+			// Pre-#106/#107/#109 page/data caches: version-bumped away because
+			// their cached loader payloads no longer match the deployed shapes.
 			'qm-pages-v1',
 			'qm-data-v1-user-household',
 			'qm-pages-v2',
 			'qm-data-v2-user-household',
 			'qm-pages-v3',
+			'qm-data-v3-user-household',
 			'qm-images-v1',
 			'qm-fonts-v1',
-			'qm-data-v3-user-household',
+			'qm-pages-v4',
+			'qm-data-v4-user-household',
 		])
 		const staticEntryUrls = new Set([
 			'https://quartermaster.test/assets/shared.js',
@@ -357,8 +359,10 @@ describe('service-worker lifecycle and navigation fallbacks', () => {
 		expect(cacheNames.has('qm-data-v1-user-household')).toBe(false)
 		expect(cacheNames.has('qm-pages-v2')).toBe(false)
 		expect(cacheNames.has('qm-data-v2-user-household')).toBe(false)
-		expect(cacheNames.has('qm-pages-v3')).toBe(true)
-		expect(cacheNames.has('qm-data-v3-user-household')).toBe(true)
+		expect(cacheNames.has('qm-pages-v3')).toBe(false)
+		expect(cacheNames.has('qm-data-v3-user-household')).toBe(false)
+		expect(cacheNames.has('qm-pages-v4')).toBe(true)
+		expect(cacheNames.has('qm-data-v4-user-household')).toBe(true)
 	})
 
 	test('only exact current-build asset URLs are cacheable', () => {

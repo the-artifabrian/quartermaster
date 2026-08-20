@@ -10,6 +10,7 @@ import {
 	normalizeUnit,
 	getUnitFamily,
 	convertAndSum,
+	isCountUnit,
 } from './unit-conversion.ts'
 
 /**
@@ -55,6 +56,13 @@ export type ShoppingDemandLine = {
 	quantity: string | null
 	unit: string | null
 	category: string
+	/**
+	 * True when any part of this line came from an ordinary note Shopping
+	 * line. Note lines are explicit user-written shopping text, so the
+	 * availability seam keeps them even when they look like staples — same
+	 * posture as manual rows and bulk add (#109).
+	 */
+	fromNote?: boolean
 }
 
 // Safety net: detect ingredients that look like section headings but aren't
@@ -96,10 +104,13 @@ function looksLikeHeading(ingredient: {
 
 /**
  * Build normalized Shopping demand. Recipe ingredients are scaled by their
- * batch multiplier, cleaned, and consolidated by canonical identity with
- * compatible-unit summation. Note lines pass through individually — free
- * text is preserved as given, never merged into false totals (#109 owns
- * richer aggregation).
+ * batch multiplier and cleaned; then all demand — Recipe ingredients and
+ * note Shopping lines alike — consolidates by demand identity with
+ * deterministic compatible-unit summation (#109). Note lines need no
+ * canonical ingredient identity: demandIdentity()'s trimmed-lowercase
+ * fallback covers them. What cannot merge honestly (free text, incompatible
+ * units, ranges, unparseable values) stays visible as separate parts of one
+ * line — never a false total.
  */
 export function buildShoppingDemand({
 	recipeBatches = [],
@@ -114,6 +125,7 @@ export function buildShoppingDemand({
 			name: string
 			quantities: Array<{ amount?: string | null; unit?: string | null }>
 			category: string
+			fromNote: boolean
 		}
 	>()
 
@@ -166,40 +178,79 @@ export function buildShoppingDemand({
 					name: effectiveName,
 					quantities: [{ amount: scaledAmount, unit: effectiveUnit }],
 					category: guessCategory(effectiveName),
+					fromNote: false,
 				})
 			}
+		}
+	}
+
+	// Note lines join the same consolidation by demand identity, so a note
+	// line and a Recipe ingredient for the same thing become one line. They
+	// skip the Recipe-only cleaning above: they are already deliberate
+	// shopping text, not parsed ingredient prose.
+	for (const line of noteLines) {
+		const name = line.name.trim()
+		if (!name) continue
+		const identity = demandIdentity(name)
+		const quantity = {
+			amount: line.quantity?.trim() || null,
+			unit: line.unit?.trim() || null,
+		}
+		const existing = ingredientMap.get(identity)
+		if (existing) {
+			existing.quantities.push(quantity)
+			existing.fromNote = true
+		} else {
+			ingredientMap.set(identity, {
+				name,
+				quantities: [quantity],
+				category: guessCategory(name),
+				fromNote: true,
+			})
 		}
 	}
 
 	const lines: ShoppingDemandLine[] = []
 
 	for (const [canonicalName, data] of ingredientMap) {
-		const consolidated = consolidateQuantities(data.quantities)
+		const consolidated = combineDemandParts(data.quantities)
 
 		lines.push({
 			name: data.name,
 			canonicalName,
-			quantity: consolidated.quantity ?? null,
-			unit: consolidated.unit ?? null,
+			quantity: consolidated.quantity,
+			unit: consolidated.unit,
 			category: data.category,
+			...(data.fromNote ? { fromNote: true } : {}),
 		})
 	}
 
 	lines.sort((a, b) => a.category.localeCompare(b.category))
 
-	for (const line of noteLines) {
-		const name = line.name.trim()
-		if (!name) continue
-		lines.push({
-			name,
-			canonicalName: demandIdentity(name),
-			quantity: line.quantity?.trim() || null,
-			unit: line.unit?.trim() || null,
-			category: guessCategory(name),
-		})
-	}
-
 	return lines
+}
+
+/**
+ * A range amount like "1-2", "2 to 3", or "1½–2". Ranges are honest input:
+ * they scale end-by-end but never sum — parseFloat would silently read
+ * "1-2" as 1 and fabricate a false total (#109).
+ */
+const RANGE_AMOUNT =
+	/^\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*(?:[-–—~]|to)\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*|[½⅓⅔¼¾⅛⅜⅝⅞])\s*$/i
+
+export function isRangeAmount(amount: string): boolean {
+	return RANGE_AMOUNT.test(amount)
+}
+
+function parseRangeAmount(
+	amount: string,
+): { low: number; high: number } | null {
+	const match = RANGE_AMOUNT.exec(amount)
+	if (!match) return null
+	const low = parseAmount(match[1]!)
+	const high = parseAmount(match[2]!)
+	if (low === null || high === null) return null
+	return { low, high }
 }
 
 export function scaleAmountString(
@@ -208,89 +259,219 @@ export function scaleAmountString(
 	unit?: string | null,
 ): string | null {
 	if (!amount || ratio === 1) return amount
+	if (isRangeAmount(amount)) {
+		const range = parseRangeAmount(amount)
+		// A range scales end-by-end ("1-2" ×2 → "2-4"); one that defeats
+		// parsing passes through verbatim rather than collapsing to one end.
+		if (!range) return amount
+		return `${formatAmount(range.low * ratio, unit)}-${formatAmount(range.high * ratio, unit)}`
+	}
 	return scaleAmount(amount, ratio, unit)
 }
 
-// Sum numeric quantities with same unit, or convert compatible units, or show count
-export function consolidateQuantities(
-	quantities: Array<{ amount?: string | null; unit?: string | null }>,
-): { quantity?: string; unit?: string } {
-	if (quantities.length === 0) return {}
-	if (quantities.length === 1) {
+export type DemandPart = {
+	amount?: string | null
+	unit?: string | null
+}
+
+type SummableGroup = {
+	firstIndex: number
+	familyName: string | null
+	members: Array<{ value: number; normalizedUnit: string }>
+	/** First-seen original unit spelling — display keeps the author's word. */
+	displayUnit: string | null
+}
+
+/**
+ * Grouping key for one parsed numeric part. Count-like units merge with
+ * unitless; units in a known family merge across the family; unknown units
+ * merge only on the same word (with naive plural folding, so "bottle" and
+ * "bottles" meet).
+ */
+function summableKey(normalizedUnit: string): {
+	key: string
+	familyName: string | null
+	memberUnit: string
+} {
+	if (isCountUnit(normalizedUnit)) {
+		return { key: 'count:', familyName: null, memberUnit: '' }
+	}
+	const family = getUnitFamily(normalizedUnit)
+	if (family) {
 		return {
-			quantity: quantities[0]!.amount ?? undefined,
-			unit: quantities[0]!.unit ?? undefined,
+			key: `family:${family.family.name}`,
+			familyName: family.family.name,
+			memberUnit: normalizedUnit,
+		}
+	}
+	const singular =
+		normalizedUnit.length > 2 &&
+		normalizedUnit.endsWith('s') &&
+		!normalizedUnit.endsWith('ss')
+			? normalizedUnit.slice(0, -1)
+			: normalizedUnit
+	return { key: `unit:${singular}`, familyName: null, memberUnit: singular }
+}
+
+/**
+ * Combine several quantity parts for one demand identity into an honest
+ * display value (#109). Parseable amounts in compatible units sum
+ * deterministically; everything else — free text, ranges, incompatible
+ * units — stays visible as a ` + `-joined composite instead of a count or a
+ * false total. Amountless parts add no quantitative information and drop
+ * out when quantified parts exist.
+ */
+export function combineDemandParts(parts: DemandPart[]): {
+	quantity: string | null
+	unit: string | null
+} {
+	if (parts.length === 0) return { quantity: null, unit: null }
+	if (parts.length === 1) {
+		return {
+			quantity: parts[0]!.amount?.trim() || null,
+			unit: parts[0]!.unit?.trim() || null,
 		}
 	}
 
-	// Normalize all units
-	const normalized = quantities.map((q) => ({
-		amount: q.amount,
-		unit: q.unit,
-		normalizedUnit: q.unit ? normalizeUnit(q.unit) : '',
+	const groups = new Map<string, SummableGroup>()
+	const verbatims: Array<{
+		firstIndex: number
+		amount: string
+		unit: string | null
+	}> = []
+
+	for (const [index, part] of parts.entries()) {
+		const amount = part.amount?.trim()
+		const unit = part.unit?.trim() || null
+		if (!amount) continue
+
+		const value = isRangeAmount(amount) ? null : parseAmount(amount)
+		if (value === null) {
+			verbatims.push({ firstIndex: index, amount, unit })
+			continue
+		}
+
+		const normalizedUnit = unit ? normalizeUnit(unit) : ''
+		const { key, familyName, memberUnit } = summableKey(normalizedUnit)
+		const group = groups.get(key)
+		if (group) {
+			group.members.push({ value, normalizedUnit: memberUnit })
+		} else {
+			groups.set(key, {
+				firstIndex: index,
+				familyName,
+				members: [{ value, normalizedUnit: memberUnit }],
+				displayUnit: memberUnit === '' ? null : unit,
+			})
+		}
+	}
+
+	const summed = [...groups.values()].map((group) => ({
+		firstIndex: group.firstIndex,
+		...sumGroup(group),
 	}))
 
-	// Check if all have the same normalized unit
-	const firstNormUnit = normalized[0]!.normalizedUnit
-	const sameNormUnit = normalized.every(
-		(q) => q.normalizedUnit === firstNormUnit,
+	const finalParts = [...summed, ...verbatims].sort(
+		(a, b) => a.firstIndex - b.firstIndex,
 	)
 
-	if (sameNormUnit) {
-		const numericQuantities = normalized
-			.map((q) => parseAmount(q.amount ?? ''))
-			.filter((n): n is number => n !== null)
+	if (finalParts.length === 0) return { quantity: null, unit: null }
+	if (finalParts.length === 1) {
+		return { quantity: finalParts[0]!.amount, unit: finalParts[0]!.unit }
+	}
+	return {
+		quantity: finalParts
+			.map((part) => (part.unit ? `${part.amount} ${part.unit}` : part.amount))
+			.join(' + '),
+		unit: null,
+	}
+}
 
-		if (numericQuantities.length === quantities.length) {
-			const sum = numericQuantities.reduce((a, b) => a + b, 0)
-			// Metric sums scale up like the conversion branch: 1500 g → 1.5 kg
-			if (firstNormUnit === 'g' || firstNormUnit === 'ml') {
-				const scaled = scaleUpMetric(sum, firstNormUnit)
-				if (scaled.unit !== firstNormUnit) {
-					return {
-						quantity: formatAmount(scaled.amount, scaled.unit),
-						unit: scaled.unit,
-					}
+function sumGroup(group: SummableGroup): {
+	amount: string
+	unit: string | null
+} {
+	const firstUnit = group.members[0]!.normalizedUnit
+	const sameUnit = group.members.every((m) => m.normalizedUnit === firstUnit)
+
+	if (sameUnit) {
+		const sum = group.members.reduce((acc, m) => acc + m.value, 0)
+		// Metric sums scale up like the conversion branch: 1500 g → 1.5 kg
+		if (firstUnit === 'g' || firstUnit === 'ml') {
+			const scaled = scaleUpMetric(sum, firstUnit)
+			if (scaled.unit !== firstUnit) {
+				return {
+					amount: formatAmount(scaled.amount, scaled.unit),
+					unit: scaled.unit,
 				}
 			}
-			return {
-				quantity: formatAmount(sum, normalized[0]!.unit),
-				unit: normalized[0]!.unit ?? undefined,
-			}
 		}
-	}
-
-	// Try unit conversion within the same family
-	const parsed = normalized.map((q) => {
-		const amount = parseAmount(q.amount ?? '')
-		if (amount === null) return null
-		const family = q.normalizedUnit ? getUnitFamily(q.normalizedUnit) : null
-		if (!family) return null
 		return {
-			amount,
-			normalizedUnit: q.normalizedUnit,
-			familyName: family.family.name,
-			family: family.family,
-		}
-	})
-
-	// All must be parseable and in the same family
-	if (parsed.every((p) => p !== null)) {
-		const firstFamily = parsed[0]!.familyName
-		if (parsed.every((p) => p!.familyName === firstFamily)) {
-			const result = convertAndSum(
-				parsed.map((p) => ({
-					amount: p!.amount,
-					normalizedUnit: p!.normalizedUnit,
-				})),
-				parsed[0]!.family,
-			)
-			return {
-				quantity: formatAmount(result.value, result.unit),
-				unit: result.unit,
-			}
+			amount: formatAmount(sum, group.displayUnit),
+			unit: group.displayUnit,
 		}
 	}
 
-	return { quantity: `${quantities.length}×`, unit: undefined }
+	// Mixed units within one known family (the familyName is set whenever
+	// members can disagree on unit) — convert and sum.
+	const family = getUnitFamily(firstUnit)!.family
+	const result = convertAndSum(
+		group.members.map((m) => ({
+			amount: m.value,
+			normalizedUnit: m.normalizedUnit,
+		})),
+		family,
+	)
+	return { amount: formatAmount(result.value, result.unit), unit: result.unit }
+}
+
+/**
+ * Compute one Shopping row's displayed quantity from the row itself plus its
+ * current Meal contributions (#109). Grouping happens at display time only —
+ * neither the row nor any contribution is rewritten.
+ * - A manual row's own quantity is the manual component; compatible
+ *   generated demand combines with it, incompatible demand stays visible as
+ *   separate parts.
+ * - A row the contribution seam created (source 'meal') duplicates its first
+ *   contribution's quantity, so its display is the contributions alone —
+ *   counting the row too would double it.
+ * - Week-generated and other rows keep their own quantity: their value may
+ *   already include the same Meals' demand, so adding contributions on top
+ *   would fabricate a false total. Their contributions stay provenance-only.
+ */
+export function combineRowDisplay({
+	source,
+	quantity,
+	unit,
+	contributions,
+}: {
+	source: string
+	quantity: string | null
+	unit: string | null
+	contributions: Array<{ quantity: string | null; unit: string | null }>
+}): { quantity: string | null; unit: string | null; combined: boolean } {
+	const own = { quantity, unit, combined: false }
+	if (contributions.length === 0) return own
+
+	const contributionParts = contributions.map((c) => ({
+		amount: c.quantity,
+		unit: c.unit,
+	}))
+
+	if (source === 'meal') {
+		const display = combineDemandParts(contributionParts)
+		// Flag only what a reader could not reconstruct from the row itself:
+		// several Meals' demand grouped into one number.
+		return { ...display, combined: contributions.length > 1 }
+	}
+
+	if (source === 'manual') {
+		const display = combineDemandParts([
+			{ amount: quantity, unit },
+			...contributionParts,
+		])
+		return { ...display, combined: true }
+	}
+
+	return own
 }

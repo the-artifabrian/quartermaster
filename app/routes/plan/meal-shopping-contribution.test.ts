@@ -10,7 +10,10 @@ import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { action as recipeAction } from '../recipes/$recipeId.tsx'
-import { action as shoppingAction } from '../shopping.tsx'
+import {
+	action as shoppingAction,
+	loader as shoppingLoader,
+} from '../shopping.tsx'
 import { action as planAction } from './index.tsx'
 
 const PLAN_ARGS = {
@@ -535,5 +538,266 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 			}),
 		).rejects.toEqual(expect.objectContaining({ status: 404 }))
 		expect(await getShoppingRows(owner.householdId)).toHaveLength(0)
+	})
+})
+
+/** Attach one snapshot note card with ordinary Shopping lines to a Meal. */
+async function addNoteLines(
+	mealId: string,
+	lines: Array<{ name: string; quantity?: string; unit?: string }>,
+) {
+	return prisma.mealNoteItem.create({
+		data: {
+			mealId,
+			order: 99,
+			text: 'To buy',
+			shoppingLines: {
+				create: lines.map((line, index) => ({ ...line, order: index })),
+			},
+		},
+	})
+}
+
+async function runShoppingLoader(session: { id: string }) {
+	const cookie = await getSessionCookieHeader(session)
+	return shoppingLoader({
+		request: new Request(`${BASE_URL}/shopping`, { headers: { cookie } }),
+		...SHOPPING_ARGS,
+	})
+}
+
+describe('addMealToShopping — multi-Recipe and note-line aggregation (#109)', () => {
+	test('note-card Shopping lines contribute on explicit add', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const meal = await setupMeal(session.householdId, recipe)
+		await addNoteLines(meal.id, [
+			{ name: 'pita bread', quantity: '12' },
+			{ name: 'candles' },
+		])
+
+		const result = (await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})) as { status: string; shopping: { createdRowCount: number } }
+		expect(result.status).toBe('success')
+		expect(result.shopping.createdRowCount).toBe(4)
+
+		const rows = await getShoppingRows(session.householdId)
+		expect(rows.map((row) => [row.name, row.quantity])).toEqual([
+			['candles', null],
+			['chicken stock', '2'],
+			['ground lamb', '500'],
+			['pita bread', '12'],
+		])
+		// Note lines need no canonical ingredient identity — the fallback
+		// identity still gets a durable contribution.
+		const contributions = await getContributions(session.householdId)
+		expect(contributions).toHaveLength(4)
+		expect(contributions.every((c) => c.mealId === meal.id)).toBe(true)
+	})
+
+	test('a note-only snapshot Meal is a valid contributor', async () => {
+		const session = await setupUser()
+		const weekStart = getCurrentWeekStart()
+		const mealPlan = await prisma.mealPlan.create({
+			data: { householdId: session.householdId, weekStart },
+		})
+		const meal = await prisma.meal.create({
+			data: { mealPlanId: mealPlan.id, date: weekStart, order: 0 },
+		})
+		await addNoteLines(meal.id, [{ name: 'good bread', quantity: '2' }])
+
+		const result = (await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})) as { status: string; shopping: { createdRowCount: number } }
+		expect(result.shopping.createdRowCount).toBe(1)
+		expect(
+			(await getShoppingRows(session.householdId)).map((row) => row.name),
+		).toEqual(['good bread'])
+	})
+
+	test('a staple-looking note line is explicit intent and still contributes', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const meal = await setupMeal(session.householdId, recipe)
+		// The Recipe's own 'salt' ingredient stays stripped; the note line lands.
+		await addNoteLines(meal.id, [{ name: 'salt', quantity: '1', unit: 'box' }])
+
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+		const salt = (await getShoppingRows(session.householdId)).filter(
+			(row) => row.name === 'salt',
+		)
+		expect(salt).toHaveLength(1)
+		expect(salt[0]!.quantity).toBe('1')
+	})
+
+	test('a note line and Recipe demand for the same ingredient become one row with one honest total', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const meal = await setupMeal(session.householdId, recipe)
+		await addNoteLines(meal.id, [
+			{ name: 'ground lamb', quantity: '250', unit: 'g' },
+		])
+
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+		const lamb = (await getShoppingRows(session.householdId)).filter((row) =>
+			row.name.includes('lamb'),
+		)
+		expect(lamb).toHaveLength(1)
+		expect(lamb[0]!.quantity).toBe('750')
+		expect(lamb[0]!.unit).toBe('g')
+		// One demand identity → one contribution carrying the combined value.
+		const contributions = (await getContributions(session.householdId)).filter(
+			(c) => c.itemId === lamb[0]!.id,
+		)
+		expect(contributions).toHaveLength(1)
+		expect(contributions[0]!.quantity).toBe('750')
+	})
+
+	test('re-adding a Meal with note lines stays idempotent', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const meal = await setupMeal(session.householdId, recipe)
+		await addNoteLines(meal.id, [{ name: 'pita bread', quantity: '12' }])
+
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+		const result = (await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})) as {
+			status: string
+			shopping: { createdRowCount: number; alreadyContributedCount: number }
+		}
+		expect(result.shopping.createdRowCount).toBe(0)
+		expect(result.shopping.alreadyContributedCount).toBe(3)
+		expect(await getShoppingRows(session.householdId)).toHaveLength(3)
+	})
+})
+
+describe('Shopping display grouping — combined totals without rewriting identities (#109)', () => {
+	async function getDisplayedItems(session: {
+		id: string
+		householdId: string
+	}) {
+		const { shoppingList } = await runShoppingLoader(session)
+		return shoppingList.items
+	}
+
+	test('a compatible manual row and Meal demand display one combined total; both identities survive', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const meal = await setupMeal(session.householdId, recipe)
+		await runShoppingAction(session, {
+			intent: 'add',
+			name: 'ground lamb',
+			quantity: '250',
+			unit: 'g',
+		})
+
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+
+		const lamb = (await getDisplayedItems(session)).find((item) =>
+			item.name.includes('lamb'),
+		)!
+		// Displayed: 250 g manual + 500 g Meal demand, grouped for display only.
+		expect(lamb.display).toEqual({
+			quantity: '750',
+			unit: 'g',
+			combined: true,
+		})
+		// Stored identities are untouched: the manual row still says 250 g and
+		// the contribution still records 500 g.
+		expect(lamb.quantity).toBe('250')
+		expect(lamb.unit).toBe('g')
+		const contribution = await prisma.mealShoppingContribution.findFirst({
+			where: { itemId: lamb.id },
+		})
+		expect(contribution).toMatchObject({ quantity: '500', unit: 'g' })
+	})
+
+	test('incompatible manual and generated demand stays visibly separate', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const meal = await setupMeal(session.householdId, recipe)
+		await runShoppingAction(session, {
+			intent: 'add',
+			name: 'ground lamb',
+			quantity: '1',
+			unit: 'pack',
+		})
+
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+
+		const lamb = (await getDisplayedItems(session)).find((item) =>
+			item.name.includes('lamb'),
+		)!
+		expect(lamb.display).toEqual({
+			quantity: '1 pack + 500 g',
+			unit: null,
+			combined: true,
+		})
+		expect(lamb.quantity).toBe('1')
+		expect(lamb.unit).toBe('pack')
+	})
+
+	test('two Meals feeding one generated row display their summed demand', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const mealA = await setupMeal(session.householdId, recipe)
+		const mealB = await setupMeal(session.householdId, recipe, {
+			scaleMultiplier: 2,
+		})
+
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: mealA.id,
+		})
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: mealB.id,
+		})
+
+		const lamb = (await getDisplayedItems(session)).find((item) =>
+			item.name.includes('lamb'),
+		)!
+		// 500 g + 1000 g across the two Meals — the row's stored quantity (the
+		// first Meal's 500 g) is not double-counted.
+		expect(lamb.source).toBe('meal')
+		expect(lamb.quantity).toBe('500')
+		expect(lamb.display).toEqual({
+			quantity: '1.5',
+			unit: 'kg',
+			combined: true,
+		})
+	})
+
+	test('a row without contributions displays exactly its stored values', async () => {
+		const session = await setupUser()
+		await runShoppingAction(session, {
+			intent: 'add',
+			name: 'dish soap',
+			quantity: '1',
+		})
+		const soap = (await getDisplayedItems(session)).find(
+			(item) => item.name === 'dish soap',
+		)!
+		expect(soap.display).toEqual({ quantity: '1', unit: null, combined: false })
 	})
 })

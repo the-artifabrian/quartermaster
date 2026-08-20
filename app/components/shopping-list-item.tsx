@@ -10,9 +10,10 @@ import {
 	getProduceCountDisplay,
 	isWeightUnit,
 } from '#app/utils/produce-weights.ts'
+import { type ShoppingItemDisplay } from '#app/utils/shopping-optimistic.ts'
 
 type ShoppingListItemCardProps = {
-	item: ShoppingListItem
+	item: ShoppingListItem & { display?: ShoppingItemDisplay }
 	isVoiceAdded?: boolean
 }
 
@@ -61,6 +62,15 @@ export function ShoppingListItemCard({
 		toggleFetcher.formData?.get('intent') === 'toggle'
 			? !item.checked
 			: item.checked
+
+	// The displayed quantity groups the row with its current Meal
+	// contributions (#109), computed by the loader. The row's stored
+	// quantity/unit stay the editable manual identity below.
+	const display = item.display ?? {
+		quantity: item.quantity,
+		unit: item.unit,
+		combined: false,
+	}
 
 	// Hide once delete is submitted — formData covers in-flight,
 	// fetcher.data covers the idle frame before loaderData refreshes
@@ -183,7 +193,7 @@ export function ShoppingListItemCard({
 								/>
 							)}
 						</p>
-						{(item.quantity || item.unit) && (
+						{(display.quantity || display.unit) && (
 							<p
 								className={`text-sm ${
 									optimisticChecked
@@ -191,7 +201,17 @@ export function ShoppingListItemCard({
 										: 'text-muted-foreground'
 								}`}
 							>
-								<ProduceCountLine item={item} />
+								<ProduceCountLine
+									name={item.name}
+									quantity={display.quantity}
+									unit={display.unit}
+								/>
+								{display.combined && (
+									<span className="text-muted-foreground/60">
+										{' '}
+										· incl. meals
+									</span>
+								)}
 							</p>
 						)}
 					</div>
@@ -241,16 +261,24 @@ export function ShoppingListItemCard({
 	)
 }
 
-function ProduceCountLine({ item }: { item: ShoppingListItem }) {
-	const quantity = item.quantity?.replace(/^["']+|["']+$/g, '') || null
-	if (quantity && item.unit && isWeightUnit(item.unit)) {
+function ProduceCountLine({
+	name,
+	quantity: rawQuantity,
+	unit,
+}: {
+	name: string
+	quantity: string | null
+	unit: string | null
+}) {
+	const quantity = rawQuantity?.replace(/^["']+|["']+$/g, '') || null
+	if (quantity && unit && isWeightUnit(unit)) {
 		const parsed = parseAmount(quantity)
 		if (parsed !== null) {
-			const countDisplay = getProduceCountDisplay(item.name, parsed, item.unit)
+			const countDisplay = getProduceCountDisplay(name, parsed, unit)
 			if (countDisplay) {
 				return (
 					<>
-						{countDisplay} ({quantity} {item.unit})
+						{countDisplay} ({quantity} {unit})
 					</>
 				)
 			}
@@ -258,7 +286,7 @@ function ProduceCountLine({ item }: { item: ShoppingListItem }) {
 	}
 	return (
 		<>
-			{quantity} {item.unit}
+			{quantity} {unit}
 		</>
 	)
 }

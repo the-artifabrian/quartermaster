@@ -73,9 +73,9 @@ export function IngredientList({
 	const missingCount = effectiveMissingIds.length
 
 	const shoppingData = shoppingFetcher.data as
-		| { addedToShoppingList?: number }
-		| undefined
+		{ addedToShoppingList?: number; addedInStock?: number } | undefined
 	const addedToList = shoppingData?.addedToShoppingList
+	const addedInStock = shoppingData?.addedInStock ?? 0
 	const isAddingToList = shoppingFetcher.state !== 'idle'
 
 	function handleAddToShoppingList() {
@@ -245,6 +245,8 @@ export function IngredientList({
 										<Icon name="check" className="mr-1 inline size-3.5" />
 										Added {addedToList} item
 										{addedToList !== 1 ? 's' : ''} to shopping list
+										{addedInStock > 0 &&
+											` · ${addedInStock} usually on hand pre-checked`}
 									</p>
 									<Link
 										to="/shopping"
@@ -293,8 +295,7 @@ function MissingIngredientActions({
 	const cartFetcher = useFetcher()
 
 	const cartData = cartFetcher.data as
-		| { addedSingle?: string; wasNew?: boolean }
-		| undefined
+		{ addedSingle?: string; wasNew?: boolean } | undefined
 	const addedToCart = cartData?.addedSingle === ingredientId
 
 	return (

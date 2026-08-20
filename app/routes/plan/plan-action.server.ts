@@ -2,6 +2,7 @@ import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type PrismaClient } from '#app/generated/prisma/client.ts'
 import { getWeekStart } from '#app/utils/date.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	AddMealSchema,
 	AddTextMealSchema,
@@ -21,11 +22,15 @@ import {
 } from '#app/utils/meal.server.ts'
 import { ScaleMultiplierSchema } from '#app/utils/menu-validation.ts'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
+import { reconcileMealShoppingContributions } from '#app/utils/shopping-contribution.server.ts'
+import { buildShoppingDemand } from '#app/utils/shopping-demand.server.ts'
+import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
+import { annotateInventoryMatches } from '#app/utils/shopping-list.server.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 
 type PlanActionUser = Pick<
 	Awaited<ReturnType<typeof requireUserWithTier>>,
-	'householdId'
+	'userId' | 'householdId'
 >
 
 export function createPlanAction(
@@ -35,7 +40,7 @@ export function createPlanAction(
 	) => Promise<PlanActionUser> = requireUserWithTier,
 ) {
 	return async function planAction({ request }: { request: Request }) {
-		const { householdId } = await requirePlanUser(request)
+		const { userId, householdId } = await requirePlanUser(request)
 		const formData = await request.formData()
 		const intent = formData.get('intent')
 
@@ -151,6 +156,70 @@ export function createPlanAction(
 				scaleMultiplier: parsed.data,
 			})
 			return { status: 'success' as const }
+		}
+
+		// The explicit action that puts one Meal's ingredients on Shopping (#108
+		// / #98 story 55). Planning itself never touches Shopping — only this
+		// button does. Demand flows through the one pure module, availability
+		// annotation and contribution reconciliation consume it at their own
+		// seams, and each demand line leaves a current-state contribution keyed
+		// to this Meal.
+		if (intent === 'addMealToShopping') {
+			const meal = await requireMeal(formData.get('mealId'))
+			// A text-only Meal has no Shopping behavior (#98 story 43).
+			invariantResponse(
+				meal.genericText == null,
+				'A text-only Meal has no Shopping behavior',
+				{ status: 400 },
+			)
+
+			// Missing cards (recipeId null) produce no fresh demand — a deleted
+			// Recipe must be replaced or removed before it can contribute again.
+			const recipeItems = await db.mealRecipeItem.findMany({
+				where: { mealId: meal.id, recipeId: { not: null } },
+				include: { recipe: { include: { ingredients: true } } },
+			})
+
+			const demand = buildShoppingDemand({
+				recipeBatches: recipeItems.flatMap((item) =>
+					item.recipe
+						? [
+								{
+									ingredients: item.recipe.ingredients,
+									scaleMultiplier: item.scaleMultiplier,
+								},
+							]
+						: [],
+				),
+			})
+
+			const inventoryItems = await db.inventoryItem.findMany({
+				where: { householdId },
+				select: { name: true },
+			})
+			const { lines } = annotateInventoryMatches(demand, inventoryItems)
+
+			const shoppingList = await ensureShoppingList(db, {
+				userId,
+				householdId,
+			})
+			const result = await reconcileMealShoppingContributions(db, {
+				mealId: meal.id,
+				listId: shoppingList.id,
+				lines,
+			})
+
+			// Attach-only reconciles change nothing displayed — no event then.
+			if (result.createdRowCount > 0) {
+				void emitHouseholdEvent({
+					type: 'shopping_list_generated',
+					payload: { count: result.createdRowCount },
+					userId,
+					householdId,
+				})
+			}
+
+			return { status: 'success' as const, shopping: result }
 		}
 
 		if (intent === 'removeItem') {

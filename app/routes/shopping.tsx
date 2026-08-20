@@ -43,15 +43,16 @@ import {
 	getCanonicalIngredientName,
 	ingredientMatchesAnyInventoryItem,
 } from '#app/utils/recipe-matching.server.ts'
+import {
+	buildShoppingDemand,
+	demandIdentity,
+} from '#app/utils/shopping-demand.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
 	ShoppingListItemSchema,
 	guessCategory,
 } from '#app/utils/shopping-list-validation.ts'
-import {
-	generateShoppingListFromRecipes,
-	annotateInventoryMatches,
-} from '#app/utils/shopping-list.server.ts'
+import { annotateInventoryMatches } from '#app/utils/shopping-list.server.ts'
 import {
 	makeOptimisticShoppingItem,
 	mergeOptimisticShoppingItems,
@@ -201,49 +202,62 @@ export async function action({ request }: Route.ActionArgs) {
 			status: 404,
 		})
 
-		const recipeEntries = mealPlan.meals
-			.flatMap((meal) => meal.recipeItems)
-			.flatMap((item) =>
-				item.recipe
-					? [{ recipe: item.recipe, scaleMultiplier: item.scaleMultiplier }]
-					: [],
-			)
-		const rawItems = generateShoppingListFromRecipes(recipeEntries)
+		// Week-wide demand through the one pure demand module (#108).
+		const demand = buildShoppingDemand({
+			recipeBatches: mealPlan.meals
+				.flatMap((meal) => meal.recipeItems)
+				.flatMap((item) =>
+					item.recipe
+						? [
+								{
+									ingredients: item.recipe.ingredients,
+									scaleMultiplier: item.scaleMultiplier,
+								},
+							]
+						: [],
+				),
+		})
 
-		// Annotate items with inventory match info (staples still stripped)
+		// Annotate lines with inventory match info (staples still stripped)
 		const inventoryItems = await prisma.inventoryItem.findMany({
 			where: { householdId },
 		})
-		const { items, inStockCount } = annotateInventoryMatches(
-			rawItems,
+		const { lines, inStockCount } = annotateInventoryMatches(
+			demand,
 			inventoryItems,
 		)
 
-		// Delete existing generated items
+		// Delete existing generated items — except rows a Meal contribution
+		// currently feeds: contributions are durable recovery data (#108), so
+		// week-wide regeneration must not destroy one-Meal provenance.
 		await prisma.shoppingListItem.deleteMany({
 			where: {
 				listId: shoppingList.id,
 				source: 'generated',
+				mealContributions: { none: {} },
 			},
 		})
 
-		// Dedup against all existing items (checked or not) to avoid visual duplicates
+		// Dedup against all existing items (checked or not) to avoid visual
+		// duplicates — rows are keyed through the module's demand identity so
+		// fallback-identity lines still match their rows.
 		const existingItems = await prisma.shoppingListItem.findMany({
 			where: { listId: shoppingList.id },
 			select: { name: true },
 		})
 		const existingCanonicals = new Set(
-			existingItems.map((i) => getCanonicalIngredientName(i.name)),
+			existingItems.map((i) => demandIdentity(i.name)),
 		)
-		const dedupedItems = items.filter(
-			(item) => !existingCanonicals.has(getCanonicalIngredientName(item.name)),
+		const dedupedItems = lines.filter(
+			(line) => !existingCanonicals.has(line.canonicalName),
 		)
 
 		// Create new items — in-stock items are pre-checked
 		await prisma.shoppingListItem.createMany({
-			data: dedupedItems.map(({ inStock, ...item }) => ({
-				...item,
+			data: dedupedItems.map(({ inStock, canonicalName, ...line }) => ({
+				...line,
 				checked: inStock,
+				source: 'generated',
 				listId: shoppingList.id,
 			})),
 		})
@@ -475,27 +489,29 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 		invariantResponse(Array.isArray(items) && items.length > 0, 'No items')
 
-		// Dedup against all existing items to avoid visual duplicates
+		// Ordinary note Shopping lines through the demand module (#108): trims
+		// and normalizes each line's identity while preserving the free text.
+		const demandLines = buildShoppingDemand({ noteLines: items })
+
+		// Dedup against all existing items — and within the batch — by
+		// canonical identity, the same rule every entry point uses.
 		const existingItems = await prisma.shoppingListItem.findMany({
 			where: { listId: shoppingList.id },
 			select: { name: true },
 		})
 		const existingCanonicals = new Set(
-			existingItems.map((item) => getCanonicalIngredientName(item.name)),
+			existingItems.map((item) => demandIdentity(item.name)),
 		)
-		const newItems = items.filter(
-			(item) =>
-				item.name.trim() &&
-				!existingCanonicals.has(getCanonicalIngredientName(item.name)),
-		)
+		const newItems = demandLines.filter((line) => {
+			if (existingCanonicals.has(line.canonicalName)) return false
+			existingCanonicals.add(line.canonicalName)
+			return true
+		})
 
 		if (newItems.length > 0) {
 			await prisma.shoppingListItem.createMany({
-				data: newItems.map((item) => ({
-					name: item.name.trim(),
-					quantity: item.quantity?.trim() || null,
-					unit: item.unit?.trim() || null,
-					category: guessCategory(item.name),
+				data: newItems.map(({ canonicalName, ...line }) => ({
+					...line,
 					listId: shoppingList.id,
 					source: 'manual' as const,
 				})),

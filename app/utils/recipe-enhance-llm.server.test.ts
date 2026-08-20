@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { consoleError } from '#tests/setup/setup-test-env.ts'
 import {
 	buildEnhancePrompt,
+	enhanceRecipeMetadata,
 	parseEnhanceResponse,
 	type RecipeInput,
 } from './recipe-enhance-llm.server.ts'
@@ -149,5 +151,52 @@ describe('parseEnhanceResponse', () => {
 		})
 		const result = parseEnhanceResponse(text)
 		expect(result?.description).toBe('A tasty dish.')
+	})
+})
+
+describe('enhanceRecipeMetadata', () => {
+	it('returns validated suggestions from Anthropic', async () => {
+		vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			new Response(
+				JSON.stringify({
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify({
+								description: 'A classic Roman pasta.',
+								servings: 4,
+								prepTime: 10,
+								cookTime: 20,
+							}),
+						},
+					],
+				}),
+				{ status: 200 },
+			),
+		)
+
+		await expect(enhanceRecipeMetadata(sampleInput)).resolves.toEqual({
+			description: 'A classic Roman pasta.',
+			servings: 4,
+			prepTime: 10,
+			cookTime: 20,
+		})
+	})
+
+	it('preserves feature-local wording for configuration and rate limits', async () => {
+		vi.stubEnv('ANTHROPIC_API_KEY', '')
+		await expect(enhanceRecipeMetadata(sampleInput)).resolves.toEqual({
+			error: expect.stringContaining('not configured'),
+		})
+
+		vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
+		consoleError.mockImplementation(() => {})
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			new Response('', { status: 429 }),
+		)
+		await expect(enhanceRecipeMetadata(sampleInput)).resolves.toEqual({
+			error: expect.stringContaining('rate limit'),
+		})
 	})
 })

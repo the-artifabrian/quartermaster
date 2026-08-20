@@ -1,6 +1,12 @@
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-const MODEL_FAST = 'claude-haiku-4-5-20251001'
-const MODEL_VISION = 'claude-sonnet-4-6'
+import { z } from 'zod'
+import {
+	ANTHROPIC_MODELS,
+	isAnthropicConfigured,
+	parseAnthropicJson,
+	requestAnthropicJson,
+	type AnthropicJsonFailure,
+} from './anthropic-json.server.ts'
+
 const TIMEOUT_TEXT_MS = 15_000
 const TIMEOUT_IMAGE_MS = 30_000
 const MAX_TOKENS = 4096
@@ -38,6 +44,97 @@ export type ExtractedRecipeFromLLM = {
 	}>
 	instructions: Array<{ content: string }>
 }
+
+const ExtractedIngredientSchema = z
+	.object({
+		name: z.string(),
+		amount: z.unknown().optional(),
+		unit: z.unknown().optional(),
+		notes: z.unknown().optional(),
+		isHeading: z.unknown().optional(),
+	})
+	.transform((ingredient) => {
+		const isHeading = ingredient.isHeading === true
+		return {
+			name: ingredient.name.trim().slice(0, MAX_INGREDIENT_NAME_LENGTH),
+			amount: isHeading
+				? null
+				: typeof ingredient.amount === 'string'
+					? ingredient.amount.trim().slice(0, MAX_INGREDIENT_AMOUNT_LENGTH) ||
+						null
+					: typeof ingredient.amount === 'number'
+						? String(ingredient.amount)
+						: null,
+			unit: isHeading
+				? null
+				: typeof ingredient.unit === 'string'
+					? ingredient.unit.trim().slice(0, MAX_INGREDIENT_UNIT_LENGTH) || null
+					: null,
+			notes: isHeading
+				? null
+				: typeof ingredient.notes === 'string'
+					? ingredient.notes.trim().slice(0, MAX_INGREDIENT_NOTES_LENGTH) ||
+						null
+					: null,
+			isHeading,
+		}
+	})
+
+const ExtractedInstructionSchema = z
+	.union([
+		z.string(),
+		z.object({ content: z.string() }).transform(({ content }) => content),
+	])
+	.transform((content) => content.trim().slice(0, MAX_INSTRUCTION_LENGTH))
+	.refine(Boolean)
+	.transform((content) => ({ content }))
+
+const ExtractedRecipeSchema: z.ZodType<ExtractedRecipeFromLLM> = z
+	.object({
+		title: z.string().trim().min(1),
+		description: z.unknown().optional(),
+		servings: z.unknown().optional(),
+		prepTime: z.unknown().optional(),
+		cookTime: z.unknown().optional(),
+		ingredients: z.array(z.unknown()),
+		instructions: z.array(z.unknown()),
+	})
+	.transform((recipe) => ({
+		title: recipe.title.slice(0, MAX_TITLE_LENGTH),
+		description:
+			typeof recipe.description === 'string'
+				? recipe.description.trim().slice(0, MAX_DESCRIPTION_LENGTH) || null
+				: null,
+		servings:
+			typeof recipe.servings === 'number' && recipe.servings > 0
+				? Math.min(recipe.servings, 100)
+				: 4,
+		prepTime:
+			typeof recipe.prepTime === 'number' && recipe.prepTime >= 0
+				? recipe.prepTime
+				: null,
+		cookTime:
+			typeof recipe.cookTime === 'number' && recipe.cookTime >= 0
+				? recipe.cookTime
+				: null,
+		ingredients: recipe.ingredients
+			.slice(0, MAX_INGREDIENTS)
+			.flatMap((ingredient) => {
+				const parsed = ExtractedIngredientSchema.safeParse(ingredient)
+				return parsed.success ? [parsed.data] : []
+			}),
+		instructions: recipe.instructions
+			.slice(0, MAX_INSTRUCTIONS)
+			.flatMap((instruction) => {
+				const parsed = ExtractedInstructionSchema.safeParse(instruction)
+				return parsed.success ? [parsed.data] : []
+			}),
+	}))
+	.refine(
+		(recipe) =>
+			recipe.ingredients.some((ingredient) => !ingredient.isHeading) &&
+			recipe.instructions.length > 0,
+	)
 
 const SYSTEM_PROMPT =
 	'You are a recipe extraction assistant. Extract a structured recipe from informal text or images such as social media captions, screenshots, blog posts, or YouTube descriptions. The content may contain emojis, abbreviations, hashtags, casual language, non-English text, or missing structure. Do your best to identify the recipe. Return only valid JSON — no markdown, no explanation.'
@@ -100,108 +197,8 @@ Return a single JSON object with this exact structure:
 export function parseExtractResponse(
 	text: string,
 ): ExtractedRecipeFromLLM | null {
-	try {
-		const jsonMatch = text.match(/\{[\s\S]*\}/)
-		if (!jsonMatch) return null
-
-		const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>
-		if (typeof parsed !== 'object' || parsed === null) return null
-
-		// Check for explicit "no recipe" response
-		if (parsed.error === 'no_recipe_found') return null
-
-		// Validate required fields
-		if (typeof parsed.title !== 'string' || !parsed.title.trim()) return null
-
-		const recipe: ExtractedRecipeFromLLM = {
-			title: parsed.title.trim().slice(0, MAX_TITLE_LENGTH),
-			description:
-				typeof parsed.description === 'string'
-					? parsed.description.trim().slice(0, MAX_DESCRIPTION_LENGTH) || null
-					: null,
-			servings:
-				typeof parsed.servings === 'number' && parsed.servings > 0
-					? Math.min(parsed.servings, 100)
-					: 4,
-			prepTime:
-				typeof parsed.prepTime === 'number' && parsed.prepTime >= 0
-					? parsed.prepTime
-					: null,
-			cookTime:
-				typeof parsed.cookTime === 'number' && parsed.cookTime >= 0
-					? parsed.cookTime
-					: null,
-			ingredients: [],
-			instructions: [],
-		}
-
-		// Parse ingredients
-		if (Array.isArray(parsed.ingredients)) {
-			for (const item of parsed.ingredients.slice(0, MAX_INGREDIENTS)) {
-				if (
-					typeof item !== 'object' ||
-					item === null ||
-					typeof (item as { name?: unknown }).name !== 'string'
-				) {
-					continue
-				}
-				const ing = item as Record<string, unknown>
-				const isHeading = ing.isHeading === true
-				recipe.ingredients.push({
-					name: (ing.name as string)
-						.trim()
-						.slice(0, MAX_INGREDIENT_NAME_LENGTH),
-					amount: isHeading
-						? null
-						: typeof ing.amount === 'string'
-							? ing.amount.trim().slice(0, MAX_INGREDIENT_AMOUNT_LENGTH) || null
-							: typeof ing.amount === 'number'
-								? String(ing.amount)
-								: null,
-					unit: isHeading
-						? null
-						: typeof ing.unit === 'string'
-							? ing.unit.trim().slice(0, MAX_INGREDIENT_UNIT_LENGTH) || null
-							: null,
-					notes: isHeading
-						? null
-						: typeof ing.notes === 'string'
-							? ing.notes.trim().slice(0, MAX_INGREDIENT_NOTES_LENGTH) || null
-							: null,
-					isHeading,
-				})
-			}
-		}
-
-		// Parse instructions
-		if (Array.isArray(parsed.instructions)) {
-			for (const item of parsed.instructions.slice(0, MAX_INSTRUCTIONS)) {
-				if (typeof item === 'string') {
-					const trimmed = item.trim().slice(0, MAX_INSTRUCTION_LENGTH)
-					if (trimmed) recipe.instructions.push({ content: trimmed })
-				} else if (
-					typeof item === 'object' &&
-					item !== null &&
-					typeof (item as { content?: unknown }).content === 'string'
-				) {
-					const content = ((item as { content: string }).content || '')
-						.trim()
-						.slice(0, MAX_INSTRUCTION_LENGTH)
-					if (content) recipe.instructions.push({ content })
-				}
-			}
-		}
-
-		// Must have at least one real ingredient (not just headings) and one instruction
-		const hasRealIngredient = recipe.ingredients.some((ing) => !ing.isHeading)
-		if (!hasRealIngredient || recipe.instructions.length === 0) {
-			return null
-		}
-
-		return recipe
-	} catch {
-		return null
-	}
+	const result = parseAnthropicJson(text, ExtractedRecipeSchema)
+	return result.ok ? result.data : null
 }
 
 /**
@@ -210,81 +207,19 @@ export function parseExtractResponse(
 export async function extractRecipeFromText(
 	rawText: string,
 ): Promise<ExtractedRecipeFromLLM | { error: string }> {
-	const apiKey = process.env.ANTHROPIC_API_KEY
-	if (!apiKey) {
-		return { error: 'AI features are not configured. Contact support.' }
-	}
+	const result = await requestAnthropicJson({
+		feature: 'recipe-extract-text',
+		model: ANTHROPIC_MODELS.fast,
+		maxTokens: MAX_TOKENS,
+		timeoutMs: TIMEOUT_TEXT_MS,
+		system: SYSTEM_PROMPT,
+		prompt: buildExtractPrompt('text', rawText),
+		schema: ExtractedRecipeSchema,
+	})
 
-	try {
-		const response = await fetch(ANTHROPIC_API_URL, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'x-api-key': apiKey,
-				'anthropic-version': '2023-06-01',
-			},
-			body: JSON.stringify({
-				model: MODEL_FAST,
-				max_tokens: MAX_TOKENS,
-				system: SYSTEM_PROMPT,
-				messages: [
-					{
-						role: 'user',
-						content: buildExtractPrompt('text', rawText),
-					},
-				],
-			}),
-			signal: AbortSignal.timeout(TIMEOUT_TEXT_MS),
-		})
-
-		if (!response.ok) {
-			const body = await response.text().catch(() => '')
-			console.error(
-				`Recipe extraction LLM error: ${response.status} ${response.statusText} — ${body}`,
-			)
-			if (response.status === 429) {
-				return {
-					error:
-						'Recipe extraction hit a rate limit. Please wait a moment and try again.',
-				}
-			}
-			return {
-				error:
-					'Recipe extraction failed — the AI service returned an error. Please try again later.',
-			}
-		}
-
-		const data = (await response.json()) as {
-			content?: Array<{ type: string; text?: string }>
-		}
-
-		const text = data.content?.[0]?.text
-		if (!text) {
-			return {
-				error:
-					'Recipe extraction returned an empty response. Please try again.',
-			}
-		}
-
-		const result = parseExtractResponse(text)
-		if (!result) {
-			return {
-				error:
-					"Couldn't find a recipe in the provided text. Try including ingredients and instructions.",
-			}
-		}
-
-		return result
-	} catch (error) {
-		console.error('Recipe extraction LLM error:', error)
-		if (error instanceof DOMException && error.name === 'TimeoutError') {
-			return { error: 'Recipe extraction timed out. Please try again.' }
-		}
-		return {
-			error:
-				'Recipe extraction failed — the AI service returned an error. Please try again later.',
-		}
-	}
+	return result.ok
+		? result.data
+		: { error: extractionError(result.failure, 'text') }
 }
 
 const IMAGE_MAX_DIMENSION = 1024
@@ -325,9 +260,7 @@ export async function extractRecipeFromImages(
 			}
 		}
 	}
-
-	const apiKey = process.env.ANTHROPIC_API_KEY
-	if (!apiKey) {
+	if (!isAnthropicConfigured()) {
 		return { error: 'AI features are not configured. Contact support.' }
 	}
 
@@ -344,89 +277,52 @@ export async function extractRecipeFromImages(
 		}
 	}
 
-	try {
-		const imageBlocks = preparedImages.map((img) => ({
-			type: 'image' as const,
-			source: {
-				type: 'base64' as const,
-				media_type: img.media_type,
-				data: img.data,
-			},
-		}))
+	const imageBlocks = preparedImages.map((image) => ({
+		type: 'image' as const,
+		source: {
+			type: 'base64' as const,
+			media_type: image.media_type,
+			data: image.data,
+		},
+	}))
 
-		const response = await fetch(ANTHROPIC_API_URL, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'x-api-key': apiKey,
-				'anthropic-version': '2023-06-01',
-			},
-			body: JSON.stringify({
-				model: MODEL_VISION,
-				max_tokens: MAX_TOKENS,
-				system: SYSTEM_PROMPT,
-				messages: [
-					{
-						role: 'user',
-						content: [
-							...imageBlocks,
-							{
-								type: 'text',
-								text: buildExtractPrompt('image'),
-							},
-						],
-					},
-				],
-			}),
-			signal: AbortSignal.timeout(TIMEOUT_IMAGE_MS),
-		})
+	const result = await requestAnthropicJson({
+		feature: 'recipe-extract-image',
+		model: ANTHROPIC_MODELS.vision,
+		maxTokens: MAX_TOKENS,
+		timeoutMs: TIMEOUT_IMAGE_MS,
+		system: SYSTEM_PROMPT,
+		prompt: [
+			...imageBlocks,
+			{ type: 'text', text: buildExtractPrompt('image') },
+		],
+		schema: ExtractedRecipeSchema,
+	})
 
-		if (!response.ok) {
-			const body = await response.text().catch(() => '')
-			console.error(
-				`Recipe extraction LLM error: ${response.status} ${response.statusText} — ${body}`,
-			)
-			if (response.status === 429) {
-				return {
-					error:
-						'Recipe extraction hit a rate limit. Please wait a moment and try again.',
-				}
-			}
-			return {
-				error:
-					'Recipe extraction failed — the AI service returned an error. Please try again later.',
-			}
-		}
+	return result.ok
+		? result.data
+		: { error: extractionError(result.failure, 'image') }
+}
 
-		const data = (await response.json()) as {
-			content?: Array<{ type: string; text?: string }>
-		}
-
-		const text = data.content?.[0]?.text
-		if (!text) {
-			return {
-				error:
-					'Recipe extraction returned an empty response. Please try again.',
-			}
-		}
-
-		const result = parseExtractResponse(text)
-		if (!result) {
-			return {
-				error:
-					"Couldn't find a recipe in the provided image(s). Make sure the image contains recipe text or ingredients.",
-			}
-		}
-
-		return result
-	} catch (error) {
-		console.error('Recipe extraction LLM error:', error)
-		if (error instanceof DOMException && error.name === 'TimeoutError') {
-			return { error: 'Recipe extraction timed out. Please try again.' }
-		}
-		return {
-			error:
-				'Recipe extraction failed — the AI service returned an error. Please try again later.',
-		}
+function extractionError(
+	failure: AnthropicJsonFailure,
+	mode: 'text' | 'image',
+): string {
+	switch (failure.kind) {
+		case 'configuration':
+			return 'AI features are not configured. Contact support.'
+		case 'rate-limit':
+			return 'Recipe extraction hit a rate limit. Please wait a moment and try again.'
+		case 'timeout':
+			return 'Recipe extraction timed out. Please try again.'
+		case 'empty-response':
+			return 'Recipe extraction returned an empty response. Please try again.'
+		case 'parse':
+		case 'schema':
+			return mode === 'text'
+				? "Couldn't find a recipe in the provided text. Try including ingredients and instructions."
+				: "Couldn't find a recipe in the provided image(s). Make sure the image contains recipe text or ingredients."
+		case 'provider':
+			return 'Recipe extraction failed — the AI service returned an error. Please try again later.'
 	}
 }

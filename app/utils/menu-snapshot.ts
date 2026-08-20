@@ -13,6 +13,7 @@ export type MenuForSnapshot = {
 	sections: Array<{
 		name: string | null
 		items: Array<{
+			id?: string
 			kind: string
 			recipeTitle: string | null
 			scaleMultiplier: number | null
@@ -59,6 +60,7 @@ export type SnapshotSectionSeed = {
 export function menuToSnapshotSections(
 	menu: MenuForSnapshot,
 	householdId: string,
+	scaleMultiplierOverrides?: ReadonlyMap<string, number>,
 ): SnapshotSectionSeed[] {
 	return menu.sections.map((section) => ({
 		name: section.name,
@@ -93,9 +95,15 @@ export function menuToSnapshotSections(
 						kind: 'recipe',
 						recipeId: recipe?.id ?? null,
 						recipeTitle,
-						// Copied unchanged (#98 story 46) — guest count never silently
-						// scales fixed or batch-like dishes.
-						scaleMultiplier: item.scaleMultiplier ?? 1,
+						// The default path copies unchanged (#98 story 46). #113 may
+						// supply explicit, per-card reviewed overrides for this new Meal
+						// only; it never mutates the source Menu defaults.
+						scaleMultiplier:
+							(item.id == null
+								? undefined
+								: scaleMultiplierOverrides?.get(item.id)) ??
+							item.scaleMultiplier ??
+							1,
 						note: item.note,
 					},
 				]

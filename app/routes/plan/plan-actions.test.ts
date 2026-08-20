@@ -475,6 +475,276 @@ describe('meal plan actions', () => {
 		expect(invalid).toMatchObject({ status: 'error' })
 	})
 
+	test('quantity proposal is transient, receives visible Meal context without legacy servings, and re-run does not overwrite accepted values', async () => {
+		const session = await setupUser()
+		const first = await setupRecipe(
+			session.userId,
+			session.householdId,
+			'Flexible stew',
+		)
+		const second = await setupRecipe(
+			session.userId,
+			session.householdId,
+			'Whole orange cake',
+		)
+		await prisma.recipe.update({
+			where: { id: first.id },
+			data: {
+				description: 'A shared main course',
+				instructions: { create: { content: 'Simmer in one pot.', order: 0 } },
+			},
+		})
+		await act(session, {
+			intent: 'addMeal',
+			date: '2026-02-02',
+			recipeId: first.id,
+		})
+		let [meal] = await findHouseholdMeals(session.householdId)
+		await act(session, {
+			intent: 'addRecipeToMeal',
+			mealId: meal!.id,
+			recipeId: second.id,
+		})
+		await act(session, {
+			intent: 'updateMealDetails',
+			mealId: meal!.id,
+			guestCount: '8',
+		})
+		;[meal] = await findHouseholdMeals(session.householdId)
+		const [firstItem, secondItem] = meal!.recipeItems
+
+		const propose = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true as const,
+				data: {
+					status: 'proposal' as const,
+					assumptions: ['Side dishes are also served.'],
+					items: [
+						{
+							itemKey: firstItem!.id,
+							scaleMultiplier: 2,
+							scalingMode: 'flexible' as const,
+							rationale: 'Scale the stew.',
+							assumptions: [],
+						},
+						{
+							itemKey: secondItem!.id,
+							scaleMultiplier: 1,
+							scalingMode: 'fixed' as const,
+							rationale: 'Keep one whole cake.',
+							assumptions: [],
+						},
+					],
+				},
+			})
+			.mockResolvedValueOnce({
+				ok: true as const,
+				data: {
+					status: 'proposal' as const,
+					assumptions: [],
+					items: [
+						{
+							itemKey: firstItem!.id,
+							scaleMultiplier: 3,
+							scalingMode: 'flexible' as const,
+							rationale: 'A fresh draft.',
+							assumptions: [],
+						},
+						{
+							itemKey: secondItem!.id,
+							scaleMultiplier: 2,
+							scalingMode: 'fixed' as const,
+							rationale: 'A fresh whole-dish draft.',
+							assumptions: [],
+						},
+					],
+				},
+			})
+		const usageRemaining = vi.fn().mockResolvedValue(10)
+		const recordUsage = vi
+			.fn()
+			.mockResolvedValue({ allowed: true, remaining: 9 })
+		const quantityAction = createPlanAction(
+			prisma,
+			async () => ({ ...session, isProActive: true }),
+			{ propose, usageRemaining, recordUsage },
+		)
+		const submitQuantity = async (fields: Record<string, string>) =>
+			quantityAction({ request: await makeRequest(session, fields) })
+
+		const firstDraft = await submitQuantity({
+			intent: 'proposeMealQuantities',
+			mealId: meal!.id,
+		})
+		expect(firstDraft).toMatchObject({
+			status: 'success',
+			quantityProposal: { status: 'proposal' },
+		})
+		const planningInput = propose.mock.calls[0]![0]
+		expect(planningInput).toMatchObject({
+			context: 'planned-meal',
+			guestCount: 8,
+			sections: [
+				{
+					name: null,
+					items: [
+						expect.objectContaining({
+							itemKey: firstItem!.id,
+							recipe: expect.objectContaining({
+								title: 'Flexible stew',
+								description: 'A shared main course',
+								currentScaleMultiplier: 1,
+								instructions: [{ content: 'Simmer in one pot.' }],
+							}),
+						}),
+						expect.objectContaining({ itemKey: secondItem!.id }),
+					],
+				},
+			],
+		})
+		expect(planningInput.sections[0].items[0].recipe).not.toHaveProperty(
+			'servings',
+		)
+		expect(recordUsage).toHaveBeenCalledTimes(1)
+		expect(
+			(await findHouseholdMeals(session.householdId))[0]!.recipeItems.map(
+				(item) => item.scaleMultiplier,
+			),
+		).toEqual([1, 1])
+
+		// Accept/edit the first proposal and reject the cake. Only the explicit
+		// apply writes, and the rejected item stays manual.
+		const apply = await submitQuantity({
+			intent: 'applyMealQuantities',
+			mealId: meal!.id,
+			quantitySelections: JSON.stringify([
+				{ itemKey: firstItem!.id, scaleMultiplier: 2.5 },
+			]),
+		})
+		expect(apply).toEqual({ status: 'success', quantitiesApplied: 1 })
+		expect(
+			(await findHouseholdMeals(session.householdId))[0]!.recipeItems.map(
+				(item) => item.scaleMultiplier,
+			),
+		).toEqual([2.5, 1])
+		await submitQuantity({
+			intent: 'addMealToShopping',
+			mealId: meal!.id,
+		})
+		expect(
+			await prisma.mealShoppingContribution.findFirst({
+				where: { mealId: meal!.id, name: 'flour' },
+				select: { quantity: true, unit: true },
+			}),
+		).toEqual({ quantity: '7', unit: 'cups' })
+
+		await submitQuantity({
+			intent: 'proposeMealQuantities',
+			mealId: meal!.id,
+		})
+		expect(
+			(await findHouseholdMeals(session.householdId))[0]!.recipeItems.map(
+				(item) => item.scaleMultiplier,
+			),
+		).toEqual([2.5, 1])
+		expect(propose).toHaveBeenCalledTimes(2)
+		expect(recordUsage).toHaveBeenCalledTimes(2)
+	})
+
+	test('quantity provider, entitlement, rate-limit, and forged-apply failures never mutate Meal data', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		await act(session, {
+			intent: 'addMeal',
+			date: '2026-02-02',
+			recipeId: recipe.id,
+		})
+		const [meal] = await findHouseholdMeals(session.householdId)
+		await act(session, {
+			intent: 'updateMealDetails',
+			mealId: meal!.id,
+			guestCount: '4',
+		})
+		const item = meal!.recipeItems[0]!
+		const propose = vi.fn().mockResolvedValue({
+			ok: false as const,
+			error: 'Provider failed. Manual multipliers are unchanged.',
+		})
+		const recordUsage = vi.fn()
+
+		const failedAction = createPlanAction(
+			prisma,
+			async () => ({ ...session, isProActive: true }),
+			{
+				propose,
+				usageRemaining: vi.fn().mockResolvedValue(10),
+				recordUsage,
+			},
+		)
+		const providerFailure = await failedAction({
+			request: await makeRequest(session, {
+				intent: 'proposeMealQuantities',
+				mealId: meal!.id,
+			}),
+		})
+		expect(providerFailure).toMatchObject({ status: 'error' })
+		expect(recordUsage).not.toHaveBeenCalled()
+
+		const freeAction = createPlanAction(
+			prisma,
+			async () => ({ ...session, isProActive: false }),
+			{
+				propose,
+				usageRemaining: vi.fn(),
+				recordUsage,
+			},
+		)
+		expect(
+			await freeAction({
+				request: await makeRequest(session, {
+					intent: 'proposeMealQuantities',
+					mealId: meal!.id,
+				}),
+			}),
+		).toMatchObject({ status: 'error', requiresPro: true })
+
+		const rateLimitedAction = createPlanAction(
+			prisma,
+			async () => ({ ...session, isProActive: true }),
+			{
+				propose,
+				usageRemaining: vi.fn().mockResolvedValue(0),
+				recordUsage,
+			},
+		)
+		expect(
+			await rateLimitedAction({
+				request: await makeRequest(session, {
+					intent: 'proposeMealQuantities',
+					mealId: meal!.id,
+				}),
+			}),
+		).toMatchObject({ status: 'error' })
+
+		await expect(
+			act(session, {
+				intent: 'applyMealQuantities',
+				mealId: meal!.id,
+				quantitySelections: JSON.stringify([
+					{ itemKey: 'forged-item', scaleMultiplier: 9 },
+				]),
+			}),
+		).rejects.toEqual(expect.objectContaining({ status: 400 }))
+		expect(
+			(
+				await prisma.mealRecipeItem.findUniqueOrThrow({
+					where: { id: item.id },
+				})
+			).scaleMultiplier,
+		).toBe(1)
+	})
+
 	test('removeItem deletes the item; removing the last item removes the Meal', async () => {
 		const session = await setupUser()
 		const first = await setupRecipe(

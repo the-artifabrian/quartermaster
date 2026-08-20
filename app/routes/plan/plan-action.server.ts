@@ -1,6 +1,10 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type PrismaClient } from '#app/generated/prisma/client.ts'
+import {
+	checkAndRecordAiUsage,
+	getAiUsageRemaining,
+} from '#app/utils/ai-rate-limit.server.ts'
 import { getWeekStart } from '#app/utils/date.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
@@ -9,6 +13,12 @@ import {
 	MealDetailsSchema,
 } from '#app/utils/meal-plan-validation.ts'
 import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
+import {
+	DAILY_QUANTITY_PROPOSAL_LIMIT,
+	parseQuantitySelections,
+	proposeContextualMealQuantities,
+	type QuantityPlanningInput,
+} from '#app/utils/meal-quantity-proposal.server.ts'
 import {
 	addRecipeToMeal,
 	createMealWithItems,
@@ -35,16 +45,29 @@ import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 type PlanActionUser = Pick<
 	Awaited<ReturnType<typeof requireUserWithTier>>,
 	'userId' | 'householdId'
->
+> & { isProActive?: boolean }
+
+type QuantityProposalDependencies = {
+	propose: typeof proposeContextualMealQuantities
+	usageRemaining: typeof getAiUsageRemaining
+	recordUsage: typeof checkAndRecordAiUsage
+}
+
+const quantityProposalDependencies: QuantityProposalDependencies = {
+	propose: proposeContextualMealQuantities,
+	usageRemaining: getAiUsageRemaining,
+	recordUsage: checkAndRecordAiUsage,
+}
 
 export function createPlanAction(
 	db: PrismaClient,
 	requirePlanUser: (
 		request: Request,
 	) => Promise<PlanActionUser> = requireUserWithTier,
+	quantityDependencies: QuantityProposalDependencies = quantityProposalDependencies,
 ) {
 	return async function planAction({ request }: { request: Request }) {
-		const { userId, householdId } = await requirePlanUser(request)
+		const { userId, householdId, isProActive } = await requirePlanUser(request)
 		const formData = await request.formData()
 		const intent = formData.get('intent')
 
@@ -160,6 +183,120 @@ export function createPlanAction(
 				scaleMultiplier: parsed.data,
 			})
 			return { status: 'success' as const }
+		}
+
+		if (intent === 'proposeMealQuantities') {
+			const meal = await requireMeal(formData.get('mealId'))
+			if (!isProActive) {
+				return {
+					status: 'error' as const,
+					quantityError:
+						'Plan quantities requires Pro. Manual multipliers remain fully editable.',
+					requiresPro: true as const,
+				}
+			}
+
+			const planningInput = await loadMealQuantityPlanningInput(db, {
+				mealId: meal.id,
+				householdId,
+			})
+			if ('error' in planningInput) {
+				return { status: 'error' as const, quantityError: planningInput.error }
+			}
+
+			const clarificationRound = formData.get('clarificationRound')
+			let clarification: { question: string; answer: string } | undefined
+			if (clarificationRound != null) {
+				if (clarificationRound !== '1') {
+					return {
+						status: 'error' as const,
+						quantityError:
+							'Plan quantities allows one clarification only. Manual multipliers are unchanged.',
+					}
+				}
+				const question = formData.get('clarificationQuestion')
+				const answer = formData.get('clarificationAnswer')
+				if (
+					typeof question !== 'string' ||
+					typeof answer !== 'string' ||
+					!question.trim() ||
+					!answer.trim()
+				) {
+					return {
+						status: 'error' as const,
+						quantityError:
+							'Choose or enter one clarification answer. Manual multipliers are unchanged.',
+					}
+				}
+				clarification = {
+					question: question.trim().slice(0, 240),
+					answer: answer.trim().slice(0, 240),
+				}
+			}
+
+			const remaining = await quantityDependencies.usageRemaining(
+				userId,
+				'meal_quantity_proposal_llm_call',
+				DAILY_QUANTITY_PROPOSAL_LIMIT,
+			)
+			if (remaining <= 0) {
+				return {
+					status: 'error' as const,
+					quantityError: `You've reached the daily limit of ${DAILY_QUANTITY_PROPOSAL_LIMIT} quantity-planning calls. Manual multipliers are unchanged.`,
+				}
+			}
+
+			const outcome = await quantityDependencies.propose(planningInput, {
+				clarification,
+			})
+			if (!outcome.ok) {
+				return { status: 'error' as const, quantityError: outcome.error }
+			}
+
+			// Record only a schema-valid response. Provider/parse/schema failures do
+			// not write usage or canonical planning data.
+			await quantityDependencies.recordUsage(
+				userId,
+				'meal_quantity_proposal_llm_call',
+				DAILY_QUANTITY_PROPOSAL_LIMIT,
+			)
+			return {
+				status: 'success' as const,
+				quantityProposal: outcome.data,
+			}
+		}
+
+		if (intent === 'applyMealQuantities') {
+			const meal = await requireMeal(formData.get('mealId'))
+			const selections = parseQuantitySelections(
+				formData.get('quantitySelections'),
+			)
+			if (!selections.ok) {
+				return { status: 'error' as const, quantityError: selections.error }
+			}
+			const selectedKeys = selections.data.map((selection) => selection.itemKey)
+			const ownedItems = await db.mealRecipeItem.findMany({
+				where: { mealId: meal.id, id: { in: selectedKeys } },
+				select: { id: true },
+			})
+			invariantResponse(
+				ownedItems.length === selectedKeys.length,
+				'One or more Recipe items no longer belong to this Meal',
+				{ status: 400 },
+			)
+
+			await db.$transaction(
+				selections.data.map((selection) =>
+					db.mealRecipeItem.update({
+						where: { id: selection.itemKey },
+						data: { scaleMultiplier: selection.scaleMultiplier },
+					}),
+				),
+			)
+			return {
+				status: 'success' as const,
+				quantitiesApplied: selections.data.length,
+			}
 		}
 
 		// The explicit action that puts one Meal's ingredients on Shopping (#108
@@ -337,5 +474,128 @@ export function createPlanAction(
 		}
 
 		return { status: 'error' as const }
+	}
+}
+
+async function loadMealQuantityPlanningInput(
+	db: PrismaClient,
+	{
+		mealId,
+		householdId,
+	}: {
+		mealId: string
+		householdId: string
+	},
+): Promise<QuantityPlanningInput | { error: string }> {
+	const meal = await db.meal.findFirstOrThrow({
+		where: { id: mealId, mealPlan: { householdId } },
+		select: {
+			guestCount: true,
+			sections: {
+				orderBy: [{ order: 'asc' }, { id: 'asc' }],
+				select: { id: true, name: true },
+			},
+			recipeItems: {
+				orderBy: [{ order: 'asc' }, { id: 'asc' }],
+				select: {
+					id: true,
+					order: true,
+					sectionId: true,
+					recipeTitle: true,
+					scaleMultiplier: true,
+					note: true,
+					recipe: {
+						select: {
+							description: true,
+							ingredients: {
+								orderBy: [{ order: 'asc' }, { id: 'asc' }],
+								select: {
+									name: true,
+									amount: true,
+									unit: true,
+									notes: true,
+									isHeading: true,
+								},
+							},
+							instructions: {
+								orderBy: [{ order: 'asc' }, { id: 'asc' }],
+								select: { content: true },
+							},
+						},
+					},
+				},
+			},
+			noteItems: {
+				orderBy: [{ order: 'asc' }, { id: 'asc' }],
+				select: { id: true, order: true, sectionId: true, text: true },
+			},
+		},
+	})
+
+	if (meal.guestCount == null) {
+		return {
+			error:
+				'Add a guest count in Meal details before planning quantities. Manual multipliers are unchanged.',
+		}
+	}
+	if (meal.recipeItems.some((item) => item.recipe == null)) {
+		return {
+			error:
+				'Replace or remove missing Recipe cards before planning quantities. Manual multipliers are unchanged.',
+		}
+	}
+
+	type PlanningItem = QuantityPlanningInput['sections'][number]['items'][number]
+	type OrderedPlanningItem = {
+		order: number
+		tieKey: string
+		item: PlanningItem
+	}
+	function itemsForSection(sectionId: string | null): PlanningItem[] {
+		const recipes: OrderedPlanningItem[] = meal.recipeItems
+			.filter((item) => item.sectionId === sectionId)
+			.map((item) => ({
+				order: item.order,
+				tieKey: `recipe:${item.id}`,
+				item: {
+					kind: 'recipe' as const,
+					itemKey: item.id,
+					recipe: {
+						title: item.recipeTitle,
+						description: item.recipe!.description,
+						note: item.note,
+						currentScaleMultiplier: item.scaleMultiplier,
+						ingredients: item.recipe!.ingredients,
+						instructions: item.recipe!.instructions,
+					},
+				},
+			}))
+		const notes: OrderedPlanningItem[] = meal.noteItems
+			.filter((item) => item.sectionId === sectionId)
+			.map((item) => ({
+				order: item.order,
+				tieKey: `note:${item.id}`,
+				item: { kind: 'note' as const, text: item.text },
+			}))
+		return [...recipes, ...notes]
+			.sort((a, b) => a.order - b.order || a.tieKey.localeCompare(b.tieKey))
+			.map(({ item }) => item)
+	}
+
+	const sections: QuantityPlanningInput['sections'] = meal.sections.map(
+		(section) => ({
+			name: section.name,
+			items: itemsForSection(section.id),
+		}),
+	)
+	const unsectioned = itemsForSection(null)
+	if (unsectioned.length > 0 || sections.length === 0) {
+		sections.push({ name: null, items: unsectioned })
+	}
+
+	return {
+		context: 'planned-meal',
+		guestCount: meal.guestCount,
+		sections,
 	}
 }

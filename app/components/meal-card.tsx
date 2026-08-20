@@ -68,6 +68,7 @@ export type PlanMeal = {
 	/// Frozen Menu snapshot structure (#107); empty for planner-created Meals.
 	sections: Array<{ id: string; name: string | null }>
 	noteItems: PlanMealNote[]
+	shoppingDemandStatus: 'not-added' | 'current' | 'stale' | 'blocked'
 	items: PlanMealItem[]
 }
 
@@ -530,10 +531,13 @@ export function MealCard({
 	const addRecipeFetcher = useFetcher()
 	const addToShoppingFetcher = useFetcher<{
 		status: string
+		refreshed?: boolean
 		shopping?: {
 			createdRowCount: number
-			attachedCount: number
-			alreadyContributedCount: number
+			attachedCount?: number
+			alreadyContributedCount?: number
+			updatedContributionCount?: number
+			removedContributionCount?: number
 		}
 	}>()
 	const [addingRecipe, setAddingRecipe] = useState(false)
@@ -559,6 +563,9 @@ export function MealCard({
 			: null
 
 	const rows = isText ? [] : buildMealRows(meal)
+	const hasShoppingDemand =
+		meal.items.length > 0 ||
+		meal.noteItems.some((note) => note.shoppingLines.length > 0)
 
 	// Toast once the explicit Add-to-Shopping action settles (#108) — the
 	// result is otherwise invisible from the planner.
@@ -570,15 +577,20 @@ export function MealCard({
 		) {
 			const data = addToShoppingFetcher.data
 			if (data?.status === 'success' && data.shopping) {
+				if (data.refreshed) {
+					toast.success('Shopping contribution refreshed')
+					prevShoppingState.current = addToShoppingFetcher.state
+					return
+				}
 				const { createdRowCount, attachedCount, alreadyContributedCount } =
 					data.shopping
 				if (createdRowCount > 0) {
 					toast.success(
 						`Added ${createdRowCount} item${createdRowCount === 1 ? '' : 's'} to Shopping`,
 					)
-				} else if (attachedCount > 0) {
+				} else if ((attachedCount ?? 0) > 0) {
 					toast.success('Everything is already on your Shopping list')
-				} else if (alreadyContributedCount > 0) {
+				} else if ((alreadyContributedCount ?? 0) > 0) {
 					toast.info('This meal is already on Shopping')
 				} else {
 					toast.info('Nothing to add to Shopping')
@@ -620,6 +632,16 @@ export function MealCard({
 							<Icon name="file-text" className="size-3 shrink-0" />
 							<span className="truncate">{meal.sourceMenu.title}</span>
 						</Link>
+					)}
+					{meal.shoppingDemandStatus === 'stale' && (
+						<span className="text-amber-700 normal-case dark:text-amber-300">
+							· Shopping changed
+						</span>
+					)}
+					{meal.shoppingDemandStatus === 'blocked' && (
+						<span className="text-amber-700 normal-case dark:text-amber-300">
+							· Shopping refresh blocked
+						</span>
 					)}
 				</div>
 
@@ -677,41 +699,95 @@ export function MealCard({
 						{/* A Meal reaches Shopping only through this explicit action —
 						    planning never live-syncs Shopping. Text-only Meals have no
 						    Shopping behavior (#108). */}
-						{!isText && meal.items.length > 0 && (
+						{!isText && hasShoppingDemand && (
 							<DropdownMenuItem
-								disabled={addToShoppingFetcher.state !== 'idle'}
+								disabled={
+									addToShoppingFetcher.state !== 'idle' ||
+									meal.shoppingDemandStatus === 'current' ||
+									meal.shoppingDemandStatus === 'blocked'
+								}
 								onSelect={() => {
 									void addToShoppingFetcher.submit(
-										{ intent: 'addMealToShopping', mealId: meal.id },
+										{
+											intent:
+												meal.shoppingDemandStatus === 'stale'
+													? 'refreshMealShopping'
+													: 'addMealToShopping',
+											mealId: meal.id,
+										},
 										{ method: 'POST' },
 									)
 								}}
 							>
-								<Icon name="cart" size="sm" />
-								Add to Shopping List
+								<Icon
+									name={
+										meal.shoppingDemandStatus === 'stale' ? 'update' : 'cart'
+									}
+									size="sm"
+								/>
+								{meal.shoppingDemandStatus === 'stale'
+									? 'Refresh Shopping List'
+									: meal.shoppingDemandStatus === 'blocked'
+										? 'Replace missing Recipe to refresh'
+										: meal.shoppingDemandStatus === 'current'
+											? 'Shopping List is current'
+											: 'Add to Shopping List'}
 							</DropdownMenuItem>
 						)}
 						<DropdownMenuSeparator />
-						<DropdownMenuItem
-							onSelect={(event) => {
-								if (!confirmingDelete) {
-									event.preventDefault()
-									setConfirmingDelete(true)
-									return
-								}
-								void removeMealFetcher.submit(
-									{ intent: 'removeMeal', mealId: meal.id },
-									{ method: 'POST' },
-								)
-							}}
-							className={cn(
-								confirmingDelete &&
-									'text-destructive focus:text-destructive font-medium',
-							)}
-						>
-							<Icon name="trash" size="sm" />
-							{confirmingDelete ? 'Really delete?' : 'Delete meal'}
-						</DropdownMenuItem>
+						{confirmingDelete && meal.shoppingDemandStatus !== 'not-added' ? (
+							<>
+								<DropdownMenuItem
+									onSelect={() => {
+										void removeMealFetcher.submit(
+											{ intent: 'removeMeal', mealId: meal.id },
+											{ method: 'POST' },
+										)
+									}}
+									className="text-destructive focus:text-destructive font-medium"
+								>
+									<Icon name="trash" size="sm" />
+									Delete meal · keep Shopping
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									onSelect={() => {
+										void removeMealFetcher.submit(
+											{
+												intent: 'removeMeal',
+												mealId: meal.id,
+												removeShoppingContributions: 'true',
+											},
+											{ method: 'POST' },
+										)
+									}}
+									className="text-destructive focus:text-destructive"
+								>
+									<Icon name="trash" size="sm" />
+									Delete meal · remove generated amount
+								</DropdownMenuItem>
+							</>
+						) : (
+							<DropdownMenuItem
+								onSelect={(event) => {
+									if (!confirmingDelete) {
+										event.preventDefault()
+										setConfirmingDelete(true)
+										return
+									}
+									void removeMealFetcher.submit(
+										{ intent: 'removeMeal', mealId: meal.id },
+										{ method: 'POST' },
+									)
+								}}
+								className={cn(
+									confirmingDelete &&
+										'text-destructive focus:text-destructive font-medium',
+								)}
+							>
+								<Icon name="trash" size="sm" />
+								{confirmingDelete ? 'Really delete?' : 'Delete meal'}
+							</DropdownMenuItem>
+						)}
 					</DropdownMenuContent>
 				</DropdownMenu>
 			</div>

@@ -65,6 +65,24 @@ export type ShoppingDemandLine = {
 	fromNote?: boolean
 }
 
+export type DemandFingerprintLine = Pick<
+	ShoppingDemandLine,
+	'canonicalName' | 'name' | 'quantity' | 'unit'
+>
+
+/**
+ * Stable current-demand fingerprint shared by freshly built demand and the
+ * contribution rows that recorded what was last added. Display-only fields
+ * such as category and availability deliberately do not participate.
+ */
+export function demandFingerprint(lines: DemandFingerprintLine[]): string {
+	return JSON.stringify(
+		lines
+			.map((line) => [line.canonicalName, line.name, line.quantity, line.unit])
+			.sort((a, b) => (a[0]! < b[0]! ? -1 : a[0]! > b[0]! ? 1 : 0)),
+	)
+}
+
 // Safety net: detect ingredients that look like section headings but aren't
 // marked with isHeading (e.g. from manual entry or import paths that don't
 // detect headings).

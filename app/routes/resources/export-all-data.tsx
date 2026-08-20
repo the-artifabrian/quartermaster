@@ -49,6 +49,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					weekStart: true,
 					meals: {
 						select: {
+							id: true,
 							date: true,
 							order: true,
 							label: true,
@@ -99,12 +100,23 @@ export async function loader({ request }: Route.LoaderArgs) {
 					name: true,
 					items: {
 						select: {
+							id: true,
 							name: true,
 							quantity: true,
 							unit: true,
 							category: true,
 							checked: true,
 							source: true,
+							mealContributions: {
+								orderBy: [{ canonicalName: 'asc' }, { id: 'asc' }],
+								select: {
+									mealId: true,
+									canonicalName: true,
+									name: true,
+									quantity: true,
+									unit: true,
+								},
+							},
 						},
 						orderBy: { name: 'asc' },
 					},
@@ -147,6 +159,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// exports only (#102).
 	const recipeRefById = new Map(
 		recipes.map((recipe, index) => [recipe.id, `r${index + 1}`]),
+	)
+	const mealRefById = new Map(
+		mealPlans
+			.flatMap((plan) => plan.meals)
+			.map((meal, index) => [meal.id, `m${index + 1}`]),
 	)
 
 	const exportData = {
@@ -229,6 +246,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					})),
 				})
 				return {
+					ref: mealRefById.get(meal.id)!,
 					date: meal.date.toISOString(),
 					order: meal.order,
 					label: meal.label,
@@ -270,6 +288,21 @@ export async function loader({ request }: Route.LoaderArgs) {
 				category: item.category,
 				checked: item.checked,
 				source: item.source,
+				// Nesting keeps every contribution attached to the exact exported
+				// row whose checked state it shares. Meal refs are export-local;
+				// null plus orphaned=true records safely kept post-deletion state.
+				mealContributions: item.mealContributions.map((contribution) => ({
+					sourceMealRef:
+						(contribution.mealId && mealRefById.get(contribution.mealId)) ??
+						null,
+					orphaned: contribution.mealId == null,
+					fingerprint: {
+						canonicalName: contribution.canonicalName,
+						name: contribution.name,
+						quantity: contribution.quantity,
+						unit: contribution.unit,
+					},
+				})),
 			})),
 		})),
 		// Menus are durable recovery data: sections, Recipe/note cards, scale

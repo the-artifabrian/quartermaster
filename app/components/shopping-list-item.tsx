@@ -26,6 +26,7 @@ export function ShoppingListItemCard({
 	const editFetcher = useFetcher()
 	const toggleFetcher = useFetcher()
 	const deleteFetcher = useFetcher()
+	const removeGeneratedFetcher = useFetcher()
 	const prevEditFetcherState = useRef(editFetcher.state)
 	const actionsRef = useRef<HTMLDivElement>(null)
 
@@ -90,7 +91,11 @@ export function ShoppingListItemCard({
 
 	if (isEditing) {
 		return (
-			<div className="p-3">
+			<div
+				className="p-3"
+				role="group"
+				aria-label={`${item.name} shopping item`}
+			>
 				<editFetcher.Form
 					method="POST"
 					onKeyDown={(e) => {
@@ -111,14 +116,22 @@ export function ShoppingListItemCard({
 						<div className="flex gap-2">
 							<Input
 								name="quantity"
-								defaultValue={item.quantity ?? ''}
+								defaultValue={
+									item.source === 'manual'
+										? (item.quantity ?? '')
+										: (display.quantity ?? '')
+								}
 								placeholder="Qty"
 								className="flex-1"
 								maxLength={50}
 							/>
 							<Input
 								name="unit"
-								defaultValue={item.unit ?? ''}
+								defaultValue={
+									item.source === 'manual'
+										? (item.unit ?? '')
+										: (display.unit ?? '')
+								}
 								placeholder="Unit"
 								className="flex-1"
 								maxLength={20}
@@ -147,7 +160,11 @@ export function ShoppingListItemCard({
 	}
 
 	return (
-		<div className="group flex items-center gap-3 py-2.5">
+		<div
+			className="group flex items-center gap-3 py-2.5"
+			role="group"
+			aria-label={`${item.name} shopping item`}
+		>
 			{/* Whole row toggles checkbox */}
 			<toggleFetcher.Form
 				method="POST"
@@ -242,6 +259,23 @@ export function ShoppingListItemCard({
 							>
 								<Icon name="pencil-1" size="sm" />
 							</button>
+							{item.source === 'manual' && display.combined && (
+								<removeGeneratedFetcher.Form method="POST">
+									<input
+										type="hidden"
+										name="intent"
+										value="removeGeneratedAmount"
+									/>
+									<input type="hidden" name="itemId" value={item.id} />
+									<button
+										type="submit"
+										className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-10 items-center justify-center rounded-md transition-colors"
+										aria-label="Remove generated amount"
+									>
+										<Icon name="reset" size="sm" />
+									</button>
+								</removeGeneratedFetcher.Form>
+							)}
 							<deleteFetcher.Form method="POST">
 								<input type="hidden" name="intent" value="delete" />
 								<input type="hidden" name="itemId" value={item.id} />

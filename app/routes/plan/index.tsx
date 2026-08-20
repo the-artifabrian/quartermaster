@@ -21,6 +21,11 @@ import {
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
+import {
+	buildShoppingDemand,
+	demandFingerprint,
+} from '#app/utils/shopping-demand.server.ts'
+import { annotateInventoryMatches } from '#app/utils/shopping-list.server.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
 import { createPlanAction } from './plan-action.server.ts'
@@ -90,8 +95,25 @@ export async function loader({ request }: Route.LoaderArgs) {
 									prepTime: true,
 									cookTime: true,
 									image: { select: { objectKey: true } },
+									ingredients: {
+										select: {
+											name: true,
+											amount: true,
+											unit: true,
+											isHeading: true,
+											notes: true,
+										},
+									},
 								},
 							},
+						},
+					},
+					shoppingContributions: {
+						select: {
+							canonicalName: true,
+							name: true,
+							quantity: true,
+							unit: true,
 						},
 					},
 				},
@@ -116,29 +138,75 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const weekDays = getWeekDays(weekStart)
 
-	const meals = mealPlan.meals.map((meal) => ({
-		id: meal.id,
-		dateStr: serializeDate(meal.date),
-		label: meal.label,
-		servingAt: meal.servingAt?.toISOString() ?? null,
-		servingTimeZone: meal.servingTimeZone,
-		genericText: meal.genericText,
-		completed: meal.completed,
-		guestCount: meal.guestCount,
-		sourceMenu: meal.sourceMenu,
-		sections: meal.sections,
-		noteItems: meal.noteItems,
-		items: meal.recipeItems.map((item) => ({
-			id: item.id,
-			recipeTitle: item.recipeTitle,
-			scaleMultiplier: item.scaleMultiplier,
-			cooked: item.cooked,
-			note: item.note,
-			order: item.order,
-			sectionId: item.sectionId,
-			recipe: item.recipe,
-		})),
-	}))
+	const meals = mealPlan.meals.map((meal) => {
+		// Stored contribution fields are the last-added demand fingerprint. Build
+		// the same availability-neutral demand again so only ingredient,
+		// multiplier, composition, and note-line changes can make it stale.
+		const freshDemand = annotateInventoryMatches(
+			buildShoppingDemand({
+				recipeBatches: meal.recipeItems.flatMap((item) =>
+					item.recipe
+						? [
+								{
+									ingredients: item.recipe.ingredients,
+									scaleMultiplier: item.scaleMultiplier,
+								},
+							]
+						: [],
+				),
+				noteLines: meal.noteItems.flatMap((item) => item.shoppingLines),
+			}),
+			[],
+		).lines
+		const hasStoredDemand = meal.shoppingContributions.length > 0
+		const demandChanged =
+			demandFingerprint(freshDemand) !==
+			demandFingerprint(meal.shoppingContributions)
+		const hasMissingRecipe = meal.recipeItems.some(
+			(item) => item.recipe == null,
+		)
+		const shoppingDemandStatus = !hasStoredDemand
+			? ('not-added' as const)
+			: !demandChanged
+				? ('current' as const)
+				: hasMissingRecipe
+					? ('blocked' as const)
+					: ('stale' as const)
+
+		return {
+			id: meal.id,
+			dateStr: serializeDate(meal.date),
+			label: meal.label,
+			servingAt: meal.servingAt?.toISOString() ?? null,
+			servingTimeZone: meal.servingTimeZone,
+			genericText: meal.genericText,
+			completed: meal.completed,
+			guestCount: meal.guestCount,
+			sourceMenu: meal.sourceMenu,
+			sections: meal.sections,
+			noteItems: meal.noteItems,
+			shoppingDemandStatus,
+			items: meal.recipeItems.map((item) => ({
+				id: item.id,
+				recipeTitle: item.recipeTitle,
+				scaleMultiplier: item.scaleMultiplier,
+				cooked: item.cooked,
+				note: item.note,
+				order: item.order,
+				sectionId: item.sectionId,
+				recipe: item.recipe
+					? {
+							id: item.recipe.id,
+							title: item.recipe.title,
+							servings: item.recipe.servings,
+							prepTime: item.recipe.prepTime,
+							cookTime: item.recipe.cookTime,
+							image: item.recipe.image,
+						}
+					: null,
+			})),
+		}
+	})
 
 	// Tonight banner data (only for current week)
 	const isCurrentWeek =

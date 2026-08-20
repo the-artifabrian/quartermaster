@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import {
 	buildShoppingDemand,
 	combineRowDisplay,
+	demandFingerprint,
 	type DemandIngredient,
 } from './shopping-demand.server.ts'
 
@@ -29,6 +30,47 @@ function batch(
 ) {
 	return { ingredients: makeIngredients(ingredients), scaleMultiplier }
 }
+
+describe('demandFingerprint — durable Meal demand identity (#110)', () => {
+	test('compares stored contribution fields independent of display-only fields and row order', () => {
+		const stored = [
+			{
+				canonicalName: 'lemons',
+				name: 'Lemons',
+				quantity: '6',
+				unit: null,
+			},
+			{
+				canonicalName: 'ground lamb',
+				name: 'ground lamb',
+				quantity: '500',
+				unit: 'g',
+			},
+		]
+		const fresh = [
+			{
+				canonicalName: 'ground lamb',
+				name: 'ground lamb',
+				quantity: '500',
+				unit: 'g',
+				category: 'meat',
+			},
+			{
+				canonicalName: 'lemons',
+				name: 'Lemons',
+				quantity: '6',
+				unit: null,
+				category: 'produce',
+				fromNote: true,
+			},
+		]
+
+		expect(demandFingerprint(fresh)).toBe(demandFingerprint(stored))
+		expect(
+			demandFingerprint([{ ...stored[0]!, quantity: '8' }, stored[1]!]),
+		).not.toBe(demandFingerprint(stored))
+	})
+})
 
 describe('buildShoppingDemand — Recipe ingredient batches', () => {
 	test('consolidates "Fresh Garlic" and "garlic, minced" into one line', () => {

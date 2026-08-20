@@ -4,6 +4,24 @@ import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 const normalizeName = (name: string) => name.toLowerCase().trim()
 
 /**
+ * What a Shopping row shows as its quantity line (#109): the row's own
+ * quantity grouped for display with its current Meal contributions, computed
+ * server-side by combineRowDisplay. `combined` marks a number the stored row
+ * alone would not explain (manual + meal demand, or several Meals summed) so
+ * the UI can say the total includes planned meals. Neither the row nor any
+ * contribution is rewritten.
+ */
+export type ShoppingItemDisplay = {
+	quantity: string | null
+	unit: string | null
+	combined: boolean
+}
+
+export type DisplayShoppingItem = ShoppingListItem & {
+	display: ShoppingItemDisplay
+}
+
+/**
  * Build a temporary ShoppingListItem for optimistically rendering an in-flight
  * `add` / `bulk-add`. The id is a stable, non-cuid sentinel so it works as a
  * React key and can never collide with a real row; once the real item arrives
@@ -19,17 +37,21 @@ export function makeOptimisticShoppingItem({
 	quantity?: string | null
 	unit?: string | null
 	listId: string
-}): ShoppingListItem {
+}): DisplayShoppingItem {
+	const trimmedQuantity = quantity?.trim() ? quantity.trim() : null
+	const trimmedUnit = unit?.trim() ? unit.trim() : null
 	return {
 		id: `optimistic:${normalizeName(name)}`,
 		name,
-		quantity: quantity?.trim() ? quantity.trim() : null,
-		unit: unit?.trim() ? unit.trim() : null,
+		quantity: trimmedQuantity,
+		unit: trimmedUnit,
 		category: guessCategory(name),
 		checked: false,
 		source: 'manual',
 		listId,
 		createdAt: new Date(),
+		// A just-typed row has no contributions yet — it displays itself.
+		display: { quantity: trimmedQuantity, unit: trimmedUnit, combined: false },
 	}
 }
 
@@ -44,10 +66,10 @@ export function makeOptimisticShoppingItem({
  *    (avoids a visible reorder from a localeCompare-vs-SQLite collation mismatch;
  *    the new item settles into its alphabetical slot on the next revalidation).
  */
-export function mergeOptimisticShoppingItems(
-	realItems: ShoppingListItem[],
-	pendingItems: ShoppingListItem[],
-): ShoppingListItem[] {
+export function mergeOptimisticShoppingItems<T extends ShoppingListItem>(
+	realItems: T[],
+	pendingItems: T[],
+): T[] {
 	if (pendingItems.length === 0) return realItems
 
 	const realNames = new Set(realItems.map((i) => normalizeName(i.name)))

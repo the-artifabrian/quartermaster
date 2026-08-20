@@ -26,6 +26,17 @@ describe('annotateInventoryMatches', () => {
 		expect(result.stapleCount).toBe(1)
 	})
 
+	test('a staple-looking note Shopping line is explicit intent and is kept (#109)', () => {
+		const noteLine = { ...makeDemandLine('salt'), fromNote: true }
+		const result = annotateInventoryMatches(
+			[noteLine, makeDemandLine('salt')],
+			[],
+		)
+		expect(result.lines).toHaveLength(1)
+		expect(result.lines[0]!.name).toBe('salt')
+		expect(result.stapleCount).toBe(1)
+	})
+
 	test('annotates items in inventory as inStock instead of removing', () => {
 		const lines = [makeDemandLine('chicken'), makeDemandLine('rice')]
 		const inventory = makeInventory([{ name: 'chicken' }])

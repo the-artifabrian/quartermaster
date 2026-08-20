@@ -175,10 +175,26 @@ export function createPlanAction(
 
 			// Missing cards (recipeId null) produce no fresh demand — a deleted
 			// Recipe must be replaced or removed before it can contribute again.
-			const recipeItems = await db.mealRecipeItem.findMany({
-				where: { mealId: meal.id, recipeId: { not: null } },
-				include: { recipe: { include: { ingredients: true } } },
-			})
+			// Note-card Shopping lines contribute alongside Recipe items (#109);
+			// a note-only snapshot Meal is a valid contributor.
+			const [recipeItems, noteLines] = await Promise.all([
+				db.mealRecipeItem.findMany({
+					where: { mealId: meal.id, recipeId: { not: null } },
+					include: { recipe: { include: { ingredients: true } } },
+				}),
+				db.mealShoppingLine.findMany({
+					where: { noteItem: { mealId: meal.id } },
+					// noteItemId breaks ties between note items sharing an order value
+					// — demand part order (and so composite quantities) must be
+					// deterministic across identical adds.
+					orderBy: [
+						{ noteItem: { order: 'asc' } },
+						{ noteItemId: 'asc' },
+						{ order: 'asc' },
+					],
+					select: { name: true, quantity: true, unit: true },
+				}),
+			])
 
 			const demand = buildShoppingDemand({
 				recipeBatches: recipeItems.flatMap((item) =>
@@ -191,6 +207,7 @@ export function createPlanAction(
 							]
 						: [],
 				),
+				noteLines,
 			})
 
 			const inventoryItems = await db.inventoryItem.findMany({

@@ -19,7 +19,6 @@ import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
-import { type ShoppingListItem } from '#app/generated/prisma/client.ts'
 import {
 	useSpeechToText,
 	type TranscribedItem,
@@ -45,6 +44,7 @@ import {
 } from '#app/utils/recipe-matching.server.ts'
 import {
 	buildShoppingDemand,
+	combineRowDisplay,
 	demandIdentity,
 } from '#app/utils/shopping-demand.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
@@ -54,6 +54,7 @@ import {
 } from '#app/utils/shopping-list-validation.ts'
 import { annotateInventoryMatches } from '#app/utils/shopping-list.server.ts'
 import {
+	type DisplayShoppingItem,
 	makeOptimisticShoppingItem,
 	mergeOptimisticShoppingItems,
 } from '#app/utils/shopping-optimistic.ts'
@@ -76,12 +77,27 @@ export async function loader({ request }: Route.LoaderArgs) {
 		userId,
 		householdId,
 	})
+	// Each row ships with a display quantity grouped from its current Meal
+	// contributions (#109) — computed here, never written back: manual rows
+	// and contributions both keep their stored identities.
+	const rowsWithContributions = await prisma.shoppingListItem.findMany({
+		where: { listId: ensuredShoppingList.id },
+		orderBy: [{ checked: 'asc' }],
+		include: {
+			mealContributions: { select: { quantity: true, unit: true } },
+		},
+	})
 	const shoppingList = {
 		...ensuredShoppingList,
-		items: await prisma.shoppingListItem.findMany({
-			where: { listId: ensuredShoppingList.id },
-			orderBy: [{ checked: 'asc' }],
-		}),
+		items: rowsWithContributions.map(({ mealContributions, ...item }) => ({
+			...item,
+			display: combineRowDisplay({
+				source: item.source,
+				quantity: item.quantity,
+				unit: item.unit,
+				contributions: mealContributions,
+			}),
+		})),
 	}
 	// SQLite's name ordering is ASCII-cased ("Shaoxing wine" before
 	// "broccoli"); re-sort locale-aware so the flat list reads alphabetical.
@@ -254,12 +270,14 @@ export async function action({ request }: Route.ActionArgs) {
 
 		// Create new items — in-stock items are pre-checked
 		await prisma.shoppingListItem.createMany({
-			data: dedupedItems.map(({ inStock, canonicalName, ...line }) => ({
-				...line,
-				checked: inStock,
-				source: 'generated',
-				listId: shoppingList.id,
-			})),
+			data: dedupedItems.map(
+				({ inStock, canonicalName, fromNote, ...line }) => ({
+					...line,
+					checked: inStock,
+					source: 'generated',
+					listId: shoppingList.id,
+				}),
+			),
 		})
 
 		void emitHouseholdEvent({
@@ -510,7 +528,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		if (newItems.length > 0) {
 			await prisma.shoppingListItem.createMany({
-				data: newItems.map(({ canonicalName, ...line }) => ({
+				data: newItems.map(({ canonicalName, fromNote, ...line }) => ({
 					...line,
 					listId: shoppingList.id,
 					source: 'manual' as const,
@@ -540,9 +558,9 @@ export async function action({ request }: Route.ActionArgs) {
  * fetcher's own revalidation has landed the real row, and the merge dedups by name
  * to avoid a duplicate during any overlap (e.g. a concurrent SSE revalidation).
  */
-function usePendingShoppingItems(listId: string): ShoppingListItem[] {
+function usePendingShoppingItems(listId: string): DisplayShoppingItem[] {
 	const fetchers = useFetchers()
-	const pending: ShoppingListItem[] = []
+	const pending: DisplayShoppingItem[] = []
 	for (const fetcher of fetchers) {
 		if (fetcher.state === 'idle' || !fetcher.formData) continue
 		const intent = fetcher.formData.get('intent')

@@ -389,6 +389,33 @@ describe('shopping list actions', () => {
 		expect(item!.quantity).toBe('6')
 	})
 
+	test('manual add dedup uses the shared fallback demand identity', async () => {
+		const session = await setupUser()
+
+		const first = (await action({
+			request: await makeRequest(session, {
+				intent: 'add',
+				name: 'medium/small peaches',
+			}),
+			...ACTION_ARGS_BASE,
+		})) as { status: string }
+		const second = (await action({
+			request: await makeRequest(session, {
+				intent: 'add',
+				name: 'large/small plums',
+			}),
+			...ACTION_ARGS_BASE,
+		})) as { status: string }
+
+		expect(first.status).toBe('success')
+		expect(second.status).toBe('success')
+		expect(
+			await prisma.shoppingListItem.count({
+				where: { list: { householdId: session.householdId } },
+			}),
+		).toBe(2)
+	})
+
 	test('toggle checked', async () => {
 		const session = await setupUser()
 

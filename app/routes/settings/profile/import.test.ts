@@ -2,6 +2,7 @@ import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as exportLoader } from '../../resources/export-all-data.tsx'
@@ -606,6 +607,7 @@ describe('meal export', () => {
 		const meals = exported.mealPlans[0].meals
 		expect(meals).toEqual([
 			{
+				ref: 'm1',
 				date: '2026-08-19T00:00:00.000Z',
 				order: 0,
 				label: 'dinner',
@@ -645,6 +647,7 @@ describe('meal export', () => {
 				sections: [],
 			},
 			{
+				ref: 'm2',
 				date: '2026-08-19T00:00:00.000Z',
 				order: 1,
 				label: null,
@@ -1263,5 +1266,172 @@ describe('meal snapshot export/import (#107)', () => {
 		expect(restored.noteItems.map((n) => n.text)).toEqual([
 			'Set the table early',
 		])
+	})
+})
+
+describe('Shopping contribution recovery (#110)', () => {
+	test('round-trips Meal refs, fingerprints, orphan state, and exact checked-row identity idempotently', async () => {
+		const source = await setupUser()
+		const lemonIdentity = demandIdentity('lemons')
+		const candleIdentity = demandIdentity('candles')
+		const plan = await prisma.mealPlan.create({
+			data: {
+				householdId: source.householdId,
+				weekStart: new Date('2026-09-07T00:00:00.000Z'),
+			},
+		})
+		const meal = await prisma.meal.create({
+			data: {
+				mealPlanId: plan.id,
+				date: new Date('2026-09-08T00:00:00.000Z'),
+				order: 0,
+				genericText: 'Contribution recovery fixture',
+			},
+		})
+		const list = await prisma.shoppingList.findFirstOrThrow({
+			where: { householdId: source.householdId },
+		})
+		const lemons = await prisma.shoppingListItem.create({
+			data: {
+				listId: list.id,
+				// #109 allowed a Meal-fed row to be renamed without moving its
+				// contribution. #110 recovery must preserve that legacy current state.
+				name: 'Citrus basket',
+				quantity: '2',
+				checked: true,
+				source: 'manual',
+				category: 'produce',
+			},
+		})
+		const candles = await prisma.shoppingListItem.create({
+			data: {
+				listId: list.id,
+				name: 'candles',
+				quantity: '1',
+				unit: 'box',
+				checked: false,
+				source: 'meal',
+				category: 'other',
+			},
+		})
+		await prisma.mealShoppingContribution.createMany({
+			data: [
+				{
+					mealId: meal.id,
+					itemId: lemons.id,
+					canonicalName: lemonIdentity,
+					name: 'lemons',
+					quantity: '6',
+					unit: null,
+				},
+				{
+					mealId: null,
+					itemId: candles.id,
+					canonicalName: candleIdentity,
+					name: 'candles',
+					quantity: '1',
+					unit: 'box',
+				},
+				// Two deleted Meals may leave indistinguishable orphan records.
+				// Both remain current displayed demand and must survive recovery.
+				{
+					mealId: null,
+					itemId: candles.id,
+					canonicalName: candleIdentity,
+					name: 'candles',
+					quantity: '1',
+					unit: 'box',
+				},
+			],
+		})
+
+		const exported = await exportHousehold(source)
+		expect(exported.mealPlans[0].meals[0].ref).toBe('m1')
+		expect(
+			exported.shoppingLists[0].items.find(
+				(item: any) => item.name === 'Citrus basket',
+			),
+		).toMatchObject({
+			checked: true,
+			mealContributions: [
+				{
+					sourceMealRef: 'm1',
+					orphaned: false,
+					fingerprint: {
+						canonicalName: lemonIdentity,
+						name: 'lemons',
+						quantity: '6',
+						unit: null,
+					},
+				},
+			],
+		})
+		expect(
+			exported.shoppingLists[0].items.find(
+				(item: any) => item.name === 'candles',
+			).mealContributions,
+		).toEqual([
+			{
+				sourceMealRef: null,
+				orphaned: true,
+				fingerprint: {
+					canonicalName: candleIdentity,
+					name: 'candles',
+					quantity: '1',
+					unit: 'box',
+				},
+			},
+			{
+				sourceMealRef: null,
+				orphaned: true,
+				fingerprint: {
+					canonicalName: candleIdentity,
+					name: 'candles',
+					quantity: '1',
+					unit: 'box',
+				},
+			},
+		])
+
+		const target = await setupUser()
+		await importPayload(target, exported)
+		const targetLemons = await prisma.shoppingListItem.findFirstOrThrow({
+			where: {
+				list: { householdId: target.householdId },
+				name: 'Citrus basket',
+			},
+		})
+		const restored = await prisma.mealShoppingContribution.findMany({
+			where: { item: { list: { householdId: target.householdId } } },
+			orderBy: { canonicalName: 'asc' },
+		})
+		expect(targetLemons.checked).toBe(true)
+		expect(restored).toHaveLength(3)
+		expect(
+			restored.find((entry) => entry.canonicalName === lemonIdentity),
+		).toMatchObject({
+			itemId: targetLemons.id,
+			mealId: expect.any(String),
+			name: 'lemons',
+			quantity: '6',
+			unit: null,
+		})
+		expect(
+			restored.filter((entry) => entry.canonicalName === candleIdentity),
+		).toHaveLength(2)
+		expect(
+			restored
+				.filter((entry) => entry.canonicalName === candleIdentity)
+				.every((entry) => entry.mealId == null),
+		).toBe(true)
+
+		await importPayload(target, exported)
+		expect(
+			await prisma.mealShoppingContribution.count({
+				where: { item: { list: { householdId: target.householdId } } },
+			}),
+		).toBe(3)
+		const reExported = await exportHousehold(target)
+		expect(reExported.shoppingLists).toEqual(exported.shoppingLists)
 	})
 })

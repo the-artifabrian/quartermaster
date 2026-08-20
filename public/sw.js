@@ -4,7 +4,7 @@ const STATIC_CACHE = 'qm-static-v1'
 // v2: #106 changed loader-data shapes (shopping weeksWithPlans, plan Meals) —
 // bump PAGES_CACHE/DATA_CACHE_PREFIX on every loader-shape deploy so a cached
 // pre-deploy payload can't hydrate the new bundle.
-const PAGES_CACHE = 'qm-pages-v4'
+const PAGES_CACHE = 'qm-pages-v5'
 const IMAGES_CACHE = 'qm-images-v1'
 const FONTS_CACHE = 'qm-fonts-v1'
 const PUBLIC_ASSET_VERSION = '__QM_PUBLIC_ASSET_VERSION__'
@@ -42,7 +42,7 @@ const STALE_NETWORK_GRACE_MS = 3_000
 // `<userId>-<householdId>` token after hydration. Until that token is known,
 // `.data` is network-only — never served or written from cache — so one
 // household's data can never be served to another on a shared device.
-const DATA_CACHE_PREFIX = 'qm-data-v4-'
+const DATA_CACHE_PREFIX = 'qm-data-v5-'
 let dataCacheName = null
 
 // ── Install ─────────────────────────────────────────────────────────

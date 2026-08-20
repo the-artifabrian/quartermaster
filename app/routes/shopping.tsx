@@ -39,9 +39,12 @@ import { parseTypedItem } from '#app/utils/parse-speech-item.ts'
 import {
 	buildInventoryLookup,
 	findInventoryMatch,
-	getCanonicalIngredientName,
 	ingredientMatchesAnyInventoryItem,
 } from '#app/utils/recipe-matching.server.ts'
+import {
+	editShoppingDisplayGroup,
+	removeGeneratedShoppingAmount,
+} from '#app/utils/shopping-contribution.server.ts'
 import {
 	buildShoppingDemand,
 	combineRowDisplay,
@@ -319,14 +322,14 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 
 		if (!force) {
-			const canonicalName = getCanonicalIngredientName(name)
+			const canonicalName = demandIdentity(name)
 
 			// Check for existing unchecked shopping list items
 			const existingItems = await prisma.shoppingListItem.findMany({
 				where: { listId: shoppingList.id, checked: false },
 			})
 			const duplicate = existingItems.find(
-				(item) => getCanonicalIngredientName(item.name) === canonicalName,
+				(item) => demandIdentity(item.name) === canonicalName,
 			)
 			if (duplicate) {
 				return {
@@ -458,13 +461,11 @@ export async function action({ request }: Route.ActionArgs) {
 			return { status: 'error' as const, submission: submission.reply() }
 		}
 
-		await prisma.shoppingListItem.update({
-			where: { id: itemId },
-			data: {
-				name: submission.value.name,
-				quantity: submission.value.quantity,
-				unit: submission.value.unit,
-			},
+		await editShoppingDisplayGroup(prisma, {
+			itemId,
+			name: submission.value.name,
+			quantity: submission.value.quantity ?? null,
+			unit: submission.value.unit ?? null,
 		})
 
 		void emitHouseholdEvent({
@@ -474,6 +475,29 @@ export async function action({ request }: Route.ActionArgs) {
 			householdId,
 		})
 
+		return { status: 'success' as const }
+	}
+
+	if (intent === 'removeGeneratedAmount') {
+		const itemId = formData.get('itemId')
+		invariantResponse(typeof itemId === 'string', 'Item ID is required')
+		const item = await prisma.shoppingListItem.findFirst({
+			where: {
+				id: itemId,
+				list: { householdId },
+				source: 'manual',
+				mealContributions: { some: {} },
+			},
+		})
+		invariantResponse(item, 'Mixed Shopping group not found', { status: 404 })
+
+		await removeGeneratedShoppingAmount(prisma, { itemId })
+		void emitHouseholdEvent({
+			type: 'shopping_list_item_edited',
+			payload: { name: item.name },
+			userId,
+			householdId,
+		})
 		return { status: 'success' as const }
 	}
 

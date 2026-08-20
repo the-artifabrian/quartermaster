@@ -1,4 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { createId } from '@paralleldrive/cuid2'
 import { useEffect, useRef, useState } from 'react'
 import { data, Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
@@ -121,6 +122,8 @@ const ImportMealSectionSchema = z.object({
 
 const ImportMealSchema = z
 	.object({
+		// Export-local source key for current Shopping contributions (#110).
+		ref: z.string().max(50).optional(),
 		date: z.string(),
 		order: z.number().int().nonnegative().optional(),
 		label: z.string().max(50).nullable().optional(),
@@ -167,6 +170,22 @@ const ImportShoppingListItemSchema = z.object({
 	category: z.string().max(50).nullable().optional(),
 	checked: z.boolean().optional(),
 	source: z.string().max(50).optional(),
+	// Optional so pre-#110 exports remain importable.
+	mealContributions: z
+		.array(
+			z.object({
+				sourceMealRef: z.string().max(50).nullable(),
+				orphaned: z.boolean(),
+				fingerprint: z.object({
+					canonicalName: z.string().min(1).max(200),
+					name: z.string().min(1).max(200),
+					quantity: z.string().max(50).nullable(),
+					unit: z.string().max(50).nullable(),
+				}),
+			}),
+		)
+		.max(500)
+		.optional(),
 })
 
 const ImportShoppingListSchema = z.object({
@@ -674,12 +693,14 @@ async function importMeals(
 	mealPlanId: string,
 	recipeIndex: RecipeIndex,
 	menuIdByTitleKey: Map<string, string>,
+	mealIdByRef: Map<string, string>,
 ) {
 	const stats = { created: 0, skipped: 0 }
 
 	const existingMeals = await prisma.meal.findMany({
 		where: { mealPlanId },
 		select: {
+			id: true,
 			date: true,
 			order: true,
 			label: true,
@@ -718,7 +739,7 @@ async function importMeals(
 			},
 		},
 	})
-	const takenKeys = new Set(
+	const mealIdByKey = new Map(
 		existingMeals.map((meal) => {
 			const recipeEntry = (item: {
 				recipeTitle: string
@@ -733,7 +754,7 @@ async function importMeals(
 				cooked: item.cooked,
 				note: item.note,
 			})
-			return getMealImportKey({
+			const key = getMealImportKey({
 				dateMs: meal.date.getTime(),
 				label: meal.label,
 				genericText: meal.genericText,
@@ -762,6 +783,7 @@ async function importMeals(
 					),
 				})),
 			})
+			return [key, meal.id] as const
 		}),
 	)
 	const nextOrderByDay = new Map<number, number>()
@@ -887,7 +909,11 @@ async function importMeals(
 			items,
 			sections,
 		})
-		if (takenKeys.has(key)) {
+		const existingMealId = mealIdByKey.get(key)
+		if (existingMealId) {
+			if (meal.ref && !mealIdByRef.has(meal.ref)) {
+				mealIdByRef.set(meal.ref, existingMealId)
+			}
 			stats.skipped++
 			continue
 		}
@@ -897,7 +923,7 @@ async function importMeals(
 		try {
 			// The shared Meal write seam restores the Meal and its snapshot
 			// children in one transaction — atomically or not at all.
-			await createMealWithItems(prisma, {
+			const createdMealId = await createMealWithItems(prisma, {
 				mealPlanId,
 				date,
 				order,
@@ -912,7 +938,10 @@ async function importMeals(
 				items,
 				sections,
 			})
-			takenKeys.add(key)
+			mealIdByKey.set(key, createdMealId)
+			if (meal.ref && !mealIdByRef.has(meal.ref)) {
+				mealIdByRef.set(meal.ref, createdMealId)
+			}
 			nextOrderByDay.set(day, order + 1)
 			stats.created++
 		} catch {
@@ -1044,6 +1073,7 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	// --- 4. Meal Plans ---
+	const mealIdByRef = new Map<string, string>()
 	if (fullData?.mealPlans) {
 		// Source Menu references on Meals reconnect by normalized household
 		// title — a Menu's identity (#98).
@@ -1105,6 +1135,7 @@ export async function action({ request }: Route.ActionArgs) {
 						mealPlan.id,
 						recipeIndex,
 						menuIdByTitleKey,
+						mealIdByRef,
 					)
 					results.meals.created += mealStats.created
 					results.meals.skipped += mealStats.skipped
@@ -1120,6 +1151,7 @@ export async function action({ request }: Route.ActionArgs) {
 						mealPlan.id,
 						recipeIndex,
 						menuIdByTitleKey,
+						mealIdByRef,
 					)
 					results.meals.created += mealStats.created
 					results.meals.skipped += mealStats.skipped
@@ -1141,6 +1173,7 @@ export async function action({ request }: Route.ActionArgs) {
 			const existingItems = await prisma.shoppingListItem.findMany({
 				where: { listId: shoppingList.id },
 				select: {
+					id: true,
 					name: true,
 					quantity: true,
 					unit: true,
@@ -1149,14 +1182,22 @@ export async function action({ request }: Route.ActionArgs) {
 					source: true,
 				},
 			})
-			const existingKeys = new Set(
-				existingItems.map(getShoppingListItemImportKey),
+			const itemIdByKey = new Map(
+				existingItems.map((item) => [
+					getShoppingListItemImportKey(item),
+					item.id,
+				]),
 			)
+			const contributionSeeds: Array<{
+				itemId: string
+				contribution: NonNullable<
+					(typeof fullData.shoppingLists)[number]['items'][number]['mealContributions']
+				>[number]
+			}> = []
 
 			for (const list of fullData.shoppingLists) {
-				const batchKeys = new Set<string>()
 				let skipped = 0
-				const newItems: ShoppingListItemImport[] = []
+				const newItems: Array<ShoppingListItemImport & { id: string }> = []
 				for (const item of list.items) {
 					const normalizedItem = {
 						name: item.name,
@@ -1167,12 +1208,20 @@ export async function action({ request }: Route.ActionArgs) {
 						source: item.source || 'manual',
 					}
 					const key = getShoppingListItemImportKey(normalizedItem)
-					if (existingKeys.has(key) || batchKeys.has(key)) {
+					let targetItemId = itemIdByKey.get(key)
+					if (targetItemId) {
 						skipped++
-						continue
+					} else {
+						targetItemId = createId()
+						itemIdByKey.set(key, targetItemId)
+						newItems.push({ id: targetItemId, ...normalizedItem })
 					}
-					batchKeys.add(key)
-					newItems.push(normalizedItem)
+					for (const contribution of item.mealContributions ?? []) {
+						contributionSeeds.push({
+							itemId: targetItemId,
+							contribution,
+						})
+					}
 				}
 
 				if (newItems.length > 0) {
@@ -1182,10 +1231,92 @@ export async function action({ request }: Route.ActionArgs) {
 							listId: shoppingList.id,
 						})),
 					})
-					for (const key of batchKeys) existingKeys.add(key)
 				}
 				results.shoppingLists.created += newItems.length
 				results.shoppingLists.skipped += skipped
+			}
+
+			const existingContributions =
+				await prisma.mealShoppingContribution.findMany({
+					where: { item: { listId: shoppingList.id } },
+					select: {
+						itemId: true,
+						mealId: true,
+						canonicalName: true,
+						name: true,
+						quantity: true,
+						unit: true,
+					},
+				})
+			const contributionKey = (entry: {
+				itemId: string
+				mealId: string | null
+				canonicalName: string
+				name: string
+				quantity: string | null
+				unit: string | null
+			}) =>
+				entry.mealId
+					? JSON.stringify(['meal', entry.mealId, entry.canonicalName])
+					: JSON.stringify([
+							'orphan',
+							entry.itemId,
+							entry.canonicalName,
+							entry.name,
+							entry.quantity,
+							entry.unit,
+						])
+			const liveContributionKeys = new Set(
+				existingContributions
+					.filter((entry) => entry.mealId != null)
+					.map(contributionKey),
+			)
+			// Orphan contributions have no unique source Meal key. Identical
+			// records may represent several deleted Meals and each still counts
+			// toward the displayed total, so reconcile them as a multiset.
+			const availableOrphanCounts = new Map<string, number>()
+			for (const entry of existingContributions) {
+				if (entry.mealId != null) continue
+				const key = contributionKey(entry)
+				availableOrphanCounts.set(
+					key,
+					(availableOrphanCounts.get(key) ?? 0) + 1,
+				)
+			}
+			const newContributions = []
+			for (const seed of contributionSeeds) {
+				const { contribution } = seed
+				const mealId = contribution.orphaned
+					? contribution.sourceMealRef == null
+						? null
+						: undefined
+					: contribution.sourceMealRef != null
+						? mealIdByRef.get(contribution.sourceMealRef)
+						: undefined
+				if (mealId === undefined) continue
+				const candidate = {
+					id: createId(),
+					itemId: seed.itemId,
+					mealId,
+					...contribution.fingerprint,
+				}
+				const key = contributionKey(candidate)
+				if (mealId != null) {
+					if (liveContributionKeys.has(key)) continue
+					liveContributionKeys.add(key)
+				} else {
+					const available = availableOrphanCounts.get(key) ?? 0
+					if (available > 0) {
+						availableOrphanCounts.set(key, available - 1)
+						continue
+					}
+				}
+				newContributions.push(candidate)
+			}
+			if (newContributions.length > 0) {
+				await prisma.mealShoppingContribution.createMany({
+					data: newContributions,
+				})
 			}
 		} catch {
 			// skip shopping-list data on error

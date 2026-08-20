@@ -22,7 +22,11 @@ import {
 } from '#app/utils/meal.server.ts'
 import { ScaleMultiplierSchema } from '#app/utils/menu-validation.ts'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
-import { reconcileMealShoppingContributions } from '#app/utils/shopping-contribution.server.ts'
+import {
+	reconcileMealShoppingContributions,
+	removeMealWithShoppingContributions,
+	replaceMealShoppingContributions,
+} from '#app/utils/shopping-contribution.server.ts'
 import { buildShoppingDemand } from '#app/utils/shopping-demand.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { annotateInventoryMatches } from '#app/utils/shopping-list.server.ts'
@@ -164,7 +168,7 @@ export function createPlanAction(
 		// annotation and contribution reconciliation consume it at their own
 		// seams, and each demand line leaves a current-state contribution keyed
 		// to this Meal.
-		if (intent === 'addMealToShopping') {
+		if (intent === 'addMealToShopping' || intent === 'refreshMealShopping') {
 			const meal = await requireMeal(formData.get('mealId'))
 			// A text-only Meal has no Shopping behavior (#98 story 43).
 			invariantResponse(
@@ -179,7 +183,7 @@ export function createPlanAction(
 			// a note-only snapshot Meal is a valid contributor.
 			const [recipeItems, noteLines] = await Promise.all([
 				db.mealRecipeItem.findMany({
-					where: { mealId: meal.id, recipeId: { not: null } },
+					where: { mealId: meal.id },
 					include: { recipe: { include: { ingredients: true } } },
 				}),
 				db.mealShoppingLine.findMany({
@@ -195,6 +199,13 @@ export function createPlanAction(
 					select: { name: true, quantity: true, unit: true },
 				}),
 			])
+			if (intent === 'refreshMealShopping') {
+				invariantResponse(
+					recipeItems.every((item) => item.recipe != null),
+					'Replace or remove missing Recipe cards before refreshing Shopping',
+					{ status: 400 },
+				)
+			}
 
 			const demand = buildShoppingDemand({
 				recipeBatches: recipeItems.flatMap((item) =>
@@ -220,23 +231,42 @@ export function createPlanAction(
 				userId,
 				householdId,
 			})
-			const result = await reconcileMealShoppingContributions(db, {
-				mealId: meal.id,
-				listId: shoppingList.id,
-				lines,
-			})
+			const result =
+				intent === 'refreshMealShopping'
+					? await replaceMealShoppingContributions(db, {
+							mealId: meal.id,
+							listId: shoppingList.id,
+							lines,
+						})
+					: await reconcileMealShoppingContributions(db, {
+							mealId: meal.id,
+							listId: shoppingList.id,
+							lines,
+						})
 
-			// Attach-only reconciles change nothing displayed — no event then.
-			if (result.createdRowCount > 0) {
+			// Since #109, attaching or changing a contribution can alter a
+			// manual/source-Meal row's displayed total without creating a row.
+			// Notify other open Shopping clients for every visible reconcile.
+			const changedCount =
+				result.createdRowCount +
+				(result.attachedCount ?? 0) +
+				('updatedContributionCount' in result
+					? result.updatedContributionCount + result.removedContributionCount
+					: 0)
+			if (changedCount > 0) {
 				void emitHouseholdEvent({
 					type: 'shopping_list_generated',
-					payload: { count: result.createdRowCount },
+					payload: { count: changedCount },
 					userId,
 					householdId,
 				})
 			}
 
-			return { status: 'success' as const, shopping: result }
+			return {
+				status: 'success' as const,
+				shopping: result,
+				refreshed: intent === 'refreshMealShopping',
+			}
 		}
 
 		if (intent === 'removeItem') {
@@ -247,7 +277,19 @@ export function createPlanAction(
 
 		if (intent === 'removeMeal') {
 			const meal = await requireMeal(formData.get('mealId'))
-			await removeMeal(db, { mealId: meal.id })
+			const removesShopping =
+				formData.get('removeShoppingContributions') === 'true'
+			if (removesShopping) {
+				await removeMealWithShoppingContributions(db, { mealId: meal.id })
+				void emitHouseholdEvent({
+					type: 'shopping_list_generated',
+					payload: { count: 0 },
+					userId,
+					householdId,
+				})
+			} else {
+				await removeMeal(db, { mealId: meal.id })
+			}
 			return { status: 'success' as const }
 		}
 

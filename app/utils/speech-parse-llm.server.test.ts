@@ -67,10 +67,7 @@ describe('parseSpeechItemsWithLLM', () => {
 
 		server.use(
 			http.post('https://api.anthropic.com/v1/messages', () => {
-				return HttpResponse.json(
-					{ error: 'internal_error' },
-					{ status: 500 },
-				)
+				return HttpResponse.json({ error: 'internal_error' }, { status: 500 })
 			}),
 		)
 
@@ -84,10 +81,7 @@ describe('parseSpeechItemsWithLLM', () => {
 
 		server.use(
 			http.post('https://api.anthropic.com/v1/messages', () => {
-				return HttpResponse.json(
-					{ error: 'rate_limited' },
-					{ status: 429 },
-				)
+				return HttpResponse.json({ error: 'rate_limited' }, { status: 429 })
 			}),
 		)
 
@@ -97,6 +91,7 @@ describe('parseSpeechItemsWithLLM', () => {
 
 	test('returns null on malformed response', async () => {
 		vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
+		consoleError.mockImplementation(() => {})
 
 		server.use(
 			http.post('https://api.anthropic.com/v1/messages', () => {

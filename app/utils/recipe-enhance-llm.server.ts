@@ -1,5 +1,11 @@
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-haiku-4-5-20251001'
+import { z } from 'zod'
+import {
+	ANTHROPIC_MODELS,
+	parseAnthropicJson,
+	requestAnthropicJson,
+	type AnthropicJsonFailure,
+} from './anthropic-json.server.ts'
+
 const TIMEOUT_MS = 10_000
 const MAX_TOKENS = 1024
 
@@ -24,6 +30,34 @@ export type RecipeInput = {
 	instructions: Array<{ content: string }>
 }
 
+const EnhanceableFieldsSchema: z.ZodType<EnhanceableFields> = z
+	.object({
+		description: z.unknown().optional(),
+		servings: z.unknown().optional(),
+		prepTime: z.unknown().optional(),
+		cookTime: z.unknown().optional(),
+	})
+	.transform((fields) => ({
+		description:
+			typeof fields.description === 'string' && fields.description.trim()
+				? fields.description.trim()
+				: null,
+		servings:
+			typeof fields.servings === 'number' &&
+			fields.servings > 0 &&
+			fields.servings <= 100
+				? Math.round(fields.servings)
+				: null,
+		prepTime:
+			typeof fields.prepTime === 'number' && fields.prepTime > 0
+				? Math.round(fields.prepTime)
+				: null,
+		cookTime:
+			typeof fields.cookTime === 'number' && fields.cookTime > 0
+				? Math.round(fields.cookTime)
+				: null,
+	}))
+
 /**
  * Call Claude Haiku to suggest metadata improvements for a recipe.
  *
@@ -32,77 +66,35 @@ export type RecipeInput = {
 export async function enhanceRecipeMetadata(
 	input: RecipeInput,
 ): Promise<EnhanceableFields | { error: string }> {
-	const apiKey = process.env.ANTHROPIC_API_KEY
-	if (!apiKey) {
-		return { error: 'AI features are not configured. Contact support.' }
-	}
+	const result = await requestAnthropicJson({
+		feature: 'recipe-enhance',
+		model: ANTHROPIC_MODELS.fast,
+		maxTokens: MAX_TOKENS,
+		timeoutMs: TIMEOUT_MS,
+		system:
+			'You are a practical home cook. Analyze the recipe and suggest metadata. Return only valid JSON — no markdown, no explanation.',
+		prompt: buildEnhancePrompt(input),
+		schema: EnhanceableFieldsSchema,
+	})
 
-	try {
-		const response = await fetch(ANTHROPIC_API_URL, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'x-api-key': apiKey,
-				'anthropic-version': '2023-06-01',
-			},
-			body: JSON.stringify({
-				model: MODEL,
-				max_tokens: MAX_TOKENS,
-				system:
-					'You are a practical home cook. Analyze the recipe and suggest metadata. Return only valid JSON — no markdown, no explanation.',
-				messages: [
-					{
-						role: 'user',
-						content: buildEnhancePrompt(input),
-					},
-				],
-			}),
-			signal: AbortSignal.timeout(TIMEOUT_MS),
-		})
+	return result.ok ? result.data : { error: enhanceError(result.failure) }
+}
 
-		if (!response.ok) {
-			console.error(
-				`Recipe enhance LLM error: ${response.status} ${response.statusText}`,
-			)
-			if (response.status === 429) {
-				return {
-					error: 'Recipe enhance hit a rate limit. Please wait a moment and try again.',
-				}
-			}
-			return {
-				error: 'Recipe enhance failed — the AI service returned an error. Please try again later.',
-			}
-		}
-
-		const data = (await response.json()) as {
-			content?: Array<{ type: string; text?: string }>
-		}
-
-		const text = data.content?.[0]?.text
-		if (!text) {
-			return {
-				error: 'Recipe enhance returned an empty response. Please try again.',
-			}
-		}
-
-		const result = parseEnhanceResponse(text)
-		if (!result) {
-			return {
-				error: 'Recipe enhance returned an unexpected response. Please try again.',
-			}
-		}
-
-		return result
-	} catch (error) {
-		console.error('Recipe enhance LLM error:', error)
-		if (error instanceof DOMException && error.name === 'TimeoutError') {
-			return {
-				error: 'Recipe enhance timed out. Please try again.',
-			}
-		}
-		return {
-			error: 'Recipe enhance failed — the AI service returned an error. Please try again later.',
-		}
+function enhanceError(failure: AnthropicJsonFailure): string {
+	switch (failure.kind) {
+		case 'configuration':
+			return 'AI features are not configured. Contact support.'
+		case 'rate-limit':
+			return 'Recipe enhance hit a rate limit. Please wait a moment and try again.'
+		case 'timeout':
+			return 'Recipe enhance timed out. Please try again.'
+		case 'empty-response':
+			return 'Recipe enhance returned an empty response. Please try again.'
+		case 'parse':
+		case 'schema':
+			return 'Recipe enhance returned an unexpected response. Please try again.'
+		case 'provider':
+			return 'Recipe enhance failed — the AI service returned an error. Please try again later.'
 	}
 }
 
@@ -150,35 +142,6 @@ Rules:
  * Extracts JSON from the response text, validates structure.
  */
 export function parseEnhanceResponse(text: string): EnhanceableFields | null {
-	try {
-		const jsonMatch = text.match(/\{[\s\S]*\}/)
-		if (!jsonMatch) return null
-
-		const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>
-		if (typeof parsed !== 'object' || parsed === null) return null
-
-		return {
-			description:
-				typeof parsed.description === 'string' &&
-				parsed.description.trim().length > 0
-					? parsed.description.trim()
-					: null,
-			servings:
-				typeof parsed.servings === 'number' &&
-				parsed.servings > 0 &&
-				parsed.servings <= 100
-					? Math.round(parsed.servings)
-					: null,
-			prepTime:
-				typeof parsed.prepTime === 'number' && parsed.prepTime > 0
-					? Math.round(parsed.prepTime)
-					: null,
-			cookTime:
-				typeof parsed.cookTime === 'number' && parsed.cookTime > 0
-					? Math.round(parsed.cookTime)
-					: null,
-		}
-	} catch {
-		return null
-	}
+	const result = parseAnthropicJson(text, EnhanceableFieldsSchema)
+	return result.ok ? result.data : null
 }

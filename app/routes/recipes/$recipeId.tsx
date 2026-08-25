@@ -56,7 +56,10 @@ import {
 } from '#app/utils/shopping-demand.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
-import { annotateInventoryMatches } from '#app/utils/shopping-list.server.ts'
+import {
+	annotateShoppingDemand,
+	loadShoppingAvailability,
+} from '#app/utils/shopping-list.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
 import { getKeepAwakePreference, useWakeLock } from '#app/utils/wake-lock.ts'
@@ -376,19 +379,16 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 		// One demand module for every generation entry point (#108): the same
 		// heading/optional handling and consolidation as generate-from-Plan, then
-		// the same availability seam — in-stock lines are pre-checked rather than
-		// silently dropped (the divergence #76 recorded).
+		// the same availability seam. Legacy Pantry matches are pre-checked before
+		// cutover; household Staple/Out state filters generated demand afterward.
 		const demand = buildShoppingDemand({
 			recipeBatches: [
 				{ ingredients: fullRecipe.ingredients, scaleMultiplier: safeRatio },
 			],
 		})
 
-		const inventoryItems = await prisma.inventoryItem.findMany({
-			where: activeLegacyPantryWhere(householdId),
-			select: { name: true },
-		})
-		const { lines } = annotateInventoryMatches(demand, inventoryItems)
+		const availability = await loadShoppingAvailability(prisma, householdId)
+		const { lines } = annotateShoppingDemand(demand, availability)
 
 		if (lines.length === 0) {
 			return { success: true, addedToShoppingList: 0 }
@@ -447,9 +447,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 		return {
 			success: true,
 			addedToShoppingList: newItems.length,
-			// Usually-on-hand lines now land pre-checked instead of silently
-			// dropping (#108) — the feedback names them so "Add N missing" adding
-			// more than N rows stays explicable.
+			// Before cutover, legacy Pantry matches land pre-checked instead of
+			// silently dropping (#108); post-cutover lines are always unchecked.
 			addedInStock: newItems.filter((line) => line.inStock).length,
 		}
 	}

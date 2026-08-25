@@ -152,7 +152,6 @@ const proFeatures = [
 	'Unlimited Pantry items',
 	'Smart meal suggestions',
 	'Real-time shopping list sync',
-	'Remember shopped items for Pantry',
 	'AI recipe generation',
 ]
 

@@ -414,7 +414,7 @@ function App() {
 														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-all duration-200'
 												}
 											>
-												Pantry
+												Staples
 											</NavLink>
 											<NavLink
 												to="/plan"

@@ -7,6 +7,10 @@ import { z } from 'zod'
 import { Button } from '#app/components/ui/button.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
+import {
+	householdIngredientDisplayName,
+	householdIngredientKey,
+} from '#app/utils/household-ingredient.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
 import { createMealWithItems } from '#app/utils/meal.server.ts'
@@ -75,6 +79,44 @@ const ImportInventoryItemSchema = z.object({
 	unit: z.string().max(50).nullable().optional(),
 	expiresAt: z.string().nullable().optional(), // accepted for backward compat (ignored)
 	lowStock: z.boolean().optional(), // accepted for backward compat (ignored)
+})
+
+const ImportHouseholdIngredientSchema = z
+	.object({
+		displayName: z
+			.string()
+			.transform(householdIngredientDisplayName)
+			.pipe(z.string().min(1).max(200)),
+		canonicalKey: z.string().min(1).max(200),
+		isStaple: z.boolean(),
+		isOut: z.boolean(),
+	})
+	.superRefine((ingredient, context) => {
+		if (
+			ingredient.canonicalKey !== householdIngredientKey(ingredient.displayName)
+		) {
+			context.addIssue({
+				code: 'custom',
+				message:
+					'Household ingredient canonical key does not match its display name',
+				path: ['canonicalKey'],
+			})
+		}
+		if (ingredient.isOut && !ingredient.isStaple) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Only a Staple can be Out',
+				path: ['isOut'],
+			})
+		}
+	})
+
+const ImportHouseholdSchema = z.object({
+	staplesCutoverAt: z
+		.string()
+		.refine((value) => !Number.isNaN(Date.parse(value)), 'Invalid cutover date')
+		.nullable()
+		.optional(),
 })
 
 // The retired fixed-slot representation (#106). Pre-#104 exports carry only
@@ -223,6 +265,11 @@ const ImportMenuSchema = z.object({
 const FullExportSchema = z.looseObject({
 	format: z.literal('quartermaster-full-export-v1'),
 	recipes: z.array(ImportRecipeSchema).max(500),
+	household: ImportHouseholdSchema.optional(),
+	householdIngredients: z
+		.array(ImportHouseholdIngredientSchema)
+		.max(1000)
+		.optional(),
 	inventory: z.array(ImportInventoryItemSchema).max(1000).optional(),
 	mealPlans: z.array(ImportMealPlanSchema).max(200).optional(),
 	shoppingLists: z.array(ImportShoppingListSchema).max(100).optional(),
@@ -275,6 +322,7 @@ function parseImportData(
 interface ImportPreview {
 	recipes: number
 	menus: number
+	householdIngredients: number
 	inventory: number
 	mealPlans: number
 	meals: number
@@ -285,6 +333,8 @@ interface ImportPreview {
 interface ImportResults {
 	recipes: { created: number; skipped: number; errored: number }
 	menus: { created: number; skipped: number; errored: number }
+	householdIngredients: { created: number; skipped: number }
+	staplesCutoverRestored: boolean
 	inventory: { created: number; skipped: number }
 	mealPlans: { created: number; skipped: number }
 	meals: { created: number; skipped: number }
@@ -982,14 +1032,20 @@ export async function action({ request }: Route.ActionArgs) {
 	const { isProActive } = await getUserTier(userId)
 
 	const recipes = importResult.data.recipes
-	// Pro-only data (inventory, meal plans, shopping lists) is skipped for
-	// free users — only recipes are imported.
+	// Legacy Pro-only data (inventory, meal plans, shopping lists) is skipped
+	// for free users. Recipes and household-owned canonical data are not gated.
 	const fullData =
 		importResult.type === 'full' && isProActive ? importResult.data : null
+	// Household-owned canonical data is available on every tier. Keep its
+	// recovery path independent from the legacy Pro-only full-data sections.
+	const fullHouseholdData =
+		importResult.type === 'full' ? importResult.data : null
 
 	const results: ImportResults = {
 		recipes: { created: 0, skipped: 0, errored: 0 },
 		menus: { created: 0, skipped: 0, errored: 0 },
+		householdIngredients: { created: 0, skipped: 0 },
+		staplesCutoverRestored: false,
 		inventory: { created: 0, skipped: 0 },
 		mealPlans: { created: 0, skipped: 0 },
 		meals: { created: 0, skipped: 0 },
@@ -1026,8 +1082,7 @@ export async function action({ request }: Route.ActionArgs) {
 	// --- 2. Menus (after Recipes, so references can reconnect) ---
 	// Menus are not Pro-gated in the product, so unlike the sections below
 	// they import for every tier.
-	const fullMenus =
-		importResult.type === 'full' ? (importResult.data.menus ?? null) : null
+	const fullMenus = fullHouseholdData?.menus ?? null
 	if (fullMenus?.length) {
 		try {
 			results.menus = await importMenus(fullMenus, recipeIndex, householdId)
@@ -1072,7 +1127,45 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 	}
 
-	// --- 4. Meal Plans ---
+	// --- 4. Household canonical ingredients and cutover ---
+	// Restore rows and the reviewed boundary atomically. Existing target rows
+	// and an existing target cutover win; importing recovery data never silently
+	// rewrites a household that has already made its own choice.
+	if (
+		fullHouseholdData &&
+		(fullHouseholdData.householdIngredients !== undefined ||
+			fullHouseholdData.household?.staplesCutoverAt != null)
+	) {
+		await prisma.$transaction(async (tx) => {
+			const existing = await tx.householdIngredient.findMany({
+				where: { householdId },
+				select: { canonicalKey: true },
+			})
+			const existingKeys = new Set(existing.map((item) => item.canonicalKey))
+			for (const ingredient of fullHouseholdData.householdIngredients ?? []) {
+				if (existingKeys.has(ingredient.canonicalKey)) {
+					results.householdIngredients.skipped++
+					continue
+				}
+				await tx.householdIngredient.create({
+					data: { ...ingredient, householdId },
+				})
+				existingKeys.add(ingredient.canonicalKey)
+				results.householdIngredients.created++
+			}
+
+			const cutoverAt = fullHouseholdData.household?.staplesCutoverAt
+			if (cutoverAt) {
+				const restored = await tx.household.updateMany({
+					where: { id: householdId, staplesCutoverAt: null },
+					data: { staplesCutoverAt: new Date(cutoverAt) },
+				})
+				results.staplesCutoverRestored = restored.count === 1
+			}
+		})
+	}
+
+	// --- 5. Meal Plans ---
 	const mealIdByRef = new Map<string, string>()
 	if (fullData?.mealPlans) {
 		// Source Menu references on Meals reconnect by normalized household
@@ -1338,6 +1431,7 @@ function getPreview(jsonData: unknown): ImportPreview | null {
 	return {
 		recipes: result.data.recipes.length,
 		menus: fullData?.menus?.length ?? 0,
+		householdIngredients: fullData?.householdIngredients?.length ?? 0,
 		inventory: fullData?.inventory?.length ?? 0,
 		mealPlans:
 			fullData?.mealPlans?.reduce(
@@ -1377,6 +1471,8 @@ export default function ImportData() {
 			const total =
 				r.recipes.created +
 				r.menus.created +
+				r.householdIngredients.created +
+				(r.staplesCutoverRestored ? 1 : 0) +
 				r.inventory.created +
 				r.mealPlans.created +
 				r.meals.created +
@@ -1493,6 +1589,14 @@ export default function ImportData() {
 									skipped={results.inventory.skipped}
 								/>
 							)}
+							{(results.householdIngredients.created > 0 ||
+								results.householdIngredients.skipped > 0) && (
+								<ResultRow
+									label="Household ingredients"
+									created={results.householdIngredients.created}
+									skipped={results.householdIngredients.skipped}
+								/>
+							)}
 							{(results.mealPlans.created > 0 ||
 								results.mealPlans.skipped > 0) && (
 								<ResultRow
@@ -1571,6 +1675,12 @@ export default function ImportData() {
 										<PreviewRow
 											label="Pantry items"
 											count={preview.inventory}
+										/>
+									)}
+									{preview.householdIngredients > 0 && (
+										<PreviewRow
+											label="Household ingredients"
+											count={preview.householdIngredients}
 										/>
 									)}
 									{preview.mealPlans > 0 && (

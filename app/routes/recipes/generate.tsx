@@ -16,6 +16,7 @@ import {
 } from '#app/utils/ai-rate-limit.server.ts'
 import { extractServingsFromTitle } from '#app/utils/bulk-recipe-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { activeLegacyPantryWhere } from '#app/utils/legacy-pantry.server.ts'
 import {
 	AI_FEATURE_USED,
 	RECIPE_AI_GENERATED,
@@ -26,6 +27,7 @@ import {
 	type GeneratedRecipe,
 } from '#app/utils/recipe-generation-llm.server.ts'
 import { requireProTier } from '#app/utils/subscription.server.ts'
+import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/generate.ts'
 
 export const handle: SEOHandle = {
@@ -40,9 +42,23 @@ const DAILY_GENERATION_LIMIT = 10
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireProTier(request)
+	const activeHousehold = await prisma.household.findFirst({
+		where: { id: householdId, staplesCutoverAt: null },
+		select: { id: true },
+	})
+	if (!activeHousehold) {
+		throw await redirectWithToast('/recipes', {
+			type: 'message',
+			title: 'Pantry generation is archived',
+			description:
+				'Your legacy Pantry no longer drives Recipe suggestions after the Staples cutover.',
+		})
+	}
 
 	const [inventoryCount, generationsRemaining] = await Promise.all([
-		prisma.inventoryItem.count({ where: { householdId } }),
+		prisma.inventoryItem.count({
+			where: activeLegacyPantryWhere(householdId),
+		}),
 		getAiUsageRemaining(
 			userId,
 			'recipe_generation_llm_call',
@@ -63,6 +79,20 @@ export async function action({ request }: Route.ActionArgs) {
 	const intent = formData.get('intent')
 
 	if (intent === 'generate') {
+		const activeHousehold = await prisma.household.findFirst({
+			where: { id: householdId, staplesCutoverAt: null },
+			select: { id: true },
+		})
+		if (!activeHousehold) {
+			return data(
+				{
+					intent: 'generate' as const,
+					recipe: null,
+					error: 'Legacy Pantry is archived after the Staples cutover.',
+				},
+				{ status: 409 },
+			)
+		}
 		const { allowed } = await checkAndRecordAiUsage(
 			userId,
 			'recipe_generation_llm_call',
@@ -77,7 +107,7 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 
 		const inventory = await prisma.inventoryItem.findMany({
-			where: { householdId },
+			where: activeLegacyPantryWhere(householdId),
 			select: {
 				name: true,
 			},

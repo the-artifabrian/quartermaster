@@ -33,6 +33,7 @@ export function IngredientList({
 	missingIngredientIds,
 	recipeId,
 	shoppingFetcher,
+	canMarkUsuallyOnHand = true,
 	useMetric,
 	onToggleMetric,
 	showFooter,
@@ -44,6 +45,7 @@ export function IngredientList({
 	missingIngredientIds: string[]
 	recipeId: string
 	shoppingFetcher: ReturnType<typeof useFetcher>
+	canMarkUsuallyOnHand?: boolean
 	useMetric?: boolean
 	onToggleMetric?: () => void
 	showFooter?: boolean
@@ -206,6 +208,7 @@ export function IngredientList({
 									ratio={ratio}
 									useMetric={useMetric}
 									onMarkedHave={handleMarkedHave}
+									canMarkUsuallyOnHand={canMarkUsuallyOnHand}
 								/>
 							)}
 						</li>
@@ -284,12 +287,14 @@ function MissingIngredientActions({
 	ratio,
 	useMetric,
 	onMarkedHave,
+	canMarkUsuallyOnHand,
 }: {
 	ingredientId: string
 	recipeId: string
 	ratio: number
 	useMetric?: boolean
 	onMarkedHave: (id: string) => void
+	canMarkUsuallyOnHand: boolean
 }) {
 	const haveFetcher = useFetcher()
 	const cartFetcher = useFetcher()
@@ -304,32 +309,34 @@ function MissingIngredientActions({
 			onClick={(e) => e.stopPropagation()}
 			onKeyDown={(e) => e.stopPropagation()}
 		>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<button
-						type="button"
-						aria-label="Usually on hand"
-						className="text-muted-foreground/50 hover:text-primary flex size-[44px] items-center justify-center rounded-md transition-colors"
-						disabled={haveFetcher.state !== 'idle'}
-						onClick={() => {
-							onMarkedHave(ingredientId)
-							void haveFetcher.submit(
-								{
-									intent: 'mark-have-ingredient',
-									ingredientId,
-								},
-								{
-									method: 'POST',
-									action: `/recipes/${recipeId}`,
-								},
-							)
-						}}
-					>
-						<Icon name="file-text" className="size-4" />
-					</button>
-				</TooltipTrigger>
-				<TooltipContent>Usually on hand</TooltipContent>
-			</Tooltip>
+			{canMarkUsuallyOnHand && (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<button
+							type="button"
+							aria-label="Usually on hand"
+							className="text-muted-foreground/50 hover:text-primary flex size-[44px] items-center justify-center rounded-md transition-colors"
+							disabled={haveFetcher.state !== 'idle'}
+							onClick={() => {
+								onMarkedHave(ingredientId)
+								void haveFetcher.submit(
+									{
+										intent: 'mark-have-ingredient',
+										ingredientId,
+									},
+									{
+										method: 'POST',
+										action: `/recipes/${recipeId}`,
+									},
+								)
+							}}
+						>
+							<Icon name="file-text" className="size-4" />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent>Usually on hand</TooltipContent>
+				</Tooltip>
+			)}
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<button

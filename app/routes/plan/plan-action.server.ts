@@ -4,6 +4,7 @@ import { type PrismaClient } from '#app/generated/prisma/client.ts'
 import { getWeekStart } from '#app/utils/date.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { activeLegacyPantryWhere } from '#app/utils/legacy-pantry.server.ts'
 import {
 	AddMealSchema,
 	AddTextMealSchema,
@@ -222,7 +223,7 @@ export function createPlanAction(
 			})
 
 			const inventoryItems = await db.inventoryItem.findMany({
-				where: { householdId },
+				where: activeLegacyPantryWhere(householdId),
 				select: { name: true },
 			})
 			const { lines } = annotateInventoryMatches(demand, inventoryItems)

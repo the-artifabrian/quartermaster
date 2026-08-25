@@ -141,6 +141,35 @@ export async function acceptInvite(token: string, userId: string) {
 				where: { householdId: currentHouseholdId },
 				data: { householdId: targetHouseholdId },
 			})
+			// Canonical ingredients are household-owned like Menus. The target
+			// household's reviewed choice wins on a canonical-key collision and
+			// its staplesCutoverAt is never replaced by the joining household's
+			// timestamp. Non-colliding stable rows move intact before the source
+			// household is deleted.
+			const targetIngredientKeys = new Set(
+				(
+					await tx.householdIngredient.findMany({
+						where: { householdId: targetHouseholdId },
+						select: { canonicalKey: true },
+					})
+				).map((ingredient) => ingredient.canonicalKey),
+			)
+			const sourceIngredients = await tx.householdIngredient.findMany({
+				where: { householdId: currentHouseholdId },
+				select: { id: true, canonicalKey: true },
+				orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+			})
+			for (const ingredient of sourceIngredients) {
+				if (targetIngredientKeys.has(ingredient.canonicalKey)) {
+					await tx.householdIngredient.delete({ where: { id: ingredient.id } })
+					continue
+				}
+				await tx.householdIngredient.update({
+					where: { id: ingredient.id },
+					data: { householdId: targetHouseholdId },
+				})
+				targetIngredientKeys.add(ingredient.canonicalKey)
+			}
 			// Week plans move whole (#106): a non-colliding week just changes
 			// household; a colliding week re-parents its Meals into the target
 			// plan, appended after each day's existing Meals — like import does —

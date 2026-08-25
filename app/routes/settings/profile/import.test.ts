@@ -155,6 +155,151 @@ async function exportHousehold(session: { id: string }) {
 	return JSON.parse(await response.text()) as Record<string, any>
 }
 
+describe('household Staples recovery', () => {
+	test('full export and import preserve canonical rows, cutover state, and archived Pantry independently', async () => {
+		const source = await setupUser()
+		const cutoverAt = new Date('2026-08-25T10:30:00.000Z')
+		await prisma.household.update({
+			where: { id: source.householdId },
+			data: { staplesCutoverAt: cutoverAt },
+		})
+		await prisma.householdIngredient.createMany({
+			data: [
+				{
+					displayName: 'Salt',
+					canonicalKey: 'salt',
+					isStaple: true,
+					isOut: false,
+					householdId: source.householdId,
+				},
+				{
+					displayName: 'Olive oil',
+					canonicalKey: 'olive oil',
+					isStaple: true,
+					isOut: true,
+					householdId: source.householdId,
+				},
+				{
+					displayName: 'Lemons',
+					canonicalKey: 'lemons',
+					isStaple: false,
+					isOut: false,
+					householdId: source.householdId,
+				},
+			],
+		})
+		await prisma.inventoryItem.create({
+			data: {
+				name: 'Archived garlic',
+				userId: source.userId,
+				householdId: source.householdId,
+			},
+		})
+
+		const exported = await exportHousehold(source)
+		expect(exported.household).toEqual({
+			staplesCutoverAt: cutoverAt.toISOString(),
+		})
+		expect(exported.householdIngredients).toEqual([
+			{
+				displayName: 'Lemons',
+				canonicalKey: 'lemons',
+				isStaple: false,
+				isOut: false,
+			},
+			{
+				displayName: 'Olive oil',
+				canonicalKey: 'olive oil',
+				isStaple: true,
+				isOut: true,
+			},
+			{
+				displayName: 'Salt',
+				canonicalKey: 'salt',
+				isStaple: true,
+				isOut: false,
+			},
+		])
+		expect(exported.inventory).toContainEqual({ name: 'Archived garlic' })
+
+		const target = await setupUser()
+		const result = (await importPayload(target, exported)) as any
+		expect(result.results.householdIngredients).toEqual({
+			created: 3,
+			skipped: 0,
+		})
+		expect(
+			await prisma.household.findUniqueOrThrow({
+				where: { id: target.householdId },
+				select: { staplesCutoverAt: true },
+			}),
+		).toEqual({ staplesCutoverAt: cutoverAt })
+		expect(
+			await prisma.householdIngredient.findMany({
+				where: { householdId: target.householdId },
+				orderBy: { canonicalKey: 'asc' },
+				select: {
+					displayName: true,
+					canonicalKey: true,
+					isStaple: true,
+					isOut: true,
+				},
+			}),
+		).toEqual(exported.householdIngredients)
+		expect(
+			await prisma.inventoryItem.findFirst({
+				where: {
+					householdId: target.householdId,
+					name: 'archived garlic',
+				},
+				select: { name: true },
+			}),
+		).toEqual({ name: 'archived garlic' })
+	})
+
+	test('free households restore Staples without opening Pro-only legacy import sections', async () => {
+		const target = await setupUser({ tier: null })
+		const cutoverAt = '2026-08-25T11:00:00.000Z'
+		const result = (await importPayload(target, {
+			format: 'quartermaster-full-export-v1',
+			recipes: [],
+			household: { staplesCutoverAt: cutoverAt },
+			householdIngredients: [
+				{
+					displayName: 'Salt',
+					canonicalKey: 'salt',
+					isStaple: true,
+					isOut: false,
+				},
+			],
+			inventory: [{ name: 'Pro-only archived garlic' }],
+		})) as any
+
+		expect(result.results.householdIngredients).toEqual({
+			created: 1,
+			skipped: 0,
+		})
+		expect(result.results.staplesCutoverRestored).toBe(true)
+		expect(
+			await prisma.household.findUniqueOrThrow({
+				where: { id: target.householdId },
+				select: { staplesCutoverAt: true },
+			}),
+		).toEqual({ staplesCutoverAt: new Date(cutoverAt) })
+		expect(
+			await prisma.householdIngredient.findFirstOrThrow({
+				where: { householdId: target.householdId },
+				select: { canonicalKey: true, isStaple: true, isOut: true },
+			}),
+		).toEqual({ canonicalKey: 'salt', isStaple: true, isOut: false })
+		expect(
+			await prisma.inventoryItem.count({
+				where: { householdId: target.householdId },
+			}),
+		).toBe(0)
+	})
+})
+
 /** Two recipes plus the menu shapes #102 must round-trip: sections, recipe
  * cards with multipliers and notes, a note card with ordered Shopping lines,
  * and a missing card with only its frozen title. */

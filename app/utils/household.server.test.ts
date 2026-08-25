@@ -214,6 +214,85 @@ describe('acceptInvite', () => {
 		expect(await prisma.menu.count()).toBe(3)
 	})
 
+	test('sole member: canonical ingredients move while the target household cutover and collisions win', async () => {
+		const owner = await setupUser()
+		const joiner = await setupUser()
+		const targetCutoverAt = new Date('2026-08-24T08:00:00.000Z')
+		await prisma.household.update({
+			where: { id: owner.householdId },
+			data: { staplesCutoverAt: targetCutoverAt },
+		})
+		await prisma.household.update({
+			where: { id: joiner.householdId },
+			data: { staplesCutoverAt: new Date('2026-08-25T08:00:00.000Z') },
+		})
+		await prisma.householdIngredient.createMany({
+			data: [
+				{
+					displayName: 'Salt',
+					canonicalKey: 'salt',
+					isStaple: true,
+					isOut: false,
+					householdId: owner.householdId,
+				},
+				{
+					displayName: 'Fancy salt',
+					canonicalKey: 'salt',
+					isStaple: true,
+					isOut: true,
+					householdId: joiner.householdId,
+				},
+				{
+					displayName: 'Cumin',
+					canonicalKey: 'cumin',
+					isStaple: true,
+					isOut: true,
+					householdId: joiner.householdId,
+				},
+			],
+		})
+
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+		await acceptInvite(invite.token, joiner.id)
+
+		expect(
+			await prisma.household.findUniqueOrThrow({
+				where: { id: owner.householdId },
+				select: { staplesCutoverAt: true },
+			}),
+		).toEqual({ staplesCutoverAt: targetCutoverAt })
+		expect(
+			await prisma.householdIngredient.findMany({
+				where: { householdId: owner.householdId },
+				orderBy: { canonicalKey: 'asc' },
+				select: {
+					displayName: true,
+					canonicalKey: true,
+					isStaple: true,
+					isOut: true,
+				},
+			}),
+		).toEqual([
+			{
+				displayName: 'Cumin',
+				canonicalKey: 'cumin',
+				isStaple: true,
+				isOut: true,
+			},
+			{
+				displayName: 'Salt',
+				canonicalKey: 'salt',
+				isStaple: true,
+				isOut: false,
+			},
+		])
+		expect(
+			await prisma.householdIngredient.count({
+				where: { householdId: joiner.householdId },
+			}),
+		).toBe(0)
+	})
+
 	test('sole member: menu cards, note shopping lines, and recipe references survive the move', async () => {
 		const owner = await setupUser()
 		const joiner = await setupUserWithRecipe('Joiner Dinner')

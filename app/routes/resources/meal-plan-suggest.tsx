@@ -7,6 +7,7 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { activeLegacyPantryWhere } from '#app/utils/legacy-pantry.server.ts'
 import { MealLabelSchema } from '#app/utils/meal-plan-validation.ts'
 import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
 import {
@@ -69,7 +70,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}),
 		// 3. Household inventory items (for matching)
 		prisma.inventoryItem.findMany({
-			where: { householdId },
+			where: activeLegacyPantryWhere(householdId),
 			select: { name: true },
 		}),
 	])

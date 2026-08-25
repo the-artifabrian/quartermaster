@@ -276,6 +276,8 @@ describe('service-worker lifecycle and navigation fallbacks', () => {
 			'qm-data-v4-user-household',
 			'qm-pages-v5',
 			'qm-data-v5-user-household',
+			'qm-pages-v6',
+			'qm-data-v6-user-household',
 		])
 		const staticEntryUrls = new Set([
 			'https://quartermaster.test/assets/shared.js',
@@ -365,8 +367,10 @@ describe('service-worker lifecycle and navigation fallbacks', () => {
 		expect(cacheNames.has('qm-data-v3-user-household')).toBe(false)
 		expect(cacheNames.has('qm-pages-v4')).toBe(false)
 		expect(cacheNames.has('qm-data-v4-user-household')).toBe(false)
-		expect(cacheNames.has('qm-pages-v5')).toBe(true)
-		expect(cacheNames.has('qm-data-v5-user-household')).toBe(true)
+		expect(cacheNames.has('qm-pages-v5')).toBe(false)
+		expect(cacheNames.has('qm-data-v5-user-household')).toBe(false)
+		expect(cacheNames.has('qm-pages-v6')).toBe(true)
+		expect(cacheNames.has('qm-data-v6-user-household')).toBe(true)
 	})
 
 	test('only exact current-build asset URLs are cacheable', () => {

@@ -14,6 +14,7 @@ import {
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { activeLegacyPantryWhere } from '#app/utils/legacy-pantry.server.ts'
 import { cn, useDebounce } from '#app/utils/misc.tsx'
 import {
 	matchRecipesWithInventory,
@@ -75,15 +76,22 @@ export async function loader({ request }: Route.LoaderArgs) {
 	})()
 
 	// Query inventory first to decide whether ingredient data is needed
-	const [inventoryItems, mealCount, totalRecipeCount] = await Promise.all([
-		prisma.inventoryItem.findMany({ where: { householdId } }),
-		isProActive
-			? prisma.meal.count({
-					where: { mealPlan: { householdId } },
-				})
-			: Promise.resolve(0),
-		prisma.recipe.count({ where: { householdId } }),
-	])
+	const [inventoryItems, mealCount, totalRecipeCount, household] =
+		await Promise.all([
+			prisma.inventoryItem.findMany({
+				where: activeLegacyPantryWhere(householdId),
+			}),
+			isProActive
+				? prisma.meal.count({
+						where: { mealPlan: { householdId } },
+					})
+				: Promise.resolve(0),
+			prisma.recipe.count({ where: { householdId } }),
+			prisma.household.findUniqueOrThrow({
+				where: { id: householdId },
+				select: { staplesCutoverAt: true },
+			}),
+		])
 
 	const hasInventory = inventoryItems.length > 0
 	const useMatchSort = hasInventory && !explicitSort
@@ -204,7 +212,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 		isProActive,
 		onboarding: {
 			hasRecipes: totalRecipeCount > 0,
-			hasInventory,
+			// A confirmed cutover completes the old Pantry onboarding step; the
+			// archived rows must not resurrect its CTA.
+			hasInventory: hasInventory || household.staplesCutoverAt != null,
 			hasMealPlan: mealCount > 0,
 		},
 		matchData,

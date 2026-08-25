@@ -2,17 +2,24 @@ import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { data, Link } from 'react-router'
 import { z } from 'zod'
 import { InventoryItemCard } from '#app/components/inventory-item-card.tsx'
 import { InventoryMobileFab } from '#app/components/inventory-mobile-fab.tsx'
 import { InventoryQuickAdd } from '#app/components/inventory-quick-add.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
-import { PantryStaplesOnboarding } from '#app/components/pantry-staples-onboarding.tsx'
+import {
+	ActiveStaples,
+	StaplesCutover,
+} from '#app/components/staples-cutover.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import {
+	buildStaplesCutoverOptions,
+	StaplesCutoverSelectionSchema,
+} from '#app/utils/household-ingredient.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
 import {
@@ -33,36 +40,169 @@ export const handle: SEOHandle = {
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'My Pantry | Quartermaster' }]
+	return [{ title: 'Staples | Quartermaster' }]
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
-	const { isProActive } = await getUserTier(userId)
-	const inventoryUsage = await getInventoryUsage(householdId, isProActive)
-
-	const items = await prisma.inventoryItem.findMany({
-		where: { householdId },
-		orderBy: [{ name: 'asc' }],
-	})
-
-	const mealCount = await prisma.meal.count({
-		where: { mealPlan: { householdId } },
-	})
+	const [tier, household, items, staples, mealCount] = await Promise.all([
+		getUserTier(userId),
+		prisma.household.findUniqueOrThrow({
+			where: { id: householdId },
+			select: { staplesCutoverAt: true },
+		}),
+		prisma.inventoryItem.findMany({
+			where: { householdId },
+			orderBy: [{ name: 'asc' }],
+		}),
+		prisma.householdIngredient.findMany({
+			where: { householdId, isStaple: true },
+			orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
+		}),
+		prisma.meal.count({
+			where: { mealPlan: { householdId } },
+		}),
+	])
+	const inventoryUsage = await getInventoryUsage(householdId, tier.isProActive)
 
 	return {
 		items,
+		staples,
+		staplesCutoverAt: household.staplesCutoverAt,
+		cutoverOptions:
+			household.staplesCutoverAt == null
+				? buildStaplesCutoverOptions(items, staples)
+				: [],
+		archivedInventoryCount: items.length,
 		inventoryUsage,
-		isProActive,
+		isProActive: tier.isProActive,
 		mealCount,
 	}
 }
 
 export async function action({ request }: Route.ActionArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
-	const { isProActive } = await getUserTier(userId)
 	const formData = await request.formData()
 	const intent = formData.get('intent')
+
+	if (intent === 'confirm-staples-cutover') {
+		const rawItems = formData.get('items')
+		let items: unknown
+		try {
+			items = typeof rawItems === 'string' ? JSON.parse(rawItems) : null
+		} catch {
+			return data(
+				{ status: 'error' as const, message: 'Invalid Staple selection' },
+				{ status: 400 },
+			)
+		}
+		const parsed = StaplesCutoverSelectionSchema.safeParse(items)
+		if (!parsed.success) {
+			return data(
+				{ status: 'error' as const, message: 'Invalid Staple selection' },
+				{ status: 400 },
+			)
+		}
+
+		const alreadyCutOver = await prisma.household.findFirst({
+			where: { id: householdId, staplesCutoverAt: { not: null } },
+			select: { id: true },
+		})
+		if (alreadyCutOver) {
+			return data(
+				{ status: 'error' as const, message: 'Staples are already active' },
+				{ status: 409 },
+			)
+		}
+
+		try {
+			await prisma.$transaction(async (tx) => {
+				// A recovery and second reviewed cutover may revisit a prior set.
+				// Retain stable identities and the Out state of selected rows, while
+				// only this confirmed selection remains classified as Staple.
+				await tx.householdIngredient.updateMany({
+					where: {
+						householdId,
+						isStaple: true,
+						...(parsed.data.length > 0
+							? {
+									canonicalKey: {
+										notIn: parsed.data.map((item) => item.canonicalKey),
+									},
+								}
+							: {}),
+					},
+					data: { isStaple: false, isOut: false },
+				})
+				for (const item of parsed.data) {
+					await tx.householdIngredient.upsert({
+						where: {
+							householdId_canonicalKey: {
+								householdId,
+								canonicalKey: item.canonicalKey,
+							},
+						},
+						create: {
+							...item,
+							isStaple: true,
+							isOut: false,
+							householdId,
+						},
+						update: {
+							displayName: item.displayName,
+							isStaple: true,
+						},
+					})
+				}
+				const cutover = await tx.household.updateMany({
+					where: { id: householdId, staplesCutoverAt: null },
+					data: { staplesCutoverAt: new Date() },
+				})
+				if (cutover.count !== 1) throw new Error('CUTOVER_ALREADY_COMPLETED')
+			})
+		} catch (error) {
+			if (
+				error instanceof Error &&
+				error.message === 'CUTOVER_ALREADY_COMPLETED'
+			) {
+				return data(
+					{ status: 'error' as const, message: 'Staples are already active' },
+					{ status: 409 },
+				)
+			}
+			throw error
+		}
+
+		return {
+			status: 'success' as const,
+			action: 'confirm-staples-cutover' as const,
+			savedCount: parsed.data.length,
+		}
+	}
+
+	if (intent === 'restore-legacy-pantry') {
+		await prisma.household.update({
+			where: { id: householdId },
+			data: { staplesCutoverAt: null },
+		})
+		return {
+			status: 'success' as const,
+			action: 'restore-legacy-pantry' as const,
+		}
+	}
+
+	const household = await prisma.household.findUniqueOrThrow({
+		where: { id: householdId },
+		select: { staplesCutoverAt: true },
+	})
+	if (household.staplesCutoverAt != null) {
+		return data(
+			{ status: 'error' as const, message: 'Legacy Pantry is archived' },
+			{ status: 409 },
+		)
+	}
+
+	const { isProActive } = await getUserTier(userId)
 
 	if (intent === 'create') {
 		const usage = await getInventoryUsage(householdId, isProActive)
@@ -297,20 +437,20 @@ export async function action({ request }: Route.ActionArgs) {
 const SEARCH_THRESHOLD = 15
 
 export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
-	const { items, inventoryUsage, isProActive, mealCount } = loaderData
+	const {
+		items,
+		staples,
+		staplesCutoverAt,
+		cutoverOptions,
+		archivedInventoryCount,
+		inventoryUsage,
+		isProActive,
+		mealCount,
+	} = loaderData
 
 	const [search, setSearch] = useState('')
 	const [fabOpen, setFabOpen] = useState(false)
-
-	const [showStaplesSuccess, setShowStaplesSuccess] = useState(false)
-	const handleStaplesSuccess = useCallback(
-		() => setShowStaplesSuccess(true),
-		[],
-	)
-	const handleStaplesDismiss = useCallback(
-		() => setShowStaplesSuccess(false),
-		[],
-	)
+	const [showCutover, setShowCutover] = useState(items.length === 0)
 
 	const [voiceAddedNames, setVoiceAddedNames] = useState<Set<string>>(new Set())
 	const handleVoiceItemsAdded = useCallback((names: string[]) => {
@@ -324,15 +464,22 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		return () => clearTimeout(timer)
 	}, [voiceAddedNames])
 
-	if (items.length === 0 || showStaplesSuccess) {
+	if (staplesCutoverAt != null) {
 		return (
-			<div className="container-content py-6 pb-20 md:pb-6">
-				<PantryStaplesOnboarding
-					maxItems={inventoryUsage.limit ?? undefined}
-					onSuccess={handleStaplesSuccess}
-					onDismiss={handleStaplesDismiss}
-				/>
-			</div>
+			<ActiveStaples
+				staples={staples}
+				archivedInventoryCount={archivedInventoryCount}
+			/>
+		)
+	}
+
+	if (showCutover) {
+		return (
+			<StaplesCutover
+				options={cutoverOptions}
+				archivedInventoryCount={archivedInventoryCount}
+				onCancel={items.length > 0 ? () => setShowCutover(false) : undefined}
+			/>
 		)
 	}
 
@@ -346,6 +493,20 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="overflow-x-clip pb-28 md:pb-6">
+			<div className="bg-accent/8 border-border/40 border-b">
+				<div className="container-content flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+					<div>
+						<p className="font-medium">Ready to switch to Staples?</p>
+						<p className="text-muted-foreground mt-1 text-sm">
+							Review this Pantry with editable household defaults before
+							anything changes.
+						</p>
+					</div>
+					<Button type="button" onClick={() => setShowCutover(true)}>
+						Review and switch
+					</Button>
+				</div>
+			</div>
 			{/* Page Header */}
 			<div className="container-content flex items-center justify-between gap-3 py-3 md:py-4">
 				<div>

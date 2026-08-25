@@ -25,6 +25,7 @@ export function RecipeIngredientsSheet({
 	missingIngredientIds,
 	recipeId,
 	shoppingFetcher,
+	canMarkUsuallyOnHand,
 	useMetric,
 }: {
 	visible: boolean
@@ -37,6 +38,7 @@ export function RecipeIngredientsSheet({
 	missingIngredientIds: string[]
 	recipeId: string
 	shoppingFetcher: ReturnType<typeof useFetcher>
+	canMarkUsuallyOnHand?: boolean
 	useMetric?: boolean
 }) {
 	const [open, setOpen] = useState(false)
@@ -55,6 +57,7 @@ export function RecipeIngredientsSheet({
 						missingIngredientIds={missingIngredientIds}
 						recipeId={recipeId}
 						shoppingFetcher={shoppingFetcher}
+						canMarkUsuallyOnHand={canMarkUsuallyOnHand}
 						useMetric={useMetric}
 						showFooter={false}
 					/>

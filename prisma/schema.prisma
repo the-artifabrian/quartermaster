@@ -150,12 +150,17 @@ model Household {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  /// The reviewed product cutover boundary. null means legacy Pantry behavior
+  /// is active; a timestamp (including an empty confirmed selection) means
+  /// HouseholdIngredient rows are the sole canonical household source.
+  staplesCutoverAt DateTime?
 
   members           HouseholdMember[]
   invites           HouseholdInvite[]
   events            HouseholdEvent[]
   recipes           Recipe[]
   inventoryItems    InventoryItem[]
+  householdIngredients HouseholdIngredient[]
   mealPlans         MealPlan[]
   shoppingLists     ShoppingList[]
   menus             Menu[]
@@ -391,6 +396,29 @@ model InventoryItem {
 
   @@index([userId])
   @@index([householdId])
+}
+
+/// One durable household ingredient identity. Release 2's explicit cutover
+/// seeds Staple rows here; later ingredient-library work may also retain
+/// non-Staple identities without changing what this entity means.
+model HouseholdIngredient {
+  id           String  @id @default(cuid())
+  displayName  String
+  /// Trimmed, whitespace-collapsed, Unicode-normalized (NFKC), lower-cased
+  /// display name. This is exact household identity, not loose Shopping
+  /// synonym equivalence.
+  canonicalKey String
+  isStaple     Boolean @default(false)
+  isOut        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId String
+
+  @@unique([householdId, canonicalKey])
+  @@index([householdId, isStaple, isOut])
 }
 
 model MealPlan {

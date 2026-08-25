@@ -44,6 +44,18 @@ export const meta: Route.MetaFunction = () => {
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
+	const household = await prisma.household.findUniqueOrThrow({
+		where: { id: householdId },
+		select: { staplesCutoverAt: true },
+	})
+	if (household.staplesCutoverAt != null) {
+		throw await redirectWithToast('/inventory', {
+			type: 'message',
+			title: 'Legacy Pantry is archived',
+			description:
+				'Restore Pantry explicitly before changing its archived rows.',
+		})
+	}
 	const { isProActive } = await getUserTier(userId)
 	const usage = await getInventoryUsage(householdId, isProActive)
 	if (usage.isAtLimit) {
@@ -58,6 +70,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export async function action({ request }: Route.ActionArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
+	const household = await prisma.household.findUniqueOrThrow({
+		where: { id: householdId },
+		select: { staplesCutoverAt: true },
+	})
+	if (household.staplesCutoverAt != null) {
+		throw await redirectWithToast('/inventory', {
+			type: 'message',
+			title: 'Legacy Pantry is archived',
+			description:
+				'Restore Pantry explicitly before changing its archived rows.',
+		})
+	}
 	const { isProActive } = await getUserTier(userId)
 	const usage = await getInventoryUsage(householdId, isProActive)
 	if (usage.isAtLimit) {

@@ -26,7 +26,7 @@ const navItems: NavItem[] = [
 		to: '/inventory',
 		icon: 'file-text' as IconName,
 		iconFilled: 'file-text-filled' as IconName,
-		label: 'Pantry',
+		label: 'Staples',
 		matchPaths: ['/inventory'],
 	},
 	{

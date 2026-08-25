@@ -34,6 +34,7 @@ import {
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { activeLegacyPantryWhere } from '#app/utils/legacy-pantry.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { parseTypedItem } from '#app/utils/parse-speech-item.ts'
 import {
@@ -156,7 +157,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	if (isProActive) {
 		const allInventoryItems = await prisma.inventoryItem.findMany({
-			where: { householdId },
+			where: activeLegacyPantryWhere(householdId),
 			select: { id: true, name: true },
 		})
 
@@ -239,7 +240,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		// Annotate lines with inventory match info (staples still stripped)
 		const inventoryItems = await prisma.inventoryItem.findMany({
-			where: { householdId },
+			where: activeLegacyPantryWhere(householdId),
 		})
 		const { lines, inStockCount } = annotateInventoryMatches(
 			demand,
@@ -346,7 +347,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 			// Check inventory
 			const inventoryItems = await prisma.inventoryItem.findMany({
-				where: { householdId },
+				where: activeLegacyPantryWhere(householdId),
 			})
 			const inInventory = findInventoryMatch(
 				{ name },

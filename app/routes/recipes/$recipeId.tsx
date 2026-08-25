@@ -33,6 +33,7 @@ import { parseAmount, scaleAmount } from '#app/utils/fractions.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
+import { activeLegacyPantryWhere } from '#app/utils/legacy-pantry.server.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import {
 	convertToMetric,
@@ -161,11 +162,15 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		status: 403,
 	})
 
-	const [tierInfo, inventoryItems] = await Promise.all([
+	const [tierInfo, inventoryItems, household] = await Promise.all([
 		getUserTier(userId),
 		prisma.inventoryItem.findMany({
-			where: { householdId },
+			where: activeLegacyPantryWhere(householdId),
 			select: { name: true },
+		}),
+		prisma.household.findUniqueOrThrow({
+			where: { id: householdId },
+			select: { staplesCutoverAt: true },
 		}),
 	])
 
@@ -185,6 +190,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		isProActive: tierInfo.isProActive,
 		missingIngredientIds,
 		hasInventory: inventoryItems.length > 0,
+		usesLegacyPantry: household.staplesCutoverAt == null,
 	}
 }
 
@@ -246,6 +252,13 @@ export async function action({ request, params }: Route.ActionArgs) {
 	}
 
 	if (intent === 'mark-have-ingredient') {
+		const activeHousehold = await prisma.household.findFirst({
+			where: { id: householdId, staplesCutoverAt: null },
+			select: { id: true },
+		})
+		invariantResponse(activeHousehold, 'Legacy Pantry is archived', {
+			status: 409,
+		})
 		const ingredientId = formData.get('ingredientId')
 		invariantResponse(
 			typeof ingredientId === 'string',
@@ -260,7 +273,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 		// Check for existing duplicate in Pantry
 		const existingItems = await prisma.inventoryItem.findMany({
-			where: { householdId },
+			where: activeLegacyPantryWhere(householdId),
 			select: { id: true, name: true },
 		})
 
@@ -372,7 +385,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		})
 
 		const inventoryItems = await prisma.inventoryItem.findMany({
-			where: { householdId },
+			where: activeLegacyPantryWhere(householdId),
 			select: { name: true },
 		})
 		const { lines } = annotateInventoryMatches(demand, inventoryItems)
@@ -469,7 +482,13 @@ function toShoppingItem(
 }
 
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
-	const { recipe, isProActive, missingIngredientIds, hasInventory } = loaderData
+	const {
+		recipe,
+		isProActive,
+		missingIngredientIds,
+		hasInventory,
+		usesLegacyPantry,
+	} = loaderData
 	const rootData = useRouteLoaderData('root') as
 		{ requestInfo?: { origin?: string } } | undefined
 	const origin = rootData?.requestInfo?.origin
@@ -799,7 +818,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</PopoverContent>
 				</Popover>
 
-				{!hasInventory && (
+				{usesLegacyPantry && !hasInventory && (
 					<OnboardingNudge
 						nudgeId="stock-kitchen"
 						icon="home"
@@ -890,6 +909,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									missingIngredientIds={missingIngredientIds}
 									recipeId={recipe.id}
 									shoppingFetcher={shoppingFetcher}
+									canMarkUsuallyOnHand={usesLegacyPantry}
 									useMetric={useMetric}
 									onToggleMetric={toggleMetric}
 								/>
@@ -922,6 +942,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					missingIngredientIds={missingIngredientIds}
 					recipeId={recipe.id}
 					shoppingFetcher={shoppingFetcher}
+					canMarkUsuallyOnHand={usesLegacyPantry}
 					useMetric={useMetric}
 				/>
 

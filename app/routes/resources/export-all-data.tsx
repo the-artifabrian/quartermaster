@@ -153,6 +153,22 @@ export async function loader({ request }: Route.LoaderArgs) {
 				orderBy: { title: 'asc' },
 			}),
 		])
+	const [household, householdIngredients] = await Promise.all([
+		prisma.household.findUniqueOrThrow({
+			where: { id: householdId },
+			select: { staplesCutoverAt: true },
+		}),
+		prisma.householdIngredient.findMany({
+			where: { householdId },
+			select: {
+				displayName: true,
+				canonicalKey: true,
+				isStaple: true,
+				isOut: true,
+			},
+			orderBy: [{ canonicalKey: 'asc' }, { id: 'asc' }],
+		}),
+	])
 
 	// Export-local reference keys: import restores Menu Recipe references by
 	// key, so renamed Recipes still reconnect; title fallback is for older
@@ -174,6 +190,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 			email: user.email,
 			name: user.name,
 		},
+		household: {
+			staplesCutoverAt: household.staplesCutoverAt?.toISOString() ?? null,
+		},
+		householdIngredients,
 		recipes: recipes.map((recipe) => ({
 			ref: recipeRefById.get(recipe.id)!,
 			title: recipe.title,

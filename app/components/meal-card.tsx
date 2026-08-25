@@ -1,11 +1,7 @@
 import { Img } from 'openimg/react'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
-import {
-	MealQuantityClarification,
-	MealQuantityReview,
-} from '#app/components/meal-quantity-review.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import {
 	DropdownMenu,
@@ -17,17 +13,11 @@ import {
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { MEAL_TYPES, MEAL_TYPE_LABELS, type MealType } from '#app/utils/date.ts'
-import {
-	type QuantityClarification,
-	type QuantityProposal,
-	type QuantitySelection,
-} from '#app/utils/meal-quantity-proposal.server.ts'
 import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import { formatServingTime, servingWallTime } from '#app/utils/serving-time.ts'
-import { useModal } from '#app/utils/use-modal.ts'
 import {
 	type RecipeSelectorRecipe,
 	RecipeSelector,
@@ -524,33 +514,6 @@ function MealDetailsForm({
 	)
 }
 
-function MealQuantityDialog({
-	children,
-	onClose,
-}: {
-	children: ReactNode
-	onClose: () => void
-}) {
-	const dialogRef = useModal(onClose)
-	return (
-		<div
-			ref={dialogRef}
-			className="fixed inset-0 z-60 flex items-end justify-center sm:items-center"
-			role="dialog"
-			aria-modal="true"
-			aria-label="Plan Meal quantities"
-		>
-			<div
-				className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-				onClick={onClose}
-			/>
-			<div className="bg-card shadow-warm-lg relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-xl p-4 sm:rounded-xl sm:p-5">
-				{children}
-			</div>
-		</div>
-	)
-}
-
 export function MealCard({
 	meal,
 	recipes,
@@ -566,16 +529,6 @@ export function MealCard({
 	const mealCookedFetcher = useFetcher()
 	const removeMealFetcher = useFetcher()
 	const addRecipeFetcher = useFetcher()
-	const quantityFetcher = useFetcher<{
-		status: 'success' | 'error'
-		quantityError?: string
-		quantityProposal?: QuantityProposal | QuantityClarification
-	}>()
-	const applyQuantityFetcher = useFetcher<{
-		status: 'success' | 'error'
-		quantityError?: string
-		quantitiesApplied?: number
-	}>()
 	const addToShoppingFetcher = useFetcher<{
 		status: string
 		refreshed?: boolean
@@ -589,29 +542,8 @@ export function MealCard({
 	}>()
 	const [addingRecipe, setAddingRecipe] = useState(false)
 	const [editingDetails, setEditingDetails] = useState(false)
-	const [planningQuantities, setPlanningQuantities] = useState(false)
 	const [confirmingDelete, setConfirmingDelete] = useState(false)
 	const [menuOpen, setMenuOpen] = useState(false)
-
-	function requestQuantityProposal(clarification?: {
-		question: string
-		answer: string
-	}) {
-		void quantityFetcher.submit(
-			{
-				intent: 'proposeMealQuantities',
-				mealId: meal.id,
-				...(clarification
-					? {
-							clarificationRound: '1',
-							clarificationQuestion: clarification.question,
-							clarificationAnswer: clarification.answer,
-						}
-					: {}),
-			},
-			{ method: 'POST' },
-		)
-	}
 
 	const isText = meal.genericText != null
 	// A Recipe Meal derives completion from its items; a text-only Meal owns
@@ -631,7 +563,6 @@ export function MealCard({
 			: null
 
 	const rows = isText ? [] : buildMealRows(meal)
-	const mealQuantityProposal = quantityFetcher.data?.quantityProposal
 	const hasShoppingDemand =
 		meal.items.length > 0 ||
 		meal.noteItems.some((note) => note.shoppingLines.length > 0)
@@ -668,23 +599,6 @@ export function MealCard({
 		}
 		prevShoppingState.current = addToShoppingFetcher.state
 	}, [addToShoppingFetcher.state, addToShoppingFetcher.data])
-
-	const prevApplyQuantityState = useRef(applyQuantityFetcher.state)
-	useEffect(() => {
-		if (
-			prevApplyQuantityState.current !== 'idle' &&
-			applyQuantityFetcher.state === 'idle'
-		) {
-			if (applyQuantityFetcher.data?.status === 'success') {
-				const count = applyQuantityFetcher.data.quantitiesApplied ?? 0
-				toast.success(
-					`Applied ${count} Meal quantit${count === 1 ? 'y' : 'ies'}`,
-				)
-				setPlanningQuantities(false)
-			}
-		}
-		prevApplyQuantityState.current = applyQuantityFetcher.state
-	}, [applyQuantityFetcher.state, applyQuantityFetcher.data])
 
 	function submitMealCooked(cooked: boolean) {
 		void mealCookedFetcher.submit(
@@ -782,25 +696,6 @@ export function MealCard({
 							<Icon name="pencil-1" size="sm" />
 							Edit details
 						</DropdownMenuItem>
-						{!isText && meal.items.length > 0 ? (
-							<DropdownMenuItem
-								disabled={quantityFetcher.state !== 'idle'}
-								onSelect={() => {
-									if (meal.guestCount == null) {
-										setEditingDetails(true)
-										toast.info('Add a guest count before planning quantities')
-										return
-									}
-									setPlanningQuantities(true)
-									requestQuantityProposal()
-								}}
-							>
-								<Icon name="sparkles" size="sm" />
-								{quantityFetcher.state !== 'idle'
-									? 'Planning quantities…'
-									: 'Plan quantities'}
-							</DropdownMenuItem>
-						) : null}
 						{/* A Meal reaches Shopping only through this explicit action —
 						    planning never live-syncs Shopping. Text-only Meals have no
 						    Shopping behavior (#108). */}
@@ -906,88 +801,6 @@ export function MealCard({
 					/>
 				</div>
 			)}
-
-			{planningQuantities ? (
-				<MealQuantityDialog onClose={() => setPlanningQuantities(false)}>
-					{applyQuantityFetcher.data?.status === 'error' ? (
-						<p className="text-destructive mb-3 text-sm">
-							{applyQuantityFetcher.data.quantityError}
-						</p>
-					) : null}
-					{quantityFetcher.state !== 'idle' && quantityFetcher.data == null ? (
-						<div className="text-muted-foreground flex min-h-32 items-center justify-center gap-2 text-sm">
-							<Icon name="update" className="size-4 animate-spin" />
-							Planning quantities…
-						</div>
-					) : quantityFetcher.data?.status === 'error' ? (
-						<div className="space-y-3">
-							<h3 className="font-serif text-base">Plan quantities</h3>
-							<p className="text-destructive text-sm">
-								{quantityFetcher.data.quantityError}
-							</p>
-							<p className="text-muted-foreground text-xs">
-								Every multiplier on the Meal remains manually editable.
-							</p>
-							<div className="flex justify-end gap-2">
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									onClick={() => setPlanningQuantities(false)}
-								>
-									Close
-								</Button>
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									disabled={quantityFetcher.state !== 'idle'}
-									onClick={() => requestQuantityProposal()}
-								>
-									Try again
-								</Button>
-							</div>
-						</div>
-					) : mealQuantityProposal?.status === 'clarification' ? (
-						<MealQuantityClarification
-							clarification={mealQuantityProposal}
-							busy={quantityFetcher.state !== 'idle'}
-							onCancel={() => setPlanningQuantities(false)}
-							onAnswer={(answer) =>
-								requestQuantityProposal({
-									question: mealQuantityProposal.question,
-									answer,
-								})
-							}
-						/>
-					) : mealQuantityProposal?.status === 'proposal' ? (
-						<MealQuantityReview
-							proposal={mealQuantityProposal}
-							items={meal.items.map((item) => ({
-								itemKey: item.id,
-								title: item.recipeTitle,
-								currentScaleMultiplier: item.scaleMultiplier,
-							}))}
-							busy={
-								quantityFetcher.state !== 'idle' ||
-								applyQuantityFetcher.state !== 'idle'
-							}
-							onCancel={() => setPlanningQuantities(false)}
-							onRerun={() => requestQuantityProposal()}
-							onApply={(selections: QuantitySelection[]) => {
-								void applyQuantityFetcher.submit(
-									{
-										intent: 'applyMealQuantities',
-										mealId: meal.id,
-										quantitySelections: JSON.stringify(selections),
-									},
-									{ method: 'POST' },
-								)
-							}}
-						/>
-					) : null}
-				</MealQuantityDialog>
-			) : null}
 
 			{isText ? (
 				// Text-only Meal: parent completion state, no Recipe items, no

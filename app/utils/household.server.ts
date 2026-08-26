@@ -133,6 +133,19 @@ export async function acceptInvite(token: string, userId: string) {
 
 		if (currentHouseholdId && currentHouseholdMemberCount === 1) {
 			// Sole member: move all data to new household
+			const sourceCutover = await tx.household.findUniqueOrThrow({
+				where: { id: currentHouseholdId },
+				select: { staplesCutoverAt: true },
+			})
+			if (sourceCutover.staplesCutoverAt != null) {
+				// A target that already cut over keeps its own timestamp. Otherwise
+				// preserve the source household's explicit choice, including a
+				// confirmed empty selection; row presence never implies cutover.
+				await tx.household.updateMany({
+					where: { id: targetHouseholdId, staplesCutoverAt: null },
+					data: { staplesCutoverAt: sourceCutover.staplesCutoverAt },
+				})
+			}
 			await tx.recipe.updateMany({
 				where: { householdId: currentHouseholdId },
 				data: { householdId: targetHouseholdId },
@@ -142,10 +155,9 @@ export async function acceptInvite(token: string, userId: string) {
 				data: { householdId: targetHouseholdId },
 			})
 			// Canonical ingredients are household-owned like Menus. The target
-			// household's reviewed choice wins on a canonical-key collision and
-			// its staplesCutoverAt is never replaced by the joining household's
-			// timestamp. Non-colliding stable rows move intact before the source
-			// household is deleted.
+			// household's reviewed choice wins on a canonical-key collision.
+			// Non-colliding stable rows move intact before the source household is
+			// deleted.
 			const targetIngredientKeys = new Set(
 				(
 					await tx.householdIngredient.findMany({

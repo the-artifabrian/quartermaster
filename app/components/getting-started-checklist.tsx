@@ -40,8 +40,8 @@ export function GettingStartedChecklist({
 			done: onboarding.hasRecipes,
 		},
 		{
-			title: 'Start your Pantry',
-			description: 'Add what you usually keep around',
+			title: 'Choose your Staples',
+			description: 'Save what you normally keep and mark anything Out',
 			icon: 'home',
 			href: '/inventory',
 			done: onboarding.hasInventory,

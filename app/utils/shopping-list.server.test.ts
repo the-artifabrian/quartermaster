@@ -172,4 +172,21 @@ describe('annotateShoppingDemand', () => {
 		)
 		expect(result.lines.map((line) => line.name)).toEqual(['cilantro'])
 	})
+
+	test('neededCount includes non-Staples, Out Staples, and unresolved demand', () => {
+		const result = annotateShoppingDemand(
+			[
+				makeDemandLine('salt'),
+				makeDemandLine('olive oil'),
+				makeDemandLine('chicken'),
+				makeDemandLine('medium/small peaches'),
+			],
+			householdStaples([
+				{ displayName: 'salt' },
+				{ displayName: 'olive oil', isOut: true },
+			]),
+		)
+
+		expect(result.neededCount).toBe(3)
+	})
 })

@@ -11,7 +11,7 @@ export const handle: SEOHandle = {
 }
 
 const description =
-	'I had 100+ recipes scattered across Apple Notes and no idea what was for dinner. So I built one place for my recipes, my pantry, and my week.'
+	'I had 100+ recipes scattered across Apple Notes and no idea what was for dinner. So I built one place for my recipes, my Staples, and my week.'
 
 export const meta: Route.MetaFunction = ({ matches }) => {
 	return [
@@ -45,9 +45,9 @@ export default function AboutRoute() {
 					dinner?" shouldn't be a 30-minute research project every night.
 				</p>
 				<p>
-					So I built the tool I wanted. One place for your recipes, your pantry,
-					your meal plan, and your shopping list. If you know what you have and
-					what you like to cook, the rest should take care of itself.
+					So I built the tool I wanted. One place for your recipes, your
+					Staples, your meal plan, and your shopping list. If you know what you
+					have and what you like to cook, the rest should take care of itself.
 					Quartermaster helps you find dinners that need fewer things, plan the
 					week ahead, and write your shopping list when you're ready.
 				</p>
@@ -75,10 +75,9 @@ export default function AboutRoute() {
 				<div className="flex gap-3">
 					<Icon name="home" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
-						<span className="text-foreground font-medium">Keep a Pantry.</span>{' '}
-						Add the things you usually keep around — fridge staples, condiments,
-						freezer items, dry goods. The shopping list uses it to flag what you
-						may need to buy.
+						<span className="text-foreground font-medium">Keep Staples.</span>{' '}
+						Save the ingredients your household normally has and mark anything
+						Out. Shopping includes every non-Staple plus required Out Staples.
 					</p>
 				</div>
 				<div className="flex gap-3">
@@ -105,8 +104,8 @@ export default function AboutRoute() {
 					<Icon name="avatar" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Cook together.</span>{' '}
-						Invite your partner or housemates to share a recipe library, Pantry,
-						and meal plan. Changes sync in real time.
+						Invite your partner or housemates to share a recipe library,
+						Staples, and meal plan. Changes sync in real time.
 					</p>
 				</div>
 			</div>

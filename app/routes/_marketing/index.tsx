@@ -136,8 +136,8 @@ export default function Index() {
 									What can I cook tonight?
 								</h2>
 								<p className="text-muted-foreground mt-3 text-base/7">
-									Add ingredients you usually keep around and Quartermaster
-									shows which recipes need fewer things from the store.
+									Keep a lightweight household Staples list, mark anything Out,
+									and see how many Shopping items each Recipe needs.
 								</p>
 							</div>
 						</ScrollReveal>
@@ -415,9 +415,9 @@ function RecipeCardArtifact() {
 
 function DiscoveryArtifact() {
 	const recipes = [
-		{ name: 'Pasta al limone', match: 100 },
-		{ name: 'Miso-Glazed Salmon', match: 75 },
-		{ name: 'Black bean tacos', match: 50 },
+		{ name: 'Pasta al limone', needs: 0 },
+		{ name: 'Miso-Glazed Salmon', needs: 1 },
+		{ name: 'Black bean tacos', needs: 2 },
 	]
 
 	return (
@@ -426,65 +426,21 @@ function DiscoveryArtifact() {
 				What can I cook?
 			</p>
 			<div className="space-y-3">
-				{recipes.map(({ name, match }) => (
+				{recipes.map(({ name, needs }) => (
 					<div key={name} className="flex items-center gap-3">
-						<MatchRing percent={match} />
+						<div className="bg-secondary text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-medium">
+							{needs}
+						</div>
 						<div className="min-w-0 flex-1">
 							<p className="font-serif text-sm">{name}</p>
 							<p className="text-muted-foreground text-xs">
-								{match === 100
-									? 'Nothing to buy'
-									: match >= 75
-										? 'Missing 1 item'
-										: 'Missing 2 items'}
+								Needs {needs} item{needs === 1 ? '' : 's'}
 							</p>
 						</div>
 					</div>
 				))}
 			</div>
 		</div>
-	)
-}
-
-function MatchRing({ percent }: { percent: number }) {
-	const r = 16
-	const circumference = 2 * Math.PI * r
-	const offset = circumference - (percent / 100) * circumference
-
-	return (
-		<svg viewBox="0 0 40 40" className="size-10 shrink-0">
-			<circle
-				cx="20"
-				cy="20"
-				r={r}
-				fill="none"
-				stroke="currentColor"
-				strokeWidth="3"
-				className="text-secondary"
-			/>
-			<circle
-				cx="20"
-				cy="20"
-				r={r}
-				fill="none"
-				stroke="currentColor"
-				strokeWidth="3"
-				strokeDasharray={circumference}
-				strokeDashoffset={offset}
-				strokeLinecap="round"
-				className="text-primary"
-				transform="rotate(-90 20 20)"
-			/>
-			<text
-				x="20"
-				y="20"
-				textAnchor="middle"
-				dominantBaseline="central"
-				className="fill-foreground text-[10px] font-medium"
-			>
-				{percent}%
-			</text>
-		</svg>
 	)
 }
 

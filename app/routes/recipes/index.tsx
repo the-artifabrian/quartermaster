@@ -1,5 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { GettingStartedChecklist } from '#app/components/getting-started-checklist.tsx'
 import { LibrarySwitch } from '#app/components/library-switch.tsx'
@@ -14,13 +14,13 @@ import {
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { activeLegacyPantryWhere } from '#app/utils/legacy-pantry.server.ts'
 import { cn, useDebounce } from '#app/utils/misc.tsx'
-import {
-	matchRecipesWithInventory,
-	type RecipeMatch,
-} from '#app/utils/recipe-matching.server.ts'
 import { recipeSearchWhere } from '#app/utils/recipe-search.server.ts'
+import { buildShoppingDemand } from '#app/utils/shopping-demand.server.ts'
+import {
+	annotateShoppingDemand,
+	loadShoppingAvailability,
+} from '#app/utils/shopping-list.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
 
@@ -75,26 +75,21 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	})()
 
-	// Query inventory first to decide whether ingredient data is needed
-	const [inventoryItems, mealCount, totalRecipeCount, household] =
-		await Promise.all([
-			prisma.inventoryItem.findMany({
-				where: activeLegacyPantryWhere(householdId),
-			}),
-			isProActive
-				? prisma.meal.count({
-						where: { mealPlan: { householdId } },
-					})
-				: Promise.resolve(0),
-			prisma.recipe.count({ where: { householdId } }),
-			prisma.household.findUniqueOrThrow({
-				where: { id: householdId },
-				select: { staplesCutoverAt: true },
-			}),
-		])
+	const [availability, mealCount, totalRecipeCount] = await Promise.all([
+		loadShoppingAvailability(prisma, householdId),
+		isProActive
+			? prisma.meal.count({
+					where: { mealPlan: { householdId } },
+				})
+			: Promise.resolve(0),
+		prisma.recipe.count({ where: { householdId } }),
+	])
 
-	const hasInventory = inventoryItems.length > 0
-	const useMatchSort = hasInventory && !explicitSort
+	const hasInventory =
+		availability.kind === 'legacy-pantry' &&
+		availability.inventoryItems.length > 0
+	const showNeeds = hasInventory || availability.kind === 'household-staples'
+	const useNeedsSort = showNeeds && !explicitSort
 
 	const recipes = await prisma.recipe.findMany({
 		where: {
@@ -115,22 +110,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 			_count: {
 				select: {
 					instructions: true,
-					...(hasInventory ? {} : { ingredients: true }),
 				},
 			},
-			...(hasInventory && {
-				ingredients: {
-					// Only the fields the inventory matcher + quality flag read; the
-					// other columns (id/amount/unit/order/recipeId) were unused
-					// over-fetch serialized to the client for the whole cookbook.
-					select: {
-						name: true,
-						notes: true,
-						isHeading: true,
-					},
-					orderBy: { order: 'asc' as const },
+			ingredients: {
+				select: {
+					name: true,
+					amount: true,
+					unit: true,
+					notes: true,
+					isHeading: true,
 				},
-			}),
+				orderBy: { order: 'asc' as const },
+			},
 		},
 		orderBy,
 	})
@@ -162,47 +153,30 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 		filteredRecipes = filteredRecipes.filter(
 			(r) =>
-				(hasInventory
-					? r.ingredients.length === 0
-					: r._count.ingredients === 0) ||
+				r.ingredients.length === 0 ||
 				r._count.instructions === 0 ||
 				duplicateIds.has(r.id),
 		)
 	}
 
-	// Match data (when inventory exists)
-	type MatchData = {
-		matches: RecipeMatch[]
-		inventoryItemCount: number
-		makeableCount: number
-	}
+	let recipesWithNeeds = filteredRecipes.map(({ ingredients, ...recipe }) => ({
+		...recipe,
+		needsItemCount: showNeeds
+			? annotateShoppingDemand(
+					buildShoppingDemand({ recipeBatches: [{ ingredients }] }),
+					availability,
+				).neededCount
+			: null,
+	}))
 
-	let matchData: MatchData | null = null
-
-	if (hasInventory) {
-		const matches = matchRecipesWithInventory(filteredRecipes, inventoryItems)
-
-		const makeableCount = matches.filter((m) => m.canMake).length
-
-		// Sort by match percentage when no explicit sort was chosen
-		if (useMatchSort) {
-			const matchById = new Map(matches.map((m) => [m.recipe.id, m]))
-			filteredRecipes = [...filteredRecipes].sort((a, b) => {
-				const aMatch = matchById.get(a.id)?.matchPercentage ?? 0
-				const bMatch = matchById.get(b.id)?.matchPercentage ?? 0
-				return bMatch - aMatch
-			})
-		}
-
-		matchData = {
-			matches,
-			inventoryItemCount: inventoryItems.length,
-			makeableCount,
-		}
+	if (useNeedsSort) {
+		recipesWithNeeds = [...recipesWithNeeds].sort(
+			(a, b) => (a.needsItemCount ?? 0) - (b.needsItemCount ?? 0),
+		)
 	}
 
 	return {
-		recipes: filteredRecipes,
+		recipes: recipesWithNeeds,
 		search,
 		favoritesOnly,
 		maxTime,
@@ -214,10 +188,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 			hasRecipes: totalRecipeCount > 0,
 			// A confirmed cutover completes the old Pantry onboarding step; the
 			// archived rows must not resurrect its CTA.
-			hasInventory: hasInventory || household.staplesCutoverAt != null,
+			hasInventory: showNeeds,
 			hasMealPlan: mealCount > 0,
 		},
-		matchData,
 	}
 }
 
@@ -231,7 +204,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		totalRecipeCount,
 		isProActive,
 		onboarding,
-		matchData,
 	} = loaderData
 	const [searchParams, setSearchParams] = useSearchParams()
 
@@ -257,25 +229,11 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		return () => window.removeEventListener('scroll', onScroll)
 	}, [])
 
-	// Build match lookup for rendering
-	const matchLookup = useMemo(() => {
-		if (!matchData) return null
-		const map = new Map<string, RecipeMatch>()
-		for (const m of matchData.matches) {
-			map.set(m.recipe.id, m)
-		}
-		return map
-	}, [matchData])
-
-	const makeableOnly = searchParams.get('makeable') === 'true'
 	const [filtersOpen, setFiltersOpen] = useState(false)
 	// Controlled so "Clear search" in the no-results state empties the box too
 	const [searchInput, setSearchInput] = useState(search)
 	const activeFilterCount =
-		(favoritesOnly ? 1 : 0) +
-		(maxTime ? 1 : 0) +
-		(sort !== 'recent' ? 1 : 0) +
-		(makeableOnly ? 1 : 0)
+		(favoritesOnly ? 1 : 0) + (maxTime ? 1 : 0) + (sort !== 'recent' ? 1 : 0)
 
 	const handleSearchChange = useDebounce((value: string) => {
 		const params = new URLSearchParams(searchParams)
@@ -317,16 +275,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		setSearchParams(params, { replace: true })
 	}
 
-	const handleMakeableToggle = () => {
-		const params = new URLSearchParams(searchParams)
-		if (makeableOnly) {
-			params.delete('makeable')
-		} else {
-			params.set('makeable', 'true')
-		}
-		setSearchParams(params, { replace: true })
-	}
-
 	const hasFilters = search || favoritesOnly || maxTime
 
 	const handleClearSearch = () => {
@@ -340,15 +288,10 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		// Preserve sort when clearing filters
 		const params = new URLSearchParams()
 		if (sort !== 'recent') params.set('sort', sort)
-		if (makeableOnly) params.set('makeable', 'true')
 		setSearchParams(params, { replace: true })
 	}
 
-	// Filter recipes to makeable-only when in match mode
-	const displayRecipes =
-		matchData && makeableOnly
-			? recipes.filter((r) => matchLookup?.get(r.id)?.canMake)
-			: recipes
+	const displayRecipes = recipes
 
 	return (
 		<div className="pb-20 md:pb-6">
@@ -359,8 +302,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						My Recipes{' '}
 						<span className="text-muted-foreground text-base font-normal">
 							{/* While searching/filtering, the count says what you see (B2) */}
-							{(hasFilters || makeableOnly) &&
-							displayRecipes.length !== totalRecipeCount
+							{hasFilters && displayRecipes.length !== totalRecipeCount
 								? `(${displayRecipes.length} of ${totalRecipeCount})`
 								: `(${totalRecipeCount})`}
 						</span>
@@ -515,27 +457,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							<Icon name={favoritesOnly ? 'heart-filled' : 'heart'} size="xs" />
 							Favorites
 						</button>
-						{matchData && (
-							<button
-								type="button"
-								onClick={handleMakeableToggle}
-								aria-label={
-									makeableOnly
-										? 'Show all recipes'
-										: 'Show only recipes with nothing left to buy'
-								}
-								aria-pressed={makeableOnly}
-								className={cn(
-									'flex h-8 items-center gap-1 rounded-full border px-2.5 text-xs transition-colors',
-									makeableOnly
-										? 'border-primary bg-primary text-primary-foreground'
-										: 'border-border/50 bg-secondary/50 text-muted-foreground hover:bg-secondary',
-								)}
-							>
-								<Icon name={makeableOnly ? 'check' : 'cookie'} size="xs" />
-								Nothing to buy ({matchData.makeableCount})
-							</button>
-						)}
 						{/* Active filter summary */}
 						{hasFilters && (
 							<div className="text-muted-foreground text-xs">
@@ -570,6 +491,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								cookTime={recipe.cookTime}
 								isFavorite={recipe.isFavorite}
 								isAiGenerated={recipe.isAiGenerated}
+								needsItemCount={recipe.needsItemCount}
 							/>
 						))}
 					</RecipeCardGrid>
@@ -578,12 +500,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					// offer the two real exits — clear it, or capture the recipe you
 					// just failed to find.
 					<SearchEmptyState query={search} onClearSearch={handleClearSearch} />
-				) : matchData ? (
-					<MatchEmptyState
-						inventoryItemCount={matchData.inventoryItemCount}
-						makeableOnly={makeableOnly}
-						onShowAll={handleMakeableToggle}
-					/>
 				) : hasFilters ? (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
 						<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
@@ -677,69 +593,6 @@ function SearchEmptyState({
 					<Link to="/recipes/import">
 						<Icon name="link-2" size="sm" />
 						Import a recipe
-					</Link>
-				</Button>
-			</div>
-		</div>
-	)
-}
-
-function MatchEmptyState({
-	inventoryItemCount,
-	makeableOnly,
-	onShowAll,
-}: {
-	inventoryItemCount: number
-	makeableOnly: boolean
-	onShowAll: () => void
-}) {
-	if (inventoryItemCount === 0) {
-		return (
-			<div className="flex flex-col items-center justify-center py-16 text-center">
-				<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
-					<Icon name="file-text" className="text-muted-foreground/40 size-8" />
-				</div>
-				<h2 className="mt-4 font-serif text-xl font-normal">
-					Start your Pantry
-				</h2>
-				<p className="text-muted-foreground mt-2 max-w-sm">
-					Add ingredients you usually keep around. We'll show which recipes need
-					fewer things.
-				</p>
-				<Button asChild className="mt-6">
-					<Link to="/inventory">
-						<Icon name="plus" size="sm" />
-						Add to Pantry
-					</Link>
-				</Button>
-			</div>
-		)
-	}
-
-	return (
-		<div className="flex flex-col items-center justify-center py-16 text-center">
-			<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
-				<Icon
-					name="magnifying-glass"
-					className="text-muted-foreground/40 size-8"
-				/>
-			</div>
-			<h2 className="mt-4 font-serif text-xl font-normal">
-				{makeableOnly
-					? 'No perfect matches yet'
-					: 'No recipes match your filter'}
-			</h2>
-			<p className="text-muted-foreground mt-2 max-w-sm">
-				{makeableOnly
-					? 'You still need to buy something for every recipe right now.'
-					: 'Try adjusting your filters.'}
-			</p>
-			<div className="mt-6 flex gap-3">
-				{makeableOnly && <Button onClick={onShowAll}>Show All Recipes</Button>}
-				<Button variant="outline" asChild>
-					<Link to="/inventory">
-						<Icon name="plus" size="sm" />
-						Add to Pantry
 					</Link>
 				</Button>
 			</div>

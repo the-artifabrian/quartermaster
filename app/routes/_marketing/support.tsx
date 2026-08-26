@@ -19,24 +19,24 @@ const faqs = [
 			'Several ways: paste a URL and Quartermaster extracts the recipe automatically, bulk-import by pasting text from Apple Notes (separate recipes with ---), or drag and drop .md/.txt files. You can also import a full data export from Settings > Data.',
 	},
 	{
-		question: 'How does Quartermaster know what I can cook?',
+		question: 'How does Quartermaster calculate what a Recipe needs?',
 		answer:
-			'It compares your Pantry against recipe ingredients using smart matching that understands different names for the same thing (like cilantro and coriander), then shows recipes that need fewer things from the store.',
+			'It builds the same deterministic ingredient demand used by Shopping, omits normal household Staples, and counts non-Staples plus required Staples marked Out. Partial or unresolved ingredients stay in the count instead of being guessed away.',
 	},
 	{
 		question: 'Can I share with my partner or household?',
 		answer:
-			'Yes. Go to Settings > Household to invite members via a link. Everyone in the household shares the same recipe library, Pantry, meal plans, and shopping lists, with real-time sync.',
+			'Yes. Go to Settings > Household to invite members via a link. Everyone in the household shares the same recipe library, Staples, meal plans, and shopping lists, with real-time sync.',
 	},
 	{
 		question: 'Can I export my data?',
 		answer:
-			'Yes. Go to Settings > Data to export all your data (recipes, Pantry, meal plans, shopping lists) as JSON. You can also import this export back in. Your data is never locked in.',
+			'Yes. Go to Settings > Data to export all your data (recipes, Staples, archived Pantry recovery data, meal plans, and shopping lists) as JSON. You can also import this export back in. Your data is never locked in.',
 	},
 	{
 		question: 'How does meal planning work?',
 		answer:
-			'The Planner shows a weekly calendar where you assign recipes to meal slots. Quartermaster analyzes ingredient overlap across your planned meals and suggests recipes that share ingredients. When you\u2019re ready, generate a shopping list that marks what is usually on hand.',
+			'The Planner shows an ordered week of Meals. Quartermaster can suggest Recipes that share ingredients. When you\u2019re ready, generate Shopping explicitly; normal Staples are omitted and required Out Staples are included.',
 	},
 	{
 		question: 'How do I delete my account?',

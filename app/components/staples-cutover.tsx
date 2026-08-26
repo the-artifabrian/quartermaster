@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useFetcher } from 'react-router'
 import {
 	householdIngredientDisplayName,
@@ -13,6 +13,11 @@ import { Input } from './ui/input.tsx'
 type CutoverResponse = {
 	status: 'success' | 'error'
 	message?: string
+	action?:
+		| 'add-staple'
+		| 'toggle-staple-out'
+		| 'remove-staple'
+		| 'restore-legacy-pantry'
 }
 
 export function StaplesCutover({
@@ -282,11 +287,32 @@ export function ActiveStaples({
 	}>
 	archivedInventoryCount: number
 }) {
-	const fetcher = useFetcher<CutoverResponse>()
+	const recoveryFetcher = useFetcher<CutoverResponse>()
+	const addFetcher = useFetcher<CutoverResponse>()
 	const [confirmRecovery, setConfirmRecovery] = useState(false)
+	const [search, setSearch] = useState('')
+	const [newStaple, setNewStaple] = useState('')
+	const filteredStaples = useMemo(() => {
+		const query = search.trim().toLowerCase()
+		return query
+			? staples.filter((staple) =>
+					staple.displayName.toLowerCase().includes(query),
+				)
+			: staples
+	}, [search, staples])
+
+	useEffect(() => {
+		if (
+			addFetcher.state === 'idle' &&
+			addFetcher.data?.status === 'success' &&
+			addFetcher.data.action === 'add-staple'
+		) {
+			setNewStaple('')
+		}
+	}, [addFetcher.data, addFetcher.state])
 
 	return (
-		<div className="container-content py-4 pb-24 md:py-6 md:pb-8">
+		<div className="container-content w-full min-w-0 overflow-x-hidden py-4 pb-24 md:py-6 md:pb-8">
 			<div className="flex items-start justify-between gap-4">
 				<div>
 					<h1 className="font-serif text-2xl font-normal">Staples</h1>
@@ -296,23 +322,90 @@ export function ActiveStaples({
 				</div>
 			</div>
 
-			<div className="mt-6">
+			<addFetcher.Form
+				method="post"
+				className="bg-muted/40 mt-6 rounded-lg p-4 sm:flex sm:items-end sm:gap-3"
+			>
+				<input type="hidden" name="intent" value="add-staple" />
+				<div className="min-w-0 flex-1">
+					<label htmlFor="new-staple" className="text-sm font-medium">
+						Add a Staple
+					</label>
+					<p className="text-muted-foreground mt-1 text-xs">
+						Add an ingredient your household normally keeps around.
+					</p>
+					<Input
+						id="new-staple"
+						name="displayName"
+						value={newStaple}
+						onChange={(event) => setNewStaple(event.currentTarget.value)}
+						maxLength={200}
+						className="mt-3 min-h-11"
+						disabled={addFetcher.state !== 'idle'}
+					/>
+				</div>
+				<Button
+					type="submit"
+					className="mt-3 min-h-11 w-full sm:mt-0 sm:w-auto"
+					disabled={!newStaple.trim() || addFetcher.state !== 'idle'}
+				>
+					<Icon name="plus" size="sm" />
+					{addFetcher.state === 'idle' ? 'Add' : 'Adding…'}
+				</Button>
+				{addFetcher.data?.status === 'error' && (
+					<p
+						className="text-destructive mt-2 text-sm sm:basis-full"
+						role="alert"
+					>
+						{addFetcher.data.message ?? 'Could not add Staple'}
+					</p>
+				)}
+			</addFetcher.Form>
+
+			<div className="mt-5">
+				<label htmlFor="search-staples" className="sr-only">
+					Search Staples
+				</label>
+				<div className="relative sm:max-w-sm">
+					<Icon
+						name="magnifying-glass"
+						size="sm"
+						className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+					/>
+					<Input
+						id="search-staples"
+						type="search"
+						value={search}
+						onChange={(event) => setSearch(event.currentTarget.value)}
+						placeholder="Search Staples"
+						className="min-h-11 pl-9"
+					/>
+				</div>
+			</div>
+
+			<div className="mt-4">
 				{staples.length > 0 ? (
-					<div className="divide-border/40 divide-y">
-						{staples.map((staple) => (
-							<div
-								key={staple.id}
-								className="flex min-h-12 items-center justify-between py-3"
+					filteredStaples.length > 0 ? (
+						<div className="divide-border/40 divide-y">
+							{filteredStaples.map((staple) => (
+								<ActiveStapleRow key={staple.id} staple={staple} />
+							))}
+						</div>
+					) : (
+						<div className="bg-muted/40 rounded-lg p-6 text-center">
+							<h2 className="font-serif text-xl font-normal">
+								No Staples match &ldquo;{search.trim()}&rdquo;
+							</h2>
+							<Button
+								type="button"
+								variant="outline"
+								className="mt-4 min-h-11"
+								onClick={() => setSearch('')}
 							>
-								<span>{staple.displayName}</span>
-								{staple.isOut && (
-									<span className="text-copper-text text-xs font-medium uppercase">
-										Out
-									</span>
-								)}
-							</div>
-						))}
-					</div>
+								Clear search
+							</Button>
+						</div>
+					)
 				) : (
 					<div className="bg-muted/40 rounded-lg p-6 text-center">
 						<h2 className="font-serif text-xl font-normal">
@@ -342,7 +435,7 @@ export function ActiveStaples({
 							Archived Pantry data will affect Recipe discovery and Shopping
 							again.
 						</p>
-						<fetcher.Form method="post" className="mt-4 flex gap-3">
+						<recoveryFetcher.Form method="post" className="mt-4 flex gap-3">
 							<input
 								type="hidden"
 								name="intent"
@@ -352,14 +445,16 @@ export function ActiveStaples({
 								type="button"
 								variant="outline"
 								onClick={() => setConfirmRecovery(false)}
-								disabled={fetcher.state !== 'idle'}
+								disabled={recoveryFetcher.state !== 'idle'}
 							>
 								Cancel
 							</Button>
-							<Button type="submit" disabled={fetcher.state !== 'idle'}>
-								{fetcher.state === 'idle' ? 'Confirm restore' : 'Restoring…'}
+							<Button type="submit" disabled={recoveryFetcher.state !== 'idle'}>
+								{recoveryFetcher.state === 'idle'
+									? 'Confirm restore'
+									: 'Restoring…'}
 							</Button>
-						</fetcher.Form>
+						</recoveryFetcher.Form>
 					</div>
 				) : (
 					<Button
@@ -372,6 +467,70 @@ export function ActiveStaples({
 					</Button>
 				)}
 			</div>
+		</div>
+	)
+}
+
+function ActiveStapleRow({
+	staple,
+}: {
+	staple: { id: string; displayName: string; isOut: boolean }
+}) {
+	const toggleFetcher = useFetcher<CutoverResponse>()
+	const removeFetcher = useFetcher<CutoverResponse>()
+	const [confirmRemove, setConfirmRemove] = useState(false)
+	const optimisticOut =
+		toggleFetcher.formData?.get('intent') === 'toggle-staple-out'
+			? !staple.isOut
+			: staple.isOut
+
+	if (removeFetcher.state !== 'idle') return null
+
+	return (
+		<div className="flex min-h-14 w-full min-w-0 items-center gap-3 py-2">
+			<span className="min-w-0 flex-1 truncate">{staple.displayName}</span>
+			<toggleFetcher.Form method="post" className="shrink-0">
+				<input type="hidden" name="intent" value="toggle-staple-out" />
+				<input type="hidden" name="itemId" value={staple.id} />
+				<Button
+					type="submit"
+					variant={optimisticOut ? 'default' : 'outline'}
+					className="min-h-11 min-w-16 px-3"
+					aria-pressed={optimisticOut}
+					aria-label={
+						optimisticOut
+							? `Mark ${staple.displayName} not Out`
+							: `Mark ${staple.displayName} Out`
+					}
+					disabled={toggleFetcher.state !== 'idle'}
+				>
+					{optimisticOut && <Icon name="check" size="sm" />}
+					Out
+				</Button>
+			</toggleFetcher.Form>
+			<Button
+				type="button"
+				variant={confirmRemove ? 'destructive' : 'ghost'}
+				className="min-h-11 min-w-11 px-3"
+				aria-label={
+					confirmRemove
+						? `Confirm remove ${staple.displayName}`
+						: `Remove ${staple.displayName}`
+				}
+				onClick={() => {
+					if (!confirmRemove) {
+						setConfirmRemove(true)
+						return
+					}
+					void removeFetcher.submit(
+						{ intent: 'remove-staple', itemId: staple.id },
+						{ method: 'POST' },
+					)
+				}}
+			>
+				<Icon name="trash" size="sm" />
+				{confirmRemove && <span>Remove?</span>}
+			</Button>
 		</div>
 	)
 }

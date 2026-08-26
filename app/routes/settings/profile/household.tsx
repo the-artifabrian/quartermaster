@@ -401,7 +401,7 @@ function LeaveHousehold() {
 			<h3 className="mb-4 text-base font-medium">Leave Household</h3>
 			<p className="text-muted-foreground mb-4 text-sm">
 				Leaving will create a new solo household for you. Your recipes will be
-				copied, but shared Pantry and meal plans will stay with the current
+				copied, but shared Staples and meal plans will stay with the current
 				household.
 			</p>
 			<fetcher.Form method="POST">

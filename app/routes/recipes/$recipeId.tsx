@@ -821,9 +821,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					<OnboardingNudge
 						nudgeId="stock-kitchen"
 						icon="home"
-						title="Next up: start your Pantry"
-						description="Add ingredients you usually keep around. No quantities, no counting."
-						ctaText="Start Pantry"
+						title="Next up: choose your Staples"
+						description="Save what your household normally keeps and mark anything Out."
+						ctaText="Choose Staples"
 						ctaHref="/inventory"
 						className="mt-4 print:hidden"
 					/>

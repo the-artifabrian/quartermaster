@@ -140,8 +140,8 @@ const freeFeatures = [
 	'Import from URL or paste',
 	'Meal planning calendar',
 	'Basic shopping list generation',
-	'Up to 50 Pantry items',
-	'Smart recipe matching',
+	'Household Staples and Out state',
+	'Needs-item Recipe discovery',
 	'Interactive cooking view',
 	'Household sharing',
 	'Data export',
@@ -149,7 +149,6 @@ const freeFeatures = [
 
 const proFeatures = [
 	'Everything in Free, plus:',
-	'Unlimited Pantry items',
 	'Smart meal suggestions',
 	'Real-time shopping list sync',
 	'AI recipe generation',
@@ -178,7 +177,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					/>
 					<h2 className="text-lg font-semibold">Your Pro access has ended</h2>
 					<p className="text-muted-foreground mt-2 text-sm">
-						Your data is safe &mdash; recipes, Pantry, meal plans, and shopping
+						Your data is safe &mdash; recipes, Staples, meal plans, and shopping
 						lists are all preserved. Subscribe to pick up where you left off.
 					</p>
 				</div>
@@ -189,7 +188,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					Upgrade your kitchen
 				</h1>
 				<p className="text-muted-foreground mt-2 text-lg">
-					Unlimited Pantry items, real-time shopping sync, and AI recipe tools.
+					Real-time shopping sync, meal suggestions, and AI recipe tools.
 				</p>
 				{tierInfo.isTrialing ? (
 					<>
@@ -203,8 +202,8 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 						</p>
 						<p className="text-muted-foreground mt-1 text-sm">
 							After your trial, you'll keep recipes, meal planning, and basic
-							shopping on the Free plan. Unlimited Pantry items, real-time sync,
-							and AI recipe tools need Pro.
+							shopping on the Free plan. Real-time sync, meal suggestions, and
+							AI recipe tools need Pro.
 						</p>
 					</>
 				) : tierInfo.isProActive ? (

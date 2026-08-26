@@ -281,7 +281,7 @@ describe('Staples cutover', () => {
 			...recipesArgs,
 		})
 		expect(before.hasInventory).toBe(true)
-		expect(before.matchData?.makeableCount).toBe(1)
+		expect(before.recipes[0]!.needsItemCount).toBe(0)
 
 		await postInventory(session, {
 			intent: 'confirm-staples-cutover',
@@ -293,7 +293,7 @@ describe('Staples cutover', () => {
 			...recipesArgs,
 		})
 		expect(after.hasInventory).toBe(false)
-		expect(after.matchData).toBeNull()
+		expect(after.recipes[0]!.needsItemCount).toBe(1)
 
 		const shoppingResult = await recipeAction({
 			request: new Request(`${BASE_URL}/recipes/${recipe.id}`, {
@@ -323,5 +323,162 @@ describe('Staples cutover', () => {
 				select: { name: true, checked: true, source: true },
 			}),
 		).toEqual({ name: 'chicken breast', checked: false, source: 'recipe' })
+	})
+
+	test('Recipe search stays intact while Needs counts Out, non-Staple, and unresolved demand', async () => {
+		const session = await setupHousehold()
+		await prisma.recipe.create({
+			data: {
+				title: 'Target supper',
+				userId: session.userId,
+				householdId: session.householdId,
+				ingredients: {
+					create: [
+						{ name: 'salt', amount: '1', unit: 'tsp', order: 0 },
+						{ name: 'olive oil', amount: '2', unit: 'tbsp', order: 1 },
+						{ name: 'chicken', amount: null, unit: null, order: 2 },
+						{
+							name: 'medium/small peaches',
+							amount: null,
+							unit: null,
+							order: 3,
+						},
+					],
+				},
+			},
+		})
+		await prisma.recipe.create({
+			data: {
+				title: 'Other dinner',
+				userId: session.userId,
+				householdId: session.householdId,
+			},
+		})
+		await postInventory(session, {
+			intent: 'confirm-staples-cutover',
+			items: JSON.stringify([
+				{ displayName: 'salt' },
+				{ displayName: 'olive oil' },
+			]),
+		})
+		const oliveOil = (await loadInventory(session)).staples.find(
+			(staple) => staple.canonicalKey === 'olive oil',
+		)!
+		await postInventory(session, {
+			intent: 'toggle-staple-out',
+			itemId: oliveOil.id,
+		})
+		const cookie = await getSessionCookieHeader(session)
+		const result = await recipesLoader({
+			request: new Request(`${BASE_URL}/recipes?search=Target`, {
+				headers: { cookie },
+			}),
+			...ROUTE_ARGS,
+			pattern: '/recipes',
+			url: new URL(`${BASE_URL}/recipes`),
+		})
+
+		expect(result.recipes.map((recipe) => recipe.title)).toEqual([
+			'Target supper',
+		])
+		expect(result.recipes[0]!.needsItemCount).toBe(3)
+	})
+})
+
+describe('active household Staples', () => {
+	test('a cut-over household can add a normalized Staple', async () => {
+		const session = await setupHousehold()
+		await postInventory(session, {
+			intent: 'confirm-staples-cutover',
+			items: '[]',
+		})
+
+		const result = await postInventory(session, {
+			intent: 'add-staple',
+			displayName: '  Smoked   salt ',
+		})
+
+		expect(result).toMatchObject({
+			status: 'success',
+			action: 'add-staple',
+		})
+		const loaded = await loadInventory(session)
+		expect(loaded.staples).toEqual([
+			expect.objectContaining({
+				displayName: 'Smoked salt',
+				canonicalKey: 'smoked salt',
+				isStaple: true,
+				isOut: false,
+			}),
+		])
+	})
+
+	test('a household can toggle a Staple Out and back', async () => {
+		const session = await setupHousehold()
+		await postInventory(session, {
+			intent: 'confirm-staples-cutover',
+			items: JSON.stringify([{ displayName: 'Salt' }]),
+		})
+		const staple = (await loadInventory(session)).staples[0]!
+
+		await postInventory(session, {
+			intent: 'toggle-staple-out',
+			itemId: staple.id,
+		})
+		expect((await loadInventory(session)).staples[0]!.isOut).toBe(true)
+
+		await postInventory(session, {
+			intent: 'toggle-staple-out',
+			itemId: staple.id,
+		})
+		expect((await loadInventory(session)).staples[0]!.isOut).toBe(false)
+	})
+
+	test('removing a Staple hides it without deleting its durable identity', async () => {
+		const session = await setupHousehold()
+		await postInventory(session, {
+			intent: 'confirm-staples-cutover',
+			items: JSON.stringify([{ displayName: 'Salt' }]),
+		})
+		const staple = (await loadInventory(session)).staples[0]!
+		await postInventory(session, {
+			intent: 'toggle-staple-out',
+			itemId: staple.id,
+		})
+
+		await postInventory(session, {
+			intent: 'remove-staple',
+			itemId: staple.id,
+		})
+
+		expect((await loadInventory(session)).staples).toEqual([])
+		expect(
+			await prisma.householdIngredient.findUniqueOrThrow({
+				where: { id: staple.id },
+				select: { isStaple: true, isOut: true },
+			}),
+		).toEqual({ isStaple: false, isOut: false })
+	})
+
+	test('a household cannot change another household’s Staple', async () => {
+		const owner = await setupHousehold()
+		const other = await setupHousehold()
+		await postInventory(owner, {
+			intent: 'confirm-staples-cutover',
+			items: JSON.stringify([{ displayName: 'Salt' }]),
+		})
+		await postInventory(other, {
+			intent: 'confirm-staples-cutover',
+			items: JSON.stringify([{ displayName: 'Rice' }]),
+		})
+		const foreignStaple = (await loadInventory(other)).staples[0]!
+
+		await expect(
+			postInventory(owner, {
+				intent: 'toggle-staple-out',
+				itemId: foreignStaple.id,
+			}),
+		).rejects.toMatchObject({ status: 404 })
+		expect((await loadInventory(other)).staples[0]!.isOut).toBe(false)
 	})
 })

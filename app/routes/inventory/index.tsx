@@ -18,6 +18,8 @@ import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	buildStaplesCutoverOptions,
+	HouseholdIngredientDisplayNameSchema,
+	householdIngredientKey,
 	StaplesCutoverSelectionSchema,
 } from '#app/utils/household-ingredient.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -195,6 +197,77 @@ export async function action({ request }: Route.ActionArgs) {
 		where: { id: householdId },
 		select: { staplesCutoverAt: true },
 	})
+
+	if (intent === 'add-staple') {
+		if (household.staplesCutoverAt == null) {
+			return data(
+				{ status: 'error' as const, message: 'Staples are not active' },
+				{ status: 409 },
+			)
+		}
+		const parsed = HouseholdIngredientDisplayNameSchema.safeParse(
+			formData.get('displayName'),
+		)
+		if (!parsed.success) {
+			return data(
+				{ status: 'error' as const, message: 'Enter a valid Staple name' },
+				{ status: 400 },
+			)
+		}
+		const canonicalKey = householdIngredientKey(parsed.data)
+		await prisma.householdIngredient.upsert({
+			where: {
+				householdId_canonicalKey: { householdId, canonicalKey },
+			},
+			create: {
+				householdId,
+				displayName: parsed.data,
+				canonicalKey,
+				isStaple: true,
+				isOut: false,
+			},
+			update: {
+				displayName: parsed.data,
+				isStaple: true,
+			},
+		})
+
+		return { status: 'success' as const, action: 'add-staple' as const }
+	}
+
+	if (intent === 'toggle-staple-out' || intent === 'remove-staple') {
+		if (household.staplesCutoverAt == null) {
+			return data(
+				{ status: 'error' as const, message: 'Staples are not active' },
+				{ status: 409 },
+			)
+		}
+		const itemId = formData.get('itemId')
+		invariantResponse(typeof itemId === 'string', 'Staple ID is required')
+		const staple = await prisma.householdIngredient.findFirst({
+			where: { id: itemId, householdId, isStaple: true },
+			select: { id: true, isOut: true },
+		})
+		invariantResponse(staple, 'Staple not found', { status: 404 })
+
+		if (intent === 'toggle-staple-out') {
+			await prisma.householdIngredient.update({
+				where: { id: staple.id },
+				data: { isOut: !staple.isOut },
+			})
+			return {
+				status: 'success' as const,
+				action: 'toggle-staple-out' as const,
+			}
+		}
+
+		await prisma.householdIngredient.update({
+			where: { id: staple.id },
+			data: { isStaple: false, isOut: false },
+		})
+		return { status: 'success' as const, action: 'remove-staple' as const }
+	}
+
 	if (household.staplesCutoverAt != null) {
 		return data(
 			{ status: 'error' as const, message: 'Legacy Pantry is archived' },

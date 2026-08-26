@@ -73,6 +73,7 @@ export function annotateShoppingDemand(
 	lines: Array<ShoppingDemandLine & { inStock: boolean }>
 	stapleCount: number
 	inStockCount: number
+	neededCount: number
 } {
 	let stapleCount = 0
 	const result: Array<ShoppingDemandLine & { inStock: boolean }> = []
@@ -125,5 +126,6 @@ export function annotateShoppingDemand(
 		lines: result,
 		stapleCount,
 		inStockCount: result.filter((line) => line.inStock).length,
+		neededCount: result.filter((line) => !line.inStock).length,
 	}
 }

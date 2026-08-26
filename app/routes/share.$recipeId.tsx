@@ -437,7 +437,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 								<p className="font-serif text-lg">Like this recipe?</p>
 								<p className="text-muted-foreground mt-1 text-sm">
 									Sign up for Quartermaster to save recipes, plan meals, and
-									track your pantry.
+									keep household Staples.
 								</p>
 								<div className="mt-4 flex justify-center gap-3">
 									<Button asChild>

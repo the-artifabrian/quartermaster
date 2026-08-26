@@ -25,7 +25,10 @@ import {
 	buildShoppingDemand,
 	demandFingerprint,
 } from '#app/utils/shopping-demand.server.ts'
-import { annotateInventoryMatches } from '#app/utils/shopping-list.server.ts'
+import {
+	annotateShoppingDemand,
+	loadShoppingAvailability,
+} from '#app/utils/shopping-list.server.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
 import { createPlanAction } from './plan-action.server.ts'
@@ -137,12 +140,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 	})
 
 	const weekDays = getWeekDays(weekStart)
+	const shoppingAvailability = await loadShoppingAvailability(
+		prisma,
+		householdId,
+	)
 
 	const meals = mealPlan.meals.map((meal) => {
 		// Stored contribution fields are the last-added demand fingerprint. Build
-		// the same availability-neutral demand again so only ingredient,
-		// multiplier, composition, and note-line changes can make it stale.
-		const freshDemand = annotateInventoryMatches(
+		// the same currently annotated demand again. Ingredient, multiplier,
+		// composition, note-line, and household Staple/Out changes may mark it
+		// stale, but only a later explicit refresh mutates Shopping.
+		const freshDemand = annotateShoppingDemand(
 			buildShoppingDemand({
 				recipeBatches: meal.recipeItems.flatMap((item) =>
 					item.recipe
@@ -156,7 +164,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 				),
 				noteLines: meal.noteItems.flatMap((item) => item.shoppingLines),
 			}),
-			[],
+			shoppingAvailability,
 		).lines
 		const hasStoredDemand = meal.shoppingContributions.length > 0
 		const demandChanged =
@@ -414,7 +422,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						nudgeId="generate-shopping-list"
 						icon="cart"
 						title="Generate your shopping list"
-						description="Head to the shopping list to see what you need to buy. Pantry items are pre-checked so you can skip them."
+						description="Head to the shopping list when you're ready. Your list changes only when you generate or refresh it."
 						ctaText="Go to Shopping List"
 						ctaHref="/shopping"
 						className="mt-4"

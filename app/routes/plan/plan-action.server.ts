@@ -4,7 +4,6 @@ import { type PrismaClient } from '#app/generated/prisma/client.ts'
 import { getWeekStart } from '#app/utils/date.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { activeLegacyPantryWhere } from '#app/utils/legacy-pantry.server.ts'
 import {
 	AddMealSchema,
 	AddTextMealSchema,
@@ -31,7 +30,10 @@ import {
 } from '#app/utils/shopping-contribution.server.ts'
 import { buildShoppingDemand } from '#app/utils/shopping-demand.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
-import { annotateInventoryMatches } from '#app/utils/shopping-list.server.ts'
+import {
+	annotateShoppingDemand,
+	loadShoppingAvailability,
+} from '#app/utils/shopping-list.server.ts'
 
 type PlanActionUser = Pick<
 	Awaited<ReturnType<typeof requireUserWithHousehold>>,
@@ -222,11 +224,8 @@ export function createPlanAction(
 				noteLines,
 			})
 
-			const inventoryItems = await db.inventoryItem.findMany({
-				where: activeLegacyPantryWhere(householdId),
-				select: { name: true },
-			})
-			const { lines } = annotateInventoryMatches(demand, inventoryItems)
+			const availability = await loadShoppingAvailability(db, householdId)
+			const { lines } = annotateShoppingDemand(demand, availability)
 
 			const shoppingList = await ensureShoppingList(db, {
 				userId,

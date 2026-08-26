@@ -58,9 +58,10 @@ export type ShoppingDemandLine = {
 	category: string
 	/**
 	 * True when any part of this line came from an ordinary note Shopping
-	 * line. Note lines are explicit user-written shopping text, so the
-	 * availability seam keeps them even when they look like staples — same
-	 * posture as manual rows and bulk add (#109).
+	 * line. The availability seam uses this to preserve the legacy Pantry
+	 * recovery posture from #109. After cutover, saved household Staple/Out
+	 * state applies to all generated demand; direct manual rows and bulk add
+	 * never cross that seam.
 	 */
 	fromNote?: boolean
 }

@@ -171,9 +171,9 @@ export default function Index() {
 									The list writes itself
 								</h2>
 								<p className="text-muted-foreground mt-3 text-base/7">
-									One tap generates a shopping list from your meal plan. Pantry
-									items are checked off, and anything you mark as usually on
-									hand is remembered for next time.
+									One tap generates a shopping list from your meal plan. Your
+									household Staples stay out of generated demand unless you mark
+									them Out.
 								</p>
 							</div>
 						</ScrollReveal>

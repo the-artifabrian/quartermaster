@@ -12,7 +12,6 @@ import {
 import { toast } from 'sonner'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
-import { ShoppingListToInventory } from '#app/components/shopping-list-to-inventory.tsx'
 import { ShoppingListLiveRefresh } from '#app/components/shopping-live-refresh.tsx'
 import { MobileFabAdd } from '#app/components/shopping-mobile-fab.tsx'
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
@@ -40,7 +39,6 @@ import { parseTypedItem } from '#app/utils/parse-speech-item.ts'
 import {
 	buildInventoryLookup,
 	findInventoryMatch,
-	ingredientMatchesAnyInventoryItem,
 } from '#app/utils/recipe-matching.server.ts'
 import {
 	editShoppingDisplayGroup,
@@ -56,7 +54,10 @@ import {
 	ShoppingListItemSchema,
 	guessCategory,
 } from '#app/utils/shopping-list-validation.ts'
-import { annotateInventoryMatches } from '#app/utils/shopping-list.server.ts'
+import {
+	annotateShoppingDemand,
+	loadShoppingAvailability,
+} from '#app/utils/shopping-list.server.ts'
 import {
 	type DisplayShoppingItem,
 	makeOptimisticShoppingItem,
@@ -149,31 +150,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const hasMealPlan = weeksWithPlans.length > 0
 
-	// Pro-only: review panel matching. Same fuzzy matcher that computes the
-	// rows' inStock flag — canonical-name equality here used to disagree with
-	// it on the same screen ("persian cucumber" struck through as usually on
-	// hand, then re-created next to "cucumber" in the pantry).
-	let alreadyStockedItemIds: string[] = []
-
-	if (isProActive) {
-		const allInventoryItems = await prisma.inventoryItem.findMany({
-			where: activeLegacyPantryWhere(householdId),
-			select: { id: true, name: true },
-		})
-
-		const inventoryLookup = buildInventoryLookup(allInventoryItems)
-		alreadyStockedItemIds = shoppingList.items
-			.filter((item) =>
-				ingredientMatchesAnyInventoryItem({ name: item.name }, inventoryLookup),
-			)
-			.map((item) => item.id)
-	}
-
 	return {
 		shoppingList,
 		hasMealPlan,
 		weeksWithPlans,
-		alreadyStockedItemIds,
 		isProActive,
 	}
 }
@@ -238,14 +218,8 @@ export async function action({ request }: Route.ActionArgs) {
 				),
 		})
 
-		// Annotate lines with inventory match info (staples still stripped)
-		const inventoryItems = await prisma.inventoryItem.findMany({
-			where: activeLegacyPantryWhere(householdId),
-		})
-		const { lines, inStockCount } = annotateInventoryMatches(
-			demand,
-			inventoryItems,
-		)
+		const availability = await loadShoppingAvailability(prisma, householdId)
+		const { lines, inStockCount } = annotateShoppingDemand(demand, availability)
 
 		// Delete existing generated items — except rows a Meal contribution
 		// currently feeds: contributions are durable recovery data (#108), so
@@ -632,14 +606,7 @@ export default function ShoppingListRoute({
 	loaderData,
 	actionData,
 }: Route.ComponentProps) {
-	const {
-		shoppingList,
-		hasMealPlan,
-		weeksWithPlans,
-		alreadyStockedItemIds,
-		isProActive,
-	} = loaderData
-	const alreadyStockedIds = new Set(alreadyStockedItemIds)
+	const { shoppingList, hasMealPlan, weeksWithPlans, isProActive } = loaderData
 	const defaultWeek =
 		weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
 		weeksWithPlans[0]?.weekStart ??
@@ -652,7 +619,6 @@ export default function ShoppingListRoute({
 	const qaInputRef = useRef<HTMLInputElement>(null)
 
 	const [search, setSearch] = useState('')
-	const [showReview, setShowReview] = useState(false)
 	const [quickAddOpen, setQuickAddOpen] = useState(false)
 	const [fabOpen, setFabOpen] = useState(false)
 	const [warningDismissed, setWarningDismissed] = useState(false)
@@ -754,8 +720,7 @@ export default function ShoppingListRoute({
 		pendingAddedItems,
 	)
 	const totalItems = allItems.length
-	const checkedItemsList = allItems.filter((item) => item.checked)
-	const checkedItems = checkedItemsList.length
+	const checkedItems = allItems.filter((item) => item.checked).length
 
 	const searchLower = search.toLowerCase()
 	const filteredItems = search
@@ -820,7 +785,7 @@ export default function ShoppingListRoute({
 							nudgeId="check-items-off"
 							icon="check"
 							title="Check items off as you shop"
-							description="Tap items as you shop. When you're done, remember anything you usually keep around."
+							description="Tap items as you shop, then clear the checked rows when you're done."
 							dismissText="Got it"
 							className="mb-4"
 						/>
@@ -983,20 +948,8 @@ export default function ShoppingListRoute({
 						)}
 
 						{/* Checked Item Actions */}
-						{checkedItems > 0 && !showReview && !search && (
-							<div className="animate-slide-up-reveal flex items-center justify-center gap-4 pt-4">
-								{isProActive && (
-									<>
-										<button
-											type="button"
-											onClick={() => setShowReview(true)}
-											className="text-primary hover:text-primary/80 text-sm underline underline-offset-2"
-										>
-											Remember for next time ({checkedItems})
-										</button>
-										<span className="text-border">·</span>
-									</>
-								)}
+						{checkedItems > 0 && !search && (
+							<div className="animate-slide-up-reveal flex items-center justify-center pt-4">
 								<Form
 									method="POST"
 									className="inline"
@@ -1031,8 +984,7 @@ export default function ShoppingListRoute({
 							{hasMealPlan ? (
 								<>
 									Hit <strong>From Plan</strong> to generate your list from the
-									meal plan. Usually-on-hand items are pre-checked. Add anything
-									else by hand.
+									meal plan. Add anything else by hand.
 								</>
 							) : (
 								<>
@@ -1047,17 +999,6 @@ export default function ShoppingListRoute({
 								</>
 							)}
 						</p>
-					</div>
-				)}
-
-				{/* Pantry Review Panel (Pro) */}
-				{isProActive && showReview && checkedItems > 0 && !search && (
-					<div className="mt-4">
-						<ShoppingListToInventory
-							items={checkedItemsList}
-							alreadyStockedIds={alreadyStockedIds}
-							onCancel={() => setShowReview(false)}
-						/>
 					</div>
 				)}
 			</div>

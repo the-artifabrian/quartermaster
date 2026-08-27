@@ -293,6 +293,76 @@ describe('acceptInvite', () => {
 		).toBe(0)
 	})
 
+	test('sole member: a confirmed empty Staples cutover moves to an uncut-over target', async () => {
+		const owner = await setupUser()
+		const joiner = await setupUser()
+		const sourceCutoverAt = new Date('2026-08-25T08:00:00.000Z')
+		await prisma.household.update({
+			where: { id: joiner.householdId },
+			data: { staplesCutoverAt: sourceCutoverAt },
+		})
+
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+		await acceptInvite(invite.token, joiner.id)
+
+		expect(
+			await prisma.household.findUniqueOrThrow({
+				where: { id: owner.householdId },
+				select: {
+					staplesCutoverAt: true,
+					_count: { select: { householdIngredients: true } },
+				},
+			}),
+		).toEqual({
+			staplesCutoverAt: sourceCutoverAt,
+			_count: { householdIngredients: 0 },
+		})
+	})
+
+	test('sole member: canonical rows do not imply cutover during a household move', async () => {
+		const owner = await setupUser()
+		const joiner = await setupUser()
+		await prisma.householdIngredient.create({
+			data: {
+				displayName: 'Cumin',
+				canonicalKey: 'cumin',
+				isStaple: true,
+				isOut: true,
+				householdId: joiner.householdId,
+			},
+		})
+
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+		await acceptInvite(invite.token, joiner.id)
+
+		expect(
+			await prisma.household.findUniqueOrThrow({
+				where: { id: owner.householdId },
+				select: {
+					staplesCutoverAt: true,
+					householdIngredients: {
+						select: {
+							displayName: true,
+							canonicalKey: true,
+							isStaple: true,
+							isOut: true,
+						},
+					},
+				},
+			}),
+		).toEqual({
+			staplesCutoverAt: null,
+			householdIngredients: [
+				{
+					displayName: 'Cumin',
+					canonicalKey: 'cumin',
+					isStaple: true,
+					isOut: true,
+				},
+			],
+		})
+	})
+
 	test('sole member: menu cards, note shopping lines, and recipe references survive the move', async () => {
 		const owner = await setupUser()
 		const joiner = await setupUserWithRecipe('Joiner Dinner')

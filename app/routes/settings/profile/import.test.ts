@@ -255,6 +255,235 @@ describe('household Staples recovery', () => {
 				select: { name: true },
 			}),
 		).toEqual({ name: 'archived garlic' })
+		expect(
+			await prisma.household.findUniqueOrThrow({
+				where: { id: source.householdId },
+				select: {
+					staplesCutoverAt: true,
+					householdIngredients: {
+						orderBy: { canonicalKey: 'asc' },
+						select: {
+							displayName: true,
+							canonicalKey: true,
+							isStaple: true,
+							isOut: true,
+						},
+					},
+				},
+			}),
+		).toEqual({
+			staplesCutoverAt: cutoverAt,
+			householdIngredients: exported.householdIngredients,
+		})
+	})
+
+	test('target and first-imported canonical identities win collisions without changing the source household', async () => {
+		const source = await setupUser()
+		const sourceCutoverAt = new Date('2026-08-25T12:00:00.000Z')
+		await prisma.household.update({
+			where: { id: source.householdId },
+			data: { staplesCutoverAt: sourceCutoverAt },
+		})
+		await prisma.householdIngredient.createMany({
+			data: [
+				{
+					displayName: 'Cumin',
+					canonicalKey: 'cumin',
+					isStaple: true,
+					isOut: true,
+					householdId: source.householdId,
+				},
+				{
+					displayName: 'Salt',
+					canonicalKey: 'salt',
+					isStaple: true,
+					isOut: true,
+					householdId: source.householdId,
+				},
+			],
+		})
+
+		const target = await setupUser()
+		const targetCutoverAt = new Date('2026-08-24T12:00:00.000Z')
+		await prisma.household.update({
+			where: { id: target.householdId },
+			data: { staplesCutoverAt: targetCutoverAt },
+		})
+		await prisma.householdIngredient.create({
+			data: {
+				displayName: 'Salt',
+				canonicalKey: 'salt',
+				isStaple: true,
+				isOut: false,
+				householdId: target.householdId,
+			},
+		})
+
+		const exported = await exportHousehold(source)
+		exported.householdIngredients.push({
+			displayName: 'cumin',
+			canonicalKey: 'cumin',
+			isStaple: false,
+			isOut: false,
+		})
+		const result = (await importPayload(target, exported)) as any
+
+		expect(result.results.householdIngredients).toEqual({
+			created: 1,
+			skipped: 2,
+		})
+		expect(result.results.staplesCutoverRestored).toBe(false)
+		expect(
+			await prisma.household.findMany({
+				where: { id: { in: [source.householdId, target.householdId] } },
+				orderBy: { id: 'asc' },
+				select: {
+					id: true,
+					staplesCutoverAt: true,
+					householdIngredients: {
+						orderBy: { canonicalKey: 'asc' },
+						select: {
+							displayName: true,
+							canonicalKey: true,
+							isStaple: true,
+							isOut: true,
+						},
+					},
+				},
+			}),
+		).toEqual(
+			[
+				{
+					id: source.householdId,
+					staplesCutoverAt: sourceCutoverAt,
+					householdIngredients: [
+						{
+							displayName: 'Cumin',
+							canonicalKey: 'cumin',
+							isStaple: true,
+							isOut: true,
+						},
+						{
+							displayName: 'Salt',
+							canonicalKey: 'salt',
+							isStaple: true,
+							isOut: true,
+						},
+					],
+				},
+				{
+					id: target.householdId,
+					staplesCutoverAt: targetCutoverAt,
+					householdIngredients: [
+						{
+							displayName: 'Cumin',
+							canonicalKey: 'cumin',
+							isStaple: true,
+							isOut: true,
+						},
+						{
+							displayName: 'Salt',
+							canonicalKey: 'salt',
+							isStaple: true,
+							isOut: false,
+						},
+					],
+				},
+			].sort((a, b) => a.id.localeCompare(b.id)),
+		)
+	})
+
+	test('a confirmed empty Staples selection round-trips independently of canonical rows', async () => {
+		const source = await setupUser()
+		const cutoverAt = new Date('2026-08-25T12:30:00.000Z')
+		await prisma.household.update({
+			where: { id: source.householdId },
+			data: { staplesCutoverAt: cutoverAt },
+		})
+		const exported = await exportHousehold(source)
+		expect(exported.householdIngredients).toEqual([])
+
+		const target = await setupUser()
+		await importPayload(target, exported)
+
+		expect(
+			await prisma.household.findUniqueOrThrow({
+				where: { id: target.householdId },
+				select: {
+					staplesCutoverAt: true,
+					_count: { select: { householdIngredients: true } },
+				},
+			}),
+		).toEqual({
+			staplesCutoverAt: cutoverAt,
+			_count: { householdIngredients: 0 },
+		})
+	})
+
+	test('older full exports without Staples still restore archived Inventory', async () => {
+		const target = await setupUser()
+		await importPayload(target, {
+			format: 'quartermaster-full-export-v1',
+			recipes: [],
+			inventory: [{ name: 'Legacy Vanilla Beans', location: 'pantry' }],
+		})
+
+		expect(
+			await prisma.household.findUniqueOrThrow({
+				where: { id: target.householdId },
+				select: {
+					staplesCutoverAt: true,
+					householdIngredients: true,
+					inventoryItems: {
+						where: { name: 'legacy vanilla beans' },
+						select: { name: true },
+					},
+				},
+			}),
+		).toEqual({
+			staplesCutoverAt: null,
+			householdIngredients: [],
+			inventoryItems: [{ name: 'legacy vanilla beans' }],
+		})
+	})
+
+	test('imports reject Out state for a non-Staple without partial canonical recovery', async () => {
+		const target = await setupUser()
+		const response = await importPayload(target, {
+			format: 'quartermaster-full-export-v1',
+			recipes: [],
+			household: { staplesCutoverAt: '2026-08-25T13:00:00.000Z' },
+			householdIngredients: [
+				{
+					displayName: 'Salt',
+					canonicalKey: 'salt',
+					isStaple: false,
+					isOut: true,
+				},
+			],
+		})
+
+		expect(response).toEqual(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					error: expect.stringContaining('Only a Staple can be Out'),
+					results: null,
+				}),
+				init: { status: 400 },
+			}),
+		)
+		expect(
+			await prisma.household.findUniqueOrThrow({
+				where: { id: target.householdId },
+				select: {
+					staplesCutoverAt: true,
+					_count: { select: { householdIngredients: true } },
+				},
+			}),
+		).toEqual({
+			staplesCutoverAt: null,
+			_count: { householdIngredients: 0 },
+		})
 	})
 
 	test('free households restore Staples without opening Pro-only legacy import sections', async () => {

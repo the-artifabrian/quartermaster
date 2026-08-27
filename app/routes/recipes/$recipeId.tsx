@@ -43,11 +43,7 @@ import { cn } from '#app/utils/misc.tsx'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import {
-	buildInventoryLookup,
 	getCanonicalIngredientName,
-	ingredientMatchesAnyInventoryItem,
-	isOptionalIngredient,
-	isStapleIngredient,
 	normalizeIngredientName,
 } from '#app/utils/recipe-matching.server.ts'
 import {
@@ -58,6 +54,7 @@ import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import {
 	annotateShoppingDemand,
+	findMissingRecipeIngredientIds,
 	loadShoppingAvailability,
 } from '#app/utils/shopping-list.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
@@ -165,35 +162,24 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		status: 403,
 	})
 
-	const [tierInfo, inventoryItems, household] = await Promise.all([
+	const [tierInfo, availability] = await Promise.all([
 		getUserTier(userId),
-		prisma.inventoryItem.findMany({
-			where: activeLegacyPantryWhere(householdId),
-			select: { name: true },
-		}),
-		prisma.household.findUniqueOrThrow({
-			where: { id: householdId },
-			select: { staplesCutoverAt: true },
-		}),
+		loadShoppingAvailability(prisma, householdId),
 	])
 
-	const missingIngredientIds: string[] = []
-	const lookup = buildInventoryLookup(inventoryItems)
-	for (const ingredient of recipe.ingredients) {
-		if (ingredient.isHeading) continue
-		if (isStapleIngredient(ingredient)) continue
-		if (isOptionalIngredient(ingredient)) continue
-		if (!ingredientMatchesAnyInventoryItem(ingredient, lookup)) {
-			missingIngredientIds.push(ingredient.id)
-		}
-	}
+	const missingIngredientIds = findMissingRecipeIngredientIds(
+		recipe.ingredients,
+		availability,
+	)
 
 	return {
 		recipe,
 		isProActive: tierInfo.isProActive,
 		missingIngredientIds,
-		hasInventory: inventoryItems.length > 0,
-		usesLegacyPantry: household.staplesCutoverAt == null,
+		hasInventory:
+			availability.kind === 'legacy-pantry' &&
+			availability.inventoryItems.length > 0,
+		usesLegacyPantry: availability.kind === 'legacy-pantry',
 	}
 }
 

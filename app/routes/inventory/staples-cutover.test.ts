@@ -173,6 +173,69 @@ describe('Staples cutover', () => {
 		expect(after.archivedInventoryCount).toBe(1)
 	})
 
+	test('Recipe discovery omits household availability metadata', async () => {
+		const session = await setupHousehold()
+		await prisma.recipe.create({
+			data: {
+				title: 'Quiet recipe card',
+				userId: session.userId,
+				householdId: session.householdId,
+				ingredients: { create: { name: 'salt', order: 0 } },
+			},
+		})
+		await postInventory(session, {
+			intent: 'confirm-staples-cutover',
+			items: JSON.stringify([{ displayName: 'Salt' }]),
+		})
+		const cookie = await getSessionCookieHeader(session)
+		const result = await recipesLoader({
+			request: new Request(`${BASE_URL}/recipes`, { headers: { cookie } }),
+			...ROUTE_ARGS,
+			pattern: '/recipes',
+			url: new URL(`${BASE_URL}/recipes`),
+		})
+
+		expect(result.recipes[0]).not.toHaveProperty('needsItemCount')
+	})
+
+	test('Recipe discovery defaults to the visible Recently Updated order', async () => {
+		const session = await setupHousehold()
+		await postInventory(session, {
+			intent: 'confirm-staples-cutover',
+			items: JSON.stringify([{ displayName: 'Salt' }]),
+		})
+		await prisma.recipe.create({
+			data: {
+				title: 'Older all-Staple recipe',
+				userId: session.userId,
+				householdId: session.householdId,
+				updatedAt: new Date('2026-08-25T08:00:00Z'),
+				ingredients: { create: { name: 'salt', order: 0 } },
+			},
+		})
+		await prisma.recipe.create({
+			data: {
+				title: 'Newer non-Staple recipe',
+				userId: session.userId,
+				householdId: session.householdId,
+				updatedAt: new Date('2026-08-26T08:00:00Z'),
+				ingredients: { create: { name: 'dragon fruit', order: 0 } },
+			},
+		})
+		const cookie = await getSessionCookieHeader(session)
+		const result = await recipesLoader({
+			request: new Request(`${BASE_URL}/recipes`, { headers: { cookie } }),
+			...ROUTE_ARGS,
+			pattern: '/recipes',
+			url: new URL(`${BASE_URL}/recipes`),
+		})
+
+		expect(result.recipes.map((recipe) => recipe.title)).toEqual([
+			'Newer non-Staple recipe',
+			'Older all-Staple recipe',
+		])
+	})
+
 	test('invalid or repeated confirmation cannot partially change the cutover', async () => {
 		const session = await setupHousehold()
 
@@ -253,7 +316,7 @@ describe('Staples cutover', () => {
 		).toEqual({ isStaple: true, isOut: true })
 	})
 
-	test('archived Pantry stops affecting Recipe discovery and explicit Shopping after cutover', async () => {
+	test('archived Pantry stops affecting explicit Shopping after cutover', async () => {
 		const session = await setupHousehold(['chicken breast'])
 		const recipe = await prisma.recipe.create({
 			data: {
@@ -281,7 +344,7 @@ describe('Staples cutover', () => {
 			...recipesArgs,
 		})
 		expect(before.hasInventory).toBe(true)
-		expect(before.recipes[0]!.needsItemCount).toBe(0)
+		expect(before.recipes.map((item) => item.title)).toEqual(['Roast chicken'])
 
 		await postInventory(session, {
 			intent: 'confirm-staples-cutover',
@@ -293,7 +356,7 @@ describe('Staples cutover', () => {
 			...recipesArgs,
 		})
 		expect(after.hasInventory).toBe(false)
-		expect(after.recipes[0]!.needsItemCount).toBe(1)
+		expect(after.recipes.map((item) => item.title)).toEqual(['Roast chicken'])
 
 		const shoppingResult = await recipeAction({
 			request: new Request(`${BASE_URL}/recipes/${recipe.id}`, {
@@ -325,7 +388,7 @@ describe('Staples cutover', () => {
 		).toEqual({ name: 'chicken breast', checked: false, source: 'recipe' })
 	})
 
-	test('Recipe search stays intact while Needs counts Out, non-Staple, and unresolved demand', async () => {
+	test('Recipe search stays intact after household Staple changes', async () => {
 		const session = await setupHousehold()
 		await prisma.recipe.create({
 			data: {
@@ -381,7 +444,6 @@ describe('Staples cutover', () => {
 		expect(result.recipes.map((recipe) => recipe.title)).toEqual([
 			'Target supper',
 		])
-		expect(result.recipes[0]!.needsItemCount).toBe(3)
 	})
 })
 

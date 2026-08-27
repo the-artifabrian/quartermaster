@@ -13,7 +13,6 @@ type RecipeCardProps = {
 	cookTime?: number | null
 	isFavorite?: boolean
 	isAiGenerated?: boolean
-	needsItemCount?: number | null
 }
 
 export function RecipeCard({
@@ -25,7 +24,6 @@ export function RecipeCard({
 	cookTime,
 	isFavorite,
 	isAiGenerated,
-	needsItemCount,
 }: RecipeCardProps) {
 	const totalTime = (prepTime ?? 0) + (cookTime ?? 0)
 	const placeholder = !imageObjectKey ? getRecipePlaceholder(title) : null
@@ -103,19 +101,12 @@ export function RecipeCard({
 				</div>
 
 				{/* Mobile meta */}
-				{(totalTime > 0 || needsItemCount != null) && (
+				{totalTime > 0 && (
 					<div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-[13px] md:hidden">
-						{totalTime > 0 && (
-							<span className="flex items-center gap-1">
-								<Icon name="clock" size="xs" />
-								{totalTime} min
-							</span>
-						)}
-						{needsItemCount != null && (
-							<span>
-								Needs {needsItemCount} item{needsItemCount === 1 ? '' : 's'}
-							</span>
-						)}
+						<span className="flex items-center gap-1">
+							<Icon name="clock" size="xs" />
+							{totalTime} min
+						</span>
 					</div>
 				)}
 
@@ -137,11 +128,6 @@ export function RecipeCard({
 						<span className="text-muted-foreground flex items-center gap-1 text-xs">
 							<Icon name="clock" size="xs" />
 							{totalTime} min
-						</span>
-					)}
-					{needsItemCount != null && (
-						<span className="text-muted-foreground text-xs">
-							Needs {needsItemCount} item{needsItemCount === 1 ? '' : 's'}
 						</span>
 					)}
 					{isAiGenerated && (

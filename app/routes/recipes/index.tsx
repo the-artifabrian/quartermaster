@@ -16,11 +16,6 @@ import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { cn, useDebounce } from '#app/utils/misc.tsx'
 import { recipeSearchWhere } from '#app/utils/recipe-search.server.ts'
-import { buildShoppingDemand } from '#app/utils/shopping-demand.server.ts'
-import {
-	annotateShoppingDemand,
-	loadShoppingAvailability,
-} from '#app/utils/shopping-list.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
 
@@ -75,21 +70,28 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	})()
 
-	const [availability, mealCount, totalRecipeCount] = await Promise.all([
-		loadShoppingAvailability(prisma, householdId),
-		isProActive
-			? prisma.meal.count({
-					where: { mealPlan: { householdId } },
-				})
-			: Promise.resolve(0),
-		prisma.recipe.count({ where: { householdId } }),
-	])
+	const [householdAvailability, mealCount, totalRecipeCount] =
+		await Promise.all([
+			prisma.household.findUniqueOrThrow({
+				where: { id: householdId },
+				select: {
+					staplesCutoverAt: true,
+					_count: { select: { inventoryItems: true } },
+				},
+			}),
+			isProActive
+				? prisma.meal.count({
+						where: { mealPlan: { householdId } },
+					})
+				: Promise.resolve(0),
+			prisma.recipe.count({ where: { householdId } }),
+		])
 
 	const hasInventory =
-		availability.kind === 'legacy-pantry' &&
-		availability.inventoryItems.length > 0
-	const showNeeds = hasInventory || availability.kind === 'household-staples'
-	const useNeedsSort = showNeeds && !explicitSort
+		householdAvailability.staplesCutoverAt == null &&
+		householdAvailability._count.inventoryItems > 0
+	const hasAvailabilitySetup =
+		hasInventory || householdAvailability.staplesCutoverAt != null
 
 	const recipes = await prisma.recipe.findMany({
 		where: {
@@ -109,18 +111,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 			image: { select: { objectKey: true } },
 			_count: {
 				select: {
+					ingredients: true,
 					instructions: true,
 				},
-			},
-			ingredients: {
-				select: {
-					name: true,
-					amount: true,
-					unit: true,
-					notes: true,
-					isHeading: true,
-				},
-				orderBy: { order: 'asc' as const },
 			},
 		},
 		orderBy,
@@ -153,30 +146,14 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 		filteredRecipes = filteredRecipes.filter(
 			(r) =>
-				r.ingredients.length === 0 ||
+				r._count.ingredients === 0 ||
 				r._count.instructions === 0 ||
 				duplicateIds.has(r.id),
 		)
 	}
 
-	let recipesWithNeeds = filteredRecipes.map(({ ingredients, ...recipe }) => ({
-		...recipe,
-		needsItemCount: showNeeds
-			? annotateShoppingDemand(
-					buildShoppingDemand({ recipeBatches: [{ ingredients }] }),
-					availability,
-				).neededCount
-			: null,
-	}))
-
-	if (useNeedsSort) {
-		recipesWithNeeds = [...recipesWithNeeds].sort(
-			(a, b) => (a.needsItemCount ?? 0) - (b.needsItemCount ?? 0),
-		)
-	}
-
 	return {
-		recipes: recipesWithNeeds,
+		recipes: filteredRecipes,
 		search,
 		favoritesOnly,
 		maxTime,
@@ -188,7 +165,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			hasRecipes: totalRecipeCount > 0,
 			// A confirmed cutover completes the old Pantry onboarding step; the
 			// archived rows must not resurrect its CTA.
-			hasInventory: showNeeds,
+			hasInventory: hasAvailabilitySetup,
 			hasMealPlan: mealCount > 0,
 		},
 	}
@@ -491,7 +468,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								cookTime={recipe.cookTime}
 								isFavorite={recipe.isFavorite}
 								isAiGenerated={recipe.isAiGenerated}
-								needsItemCount={recipe.needsItemCount}
 							/>
 						))}
 					</RecipeCardGrid>

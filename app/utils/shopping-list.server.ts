@@ -6,6 +6,7 @@ import {
 import {
 	buildInventoryLookup,
 	ingredientMatchesAnyInventoryItem,
+	isOptionalIngredient,
 	isStapleIngredient,
 } from './recipe-matching.server.ts'
 import {
@@ -25,6 +26,30 @@ type HouseholdStaplesAvailability = {
 
 export type ShoppingAvailability =
 	LegacyPantryAvailability | HouseholdStaplesAvailability
+
+type RecipeAvailabilityIngredient = {
+	id: string
+	name: string
+	notes: string | null
+	isHeading: boolean
+}
+
+function buildHouseholdStapleStates(
+	staples: HouseholdStaplesAvailability['staples'],
+): Map<string, boolean> {
+	const householdStaples = new Map<string, boolean>()
+	for (const staple of staples) {
+		const identity = demandIdentity(staple.displayName)
+		// Exact household identities can temporarily converge on one demand
+		// identity (for example cilantro/coriander). Include demand if any
+		// matching saved Staple is Out; hiding a required Out item is unsafe.
+		householdStaples.set(
+			identity,
+			(householdStaples.get(identity) ?? false) || staple.isOut,
+		)
+	}
+	return householdStaples
+}
 
 /**
  * Load one household-scoped availability snapshot for an explicit Shopping
@@ -57,6 +82,46 @@ export async function loadShoppingAvailability(
 }
 
 /**
+ * Resolve the ingredient rows a Recipe detail surface should present as
+ * missing. Before cutover this preserves the recoverable Pantry behavior;
+ * afterward the household's explicit Staple/Out state is authoritative.
+ */
+export function findMissingRecipeIngredientIds(
+	ingredients: RecipeAvailabilityIngredient[],
+	availability: ShoppingAvailability,
+): string[] {
+	const legacyLookup =
+		availability.kind === 'legacy-pantry'
+			? buildInventoryLookup(availability.inventoryItems)
+			: null
+	const householdStaples =
+		availability.kind === 'household-staples'
+			? buildHouseholdStapleStates(availability.staples)
+			: null
+
+	const missingIngredientIds: string[] = []
+	for (const ingredient of ingredients) {
+		if (ingredient.isHeading || isOptionalIngredient(ingredient)) continue
+
+		if (availability.kind === 'household-staples') {
+			if (householdStaples!.get(demandIdentity(ingredient.name)) !== false) {
+				missingIngredientIds.push(ingredient.id)
+			}
+			continue
+		}
+
+		if (
+			!isStapleIngredient(ingredient) &&
+			!ingredientMatchesAnyInventoryItem(ingredient, legacyLookup!)
+		) {
+			missingIngredientIds.push(ingredient.id)
+		}
+	}
+
+	return missingIngredientIds
+}
+
+/**
  * Availability annotation — the internal seam that consumes pure
  * buildShoppingDemand output (#108/#116). The demand module itself never sees
  * Inventory, household Staples, displayed rows, or persistence state.
@@ -81,23 +146,14 @@ export function annotateShoppingDemand(
 		availability.kind === 'legacy-pantry'
 			? buildInventoryLookup(availability.inventoryItems)
 			: null
-	const householdStaples = new Map<string, boolean>()
-	if (availability.kind === 'household-staples') {
-		for (const staple of availability.staples) {
-			const identity = demandIdentity(staple.displayName)
-			// Exact household identities can temporarily converge on one demand
-			// identity (for example cilantro/coriander). Include demand if any
-			// matching saved Staple is Out; hiding a required Out item is unsafe.
-			householdStaples.set(
-				identity,
-				(householdStaples.get(identity) ?? false) || staple.isOut,
-			)
-		}
-	}
+	const householdStaples =
+		availability.kind === 'household-staples'
+			? buildHouseholdStapleStates(availability.staples)
+			: null
 
 	for (const line of lines) {
 		if (availability.kind === 'household-staples') {
-			const matchingStapleIsOut = householdStaples.get(line.canonicalName)
+			const matchingStapleIsOut = householdStaples!.get(line.canonicalName)
 			if (matchingStapleIsOut === false) {
 				stapleCount++
 				continue

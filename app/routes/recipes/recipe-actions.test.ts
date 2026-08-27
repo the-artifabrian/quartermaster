@@ -115,6 +115,55 @@ describe('recipe detail loader', () => {
 		expect(result.recipe.instructions).toHaveLength(2)
 	})
 
+	test('uses household Staple and Out state for ingredient availability after cutover', async () => {
+		const session = await setupUser()
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Staples supper',
+				userId: session.userId,
+				householdId: session.householdId,
+				ingredients: {
+					create: [
+						{ name: 'dragon fruit', order: 0 },
+						{ name: 'moon cheese', order: 1 },
+					],
+				},
+			},
+			include: { ingredients: { orderBy: { order: 'asc' } } },
+		})
+		await prisma.household.update({
+			where: { id: session.householdId },
+			data: { staplesCutoverAt: new Date('2026-08-27T08:00:00Z') },
+		})
+		await prisma.householdIngredient.createMany({
+			data: [
+				{
+					householdId: session.householdId,
+					canonicalKey: 'dragon fruit',
+					displayName: 'Dragon fruit',
+					isStaple: true,
+					isOut: false,
+				},
+				{
+					householdId: session.householdId,
+					canonicalKey: 'moon cheese',
+					displayName: 'Moon cheese',
+					isStaple: true,
+					isOut: true,
+				},
+			],
+		})
+
+		const request = await makeRequest(session, recipe.id, {}, 'GET')
+		const result = await loader({
+			request,
+			...makeActionArgs(recipe.id),
+		})
+
+		expect(result.missingIngredientIds).toEqual([recipe.ingredients[1]!.id])
+		expect(result.usesLegacyPantry).toBe(false)
+	})
+
 	test('returns 404 for nonexistent recipe', async () => {
 		const session = await setupUser()
 

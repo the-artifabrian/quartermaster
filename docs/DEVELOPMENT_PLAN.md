@@ -1,171 +1,82 @@
-# Development Plan
+# Development plan
 
-## Status
+## Where things stand
 
-Feature-complete and daily-driven since February 2026. Built in ~3 weeks using
-Claude Code for rapid iteration.
+Quartermaster is a daily-used personal app. The core loop works:
 
-For the full feature catalog, see [FEATURES.md](./FEATURES.md). For
-architecture, see [ARCHITECTURE.md](./ARCHITECTURE.md).
-
----
-
-## Product Direction
-
-Quartermaster is a personal cookbook that turns saved recipes into a weekly
-cooking plan and shopping list. The primary repeated behavior is:
-
-```
-import recipes → plan meals → generate shopping list → cook
+```text
+save Recipes → plan Meals → generate Shopping → cook
 ```
 
-The app should optimize for reducing recipe-to-shopping friction. If a feature
-does not reduce setup effort, clarify what needs buying, or make cooking easier
-once a recipe is chosen, it should be secondary, hidden until relevant, or cut.
+Roadmap [#98](https://github.com/the-artifabrian/quartermaster/issues/98) is in
+progress. Menus, ordered Meals, combined Shopping, and household Staples/Out are
+shipped. AI quantity planning was tried and removed because it added more
+friction than value.
 
-The product should still support "what can I cook tonight?", but weekly planning
-and shopping-list generation are the dominant flow.
+The next implementation ticket is #121, the additive Recipe time/yield shape.
+Archived Pantry cleanup (#120) is deferred because it is still a cheap rollback
+path.
 
----
+## Product direction
 
-## Design Decisions
+Quartermaster should be a tight daily driver, not a kitchen-management system. A
+feature should reduce setup, clarify Shopping, or help once a Recipe has been
+chosen. If it adds recurring maintenance or visible complexity without regular
+value, simplify or remove it.
 
-**Pantry, not inventory accounting.** The database still uses `InventoryItem`,
-but the user-facing model should be "things I usually keep on hand." The app is
-not a pantry ledger and should not ask users to maintain exact current stock.
-Pantry can include fridge-door condiments, sauces, freezer staples, and dry
-goods; the name is a product shorthand, not a literal cupboard boundary. Pantry
-data exists to reduce mental load when planning meals and generating shopping
-lists.
+Current product rules:
 
-**Show what needs buying.** Pantry-aware matching should answer "what do I need
-to buy?" more than "can I cook this right now?" Percent match rings can stay
-where they clarify, but concrete labels such as "needs 3 things" or "usually on
-hand" are more honest for planning.
+- Keep single-Recipe cooking fast.
+- Menus are reusable; planned Meals are stable snapshots.
+- Shopping changes only after an explicit action.
+- Staples/Out is a small household availability model, not exact stock.
+- Recipe cards stay minimal. Recently Updated is the real default; availability
+  belongs on Recipe detail.
+- Keep manual paths complete. AI may propose or extract, never silently decide.
+- Prefer flat lists, few controls, and no category grouping in Shopping.
 
-**No quantities, no expiry dates, no auto-subtraction.** This keeps the mental
-overhead low. Users are answering "do we usually keep rice around?" not "do we
-currently have 325g of rice?" Any feature that makes the pantry feel like a
-warehouse-management system is suspect.
+## How roadmap work runs
 
-**Avoid maintenance guilt.** Stale review, post-cook cleanup, uncooked meal
-reminders, and cook logging were each built and later removed — useful in
-isolation, but together they made the app feel like it assigns chores. Waste
-alerts and repeated nudges carry the same risk. Prefer quiet, contextual prompts
-that remove work immediately.
+- One focused, reversible ticket per branch and PR.
+- GitHub dependency links represent real implementation or data prerequisites.
+- Observation issues collect normal-use feedback without blocking unrelated work
+  or requiring a formal verdict.
+- Record real use honestly. Tests and demos are implementation evidence, not
+  dogfooding.
+- Rehearse risky migrations on a disposable copy and preserve export/restore
+  paths.
+- Because merging to `master` deploys, ask Alex before merging or otherwise
+  deploying. Branch pushes and PRs are normal when implementation is requested.
 
-**Shopping-list markings must be transparent.** Items usually on hand may be
-pre-checked or visually separated, but they should not silently disappear in a
-way that makes users distrust the list. Copy should make clear: "usually on
-hand, double-check before shopping."
+## Next tracks
 
-**No category grouping on shopping list.** Was built, tried, and removed. Flat
-alphabetical list works better for real shopping trips than produce/dairy/meat
-sections.
+1. **Recipe metadata and discovery (#121–#130).** Add honest nullable time and
+   yield, a small Cuisine/Season/Course vocabulary, optional reviewed metadata
+   proposals, and compact discovery sections.
+2. **Costing (#131–#136).** Start with a reproducible Romanian/RON fixture
+   spike. Build product UI only if the result is useful without price-catalogue
+   chores or false precision.
+3. **Preparation (#137–#141).** Start with one transient editable checklist for
+   a real hosted Meal. Add persistence only if it beats a handwritten list.
+4. **Final copy sweep (#142).** Align public and in-app copy with whatever
+   actually shipped.
 
-**No recipe photos required.** Most home cooks don't photograph their food. The
-UI is designed around that reality with typography-first cards instead of image
-placeholders.
+These tracks may move independently when their real dependencies are closed.
+Normal use can still lead to later fixes, cuts, or deferrals.
 
-**AI as accelerator, not promise.** AI import/extraction helps users reach the
-20-30 recipe threshold where the app becomes useful. AI recipe generation and
-voice features are nice-to-have accelerators, not the core product identity.
+## Known debt and deliberate leftovers
 
----
+- Archived `InventoryItem` data and compatibility paths remain for Staples
+  recovery. Remove them only when their maintenance cost is real.
+- Ingredient matching still has legacy fuzzy behavior. #144 is a possible
+  durable-link replacement, not current work.
+- `emitHouseholdEvent()` is fire-and-forget; revisit if real contention appears.
+- Some AI Recipe helpers remain optional and secondary. AI Recipe import is the
+  proven high-value path.
+- Full Playwright is not a CI release gate; focused browser checks are useful
+  when interaction itself is the risk.
 
-## Implementation Priorities
+Operational restore steps live in [RESTORE.md](./RESTORE.md). Product terms live
+in [CONTEXT.md](../CONTEXT.md).
 
-1. **Reframe language without schema churn.** _Shipped._ User-facing copy now
-   uses Pantry and "usually on hand" throughout. The `InventoryItem` model is
-   unchanged.
-2. **Make what needs buying primary.** _Partial._ The "Nothing to buy" filter is
-   live on recipe lists and the landing-page demo. Match rings and percentages
-   still appear on recipe cards; next step is replacing them with concrete
-   "needs X things" labels.
-3. **Soften bookkeeping flows.** _Shipped._ Stale-review banner, post-cook
-   Pantry review, uncooked-meal reminders, and cook logging are all removed;
-   marking a meal cooked is a plain toggle. Shopping check-off is framed as
-   "remember for next time."
-4. **Protect the setup path.** _Pending._ Early UX should push users toward
-   importing a small recipe library, planning a few meals, and generating one
-   useful list. Full Pantry setup should improve the list, not block the payoff.
-5. **Gate features by attention cost.** _Ongoing._ Quiet features can stay.
-   Features that prompt, nag, or demand maintenance need stronger justification.
-
----
-
-## Product Questions To Revisit
-
-- Should the `/inventory` route eventually become `/pantry`?
-- Should recipe cards drop the percentage ring in favor of a concrete "needs X
-  things" label, or keep both?
-- Is Pro primarily selling convenience, household collaboration, AI, or
-  unlimited scale? The pricing page should lead with the strongest proven value.
-
----
-
-## Known Technical Debt
-
-- **Fire-and-forget event emission.** `emitHouseholdEvent()` runs async without
-  awaiting. Risk of SQLite write contention under heavy concurrent use.
-- **In-memory matching at scale.** Loads all recipes + ingredients for matching.
-  Fine for hundreds of recipes, may need profiling at 500+.
-- **Terminology mismatch.** Code and database names still say inventory while
-  the product direction is Pantry. This is acceptable short-term, but
-  user-facing copy should be made consistent first.
-
----
-
-## Infrastructure Wishlist
-
-- [x] Automated SQLite backups to S3 — daily snapshot to Tigris plus a
-      pre-migration dump; restore runbook in [RESTORE.md](./RESTORE.md)
-- [ ] Uptime monitoring and error rate alerts
-
----
-
-## Backlog
-
-Ideas for future development. Contributions welcome.
-
-- [ ] **Defrost & prep-ahead reminders:** "You're cooking Chicken Tikka
-      tomorrow, the chicken is in your freezer." Supports prep-ahead notes
-      (marinating, soaking, dough rising)
-- [ ] **Leftovers/batch awareness:** if a recipe serves 6 and you cook for 2,
-      that's 3 meals not 1
-- [ ] **Video recipe import:** save recipes from TikTok/Instagram/YouTube via
-      video parsing or LLM extraction
-
-### Risky / Probably Not Unless Proven
-
-These ideas pull the product back toward inventory accounting. Do not prioritize
-them unless actual usage shows Pantry is too weak without them.
-
-- [ ] **Quick restock:** after shopping, show recently removed Pantry items for
-      one-tap re-add
-- [ ] **Receipt scanning to Pantry:** camera capture of grocery receipts
-
----
-
-## Deferred (and why)
-
-Ideas evaluated and intentionally set aside.
-
-- **Step-by-step cooking mode:** the existing cooking view already has
-  checkboxes, inline timers, wake lock, and temperature tooltips
-- **Fuzzy/typo-tolerant search:** not needed when you know your recipe names.
-  Revisit if the recipe count grows significantly
-- **Offline mutations:** massive complexity for a server-rendered app. Service
-  worker handles read caching; optimistic UI covers the rest
-- **Collections/tags:** was built and removed as overengineered at current
-  scale. Revisit at 300+ recipes
-- **Nutrition estimates:** large effort (API integration, per-ingredient lookup)
-  for uncertain value
-- **Push notifications:** SSE covers the active-use case; push adds
-  platform-specific complexity
-- **Exact inventory tracking:** intentionally avoided. It adds maintenance cost
-  and pushes the product toward pantry accounting instead of meal planning
-
----
-
-_Last updated: April 24, 2026._
+_Updated 28 August 2026._

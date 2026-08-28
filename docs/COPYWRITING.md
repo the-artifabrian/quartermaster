@@ -1,264 +1,91 @@
-# Copywriting Guide
+# Copy guide
 
-Guidance for writing Quartermaster copy that sounds specific, human, and useful.
+Write like a person trying to get dinner sorted. Be calm, concrete, and brief.
 
-Write like a person who cooks and uses the app.
+## Product terms
 
-Prefer concrete, situational copy over generic importance, polish, or
-marketing-speak. Quartermaster should sound calm, practical, and specific to the
-task at hand. Write like someone trying to get dinner sorted, not someone
-pitching software.
+Use the terms in [CONTEXT.md](../CONTEXT.md). In user-facing copy:
 
-Bad copy makes the app sound impressed with itself.
+- **Recipe**: ingredients and instructions for one thing.
+- **Menu**: a reusable group of Recipes and notes served together.
+- **Meal**: one scheduled item in the Plan.
+- **Staples**: household ingredients normally assumed available.
+- **Out**: a Staple that should return to generated Shopping.
+- **Shopping**: the current list. Prefer this over “Shopping List” when the
+  shorter label reads naturally.
+- **Pantry**: archived legacy behavior only. Do not present it as the active
+  model.
 
-## Product Terms
+Repeat the right term instead of inventing synonyms such as kitchen memory,
+stock, inventory, or meal slot.
 
-Use these consistently in UI:
+## Rules
 
-- **Pantry**: the feature area. It means ingredients the household usually keeps
-  around, including fridge-door condiments, sauces, freezer staples, and dry
-  goods. It does not mean only cupboard items.
-- **Usually on hand**: the explanation for pantry items.
-- **What you need to buy**: user-facing shopping-list language.
-- **Shopping diff**: internal/product language only.
+- Tell the user what happened or what they can do next.
+- Prefer a concrete claim over a benefit slogan.
+- Keep one idea per sentence.
+- Cut explanations the interface already makes obvious.
+- Name errors in the user’s language and offer the next action when possible.
+- Do not imply exact stock, cookability, timing, yield, or cost when the app has
+  partial information.
+- Use sentence case. Use bold, headings, tables, and em dashes only when they
+  make scanning easier.
 
-Avoid rotating between "pantry," "kitchen memory," "inventory," "stock," and
-"staples" just to vary the wording. Repetition is better than confusion.
+Avoid words such as “robust,” “seamless,” “powerful,” “comprehensive,”
+“transform,” “elevate,” and “unlock.” Also avoid forced three-part slogans and
+“not just X, but Y.”
 
-Use "usually on hand" in running copy. Use "usually-on-hand" only when it
-modifies a noun, and avoid it if the sentence works without the hyphen.
+## Examples
 
-## What Good Copy Does
-
-Good copy answers one of these:
-
-- What can I do next?
-- Why does this matter right now?
-- What changed?
-- What do I need to buy?
-- What can I safely ignore?
-
-If a line does not answer one of those, it probably needs to be shorter or cut.
-
-### Inflated Significance
-
-Do not make ordinary features sound historic, transformative, or profound.
-
-Avoid:
-
-- "revolutionizes meal planning"
-- "a pivotal shift in how families cook"
-- "sets the stage for a more intentional kitchen"
-- "underscores the importance of planning"
-
-Use:
-
-- "Plan meals for the week."
-- "Generate a list from your plan."
-- "Mark pantry items you usually keep around."
-
-### Superficial Analysis
-
-Do not append vague explanations that do not add useful information.
-
-Avoid:
-
-- "helping you make better choices and reduce stress"
-- "creating a more seamless cooking experience"
-- "supporting a more organized kitchen workflow"
-
-Use:
-
-- "Checked items can be remembered for next time."
-- "Usually-on-hand items are pre-checked. Double-check before shopping."
-- "This recipe needs 4 things you do not usually keep around."
-
-### Promotional Puffery
-
-Avoid polished claims that could apply to any app.
-
-Avoid words and phrases like:
-
-- robust
-- seamless
-- powerful
-- comprehensive
-- game-changing
-- beautifully designed
-- unlock your potential
-- elevate your cooking
-- designed to enhance
-
-Use plain claims the product can prove:
-
-- "Import recipes from a URL."
-- "Add meals to a weekly plan."
-- "Generate one shopping list across planned recipes."
-
-### Fluff Disguised As Warmth
-
-Warm copy mentions real kitchen situations. It does not add generic
-encouragement.
-
-Avoid:
-
-- "You're one step closer to stress-free cooking."
-- "Make every meal feel effortless."
-- "Bring more joy and intention to your kitchen."
-
-Use:
-
-- "Plan three dinners. We'll make the list."
-- "No recipes yet. Add one you already cook."
-- "Usually keep this around? Add it to Pantry."
-
-### Formulaic Contrasts
-
-Avoid the repeated "not just X, but Y" construction. It often sounds polished in
-a generic way.
-
-Avoid:
-
-- "Not just a recipe app, but a complete kitchen companion."
-- "Not only plan meals, but transform how you shop."
-
-Use:
-
-- "Save recipes, plan meals, and generate a shopping list."
-- "Quartermaster remembers what you usually keep around."
-
-### Rule Of Three By Default
-
-Lists of three can work, but do not force every sentence into three balanced
-parts.
-
-Avoid:
-
-- "Plan smarter, shop faster, cook better."
-- "Simple, powerful, and intuitive."
-
-Use the number of points the user actually needs. One clear point is often
-better than three vague ones.
-
-### Mechanical Formatting
-
-Avoid overusing:
-
-- Bold text for emphasis.
-- Title Case headings in normal product copy.
-- Tables where a short paragraph or list is clearer.
-- Em dashes as a default sentence rhythm.
-- Thematic separators before every heading.
-
-Formatting should make copy easier to scan, not make it feel generated.
-
-## Quartermaster Voice
-
-Quartermaster should sound:
-
-- Practical.
-- Warm.
-- Specific.
-- Calm.
-- Lightly opinionated.
-
-It should not sound:
-
-- Corporate.
-- Impressed with itself.
-- Over-explanatory.
-- Needy.
-- Like a productivity guru.
-
-## Before / After Examples
-
-### Pantry
-
-Avoid:
+Instead of:
 
 > Build a robust inventory that empowers smarter cooking decisions.
 
-Use:
+Write:
 
-> Add ingredients you usually keep around.
+> Add the Staples you usually have.
 
-### Shopping
-
-Avoid:
+Instead of:
 
 > Streamline your shopping workflow with a comprehensive generated list.
 
-Use:
+Write:
 
-> Generate a list from this week's meals.
+> Generate Shopping from this week’s Meals.
 
-### Planning
-
-Avoid:
+Instead of:
 
 > Take control of your week with intentional meal planning.
 
-Use:
+Write:
 
 > Pick what you want to cook this week.
 
-### AI Import
-
-Avoid:
+Instead of:
 
 > Harness AI to transform scattered recipes into a seamless digital cookbook.
 
-Use:
+Write:
 
-> Paste a recipe. Quartermaster will pull out the ingredients and steps.
+> Paste a Recipe. Quartermaster will pull out the ingredients and steps.
 
-### Empty States
+Instead of:
 
-Avoid:
+> No recipes yet. Start your culinary journey.
 
-> No recipes yet. Start your culinary journey by adding your first dish.
+Write:
 
-Use:
+> No Recipes yet. Add one you already cook.
 
-> No recipes yet. Add one you already cook.
-
-### Errors
-
-Name what happened in the user's language. Do not echo database or validation
-jargon. When possible, point at the next action.
-
-Avoid:
-
-> An account with this email address already exists in our system.
-
-Use:
-
-> That email is already registered. Try signing in instead.
-
-## Copy Review Checklist
+## Quick check
 
 Before shipping copy, ask:
 
-- Is this specific to Quartermaster, or could any app say it?
-- Does this tell the user what to do next?
-- Does this promise exact inventory knowledge when we only mean "usually on
-  hand"?
-- Is this trying to sound important instead of being useful?
-- Can this sentence be shorter?
-- Did we use "seamless," "robust," "elevate," "unlock," "powerful," or
-  "comprehensive"?
-- Did we force a three-part slogan?
-- Did we use "not just X, but Y"?
-- Would this sound natural to someone cooking dinner on a Tuesday?
+- Could this line be shorter?
+- Does it help with the current task?
+- Could any app say it?
+- Does it promise more certainty than we have?
+- Does it sound natural on a Tuesday night?
 
-## Good Default Patterns
-
-- "Add recipes you already cook."
-- "Plan a few meals."
-- "Generate a shopping list."
-- "Usually on hand."
-- "Usually-on-hand items are pre-checked."
-- "You may need..."
-- "Double-check before shopping."
-- "Remember for next time."
-- "No recipes yet. Import one from your notes."
+Useful defaults: “Add a Recipe,” “Plan a Meal,” “Generate Shopping,” “Mark Out,”
+“Try again,” and “Nothing changed.”

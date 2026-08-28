@@ -1,58 +1,51 @@
 # Quartermaster
 
-A personal cookbook that turns saved recipes into a weekly cooking plan and
-shopping list.
+A personal cookbook for saving Recipes, planning Meals, and making one useful
+Shopping list.
 
-I built this to replace 100+ recipes scattered across Apple Notes. It turned
-into a full meal planning system: import recipes, plan the week, generate a
-shopping list, cook from the app, and remember what you usually keep on hand so
-the list focuses on what you may need to buy.
+I built Quartermaster to replace 100+ Recipes scattered across Apple Notes. It
+now handles the whole weekly loop without turning the kitchen into an inventory
+system.
 
 **Live at [useqm.app](https://useqm.app)**
 
 ## How it works
 
-You save the recipes you actually cook, then add them to a weekly plan. From
-there Quartermaster generates a shopping list across the planned meals,
-deduplicates ingredients, handles unit conversion, and marks things you usually
-keep on hand so you can quickly see what needs buying.
+1. Save or import the Recipes you cook.
+2. Plan individual Recipes or reusable multi-dish Menus as ordered Meals.
+3. Generate Shopping from the plan.
+4. Keep a short household Staples list; mark a Staple Out when it needs buying.
+5. Cook from the Recipe and check off Shopping together in real time.
 
-Pantry is intentionally low-maintenance. It is not a warehouse ledger for exact
-current stock. The app should work well even if you only tell it what you
-usually keep around.
+Recipe cards stay simple. Availability appears on Recipe detail, where it can
+help with a decision, and Shopping omits normal Staples while including Out
+Staples and non-Staples.
 
-## Under the hood
+## Product shape
 
-Shopping list generation is the core utility of the app: deduplicate ingredients
-across planned recipes, handle unit conversion, separate usually-on-hand items
-from what probably needs buying, and keep the list usable in the store. Once
-two people share a household, they need real-time sync via SSE to check items
-off the same list.
+- **Recipes** hold the canonical ingredients and instructions.
+- **Menus** are reusable groups of ordered Recipe and note cards.
+- **Meals** are scheduled Recipe items, Menu snapshots, or plain text.
+- **Staples** are household ingredients normally assumed available; **Out** puts
+  one back into generated Shopping.
+- **Shopping** combines Recipe ingredients, Menu note lines, and manual items
+  without pretending to know exact stock.
 
-Ingredient matching supports that loop. "Chicken breast" should not match
-"chicken thigh," but "cilantro" should match "coriander," and "rice" should not
-match "rice vinegar." It uses a 4-level system (exact, synonym, core word,
-multi-word containment) with guards for compounds and cut-sensitive proteins.
-
-The AI features chain multiple models (Claude for recipe extraction from
-screenshots and text, Groq Whisper for voice input) with regex fallbacks for
-when the LLM gets creative. All optional, the app runs fine without any API
-keys.
+AI is optional. It helps import Recipes from text and images, generate or
+improve a Recipe, and parse speech. The manual app works without API keys.
 
 ## Tech stack
 
-| Layer      | Tech                                                                                                |
-| ---------- | --------------------------------------------------------------------------------------------------- |
-| Framework  | [React Router v7](https://reactrouter.com/) (Remix)                                                 |
-| Database   | SQLite via [Prisma](https://www.prisma.io/)                                                         |
-| Styling    | [Tailwind CSS v4](https://tailwindcss.com/) + [Radix UI](https://www.radix-ui.com/)                 |
-| Auth       | Sessions, email verification, Google OAuth, passkeys (WebAuthn)                                     |
-| AI         | Anthropic Claude (recipe extraction/generation) + Groq Whisper (voice)                              |
-| Payments   | Stripe Checkout + webhooks                                                                          |
-| Real-time  | Server-Sent Events                                                                                  |
-| Storage    | S3-compatible (Tigris) with Sharp image processing                                                  |
-| Deployment | [Fly.io](https://fly.io/) with LiteFS + Docker                                                      |
-| Testing    | [Vitest](https://vitest.dev/) (830+ unit/integration) + [Playwright](https://playwright.dev/) (e2e) |
+| Layer    | Tech                                                 |
+| -------- | ---------------------------------------------------- |
+| App      | React Router v7, React, Express                      |
+| Data     | Prisma, SQLite, LiteFS                               |
+| UI       | Tailwind CSS v4, Radix UI                            |
+| Auth     | Sessions, email verification, Google OAuth, passkeys |
+| AI       | Anthropic Claude, Groq Whisper                       |
+| Services | Stripe, Tigris-compatible object storage, SSE        |
+| Hosting  | Fly.io, Docker                                       |
+| Tests    | Vitest plus focused Playwright coverage              |
 
 Bootstrapped from the [Epic Stack](https://www.epicweb.dev/epic-stack).
 
@@ -64,22 +57,21 @@ Requires [Bun](https://bun.com/) >= 1.3.13.
 bun install
 cp .env.example .env
 bun run setup
-bun run dev              # http://localhost:3000
+bun run dev
 ```
 
-All external services (Stripe, S3, Google OAuth, email) are mocked in dev, so
-you can clone and run without configuring a single account. See
-[`.env.example`](.env.example) for the full list of options.
+The development environment mocks Stripe, storage, Google OAuth, and email. See
+[`.env.example`](.env.example) for optional service configuration.
 
 ## Docs
 
-- [Architecture](docs/ARCHITECTURE.md): system design, data flow, matching
-  algorithm
-- [Development Plan](docs/DEVELOPMENT_PLAN.md): status, technical debt, backlog
-- [Design System](docs/DESIGN_SYSTEM.md): typography, colors, spacing,
-  components
-- [Copywriting](docs/COPYWRITING.md): product voice and anti-AI-copy checklist
-- [Features](docs/FEATURES.md): detailed feature reference
+- [Product terms](CONTEXT.md)
+- [Features](docs/FEATURES.md)
+- [Development plan](docs/DEVELOPMENT_PLAN.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Design system](docs/DESIGN_SYSTEM.md)
+- [Copy guide](docs/COPYWRITING.md)
+- [Database restore runbook](docs/RESTORE.md)
 
 ## License
 

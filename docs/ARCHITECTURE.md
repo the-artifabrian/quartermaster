@@ -1,268 +1,171 @@
 # Architecture
 
-For features, see [FEATURES.md](./FEATURES.md). For design system, see
-[DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md).
+Quartermaster is a household-scoped React Router app backed by SQLite. This
+document describes the durable shape and important data flows. Product terms
+live in [CONTEXT.md](../CONTEXT.md); feature details live in
+[FEATURES.md](./FEATURES.md).
 
----
+## System
 
-## System Overview
-
-```
-  Browser (React)
-      │
-      ▼
-  Express + React Router v7
-      │  Express handles middleware (Helmet, compression, rate
-      │  limiting, HTTPS redirect) then hands off to React Router
-      │  for all routing via loader/action/component pattern
-      │
-      ├── Prisma → SQLite
-      ├── S3 storage (images)
-      ├── Anthropic Claude (AI features)
-      ├── Groq Whisper (voice transcription)
-      ├── Stripe (subscriptions)
-      ├── SSE (real-time sync)
-      └── Auth (sessions, OAuth, passkeys)
-```
-
-Deployed on Fly.io with LiteFS, running on bun 1.3.13 (alpine/musl).
-Bootstrapped from the [Epic Stack](https://www.epicweb.dev/epic-stack).
-
----
-
-## Database (24 Models)
-
-All user data is household-scoped: recipes, Pantry items, meal plans, and
-shopping lists belong to the household, not the user. The database model still
-uses `InventoryItem`, but product language should treat these as "usually on
-hand" items rather than exact current stock.
-
-```
-  User
-    ├── Password, Session, Passkey, Connection (auth)
-    ├── Role → Permission (RBAC)
-    ├── Subscription (Pro/Free tier)
+```text
+Browser / PWA
     │
-    └── HouseholdMember → Household
-                              ├── Recipe → Ingredient, Instruction, RecipeImage
-                              ├── InventoryItem
-                              ├── MealPlan → MealPlanEntry
-                              ├── ShoppingList → ShoppingListItem
-                              ├── HouseholdInvite
-                              └── HouseholdEvent (SSE log)
-
-  Standalone: Verification (OTP), UsageEvent (AI rate limiting)
+Express → React Router loaders and actions
+    ├── Prisma → SQLite → LiteFS
+    ├── object storage for Recipe images
+    ├── Anthropic for optional Recipe AI
+    ├── Groq Whisper for optional speech input
+    ├── Stripe for subscriptions
+    └── SSE for household refresh events
 ```
 
----
+The app runs on Bun in Fly.io. Express owns middleware and hands application
+routing to React Router.
 
-## Auth Chain
+## Data model
 
+Most user data belongs to a Household, not an individual User.
+
+```text
+User
+├── auth: Password, Session, Passkey, Connection, Verification
+├── access: Role, Permission, Subscription
+└── HouseholdMember → Household
+    ├── Recipe → Ingredient, Instruction, RecipeImage
+    ├── Menu → MenuSection → MenuItem → MenuShoppingLine
+    ├── MealPlan → Meal
+    │   ├── MealRecipeItem
+    │   ├── MealSection → MealNoteItem → MealShoppingLine
+    │   └── MealShoppingContribution
+    ├── HouseholdIngredient (Staples/Out)
+    ├── InventoryItem (archived Pantry recovery)
+    ├── ShoppingList → ShoppingListItem
+    ├── HouseholdInvite
+    └── HouseholdEvent
 ```
-  requireUserId(request)
-    │  Session cookie → Session table lookup
-    │  Returns: userId
+
+`UsageEvent` records AI limits. New household data must be authorized by
+household membership, included in export/import when durable, and handled in
+sole-member household moves.
+
+## Planning
+
+A Recipe is canonical cooking content. A Menu is a reusable arrangement of
+Recipe and note cards. Planning a Menu copies its structure into a Meal
+snapshot:
+
+```text
+Menu + current Recipe titles
+        │ explicit Add to Plan
+        ▼
+Meal + frozen sections/notes/titles/multipliers
+        │
+        └── Recipe references keep current ingredients and instructions readable
+```
+
+Later Menu edits do not change the Meal. Deleted Recipes leave visible missing
+cards rather than silently removing part of the Meal. A Meal may also contain
+individually added Recipes or plain text.
+
+Meals have explicit order within a day. Labels and serving times are optional
+context and do not control order.
+
+## Shopping
+
+Shopping is built in stages:
+
+```text
+Meal/Recipe inputs
+    │
     ▼
-  requireUserWithHousehold(request)
-    │  HouseholdMember lookup (auto-creates if missing)
-    │  Returns: { userId, householdId, role }
+buildShoppingDemand()
+    │ scale, omit headings/optional lines, normalize, combine compatible units
     ▼
-  requireProTier(request)
-       Subscription check → redirects to /upgrade if not Pro
+annotateShoppingDemand()
+    │ normal Staples omitted; Out Staples and non-Staples kept
+    ▼
+Shopping rows + optional MealShoppingContribution provenance
 ```
 
----
+Unresolved names and incompatible units remain visible instead of being guessed
+into a total. Manual Shopping rows are first-class and are not removed by
+Staples logic.
 
-## Product Model
+A Meal contribution stores current generated provenance, not event history.
+Refreshing one Meal replaces only that Meal’s contribution and preserves manual
+rows, other Meals, and compatible checked state.
 
-Quartermaster should optimize for reducing the distance between saved recipes
-and a useful shopping list:
+## Staples and legacy Pantry
 
-```
-  IMPORT RECIPES ──▶ PLAN MEALS ──▶ GENERATE SHOPPING LIST
-         ▲                                  │
-         │                                  ▼
-      COOK ◀────────────────────────── SHOP / CHECK OFF
-```
+`HouseholdIngredient` is the active household availability model. A row has a
+stable canonical key plus `isStaple` and `isOut`.
 
-Pantry supports the loop by remembering ingredients the household usually keeps
-around, including fridge-door condiments, sauces, freezer staples, and dry
-goods. It should not behave like warehouse inventory. Exact current-stock
-features are allowed only when they stay quiet and optional.
+`Household.staplesCutoverAt` chooses the mode:
 
-AI features are accelerators for setup and import quality, not the core product
-promise. The app must remain useful without API keys.
+- Before cutover, the recoverable legacy Pantry behavior applies.
+- After cutover, HouseholdIngredient rows are the only availability source.
+- Clearing the timestamp explicitly restores legacy behavior.
+- Archived `InventoryItem` rows remain stored and exportable until cleanup is
+  worth the loss of that rollback path.
 
----
+Recipe cards do not serialize or show availability. Recipe detail and Shopping
+share the Staples/Out interpretation.
 
-## The Core Loop
+## Ingredient parsing and identity
 
-```
-  ┌─────────────────────────────────────────────────────────┐
-  │                                                         │
-  │  RECIPES ───────────────▶ MEAL PLAN                      │
-  │     ▲                         │                          │
-  │     │                         ▼                          │
-  │     │                  SHOPPING LIST                     │
-  │     │                         │                          │
-  │     │                         ▼                          │
-  │  COOKING MODE ◀────── SHOP / CHECK OFF                  │
-  │                                                         │
-  │  PANTRY ──────────▶ marks "usually on hand" items       │
-  │                    and shows what may need buying        │
-  └─────────────────────────────────────────────────────────┘
-```
+`parseIngredient()` extracts amount, unit, name, and notes from loose Recipe
+text. `normalizeIngredientName()` removes safe modifiers, normalizes plurals,
+and protects compounds such as “rice vinegar” and protein cuts.
 
-**Shopping list generation flow:**
+Shopping uses deterministic demand identity and unit-family conversion. Legacy
+fuzzy Recipe matching still exists for a few older suggestion/recovery paths. It
+is not a claim of exact ingredient identity; #144 may replace its hot paths with
+durable, correctable links later.
 
-1. Collect ingredients across planned recipes (filter headings + heading
-   heuristic for untagged headings)
-2. Scale amounts by per-entry serving overrides
-3. Consolidate duplicates via canonical name matching
-4. Sum compatible units (cups + tbsp → total volume)
-5. Annotate items usually on hand (pre-checked/marked, not silently omitted)
-6. Filter out staples and optional ingredients
-7. After shopping: checked items may be remembered for next time, but this must
-   be framed as "remember for next time," not exact stock synchronization
+## Auth and subscriptions
 
-Marking a meal as cooked is a plain per-entry toggle on the plan page — the
-post-cook Pantry review flow was removed (June 2026) because it created
-after-dinner bookkeeping. Prefer opportunistic updates and contextual
-confirmation over recurring maintenance chores.
-
----
-
-## Ingredient Normalization
-
-```
-  "2 cups fresh diced Roma tomatoes (optional)"
-       │
-       ▼
-  parseIngredient()            { amount: "2", unit: "cups",
-       │                         name: "fresh diced Roma tomatoes",
-       │                         notes: "optional" }
-       ▼
-  normalizeIngredientName()    "roma tomato"
-       │
-       │  lowercase → strip parens → split comma → handle "or"
-       │  → check protected compounds → strip modifiers
-       │  → strip compound prep phrases → normalize plurals → cache
-       ▼
-  Canonical name (used for matching, dedup, consolidation)
+```text
+requireUserId(request)
+    → requireUserWithHousehold(request)
+    → optional requireProTier(request)
 ```
 
-The parser handles real-world edge cases: unicode fractions, "juice of 1 lemon"
-patterns, fl oz as a two-word unit, written-out numbers, malformed JSON-LD from
-recipe sites. The normalizer protects compound ingredients ("green onion" keeps
-"green" because it's in the protected compounds list).
+Authorization happens in loaders/actions, not only in the UI. Pro limits are
+feature-specific and degrade without making household data unreadable.
 
----
+## Real-time refresh
 
-## 4-Level Fuzzy Matching
+Shopping mutations emit a household event. The server writes a `HouseholdEvent`
+row and publishes on a household channel; other active clients refresh through
+SSE. Polling covers reconnects. This is refresh signaling, not collaborative
+document editing.
 
-Each level is progressively looser:
+## AI
 
-```
-  Recipe: "chicken thighs"  vs  Pantry: "Chicken Breast"
+AI calls go through a small schema-validated Anthropic JSON boundary. Prompts
+and Zod schemas remain feature-local. Provider errors normalize to safe UI
+errors, and writes happen only in explicit application actions.
 
-  1. EXACT  →  "chicken thigh" === "chicken breast"?  NO
-  2. SYNONYM →  synonyms["chicken thigh"] has "chicken breast"?  NO
-  3. CORE WORD → NO (cut-sensitive protein)
-  4. CONTAINMENT → NO (cut-sensitive protein)
+The manual Recipe, Plan, and Shopping flows do not require API keys. AI quantity
+planning was removed after real-use feedback; Recipe import remains the proven
+high-value AI path.
 
-  Recipe: "bell pepper"  vs  Pantry: "red bell pepper"
+## Deployment and recovery
 
-  1. EXACT   → NO
-  2. SYNONYM → NO
-  3. CORE WORD → NO (multi-word, skipped)
-  4. CONTAINMENT → all words of "bell pepper" in "red bell pepper"?  YES ✓
-```
-
-**Performance:** Pre-built O(1) lookup from Pantry (Sets for normalized names,
-synonyms, core words). O(n) containment only runs as last resort.
-
-**Guards:** Core-word matching skips cut-sensitive proteins (thigh ≠ breast),
-non-equivalent compounds (rice ≠ rice vinegar), and different protected
-compounds (red onion ≠ red lentil, ground chicken ≠ ground turkey).
-
-**Pantry fit:** currently computed as
-`matched / (total - staples - optional - headings) × 100` and displayed as SVG
-progress rings on recipe cards. The `canMake` boolean (100% fit) surfaces as the
-"Nothing to buy" filter on the recipe list. Product copy should avoid implying
-exact cookability. Prefer "pantry fit," "usually on hand," or concrete labels
-like "needs 3 things" where possible.
-
----
-
-## Real-Time Sync (SSE)
-
-```
-  User A checks off "Milk"
-       │
-       ▼
-  Action handler → DB update + emitHouseholdEvent()
-       │
-       ▼
-  householdEventBus (EventEmitter singleton)
-       ├── Write to HouseholdEvent table (30-day retention)
-       └── Emit on "household:{id}" channel
-              │
-              ▼
-       SSE endpoint → filters out acting user → User B sees toast
-```
-
-Fallback polling endpoint (`?since=<ISO timestamp>`) for reconnection. 30-second
-keepalive prevents proxy timeouts.
-
----
-
-## AI Integrations
-
-All optional. The app works fully without any API keys.
-
-| Feature                   | Model         | Timeout |
-| ------------------------- | ------------- | ------- |
-| Recipe extraction (text)  | Claude Haiku  | 15s     |
-| Recipe extraction (image) | Claude Sonnet | 30s     |
-| Recipe generation         | Claude Haiku  | 15s     |
-| Recipe enhancement        | Claude Haiku  | 10s     |
-| Voice transcription       | Groq Whisper  | 15s     |
-| Speech item parsing       | Claude Haiku  | 4s      |
-
-Rate limited to 10/day per user per feature via `UsageEvent` table. Shared
-`checkAndRecordAiUsage()` utility. DB write failures are non-fatal (rate
-limiting is a safety net, not a correctness gate).
-
----
-
-## Rate Limiting
-
-**Infrastructure (Express):** 10/min on auth routes, 100/min on mutations,
-1000/min general. Uses `fly-client-ip` to prevent IP spoofing.
-
-**Application:** 10 AI calls/day per user per feature, tracked in `UsageEvent`
-table.
-
----
-
-## Security
-
-- Nonce-based CSP, SSRF protection (including post-redirect validation)
-- Zod on all inputs, magic-byte MIME validation, streaming upload size limits
-- Bcrypt + PwnedPasswords, WebAuthn, OAuth, TOTP 2FA
-- 30-day sessions in database, Stripe webhook HMAC verification
-- Error sanitization on public routes, user enumeration prevention
-
----
+- Prisma migrations are forward migrations.
+- Data-risky changes require a current backup/export and rehearsal on a
+  disposable database copy.
+- Full JSON import accepts older exports and restores durable household data.
+- LiteFS migration details and restore commands live in
+  [RESTORE.md](./RESTORE.md).
 
 ## Testing
 
-830+ tests across Vitest and Playwright e2e.
+Vitest covers pure logic and authenticated loader/action behavior against real
+test SQLite databases. Focused Playwright tests cover interaction-heavy paths.
+Migration tests execute shipped SQL when data conversion itself is the risk.
 
-Key coverage: ingredient parser (263 tests), recipe matching, shopping list
-generation, household events, LLM integrations (MSW mocks), AI rate limiting,
-Stripe webhooks, shopping → Pantry pipeline (e2e).
+Full Playwright is not a CI release gate. Browser checks and simulations are
+implementation evidence, not substitutes for normal use.
 
----
-
-_Last updated: April 24, 2026._
+_Updated 28 August 2026._

@@ -1,130 +1,95 @@
-# Quartermaster - Feature Reference
+# Feature reference
 
-Save the recipes you actually cook, plan the week, and generate a shopping list
-that highlights what you need to buy. The whole loop, from "what should I make?"
-to "what do I need to buy?" to "what worked?", in one app.
+Quartermaster saves the Recipes you cook, plans them as Meals, and turns the
+plan into Shopping.
 
-### What makes this different
-
-1. **Recipe-to-shopping friction reduction.** Planned meals turn into a
-   deduplicated, pantry-aware shopping list.
-2. **Pantry, not inventory.** The app remembers what you usually keep on hand so
-   the shopping list can focus on what you may need to buy.
-3. **Cookbook-quality design without photos.** Warm serif typography treats the
-   recipe text as the main event.
-
----
-
-## Core Loop
-
-These are the features that make the product useful week after week.
+## Core loop
 
 ### Recipes
 
-- Full CRUD, image uploads, full-text search, sort/filter, favorites
-- Serving scaling with fraction display, metric/imperial toggle with ingredient
-  density table (~70 ingredients)
-- Cooking mode: ingredient checkboxes, instruction cross-off, auto-scroll,
-  localStorage persistence with 7-day expiry
-- Inline timers auto-detected from instruction text, up to 5 concurrent with
-  floating widget, alarm sound, wake lock, auto-dismiss after 60s
-- Temperature conversion tooltips (F/C), print layout
-- Public share pages with OG tags, JSON-LD, full cooking mode
-- Import: URL (JSON-LD scraping), quick text entry, bulk import (.md/.txt, max
-  50 per batch), import quality flags
-- Per-ingredient actions on recipe detail: "Usually on hand" and "Add to
-  shopping list" for missing ingredients
-- Add to meal plan from recipe detail, ingredient headings, linked ingredients
-  (cross-recipe hyperlinks), optional ingredient detection
-- Drag-and-drop ingredient reordering
+- Create, edit, favorite, search, sort, and share Recipes.
+- Import from a URL, pasted text, files, or screenshots.
+- Scale ingredient display, switch units, print, and keep personal notes.
+- Cook with ingredient/step check-off, inline timers, temperature conversion,
+  wake lock, and local progress.
+- Add a Recipe to a Menu, Plan, or Shopping.
+- Recipe cards stay minimal. Recently Updated is the default. Recipe detail
+  shows actionable Staples/Out-aware availability.
 
-### Pantry
+### Menus
 
-Pantry means "things I usually keep around," not exact current stock or only dry
-cupboard goods. It can include fridge-door condiments, sauces, freezer staples,
-and dry goods. Its job is to reduce shopping-list mental load by marking likely
-items and making what needs buying easier to scan.
+- Build a reusable multi-dish Menu from ordered Recipe and note cards.
+- Use optional sections, Recipe multipliers, display notes, and free-text
+  Shopping lines for drinks or shared purchases.
+- Reorder and move cards with labelled controls on phone and desktop.
+- Plan a Menu as one stable Meal snapshot; later Menu edits do not silently
+  rewrite it.
+- Preserve Menus, ordering, missing Recipe cards, and notes in full JSON
+  export/import.
+- Menus are intentionally imageless.
 
-- Flat alphabetical list, no categories, no quantities, no expiry
-- Inline editing, swipe-to-delete, quick-add with duplicate detection
-- Bulk add through "usually on hand" onboarding, canonical name dedup
-- Normalization pipeline: ~40 modifier strippers (incl. ground, smoked,
-  diced...), compound prep phrase stripping, ~25 synonym groups, pluralization,
-  compound ingredient protection
-- Pantry fit indicators on recipe cards/planning surfaces, plus a "Nothing to
-  buy" filter on the recipe list that surfaces recipes with no missing
-  ingredients. Prefer actionable "needs 3 things" / "usually on hand" language
-  over precise "you can make this now" claims
-- Avoid recurring stale-review chores. If confidence needs to decay, do it
-  quietly or ask contextual confirmation only when it improves a shopping list
+### Plan and Meals
 
-### Meal Planning
+- Plan an ordered list of Meals for each day of a Monday-start week.
+- A Meal may contain one or more Recipes, a Menu snapshot, or plain text such as
+  “Leftovers.”
+- Store an optional label, serving time, guest count, Recipe multiplier, and
+  cooked state.
+- Add Recipes to an existing Meal, reorder Meals, copy a week, and ask for
+  Recipe suggestions.
+- Add one Meal’s demand to Shopping explicitly and refresh it when relevant
+  Recipe or quantity inputs change.
 
-- Weekly calendar (Mon-start, 4 meal types/day), per-entry serving overrides
-- Cooked/uncooked tracking (plain per-entry toggle), "up next" banner
-- Copy week, suggest meals (favorites + pantry fit scoring, variety enforcement,
-  meal-type classification, Jaccard overlap filtering)
-- Recipe selector: favorites-first, weeknight-aware sorting
-- Single-use ingredient waste alerts, if kept, should be quiet and contextual;
-  avoid framing the user's plan as a mistake
+### Staples
 
-### Shopping List
+- Keep a household list of ingredients normally assumed available.
+- Mark a Staple Out so generated Shopping includes it when required.
+- Search, add, remove, and restore Staples across household changes and full
+  data recovery.
+- Archived Pantry data remains available as a deliberate rollback path but is
+  inert after the Staples cutover.
 
-- Generate from meal plan (week picker, skips cooked, dedup, pantry-aware)
-- Quick add with duplicate and Pantry warnings
-- Auto-categorization, inline editing, checked counter, search/filter
-- Pantry-aware: items usually on hand are marked/pre-checked with clear copy so
-  users understand they may still want to double-check before shopping
-- Optimistic UI, live-refresh via SSE (debounced 500ms)
-- Check-off to Pantry pipeline with canonical name matching. Frame as "remember
-  for next time," not exact current-stock synchronization
+### Shopping
 
-## Supportive Features
+- Generate from a selected Plan week or add one Recipe/Meal explicitly.
+- Combine compatible quantities across Recipes and Menu note lines while leaving
+  unresolved or incompatible amounts visible.
+- Omit normal Staples; include Out Staples and every non-Staple.
+- Keep manual rows separate from generated Meal contributions so refreshes do
+  not overwrite another Meal or a shopper’s correction.
+- Edit, search, check off, clear, and quick-add in a flat list with no aisle
+  grouping.
+- Sync household changes through SSE with polling fallback.
 
-These features support the core loop, but should not compete with it.
+## Supporting features
 
-### Household Sharing
+### Households and recovery
 
-- One household per user (auto-created), owner/member roles
-- All data household-scoped
-- Token-based invites (7-day expiry), member management, data-on-leave handling
-- Real-time shopping sync via SSE + 30s polling fallback
-- Activity dot on Shop tab, auto-prune events after 30 days
+- One household per user with owner/member roles and invite links.
+- Household-scoped Recipes, Menus, Plans, Staples, and Shopping.
+- Full JSON export/import, older-export compatibility, and household move
+  handling.
+- Optional Free/Pro subscription limits with graceful downgrade.
 
-### Onboarding & Subscriptions
+### AI and voice
 
-- Getting Started checklist (3 steps), Pantry onboarding
-- Progressive nudges through the core loop (4 contextual banners)
-- Optional Stripe subscription (Free/Pro tiers) with graceful downgrade
-- Admin pages for user analytics and tier management
+- Extract Recipes from text and images with Anthropic models.
+- Generate or improve a Recipe when explicitly requested.
+- Transcribe voice with Groq Whisper and parse short spoken inputs.
+- Rate limits, schema validation, and manual fallback keep these features
+  optional. The app works without API keys.
 
-## Optional / Power User Features
+## UI and infrastructure
 
-These are useful when they remove work. They should stay secondary unless usage
-proves they belong in the main path.
+- Mobile-first PWA with safe areas, 44px touch targets, dark mode, offline read
+  caching, and optimistic interaction.
+- Warm paper-and-ink design using Young Serif, DM Sans, sage, and copper.
+- Sessions, OAuth, passkeys, CSP, SSRF protection, input validation, and secure
+  uploads.
+- SQLite/Prisma on Fly.io with LiteFS, object storage, pre-migration backups,
+  Vitest coverage, and focused Playwright flows.
 
-- AI recipe extraction: paste text or upload screenshot, Claude Sonnet for
-  images (1024px downscale), Haiku for text. 10/day rate limit. This is an
-  import accelerator, not the product's core promise
-- AI recipe generation: create recipes from Pantry context with meal-type
-  filters and quick-meal toggle
-- AI recipe enhance: infer missing metadata (description, servings, times)
-- Voice-to-text: Groq Whisper transcription with hallucination detection, Claude
-  Haiku structured parsing with regex fallback
+Product terms live in [CONTEXT.md](../CONTEXT.md). Current and proposed work
+lives in [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) and roadmap #98.
 
-## UI & Infrastructure
-
-- Custom color system (sage/copper/clay, OKLch), Young Serif + DM Sans
-  typography
-- Mobile-first with bottom nav, 44px touch targets, PWA with offline support
-- Accessibility: skip-to-content, semantic landmarks, aria-labels, focus
-  management, `prefers-reduced-motion`
-- SEO: OG/Twitter meta, JSON-LD, sitemap, canonical URLs
-- Security: nonce-based CSP, SSRF protection, Zod validation, magic-byte MIME
-  checks, PwnedPasswords, user enumeration prevention
-- Full data export/import with duplicate detection
-- 830+ Vitest tests + Playwright e2e, deployed on Fly.io with LiteFS
-
----
-
-_Last updated: June 12, 2026._
+_Updated 28 August 2026._

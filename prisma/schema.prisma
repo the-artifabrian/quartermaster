@@ -221,6 +221,15 @@ model Recipe {
   servings    Int      @default(4)
   prepTime    Int?     // minutes
   cookTime    Int?     // minutes
+  /// Explicitly verified hands-on minutes. Legacy Prep does not prove this.
+  activeTime  Int?
+  /// Explicitly verified elapsed minutes. The additive migration fills this
+  /// only when both legacy Prep and Cook form an unambiguous positive total.
+  totalTime   Int?
+  /// Optional positive amount for a known typed yield (for example 12 pieces).
+  yieldAmount Float?
+  /// Free-text typed-yield label; intentionally not an enum or fixed vocabulary.
+  yieldLabel  String?
   isFavorite     Boolean  @default(false)
   isAiGenerated  Boolean  @default(false)
   sourceUrl      String?

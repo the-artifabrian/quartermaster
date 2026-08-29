@@ -1,57 +1,58 @@
 import { Icon } from '#app/components/ui/icon.tsx'
 
+function formatDuration(minutes: number) {
+	if (minutes < 60) return `${minutes} min`
+	const hours = Math.floor(minutes / 60)
+	const remainingMinutes = minutes % 60
+	return `${hours} hr${remainingMinutes ? ` ${remainingMinutes} min` : ''}`
+}
+
 export function RecipeMetadataCard({
-	prepTime,
-	cookTime,
+	activeTime,
+	totalTime,
+	yieldAmount,
+	yieldLabel,
 	sourceUrl,
 }: {
-	prepTime: number | null
-	cookTime: number | null
+	activeTime: number | null
+	totalTime: number | null
+	yieldAmount: number | null
+	yieldLabel: string | null
 	sourceUrl: string | null
 }) {
-	const totalTime = (prepTime ?? 0) + (cookTime ?? 0)
-
-	if (!prepTime && !cookTime && !sourceUrl) return null
+	const hasYield = yieldAmount != null && yieldLabel != null
+	if (activeTime == null && totalTime == null && !hasYield && !sourceUrl) {
+		return null
+	}
 
 	return (
-		<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm print:mt-1">
-			{prepTime && (
-				<span className="text-muted-foreground flex items-center gap-1">
-					<Icon name="clock" size="sm" className="text-muted-foreground/70" />
-					Prep: {prepTime} min
+		<div className="text-muted-foreground mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm print:mt-1">
+			{activeTime != null && (
+				<span className="inline-flex items-center gap-1">
+					<Icon name="timer" size="sm" className="shrink-0 opacity-70" />
+					Active: {formatDuration(activeTime)}
 				</span>
 			)}
-			{cookTime && (
-				<>
-					{prepTime && (
-						<span className="text-border hidden md:inline">·</span>
-					)}
-					<span className="text-muted-foreground flex items-center gap-1">
-						<Icon name="clock" size="sm" className="text-muted-foreground/70" />
-						Cook: {cookTime} min
-					</span>
-				</>
+			{totalTime != null && (
+				<span className="inline-flex items-center gap-1">
+					<Icon name="clock" size="sm" className="shrink-0 opacity-70" />
+					Total: {formatDuration(totalTime)}
+				</span>
 			)}
-			{totalTime > 0 && (
-				<>
-					<span className="text-border hidden md:inline">·</span>
-					<span className="text-foreground/80 font-medium">
-						Total: {totalTime} min
-					</span>
-				</>
+			{hasYield && (
+				<span className="max-w-full min-w-0 [overflow-wrap:anywhere]">
+					Yield: {yieldAmount} {yieldLabel}
+				</span>
 			)}
 			{sourceUrl && (
-				<>
-					{(prepTime || cookTime) && (
-						<span className="text-border hidden md:inline">·</span>
-					)}
-					<a
-						href={sourceUrl}
-						target="_blank"
-						rel="noopener noreferrer"
-						className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline"
-					>
-						<Icon name="link-2" size="sm" />
+				<a
+					href={sourceUrl}
+					target="_blank"
+					rel="noopener noreferrer"
+					className="hover:text-foreground inline-flex min-w-0 items-center gap-1 text-xs underline"
+				>
+					<Icon name="link-2" size="sm" className="shrink-0" />
+					<span className="truncate">
 						{(() => {
 							try {
 								return new URL(sourceUrl).hostname.replace(/^www\./, '')
@@ -59,8 +60,8 @@ export function RecipeMetadataCard({
 								return 'Source'
 							}
 						})()}
-					</a>
-				</>
+					</span>
+				</a>
 			)}
 		</div>
 	)

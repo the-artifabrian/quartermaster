@@ -13,9 +13,10 @@ export function getRecipeJsonLd(
 	recipe: {
 		title: string
 		description: string | null
-		servings: number
-		prepTime: number | null
-		cookTime: number | null
+		activeTime: number | null
+		totalTime: number | null
+		yieldAmount: number | null
+		yieldLabel: string | null
 		image: { objectKey: string; altText: string | null } | null
 		ingredients: Array<{
 			name: string
@@ -27,17 +28,21 @@ export function getRecipeJsonLd(
 	},
 	origin: string | undefined,
 ) {
-	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
-
 	const jsonLd: Record<string, unknown> = {
 		'@context': 'https://schema.org',
 		'@type': 'Recipe',
 		name: recipe.title,
 		...(recipe.description && { description: recipe.description }),
-		...(recipe.servings && { recipeYield: `${recipe.servings} servings` }),
-		...(recipe.prepTime && { prepTime: toIsoDuration(recipe.prepTime) }),
-		...(recipe.cookTime && { cookTime: toIsoDuration(recipe.cookTime) }),
-		...(totalTime > 0 && { totalTime: toIsoDuration(totalTime) }),
+		...(recipe.yieldAmount != null &&
+			recipe.yieldLabel != null && {
+				recipeYield: `${recipe.yieldAmount} ${recipe.yieldLabel}`,
+			}),
+		...(recipe.activeTime != null && {
+			prepTime: toIsoDuration(recipe.activeTime),
+		}),
+		...(recipe.totalTime != null && {
+			totalTime: toIsoDuration(recipe.totalTime),
+		}),
 		recipeIngredient: recipe.ingredients
 			.filter((i) => !i.isHeading)
 			.map((i) => [i.amount, i.unit, i.name].filter(Boolean).join(' ')),

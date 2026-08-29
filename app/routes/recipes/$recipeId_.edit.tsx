@@ -41,6 +41,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			servings: true,
 			prepTime: true,
 			cookTime: true,
+			activeTime: true,
+			totalTime: true,
+			yieldAmount: true,
+			yieldLabel: true,
 			sourceUrl: true,
 			notes: true,
 			householdId: true,
@@ -191,8 +195,19 @@ export async function action({ request, params }: Route.ActionArgs) {
 		return data({ result: submission.reply() }, { status: 400 })
 	}
 
-	const { title, description, servings, prepTime, cookTime, sourceUrl, notes } =
-		submission.value
+	const {
+		title,
+		description,
+		servings,
+		prepTime,
+		cookTime,
+		activeTime,
+		totalTime,
+		yieldAmount,
+		yieldLabel,
+		sourceUrl,
+		notes,
+	} = submission.value
 
 	// Update recipe - delete all ingredients and instructions, then recreate
 	await prisma.$transaction([
@@ -206,6 +221,10 @@ export async function action({ request, params }: Route.ActionArgs) {
 				servings,
 				prepTime,
 				cookTime,
+				activeTime: activeTime ?? null,
+				totalTime: totalTime ?? null,
+				yieldAmount: yieldAmount ?? null,
+				yieldLabel: yieldLabel ?? null,
 				sourceUrl: sourceUrl || null,
 				notes: notes || null,
 				ingredients: {

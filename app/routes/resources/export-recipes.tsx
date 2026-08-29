@@ -13,6 +13,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 			servings: true,
 			prepTime: true,
 			cookTime: true,
+			activeTime: true,
+			totalTime: true,
+			yieldAmount: true,
+			yieldLabel: true,
 			isFavorite: true,
 			sourceUrl: true,
 			ingredients: {
@@ -37,6 +41,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 			servings: recipe.servings,
 			prepTime: recipe.prepTime,
 			cookTime: recipe.cookTime,
+			activeTime: recipe.activeTime,
+			totalTime: recipe.totalTime,
+			yieldAmount: recipe.yieldAmount,
+			yieldLabel: recipe.yieldLabel,
 			isFavorite: recipe.isFavorite,
 			sourceUrl: recipe.sourceUrl,
 			ingredients: recipe.ingredients.map((ing) => ({

@@ -86,6 +86,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 			servings: true,
 			prepTime: true,
 			cookTime: true,
+			activeTime: true,
+			totalTime: true,
+			yieldAmount: true,
+			yieldLabel: true,
 			isAiGenerated: true,
 			sourceUrl: true,
 			user: { select: { name: true } },
@@ -166,6 +170,10 @@ export async function action({ params, request }: Route.ActionArgs) {
 			servings: recipe.servings,
 			prepTime: recipe.prepTime,
 			cookTime: recipe.cookTime,
+			activeTime: recipe.activeTime,
+			totalTime: recipe.totalTime,
+			yieldAmount: recipe.yieldAmount,
+			yieldLabel: recipe.yieldLabel,
 			isFavorite: false,
 			isAiGenerated: recipe.isAiGenerated,
 			sourceUrl: recipe.sourceUrl,
@@ -292,8 +300,10 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 						</h1>
 						<Divider className="mt-3 mb-2 max-w-xs" />
 						<RecipeMetadataCard
-							prepTime={recipe.prepTime}
-							cookTime={recipe.cookTime}
+							activeTime={recipe.activeTime}
+							totalTime={recipe.totalTime}
+							yieldAmount={recipe.yieldAmount}
+							yieldLabel={recipe.yieldLabel}
 							sourceUrl={recipe.sourceUrl}
 						/>
 					</div>

@@ -12,11 +12,16 @@ import { Divider } from '#app/components/divider.tsx'
 import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
 import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
 import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
+import { RecipeScaleControl } from '#app/components/recipe-scale-control.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import {
+	formatScaleMultiplier,
+	ScaleMultiplierSchema,
+} from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type Route } from './+types/share.$recipeId.ts'
@@ -229,21 +234,29 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 	const [checkedSteps, setCheckedSteps] = useState<Set<string>>(() => new Set())
 	const [ingredientsExpanded, setIngredientsExpanded] = useState(true)
 
-	const servingsParam = searchParams.get('servings')
-	const currentServings = servingsParam
-		? Math.min(999, Math.max(1, parseInt(servingsParam, 10) || recipe.servings))
+	const scaleParam = ScaleMultiplierSchema.safeParse(searchParams.get('scale'))
+	// Preserve old public `servings` links without treating that legacy field as
+	// typed yield. New interactions write the multiplier directly.
+	const legacyServingsParam = searchParams.get('servings')
+	const legacyServings = legacyServingsParam
+		? Math.min(
+				999,
+				Math.max(1, parseInt(legacyServingsParam, 10) || recipe.servings),
+			)
 		: recipe.servings
-	const ratio = currentServings / recipe.servings
-	const isScaled = currentServings !== recipe.servings
+	const ratio = scaleParam.success
+		? scaleParam.data
+		: legacyServings / recipe.servings
+	const isScaled = ratio !== 1
 
-	function updateServings(newServings: number) {
-		const clamped = Math.min(999, Math.max(1, newServings))
+	function updateScaleMultiplier(scaleMultiplier: number) {
 		setSearchParams(
 			(prev) => {
-				if (clamped === recipe.servings) {
-					prev.delete('servings')
+				prev.delete('servings')
+				if (scaleMultiplier === 1) {
+					prev.delete('scale')
 				} else {
-					prev.set('servings', clamped.toString())
+					prev.set('scale', formatScaleMultiplier(scaleMultiplier))
 				}
 				return prev
 			},
@@ -353,39 +366,22 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 										Ingredients
 									</h2>
 								</button>
-								<span className="ml-auto flex items-center gap-1">
-									<Button
-										variant="outline"
-										size="sm"
-										className="h-8 w-8 p-0 text-xs"
-										onClick={() => updateServings(currentServings - 1)}
-										disabled={currentServings <= 1}
-									>
-										-
-									</Button>
-									<span className="min-w-[3ch] text-center text-sm font-medium">
-										{currentServings}
-									</span>
-									<Button
-										variant="outline"
-										size="sm"
-										className="h-8 w-8 p-0 text-xs"
-										onClick={() => updateServings(currentServings + 1)}
-									>
-										+
-									</Button>
+								<span className="ml-auto flex min-w-0 items-center gap-2">
+									<RecipeScaleControl
+										scaleMultiplier={ratio}
+										yieldAmount={recipe.yieldAmount}
+										yieldLabel={recipe.yieldLabel}
+										servings={recipe.servings}
+										onScaleMultiplierChange={updateScaleMultiplier}
+									/>
 									{isScaled ? (
 										<button
-											onClick={() => updateServings(recipe.servings)}
+											onClick={() => updateScaleMultiplier(1)}
 											className="text-primary text-xs hover:underline"
 										>
 											Reset
 										</button>
-									) : (
-										<span className="text-muted-foreground text-sm">
-											servings
-										</span>
-									)}
+									) : null}
 								</span>
 							</div>
 							<div

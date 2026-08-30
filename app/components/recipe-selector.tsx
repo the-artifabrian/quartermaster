@@ -13,6 +13,8 @@ export type RecipeSelectorRecipe = {
 	prepTime: number | null
 	cookTime: number | null
 	servings: number
+	yieldAmount: number | null
+	yieldLabel: string | null
 	isFavorite: boolean
 	image: { objectKey: string } | null
 }

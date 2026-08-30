@@ -178,3 +178,72 @@ test('custom Recipe yield labels fit phone and desktop detail layouts', async ({
 		expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width)
 	}
 })
+
+test('manual Recipe scaling uses target yield when known and multiplier when unknown', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const household = await prisma.household.create({
+		data: {
+			name: 'Manual scale household',
+			members: { create: { userId: user.id, role: 'owner' } },
+		},
+	})
+	const known = await prisma.recipe.create({
+		data: {
+			title: 'Twelve parcels',
+			yieldAmount: 12,
+			yieldLabel: 'pieces',
+			servings: 97,
+			userId: user.id,
+			householdId: household.id,
+		},
+	})
+	const unknown = await prisma.recipe.create({
+		data: {
+			title: 'Legacy family batch',
+			servings: 12,
+			yieldAmount: null,
+			yieldLabel: null,
+			userId: user.id,
+			householdId: household.id,
+		},
+	})
+
+	for (const viewport of [
+		{ width: 390, height: 844 },
+		{ width: 1280, height: 800 },
+	]) {
+		await page.setViewportSize(viewport)
+
+		await page.goto(`/recipes/${known.id}`)
+		const target = page.getByLabel('Target pieces')
+		await expect(target).toHaveValue('12')
+		const targetBox = await target.boundingBox()
+		expect(targetBox).not.toBeNull()
+		expect(targetBox!.x + targetBox!.width).toBeLessThanOrEqual(viewport.width)
+
+		await page.goto(`/recipes/${unknown.id}`)
+		const multiplier = page.getByLabel('Scale multiplier')
+		await expect(multiplier).toHaveValue('1')
+		await expect(page.getByLabel('Target servings')).toHaveCount(0)
+		const multiplierBox = await multiplier.boundingBox()
+		expect(multiplierBox).not.toBeNull()
+		expect(multiplierBox!.x + multiplierBox!.width).toBeLessThanOrEqual(
+			viewport.width,
+		)
+	}
+
+	await page.goto(`/recipes/${known.id}`)
+	await page.getByLabel('Target pieces').fill('18')
+	await page.getByLabel('Target pieces').press('Enter')
+	await expect(page).toHaveURL(new RegExp(`/recipes/${known.id}\\?scale=1.5$`))
+
+	await page.goto(`/recipes/${unknown.id}`)
+	await page.getByLabel('Scale multiplier').fill('1.5')
+	await page.getByLabel('Scale multiplier').press('Enter')
+	await expect(page).toHaveURL(
+		new RegExp(`/recipes/${unknown.id}\\?scale=1.5$`),
+	)
+})

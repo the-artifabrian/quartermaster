@@ -58,6 +58,18 @@ export const ScaleMultiplierSchema = z
 		message: 'Multiplier must be 100 or less',
 	})
 
+/** Friendly typed-yield amount; the server converts it to ScaleMultiplier. */
+export const TargetYieldSchema = z
+	.string()
+	.trim()
+	.regex(/^\d{1,12}([.,]\d{1,2})?$/, {
+		message: 'Use a positive amount with up to two decimal places',
+	})
+	.transform((value) => Number(value.replace(',', '.')))
+	.refine((value) => value > 0, {
+		message: 'Target amount must be more than zero',
+	})
+
 export const NOTE_TEXT_REQUIRED_MESSAGE = 'Note text is required'
 export const LINE_NAME_REQUIRED_MESSAGE = 'Line name is required'
 
@@ -98,6 +110,8 @@ const MenuBuilderItemSchema = z
 		/** Referenced Recipe; absent only on a missing card kept as-is. */
 		recipeId: z.string().optional(),
 		scaleMultiplier: ScaleMultiplierSchema.optional(),
+		/** Present only when the referenced Recipe has explicit typed yield. */
+		targetYield: TargetYieldSchema.optional(),
 		note: z.string().max(500, { message: 'Note is too long' }).optional(),
 		/** A note card's flexible text (stored in MenuItem.note). */
 		text: z

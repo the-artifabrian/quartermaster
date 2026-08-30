@@ -2,6 +2,7 @@ import { Img } from 'openimg/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
+import { RecipeScaleControl } from '#app/components/recipe-scale-control.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import {
 	DropdownMenu,
@@ -36,6 +37,8 @@ export type PlanMealItem = {
 		id: string
 		title: string
 		servings: number
+		yieldAmount: number | null
+		yieldLabel: string | null
 		prepTime: number | null
 		cookTime: number | null
 		image: { objectKey: string } | null
@@ -76,81 +79,31 @@ export function mealLabelText(label: string) {
 	return MEAL_TYPE_LABELS[label as MealType] ?? label
 }
 
-/** Client-side twin of ScaleMultiplierSchema for instant feedback. */
-function isValidMultiplierInput(value: string) {
-	if (!/^\d{1,3}([.,]\d{1,2})?$/.test(value.trim())) return false
-	const parsed = Number(value.trim().replace(',', '.'))
-	return parsed > 0 && parsed <= 100
-}
-
 function MultiplierControl({ item }: { item: PlanMealItem }) {
 	const fetcher = useFetcher()
-	const [editing, setEditing] = useState(false)
-	const [value, setValue] = useState('')
-	const [invalid, setInvalid] = useState(false)
-
-	// Optimistic: show the submitted value while the write is in flight.
 	const submitted = fetcher.formData?.get('multiplier')
-	const shown =
+	const shownMultiplier =
 		typeof submitted === 'string'
-			? submitted.replace(',', '.')
-			: formatScaleMultiplier(item.scaleMultiplier)
-
-	function commit() {
-		const trimmed = value.trim()
-		if (!trimmed || trimmed === formatScaleMultiplier(item.scaleMultiplier)) {
-			setEditing(false)
-			return
-		}
-		if (!isValidMultiplierInput(trimmed)) {
-			setInvalid(true)
-			return
-		}
-		void fetcher.submit(
-			{ intent: 'setItemMultiplier', itemId: item.id, multiplier: trimmed },
-			{ method: 'POST' },
-		)
-		setEditing(false)
-	}
-
-	if (editing) {
-		return (
-			<Input
-				autoFocus
-				inputMode="decimal"
-				value={value}
-				onChange={(e) => {
-					setValue(e.target.value)
-					setInvalid(false)
-				}}
-				onBlur={commit}
-				onKeyDown={(e) => {
-					if (e.key === 'Enter') commit()
-					if (e.key === 'Escape') setEditing(false)
-				}}
-				aria-label={`Multiplier for ${item.recipeTitle}`}
-				aria-invalid={invalid || undefined}
-				className={cn(
-					'h-7 w-14 px-1.5 text-center text-xs',
-					invalid && 'border-destructive focus-visible:ring-destructive',
-				)}
-			/>
-		)
-	}
-
+			? Number(submitted.replace(',', '.'))
+			: item.scaleMultiplier
 	return (
-		<button
-			type="button"
-			onClick={() => {
-				setValue(formatScaleMultiplier(item.scaleMultiplier))
-				setInvalid(false)
-				setEditing(true)
+		<RecipeScaleControl
+			scaleMultiplier={shownMultiplier}
+			yieldAmount={item.recipe?.yieldAmount ?? null}
+			yieldLabel={item.recipe?.yieldLabel ?? null}
+			servings={item.recipe?.servings}
+			compact
+			onScaleMultiplierChange={(scaleMultiplier) => {
+				void fetcher.submit(
+					{
+						intent: 'setItemMultiplier',
+						itemId: item.id,
+						multiplier: formatScaleMultiplier(scaleMultiplier),
+					},
+					{ method: 'POST' },
+				)
 			}}
-			className="text-muted-foreground hover:bg-muted hover:text-foreground relative rounded px-1 py-0.5 text-xs tabular-nums transition-colors after:absolute after:-inset-x-1.5 after:-inset-y-1.5 after:content-[''] md:after:hidden"
-			aria-label={`Edit multiplier for ${item.recipeTitle} (currently ${shown}×)`}
-		>
-			{shown}×
-		</button>
+		/>
 	)
 }
 
@@ -179,13 +132,6 @@ function ItemRow({
 	}, [confirmingRemove])
 
 	const missing = item.recipe == null
-	const linkServings =
-		item.recipe && item.scaleMultiplier !== 1
-			? Math.min(
-					999,
-					Math.max(1, Math.round(item.scaleMultiplier * item.recipe.servings)),
-				)
-			: null
 	const thumbPlaceholder = item.recipe?.image?.objectKey
 		? null
 		: getRecipePlaceholder(item.recipeTitle)
@@ -263,8 +209,8 @@ function ItemRow({
 					{item.recipe ? (
 						<Link
 							to={
-								linkServings && linkServings !== item.recipe.servings
-									? `/recipes/${item.recipe.id}?servings=${linkServings}`
+								item.scaleMultiplier !== 1
+									? `/recipes/${item.recipe.id}?scale=${formatScaleMultiplier(item.scaleMultiplier)}`
 									: `/recipes/${item.recipe.id}`
 							}
 							className={cn('hover:underline', !isCooked && 'text-foreground')}

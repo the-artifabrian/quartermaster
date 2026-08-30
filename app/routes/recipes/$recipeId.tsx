@@ -12,6 +12,7 @@ import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
 import { RecipeIngredientsSheet } from '#app/components/recipe-ingredients-sheet.tsx'
 import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
 import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
+import { RecipeScaleControl } from '#app/components/recipe-scale-control.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
@@ -34,7 +35,10 @@ import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
 import { activeLegacyPantryWhere } from '#app/utils/legacy-pantry.server.ts'
-import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
+import {
+	formatScaleMultiplier,
+	ScaleMultiplierSchema,
+} from '#app/utils/menu-validation.ts'
 import {
 	convertToMetric,
 	displayMetricAmount,
@@ -549,12 +553,20 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		checkedIngredients.has(i.id),
 	).length
 
-	const servingsParam = searchParams.get('servings')
-	const currentServings = servingsParam
-		? Math.min(999, Math.max(1, parseInt(servingsParam, 10) || recipe.servings))
+	const scaleParam = ScaleMultiplierSchema.safeParse(searchParams.get('scale'))
+	// Old shared/Plan links used `servings`. Keep those URLs working through
+	// #123, but never treat legacy servings as known typed yield.
+	const legacyServingsParam = searchParams.get('servings')
+	const legacyServings = legacyServingsParam
+		? Math.min(
+				999,
+				Math.max(1, parseInt(legacyServingsParam, 10) || recipe.servings),
+			)
 		: recipe.servings
-	const ratio = currentServings / recipe.servings
-	const isScaled = currentServings !== recipe.servings
+	const ratio = scaleParam.success
+		? scaleParam.data
+		: legacyServings / recipe.servings
+	const isScaled = ratio !== 1
 
 	// Open enhance modal or show error when enhance fetch completes
 	useEffect(() => {
@@ -599,15 +611,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		formData.set('date', planDate)
 		if (planMealType) formData.set('label', planMealType)
 		formData.set('recipeId', recipe.id)
-		// The page's servings stepper is a view-scaler; planning persists the
-		// equivalent batch multiplier instead (#98 quantity basis), clamped to
-		// the 100× the multiplier schema allows (a 1-serving recipe stepped to
-		// 999 would otherwise compose an out-of-range value the server rejects).
-		if (currentServings !== recipe.servings && recipe.servings > 0) {
-			formData.set(
-				'multiplier',
-				formatScaleMultiplier(Math.min(100, currentServings / recipe.servings)),
-			)
+		// The friendly target/multiplier control is only a view of the deterministic
+		// stored quantity basis used by Menu, Meal, Shopping, and future costing.
+		if (ratio !== 1) {
+			formData.set('multiplier', formatScaleMultiplier(ratio))
 		}
 		void planFetcher.submit(formData, {
 			method: 'POST',
@@ -624,14 +631,14 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		})
 	}
 
-	function updateServings(newServings: number) {
-		const clamped = Math.min(999, Math.max(1, newServings))
+	function updateScaleMultiplier(scaleMultiplier: number) {
 		setSearchParams(
 			(prev) => {
-				if (clamped === recipe.servings) {
-					prev.delete('servings')
+				prev.delete('servings')
+				if (scaleMultiplier === 1) {
+					prev.delete('scale')
 				} else {
-					prev.set('servings', clamped.toString())
+					prev.set('scale', formatScaleMultiplier(scaleMultiplier))
 				}
 				return prev
 			},
@@ -849,43 +856,22 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 										Ingredients
 									</h2>
 								</button>
-								<span className="ml-auto flex items-center gap-1 print:hidden">
-									{/* after: pseudo on both steppers widens the hit area to
-									    ~44px without growing the visual control (D7) */}
-									<Button
-										variant="outline"
-										size="sm"
-										className="relative h-8 w-8 p-0 text-xs after:absolute after:-inset-x-1 after:-inset-y-1.5 after:content-[''] md:after:hidden"
-										onClick={() => updateServings(currentServings - 1)}
-										disabled={currentServings <= 1}
-										aria-label="Decrease servings"
-									>
-										-
-									</Button>
-									<span className="min-w-[3ch] text-center text-sm font-medium">
-										{currentServings}
-									</span>
-									<Button
-										variant="outline"
-										size="sm"
-										className="relative h-8 w-8 p-0 text-xs after:absolute after:-inset-x-1 after:-inset-y-1.5 after:content-[''] md:after:hidden"
-										onClick={() => updateServings(currentServings + 1)}
-										aria-label="Increase servings"
-									>
-										+
-									</Button>
+								<span className="ml-auto flex min-w-0 items-center gap-2 print:hidden">
+									<RecipeScaleControl
+										scaleMultiplier={ratio}
+										yieldAmount={recipe.yieldAmount}
+										yieldLabel={recipe.yieldLabel}
+										servings={recipe.servings}
+										onScaleMultiplierChange={updateScaleMultiplier}
+									/>
 									{isScaled ? (
 										<button
-											onClick={() => updateServings(recipe.servings)}
+											onClick={() => updateScaleMultiplier(1)}
 											className="text-primary text-xs hover:underline"
 										>
 											Reset
 										</button>
-									) : (
-										<span className="text-muted-foreground text-sm">
-											servings
-										</span>
-									)}
+									) : null}
 								</span>
 							</div>
 							<div

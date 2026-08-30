@@ -95,6 +95,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 									id: true,
 									title: true,
 									servings: true,
+									yieldAmount: true,
+									yieldLabel: true,
 									prepTime: true,
 									cookTime: true,
 									image: { select: { objectKey: true } },
@@ -134,6 +136,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 			prepTime: true,
 			cookTime: true,
 			servings: true,
+			yieldAmount: true,
+			yieldLabel: true,
 			isFavorite: true,
 			image: { select: { objectKey: true } },
 		},
@@ -207,6 +211,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 							id: item.recipe.id,
 							title: item.recipe.title,
 							servings: item.recipe.servings,
+							yieldAmount: item.recipe.yieldAmount,
+							yieldLabel: item.recipe.yieldLabel,
 							prepTime: item.recipe.prepTime,
 							cookTime: item.recipe.cookTime,
 							image: item.recipe.image,
@@ -227,6 +233,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 			prepTime: number | null
 			cookTime: number | null
 			servings: number
+			yieldAmount: number | null
+			yieldLabel: string | null
 			image: { objectKey: string } | null
 		}
 		scaleMultiplier: number

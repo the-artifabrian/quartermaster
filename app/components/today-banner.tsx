@@ -1,7 +1,13 @@
 import { Img } from 'openimg/react'
 import { Link } from 'react-router'
+import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
+import {
+	formatTargetYieldAmount,
+	getTypedYield,
+	scaleMultiplierToTargetYield,
+} from '#app/utils/target-yield.ts'
 import { mealLabelText } from './meal-card.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -14,6 +20,8 @@ export type TonightData = {
 		prepTime: number | null
 		cookTime: number | null
 		servings: number
+		yieldAmount: number | null
+		yieldLabel: string | null
 		image: { objectKey: string } | null
 	}
 	scaleMultiplier: number
@@ -23,13 +31,14 @@ export type TonightData = {
 export function TodayBanner({ tonight }: { tonight: TonightData }) {
 	const { label, recipe, scaleMultiplier, remainingCount } = tonight
 	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
-	const linkServings =
-		scaleMultiplier !== 1
-			? Math.min(
-					999,
-					Math.max(1, Math.round(scaleMultiplier * recipe.servings)),
-				)
-			: null
+	const recipeYield = getTypedYield(recipe)
+	const targetYield = scaleMultiplierToTargetYield(scaleMultiplier, recipeYield)
+	const quantityText =
+		recipeYield && targetYield != null
+			? `${formatTargetYieldAmount(targetYield)} ${recipeYield.label}`
+			: scaleMultiplier !== 1
+				? `${formatScaleMultiplier(scaleMultiplier)}× batch`
+				: null
 
 	return (
 		<div className="border-accent/40 from-background to-secondary dark:from-card dark:to-secondary/20 mb-4 overflow-hidden rounded-md border-l-[3px] bg-linear-to-r">
@@ -85,7 +94,7 @@ export function TodayBanner({ tonight }: { tonight: TonightData }) {
 								{totalTime} min
 							</span>
 						)}
-						{scaleMultiplier !== 1 && <span>{scaleMultiplier}× batch</span>}
+						{quantityText ? <span>{quantityText}</span> : null}
 					</div>
 					{remainingCount > 0 && (
 						<p className="text-muted-foreground mt-1 text-xs">
@@ -98,8 +107,8 @@ export function TodayBanner({ tonight }: { tonight: TonightData }) {
 				<Button asChild size="sm" className="shrink-0">
 					<Link
 						to={
-							linkServings && linkServings !== recipe.servings
-								? `/recipes/${recipe.id}?servings=${linkServings}`
+							scaleMultiplier !== 1
+								? `/recipes/${recipe.id}?scale=${formatScaleMultiplier(scaleMultiplier)}`
 								: `/recipes/${recipe.id}`
 						}
 					>

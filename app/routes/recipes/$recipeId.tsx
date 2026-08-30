@@ -13,6 +13,11 @@ import { RecipeIngredientsSheet } from '#app/components/recipe-ingredients-sheet
 import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
 import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
 import { RecipeScaleControl } from '#app/components/recipe-scale-control.tsx'
+import {
+	isRecipeScalePrototypeVariant,
+	RecipeScalePrototype,
+	RecipeScalePrototypeSwitcher,
+} from '#app/components/recipe-scale-prototype.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
@@ -182,6 +187,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
 	return {
 		recipe,
+		scalePrototypeEnabled: process.env.NODE_ENV !== 'production',
 		isProActive: tierInfo.isProActive,
 		missingIngredientIds,
 		hasInventory:
@@ -477,6 +483,7 @@ function toShoppingItem(
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const {
 		recipe,
+		scalePrototypeEnabled,
 		isProActive,
 		missingIngredientIds,
 		hasInventory,
@@ -487,6 +494,11 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const origin = rootData?.requestInfo?.origin
 	const recipeJsonLd = getRecipeJsonLd(recipe, origin)
 	const [searchParams, setSearchParams] = useSearchParams()
+	const scalePrototypeParam = searchParams.get('scalePrototype')
+	const scalePrototype =
+		scalePrototypeEnabled && isRecipeScalePrototypeVariant(scalePrototypeParam)
+			? scalePrototypeParam
+			: null
 	const favoriteFetcher = useFetcher()
 	const isFavorite =
 		favoriteFetcher.formData?.get('intent') === 'toggleFavorite'
@@ -836,7 +848,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						className="md:sticky md:top-20 md:self-start print:static"
 					>
 						<div className="print:p-2">
-							<div className="mb-3 flex items-center gap-2 md:mb-4">
+							<div className="mb-3 flex flex-wrap items-center gap-2 md:mb-4">
 								<button
 									type="button"
 									className="flex items-center gap-1.5 md:pointer-events-none"
@@ -856,14 +868,30 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 										Ingredients
 									</h2>
 								</button>
-								<span className="ml-auto flex min-w-0 items-center gap-2 print:hidden">
-									<RecipeScaleControl
-										scaleMultiplier={ratio}
-										yieldAmount={recipe.yieldAmount}
-										yieldLabel={recipe.yieldLabel}
-										servings={recipe.servings}
-										onScaleMultiplierChange={updateScaleMultiplier}
-									/>
+								<span
+									className={cn(
+										'ml-auto flex min-w-0 items-center gap-2 print:hidden',
+										scalePrototype &&
+											'basis-full justify-end pt-1 md:basis-auto md:pt-0',
+									)}
+								>
+									{scalePrototype ? (
+										<RecipeScalePrototype
+											variant={scalePrototype}
+											scaleMultiplier={ratio}
+											yieldAmount={recipe.yieldAmount}
+											yieldLabel={recipe.yieldLabel}
+											onScaleMultiplierChange={updateScaleMultiplier}
+										/>
+									) : (
+										<RecipeScaleControl
+											scaleMultiplier={ratio}
+											yieldAmount={recipe.yieldAmount}
+											yieldLabel={recipe.yieldLabel}
+											servings={recipe.servings}
+											onScaleMultiplierChange={updateScaleMultiplier}
+										/>
+									)}
 									{isScaled ? (
 										<button
 											onClick={() => updateScaleMultiplier(1)}
@@ -938,6 +966,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					onClose={() => setShowEnhanceModal(false)}
 				/>
 			)}
+
+			{scalePrototype ? (
+				<RecipeScalePrototypeSwitcher current={scalePrototype} />
+			) : null}
 		</>
 	)
 }

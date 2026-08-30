@@ -29,6 +29,9 @@ test('Recipe form offers optional Active, Total, and free-text Yield fields', ()
 	expect(
 		screen.queryByRole('spinbutton', { name: 'Cook Time (min)' }),
 	).not.toBeInTheDocument()
+	expect(
+		screen.queryByRole('spinbutton', { name: 'Servings' }),
+	).not.toBeInTheDocument()
 })
 
 test('Recipe form reopens explicit time and typed yield values for editing', () => {
@@ -40,7 +43,6 @@ test('Recipe form reopens explicit time and typed yield values for editing', () 
 					recipe={{
 						id: 'recipe-1',
 						title: 'Braided loaf',
-						servings: 4,
 						activeTime: 25,
 						totalTime: 180,
 						yieldAmount: 2.5,

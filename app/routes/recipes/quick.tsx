@@ -49,14 +49,15 @@ export async function action({ request }: Route.ActionArgs) {
 
 	// Parse the raw text to extract structured ingredients and instructions.
 	// The typed title runs through the parser too, so "Pho (Serves 2)"
-	// lands as title "Pho" + servings 2, same as the other import paths.
+	// lands as title "Pho" + explicit typed yield, like the other import paths.
 	const parsed = parseRecipeText(`${title}\n\n${rawText}`)
 
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: parsed.title || title,
-			servings: parsed.servings,
 			description: parsed.description,
+			yieldAmount: parsed.yieldAmount,
+			yieldLabel: parsed.yieldLabel,
 			userId,
 			householdId,
 			ingredients:

@@ -20,9 +20,10 @@ import {
 const validResponse = {
 	title: 'Creamy Garlic Pasta',
 	description: 'A quick creamy pasta with garlic and parmesan.',
-	servings: 2,
-	prepTime: 5,
-	cookTime: 15,
+	activeTime: 5,
+	totalTime: 20,
+	yieldAmount: 2,
+	yieldLabel: 'servings',
 	ingredients: [
 		{ name: 'pasta', amount: '200', unit: 'g', notes: null },
 		{ name: 'garlic', amount: '4', unit: null, notes: 'cloves, minced' },
@@ -100,11 +101,43 @@ describe('buildExtractPrompt', () => {
 })
 
 describe('parseExtractResponse', () => {
+	test('returns only explicit Active, Total, and paired Yield metadata', () => {
+		const result = parseExtractResponse(
+			JSON.stringify({
+				...validResponse,
+				servings: 97,
+				prepTime: 5,
+				cookTime: 15,
+				activeTime: 5,
+				totalTime: 20,
+				yieldAmount: 2,
+				yieldLabel: 'servings',
+			}),
+		)
+
+		expect(result).toEqual(
+			expect.objectContaining({
+				activeTime: 5,
+				totalTime: 20,
+				yieldAmount: 2,
+				yieldLabel: 'servings',
+			}),
+		)
+		expect(result).not.toHaveProperty('servings')
+		expect(result).not.toHaveProperty('prepTime')
+		expect(result).not.toHaveProperty('cookTime')
+	})
+
 	test('parses valid recipe JSON', () => {
 		const result = parseExtractResponse(JSON.stringify(validResponse))
 		expect(result).not.toBeNull()
 		expect(result!.title).toBe('Creamy Garlic Pasta')
-		expect(result!.servings).toBe(2)
+		expect(result).toMatchObject({
+			activeTime: 5,
+			totalTime: 20,
+			yieldAmount: 2,
+			yieldLabel: 'servings',
+		})
 		expect(result!.ingredients).toHaveLength(4)
 		expect(result!.instructions).toHaveLength(4)
 	})
@@ -159,21 +192,21 @@ describe('parseExtractResponse', () => {
 		expect(result!.instructions).toHaveLength(30)
 	})
 
-	test('defaults servings to 4 when invalid', () => {
-		const badServings = { ...validResponse, servings: -1 }
-		const result = parseExtractResponse(JSON.stringify(badServings))
-		expect(result!.servings).toBe(4)
+	test('keeps incomplete yield metadata unknown', () => {
+		const incompleteYield = { ...validResponse, yieldLabel: null }
+		const result = parseExtractResponse(JSON.stringify(incompleteYield))
+		expect(result).toMatchObject({ yieldAmount: null, yieldLabel: null })
 	})
 
-	test('handles null times', () => {
+	test('handles null Active and Total times', () => {
 		const nullTimes = {
 			...validResponse,
-			prepTime: null,
-			cookTime: null,
+			activeTime: null,
+			totalTime: null,
 		}
 		const result = parseExtractResponse(JSON.stringify(nullTimes))
-		expect(result!.prepTime).toBeNull()
-		expect(result!.cookTime).toBeNull()
+		expect(result!.activeTime).toBeNull()
+		expect(result!.totalTime).toBeNull()
 	})
 
 	test('coerces numeric amounts to strings', () => {

@@ -36,11 +36,9 @@ export type PlanMealItem = {
 	recipe: {
 		id: string
 		title: string
-		servings: number
 		yieldAmount: number | null
 		yieldLabel: string | null
-		prepTime: number | null
-		cookTime: number | null
+		totalTime: number | null
 		image: { objectKey: string } | null
 	} | null
 }
@@ -91,7 +89,6 @@ function MultiplierControl({ item }: { item: PlanMealItem }) {
 			scaleMultiplier={shownMultiplier}
 			yieldAmount={item.recipe?.yieldAmount ?? null}
 			yieldLabel={item.recipe?.yieldLabel ?? null}
-			servings={item.recipe?.servings}
 			compact
 			onScaleMultiplierChange={(scaleMultiplier) => {
 				void fetcher.submit(

@@ -88,9 +88,6 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 			id: true,
 			title: true,
 			description: true,
-			servings: true,
-			prepTime: true,
-			cookTime: true,
 			activeTime: true,
 			totalTime: true,
 			yieldAmount: true,
@@ -172,9 +169,6 @@ export async function action({ params, request }: Route.ActionArgs) {
 		data: {
 			title: recipe.title,
 			description: recipe.description,
-			servings: recipe.servings,
-			prepTime: recipe.prepTime,
-			cookTime: recipe.cookTime,
 			activeTime: recipe.activeTime,
 			totalTime: recipe.totalTime,
 			yieldAmount: recipe.yieldAmount,
@@ -235,23 +229,14 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 	const [ingredientsExpanded, setIngredientsExpanded] = useState(true)
 
 	const scaleParam = ScaleMultiplierSchema.safeParse(searchParams.get('scale'))
-	// Preserve old public `servings` links without treating that legacy field as
-	// typed yield. New interactions write the multiplier directly.
-	const legacyServingsParam = searchParams.get('servings')
-	const legacyServings = legacyServingsParam
-		? Math.min(
-				999,
-				Math.max(1, parseInt(legacyServingsParam, 10) || recipe.servings),
-			)
-		: recipe.servings
-	const ratio = scaleParam.success
-		? scaleParam.data
-		: legacyServings / recipe.servings
+	const ratio = scaleParam.success ? scaleParam.data : 1
 	const isScaled = ratio !== 1
 
 	function updateScaleMultiplier(scaleMultiplier: number) {
 		setSearchParams(
 			(prev) => {
+				// Drop retired quantity parameters whenever an interaction writes the
+				// canonical multiplier URL.
 				prev.delete('servings')
 				if (scaleMultiplier === 1) {
 					prev.delete('scale')
@@ -344,7 +329,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 				{/* Content zone: Ingredients + Instructions */}
 				<div className="mt-4 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8">
 					{/* Ingredients */}
-					<div className="md:sticky md:top-20 md:self-start">
+					<div className="min-w-0 md:sticky md:top-20 md:self-start">
 						<div>
 							<div className="mb-3 flex items-center gap-2 md:mb-4">
 								<button
@@ -371,7 +356,6 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 										scaleMultiplier={ratio}
 										yieldAmount={recipe.yieldAmount}
 										yieldLabel={recipe.yieldLabel}
-										servings={recipe.servings}
 										onScaleMultiplierChange={updateScaleMultiplier}
 									/>
 									{isScaled ? (

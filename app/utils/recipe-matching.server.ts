@@ -589,9 +589,6 @@ export type MatchableRecipe = {
 	id: string
 	title: string
 	description?: string | null
-	prepTime?: number | null
-	cookTime?: number | null
-	servings?: number | null
 	isFavorite?: boolean
 	// Only the fields the matcher actually reads, so callers can project a
 	// trimmed ingredient select (name/notes/isHeading) without an unsafe cast.

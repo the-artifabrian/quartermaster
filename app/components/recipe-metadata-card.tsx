@@ -40,7 +40,7 @@ export function RecipeMetadataCard({
 				</span>
 			)}
 			{hasYield && (
-				<span className="max-w-full min-w-0 [overflow-wrap:anywhere]">
+				<span className="max-w-full min-w-0 break-all">
 					Yield: {yieldAmount} {yieldLabel}
 				</span>
 			)}

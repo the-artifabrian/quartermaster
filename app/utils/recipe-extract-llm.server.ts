@@ -32,9 +32,10 @@ export const ALLOWED_IMAGE_MEDIA_TYPES = [
 export type ExtractedRecipeFromLLM = {
 	title: string
 	description: string | null
-	servings: number
-	prepTime: number | null
-	cookTime: number | null
+	activeTime: number | null
+	totalTime: number | null
+	yieldAmount: number | null
+	yieldLabel: string | null
 	ingredients: Array<{
 		name: string
 		amount: string | null
@@ -93,9 +94,10 @@ const ExtractedRecipeSchema: z.ZodType<ExtractedRecipeFromLLM> = z
 	.object({
 		title: z.string().trim().min(1),
 		description: z.unknown().optional(),
-		servings: z.unknown().optional(),
-		prepTime: z.unknown().optional(),
-		cookTime: z.unknown().optional(),
+		activeTime: z.unknown().optional(),
+		totalTime: z.unknown().optional(),
+		yieldAmount: z.unknown().optional(),
+		yieldLabel: z.unknown().optional(),
 		ingredients: z.array(z.unknown()),
 		instructions: z.array(z.unknown()),
 	})
@@ -105,17 +107,27 @@ const ExtractedRecipeSchema: z.ZodType<ExtractedRecipeFromLLM> = z
 			typeof recipe.description === 'string'
 				? recipe.description.trim().slice(0, MAX_DESCRIPTION_LENGTH) || null
 				: null,
-		servings:
-			typeof recipe.servings === 'number' && recipe.servings > 0
-				? Math.min(recipe.servings, 100)
-				: 4,
-		prepTime:
-			typeof recipe.prepTime === 'number' && recipe.prepTime >= 0
-				? recipe.prepTime
+		activeTime:
+			typeof recipe.activeTime === 'number' && recipe.activeTime > 0
+				? Math.round(recipe.activeTime)
 				: null,
-		cookTime:
-			typeof recipe.cookTime === 'number' && recipe.cookTime >= 0
-				? recipe.cookTime
+		totalTime:
+			typeof recipe.totalTime === 'number' && recipe.totalTime > 0
+				? Math.round(recipe.totalTime)
+				: null,
+		yieldAmount:
+			typeof recipe.yieldAmount === 'number' &&
+			recipe.yieldAmount > 0 &&
+			typeof recipe.yieldLabel === 'string' &&
+			recipe.yieldLabel.trim()
+				? recipe.yieldAmount
+				: null,
+		yieldLabel:
+			typeof recipe.yieldAmount === 'number' &&
+			recipe.yieldAmount > 0 &&
+			typeof recipe.yieldLabel === 'string' &&
+			recipe.yieldLabel.trim()
+				? recipe.yieldLabel.trim().slice(0, 100)
 				: null,
 		ingredients: recipe.ingredients
 			.slice(0, MAX_INGREDIENTS)
@@ -166,16 +178,18 @@ Rules:
 - Separate combined ingredients ("salt and pepper" → two items)
 - When ingredients are grouped into sub-sections (e.g., "For the Sauce", "Dry Batter", "Pie Dough", "Streusel Topping"), emit a heading row for each section immediately before the ingredients in that section. A heading row has isHeading: true, name set to the section title (cleaned up — drop a leading "For the" / "For "), and amount/unit/notes set to null. Regular ingredients have isHeading: false. List every ingredient from every sub-section individually; do NOT merge or sum quantities of the same ingredient across different sub-sections — they are used separately. Do NOT put the section name into the notes field — use a heading row instead
 - If multiple recipes are present, extract only the main or primary recipe
-- If only a total time is given (no prep/cook split), use it as cookTime
+- Copy Active time, Total time, and Yield only when the source explicitly states them; otherwise use null. Never estimate or default metadata
+- A yield must include both a positive numeric amount and its source label (for example, "Serves 6" becomes 6 + "servings"; "Makes 2 loaves" becomes 2 + "loaves")
 - If no recognizable recipe is found, return {"error": "no_recipe_found"}
 
 Return a single JSON object with this exact structure:
 {
   "title": "Recipe Name",
   "description": "Brief description (1-2 sentences)",
-  "servings": 4,
-  "prepTime": 15,
-  "cookTime": 30,
+  "activeTime": null,
+  "totalTime": null,
+  "yieldAmount": null,
+  "yieldLabel": null,
   "ingredients": [
     {"name": "Sauce", "amount": null, "unit": null, "notes": null, "isHeading": true},
     {"name": "soy sauce", "amount": "2", "unit": "tbsp", "notes": null, "isHeading": false},

@@ -437,9 +437,10 @@ async function deepCopyRecipes(
 			data: {
 				title: recipe.title,
 				description: recipe.description,
-				servings: recipe.servings,
-				prepTime: recipe.prepTime,
-				cookTime: recipe.cookTime,
+				activeTime: recipe.activeTime,
+				totalTime: recipe.totalTime,
+				yieldAmount: recipe.yieldAmount,
+				yieldLabel: recipe.yieldLabel,
 				isFavorite: recipe.isFavorite,
 				isAiGenerated: recipe.isAiGenerated,
 				sourceUrl: recipe.sourceUrl,

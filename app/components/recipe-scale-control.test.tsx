@@ -70,7 +70,7 @@ test('known Recipe yield visibly identifies the amount as a target', () => {
 	expect(screen.getByText('Target')).toBeInTheDocument()
 })
 
-test('unknown typed yield ignores legacy servings and edits the multiplier', async () => {
+test('unknown typed yield edits the multiplier', async () => {
 	const user = userEvent.setup()
 	const onChange = vi.fn()
 	render(
@@ -78,7 +78,6 @@ test('unknown typed yield ignores legacy servings and edits the multiplier', asy
 			scaleMultiplier={1.5}
 			yieldAmount={null}
 			yieldLabel={null}
-			servings={12}
 			onScaleMultiplierChange={onChange}
 		/>,
 	)

@@ -98,9 +98,6 @@ export async function action({ request }: Route.ActionArgs) {
 	const {
 		title,
 		description,
-		servings,
-		prepTime,
-		cookTime,
 		activeTime,
 		totalTime,
 		yieldAmount,
@@ -113,9 +110,6 @@ export async function action({ request }: Route.ActionArgs) {
 		data: {
 			title,
 			description: description ?? null,
-			servings,
-			prepTime,
-			cookTime,
 			activeTime,
 			totalTime,
 			yieldAmount,

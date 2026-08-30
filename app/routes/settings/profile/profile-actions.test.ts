@@ -39,7 +39,6 @@ describe('profile actions', () => {
 				const recipe = await tx.recipe.create({
 					data: {
 						title: 'Survivor Dinner',
-						servings: 4,
 						userId: survivor.id,
 						householdId: household.id,
 					},

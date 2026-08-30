@@ -10,9 +10,7 @@ import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 export type RecipeSelectorRecipe = {
 	id: string
 	title: string
-	prepTime: number | null
-	cookTime: number | null
-	servings: number
+	totalTime: number | null
 	yieldAmount: number | null
 	yieldLabel: string | null
 	isFavorite: boolean
@@ -21,7 +19,7 @@ export type RecipeSelectorRecipe = {
 
 type RecipeSelectorProps = {
 	recipes: RecipeSelectorRecipe[]
-	/** Weeknights (Mon-Thu) sort by cook time; the date only drives that. */
+	/** Weeknights (Mon-Thu) sort by total time; the date only drives that. */
 	date: Date
 	excludeRecipeIds?: string[]
 	onCancel: () => void
@@ -70,11 +68,9 @@ export function RecipeThumb({
 }
 
 export function getRecipeTotalTime(recipe: {
-	prepTime: number | null
-	cookTime: number | null
+	totalTime: number | null
 }): number | null {
-	const total = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
-	return total > 0 ? total : null
+	return recipe.totalTime
 }
 
 function sortByTime(a: RecipeSelectorRecipe, b: RecipeSelectorRecipe): number {
@@ -96,7 +92,7 @@ export function RecipeSelector({
 		.filter((r) => !excludeRecipeIds.includes(r.id))
 		.filter((r) => r.title.toLowerCase().includes(search.toLowerCase()))
 
-	// Mon=1..Thu=4 are weeknights — sort by cook time
+	// Mon=1..Thu=4 are weeknights — sort by total time
 	const isWeeknight = date.getUTCDay() >= 1 && date.getUTCDay() <= 4
 	const applySorting = (list: RecipeSelectorRecipe[]) =>
 		isWeeknight ? [...list].sort(sortByTime) : list

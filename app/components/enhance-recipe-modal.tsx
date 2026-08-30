@@ -9,9 +9,6 @@ import { Icon } from './ui/icon.tsx'
 type RecipeData = {
 	id: string
 	description: string | null
-	servings: number
-	prepTime: number | null
-	cookTime: number | null
 }
 
 export function EnhanceRecipeModal({
@@ -29,25 +26,12 @@ export function EnhanceRecipeModal({
 	const hasDescriptionChange =
 		suggestions.description !== null &&
 		suggestions.description !== recipe.description
-	const hasServingsChange =
-		suggestions.servings !== null && suggestions.servings !== recipe.servings
-	const hasPrepTimeChange =
-		suggestions.prepTime !== null && suggestions.prepTime !== recipe.prepTime
-	const hasCookTimeChange =
-		suggestions.cookTime !== null && suggestions.cookTime !== recipe.cookTime
-	const hasAnyChange =
-		hasDescriptionChange ||
-		hasServingsChange ||
-		hasPrepTimeChange ||
-		hasCookTimeChange
+	const hasAnyChange = hasDescriptionChange
 
 	// Checkbox state: missing fields pre-checked, existing fields unchecked
-	const [checked, setChecked] = useState(() => ({
-		description: hasDescriptionChange && !recipe.description,
-		servings: hasServingsChange && !recipe.servings,
-		prepTime: hasPrepTimeChange && !recipe.prepTime,
-		cookTime: hasCookTimeChange && !recipe.cookTime,
-	}))
+	const [checked, setChecked] = useState(
+		hasDescriptionChange && !recipe.description,
+	)
 	const dialogRef = useModal(onClose)
 
 	// Close after successful apply (prevState ref prevents firing on mount with stale data)
@@ -67,31 +51,12 @@ export function EnhanceRecipeModal({
 		prevApplyState.current = fetcher.state
 	}, [fetcher.state, fetcher.data, onClose])
 
-	function toggleField(field: keyof typeof checked) {
-		setChecked((prev) => ({ ...prev, [field]: !prev[field] }))
-	}
-
-	const hasAnySelected =
-		checked.description ||
-		checked.servings ||
-		checked.prepTime ||
-		checked.cookTime
-
 	function handleApply() {
 		const formData = new FormData()
 		formData.set('intent', 'applyEnhancement')
 
-		if (checked.description && suggestions.description) {
+		if (checked && suggestions.description) {
 			formData.set('enhance_description', suggestions.description)
-		}
-		if (checked.servings && suggestions.servings) {
-			formData.set('enhance_servings', suggestions.servings.toString())
-		}
-		if (checked.prepTime && suggestions.prepTime) {
-			formData.set('enhance_prepTime', suggestions.prepTime.toString())
-		}
-		if (checked.cookTime && suggestions.cookTime) {
-			formData.set('enhance_cookTime', suggestions.cookTime.toString())
 		}
 
 		void fetcher.submit(formData, {
@@ -144,38 +109,8 @@ export function EnhanceRecipeModal({
 									label="Description"
 									current={recipe.description || '—'}
 									suggested={suggestions.description!}
-									checked={checked.description}
-									onToggle={() => toggleField('description')}
-								/>
-							)}
-
-							{hasServingsChange && (
-								<FieldRow
-									label="Servings"
-									current={String(recipe.servings)}
-									suggested={String(suggestions.servings)}
-									checked={checked.servings}
-									onToggle={() => toggleField('servings')}
-								/>
-							)}
-
-							{hasPrepTimeChange && (
-								<FieldRow
-									label="Prep Time"
-									current={recipe.prepTime ? `${recipe.prepTime} min` : '—'}
-									suggested={`${suggestions.prepTime} min`}
-									checked={checked.prepTime}
-									onToggle={() => toggleField('prepTime')}
-								/>
-							)}
-
-							{hasCookTimeChange && (
-								<FieldRow
-									label="Cook Time"
-									current={recipe.cookTime ? `${recipe.cookTime} min` : '—'}
-									suggested={`${suggestions.cookTime} min`}
-									checked={checked.cookTime}
-									onToggle={() => toggleField('cookTime')}
+									checked={checked}
+									onToggle={() => setChecked((selected) => !selected)}
 								/>
 							)}
 						</div>
@@ -183,7 +118,7 @@ export function EnhanceRecipeModal({
 						<div className="mt-5 flex gap-2">
 							<Button
 								onClick={handleApply}
-								disabled={!hasAnySelected || fetcher.state !== 'idle'}
+								disabled={!checked || fetcher.state !== 'idle'}
 								className="flex-1 gap-2"
 							>
 								{fetcher.state !== 'idle' ? (

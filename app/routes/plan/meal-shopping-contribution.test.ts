@@ -114,7 +114,6 @@ async function setupRecipe(
 			title,
 			userId,
 			householdId,
-			servings: 4,
 			ingredients: {
 				create: [
 					{ name: 'For the kofta:', isHeading: true, order: 0 },
@@ -307,7 +306,6 @@ describe('refreshMealShopping — one-Meal replacement (#110)', () => {
 				title: 'Kofta B',
 				userId: session.userId,
 				householdId: session.householdId,
-				servings: 4,
 				ingredients: {
 					create: [
 						{ name: 'ground lamb', amount: '300', unit: 'g', order: 0 },
@@ -916,7 +914,6 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 				title: 'Peach Galette',
 				userId: session.userId,
 				householdId: session.householdId,
-				servings: 4,
 				ingredients: {
 					create: [{ name: 'medium/small peaches', amount: '3', order: 0 }],
 				},

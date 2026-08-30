@@ -16,8 +16,7 @@ import { useModal } from '#app/utils/use-modal.ts'
 export type RecipePickerRecipe = {
 	id: string
 	title: string
-	prepTime: number | null
-	cookTime: number | null
+	totalTime: number | null
 	yieldAmount: number | null
 	yieldLabel: string | null
 	isFavorite: boolean

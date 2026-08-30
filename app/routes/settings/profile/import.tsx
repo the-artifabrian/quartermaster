@@ -407,6 +407,18 @@ async function importRecipes(
 			continue
 		}
 		try {
+			// Older exports may carry only Prep/Cook. Match #121's conservative
+			// one-way rule: both parts must be present, non-negative, and form a
+			// positive total. Legacy servings is accepted at this boundary only and
+			// never becomes typed yield.
+			const legacyTotal =
+				recipe.prepTime != null &&
+				recipe.cookTime != null &&
+				recipe.prepTime >= 0 &&
+				recipe.cookTime >= 0 &&
+				recipe.prepTime + recipe.cookTime > 0
+					? recipe.prepTime + recipe.cookTime
+					: undefined
 			const instructions = recipe.instructions.map((inst, order) => ({
 				content: typeof inst === 'string' ? inst : inst.content,
 				order,
@@ -416,11 +428,8 @@ async function importRecipes(
 				data: {
 					title: recipe.title,
 					description: recipe.description || null,
-					servings: recipe.servings ?? undefined,
-					prepTime: recipe.prepTime ?? undefined,
-					cookTime: recipe.cookTime ?? undefined,
 					activeTime: recipe.activeTime ?? undefined,
-					totalTime: recipe.totalTime ?? undefined,
+					totalTime: recipe.totalTime ?? legacyTotal,
 					yieldAmount: recipe.yieldAmount ?? undefined,
 					yieldLabel: recipe.yieldLabel ?? undefined,
 					isFavorite: recipe.isFavorite ?? false,
@@ -1207,24 +1216,22 @@ export async function action({ request }: Route.ActionArgs) {
 			}
 		}
 
-		// Legacy-only plans need Recipe servings to recover multipliers
-		// (override / Recipe.servings, the #104 rule).
+		// Legacy-only plans use the old file's own Recipe servings to recover the
+		// historical override/base ratio. That compatibility value never enters
+		// current Recipe storage or typed yield.
 		let servingsByRecipeId = new Map<string, number>()
 		if (
 			fullData.mealPlans.some(
 				(plan) => !plan.meals?.length && plan.entries?.length,
 			)
 		) {
-			try {
-				const householdRecipes = await prisma.recipe.findMany({
-					where: { householdId },
-					select: { id: true, servings: true },
-				})
-				servingsByRecipeId = new Map(
-					householdRecipes.map((recipe) => [recipe.id, recipe.servings]),
-				)
-			} catch {
-				// Entries still restore — overrides fall back to 1× multipliers.
+			for (const recipe of fullData.recipes) {
+				const recipeId = recipe.ref
+					? recipeIndex.refToIdMap.get(recipe.ref)
+					: titleToIdMap.get(recipe.title.toLowerCase())
+				if (recipeId && recipe.servings != null && recipe.servings > 0) {
+					servingsByRecipeId.set(recipeId, recipe.servings)
+				}
 			}
 		}
 

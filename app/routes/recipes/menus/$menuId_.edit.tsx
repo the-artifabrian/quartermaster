@@ -103,8 +103,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		select: {
 			id: true,
 			title: true,
-			prepTime: true,
-			cookTime: true,
+			totalTime: true,
 			yieldAmount: true,
 			yieldLabel: true,
 			isFavorite: true,

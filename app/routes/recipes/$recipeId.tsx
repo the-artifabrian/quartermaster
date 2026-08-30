@@ -128,9 +128,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			id: true,
 			title: true,
 			description: true,
-			servings: true,
-			prepTime: true,
-			cookTime: true,
 			activeTime: true,
 			totalTime: true,
 			yieldAmount: true,
@@ -227,19 +224,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 		if (typeof description === 'string' && description) {
 			updateData.description = description
 		}
-		const servings = formData.get('enhance_servings')
-		if (typeof servings === 'string' && servings) {
-			updateData.servings = parseInt(servings, 10)
-		}
-		const prepTime = formData.get('enhance_prepTime')
-		if (typeof prepTime === 'string' && prepTime) {
-			updateData.prepTime = parseInt(prepTime, 10)
-		}
-		const cookTime = formData.get('enhance_cookTime')
-		if (typeof cookTime === 'string' && cookTime) {
-			updateData.cookTime = parseInt(cookTime, 10)
-		}
-
 		await prisma.recipe.update({
 			where: { id: recipeId },
 			data: updateData,
@@ -554,18 +538,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	).length
 
 	const scaleParam = ScaleMultiplierSchema.safeParse(searchParams.get('scale'))
-	// Old shared/Plan links used `servings`. Keep those URLs working through
-	// #123, but never treat legacy servings as known typed yield.
-	const legacyServingsParam = searchParams.get('servings')
-	const legacyServings = legacyServingsParam
-		? Math.min(
-				999,
-				Math.max(1, parseInt(legacyServingsParam, 10) || recipe.servings),
-			)
-		: recipe.servings
-	const ratio = scaleParam.success
-		? scaleParam.data
-		: legacyServings / recipe.servings
+	const ratio = scaleParam.success ? scaleParam.data : 1
 	const isScaled = ratio !== 1
 
 	// Open enhance modal or show error when enhance fetch completes
@@ -833,7 +806,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					{/* Ingredients - sticky on desktop, interactive checkboxes */}
 					<div
 						ref={ingredientsSectionRef}
-						className="md:sticky md:top-20 md:self-start print:static"
+						className="min-w-0 md:sticky md:top-20 md:self-start print:static"
 					>
 						<div className="print:p-2">
 							<div className="mb-3 flex items-center gap-2 md:mb-4">
@@ -861,7 +834,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 										scaleMultiplier={ratio}
 										yieldAmount={recipe.yieldAmount}
 										yieldLabel={recipe.yieldLabel}
-										servings={recipe.servings}
 										onScaleMultiplierChange={updateScaleMultiplier}
 									/>
 									{isScaled ? (
@@ -895,7 +867,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</div>
 
 					{/* Instructions - interactive crossable steps */}
-					<div>
+					<div className="min-w-0">
 						<RecipeInstructionsList
 							instructions={recipe.instructions}
 							checkedSteps={checkedSteps}

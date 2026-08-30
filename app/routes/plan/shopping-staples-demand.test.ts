@@ -119,7 +119,6 @@ async function setupRecipe(session: TestSession, title: string) {
 			title,
 			userId: session.userId,
 			householdId: session.householdId,
-			servings: 97,
 			ingredients: {
 				create: [
 					{ name: 'salt', amount: '1', unit: 'tsp', order: 0 },

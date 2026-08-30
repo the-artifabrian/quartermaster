@@ -10,9 +10,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		select: {
 			title: true,
 			description: true,
-			servings: true,
-			prepTime: true,
-			cookTime: true,
 			activeTime: true,
 			totalTime: true,
 			yieldAmount: true,
@@ -38,9 +35,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		recipes: recipes.map((recipe) => ({
 			title: recipe.title,
 			description: recipe.description,
-			servings: recipe.servings,
-			prepTime: recipe.prepTime,
-			cookTime: recipe.cookTime,
 			activeTime: recipe.activeTime,
 			totalTime: recipe.totalTime,
 			yieldAmount: recipe.yieldAmount,

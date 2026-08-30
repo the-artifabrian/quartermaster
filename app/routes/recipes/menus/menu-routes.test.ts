@@ -563,7 +563,7 @@ describe('menu recipe items', () => {
 			session.householdId,
 			'Pepper parcels',
 		)
-		const legacyBatch = await createRecipe(
+		const unknownBatch = await createRecipe(
 			session,
 			session.householdId,
 			'Family stew',
@@ -571,10 +571,6 @@ describe('menu recipe items', () => {
 		await prisma.recipe.update({
 			where: { id: pieces.id },
 			data: { yieldAmount: 12, yieldLabel: 'pieces' },
-		})
-		await prisma.recipe.update({
-			where: { id: legacyBatch.id },
-			data: { servings: 97, yieldAmount: null, yieldLabel: null },
 		})
 
 		redirectLocation(
@@ -586,7 +582,7 @@ describe('menu recipe items', () => {
 						scaleMultiplier: '1',
 						targetYield: '18',
 					},
-					{ recipeId: legacyBatch.id, scaleMultiplier: '2.5' },
+					{ recipeId: unknownBatch.id, scaleMultiplier: '2.5' },
 				])),
 			}),
 		)

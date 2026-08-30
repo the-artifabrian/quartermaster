@@ -419,9 +419,6 @@ describe('matchRecipesWithInventory', () => {
 			id,
 			title: `Recipe ${id}`,
 			description: null,
-			servings: 4,
-			prepTime: null,
-			cookTime: null,
 			isFavorite: false,
 			ingredients: ingredients.map((name, i) => ({
 				id: `${id}-ing-${i}`,

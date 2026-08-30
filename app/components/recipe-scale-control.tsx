@@ -17,8 +17,6 @@ type RecipeScaleControlProps = {
 	scaleMultiplier: number
 	yieldAmount: number | null
 	yieldLabel: string | null
-	/** Accepted only to make the non-dependency explicit at call sites/tests. */
-	servings?: number
 	onScaleMultiplierChange: (scaleMultiplier: number) => void
 	compact?: boolean
 }
@@ -104,9 +102,7 @@ export function RecipeScaleControl({
 					}
 				}}
 				aria-label={inputLabel}
-				aria-describedby={
-					equivalenceMultiplier ? equivalenceId : undefined
-				}
+				aria-describedby={equivalenceMultiplier ? equivalenceId : undefined}
 				aria-invalid={invalid || undefined}
 				className={cn(
 					'text-center tabular-nums',

@@ -14,7 +14,6 @@ import {
 	checkAndRecordAiUsage,
 	getAiUsageRemaining,
 } from '#app/utils/ai-rate-limit.server.ts'
-import { extractServingsFromTitle } from '#app/utils/bulk-recipe-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { activeLegacyPantryWhere } from '#app/utils/legacy-pantry.server.ts'
 import {
@@ -165,30 +164,8 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	if (intent === 'save') {
-		// The model occasionally bakes "(Serves N)" into the title — strip
-		// it into servings, matching the import paths
-		const { title, servings: titleServings } = extractServingsFromTitle(
-			(formData.get('title') as string) || '',
-		)
+		const title = (formData.get('title') as string) || ''
 		const description = (formData.get('description') as string) || null
-		const servings =
-			titleServings ??
-			Math.min(
-				999,
-				Math.max(1, parseInt(formData.get('servings') as string, 10) || 4),
-			)
-		const prepTime = formData.get('prepTime')
-			? Math.min(
-					1440,
-					Math.max(0, parseInt(formData.get('prepTime') as string, 10) || 0),
-				)
-			: null
-		const cookTime = formData.get('cookTime')
-			? Math.min(
-					1440,
-					Math.max(0, parseInt(formData.get('cookTime') as string, 10) || 0),
-				)
-			: null
 
 		// Parse ingredients
 		const ingredients: Array<{
@@ -239,9 +216,6 @@ export async function action({ request }: Route.ActionArgs) {
 			data: {
 				title,
 				description,
-				servings,
-				prepTime,
-				cookTime,
 				isAiGenerated: true,
 				userId,
 				householdId,
@@ -426,15 +400,6 @@ export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
 								{recipe.description}
 							</p>
 						)}
-						<div className="text-muted-foreground flex flex-wrap gap-4 text-sm">
-							<span>Servings: {recipe.servings}</span>
-							{recipe.prepTime != null && (
-								<span>Prep: {recipe.prepTime} min</span>
-							)}
-							{recipe.cookTime != null && (
-								<span>Cook: {recipe.cookTime} min</span>
-							)}
-						</div>
 
 						{recipe.ingredients.length > 0 && (
 							<div>
@@ -489,13 +454,6 @@ export default function GenerateRecipe({ loaderData }: Route.ComponentProps) {
 							name="description"
 							value={recipe.description ?? ''}
 						/>
-						<input type="hidden" name="servings" value={recipe.servings} />
-						{recipe.prepTime != null && (
-							<input type="hidden" name="prepTime" value={recipe.prepTime} />
-						)}
-						{recipe.cookTime != null && (
-							<input type="hidden" name="cookTime" value={recipe.cookTime} />
-						)}
 						{recipe.ingredients.map((ing, i) => (
 							<div key={i}>
 								<input

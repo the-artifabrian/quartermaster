@@ -73,7 +73,6 @@ async function setupRecipe(
 			title,
 			userId,
 			householdId,
-			servings: 4,
 			ingredients: {
 				create: [{ name: 'flour', amount: '2', unit: 'cups', order: 0 }],
 			},
@@ -120,13 +119,9 @@ function findHouseholdMeals(householdId: string) {
 }
 
 describe('meal plan actions', () => {
-	test('addMeal keeps a 1× manual batch and never derives yield from legacy Recipe.servings', async () => {
+	test('addMeal keeps a 1× manual batch when Recipe yield is unknown', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
-		await prisma.recipe.update({
-			where: { id: recipe.id },
-			data: { servings: 97 },
-		})
 
 		const result = await act(session, {
 			intent: 'addMeal',

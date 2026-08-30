@@ -103,11 +103,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 			id: true,
 			title: true,
 			description: true,
-			prepTime: true,
-			cookTime: true,
+			totalTime: true,
 			isFavorite: true,
 			isAiGenerated: true,
-			servings: true,
 			image: { select: { objectKey: true } },
 			_count: {
 				select: {
@@ -119,13 +117,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		orderBy,
 	})
 
-	// Post-filter by total cook time (prepTime + cookTime).
-	// Recipes with no time data (both null) are included since unknown ≠ slow.
+	// Recipes with unknown Total are included since unknown does not mean slow.
 	let filteredRecipes = maxTime
 		? recipes.filter((r) => {
-				const total = (r.prepTime ?? 0) + (r.cookTime ?? 0)
-				if (total === 0) return true // no time data — don't exclude
-				return total <= maxTime
+				if (r.totalTime == null) return true
+				return r.totalTime <= maxTime
 			})
 		: recipes
 
@@ -464,8 +460,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								title={recipe.title}
 								description={recipe.description}
 								imageObjectKey={recipe.image?.objectKey}
-								prepTime={recipe.prepTime}
-								cookTime={recipe.cookTime}
+								totalTime={recipe.totalTime}
 								isFavorite={recipe.isFavorite}
 								isAiGenerated={recipe.isAiGenerated}
 							/>

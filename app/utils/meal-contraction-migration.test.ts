@@ -57,11 +57,20 @@ async function loadMigrationStatements() {
 
 async function withLegacyTable(run: () => Promise<void>) {
 	await prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "MealPlanEntry"')
+	// The shipped #106 SQL ran before #124 removed Recipe.servings. Recreate
+	// that deploy-time column alongside the retired table, then remove both so
+	// this historical migration test leaves today's schema intact.
+	await prisma.$executeRawUnsafe(
+		'ALTER TABLE "Recipe" ADD COLUMN "servings" INTEGER NOT NULL DEFAULT 4',
+	)
 	await prisma.$executeRawUnsafe(LEGACY_TABLE_DDL)
 	try {
 		await run()
 	} finally {
 		await prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "MealPlanEntry"')
+		await prisma.$executeRawUnsafe(
+			'ALTER TABLE "Recipe" DROP COLUMN "servings"',
+		)
 	}
 }
 
@@ -76,7 +85,6 @@ async function seedHousehold() {
 	const kofta = await prisma.recipe.create({
 		data: {
 			title: 'Kofta',
-			servings: 4,
 			userId: user.id,
 			householdId: household.id,
 		},
@@ -84,11 +92,13 @@ async function seedHousehold() {
 	const salad = await prisma.recipe.create({
 		data: {
 			title: 'Salad',
-			servings: 6,
 			userId: user.id,
 			householdId: household.id,
 		},
 	})
+	await prisma.$executeRawUnsafe(
+		`UPDATE "Recipe" SET "servings" = 6 WHERE "id" = '${salad.id}'`,
+	)
 	const plan = await prisma.mealPlan.create({
 		data: { householdId: household.id, weekStart: new Date('2026-08-17') },
 	})

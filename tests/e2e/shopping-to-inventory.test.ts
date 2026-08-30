@@ -50,7 +50,6 @@ test('Shopping → Pantry pipeline: generate, check off, remember for next time'
 			title: 'Pipeline Test Recipe',
 			userId: user.id,
 			householdId,
-			servings: 2,
 			ingredients: {
 				create: [
 					{ name: 'salmon fillet', amount: '2', unit: 'pieces', order: 0 },
@@ -157,7 +156,6 @@ test('Shopping → Pantry pipeline: merges with existing Pantry items', async ({
 			title: 'Merge Test Recipe',
 			userId: user.id,
 			householdId,
-			servings: 4,
 			ingredients: {
 				create: [
 					{ name: 'fresh ginger', amount: '1', unit: 'tbsp', order: 0 },

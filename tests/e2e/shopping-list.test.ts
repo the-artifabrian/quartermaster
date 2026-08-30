@@ -29,7 +29,6 @@ test('Shopping list flow: generate → verify items → add manual → check →
 			title: 'Test Recipe',
 			userId: user.id,
 			householdId: household.id,
-			servings: 4,
 			ingredients: {
 				create: [
 					{ name: 'chicken breast', amount: '2', unit: 'lbs', order: 0 },
@@ -82,8 +81,36 @@ test('Shopping list flow: generate → verify items → add manual → check →
 	await expect(page.getByText('jasmine rice')).toBeVisible()
 	await expect(page.getByText('broccoli')).toBeVisible()
 
+	for (const viewport of [
+		{ width: 390, height: 844 },
+		{ width: 1280, height: 800 },
+	]) {
+		await page.setViewportSize(viewport)
+		if (viewport.width < 768) {
+			await page.getByRole('button', { name: 'Add item' }).click()
+		}
+		for (const control of [
+			page
+				.getByText('chicken breast', { exact: true })
+				.filter({ visible: true }),
+			page.getByPlaceholder(/add an item/i).filter({ visible: true }),
+		]) {
+			await expect(control).toBeVisible()
+			const box = await control.boundingBox()
+			expect(box).not.toBeNull()
+			expect(box!.x).toBeGreaterThanOrEqual(0)
+			expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width)
+		}
+		if (viewport.width < 768) {
+			await page.getByRole('button', { name: 'Close' }).click()
+		}
+	}
+
 	// 4. Add manual item via Quick Add
-	await page.getByPlaceholder(/add an item/i).fill('Bananas')
+	await page
+		.getByPlaceholder(/add an item/i)
+		.filter({ visible: true })
+		.fill('Bananas')
 	await page.getByRole('button', { name: /add to list/i }).click()
 	await expect(page.getByText('Bananas')).toBeVisible()
 

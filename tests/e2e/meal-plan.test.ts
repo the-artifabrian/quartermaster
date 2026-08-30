@@ -26,7 +26,6 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 			title: 'Test Stir Fry',
 			userId: user.id,
 			householdId: household.id,
-			servings: 4,
 			ingredients: {
 				create: [
 					{ name: 'chicken', amount: '1', unit: 'lb', order: 0 },
@@ -43,7 +42,6 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 			title: 'Herb Salad',
 			userId: user.id,
 			householdId: household.id,
-			servings: 2,
 		},
 	})
 
@@ -128,4 +126,23 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 			.getByRole('button', { name: 'Mark Test Stir Fry as not cooked' })
 			.first(),
 	).toBeVisible()
+
+	for (const viewport of [
+		{ width: 390, height: 844 },
+		{ width: 1280, height: 800 },
+	]) {
+		await page.setViewportSize(viewport)
+		for (const control of [
+			page
+				.getByText('Test Stir Fry', { exact: true })
+				.filter({ visible: true }),
+			page.getByLabel('Scale multiplier').filter({ visible: true }).first(),
+		]) {
+			await expect(control).toBeVisible()
+			const box = await control.boundingBox()
+			expect(box).not.toBeNull()
+			expect(box!.x).toBeGreaterThanOrEqual(0)
+			expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width)
+		}
+	}
 })

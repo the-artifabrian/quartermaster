@@ -20,7 +20,7 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
 import { checkAndRecordAiUsage } from '#app/utils/ai-rate-limit.server.ts'
 import {
-	extractServingsFromTitle,
+	extractYieldFromTitle,
 	joinBrokenUnitSteps,
 	parseRecipeText,
 } from '#app/utils/bulk-recipe-parser.ts'
@@ -63,9 +63,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 type ExtractedRecipe = {
 	title: string
 	description: string | null
-	servings: number
-	prepTime: number | null
-	cookTime: number | null
 	activeTime: number | null
 	totalTime: number | null
 	yieldAmount: number | null
@@ -142,14 +139,6 @@ function findRecipeInJsonLd(obj: unknown): Record<string, unknown> | null {
 	return null
 }
 
-function parseServings(value: unknown): number {
-	if (!value) return 4
-	const str = Array.isArray(value) ? value[0] : String(value)
-	const match = String(str).match(/\d+/)
-	// Clamp — a recipeYield of "0" would otherwise divide-by-zero the scaler
-	return match ? Math.min(100, Math.max(1, parseInt(match[0], 10))) : 4
-}
-
 /** Decode HTML entities and strip tags from JSON-LD text values */
 function cleanJsonLdText(text: string): string {
 	return (
@@ -193,10 +182,9 @@ function parseTypedYield(value: unknown): {
 	if (!Number.isFinite(amount) || amount <= 0) return null
 
 	const prefix = raw.slice(0, amountMatch.index).trim()
-	const suffix = raw
-		.slice(amountMatch.index + amountMatch[0].length)
-		.replace(/^[\s:;,.\-–—]+/, '')
-		.trim()
+	const rawSuffix = raw.slice(amountMatch.index + amountMatch[0].length)
+	if (/^\s*(?:[-–—]|to)\s*\d/i.test(rawSuffix)) return null
+	const suffix = rawSuffix.replace(/^[\s:;,.\-–—]+/, '').trim()
 	const label = suffix || (/^serves?\b/i.test(prefix) ? 'servings' : '')
 	if (!label) return null
 	return { amount, label: label.slice(0, 100).trim() }
@@ -267,24 +255,19 @@ function extractRecipe(
 		parseInstructions(jsonLd.recipeInstructions),
 	)
 
-	const { title, servings: titleServings } = extractServingsFromTitle(
+	const titleYield = extractYieldFromTitle(
 		cleanJsonLdText(String(jsonLd.name || 'Untitled Recipe')),
 	)
-	const typedYield = parseTypedYield(jsonLd.recipeYield)
+	const typedYield =
+		parseTypedYield(jsonLd.recipeYield) ??
+		(titleYield.yieldAmount != null && titleYield.yieldLabel != null
+			? { amount: titleYield.yieldAmount, label: titleYield.yieldLabel }
+			: null)
 
 	return {
-		title,
+		title: titleYield.title,
 		description: jsonLd.description
 			? cleanJsonLdText(String(jsonLd.description))
-			: null,
-		servings: jsonLd.recipeYield
-			? parseServings(jsonLd.recipeYield)
-			: (titleServings ?? 4),
-		prepTime: jsonLd.prepTime
-			? (parseISODuration(String(jsonLd.prepTime)) ?? null)
-			: null,
-		cookTime: jsonLd.cookTime
-			? (parseISODuration(String(jsonLd.cookTime)) ?? null)
 			: null,
 		activeTime: parseExplicitDuration(jsonLd.prepTime),
 		totalTime: parseExplicitDuration(jsonLd.totalTime),
@@ -610,13 +593,10 @@ export async function action({ request }: Route.ActionArgs) {
 		const recipe: ExtractedRecipe = {
 			title: parsed.title || 'Untitled Recipe',
 			description: parsed.description || null,
-			servings: parsed.servings ?? 4,
-			prepTime: null,
-			cookTime: null,
 			activeTime: null,
 			totalTime: null,
-			yieldAmount: null,
-			yieldLabel: null,
+			yieldAmount: parsed.yieldAmount ?? null,
+			yieldLabel: parsed.yieldLabel ?? null,
 			sourceUrl: sourceUrl || '',
 			ingredients: parsed.ingredients.map((ing) => ({
 				name: ing.name,
@@ -806,21 +786,13 @@ export async function action({ request }: Route.ActionArgs) {
 			)
 		}
 
-		// The model can leave "(Serves 2)" in the title while defaulting
-		// servings — the title's own number is authoritative
-		const { title: llmTitle, servings: llmTitleServings } =
-			extractServingsFromTitle(llmResult.title)
-
 		const recipe: ExtractedRecipe = {
-			title: llmTitle,
+			title: llmResult.title,
 			description: llmResult.description,
-			servings: llmTitleServings ?? llmResult.servings,
-			prepTime: llmResult.prepTime,
-			cookTime: llmResult.cookTime,
-			activeTime: null,
-			totalTime: null,
-			yieldAmount: null,
-			yieldLabel: null,
+			activeTime: llmResult.activeTime,
+			totalTime: llmResult.totalTime,
+			yieldAmount: llmResult.yieldAmount,
+			yieldLabel: llmResult.yieldLabel,
 			sourceUrl: '',
 			ingredients: llmResult.ingredients.map((ing) => ({
 				name: ing.name,
@@ -865,22 +837,6 @@ export async function action({ request }: Route.ActionArgs) {
 	if (intent === 'save') {
 		const title = formData.get('title') as string
 		const description = (formData.get('description') as string) || null
-		const servings = Math.min(
-			999,
-			Math.max(1, parseInt(formData.get('servings') as string, 10) || 4),
-		)
-		const prepTime = formData.get('prepTime')
-			? Math.min(
-					1440,
-					Math.max(0, parseInt(formData.get('prepTime') as string, 10) || 0),
-				)
-			: null
-		const cookTime = formData.get('cookTime')
-			? Math.min(
-					1440,
-					Math.max(0, parseInt(formData.get('cookTime') as string, 10) || 0),
-				)
-			: null
 		const metadataSubmission = parseWithZod(formData, {
 			schema: RecipeTimeYieldSchema,
 		})
@@ -958,9 +914,6 @@ export async function action({ request }: Route.ActionArgs) {
 			data: {
 				title,
 				description,
-				servings,
-				prepTime,
-				cookTime,
 				activeTime,
 				totalTime,
 				yieldAmount,
@@ -1276,9 +1229,6 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								{recipe.description}
 							</p>
 						)}
-						<div className="text-muted-foreground flex flex-wrap gap-4 text-sm">
-							<span>Servings: {recipe.servings}</span>
-						</div>
 						<RecipeMetadataCard
 							activeTime={recipe.activeTime}
 							totalTime={recipe.totalTime}
@@ -1392,13 +1342,6 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 							name="description"
 							value={recipe.description ?? ''}
 						/>
-						<input type="hidden" name="servings" value={recipe.servings} />
-						{recipe.prepTime != null && recipe.prepTime > 0 && (
-							<input type="hidden" name="prepTime" value={recipe.prepTime} />
-						)}
-						{recipe.cookTime != null && recipe.cookTime > 0 && (
-							<input type="hidden" name="cookTime" value={recipe.cookTime} />
-						)}
 						{recipe.activeTime != null && (
 							<input
 								type="hidden"

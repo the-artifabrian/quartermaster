@@ -94,7 +94,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 			page.getByRole('button', { name: `Remove ${title} from menu` }),
 		).toBeVisible()
 	}
-	// Known yield is edited as a target; an unknown legacy Recipe remains an
+	// Known yield is edited as a target; an unknown-yield Recipe remains an
 	// explicit batch multiplier. Both still persist the same multiplier model.
 	await page.getByLabel('Target bowls for Hummus').fill('6')
 	await page.getByLabel('Scale multiplier for Pita Bread').fill('2.5')

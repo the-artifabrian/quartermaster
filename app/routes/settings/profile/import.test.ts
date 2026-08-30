@@ -173,9 +173,6 @@ describe('Recipe time and typed yield recovery', () => {
 		await prisma.recipe.create({
 			data: {
 				title: 'Celebration loaf',
-				servings: 4,
-				prepTime: 10,
-				cookTime: 35,
 				activeTime: 25,
 				totalTime: 180,
 				yieldAmount: 2.5,
@@ -214,7 +211,7 @@ describe('Recipe time and typed yield recovery', () => {
 		)
 	})
 
-	test('older exports keep absent Recipe metadata unknown', async () => {
+	test('older exports ignore legacy servings and conservatively recover Total only', async () => {
 		const target = await setupUser()
 		await importPayload(target, {
 			format: 'quartermaster-full-export-v1',
@@ -231,15 +228,20 @@ describe('Recipe time and typed yield recovery', () => {
 		})
 
 		const recovered = await exportHousehold(target)
-		expect(recovered.recipes).toContainEqual(
+		const recipe = recovered.recipes.find(
+			(item: { title: string }) => item.title === 'Legacy four servings',
+		)
+		expect(recipe).toEqual(
 			expect.objectContaining({
-				title: 'Legacy four servings',
 				activeTime: null,
-				totalTime: null,
+				totalTime: 30,
 				yieldAmount: null,
 				yieldLabel: null,
 			}),
 		)
+		expect(recipe).not.toHaveProperty('servings')
+		expect(recipe).not.toHaveProperty('prepTime')
+		expect(recipe).not.toHaveProperty('cookTime')
 	})
 
 	test('Recipe-only export and import preserve explicit metadata', async () => {
@@ -1023,7 +1025,6 @@ async function seedMealFixture(session: {
 	const kofta = await prisma.recipe.create({
 		data: {
 			title: 'Kofta',
-			servings: 4,
 			userId: session.userId,
 			householdId: session.householdId,
 		},
@@ -1031,7 +1032,6 @@ async function seedMealFixture(session: {
 	const salad = await prisma.recipe.create({
 		data: {
 			title: 'Salad',
-			servings: 6,
 			userId: session.userId,
 			householdId: session.householdId,
 		},

@@ -7,7 +7,8 @@ import {
 export type ParsedRecipe = {
 	title: string
 	description?: string
-	servings?: number
+	yieldAmount?: number
+	yieldLabel?: string
 	ingredients: Array<{
 		name: string
 		amount?: string
@@ -24,37 +25,46 @@ const HEADING_PATTERN =
 
 // Trailing "(Serves 2)" / "— serves 4" on a recipe title
 const TITLE_SERVES_PATTERN =
-	/\s*(?:\(\s*serves\s+(\d+)(?:\s*[-–]\s*\d+)?\s*\)|[,—–-]\s*serves\s+(\d+)(?:\s*[-–]\s*\d+)?)\s*$/i
+	/\s*(?:\(\s*serves\s+(\d+)\s*\)|[,—–-]\s*serves\s+(\d+))\s*$/i
 
-// A standalone metadata line: "Serves 4", "Servings: 4", "Yield: 4 servings"
-const SERVES_LINE_PATTERN =
-	/^(?:serves|servings|yield|makes)\s*:?\s+(?:about\s+|approximately\s+)?(\d+)(?:\s*[-–]\s*\d+)?(?:\s+(?:servings?|people|portions?))?\s*\.?$/i
+// A standalone explicit-yield line: "Serves 4", "Servings: 4",
+// "Yield: 4 servings", or "Makes 2 loaves".
+const YIELD_LINE_PATTERN =
+	/^(serves?|servings?|yield|makes)\s*:?\s*(?:about\s+|approximately\s+)?(\d+(?:[.,]\d+)?)(?:\s+(.+?))?\s*\.?$/i
 
 /**
  * Pull a trailing "(Serves N)" out of a recipe title. Returns the stripped
- * title and the servings count, or the original title with null when the
- * title doesn't carry one. An imported "(serves 2)" left in the title while
- * the stepper defaults to 4 silently breaks scaling trust.
+ * title and an explicit typed yield, or the original title with unknown yield
+ * when the title doesn't carry one.
  */
-export function extractServingsFromTitle(title: string): {
+export function extractYieldFromTitle(title: string): {
 	title: string
-	servings: number | null
+	yieldAmount: number | null
+	yieldLabel: string | null
 } {
 	const match = title.match(TITLE_SERVES_PATTERN)
-	if (!match) return { title, servings: null }
+	if (!match) return { title, yieldAmount: null, yieldLabel: null }
 	const value = parseInt(match[1] ?? match[2] ?? '', 10)
 	const stripped = title.slice(0, match.index).trim()
 	if (!stripped || !value || value < 1 || value > 100) {
-		return { title, servings: null }
+		return { title, yieldAmount: null, yieldLabel: null }
 	}
-	return { title: stripped, servings: value }
+	return { title: stripped, yieldAmount: value, yieldLabel: 'servings' }
 }
 
-function matchServesLine(line: string): number | null {
-	const match = line.match(SERVES_LINE_PATTERN)
+function matchTypedYieldLine(line: string): {
+	amount: number
+	label: string
+} | null {
+	const match = line.match(YIELD_LINE_PATTERN)
 	if (!match) return null
-	const value = parseInt(match[1]!, 10)
-	return value >= 1 && value <= 100 ? value : null
+	const amount = Number(match[2]!.replace(',', '.'))
+	if (!Number.isFinite(amount) || amount <= 0) return null
+	const prefix = match[1]!.toLowerCase()
+	const explicitLabel = match[3]?.replace(/[.;:,]+$/, '').trim()
+	if (explicitLabel && /^(?:[-–—]|to)\s*\d/i.test(explicitLabel)) return null
+	const label = explicitLabel || (/^serv/.test(prefix) ? 'servings' : '')
+	return label ? { amount, label: label.slice(0, 100) } : null
 }
 
 const STEP_TRAILING_NUMBER = /\d(?:[\d.,/]*\d)?\s*°?$/
@@ -206,13 +216,15 @@ export function parseRecipeText(text: string): ParsedRecipe {
 		warnings.push('No title found')
 	}
 
-	// "Pho (Serves 2)" → title "Pho", servings 2
-	let servings: number | undefined
+	// "Pho (Serves 2)" → title "Pho", typed yield "2 servings".
+	let yieldAmount: number | undefined
+	let yieldLabel: string | undefined
 	if (title) {
-		const extracted = extractServingsFromTitle(title)
-		if (extracted.servings !== null) {
+		const extracted = extractYieldFromTitle(title)
+		if (extracted.yieldAmount !== null && extracted.yieldLabel !== null) {
 			title = extracted.title
-			servings = extracted.servings
+			yieldAmount = extracted.yieldAmount
+			yieldLabel = extracted.yieldLabel
 		}
 	}
 
@@ -224,9 +236,10 @@ export function parseRecipeText(text: string): ParsedRecipe {
 		for (let i = titleIndex + 1; i < firstHeadingIndex; i++) {
 			const trimmed = lines[i]!.trim()
 			if (!trimmed) continue
-			const servesValue = matchServesLine(trimmed)
-			if (servesValue !== null) {
-				servings ??= servesValue
+			const typedYield = matchTypedYieldLine(trimmed)
+			if (typedYield !== null) {
+				yieldAmount ??= typedYield.amount
+				yieldLabel ??= typedYield.label
 				continue
 			}
 			descLines.push(trimmed)
@@ -270,9 +283,10 @@ export function parseRecipeText(text: string): ParsedRecipe {
 
 		for (const line of ingredientLines) {
 			// "Serves 4" inside the ingredient list is metadata, not an ingredient
-			const servesValue = matchServesLine(stripBullet(line))
-			if (servesValue !== null) {
-				servings ??= servesValue
+			const typedYield = matchTypedYieldLine(stripBullet(line))
+			if (typedYield !== null) {
+				yieldAmount ??= typedYield.amount
+				yieldLabel ??= typedYield.label
 				continue
 			}
 
@@ -354,7 +368,8 @@ export function parseRecipeText(text: string): ParsedRecipe {
 	return {
 		title,
 		description,
-		servings,
+		yieldAmount,
+		yieldLabel,
 		ingredients,
 		instructions: joinedInstructions,
 		warnings,

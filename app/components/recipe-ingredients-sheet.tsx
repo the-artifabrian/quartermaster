@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { type useFetcher } from 'react-router'
 import {
 	IngredientList,
 	type IngredientListIngredient,
@@ -24,7 +23,6 @@ export function RecipeIngredientsSheet({
 	ratio,
 	missingIngredientIds,
 	recipeId,
-	shoppingFetcher,
 	canMarkUsuallyOnHand,
 	useMetric,
 }: {
@@ -37,7 +35,6 @@ export function RecipeIngredientsSheet({
 	ratio: number
 	missingIngredientIds: string[]
 	recipeId: string
-	shoppingFetcher: ReturnType<typeof useFetcher>
 	canMarkUsuallyOnHand?: boolean
 	useMetric?: boolean
 }) {
@@ -56,10 +53,8 @@ export function RecipeIngredientsSheet({
 						ratio={ratio}
 						missingIngredientIds={missingIngredientIds}
 						recipeId={recipeId}
-						shoppingFetcher={shoppingFetcher}
 						canMarkUsuallyOnHand={canMarkUsuallyOnHand}
 						useMetric={useMetric}
-						showFooter={false}
 					/>
 				</IngredientsSheet>
 			) : (

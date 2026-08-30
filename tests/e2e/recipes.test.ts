@@ -222,8 +222,11 @@ test('manual Recipe scaling stays multiplier-first and shows known yield as cont
 		await page.goto(`/recipes/${known.id}`)
 		const multiplier = page.getByLabel('Scale multiplier')
 		await expect(multiplier).toHaveValue('1')
+		await expect(page.getByText('Scale', { exact: true })).toBeVisible()
 		await expect(page.getByText('Makes 12 pieces')).toBeVisible()
 		await expect(page.getByLabel(/Target pieces/)).toHaveCount(0)
+		await expect(page.getByText(/You have \d+\/\d+ ingredients/)).toHaveCount(0)
+		await expect(page.getByRole('button', { name: 'Metric' })).toBeVisible()
 		const controlBox = await page
 			.getByRole('group', { name: 'Recipe scale controls' })
 			.boundingBox()

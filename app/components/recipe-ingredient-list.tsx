@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useFetcher } from 'react-router'
-import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
 	Tooltip,
@@ -32,11 +31,8 @@ export function IngredientList({
 	ratio,
 	missingIngredientIds,
 	recipeId,
-	shoppingFetcher,
 	canMarkUsuallyOnHand = true,
 	useMetric,
-	onToggleMetric,
-	showFooter,
 }: {
 	ingredients: Array<IngredientListIngredient>
 	checkedIngredients: Set<string>
@@ -44,11 +40,8 @@ export function IngredientList({
 	ratio: number
 	missingIngredientIds: string[]
 	recipeId: string
-	shoppingFetcher: ReturnType<typeof useFetcher>
 	canMarkUsuallyOnHand?: boolean
 	useMetric?: boolean
-	onToggleMetric?: () => void
-	showFooter?: boolean
 }) {
 	const [localHaveIds, setLocalHaveIds] = useState<Set<string>>(() => new Set())
 
@@ -61,34 +54,10 @@ export function IngredientList({
 		}
 	}, [missingIngredientIds])
 
-	const isOptional = (ingredient: { notes: string | null; name: string }) =>
-		(ingredient.notes && /\boptional\b/i.test(ingredient.notes)) ||
-		/\boptional\b/i.test(ingredient.name)
-	const nonHeadingCount = ingredients.filter(
-		(i) => !i.isHeading && !isOptional(i),
-	).length
 	const effectiveMissingIds = missingIngredientIds.filter(
 		(id) => !localHaveIds.has(id),
 	)
 	const effectiveMissingSet = new Set(effectiveMissingIds)
-	const haveCount = nonHeadingCount - effectiveMissingIds.length
-	const missingCount = effectiveMissingIds.length
-
-	const shoppingData = shoppingFetcher.data as
-		{ addedToShoppingList?: number; addedInStock?: number } | undefined
-	const addedToList = shoppingData?.addedToShoppingList
-	const addedInStock = shoppingData?.addedInStock ?? 0
-	const isAddingToList = shoppingFetcher.state !== 'idle'
-
-	function handleAddToShoppingList() {
-		const formData = new FormData()
-		formData.set('intent', 'add-to-shopping-list')
-		formData.set('servingRatio', ratio.toString())
-		if (useMetric) {
-			formData.set('useMetric', '1')
-		}
-		void shoppingFetcher.submit(formData, { method: 'POST' })
-	}
 
 	function handleMarkedHave(ingredientId: string) {
 		setLocalHaveIds((prev) => new Set([...prev, ingredientId]))
@@ -215,68 +184,6 @@ export function IngredientList({
 					)
 				})}
 			</ul>
-
-			{/* Summary footer */}
-			{showFooter !== false && (
-				<div className="mt-5 space-y-2 border-t pt-3 print:hidden">
-					<div className="flex items-center px-1">
-						<p className="text-muted-foreground text-xs">
-							You have {haveCount}/{nonHeadingCount} ingredients
-						</p>
-						{onToggleMetric && (
-							<button
-								type="button"
-								onClick={onToggleMetric}
-								className={cn(
-									// after: pseudo stretches the hit area to ≥44px without
-									// growing the visual pill (D7)
-									"relative ml-auto rounded-full border px-3 py-1.5 text-xs font-medium transition-colors after:absolute after:inset-x-0 after:-inset-y-2 after:content-['']",
-									useMetric
-										? 'border-primary bg-primary text-primary-foreground'
-										: 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30',
-								)}
-							>
-								Metric
-							</button>
-						)}
-					</div>
-					{missingCount > 0 && (
-						<>
-							{addedToList !== undefined ? (
-								<div className="px-1 text-center">
-									<p className="text-xs text-green-600">
-										<Icon name="check" className="mr-1 inline size-3.5" />
-										Added {addedToList} item
-										{addedToList !== 1 ? 's' : ''} to shopping list
-										{addedInStock > 0 &&
-											` · ${addedInStock} usually on hand pre-checked`}
-									</p>
-									<Link
-										to="/shopping"
-										className="text-primary mt-1 inline-flex items-center gap-1 text-xs font-medium hover:underline"
-									>
-										View Shopping List
-										<Icon name="arrow-right" className="size-3" />
-									</Link>
-								</div>
-							) : (
-								<Button
-									variant="outline"
-									size="sm"
-									className="min-h-[44px] w-full gap-1.5 text-xs"
-									onClick={handleAddToShoppingList}
-									disabled={isAddingToList}
-								>
-									<Icon name="plus" size="sm" />
-									{isAddingToList
-										? 'Adding...'
-										: `Add ${missingCount} missing to Shopping List`}
-								</Button>
-							)}
-						</>
-					)}
-				</div>
-			)}
 		</>
 	)
 }

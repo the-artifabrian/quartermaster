@@ -41,6 +41,8 @@ test('known Recipe yield stays secondary at the original multiplier', () => {
 	)
 
 	expect(screen.getByLabelText('Scale multiplier')).toHaveValue('1')
+	expect(screen.getByText('Scale', { exact: true })).toBeVisible()
+	expect(screen.queryByText('Scale recipe')).not.toBeInTheDocument()
 	expect(screen.getByText('Makes 4 bowls')).toBeInTheDocument()
 	expect(
 		screen.queryByRole('button', { name: 'Back to 1×' }),

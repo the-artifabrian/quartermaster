@@ -371,8 +371,6 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 									ratio={ratio}
 									missingIngredientIds={[]}
 									recipeId={recipe.id}
-									shoppingFetcher={saveFetcher}
-									showFooter={false}
 								/>
 							</div>
 						</div>

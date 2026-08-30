@@ -101,9 +101,9 @@ export function RecipeScaleControl({
 	if (compact) return input
 
 	return (
-		<div className="border-border/60 bg-muted/20 min-w-0 rounded-lg border px-3 py-3 print:hidden">
-			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-				<span className="text-sm font-medium">Scale recipe</span>
+		<div className="min-w-0 print:hidden">
+			<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+				<span className="text-muted-foreground text-sm">Scale</span>
 				<div
 					role="group"
 					aria-label="Recipe scale controls"
@@ -131,9 +131,12 @@ export function RecipeScaleControl({
 				</div>
 			</div>
 			{formattedTargetYield != null || scaleMultiplier !== 1 ? (
-				<div className="mt-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+				<div className="mt-1.5 flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
 					{formattedTargetYield != null && recipeYield ? (
-						<p aria-live="polite" className="min-w-0 text-sm break-words">
+						<p
+							aria-live="polite"
+							className="text-muted-foreground min-w-0 text-sm break-words"
+						>
 							<span>
 								Makes {formattedTargetYield} {recipeYield.label}
 							</span>

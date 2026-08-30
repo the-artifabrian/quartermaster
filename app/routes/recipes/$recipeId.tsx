@@ -478,7 +478,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			: recipe.isFavorite
 	const { checkedIngredients, checkedSteps, toggleIngredient, toggleStep } =
 		useCookingProgress(recipe.id)
-	const shoppingFetcher = useFetcher({ key: 'add-to-shopping' })
 	const enhanceFetcher = useFetcher<{
 		error: string | null
 		suggestions: EnhanceableFields | null
@@ -829,6 +828,19 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 										Ingredients
 									</h2>
 								</button>
+								<button
+									type="button"
+									onClick={toggleMetric}
+									aria-pressed={useMetric}
+									className={cn(
+										"relative ml-auto rounded-full border px-3 py-1.5 text-xs font-medium transition-colors after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] print:hidden",
+										useMetric
+											? 'border-primary bg-primary text-primary-foreground'
+											: 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30',
+									)}
+								>
+									Metric
+								</button>
 							</div>
 							<div className="mb-4 print:hidden">
 								<RecipeScaleControl
@@ -849,10 +861,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									ratio={ratio}
 									missingIngredientIds={missingIngredientIds}
 									recipeId={recipe.id}
-									shoppingFetcher={shoppingFetcher}
 									canMarkUsuallyOnHand={usesLegacyPantry}
 									useMetric={useMetric}
-									onToggleMetric={toggleMetric}
 								/>
 							</div>
 						</div>
@@ -882,7 +892,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					ratio={ratio}
 					missingIngredientIds={missingIngredientIds}
 					recipeId={recipe.id}
-					shoppingFetcher={shoppingFetcher}
 					canMarkUsuallyOnHand={usesLegacyPantry}
 					useMetric={useMetric}
 				/>

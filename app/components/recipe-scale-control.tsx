@@ -12,6 +12,13 @@ import {
 } from '#app/utils/target-yield.ts'
 
 const SCALE_STEP = 0.5
+const SCALE_DRAFT_PATTERN = /^(?:0|[1-9]\d{0,2})?(?:[.,]\d{0,2})?$/
+
+function isAllowedScaleDraft(value: string) {
+	if (!SCALE_DRAFT_PATTERN.test(value)) return false
+	if (value === '' || value.endsWith('.') || value.endsWith(',')) return true
+	return Number(value.replace(',', '.')) <= 100
+}
 
 type RecipeScaleControlProps = {
 	scaleMultiplier: number
@@ -74,9 +81,11 @@ export function RecipeScaleControl({
 				inputMode="decimal"
 				value={draft}
 				onChange={(event) => {
+					if (!isAllowedScaleDraft(event.target.value)) return
 					setDraft(event.target.value)
 					setInvalid(false)
 				}}
+				maxLength={6}
 				onBlur={commit}
 				onKeyDown={(event) => {
 					if (event.key === 'Enter') {

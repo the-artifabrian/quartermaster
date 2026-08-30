@@ -179,6 +179,30 @@ test('invalid multiplier stays editable without replacing the stored multiplier'
 	expect(onChange).not.toHaveBeenCalled()
 })
 
+test('multiplier input is bounded while typing', async () => {
+	const user = userEvent.setup()
+	const onChange = vi.fn()
+	render(
+		<RecipeScaleControl
+			scaleMultiplier={1}
+			yieldAmount={null}
+			yieldLabel={null}
+			onScaleMultiplierChange={onChange}
+		/>,
+	)
+
+	const input = screen.getByRole('textbox', { name: 'Scale multiplier' })
+	expect(input).toHaveAttribute('maxlength', '6')
+
+	await user.clear(input)
+	await user.type(input, '100000')
+	expect(input).toHaveValue('100')
+
+	await user.clear(input)
+	await user.type(input, '1.2345')
+	expect(input).toHaveValue('1.23')
+})
+
 test('long yield labels wrap instead of being truncated', () => {
 	render(
 		<RecipeScaleControl

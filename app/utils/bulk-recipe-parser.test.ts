@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
-	extractServingsFromTitle,
+	extractYieldFromTitle,
 	joinBrokenUnitSteps,
 	parseRecipeText,
 	splitMultipleRecipes,
@@ -771,43 +771,70 @@ Day Of
 	})
 })
 
-describe('extractServingsFromTitle', () => {
+describe('extractYieldFromTitle', () => {
 	test('strips parenthesized trailing serves', () => {
-		expect(
-			extractServingsFromTitle('Vermicelli Noodle Bowl (Serves 2)'),
-		).toEqual({ title: 'Vermicelli Noodle Bowl', servings: 2 })
-		expect(extractServingsFromTitle('Pho (serves 4-6)')).toEqual({
-			title: 'Pho',
-			servings: 4,
+		expect(extractYieldFromTitle('Vermicelli Noodle Bowl (Serves 2)')).toEqual({
+			title: 'Vermicelli Noodle Bowl',
+			yieldAmount: 2,
+			yieldLabel: 'servings',
 		})
 	})
 
-	test('strips dash/comma trailing serves', () => {
-		expect(extractServingsFromTitle('Weeknight Curry — serves 4')).toEqual({
-			title: 'Weeknight Curry',
-			servings: 4,
+	test('keeps range yields unknown rather than choosing a bound', () => {
+		expect(extractYieldFromTitle('Pho (serves 4-6)')).toEqual({
+			title: 'Pho (serves 4-6)',
+			yieldAmount: null,
+			yieldLabel: null,
 		})
-		expect(extractServingsFromTitle('Big Salad, serves 2')).toEqual({
+
+		const result = parseRecipeText(`Soup
+
+Serves 4-6
+
+Ingredients
+- 2 cups broth
+
+Instructions
+1. Simmer.`)
+		expect(result).toEqual(
+			expect.objectContaining({
+				yieldAmount: undefined,
+				yieldLabel: undefined,
+			}),
+		)
+	})
+
+	test('strips dash/comma trailing serves', () => {
+		expect(extractYieldFromTitle('Weeknight Curry — serves 4')).toEqual({
+			title: 'Weeknight Curry',
+			yieldAmount: 4,
+			yieldLabel: 'servings',
+		})
+		expect(extractYieldFromTitle('Big Salad, serves 2')).toEqual({
 			title: 'Big Salad',
-			servings: 2,
+			yieldAmount: 2,
+			yieldLabel: 'servings',
 		})
 	})
 
 	test('leaves titles without serves untouched', () => {
-		expect(extractServingsFromTitle('Beef Bolognese')).toEqual({
+		expect(extractYieldFromTitle('Beef Bolognese')).toEqual({
 			title: 'Beef Bolognese',
-			servings: null,
+			yieldAmount: null,
+			yieldLabel: null,
 		})
-		expect(extractServingsFromTitle('Buns for 4th of July')).toEqual({
+		expect(extractYieldFromTitle('Buns for 4th of July')).toEqual({
 			title: 'Buns for 4th of July',
-			servings: null,
+			yieldAmount: null,
+			yieldLabel: null,
 		})
 	})
 
 	test('never strips the whole title', () => {
-		expect(extractServingsFromTitle('(Serves 2)')).toEqual({
+		expect(extractYieldFromTitle('(Serves 2)')).toEqual({
 			title: '(Serves 2)',
-			servings: null,
+			yieldAmount: null,
+			yieldLabel: null,
 		})
 	})
 })
@@ -863,6 +890,24 @@ describe('joinBrokenUnitSteps', () => {
 })
 
 describe('parseRecipeText servings and headings', () => {
+	test('captures explicit Serves and Makes text as paired typed yield', () => {
+		const base = (yieldLine: string) => `Test recipe
+${yieldLine}
+
+Ingredients
+- 1 onion
+
+Instructions
+1. Cook.`
+
+		expect(parseRecipeText(base('Serves 6'))).toEqual(
+			expect.objectContaining({ yieldAmount: 6, yieldLabel: 'servings' }),
+		)
+		expect(parseRecipeText(base('Makes 2 loaves'))).toEqual(
+			expect.objectContaining({ yieldAmount: 2, yieldLabel: 'loaves' }),
+		)
+	})
+
 	test('pulls "(Serves 2)" out of the title', () => {
 		const text = `Vermicelli Noodle Bowl (Serves 2)
 
@@ -874,7 +919,9 @@ Instructions
 
 		const result = parseRecipeText(text)
 		expect(result.title).toBe('Vermicelli Noodle Bowl')
-		expect(result.servings).toBe(2)
+		expect(result).toEqual(
+			expect.objectContaining({ yieldAmount: 2, yieldLabel: 'servings' }),
+		)
 	})
 
 	test('captures a standalone serves line and keeps it out of the description', () => {
@@ -890,7 +937,9 @@ Instructions
 1. Assemble and bake.`
 
 		const result = parseRecipeText(text)
-		expect(result.servings).toBe(8)
+		expect(result).toEqual(
+			expect.objectContaining({ yieldAmount: 8, yieldLabel: 'servings' }),
+		)
 		expect(result.description).toBe('A Sunday favorite.')
 	})
 
@@ -905,9 +954,15 @@ Ingredients
 Instructions
 1. Simmer.`
 
-		expect(parseRecipeText(base('Servings: 6')).servings).toBe(6)
-		expect(parseRecipeText(base('Yield: 4 servings')).servings).toBe(4)
-		expect(parseRecipeText(base('Makes 12 cookies')).servings).toBeUndefined()
+		expect(parseRecipeText(base('Servings: 6'))).toEqual(
+			expect.objectContaining({ yieldAmount: 6, yieldLabel: 'servings' }),
+		)
+		expect(parseRecipeText(base('Yield: 4 servings'))).toEqual(
+			expect.objectContaining({ yieldAmount: 4, yieldLabel: 'servings' }),
+		)
+		expect(parseRecipeText(base('Makes 12 cookies'))).toEqual(
+			expect.objectContaining({ yieldAmount: 12, yieldLabel: 'cookies' }),
+		)
 	})
 
 	test('title serves wins over a later body line', () => {
@@ -921,7 +976,9 @@ Ingredients
 Instructions
 1. Braise.`
 
-		expect(parseRecipeText(text).servings).toBe(2)
+		expect(parseRecipeText(text)).toEqual(
+			expect.objectContaining({ yieldAmount: 2, yieldLabel: 'servings' }),
+		)
 	})
 
 	test('serves line inside the ingredient list is metadata, not an ingredient', () => {
@@ -935,7 +992,9 @@ Instructions
 1. Fry.`
 
 		const result = parseRecipeText(text)
-		expect(result.servings).toBe(4)
+		expect(result).toEqual(
+			expect.objectContaining({ yieldAmount: 4, yieldLabel: 'servings' }),
+		)
 		expect(result.ingredients).toHaveLength(1)
 		expect(result.ingredients[0]!.name).toBe('flour')
 	})

@@ -54,9 +54,10 @@ async function setupRecipe(
 			description: 'A test description',
 			userId,
 			householdId,
-			servings: 4,
-			prepTime: 10,
-			cookTime: 30,
+			activeTime: 10,
+			totalTime: 40,
+			yieldAmount: 4,
+			yieldLabel: 'servings',
 			isFavorite: overrides?.isFavorite ?? false,
 			ingredients: {
 				create: [

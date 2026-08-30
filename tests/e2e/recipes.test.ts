@@ -16,7 +16,11 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 	await page
 		.getByRole('textbox', { name: /description/i })
 		.fill('A simple test recipe')
-	await page.getByRole('spinbutton', { name: /servings/i }).fill('4')
+	await expect(
+		page.getByRole('spinbutton', { name: /^servings$/i }),
+	).toHaveCount(0)
+	await page.getByRole('spinbutton', { name: /yield amount/i }).fill('4')
+	await page.getByRole('combobox', { name: /yield label/i }).fill('servings')
 
 	// Fill ingredient (first row)
 	await page.getByPlaceholder('Ingredient name').fill('spaghetti')
@@ -88,9 +92,10 @@ test('Recipe search and filter', async ({ page, login }) => {
 			title: 'Spicy Thai Curry',
 			userId: user.id,
 			householdId: household.id,
-			servings: 4,
-			prepTime: 10,
-			cookTime: 25,
+			activeTime: 10,
+			totalTime: 35,
+			yieldAmount: 4,
+			yieldLabel: 'servings',
 			ingredients: {
 				create: [{ name: 'curry paste', amount: '2', unit: 'tbsp', order: 0 }],
 			},
@@ -104,7 +109,6 @@ test('Recipe search and filter', async ({ page, login }) => {
 			title: 'Simple Green Salad',
 			userId: user.id,
 			householdId: household.id,
-			servings: 2,
 			ingredients: {
 				create: [{ name: 'lettuce', amount: '1', unit: 'head', order: 0 }],
 			},
@@ -195,15 +199,13 @@ test('manual Recipe scaling uses target yield when known and multiplier when unk
 			title: 'Twelve parcels',
 			yieldAmount: 12,
 			yieldLabel: 'pieces',
-			servings: 97,
 			userId: user.id,
 			householdId: household.id,
 		},
 	})
 	const unknown = await prisma.recipe.create({
 		data: {
-			title: 'Legacy family batch',
-			servings: 12,
+			title: 'Unknown family batch',
 			yieldAmount: null,
 			yieldLabel: null,
 			userId: user.id,
@@ -253,7 +255,9 @@ test('manual Recipe scaling uses target yield when known and multiplier when unk
 		)
 	}
 
-	await page.goto(`/recipes/${unknown.id}`)
+	await page.goto(`/recipes/${unknown.id}?servings=12`)
+	await expect(page.getByLabel('Scale multiplier')).toHaveValue('1')
+
 	await page.getByLabel('Scale multiplier').fill('1.5')
 	await page.getByLabel('Scale multiplier').press('Enter')
 	await expect(page).toHaveURL(

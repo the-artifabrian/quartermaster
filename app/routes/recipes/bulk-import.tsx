@@ -37,15 +37,26 @@ const BulkImportIngredientSchema = z.object({
 	isHeading: z.boolean().optional(),
 })
 
-const BulkImportRecipeSchema = z.object({
-	title: z.string().min(1).max(100),
-	description: z.string().max(500).optional(),
-	servings: z.number().int().min(1).max(100).optional(),
-	ingredients: z.array(BulkImportIngredientSchema).max(200),
-	instructions: z
-		.array(z.object({ content: z.string().min(1).max(5000) }))
-		.max(200),
-})
+const BulkImportRecipeSchema = z
+	.object({
+		title: z.string().min(1).max(100),
+		description: z.string().max(500).optional(),
+		yieldAmount: z.number().positive().optional(),
+		yieldLabel: z.string().trim().min(1).max(100).optional(),
+		ingredients: z.array(BulkImportIngredientSchema).max(200),
+		instructions: z
+			.array(z.object({ content: z.string().min(1).max(5000) }))
+			.max(200),
+	})
+	.superRefine((recipe, context) => {
+		if ((recipe.yieldAmount == null) !== (recipe.yieldLabel == null)) {
+			context.addIssue({
+				code: 'custom',
+				path: [recipe.yieldAmount == null ? 'yieldAmount' : 'yieldLabel'],
+				message: 'Yield amount and label must be provided together',
+			})
+		}
+	})
 
 const BulkImportPayloadSchema = z.array(BulkImportRecipeSchema).min(1).max(50)
 
@@ -117,7 +128,8 @@ export async function action({ request }: Route.ActionArgs) {
 				data: {
 					title: recipe.title,
 					description: recipe.description || null,
-					servings: recipe.servings,
+					yieldAmount: recipe.yieldAmount,
+					yieldLabel: recipe.yieldLabel,
 					userId,
 					householdId,
 					ingredients: {
@@ -249,7 +261,8 @@ export default function BulkImport() {
 		const payload = validPreviews.map((p) => ({
 			title: p.title,
 			description: p.description,
-			servings: p.servings,
+			yieldAmount: p.yieldAmount,
+			yieldLabel: p.yieldLabel,
 			ingredients: p.ingredients,
 			instructions: p.instructions,
 		}))

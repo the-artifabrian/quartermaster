@@ -11,17 +11,11 @@ const MAX_TOKENS = 1024
 
 export type EnhanceableFields = {
 	description: string | null
-	servings: number | null
-	prepTime: number | null
-	cookTime: number | null
 }
 
 export type RecipeInput = {
 	title: string
 	description: string | null
-	servings: number
-	prepTime: number | null
-	cookTime: number | null
 	ingredients: Array<{
 		name: string
 		amount: string | null
@@ -33,33 +27,16 @@ export type RecipeInput = {
 const EnhanceableFieldsSchema: z.ZodType<EnhanceableFields> = z
 	.object({
 		description: z.unknown().optional(),
-		servings: z.unknown().optional(),
-		prepTime: z.unknown().optional(),
-		cookTime: z.unknown().optional(),
 	})
 	.transform((fields) => ({
 		description:
 			typeof fields.description === 'string' && fields.description.trim()
 				? fields.description.trim()
 				: null,
-		servings:
-			typeof fields.servings === 'number' &&
-			fields.servings > 0 &&
-			fields.servings <= 100
-				? Math.round(fields.servings)
-				: null,
-		prepTime:
-			typeof fields.prepTime === 'number' && fields.prepTime > 0
-				? Math.round(fields.prepTime)
-				: null,
-		cookTime:
-			typeof fields.cookTime === 'number' && fields.cookTime > 0
-				? Math.round(fields.cookTime)
-				: null,
 	}))
 
 /**
- * Call Claude Haiku to suggest metadata improvements for a recipe.
+ * Call Claude Haiku to suggest a reviewed description improvement.
  *
  * Returns the suggestions on success, or `{ error: string }` on failure.
  */
@@ -72,7 +49,7 @@ export async function enhanceRecipeMetadata(
 		maxTokens: MAX_TOKENS,
 		timeoutMs: TIMEOUT_MS,
 		system:
-			'You are a practical home cook. Analyze the recipe and suggest metadata. Return only valid JSON — no markdown, no explanation.',
+			'You are a practical home cook. Analyze the recipe and suggest a concise description. Return only valid JSON — no markdown, no explanation.',
 		prompt: buildEnhancePrompt(input),
 		schema: EnhanceableFieldsSchema,
 	})
@@ -111,9 +88,6 @@ export function buildEnhancePrompt(input: RecipeInput): string {
 
 Title: ${input.title}
 Current description: ${input.description || 'None'}
-Current servings: ${input.servings}
-Current prep time: ${input.prepTime ? `${input.prepTime} minutes` : 'None'}
-Current cook time: ${input.cookTime ? `${input.cookTime} minutes` : 'None'}
 
 Ingredients:
 ${ingredientLines}
@@ -123,18 +97,12 @@ ${instructionText}
 
 Return a single JSON object with this exact structure:
 {
-  "description": "Brief appetizing description (1-2 sentences) or null if current is good",
-  "servings": 4,
-  "prepTime": 15,
-  "cookTime": 30
+  "description": "Brief appetizing description (1-2 sentences) or null if current is good"
 }
 
 Rules:
 - description: Suggest a short, appetizing description (1-2 sentences). Return null if the current description is already good.
-- servings: Estimate a reasonable serving count based on ingredient quantities. Return null if uncertain.
-- prepTime and cookTime: Estimate in minutes based on the instructions. Return null if unknown.
-- Do NOT downgrade existing good values — if a field already has a reasonable value, return that same value or null
-- Return null for any field you cannot reasonably estimate`
+- Do not suggest or infer time, yield, or other Recipe metadata`
 }
 
 /**

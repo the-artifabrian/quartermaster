@@ -10,9 +10,6 @@ import {
 const sampleInput: RecipeInput = {
 	title: 'Pasta Carbonara',
 	description: null,
-	servings: 4,
-	prepTime: null,
-	cookTime: null,
 	ingredients: [
 		{ name: 'spaghetti', amount: '400', unit: 'g' },
 		{ name: 'guanciale', amount: '200', unit: 'g' },
@@ -42,41 +39,44 @@ describe('buildEnhancePrompt', () => {
 		expect(prompt).toContain('Boil a large pot')
 	})
 
-	it('shows "None" for missing fields', () => {
+	it('shows "None" for a missing description without asking for other metadata', () => {
 		const prompt = buildEnhancePrompt(sampleInput)
 		expect(prompt).toContain('Current description: None')
-		expect(prompt).toContain('Current prep time: None')
-		expect(prompt).toContain('Current cook time: None')
+		expect(prompt).not.toContain('Current prep time')
+		expect(prompt).not.toContain('Current cook time')
 	})
 
 	it('shows existing values when present', () => {
 		const input: RecipeInput = {
 			...sampleInput,
 			description: 'A classic Roman pasta dish',
-			prepTime: 10,
-			cookTime: 20,
 		}
 		const prompt = buildEnhancePrompt(input)
 		expect(prompt).toContain('Current description: A classic Roman pasta dish')
-		expect(prompt).toContain('Current prep time: 10 minutes')
-		expect(prompt).toContain('Current cook time: 20 minutes')
 	})
 })
 
 describe('parseEnhanceResponse', () => {
+	it('ignores legacy metadata suggestions and returns description only', () => {
+		const result = parseEnhanceResponse(
+			JSON.stringify({
+				description: 'A concise description.',
+				servings: 12,
+				prepTime: 15,
+				cookTime: 30,
+			}),
+		)
+
+		expect(result).toEqual({ description: 'A concise description.' })
+	})
+
 	it('parses valid JSON response', () => {
 		const text = JSON.stringify({
 			description: 'A rich, creamy Roman pasta with guanciale and pecorino.',
-			servings: 4,
-			prepTime: 10,
-			cookTime: 15,
 		})
 		const result = parseEnhanceResponse(text)
 		expect(result).toEqual({
 			description: 'A rich, creamy Roman pasta with guanciale and pecorino.',
-			servings: 4,
-			prepTime: 10,
-			cookTime: 15,
 		})
 	})
 
@@ -86,57 +86,22 @@ describe('parseEnhanceResponse', () => {
 	})
 
 	it('handles markdown code block wrapping', () => {
-		const text =
-			'```json\n{"description": "A test recipe.", "servings": 2, "prepTime": 5, "cookTime": 10}\n```'
+		const text = '```json\n{"description": "A test recipe."}\n```'
 		const result = parseEnhanceResponse(text)
 		expect(result?.description).toBe('A test recipe.')
-		expect(result?.servings).toBe(2)
 	})
 
 	it('returns null for invalid field types gracefully', () => {
 		const text = JSON.stringify({
 			description: 123,
-			servings: 'four',
-			prepTime: -5,
-			cookTime: 'twenty',
 		})
 		const result = parseEnhanceResponse(text)
-		expect(result).toEqual({
-			description: null,
-			servings: null,
-			prepTime: null,
-			cookTime: null,
-		})
-	})
-
-	it('clamps servings to 100', () => {
-		const text = JSON.stringify({
-			description: null,
-			servings: 200,
-			prepTime: null,
-			cookTime: null,
-		})
-		const result = parseEnhanceResponse(text)
-		expect(result?.servings).toBeNull()
-	})
-
-	it('rounds fractional servings', () => {
-		const text = JSON.stringify({
-			description: null,
-			servings: 4.5,
-			prepTime: null,
-			cookTime: null,
-		})
-		const result = parseEnhanceResponse(text)
-		expect(result?.servings).toBe(5)
+		expect(result).toEqual({ description: null })
 	})
 
 	it('treats null description as null', () => {
 		const text = JSON.stringify({
 			description: null,
-			servings: 4,
-			prepTime: 10,
-			cookTime: 20,
 		})
 		const result = parseEnhanceResponse(text)
 		expect(result?.description).toBeNull()
@@ -145,9 +110,6 @@ describe('parseEnhanceResponse', () => {
 	it('trims whitespace in description', () => {
 		const text = JSON.stringify({
 			description: '  A tasty dish.  ',
-			servings: null,
-			prepTime: null,
-			cookTime: null,
 		})
 		const result = parseEnhanceResponse(text)
 		expect(result?.description).toBe('A tasty dish.')
@@ -178,9 +140,6 @@ describe('enhanceRecipeMetadata', () => {
 
 		await expect(enhanceRecipeMetadata(sampleInput)).resolves.toEqual({
 			description: 'A classic Roman pasta.',
-			servings: 4,
-			prepTime: 10,
-			cookTime: 20,
 		})
 	})
 

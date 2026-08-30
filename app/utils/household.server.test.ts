@@ -30,7 +30,10 @@ async function setupUserWithRecipe(recipeName = 'Test Recipe') {
 			title: recipeName,
 			userId: user.id,
 			householdId: user.householdId,
-			servings: 4,
+			activeTime: 20,
+			totalTime: 45,
+			yieldAmount: 6,
+			yieldLabel: 'servings',
 			ingredients: {
 				create: [
 					{ name: 'flour', amount: '2', unit: 'cups', order: 0 },
@@ -706,7 +709,6 @@ describe('acceptInvite', () => {
 				title: 'Shared Recipe',
 				userId: existingMember.id,
 				householdId: owner.householdId,
-				servings: 4,
 				ingredients: {
 					create: [{ name: 'butter', amount: '1', unit: 'cup', order: 0 }],
 				},
@@ -802,7 +804,10 @@ describe('leaveHousehold', () => {
 				title: 'Member Recipe',
 				userId: member.id,
 				householdId: owner.householdId,
-				servings: 2,
+				activeTime: 15,
+				totalTime: 60,
+				yieldAmount: 2,
+				yieldLabel: 'loaves',
 				ingredients: {
 					create: [{ name: 'salt', order: 0 }],
 				},
@@ -828,6 +833,12 @@ describe('leaveHousehold', () => {
 			},
 		})
 		expect(copiedRecipe).not.toBeNull()
+		expect(copiedRecipe).toMatchObject({
+			activeTime: 15,
+			totalTime: 60,
+			yieldAmount: 2,
+			yieldLabel: 'loaves',
+		})
 
 		// Original recipe should still exist in old household
 		const originalRecipe = await prisma.recipe.findFirst({

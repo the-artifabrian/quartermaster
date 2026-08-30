@@ -94,7 +94,7 @@ export function menuToSnapshotSections(
 						recipeId: recipe?.id ?? null,
 						recipeTitle,
 						// Planning copies the manual Menu multiplier unchanged. Guest count
-						// and legacy Recipe.servings are display context, not yield inputs.
+						// is display context, not a yield input.
 						scaleMultiplier: item.scaleMultiplier ?? 1,
 						note: item.note,
 					},

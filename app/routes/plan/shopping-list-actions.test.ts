@@ -49,7 +49,6 @@ async function setupMealPlanWithRecipe(userId: string, householdId: string) {
 			title: 'Test Recipe',
 			userId,
 			householdId,
-			servings: 4,
 			ingredients: {
 				create: [
 					{ name: 'chicken', amount: '2', unit: 'lbs', order: 0 },
@@ -207,7 +206,6 @@ describe('shopping list actions', () => {
 				title: 'Kofta',
 				userId: session.userId,
 				householdId: session.householdId,
-				servings: 4,
 				ingredients: {
 					create: [{ name: 'ground lamb', amount: '500', unit: 'g', order: 0 }],
 				},
@@ -218,7 +216,6 @@ describe('shopping list actions', () => {
 				title: 'Salad',
 				userId: session.userId,
 				householdId: session.householdId,
-				servings: 2,
 				ingredients: {
 					create: [{ name: 'cucumber', amount: '2', order: 0 }],
 				},
@@ -314,7 +311,6 @@ describe('shopping list actions', () => {
 				title: 'Stew',
 				userId: session.userId,
 				householdId: session.householdId,
-				servings: 4,
 				ingredients: { create: [{ name: 'beef', order: 0 }] },
 			},
 		})

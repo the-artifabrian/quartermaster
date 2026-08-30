@@ -14,9 +14,6 @@ const MAX_INSTRUCTIONS = 30
 export type GeneratedRecipe = {
 	title: string
 	description: string
-	servings: number
-	prepTime: number | null
-	cookTime: number | null
 	ingredients: Array<{
 		name: string
 		amount: string | null
@@ -74,9 +71,6 @@ const GeneratedRecipeSchema: z.ZodType<GeneratedRecipe> = z
 	.object({
 		title: z.string().trim().min(1),
 		description: z.unknown().optional(),
-		servings: z.unknown().optional(),
-		prepTime: z.unknown().optional(),
-		cookTime: z.unknown().optional(),
 		ingredients: z.array(z.unknown()),
 		instructions: z.array(z.unknown()),
 	})
@@ -84,18 +78,6 @@ const GeneratedRecipeSchema: z.ZodType<GeneratedRecipe> = z
 		title: recipe.title,
 		description:
 			typeof recipe.description === 'string' ? recipe.description.trim() : '',
-		servings:
-			typeof recipe.servings === 'number' && recipe.servings > 0
-				? Math.min(recipe.servings, 100)
-				: 4,
-		prepTime:
-			typeof recipe.prepTime === 'number' && recipe.prepTime >= 0
-				? recipe.prepTime
-				: null,
-		cookTime:
-			typeof recipe.cookTime === 'number' && recipe.cookTime >= 0
-				? recipe.cookTime
-				: null,
 		ingredients: recipe.ingredients
 			.slice(0, MAX_INGREDIENTS)
 			.flatMap((ingredient) => {
@@ -182,13 +164,11 @@ export function buildPrompt(
 - Use ingredients from my Pantry where possible, but MAY include common ingredients not listed
 - Use metric units (grams, ml, liters, etc.) for all measurements EXCEPT teaspoons (tsp) and tablespoons (tbsp) which should stay as-is
 - Write clear, beginner-friendly instructions
-- prepTime and cookTime are in minutes (use null if unknown)
 - Create a complete, practical, everyday recipe — not overly fancy`
 		: `Rules:
 - Use ONLY ingredients from my Pantry list above, plus common staples (salt, pepper, oil, water, basic spices)
 - Use metric units (grams, ml, liters, etc.) for all measurements EXCEPT teaspoons (tsp) and tablespoons (tbsp) which should stay as-is
 - Write clear, beginner-friendly instructions
-- prepTime and cookTime are in minutes (use null if unknown)
 - Create a complete, practical, everyday recipe — not overly fancy`
 
 	return `Create a recipe from my available ingredients.
@@ -200,10 +180,7 @@ ${prefLines.length > 0 ? `Preferences:\n${prefLines.join('\n')}\n` : ''}Return a
 {
   "title": "Recipe Name",
   "description": "Brief appetizing description (1-2 sentences)",
-  "servings": 4,
-  "prepTime": 15,
-  "cookTime": 30,
-  "ingredients": [
+	"ingredients": [
     {"name": "ingredient name", "amount": "250", "unit": "g", "notes": "diced"},
     {"name": "soy sauce", "amount": "2", "unit": "tbsp", "notes": null}
   ],

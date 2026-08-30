@@ -218,13 +218,9 @@ model Recipe {
   id          String   @id @default(cuid())
   title       String
   description String?
-  servings    Int      @default(4)
-  prepTime    Int?     // minutes
-  cookTime    Int?     // minutes
-  /// Explicitly verified hands-on minutes. Legacy Prep does not prove this.
+  /// Explicitly verified hands-on minutes.
   activeTime  Int?
-  /// Explicitly verified elapsed minutes. The additive migration fills this
-  /// only when both legacy Prep and Cook form an unambiguous positive total.
+  /// Explicitly verified elapsed minutes.
   totalTime   Int?
   /// Optional positive amount for a known typed yield (for example 12 pieces).
   yieldAmount Float?
@@ -347,8 +343,8 @@ model MenuItem {
   /// Frozen at add/replace time so a deleted Recipe's card keeps its identity.
   recipeTitle String?
   /// Positive decimal batches of the Recipe's stored ingredient list ("1×" = one
-  /// batch). Deliberately not derived from legacy servings, which has no
-  /// reliability provenance (#98 readiness corrections).
+  /// batch). Deliberately not derived from an unverified default quantity
+  /// with no provenance (#98 readiness corrections).
   scaleMultiplier Float?
   /// A Recipe card's optional serving/preparation context — or, on a note
   /// card, the card's flexible text itself.
@@ -565,9 +561,9 @@ model MealRecipeItem {
   /// Frozen at add/replace time so a deleted Recipe's card keeps its identity.
   recipeTitle String
   /// Positive decimal batches of the Recipe's stored ingredient list ("1×" =
-  /// one batch). Migrated legacy serving overrides become
-  /// override / Recipe.servings — preserving the chosen ratio without
-  /// treating legacy servings as trustworthy yield (#98).
+  /// one batch). Historical serving overrides were migrated to the exact
+  /// selected/base ratio, preserving the chosen quantity without treating the
+  /// old base value as trustworthy yield (#98).
   scaleMultiplier Float   @default(1)
   cooked          Boolean @default(false)
   /// Frozen display note copied from the Menu card at planning time (#107).

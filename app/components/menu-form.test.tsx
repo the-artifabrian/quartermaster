@@ -11,8 +11,7 @@ test('Menu editing shows target yield for known Recipes and multiplier for unkno
 		{
 			id: 'known',
 			title: 'Pepper parcels',
-			prepTime: null,
-			cookTime: null,
+			totalTime: null,
 			yieldAmount: 12,
 			yieldLabel: 'pieces',
 			isFavorite: false,
@@ -21,8 +20,7 @@ test('Menu editing shows target yield for known Recipes and multiplier for unkno
 		{
 			id: 'unknown',
 			title: 'Family stew',
-			prepTime: null,
-			cookTime: null,
+			totalTime: null,
 			yieldAmount: null,
 			yieldLabel: null,
 			isFavorite: false,

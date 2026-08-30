@@ -85,9 +85,6 @@ export const RecipeSchema = z
 	.object({
 		title: RecipeTitleSchema,
 		description: RecipeDescriptionSchema,
-		servings: z.coerce.number().int().min(1).max(100).default(4),
-		prepTime: z.coerce.number().int().min(0).max(1440).optional(),
-		cookTime: z.coerce.number().int().min(0).max(1440).optional(),
 		...recipeTimeYieldFields,
 		sourceUrl: z.url().max(2000).optional().or(z.literal('')),
 		notes: RecipeNotesSchema,

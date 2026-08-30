@@ -17,9 +17,7 @@ export type TonightData = {
 	recipe: {
 		id: string
 		title: string
-		prepTime: number | null
-		cookTime: number | null
-		servings: number
+		totalTime: number | null
 		yieldAmount: number | null
 		yieldLabel: string | null
 		image: { objectKey: string } | null
@@ -30,7 +28,6 @@ export type TonightData = {
 
 export function TodayBanner({ tonight }: { tonight: TonightData }) {
 	const { label, recipe, scaleMultiplier, remainingCount } = tonight
-	const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)
 	const recipeYield = getTypedYield(recipe)
 	const targetYield = scaleMultiplierToTargetYield(scaleMultiplier, recipeYield)
 	const quantityText =
@@ -88,10 +85,10 @@ export function TodayBanner({ tonight }: { tonight: TonightData }) {
 						{recipe.title}
 					</h3>
 					<div className="text-muted-foreground flex items-center gap-3 text-xs">
-						{totalTime > 0 && (
+						{recipe.totalTime != null && (
 							<span className="flex items-center gap-1">
 								<Icon name="clock" size="xs" />
-								{totalTime} min
+								{recipe.totalTime} min
 							</span>
 						)}
 						{quantityText ? <span>{quantityText}</span> : null}

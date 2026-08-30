@@ -24,7 +24,6 @@ type RecipeFormProps = {
 		id: string
 		title: string
 		description?: string | null
-		servings: number
 		activeTime?: number | null
 		totalTime?: number | null
 		yieldAmount?: number | null
@@ -132,7 +131,6 @@ export function RecipeForm({
 		defaultValue: {
 			title: recipe?.title ?? '',
 			description: recipe?.description ?? '',
-			servings: String(recipe?.servings ?? 4),
 			activeTime: recipe?.activeTime?.toString(),
 			totalTime: recipe?.totalTime?.toString(),
 			yieldAmount: recipe?.yieldAmount?.toString(),
@@ -265,16 +263,7 @@ export function RecipeForm({
 						errors={fields.notes.errors}
 					/>
 
-					<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-						<Field
-							labelProps={{ children: 'Servings' }}
-							inputProps={{
-								...getInputProps(fields.servings, { type: 'number' }),
-								min: 1,
-								max: 100,
-							}}
-							errors={fields.servings.errors}
-						/>
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<Field
 							labelProps={{ children: 'Active Time (min)' }}
 							inputProps={{

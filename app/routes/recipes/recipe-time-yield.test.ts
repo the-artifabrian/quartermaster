@@ -60,7 +60,6 @@ async function requestFor(
 
 const requiredRecipeFields = {
 	title: 'Braided loaf',
-	servings: '4',
 	'ingredients[0].name': 'flour',
 	'instructions[0].content': 'Knead the dough.',
 }
@@ -95,13 +94,15 @@ test('create persists explicit Recipe time and typed yield metadata', async () =
 	expect(result.recipe).toEqual(
 		expect.objectContaining({
 			title: 'Braided loaf',
-			servings: 4,
 			activeTime: 25,
 			totalTime: 180,
 			yieldAmount: 2.5,
 			yieldLabel: 'large braided loaves',
 		}),
 	)
+	expect(result.recipe).not.toHaveProperty('servings')
+	expect(result.recipe).not.toHaveProperty('prepTime')
+	expect(result.recipe).not.toHaveProperty('cookTime')
 })
 
 test('edit persists explicit Recipe time and typed yield metadata', async () => {
@@ -170,7 +171,6 @@ test('edit turns blank Recipe time and typed yield fields back into unknown valu
 	})
 	expect(result.recipe).toEqual(
 		expect.objectContaining({
-			servings: 4,
 			activeTime: null,
 			totalTime: null,
 			yieldAmount: null,
@@ -348,7 +348,6 @@ test('URL import save persists explicit Recipe time and typed yield metadata', a
 		request: await requestFor(session, '/recipes/import', {
 			intent: 'save',
 			title: 'Imported braided loaf',
-			servings: '4',
 			activeTime: '25',
 			totalTime: '180',
 			yieldAmount: '2.5',
@@ -414,5 +413,42 @@ test('URL import keeps missing Total and typed Yield unknown', async () => {
 			yieldAmount: null,
 			yieldLabel: null,
 		}),
+	)
+})
+
+test('URL import keeps range yield text unknown', async () => {
+	const session = await setupUser()
+	const sourceUrl = 'https://recipes.example/range-yield'
+	server.use(
+		http.get(sourceUrl, () =>
+			HttpResponse.html(`
+				<script type="application/ld+json">
+					${JSON.stringify({
+						'@context': 'https://schema.org',
+						'@type': 'Recipe',
+						name: 'Variable batch',
+						recipeYield: '4-6 servings',
+						recipeIngredient: ['1 onion'],
+						recipeInstructions: ['Cook the onion.'],
+					})}
+				</script>
+			`),
+		),
+	)
+
+	const result = (await importAction({
+		request: await requestFor(session, '/recipes/import', {
+			intent: 'fetch',
+			url: sourceUrl,
+		}),
+		...routeArgs('/recipes/import'),
+	})) as {
+		data?: { recipe: Record<string, unknown> }
+		recipe?: Record<string, unknown>
+	}
+	const payload = result.data ?? result
+
+	expect(payload.recipe).toEqual(
+		expect.objectContaining({ yieldAmount: null, yieldLabel: null }),
 	)
 })

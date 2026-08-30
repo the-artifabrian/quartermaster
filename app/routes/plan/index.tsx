@@ -94,11 +94,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 								select: {
 									id: true,
 									title: true,
-									servings: true,
 									yieldAmount: true,
 									yieldLabel: true,
-									prepTime: true,
-									cookTime: true,
+									totalTime: true,
 									image: { select: { objectKey: true } },
 									ingredients: {
 										select: {
@@ -133,9 +131,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		select: {
 			id: true,
 			title: true,
-			prepTime: true,
-			cookTime: true,
-			servings: true,
+			totalTime: true,
 			yieldAmount: true,
 			yieldLabel: true,
 			isFavorite: true,
@@ -210,11 +206,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 					? {
 							id: item.recipe.id,
 							title: item.recipe.title,
-							servings: item.recipe.servings,
 							yieldAmount: item.recipe.yieldAmount,
 							yieldLabel: item.recipe.yieldLabel,
-							prepTime: item.recipe.prepTime,
-							cookTime: item.recipe.cookTime,
+							totalTime: item.recipe.totalTime,
 							image: item.recipe.image,
 						}
 					: null,
@@ -230,9 +224,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		recipe: {
 			id: string
 			title: string
-			prepTime: number | null
-			cookTime: number | null
-			servings: number
+			totalTime: number | null
 			yieldAmount: number | null
 			yieldLabel: string | null
 			image: { objectKey: string } | null

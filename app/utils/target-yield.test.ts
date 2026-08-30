@@ -27,15 +27,11 @@ describe('typed yield conversion', () => {
 		expect(scaleMultiplierToTargetYield(1.5, recipeYield)).toBe(3)
 	})
 
-	test('keeps missing or incomplete metadata unknown instead of reading legacy servings', () => {
+	test('keeps missing or incomplete metadata unknown', () => {
+		expect(getTypedYield({ yieldAmount: null, yieldLabel: null })).toBeNull()
+		expect(getTypedYield({ yieldAmount: 12, yieldLabel: null })).toBeNull()
 		expect(
-			getTypedYield({ yieldAmount: null, yieldLabel: null, servings: 12 }),
-		).toBeNull()
-		expect(
-			getTypedYield({ yieldAmount: 12, yieldLabel: null, servings: 12 }),
-		).toBeNull()
-		expect(
-			getTypedYield({ yieldAmount: null, yieldLabel: 'pieces', servings: 12 }),
+			getTypedYield({ yieldAmount: null, yieldLabel: 'pieces' }),
 		).toBeNull()
 	})
 

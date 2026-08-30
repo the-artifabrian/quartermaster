@@ -9,9 +9,6 @@ import {
 const validResponse = {
 	title: 'Chicken Stir Fry',
 	description: 'A quick and easy stir fry with tender chicken and vegetables.',
-	servings: 4,
-	prepTime: 10,
-	cookTime: 15,
 	ingredients: [
 		{ name: 'chicken breast', amount: '2', unit: 'lbs', notes: 'sliced' },
 		{ name: 'bell pepper', amount: '1', unit: null, notes: 'diced' },
@@ -121,11 +118,25 @@ describe('buildPrompt', () => {
 })
 
 describe('parseRecipeResponse', () => {
+	test('ignores legacy Recipe metadata from generated output', () => {
+		const result = parseRecipeResponse(
+			JSON.stringify({
+				...validResponse,
+				servings: 4,
+				prepTime: 10,
+				cookTime: 15,
+			}),
+		)
+
+		expect(result).not.toHaveProperty('servings')
+		expect(result).not.toHaveProperty('prepTime')
+		expect(result).not.toHaveProperty('cookTime')
+	})
+
 	test('parses valid JSON response', () => {
 		const result = parseRecipeResponse(JSON.stringify(validResponse))
 		expect(result).not.toBeNull()
 		expect(result!.title).toBe('Chicken Stir Fry')
-		expect(result!.servings).toBe(4)
 		expect(result!.ingredients).toHaveLength(3)
 		expect(result!.instructions).toHaveLength(4)
 	})
@@ -183,23 +194,6 @@ describe('parseRecipeResponse', () => {
 		}
 		const result = parseRecipeResponse(JSON.stringify(manyInsts))
 		expect(result!.instructions).toHaveLength(30)
-	})
-
-	test('defaults servings to 4 when invalid', () => {
-		const badServings = { ...validResponse, servings: -1 }
-		const result = parseRecipeResponse(JSON.stringify(badServings))
-		expect(result!.servings).toBe(4)
-	})
-
-	test('handles null prepTime and cookTime', () => {
-		const nullTimes = {
-			...validResponse,
-			prepTime: null,
-			cookTime: null,
-		}
-		const result = parseRecipeResponse(JSON.stringify(nullTimes))
-		expect(result!.prepTime).toBeNull()
-		expect(result!.cookTime).toBeNull()
 	})
 
 	test('handles string instructions', () => {

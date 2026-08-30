@@ -9,8 +9,7 @@ type RecipeCardProps = {
 	title: string
 	description?: string | null
 	imageObjectKey?: string | null
-	prepTime?: number | null
-	cookTime?: number | null
+	totalTime?: number | null
 	isFavorite?: boolean
 	isAiGenerated?: boolean
 }
@@ -20,12 +19,10 @@ export function RecipeCard({
 	title,
 	description,
 	imageObjectKey,
-	prepTime,
-	cookTime,
+	totalTime,
 	isFavorite,
 	isAiGenerated,
 }: RecipeCardProps) {
-	const totalTime = (prepTime ?? 0) + (cookTime ?? 0)
 	const placeholder = !imageObjectKey ? getRecipePlaceholder(title) : null
 
 	return (
@@ -101,7 +98,7 @@ export function RecipeCard({
 				</div>
 
 				{/* Mobile meta */}
-				{totalTime > 0 && (
+				{totalTime != null && (
 					<div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-[13px] md:hidden">
 						<span className="flex items-center gap-1">
 							<Icon name="clock" size="xs" />
@@ -124,7 +121,7 @@ export function RecipeCard({
 
 				{/* Desktop meta */}
 				<div className="mt-auto hidden items-center gap-3 pt-2 md:flex">
-					{totalTime > 0 && (
+					{totalTime != null && (
 						<span className="text-muted-foreground flex items-center gap-1 text-xs">
 							<Icon name="clock" size="xs" />
 							{totalTime} min

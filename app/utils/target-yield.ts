@@ -10,13 +10,11 @@ const MAX_SCALE_MULTIPLIER = 100
 
 /**
  * A Recipe has a usable typed yield only when both halves of the explicit
- * metadata pair are present. Legacy servings is deliberately outside this
- * interface: it cannot turn unknown yield into known yield.
+ * metadata pair are present.
  */
 export function getTypedYield(recipe: {
 	yieldAmount: number | null
 	yieldLabel: string | null
-	servings?: unknown
 }): TypedYield | null {
 	const label = recipe.yieldLabel?.trim()
 	if (

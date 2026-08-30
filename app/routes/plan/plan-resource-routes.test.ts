@@ -56,7 +56,6 @@ async function setupRecipe(userId: string, householdId: string) {
 			title: 'Test Recipe',
 			userId,
 			householdId,
-			servings: 4,
 			ingredients: {
 				create: [{ name: 'flour', amount: '2', unit: 'cups', order: 0 }],
 			},

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Input } from '#app/components/ui/input.tsx'
 import {
 	formatScaleMultiplier,
@@ -42,6 +42,11 @@ export function RecipeScaleControl({
 		: formatScaleMultiplier(scaleMultiplier)
 	const [draft, setDraft] = useState(displayedValue)
 	const [invalid, setInvalid] = useState(false)
+	const equivalenceId = useId()
+	const equivalenceMultiplier =
+		recipeYield && scaleMultiplier !== 1
+			? formatScaleMultiplier(scaleMultiplier)
+			: null
 	const inputLabel = recipeYield
 		? `Target ${recipeYield.label}`
 		: 'Scale multiplier'
@@ -78,6 +83,11 @@ export function RecipeScaleControl({
 	return (
 		<label className="flex min-w-0 items-center gap-1.5">
 			<span className="sr-only">{inputLabel}</span>
+			{recipeYield && !compact ? (
+				<span aria-hidden="true" className="text-muted-foreground text-xs">
+					Target
+				</span>
+			) : null}
 			<Input
 				type="text"
 				inputMode="decimal"
@@ -94,6 +104,9 @@ export function RecipeScaleControl({
 					}
 				}}
 				aria-label={inputLabel}
+				aria-describedby={
+					equivalenceMultiplier ? equivalenceId : undefined
+				}
 				aria-invalid={invalid || undefined}
 				className={cn(
 					'text-center tabular-nums',
@@ -110,6 +123,22 @@ export function RecipeScaleControl({
 			>
 				{recipeYield?.label ?? '×'}
 			</span>
+			{equivalenceMultiplier ? (
+				<>
+					<span id={equivalenceId} className="sr-only">
+						{equivalenceMultiplier} times recipe
+					</span>
+					<span
+						aria-hidden="true"
+						className={cn(
+							'text-muted-foreground shrink-0 tabular-nums',
+							compact ? 'text-xs' : 'text-sm',
+						)}
+					>
+						· {equivalenceMultiplier}×
+					</span>
+				</>
+			) : null}
 		</label>
 	)
 }

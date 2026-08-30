@@ -29,6 +29,47 @@ test('known Recipe yield edits a target amount and commits its multiplier', asyn
 	expect(onChange).toHaveBeenCalledWith(2)
 })
 
+test('known Recipe yield reveals its multiplier only after scaling', () => {
+	const onChange = vi.fn()
+	const { rerender } = render(
+		<RecipeScaleControl
+			scaleMultiplier={1}
+			yieldAmount={4}
+			yieldLabel="bowls"
+			onScaleMultiplierChange={onChange}
+		/>,
+	)
+
+	const input = screen.getByRole('textbox', { name: 'Target bowls' })
+	expect(screen.queryByText(/· 1×/)).not.toBeInTheDocument()
+	expect(input).not.toHaveAccessibleDescription()
+
+	rerender(
+		<RecipeScaleControl
+			scaleMultiplier={1.5}
+			yieldAmount={4}
+			yieldLabel="bowls"
+			onScaleMultiplierChange={onChange}
+		/>,
+	)
+
+	expect(screen.getByText('· 1.5×')).toBeInTheDocument()
+	expect(input).toHaveAccessibleDescription('1.5 times recipe')
+})
+
+test('known Recipe yield visibly identifies the amount as a target', () => {
+	render(
+		<RecipeScaleControl
+			scaleMultiplier={1}
+			yieldAmount={4}
+			yieldLabel="bowls"
+			onScaleMultiplierChange={vi.fn()}
+		/>,
+	)
+
+	expect(screen.getByText('Target')).toBeInTheDocument()
+})
+
 test('unknown typed yield ignores legacy servings and edits the multiplier', async () => {
 	const user = userEvent.setup()
 	const onChange = vi.fn()

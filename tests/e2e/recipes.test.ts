@@ -220,9 +220,27 @@ test('manual Recipe scaling uses target yield when known and multiplier when unk
 		await page.goto(`/recipes/${known.id}`)
 		const target = page.getByLabel('Target pieces')
 		await expect(target).toHaveValue('12')
+		await expect(page.getByText('Target', { exact: true })).toBeVisible()
+		await expect(page.getByText(/· 1×/)).toHaveCount(0)
 		const targetBox = await target.boundingBox()
 		expect(targetBox).not.toBeNull()
 		expect(targetBox!.x + targetBox!.width).toBeLessThanOrEqual(viewport.width)
+
+		await target.fill('18')
+		await target.press('Enter')
+		await expect(page).toHaveURL(
+			new RegExp(`/recipes/${known.id}\\?scale=1.5$`),
+		)
+		const equivalence = page.getByText('· 1.5×')
+		await expect(equivalence).toBeVisible()
+		const equivalenceBox = await equivalence.boundingBox()
+		expect(equivalenceBox).not.toBeNull()
+		expect(equivalenceBox!.x + equivalenceBox!.width).toBeLessThanOrEqual(
+			viewport.width,
+		)
+		await page.getByRole('button', { name: 'Reset' }).click()
+		await expect(target).toHaveValue('12')
+		await expect(equivalence).toHaveCount(0)
 
 		await page.goto(`/recipes/${unknown.id}`)
 		const multiplier = page.getByLabel('Scale multiplier')
@@ -234,11 +252,6 @@ test('manual Recipe scaling uses target yield when known and multiplier when unk
 			viewport.width,
 		)
 	}
-
-	await page.goto(`/recipes/${known.id}`)
-	await page.getByLabel('Target pieces').fill('18')
-	await page.getByLabel('Target pieces').press('Enter')
-	await expect(page).toHaveURL(new RegExp(`/recipes/${known.id}\\?scale=1.5$`))
 
 	await page.goto(`/recipes/${unknown.id}`)
 	await page.getByLabel('Scale multiplier').fill('1.5')

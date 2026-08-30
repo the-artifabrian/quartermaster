@@ -25,8 +25,10 @@ type RecipeFormProps = {
 		title: string
 		description?: string | null
 		servings: number
-		prepTime?: number | null
-		cookTime?: number | null
+		activeTime?: number | null
+		totalTime?: number | null
+		yieldAmount?: number | null
+		yieldLabel?: string | null
 		sourceUrl?: string | null
 		notes?: string | null
 		image?: { objectKey: string; altText?: string | null } | null
@@ -131,8 +133,10 @@ export function RecipeForm({
 			title: recipe?.title ?? '',
 			description: recipe?.description ?? '',
 			servings: String(recipe?.servings ?? 4),
-			prepTime: recipe?.prepTime?.toString(),
-			cookTime: recipe?.cookTime?.toString(),
+			activeTime: recipe?.activeTime?.toString(),
+			totalTime: recipe?.totalTime?.toString(),
+			yieldAmount: recipe?.yieldAmount?.toString(),
+			yieldLabel: recipe?.yieldLabel ?? '',
 			sourceUrl: recipe?.sourceUrl ?? '',
 			notes: recipe?.notes ?? '',
 		},
@@ -157,8 +161,9 @@ export function RecipeForm({
 		fields.description.value ? 'description' : null,
 		fields.sourceUrl.value ? 'URL' : null,
 		fields.notes.value ? 'notes' : null,
-		fields.prepTime.value ? 'prep' : null,
-		fields.cookTime.value ? 'cook' : null,
+		fields.activeTime.value ? 'active' : null,
+		fields.totalTime.value ? 'total' : null,
+		fields.yieldAmount.value && fields.yieldLabel.value ? 'yield' : null,
 	].filter(Boolean).length
 
 	return (
@@ -218,7 +223,7 @@ export function RecipeForm({
 			{/* Details Section */}
 			<FormSection
 				title="Details"
-				summary={`${filledDetails}/6 filled`}
+				summary={`${filledDetails}/7 filled`}
 				defaultOpen
 			>
 				<div className="space-y-4">
@@ -271,23 +276,53 @@ export function RecipeForm({
 							errors={fields.servings.errors}
 						/>
 						<Field
-							labelProps={{ children: 'Prep Time (min)' }}
+							labelProps={{ children: 'Active Time (min)' }}
 							inputProps={{
-								...getInputProps(fields.prepTime, { type: 'number' }),
-								min: 0,
+								...getInputProps(fields.activeTime, { type: 'number' }),
+								min: 1,
 								placeholder: '—',
 							}}
-							errors={fields.prepTime.errors}
+							errors={fields.activeTime.errors}
 						/>
 						<Field
-							labelProps={{ children: 'Cook Time (min)' }}
+							labelProps={{ children: 'Total Time (min)' }}
 							inputProps={{
-								...getInputProps(fields.cookTime, { type: 'number' }),
-								min: 0,
+								...getInputProps(fields.totalTime, { type: 'number' }),
+								min: 1,
 								placeholder: '—',
 							}}
-							errors={fields.cookTime.errors}
+							errors={fields.totalTime.errors}
 						/>
+					</div>
+
+					<div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+						<Field
+							labelProps={{ children: 'Yield amount' }}
+							inputProps={{
+								...getInputProps(fields.yieldAmount, { type: 'number' }),
+								step: 'any',
+								placeholder: '—',
+							}}
+							errors={fields.yieldAmount.errors}
+						/>
+						<div className="min-w-0">
+							<Field
+								labelProps={{ children: 'Yield label' }}
+								inputProps={{
+									...getInputProps(fields.yieldLabel, { type: 'text' }),
+									list: 'yield-label-suggestions',
+									placeholder: 'servings, pieces, loaf…',
+								}}
+								errors={fields.yieldLabel.errors}
+							/>
+							<datalist id="yield-label-suggestions">
+								{['servings', 'pieces', 'batch', 'cake', 'loaf'].map(
+									(suggestion) => (
+										<option key={suggestion} value={suggestion} />
+									),
+								)}
+							</datalist>
+						</div>
 					</div>
 				</div>
 			</FormSection>

@@ -127,6 +127,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			servings: true,
 			prepTime: true,
 			cookTime: true,
+			activeTime: true,
+			totalTime: true,
+			yieldAmount: true,
+			yieldLabel: true,
 			isFavorite: true,
 			isAiGenerated: true,
 			sourceUrl: true,
@@ -672,8 +676,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						</h1>
 						<Divider className="mt-3 mb-2 max-w-xs print:hidden" />
 						<RecipeMetadataCard
-							prepTime={recipe.prepTime}
-							cookTime={recipe.cookTime}
+							activeTime={recipe.activeTime}
+							totalTime={recipe.totalTime}
+							yieldAmount={recipe.yieldAmount}
+							yieldLabel={recipe.yieldLabel}
 							sourceUrl={recipe.sourceUrl}
 						/>
 					</div>

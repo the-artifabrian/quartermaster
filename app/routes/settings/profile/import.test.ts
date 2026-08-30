@@ -6,6 +6,7 @@ import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as exportLoader } from '../../resources/export-all-data.tsx'
+import { loader as recipeExportLoader } from '../../resources/export-recipes.tsx'
 import { loader as shoppingLoader } from '../../shopping.tsx'
 import { action } from './import.tsx'
 
@@ -154,6 +155,134 @@ async function exportHousehold(session: { id: string }) {
 	})
 	return JSON.parse(await response.text()) as Record<string, any>
 }
+
+async function exportRecipes(session: { id: string }) {
+	const cookie = await getSessionCookieHeader(session)
+	const response = await recipeExportLoader({
+		request: new Request(`${BASE_URL}/resources/export-recipes`, {
+			headers: { cookie },
+		}),
+		...ACTION_ARGS_BASE,
+	})
+	return JSON.parse(await response.text()) as Record<string, any>
+}
+
+describe('Recipe time and typed yield recovery', () => {
+	test('full export and import preserve explicit Recipe metadata', async () => {
+		const source = await setupUser()
+		await prisma.recipe.create({
+			data: {
+				title: 'Celebration loaf',
+				servings: 4,
+				prepTime: 10,
+				cookTime: 35,
+				activeTime: 25,
+				totalTime: 180,
+				yieldAmount: 2.5,
+				yieldLabel: 'large braided loaves for a celebration table',
+				userId: source.userId,
+				householdId: source.householdId,
+				ingredients: { create: { name: 'flour', order: 0 } },
+				instructions: {
+					create: { content: 'Knead the dough.', order: 0 },
+				},
+			},
+		})
+
+		const exported = await exportHousehold(source)
+		expect(exported.recipes).toContainEqual(
+			expect.objectContaining({
+				title: 'Celebration loaf',
+				activeTime: 25,
+				totalTime: 180,
+				yieldAmount: 2.5,
+				yieldLabel: 'large braided loaves for a celebration table',
+			}),
+		)
+
+		const target = await setupUser()
+		await importPayload(target, exported)
+		const recovered = await exportHousehold(target)
+		expect(recovered.recipes).toContainEqual(
+			expect.objectContaining({
+				title: 'Celebration loaf',
+				activeTime: 25,
+				totalTime: 180,
+				yieldAmount: 2.5,
+				yieldLabel: 'large braided loaves for a celebration table',
+			}),
+		)
+	})
+
+	test('older exports keep absent Recipe metadata unknown', async () => {
+		const target = await setupUser()
+		await importPayload(target, {
+			format: 'quartermaster-full-export-v1',
+			recipes: [
+				{
+					title: 'Legacy four servings',
+					servings: 4,
+					prepTime: 10,
+					cookTime: 20,
+					ingredients: [{ name: 'onion' }],
+					instructions: ['Cook the onion.'],
+				},
+			],
+		})
+
+		const recovered = await exportHousehold(target)
+		expect(recovered.recipes).toContainEqual(
+			expect.objectContaining({
+				title: 'Legacy four servings',
+				activeTime: null,
+				totalTime: null,
+				yieldAmount: null,
+				yieldLabel: null,
+			}),
+		)
+	})
+
+	test('Recipe-only export and import preserve explicit metadata', async () => {
+		const source = await setupUser()
+		await prisma.recipe.create({
+			data: {
+				title: 'Small jar batch',
+				activeTime: 15,
+				totalTime: 75,
+				yieldAmount: 3.5,
+				yieldLabel: 'small jars',
+				userId: source.userId,
+				householdId: source.householdId,
+				ingredients: { create: { name: 'tomatoes', order: 0 } },
+				instructions: { create: { content: 'Simmer.', order: 0 } },
+			},
+		})
+
+		const exported = await exportRecipes(source)
+		expect(exported.recipes).toContainEqual(
+			expect.objectContaining({
+				title: 'Small jar batch',
+				activeTime: 15,
+				totalTime: 75,
+				yieldAmount: 3.5,
+				yieldLabel: 'small jars',
+			}),
+		)
+
+		const target = await setupUser()
+		await importPayload(target, exported)
+		const recovered = await exportHousehold(target)
+		expect(recovered.recipes).toContainEqual(
+			expect.objectContaining({
+				title: 'Small jar batch',
+				activeTime: 15,
+				totalTime: 75,
+				yieldAmount: 3.5,
+				yieldLabel: 'small jars',
+			}),
+		)
+	})
+})
 
 describe('household Staples recovery', () => {
 	test('full export and import preserve canonical rows, cutover state, and archived Pantry independently', async () => {

@@ -11,6 +11,7 @@ import {
 	useActionData,
 	useNavigation,
 } from 'react-router'
+import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -37,7 +38,10 @@ import {
 	extractRecipeFromImages,
 	extractRecipeFromText,
 } from '#app/utils/recipe-extract-llm.server.ts'
-import { ImportUrlSchema } from '#app/utils/recipe-validation.ts'
+import {
+	ImportUrlSchema,
+	RecipeTimeYieldSchema,
+} from '#app/utils/recipe-validation.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
 
@@ -62,6 +66,10 @@ type ExtractedRecipe = {
 	servings: number
 	prepTime: number | null
 	cookTime: number | null
+	activeTime: number | null
+	totalTime: number | null
+	yieldAmount: number | null
+	yieldLabel: string | null
 	sourceUrl: string
 	ingredients: Array<{
 		name: string
@@ -171,6 +179,35 @@ function cleanJsonLdText(text: string): string {
 	)
 }
 
+function parseTypedYield(value: unknown): {
+	amount: number
+	label: string
+} | null {
+	if (value == null) return null
+	const raw = cleanJsonLdText(
+		String(Array.isArray(value) ? (value[0] ?? '') : value),
+	)
+	const amountMatch = raw.match(/\d+(?:[.,]\d+)?/)
+	if (!amountMatch || amountMatch.index == null) return null
+	const amount = Number(amountMatch[0].replace(',', '.'))
+	if (!Number.isFinite(amount) || amount <= 0) return null
+
+	const prefix = raw.slice(0, amountMatch.index).trim()
+	const suffix = raw
+		.slice(amountMatch.index + amountMatch[0].length)
+		.replace(/^[\s:;,.\-–—]+/, '')
+		.trim()
+	const label = suffix || (/^serves?\b/i.test(prefix) ? 'servings' : '')
+	if (!label) return null
+	return { amount, label: label.slice(0, 100).trim() }
+}
+
+function parseExplicitDuration(value: unknown): number | null {
+	if (value == null) return null
+	const minutes = parseISODuration(String(value))
+	return minutes != null && minutes > 0 ? minutes : null
+}
+
 function parseInstructions(value: unknown): Array<{ content: string }> {
 	if (!value) return []
 
@@ -233,6 +270,7 @@ function extractRecipe(
 	const { title, servings: titleServings } = extractServingsFromTitle(
 		cleanJsonLdText(String(jsonLd.name || 'Untitled Recipe')),
 	)
+	const typedYield = parseTypedYield(jsonLd.recipeYield)
 
 	return {
 		title,
@@ -248,6 +286,10 @@ function extractRecipe(
 		cookTime: jsonLd.cookTime
 			? (parseISODuration(String(jsonLd.cookTime)) ?? null)
 			: null,
+		activeTime: parseExplicitDuration(jsonLd.prepTime),
+		totalTime: parseExplicitDuration(jsonLd.totalTime),
+		yieldAmount: typedYield?.amount ?? null,
+		yieldLabel: typedYield?.label ?? null,
 		sourceUrl: url,
 		ingredients,
 		instructions,
@@ -571,6 +613,10 @@ export async function action({ request }: Route.ActionArgs) {
 			servings: parsed.servings ?? 4,
 			prepTime: null,
 			cookTime: null,
+			activeTime: null,
+			totalTime: null,
+			yieldAmount: null,
+			yieldLabel: null,
 			sourceUrl: sourceUrl || '',
 			ingredients: parsed.ingredients.map((ing) => ({
 				name: ing.name,
@@ -771,6 +817,10 @@ export async function action({ request }: Route.ActionArgs) {
 			servings: llmTitleServings ?? llmResult.servings,
 			prepTime: llmResult.prepTime,
 			cookTime: llmResult.cookTime,
+			activeTime: null,
+			totalTime: null,
+			yieldAmount: null,
+			yieldLabel: null,
 			sourceUrl: '',
 			ingredients: llmResult.ingredients.map((ing) => ({
 				name: ing.name,
@@ -831,6 +881,23 @@ export async function action({ request }: Route.ActionArgs) {
 					Math.max(0, parseInt(formData.get('cookTime') as string, 10) || 0),
 				)
 			: null
+		const metadataSubmission = parseWithZod(formData, {
+			schema: RecipeTimeYieldSchema,
+		})
+		if (metadataSubmission.status !== 'success') {
+			return data(
+				{
+					intent: 'save' as const,
+					error: 'Time and yield must be positive, with both yield fields set.',
+					recipe: null,
+					result: metadataSubmission.reply(),
+					duplicates: null,
+				},
+				{ status: 400 },
+			)
+		}
+		const { activeTime, totalTime, yieldAmount, yieldLabel } =
+			metadataSubmission.value
 		const sourceUrl = (formData.get('sourceUrl') as string) || null
 
 		// Parse ingredients
@@ -894,6 +961,10 @@ export async function action({ request }: Route.ActionArgs) {
 				servings,
 				prepTime,
 				cookTime,
+				activeTime,
+				totalTime,
+				yieldAmount,
+				yieldLabel,
 				sourceUrl,
 				userId,
 				householdId,
@@ -1207,13 +1278,14 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						)}
 						<div className="text-muted-foreground flex flex-wrap gap-4 text-sm">
 							<span>Servings: {recipe.servings}</span>
-							{recipe.prepTime != null && recipe.prepTime > 0 && (
-								<span>Prep: {recipe.prepTime} min</span>
-							)}
-							{recipe.cookTime != null && recipe.cookTime > 0 && (
-								<span>Cook: {recipe.cookTime} min</span>
-							)}
 						</div>
+						<RecipeMetadataCard
+							activeTime={recipe.activeTime}
+							totalTime={recipe.totalTime}
+							yieldAmount={recipe.yieldAmount}
+							yieldLabel={recipe.yieldLabel}
+							sourceUrl={null}
+						/>
 
 						{recipe.ingredients.length > 0 &&
 							(() => {
@@ -1326,6 +1398,30 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						)}
 						{recipe.cookTime != null && recipe.cookTime > 0 && (
 							<input type="hidden" name="cookTime" value={recipe.cookTime} />
+						)}
+						{recipe.activeTime != null && (
+							<input
+								type="hidden"
+								name="activeTime"
+								value={recipe.activeTime}
+							/>
+						)}
+						{recipe.totalTime != null && (
+							<input type="hidden" name="totalTime" value={recipe.totalTime} />
+						)}
+						{recipe.yieldAmount != null && (
+							<input
+								type="hidden"
+								name="yieldAmount"
+								value={recipe.yieldAmount}
+							/>
+						)}
+						{recipe.yieldLabel != null && (
+							<input
+								type="hidden"
+								name="yieldLabel"
+								value={recipe.yieldLabel}
+							/>
 						)}
 						<input type="hidden" name="sourceUrl" value={recipe.sourceUrl} />
 						{recipe.ingredients.map((ing, i) => (

@@ -39,23 +39,83 @@ export const InstructionSchema = z.object({
 		.max(5000, { message: 'Instruction is too long' }),
 })
 
-export const RecipeSchema = z.object({
-	title: RecipeTitleSchema,
-	description: RecipeDescriptionSchema,
-	servings: z.coerce.number().int().min(1).max(100).default(4),
-	prepTime: z.coerce.number().int().min(0).max(1440).optional(),
-	cookTime: z.coerce.number().int().min(0).max(1440).optional(),
-	sourceUrl: z.url().max(2000).optional().or(z.literal('')),
-	notes: RecipeNotesSchema,
-	ingredients: z
-		.array(IngredientSchema)
-		.min(1, { message: 'At least one ingredient is required' })
-		.max(200, { message: 'Too many ingredients' }),
-	instructions: z
-		.array(InstructionSchema)
-		.min(1, { message: 'At least one instruction is required' })
-		.max(200, { message: 'Too many instructions' }),
-})
+const optionalPositiveInteger = z.preprocess(
+	(value) => (value === '' || value == null ? undefined : value),
+	z.coerce.number().int().positive().optional(),
+)
+
+const optionalPositiveNumber = z.preprocess(
+	(value) => (value === '' || value == null ? undefined : value),
+	z.coerce.number().positive().optional(),
+)
+
+const optionalYieldLabel = z.preprocess(
+	(value) =>
+		typeof value === 'string' && value.trim() === '' ? undefined : value,
+	z.string().trim().max(100, { message: 'Yield label is too long' }).optional(),
+)
+
+const recipeTimeYieldFields = {
+	activeTime: optionalPositiveInteger,
+	totalTime: optionalPositiveInteger,
+	yieldAmount: optionalPositiveNumber,
+	yieldLabel: optionalYieldLabel,
+}
+
+export const RecipeTimeYieldSchema = z
+	.object(recipeTimeYieldFields)
+	.superRefine((recipe, context) => {
+		if (recipe.yieldAmount != null && recipe.yieldLabel == null) {
+			context.addIssue({
+				code: 'custom',
+				path: ['yieldLabel'],
+				message: 'Add a yield label',
+			})
+		}
+		if (recipe.yieldLabel != null && recipe.yieldAmount == null) {
+			context.addIssue({
+				code: 'custom',
+				path: ['yieldAmount'],
+				message: 'Add a yield amount',
+			})
+		}
+	})
+
+export const RecipeSchema = z
+	.object({
+		title: RecipeTitleSchema,
+		description: RecipeDescriptionSchema,
+		servings: z.coerce.number().int().min(1).max(100).default(4),
+		prepTime: z.coerce.number().int().min(0).max(1440).optional(),
+		cookTime: z.coerce.number().int().min(0).max(1440).optional(),
+		...recipeTimeYieldFields,
+		sourceUrl: z.url().max(2000).optional().or(z.literal('')),
+		notes: RecipeNotesSchema,
+		ingredients: z
+			.array(IngredientSchema)
+			.min(1, { message: 'At least one ingredient is required' })
+			.max(200, { message: 'Too many ingredients' }),
+		instructions: z
+			.array(InstructionSchema)
+			.min(1, { message: 'At least one instruction is required' })
+			.max(200, { message: 'Too many instructions' }),
+	})
+	.superRefine((recipe, context) => {
+		if (recipe.yieldAmount != null && recipe.yieldLabel == null) {
+			context.addIssue({
+				code: 'custom',
+				path: ['yieldLabel'],
+				message: 'Add a yield label',
+			})
+		}
+		if (recipe.yieldLabel != null && recipe.yieldAmount == null) {
+			context.addIssue({
+				code: 'custom',
+				path: ['yieldAmount'],
+				message: 'Add a yield amount',
+			})
+		}
+	})
 
 export type RecipeFormData = z.infer<typeof RecipeSchema>
 

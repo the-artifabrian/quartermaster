@@ -44,29 +44,43 @@ const ImportIngredientSchema = z.object({
 	notes: z.string().max(500).nullable().optional(),
 })
 
-const ImportRecipeSchema = z.object({
-	// Export-local reference key — how Menus reconnect to their Recipes (#102).
-	ref: z.string().max(50).optional(),
-	title: z.string().min(1).max(100),
-	description: z.string().max(500).nullable().optional(),
-	servings: z.number().int().positive().nullable().optional(),
-	prepTime: z.number().int().nonnegative().nullable().optional(),
-	cookTime: z.number().int().nonnegative().nullable().optional(),
-	isFavorite: z.boolean().optional(),
-	sourceUrl: z.string().max(2000).nullable().optional(),
-	notes: z.string().max(5000).nullable().optional(),
-	ingredients: z.array(ImportIngredientSchema).max(200),
-	instructions: z
-		.array(
-			z.union([
-				z.string().min(1).max(5000),
-				z.object({ content: z.string().min(1).max(5000) }),
-			]),
-		)
-		.max(200),
-	tags: z.any().optional(),
-	image: z.any().optional(),
-})
+const ImportRecipeSchema = z
+	.object({
+		// Export-local reference key — how Menus reconnect to their Recipes (#102).
+		ref: z.string().max(50).optional(),
+		title: z.string().min(1).max(100),
+		description: z.string().max(500).nullable().optional(),
+		servings: z.number().int().positive().nullable().optional(),
+		prepTime: z.number().int().nonnegative().nullable().optional(),
+		cookTime: z.number().int().nonnegative().nullable().optional(),
+		activeTime: z.number().int().positive().nullable().optional(),
+		totalTime: z.number().int().positive().nullable().optional(),
+		yieldAmount: z.number().positive().nullable().optional(),
+		yieldLabel: z.string().trim().min(1).max(100).nullable().optional(),
+		isFavorite: z.boolean().optional(),
+		sourceUrl: z.string().max(2000).nullable().optional(),
+		notes: z.string().max(5000).nullable().optional(),
+		ingredients: z.array(ImportIngredientSchema).max(200),
+		instructions: z
+			.array(
+				z.union([
+					z.string().min(1).max(5000),
+					z.object({ content: z.string().min(1).max(5000) }),
+				]),
+			)
+			.max(200),
+		tags: z.any().optional(),
+		image: z.any().optional(),
+	})
+	.superRefine((recipe, context) => {
+		if ((recipe.yieldAmount == null) !== (recipe.yieldLabel == null)) {
+			context.addIssue({
+				code: 'custom',
+				path: recipe.yieldAmount == null ? ['yieldAmount'] : ['yieldLabel'],
+				message: 'Recipe yield amount and label must be provided together',
+			})
+		}
+	})
 
 const ImportInventoryItemSchema = z.object({
 	name: z
@@ -405,6 +419,10 @@ async function importRecipes(
 					servings: recipe.servings ?? undefined,
 					prepTime: recipe.prepTime ?? undefined,
 					cookTime: recipe.cookTime ?? undefined,
+					activeTime: recipe.activeTime ?? undefined,
+					totalTime: recipe.totalTime ?? undefined,
+					yieldAmount: recipe.yieldAmount ?? undefined,
+					yieldLabel: recipe.yieldLabel ?? undefined,
 					isFavorite: recipe.isFavorite ?? false,
 					sourceUrl: recipe.sourceUrl || null,
 					notes: recipe.notes || null,

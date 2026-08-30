@@ -136,3 +136,45 @@ test('Recipe search and filter', async ({ page, login }) => {
 	await page.waitForTimeout(500)
 	await expect(page.getByText('Simple Green Salad')).toBeVisible()
 })
+
+test('custom Recipe yield labels fit phone and desktop detail layouts', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const household = await prisma.household.create({
+		data: {
+			name: 'Metadata layout household',
+			members: { create: { userId: user.id, role: 'owner' } },
+		},
+	})
+	const yieldLabel =
+		'extraordinaryceremonialbraidedloaveswithacustomhouseholdname'
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Metadata layout loaf',
+			activeTime: 25,
+			totalTime: 180,
+			yieldAmount: 2.5,
+			yieldLabel,
+			userId: user.id,
+			householdId: household.id,
+			ingredients: { create: { name: 'flour', order: 0 } },
+			instructions: { create: { content: 'Knead.', order: 0 } },
+		},
+	})
+
+	for (const viewport of [
+		{ width: 390, height: 844 },
+		{ width: 1280, height: 800 },
+	]) {
+		await page.setViewportSize(viewport)
+		await page.goto(`/recipes/${recipe.id}`)
+		const yieldText = page.getByText(`Yield: 2.5 ${yieldLabel}`)
+		await expect(yieldText).toBeVisible()
+		const box = await yieldText.boundingBox()
+		expect(box).not.toBeNull()
+		expect(box!.x).toBeGreaterThanOrEqual(0)
+		expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width)
+	}
+})

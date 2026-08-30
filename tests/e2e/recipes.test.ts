@@ -174,7 +174,7 @@ test('custom Recipe yield labels fit phone and desktop detail layouts', async ({
 	]) {
 		await page.setViewportSize(viewport)
 		await page.goto(`/recipes/${recipe.id}`)
-		const yieldText = page.getByText(`Yield: 2.5 ${yieldLabel}`)
+		const yieldText = page.getByText(`Makes 2.5 ${yieldLabel}`)
 		await expect(yieldText).toBeVisible()
 		const box = await yieldText.boundingBox()
 		expect(box).not.toBeNull()
@@ -183,7 +183,7 @@ test('custom Recipe yield labels fit phone and desktop detail layouts', async ({
 	}
 })
 
-test('manual Recipe scaling uses target yield when known and multiplier when unknown', async ({
+test('manual Recipe scaling stays multiplier-first and shows known yield as context', async ({
 	page,
 	login,
 }) => {
@@ -220,35 +220,35 @@ test('manual Recipe scaling uses target yield when known and multiplier when unk
 		await page.setViewportSize(viewport)
 
 		await page.goto(`/recipes/${known.id}`)
-		const target = page.getByLabel('Target pieces')
-		await expect(target).toHaveValue('12')
-		await expect(page.getByText('Target', { exact: true })).toBeVisible()
-		await expect(page.getByText(/· 1×/)).toHaveCount(0)
-		const targetBox = await target.boundingBox()
-		expect(targetBox).not.toBeNull()
-		expect(targetBox!.x + targetBox!.width).toBeLessThanOrEqual(viewport.width)
+		const multiplier = page.getByLabel('Scale multiplier')
+		await expect(multiplier).toHaveValue('1')
+		await expect(page.getByText('Makes 12 pieces')).toBeVisible()
+		await expect(page.getByLabel(/Target pieces/)).toHaveCount(0)
+		const controlBox = await page
+			.getByRole('group', { name: 'Recipe scale controls' })
+			.boundingBox()
+		expect(controlBox).not.toBeNull()
+		expect(controlBox!.x).toBeGreaterThanOrEqual(0)
+		expect(controlBox!.x + controlBox!.width).toBeLessThanOrEqual(
+			viewport.width,
+		)
 
-		await target.fill('18')
-		await target.press('Enter')
+		await multiplier.fill('1.5')
+		await multiplier.press('Enter')
 		await expect(page).toHaveURL(
 			new RegExp(`/recipes/${known.id}\\?scale=1.5$`),
 		)
-		const equivalence = page.getByText('· 1.5×')
-		await expect(equivalence).toBeVisible()
-		const equivalenceBox = await equivalence.boundingBox()
-		expect(equivalenceBox).not.toBeNull()
-		expect(equivalenceBox!.x + equivalenceBox!.width).toBeLessThanOrEqual(
-			viewport.width,
-		)
-		await page.getByRole('button', { name: 'Reset' }).click()
-		await expect(target).toHaveValue('12')
-		await expect(equivalence).toHaveCount(0)
+		await expect(page.getByText('Makes 18 pieces')).toBeVisible()
+		await expect(page.getByText('originally 12 pieces')).toBeVisible()
+		await page.getByRole('button', { name: 'Back to 1×' }).click()
+		await expect(multiplier).toHaveValue('1')
+		await expect(page.getByText('originally 12 pieces')).toHaveCount(0)
 
 		await page.goto(`/recipes/${unknown.id}`)
-		const multiplier = page.getByLabel('Scale multiplier')
-		await expect(multiplier).toHaveValue('1')
+		const unknownMultiplier = page.getByLabel('Scale multiplier')
+		await expect(unknownMultiplier).toHaveValue('1')
 		await expect(page.getByLabel('Target servings')).toHaveCount(0)
-		const multiplierBox = await multiplier.boundingBox()
+		const multiplierBox = await unknownMultiplier.boundingBox()
 		expect(multiplierBox).not.toBeNull()
 		expect(multiplierBox!.x + multiplierBox!.width).toBeLessThanOrEqual(
 			viewport.width,

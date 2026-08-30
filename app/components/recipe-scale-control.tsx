@@ -1,17 +1,17 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Input } from '#app/components/ui/input.tsx'
 import {
 	formatScaleMultiplier,
 	ScaleMultiplierSchema,
-	TargetYieldSchema,
 } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
 	formatTargetYieldAmount,
 	getTypedYield,
 	scaleMultiplierToTargetYield,
-	targetYieldToScaleMultiplier,
 } from '#app/utils/target-yield.ts'
+
+const SCALE_STEP = 0.5
 
 type RecipeScaleControlProps = {
 	scaleMultiplier: number
@@ -22,8 +22,8 @@ type RecipeScaleControlProps = {
 }
 
 /**
- * One-Recipe quantity control. Typed yield changes only the friendly input;
- * callers still receive and persist a positive batch multiplier.
+ * One-Recipe quantity control. The multiplier is always the interaction and
+ * storage vocabulary; typed yield is optional explanatory context.
  */
 export function RecipeScaleControl({
 	scaleMultiplier,
@@ -33,21 +33,12 @@ export function RecipeScaleControl({
 	compact = false,
 }: RecipeScaleControlProps) {
 	const recipeYield = getTypedYield({ yieldAmount, yieldLabel })
-	const displayedValue = recipeYield
-		? formatTargetYieldAmount(
-				scaleMultiplierToTargetYield(scaleMultiplier, recipeYield)!,
-			)
-		: formatScaleMultiplier(scaleMultiplier)
+	const displayedValue = formatScaleMultiplier(scaleMultiplier)
 	const [draft, setDraft] = useState(displayedValue)
 	const [invalid, setInvalid] = useState(false)
-	const equivalenceId = useId()
-	const equivalenceMultiplier =
-		recipeYield && scaleMultiplier !== 1
-			? formatScaleMultiplier(scaleMultiplier)
-			: null
-	const inputLabel = recipeYield
-		? `Target ${recipeYield.label}`
-		: 'Scale multiplier'
+	const targetYield = scaleMultiplierToTargetYield(scaleMultiplier, recipeYield)
+	const formattedTargetYield =
+		targetYield != null ? formatTargetYieldAmount(targetYield) : null
 
 	useEffect(() => {
 		setDraft(displayedValue)
@@ -59,17 +50,8 @@ export function RecipeScaleControl({
 			setInvalid(false)
 			return
 		}
-		const nextMultiplier = recipeYield
-			? (() => {
-					const parsed = TargetYieldSchema.safeParse(draft)
-					return parsed.success
-						? targetYieldToScaleMultiplier(parsed.data, recipeYield)
-						: null
-				})()
-			: (() => {
-					const parsed = ScaleMultiplierSchema.safeParse(draft)
-					return parsed.success ? parsed.data : null
-				})()
+		const parsed = ScaleMultiplierSchema.safeParse(draft)
+		const nextMultiplier = parsed.success ? parsed.data : null
 		if (nextMultiplier == null) {
 			setInvalid(true)
 			return
@@ -78,14 +60,15 @@ export function RecipeScaleControl({
 		onScaleMultiplierChange(nextMultiplier)
 	}
 
-	return (
-		<label className="flex min-w-0 items-center gap-1.5">
-			<span className="sr-only">{inputLabel}</span>
-			{recipeYield && !compact ? (
-				<span aria-hidden="true" className="text-muted-foreground text-xs">
-					Target
-				</span>
-			) : null}
+	function adjustScale(delta: number) {
+		const nextMultiplier = Math.round((scaleMultiplier + delta) * 100) / 100
+		if (nextMultiplier <= 0 || nextMultiplier > 100) return
+		onScaleMultiplierChange(nextMultiplier)
+	}
+
+	const input = (
+		<label className="flex items-center gap-1">
+			<span className="sr-only">Scale multiplier</span>
 			<Input
 				type="text"
 				inputMode="decimal"
@@ -101,40 +84,83 @@ export function RecipeScaleControl({
 						commit()
 					}
 				}}
-				aria-label={inputLabel}
-				aria-describedby={equivalenceMultiplier ? equivalenceId : undefined}
+				aria-label="Scale multiplier"
 				aria-invalid={invalid || undefined}
 				className={cn(
 					'text-center tabular-nums',
-					compact ? 'h-7 w-16 px-1.5 text-xs' : 'h-8 w-20 px-2 text-sm',
+					compact ? 'h-7 w-16 px-1.5 text-xs' : 'h-10 w-20 px-2 text-base',
 					invalid && 'border-destructive focus-visible:ring-destructive',
 				)}
 			/>
-			<span
-				aria-hidden="true"
-				className={cn(
-					'text-muted-foreground min-w-0 truncate',
-					compact ? 'max-w-24 text-xs' : 'max-w-40 text-sm',
-				)}
-			>
-				{recipeYield?.label ?? '×'}
+			<span aria-hidden="true" className="text-muted-foreground text-sm">
+				×
 			</span>
-			{equivalenceMultiplier ? (
-				<>
-					<span id={equivalenceId} className="sr-only">
-						{equivalenceMultiplier} times recipe
-					</span>
-					<span
-						aria-hidden="true"
-						className={cn(
-							'text-muted-foreground shrink-0 tabular-nums',
-							compact ? 'text-xs' : 'text-sm',
-						)}
-					>
-						· {equivalenceMultiplier}×
-					</span>
-				</>
-			) : null}
 		</label>
+	)
+
+	if (compact) return input
+
+	return (
+		<div className="border-border/60 bg-muted/20 min-w-0 rounded-lg border px-3 py-3 print:hidden">
+			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+				<span className="text-sm font-medium">Scale recipe</span>
+				<div
+					role="group"
+					aria-label="Recipe scale controls"
+					className="flex items-center gap-2"
+				>
+					<button
+						type="button"
+						aria-label="Decrease recipe scale"
+						disabled={scaleMultiplier <= SCALE_STEP}
+						onClick={() => adjustScale(-SCALE_STEP)}
+						className="border-input bg-background hover:bg-accent/10 focus-visible:ring-ring flex size-10 shrink-0 items-center justify-center rounded-md border text-xl leading-none focus-visible:ring-2 focus-visible:outline-hidden disabled:opacity-40"
+					>
+						−
+					</button>
+					{input}
+					<button
+						type="button"
+						aria-label="Increase recipe scale"
+						disabled={scaleMultiplier >= 100}
+						onClick={() => adjustScale(SCALE_STEP)}
+						className="border-input bg-background hover:bg-accent/10 focus-visible:ring-ring flex size-10 shrink-0 items-center justify-center rounded-md border text-xl leading-none focus-visible:ring-2 focus-visible:outline-hidden disabled:opacity-40"
+					>
+						+
+					</button>
+				</div>
+			</div>
+			{formattedTargetYield != null || scaleMultiplier !== 1 ? (
+				<div className="mt-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+					{formattedTargetYield != null && recipeYield ? (
+						<p aria-live="polite" className="min-w-0 text-sm break-words">
+							<span>
+								Makes {formattedTargetYield} {recipeYield.label}
+							</span>
+							{scaleMultiplier !== 1 ? (
+								<span className="text-muted-foreground">
+									<span aria-hidden="true"> · </span>
+									<span>
+										originally {formatTargetYieldAmount(recipeYield.amount)}{' '}
+										{recipeYield.label}
+									</span>
+								</span>
+							) : null}
+						</p>
+					) : (
+						<span />
+					)}
+					{scaleMultiplier !== 1 ? (
+						<button
+							type="button"
+							onClick={() => onScaleMultiplierChange(1)}
+							className="text-primary min-h-10 shrink-0 text-sm font-medium hover:underline"
+						>
+							Back to 1×
+						</button>
+					) : null}
+				</div>
+			) : null}
+		</div>
 	)
 }

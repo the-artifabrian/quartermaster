@@ -544,11 +544,11 @@ function MenuRecipeCard({ item }: { item: MenuDetailItem }) {
 		item.scaleMultiplier != null
 			? scaleMultiplierToTargetYield(item.scaleMultiplier, recipeYield)
 			: null
-	// Known yield earns a friendly target even at 1×. Missing/unknown cards keep
-	// the established multiplier display, with the default 1× staying quiet.
+	// Multiplier remains the shared quantity vocabulary. Explicit yield only
+	// adds a friendly derived output after it.
 	const quantity =
-		recipeYield && targetYield != null
-			? `${formatTargetYieldAmount(targetYield)} ${recipeYield.label}`
+		item.scaleMultiplier != null && recipeYield && targetYield != null
+			? `${formatScaleMultiplier(item.scaleMultiplier)}× · makes ${formatTargetYieldAmount(targetYield)} ${recipeYield.label}`
 			: item.scaleMultiplier != null && item.scaleMultiplier !== 1
 				? `${formatScaleMultiplier(item.scaleMultiplier)}×`
 				: null

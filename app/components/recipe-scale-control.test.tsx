@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { RecipeScaleControl } from './recipe-scale-control.tsx'
 
-test('known Recipe yield edits a target amount and commits its multiplier', async () => {
+test('known Recipe yield keeps multiplier primary and shows derived output', async () => {
 	const user = userEvent.setup()
 	const onChange = vi.fn()
 	render(
@@ -18,18 +18,53 @@ test('known Recipe yield edits a target amount and commits its multiplier', asyn
 		/>,
 	)
 
-	const input = screen.getByRole('textbox', { name: 'Target pieces' })
-	expect(input).toHaveValue('18')
-	expect(screen.getByText('pieces')).toBeInTheDocument()
-	expect(screen.queryByText('servings')).not.toBeInTheDocument()
+	const input = screen.getByRole('textbox', { name: 'Scale multiplier' })
+	expect(input).toHaveValue('1.5')
+	expect(screen.getByText('Makes 18 pieces')).toBeInTheDocument()
+	expect(screen.getByText('originally 12 pieces')).toBeInTheDocument()
 
 	await user.clear(input)
-	await user.type(input, '24')
+	await user.type(input, '2')
 	await user.tab()
 	expect(onChange).toHaveBeenCalledWith(2)
 })
 
-test('known Recipe yield reveals its multiplier only after scaling', () => {
+test('known Recipe yield stays secondary at the original multiplier', () => {
+	const onChange = vi.fn()
+	render(
+		<RecipeScaleControl
+			scaleMultiplier={1}
+			yieldAmount={4}
+			yieldLabel="bowls"
+			onScaleMultiplierChange={onChange}
+		/>,
+	)
+
+	expect(screen.getByLabelText('Scale multiplier')).toHaveValue('1')
+	expect(screen.getByText('Makes 4 bowls')).toBeInTheDocument()
+	expect(
+		screen.queryByRole('button', { name: 'Back to 1×' }),
+	).not.toBeInTheDocument()
+})
+
+test('scaled Recipe can return to the original multiplier', async () => {
+	const user = userEvent.setup()
+	const onChange = vi.fn()
+	render(
+		<RecipeScaleControl
+			scaleMultiplier={2}
+			yieldAmount={4}
+			yieldLabel="bowls"
+			onScaleMultiplierChange={onChange}
+		/>,
+	)
+
+	await user.click(screen.getByRole('button', { name: 'Back to 1×' }))
+	expect(onChange).toHaveBeenCalledWith(1)
+})
+
+test('step buttons provide cooking-friendly half-batch adjustments', async () => {
+	const user = userEvent.setup()
 	const onChange = vi.fn()
 	const { rerender } = render(
 		<RecipeScaleControl
@@ -40,10 +75,10 @@ test('known Recipe yield reveals its multiplier only after scaling', () => {
 		/>,
 	)
 
-	const input = screen.getByRole('textbox', { name: 'Target bowls' })
-	expect(screen.queryByText(/· 1×/)).not.toBeInTheDocument()
-	expect(input).not.toHaveAccessibleDescription()
-
+	await user.click(
+		screen.getByRole('button', { name: 'Increase recipe scale' }),
+	)
+	expect(onChange).toHaveBeenCalledWith(1.5)
 	rerender(
 		<RecipeScaleControl
 			scaleMultiplier={1.5}
@@ -52,22 +87,10 @@ test('known Recipe yield reveals its multiplier only after scaling', () => {
 			onScaleMultiplierChange={onChange}
 		/>,
 	)
-
-	expect(screen.getByText('· 1.5×')).toBeInTheDocument()
-	expect(input).toHaveAccessibleDescription('1.5 times recipe')
-})
-
-test('known Recipe yield visibly identifies the amount as a target', () => {
-	render(
-		<RecipeScaleControl
-			scaleMultiplier={1}
-			yieldAmount={4}
-			yieldLabel="bowls"
-			onScaleMultiplierChange={vi.fn()}
-		/>,
+	await user.click(
+		screen.getByRole('button', { name: 'Decrease recipe scale' }),
 	)
-
-	expect(screen.getByText('Target')).toBeInTheDocument()
+	expect(onChange).toHaveBeenCalledWith(1)
 })
 
 test('unknown typed yield edits the multiplier', async () => {
@@ -113,7 +136,7 @@ test('unknown yield preserves comma-decimal multiplier input', async () => {
 	expect(onChange).toHaveBeenCalledWith(1.5)
 })
 
-test('known yield accepts comma-decimal target input', async () => {
+test('known yield accepts comma-decimal multiplier input', async () => {
 	const user = userEvent.setup()
 	const onChange = vi.fn()
 	render(
@@ -125,15 +148,15 @@ test('known yield accepts comma-decimal target input', async () => {
 		/>,
 	)
 
-	const input = screen.getByLabelText('Target cakes')
+	const input = screen.getByLabelText('Scale multiplier')
 	await user.clear(input)
 	await user.type(input, '3,5')
 	await user.tab()
 
-	expect(onChange).toHaveBeenCalledWith(1.75)
+	expect(onChange).toHaveBeenCalledWith(3.5)
 })
 
-test('invalid target stays editable without replacing the stored multiplier', async () => {
+test('invalid multiplier stays editable without replacing the stored multiplier', async () => {
 	const user = userEvent.setup()
 	const onChange = vi.fn()
 	render(
@@ -145,11 +168,25 @@ test('invalid target stays editable without replacing the stored multiplier', as
 		/>,
 	)
 
-	const input = screen.getByRole('textbox', { name: 'Target bowls' })
+	const input = screen.getByRole('textbox', { name: 'Scale multiplier' })
 	await user.clear(input)
 	await user.type(input, '0')
 	await user.keyboard('{Enter}')
 
 	expect(input).toHaveAttribute('aria-invalid', 'true')
 	expect(onChange).not.toHaveBeenCalled()
+})
+
+test('long yield labels wrap instead of being truncated', () => {
+	render(
+		<RecipeScaleControl
+			scaleMultiplier={2}
+			yieldAmount={4}
+			yieldLabel="individual poolish dough balls"
+			onScaleMultiplierChange={vi.fn()}
+		/>,
+	)
+
+	const output = screen.getByText('Makes 8 individual poolish dough balls')
+	expect(output).not.toHaveClass('truncate')
 })

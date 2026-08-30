@@ -141,6 +141,14 @@ export function RecipeForm({
 		shouldRevalidate: 'onBlur',
 		shouldValidate: 'onSubmit',
 	})
+	const { key: yieldAmountKey, ...yieldAmountProps } = getInputProps(
+		fields.yieldAmount,
+		{ type: 'number' },
+	)
+	const { key: yieldLabelKey, ...yieldLabelProps } = getInputProps(
+		fields.yieldLabel,
+		{ type: 'text' },
+	)
 
 	const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0]
@@ -284,34 +292,53 @@ export function RecipeForm({
 						/>
 					</div>
 
-					<div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-						<Field
-							labelProps={{ children: 'Yield amount' }}
-							inputProps={{
-								...getInputProps(fields.yieldAmount, { type: 'number' }),
-								step: 'any',
-								placeholder: '—',
-							}}
+					<div className="space-y-2">
+						<p className="text-sm font-medium">This recipe makes</p>
+						<div className="flex min-w-0 items-center gap-2">
+							<Input
+								key={yieldAmountKey}
+								{...yieldAmountProps}
+								step="any"
+								placeholder="4"
+								aria-label="Amount this recipe makes"
+								aria-invalid={
+									fields.yieldAmount.errors?.length ? true : undefined
+								}
+								aria-describedby={fields.yieldAmount.errorId}
+								className="w-24 shrink-0 tabular-nums"
+							/>
+							<Input
+								key={yieldLabelKey}
+								{...yieldLabelProps}
+								list="yield-label-suggestions"
+								placeholder="servings, dough balls, loaves…"
+								aria-label="What this recipe makes"
+								aria-invalid={
+									fields.yieldLabel.errors?.length ? true : undefined
+								}
+								aria-describedby={fields.yieldLabel.errorId}
+								className="min-w-0 flex-1"
+							/>
+						</div>
+						<p className="text-muted-foreground text-xs">
+							Optional—for example, 4 servings or 2 dough balls. Leave both
+							blank if unknown.
+						</p>
+						<ErrorList
+							id={fields.yieldAmount.errorId}
 							errors={fields.yieldAmount.errors}
 						/>
-						<div className="min-w-0">
-							<Field
-								labelProps={{ children: 'Yield label' }}
-								inputProps={{
-									...getInputProps(fields.yieldLabel, { type: 'text' }),
-									list: 'yield-label-suggestions',
-									placeholder: 'servings, pieces, loaf…',
-								}}
-								errors={fields.yieldLabel.errors}
-							/>
-							<datalist id="yield-label-suggestions">
-								{['servings', 'pieces', 'batch', 'cake', 'loaf'].map(
-									(suggestion) => (
-										<option key={suggestion} value={suggestion} />
-									),
-								)}
-							</datalist>
-						</div>
+						<ErrorList
+							id={fields.yieldLabel.errorId}
+							errors={fields.yieldLabel.errors}
+						/>
+						<datalist id="yield-label-suggestions">
+							{['servings', 'pieces', 'batch', 'cake', 'loaf'].map(
+								(suggestion) => (
+									<option key={suggestion} value={suggestion} />
+								),
+							)}
+						</datalist>
 					</div>
 				</div>
 			</FormSection>

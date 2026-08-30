@@ -17,6 +17,7 @@ import { RecipeThumb } from '#app/components/recipe-selector.tsx'
 import {
 	formatScaleMultiplier,
 	MenuBuilderSchema,
+	ScaleMultiplierSchema,
 	type MenuBuilderInput,
 	type MenuItemInput,
 	type MenuSectionInput,
@@ -104,9 +105,6 @@ export function MenuForm({
 	const navigation = useNavigation()
 	const isSubmitting = navigation.state === 'submitting'
 	const formId = useId()
-	const builderRecipesById = new Map(
-		(builder?.recipes ?? []).map((recipe) => [recipe.id, recipe]),
-	)
 
 	// One schema for both modes: `sections` is optional, so metadata-only
 	// create parses cleanly and the create action simply never reads sections.
@@ -138,14 +136,6 @@ export function MenuForm({
 									})),
 								}
 							: (() => {
-									const recipe = item.recipeId
-										? builderRecipesById.get(item.recipeId)
-										: null
-									const recipeYield = recipe ? getTypedYield(recipe) : null
-									const targetYield = scaleMultiplierToTargetYield(
-										item.scaleMultiplier,
-										recipeYield,
-									)
 									return {
 										id: item.id,
 										kind: 'recipe',
@@ -153,10 +143,6 @@ export function MenuForm({
 										scaleMultiplier: formatScaleMultiplier(
 											item.scaleMultiplier,
 										),
-										targetYield:
-											targetYield != null
-												? formatTargetYieldAmount(targetYield)
-												: '',
 										note: item.note ?? '',
 									}
 								})(),
@@ -313,7 +299,6 @@ function readSections(sectionList: MenuSectionMetadata[]) {
 					kind: item.kind.value ?? 'recipe',
 					recipeId: item.recipeId.value ?? '',
 					scaleMultiplier: item.scaleMultiplier.value ?? '',
-					targetYield: item.targetYield.value ?? '',
 					note: item.note.value ?? '',
 					text: item.text.value ?? '',
 					shoppingLines: item.shoppingLines.getFieldList().map((lineMeta) => {
@@ -591,10 +576,6 @@ function MenuSectionCard({
 								kind: 'recipe',
 								recipeId: recipe.id,
 								scaleMultiplier: '1',
-								targetYield:
-									recipe.yieldAmount != null && recipe.yieldLabel != null
-										? formatTargetYieldAmount(recipe.yieldAmount)
-										: '',
 								note: '',
 							},
 						})
@@ -671,12 +652,14 @@ function MenuItemRow({
 	})
 	const { key: multiplierKey, ...multiplierProps } = getInputProps(
 		item.scaleMultiplier,
-		{ type: recipeYield ? 'hidden' : 'text' },
-	)
-	const { key: targetYieldKey, ...targetYieldProps } = getInputProps(
-		item.targetYield,
 		{ type: 'text' },
 	)
+	const parsedMultiplier = ScaleMultiplierSchema.safeParse(
+		item.scaleMultiplier.value ?? '',
+	)
+	const derivedTarget = parsedMultiplier.success
+		? scaleMultiplierToTargetYield(parsedMultiplier.data, recipeYield)
+		: null
 	const { key: noteKey, ...noteProps } = getInputProps(item.note, {
 		type: 'text',
 	})
@@ -707,40 +690,18 @@ function MenuItemRow({
 						</p>
 					) : null}
 				</div>
-				{recipeYield ? (
-					<label className="flex min-w-0 shrink-0 items-center gap-1">
-						<input key={multiplierKey} {...multiplierProps} />
-						<span className="sr-only">
-							Target {recipeYield.label} for {title}
-						</span>
-						<Input
-							key={targetYieldKey}
-							{...targetYieldProps}
-							inputMode="decimal"
-							aria-label={`Target ${recipeYield.label} for ${title}`}
-							className="h-10 w-20 text-center"
-						/>
-						<span
-							aria-hidden="true"
-							className="text-muted-foreground max-w-28 truncate text-sm"
-						>
-							{recipeYield.label}
-						</span>
-					</label>
-				) : (
-					<label className="flex shrink-0 items-center gap-1">
-						<span className="sr-only">Scale multiplier for {title}</span>
-						<Input
-							key={multiplierKey}
-							{...multiplierProps}
-							inputMode="decimal"
-							className="h-10 w-14 text-center"
-						/>
-						<span aria-hidden="true" className="text-muted-foreground text-sm">
-							×
-						</span>
-					</label>
-				)}
+				<label className="flex shrink-0 items-center gap-1">
+					<span className="sr-only">Scale multiplier for {title}</span>
+					<Input
+						key={multiplierKey}
+						{...multiplierProps}
+						inputMode="decimal"
+						className="h-10 w-16 text-center tabular-nums"
+					/>
+					<span aria-hidden="true" className="text-muted-foreground text-sm">
+						×
+					</span>
+				</label>
 				<Button
 					variant="ghost"
 					size="icon"
@@ -751,6 +712,11 @@ function MenuItemRow({
 					<Icon name="trash" size="sm" />
 				</Button>
 			</div>
+			{recipeYield && derivedTarget != null ? (
+				<p className="text-muted-foreground mt-1 text-right text-xs break-words">
+					Makes {formatTargetYieldAmount(derivedTarget)} {recipeYield.label}
+				</p>
+			) : null}
 			{missing ? (
 				<div className="mt-2 flex items-center gap-2">
 					<RecipePicker
@@ -765,14 +731,6 @@ function MenuItemRow({
 							form.update({
 								name: item.scaleMultiplier.name,
 								value: '1',
-							})
-							form.update({
-								name: item.targetYield.name,
-								value:
-									replacement.yieldAmount != null &&
-									replacement.yieldLabel != null
-										? formatTargetYieldAmount(replacement.yieldAmount)
-										: '',
 							})
 						}}
 					/>
@@ -807,10 +765,6 @@ function MenuItemRow({
 			<ErrorList
 				errors={item.scaleMultiplier.errors}
 				id={item.scaleMultiplier.errorId}
-			/>
-			<ErrorList
-				errors={item.targetYield.errors}
-				id={item.targetYield.errorId}
 			/>
 			<ErrorList errors={item.note.errors} id={item.note.errorId} />
 		</li>

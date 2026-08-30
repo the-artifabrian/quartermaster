@@ -230,7 +230,6 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 
 	const scaleParam = ScaleMultiplierSchema.safeParse(searchParams.get('scale'))
 	const ratio = scaleParam.success ? scaleParam.data : 1
-	const isScaled = ratio !== 1
 
 	function updateScaleMultiplier(scaleMultiplier: number) {
 		setSearchParams(
@@ -303,6 +302,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 							yieldAmount={recipe.yieldAmount}
 							yieldLabel={recipe.yieldLabel}
 							sourceUrl={recipe.sourceUrl}
+							showYield={false}
 						/>
 					</div>
 
@@ -331,7 +331,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 					{/* Ingredients */}
 					<div className="min-w-0 md:sticky md:top-20 md:self-start">
 						<div>
-							<div className="mb-3 flex items-center gap-2 md:mb-4">
+							<div className="mb-3 flex items-center gap-2">
 								<button
 									type="button"
 									className="flex items-center gap-1.5 md:pointer-events-none"
@@ -351,22 +351,14 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 										Ingredients
 									</h2>
 								</button>
-								<span className="ml-auto flex min-w-0 items-center gap-2">
-									<RecipeScaleControl
-										scaleMultiplier={ratio}
-										yieldAmount={recipe.yieldAmount}
-										yieldLabel={recipe.yieldLabel}
-										onScaleMultiplierChange={updateScaleMultiplier}
-									/>
-									{isScaled ? (
-										<button
-											onClick={() => updateScaleMultiplier(1)}
-											className="text-primary text-xs hover:underline"
-										>
-											Reset
-										</button>
-									) : null}
-								</span>
+							</div>
+							<div className="mb-4">
+								<RecipeScaleControl
+									scaleMultiplier={ratio}
+									yieldAmount={recipe.yieldAmount}
+									yieldLabel={recipe.yieldLabel}
+									onScaleMultiplierChange={updateScaleMultiplier}
+								/>
 							</div>
 							<div
 								id="ingredients-list"

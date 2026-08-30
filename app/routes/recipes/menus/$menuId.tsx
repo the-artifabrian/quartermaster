@@ -25,6 +25,11 @@ import {
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
+import {
+	formatTargetYieldAmount,
+	getTypedYield,
+	scaleMultiplierToTargetYield,
+} from '#app/utils/target-yield.ts'
 import { type Route } from './+types/$menuId.ts'
 
 export const handle: SEOHandle = {
@@ -68,6 +73,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 									id: true,
 									title: true,
 									householdId: true,
+									yieldAmount: true,
+									yieldLabel: true,
 									image: { select: { objectKey: true } },
 								},
 							},
@@ -105,6 +112,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 							? {
 									id: item.recipe.id,
 									title: item.recipe.title,
+									yieldAmount: item.recipe.yieldAmount,
+									yieldLabel: item.recipe.yieldLabel,
 									image: item.recipe.image,
 								}
 							: null
@@ -479,6 +488,8 @@ type MenuDetailItem = {
 	recipe: {
 		id: string
 		title: string
+		yieldAmount: number | null
+		yieldLabel: string | null
 		image: { objectKey: string } | null
 	} | null
 	shoppingLines: Array<{
@@ -528,11 +539,19 @@ function MenuNoteCard({ item }: { item: MenuDetailItem }) {
 
 function MenuRecipeCard({ item }: { item: MenuDetailItem }) {
 	const title = item.recipe?.title ?? item.recipeTitle ?? 'Recipe'
-	// "1×" is the default batch — only a real adjustment earns a badge.
-	const multiplier =
-		item.scaleMultiplier != null && item.scaleMultiplier !== 1
-			? `${formatScaleMultiplier(item.scaleMultiplier)}×`
+	const recipeYield = item.recipe ? getTypedYield(item.recipe) : null
+	const targetYield =
+		item.scaleMultiplier != null
+			? scaleMultiplierToTargetYield(item.scaleMultiplier, recipeYield)
 			: null
+	// Known yield earns a friendly target even at 1×. Missing/unknown cards keep
+	// the established multiplier display, with the default 1× staying quiet.
+	const quantity =
+		recipeYield && targetYield != null
+			? `${formatTargetYieldAmount(targetYield)} ${recipeYield.label}`
+			: item.scaleMultiplier != null && item.scaleMultiplier !== 1
+				? `${formatScaleMultiplier(item.scaleMultiplier)}×`
+				: null
 
 	const content = (
 		<>
@@ -562,9 +581,9 @@ function MenuRecipeCard({ item }: { item: MenuDetailItem }) {
 					</p>
 				) : null}
 			</div>
-			{multiplier ? (
+			{quantity ? (
 				<span className="text-muted-foreground shrink-0 text-sm font-medium tabular-nums">
-					{multiplier}
+					{quantity}
 				</span>
 			) : null}
 		</>

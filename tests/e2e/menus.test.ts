@@ -33,7 +33,18 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	const recipes: Record<string, { id: string }> = {}
 	for (const title of titles) {
 		recipes[title] = await prisma.recipe.create({
-			data: { title, userId: user.id, householdId: household.id },
+			data: {
+				title,
+				userId: user.id,
+				householdId: household.id,
+				...(title === 'Hummus' && {
+					yieldAmount: 4,
+					yieldLabel: 'bowls',
+					ingredients: {
+						create: { name: 'chickpeas', amount: '400', unit: 'g', order: 0 },
+					},
+				}),
+			},
 			select: { id: true },
 		})
 	}
@@ -83,6 +94,10 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 			page.getByRole('button', { name: `Remove ${title} from menu` }),
 		).toBeVisible()
 	}
+	// Known yield is edited as a target; an unknown legacy Recipe remains an
+	// explicit batch multiplier. Both still persist the same multiplier model.
+	await page.getByLabel('Target bowls for Hummus').fill('6')
+	await page.getByLabel('Scale multiplier for Pita Bread').fill('2.5')
 
 	// …then a Dessert section with the fifth (every section has a name input
 	// now — the new section's is the last one)
@@ -123,7 +138,9 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	const firstCards = detailSections.nth(0).locator('> ul > li')
 	await expect(firstCards).toHaveCount(4)
 	await expect(firstCards.nth(0)).toContainText('Pita Bread')
+	await expect(firstCards.nth(0)).toContainText('2.5×')
 	await expect(firstCards.nth(1)).toContainText('Hummus')
+	await expect(firstCards.nth(1)).toContainText('6 bowls')
 	await expect(firstCards.nth(2)).toContainText('Chicken Kofta')
 	await expect(firstCards.nth(3)).toContainText('Drinks: lemonade with mint')
 	await expect(firstCards.nth(3)).toContainText('mint')
@@ -144,6 +161,27 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	await expect(page.getByLabel('Section name').first()).toHaveValue('')
 	await expect(page.getByLabel('Section name').last()).toHaveValue('Dessert')
 	await expect(sections.nth(1)).toContainText('Orange Cake')
+	await expect(page.getByLabel('Target bowls for Hummus')).toHaveValue('6')
+	await expect(page.getByLabel('Scale multiplier for Pita Bread')).toHaveValue(
+		'2.5',
+	)
+
+	// The compact quantity controls stay inside both phone and desktop layouts.
+	for (const viewport of [
+		{ width: 390, height: 844 },
+		{ width: 1280, height: 800 },
+	]) {
+		await page.setViewportSize(viewport)
+		for (const control of [
+			page.getByLabel('Target bowls for Hummus'),
+			page.getByLabel('Scale multiplier for Pita Bread'),
+		]) {
+			const box = await control.boundingBox()
+			expect(box).not.toBeNull()
+			expect(box!.x).toBeGreaterThanOrEqual(0)
+			expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width)
+		}
+	}
 
 	// 8. A deleted Recipe stays as a clearly missing card
 	await prisma.recipe.delete({ where: { id: recipes['Chicken Kofta']!.id } })
@@ -180,7 +218,9 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	const restoredCards = page.locator('section').nth(0).locator('> ul > li')
 	await expect(restoredCards).toHaveCount(4)
 	await expect(restoredCards.nth(0)).toContainText('Pita Bread')
+	await expect(restoredCards.nth(0)).toContainText('2.5×')
 	await expect(restoredCards.nth(1)).toContainText('Hummus')
+	await expect(restoredCards.nth(1)).toContainText('6 bowls')
 	await expect(restoredCards.nth(2)).toContainText('Chicken Kofta')
 	await expect(restoredCards.nth(2)).toContainText(
 		'No longer in your recipe library',
@@ -191,4 +231,50 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 		'href',
 		`/recipes/${recipes['Pita Bread']!.id}`,
 	)
+
+	// The restored multiplier snapshots into Meal unchanged, drives the same
+	// known-target/unknown-multiplier UI in Plan, and scales Shopping demand.
+	const restoredMenu = await prisma.menu.findFirstOrThrow({
+		where: {
+			householdId: household.id,
+			title: 'Levantine Terrace Dinner',
+		},
+	})
+	const restoredHummusItem = await prisma.menuItem.findFirstOrThrow({
+		where: {
+			section: { menuId: restoredMenu.id },
+			recipeId: recipes.Hummus!.id,
+		},
+	})
+	expect(restoredHummusItem.scaleMultiplier).toBe(1.5)
+
+	await page.getByRole('button', { name: 'Add to Plan' }).click()
+	await page.getByRole('button', { name: 'Add to Plan' }).click()
+	await expect(page).toHaveURL(/\/plan\?weekStart=/)
+	await expect(
+		page.getByLabel('Target bowls').filter({ visible: true }),
+	).toHaveValue('6')
+	const visibleMultipliers = await page
+		.getByLabel('Scale multiplier')
+		.filter({ visible: true })
+		.all()
+	expect(
+		await Promise.all(
+			visibleMultipliers.map((control) => control.inputValue()),
+		),
+	).toContain('2.5')
+
+	await visibleButton('Meal actions').click()
+	await page.getByRole('menuitem', { name: 'Add to Shopping List' }).click()
+	await expect
+		.poll(async () => {
+			return await prisma.mealShoppingContribution.findFirst({
+				where: {
+					meal: { sourceMenuId: restoredMenu.id },
+					canonicalName: 'chickpea',
+				},
+				select: { quantity: true, unit: true },
+			})
+		})
+		.toEqual({ quantity: '600', unit: 'g' })
 })

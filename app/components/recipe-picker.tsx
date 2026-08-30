@@ -18,6 +18,8 @@ export type RecipePickerRecipe = {
 	title: string
 	prepTime: number | null
 	cookTime: number | null
+	yieldAmount: number | null
+	yieldLabel: string | null
 	isFavorite: boolean
 	image: { objectKey: string } | null
 }

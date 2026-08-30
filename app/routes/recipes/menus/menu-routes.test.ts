@@ -555,6 +555,116 @@ describe('menu recipe items', () => {
 		expect(items[0]!.scaleMultiplier).toBe(1.5)
 	})
 
+	test('known target yield stores its converted multiplier while unknown yield keeps the submitted multiplier', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Canonical Dinner')
+		const pieces = await createRecipe(
+			session,
+			session.householdId,
+			'Pepper parcels',
+		)
+		const legacyBatch = await createRecipe(
+			session,
+			session.householdId,
+			'Family stew',
+		)
+		await prisma.recipe.update({
+			where: { id: pieces.id },
+			data: { yieldAmount: 12, yieldLabel: 'pieces' },
+		})
+		await prisma.recipe.update({
+			where: { id: legacyBatch.id },
+			data: { servings: 97, yieldAmount: null, yieldLabel: null },
+		})
+
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Canonical Dinner',
+				...(await unnamedItemsFields(menu.id, [
+					{
+						recipeId: pieces.id,
+						scaleMultiplier: '1',
+						targetYield: '18',
+					},
+					{ recipeId: legacyBatch.id, scaleMultiplier: '2.5' },
+				])),
+			}),
+		)
+
+		const items = await menuItems(menu.id)
+		expect(items.map((item) => item.scaleMultiplier)).toEqual([1.5, 2.5])
+	})
+
+	test('saving an unchanged rounded target does not drift an existing multiplier', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Precise Batch')
+		const recipe = await createRecipe(
+			session,
+			session.householdId,
+			'Small loaves',
+		)
+		await prisma.recipe.update({
+			where: { id: recipe.id },
+			data: { yieldAmount: 2.5, yieldLabel: 'loaves' },
+		})
+		const section = await unnamedSection(menu.id)
+		const item = await prisma.menuItem.create({
+			data: {
+				kind: 'recipe',
+				sectionId: section.id,
+				order: 0,
+				recipeId: recipe.id,
+				recipeTitle: recipe.title,
+				scaleMultiplier: 1.333333,
+			},
+		})
+
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Precise Batch',
+				...sectionFields(0, { id: section.id }, [
+					{
+						id: item.id,
+						recipeId: recipe.id,
+						scaleMultiplier: '1.33',
+						targetYield: '3.33',
+					},
+				]),
+			}),
+		)
+
+		expect((await menuItems(menu.id))[0]!.scaleMultiplier).toBe(1.333333)
+	})
+
+	test('rejects targets that would leave the positive multiplier bounds', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Bounded Targets')
+		const recipe = await createRecipe(
+			session,
+			session.householdId,
+			'Twelve pieces',
+		)
+		await prisma.recipe.update({
+			where: { id: recipe.id },
+			data: { yieldAmount: 12, yieldLabel: 'pieces' },
+		})
+
+		for (const targetYield of ['0.01', '1200.60']) {
+			const result = (await saveMenu(session, menu.id, {
+				title: 'Bounded Targets',
+				...(await unnamedItemsFields(menu.id, [
+					{
+						recipeId: recipe.id,
+						scaleMultiplier: '1',
+						targetYield,
+					},
+				])),
+			})) as any
+			expect(result.init?.status, `target ${targetYield}`).toBe(400)
+		}
+		expect(await menuItems(menu.id)).toEqual([])
+	})
+
 	test('rejects non-positive, malformed, and oversized multipliers', async () => {
 		const session = await setupUser()
 		const menu = await createMenuWithId(session, 'Strict Numbers')

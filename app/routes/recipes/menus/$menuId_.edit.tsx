@@ -18,6 +18,12 @@ import {
 	menuTitleKey,
 } from '#app/utils/menu-validation.ts'
 import { useDoubleCheck } from '#app/utils/misc.tsx'
+import {
+	formatTargetYieldAmount,
+	getTypedYield,
+	scaleMultiplierToTargetYield,
+	targetYieldToScaleMultiplier,
+} from '#app/utils/target-yield.ts'
 import { type Route } from './+types/$menuId_.edit.ts'
 
 export const handle: SEOHandle = {
@@ -99,6 +105,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			title: true,
 			prepTime: true,
 			cookTime: true,
+			yieldAmount: true,
+			yieldLabel: true,
 			isFavorite: true,
 			image: { select: { objectKey: true } },
 		},
@@ -122,7 +130,14 @@ export async function action({ request, params }: Route.ActionArgs) {
 				select: {
 					id: true,
 					name: true,
-					items: { select: { id: true, kind: true, recipeId: true } },
+					items: {
+						select: {
+							id: true,
+							kind: true,
+							recipeId: true,
+							scaleMultiplier: true,
+						},
+					},
 				},
 			},
 		},
@@ -234,7 +249,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 		)
 	}
 
-	// Every newly referenced Recipe must be visible to the household.
+	// Every newly referenced Recipe must be visible to the household. Load all
+	// linked Recipes here because typed-yield conversion uses the same fresh,
+	// household-scoped metadata for existing and newly added cards.
 	const newlyReferencedIds = items.flatMap((item, index) => {
 		const effective = effectiveRecipeIds[index]
 		if (effective == null) return []
@@ -244,8 +261,13 @@ export async function action({ request, params }: Route.ActionArgs) {
 		return [effective]
 	})
 	const referencedRecipes = await prisma.recipe.findMany({
-		where: { id: { in: newlyReferencedIds }, householdId },
-		select: { id: true, title: true },
+		where: { id: { in: linkedIds }, householdId },
+		select: {
+			id: true,
+			title: true,
+			yieldAmount: true,
+			yieldLabel: true,
+		},
 	})
 	const recipesById = new Map(referencedRecipes.map((r) => [r.id, r]))
 	if (newlyReferencedIds.some((id) => !recipesById.has(id))) {
@@ -253,6 +275,52 @@ export async function action({ request, params }: Route.ActionArgs) {
 			{
 				result: submission.reply({
 					formErrors: ['That recipe is no longer in your library'],
+				}),
+			},
+			{ status: 400 },
+		)
+	}
+
+	const resolvedScaleMultipliers = items.map((item, index) => {
+		if (item.kind === 'note') return null
+		const recipeId = effectiveRecipeIds[index]
+		const recipe = recipeId ? recipesById.get(recipeId) : null
+		const recipeYield = recipe ? getTypedYield(recipe) : null
+		if (recipeYield == null || item.targetYield == null) {
+			return item.scaleMultiplier!
+		}
+		const stored = item.id ? storedById.get(item.id) : null
+		if (stored && stored.recipeId === recipeId) {
+			const storedMultiplier = stored.scaleMultiplier ?? 1
+			const storedTarget = scaleMultiplierToTargetYield(
+				storedMultiplier,
+				recipeYield,
+			)
+			// The form renders a rounded friendly target. An ordinary Menu save
+			// must keep a more precise imported/stored multiplier byte-for-byte.
+			if (
+				storedTarget != null &&
+				formatTargetYieldAmount(item.targetYield) ===
+					formatTargetYieldAmount(storedTarget)
+			) {
+				return storedMultiplier
+			}
+		}
+		return targetYieldToScaleMultiplier(item.targetYield, recipeYield)
+	})
+	const invalidTargetIndex = resolvedScaleMultipliers.findIndex(
+		(multiplier, index) =>
+			items[index]!.kind === 'recipe' && multiplier == null,
+	)
+	if (invalidTargetIndex !== -1) {
+		const item = items[invalidTargetIndex]!
+		return data(
+			{
+				result: submission.reply({
+					fieldErrors: {
+						[`sections[${item.sectionIndex}].items[${item.itemIndex}].targetYield`]:
+							['Target amount must convert to a multiplier from 0.01 to 100'],
+					},
 				}),
 			},
 			{ status: 400 },
@@ -301,8 +369,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 				}
 			}
 
-			for (const item of items) {
+			for (const [flatIndex, item] of items.entries()) {
 				const sectionId = sectionIds[item.sectionIndex]!
+				const scaleMultiplier = resolvedScaleMultipliers[flatIndex]
 				if (item.kind === 'note') {
 					// A note card's lines are replaced wholesale from the submission —
 					// they carry no identity beyond their fields, so the full-state
@@ -347,7 +416,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 						data: {
 							order: item.itemIndex,
 							sectionId,
-							scaleMultiplier: item.scaleMultiplier,
+							scaleMultiplier: scaleMultiplier!,
 							note: item.note ?? null,
 							// Replacing a card re-freezes the display title from the new
 							// Recipe; otherwise the frozen identity stays untouched.
@@ -366,7 +435,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 							sectionId,
 							recipeId: recipe.id,
 							recipeTitle: recipe.title,
-							scaleMultiplier: item.scaleMultiplier,
+							scaleMultiplier: scaleMultiplier!,
 							note: item.note ?? null,
 						},
 					})

@@ -253,10 +253,11 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	await page.getByRole('button', { name: 'Add to Plan' }).click()
 	await page.getByRole('button', { name: 'Add to Plan' }).click()
 	await expect(page).toHaveURL(/\/plan\?weekStart=/)
-	const visibleMultipliers = await page
+	const visibleMultiplierControls = page
 		.getByLabel('Scale multiplier')
 		.filter({ visible: true })
-		.all()
+	await expect(visibleMultiplierControls.first()).toBeVisible()
+	const visibleMultipliers = await visibleMultiplierControls.all()
 	expect(
 		await Promise.all(
 			visibleMultipliers.map((control) => control.inputValue()),

@@ -12,7 +12,7 @@ import { Divider } from '#app/components/divider.tsx'
 import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
 import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
 import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
-import { RecipeScaleControl } from '#app/components/recipe-scale-control.tsx'
+import { RecipeIngredientsControls } from '#app/components/recipe-scale-control.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
@@ -308,7 +308,7 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 
 					{/* Image: full-bleed above the title on mobile, side column on desktop */}
 					{recipe.image && (
-						<div className="order-first -mx-4 mb-5 shrink-0 sm:-mx-8 md:order-none md:mx-0 md:mb-0 md:w-[400px]">
+						<div className="order-first -mx-4 mb-5 shrink-0 sm:-mx-8 md:order-none md:mx-0 md:mb-0 md:w-[45%] lg:w-100">
 							<Img
 								src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
 								alt={recipe.image.altText ?? recipe.title}
@@ -327,42 +327,23 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Content zone: Ingredients + Instructions */}
-				<div className="mt-4 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8">
+				<div className="mt-4 grid gap-5 md:mt-8 lg:grid-cols-[6fr_7fr] lg:gap-6">
 					{/* Ingredients */}
-					<div className="min-w-0 md:sticky md:top-20 md:self-start">
+					<div className="min-w-0 lg:sticky lg:top-20 lg:self-start">
 						<div>
-							<div className="mb-3 flex items-center gap-2">
-								<button
-									type="button"
-									className="flex items-center gap-1.5 md:pointer-events-none"
-									onClick={() => setIngredientsExpanded((v) => !v)}
-									aria-expanded={ingredientsExpanded}
-									aria-controls="ingredients-list"
-								>
-									<Icon
-										name="chevron-down"
-										size="sm"
-										className={cn(
-											'text-muted-foreground transition-transform md:hidden',
-											!ingredientsExpanded && '-rotate-90',
-										)}
-									/>
-									<h2 className="font-serif text-lg font-normal">
-										Ingredients
-									</h2>
-								</button>
-							</div>
-							<div className="mb-4">
-								<RecipeScaleControl
-									scaleMultiplier={ratio}
-									yieldAmount={recipe.yieldAmount}
-									yieldLabel={recipe.yieldLabel}
-									onScaleMultiplierChange={updateScaleMultiplier}
-								/>
-							</div>
+							<RecipeIngredientsControls
+								scaleMultiplier={ratio}
+								yieldAmount={recipe.yieldAmount}
+								yieldLabel={recipe.yieldLabel}
+								onScaleMultiplierChange={updateScaleMultiplier}
+								ingredientsExpanded={ingredientsExpanded}
+								onToggleIngredients={() =>
+									setIngredientsExpanded((value) => !value)
+								}
+							/>
 							<div
 								id="ingredients-list"
-								className={cn(!ingredientsExpanded && 'hidden md:block')}
+								className={cn(!ingredientsExpanded && 'hidden lg:block')}
 							>
 								<IngredientList
 									ingredients={recipe.ingredients}

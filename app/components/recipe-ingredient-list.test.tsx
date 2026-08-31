@@ -41,4 +41,5 @@ test('Recipe ingredients omit the availability summary and bulk Shopping action'
 	expect(
 		screen.getByRole('button', { name: 'Add to shopping list' }),
 	).toBeVisible()
+	expect(screen.getByRole('checkbox', { name: 'rhubarb' })).toBeVisible()
 })

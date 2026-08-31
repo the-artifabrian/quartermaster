@@ -1,3 +1,4 @@
+import { type Locator } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
@@ -19,8 +20,12 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 	await expect(
 		page.getByRole('spinbutton', { name: /^servings$/i }),
 	).toHaveCount(0)
-	await page.getByRole('spinbutton', { name: /yield amount/i }).fill('4')
-	await page.getByRole('combobox', { name: /yield label/i }).fill('servings')
+	await page
+		.getByRole('spinbutton', { name: /amount this recipe makes/i })
+		.fill('4')
+	await page
+		.getByRole('combobox', { name: /what this recipe makes/i })
+		.fill('servings')
 
 	// Fill ingredient (first row)
 	await page.getByPlaceholder('Ingredient name').fill('spaghetti')
@@ -170,6 +175,7 @@ test('custom Recipe yield labels fit phone and desktop detail layouts', async ({
 
 	for (const viewport of [
 		{ width: 390, height: 844 },
+		{ width: 768, height: 900 },
 		{ width: 1280, height: 800 },
 	]) {
 		await page.setViewportSize(viewport)
@@ -212,43 +218,54 @@ test('manual Recipe scaling stays multiplier-first and shows known yield as cont
 			householdId: household.id,
 		},
 	})
+	async function openScaleEditor(trigger: Locator) {
+		const multiplier = page.getByLabel('Scale multiplier')
+		await expect(async () => {
+			if (!(await multiplier.isVisible())) await trigger.click()
+			await expect(multiplier).toBeVisible({ timeout: 2000 })
+		}).toPass({ timeout: 10_000 })
+		return multiplier
+	}
 
 	for (const viewport of [
 		{ width: 390, height: 844 },
+		{ width: 768, height: 900 },
 		{ width: 1280, height: 800 },
 	]) {
 		await page.setViewportSize(viewport)
 
 		await page.goto(`/recipes/${known.id}`)
-		const multiplier = page.getByLabel('Scale multiplier')
-		await expect(multiplier).toHaveValue('1')
-		await expect(page.getByText('Scale', { exact: true })).toBeVisible()
+		const scaleTrigger = page.getByRole('button', { name: 'Scale 1×' })
+		await expect(scaleTrigger).toBeVisible()
+		await expect(page.getByLabel('Scale multiplier')).toHaveCount(0)
 		await expect(page.getByText('Makes 12 pieces')).toBeVisible()
 		await expect(page.getByLabel(/Target pieces/)).toHaveCount(0)
 		await expect(page.getByText(/You have \d+\/\d+ ingredients/)).toHaveCount(0)
 		await expect(page.getByRole('button', { name: 'Metric' })).toBeVisible()
-		const controlBox = await page
-			.getByRole('group', { name: 'Recipe scale controls' })
-			.boundingBox()
+		const controlBox = await scaleTrigger.boundingBox()
 		expect(controlBox).not.toBeNull()
 		expect(controlBox!.x).toBeGreaterThanOrEqual(0)
 		expect(controlBox!.x + controlBox!.width).toBeLessThanOrEqual(
 			viewport.width,
 		)
 
+		const multiplier = await openScaleEditor(scaleTrigger)
+		await expect(multiplier).toHaveValue('1')
 		await multiplier.fill('1.5')
 		await multiplier.press('Enter')
 		await expect(page).toHaveURL(
 			new RegExp(`/recipes/${known.id}\\?scale=1.5$`),
 		)
 		await expect(page.getByText('Makes 18 pieces')).toBeVisible()
-		await expect(page.getByText('originally 12 pieces')).toBeVisible()
-		await page.getByRole('button', { name: 'Back to 1×' }).click()
-		await expect(multiplier).toHaveValue('1')
-		await expect(page.getByText('originally 12 pieces')).toHaveCount(0)
+		await expect(page.getByText('original: 12')).toBeVisible()
+		await page.getByRole('button', { name: 'Original 1×' }).click()
+		await expect(page.getByRole('button', { name: 'Scale 1×' })).toBeVisible()
+		await expect(page.getByText('original: 12')).toHaveCount(0)
 
 		await page.goto(`/recipes/${unknown.id}`)
-		const unknownMultiplier = page.getByLabel('Scale multiplier')
+		const unknownTrigger = page.getByRole('button', { name: 'Scale 1×' })
+		await expect(unknownTrigger).toBeVisible()
+		const unknownMultiplier = await openScaleEditor(unknownTrigger)
 		await expect(unknownMultiplier).toHaveValue('1')
 		await expect(page.getByLabel('Target servings')).toHaveCount(0)
 		const multiplierBox = await unknownMultiplier.boundingBox()
@@ -259,11 +276,63 @@ test('manual Recipe scaling stays multiplier-first and shows known yield as cont
 	}
 
 	await page.goto(`/recipes/${unknown.id}?servings=12`)
-	await expect(page.getByLabel('Scale multiplier')).toHaveValue('1')
+	await expect(page.getByRole('button', { name: 'Scale 1×' })).toBeVisible()
+	const legacyMultiplier = await openScaleEditor(
+		page.getByRole('button', { name: 'Scale 1×' }),
+	)
+	await expect(legacyMultiplier).toHaveValue('1')
 
-	await page.getByLabel('Scale multiplier').fill('1.5')
-	await page.getByLabel('Scale multiplier').press('Enter')
+	await legacyMultiplier.fill('1.5')
+	await legacyMultiplier.press('Enter')
 	await expect(page).toHaveURL(
 		new RegExp(`/recipes/${unknown.id}\\?scale=1.5$`),
 	)
+})
+
+test('phone Recipes restore Ingredients after its heading passes', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const household = await prisma.household.create({
+		data: {
+			name: 'Mid-cook household',
+			members: { create: { userId: user.id, role: 'owner' } },
+		},
+	})
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Long mid-cook Recipe',
+			userId: user.id,
+			householdId: household.id,
+			ingredients: {
+				create: Array.from({ length: 12 }, (_, index) => ({
+					name: `ingredient ${index + 1}`,
+					amount: String(index + 1),
+					unit: 'g',
+					order: index,
+				})),
+			},
+			instructions: {
+				create: Array.from({ length: 12 }, (_, index) => ({
+					content: `Complete cooking step ${index + 1}.`,
+					order: index,
+				})),
+			},
+		},
+	})
+
+	await page.setViewportSize({ width: 390, height: 844 })
+	await page.goto(`/recipes/${recipe.id}`)
+	const floatingIngredients = page.getByRole('button', {
+		name: 'Ingredients · 0/12',
+	})
+	await expect(floatingIngredients).toHaveCount(0)
+
+	await page
+		.getByRole('heading', { name: 'Instructions' })
+		.scrollIntoViewIfNeeded()
+	await expect(floatingIngredients).toBeVisible()
+	await floatingIngredients.click()
+	await expect(page.getByRole('dialog', { name: 'Ingredients' })).toBeVisible()
 })

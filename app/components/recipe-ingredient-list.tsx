@@ -85,6 +85,7 @@ export function IngredientList({
 							key={ingredient.id}
 							role="checkbox"
 							aria-checked={isChecked}
+							aria-label={ingredient.name}
 							tabIndex={0}
 							className={cn(
 								'flex cursor-pointer items-center gap-3 rounded-lg px-1 py-2.5 transition-colors select-none',

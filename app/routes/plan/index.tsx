@@ -1,12 +1,13 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useState } from 'react'
-import { Form, Link } from 'react-router'
+import { Form, Link, useNavigation } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { SuggestMealsModal } from '#app/components/suggest-meals-modal.tsx'
 import { TodayBanner } from '#app/components/today-banner.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { PendingButton } from '#app/components/ui/pending-button.tsx'
 import {
 	addDaysUTC,
 	getCurrentWeekStart,
@@ -307,6 +308,10 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const weekSunday = addDaysUTC(parseDate(weekStart), 6)
 	const isWeekPast = isPast(weekSunday)
 	const [showSuggest, setShowSuggest] = useState(false)
+	const navigation = useNavigation()
+	const isCopyingWeek =
+		navigation.state !== 'idle' &&
+		navigation.formAction?.endsWith('/resources/meal-plan-copy-week') === true
 
 	const plannedRecipeIds = [
 		...new Set(
@@ -336,10 +341,16 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						{isProActive && meals.length > 0 && (
 							<Form method="POST" action="/resources/meal-plan-copy-week">
 								<input type="hidden" name="weekStart" value={weekStart} />
-								<Button type="submit" variant="outline" size="sm">
+								<PendingButton
+									type="submit"
+									variant="outline"
+									size="sm"
+									pending={isCopyingWeek}
+									pendingLabel="Copying meal plan"
+								>
 									<Icon name="arrow-right" size="sm" />
 									Copy Week
-								</Button>
+								</PendingButton>
 							</Form>
 						)}
 						{/* Empty week: offer to pull last week's plan forward (C3) —
@@ -351,10 +362,16 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 							!isWeekPast && (
 								<Form method="POST" action="/resources/meal-plan-copy-week">
 									<input type="hidden" name="weekStart" value={prevWeek} />
-									<Button type="submit" variant="outline" size="sm">
+									<PendingButton
+										type="submit"
+										variant="outline"
+										size="sm"
+										pending={isCopyingWeek}
+										pendingLabel="Copying meal plan"
+									>
 										<Icon name="arrow-right" size="sm" />
 										Copy Last Week
-									</Button>
+									</PendingButton>
 								</Form>
 							)}
 					</div>

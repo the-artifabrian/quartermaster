@@ -9,13 +9,15 @@ save Recipes → plan Meals → generate Shopping → cook
 ```
 
 Roadmap [#98](https://github.com/the-artifabrian/quartermaster/issues/98) is in
-progress. Menus, ordered Meals, combined Shopping, household Staples/Out, and
-honest Recipe time/yield are shipped. AI quantity planning was tried and removed
-because it added more friction than value.
+progress. Menus, ordered Meals, combined Shopping, household Staples/Out, honest
+Recipe time/yield, and manual Recipe classification and filtering are shipped.
+AI quantity planning was tried and removed because it added more friction than
+value. Romanian/RON costing was tested on fixed examples and stopped because
+useful coverage required too much identity and price-catalogue work.
 
-The next implementation ticket is #125, the small manual Cuisine/Season/Course
-vocabulary and Recipe filters. Archived Pantry cleanup (#120) is deferred
-because it is still a cheap rollback path.
+#126 is the normal-use human checkpoint for the Recipe metadata foundation; it
+does not block #137, the next implementation ticket. Archived Pantry cleanup
+(#120) and product costing (#133–#136) are deferred.
 
 ## Product direction
 
@@ -50,12 +52,13 @@ Current product rules:
 
 ## Next tracks
 
-1. **Recipe metadata and discovery (#121–#130).** Add honest nullable time and
-   yield, a small Cuisine/Season/Course vocabulary, optional reviewed metadata
-   proposals, and compact discovery sections.
-2. **Costing (#131–#136).** Start with a reproducible Romanian/RON fixture
-   spike. Build product UI only if the result is useful without price-catalogue
-   chores or false precision.
+1. **Recipe metadata and discovery (#121–#130).** Honest nullable time/yield and
+   the small Cuisine/Season/Course vocabulary are shipped. #126 collects normal
+   use before any decision on reviewed metadata proposals or discovery sections.
+2. **Costing (#131–#136).** The reproducible Romanian/RON spike produced honest
+   partial totals but only 12/22 required-line coverage for the Levantine Menu.
+   #133–#136 are deferred; revisit only with reliable regional prices and
+   durable ingredient identity, or repeated real demand that earns the upkeep.
 3. **Preparation (#137–#141).** Start with one transient editable checklist for
    a real hosted Meal. Add persistence only if it beats a handwritten list.
 4. **Final copy sweep (#142).** Align public and in-app copy with whatever

@@ -1,11 +1,39 @@
+import { type Locator, type Page } from '@playwright/test'
 import { getCurrentWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
+
+async function expectLocalPendingFeedback({
+	page,
+	button,
+	statusName,
+}: {
+	page: Page
+	button: Locator
+	statusName: string
+}) {
+	const widthBefore = (await button.boundingBox())?.width
+	expect(widthBefore).toBeDefined()
+
+	const submission = button.click()
+	await expect(button).toBeDisabled()
+	const status = page.getByRole('status')
+	await expect(status).toBeVisible()
+	await expect(status).toContainText(statusName)
+	expect((await button.boundingBox())?.width).toBe(widthBefore)
+	await expect(
+		page.getByRole('progressbar', { includeHidden: true }),
+	).toHaveCount(0)
+
+	await submission
+	await expect(status).toBeHidden()
+}
 
 test('Shopping list flow: generate → verify items → add manual → check → clear', async ({
 	page,
 	login,
 }) => {
+	test.setTimeout(30_000)
 	const user = await login()
 
 	// Create household + Pro access (shopping requires Pro)
@@ -71,10 +99,33 @@ test('Shopping list flow: generate → verify items → add manual → check →
 		page.getByRole('heading', { name: /shopping list/i }),
 	).toBeVisible()
 
-	// 2. Generate from meal plan (the button's aria-label is its accessible name)
-	await page
-		.getByRole('button', { name: /generate shopping list from meal plan/i })
-		.click()
+	// Keep both audited actions pending long enough for delayed local feedback.
+	await page.route('**/shopping*', async (route) => {
+		const request = route.request()
+		const form =
+			request.method() === 'POST'
+				? (request.postDataJSON() as Record<string, unknown>)
+				: null
+		if (form?.intent === 'generate' || form?.intent === 'clear-checked') {
+			await new Promise((resolve) => setTimeout(resolve, 1250))
+		}
+		await route.continue()
+	})
+
+	// 2. Generate from the meal plan with local feedback on phone and desktop.
+	for (const viewport of [
+		{ width: 390, height: 844 },
+		{ width: 1280, height: 800 },
+	]) {
+		await page.setViewportSize(viewport)
+		await expectLocalPendingFeedback({
+			page,
+			button: page.getByRole('button', {
+				name: /generate shopping list from meal plan/i,
+			}),
+			statusName: 'Generating shopping list',
+		})
+	}
 
 	// 3. Verify generated items appear
 	await expect(page.getByText('chicken breast')).toBeVisible()
@@ -114,17 +165,26 @@ test('Shopping list flow: generate → verify items → add manual → check →
 	await page.getByRole('button', { name: /add to list/i }).click()
 	await expect(page.getByText('Bananas')).toBeVisible()
 
-	// 5. Check an item
-	await page
-		.getByRole('button', { name: /check off item/i })
-		.first()
-		.click()
+	// 5. Check and clear items with local feedback on phone and desktop.
+	page.on('dialog', (dialog) => void dialog.accept())
+	for (const viewport of [
+		{ width: 390, height: 844 },
+		{ width: 1280, height: 800 },
+	]) {
+		await page.setViewportSize(viewport)
+		await page
+			.getByRole('button', { name: /check off item/i })
+			.first()
+			.click()
+		await expect(page.getByText(/\(1\/\d+\)/)).toBeVisible()
 
-	// 6. Verify checked count updates in header
-	await expect(page.getByText(/\(1\/\d+\)/)).toBeVisible()
+		await expectLocalPendingFeedback({
+			page,
+			button: page.getByRole('button', { name: /clear checked/i }),
+			statusName: 'Clearing checked items',
+		})
+	}
 
-	// 7. Clear checked items
-	await page.getByRole('button', { name: /clear checked/i }).click()
-	// The checked item should be gone, others remain
+	// The checked items should be gone, while unchecked items remain.
 	await expect(page.getByText('jasmine rice')).toBeVisible()
 })

@@ -20,7 +20,6 @@ import { HouseholdActivityNotifier } from './components/household-activity-notif
 import { NavTiming } from './components/nav-timing.tsx'
 import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { ProExpiryNudge } from './components/pro-expiry-nudge.tsx'
-import { Progress } from './components/progress-bar.tsx'
 import { ServiceWorkerDataSync } from './components/service-worker-data-sync.tsx'
 import { TimerWidget } from './components/timer-widget.tsx'
 import { useToast } from './components/toaster.tsx'
@@ -458,7 +457,6 @@ function App() {
 				{user && isPro ? <HouseholdActivityNotifier /> : null}
 				{user ? <ProExpiryNudge /> : null}
 				{user ? <TimerWidget /> : null}
-				<Progress />
 			</OpenImgContextProvider>
 		</TimerProvider>
 	)

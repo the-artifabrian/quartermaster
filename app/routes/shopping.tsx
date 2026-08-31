@@ -7,6 +7,7 @@ import {
 	Link,
 	useFetcher,
 	useFetchers,
+	useNavigation,
 	useRevalidator,
 } from 'react-router'
 import { toast } from 'sonner'
@@ -15,9 +16,9 @@ import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { ShoppingListLiveRefresh } from '#app/components/shopping-live-refresh.tsx'
 import { MobileFabAdd } from '#app/components/shopping-mobile-fab.tsx'
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
-import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
+import { PendingButton } from '#app/components/ui/pending-button.tsx'
 import {
 	useSpeechToText,
 	type TranscribedItem,
@@ -623,6 +624,12 @@ export default function ShoppingListRoute({
 	const [fabOpen, setFabOpen] = useState(false)
 	const [warningDismissed, setWarningDismissed] = useState(false)
 	const [voiceAddedNames, setVoiceAddedNames] = useState<Set<string>>(new Set())
+	const navigation = useNavigation()
+	const pendingIntent = navigation.formData?.get('intent')
+	const isGeneratingFromPlan =
+		navigation.state !== 'idle' && pendingIntent === 'generate'
+	const isClearingChecked =
+		navigation.state !== 'idle' && pendingIntent === 'clear-checked'
 
 	// Auto-clear voice highlights after 60 seconds
 	useEffect(() => {
@@ -754,15 +761,17 @@ export default function ShoppingListRoute({
 								<Form method="POST" className="flex items-center gap-2">
 									<input type="hidden" name="intent" value="generate" />
 									<input type="hidden" name="weekStart" value={defaultWeek} />
-									<Button
+									<PendingButton
 										type="submit"
 										variant="outline"
 										size="sm"
+										pending={isGeneratingFromPlan}
+										pendingLabel="Generating shopping list"
 										aria-label="Generate shopping list from meal plan"
 									>
 										<Icon name="calendar" size="sm" />
 										From Plan
-									</Button>
+									</PendingButton>
 								</Form>
 							)}
 						</div>
@@ -964,12 +973,16 @@ export default function ShoppingListRoute({
 									}}
 								>
 									<input type="hidden" name="intent" value="clear-checked" />
-									<button
+									<PendingButton
 										type="submit"
-										className="text-muted-foreground hover:text-foreground text-sm underline underline-offset-2"
+										variant="link"
+										pending={isClearingChecked}
+										pendingLabel="Clearing checked items"
+										aria-label="Clear checked items"
+										className="text-muted-foreground hover:text-foreground h-auto p-0 text-sm underline underline-offset-2"
 									>
 										Clear checked
-									</button>
+									</PendingButton>
 								</Form>
 							</div>
 						)}

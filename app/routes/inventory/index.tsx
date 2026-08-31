@@ -29,6 +29,7 @@ import {
 	InventoryItemSchema,
 } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import {
@@ -490,6 +491,7 @@ export async function action({ request }: Route.ActionArgs) {
 				name: item.name,
 				category: guessCategory(item.name),
 				source: 'manual',
+				horizon: NEXT_SHOP,
 				listId: shoppingList.id,
 			},
 		})

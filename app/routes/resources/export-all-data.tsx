@@ -121,6 +121,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 							category: true,
 							checked: true,
 							source: true,
+							horizon: true,
 							mealContributions: {
 								orderBy: [{ canonicalName: 'asc' }, { id: 'asc' }],
 								select: {
@@ -338,6 +339,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 				category: item.category,
 				checked: item.checked,
 				source: item.source,
+				horizon: item.horizon,
 				// Nesting keeps every contribution attached to the exact exported
 				// row whose checked state it shares. Meal refs are export-local;
 				// null plus orphaned=true records safely kept post-deletion state.

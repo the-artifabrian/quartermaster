@@ -10,6 +10,7 @@ import {
 	getProduceCountDisplay,
 	isWeightUnit,
 } from '#app/utils/produce-weights.ts'
+import { LATER, NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { type ShoppingItemDisplay } from '#app/utils/shopping-optimistic.ts'
 
 type ShoppingListItemCardProps = {
@@ -26,6 +27,7 @@ export function ShoppingListItemCard({
 	const editFetcher = useFetcher()
 	const toggleFetcher = useFetcher()
 	const deleteFetcher = useFetcher()
+	const moveFetcher = useFetcher()
 	const removeGeneratedFetcher = useFetcher()
 	const prevEditFetcherState = useRef(editFetcher.state)
 	const actionsRef = useRef<HTMLDivElement>(null)
@@ -88,6 +90,8 @@ export function ShoppingListItemCard({
 		editFetcher.data?.submission?.error
 			? 'Please check your input and try again.'
 			: null
+	const moveTarget = item.horizon === LATER ? NEXT_SHOP : LATER
+	const moveLabel = moveTarget === LATER ? 'Move to Later' : 'Move to Next shop'
 
 	if (isEditing) {
 		return (
@@ -236,61 +240,80 @@ export function ShoppingListItemCard({
 			</toggleFetcher.Form>
 
 			{/* Overflow menu */}
-			{!optimisticChecked && (
-				<div ref={actionsRef} className="relative shrink-0">
-					<button
-						type="button"
-						onClick={() => setShowActions((v) => !v)}
-						className="text-muted-foreground/40 hover:bg-muted hover:text-muted-foreground flex size-10 items-center justify-center rounded-full transition-colors"
-						aria-label="Item actions"
-					>
-						<Icon name="dots-horizontal" className="size-4" />
-					</button>
-					{showActions && (
-						<div className="bg-card shadow-warm-md animate-fade-up-reveal absolute right-0 z-10 mt-1 flex items-center gap-1 rounded-lg border p-1">
+			<div ref={actionsRef} className="relative shrink-0">
+				<button
+					type="button"
+					onClick={() => setShowActions((v) => !v)}
+					className="text-muted-foreground/40 hover:bg-muted hover:text-muted-foreground flex size-10 items-center justify-center rounded-full transition-colors"
+					aria-label="Item actions"
+				>
+					<Icon name="dots-horizontal" className="size-4" />
+				</button>
+				{showActions && (
+					<div className="bg-card shadow-warm-md animate-fade-up-reveal absolute right-0 z-10 mt-1 min-w-44 rounded-lg border p-1">
+						<moveFetcher.Form method="POST">
+							<input type="hidden" name="intent" value="move" />
+							<input type="hidden" name="itemId" value={item.id} />
+							<input type="hidden" name="horizon" value={moveTarget} />
 							<button
-								type="button"
-								onClick={() => {
-									setIsEditing(true)
-									setShowActions(false)
-								}}
-								className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-10 items-center justify-center rounded-md transition-colors"
-								aria-label="Edit item"
+								type="submit"
+								disabled={moveFetcher.state !== 'idle'}
+								className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-10 w-full items-center gap-2 rounded-md px-3 text-sm transition-colors disabled:opacity-50"
+								aria-label={moveLabel}
 							>
-								<Icon name="pencil-1" size="sm" />
+								<Icon
+									name={moveTarget === LATER ? 'arrow-down' : 'arrow-up'}
+									size="sm"
+								/>
+								{moveLabel}
 							</button>
-							{item.source === 'manual' && display.combined && (
-								<removeGeneratedFetcher.Form method="POST">
-									<input
-										type="hidden"
-										name="intent"
-										value="removeGeneratedAmount"
-									/>
+						</moveFetcher.Form>
+						{!optimisticChecked && (
+							<div className="border-border/50 flex items-center justify-end gap-1 border-t pt-1">
+								<button
+									type="button"
+									onClick={() => {
+										setIsEditing(true)
+										setShowActions(false)
+									}}
+									className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-10 items-center justify-center rounded-md transition-colors"
+									aria-label="Edit item"
+								>
+									<Icon name="pencil-1" size="sm" />
+								</button>
+								{item.source === 'manual' && display.combined && (
+									<removeGeneratedFetcher.Form method="POST">
+										<input
+											type="hidden"
+											name="intent"
+											value="removeGeneratedAmount"
+										/>
+										<input type="hidden" name="itemId" value={item.id} />
+										<button
+											type="submit"
+											className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-10 items-center justify-center rounded-md transition-colors"
+											aria-label="Remove generated amount"
+										>
+											<Icon name="reset" size="sm" />
+										</button>
+									</removeGeneratedFetcher.Form>
+								)}
+								<deleteFetcher.Form method="POST">
+									<input type="hidden" name="intent" value="delete" />
 									<input type="hidden" name="itemId" value={item.id} />
 									<button
 										type="submit"
-										className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-10 items-center justify-center rounded-md transition-colors"
-										aria-label="Remove generated amount"
+										className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex size-10 items-center justify-center rounded-md transition-colors"
+										aria-label="Delete item"
 									>
-										<Icon name="reset" size="sm" />
+										<Icon name="trash" size="sm" />
 									</button>
-								</removeGeneratedFetcher.Form>
-							)}
-							<deleteFetcher.Form method="POST">
-								<input type="hidden" name="intent" value="delete" />
-								<input type="hidden" name="itemId" value={item.id} />
-								<button
-									type="submit"
-									className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex size-10 items-center justify-center rounded-md transition-colors"
-									aria-label="Delete item"
-								>
-									<Icon name="trash" size="sm" />
-								</button>
-							</deleteFetcher.Form>
-						</div>
-					)}
-				</div>
-			)}
+								</deleteFetcher.Form>
+							</div>
+						)}
+					</div>
+				)}
+			</div>
 		</div>
 	)
 }

@@ -45,14 +45,13 @@ import {
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
-import {
-	getCanonicalIngredientName,
-	normalizeIngredientName,
-} from '#app/utils/recipe-matching.server.ts'
+import { normalizeIngredientName } from '#app/utils/recipe-matching.server.ts'
 import {
 	buildShoppingDemand,
 	demandIdentity,
 } from '#app/utils/shopping-demand.server.ts'
+import { resolveNextShopDemandTargets } from '#app/utils/shopping-horizon.server.ts'
+import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import {
@@ -304,22 +303,15 @@ export async function action({ request, params }: Route.ActionArgs) {
 			userId,
 			householdId,
 		})
-		const shoppingList = {
-			...ensuredShoppingList,
-			// Dedup against all rows, checked or not — the generator's rule
-			// (shopping.tsx). Excluding checked rows put a second "butter" next
-			// to the one just checked off.
-			items: await prisma.shoppingListItem.findMany({
-				where: { listId: ensuredShoppingList.id },
-			}),
-		}
-
-		const existingCanonical = new Set(
-			shoppingList.items.map((item) => getCanonicalIngredientName(item.name)),
+		const canonicalName = demandIdentity(shoppingItem.name)
+		const { targets, promotedIds } = await resolveNextShopDemandTargets(
+			prisma,
+			{
+				listId: ensuredShoppingList.id,
+				canonicalNames: [canonicalName],
+			},
 		)
-		const isNew = !existingCanonical.has(
-			getCanonicalIngredientName(shoppingItem.name),
-		)
+		const isNew = !targets.has(canonicalName)
 
 		if (isNew) {
 			await prisma.shoppingListItem.create({
@@ -329,10 +321,13 @@ export async function action({ request, params }: Route.ActionArgs) {
 					unit: shoppingItem.unit,
 					category: guessCategory(shoppingItem.name),
 					source: 'recipe',
-					listId: shoppingList.id,
+					horizon: NEXT_SHOP,
+					listId: ensuredShoppingList.id,
 				},
 			})
+		}
 
+		if (isNew || promotedIds.length > 0) {
 			void emitHouseholdEvent({
 				type: 'shopping_list_item_added',
 				payload: { name: ingredient.name, source: 'recipe' },
@@ -341,7 +336,12 @@ export async function action({ request, params }: Route.ActionArgs) {
 			})
 		}
 
-		return { success: true, addedSingle: ingredientId, wasNew: isNew }
+		return {
+			success: true,
+			addedSingle: ingredientId,
+			wasNew: isNew,
+			wasPromoted: promotedIds.length > 0,
+		}
 	}
 
 	if (intent === 'add-to-shopping-list') {
@@ -375,24 +375,11 @@ export async function action({ request, params }: Route.ActionArgs) {
 			userId,
 			householdId,
 		})
-		const shoppingList = {
-			...ensuredShoppingList,
-			// Dedup against all rows, checked or not — the generator's rule
-			// (shopping.tsx).
-			items: await prisma.shoppingListItem.findMany({
-				where: { listId: ensuredShoppingList.id },
-			}),
-		}
-
-		// Deduplicate by the module's demand identity so fallback-identity
-		// lines still match their rows
-		const existingCanonical = new Set(
-			shoppingList.items.map((item) => demandIdentity(item.name)),
-		)
-
-		const newItems = lines.filter(
-			(line) => !existingCanonical.has(line.canonicalName),
-		)
+		const { targets } = await resolveNextShopDemandTargets(prisma, {
+			listId: ensuredShoppingList.id,
+			canonicalNames: lines.map((line) => line.canonicalName),
+		})
+		const newItems = lines.filter((line) => !targets.has(line.canonicalName))
 
 		if (newItems.length > 0) {
 			await prisma.shoppingListItem.createMany({
@@ -408,7 +395,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 						category: line.category,
 						checked: line.inStock,
 						source: 'recipe',
-						listId: shoppingList.id,
+						horizon: NEXT_SHOP,
+						listId: ensuredShoppingList.id,
 					}
 				}),
 			})

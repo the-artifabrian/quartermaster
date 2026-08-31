@@ -23,6 +23,10 @@ import {
 	recipeMetadataIdentity,
 	recipeMetadataNameKey,
 } from '#app/utils/recipe-metadata.ts'
+import {
+	NEXT_SHOP,
+	ShoppingHorizonSchema,
+} from '#app/utils/shopping-horizon.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
@@ -251,6 +255,8 @@ const ImportShoppingListItemSchema = z.object({
 	category: z.string().max(50).nullable().optional(),
 	checked: z.boolean().optional(),
 	source: z.string().max(50).optional(),
+	// Optional so exports from before Shopping horizons restore to Next shop.
+	horizon: ShoppingHorizonSchema.optional().default(NEXT_SHOP),
 	// Optional so pre-#110 exports remain importable.
 	mealContributions: z
 		.array(
@@ -393,6 +399,7 @@ type ShoppingListItemImport = {
 	category: string | null
 	checked: boolean
 	source: string
+	horizon: string
 }
 
 function getShoppingListItemImportKey(item: ShoppingListItemImport) {
@@ -403,6 +410,7 @@ function getShoppingListItemImportKey(item: ShoppingListItemImport) {
 		item.category?.trim().toLocaleLowerCase() || null,
 		item.checked,
 		item.source.trim().toLocaleLowerCase(),
+		item.horizon,
 	])
 }
 
@@ -1370,6 +1378,7 @@ export async function action({ request }: Route.ActionArgs) {
 					category: true,
 					checked: true,
 					source: true,
+					horizon: true,
 				},
 			})
 			const itemIdByKey = new Map(
@@ -1396,6 +1405,7 @@ export async function action({ request }: Route.ActionArgs) {
 						category: item.category || null,
 						checked: item.checked ?? false,
 						source: item.source || 'manual',
+						horizon: item.horizon,
 					}
 					const key = getShoppingListItemImportKey(normalizedItem)
 					let targetItemId = itemIdByKey.get(key)

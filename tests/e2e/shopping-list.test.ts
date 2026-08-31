@@ -162,7 +162,7 @@ test('Shopping list flow: generate → verify items → add manual → check →
 		.getByPlaceholder(/add an item/i)
 		.filter({ visible: true })
 		.fill('Bananas')
-	await page.getByRole('button', { name: /add to list/i }).click()
+	await page.getByRole('button', { name: /add to next shop/i }).click()
 	await expect(page.getByText('Bananas')).toBeVisible()
 
 	// 5. Check and clear items with local feedback on phone and desktop.
@@ -187,4 +187,119 @@ test('Shopping list flow: generate → verify items → add manual → check →
 
 	// The checked items should be gone, while unchecked items remain.
 	await expect(page.getByText('jasmine rice')).toBeVisible()
+})
+
+test('Next shop and Later stay usable and search-revealable on phone and desktop', async ({
+	page,
+	login,
+}) => {
+	test.setTimeout(30_000)
+	const user = await login()
+	const household = await prisma.household.create({
+		data: {
+			name: 'Shopping Horizons Household',
+			members: { create: { userId: user.id, role: 'owner' } },
+		},
+	})
+	await prisma.subscription.create({
+		data: {
+			userId: user.id,
+			tier: 'pro',
+			trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+		},
+	})
+	await prisma.shoppingList.create({
+		data: {
+			userId: user.id,
+			householdId: household.id,
+			items: {
+				create: [
+					{ name: 'Milk', horizon: 'next' },
+					{ name: 'Bread', horizon: 'next' },
+					{
+						name: 'Camping fuel — phone',
+						horizon: 'later',
+						checked: true,
+					},
+					{
+						name: 'Camping fuel — desktop',
+						horizon: 'later',
+						checked: true,
+					},
+					{ name: 'Solar eclipse glasses', horizon: 'later' },
+					...Array.from({ length: 11 }, (_, index) => ({
+						name: `Later item ${index + 1}`,
+						horizon: 'later',
+					})),
+				],
+			},
+		},
+	})
+
+	for (const [viewport, itemName, activeProgress, laterCount] of [
+		[{ width: 390, height: 844 }, 'Camping fuel — phone', '(0/2)', 14],
+		[{ width: 1280, height: 800 }, 'Camping fuel — desktop', '(1/3)', 13],
+	] as const) {
+		await page.setViewportSize(viewport)
+		await page.goto('/shopping')
+		const pageHeading = page.getByRole('heading', { level: 1 })
+		await expect(pageHeading).toContainText('Shopping List')
+		await expect(pageHeading).toContainText(activeProgress)
+		await expect(
+			page.getByRole('heading', { name: 'Next shop', exact: true }),
+		).toHaveCount(0)
+		const laterToggle = page.getByRole('button', { name: /^Later/ })
+		await expect(laterToggle).toContainText(`(${laterCount})`)
+		await expect(laterToggle).toHaveAttribute('aria-expanded', 'false')
+		await expect(page.getByText(itemName, { exact: true })).toHaveCount(0)
+
+		await laterToggle.click()
+		await expect(laterToggle).toHaveAttribute('aria-expanded', 'true')
+		await expect(page.getByPlaceholder('Add for later...')).toBeVisible()
+		const laterGroup = page.getByRole('group', {
+			name: `${itemName} shopping item`,
+		})
+		await expect(
+			laterGroup.getByRole('button', { name: 'Uncheck item' }),
+		).toBeVisible()
+		await laterGroup.getByRole('button', { name: 'Item actions' }).click()
+		const moveResponse = page.waitForResponse(
+			(response) =>
+				response.request().method() === 'POST' &&
+				response.url().includes('/shopping') &&
+				response.request().postData()?.includes('intent=move') === true,
+		)
+		await page.getByRole('button', { name: 'Move to Next shop' }).click()
+		await moveResponse
+
+		const nextSection = page.getByTestId('next-shopping-items')
+		const movedGroup = nextSection.getByRole('group', {
+			name: `${itemName} shopping item`,
+		})
+		await expect(movedGroup).toBeVisible({ timeout: 10_000 })
+		await expect(
+			movedGroup.getByRole('button', { name: 'Uncheck item' }),
+		).toBeVisible()
+		const movedBox = await movedGroup.boundingBox()
+		expect(movedBox).not.toBeNull()
+		expect(movedBox!.x).toBeGreaterThanOrEqual(0)
+		expect(movedBox!.x + movedBox!.width).toBeLessThanOrEqual(viewport.width)
+
+		// A search reveals a collapsed Later match without changing the stored
+		// expansion preference; clearing it collapses Later again.
+		await page.goto('/shopping')
+		const search = page.getByPlaceholder('Search shopping list...')
+		await search.fill('Solar eclipse glasses')
+		await expect(
+			page.getByText('Solar eclipse glasses', { exact: true }),
+		).toBeVisible()
+		await search.fill('')
+		await expect(
+			page.getByText('Solar eclipse glasses', { exact: true }),
+		).toHaveCount(0)
+		await expect(page.getByRole('button', { name: /^Later/ })).toHaveAttribute(
+			'aria-expanded',
+			'false',
+		)
+	}
 })

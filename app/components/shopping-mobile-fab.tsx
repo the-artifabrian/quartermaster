@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFetcher, useRevalidator } from 'react-router'
 import { toast } from 'sonner'
+import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
 	useSpeechToText,
 	type TranscribedItem,
 } from '#app/hooks/use-speech-to-text.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { useModal } from '#app/utils/use-modal.ts'
 
 export function MobileFabAdd({
@@ -20,11 +22,12 @@ export function MobileFabAdd({
 	isProActive: boolean
 	onVoiceItemsAdded?: (names: string[]) => void
 }) {
-	const fetcher = useFetcher<{ status: string }>()
+	const fetcher = useFetcher<Record<string, unknown>>()
 	const [name, setName] = useState('')
 	const [quantity, setQuantity] = useState('')
 	const [unit, setUnit] = useState('')
 	const [showQty, setShowQty] = useState(false)
+	const [warningDismissed, setWarningDismissed] = useState(false)
 	const inputRef = useRef<HTMLInputElement>(null)
 	const qtyInputRef = useRef<HTMLInputElement>(null)
 
@@ -50,21 +53,52 @@ export function MobileFabAdd({
 			setName('')
 			setQuantity('')
 			setUnit('')
+			setWarningDismissed(false)
 			inputRef.current?.focus()
 		}
 		prevState.current = fetcher.state
 	}, [fetcher.state, fetcher.data])
 
 	const bulkAddFetcher = useFetcher()
+	const moveItemsFetcher = useFetcher()
 	const revalidator = useRevalidator()
 
 	const prevBulkState = useRef(bulkAddFetcher.state)
 	useEffect(() => {
 		if (prevBulkState.current !== 'idle' && bulkAddFetcher.state === 'idle') {
 			void revalidator.revalidate()
+			const result = bulkAddFetcher.data as
+				| {
+						addedCount?: number
+						moveItemIds?: string[]
+				  }
+				| undefined
+			const moveItemIds = result?.moveItemIds ?? []
+			if (typeof result?.addedCount === 'number' && result.addedCount > 0) {
+				toast.success(
+					`Added ${result.addedCount} item${result.addedCount === 1 ? '' : 's'}`,
+				)
+			}
+			if (moveItemIds.length > 0) {
+				toast.info(
+					`${moveItemIds.length} item${moveItemIds.length === 1 ? ' is' : 's are'} already in Later`,
+					{
+						action: {
+							label: 'Move to Next shop',
+							onClick: () => {
+								const data = new FormData()
+								data.set('intent', 'move-items')
+								data.set('itemIds', JSON.stringify(moveItemIds))
+								data.set('horizon', NEXT_SHOP)
+								void moveItemsFetcher.submit(data, { method: 'POST' })
+							},
+						},
+					},
+				)
+			}
 		}
 		prevBulkState.current = bulkAddFetcher.state
-	}, [bulkAddFetcher.state, revalidator])
+	}, [bulkAddFetcher.state, bulkAddFetcher.data, moveItemsFetcher, revalidator])
 
 	const handleSpeechResult = useCallback(
 		(items: TranscribedItem[], transcription: string | null) => {
@@ -84,6 +118,7 @@ export function MobileFabAdd({
 				const fd = new FormData()
 				fd.set('intent', 'bulk-add')
 				fd.set('items', JSON.stringify(items))
+				fd.set('horizon', NEXT_SHOP)
 				void bulkAddFetcher.submit(fd, { method: 'POST' })
 				onVoiceItemsAdded?.(items.map((i) => i.name))
 				const heard =
@@ -91,11 +126,7 @@ export function MobileFabAdd({
 					(transcription.length > 60
 						? transcription.slice(0, 60) + '…'
 						: transcription)
-				toast.success(
-					heard
-						? `Heard: "${heard}" — added ${items.length} items`
-						: `Added ${items.length} items`,
-				)
+				if (heard) toast.info(`Heard: "${heard}"`)
 				onOpenChange(false)
 			}
 		},
@@ -107,6 +138,15 @@ export function MobileFabAdd({
 			onResult: handleSpeechResult,
 			onError: handleSpeechError,
 		})
+	const warningData =
+		fetcher.data &&
+		typeof fetcher.data === 'object' &&
+		'warningType' in fetcher.data &&
+		fetcher.data.status === 'warning'
+			? fetcher.data
+			: null
+	const showWarning = !warningDismissed && warningData != null
+	const canForce = showWarning && warningData.warningType !== 'move_to_section'
 
 	// print:hidden guards browser-initiated Cmd+P — print pages are narrower
 	// than the md breakpoint, so the fixed FAB would repeat on every page
@@ -114,6 +154,17 @@ export function MobileFabAdd({
 		<div className="md:hidden print:hidden">
 			{open && (
 				<AddItemSheet onClose={() => onOpenChange(false)}>
+					{showWarning && (
+						<WarningBanner
+							actionData={warningData}
+							onDismiss={() => setWarningDismissed(true)}
+							onMoved={() => {
+								setName('')
+								setQuantity('')
+								setUnit('')
+							}}
+						/>
+					)}
 					<fetcher.Form
 						method="POST"
 						onSubmit={(e) => {
@@ -121,13 +172,17 @@ export function MobileFabAdd({
 						}}
 					>
 						<input type="hidden" name="intent" value="add" />
-						<input type="hidden" name="force" value="true" />
+						<input type="hidden" name="horizon" value={NEXT_SHOP} />
+						{canForce && <input type="hidden" name="force" value="true" />}
 						<div className="flex items-center gap-2">
 							<input
 								ref={inputRef}
 								name="name"
 								value={name}
-								onChange={(e) => setName(e.target.value)}
+								onChange={(e) => {
+									setName(e.target.value)
+									setWarningDismissed(false)
+								}}
 								placeholder="Add an item..."
 								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-10 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-sm outline-none focus:ring-1"
 							/>
@@ -161,6 +216,7 @@ export function MobileFabAdd({
 								type="submit"
 								disabled={!name.trim() || fetcher.state !== 'idle'}
 								className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-full disabled:opacity-50"
+								aria-label={canForce ? 'Add anyway' : 'Add to Next shop'}
 							>
 								<Icon name="plus" className="size-5" />
 							</button>

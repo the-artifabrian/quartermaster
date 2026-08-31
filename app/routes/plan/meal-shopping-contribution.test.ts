@@ -1218,3 +1218,109 @@ describe('Shopping display grouping — combined totals without rewriting identi
 		expect(soap.display).toEqual({ quantity: '1', unit: null, combined: false })
 	})
 })
+
+describe('Meal Shopping contributions across horizons (#175)', () => {
+	test('generated demand promotes an unchecked Later row in place and refresh promotes it again after a manual move', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const meal = await setupMeal(session.householdId, recipe)
+		await runShoppingAction(session, {
+			intent: 'add',
+			name: 'ground lamb',
+			quantity: '250',
+			unit: 'g',
+			horizon: 'later',
+		})
+		const manualRow = (await getShoppingRows(session.householdId)).find(
+			(row) => row.name === 'ground lamb',
+		)!
+
+		const added = (await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})) as { shopping: { promotedRowCount: number } }
+		expect(added.shopping.promotedRowCount).toBe(1)
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: manualRow.id },
+				select: { horizon: true, quantity: true, source: true },
+			}),
+		).toEqual({ horizon: 'next', quantity: '250', source: 'manual' })
+		const contribution = await prisma.mealShoppingContribution.findFirstOrThrow(
+			{
+				where: { mealId: meal.id, itemId: manualRow.id },
+			},
+		)
+
+		await runShoppingAction(session, {
+			intent: 'move',
+			itemId: manualRow.id,
+			horizon: 'later',
+		})
+		const refreshed = (await runPlanAction(session, {
+			intent: 'refreshMealShopping',
+			mealId: meal.id,
+		})) as { shopping: { promotedRowCount: number } }
+		expect(refreshed.shopping.promotedRowCount).toBe(1)
+
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: manualRow.id },
+				select: { horizon: true, quantity: true },
+			}),
+		).toEqual({ horizon: 'next', quantity: '250' })
+		expect(
+			await prisma.mealShoppingContribution.findUniqueOrThrow({
+				where: { id: contribution.id },
+				select: { itemId: true, mealId: true },
+			}),
+		).toEqual({ itemId: manualRow.id, mealId: meal.id })
+	})
+
+	test('refresh and contribution removal leave a checked Later row in its chosen horizon', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const meal = await setupMeal(session.householdId, recipe)
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+		const lamb = (await getShoppingRows(session.householdId)).find((row) =>
+			row.name.includes('lamb'),
+		)!
+		await runShoppingAction(session, {
+			intent: 'toggle',
+			itemId: lamb.id,
+		})
+		await runShoppingAction(session, {
+			intent: 'move',
+			itemId: lamb.id,
+			horizon: 'later',
+		})
+
+		await runPlanAction(session, {
+			intent: 'refreshMealShopping',
+			mealId: meal.id,
+		})
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: lamb.id },
+				select: { horizon: true, checked: true },
+			}),
+		).toEqual({ horizon: 'later', checked: true })
+
+		await runPlanAction(session, {
+			intent: 'removeMeal',
+			mealId: meal.id,
+			removeShoppingContributions: 'true',
+		})
+		expect(
+			await prisma.shoppingListItem.findUnique({ where: { id: lamb.id } }),
+		).toBeNull()
+		expect(
+			await prisma.mealShoppingContribution.count({
+				where: { itemId: lamb.id },
+			}),
+		).toBe(0)
+	})
+})

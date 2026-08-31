@@ -162,6 +162,42 @@ describe('acceptInvite', () => {
 		expect(membership!.role).toBe('member')
 	})
 
+	test('sole member: Shopping horizons survive the household move', async () => {
+		const owner = await setupUser()
+		const joiner = await setupUser()
+		await prisma.shoppingList.create({
+			data: {
+				userId: joiner.id,
+				householdId: joiner.householdId,
+				items: {
+					create: {
+						name: 'Birthday candles',
+						checked: true,
+						horizon: 'later',
+					},
+				},
+			},
+		})
+
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+		await acceptInvite(invite.token, joiner.id)
+
+		expect(
+			await prisma.shoppingListItem.findFirstOrThrow({
+				where: { name: 'Birthday candles' },
+				select: {
+					horizon: true,
+					checked: true,
+					list: { select: { householdId: true } },
+				},
+			}),
+		).toEqual({
+			horizon: 'later',
+			checked: true,
+			list: { householdId: owner.householdId },
+		})
+	})
+
 	test('sole member: menus move, colliding titles get deterministic suffixes', async () => {
 		const owner = await setupUser()
 		const joiner = await setupUser()

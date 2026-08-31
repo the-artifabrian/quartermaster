@@ -15,6 +15,7 @@ function realItem(name: string, checked = false): ShoppingListItem {
 		category: 'other',
 		checked,
 		source: 'manual',
+		horizon: 'next',
 		listId: 'list1',
 		createdAt: new Date(0),
 	}
@@ -43,9 +44,9 @@ describe('makeOptimisticShoppingItem', () => {
 		// from the form, so it must agree with what the server stores or the temp
 		// row would visibly jump to a different group on revalidation.
 		for (const name of ['Milk', 'Bananas', 'Chicken breast', 'zzqxunknown']) {
-			expect(makeOptimisticShoppingItem({ name, listId: 'list1' }).category).toBe(
-				guessCategory(name),
-			)
+			expect(
+				makeOptimisticShoppingItem({ name, listId: 'list1' }).category,
+			).toBe(guessCategory(name))
 		}
 	})
 })
@@ -58,22 +59,28 @@ describe('mergeOptimisticShoppingItems', () => {
 
 	test('inserts pending items at the end of the unchecked group', () => {
 		const real = [realItem('apples'), realItem('zucchini', true)]
-		const pending = [makeOptimisticShoppingItem({ name: 'bread', listId: 'list1' })]
+		const pending = [
+			makeOptimisticShoppingItem({ name: 'bread', listId: 'list1' }),
+		]
 		const merged = mergeOptimisticShoppingItems(real, pending)
 		expect(merged.map((i) => i.name)).toEqual(['apples', 'bread', 'zucchini'])
 	})
 
 	test('appends at the end when there are no checked items', () => {
 		const real = [realItem('apples')]
-		const pending = [makeOptimisticShoppingItem({ name: 'bread', listId: 'list1' })]
-		expect(mergeOptimisticShoppingItems(real, pending).map((i) => i.name)).toEqual(
-			['apples', 'bread'],
-		)
+		const pending = [
+			makeOptimisticShoppingItem({ name: 'bread', listId: 'list1' }),
+		]
+		expect(
+			mergeOptimisticShoppingItems(real, pending).map((i) => i.name),
+		).toEqual(['apples', 'bread'])
 	})
 
 	test('drops a pending item whose name already exists server-side (case-insensitive)', () => {
 		const real = [realItem('Milk')]
-		const pending = [makeOptimisticShoppingItem({ name: 'milk', listId: 'list1' })]
+		const pending = [
+			makeOptimisticShoppingItem({ name: 'milk', listId: 'list1' }),
+		]
 		const merged = mergeOptimisticShoppingItems(real, pending)
 		expect(merged).toHaveLength(1)
 		expect(merged[0]!.id).toBe('real:Milk')
@@ -88,7 +95,9 @@ describe('mergeOptimisticShoppingItems', () => {
 	})
 
 	test('ignores blank names', () => {
-		const pending = [makeOptimisticShoppingItem({ name: '   ', listId: 'list1' })]
+		const pending = [
+			makeOptimisticShoppingItem({ name: '   ', listId: 'list1' }),
+		]
 		expect(mergeOptimisticShoppingItems([], pending)).toHaveLength(0)
 	})
 })

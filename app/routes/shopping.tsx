@@ -50,6 +50,13 @@ import {
 	combineRowDisplay,
 	demandIdentity,
 } from '#app/utils/shopping-demand.server.ts'
+import { resolveNextShopDemandTargets } from '#app/utils/shopping-horizon.server.ts'
+import {
+	LATER,
+	NEXT_SHOP,
+	parseShoppingHorizon,
+	type ShoppingHorizon,
+} from '#app/utils/shopping-horizon.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
 	ShoppingListItemSchema,
@@ -229,22 +236,23 @@ export async function action({ request }: Route.ActionArgs) {
 			where: {
 				listId: shoppingList.id,
 				source: 'generated',
+				checked: false,
+				horizon: NEXT_SHOP,
 				mealContributions: { none: {} },
 			},
 		})
 
-		// Dedup against all existing items (checked or not) to avoid visual
-		// duplicates — rows are keyed through the module's demand identity so
-		// fallback-identity lines still match their rows.
-		const existingItems = await prisma.shoppingListItem.findMany({
-			where: { listId: shoppingList.id },
-			select: { name: true },
-		})
-		const existingCanonicals = new Set(
-			existingItems.map((i) => demandIdentity(i.name)),
+		// Generated demand always targets Next shop. An unchecked Later match is
+		// promoted in place; checked matches keep their already-bought state.
+		const { targets, promotedIds } = await resolveNextShopDemandTargets(
+			prisma,
+			{
+				listId: shoppingList.id,
+				canonicalNames: lines.map((line) => line.canonicalName),
+			},
 		)
 		const dedupedItems = lines.filter(
-			(line) => !existingCanonicals.has(line.canonicalName),
+			(line) => !targets.has(line.canonicalName),
 		)
 
 		// Create new items — in-stock items are pre-checked
@@ -254,6 +262,7 @@ export async function action({ request }: Route.ActionArgs) {
 					...line,
 					checked: inStock,
 					source: 'generated',
+					horizon: NEXT_SHOP,
 					listId: shoppingList.id,
 				}),
 			),
@@ -261,7 +270,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		void emitHouseholdEvent({
 			type: 'shopping_list_generated',
-			payload: { count: dedupedItems.length },
+			payload: { count: dedupedItems.length + promotedIds.length },
 			userId,
 			householdId,
 		})
@@ -282,6 +291,7 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 
 		const force = formData.get('force') === 'true'
+		const horizon = parseShoppingHorizon(formData.get('horizon'))
 
 		// "2 lemons" typed into the bare input becomes qty 2 + "lemons" (E4).
 		// Only when no explicit quantity came along — the Qty & unit fields win.
@@ -297,16 +307,31 @@ export async function action({ request }: Route.ActionArgs) {
 			}
 		}
 
-		if (!force) {
-			const canonicalName = demandIdentity(name)
+		const canonicalName = demandIdentity(name)
 
-			// Check for existing unchecked shopping list items
-			const existingItems = await prisma.shoppingListItem.findMany({
-				where: { listId: shoppingList.id, checked: false },
-			})
-			const duplicate = existingItems.find(
-				(item) => demandIdentity(item.name) === canonicalName,
-			)
+		// An unchecked cross-section match is never silently duplicated, even
+		// when the ordinary same-section "add anyway" path is forced.
+		const existingItems = await prisma.shoppingListItem.findMany({
+			where: { listId: shoppingList.id, checked: false },
+			orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+		})
+		const duplicate = existingItems.find(
+			(item) => demandIdentity(item.name) === canonicalName,
+		)
+		if (duplicate && duplicate.horizon !== horizon) {
+			return {
+				status: 'warning' as const,
+				warningType: 'move_to_section' as const,
+				existingName: duplicate.name,
+				existingQuantity: duplicate.quantity,
+				existingUnit: duplicate.unit,
+				existingHorizon: duplicate.horizon,
+				targetHorizon: horizon,
+				itemId: duplicate.id,
+			}
+		}
+
+		if (!force) {
 			if (duplicate) {
 				return {
 					status: 'warning' as const,
@@ -317,6 +342,7 @@ export async function action({ request }: Route.ActionArgs) {
 					submittedName: name,
 					submittedQuantity: quantity,
 					submittedUnit: unit,
+					targetHorizon: horizon,
 				}
 			}
 
@@ -351,6 +377,7 @@ export async function action({ request }: Route.ActionArgs) {
 				category,
 				listId: shoppingList.id,
 				source: 'manual',
+				horizon,
 			},
 		})
 
@@ -392,6 +419,64 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 
 		return { status: 'success' as const }
+	}
+
+	if (intent === 'move') {
+		const itemId = formData.get('itemId')
+		invariantResponse(typeof itemId === 'string', 'Item ID is required')
+		const horizon = parseShoppingHorizon(formData.get('horizon'))
+		const item = await prisma.shoppingListItem.findFirst({
+			where: { id: itemId, list: { householdId } },
+		})
+		invariantResponse(item, 'Item not found', { status: 404 })
+
+		await prisma.shoppingListItem.update({
+			where: { id: item.id },
+			data: { horizon },
+		})
+		void emitHouseholdEvent({
+			type: 'shopping_list_item_edited',
+			payload: { name: item.name, horizon },
+			userId,
+			householdId,
+		})
+		return { status: 'success' as const, moved: 1, horizon }
+	}
+
+	if (intent === 'move-items') {
+		const rawItemIds = formData.get('itemIds')
+		invariantResponse(typeof rawItemIds === 'string', 'Item IDs are required')
+		let itemIds: string[]
+		try {
+			itemIds = JSON.parse(rawItemIds) as string[]
+		} catch {
+			throw new Response('Invalid item IDs', { status: 400 })
+		}
+		invariantResponse(
+			Array.isArray(itemIds) &&
+				itemIds.length > 0 &&
+				itemIds.length <= 100 &&
+				itemIds.every((id) => typeof id === 'string'),
+			'Invalid item IDs',
+		)
+		const horizon = parseShoppingHorizon(formData.get('horizon'))
+		const result = await prisma.shoppingListItem.updateMany({
+			where: {
+				id: { in: [...new Set(itemIds)] },
+				list: { householdId },
+				checked: false,
+			},
+			data: { horizon },
+		})
+		if (result.count > 0) {
+			void emitHouseholdEvent({
+				type: 'shopping_list_item_edited',
+				payload: { count: result.count, horizon },
+				userId,
+				householdId,
+			})
+		}
+		return { status: 'success' as const, moved: result.count, horizon }
 	}
 
 	if (intent === 'delete') {
@@ -478,10 +563,12 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	if (intent === 'clear-checked') {
+		const horizon = parseShoppingHorizon(formData.get('horizon'))
 		await prisma.shoppingListItem.deleteMany({
 			where: {
 				listId: shoppingList.id,
 				checked: true,
+				horizon,
 			},
 		})
 
@@ -510,19 +597,33 @@ export async function action({ request }: Route.ActionArgs) {
 		// Ordinary note Shopping lines through the demand module (#108): trims
 		// and normalizes each line's identity while preserving the free text.
 		const demandLines = buildShoppingDemand({ noteLines: items })
+		const horizon = parseShoppingHorizon(formData.get('horizon'))
 
-		// Dedup against all existing items — and within the batch — by
-		// canonical identity, the same rule every entry point uses.
+		// Dedup against all existing items and within the batch. Unchecked
+		// cross-section matches are returned as explicit move offers.
 		const existingItems = await prisma.shoppingListItem.findMany({
 			where: { listId: shoppingList.id },
-			select: { name: true },
+			orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+			select: { id: true, name: true, checked: true, horizon: true },
 		})
-		const existingCanonicals = new Set(
-			existingItems.map((item) => demandIdentity(item.name)),
-		)
+		const existingByCanonical = new Map<string, typeof existingItems>()
+		for (const item of existingItems) {
+			const canonicalName = demandIdentity(item.name)
+			const group = existingByCanonical.get(canonicalName) ?? []
+			group.push(item)
+			existingByCanonical.set(canonicalName, group)
+		}
+		const seen = new Set<string>()
+		const moveItemIds: string[] = []
 		const newItems = demandLines.filter((line) => {
-			if (existingCanonicals.has(line.canonicalName)) return false
-			existingCanonicals.add(line.canonicalName)
+			if (seen.has(line.canonicalName)) return false
+			seen.add(line.canonicalName)
+			const matches = existingByCanonical.get(line.canonicalName) ?? []
+			const crossSectionMatch = matches.find(
+				(item) => !item.checked && item.horizon !== horizon,
+			)
+			if (crossSectionMatch) moveItemIds.push(crossSectionMatch.id)
+			if (matches.length > 0) return false
 			return true
 		})
 
@@ -532,6 +633,7 @@ export async function action({ request }: Route.ActionArgs) {
 					...line,
 					listId: shoppingList.id,
 					source: 'manual' as const,
+					horizon,
 				})),
 			})
 
@@ -543,7 +645,12 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 		}
 
-		return { status: 'success' as const, addedCount: newItems.length }
+		return {
+			status: 'success' as const,
+			addedCount: newItems.length,
+			moveItemIds,
+			horizon,
+		}
 	}
 
 	return { status: 'error' as const }
@@ -573,10 +680,12 @@ function usePendingShoppingItems(listId: string): DisplayShoppingItem[] {
 					quantity: fetcher.formData.get('quantity') as string | null,
 					unit: fetcher.formData.get('unit') as string | null,
 					listId,
+					horizon: parseShoppingHorizon(fetcher.formData.get('horizon')),
 				}),
 			)
 		} else if (intent === 'bulk-add') {
 			const raw = fetcher.formData.get('items')
+			const horizon = parseShoppingHorizon(fetcher.formData.get('horizon'))
 			if (typeof raw !== 'string') continue
 			try {
 				const items = JSON.parse(raw) as Array<{
@@ -592,6 +701,7 @@ function usePendingShoppingItems(listId: string): DisplayShoppingItem[] {
 							quantity: item.quantity ?? null,
 							unit: item.unit ?? null,
 							listId,
+							horizon,
 						}),
 					)
 				}
@@ -601,6 +711,141 @@ function usePendingShoppingItems(listId: string): DisplayShoppingItem[] {
 		}
 	}
 	return pending
+}
+
+function LaterQuickAdd() {
+	const fetcher = useFetcher<Record<string, unknown>>()
+	const [name, setName] = useState('')
+	const [warningDismissed, setWarningDismissed] = useState(false)
+	const inputRef = useRef<HTMLInputElement>(null)
+	const previousState = useRef(fetcher.state)
+
+	useEffect(() => {
+		if (
+			previousState.current !== 'idle' &&
+			fetcher.state === 'idle' &&
+			fetcher.data?.status === 'success'
+		) {
+			setName('')
+			setWarningDismissed(false)
+			inputRef.current?.focus()
+		}
+		previousState.current = fetcher.state
+	}, [fetcher.state, fetcher.data])
+
+	const warningData =
+		fetcher.data &&
+		'warningType' in fetcher.data &&
+		fetcher.data.status === 'warning'
+			? fetcher.data
+			: null
+	const showWarning = !warningDismissed && warningData != null
+	const canForce = showWarning && warningData.warningType !== 'move_to_section'
+
+	return (
+		<div className="border-border/40 border-b py-2">
+			{showWarning && (
+				<WarningBanner
+					actionData={warningData}
+					onDismiss={() => setWarningDismissed(true)}
+					onMoved={() => setName('')}
+				/>
+			)}
+			<fetcher.Form
+				method="POST"
+				onSubmit={(event) => {
+					if (!name.trim()) event.preventDefault()
+				}}
+				className="flex items-center gap-2"
+			>
+				<input type="hidden" name="intent" value="add" />
+				<input type="hidden" name="horizon" value={LATER} />
+				{canForce && <input type="hidden" name="force" value="true" />}
+				<Input
+					ref={inputRef}
+					name="name"
+					value={name}
+					onChange={(event) => {
+						setName(event.target.value)
+						setWarningDismissed(false)
+					}}
+					placeholder="Add for later..."
+					className="h-9 min-w-0 flex-1"
+				/>
+				<button
+					type="submit"
+					disabled={!name.trim() || fetcher.state !== 'idle'}
+					className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-9 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50"
+					aria-label={canForce ? 'Add to Later anyway' : 'Add for later'}
+				>
+					<Icon name="plus" className="size-5" />
+				</button>
+			</fetcher.Form>
+		</div>
+	)
+}
+
+function ShoppingItems({
+	items,
+	voiceAddedNames,
+}: {
+	items: DisplayShoppingItem[]
+	voiceAddedNames: Set<string>
+}) {
+	return (
+		<div className="divide-border/40 divide-y">
+			{items.map((item) => (
+				<ShoppingListItemCard
+					key={item.id}
+					item={item}
+					isVoiceAdded={voiceAddedNames.has(item.name.toLowerCase().trim())}
+				/>
+			))}
+		</div>
+	)
+}
+
+function ClearCheckedControl({
+	checkedCount,
+	horizon,
+	pending,
+}: {
+	checkedCount: number
+	horizon: ShoppingHorizon
+	pending: boolean
+}) {
+	if (checkedCount === 0) return null
+	const sectionLabel = horizon === LATER ? 'Later' : 'Next shop'
+	return (
+		<div className="animate-slide-up-reveal flex items-center justify-center pt-4">
+			<Form
+				method="POST"
+				className="inline"
+				onSubmit={(event) => {
+					if (
+						!confirm(
+							`Clear ${checkedCount} checked item${checkedCount !== 1 ? 's' : ''} from ${sectionLabel}?`,
+						)
+					) {
+						event.preventDefault()
+					}
+				}}
+			>
+				<input type="hidden" name="intent" value="clear-checked" />
+				<input type="hidden" name="horizon" value={horizon} />
+				<PendingButton
+					type="submit"
+					variant="link"
+					pending={pending}
+					pendingLabel={`Clearing checked items from ${sectionLabel}`}
+					aria-label={`Clear checked items from ${sectionLabel}`}
+					className="text-muted-foreground hover:text-foreground h-auto p-0 text-sm underline underline-offset-2"
+				>
+					Clear checked
+				</PendingButton>
+			</Form>
+		</div>
+	)
 }
 
 export default function ShoppingListRoute({
@@ -620,6 +865,7 @@ export default function ShoppingListRoute({
 	const qaInputRef = useRef<HTMLInputElement>(null)
 
 	const [search, setSearch] = useState('')
+	const [laterExpanded, setLaterExpanded] = useState(false)
 	const [quickAddOpen, setQuickAddOpen] = useState(false)
 	const [fabOpen, setFabOpen] = useState(false)
 	const [warningDismissed, setWarningDismissed] = useState(false)
@@ -630,6 +876,9 @@ export default function ShoppingListRoute({
 		navigation.state !== 'idle' && pendingIntent === 'generate'
 	const isClearingChecked =
 		navigation.state !== 'idle' && pendingIntent === 'clear-checked'
+	const clearingHorizon = parseShoppingHorizon(
+		navigation.formData?.get('horizon') ?? null,
+	)
 
 	// Auto-clear voice highlights after 60 seconds
 	useEffect(() => {
@@ -639,6 +888,7 @@ export default function ShoppingListRoute({
 	}, [voiceAddedNames])
 
 	const bulkAddFetcher = useFetcher()
+	const moveItemsFetcher = useFetcher()
 	const revalidator = useRevalidator()
 
 	// Revalidate after bulk-add completes so the new items appear
@@ -646,9 +896,34 @@ export default function ShoppingListRoute({
 	useEffect(() => {
 		if (prevBulkState.current !== 'idle' && bulkAddFetcher.state === 'idle') {
 			void revalidator.revalidate()
+			const result = bulkAddFetcher.data as
+				{ addedCount?: number; moveItemIds?: string[] } | undefined
+			const moveItemIds = result?.moveItemIds ?? []
+			if (typeof result?.addedCount === 'number' && result.addedCount > 0) {
+				toast.success(
+					`Added ${result.addedCount} item${result.addedCount === 1 ? '' : 's'}`,
+				)
+			}
+			if (moveItemIds.length > 0) {
+				toast.info(
+					`${moveItemIds.length} item${moveItemIds.length === 1 ? ' is' : 's are'} already in Later`,
+					{
+						action: {
+							label: 'Move to Next shop',
+							onClick: () => {
+								const data = new FormData()
+								data.set('intent', 'move-items')
+								data.set('itemIds', JSON.stringify(moveItemIds))
+								data.set('horizon', NEXT_SHOP)
+								void moveItemsFetcher.submit(data, { method: 'POST' })
+							},
+						},
+					},
+				)
+			}
 		}
 		prevBulkState.current = bulkAddFetcher.state
-	}, [bulkAddFetcher.state, revalidator])
+	}, [bulkAddFetcher.state, bulkAddFetcher.data, moveItemsFetcher, revalidator])
 
 	const handleSpeechResult = useCallback(
 		(items: TranscribedItem[], transcription: string | null) => {
@@ -670,6 +945,7 @@ export default function ShoppingListRoute({
 				const fd = new FormData()
 				fd.set('intent', 'bulk-add')
 				fd.set('items', JSON.stringify(items))
+				fd.set('horizon', NEXT_SHOP)
 				void bulkAddFetcher.submit(fd, { method: 'POST' })
 				setVoiceAddedNames(
 					(prev) =>
@@ -683,11 +959,7 @@ export default function ShoppingListRoute({
 					(transcription.length > 60
 						? transcription.slice(0, 60) + '…'
 						: transcription)
-				toast.success(
-					heard
-						? `Heard: "${heard}" — added ${items.length} items`
-						: `Added ${items.length} items`,
-				)
+				if (heard) toast.info(`Heard: "${heard}"`)
 			}
 		},
 		[bulkAddFetcher],
@@ -727,19 +999,33 @@ export default function ShoppingListRoute({
 		pendingAddedItems,
 	)
 	const totalItems = allItems.length
-	const checkedItems = allItems.filter((item) => item.checked).length
+	const nextItems = allItems.filter((item) => item.horizon === NEXT_SHOP)
+	const laterItems = allItems.filter((item) => item.horizon === LATER)
+	const checkedNextItems = nextItems.filter((item) => item.checked).length
+	const checkedLaterItems = laterItems.filter((item) => item.checked).length
 
 	const searchLower = search.toLowerCase()
-	const filteredItems = search
-		? allItems.filter((i) => i.name.toLowerCase().includes(searchLower))
-		: allItems
+	const filterBySearch = (items: typeof allItems) =>
+		search
+			? items.filter((item) => item.name.toLowerCase().includes(searchLower))
+			: items
+	const filteredNextItems = filterBySearch(nextItems)
+	const filteredLaterItems = filterBySearch(laterItems)
+	const hasSearchResults =
+		filteredNextItems.length > 0 || filteredLaterItems.length > 0
+	const showLaterContents =
+		laterExpanded || (Boolean(search) && filteredLaterItems.length > 0)
 
 	// Determine if we should show a warning (from quick-add fetcher, not route actionData)
-	const showWarning =
-		!warningDismissed &&
+	const warningData =
 		quickAddFetcher.data &&
 		'warningType' in quickAddFetcher.data &&
 		quickAddFetcher.data.status === 'warning'
+			? quickAddFetcher.data
+			: null
+	const showWarning = !warningDismissed && warningData != null
+	const canForceQuickAdd =
+		showWarning && warningData.warningType !== 'move_to_section'
 
 	return (
 		<div className="pb-28 md:pb-6">
@@ -750,16 +1036,26 @@ export default function ShoppingListRoute({
 					<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
 						<h1 className="font-serif text-2xl font-normal">
 							Shopping List
-							{totalItems > 0 && (
-								<span className="text-muted-foreground ml-2 font-sans text-lg font-normal tabular-nums">
-									({checkedItems}/{totalItems})
-								</span>
+							{nextItems.length > 0 && (
+								<>
+									<span
+										aria-hidden="true"
+										className="text-muted-foreground ml-2 font-sans text-lg font-normal tabular-nums"
+									>
+										({checkedNextItems}/{nextItems.length})
+									</span>
+									<span className="sr-only">
+										, {checkedNextItems} of {nextItems.length} items for this
+										shop checked
+									</span>
+								</>
 							)}
 						</h1>
 						<div className="flex items-center gap-2 sm:ml-auto">
 							{hasMealPlan && (
 								<Form method="POST" className="flex items-center gap-2">
 									<input type="hidden" name="intent" value="generate" />
+									<input type="hidden" name="horizon" value={NEXT_SHOP} />
 									<input type="hidden" name="weekStart" value={defaultWeek} />
 									<PendingButton
 										type="submit"
@@ -788,8 +1084,10 @@ export default function ShoppingListRoute({
 			</div>
 
 			<div className="container-narrow py-4">
-				{shoppingList.items.length > 0 &&
-					shoppingList.items.every((i) => !i.checked) && (
+				{shoppingList.items.some((item) => item.horizon === NEXT_SHOP) &&
+					shoppingList.items
+						.filter((item) => item.horizon === NEXT_SHOP)
+						.every((item) => !item.checked) && (
 						<OnboardingNudge
 							nudgeId="check-items-off"
 							icon="check"
@@ -805,8 +1103,13 @@ export default function ShoppingListRoute({
 					{/* Warning banner */}
 					{showWarning && (
 						<WarningBanner
-							actionData={quickAddFetcher.data as Record<string, unknown>}
+							actionData={warningData}
 							onDismiss={() => setWarningDismissed(true)}
+							onMoved={() => {
+								setQaName('')
+								setQaQuantity('')
+								setQaUnit('')
+							}}
 						/>
 					)}
 
@@ -817,7 +1120,10 @@ export default function ShoppingListRoute({
 						}}
 					>
 						<input type="hidden" name="intent" value="add" />
-						{showWarning && <input type="hidden" name="force" value="true" />}
+						<input type="hidden" name="horizon" value={NEXT_SHOP} />
+						{canForceQuickAdd && (
+							<input type="hidden" name="force" value="true" />
+						)}
 						<div className="flex items-center gap-2">
 							<div className="min-w-0 flex-1">
 								<Input
@@ -871,7 +1177,9 @@ export default function ShoppingListRoute({
 								type="submit"
 								disabled={!qaName.trim() || quickAddFetcher.state !== 'idle'}
 								className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-8 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50"
-								aria-label={showWarning ? 'Add anyway' : 'Add to list'}
+								aria-label={
+									canForceQuickAdd ? 'Add anyway' : 'Add to Next shop'
+								}
 							>
 								<Icon name="plus" className="size-5" />
 							</button>
@@ -926,94 +1234,126 @@ export default function ShoppingListRoute({
 					</div>
 				)}
 
-				{/* Item List */}
-				{totalItems > 0 ? (
-					<div className="mt-2">
-						{search && filteredItems.length === 0 ? (
-							<div className="py-12 text-center">
-								<p className="text-muted-foreground text-sm">
-									No items matching &ldquo;{search}&rdquo;
-								</p>
-								<button
-									type="button"
-									className="text-primary mt-2 text-sm underline underline-offset-2"
-									onClick={() => setSearch('')}
-								>
-									Clear search
-								</button>
-							</div>
-						) : (
-							<div className="divide-border/40 divide-y">
-								{filteredItems.map((item) => (
-									<ShoppingListItemCard
-										key={item.id}
-										item={item}
-										isVoiceAdded={voiceAddedNames.has(
-											item.name.toLowerCase().trim(),
-										)}
-									/>
-								))}
-							</div>
-						)}
-
-						{/* Checked Item Actions */}
-						{checkedItems > 0 && !search && (
-							<div className="animate-slide-up-reveal flex items-center justify-center pt-4">
-								<Form
-									method="POST"
-									className="inline"
-									onSubmit={(e) => {
-										if (
-											!confirm(
-												`Clear ${checkedItems} checked item${checkedItems !== 1 ? 's' : ''}?`,
-											)
-										) {
-											e.preventDefault()
-										}
-									}}
-								>
-									<input type="hidden" name="intent" value="clear-checked" />
-									<PendingButton
-										type="submit"
-										variant="link"
-										pending={isClearingChecked}
-										pendingLabel="Clearing checked items"
-										aria-label="Clear checked items"
-										className="text-muted-foreground hover:text-foreground h-auto p-0 text-sm underline underline-offset-2"
-									>
-										Clear checked
-									</PendingButton>
-								</Form>
-							</div>
-						)}
+				{search && !hasSearchResults ? (
+					<div className="py-12 text-center">
+						<p className="text-muted-foreground text-sm">
+							No items matching &ldquo;{search}&rdquo;
+						</p>
+						<button
+							type="button"
+							className="text-primary mt-2 text-sm underline underline-offset-2"
+							onClick={() => setSearch('')}
+						>
+							Clear search
+						</button>
 					</div>
 				) : (
-					<div className="py-12 text-center">
-						<div className="border-border mx-auto flex size-16 items-center justify-center rounded-full border-2 border-dashed">
-							<Icon name="cart" className="text-muted-foreground/40 size-7" />
-						</div>
-						<h2 className="mt-4 font-serif text-lg">Nothing on the list</h2>
-						<p className="text-muted-foreground mx-auto mt-2 max-w-sm text-sm">
-							{hasMealPlan ? (
-								<>
-									Hit <strong>From Plan</strong> to generate your list from the
-									meal plan. Add anything else by hand.
-								</>
-							) : (
-								<>
-									Create a{' '}
-									<Link
-										to="/plan"
-										className="text-primary hover:text-primary/80 font-medium underline underline-offset-2"
-									>
-										meal plan
-									</Link>{' '}
-									to auto-generate your list, or add items by hand.
-								</>
+					<>
+						<div
+							className="mt-2"
+							data-shopping-horizon={NEXT_SHOP}
+							data-testid="next-shopping-items"
+						>
+							{filteredNextItems.length > 0 ? (
+								<ShoppingItems
+									items={filteredNextItems}
+									voiceAddedNames={voiceAddedNames}
+								/>
+							) : !search ? (
+								<div className="py-10 text-center">
+									<div className="border-border mx-auto flex size-14 items-center justify-center rounded-full border-2 border-dashed">
+										<Icon
+											name="cart"
+											className="text-muted-foreground/40 size-6"
+										/>
+									</div>
+									<h3 className="mt-3 font-serif text-lg">
+										Nothing for the next shop
+									</h3>
+									<p className="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
+										{hasMealPlan ? (
+											<>
+												Use <strong>From Plan</strong> or add an item by hand.
+											</>
+										) : (
+											<>
+												Create a{' '}
+												<Link
+													to="/plan"
+													className="text-primary font-medium underline underline-offset-2"
+												>
+													meal plan
+												</Link>{' '}
+												or add an item by hand.
+											</>
+										)}
+									</p>
+								</div>
+							) : null}
+							{!search && (
+								<ClearCheckedControl
+									checkedCount={checkedNextItems}
+									horizon={NEXT_SHOP}
+									pending={isClearingChecked && clearingHorizon === NEXT_SHOP}
+								/>
 							)}
-						</p>
-					</div>
+						</div>
+					</>
 				)}
+
+				<section className="border-border/50 mt-8 border-t pt-3">
+					<button
+						type="button"
+						className="hover:bg-muted/50 flex min-h-11 w-full items-center gap-2 rounded-md px-1 text-left"
+						onClick={() => setLaterExpanded((expanded) => !expanded)}
+						aria-expanded={showLaterContents}
+						aria-controls="later-shopping-items"
+					>
+						<Icon
+							name="chevron-down"
+							size="sm"
+							className={cn(
+								'text-muted-foreground transition-transform',
+								showLaterContents && 'rotate-180',
+							)}
+						/>
+						<h2 className="font-serif text-lg">Later</h2>
+						<span className="text-muted-foreground text-sm tabular-nums">
+							({laterItems.length})
+						</span>
+						{checkedLaterItems > 0 && (
+							<span className="text-muted-foreground ml-auto text-xs tabular-nums">
+								{checkedLaterItems} checked
+							</span>
+						)}
+					</button>
+					{showLaterContents && (
+						<div
+							id="later-shopping-items"
+							className="pl-1"
+							data-shopping-horizon={LATER}
+						>
+							{!search && <LaterQuickAdd />}
+							{filteredLaterItems.length > 0 ? (
+								<ShoppingItems
+									items={filteredLaterItems}
+									voiceAddedNames={voiceAddedNames}
+								/>
+							) : (
+								<p className="text-muted-foreground py-6 text-center text-sm">
+									Nothing saved for later.
+								</p>
+							)}
+							{!search && (
+								<ClearCheckedControl
+									checkedCount={checkedLaterItems}
+									horizon={LATER}
+									pending={isClearingChecked && clearingHorizon === LATER}
+								/>
+							)}
+						</div>
+					)}
+				</section>
 			</div>
 
 			{/* Mobile FAB + quick-add popover */}

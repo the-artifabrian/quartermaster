@@ -1,4 +1,5 @@
 import { type ShoppingListItem } from '#app/generated/prisma/client.ts'
+import { NEXT_SHOP, type ShoppingHorizon } from '#app/utils/shopping-horizon.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 
 const normalizeName = (name: string) => name.toLowerCase().trim()
@@ -32,11 +33,13 @@ export function makeOptimisticShoppingItem({
 	quantity,
 	unit,
 	listId,
+	horizon = NEXT_SHOP,
 }: {
 	name: string
 	quantity?: string | null
 	unit?: string | null
 	listId: string
+	horizon?: ShoppingHorizon
 }): DisplayShoppingItem {
 	const trimmedQuantity = quantity?.trim() ? quantity.trim() : null
 	const trimmedUnit = unit?.trim() ? unit.trim() : null
@@ -48,6 +51,7 @@ export function makeOptimisticShoppingItem({
 		category: guessCategory(name),
 		checked: false,
 		source: 'manual',
+		horizon,
 		listId,
 		createdAt: new Date(),
 		// A just-typed row has no contributions yet — it displays itself.

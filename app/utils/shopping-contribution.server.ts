@@ -5,6 +5,8 @@ import {
 	demandIdentity,
 	type ShoppingDemandLine,
 } from './shopping-demand.server.ts'
+import { selectNextShopDemandTargets } from './shopping-horizon.server.ts'
+import { LATER, NEXT_SHOP } from './shopping-horizon.ts'
 import { guessCategory } from './shopping-list-validation.ts'
 
 /**
@@ -35,30 +37,46 @@ export async function reconcileMealShoppingContributions(
 	attachedCount: number
 	/** Demand this Meal had already contributed — left untouched. */
 	alreadyContributedCount: number
+	/** Unchecked Later rows promoted in place for this generated demand. */
+	promotedRowCount: number
 }> {
 	const [existingItems, existingContributions] = await Promise.all([
 		db.shoppingListItem.findMany({
 			where: { listId },
-			select: { id: true, name: true },
+			orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+			select: {
+				id: true,
+				name: true,
+				checked: true,
+				horizon: true,
+			},
 		}),
 		db.mealShoppingContribution.findMany({
 			where: { mealId },
-			select: { canonicalName: true },
+			select: { canonicalName: true, itemId: true },
 		}),
 	])
 
-	// Dedup against all existing rows (checked or not) by canonical identity —
-	// the generator's long-standing rule.
-	const existingRowByCanonical = new Map<string, string>()
-	for (const item of existingItems) {
-		const canonical = demandIdentity(item.name)
-		if (!existingRowByCanonical.has(canonical)) {
-			existingRowByCanonical.set(canonical, item.id)
-		}
-	}
+	const itemById = new Map(existingItems.map((item) => [item.id, item]))
+	const targetByCanonical = selectNextShopDemandTargets(
+		existingItems,
+		lines.map((line) => line.canonicalName),
+	)
 	const contributed = new Set(existingContributions.map((c) => c.canonicalName))
 
 	const writes = []
+	const promotedIds = new Set<string>()
+	const promote = (item: (typeof existingItems)[number] | undefined) => {
+		if (!item || item.checked || item.horizon !== LATER) return
+		if (promotedIds.has(item.id)) return
+		promotedIds.add(item.id)
+		writes.push(
+			db.shoppingListItem.update({
+				where: { id: item.id },
+				data: { horizon: NEXT_SHOP },
+			}),
+		)
+	}
 	let createdRowCount = 0
 	let attachedCount = 0
 	let alreadyContributedCount = 0
@@ -71,6 +89,10 @@ export async function reconcileMealShoppingContributions(
 
 		if (contributed.has(line.canonicalName)) {
 			// Current-state record already exists — this is not a refresh (#110).
+			const contribution = existingContributions.find(
+				(entry) => entry.canonicalName === line.canonicalName,
+			)
+			promote(itemById.get(contribution?.itemId ?? ''))
 			alreadyContributedCount++
 			continue
 		}
@@ -84,14 +106,15 @@ export async function reconcileMealShoppingContributions(
 			unit: line.unit,
 		}
 
-		const existingRowId = existingRowByCanonical.get(line.canonicalName)
-		if (existingRowId) {
+		const existingRow = targetByCanonical.get(line.canonicalName)
+		if (existingRow) {
+			promote(existingRow)
 			// A compatible row is already displayed (manual or generated) — record
 			// provenance against it without creating a visual duplicate or
 			// rewriting the row.
 			writes.push(
 				db.mealShoppingContribution.create({
-					data: { ...contribution, itemId: existingRowId },
+					data: { ...contribution, itemId: existingRow.id },
 				}),
 			)
 			attachedCount++
@@ -108,6 +131,7 @@ export async function reconcileMealShoppingContributions(
 						category: line.category,
 						checked: line.inStock,
 						source: 'meal',
+						horizon: NEXT_SHOP,
 					},
 				}),
 				db.mealShoppingContribution.create({
@@ -131,13 +155,19 @@ export async function reconcileMealShoppingContributions(
 					createdRowCount: 0,
 					attachedCount: 0,
 					alreadyContributedCount: lines.length,
+					promotedRowCount: 0,
 				}
 			}
 			throw error
 		}
 	}
 
-	return { createdRowCount, attachedCount, alreadyContributedCount }
+	return {
+		createdRowCount,
+		attachedCount,
+		alreadyContributedCount,
+		promotedRowCount: promotedIds.size,
+	}
 }
 
 /**
@@ -164,6 +194,7 @@ export async function replaceMealShoppingContributions(
 	attachedCount: number
 	updatedContributionCount: number
 	removedContributionCount: number
+	promotedRowCount: number
 }> {
 	const [existingItems, existingContributions] = await Promise.all([
 		db.shoppingListItem.findMany({
@@ -175,6 +206,8 @@ export async function replaceMealShoppingContributions(
 				quantity: true,
 				unit: true,
 				category: true,
+				checked: true,
+				horizon: true,
 			},
 		}),
 		db.mealShoppingContribution.findMany({
@@ -191,11 +224,10 @@ export async function replaceMealShoppingContributions(
 	])
 
 	const rowById = new Map(existingItems.map((item) => [item.id, item]))
-	const rowByCanonical = new Map<string, (typeof existingItems)[number]>()
-	for (const item of existingItems) {
-		const identity = demandIdentity(item.name)
-		if (!rowByCanonical.has(identity)) rowByCanonical.set(identity, item)
-	}
+	const rowByCanonical = selectNextShopDemandTargets(
+		existingItems,
+		lines.map((line) => line.canonicalName),
+	)
 	const contributionByCanonical = new Map(
 		existingContributions.map((contribution) => [
 			contribution.canonicalName,
@@ -210,6 +242,18 @@ export async function replaceMealShoppingContributions(
 	}
 
 	const writes = []
+	const promotedIds = new Set<string>()
+	const promote = (item: (typeof existingItems)[number] | undefined) => {
+		if (!item || item.checked || item.horizon !== LATER) return
+		if (promotedIds.has(item.id)) return
+		promotedIds.add(item.id)
+		writes.push(
+			db.shoppingListItem.update({
+				where: { id: item.id },
+				data: { horizon: NEXT_SHOP },
+			}),
+		)
+	}
 	let createdRowCount = 0
 	let attachedCount = 0
 	let updatedContributionCount = 0
@@ -248,6 +292,7 @@ export async function replaceMealShoppingContributions(
 		}
 
 		const row = rowById.get(contribution.itemId)
+		promote(row)
 		if (row?.source === 'meal') {
 			writes.push(
 				db.shoppingListItem.update({
@@ -276,6 +321,7 @@ export async function replaceMealShoppingContributions(
 			unit: line.unit,
 		}
 		if (existingRow) {
+			promote(existingRow)
 			writes.push(
 				db.mealShoppingContribution.create({
 					data: { ...contribution, itemId: existingRow.id },
@@ -295,6 +341,7 @@ export async function replaceMealShoppingContributions(
 						category: line.category,
 						checked: false,
 						source: 'meal',
+						horizon: NEXT_SHOP,
 					},
 				}),
 				db.mealShoppingContribution.create({
@@ -323,6 +370,7 @@ export async function replaceMealShoppingContributions(
 		attachedCount,
 		updatedContributionCount,
 		removedContributionCount,
+		promotedRowCount: promotedIds.size,
 	}
 }
 
@@ -422,6 +470,7 @@ export async function editShoppingDisplayGroup(
 						category: guessCategory(first.name),
 						checked: item.checked,
 						source: 'meal',
+						horizon: item.horizon,
 					},
 				}),
 			)

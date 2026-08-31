@@ -647,6 +647,7 @@ model ShoppingListItem {
   category   String?  // "produce", "dairy", "meat", "pantry", "frozen", "bakery", "household", "other"
   checked    Boolean  @default(false)
   source     String   @default("manual") // "manual", "generated", "recipe", or "discover"
+  horizon    String   @default("next") // "next" or "later"
   listId     String
   list       ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
@@ -655,6 +656,7 @@ model ShoppingListItem {
 
   @@index([listId])
   @@index([listId, checked])
+  @@index([listId, horizon, checked])
 }
 
 /// Current-state provenance between one source Meal and the displayed

@@ -129,6 +129,9 @@ test('re-importing a shopping list skips items already in the household list', a
 	expect(
 		shoppingList.shoppingList.items.map((item) => item.name).sort(),
 	).toEqual(['Apples', 'Bananas'])
+	expect(
+		shoppingList.shoppingList.items.every((item) => item.horizon === 'next'),
+	).toBe(true)
 })
 
 describe('Recipe classification recovery', () => {
@@ -1940,6 +1943,7 @@ describe('Shopping contribution recovery (#110)', () => {
 				checked: true,
 				source: 'manual',
 				category: 'produce',
+				horizon: 'later',
 			},
 		})
 		const candles = await prisma.shoppingListItem.create({
@@ -1992,6 +1996,7 @@ describe('Shopping contribution recovery (#110)', () => {
 			),
 		).toMatchObject({
 			checked: true,
+			horizon: 'later',
 			mealContributions: [
 				{
 					sourceMealRef: 'm1',
@@ -2044,7 +2049,7 @@ describe('Shopping contribution recovery (#110)', () => {
 			where: { item: { list: { householdId: target.householdId } } },
 			orderBy: { canonicalName: 'asc' },
 		})
-		expect(targetLemons.checked).toBe(true)
+		expect(targetLemons).toMatchObject({ checked: true, horizon: 'later' })
 		expect(restored).toHaveLength(3)
 		expect(
 			restored.find((entry) => entry.canonicalName === lemonIdentity),

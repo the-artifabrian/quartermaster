@@ -383,6 +383,71 @@ describe('shopping list actions', () => {
 		expect(item).toBeDefined()
 		expect(item!.source).toBe('manual')
 		expect(item!.quantity).toBe('6')
+		expect(item!.horizon).toBe('next')
+	})
+
+	test('manual cross-section matches offer an explicit move and moves preserve checked state', async () => {
+		const session = await setupUser()
+		await action({
+			request: await makeRequest(session, {
+				intent: 'add',
+				name: 'Candles',
+				quantity: '2 boxes',
+				horizon: 'later',
+			}),
+			...ACTION_ARGS_BASE,
+		})
+
+		const warning = (await action({
+			request: await makeRequest(session, {
+				intent: 'add',
+				name: 'candles',
+				horizon: 'next',
+			}),
+			...ACTION_ARGS_BASE,
+		})) as Record<string, unknown>
+		expect(warning).toMatchObject({
+			status: 'warning',
+			warningType: 'move_to_section',
+			existingHorizon: 'later',
+			targetHorizon: 'next',
+		})
+
+		await action({
+			request: await makeRequest(session, {
+				intent: 'move',
+				itemId: warning.itemId as string,
+				horizon: 'next',
+			}),
+			...ACTION_ARGS_BASE,
+		})
+		await action({
+			request: await makeRequest(session, {
+				intent: 'toggle',
+				itemId: warning.itemId as string,
+			}),
+			...ACTION_ARGS_BASE,
+		})
+		await action({
+			request: await makeRequest(session, {
+				intent: 'move',
+				itemId: warning.itemId as string,
+				horizon: 'later',
+			}),
+			...ACTION_ARGS_BASE,
+		})
+
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: warning.itemId as string },
+				select: { horizon: true, checked: true, quantity: true },
+			}),
+		).toEqual({ horizon: 'later', checked: true, quantity: '2 boxes' })
+		expect(
+			await prisma.shoppingListItem.count({
+				where: { list: { householdId: session.householdId } },
+			}),
+		).toBe(1)
 	})
 
 	test('manual add dedup uses the shared fallback demand identity', async () => {
@@ -525,6 +590,106 @@ describe('shopping list actions', () => {
 			include: { items: true },
 		})
 		expect(updated!.items).toHaveLength(1) // Only unchecked remains
+	})
+
+	test('clear checked is scoped to its requested section', async () => {
+		const session = await setupUser()
+		const list = await ensureShoppingList(prisma, {
+			userId: session.userId,
+			householdId: session.householdId,
+		})
+		await prisma.shoppingListItem.createMany({
+			data: [
+				{
+					name: 'Milk',
+					listId: list.id,
+					checked: true,
+					horizon: 'next',
+				},
+				{
+					name: 'Candles',
+					listId: list.id,
+					checked: true,
+					horizon: 'later',
+				},
+			],
+		})
+
+		await action({
+			request: await makeRequest(session, {
+				intent: 'clear-checked',
+				horizon: 'next',
+			}),
+			...ACTION_ARGS_BASE,
+		})
+
+		expect(
+			await prisma.shoppingListItem.findMany({
+				where: { listId: list.id },
+				select: { name: true, horizon: true, checked: true },
+			}),
+		).toEqual([{ name: 'Candles', horizon: 'later', checked: true }])
+	})
+
+	test('generated Plan demand promotes unchecked Later matches but leaves checked Later matches bought', async () => {
+		const session = await setupUser()
+		await setupMealPlanWithRecipe(session.userId, session.householdId)
+		const list = await ensureShoppingList(prisma, {
+			userId: session.userId,
+			householdId: session.householdId,
+		})
+		await prisma.shoppingListItem.createMany({
+			data: [
+				{
+					name: 'chicken',
+					quantity: 'family pack',
+					listId: list.id,
+					horizon: 'later',
+					source: 'manual',
+				},
+				{
+					name: 'rice',
+					listId: list.id,
+					horizon: 'later',
+					checked: true,
+					source: 'manual',
+				},
+			],
+		})
+
+		await action({
+			request: await makeRequest(session, { intent: 'generate' }),
+			...ACTION_ARGS_BASE,
+		})
+
+		expect(
+			await prisma.shoppingListItem.findMany({
+				where: { listId: list.id },
+				orderBy: { name: 'asc' },
+				select: {
+					name: true,
+					quantity: true,
+					horizon: true,
+					checked: true,
+					source: true,
+				},
+			}),
+		).toEqual([
+			{
+				name: 'chicken',
+				quantity: 'family pack',
+				horizon: 'next',
+				checked: false,
+				source: 'manual',
+			},
+			{
+				name: 'rice',
+				quantity: null,
+				horizon: 'later',
+				checked: true,
+				source: 'manual',
+			},
+		])
 	})
 
 	test('generate without meal plan returns 404', async () => {

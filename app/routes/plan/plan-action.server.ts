@@ -250,6 +250,7 @@ export function createPlanAction(
 			const changedCount =
 				result.createdRowCount +
 				(result.attachedCount ?? 0) +
+				result.promotedRowCount +
 				('updatedContributionCount' in result
 					? result.updatedContributionCount + result.removedContributionCount
 					: 0)

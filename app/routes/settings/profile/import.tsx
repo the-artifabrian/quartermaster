@@ -16,6 +16,13 @@ import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
 import { createMealWithItems } from '#app/utils/meal.server.ts'
 import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
+import { ensureRecipeMetadataValues } from '#app/utils/recipe-metadata.server.ts'
+import {
+	RecipeMetadataDimensionSchema,
+	RecipeMetadataNameSchema,
+	recipeMetadataIdentity,
+	recipeMetadataNameKey,
+} from '#app/utils/recipe-metadata.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
@@ -44,6 +51,23 @@ const ImportIngredientSchema = z.object({
 	notes: z.string().max(500).nullable().optional(),
 })
 
+const ImportRecipeMetadataValueSchema = z
+	.object({
+		dimension: RecipeMetadataDimensionSchema,
+		name: RecipeMetadataNameSchema,
+		nameKey: z.string().min(1).max(50),
+		sortOrder: z.number().int().min(0).max(10_000).optional().default(1000),
+	})
+	.superRefine((value, context) => {
+		if (value.nameKey !== recipeMetadataNameKey(value.name)) {
+			context.addIssue({
+				code: 'custom',
+				path: ['nameKey'],
+				message: 'Recipe classification key does not match its name',
+			})
+		}
+	})
+
 const ImportRecipeSchema = z
 	.object({
 		// Export-local reference key — how Menus reconnect to their Recipes (#102).
@@ -60,6 +84,7 @@ const ImportRecipeSchema = z
 		isFavorite: z.boolean().optional(),
 		sourceUrl: z.string().max(2000).nullable().optional(),
 		notes: z.string().max(5000).nullable().optional(),
+		metadataValues: z.array(ImportRecipeMetadataValueSchema).max(60).optional(),
 		ingredients: z.array(ImportIngredientSchema).max(200),
 		instructions: z
 			.array(
@@ -284,6 +309,10 @@ const FullExportSchema = z.looseObject({
 		.array(ImportHouseholdIngredientSchema)
 		.max(1000)
 		.optional(),
+	recipeMetadataValues: z
+		.array(ImportRecipeMetadataValueSchema)
+		.max(300)
+		.optional(),
 	inventory: z.array(ImportInventoryItemSchema).max(1000).optional(),
 	mealPlans: z.array(ImportMealPlanSchema).max(200).optional(),
 	shoppingLists: z.array(ImportShoppingListSchema).max(100).optional(),
@@ -336,6 +365,7 @@ function parseImportData(
 interface ImportPreview {
 	recipes: number
 	menus: number
+	recipeMetadataValues: number
 	householdIngredients: number
 	inventory: number
 	mealPlans: number
@@ -347,6 +377,7 @@ interface ImportPreview {
 interface ImportResults {
 	recipes: { created: number; skipped: number; errored: number }
 	menus: { created: number; skipped: number; errored: number }
+	recipeMetadataValues: { created: number; skipped: number }
 	householdIngredients: { created: number; skipped: number }
 	staplesCutoverRestored: boolean
 	inventory: { created: number; skipped: number }
@@ -424,31 +455,41 @@ async function importRecipes(
 				order,
 			}))
 
-			const created = await prisma.recipe.create({
-				data: {
-					title: recipe.title,
-					description: recipe.description || null,
-					activeTime: recipe.activeTime ?? undefined,
-					totalTime: recipe.totalTime ?? legacyTotal,
-					yieldAmount: recipe.yieldAmount ?? undefined,
-					yieldLabel: recipe.yieldLabel ?? undefined,
-					isFavorite: recipe.isFavorite ?? false,
-					sourceUrl: recipe.sourceUrl || null,
-					notes: recipe.notes || null,
-					userId,
+			const created = await prisma.$transaction(async (tx) => {
+				const metadataValueIds = await ensureRecipeMetadataValues(
+					tx,
 					householdId,
-					ingredients: {
-						create: recipe.ingredients.map((ing, order) => ({
-							name: ing.name,
-							amount: ing.amount || null,
-							unit: ing.unit || null,
-							notes: ing.notes || null,
-							order,
-						})),
+					recipe.metadataValues ?? [],
+				)
+				return tx.recipe.create({
+					data: {
+						title: recipe.title,
+						description: recipe.description || null,
+						activeTime: recipe.activeTime ?? undefined,
+						totalTime: recipe.totalTime ?? legacyTotal,
+						yieldAmount: recipe.yieldAmount ?? undefined,
+						yieldLabel: recipe.yieldLabel ?? undefined,
+						isFavorite: recipe.isFavorite ?? false,
+						sourceUrl: recipe.sourceUrl || null,
+						notes: recipe.notes || null,
+						userId,
+						householdId,
+						metadataAssignments: {
+							create: metadataValueIds.map((valueId) => ({ valueId })),
+						},
+						ingredients: {
+							create: recipe.ingredients.map((ing, order) => ({
+								name: ing.name,
+								amount: ing.amount || null,
+								unit: ing.unit || null,
+								notes: ing.notes || null,
+								order,
+							})),
+						},
+						instructions: { create: instructions },
 					},
-					instructions: { create: instructions },
-				},
-				select: { id: true },
+					select: { id: true },
+				})
 			})
 			titleToIdMap.set(lowerTitle, created.id)
 			titleById.set(created.id, recipe.title)
@@ -1071,6 +1112,7 @@ export async function action({ request }: Route.ActionArgs) {
 	const results: ImportResults = {
 		recipes: { created: 0, skipped: 0, errored: 0 },
 		menus: { created: 0, skipped: 0, errored: 0 },
+		recipeMetadataValues: { created: 0, skipped: 0 },
 		householdIngredients: { created: 0, skipped: 0 },
 		staplesCutoverRestored: false,
 		inventory: { created: 0, skipped: 0 },
@@ -1079,7 +1121,37 @@ export async function action({ request }: Route.ActionArgs) {
 		shoppingLists: { created: 0, skipped: 0 },
 	}
 
-	// --- 1. Recipes ---
+	// --- 1. Household Recipe classification vocabulary ---
+	// Import the complete vocabulary before Recipes so unassigned values survive
+	// full recovery. Existing target display values win on normalized identity.
+	if (fullHouseholdData?.recipeMetadataValues?.length) {
+		await prisma.$transaction(async (tx) => {
+			const existing = await tx.recipeMetadataValue.findMany({
+				where: { householdId },
+				select: { dimension: true, nameKey: true },
+			})
+			const existingIdentities = new Set(
+				existing.map((value) =>
+					recipeMetadataIdentity(
+						RecipeMetadataDimensionSchema.parse(value.dimension),
+						value.nameKey,
+					),
+				),
+			)
+			for (const value of fullHouseholdData.recipeMetadataValues ?? []) {
+				const identity = recipeMetadataIdentity(value.dimension, value.nameKey)
+				if (existingIdentities.has(identity)) {
+					results.recipeMetadataValues.skipped++
+					continue
+				}
+				await ensureRecipeMetadataValues(tx, householdId, [value])
+				existingIdentities.add(identity)
+				results.recipeMetadataValues.created++
+			}
+		})
+	}
+
+	// --- 2. Recipes ---
 	const recipeIndex: RecipeIndex = {
 		titleToIdMap: new Map(),
 		refToIdMap: new Map(),
@@ -1106,7 +1178,7 @@ export async function action({ request }: Route.ActionArgs) {
 		results.recipes.errored = recipes.length
 	}
 
-	// --- 2. Menus (after Recipes, so references can reconnect) ---
+	// --- 3. Menus (after Recipes, so references can reconnect) ---
 	// Menus are not Pro-gated in the product, so unlike the sections below
 	// they import for every tier.
 	const fullMenus = fullHouseholdData?.menus ?? null
@@ -1118,7 +1190,7 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 	}
 
-	// --- 3. Inventory ---
+	// --- 4. Inventory ---
 	if (fullData?.inventory) {
 		try {
 			const existingInventory = await prisma.inventoryItem.findMany({
@@ -1154,7 +1226,7 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 	}
 
-	// --- 4. Household canonical ingredients and cutover ---
+	// --- 5. Household canonical ingredients and cutover ---
 	// Restore rows and the reviewed boundary atomically. Existing target rows
 	// and an existing target cutover win; importing recovery data never silently
 	// rewrites a household that has already made its own choice.
@@ -1192,7 +1264,7 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 	}
 
-	// --- 5. Meal Plans ---
+	// --- 6. Meal Plans ---
 	const mealIdByRef = new Map<string, string>()
 	if (fullData?.mealPlans) {
 		// Source Menu references on Meals reconnect by normalized household
@@ -1280,7 +1352,7 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 	}
 
-	// --- 5. Shopping Lists ---
+	// --- 7. Shopping Lists ---
 	if (fullData?.shoppingLists?.length) {
 		try {
 			const shoppingList = await ensureShoppingList(prisma, {
@@ -1456,6 +1528,7 @@ function getPreview(jsonData: unknown): ImportPreview | null {
 	return {
 		recipes: result.data.recipes.length,
 		menus: fullData?.menus?.length ?? 0,
+		recipeMetadataValues: fullData?.recipeMetadataValues?.length ?? 0,
 		householdIngredients: fullData?.householdIngredients?.length ?? 0,
 		inventory: fullData?.inventory?.length ?? 0,
 		mealPlans:
@@ -1496,6 +1569,7 @@ export default function ImportData() {
 			const total =
 				r.recipes.created +
 				r.menus.created +
+				r.recipeMetadataValues.created +
 				r.householdIngredients.created +
 				(r.staplesCutoverRestored ? 1 : 0) +
 				r.inventory.created +
@@ -1614,6 +1688,14 @@ export default function ImportData() {
 									skipped={results.inventory.skipped}
 								/>
 							)}
+							{(results.recipeMetadataValues.created > 0 ||
+								results.recipeMetadataValues.skipped > 0) && (
+								<ResultRow
+									label="Recipe classifications"
+									created={results.recipeMetadataValues.created}
+									skipped={results.recipeMetadataValues.skipped}
+								/>
+							)}
 							{(results.householdIngredients.created > 0 ||
 								results.householdIngredients.skipped > 0) && (
 								<ResultRow
@@ -1700,6 +1782,12 @@ export default function ImportData() {
 										<PreviewRow
 											label="Pantry items"
 											count={preview.inventory}
+										/>
+									)}
+									{preview.recipeMetadataValues > 0 && (
+										<PreviewRow
+											label="Recipe classifications"
+											count={preview.recipeMetadataValues}
 										/>
 									)}
 									{preview.householdIngredients > 0 && (

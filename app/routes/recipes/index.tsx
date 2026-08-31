@@ -7,7 +7,9 @@ import { RecipeCard, RecipeCardGrid } from '#app/components/recipe-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import {
 	DropdownMenu,
+	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
+	DropdownMenuLabel,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from '#app/components/ui/dropdown-menu.tsx'
@@ -15,7 +17,16 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { cn, useDebounce } from '#app/utils/misc.tsx'
-import { recipeSearchWhere } from '#app/utils/recipe-search.server.ts'
+import {
+	RECIPE_METADATA_DIMENSIONS,
+	RECIPE_METADATA_LABELS,
+	recipeMetadataNameKey,
+	type RecipeMetadataDimension,
+} from '#app/utils/recipe-metadata.ts'
+import {
+	recipeMetadataFilterWhere,
+	recipeSearchWhere,
+} from '#app/utils/recipe-search.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
 
@@ -57,6 +68,16 @@ export async function loader({ request }: Route.LoaderArgs) {
 			? null
 			: Math.min(1440, Math.max(0, +rawMaxTime))
 		: null
+	const rawMetadataFilters = Object.fromEntries(
+		RECIPE_METADATA_DIMENSIONS.map((dimension) => [
+			dimension,
+			url.searchParams
+				.getAll(dimension)
+				.slice(0, 20)
+				.map(recipeMetadataNameKey)
+				.filter((value) => value.length <= 50),
+		]),
+	) as Record<RecipeMetadataDimension, string[]>
 
 	// Determine Prisma orderBy for simple sort options
 	const orderBy = (() => {
@@ -77,6 +98,19 @@ export async function loader({ request }: Route.LoaderArgs) {
 				select: {
 					staplesCutoverAt: true,
 					_count: { select: { inventoryItems: true } },
+					recipeMetadataValues: {
+						select: {
+							id: true,
+							dimension: true,
+							name: true,
+							nameKey: true,
+						},
+						orderBy: [
+							{ dimension: 'asc' },
+							{ sortOrder: 'asc' },
+							{ name: 'asc' },
+						],
+					},
 				},
 			}),
 			isProActive
@@ -92,12 +126,31 @@ export async function loader({ request }: Route.LoaderArgs) {
 		householdAvailability._count.inventoryItems > 0
 	const hasAvailabilitySetup =
 		hasInventory || householdAvailability.staplesCutoverAt != null
+	const metadataOptions = householdAvailability.recipeMetadataValues
+	const metadataFilters = Object.fromEntries(
+		RECIPE_METADATA_DIMENSIONS.map((dimension) => {
+			const available = new Set(
+				metadataOptions
+					.filter((option) => option.dimension === dimension)
+					.map((option) => option.nameKey),
+			)
+			return [
+				dimension,
+				[...new Set(rawMetadataFilters[dimension])].filter((nameKey) =>
+					available.has(nameKey),
+				),
+			]
+		}),
+	) as Record<RecipeMetadataDimension, string[]>
 
 	const recipes = await prisma.recipe.findMany({
 		where: {
 			householdId,
 			...(favoritesOnly && { isFavorite: true }),
-			...(search && recipeSearchWhere(search)),
+			AND: [
+				...(search ? [recipeSearchWhere(search)] : []),
+				recipeMetadataFilterWhere(metadataFilters),
+			],
 		},
 		select: {
 			id: true,
@@ -153,6 +206,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 		search,
 		favoritesOnly,
 		maxTime,
+		metadataOptions,
+		metadataFilters,
 		sort,
 		totalRecipeCount,
 		hasInventory,
@@ -173,6 +228,8 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		search,
 		favoritesOnly,
 		maxTime,
+		metadataOptions,
+		metadataFilters,
 		sort,
 		totalRecipeCount,
 		isProActive,
@@ -206,7 +263,13 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	// Controlled so "Clear search" in the no-results state empties the box too
 	const [searchInput, setSearchInput] = useState(search)
 	const activeFilterCount =
-		(favoritesOnly ? 1 : 0) + (maxTime ? 1 : 0) + (sort !== 'recent' ? 1 : 0)
+		(favoritesOnly ? 1 : 0) +
+		(maxTime ? 1 : 0) +
+		(sort !== 'recent' ? 1 : 0) +
+		RECIPE_METADATA_DIMENSIONS.reduce(
+			(count, dimension) => count + metadataFilters[dimension].length,
+			0,
+		)
 
 	const handleSearchChange = useDebounce((value: string) => {
 		const params = new URLSearchParams(searchParams)
@@ -248,7 +311,31 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		setSearchParams(params, { replace: true })
 	}
 
-	const hasFilters = search || favoritesOnly || maxTime
+	const handleMetadataToggle = (
+		dimension: RecipeMetadataDimension,
+		nameKey: string,
+	) => {
+		const params = new URLSearchParams(searchParams)
+		const selected = new Set(metadataFilters[dimension])
+		if (selected.has(nameKey)) selected.delete(nameKey)
+		else selected.add(nameKey)
+		params.delete(dimension)
+		for (const option of metadataOptions) {
+			if (option.dimension === dimension && selected.has(option.nameKey)) {
+				params.append(dimension, option.nameKey)
+			}
+		}
+		setSearchParams(params, { replace: true })
+	}
+
+	const hasFilters = Boolean(
+		search ||
+		favoritesOnly ||
+		maxTime ||
+		RECIPE_METADATA_DIMENSIONS.some(
+			(dimension) => metadataFilters[dimension].length > 0,
+		),
+	)
 
 	const handleClearSearch = () => {
 		setSearchInput('')
@@ -430,6 +517,47 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							<Icon name={favoritesOnly ? 'heart-filled' : 'heart'} size="xs" />
 							Favorites
 						</button>
+						{RECIPE_METADATA_DIMENSIONS.map((dimension) => {
+							const options = metadataOptions.filter(
+								(option) => option.dimension === dimension,
+							)
+							if (options.length === 0) return null
+							const selectedCount = metadataFilters[dimension].length
+							return (
+								<DropdownMenu key={dimension} modal={false}>
+									<DropdownMenuTrigger asChild>
+										<Button
+											variant={selectedCount ? 'secondary' : 'outline'}
+											size="sm"
+											className="h-8 rounded-full px-2.5 text-xs font-normal"
+										>
+											{RECIPE_METADATA_LABELS[dimension]}
+											{selectedCount > 0 && ` · ${selectedCount}`}
+											<Icon name="chevron-down" size="xs" />
+										</Button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent align="start" className="min-w-44">
+										<DropdownMenuLabel>
+											{RECIPE_METADATA_LABELS[dimension]}
+										</DropdownMenuLabel>
+										{options.map((option) => (
+											<DropdownMenuCheckboxItem
+												key={option.id}
+												checked={metadataFilters[dimension].includes(
+													option.nameKey,
+												)}
+												onCheckedChange={() =>
+													handleMetadataToggle(dimension, option.nameKey)
+												}
+												onSelect={(event) => event.preventDefault()}
+											>
+												{option.name}
+											</DropdownMenuCheckboxItem>
+										))}
+									</DropdownMenuContent>
+								</DropdownMenu>
+							)
+						})}
 						{/* Active filter summary */}
 						{hasFilters && (
 							<div className="text-muted-foreground text-xs">

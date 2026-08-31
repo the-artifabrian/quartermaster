@@ -25,6 +25,19 @@ export async function loader({ request }: Route.LoaderArgs) {
 				orderBy: { order: 'asc' },
 			},
 			image: { select: { objectKey: true, altText: true } },
+			metadataAssignments: {
+				select: {
+					value: {
+						select: {
+							dimension: true,
+							name: true,
+							nameKey: true,
+							sortOrder: true,
+						},
+					},
+				},
+				orderBy: { valueId: 'asc' },
+			},
 		},
 		orderBy: { title: 'asc' },
 	})
@@ -41,6 +54,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 			yieldLabel: recipe.yieldLabel,
 			isFavorite: recipe.isFavorite,
 			sourceUrl: recipe.sourceUrl,
+			metadataValues: recipe.metadataAssignments.map(
+				(assignment) => assignment.value,
+			),
 			ingredients: recipe.ingredients.map((ing) => ({
 				name: ing.name,
 				amount: ing.amount,

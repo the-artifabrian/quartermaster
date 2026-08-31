@@ -25,6 +25,20 @@ yield is unknown
 **Target yield**: The intended output amount for a Recipe whose numeric yield
 and yield label are explicitly known.
 
+**Recipe classification**: Optional household vocabulary assigned to a Recipe
+across Cuisine, Season, and Course. A Recipe may have several values in each
+dimension and remains complete without any classification. _Avoid_: Tag,
+category
+
+**Cuisine**: A household's description of a Recipe's culinary tradition or
+style.
+
+**Season**: A household's description of when a Recipe is especially relevant;
+Year-round means it is not tied to one season.
+
+**Course**: A household's description of a Recipe's role in a Meal, such as Main
+or Side.
+
 ## Shopping and availability
 
 **Shopping demand**: The deterministic ingredient and note-line requirements

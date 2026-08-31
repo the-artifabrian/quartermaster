@@ -948,3 +948,112 @@ describe('revokeInvite', () => {
 		).rejects.toThrow('Only the household owner')
 	})
 })
+
+describe('Recipe classification household moves', () => {
+	test('a sole-member move remaps normalized collisions with target values winning', async () => {
+		const targetOwner = await setupUser()
+		const sourceOwner = await setupUserWithRecipe('Moving mezze')
+		const targetCuisine = await prisma.recipeMetadataValue.create({
+			data: {
+				householdId: targetOwner.householdId,
+				dimension: 'cuisine',
+				name: 'LEVANTINE',
+				nameKey: 'levantine',
+			},
+		})
+		const sourceCuisine = await prisma.recipeMetadataValue.create({
+			data: {
+				householdId: sourceOwner.householdId,
+				dimension: 'cuisine',
+				name: 'Levantine',
+				nameKey: 'levantine',
+			},
+		})
+		await prisma.recipeMetadataAssignment.create({
+			data: { recipeId: sourceOwner.recipeId, valueId: sourceCuisine.id },
+		})
+
+		const invite = await createHouseholdInvite(
+			targetOwner.householdId,
+			targetOwner.id,
+		)
+		await acceptInvite(invite.token, sourceOwner.id)
+
+		const moved = await prisma.recipe.findUniqueOrThrow({
+			where: { id: sourceOwner.recipeId },
+			select: {
+				householdId: true,
+				metadataAssignments: {
+					select: { valueId: true, value: { select: { name: true } } },
+				},
+			},
+		})
+		expect(moved.householdId).toBe(targetOwner.householdId)
+		expect(moved.metadataAssignments).toEqual([
+			{ valueId: targetCuisine.id, value: { name: 'LEVANTINE' } },
+		])
+		expect(
+			await prisma.recipeMetadataValue.findUnique({
+				where: { id: sourceCuisine.id },
+			}),
+		).toBeNull()
+	})
+
+	test('a member leaving deep-copies Recipe assignments into the new household vocabulary', async () => {
+		const owner = await setupUser()
+		const member = await prisma.user.create({ data: createUser() })
+		await prisma.householdMember.create({
+			data: {
+				householdId: owner.householdId,
+				userId: member.id,
+				role: 'member',
+			},
+		})
+		const romanian = await prisma.recipeMetadataValue.create({
+			data: {
+				householdId: owner.householdId,
+				dimension: 'cuisine',
+				name: 'Romanian',
+				nameKey: 'romanian',
+			},
+		})
+		await prisma.recipe.create({
+			data: {
+				title: 'Member stew',
+				userId: member.id,
+				householdId: owner.householdId,
+				metadataAssignments: { create: { valueId: romanian.id } },
+			},
+		})
+
+		await leaveHousehold(member.id)
+		const newMembership = await prisma.householdMember.findFirstOrThrow({
+			where: { userId: member.id },
+		})
+		const copied = await prisma.recipe.findFirstOrThrow({
+			where: {
+				userId: member.id,
+				householdId: newMembership.householdId,
+				title: 'Member stew',
+			},
+			select: {
+				metadataAssignments: {
+					select: {
+						value: {
+							select: { householdId: true, dimension: true, name: true },
+						},
+					},
+				},
+			},
+		})
+		expect(copied.metadataAssignments).toEqual([
+			{
+				value: {
+					householdId: newMembership.householdId,
+					dimension: 'cuisine',
+					name: 'Romanian',
+				},
+			},
+		])
+	})
+})

@@ -34,6 +34,19 @@ export async function loader({ request }: Route.LoaderArgs) {
 						orderBy: { order: 'asc' },
 					},
 					image: { select: { objectKey: true, altText: true } },
+					metadataAssignments: {
+						select: {
+							value: {
+								select: {
+									dimension: true,
+									name: true,
+									nameKey: true,
+									sortOrder: true,
+								},
+							},
+						},
+						orderBy: { valueId: 'asc' },
+					},
 				},
 				orderBy: { title: 'asc' },
 			}),
@@ -154,22 +167,33 @@ export async function loader({ request }: Route.LoaderArgs) {
 				orderBy: { title: 'asc' },
 			}),
 		])
-	const [household, householdIngredients] = await Promise.all([
-		prisma.household.findUniqueOrThrow({
-			where: { id: householdId },
-			select: { staplesCutoverAt: true },
-		}),
-		prisma.householdIngredient.findMany({
-			where: { householdId },
-			select: {
-				displayName: true,
-				canonicalKey: true,
-				isStaple: true,
-				isOut: true,
-			},
-			orderBy: [{ canonicalKey: 'asc' }, { id: 'asc' }],
-		}),
-	])
+	const [household, householdIngredients, recipeMetadataValues] =
+		await Promise.all([
+			prisma.household.findUniqueOrThrow({
+				where: { id: householdId },
+				select: { staplesCutoverAt: true },
+			}),
+			prisma.householdIngredient.findMany({
+				where: { householdId },
+				select: {
+					displayName: true,
+					canonicalKey: true,
+					isStaple: true,
+					isOut: true,
+				},
+				orderBy: [{ canonicalKey: 'asc' }, { id: 'asc' }],
+			}),
+			prisma.recipeMetadataValue.findMany({
+				where: { householdId },
+				select: {
+					dimension: true,
+					name: true,
+					nameKey: true,
+					sortOrder: true,
+				},
+				orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
+			}),
+		])
 
 	// Export-local reference keys: import restores Menu Recipe references by
 	// key, so renamed Recipes still reconnect; title fallback is for older
@@ -195,6 +219,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			staplesCutoverAt: household.staplesCutoverAt?.toISOString() ?? null,
 		},
 		householdIngredients,
+		recipeMetadataValues,
 		recipes: recipes.map((recipe) => ({
 			ref: recipeRefById.get(recipe.id)!,
 			title: recipe.title,
@@ -206,6 +231,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 			isFavorite: recipe.isFavorite,
 			sourceUrl: recipe.sourceUrl,
 			notes: recipe.notes,
+			metadataValues: recipe.metadataAssignments.map(
+				(assignment) => assignment.value,
+			),
 			ingredients: recipe.ingredients.map((ing) => ({
 				name: ing.name,
 				amount: ing.amount,

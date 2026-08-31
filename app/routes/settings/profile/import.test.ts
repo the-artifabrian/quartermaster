@@ -131,6 +131,142 @@ test('re-importing a shopping list skips items already in the household list', a
 	).toEqual(['Apples', 'Bananas'])
 })
 
+describe('Recipe classification recovery', () => {
+	test('full recovery preserves assigned and unassigned household values with target identity winning', async () => {
+		const source = await setupUser()
+		const [levantine, winter, snack] = await Promise.all([
+			prisma.recipeMetadataValue.create({
+				data: {
+					householdId: source.householdId,
+					dimension: 'cuisine',
+					name: 'Levantine',
+					nameKey: 'levantine',
+				},
+			}),
+			prisma.recipeMetadataValue.create({
+				data: {
+					householdId: source.householdId,
+					dimension: 'season',
+					name: 'Winter',
+					nameKey: 'winter',
+					sortOrder: 40,
+				},
+			}),
+			prisma.recipeMetadataValue.create({
+				data: {
+					householdId: source.householdId,
+					dimension: 'course',
+					name: 'Snack',
+					nameKey: 'snack',
+				},
+			}),
+		])
+		await prisma.recipe.create({
+			data: {
+				title: 'Winter mezze',
+				userId: source.userId,
+				householdId: source.householdId,
+				metadataAssignments: {
+					create: [{ valueId: levantine.id }, { valueId: winter.id }],
+				},
+				ingredients: { create: { name: 'chickpeas', order: 0 } },
+				instructions: { create: { content: 'Mix.', order: 0 } },
+			},
+		})
+
+		const exported = await exportHousehold(source)
+		expect(exported.recipeMetadataValues).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ nameKey: 'levantine' }),
+				expect.objectContaining({ nameKey: 'winter' }),
+				expect.objectContaining({ nameKey: 'snack' }),
+			]),
+		)
+		expect(exported.recipes[0].metadataValues).toHaveLength(2)
+
+		const target = await setupUser()
+		const targetLevantine = await prisma.recipeMetadataValue.create({
+			data: {
+				householdId: target.householdId,
+				dimension: 'cuisine',
+				name: 'LEVANTINE',
+				nameKey: 'levantine',
+			},
+		})
+		await importPayload(target, exported)
+
+		const restored = await prisma.recipe.findFirstOrThrow({
+			where: { householdId: target.householdId, title: 'Winter mezze' },
+			select: {
+				metadataAssignments: {
+					select: {
+						valueId: true,
+						value: { select: { name: true, nameKey: true } },
+					},
+				},
+			},
+		})
+		expect(restored.metadataAssignments).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					valueId: targetLevantine.id,
+					value: { name: 'LEVANTINE', nameKey: 'levantine' },
+				}),
+				expect.objectContaining({
+					value: { name: 'Winter', nameKey: 'winter' },
+				}),
+			]),
+		)
+		expect(
+			await prisma.recipeMetadataValue.findFirst({
+				where: { householdId: target.householdId, nameKey: snack.nameKey },
+			}),
+		).not.toBeNull()
+		expect(
+			await prisma.recipeMetadataValue.count({
+				where: { householdId: target.householdId, nameKey: 'levantine' },
+			}),
+		).toBe(1)
+	})
+
+	test('Recipe-only recovery recreates the assigned vocabulary', async () => {
+		const source = await setupUser()
+		const romanian = await prisma.recipeMetadataValue.create({
+			data: {
+				householdId: source.householdId,
+				dimension: 'cuisine',
+				name: 'Romanian',
+				nameKey: 'romanian',
+			},
+		})
+		await prisma.recipe.create({
+			data: {
+				title: 'Bean stew',
+				userId: source.userId,
+				householdId: source.householdId,
+				metadataAssignments: { create: { valueId: romanian.id } },
+				ingredients: { create: { name: 'beans', order: 0 } },
+				instructions: { create: { content: 'Simmer.', order: 0 } },
+			},
+		})
+
+		const exported = await exportRecipes(source)
+		const target = await setupUser()
+		await importPayload(target, exported)
+		const restored = await prisma.recipe.findFirstOrThrow({
+			where: { householdId: target.householdId, title: 'Bean stew' },
+			select: {
+				metadataAssignments: {
+					select: { value: { select: { dimension: true, name: true } } },
+				},
+			},
+		})
+		expect(restored.metadataAssignments).toEqual([
+			{ value: { dimension: 'cuisine', name: 'Romanian' } },
+		])
+	})
+})
+
 // --- Menu recovery (#102) ---
 
 async function importPayload(session: { id: string }, payload: unknown) {

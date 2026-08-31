@@ -1,5 +1,6 @@
 import { prisma } from '#app/utils/db.server.ts'
 import { MOCK_CODE_GOOGLE } from '#app/utils/providers/constants.ts'
+import { DEFAULT_RECIPE_METADATA_VALUE_CREATE } from '#app/utils/recipe-metadata.ts'
 import { createPassword } from '#tests/db-utils.ts'
 import { insertGoogleUser } from '#tests/mocks/google.ts'
 import { seedInfrastructure } from './seed-infrastructure.ts'
@@ -54,6 +55,9 @@ async function seed() {
 		await prisma.household.create({
 			data: {
 				name: "Kody's Household",
+				recipeMetadataValues: {
+					create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
+				},
 				members: {
 					create: { userId: kody.id, role: 'owner' },
 				},
@@ -91,6 +95,9 @@ async function seed() {
 		await prisma.household.create({
 			data: {
 				name: "Kody Jr's Household",
+				recipeMetadataValues: {
+					create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
+				},
 				members: {
 					create: { userId: kody2.id, role: 'owner' },
 				},

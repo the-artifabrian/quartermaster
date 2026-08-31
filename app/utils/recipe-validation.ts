@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { RecipeMetadataSelectionFieldSchema } from './recipe-metadata.ts'
 
 export const RecipeTitleSchema = z
 	.string({
@@ -90,6 +91,7 @@ export const RecipeSchema = z
 		title: RecipeTitleSchema,
 		description: RecipeDescriptionSchema,
 		...recipeTimeYieldFields,
+		recipeMetadata: RecipeMetadataSelectionFieldSchema,
 		sourceUrl: z.url().max(2000).optional().or(z.literal('')),
 		notes: RecipeNotesSchema,
 		ingredients: z

@@ -13,14 +13,16 @@ export function RecipeMetadataCard({
 	yieldAmount,
 	yieldLabel,
 	sourceUrl,
+	showYield = true,
 }: {
 	activeTime: number | null
 	totalTime: number | null
 	yieldAmount: number | null
 	yieldLabel: string | null
 	sourceUrl: string | null
+	showYield?: boolean
 }) {
-	const hasYield = yieldAmount != null && yieldLabel != null
+	const hasYield = showYield && yieldAmount != null && yieldLabel != null
 	if (activeTime == null && totalTime == null && !hasYield && !sourceUrl) {
 		return null
 	}
@@ -41,7 +43,7 @@ export function RecipeMetadataCard({
 			)}
 			{hasYield && (
 				<span className="max-w-full min-w-0 break-all">
-					Yield: {yieldAmount} {yieldLabel}
+					Makes {yieldAmount} {yieldLabel}
 				</span>
 			)}
 			{sourceUrl && (

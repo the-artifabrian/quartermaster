@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { type useFetcher } from 'react-router'
 import {
 	IngredientList,
 	type IngredientListIngredient,
@@ -24,7 +23,6 @@ export function RecipeIngredientsSheet({
 	ratio,
 	missingIngredientIds,
 	recipeId,
-	shoppingFetcher,
 	canMarkUsuallyOnHand,
 	useMetric,
 }: {
@@ -37,7 +35,6 @@ export function RecipeIngredientsSheet({
 	ratio: number
 	missingIngredientIds: string[]
 	recipeId: string
-	shoppingFetcher: ReturnType<typeof useFetcher>
 	canMarkUsuallyOnHand?: boolean
 	useMetric?: boolean
 }) {
@@ -46,7 +43,7 @@ export function RecipeIngredientsSheet({
 	if (!visible && !open) return null
 
 	return (
-		<div className="md:hidden print:hidden">
+		<div className="lg:hidden print:hidden">
 			{open ? (
 				<IngredientsSheet onClose={() => setOpen(false)}>
 					<IngredientList
@@ -56,17 +53,15 @@ export function RecipeIngredientsSheet({
 						ratio={ratio}
 						missingIngredientIds={missingIngredientIds}
 						recipeId={recipeId}
-						shoppingFetcher={shoppingFetcher}
 						canMarkUsuallyOnHand={canMarkUsuallyOnHand}
 						useMetric={useMetric}
-						showFooter={false}
 					/>
 				</IngredientsSheet>
 			) : (
 				<button
 					type="button"
 					onClick={() => setOpen(true)}
-					className="bg-card text-foreground shadow-warm-lg border-border/60 fixed bottom-[5.5rem] left-4 z-50 flex h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-all active:scale-95"
+					className="bg-card text-foreground shadow-warm-lg border-border/60 fixed bottom-[5.5rem] left-4 z-50 flex h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-all active:scale-95 md:bottom-4"
 				>
 					Ingredients
 					<span className="text-muted-foreground text-xs tabular-nums">
@@ -88,14 +83,15 @@ function IngredientsSheet({
 	const dialogRef = useModal(onClose)
 
 	return (
-		<div
-			ref={dialogRef}
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="ingredients-sheet-title"
-		>
+		<>
 			<div className="fixed inset-0 z-40 bg-black/15" onClick={onClose} />
-			<div className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-50 rounded-t-xl border-t p-4">
+			<div
+				ref={dialogRef}
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="ingredients-sheet-title"
+				className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-50 rounded-t-xl border-t p-4 md:bottom-0"
+			>
 				<div className="mb-2 flex items-center justify-between">
 					<span id="ingredients-sheet-title" className="text-sm font-medium">
 						Ingredients
@@ -103,7 +99,7 @@ function IngredientsSheet({
 					<button
 						type="button"
 						onClick={onClose}
-						className="text-muted-foreground hover:text-foreground -m-1 p-1"
+						className="text-muted-foreground hover:text-foreground -m-2 flex size-11 items-center justify-center rounded-md"
 						aria-label="Close"
 					>
 						<Icon name="cross-1" size="sm" />
@@ -113,6 +109,6 @@ function IngredientsSheet({
 					{children}
 				</div>
 			</div>
-		</div>
+		</>
 	)
 }

@@ -12,9 +12,8 @@ import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
 import { RecipeIngredientsSheet } from '#app/components/recipe-ingredients-sheet.tsx'
 import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
 import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
-import { RecipeScaleControl } from '#app/components/recipe-scale-control.tsx'
+import { RecipeIngredientsControls } from '#app/components/recipe-scale-control.tsx'
 import { Button } from '#app/components/ui/button.tsx'
-import { Icon } from '#app/components/ui/icon.tsx'
 import {
 	Popover,
 	PopoverAnchor,
@@ -478,7 +477,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			: recipe.isFavorite
 	const { checkedIngredients, checkedSteps, toggleIngredient, toggleStep } =
 		useCookingProgress(recipe.id)
-	const shoppingFetcher = useFetcher({ key: 'add-to-shopping' })
 	const enhanceFetcher = useFetcher<{
 		error: string | null
 		suggestions: EnhanceableFields | null
@@ -519,16 +517,21 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		recipe.instructions.length > 0 &&
 		recipe.instructions.every((i) => checkedSteps.has(i.id))
 
-	// Mid-cook ingredient glances (mobile): show a sticky "Ingredients" pill
-	// once the inline ingredient list has scrolled out of view.
-	const ingredientsSectionRef = useRef<HTMLDivElement>(null)
-	const [ingredientsInView, setIngredientsInView] = useState(true)
+	// Mid-cook ingredient glances: show the floating Ingredients action only
+	// after the heading has passed above the viewport. Observing the whole tall
+	// column kept it intersecting until the end of long Recipes.
+	const ingredientsHeaderRef = useRef<HTMLDivElement>(null)
+	const [ingredientsPassed, setIngredientsPassed] = useState(false)
 	useEffect(() => {
-		const el = ingredientsSectionRef.current
+		const el = ingredientsHeaderRef.current
 		if (!el || typeof IntersectionObserver === 'undefined') return
-		const observer = new IntersectionObserver(([entry]) =>
-			setIngredientsInView(entry?.isIntersecting ?? true),
-		)
+		const observer = new IntersectionObserver(([entry]) => {
+			if (!entry) return
+			const viewportTop = entry.rootBounds?.top ?? 0
+			setIngredientsPassed(
+				!entry.isIntersecting && entry.boundingClientRect.bottom < viewportTop,
+			)
+		})
 		observer.observe(el)
 		return () => observer.disconnect()
 	}, [])
@@ -539,7 +542,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 	const scaleParam = ScaleMultiplierSchema.safeParse(searchParams.get('scale'))
 	const ratio = scaleParam.success ? scaleParam.data : 1
-	const isScaled = ratio !== 1
 
 	// Open enhance modal or show error when enhance fetch completes
 	useEffect(() => {
@@ -661,12 +663,13 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							yieldAmount={recipe.yieldAmount}
 							yieldLabel={recipe.yieldLabel}
 							sourceUrl={recipe.sourceUrl}
+							showYield={false}
 						/>
 					</div>
 
 					{/* Image: full-bleed above the title on mobile, side column on desktop */}
 					{recipe.image && (
-						<div className="order-first -mx-4 -mt-4 mb-5 shrink-0 sm:-mx-8 md:order-none md:mx-0 md:my-0 md:w-100 print:hidden">
+						<div className="order-first -mx-4 -mt-4 mb-5 shrink-0 sm:-mx-8 md:order-none md:mx-0 md:my-0 md:w-[45%] lg:w-100 print:hidden">
 							<Img
 								src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
 								alt={recipe.image.altText ?? recipe.title}
@@ -802,53 +805,27 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Content zone: Ingredients + Instructions */}
-				<div className="mt-4 grid gap-5 md:mt-8 md:grid-cols-[5fr_7fr] md:gap-8 print:grid-cols-1 print:gap-4">
+				<div className="mt-4 grid gap-5 md:mt-8 lg:grid-cols-[6fr_7fr] lg:gap-6 print:grid-cols-1 print:gap-4">
 					{/* Ingredients - sticky on desktop, interactive checkboxes */}
-					<div
-						ref={ingredientsSectionRef}
-						className="min-w-0 md:sticky md:top-20 md:self-start print:static"
-					>
+					<div className="min-w-0 lg:sticky lg:top-20 lg:self-start print:static">
 						<div className="print:p-2">
-							<div className="mb-3 flex items-center gap-2 md:mb-4">
-								<button
-									type="button"
-									className="flex items-center gap-1.5 md:pointer-events-none"
-									onClick={() => setIngredientsExpanded((v) => !v)}
-									aria-expanded={ingredientsExpanded}
-									aria-controls="ingredients-list"
-								>
-									<Icon
-										name="chevron-down"
-										size="sm"
-										className={cn(
-											'text-muted-foreground transition-transform md:hidden',
-											!ingredientsExpanded && '-rotate-90',
-										)}
-									/>
-									<h2 className="font-serif text-lg font-normal">
-										Ingredients
-									</h2>
-								</button>
-								<span className="ml-auto flex min-w-0 items-center gap-2 print:hidden">
-									<RecipeScaleControl
-										scaleMultiplier={ratio}
-										yieldAmount={recipe.yieldAmount}
-										yieldLabel={recipe.yieldLabel}
-										onScaleMultiplierChange={updateScaleMultiplier}
-									/>
-									{isScaled ? (
-										<button
-											onClick={() => updateScaleMultiplier(1)}
-											className="text-primary text-xs hover:underline"
-										>
-											Reset
-										</button>
-									) : null}
-								</span>
+							<div ref={ingredientsHeaderRef}>
+								<RecipeIngredientsControls
+									scaleMultiplier={ratio}
+									yieldAmount={recipe.yieldAmount}
+									yieldLabel={recipe.yieldLabel}
+									onScaleMultiplierChange={updateScaleMultiplier}
+									ingredientsExpanded={ingredientsExpanded}
+									onToggleIngredients={() =>
+										setIngredientsExpanded((value) => !value)
+									}
+									useMetric={useMetric}
+									onToggleMetric={toggleMetric}
+								/>
 							</div>
 							<div
 								id="ingredients-list"
-								className={cn(!ingredientsExpanded && 'hidden md:block')}
+								className={cn(!ingredientsExpanded && 'hidden lg:block')}
 							>
 								<IngredientList
 									ingredients={recipe.ingredients}
@@ -857,10 +834,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									ratio={ratio}
 									missingIngredientIds={missingIngredientIds}
 									recipeId={recipe.id}
-									shoppingFetcher={shoppingFetcher}
 									canMarkUsuallyOnHand={usesLegacyPantry}
 									useMetric={useMetric}
-									onToggleMetric={toggleMetric}
 								/>
 							</div>
 						</div>
@@ -881,7 +856,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				{/* Ingredients at hand while deep in the steps (mobile only).
 				    Hidden once every step is checked — the cook is done. */}
 				<RecipeIngredientsSheet
-					visible={!ingredientsInView && !allStepsChecked}
+					visible={ingredientsPassed && !allStepsChecked}
 					checkedCount={checkedIngredientCount}
 					totalCount={nonHeadingIngredients.length}
 					ingredients={recipe.ingredients}
@@ -890,7 +865,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					ratio={ratio}
 					missingIngredientIds={missingIngredientIds}
 					recipeId={recipe.id}
-					shoppingFetcher={shoppingFetcher}
 					canMarkUsuallyOnHand={usesLegacyPantry}
 					useMetric={useMetric}
 				/>

@@ -52,7 +52,11 @@ const optionalPositiveNumber = z.preprocess(
 const optionalYieldLabel = z.preprocess(
 	(value) =>
 		typeof value === 'string' && value.trim() === '' ? undefined : value,
-	z.string().trim().max(100, { message: 'Yield label is too long' }).optional(),
+	z
+		.string()
+		.trim()
+		.max(100, { message: 'What the recipe makes is too long' })
+		.optional(),
 )
 
 const recipeTimeYieldFields = {
@@ -69,14 +73,14 @@ export const RecipeTimeYieldSchema = z
 			context.addIssue({
 				code: 'custom',
 				path: ['yieldLabel'],
-				message: 'Add a yield label',
+				message: 'Say what the recipe makes',
 			})
 		}
 		if (recipe.yieldLabel != null && recipe.yieldAmount == null) {
 			context.addIssue({
 				code: 'custom',
 				path: ['yieldAmount'],
-				message: 'Add a yield amount',
+				message: 'Add how many the recipe makes',
 			})
 		}
 	})
@@ -102,14 +106,14 @@ export const RecipeSchema = z
 			context.addIssue({
 				code: 'custom',
 				path: ['yieldLabel'],
-				message: 'Add a yield label',
+				message: 'Say what the recipe makes',
 			})
 		}
 		if (recipe.yieldLabel != null && recipe.yieldAmount == null) {
 			context.addIssue({
 				code: 'custom',
 				path: ['yieldAmount'],
-				message: 'Add a yield amount',
+				message: 'Add how many the recipe makes',
 			})
 		}
 	})

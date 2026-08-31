@@ -6,7 +6,7 @@ import { createRoutesStub } from 'react-router'
 import { expect, test } from 'vitest'
 import { RecipeForm } from './recipe-form.tsx'
 
-test('Recipe form offers optional Active, Total, and free-text Yield fields', () => {
+test('Recipe form offers optional time and natural makes fields', () => {
 	const Stub = createRoutesStub([
 		{ path: '/', Component: () => <RecipeForm submitLabel="Create Recipe" /> },
 	])
@@ -18,11 +18,14 @@ test('Recipe form offers optional Active, Total, and free-text Yield fields', ()
 	expect(
 		screen.getByRole('spinbutton', { name: 'Total Time (min)' }),
 	).toBeVisible()
-	expect(screen.getByRole('spinbutton', { name: 'Yield amount' })).toBeVisible()
-	expect(screen.getByRole('combobox', { name: 'Yield label' })).toHaveAttribute(
-		'list',
-		'yield-label-suggestions',
-	)
+	expect(screen.getByText('This recipe makes')).toBeVisible()
+	expect(
+		screen.getByRole('spinbutton', { name: 'Amount this recipe makes' }),
+	).toBeVisible()
+	expect(
+		screen.getByRole('combobox', { name: 'What this recipe makes' }),
+	).toHaveAttribute('list', 'yield-label-suggestions')
+	expect(screen.getByText(/Leave both blank if unknown/i)).toBeVisible()
 	expect(
 		screen.queryByRole('spinbutton', { name: 'Prep Time (min)' }),
 	).not.toBeInTheDocument()
@@ -62,10 +65,10 @@ test('Recipe form reopens explicit time and typed yield values for editing', () 
 	expect(
 		screen.getByRole('spinbutton', { name: 'Total Time (min)' }),
 	).toHaveValue(180)
-	expect(screen.getByRole('spinbutton', { name: 'Yield amount' })).toHaveValue(
-		2.5,
-	)
-	expect(screen.getByRole('combobox', { name: 'Yield label' })).toHaveValue(
-		'large braided loaves',
-	)
+	expect(
+		screen.getByRole('spinbutton', { name: 'Amount this recipe makes' }),
+	).toHaveValue(2.5)
+	expect(
+		screen.getByRole('combobox', { name: 'What this recipe makes' }),
+	).toHaveValue('large braided loaves')
 })

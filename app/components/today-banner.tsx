@@ -32,7 +32,7 @@ export function TodayBanner({ tonight }: { tonight: TonightData }) {
 	const targetYield = scaleMultiplierToTargetYield(scaleMultiplier, recipeYield)
 	const quantityText =
 		recipeYield && targetYield != null
-			? `${formatTargetYieldAmount(targetYield)} ${recipeYield.label}`
+			? `${formatScaleMultiplier(scaleMultiplier)}× · makes ${formatTargetYieldAmount(targetYield)} ${recipeYield.label}`
 			: scaleMultiplier !== 1
 				? `${formatScaleMultiplier(scaleMultiplier)}× batch`
 				: null

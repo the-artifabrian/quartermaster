@@ -1,5 +1,6 @@
 import { type Locator } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
+import { DEFAULT_RECIPE_METADATA_VALUE_CREATE } from '#app/utils/recipe-metadata.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
 test('Recipe CRUD flow: create → list → detail → edit → delete', async ({
@@ -144,6 +145,83 @@ test('Recipe search and filter', async ({ page, login }) => {
 	await page.getByPlaceholder(/search/i).fill('')
 	await page.waitForTimeout(500)
 	await expect(page.getByText('Simple Green Salad')).toBeVisible()
+})
+
+test('Recipe classification edits and filters fit phone and desktop layouts', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const household = await prisma.household.create({
+		data: {
+			name: 'Classification layout household',
+			members: { create: { userId: user.id, role: 'owner' } },
+			recipeMetadataValues: {
+				create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
+			},
+		},
+	})
+	const classifiedRecipe = await prisma.recipe.create({
+		data: {
+			title: 'Levantine supper',
+			userId: user.id,
+			householdId: household.id,
+			ingredients: { create: { name: 'chickpeas', order: 0 } },
+			instructions: { create: { content: 'Combine.', order: 0 } },
+		},
+	})
+	await prisma.recipe.create({
+		data: {
+			title: 'Plain pasta',
+			userId: user.id,
+			householdId: household.id,
+			ingredients: { create: { name: 'pasta', order: 0 } },
+			instructions: { create: { content: 'Boil.', order: 0 } },
+		},
+	})
+
+	await page.setViewportSize({ width: 390, height: 844 })
+	await page.goto(`/recipes/${classifiedRecipe.id}/edit`)
+	await page.getByText('Classification', { exact: true }).click()
+	const cuisineGroup = page.getByRole('group', { name: 'Cuisine' })
+	await cuisineGroup.getByLabel('Add cuisine').fill('  Levantine  ')
+	await cuisineGroup.getByRole('button', { name: 'Add' }).click()
+	await expect(
+		cuisineGroup.getByRole('button', { name: 'Levantine' }),
+	).toHaveAttribute('aria-pressed', 'true')
+	await page.getByRole('button', { name: 'Save Changes' }).click()
+	await expect(page).toHaveURL(new RegExp(`/recipes/${classifiedRecipe.id}$`))
+
+	for (const viewport of [
+		{ width: 390, height: 844 },
+		{ width: 1280, height: 800 },
+	]) {
+		await page.setViewportSize(viewport)
+		await page.goto(`/recipes/${classifiedRecipe.id}/edit`)
+		await page.getByText('Classification', { exact: true }).click()
+		const selectedCuisine = page.getByRole('button', {
+			name: 'Levantine',
+			exact: true,
+		})
+		await expect(selectedCuisine).toHaveAttribute('aria-pressed', 'true')
+		const classificationBox = await selectedCuisine.boundingBox()
+		expect(classificationBox).not.toBeNull()
+		expect(classificationBox!.x).toBeGreaterThanOrEqual(0)
+		expect(classificationBox!.x + classificationBox!.width).toBeLessThanOrEqual(
+			viewport.width,
+		)
+
+		await page.goto('/recipes')
+		if (viewport.width < 768) {
+			await page.getByRole('button', { name: 'Toggle filters' }).click()
+		}
+		await page.getByRole('button', { name: /^Cuisine/ }).click()
+		await page.getByRole('menuitemcheckbox', { name: 'Levantine' }).click()
+		await page.keyboard.press('Escape')
+		await expect(page).toHaveURL(/cuisine=levantine/)
+		await expect(page.getByText('Levantine supper')).toBeVisible()
+		await expect(page.getByText('Plain pasta')).not.toBeVisible()
+	}
 })
 
 test('custom Recipe yield labels fit phone and desktop detail layouts', async ({

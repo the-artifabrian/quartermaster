@@ -159,6 +159,7 @@ model Household {
   invites           HouseholdInvite[]
   events            HouseholdEvent[]
   recipes           Recipe[]
+  recipeMetadataValues RecipeMetadataValue[]
   inventoryItems    InventoryItem[]
   householdIngredients HouseholdIngredient[]
   mealPlans         MealPlan[]
@@ -244,12 +245,46 @@ model Recipe {
   ingredients     Ingredient[]    @relation("RecipeIngredients")
   linkedFromIngredients Ingredient[] @relation("LinkedRecipe")
   instructions    Instruction[]
+  metadataAssignments   RecipeMetadataAssignment[]
   menuItems       MenuItem[]
   mealRecipeItems MealRecipeItem[]
 
   @@index([userId])
   @@index([householdId])
   @@index([title])
+}
+
+model RecipeMetadataValue {
+  id        String @id @default(cuid())
+  /// One of cuisine, season, or course. Kept as a string so SQLite migrations
+  /// can enforce the closed set without introducing a provider-specific enum.
+  dimension String
+  name      String
+  /// Trimmed, whitespace-collapsed, Unicode-normalized (NFKC), lower-cased
+  /// identity within one household and dimension.
+  nameKey   String
+  /// Seeded values sort first; household additions sort alphabetically after.
+  sortOrder Int    @default(1000)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  household   Household                  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId String
+  assignments RecipeMetadataAssignment[]
+
+  @@unique([householdId, dimension, nameKey])
+  @@index([householdId, dimension, sortOrder, name])
+}
+
+model RecipeMetadataAssignment {
+  recipe   Recipe              @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+  value    RecipeMetadataValue @relation(fields: [valueId], references: [id], onDelete: Cascade)
+  valueId  String
+
+  @@id([recipeId, valueId])
+  @@index([valueId])
 }
 
 model RecipeImage {

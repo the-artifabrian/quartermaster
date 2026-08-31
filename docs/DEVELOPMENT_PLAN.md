@@ -9,13 +9,13 @@ save Recipes → plan Meals → generate Shopping → cook
 ```
 
 Roadmap [#98](https://github.com/the-artifabrian/quartermaster/issues/98) is in
-progress. Menus, ordered Meals, combined Shopping, and household Staples/Out are
-shipped. AI quantity planning was tried and removed because it added more
-friction than value.
+progress. Menus, ordered Meals, combined Shopping, household Staples/Out, and
+honest Recipe time/yield are shipped. AI quantity planning was tried and removed
+because it added more friction than value.
 
-The next implementation ticket is #121, the additive Recipe time/yield shape.
-Archived Pantry cleanup (#120) is deferred because it is still a cheap rollback
-path.
+The next implementation ticket is #125, the small manual Cuisine/Season/Course
+vocabulary and Recipe filters. Archived Pantry cleanup (#120) is deferred
+because it is still a cheap rollback path.
 
 ## Product direction
 
@@ -79,4 +79,4 @@ Normal use can still lead to later fixes, cuts, or deferrals.
 Operational restore steps live in [RESTORE.md](./RESTORE.md). Product terms live
 in [CONTEXT.md](../CONTEXT.md).
 
-_Updated 28 August 2026._
+_Updated 31 August 2026._

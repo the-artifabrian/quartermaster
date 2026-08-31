@@ -12,6 +12,7 @@ import { providers } from './connections.server.ts'
 import { prisma } from './db.server.ts'
 import { combineHeaders } from './misc.tsx'
 import { type ProviderUser } from './providers/provider.ts'
+import { DEFAULT_RECIPE_METADATA_VALUE_CREATE } from './recipe-metadata.ts'
 import { authSessionStorage } from './session.server.ts'
 
 export const AUTO_TRIAL_DAYS = 14
@@ -155,6 +156,9 @@ export async function signup({
 		await tx.household.create({
 			data: {
 				name: `${name ?? username}'s Household`,
+				recipeMetadataValues: {
+					create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
+				},
 				members: {
 					create: { userId: newSession.userId, role: 'owner' },
 				},
@@ -207,6 +211,9 @@ export async function signupWithConnection({
 		await tx.household.create({
 			data: {
 				name: `${name ?? username}'s Household`,
+				recipeMetadataValues: {
+					create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
+				},
 				members: {
 					create: { userId: newUser.id, role: 'owner' },
 				},

@@ -1,4 +1,8 @@
 import { type Prisma } from '#app/generated/prisma/client.ts'
+import {
+	RECIPE_METADATA_DIMENSIONS,
+	type RecipeMetadataDimension,
+} from './recipe-metadata.ts'
 
 // Each term adds a LIKE per field plus an EXISTS subquery on Ingredient, so
 // cap the term count to keep pasted-sentence queries from ballooning the SQL.
@@ -39,4 +43,31 @@ export function recipeTitleSearchWhere(query: string): Prisma.RecipeWhereInput {
 	const terms = searchTerms(query)
 	if (terms.length === 0) return {}
 	return { AND: terms.map((term) => ({ title: { contains: term } })) }
+}
+
+export type RecipeMetadataFilters = Record<RecipeMetadataDimension, string[]>
+
+/**
+ * Recipe classification filters OR values within one dimension and AND the
+ * active dimensions together. Empty dimensions add no constraint.
+ */
+export function recipeMetadataFilterWhere(
+	filters: RecipeMetadataFilters,
+): Prisma.RecipeWhereInput {
+	return {
+		AND: RECIPE_METADATA_DIMENSIONS.flatMap((dimension) => {
+			const nameKeys = [...new Set(filters[dimension])]
+			return nameKeys.length
+				? [
+						{
+							metadataAssignments: {
+								some: {
+									value: { dimension, nameKey: { in: nameKeys } },
+								},
+							},
+						},
+					]
+				: []
+		}),
+	}
 }

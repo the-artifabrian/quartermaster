@@ -2,6 +2,11 @@ import crypto from 'node:crypto'
 import { requireUserId } from './auth.server.ts'
 import { prisma } from './db.server.ts'
 import { menuTitleKey } from './menu-validation.ts'
+import {
+	ensureRecipeMetadataValues,
+	moveRecipeMetadataValues,
+} from './recipe-metadata.server.ts'
+import { DEFAULT_RECIPE_METADATA_VALUE_CREATE } from './recipe-metadata.ts'
 
 /**
  * Returns the current user's household info.
@@ -30,6 +35,9 @@ export async function requireUserWithHousehold(request: Request) {
 		const household = await prisma.household.create({
 			data: {
 				name: `${user.name ?? user.username}'s Household`,
+				recipeMetadataValues: {
+					create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
+				},
 				members: {
 					create: { userId, role: 'owner' },
 				},
@@ -146,6 +154,7 @@ export async function acceptInvite(token: string, userId: string) {
 					data: { staplesCutoverAt: sourceCutover.staplesCutoverAt },
 				})
 			}
+			await moveRecipeMetadataValues(tx, currentHouseholdId, targetHouseholdId)
 			await tx.recipe.updateMany({
 				where: { householdId: currentHouseholdId },
 				data: { householdId: targetHouseholdId },
@@ -348,6 +357,9 @@ export async function leaveHousehold(userId: string) {
 		const newHousehold = await tx.household.create({
 			data: {
 				name: `${user.name ?? user.username}'s Household`,
+				recipeMetadataValues: {
+					create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
+				},
 				members: { create: { userId, role: 'owner' } },
 			},
 		})
@@ -429,10 +441,25 @@ async function deepCopyRecipes(
 			ingredients: true,
 			instructions: true,
 			image: true,
+			metadataAssignments: { include: { value: true } },
 		},
 	})
 
 	for (const recipe of recipes) {
+		const metadataValueIds = await ensureRecipeMetadataValues(
+			tx,
+			toHouseholdId,
+			recipe.metadataAssignments.map(
+				(assignment: {
+					value: {
+						dimension: string
+						name: string
+						nameKey: string
+						sortOrder: number
+					}
+				}) => assignment.value,
+			),
+		)
 		await tx.recipe.create({
 			data: {
 				title: recipe.title,
@@ -448,6 +475,9 @@ async function deepCopyRecipes(
 				notes: recipe.notes,
 				userId,
 				householdId: toHouseholdId,
+				metadataAssignments: {
+					create: metadataValueIds.map((valueId) => ({ valueId })),
+				},
 				ingredients: {
 					create: recipe.ingredients.map(
 						(ing: {

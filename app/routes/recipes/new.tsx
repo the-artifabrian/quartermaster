@@ -6,6 +6,10 @@ import { RecipeForm } from '#app/components/recipe-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
+	RecipeMetadataSelectionError,
+	resolveRecipeMetadataValueIds,
+} from '#app/utils/recipe-metadata.server.ts'
+import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
 	ACCEPTED_RECIPE_IMAGE_TYPES,
@@ -22,8 +26,13 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	await requireUserWithHousehold(request)
-	return {}
+	const { householdId } = await requireUserWithHousehold(request)
+	const metadataOptions = await prisma.recipeMetadataValue.findMany({
+		where: { householdId },
+		select: { id: true, dimension: true, name: true, nameKey: true },
+		orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
+	})
+	return { metadataOptions }
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -102,46 +111,68 @@ export async function action({ request }: Route.ActionArgs) {
 		totalTime,
 		yieldAmount,
 		yieldLabel,
+		recipeMetadata,
 		sourceUrl,
 		notes,
 	} = submission.value
 
-	const recipe = await prisma.recipe.create({
-		data: {
-			title,
-			description: description ?? null,
-			activeTime,
-			totalTime,
-			yieldAmount,
-			yieldLabel,
-			sourceUrl: sourceUrl || null,
-			notes: notes || null,
-			userId,
-			householdId,
-			ingredients: {
-				create: ingredients
-					.filter((ing) => ing.name.trim() !== '')
-					.map((ing, order) => ({
-						name: ing.name,
-						amount: ing.amount || null,
-						unit: ing.unit || null,
-						notes: ing.notes || null,
-						isHeading: ing.isHeading ?? false,
-						linkedRecipeId: ing.linkedRecipeId || null,
-						order,
-					})),
-			},
-			instructions: {
-				create: instructions
-					.filter((inst) => inst.content.trim() !== '')
-					.map((inst, order) => ({
-						content: inst.content,
-						order,
-					})),
-			},
-		},
-		select: { id: true },
-	})
+	let recipe: { id: string }
+	try {
+		recipe = await prisma.$transaction(async (tx) => {
+			const metadataValueIds = await resolveRecipeMetadataValueIds(
+				tx,
+				householdId,
+				recipeMetadata,
+			)
+			return tx.recipe.create({
+				data: {
+					title,
+					description: description ?? null,
+					activeTime,
+					totalTime,
+					yieldAmount,
+					yieldLabel,
+					sourceUrl: sourceUrl || null,
+					notes: notes || null,
+					userId,
+					householdId,
+					metadataAssignments: {
+						create: metadataValueIds.map((valueId) => ({ valueId })),
+					},
+					ingredients: {
+						create: ingredients
+							.filter((ing) => ing.name.trim() !== '')
+							.map((ing, order) => ({
+								name: ing.name,
+								amount: ing.amount || null,
+								unit: ing.unit || null,
+								notes: ing.notes || null,
+								isHeading: ing.isHeading ?? false,
+								linkedRecipeId: ing.linkedRecipeId || null,
+								order,
+							})),
+					},
+					instructions: {
+						create: instructions
+							.filter((inst) => inst.content.trim() !== '')
+							.map((inst, order) => ({
+								content: inst.content,
+								order,
+							})),
+					},
+				},
+				select: { id: true },
+			})
+		})
+	} catch (error) {
+		if (error instanceof RecipeMetadataSelectionError) {
+			return data(
+				{ result: submission.reply({ formErrors: [error.message] }) },
+				{ status: 400 },
+			)
+		}
+		throw error
+	}
 
 	// Upload image if provided
 	if (imageFile) {
@@ -157,11 +188,14 @@ export async function action({ request }: Route.ActionArgs) {
 	return redirect(`/recipes/${recipe.id}`)
 }
 
-export default function NewRecipe() {
+export default function NewRecipe({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
 			<h1 className="mb-6 font-serif text-2xl font-normal">New Recipe</h1>
-			<RecipeForm submitLabel="Create Recipe" />
+			<RecipeForm
+				metadataOptions={loaderData.metadataOptions}
+				submitLabel="Create Recipe"
+			/>
 		</div>
 	)
 }

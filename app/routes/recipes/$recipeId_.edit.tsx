@@ -10,6 +10,10 @@ import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { useDoubleCheck } from '#app/utils/misc.tsx'
 import {
+	RecipeMetadataSelectionError,
+	resolveRecipeMetadataValueIds,
+} from '#app/utils/recipe-metadata.server.ts'
+import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
 	ACCEPTED_RECIPE_IMAGE_TYPES,
@@ -32,42 +36,50 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
 	const { recipeId } = params
 
-	const recipe = await prisma.recipe.findUnique({
-		where: { id: recipeId },
-		select: {
-			id: true,
-			title: true,
-			description: true,
-			activeTime: true,
-			totalTime: true,
-			yieldAmount: true,
-			yieldLabel: true,
-			sourceUrl: true,
-			notes: true,
-			householdId: true,
-			image: { select: { objectKey: true, altText: true } },
-			ingredients: {
-				select: {
-					id: true,
-					name: true,
-					amount: true,
-					unit: true,
-					notes: true,
-					isHeading: true,
-					linkedRecipeId: true,
-					linkedRecipe: { select: { title: true } },
+	const [recipe, metadataOptions] = await Promise.all([
+		prisma.recipe.findUnique({
+			where: { id: recipeId },
+			select: {
+				id: true,
+				title: true,
+				description: true,
+				activeTime: true,
+				totalTime: true,
+				yieldAmount: true,
+				yieldLabel: true,
+				sourceUrl: true,
+				notes: true,
+				householdId: true,
+				image: { select: { objectKey: true, altText: true } },
+				ingredients: {
+					select: {
+						id: true,
+						name: true,
+						amount: true,
+						unit: true,
+						notes: true,
+						isHeading: true,
+						linkedRecipeId: true,
+						linkedRecipe: { select: { title: true } },
+					},
+					orderBy: { order: 'asc' },
 				},
-				orderBy: { order: 'asc' },
-			},
-			instructions: {
-				select: {
-					id: true,
-					content: true,
+				instructions: {
+					select: {
+						id: true,
+						content: true,
+					},
+					orderBy: { order: 'asc' },
 				},
-				orderBy: { order: 'asc' },
+				metadataAssignments: { select: { valueId: true } },
 			},
-		},
-	})
+		}),
+		prisma.recipeMetadataValue.findMany({
+			where: { householdId },
+			select: { id: true, dimension: true, name: true, nameKey: true },
+			orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
+		}),
+	])
 
 	invariantResponse(recipe, 'Recipe not found', { status: 404 })
 	invariantResponse(recipe.householdId === householdId, 'Not authorized', {
@@ -77,13 +89,16 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	// Map linkedRecipe.title to linkedRecipeTitle for the form
 	const recipeForForm = {
 		...recipe,
+		metadataValueIds: recipe.metadataAssignments.map(
+			(assignment) => assignment.valueId,
+		),
 		ingredients: recipe.ingredients.map((ing) => ({
 			...ing,
 			linkedRecipeTitle: ing.linkedRecipe?.title ?? null,
 		})),
 	}
 
-	return { recipe: recipeForForm }
+	return { recipe: recipeForForm, metadataOptions }
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -199,49 +214,71 @@ export async function action({ request, params }: Route.ActionArgs) {
 		totalTime,
 		yieldAmount,
 		yieldLabel,
+		recipeMetadata,
 		sourceUrl,
 		notes,
 	} = submission.value
 
-	// Update recipe - delete all ingredients and instructions, then recreate
-	await prisma.$transaction([
-		prisma.ingredient.deleteMany({ where: { recipeId } }),
-		prisma.instruction.deleteMany({ where: { recipeId } }),
-		prisma.recipe.update({
-			where: { id: recipeId },
-			data: {
-				title,
-				description: description ?? null,
-				activeTime: activeTime ?? null,
-				totalTime: totalTime ?? null,
-				yieldAmount: yieldAmount ?? null,
-				yieldLabel: yieldLabel ?? null,
-				sourceUrl: sourceUrl || null,
-				notes: notes || null,
-				ingredients: {
-					create: ingredients
-						.filter((ing) => ing.name.trim() !== '')
-						.map((ing, order) => ({
-							name: ing.name,
-							amount: ing.amount || null,
-							unit: ing.unit || null,
-							notes: ing.notes || null,
-							isHeading: ing.isHeading ?? false,
-							linkedRecipeId: ing.linkedRecipeId || null,
-							order,
-						})),
+	// Update recipe - delete all ingredients and instructions, then recreate.
+	// Classification identity resolves inside the same transaction, so a
+	// spoofed foreign-household value cannot partially change the Recipe.
+	try {
+		await prisma.$transaction(async (tx) => {
+			const metadataValueIds = await resolveRecipeMetadataValueIds(
+				tx,
+				householdId,
+				recipeMetadata,
+			)
+			await tx.ingredient.deleteMany({ where: { recipeId } })
+			await tx.instruction.deleteMany({ where: { recipeId } })
+			await tx.recipe.update({
+				where: { id: recipeId },
+				data: {
+					title,
+					description: description ?? null,
+					activeTime: activeTime ?? null,
+					totalTime: totalTime ?? null,
+					yieldAmount: yieldAmount ?? null,
+					yieldLabel: yieldLabel ?? null,
+					sourceUrl: sourceUrl || null,
+					notes: notes || null,
+					metadataAssignments: {
+						deleteMany: {},
+						create: metadataValueIds.map((valueId) => ({ valueId })),
+					},
+					ingredients: {
+						create: ingredients
+							.filter((ing) => ing.name.trim() !== '')
+							.map((ing, order) => ({
+								name: ing.name,
+								amount: ing.amount || null,
+								unit: ing.unit || null,
+								notes: ing.notes || null,
+								isHeading: ing.isHeading ?? false,
+								linkedRecipeId: ing.linkedRecipeId || null,
+								order,
+							})),
+					},
+					instructions: {
+						create: instructions
+							.filter((inst) => inst.content.trim() !== '')
+							.map((inst, order) => ({
+								content: inst.content,
+								order,
+							})),
+					},
 				},
-				instructions: {
-					create: instructions
-						.filter((inst) => inst.content.trim() !== '')
-						.map((inst, order) => ({
-							content: inst.content,
-							order,
-						})),
-				},
-			},
-		}),
-	])
+			})
+		})
+	} catch (error) {
+		if (error instanceof RecipeMetadataSelectionError) {
+			return data(
+				{ result: submission.reply({ formErrors: [error.message] }) },
+				{ status: 400 },
+			)
+		}
+		throw error
+	}
 
 	// Upload image if provided
 	if (imageFile) {
@@ -276,12 +313,16 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function EditRecipe({ loaderData }: Route.ComponentProps) {
-	const { recipe } = loaderData
+	const { recipe, metadataOptions } = loaderData
 
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
 			<h1 className="mb-6 font-serif text-2xl font-normal">Edit Recipe</h1>
-			<RecipeForm recipe={recipe} submitLabel="Save Changes" />
+			<RecipeForm
+				recipe={recipe}
+				metadataOptions={metadataOptions}
+				submitLabel="Save Changes"
+			/>
 			<div className="mt-8 border-t pt-8">
 				<DeleteRecipe recipeId={recipe.id} />
 			</div>

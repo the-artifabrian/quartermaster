@@ -14,6 +14,10 @@ import {
 	InstructionFields,
 	type InstructionFieldValue,
 } from './instruction-fields.tsx'
+import {
+	RecipeMetadataFields,
+	type RecipeMetadataOption,
+} from './recipe-metadata-fields.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
@@ -31,6 +35,7 @@ type RecipeFormProps = {
 		sourceUrl?: string | null
 		notes?: string | null
 		image?: { objectKey: string; altText?: string | null } | null
+		metadataValueIds?: string[]
 		ingredients: Array<{
 			id: string
 			name: string
@@ -46,6 +51,7 @@ type RecipeFormProps = {
 			content: string
 		}>
 	}
+	metadataOptions?: RecipeMetadataOption[]
 	submitLabel?: string
 }
 
@@ -85,6 +91,7 @@ function FormSection({
 
 export function RecipeForm({
 	recipe,
+	metadataOptions = [],
 	submitLabel = 'Save Recipe',
 }: RecipeFormProps) {
 	const actionData = useActionData<{
@@ -341,6 +348,20 @@ export function RecipeForm({
 						</datalist>
 					</div>
 				</div>
+			</FormSection>
+
+			<FormSection
+				title="Classification"
+				summary={
+					recipe?.metadataValueIds?.length
+						? `${recipe.metadataValueIds.length} selected`
+						: 'Optional'
+				}
+			>
+				<RecipeMetadataFields
+					options={metadataOptions}
+					selectedValueIds={recipe?.metadataValueIds}
+				/>
 			</FormSection>
 
 			{/* Ingredients Section */}

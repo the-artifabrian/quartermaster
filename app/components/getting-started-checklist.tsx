@@ -17,7 +17,7 @@ export function GettingStartedChecklist({
 }: {
 	onboarding: {
 		hasRecipes: boolean
-		hasInventory: boolean
+		hasStaples: boolean
 		hasMealPlan: boolean
 	}
 }) {
@@ -44,7 +44,7 @@ export function GettingStartedChecklist({
 			description: 'Save what you normally keep and mark anything Out',
 			icon: 'home',
 			href: '/inventory',
-			done: onboarding.hasInventory,
+			done: onboarding.hasStaples,
 		},
 		{
 			title: 'Plan a meal',

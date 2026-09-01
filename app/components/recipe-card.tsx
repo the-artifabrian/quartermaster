@@ -131,6 +131,7 @@ export function RecipeCard({
 						<Icon
 							name="sparkles"
 							size="xs"
+							title="AI Generated"
 							className="text-muted-foreground/50 ml-auto"
 						/>
 					)}

@@ -357,15 +357,9 @@ function isCacheablePage(url) {
 	if (p === '/inventory' || p === '/inventory.data') return true
 
 	// /recipes/<id> (detail page) but not /recipes/<id>/edit and not the named
-	// form sub-routes (new, import, generate, quick, bulk-import), which need the
+	// form sub-routes (new, import, quick, bulk-import), which need the
 	// network anyway and shouldn't be served stale from cache.
-	const recipeFormRoutes = new Set([
-		'new',
-		'import',
-		'generate',
-		'quick',
-		'bulk-import',
-	])
+	const recipeFormRoutes = new Set(['new', 'import', 'quick', 'bulk-import'])
 	const recipeMatch = p.match(/^\/recipes\/([^/]+?)(\.data)?$/)
 	if (recipeMatch) {
 		const id = recipeMatch[1]

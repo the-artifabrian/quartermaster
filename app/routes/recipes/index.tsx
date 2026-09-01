@@ -97,7 +97,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 				where: { id: householdId },
 				select: {
 					staplesCutoverAt: true,
-					_count: { select: { inventoryItems: true } },
 					recipeMetadataValues: {
 						select: {
 							id: true,
@@ -121,11 +120,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			prisma.recipe.count({ where: { householdId } }),
 		])
 
-	const hasInventory =
-		householdAvailability.staplesCutoverAt == null &&
-		householdAvailability._count.inventoryItems > 0
-	const hasAvailabilitySetup =
-		hasInventory || householdAvailability.staplesCutoverAt != null
 	const metadataOptions = householdAvailability.recipeMetadataValues
 	const metadataFilters = Object.fromEntries(
 		RECIPE_METADATA_DIMENSIONS.map((dimension) => {
@@ -210,13 +204,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		metadataFilters,
 		sort,
 		totalRecipeCount,
-		hasInventory,
-		isProActive,
 		onboarding: {
 			hasRecipes: totalRecipeCount > 0,
-			// A confirmed cutover completes the old Pantry onboarding step; the
-			// archived rows must not resurrect its CTA.
-			hasInventory: hasAvailabilitySetup,
+			// Choosing an explicit (possibly empty) Staples set completes this step.
+			// Archived Pantry rows are recovery data, not active setup.
+			hasStaples: householdAvailability.staplesCutoverAt != null,
 			hasMealPlan: mealCount > 0,
 		},
 	}
@@ -232,7 +224,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		metadataFilters,
 		sort,
 		totalRecipeCount,
-		isProActive,
 		onboarding,
 	} = loaderData
 	const [searchParams, setSearchParams] = useSearchParams()
@@ -368,21 +359,12 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						</span>
 					</h1>
 					<div className="flex gap-2">
-						{isProActive && loaderData.hasInventory && (
-							<Button
-								asChild
-								variant="secondary"
-								className="hidden md:inline-flex"
-							>
-								<Link to="/recipes/generate">
-									<Icon name="sparkles" size="sm" />
-									Generate Recipe
-								</Link>
-							</Button>
-						)}
 						<DropdownMenu modal={false}>
 							<DropdownMenuTrigger asChild>
-								<Button className="size-10 rounded-full p-0 sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2">
+								<Button
+									aria-label="New Recipe"
+									className="size-10 rounded-full p-0 sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2"
+								>
 									<Icon name="plus" size="sm" />
 									<span className="hidden sm:inline">New Recipe</span>
 									<Icon
@@ -393,14 +375,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								</Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
-								{isProActive && loaderData.hasInventory && (
-									<DropdownMenuItem asChild className="md:hidden">
-										<Link to="/recipes/generate">
-											<Icon name="sparkles" size="sm" />
-											Generate Recipe
-										</Link>
-									</DropdownMenuItem>
-								)}
 								<DropdownMenuItem asChild>
 									<Link to="/recipes/new">
 										<Icon name="pencil-1" size="sm" />
@@ -647,14 +621,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 									Import
 								</Link>
 							</Button>
-							{isProActive && loaderData.hasInventory && (
-								<Button asChild variant="outline">
-									<Link to="/recipes/generate">
-										<Icon name="sparkles" size="sm" />
-										Generate from Pantry
-									</Link>
-								</Button>
-							)}
 						</div>
 					</div>
 				)}

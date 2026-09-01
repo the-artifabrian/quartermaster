@@ -31,8 +31,9 @@ Staples and non-Staples.
 - **Shopping** combines Recipe ingredients, Menu note lines, and manual items
   without pretending to know exact stock.
 
-AI is optional. It helps import Recipes from text and images, generate or
-improve a Recipe, and parse speech. The manual app works without API keys.
+AI is optional. It extracts Recipes from text and images, suggests description
+improvements for review, and parses speech. The manual app works without API
+keys.
 
 ## Tech stack
 

@@ -13,8 +13,12 @@ import {
 
 function Harness({ initial }: { initial: IngredientFieldValue[] }) {
 	const [ingredients, setIngredients] = useState(initial)
+	const [, setRevision] = useState(0)
 	return (
 		<>
+			<button type="button" onClick={() => setRevision((value) => value + 1)}>
+				Rerender
+			</button>
 			<IngredientFields ingredients={ingredients} onChange={setIngredients} />
 			<output data-testid="state">{JSON.stringify(ingredients)}</output>
 		</>
@@ -33,6 +37,28 @@ function getState(): IngredientFieldValue[] {
 		screen.getByTestId('state').textContent ?? '[]',
 	) as IngredientFieldValue[]
 }
+
+test('keeps an initial row mounted through unrelated parent renders', async () => {
+	const user = userEvent.setup()
+	renderFields([{ name: '', amount: '', unit: '', notes: '' }])
+	const initialInput = screen.getByPlaceholderText('Ingredient name')
+
+	await user.click(screen.getByRole('button', { name: 'Rerender' }))
+
+	expect(screen.getByPlaceholderText('Ingredient name')).toBe(initialInput)
+})
+
+test('keeps an initially empty row expanded while its name is typed', async () => {
+	const user = userEvent.setup()
+	renderFields([{ name: '', amount: '', unit: '', notes: '' }])
+
+	await user.type(screen.getByPlaceholderText('Ingredient name'), 'spaghetti')
+
+	expect(screen.getByPlaceholderText('Ingredient name')).toHaveValue(
+		'spaghetti',
+	)
+	expect(screen.getByPlaceholderText('Amount')).toBeVisible()
+})
 
 test('convert to heading drops fields, converting back restores them', async () => {
 	const user = userEvent.setup()

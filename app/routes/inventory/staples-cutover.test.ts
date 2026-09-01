@@ -173,6 +173,31 @@ describe('Staples cutover', () => {
 		expect(after.archivedInventoryCount).toBe(1)
 	})
 
+	test('Recipe index completes Staples onboarding only after explicit cutover', async () => {
+		const session = await setupHousehold(['Archived rice'])
+		const cookie = await getSessionCookieHeader(session)
+		const loadRecipes = () =>
+			recipesLoader({
+				request: new Request(`${BASE_URL}/recipes`, { headers: { cookie } }),
+				...ROUTE_ARGS,
+				pattern: '/recipes',
+				url: new URL(`${BASE_URL}/recipes`),
+			})
+
+		const before = await loadRecipes()
+		expect(before.onboarding.hasStaples).toBe(false)
+		expect(before).not.toHaveProperty('hasInventory')
+
+		await postInventory(session, {
+			intent: 'confirm-staples-cutover',
+			items: '[]',
+		})
+
+		const after = await loadRecipes()
+		expect(after.onboarding.hasStaples).toBe(true)
+		expect(after).not.toHaveProperty('hasInventory')
+	})
+
 	test('Recipe discovery omits household availability metadata', async () => {
 		const session = await setupHousehold()
 		await prisma.recipe.create({
@@ -334,29 +359,11 @@ describe('Staples cutover', () => {
 			},
 		})
 		const cookie = await getSessionCookieHeader(session)
-		const recipesArgs = {
-			...ROUTE_ARGS,
-			pattern: '/recipes',
-			url: new URL(`${BASE_URL}/recipes`),
-		}
-		const before = await recipesLoader({
-			request: new Request(`${BASE_URL}/recipes`, { headers: { cookie } }),
-			...recipesArgs,
-		})
-		expect(before.hasInventory).toBe(true)
-		expect(before.recipes.map((item) => item.title)).toEqual(['Roast chicken'])
 
 		await postInventory(session, {
 			intent: 'confirm-staples-cutover',
 			items: '[]',
 		})
-
-		const after = await recipesLoader({
-			request: new Request(`${BASE_URL}/recipes`, { headers: { cookie } }),
-			...recipesArgs,
-		})
-		expect(after.hasInventory).toBe(false)
-		expect(after.recipes.map((item) => item.title)).toEqual(['Roast chicken'])
 
 		const shoppingResult = await recipeAction({
 			request: new Request(`${BASE_URL}/recipes/${recipe.id}`, {

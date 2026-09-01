@@ -49,9 +49,12 @@ function getSortKey() {
 
 function ensureSortKeys(
 	ingredients: IngredientFieldValue[],
+	fallbackPrefix: string,
 ): IngredientFieldValue[] {
-	return ingredients.map((ing) =>
-		ing.sortKey ? ing : { ...ing, sortKey: ing.id ?? getSortKey() },
+	return ingredients.map((ing, index) =>
+		ing.sortKey
+			? ing
+			: { ...ing, sortKey: ing.id ?? `${fallbackPrefix}-${index}` },
 	)
 }
 
@@ -70,9 +73,18 @@ export function IngredientFields({
 	onChange,
 	excludeRecipeId,
 }: IngredientFieldsProps) {
-	const ingredients = ensureSortKeys(rawIngredients)
 	const baseId = useId()
-	const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
+	// `useId` is stable across parent renders and hydration. A random fallback
+	// here would remount every initial row until its first edit persisted a key.
+	const ingredients = ensureSortKeys(rawIngredients, `${baseId}-ingredient`)
+	const [expandedKeys, setExpandedKeys] = useState<Set<string>>(
+		() =>
+			new Set(
+				ingredients
+					.filter((ingredient) => !ingredient.name)
+					.map((ingredient) => ingredient.sortKey!),
+			),
+	)
 	// Fields a heading can't carry, stashed on convert-to-heading so an
 	// accidental tap is reversible until the form is submitted
 	const stashedFieldsRef = useRef(

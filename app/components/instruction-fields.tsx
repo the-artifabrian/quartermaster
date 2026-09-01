@@ -38,9 +38,12 @@ function getSortKey() {
 
 function ensureSortKeys(
 	instructions: InstructionFieldValue[],
+	fallbackPrefix: string,
 ): InstructionFieldValue[] {
-	return instructions.map((ins) =>
-		ins.sortKey ? ins : { ...ins, sortKey: ins.id ?? getSortKey() },
+	return instructions.map((ins, index) =>
+		ins.sortKey
+			? ins
+			: { ...ins, sortKey: ins.id ?? `${fallbackPrefix}-${index}` },
 	)
 }
 
@@ -48,8 +51,9 @@ export function InstructionFields({
 	instructions: rawInstructions,
 	onChange,
 }: InstructionFieldsProps) {
-	const instructions = ensureSortKeys(rawInstructions)
 	const dndId = useId()
+	// Keep untouched initial rows mounted through unrelated form re-renders.
+	const instructions = ensureSortKeys(rawInstructions, `${dndId}-instruction`)
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, {

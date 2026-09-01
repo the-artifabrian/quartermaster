@@ -165,6 +165,7 @@ test('legacy Pantry generation is gone while AI import and provenance remain', a
 })
 
 test('Recipe search and filter', async ({ page, login }) => {
+	test.setTimeout(30_000)
 	const user = await login()
 
 	// Recipes are household-scoped, so DB-seeded recipes need a household
@@ -206,28 +207,62 @@ test('Recipe search and filter', async ({ page, login }) => {
 			},
 		},
 	})
+	await prisma.recipe.createMany({
+		data: [
+			{
+				title: 'Chicken Curry',
+				userId: user.id,
+				householdId: household.id,
+			},
+			{
+				title: 'Ciorbă',
+				userId: user.id,
+				householdId: household.id,
+			},
+		],
+	})
 
-	await page.goto('/recipes')
-	await expect(page.getByText('Spicy Thai Curry')).toBeVisible()
-	await expect(page.getByText('Simple Green Salad')).toBeVisible()
+	for (const viewport of [
+		{ width: 390, height: 844 },
+		{ width: 1280, height: 900 },
+	]) {
+		await page.setViewportSize(viewport)
+		await page.goto('/recipes')
+		await expect(page.getByText('Spicy Thai Curry')).toBeVisible()
+		await expect(page.getByText('Simple Green Salad')).toBeVisible()
 
-	// Search
-	await page.getByPlaceholder(/search/i).fill('curry')
-	// Wait for search to update (URL param based)
-	await page.waitForTimeout(500)
-	await expect(page.getByText('Spicy Thai Curry')).toBeVisible()
-	await expect(page.getByText('Simple Green Salad')).not.toBeVisible()
+		const search = page.getByPlaceholder('Search recipes...')
+		async function searchFor(value: string) {
+			await expect(async () => {
+				await search.fill(value)
+				await expect
+					.poll(() => new URL(page.url()).searchParams.get('search'), {
+						timeout: 1500,
+					})
+					.toBe(value || null)
+			}).toPass({ timeout: 10_000 })
+		}
 
-	// Multi-word search where the words aren't adjacent in the title
-	await page.getByPlaceholder(/search/i).fill('spicy curry')
-	await page.waitForTimeout(500)
-	await expect(page.getByText('Spicy Thai Curry')).toBeVisible()
-	await expect(page.getByText('Simple Green Salad')).not.toBeVisible()
+		await searchFor('curry')
+		await expect(page.getByText('Spicy Thai Curry')).toBeVisible()
+		await expect(page.getByText('Simple Green Salad')).not.toBeVisible()
 
-	// Clear search
-	await page.getByPlaceholder(/search/i).fill('')
-	await page.waitForTimeout(500)
-	await expect(page.getByText('Simple Green Salad')).toBeVisible()
+		// Existing non-adjacent title-word behavior remains intact.
+		await searchFor('spicy curry')
+		await expect(page.getByText('Spicy Thai Curry')).toBeVisible()
+		await expect(page.getByText('Simple Green Salad')).not.toBeVisible()
+
+		await searchFor('chikcen curry')
+		await expect(page.getByText('Chicken Curry')).toBeVisible()
+		await expect(page.getByText('Spicy Thai Curry')).not.toBeVisible()
+
+		await searchFor('ciorba')
+		await expect(page.getByText('Ciorbă')).toBeVisible()
+		await expect(page.getByText('Chicken Curry')).not.toBeVisible()
+
+		await searchFor('')
+		await expect(page.getByText('Simple Green Salad')).toBeVisible()
+	}
 })
 
 test('Recipe classification edits and filters fit phone and desktop layouts', async ({

@@ -1,6 +1,6 @@
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { recipeTitleSearchWhere } from '#app/utils/recipe-search.server.ts'
+import { rankRecipeTitleMatches } from '#app/utils/recipe-search.ts'
 import { type Route } from './+types/recipe-search.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -14,16 +14,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const exclude = url.searchParams.get('exclude') ?? undefined
 
-	const recipes = await prisma.recipe.findMany({
+	const candidates = await prisma.recipe.findMany({
 		where: {
 			householdId,
-			...recipeTitleSearchWhere(query),
 			...(exclude ? { id: { not: exclude } } : {}),
 		},
 		select: { id: true, title: true },
 		orderBy: { title: 'asc' },
-		take: 10,
 	})
+	const recipes = rankRecipeTitleMatches(candidates, query).slice(0, 10)
 
 	return { recipes }
 }

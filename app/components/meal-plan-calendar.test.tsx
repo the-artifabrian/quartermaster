@@ -166,6 +166,11 @@ test('mobile Add Meal opens the real picker inline for the selected day', async 
 	expect(within(composer).getByText(/Meal type/)).toHaveTextContent(
 		'Meal type (optional)',
 	)
+	await user.type(
+		within(composer).getByPlaceholderText('Search recipes...'),
+		'hreb salad',
+	)
+	expect(within(composer).queryByText('Banana Bread')).not.toBeInTheDocument()
 	await user.click(within(composer).getByRole('button', { name: /Herb Salad/ }))
 
 	await waitFor(() => expect(submittedDate).toBe('2026-04-08'))

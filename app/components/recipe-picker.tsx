@@ -11,6 +11,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from '#app/components/ui/popover.tsx'
+import { rankRecipeTitleMatches } from '#app/utils/recipe-search.ts'
 import { useModal } from '#app/utils/use-modal.ts'
 
 export type RecipePickerRecipe = {
@@ -150,13 +151,16 @@ function PickerList({
 	const [search, setSearch] = useState('')
 
 	const available = recipes.filter((r) => !excludeRecipeIds.includes(r.id))
-	const filtered = available.filter((r) =>
-		r.title.toLowerCase().includes(search.toLowerCase()),
-	)
+	const filtered = rankRecipeTitleMatches(available, search)
+	const isSearching = search.trim().length > 0
 
 	// Same grouping language as the Plan selector: favorites first, then the rest
-	const favorites = filtered.filter((r) => r.isFavorite)
-	const rest = filtered.filter((r) => !r.isFavorite)
+	const favorites = isSearching
+		? []
+		: filtered.filter((recipe) => recipe.isFavorite)
+	const rest = isSearching
+		? filtered
+		: filtered.filter((recipe) => !recipe.isFavorite)
 	const hasBothGroups = favorites.length > 0 && rest.length > 0
 
 	let emptyMessage: string | null = null

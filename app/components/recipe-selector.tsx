@@ -6,6 +6,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
+import { rankRecipeTitleMatches } from '#app/utils/recipe-search.ts'
 
 export type RecipeSelectorRecipe = {
 	id: string
@@ -88,9 +89,11 @@ export function RecipeSelector({
 }: RecipeSelectorProps) {
 	const [search, setSearch] = useState('')
 
-	const filteredRecipes = recipes
-		.filter((r) => !excludeRecipeIds.includes(r.id))
-		.filter((r) => r.title.toLowerCase().includes(search.toLowerCase()))
+	const filteredRecipes = rankRecipeTitleMatches(
+		recipes.filter((recipe) => !excludeRecipeIds.includes(recipe.id)),
+		search,
+	)
+	const isSearching = search.trim().length > 0
 
 	// Mon=1..Thu=4 are weeknights — sort by total time
 	const isWeeknight = date.getUTCDay() >= 1 && date.getUTCDay() <= 4
@@ -98,8 +101,12 @@ export function RecipeSelector({
 		isWeeknight ? [...list].sort(sortByTime) : list
 
 	// Partition into favorites first, then the rest
-	const favorites = applySorting(filteredRecipes.filter((r) => r.isFavorite))
-	const rest = applySorting(filteredRecipes.filter((r) => !r.isFavorite))
+	const favorites = isSearching
+		? []
+		: applySorting(filteredRecipes.filter((recipe) => recipe.isFavorite))
+	const rest = isSearching
+		? filteredRecipes
+		: applySorting(filteredRecipes.filter((recipe) => !recipe.isFavorite))
 	const hasBothGroups = favorites.length > 0 && rest.length > 0
 
 	return (

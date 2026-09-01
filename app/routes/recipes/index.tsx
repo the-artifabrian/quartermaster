@@ -23,10 +23,8 @@ import {
 	recipeMetadataNameKey,
 	type RecipeMetadataDimension,
 } from '#app/utils/recipe-metadata.ts'
-import {
-	recipeMetadataFilterWhere,
-	recipeSearchWhere,
-} from '#app/utils/recipe-search.server.ts'
+import { recipeMetadataFilterWhere } from '#app/utils/recipe-search.server.ts'
+import { rankRecipeSearchMatches } from '#app/utils/recipe-search.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
 
@@ -137,40 +135,51 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}),
 	) as Record<RecipeMetadataDimension, string[]>
 
-	const recipes = await prisma.recipe.findMany({
-		where: {
-			householdId,
-			...(favoritesOnly && { isFavorite: true }),
-			AND: [
-				...(search ? [recipeSearchWhere(search)] : []),
-				recipeMetadataFilterWhere(metadataFilters),
-			],
-		},
-		select: {
-			id: true,
-			title: true,
-			description: true,
-			totalTime: true,
-			isFavorite: true,
-			isAiGenerated: true,
-			image: { select: { objectKey: true } },
-			_count: {
-				select: {
-					ingredients: true,
-					instructions: true,
-				},
+	const recipeWhere = {
+		householdId,
+		...(favoritesOnly && { isFavorite: true }),
+		AND: [recipeMetadataFilterWhere(metadataFilters)],
+	}
+	const recipeSelect = {
+		id: true,
+		title: true,
+		description: true,
+		totalTime: true,
+		isFavorite: true,
+		isAiGenerated: true,
+		image: { select: { objectKey: true } },
+		_count: {
+			select: {
+				ingredients: true,
+				instructions: true,
 			},
 		},
-		orderBy,
-	})
+	} as const
+	const rankedRecipes = search
+		? rankRecipeSearchMatches(
+				await prisma.recipe.findMany({
+					where: recipeWhere,
+					select: {
+						...recipeSelect,
+						ingredients: { select: { name: true } },
+					},
+					orderBy,
+				}),
+				search,
+			).map(({ ingredients: _ingredients, ...recipe }) => recipe)
+		: await prisma.recipe.findMany({
+				where: recipeWhere,
+				select: recipeSelect,
+				orderBy,
+			})
 
 	// Recipes with unknown Total are included since unknown does not mean slow.
 	let filteredRecipes = maxTime
-		? recipes.filter((r) => {
+		? rankedRecipes.filter((r) => {
 				if (r.totalTime == null) return true
 				return r.totalTime <= maxTime
 			})
-		: recipes
+		: rankedRecipes
 
 	// Quality flags computed from main query data (no extra query needed)
 	if (quality === 'flagged') {

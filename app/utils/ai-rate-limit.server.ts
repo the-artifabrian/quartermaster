@@ -1,25 +1,6 @@
 import { prisma } from './db.server.ts'
 
 /**
- * Check remaining AI usage for a user (read-only).
- * Used in loaders to display remaining count in the UI.
- */
-export async function getAiUsageRemaining(
-	userId: string,
-	type: string,
-	limit: number,
-): Promise<number> {
-	const startOfDay = new Date()
-	startOfDay.setHours(0, 0, 0, 0)
-
-	const count = await prisma.usageEvent.count({
-		where: { userId, type, createdAt: { gte: startOfDay } },
-	})
-
-	return Math.max(0, limit - count)
-}
-
-/**
  * Check rate limit and record usage if allowed.
  *
  * Returns { allowed, remaining }.

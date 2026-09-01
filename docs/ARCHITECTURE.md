@@ -13,7 +13,7 @@ Browser / PWA
 Express → React Router loaders and actions
     ├── Prisma → SQLite → LiteFS
     ├── object storage for Recipe images
-    ├── Anthropic for optional Recipe AI
+    ├── Anthropic for optional Recipe extraction and enhancement
     ├── Groq Whisper for optional speech input
     ├── Stripe for subscriptions
     └── SSE for household refresh events
@@ -143,8 +143,10 @@ document editing.
 ## AI
 
 AI calls go through a small schema-validated Anthropic JSON boundary. Prompts
-and Zod schemas remain feature-local. Provider errors normalize to safe UI
-errors, and writes happen only in explicit application actions.
+and Zod schemas remain feature-local. Text and image Recipe extraction returns a
+preview that is saved only after an explicit action. Recipe enhancement returns
+a suggested description that the user chooses whether to apply. Provider errors
+normalize to safe UI errors.
 
 The manual Recipe, Plan, and Shopping flows do not require API keys. AI quantity
 planning was removed after real-use feedback; Recipe import remains the proven
@@ -168,4 +170,4 @@ Migration tests execute shipped SQL when data conversion itself is the risk.
 Full Playwright is not a CI release gate. Browser checks and simulations are
 implementation evidence, not substitutes for normal use.
 
-_Updated 28 August 2026._
+_Updated 1 September 2026._

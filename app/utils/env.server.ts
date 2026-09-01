@@ -39,7 +39,7 @@ const schema = z.object({
 
 	ALLOW_INDEXING: z.enum(['true', 'false']).optional(),
 
-	// Anthropic API (optional — used for AI recipe features)
+	// Anthropic API (optional — used for AI Recipe import and enhancement)
 	ANTHROPIC_API_KEY: z.string().optional(),
 
 	// Groq API (optional — used for Whisper speech-to-text)

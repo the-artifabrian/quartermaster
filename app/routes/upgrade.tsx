@@ -150,7 +150,7 @@ const freeFeatures = [
 const proFeatures = [
 	'Everything in Free, plus:',
 	'Real-time shopping list sync',
-	'AI recipe generation',
+	'AI Recipe import and enhancement',
 ]
 
 export default function UpgradePage({ loaderData }: Route.ComponentProps) {

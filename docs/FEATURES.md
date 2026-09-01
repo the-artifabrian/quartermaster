@@ -74,7 +74,7 @@ plan into Shopping.
 ### AI and voice
 
 - Extract Recipes from text and images with Anthropic models.
-- Generate or improve a Recipe when explicitly requested.
+- Suggest a Recipe description improvement for explicit review.
 - Transcribe voice with Groq Whisper and parse short spoken inputs.
 - Rate limits, schema validation, and manual fallback keep these features
   optional. The app works without API keys.
@@ -92,4 +92,4 @@ plan into Shopping.
 Product terms live in [CONTEXT.md](../CONTEXT.md). Current and proposed work
 lives in [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) and roadmap #98.
 
-_Updated 28 August 2026._
+_Updated 1 September 2026._

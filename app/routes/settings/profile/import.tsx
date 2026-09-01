@@ -86,6 +86,8 @@ const ImportRecipeSchema = z
 		yieldAmount: z.number().positive().nullable().optional(),
 		yieldLabel: z.string().trim().min(1).max(100).nullable().optional(),
 		isFavorite: z.boolean().optional(),
+		// Optional so exports from before #173 remain importable.
+		isAiGenerated: z.boolean().optional(),
 		sourceUrl: z.string().max(2000).nullable().optional(),
 		notes: z.string().max(5000).nullable().optional(),
 		metadataValues: z.array(ImportRecipeMetadataValueSchema).max(60).optional(),
@@ -478,6 +480,7 @@ async function importRecipes(
 						yieldAmount: recipe.yieldAmount ?? undefined,
 						yieldLabel: recipe.yieldLabel ?? undefined,
 						isFavorite: recipe.isFavorite ?? false,
+						isAiGenerated: recipe.isAiGenerated ?? false,
 						sourceUrl: recipe.sourceUrl || null,
 						notes: recipe.notes || null,
 						userId,

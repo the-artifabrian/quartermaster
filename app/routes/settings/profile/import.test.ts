@@ -316,6 +316,7 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 180,
 				yieldAmount: 2.5,
 				yieldLabel: 'large braided loaves for a celebration table',
+				isAiGenerated: true,
 				userId: source.userId,
 				householdId: source.householdId,
 				ingredients: { create: { name: 'flour', order: 0 } },
@@ -333,6 +334,7 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 180,
 				yieldAmount: 2.5,
 				yieldLabel: 'large braided loaves for a celebration table',
+				isAiGenerated: true,
 			}),
 		)
 
@@ -346,6 +348,7 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 180,
 				yieldAmount: 2.5,
 				yieldLabel: 'large braided loaves for a celebration table',
+				isAiGenerated: true,
 			}),
 		)
 	})
@@ -376,6 +379,7 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 30,
 				yieldAmount: null,
 				yieldLabel: null,
+				isAiGenerated: false,
 			}),
 		)
 		expect(recipe).not.toHaveProperty('servings')
@@ -392,6 +396,7 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 75,
 				yieldAmount: 3.5,
 				yieldLabel: 'small jars',
+				isAiGenerated: true,
 				userId: source.userId,
 				householdId: source.householdId,
 				ingredients: { create: { name: 'tomatoes', order: 0 } },
@@ -407,6 +412,7 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 75,
 				yieldAmount: 3.5,
 				yieldLabel: 'small jars',
+				isAiGenerated: true,
 			}),
 		)
 
@@ -420,6 +426,7 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 75,
 				yieldAmount: 3.5,
 				yieldLabel: 'small jars',
+				isAiGenerated: true,
 			}),
 		)
 	})

@@ -23,6 +23,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					yieldAmount: true,
 					yieldLabel: true,
 					isFavorite: true,
+					isAiGenerated: true,
 					sourceUrl: true,
 					notes: true,
 					ingredients: {
@@ -230,6 +231,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			yieldAmount: recipe.yieldAmount,
 			yieldLabel: recipe.yieldLabel,
 			isFavorite: recipe.isFavorite,
+			isAiGenerated: recipe.isAiGenerated,
 			sourceUrl: recipe.sourceUrl,
 			notes: recipe.notes,
 			metadataValues: recipe.metadataAssignments.map(

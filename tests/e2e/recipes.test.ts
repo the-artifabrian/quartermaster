@@ -30,7 +30,7 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 
 	// Fill ingredient (first row)
 	await page.getByPlaceholder('Ingredient name').fill('spaghetti')
-	await page.getByPlaceholder('Amt').fill('1')
+	await page.getByPlaceholder('Amount').fill('1')
 	await page.getByPlaceholder('Unit').fill('lb')
 
 	// Fill instruction (first row)
@@ -79,6 +79,89 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 	// Should redirect to recipes list
 	await expect(page).toHaveURL(/\/recipes/)
 	await expect(page.getByText('E2E Updated Pasta')).not.toBeVisible()
+})
+
+test('legacy Pantry generation is gone while AI import and provenance remain', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.subscription.create({
+		data: { userId: user.id, tier: 'pro' },
+	})
+	const household = await prisma.household.create({
+		data: {
+			name: 'Generator removal household',
+			members: { create: { userId: user.id, role: 'owner' } },
+			inventoryItems: {
+				create: { name: 'archived chickpeas', userId: user.id },
+			},
+		},
+	})
+
+	await page.setViewportSize({ width: 1280, height: 800 })
+	await page.goto('/recipes')
+	await expect(page.getByRole('link', { name: /Generate Recipe/ })).toHaveCount(
+		0,
+	)
+	await expect(page.getByText('Generate from Pantry')).toHaveCount(0)
+	const openNewRecipeMenu = async () => {
+		const importItem = page.getByRole('menuitem', { name: 'Import' })
+		await expect(async () => {
+			if (!(await importItem.isVisible())) {
+				await page.getByRole('button', { name: 'New Recipe' }).click()
+			}
+			await expect(importItem).toBeVisible({ timeout: 2000 })
+		}).toPass({ timeout: 10_000 })
+	}
+
+	await openNewRecipeMenu()
+	await expect(
+		page.getByRole('menuitem', { name: /Generate Recipe/ }),
+	).toHaveCount(0)
+	await page.keyboard.press('Escape')
+
+	await prisma.recipe.create({
+		data: {
+			title: 'Historical AI Recipe',
+			isAiGenerated: true,
+			userId: user.id,
+			householdId: household.id,
+		},
+	})
+	await page.reload()
+	const historicalCard = page.getByRole('link', {
+		name: /Historical AI Recipe/,
+	})
+	await expect(historicalCard).toBeVisible()
+	await expect(
+		historicalCard.getByRole('img', { name: 'AI Generated' }),
+	).toBeVisible()
+
+	await page.setViewportSize({ width: 390, height: 844 })
+	await page.goto('/recipes')
+	await openNewRecipeMenu()
+	await expect(
+		page.getByRole('menuitem', { name: /Generate Recipe/ }),
+	).toHaveCount(0)
+
+	await page.goto('/recipes/import')
+	await expect(
+		page.getByRole('heading', { name: 'Import Recipe' }),
+	).toBeVisible()
+	await page.getByRole('button', { name: 'From Text' }).click()
+	await expect(page.getByLabel('Recipe text')).toBeVisible()
+	await expect(
+		page.getByRole('button', { name: 'Extract with AI' }),
+	).toBeVisible()
+	await page.getByRole('button', { name: 'From Image' }).click()
+	await expect(page.getByLabel('Upload screenshots (up to 5)')).toBeVisible()
+	await expect(
+		page.getByRole('button', { name: 'Extract with AI' }),
+	).toBeVisible()
+
+	const removedRoute = await page.goto('/recipes/generate')
+	expect(removedRoute?.status()).toBe(404)
 })
 
 test('Recipe search and filter', async ({ page, login }) => {

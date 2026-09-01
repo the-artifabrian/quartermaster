@@ -82,7 +82,6 @@ describe('isCacheablePage', () => {
 		['/recipes/new', false],
 		['/recipes/new.data', false],
 		['/recipes/import', false],
-		['/recipes/generate', false],
 		['/recipes/quick', false],
 		['/recipes/bulk-import', false],
 		// edit and deeper sub-paths are not the cacheable detail page

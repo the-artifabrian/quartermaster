@@ -59,8 +59,10 @@ Current product rules:
    partial totals but only 12/22 required-line coverage for the Levantine Menu.
    #133–#136 are deferred; revisit only with reliable regional prices and
    durable ingredient identity, or repeated real demand that earns the upkeep.
-3. **Preparation (#137–#141).** Start with one transient editable checklist for
-   a real hosted Meal. Add persistence only if it beats a handwritten list.
+3. **Preparation (#137–#141).** The transient checklist experiment repeated
+   Recipe steps without producing trustworthy timing or useful coordination. It
+   did not justify its complexity and was removed. Do not pursue persistence or
+   timer follow-ups without new evidence that the workflow beats handwriting.
 4. **Final copy sweep (#142).** Align public and in-app copy with whatever
    actually shipped.
 
@@ -82,4 +84,4 @@ Normal use can still lead to later fixes, cuts, or deferrals.
 Operational restore steps live in [RESTORE.md](./RESTORE.md). Product terms live
 in [CONTEXT.md](../CONTEXT.md).
 
-_Updated 31 August 2026._
+_Updated 1 September 2026._

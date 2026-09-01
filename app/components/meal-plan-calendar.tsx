@@ -1,10 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useFetcher } from 'react-router'
 import {
 	MEAL_TYPES,
 	MEAL_TYPE_LABELS,
 	type MealType,
-	formatDayLabel,
 	formatMonthDay,
 	formatWeekdayName,
 	isPast,
@@ -27,31 +26,26 @@ type MealPlanCalendarProps = {
 	recipes: RecipeSelectorRecipe[]
 }
 
-/**
- * Reorder days for mobile: today first, then future days, then past days.
- * This keeps today always at the top so you don't have to scroll past
- * Mon–Thu to reach Friday.
- */
-function mobileDayOrder(weekDays: Date[]): Date[] {
-	const todayIdx = weekDays.findIndex(isToday)
-	if (todayIdx === -1) return weekDays // not current week, keep chronological
-	return [
-		...weekDays.slice(todayIdx), // today → end of week
-		...weekDays.slice(0, todayIdx), // start of week → yesterday
-	]
+type AddMealPresentation = 'primary' | 'row' | 'empty-row'
+
+function initialSelectedDate(weekDays: Date[], meals: PlanMeal[]): string {
+	const today = weekDays.find(isToday)
+	if (today) return serializeDate(today)
+	return meals[0]?.dateStr ?? serializeDate(weekDays[0]!)
 }
 
 /**
- * The add affordance under each day: one quiet row that expands into the
- * Recipe picker — the same two taps as the old empty slot — with optional
- * label chips and a text-Meal mode for plans like "Leftovers".
+ * One add flow with two launch points: a primary action in the focused mobile
+ * day, and a quiet row inside each desktop agenda day.
  */
-function AddMealRow({
+function AddMealControl({
 	date,
 	recipes,
+	presentation,
 }: {
 	date: Date
 	recipes: RecipeSelectorRecipe[]
+	presentation: AddMealPresentation
 }) {
 	const fetcher = useFetcher()
 	const [open, setOpen] = useState(false)
@@ -93,26 +87,14 @@ function AddMealRow({
 		close()
 	}
 
-	if (!open) {
-		return (
-			<button
-				type="button"
-				onClick={() => setOpen(true)}
-				className="text-muted-foreground hover:text-foreground flex min-h-9 w-full items-center gap-1.5 rounded-md py-1.5 text-[13px] transition-colors"
-			>
-				<Icon name="plus" className="size-3.5" />
-				Add meal
-			</button>
-		)
-	}
-
-	return (
-		<div className="relative">
-			{/* In flow on phones (an overlay would cover the next day's cards);
-			    floated on desktop so the 4+3 day grid doesn't reflow while open. */}
-			<div className="bg-card animate-fade-up-reveal shadow-warm-lg rounded-lg border p-3 md:absolute md:top-0 md:right-0 md:left-0 md:z-20 md:min-w-[280px]">
-				{/* Optional familiar label — a Meal without one stays unlabeled (#98) */}
-				<div className="mb-2 flex flex-wrap gap-1">
+	const dateLabel = `${formatWeekdayName(date)}, ${formatMonthDay(date)}`
+	const fields = (
+		<>
+			<fieldset className="mb-3">
+				<legend className="text-muted-foreground mb-1.5 text-[11px] font-semibold tracking-wide uppercase">
+					Meal type <span className="font-normal normal-case">(optional)</span>
+				</legend>
+				<div className="flex flex-wrap gap-1">
 					{MEAL_TYPES.map((type) => (
 						<button
 							key={type}
@@ -120,7 +102,7 @@ function AddMealRow({
 							onClick={() => setLabel(label === type ? null : type)}
 							aria-pressed={label === type}
 							className={cn(
-								'rounded-full border px-2 py-1 text-[11px] font-medium transition-colors',
+								'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
 								label === type
 									? 'border-primary bg-primary text-primary-foreground'
 									: 'border-border text-muted-foreground hover:text-foreground',
@@ -130,90 +112,163 @@ function AddMealRow({
 						</button>
 					))}
 				</div>
+			</fieldset>
 
-				{mode === 'recipe' ? (
-					<>
-						<RecipeSelector
-							recipes={recipes}
-							date={date}
-							onCancel={close}
-							onPick={submitRecipe}
+			{mode === 'recipe' ? (
+				<>
+					<RecipeSelector
+						recipes={recipes}
+						date={date}
+						onCancel={close}
+						onPick={submitRecipe}
+					/>
+					<button
+						type="button"
+						onClick={() => setMode('text')}
+						className="text-muted-foreground hover:text-foreground mt-3 text-xs underline-offset-2 hover:underline"
+					>
+						Add text instead (for example, Leftovers)
+					</button>
+				</>
+			) : (
+				<div className="space-y-3">
+					<div className="flex items-center gap-2">
+						<Input
+							autoFocus
+							value={text}
+							onChange={(event) => setText(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === 'Enter') submitText()
+								if (event.key === 'Escape') close()
+							}}
+							placeholder="Leftovers, takeout, dinner out..."
+							maxLength={200}
+							aria-label="Meal text"
 						/>
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={close}
+							aria-label="Close add Meal"
+						>
+							<Icon name="cross-1" size="sm" />
+						</Button>
+					</div>
+					<div className="flex items-center justify-between gap-3">
 						<button
 							type="button"
-							onClick={() => setMode('text')}
-							className="text-muted-foreground hover:text-foreground mt-2 text-xs underline-offset-2 hover:underline"
+							onClick={() => setMode('recipe')}
+							className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
 						>
-							Add text instead (e.g. Leftovers)
+							Pick a Recipe instead
 						</button>
-					</>
-				) : (
-					<div className="space-y-2">
-						<div className="flex items-center gap-2">
-							<Input
-								autoFocus
-								value={text}
-								onChange={(e) => setText(e.target.value)}
-								onKeyDown={(e) => {
-									if (e.key === 'Enter') submitText()
-									if (e.key === 'Escape') close()
-								}}
-								placeholder="Leftovers, takeout, dinner out..."
-								maxLength={200}
-								aria-label="Meal text"
-							/>
-							<Button
-								variant="ghost"
-								size="icon"
-								onClick={close}
-								aria-label="Close add meal"
-							>
-								<Icon name="cross-1" size="sm" />
-							</Button>
-						</div>
-						<div className="flex items-center justify-between">
-							<button
-								type="button"
-								onClick={() => setMode('recipe')}
-								className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
-							>
-								Pick a recipe instead
-							</button>
-							<Button size="sm" onClick={submitText} disabled={!text.trim()}>
-								Add
-							</Button>
-						</div>
+						<Button size="sm" onClick={submitText} disabled={!text.trim()}>
+							Add
+						</Button>
 					</div>
-				)}
-			</div>
-		</div>
+				</div>
+			)}
+		</>
+	)
+
+	if (presentation === 'primary') {
+		if (!open) {
+			return (
+				<Button
+					type="button"
+					onClick={() => setOpen(true)}
+					aria-label={`Add Meal to ${dateLabel}`}
+				>
+					<Icon name="plus" size="sm" />
+					Add Meal
+				</Button>
+			)
+		}
+
+		return (
+			<section
+				aria-label={`Add Meal for ${dateLabel}`}
+				className="border-border bg-muted/40 animate-fade-up-reveal w-full basis-full rounded-lg border p-3 sm:p-4"
+			>
+				<div className="mb-3">
+					<p className="text-primary text-xs font-semibold tracking-wider uppercase">
+						Add a Meal
+					</p>
+					<p className="text-muted-foreground mt-0.5 text-xs">
+						{formatWeekdayName(date)} · {formatMonthDay(date)}
+					</p>
+				</div>
+				{fields}
+			</section>
+		)
+	}
+
+	if (presentation === 'empty-row' && !open) {
+		return (
+			<button
+				type="button"
+				onClick={() => setOpen(true)}
+				aria-label={`Add Meal to ${dateLabel}`}
+				className="group flex min-h-12 w-full items-center gap-3 text-left text-sm transition-colors"
+			>
+				<span className="text-muted-foreground group-hover:text-foreground">
+					Nothing planned
+				</span>
+				<span className="text-primary group-hover:text-primary/75 inline-flex items-center gap-1 text-xs font-semibold">
+					<Icon name="plus" className="size-3" />
+					Add Meal
+				</span>
+			</button>
+		)
+	}
+
+	if (!open) {
+		return (
+			<button
+				type="button"
+				onClick={() => setOpen(true)}
+				aria-label={`Add Meal to ${dateLabel}`}
+				className="text-primary hover:text-primary/75 flex min-h-9 items-center gap-1 text-xs font-semibold transition-colors"
+			>
+				<Icon name="plus" className="size-3" />
+				Add Meal
+			</button>
+		)
+	}
+
+	return (
+		<section
+			aria-label={`Add Meal for ${dateLabel}`}
+			className="border-border bg-muted/40 animate-fade-up-reveal my-2 rounded-lg border p-3"
+		>
+			{fields}
+		</section>
 	)
 }
 
-/** One day: its compact ordered Meal list plus the add row. */
-function DayMeals({
-	date,
+function MealCards({
 	meals,
 	recipes,
 }: {
-	date: Date
 	meals: PlanMeal[]
 	recipes: RecipeSelectorRecipe[]
 }) {
-	return (
-		<div className="space-y-1.5">
-			{meals.map((meal, index) => (
-				<MealCard
-					key={meal.id}
-					meal={meal}
-					recipes={recipes}
-					canMoveUp={index > 0}
-					canMoveDown={index < meals.length - 1}
-				/>
-			))}
-			<AddMealRow date={date} recipes={recipes} />
+	return meals.map((meal, index) => (
+		<div
+			key={meal.id}
+			data-slot="meal-group"
+			className={cn(
+				index > 0 && 'md:border-border md:mt-2 md:border-t md:pt-2',
+			)}
+		>
+			<MealCard
+				meal={meal}
+				recipes={recipes}
+				canMoveUp={index > 0}
+				canMoveDown={index < meals.length - 1}
+			/>
 		</div>
-	)
+	))
 }
 
 export function MealPlanCalendar({
@@ -221,100 +276,182 @@ export function MealPlanCalendar({
 	meals,
 	recipes,
 }: MealPlanCalendarProps) {
-	// Meals arrive ordered (date, order); group them per day. Days render only
-	// actual Meals — no permanent empty slots (#105).
+	const [selectedDate, setSelectedDate] = useState(() =>
+		initialSelectedDate(weekDays, meals),
+	)
+
+	useEffect(() => {
+		if (!weekDays.some((date) => serializeDate(date) === selectedDate)) {
+			setSelectedDate(initialSelectedDate(weekDays, meals))
+		}
+	}, [weekDays, meals, selectedDate])
+
 	const mealsByDay = new Map<string, PlanMeal[]>()
 	for (const meal of meals) {
-		const existing = mealsByDay.get(meal.dateStr) || []
+		const existing = mealsByDay.get(meal.dateStr) ?? []
 		existing.push(meal)
 		mealsByDay.set(meal.dateStr, existing)
 	}
 
-	const mobileDays = mobileDayOrder(weekDays)
-	// Index in mobileDays where the demoted past days begin (C1): today-first
-	// reordering moves Mon…yesterday to the end, and a small-caps seam marks
-	// where the week wraps so the shape stays scannable.
-	const todayIdx = weekDays.findIndex(isToday)
-	const earlierStartIdx = todayIdx > 0 ? mobileDays.length - todayIdx : -1
+	const selectedDay =
+		weekDays.find((date) => serializeDate(date) === selectedDate) ??
+		weekDays[0]!
+	const selectedMeals = mealsByDay.get(selectedDate) ?? []
 
 	return (
 		<>
-			{/* Desktop: 4+3 two-row layout */}
-			<div className="hidden flex-wrap gap-2 md:flex">
-				{weekDays.map((date) => {
-					const today = isToday(date)
-					const dayMeals = mealsByDay.get(serializeDate(date)) || []
-					return (
-						<div
-							key={serializeDate(date)}
-							className={cn(
-								'border-t-[3px] p-2.5',
-								'basis-[calc(25%-6px)]',
-								today ? 'border-accent' : 'border-border/40',
-							)}
-						>
-							<div className="mb-2 text-center">
-								{/* The copper top-border marks today; the day name stays ink
-								    (copper text at this size fails AA in light mode) */}
-								<span
-									className={cn(
-										'font-serif text-sm',
-										today ? 'text-foreground' : 'text-muted-foreground',
-									)}
-								>
-									{formatDayLabel(date)}
+			{/* Mobile: pick a day, then work with only that day's Meals. */}
+			<div data-testid="mobile-plan" className="md:hidden">
+				<div
+					data-slot="mobile-week-days"
+					className="grid grid-cols-7 gap-1 py-1"
+				>
+					{weekDays.map((date) => {
+						const dateStr = serializeDate(date)
+						const selected = dateStr === selectedDate
+						const today = isToday(date)
+						const mealCount = mealsByDay.get(dateStr)?.length ?? 0
+						return (
+							<button
+								key={dateStr}
+								type="button"
+								onClick={() => setSelectedDate(dateStr)}
+								aria-pressed={selected}
+								aria-current={today ? 'date' : undefined}
+								aria-label={`Show ${today ? 'Today' : formatWeekdayName(date)}, ${formatMonthDay(date)}, ${mealCount === 0 ? 'no Meals planned' : `${mealCount} ${mealCount === 1 ? 'Meal' : 'Meals'} planned`}`}
+								className={cn(
+									'relative flex min-h-16 min-w-0 flex-col items-center justify-center rounded-xl border px-0.5 transition-all',
+									selected
+										? 'border-primary bg-primary text-primary-foreground ring-primary/20 ring-2'
+										: today
+											? 'border-accent bg-accent/10 text-foreground'
+											: 'border-border bg-card hover:border-primary/40 hover:bg-secondary/50',
+									!selected &&
+										!today &&
+										isPast(date) &&
+										'text-muted-foreground/65',
+								)}
+							>
+								{today ? (
+									<span
+										aria-hidden="true"
+										className="bg-accent absolute top-1.5 h-0.5 w-4 rounded-full"
+									/>
+								) : null}
+								<span className="text-[9px] font-semibold tracking-wide uppercase">
+									{today ? 'Today' : formatWeekdayName(date).slice(0, 3)}
 								</span>
-							</div>
-							<DayMeals date={date} meals={dayMeals} recipes={recipes} />
+								<span className="mt-0.5 font-serif text-lg">
+									{date.getUTCDate()}
+								</span>
+								{mealCount > 0 ? (
+									<span
+										aria-hidden="true"
+										className={cn(
+											'absolute right-1.5 bottom-1.5 size-1.5 rounded-full',
+											selected ? 'bg-primary-foreground' : 'bg-primary',
+										)}
+									/>
+								) : null}
+							</button>
+						)
+					})}
+				</div>
+
+				<div className="mt-7 flex flex-wrap items-end justify-between gap-4">
+					<div>
+						<p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+							{isToday(selectedDay) ? 'Today' : formatWeekdayName(selectedDay)}
+						</p>
+						<h2 className="mt-0.5 font-serif text-2xl">
+							{formatMonthDay(selectedDay)}
+						</h2>
+					</div>
+					<AddMealControl
+						key={selectedDate}
+						date={selectedDay}
+						recipes={recipes}
+						presentation="primary"
+					/>
+				</div>
+
+				<div className="mt-4 space-y-3">
+					{selectedMeals.length > 0 ? (
+						<MealCards meals={selectedMeals} recipes={recipes} />
+					) : (
+						<div className="border-border/60 flex min-h-36 flex-col items-center justify-center rounded-2xl border border-dashed px-6 text-center">
+							<span className="bg-secondary text-muted-foreground flex size-10 items-center justify-center rounded-full">
+								<Icon name="calendar" size="sm" />
+							</span>
+							<p className="mt-3 font-serif text-lg">Nothing planned</p>
+							<p className="text-muted-foreground mt-1 text-sm">
+								Add a Recipe or a simple note when this day needs one.
+							</p>
 						</div>
-					)
-				})}
+					)}
+				</div>
 			</div>
 
-			{/* Mobile: vertical day stack, today first */}
-			<div className="divide-border/40 divide-y md:hidden">
-				{mobileDays.map((date, i) => {
-					const dayMeals = mealsByDay.get(serializeDate(date)) || []
-					const today = isToday(date)
+			{/* Desktop: the whole week as one compact chronological agenda. */}
+			<div
+				data-testid="desktop-plan"
+				className="border-border bg-card hidden rounded-2xl border md:block"
+			>
+				{weekDays.map((date) => {
+					const dateStr = serializeDate(date)
+					const dayMeals = mealsByDay.get(dateStr) ?? []
 					return (
-						<div
-							key={serializeDate(date)}
-							className="py-4 first:pt-0 last:pb-0"
-						>
-							{i === earlierStartIdx && (
-								<p className="text-muted-foreground/70 mb-3 text-[11px] font-semibold tracking-wider uppercase">
-									Earlier this week
-								</p>
+						<section
+							key={dateStr}
+							className={cn(
+								'border-border/80 grid grid-cols-[7.5rem_1fr] border-b last:border-b-0',
+								isToday(date) &&
+									"bg-accent/8 before:bg-accent relative before:absolute before:inset-y-0 before:left-0 before:w-1 before:content-['']",
 							)}
-							<div className="mb-2 flex items-baseline justify-between">
-								<span className="flex items-baseline gap-2">
-									{/* Copper dot marks "now"; the day name stays ink */}
-									{today && (
-										<span
-											aria-hidden="true"
-											className="bg-accent size-1.5 shrink-0 self-center rounded-full"
-										/>
+						>
+							<div
+								className={cn(
+									'border-border/80 bg-background/35 border-r px-5',
+									dayMeals.length > 0 ? 'py-4' : 'py-3',
+									isToday(date) && 'border-accent/40 bg-accent/12',
+								)}
+							>
+								<p
+									className={cn(
+										'text-muted-foreground text-[10px] font-semibold tracking-wider uppercase',
+										isToday(date) && 'text-copper-text',
 									)}
-									<span
-										className={cn(
-											'font-serif text-lg leading-none',
-											!today && isPast(date) && 'text-muted-foreground/70',
-										)}
-									>
-										{today ? 'Today' : formatWeekdayName(date)}
-									</span>
-									<span className="text-muted-foreground text-xs">
-										{formatMonthDay(date)}
-									</span>
-								</span>
-								{dayMeals.length > 0 && (
-									<span className="text-muted-foreground text-xs">
-										{dayMeals.length} meal{dayMeals.length !== 1 ? 's' : ''}
-									</span>
+								>
+									{isToday(date) ? 'Today' : formatWeekdayName(date)}
+								</p>
+								<p className="mt-0.5 font-serif text-lg">{date.getUTCDate()}</p>
+							</div>
+							<div
+								className={cn(
+									'min-w-0 px-5',
+									dayMeals.length > 0 ? 'py-2' : 'py-1',
+								)}
+							>
+								{dayMeals.length > 0 ? (
+									<>
+										<div>
+											<MealCards meals={dayMeals} recipes={recipes} />
+										</div>
+										<AddMealControl
+											date={date}
+											recipes={recipes}
+											presentation="row"
+										/>
+									</>
+								) : (
+									<AddMealControl
+										date={date}
+										recipes={recipes}
+										presentation="empty-row"
+									/>
 								)}
 							</div>
-							<DayMeals date={date} meals={dayMeals} recipes={recipes} />
-						</div>
+						</section>
 					)
 				})}
 			</div>

@@ -153,9 +153,8 @@ export default function Index() {
 								A week penciled in
 							</h2>
 							<p className="text-muted-foreground mt-3 text-base/7">
-								Add recipes to a weekly calendar. Adjust servings, swap meals
-								around, or ask for suggestions that use overlapping ingredients
-								so nothing goes to waste.
+								Add Recipes to a weekly Plan. Adjust quantities, group dishes
+								into Meals, and move them around as the week changes.
 							</p>
 						</div>
 					</ScrollReveal>

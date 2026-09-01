@@ -59,6 +59,3 @@ it. _Avoid_: Running low, depleted quantity
 
 **Estimate**: The latest transparent, approximate cost result calculated from
 stored inputs with coverage, source, confidence, and unresolved data.
-
-**Preparation task**: One editable item in an accepted Meal-owned preparation
-checklist. _Avoid_: Assignment, staff task

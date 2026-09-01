@@ -149,7 +149,6 @@ const freeFeatures = [
 
 const proFeatures = [
 	'Everything in Free, plus:',
-	'Smart meal suggestions',
 	'Real-time shopping list sync',
 	'AI recipe generation',
 ]
@@ -188,7 +187,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					Upgrade your kitchen
 				</h1>
 				<p className="text-muted-foreground mt-2 text-lg">
-					Real-time shopping sync, meal suggestions, and AI recipe tools.
+					Real-time shopping sync and AI Recipe tools.
 				</p>
 				{tierInfo.isTrialing ? (
 					<>
@@ -201,9 +200,9 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 							})}
 						</p>
 						<p className="text-muted-foreground mt-1 text-sm">
-							After your trial, you'll keep recipes, meal planning, and basic
-							shopping on the Free plan. Real-time sync, meal suggestions, and
-							AI recipe tools need Pro.
+							After your trial, you'll keep Recipes, meal planning, and basic
+							Shopping on the Free plan. Real-time sync and AI Recipe tools need
+							Pro.
 						</p>
 					</>
 				) : tierInfo.isProActive ? (

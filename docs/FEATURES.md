@@ -35,8 +35,8 @@ plan into Shopping.
   “Leftovers.”
 - Store an optional label, serving time, guest count, Recipe multiplier, and
   cooked state.
-- Add Recipes to an existing Meal, reorder Meals, copy a week, and ask for
-  Recipe suggestions.
+- Add Recipes to an existing Meal, reorder Meals, and edit Meal details without
+  leaving the Plan.
 - Add one Meal’s demand to Shopping explicitly and refresh it when relevant
   Recipe or quantity inputs change.
 

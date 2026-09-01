@@ -1,4 +1,3 @@
-import { Img } from 'openimg/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
@@ -17,7 +16,6 @@ import { MEAL_TYPES, MEAL_TYPE_LABELS, type MealType } from '#app/utils/date.ts'
 import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
-import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import { formatServingTime, servingWallTime } from '#app/utils/serving-time.ts'
 import {
 	type RecipeSelectorRecipe,
@@ -129,10 +127,6 @@ function ItemRow({
 	}, [confirmingRemove])
 
 	const missing = item.recipe == null
-	const thumbPlaceholder = item.recipe?.image?.objectKey
-		? null
-		: getRecipePlaceholder(item.recipeTitle)
-
 	return (
 		<div
 			className={cn(
@@ -165,35 +159,6 @@ function ItemRow({
 					)}
 				</button>
 			</cookedFetcher.Form>
-
-			{/* Thumbnail — mobile only (desktop day columns are too narrow) */}
-			<div className="size-11 shrink-0 overflow-hidden rounded-md md:hidden">
-				{item.recipe?.image?.objectKey ? (
-					<Img
-						src={`/resources/images?objectKey=${encodeURIComponent(item.recipe.image.objectKey)}`}
-						alt=""
-						className="h-full w-full object-cover"
-						width={88}
-						height={88}
-					/>
-				) : (
-					<div
-						className={cn(
-							'flex h-full w-full items-center justify-center',
-							thumbPlaceholder!.bgClass,
-						)}
-					>
-						<span
-							className={cn(
-								'font-serif text-base',
-								thumbPlaceholder!.letterColorClass,
-							)}
-						>
-							{thumbPlaceholder!.letter}
-						</span>
-					</div>
-				)}
-			</div>
 
 			{/* Title + multiplier */}
 			<div className="min-w-0 flex-1">
@@ -506,6 +471,13 @@ export function MealCard({
 			: null
 
 	const rows = isText ? [] : buildMealRows(meal)
+	const mealActionName = isText
+		? meal.genericText
+		: meal.items.length === 1
+			? meal.items[0]!.recipeTitle
+			: meal.label
+				? mealLabelText(meal.label)
+				: `${meal.items.length}-recipe Meal`
 	const hasShoppingDemand =
 		meal.items.length > 0 ||
 		meal.noteItems.some((note) => note.shoppingLines.length > 0)
@@ -551,12 +523,16 @@ export function MealCard({
 	}
 
 	return (
-		<div className="group border-border/50 bg-card/60 relative rounded-lg border p-2">
+		<div className="group border-border/50 bg-card/60 shadow-warm relative rounded-xl border p-3 md:rounded-none md:border-0 md:bg-transparent md:px-0 md:py-1.5 md:shadow-none">
 			{/* Header: optional label/time/guests on the left — display metadata
 			    only, never what orders the day (#98) — controls on the right. */}
 			<div className="flex min-h-7 items-center gap-1.5">
 				<div className="text-muted-foreground flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-[11px] font-semibold tracking-wider uppercase">
-					{meal.label && <span>{mealLabelText(meal.label)}</span>}
+					{meal.label ? (
+						<span>{mealLabelText(meal.label)}</span>
+					) : (
+						<span className="hidden md:inline">Meal</span>
+					)}
 					{timeText && (
 						<span className="inline-flex items-center gap-0.5 normal-case">
 							<Icon name="clock" className="size-3" />
@@ -588,31 +564,6 @@ export function MealCard({
 					)}
 				</div>
 
-				<moveFetcher.Form method="POST" className="flex shrink-0 items-center">
-					<input type="hidden" name="intent" value="moveMeal" />
-					<input type="hidden" name="mealId" value={meal.id} />
-					<button
-						type="submit"
-						name="direction"
-						value="up"
-						disabled={!canMoveUp}
-						className="text-muted-foreground hover:text-foreground flex min-h-8 min-w-8 items-center justify-center rounded transition-colors disabled:opacity-25 md:min-h-6 md:min-w-6"
-						aria-label="Move meal up in the day"
-					>
-						<Icon name="arrow-up" className="size-3.5" />
-					</button>
-					<button
-						type="submit"
-						name="direction"
-						value="down"
-						disabled={!canMoveDown}
-						className="text-muted-foreground hover:text-foreground flex min-h-8 min-w-8 items-center justify-center rounded transition-colors disabled:opacity-25 md:min-h-6 md:min-w-6"
-						aria-label="Move meal down in the day"
-					>
-						<Icon name="arrow-down" className="size-3.5" />
-					</button>
-				</moveFetcher.Form>
-
 				<DropdownMenu
 					modal={false}
 					open={menuOpen}
@@ -625,12 +576,55 @@ export function MealCard({
 						<button
 							type="button"
 							className="text-muted-foreground hover:text-foreground flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded transition-colors md:min-h-6 md:min-w-6"
-							aria-label="Meal actions"
+							aria-label={`Meal actions for ${mealActionName}`}
 						>
 							<Icon name="dots-horizontal" className="size-3.5" />
 						</button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
+						{!isText ? (
+							<DropdownMenuItem onSelect={() => setAddingRecipe(true)}>
+								<Icon name="plus" size="sm" />
+								Add Recipe
+							</DropdownMenuItem>
+						) : null}
+						{canMoveUp ? (
+							<DropdownMenuItem
+								onSelect={() => {
+									void moveFetcher.submit(
+										{
+											intent: 'moveMeal',
+											mealId: meal.id,
+											direction: 'up',
+										},
+										{ method: 'POST' },
+									)
+								}}
+							>
+								<Icon name="arrow-up" size="sm" />
+								Move earlier
+							</DropdownMenuItem>
+						) : null}
+						{canMoveDown ? (
+							<DropdownMenuItem
+								onSelect={() => {
+									void moveFetcher.submit(
+										{
+											intent: 'moveMeal',
+											mealId: meal.id,
+											direction: 'down',
+										},
+										{ method: 'POST' },
+									)
+								}}
+							>
+								<Icon name="arrow-down" size="sm" />
+								Move later
+							</DropdownMenuItem>
+						) : null}
+						{!isText || canMoveUp || canMoveDown ? (
+							<DropdownMenuSeparator />
+						) : null}
 						<DropdownMenuItem onSelect={() => submitMealCooked(!isComplete)}>
 							<Icon name="check" size="sm" />
 							{isComplete ? 'Mark not cooked' : 'Mark meal cooked'}
@@ -792,48 +786,43 @@ export function MealCard({
 									{row.name}
 								</h5>
 							) : row.kind === 'recipe' ? (
-								<ItemRow item={row.item} showRemove />
+								<ItemRow
+									item={row.item}
+									showRemove={
+										meal.items.length > 1 || meal.noteItems.length > 0
+									}
+								/>
 							) : (
 								<NoteRow note={row.note} />
 							)}
 						</div>
 					))}
 
-					{/* Add another Recipe directly to this Meal (#98 story 41) */}
-					<div className="relative">
-						{addingRecipe ? (
-							<div className="bg-card animate-fade-up-reveal shadow-warm-lg absolute top-full right-0 left-0 z-20 mt-1 rounded-lg border p-3 md:min-w-[280px]">
-								<RecipeSelector
-									recipes={recipes}
-									date={new Date(meal.dateStr + 'T00:00:00.000Z')}
-									excludeRecipeIds={meal.items.flatMap(
-										(item) => item.recipe?.id ?? [],
-									)}
-									onCancel={() => setAddingRecipe(false)}
-									onPick={(recipe) => {
-										void addRecipeFetcher.submit(
-											{
-												intent: 'addRecipeToMeal',
-												mealId: meal.id,
-												recipeId: recipe.id,
-											},
-											{ method: 'POST' },
-										)
-										setAddingRecipe(false)
-									}}
-								/>
-							</div>
-						) : (
-							<button
-								type="button"
-								onClick={() => setAddingRecipe(true)}
-								className="text-muted-foreground/80 hover:text-foreground mt-1 flex min-h-8 w-full items-center gap-1 rounded-md text-xs transition-colors"
-							>
-								<Icon name="plus" className="size-3" />
-								Add recipe
-							</button>
-						)}
-					</div>
+					{/* Add another Recipe directly to this Meal (#98 story 41). The
+					    action lives in the Meal menu; only the active picker enters flow. */}
+					{addingRecipe ? (
+						<div className="bg-card animate-fade-up-reveal shadow-warm-lg mt-2 rounded-lg border p-3">
+							<RecipeSelector
+								recipes={recipes}
+								date={new Date(meal.dateStr + 'T00:00:00.000Z')}
+								excludeRecipeIds={meal.items.flatMap(
+									(item) => item.recipe?.id ?? [],
+								)}
+								onCancel={() => setAddingRecipe(false)}
+								onPick={(recipe) => {
+									void addRecipeFetcher.submit(
+										{
+											intent: 'addRecipeToMeal',
+											mealId: meal.id,
+											recipeId: recipe.id,
+										},
+										{ method: 'POST' },
+									)
+									setAddingRecipe(false)
+								}}
+							/>
+						</div>
+					) : null}
 				</div>
 			)}
 		</div>

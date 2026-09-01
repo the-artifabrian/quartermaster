@@ -36,7 +36,7 @@ const faqs = [
 	{
 		question: 'How does meal planning work?',
 		answer:
-			'The Planner shows an ordered week of Meals. Quartermaster can suggest Recipes that share ingredients. When you\u2019re ready, generate Shopping explicitly; normal Staples are omitted and required Out Staples are included.',
+			'The Planner shows an ordered week of Meals made from Recipes, Menu snapshots, or simple notes. When you\u2019re ready, generate Shopping explicitly; normal Staples are omitted and required Out Staples are included.',
 	},
 	{
 		question: 'How do I delete my account?',

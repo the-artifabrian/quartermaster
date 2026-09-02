@@ -225,8 +225,9 @@ self.addEventListener('fetch', (event) => {
 	}
 
 	// ── Cacheable pages ──────────────────────────────────────────
-	// Document navigations use stale-while-revalidate: serve the cached page
-	// instantly (fast cold launch, no white flash), then refresh in the background.
+	// Document navigations are network-first so a hard navigation or PWA launch
+	// cannot boot the previous deployment's HTML and asset graph. The last
+	// successful document remains the offline fallback.
 	//
 	// `.data` (RR7 single-fetch) is authenticated + household-scoped, so it is
 	// cached ONLY in the per-session namespace (dataCacheName), and only once the
@@ -242,9 +243,7 @@ self.addEventListener('fetch', (event) => {
 	// payload always matches the shape RR7 asked for — no partial/full mismatch.
 	if (isCacheablePage(url)) {
 		if (!url.pathname.endsWith('.data')) {
-			event.respondWith(
-				staleWhileRevalidate(event, request, PAGES_CACHE, MAX_PAGES),
-			)
+			event.respondWith(networkFirst(event, request, PAGES_CACHE, MAX_PAGES))
 			return
 		}
 		if (!dataCacheName) {
@@ -391,12 +390,11 @@ function isFreshEnough(response, now = Date.now()) {
 /**
  * May a network response displace a stale-but-servable cached copy? Server
  * errors (5xx) lose, and so do redirect-shaped responses, which aren't
- * renderable content here: an opaqueredirect (status 0 — a navigation 3xx,
- * e.g. a captive portal grabbing the request) and a followed redirect
- * (redirected: true — for `.data` that is portal/proxy HTML, never a valid
- * turbo-stream payload). This gate only applies when a stale copy exists; on
- * a cache miss the network response passes through regardless. RR7's in-band
- * 202 redirect has none of those shapes and wins as a real navigation outcome.
+ * renderable content here: an opaque response (status 0) and a followed
+ * redirect (`redirected: true`) are never valid turbo-stream payloads. This
+ * gate only applies when a stale copy exists; on a cache miss the network
+ * response passes through regardless. RR7's in-band 202 redirect has none of
+ * those shapes and wins as a real navigation outcome.
  */
 function beatsStaleCache(response) {
 	return response.status < 500 && response.status !== 0 && !response.redirected
@@ -448,7 +446,7 @@ async function cacheFirst(event, request, cacheName, maxEntries) {
 }
 
 /**
- * Shared stale-while-revalidate core for documents and `.data` payloads:
+ * Stale-while-revalidate for `.data` payloads:
  *   - cached copy fresher than MAX_STALE_SERVE_MS → served instantly, network
  *     refreshes the cache in the background;
  *   - stale cached copy → the network gets STALE_NETWORK_GRACE_MS to produce
@@ -457,18 +455,14 @@ async function cacheFirst(event, request, cacheName, maxEntries) {
  *     beatsStaleCache — a hung origin, an error page, or a captive portal
  *     must not beat content we can render). RR7's 202 in-band redirect is a
  *     real navigation outcome and passes through untouched;
- *   - no cached copy → whatever the network produced, else makeFallback().
- * shouldCache decides what may be written to the cache (documents and .data
- * have different redirect-safety rules — see the two wrappers).
+ *   - no cached copy → whatever the network produced, else a bare 503 so
+ *     React Router shows its ErrorBoundary instead of parsing HTML as a
+ *     turbo-stream payload.
+ * Only caches a plain 200: RR7 single-fetch encodes loader/action redirects
+ * (for example, an expired session → /login) as in-band 202 responses, which
+ * must reach the router but must not be cached.
  */
-async function staleWhileRevalidateCore(
-	event,
-	request,
-	cacheName,
-	maxEntries,
-	shouldCache,
-	makeFallback,
-) {
+async function staleWhileRevalidateData(event, request, cacheName, maxEntries) {
 	const cache = await caches.open(cacheName)
 	const cached = await cache.match(request)
 
@@ -479,7 +473,7 @@ async function staleWhileRevalidateCore(
 	// promise settles only once the body has fully streamed into the cache
 	// (not at headers), so waitUntil genuinely covers the write.
 	const revalidated = network.then(async (response) => {
-		if (!response || !shouldCache(response)) return
+		if (!response || response.status !== 200 || response.redirected) return
 		await putAndTrim(cache, request, response, cacheName, maxEntries)
 	})
 	event.waitUntil(revalidated)
@@ -497,47 +491,7 @@ async function staleWhileRevalidateCore(
 	}
 
 	const response = await network
-	return response ?? makeFallback()
-}
-
-/**
- * Stale-while-revalidate for document navigations. Never caches a redirected
- * response: browsers refuse to use one to satisfy a navigation, so a cached
- * redirect (e.g. an expired session sending /recipes → /login) would break the
- * next cold launch.
- */
-async function staleWhileRevalidate(event, request, cacheName, maxEntries) {
-	return staleWhileRevalidateCore(
-		event,
-		request,
-		cacheName,
-		maxEntries,
-		(response) => response.ok && !response.redirected,
-		offlineFallback,
-	)
-}
-
-/**
- * Stale-while-revalidate tuned for `.data`: same core, but the total-failure
- * fallback is a bare 503 (not the offline HTML), so React Router shows its
- * ErrorBoundary instead of trying to parse HTML as a turbo-stream payload.
- * Only caches a plain 200: RR7 single-fetch encodes a loader/action redirect
- * (e.g. expired session → /login) as an IN-BAND turbo-stream body with status
- * 202 — which is `.ok` and NOT `.redirected`, so an `ok && !redirected` check
- * would happily cache it and then pin the route to /login on the next launch.
- * Requiring status === 200 rejects that 202 (and any 4xx/5xx); `!redirected`
- * still rejects followed 3xx. Caches by exact request URL (incl. any ?_routes)
- * so a served payload always matches the shape RR7 requested.
- */
-async function staleWhileRevalidateData(event, request, cacheName, maxEntries) {
-	return staleWhileRevalidateCore(
-		event,
-		request,
-		cacheName,
-		maxEntries,
-		(response) => response.status === 200 && !response.redirected,
-		() => new Response('Offline', { status: 503 }),
-	)
+	return response ?? new Response('Offline', { status: 503 })
 }
 
 /**

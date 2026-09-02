@@ -157,8 +157,8 @@ describe('bounded staleness (isFreshEnough / cachedAgeMs)', () => {
 })
 
 /**
- * Runtime harness: drive the REAL staleWhileRevalidate/staleWhileRevalidateData
- * from sw.js with stubbed `caches`/`fetch`/`setTimeout`, so the serve-order
+ * Runtime harness: drive the real service-worker cache strategies with stubbed
+ * `caches`/`fetch`/`setTimeout`, so the serve-order
  * policy (fresh → instant cached; stale → network wins only with renderable
  * content, while hangs/5xx/redirect-shapes lose; miss → network else fallback)
  * is pinned by tests — the pure-helper tests above can't catch a reverted
@@ -210,7 +210,7 @@ function loadServiceWorkerRuntime(
 	}
 	vm.createContext(sandbox)
 	vm.runInContext(
-		`${source}\n;self.__runtime = { cacheFirst, networkFirst, staleWhileRevalidate, staleWhileRevalidateData, rootNavigation, networkWithOfflineFallback, isCurrentBuildAsset, STATIC_CACHE, PUBLIC_CACHE, PAGES_CACHE, FONTS_CACHE, MAX_FONTS, START_URL };`,
+		`${source}\n;self.__runtime = { cacheFirst, networkFirst, staleWhileRevalidateData, rootNavigation, networkWithOfflineFallback, isCurrentBuildAsset, STATIC_CACHE, PUBLIC_CACHE, PAGES_CACHE, FONTS_CACHE, MAX_FONTS, START_URL };`,
 		sandbox,
 	)
 	return {
@@ -229,12 +229,6 @@ function loadServiceWorkerRuntime(
 				request: Request,
 				cacheName: string,
 				maxEntries?: number,
-			) => Promise<Response>
-			staleWhileRevalidate: (
-				event: unknown,
-				request: unknown,
-				cacheName: string,
-				maxEntries: number,
 			) => Promise<Response>
 			staleWhileRevalidateData: (
 				event: unknown,
@@ -441,6 +435,48 @@ describe('service-worker lifecycle and navigation fallbacks', () => {
 		expect(response.headers.get('content-type')).toContain('text/html')
 	})
 
+	test('an online document navigation serves the deployed HTML instead of a fresh pre-deploy copy', async () => {
+		const { sandbox, listeners } = loadServiceWorkerRuntime()
+		const cached = new Response('OLD DEPLOYMENT', {
+			headers: { date: new Date().toUTCString() },
+		})
+		const deployed = new Response('CURRENT DEPLOYMENT', {
+			headers: { date: new Date().toUTCString() },
+		})
+		const puts: Array<Response> = []
+		sandbox.fetch = () => Promise.resolve(deployed)
+		sandbox.caches = {
+			open: async () => ({
+				match: async () => cached,
+				put: async (_request: unknown, response: Response) => {
+					puts.push(response)
+				},
+				keys: async () => [],
+				delete: async () => true,
+			}),
+		}
+
+		let responsePromise: Promise<Response> | undefined
+		const waited: Array<Promise<unknown>> = []
+		listeners.fetch?.({
+			request: {
+				method: 'GET',
+				mode: 'navigate',
+				url: 'https://quartermaster.test/plan',
+			},
+			respondWith: (promise: Promise<Response>) => {
+				responsePromise = promise
+			},
+			waitUntil: (promise: Promise<unknown>) => waited.push(promise),
+		})
+
+		const response = await responsePromise!
+		expect(await response.text()).toBe('CURRENT DEPLOYMENT')
+		await Promise.all(waited)
+		expect(puts).toHaveLength(1)
+		expect(await puts[0]!.text()).toBe('CURRENT DEPLOYMENT')
+	})
+
 	test.each(['/settings/profile', '/login'])(
 		'offline navigation to %s gets the app fallback',
 		async (pathname) => {
@@ -467,7 +503,7 @@ describe('service-worker lifecycle and navigation fallbacks', () => {
 	)
 })
 
-describe('SWR runtime serve order (stubbed caches/fetch)', () => {
+describe('.data SWR runtime serve order (stubbed caches/fetch)', () => {
 	const { sandbox, timers, runtime } = loadServiceWorkerRuntime()
 
 	const bodyWithAge = (body: string, ageMs: number, status = 200) =>
@@ -509,13 +545,20 @@ describe('SWR runtime serve order (stubbed caches/fetch)', () => {
 	}
 
 	const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+	const servePlanData = (event: unknown) =>
+		runtime.staleWhileRevalidateData(
+			event,
+			'/plan.data?_routes=routes/plan',
+			'data',
+			64,
+		)
 
-	test('fresh cached copy is served instantly, without touching the network', async () => {
+	test('fresh cached copy is served instantly, without waiting for the network', async () => {
 		const { event, waited } = scenario({
 			cached: bodyWithAge('CACHED', FRESH_MS),
 			network: 'hang',
 		})
-		const res = await runtime.staleWhileRevalidate(event, '/plan', 'pages', 50)
+		const res = await servePlanData(event)
 		expect(await res.text()).toBe('CACHED')
 		// The instant path never builds the grace race…
 		expect(timers).toHaveLength(0)
@@ -555,7 +598,7 @@ describe('SWR runtime serve order (stubbed caches/fetch)', () => {
 			cached: bodyWithAge('CACHED', STALE_MS),
 			network: bodyWithAge('NETWORK', 0),
 		})
-		const res = await runtime.staleWhileRevalidate(event, '/plan', 'pages', 50)
+		const res = await servePlanData(event)
 		expect(await res.text()).toBe('NETWORK')
 		await flush()
 		expect(puts).toHaveLength(1)
@@ -566,7 +609,7 @@ describe('SWR runtime serve order (stubbed caches/fetch)', () => {
 			cached: bodyWithAge('CACHED', STALE_MS),
 			network: bodyWithAge('BOOM', 0, 503),
 		})
-		const res = await runtime.staleWhileRevalidate(event, '/plan', 'pages', 50)
+		const res = await servePlanData(event)
 		expect(res.status).toBe(200)
 		expect(await res.text()).toBe('CACHED')
 		// The error page must never poison the cache under a fresh Date header.
@@ -580,7 +623,7 @@ describe('SWR runtime serve order (stubbed caches/fetch)', () => {
 			cached: bodyWithAge('CACHED', STALE_MS),
 			network: 'reject',
 		})
-		const res = await runtime.staleWhileRevalidate(event, '/plan', 'pages', 50)
+		const res = await servePlanData(event)
 		expect(await res.text()).toBe('CACHED')
 	})
 
@@ -589,7 +632,7 @@ describe('SWR runtime serve order (stubbed caches/fetch)', () => {
 			cached: bodyWithAge('CACHED', STALE_MS),
 			network: 'hang',
 		})
-		const pending = runtime.staleWhileRevalidate(event, '/plan', 'pages', 50)
+		const pending = servePlanData(event)
 		await flush()
 		expect(timers).toHaveLength(1)
 		expect(timers[0]!.ms).toBe(3_000)
@@ -600,17 +643,7 @@ describe('SWR runtime serve order (stubbed caches/fetch)', () => {
 		expect(waited).toHaveLength(1)
 	})
 
-	test('cache miss + network failure yields the offline fallback (HTML page for documents, bare 503 for .data)', async () => {
-		const doc = scenario({ cached: undefined, network: 'reject' })
-		const docRes = await runtime.staleWhileRevalidate(
-			doc.event,
-			'/plan',
-			'pages',
-			50,
-		)
-		expect(docRes.status).toBe(503)
-		expect(docRes.headers.get('content-type')).toContain('text/html')
-
+	test('cache miss + network failure yields a bare 503 for .data', async () => {
 		const data = scenario({ cached: undefined, network: 'reject' })
 		const dataRes = await runtime.staleWhileRevalidateData(
 			data.event,
@@ -640,22 +673,18 @@ describe('SWR runtime serve order (stubbed caches/fetch)', () => {
 		expect(puts).toHaveLength(0)
 	})
 
-	test('a fast navigation redirect (opaqueredirect, status 0) does not displace a stale copy', async () => {
-		// A captive portal answers navigations with an instant 302, which a
-		// redirect:"manual" navigation fetch surfaces as an opaqueredirect.
-		// Response can't construct status 0, so a minimal stand-in carries the
-		// fields the SW reads.
-		const opaqueRedirect = {
+	test('an opaque response does not displace a stale .data copy', async () => {
+		// Response cannot construct status 0, so this stand-in carries the fields
+		// the service worker reads from an opaque response.
+		const opaque = {
 			status: 0,
-			ok: false,
 			redirected: false,
-			type: 'opaqueredirect',
 		} as unknown as Response
 		const { event, puts } = scenario({
 			cached: bodyWithAge('CACHED', STALE_MS),
-			network: opaqueRedirect,
+			network: opaque,
 		})
-		const res = await runtime.staleWhileRevalidate(event, '/plan', 'pages', 50)
+		const res = await servePlanData(event)
 		expect(await res.text()).toBe('CACHED')
 		await flush()
 		expect(puts).toHaveLength(0)

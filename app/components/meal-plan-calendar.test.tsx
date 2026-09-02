@@ -201,7 +201,7 @@ test('mobile finds a saved Menu by one of its Recipes and adds it to the selecte
 	let submitted: Record<string, FormDataEntryValue> = {}
 	renderCalendar(async ({ request }) => {
 		submitted = Object.fromEntries(await request.formData())
-		return null
+		return { status: 'success' as const }
 	})
 	const mobile = screen.getByTestId('mobile-plan')
 
@@ -240,6 +240,67 @@ test('mobile finds a saved Menu by one of its Recipes and adds it to the selecte
 			label: 'dinner',
 		}),
 	)
+	await waitFor(() =>
+		expect(
+			within(mobile).queryByRole('region', {
+				name: 'Add Meal for Wednesday, Apr 8',
+			}),
+		).not.toBeInTheDocument(),
+	)
+})
+
+test('mobile explains a stale empty Menu and lets the user retry', async () => {
+	const user = userEvent.setup()
+	let attempts = 0
+	renderCalendar(async () => {
+		attempts++
+		return attempts === 1
+			? {
+					status: 'error' as const,
+					menuError:
+						'This Menu has nothing to plan yet—add a Recipe or note first.',
+				}
+			: { status: 'success' as const }
+	})
+	const mobile = screen.getByTestId('mobile-plan')
+
+	await user.click(
+		within(mobile).getByRole('button', {
+			name: 'Add Meal to Wednesday, Apr 8',
+		}),
+	)
+	const composer = within(mobile).getByRole('region', {
+		name: 'Add Meal for Wednesday, Apr 8',
+	})
+	await user.click(
+		within(composer).getByRole('button', { name: /Friday Supper/ }),
+	)
+
+	expect(
+		await within(composer).findByRole('alert'),
+	).toHaveTextContent(
+		'This Menu has nothing to plan yet—add a Recipe or note first.',
+	)
+	expect(
+		within(mobile).getByRole('region', {
+			name: 'Add Meal for Wednesday, Apr 8',
+		}),
+	).toBeVisible()
+	expect(
+		within(composer).getByRole('button', { name: /Friday Supper/ }),
+	).toBeEnabled()
+
+	await user.click(
+		within(composer).getByRole('button', { name: /Friday Supper/ }),
+	)
+	await waitFor(() =>
+		expect(
+			within(mobile).queryByRole('region', {
+				name: 'Add Meal for Wednesday, Apr 8',
+			}),
+		).not.toBeInTheDocument(),
+	)
+	expect(attempts).toBe(2)
 })
 
 test('mobile closes an open Add Meal draft when the selected day changes', async () => {

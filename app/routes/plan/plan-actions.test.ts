@@ -266,6 +266,33 @@ describe('meal plan actions', () => {
 		])
 	})
 
+	test('addMenu reports a Menu that became empty before selection', async () => {
+		const session = await setupUser()
+		const menu = await prisma.menu.create({
+			data: {
+				title: 'Emptied Menu',
+				titleKey: menuTitleKey('Emptied Menu'),
+				householdId: session.householdId,
+				sections: { create: { name: null, order: 0 } },
+			},
+		})
+
+		const result = await act(session, {
+			intent: 'addMenu',
+			date: '2026-02-03',
+			menuId: menu.id,
+		})
+
+		expect(result).toEqual({
+			status: 'error',
+			menuError:
+				'This Menu has nothing to plan yet—add a Recipe or note first.',
+		})
+		expect(
+			await prisma.meal.count({ where: { sourceMenuId: menu.id } }),
+		).toBe(0)
+	})
+
 	test('Plan loader exposes non-empty saved Menus for the unified picker', async () => {
 		const session = await setupUser()
 		const { menu } = await setupMenu(session.userId, session.householdId)

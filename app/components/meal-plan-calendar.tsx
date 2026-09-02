@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import {
 	MEAL_TYPES,
@@ -31,6 +31,11 @@ type MealPlanCalendarProps = {
 
 type AddMealPresentation = 'primary' | 'row' | 'empty-row'
 
+type AddMealActionData = {
+	status: 'success' | 'error'
+	menuError?: string
+}
+
 function initialSelectedDate(weekDays: Date[], meals: PlanMeal[]): string {
 	const today = weekDays.find(isToday)
 	if (today) return serializeDate(today)
@@ -52,20 +57,56 @@ function AddMealControl({
 	menus: PlanSelectorMenu[]
 	presentation: AddMealPresentation
 }) {
-	const fetcher = useFetcher()
+	const fetcher = useFetcher<AddMealActionData>()
 	const [open, setOpen] = useState(false)
 	const [mode, setMode] = useState<'item' | 'text'>('item')
 	const [label, setLabel] = useState<MealType | null>(null)
 	const [text, setText] = useState('')
+	const [pendingMenuSubmission, setPendingMenuSubmission] = useState(false)
+	const [menuError, setMenuError] = useState<string | null>(null)
+	const menuSubmissionStarted = useRef(false)
+
+	useEffect(() => {
+		if (!pendingMenuSubmission) return
+		if (fetcher.state !== 'idle') {
+			menuSubmissionStarted.current = true
+			return
+		}
+		// Ignore the idle render immediately before React Router starts the
+		// submission. This also keeps a previous error from winning a retry race.
+		if (!menuSubmissionStarted.current) return
+
+		menuSubmissionStarted.current = false
+		setPendingMenuSubmission(false)
+		if (fetcher.data?.status === 'success') {
+			setOpen(false)
+			setMode('item')
+			setLabel(null)
+			setText('')
+			setMenuError(null)
+		} else {
+			setMenuError(
+				fetcher.data?.menuError ??
+					'Could not add this Menu. Check it and try again.',
+			)
+		}
+	}, [fetcher.data, fetcher.state, pendingMenuSubmission])
 
 	function close() {
 		setOpen(false)
 		setMode('item')
 		setLabel(null)
 		setText('')
+		setPendingMenuSubmission(false)
+		setMenuError(null)
+		menuSubmissionStarted.current = false
 	}
 
 	function submitChoice(choice: PlanItemChoice) {
+		if (choice.kind === 'menu') {
+			setMenuError(null)
+			setPendingMenuSubmission(true)
+		}
 		void fetcher.submit(
 			{
 				intent: choice.kind === 'recipe' ? 'addMeal' : 'addMenu',
@@ -77,7 +118,9 @@ function AddMealControl({
 			},
 			{ method: 'POST' },
 		)
-		close()
+		// Recipe quick-add is idempotent and keeps its existing optimistic close.
+		// Menu planning can reject a stale/emptied Menu, so wait for its result.
+		if (choice.kind === 'recipe') close()
 	}
 
 	function submitText() {
@@ -106,10 +149,11 @@ function AddMealControl({
 						<button
 							key={type}
 							type="button"
+							disabled={pendingMenuSubmission}
 							onClick={() => setLabel(label === type ? null : type)}
 							aria-pressed={label === type}
 							className={cn(
-								'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
+								'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors disabled:opacity-60',
 								label === type
 									? 'border-primary bg-primary text-primary-foreground'
 									: 'border-border text-muted-foreground hover:text-foreground',
@@ -123,20 +167,35 @@ function AddMealControl({
 
 			{mode === 'item' ? (
 				<>
-					<PlanItemSelector
-						recipes={recipes}
-						menus={menus}
-						date={date}
-						onCancel={close}
-						onPick={submitChoice}
-					/>
-					<button
-						type="button"
-						onClick={() => setMode('text')}
-						className="text-muted-foreground hover:text-foreground mt-3 text-xs underline-offset-2 hover:underline"
+					<fieldset
+						disabled={pendingMenuSubmission}
+						aria-busy={pendingMenuSubmission || undefined}
+						className="min-w-0 border-0 p-0 disabled:opacity-60"
 					>
-						Add text instead (for example, Leftovers)
-					</button>
+						<PlanItemSelector
+							recipes={recipes}
+							menus={menus}
+							date={date}
+							onCancel={close}
+							onPick={submitChoice}
+						/>
+						<button
+							type="button"
+							onClick={() => setMode('text')}
+							className="text-muted-foreground hover:text-foreground mt-3 text-xs underline-offset-2 hover:underline"
+						>
+							Add text instead (for example, Leftovers)
+						</button>
+					</fieldset>
+					{pendingMenuSubmission ? (
+						<p role="status" className="text-muted-foreground mt-2 text-xs">
+							Adding Menu…
+						</p>
+					) : menuError ? (
+						<p role="alert" className="text-destructive mt-2 text-xs">
+							{menuError}
+						</p>
+					) : null}
 				</>
 			) : (
 				<div className="space-y-3">

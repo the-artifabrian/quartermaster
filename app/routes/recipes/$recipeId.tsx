@@ -220,7 +220,14 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 		const description = formData.get('enhance_description')
 		if (typeof description === 'string' && description) {
-			updateData.description = description
+			updateData.description = description.trim().slice(0, 2000)
+		}
+		for (const field of ['activeTime', 'totalTime'] as const) {
+			const value = formData.get(`enhance_${field}`)
+			const minutes = typeof value === 'string' ? Number(value) : NaN
+			if (Number.isInteger(minutes) && minutes > 0) {
+				updateData[field] = minutes
+			}
 		}
 		await prisma.recipe.update({
 			where: { id: recipeId },

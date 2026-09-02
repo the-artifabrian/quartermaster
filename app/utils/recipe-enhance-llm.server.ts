@@ -11,11 +11,15 @@ const MAX_TOKENS = 1024
 
 export type EnhanceableFields = {
 	description: string | null
+	activeTime: number | null
+	totalTime: number | null
 }
 
 export type RecipeInput = {
 	title: string
 	description: string | null
+	activeTime: number | null
+	totalTime: number | null
 	ingredients: Array<{
 		name: string
 		amount: string | null
@@ -27,16 +31,31 @@ export type RecipeInput = {
 const EnhanceableFieldsSchema: z.ZodType<EnhanceableFields> = z
 	.object({
 		description: z.unknown().optional(),
+		activeTime: z.unknown().optional(),
+		totalTime: z.unknown().optional(),
 	})
-	.transform((fields) => ({
-		description:
-			typeof fields.description === 'string' && fields.description.trim()
-				? fields.description.trim()
-				: null,
-	}))
+	.transform((fields) => {
+		const activeTime = positiveMinutes(fields.activeTime)
+		const totalTime = positiveMinutes(fields.totalTime)
+		return {
+			description:
+				typeof fields.description === 'string' && fields.description.trim()
+					? fields.description.trim().slice(0, 2000)
+					: null,
+			activeTime,
+			totalTime:
+				activeTime != null && totalTime != null && totalTime < activeTime
+					? null
+					: totalTime,
+		}
+	})
+
+function positiveMinutes(value: unknown): number | null {
+	return typeof value === 'number' && value > 0 ? Math.round(value) : null
+}
 
 /**
- * Call Claude Haiku to suggest a reviewed description improvement.
+ * Call Claude Haiku to suggest reviewed description and time improvements.
  *
  * Returns the suggestions on success, or `{ error: string }` on failure.
  */
@@ -49,7 +68,7 @@ export async function enhanceRecipeMetadata(
 		maxTokens: MAX_TOKENS,
 		timeoutMs: TIMEOUT_MS,
 		system:
-			'You are a practical home cook. Analyze the recipe and suggest a concise description. Return only valid JSON — no markdown, no explanation.',
+			'You are a practical home cook. Analyze the recipe and suggest a concise description and realistic time estimates. Return only valid JSON — no markdown, no explanation.',
 		prompt: buildEnhancePrompt(input),
 		schema: EnhanceableFieldsSchema,
 	})
@@ -88,6 +107,8 @@ export function buildEnhancePrompt(input: RecipeInput): string {
 
 Title: ${input.title}
 Current description: ${input.description || 'None'}
+Current active time: ${input.activeTime ? `${input.activeTime} minutes` : 'None'}
+Current total time: ${input.totalTime ? `${input.totalTime} minutes` : 'None'}
 
 Ingredients:
 ${ingredientLines}
@@ -97,12 +118,17 @@ ${instructionText}
 
 Return a single JSON object with this exact structure:
 {
-  "description": "Brief appetizing description (1-2 sentences) or null if current is good"
+  "description": "Brief appetizing description (1-2 sentences) or null if current is good",
+  "activeTime": 15,
+  "totalTime": 45
 }
 
 Rules:
 - description: Suggest a short, appetizing description (1-2 sentences). Return null if the current description is already good.
-- Do not suggest or infer time, yield, or other Recipe metadata`
+- activeTime: Estimate hands-on time in minutes, including preparation and cooking that needs the cook's attention. Return null only if it cannot be estimated.
+- totalTime: Estimate total elapsed time in minutes, including unattended cooking, resting, chilling, and rising. It must not be shorter than activeTime. Return null only if it cannot be estimated.
+- Do NOT downgrade existing good values — if a field already has a reasonable value, return that same value or null.
+- Return null for any field you cannot reasonably estimate. Do not suggest yield or other Recipe metadata.`
 }
 
 /**

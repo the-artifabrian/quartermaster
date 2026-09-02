@@ -338,6 +338,59 @@ describe('shopping list actions', () => {
 		expect(after.weeksWithPlans.map((week) => week.isCurrent)).toEqual([true])
 	})
 
+	test('loader exposes only active Staples and marks Shopping matches by shared identity', async () => {
+		const session = await setupUser()
+		await prisma.householdIngredient.createMany({
+			data: [
+				{
+					householdId: session.householdId,
+					displayName: 'Banana',
+					canonicalKey: 'banana',
+					isStaple: true,
+				},
+				{
+					householdId: session.householdId,
+					displayName: 'Milk',
+					canonicalKey: 'milk',
+					isStaple: true,
+				},
+				{
+					householdId: session.householdId,
+					displayName: 'Not a Staple',
+					canonicalKey: 'not a staple',
+					isStaple: false,
+				},
+			],
+		})
+
+		const beforeCutover = await loader({
+			request: await makeLoaderRequest(session),
+			...ACTION_ARGS_BASE,
+		})
+		expect(beforeCutover.staples).toEqual([])
+
+		await prisma.household.update({
+			where: { id: session.householdId },
+			data: { staplesCutoverAt: new Date() },
+		})
+		await action({
+			request: await makeRequest(session, {
+				intent: 'add',
+				name: 'Bananas',
+			}),
+			...ACTION_ARGS_BASE,
+		})
+
+		const afterCutover = await loader({
+			request: await makeLoaderRequest(session),
+			...ACTION_ARGS_BASE,
+		})
+		expect(afterCutover.staples).toEqual([
+			{ id: expect.any(String), displayName: 'Banana', onShoppingList: true },
+			{ id: expect.any(String), displayName: 'Milk', onShoppingList: false },
+		])
+	})
+
 	test('generate replaces previous generated items', async () => {
 		const session = await setupUser()
 		await setupMealPlanWithRecipe(session.userId, session.householdId)

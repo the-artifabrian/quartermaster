@@ -189,6 +189,73 @@ test('Shopping list flow: generate → verify items → add manual → check →
 	await expect(page.getByText('jasmine rice')).toBeVisible()
 })
 
+test('household Staples can be added together from the quiet Shopping picker', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const household = await prisma.household.create({
+		data: {
+			name: 'Staples Picker Household',
+			staplesCutoverAt: new Date(),
+			members: { create: { userId: user.id, role: 'owner' } },
+			householdIngredients: {
+				create: [
+					{ displayName: 'Milk', canonicalKey: 'milk', isStaple: true },
+					{ displayName: 'Yogurt', canonicalKey: 'yogurt', isStaple: true },
+					{ displayName: 'Salt', canonicalKey: 'salt', isStaple: true },
+				],
+			},
+		},
+	})
+	await prisma.subscription.create({
+		data: {
+			userId: user.id,
+			tier: 'pro',
+			trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+		},
+	})
+	await prisma.shoppingList.create({
+		data: {
+			userId: user.id,
+			householdId: household.id,
+			items: { create: { name: 'Salt', horizon: 'later' } },
+		},
+	})
+
+	await page.goto('/shopping')
+	await page
+		.getByRole('button', { name: 'From Staples, reminder available' })
+		.click()
+	await expect(page.getByRole('button', { name: 'From Staples' })).toBeVisible()
+	await expect(
+		page.getByRole('button', { name: /Salt.*On list/ }),
+	).toBeDisabled()
+
+	await page.getByRole('button', { name: 'Milk' }).click()
+	await page.getByRole('button', { name: 'Yogurt' }).click()
+	await page.getByRole('button', { name: 'Add 2 to Next shop' }).click()
+
+	await expect(
+		page.getByRole('heading', { name: 'What do you need this trip?' }),
+	).toBeHidden()
+	await expect(page.getByText('Milk', { exact: true })).toBeVisible()
+	await expect(page.getByText('Yogurt', { exact: true })).toBeVisible()
+	await expect
+		.poll(() =>
+			prisma.shoppingListItem.findMany({
+				where: { list: { householdId: household.id } },
+				orderBy: { name: 'asc' },
+				select: { name: true, horizon: true },
+			}),
+		)
+		.toEqual([
+			{ name: 'Milk', horizon: 'next' },
+			{ name: 'Salt', horizon: 'later' },
+			{ name: 'Yogurt', horizon: 'next' },
+		])
+})
+
 test('Next shop and Later stay usable and search-revealable on phone and desktop', async ({
 	page,
 	login,

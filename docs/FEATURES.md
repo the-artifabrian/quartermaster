@@ -55,6 +55,7 @@ plan into Shopping.
 - Combine compatible quantities across Recipes and Menu note lines while leaving
   unresolved or incompatible amounts visible.
 - Omit normal Staples; include Out Staples and every non-Staple.
+- Add several household Staples to the next shop from one quiet header picker.
 - Keep manual rows separate from generated Meal contributions so refreshes do
   not overwrite another Meal or a shopper’s correction.
 - Edit, search, check off, clear, and quick-add in a flat list with no aisle

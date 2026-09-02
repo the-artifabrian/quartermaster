@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import {
 	MEAL_TYPES,
@@ -13,8 +13,10 @@ import {
 import { cn } from '#app/utils/misc.tsx'
 import { type PlanMeal, MealCard } from './meal-card.tsx'
 import {
+	type PlanItemChoice,
+	PlanItemSelector,
+	type PlanSelectorMenu,
 	type RecipeSelectorRecipe,
-	RecipeSelector,
 } from './recipe-selector.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -24,9 +26,15 @@ type MealPlanCalendarProps = {
 	weekDays: Date[]
 	meals: PlanMeal[]
 	recipes: RecipeSelectorRecipe[]
+	menus: PlanSelectorMenu[]
 }
 
 type AddMealPresentation = 'primary' | 'row' | 'empty-row'
+
+type AddMealActionData = {
+	status: 'success' | 'error'
+	menuError?: string
+}
 
 function initialSelectedDate(weekDays: Date[], meals: PlanMeal[]): string {
 	const today = weekDays.find(isToday)
@@ -41,36 +49,78 @@ function initialSelectedDate(weekDays: Date[], meals: PlanMeal[]): string {
 function AddMealControl({
 	date,
 	recipes,
+	menus,
 	presentation,
 }: {
 	date: Date
 	recipes: RecipeSelectorRecipe[]
+	menus: PlanSelectorMenu[]
 	presentation: AddMealPresentation
 }) {
-	const fetcher = useFetcher()
+	const fetcher = useFetcher<AddMealActionData>()
 	const [open, setOpen] = useState(false)
-	const [mode, setMode] = useState<'recipe' | 'text'>('recipe')
+	const [mode, setMode] = useState<'item' | 'text'>('item')
 	const [label, setLabel] = useState<MealType | null>(null)
 	const [text, setText] = useState('')
+	const [pendingMenuSubmission, setPendingMenuSubmission] = useState(false)
+	const [menuError, setMenuError] = useState<string | null>(null)
+	const menuSubmissionStarted = useRef(false)
+
+	useEffect(() => {
+		if (!pendingMenuSubmission) return
+		if (fetcher.state !== 'idle') {
+			menuSubmissionStarted.current = true
+			return
+		}
+		// Ignore the idle render immediately before React Router starts the
+		// submission. This also keeps a previous error from winning a retry race.
+		if (!menuSubmissionStarted.current) return
+
+		menuSubmissionStarted.current = false
+		setPendingMenuSubmission(false)
+		if (fetcher.data?.status === 'success') {
+			setOpen(false)
+			setMode('item')
+			setLabel(null)
+			setText('')
+			setMenuError(null)
+		} else {
+			setMenuError(
+				fetcher.data?.menuError ??
+					'Could not add this Menu. Check it and try again.',
+			)
+		}
+	}, [fetcher.data, fetcher.state, pendingMenuSubmission])
 
 	function close() {
 		setOpen(false)
-		setMode('recipe')
+		setMode('item')
 		setLabel(null)
 		setText('')
+		setPendingMenuSubmission(false)
+		setMenuError(null)
+		menuSubmissionStarted.current = false
 	}
 
-	function submitRecipe(recipe: RecipeSelectorRecipe) {
+	function submitChoice(choice: PlanItemChoice) {
+		if (choice.kind === 'menu') {
+			setMenuError(null)
+			setPendingMenuSubmission(true)
+		}
 		void fetcher.submit(
 			{
-				intent: 'addMeal',
+				intent: choice.kind === 'recipe' ? 'addMeal' : 'addMenu',
 				date: serializeDate(date),
-				recipeId: recipe.id,
+				...(choice.kind === 'recipe'
+					? { recipeId: choice.recipe.id }
+					: { menuId: choice.menu.id }),
 				...(label ? { label } : {}),
 			},
 			{ method: 'POST' },
 		)
-		close()
+		// Recipe quick-add is idempotent and keeps its existing optimistic close.
+		// Menu planning can reject a stale/emptied Menu, so wait for its result.
+		if (choice.kind === 'recipe') close()
 	}
 
 	function submitText() {
@@ -99,10 +149,11 @@ function AddMealControl({
 						<button
 							key={type}
 							type="button"
+							disabled={pendingMenuSubmission}
 							onClick={() => setLabel(label === type ? null : type)}
 							aria-pressed={label === type}
 							className={cn(
-								'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
+								'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors disabled:opacity-60',
 								label === type
 									? 'border-primary bg-primary text-primary-foreground'
 									: 'border-border text-muted-foreground hover:text-foreground',
@@ -114,21 +165,37 @@ function AddMealControl({
 				</div>
 			</fieldset>
 
-			{mode === 'recipe' ? (
+			{mode === 'item' ? (
 				<>
-					<RecipeSelector
-						recipes={recipes}
-						date={date}
-						onCancel={close}
-						onPick={submitRecipe}
-					/>
-					<button
-						type="button"
-						onClick={() => setMode('text')}
-						className="text-muted-foreground hover:text-foreground mt-3 text-xs underline-offset-2 hover:underline"
+					<fieldset
+						disabled={pendingMenuSubmission}
+						aria-busy={pendingMenuSubmission || undefined}
+						className="min-w-0 border-0 p-0 disabled:opacity-60"
 					>
-						Add text instead (for example, Leftovers)
-					</button>
+						<PlanItemSelector
+							recipes={recipes}
+							menus={menus}
+							date={date}
+							onCancel={close}
+							onPick={submitChoice}
+						/>
+						<button
+							type="button"
+							onClick={() => setMode('text')}
+							className="text-muted-foreground hover:text-foreground mt-3 text-xs underline-offset-2 hover:underline"
+						>
+							Add text instead (for example, Leftovers)
+						</button>
+					</fieldset>
+					{pendingMenuSubmission ? (
+						<p role="status" className="text-muted-foreground mt-2 text-xs">
+							Adding Menu…
+						</p>
+					) : menuError ? (
+						<p role="alert" className="text-destructive mt-2 text-xs">
+							{menuError}
+						</p>
+					) : null}
 				</>
 			) : (
 				<div className="space-y-3">
@@ -157,10 +224,10 @@ function AddMealControl({
 					<div className="flex items-center justify-between gap-3">
 						<button
 							type="button"
-							onClick={() => setMode('recipe')}
+							onClick={() => setMode('item')}
 							className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
 						>
-							Pick a Recipe instead
+							Pick a Recipe or Menu instead
 						</button>
 						<Button size="sm" onClick={submitText} disabled={!text.trim()}>
 							Add
@@ -275,6 +342,7 @@ export function MealPlanCalendar({
 	weekDays,
 	meals,
 	recipes,
+	menus,
 }: MealPlanCalendarProps) {
 	const [selectedDate, setSelectedDate] = useState(() =>
 		initialSelectedDate(weekDays, meals),
@@ -371,6 +439,7 @@ export function MealPlanCalendar({
 						key={selectedDate}
 						date={selectedDay}
 						recipes={recipes}
+						menus={menus}
 						presentation="primary"
 					/>
 				</div>
@@ -385,7 +454,7 @@ export function MealPlanCalendar({
 							</span>
 							<p className="mt-3 font-serif text-lg">Nothing planned</p>
 							<p className="text-muted-foreground mt-1 text-sm">
-								Add a Recipe or a simple note when this day needs one.
+								Add a Recipe, Menu, or simple note when this day needs one.
 							</p>
 						</div>
 					)}
@@ -440,6 +509,7 @@ export function MealPlanCalendar({
 										<AddMealControl
 											date={date}
 											recipes={recipes}
+											menus={menus}
 											presentation="row"
 										/>
 									</>
@@ -447,6 +517,7 @@ export function MealPlanCalendar({
 									<AddMealControl
 										date={date}
 										recipes={recipes}
+										menus={menus}
 										presentation="empty-row"
 									/>
 								)}

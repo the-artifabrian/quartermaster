@@ -28,6 +28,25 @@ const recipes = [
 		isFavorite: false,
 		image: null,
 	},
+	{
+		id: 'recipe-3',
+		title: 'Garlic Flatbread',
+		totalTime: 25,
+		yieldAmount: null,
+		yieldLabel: null,
+		isFavorite: false,
+		image: null,
+	},
+]
+
+const menus = [
+	{
+		id: 'menu-1',
+		title: 'Friday Supper',
+		recipeCount: 2,
+		noteCount: 0,
+		recipeTitles: ['Herb Salad', 'Garlic Flatbread'],
+	},
 ]
 
 function makeMeal({
@@ -97,6 +116,7 @@ function renderCalendar(
 					weekDays={calendarWeekDays}
 					meals={calendarMeals}
 					recipes={recipes}
+					menus={menus}
 				/>
 			),
 			action,
@@ -167,13 +187,120 @@ test('mobile Add Meal opens the real picker inline for the selected day', async 
 		'Meal type (optional)',
 	)
 	await user.type(
-		within(composer).getByPlaceholderText('Search recipes...'),
+		within(composer).getByPlaceholderText('Search Recipes and Menus...'),
 		'hreb salad',
 	)
 	expect(within(composer).queryByText('Banana Bread')).not.toBeInTheDocument()
 	await user.click(within(composer).getByRole('button', { name: /Herb Salad/ }))
 
 	await waitFor(() => expect(submittedDate).toBe('2026-04-08'))
+})
+
+test('mobile finds a saved Menu by one of its Recipes and adds it to the selected day', async () => {
+	const user = userEvent.setup()
+	let submitted: Record<string, FormDataEntryValue> = {}
+	renderCalendar(async ({ request }) => {
+		submitted = Object.fromEntries(await request.formData())
+		return { status: 'success' as const }
+	})
+	const mobile = screen.getByTestId('mobile-plan')
+
+	await user.click(
+		within(mobile).getByRole('button', {
+			name: 'Add Meal to Wednesday, Apr 8',
+		}),
+	)
+	const composer = within(mobile).getByRole('region', {
+		name: 'Add Meal for Wednesday, Apr 8',
+	})
+	await user.click(within(composer).getByRole('button', { name: 'Dinner' }))
+	await user.type(
+		within(composer).getByPlaceholderText('Search Recipes and Menus...'),
+		'garlic flatbrad',
+	)
+
+	expect(within(composer).getByText('Menus')).toBeVisible()
+	const recipeChoice = within(composer).getByRole('button', {
+		name: /Garlic Flatbread/,
+	})
+	const menuChoice = within(composer).getByRole('button', {
+		name: /Friday Supper/,
+	})
+	expect(
+		recipeChoice.compareDocumentPosition(menuChoice) &
+			Node.DOCUMENT_POSITION_FOLLOWING,
+	).toBeTruthy()
+	await user.click(menuChoice)
+
+	await waitFor(() =>
+		expect(submitted).toMatchObject({
+			intent: 'addMenu',
+			date: '2026-04-08',
+			menuId: 'menu-1',
+			label: 'dinner',
+		}),
+	)
+	await waitFor(() =>
+		expect(
+			within(mobile).queryByRole('region', {
+				name: 'Add Meal for Wednesday, Apr 8',
+			}),
+		).not.toBeInTheDocument(),
+	)
+})
+
+test('mobile explains a stale empty Menu and lets the user retry', async () => {
+	const user = userEvent.setup()
+	let attempts = 0
+	renderCalendar(async () => {
+		attempts++
+		return attempts === 1
+			? {
+					status: 'error' as const,
+					menuError:
+						'This Menu has nothing to plan yet—add a Recipe or note first.',
+				}
+			: { status: 'success' as const }
+	})
+	const mobile = screen.getByTestId('mobile-plan')
+
+	await user.click(
+		within(mobile).getByRole('button', {
+			name: 'Add Meal to Wednesday, Apr 8',
+		}),
+	)
+	const composer = within(mobile).getByRole('region', {
+		name: 'Add Meal for Wednesday, Apr 8',
+	})
+	await user.click(
+		within(composer).getByRole('button', { name: /Friday Supper/ }),
+	)
+
+	expect(
+		await within(composer).findByRole('alert'),
+	).toHaveTextContent(
+		'This Menu has nothing to plan yet—add a Recipe or note first.',
+	)
+	expect(
+		within(mobile).getByRole('region', {
+			name: 'Add Meal for Wednesday, Apr 8',
+		}),
+	).toBeVisible()
+	expect(
+		within(composer).getByRole('button', { name: /Friday Supper/ }),
+	).toBeEnabled()
+
+	await user.click(
+		within(composer).getByRole('button', { name: /Friday Supper/ }),
+	)
+	await waitFor(() =>
+		expect(
+			within(mobile).queryByRole('region', {
+				name: 'Add Meal for Wednesday, Apr 8',
+			}),
+		).not.toBeInTheDocument(),
+	)
+	expect(attempts).toBe(2)
 })
 
 test('mobile closes an open Add Meal draft when the selected day changes', async () => {

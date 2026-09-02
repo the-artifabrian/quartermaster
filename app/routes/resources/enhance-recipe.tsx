@@ -58,6 +58,8 @@ export async function action({ request }: Route.ActionArgs) {
 		select: {
 			title: true,
 			description: true,
+			activeTime: true,
+			totalTime: true,
 			ingredients: {
 				where: { isHeading: false },
 				select: { name: true, amount: true, unit: true },
@@ -83,6 +85,8 @@ export async function action({ request }: Route.ActionArgs) {
 	const suggestions = await enhanceRecipeMetadata({
 		title: recipe.title,
 		description: recipe.description,
+		activeTime: recipe.activeTime,
+		totalTime: recipe.totalTime,
 		ingredients: recipe.ingredients,
 		instructions: recipe.instructions,
 	})

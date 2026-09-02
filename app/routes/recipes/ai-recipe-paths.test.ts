@@ -192,11 +192,19 @@ describe('surviving AI Recipe paths', () => {
 		expect(
 			unwrapData<{
 				error: string | null
-				suggestions: { description: string | null } | null
+				suggestions: {
+					description: string | null
+					activeTime: number | null
+					totalTime: number | null
+				} | null
 			}>(suggested),
 		).toEqual({
 			error: null,
-			suggestions: { description: 'Creamy chickpeas warmed with care.' },
+			suggestions: {
+				description: 'Creamy chickpeas warmed with care.',
+				activeTime: null,
+				totalTime: null,
+			},
 		})
 		await expect(
 			prisma.recipe.findUniqueOrThrow({
@@ -220,6 +228,77 @@ describe('surviving AI Recipe paths', () => {
 			}),
 		).resolves.toEqual({
 			description: 'Creamy chickpeas warmed with care.',
+		})
+	})
+
+	test('enhancement returns estimated active and total times for review', async () => {
+		using _anthropic = configureAnthropic()
+		const session = await setupProHousehold()
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Untimed chickpeas',
+				description: 'Original description.',
+				userId: session.userId,
+				householdId: session.householdId,
+				ingredients: { create: { name: 'chickpeas', order: 0 } },
+				instructions: { create: { content: 'Warm them.', order: 0 } },
+			},
+		})
+		respondWithAnthropicJson({
+			description: 'Creamy chickpeas warmed with care.',
+			activeTime: 10,
+			totalTime: 25,
+		})
+
+		const suggested = await enhanceAction({
+			request: await postRequest(session, '/resources/enhance-recipe', {
+				recipeId: recipe.id,
+			}),
+			...routeArgs('/resources/enhance-recipe'),
+		})
+
+		expect(
+			unwrapData<{
+				error: string | null
+				suggestions: {
+					description: string | null
+					activeTime: number | null
+					totalTime: number | null
+				} | null
+			}>(suggested),
+		).toEqual({
+			error: null,
+			suggestions: {
+				description: 'Creamy chickpeas warmed with care.',
+				activeTime: 10,
+				totalTime: 25,
+			},
+		})
+		await expect(
+			prisma.recipe.findUniqueOrThrow({
+				where: { id: recipe.id },
+				select: { activeTime: true, totalTime: true },
+			}),
+		).resolves.toEqual({ activeTime: null, totalTime: null })
+
+		const applied = await recipeAction({
+			request: await postRequest(session, `/recipes/${recipe.id}`, {
+				intent: 'applyEnhancement',
+				enhance_activeTime: '10',
+				enhance_totalTime: '25',
+			}),
+			...routeArgs('/recipes/:recipeId', { recipeId: recipe.id }),
+		})
+		expect(applied).toEqual({ success: true })
+		await expect(
+			prisma.recipe.findUniqueOrThrow({
+				where: { id: recipe.id },
+				select: { description: true, activeTime: true, totalTime: true },
+			}),
+		).resolves.toEqual({
+			description: 'Original description.',
+			activeTime: 10,
+			totalTime: 25,
 		})
 	})
 

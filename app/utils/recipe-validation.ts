@@ -9,9 +9,11 @@ export const RecipeTitleSchema = z
 	.min(1, { message: 'Title is required' })
 	.max(100, { message: 'Title is too long' })
 
+export const MAX_RECIPE_DESCRIPTION_LENGTH = 500
+
 export const RecipeDescriptionSchema = z
 	.string()
-	.max(500, { message: 'Description is too long' })
+	.max(MAX_RECIPE_DESCRIPTION_LENGTH, { message: 'Description is too long' })
 	.optional()
 
 export const RecipeNotesSchema = z

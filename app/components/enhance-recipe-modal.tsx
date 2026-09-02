@@ -9,6 +9,8 @@ import { Icon } from './ui/icon.tsx'
 type RecipeData = {
 	id: string
 	description: string | null
+	activeTime: number | null
+	totalTime: number | null
 }
 
 export function EnhanceRecipeModal({
@@ -26,12 +28,20 @@ export function EnhanceRecipeModal({
 	const hasDescriptionChange =
 		suggestions.description !== null &&
 		suggestions.description !== recipe.description
-	const hasAnyChange = hasDescriptionChange
+	const hasActiveTimeChange =
+		suggestions.activeTime !== null &&
+		suggestions.activeTime !== recipe.activeTime
+	const hasTotalTimeChange =
+		suggestions.totalTime !== null && suggestions.totalTime !== recipe.totalTime
+	const hasAnyChange =
+		hasDescriptionChange || hasActiveTimeChange || hasTotalTimeChange
 
 	// Checkbox state: missing fields pre-checked, existing fields unchecked
-	const [checked, setChecked] = useState(
-		hasDescriptionChange && !recipe.description,
-	)
+	const [checked, setChecked] = useState(() => ({
+		description: hasDescriptionChange && !recipe.description,
+		activeTime: hasActiveTimeChange && recipe.activeTime == null,
+		totalTime: hasTotalTimeChange && recipe.totalTime == null,
+	}))
 	const dialogRef = useModal(onClose)
 
 	// Close after successful apply (prevState ref prevents firing on mount with stale data)
@@ -42,10 +52,18 @@ export function EnhanceRecipeModal({
 			fetcher.state === 'idle' &&
 			fetcher.data
 		) {
-			const result = fetcher.data as { success?: boolean }
+			const result = fetcher.data as {
+				success?: boolean
+				error?: string
+				requiresPro?: boolean
+			}
 			if (result.success) {
 				toast.success('Recipe enhanced!')
 				onClose()
+			} else if (result.error) {
+				toast.error(result.error)
+			} else if (result.requiresPro) {
+				toast.error('Recipe enhancement requires Pro.')
 			}
 		}
 		prevApplyState.current = fetcher.state
@@ -55,8 +73,14 @@ export function EnhanceRecipeModal({
 		const formData = new FormData()
 		formData.set('intent', 'applyEnhancement')
 
-		if (checked && suggestions.description) {
+		if (checked.description && suggestions.description) {
 			formData.set('enhance_description', suggestions.description)
+		}
+		if (checked.activeTime && suggestions.activeTime) {
+			formData.set('enhance_activeTime', String(suggestions.activeTime))
+		}
+		if (checked.totalTime && suggestions.totalTime) {
+			formData.set('enhance_totalTime', String(suggestions.totalTime))
 		}
 
 		void fetcher.submit(formData, {
@@ -64,6 +88,24 @@ export function EnhanceRecipeModal({
 			action: `/recipes/${recipe.id}`,
 		})
 	}
+
+	function toggleField(field: keyof typeof checked) {
+		setChecked((selected) => ({ ...selected, [field]: !selected[field] }))
+	}
+
+	const hasAnySelected =
+		checked.description || checked.activeTime || checked.totalTime
+	const selectedActiveTime = checked.activeTime
+		? suggestions.activeTime
+		: recipe.activeTime
+	const selectedTotalTime = checked.totalTime
+		? suggestions.totalTime
+		: recipe.totalTime
+	const hasInvalidTimeSelection =
+		(checked.activeTime || checked.totalTime) &&
+		selectedActiveTime != null &&
+		selectedTotalTime != null &&
+		selectedTotalTime < selectedActiveTime
 
 	return (
 		<div
@@ -109,16 +151,46 @@ export function EnhanceRecipeModal({
 									label="Description"
 									current={recipe.description || '—'}
 									suggested={suggestions.description!}
-									checked={checked}
-									onToggle={() => setChecked((selected) => !selected)}
+									checked={checked.description}
+									onToggle={() => toggleField('description')}
+								/>
+							)}
+
+							{hasActiveTimeChange && (
+								<FieldRow
+									label="Active Time"
+									current={formatMinutes(recipe.activeTime)}
+									suggested={formatMinutes(suggestions.activeTime)}
+									checked={checked.activeTime}
+									onToggle={() => toggleField('activeTime')}
+								/>
+							)}
+
+							{hasTotalTimeChange && (
+								<FieldRow
+									label="Total Time"
+									current={formatMinutes(recipe.totalTime)}
+									suggested={formatMinutes(suggestions.totalTime)}
+									checked={checked.totalTime}
+									onToggle={() => toggleField('totalTime')}
 								/>
 							)}
 						</div>
 
+						{hasInvalidTimeSelection && (
+							<p className="text-destructive mt-3 text-sm" role="alert">
+								Total time must be at least active time.
+							</p>
+						)}
+
 						<div className="mt-5 flex gap-2">
 							<Button
 								onClick={handleApply}
-								disabled={!checked || fetcher.state !== 'idle'}
+								disabled={
+									!hasAnySelected ||
+									hasInvalidTimeSelection ||
+									fetcher.state !== 'idle'
+								}
 								className="flex-1 gap-2"
 							>
 								{fetcher.state !== 'idle' ? (
@@ -148,6 +220,10 @@ export function EnhanceRecipeModal({
 			</div>
 		</div>
 	)
+}
+
+function formatMinutes(minutes: number | null): string {
+	return minutes == null ? '—' : `${minutes} min`
 }
 
 function FieldRow({

@@ -195,6 +195,49 @@ describe('recipe detail loader', () => {
 })
 
 describe('recipe detail actions', () => {
+	test('caps enhancement descriptions at the Recipe field limit', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+
+		const request = await makeRequest(session, recipe.id, {
+			intent: 'applyEnhancement',
+			enhance_description: `  ${'a'.repeat(600)}  `,
+		})
+		expect(
+			await action({ request, ...makeActionArgs(recipe.id) }),
+		).toEqual({ success: true })
+
+		await expect(
+			prisma.recipe.findUniqueOrThrow({
+				where: { id: recipe.id },
+				select: { description: true },
+			}),
+		).resolves.toEqual({ description: 'a'.repeat(500) })
+	})
+
+	test('rejects an enhancement time that conflicts with saved time', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+
+		const request = await makeRequest(session, recipe.id, {
+			intent: 'applyEnhancement',
+			enhance_activeTime: '50',
+		})
+		expect(
+			await action({ request, ...makeActionArgs(recipe.id) }),
+		).toEqual({
+			success: false,
+			error: 'Total time must be at least active time.',
+		})
+
+		await expect(
+			prisma.recipe.findUniqueOrThrow({
+				where: { id: recipe.id },
+				select: { activeTime: true, totalTime: true },
+			}),
+		).resolves.toEqual({ activeTime: 10, totalTime: 40 })
+	})
+
 	test('toggle favorite', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId, {

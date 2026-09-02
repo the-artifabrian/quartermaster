@@ -6,6 +6,7 @@ import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	AddMealSchema,
+	AddMenuSchema,
 	AddTextMealSchema,
 	MealDetailsSchema,
 } from '#app/utils/meal-plan-validation.ts'
@@ -22,6 +23,7 @@ import {
 	setMealCooked,
 } from '#app/utils/meal.server.ts'
 import { ScaleMultiplierSchema } from '#app/utils/menu-validation.ts'
+import { planMenu } from '#app/utils/plan-menu.server.ts'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
 import {
 	reconcileMealShoppingContributions,
@@ -98,6 +100,31 @@ export function createPlanAction(
 				recipe,
 				scaleMultiplier: multiplier ?? 1,
 			})
+			return { status: 'success' as const }
+		}
+
+		// The saved-Menu fast path mirrors Recipe selection in Plan: the chosen
+		// day and optional label are already known, while the shared Menu planning
+		// module applies the Menu's default guest context and freezes its contents.
+		if (intent === 'addMenu') {
+			const submission = parseWithZod(formData, { schema: AddMenuSchema })
+			if (submission.status !== 'success') {
+				return { status: 'error' as const, submission: submission.reply() }
+			}
+			const { date, menuId, label } = submission.value
+			const result = await planMenu(db, {
+				householdId,
+				menuId,
+				date,
+				label: label ?? null,
+			})
+			if (!result.created) {
+				return {
+					status: 'error' as const,
+					menuError:
+						'This Menu has nothing to plan yet—add a Recipe or note first.',
+				}
+			}
 			return { status: 'success' as const }
 		}
 

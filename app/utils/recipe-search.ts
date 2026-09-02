@@ -3,6 +3,9 @@ type SearchableRecipe = TitledRecipe & {
 	description?: string | null
 	ingredients?: readonly { name: string }[]
 }
+type TitledChoiceWithRelatedTitles = TitledRecipe & {
+	relatedTitles?: readonly string[]
+}
 
 const MAX_SEARCH_QUERY_LENGTH = 256
 const MAX_SEARCH_TERMS = 8
@@ -101,6 +104,43 @@ export function rankRecipeTitleMatches<T extends TitledRecipe>(
 		)
 		.sort((a, b) => a.rank - b.rank || a.index - b.index)
 		.map(({ recipe }) => recipe)
+}
+
+/**
+ * Rank a named choice by its own title first, then by the titles of things it
+ * contains. Plan uses this for Menus: typing either the Menu name or one of its
+ * Recipe names finds the reusable group, while a direct Menu-title match stays
+ * ahead of a contained-Recipe match.
+ */
+export function rankTitleAndRelatedMatches<
+	T extends TitledChoiceWithRelatedTitles,
+>(choices: readonly T[], query: string): T[] {
+	const terms = searchTerms(query)
+	if (terms.length === 0) return [...choices]
+
+	return choices
+		.map((choice, index) => {
+			const titleRank = titleMatchRank(choice.title, terms)
+			if (titleRank !== null) return { choice, index, rank: titleRank }
+
+			const relatedRank = Math.min(
+				...(choice.relatedTitles ?? []).flatMap((title) => {
+					const rank = titleMatchRank(title, terms)
+					return rank == null ? [] : [rank]
+				}),
+			)
+			return {
+				choice,
+				index,
+				rank: Number.isFinite(relatedRank) ? 4 + relatedRank : null,
+			}
+		})
+		.filter(
+			(result): result is typeof result & { rank: number } =>
+				result.rank !== null,
+		)
+		.sort((a, b) => a.rank - b.rank || a.index - b.index)
+		.map(({ choice }) => choice)
 }
 
 export function rankRecipeSearchMatches<T extends SearchableRecipe>(

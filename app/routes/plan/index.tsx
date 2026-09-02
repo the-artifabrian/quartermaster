@@ -119,19 +119,63 @@ export async function loader({ request }: Route.LoaderArgs) {
 		},
 	})
 
-	// Load user's recipes for the picker (lightweight — no ingredients)
-	const recipes = await prisma.recipe.findMany({
-		where: { householdId },
-		orderBy: { title: 'asc' },
-		select: {
-			id: true,
-			title: true,
-			totalTime: true,
-			yieldAmount: true,
-			yieldLabel: true,
-			isFavorite: true,
-			image: { select: { objectKey: true } },
-		},
+	// Load the lightweight Recipe and saved-Menu choices for Add Meal. A Menu
+	// carries only enough of its composition to identify and search it here;
+	// the action always reads the full Menu fresh before making a snapshot.
+	const [recipes, menuChoices] = await Promise.all([
+		prisma.recipe.findMany({
+			where: { householdId },
+			orderBy: { title: 'asc' },
+			select: {
+				id: true,
+				title: true,
+				totalTime: true,
+				yieldAmount: true,
+				yieldLabel: true,
+				isFavorite: true,
+				image: { select: { objectKey: true } },
+			},
+		}),
+		prisma.menu.findMany({
+			where: {
+				householdId,
+				// Blank drafts have nothing the planner can copy and stay out of the
+				// picker until their first Recipe or note is added.
+				sections: { some: { items: { some: {} } } },
+			},
+			orderBy: { updatedAt: 'desc' },
+			select: {
+				id: true,
+				title: true,
+				sections: {
+					orderBy: { order: 'asc' },
+					select: {
+						items: {
+							orderBy: { order: 'asc' },
+							select: {
+								kind: true,
+								recipeTitle: true,
+								recipe: { select: { title: true } },
+							},
+						},
+					},
+				},
+			},
+		}),
+	])
+	const menus = menuChoices.map((menu) => {
+		const items = menu.sections.flatMap((section) => section.items)
+		const recipeItems = items.filter((item) => item.kind === 'recipe')
+		return {
+			id: menu.id,
+			title: menu.title,
+			recipeCount: recipeItems.length,
+			noteCount: items.length - recipeItems.length,
+			recipeTitles: recipeItems.flatMap((item) => {
+				const title = item.recipe?.title ?? item.recipeTitle
+				return title ? [title] : []
+			}),
+		}
 	})
 
 	const weekDays = getWeekDays(weekStart)
@@ -218,6 +262,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	return {
 		meals,
 		recipes,
+		menus,
 		weekDays,
 		weekStart: serializeDate(weekStart),
 		shoppingListItemCount,
@@ -227,7 +272,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 export const action = createPlanAction(prisma)
 
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
-	const { meals, recipes, weekDays, weekStart, shoppingListItemCount } =
+	const { meals, recipes, menus, weekDays, weekStart, shoppingListItemCount } =
 		loaderData
 
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
@@ -272,6 +317,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					weekDays={weekDays}
 					meals={meals}
 					recipes={recipes}
+					menus={menus}
 				/>
 
 				{meals.length > 0 && shoppingListItemCount === 0 && (

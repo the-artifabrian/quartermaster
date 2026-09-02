@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import {
 	rankRecipeSearchMatches,
 	rankRecipeTitleMatches,
+	rankTitleAndRelatedMatches,
 } from './recipe-search.ts'
 
 test('finds a Recipe title with one adjacent-transposition typo', () => {
@@ -93,5 +94,28 @@ test('keeps description and ingredient matches behind title matches', () => {
 	expect(rankRecipeSearchMatches(recipes, 'quick chicken')).toEqual([
 		recipes[1],
 		recipes[0],
+	])
+})
+
+test('finds a titled choice by a related title while keeping direct matches first', () => {
+	const choices = [
+		{
+			id: 'related',
+			title: 'Friday Supper',
+			relatedTitles: ['Herb Salad', 'Garlic Flatbread'],
+		},
+		{
+			id: 'direct',
+			title: 'Flatbread Night',
+			relatedTitles: ['Tomato Soup'],
+		},
+	]
+
+	expect(rankTitleAndRelatedMatches(choices, 'flatbread')).toEqual([
+		choices[1],
+		choices[0],
+	])
+	expect(rankTitleAndRelatedMatches(choices, 'garlic flatbrad')).toEqual([
+		choices[0],
 	])
 })

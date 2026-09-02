@@ -6,6 +6,7 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 }))
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { action, loader } from './index.tsx'
@@ -78,6 +79,50 @@ async function setupRecipe(
 			},
 		},
 	})
+}
+
+async function setupMenu(
+	userId: string,
+	householdId: string,
+	title = 'Friday Supper',
+) {
+	const [first, second] = await Promise.all([
+		setupRecipe(userId, householdId, 'Herb Salad'),
+		setupRecipe(userId, householdId, 'Garlic Flatbread'),
+	])
+	const menu = await prisma.menu.create({
+		data: {
+			title,
+			titleKey: menuTitleKey(title),
+			defaultGuestCount: 4,
+			householdId,
+			sections: {
+				create: {
+					name: null,
+					order: 0,
+					items: {
+						create: [
+							{
+								kind: 'recipe',
+								order: 0,
+								recipeId: first.id,
+								recipeTitle: first.title,
+								scaleMultiplier: 1,
+							},
+							{
+								kind: 'recipe',
+								order: 1,
+								recipeId: second.id,
+								recipeTitle: second.title,
+								scaleMultiplier: 1.5,
+							},
+						],
+					},
+				},
+			},
+		},
+	})
+	return { menu, first, second }
 }
 
 async function makeRequest(
@@ -182,6 +227,73 @@ describe('meal plan actions', () => {
 		expect(meal!.recipeItems[0]!.scaleMultiplier).toBe(1.5)
 	})
 
+	test('addMenu plans one frozen Meal on the chosen day with Menu defaults', async () => {
+		const session = await setupUser()
+		const { menu, first, second } = await setupMenu(
+			session.userId,
+			session.householdId,
+		)
+
+		const result = await act(session, {
+			intent: 'addMenu',
+			date: '2026-02-03',
+			menuId: menu.id,
+			label: 'dinner',
+		})
+
+		expect(result).toEqual({ status: 'success' })
+		const meal = await prisma.meal.findFirstOrThrow({
+			where: { sourceMenuId: menu.id },
+			include: {
+				sections: true,
+				recipeItems: { orderBy: { order: 'asc' } },
+			},
+		})
+		expect(meal).toMatchObject({
+			date: new Date('2026-02-03T00:00:00.000Z'),
+			label: 'dinner',
+			guestCount: 4,
+			sourceMenuId: menu.id,
+		})
+		expect(meal.sections).toHaveLength(1)
+		expect(meal.recipeItems).toMatchObject([
+			{ recipeId: first.id, recipeTitle: 'Herb Salad', scaleMultiplier: 1 },
+			{
+				recipeId: second.id,
+				recipeTitle: 'Garlic Flatbread',
+				scaleMultiplier: 1.5,
+			},
+		])
+	})
+
+	test('Plan loader exposes non-empty saved Menus for the unified picker', async () => {
+		const session = await setupUser()
+		const { menu } = await setupMenu(session.userId, session.householdId)
+		await prisma.menu.create({
+			data: {
+				title: 'Empty Menu',
+				titleKey: menuTitleKey('Empty Menu'),
+				householdId: session.householdId,
+				sections: { create: { name: null, order: 0 } },
+			},
+		})
+
+		const result = await loader({
+			request: await makeLoaderRequest(session, '2026-02-02'),
+			...ACTION_ARGS_BASE,
+		})
+
+		expect(result.menus).toEqual([
+			{
+				id: menu.id,
+				title: 'Friday Supper',
+				recipeCount: 2,
+				noteCount: 0,
+				recipeTitles: ['Herb Salad', 'Garlic Flatbread'],
+			},
+		])
+	})
+
 	test('concurrent household members adding to a fresh week share one plan', async () => {
 		const owner = await setupUser()
 		const member = await setupHouseholdMember(owner.householdId)
@@ -238,6 +350,7 @@ describe('meal plan actions', () => {
 	test('another household cannot see, modify, or plan with foreign data', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
+		const { menu } = await setupMenu(session.userId, session.householdId)
 		await act(session, {
 			intent: 'addMeal',
 			date: '2026-02-02',
@@ -259,6 +372,7 @@ describe('meal plan actions', () => {
 		// Meals, items, and Recipes all 404 without a write.
 		const denied: Array<Record<string, string>> = [
 			{ intent: 'addMeal', date: '2026-02-02', recipeId: recipe.id },
+			{ intent: 'addMenu', date: '2026-02-02', menuId: menu.id },
 			{ intent: 'setMealCooked', mealId: meal!.id, cooked: 'true' },
 			{ intent: 'setItemCooked', itemId: item.id, cooked: 'true' },
 			{ intent: 'setItemMultiplier', itemId: item.id, multiplier: '2' },

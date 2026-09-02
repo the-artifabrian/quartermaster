@@ -16,14 +16,9 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { PlanMenuSchema } from '#app/utils/meal-plan-validation.ts'
-import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
-import { createMealWithItems } from '#app/utils/meal.server.ts'
-import {
-	menuToSnapshotSections,
-	snapshotHasContent,
-} from '#app/utils/menu-snapshot.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
+import { planMenu } from '#app/utils/plan-menu.server.ts'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
 import {
 	formatTargetYieldAmount,
@@ -156,40 +151,20 @@ export async function action({ request, params }: Route.ActionArgs) {
 	}
 	const { date, label, time, timeZone, guestCount } = submission.value
 
-	// Fresh household-scoped read at submit time — the snapshot freezes what
-	// the Menu holds now, and updatedAt is read in the same query it copies.
-	const menu = await prisma.menu.findFirst({
-		where: { id: params.menuId, householdId },
-		select: {
-			id: true,
-			updatedAt: true,
-			sections: {
-				orderBy: { order: 'asc' },
-				select: {
-					name: true,
-					items: {
-						orderBy: { order: 'asc' },
-						select: {
-							kind: true,
-							recipeTitle: true,
-							scaleMultiplier: true,
-							note: true,
-							recipe: {
-								select: { id: true, title: true, householdId: true },
-							},
-							shoppingLines: {
-								orderBy: { order: 'asc' },
-								select: { name: true, quantity: true, unit: true },
-							},
-						},
-					},
-				},
-			},
-		},
+	// Serving time is one UTC instant plus its originating IANA zone, computed
+	// from the Meal's semantic date (#98). Guest count travels as context only.
+	const servingAt =
+		time != null ? servingInstantFromWallTime(date, time, timeZone!) : null
+	const result = await planMenu(prisma, {
+		householdId,
+		menuId: params.menuId,
+		date,
+		label: label ?? null,
+		servingAt,
+		servingTimeZone: servingAt ? (timeZone ?? null) : null,
+		guestCount: guestCount ?? null,
 	})
-	invariantResponse(menu, 'Menu not found', { status: 404 })
-	const sections = menuToSnapshotSections(menu, householdId)
-	if (!snapshotHasContent(sections)) {
+	if (!result.created) {
 		return data(
 			{
 				result: submission.reply({
@@ -201,27 +176,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 			{ status: 400 },
 		)
 	}
-
-	const mealPlan = await ensureMealPlan(prisma, {
-		householdId,
-		weekStart: getWeekStart(date),
-	})
-	// Serving time is one UTC instant plus its originating IANA zone, computed
-	// from the Meal's semantic date (#98). Guest count travels as context only.
-	const servingAt =
-		time != null ? servingInstantFromWallTime(date, time, timeZone!) : null
-	await createMealWithItems(prisma, {
-		mealPlanId: mealPlan.id,
-		date,
-		label: label ?? null,
-		servingAt,
-		servingTimeZone: servingAt ? (timeZone ?? null) : null,
-		guestCount: guestCount ?? null,
-		sourceMenuId: menu.id,
-		sourceMenuRevision: menu.updatedAt,
-		items: [],
-		sections,
-	})
 
 	return redirect(`/plan?weekStart=${serializeDate(getWeekStart(date))}`)
 }

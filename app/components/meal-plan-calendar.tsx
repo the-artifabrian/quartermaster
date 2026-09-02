@@ -13,8 +13,10 @@ import {
 import { cn } from '#app/utils/misc.tsx'
 import { type PlanMeal, MealCard } from './meal-card.tsx'
 import {
+	type PlanItemChoice,
+	PlanItemSelector,
+	type PlanSelectorMenu,
 	type RecipeSelectorRecipe,
-	RecipeSelector,
 } from './recipe-selector.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -24,6 +26,7 @@ type MealPlanCalendarProps = {
 	weekDays: Date[]
 	meals: PlanMeal[]
 	recipes: RecipeSelectorRecipe[]
+	menus: PlanSelectorMenu[]
 }
 
 type AddMealPresentation = 'primary' | 'row' | 'empty-row'
@@ -41,31 +44,35 @@ function initialSelectedDate(weekDays: Date[], meals: PlanMeal[]): string {
 function AddMealControl({
 	date,
 	recipes,
+	menus,
 	presentation,
 }: {
 	date: Date
 	recipes: RecipeSelectorRecipe[]
+	menus: PlanSelectorMenu[]
 	presentation: AddMealPresentation
 }) {
 	const fetcher = useFetcher()
 	const [open, setOpen] = useState(false)
-	const [mode, setMode] = useState<'recipe' | 'text'>('recipe')
+	const [mode, setMode] = useState<'item' | 'text'>('item')
 	const [label, setLabel] = useState<MealType | null>(null)
 	const [text, setText] = useState('')
 
 	function close() {
 		setOpen(false)
-		setMode('recipe')
+		setMode('item')
 		setLabel(null)
 		setText('')
 	}
 
-	function submitRecipe(recipe: RecipeSelectorRecipe) {
+	function submitChoice(choice: PlanItemChoice) {
 		void fetcher.submit(
 			{
-				intent: 'addMeal',
+				intent: choice.kind === 'recipe' ? 'addMeal' : 'addMenu',
 				date: serializeDate(date),
-				recipeId: recipe.id,
+				...(choice.kind === 'recipe'
+					? { recipeId: choice.recipe.id }
+					: { menuId: choice.menu.id }),
 				...(label ? { label } : {}),
 			},
 			{ method: 'POST' },
@@ -114,13 +121,14 @@ function AddMealControl({
 				</div>
 			</fieldset>
 
-			{mode === 'recipe' ? (
+			{mode === 'item' ? (
 				<>
-					<RecipeSelector
+					<PlanItemSelector
 						recipes={recipes}
+						menus={menus}
 						date={date}
 						onCancel={close}
-						onPick={submitRecipe}
+						onPick={submitChoice}
 					/>
 					<button
 						type="button"
@@ -157,10 +165,10 @@ function AddMealControl({
 					<div className="flex items-center justify-between gap-3">
 						<button
 							type="button"
-							onClick={() => setMode('recipe')}
+							onClick={() => setMode('item')}
 							className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
 						>
-							Pick a Recipe instead
+							Pick a Recipe or Menu instead
 						</button>
 						<Button size="sm" onClick={submitText} disabled={!text.trim()}>
 							Add
@@ -275,6 +283,7 @@ export function MealPlanCalendar({
 	weekDays,
 	meals,
 	recipes,
+	menus,
 }: MealPlanCalendarProps) {
 	const [selectedDate, setSelectedDate] = useState(() =>
 		initialSelectedDate(weekDays, meals),
@@ -371,6 +380,7 @@ export function MealPlanCalendar({
 						key={selectedDate}
 						date={selectedDay}
 						recipes={recipes}
+						menus={menus}
 						presentation="primary"
 					/>
 				</div>
@@ -385,7 +395,7 @@ export function MealPlanCalendar({
 							</span>
 							<p className="mt-3 font-serif text-lg">Nothing planned</p>
 							<p className="text-muted-foreground mt-1 text-sm">
-								Add a Recipe or a simple note when this day needs one.
+								Add a Recipe, Menu, or simple note when this day needs one.
 							</p>
 						</div>
 					)}
@@ -440,6 +450,7 @@ export function MealPlanCalendar({
 										<AddMealControl
 											date={date}
 											recipes={recipes}
+											menus={menus}
 											presentation="row"
 										/>
 									</>
@@ -447,6 +458,7 @@ export function MealPlanCalendar({
 									<AddMealControl
 										date={date}
 										recipes={recipes}
+										menus={menus}
 										presentation="empty-row"
 									/>
 								)}

@@ -5,6 +5,7 @@ import {
 	isToday,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
 test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
@@ -44,6 +45,45 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 			title: 'Herb Salad',
 			userId: user.id,
 			householdId: household.id,
+		},
+	})
+	const menuRecipe = await prisma.recipe.create({
+		data: {
+			title: 'Garlic Flatbread',
+			userId: user.id,
+			householdId: household.id,
+		},
+	})
+	const menu = await prisma.menu.create({
+		data: {
+			title: 'Friday Supper',
+			titleKey: menuTitleKey('Friday Supper'),
+			defaultGuestCount: 4,
+			householdId: household.id,
+			sections: {
+				create: {
+					name: null,
+					order: 0,
+					items: {
+						create: [
+							{
+								kind: 'recipe',
+								order: 0,
+								recipeId: secondRecipe.id,
+								recipeTitle: secondRecipe.title,
+								scaleMultiplier: 1,
+							},
+							{
+								kind: 'recipe',
+								order: 1,
+								recipeId: menuRecipe.id,
+								recipeTitle: menuRecipe.title,
+								scaleMultiplier: 1.5,
+							},
+						],
+					},
+				},
+			},
 		},
 	})
 
@@ -114,7 +154,7 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 			.first()
 			.click()
 		await expect(
-			page.getByPlaceholder('Search recipes...').first(),
+			page.getByPlaceholder('Search Recipes and Menus...').first(),
 		).toBeVisible({ timeout: 2000 })
 		await expect(page.getByRole('dialog')).toHaveCount(0)
 	}).toPass()
@@ -133,19 +173,49 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 		)
 		.toBe(1)
 
-	// 4. Mark as cooked (plain toggle — no confirmation dialog)
+	// 4. Find a saved Menu by one of its contained Recipe titles and add the
+	// whole group to the day in one step.
+	await desktopPlan
+		.getByRole('button', { name: /add meal/i })
+		.first()
+		.click()
+	const planSearch = page
+		.getByPlaceholder('Search Recipes and Menus...')
+		.first()
+	await planSearch.fill('garlic flatbrad')
+	await expect(page.getByText('Menus', { exact: true }).first()).toBeVisible()
+	await page
+		.getByRole('button', { name: /Friday Supper/ })
+		.first()
+		.click()
+	await expect(
+		desktopPlan.getByRole('link', { name: 'Friday Supper' }),
+	).toBeVisible()
+	await expect
+		.poll(async () =>
+			prisma.meal.findFirst({
+				where: { sourceMenuId: menu.id },
+				select: {
+					guestCount: true,
+					_count: { select: { recipeItems: true } },
+				},
+			}),
+		)
+		.toEqual({ guestCount: 4, _count: { recipeItems: 2 } })
+
+	// 5. Mark as cooked (plain toggle — no confirmation dialog)
 	await desktopPlan
 		.getByRole('button', { name: 'Mark Test Stir Fry as cooked' })
 		.click()
 
-	// 5. Verify cooked state (toggle label flips optimistically)
+	// 6. Verify cooked state (toggle label flips optimistically)
 	await expect(
 		desktopPlan.getByRole('button', {
 			name: 'Mark Test Stir Fry as not cooked',
 		}),
 	).toBeVisible()
 
-	// 6. Reload to confirm the state persisted — the optimistic flip above
+	// 7. Reload to confirm the state persisted — the optimistic flip above
 	// would pass even if the server action failed
 	await page.reload()
 	await expect(

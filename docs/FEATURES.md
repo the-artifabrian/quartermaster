@@ -33,6 +33,8 @@ plan into Shopping.
 - Plan an ordered list of Meals for each day of a Monday-start week.
 - A Meal may contain one or more Recipes, a Menu snapshot, or plain text such as
   “Leftovers.”
+- Search Recipes and saved Menus together when adding a Meal to a day; a Menu
+  can also be found by the Recipe titles inside it.
 - Store an optional label, serving time, guest count, Recipe multiplier, and
   cooked state.
 - Add Recipes to an existing Meal, reorder Meals, and edit Meal details without

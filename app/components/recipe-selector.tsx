@@ -6,7 +6,10 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
-import { rankRecipeTitleMatches } from '#app/utils/recipe-search.ts'
+import {
+	rankRecipeTitleMatches,
+	rankTitleAndRelatedMatches,
+} from '#app/utils/recipe-search.ts'
 
 export type RecipeSelectorRecipe = {
 	id: string
@@ -18,13 +21,34 @@ export type RecipeSelectorRecipe = {
 	image: { objectKey: string } | null
 }
 
-type RecipeSelectorProps = {
+export type PlanSelectorMenu = {
+	id: string
+	title: string
+	recipeCount: number
+	noteCount: number
+	recipeTitles: string[]
+}
+
+export type PlanItemChoice =
+	| { kind: 'recipe'; recipe: RecipeSelectorRecipe }
+	| { kind: 'menu'; menu: PlanSelectorMenu }
+
+type PlanItemSelectorProps = {
 	recipes: RecipeSelectorRecipe[]
+	menus: PlanSelectorMenu[]
 	/** Weeknights (Mon-Thu) sort by total time; the date only drives that. */
 	date: Date
 	excludeRecipeIds?: string[]
 	onCancel: () => void
-	/** Callback-based like the Menu RecipePicker — the parent owns the submit. */
+	/** The parent owns the Recipe/Menu submit; this module owns discovery. */
+	onPick: (choice: PlanItemChoice) => void
+}
+
+type RecipeSelectorProps = {
+	recipes: RecipeSelectorRecipe[]
+	date: Date
+	excludeRecipeIds?: string[]
+	onCancel: () => void
 	onPick: (recipe: RecipeSelectorRecipe) => void
 }
 
@@ -80,17 +104,63 @@ function sortByTime(a: RecipeSelectorRecipe, b: RecipeSelectorRecipe): number {
 	return aTime - bTime
 }
 
+/**
+ * Unified Plan picker for the two reusable things that can start a Meal. Saved
+ * Menus stay visually distinct and can be found by their own title or by a
+ * Recipe title inside them; Recipes retain favorite and weeknight ordering.
+ */
+export function PlanItemSelector({ ...props }: PlanItemSelectorProps) {
+	return (
+		<ItemSelector
+			{...props}
+			placeholder="Search Recipes and Menus..."
+			emptyMessage="No Recipes or Menus found"
+		/>
+	)
+}
+
+/** Recipe-only variant used when adding another Recipe to an existing Meal. */
 export function RecipeSelector({
 	recipes,
+	date,
+	excludeRecipeIds,
+	onCancel,
+	onPick,
+}: RecipeSelectorProps) {
+	return (
+		<ItemSelector
+			recipes={recipes}
+			menus={[]}
+			date={date}
+			excludeRecipeIds={excludeRecipeIds}
+			onCancel={onCancel}
+			onPick={(choice) => {
+				if (choice.kind === 'recipe') onPick(choice.recipe)
+			}}
+			placeholder="Search recipes..."
+			emptyMessage="No recipes found"
+		/>
+	)
+}
+
+function ItemSelector({
+	recipes,
+	menus,
 	date,
 	excludeRecipeIds = [],
 	onCancel,
 	onPick,
-}: RecipeSelectorProps) {
+	placeholder,
+	emptyMessage,
+}: PlanItemSelectorProps & { placeholder: string; emptyMessage: string }) {
 	const [search, setSearch] = useState('')
 
 	const filteredRecipes = rankRecipeTitleMatches(
 		recipes.filter((recipe) => !excludeRecipeIds.includes(recipe.id)),
+		search,
+	)
+	const filteredMenus = rankTitleAndRelatedMatches(
+		menus.map((menu) => ({ ...menu, relatedTitles: menu.recipeTitles })),
 		search,
 	)
 	const isSearching = search.trim().length > 0
@@ -107,13 +177,27 @@ export function RecipeSelector({
 	const rest = isSearching
 		? filteredRecipes
 		: applySorting(filteredRecipes.filter((recipe) => !recipe.isFavorite))
-	const hasBothGroups = favorites.length > 0 && rest.length > 0
+	const hasAnyChoice =
+		filteredMenus.length > 0 || favorites.length > 0 || rest.length > 0
+	const hasMenus = filteredMenus.length > 0
+	const menuChoices = hasMenus ? (
+		<>
+			<PickerGroupLabel>Menus</PickerGroupLabel>
+			{filteredMenus.map((menu) => (
+				<MenuOption
+					key={menu.id}
+					menu={menu}
+					onPick={(pickedMenu) => onPick({ kind: 'menu', menu: pickedMenu })}
+				/>
+			))}
+		</>
+	) : null
 
 	return (
 		<div className="space-y-2">
 			<div className="flex items-center gap-2">
 				<Input
-					placeholder="Search recipes..."
+					placeholder={placeholder}
 					value={search}
 					onChange={(e) => setSearch(e.target.value)}
 					autoFocus
@@ -122,15 +206,15 @@ export function RecipeSelector({
 					variant="ghost"
 					size="icon"
 					onClick={onCancel}
-					aria-label="Close recipe selector"
+					aria-label="Close picker"
 				>
 					<Icon name="cross-1" size="sm" />
 				</Button>
 			</div>
 			<div className="max-h-[300px] scrollbar-thin space-y-0.5 overflow-y-auto">
-				{favorites.length === 0 && rest.length === 0 ? (
+				{!hasAnyChoice ? (
 					<div className="py-4 text-center">
-						<p className="text-muted-foreground text-sm">No recipes found</p>
+						<p className="text-muted-foreground text-sm">{emptyMessage}</p>
 						<Link
 							to="/recipes/new"
 							className="text-primary mt-1 inline-block text-sm hover:underline"
@@ -140,42 +224,89 @@ export function RecipeSelector({
 					</div>
 				) : (
 					<>
+						{!isSearching ? menuChoices : null}
 						{favorites.length > 0 && (
 							<>
-								{hasBothGroups && (
-									<p className="text-muted-foreground px-2 pt-1 pb-0.5 text-xs font-medium tracking-wide uppercase">
-										Favorites
-									</p>
+								{(hasMenus || rest.length > 0) && (
+									<PickerGroupLabel>Favorite Recipes</PickerGroupLabel>
 								)}
 								{favorites.map((recipe) => (
 									<RecipeOption
 										key={recipe.id}
 										recipe={recipe}
-										onPick={onPick}
+										onPick={(pickedRecipe) =>
+											onPick({ kind: 'recipe', recipe: pickedRecipe })
+										}
 									/>
 								))}
 							</>
 						)}
 						{rest.length > 0 && (
 							<>
-								{hasBothGroups && (
-									<p className="text-muted-foreground px-2 pt-2 pb-0.5 text-xs font-medium tracking-wide uppercase">
-										All Recipes
-									</p>
+								{(hasMenus || favorites.length > 0) && (
+									<PickerGroupLabel>
+										{isSearching ? 'Recipes' : 'All Recipes'}
+									</PickerGroupLabel>
 								)}
 								{rest.map((recipe) => (
 									<RecipeOption
 										key={recipe.id}
 										recipe={recipe}
-										onPick={onPick}
+										onPick={(pickedRecipe) =>
+											onPick({ kind: 'recipe', recipe: pickedRecipe })
+										}
 									/>
 								))}
 							</>
 						)}
+						{isSearching ? menuChoices : null}
 					</>
 				)}
 			</div>
 		</div>
+	)
+}
+
+function PickerGroupLabel({ children }: { children: React.ReactNode }) {
+	return (
+		<p className="text-muted-foreground px-2 pt-2 pb-0.5 text-xs font-medium tracking-wide uppercase first:pt-1">
+			{children}
+		</p>
+	)
+}
+
+function MenuOption({
+	menu,
+	onPick,
+}: {
+	menu: PlanSelectorMenu
+	onPick: (menu: PlanSelectorMenu) => void
+}) {
+	const recipeSummary = `${menu.recipeCount} ${menu.recipeCount === 1 ? 'Recipe' : 'Recipes'}`
+	const noteSummary = `${menu.noteCount} ${menu.noteCount === 1 ? 'note' : 'notes'}`
+	const summary = [
+		menu.recipeCount > 0 ? recipeSummary : null,
+		menu.noteCount > 0 ? noteSummary : null,
+	]
+		.filter(Boolean)
+		.join(' · ')
+
+	return (
+		<button
+			type="button"
+			onClick={() => onPick(menu)}
+			className="hover:bg-muted/50 flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors"
+		>
+			<span className="bg-muted/70 flex size-9 shrink-0 items-center justify-center rounded-md">
+				<Icon name="rows" className="text-muted-foreground size-4" />
+			</span>
+			<div className="min-w-0 flex-1">
+				<p className="truncate text-sm font-medium">{menu.title}</p>
+				<p className="text-muted-foreground truncate text-xs">
+					Menu · {summary}
+				</p>
+			</div>
+		</button>
 	)
 }
 

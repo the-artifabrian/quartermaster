@@ -16,6 +16,12 @@ export const AddMealSchema = z.object({
 	multiplier: ScaleMultiplierSchema.optional(),
 })
 
+export const AddMenuSchema = z.object({
+	date: z.coerce.date(),
+	menuId: z.string().min(1, { message: 'Menu is required' }),
+	label: MealLabelSchema.optional(),
+})
+
 export const AddTextMealSchema = z.object({
 	date: z.coerce.date(),
 	label: MealLabelSchema.optional(),

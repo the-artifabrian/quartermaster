@@ -5,6 +5,7 @@ import {
 	requestAnthropicJson,
 	type AnthropicJsonFailure,
 } from './anthropic-json.server.ts'
+import { MAX_RECIPE_DESCRIPTION_LENGTH } from './recipe-validation.ts'
 
 const TIMEOUT_MS = 10_000
 const MAX_TOKENS = 1024
@@ -40,7 +41,9 @@ const EnhanceableFieldsSchema: z.ZodType<EnhanceableFields> = z
 		return {
 			description:
 				typeof fields.description === 'string' && fields.description.trim()
-					? fields.description.trim().slice(0, 2000)
+					? fields.description
+							.trim()
+							.slice(0, MAX_RECIPE_DESCRIPTION_LENGTH)
 					: null,
 			activeTime,
 			totalTime:
@@ -51,7 +54,40 @@ const EnhanceableFieldsSchema: z.ZodType<EnhanceableFields> = z
 	})
 
 function positiveMinutes(value: unknown): number | null {
-	return typeof value === 'number' && value > 0 ? Math.round(value) : null
+	if (typeof value !== 'number' || !Number.isFinite(value)) return null
+	const minutes = Math.round(value)
+	return Number.isSafeInteger(minutes) && minutes > 0 ? minutes : null
+}
+
+type RecipeTimes = Pick<RecipeInput, 'activeTime' | 'totalTime'>
+
+const noCurrentTimes: RecipeTimes = { activeTime: null, totalTime: null }
+
+function reconcileTimeSuggestions(
+	fields: EnhanceableFields,
+	current: RecipeTimes,
+): EnhanceableFields {
+	let { activeTime, totalTime } = fields
+
+	const resultingActiveTime = activeTime ?? current.activeTime
+	if (
+		totalTime != null &&
+		resultingActiveTime != null &&
+		totalTime < resultingActiveTime
+	) {
+		totalTime = null
+	}
+
+	const resultingTotalTime = totalTime ?? current.totalTime
+	if (
+		activeTime != null &&
+		resultingTotalTime != null &&
+		activeTime > resultingTotalTime
+	) {
+		activeTime = null
+	}
+
+	return { ...fields, activeTime, totalTime }
 }
 
 /**
@@ -73,7 +109,9 @@ export async function enhanceRecipeMetadata(
 		schema: EnhanceableFieldsSchema,
 	})
 
-	return result.ok ? result.data : { error: enhanceError(result.failure) }
+	return result.ok
+		? reconcileTimeSuggestions(result.data, input)
+		: { error: enhanceError(result.failure) }
 }
 
 function enhanceError(failure: AnthropicJsonFailure): string {
@@ -135,7 +173,10 @@ Rules:
  * Parse and validate the LLM response.
  * Extracts JSON from the response text, validates structure.
  */
-export function parseEnhanceResponse(text: string): EnhanceableFields | null {
+export function parseEnhanceResponse(
+	text: string,
+	current: RecipeTimes = noCurrentTimes,
+): EnhanceableFields | null {
 	const result = parseAnthropicJson(text, EnhanceableFieldsSchema)
-	return result.ok ? result.data : null
+	return result.ok ? reconcileTimeSuggestions(result.data, current) : null
 }

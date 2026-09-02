@@ -131,6 +131,30 @@ describe('parseEnhanceResponse', () => {
 		).toEqual({ description: null, activeTime: 30, totalTime: null })
 	})
 
+	it('rejects rounded or unsafe values that are not positive minutes', () => {
+		expect(
+			parseEnhanceResponse(
+				JSON.stringify({ activeTime: 0.4, totalTime: Number.MAX_VALUE }),
+			),
+		).toEqual({ description: null, activeTime: null, totalTime: null })
+	})
+
+	it('validates a time suggestion against the saved counterpart', () => {
+		expect(
+			parseEnhanceResponse(JSON.stringify({ totalTime: 20 }), {
+				activeTime: 30,
+				totalTime: null,
+			}),
+		).toEqual({ description: null, activeTime: null, totalTime: null })
+
+		expect(
+			parseEnhanceResponse(JSON.stringify({ activeTime: 30 }), {
+				activeTime: null,
+				totalTime: 20,
+			}),
+		).toEqual({ description: null, activeTime: null, totalTime: null })
+	})
+
 	it('treats null description as null', () => {
 		const text = JSON.stringify({
 			description: null,
@@ -145,6 +169,13 @@ describe('parseEnhanceResponse', () => {
 		})
 		const result = parseEnhanceResponse(text)
 		expect(result?.description).toBe('A tasty dish.')
+	})
+
+	it('caps descriptions at the Recipe field limit', () => {
+		const result = parseEnhanceResponse(
+			JSON.stringify({ description: 'a'.repeat(600) }),
+		)
+		expect(result?.description).toHaveLength(500)
 	})
 })
 

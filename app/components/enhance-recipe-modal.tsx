@@ -52,10 +52,18 @@ export function EnhanceRecipeModal({
 			fetcher.state === 'idle' &&
 			fetcher.data
 		) {
-			const result = fetcher.data as { success?: boolean }
+			const result = fetcher.data as {
+				success?: boolean
+				error?: string
+				requiresPro?: boolean
+			}
 			if (result.success) {
 				toast.success('Recipe enhanced!')
 				onClose()
+			} else if (result.error) {
+				toast.error(result.error)
+			} else if (result.requiresPro) {
+				toast.error('Recipe enhancement requires Pro.')
 			}
 		}
 		prevApplyState.current = fetcher.state
@@ -87,6 +95,17 @@ export function EnhanceRecipeModal({
 
 	const hasAnySelected =
 		checked.description || checked.activeTime || checked.totalTime
+	const selectedActiveTime = checked.activeTime
+		? suggestions.activeTime
+		: recipe.activeTime
+	const selectedTotalTime = checked.totalTime
+		? suggestions.totalTime
+		: recipe.totalTime
+	const hasInvalidTimeSelection =
+		(checked.activeTime || checked.totalTime) &&
+		selectedActiveTime != null &&
+		selectedTotalTime != null &&
+		selectedTotalTime < selectedActiveTime
 
 	return (
 		<div
@@ -158,10 +177,20 @@ export function EnhanceRecipeModal({
 							)}
 						</div>
 
+						{hasInvalidTimeSelection && (
+							<p className="text-destructive mt-3 text-sm" role="alert">
+								Total time must be at least active time.
+							</p>
+						)}
+
 						<div className="mt-5 flex gap-2">
 							<Button
 								onClick={handleApply}
-								disabled={!hasAnySelected || fetcher.state !== 'idle'}
+								disabled={
+									!hasAnySelected ||
+									hasInvalidTimeSelection ||
+									fetcher.state !== 'idle'
+								}
 								className="flex-1 gap-2"
 							>
 								{fetcher.state !== 'idle' ? (

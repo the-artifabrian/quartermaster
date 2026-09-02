@@ -46,6 +46,7 @@ import { cn } from '#app/utils/misc.tsx'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { normalizeIngredientName } from '#app/utils/recipe-matching.server.ts'
+import { MAX_RECIPE_DESCRIPTION_LENGTH } from '#app/utils/recipe-validation.ts'
 import {
 	buildShoppingDemand,
 	demandIdentity,
@@ -192,7 +193,14 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	const recipe = await prisma.recipe.findUnique({
 		where: { id: recipeId },
-		select: { id: true, title: true, householdId: true, isFavorite: true },
+		select: {
+			id: true,
+			title: true,
+			householdId: true,
+			isFavorite: true,
+			activeTime: true,
+			totalTime: true,
+		},
 	})
 
 	invariantResponse(recipe, 'Recipe not found', { status: 404 })
@@ -216,17 +224,42 @@ export async function action({ request, params }: Route.ActionArgs) {
 	if (intent === 'applyEnhancement') {
 		if (!isProActive) return { success: false, requiresPro: true }
 
-		const updateData: Record<string, string | number> = {}
+		const updateData: {
+			description?: string
+			activeTime?: number
+			totalTime?: number
+		} = {}
 
 		const description = formData.get('enhance_description')
-		if (typeof description === 'string' && description) {
-			updateData.description = description.trim().slice(0, 2000)
+		if (typeof description === 'string') {
+			const normalizedDescription = description
+				.trim()
+				.slice(0, MAX_RECIPE_DESCRIPTION_LENGTH)
+			if (normalizedDescription) {
+				updateData.description = normalizedDescription
+			}
 		}
 		for (const field of ['activeTime', 'totalTime'] as const) {
 			const value = formData.get(`enhance_${field}`)
 			const minutes = typeof value === 'string' ? Number(value) : NaN
-			if (Number.isInteger(minutes) && minutes > 0) {
+			if (Number.isSafeInteger(minutes) && minutes > 0) {
 				updateData[field] = minutes
+			}
+		}
+
+		const changesTime =
+			updateData.activeTime != null || updateData.totalTime != null
+		const resultingActiveTime = updateData.activeTime ?? recipe.activeTime
+		const resultingTotalTime = updateData.totalTime ?? recipe.totalTime
+		if (
+			changesTime &&
+			resultingActiveTime != null &&
+			resultingTotalTime != null &&
+			resultingTotalTime < resultingActiveTime
+		) {
+			return {
+				success: false,
+				error: 'Total time must be at least active time.',
 			}
 		}
 		await prisma.recipe.update({

@@ -56,3 +56,53 @@ test('reviews and applies estimated Recipe times with the description', async ()
 		}),
 	)
 })
+
+test('requires a compatible selection when one estimate conflicts with saved time', async () => {
+	const user = userEvent.setup()
+	let submitted: Record<string, FormDataEntryValue> | null = null
+	const Stub = createRoutesStub([
+		{
+			path: '/recipes/:recipeId',
+			Component: () => (
+				<EnhanceRecipeModal
+					recipe={{
+						id: 'recipe-1',
+						description: null,
+						activeTime: null,
+						totalTime: 20,
+					}}
+					suggestions={{
+						description: null,
+						activeTime: 30,
+						totalTime: 60,
+					}}
+					onClose={vi.fn()}
+				/>
+			),
+			action: async ({ request }) => {
+				submitted = Object.fromEntries(await request.formData())
+				return { success: true }
+			},
+		},
+	])
+
+	render(<Stub initialEntries={['/recipes/recipe-1']} />)
+
+	const applyButton = screen.getByRole('button', { name: 'Apply Selected' })
+	expect(applyButton).toBeDisabled()
+	expect(
+		screen.getByText('Total time must be at least active time.'),
+	).toBeVisible()
+
+	await user.click(screen.getByRole('checkbox', { name: /Total Time/ }))
+	expect(applyButton).toBeEnabled()
+	await user.click(applyButton)
+
+	await waitFor(() =>
+		expect(submitted).toEqual({
+			intent: 'applyEnhancement',
+			enhance_activeTime: '30',
+			enhance_totalTime: '60',
+		}),
+	)
+})

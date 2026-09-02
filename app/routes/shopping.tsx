@@ -15,6 +15,7 @@ import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { ShoppingListLiveRefresh } from '#app/components/shopping-live-refresh.tsx'
 import { MobileFabAdd } from '#app/components/shopping-mobile-fab.tsx'
+import { ShoppingStaplesPicker } from '#app/components/shopping-staples-picker.tsx'
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -128,20 +129,31 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// A week counts as planned when it has at least one Recipe item — text-only
 	// Meals have no Shopping behavior, so a week of only "Leftovers" offers
 	// nothing to generate from.
-	const mealPlans = await prisma.mealPlan.findMany({
-		where: {
-			householdId,
-			weekStart: { in: [prevWeek, currentWeek, nextWeek] },
-		},
-		select: {
-			weekStart: true,
-			meals: {
-				where: { recipeItems: { some: {} } },
-				select: { id: true },
-				take: 1,
+	const [mealPlans, stapleRows] = await Promise.all([
+		prisma.mealPlan.findMany({
+			where: {
+				householdId,
+				weekStart: { in: [prevWeek, currentWeek, nextWeek] },
 			},
-		},
-	})
+			select: {
+				weekStart: true,
+				meals: {
+					where: { recipeItems: { some: {} } },
+					select: { id: true },
+					take: 1,
+				},
+			},
+		}),
+		prisma.householdIngredient.findMany({
+			where: {
+				householdId,
+				isStaple: true,
+				household: { staplesCutoverAt: { not: null } },
+			},
+			orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
+			select: { id: true, displayName: true },
+		}),
+	])
 
 	const weeksWithPlans = [prevWeek, currentWeek, nextWeek]
 		.filter((week) =>
@@ -157,12 +169,20 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}))
 
 	const hasMealPlan = weeksWithPlans.length > 0
+	const shoppingIdentities = new Set(
+		shoppingList.items.map((item) => demandIdentity(item.name)),
+	)
+	const staples = stapleRows.map((staple) => ({
+		...staple,
+		onShoppingList: shoppingIdentities.has(demandIdentity(staple.displayName)),
+	}))
 
 	return {
 		shoppingList,
 		hasMealPlan,
 		weeksWithPlans,
 		isProActive,
+		staples,
 	}
 }
 
@@ -852,7 +872,8 @@ export default function ShoppingListRoute({
 	loaderData,
 	actionData,
 }: Route.ComponentProps) {
-	const { shoppingList, hasMealPlan, weeksWithPlans, isProActive } = loaderData
+	const { shoppingList, hasMealPlan, weeksWithPlans, isProActive, staples } =
+		loaderData
 	const defaultWeek =
 		weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
 		weeksWithPlans[0]?.weekStart ??
@@ -1052,6 +1073,10 @@ export default function ShoppingListRoute({
 							)}
 						</h1>
 						<div className="flex items-center gap-2 sm:ml-auto">
+							<ShoppingStaplesPicker
+								staples={staples}
+								showQuietCue={nextItems.length === 0}
+							/>
 							{hasMealPlan && (
 								<Form method="POST" className="flex items-center gap-2">
 									<input type="hidden" name="intent" value="generate" />

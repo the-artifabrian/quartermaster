@@ -44,6 +44,14 @@ async function renderCanonicalLogo(size: number, background: string) {
 		.toBuffer()
 }
 
+function meanAbsoluteChannelDifference(actual: Buffer, expected: Buffer) {
+	let difference = 0
+	for (let index = 0; index < actual.length; index++) {
+		difference += Math.abs(actual[index]! - expected[index]!)
+	}
+	return difference / actual.length
+}
+
 describe('PWA launch configuration', () => {
 	test('declares each configured startup image exactly once, including iPhone Air', () => {
 		expect(iosStartupScreens).toContainEqual(
@@ -117,7 +125,11 @@ describe('PWA launch configuration', () => {
 					.toBuffer(),
 				renderCanonicalLogo(logoSize, background),
 			])
-			expect(Buffer.compare(actualLogo, expectedLogo)).toBe(0)
+			expect(actualLogo).toHaveLength(expectedLogo.length)
+			// SVG edge antialiasing varies slightly between Sharp/libvips platforms.
+			expect(
+				meanAbsoluteChannelDifference(actualLogo, expectedLogo),
+			).toBeLessThan(2)
 		}
 	})
 

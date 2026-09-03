@@ -14,6 +14,18 @@ test('online documents use the current deployment and never enter Cache Storage'
 }) => {
 	await login()
 	await takeControl(page)
+	const preloadState = await page.evaluate(async () => {
+		const registration = await navigator.serviceWorker.ready
+		return registration.navigationPreload.getState()
+	})
+	expect(preloadState.enabled).toBe(true)
+	const planRequests: string[] = []
+	page.on('request', (request) => {
+		const url = new URL(request.url())
+		if (request.method() === 'GET' && url.pathname === '/plan') {
+			planRequests.push(request.url())
+		}
+	})
 
 	await page.evaluate(async () => {
 		const legacy = await caches.open('qm-pages-v7')
@@ -27,6 +39,7 @@ test('online documents use the current deployment and never enter Cache Storage'
 
 	const response = await page.goto('/plan')
 	expect(response?.fromServiceWorker()).toBe(true)
+	expect(planRequests).toHaveLength(1)
 	expect(response?.headers()['cache-control']).toBe('private, no-cache')
 	await expect(page.getByRole('heading', { name: 'Meal Plan' })).toBeVisible()
 	await expect(

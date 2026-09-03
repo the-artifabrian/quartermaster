@@ -39,6 +39,13 @@ self.addEventListener('install', () => {
 self.addEventListener('activate', (event) => {
 	event.waitUntil(
 		(async () => {
+			if ('navigationPreload' in self.registration) {
+				try {
+					await self.registration.navigationPreload.enable()
+				} catch {
+					// Optional preload support must not prevent worker activation.
+				}
+			}
 			const keys = await caches.keys()
 			await Promise.all([
 				...keys
@@ -136,6 +143,19 @@ self.addEventListener('fetch', (event) => {
 	// Skip non-same-origin
 	if (url.origin !== self.location.origin) return
 
+	// ── Document navigations (network-first with Navigation Preload) ──
+	// Handle every same-origin navigation before URL-specific resource policies.
+	// A top-level visit to an asset-like URL is still a document navigation, and
+	// must consume its preload instead of starting a duplicate request.
+	if (request.mode === 'navigate') {
+		event.respondWith(
+			url.pathname === '/'
+				? rootNavigation(request, event.preloadResponse)
+				: networkWithOfflineFallback(request, event.preloadResponse),
+		)
+		return
+	}
+
 	// Skip healthcheck
 	if (url.pathname === '/resources/healthcheck') return
 
@@ -151,9 +171,6 @@ self.addEventListener('fetch', (event) => {
 		'/resources/verify',
 	]
 	if (skipPaths.some((p) => url.pathname.startsWith(p))) {
-		if (request.mode === 'navigate') {
-			event.respondWith(networkWithOfflineFallback(request))
-		}
 		return
 	}
 
@@ -200,15 +217,6 @@ self.addEventListener('fetch', (event) => {
 		return
 	}
 
-	// ── Root navigation: bridge to the manifest start URL when offline ──
-	// An already-installed app may still launch "/" until iOS re-reads a changed
-	// manifest. Online, "/" redirects. Offline, redirect to the manifest-derived
-	// start URL; its normal navigation handler then serves the offline response.
-	if (request.mode === 'navigate' && url.pathname === '/') {
-		event.respondWith(rootNavigation(request))
-		return
-	}
-
 	// ── Eligible Route data ──────────────────────────────────────
 	// Authenticated `.data` (RR single-fetch) is always network-first and cached
 	// only in the current session/Household namespace. A cache entry can answer a
@@ -227,19 +235,23 @@ self.addEventListener('fetch', (event) => {
 		)
 		return
 	}
-
-	// Every same-origin document is network-only. Personalized HTML is never
-	// retained in Cache Storage; an offline navigation receives the safe,
-	// non-personalized app response instead of browser chrome or another session.
-	if (request.mode === 'navigate') {
-		event.respondWith(networkWithOfflineFallback(request))
-	}
 })
 
-/** Root "/" navigation: try network, else redirect locally to the start URL. */
-async function rootNavigation(request) {
+/** Prefer a navigation preload, then issue the ordinary request if unavailable. */
+async function preloadOrFetch(request, preloadResponse) {
 	try {
-		return await fetch(request)
+		const response = await preloadResponse
+		if (response) return response
+	} catch {
+		// A failed preload is optional optimization failure, not an offline signal.
+	}
+	return fetch(request)
+}
+
+/** Root "/" navigation: try network, else redirect locally to the start URL. */
+async function rootNavigation(request, preloadResponse) {
+	try {
+		return await preloadOrFetch(request, preloadResponse)
 	} catch {
 		// Returning the cached start-url HTML directly leaves window.location at
 		// "/", so the client router hydrates the wrong route. A synthetic redirect
@@ -249,9 +261,9 @@ async function rootNavigation(request) {
 }
 
 /** Network-only navigation with the app's HTML fallback when offline. */
-async function networkWithOfflineFallback(request) {
+async function networkWithOfflineFallback(request, preloadResponse) {
 	try {
-		return await fetch(request)
+		return await preloadOrFetch(request, preloadResponse)
 	} catch {
 		return offlineFallback()
 	}

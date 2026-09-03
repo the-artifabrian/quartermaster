@@ -8,6 +8,7 @@ const posthog = vi.hoisted(() => ({
 	captureException: vi.fn(),
 	identify: vi.fn(),
 	group: vi.fn(),
+	register_for_session: vi.fn(),
 	reset: vi.fn(),
 	getFeatureFlag: vi.fn(),
 }))
@@ -52,11 +53,15 @@ test('initializes the deferred SDK with the existing privacy and performance beh
 	).toBeNull()
 
 	client.capture('$pageview', { path: '/recipes' })
+	client.registerForSession({ display_mode: 'standalone' })
 	client.identify('user-1', { name: 'Ada' })
 	expect(posthog.capture).toHaveBeenCalledWith('$pageview', {
 		path: '/recipes',
 	})
 	expect(posthog.identify).toHaveBeenCalledWith('user-1', { name: 'Ada' })
+	expect(posthog.register_for_session).toHaveBeenCalledWith({
+		display_mode: 'standalone',
+	})
 
 	initializePostHog({
 		apiKey: 'phc_test',

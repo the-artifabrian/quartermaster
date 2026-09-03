@@ -17,6 +17,9 @@ const schema = z.object({
 	MOCKS: z.preprocess(emptyAsUndefined, z.enum(['true', 'false']).optional()),
 	POSTHOG_API_KEY: z.string().optional(),
 	POSTHOG_HOST: z.url().optional(),
+	// Git commit injected by the existing container build. Safe to expose as a
+	// low-cardinality release identifier for client performance telemetry.
+	COMMIT_SHA: z.string().optional(),
 	// Optional outside production; the refinement below requires it in
 	// production, where a missing key means silently undelivered mail rather
 	// than an error.
@@ -110,10 +113,12 @@ export function init() {
  * @returns all public ENV variables
  */
 export function getEnv() {
+	const commitSha = process.env.COMMIT_SHA?.trim()
 	return {
 		MODE: process.env.NODE_ENV,
 		POSTHOG_API_KEY: process.env.POSTHOG_API_KEY,
 		POSTHOG_HOST: process.env.POSTHOG_HOST,
+		APP_BUILD: commitSha ? commitSha.slice(0, 12) : 'unknown',
 		ALLOW_INDEXING: process.env.ALLOW_INDEXING,
 	}
 }

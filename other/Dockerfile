@@ -47,6 +47,8 @@ RUN bun run build
 # Finally, build the production image with minimal footprint
 FROM base
 
+ARG COMMIT_SHA
+ENV COMMIT_SHA=$COMMIT_SHA
 ENV FLY="true"
 ENV LITEFS_DIR="/litefs/data"
 ENV DATABASE_FILENAME="sqlite.db"

@@ -52,6 +52,9 @@ export function initializePostHog({
 		group: (groupType, groupId) => {
 			posthog.group(groupType, groupId)
 		},
+		registerForSession: (properties) => {
+			posthog.register_for_session(properties)
+		},
 		reset: () => {
 			posthog.reset()
 		},

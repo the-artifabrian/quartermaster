@@ -93,10 +93,14 @@ function loadServiceWorker({
 	storage = new MemoryCacheStorage(),
 	currentAssetPaths = ['/assets/current-build.js'],
 	cacheVersion = 'test-build',
+	navigationPreloadSupported = false,
+	navigationPreloadEnableFails = false,
 }: {
 	storage?: MemoryCacheStorage
 	currentAssetPaths?: string[]
 	cacheVersion?: string
+	navigationPreloadSupported?: boolean
+	navigationPreloadEnableFails?: boolean
 } = {}) {
 	const swPath = fileURLToPath(new URL('../../public/sw.js', import.meta.url))
 	const source = readFileSync(swPath, 'utf8')
@@ -111,12 +115,25 @@ function loadServiceWorker({
 
 	const listeners: Record<string, (event: any) => void> = {}
 	let claimed = false
+	let navigationPreloadEnabled = false
 	let fetchImplementation = async (_request: FetchRequest): Promise<Response> =>
 		new Response('NETWORK')
 	const fetchCalls: FetchRequest[] = []
 	const sandbox: Record<string, any> = {
 		self: {
 			location: { origin: ORIGIN },
+			registration: navigationPreloadSupported
+				? {
+						navigationPreload: {
+							enable: async () => {
+								if (navigationPreloadEnableFails) {
+									throw new Error('Navigation Preload unavailable')
+								}
+								navigationPreloadEnabled = true
+							},
+						},
+					}
+				: {},
 			clients: {
 				claim: async () => {
 					claimed = true
@@ -143,7 +160,10 @@ function loadServiceWorker({
 
 	async function dispatchFetch(
 		pathname: string,
-		{ mode = 'cors' }: { mode?: string } = {},
+		{
+			mode = 'cors',
+			preloadResponse,
+		}: { mode?: string; preloadResponse?: Promise<Response | undefined> } = {},
 	) {
 		let responsePromise: Promise<Response> | undefined
 		const lifetimes: Promise<unknown>[] = []
@@ -153,6 +173,7 @@ function loadServiceWorker({
 				mode,
 				url: new URL(pathname, ORIGIN).href,
 			},
+			preloadResponse,
 			respondWith: (response: Response | Promise<Response>) => {
 				responsePromise = Promise.resolve(response)
 			},
@@ -193,10 +214,40 @@ function loadServiceWorker({
 			fetchImplementation = implementation
 		},
 		wasClaimed: () => claimed,
+		wasNavigationPreloadEnabled: () => navigationPreloadEnabled,
 	}
 }
 
 describe('service-worker lifecycle and public resources', () => {
+	test.each([
+		{ supported: true, enabled: true },
+		{ supported: false, enabled: false },
+	])(
+		'activation enables Navigation Preload only when support is $supported',
+		async ({ supported, enabled }) => {
+			const worker = loadServiceWorker({
+				navigationPreloadSupported: supported,
+			})
+
+			await worker.dispatchActivate()
+
+			expect(worker.wasNavigationPreloadEnabled()).toBe(enabled)
+			expect(worker.wasClaimed()).toBe(true)
+		},
+	)
+
+	test('activation continues when Navigation Preload cannot be enabled', async () => {
+		const worker = loadServiceWorker({
+			navigationPreloadSupported: true,
+			navigationPreloadEnableFails: true,
+		})
+
+		await worker.dispatchActivate()
+
+		expect(worker.wasNavigationPreloadEnabled()).toBe(false)
+		expect(worker.wasClaimed()).toBe(true)
+	})
+
 	test('activation removes obsolete page/data generations and prunes assets', async () => {
 		const storage = new MemoryCacheStorage()
 		await storage.seed('qm-pages-v7', '/plan', new Response('PRIVATE DOCUMENT'))
@@ -393,6 +444,92 @@ describe('service-worker lifecycle and public resources', () => {
 })
 
 describe('document navigation policy', () => {
+	test.each([
+		'/plan',
+		'/settings/profile',
+		'/login',
+		'/',
+		'/assets/current-build.js',
+		'/resources/healthcheck',
+	])(
+		'a preload supplies the only network response for %s',
+		async (pathname) => {
+			const worker = loadServiceWorker({ navigationPreloadSupported: true })
+			const response = await worker.dispatchFetch(pathname, {
+				mode: 'navigate',
+				preloadResponse: Promise.resolve(new Response('PRELOADED DOCUMENT')),
+			})
+
+			expect(await response?.text()).toBe('PRELOADED DOCUMENT')
+			expect(worker.fetchCalls).toHaveLength(0)
+		},
+	)
+
+	test.each([
+		{ name: 'absent', preloadResponse: () => undefined },
+		{
+			name: 'rejected',
+			preloadResponse: () =>
+				Promise.reject<Response>(new TypeError('Preload failed')),
+		},
+	])(
+		'an $name preload falls back to one ordinary network request',
+		async ({ preloadResponse }) => {
+			const worker = loadServiceWorker()
+			worker.setFetch(async () => new Response('NETWORK DOCUMENT'))
+
+			const response = await worker.dispatchFetch('/plan', {
+				mode: 'navigate',
+				preloadResponse: preloadResponse(),
+			})
+
+			expect(await response?.text()).toBe('NETWORK DOCUMENT')
+			expect(worker.fetchCalls).toHaveLength(1)
+		},
+	)
+
+	test.each([
+		{ status: 302, body: '' },
+		{ status: 503, body: 'ORIGIN ERROR' },
+		{ status: 200, body: '<html>Sign in to this network</html>' },
+	])(
+		'a preloaded status $status passes through unchanged',
+		async ({ status, body }) => {
+			const worker = loadServiceWorker({ navigationPreloadSupported: true })
+			const preloaded = new Response(body, {
+				status,
+				headers: { 'Content-Type': 'text/html' },
+			})
+
+			const response = await worker.dispatchFetch('/plan', {
+				mode: 'navigate',
+				preloadResponse: Promise.resolve(preloaded),
+			})
+
+			expect(response?.status).toBe(status)
+			expect(await response?.text()).toBe(body)
+			expect(worker.fetchCalls).toHaveLength(0)
+		},
+	)
+
+	test('a rejected preload and aborted request use the offline response', async () => {
+		const worker = loadServiceWorker({ navigationPreloadSupported: true })
+		worker.setFetch(async () => {
+			throw new DOMException('The operation was aborted', 'AbortError')
+		})
+
+		const response = await worker.dispatchFetch('/settings/profile', {
+			mode: 'navigate',
+			preloadResponse: Promise.reject(
+				new DOMException('Aborted', 'AbortError'),
+			),
+		})
+
+		expect(response?.status).toBe(503)
+		expect(await response?.text()).toContain("You're offline")
+		expect(worker.fetchCalls).toHaveLength(1)
+	})
+
 	test('online documents always use the network and are never cached', async () => {
 		const worker = loadServiceWorker()
 		await worker.storage.seed(

@@ -34,7 +34,7 @@ class FakeRegistration extends EventTarget {
 }
 
 class FakeServiceWorkerContainer extends EventTarget {
-	controller = {} as ServiceWorker
+	controller: ServiceWorker | null = {} as ServiceWorker
 
 	constructor(private readonly registration: FakeRegistration) {
 		super()
@@ -81,14 +81,17 @@ function deferred<T>() {
 function renderUpdateControl(
 	registration: FakeRegistration,
 	{
+		controller = {} as ServiceWorker,
 		nextElement = <div>Next</div>,
 		nextLoader,
 	}: {
+		controller?: ServiceWorker | null
 		nextElement?: React.ReactNode
 		nextLoader?: () => Promise<unknown>
 	} = {},
 ) {
 	const serviceWorkers = new FakeServiceWorkerContainer(registration)
+	serviceWorkers.controller = controller
 	Object.defineProperty(navigator, 'serviceWorker', {
 		configurable: true,
 		value: serviceWorkers,
@@ -141,10 +144,52 @@ test('a waiting update requires confirmation and reloads once after activation',
 	expect(update).toBeDisabled()
 
 	act(() => {
+		worker.transitionTo('activated')
 		serviceWorkers.dispatchEvent(new Event('controllerchange'))
 		serviceWorkers.dispatchEvent(new Event('controllerchange'))
 	})
 	expect(page.reload).toHaveBeenCalledTimes(1)
+})
+
+test('an accepted update reloads after activation when the page is not controlled', async () => {
+	using _environment = setupBrowserEnvironment()
+	const user = userEvent.setup()
+	const worker = new FakeWorker()
+	const registration = new FakeRegistration()
+	registration.waiting = worker
+	renderUpdateControl(registration, { controller: null })
+	vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+	const update = await screen.findByRole('button', {
+		name: 'Update available',
+	})
+	await user.click(update)
+	expect(worker.postMessage).toHaveBeenCalledWith({
+		type: 'qm-activate-update',
+	})
+	expect(update).toHaveAccessibleName('Updating…')
+
+	act(() => worker.transitionTo('activated'))
+
+	await waitFor(() => expect(page.reload).toHaveBeenCalledTimes(1))
+})
+
+test('accepting a worker that has just activated still reloads the page', async () => {
+	using _environment = setupBrowserEnvironment()
+	const user = userEvent.setup()
+	const worker = new FakeWorker()
+	const registration = new FakeRegistration()
+	registration.waiting = worker
+	renderUpdateControl(registration, { controller: null })
+	vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+	const update = await screen.findByRole('button', {
+		name: 'Update available',
+	})
+	act(() => worker.transitionTo('activated'))
+	await user.click(update)
+
+	await waitFor(() => expect(page.reload).toHaveBeenCalledTimes(1))
 })
 
 test('registration waits until the initial page load has completed', async () => {

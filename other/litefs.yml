@@ -14,19 +14,13 @@ proxy:
   target: 'localhost:${PORT}'
   db: '${DATABASE_FILENAME}'
 
-# The lease section specifies how the cluster will be managed. We're using the
-# "consul" lease type so that our application can dynamically change the primary.
-#
-# These environment variables will be available in your Fly.io application.
+# Production runs exactly one machine, so make it the fixed writable primary.
+# Do not scale this configuration beyond one machine; the prerequisites for a
+# multi-machine deployment are documented in docs/ARCHITECTURE.md.
 lease:
-  type: 'consul'
-  candidate: ${FLY_REGION == PRIMARY_REGION}
-  promote: true
+  type: 'static'
+  candidate: true
   advertise-url: 'http://${HOSTNAME}.vm.${FLY_APP_NAME}.internal:20202'
-
-  consul:
-    url: '${FLY_CONSUL_URL}'
-    key: 'epic-stack-litefs_20250222/${FLY_APP_NAME}'
 
 exec:
   # Validate the environment before anything mutates state. The app's init()

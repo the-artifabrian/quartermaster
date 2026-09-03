@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFetchers, useNavigation } from 'react-router'
 import { reloadPage } from '#app/utils/reload-page.client.ts'
 import { Button } from './ui/button.tsx'
@@ -40,6 +40,11 @@ export function ServiceWorkerUpdate() {
 	const [isOnline, setIsOnline] = useState(true)
 	const activationRequested = useRef(false)
 	const reloadRequested = useRef(false)
+	const reloadOnce = useCallback(() => {
+		if (reloadRequested.current) return
+		reloadRequested.current = true
+		reloadPage()
+	}, [])
 
 	useEffect(() => {
 		if (!('serviceWorker' in navigator) || ENV.MODE !== 'production') return
@@ -113,9 +118,7 @@ export function ServiceWorkerUpdate() {
 
 		function onControllerChange() {
 			if (activationRequested.current) {
-				if (reloadRequested.current) return
-				reloadRequested.current = true
-				reloadPage()
+				reloadOnce()
 				return
 			}
 
@@ -151,7 +154,21 @@ export function ServiceWorkerUpdate() {
 				worker.removeEventListener('statechange', listener)
 			}
 		}
-	}, [])
+	}, [reloadOnce])
+
+	useEffect(() => {
+		if (!isActivating || !waitingWorker) return
+
+		// A page left uncontrolled after its first registration will not receive
+		// `controllerchange`, so activation itself is also a reload boundary.
+		const onStateChange = () => {
+			if (waitingWorker.state === 'activated') reloadOnce()
+		}
+		waitingWorker.addEventListener('statechange', onStateChange)
+		onStateChange()
+		return () =>
+			waitingWorker.removeEventListener('statechange', onStateChange)
+	}, [isActivating, reloadOnce, waitingWorker])
 
 	const isBusy = hasPendingRouterWork(navigation, fetchers)
 	if (!waitingWorker || isBusy) return null

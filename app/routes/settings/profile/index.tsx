@@ -407,8 +407,8 @@ async function deleteDataAction({ userId }: ProfileActionArgs) {
 	await prisma.user.delete({ where: { id: userId } })
 	return redirectWithToast('/', {
 		type: 'success',
-		title: 'Data Deleted',
-		description: 'All of your data has been deleted',
+		title: 'Account deleted',
+		description: 'Your account has been deleted',
 	})
 }
 
@@ -431,7 +431,7 @@ function DeleteData() {
 					size="sm"
 				>
 					<Icon name="trash">
-						{dc.doubleCheck ? `Are you sure?` : `Delete all your data`}
+						{dc.doubleCheck ? `Are you sure?` : `Delete my account`}
 					</Icon>
 				</StatusButton>
 			</fetcher.Form>

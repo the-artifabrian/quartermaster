@@ -141,7 +141,7 @@ const freeFeatures = [
 	'Meal planning calendar',
 	'Basic shopping list generation',
 	'Household Staples and Out state',
-	'Needs-item Recipe discovery',
+	'Recipe time, yield, and filters',
 	'Interactive cooking view',
 	'Household sharing',
 	'Data export',

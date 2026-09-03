@@ -611,11 +611,10 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							<Icon name="cookie" className="text-muted-foreground/40 size-8" />
 						</div>
 						<h2 className="mt-4 font-serif text-xl font-normal">
-							Your cookbook is empty
+							No Recipes yet
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
-							Every great collection starts with one recipe. Type it in by hand
-							or import from a URL.
+							Add one you already cook by hand or import it from a URL.
 						</p>
 						<div className="mt-6 flex gap-3">
 							<Button asChild>

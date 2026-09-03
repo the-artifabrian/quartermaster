@@ -10,7 +10,7 @@ export const handle: SEOHandle = {
 }
 
 const description =
-	'What Quartermaster collects, how we use it, and how to export or delete everything. Short version: your data is yours.'
+	'What Quartermaster collects, how we use it, and how to export your records or delete your account.'
 
 export const meta: Route.MetaFunction = ({ matches }) => {
 	return [
@@ -37,7 +37,7 @@ export default function PrivacyRoute() {
 				Privacy Policy
 			</h1>
 			<p className="text-muted-foreground mt-2 text-sm">
-				Last updated: March 2026
+				Last updated: September 3, 2026
 			</p>
 
 			<div className="mt-8 space-y-6 text-sm/6">
@@ -47,9 +47,9 @@ export default function PrivacyRoute() {
 					</h2>
 					<p className="text-muted-foreground mt-2">
 						Quartermaster collects the minimum data needed to provide the
-						service: your email address, username, and password (hashed) for
-						authentication, plus the recipes, Pantry items, and meal plans you
-						create.
+						service. This includes account and authentication data, plus the
+						Recipes, classifications, Menus, Meals, Staples/Out state, Shopping,
+						and archived Pantry recovery data your household creates.
 					</p>
 				</section>
 
@@ -62,6 +62,20 @@ export default function PrivacyRoute() {
 						service. We use PostHog for product analytics to understand how
 						features are used and to fix bugs. We do not sell your data or use
 						it for advertising.
+					</p>
+				</section>
+
+				<section>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">
+						Optional AI and voice tools
+					</h2>
+					<p className="text-muted-foreground mt-2">
+						When you choose AI Recipe import, the text or images you provide are
+						sent to Anthropic. Recipe enhancement sends that Recipe&apos;s
+						title, description, ingredients, instructions, and existing times to
+						Anthropic. Voice input sends your audio to Groq for transcription;
+						the transcript may then be sent to Anthropic to parse Shopping
+						items. These tools run only when you choose them.
 					</p>
 				</section>
 
@@ -88,8 +102,9 @@ export default function PrivacyRoute() {
 					</h2>
 					<p className="text-muted-foreground mt-2">
 						Your data is stored in a SQLite database hosted on Fly.io
-						infrastructure. Recipe images are stored in S3-compatible object
-						storage. All connections use HTTPS encryption in transit.
+						infrastructure. Database backups and Recipe images are stored in
+						S3-compatible object storage. Connections use HTTPS encryption in
+						transit.
 					</p>
 				</section>
 
@@ -113,9 +128,12 @@ export default function PrivacyRoute() {
 						Data export and deletion
 					</h2>
 					<p className="text-muted-foreground mt-2">
-						You can export all your data (recipes, Pantry, meal plans, shopping
-						lists) as JSON at any time. Go to Settings &gt; Profile to manage
-						your account.
+						You can download a JSON export of your profile and household
+						Recipes, classifications, Staples/Out state, archived Pantry
+						recovery data, Menus, Plans, and Shopping. Recipe images are
+						referenced rather than embedded. Go to Settings &gt; Profile to
+						export your data or delete your account. Data belonging to a shared
+						household may remain available to its other members.
 					</p>
 				</section>
 

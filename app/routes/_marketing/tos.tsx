@@ -37,7 +37,7 @@ export default function TermsOfServiceRoute() {
 				Terms of Service
 			</h1>
 			<p className="text-muted-foreground mt-2 text-sm">
-				Last updated: February 2026
+				Last updated: September 3, 2026
 			</p>
 
 			<div className="mt-8 space-y-6 text-sm/6">
@@ -48,8 +48,21 @@ export default function TermsOfServiceRoute() {
 					<p className="text-muted-foreground mt-2">
 						Quartermaster is a personal recipe management service. By creating
 						an account, you agree to use the service for its intended purpose:
-						storing and organizing your recipes, keeping a Pantry, and planning
-						meals.
+						storing and organizing Recipes, building Menus, planning Meals,
+						keeping household Staples, and managing Shopping.
+					</p>
+				</section>
+
+				<section>
+					<h2 className="font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">
+						Optional AI and voice tools
+					</h2>
+					<p className="text-muted-foreground mt-2">
+						AI Recipe import and enhancement use Anthropic. Voice transcription
+						uses Groq, and its transcript may be parsed by Anthropic. You choose
+						when to use these tools and remain responsible for reviewing their
+						output before saving or acting on it. Only submit content you have
+						the right to use.
 					</p>
 				</section>
 

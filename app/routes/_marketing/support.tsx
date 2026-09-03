@@ -31,7 +31,7 @@ const faqs = [
 	{
 		question: 'Can I export my data?',
 		answer:
-			'Yes. Go to Settings > Data to export all your data (recipes, Staples, archived Pantry recovery data, meal plans, and shopping lists) as JSON. You can also import this export back in. Your data is never locked in.',
+			'Yes. Go to Settings > Data to export your profile and household Recipes, classifications, Staples, archived Pantry recovery data, Menus, Plans, and Shopping as JSON. Recipe images are referenced rather than embedded. You can import the export back in.',
 	},
 	{
 		question: 'How does meal planning work?',
@@ -39,9 +39,14 @@ const faqs = [
 			'The Planner shows an ordered week of Meals made from Recipes, Menu snapshots, or simple notes. When you\u2019re ready, generate Shopping explicitly; normal Staples are omitted and required Out Staples are included.',
 	},
 	{
+		question: 'Which features use AI?',
+		answer:
+			'AI Recipe import and Recipe enhancement send the content you choose to Anthropic. Voice input sends audio to Groq for transcription, then may send the transcript to Anthropic to parse Shopping items. These tools are optional; the manual Recipe, Plan, and Shopping paths still work without them.',
+	},
+	{
 		question: 'How do I delete my account?',
 		answer:
-			'Go to Settings > Profile where you can manage your account. You can export all your data first from Settings > Data.',
+			'Go to Settings > Profile where you can manage your account. You can download a JSON export first from Settings > Data; Recipe images are not included in the file.',
 	},
 ]
 

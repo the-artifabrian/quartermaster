@@ -54,8 +54,3 @@ omitted from generated Shopping demand.
 
 **Out**: The state of a Staple that should be included when a Recipe requires
 it. _Avoid_: Running low, depleted quantity
-
-## Assistance
-
-**Estimate**: The latest transparent, approximate cost result calculated from
-stored inputs with coverage, source, confidence, and unresolved data.

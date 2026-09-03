@@ -1,14 +1,18 @@
 /// <reference lib="webworker" />
 
-const STATIC_CACHE = 'qm-static-v1'
+const STATIC_CACHE_ROOT = 'qm-static-'
 const IMAGES_CACHE = 'qm-images-v1'
 const FONTS_CACHE = 'qm-fonts-v1'
 const CACHE_VERSION = '__QM_CACHE_VERSION__'
+const STATIC_CACHE = `${STATIC_CACHE_ROOT}${CACHE_VERSION}`
 const PUBLIC_CACHE = `qm-public-${CACHE_VERSION}`
+const CACHE_STATE = 'qm-cache-state-v1'
+const ACTIVE_STATIC_CACHE_KEY = '/__qm-active-static-cache__'
 
 // The build replaces this sentinel with every file in build/client/assets.
 // Embedding the list also changes sw.js whenever the hashed asset set changes,
-// which makes the browser install a new worker and run the activate-time prune.
+// which makes the browser install a new worker. Assets are cached on demand in
+// that build's isolated cache after activation.
 const CURRENT_ASSET_PATHS = new Set(['__QM_CLIENT_ASSET_PATHS__'])
 // Keep the offline root bridge coupled to the PWA manifest instead of copying
 // its start_url by hand. The build replaces this sentinel too.
@@ -30,15 +34,11 @@ const DATA_CACHE_PREFIX = `${DATA_CACHE_ROOT}${CACHE_VERSION}-`
 let dataCacheName = null
 let dataCacheEpoch = 0
 
-// ── Install ─────────────────────────────────────────────────────────
-self.addEventListener('install', () => {
-	self.skipWaiting()
-})
-
 // ── Activate ────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
 	event.waitUntil(
 		(async () => {
+			const previousStaticCache = await getActiveStaticCache()
 			if ('navigationPreload' in self.registration) {
 				try {
 					await self.registration.navigationPreload.enable()
@@ -47,12 +47,22 @@ self.addEventListener('activate', (event) => {
 				}
 			}
 			const keys = await caches.keys()
+			const retainedStaticCaches = new Set([
+				STATIC_CACHE,
+				...(previousStaticCache && previousStaticCache !== STATIC_CACHE
+					? [previousStaticCache]
+					: []),
+			])
 			await Promise.all([
+				// Create this generation only after activation. A waiting worker never
+				// downloads assets or mutates the cache state used by active pages.
+				caches.open(STATIC_CACHE),
 				...keys
 					.filter(
 						(k) =>
 							k.startsWith('qm-') &&
-							k !== STATIC_CACHE &&
+							k !== CACHE_STATE &&
+							!retainedStaticCaches.has(k) &&
 							k !== IMAGES_CACHE &&
 							k !== FONTS_CACHE &&
 							k !== PUBLIC_CACHE &&
@@ -61,17 +71,16 @@ self.addEventListener('activate', (event) => {
 							!k.startsWith(DATA_CACHE_PREFIX),
 					)
 					.map((k) => caches.delete(k)),
-				pruneStaticAssets(),
 				// Google can change the font file URLs behind its stylesheet. Keep that
 				// long-lived cross-deploy cache useful without letting it grow forever.
 				trimCache(FONTS_CACHE, MAX_FONTS),
 			])
-			await self.clients.claim()
+			await setActiveStaticCache(STATIC_CACHE)
 		})(),
 	)
 })
 
-// ── Messages (session namespace + cache invalidation) ───────────────
+// ── Messages (updates + session namespace + cache invalidation) ─────
 // The client (ServiceWorkerDataSync) drives the per-session `.data` cache:
 //  - qm-data-session {token}: adopt the `<userId>-<householdId>` namespace and
 //    reap every other personalized data cache.
@@ -82,7 +91,9 @@ self.addEventListener('message', (event) => {
 	const msg = event.data
 	if (!msg || typeof msg !== 'object') return
 
-	if (
+	if (msg.type === 'qm-activate-update') {
+		event.waitUntil(self.skipWaiting())
+	} else if (
 		msg.type === 'qm-data-session' &&
 		typeof msg.token === 'string' &&
 		msg.token
@@ -176,11 +187,11 @@ self.addEventListener('fetch', (event) => {
 
 	// ── Static assets (cache-first) ──────────────────────────────
 	if (url.pathname.startsWith('/assets/')) {
-		// Only the exact URLs stamped from this build belong in the cache. Query
-		// variants and old paths stay network-only, so they cannot grow or evict
-		// the bounded current-build set between worker activations.
-		if (isCurrentBuildAsset(url)) {
-			event.respondWith(cacheFirst(event, request, STATIC_CACHE))
+		// Query variants stay network-only. Exact current-build assets use this
+		// generation; an old client may still read a content-hashed asset from the
+		// retained active generation after another window accepts an update.
+		if (url.search === '') {
+			event.respondWith(staticAsset(event, request, url))
 		}
 		return
 	}
@@ -276,26 +287,71 @@ function isCurrentBuildAsset(url) {
 	return url.search === '' && CURRENT_ASSET_PATHS.has(url.pathname)
 }
 
-/**
- * Remove content-hashed assets absent from the current client build, plus
- * non-asset entries left in this formerly-mixed cache by older workers.
- */
-async function pruneStaticAssets() {
-	const cache = await caches.open(STATIC_CACHE)
-	const keys = await cache.keys()
-	await Promise.all(
-		keys
-			.filter((request) => {
-				try {
-					const url = new URL(request.url)
-					if (!url.pathname.startsWith('/assets/')) return true
-					return !isCurrentBuildAsset(url)
-				} catch {
-					return false
-				}
-			})
-			.map((request) => cache.delete(request)),
+/** Read the generation owned by the worker that was active before activation. */
+async function getActiveStaticCache() {
+	try {
+		const state = await caches.open(CACHE_STATE)
+		const response = await state.match(ACTIVE_STATIC_CACHE_KEY)
+		const cacheName = response ? await response.text() : null
+		if (cacheName?.startsWith(STATIC_CACHE_ROOT)) return cacheName
+	} catch {
+		// Fall through to the legacy migration below.
+	}
+
+	// The first versioned-cache deployment has no marker. Preserve the newest
+	// existing static cache as its N-1 bridge (normally the legacy qm-static-v1).
+	const keys = await caches.keys()
+	const candidates = keys.filter(
+		(key) => key.startsWith(STATIC_CACHE_ROOT) && key !== STATIC_CACHE,
 	)
+	return candidates.length ? candidates[candidates.length - 1] : null
+}
+
+/** Mark this build as active for the next waiting generation. */
+async function setActiveStaticCache(cacheName) {
+	const state = await caches.open(CACHE_STATE)
+	await state.put(ACTIVE_STATIC_CACHE_KEY, new Response(cacheName))
+}
+
+/** Serve current assets from N and old-client assets from the retained N-1. */
+async function staticAsset(event, request, url) {
+	if (isCurrentBuildAsset(url)) {
+		const current = await caches.open(STATIC_CACHE)
+		const cached = await current.match(request)
+		if (cached) return cached
+
+		// A content-identical URL may already exist in N-1. Promote it into N so
+		// the current generation remains complete when N-1 is retired.
+		const previous = await matchPreviousStaticAsset(request)
+		if (previous) {
+			event.waitUntil(putAndTrim(current, request, previous, STATIC_CACHE))
+			return previous
+		}
+
+		const response = await fetch(request)
+		if (response.ok) {
+			event.waitUntil(putAndTrim(current, request, response, STATIC_CACHE))
+		}
+		return response
+	}
+
+	return (await matchPreviousStaticAsset(request)) ?? fetch(request)
+}
+
+async function matchPreviousStaticAsset(request) {
+	try {
+		const keys = await caches.keys()
+		const candidates = keys.filter(
+			(key) => key.startsWith(STATIC_CACHE_ROOT) && key !== STATIC_CACHE,
+		)
+		for (let index = candidates.length - 1; index >= 0; index--) {
+			const cached = await (await caches.open(candidates[index])).match(request)
+			if (cached) return cached
+		}
+	} catch {
+		// Cache Storage is best-effort; fall through to the network.
+	}
+	return null
 }
 
 /**

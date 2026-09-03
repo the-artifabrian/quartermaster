@@ -21,6 +21,7 @@ import { NavTiming } from './components/nav-timing.tsx'
 import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { ProExpiryNudge } from './components/pro-expiry-nudge.tsx'
 import { ServiceWorkerDataSync } from './components/service-worker-data-sync.tsx'
+import { ServiceWorkerUpdate } from './components/service-worker-update.tsx'
 import { TimerWidget } from './components/timer-widget.tsx'
 import { useToast } from './components/toaster.tsx'
 import { Button } from './components/ui/button.tsx'
@@ -380,6 +381,7 @@ function App() {
 				userId={user?.id ?? null}
 				householdId={data.householdId}
 			/>
+			<ServiceWorkerUpdate />
 			<OpenImgContextProvider
 				optimizerEndpoint="/resources/images"
 				getSrc={getImgSrc}

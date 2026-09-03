@@ -218,6 +218,12 @@ if (IS_DEV) {
 		res.set('Cache-Control', 'no-cache, no-store, must-revalidate')
 		next()
 	})
+	// Let browsers and the service worker revalidate install metadata on every
+	// online request while still permitting a validated HTTP-cache response.
+	app.get('/site.webmanifest', (_req, res, next) => {
+		res.set('Cache-Control', 'no-cache')
+		next()
+	})
 	// React Router fingerprints its assets so we can cache forever.
 	app.use(
 		'/assets',

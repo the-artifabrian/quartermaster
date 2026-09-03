@@ -168,11 +168,18 @@ self.addEventListener('fetch', (event) => {
 		return
 	}
 
-	// ── Favicons, splash screens & webmanifest (cache-first) ────
+	// ── Web manifest (network-first with cached offline fallback) ──
+	if (url.pathname === '/site.webmanifest') {
+		if (url.search === '') {
+			event.respondWith(networkFirstManifest(event, request))
+		}
+		return
+	}
+
+	// ── Favicons & splash screens (cache-first) ────────────────
 	if (
 		url.pathname.startsWith('/favicons/') ||
 		url.pathname.startsWith('/splash/') ||
-		url.pathname === '/site.webmanifest' ||
 		url.pathname === '/favicon.ico'
 	) {
 		// These files are not content-hashed, so the build fingerprints their
@@ -337,6 +344,43 @@ async function cacheFirst(event, request, cacheName, maxEntries) {
 		return response
 	} catch {
 		return new Response('Offline', { status: 503 })
+	}
+}
+
+/** Fetch fresh install metadata, falling back to this build's cached copy offline. */
+async function networkFirstManifest(event, request) {
+	try {
+		const response = await fetch(request)
+		const contentType = response.headers.get('Content-Type')?.toLowerCase()
+		if (
+			response.status === 200 &&
+			!response.redirected &&
+			(contentType?.startsWith('application/manifest+json') ||
+				contentType?.startsWith('application/json'))
+		) {
+			const cacheResponse = response.clone()
+			event.waitUntil(cacheManifest(request, cacheResponse))
+		}
+		return response
+	} catch {
+		try {
+			const cache = await caches.open(PUBLIC_CACHE)
+			const cached = await cache.match(request)
+			if (cached) return cached
+		} catch {
+			// Cache Storage is best-effort; its failure is an ordinary offline miss.
+		}
+		return new Response('Offline', { status: 503 })
+	}
+}
+
+/** Keep cache failures from changing a successful manifest response. */
+async function cacheManifest(request, response) {
+	try {
+		const cache = await caches.open(PUBLIC_CACHE)
+		await cache.put(request, response)
+	} catch {
+		// Quota pressure or a killed write must not fail the network response.
 	}
 }
 

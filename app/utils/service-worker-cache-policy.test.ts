@@ -270,6 +270,126 @@ describe('service-worker lifecycle and public resources', () => {
 			},
 		])
 	})
+
+	test('the manifest uses the network and refreshes its offline fallback', async () => {
+		const worker = loadServiceWorker()
+		await worker.storage.seed(
+			'qm-public-test-build',
+			'/site.webmanifest',
+			new Response('OLD MANIFEST'),
+		)
+		worker.setFetch(
+			async () =>
+				new Response('CURRENT MANIFEST', {
+					headers: { 'Content-Type': 'application/manifest+json' },
+				}),
+		)
+
+		const response = await worker.dispatchFetch('/site.webmanifest')
+
+		expect(await response?.text()).toBe('CURRENT MANIFEST')
+		expect(worker.fetchCalls).toHaveLength(1)
+		const cached = await (
+			await worker.storage.open('qm-public-test-build')
+		).match('/site.webmanifest')
+		expect(await cached?.text()).toBe('CURRENT MANIFEST')
+	})
+
+	test('the manifest uses its current-generation cache on transport failure', async () => {
+		const worker = loadServiceWorker()
+		await worker.storage.seed(
+			'qm-public-test-build',
+			'/site.webmanifest',
+			new Response('CACHED MANIFEST'),
+		)
+		worker.setFetch(async () => {
+			throw new TypeError('Failed to fetch')
+		})
+
+		const response = await worker.dispatchFetch('/site.webmanifest')
+
+		expect(response?.status).toBe(200)
+		expect(await response?.text()).toBe('CACHED MANIFEST')
+	})
+
+	test('manifest origin errors remain visible and do not replace the fallback', async () => {
+		const worker = loadServiceWorker()
+		await worker.storage.seed(
+			'qm-public-test-build',
+			'/site.webmanifest',
+			new Response('CACHED MANIFEST'),
+		)
+		worker.setFetch(async () => new Response('ORIGIN ERROR', { status: 503 }))
+
+		const response = await worker.dispatchFetch('/site.webmanifest')
+
+		expect(response?.status).toBe(503)
+		expect(await response?.text()).toBe('ORIGIN ERROR')
+		const cached = await (
+			await worker.storage.open('qm-public-test-build')
+		).match('/site.webmanifest')
+		expect(await cached?.text()).toBe('CACHED MANIFEST')
+	})
+
+	test('a captive response cannot replace the cached manifest', async () => {
+		const worker = loadServiceWorker()
+		await worker.storage.seed(
+			'qm-public-test-build',
+			'/site.webmanifest',
+			new Response('CACHED MANIFEST'),
+		)
+		worker.setFetch(
+			async () =>
+				new Response('<html>Sign in to this network</html>', {
+					headers: { 'Content-Type': 'text/html' },
+				}),
+		)
+
+		const response = await worker.dispatchFetch('/site.webmanifest')
+
+		expect(response?.status).toBe(200)
+		expect(await response?.text()).toContain('Sign in to this network')
+		const cached = await (
+			await worker.storage.open('qm-public-test-build')
+		).match('/site.webmanifest')
+		expect(await cached?.text()).toBe('CACHED MANIFEST')
+	})
+
+	test('a cache write failure does not fail a fresh manifest response', async () => {
+		const worker = loadServiceWorker()
+		worker.storage.rejectWrites = true
+		worker.setFetch(
+			async () =>
+				new Response('CURRENT MANIFEST', {
+					headers: { 'Content-Type': 'application/manifest+json' },
+				}),
+		)
+
+		const response = await worker.dispatchFetch('/site.webmanifest')
+
+		expect(response?.status).toBe(200)
+		expect(await response?.text()).toBe('CURRENT MANIFEST')
+	})
+
+	test('an uncached offline manifest returns a bounded failure', async () => {
+		const worker = loadServiceWorker()
+		await worker.storage.seed(
+			'qm-public-previous-build',
+			'/site.webmanifest',
+			new Response('PREVIOUS GENERATION MANIFEST'),
+		)
+		worker.setFetch(async () => {
+			throw new TypeError('Failed to fetch')
+		})
+
+		const response = await worker.dispatchFetch('/site.webmanifest')
+
+		expect(response?.status).toBe(503)
+		expect(await response?.text()).toBe('Offline')
+		expect(
+			await worker.dispatchFetch('/site.webmanifest?cache-bust=1'),
+		).toBeUndefined()
+	})
 })
 
 describe('document navigation policy', () => {

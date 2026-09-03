@@ -2,6 +2,7 @@
 	"id": "/",
 	"name": "Quartermaster",
 	"short_name": "Quartermaster",
+	"lang": "en",
 	"start_url": "/plan",
 	"scope": "/",
 	"icons": [
@@ -14,6 +15,29 @@
 			"src": "/favicons/android-chrome-512x512.png",
 			"sizes": "512x512",
 			"type": "image/png"
+		},
+		{
+			"src": "/favicons/maskable-icon-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	],
+	"shortcuts": [
+		{
+			"name": "Plan",
+			"short_name": "Plan",
+			"url": "/plan"
+		},
+		{
+			"name": "Shopping",
+			"short_name": "Shopping",
+			"url": "/shopping"
+		},
+		{
+			"name": "Recipes",
+			"short_name": "Recipes",
+			"url": "/recipes"
 		}
 	],
 	"theme_color": "#f6f1eb",

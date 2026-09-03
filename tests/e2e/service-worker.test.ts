@@ -157,9 +157,11 @@ test('production HTTP caching keeps dynamic content private and assets immutable
 	const documentResponse = await page.goto('/plan')
 	const assetResponse = await assetResponsePromise
 	const dataResponse = await page.request.get('/plan.data')
+	const manifestResponse = await page.request.get('/site.webmanifest')
 
 	expect(documentResponse?.headers()['cache-control']).toBe('private, no-cache')
 	expect(dataResponse.headers()['cache-control']).toBe('private, no-cache')
+	expect(manifestResponse.headers()['cache-control']).toBe('no-cache')
 	expect(assetResponse.headers()['cache-control']).toContain('max-age=31536000')
 	expect(assetResponse.headers()['cache-control']).toContain('immutable')
 })

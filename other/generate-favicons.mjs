@@ -22,6 +22,26 @@ const makeAppIcon = (size) => `
   <path d="M226 356 L246 381 L286 331" stroke="#52a868" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`
 
+// Maskable icons are cropped into platform-selected shapes. Keep the recipe
+// card inside the central 80% safe circle and let only the green background
+// extend to the image edges.
+const makeMaskableAppIcon = (size) => `
+<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#52a868"/>
+  <g transform="translate(76.8 76.8) scale(0.7)">
+    <rect x="106" y="96" width="280" height="360" rx="20" fill="white"/>
+    <rect x="141" y="136" width="180" height="20" rx="6" fill="#52a868"/>
+    <rect x="141" y="176" width="210" height="4" rx="2" fill="#52a868" opacity="0.3"/>
+    <circle cx="156" cy="216" r="8" fill="#52a868"/>
+    <rect x="176" y="209" width="140" height="14" rx="4" fill="#52a868" opacity="0.5"/>
+    <circle cx="156" cy="256" r="8" fill="#52a868"/>
+    <rect x="176" y="249" width="160" height="14" rx="4" fill="#52a868" opacity="0.5"/>
+    <circle cx="156" cy="296" r="8" fill="#52a868"/>
+    <rect x="176" y="289" width="120" height="14" rx="4" fill="#52a868" opacity="0.5"/>
+    <path d="M226 356 L246 381 L286 331" stroke="#52a868" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>`
+
 // OG image SVG (1200x630) — uses same portrait card as app icon
 const ogSvg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
@@ -79,6 +99,12 @@ async function main() {
 		.png()
 		.toFile('public/favicons/android-chrome-512x512.png')
 	console.log('✓ android-chrome-512x512.png')
+
+	await sharp(Buffer.from(makeMaskableAppIcon(512)))
+		.resize(512, 512)
+		.png()
+		.toFile('public/favicons/maskable-icon-512x512.png')
+	console.log('✓ maskable-icon-512x512.png')
 
 	// .ico also uses the same green-bg design for consistency
 	const icoSizes = [16, 32, 48]

@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { useLocation, useNavigation } from 'react-router'
+import { useLocation, useMatches, useNavigation } from 'react-router'
 import { readDataTiming } from '#app/utils/nav-resource-timing.ts'
 import { usePostHog } from '#app/utils/posthog-provider.tsx'
+import { getCurrentRouteId } from '#app/utils/pwa-performance.ts'
 
 /**
  * Measures real felt navigation latency from the user's device and reports it to
@@ -18,18 +19,19 @@ import { usePostHog } from '#app/utils/posthog-provider.tsx'
 export function NavTiming() {
 	const navigation = useNavigation()
 	const location = useLocation()
+	const currentRouteId = getCurrentRouteId(useMatches())
 	const posthog = usePostHog()
 	const startRef = useRef<number | null>(null)
-	const fromRef = useRef<string>('')
-	const toRef = useRef<string>('')
+	const fromRouteRef = useRef<string>('unknown')
+	const toPathRef = useRef<string>('')
 
 	useEffect(() => {
 		if (navigation.state === 'loading') {
 			// Capture the start of a navigation once (ignore loading→loading churn).
 			if (startRef.current == null) {
 				startRef.current = performance.now()
-				fromRef.current = location.pathname
-				toRef.current = navigation.location?.pathname ?? ''
+				fromRouteRef.current = currentRouteId
+				toPathRef.current = navigation.location?.pathname ?? ''
 			}
 		} else if (navigation.state === 'idle' && startRef.current != null) {
 			const navStart = startRef.current
@@ -42,16 +44,22 @@ export function NavTiming() {
 			).connection
 			posthog.capture('nav_duration_ms', {
 				duration_ms: Math.round(duration),
-				from: fromRef.current,
-				to: toRef.current,
+				from_route: fromRouteRef.current,
+				to_route: currentRouteId,
 				effective_type: connection?.effectiveType,
 				rtt: connection?.rtt,
 				// Resource-timing breakdown of the `.data` fetch (omitted when the nav did
 				// no network): tells us cold-connection vs server vs cache-hit per event.
-				...readDataTiming(navStart, toRef.current),
+				...readDataTiming(navStart, toPathRef.current),
 			})
 		}
-	}, [navigation.state, navigation.location, location.pathname, posthog])
+	}, [
+		navigation.state,
+		navigation.location,
+		location.pathname,
+		currentRouteId,
+		posthog,
+	])
 
 	return null
 }

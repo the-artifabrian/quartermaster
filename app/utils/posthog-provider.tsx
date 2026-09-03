@@ -7,8 +7,13 @@ import {
 	useState,
 	type ReactNode,
 } from 'react'
-import { useLocation } from 'react-router'
+import { useLocation, useMatches } from 'react-router'
 import { getPostHogHost } from './posthog-config.ts'
+import {
+	getCurrentRouteId,
+	getPwaSessionContext,
+	getServiceWorkerContext,
+} from './pwa-performance.ts'
 
 type AnalyticsProperties = Record<string, unknown>
 
@@ -18,6 +23,7 @@ export type AnalyticsClient = {
 	captureException: (error: unknown) => void
 	identify: (userId: string, properties?: AnalyticsProperties) => void
 	group: (groupType: string, groupId: string) => void
+	registerForSession: (properties: AnalyticsProperties) => void
 	reset: () => void
 	getFeatureFlag: (key: string) => string | boolean | undefined
 }
@@ -27,6 +33,7 @@ const noopClient: AnalyticsClient = {
 	captureException: () => undefined,
 	identify: () => undefined,
 	group: () => undefined,
+	registerForSession: () => undefined,
 	reset: () => undefined,
 	getFeatureFlag: () => undefined,
 }
@@ -72,6 +79,8 @@ function createClientBridge(enabled: boolean): ClientBridge {
 				run((client) => client.identify(userId, properties)),
 			group: (groupType, groupId) =>
 				run((client) => client.group(groupType, groupId)),
+			registerForSession: (properties) =>
+				run((client) => client.registerForSession(properties)),
 			reset: () => run((client) => client.reset()),
 			getFeatureFlag: (key) => delegate?.getFeatureFlag(key),
 		},
@@ -161,13 +170,66 @@ export function useFeatureFlag(key: string): string | boolean | undefined {
 
 export function PostHogPageview() {
 	const location = useLocation()
+	const routeId = getCurrentRouteId(useMatches())
 	const posthog = usePostHog()
+	const initialRouteRef = useRef(routeId)
+	const initialContextRef = useRef<ReturnType<
+		typeof getPwaSessionContext
+	> | null>(null)
 
 	useEffect(() => {
+		initialContextRef.current ??= getPwaSessionContext({
+			appBuild: window.ENV.APP_BUILD,
+			initialRoute: initialRouteRef.current,
+		})
+		// Register before capture so PostHog's built-in Web Vitals inherit the
+		// same release/install context. Re-registering also restores it after a
+		// logout reset without changing the initial-route snapshot.
+		posthog.registerForSession(initialContextRef.current)
 		posthog.capture('$pageview', {
 			$current_url: window.location.href,
+			route_id: routeId,
 		})
-	}, [location.pathname, location.search, posthog])
+	}, [location.pathname, location.search, posthog, routeId])
+
+	return null
+}
+
+export const PWA_RESUME_THRESHOLD_MS = 30_000
+
+/** Distinguish a warm foreground resume from a new document launch. */
+export function PostHogPwaLifecycle() {
+	const posthog = usePostHog()
+	const routeId = getCurrentRouteId(useMatches())
+	const routeIdRef = useRef(routeId)
+	routeIdRef.current = routeId
+	const hiddenAtRef = useRef<number | null>(null)
+
+	useEffect(() => {
+		const onVisibilityChange = () => {
+			if (document.visibilityState === 'hidden') {
+				hiddenAtRef.current = Date.now()
+				return
+			}
+			if (document.visibilityState !== 'visible') return
+
+			const hiddenAt = hiddenAtRef.current
+			hiddenAtRef.current = null
+			if (hiddenAt == null) return
+			const backgroundDuration = Date.now() - hiddenAt
+			if (backgroundDuration < PWA_RESUME_THRESHOLD_MS) return
+
+			posthog.capture('pwa_resumed', {
+				background_duration_ms: backgroundDuration,
+				route_id: routeIdRef.current,
+				...getServiceWorkerContext(),
+			})
+		}
+
+		document.addEventListener('visibilitychange', onVisibilityChange)
+		return () =>
+			document.removeEventListener('visibilitychange', onVisibilityChange)
+	}, [posthog])
 
 	return null
 }

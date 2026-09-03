@@ -36,7 +36,11 @@ import { pipeHeaders } from './utils/headers.server.ts'
 import { combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
 import { useNonce } from './utils/nonce-provider.ts'
 import { getPostHogHost } from './utils/posthog-config.ts'
-import { PostHogIdentify, PostHogPageview } from './utils/posthog-provider.tsx'
+import {
+	PostHogIdentify,
+	PostHogPageview,
+	PostHogPwaLifecycle,
+} from './utils/posthog-provider.tsx'
 import { getUserTier, type TierInfo } from './utils/subscription.server.ts'
 import { type Theme, getTheme } from './utils/theme.server.ts'
 import { TimerProvider } from './utils/timer-context.tsx'
@@ -364,18 +368,19 @@ function App() {
 
 	return (
 		<TimerProvider>
-			<PostHogPageview />
-			<NavTiming />
-			<ServiceWorkerDataSync
-				userId={user?.id ?? null}
-				householdId={data.householdId}
-			/>
 			<PostHogIdentify
 				user={
 					user
 						? { id: user.id, name: user.name, username: user.username }
 						: null
 				}
+				householdId={data.householdId}
+			/>
+			<PostHogPageview />
+			<PostHogPwaLifecycle />
+			<NavTiming />
+			<ServiceWorkerDataSync
+				userId={user?.id ?? null}
 				householdId={data.householdId}
 			/>
 			<OpenImgContextProvider

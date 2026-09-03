@@ -3,12 +3,13 @@ import { readdir } from 'node:fs/promises'
 import path from 'node:path'
 
 const clientBuildDirectory = path.resolve('build/client')
+const serverBuildDirectory = path.resolve('build/server')
 const assetsDirectory = path.join(clientBuildDirectory, 'assets')
 const serviceWorkerPath = path.join(clientBuildDirectory, 'sw.js')
 const webmanifestPath = path.join(clientBuildDirectory, 'site.webmanifest')
 const assetPathsToken = "'__QM_CLIENT_ASSET_PATHS__'"
 const startUrlToken = "'__QM_START_URL__'"
-const publicAssetVersionToken = "'__QM_PUBLIC_ASSET_VERSION__'"
+const cacheVersionToken = "'__QM_CACHE_VERSION__'"
 
 async function listFiles(directory) {
 	const entries = await readdir(directory, { withFileTypes: true })
@@ -59,13 +60,25 @@ const publicFiles = (await listFiles(clientBuildDirectory))
 			relativePath !== 'sw.js' && isServiceWorkerPublicAsset(relativePath),
 	)
 	.sort((a, b) => a.relativePath.localeCompare(b.relativePath))
-const publicAssetHash = createHash('sha256')
-for (const { file, relativePath } of publicFiles) {
-	publicAssetHash.update(relativePath)
-	publicAssetHash.update('\0')
-	publicAssetHash.update(new Uint8Array(await Bun.file(file).arrayBuffer()))
+const serverFiles = (await listFiles(serverBuildDirectory)).sort()
+let serviceWorker = await Bun.file(serviceWorkerPath).text()
+const cacheVersionHash = createHash('sha256')
+cacheVersionHash.update(serviceWorker)
+for (const assetPath of assetPaths) {
+	cacheVersionHash.update(assetPath)
+	cacheVersionHash.update('\0')
 }
-const publicAssetVersion = publicAssetHash.digest('hex').slice(0, 12)
+for (const { file, relativePath } of publicFiles) {
+	cacheVersionHash.update(relativePath)
+	cacheVersionHash.update('\0')
+	cacheVersionHash.update(new Uint8Array(await Bun.file(file).arrayBuffer()))
+}
+for (const file of serverFiles) {
+	cacheVersionHash.update(path.relative(serverBuildDirectory, file))
+	cacheVersionHash.update('\0')
+	cacheVersionHash.update(new Uint8Array(await Bun.file(file).arrayBuffer()))
+}
+const cacheVersion = cacheVersionHash.digest('hex').slice(0, 12)
 const webmanifest = JSON.parse(await Bun.file(webmanifestPath).text())
 const startUrl = webmanifest.start_url
 
@@ -77,7 +90,6 @@ if (
 	throw new Error('site.webmanifest start_url must be a root-relative string')
 }
 
-let serviceWorker = await Bun.file(serviceWorkerPath).text()
 serviceWorker = replaceExactlyOnce(
 	serviceWorker,
 	assetPathsToken,
@@ -90,12 +102,12 @@ serviceWorker = replaceExactlyOnce(
 )
 serviceWorker = replaceExactlyOnce(
 	serviceWorker,
-	publicAssetVersionToken,
-	JSON.stringify(publicAssetVersion),
+	cacheVersionToken,
+	JSON.stringify(cacheVersion),
 )
 
 await Bun.write(serviceWorkerPath, serviceWorker)
 
 console.log(
-	`Embedded ${assetPaths.length} client assets, public generation ${publicAssetVersion}, and start URL ${startUrl} in the service worker`,
+	`Embedded ${assetPaths.length} client assets, cache generation ${cacheVersion}, and start URL ${startUrl} in the service worker`,
 )

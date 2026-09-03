@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 import { describe, expect, test } from 'vitest'
 
+const ORIGIN = 'https://quartermaster.test'
 const webmanifestPath = fileURLToPath(
 	new URL('../../public/site.webmanifest', import.meta.url),
 )
@@ -10,164 +11,93 @@ const WEBMANIFEST_START_URL = (
 	JSON.parse(readFileSync(webmanifestPath, 'utf8')) as { start_url: string }
 ).start_url
 
-/**
- * These tests exercise the cache-routing predicates that decide whether a request
- * is cached at all (`isCacheablePage`) and whether it may be served stale
- * (`isReadMostly`). They are the security-/correctness-relevant gates in the
- * service worker: a regression here can silently re-introduce a cross-household
- * data-leak (wrong route cached) or break the SWR fast path.
- *
- * Rather than duplicate the predicates (a copy would drift from the shipped code),
- * we load the REAL public/sw.js into a sandbox and call its actual functions. The
- * SW is a classic worker script (no exports), so we evaluate it with stubbed
- * worker globals and capture the two pure predicates off `self`.
- */
-function loadServiceWorkerPredicates() {
-	const swPath = fileURLToPath(new URL('../../public/sw.js', import.meta.url))
-	const source = readFileSync(swPath, 'utf8')
+type RequestLike = string | Request | { url: string }
 
-	// The script only *registers* event handlers at load time (it never invokes
-	// them), so a no-op addEventListener is all that's needed to evaluate it.
-	const sandbox: Record<string, any> = {
-		self: { addEventListener: () => {} },
-		// URL/Set/String are ECMAScript intrinsics already present in a vm context;
-		// no Web APIs are touched until a handler runs, which we never trigger here.
-	}
-	vm.createContext(sandbox)
-	// Append a probe that captures the predicates we want to test. They are
-	// top-level function declarations in sw.js, so they're in scope here.
-	vm.runInContext(
-		`${source}\n;self.__test = { isCacheablePage, isReadMostly, cachedAgeMs, isFreshEnough, MAX_STALE_SERVE_MS };`,
-		sandbox,
-	)
-
-	const captured = sandbox.self.__test as {
-		isCacheablePage: (url: URL) => boolean
-		isReadMostly: (url: URL) => boolean
-		cachedAgeMs: (response: Response, now?: number) => number
-		isFreshEnough: (response: Response, now?: number) => boolean
-		MAX_STALE_SERVE_MS: number
-	}
-	expect(typeof captured?.isCacheablePage).toBe('function')
-	expect(typeof captured?.isReadMostly).toBe('function')
-	expect(typeof captured?.cachedAgeMs).toBe('function')
-	expect(typeof captured?.isFreshEnough).toBe('function')
-	return captured
+function requestUrl(request: RequestLike): string {
+	return new URL(typeof request === 'string' ? request : request.url, ORIGIN)
+		.href
 }
 
-const {
-	isCacheablePage,
-	isReadMostly,
-	cachedAgeMs,
-	isFreshEnough,
-	MAX_STALE_SERVE_MS,
-} = loadServiceWorkerPredicates()
-const url = (pathname: string) =>
-	new URL(`https://quartermaster.test${pathname}`)
+class MemoryCache {
+	readonly entries = new Map<string, Response>()
 
-describe('isCacheablePage', () => {
-	test.each([
-		// list/detail/plan/shopping pages (and their RR7 .data variants) are cached
-		['/recipes', true],
-		['/recipes.data', true],
-		['/plan', true],
-		['/plan.data', true],
-		['/shopping', true],
-		['/shopping.data', true],
-		['/inventory', true],
-		['/inventory.data', true],
-		['/recipes/abc123', true],
-		['/recipes/abc123.data', true],
-		// recipe form sub-routes must NOT be cached (they need the network)
-		['/recipes/new', false],
-		['/recipes/new.data', false],
-		['/recipes/import', false],
-		['/recipes/quick', false],
-		['/recipes/bulk-import', false],
-		// edit and deeper sub-paths are not the cacheable detail page
-		['/recipes/abc123/edit', false],
-		['/recipes/abc123/edit.data', false],
-		// unrelated authenticated routes are not cached here
-		['/', false],
-		['/login', false],
-		['/settings/profile', false],
-	])('%s → %s', (pathname, expected) => {
-		expect(isCacheablePage(url(pathname))).toBe(expected)
+	constructor(
+		private readonly name: string,
+		private readonly storage: MemoryCacheStorage,
+	) {}
+
+	async match(request: RequestLike) {
+		return this.entries.get(requestUrl(request))?.clone()
+	}
+
+	async put(request: RequestLike, response: Response) {
+		if (this.storage.rejectWrites) throw new Error('Quota exceeded')
+		const url = requestUrl(request)
+		this.entries.set(url, response.clone())
+		this.storage.puts.push({ cacheName: this.name, url })
+	}
+
+	async keys() {
+		return [...this.entries].map(([url]) => ({ url }))
+	}
+
+	async delete(request: RequestLike) {
+		return this.entries.delete(requestUrl(request))
+	}
+}
+
+class MemoryCacheStorage {
+	readonly caches = new Map<string, MemoryCache>()
+	readonly puts: Array<{ cacheName: string; url: string }> = []
+	rejectOpen = false
+	rejectWrites = false
+
+	async open(name: string) {
+		if (this.rejectOpen) throw new Error('Cache Storage unavailable')
+		let cache = this.caches.get(name)
+		if (!cache) {
+			cache = new MemoryCache(name, this)
+			this.caches.set(name, cache)
+		}
+		return cache
+	}
+
+	async keys() {
+		return [...this.caches.keys()]
+	}
+
+	async delete(name: string) {
+		return this.caches.delete(name)
+	}
+
+	async seed(cacheName: string, url: string, response: Response) {
+		const cache = await this.open(cacheName)
+		cache.entries.set(requestUrl(url), response.clone())
+	}
+}
+
+type FetchRequest = {
+	method: string
+	mode: string
+	url: string
+}
+
+function routeDataResponse(body: string, status = 200) {
+	return new Response(body, {
+		status,
+		headers: { 'Content-Type': 'text/x-script' },
 	})
-})
+}
 
-describe('isReadMostly', () => {
-	test.each([
-		// read-mostly routes may be served stale-while-revalidate
-		['/recipes', true],
-		['/recipes.data', true],
-		['/recipes/abc123', true],
-		['/recipes/abc123.data', true],
-		['/plan', true],
-		['/plan.data', true],
-		['/inventory', true],
-		['/inventory.data', true],
-		// shopping is edited daily → must stay network-first, never stale
-		['/shopping', false],
-		['/shopping.data', false],
-	])('%s → %s', (pathname, expected) => {
-		expect(isReadMostly(url(pathname))).toBe(expected)
-	})
-
-	test('every shopping request is excluded from the stale-serve path', () => {
-		expect(isReadMostly(url('/shopping'))).toBe(false)
-		expect(isReadMostly(url('/shopping.data'))).toBe(false)
-	})
-})
-
-describe('bounded staleness (isFreshEnough / cachedAgeMs)', () => {
-	const NOW = Date.parse('2026-07-11T12:00:00Z')
-	const responseDated = (date: string | null) =>
-		new Response('x', { headers: date === null ? {} : { date } })
-
-	test('a copy cached an hour ago may be served stale', () => {
-		const cached = responseDated('Sat, 11 Jul 2026 11:00:00 GMT')
-		expect(cachedAgeMs(cached, NOW)).toBe(60 * 60 * 1000)
-		expect(isFreshEnough(cached, NOW)).toBe(true)
-	})
-
-	test('a copy cached two weeks ago must NOT be served as current', () => {
-		const cached = responseDated('Sat, 27 Jun 2026 12:00:00 GMT')
-		expect(isFreshEnough(cached, NOW)).toBe(false)
-	})
-
-	test('the cutoff is exactly MAX_STALE_SERVE_MS', () => {
-		const justInside = responseDated('Thu, 09 Jul 2026 12:00:01 GMT')
-		const justOutside = responseDated('Thu, 09 Jul 2026 12:00:00 GMT')
-		expect(isFreshEnough(justInside, NOW)).toBe(true)
-		expect(cachedAgeMs(justOutside, NOW)).toBe(MAX_STALE_SERVE_MS)
-		expect(isFreshEnough(justOutside, NOW)).toBe(false)
-	})
-
-	test('a missing or malformed Date header is treated as too old, not fresh', () => {
-		expect(cachedAgeMs(responseDated(null), NOW)).toBe(Infinity)
-		expect(isFreshEnough(responseDated(null), NOW)).toBe(false)
-		expect(isFreshEnough(responseDated('not-a-date'), NOW)).toBe(false)
-	})
-
-	test('clock skew (Date slightly in the future) still counts as fresh', () => {
-		const cached = responseDated('Sat, 11 Jul 2026 12:00:30 GMT')
-		expect(isFreshEnough(cached, NOW)).toBe(true)
-	})
-})
-
-/**
- * Runtime harness: drive the real service-worker cache strategies with stubbed
- * `caches`/`fetch`/`setTimeout`, so the serve-order
- * policy (fresh → instant cached; stale → network wins only with renderable
- * content, while hangs/5xx/redirect-shapes lose; miss → network else fallback)
- * is pinned by tests — the pure-helper tests above can't catch a reverted
- * `isFreshEnough` gate or a broken fallback chain.
- */
-function loadServiceWorkerRuntime(
+function loadServiceWorker({
+	storage = new MemoryCacheStorage(),
 	currentAssetPaths = ['/assets/current-build.js'],
-	publicAssetVersion = 'test-public',
-) {
+	cacheVersion = 'test-build',
+}: {
+	storage?: MemoryCacheStorage
+	currentAssetPaths?: string[]
+	cacheVersion?: string
+} = {}) {
 	const swPath = fileURLToPath(new URL('../../public/sw.js', import.meta.url))
 	const source = readFileSync(swPath, 'utf8')
 		.replace(
@@ -177,19 +107,21 @@ function loadServiceWorkerRuntime(
 				.join(', '),
 		)
 		.replace("'__QM_START_URL__'", JSON.stringify(WEBMANIFEST_START_URL))
-		.replace(
-			"'__QM_PUBLIC_ASSET_VERSION__'",
-			JSON.stringify(publicAssetVersion),
-		)
+		.replace("'__QM_CACHE_VERSION__'", JSON.stringify(cacheVersion))
 
-	// Timers registered by the SW's stale-path grace race. Tests fire them
-	// manually; nothing in the sandbox advances time on its own.
-	const timers: Array<{ fn: () => void; ms: number }> = []
 	const listeners: Record<string, (event: any) => void> = {}
+	let claimed = false
+	let fetchImplementation = async (_request: FetchRequest): Promise<Response> =>
+		new Response('NETWORK')
+	const fetchCalls: FetchRequest[] = []
 	const sandbox: Record<string, any> = {
 		self: {
-			location: { origin: 'https://quartermaster.test' },
-			clients: { claim: async () => {} },
+			location: { origin: ORIGIN },
+			clients: {
+				claim: async () => {
+					claimed = true
+				},
+			},
 			skipWaiting: () => {},
 			addEventListener: (type: string, listener: (event: any) => void) => {
 				listeners[type] = listener
@@ -199,514 +131,486 @@ function loadServiceWorkerRuntime(
 		Headers,
 		Request,
 		URL,
-		setTimeout: (fn: () => void, ms: number) => {
-			timers.push({ fn, ms })
-			return 0
+		Set,
+		caches: storage,
+		fetch: (request: FetchRequest) => {
+			fetchCalls.push(request)
+			return fetchImplementation(request)
 		},
-		// caches/fetch are installed per scenario; sw.js resolves them at call
-		// time through the context's global scope.
-		caches: undefined,
-		fetch: undefined,
 	}
 	vm.createContext(sandbox)
-	vm.runInContext(
-		`${source}\n;self.__runtime = { cacheFirst, networkFirst, staleWhileRevalidateData, rootNavigation, networkWithOfflineFallback, isCurrentBuildAsset, STATIC_CACHE, PUBLIC_CACHE, PAGES_CACHE, FONTS_CACHE, MAX_FONTS, START_URL };`,
-		sandbox,
-	)
+	vm.runInContext(source, sandbox)
+
+	async function dispatchFetch(
+		pathname: string,
+		{ mode = 'cors' }: { mode?: string } = {},
+	) {
+		let responsePromise: Promise<Response> | undefined
+		const lifetimes: Promise<unknown>[] = []
+		listeners.fetch?.({
+			request: {
+				method: 'GET',
+				mode,
+				url: new URL(pathname, ORIGIN).href,
+			},
+			respondWith: (response: Response | Promise<Response>) => {
+				responsePromise = Promise.resolve(response)
+			},
+			waitUntil: (promise: Promise<unknown>) => lifetimes.push(promise),
+		})
+		if (!responsePromise) return undefined
+		const response = await responsePromise
+		await Promise.all(lifetimes)
+		return response
+	}
+
+	async function dispatchMessage(data: unknown) {
+		const lifetimes: Promise<unknown>[] = []
+		listeners.message?.({
+			data,
+			waitUntil: (promise: Promise<unknown>) => lifetimes.push(promise),
+		})
+		await Promise.all(lifetimes)
+	}
+
+	async function dispatchActivate() {
+		const lifetimes: Promise<unknown>[] = []
+		listeners.activate?.({
+			waitUntil: (promise: Promise<unknown>) => lifetimes.push(promise),
+		})
+		await Promise.all(lifetimes)
+	}
+
 	return {
-		sandbox,
-		timers,
-		listeners,
-		runtime: sandbox.self.__runtime as {
-			cacheFirst: (
-				event: unknown,
-				request: unknown,
-				cacheName: string,
-				maxEntries?: number,
-			) => Promise<Response>
-			networkFirst: (
-				event: unknown,
-				request: Request,
-				cacheName: string,
-				maxEntries?: number,
-			) => Promise<Response>
-			staleWhileRevalidateData: (
-				event: unknown,
-				request: unknown,
-				cacheName: string,
-				maxEntries: number,
-			) => Promise<Response>
-			rootNavigation: (request: unknown) => Promise<Response>
-			networkWithOfflineFallback: (request: unknown) => Promise<Response>
-			isCurrentBuildAsset: (url: URL) => boolean
-			STATIC_CACHE: string
-			PUBLIC_CACHE: string
-			PAGES_CACHE: string
-			FONTS_CACHE: string
-			MAX_FONTS: number
-			START_URL: string
+		storage,
+		fetchCalls,
+		dispatchActivate,
+		dispatchFetch,
+		dispatchMessage,
+		setFetch: (
+			implementation: (request: FetchRequest) => Promise<Response>,
+		) => {
+			fetchImplementation = implementation
 		},
+		wasClaimed: () => claimed,
 	}
 }
 
-describe('service-worker lifecycle and navigation fallbacks', () => {
-	test('each deploy prunes stale assets and keeps the font cache bounded', async () => {
-		const cacheNames = new Set([
-			'qm-static-v0',
+describe('service-worker lifecycle and public resources', () => {
+	test('activation removes obsolete page/data generations and prunes assets', async () => {
+		const storage = new MemoryCacheStorage()
+		await storage.seed('qm-pages-v7', '/plan', new Response('PRIVATE DOCUMENT'))
+		await storage.seed(
+			'qm-data-old-build-user-household',
+			'/plan.data',
+			new Response('OLD DATA'),
+		)
+		await storage.seed(
+			'qm-data-current-build-user-household',
+			'/plan.data',
+			new Response('CURRENT GENERATION DATA'),
+		)
+		await storage.seed(
 			'qm-static-v1',
-			'qm-public-old',
-			// Pre-#106/#107/#109/#110 page/data caches: version-bumped away because
-			// their cached loader payloads no longer match the deployed shapes.
-			'qm-pages-v1',
-			'qm-data-v1-user-household',
-			'qm-pages-v2',
-			'qm-data-v2-user-household',
-			'qm-pages-v3',
-			'qm-data-v3-user-household',
-			'qm-images-v1',
-			'qm-fonts-v1',
-			'qm-pages-v4',
-			'qm-data-v4-user-household',
-			'qm-pages-v5',
-			'qm-data-v5-user-household',
-			'qm-pages-v6',
-			'qm-data-v6-user-household',
-			'qm-pages-v7',
-			'qm-data-v7-user-household',
-		])
-		const staticEntryUrls = new Set([
-			'https://quartermaster.test/assets/shared.js',
-			'https://quartermaster.test/assets/build-a.js',
-			'https://quartermaster.test/assets/shared.js?v=stale',
-			'https://quartermaster.test/favicon.ico',
-		])
-		const fontEntries = new Set(
-			Array.from(
-				{ length: 18 },
-				(_, index) => `https://fonts.gstatic.com/font-${index}.woff2`,
-			),
+			'/assets/current.js',
+			new Response('CURRENT ASSET'),
 		)
-
-		for (const buildVersion of ['b', 'c', 'd']) {
-			const currentAssetPaths = [
-				'/assets/shared.js',
-				`/assets/build-${buildVersion}.js`,
-			]
-			staticEntryUrls.add(
-				`https://quartermaster.test/assets/build-${buildVersion}.js`,
-			)
-			const { sandbox, listeners, runtime } = loadServiceWorkerRuntime(
-				currentAssetPaths,
-				`public-${buildVersion}`,
-			)
-			cacheNames.add(runtime.PUBLIC_CACHE)
-			let claimed = false
-			sandbox.self.clients.claim = async () => {
-				claimed = true
-			}
-			sandbox.caches = {
-				keys: async () => [...cacheNames],
-				delete: async (cacheName: string) => cacheNames.delete(cacheName),
-				open: async (cacheName: string) => {
-					if (cacheName === runtime.STATIC_CACHE) {
-						return {
-							keys: async () => [...staticEntryUrls].map((url) => ({ url })),
-							delete: async (request: { url: string }) => {
-								staticEntryUrls.delete(request.url)
-								return true
-							},
-						}
-					}
-					if (cacheName === runtime.FONTS_CACHE) {
-						return {
-							keys: async () => [...fontEntries],
-							delete: async (entry: string) => {
-								fontEntries.delete(entry)
-								return true
-							},
-						}
-					}
-					throw new Error(`Unexpected cache ${cacheName}`)
-				},
-			}
-
-			let lifetime: Promise<unknown> | undefined
-			listeners.activate?.({
-				waitUntil: (promise: Promise<unknown>) => {
-					lifetime = promise
-				},
-			})
-			await lifetime
-
-			expect(staticEntryUrls).toEqual(
-				new Set([
-					...currentAssetPaths.map(
-						(pathname) => `https://quartermaster.test${pathname}`,
-					),
-				]),
-			)
-			expect(
-				[...cacheNames].filter((cacheName) =>
-					cacheName.startsWith('qm-public-'),
-				),
-			).toEqual([runtime.PUBLIC_CACHE])
-			expect(fontEntries.size).toBe(runtime.MAX_FONTS)
-			expect(claimed).toBe(true)
-		}
-		expect(cacheNames.has('qm-static-v0')).toBe(false)
-		expect(cacheNames.has('qm-pages-v1')).toBe(false)
-		expect(cacheNames.has('qm-data-v1-user-household')).toBe(false)
-		expect(cacheNames.has('qm-pages-v2')).toBe(false)
-		expect(cacheNames.has('qm-data-v2-user-household')).toBe(false)
-		expect(cacheNames.has('qm-pages-v3')).toBe(false)
-		expect(cacheNames.has('qm-data-v3-user-household')).toBe(false)
-		expect(cacheNames.has('qm-pages-v4')).toBe(false)
-		expect(cacheNames.has('qm-data-v4-user-household')).toBe(false)
-		expect(cacheNames.has('qm-pages-v5')).toBe(false)
-		expect(cacheNames.has('qm-data-v5-user-household')).toBe(false)
-		expect(cacheNames.has('qm-pages-v6')).toBe(false)
-		expect(cacheNames.has('qm-data-v6-user-household')).toBe(false)
-		expect(cacheNames.has('qm-pages-v7')).toBe(true)
-		expect(cacheNames.has('qm-data-v7-user-household')).toBe(true)
-	})
-
-	test('only exact current-build asset URLs are cacheable', () => {
-		const { runtime } = loadServiceWorkerRuntime(['/assets/current.js'])
-
-		expect(
-			runtime.isCurrentBuildAsset(
-				new URL('https://quartermaster.test/assets/current.js'),
-			),
-		).toBe(true)
-		expect(
-			runtime.isCurrentBuildAsset(
-				new URL('https://quartermaster.test/assets/current.js?v=duplicate'),
-			),
-		).toBe(false)
-		expect(
-			runtime.isCurrentBuildAsset(
-				new URL('https://quartermaster.test/assets/old-build.js'),
-			),
-		).toBe(false)
-	})
-
-	test('offline root launch redirects to the manifest start URL', async () => {
-		const { sandbox, runtime } = loadServiceWorkerRuntime()
-		sandbox.fetch = () => Promise.reject(new Error('offline'))
-
-		const response = await runtime.rootNavigation('/')
-
-		expect(runtime.START_URL).toBe(WEBMANIFEST_START_URL)
-		expect(response.status).toBe(302)
-		expect(response.headers.get('location')).toBe(
-			`https://quartermaster.test${WEBMANIFEST_START_URL}`,
+		await storage.seed(
+			'qm-static-v1',
+			'/assets/old.js',
+			new Response('OLD ASSET'),
 		)
-	})
-
-	test('an uncached Pantry navigation gets the app fallback offline', async () => {
-		const { sandbox, listeners } = loadServiceWorkerRuntime()
-		sandbox.fetch = () => Promise.reject(new Error('offline'))
-		sandbox.caches = {
-			open: async () => ({
-				match: async () => undefined,
-				put: async () => {},
-				keys: async () => [],
-				delete: async () => true,
-			}),
+		for (let index = 0; index < 18; index++) {
+			await storage.seed(
+				'qm-fonts-v1',
+				`https://fonts.gstatic.com/font-${index}.woff2`,
+				new Response(`FONT ${index}`),
+			)
 		}
 
-		let responsePromise: Promise<Response> | undefined
-		const waited: Array<Promise<unknown>> = []
-		listeners.fetch?.({
-			request: {
-				method: 'GET',
-				mode: 'navigate',
-				url: 'https://quartermaster.test/inventory',
-			},
-			respondWith: (promise: Promise<Response>) => {
-				responsePromise = promise
-			},
-			waitUntil: (promise: Promise<unknown>) => waited.push(promise),
+		const worker = loadServiceWorker({
+			storage,
+			currentAssetPaths: ['/assets/current.js'],
+			cacheVersion: 'current-build',
 		})
+		await worker.dispatchActivate()
 
-		const response = await responsePromise!
-		await Promise.all(waited)
-		expect(response.status).toBe(503)
-		expect(response.headers.get('content-type')).toContain('text/html')
+		expect(await storage.keys()).not.toContain('qm-pages-v7')
+		expect(await storage.keys()).not.toContain(
+			'qm-data-old-build-user-household',
+		)
+		expect(await storage.keys()).toContain(
+			'qm-data-current-build-user-household',
+		)
+		expect(
+			await (await storage.open('qm-static-v1')).match('/assets/current.js'),
+		).toBeDefined()
+		expect(
+			await (await storage.open('qm-static-v1')).match('/assets/old.js'),
+		).toBeUndefined()
+		expect((await storage.open('qm-fonts-v1')).entries.size).toBe(16)
+		expect(worker.wasClaimed()).toBe(true)
 	})
 
-	test('an online document navigation serves the deployed HTML instead of a fresh pre-deploy copy', async () => {
-		const { sandbox, listeners } = loadServiceWorkerRuntime()
-		const cached = new Response('OLD DEPLOYMENT', {
-			headers: { date: new Date().toUTCString() },
+	test('only exact current-build asset URLs use Cache Storage', async () => {
+		const worker = loadServiceWorker({
+			currentAssetPaths: ['/assets/current.js'],
 		})
-		const deployed = new Response('CURRENT DEPLOYMENT', {
-			headers: { date: new Date().toUTCString() },
-		})
-		const puts: Array<Response> = []
-		sandbox.fetch = () => Promise.resolve(deployed)
-		sandbox.caches = {
-			open: async () => ({
-				match: async () => cached,
-				put: async (_request: unknown, response: Response) => {
-					puts.push(response)
-				},
-				keys: async () => [],
-				delete: async () => true,
-			}),
-		}
+		worker.setFetch(async () => new Response('CURRENT ASSET'))
 
-		let responsePromise: Promise<Response> | undefined
-		const waited: Array<Promise<unknown>> = []
-		listeners.fetch?.({
-			request: {
-				method: 'GET',
-				mode: 'navigate',
-				url: 'https://quartermaster.test/plan',
+		expect(await worker.dispatchFetch('/assets/current.js')).toBeDefined()
+		expect(
+			await worker.dispatchFetch('/assets/current.js?v=copy'),
+		).toBeUndefined()
+		expect(await worker.dispatchFetch('/assets/old.js')).toBeUndefined()
+		expect(worker.storage.puts).toEqual([
+			{
+				cacheName: 'qm-static-v1',
+				url: `${ORIGIN}/assets/current.js`,
 			},
-			respondWith: (promise: Promise<Response>) => {
-				responsePromise = promise
-			},
-			waitUntil: (promise: Promise<unknown>) => waited.push(promise),
-		})
-
-		const response = await responsePromise!
-		expect(await response.text()).toBe('CURRENT DEPLOYMENT')
-		await Promise.all(waited)
-		expect(puts).toHaveLength(1)
-		expect(await puts[0]!.text()).toBe('CURRENT DEPLOYMENT')
+		])
 	})
-
-	test.each(['/settings/profile', '/login'])(
-		'offline navigation to %s gets the app fallback',
-		async (pathname) => {
-			const { sandbox, listeners } = loadServiceWorkerRuntime()
-			sandbox.fetch = () => Promise.reject(new Error('offline'))
-
-			let responsePromise: Promise<Response> | undefined
-			listeners.fetch?.({
-				request: {
-					method: 'GET',
-					mode: 'navigate',
-					url: `https://quartermaster.test${pathname}`,
-				},
-				respondWith: (promise: Promise<Response>) => {
-					responsePromise = promise
-				},
-			})
-
-			const response = await responsePromise!
-			expect(response.status).toBe(503)
-			expect(response.headers.get('content-type')).toContain('text/html')
-			expect(await response.text()).toContain("You're offline")
-		},
-	)
 })
 
-describe('.data SWR runtime serve order (stubbed caches/fetch)', () => {
-	const { sandbox, timers, runtime } = loadServiceWorkerRuntime()
-
-	const bodyWithAge = (body: string, ageMs: number, status = 200) =>
-		new Response(body, {
-			status,
-			headers: { date: new Date(Date.now() - ageMs).toUTCString() },
-		})
-	const FRESH_MS = 60 * 1000
-	// Comfortably past the 48h MAX_STALE_SERVE_MS cutoff.
-	const STALE_MS = 72 * 60 * 60 * 1000
-
-	function scenario({
-		cached,
-		network,
-	}: {
-		cached: Response | undefined
-		network: 'hang' | 'reject' | Response
-	}) {
-		timers.length = 0
-		const puts: Array<Response> = []
-		const cacheStub = {
-			match: async () => cached,
-			put: async (_req: unknown, res: Response) => {
-				puts.push(res)
-			},
-			keys: async () => [],
-			delete: async () => true,
-		}
-		sandbox.caches = { open: async () => cacheStub }
-		sandbox.fetch = () =>
-			network === 'hang'
-				? new Promise(() => {})
-				: network === 'reject'
-					? Promise.reject(new Error('network down'))
-					: Promise.resolve(network)
-		const waited: Array<Promise<unknown>> = []
-		const event = { waitUntil: (p: Promise<unknown>) => waited.push(p) }
-		return { event, puts, waited }
-	}
-
-	const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
-	const servePlanData = (event: unknown) =>
-		runtime.staleWhileRevalidateData(
-			event,
-			'/plan.data?_routes=routes/plan',
-			'data',
-			64,
+describe('document navigation policy', () => {
+	test('online documents always use the network and are never cached', async () => {
+		const worker = loadServiceWorker()
+		await worker.storage.seed(
+			'qm-pages-v7',
+			'/plan',
+			new Response('PREVIOUS ACCOUNT PRIVATE PLAN'),
 		)
+		worker.setFetch(async () => new Response('CURRENT DEPLOYMENT'))
 
-	test('fresh cached copy is served instantly, without waiting for the network', async () => {
-		const { event, waited } = scenario({
-			cached: bodyWithAge('CACHED', FRESH_MS),
-			network: 'hang',
-		})
-		const res = await servePlanData(event)
-		expect(await res.text()).toBe('CACHED')
-		// The instant path never builds the grace race…
-		expect(timers).toHaveLength(0)
-		// …but the background refresh is still kept alive on every path.
-		expect(waited).toHaveLength(1)
+		const response = await worker.dispatchFetch('/plan', { mode: 'navigate' })
+
+		expect(await response?.text()).toBe('CURRENT DEPLOYMENT')
+		expect(worker.fetchCalls).toHaveLength(1)
+		expect(worker.storage.puts).toHaveLength(0)
 	})
 
-	test('cache-first keeps its cache write and trim alive', async () => {
-		const { event, puts, waited } = scenario({
-			cached: undefined,
-			network: bodyWithAge('NETWORK', 0),
+	test.each(['/plan', '/settings/profile', '/login'])(
+		'offline navigation to %s gets the non-personalized HTML response',
+		async (pathname) => {
+			const worker = loadServiceWorker()
+			worker.setFetch(async () => {
+				throw new TypeError('Failed to fetch')
+			})
+
+			const response = await worker.dispatchFetch(pathname, {
+				mode: 'navigate',
+			})
+			const body = await response?.text()
+
+			expect(response?.status).toBe(503)
+			expect(response?.headers.get('Content-Type')).toContain('text/html')
+			expect(body).toContain("You're offline")
+			expect(body).toContain('#f6f1eb')
+			expect(body).toContain('#1a1816')
+			expect(body).not.toContain('PRIVATE')
+		},
+	)
+
+	test('offline root launch redirects to the manifest start URL', async () => {
+		const worker = loadServiceWorker()
+		worker.setFetch(async () => {
+			throw new TypeError('Failed to fetch')
 		})
-		const response = await runtime.cacheFirst(event, '/asset.js', 'static', 50)
 
-		expect(await response.text()).toBe('NETWORK')
-		expect(waited).toHaveLength(1)
-		await Promise.all(waited)
-		expect(puts).toHaveLength(1)
+		const response = await worker.dispatchFetch('/', { mode: 'navigate' })
+
+		expect(response?.status).toBe(302)
+		expect(response?.headers.get('location')).toBe(
+			`${ORIGIN}${WEBMANIFEST_START_URL}`,
+		)
 	})
+})
 
-	test('network-first keeps its cache write and trim alive', async () => {
-		const { event, puts, waited } = scenario({
-			cached: undefined,
-			network: bodyWithAge('NETWORK', 0),
-		})
-		const request = new Request('https://quartermaster.test/shopping.data')
-		const response = await runtime.networkFirst(event, request, 'data', 64)
+describe('session-scoped Route data', () => {
+	test.each([
+		'/recipes.data',
+		'/recipes/recipe-123.data',
+		'/plan.data',
+		'/shopping.data',
+		'/inventory.data',
+	])(
+		'%s is handled while form and edit data routes are not',
+		async (pathname) => {
+			const worker = loadServiceWorker()
+			worker.setFetch(async () => routeDataResponse('CURRENT'))
 
-		expect(await response.text()).toBe('NETWORK')
-		expect(waited).toHaveLength(1)
-		await Promise.all(waited)
-		expect(puts).toHaveLength(1)
-	})
+			expect(await worker.dispatchFetch(pathname)).toBeDefined()
+			expect(await worker.dispatchFetch('/recipes/new.data')).toBeUndefined()
+			expect(
+				await worker.dispatchFetch('/recipes/recipe-123/edit.data'),
+			).toBeUndefined()
+		},
+	)
 
-	test('stale cached copy is NOT served when the network answers healthy (the bounded-staleness gate)', async () => {
-		const { event, puts } = scenario({
-			cached: bodyWithAge('CACHED', STALE_MS),
-			network: bodyWithAge('NETWORK', 0),
-		})
-		const res = await servePlanData(event)
-		expect(await res.text()).toBe('NETWORK')
-		await flush()
-		expect(puts).toHaveLength(1)
-	})
-
-	test('stale cached copy beats a 5xx from the origin', async () => {
-		const { event, puts, waited } = scenario({
-			cached: bodyWithAge('CACHED', STALE_MS),
-			network: bodyWithAge('BOOM', 0, 503),
-		})
-		const res = await servePlanData(event)
-		expect(res.status).toBe(200)
-		expect(await res.text()).toBe('CACHED')
-		// The error page must never poison the cache under a fresh Date header.
-		await flush()
-		expect(puts).toHaveLength(0)
-		expect(waited).toHaveLength(1)
-	})
-
-	test('stale cached copy beats a rejected fetch (offline)', async () => {
-		const { event } = scenario({
-			cached: bodyWithAge('CACHED', STALE_MS),
-			network: 'reject',
-		})
-		const res = await servePlanData(event)
-		expect(await res.text()).toBe('CACHED')
-	})
-
-	test('stale cached copy is served after the grace timeout when the network hangs', async () => {
-		const { event, waited } = scenario({
-			cached: bodyWithAge('CACHED', STALE_MS),
-			network: 'hang',
-		})
-		const pending = servePlanData(event)
-		await flush()
-		expect(timers).toHaveLength(1)
-		expect(timers[0]!.ms).toBe(3_000)
-		timers[0]!.fn()
-		const res = await pending
-		expect(await res.text()).toBe('CACHED')
-		// The still-pending refresh stays owned by waitUntil, not dropped.
-		expect(waited).toHaveLength(1)
-	})
-
-	test('cache miss + network failure yields a bare 503 for .data', async () => {
-		const data = scenario({ cached: undefined, network: 'reject' })
-		const dataRes = await runtime.staleWhileRevalidateData(
-			data.event,
+	test('an unknown session is network-only and cannot use an existing cache', async () => {
+		const worker = loadServiceWorker({ cacheVersion: 'restart' })
+		await worker.storage.seed(
+			'qm-data-restart-user-a-household-a',
 			'/plan.data',
-			'data',
-			64,
+			new Response('USER A PRIVATE DATA'),
 		)
-		expect(dataRes.status).toBe(503)
-		expect(await dataRes.text()).toBe('Offline')
+		worker.setFetch(async () => {
+			throw new TypeError('Failed to fetch')
+		})
+
+		const response = await worker.dispatchFetch('/plan.data')
+
+		expect(response?.status).toBe(503)
+		expect(await response?.text()).toBe('Offline')
+		expect(worker.storage.puts).toHaveLength(0)
 	})
 
-	test('.data variant passes RR7 202 in-band redirects through without caching them', async () => {
-		const { event, puts } = scenario({
-			cached: bodyWithAge('CACHED', STALE_MS),
-			network: bodyWithAge('REDIRECT-PAYLOAD', 0, 202),
+	test('healthy online data wins for both partial and full navigations', async () => {
+		const worker = loadServiceWorker()
+		await worker.dispatchMessage({
+			type: 'qm-data-session',
+			token: 'user-household',
 		})
-		const res = await runtime.staleWhileRevalidateData(
-			event,
+		const cacheName = 'qm-data-test-build-user-household'
+		await worker.storage.seed(
+			cacheName,
+			'/plan.data?_routes=routes%2Fplan',
+			new Response('STALE PARTIAL'),
+		)
+		await worker.storage.seed(
+			cacheName,
 			'/plan.data',
-			'data',
-			64,
+			new Response('STALE FULL'),
 		)
-		// A 202 is a real navigation outcome (session expired), not a failure —
-		// it must reach React Router, but must never be cached.
-		expect(res.status).toBe(202)
-		await flush()
-		expect(puts).toHaveLength(0)
+		worker.setFetch(async () => routeDataResponse('CURRENT'))
+
+		const partial = await worker.dispatchFetch(
+			'/plan.data?_routes=routes%2Fplan',
+		)
+		const full = await worker.dispatchFetch('/plan.data')
+
+		expect(await partial?.text()).toBe('CURRENT')
+		expect(await full?.text()).toBe('CURRENT')
+		expect(worker.fetchCalls).toHaveLength(2)
 	})
 
-	test('an opaque response does not displace a stale .data copy', async () => {
-		// Response cannot construct status 0, so this stand-in carries the fields
-		// the service worker reads from an opaque response.
-		const opaque = {
-			status: 0,
-			redirected: false,
-		} as unknown as Response
-		const { event, puts } = scenario({
-			cached: bodyWithAge('CACHED', STALE_MS),
-			network: opaque,
+	test.each([
+		{ status: 202, body: 'AUTH REDIRECT' },
+		{ status: 401, body: 'AUTH EXPIRED' },
+		{ status: 500, body: 'ORIGIN ERROR' },
+	])(
+		'origin status $status passes through instead of cached data',
+		async (value) => {
+			const worker = loadServiceWorker()
+			await worker.dispatchMessage({
+				type: 'qm-data-session',
+				token: 'session',
+			})
+			await worker.storage.seed(
+				'qm-data-test-build-session',
+				'/plan.data',
+				new Response('CACHED'),
+			)
+			worker.setFetch(async () => routeDataResponse(value.body, value.status))
+
+			const response = await worker.dispatchFetch('/plan.data')
+
+			expect(response?.status).toBe(value.status)
+			expect(await response?.text()).toBe(value.body)
+			expect(worker.storage.puts).toHaveLength(0)
+		},
+	)
+
+	test('a followed captive-portal response passes through and is not cached', async () => {
+		const worker = loadServiceWorker()
+		await worker.dispatchMessage({ type: 'qm-data-session', token: 'session' })
+		await worker.storage.seed(
+			'qm-data-test-build-session',
+			'/plan.data',
+			new Response('CACHED'),
+		)
+		const portal = new Response('PORTAL HTML', {
+			headers: { 'Content-Type': 'text/html' },
 		})
-		const res = await servePlanData(event)
-		expect(await res.text()).toBe('CACHED')
-		await flush()
-		expect(puts).toHaveLength(0)
-	})
-
-	test('.data: a followed redirect (portal/proxy HTML) does not displace a stale copy', async () => {
-		// .data fetches follow redirects, so a captive portal shows up as a 200
-		// with redirected:true — never a valid turbo-stream payload.
-		const portal = bodyWithAge('PORTAL-HTML', 0)
 		Object.defineProperty(portal, 'redirected', { value: true })
-		const { event, puts } = scenario({
-			cached: bodyWithAge('CACHED', STALE_MS),
-			network: portal,
-		})
-		const res = await runtime.staleWhileRevalidateData(
-			event,
-			'/plan.data',
-			'data',
-			64,
+		worker.setFetch(async () => portal)
+
+		const response = await worker.dispatchFetch('/plan.data')
+
+		expect(await response?.text()).toBe('PORTAL HTML')
+		expect(worker.storage.puts).toHaveLength(0)
+	})
+
+	test('a direct HTML captive-portal response is never cached as Route data', async () => {
+		const worker = loadServiceWorker()
+		await worker.dispatchMessage({ type: 'qm-data-session', token: 'session' })
+		worker.setFetch(
+			async () =>
+				new Response('PORTAL HTML', {
+					headers: { 'Content-Type': 'text/html' },
+				}),
 		)
-		expect(await res.text()).toBe('CACHED')
-		await flush()
-		expect(puts).toHaveLength(0)
+
+		const response = await worker.dispatchFetch('/plan.data')
+
+		expect(await response?.text()).toBe('PORTAL HTML')
+		expect(worker.storage.puts).toHaveLength(0)
+	})
+
+	test('a transport failure uses only the current session cache', async () => {
+		const worker = loadServiceWorker()
+		await worker.dispatchMessage({ type: 'qm-data-session', token: 'session' })
+		await worker.storage.seed(
+			'qm-data-test-build-session',
+			'/plan.data',
+			new Response('CURRENT SESSION FALLBACK'),
+		)
+		worker.setFetch(async () => {
+			throw new TypeError('Failed to fetch')
+		})
+
+		const cached = await worker.dispatchFetch('/plan.data')
+		const miss = await worker.dispatchFetch('/inventory.data')
+
+		expect(await cached?.text()).toBe('CURRENT SESSION FALLBACK')
+		expect(miss?.status).toBe(503)
+	})
+
+	test('a quota failure cannot replace or fail the network response', async () => {
+		const worker = loadServiceWorker()
+		await worker.dispatchMessage({ type: 'qm-data-session', token: 'session' })
+		worker.storage.rejectWrites = true
+		worker.setFetch(async () => routeDataResponse('CURRENT'))
+
+		const response = await worker.dispatchFetch('/plan.data')
+
+		expect(response?.status).toBe(200)
+		expect(await response?.text()).toBe('CURRENT')
+	})
+
+	test('Cache Storage failure still returns a healthy network response', async () => {
+		const worker = loadServiceWorker()
+		await worker.dispatchMessage({ type: 'qm-data-session', token: 'session' })
+		worker.storage.rejectOpen = true
+		worker.setFetch(async () => routeDataResponse('CURRENT'))
+
+		const online = await worker.dispatchFetch('/plan.data')
+		expect(online?.status).toBe(200)
+		expect(await online?.text()).toBe('CURRENT')
+
+		worker.setFetch(async () => {
+			throw new TypeError('Failed to fetch')
+		})
+		const offline = await worker.dispatchFetch('/plan.data')
+		expect(offline?.status).toBe(503)
+	})
+
+	test('an in-flight response cannot recreate an invalidated data cache', async () => {
+		const worker = loadServiceWorker()
+		await worker.dispatchMessage({ type: 'qm-data-session', token: 'session' })
+		let resolveNetwork!: (response: Response) => void
+		worker.setFetch(
+			async () =>
+				await new Promise<Response>((resolve) => {
+					resolveNetwork = resolve
+				}),
+		)
+
+		const pending = worker.dispatchFetch('/plan.data')
+		await Promise.resolve()
+		await worker.dispatchMessage({ type: 'qm-data-invalidate' })
+		resolveNetwork(routeDataResponse('PRE-MUTATION DATA'))
+
+		expect(await (await pending)?.text()).toBe('PRE-MUTATION DATA')
+		expect(await worker.storage.keys()).not.toContain(
+			'qm-data-test-build-session',
+		)
+	})
+
+	test('an in-flight failure cannot fall back across a session switch', async () => {
+		const worker = loadServiceWorker()
+		await worker.dispatchMessage({ type: 'qm-data-session', token: 'user-a' })
+		await worker.storage.seed(
+			'qm-data-test-build-user-a',
+			'/plan.data',
+			new Response('USER A DATA'),
+		)
+		let rejectNetwork!: (error: Error) => void
+		worker.setFetch(
+			async () =>
+				await new Promise<Response>((_resolve, reject) => {
+					rejectNetwork = reject
+				}),
+		)
+
+		const pending = worker.dispatchFetch('/plan.data')
+		await Promise.resolve()
+		await worker.dispatchMessage({ type: 'qm-data-session', token: 'user-b' })
+		rejectNetwork(new TypeError('Failed to fetch'))
+
+		const response = await pending
+		expect(response?.status).toBe(503)
+		expect(await response?.text()).toBe('Offline')
+	})
+
+	test('session changes, logout, and worker restart cannot cross namespaces', async () => {
+		const storage = new MemoryCacheStorage()
+		const firstWorker = loadServiceWorker({
+			storage,
+			cacheVersion: 'restart',
+		})
+		await firstWorker.dispatchMessage({
+			type: 'qm-data-session',
+			token: 'user-a-household-a',
+		})
+		firstWorker.setFetch(async (request) =>
+			request.mode === 'navigate'
+				? new Response('USER A PRIVATE DOCUMENT')
+				: routeDataResponse('USER A PRIVATE DATA'),
+		)
+		await firstWorker.dispatchFetch('/plan', { mode: 'navigate' })
+		await firstWorker.dispatchFetch('/plan.data')
+
+		expect(storage.puts.map((put) => put.url)).toEqual([`${ORIGIN}/plan.data`])
+
+		const restartedWorker = loadServiceWorker({
+			storage,
+			cacheVersion: 'restart',
+		})
+		restartedWorker.setFetch(async () => {
+			throw new TypeError('Failed to fetch')
+		})
+
+		const unknownDocument = await restartedWorker.dispatchFetch('/plan', {
+			mode: 'navigate',
+		})
+		const unknownData = await restartedWorker.dispatchFetch('/plan.data')
+		expect(await unknownDocument?.text()).not.toContain('USER A')
+		expect(unknownData?.status).toBe(503)
+
+		await storage.seed(
+			'qm-data-legacy-user-c',
+			'/plan.data',
+			new Response('LEGACY USER DATA'),
+		)
+		await restartedWorker.dispatchMessage({
+			type: 'qm-data-session',
+			token: 'user-b-household-b',
+		})
+		expect(await storage.keys()).not.toContain(
+			'qm-data-restart-user-a-household-a',
+		)
+		expect(await storage.keys()).not.toContain('qm-data-legacy-user-c')
+		expect((await restartedWorker.dispatchFetch('/plan.data'))?.status).toBe(
+			503,
+		)
+
+		restartedWorker.setFetch(async () => routeDataResponse('USER B DATA'))
+		await restartedWorker.dispatchFetch('/plan.data')
+		expect(await storage.keys()).toContain('qm-data-restart-user-b-household-b')
+		await restartedWorker.dispatchMessage({ type: 'qm-data-purge' })
+		expect(
+			(await storage.keys()).filter((name) => name.startsWith('qm-data-')),
+		).toEqual([])
 	})
 })

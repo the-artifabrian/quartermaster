@@ -1,93 +1,165 @@
 import { type Page } from '@playwright/test'
 import { expect, test } from '#tests/playwright-utils.ts'
 
-async function waitForPageCache(page: Page, pathname: string) {
-	await page.waitForFunction(async (expectedPathname: string) => {
-		for (const cacheName of await caches.keys()) {
-			if (!cacheName.startsWith('qm-pages-')) continue
-			const cache = await caches.open(cacheName)
-			if (await cache.match(expectedPathname)) return true
-		}
-		return false
-	}, pathname)
-}
-
-test('an online launch uses the current deployment instead of cached HTML', async ({
-	page,
-	login,
-}) => {
-	await login()
+async function takeControl(page: Page) {
 	await page.goto('/inventory')
 	await page.evaluate(() => navigator.serviceWorker.ready)
 	await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller))
 	await page.reload()
-	await waitForPageCache(page, '/inventory')
+}
+
+test('online documents use the current deployment and never enter Cache Storage', async ({
+	page,
+	login,
+}) => {
+	await login()
+	await takeControl(page)
 
 	await page.evaluate(async () => {
-		const cacheName = (await caches.keys()).find((name) =>
-			name.startsWith('qm-pages-'),
-		)
-		if (!cacheName) throw new Error('Page cache was not created')
-		const cache = await caches.open(cacheName)
-		await cache.put(
+		const legacy = await caches.open('qm-pages-v7')
+		await legacy.put(
 			'/plan',
-			new Response('<h1>Old deployment</h1>', {
-				headers: {
-					'Content-Type': 'text/html; charset=utf-8',
-					date: new Date().toUTCString(),
-				},
+			new Response('<h1>Previous account private plan</h1>', {
+				headers: { 'Content-Type': 'text/html; charset=utf-8' },
 			}),
 		)
 	})
 
 	const response = await page.goto('/plan')
 	expect(response?.fromServiceWorker()).toBe(true)
+	expect(response?.headers()['cache-control']).toBe('private, no-cache')
 	await expect(page.getByRole('heading', { name: 'Meal Plan' })).toBeVisible()
 	await expect(
-		page.getByRole('heading', { name: 'Old deployment' }),
+		page.getByRole('heading', { name: 'Previous account private plan' }),
 	).toHaveCount(0)
+
+	// A legacy document can exist until the next worker activation, but the current
+	// worker must neither read it nor create a replacement document cache.
+	await page.evaluate(() => caches.delete('qm-pages-v7'))
+	await page.reload()
+	const documentCaches = await page.evaluate(async () => {
+		const matches: string[] = []
+		for (const cacheName of await caches.keys()) {
+			const cache = await caches.open(cacheName)
+			if (await cache.match('/plan')) matches.push(cacheName)
+		}
+		return matches
+	})
+	expect(documentCaches).toEqual([])
 })
 
-test('cached tabs and uncached pages stay inside the app offline', async ({
+test('Route data is current online and falls back only inside the live session', async ({
 	page,
 	context,
 	login,
 }) => {
 	await login()
-	await page.goto('/inventory')
-	await page.evaluate(() => navigator.serviceWorker.ready)
-	await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller))
+	await takeControl(page)
 
-	// Reload under SW control so both the document and its current-build assets
-	// are populated through the real production worker.
-	await page.reload()
-	await waitForPageCache(page, '/inventory')
-	const pantryHeading = await page
-		.getByRole('heading', { level: 1 })
-		.innerText()
+	// The session-sync effect runs after hydration. Re-fetch until the production
+	// worker has created the build- and session-scoped cache.
+	await page.waitForFunction(async () => {
+		await fetch('/plan.data')
+		for (const cacheName of await caches.keys()) {
+			if (!cacheName.startsWith('qm-data-')) continue
+			const cache = await caches.open(cacheName)
+			if (await cache.match('/plan.data')) return true
+		}
+		return false
+	})
 
+	await page.evaluate(async () => {
+		const cacheName = (await caches.keys()).find((name) =>
+			name.startsWith('qm-data-'),
+		)
+		if (!cacheName) throw new Error('Session data cache was not created')
+		const cache = await caches.open(cacheName)
+		await cache.put('/plan.data', new Response('STALE ROUTE DATA'))
+	})
+
+	const online = await page.evaluate(async () => {
+		const response = await fetch('/plan.data')
+		return {
+			body: await response.text(),
+			cacheControl: response.headers.get('Cache-Control'),
+			status: response.status,
+		}
+	})
+	expect(online.status).toBe(200)
+	expect(online.body).not.toBe('STALE ROUTE DATA')
+	expect(online.cacheControl).toBe('private, no-cache')
+
+	await page.waitForFunction(async () => {
+		const cacheName = (await caches.keys()).find((name) =>
+			name.startsWith('qm-data-'),
+		)
+		if (!cacheName) return false
+		const response = await (await caches.open(cacheName)).match('/plan.data')
+		return response ? (await response.text()) !== 'STALE ROUTE DATA' : false
+	})
+
+	await context.setOffline(true)
+	try {
+		const offline = await page.evaluate(async () => {
+			const response = await fetch('/plan.data')
+			return { body: await response.text(), status: response.status }
+		})
+		expect(offline.status).toBe(200)
+		expect(offline.body).toBe(online.body)
+	} finally {
+		await context.setOffline(false)
+	}
+})
+
+test('offline document launches use the safe app response', async ({
+	page,
+	context,
+	login,
+}) => {
+	await login()
+	await takeControl(page)
 	await page.goto('/plan')
-	await waitForPageCache(page, '/plan')
 
 	await context.setOffline(true)
 	try {
 		const pantryResponse = await page.goto('/inventory')
 		expect(pantryResponse?.fromServiceWorker()).toBe(true)
-		await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-			pantryHeading,
-		)
-
-		const fallbackResponse = await page.goto('/settings/profile')
-		expect(fallbackResponse?.fromServiceWorker()).toBe(true)
-		expect(fallbackResponse?.status()).toBe(503)
+		expect(pantryResponse?.status()).toBe(503)
+		expect(pantryResponse?.headers()['cache-control']).toBe('no-store')
+		expect(pantryResponse?.headers()['content-type']).toContain('text/html')
 		await expect(
 			page.getByRole('heading', { name: /you.re offline/i }),
 		).toBeVisible()
+		await expect(page.getByText('Meal Plan')).toHaveCount(0)
 
 		const launchResponse = await page.goto('/')
 		expect(launchResponse?.fromServiceWorker()).toBe(true)
+		expect(launchResponse?.status()).toBe(503)
 		await expect(page).toHaveURL('/plan')
+		await expect(
+			page.getByRole('heading', { name: /you.re offline/i }),
+		).toBeVisible()
 	} finally {
 		await context.setOffline(false)
 	}
+})
+
+test('production HTTP caching keeps dynamic content private and assets immutable', async ({
+	page,
+	login,
+}) => {
+	await login()
+	const assetResponsePromise = page.waitForResponse((response) => {
+		const url = new URL(response.url())
+		return url.pathname.startsWith('/assets/') && response.status() === 200
+	})
+
+	const documentResponse = await page.goto('/plan')
+	const assetResponse = await assetResponsePromise
+	const dataResponse = await page.request.get('/plan.data')
+
+	expect(documentResponse?.headers()['cache-control']).toBe('private, no-cache')
+	expect(dataResponse.headers()['cache-control']).toBe('private, no-cache')
+	expect(assetResponse.headers()['cache-control']).toContain('max-age=31536000')
+	expect(assetResponse.headers()['cache-control']).toContain('immutable')
 })

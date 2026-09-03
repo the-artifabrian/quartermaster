@@ -1,6 +1,24 @@
 import { format, parse } from '@tusbar/cache-control'
 import { expect, test } from 'vitest'
-import { getConservativeCacheControl } from './headers.server.ts'
+import {
+	getConservativeCacheControl,
+	PRIVATE_ALWAYS_REVALIDATE,
+	setDefaultDynamicCacheControl,
+} from './headers.server.ts'
+
+test('dynamic responses default to private always-revalidate caching', () => {
+	const headers = new Headers()
+	setDefaultDynamicCacheControl(headers)
+
+	expect(headers.get('Cache-Control')).toBe(PRIVATE_ALWAYS_REVALIDATE)
+})
+
+test('an explicit cache policy is preserved', () => {
+	const headers = new Headers({ 'Cache-Control': 'public, max-age=300' })
+	setDefaultDynamicCacheControl(headers)
+
+	expect(headers.get('Cache-Control')).toBe('public, max-age=300')
+})
 
 test('works for basic usecase', () => {
 	const result = getConservativeCacheControl(

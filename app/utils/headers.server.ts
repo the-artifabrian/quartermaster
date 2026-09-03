@@ -1,6 +1,15 @@
 import { type CacheControlValue, parse, format } from '@tusbar/cache-control'
 import { type HeadersArgs } from 'react-router'
 
+export const PRIVATE_ALWAYS_REVALIDATE = 'private, no-cache'
+
+/** Give dynamic responses a safe default without overriding explicit policies. */
+export function setDefaultDynamicCacheControl(headers: Headers): void {
+	if (!headers.get('Cache-Control')) {
+		headers.set('Cache-Control', PRIVATE_ALWAYS_REVALIDATE)
+	}
+}
+
 /**
  * A utility for handling route headers, merging common use-case headers.
  *

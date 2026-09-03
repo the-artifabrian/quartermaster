@@ -7,6 +7,7 @@ import getPort, { portNumbers } from 'get-port'
 import morgan from 'morgan'
 import { compressionMiddleware } from './compression.ts'
 import { startMemoryWatchdog } from './memory-watchdog.ts'
+import { startScheduledMaintenance } from './scheduled-maintenance.ts'
 import { registerGracefulShutdown } from './shutdown.ts'
 
 const MODE = process.env.NODE_ENV ?? 'development'
@@ -283,4 +284,5 @@ ${styleText('bold', 'Press Ctrl+C to stop')}
 	)
 })
 
+startScheduledMaintenance()
 registerGracefulShutdown(server)

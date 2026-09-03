@@ -1,8 +1,6 @@
-import { runInBackground } from '#app/utils/background.server.ts'
 import { registerEventStream } from '#app/utils/event-streams.server.ts'
 import {
 	householdEventBus,
-	pruneOldEvents,
 	type HouseholdEventData,
 } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -13,9 +11,6 @@ const MAX_LIFETIME_MS = 5 * 60 * 1000
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
-
-	// Lazy prune old events (fire-and-forget)
-	runInBackground(pruneOldEvents(), 'pruning old household events')
 
 	let cleanup = () => {}
 	let unregisterShutdown = () => false

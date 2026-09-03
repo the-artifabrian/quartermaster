@@ -154,12 +154,31 @@ high-value AI path.
 
 ## Deployment and recovery
 
+- Production is intentionally a single Fly Machine with one attached volume.
+  LiteFS uses a static lease and makes that machine the writable primary without
+  depending on Consul. Do not add or clone a Machine with the current config:
+  every copy would declare itself the primary.
 - Prisma migrations are forward migrations.
 - Data-risky changes require a current backup/export and rehearsal on a
   disposable database copy.
 - Full JSON import accepts older exports and restores durable household data.
 - LiteFS migration details and restore commands live in
   [RESTORE.md](./RESTORE.md).
+
+Before a multi-machine deployment, all of these must be designed, wired, and
+tested together:
+
+- elect exactly one writable primary and give replicas a safe way to discover it
+  and fail over without stale data winning;
+- replay every write on the primary. The LiteFS proxy currently handles normal
+  non-GET actions, including admin writes, while the mutating OAuth callback
+  explicitly calls `ensurePrimary()`; audit every route rather than assuming
+  HTTP method conventions are enough;
+- provide read-your-writes consistency after replication-aware writes, either
+  with the LiteFS proxy transaction cookie or an equivalent transaction-position
+  wait/replay mechanism; and
+- exercise failover, OAuth, admin mutations, and an immediate post-write read on
+  real replicas before increasing the Machine count.
 
 ## Testing
 
@@ -170,4 +189,4 @@ Migration tests execute shipped SQL when data conversion itself is the risk.
 Full Playwright is not a CI release gate. Browser checks and simulations are
 implementation evidence, not substitutes for normal use.
 
-_Updated 1 September 2026._
+_Updated 3 September 2026._

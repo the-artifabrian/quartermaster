@@ -2,27 +2,27 @@
  * @vitest-environment jsdom
  */
 import { act, render, waitFor } from '@testing-library/react'
-import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
+import {
+	createMemoryRouter,
+	Outlet,
+	RouterProvider,
+	type RouteObject,
+} from 'react-router'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { NavTiming } from './nav-timing.tsx'
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }))
+const resourceTiming = vi.hoisted(() => ({ readDataTiming: vi.fn(() => null) }))
 
 vi.mock('#app/utils/posthog-provider.tsx', () => ({
 	usePostHog: () => analytics,
 }))
-vi.mock('#app/utils/nav-resource-timing.ts', () => ({
-	readDataTiming: () => null,
-}))
+vi.mock('#app/utils/nav-resource-timing.ts', () => resourceTiming)
 
 beforeEach(() => vi.clearAllMocks())
 
-test('reports stable route ids rather than dynamic pathnames', async () => {
-	let finishLoader: (value: null) => void = () => undefined
-	const loader = new Promise<null>((resolve) => {
-		finishLoader = resolve
-	})
-	const router = createMemoryRouter(
+function createTestRouter(children: RouteObject[]) {
+	return createMemoryRouter(
 		[
 			{
 				id: 'root',
@@ -33,23 +33,36 @@ test('reports stable route ids rather than dynamic pathnames', async () => {
 						<Outlet />
 					</>
 				),
-				children: [
-					{
-						id: 'routes/_marketing/index',
-						index: true,
-						element: <div>Home</div>,
-					},
-					{
-						id: 'routes/recipes/$recipeId',
-						path: 'recipes/:recipeId',
-						loader: () => loader,
-						element: <div>Recipe</div>,
-					},
-				],
+				children,
 			},
 		],
 		{ initialEntries: ['/'] },
 	)
+}
+
+function deferred<T>() {
+	let resolve!: (value: T) => void
+	const promise = new Promise<T>((resolvePromise) => {
+		resolve = resolvePromise
+	})
+	return { promise, resolve }
+}
+
+test('reports stable route ids rather than dynamic pathnames', async () => {
+	const loader = deferred<null>()
+	const router = createTestRouter([
+		{
+			id: 'routes/_marketing/index',
+			index: true,
+			element: <div>Home</div>,
+		},
+		{
+			id: 'routes/recipes/$recipeId',
+			path: 'recipes/:recipeId',
+			loader: () => loader.promise,
+			element: <div>Recipe</div>,
+		},
+	])
 	render(<RouterProvider router={router} />)
 
 	let navigation: Promise<void>
@@ -58,7 +71,7 @@ test('reports stable route ids rather than dynamic pathnames', async () => {
 	})
 	await waitFor(() => expect(router.state.navigation.state).toBe('loading'))
 	await act(async () => {
-		finishLoader(null)
+		loader.resolve(null)
 		await navigation
 	})
 
@@ -75,4 +88,105 @@ test('reports stable route ids rather than dynamic pathnames', async () => {
 	expect(properties).not.toHaveProperty('from')
 	expect(properties).not.toHaveProperty('to')
 	expect(JSON.stringify(properties)).not.toContain('private-record-id')
+})
+
+test('includes the action submission in the user-visible navigation duration', async () => {
+	const action = deferred<null>()
+	const loader = deferred<null>()
+	const router = createTestRouter([
+		{ index: true, element: <div>Home</div> },
+		{
+			id: 'routes/save',
+			path: 'save',
+			action: () => action.promise,
+			loader: () => loader.promise,
+			element: <div>Saved</div>,
+		},
+	])
+	let now = 100
+	vi.spyOn(performance, 'now').mockImplementation(() => now)
+	render(<RouterProvider router={router} />)
+
+	let navigation: Promise<void>
+	act(() => {
+		navigation = router.navigate('/save', {
+			formMethod: 'post',
+			formData: new FormData(),
+		})
+	})
+	await waitFor(() => expect(router.state.navigation.state).toBe('submitting'))
+
+	now = 400
+	act(() => action.resolve(null))
+	await waitFor(() => expect(router.state.navigation.state).toBe('loading'))
+
+	now = 600
+	await act(async () => {
+		loader.resolve(null)
+		await navigation
+	})
+
+	await waitFor(() =>
+		expect(analytics.capture).toHaveBeenCalledWith(
+			'nav_duration_ms',
+			expect.objectContaining({
+				duration_ms: 500,
+				to_route: 'routes/save',
+			}),
+		),
+	)
+})
+
+test('attributes an interrupted navigation to its final destination', async () => {
+	const slowLoader = deferred<null>()
+	const finalLoader = deferred<null>()
+	const router = createTestRouter([
+		{ index: true, element: <div>Home</div> },
+		{
+			id: 'routes/slow',
+			path: 'slow',
+			loader: () => slowLoader.promise,
+			element: <div>Slow</div>,
+		},
+		{
+			id: 'routes/final',
+			path: 'final',
+			loader: () => finalLoader.promise,
+			element: <div>Final</div>,
+		},
+	])
+	render(<RouterProvider router={router} />)
+
+	let firstNavigation = Promise.resolve()
+	act(() => {
+		firstNavigation = router.navigate('/slow')
+	})
+	await waitFor(() =>
+		expect(router.state.navigation.location?.pathname).toBe('/slow'),
+	)
+
+	let finalNavigation: Promise<void>
+	act(() => {
+		finalNavigation = router.navigate('/final')
+	})
+	await waitFor(() =>
+		expect(router.state.navigation.location?.pathname).toBe('/final'),
+	)
+	await act(async () => {
+		finalLoader.resolve(null)
+		await finalNavigation
+	})
+	slowLoader.resolve(null)
+	await firstNavigation
+
+	await waitFor(() =>
+		expect(resourceTiming.readDataTiming).toHaveBeenCalledWith(
+			expect.any(Number),
+			'/final',
+		),
+	)
+	expect(analytics.capture).toHaveBeenCalledWith(
+		'nav_duration_ms',
+		expect.objectContaining({ to_route: 'routes/final' }),
+	)
 })

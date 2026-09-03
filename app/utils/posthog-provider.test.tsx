@@ -240,6 +240,15 @@ test('reports one warm resume after a meaningful background interval', async () 
 	act(() => {
 		visibilityState = 'hidden'
 		document.dispatchEvent(new Event('visibilitychange'))
+		now += PWA_RESUME_THRESHOLD_MS - 1
+		visibilityState = 'visible'
+		document.dispatchEvent(new Event('visibilitychange'))
+	})
+	expect(client.capture).not.toHaveBeenCalled()
+
+	act(() => {
+		visibilityState = 'hidden'
+		document.dispatchEvent(new Event('visibilitychange'))
 		now += PWA_RESUME_THRESHOLD_MS
 		visibilityState = 'visible'
 		document.dispatchEvent(new Event('visibilitychange'))

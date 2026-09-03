@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useLocation, useMatches, useNavigation } from 'react-router'
+import { useMatches, useNavigation } from 'react-router'
 import { readDataTiming } from '#app/utils/nav-resource-timing.ts'
 import { usePostHog } from '#app/utils/posthog-provider.tsx'
 import { getCurrentRouteId } from '#app/utils/pwa-performance.ts'
@@ -18,7 +18,6 @@ import { getCurrentRouteId } from '#app/utils/pwa-performance.ts'
  */
 export function NavTiming() {
 	const navigation = useNavigation()
-	const location = useLocation()
 	const currentRouteId = getCurrentRouteId(useMatches())
 	const posthog = usePostHog()
 	const startRef = useRef<number | null>(null)
@@ -26,14 +25,16 @@ export function NavTiming() {
 	const toPathRef = useRef<string>('')
 
 	useEffect(() => {
-		if (navigation.state === 'loading') {
-			// Capture the start of a navigation once (ignore loading→loading churn).
+		if (navigation.state !== 'idle') {
+			// Start at submission, not only when its loaders begin, so this remains the
+			// full user-visible wait. Keep following the destination through redirects
+			// or an interrupted navigation while preserving the original start/route.
 			if (startRef.current == null) {
 				startRef.current = performance.now()
 				fromRouteRef.current = currentRouteId
-				toPathRef.current = navigation.location?.pathname ?? ''
 			}
-		} else if (navigation.state === 'idle' && startRef.current != null) {
+			toPathRef.current = navigation.location?.pathname ?? ''
+		} else if (startRef.current != null) {
 			const navStart = startRef.current
 			const duration = performance.now() - navStart
 			startRef.current = null
@@ -53,13 +54,7 @@ export function NavTiming() {
 				...readDataTiming(navStart, toPathRef.current),
 			})
 		}
-	}, [
-		navigation.state,
-		navigation.location,
-		location.pathname,
-		currentRouteId,
-		posthog,
-	])
+	}, [navigation.state, navigation.location, currentRouteId, posthog])
 
 	return null
 }

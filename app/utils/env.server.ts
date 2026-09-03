@@ -113,11 +113,12 @@ export function init() {
  * @returns all public ENV variables
  */
 export function getEnv() {
+	const commitSha = process.env.COMMIT_SHA?.trim()
 	return {
 		MODE: process.env.NODE_ENV,
 		POSTHOG_API_KEY: process.env.POSTHOG_API_KEY,
 		POSTHOG_HOST: process.env.POSTHOG_HOST,
-		APP_BUILD: process.env.COMMIT_SHA?.slice(0, 12) ?? 'unknown',
+		APP_BUILD: commitSha ? commitSha.slice(0, 12) : 'unknown',
 		ALLOW_INDEXING: process.env.ALLOW_INDEXING,
 	}
 }

@@ -8,7 +8,7 @@ export type PwaSessionContext = {
 	initial_visibility: DocumentVisibilityState
 	service_worker_controlled: boolean
 	service_worker_state: ServiceWorkerState | 'uncontrolled'
-	connection_type?: string
+	effective_type?: string
 }
 
 type NavigatorWithPwaSignals = Navigator & {
@@ -64,7 +64,7 @@ export function getPwaSessionContext({
 		initial_visibility: document.visibilityState,
 		...getServiceWorkerContext(),
 		...(nav.connection?.effectiveType
-			? { connection_type: nav.connection.effectiveType }
+			? { effective_type: nav.connection.effectiveType }
 			: {}),
 	}
 }

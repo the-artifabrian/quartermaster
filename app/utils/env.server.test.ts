@@ -19,6 +19,6 @@ test('exposes the existing container commit as a compact build id', () => {
 })
 
 test('uses one low-cardinality fallback outside a stamped build', () => {
-	using _commit = withCommitSha(undefined)
+	using _commit = withCommitSha('   ')
 	expect(getEnv().APP_BUILD).toBe('unknown')
 })

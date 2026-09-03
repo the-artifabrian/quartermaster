@@ -93,6 +93,36 @@ test('captures only coarse, non-content launch context with safe fallbacks', () 
 		initial_visibility: 'visible',
 		service_worker_controlled: false,
 		service_worker_state: 'uncontrolled',
-		connection_type: '4g',
+		effective_type: '4g',
+	})
+})
+
+test('captures supported navigation and service-worker state', () => {
+	using _environment = setupPwaTestEnvironment()
+	vi.stubGlobal(
+		'matchMedia',
+		vi.fn(() => ({ matches: true })),
+	)
+	vi.spyOn(performance, 'getEntriesByType').mockReturnValue([
+		{ type: 'reload' } as PerformanceNavigationTiming,
+	])
+	Object.defineProperty(navigator, 'serviceWorker', {
+		configurable: true,
+		value: { controller: { state: 'activated' } },
+	})
+
+	expect(
+		getPwaSessionContext({
+			appBuild: 'abc123def456',
+			initialRoute: 'routes/plan',
+		}),
+	).toEqual({
+		app_build: 'abc123def456',
+		display_mode: 'standalone',
+		initial_route: 'routes/plan',
+		navigation_type: 'reload',
+		initial_visibility: 'visible',
+		service_worker_controlled: true,
+		service_worker_state: 'activated',
 	})
 })

@@ -4,8 +4,15 @@ import { expect, test } from '#tests/playwright-utils.ts'
 async function takeControl(page: Page) {
 	await page.goto('/inventory')
 	await page.evaluate(() => navigator.serviceWorker.ready)
+	// The worker deliberately does not claim the page that installed it. A first
+	// registration takes control at the next document boundary; existing
+	// registrations are already controlling and skip this reload.
+	if (
+		!(await page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+	) {
+		await page.reload()
+	}
 	await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller))
-	await page.reload()
 }
 
 test('online documents use the current deployment and never enter Cache Storage', async ({
@@ -59,6 +66,45 @@ test('online documents use the current deployment and never enter Cache Storage'
 		return matches
 	})
 	expect(documentCaches).toEqual([])
+})
+
+test('the installed worker waits for a document boundary and uses a build-scoped asset cache', async ({
+	page,
+	login,
+}) => {
+	await login()
+	await page.goto('/inventory')
+	await page.evaluate(() => navigator.serviceWorker.ready)
+	expect(
+		await page.evaluate(() => Boolean(navigator.serviceWorker.controller)),
+	).toBe(false)
+	await expect(
+		page.getByRole('button', { name: 'Update available' }),
+	).toHaveCount(0)
+	await page.reload()
+	await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller))
+	const result = await page.evaluate(async () => {
+		const staticCaches = (await caches.keys()).filter((name) =>
+			name.startsWith('qm-static-'),
+		)
+		const cachedAssets = await Promise.all(
+			staticCaches.map(async (name) => {
+				const requests = await (await caches.open(name)).keys()
+				return requests.map((request) => new URL(request.url).pathname)
+			}),
+		)
+		return {
+			cacheNames: staticCaches,
+			cachedAssets: cachedAssets.flat().sort(),
+		}
+	})
+
+	expect(result.cacheNames).toHaveLength(1)
+	expect(result.cacheNames[0]).toMatch(/^qm-static-[a-f\d]{12}$/)
+	expect(result.cachedAssets.length).toBeGreaterThan(0)
+	expect(
+		result.cachedAssets.every((asset) => asset.startsWith('/assets/')),
+	).toBe(true)
 })
 
 test('Route data is current online and falls back only inside the live session', async ({

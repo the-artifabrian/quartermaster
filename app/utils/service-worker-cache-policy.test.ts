@@ -51,7 +51,6 @@ class MemoryCacheStorage {
 	readonly puts: Array<{ cacheName: string; url: string }> = []
 	rejectOpen = false
 	rejectWrites = false
-
 	async open(name: string) {
 		if (this.rejectOpen) throw new Error('Cache Storage unavailable')
 		let cache = this.caches.get(name)
@@ -80,6 +79,14 @@ type FetchRequest = {
 	method: string
 	mode: string
 	url: string
+}
+
+function fetchRequest(request: RequestLike): FetchRequest {
+	return {
+		method: typeof request === 'string' ? 'GET' : (request as Request).method,
+		mode: typeof request === 'string' ? 'cors' : (request as Request).mode,
+		url: requestUrl(request),
+	}
 }
 
 function routeDataResponse(body: string, status = 200) {
@@ -115,10 +122,16 @@ function loadServiceWorker({
 
 	const listeners: Record<string, (event: any) => void> = {}
 	let claimed = false
+	let skipWaitingCalls = 0
 	let navigationPreloadEnabled = false
 	let fetchImplementation = async (_request: FetchRequest): Promise<Response> =>
 		new Response('NETWORK')
 	const fetchCalls: FetchRequest[] = []
+	const runFetch = (request: RequestLike) => {
+		const normalized = fetchRequest(request)
+		fetchCalls.push(normalized)
+		return fetchImplementation(normalized)
+	}
 	const sandbox: Record<string, any> = {
 		self: {
 			location: { origin: ORIGIN },
@@ -139,7 +152,9 @@ function loadServiceWorker({
 					claimed = true
 				},
 			},
-			skipWaiting: () => {},
+			skipWaiting: async () => {
+				skipWaitingCalls++
+			},
 			addEventListener: (type: string, listener: (event: any) => void) => {
 				listeners[type] = listener
 			},
@@ -150,10 +165,7 @@ function loadServiceWorker({
 		URL,
 		Set,
 		caches: storage,
-		fetch: (request: FetchRequest) => {
-			fetchCalls.push(request)
-			return fetchImplementation(request)
-		},
+		fetch: runFetch,
 	}
 	vm.createContext(sandbox)
 	vm.runInContext(source, sandbox)
@@ -194,6 +206,14 @@ function loadServiceWorker({
 		await Promise.all(lifetimes)
 	}
 
+	async function dispatchInstall() {
+		const lifetimes: Promise<unknown>[] = []
+		listeners.install?.({
+			waitUntil: (promise: Promise<unknown>) => lifetimes.push(promise),
+		})
+		await Promise.all(lifetimes)
+	}
+
 	async function dispatchActivate() {
 		const lifetimes: Promise<unknown>[] = []
 		listeners.activate?.({
@@ -207,6 +227,7 @@ function loadServiceWorker({
 		fetchCalls,
 		dispatchActivate,
 		dispatchFetch,
+		dispatchInstall,
 		dispatchMessage,
 		setFetch: (
 			implementation: (request: FetchRequest) => Promise<Response>,
@@ -214,6 +235,7 @@ function loadServiceWorker({
 			fetchImplementation = implementation
 		},
 		wasClaimed: () => claimed,
+		skipWaitingCalls: () => skipWaitingCalls,
 		wasNavigationPreloadEnabled: () => navigationPreloadEnabled,
 	}
 }
@@ -232,7 +254,7 @@ describe('service-worker lifecycle and public resources', () => {
 			await worker.dispatchActivate()
 
 			expect(worker.wasNavigationPreloadEnabled()).toBe(enabled)
-			expect(worker.wasClaimed()).toBe(true)
+			expect(worker.wasClaimed()).toBe(false)
 		},
 	)
 
@@ -245,10 +267,46 @@ describe('service-worker lifecycle and public resources', () => {
 		await worker.dispatchActivate()
 
 		expect(worker.wasNavigationPreloadEnabled()).toBe(false)
-		expect(worker.wasClaimed()).toBe(true)
+		expect(worker.wasClaimed()).toBe(false)
 	})
 
-	test('activation removes obsolete page/data generations and prunes assets', async () => {
+	test('install leaves the active generation untouched and does not activate early', async () => {
+		const storage = new MemoryCacheStorage()
+		await storage.seed(
+			'qm-static-active-build',
+			'/assets/active.js',
+			new Response('ACTIVE ASSET'),
+		)
+		const worker = loadServiceWorker({
+			storage,
+			cacheVersion: 'next-build',
+			currentAssetPaths: ['/assets/app.js', '/assets/lazy.js'],
+		})
+		worker.setFetch(async ({ url }) => new Response(`asset:${url}`))
+
+		await worker.dispatchInstall()
+
+		expect(worker.skipWaitingCalls()).toBe(0)
+		expect(worker.fetchCalls).toEqual([])
+		expect(await storage.keys()).toEqual(['qm-static-active-build'])
+		expect(
+			await (
+				await worker.storage.open('qm-static-active-build')
+			).match('/assets/active.js'),
+		).toBeDefined()
+	})
+
+	test('only an explicit update message asks a waiting worker to activate', async () => {
+		const worker = loadServiceWorker()
+
+		await worker.dispatchMessage({ type: 'unrelated' })
+		expect(worker.skipWaitingCalls()).toBe(0)
+
+		await worker.dispatchMessage({ type: 'qm-activate-update' })
+		expect(worker.skipWaitingCalls()).toBe(1)
+	})
+
+	test('activation removes obsolete data but retains the active static generation', async () => {
 		const storage = new MemoryCacheStorage()
 		await storage.seed('qm-pages-v7', '/plan', new Response('PRIVATE DOCUMENT'))
 		await storage.seed(
@@ -298,9 +356,52 @@ describe('service-worker lifecycle and public resources', () => {
 		).toBeDefined()
 		expect(
 			await (await storage.open('qm-static-v1')).match('/assets/old.js'),
-		).toBeUndefined()
+		).toBeDefined()
+		expect(await storage.keys()).toContain('qm-static-current-build')
 		expect((await storage.open('qm-fonts-v1')).entries.size).toBe(16)
-		expect(worker.wasClaimed()).toBe(true)
+		expect(worker.wasClaimed()).toBe(false)
+	})
+
+	test('N-1 assets remain available after N activates and N-2 is retired', async () => {
+		const storage = new MemoryCacheStorage()
+		const oldest = loadServiceWorker({
+			storage,
+			cacheVersion: 'oldest-build',
+			currentAssetPaths: ['/assets/oldest.js'],
+		})
+		oldest.setFetch(async () => new Response('N-2 ASSET'))
+		await oldest.dispatchActivate()
+		await oldest.dispatchFetch('/assets/oldest.js')
+
+		const previous = loadServiceWorker({
+			storage,
+			cacheVersion: 'previous-build',
+			currentAssetPaths: ['/assets/previous-lazy.js'],
+		})
+		previous.setFetch(async () => new Response('N-1 LAZY ASSET'))
+		await previous.dispatchActivate()
+		await previous.dispatchFetch('/assets/previous-lazy.js')
+
+		const worker = loadServiceWorker({
+			storage,
+			cacheVersion: 'current-build',
+			currentAssetPaths: ['/assets/current.js'],
+		})
+		worker.setFetch(async ({ url }) => new Response(`current:${url}`))
+
+		expect(await storage.keys()).toContain('qm-static-previous-build')
+		expect(await storage.keys()).toContain('qm-static-oldest-build')
+
+		await worker.dispatchActivate()
+
+		expect(await storage.keys()).toContain('qm-static-current-build')
+		expect(await storage.keys()).toContain('qm-static-previous-build')
+		expect(await storage.keys()).not.toContain('qm-static-oldest-build')
+		worker.setFetch(async () => {
+			throw new TypeError('Old asset no longer exists at the origin')
+		})
+		const lazyAsset = await worker.dispatchFetch('/assets/previous-lazy.js')
+		expect(await lazyAsset?.text()).toBe('N-1 LAZY ASSET')
 	})
 
 	test('only exact current-build asset URLs use Cache Storage', async () => {
@@ -313,10 +414,10 @@ describe('service-worker lifecycle and public resources', () => {
 		expect(
 			await worker.dispatchFetch('/assets/current.js?v=copy'),
 		).toBeUndefined()
-		expect(await worker.dispatchFetch('/assets/old.js')).toBeUndefined()
+		expect(await worker.dispatchFetch('/assets/old.js')).toBeDefined()
 		expect(worker.storage.puts).toEqual([
 			{
-				cacheName: 'qm-static-v1',
+				cacheName: 'qm-static-test-build',
 				url: `${ORIGIN}/assets/current.js`,
 			},
 		])

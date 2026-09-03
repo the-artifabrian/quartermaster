@@ -14,6 +14,7 @@ export const launchThemes = {
 export type LaunchTheme = keyof typeof launchThemes
 
 export const launchThemeNames = Object.keys(launchThemes) as LaunchTheme[]
+export const iosStartupLogoScale = 0.18
 
 // Portrait viewport sizes used by currently supported iPhones. A single image
 // can cover multiple models that share the same CSS viewport and pixel ratio.

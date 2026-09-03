@@ -5,12 +5,16 @@ import { describe, expect, test } from 'vitest'
 import { links } from '../root.tsx'
 import {
 	iosStartupImages,
+	iosStartupLogoScale,
 	iosStartupScreens,
 	launchThemes,
 } from './pwa-launch.ts'
 
 const splashDirectory = fileURLToPath(
 	new URL('../../public/splash/', import.meta.url),
+)
+const canonicalLogoPath = fileURLToPath(
+	new URL('../assets/favicons/favicon.svg', import.meta.url),
 )
 
 function filename(href: string) {
@@ -23,6 +27,21 @@ function rgb(hex: string) {
 	return [1, 3, 5].map((offset) =>
 		Number.parseInt(hex.slice(offset, offset + 2), 16),
 	)
+}
+
+async function renderCanonicalLogo(size: number, background: string) {
+	const logo = await sharp(canonicalLogoPath)
+		.resize(size, size)
+		.png()
+		.toBuffer()
+
+	return sharp({
+		create: { width: size, height: size, channels: 3, background },
+	})
+		.composite([{ input: logo }])
+		.removeAlpha()
+		.raw()
+		.toBuffer()
 }
 
 describe('PWA launch configuration', () => {
@@ -59,7 +78,7 @@ describe('PWA launch configuration', () => {
 		)
 	})
 
-	test('keeps generated images and declarations in sync', async () => {
+	test('keeps generated images, declarations, and canonical logo in sync', async () => {
 		const expectedFiles = iosStartupImages
 			.map(({ href }) => filename(href))
 			.sort()
@@ -77,12 +96,28 @@ describe('PWA launch configuration', () => {
 				height: image.pixelHeight,
 			})
 
-			const pixel = await sharp(path)
-				.resize(1, 1)
+			const background = launchThemes[image.theme].canvas
+			const cornerPixel = await sharp(path)
+				.extract({ left: 0, top: 0, width: 1, height: 1 })
 				.removeAlpha()
 				.raw()
 				.toBuffer()
-			expect([...pixel]).toEqual(rgb(launchThemes[image.theme].canvas))
+			expect([...cornerPixel]).toEqual(rgb(background))
+
+			const logoSize = Math.round(
+				Math.min(image.pixelWidth, image.pixelHeight) * iosStartupLogoScale,
+			)
+			const left = Math.round((image.pixelWidth - logoSize) / 2)
+			const top = Math.round((image.pixelHeight - logoSize) / 2)
+			const [actualLogo, expectedLogo] = await Promise.all([
+				sharp(path)
+					.extract({ left, top, width: logoSize, height: logoSize })
+					.removeAlpha()
+					.raw()
+					.toBuffer(),
+				renderCanonicalLogo(logoSize, background),
+			])
+			expect(Buffer.compare(actualLogo, expectedLogo)).toBe(0)
 		}
 	})
 

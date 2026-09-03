@@ -1,5 +1,5 @@
 /**
- * Generate quiet iOS PWA startup images from the shared launch configuration.
+ * Generate branded iOS PWA startup images from the shared launch configuration.
  *
  * Run: bun other/generate-splash-screens.ts
  *
@@ -9,9 +9,16 @@
 import { mkdir } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
-import { iosStartupImages, launchThemes } from '../app/utils/pwa-launch.ts'
+import {
+	iosStartupImages,
+	iosStartupLogoScale,
+	launchThemes,
+} from '../app/utils/pwa-launch.ts'
 
 const outputDirectory = new URL('../public/splash/', import.meta.url)
+const canonicalLogoPath = fileURLToPath(
+	new URL('../app/assets/favicons/favicon.svg', import.meta.url),
+)
 
 async function main() {
 	await mkdir(outputDirectory, { recursive: true })
@@ -19,6 +26,13 @@ async function main() {
 	for (const image of iosStartupImages) {
 		const filename = image.href.split('/').at(-1)
 		if (!filename) throw new Error(`Invalid startup-image path: ${image.href}`)
+		const logoSize = Math.round(
+			Math.min(image.pixelWidth, image.pixelHeight) * iosStartupLogoScale,
+		)
+		const logo = await sharp(canonicalLogoPath)
+			.resize(logoSize, logoSize)
+			.png()
+			.toBuffer()
 
 		await sharp({
 			create: {
@@ -28,6 +42,13 @@ async function main() {
 				background: launchThemes[image.theme].canvas,
 			},
 		})
+			.composite([
+				{
+					input: logo,
+					left: Math.round((image.pixelWidth - logoSize) / 2),
+					top: Math.round((image.pixelHeight - logoSize) / 2),
+				},
+			])
 			.png()
 			.toFile(fileURLToPath(new URL(filename, outputDirectory)))
 

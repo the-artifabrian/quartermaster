@@ -13,7 +13,7 @@ import { getCurrentRouteId } from '#app/utils/pwa-performance.ts'
  * Each event is enriched with the destination route's single-fetch `.data` request
  * timing (see `nav-resource-timing.ts`) so felt latency can be attributed — in
  * aggregate, not just on one session replay — to its actual cause: cold connection
- * (`connect_ms` > 0), slow server (`ttfb_ms`), or a cache miss vs SWR hit
+ * (`connect_ms` > 0), slow server (`ttfb_ms`), or a network vs cache response
  * (`transfer_size` === 0). So "p95 is 2s — why?" becomes a GROUP BY, not a guess.
  */
 export function NavTiming() {

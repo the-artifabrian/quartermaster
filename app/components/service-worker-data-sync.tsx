@@ -88,11 +88,10 @@ export function ServiceWorkerDataSync({
 	// navigation never shows stale-after-write. Coarse (the whole session
 	// namespace); the next navigation refills from the network.
 	//
-	// Shopping mutations are deliberately excluded: /shopping is served
-	// network-first (never stale-while-revalidate), so its writes don't need a
-	// cache drop — and because the invalidate wipes the WHOLE session namespace,
-	// counting them would needlessly evict the recipes/plan SWR cache on every
-	// shopping checkbox tap, the most frequent daily action.
+	// Shopping mutations are deliberately excluded: the next Shopping read is
+	// network-first, and clearing the whole namespace on every checkbox tap would
+	// needlessly evict unrelated offline fallbacks. Other mutations may affect
+	// several screens, so they retain the existing coarse invalidation.
 	const navigation = useNavigation()
 	const fetchers = useFetchers()
 	const isMutating =

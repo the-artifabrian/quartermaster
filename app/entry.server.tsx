@@ -11,6 +11,7 @@ import {
 } from 'react-router'
 import { runInBackground } from './utils/background.server.ts'
 import { getEnv, init } from './utils/env.server.ts'
+import { setDefaultDynamicCacheControl } from './utils/headers.server.ts'
 import { getInstanceInfo } from './utils/litefs.server.ts'
 import { NonceProvider } from './utils/nonce-provider.ts'
 import { getPostHogAssetHost, getPostHogHost } from './utils/posthog-config.ts'
@@ -40,6 +41,7 @@ export default async function handleRequest(...args: DocRequestArgs) {
 	responseHeaders.set('fly-app', process.env.FLY_APP_NAME ?? 'unknown')
 	responseHeaders.set('fly-primary-instance', primaryInstance)
 	responseHeaders.set('fly-instance', currentInstance)
+	setDefaultDynamicCacheControl(responseHeaders)
 
 	const nonce = crypto.randomBytes(16).toString('hex')
 	const timings = makeTimings('render', 'renderToReadableStream')
@@ -135,6 +137,7 @@ export async function handleDataRequest(response: Response) {
 	response.headers.set('fly-app', process.env.FLY_APP_NAME ?? 'unknown')
 	response.headers.set('fly-primary-instance', primaryInstance)
 	response.headers.set('fly-instance', currentInstance)
+	setDefaultDynamicCacheControl(response.headers)
 
 	return response
 }

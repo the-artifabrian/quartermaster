@@ -3,7 +3,7 @@
  *
  * Lets `nav_duration_ms` record WHY a navigation was slow — cold connection vs slow
  * server vs cache miss — in aggregate (a GROUP BY), not just on one session replay:
- *   - transfer_size === 0 ⇒ the service worker / HTTP cache served it (SWR hit)
+ *   - transfer_size === 0 ⇒ a service worker / HTTP cache response is likely
  *   - connect_ms > 0      ⇒ a fresh TCP/TLS connection was set up (cold-connection cost)
  *   - ttfb_ms             ⇒ server processing once the request was on the wire
  *   - protocol            ⇒ which HTTP version actually carried it (h3/h2)
@@ -61,7 +61,7 @@ export function extractDataTiming(
 ): DataTiming {
 	const round = (n: number) => Math.round(n)
 	return {
-		// 0 ⇒ served from the SW / HTTP cache (no bytes off the wire).
+		// 0 usually means the SW / HTTP cache supplied the response (no transfer).
 		transfer_size: entry.transferSize,
 		body_size: entry.encodedBodySize,
 		protocol: entry.nextHopProtocol || undefined,

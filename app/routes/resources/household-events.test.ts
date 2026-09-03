@@ -8,15 +8,6 @@ import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { loader } from './household-events.tsx'
 
-const { pruneOldEventsMock } = vi.hoisted(() => ({
-	pruneOldEventsMock: vi.fn().mockResolvedValue(undefined),
-}))
-
-vi.mock('#app/utils/household-events.server.ts', async (importOriginal) => {
-	const original = await importOriginal<typeof householdEvents>()
-	return { ...original, pruneOldEvents: pruneOldEventsMock }
-})
-
 const LOADER_ARGS_BASE = {
 	params: {},
 	context: new RouterContextProvider(),
@@ -71,38 +62,6 @@ afterEach(() => {
 })
 
 describe('household-events SSE loader', () => {
-	test('contains a rejected background prune at the loader seam', async () => {
-		const pruneError = new Error('prune failed')
-		const rejectedPrune = Promise.reject(pruneError)
-		// Attach a safety handler before spying so only the loader's handler counts.
-		void rejectedPrune.catch(() => {})
-		const catchSpy = vi.spyOn(rejectedPrune, 'catch')
-		const consoleErrorSpy = vi
-			.spyOn(console, 'error')
-			.mockImplementation(() => {})
-		pruneOldEventsMock.mockReturnValueOnce(rejectedPrune)
-
-		try {
-			const { response } = await makeStream()
-			await Promise.resolve()
-			const reader = response.body!.getReader()
-			const { value } = await reader.read()
-			expect(new TextDecoder().decode(value)).toContain('event: connected')
-			await reader.cancel()
-
-			expect(pruneOldEventsMock).toHaveBeenCalled()
-			expect(catchSpy).toHaveBeenCalledOnce()
-			expect(consoleErrorSpy).toHaveBeenCalledWith(
-				'Background task failed: pruning old household events',
-				pruneError,
-			)
-		} finally {
-			catchSpy.mockRestore()
-			consoleErrorSpy.mockRestore()
-			pruneOldEventsMock.mockReset().mockResolvedValue(undefined)
-		}
-	})
-
 	test('streams a connected event and unsubscribes when the consumer cancels', async () => {
 		const { response, householdId } = await makeStream()
 		expect(busListeners(householdId)).toBe(1)

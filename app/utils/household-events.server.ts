@@ -72,24 +72,3 @@ export async function emitHouseholdEvent({
 		// and should never break the main request flow
 	}
 }
-
-let lastPruneTime = 0
-const PRUNE_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
-
-export async function pruneOldEvents() {
-	const now = Date.now()
-	if (now - lastPruneTime < PRUNE_INTERVAL_MS) return
-	const previousPruneTime = lastPruneTime
-	lastPruneTime = now
-
-	try {
-		const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000)
-		await prisma.householdEvent.deleteMany({
-			where: { createdAt: { lt: thirtyDaysAgo } },
-		})
-	} catch (error) {
-		// A contained failure must not suppress the next retry for an hour.
-		lastPruneTime = previousPruneTime
-		throw error
-	}
-}

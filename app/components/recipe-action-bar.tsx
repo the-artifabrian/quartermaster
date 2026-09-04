@@ -20,6 +20,7 @@ export function RecipeActionBar({
 	favoriteFetcher,
 	enhanceFetcher,
 	onAddToPlan,
+	onCopy,
 	onShare,
 	onEnhance,
 }: {
@@ -29,11 +30,12 @@ export function RecipeActionBar({
 	favoriteFetcher: ReturnType<typeof useFetcher>
 	enhanceFetcher: ReturnType<typeof useFetcher>
 	onAddToPlan: () => void
+	onCopy: () => void
 	onShare: () => void
 	onEnhance: () => void
 }) {
 	return (
-		<div className="mt-4 flex items-center gap-1 md:mt-6 md:gap-2 print:hidden">
+		<div className="mt-4 flex flex-wrap items-center gap-1 md:mt-6 md:gap-2 print:hidden">
 			{/* Favorite */}
 			<favoriteFetcher.Form method="POST">
 				<input type="hidden" name="intent" value="toggleFavorite" />
@@ -83,6 +85,16 @@ export function RecipeActionBar({
 				</TooltipTrigger>
 				<TooltipContent>Edit recipe</TooltipContent>
 			</Tooltip>
+
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				className="h-11"
+				onClick={onCopy}
+			>
+				Copy Recipe
+			</Button>
 
 			{/* Share */}
 			<Tooltip>

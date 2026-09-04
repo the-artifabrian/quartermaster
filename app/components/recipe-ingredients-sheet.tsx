@@ -61,7 +61,7 @@ export function RecipeIngredientsSheet({
 				<button
 					type="button"
 					onClick={() => setOpen(true)}
-					className="bg-card text-foreground shadow-warm-lg border-border/60 fixed bottom-[5.5rem] left-4 z-50 flex h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-all active:scale-95 md:bottom-4"
+					className="bg-card text-foreground shadow-warm-lg border-border/60 fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-4 z-50 flex h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-all active:scale-95 md:bottom-4"
 				>
 					Ingredients
 					<span className="text-muted-foreground text-xs tabular-nums">

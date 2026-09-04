@@ -1,8 +1,8 @@
 {
 	"recommendations": [
 		"bradlc.vscode-tailwindcss",
-		"dbaeumer.vscode-eslint",
 		"esbenp.prettier-vscode",
+		"oxc.oxc-vscode",
 		"prisma.prisma",
 		"qwtel.sqlite-viewer",
 		"yoavbls.pretty-ts-errors",

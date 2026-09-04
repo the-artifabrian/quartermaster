@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   lint:
+    # Stable branch-protection context; the lint command now runs Oxlint.
     name: ⬣ ESLint
     runs-on: ubuntu-22.04
     concurrency:

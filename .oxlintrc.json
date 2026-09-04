@@ -1,0 +1,51 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"extends": ["./node_modules/@epic-web/config/oxlint-config.json"],
+	"ignorePatterns": [
+		"**/.cache/**",
+		"**/node_modules/**",
+		"**/build/**",
+		"**/public/**",
+		"**/*.json",
+		"**/playwright-report/**",
+		"**/server-build/**",
+		"**/dist/**",
+		"**/coverage/**",
+		"**/*.tsbuildinfo",
+		"**/.react-router/**",
+		"**/app/generated/**",
+		"**/.wrangler/**",
+		"**/worker-configuration.d.ts"
+	],
+	"rules": {
+		"eslint/no-control-regex": "off", // Existing parser behavior intentionally matches control characters.
+		"eslint/no-empty-pattern": "off", // Existing Playwright fixtures keep an unused destructured parameter.
+		"eslint/no-misleading-character-class": "off", // Existing normalization intentionally matches Unicode joiners.
+		"eslint/no-unused-expressions": "off", // Existing callback uses a short-circuit expression for an imperative update.
+		"eslint/no-useless-escape": "off", // Existing ingredient regexes keep readable escaped separators.
+		"react/immutability": "off", // Existing recursive callback structure needs a separate behavioral refactor.
+		"react/refs": "off", // Existing render-time ref reads need separate behavioral review.
+		"react-hooks/rules-of-hooks": "error",
+		"react/set-state-in-effect": "off", // Existing synchronization effects need separate behavioral review.
+		"unicorn/no-empty-file": "off", // The empty dependency declaration file is an intentional placeholder.
+		"unicorn/prefer-string-starts-ends-with": "off", // This is a style-only rewrite outside the migration.
+		"vitest/expect-expect": "off", // Existing tests may assert through helpers or expected side effects.
+		"vitest/no-conditional-expect": "off", // Existing conditional assertions preserve branch-specific checks.
+		"vitest/require-mock-type-parameters": "off", // Existing inferred mocks remain valid and typechecked.
+		"vitest/require-to-throw-message": "off" // Existing throw assertions intentionally accept any matching error.
+	},
+	"overrides": [
+		{
+			"files": ["**/tests/**/*.ts"],
+			"rules": {
+				"react-hooks/rules-of-hooks": "off"
+			}
+		},
+		{
+			"files": ["./index.ts", "prisma/seed.ts"],
+			"rules": {
+				"eslint/no-restricted-imports": "off"
+			}
+		}
+	]
+}

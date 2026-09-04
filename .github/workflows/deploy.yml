@@ -12,7 +12,8 @@ permissions:
 
 jobs:
   lint:
-    name: ⬣ Oxlint
+    # Stable branch-protection context; the lint command now runs Oxlint.
+    name: ⬣ ESLint
     runs-on: ubuntu-22.04
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-lint

@@ -52,12 +52,26 @@ export const meta: Route.MetaFunction = () => {
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
-	const [tier, household, items, staples, mealCount] = await Promise.all([
+	const household = await prisma.household.findUniqueOrThrow({
+		where: { id: householdId },
+		select: { staplesCutoverAt: true },
+	})
+
+	if (household.staplesCutoverAt != null) {
+		const staples = await prisma.householdIngredient.findMany({
+			where: { householdId, isStaple: true },
+			orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
+			select: { id: true, displayName: true, isOut: true },
+		})
+
+		return {
+			mode: 'staples' as const,
+			staples,
+		}
+	}
+
+	const [tier, items, staples, mealCount] = await Promise.all([
 		getUserTier(userId),
-		prisma.household.findUniqueOrThrow({
-			where: { id: householdId },
-			select: { staplesCutoverAt: true },
-		}),
 		prisma.inventoryItem.findMany({
 			where: { householdId },
 			orderBy: [{ name: 'asc' }],
@@ -73,13 +87,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const inventoryUsage = await getInventoryUsage(householdId, tier.isProActive)
 
 	return {
+		mode: 'legacy' as const,
 		items,
 		staples,
-		staplesCutoverAt: household.staplesCutoverAt,
-		cutoverOptions:
-			household.staplesCutoverAt == null
-				? buildStaplesCutoverOptions(items, staples)
-				: [],
+		staplesCutoverAt: null,
+		cutoverOptions: buildStaplesCutoverOptions(items, staples),
 		archivedInventoryCount: items.length,
 		inventoryUsage,
 		isProActive: tier.isProActive,
@@ -220,22 +232,33 @@ export async function action({ request }: Route.ActionArgs) {
 			)
 		}
 		const canonicalKey = householdIngredientKey(parsed.data)
-		await prisma.householdIngredient.upsert({
-			where: {
-				householdId_canonicalKey: { householdId, canonicalKey },
-			},
-			create: {
-				householdId,
-				displayName: parsed.data,
-				canonicalKey,
-				isStaple: true,
-				isOut: false,
-			},
-			update: {
-				displayName: parsed.data,
-				isStaple: true,
-			},
-		})
+		try {
+			await prisma.householdIngredient.upsert({
+				where: {
+					householdId_canonicalKey: { householdId, canonicalKey },
+				},
+				create: {
+					householdId,
+					displayName: parsed.data,
+					canonicalKey,
+					isStaple: true,
+					isOut: false,
+				},
+				update: {
+					displayName: parsed.data,
+					isStaple: true,
+				},
+			})
+		} catch {
+			return data(
+				{
+					status: 'error' as const,
+					action: 'add-staple' as const,
+					message: `Could not add ${parsed.data}. Try again.`,
+				},
+				{ status: 500 },
+			)
+		}
 
 		return { status: 'success' as const, action: 'add-staple' as const }
 	}
@@ -258,15 +281,26 @@ export async function action({ request }: Route.ActionArgs) {
 		if (intent === 'toggle-staple-out') {
 			const isOut = !staple.isOut
 			if (!isOut) {
-				await prisma.householdIngredient.update({
-					where: { id: staple.id },
-					data: { isOut },
-				})
+				try {
+					await prisma.householdIngredient.update({
+						where: { id: staple.id },
+						data: { isOut },
+					})
+				} catch {
+					return data(
+						{
+							status: 'error' as const,
+							action: 'toggle-staple-out' as const,
+							message: `Could not mark ${staple.displayName} available. Try again.`,
+						},
+						{ status: 500 },
+					)
+				}
 				return {
 					status: 'success' as const,
 					action: 'toggle-staple-out' as const,
 					isOut,
-					message: `${staple.displayName} marked not Out.`,
+					message: `${staple.displayName} is no longer Out. It remains in Next shop.`,
 				}
 			}
 
@@ -322,10 +356,21 @@ export async function action({ request }: Route.ActionArgs) {
 			}
 		}
 
-		await prisma.householdIngredient.update({
-			where: { id: staple.id },
-			data: { isStaple: false, isOut: false },
-		})
+		try {
+			await prisma.householdIngredient.update({
+				where: { id: staple.id },
+				data: { isStaple: false, isOut: false },
+			})
+		} catch {
+			return data(
+				{
+					status: 'error' as const,
+					action: 'remove-staple' as const,
+					message: `Could not remove ${staple.displayName}. Try again.`,
+				},
+				{ status: 500 },
+			)
+		}
 		return { status: 'success' as const, action: 'remove-staple' as const }
 	}
 
@@ -572,10 +617,20 @@ export async function action({ request }: Route.ActionArgs) {
 const SEARCH_THRESHOLD = 15
 
 export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
+	if (loaderData.mode === 'staples') {
+		return <ActiveStaples staples={loaderData.staples} />
+	}
+
+	return <LegacyInventory loaderData={loaderData} />
+}
+
+function LegacyInventory({
+	loaderData,
+}: {
+	loaderData: Extract<Route.ComponentProps['loaderData'], { mode: 'legacy' }>
+}) {
 	const {
 		items,
-		staples,
-		staplesCutoverAt,
 		cutoverOptions,
 		archivedInventoryCount,
 		inventoryUsage,
@@ -598,15 +653,6 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		const timer = setTimeout(() => setVoiceAddedNames(new Set()), 60_000)
 		return () => clearTimeout(timer)
 	}, [voiceAddedNames])
-
-	if (staplesCutoverAt != null) {
-		return (
-			<ActiveStaples
-				staples={staples}
-				archivedInventoryCount={archivedInventoryCount}
-			/>
-		)
-	}
 
 	if (showCutover) {
 		return (

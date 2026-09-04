@@ -1,5 +1,17 @@
+import { type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
+
+async function waitForStaplesHydration(page: Page) {
+	const addButton = page.getByRole('button', { name: 'Add Staple' })
+	const addInput = page.getByRole('textbox', { name: 'Add a Staple' })
+	await expect(async () => {
+		if (!(await addInput.isVisible())) await addButton.click()
+		await expect(addInput).toBeVisible({ timeout: 1000 })
+	}).toPass({ timeout: 15_000 })
+	await addButton.click()
+	await expect(addInput).toBeHidden()
+}
 
 test('marking a Staple Out adds it to Next shop from a phone', async ({
 	page,
@@ -30,6 +42,7 @@ test('marking a Staple Out adds it to Next shop from a phone', async ({
 
 	await page.setViewportSize({ width: 390, height: 844 })
 	await page.goto('/inventory')
+	await waitForStaplesHydration(page)
 	await page.route('**/inventory*', async (route) => {
 		if (
 			route.request().method() === 'POST' &&
@@ -49,10 +62,11 @@ test('marking a Staple Out adds it to Next shop from a phone', async ({
 	)
 	await outButton.click()
 	const optimisticOutButton = page.getByRole('button', {
-		name: 'Mark Salt not Out',
+		name: 'Mark Salt available',
 	})
-	await expect(optimisticOutButton).toHaveAttribute('aria-pressed', 'true')
-	await expect(optimisticOutButton).toBeDisabled()
+	await expect(optimisticOutButton).toHaveAttribute('aria-busy', 'true')
+	await expect(optimisticOutButton).toHaveAttribute('aria-disabled', 'true')
+	await expect(optimisticOutButton).toBeFocused()
 	await response
 	await expect(
 		page
@@ -109,6 +123,7 @@ test('a failed restock rolls the optimistic Out state back with an alert', async
 	try {
 		await page.setViewportSize({ width: 390, height: 844 })
 		await page.goto('/inventory')
+		await waitForStaplesHydration(page)
 		const outButton = page.getByRole('button', {
 			name: 'Mark Failure salt Out',
 		})
@@ -120,8 +135,9 @@ test('a failed restock rolls the optimistic Out state back with an alert', async
 				hasText: 'Could not mark Failure salt Out. Try again.',
 			}),
 		).toBeVisible()
-		await expect(outButton).toHaveAttribute('aria-pressed', 'false')
+		await expect(outButton).not.toHaveAttribute('aria-busy')
 		await expect(outButton).toBeEnabled()
+		await expect(outButton).toBeFocused()
 		expect(
 			await prisma.householdIngredient.findUniqueOrThrow({
 				where: { id: household.householdIngredients[0]!.id },

@@ -66,6 +66,12 @@ async function loadInventory(session: { id: string }) {
 	return loader({ request: await routeRequest(session), ...ROUTE_ARGS })
 }
 
+async function loadLegacyInventory(session: { id: string }) {
+	const result = await loadInventory(session)
+	if (result.mode !== 'legacy') throw new Error('Expected legacy Pantry mode')
+	return result
+}
+
 async function postInventory(
 	session: { id: string },
 	fields: Record<string, string>,
@@ -77,7 +83,7 @@ describe('Staples cutover', () => {
 	test('seeds a reviewable selection from archived Pantry plus editable suggestions', async () => {
 		const session = await setupHousehold(['Sesame   Oil', 'Smoked paprika'])
 
-		const result = await loadInventory(session)
+		const result = await loadLegacyInventory(session)
 
 		expect(result.staplesCutoverAt).toBeNull()
 		expect(result.staples).toEqual([])
@@ -167,10 +173,11 @@ describe('Staples cutover', () => {
 
 		expect(result).toMatchObject({ status: 'success', savedCount: 0 })
 		const after = await loadInventory(session)
-		expect(after.staplesCutoverAt).toBeInstanceOf(Date)
+		expect(after.mode).toBe('staples')
+		expect(after).not.toHaveProperty('staplesCutoverAt')
 		expect(after.staples).toEqual([])
-		expect(after.cutoverOptions).toEqual([])
-		expect(after.archivedInventoryCount).toBe(1)
+		expect(after).not.toHaveProperty('cutoverOptions')
+		expect(after).not.toHaveProperty('archivedInventoryCount')
 	})
 
 	test('Recipe index completes Staples onboarding only after explicit cutover', async () => {
@@ -317,7 +324,7 @@ describe('Staples cutover', () => {
 			status: 'success',
 			action: 'restore-legacy-pantry',
 		})
-		const after = await loadInventory(session)
+		const after = await loadLegacyInventory(session)
 		expect(after.staplesCutoverAt).toBeNull()
 		expect(
 			after.cutoverOptions.find((item) => item.canonicalKey === 'cumin'),
@@ -432,7 +439,7 @@ describe('Staples cutover', () => {
 			]),
 		})
 		const oliveOil = (await loadInventory(session)).staples.find(
-			(staple) => staple.canonicalKey === 'olive oil',
+			(staple) => staple.displayName.toLocaleLowerCase() === 'olive oil',
 		)!
 		await postInventory(session, {
 			intent: 'toggle-staple-out',
@@ -473,13 +480,18 @@ describe('active household Staples', () => {
 		})
 		const loaded = await loadInventory(session)
 		expect(loaded.staples).toEqual([
-			expect.objectContaining({
+			{
+				id: expect.any(String),
 				displayName: 'Smoked salt',
-				canonicalKey: 'smoked salt',
-				isStaple: true,
 				isOut: false,
-			}),
+			},
 		])
+		expect(
+			await prisma.householdIngredient.findFirst({
+				where: { householdId: session.householdId },
+				select: { canonicalKey: true, isStaple: true },
+			}),
+		).toEqual({ canonicalKey: 'smoked salt', isStaple: true })
 	})
 
 	test('a household can toggle a Staple Out and back', async () => {

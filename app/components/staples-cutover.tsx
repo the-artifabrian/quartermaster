@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import {
 	householdIngredientDisplayName,
@@ -280,28 +280,59 @@ export function StaplesCutover({
 
 export function ActiveStaples({
 	staples,
-	archivedInventoryCount,
 }: {
 	staples: Array<{
 		id: string
 		displayName: string
 		isOut: boolean
 	}>
-	archivedInventoryCount: number
 }) {
 	const recoveryFetcher = useFetcher<CutoverResponse>()
 	const addFetcher = useFetcher<CutoverResponse>()
+	const toggleFetcher = useFetcher<CutoverResponse>()
 	const [confirmRecovery, setConfirmRecovery] = useState(false)
 	const [search, setSearch] = useState('')
 	const [newStaple, setNewStaple] = useState('')
+	const [addOpen, setAddOpen] = useState(false)
+	const addButtonRef = useRef<HTMLButtonElement>(null)
+	const lastToggledId = useRef<string | null>(null)
+	const toggleButtons = useRef(new Map<string, HTMLButtonElement>())
+	const submittedToggleId = toggleFetcher.formData?.get('itemId')
+	const pendingToggleId =
+		toggleFetcher.state !== 'idle' && typeof submittedToggleId === 'string'
+			? submittedToggleId
+			: null
+	const displayedStaples = useMemo(
+		() =>
+			staples.map((staple) =>
+				staple.id === pendingToggleId
+					? { ...staple, isOut: !staple.isOut }
+					: staple,
+			),
+		[pendingToggleId, staples],
+	)
 	const filteredStaples = useMemo(() => {
-		const query = search.trim().toLowerCase()
+		const query = search.trim().toLocaleLowerCase()
 		return query
-			? staples.filter((staple) =>
-					staple.displayName.toLowerCase().includes(query),
+			? displayedStaples.filter((staple) =>
+					staple.displayName.toLocaleLowerCase().includes(query),
 				)
-			: staples
-	}, [search, staples])
+			: displayedStaples
+	}, [displayedStaples, search])
+	const outStaples = useMemo(
+		() =>
+			filteredStaples
+				.filter((staple) => staple.isOut)
+				.sort((a, b) => a.displayName.localeCompare(b.displayName)),
+		[filteredStaples],
+	)
+	const availableStaples = useMemo(
+		() =>
+			filteredStaples
+				.filter((staple) => !staple.isOut)
+				.sort((a, b) => a.displayName.localeCompare(b.displayName)),
+		[filteredStaples],
+	)
 
 	useEffect(() => {
 		if (
@@ -310,129 +341,224 @@ export function ActiveStaples({
 			addFetcher.data.action === 'add-staple'
 		) {
 			setNewStaple('')
+			setSearch('')
+			setAddOpen(false)
+			requestAnimationFrame(() => addButtonRef.current?.focus())
 		}
 	}, [addFetcher.data, addFetcher.state])
 
+	useEffect(() => {
+		const itemId = lastToggledId.current
+		if (!itemId) return
+		const frame = requestAnimationFrame(() =>
+			toggleButtons.current.get(itemId)?.focus(),
+		)
+		return () => cancelAnimationFrame(frame)
+	}, [pendingToggleId, staples, toggleFetcher.state])
+
+	function toggleStaple(staple: {
+		id: string
+		displayName: string
+		isOut: boolean
+	}) {
+		if (toggleFetcher.state !== 'idle') return
+		lastToggledId.current = staple.id
+		void toggleFetcher.submit(
+			{ intent: 'toggle-staple-out', itemId: staple.id },
+			{ method: 'POST' },
+		)
+	}
+
+	const pendingStaple = pendingToggleId
+		? staples.find((staple) => staple.id === pendingToggleId)
+		: undefined
+	const toggleFeedback = pendingStaple
+		? `Marking ${pendingStaple.displayName} ${pendingStaple.isOut ? 'available' : 'Out'}…`
+		: toggleFetcher.data?.message
+	const toggleFailed =
+		toggleFetcher.state === 'idle' && toggleFetcher.data?.status === 'error'
+
+	function openAdd() {
+		addFetcher.reset()
+		setSearch('')
+		setAddOpen(true)
+	}
+
+	function cancelAdd() {
+		addFetcher.reset()
+		setNewStaple('')
+		setAddOpen(false)
+		requestAnimationFrame(() => addButtonRef.current?.focus())
+	}
+
 	return (
-		<div className="container-content w-full min-w-0 overflow-x-hidden py-4 pb-24 md:py-6 md:pb-8">
-			<div className="flex items-start justify-between gap-4">
-				<div>
-					<h1 className="font-serif text-2xl font-normal">Staples</h1>
-					<p className="text-muted-foreground mt-1 text-sm">
-						{staples.length} household Staple{staples.length === 1 ? '' : 's'}
-					</p>
-				</div>
-			</div>
+		<div className="container-content w-full min-w-0 overflow-x-hidden py-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:py-6 md:pb-8">
+			<header>
+				<h1 className="font-serif text-2xl font-normal">Staples</h1>
+				<p className="text-muted-foreground mt-1 max-w-xl text-sm">
+					Things you usually have. Mark one Out to add it to Next shop.
+				</p>
 
-			<addFetcher.Form
-				method="post"
-				className="bg-muted/40 mt-6 rounded-lg p-4 sm:flex sm:items-end sm:gap-3"
-			>
-				<input type="hidden" name="intent" value="add-staple" />
-				<div className="min-w-0 flex-1">
-					<label htmlFor="new-staple" className="text-sm font-medium">
-						Add a Staple
-					</label>
-					<p className="text-muted-foreground mt-1 text-xs">
-						Add an ingredient your household normally keeps around.
-					</p>
-					<Input
-						id="new-staple"
-						name="displayName"
-						value={newStaple}
-						onChange={(event) => setNewStaple(event.currentTarget.value)}
-						maxLength={200}
-						className="mt-3 min-h-11"
-						disabled={addFetcher.state !== 'idle'}
-					/>
-				</div>
-				<Button
-					type="submit"
-					className="mt-3 min-h-11 w-full sm:mt-0 sm:w-auto"
-					disabled={!newStaple.trim() || addFetcher.state !== 'idle'}
-				>
-					<Icon name="plus" size="sm" />
-					{addFetcher.state === 'idle' ? 'Add' : 'Adding…'}
-				</Button>
-				{addFetcher.data?.status === 'error' && (
-					<p
-						className="text-destructive mt-2 text-sm sm:basis-full"
-						role="alert"
+				{addOpen ? (
+					<addFetcher.Form
+						id="add-staple-form"
+						method="post"
+						className="mt-4 flex max-w-2xl flex-wrap items-center gap-2"
+						onKeyDown={(event) => {
+							if (event.key === 'Escape' && addFetcher.state === 'idle') {
+								event.preventDefault()
+								cancelAdd()
+							}
+						}}
 					>
-						{addFetcher.data.message ?? 'Could not add Staple'}
-					</p>
-				)}
-			</addFetcher.Form>
-
-			<div className="mt-5">
-				<label htmlFor="search-staples" className="sr-only">
-					Search Staples
-				</label>
-				<div className="relative sm:max-w-sm">
-					<Icon
-						name="magnifying-glass"
-						size="sm"
-						className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-					/>
-					<Input
-						id="search-staples"
-						type="search"
-						value={search}
-						onChange={(event) => setSearch(event.currentTarget.value)}
-						placeholder="Search Staples"
-						className="min-h-11 pl-9"
-					/>
-				</div>
-			</div>
-
-			<div className="mt-4">
-				{staples.length > 0 ? (
-					filteredStaples.length > 0 ? (
-						<div className="divide-border/40 divide-y">
-							{filteredStaples.map((staple) => (
-								<ActiveStapleRow key={staple.id} staple={staple} />
-							))}
+						<input type="hidden" name="intent" value="add-staple" />
+						<div className="min-w-0 flex-1">
+							<label htmlFor="new-staple" className="sr-only">
+								Add a Staple
+							</label>
+							<Input
+								autoFocus
+								id="new-staple"
+								name="displayName"
+								value={newStaple}
+								onChange={(event) => setNewStaple(event.currentTarget.value)}
+								placeholder="Staple name"
+								maxLength={200}
+								className="min-h-11"
+								disabled={addFetcher.state !== 'idle'}
+							/>
 						</div>
-					) : (
-						<div className="bg-muted/40 rounded-lg p-6 text-center">
-							<h2 className="font-serif text-xl font-normal">
-								No Staples match &ldquo;{search.trim()}&rdquo;
-							</h2>
-							<Button
-								type="button"
-								variant="outline"
-								className="mt-4 min-h-11"
-								onClick={() => setSearch('')}
-							>
-								Clear search
-							</Button>
-						</div>
-					)
+						<Button
+							type="submit"
+							className="min-h-11 shrink-0"
+							disabled={!newStaple.trim() || addFetcher.state !== 'idle'}
+						>
+							{addFetcher.state === 'idle' ? 'Add' : 'Adding…'}
+						</Button>
+						<Button
+							type="button"
+							variant="ghost"
+							className="min-h-11 shrink-0"
+							disabled={addFetcher.state !== 'idle'}
+							onClick={cancelAdd}
+						>
+							Cancel
+						</Button>
+						{addFetcher.data?.status === 'error' && (
+							<p className="text-destructive basis-full text-sm" role="alert">
+								{addFetcher.data.message ?? 'Could not add Staple'}
+							</p>
+						)}
+					</addFetcher.Form>
 				) : (
-					<div className="bg-muted/40 rounded-lg p-6 text-center">
-						<h2 className="font-serif text-xl font-normal">
-							No Staples selected
-						</h2>
-						<p className="text-muted-foreground mt-2 text-sm">
-							This household intentionally confirmed an empty Staple list.
-						</p>
+					<div className="mt-4 flex items-center gap-2">
+						{staples.length >= 12 && (
+							<div className="relative min-w-0 flex-1 sm:max-w-md">
+								<label htmlFor="search-staples" className="sr-only">
+									Search Staples
+								</label>
+								<Icon
+									name="magnifying-glass"
+									size="sm"
+									className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+								/>
+								<Input
+									id="search-staples"
+									type="search"
+									value={search}
+									onChange={(event) => setSearch(event.currentTarget.value)}
+									placeholder="Search"
+									className="min-h-11 pl-9"
+								/>
+							</div>
+						)}
+						<Button
+							ref={addButtonRef}
+							type="button"
+							variant="outline"
+							className="min-h-11 shrink-0"
+							aria-label="Add Staple"
+							onClick={openAdd}
+						>
+							<Icon name="plus" size="sm" /> Add
+						</Button>
 					</div>
 				)}
-			</div>
+			</header>
 
-			<div className="border-border mt-10 border-t pt-6">
-				<h2 className="font-medium">Cutover recovery</h2>
+			<p
+				className={
+					toggleFailed
+						? 'text-destructive mt-3 min-h-5 text-sm'
+						: toggleFeedback
+							? 'text-muted-foreground mt-3 min-h-5 text-sm'
+							: 'sr-only'
+				}
+				role={toggleFailed ? 'alert' : 'status'}
+				aria-live="polite"
+			>
+				{toggleFeedback}
+			</p>
+
+			{search.trim() && filteredStaples.length === 0 ? (
+				<div className="bg-muted/40 mt-5 rounded-lg p-6 text-center">
+					<h2 className="font-serif text-xl font-normal">No Staples found</h2>
+					<p className="text-muted-foreground mt-1 text-sm">
+						Nothing matches &ldquo;{search.trim()}&rdquo;.
+					</p>
+					<Button
+						type="button"
+						variant="outline"
+						className="mt-4 min-h-11"
+						onClick={() => setSearch('')}
+					>
+						Clear search
+					</Button>
+				</div>
+			) : (
+				<>
+					<StapleGroup
+						id="out-staples"
+						title="Out"
+						description="Waiting in Next shop"
+						staples={outStaples}
+						countLabel={`${outStaples.length} Out Staple${outStaples.length === 1 ? '' : 's'}`}
+						isOut
+						emptyMessage="Nothing is Out."
+						onToggle={toggleStaple}
+						pendingToggleId={pendingToggleId}
+						toggleBusy={toggleFetcher.state !== 'idle'}
+						toggleButtons={toggleButtons.current}
+					/>
+					<StapleGroup
+						id="available-staples"
+						title="Usually available"
+						staples={availableStaples}
+						countLabel={`${availableStaples.length} usually available Staple${availableStaples.length === 1 ? '' : 's'}`}
+						emptyMessage={
+							staples.length === 0
+								? 'Add a Staple your household normally has.'
+								: 'Every Staple is Out.'
+						}
+						onToggle={toggleStaple}
+						pendingToggleId={pendingToggleId}
+						toggleBusy={toggleFetcher.state !== 'idle'}
+						toggleButtons={toggleButtons.current}
+					/>
+				</>
+			)}
+
+			<details className="border-border mt-10 border-t pt-5">
+				<summary className="text-muted-foreground hover:text-foreground flex min-h-11 cursor-pointer items-center text-sm font-medium">
+					Advanced
+				</summary>
 				<p className="text-muted-foreground mt-2 max-w-2xl text-sm">
-					{archivedInventoryCount} legacy Pantry item
-					{archivedInventoryCount === 1 ? '' : 's'} remain archived. Restoring
-					Pantry clears only the cutover timestamp; it does not delete these
-					Staples or change Shopping rows.
+					Restore the old Pantry experience if you need to recover archived
+					inventory. This does not delete these Staples or change Shopping rows.
 				</p>
 				{confirmRecovery ? (
 					<div className="bg-muted/40 mt-4 rounded-lg p-4">
-						<p className="text-sm font-medium">
-							Restore legacy Pantry behavior now?
-						</p>
+						<p className="text-sm font-medium">Restore the old Pantry now?</p>
 						<p className="text-muted-foreground mt-1 text-sm">
 							Archived Pantry data will affect Recipe discovery and Shopping
 							again.
@@ -465,60 +591,161 @@ export function ActiveStaples({
 						className="mt-4"
 						onClick={() => setConfirmRecovery(true)}
 					>
-						Restore Pantry
+						Restore old Pantry
 					</Button>
 				)}
-			</div>
+			</details>
 		</div>
+	)
+}
+
+function StapleGroup({
+	id,
+	title,
+	description,
+	staples,
+	countLabel,
+	isOut = false,
+	emptyMessage,
+	onToggle,
+	pendingToggleId,
+	toggleBusy,
+	toggleButtons,
+}: {
+	id: string
+	title: string
+	description?: string
+	staples: Array<{ id: string; displayName: string; isOut: boolean }>
+	countLabel: string
+	isOut?: boolean
+	emptyMessage: string
+	onToggle: (staple: {
+		id: string
+		displayName: string
+		isOut: boolean
+	}) => void
+	pendingToggleId: string | null
+	toggleBusy: boolean
+	toggleButtons: Map<string, HTMLButtonElement>
+}) {
+	return (
+		<section
+			aria-labelledby={`${id}-heading`}
+			className={
+				isOut
+					? 'mt-5 overflow-hidden rounded-lg border border-amber-700/20'
+					: 'mt-7'
+			}
+		>
+			<div
+				className={
+					isOut
+						? 'flex items-baseline justify-between bg-amber-500/5 px-4 py-3'
+						: 'flex items-baseline justify-between border-b pb-2'
+				}
+			>
+				<div>
+					<h2 id={`${id}-heading`} className="font-serif text-xl font-normal">
+						{title}
+					</h2>
+					{description && (
+						<p className="text-muted-foreground text-sm">{description}</p>
+					)}
+				</div>
+				<span
+					aria-label={countLabel}
+					className={
+						isOut
+							? 'rounded-full bg-amber-700/10 px-2.5 py-1 text-sm font-medium text-amber-800 dark:text-amber-300'
+							: 'text-muted-foreground text-sm'
+					}
+				>
+					{staples.length}
+				</span>
+			</div>
+			{staples.length > 0 ? (
+				<ul
+					className={
+						isOut
+							? 'divide-border/40 divide-y px-4'
+							: 'divide-border/40 divide-y'
+					}
+				>
+					{staples.map((staple) => (
+						<ActiveStapleRow
+							key={staple.id}
+							staple={staple}
+							onToggle={() => onToggle(staple)}
+							isTogglePending={pendingToggleId === staple.id}
+							toggleBusy={toggleBusy}
+							setToggleButton={(button) => {
+								if (button) toggleButtons.set(staple.id, button)
+								else toggleButtons.delete(staple.id)
+							}}
+						/>
+					))}
+				</ul>
+			) : (
+				<p
+					className={`text-muted-foreground py-5 text-sm ${isOut ? 'px-4' : ''}`}
+				>
+					{emptyMessage}
+				</p>
+			)}
+		</section>
 	)
 }
 
 function ActiveStapleRow({
 	staple,
+	onToggle,
+	isTogglePending,
+	toggleBusy,
+	setToggleButton,
 }: {
 	staple: { id: string; displayName: string; isOut: boolean }
+	onToggle: () => void
+	isTogglePending: boolean
+	toggleBusy: boolean
+	setToggleButton: (button: HTMLButtonElement | null) => void
 }) {
-	const toggleFetcher = useFetcher<CutoverResponse>()
 	const removeFetcher = useFetcher<CutoverResponse>()
 	const [confirmRemove, setConfirmRemove] = useState(false)
-	const optimisticOut =
-		toggleFetcher.formData?.get('intent') === 'toggle-staple-out'
-			? !staple.isOut
-			: staple.isOut
-
-	if (removeFetcher.state !== 'idle') return null
 
 	return (
-		<div className="w-full min-w-0 py-2">
+		<li className="w-full min-w-0 py-2">
 			<div className="flex min-h-11 w-full min-w-0 items-center gap-3">
+				<span
+					className={`size-2.5 shrink-0 rounded-full ${staple.isOut ? 'bg-amber-600' : 'bg-primary/35'}`}
+					aria-hidden="true"
+				/>
 				<span className="min-w-0 flex-1 truncate">{staple.displayName}</span>
-				<toggleFetcher.Form method="post" className="shrink-0">
-					<input type="hidden" name="intent" value="toggle-staple-out" />
-					<input type="hidden" name="itemId" value={staple.id} />
-					<Button
-						type="submit"
-						variant={optimisticOut ? 'default' : 'outline'}
-						className="min-h-11 min-w-16 px-3"
-						aria-pressed={optimisticOut}
-						aria-label={
-							optimisticOut
-								? `Mark ${staple.displayName} not Out`
-								: `Mark ${staple.displayName} Out`
-						}
-						disabled={toggleFetcher.state !== 'idle'}
-					>
-						{optimisticOut && <Icon name="check" size="sm" />}
-						Out
-					</Button>
-				</toggleFetcher.Form>
+				<Button
+					ref={setToggleButton}
+					type="button"
+					variant={staple.isOut ? 'secondary' : 'outline'}
+					className="min-h-11 min-w-20 shrink-0 px-3"
+					aria-label={
+						staple.isOut
+							? `Mark ${staple.displayName} available`
+							: `Mark ${staple.displayName} Out`
+					}
+					aria-busy={isTogglePending || undefined}
+					aria-disabled={toggleBusy || undefined}
+					onClick={onToggle}
+				>
+					{staple.isOut ? 'Available' : 'Out'}
+				</Button>
 				<Button
 					type="button"
 					variant={confirmRemove ? 'destructive' : 'ghost'}
 					className="min-h-11 min-w-11 px-3"
 					aria-label={
-						confirmRemove
-							? `Confirm remove ${staple.displayName}`
-							: `Remove ${staple.displayName}`
+						removeFetcher.state !== 'idle'
+							? `Removing ${staple.displayName}`
+							: confirmRemove
+								? `Confirm remove ${staple.displayName}`
+								: `Remove ${staple.displayName}`
 					}
 					onClick={() => {
 						if (!confirmRemove) {
@@ -530,27 +757,23 @@ function ActiveStapleRow({
 							{ method: 'POST' },
 						)
 					}}
+					aria-busy={removeFetcher.state !== 'idle' || undefined}
+					disabled={toggleBusy || removeFetcher.state !== 'idle'}
 				>
 					<Icon name="trash" size="sm" />
-					{confirmRemove && <span>Remove?</span>}
+					{removeFetcher.state !== 'idle' ? (
+						<span>Removing…</span>
+					) : (
+						confirmRemove && <span>Remove?</span>
+					)}
 				</Button>
 			</div>
-			{toggleFetcher.state !== 'idle' ? (
-				<p className="sr-only" role="status">
-					Marking {staple.displayName} {optimisticOut ? 'Out' : 'not Out'}…
+			{removeFetcher.data?.status === 'error' && (
+				<p className="text-destructive mt-1 text-sm" role="alert">
+					{removeFetcher.data.message ??
+						`Could not remove ${staple.displayName}`}
 				</p>
-			) : toggleFetcher.data?.message ? (
-				<p
-					className={
-						toggleFetcher.data.status === 'error'
-							? 'text-destructive mt-1 text-sm'
-							: 'text-muted-foreground mt-1 text-sm'
-					}
-					role={toggleFetcher.data.status === 'error' ? 'alert' : 'status'}
-				>
-					{toggleFetcher.data.message}
-				</p>
-			) : null}
-		</div>
+			)}
+		</li>
 	)
 }

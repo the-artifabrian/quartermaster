@@ -243,7 +243,7 @@ describe('marking a Staple Out restocks Next shop', () => {
 		expect(markedNotOut).toMatchObject({
 			status: 'success',
 			isOut: false,
-			message: 'Salt marked not Out.',
+			message: 'Salt is no longer Out. It remains in Next shop.',
 		})
 		expect(
 			await prisma.shoppingListItem.findMany({

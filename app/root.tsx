@@ -92,14 +92,16 @@ export const links: Route.LinksFunction = () => {
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {
 	const origin = loaderData?.requestInfo.origin ?? ''
+	const description =
+		'Save Recipes, plan Meals, and make one useful Shopping list.'
 	return [
 		{ title: loaderData ? 'Quartermaster' : 'Error | Quartermaster' },
-		{ name: 'description', content: `Your personal recipe manager` },
+		{ name: 'description', content: description },
 		{ property: 'og:site_name', content: 'Quartermaster' },
 		{ property: 'og:title', content: 'Quartermaster' },
 		{
 			property: 'og:description',
-			content: 'Your personal recipe manager',
+			content: description,
 		},
 		{ property: 'og:image', content: `${origin}/og-image.png` },
 		{ property: 'og:image:width', content: '1200' },

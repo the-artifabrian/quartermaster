@@ -70,14 +70,14 @@ plan into Shopping.
 
 - One household per user with owner/member roles and invite links.
 - Household-scoped Recipes, Menus, Plans, Staples, and Shopping.
-- Full JSON export/import, older-export compatibility, and household move
-  handling.
+- Household-record JSON export/import, older-export compatibility, and household
+  move handling. Recipe image files are not embedded in JSON.
 - Optional Free/Pro subscription limits with graceful downgrade.
 
 ### AI and voice
 
 - Extract Recipes from text and images with Anthropic models.
-- Suggest a Recipe description improvement for explicit review.
+- Suggest Recipe description and time improvements for explicit review.
 - Transcribe voice with Groq Whisper and parse short spoken inputs.
 - Rate limits, schema validation, and manual fallback keep these features
   optional. The app works without API keys.
@@ -92,7 +92,8 @@ plan into Shopping.
 - SQLite/Prisma on Fly.io with LiteFS, object storage, pre-migration backups,
   Vitest coverage, and focused Playwright flows.
 
-Product terms live in [CONTEXT.md](../CONTEXT.md). Current and proposed work
-lives in [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) and roadmap #98.
+Product terms live in [CONTEXT.md](../CONTEXT.md). Shipped, stopped, and
+deferred roadmap outcomes live in [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)
+and roadmap #98.
 
-_Updated 1 September 2026._
+_Updated 3 September 2026._

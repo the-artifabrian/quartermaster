@@ -33,7 +33,7 @@ export function GettingStartedChecklist({
 
 	const allSteps: Step[] = [
 		{
-			title: 'Add your first recipe',
+			title: 'Add your first Recipe',
 			description: 'Type one in, paste text, or import from a URL',
 			icon: 'file-text',
 			href: '/recipes/new',
@@ -47,8 +47,8 @@ export function GettingStartedChecklist({
 			done: onboarding.hasStaples,
 		},
 		{
-			title: 'Plan a meal',
-			description: 'Plan your week and generate a shopping list',
+			title: 'Plan a Meal',
+			description: 'Plan your week and generate Shopping when you are ready',
 			icon: 'cookie',
 			href: '/plan',
 			done: onboarding.hasMealPlan,

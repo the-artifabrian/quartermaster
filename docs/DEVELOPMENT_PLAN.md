@@ -8,16 +8,19 @@ Quartermaster is a daily-used personal app. The core loop works:
 save Recipes → plan Meals → generate Shopping → cook
 ```
 
-Roadmap [#98](https://github.com/the-artifabrian/quartermaster/issues/98) is in
-progress. Menus, ordered Meals, combined Shopping, household Staples/Out, honest
-Recipe time/yield, and manual Recipe classification and filtering are shipped.
-AI quantity planning was tried and removed because it added more friction than
-value. Romanian/RON costing was tested on fixed examples and stopped because
-useful coverage required too much identity and price-catalogue work.
+Roadmap [#98](https://github.com/the-artifabrian/quartermaster/issues/98) is
+complete. It shipped Menus, ordered Meals, combined Shopping, household
+Staples/Out, honest Recipe time/yield, and manual Recipe classification and
+filtering. AI quantity planning and the preparation checklist were tried and
+removed because they added more friction than value. Romanian/RON costing was
+tested on fixed examples and stopped because useful coverage required too much
+identity and price-catalogue work.
 
-#126 is the normal-use human checkpoint for the Recipe metadata foundation; it
-does not block #137, the next implementation ticket. Archived Pantry cleanup
-(#120) and product costing (#133–#136) are deferred.
+#119 and #126 remain normal-use observation logs, not implementation gates.
+Archived Pantry cleanup (#120), reviewed metadata suggestions (#127), discovery
+sections (#129), product costing (#133–#136), and durable ingredient links
+(#144) are deferred until real use gives them a reason to return. Their unused
+observation tickets (#128 and #130) are closed.
 
 ## Product direction
 
@@ -50,24 +53,31 @@ Current product rules:
 - Because merging to `master` deploys, ask Alex before merging or otherwise
   deploying. Branch pushes and PRs are normal when implementation is requested.
 
-## Next tracks
+## Roadmap outcomes
 
-1. **Recipe metadata and discovery (#121–#130).** Honest nullable time/yield and
-   the small Cuisine/Season/Course vocabulary are shipped. #126 collects normal
-   use before any decision on reviewed metadata proposals or discovery sections.
-2. **Costing (#131–#136).** The reproducible Romanian/RON spike produced honest
+1. **Menus, Meals, and combined Shopping (#99–#114).** Menus and ordered Meals
+   shipped with stable snapshots and explicit Shopping contributions. AI
+   quantity planning was removed after normal use showed that reviewing its
+   output was harder than adjusting the stored multiplier directly.
+2. **Staples (#115–#120).** Household Staples/Out replaced active Pantry
+   behavior. Archived Pantry rows remain recoverable; #119 collects normal-use
+   notes and #120 cleanup is deferred.
+3. **Recipe metadata and discovery (#121–#130).** Honest nullable time/yield and
+   the small Cuisine/Season/Course vocabulary shipped. #126 collects normal-use
+   notes. Reviewed metadata suggestions and discovery sections did not earn
+   implementation and remain deferred; their unused observation tickets are
+   closed.
+4. **Costing (#131–#136).** The reproducible Romanian/RON spike produced honest
    partial totals but only 12/22 required-line coverage for the Levantine Menu.
-   #133–#136 are deferred; revisit only with reliable regional prices and
-   durable ingredient identity, or repeated real demand that earns the upkeep.
-3. **Preparation (#137–#141).** The transient checklist experiment repeated
-   Recipe steps without producing trustworthy timing or useful coordination. It
-   did not justify its complexity and was removed. Do not pursue persistence or
-   timer follow-ups without new evidence that the workflow beats handwriting.
-4. **Final copy sweep (#142).** Align public and in-app copy with whatever
-   actually shipped.
+   Product work stopped rather than presenting false precision.
+5. **Preparation (#137–#141).** The transient checklist repeated Recipe steps
+   without trustworthy timing or useful coordination, so it was removed. Saved
+   tasks and timer handoff did not proceed.
 
-These tracks may move independently when their real dependencies are closed.
-Normal use can still lead to later fixes, cuts, or deferrals.
+The final copy sweep in #142 aligned public, in-app, and repository descriptions
+with those outcomes. Separate work tracked by #185 improved PWA launch metadata,
+authenticated-content safety, navigation preload, updates, and iOS launch
+presentation.
 
 ## Known debt and deliberate leftovers
 
@@ -84,4 +94,4 @@ Normal use can still lead to later fixes, cuts, or deferrals.
 Operational restore steps live in [RESTORE.md](./RESTORE.md). Product terms live
 in [CONTEXT.md](../CONTEXT.md).
 
-_Updated 1 September 2026._
+_Updated 3 September 2026._

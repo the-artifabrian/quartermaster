@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { data, Link, redirect } from 'react-router'
 import { Divider } from '#app/components/divider.tsx'
 import { Button } from '#app/components/ui/button.tsx'
+import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
@@ -14,7 +15,7 @@ export const handle: SEOHandle = {
 }
 
 const description =
-	'Keep your recipes. Plan your week. Cook from what you have.'
+	'Save your Recipes. Plan Meals. Make one useful Shopping list.'
 
 export const meta: Route.MetaFunction = ({ matches }) => [
 	{ title: 'Quartermaster' },
@@ -80,8 +81,8 @@ export default function Index() {
 						this week?
 					</h1>
 					<p className="text-muted-foreground mx-auto mt-6 max-w-lg text-lg/7">
-						Plan your meals, know what to buy, cook from what you have. No more
-						figuring out "what's for dinner?" from scratch every night.
+						Save the Recipes you cook, plan the week, and generate Shopping when
+						you're ready. No more starting from scratch every night.
 					</p>
 
 					<HeroPreviewCards />
@@ -125,19 +126,19 @@ export default function Index() {
 						</div>
 					</ScrollReveal>
 
-					{/* 2. Discovery / matching — right on desktop, warm band */}
+					{/* 2. Recipe availability — right on desktop, warm band */}
 					<div className="bg-secondary/30 -mx-4 px-4 py-10 sm:-mx-8 sm:px-8 md:py-14">
 						<ScrollReveal className="container-landing flex flex-col items-center gap-10 md:flex-row-reverse">
 							<div className="w-full max-w-[340px] shrink-0 rotate-[1.5deg]">
-								<DiscoveryArtifact />
+								<RecipeAvailabilityArtifact />
 							</div>
 							<div className="text-center md:text-right">
 								<h2 className="font-serif text-2xl font-normal md:text-3xl">
-									What can I cook tonight?
+									Know what to buy
 								</h2>
 								<p className="text-muted-foreground mt-3 text-base/7">
-									Keep a lightweight household Staples list, mark anything Out,
-									and see how many Shopping items each Recipe needs.
+									On Recipe detail, anything not covered by your Staples gets a
+									Shopping action. Mark a Staple Out and it appears there too.
 								</p>
 							</div>
 						</ScrollReveal>
@@ -187,7 +188,8 @@ export default function Index() {
 						<h3 className="font-serif text-lg">Built for the kitchen</h3>
 						<p className="text-muted-foreground mt-2 text-sm/6">
 							Tap ingredients to cross them off. Start timers from recipe steps.
-							Scale servings on the fly. Designed for when your hands are busy.
+							Scale ingredient quantities on the fly. Designed for when your
+							hands are busy.
 						</p>
 					</div>
 					<div className="text-center">
@@ -201,8 +203,8 @@ export default function Index() {
 					<div className="text-center">
 						<h3 className="font-serif text-lg">Your data is yours</h3>
 						<p className="text-muted-foreground mt-2 text-sm/6">
-							Export everything as JSON anytime. No lock-in, no data hostage.
-							Import it right back if you ever need to.
+							Export your Recipes, Menus, Plans, Staples, and Shopping as JSON.
+							Recipe images are referenced rather than embedded.
 						</p>
 					</div>
 				</div>
@@ -412,30 +414,22 @@ function RecipeCardArtifact() {
 	)
 }
 
-function DiscoveryArtifact() {
-	const recipes = [
-		{ name: 'Pasta al limone', needs: 0 },
-		{ name: 'Miso-Glazed Salmon', needs: 1 },
-		{ name: 'Black bean tacos', needs: 2 },
-	]
-
+function RecipeAvailabilityArtifact() {
 	return (
 		<div className="bg-card shadow-warm-md rounded-lg border p-5">
 			<p className="font-handwritten text-accent mb-3 text-[20px] font-bold">
-				What can I cook?
+				For this Recipe
 			</p>
-			<div className="space-y-3">
-				{recipes.map(({ name, needs }) => (
-					<div key={name} className="flex items-center gap-3">
-						<div className="bg-secondary text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-medium">
-							{needs}
-						</div>
-						<div className="min-w-0 flex-1">
-							<p className="font-serif text-sm">{name}</p>
-							<p className="text-muted-foreground text-xs">
-								Needs {needs} item{needs === 1 ? '' : 's'}
-							</p>
-						</div>
+			<h3 className="font-serif text-lg">Miso-Glazed Salmon</h3>
+			<p className="text-muted-foreground mt-1 text-xs">
+				Add anything you need to Shopping.
+			</p>
+			<div className="border-border/60 mt-4 space-y-2 border-t pt-3">
+				{['Salmon fillets', 'White miso'].map((item) => (
+					<div key={item} className="flex items-center gap-2 text-sm">
+						<div className="border-muted-foreground/40 size-3.5 rounded-sm border" />
+						<span className="flex-1">{item}</span>
+						<Icon name="cart" className="text-primary size-4" />
 					</div>
 				))}
 			</div>

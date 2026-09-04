@@ -46,10 +46,9 @@ export default function AboutRoute() {
 				</p>
 				<p>
 					So I built the tool I wanted. One place for your recipes, your
-					Staples, your meal plan, and your shopping list. If you know what you
-					have and what you like to cook, the rest should take care of itself.
-					Quartermaster helps you find dinners that need fewer things, plan the
-					week ahead, and write your shopping list when you're ready.
+					Staples, your meal plan, and your shopping list. Quartermaster helps
+					you choose a Recipe, plan the week, and write Shopping when you're
+					ready.
 				</p>
 				<p>
 					It's built for people who actually cook at home, not food bloggers or
@@ -87,9 +86,9 @@ export default function AboutRoute() {
 					/>
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">
-							Discover what to cook.
+							Check what to buy.
 						</span>{' '}
-						See which recipes need fewer things from the store.
+						See what a Recipe would add to Shopping before you plan it.
 					</p>
 				</div>
 				<div className="flex gap-3">
@@ -117,7 +116,7 @@ export default function AboutRoute() {
 				Most recipe apps are great for browsing but terrible for actually
 				cooking. Quartermaster is the opposite: tap ingredients and steps to
 				cross them off, start timers right from recipe instructions, and scale
-				servings on the fly.
+				ingredient quantities on the fly.
 			</p>
 
 			<div className="mt-10">

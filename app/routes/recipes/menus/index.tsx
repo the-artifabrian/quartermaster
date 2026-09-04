@@ -81,11 +81,10 @@ export default function MenusIndex({ loaderData }: Route.ComponentProps) {
 							<Icon name="rows" className="text-muted-foreground/40 size-8" />
 						</div>
 						<h2 className="mt-4 font-serif text-xl font-normal">
-							No menus yet
+							No Menus yet
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
-							A menu collects the recipes you serve together — a hosted dinner
-							or a favorite weeknight combination.
+							Create a Menu for Recipes and notes you serve together.
 						</p>
 						<Button asChild className="mt-6">
 							<Link to="/recipes/menus/new">

@@ -1,6 +1,6 @@
 /**
  * Generate raster favicons from the recipe card icon.
- * Run: node other/generate-favicons.mjs
+ * Run: bun other/generate-favicons.mjs
  */
 import { execSync } from 'child_process'
 import { mkdirSync } from 'fs'

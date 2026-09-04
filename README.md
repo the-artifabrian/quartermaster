@@ -32,14 +32,14 @@ Staples and non-Staples.
   without pretending to know exact stock.
 
 AI is optional. It extracts Recipes from text and images, suggests description
-improvements for review, and parses speech. The manual app works without API
-keys.
+and time improvements for review, and parses speech. The manual app works
+without API keys.
 
 ## Tech stack
 
 | Layer    | Tech                                                 |
 | -------- | ---------------------------------------------------- |
-| App      | React Router v7, React, Express                      |
+| App      | React Router v8, React, Express                      |
 | Data     | Prisma, SQLite, LiteFS                               |
 | UI       | Tailwind CSS v4, Radix UI                            |
 | Auth     | Sessions, email verification, Google OAuth, passkeys |

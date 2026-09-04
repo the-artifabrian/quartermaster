@@ -13,6 +13,8 @@ import { Input } from './ui/input.tsx'
 type CutoverResponse = {
 	status: 'success' | 'error'
 	message?: string
+	isOut?: boolean
+	shoppingEffect?: 'added' | 'moved' | 'resurfaced' | 'already-in-next-shop'
 	action?:
 		| 'add-staple'
 		| 'toggle-staple-out'
@@ -487,50 +489,68 @@ function ActiveStapleRow({
 	if (removeFetcher.state !== 'idle') return null
 
 	return (
-		<div className="flex min-h-14 w-full min-w-0 items-center gap-3 py-2">
-			<span className="min-w-0 flex-1 truncate">{staple.displayName}</span>
-			<toggleFetcher.Form method="post" className="shrink-0">
-				<input type="hidden" name="intent" value="toggle-staple-out" />
-				<input type="hidden" name="itemId" value={staple.id} />
+		<div className="w-full min-w-0 py-2">
+			<div className="flex min-h-11 w-full min-w-0 items-center gap-3">
+				<span className="min-w-0 flex-1 truncate">{staple.displayName}</span>
+				<toggleFetcher.Form method="post" className="shrink-0">
+					<input type="hidden" name="intent" value="toggle-staple-out" />
+					<input type="hidden" name="itemId" value={staple.id} />
+					<Button
+						type="submit"
+						variant={optimisticOut ? 'default' : 'outline'}
+						className="min-h-11 min-w-16 px-3"
+						aria-pressed={optimisticOut}
+						aria-label={
+							optimisticOut
+								? `Mark ${staple.displayName} not Out`
+								: `Mark ${staple.displayName} Out`
+						}
+						disabled={toggleFetcher.state !== 'idle'}
+					>
+						{optimisticOut && <Icon name="check" size="sm" />}
+						Out
+					</Button>
+				</toggleFetcher.Form>
 				<Button
-					type="submit"
-					variant={optimisticOut ? 'default' : 'outline'}
-					className="min-h-11 min-w-16 px-3"
-					aria-pressed={optimisticOut}
+					type="button"
+					variant={confirmRemove ? 'destructive' : 'ghost'}
+					className="min-h-11 min-w-11 px-3"
 					aria-label={
-						optimisticOut
-							? `Mark ${staple.displayName} not Out`
-							: `Mark ${staple.displayName} Out`
+						confirmRemove
+							? `Confirm remove ${staple.displayName}`
+							: `Remove ${staple.displayName}`
 					}
-					disabled={toggleFetcher.state !== 'idle'}
+					onClick={() => {
+						if (!confirmRemove) {
+							setConfirmRemove(true)
+							return
+						}
+						void removeFetcher.submit(
+							{ intent: 'remove-staple', itemId: staple.id },
+							{ method: 'POST' },
+						)
+					}}
 				>
-					{optimisticOut && <Icon name="check" size="sm" />}
-					Out
+					<Icon name="trash" size="sm" />
+					{confirmRemove && <span>Remove?</span>}
 				</Button>
-			</toggleFetcher.Form>
-			<Button
-				type="button"
-				variant={confirmRemove ? 'destructive' : 'ghost'}
-				className="min-h-11 min-w-11 px-3"
-				aria-label={
-					confirmRemove
-						? `Confirm remove ${staple.displayName}`
-						: `Remove ${staple.displayName}`
-				}
-				onClick={() => {
-					if (!confirmRemove) {
-						setConfirmRemove(true)
-						return
+			</div>
+			{toggleFetcher.state !== 'idle' ? (
+				<p className="sr-only" role="status">
+					Marking {staple.displayName} {optimisticOut ? 'Out' : 'not Out'}…
+				</p>
+			) : toggleFetcher.data?.message ? (
+				<p
+					className={
+						toggleFetcher.data.status === 'error'
+							? 'text-destructive mt-1 text-sm'
+							: 'text-muted-foreground mt-1 text-sm'
 					}
-					void removeFetcher.submit(
-						{ intent: 'remove-staple', itemId: staple.id },
-						{ method: 'POST' },
-					)
-				}}
-			>
-				<Icon name="trash" size="sm" />
-				{confirmRemove && <span>Remove?</span>}
-			</Button>
+					role={toggleFetcher.data.status === 'error' ? 'alert' : 'status'}
+				>
+					{toggleFetcher.data.message}
+				</p>
+			) : null}
 		</div>
 	)
 }

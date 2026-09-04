@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import {
+	PlanChoiceRequestState,
+	type PlanChoices,
+	usePlanChoices,
+} from '#app/components/plan-choices.tsx'
+import {
 	MEAL_TYPES,
 	MEAL_TYPE_LABELS,
 	type MealType,
@@ -12,12 +17,7 @@ import {
 } from '#app/utils/date.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { type PlanMeal, MealCard } from './meal-card.tsx'
-import {
-	type PlanItemChoice,
-	PlanItemSelector,
-	type PlanSelectorMenu,
-	type RecipeSelectorRecipe,
-} from './recipe-selector.tsx'
+import { type PlanItemChoice, PlanItemSelector } from './recipe-selector.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
@@ -25,8 +25,6 @@ import { Input } from './ui/input.tsx'
 type MealPlanCalendarProps = {
 	weekDays: Date[]
 	meals: PlanMeal[]
-	recipes: RecipeSelectorRecipe[]
-	menus: PlanSelectorMenu[]
 }
 
 type AddMealPresentation = 'primary' | 'row' | 'empty-row'
@@ -48,13 +46,11 @@ function initialSelectedDate(weekDays: Date[], meals: PlanMeal[]): string {
  */
 function AddMealControl({
 	date,
-	recipes,
-	menus,
+	choices,
 	presentation,
 }: {
 	date: Date
-	recipes: RecipeSelectorRecipe[]
-	menus: PlanSelectorMenu[]
+	choices: PlanChoices
 	presentation: AddMealPresentation
 }) {
 	const fetcher = useFetcher<AddMealActionData>()
@@ -172,21 +168,30 @@ function AddMealControl({
 						aria-busy={pendingMenuSubmission || undefined}
 						className="min-w-0 border-0 p-0 disabled:opacity-60"
 					>
-						<PlanItemSelector
-							recipes={recipes}
-							menus={menus}
-							date={date}
-							onCancel={close}
-							onPick={submitChoice}
-						/>
-						<button
-							type="button"
-							onClick={() => setMode('text')}
-							className="text-muted-foreground hover:text-foreground mt-3 text-xs underline-offset-2 hover:underline"
-						>
-							Add text instead (for example, Leftovers)
-						</button>
+						{choices.state.status === 'success' ? (
+							<PlanItemSelector
+								recipes={choices.state.recipes}
+								menus={choices.state.menus}
+								date={date}
+								onCancel={close}
+								onPick={submitChoice}
+							/>
+						) : (
+							<PlanChoiceRequestState
+								state={choices.state.status}
+								onRetry={choices.load}
+								onCancel={close}
+								subject="Recipes and Menus"
+							/>
+						)}
 					</fieldset>
+					<button
+						type="button"
+						onClick={() => setMode('text')}
+						className="text-muted-foreground hover:text-foreground mt-3 text-xs underline-offset-2 hover:underline"
+					>
+						Add text instead (for example, Leftovers)
+					</button>
 					{pendingMenuSubmission ? (
 						<p role="status" className="text-muted-foreground mt-2 text-xs">
 							Adding Menu…
@@ -224,7 +229,10 @@ function AddMealControl({
 					<div className="flex items-center justify-between gap-3">
 						<button
 							type="button"
-							onClick={() => setMode('item')}
+							onClick={() => {
+								choices.load()
+								setMode('item')
+							}}
 							className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
 						>
 							Pick a Recipe or Menu instead
@@ -243,7 +251,10 @@ function AddMealControl({
 			return (
 				<Button
 					type="button"
-					onClick={() => setOpen(true)}
+					onClick={() => {
+						choices.load()
+						setOpen(true)
+					}}
 					aria-label={`Add Meal to ${dateLabel}`}
 				>
 					<Icon name="plus" size="sm" />
@@ -274,7 +285,10 @@ function AddMealControl({
 		return (
 			<button
 				type="button"
-				onClick={() => setOpen(true)}
+				onClick={() => {
+					choices.load()
+					setOpen(true)
+				}}
 				aria-label={`Add Meal to ${dateLabel}`}
 				className="group flex min-h-12 w-full items-center gap-3 text-left text-sm transition-colors"
 			>
@@ -293,7 +307,10 @@ function AddMealControl({
 		return (
 			<button
 				type="button"
-				onClick={() => setOpen(true)}
+				onClick={() => {
+					choices.load()
+					setOpen(true)
+				}}
 				aria-label={`Add Meal to ${dateLabel}`}
 				className="text-primary hover:text-primary/75 flex min-h-9 items-center gap-1 text-xs font-semibold transition-colors"
 			>
@@ -315,10 +332,10 @@ function AddMealControl({
 
 function MealCards({
 	meals,
-	recipes,
+	choices,
 }: {
 	meals: PlanMeal[]
-	recipes: RecipeSelectorRecipe[]
+	choices: PlanChoices
 }) {
 	return meals.map((meal, index) => (
 		<div
@@ -330,7 +347,7 @@ function MealCards({
 		>
 			<MealCard
 				meal={meal}
-				recipes={recipes}
+				choices={choices}
 				canMoveUp={index > 0}
 				canMoveDown={index < meals.length - 1}
 			/>
@@ -338,12 +355,8 @@ function MealCards({
 	))
 }
 
-export function MealPlanCalendar({
-	weekDays,
-	meals,
-	recipes,
-	menus,
-}: MealPlanCalendarProps) {
+export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
+	const choices = usePlanChoices()
 	const [selectedDate, setSelectedDate] = useState(() =>
 		initialSelectedDate(weekDays, meals),
 	)
@@ -438,15 +451,14 @@ export function MealPlanCalendar({
 					<AddMealControl
 						key={selectedDate}
 						date={selectedDay}
-						recipes={recipes}
-						menus={menus}
+						choices={choices}
 						presentation="primary"
 					/>
 				</div>
 
 				<div className="mt-4 space-y-3">
 					{selectedMeals.length > 0 ? (
-						<MealCards meals={selectedMeals} recipes={recipes} />
+						<MealCards meals={selectedMeals} choices={choices} />
 					) : (
 						<div className="border-border/60 flex min-h-36 flex-col items-center justify-center rounded-2xl border border-dashed px-6 text-center">
 							<span className="bg-secondary text-muted-foreground flex size-10 items-center justify-center rounded-full">
@@ -504,20 +516,18 @@ export function MealPlanCalendar({
 								{dayMeals.length > 0 ? (
 									<>
 										<div>
-											<MealCards meals={dayMeals} recipes={recipes} />
+											<MealCards meals={dayMeals} choices={choices} />
 										</div>
 										<AddMealControl
 											date={date}
-											recipes={recipes}
-											menus={menus}
+											choices={choices}
 											presentation="row"
 										/>
 									</>
 								) : (
 									<AddMealControl
 										date={date}
-										recipes={recipes}
-										menus={menus}
+										choices={choices}
 										presentation="empty-row"
 									/>
 								)}

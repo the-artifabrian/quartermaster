@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useFetcher } from 'react-router'
 import { toast } from 'sonner'
+import {
+	PlanChoiceRequestState,
+	type PlanChoices,
+} from '#app/components/plan-choices.tsx'
 import { RecipeScaleControl } from '#app/components/recipe-scale-control.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import {
@@ -17,10 +21,7 @@ import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { formatServingTime, servingWallTime } from '#app/utils/serving-time.ts'
-import {
-	type RecipeSelectorRecipe,
-	RecipeSelector,
-} from './recipe-selector.tsx'
+import { RecipeSelector } from './recipe-selector.tsx'
 
 export type PlanMealItem = {
 	id: string
@@ -424,12 +425,12 @@ function MealDetailsForm({
 
 export function MealCard({
 	meal,
-	recipes,
+	choices,
 	canMoveUp,
 	canMoveDown,
 }: {
 	meal: PlanMeal
-	recipes: RecipeSelectorRecipe[]
+	choices: PlanChoices
 	canMoveUp: boolean
 	canMoveDown: boolean
 }) {
@@ -583,7 +584,12 @@ export function MealCard({
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
 						{!isText ? (
-							<DropdownMenuItem onSelect={() => setAddingRecipe(true)}>
+							<DropdownMenuItem
+								onSelect={() => {
+									choices.load()
+									setAddingRecipe(true)
+								}}
+							>
 								<Icon name="plus" size="sm" />
 								Add Recipe
 							</DropdownMenuItem>
@@ -802,25 +808,34 @@ export function MealCard({
 					    action lives in the Meal menu; only the active picker enters flow. */}
 					{addingRecipe ? (
 						<div className="bg-card animate-fade-up-reveal shadow-warm-lg mt-2 rounded-lg border p-3">
-							<RecipeSelector
-								recipes={recipes}
-								date={new Date(meal.dateStr + 'T00:00:00.000Z')}
-								excludeRecipeIds={meal.items.flatMap(
-									(item) => item.recipe?.id ?? [],
-								)}
-								onCancel={() => setAddingRecipe(false)}
-								onPick={(recipe) => {
-									void addRecipeFetcher.submit(
-										{
-											intent: 'addRecipeToMeal',
-											mealId: meal.id,
-											recipeId: recipe.id,
-										},
-										{ method: 'POST' },
-									)
-									setAddingRecipe(false)
-								}}
-							/>
+							{choices.state.status === 'success' ? (
+								<RecipeSelector
+									recipes={choices.state.recipes}
+									date={new Date(meal.dateStr + 'T00:00:00.000Z')}
+									excludeRecipeIds={meal.items.flatMap(
+										(item) => item.recipe?.id ?? [],
+									)}
+									onCancel={() => setAddingRecipe(false)}
+									onPick={(recipe) => {
+										void addRecipeFetcher.submit(
+											{
+												intent: 'addRecipeToMeal',
+												mealId: meal.id,
+												recipeId: recipe.id,
+											},
+											{ method: 'POST' },
+										)
+										setAddingRecipe(false)
+									}}
+								/>
+							) : (
+								<PlanChoiceRequestState
+									state={choices.state.status}
+									onRetry={choices.load}
+									onCancel={() => setAddingRecipe(false)}
+									subject="Recipes"
+								/>
+							)}
 						</div>
 					) : null}
 				</div>

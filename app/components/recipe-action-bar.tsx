@@ -86,15 +86,21 @@ export function RecipeActionBar({
 				<TooltipContent>Edit recipe</TooltipContent>
 			</Tooltip>
 
-			<Button
-				type="button"
-				variant="outline"
-				size="sm"
-				className="h-11"
-				onClick={onCopy}
-			>
-				Copy Recipe
-			</Button>
+			{/* Copy */}
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						aria-label="Copy Recipe"
+						onClick={onCopy}
+					>
+						<Icon name="copy" size="md" />
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>Copy recipe</TooltipContent>
+			</Tooltip>
 
 			{/* Share */}
 			<Tooltip>

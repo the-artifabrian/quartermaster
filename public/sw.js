@@ -115,22 +115,6 @@ self.addEventListener('message', (event) => {
 	}
 })
 
-// ── Notifications (kitchen timers) ──────────────────────────────────
-// Timer-done notifications are shown by the page (timer-notifications.ts);
-// tapping one should land back in the app, on an existing window if any.
-self.addEventListener('notificationclick', (event) => {
-	event.notification.close()
-	event.waitUntil(
-		self.clients
-			.matchAll({ type: 'window', includeUncontrolled: true })
-			.then((clientList) => {
-				const client = clientList.find((c) => 'focus' in c)
-				if (client) return client.focus()
-				return self.clients.openWindow('/recipes')
-			}),
-	)
-})
-
 // ── Fetch ───────────────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
 	const { request } = event

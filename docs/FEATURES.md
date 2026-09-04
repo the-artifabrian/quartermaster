@@ -10,7 +10,7 @@ plan into Shopping.
 - Create, edit, favorite, search, sort, and share Recipes.
 - Import from a URL, pasted text, files, or screenshots.
 - Scale ingredient display, switch units, print, and keep personal notes.
-- Cook with ingredient/step check-off, inline timers, temperature conversion,
+- Cook with ingredient/step check-off, glanceable duration and temperature cues,
   wake lock, and local progress.
 - Add a Recipe to a Menu, Plan, or Shopping.
 - Recipe cards stay minimal. Recently Updated is the default. Recipe detail
@@ -96,4 +96,4 @@ Product terms live in [CONTEXT.md](../CONTEXT.md). Shipped, stopped, and
 deferred roadmap outcomes live in [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)
 and roadmap #98.
 
-_Updated 3 September 2026._
+_Updated 4 September 2026._

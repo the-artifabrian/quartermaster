@@ -70,7 +70,7 @@ test('acquire requests one sentinel, release releases it', async () => {
 
 test('overlapping claims share one sentinel and only the last release drops it', async () => {
 	acquireWakeLock() // recipe page
-	acquireWakeLock() // running timer
+	acquireWakeLock() // overlapping cooking surface
 	await flush()
 	expect(requestMock).toHaveBeenCalledTimes(1)
 

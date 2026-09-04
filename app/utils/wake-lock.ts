@@ -3,12 +3,12 @@ import { useEffect } from 'react'
 /**
  * Shared screen wake-lock manager.
  *
- * Several owners can want the screen awake at once — the recipe page while
- * it's open, the timer system while a timer runs. The browser only hands out
- * one practical sentinel per page, so claims are refcounted here and a single
- * sentinel is held while any claim is outstanding. The UA silently releases
- * the sentinel when the page is hidden (tab switch, screen lock); it is
- * re-acquired on visibility regain as long as a claim remains.
+ * Several mounted cooking surfaces can want the screen awake at once. The
+ * browser only hands out one practical sentinel per page, so claims are
+ * refcounted here and a single sentinel is held while any claim is outstanding.
+ * The UA silently releases the sentinel when the page is hidden (tab switch,
+ * screen lock); it is re-acquired on visibility regain as long as a claim
+ * remains.
  */
 
 let claims = 0

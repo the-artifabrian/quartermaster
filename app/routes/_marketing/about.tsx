@@ -115,8 +115,8 @@ export default function AboutRoute() {
 			<p className="text-muted-foreground mt-3 text-base/7">
 				Most recipe apps are great for browsing but terrible for actually
 				cooking. Quartermaster is the opposite: tap ingredients and steps to
-				cross them off, start timers right from recipe instructions, and scale
-				ingredient quantities on the fly.
+				cross them off, spot cooking times and temperatures at a glance, and
+				scale ingredient quantities on the fly.
 			</p>
 
 			<div className="mt-10">

@@ -365,7 +365,7 @@ function App() {
 	useToast(data.toast)
 
 	return (
-		<>
+		<NavTiming>
 			<PostHogIdentify
 				user={
 					user
@@ -376,7 +376,6 @@ function App() {
 			/>
 			<PostHogPageview />
 			<PostHogPwaLifecycle />
-			<NavTiming />
 			<ServiceWorkerDataSync
 				userId={user?.id ?? null}
 				householdId={data.householdId}
@@ -461,7 +460,7 @@ function App() {
 				{user && isPro ? <HouseholdActivityNotifier /> : null}
 				{user ? <ProExpiryNudge /> : null}
 			</OpenImgContextProvider>
-		</>
+		</NavTiming>
 	)
 }
 

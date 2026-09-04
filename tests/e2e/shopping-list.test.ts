@@ -193,6 +193,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 	page,
 	login,
 }) => {
+	test.setTimeout(30_000)
 	const user = await login()
 	const household = await prisma.household.create({
 		data: {
@@ -223,14 +224,42 @@ test('household Staples can be added together from the quiet Shopping picker', a
 		},
 	})
 
+	await page.setViewportSize({ width: 390, height: 844 })
+	let choiceRequestCount = 0
+	await page.route('**/resources/shopping-staples', async (route) => {
+		choiceRequestCount += 1
+		await new Promise((resolve) => setTimeout(resolve, 500))
+		if (choiceRequestCount === 1) {
+			await route.fulfill({
+				status: 503,
+				contentType: 'application/json',
+				body: JSON.stringify({ error: 'temporarily unavailable' }),
+			})
+			return
+		}
+		await route.continue()
+	})
+
 	await page.goto('/shopping')
-	await page
-		.getByRole('button', { name: 'From Staples, reminder available' })
-		.click()
+	// Production hydration is asynchronous and `networkidle` never settles due
+	// to live refresh, so retry the first interaction until the popover responds.
+	await expect(async () => {
+		await page
+			.getByRole('button', { name: 'From Staples, reminder available' })
+			.click()
+		await expect(
+			page.getByRole('heading', { name: 'What do you need this trip?' }),
+		).toBeVisible({ timeout: 2000 })
+	}).toPass({ timeout: 15_000 })
 	await expect(page.getByRole('button', { name: 'From Staples' })).toBeVisible()
+	await expect(page.getByRole('status')).toContainText('Loading Staples')
+	await expect(page.getByRole('alert')).toContainText('Couldn’t load Staples')
+	await page.getByRole('button', { name: 'Try again' }).click()
+	await expect(page.getByRole('status')).toContainText('Loading Staples')
 	await expect(
 		page.getByRole('button', { name: /Salt.*On list/ }),
 	).toBeDisabled()
+	expect(choiceRequestCount).toBe(2)
 
 	await page.getByRole('button', { name: 'Milk' }).click()
 	await page.getByRole('button', { name: 'Yogurt' }).click()
@@ -254,6 +283,54 @@ test('household Staples can be added together from the quiet Shopping picker', a
 			{ name: 'Salt', horizon: 'later' },
 			{ name: 'Yogurt', horizon: 'next' },
 		])
+
+	// The successful choices stay cached, while live Shopping rows continue to
+	// drive membership through action revalidation.
+	await page.getByRole('button', { name: 'From Staples' }).click()
+	await expect(
+		page.getByRole('button', { name: /Milk.*On list/ }),
+	).toBeDisabled()
+	await expect(
+		page.getByRole('button', { name: /Yogurt.*On list/ }),
+	).toBeDisabled()
+	expect(choiceRequestCount).toBe(2)
+	await page.getByRole('button', { name: 'From Staples' }).click()
+
+	const milkRow = page.getByRole('group', { name: 'Milk shopping item' })
+	await milkRow.getByRole('button', { name: 'Check off item' }).click()
+	await expect(
+		milkRow.getByRole('button', { name: 'Uncheck item' }),
+	).toBeVisible()
+	await page.getByRole('button', { name: 'From Staples' }).click()
+	await expect(
+		page.getByRole('button', { name: /Milk.*On list/ }),
+	).toBeDisabled()
+	await page.getByRole('button', { name: 'From Staples' }).click()
+	await milkRow.getByRole('button', { name: 'Uncheck item' }).click()
+	await expect(
+		milkRow.getByRole('button', { name: 'Check off item' }),
+	).toBeVisible()
+
+	const yogurtRow = page.getByRole('group', { name: 'Yogurt shopping item' })
+	await yogurtRow.getByRole('button', { name: 'Item actions' }).click()
+	await yogurtRow.getByRole('button', { name: 'Move to Later' }).click()
+	await expect(yogurtRow).toBeHidden()
+	await page.getByRole('button', { name: 'From Staples' }).click()
+	await expect(
+		page.getByRole('button', { name: /Yogurt.*On list/ }),
+	).toBeDisabled()
+	expect(choiceRequestCount).toBe(2)
+	await page.getByRole('button', { name: 'From Staples' }).click()
+
+	await page.getByRole('link', { name: 'Staples' }).click()
+	await expect(page).toHaveURL('/inventory')
+	await page.getByRole('link', { name: 'Shop' }).click()
+	await expect(page).toHaveURL('/shopping')
+	await page.getByRole('button', { name: 'From Staples' }).click()
+	await expect(
+		page.getByRole('button', { name: /Milk.*On list/ }),
+	).toBeDisabled()
+	expect(choiceRequestCount).toBe(3)
 })
 
 test('Next shop and Later stay usable and search-revealable on phone and desktop', async ({

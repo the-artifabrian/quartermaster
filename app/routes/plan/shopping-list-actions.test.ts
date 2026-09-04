@@ -10,6 +10,7 @@ import { createPrismaClient, prisma } from '#app/utils/db.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
+import { loader as shoppingStaplesLoader } from '../resources/shopping-staples.tsx'
 import { action, loader } from '../shopping.tsx'
 
 const ACTION_ARGS_BASE = {
@@ -17,6 +18,13 @@ const ACTION_ARGS_BASE = {
 	context: new RouterContextProvider(),
 	pattern: '/shopping',
 	url: new URL(`${BASE_URL}/shopping`),
+}
+
+const STAPLE_RESOURCE_ARGS_BASE = {
+	params: {},
+	context: new RouterContextProvider(),
+	pattern: '/resources/shopping-staples',
+	url: new URL(`${BASE_URL}/resources/shopping-staples`),
 }
 
 async function setupUser() {
@@ -338,7 +346,7 @@ describe('shopping list actions', () => {
 		expect(after.weeksWithPlans.map((week) => week.isCurrent)).toEqual([true])
 	})
 
-	test('loader exposes only active Staples and marks Shopping matches by shared identity', async () => {
+	test('the choice resource exposes only active Staples while Shopping owns current identities', async () => {
 		const session = await setupUser()
 		await prisma.householdIngredient.createMany({
 			data: [
@@ -363,11 +371,11 @@ describe('shopping list actions', () => {
 			],
 		})
 
-		const beforeCutover = await loader({
+		const beforeCutover = await shoppingStaplesLoader({
 			request: await makeLoaderRequest(session),
-			...ACTION_ARGS_BASE,
+			...STAPLE_RESOURCE_ARGS_BASE,
 		})
-		expect(beforeCutover.staples).toEqual([])
+		expect(beforeCutover.data.staples).toEqual([])
 
 		await prisma.household.update({
 			where: { id: session.householdId },
@@ -385,9 +393,22 @@ describe('shopping list actions', () => {
 			request: await makeLoaderRequest(session),
 			...ACTION_ARGS_BASE,
 		})
-		expect(afterCutover.staples).toEqual([
-			{ id: expect.any(String), displayName: 'Banana', onShoppingList: true },
-			{ id: expect.any(String), displayName: 'Milk', onShoppingList: false },
+		const choices = await shoppingStaplesLoader({
+			request: await makeLoaderRequest(session),
+			...STAPLE_RESOURCE_ARGS_BASE,
+		})
+		expect(afterCutover.shoppingIdentities).toEqual(['banana'])
+		expect(choices.data.staples).toEqual([
+			{
+				id: expect.any(String),
+				displayName: 'Banana',
+				shoppingIdentity: 'banana',
+			},
+			{
+				id: expect.any(String),
+				displayName: 'Milk',
+				shoppingIdentity: 'milk',
+			},
 		])
 	})
 

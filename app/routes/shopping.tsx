@@ -129,7 +129,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// A week counts as planned when it has at least one Recipe item — text-only
 	// Meals have no Shopping behavior, so a week of only "Leftovers" offers
 	// nothing to generate from.
-	const [mealPlans, stapleRows] = await Promise.all([
+	const [mealPlans, household] = await Promise.all([
 		prisma.mealPlan.findMany({
 			where: {
 				householdId,
@@ -144,14 +144,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 				},
 			},
 		}),
-		prisma.householdIngredient.findMany({
-			where: {
-				householdId,
-				isStaple: true,
-				household: { staplesCutoverAt: { not: null } },
-			},
-			orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
-			select: { id: true, displayName: true },
+		prisma.household.findUniqueOrThrow({
+			where: { id: householdId },
+			select: { staplesCutoverAt: true },
 		}),
 	])
 
@@ -169,20 +164,16 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}))
 
 	const hasMealPlan = weeksWithPlans.length > 0
-	const shoppingIdentities = new Set(
-		shoppingList.items.map((item) => demandIdentity(item.name)),
-	)
-	const staples = stapleRows.map((staple) => ({
-		...staple,
-		onShoppingList: shoppingIdentities.has(demandIdentity(staple.displayName)),
-	}))
-
+	const shoppingIdentities = [
+		...new Set(shoppingList.items.map((item) => demandIdentity(item.name))),
+	]
 	return {
 		shoppingList,
 		hasMealPlan,
 		weeksWithPlans,
 		isProActive,
-		staples,
+		staplesEnabled: household.staplesCutoverAt != null,
+		shoppingIdentities,
 	}
 }
 
@@ -872,8 +863,14 @@ export default function ShoppingListRoute({
 	loaderData,
 	actionData,
 }: Route.ComponentProps) {
-	const { shoppingList, hasMealPlan, weeksWithPlans, isProActive, staples } =
-		loaderData
+	const {
+		shoppingList,
+		hasMealPlan,
+		weeksWithPlans,
+		isProActive,
+		staplesEnabled,
+		shoppingIdentities,
+	} = loaderData
 	const defaultWeek =
 		weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
 		weeksWithPlans[0]?.weekStart ??
@@ -1073,10 +1070,13 @@ export default function ShoppingListRoute({
 							)}
 						</h1>
 						<div className="flex items-center gap-2 sm:ml-auto">
-							<ShoppingStaplesPicker
-								staples={staples}
-								showQuietCue={nextItems.length === 0}
-							/>
+							{staplesEnabled && (
+								<ShoppingStaplesPicker
+									key={shoppingList.householdId ?? shoppingList.id}
+									shoppingIdentities={shoppingIdentities}
+									showQuietCue={nextItems.length === 0}
+								/>
+							)}
 							{hasMealPlan && (
 								<Form method="POST" className="flex items-center gap-2">
 									<input type="hidden" name="intent" value="generate" />

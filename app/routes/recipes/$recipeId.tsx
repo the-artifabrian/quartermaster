@@ -43,6 +43,7 @@ import {
 	displayMetricAmount,
 } from '#app/utils/metric-conversion.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { formatRecipeForCopy } from '#app/utils/recipe-copy.ts'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { normalizeIngredientName } from '#app/utils/recipe-matching.server.ts'
@@ -668,6 +669,15 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		}
 	}
 
+	async function handleCopyRecipe() {
+		try {
+			await navigator.clipboard.writeText(formatRecipeForCopy(recipe, ratio))
+			toast.success('Copied')
+		} catch {
+			toast.error('Unable to copy recipe')
+		}
+	}
+
 	return (
 		<>
 			<script
@@ -677,7 +687,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				}}
 			/>
 
-			<div className="container-content pt-4 pb-20 md:pt-6 md:pb-6 print:pt-0">
+			<div className="container-content pt-4 pb-[calc(9.25rem+env(safe-area-inset-bottom))] md:pt-6 md:pb-20 lg:pb-6 print:pt-0 print:pb-0">
 				{/* Hero: Title + Image */}
 				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
 					<div className="min-w-0 flex-1">
@@ -753,6 +763,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							favoriteFetcher={favoriteFetcher}
 							enhanceFetcher={enhanceFetcher}
 							onAddToPlan={() => setPlanPickerOpen(true)}
+							onCopy={handleCopyRecipe}
 							onShare={handleShare}
 							onEnhance={handleEnhance}
 						/>

@@ -529,6 +529,94 @@ test('phone Recipes restore Ingredients after its heading passes', async ({
 		.getByRole('heading', { name: 'Instructions' })
 		.scrollIntoViewIfNeeded()
 	await expect(floatingIngredients).toBeVisible()
+	const finalInstruction = page
+		.getByRole('checkbox')
+		.filter({ hasText: 'Complete cooking step 12.' })
+	await page.evaluate(() => {
+		document.documentElement.style.scrollBehavior = 'auto'
+		window.scrollTo(0, document.documentElement.scrollHeight)
+	})
+	const [finalInstructionBox, floatingIngredientsBox] = await Promise.all([
+		finalInstruction.boundingBox(),
+		floatingIngredients.boundingBox(),
+	])
+	expect(finalInstructionBox).not.toBeNull()
+	expect(floatingIngredientsBox).not.toBeNull()
+	expect(
+		finalInstructionBox!.y + finalInstructionBox!.height,
+	).toBeLessThanOrEqual(floatingIngredientsBox!.y)
 	await floatingIngredients.click()
 	await expect(page.getByRole('dialog', { name: 'Ingredients' })).toBeVisible()
+})
+
+test('Recipe detail copies clean scaled text and reports clipboard results', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const household = await prisma.household.create({
+		data: {
+			name: 'Recipe copy household',
+			members: { create: { userId: user.id, role: 'owner' } },
+		},
+	})
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Clipboard Soup',
+			description: 'Not part of the clean copy.',
+			rawText: 'Internal import data.',
+			notes: 'Private cooking notes.',
+			userId: user.id,
+			householdId: household.id,
+			ingredients: {
+				create: [
+					{ name: 'For the soup', isHeading: true, order: 0 },
+					{
+						name: 'tomatoes',
+						amount: '1/2',
+						unit: 'cup',
+						notes: 'drained',
+						order: 1,
+					},
+					{ name: 'salt', order: 2 },
+				],
+			},
+			instructions: {
+				create: [
+					{ content: 'Simmer gently.', order: 0 },
+					{ content: 'Serve warm.', order: 1 },
+				],
+			},
+		},
+	})
+
+	await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+	await page.goto(`/recipes/${recipe.id}?scale=1.5`)
+	await page.getByRole('checkbox', { name: 'tomatoes' }).click()
+	await page.getByRole('checkbox').filter({ hasText: 'Simmer gently.' }).click()
+	await page.getByRole('button', { name: 'Copy Recipe' }).click()
+
+	const announcements = page.getByRole('region', { name: /Notifications/ })
+	await expect(announcements.getByText('Copied', { exact: true })).toBeVisible()
+	await expect.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+		.toBe(`Clipboard Soup
+
+Ingredients
+- 3/4 cup tomatoes
+- salt
+
+Instructions
+1. Simmer gently.
+2. Serve warm.`)
+
+	await page.evaluate(() => {
+		Object.defineProperty(navigator.clipboard, 'writeText', {
+			configurable: true,
+			value: () => Promise.reject(new Error('Clipboard unavailable')),
+		})
+	})
+	await page.getByRole('button', { name: 'Copy Recipe' }).click()
+	await expect(
+		announcements.getByText('Unable to copy recipe', { exact: true }),
+	).toBeVisible()
 })

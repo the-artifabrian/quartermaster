@@ -8,8 +8,9 @@ import {
 	type PrototypeVariant,
 } from './prototype-switcher.tsx'
 
-// PROTOTYPE — Task-first Staples layouts, switchable with ?variant=A|B|C|D on
-// the existing /inventory route. Mutations live only in component state.
+// PROTOTYPE — Three compact Staples header compositions, switchable with
+// ?variant=A|B|C on the existing /inventory route. Mutations live only in
+// component state.
 
 type PrototypeStaple = {
 	id: string
@@ -18,10 +19,9 @@ type PrototypeStaple = {
 }
 
 const VARIANTS: PrototypeVariant[] = [
-	{ key: 'A', label: 'Restock queue' },
-	{ key: 'D', label: 'Split status' },
-	{ key: 'B', label: 'Filterable ledger' },
-	{ key: 'C', label: 'Trip board' },
+	{ key: 'A', label: 'Unified toolbar' },
+	{ key: 'B', label: 'Quiet title actions' },
+	{ key: 'C', label: 'Two-field utility row' },
 ]
 
 export function StaplesDailyPrototype({
@@ -98,21 +98,18 @@ export function StaplesDailyPrototype({
 
 	return (
 		<>
-			{variant === 'D' ? (
-				<SplitStatusQueue {...shared} />
-			) : variant === 'B' ? (
-				<FilterableLedger {...shared} />
-			) : variant === 'C' ? (
-				<TripBoard {...shared} />
-			) : (
-				<RestockQueue {...shared} />
-			)}
+			<SplitStatusQueue
+				{...shared}
+				headerVariant={variant === 'B' || variant === 'C' ? variant : 'A'}
+			/>
 			<PrototypeSwitcher variants={VARIANTS} current={variant} />
 		</>
 	)
 }
 
-function SplitStatusQueue(props: VariantProps) {
+function SplitStatusQueue(
+	props: VariantProps & { headerVariant: 'A' | 'B' | 'C' },
+) {
 	const out = alphabetize(props.filtered.filter((staple) => staple.isOut))
 	const available = alphabetize(
 		props.filtered.filter((staple) => !staple.isOut),
@@ -121,16 +118,8 @@ function SplitStatusQueue(props: VariantProps) {
 
 	return (
 		<PrototypePage>
-			<PageHeader
-				title="Staples"
-				description="Things you usually have. Mark one Out to add it to Next shop."
-				onAdd={() => props.setAddOpen(!props.addOpen)}
-			/>
-			<InlineAdd {...props} />
-			{props.staples.length >= 12 && (
-				<Search value={props.search} onChange={props.setSearch} />
-			)}
-			<LiveFeedback>{props.feedback}</LiveFeedback>
+			<HeaderPass {...props} variant={props.headerVariant} />
+			{props.feedback ? <LiveFeedback>{props.feedback}</LiveFeedback> : null}
 
 			<section className="mt-5 overflow-hidden rounded-lg border border-amber-700/20">
 				<div className="flex items-baseline justify-between bg-amber-500/5 px-4 py-3">
@@ -193,6 +182,160 @@ function SplitStatusQueue(props: VariantProps) {
 	)
 }
 
+function HeaderPass({
+	variant,
+	...props
+}: VariantProps & { variant: 'A' | 'B' | 'C' }) {
+	if (variant === 'B') return <QuietTitleActions {...props} />
+	if (variant === 'C') return <TwoFieldUtilityRow {...props} />
+	return <UnifiedToolbar {...props} />
+}
+
+function HeaderCopy() {
+	return (
+		<div className="min-w-0">
+			<h1 className="font-serif text-2xl font-normal">Staples</h1>
+			<p className="text-muted-foreground mt-1 max-w-xl text-sm">
+				Things you usually have. Mark one Out to add it to Next shop.
+			</p>
+		</div>
+	)
+}
+
+function UnifiedToolbar(props: VariantProps) {
+	return (
+		<header>
+			<HeaderCopy />
+			{props.addOpen ? (
+				<form onSubmit={props.add} className="mt-4 flex items-center gap-2">
+					<label className="min-w-0 flex-1">
+						<span className="sr-only">Staple name</span>
+						<Input
+							autoFocus
+							value={props.newName}
+							onChange={(event) => props.setNewName(event.currentTarget.value)}
+							placeholder="Staple name"
+							className="min-h-11"
+						/>
+					</label>
+					<Button type="submit" disabled={!props.newName.trim()}>
+						Add
+					</Button>
+					<Button
+						type="button"
+						variant="ghost"
+						className="min-h-11"
+						onClick={() => props.setAddOpen(false)}
+					>
+						Cancel
+					</Button>
+				</form>
+			) : (
+				<div className="mt-4 flex items-center gap-2">
+					<div className="min-w-0 flex-1 sm:max-w-md">
+						<Search value={props.search} onChange={props.setSearch} compact />
+					</div>
+					<Button
+						type="button"
+						variant="outline"
+						className="min-h-11 shrink-0"
+						onClick={() => props.setAddOpen(true)}
+					>
+						<Icon name="plus" size="sm" /> Add
+					</Button>
+				</div>
+			)}
+		</header>
+	)
+}
+
+function QuietTitleActions(props: VariantProps) {
+	const [searchOpen, setSearchOpen] = useState(false)
+	return (
+		<header>
+			<div className="flex items-start justify-between gap-4">
+				<HeaderCopy />
+				<div className="flex shrink-0 items-center gap-1">
+					<button
+						type="button"
+						className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-11 items-center justify-center rounded-md"
+						aria-label="Search Staples"
+						onClick={() => setSearchOpen((open) => !open)}
+					>
+						<Icon name="magnifying-glass" size="sm" />
+					</button>
+					<Button
+						type="button"
+						variant="ghost"
+						className="min-h-11"
+						onClick={() => props.setAddOpen(!props.addOpen)}
+					>
+						<Icon name="plus" size="sm" /> Add
+					</Button>
+				</div>
+			</div>
+			{props.addOpen ? (
+				<form
+					onSubmit={props.add}
+					className="border-border mt-4 flex items-center gap-2 border-b pb-3"
+				>
+					<label className="min-w-0 flex-1">
+						<span className="sr-only">Staple name</span>
+						<input
+							autoFocus
+							value={props.newName}
+							onChange={(event) => props.setNewName(event.currentTarget.value)}
+							placeholder="What do you usually keep around?"
+							className="placeholder:text-muted-foreground h-11 w-full bg-transparent px-1 outline-none"
+						/>
+					</label>
+					<Button type="submit" size="sm" disabled={!props.newName.trim()}>
+						Add
+					</Button>
+				</form>
+			) : searchOpen ? (
+				<div className="mt-4 sm:max-w-md">
+					<Search value={props.search} onChange={props.setSearch} compact />
+				</div>
+			) : null}
+		</header>
+	)
+}
+
+function TwoFieldUtilityRow(props: VariantProps) {
+	return (
+		<header>
+			<HeaderCopy />
+			<div className="mt-4 grid gap-2 sm:grid-cols-2">
+				<Search value={props.search} onChange={props.setSearch} compact />
+				<form onSubmit={props.add} className="relative">
+					<label>
+						<span className="sr-only">Add a Staple</span>
+						<Icon
+							name="plus"
+							size="sm"
+							className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+						/>
+						<Input
+							value={props.newName}
+							onChange={(event) => props.setNewName(event.currentTarget.value)}
+							placeholder="Add a Staple"
+							className="min-h-11 pr-16 pl-9"
+						/>
+					</label>
+					<button
+						type="submit"
+						disabled={!props.newName.trim()}
+						className="text-primary disabled:text-muted-foreground absolute top-0 right-0 min-h-11 px-3 text-sm font-medium disabled:opacity-50"
+					>
+						Add
+					</button>
+				</form>
+			</div>
+		</header>
+	)
+}
+
 type VariantProps = {
 	staples: PrototypeStaple[]
 	filtered: PrototypeStaple[]
@@ -209,364 +352,11 @@ type VariantProps = {
 	archivedInventoryCount: number
 }
 
-function RestockQueue(props: VariantProps) {
-	const out = alphabetize(props.filtered.filter((staple) => staple.isOut))
-	const available = alphabetize(
-		props.filtered.filter((staple) => !staple.isOut),
-	)
-	const totalOut = props.staples.filter((staple) => staple.isOut).length
-
-	return (
-		<PrototypePage>
-			<PageHeader
-				title="Staples"
-				description="Things you usually have. Mark one Out to add it to Next shop."
-				onAdd={() => props.setAddOpen(!props.addOpen)}
-			/>
-			<InlineAdd {...props} />
-			{props.staples.length >= 12 && (
-				<Search value={props.search} onChange={props.setSearch} />
-			)}
-			<LiveFeedback>{props.feedback}</LiveFeedback>
-
-			<section className="mt-5 rounded-lg border border-amber-700/20 bg-amber-500/5">
-				<div className="flex items-baseline justify-between px-4 pt-4 pb-2">
-					<div>
-						<h2 className="font-serif text-xl font-normal">Out</h2>
-						<p className="text-muted-foreground text-sm">
-							Waiting in Next shop
-						</p>
-					</div>
-					<span className="rounded-full bg-amber-700/10 px-2.5 py-1 text-sm font-medium text-amber-800 dark:text-amber-300">
-						{totalOut}
-					</span>
-				</div>
-				{out.length ? (
-					<div className="divide-border/40 divide-y px-4 pb-2">
-						{out.map((staple) => (
-							<NamedActionRow
-								key={staple.id}
-								staple={staple}
-								action="Mark available"
-								onAction={() => props.toggle(staple)}
-								onRemove={() => props.remove(staple)}
-							/>
-						))}
-					</div>
-				) : (
-					<p className="text-muted-foreground px-4 pt-1 pb-5 text-sm">
-						Nothing is Out.
-					</p>
-				)}
-			</section>
-
-			<section className="mt-7">
-				<div className="flex items-baseline justify-between border-b pb-2">
-					<h2 className="font-serif text-xl font-normal">Usually available</h2>
-					<span className="text-muted-foreground text-sm">
-						{props.staples.length - totalOut}
-					</span>
-				</div>
-				{available.length ? (
-					<div className="divide-border/40 divide-y">
-						{available.map((staple) => (
-							<NamedActionRow
-								key={staple.id}
-								staple={staple}
-								action="Mark Out"
-								onAction={() => props.toggle(staple)}
-								onRemove={() => props.remove(staple)}
-							/>
-						))}
-					</div>
-				) : (
-					<p className="text-muted-foreground py-5 text-sm">
-						{props.search
-							? 'No available Staples match this search.'
-							: 'Every Staple is Out.'}
-					</p>
-				)}
-			</section>
-			<RecoveryDetails count={props.archivedInventoryCount} />
-		</PrototypePage>
-	)
-}
-
-function FilterableLedger(props: VariantProps) {
-	const [filter, setFilter] = useState<'all' | 'out'>('all')
-	const totalOut = props.staples.filter((staple) => staple.isOut).length
-	const visible = alphabetize(
-		props.filtered.filter((staple) => filter === 'all' || staple.isOut),
-	)
-
-	return (
-		<PrototypePage>
-			<PageHeader
-				title="Staples"
-				description="Your household defaults, with Out items sent straight to Next shop."
-				onAdd={() => props.setAddOpen(!props.addOpen)}
-			/>
-			<InlineAdd {...props} />
-			<div className="mt-5 flex items-center gap-2">
-				<div
-					className="bg-muted/60 flex rounded-lg p-1"
-					aria-label="Filter Staples"
-				>
-					<button
-						type="button"
-						className={cn(
-							'min-h-10 rounded-md px-4 text-sm',
-							filter === 'all' && 'bg-background shadow-sm',
-						)}
-						onClick={() => setFilter('all')}
-					>
-						All {props.staples.length}
-					</button>
-					<button
-						type="button"
-						className={cn(
-							'min-h-10 rounded-md px-4 text-sm',
-							filter === 'out' && 'bg-background shadow-sm',
-						)}
-						onClick={() => setFilter('out')}
-					>
-						Out {totalOut}
-					</button>
-				</div>
-				<div className="min-w-0 flex-1">
-					<Search value={props.search} onChange={props.setSearch} compact />
-				</div>
-			</div>
-			<LiveFeedback>{props.feedback}</LiveFeedback>
-			<div className="mt-4 divide-y">
-				{visible.length ? (
-					visible.map((staple) => (
-						<div
-							key={staple.id}
-							className="flex min-h-14 items-center gap-3 py-2"
-						>
-							<span
-								className={cn(
-									'size-2.5 shrink-0 rounded-full',
-									staple.isOut ? 'bg-amber-600' : 'bg-primary/35',
-								)}
-								aria-hidden="true"
-							/>
-							<div className="min-w-0 flex-1">
-								<p className="truncate">{staple.displayName}</p>
-								<p className="text-muted-foreground text-xs">
-									{staple.isOut ? 'Out · in Next shop' : 'Usually available'}
-								</p>
-							</div>
-							<Button
-								type="button"
-								variant={staple.isOut ? 'secondary' : 'outline'}
-								className="min-h-11"
-								onClick={() => props.toggle(staple)}
-							>
-								{staple.isOut ? 'Available' : 'Out'}
-							</Button>
-							<RemoveButton
-								staple={staple}
-								onRemove={() => props.remove(staple)}
-							/>
-						</div>
-					))
-				) : (
-					<NoResults
-						search={props.search}
-						onClear={() => props.setSearch('')}
-					/>
-				)}
-			</div>
-			<RecoveryDetails count={props.archivedInventoryCount} />
-		</PrototypePage>
-	)
-}
-
-function TripBoard(props: VariantProps) {
-	const out = alphabetize(props.filtered.filter((staple) => staple.isOut))
-	const available = alphabetize(
-		props.filtered.filter((staple) => !staple.isOut),
-	)
-	const totalOut = props.staples.filter((staple) => staple.isOut).length
-
-	return (
-		<PrototypePage>
-			<div className="bg-primary text-primary-foreground rounded-xl px-5 py-5">
-				<p className="text-xs font-medium tracking-wider uppercase opacity-75">
-					Staples
-				</p>
-				<div className="mt-2 flex items-end justify-between gap-4">
-					<div>
-						<h1 className="font-serif text-3xl font-normal">Need this trip</h1>
-						<p className="mt-1 text-sm opacity-80">
-							{totalOut
-								? `${totalOut} waiting in Next shop`
-								: 'Nothing waiting in Next shop'}
-						</p>
-					</div>
-					<span className="font-serif text-5xl leading-none">{totalOut}</span>
-				</div>
-			</div>
-
-			<LiveFeedback>{props.feedback}</LiveFeedback>
-			<section className="mt-4">
-				{out.length ? (
-					<div className="grid gap-2 sm:grid-cols-2">
-						{out.map((staple) => (
-							<div
-								key={staple.id}
-								className="bg-muted/50 flex items-center gap-3 rounded-lg p-3"
-							>
-								<Icon
-									name="cookie"
-									className="size-5 shrink-0 text-amber-700"
-								/>
-								<span className="min-w-0 flex-1 truncate font-medium">
-									{staple.displayName}
-								</span>
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									onClick={() => props.toggle(staple)}
-								>
-									Got it
-								</Button>
-							</div>
-						))}
-					</div>
-				) : (
-					<div className="border-border rounded-lg border border-dashed p-5 text-center">
-						<Icon name="check" className="text-primary mx-auto size-6" />
-						<p className="mt-2 font-medium">Nothing is Out</p>
-						<p className="text-muted-foreground mt-1 text-sm">
-							Your usual Staples are accounted for.
-						</p>
-					</div>
-				)}
-			</section>
-
-			<section className="mt-8">
-				<div className="flex flex-wrap items-center gap-3">
-					<div className="min-w-44 flex-1">
-						<h2 className="font-serif text-xl font-normal">
-							Usually available
-						</h2>
-						<p className="text-muted-foreground text-sm">
-							Tap Need when something runs out.
-						</p>
-					</div>
-					<Button
-						type="button"
-						variant="outline"
-						onClick={() => props.setAddOpen(!props.addOpen)}
-					>
-						<Icon name="plus" size="sm" /> Add
-					</Button>
-				</div>
-				<InlineAdd {...props} />
-				{props.staples.length >= 8 && (
-					<Search value={props.search} onChange={props.setSearch} />
-				)}
-				<div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-					{available.length ? (
-						available.map((staple) => (
-							<div
-								key={staple.id}
-								className="border-border flex min-h-14 items-center gap-2 rounded-lg border px-3 py-2"
-							>
-								<span className="min-w-0 flex-1 truncate">
-									{staple.displayName}
-								</span>
-								<button
-									type="button"
-									className="text-primary hover:bg-primary/10 min-h-10 rounded-md px-3 text-sm font-medium"
-									onClick={() => props.toggle(staple)}
-								>
-									Need
-								</button>
-								<RemoveButton
-									staple={staple}
-									onRemove={() => props.remove(staple)}
-								/>
-							</div>
-						))
-					) : (
-						<NoResults
-							search={props.search}
-							onClear={() => props.setSearch('')}
-						/>
-					)}
-				</div>
-			</section>
-			<RecoveryDetails count={props.archivedInventoryCount} />
-		</PrototypePage>
-	)
-}
-
 function PrototypePage({ children }: { children: React.ReactNode }) {
 	return (
 		<main className="container-content w-full min-w-0 overflow-x-hidden py-4 pb-36 md:py-6 md:pb-24">
 			{children}
 		</main>
-	)
-}
-
-function PageHeader({
-	title,
-	description,
-	onAdd,
-}: {
-	title: string
-	description: string
-	onAdd: () => void
-}) {
-	return (
-		<header>
-			<div className="flex items-start justify-between gap-4">
-				<h1 className="font-serif text-2xl font-normal">{title}</h1>
-				<Button
-					type="button"
-					variant="outline"
-					className="min-h-11 shrink-0"
-					onClick={onAdd}
-				>
-					<Icon name="plus" size="sm" /> Add
-				</Button>
-			</div>
-			<p className="text-muted-foreground mt-1 max-w-xl text-sm">
-				{description}
-			</p>
-		</header>
-	)
-}
-
-function InlineAdd(props: VariantProps) {
-	if (!props.addOpen) return null
-	return (
-		<form
-			onSubmit={props.add}
-			className="bg-muted/40 mt-4 flex items-end gap-2 rounded-lg p-3"
-		>
-			<label className="min-w-0 flex-1 text-sm font-medium">
-				Add a Staple
-				<Input
-					autoFocus
-					value={props.newName}
-					onChange={(event) => props.setNewName(event.currentTarget.value)}
-					className="mt-1 min-h-11"
-				/>
-			</label>
-			<Button
-				type="submit"
-				className="min-h-11"
-				disabled={!props.newName.trim()}
-			>
-				Add
-			</Button>
-		</form>
 	)
 }
 
@@ -607,33 +397,6 @@ function LiveFeedback({ children }: { children: React.ReactNode }) {
 		>
 			{children}
 		</p>
-	)
-}
-
-function NamedActionRow({
-	staple,
-	action,
-	onAction,
-	onRemove,
-}: {
-	staple: PrototypeStaple
-	action: string
-	onAction: () => void
-	onRemove: () => void
-}) {
-	return (
-		<div className="flex min-h-14 items-center gap-2 py-2">
-			<span className="min-w-0 flex-1 truncate">{staple.displayName}</span>
-			<Button
-				type="button"
-				variant="outline"
-				className="min-h-11 shrink-0"
-				onClick={onAction}
-			>
-				{action}
-			</Button>
-			<RemoveButton staple={staple} onRemove={onRemove} />
-		</div>
 	)
 }
 
@@ -686,23 +449,6 @@ function RemoveButton({
 		>
 			<Icon name="trash" size="sm" />
 		</button>
-	)
-}
-
-function NoResults({
-	search,
-	onClear,
-}: {
-	search: string
-	onClear: () => void
-}) {
-	return (
-		<div className="col-span-full py-8 text-center">
-			<p className="font-medium">No Staples match &ldquo;{search}&rdquo;</p>
-			<Button type="button" variant="link" onClick={onClear}>
-				Clear search
-			</Button>
-		</div>
 	)
 }
 

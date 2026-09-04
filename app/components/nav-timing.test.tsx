@@ -1,15 +1,16 @@
 /**
  * @vitest-environment jsdom
  */
-import { act, render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import {
 	createMemoryRouter,
 	Outlet,
 	RouterProvider,
 	type RouteObject,
+	useNavigate,
 } from 'react-router'
 import { beforeEach, expect, test, vi } from 'vitest'
-import { NavTiming } from './nav-timing.tsx'
+import { NavTiming, useBottomNavTiming } from './nav-timing.tsx'
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }))
 const resourceTiming = vi.hoisted(() => ({ readDataTiming: vi.fn(() => null) }))
@@ -28,15 +29,34 @@ function createTestRouter(children: RouteObject[]) {
 				id: 'root',
 				path: '/',
 				element: (
-					<>
-						<NavTiming />
+					<NavTiming>
 						<Outlet />
-					</>
+					</NavTiming>
 				),
 				children,
 			},
 		],
 		{ initialEntries: ['/'] },
+	)
+}
+
+function BottomNavTestTrigger() {
+	const navigate = useNavigate()
+	const timing = useBottomNavTiming()
+	return (
+		<button
+			onClick={() => {
+				timing.begin({
+					destination: 'plan',
+					destinationPath: '/plan?private=value',
+					tabPath: '/plan',
+					startedAt: 50,
+				})
+				void navigate('/plan?private=value')
+			}}
+		>
+			Plan
+		</button>
 	)
 }
 
@@ -87,6 +107,9 @@ test('reports stable route ids rather than dynamic pathnames', async () => {
 	const properties = analytics.capture.mock.calls[0]?.[1]
 	expect(properties).not.toHaveProperty('from')
 	expect(properties).not.toHaveProperty('to')
+	expect(properties).not.toHaveProperty('navigation_source')
+	expect(properties).not.toHaveProperty('destination_tab')
+	expect(properties).not.toHaveProperty('input_to_idle_ms')
 	expect(JSON.stringify(properties)).not.toContain('private-record-id')
 })
 
@@ -134,6 +157,47 @@ test('includes the action submission in the user-visible navigation duration', a
 				to_route: 'routes/save',
 			}),
 		),
+	)
+})
+
+test('adds low-cardinality BottomNav input-to-idle context to the existing event', async () => {
+	const loader = deferred<null>()
+	const router = createTestRouter([
+		{
+			index: true,
+			element: <BottomNavTestTrigger />,
+		},
+		{
+			id: 'routes/plan/index',
+			path: 'plan',
+			loader: () => loader.promise,
+			element: <div>Meal plan</div>,
+		},
+	])
+	let now = 100
+	vi.spyOn(performance, 'now').mockImplementation(() => now)
+	render(<RouterProvider router={router} />)
+
+	fireEvent.click(screen.getByRole('button', { name: 'Plan' }))
+	await waitFor(() => expect(router.state.navigation.state).toBe('loading'))
+	now = 600
+	loader.resolve(null)
+	await waitFor(() => expect(router.state.navigation.state).toBe('idle'))
+
+	await waitFor(() =>
+		expect(analytics.capture).toHaveBeenCalledWith('nav_duration_ms', {
+			duration_ms: 500,
+			from_route: '0-0',
+			to_route: 'routes/plan/index',
+			effective_type: undefined,
+			rtt: undefined,
+			navigation_source: 'bottom_nav',
+			destination_tab: 'plan',
+			input_to_idle_ms: 550,
+		}),
+	)
+	expect(JSON.stringify(analytics.capture.mock.calls[0]?.[1])).not.toContain(
+		'private',
 	)
 })
 

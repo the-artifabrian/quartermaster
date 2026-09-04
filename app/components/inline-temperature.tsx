@@ -4,9 +4,11 @@ import { cn } from '#app/utils/misc.tsx'
 export function InlineTemperature({
 	originalText,
 	converted,
+	isChecked = false,
 }: {
 	originalText: string
 	converted: string
+	isChecked?: boolean
 }) {
 	const [open, setOpen] = useState(false)
 	const tooltipId = useId()
@@ -50,7 +52,12 @@ export function InlineTemperature({
 					}
 				}}
 				onBlur={() => setOpen(false)}
-				className="text-copper-text decoration-copper-text/50 focus-visible:ring-ring cursor-help rounded-sm font-semibold underline decoration-dotted underline-offset-4 focus-visible:ring-2 focus-visible:outline-none print:text-inherit print:no-underline"
+				className={cn(
+					'focus-visible:ring-ring cursor-help rounded-sm font-semibold focus-visible:ring-2 focus-visible:outline-none print:text-inherit print:no-underline',
+					isChecked
+						? 'text-muted-foreground/40 decoration-muted-foreground/30 line-through'
+						: 'text-copper-text decoration-copper-text/50 underline decoration-dotted underline-offset-4',
+				)}
 			>
 				{originalText}
 			</span>

@@ -91,6 +91,7 @@ export function RecipeInstructionsList({
 											? convertTemperatures(instruction.content)
 											: instruction.content
 									}
+									isChecked={isChecked}
 								/>
 							</p>
 						</li>

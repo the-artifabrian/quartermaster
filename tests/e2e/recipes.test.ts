@@ -664,6 +664,15 @@ test('Recipe instructions show passive cooking cues and ignore stored timers', a
 	await temperatureCue.focus()
 	await temperatureCue.press('Enter')
 	await expect(step.getByRole('tooltip')).toBeVisible()
+	await temperatureCue.press('Escape')
+
+	await step.click({ position: { x: 8, y: 8 } })
+	await expect(step).toHaveAttribute('aria-checked', 'true')
+	await expect(durationCues.first()).toHaveCSS(
+		'text-decoration-line',
+		/line-through/,
+	)
+	await expect(temperatureCue).toHaveCSS('text-decoration-line', /line-through/)
 
 	const ordinaryStep = page
 		.getByRole('checkbox')

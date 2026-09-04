@@ -1,4 +1,5 @@
 import { InlineTemperature } from '#app/components/inline-temperature.tsx'
+import { cn } from '#app/utils/misc.tsx'
 import {
 	detectTemperatures,
 	type TemperatureMatch,
@@ -40,7 +41,13 @@ export function selectNonOverlappingCookingCues(
 	return selected
 }
 
-export function InstructionWithCookingCues({ content }: { content: string }) {
+export function InstructionWithCookingCues({
+	content,
+	isChecked = false,
+}: {
+	content: string
+	isChecked?: boolean
+}) {
 	const cues = selectNonOverlappingCookingCues([
 		...detectTimes(content).map((match) => ({
 			type: 'duration' as const,
@@ -67,7 +74,12 @@ export function InstructionWithCookingCues({ content }: { content: string }) {
 					key={`duration-${startIndex}-${endIndex}`}
 					data-cooking-cue="duration"
 					data-testid="cooking-duration-cue"
-					className="text-primary decoration-primary/40 font-semibold underline decoration-2 underline-offset-4 print:text-inherit print:no-underline"
+					className={cn(
+						'font-semibold print:text-inherit print:no-underline',
+						isChecked
+							? 'text-muted-foreground/40 decoration-muted-foreground/30 line-through'
+							: 'text-primary decoration-primary/40 underline decoration-2 underline-offset-4',
+					)}
 				>
 					{content.slice(startIndex, endIndex)}
 				</span>,
@@ -78,6 +90,7 @@ export function InstructionWithCookingCues({ content }: { content: string }) {
 					key={`temperature-${startIndex}-${endIndex}`}
 					originalText={cue.match.originalText}
 					converted={cue.match.converted}
+					isChecked={isChecked}
 				/>,
 			)
 		}

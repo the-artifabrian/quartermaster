@@ -5,8 +5,11 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { expect, test, vi } from 'vitest'
-import { PWA_UPDATE_PROMPT_SHOWN } from '#app/utils/posthog-events.ts'
-import { takeCompletedPwaUpdate } from '#app/utils/pwa-update-telemetry.ts'
+import {
+	PWA_UPDATE_ACCEPTED,
+	PWA_UPDATE_PROMPT_SHOWN,
+} from '#app/utils/posthog-events.ts'
+import { getPwaUpdateTelemetry } from '#app/utils/pwa-update-telemetry.ts'
 import {
 	hasPendingRouterWork,
 	ServiceWorkerUpdate,
@@ -142,9 +145,14 @@ test('a waiting update requires confirmation and reloads once after activation',
 		name: 'Update available',
 	})
 	await waitFor(() =>
-		expect(analytics.capture).toHaveBeenCalledWith(PWA_UPDATE_PROMPT_SHOWN, {
-			worker_state: 'installed',
-		}),
+		expect(analytics.capture).toHaveBeenCalledWith(
+			PWA_UPDATE_PROMPT_SHOWN,
+			{ worker_state: 'installed' },
+			{
+				uuid: expect.any(String),
+				timestamp: expect.any(Date),
+			},
+		),
 	)
 	expect(registration.update).not.toHaveBeenCalled()
 
@@ -157,6 +165,14 @@ test('a waiting update requires confirmation and reloads once after activation',
 	expect(worker.postMessage).toHaveBeenCalledWith({
 		type: 'qm-activate-update',
 	})
+	expect(analytics.capture).toHaveBeenCalledWith(
+		PWA_UPDATE_ACCEPTED,
+		expect.objectContaining({ from_build: 'old-build' }),
+		{
+			uuid: expect.any(String),
+			timestamp: expect.any(Date),
+		},
+	)
 	expect(update).toBeDisabled()
 
 	act(() => {
@@ -165,7 +181,9 @@ test('a waiting update requires confirmation and reloads once after activation',
 		serviceWorkers.dispatchEvent(new Event('controllerchange'))
 	})
 	expect(page.reload).toHaveBeenCalledTimes(1)
-	expect(takeCompletedPwaUpdate({ toBuild: 'new-build' })).toMatchObject({
+	expect(
+		getPwaUpdateTelemetry({ toBuild: 'new-build' }).completed?.properties,
+	).toMatchObject({
 		from_build: 'old-build',
 		to_build: 'new-build',
 		build_changed: true,

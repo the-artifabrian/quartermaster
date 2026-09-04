@@ -52,12 +52,18 @@ test('initializes the deferred SDK with the existing privacy and performance beh
 		}),
 	).toBeNull()
 
-	client.capture('$pageview', { path: '/recipes' })
+	const captureOptions = {
+		uuid: '00000000-0000-4000-8000-000000000001',
+		timestamp: new Date(1_000),
+	}
+	client.capture('$pageview', { path: '/recipes' }, captureOptions)
 	client.registerForSession({ display_mode: 'standalone' })
 	client.identify('user-1', { name: 'Ada' })
-	expect(posthog.capture).toHaveBeenCalledWith('$pageview', {
-		path: '/recipes',
-	})
+	expect(posthog.capture).toHaveBeenCalledWith(
+		'$pageview',
+		{ path: '/recipes' },
+		captureOptions,
+	)
 	expect(posthog.identify).toHaveBeenCalledWith('user-1', { name: 'Ada' })
 	expect(posthog.register_for_session).toHaveBeenCalledWith({
 		display_mode: 'standalone',

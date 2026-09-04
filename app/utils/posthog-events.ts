@@ -7,4 +7,5 @@ export const SUBSCRIPTION_ACTIVATED = 'subscription_activated' as const
 export const PWA_LAUNCHED = 'pwa_launched' as const
 export const PWA_RESUMED = 'pwa_resumed' as const
 export const PWA_UPDATE_PROMPT_SHOWN = 'pwa_update_prompt_shown' as const
+export const PWA_UPDATE_ACCEPTED = 'pwa_update_accepted' as const
 export const PWA_UPDATE_COMPLETED = 'pwa_update_completed' as const

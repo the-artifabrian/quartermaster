@@ -1,18 +1,41 @@
 export const PWA_UPDATE_STORAGE_KEY = 'qm:pwa-update'
 export const PWA_UPDATE_COMPLETION_TTL_MS = 10 * 60 * 1000
 
-type PendingPwaUpdate = {
-	fromBuild: string
-	acceptedAt: number
-	activatedAt?: number
+type StoredEvent = {
+	uuid: string
+	timestamp: number
 }
 
-export type CompletedPwaUpdate = {
-	from_build: string
-	to_build: string
-	build_changed: boolean
-	accepted_to_activated_ms: number
-	accepted_to_completed_ms: number
+type StoredPrompt = StoredEvent & {
+	workerState: ServiceWorkerState
+}
+
+type StoredAcceptance = StoredEvent & {
+	fromBuild: string
+}
+
+type StoredCompletion = StoredEvent & {
+	toBuild: string
+}
+
+type PendingPwaUpdate = {
+	version: 1
+	prompt?: StoredPrompt
+	accepted?: StoredAcceptance
+	activatedAt?: number
+	completed?: StoredCompletion
+}
+
+export type PwaTelemetryCapture = {
+	uuid: string
+	timestamp: number
+	properties: Record<string, unknown>
+}
+
+export type PwaUpdateTelemetry = {
+	prompt?: PwaTelemetryCapture
+	accepted?: PwaTelemetryCapture
+	completed?: PwaTelemetryCapture
 }
 
 function getStorage() {
@@ -22,6 +45,17 @@ function getStorage() {
 	} catch {
 		return null
 	}
+}
+
+function isStoredEvent(value: unknown): value is StoredEvent {
+	return (
+		value != null &&
+		typeof value === 'object' &&
+		'uuid' in value &&
+		typeof value.uuid === 'string' &&
+		'timestamp' in value &&
+		typeof value.timestamp === 'number'
+	)
 }
 
 function readPendingUpdate(): PendingPwaUpdate | null {
@@ -34,11 +68,25 @@ function readPendingUpdate(): PendingPwaUpdate | null {
 		if (
 			!value ||
 			typeof value !== 'object' ||
-			!('fromBuild' in value) ||
-			typeof value.fromBuild !== 'string' ||
-			!('acceptedAt' in value) ||
-			typeof value.acceptedAt !== 'number' ||
-			('activatedAt' in value && typeof value.activatedAt !== 'number')
+			!('version' in value) ||
+			value.version !== 1
+		) {
+			return null
+		}
+
+		const pending = value as Partial<PendingPwaUpdate>
+		if (
+			(pending.prompt != null &&
+				(!isStoredEvent(pending.prompt) ||
+					typeof pending.prompt.workerState !== 'string')) ||
+			(pending.accepted != null &&
+				(!isStoredEvent(pending.accepted) ||
+					typeof pending.accepted.fromBuild !== 'string')) ||
+			(pending.activatedAt != null &&
+				typeof pending.activatedAt !== 'number') ||
+			(pending.completed != null &&
+				(!isStoredEvent(pending.completed) ||
+					typeof pending.completed.toBuild !== 'string'))
 		) {
 			return null
 		}
@@ -64,51 +112,157 @@ export function forgetPendingPwaUpdate() {
 	}
 }
 
+function createEventUuid() {
+	if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+		return crypto.randomUUID()
+	}
+
+	const bytes = new Uint8Array(16)
+	if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+		crypto.getRandomValues(bytes)
+	} else {
+		for (let index = 0; index < bytes.length; index += 1) {
+			bytes[index] = Math.floor(Math.random() * 256)
+		}
+	}
+	bytes[6] = (bytes[6]! & 0x0f) | 0x40
+	bytes[8] = (bytes[8]! & 0x3f) | 0x80
+	const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0'))
+	return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10).join('')}`
+}
+
+function toPromptCapture(prompt: StoredPrompt): PwaTelemetryCapture {
+	return {
+		uuid: prompt.uuid,
+		timestamp: prompt.timestamp,
+		properties: { worker_state: prompt.workerState },
+	}
+}
+
+function toAcceptedCapture(
+	accepted: StoredAcceptance,
+	prompt?: StoredPrompt,
+): PwaTelemetryCapture {
+	return {
+		uuid: accepted.uuid,
+		timestamp: accepted.timestamp,
+		properties: {
+			from_build: accepted.fromBuild,
+			...(prompt
+				? {
+						prompt_to_accepted_ms: Math.max(
+							0,
+							accepted.timestamp - prompt.timestamp,
+						),
+					}
+				: {}),
+		},
+	}
+}
+
+export function rememberPwaUpdatePrompt({
+	workerState,
+	shownAt = Date.now(),
+	eventUuid = createEventUuid(),
+}: {
+	workerState: ServiceWorkerState
+	shownAt?: number
+	eventUuid?: string
+}): PwaTelemetryCapture {
+	const prompt = { uuid: eventUuid, timestamp: shownAt, workerState }
+	writePendingUpdate({ version: 1, prompt })
+	return toPromptCapture(prompt)
+}
+
 export function rememberPendingPwaUpdate({
 	fromBuild,
 	acceptedAt = Date.now(),
+	eventUuid = createEventUuid(),
 }: {
 	fromBuild: string
 	acceptedAt?: number
-}) {
-	writePendingUpdate({ fromBuild, acceptedAt })
+	eventUuid?: string
+}): PwaTelemetryCapture {
+	const pending = readPendingUpdate() ?? { version: 1 }
+	const accepted = { uuid: eventUuid, timestamp: acceptedAt, fromBuild }
+	writePendingUpdate({ ...pending, accepted })
+	return toAcceptedCapture(accepted, pending.prompt)
 }
 
 export function markPendingPwaUpdateActivated(activatedAt = Date.now()) {
 	const pending = readPendingUpdate()
-	if (!pending) return
+	if (!pending?.accepted) return
 	writePendingUpdate({ ...pending, activatedAt })
 }
 
-/** Consume an accepted-and-activated update after its reload has completed. */
-export function takeCompletedPwaUpdate({
+/**
+ * Replay the update lifecycle after a reload with stable event UUIDs. The
+ * record intentionally remains for the short TTL: PostHog deduplicates a
+ * repeated UUID if another reload happens before the deferred SDK can send.
+ */
+export function getPwaUpdateTelemetry({
 	toBuild,
 	completedAt = Date.now(),
+	completionEventUuid = createEventUuid(),
 }: {
 	toBuild: string
 	completedAt?: number
-}): CompletedPwaUpdate | null {
+	completionEventUuid?: string
+}): PwaUpdateTelemetry {
 	const pending = readPendingUpdate()
-	if (!pending) return null
+	if (!pending) return {}
 
+	const startedAt = pending.prompt?.timestamp ?? pending.accepted?.timestamp
+	const latestAt =
+		pending.completed?.timestamp ??
+		pending.activatedAt ??
+		pending.accepted?.timestamp ??
+		pending.prompt?.timestamp
 	if (
-		completedAt < pending.acceptedAt ||
-		completedAt - pending.acceptedAt > PWA_UPDATE_COMPLETION_TTL_MS
+		startedAt == null ||
+		latestAt == null ||
+		completedAt < startedAt ||
+		completedAt - latestAt > PWA_UPDATE_COMPLETION_TTL_MS
 	) {
 		forgetPendingPwaUpdate()
-		return null
+		return {}
 	}
 
-	if (pending.activatedAt == null) return null
-	forgetPendingPwaUpdate()
+	let completed = pending.completed
+	if (!completed && pending.accepted && pending.activatedAt != null) {
+		completed = {
+			uuid: completionEventUuid,
+			timestamp: completedAt,
+			toBuild,
+		}
+		writePendingUpdate({ ...pending, completed })
+	}
+
 	return {
-		from_build: pending.fromBuild,
-		to_build: toBuild,
-		build_changed: pending.fromBuild !== toBuild,
-		accepted_to_activated_ms: Math.max(
-			0,
-			pending.activatedAt - pending.acceptedAt,
-		),
-		accepted_to_completed_ms: Math.max(0, completedAt - pending.acceptedAt),
+		...(pending.prompt ? { prompt: toPromptCapture(pending.prompt) } : {}),
+		...(pending.accepted
+			? { accepted: toAcceptedCapture(pending.accepted, pending.prompt) }
+			: {}),
+		...(completed && pending.accepted && pending.activatedAt != null
+			? {
+					completed: {
+						uuid: completed.uuid,
+						timestamp: completed.timestamp,
+						properties: {
+							from_build: pending.accepted.fromBuild,
+							to_build: completed.toBuild,
+							build_changed: pending.accepted.fromBuild !== completed.toBuild,
+							accepted_to_activated_ms: Math.max(
+								0,
+								pending.activatedAt - pending.accepted.timestamp,
+							),
+							accepted_to_completed_ms: Math.max(
+								0,
+								completed.timestamp - pending.accepted.timestamp,
+							),
+						},
+					},
+				}
+			: {}),
 	}
 }

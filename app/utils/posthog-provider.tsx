@@ -12,20 +12,33 @@ import { getPostHogHost } from './posthog-config.ts'
 import {
 	PWA_LAUNCHED,
 	PWA_RESUMED,
+	PWA_UPDATE_ACCEPTED,
 	PWA_UPDATE_COMPLETED,
+	PWA_UPDATE_PROMPT_SHOWN,
 } from './posthog-events.ts'
 import {
 	getCurrentRouteId,
 	getPwaSessionContext,
 	getServiceWorkerContext,
 } from './pwa-performance.ts'
-import { takeCompletedPwaUpdate } from './pwa-update-telemetry.ts'
+import {
+	getPwaUpdateTelemetry,
+	type PwaTelemetryCapture,
+} from './pwa-update-telemetry.ts'
 
 type AnalyticsProperties = Record<string, unknown>
+export type AnalyticsCaptureOptions = {
+	timestamp?: Date
+	uuid?: string
+}
 
 /** The small client interface used by the app and its test adapters. */
 export type AnalyticsClient = {
-	capture: (event: string, properties?: AnalyticsProperties) => void
+	capture: (
+		event: string,
+		properties?: AnalyticsProperties,
+		options?: AnalyticsCaptureOptions,
+	) => void
 	captureException: (error: unknown) => void
 	identify: (userId: string, properties?: AnalyticsProperties) => void
 	group: (groupType: string, groupId: string) => void
@@ -77,8 +90,11 @@ function createClientBridge(enabled: boolean): ClientBridge {
 
 	return {
 		client: {
-			capture: (event, properties) =>
-				run((client) => client.capture(event, properties)),
+			capture: (event, properties, options) =>
+				run((client) => {
+					if (options) client.capture(event, properties, options)
+					else client.capture(event, properties)
+				}),
 			captureException: (error) =>
 				run((client) => client.captureException(error)),
 			identify: (userId, properties) =>
@@ -174,6 +190,17 @@ export function useFeatureFlag(key: string): string | boolean | undefined {
 	return ready ? client.getFeatureFlag(key) : undefined
 }
 
+function capturePersistedPwaEvent(
+	posthog: AnalyticsClient,
+	event: string,
+	capture: PwaTelemetryCapture,
+) {
+	posthog.capture(event, capture.properties, {
+		uuid: capture.uuid,
+		timestamp: new Date(capture.timestamp),
+	})
+}
+
 export function PostHogPageview() {
 	const location = useLocation()
 	const routeId = getCurrentRouteId(useMatches())
@@ -196,15 +223,33 @@ export function PostHogPageview() {
 		posthog.registerForSession(sessionContext)
 		if (!didCaptureLaunchRef.current) {
 			didCaptureLaunchRef.current = true
-			if (sessionContext.display_mode === 'standalone') {
+			if (
+				sessionContext.display_mode === 'standalone' &&
+				sessionContext.navigation_type !== 'reload'
+			) {
 				posthog.capture(PWA_LAUNCHED, sessionContext)
 			}
-			const completedUpdate = takeCompletedPwaUpdate({
+			const updateTelemetry = getPwaUpdateTelemetry({
 				toBuild: sessionContext.app_build,
 			})
-			if (completedUpdate) {
-				posthog.capture(PWA_UPDATE_COMPLETED, completedUpdate)
-			}
+			if (updateTelemetry.prompt)
+				capturePersistedPwaEvent(
+					posthog,
+					PWA_UPDATE_PROMPT_SHOWN,
+					updateTelemetry.prompt,
+				)
+			if (updateTelemetry.accepted)
+				capturePersistedPwaEvent(
+					posthog,
+					PWA_UPDATE_ACCEPTED,
+					updateTelemetry.accepted,
+				)
+			if (updateTelemetry.completed)
+				capturePersistedPwaEvent(
+					posthog,
+					PWA_UPDATE_COMPLETED,
+					updateTelemetry.completed,
+				)
 		}
 		posthog.capture('$pageview', {
 			$current_url: window.location.href,

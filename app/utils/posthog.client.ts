@@ -40,8 +40,8 @@ export function initializePostHog({
 	}
 
 	return {
-		capture: (event, properties) => {
-			posthog.capture(event, properties)
+		capture: (event, properties, options) => {
+			posthog.capture(event, properties, options)
 		},
 		captureException: (error) => {
 			posthog.captureException(error)

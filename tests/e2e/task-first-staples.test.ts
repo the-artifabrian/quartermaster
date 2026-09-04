@@ -9,7 +9,7 @@ async function waitForStaplesHydration(page: Page) {
 		if (!(await addInput.isVisible())) await addButton.click()
 		await expect(addInput).toBeVisible({ timeout: 1000 })
 	}).toPass({ timeout: 15_000 })
-	await addButton.click()
+	await page.getByRole('button', { name: 'Cancel' }).click()
 	await expect(addInput).toBeHidden()
 }
 
@@ -100,6 +100,23 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	expect(outBox?.y).toBeLessThan(availableBox?.y ?? 0)
 
 	const search = page.getByRole('searchbox', { name: 'Search Staples' })
+	const addButton = page.getByRole('button', { name: 'Add Staple' })
+	const [searchBox, addBox] = await Promise.all([
+		search.boundingBox(),
+		addButton.boundingBox(),
+	])
+	expect(searchBox).not.toBeNull()
+	expect(addBox).not.toBeNull()
+	expect(Math.abs(searchBox!.y - addBox!.y)).toBeLessThanOrEqual(1)
+	expect(addBox!.x).toBeGreaterThanOrEqual(searchBox!.x + searchBox!.width)
+	await addButton.click()
+	await expect(search).toBeHidden()
+	await expect(
+		page.getByRole('textbox', { name: 'Add a Staple' }),
+	).toHaveAttribute('placeholder', 'Staple name')
+	await page.getByRole('button', { name: 'Cancel' }).click()
+	await expect(search).toBeVisible()
+
 	await search.fill('rice')
 	await expect(outGroup.getByText('Brown rice')).toBeVisible()
 	await expect(outGroup.getByLabel('1 Out Staple')).toBeVisible()

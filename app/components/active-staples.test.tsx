@@ -65,12 +65,26 @@ test('large Staple lists put the Out task first and search both groups', async (
 		within(availableGroup).getByRole('button', { name: 'Mark Apples Out' }),
 	).toHaveTextContent('Out')
 
-	expect(screen.queryByRole('textbox', { name: 'Add a Staple' })).toBeNull()
-	await user.click(screen.getByRole('button', { name: 'Add Staple' }))
-	expect(screen.getByRole('textbox', { name: 'Add a Staple' })).toBeVisible()
-
 	const search = screen.getByRole('searchbox', { name: 'Search Staples' })
-	await user.type(search, 'rice')
+	const addButton = screen.getByRole('button', { name: 'Add Staple' })
+	expect(search).toBeVisible()
+	expect(screen.getByRole('status')).toHaveClass('sr-only')
+	expect(screen.queryByRole('textbox', { name: 'Add a Staple' })).toBeNull()
+	await user.click(addButton)
+	const addInput = screen.getByRole('textbox', { name: 'Add a Staple' })
+	expect(addInput).toBeVisible()
+	expect(addInput).toHaveAttribute('placeholder', 'Staple name')
+	expect(addInput.closest('form')).not.toHaveClass('bg-muted/40')
+	expect(screen.queryByRole('searchbox', { name: 'Search Staples' })).toBeNull()
+	await user.keyboard('{Escape}')
+	await waitFor(() =>
+		expect(screen.getByRole('button', { name: 'Add Staple' })).toHaveFocus(),
+	)
+
+	const restoredSearch = screen.getByRole('searchbox', {
+		name: 'Search Staples',
+	})
+	await user.type(restoredSearch, 'rice')
 	expect(within(outGroup).getByLabelText('1 Out Staple')).toBeVisible()
 	expect(
 		within(availableGroup).getByLabelText('0 usually available Staples'),
@@ -78,8 +92,8 @@ test('large Staple lists put the Out task first and search both groups', async (
 	expect(screen.getByText('Brown rice')).toBeVisible()
 	expect(screen.queryByText('Apples')).toBeNull()
 
-	await user.clear(search)
-	await user.type(search, 'something missing')
+	await user.clear(restoredSearch)
+	await user.type(restoredSearch, 'something missing')
 	expect(
 		screen.getByRole('heading', { name: 'No Staples found' }),
 	).toBeVisible()
@@ -204,6 +218,10 @@ test('add and remove keep their controls visible through pending and failure sta
 	expect(await screen.findByRole('alert', { name: '' })).toHaveTextContent(
 		'Could not add Garlic. Try again.',
 	)
+	await user.click(screen.getByRole('button', { name: 'Cancel' }))
+	await user.click(screen.getByRole('button', { name: 'Add Staple' }))
+	expect(screen.queryByText('Could not add Garlic. Try again.')).toBeNull()
+	await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
 	const removeButton = screen.getByRole('button', { name: 'Remove Salt' })
 	expect(removeButton).toHaveClass('min-h-11', 'min-w-11')

@@ -9,7 +9,7 @@ async function waitForStaplesHydration(page: Page) {
 		if (!(await addInput.isVisible())) await addButton.click()
 		await expect(addInput).toBeVisible({ timeout: 1000 })
 	}).toPass({ timeout: 15_000 })
-	await addButton.click()
+	await page.getByRole('button', { name: 'Cancel' }).click()
 	await expect(addInput).toBeHidden()
 }
 

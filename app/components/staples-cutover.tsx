@@ -294,6 +294,7 @@ export function ActiveStaples({
 	const [search, setSearch] = useState('')
 	const [newStaple, setNewStaple] = useState('')
 	const [addOpen, setAddOpen] = useState(false)
+	const addButtonRef = useRef<HTMLButtonElement>(null)
 	const lastToggledId = useRef<string | null>(null)
 	const toggleButtons = useRef(new Map<string, HTMLButtonElement>())
 	const submittedToggleId = toggleFetcher.formData?.get('itemId')
@@ -340,7 +341,9 @@ export function ActiveStaples({
 			addFetcher.data.action === 'add-staple'
 		) {
 			setNewStaple('')
+			setSearch('')
 			setAddOpen(false)
+			requestAnimationFrame(() => addButtonRef.current?.focus())
 		}
 	}, [addFetcher.data, addFetcher.state])
 
@@ -375,93 +378,121 @@ export function ActiveStaples({
 	const toggleFailed =
 		toggleFetcher.state === 'idle' && toggleFetcher.data?.status === 'error'
 
+	function openAdd() {
+		addFetcher.reset()
+		setSearch('')
+		setAddOpen(true)
+	}
+
+	function cancelAdd() {
+		addFetcher.reset()
+		setNewStaple('')
+		setAddOpen(false)
+		requestAnimationFrame(() => addButtonRef.current?.focus())
+	}
+
 	return (
 		<div className="container-content w-full min-w-0 overflow-x-hidden py-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:py-6 md:pb-8">
 			<header>
-				<div className="flex items-start justify-between gap-4">
-					<h1 className="font-serif text-2xl font-normal">Staples</h1>
-					<Button
-						type="button"
-						variant="outline"
-						className="min-h-11 shrink-0"
-						aria-label="Add Staple"
-						aria-expanded={addOpen}
-						aria-controls="add-staple-form"
-						onClick={() => setAddOpen((open) => !open)}
-					>
-						<Icon name="plus" size="sm" /> Add
-					</Button>
-				</div>
+				<h1 className="font-serif text-2xl font-normal">Staples</h1>
 				<p className="text-muted-foreground mt-1 max-w-xl text-sm">
 					Things you usually have. Mark one Out to add it to Next shop.
 				</p>
-			</header>
 
-			{addOpen && (
-				<addFetcher.Form
-					id="add-staple-form"
-					method="post"
-					className="bg-muted/40 mt-4 flex flex-wrap items-end gap-2 rounded-lg p-3"
-				>
-					<input type="hidden" name="intent" value="add-staple" />
-					<div className="min-w-0 flex-1">
-						<label htmlFor="new-staple" className="text-sm font-medium">
-							Add a Staple
-						</label>
-						<Input
-							autoFocus
-							id="new-staple"
-							name="displayName"
-							value={newStaple}
-							onChange={(event) => setNewStaple(event.currentTarget.value)}
-							maxLength={200}
-							className="mt-1 min-h-11"
-							disabled={addFetcher.state !== 'idle'}
-						/>
-					</div>
-					<Button
-						type="submit"
-						className="min-h-11 shrink-0"
-						disabled={!newStaple.trim() || addFetcher.state !== 'idle'}
+				{addOpen ? (
+					<addFetcher.Form
+						id="add-staple-form"
+						method="post"
+						className="mt-4 flex max-w-2xl flex-wrap items-center gap-2"
+						onKeyDown={(event) => {
+							if (event.key === 'Escape' && addFetcher.state === 'idle') {
+								event.preventDefault()
+								cancelAdd()
+							}
+						}}
 					>
-						{addFetcher.state === 'idle' ? 'Add' : 'Adding…'}
-					</Button>
-					{addFetcher.data?.status === 'error' && (
-						<p className="text-destructive basis-full text-sm" role="alert">
-							{addFetcher.data.message ?? 'Could not add Staple'}
-						</p>
-					)}
-				</addFetcher.Form>
-			)}
-
-			{staples.length >= 12 && (
-				<div className="mt-4 sm:max-w-sm">
-					<label htmlFor="search-staples" className="sr-only">
-						Search Staples
-					</label>
-					<div className="relative sm:max-w-sm">
-						<Icon
-							name="magnifying-glass"
-							size="sm"
-							className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-						/>
-						<Input
-							id="search-staples"
-							type="search"
-							value={search}
-							onChange={(event) => setSearch(event.currentTarget.value)}
-							placeholder="Search"
-							className="min-h-11 pl-9"
-						/>
+						<input type="hidden" name="intent" value="add-staple" />
+						<div className="min-w-0 flex-1">
+							<label htmlFor="new-staple" className="sr-only">
+								Add a Staple
+							</label>
+							<Input
+								autoFocus
+								id="new-staple"
+								name="displayName"
+								value={newStaple}
+								onChange={(event) => setNewStaple(event.currentTarget.value)}
+								placeholder="Staple name"
+								maxLength={200}
+								className="min-h-11"
+								disabled={addFetcher.state !== 'idle'}
+							/>
+						</div>
+						<Button
+							type="submit"
+							className="min-h-11 shrink-0"
+							disabled={!newStaple.trim() || addFetcher.state !== 'idle'}
+						>
+							{addFetcher.state === 'idle' ? 'Add' : 'Adding…'}
+						</Button>
+						<Button
+							type="button"
+							variant="ghost"
+							className="min-h-11 shrink-0"
+							disabled={addFetcher.state !== 'idle'}
+							onClick={cancelAdd}
+						>
+							Cancel
+						</Button>
+						{addFetcher.data?.status === 'error' && (
+							<p className="text-destructive basis-full text-sm" role="alert">
+								{addFetcher.data.message ?? 'Could not add Staple'}
+							</p>
+						)}
+					</addFetcher.Form>
+				) : (
+					<div className="mt-4 flex items-center gap-2">
+						{staples.length >= 12 && (
+							<div className="relative min-w-0 flex-1 sm:max-w-md">
+								<label htmlFor="search-staples" className="sr-only">
+									Search Staples
+								</label>
+								<Icon
+									name="magnifying-glass"
+									size="sm"
+									className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+								/>
+								<Input
+									id="search-staples"
+									type="search"
+									value={search}
+									onChange={(event) => setSearch(event.currentTarget.value)}
+									placeholder="Search"
+									className="min-h-11 pl-9"
+								/>
+							</div>
+						)}
+						<Button
+							ref={addButtonRef}
+							type="button"
+							variant="outline"
+							className="min-h-11 shrink-0"
+							aria-label="Add Staple"
+							onClick={openAdd}
+						>
+							<Icon name="plus" size="sm" /> Add
+						</Button>
 					</div>
-				</div>
-			)}
+				)}
+			</header>
 
 			<p
 				className={
 					toggleFailed
 						? 'text-destructive mt-3 min-h-5 text-sm'
-						: 'text-muted-foreground mt-3 min-h-5 text-sm'
+						: toggleFeedback
+							? 'text-muted-foreground mt-3 min-h-5 text-sm'
+							: 'sr-only'
 				}
 				role={toggleFailed ? 'alert' : 'status'}
 				aria-live="polite"

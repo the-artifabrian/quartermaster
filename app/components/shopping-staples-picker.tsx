@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '#app/components/ui/button.tsx'
@@ -12,10 +12,37 @@ import {
 import { cn } from '#app/utils/misc.tsx'
 import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 
-export type ShoppingStaple = {
+export type ShoppingStapleChoice = {
 	id: string
 	displayName: string
-	onShoppingList: boolean
+	shoppingIdentity: string
+}
+
+type ShoppingStaple = ShoppingStapleChoice & { onShoppingList: boolean }
+
+type ChoiceState =
+	| { status: 'idle' | 'loading' }
+	| { status: 'success'; staples: ShoppingStapleChoice[] }
+	| { status: 'error' }
+
+function isChoiceResponse(
+	value: unknown,
+): value is { staples: ShoppingStapleChoice[] } {
+	if (!value || typeof value !== 'object' || !('staples' in value)) return false
+	return (
+		Array.isArray(value.staples) &&
+		value.staples.every(
+			(staple) =>
+				staple != null &&
+				typeof staple === 'object' &&
+				'id' in staple &&
+				typeof staple.id === 'string' &&
+				'displayName' in staple &&
+				typeof staple.displayName === 'string' &&
+				'shoppingIdentity' in staple &&
+				typeof staple.shoppingIdentity === 'string',
+		)
+	)
 }
 
 type BulkAddResponse = {
@@ -25,26 +52,70 @@ type BulkAddResponse = {
 }
 
 export function ShoppingStaplesPicker({
-	staples,
+	shoppingIdentities,
 	showQuietCue,
 }: {
-	staples: ShoppingStaple[]
+	shoppingIdentities: string[]
 	showQuietCue: boolean
 }) {
 	const fetcher = useFetcher<BulkAddResponse>()
 	const moveFetcher = useFetcher()
 	const previousFetcherState = useRef(fetcher.state)
+	const choiceRequest = useRef<AbortController>(null)
+	const [choiceState, setChoiceState] = useState<ChoiceState>({
+		status: 'idle',
+	})
 	const [open, setOpen] = useState(false)
 	const [cueDismissed, setCueDismissed] = useState(false)
 	const [selected, setSelected] = useState<Set<string>>(() => new Set())
 	const [search, setSearch] = useState('')
 
+	const loadStaples = useCallback(async () => {
+		choiceRequest.current?.abort()
+		const controller = new AbortController()
+		choiceRequest.current = controller
+		setChoiceState({ status: 'loading' })
+		try {
+			const response = await fetch(
+				new URL('/resources/shopping-staples', window.location.origin),
+				{
+					signal: controller.signal,
+					headers: { Accept: 'application/json' },
+					credentials: 'same-origin',
+				},
+			)
+			if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+			const result: unknown = await response.json()
+			if (!isChoiceResponse(result)) throw new Error('Invalid Staple response')
+			setChoiceState({ status: 'success', staples: result.staples })
+		} catch {
+			if (controller.signal.aborted) return
+			setChoiceState({ status: 'error' })
+		}
+	}, [])
+
+	useEffect(() => () => choiceRequest.current?.abort(), [])
+
+	const shoppingIdentitySet = useMemo(
+		() => new Set(shoppingIdentities),
+		[shoppingIdentities],
+	)
+	const staples = useMemo<ShoppingStaple[]>(
+		() =>
+			choiceState.status === 'success'
+				? choiceState.staples.map((staple) => ({
+						...staple,
+						onShoppingList: shoppingIdentitySet.has(staple.shoppingIdentity),
+					}))
+				: [],
+		[choiceState, shoppingIdentitySet],
+	)
 	const availableStaples = staples.filter((staple) => !staple.onShoppingList)
 	const availableIds = new Set(availableStaples.map((staple) => staple.id))
 	const selectedStaples = availableStaples.filter((staple) =>
 		selected.has(staple.id),
 	)
-	const showCue = showQuietCue && availableStaples.length > 0 && !cueDismissed
+	const showCue = showQuietCue && !cueDismissed
 	const visibleStaples = useMemo(() => {
 		const query = search.trim().toLowerCase()
 		return query
@@ -90,8 +161,6 @@ export function ShoppingStaplesPicker({
 		previousFetcherState.current = fetcher.state
 	}, [fetcher.data, fetcher.state, moveFetcher])
 
-	if (staples.length === 0) return null
-
 	function toggleStaple(id: string) {
 		if (!availableIds.has(id)) return
 		setSelected((current) => {
@@ -106,8 +175,10 @@ export function ShoppingStaplesPicker({
 			open={open}
 			onOpenChange={(nextOpen) => {
 				setOpen(nextOpen)
-				if (nextOpen) setCueDismissed(true)
-				else setSearch('')
+				if (nextOpen) {
+					setCueDismissed(true)
+					if (choiceState.status === 'idle') void loadStaples()
+				} else setSearch('')
 			}}
 		>
 			<PopoverTrigger asChild>
@@ -135,7 +206,38 @@ export function ShoppingStaplesPicker({
 				<p className="text-muted-foreground mt-1 text-sm">
 					Pick Staples to add to Next shop.
 				</p>
-				{staples.length >= 10 && (
+				{choiceState.status === 'loading' && (
+					<p
+						role="status"
+						aria-live="polite"
+						className="text-muted-foreground py-8 text-center text-sm"
+					>
+						Loading Staples…
+					</p>
+				)}
+				{choiceState.status === 'error' && (
+					<div role="alert" className="py-6 text-center">
+						<p className="text-sm">Couldn&rsquo;t load Staples.</p>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							className="mt-3"
+							onClick={() => void loadStaples()}
+						>
+							Try again
+						</Button>
+					</div>
+				)}
+				{choiceState.status === 'success' && staples.length === 0 && (
+					<div role="status" className="py-6 text-center">
+						<p className="text-sm">No Staples yet.</p>
+						<p className="text-muted-foreground mt-1 text-xs">
+							Add them from the Staples screen.
+						</p>
+					</div>
+				)}
+				{choiceState.status === 'success' && staples.length >= 10 && (
 					<div className="relative mt-3">
 						<Icon
 							name="magnifying-glass"
@@ -152,71 +254,77 @@ export function ShoppingStaplesPicker({
 						/>
 					</div>
 				)}
-				<div className="mt-3 max-h-64 divide-y overflow-y-auto">
-					{visibleStaples.length > 0 ? (
-						visibleStaples.map((staple) => {
-							const isSelected =
-								!staple.onShoppingList && selected.has(staple.id)
-							return (
-								<button
-									key={staple.id}
-									type="button"
-									disabled={staple.onShoppingList}
-									onClick={() => toggleStaple(staple.id)}
-									aria-pressed={isSelected}
-									className="flex min-h-11 w-full items-center gap-3 py-2 text-left disabled:opacity-45"
-								>
-									<span
-										className={cn(
-											'flex size-5 shrink-0 items-center justify-center rounded border',
-											isSelected
-												? 'border-primary bg-primary text-primary-foreground'
-												: 'border-border bg-background',
-										)}
+				{choiceState.status === 'success' && staples.length > 0 && (
+					<div className="mt-3 max-h-64 divide-y overflow-y-auto">
+						{visibleStaples.length > 0 ? (
+							visibleStaples.map((staple) => {
+								const isSelected =
+									!staple.onShoppingList && selected.has(staple.id)
+								return (
+									<button
+										key={staple.id}
+										type="button"
+										disabled={staple.onShoppingList}
+										onClick={() => toggleStaple(staple.id)}
+										aria-pressed={isSelected}
+										className="flex min-h-11 w-full items-center gap-3 py-2 text-left disabled:opacity-45"
 									>
-										{isSelected && <Icon name="check" size="xs" />}
-									</span>
-									<span className="min-w-0 flex-1 truncate">
-										{staple.displayName}
-									</span>
-									{staple.onShoppingList && (
-										<span className="text-muted-foreground text-xs">
-											On list
+										<span
+											className={cn(
+												'flex size-5 shrink-0 items-center justify-center rounded border',
+												isSelected
+													? 'border-primary bg-primary text-primary-foreground'
+													: 'border-border bg-background',
+											)}
+										>
+											{isSelected && <Icon name="check" size="xs" />}
 										</span>
-									)}
-								</button>
-							)
-						})
-					) : (
-						<p className="text-muted-foreground py-6 text-center text-sm">
-							No Staples match &ldquo;{search.trim()}&rdquo;
-						</p>
-					)}
-				</div>
-				<fetcher.Form method="POST">
-					<input type="hidden" name="intent" value="bulk-add" />
-					<input type="hidden" name="horizon" value={NEXT_SHOP} />
-					<input
-						type="hidden"
-						name="items"
-						value={JSON.stringify(
-							selectedStaples.map((staple) => ({
-								name: staple.displayName,
-							})),
+										<span className="min-w-0 flex-1 truncate">
+											{staple.displayName}
+										</span>
+										{staple.onShoppingList && (
+											<span className="text-muted-foreground text-xs">
+												On list
+											</span>
+										)}
+									</button>
+								)
+							})
+						) : (
+							<p className="text-muted-foreground py-6 text-center text-sm">
+								No Staples match &ldquo;{search.trim()}&rdquo;
+							</p>
 						)}
-					/>
-					<Button
-						type="submit"
-						className="mt-4 w-full"
-						disabled={selectedStaples.length === 0 || fetcher.state !== 'idle'}
-					>
-						{fetcher.state === 'idle'
-							? selectedStaples.length > 0
-								? `Add ${selectedStaples.length} to Next shop`
-								: 'Add to Next shop'
-							: 'Adding…'}
-					</Button>
-				</fetcher.Form>
+					</div>
+				)}
+				{choiceState.status === 'success' && staples.length > 0 && (
+					<fetcher.Form method="POST">
+						<input type="hidden" name="intent" value="bulk-add" />
+						<input type="hidden" name="horizon" value={NEXT_SHOP} />
+						<input
+							type="hidden"
+							name="items"
+							value={JSON.stringify(
+								selectedStaples.map((staple) => ({
+									name: staple.displayName,
+								})),
+							)}
+						/>
+						<Button
+							type="submit"
+							className="mt-4 w-full"
+							disabled={
+								selectedStaples.length === 0 || fetcher.state !== 'idle'
+							}
+						>
+							{fetcher.state === 'idle'
+								? selectedStaples.length > 0
+									? `Add ${selectedStaples.length} to Next shop`
+									: 'Add to Next shop'
+								: 'Adding…'}
+						</Button>
+					</fetcher.Form>
+				)}
 			</PopoverContent>
 		</Popover>
 	)

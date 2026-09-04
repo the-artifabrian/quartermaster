@@ -10,10 +10,16 @@ import {
 import { useLocation, useMatches } from 'react-router'
 import { getPostHogHost } from './posthog-config.ts'
 import {
+	PWA_LAUNCHED,
+	PWA_RESUMED,
+	PWA_UPDATE_COMPLETED,
+} from './posthog-events.ts'
+import {
 	getCurrentRouteId,
 	getPwaSessionContext,
 	getServiceWorkerContext,
 } from './pwa-performance.ts'
+import { takeCompletedPwaUpdate } from './pwa-update-telemetry.ts'
 
 type AnalyticsProperties = Record<string, unknown>
 
@@ -176,16 +182,30 @@ export function PostHogPageview() {
 	const initialContextRef = useRef<ReturnType<
 		typeof getPwaSessionContext
 	> | null>(null)
+	const didCaptureLaunchRef = useRef(false)
 
 	useEffect(() => {
 		initialContextRef.current ??= getPwaSessionContext({
 			appBuild: window.ENV.APP_BUILD,
 			initialRoute: initialRouteRef.current,
 		})
+		const sessionContext = initialContextRef.current
 		// Register before capture so PostHog's built-in Web Vitals inherit the
 		// same release/install context. Re-registering also restores it after a
 		// logout reset without changing the initial-route snapshot.
-		posthog.registerForSession(initialContextRef.current)
+		posthog.registerForSession(sessionContext)
+		if (!didCaptureLaunchRef.current) {
+			didCaptureLaunchRef.current = true
+			if (sessionContext.display_mode === 'standalone') {
+				posthog.capture(PWA_LAUNCHED, sessionContext)
+			}
+			const completedUpdate = takeCompletedPwaUpdate({
+				toBuild: sessionContext.app_build,
+			})
+			if (completedUpdate) {
+				posthog.capture(PWA_UPDATE_COMPLETED, completedUpdate)
+			}
+		}
 		posthog.capture('$pageview', {
 			$current_url: window.location.href,
 			route_id: routeId,
@@ -219,7 +239,7 @@ export function PostHogPwaLifecycle() {
 			const backgroundDuration = Date.now() - hiddenAt
 			if (backgroundDuration < PWA_RESUME_THRESHOLD_MS) return
 
-			posthog.capture('pwa_resumed', {
+			posthog.capture(PWA_RESUMED, {
 				background_duration_ms: backgroundDuration,
 				route_id: routeIdRef.current,
 				...getServiceWorkerContext(),

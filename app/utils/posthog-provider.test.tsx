@@ -5,6 +5,7 @@ import { act, render, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { expect, test, vi } from 'vitest'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
+import { PWA_LAUNCHED, PWA_UPDATE_COMPLETED } from './posthog-events.ts'
 import {
 	type AnalyticsClient,
 	PostHogIdentify,
@@ -13,6 +14,10 @@ import {
 	PostHogPwaLifecycle,
 	PWA_RESUME_THRESHOLD_MS,
 } from './posthog-provider.tsx'
+import {
+	markPendingPwaUpdateActivated,
+	rememberPendingPwaUpdate,
+} from './pwa-update-telemetry.ts'
 
 const posthogClientModule = vi.hoisted(() => ({
 	initializePostHog: vi.fn(),
@@ -40,6 +45,7 @@ function setupAnalyticsEnvironment({
 	const originalEnv = window.ENV
 	runWhenIdle = undefined
 	vi.clearAllMocks()
+	sessionStorage.clear()
 	window.ENV = {
 		MODE: 'test',
 		POSTHOG_API_KEY: 'phc_test',
@@ -203,6 +209,63 @@ test('contains SDK initialization failures instead of failing the app', async ()
 			'Failed to load analytics',
 			loadError,
 		)
+	})
+})
+
+test('reports one installed PWA launch before its first pageview', async () => {
+	using _environment = setupAnalyticsEnvironment()
+	vi.stubGlobal(
+		'matchMedia',
+		vi.fn(() => ({ matches: true })),
+	)
+	const client = makeClient()
+	posthogClientModule.initializePostHog.mockReturnValue(client)
+
+	renderAnalytics(<PostHogPageview />, '/recipes')
+	await act(async () =>
+		runWhenIdle?.({ didTimeout: false, timeRemaining: () => 50 }),
+	)
+	await waitFor(() =>
+		expect(posthogClientModule.initializePostHog).toHaveBeenCalledOnce(),
+	)
+
+	expect(client.capture).toHaveBeenNthCalledWith(1, PWA_LAUNCHED, {
+		app_build: 'abc123def456',
+		display_mode: 'standalone',
+		initial_route: 'routes/test',
+		navigation_type: 'unknown',
+		initial_visibility: 'visible',
+		service_worker_controlled: false,
+		service_worker_state: 'uncontrolled',
+	})
+	expect(client.capture).toHaveBeenNthCalledWith(2, '$pageview', {
+		$current_url: window.location.href,
+		route_id: 'routes/test',
+	})
+})
+
+test('reports an activated update after the replacement page loads', async () => {
+	using _environment = setupAnalyticsEnvironment()
+	using _now = vi.spyOn(Date, 'now').mockReturnValue(1_350)
+	rememberPendingPwaUpdate({ fromBuild: 'old-build', acceptedAt: 1_000 })
+	markPendingPwaUpdateActivated(1_200)
+	const client = makeClient()
+	posthogClientModule.initializePostHog.mockReturnValue(client)
+
+	renderAnalytics(<PostHogPageview />, '/recipes')
+	await act(async () =>
+		runWhenIdle?.({ didTimeout: false, timeRemaining: () => 50 }),
+	)
+	await waitFor(() =>
+		expect(posthogClientModule.initializePostHog).toHaveBeenCalledOnce(),
+	)
+
+	expect(client.capture).toHaveBeenCalledWith(PWA_UPDATE_COMPLETED, {
+		from_build: 'old-build',
+		to_build: 'abc123def456',
+		build_changed: true,
+		accepted_to_activated_ms: 200,
+		accepted_to_completed_ms: 350,
 	})
 })
 

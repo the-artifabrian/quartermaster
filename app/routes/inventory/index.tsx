@@ -2,7 +2,7 @@ import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useCallback, useEffect, useState } from 'react'
-import { data, Link } from 'react-router'
+import { data, Link, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { InventoryItemCard } from '#app/components/inventory-item-card.tsx'
 import { InventoryMobileFab } from '#app/components/inventory-mobile-fab.tsx'
@@ -12,6 +12,7 @@ import {
 	ActiveStaples,
 	StaplesCutover,
 } from '#app/components/staples-cutover.tsx'
+import { StaplesDailyPrototype } from '#app/components/staples-daily-prototype.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
@@ -572,6 +573,7 @@ export async function action({ request }: Route.ActionArgs) {
 const SEARCH_THRESHOLD = 15
 
 export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
+	const [prototypeSearchParams] = useSearchParams()
 	const {
 		items,
 		staples,
@@ -582,6 +584,10 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		isProActive,
 		mealCount,
 	} = loaderData
+	const prototypeVariant =
+		import.meta.env.DEV || import.meta.env.VITE_STAPLES_PROTOTYPE === 'true'
+			? prototypeSearchParams.get('variant')
+			: null
 
 	const [search, setSearch] = useState('')
 	const [fabOpen, setFabOpen] = useState(false)
@@ -600,6 +606,19 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 	}, [voiceAddedNames])
 
 	if (staplesCutoverAt != null) {
+		if (
+			prototypeVariant === 'A' ||
+			prototypeVariant === 'B' ||
+			prototypeVariant === 'C'
+		) {
+			return (
+				<StaplesDailyPrototype
+					initialStaples={staples}
+					archivedInventoryCount={archivedInventoryCount}
+					variant={prototypeVariant}
+				/>
+			)
+		}
 		return (
 			<ActiveStaples
 				staples={staples}

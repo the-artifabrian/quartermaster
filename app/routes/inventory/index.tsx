@@ -29,6 +29,10 @@ import {
 	InventoryItemSchema,
 } from '#app/utils/inventory-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
+import {
+	type NextShopRestockEffect,
+	resolveNextShopRestockTarget,
+} from '#app/utils/shopping-horizon.server.ts'
 import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
@@ -247,18 +251,74 @@ export async function action({ request }: Route.ActionArgs) {
 		invariantResponse(typeof itemId === 'string', 'Staple ID is required')
 		const staple = await prisma.householdIngredient.findFirst({
 			where: { id: itemId, householdId, isStaple: true },
-			select: { id: true, isOut: true },
+			select: { id: true, displayName: true, isOut: true },
 		})
 		invariantResponse(staple, 'Staple not found', { status: 404 })
 
 		if (intent === 'toggle-staple-out') {
-			await prisma.householdIngredient.update({
-				where: { id: staple.id },
-				data: { isOut: !staple.isOut },
+			const isOut = !staple.isOut
+			if (!isOut) {
+				await prisma.householdIngredient.update({
+					where: { id: staple.id },
+					data: { isOut },
+				})
+				return {
+					status: 'success' as const,
+					action: 'toggle-staple-out' as const,
+					isOut,
+					message: `${staple.displayName} marked not Out.`,
+				}
+			}
+
+			let shoppingEffect: NextShopRestockEffect
+			try {
+				shoppingEffect = await prisma.$transaction(async (tx) => {
+					const shoppingList = await ensureShoppingList(tx, {
+						userId,
+						householdId,
+					})
+					const effect = await resolveNextShopRestockTarget(tx, {
+						listId: shoppingList.id,
+						name: staple.displayName,
+						category: guessCategory(staple.displayName),
+					})
+
+					await tx.householdIngredient.update({
+						where: { id: staple.id },
+						data: { isOut },
+					})
+					return effect
+				})
+			} catch {
+				return data(
+					{
+						status: 'error' as const,
+						action: 'toggle-staple-out' as const,
+						message: `Could not mark ${staple.displayName} Out. Try again.`,
+					},
+					{ status: 500 },
+				)
+			}
+
+			await emitHouseholdEvent({
+				type: 'shopping_list_item_added',
+				payload: { name: staple.displayName },
+				userId,
+				householdId,
 			})
 			return {
 				status: 'success' as const,
 				action: 'toggle-staple-out' as const,
+				isOut,
+				shoppingEffect,
+				message:
+					shoppingEffect === 'added'
+						? `${staple.displayName} was added to Next shop.`
+						: shoppingEffect === 'moved'
+							? `${staple.displayName} was moved to Next shop.`
+							: shoppingEffect === 'resurfaced'
+								? `${staple.displayName} was brought back to Next shop.`
+								: `${staple.displayName} is already in Next shop.`,
 			}
 		}
 

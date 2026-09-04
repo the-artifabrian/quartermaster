@@ -10,7 +10,8 @@ Use the terms in [CONTEXT.md](../CONTEXT.md). In user-facing copy:
 - **Menu**: a reusable group of Recipes and notes served together.
 - **Meal**: one scheduled item in the Plan.
 - **Staples**: household ingredients normally assumed available.
-- **Out**: a Staple that should return to generated Shopping.
+- **Out**: a Staple to put in Next shop and include in generated Shopping when
+  required.
 - **Shopping**: the current list. Prefer this over “Shopping List” when the
   shorter label reads naturally.
 - **Pantry**: archived legacy behavior only. Do not present it as the active

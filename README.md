@@ -27,7 +27,7 @@ Staples and non-Staples.
 - **Menus** are reusable groups of ordered Recipe and note cards.
 - **Meals** are scheduled Recipe items, Menu snapshots, or plain text.
 - **Staples** are household ingredients normally assumed available; **Out** puts
-  one back into generated Shopping.
+  one in Next shop and keeps generated Shopping aware that it is unavailable.
 - **Shopping** combines Recipe ingredients, Menu note lines, and manual items
   without pretending to know exact stock.
 

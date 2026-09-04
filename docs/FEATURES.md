@@ -45,7 +45,8 @@ plan into Shopping.
 ### Staples
 
 - Keep a household list of ingredients normally assumed available.
-- Mark a Staple Out so generated Shopping includes it when required.
+- Mark a Staple Out to ensure it is unchecked in Next shop immediately;
+  generated Shopping also treats it as unavailable when required.
 - Search, add, remove, and restore Staples across household changes and full
   data recovery.
 - Archived Pantry data remains available as a deliberate rollback path but is

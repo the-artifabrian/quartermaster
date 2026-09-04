@@ -11,6 +11,9 @@ type DemandTargetCandidate = {
 	horizon: string
 }
 
+export type NextShopRestockEffect =
+	'added' | 'moved' | 'resurfaced' | 'already-in-next-shop'
+
 /** Unchecked rows win; within each checked state, Next shop wins over Later. */
 export function selectNextShopDemandTargets<T extends DemandTargetCandidate>(
 	items: T[],
@@ -73,4 +76,64 @@ export async function resolveNextShopDemandTargets(
 	}
 
 	return { targets, promotedIds }
+}
+
+/**
+ * Ensure one preferred matching row is unchecked in Next shop for an explicit
+ * restock action. Unlike generated demand, this policy may resurface a checked
+ * row because the household has just said the Staple is Out.
+ */
+export async function resolveNextShopRestockTarget(
+	db: ShoppingHorizonDatabase,
+	{
+		listId,
+		name,
+		category,
+	}: { listId: string; name: string; category: string },
+): Promise<NextShopRestockEffect> {
+	const canonicalName = demandIdentity(name)
+	const items = await db.shoppingListItem.findMany({
+		where: { listId },
+		orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+		select: {
+			id: true,
+			name: true,
+			checked: true,
+			horizon: true,
+		},
+	})
+	const existing = selectNextShopDemandTargets(items, [canonicalName]).get(
+		canonicalName,
+	)
+
+	if (!existing) {
+		await db.shoppingListItem.create({
+			data: {
+				name,
+				category,
+				source: 'manual',
+				horizon: NEXT_SHOP,
+				listId,
+			},
+		})
+		return 'added'
+	}
+
+	if (!existing.checked && existing.horizon === LATER) {
+		await db.shoppingListItem.update({
+			where: { id: existing.id },
+			data: { horizon: NEXT_SHOP },
+		})
+		return 'moved'
+	}
+
+	if (existing.checked) {
+		await db.shoppingListItem.update({
+			where: { id: existing.id },
+			data: { checked: false, horizon: NEXT_SHOP },
+		})
+		return 'resurfaced'
+	}
+
+	return 'already-in-next-shop'
 }

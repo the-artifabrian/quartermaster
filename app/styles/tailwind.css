@@ -360,6 +360,32 @@ html {
 	}
 }
 
+/* iOS Safari magnifies focused editable controls below 16px. Keep this rule
+   outside Tailwind's layers so compact raw-control utilities cannot override
+   it on phones; the normal component typography takes over again at md. */
+@media (width < 48rem) {
+	:where(
+		input:not([type]),
+		input[type='text'],
+		input[type='search'],
+		input[type='email'],
+		input[type='password'],
+		input[type='tel'],
+		input[type='url'],
+		input[type='number'],
+		input[type='date'],
+		input[type='datetime-local'],
+		input[type='month'],
+		input[type='time'],
+		input[type='week'],
+		input[type='file'],
+		textarea,
+		select
+	) {
+		font-size: 1rem;
+	}
+}
+
 /* Tooltips are hover-only — suppress on touch devices to prevent tap-flash */
 @media (hover: none) {
 	[data-slot='tooltip-content'] {

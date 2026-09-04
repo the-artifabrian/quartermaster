@@ -3,9 +3,11 @@
  */
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { HttpResponse, http } from 'msw'
 import { createRoutesStub } from 'react-router'
 import { expect, test } from 'vitest'
 import { getCurrentWeekStart, getWeekDays, parseDate } from '#app/utils/date.ts'
+import { server } from '#tests/mocks/index.ts'
 import { type PlanMeal } from './meal-card.tsx'
 import { MealPlanCalendar } from './meal-plan-calendar.tsx'
 
@@ -104,20 +106,23 @@ function renderCalendar(
 	options: {
 		calendarWeekDays?: Date[]
 		calendarMeals?: PlanMeal[]
+		useDefaultChoices?: boolean
 	} = {},
 ) {
+	if (options.useDefaultChoices !== false) {
+		server.use(
+			http.get('*/resources/plan-choices', () =>
+				HttpResponse.json({ recipes, menus }),
+			),
+		)
+	}
 	const calendarWeekDays = options.calendarWeekDays ?? weekDays
 	const calendarMeals = options.calendarMeals ?? meals
 	const Stub = createRoutesStub([
 		{
 			path: '/',
 			Component: () => (
-				<MealPlanCalendar
-					weekDays={calendarWeekDays}
-					meals={calendarMeals}
-					recipes={recipes}
-					menus={menus}
-				/>
+				<MealPlanCalendar weekDays={calendarWeekDays} meals={calendarMeals} />
 			),
 			action,
 		},
@@ -127,7 +132,7 @@ function renderCalendar(
 
 test('mobile focuses the first planned day and switches days without a long agenda', async () => {
 	const user = userEvent.setup()
-	renderCalendar()
+	renderCalendar(undefined, { useDefaultChoices: false })
 	const mobile = screen.getByTestId('mobile-plan')
 	const wednesday = within(mobile).getByRole('button', {
 		name: 'Show Wednesday, Apr 8, 1 Meal planned',
@@ -162,6 +167,196 @@ test('mobile focuses the first planned day and switches days without a long agen
 	expect(thursday).toHaveClass('bg-primary', 'ring-2')
 })
 
+test('shares one in-flight and successful choice request across Plan controls', async () => {
+	let requestCount = 0
+	let releaseResponse = () => {}
+	const responseGate = new Promise<void>((resolve) => {
+		releaseResponse = resolve
+	})
+	server.use(
+		http.get('*/resources/plan-choices', async () => {
+			requestCount++
+			await responseGate
+			return HttpResponse.json({ recipes, menus })
+		}),
+	)
+	const user = userEvent.setup()
+	renderCalendar(undefined, { useDefaultChoices: false })
+	const mobile = screen.getByTestId('mobile-plan')
+	const desktop = screen.getByTestId('desktop-plan')
+
+	expect(requestCount).toBe(0)
+	await user.click(
+		within(mobile).getByRole('button', {
+			name: 'Add Meal to Wednesday, Apr 8',
+		}),
+	)
+	expect(within(mobile).getByRole('status')).toHaveTextContent(
+		'Loading Recipes and Menus',
+	)
+	await user.click(
+		within(desktop).getByRole('button', {
+			name: 'Add Meal to Monday, Apr 6',
+		}),
+	)
+	expect(within(desktop).getByRole('status')).toHaveTextContent(
+		'Loading Recipes and Menus',
+	)
+	expect(requestCount).toBe(1)
+
+	releaseResponse()
+	await within(mobile).findByPlaceholderText('Search Recipes and Menus...')
+	await within(desktop).findByPlaceholderText('Search Recipes and Menus...')
+	await user.click(within(mobile).getByRole('button', { name: 'Close picker' }))
+	await user.click(
+		within(mobile).getByRole('button', {
+			name: 'Add Meal to Wednesday, Apr 8',
+		}),
+	)
+	expect(
+		within(mobile).getByPlaceholderText('Search Recipes and Menus...'),
+	).toBeVisible()
+	expect(requestCount).toBe(1)
+})
+
+test('keeps text-only Meal creation available while choice loading retries', async () => {
+	let requestCount = 0
+	let releaseRetry = () => {}
+	const retryGate = new Promise<void>((resolve) => {
+		releaseRetry = resolve
+	})
+	server.use(
+		http.get('*/resources/plan-choices', async () => {
+			requestCount++
+			if (requestCount === 1) return new HttpResponse(null, { status: 503 })
+			await retryGate
+			return HttpResponse.json({ recipes: [], menus: [] })
+		}),
+	)
+	let submitted: Record<string, FormDataEntryValue> = {}
+	renderCalendar(
+		async ({ request }) => {
+			submitted = Object.fromEntries(await request.formData())
+			return { status: 'success' as const }
+		},
+		{ useDefaultChoices: false },
+	)
+	const user = userEvent.setup()
+	const mobile = screen.getByTestId('mobile-plan')
+
+	await user.click(
+		within(mobile).getByRole('button', {
+			name: 'Add Meal to Wednesday, Apr 8',
+		}),
+	)
+	const composer = within(mobile).getByRole('region', {
+		name: 'Add Meal for Wednesday, Apr 8',
+	})
+	expect(await within(composer).findByRole('alert')).toHaveTextContent(
+		'Couldn’t load Recipes and Menus',
+	)
+	await user.click(within(composer).getByRole('button', { name: 'Try again' }))
+	expect(within(composer).getByRole('status')).toHaveTextContent(
+		'Loading Recipes and Menus',
+	)
+	await user.click(
+		within(composer).getByRole('button', { name: /Add text instead/ }),
+	)
+	await user.type(within(composer).getByRole('textbox'), 'Leftovers')
+	await user.click(within(composer).getByRole('button', { name: 'Add' }))
+
+	await waitFor(() =>
+		expect(submitted).toMatchObject({
+			intent: 'addTextMeal',
+			date: '2026-04-08',
+			text: 'Leftovers',
+		}),
+	)
+	releaseRetry()
+	expect(requestCount).toBe(2)
+})
+
+test('shows the existing empty choice state after a successful request', async () => {
+	server.use(
+		http.get('*/resources/plan-choices', () =>
+			HttpResponse.json({ recipes: [], menus: [] }),
+		),
+	)
+	const user = userEvent.setup()
+	renderCalendar(undefined, { useDefaultChoices: false })
+	const mobile = screen.getByTestId('mobile-plan')
+
+	await user.click(
+		within(mobile).getByRole('button', {
+			name: 'Add Meal to Wednesday, Apr 8',
+		}),
+	)
+	expect(
+		await within(mobile).findByText('No Recipes or Menus found'),
+	).toBeVisible()
+	expect(
+		within(mobile).getByRole('link', { name: 'Create a new recipe' }),
+	).toBeVisible()
+})
+
+test('reuses the shared choices for Add another Recipe and excludes Meal Recipes', async () => {
+	let requestCount = 0
+	server.use(
+		http.get('*/resources/plan-choices', () => {
+			requestCount++
+			return HttpResponse.json({
+				recipes: [{ ...recipes[0], id: 'meal-1-recipe' }, ...recipes.slice(1)],
+				menus,
+			})
+		}),
+	)
+	let submitted: Record<string, FormDataEntryValue> = {}
+	renderCalendar(
+		async ({ request }) => {
+			submitted = Object.fromEntries(await request.formData())
+			return { status: 'success' as const }
+		},
+		{ useDefaultChoices: false },
+	)
+	const user = userEvent.setup()
+	const mobile = screen.getByTestId('mobile-plan')
+
+	await user.click(
+		within(mobile).getByRole('button', {
+			name: 'Add Meal to Wednesday, Apr 8',
+		}),
+	)
+	await within(mobile).findByPlaceholderText('Search Recipes and Menus...')
+	await user.click(within(mobile).getByRole('button', { name: 'Close picker' }))
+	await user.click(
+		within(mobile).getByRole('button', {
+			name: 'Meal actions for Banana Bread',
+		}),
+	)
+	await user.click(await screen.findByRole('menuitem', { name: 'Add Recipe' }))
+
+	const search = within(mobile).getByPlaceholderText('Search recipes...')
+	const picker = search.closest('.space-y-2')
+	expect(picker).not.toBeNull()
+	expect(
+		within(picker as HTMLElement).queryByRole('button', {
+			name: /Banana Bread/,
+		}),
+	).not.toBeInTheDocument()
+	await user.click(
+		within(picker as HTMLElement).getByRole('button', { name: /Herb Salad/ }),
+	)
+
+	await waitFor(() =>
+		expect(submitted).toMatchObject({
+			intent: 'addRecipeToMeal',
+			mealId: 'meal-1',
+			recipeId: 'recipe-2',
+		}),
+	)
+	expect(requestCount).toBe(1)
+})
+
 test('mobile Add Meal opens the real picker inline for the selected day', async () => {
 	const user = userEvent.setup()
 	let submittedDate: FormDataEntryValue | null = null
@@ -187,7 +382,7 @@ test('mobile Add Meal opens the real picker inline for the selected day', async 
 		'Meal type (optional)',
 	)
 	await user.type(
-		within(composer).getByPlaceholderText('Search Recipes and Menus...'),
+		await within(composer).findByPlaceholderText('Search Recipes and Menus...'),
 		'hreb salad',
 	)
 	expect(within(composer).queryByText('Banana Bread')).not.toBeInTheDocument()
@@ -215,7 +410,7 @@ test('mobile finds a saved Menu by one of its Recipes and adds it to the selecte
 	})
 	await user.click(within(composer).getByRole('button', { name: 'Dinner' }))
 	await user.type(
-		within(composer).getByPlaceholderText('Search Recipes and Menus...'),
+		await within(composer).findByPlaceholderText('Search Recipes and Menus...'),
 		'garlic flatbrad',
 	)
 
@@ -272,13 +467,12 @@ test('mobile explains a stale empty Menu and lets the user retry', async () => {
 	const composer = within(mobile).getByRole('region', {
 		name: 'Add Meal for Wednesday, Apr 8',
 	})
+	await within(composer).findByPlaceholderText('Search Recipes and Menus...')
 	await user.click(
 		within(composer).getByRole('button', { name: /Friday Supper/ }),
 	)
 
-	expect(
-		await within(composer).findByRole('alert'),
-	).toHaveTextContent(
+	expect(await within(composer).findByRole('alert')).toHaveTextContent(
 		'This Menu has nothing to plan yet—add a Recipe or note first.',
 	)
 	expect(

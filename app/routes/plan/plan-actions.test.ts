@@ -293,34 +293,6 @@ describe('meal plan actions', () => {
 		).toBe(0)
 	})
 
-	test('Plan loader exposes non-empty saved Menus for the unified picker', async () => {
-		const session = await setupUser()
-		const { menu } = await setupMenu(session.userId, session.householdId)
-		await prisma.menu.create({
-			data: {
-				title: 'Empty Menu',
-				titleKey: menuTitleKey('Empty Menu'),
-				householdId: session.householdId,
-				sections: { create: { name: null, order: 0 } },
-			},
-		})
-
-		const result = await loader({
-			request: await makeLoaderRequest(session, '2026-02-02'),
-			...ACTION_ARGS_BASE,
-		})
-
-		expect(result.menus).toEqual([
-			{
-				id: menu.id,
-				title: 'Friday Supper',
-				recipeCount: 2,
-				noteCount: 0,
-				recipeTitles: ['Herb Salad', 'Garlic Flatbread'],
-			},
-		])
-	})
-
 	test('concurrent household members adding to a fresh week share one plan', async () => {
 		const owner = await setupUser()
 		const member = await setupHouseholdMember(owner.householdId)

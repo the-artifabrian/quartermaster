@@ -235,12 +235,19 @@ function loadServiceWorker({
 			fetchImplementation = implementation
 		},
 		wasClaimed: () => claimed,
+		registeredEventTypes: () => Object.keys(listeners),
 		skipWaitingCalls: () => skipWaitingCalls,
 		wasNavigationPreloadEnabled: () => navigationPreloadEnabled,
 	}
 }
 
 describe('service-worker lifecycle and public resources', () => {
+	test('does not retain the retired cooking-timer notification path', () => {
+		const worker = loadServiceWorker()
+
+		expect(worker.registeredEventTypes()).not.toContain('notificationclick')
+	})
+
 	test.each([
 		{ supported: true, enabled: true },
 		{ supported: false, enabled: false },

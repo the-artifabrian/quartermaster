@@ -187,9 +187,9 @@ export default function Index() {
 					<div className="text-center">
 						<h3 className="font-serif text-lg">Built for the kitchen</h3>
 						<p className="text-muted-foreground mt-2 text-sm/6">
-							Tap ingredients to cross them off. Start timers from recipe steps.
-							Scale ingredient quantities on the fly. Designed for when your
-							hands are busy.
+							Tap ingredients to cross them off. Spot cooking times and
+							temperatures at a glance. Scale ingredient quantities on the fly.
+							Designed for when your hands are busy.
 						</p>
 					</div>
 					<div className="text-center">

@@ -886,7 +886,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							instructions={recipe.instructions}
 							checkedSteps={checkedSteps}
 							onToggleStep={toggleStep}
-							recipeName={recipe.title}
 							useMetric={useMetric}
 						/>
 					</div>

@@ -362,7 +362,6 @@ export default function SharedRecipeView({ loaderData }: Route.ComponentProps) {
 						instructions={recipe.instructions}
 						checkedSteps={checkedSteps}
 						onToggleStep={toggleStep}
-						recipeName={recipe.title}
 					/>
 				</div>
 

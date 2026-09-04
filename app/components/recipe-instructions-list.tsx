@@ -1,4 +1,4 @@
-import { InstructionWithTimers } from '#app/components/instruction-with-timers.tsx'
+import { InstructionWithCookingCues } from '#app/components/instruction-with-cooking-cues.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { convertTemperatures } from '#app/utils/metric-conversion.ts'
 import { cn } from '#app/utils/misc.tsx'
@@ -7,13 +7,11 @@ export function RecipeInstructionsList({
 	instructions,
 	checkedSteps,
 	onToggleStep,
-	recipeName,
 	useMetric,
 }: {
 	instructions: Array<{ id: string; content: string }>
 	checkedSteps: Set<string>
 	onToggleStep: (id: string) => void
-	recipeName: string
 	useMetric?: boolean
 }) {
 	function handleToggle(id: string) {
@@ -87,14 +85,12 @@ export function RecipeInstructionsList({
 										'text-muted-foreground/40 decoration-muted-foreground/30 line-through',
 								)}
 							>
-								<InstructionWithTimers
+								<InstructionWithCookingCues
 									content={
 										useMetric
 											? convertTemperatures(instruction.content)
 											: instruction.content
 									}
-									stepNumber={index + 1}
-									recipeName={recipeName}
 								/>
 							</p>
 						</li>

@@ -22,7 +22,6 @@ import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { ProExpiryNudge } from './components/pro-expiry-nudge.tsx'
 import { ServiceWorkerDataSync } from './components/service-worker-data-sync.tsx'
 import { ServiceWorkerUpdate } from './components/service-worker-update.tsx'
-import { TimerWidget } from './components/timer-widget.tsx'
 import { useToast } from './components/toaster.tsx'
 import { Button } from './components/ui/button.tsx'
 import { Toaster } from './components/ui/sonner.tsx'
@@ -45,7 +44,6 @@ import {
 import { iosStartupImages, launchThemes } from './utils/pwa-launch.ts'
 import { getUserTier, type TierInfo } from './utils/subscription.server.ts'
 import { type Theme, getTheme } from './utils/theme.server.ts'
-import { TimerProvider } from './utils/timer-context.tsx'
 import { makeTimings, time } from './utils/timing.server.ts'
 import { hasPendingToastCookie } from './utils/toast-pending.ts'
 import { getToast } from './utils/toast.server.ts'
@@ -367,7 +365,7 @@ function App() {
 	useToast(data.toast)
 
 	return (
-		<TimerProvider>
+		<>
 			<PostHogIdentify
 				user={
 					user
@@ -462,9 +460,8 @@ function App() {
 				<OfflineIndicator />
 				{user && isPro ? <HouseholdActivityNotifier /> : null}
 				{user ? <ProExpiryNudge /> : null}
-				{user ? <TimerWidget /> : null}
 			</OpenImgContextProvider>
-		</TimerProvider>
+		</>
 	)
 }
 

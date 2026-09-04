@@ -132,7 +132,7 @@ placeholder.
 - Personal notes use a copper edge and Caveat only when notes exist.
 - Staples/Out-aware availability belongs here because it can lead to an
   immediate Shopping action.
-- Keep scaling, timers, unit display, and print practical rather than
+- Keep scaling, cooking cues, unit display, and print practical rather than
   decorative.
 
 ### Menus
@@ -202,4 +202,4 @@ Start with the nearest existing surface and these defaults:
 If a new pattern needs a long explanation here, first ask whether it belongs in
 the component itself or whether the UI can be simpler.
 
-_Updated 28 August 2026._
+_Updated 4 September 2026._

@@ -8,10 +8,9 @@ import { useModal } from '#app/utils/use-modal.ts'
 
 /**
  * Mobile-only "ingredients at hand" affordance for mid-cook glances: a quiet
- * text pill (bottom-left, opposite the timer pill) that opens the ingredient
- * list as a bottom sheet over the steps — same sheet pattern as the shopping
- * quick-add. Check-off and scaled amounts work inside; dismiss and you're
- * still on your step.
+ * text pill that opens the ingredient list as a bottom sheet over the steps —
+ * the same sheet pattern as the shopping quick-add. Check-off and scaled
+ * amounts work inside; dismiss and you're still on your step.
  */
 export function RecipeIngredientsSheet({
 	visible,

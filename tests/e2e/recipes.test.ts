@@ -549,6 +549,142 @@ test('phone Recipes restore Ingredients after its heading passes', async ({
 	await expect(page.getByRole('dialog', { name: 'Ingredients' })).toBeVisible()
 })
 
+test('Recipe instructions show passive cooking cues and ignore stored timers', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const household = await prisma.household.create({
+		data: {
+			name: 'Cooking cues household',
+			members: { create: { userId: user.id, role: 'owner' } },
+		},
+	})
+	const instruction = 'Preheat to 400°F, bake for 12 minutes, then rest 5 min.'
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Glanceable Roast',
+			userId: user.id,
+			householdId: household.id,
+			ingredients: {
+				create: { name: 'cauliflower', amount: '1', unit: 'head', order: 0 },
+			},
+			instructions: {
+				create: [
+					{ content: instruction, order: 0 },
+					{ content: 'Cook until done, then serve.', order: 1 },
+				],
+			},
+		},
+	})
+
+	await page.addInitScript(() => {
+		localStorage.setItem(
+			'qm-timers',
+			JSON.stringify([
+				{
+					id: 'expired',
+					label: 'Old timer',
+					durationSeconds: 1,
+					endTime: Date.now() - 1_000,
+					remainingMs: 0,
+					status: 'running',
+					alarmStartedAt: null,
+				},
+			]),
+		)
+		Object.defineProperty(window, 'AudioContext', {
+			configurable: true,
+			value: class {
+				constructor() {
+					localStorage.setItem('qm-test-alarm', 'audio')
+					throw new Error('Alarm attempted')
+				}
+			},
+		})
+		Object.defineProperty(navigator, 'vibrate', {
+			configurable: true,
+			value: () => {
+				localStorage.setItem('qm-test-alarm', 'vibrate')
+				return true
+			},
+		})
+		Object.defineProperty(window, 'Notification', {
+			configurable: true,
+			value: {
+				permission: 'default',
+				requestPermission: () => {
+					localStorage.setItem('qm-test-notification-request', 'requested')
+					return Promise.resolve('denied')
+				},
+			},
+		})
+	})
+
+	await page.setViewportSize({ width: 390, height: 844 })
+	await page.goto(`/recipes/${recipe.id}`)
+
+	const step = page
+		.getByRole('checkbox')
+		.filter({ hasText: 'bake for 12 minutes, then rest 5 min.' })
+	const durationCues = step.getByTestId('cooking-duration-cue')
+	const temperatureCue = step.getByRole('button', {
+		name: '400°F, converts to 205°C',
+	})
+	await expect(durationCues).toHaveText(['for 12 minutes', '5 min'])
+	await expect(durationCues.first()).toHaveCSS('font-weight', '600')
+	await expect(durationCues.first()).toHaveCSS(
+		'text-decoration-line',
+		'underline',
+	)
+	await expect(temperatureCue).toHaveAttribute('role', 'button')
+	await expect(temperatureCue).toHaveAttribute(
+		'aria-label',
+		'400°F, converts to 205°C',
+	)
+	await expect(temperatureCue).toHaveCSS('font-weight', '600')
+	await expect(temperatureCue).toHaveCSS('text-decoration-line', 'underline')
+	await expect(step.getByRole('button', { name: /timer/i })).toHaveCount(0)
+
+	const renderedInstruction = await step.evaluate((row) => {
+		const paragraph = row.querySelector('p')
+		if (!paragraph) throw new Error('Instruction text is missing')
+		const copy = paragraph.cloneNode(true) as HTMLElement
+		copy
+			.querySelectorAll('[role="tooltip"]')
+			.forEach((tooltip) => tooltip.remove())
+		return copy.textContent
+	})
+	expect(renderedInstruction).toBe(instruction)
+
+	await temperatureCue.click()
+	await expect(step.getByRole('tooltip')).toHaveText('205°C')
+	await temperatureCue.press('Escape')
+	await expect(step.getByRole('tooltip')).not.toBeVisible()
+	await temperatureCue.focus()
+	await temperatureCue.press('Enter')
+	await expect(step.getByRole('tooltip')).toBeVisible()
+
+	const ordinaryStep = page
+		.getByRole('checkbox')
+		.filter({ hasText: 'Cook until done, then serve.' })
+	await expect(ordinaryStep.getByTestId('cooking-duration-cue')).toHaveCount(0)
+	await expect(ordinaryStep.getByRole('button')).toHaveCount(0)
+	await expect(page.getByRole('button', { name: /^Timer:/i })).toHaveCount(0)
+	expect(
+		await page.evaluate(() => localStorage.getItem('qm-test-alarm')),
+	).toBeNull()
+	expect(
+		await page.evaluate(() =>
+			localStorage.getItem('qm-test-notification-request'),
+		),
+	).toBeNull()
+
+	await page.setViewportSize({ width: 1024, height: 800 })
+	await expect(durationCues.first()).toHaveCSS('font-weight', '600')
+	await expect(temperatureCue).toHaveCSS('font-weight', '600')
+})
+
 test('Recipe detail copies clean scaled text and reports clipboard results', async ({
 	page,
 	login,

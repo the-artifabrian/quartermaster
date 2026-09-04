@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFetchers, useNavigation } from 'react-router'
+import {
+	PWA_UPDATE_ACCEPTED,
+	PWA_UPDATE_PROMPT_SHOWN,
+} from '#app/utils/posthog-events.ts'
+import { usePostHog } from '#app/utils/posthog-provider.tsx'
+import {
+	forgetPendingPwaUpdate,
+	markPendingPwaUpdateActivated,
+	rememberPendingPwaUpdate,
+	rememberPwaUpdatePrompt,
+} from '#app/utils/pwa-update-telemetry.ts'
 import { reloadPage } from '#app/utils/reload-page.client.ts'
 import { Button } from './ui/button.tsx'
 
@@ -35,14 +46,17 @@ export function hasPendingRouterWork(
 export function ServiceWorkerUpdate() {
 	const navigation = useNavigation()
 	const fetchers = useFetchers()
+	const posthog = usePostHog()
 	const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null)
 	const [isActivating, setIsActivating] = useState(false)
 	const [isOnline, setIsOnline] = useState(true)
 	const activationRequested = useRef(false)
 	const reloadRequested = useRef(false)
+	const reportedWaitingWorker = useRef<ServiceWorker | null>(null)
 	const reloadOnce = useCallback(() => {
 		if (reloadRequested.current) return
 		reloadRequested.current = true
+		markPendingPwaUpdateActivated()
 		reloadPage()
 	}, [])
 
@@ -166,11 +180,28 @@ export function ServiceWorkerUpdate() {
 		}
 		waitingWorker.addEventListener('statechange', onStateChange)
 		onStateChange()
-		return () =>
-			waitingWorker.removeEventListener('statechange', onStateChange)
+		return () => waitingWorker.removeEventListener('statechange', onStateChange)
 	}, [isActivating, reloadOnce, waitingWorker])
 
 	const isBusy = hasPendingRouterWork(navigation, fetchers)
+	useEffect(() => {
+		if (
+			!waitingWorker ||
+			isBusy ||
+			reportedWaitingWorker.current === waitingWorker
+		) {
+			return
+		}
+		reportedWaitingWorker.current = waitingWorker
+		const prompt = rememberPwaUpdatePrompt({
+			workerState: waitingWorker.state,
+		})
+		posthog.capture(PWA_UPDATE_PROMPT_SHOWN, prompt.properties, {
+			uuid: prompt.uuid,
+			timestamp: new Date(prompt.timestamp),
+		})
+	}, [isBusy, posthog, waitingWorker])
+
 	if (!waitingWorker || isBusy) return null
 
 	function acceptUpdate() {
@@ -185,11 +216,17 @@ export function ServiceWorkerUpdate() {
 
 		activationRequested.current = true
 		setIsActivating(true)
+		const acceptance = rememberPendingPwaUpdate({ fromBuild: ENV.APP_BUILD })
+		posthog.capture(PWA_UPDATE_ACCEPTED, acceptance.properties, {
+			uuid: acceptance.uuid,
+			timestamp: new Date(acceptance.timestamp),
+		})
 		try {
 			waitingWorker.postMessage({ type: 'qm-activate-update' })
 		} catch {
 			activationRequested.current = false
 			setIsActivating(false)
+			forgetPendingPwaUpdate()
 		}
 	}
 

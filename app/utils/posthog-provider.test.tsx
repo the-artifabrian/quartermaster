@@ -6,6 +6,12 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { expect, test, vi } from 'vitest'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import {
+	PWA_LAUNCHED,
+	PWA_UPDATE_ACCEPTED,
+	PWA_UPDATE_COMPLETED,
+	PWA_UPDATE_PROMPT_SHOWN,
+} from './posthog-events.ts'
+import {
 	type AnalyticsClient,
 	PostHogIdentify,
 	PostHogPageview,
@@ -13,6 +19,14 @@ import {
 	PostHogPwaLifecycle,
 	PWA_RESUME_THRESHOLD_MS,
 } from './posthog-provider.tsx'
+import {
+	markPendingPwaUpdateActivated,
+	rememberPendingPwaUpdate,
+	rememberPwaUpdatePrompt,
+} from './pwa-update-telemetry.ts'
+
+const PROMPT_UUID = '00000000-0000-4000-8000-000000000001'
+const ACCEPTED_UUID = '00000000-0000-4000-8000-000000000002'
 
 const posthogClientModule = vi.hoisted(() => ({
 	initializePostHog: vi.fn(),
@@ -40,6 +54,7 @@ function setupAnalyticsEnvironment({
 	const originalEnv = window.ENV
 	runWhenIdle = undefined
 	vi.clearAllMocks()
+	sessionStorage.clear()
 	window.ENV = {
 		MODE: 'test',
 		POSTHOG_API_KEY: 'phc_test',
@@ -204,6 +219,116 @@ test('contains SDK initialization failures instead of failing the app', async ()
 			loadError,
 		)
 	})
+})
+
+test('reports one installed PWA launch before its first pageview', async () => {
+	using _environment = setupAnalyticsEnvironment()
+	vi.stubGlobal(
+		'matchMedia',
+		vi.fn(() => ({ matches: true })),
+	)
+	const client = makeClient()
+	posthogClientModule.initializePostHog.mockReturnValue(client)
+
+	renderAnalytics(<PostHogPageview />, '/recipes')
+	await act(async () =>
+		runWhenIdle?.({ didTimeout: false, timeRemaining: () => 50 }),
+	)
+	await waitFor(() =>
+		expect(posthogClientModule.initializePostHog).toHaveBeenCalledOnce(),
+	)
+
+	expect(client.capture).toHaveBeenNthCalledWith(1, PWA_LAUNCHED, {
+		app_build: 'abc123def456',
+		display_mode: 'standalone',
+		initial_route: 'routes/test',
+		navigation_type: 'unknown',
+		initial_visibility: 'visible',
+		service_worker_controlled: false,
+		service_worker_state: 'uncontrolled',
+	})
+	expect(client.capture).toHaveBeenNthCalledWith(2, '$pageview', {
+		$current_url: window.location.href,
+		route_id: 'routes/test',
+	})
+})
+
+test('does not count a standalone document reload as a new PWA launch', async () => {
+	using _environment = setupAnalyticsEnvironment()
+	vi.stubGlobal(
+		'matchMedia',
+		vi.fn(() => ({ matches: true })),
+	)
+	vi.spyOn(performance, 'getEntriesByType').mockReturnValue([
+		{ type: 'reload' } as PerformanceNavigationTiming,
+	])
+	const client = makeClient()
+	posthogClientModule.initializePostHog.mockReturnValue(client)
+
+	renderAnalytics(<PostHogPageview />, '/recipes')
+	await act(async () =>
+		runWhenIdle?.({ didTimeout: false, timeRemaining: () => 50 }),
+	)
+	await waitFor(() =>
+		expect(posthogClientModule.initializePostHog).toHaveBeenCalledOnce(),
+	)
+
+	expect(client.capture).not.toHaveBeenCalledWith(
+		PWA_LAUNCHED,
+		expect.anything(),
+	)
+	expect(client.capture).toHaveBeenCalledWith('$pageview', {
+		$current_url: window.location.href,
+		route_id: 'routes/test',
+	})
+})
+
+test('reports an activated update after the replacement page loads', async () => {
+	using _environment = setupAnalyticsEnvironment()
+	using _now = vi.spyOn(Date, 'now').mockReturnValue(1_350)
+	rememberPwaUpdatePrompt({
+		workerState: 'installed',
+		shownAt: 900,
+		eventUuid: PROMPT_UUID,
+	})
+	rememberPendingPwaUpdate({
+		fromBuild: 'old-build',
+		acceptedAt: 1_000,
+		eventUuid: ACCEPTED_UUID,
+	})
+	markPendingPwaUpdateActivated(1_200)
+	const client = makeClient()
+	posthogClientModule.initializePostHog.mockReturnValue(client)
+
+	renderAnalytics(<PostHogPageview />, '/recipes')
+	await act(async () =>
+		runWhenIdle?.({ didTimeout: false, timeRemaining: () => 50 }),
+	)
+	await waitFor(() =>
+		expect(posthogClientModule.initializePostHog).toHaveBeenCalledOnce(),
+	)
+
+	expect(client.capture).toHaveBeenCalledWith(
+		PWA_UPDATE_PROMPT_SHOWN,
+		{ worker_state: 'installed' },
+		{ uuid: PROMPT_UUID, timestamp: new Date(900) },
+	)
+	expect(client.capture).toHaveBeenCalledWith(
+		PWA_UPDATE_ACCEPTED,
+		{ from_build: 'old-build', prompt_to_accepted_ms: 100 },
+		{ uuid: ACCEPTED_UUID, timestamp: new Date(1_000) },
+	)
+	expect(client.capture).toHaveBeenCalledWith(
+		PWA_UPDATE_COMPLETED,
+		{
+			from_build: 'old-build',
+			to_build: 'abc123def456',
+			build_changed: true,
+			accepted_to_activated_ms: 200,
+			accepted_to_completed_ms: 350,
+		},
+		{ uuid: expect.any(String), timestamp: new Date(1_350) },
+	)
 })
 
 test('reports one warm resume after a meaningful background interval', async () => {

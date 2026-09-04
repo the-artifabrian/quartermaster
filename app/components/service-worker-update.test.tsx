@@ -6,14 +6,23 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { expect, test, vi } from 'vitest'
 import {
+	PWA_UPDATE_ACCEPTED,
+	PWA_UPDATE_PROMPT_SHOWN,
+} from '#app/utils/posthog-events.ts'
+import { getPwaUpdateTelemetry } from '#app/utils/pwa-update-telemetry.ts'
+import {
 	hasPendingRouterWork,
 	ServiceWorkerUpdate,
 	UPDATE_CHECK_INTERVAL_MS,
 } from './service-worker-update.tsx'
 
 const page = vi.hoisted(() => ({ reload: vi.fn() }))
+const analytics = vi.hoisted(() => ({ capture: vi.fn() }))
 vi.mock('#app/utils/reload-page.client.ts', () => ({
 	reloadPage: page.reload,
+}))
+vi.mock('#app/utils/posthog-provider.tsx', () => ({
+	usePostHog: () => analytics,
 }))
 
 class FakeWorker extends EventTarget {
@@ -50,12 +59,17 @@ function setupBrowserEnvironment() {
 		navigator,
 		'serviceWorker',
 	)
-	vi.stubGlobal('ENV', { MODE: 'production' })
+	vi.stubGlobal('ENV', {
+		MODE: 'production',
+		APP_BUILD: 'old-build',
+	})
 	const readyState = vi
 		.spyOn(document, 'readyState', 'get')
 		.mockReturnValue('complete')
 	vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
 	page.reload.mockClear()
+	analytics.capture.mockClear()
+	sessionStorage.clear()
 
 	return {
 		readyState,
@@ -130,6 +144,16 @@ test('a waiting update requires confirmation and reloads once after activation',
 	const update = await screen.findByRole('button', {
 		name: 'Update available',
 	})
+	await waitFor(() =>
+		expect(analytics.capture).toHaveBeenCalledWith(
+			PWA_UPDATE_PROMPT_SHOWN,
+			{ worker_state: 'installed' },
+			{
+				uuid: expect.any(String),
+				timestamp: expect.any(Date),
+			},
+		),
+	)
 	expect(registration.update).not.toHaveBeenCalled()
 
 	await user.click(update)
@@ -141,6 +165,14 @@ test('a waiting update requires confirmation and reloads once after activation',
 	expect(worker.postMessage).toHaveBeenCalledWith({
 		type: 'qm-activate-update',
 	})
+	expect(analytics.capture).toHaveBeenCalledWith(
+		PWA_UPDATE_ACCEPTED,
+		expect.objectContaining({ from_build: 'old-build' }),
+		{
+			uuid: expect.any(String),
+			timestamp: expect.any(Date),
+		},
+	)
 	expect(update).toBeDisabled()
 
 	act(() => {
@@ -149,6 +181,13 @@ test('a waiting update requires confirmation and reloads once after activation',
 		serviceWorkers.dispatchEvent(new Event('controllerchange'))
 	})
 	expect(page.reload).toHaveBeenCalledTimes(1)
+	expect(
+		getPwaUpdateTelemetry({ toBuild: 'new-build' }).completed?.properties,
+	).toMatchObject({
+		from_build: 'old-build',
+		to_build: 'new-build',
+		build_changed: true,
+	})
 })
 
 test('an accepted update reloads after activation when the page is not controlled', async () => {

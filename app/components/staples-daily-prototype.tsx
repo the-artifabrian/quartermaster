@@ -8,8 +8,8 @@ import {
 	type PrototypeVariant,
 } from './prototype-switcher.tsx'
 
-// PROTOTYPE — Three task-first Staples layouts, switchable with ?variant=A|B|C
-// on the existing /inventory route. Mutations live only in component state.
+// PROTOTYPE — Task-first Staples layouts, switchable with ?variant=A|B|C|D on
+// the existing /inventory route. Mutations live only in component state.
 
 type PrototypeStaple = {
 	id: string
@@ -19,6 +19,7 @@ type PrototypeStaple = {
 
 const VARIANTS: PrototypeVariant[] = [
 	{ key: 'A', label: 'Restock queue' },
+	{ key: 'D', label: 'Split status' },
 	{ key: 'B', label: 'Filterable ledger' },
 	{ key: 'C', label: 'Trip board' },
 ]
@@ -97,7 +98,9 @@ export function StaplesDailyPrototype({
 
 	return (
 		<>
-			{variant === 'B' ? (
+			{variant === 'D' ? (
+				<SplitStatusQueue {...shared} />
+			) : variant === 'B' ? (
 				<FilterableLedger {...shared} />
 			) : variant === 'C' ? (
 				<TripBoard {...shared} />
@@ -106,6 +109,87 @@ export function StaplesDailyPrototype({
 			)}
 			<PrototypeSwitcher variants={VARIANTS} current={variant} />
 		</>
+	)
+}
+
+function SplitStatusQueue(props: VariantProps) {
+	const out = alphabetize(props.filtered.filter((staple) => staple.isOut))
+	const available = alphabetize(
+		props.filtered.filter((staple) => !staple.isOut),
+	)
+	const totalOut = props.staples.filter((staple) => staple.isOut).length
+
+	return (
+		<PrototypePage>
+			<PageHeader
+				title="Staples"
+				description="Things you usually have. Mark one Out to add it to Next shop."
+				onAdd={() => props.setAddOpen(!props.addOpen)}
+			/>
+			<InlineAdd {...props} />
+			{props.staples.length >= 12 && (
+				<Search value={props.search} onChange={props.setSearch} />
+			)}
+			<LiveFeedback>{props.feedback}</LiveFeedback>
+
+			<section className="mt-5 overflow-hidden rounded-lg border border-amber-700/20">
+				<div className="flex items-baseline justify-between bg-amber-500/5 px-4 py-3">
+					<div>
+						<h2 className="font-serif text-xl font-normal">Out</h2>
+						<p className="text-muted-foreground text-sm">
+							Waiting in Next shop
+						</p>
+					</div>
+					<span className="rounded-full bg-amber-700/10 px-2.5 py-1 text-sm font-medium text-amber-800 dark:text-amber-300">
+						{totalOut}
+					</span>
+				</div>
+				{out.length ? (
+					<div className="divide-border/40 divide-y px-4">
+						{out.map((staple) => (
+							<StatusActionRow
+								key={staple.id}
+								staple={staple}
+								onAction={() => props.toggle(staple)}
+								onRemove={() => props.remove(staple)}
+							/>
+						))}
+					</div>
+				) : (
+					<p className="text-muted-foreground px-4 py-5 text-sm">
+						Nothing is Out.
+					</p>
+				)}
+			</section>
+
+			<section className="mt-7">
+				<div className="flex items-baseline justify-between border-b pb-2">
+					<h2 className="font-serif text-xl font-normal">Usually available</h2>
+					<span className="text-muted-foreground text-sm">
+						{props.staples.length - totalOut}
+					</span>
+				</div>
+				{available.length ? (
+					<div className="divide-border/40 divide-y">
+						{available.map((staple) => (
+							<StatusActionRow
+								key={staple.id}
+								staple={staple}
+								onAction={() => props.toggle(staple)}
+								onRemove={() => props.remove(staple)}
+							/>
+						))}
+					</div>
+				) : (
+					<p className="text-muted-foreground py-5 text-sm">
+						{props.search
+							? 'No available Staples match this search.'
+							: 'Every Staple is Out.'}
+					</p>
+				)}
+			</section>
+			<RecoveryDetails count={props.archivedInventoryCount} />
+		</PrototypePage>
 	)
 }
 
@@ -547,6 +631,39 @@ function NamedActionRow({
 				onClick={onAction}
 			>
 				{action}
+			</Button>
+			<RemoveButton staple={staple} onRemove={onRemove} />
+		</div>
+	)
+}
+
+function StatusActionRow({
+	staple,
+	onAction,
+	onRemove,
+}: {
+	staple: PrototypeStaple
+	onAction: () => void
+	onRemove: () => void
+}) {
+	return (
+		<div className="flex min-h-14 items-center gap-3 py-2">
+			<span
+				className={cn(
+					'size-2.5 shrink-0 rounded-full',
+					staple.isOut ? 'bg-amber-600' : 'bg-primary/35',
+				)}
+				aria-hidden="true"
+			/>
+			<span className="min-w-0 flex-1 truncate">{staple.displayName}</span>
+			<Button
+				type="button"
+				variant={staple.isOut ? 'secondary' : 'outline'}
+				className="min-h-11 min-w-20 shrink-0"
+				aria-label={`${staple.displayName}: mark ${staple.isOut ? 'available' : 'Out'}`}
+				onClick={onAction}
+			>
+				{staple.isOut ? 'Available' : 'Out'}
 			</Button>
 			<RemoveButton staple={staple} onRemove={onRemove} />
 		</div>

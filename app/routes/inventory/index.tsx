@@ -609,7 +609,8 @@ export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
 		if (
 			prototypeVariant === 'A' ||
 			prototypeVariant === 'B' ||
-			prototypeVariant === 'C'
+			prototypeVariant === 'C' ||
+			prototypeVariant === 'D'
 		) {
 			return (
 				<StaplesDailyPrototype

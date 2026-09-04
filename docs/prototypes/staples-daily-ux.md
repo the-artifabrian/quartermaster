@@ -13,6 +13,8 @@ Open the active Staples page and switch variants with the floating controls or
 the left/right arrow keys:
 
 - `/inventory?variant=A` — Restock queue: Out and usually-available groups.
+- `/inventory?variant=D` — Split status: A's groups with B's terse controls and
+  state colors.
 - `/inventory?variant=B` — Filterable ledger: one compact status list.
 - `/inventory?variant=C` — Trip board: a prominent shopping-oriented summary.
 

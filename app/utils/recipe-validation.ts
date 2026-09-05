@@ -124,17 +124,6 @@ export const RecipeSchema = z
 
 export type RecipeFormData = z.infer<typeof RecipeSchema>
 
-export const QuickRecipeSchema = z.object({
-	title: RecipeTitleSchema,
-	rawText: z
-		.string({
-			error: (issue) =>
-				issue.input === undefined ? 'Recipe text is required' : undefined,
-		})
-		.min(1, 'Recipe text is required')
-		.max(10000),
-})
-
 export const ImportUrlSchema = z.object({
 	url: z
 		.url({ error: 'Please enter a valid URL' })

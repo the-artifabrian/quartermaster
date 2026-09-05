@@ -67,8 +67,8 @@ export default function AboutRoute() {
 					/>
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Store recipes.</span>{' '}
-						Import from URLs, bulk-import from Apple Notes or text files, or
-						build from scratch with ingredients, instructions, and photos.
+						Import from a URL, paste text, or upload screenshots. You can also
+						write a Recipe with ingredients, instructions, and a photo.
 					</p>
 				</div>
 				<div className="flex gap-3">

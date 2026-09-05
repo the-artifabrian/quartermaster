@@ -97,17 +97,6 @@ export function joinBrokenUnitSteps(
 }
 
 /**
- * Split a block of text into multiple recipes separated by `---` lines.
- * A single recipe (no separator) returns an array of length 1.
- */
-export function splitMultipleRecipes(text: string): string[] {
-	return text
-		.split(/^\s*---\s*$/m)
-		.map((s) => s.trim())
-		.filter(Boolean)
-}
-
-/**
  * Normalize common Unicode characters and strip Markdown formatting
  * that Apple Notes and other rich-text editors introduce.
  */

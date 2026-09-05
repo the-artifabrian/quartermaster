@@ -219,7 +219,7 @@ test('mobile auth, Recipes, Staples, Plan, and settings controls are zoom-safe',
 	await page.getByRole('button', { name: 'From Image' }).click()
 	await expectMobileEditableControlsToBeSafe(page)
 
-	await page.goto('/recipes/quick')
+	await page.goto('/recipes/new')
 	await expectMobileEditableControlsToBeSafe(page)
 
 	await page.goto('/inventory')

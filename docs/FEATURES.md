@@ -8,7 +8,9 @@ plan into Shopping.
 ### Recipes
 
 - Create, edit, favorite, search, sort, and share Recipes.
-- Import from a URL, pasted text, files, or screenshots.
+- Import one Recipe from a URL, pasted text, or screenshots; write a Recipe
+  manually when needed. Quick Entry and the legacy text/file bulk importer have
+  been removed. Household and Recipe JSON recovery remain available.
 - Scale ingredient display, switch units, print, and keep personal notes.
 - Cook with ingredient/step check-off, glanceable duration and temperature cues,
   wake lock, and local progress.

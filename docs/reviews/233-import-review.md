@@ -2,8 +2,9 @@
 
 Branch: `feat/233-editable-import-review`, based on merged #259 (`1d9aadd`). The
 existing checkout is `/private/tmp/quartermaster-233`. The main checkout and
-other worktrees are preserved. No PR, merge, or deployment is authorized by this
-handoff.
+other worktrees are preserved. PR #260 is open. Alex requested the
+overview-first revision after local review; merging or deploying still requires
+separate approval.
 
 ## Start and disposable data
 
@@ -44,31 +45,37 @@ and are not application configuration.
    Toss the chickpeas with lemon juice and serve.
    ```
 
-2. Choose **Parse Recipe**. Expand the chickpea row; its amount is 2, unit is
-   cans, and its complete preparation note is editable. Change the amount to 3
-   and rewrite the instruction. Add, remove, or reorder an ingredient or
-   heading.
-3. Empty the title and press **Save Recipe**. The error identifies the title;
-   your amount, instruction, notes, and all rows remain. Restore the title. Try
-   a mismatched yield or a note longer than 500 characters: the review stays
-   intact and lists the problem instead of dropping content.
+2. Choose **Parse Recipe**. A readable overview appears with **Save Recipe** and
+   **Edit**; no input fields or Original input disclosure are visible. You can
+   save directly. To correct something, choose **Edit** and expand the chickpea
+   row; its amount is 2, unit is cans, and its complete preparation note is
+   editable. Change the amount to 3 and rewrite the instruction. Add, remove, or
+   reorder an ingredient or heading. Choose **Done editing** to check the
+   revised overview; returning to Edit keeps your corrections.
+3. Return to **Edit**, empty the title and press **Save Recipe**. The error
+   identifies the title; your amount, instruction, notes, and all rows remain.
+   Restore the title. Try a mismatched yield or a note longer than 500
+   characters: the review stays intact and lists the problem instead of dropping
+   content.
 4. In browser developer tools, go offline and press **Save Recipe**. The form
    remains with a save-unconfirmed message. Return online and explicitly save.
    One ordinary save opens the corrected Recipe; rapid in-flight clicks are
    blocked. If a real request has an unknown outcome, check My Recipes before
    trying again; the app does not automatically retry creates.
-5. Reload the saved Recipe. Confirm the corrections. **Original input** starts
-   collapsed and contains the original title, 2 cans and original instruction.
-   Edit normally and save; original input remains.
+5. Reload the saved Recipe. Confirm the corrections. The cooking screen has no
+   **Original input** section. Open **Edit** to find the collapsed disclosure,
+   containing the original title, 2 cans and original instruction. Edit normally
+   and save; original input remains stored.
 6. From URL, try `http://127.0.0.1/internal`: rejection leaves the URL editable.
-   Then use `https://recipes.example.test/chickpeas`. Review and change title,
-   time/yield and steps before saving. Original input retains the fixture's
-   extracted JSON structure. Reimporting the fixture still warns about
+   Then use `https://recipes.example.test/chickpeas`. Choose **Edit** and change
+   title, time/yield and steps before saving. Original input retains the
+   fixture's extracted JSON structure. Reimporting the fixture still warns about
    duplicates.
 7. From Text, choose **Extract with AI** for any synthetic Recipe text. From
    Image, upload `/private/tmp/qm-233-review/recipe.png`. Both use synthetic
-   provider results and the same editable review. Text source keeps your pasted
-   input; image source keeps the extracted structure, not image bytes.
+   provider results and the same overview with optional Edit. Text source keeps
+   your pasted input; image source keeps the extracted structure, not image
+   bytes.
 8. Inspect `/resources/export-recipes` and `/resources/export-all-data` while
    signed in: Recipes add `rawText`. Automated authenticated tests also restore
    both formats into fresh households, accept old exports without that field,
@@ -79,11 +86,13 @@ and are not application configuration.
 
 ## Evidence and limits
 
-- Full Vitest run: 1,399 tests in 114 files pass. Build, TypeScript, lint and
-  formatting/diff checks pass. Lint retains four existing warnings.
-- Focused Playwright import journey covers amount/step corrections, rejected
-  validation, failed connection, exact original input, successful persistence,
-  reload and duplicate in-flight clicks. Existing Recipe CRUD also passes.
+- Initial implementation: full Vitest run passed 1,399 tests in 114 files.
+- Overview revision: 31 affected Vitest tests in four files pass. Build,
+  TypeScript, lint and formatting/diff checks pass; lint retains four existing
+  warnings. Three production-build Playwright journeys pass: direct overview
+  save and correction of incomplete extraction; edit/overview switching,
+  validation and connection failure, exact source, save/reload and duplicate
+  in-flight clicks; and existing Recipe CRUD.
 - Additional Chromium checks cover URL rejection/input retention, all provider
   paths, metadata edits, source fidelity, duplicate warnings, authenticated
   export, phone/desktop layout and zero page errors. External extraction is
@@ -101,5 +110,6 @@ and are not application configuration.
 - Ingredient-heading JSON recovery loss remains separately tracked in #257. The
   broad mobile test's existing Staples failure remains under #223.
 
-Alex's local review and explicit approval are required before opening a PR.
+PR #260 is updated under Alex's existing approval. This revision restores the
+readable overview with optional Edit and moves retained source into editing.
 Merge/deployment needs separate approval.

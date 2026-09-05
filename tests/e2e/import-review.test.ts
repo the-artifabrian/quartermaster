@@ -30,8 +30,11 @@ test('correct import, fail validation and connection, then save once with origin
 	await page.getByLabel('Recipe text', { exact: true }).fill(original)
 	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
 	await page
-		.getByRole('heading', { name: 'Review Recipe', exact: true })
+		.getByRole('heading', { name: 'Chickpea lunch', exact: true })
 		.waitFor()
+	await expect(page.getByLabel('Title', { exact: true })).toBeHidden()
+	await expect(page.getByText('Original input', { exact: true })).toBeHidden()
+	await page.getByRole('button', { name: 'Edit', exact: true }).click()
 	await page.getByRole('button', { name: /^2 cans chickpeas/ }).click()
 	await expect(page.getByPlaceholder('Notes (e.g., diced)')).toHaveValue(
 		/equivalent cooked weight/,
@@ -40,6 +43,25 @@ test('correct import, fail validation and connection, then save once with origin
 	await page
 		.getByPlaceholder('Step 1')
 		.fill('Serve the chickpeas with extra lemon.')
+	await page.getByLabel('Total time (min)', { exact: true }).fill('25')
+	await page.getByRole('button', { name: 'Done editing', exact: true }).click()
+	await expect(page.getByLabel('Recipe overview')).toContainText(
+		'3 cans chickpeas',
+	)
+	await expect(page.getByLabel('Recipe overview')).toContainText(
+		'Serve the chickpeas with extra lemon.',
+	)
+	await expect(page.getByLabel('Recipe overview')).toContainText(
+		'Total: 25 min',
+	)
+	await expect(page.getByText('Original input', { exact: true })).toBeHidden()
+	await page.getByRole('button', { name: 'Edit', exact: true }).click()
+	await expect(page.getByPlaceholder('Amount', { exact: true })).toHaveValue(
+		'3',
+	)
+	await expect(
+		page.getByLabel('Total time (min)', { exact: true }),
+	).toHaveValue('25')
 	await page.getByLabel('Title', { exact: true }).fill('')
 	await page.getByRole('button', { name: 'Save Recipe', exact: true }).click()
 	await expect(page.getByRole('alert')).toContainText('Title is required')
@@ -64,6 +86,10 @@ test('correct import, fail validation and connection, then save once with origin
 	await expect(page.getByLabel('Title', { exact: true })).toHaveValue(
 		'Reviewed chickpea lunch',
 	)
+	await page.getByRole('button', { name: 'Done editing', exact: true }).click()
+	await expect(page.getByRole('alert')).toContainText(
+		'Save could not be confirmed',
+	)
 	await page.unroute('**/resources/save-import')
 	await page
 		.getByRole('button', { name: 'Save Recipe', exact: true })
@@ -76,12 +102,17 @@ test('correct import, fail validation and connection, then save once with origin
 	await expect(
 		page.getByRole('heading', { name: 'Reviewed chickpea lunch', exact: true }),
 	).toBeVisible()
+	await expect(page.getByText('Original input', { exact: true })).toHaveCount(0)
+	await page.getByRole('link', { name: /edit/i }).click()
 	const source = page
 		.locator('details')
 		.filter({ has: page.locator('summary', { hasText: 'Original input' }) })
 	await expect(source).not.toHaveAttribute('open', '')
 	await source.locator('summary').click()
 	await expect(source.locator('pre')).toHaveText(original)
+	await page.getByRole('button', { name: 'Save Changes', exact: true }).click()
+	await expect(page).toHaveURL(/\/recipes\/(?!import$)[a-z0-9]+$/)
+	await expect(page.getByText('Original input', { exact: true })).toHaveCount(0)
 	const recipes = await prisma.recipe.findMany({
 		where: { userId: user.id },
 		include: { ingredients: { orderBy: { order: 'asc' } }, instructions: true },
@@ -101,4 +132,52 @@ test('correct import, fail validation and connection, then save once with origin
 	})
 	expect(extracts).toBe(1)
 	expect(saves).toBe(3)
+})
+
+test('save directly from overview; incomplete extraction opens editing only when correction is needed', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await page.goto('/recipes/import')
+	await page.getByRole('button', { name: 'From Text', exact: true }).click()
+	await page.getByLabel('Recipe text', { exact: true }).fill(original)
+	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
+	await expect(
+		page.getByRole('heading', { name: 'Chickpea lunch', exact: true }),
+	).toBeVisible()
+	await expect(page.getByLabel('Title', { exact: true })).toBeHidden()
+	await page.getByRole('button', { name: 'Save Recipe', exact: true }).click()
+	await expect(page).toHaveURL(/\/recipes\/(?!import$)[a-z0-9]+$/)
+	await expect(
+		page.getByRole('heading', { name: 'Chickpea lunch', exact: true }),
+	).toBeVisible()
+	await expect(page.getByText('Original input', { exact: true })).toHaveCount(0)
+	expect(
+		await prisma.recipe.findFirst({ where: { userId: user.id } }),
+	).toMatchObject({ rawText: original })
+
+	await page.goto('/recipes/import')
+	await page.getByRole('button', { name: 'From Text', exact: true }).click()
+	await page
+		.getByLabel('Recipe text', { exact: true })
+		.fill('Lemon\nIngredients\n1 lemon')
+	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
+	await expect(
+		page.getByRole('heading', { name: 'Lemon', exact: true }),
+	).toBeVisible()
+	await page.getByRole('button', { name: 'Save Recipe', exact: true }).click()
+	await expect(page.getByRole('alert')).toContainText('Instructions')
+	await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Lemon')
+	await page.getByRole('button', { name: 'Add Step', exact: true }).click()
+	await page.getByPlaceholder('Step 1').fill('Squeeze the lemon.')
+	await page.getByRole('button', { name: 'Done editing', exact: true }).click()
+	await expect(page.getByLabel('Recipe overview')).toContainText(
+		'Squeeze the lemon.',
+	)
+	await page.getByRole('button', { name: 'Save Recipe', exact: true }).click()
+	await expect(page).toHaveURL(/\/recipes\/(?!import$)[a-z0-9]+$/)
+	await expect(
+		page.getByRole('heading', { name: 'Lemon', exact: true }),
+	).toBeVisible()
 })

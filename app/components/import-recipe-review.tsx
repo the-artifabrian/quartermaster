@@ -39,6 +39,31 @@ function reviewFieldLabel(field: string) {
 // Mounted once per explicit extraction. Save/revalidation never reinitializes it.
 export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 	const navigate = useNavigate()
+	const [editing, setEditing] = useState(false)
+	const [warnings, setWarnings] = useState(recipe.warnings ?? [])
+	const [details, setDetails] = useState(() => ({
+		title: recipe.title,
+		description: recipe.description ?? '',
+		activeTime: recipe.activeTime?.toString() ?? '',
+		totalTime: recipe.totalTime?.toString() ?? '',
+		yieldAmount: recipe.yieldAmount?.toString() ?? '',
+		yieldLabel: recipe.yieldLabel ?? '',
+		sourceUrl: recipe.sourceUrl,
+	}))
+	const titleInput = useRef<HTMLInputElement>(null)
+	const overviewTitle = useRef<HTMLHeadingElement>(null)
+	function toggleEditing() {
+		setWarnings([])
+		if (editing && Object.keys(errors).length > 0) {
+			setErrors({})
+			setMessage('')
+		}
+		setEditing(!editing)
+		requestAnimationFrame(() => {
+			if (editing) overviewTitle.current?.focus()
+			else titleInput.current?.focus()
+		})
+	}
 	const [ingredients, setIngredients] = useState<IngredientFieldValue[]>(
 		recipe.ingredients,
 	)
@@ -97,6 +122,7 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 				return
 			}
 			setErrors(result.result?.error ?? {})
+			if (result.result?.error) setEditing(true)
 			setMessage(
 				result.error ||
 					'Save could not be confirmed. Check My Recipes before trying again.',
@@ -119,7 +145,6 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 		<form method="post" noValidate onSubmit={save} className="space-y-6">
 			<input type="hidden" name="intent" value="save" />
 			<input type="hidden" name="rawText" value={recipe.rawText} />
-			<h2 className="font-serif text-xl">Review Recipe</h2>
 			{message && (
 				<div
 					ref={errorSummary}
@@ -149,10 +174,9 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 						)}
 				</div>
 			)}
-			{recipe.warnings?.length ? (
+			{!editing && warnings.length ? (
 				<p role="status">
-					{recipe.warnings.join('. ')}. Use Original input below to add anything
-					missing.
+					{warnings.join('. ')}. Choose Edit to add anything missing.
 				</p>
 			) : null}
 			{savedRecipeId && (
@@ -164,75 +188,161 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 				disabled={saving || !!savedRecipeId}
 				className="min-w-0 space-y-6"
 			>
-				<div className="space-y-2">
-					<Label htmlFor="review-title">Title</Label>
-					<Input id="review-title" name="title" defaultValue={recipe.title} />
-				</div>
-				<section className="space-y-3">
-					<h3 className="font-serif text-lg">Ingredients</h3>
-					<IngredientFields
-						allowRecipeLinks={false}
-						ingredients={ingredients}
-						onChange={setIngredients}
-					/>
-				</section>
-				<section className="space-y-3">
-					<h3 className="font-serif text-lg">Instructions</h3>
-					<InstructionFields
-						instructions={instructions}
-						onChange={setInstructions}
-					/>
-				</section>
-				<details open className="space-y-4">
-					<summary className="min-h-11 cursor-pointer py-3">
-						Recipe details
-					</summary>
-					<div className="space-y-2">
-						<Label htmlFor="review-description">Description</Label>
-						<Textarea
-							id="review-description"
-							name="description"
-							defaultValue={recipe.description ?? ''}
-						/>
-					</div>
-					<div className="grid grid-cols-2 gap-4">
-						{(
-							[
-								['activeTime', 'Active time (min)'],
-								['totalTime', 'Total time (min)'],
-								['yieldAmount', 'Yield amount'],
-								['yieldLabel', 'What it makes'],
-							] as const
-						).map(([name, label]) => (
-							<div key={name} className="space-y-2">
-								<Label htmlFor={`review-${name}`}>{label}</Label>
-								<Input
-									id={`review-${name}`}
-									name={name}
-									type={name === 'yieldLabel' ? 'text' : 'number'}
-									step={name === 'yieldAmount' ? 'any' : '1'}
-									defaultValue={recipe[name] ?? ''}
-								/>
+				{!editing && (
+					<div className="space-y-6" aria-label="Recipe overview">
+						<div>
+							<h2
+								ref={overviewTitle}
+								tabIndex={-1}
+								className="font-serif text-2xl wrap-anywhere"
+							>
+								{details.title || 'Untitled Recipe'}
+							</h2>
+							{details.description && (
+								<p className="text-muted-foreground mt-2 whitespace-pre-wrap">
+									{details.description}
+								</p>
+							)}
+							<div className="text-muted-foreground mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+								{details.activeTime && (
+									<span>Active: {details.activeTime} min</span>
+								)}
+								{details.totalTime && (
+									<span>Total: {details.totalTime} min</span>
+								)}
+								{(details.yieldAmount || details.yieldLabel) && (
+									<span>
+										Makes {details.yieldAmount} {details.yieldLabel}
+									</span>
+								)}
 							</div>
-						))}
+						</div>
+						<section className="space-y-3">
+							<h3 className="font-serif text-lg">Ingredients</h3>
+							<ul className="space-y-2 wrap-anywhere">
+								{ingredients.map((ingredient, index) => (
+									<li key={index}>
+										{ingredient.isHeading ? (
+											<h4 className="border-border mt-4 border-b pb-1 font-medium">
+												{ingredient.name}
+											</h4>
+										) : (
+											<>
+												{[ingredient.amount, ingredient.unit, ingredient.name]
+													.filter(Boolean)
+													.join(' ')}
+												{ingredient.notes && (
+													<span className="text-muted-foreground">
+														, {ingredient.notes}
+													</span>
+												)}
+											</>
+										)}
+									</li>
+								))}
+							</ul>
+						</section>
+						<section className="space-y-3">
+							<h3 className="font-serif text-lg">Instructions</h3>
+							<ol className="list-decimal space-y-3 pl-5 wrap-anywhere">
+								{instructions.map((instruction, index) => (
+									<li key={index} className="pl-1 whitespace-pre-wrap">
+										{instruction.content}
+									</li>
+								))}
+							</ol>
+						</section>
 					</div>
+				)}
+				{/* Keep controls mounted so switching views preserves every correction. */}
+				<div hidden={!editing} className="space-y-6">
 					<div className="space-y-2">
-						<Label htmlFor="review-sourceUrl">Source URL</Label>
+						<Label htmlFor="review-title">Title</Label>
 						<Input
-							id="review-sourceUrl"
-							name="sourceUrl"
-							defaultValue={recipe.sourceUrl}
+							ref={titleInput}
+							id="review-title"
+							name="title"
+							value={details.title}
+							onChange={(event) =>
+								setDetails({ ...details, title: event.target.value })
+							}
 						/>
 					</div>
-				</details>
-				<details>
-					<summary className="min-h-11 cursor-pointer py-3">
-						Original input
-					</summary>
-					<pre className="font-sans text-base wrap-anywhere whitespace-pre-wrap">
-						{recipe.rawText}
-					</pre>
-				</details>
+					<section className="space-y-3">
+						<h3 className="font-serif text-lg">Ingredients</h3>
+						<IngredientFields
+							allowRecipeLinks={false}
+							ingredients={ingredients}
+							onChange={setIngredients}
+						/>
+					</section>
+					<section className="space-y-3">
+						<h3 className="font-serif text-lg">Instructions</h3>
+						<InstructionFields
+							instructions={instructions}
+							onChange={setInstructions}
+						/>
+					</section>
+					<details open className="space-y-4">
+						<summary className="min-h-11 cursor-pointer py-3">
+							Recipe details
+						</summary>
+						<div className="space-y-2">
+							<Label htmlFor="review-description">Description</Label>
+							<Textarea
+								id="review-description"
+								name="description"
+								value={details.description}
+								onChange={(event) =>
+									setDetails({ ...details, description: event.target.value })
+								}
+							/>
+						</div>
+						<div className="grid grid-cols-2 gap-4">
+							{(
+								[
+									['activeTime', 'Active time (min)'],
+									['totalTime', 'Total time (min)'],
+									['yieldAmount', 'Yield amount'],
+									['yieldLabel', 'What it makes'],
+								] as const
+							).map(([name, label]) => (
+								<div key={name} className="space-y-2">
+									<Label htmlFor={`review-${name}`}>{label}</Label>
+									<Input
+										id={`review-${name}`}
+										name={name}
+										type={name === 'yieldLabel' ? 'text' : 'number'}
+										step={name === 'yieldAmount' ? 'any' : '1'}
+										value={details[name]}
+										onChange={(event) =>
+											setDetails({ ...details, [name]: event.target.value })
+										}
+									/>
+								</div>
+							))}
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="review-sourceUrl">Source URL</Label>
+							<Input
+								id="review-sourceUrl"
+								name="sourceUrl"
+								value={details.sourceUrl}
+								onChange={(event) =>
+									setDetails({ ...details, sourceUrl: event.target.value })
+								}
+							/>
+						</div>
+					</details>
+					<details>
+						<summary className="min-h-11 cursor-pointer py-3">
+							Original input
+						</summary>
+						<pre className="font-sans text-base wrap-anywhere whitespace-pre-wrap">
+							{recipe.rawText}
+						</pre>
+					</details>
+				</div>
 				<div className="flex flex-wrap justify-end gap-3">
 					<Button
 						type="button"
@@ -245,6 +355,9 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 						}}
 					>
 						Discard review
+					</Button>
+					<Button type="button" variant="outline" onClick={toggleEditing}>
+						{editing ? 'Done editing' : 'Edit'}
 					</Button>
 					<StatusButton
 						type="submit"

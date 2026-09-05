@@ -16,7 +16,7 @@ removed because they added more friction than value. Romanian/RON costing was
 tested on fixed examples and stopped because useful coverage required too much
 identity and price-catalogue work.
 
-#119 and #126 remain normal-use observation logs, not implementation gates.
+#250 and #126 remain normal-use observation logs, not implementation gates.
 Archived Pantry cleanup (#120), reviewed metadata suggestions (#127), discovery
 sections (#129), product costing (#133–#136), and durable ingredient links
 (#144) are deferred until real use gives them a reason to return. Their unused
@@ -60,7 +60,7 @@ Current product rules:
    quantity planning was removed after normal use showed that reviewing its
    output was harder than adjusting the stored multiplier directly.
 2. **Staples (#115–#120).** Household Staples/Out replaced active Pantry
-   behavior. Archived Pantry rows remain recoverable; #119 collects normal-use
+   behavior. Archived Pantry rows remain recoverable; #250 collects normal-use
    notes and #120 cleanup is deferred.
 3. **Recipe metadata and discovery (#121–#130).** Honest nullable time/yield and
    the small Cuisine/Season/Course vocabulary shipped. #126 collects normal-use

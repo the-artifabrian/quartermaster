@@ -1121,3 +1121,14 @@ Instructions
 		expect(result.ingredients[3]).toEqual({ name: 'FILLING', isHeading: true })
 	})
 })
+
+test('repeated ingredient and instruction sections retain all dishes in text and bulk parsing', () => {
+	const result = parseRecipeText(
+		'Supper\nIngredients\n- 2 cans chickpeas\nInstructions\nWarm the chickpeas.\nIngredients\n1 lemon\nInstructions\nSqueeze the lemon.',
+	)
+	expect(result.ingredients.map((i) => i.name)).toEqual(['chickpeas', 'lemon'])
+	expect(result.instructions.map((i) => i.content)).toEqual([
+		'Warm the chickpeas.',
+		'Squeeze the lemon.',
+	])
+})

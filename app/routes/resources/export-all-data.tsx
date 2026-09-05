@@ -25,6 +25,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					isFavorite: true,
 					isAiGenerated: true,
 					sourceUrl: true,
+					rawText: true,
 					notes: true,
 					ingredients: {
 						select: { name: true, amount: true, unit: true, notes: true },
@@ -233,6 +234,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			isFavorite: recipe.isFavorite,
 			isAiGenerated: recipe.isAiGenerated,
 			sourceUrl: recipe.sourceUrl,
+			rawText: recipe.rawText,
 			notes: recipe.notes,
 			metadataValues: recipe.metadataAssignments.map(
 				(assignment) => assignment.value,

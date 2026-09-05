@@ -13,13 +13,20 @@ import {
 	useActionData,
 	useNavigation,
 } from 'react-router'
-import { Field, TextareaField } from '#app/components/forms.tsx'
+import { z } from 'zod'
+import { ErrorList, Field, TextareaField } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { parseRecipeText } from '#app/utils/bulk-recipe-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { QuickRecipeSchema } from '#app/utils/recipe-validation.ts'
+import {
+	QuickRecipeSchema,
+	IngredientSchema,
+	InstructionSchema,
+	RecipeDescriptionSchema,
+} from '#app/utils/recipe-validation.ts'
+import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/quick.ts'
 
 export const handle: SEOHandle = {
@@ -47,44 +54,94 @@ export async function action({ request }: Route.ActionArgs) {
 
 	const { title, rawText } = submission.value
 
-	// Parse the raw text to extract structured ingredients and instructions.
-	// The typed title runs through the parser too, so "Pho (Serves 2)"
-	// lands as title "Pho" + explicit typed yield, like the other import paths.
-	const parsed = parseRecipeText(`${title}\n\n${rawText}`)
+	// Keep the submitted material before normalization or title/yield extraction.
+	const originalText = `${title}\n\n${rawText}`
+	const parsed = parseRecipeText(originalText)
+	// Unstructured input belongs in Original input, not a second expanded Recipe.
+	const description =
+		parsed.ingredients.length || parsed.instructions.length
+			? parsed.description
+			: undefined
+	const content = z
+		.object({
+			description: RecipeDescriptionSchema,
+			ingredients: z.array(IngredientSchema).max(200),
+			instructions: z.array(InstructionSchema).max(200),
+		})
+		.safeParse({ ...parsed, description })
+	if (!content.success) {
+		return data(
+			{
+				result: submission.reply({
+					formErrors: [
+						`Some extracted content exceeds the Recipe editor limits: ${content.error.issues[0]!.message}. Shorten or split that content and save again. Your input is still here.`,
+					],
+				}),
+			},
+			{ status: 400 },
+		)
+	}
 
-	const recipe = await prisma.recipe.create({
-		data: {
-			title: parsed.title || title,
-			description: parsed.description,
-			yieldAmount: parsed.yieldAmount,
-			yieldLabel: parsed.yieldLabel,
-			userId,
-			householdId,
-			ingredients:
-				parsed.ingredients.length > 0
-					? {
-							create: parsed.ingredients.map((ing, i) => ({
-								name: ing.name,
-								amount: ing.amount ?? null,
-								unit: ing.unit ?? null,
-								notes: ing.notes ?? null,
-								isHeading: ing.isHeading ?? false,
-								order: i,
-							})),
-						}
-					: undefined,
-			instructions:
-				parsed.instructions.length > 0
-					? {
-							create: parsed.instructions.map((inst, i) => ({
-								content: inst.content,
-								order: i,
-							})),
-						}
-					: undefined,
-		},
-		select: { id: true },
-	})
+	let recipe: { id: string }
+	try {
+		recipe = await prisma.recipe.create({
+			data: {
+				title,
+				rawText: originalText,
+				description,
+				yieldAmount: parsed.yieldAmount,
+				yieldLabel: parsed.yieldLabel,
+				userId,
+				householdId,
+				ingredients:
+					parsed.ingredients.length > 0
+						? {
+								create: parsed.ingredients.map((ing, i) => ({
+									name: ing.name,
+									amount: ing.amount ?? null,
+									unit: ing.unit ?? null,
+									notes: ing.notes ?? null,
+									isHeading: ing.isHeading ?? false,
+									order: i,
+								})),
+							}
+						: undefined,
+				instructions:
+					parsed.instructions.length > 0
+						? {
+								create: parsed.instructions.map((inst, i) => ({
+									content: inst.content,
+									order: i,
+								})),
+							}
+						: undefined,
+			},
+			select: { id: true },
+		})
+	} catch {
+		return data(
+			{
+				result: submission.reply({
+					formErrors: [
+						'We could not confirm the save. Your input is still here. Check My Recipes before trying again.',
+					],
+				}),
+			},
+			{ status: 500 },
+		)
+	}
+
+	const missing = [
+		!parsed.ingredients.length && 'ingredients',
+		!parsed.instructions.length && 'instructions',
+	].filter(Boolean)
+	if (missing.length) {
+		return redirectWithToast(`/recipes/${recipe.id}`, {
+			type: 'message',
+			title: 'Original input saved',
+			description: `Could not identify ${missing.join(' or ')}. Open Original input and edit the Recipe to add them.`,
+		})
+	}
 
 	return redirect(`/recipes/${recipe.id}`)
 }
@@ -94,7 +151,7 @@ export default function QuickRecipeEntry() {
 		result: { error?: Record<string, string[]> }
 	}>()
 	const navigation = useNavigation()
-	const isSubmitting = navigation.state === 'submitting'
+	const isSubmitting = navigation.state !== 'idle'
 
 	const [form, fields] = useForm({
 		constraint: getZodConstraint(QuickRecipeSchema),
@@ -113,7 +170,15 @@ export default function QuickRecipeEntry() {
 				Paste or type a recipe as freeform text. You can add structure later by
 				editing.
 			</p>
-			<Form method="POST" {...getFormProps(form)} className="space-y-6">
+			<Form
+				method="POST"
+				{...getFormProps(form)}
+				className="space-y-6"
+				onSubmitCapture={(event) => {
+					if (isSubmitting) event.preventDefault()
+				}}
+			>
+				<ErrorList id={form.errorId} errors={form.errors} />
 				<Field
 					labelProps={{ children: 'Title' }}
 					inputProps={{

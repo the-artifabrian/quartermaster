@@ -269,11 +269,9 @@ export function parseRecipeText(text: string): ParsedRecipe {
 
 	// Parse ingredients
 	const ingredients: ParsedRecipe['ingredients'] = []
-	const ingredientSectionIndex = sections.findIndex(
-		(s) => s.type === 'ingredients',
-	)
-	if (ingredientSectionIndex >= 0) {
-		const ingredientLines = getSectionLines(ingredientSectionIndex)
+	for (const [sectionIndex, section] of sections.entries()) {
+		if (section.type !== 'ingredients') continue
+		const ingredientLines = getSectionLines(sectionIndex)
 		const usesBullets = ingredientLines.some(hasBulletPrefix)
 		// When the whole list is caps, caps is house style, not structure
 		const allCapsIsHeading = !isAllCapsHouseStyle(
@@ -314,13 +312,7 @@ export function parseRecipeText(text: string): ParsedRecipe {
 				continue
 			}
 
-			// Skip lines that are clearly not ingredients (paragraph-length text)
-			if (stripped.length > 200) {
-				warnings.push(
-					`Skipped long line (not an ingredient): "${stripped.slice(0, 60)}..."`,
-				)
-				continue
-			}
+			// Preparation notes can legitimately make an ingredient line long.
 			const parsed = parseIngredient(stripped)
 			if (parsed) {
 				// Carry sub-section context into ingredient notes
@@ -347,7 +339,9 @@ export function parseRecipeText(text: string): ParsedRecipe {
 		(s) => s.type === 'instructions',
 	)
 	if (instructionSectionIndex >= 0) {
-		const instructionLines = getSectionLines(instructionSectionIndex)
+		const instructionLines = sections.flatMap((section, index) =>
+			section.type === 'instructions' ? getSectionLines(index) : [],
+		)
 		for (const line of instructionLines) {
 			const stripped = stripBullet(line)
 			if (stripped) {

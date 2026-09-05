@@ -9,6 +9,10 @@ plan into Shopping.
 
 - Create, edit, favorite, search, sort, and share Recipes.
 - Import from a URL, pasted text, files, or screenshots.
+- Quick Entry keeps the submitted title and original input alongside extracted
+  ingredients and steps. Original input is collapsed on Recipe detail and
+  included in JSON recovery/export and authenticated shared copies; anonymous
+  shared display omits it.
 - Scale ingredient display, switch units, print, and keep personal notes.
 - Cook with ingredient/step check-off, glanceable duration and temperature cues,
   wake lock, and local progress.

@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>Quartermaster · disposable chooser comparison</title>
+		<style>
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				background: #f6f1eb;
+				color: #2d2926;
+				font:
+					16px/1.6 system-ui,
+					sans-serif;
+			}
+			main {
+				max-width: 960px;
+				margin: auto;
+				padding: 24px 16px 180px;
+			}
+			h1,
+			h2,
+			h3 {
+				font-family: Georgia, serif;
+				font-weight: 400;
+				line-height: 1.3;
+			}
+			h1 {
+				font-size: 28px;
+			}
+			h2 {
+				font-size: 23px;
+			}
+			h3 {
+				font-size: 19px;
+			}
+			button,
+			input,
+			select {
+				font: inherit;
+				min-height: 44px;
+				padding: 8px 12px;
+				border: 1px solid #ded6ca;
+				border-radius: 8px;
+				background: #fdfaf6;
+				color: #2d2926;
+			}
+			button {
+				cursor: pointer;
+				color: #365d3b;
+			}
+			button.primary {
+				background: #4e7a54;
+				color: white;
+			}
+			button[aria-pressed='true'] {
+				outline: 2px solid #4e7a54;
+			}
+			button:focus-visible,
+			a:focus-visible,
+			input:focus-visible,
+			select:focus-visible {
+				outline: 3px solid #4e7a54;
+				outline-offset: 3px;
+			}
+			a {
+				color: #365d3b;
+			}
+			small,
+			.muted {
+				color: #6f6358;
+			}
+			label {
+				display: inline-flex;
+				gap: 8px;
+				align-items: center;
+			}
+			.bar {
+				display: flex;
+				gap: 8px;
+				align-items: center;
+				flex-wrap: wrap;
+			}
+			.search {
+				width: 100%;
+				margin: 16px 0 8px;
+			}
+			.row {
+				display: flex;
+				align-items: center;
+				gap: 16px;
+				border-bottom: 1px solid #ded6ca;
+				padding: 16px 0;
+			}
+			.row div {
+				flex: 1;
+			}
+			.row h3 {
+				margin: 0;
+			}
+			.mono {
+				display: grid;
+				place-items: center;
+				flex: none !important;
+				width: 64px;
+				height: 64px;
+				background: linear-gradient(135deg, #ded6ca, #c4956a);
+				font: 26px Georgia;
+				border-radius: 8px;
+			}
+			.candidate {
+				border-top: 1px solid #ded6ca;
+				padding: 16px 0;
+			}
+			.candidate h3 {
+				margin: 8px 0;
+			}
+			.choices {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: 24px;
+			}
+			.notice {
+				border-left: 3px solid #c4956a;
+				padding: 8px 16px;
+				background: #eee7de;
+			}
+			.switcher {
+				position: fixed;
+				bottom: 16px;
+				left: 50%;
+				transform: translateX(-50%);
+				background: #2d2926;
+				color: white;
+				border-radius: 16px;
+				padding: 8px;
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				width: max-content;
+				max-width: 95vw;
+				box-shadow: 0 4px 20px #0003;
+			}
+			.switcher span {
+				max-width: 220px;
+				line-height: 1.3;
+			}
+			.lab {
+				margin-bottom: 24px;
+				padding-bottom: 16px;
+				border-bottom: 1px solid #ded6ca;
+			}
+			pre {
+				white-space: pre-wrap;
+				overflow-wrap: anywhere;
+				font-size: 12px;
+			}
+			summary {
+				cursor: pointer;
+				min-height: 44px;
+				padding: 8px 0;
+			}
+			#status {
+				min-height: 26px;
+			}
+			.steps label {
+				display: flex;
+				align-items: flex-start;
+				padding: 12px 0;
+				border-bottom: 1px solid #ded6ca;
+			}
+			input[type='checkbox'] {
+				min-height: 24px;
+				width: 24px;
+				flex-shrink: 0;
+			}
+			@media (max-width: 650px) {
+				.choices {
+					grid-template-columns: 1fr;
+					gap: 0;
+				}
+				.row {
+					gap: 12px;
+				}
+				.row button {
+					max-width: 45%;
+					text-align: left;
+				}
+				.lab label {
+					display: flex;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<div class="lab">
+				<strong>Disposable comparison · #251</strong>
+				<p>
+					Fictional saved Recipes. Cooking and planning are simulated; reload
+					clears actions.
+				</p>
+				<label
+					>Library
+					<select id="size">
+						<option value="small">Small · 6 Recipes</option>
+						<option value="populated">Populated · 36 Recipes</option>
+					</select></label
+				>
+				<a href="#library" id="browse">Browse library</a>
+			</div>
+			<div id="app"></div>
+			<p id="status" role="status"></p>
+			<details>
+				<summary>Comparison state</summary>
+				<pre id="state"></pre>
+			</details>
+		</main>
+		<nav class="switcher" aria-label="Prototype variants">
+			<button id="prev" aria-label="Previous variant">←</button
+			><span id="variant"></span
+			><button id="next" aria-label="Next variant">→</button>
+		</nav>
+		<script type="module" src="/ui.js"></script>
+	</body>
+</html>

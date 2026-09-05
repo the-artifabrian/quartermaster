@@ -9,6 +9,7 @@ import {
 	InstructionFields,
 	type InstructionFieldValue,
 } from './instruction-fields.tsx'
+import { RecipeMetadataCard } from './recipe-metadata-card.tsx'
 import { invalidateServiceWorkerData } from './service-worker-data-sync.tsx'
 import { Button } from './ui/button.tsx'
 import { Input } from './ui/input.tsx'
@@ -189,69 +190,103 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 				className="min-w-0 space-y-6"
 			>
 				{!editing && (
-					<div className="space-y-6" aria-label="Recipe overview">
-						<div>
-							<h2
-								ref={overviewTitle}
-								tabIndex={-1}
-								className="font-serif text-2xl wrap-anywhere"
-							>
-								{details.title || 'Untitled Recipe'}
-							</h2>
-							{details.description && (
-								<p className="text-muted-foreground mt-2 whitespace-pre-wrap">
-									{details.description}
-								</p>
-							)}
-							<div className="text-muted-foreground mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm">
-								{details.activeTime && (
-									<span>Active: {details.activeTime} min</span>
-								)}
-								{details.totalTime && (
-									<span>Total: {details.totalTime} min</span>
-								)}
-								{(details.yieldAmount || details.yieldLabel) && (
-									<span>
-										Makes {details.yieldAmount} {details.yieldLabel}
-									</span>
-								)}
+					<div
+						className="space-y-4 rounded-lg border p-6"
+						aria-label="Recipe overview"
+					>
+						<h2
+							ref={overviewTitle}
+							tabIndex={-1}
+							className="text-xl font-semibold wrap-anywhere"
+						>
+							{details.title || 'Untitled Recipe'}
+						</h2>
+						{details.description && (
+							<p className="text-muted-foreground text-sm wrap-anywhere whitespace-pre-wrap">
+								{details.description}
+							</p>
+						)}
+						<RecipeMetadataCard
+							activeTime={
+								details.activeTime === '' ? null : Number(details.activeTime)
+							}
+							totalTime={
+								details.totalTime === '' ? null : Number(details.totalTime)
+							}
+							yieldAmount={
+								details.yieldAmount === '' ? null : Number(details.yieldAmount)
+							}
+							yieldLabel={details.yieldLabel || null}
+							sourceUrl={null}
+						/>
+
+						{ingredients.length > 0 &&
+							(() => {
+								const realIngredientCount = ingredients.filter(
+									(ing) => !ing.isHeading,
+								).length
+								return (
+									<div>
+										<h3 className="mb-2 font-medium">
+											Ingredients ({realIngredientCount})
+										</h3>
+										<ul className="space-y-1 text-sm wrap-anywhere">
+											{ingredients.map((ing, i) =>
+												ing.isHeading ? (
+													<li key={i}>
+														<p className="text-muted-foreground border-border/50 mt-4 mb-1.5 border-b px-2 pb-1 font-sans text-xs font-medium tracking-widest uppercase first:mt-0">
+															{ing.name}
+														</p>
+													</li>
+												) : (
+													<li key={i} className="flex gap-1">
+														<span className="text-muted-foreground shrink-0">
+															–
+														</span>
+														<span className="min-w-0">
+															{ing.amount && (
+																<>
+																	<span className="font-medium">
+																		{ing.amount}
+																	</span>{' '}
+																</>
+															)}
+															{ing.unit && <>{ing.unit} </>}
+															{ing.name}
+															{ing.notes && (
+																<span className="text-muted-foreground">
+																	, {ing.notes}
+																</span>
+															)}
+														</span>
+													</li>
+												),
+											)}
+										</ul>
+									</div>
+								)
+							})()}
+
+						{instructions.length > 0 && (
+							<div>
+								<h3 className="mb-2 font-medium">
+									Instructions ({instructions.length}{' '}
+									{instructions.length === 1 ? 'step' : 'steps'})
+								</h3>
+								<ol className="space-y-2 text-sm wrap-anywhere">
+									{instructions.map((inst, i) => (
+										<li key={i} className="flex gap-2">
+											<span className="text-muted-foreground shrink-0">
+												{i + 1}.
+											</span>
+											<span className="min-w-0 whitespace-pre-wrap">
+												{inst.content}
+											</span>
+										</li>
+									))}
+								</ol>
 							</div>
-						</div>
-						<section className="space-y-3">
-							<h3 className="font-serif text-lg">Ingredients</h3>
-							<ul className="space-y-2 wrap-anywhere">
-								{ingredients.map((ingredient, index) => (
-									<li key={index}>
-										{ingredient.isHeading ? (
-											<h4 className="border-border mt-4 border-b pb-1 font-medium">
-												{ingredient.name}
-											</h4>
-										) : (
-											<>
-												{[ingredient.amount, ingredient.unit, ingredient.name]
-													.filter(Boolean)
-													.join(' ')}
-												{ingredient.notes && (
-													<span className="text-muted-foreground">
-														, {ingredient.notes}
-													</span>
-												)}
-											</>
-										)}
-									</li>
-								))}
-							</ul>
-						</section>
-						<section className="space-y-3">
-							<h3 className="font-serif text-lg">Instructions</h3>
-							<ol className="list-decimal space-y-3 pl-5 wrap-anywhere">
-								{instructions.map((instruction, index) => (
-									<li key={index} className="pl-1 whitespace-pre-wrap">
-										{instruction.content}
-									</li>
-								))}
-							</ol>
-						</section>
+						)}
 					</div>
 				)}
 				{/* Keep controls mounted so switching views preserves every correction. */}
@@ -343,7 +378,7 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 						</pre>
 					</details>
 				</div>
-				<div className="flex flex-wrap justify-end gap-3">
+				<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
 					<Button
 						type="button"
 						variant="outline"
@@ -354,7 +389,7 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 								window.location.assign('/recipes/import')
 						}}
 					>
-						Discard review
+						Import Another
 					</Button>
 					<Button type="button" variant="outline" onClick={toggleEditing}>
 						{editing ? 'Done editing' : 'Edit'}

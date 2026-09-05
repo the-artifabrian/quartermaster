@@ -45,13 +45,15 @@ and are not application configuration.
    Toss the chickpeas with lemon juice and serve.
    ```
 
-2. Choose **Parse Recipe**. A readable overview appears with **Save Recipe** and
-   **Edit**; no input fields or Original input disclosure are visible. You can
-   save directly. To correct something, choose **Edit** and expand the chickpea
-   row; its amount is 2, unit is cans, and its complete preparation note is
-   editable. Change the amount to 3 and rewrite the instruction. Add, remove, or
-   reorder an ingredient or heading. Choose **Done editing** to check the
-   revised overview; returning to Edit keeps your corrections.
+2. Choose **Parse Recipe**. The production-style bordered overview card appears
+   with **Save Recipe** and **Edit**; no input fields or Original input
+   disclosure are visible. You can save directly. To correct something, choose
+   **Edit** and expand the chickpea row; its amount is 2, unit is cans, and its
+   complete preparation note is editable. Change the amount to 3 and rewrite the
+   instruction. Add, remove, or reorder an ingredient or heading. Choose **Done
+   editing** to check the revised overview; returning to Edit keeps your
+   corrections. The compact typography, ingredient/step counts and metadata
+   display match production.
 3. Return to **Edit**, empty the title and press **Save Recipe**. The error
    identifies the title; your amount, instruction, notes, and all rows remain.
    Restore the title. Try a mismatched yield or a note longer than 500
@@ -81,7 +83,7 @@ and are not application configuration.
    both formats into fresh households, accept old exports without that field,
    and verify anonymous shared display omits source while authenticated **Save
    to my Recipes** includes it.
-9. Try **Discard review**. Cancelling the confirmation keeps the review;
+9. Try **Import Another**. Cancelling the confirmation keeps the review;
    confirming starts a new import. Use phone and desktop widths.
 
 ## Evidence and limits
@@ -93,6 +95,11 @@ and are not application configuration.
   save and correction of incomplete extraction; edit/overview switching,
   validation and connection failure, exact source, save/reload and duplicate
   in-flight clicks; and existing Recipe CRUD.
+- Production-card correction: build/typecheck/lint pass and the three browser
+  journeys pass again. Desktop/phone visual inspection covers the long-note
+  fixture, compact counts/typography and Import Another cancel/confirm. The
+  ingredient row wraps as one text flow so long notes cannot squeeze its name or
+  unit into narrow columns.
 - Additional Chromium checks cover URL rejection/input retention, all provider
   paths, metadata edits, source fidelity, duplicate warnings, authenticated
   export, phone/desktop layout and zero page errors. External extraction is

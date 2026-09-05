@@ -3,7 +3,14 @@
 Related to #251 and #249. Do not merge this branch or treat the prototype as an
 accepted feature. Application routes, data, and dependencies are unchanged.
 
-Run from this branch: `bun docs/experiments/251/run.mjs`, then open
+Run the existing local worktree (Bun >= 1.3.13; no install needed):
+
+```sh
+cd /private/tmp/quartermaster-251
+bun docs/experiments/251/run.mjs
+```
+
+Then open
 http://127.0.0.1:9251/?variant=A. No keys or database needed. Stop with Ctrl-C.
 The bottom arrows switch A–D (also keyboard arrows outside controls). All
 actions are in memory and reset on reload. Only the variant is retained in the
@@ -78,8 +85,9 @@ prospective users' smaller libraries where feasible. Publish only concise
 non-private findings. No quota or fixed study duration is required. Decide on
 #251: clearer search only, a bounded chooser with separately specified scope,
 revise, or stop. Leave #251 open and ready-for-human until that decision. #252
-stays the next experiment; #224 proceeds independently while feedback is
-pending.
+stays the next experiment; #233 proceeds independently while feedback is
+pending. PR #256 is closed; this local handoff does not reopen it or authorize a
+new PR. PR #259 has merged the capture removals.
 
 ## Screens
 

@@ -58,6 +58,10 @@ Current product rules:
 - Wait for Alex's explicit approval before opening a PR. If manual testing finds
   problems, fix and recheck them locally, then provide updated testing steps.
   Continue independent authorized work while waiting.
+- Straightforward removals may proceed directly to a PR after thorough review
+  and sufficient automated and disposable-data checks, without requiring Alex to
+  test locally. Use judgment; this exception does not cover changes that need a
+  product or interaction decision.
 - Product experiments also require a runnable local comparison and manual
   testing steps. Screenshots may supplement that handoff; they do not establish
   acceptance or authorize a production feature.

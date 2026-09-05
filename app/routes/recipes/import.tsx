@@ -23,7 +23,7 @@ import {
 	extractYieldFromTitle,
 	joinBrokenUnitSteps,
 	parseRecipeText,
-} from '#app/utils/bulk-recipe-parser.ts'
+} from '#app/utils/recipe-text-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	detectIngredientHeading,

@@ -16,7 +16,7 @@ const faqs = [
 	{
 		question: 'How do I import recipes?',
 		answer:
-			'Several ways: paste a URL and Quartermaster extracts the recipe automatically, bulk-import by pasting text from Apple Notes (separate recipes with ---), or drag and drop .md/.txt files. You can also import a full data export from Settings > Data.',
+			'Open New Recipe > Import to paste a URL or recipe text. Pro also includes AI extraction from pasted text and screenshots. Choose Write a Recipe to enter one manually. Restore a Quartermaster JSON export from Settings > Data.',
 	},
 	{
 		question: 'How does Quartermaster calculate what a Recipe needs?',

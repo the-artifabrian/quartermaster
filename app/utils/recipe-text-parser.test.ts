@@ -3,60 +3,7 @@ import {
 	extractYieldFromTitle,
 	joinBrokenUnitSteps,
 	parseRecipeText,
-	splitMultipleRecipes,
-} from './bulk-recipe-parser.ts'
-
-describe('splitMultipleRecipes', () => {
-	test('returns single recipe when no separator', () => {
-		const result = splitMultipleRecipes('My Recipe\nIngredients\n- flour')
-		expect(result).toHaveLength(1)
-		expect(result[0]).toBe('My Recipe\nIngredients\n- flour')
-	})
-
-	test('splits on --- separator', () => {
-		const text = `Recipe One
-Ingredients
-- flour
-
----
-
-Recipe Two
-Ingredients
-- sugar`
-		const result = splitMultipleRecipes(text)
-		expect(result).toHaveLength(2)
-		expect(result[0]).toContain('Recipe One')
-		expect(result[1]).toContain('Recipe Two')
-	})
-
-	test('handles --- with surrounding whitespace', () => {
-		const text = `Recipe One
-Ingredients
-- flour
-  ---
-Recipe Two
-Ingredients
-- sugar`
-		const result = splitMultipleRecipes(text)
-		expect(result).toHaveLength(2)
-	})
-
-	test('filters out empty sections from multiple separators', () => {
-		const text = `Recipe One
-Ingredients
-- flour
-
----
-
----
-
-Recipe Two
-Ingredients
-- sugar`
-		const result = splitMultipleRecipes(text)
-		expect(result).toHaveLength(2)
-	})
-})
+} from './recipe-text-parser.ts'
 
 describe('parseRecipeText', () => {
 	test('parses standard Apple Notes recipe format', () => {

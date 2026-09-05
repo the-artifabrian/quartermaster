@@ -37,12 +37,34 @@ Current product rules:
 - Staples/Out is a small household availability model, not exact stock.
 - Recipe cards stay minimal. Recently Updated is the real default; availability
   belongs on Recipe detail.
+- Recipe capture offers Import (URL, text, screenshots) and Write a Recipe.
+  Quick Entry and the migration-only text/file bulk importer are retired; JSON
+  export/restore remains supported.
 - Keep manual paths complete. AI may propose or extract, never silently decide.
 - Prefer flat lists, few controls, and no category grouping in Shopping.
 
 ## How roadmap work runs
 
-- One focused, reversible ticket per branch and PR.
+- Implement one focused, reversible issue on its own local branch, preserving
+  unrelated local work. Run appropriate checks and exercise affected journeys
+  with disposable data.
+- Thoroughly review the complete diff against the issue's acceptance criteria:
+  correctness, regressions, failure handling, and unnecessary complexity. Fix
+  worthwhile findings within scope; record unrelated findings separately. Rerun
+  affected checks and review the fixes before handing over.
+- Provide Alex with local manual testing steps: exact checkout/start commands,
+  disposable data setup, journeys to try, expected results, and known
+  limitations.
+- Wait for Alex's explicit approval before opening a PR. If manual testing finds
+  problems, fix and recheck them locally, then provide updated testing steps.
+  Continue independent authorized work while waiting.
+- Straightforward removals may proceed directly to a PR after thorough review
+  and sufficient automated and disposable-data checks, without requiring Alex to
+  test locally. Use judgment; this exception does not cover changes that need a
+  product or interaction decision.
+- Product experiments also require a runnable local comparison and manual
+  testing steps. Screenshots may supplement that handoff; they do not establish
+  acceptance or authorize a production feature.
 - GitHub dependency links represent real implementation or data prerequisites.
 - Observation issues collect normal-use feedback without blocking unrelated work
   or requiring a formal verdict.
@@ -51,7 +73,7 @@ Current product rules:
 - Rehearse risky migrations on a disposable copy and preserve export/restore
   paths.
 - Because merging to `master` deploys, ask Alex before merging or otherwise
-  deploying. Branch pushes and PRs are normal when implementation is requested.
+  deploying. Approval to open a PR does not authorize merging or deployment.
 
 ## Roadmap outcomes
 

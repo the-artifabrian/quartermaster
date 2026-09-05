@@ -739,18 +739,20 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 
-				{/* Raw Text */}
+				{/* Retained source is secondary to the structured cooking content. */}
 				{recipe.rawText && (
-					<div className="mt-6 print:hidden">
-						<div className="bg-muted/40 rounded-lg p-4">
-							<p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
-								Recipe Notes
-							</p>
-							<pre className="font-sans text-sm whitespace-pre-wrap">
-								{recipe.rawText}
-							</pre>
-						</div>
-					</div>
+					<details className="mt-6 print:hidden">
+						<summary className="text-muted-foreground min-h-11 cursor-pointer py-3 text-sm">
+							Original input
+						</summary>
+						<p className="text-muted-foreground mb-3 text-sm">
+							Retained from import. Use this when editing anything that was
+							missed. Shared Recipe copies include this input.
+						</p>
+						<pre className="font-sans text-base leading-relaxed wrap-anywhere whitespace-pre-wrap">
+							{recipe.rawText}
+						</pre>
+					</details>
 				)}
 
 				{/* Action bar */}

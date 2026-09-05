@@ -127,7 +127,10 @@ describe('surviving AI Recipe paths', () => {
 
 		expect(preview).toMatchObject({
 			error: null,
-			recipe: { title: 'AI extraction preview' },
+			recipe: {
+				title: 'AI extraction preview',
+				rawText: 'Warm one can of chickpeas.',
+			},
 		})
 		expect(
 			await prisma.recipe.count({
@@ -144,6 +147,7 @@ describe('surviving AI Recipe paths', () => {
 			request: await postRequest(session, '/recipes/import', {
 				intent: 'save',
 				title: 'Reviewed chickpeas',
+				rawText: 'Warm one can of chickpeas.',
 				description: 'The description after review.',
 				'ingredients[0].name': 'chickpeas',
 				'ingredients[0].amount': '1',
@@ -153,6 +157,11 @@ describe('surviving AI Recipe paths', () => {
 			...routeArgs('/recipes/import'),
 		})
 
+		expect(
+			await prisma.usageEvent.count({
+				where: { userId: session.userId, type: 'recipe_extract_llm_call' },
+			}),
+		).toBe(1)
 		expect(saved).toBeInstanceOf(Response)
 		expect((saved as Response).status).toBe(302)
 		await expect(

@@ -11,6 +11,13 @@ plan into Shopping.
 - Import one Recipe from a URL, pasted text, or screenshots; write a Recipe
   manually when needed. Quick Entry and the legacy text/file bulk importer have
   been removed. Household and Recipe JSON recovery remain available.
+- Review and correct imported titles, ingredient amounts/notes/headings, steps,
+  and supplied time/yield before saving. Failed saves retain the active review;
+  leaving or reloading Import does not yet restore it.
+- Imported Recipes retain pasted input or available extracted structure in a
+  collapsed Original input area. Both JSON exports include it and older exports
+  remain accepted. Anonymous sharing omits raw source; authenticated Save to my
+  Recipes includes it in the copied Recipe.
 - Scale ingredient display, switch units, print, and keep personal notes.
 - Cook with ingredient/step check-off, glanceable duration and temperature cues,
   wake lock, and local progress.

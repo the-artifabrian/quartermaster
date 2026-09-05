@@ -22,6 +22,11 @@ function postToServiceWorker(message: Record<string, unknown>) {
 		.catch(() => {})
 }
 
+/** Native fetch mutations use the same invalidation as Router submissions. */
+export function invalidateServiceWorkerData() {
+	postToServiceWorker({ type: 'qm-data-invalidate' })
+}
+
 /**
  * Whether an in-flight submission (from useNavigation or a fetcher) should drop
  * the per-session `.data` cache when it finishes. True for any non-GET submission
@@ -100,7 +105,7 @@ export function ServiceWorkerDataSync({
 	const wasMutating = useRef(false)
 	useEffect(() => {
 		if (wasMutating.current && !isMutating) {
-			postToServiceWorker({ type: 'qm-data-invalidate' })
+			invalidateServiceWorkerData()
 		}
 		wasMutating.current = isMutating
 	}, [isMutating])

@@ -37,6 +37,7 @@ export type IngredientFieldValue = {
 }
 
 type IngredientFieldsProps = {
+	allowRecipeLinks?: boolean
 	ingredients: IngredientFieldValue[]
 	onChange: (ingredients: IngredientFieldValue[]) => void
 	/** Exclude this recipe from the link picker (prevents self-linking) */
@@ -70,6 +71,7 @@ function ingredientSummary(ing: IngredientFieldValue): string {
 
 export function IngredientFields({
 	ingredients: rawIngredients,
+	allowRecipeLinks = true,
 	onChange,
 	excludeRecipeId,
 }: IngredientFieldsProps) {
@@ -285,6 +287,7 @@ export function IngredientFields({
 								/>
 							) : (
 								<SortableIngredientRow
+									allowRecipeLinks={allowRecipeLinks}
 									key={ingredient.sortKey}
 									sortKey={ingredient.sortKey!}
 									ingredient={ingredient}
@@ -312,6 +315,7 @@ export function IngredientFields({
 }
 
 function SortableIngredientRow({
+	allowRecipeLinks,
 	sortKey,
 	ingredient,
 	isExpanded,
@@ -330,6 +334,7 @@ function SortableIngredientRow({
 	onToggleExpand: () => void
 	onUpdate: (field: keyof IngredientFieldValue, value: string) => void
 	onRemove: () => void
+	allowRecipeLinks: boolean
 	onLinkRecipe: (recipeId: string, recipeTitle: string) => void
 	onUnlinkRecipe: () => void
 	onConvertToHeading: () => void
@@ -437,13 +442,15 @@ function SortableIngredientRow({
 						value={ingredient.notes ?? ''}
 						onChange={(e) => onUpdate('notes', e.target.value)}
 					/>
-					<RecipeLinkPicker
-						linkedRecipeId={ingredient.linkedRecipeId}
-						linkedRecipeTitle={ingredient.linkedRecipeTitle}
-						onLink={onLinkRecipe}
-						onUnlink={onUnlinkRecipe}
-						excludeRecipeId={excludeRecipeId}
-					/>
+					{allowRecipeLinks && (
+						<RecipeLinkPicker
+							linkedRecipeId={ingredient.linkedRecipeId}
+							linkedRecipeTitle={ingredient.linkedRecipeTitle}
+							onLink={onLinkRecipe}
+							onUnlink={onUnlinkRecipe}
+							excludeRecipeId={excludeRecipeId}
+						/>
+					)}
 				</div>
 			) : (
 				<div className="flex items-center gap-2">

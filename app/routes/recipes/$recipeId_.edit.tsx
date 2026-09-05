@@ -48,6 +48,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 				yieldAmount: true,
 				yieldLabel: true,
 				sourceUrl: true,
+				rawText: true,
 				notes: true,
 				householdId: true,
 				image: { select: { objectKey: true, altText: true } },
@@ -323,6 +324,16 @@ export default function EditRecipe({ loaderData }: Route.ComponentProps) {
 				metadataOptions={metadataOptions}
 				submitLabel="Save Changes"
 			/>
+			{recipe.rawText && (
+				<details className="mt-6">
+					<summary className="text-muted-foreground min-h-11 cursor-pointer py-3 text-sm">
+						Original input
+					</summary>
+					<pre className="font-sans text-base leading-relaxed wrap-anywhere whitespace-pre-wrap">
+						{recipe.rawText}
+					</pre>
+				</details>
+			)}
 			<div className="mt-8 border-t pt-8">
 				<DeleteRecipe recipeId={recipe.id} />
 			</div>

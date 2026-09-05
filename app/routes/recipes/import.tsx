@@ -3,15 +3,8 @@ import { parseFormData, type FileUpload } from '@mjackson/form-data-parser'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import * as cheerio from 'cheerio'
 import { useState } from 'react'
-import {
-	data,
-	Form,
-	Link,
-	redirect,
-	useActionData,
-	useNavigation,
-} from 'react-router'
-import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
+import { data, Form, Link, useActionData, useNavigation } from 'react-router'
+import { ImportRecipeReview } from '#app/components/import-recipe-review.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -25,23 +18,21 @@ import {
 	parseRecipeText,
 } from '#app/utils/recipe-text-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { saveImportedRecipe } from '#app/utils/import-recipe-save.server.ts'
 import {
 	detectIngredientHeading,
 	isAllCapsHouseStyle,
 	parseIngredient,
 	parseISODuration,
 } from '#app/utils/ingredient-parser.server.ts'
-import { AI_FEATURE_USED, RECIPE_IMPORTED } from '#app/utils/posthog-events.ts'
+import { AI_FEATURE_USED } from '#app/utils/posthog-events.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import {
 	ALLOWED_IMAGE_MEDIA_TYPES,
 	extractRecipeFromImages,
 	extractRecipeFromText,
 } from '#app/utils/recipe-extract-llm.server.ts'
-import {
-	ImportUrlSchema,
-	RecipeTimeYieldSchema,
-} from '#app/utils/recipe-validation.ts'
+import { ImportUrlSchema } from '#app/utils/recipe-validation.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
 
@@ -60,7 +51,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 	return { isProActive }
 }
 
-type ExtractedRecipe = {
+export type ExtractedRecipe = {
+	rawText: string
+	warnings?: string[]
 	title: string
 	description: string | null
 	activeTime: number | null
@@ -274,6 +267,7 @@ function extractRecipe(
 		yieldAmount: typedYield?.amount ?? null,
 		yieldLabel: typedYield?.label ?? null,
 		sourceUrl: url,
+		rawText: JSON.stringify(jsonLd, null, 2),
 		ingredients,
 		instructions,
 	}
@@ -598,6 +592,10 @@ export async function action({ request }: Route.ActionArgs) {
 			yieldAmount: parsed.yieldAmount ?? null,
 			yieldLabel: parsed.yieldLabel ?? null,
 			sourceUrl: sourceUrl || '',
+			rawText,
+			warnings: parsed.warnings.filter(
+				(warning) => !warning.startsWith('Joined steps'),
+			),
 			ingredients: parsed.ingredients.map((ing) => ({
 				name: ing.name,
 				amount: ing.amount,
@@ -793,7 +791,11 @@ export async function action({ request }: Route.ActionArgs) {
 			totalTime: llmResult.totalTime,
 			yieldAmount: llmResult.yieldAmount,
 			yieldLabel: llmResult.yieldLabel,
-			sourceUrl: '',
+			sourceUrl: (formData.get('sourceUrl') as string) || '',
+			rawText:
+				intentKey === 'extract-text'
+					? rawText
+					: JSON.stringify(llmResult, null, 2),
 			ingredients: llmResult.ingredients.map((ing) => ({
 				name: ing.name,
 				amount: ing.amount ?? undefined,
@@ -835,118 +837,7 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	if (intent === 'save') {
-		const title = formData.get('title') as string
-		const description = (formData.get('description') as string) || null
-		const metadataSubmission = parseWithZod(formData, {
-			schema: RecipeTimeYieldSchema,
-		})
-		if (metadataSubmission.status !== 'success') {
-			return data(
-				{
-					intent: 'save' as const,
-					error: 'Time and yield must be positive, with both yield fields set.',
-					recipe: null,
-					result: metadataSubmission.reply(),
-					duplicates: null,
-				},
-				{ status: 400 },
-			)
-		}
-		const { activeTime, totalTime, yieldAmount, yieldLabel } =
-			metadataSubmission.value
-		const sourceUrl = (formData.get('sourceUrl') as string) || null
-
-		// Parse ingredients
-		const ingredients: Array<{
-			name: string
-			amount?: string
-			unit?: string
-			notes?: string
-			isHeading?: boolean
-		}> = []
-		let i = 0
-		while (formData.has(`ingredients[${i}].name`) && i < 200) {
-			const name = formData.get(`ingredients[${i}].name`) as string
-			if (name.trim()) {
-				const isHeading = formData.get(`ingredients[${i}].isHeading`) === 'true'
-				ingredients.push({
-					name,
-					amount: isHeading
-						? undefined
-						: (formData.get(`ingredients[${i}].amount`) as string) || undefined,
-					unit: isHeading
-						? undefined
-						: (formData.get(`ingredients[${i}].unit`) as string) || undefined,
-					notes: isHeading
-						? undefined
-						: (formData.get(`ingredients[${i}].notes`) as string) || undefined,
-					isHeading,
-				})
-			}
-			i++
-		}
-
-		// Parse instructions
-		const instructions: Array<{ content: string }> = []
-		i = 0
-		while (formData.has(`instructions[${i}].content`) && i < 200) {
-			const content = formData.get(`instructions[${i}].content`) as string
-			if (content.trim()) {
-				instructions.push({ content })
-			}
-			i++
-		}
-
-		if (!title) {
-			return data(
-				{
-					intent: 'save' as const,
-					error: 'Title is required.',
-					recipe: null,
-					result: null,
-					duplicates: null,
-				},
-				{ status: 400 },
-			)
-		}
-
-		const recipe = await prisma.recipe.create({
-			data: {
-				title,
-				description,
-				activeTime,
-				totalTime,
-				yieldAmount,
-				yieldLabel,
-				sourceUrl,
-				userId,
-				householdId,
-				ingredients: {
-					create: ingredients.map((ing, order) => ({
-						name: ing.name,
-						amount: ing.amount || null,
-						unit: ing.unit || null,
-						notes: ing.notes || null,
-						isHeading: ing.isHeading ?? false,
-						order,
-					})),
-				},
-				instructions: {
-					create: instructions.map((inst, order) => ({
-						content: inst.content,
-						order,
-					})),
-				},
-			},
-			select: { id: true },
-		})
-
-		captureServerEvent(userId, RECIPE_IMPORTED, {
-			recipe_title: title,
-			ingredient_count: ingredients.length,
-		})
-
-		return redirect(`/recipes/${recipe.id}`)
+		return saveImportedRecipe(formData, { userId, householdId })
 	}
 
 	return data(
@@ -965,19 +856,21 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	const { isProActive } = loaderData
 	const actionData = useActionData<typeof action>()
 	const navigation = useNavigation()
-	const isSubmitting = navigation.state === 'submitting'
+	const isSubmitting = navigation.state !== 'idle'
 	const submittingIntent =
 		isSubmitting && navigation.formData
 			? navigation.formData.get('intent')
 			: null
 
-	const recipe = actionData && 'recipe' in actionData ? actionData.recipe : null
+	const [review, setReview] = useState<ExtractedRecipe | null>(null)
+	if (!review && actionData?.recipe) setReview(actionData.recipe)
+	const recipe = review
 	const error = actionData && 'error' in actionData ? actionData.error : null
 	const actionIntent =
 		actionData && 'intent' in actionData ? actionData.intent : null
 	const duplicates =
 		actionData && 'duplicates' in actionData ? actionData.duplicates : null
-	const hasRecipe = recipe && !error
+	const hasRecipe = recipe !== null
 
 	const urlError = error && actionIntent === 'fetch' ? error : null
 	const textError =
@@ -1003,298 +896,219 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 			</p>
 
 			{/* Input forms */}
-			{!hasRecipe && (
-				<>
-					{/* Tab bar */}
-					<div className="mb-6 flex gap-1 rounded-lg border p-1">
-						<button
-							type="button"
-							className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-								activeTab === 'url'
-									? 'bg-accent text-accent-foreground'
-									: 'text-muted-foreground hover:text-foreground'
-							}`}
-							onClick={() => setActiveTab('url')}
-						>
-							From URL
-						</button>
-						<button
-							type="button"
-							className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-								activeTab === 'text'
-									? 'bg-accent text-accent-foreground'
-									: 'text-muted-foreground hover:text-foreground'
-							}`}
-							onClick={() => setActiveTab('text')}
-						>
-							From Text
-						</button>
-						<button
-							type="button"
-							className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-								activeTab === 'image'
-									? 'bg-accent text-accent-foreground'
-									: 'text-muted-foreground hover:text-foreground'
-							}`}
-							onClick={() => setActiveTab('image')}
-						>
-							From Image
-						</button>
-					</div>
+			<fieldset hidden={hasRecipe} disabled={isSubmitting}>
+				{/* Tab bar */}
+				<div className="mb-6 flex gap-1 rounded-lg border p-1">
+					<button
+						type="button"
+						className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+							activeTab === 'url'
+								? 'bg-accent text-accent-foreground'
+								: 'text-muted-foreground hover:text-foreground'
+						}`}
+						onClick={() => setActiveTab('url')}
+					>
+						From URL
+					</button>
+					<button
+						type="button"
+						className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+							activeTab === 'text'
+								? 'bg-accent text-accent-foreground'
+								: 'text-muted-foreground hover:text-foreground'
+						}`}
+						onClick={() => setActiveTab('text')}
+					>
+						From Text
+					</button>
+					<button
+						type="button"
+						className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+							activeTab === 'image'
+								? 'bg-accent text-accent-foreground'
+								: 'text-muted-foreground hover:text-foreground'
+						}`}
+						onClick={() => setActiveTab('image')}
+					>
+						From Image
+					</button>
+				</div>
 
-					{/* URL tab */}
-					{activeTab === 'url' && (
-						<Form method="POST" className="space-y-4">
-							<input type="hidden" name="intent" value="fetch" />
-							<div className="space-y-2">
-								<Label htmlFor="url">Recipe URL</Label>
-								<Input
-									id="url"
-									name="url"
-									type="url"
-									placeholder="https://example.com/recipe/..."
-									autoFocus
-									required
-								/>
+				{/* URL tab */}
+				{activeTab === 'url' && (
+					<Form method="POST" className="space-y-4">
+						<input type="hidden" name="intent" value="fetch" />
+						<div className="space-y-2">
+							<Label htmlFor="url">Recipe URL</Label>
+							<Input
+								id="url"
+								name="url"
+								type="url"
+								placeholder="https://example.com/recipe/..."
+								autoFocus
+								required
+							/>
+						</div>
+						{urlError && (
+							<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
+								{urlError}
 							</div>
-							{urlError && (
-								<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
-									{urlError}
-								</div>
-							)}
-							<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
-								<Button
-									type="button"
-									variant="outline"
-									onClick={() => history.back()}
-								>
-									Cancel
-								</Button>
-								<StatusButton
-									type="submit"
-									status={submittingIntent === 'fetch' ? 'pending' : 'idle'}
-									disabled={isSubmitting}
-								>
-									{submittingIntent === 'fetch'
-										? 'Fetching...'
-										: 'Fetch Recipe'}
-								</StatusButton>
-							</div>
-						</Form>
-					)}
+						)}
+						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => history.back()}
+							>
+								Cancel
+							</Button>
+							<StatusButton
+								type="submit"
+								status={submittingIntent === 'fetch' ? 'pending' : 'idle'}
+								disabled={isSubmitting}
+							>
+								{submittingIntent === 'fetch' ? 'Fetching...' : 'Fetch Recipe'}
+							</StatusButton>
+						</div>
+					</Form>
+				)}
 
-					{/* Text tab */}
-					{activeTab === 'text' && (
-						<Form method="POST" className="space-y-4">
-							<div className="space-y-2">
-								<Label htmlFor="rawText">Recipe text</Label>
-								<Textarea
-									id="rawText"
-									name="rawText"
-									placeholder={
-										'Paste a recipe from social media, a blog post, or any text source...'
-									}
-									rows={8}
-								/>
+				{/* Text tab */}
+				{activeTab === 'text' && (
+					<Form method="POST" className="space-y-4">
+						<div className="space-y-2">
+							<Label htmlFor="rawText">Recipe text</Label>
+							<Textarea
+								id="rawText"
+								name="rawText"
+								placeholder={
+									'Paste a recipe from social media, a blog post, or any text source...'
+								}
+								rows={8}
+							/>
+						</div>
+						{textError && (
+							<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
+								{textError}
 							</div>
-							{textError && (
-								<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
-									{textError}
-								</div>
-							)}
-							<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
-								<Button
-									type="button"
-									variant="outline"
-									onClick={() => history.back()}
-								>
-									Cancel
-								</Button>
+						)}
+						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => history.back()}
+							>
+								Cancel
+							</Button>
+							<StatusButton
+								type="submit"
+								name="intent"
+								value="parse-text"
+								variant="outline"
+								status={submittingIntent === 'parse-text' ? 'pending' : 'idle'}
+								disabled={isSubmitting}
+							>
+								{submittingIntent === 'parse-text'
+									? 'Parsing...'
+									: 'Parse Recipe'}
+							</StatusButton>
+							{isProActive ? (
 								<StatusButton
 									type="submit"
 									name="intent"
-									value="parse-text"
-									variant="outline"
+									value="extract-text"
 									status={
-										submittingIntent === 'parse-text' ? 'pending' : 'idle'
+										submittingIntent === 'extract-text' ? 'pending' : 'idle'
 									}
 									disabled={isSubmitting}
 								>
-									{submittingIntent === 'parse-text'
-										? 'Parsing...'
-										: 'Parse Recipe'}
+									<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
+									{submittingIntent === 'extract-text'
+										? 'Extracting...'
+										: 'Extract with AI'}
 								</StatusButton>
-								{isProActive ? (
-									<StatusButton
-										type="submit"
-										name="intent"
-										value="extract-text"
-										status={
-											submittingIntent === 'extract-text' ? 'pending' : 'idle'
-										}
-										disabled={isSubmitting}
-									>
+							) : (
+								<Button asChild>
+									<Link to="/upgrade">
 										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
-										{submittingIntent === 'extract-text'
-											? 'Extracting...'
-											: 'Extract with AI'}
-									</StatusButton>
-								) : (
-									<Button asChild>
-										<Link to="/upgrade">
-											<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
-											Extract with AI
-											<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
-												Pro
-											</span>
-										</Link>
-									</Button>
-								)}
-							</div>
-						</Form>
-					)}
-
-					{/* Image tab */}
-					{activeTab === 'image' && (
-						<Form
-							method="POST"
-							encType="multipart/form-data"
-							className="space-y-4"
-						>
-							<input type="hidden" name="intent" value="extract-image" />
-							<div className="space-y-2">
-								<Label htmlFor="image">Upload screenshots (up to 5)</Label>
-								<Input
-									id="image"
-									name="image"
-									type="file"
-									accept="image/jpeg,image/png,image/webp"
-									multiple
-								/>
-								<p className="text-muted-foreground text-xs">
-									JPEG, PNG, or WebP, max 5MB each. Multiple images will be
-									combined into one recipe.
-								</p>
-							</div>
-							{imageError && (
-								<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
-									{imageError}
-								</div>
-							)}
-							<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
-								<Button
-									type="button"
-									variant="outline"
-									onClick={() => history.back()}
-								>
-									Cancel
+										Extract with AI
+										<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
+											Pro
+										</span>
+									</Link>
 								</Button>
-								{isProActive ? (
-									<StatusButton
-										type="submit"
-										status={
-											submittingIntent === 'extract-image' ? 'pending' : 'idle'
-										}
-										disabled={isSubmitting}
-									>
-										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
-										{submittingIntent === 'extract-image'
-											? 'Extracting...'
-											: 'Extract with AI'}
-									</StatusButton>
-								) : (
-									<Button asChild>
-										<Link to="/upgrade">
-											<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
-											Extract with AI
-											<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
-												Pro
-											</span>
-										</Link>
-									</Button>
-								)}
+							)}
+						</div>
+					</Form>
+				)}
+
+				{/* Image tab */}
+				{activeTab === 'image' && (
+					<Form
+						method="POST"
+						encType="multipart/form-data"
+						className="space-y-4"
+					>
+						<input type="hidden" name="intent" value="extract-image" />
+						<div className="space-y-2">
+							<Label htmlFor="image">Upload screenshots (up to 5)</Label>
+							<Input
+								id="image"
+								name="image"
+								type="file"
+								accept="image/jpeg,image/png,image/webp"
+								multiple
+							/>
+							<p className="text-muted-foreground text-xs">
+								JPEG, PNG, or WebP, max 5MB each. Multiple images will be
+								combined into one recipe.
+							</p>
+						</div>
+						{imageError && (
+							<div className="border-destructive bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
+								{imageError}
 							</div>
-						</Form>
-					)}
-				</>
-			)}
+						)}
+						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => history.back()}
+							>
+								Cancel
+							</Button>
+							{isProActive ? (
+								<StatusButton
+									type="submit"
+									status={
+										submittingIntent === 'extract-image' ? 'pending' : 'idle'
+									}
+									disabled={isSubmitting}
+								>
+									<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
+									{submittingIntent === 'extract-image'
+										? 'Extracting...'
+										: 'Extract with AI'}
+								</StatusButton>
+							) : (
+								<Button asChild>
+									<Link to="/upgrade">
+										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
+										Extract with AI
+										<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
+											Pro
+										</span>
+									</Link>
+								</Button>
+							)}
+						</div>
+					</Form>
+				)}
+			</fieldset>
 
 			{/* Preview & Save */}
 			{hasRecipe && (
 				<div className="space-y-6">
-					<div className="space-y-4 rounded-lg border p-6">
-						<h2 className="text-xl font-semibold">{recipe.title}</h2>
-						{recipe.description && (
-							<p className="text-muted-foreground text-sm">
-								{recipe.description}
-							</p>
-						)}
-						<RecipeMetadataCard
-							activeTime={recipe.activeTime}
-							totalTime={recipe.totalTime}
-							yieldAmount={recipe.yieldAmount}
-							yieldLabel={recipe.yieldLabel}
-							sourceUrl={null}
-						/>
-
-						{recipe.ingredients.length > 0 &&
-							(() => {
-								const realIngredientCount = recipe.ingredients.filter(
-									(ing) => !ing.isHeading,
-								).length
-								return (
-									<div>
-										<h3 className="mb-2 font-medium">
-											Ingredients ({realIngredientCount})
-										</h3>
-										<ul className="space-y-1 text-sm">
-											{recipe.ingredients.map((ing, i) =>
-												ing.isHeading ? (
-													<li key={i}>
-														<p className="text-muted-foreground border-border/50 mt-4 mb-1.5 border-b px-2 pb-1 font-sans text-xs font-medium tracking-widest uppercase first:mt-0">
-															{ing.name}
-														</p>
-													</li>
-												) : (
-													<li key={i} className="flex gap-1">
-														<span className="text-muted-foreground">–</span>
-														{ing.amount && (
-															<span className="font-medium">{ing.amount}</span>
-														)}
-														{ing.unit && <span>{ing.unit}</span>}
-														<span>{ing.name}</span>
-														{ing.notes && (
-															<span className="text-muted-foreground">
-																, {ing.notes}
-															</span>
-														)}
-													</li>
-												),
-											)}
-										</ul>
-									</div>
-								)
-							})()}
-
-						{recipe.instructions.length > 0 && (
-							<div>
-								<h3 className="mb-2 font-medium">
-									Instructions ({recipe.instructions.length} steps)
-								</h3>
-								<ol className="space-y-2 text-sm">
-									{recipe.instructions.map((inst, i) => (
-										<li key={i} className="flex gap-2">
-											<span className="text-muted-foreground shrink-0">
-												{i + 1}.
-											</span>
-											<span>{inst.content}</span>
-										</li>
-									))}
-								</ol>
-							</div>
-						)}
-					</div>
-
 					{duplicates && duplicates.length > 0 && (
 						<div className="rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950/50">
 							<div className="flex items-start gap-3">
@@ -1334,93 +1148,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						</div>
 					)}
 
-					<Form method="POST">
-						<input type="hidden" name="intent" value="save" />
-						<input type="hidden" name="title" value={recipe.title} />
-						<input
-							type="hidden"
-							name="description"
-							value={recipe.description ?? ''}
-						/>
-						{recipe.activeTime != null && (
-							<input
-								type="hidden"
-								name="activeTime"
-								value={recipe.activeTime}
-							/>
-						)}
-						{recipe.totalTime != null && (
-							<input type="hidden" name="totalTime" value={recipe.totalTime} />
-						)}
-						{recipe.yieldAmount != null && (
-							<input
-								type="hidden"
-								name="yieldAmount"
-								value={recipe.yieldAmount}
-							/>
-						)}
-						{recipe.yieldLabel != null && (
-							<input
-								type="hidden"
-								name="yieldLabel"
-								value={recipe.yieldLabel}
-							/>
-						)}
-						<input type="hidden" name="sourceUrl" value={recipe.sourceUrl} />
-						{recipe.ingredients.map((ing, i) => (
-							<div key={i}>
-								<input
-									type="hidden"
-									name={`ingredients[${i}].name`}
-									value={ing.name}
-								/>
-								<input
-									type="hidden"
-									name={`ingredients[${i}].amount`}
-									value={ing.amount ?? ''}
-								/>
-								<input
-									type="hidden"
-									name={`ingredients[${i}].unit`}
-									value={ing.unit ?? ''}
-								/>
-								<input
-									type="hidden"
-									name={`ingredients[${i}].notes`}
-									value={ing.notes ?? ''}
-								/>
-								<input
-									type="hidden"
-									name={`ingredients[${i}].isHeading`}
-									value={ing.isHeading ? 'true' : 'false'}
-								/>
-							</div>
-						))}
-						{recipe.instructions.map((inst, i) => (
-							<input
-								key={i}
-								type="hidden"
-								name={`instructions[${i}].content`}
-								value={inst.content}
-							/>
-						))}
-						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => window.location.reload()}
-							>
-								Import Another
-							</Button>
-							<StatusButton
-								type="submit"
-								status={isSubmitting ? 'pending' : 'idle'}
-								disabled={isSubmitting}
-							>
-								Save Recipe
-							</StatusButton>
-						</div>
-					</Form>
+					<ImportRecipeReview recipe={recipe!} />
 				</div>
 			)}
 		</div>

@@ -144,9 +144,11 @@ document editing.
 
 AI calls go through a small schema-validated Anthropic JSON boundary. Prompts
 and Zod schemas remain feature-local. Text and image Recipe extraction returns a
-preview that is saved only after an explicit action. Recipe enhancement returns
-suggested description and time estimates that the user chooses whether to apply.
-Provider errors normalize to safe UI errors.
+readable overview with optional editing, saved only after an explicit action.
+The original input or available extraction is retained in `Recipe.rawText`;
+reviewed saves do not run extraction or charge AI usage again. Recipe
+enhancement returns suggested description and time estimates that the user
+chooses whether to apply. Provider errors normalize to safe UI errors.
 
 The manual Recipe, Plan, and Shopping flows do not require API keys. AI quantity
 planning was removed after real-use feedback; Recipe import remains the proven

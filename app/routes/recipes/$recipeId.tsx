@@ -739,20 +739,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</div>
 				)}
 
-				{/* Raw Text */}
-				{recipe.rawText && (
-					<div className="mt-6 print:hidden">
-						<div className="bg-muted/40 rounded-lg p-4">
-							<p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
-								Recipe Notes
-							</p>
-							<pre className="font-sans text-sm whitespace-pre-wrap">
-								{recipe.rawText}
-							</pre>
-						</div>
-					</div>
-				)}
-
 				{/* Action bar */}
 				<Popover open={planPickerOpen} onOpenChange={setPlanPickerOpen}>
 					<PopoverAnchor>

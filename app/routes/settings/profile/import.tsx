@@ -89,6 +89,7 @@ const ImportRecipeSchema = z
 		// Optional so exports from before #173 remain importable.
 		isAiGenerated: z.boolean().optional(),
 		sourceUrl: z.string().max(2000).nullable().optional(),
+		rawText: z.string().nullable().optional(),
 		notes: z.string().max(5000).nullable().optional(),
 		metadataValues: z.array(ImportRecipeMetadataValueSchema).max(60).optional(),
 		ingredients: z.array(ImportIngredientSchema).max(200),
@@ -482,6 +483,7 @@ async function importRecipes(
 						isFavorite: recipe.isFavorite ?? false,
 						isAiGenerated: recipe.isAiGenerated ?? false,
 						sourceUrl: recipe.sourceUrl || null,
+						rawText: recipe.rawText ?? null,
 						notes: recipe.notes || null,
 						userId,
 						householdId,

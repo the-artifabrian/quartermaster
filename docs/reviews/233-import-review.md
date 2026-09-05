@@ -1,10 +1,15 @@
 # #233 — local import review handoff
 
+Updated by #261: #260 is merged. Original input disclosures have been removed
+from import and saved editing; retained source remains in storage and supported
+recovery. The historical #233 server below predates this removal. Use
+[the #261 guide](261-remove-original-input.md) to test the current change.
+
 Branch: `feat/233-editable-import-review`, based on merged #259 (`1d9aadd`). The
 existing checkout is `/private/tmp/quartermaster-233`. The main checkout and
-other worktrees are preserved. PR #260 is open. Alex requested the
-overview-first revision after local review; merging or deploying still requires
-separate approval.
+other worktrees are preserved. PR #260 was merged. Alex requested the
+overview-first revision after local review; this historical handoff records that
+implementation. #261 supersedes its source-disclosure presentation.
 
 ## Start and disposable data
 
@@ -65,9 +70,9 @@ and are not application configuration.
    blocked. If a real request has an unknown outcome, check My Recipes before
    trying again; the app does not automatically retry creates.
 5. Reload the saved Recipe. Confirm the corrections. The cooking screen has no
-   **Original input** section. Open **Edit** to find the collapsed disclosure,
-   containing the original title, 2 cans and original instruction. Edit normally
-   and save; original input remains stored.
+   **Original input** section. Open **Edit**: no Original input disclosure or
+   extraction JSON appears. Edit normally and save; original input remains
+   stored and exportable.
 6. From URL, try `http://127.0.0.1/internal`: rejection leaves the URL editable.
    Then use `https://recipes.example.test/chickpeas`. Choose **Edit** and change
    title, time/yield and steps before saving. Original input retains the
@@ -117,6 +122,6 @@ and are not application configuration.
 - Ingredient-heading JSON recovery loss remains separately tracked in #257. The
   broad mobile test's existing Staples failure remains under #223.
 
-PR #260 is updated under Alex's existing approval. This revision restores the
-readable overview with optional Edit and moves retained source into editing.
-Merge/deployment needs separate approval.
+Historical outcome: #260 restored the readable overview with optional Edit. #261
+subsequently removed the source disclosure from editing while preserving
+retained source data. Its separate PR still requires merge/deployment approval.

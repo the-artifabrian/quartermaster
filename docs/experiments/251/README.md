@@ -3,7 +3,7 @@
 Related to #251 and #249. Do not merge this branch or treat the prototype as an
 accepted feature. Application routes, data, and dependencies are unchanged.
 
-Run from this branch: `bun docs/experiments/251/run.ts`, then open
+Run from this branch: `bun docs/experiments/251/run.mjs`, then open
 http://127.0.0.1:9251/?variant=A. No keys or database needed. Stop with Ctrl-C.
 The bottom arrows switch A–D (also keyboard arrows outside controls). All
 actions are in memory and reset on reload. Only the variant is retained in the
@@ -94,3 +94,9 @@ pending.
 ![D with time constraint](screens/D-filtered-phone.png)
 ![Saved Menu on phone](screens/menu-phone.png)
 ![D on desktop](screens/D-desktop.png)
+
+Repository check follow-up: moved the Bun-only runner to `run.mjs` and made
+fixture-index assumptions explicit so the disposable branch also passes the
+application TypeScript check without adding Bun type dependencies. Typecheck and
+lint pass; the renamed runner, chooser, and Menu planning were rechecked
+locally.

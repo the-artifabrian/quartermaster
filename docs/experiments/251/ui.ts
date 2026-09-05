@@ -125,7 +125,7 @@ function sample() {
 	const shuffled = [...pool]
 	for (let i = shuffled.length - 1; i > 0; i--) {
 		const j = Math.floor(Math.random() * (i + 1))
-		;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+		;[shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!]
 	}
 	if (variant === 2) {
 		candidates = shuffled.slice(0, 1).map((r) => r.id)
@@ -158,18 +158,18 @@ function info(r: Recipe) {
 	return `${r.time === null ? 'Time unknown' : r.time + ' min'}${r.favorite ? ' · Favorite' : ''}`
 }
 function card(id: number) {
-	const r = recipes[id],
+	const r = recipes[id]!,
 		m = menus.find((m) => m.id === id)
-	return `<article class="candidate"><small>${m ? 'Saved Menu' : esc(r.course || 'Course not entered')}</small><h3>${esc(m?.title || r.title)}</h3><p class="muted">${m ? m.members.map((i) => esc(recipes[i].title)).join(' + ') : info(r)}</p>${m ? '<small>Check all dishes for your constraints; Menu time unknown.</small>' : ''}<p><button data-open="${id}">Open ${m ? 'Menu' : 'Recipe'}</button></p></article>`
+	return `<article class="candidate"><small>${m ? 'Saved Menu' : esc(r.course || 'Course not entered')}</small><h3>${esc(m?.title || r.title)}</h3><p class="muted">${m ? m.members.map((i) => esc(recipes[i]!.title)).join(' + ') : info(r)}</p>${m ? '<small>Check all dishes for your constraints; Menu time unknown.</small>' : ''}<p><button data-open="${id}">Open ${m ? 'Menu' : 'Recipe'}</button></p></article>`
 }
 function render() {
-	$('variant').textContent = variants[variant]
+	$('variant').textContent = variants[variant]!
 	const params = new URLSearchParams(location.search)
-	params.set('variant', 'ABCD'[variant])
+	params.set('variant', 'ABCD'[variant]!)
 	history.replaceState(null, '', `?${params}`)
 	let html = ''
 	if (opened !== null) {
-		const r = recipes[opened],
+		const r = recipes[opened]!,
 			m = menus.find((m) => m.id === opened)
 		html = `<button id="return">Return to choices</button><h1>${esc(m?.title || r.title)}</h1>`
 		if (m) {

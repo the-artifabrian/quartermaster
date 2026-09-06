@@ -10,6 +10,7 @@ type RecipeCardProps = {
 	description?: string | null
 	imageObjectKey?: string | null
 	totalTime?: number | null
+	showUnknownTime?: boolean
 	isFavorite?: boolean
 	isAiGenerated?: boolean
 }
@@ -20,6 +21,7 @@ export function RecipeCard({
 	description,
 	imageObjectKey,
 	totalTime,
+	showUnknownTime = false,
 	isFavorite,
 	isAiGenerated,
 }: RecipeCardProps) {
@@ -98,11 +100,11 @@ export function RecipeCard({
 				</div>
 
 				{/* Mobile meta */}
-				{totalTime != null && (
+				{(totalTime != null || showUnknownTime) && (
 					<div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-[13px] md:hidden">
 						<span className="flex items-center gap-1">
 							<Icon name="clock" size="xs" />
-							{totalTime} min
+							{totalTime != null ? `${totalTime} min` : 'Time unknown'}
 						</span>
 					</div>
 				)}
@@ -121,10 +123,10 @@ export function RecipeCard({
 
 				{/* Desktop meta */}
 				<div className="mt-auto hidden items-center gap-3 pt-2 md:flex">
-					{totalTime != null && (
+					{(totalTime != null || showUnknownTime) && (
 						<span className="text-muted-foreground flex items-center gap-1 text-xs">
 							<Icon name="clock" size="xs" />
-							{totalTime} min
+							{totalTime != null ? `${totalTime} min` : 'Time unknown'}
 						</span>
 					)}
 					{isAiGenerated && (

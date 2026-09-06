@@ -231,7 +231,9 @@ test('Recipe search and filter', async ({ page, login }) => {
 		await expect(page.getByText('Spicy Thai Curry')).toBeVisible()
 		await expect(page.getByText('Simple Green Salad')).toBeVisible()
 
-		const search = page.getByPlaceholder('Search recipes...')
+		const search = page.getByRole('searchbox', {
+			name: 'Search by name or ingredient',
+		})
 		async function searchFor(value: string) {
 			await expect(async () => {
 				await search.fill(value)

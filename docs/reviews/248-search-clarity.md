@@ -19,4 +19,6 @@ sh /private/tmp/qm-248-review/start.sh
 ```
 
 [Other checks, setup and evidence](248-search-evidence.md) are recorded
-separately. PR opening still awaits Alex’s approval.
+separately. Alex approved opening
+[PR #265](https://github.com/the-artifabrian/quartermaster/pull/265) after local
+review. Merge/deployment still requires separate approval.

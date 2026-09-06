@@ -82,4 +82,5 @@ another run. Never point these commands at household/production data.
 Synthetic browser evidence does not establish real dinner-choice value or
 physical iPhone behavior. #262's status-bar cause remains unconfirmed; scroll
 restoration was preserved. #257 and #223's broad mobile Staples assertion stay
-separate. No PR, merge or deployment is authorized by this handoff.
+separate. Alex approved opening PR #265 after local review on 6 September 2026.
+Merge/deployment still requires separate approval.

@@ -1,9 +1,10 @@
 /**
  * @vitest-environment jsdom
  */
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { createRoutesStub } from 'react-router'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { RecipeForm } from './recipe-form.tsx'
 
 test('Recipe form offers optional time and natural makes fields', () => {
@@ -11,6 +12,7 @@ test('Recipe form offers optional time and natural makes fields', () => {
 		{ path: '/', Component: () => <RecipeForm submitLabel="Create Recipe" /> },
 	])
 	render(<Stub />)
+	fireEvent.click(screen.getByText('Details', { exact: true }))
 
 	expect(
 		screen.getByRole('spinbutton', { name: 'Active Time (min)' }),
@@ -58,6 +60,7 @@ test('Recipe form reopens explicit time and typed yield values for editing', () 
 		},
 	])
 	render(<Stub />)
+	fireEvent.click(screen.getByText('Details', { exact: true }))
 
 	expect(
 		screen.getByRole('spinbutton', { name: 'Active Time (min)' }),
@@ -71,4 +74,32 @@ test('Recipe form reopens explicit time and typed yield values for editing', () 
 	expect(
 		screen.getByRole('combobox', { name: 'What this recipe makes' }),
 	).toHaveValue('large braided loaves')
+})
+
+test('invalid optional details reopen and focus the field before saving', async () => {
+	const user = userEvent.setup()
+	const save = vi.fn(() => null)
+	const Stub = createRoutesStub([
+		{ path: '/', action: save, Component: () => <RecipeForm /> },
+	])
+	render(<Stub />)
+	await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Pasta')
+	await user.type(screen.getByPlaceholderText('Ingredient name'), 'pasta')
+	await user.type(screen.getByPlaceholderText('Step 1'), 'Boil.')
+	const details = screen.getByText('Details', { exact: true })
+	await user.click(details)
+	const source = screen.getByRole('textbox', { name: 'Source URL' })
+	await user.type(source, 'not a URL')
+	await user.click(details)
+	expect(source).not.toBeVisible()
+	await user.click(screen.getByRole('button', { name: 'Save Recipe' }))
+	await waitFor(() => expect(source).toBeVisible())
+	expect(source).toHaveFocus()
+	expect(source).toHaveAttribute('aria-invalid', 'true')
+	expect(save).not.toHaveBeenCalled()
+	await user.clear(source)
+	await user.type(source, 'https://example.test/pasta')
+	await user.click(details)
+	await user.click(screen.getByRole('button', { name: 'Save Recipe' }))
+	await waitFor(() => expect(save).toHaveBeenCalledOnce())
 })

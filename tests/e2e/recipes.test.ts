@@ -15,6 +15,7 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 
 	// Fill basic details
 	await page.getByRole('textbox', { name: /title/i }).fill('E2E Test Pasta')
+	await page.getByText('Details', { exact: true }).click()
 	await page
 		.getByRole('textbox', { name: /description/i })
 		.fill('A simple test recipe')

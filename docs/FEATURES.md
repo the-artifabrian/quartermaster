@@ -8,6 +8,10 @@ plan into Shopping.
 ### Recipes
 
 - Create, edit, favorite, search, sort, and share Recipes.
+- Manual create/edit starts with title, ingredients, and instructions, with
+  optional yield beside ingredients. Photo, Details, and Classification stay
+  collapsed until needed; their values are retained when saving. Optional
+  details do not contribute to a completeness score.
 - Import one Recipe from a URL, pasted text, or screenshots; write a Recipe
   manually when needed. Quick Entry and the legacy text/file bulk importer have
   been removed. Household and Recipe JSON recovery remain available.

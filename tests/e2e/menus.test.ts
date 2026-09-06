@@ -231,7 +231,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	await expect(page.getByRole('heading', { name: 'Dessert' })).toBeVisible()
 	await expect(page.getByRole('link', { name: /Pita Bread/ })).toHaveAttribute(
 		'href',
-		`/recipes/${recipes['Pita Bread']!.id}`,
+		`/recipes/${recipes['Pita Bread']!.id}?scale=2.5`,
 	)
 
 	// The restored multiplier snapshots into Meal unchanged, drives the same

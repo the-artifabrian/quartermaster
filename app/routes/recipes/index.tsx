@@ -1,6 +1,11 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import {
+	Link,
+	useLocation,
+	useNavigationType,
+	useSearchParams,
+} from 'react-router'
 import { GettingStartedChecklist } from '#app/components/getting-started-checklist.tsx'
 import { LibrarySwitch } from '#app/components/library-switch.tsx'
 import { RecipeCard, RecipeCardGrid } from '#app/components/recipe-card.tsx'
@@ -16,7 +21,7 @@ import {
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { cn, useDebounce } from '#app/utils/misc.tsx'
+import { cn } from '#app/utils/misc.tsx'
 import {
 	RECIPE_METADATA_DIMENSIONS,
 	RECIPE_METADATA_LABELS,
@@ -207,6 +212,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	return {
 		recipes: filteredRecipes,
 		search,
+		quality,
 		favoritesOnly,
 		maxTime,
 		metadataOptions,
@@ -227,6 +233,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	const {
 		recipes,
 		search,
+		quality,
 		favoritesOnly,
 		maxTime,
 		metadataOptions,
@@ -236,6 +243,9 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		onboarding,
 	} = loaderData
 	const [searchParams, setSearchParams] = useSearchParams()
+	const location = useLocation()
+	const navigationType = useNavigationType()
+	const intendedParams = useRef(searchParams)
 
 	// Save/restore scroll position for tab-style navigation
 	useEffect(() => {
@@ -262,61 +272,107 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	const [filtersOpen, setFiltersOpen] = useState(false)
 	// Controlled so "Clear search" in the no-results state empties the box too
 	const [searchInput, setSearchInput] = useState(search)
+	const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+		undefined,
+	)
+	const restrictions = [
+		...(favoritesOnly ? ['Favorites'] : []),
+		...(maxTime ? [`Up to ${maxTime} min`] : []),
+		...(quality === 'flagged' ? ['Flagged Recipes'] : []),
+		...RECIPE_METADATA_DIMENSIONS.flatMap((dimension) => {
+			const names = metadataOptions
+				.filter(
+					(option) =>
+						option.dimension === dimension &&
+						metadataFilters[dimension].includes(option.nameKey),
+				)
+				.map((option) => option.name)
+			return names.length
+				? [`${RECIPE_METADATA_LABELS[dimension]}: ${names.join(', ')}`]
+				: []
+		}),
+	]
 	const activeFilterCount =
 		(favoritesOnly ? 1 : 0) +
 		(maxTime ? 1 : 0) +
+		(quality === 'flagged' ? 1 : 0) +
 		(sort !== 'recent' ? 1 : 0) +
 		RECIPE_METADATA_DIMENSIONS.reduce(
 			(count, dimension) => count + metadataFilters[dimension].length,
 			0,
 		)
 
-	const handleSearchChange = useDebounce((value: string) => {
-		const params = new URLSearchParams(searchParams)
-		if (value.trim()) {
-			params.set('search', value)
-		} else {
-			params.delete('search')
+	// Back/Forward restores the URL's query; pending typing must not undo it.
+	useEffect(() => {
+		if (navigationType === 'POP') {
+			clearTimeout(searchTimer.current)
+			setSearchInput(search)
+			intendedParams.current = searchParams
 		}
+	}, [location.key, navigationType, search, searchParams])
+	useEffect(() => () => clearTimeout(searchTimer.current), [])
+
+	const navigateParams = (params: URLSearchParams) => {
+		intendedParams.current = params
 		setSearchParams(params, { replace: true })
-	}, 300)
+	}
+
+	const paramsWithSearch = (value: string) => {
+		const params = new URLSearchParams(intendedParams.current)
+		if (value.trim()) params.set('search', value)
+		else params.delete('search')
+		return params
+	}
+
+	const handleSearchChange = (value: string) => {
+		clearTimeout(searchTimer.current)
+		const params = paramsWithSearch(value)
+		searchTimer.current = setTimeout(() => {
+			navigateParams(params)
+		}, 300)
+	}
+
+	const pendingSearchParams = () => {
+		clearTimeout(searchTimer.current)
+		return paramsWithSearch(searchInput)
+	}
 
 	const handleMaxTimeChange = (value: string) => {
-		const params = new URLSearchParams(searchParams)
+		const params = pendingSearchParams()
 		if (value) {
 			params.set('maxTime', value)
 		} else {
 			params.delete('maxTime')
 		}
-		setSearchParams(params, { replace: true })
+		navigateParams(params)
 	}
 
 	const handleFavoritesToggle = () => {
-		const params = new URLSearchParams(searchParams)
-		if (favoritesOnly) {
+		const params = pendingSearchParams()
+		if (params.get('favorites') === 'true') {
 			params.delete('favorites')
 		} else {
 			params.set('favorites', 'true')
 		}
-		setSearchParams(params, { replace: true })
+		navigateParams(params)
 	}
 
 	const handleSortChange = (value: string) => {
-		const params = new URLSearchParams(searchParams)
+		const params = pendingSearchParams()
 		if (value && value !== 'recent') {
 			params.set('sort', value)
 		} else {
 			params.delete('sort')
 		}
-		setSearchParams(params, { replace: true })
+		navigateParams(params)
 	}
 
 	const handleMetadataToggle = (
 		dimension: RecipeMetadataDimension,
 		nameKey: string,
 	) => {
-		const params = new URLSearchParams(searchParams)
-		const selected = new Set(metadataFilters[dimension])
+		const params = pendingSearchParams()
+		const selected = new Set(params.getAll(dimension))
 		if (selected.has(nameKey)) selected.delete(nameKey)
 		else selected.add(nameKey)
 		params.delete(dimension)
@@ -325,11 +381,12 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 				params.append(dimension, option.nameKey)
 			}
 		}
-		setSearchParams(params, { replace: true })
+		navigateParams(params)
 	}
 
 	const hasFilters = Boolean(
 		search ||
+		quality === 'flagged' ||
 		favoritesOnly ||
 		maxTime ||
 		RECIPE_METADATA_DIMENSIONS.some(
@@ -339,16 +396,18 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 
 	const handleClearSearch = () => {
 		setSearchInput('')
-		const params = new URLSearchParams(searchParams)
+		const params = pendingSearchParams()
 		params.delete('search')
-		setSearchParams(params, { replace: true })
+		navigateParams(params)
 	}
 
 	const handleClearFilters = () => {
-		// Preserve sort when clearing filters
+		clearTimeout(searchTimer.current)
+		setSearchInput('')
+		// Preserve sort when clearing search and all restrictions
 		const params = new URLSearchParams()
 		if (sort !== 'recent') params.set('sort', sort)
-		setSearchParams(params, { replace: true })
+		navigateParams(params)
 	}
 
 	const displayRecipes = recipes
@@ -417,7 +476,8 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							/>
 							<input
 								type="search"
-								placeholder="Search recipes..."
+								placeholder="Search by name or ingredient"
+								aria-label="Search by name or ingredient"
 								value={searchInput}
 								onChange={(e) => {
 									setSearchInput(e.target.value)
@@ -535,22 +595,23 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								</DropdownMenu>
 							)
 						})}
-						{/* Active filter summary */}
-						{hasFilters && (
-							<div className="text-muted-foreground text-xs">
-								{displayRecipes.length} of {totalRecipeCount}{' '}
-								{totalRecipeCount === 1 ? 'recipe' : 'recipes'}
-								<span className="mx-2">·</span>
-								<button
-									type="button"
-									onClick={handleClearFilters}
-									className="text-muted-foreground hover:text-foreground font-medium"
-								>
-									Clear filters
-								</button>
-							</div>
-						)}
 					</div>
+					{hasFilters && (
+						<div className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-xs">
+							<span>
+								{restrictions.length > 0
+									? restrictions.join(' · ')
+									: `${displayRecipes.length} of ${totalRecipeCount} Recipes`}
+							</span>
+							<button
+								type="button"
+								onClick={handleClearFilters}
+								className="text-muted-foreground hover:text-foreground min-h-11 font-medium underline underline-offset-2"
+							>
+								Clear search and filters
+							</button>
+						</div>
+					)}
 				</div>
 
 				<GettingStartedChecklist onboarding={onboarding} />
@@ -566,16 +627,20 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								description={recipe.description}
 								imageObjectKey={recipe.image?.objectKey}
 								totalTime={recipe.totalTime}
+								showUnknownTime={Boolean(maxTime)}
 								isFavorite={recipe.isFavorite}
 								isAiGenerated={recipe.isAiGenerated}
 							/>
 						))}
 					</RecipeCardGrid>
 				) : search ? (
-					// A failed *search* isn't a pantry problem: name the query and
-					// offer the two real exits — clear it, or capture the recipe you
-					// just failed to find.
-					<SearchEmptyState query={search} onClearSearch={handleClearSearch} />
+					<SearchEmptyState
+						query={search}
+						restricted={restrictions.length > 0}
+						onClearSearch={
+							restrictions.length ? handleClearFilters : handleClearSearch
+						}
+					/>
 				) : hasFilters ? (
 					<div className="flex flex-col items-center justify-center py-16 text-center">
 						<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
@@ -588,7 +653,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							Nothing matches those filters
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
-							Try broadening your search or{' '}
+							Saved Recipes may be excluded by these filters.{' '}
 							<button
 								type="button"
 								onClick={handleClearFilters}
@@ -633,9 +698,11 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 
 function SearchEmptyState({
 	query,
+	restricted,
 	onClearSearch,
 }: {
 	query: string
+	restricted: boolean
 	onClearSearch: () => void
 }) {
 	return (
@@ -650,11 +717,13 @@ function SearchEmptyState({
 				No recipes match &ldquo;{query}&rdquo;
 			</h2>
 			<p className="text-muted-foreground mt-2 max-w-sm">
-				Check the spelling — or this might be the one your cookbook is missing.
+				{restricted
+					? 'Saved Recipes may be excluded by your active filters.'
+					: 'Check the spelling — or this might be the one your cookbook is missing.'}
 			</p>
 			<div className="mt-6 flex gap-3">
 				<Button variant="outline" onClick={onClearSearch}>
-					Clear search
+					{restricted ? 'Clear search and filters' : 'Clear search'}
 				</Button>
 				<Button asChild>
 					<Link to="/recipes/import">

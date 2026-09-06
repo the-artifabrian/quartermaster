@@ -132,8 +132,18 @@ export function RecipeForm({
 		id: formId,
 		constraint: getZodConstraint(RecipeSchema),
 		lastResult: actionData?.result as any,
-		onValidate({ formData }) {
-			return parseWithZod(formData, { schema: RecipeSchema })
+		onValidate({ form: formElement, formData }) {
+			const submission = parseWithZod(formData, { schema: RecipeSchema })
+			// Reveal collapsed fields before Conform focuses the first error.
+			if (submission.status === 'error') {
+				for (const name of Object.keys(submission.error ?? {})) {
+					const field = formElement.elements.namedItem(name)
+					if (field instanceof HTMLElement) {
+						field.closest('details')?.setAttribute('open', '')
+					}
+				}
+			}
+			return submission
 		},
 		defaultValue: {
 			title: recipe?.title ?? '',
@@ -168,17 +178,6 @@ export function RecipeForm({
 		}
 	}
 
-	// Section summaries for collapsed state
-	const filledDetails = [
-		fields.title.value ? 'title' : null,
-		fields.description.value ? 'description' : null,
-		fields.sourceUrl.value ? 'URL' : null,
-		fields.notes.value ? 'notes' : null,
-		fields.activeTime.value ? 'active' : null,
-		fields.totalTime.value ? 'total' : null,
-		fields.yieldAmount.value && fields.yieldLabel.value ? 'yield' : null,
-	].filter(Boolean).length
-
 	return (
 		<Form
 			method="POST"
@@ -196,173 +195,14 @@ export function RecipeForm({
 				</div>
 			)}
 
-			{/* Photo Section */}
-			<FormSection
-				title="Photo"
-				summary={imagePreview ? 'Has photo' : 'No photo'}
-				defaultOpen={false}
-			>
-				<div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-					<div className="border-border/60 bg-muted/30 relative aspect-[4/3] w-full overflow-hidden rounded-lg border-2 border-dashed sm:w-40">
-						{imagePreview ? (
-							<Img
-								src={imagePreview}
-								alt="Recipe preview"
-								className="h-full w-full object-cover"
-								width={160}
-								height={120}
-							/>
-						) : (
-							<div className="flex h-full w-full items-center justify-center">
-								<Icon name="camera" className="text-muted-foreground size-8" />
-							</div>
-						)}
-					</div>
-					<div className="space-y-2">
-						<Input
-							type="file"
-							name="image"
-							accept="image/jpeg,image/png,image/webp"
-							onChange={handleImageChange}
-							className="max-w-full text-sm"
-						/>
-						<p className="text-muted-foreground text-xs">
-							JPG, PNG or WebP. Max 3MB.
-						</p>
-					</div>
-				</div>
-			</FormSection>
-
-			{/* Details Section */}
-			<FormSection
-				title="Details"
-				summary={`${filledDetails}/7 filled`}
-				defaultOpen
-			>
-				<div className="space-y-4">
-					<Field
-						labelProps={{ children: 'Title' }}
-						inputProps={{
-							...getInputProps(fields.title, { type: 'text' }),
-							placeholder: 'Recipe title',
-						}}
-						errors={fields.title.errors}
-					/>
-
-					<TextareaField
-						labelProps={{ children: 'Description' }}
-						textareaProps={{
-							...getInputProps(fields.description, { type: 'text' }),
-							placeholder: 'A brief description of this recipe',
-							rows: 3,
-						}}
-						errors={fields.description.errors}
-					/>
-
-					<Field
-						labelProps={{ children: 'Source URL' }}
-						inputProps={{
-							...getInputProps(fields.sourceUrl, { type: 'url' }),
-							placeholder: 'https://example.com/recipe',
-						}}
-						errors={fields.sourceUrl.errors}
-					/>
-
-					<TextareaField
-						labelProps={{ children: 'My Notes' }}
-						textareaProps={{
-							...getInputProps(fields.notes, { type: 'text' }),
-							placeholder: 'Personal reminders, tips, or modifications...',
-							rows: 3,
-						}}
-						errors={fields.notes.errors}
-					/>
-
-					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-						<Field
-							labelProps={{ children: 'Active Time (min)' }}
-							inputProps={{
-								...getInputProps(fields.activeTime, { type: 'number' }),
-								min: 1,
-								placeholder: '—',
-							}}
-							errors={fields.activeTime.errors}
-						/>
-						<Field
-							labelProps={{ children: 'Total Time (min)' }}
-							inputProps={{
-								...getInputProps(fields.totalTime, { type: 'number' }),
-								min: 1,
-								placeholder: '—',
-							}}
-							errors={fields.totalTime.errors}
-						/>
-					</div>
-
-					<div className="space-y-2">
-						<p className="text-sm font-medium">This recipe makes</p>
-						<div className="flex min-w-0 items-center gap-2">
-							<Input
-								key={yieldAmountKey}
-								{...yieldAmountProps}
-								step="any"
-								placeholder="4"
-								aria-label="Amount this recipe makes"
-								aria-invalid={
-									fields.yieldAmount.errors?.length ? true : undefined
-								}
-								aria-describedby={fields.yieldAmount.errorId}
-								className="w-24 shrink-0 tabular-nums"
-							/>
-							<Input
-								key={yieldLabelKey}
-								{...yieldLabelProps}
-								list="yield-label-suggestions"
-								placeholder="servings, dough balls, loaves…"
-								aria-label="What this recipe makes"
-								aria-invalid={
-									fields.yieldLabel.errors?.length ? true : undefined
-								}
-								aria-describedby={fields.yieldLabel.errorId}
-								className="min-w-0 flex-1"
-							/>
-						</div>
-						<p className="text-muted-foreground text-xs">
-							Optional—for example, 4 servings or 2 dough balls. Leave both
-							blank if unknown.
-						</p>
-						<ErrorList
-							id={fields.yieldAmount.errorId}
-							errors={fields.yieldAmount.errors}
-						/>
-						<ErrorList
-							id={fields.yieldLabel.errorId}
-							errors={fields.yieldLabel.errors}
-						/>
-						<datalist id="yield-label-suggestions">
-							{['servings', 'pieces', 'batch', 'cake', 'loaf'].map(
-								(suggestion) => (
-									<option key={suggestion} value={suggestion} />
-								),
-							)}
-						</datalist>
-					</div>
-				</div>
-			</FormSection>
-
-			<FormSection
-				title="Classification"
-				summary={
-					recipe?.metadataValueIds?.length
-						? `${recipe.metadataValueIds.length} selected`
-						: 'Optional'
-				}
-			>
-				<RecipeMetadataFields
-					options={metadataOptions}
-					selectedValueIds={recipe?.metadataValueIds}
-				/>
-			</FormSection>
+			<Field
+				labelProps={{ children: 'Title' }}
+				inputProps={{
+					...getInputProps(fields.title, { type: 'text' }),
+					placeholder: 'Recipe title',
+				}}
+				errors={fields.title.errors}
+			/>
 
 			{/* Ingredients Section */}
 			<FormSection
@@ -379,6 +219,52 @@ export function RecipeForm({
 					onChange={setIngredients}
 					excludeRecipeId={recipe?.id}
 				/>
+				<div className="mt-6 space-y-2">
+					<p className="text-sm font-medium">This recipe makes</p>
+					<div className="flex min-w-0 items-center gap-2">
+						<Input
+							key={yieldAmountKey}
+							{...yieldAmountProps}
+							step="any"
+							placeholder="4"
+							aria-label="Amount this recipe makes"
+							aria-invalid={
+								fields.yieldAmount.errors?.length ? true : undefined
+							}
+							aria-describedby={fields.yieldAmount.errorId}
+							className="w-24 shrink-0 tabular-nums"
+						/>
+						<Input
+							key={yieldLabelKey}
+							{...yieldLabelProps}
+							list="yield-label-suggestions"
+							placeholder="servings, dough balls, loaves…"
+							aria-label="What this recipe makes"
+							aria-invalid={fields.yieldLabel.errors?.length ? true : undefined}
+							aria-describedby={fields.yieldLabel.errorId}
+							className="min-w-0 flex-1"
+						/>
+					</div>
+					<p className="text-muted-foreground text-xs">
+						Optional—for example, 4 servings or 2 dough balls. Leave both blank
+						if unknown.
+					</p>
+					<ErrorList
+						id={fields.yieldAmount.errorId}
+						errors={fields.yieldAmount.errors}
+					/>
+					<ErrorList
+						id={fields.yieldLabel.errorId}
+						errors={fields.yieldLabel.errors}
+					/>
+					<datalist id="yield-label-suggestions">
+						{['servings', 'pieces', 'batch', 'cake', 'loaf'].map(
+							(suggestion) => (
+								<option key={suggestion} value={suggestion} />
+							),
+						)}
+					</datalist>
+				</div>
 			</FormSection>
 			{/* Hidden inputs for ingredients */}
 			{ingredients.map((ingredient, index) => (
@@ -457,6 +343,112 @@ export function RecipeForm({
 					/>
 				</div>
 			))}
+
+			{/* Photo Section */}
+			<FormSection
+				title="Photo"
+				summary={imagePreview ? 'Has photo' : 'No photo'}
+				defaultOpen={false}
+			>
+				<div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+					<div className="border-border/60 bg-muted/30 relative aspect-[4/3] w-full overflow-hidden rounded-lg border-2 border-dashed sm:w-40">
+						{imagePreview ? (
+							<Img
+								src={imagePreview}
+								alt="Recipe preview"
+								className="h-full w-full object-cover"
+								width={160}
+								height={120}
+							/>
+						) : (
+							<div className="flex h-full w-full items-center justify-center">
+								<Icon name="camera" className="text-muted-foreground size-8" />
+							</div>
+						)}
+					</div>
+					<div className="space-y-2">
+						<Input
+							type="file"
+							name="image"
+							accept="image/jpeg,image/png,image/webp"
+							onChange={handleImageChange}
+							className="max-w-full text-sm"
+						/>
+						<p className="text-muted-foreground text-xs">
+							JPG, PNG or WebP. Max 3MB.
+						</p>
+					</div>
+				</div>
+			</FormSection>
+
+			{/* Details Section */}
+			<FormSection title="Details" summary="Optional">
+				<div className="space-y-4">
+					<TextareaField
+						labelProps={{ children: 'Description' }}
+						textareaProps={{
+							...getInputProps(fields.description, { type: 'text' }),
+							placeholder: 'A brief description of this recipe',
+							rows: 3,
+						}}
+						errors={fields.description.errors}
+					/>
+
+					<Field
+						labelProps={{ children: 'Source URL' }}
+						inputProps={{
+							...getInputProps(fields.sourceUrl, { type: 'url' }),
+							placeholder: 'https://example.com/recipe',
+						}}
+						errors={fields.sourceUrl.errors}
+					/>
+
+					<TextareaField
+						labelProps={{ children: 'My Notes' }}
+						textareaProps={{
+							...getInputProps(fields.notes, { type: 'text' }),
+							placeholder: 'Personal reminders, tips, or modifications...',
+							rows: 3,
+						}}
+						errors={fields.notes.errors}
+					/>
+
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<Field
+							labelProps={{ children: 'Active Time (min)' }}
+							inputProps={{
+								...getInputProps(fields.activeTime, { type: 'number' }),
+								min: 1,
+								placeholder: '—',
+							}}
+							errors={fields.activeTime.errors}
+						/>
+						<Field
+							labelProps={{ children: 'Total Time (min)' }}
+							inputProps={{
+								...getInputProps(fields.totalTime, { type: 'number' }),
+								min: 1,
+								placeholder: '—',
+							}}
+							errors={fields.totalTime.errors}
+						/>
+					</div>
+				</div>
+			</FormSection>
+
+			<FormSection
+				title="Classification"
+				summary={
+					recipe?.metadataValueIds?.length
+						? `${recipe.metadataValueIds.length} selected`
+						: 'Optional'
+				}
+			>
+				<RecipeMetadataFields
+					options={metadataOptions}
+					selectedValueIds={recipe?.metadataValueIds}
+				/>
+			</FormSection>
 
 			<div className="bg-background/95 sticky bottom-16 z-10 flex justify-end gap-4 border-t py-3 supports-[backdrop-filter]:backdrop-blur-sm md:static md:bottom-auto md:z-auto md:bg-transparent md:pt-6 md:pb-0 md:backdrop-blur-none">
 				<Button type="button" variant="outline" onClick={() => history.back()}>

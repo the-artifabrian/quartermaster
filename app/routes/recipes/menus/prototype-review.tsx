@@ -58,6 +58,71 @@ const existing: Row[] = [
 
 export default function PrototypeReview() {
 	const [params, setParams] = useSearchParams()
+	const [run, setRun] = useState(0)
+	if (params.get('details') === '1') return <ResearchComparison />
+	const variant = params.get('variant') === 'D' ? 'D' : 'C'
+	return (
+		<div className="container-grid max-w-2xl space-y-5 py-4 pb-24">
+			<p className="text-muted-foreground text-sm">
+				Shopping preview · sample data
+			</p>
+			<div className="space-y-2">
+				<h1 className="font-serif text-2xl">Which way feels easier?</h1>
+				<p>
+					You’re making Saturday supper. You already have the chickpeas and most
+					of the rice.
+				</p>
+				<p>
+					<strong>Your task: buy no chickpeas and only 100 g rice.</strong>{' '}
+					Leave everything else as it is.
+				</p>
+			</div>
+			<div className="grid grid-cols-2 gap-2" aria-label="Try each option">
+				{[
+					['C', '1. Adjust on Shopping'],
+					['D', '2. Check before adding'],
+				].map(([value, label]) => (
+					<Button
+						key={value}
+						variant={variant === value ? 'default' : 'outline'}
+						aria-pressed={variant === value}
+						className="h-auto min-h-11 whitespace-normal"
+						onClick={() => {
+							const next = new URLSearchParams()
+							next.set('variant', value!)
+							setParams(next, { replace: true })
+							setRun((n) => n + 1)
+						}}
+					>
+						{label}
+					</Button>
+				))}
+			</div>
+			<Trial
+				key={`${variant}:${run}`}
+				variant={variant}
+				scope="meal"
+				kitchen="partial"
+				guided
+			/>
+			<p className="text-muted-foreground text-sm">
+				Both options simulate the same Shopping fixes. This compares when you
+				make the corrections.
+			</p>
+			<details className="text-muted-foreground text-sm">
+				<summary className="min-h-11 cursor-pointer py-3">
+					More comparisons and notes
+				</summary>
+				<a className="underline" href="?details=1&variant=B&kitchen=none">
+					Open the full experiment
+				</a>
+			</details>
+		</div>
+	)
+}
+
+function ResearchComparison() {
+	const [params, setParams] = useSearchParams()
 	const variant = params.get('variant') ?? 'B'
 	const scope = params.get('scope') ?? 'meal'
 	const kitchen = params.get('kitchen') ?? 'none'
@@ -211,10 +276,12 @@ function Trial({
 	variant,
 	scope,
 	kitchen,
+	guided = false,
 }: {
 	variant: string
 	scope: string
 	kitchen: string
+	guided?: boolean
 }) {
 	const selected = scope === 'single' ? dishes.slice(0, 1) : dishes
 	const batches = selected.map((d) => ({
@@ -273,6 +340,10 @@ function Trial({
 					? 100
 					: l.amount,
 	}))
+	const taskComplete =
+		stage === 'shopping' &&
+		!rows.some((row) => row.name === 'chickpeas' && row.amount !== 0) &&
+		rows.some((row) => row.name === 'rice' && row.amount === 100)
 	return (
 		<>
 			<div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
@@ -285,16 +356,35 @@ function Trial({
 								? 'Saturday supper'
 								: 'Chickpea salad'}
 				</h1>
-				<Button
-					variant="outline"
-					onClick={() => {
-						setFacts(!facts)
-						log(facts ? 'Close kitchen facts' : 'Check kitchen')
-					}}
-				>
-					Check kitchen
-				</Button>
+				{!guided && (
+					<Button
+						variant="outline"
+						onClick={() => {
+							setFacts(!facts)
+							log(facts ? 'Close kitchen facts' : 'Check kitchen')
+						}}
+					>
+						Check kitchen
+					</Button>
+				)}
 			</div>
+			{guided && (
+				<p
+					role={taskComplete ? 'status' : undefined}
+					className="bg-muted/40 rounded-lg p-3"
+				>
+					{taskComplete
+						? 'Done — no chickpeas and 100 g rice. Try the other option above, then tell me which felt easier.'
+						: stage === 'shopping'
+							? 'Edit chickpeas and remove that purchase. Edit rice, enter 100, and save.'
+							: stage === 'review'
+								? 'Set chickpeas to 0 and rice to 100, then choose Add to Shopping.'
+								: variant === 'C'
+									? 'First, choose Add to Shopping below. You’ll make the two corrections on the list.'
+									: 'First, choose Check ingredients first below. You’ll make the two corrections before adding.'}
+				</p>
+			)}
+
 			{facts && (
 				<p className="bg-muted/40 rounded-lg p-3">
 					{kitchen === 'none'
@@ -308,73 +398,83 @@ function Trial({
 			)}
 			{stage === 'source' && (
 				<>
-					<p className="text-muted-foreground">
-						{scope === 'meal'
-							? 'Menu snapshot · four dishes at stored scales · sparkling water and ice note purchases'
-							: 'One Recipe at 1× · no planning required'}
-					</p>
-					<div className="divide-border/40 divide-y">
-						{batches.map((dish, i) => (
-							<section key={dish.title} className="py-3">
-								<button
-									className="flex min-h-11 w-full items-center justify-between text-left"
-									aria-expanded={openDish === i}
-									onClick={() => {
-										setOpenDish(openDish === i ? null : i)
-										log(`Open/close Recipe: ${dish.title}`)
-									}}
-								>
-									<span className="font-serif text-lg">{dish.title}</span>
-									<span>{dish.scale}×</span>
-								</button>
-								{openDish === i && (
-									<ul className="space-y-2">
-										{dish.lines.map((line) => (
-											<li
-												key={line.name}
-												className="flex items-center justify-between gap-3"
-											>
-												<span>
-													{format(line)}{' '}
-													{line.staple === 'normal'
-														? '· Staple'
-														: line.staple === 'out'
-															? '· Out'
-															: ''}
-												</span>
-												{variant === 'A' && (
-													<Button
-														variant="outline"
-														onClick={() => addCart(line)}
-													>
-														Add {line.name}
-													</Button>
-												)}
-											</li>
-										))}
-									</ul>
-								)}
-							</section>
-						))}
-						{scope === 'meal' && (
-							<section className="space-y-2 py-3">
-								<h2 className="font-serif text-lg">Serve cold</h2>
-								{notes.map((line) => (
-									<div
-										key={line.name}
-										className="flex items-center justify-between gap-3"
+					{!guided && (
+						<p className="text-muted-foreground">
+							{scope === 'meal'
+								? 'Menu snapshot · four dishes at stored scales · sparkling water and ice note purchases'
+								: 'One Recipe at 1× · no planning required'}
+						</p>
+					)}
+					<details open={guided ? undefined : true}>
+						<summary
+							hidden={!guided}
+							className="text-muted-foreground min-h-11 cursor-pointer py-3 text-sm"
+						>
+							View the four dishes and extras
+						</summary>
+						<div className="divide-border/40 divide-y">
+							{batches.map((dish, i) => (
+								<section key={dish.title} className="py-3">
+									<button
+										className="flex min-h-11 w-full items-center justify-between text-left"
+										aria-expanded={openDish === i}
+										onClick={() => {
+											setOpenDish(openDish === i ? null : i)
+											log(`Open/close Recipe: ${dish.title}`)
+										}}
 									>
-										<span>{format(line)}</span>
-										{variant === 'A' && (
-											<Button variant="outline" onClick={() => addCart(line)}>
-												Add {line.name}
-											</Button>
-										)}
-									</div>
-								))}
-							</section>
-						)}
-					</div>
+										<span className="font-serif text-lg">{dish.title}</span>
+										<span>{dish.scale}×</span>
+									</button>
+									{openDish === i && (
+										<ul className="space-y-2">
+											{dish.lines.map((line) => (
+												<li
+													key={line.name}
+													className="flex items-center justify-between gap-3"
+												>
+													<span>
+														{format(line)}{' '}
+														{line.staple === 'normal'
+															? '· Staple'
+															: line.staple === 'out'
+																? '· Out'
+																: ''}
+													</span>
+													{variant === 'A' && (
+														<Button
+															variant="outline"
+															onClick={() => addCart(line)}
+														>
+															Add {line.name}
+														</Button>
+													)}
+												</li>
+											))}
+										</ul>
+									)}
+								</section>
+							))}
+							{scope === 'meal' && (
+								<section className="space-y-2 py-3">
+									<h2 className="font-serif text-lg">Serve cold</h2>
+									{notes.map((line) => (
+										<div
+											key={line.name}
+											className="flex items-center justify-between gap-3"
+										>
+											<span>{format(line)}</span>
+											{variant === 'A' && (
+												<Button variant="outline" onClick={() => addCart(line)}>
+													Add {line.name}
+												</Button>
+											)}
+										</div>
+									))}
+								</section>
+							)}
+						</div>
+					</details>
 					{variant === 'A' ? (
 						<Button
 							onClick={() => {
@@ -404,26 +504,30 @@ function Trial({
 							Add to Shopping
 						</Button>
 					)}
-					<p className="text-muted-foreground text-sm">
-						{variant === 'A'
-							? 'A models individual Recipe carts and manual note additions; existing names are skipped, so shared ingredients can be undercounted. This defect is not a review benefit.'
-							: equivalent
-								? 'SIMULATED CONTROL: C and D have identical combined transfer, explicit total correction and safe new-demand behavior. For a Recipe this bulk control is proposed; for a Meal, combined transfer already exists.'
-								: 'B models combined Meal contribution display and current correction behavior. This fixture is not a full reimplementation: calendar navigation, toasts and timing are omitted. Single-Recipe bulk transfer here exposes the existing action boundary, not a claim that its proposed placement has shipped.'}
-					</p>
+					{!guided && (
+						<p className="text-muted-foreground text-sm">
+							{variant === 'A'
+								? 'A models individual Recipe carts and manual note additions; existing names are skipped, so shared ingredients can be undercounted. This defect is not a review benefit.'
+								: equivalent
+									? 'SIMULATED CONTROL: C and D have identical combined transfer, explicit total correction and safe new-demand behavior. For a Recipe this bulk control is proposed; for a Meal, combined transfer already exists.'
+									: 'B models combined Meal contribution display and current correction behavior. This fixture is not a full reimplementation: calendar navigation, toasts and timing are omitted. Single-Recipe bulk transfer here exposes the existing action boundary, not a claim that its proposed placement has shipped.'}
+						</p>
+					)}
 				</>
 			)}
 			{stage === 'review' && (
 				<>
-					<p>
-						For{' '}
-						{scope === 'meal'
-							? 'Saturday supper at its planned scales'
-							: 'Chickpea salad at 1×'}
-						. Set an amount to 0 to omit it from this transfer. The temporary
-						decision applies only to this intended cook in this experiment;
-						future behavior is compared below.
-					</p>
+					{!guided && (
+						<p>
+							For{' '}
+							{scope === 'meal'
+								? 'Saturday supper at its planned scales'
+								: 'Chickpea salad at 1×'}
+							. Set an amount to 0 to omit it from this transfer. The temporary
+							decision applies only to this intended cook in this experiment;
+							future behavior is compared below.
+						</p>
+					)}
 					<div className="divide-border/40 divide-y">
 						{draft.map((line, i) => (
 							<label
@@ -589,38 +693,41 @@ function Trial({
 					</Button>
 				</>
 			)}
-			<details className="bg-muted/40 rounded-lg p-4 text-sm">
-				<summary className="min-h-11 cursor-pointer">
-					Experiment evidence: intended result, actions and limitations
-				</summary>
-				<p>
-					Target additions, excluding existing milk and handled garlic:{' '}
-					{expected
-						.filter((l) => l.amount !== 0)
-						.map(format)
-						.join('; ')}
-					. Unknown amounts need a human check. Existing checked garlic does not
-					pay for this Meal.
-				</p>
-				<p>
-					Actions recorded: {events.length}. Input events are logged, not a
-					standardized tap score. Count actual Recipe revisits, kitchen trips,
-					corrections and rereading yourself; these logs do not measure
-					household effort.
-				</p>
-				<ol className="list-inside list-decimal">
-					{events.map((event, i) => (
-						<li key={i}>{event}</li>
-					))}
-				</ol>
-				<p>
-					B deliberately exposes the observed generated-total edit problem (600
-					g → enter 100 g → 700 g). C/D simulate replacement of the intended
-					source total. Do not credit D for that repair. B's duplicate/checked
-					examples are illustrative; use the real app for backend correctness
-					evidence. Switching a variant or fixture resets all in-memory work.
-				</p>
-			</details>
+			{!guided && (
+				<details className="bg-muted/40 rounded-lg p-4 text-sm">
+					<summary className="min-h-11 cursor-pointer">
+						Experiment evidence: intended result, actions and limitations
+					</summary>
+					<p>
+						Target additions, excluding existing milk and handled garlic:{' '}
+						{expected
+							.filter((l) => l.amount !== 0)
+							.map(format)
+							.join('; ')}
+						. Unknown amounts need a human check. Existing checked garlic does
+						not pay for this Meal.
+					</p>
+					<p>
+						Actions recorded: {events.length}. Input events are logged, not a
+						standardized tap score. Count actual Recipe revisits, kitchen trips,
+						corrections and rereading yourself; these logs do not measure
+						household effort.
+					</p>
+					<ol className="list-inside list-decimal">
+						{events.map((event, i) => (
+							<li key={i}>{event}</li>
+						))}
+					</ol>
+					<p>
+						B deliberately exposes the observed generated-total edit problem
+						(600 g → edit to 100 g → refresh the Meal → 700 g). C/D simulate
+						replacement of the intended source total. Do not credit D for that
+						repair. B's duplicate/checked examples are illustrative; use the
+						real app for backend correctness evidence. Switching a variant or
+						fixture resets all in-memory work.
+					</p>
+				</details>
+			)}
 		</>
 	)
 }

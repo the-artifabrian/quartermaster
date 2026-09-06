@@ -20,5 +20,6 @@ cd /private/tmp/quartermaster-232
 sh /private/tmp/qm-232-review/start.sh
 ```
 
-[Technical evidence and setup](232-entry-evidence.md) are separate. PR opening
-awaits Alex's explicit approval; merge/deployment needs separate approval.
+[Technical evidence and setup](232-entry-evidence.md) are separate. Alex tried
+the preview and approved opening a PR on 6 September 2026. Merge/deployment
+still needs separate approval.

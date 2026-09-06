@@ -104,6 +104,7 @@ main checkout's existing build; `9232-*` show this change with identical data.
 Full Playwright and physical iPhone/VoiceOver testing were not run. Browser
 inspection is implementation evidence, not dogfooding.
 
-PR opening awaits explicit approval under `docs/DEVELOPMENT_PLAN.md`: “Wait for
-Alex's explicit approval before opening a PR.” No PR, merge, or deployment is
-authorized by this local handoff.
+Alex confirmed the preview works and explicitly approved opening a PR on 6
+September 2026. This satisfies the PR-opening requirement in
+`docs/DEVELOPMENT_PLAN.md`; merge and deployment still require separate
+approval.

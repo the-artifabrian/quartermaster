@@ -48,8 +48,9 @@ Verified on 6 September 2026:
 Review found the old Menu recovery browser assertion expected the unscaled URL;
 it now expects the preserved 2.5× scale. No other change was needed. The full
 unit/E2E suites and physical-iPhone Safari were not run for this focused link
-change. Browser evidence establishes behavior, not normal-use acceptance. No PR,
-merge or deployment.
+change. Browser evidence establishes behavior, not normal-use acceptance. Alex
+approved the local review and opening a PR. Merge and deployment still require
+separate approval.
 
 ## Recreate disposable data
 

@@ -179,6 +179,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
 	return {
 		recipe,
+		userId,
+		householdId,
 		isProActive: tierInfo.isProActive,
 		missingIngredientIds,
 		hasInventory:
@@ -504,8 +506,19 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		favoriteFetcher.formData?.get('intent') === 'toggleFavorite'
 			? !recipe.isFavorite
 			: recipe.isFavorite
-	const { checkedIngredients, checkedSteps, toggleIngredient, toggleStep } =
-		useCookingProgress(recipe.id)
+	const {
+		checkedIngredients,
+		checkedSteps,
+		toggleIngredient,
+		toggleStep,
+		reset,
+	} = useCookingProgress({
+		userId: loaderData.userId,
+		householdId: loaderData.householdId,
+		recipeId: recipe.id,
+		ingredients: recipe.ingredients,
+		instructions: recipe.instructions,
+	})
 	const enhanceFetcher = useFetcher<{
 		error: string | null
 		suggestions: EnhanceableFields | null
@@ -752,6 +765,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							onCopy={handleCopyRecipe}
 							onShare={handleShare}
 							onEnhance={handleEnhance}
+							onResetCookingChecks={
+								checkedIngredients.size || checkedSteps.size ? reset : undefined
+							}
 						/>
 					</PopoverAnchor>
 					<PopoverContent align="start" className="w-72 p-4">

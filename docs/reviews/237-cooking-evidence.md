@@ -116,8 +116,15 @@ are in `/private/tmp/qm-237-review/`. Full Playwright, physical
 iPhone/VoiceOver, and real cooking were not run; synthetic/browser checks
 establish implementation behavior, not recurring user value.
 
-No PR, merge, or deployment. The PR-opening gate is
-[DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md): “Wait for Alex's explicit
-approval before opening a PR.” This addition is not the straightforward-removal
-exception. #252 remains awaiting a decision, #242 still gates #227/#228/#230,
-#254 remains deferred, and #263 remains a proposal.
+Alex tried the local preview, confirmed it works, and explicitly approved
+opening the PR. This satisfies the PR-opening requirement in
+[DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md). Merge and deployment still need
+separate approval. #252 remains awaiting a decision, #242 still gates
+#227/#228/#230, #254 remains deferred, and #263 remains a proposal.
+
+## Preview screenshots
+
+These show the same synthetic phone Recipe before and after the reset action.
+
+[Checks present and reset menu](237-cooking-checks.png) ·
+[After reset](237-cooking-cleared.png)

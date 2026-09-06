@@ -15,11 +15,11 @@ plan into Shopping.
   titles, ingredients, steps and supplied time/yield before saving when needed.
   Failed saves retain the active review; leaving or reloading Import does not
   yet restore it.
-- Imported Recipes retain pasted input or available extracted structure in a
-  collapsed Original input area inside editing. The normal Recipe reading screen
-  omits it. Both JSON exports include it and older exports remain accepted.
-  Anonymous sharing omits raw source; authenticated Save to my Recipes includes
-  it in the copied Recipe.
+- Imported Recipes retain pasted input or available extracted structure for
+  recovery, without displaying it in import editing, saved editing or reading.
+  Useful source URL access remains. Both JSON exports include retained source
+  and older exports remain accepted. Anonymous sharing omits raw source;
+  authenticated Save to my Recipes includes it in the copied Recipe.
 - Scale ingredient display, switch units, print, and keep personal notes.
 - Cook with ingredient/step check-off, glanceable duration and temperature cues,
   wake lock, and local progress.

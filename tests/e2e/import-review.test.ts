@@ -33,8 +33,10 @@ test('correct import, fail validation and connection, then save once with origin
 		.getByRole('heading', { name: 'Chickpea lunch', exact: true })
 		.waitFor()
 	await expect(page.getByLabel('Title', { exact: true })).toBeHidden()
-	await expect(page.getByText('Original input', { exact: true })).toBeHidden()
+	await expect(page.getByText('Original input', { exact: true })).toHaveCount(0)
 	await page.getByRole('button', { name: 'Edit', exact: true }).click()
+	await expect(page.getByText('Original input', { exact: true })).toHaveCount(0)
+	await expect(page.locator('pre')).toHaveCount(0)
 	await page.getByRole('button', { name: /^2 cans chickpeas/ }).click()
 	await expect(page.getByPlaceholder('Notes (e.g., diced)')).toHaveValue(
 		/equivalent cooked weight/,
@@ -54,8 +56,10 @@ test('correct import, fail validation and connection, then save once with origin
 	await expect(page.getByLabel('Recipe overview')).toContainText(
 		'Total: 25 min',
 	)
-	await expect(page.getByText('Original input', { exact: true })).toBeHidden()
+	await expect(page.getByText('Original input', { exact: true })).toHaveCount(0)
 	await page.getByRole('button', { name: 'Edit', exact: true }).click()
+	await expect(page.getByText('Original input', { exact: true })).toHaveCount(0)
+	await expect(page.locator('pre')).toHaveCount(0)
 	await expect(page.getByPlaceholder('Amount', { exact: true })).toHaveValue(
 		'3',
 	)
@@ -104,12 +108,8 @@ test('correct import, fail validation and connection, then save once with origin
 	).toBeVisible()
 	await expect(page.getByText('Original input', { exact: true })).toHaveCount(0)
 	await page.getByRole('link', { name: /edit/i }).click()
-	const source = page
-		.locator('details')
-		.filter({ has: page.locator('summary', { hasText: 'Original input' }) })
-	await expect(source).not.toHaveAttribute('open', '')
-	await source.locator('summary').click()
-	await expect(source.locator('pre')).toHaveText(original)
+	await expect(page.getByText('Original input', { exact: true })).toHaveCount(0)
+	await expect(page.locator('pre')).toHaveCount(0)
 	await page.getByRole('button', { name: 'Save Changes', exact: true }).click()
 	await expect(page).toHaveURL(/\/recipes\/(?!import$)[a-z0-9]+$/)
 	await expect(page.getByText('Original input', { exact: true })).toHaveCount(0)

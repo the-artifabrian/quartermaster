@@ -369,14 +369,6 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 							/>
 						</div>
 					</details>
-					<details>
-						<summary className="min-h-11 cursor-pointer py-3">
-							Original input
-						</summary>
-						<pre className="font-sans text-base wrap-anywhere whitespace-pre-wrap">
-							{recipe.rawText}
-						</pre>
-					</details>
 				</div>
 				<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
 					<Button

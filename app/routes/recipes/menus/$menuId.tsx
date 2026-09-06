@@ -547,7 +547,11 @@ function MenuRecipeCard({ item }: { item: MenuDetailItem }) {
 		return (
 			<li>
 				<Link
-					to={`/recipes/${item.recipe.id}`}
+					to={
+						item.scaleMultiplier != null && item.scaleMultiplier !== 1
+							? `/recipes/${item.recipe.id}?scale=${formatScaleMultiplier(item.scaleMultiplier)}`
+							: `/recipes/${item.recipe.id}`
+					}
 					className="border-border/60 bg-card hover:bg-muted/40 flex items-center gap-3 rounded-lg border p-3 transition-colors"
 				>
 					{content}

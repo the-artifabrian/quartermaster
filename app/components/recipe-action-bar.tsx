@@ -23,6 +23,7 @@ export function RecipeActionBar({
 	onCopy,
 	onShare,
 	onEnhance,
+	onResetCookingChecks,
 }: {
 	recipeId: string
 	isFavorite: boolean
@@ -33,6 +34,7 @@ export function RecipeActionBar({
 	onCopy: () => void
 	onShare: () => void
 	onEnhance: () => void
+	onResetCookingChecks?: () => void
 }) {
 	return (
 		<div className="mt-4 flex flex-wrap items-center gap-1 md:mt-6 md:gap-2 print:hidden">
@@ -117,7 +119,7 @@ export function RecipeActionBar({
 				<TooltipContent>Copy public link</TooltipContent>
 			</Tooltip>
 
-			{/* Overflow: print, enhance */}
+			{/* Overflow: contextual reset, print, enhance */}
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button variant="ghost" size="icon" aria-label="More actions">
@@ -125,6 +127,15 @@ export function RecipeActionBar({
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end">
+					{onResetCookingChecks && (
+						<DropdownMenuItem
+							className="min-h-11"
+							onSelect={onResetCookingChecks}
+						>
+							<Icon name="reset" size="sm" />
+							Reset cooking checks
+						</DropdownMenuItem>
+					)}
 					<DropdownMenuItem onSelect={() => window.print()}>
 						<Icon name="file-text" size="sm" />
 						Print recipe

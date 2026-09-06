@@ -26,7 +26,11 @@ plan into Shopping.
   authenticated Save to my Recipes includes it in the copied Recipe.
 - Scale ingredient display, switch units, print, and keep personal notes.
 - Cook with ingredient/step check-off, glanceable duration and temperature cues,
-  wake lock, and local progress.
+  wake lock, and local progress. Checks resume on this browser for up to seven
+  days, separately for each account, household, and Recipe. When checks exist,
+  More actions offers Reset cooking checks for the next cook. Changed or removed
+  ingredient/instruction rows lose their checks; reset leaves Recipe content,
+  Plan, and Shopping unchanged.
 - Add a Recipe to a Menu, Plan, or Shopping.
 - Recipe cards stay minimal. Recently Updated is the default. Recipe detail
   shows actionable Staples/Out-aware availability.

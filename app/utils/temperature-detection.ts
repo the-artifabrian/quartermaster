@@ -1,3 +1,5 @@
+import { MAX_CUE_SCAN_LENGTH } from './cooking-cues.ts'
+
 export type TemperatureMatch = {
 	originalText: string
 	value: number
@@ -60,6 +62,11 @@ const EXPLICIT_TEMP_NEARBY =
  * Detects temperature references in instruction text and returns structured matches.
  */
 export function detectTemperatures(text: string): TemperatureMatch[] {
+	// Bounded work per instruction — see MAX_CUE_SCAN_LENGTH. This scanner is
+	// quadratic on a long digit run: `(\d+)` backtracks the whole run at every
+	// start position before it can fail to find an F/C suffix.
+	if (text.length > MAX_CUE_SCAN_LENGTH) return []
+
 	const matches: TemperatureMatch[] = []
 
 	// Regex created inside the function to avoid shared mutable lastIndex state.

@@ -6,6 +6,7 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import getPort, { portNumbers } from 'get-port'
 import morgan from 'morgan'
 import { compressionMiddleware } from './compression.ts'
+import { startEventLoopWatchdog } from './event-loop-watchdog.ts'
 import { startMemoryWatchdog } from './memory-watchdog.ts'
 import { startScheduledMaintenance } from './scheduled-maintenance.ts'
 import { registerGracefulShutdown } from './shutdown.ts'
@@ -71,6 +72,11 @@ if (typeof bunGc === 'function' && gcIntervalMs > 0) {
 // have its dev server killed.
 if (IS_PROD) {
 	startMemoryWatchdog({ gc: bunGc })
+	// The memory watchdog samples from a timer on the main event loop, so it is
+	// blind to a wedged loop — the 2026-09-11 outage, where CPU-bound work in a
+	// request handler blocked every subsequent request for ninety minutes while
+	// memory stayed healthy. This one observes from a worker thread.
+	startEventLoopWatchdog()
 }
 
 // no ending slashes for SEO reasons

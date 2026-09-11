@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { MAX_CUE_SCAN_LENGTH } from './cooking-cues.ts'
 import { detectTemperatures } from './temperature-detection.ts'
 
 describe('detectTemperatures', () => {
@@ -226,5 +227,23 @@ describe('detectTemperatures', () => {
 			const matches = detectTemperatures('Hold between 200-300 degrees')
 			expect(matches).toHaveLength(0)
 		})
+	})
+
+	// Regression: `(\d+)` backtracks the whole run at every start position
+	// before it can fail to find an F/C suffix, so a long digit run is
+	// quadratic here. The scan cap keeps it bounded — see MAX_CUE_SCAN_LENGTH.
+	test('a long digit run is scanned in bounded time', () => {
+		const started = Date.now()
+		expect(detectTemperatures('9'.repeat(1500))).toEqual([])
+		expect(Date.now() - started).toBeLessThan(1000)
+	})
+
+	test('text past the scan cap degrades to no cues instead of scanning', () => {
+		const overCap = 'Bake at 350°F. '.repeat(200)
+		expect(overCap.length).toBeGreaterThan(MAX_CUE_SCAN_LENGTH)
+
+		const started = Date.now()
+		expect(detectTemperatures(overCap)).toEqual([])
+		expect(Date.now() - started).toBeLessThan(1000)
 	})
 })

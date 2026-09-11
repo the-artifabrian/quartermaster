@@ -32,7 +32,10 @@ import {
 	extractRecipeFromImages,
 	extractRecipeFromText,
 } from '#app/utils/recipe-extract-llm.server.ts'
-import { ImportUrlSchema } from '#app/utils/recipe-validation.ts'
+import {
+	ImportUrlSchema,
+	MAX_RAW_TEXT_LENGTH,
+} from '#app/utils/recipe-validation.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
 
@@ -267,7 +270,10 @@ function extractRecipe(
 		yieldAmount: typedYield?.amount ?? null,
 		yieldLabel: typedYield?.label ?? null,
 		sourceUrl: url,
-		rawText: JSON.stringify(jsonLd, null, 2),
+		// Provenance, not data: some sites embed enormous JSON-LD blobs, and this
+		// is posted straight back to saveImportedRecipe on save. Bound it here so
+		// the field can never exceed what that schema accepts.
+		rawText: JSON.stringify(jsonLd, null, 2).slice(0, MAX_RAW_TEXT_LENGTH),
 		ingredients,
 		instructions,
 	}
@@ -277,7 +283,6 @@ const DAILY_EXTRACT_LIMIT = 10
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
 const MAX_IMAGE_COUNT = 5
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const MAX_RAW_TEXT_LENGTH = 50_000 // 50KB cap on pasted text
 
 /**
  * Detect image media type from magic bytes.
@@ -792,10 +797,10 @@ export async function action({ request }: Route.ActionArgs) {
 			yieldAmount: llmResult.yieldAmount,
 			yieldLabel: llmResult.yieldLabel,
 			sourceUrl: (formData.get('sourceUrl') as string) || '',
-			rawText:
-				intentKey === 'extract-text'
-					? rawText
-					: JSON.stringify(llmResult, null, 2),
+			rawText: (intentKey === 'extract-text'
+				? rawText
+				: JSON.stringify(llmResult, null, 2)
+			).slice(0, MAX_RAW_TEXT_LENGTH),
 			ingredients: llmResult.ingredients.map((ing) => ({
 				name: ing.name,
 				amount: ing.amount ?? undefined,

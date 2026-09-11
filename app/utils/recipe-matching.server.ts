@@ -327,8 +327,26 @@ for (const compound of PROTECTED_COMPOUNDS) {
 	}
 }
 
-// Normalization cache — ingredient names repeat heavily across recipes
+// Normalization cache — ingredient names repeat heavily across recipes.
+// Bounded with FIFO eviction (same idiom as the event dedup set in
+// household-event-source.client.tsx): the key is an arbitrary user-supplied
+// ingredient name, so an unbounded cache ratchets for the life of the server
+// process. The 512MB production box has already lost two rounds to slow heap
+// growth (see server/memory-watchdog.ts), and a cache keyed on user text is
+// exactly that shape. The working set is one household's ingredient
+// vocabulary — a few hundred names — so this ceiling never evicts in practice.
+const NORMALIZATION_CACHE_MAX = 5000
 const normalizationCache = new Map<string, string>()
+
+function cacheNormalization(name: string, normalized: string): string {
+	if (normalizationCache.size >= NORMALIZATION_CACHE_MAX) {
+		// Delete oldest (first inserted)
+		const oldest = normalizationCache.keys().next().value
+		if (oldest !== undefined) normalizationCache.delete(oldest)
+	}
+	normalizationCache.set(name, normalized)
+	return normalized
+}
 
 /**
  * Normalize ingredient name for fuzzy matching
@@ -437,15 +455,13 @@ export function normalizeIngredientName(name: string): string {
 	}
 	const irregular = irregularPlurals[normalized]
 	if (irregular) {
-		normalizationCache.set(name, irregular)
-		return irregular
+		return cacheNormalization(name, irregular)
 	}
 
 	// Handle -ies -> -y (berries -> berry)
 	if (normalized.endsWith('ies')) {
 		const result = normalized.slice(0, -3) + 'y'
-		normalizationCache.set(name, result)
-		return result
+		return cacheNormalization(name, result)
 	}
 
 	// Handle -es -> '' for words ending in s, x, z, ch, sh
@@ -458,19 +474,16 @@ export function normalizeIngredientName(name: string): string {
 			normalized.endsWith('shes'))
 	) {
 		const result = normalized.slice(0, -2)
-		normalizationCache.set(name, result)
-		return result
+		return cacheNormalization(name, result)
 	}
 
 	// Simple plural removal (remove trailing 's')
 	if (normalized.endsWith('s') && normalized.length > 3) {
 		const result = normalized.slice(0, -1)
-		normalizationCache.set(name, result)
-		return result
+		return cacheNormalization(name, result)
 	}
 
-	normalizationCache.set(name, normalized)
-	return normalized
+	return cacheNormalization(name, normalized)
 }
 
 /**

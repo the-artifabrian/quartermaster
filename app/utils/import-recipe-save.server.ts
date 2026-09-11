@@ -2,7 +2,7 @@ import { parseWithZod } from '@conform-to/zod/v4'
 import { data, redirect } from 'react-router'
 import { z } from 'zod'
 import { prisma } from './db.server.ts'
-import { RecipeSchema } from './recipe-validation.ts'
+import { MAX_RAW_TEXT_LENGTH, RecipeSchema } from './recipe-validation.ts'
 import { RECIPE_IMPORTED } from './posthog-events.ts'
 import { captureServerEvent } from './posthog.server.ts'
 
@@ -13,7 +13,15 @@ export async function saveImportedRecipe(
 ) {
 	// Validate every submitted row; never truncate at a count limit or a gap.
 	const submission = parseWithZod(formData, {
-		schema: RecipeSchema.safeExtend({ rawText: z.string().optional() }),
+		schema: RecipeSchema.safeExtend({
+			// Truncated, never rejected: the user is saving a recipe they already
+			// previewed, and rawText is a hidden provenance field they never typed.
+			// A validation error on it would be an unfixable dead end.
+			rawText: z
+				.string()
+				.transform((text) => text.slice(0, MAX_RAW_TEXT_LENGTH))
+				.optional(),
+		}),
 	})
 	const failure = (
 		error: string,

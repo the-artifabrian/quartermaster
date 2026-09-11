@@ -17,6 +17,7 @@ import { createMealWithItems } from '#app/utils/meal.server.ts'
 import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { ensureRecipeMetadataValues } from '#app/utils/recipe-metadata.server.ts'
+import { MAX_RAW_TEXT_LENGTH } from '#app/utils/recipe-validation.ts'
 import {
 	RecipeMetadataDimensionSchema,
 	RecipeMetadataNameSchema,
@@ -89,7 +90,15 @@ const ImportRecipeSchema = z
 		// Optional so exports from before #173 remain importable.
 		isAiGenerated: z.boolean().optional(),
 		sourceUrl: z.string().max(2000).nullable().optional(),
-		rawText: z.string().nullable().optional(),
+		// Truncated, never rejected: rawText is ancillary provenance, and losing a
+		// whole Recipe from a restore because its source text is long would be a
+		// worse outcome than dropping the tail. Same call as the LLM extractor
+		// makes for instruction content.
+		rawText: z
+			.string()
+			.transform((text) => text.slice(0, MAX_RAW_TEXT_LENGTH))
+			.nullable()
+			.optional(),
 		notes: z.string().max(5000).nullable().optional(),
 		metadataValues: z.array(ImportRecipeMetadataValueSchema).max(60).optional(),
 		ingredients: z.array(ImportIngredientSchema).max(200),

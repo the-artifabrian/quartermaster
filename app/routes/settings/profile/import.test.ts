@@ -2,6 +2,7 @@ import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { MAX_RAW_TEXT_LENGTH } from '#app/utils/recipe-validation.ts'
 import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
@@ -914,6 +915,56 @@ function loadMenus(householdId: string) {
 		},
 	})
 }
+
+describe('oversized Recipe source text', () => {
+	test('an over-cap rawText is truncated, never costing the Recipe its restore', async () => {
+		// rawText is ancillary provenance. Dropping a whole Recipe from a restore
+		// because its source text is long would be the worse failure, so the
+		// schema truncates instead of rejecting.
+		const target = await setupUser()
+		await importPayload(target, {
+			format: 'quartermaster-full-export-v1',
+			recipes: [
+				{
+					title: 'Scraped with a huge JSON-LD blob',
+					rawText: 'x'.repeat(MAX_RAW_TEXT_LENGTH + 25_000),
+					ingredients: [{ name: 'onion' }],
+					instructions: ['Cook the onion.'],
+				},
+			],
+		})
+
+		const recovered = await exportHousehold(target)
+		const recipe = recovered.recipes.find(
+			(item: { title: string }) =>
+				item.title === 'Scraped with a huge JSON-LD blob',
+		)
+		expect(recipe).toBeDefined()
+		expect(recipe.rawText).toHaveLength(MAX_RAW_TEXT_LENGTH)
+	})
+
+	test('a rawText within the cap round-trips untouched', async () => {
+		const target = await setupUser()
+		const rawText = 'still the original pasted text'
+		await importPayload(target, {
+			format: 'quartermaster-full-export-v1',
+			recipes: [
+				{
+					title: 'Modest source text',
+					rawText,
+					ingredients: [{ name: 'onion' }],
+					instructions: ['Cook the onion.'],
+				},
+			],
+		})
+
+		const recovered = await exportHousehold(target)
+		const recipe = recovered.recipes.find(
+			(item: { title: string }) => item.title === 'Modest source text',
+		)
+		expect(recipe.rawText).toBe(rawText)
+	})
+})
 
 describe('menu export', () => {
 	test('full export carries menus with reference keys, ordering, notes, and lines — no internal ids', async () => {

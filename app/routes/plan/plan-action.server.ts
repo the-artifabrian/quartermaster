@@ -386,9 +386,9 @@ export function createPlanAction(
 				await tx.meal.update({
 					where: { id: meal.id },
 					data: {
-						date,
-						mealPlanId,
-						order,
+						// Rewriting an unchanged INTEGER date as TEXT would change its
+						// SQLite sort position among other recovered Meals on that day.
+						...(moved ? { date, mealPlanId, order } : {}),
 						label: label ?? null,
 						servingAt,
 						servingTimeZone: servingAt ? zone : null,

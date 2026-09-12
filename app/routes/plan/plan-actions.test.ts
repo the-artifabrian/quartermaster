@@ -333,6 +333,39 @@ describe('moving a Meal through Edit details', () => {
 		},
 	)
 
+	test('unchanged dates preserve the displayed order of recovered Meals', async () => {
+		const { session, meal } = await setupTextMeal()
+		await act(session, {
+			intent: 'addTextMeal',
+			date: '2026-02-02',
+			text: 'Later Meal',
+		})
+		// Recovery can leave dates in SQLite's older INTEGER-ms format.
+		await prisma.$executeRaw`UPDATE "Meal" SET "date" = ${new Date('2026-02-02').getTime()} WHERE "mealPlanId" = ${meal.mealPlanId}`
+		const readOrder = async () =>
+			(
+				await loader({
+					request: await makeLoaderRequest(session, '2026-02-02'),
+					...ACTION_ARGS_BASE,
+				})
+			).meals.map((m) => m.id)
+		const before = await readOrder()
+		expect(before).toHaveLength(2)
+		expect(before[0]).toBe(meal.id)
+
+		await act(session, {
+			intent: 'updateMealDetails',
+			mealId: meal.id,
+			date: '2026-02-02',
+			guestCount: '4',
+		})
+
+		expect(await readOrder()).toEqual(before)
+		expect(
+			await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } }),
+		).toMatchObject({ order: 0, guestCount: 4 })
+	})
+
 	test.each<Record<string, string>>([
 		{ date: '' },
 		{ date: '2026-02-30' },

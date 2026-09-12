@@ -232,7 +232,9 @@ test('rapid taps coalesce while background refresh cannot overwrite pending inte
 	login,
 }) => {
 	const { rice } = await setup((await login()).id)
+	await page.setViewportSize({ width: 390, height: 844 })
 	await openShopping(page)
+	const rowHeight = (await riceRow(page).boundingBox())!.height
 	let release!: () => void
 	const held = new Promise<void>((resolve) => {
 		release = resolve
@@ -264,6 +266,14 @@ test('rapid taps coalesce while background refresh cannot overwrite pending inte
 		riceRow(page).getByRole('button', { name: 'Check off item' }),
 	).toHaveAttribute('aria-pressed', 'false')
 	await expect(riceRow(page).getByRole('status')).toBeVisible()
+	expect((await riceRow(page).boundingBox())!.height).toBe(rowHeight)
+	await expect(
+		riceRow(page).getByRole('button', { name: 'Check off item' }),
+	).toHaveAttribute('aria-busy', 'true')
+	await page.screenshot({
+		path: test.info().outputPath('pending-check.png'),
+		fullPage: true,
+	})
 	release()
 	await expect(riceRow(page).getByRole('status')).toBeHidden()
 	expect(writes).toBe(2)

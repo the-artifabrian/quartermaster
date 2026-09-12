@@ -7,6 +7,10 @@ Unconfirmed work stays on the open Shopping page with local feedback and Retry
 when needed. Clear checked excludes those rows. Another device signed into the
 same account now receives Shopping changes through SSE and polling.
 
+Normal saves keep the row height steady. Slower saves show a small spinner in
+the existing actions area; pending text is available to screen readers. Visible
+explanatory text and Retry appear when a save cannot be confirmed.
+
 ## Local review
 
 From the repository root, create a disposable database:

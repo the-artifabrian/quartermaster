@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
+import { useSpinDelay } from 'spin-delay'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -30,6 +31,11 @@ export function ShoppingListItemCard({
 	const [showActions, setShowActions] = useState(false)
 	const editFetcher = useFetcher()
 	const checkState = checks.state(item.id)
+	const isChecking = checkState === 'saving' || checkState === 'reconciling'
+	const showCheckSpinner = useSpinDelay(isChecking, {
+		delay: 400,
+		minDuration: 0,
+	})
 	const deleteFetcher = useFetcher()
 	const moveFetcher = useFetcher()
 	const removeGeneratedFetcher = useFetcher()
@@ -178,6 +184,7 @@ export function ShoppingListItemCard({
 					onClick={() => checks.toggle({ ...item, display })}
 					disabled={item.id.startsWith('optimistic:')}
 					aria-pressed={optimisticChecked}
+					aria-busy={isChecking || undefined}
 					aria-describedby={checkState ? `check-status-${item.id}` : undefined}
 					className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
 					aria-label={optimisticChecked ? 'Uncheck item' : 'Check off item'}
@@ -249,7 +256,14 @@ export function ShoppingListItemCard({
 					className="text-muted-foreground/40 hover:bg-muted hover:text-muted-foreground flex size-10 items-center justify-center rounded-full transition-colors"
 					aria-label="Item actions"
 				>
-					<Icon name="dots-horizontal" className="size-4" />
+					<Icon
+						name={isChecking && showCheckSpinner ? 'update' : 'dots-horizontal'}
+						className={cn(
+							'size-4',
+							isChecking && showCheckSpinner && 'motion-safe:animate-spin',
+						)}
+						aria-hidden
+					/>
 				</button>
 				{showActions && (
 					<div className="bg-card shadow-warm-md animate-fade-up-reveal absolute right-0 z-10 mt-1 min-w-44 rounded-lg border p-1">
@@ -322,7 +336,11 @@ export function ShoppingListItemCard({
 			{checkState && (
 				<div
 					id={`check-status-${item.id}`}
-					className="text-muted-foreground w-full pl-9 text-sm"
+					className={
+						checkState === 'failed'
+							? 'text-muted-foreground w-full pl-9 text-sm'
+							: 'sr-only'
+					}
 					role={checkState === 'failed' ? 'alert' : 'status'}
 				>
 					{checkState === 'failed'

@@ -45,6 +45,10 @@ Current product rules:
 
 ## How roadmap work runs
 
+- Use GitHub issues as the source of truth for specs, acceptance criteria,
+  progress, review findings and verification. Create, update and close issues as
+  the work progresses. Keep local documentation minimal and limited to durable
+  project guidance; put task-specific handoffs in the issue.
 - Implement one focused, reversible issue on its own local branch, preserving
   unrelated local work. Run appropriate checks and exercise affected journeys
   with disposable data.
@@ -52,9 +56,9 @@ Current product rules:
   correctness, regressions, failure handling, and unnecessary complexity. Fix
   worthwhile findings within scope; record unrelated findings separately. Rerun
   affected checks and review the fixes before handing over.
-- Provide Alex with local manual testing steps: exact checkout/start commands,
-  disposable data setup, journeys to try, expected results, and known
-  limitations.
+- Provide Alex with manual testing steps in the GitHub issue: exact
+  checkout/start commands, disposable data setup, journeys to try, expected
+  results, and known limitations.
 - Wait for Alex's explicit approval before opening a PR. If manual testing finds
   problems, fix and recheck them locally, then provide updated testing steps.
   Continue independent authorized work while waiting.
@@ -116,4 +120,4 @@ presentation.
 Operational restore steps live in [RESTORE.md](./RESTORE.md). Product terms live
 in [CONTEXT.md](../CONTEXT.md).
 
-_Updated 3 September 2026._
+_Updated 12 September 2026._

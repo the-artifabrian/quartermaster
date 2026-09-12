@@ -460,6 +460,48 @@ describe('shopping list actions', () => {
 		expect(item!.horizon).toBe('next')
 	})
 
+	test('typed entry keeps checked purchases separate and still warns about unchecked duplicates (#226)', async () => {
+		const session = await setupUser()
+		const list = await ensureShoppingList(prisma, session)
+		const purchased = await prisma.shoppingListItem.create({
+			data: {
+				listId: list.id,
+				name: 'rice',
+				quantity: '200',
+				unit: 'g',
+				checked: true,
+			},
+		})
+		const add = async () =>
+			action({
+				request: await makeRequest(session, {
+					intent: 'add',
+					name: '400 g rice',
+				}),
+				...ACTION_ARGS_BASE,
+			})
+		expect(await add()).toMatchObject({ status: 'success' })
+		const items = await prisma.shoppingListItem.findMany({
+			where: { listId: list.id },
+		})
+		expect(items).toHaveLength(2)
+		expect(items.find((item) => item.id === purchased.id)).toEqual(purchased)
+		expect(items.find((item) => item.id !== purchased.id)).toMatchObject({
+			name: 'rice',
+			quantity: '400',
+			unit: 'g',
+			checked: false,
+			source: 'manual',
+		})
+		expect(await add()).toMatchObject({
+			status: 'warning',
+			warningType: 'already_on_list',
+		})
+		expect(
+			await prisma.shoppingListItem.count({ where: { listId: list.id } }),
+		).toBe(2)
+	})
+
 	test('manual cross-section matches offer an explicit move and moves preserve checked state', async () => {
 		const session = await setupUser()
 		await action({
@@ -930,7 +972,7 @@ describe('shopping list actions', () => {
 		).toEqual([{ name: 'Candles', horizon: 'later', checked: true }])
 	})
 
-	test('generated Plan demand promotes unchecked Later matches but leaves checked Later matches bought', async () => {
+	test('generated Plan demand promotes unchecked Later matches and adds new demand beside checked purchases', async () => {
 		const session = await setupUser()
 		await setupMealPlanWithRecipe(session.userId, session.householdId)
 		const list = await ensureShoppingList(prisma, {
@@ -964,7 +1006,7 @@ describe('shopping list actions', () => {
 		expect(
 			await prisma.shoppingListItem.findMany({
 				where: { listId: list.id },
-				orderBy: { name: 'asc' },
+				orderBy: [{ name: 'asc' }, { checked: 'asc' }],
 				select: {
 					name: true,
 					quantity: true,
@@ -980,6 +1022,13 @@ describe('shopping list actions', () => {
 				horizon: 'next',
 				checked: false,
 				source: 'manual',
+			},
+			{
+				name: 'rice',
+				quantity: '1',
+				horizon: 'next',
+				checked: false,
+				source: 'generated',
 			},
 			{
 				name: 'rice',

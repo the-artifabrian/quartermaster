@@ -183,6 +183,8 @@ export function useShoppingChecks(serverItems: Item[], listId: string) {
 					result = await request(entry)
 				} else {
 					if (document.hidden) throw new Error('Page is inactive')
+					entry.status = 'saving'
+					redraw()
 					try {
 						result = await request(entry, sent)
 					} catch {
@@ -235,10 +237,9 @@ export function useShoppingChecks(serverItems: Item[], listId: string) {
 					continue
 				}
 				if (reconcile && unchanged && retries < 1 && !document.hidden) {
-					if (entry.desired === current.checked) {
-						finish(entry, current)
-						return
-					}
+					// An unchanged read cannot prove the uncertain request won't
+					// commit later. Confirm that same request before applying a
+					// reversed intent, even when the latest tap matches this read.
 					retries++
 					reconcile = false
 					continue

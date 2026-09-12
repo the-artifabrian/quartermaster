@@ -98,17 +98,37 @@ replay. Pending intent is held only in memory for this page and is isolated by
 list; leaving/closing/reloading does not retain it. An in-flight request may
 already have committed, which is why failure copy says unconfirmed.
 
+Reversing an uncertain check still requires confirming the original request
+before saving the reversal. An unchanged read alone cannot establish that the
+original request will not commit later. This also ensures that a delayed copy
+cannot undo a reversal after the page has cleared its pending state.
+
 Household events include a document identity for Shopping writes. All eligible
 devices receive events; the origin document advances its event cursor without
 redundantly refreshing itself. Own-account events refresh data without creating
 self-notification toasts. Existing Pro UI boundaries remain in place.
 
+## Review follow-up
+
+- Fixed a delayed-request race: check, uncheck before the first request
+  finishes, then lose its response. Previously an unchanged read cleared pending
+  state, allowing the original request to check the item afterward. The browser
+  regression `reversing an uncertain check` reproduced this with stored
+  `checked: true` instead of `false`; it now passes. The retry path confirms the
+  outstanding request before applying the latest tap and shows saving feedback
+  while writing.
+- Added the missing origin identity to From Staples submissions and move
+  confirmations, preventing redundant refreshes in the submitting document.
+- Added browser coverage for a late successful response after a newer household
+  requirement has refreshed, and stalled writes exhausting their bounded retry.
+
 ## Verification
 
-- Full Vitest suite: 117 files, 1,446 tests passed.
+- Full Vitest suite before this review follow-up: 117 files, 1,446 tests passed.
+  After the fixes, all 30 affected component, action and migration tests passed.
 - Typecheck, lint and production build passed. Lint retains four existing
   test-cleanup warnings outside this change.
-- All 13 focused Chromium checks passed. They cover real authenticated writes,
+- All 16 focused Chromium checks passed. They cover real authenticated writes,
   failures before commit, lost responses after commit, later device writes,
   rapid taps during revalidation, stale/deleted/unauthorized work, pending Clear
   checked, navigation, same-account SSE/polling, and existing Shopping journeys.

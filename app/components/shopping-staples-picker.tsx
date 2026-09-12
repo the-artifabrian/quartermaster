@@ -10,6 +10,10 @@ import {
 	PopoverTrigger,
 } from '#app/components/ui/popover.tsx'
 import { cn } from '#app/utils/misc.tsx'
+import {
+	getHouseholdClientId,
+	HouseholdClientInput,
+} from '#app/utils/household-client.tsx'
 import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 
 export type ShoppingStapleChoice = {
@@ -145,6 +149,7 @@ export function ShoppingStaplesPicker({
 							label: 'Move to Next shop',
 							onClick: () => {
 								const data = new FormData()
+								data.set('originClientId', getHouseholdClientId())
 								data.set('intent', 'move-items')
 								data.set('itemIds', JSON.stringify(moveItemIds))
 								data.set('horizon', NEXT_SHOP)
@@ -299,6 +304,7 @@ export function ShoppingStaplesPicker({
 				)}
 				{choiceState.status === 'success' && staples.length > 0 && (
 					<fetcher.Form method="POST">
+						<HouseholdClientInput />
 						<input type="hidden" name="intent" value="bulk-add" />
 						<input type="hidden" name="horizon" value={NEXT_SHOP} />
 						<input

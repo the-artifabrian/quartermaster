@@ -41,6 +41,14 @@ async function openShopping(page: Page) {
 const riceRow = (page: Page) =>
 	page.getByRole('group', { name: 'Rice shopping item' })
 
+function responseGate() {
+	let resolve!: () => void
+	const promise = new Promise<void>((done) => {
+		resolve = done
+	})
+	return { promise, resolve }
+}
+
 for (const outcome of ['deleted', 'signed out']) {
 	test(`checking stops when the item is ${outcome}`, async ({
 		page,
@@ -267,6 +275,109 @@ test('rapid taps coalesce while background refresh cannot overwrite pending inte
 			}),
 		)
 		.toEqual({ checked: false })
+})
+
+test('reversing an uncertain check cannot be undone by its delayed original request', async ({
+	page,
+	login,
+}) => {
+	const { rice } = await setup((await login()).id)
+	await openShopping(page)
+	const failed = responseGate()
+	let delayedForm: Record<string, string> | undefined
+	await page.route('**/resources/shopping-check?*', async (route) => {
+		if (route.request().method() !== 'POST' || delayedForm)
+			return route.continue()
+		delayedForm = Object.fromEntries(
+			new URLSearchParams(route.request().postData()!),
+		)
+		await failed.promise
+		await route.abort()
+	})
+	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+	await expect.poll(() => delayedForm).toBeDefined()
+	await riceRow(page).getByRole('button', { name: 'Uncheck item' }).click()
+	failed.resolve()
+	await expect(riceRow(page).getByRole('status')).toBeHidden()
+	await expect(riceRow(page).getByRole('alert')).toBeHidden()
+
+	// Losing the response does not cancel server work. Deliver that same
+	// original request only after the page has declared the reversal settled.
+	await page.request.post('/resources/shopping-check', { form: delayedForm! })
+	expect(
+		await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: rice.id },
+			select: { checked: true },
+		}),
+	).toEqual({ checked: false })
+	await expect(
+		riceRow(page).getByRole('button', { name: 'Check off item' }),
+	).toHaveAttribute('aria-pressed', 'false')
+})
+
+test('a late successful response yields to a newer requirement already refreshed on the page', async ({
+	page,
+	login,
+}) => {
+	const { rice } = await setup((await login()).id)
+	await openShopping(page)
+	const committed = responseGate()
+	const release = responseGate()
+	await page.route('**/resources/shopping-check?*', async (route) => {
+		const response = await route.fetch()
+		committed.resolve()
+		await release.promise
+		await route.fulfill({ response })
+	})
+	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+	await committed.promise
+	await prisma.shoppingListItem.update({
+		where: { id: rice.id },
+		data: { quantity: '600', checked: false },
+	})
+	await page.request.post('/shopping', {
+		form: { intent: 'add', name: 'Apples', originClientId: 'another-device' },
+	})
+	await expect(
+		page.getByRole('group', { name: 'Apples shopping item' }),
+	).toBeVisible()
+	await expect(riceRow(page)).toContainText('200 g')
+	await expect(riceRow(page).getByRole('status')).toBeVisible()
+	release.resolve()
+	await expect(riceRow(page).getByRole('status')).toBeHidden()
+	await expect(riceRow(page)).toContainText('600 g')
+	await expect(
+		riceRow(page).getByRole('button', { name: 'Check off item' }),
+	).toHaveAttribute('aria-pressed', 'false')
+	await expect(page.getByRole('alert')).toContainText('This item changed')
+})
+
+test('stalled writes have a deadline and stop after one unsuccessful automatic replay', async ({
+	page,
+	login,
+}) => {
+	await setup((await login()).id)
+	await page.clock.install()
+	await openShopping(page)
+	const requests: string[] = []
+	await page.route('**/resources/shopping-check?*', (route) => {
+		requests.push(route.request().method())
+		if (route.request().method() === 'GET') return route.continue()
+		// Intentionally never answer either write; the browser must abort it.
+	})
+	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+	await expect.poll(() => requests).toEqual(['POST'])
+	await page.clock.fastForward(8_100)
+	await expect.poll(() => requests).toEqual(['POST', 'GET', 'POST'])
+	await page.clock.fastForward(8_100)
+	await expect(riceRow(page).getByRole('alert')).toContainText(
+		'Couldn’t confirm this check',
+	)
+	await page.clock.fastForward(60_000)
+	expect(requests).toEqual(['POST', 'GET', 'POST', 'GET'])
+	await expect(
+		riceRow(page).getByRole('button', { name: 'Retry' }),
+	).toBeVisible()
 })
 
 for (const fallback of [false, true]) {

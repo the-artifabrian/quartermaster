@@ -337,6 +337,9 @@ model Menu {
   description String?
   /// Optional context for later planning; never scales quantities by itself.
   defaultGuestCount Int?
+  /// Repeat-save identity for an independent shared copy. Deliberately not a
+  /// foreign key: deleting the source must not affect this Menu.
+  copiedFromMenuId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -348,6 +351,7 @@ model Menu {
   meals    Meal[]
 
   @@unique([householdId, titleKey])
+  @@unique([householdId, copiedFromMenuId])
   @@index([householdId, updatedAt])
 }
 

@@ -11,7 +11,6 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
-	DUPLICATE_MENU_RECIPE_MESSAGE,
 	DUPLICATE_MENU_TITLE_MESSAGE,
 	isUniqueConstraintError,
 	MenuBuilderSchema,
@@ -237,16 +236,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 	})
 
 	const linkedIds = effectiveRecipeIds.filter((id): id is string => id != null)
-	if (new Set(linkedIds).size !== linkedIds.length) {
-		return data(
-			{
-				result: submission.reply({
-					formErrors: [DUPLICATE_MENU_RECIPE_MESSAGE],
-				}),
-			},
-			{ status: 400 },
-		)
-	}
 
 	// Every newly referenced Recipe must be visible to the household. Load all
 	// linked Recipes here because typed-yield conversion uses the same fresh,

@@ -311,6 +311,7 @@ const ImportMenuSectionSchema = z.object({
 })
 
 const ImportMenuSchema = z.object({
+	copiedFromMenuId: z.string().min(1).max(100).nullable().optional(),
 	title: z.string().trim().min(1).max(100),
 	description: z.string().max(500).nullable().optional(),
 	defaultGuestCount: z.number().int().positive().max(999).nullable().optional(),
@@ -532,8 +533,9 @@ type ImportMenuItem = z.infer<typeof ImportMenuItemSchema>
  * Restores Menus after the Recipe pass. References reconnect by export-local
  * reference key, falling back to normalized Recipe title only when a key is
  * absent (older or hand-edited data). On a normalized Menu-title collision
- * the existing target Menu wins and the imported Menu is skipped wholesale;
- * within one import the first occurrence wins.
+ * the existing target Menu wins and the imported Menu is skipped wholesale.
+ * Shared copies retain their own source identity and disambiguate titles;
+ * an already-restored shared copy wins without refreshing local edits.
  */
 async function importMenus(
 	menus: ImportMenu[],
@@ -544,15 +546,29 @@ async function importMenus(
 
 	const existingMenus = await prisma.menu.findMany({
 		where: { householdId },
-		select: { titleKey: true },
+		select: { titleKey: true, copiedFromMenuId: true },
 	})
 	const takenTitleKeys = new Set(existingMenus.map((menu) => menu.titleKey))
 
+	const savedSources = new Set(
+		existingMenus.map((menu) => menu.copiedFromMenuId).filter(Boolean),
+	)
 	for (const menu of menus) {
-		const titleKey = menuTitleKey(menu.title)
-		if (takenTitleKeys.has(titleKey)) {
+		if (menu.copiedFromMenuId && savedSources.has(menu.copiedFromMenuId)) {
 			stats.skipped++
 			continue
+		}
+		let title = menu.title
+		let titleKey = menuTitleKey(title)
+		if (takenTitleKeys.has(titleKey) && !menu.copiedFromMenuId) {
+			stats.skipped++
+			continue
+		}
+		// A shared copy's recovery identity is independent of its title.
+		for (let n = 2; takenTitleKeys.has(titleKey); n++) {
+			const suffix = ` (${n})`
+			title = `${menu.title.slice(0, 100 - suffix.length)}${suffix}`
+			titleKey = menuTitleKey(title)
 		}
 		takenTitleKeys.add(titleKey)
 
@@ -580,9 +596,6 @@ async function importMenus(
 		}
 		if (sections.length === 0) sections.push({ name: null, items: [] })
 
-		// A Recipe appears once per Menu — a second resolved occurrence imports
-		// as a missing card so structure and frozen identity still survive.
-		const usedRecipeIds = new Set<string>()
 		const resolveItem = (item: ImportMenuItem) => {
 			if (item.kind === 'note') {
 				return {
@@ -605,10 +618,7 @@ async function importMenus(
 				recipeId =
 					recipeIndex.titleToIdMap.get(item.recipeTitle.toLowerCase()) ?? null
 			}
-			if (recipeId != null) {
-				if (usedRecipeIds.has(recipeId)) recipeId = null
-				else usedRecipeIds.add(recipeId)
-			}
+
 			const recipeTitle =
 				item.recipeTitle ??
 				(recipeId != null
@@ -632,10 +642,11 @@ async function importMenus(
 			// One nested create per Menu — it restores atomically or not at all.
 			await prisma.menu.create({
 				data: {
-					title: menu.title,
+					title,
 					titleKey,
 					description: menu.description || null,
 					defaultGuestCount: menu.defaultGuestCount ?? null,
+					copiedFromMenuId: menu.copiedFromMenuId ?? null,
 					householdId,
 					sections: {
 						create: sections.map((section, order) => ({
@@ -652,6 +663,7 @@ async function importMenus(
 				},
 				select: { id: true },
 			})
+			if (menu.copiedFromMenuId) savedSources.add(menu.copiedFromMenuId)
 			stats.created++
 		} catch {
 			stats.errored++

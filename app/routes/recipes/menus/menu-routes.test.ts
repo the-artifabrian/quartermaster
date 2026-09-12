@@ -678,7 +678,7 @@ describe('menu recipe items', () => {
 		expect(await menuItems(menu.id)).toEqual([])
 	})
 
-	test('rejects the same recipe appearing twice in one menu', async () => {
+	test('retains repeated Recipe cards with their own quantities', async () => {
 		const session = await setupUser()
 		const menu = await createMenuWithId(session, 'No Doubles')
 		const recipe = await createRecipe(session, session.householdId, 'Tabbouleh')
@@ -690,11 +690,16 @@ describe('menu recipe items', () => {
 				{ recipeId: recipe.id, scaleMultiplier: '2' },
 			])),
 		})) as any
-		expect(result.init?.status).toBe(400)
-		expect(result.data.result.error['']).toEqual([
-			'Each recipe can appear only once per menu',
+		redirectLocation(result)
+		expect(
+			(await menuItems(menu.id)).map((item) => [
+				item.recipeId,
+				item.scaleMultiplier,
+			]),
+		).toEqual([
+			[recipe.id, 1],
+			[recipe.id, 2],
 		])
-		expect(await menuItems(menu.id)).toEqual([])
 	})
 
 	test('rejects a recipe from another household', async () => {
@@ -1332,7 +1337,7 @@ describe('menu sections and ordering', () => {
 		).rejects.toEqual(expect.objectContaining({ status: 400 }))
 	})
 
-	test('a recipe still appears only once per menu across sections', async () => {
+	test('repeated Recipes retain each position across sections', async () => {
 		const { session, menu, hummus, unnamed } = await setupSectionedMenu()
 		const before = await menuSections(menu.id)
 		const dessert = before[1]!
@@ -1347,9 +1352,10 @@ describe('menu sections and ordering', () => {
 				{ recipeId: hummus.id, scaleMultiplier: '1' },
 			]),
 		})) as any
-		expect(result.init?.status).toBe(400)
-		expect(result.data.result.error['']).toEqual([
-			'Each recipe can appear only once per menu',
+		redirectLocation(result)
+		expect((await menuItems(menu.id)).map((item) => item.recipeId)).toEqual([
+			hummus.id,
+			hummus.id,
 		])
 	})
 })

@@ -206,9 +206,6 @@ export type MenuShoppingLineInput = NonNullable<
 	MenuItemInput['shoppingLines']
 >[number]
 
-export const DUPLICATE_MENU_RECIPE_MESSAGE =
-	'Each recipe can appear only once per menu'
-
 /**
  * Renders a stored multiplier the way it was typed: at most two decimals, no
  * trailing zeros ("1", "1.5", "0.75").

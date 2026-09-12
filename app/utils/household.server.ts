@@ -276,16 +276,24 @@ export async function acceptInvite(token: string, userId: string) {
 			// deterministic "Title (2)", "Title (3)" suffixes.
 			const targetMenus = await tx.menu.findMany({
 				where: { householdId: targetHouseholdId },
-				select: { titleKey: true },
+				select: { titleKey: true, copiedFromMenuId: true },
 			})
 			const takenTitleKeys = new Set<string>(
 				targetMenus.map((m: { titleKey: string }) => m.titleKey),
 			)
 			const sourceMenus = await tx.menu.findMany({
 				where: { householdId: currentHouseholdId },
-				select: { id: true, title: true, titleKey: true },
+				select: {
+					id: true,
+					title: true,
+					titleKey: true,
+					copiedFromMenuId: true,
+				},
 				orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
 			})
+			const savedSources = new Set(
+				targetMenus.map((menu) => menu.copiedFromMenuId),
+			)
 			for (const menu of sourceMenus) {
 				let { title, titleKey } = menu
 				if (takenTitleKeys.has(titleKey)) {
@@ -299,9 +307,20 @@ export async function acceptInvite(token: string, userId: string) {
 					titleKey = menuTitleKey(title)
 				}
 				takenTitleKeys.add(titleKey)
+				// Keep both independently edited Menus on a household move. If
+				// both saved the same link, repeat Save opens the target's copy.
+				const copiedFromMenuId = savedSources.has(menu.copiedFromMenuId)
+					? null
+					: menu.copiedFromMenuId
+				savedSources.add(copiedFromMenuId)
 				await tx.menu.update({
 					where: { id: menu.id },
-					data: { householdId: targetHouseholdId, title, titleKey },
+					data: {
+						householdId: targetHouseholdId,
+						title,
+						titleKey,
+						copiedFromMenuId,
+					},
 				})
 			}
 			// Delete old household (cascades HouseholdMember)

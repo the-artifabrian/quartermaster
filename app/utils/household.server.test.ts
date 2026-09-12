@@ -115,6 +115,36 @@ describe('getInviteByToken', () => {
 })
 
 describe('acceptInvite', () => {
+	test('moving two copies of one shared Menu keeps both edits and the target repeat-save identity', async () => {
+		const owner = await setupUser()
+		const joiner = await setupUser()
+		const menus = await Promise.all(
+			[owner, joiner].map((user, index) =>
+				prisma.menu.create({
+					data: {
+						title: 'Dinner',
+						titleKey: 'dinner',
+						description: `Household edit ${index}`,
+						householdId: user.householdId,
+						copiedFromMenuId: 'shared-menu-source',
+					},
+				}),
+			),
+		)
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+		await acceptInvite(invite.token, joiner.id)
+		const moved = await prisma.menu.findMany({
+			where: { householdId: owner.householdId },
+			orderBy: { title: 'asc' },
+		})
+		expect(
+			moved.map((menu) => [menu.id, menu.description, menu.copiedFromMenuId]),
+		).toEqual([
+			[menus[0]!.id, 'Household edit 0', 'shared-menu-source'],
+			[menus[1]!.id, 'Household edit 1', null],
+		])
+	})
+
 	test('sole member: data is moved, old household deleted', async () => {
 		const owner = await setupUserWithRecipe('Owner Recipe')
 		const joiner = await setupUserWithRecipe('Joiner Recipe')

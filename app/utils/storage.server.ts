@@ -5,13 +5,18 @@ import {
 	signS3Request,
 } from '#app/utils/s3-request.server.ts'
 
-async function uploadToStorage(file: File | FileUpload, key: string) {
+async function uploadToStorage(
+	file: File | FileUpload,
+	key: string,
+	signal?: AbortSignal,
+) {
 	const { url, headers } = getSignedPutRequestInfo(file, key)
 
 	const uploadResponse = await fetch(url, {
 		method: 'PUT',
 		headers,
 		body: file instanceof File ? file : (file as FileUpload).stream(),
+		signal,
 	})
 
 	if (!uploadResponse.ok) {
@@ -29,6 +34,7 @@ async function deleteFromStorage(key: string) {
 	const deleteResponse = await fetch(url, {
 		method: 'DELETE',
 		headers,
+		signal: AbortSignal.timeout(30_000),
 	})
 
 	if (!deleteResponse.ok && deleteResponse.status !== 404) {
@@ -67,6 +73,36 @@ export async function uploadRecipeImage(
 	const timestamp = Date.now()
 	const key = `users/${userId}/recipes/${recipeId}/images/${timestamp}-${fileId}.${fileExtension}`
 	return uploadToStorage(file, key)
+}
+
+/** Copy bytes to a recipient-owned key before committing a shared bundle. */
+export async function copyRecipeImage(
+	objectKey: string,
+	userId: string,
+	recipeId: string,
+) {
+	const { url, headers } = getSignedGetRequestInfo(objectKey)
+	const response = await fetch(url, {
+		headers,
+		signal: AbortSignal.timeout(30_000),
+	})
+	if (!response.ok) throw new Error('Unable to read the shared Recipe image')
+	const file = new File(
+		[await response.arrayBuffer()],
+		objectKey.split('/').pop() || 'image',
+		{
+			type: response.headers.get('Content-Type') || 'application/octet-stream',
+		},
+	)
+	const key = `users/${userId}/recipes/${recipeId}/images/${createId()}-${file.name}`
+	try {
+		return await uploadToStorage(file, key, AbortSignal.timeout(30_000))
+	} catch (error) {
+		// A failed response may follow a successful write; this key belongs
+		// only to this attempt and is never attached to a saved Recipe yet.
+		await deleteFromStorage(key).catch(() => {})
+		throw error
+	}
 }
 
 function getSignedPutRequestInfo(file: File | FileUpload, key: string) {

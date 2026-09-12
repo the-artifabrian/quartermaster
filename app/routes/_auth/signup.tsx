@@ -2,7 +2,7 @@ import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import * as E from '@react-email/components'
-import { data, redirect, Form, Link } from 'react-router'
+import { data, redirect, Form, Link, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { ErrorList, Field } from '#app/components/forms.tsx'
@@ -24,6 +24,7 @@ export const handle: SEOHandle = {
 }
 
 const SignupSchema = z.object({
+	redirectTo: z.string().optional(),
 	email: EmailSchema,
 })
 
@@ -64,6 +65,7 @@ export async function action({ request }: Route.ActionArgs) {
 		request,
 		type: 'onboarding',
 		target: email,
+		redirectTo: submission.value.redirectTo,
 	})
 
 	const response = await sendEmail({
@@ -119,8 +121,11 @@ export const meta: Route.MetaFunction = () => {
 
 export default function SignupRoute({ actionData }: Route.ComponentProps) {
 	const isPending = useIsPending()
+	const [searchParams] = useSearchParams()
+	const redirectTo = searchParams.get('redirectTo')
 	const [form, fields] = useForm({
 		id: 'signup-form',
+		defaultValue: { redirectTo },
 		constraint: getZodConstraint(SignupSchema),
 		lastResult: actionData?.result,
 		onValidate({ formData }) {
@@ -143,6 +148,7 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 			</div>
 			<div className="mx-auto mt-8 max-w-sm min-w-full sm:min-w-[368px]">
 				<Form method="POST" {...getFormProps(form)}>
+					<input {...getInputProps(fields.redirectTo, { type: 'hidden' })} />
 					<Field
 						labelProps={{
 							htmlFor: fields.email.id,
@@ -173,11 +179,19 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 				</div>
 				<ProviderConnectionForm
 					type="Signup"
+					redirectTo={redirectTo}
 					providerName={GOOGLE_PROVIDER_NAME}
 				/>
 				<div className="text-muted-foreground mt-6 text-center text-sm">
 					Already have an account?{' '}
-					<Link to="/login" className="text-foreground font-bold">
+					<Link
+						to={
+							redirectTo
+								? `/login?${new URLSearchParams({ redirectTo })}`
+								: '/login'
+						}
+						className="text-foreground font-bold"
+					>
 						Log in
 					</Link>
 				</div>

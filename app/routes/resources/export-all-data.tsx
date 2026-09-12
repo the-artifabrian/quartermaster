@@ -146,6 +146,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					title: true,
 					description: true,
 					defaultGuestCount: true,
+					copiedFromMenuId: true,
 					sections: {
 						orderBy: { order: 'asc' },
 						select: {
@@ -369,6 +370,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			title: menu.title,
 			description: menu.description,
 			defaultGuestCount: menu.defaultGuestCount,
+			copiedFromMenuId: menu.copiedFromMenuId,
 			sections: menu.sections.map((section) => ({
 				name: section.name,
 				items: section.items.map((item) =>

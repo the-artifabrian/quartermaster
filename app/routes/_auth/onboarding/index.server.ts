@@ -11,7 +11,9 @@ export async function handleVerification({ submission }: VerifyFunctionArgs) {
 	)
 	const verifySession = await verifySessionStorage.getSession()
 	verifySession.set(onboardingEmailSessionKey, submission.value.target)
-	return redirect('/onboarding', {
+	const redirectTo = submission.value.redirectTo
+	const query = redirectTo ? `?${new URLSearchParams({ redirectTo })}` : ''
+	return redirect(`/onboarding${query}`, {
 		headers: {
 			'set-cookie': await verifySessionStorage.commitSession(verifySession),
 		},

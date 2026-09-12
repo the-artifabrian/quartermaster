@@ -334,16 +334,6 @@ function MenuSectionsBuilder({
 	)
 	const recipesById = new Map(builder.recipes.map((r) => [r.id, r]))
 
-	// A Recipe appears once per Menu, so the pickers exclude every section's.
-	const usedRecipeIds = sectionList
-		.flatMap((sectionMeta) =>
-			sectionMeta
-				.getFieldset()
-				.items.getFieldList()
-				.map((itemMeta) => itemMeta.getFieldset().recipeId.value),
-		)
-		.filter((id): id is string => Boolean(id))
-
 	// How each section reads in move controls and menus right now — a blank
 	// name is the headingless unnamed section.
 	const sectionLabels = sectionList.map((sectionMeta) => {
@@ -408,7 +398,6 @@ function MenuSectionsBuilder({
 						itemsById={itemsById}
 						recipesById={recipesById}
 						recipes={builder.recipes}
-						usedRecipeIds={usedRecipeIds}
 						onMoveItem={moveItemToSection}
 						onRemoveSection={removeSection}
 					/>
@@ -444,7 +433,6 @@ function MenuSectionCard({
 	itemsById,
 	recipesById,
 	recipes,
-	usedRecipeIds,
 	onMoveItem,
 	onRemoveSection,
 }: {
@@ -457,7 +445,6 @@ function MenuSectionCard({
 	itemsById: Map<string, MenuBuilderRecipeItem>
 	recipesById: Map<string, RecipePickerRecipe>
 	recipes: RecipePickerRecipe[]
-	usedRecipeIds: string[]
 	onMoveItem: (
 		fromSection: number,
 		itemIndex: number,
@@ -555,7 +542,6 @@ function MenuSectionCard({
 								itemsById={itemsById}
 								recipesById={recipesById}
 								recipes={recipes}
-								usedRecipeIds={usedRecipeIds}
 								onMoveToSection={(toSection) =>
 									onMoveItem(sectionIndex, index, toSection)
 								}
@@ -567,7 +553,6 @@ function MenuSectionCard({
 			<div className="mt-3 flex flex-wrap items-center gap-2">
 				<RecipePicker
 					recipes={recipes}
-					excludeRecipeIds={usedRecipeIds}
 					onPick={(recipe) => {
 						form.insert({
 							name: section.items.name,
@@ -617,7 +602,6 @@ function MenuItemRow({
 	itemsById,
 	recipesById,
 	recipes,
-	usedRecipeIds,
 	onMoveToSection,
 }: {
 	form: MenuFormMetadata
@@ -630,7 +614,6 @@ function MenuItemRow({
 	itemsById: Map<string, MenuBuilderRecipeItem>
 	recipesById: Map<string, RecipePickerRecipe>
 	recipes: RecipePickerRecipe[]
-	usedRecipeIds: string[]
 	onMoveToSection: (toSection: number) => void
 }) {
 	const item = itemMeta.getFieldset()
@@ -721,7 +704,6 @@ function MenuItemRow({
 				<div className="mt-2 flex items-center gap-2">
 					<RecipePicker
 						recipes={recipes}
-						excludeRecipeIds={usedRecipeIds}
 						label="Replace recipe"
 						onPick={(replacement) => {
 							form.update({

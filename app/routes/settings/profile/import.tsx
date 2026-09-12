@@ -543,20 +543,30 @@ async function importMenus(
 	householdId: string,
 ) {
 	const stats = { created: 0, skipped: 0, errored: 0 }
+	const sharedMenuIdsByTitleKey = new Map<string, string | null>()
 
 	const existingMenus = await prisma.menu.findMany({
 		where: { householdId },
-		select: { titleKey: true, copiedFromMenuId: true },
+		select: { id: true, titleKey: true, copiedFromMenuId: true },
 	})
 	const takenTitleKeys = new Set(existingMenus.map((menu) => menu.titleKey))
 
-	const savedSources = new Set(
-		existingMenus.map((menu) => menu.copiedFromMenuId).filter(Boolean),
+	const savedSources = new Map(
+		existingMenus.flatMap((menu) =>
+			menu.copiedFromMenuId ? [[menu.copiedFromMenuId, menu.id] as const] : [],
+		),
 	)
 	for (const menu of menus) {
-		if (menu.copiedFromMenuId && savedSources.has(menu.copiedFromMenuId)) {
-			stats.skipped++
-			continue
+		if (menu.copiedFromMenuId) {
+			const savedId = savedSources.get(menu.copiedFromMenuId)
+			// Meals name their source Menu as it appeared in the export. Keep
+			// that link even when this copy is renamed; a failed restore must
+			// not fall back to a different Menu with the same title.
+			sharedMenuIdsByTitleKey.set(menuTitleKey(menu.title), savedId ?? null)
+			if (savedId) {
+				stats.skipped++
+				continue
+			}
 		}
 		let title = menu.title
 		let titleKey = menuTitleKey(title)
@@ -640,7 +650,7 @@ async function importMenus(
 
 		try {
 			// One nested create per Menu — it restores atomically or not at all.
-			await prisma.menu.create({
+			const created = await prisma.menu.create({
 				data: {
 					title,
 					titleKey,
@@ -663,14 +673,17 @@ async function importMenus(
 				},
 				select: { id: true },
 			})
-			if (menu.copiedFromMenuId) savedSources.add(menu.copiedFromMenuId)
+			if (menu.copiedFromMenuId) {
+				savedSources.set(menu.copiedFromMenuId, created.id)
+				sharedMenuIdsByTitleKey.set(menuTitleKey(menu.title), created.id)
+			}
 			stats.created++
 		} catch {
 			stats.errored++
 		}
 	}
 
-	return stats
+	return { stats, sharedMenuIdsByTitleKey }
 }
 
 type ImportMeal = z.infer<typeof ImportMealSchema>
@@ -844,7 +857,7 @@ async function importMeals(
 	meals: ImportMeal[],
 	mealPlanId: string,
 	recipeIndex: RecipeIndex,
-	menuIdByTitleKey: Map<string, string>,
+	menuIdByTitleKey: Map<string, string | null>,
 	mealIdByRef: Map<string, string>,
 ) {
 	const stats = { created: 0, skipped: 0 }
@@ -1216,9 +1229,12 @@ export async function action({ request }: Route.ActionArgs) {
 	// Menus are not Pro-gated in the product, so unlike the sections below
 	// they import for every tier.
 	const fullMenus = fullHouseholdData?.menus ?? null
+	let sharedMenuIdsByTitleKey = new Map<string, string | null>()
 	if (fullMenus?.length) {
 		try {
-			results.menus = await importMenus(fullMenus, recipeIndex, householdId)
+			const imported = await importMenus(fullMenus, recipeIndex, householdId)
+			results.menus = imported.stats
+			sharedMenuIdsByTitleKey = imported.sharedMenuIdsByTitleKey
 		} catch {
 			results.menus.errored = fullMenus.length
 		}
@@ -1301,9 +1317,9 @@ export async function action({ request }: Route.ActionArgs) {
 	// --- 6. Meal Plans ---
 	const mealIdByRef = new Map<string, string>()
 	if (fullData?.mealPlans) {
-		// Source Menu references on Meals reconnect by normalized household
-		// title — a Menu's identity (#98).
-		const menuIdByTitleKey = new Map<string, string>()
+		// Source Menu titles resolve through this import's shared-copy mapping
+		// first, then the existing household title for older/unshared Menus.
+		const menuIdByTitleKey = new Map<string, string | null>()
 		if (
 			fullData.mealPlans.some((plan) =>
 				plan.meals?.some((meal) => meal.sourceMenuTitle),
@@ -1320,6 +1336,9 @@ export async function action({ request }: Route.ActionArgs) {
 			} catch {
 				// Meals still import — their source Menu link stays unset.
 			}
+		}
+		for (const [titleKey, id] of sharedMenuIdsByTitleKey) {
+			menuIdByTitleKey.set(titleKey, id)
 		}
 
 		// Legacy-only plans use the old file's own Recipe servings to recover the

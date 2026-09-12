@@ -198,7 +198,7 @@ test('share a dinner, sign in, save, edit, cook and plan an independent Menu on 
 		await page.getByRole('button', { name: 'Share', exact: true }).click()
 		await expect(page.getByText('Public link copied')).toBeVisible()
 		expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-			`http://localhost:3000/share/menus/${saved.id}`,
+			`${new URL(page.url()).origin}/share/menus/${saved.id}`,
 		)
 		await page.getByRole('link', { name: 'Edit', exact: true }).click()
 		await page.getByLabel('Title', { exact: true }).fill('My terrace dinner')

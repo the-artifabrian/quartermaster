@@ -4,6 +4,7 @@ import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
+import { planMenu } from '#app/utils/plan-menu.server.ts'
 import { saveSharedMenu } from '#app/utils/share-menu.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { server } from '#tests/mocks/index.ts'
@@ -559,6 +560,11 @@ test('JSON recovery preserves repeat-save identity after a renamed saved Menu is
 		where: { id: savedId },
 		data: { title: 'My dinner', titleKey: 'my dinner' },
 	})
+	await planMenu(prisma, {
+		householdId: target.householdId,
+		menuId: savedId,
+		date: new Date('2026-09-12T12:00:00Z'),
+	})
 	const exportResponse = await exportLoader({
 		...(await args(menu.id, target)),
 		params: {},
@@ -568,6 +574,9 @@ test('JSON recovery preserves repeat-save identity after a renamed saved Menu is
 	}
 	expect(exported.menus[0]!.copiedFromMenuId).toBe(menu.id)
 	const restored = await household()
+	await prisma.subscription.create({
+		data: { userId: restored.userId, tier: 'pro' },
+	})
 	await prisma.menu.create({
 		data: {
 			title: 'My dinner',
@@ -600,4 +609,27 @@ test('JSON recovery preserves repeat-save identity after a renamed saved Menu is
 		.filter((i) => i.kind === 'recipe')
 	expect(items.map((i) => i.scaleMultiplier)).toEqual([1.5, 0.5])
 	expect(items[0]!.recipeId).toBe(items[1]!.recipeId)
+	const restoredMeal = await prisma.meal.findFirstOrThrow({
+		where: { mealPlan: { householdId: restored.householdId } },
+	})
+	expect(restoredMeal.sourceMenuId).toBe(restoredMenu.id)
+	await prisma.menu.update({
+		where: { id: restoredMenu.id },
+		data: { title: 'Renamed after restore', titleKey: 'renamed after restore' },
+	})
+	const repeated = await importAction({
+		...routeArgs,
+		params: {},
+		request: new Request(routeArgs.url, {
+			method: 'POST',
+			headers: routeArgs.request.headers,
+			body: new URLSearchParams({ importData: JSON.stringify(exported) }),
+		}),
+	})
+	expect(repeated).toMatchObject({
+		results: {
+			menus: { created: 0, skipped: 1, errored: 0 },
+			meals: { created: 0, skipped: 1 },
+		},
+	})
 })

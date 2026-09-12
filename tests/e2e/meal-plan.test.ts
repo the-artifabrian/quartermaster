@@ -8,6 +8,154 @@ import { prisma } from '#app/utils/db.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
+test.describe('Move a Meal', () => {
+	test.use({ timezoneId: 'Asia/Tokyo' })
+
+	test('Edit details moves a Meal across weeks and opens it with its contents and Shopping intact', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const household = await prisma.household.create({
+			data: {
+				name: 'Meal move household',
+				members: { create: { userId: user.id, role: 'owner' } },
+			},
+		})
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Lemon Pasta',
+				userId: user.id,
+				householdId: household.id,
+				ingredients: {
+					create: { name: 'pasta', amount: '200', unit: 'g', order: 0 },
+				},
+			},
+		})
+		const plan = await prisma.mealPlan.create({
+			data: { householdId: household.id, weekStart: new Date('2026-10-19') },
+		})
+		const meal = await prisma.meal.create({
+			data: {
+				mealPlanId: plan.id,
+				date: new Date('2026-10-23'),
+				order: 0,
+				label: 'dinner',
+				guestCount: 2,
+				servingAt: new Date('2026-10-23T16:30:00Z'),
+				servingTimeZone: 'Europe/Berlin',
+				recipeItems: {
+					create: {
+						recipeId: recipe.id,
+						recipeTitle: recipe.title,
+						order: 0,
+						scaleMultiplier: 1.5,
+						cooked: true,
+						note: 'Extra lemon at the table',
+					},
+				},
+			},
+			include: { recipeItems: true },
+		})
+		await prisma.mealPlan.create({
+			data: {
+				householdId: household.id,
+				weekStart: new Date('2026-10-26'),
+				meals: {
+					create: [
+						{
+							date: new Date('2026-10-26'),
+							order: 0,
+							genericText: 'Earlier in the week',
+						},
+						{
+							date: new Date('2026-10-30'),
+							order: 0,
+							genericText: 'Lunch out',
+						},
+					],
+				},
+			},
+		})
+		await page.setViewportSize({ width: 390, height: 844 })
+		await page.goto('/plan?weekStart=2026-10-19')
+		const mobile = page.getByTestId('mobile-plan')
+		const mealActions = mobile.getByRole('button', {
+			name: 'Meal actions for Lemon Pasta',
+		})
+		await expect(async () => {
+			await mealActions.click()
+			await expect(
+				page.getByRole('menuitem', {
+					name: 'Add to Shopping List',
+					exact: true,
+				}),
+			).toBeVisible({ timeout: 2000 })
+		}).toPass()
+		await page
+			.getByRole('menuitem', { name: 'Add to Shopping List', exact: true })
+			.click()
+		const readShopping = () =>
+			prisma.shoppingListItem.findMany({
+				where: { list: { householdId: household.id } },
+				include: { mealContributions: true },
+			})
+		await expect.poll(async () => (await readShopping()).length).toBe(1)
+		const shopping = await readShopping()
+
+		await mealActions.click()
+		await page.getByRole('menuitem', { name: 'Edit details' }).click()
+		await expect(mobile.getByLabel('Date', { exact: true })).toHaveValue(
+			'2026-10-23',
+		)
+		await expect(mobile.getByLabel('Serving time')).toHaveValue('18:30')
+		await mobile.getByLabel('Date', { exact: true }).fill('2026-10-30')
+		await mobile.getByLabel('Guests').fill('4')
+		await mobile.getByRole('button', { name: 'Save', exact: true }).click()
+		await expect(page).toHaveURL(`/plan?weekStart=2026-10-26&mealId=${meal.id}`)
+		const movedCard = mobile.locator(`[data-meal-id="${meal.id}"]`)
+		await expect(mobile.getByRole('heading', { name: 'Oct 30' })).toBeVisible()
+		await expect(movedCard).toBeFocused()
+		await expect(movedCard).toBeInViewport()
+		await expect(movedCard).toContainText('6:30 PM')
+		await expect(movedCard).toContainText('4 guests')
+		await expect(movedCard).toContainText('Extra lemon at the table')
+		await expect(movedCard.getByLabel('Scale multiplier')).toHaveValue('1.5')
+		await expect(
+			movedCard.getByRole('button', { name: 'Mark Lemon Pasta as not cooked' }),
+		).toBeVisible()
+		await expect(mobile.locator('[data-slot="meal-group"]')).toHaveText([
+			/Lunch out/,
+			/Lemon Pasta/,
+		])
+		const updated = await prisma.meal.findUniqueOrThrow({
+			where: { id: meal.id },
+			include: { recipeItems: true },
+		})
+		expect(updated).toMatchObject({
+			date: new Date('2026-10-30'),
+			order: 1,
+			guestCount: 4,
+			servingAt: new Date('2026-10-30T17:30:00Z'),
+			servingTimeZone: 'Europe/Berlin',
+			recipeItems: meal.recipeItems,
+		})
+		expect(await readShopping()).toEqual(shopping)
+		await page.reload()
+		await expect(movedCard).toBeVisible()
+		await page.setViewportSize({ width: 1280, height: 800 })
+		await expect(
+			page.getByTestId('desktop-plan').locator(`[data-meal-id="${meal.id}"]`),
+		).toContainText('Lemon Pasta')
+		await page.getByRole('link', { name: 'Previous week' }).click()
+		await expect(
+			page
+				.getByTestId('desktop-plan')
+				.getByText('Lemon Pasta', { exact: true }),
+		).toHaveCount(0)
+	})
+})
+
 test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 	page,
 	login,

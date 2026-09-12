@@ -1,10 +1,16 @@
 /**
  * @vitest-environment jsdom
  */
-import { render, screen, waitFor, within } from '@testing-library/react'
+import {
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
-import { createRoutesStub } from 'react-router'
+import { createRoutesStub, Link } from 'react-router'
 import { expect, test } from 'vitest'
 import { getCurrentWeekStart, getWeekDays, parseDate } from '#app/utils/date.ts'
 import { server } from '#tests/mocks/index.ts'
@@ -107,6 +113,7 @@ function renderCalendar(
 		calendarWeekDays?: Date[]
 		calendarMeals?: PlanMeal[]
 		useDefaultChoices?: boolean
+		initialEntry?: string
 	} = {},
 ) {
 	if (options.useDefaultChoices !== false) {
@@ -127,8 +134,104 @@ function renderCalendar(
 			action,
 		},
 	])
-	render(<Stub />)
+	render(<Stub initialEntries={[options.initialEntry ?? '/']} />)
 }
+
+test('a direct Meal link opens its day on mobile and still allows changing days', async () => {
+	const user = userEvent.setup()
+	renderCalendar(undefined, {
+		initialEntry: '/?mealId=meal-2',
+		useDefaultChoices: false,
+	})
+	const mobile = within(screen.getByTestId('mobile-plan'))
+	expect(mobile.getByText('Bolognese')).toBeVisible()
+	expect(
+		mobile.getByRole('button', {
+			name: 'Show Thursday, Apr 9, 1 Meal planned',
+		}),
+	).toHaveAttribute('aria-pressed', 'true')
+	await user.click(
+		mobile.getByRole('button', {
+			name: 'Show Wednesday, Apr 8, 1 Meal planned',
+		}),
+	)
+	expect(mobile.getByText('Banana Bread')).toBeVisible()
+})
+
+test('opening another Meal on the same target date restores that day after manual browsing', async () => {
+	const user = userEvent.setup()
+	const calendarMeals = [
+		...meals,
+		makeMeal({ id: 'meal-3', dateStr: '2026-04-08', title: 'Herb Salad' }),
+	]
+	const Stub = createRoutesStub([
+		{
+			path: '/',
+			Component: () => (
+				<>
+					<Link to="/?mealId=meal-3">Open another Meal</Link>
+					<MealPlanCalendar weekDays={weekDays} meals={calendarMeals} />
+				</>
+			),
+		},
+	])
+	render(<Stub initialEntries={['/?mealId=meal-1']} />)
+	const mobile = within(screen.getByTestId('mobile-plan'))
+	await user.click(
+		mobile.getByRole('button', {
+			name: 'Show Thursday, Apr 9, 1 Meal planned',
+		}),
+	)
+	expect(mobile.getByText('Bolognese')).toBeVisible()
+	await user.click(screen.getByRole('link', { name: 'Open another Meal' }))
+	expect(mobile.getByText('Herb Salad')).toBeVisible()
+})
+
+test('Edit details submits the date and stored-zone clock time, and keeps validation errors visible', async () => {
+	const user = userEvent.setup()
+	let submitted: Record<string, FormDataEntryValue> | undefined
+	const meal = {
+		...meals[0]!,
+		servingAt: '2026-04-08T01:30:00.000Z',
+		servingTimeZone: 'Europe/Berlin',
+	}
+	renderCalendar(
+		async ({ request }) => {
+			submitted = Object.fromEntries(await request.formData())
+			return {
+				status: 'error',
+				submission: { error: { date: ['Pick a valid date'] } },
+			}
+		},
+		{ calendarMeals: [meal], useDefaultChoices: false },
+	)
+	const mobile = within(screen.getByTestId('mobile-plan'))
+	await user.click(
+		mobile.getByRole('button', { name: 'Meal actions for Banana Bread' }),
+	)
+	await user.click(
+		await screen.findByRole('menuitem', { name: 'Edit details' }),
+	)
+	expect(mobile.getByLabelText('Date')).toHaveValue('2026-04-08')
+	expect(mobile.getByLabelText('Serving time')).toHaveValue('03:30')
+	fireEvent.change(mobile.getByLabelText('Date'), {
+		target: { value: '2026-04-17' },
+	})
+	await user.click(mobile.getByRole('button', { name: 'Save' }))
+	await waitFor(() =>
+		expect(submitted).toMatchObject({
+			intent: 'updateMealDetails',
+			mealId: meal.id,
+			date: '2026-04-17',
+			time: '03:30',
+			timeZone: 'Europe/Berlin',
+		}),
+	)
+	expect(await mobile.findByText('Pick a valid date')).toBeVisible()
+	expect(mobile.getByLabelText('Date')).toHaveValue('2026-04-17')
+	await user.click(mobile.getByRole('button', { name: 'Cancel' }))
+	expect(mobile.queryByLabelText('Date')).not.toBeInTheDocument()
+})
 
 test('mobile focuses the first planned day and switches days without a long agenda', async () => {
 	const user = userEvent.setup()

@@ -1,6 +1,8 @@
+import { type SubmissionResult } from '@conform-to/react'
 import { useEffect, useRef, useState } from 'react'
-import { Link, useFetcher } from 'react-router'
+import { Link, useFetcher, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
+import { ErrorList } from '#app/components/forms.tsx'
 import {
 	PlanChoiceRequestState,
 	type PlanChoices,
@@ -311,12 +313,15 @@ function MealDetailsForm({
 	meal: PlanMeal
 	onDone: () => void
 }) {
-	const fetcher = useFetcher()
+	const fetcher = useFetcher<{
+		status: string
+		submission?: SubmissionResult
+	}>()
 	const wasSubmitting = useRef(false)
-	// The instant is named by wall time plus the browser's IANA zone; the zone
-	// travels in a hidden input so the server can store the pair (#98).
+	// Use the stored zone for an existing time; the browser names a new time.
 	const [timeZone] = useState(
-		() => Intl.DateTimeFormat().resolvedOptions().timeZone,
+		() =>
+			meal.servingTimeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
 	)
 
 	useEffect(() => {
@@ -336,6 +341,23 @@ function MealDetailsForm({
 			<input type="hidden" name="intent" value="updateMealDetails" />
 			<input type="hidden" name="mealId" value={meal.id} />
 			<input type="hidden" name="timeZone" value={timeZone} />
+
+			<div>
+				<label
+					htmlFor={`date-${meal.id}`}
+					className="text-muted-foreground mb-1 block text-xs font-medium"
+				>
+					Date
+				</label>
+				<Input
+					id={`date-${meal.id}`}
+					type="date"
+					name="date"
+					required
+					defaultValue={meal.dateStr}
+					className="h-9"
+				/>
+			</div>
 
 			<div>
 				<label
@@ -411,12 +433,17 @@ function MealDetailsForm({
 				</div>
 			)}
 
+			<div role="alert">
+				<ErrorList
+					errors={Object.values(fetcher.data?.submission?.error ?? {}).flat()}
+				/>
+			</div>
 			<div className="flex justify-end gap-2">
 				<Button type="button" variant="ghost" size="sm" onClick={onDone}>
 					Cancel
 				</Button>
-				<Button type="submit" size="sm">
-					Save
+				<Button type="submit" size="sm" disabled={fetcher.state !== 'idle'}>
+					{fetcher.state !== 'idle' ? 'Saving…' : 'Save'}
 				</Button>
 			</div>
 		</fetcher.Form>
@@ -435,6 +462,17 @@ export function MealCard({
 	canMoveDown: boolean
 }) {
 	const moveFetcher = useFetcher()
+	const [searchParams] = useSearchParams()
+	const targetMealId = searchParams.get('mealId')
+	const cardRef = useRef<HTMLDivElement>(null)
+	useEffect(() => {
+		const card = cardRef.current
+		// Both responsive calendars are mounted; only focus the visible copy.
+		if (targetMealId === meal.id && card?.getClientRects().length) {
+			card.focus({ preventScroll: true })
+			card.scrollIntoView({ block: 'center' })
+		}
+	}, [targetMealId, meal.id, meal.dateStr])
 	const mealCookedFetcher = useFetcher()
 	const removeMealFetcher = useFetcher()
 	const addRecipeFetcher = useFetcher()
@@ -524,7 +562,12 @@ export function MealCard({
 	}
 
 	return (
-		<div className="group border-border/50 bg-card/60 shadow-warm relative rounded-xl border p-3 md:rounded-none md:border-0 md:bg-transparent md:px-0 md:py-1.5 md:shadow-none">
+		<div
+			ref={cardRef}
+			tabIndex={-1}
+			data-meal-id={meal.id}
+			className="group border-border/50 bg-card/60 shadow-warm focus-visible:ring-ring relative rounded-xl border p-3 focus-visible:ring-2 md:rounded-none md:border-0 md:bg-transparent md:px-0 md:py-1.5 md:shadow-none"
+		>
 			{/* Header: optional label/time/guests on the left — display metadata
 			    only, never what orders the day (#98) — controls on the right. */}
 			<div className="flex min-h-7 items-center gap-1.5">

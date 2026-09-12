@@ -195,6 +195,107 @@ describe('recipe detail loader', () => {
 })
 
 describe('recipe detail actions', () => {
+	test.each(['next', 'later'])(
+		'an explicit ingredient addition keeps a checked purchase in %s separate (#226)',
+		async (horizon) => {
+			const session = await setupUser()
+			const recipe = await setupRecipe(session.userId, session.householdId)
+			const ingredient = await prisma.ingredient.create({
+				data: {
+					recipeId: recipe.id,
+					name: 'rice',
+					amount: '400',
+					unit: 'g',
+					order: 2,
+				},
+			})
+			const list = await prisma.shoppingList.create({
+				data: { userId: session.userId, householdId: session.householdId },
+			})
+			const purchased = await prisma.shoppingListItem.create({
+				data: {
+					listId: list.id,
+					name: 'rice',
+					quantity: '200',
+					unit: 'g',
+					checked: true,
+					horizon,
+				},
+			})
+			const addIngredient = async () =>
+				action({
+					request: await makeRequest(session, recipe.id, {
+						intent: 'add-single-to-shopping-list',
+						ingredientId: ingredient.id,
+					}),
+					...makeActionArgs(recipe.id),
+				})
+
+			const result = await addIngredient()
+			const rows = await prisma.shoppingListItem.findMany({
+				where: { listId: list.id },
+			})
+			expect(rows).toHaveLength(2)
+			expect(result).toMatchObject({ wasNew: true })
+			expect(rows.find((row) => row.id === purchased.id)).toEqual(purchased)
+			expect(rows.find((row) => row.id !== purchased.id)).toMatchObject({
+				name: 'rice',
+				quantity: '400',
+				unit: 'g',
+				checked: false,
+				source: 'recipe',
+				horizon: 'next',
+			})
+
+			// A repeated ingredient tap still deduplicates the outstanding purchase.
+			expect(await addIngredient()).toMatchObject({ wasNew: false })
+			expect(
+				await prisma.shoppingListItem.findMany({ where: { listId: list.id } }),
+			).toEqual(rows)
+		},
+	)
+
+	test.each(['next', 'later'])(
+		'an ingredient tap reuses an unchecked %s purchase without changing its amount (#226)',
+		async (horizon) => {
+			const session = await setupUser()
+			const recipe = await setupRecipe(session.userId, session.householdId)
+			const ingredient = await prisma.ingredient.findFirstOrThrow({
+				where: { recipeId: recipe.id, name: 'flour' },
+			})
+			const list = await prisma.shoppingList.create({
+				data: { userId: session.userId, householdId: session.householdId },
+			})
+			const existing = await prisma.shoppingListItem.create({
+				data: {
+					listId: list.id,
+					name: 'flour',
+					quantity: '1',
+					unit: 'bag',
+					horizon,
+				},
+			})
+			expect(
+				await action({
+					request: await makeRequest(session, recipe.id, {
+						intent: 'add-single-to-shopping-list',
+						ingredientId: ingredient.id,
+					}),
+					...makeActionArgs(recipe.id),
+				}),
+			).toMatchObject({ wasNew: false, wasPromoted: horizon === 'later' })
+			expect(
+				await prisma.shoppingListItem.findMany({ where: { listId: list.id } }),
+			).toEqual([
+				{
+					...existing,
+					horizon: 'next',
+					checkVersion: existing.checkVersion + Number(horizon === 'later'),
+				},
+			])
+		},
+	)
+
 	test('caps enhancement descriptions at the Recipe field limit', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
@@ -203,9 +304,9 @@ describe('recipe detail actions', () => {
 			intent: 'applyEnhancement',
 			enhance_description: `  ${'a'.repeat(600)}  `,
 		})
-		expect(
-			await action({ request, ...makeActionArgs(recipe.id) }),
-		).toEqual({ success: true })
+		expect(await action({ request, ...makeActionArgs(recipe.id) })).toEqual({
+			success: true,
+		})
 
 		await expect(
 			prisma.recipe.findUniqueOrThrow({
@@ -223,9 +324,7 @@ describe('recipe detail actions', () => {
 			intent: 'applyEnhancement',
 			enhance_activeTime: '50',
 		})
-		expect(
-			await action({ request, ...makeActionArgs(recipe.id) }),
-		).toEqual({
+		expect(await action({ request, ...makeActionArgs(recipe.id) })).toEqual({
 			success: false,
 			error: 'Total time must be at least active time.',
 		})

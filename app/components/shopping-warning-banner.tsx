@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useFetcher } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { HouseholdClientInput } from '#app/utils/household-client.tsx'
 import { LATER } from '#app/utils/shopping-horizon.ts'
 
 export function WarningBanner({
@@ -43,6 +44,7 @@ export function WarningBanner({
 					</p>
 					<div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
 						<moveFetcher.Form method="POST">
+							<HouseholdClientInput />
 							<input type="hidden" name="intent" value="move" />
 							<input
 								type="hidden"

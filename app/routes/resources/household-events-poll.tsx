@@ -5,7 +5,7 @@ import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { type Route } from './+types/household-events-poll.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { householdId } = await requireUserWithHousehold(request)
 
 	const url = new URL(request.url)
 	const since = url.searchParams.get('since')
@@ -22,7 +22,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const rows = await prisma.householdEvent.findMany({
 		where: {
 			householdId,
-			userId: { not: userId },
 			createdAt: { gt: sinceDate },
 		},
 		orderBy: { createdAt: 'asc' },

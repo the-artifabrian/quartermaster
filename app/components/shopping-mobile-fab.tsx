@@ -1,3 +1,7 @@
+import {
+	getHouseholdClientId,
+	HouseholdClientInput,
+} from '#app/utils/household-client.tsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFetcher, useRevalidator } from 'react-router'
 import { toast } from 'sonner'
@@ -87,6 +91,7 @@ export function MobileFabAdd({
 							label: 'Move to Next shop',
 							onClick: () => {
 								const data = new FormData()
+								data.set('originClientId', getHouseholdClientId())
 								data.set('intent', 'move-items')
 								data.set('itemIds', JSON.stringify(moveItemIds))
 								data.set('horizon', NEXT_SHOP)
@@ -116,6 +121,7 @@ export function MobileFabAdd({
 				inputRef.current?.focus()
 			} else {
 				const fd = new FormData()
+				fd.set('originClientId', getHouseholdClientId())
 				fd.set('intent', 'bulk-add')
 				fd.set('items', JSON.stringify(items))
 				fd.set('horizon', NEXT_SHOP)
@@ -171,6 +177,7 @@ export function MobileFabAdd({
 							if (!name.trim()) e.preventDefault()
 						}}
 					>
+						<HouseholdClientInput />
 						<input type="hidden" name="intent" value="add" />
 						<input type="hidden" name="horizon" value={NEXT_SHOP} />
 						{canForce && <input type="hidden" name="force" value="true" />}

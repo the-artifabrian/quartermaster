@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
+import { useSpinDelay } from 'spin-delay'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -12,20 +13,29 @@ import {
 } from '#app/utils/produce-weights.ts'
 import { LATER, NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { type ShoppingItemDisplay } from '#app/utils/shopping-optimistic.ts'
+import { type useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
+import { HouseholdClientInput } from '#app/utils/household-client.tsx'
 
 type ShoppingListItemCardProps = {
+	checks: ReturnType<typeof useShoppingChecks>
 	item: ShoppingListItem & { display?: ShoppingItemDisplay }
 	isVoiceAdded?: boolean
 }
 
 export function ShoppingListItemCard({
+	checks,
 	item,
 	isVoiceAdded,
 }: ShoppingListItemCardProps) {
 	const [isEditing, setIsEditing] = useState(false)
 	const [showActions, setShowActions] = useState(false)
 	const editFetcher = useFetcher()
-	const toggleFetcher = useFetcher()
+	const checkState = checks.state(item.id)
+	const isChecking = checkState === 'saving' || checkState === 'reconciling'
+	const showCheckSpinner = useSpinDelay(isChecking, {
+		delay: 400,
+		minDuration: 0,
+	})
 	const deleteFetcher = useFetcher()
 	const moveFetcher = useFetcher()
 	const removeGeneratedFetcher = useFetcher()
@@ -61,10 +71,7 @@ export function ShoppingListItemCard({
 	}, [showActions])
 
 	// Optimistic checked state
-	const optimisticChecked =
-		toggleFetcher.formData?.get('intent') === 'toggle'
-			? !item.checked
-			: item.checked
+	const optimisticChecked = item.checked
 
 	// The displayed quantity groups the row with its current Meal
 	// contributions (#109), computed by the loader. The row's stored
@@ -106,6 +113,7 @@ export function ShoppingListItemCard({
 						if (e.key === 'Escape') setIsEditing(false)
 					}}
 				>
+					<HouseholdClientInput />
 					<input type="hidden" name="intent" value="edit" />
 					<input type="hidden" name="itemId" value={item.id} />
 					<div className="space-y-2">
@@ -165,19 +173,19 @@ export function ShoppingListItemCard({
 
 	return (
 		<div
-			className="group flex items-center gap-3 py-2.5"
+			className="group flex flex-wrap items-center gap-3 py-2.5"
 			role="group"
 			aria-label={`${item.name} shopping item`}
 		>
 			{/* Whole row toggles checkbox */}
-			<toggleFetcher.Form
-				method="POST"
-				className="flex min-w-0 flex-1 items-center gap-3"
-			>
-				<input type="hidden" name="intent" value="toggle" />
-				<input type="hidden" name="itemId" value={item.id} />
+			<div className="flex min-w-0 flex-1 items-center gap-3">
 				<button
-					type="submit"
+					type="button"
+					onClick={() => checks.toggle({ ...item, display })}
+					disabled={item.id.startsWith('optimistic:')}
+					aria-pressed={optimisticChecked}
+					aria-busy={isChecking || undefined}
+					aria-describedby={checkState ? `check-status-${item.id}` : undefined}
 					className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
 					aria-label={optimisticChecked ? 'Uncheck item' : 'Check off item'}
 				>
@@ -237,21 +245,30 @@ export function ShoppingListItemCard({
 						)}
 					</div>
 				</button>
-			</toggleFetcher.Form>
+			</div>
 
 			{/* Overflow menu */}
 			<div ref={actionsRef} className="relative shrink-0">
 				<button
 					type="button"
 					onClick={() => setShowActions((v) => !v)}
+					disabled={Boolean(checkState)}
 					className="text-muted-foreground/40 hover:bg-muted hover:text-muted-foreground flex size-10 items-center justify-center rounded-full transition-colors"
 					aria-label="Item actions"
 				>
-					<Icon name="dots-horizontal" className="size-4" />
+					<Icon
+						name={isChecking && showCheckSpinner ? 'update' : 'dots-horizontal'}
+						className={cn(
+							'size-4',
+							isChecking && showCheckSpinner && 'motion-safe:animate-spin',
+						)}
+						aria-hidden
+					/>
 				</button>
 				{showActions && (
 					<div className="bg-card shadow-warm-md animate-fade-up-reveal absolute right-0 z-10 mt-1 min-w-44 rounded-lg border p-1">
 						<moveFetcher.Form method="POST">
+							<HouseholdClientInput />
 							<input type="hidden" name="intent" value="move" />
 							<input type="hidden" name="itemId" value={item.id} />
 							<input type="hidden" name="horizon" value={moveTarget} />
@@ -283,6 +300,7 @@ export function ShoppingListItemCard({
 								</button>
 								{item.source === 'manual' && display.combined && (
 									<removeGeneratedFetcher.Form method="POST">
+										<HouseholdClientInput />
 										<input
 											type="hidden"
 											name="intent"
@@ -299,6 +317,7 @@ export function ShoppingListItemCard({
 									</removeGeneratedFetcher.Form>
 								)}
 								<deleteFetcher.Form method="POST">
+									<HouseholdClientInput />
 									<input type="hidden" name="intent" value="delete" />
 									<input type="hidden" name="itemId" value={item.id} />
 									<button
@@ -314,6 +333,32 @@ export function ShoppingListItemCard({
 					</div>
 				)}
 			</div>
+			{checkState && (
+				<div
+					id={`check-status-${item.id}`}
+					className={
+						checkState === 'failed'
+							? 'text-muted-foreground w-full pl-9 text-sm'
+							: 'sr-only'
+					}
+					role={checkState === 'failed' ? 'alert' : 'status'}
+				>
+					{checkState === 'failed'
+						? 'Couldn’t confirm this check. Your change is still here.'
+						: checkState === 'reconciling'
+							? 'Checking saved state…'
+							: 'Saving check…'}
+					{checkState === 'failed' && (
+						<button
+							type="button"
+							className="ml-2 min-h-11 underline"
+							onClick={() => checks.retry(item.id)}
+						>
+							Retry
+						</button>
+					)}
+				</div>
+			)}
 		</div>
 	)
 }

@@ -6,6 +6,7 @@ import {
 	type FormattedEvent,
 } from '#app/utils/household-event-messages.ts'
 import { subscribeToHouseholdEvents } from '#app/utils/household-event-source.client.tsx'
+import { useOptionalUser } from '#app/utils/user.ts'
 
 // Events that land together — a catch-up poll on resume returns up to 50, and
 // a reconnect replays the gap — are collected over this window and toasted as
@@ -14,6 +15,7 @@ const BATCH_WINDOW_MS = 300
 
 export function HouseholdActivityNotifier() {
 	const navigate = useNavigate()
+	const userId = useOptionalUser()?.id
 
 	useEffect(() => {
 		let pending: Array<FormattedEvent> = []
@@ -36,6 +38,8 @@ export function HouseholdActivityNotifier() {
 		}
 
 		const unsubscribe = subscribeToHouseholdEvents((event) => {
+			// Own-device activity refreshes data without announcing ourselves.
+			if (event.userId === userId) return
 			pending.push({
 				type: event.type,
 				payload: event.payload,
@@ -48,7 +52,7 @@ export function HouseholdActivityNotifier() {
 			unsubscribe()
 			if (flushTimer) clearTimeout(flushTimer)
 		}
-	}, [navigate])
+	}, [navigate, userId])
 
 	return null
 }

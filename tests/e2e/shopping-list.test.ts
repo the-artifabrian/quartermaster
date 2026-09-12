@@ -29,6 +29,99 @@ async function expectLocalPendingFeedback({
 	await expect(status).toBeHidden()
 }
 
+test('Recipe ingredient addition creates an outstanding purchase beside checked rice (#226)', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const household = await prisma.household.create({
+		data: {
+			name: 'Disposable new purchase review',
+			staplesCutoverAt: new Date(),
+			members: { create: { userId: user.id, role: 'owner' } },
+		},
+	})
+	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Rice supper',
+			userId: user.id,
+			householdId: household.id,
+			ingredients: {
+				create: { name: 'rice', amount: '400', unit: 'g', order: 0 },
+			},
+			instructions: { create: { content: 'Cook the rice.', order: 0 } },
+		},
+	})
+	await prisma.shoppingList.create({
+		data: {
+			userId: user.id,
+			householdId: household.id,
+			items: {
+				create: { name: 'rice', quantity: '200', unit: 'g', checked: true },
+			},
+		},
+	})
+	await page.setViewportSize({ width: 390, height: 844 })
+	await page.goto(`/recipes/${recipe.id}`)
+	await page
+		.getByRole('button', { name: 'Add to shopping list', exact: true })
+		.click()
+	await expect(
+		page.getByRole('button', { name: 'Add to shopping list', exact: true }),
+	).toBeDisabled()
+	await expect
+		.poll(() =>
+			prisma.shoppingListItem.count({
+				where: { list: { householdId: household.id } },
+			}),
+		)
+		.toBe(2)
+	await page
+		.getByRole('link', { name: 'Shop', exact: true })
+		.filter({ visible: true })
+		.click()
+	const rows = page.getByRole('group', { name: 'rice shopping item' })
+	const previous = rows.filter({ hasText: '200 g' })
+	const outstanding = rows.filter({ hasText: '400 g' })
+	await expect(rows).toHaveCount(2)
+	await expect(
+		previous.getByRole('button', { name: 'Uncheck item' }),
+	).toBeVisible()
+	await expect(
+		outstanding.getByRole('button', { name: 'Check off item' }),
+	).toBeVisible()
+	await page.reload()
+	await expect(
+		previous.getByRole('button', { name: 'Uncheck item' }),
+	).toBeVisible()
+	await expect(
+		outstanding.getByRole('button', { name: 'Check off item' }),
+	).toBeVisible()
+	await page.screenshot({
+		path: test.info().outputPath('separate-purchases.png'),
+		fullPage: true,
+		animations: 'disabled',
+	})
+
+	// Either portion can be checked and cleared without affecting the other.
+	await previous.getByRole('button', { name: 'Uncheck item' }).click()
+	await expect(previous.getByRole('status')).toBeHidden()
+	await outstanding.getByRole('button', { name: 'Check off item' }).click()
+	await expect(outstanding.getByRole('status')).toBeHidden()
+	page.once('dialog', (dialog) => void dialog.accept())
+	await page
+		.getByRole('button', { name: 'Clear checked items from Next shop' })
+		.click()
+	await expect(rows).toHaveCount(1)
+	await expect(
+		previous.getByRole('button', { name: 'Check off item' }),
+	).toBeVisible()
+	await page.reload()
+	await expect(rows).toHaveCount(1)
+	await expect(previous).toBeVisible()
+})
+
 test('Shopping list flow: generate → verify items → add manual → check → clear', async ({
 	page,
 	login,

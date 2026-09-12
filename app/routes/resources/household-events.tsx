@@ -10,7 +10,7 @@ const KEEPALIVE_INTERVAL_MS = 30_000
 const MAX_LIFETIME_MS = 5 * 60 * 1000
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { householdId } = await requireUserWithHousehold(request)
 
 	let cleanup = () => {}
 	let unregisterShutdown = () => false
@@ -71,9 +71,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 			// Listen for household events
 			function onEvent(event: HouseholdEventData) {
-				// Don't notify the acting user
-				if (event.userId === userId) return
-
 				send(`event: activity\ndata: ${JSON.stringify(event)}\n\n`)
 			}
 

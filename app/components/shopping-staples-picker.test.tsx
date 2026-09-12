@@ -6,6 +6,7 @@ import { userEvent } from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { createRoutesStub } from 'react-router'
 import { expect, test } from 'vitest'
+import { getHouseholdClientId } from '#app/utils/household-client.tsx'
 import { server } from '#tests/mocks/index.ts'
 import { ShoppingStaplesPicker } from './shopping-staples-picker.tsx'
 
@@ -164,6 +165,7 @@ test('selects available Staples in one batch and quietly dismisses the empty-lis
 
 	await waitFor(() =>
 		expect(submissions).toContainEqual({
+			originClientId: getHouseholdClientId(),
 			intent: 'bulk-add',
 			horizon: 'next',
 			items: JSON.stringify([{ name: 'Milk' }, { name: 'Yogurt' }]),

@@ -48,7 +48,7 @@ async function makeStream() {
 			headers: { cookie },
 		}),
 	})) as Response
-	return { response, householdId: user.householdId }
+	return { response, householdId: user.householdId, userId: user.userId }
 }
 
 function busListeners(householdId: string) {
@@ -62,6 +62,23 @@ afterEach(() => {
 })
 
 describe('household-events SSE loader', () => {
+	test('forwards own-account changes to another device in this household', async () => {
+		const { response, householdId, userId } = await makeStream()
+		const reader = response.body!.getReader()
+		await reader.read()
+		const event = {
+			id: 'same-account',
+			householdId,
+			userId,
+			type: 'shopping_list_item_added',
+			payload: { name: 'Rice', originClientId: 'other-device' },
+		}
+		householdEvents.householdEventBus.emit(`household:${householdId}`, event)
+		expect(new TextDecoder().decode((await reader.read()).value)).toContain(
+			'other-device',
+		)
+		await reader.cancel()
+	})
 	test('streams a connected event and unsubscribes when the consumer cancels', async () => {
 		const { response, householdId } = await makeStream()
 		expect(busListeners(householdId)).toBe(1)

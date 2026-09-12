@@ -14,8 +14,19 @@ type DemandTargetCandidate = {
 export type NextShopRestockEffect =
 	'added' | 'moved' | 'resurfaced' | 'already-in-next-shop'
 
-/** Unchecked rows win; within each checked state, Next shop wins over Later. */
+/** New demand can only reuse an outstanding purchase; Next shop wins over Later. */
 export function selectNextShopDemandTargets<T extends DemandTargetCandidate>(
+	items: T[],
+	canonicalNames: Iterable<string>,
+): Map<string, T> {
+	return selectPreferredShoppingRows(
+		items.filter((item) => !item.checked),
+		canonicalNames,
+	)
+}
+
+/** Restocking may also reuse a checked row, after all unchecked matches. */
+function selectPreferredShoppingRows<T extends DemandTargetCandidate>(
 	items: T[],
 	canonicalNames: Iterable<string>,
 ): Map<string, T> {
@@ -41,7 +52,7 @@ export function selectNextShopDemandTargets<T extends DemandTargetCandidate>(
 
 /**
  * Resolve existing rows for generated demand and promote unchecked Later
- * matches to Next shop. Checked matches remain exactly where and as they are.
+ * matches to Next shop. Checked purchases are left out of new demand entirely.
  */
 export async function resolveNextShopDemandTargets(
 	db: ShoppingHorizonDatabase,
@@ -102,7 +113,7 @@ export async function resolveNextShopRestockTarget(
 			horizon: true,
 		},
 	})
-	const existing = selectNextShopDemandTargets(items, [canonicalName]).get(
+	const existing = selectPreferredShoppingRows(items, [canonicalName]).get(
 		canonicalName,
 	)
 

@@ -1174,6 +1174,92 @@ describe('Shopping display grouping — combined totals without rewriting identi
 		expect(lamb.unit).toBe('pack')
 	})
 
+	test('new Meals leave checked purchases separate and stale checks cannot swallow added demand (#226)', async () => {
+		const session = await setupUser()
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Rice supper',
+				userId: session.userId,
+				householdId: session.householdId,
+				ingredients: {
+					create: { name: 'rice', amount: '400', unit: 'g', order: 0 },
+				},
+			},
+		})
+		const mealA = await setupMeal(session.householdId, recipe, {
+			scaleMultiplier: 0.5,
+		})
+		const mealB = await setupMeal(session.householdId, recipe)
+		const mealC = await setupMeal(session.householdId, recipe, {
+			scaleMultiplier: 0.5,
+		})
+		const add = (mealId: string) =>
+			runPlanAction(session, { intent: 'addMealToShopping', mealId })
+		const check = (
+			item: { id: string; checkVersion: number },
+			checked: boolean,
+		) =>
+			runShoppingAction(session, {
+				intent: 'toggle',
+				itemId: item.id,
+				checked: String(checked),
+				observedVersion: String(item.checkVersion),
+				mutationId: `check-${item.id}-${item.checkVersion}`,
+			})
+		await add(mealA.id)
+		const [first] = await getDisplayedItems(session)
+		expect(await check(first!, true)).toMatchObject({ status: 'success' })
+		const [purchased] = await getDisplayedItems(session)
+		const originalContribution = await getContributions(session.householdId)
+
+		await add(mealB.id)
+		let items = await getDisplayedItems(session)
+		expect(items).toHaveLength(2)
+		expect(items.find((item) => item.id === purchased!.id)).toEqual(purchased)
+		const outstanding = items.find((item) => item.id !== purchased!.id)!
+		expect(outstanding).toMatchObject({
+			checked: false,
+			display: { quantity: '400', unit: 'g' },
+		})
+		expect(await getContributions(session.householdId)).toEqual(
+			expect.arrayContaining(originalContribution),
+		)
+
+		// Repeating either represented Meal does not create another purchase.
+		await add(mealA.id)
+		await add(mealB.id)
+		expect(await getDisplayedItems(session)).toEqual(items)
+
+		// Only the outstanding portion absorbs another new Meal.
+		await add(mealC.id)
+		expect(await check(outstanding, true)).toMatchObject({ status: 'conflict' })
+		items = await getDisplayedItems(session)
+		expect(items.find((item) => item.id === purchased!.id)).toEqual(purchased)
+		const combined = items.find((item) => item.id === outstanding.id)!
+		expect(combined).toMatchObject({
+			checked: false,
+			display: { quantity: '600', unit: 'g' },
+		})
+		expect(await check(combined, true)).toMatchObject({ status: 'success' })
+		const checkedCombined = (await getDisplayedItems(session)).find(
+			(item) => item.id === combined.id,
+		)!
+		expect(await check(checkedCombined, false)).toMatchObject({
+			status: 'success',
+		})
+		await runShoppingAction(session, { intent: 'clear-checked' })
+		const remaining = await getDisplayedItems(session)
+		expect(remaining).toHaveLength(1)
+		expect(remaining[0]).toMatchObject({
+			id: combined.id,
+			checked: false,
+			display: { quantity: '600', unit: 'g' },
+		})
+		expect(
+			(await getContributions(session.householdId)).map((c) => c.mealId).sort(),
+		).toEqual([mealB.id, mealC.id].sort())
+	})
+
 	test('two Meals feeding one generated row display their summed demand', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
@@ -1291,6 +1377,9 @@ describe('Meal Shopping contributions across horizons (#175)', () => {
 		await runShoppingAction(session, {
 			intent: 'toggle',
 			itemId: lamb.id,
+			checked: 'true',
+			observedVersion: String(lamb.checkVersion),
+			mutationId: 'check-lamb',
 		})
 		await runShoppingAction(session, {
 			intent: 'move',

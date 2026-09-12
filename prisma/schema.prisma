@@ -646,6 +646,12 @@ model ShoppingListItem {
   unit       String?
   category   String?  // "produce", "dairy", "meat", "pantry", "frozen", "bakery", "household", "other"
   checked    Boolean  @default(false)
+  /// Local write precondition. SQLite triggers also advance it when the
+  /// displayed requirement or its Meal contributions change (#225).
+  checkVersion Int @default(0)
+  /// Only the latest checkbox request; permits a lost-response retry without
+  /// retaining an operation history. Recovery creates fresh write identities.
+  lastCheckMutationId String?
   source     String   @default("manual") // "manual", "generated", "recipe", or "discover"
   horizon    String   @default("next") // "next" or "later"
   listId     String

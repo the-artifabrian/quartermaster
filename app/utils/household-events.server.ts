@@ -33,13 +33,18 @@ export async function emitHouseholdEvent({
 	payload,
 	userId,
 	householdId,
+	originClientId,
 }: {
 	type: HouseholdEventType
 	payload: Record<string, unknown>
 	userId: string
 	householdId: string
+	originClientId?: unknown
 }) {
 	try {
+		if (typeof originClientId === 'string' && originClientId.length <= 100) {
+			payload = { ...payload, originClientId }
+		}
 		const user = await prisma.user.findUnique({
 			where: { id: userId },
 			select: { name: true, username: true },

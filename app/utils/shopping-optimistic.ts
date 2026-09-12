@@ -50,6 +50,8 @@ export function makeOptimisticShoppingItem({
 		unit: trimmedUnit,
 		category: guessCategory(name),
 		checked: false,
+		checkVersion: 0,
+		lastCheckMutationId: null,
 		source: 'manual',
 		horizon,
 		listId,

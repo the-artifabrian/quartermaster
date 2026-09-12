@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useFetcher } from 'react-router'
+import { useFetcher, useSearchParams } from 'react-router'
 import {
 	PlanChoiceRequestState,
 	type PlanChoices,
@@ -357,9 +357,15 @@ function MealCards({
 
 export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
 	const choices = usePlanChoices()
-	const [selectedDate, setSelectedDate] = useState(() =>
-		initialSelectedDate(weekDays, meals),
+	const [searchParams] = useSearchParams()
+	const targetMealId = searchParams.get('mealId')
+	const targetDate = meals.find((meal) => meal.id === targetMealId)?.dateStr
+	const [selectedDate, setSelectedDate] = useState(
+		() => targetDate ?? initialSelectedDate(weekDays, meals),
 	)
+	useEffect(() => {
+		if (targetDate) setSelectedDate(targetDate)
+	}, [targetMealId, targetDate])
 
 	useEffect(() => {
 		if (!weekDays.some((date) => serializeDate(date) === selectedDate)) {

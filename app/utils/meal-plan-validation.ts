@@ -51,13 +51,16 @@ const GuestCountSchema = z.coerce
 
 /**
  * The edit-details form always submits every field, so an absent (empty)
- * optional means "cleared". A submitted time needs the browser's IANA zone to
+ * optional means "cleared". A submitted time needs an IANA zone to
  * name an instant; the zone input is hidden and filled by script, so a missing
  * pair is a forged request rather than a user mistake.
  */
 export const MealDetailsSchema = z
 	.object({
 		mealId: z.string().min(1),
+		date: z.iso
+			.date({ message: 'Pick a valid date' })
+			.transform((date) => new Date(date)),
 		label: MealLabelSchema.optional(),
 		time: ServingTimeSchema.optional(),
 		timeZone: z.string().optional(),

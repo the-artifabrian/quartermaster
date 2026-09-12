@@ -7,6 +7,7 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
+import { servingWallTime } from '#app/utils/serving-time.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { action, loader } from './index.tsx'
@@ -162,6 +163,352 @@ function findHouseholdMeals(householdId: string) {
 		include: { recipeItems: { orderBy: { order: 'asc' } } },
 	})
 }
+
+describe('moving a Meal through Edit details', () => {
+	async function setupTextMeal(date = '2026-02-02') {
+		const session = await setupUser()
+		await act(session, {
+			intent: 'addTextMeal',
+			date,
+			text: 'Leftovers',
+		})
+		const [meal] = await findHouseholdMeals(session.householdId)
+		return { session, meal: meal! }
+	}
+
+	test('moves the existing Menu snapshot and preserves every child and Shopping relationship', async () => {
+		const session = await setupUser()
+		const { menu } = await setupMenu(session.userId, session.householdId)
+		const section = await prisma.menuSection.findFirstOrThrow({
+			where: { menuId: menu.id },
+		})
+		await prisma.menuItem.create({
+			data: {
+				sectionId: section.id,
+				kind: 'note',
+				order: 2,
+				note: 'Serve with sparkling water',
+				shoppingLines: {
+					create: {
+						name: 'sparkling water',
+						quantity: '2',
+						unit: 'bottles',
+						order: 0,
+					},
+				},
+			},
+		})
+		await act(session, {
+			intent: 'addMenu',
+			date: '2026-02-02',
+			menuId: menu.id,
+		})
+		const [meal] = await findHouseholdMeals(session.householdId)
+		await prisma.mealRecipeItem.update({
+			where: { id: meal!.recipeItems[0]!.id },
+			data: { cooked: true, note: 'Chill first' },
+		})
+		await act(session, { intent: 'addMealToShopping', mealId: meal!.id })
+		const readMeal = () =>
+			prisma.meal.findUniqueOrThrow({
+				where: { id: meal!.id },
+				include: {
+					recipeItems: { orderBy: { id: 'asc' } },
+					sections: { orderBy: { id: 'asc' } },
+					noteItems: { include: { shoppingLines: true } },
+					shoppingContributions: { orderBy: { id: 'asc' } },
+				},
+			})
+		const readShopping = () =>
+			prisma.shoppingListItem.findMany({
+				where: { list: { householdId: session.householdId } },
+				orderBy: { id: 'asc' },
+			})
+		const before = await readMeal()
+		const shopping = await readShopping()
+		expect(shopping.length).toBeGreaterThan(0)
+		expect(before.shoppingContributions.length).toBeGreaterThan(0)
+
+		const response = await act(session, {
+			intent: 'updateMealDetails',
+			mealId: meal!.id,
+			date: '2026-02-13',
+			label: 'dinner',
+			guestCount: '6',
+		})
+		expect(response).toBeInstanceOf(Response)
+		expect((response as Response).headers.get('Location')).toBe(
+			`/plan?weekStart=2026-02-09&mealId=${meal!.id}`,
+		)
+		const after = await readMeal()
+		expect(after).toEqual({
+			...before,
+			date: new Date('2026-02-13'),
+			mealPlanId: expect.any(String),
+			updatedAt: expect.any(Date),
+			label: 'dinner',
+			guestCount: 6,
+		})
+		expect(after.mealPlanId).not.toBe(before.mealPlanId)
+		expect(
+			await prisma.mealPlan.findUniqueOrThrow({
+				where: { id: after.mealPlanId },
+			}),
+		).toMatchObject({
+			householdId: session.householdId,
+			weekStart: new Date('2026-02-09'),
+		})
+		expect(await readShopping()).toEqual(shopping)
+		expect(
+			(
+				await loader({
+					request: await makeLoaderRequest(session, '2026-02-02'),
+					...ACTION_ARGS_BASE,
+				})
+			).meals,
+		).toEqual([])
+		expect(
+			(
+				await loader({
+					request: await makeLoaderRequest(session, '2026-02-09'),
+					...ACTION_ARGS_BASE,
+				})
+			).meals.map((m) => m.id),
+		).toEqual([meal!.id])
+	})
+
+	test.each(['2026-02-04', '2026-02-13'])(
+		'appends to %s, keeps same-date order, and saves text and completion together',
+		async (date) => {
+			const { session, meal } = await setupTextMeal()
+			await prisma.meal.update({
+				where: { id: meal.id },
+				data: { completed: true, order: 3 },
+			})
+			await act(session, {
+				intent: 'addTextMeal',
+				date,
+				text: 'Already planned',
+			})
+			const destination = (await findHouseholdMeals(session.householdId)).find(
+				(m) => m.id !== meal.id,
+			)!
+			// Recovered rows can use INTEGER dates. Append must still see their order.
+			await prisma.$executeRaw`UPDATE "Meal" SET "date" = ${new Date(date).getTime()}, "order" = 7 WHERE "id" = ${destination.id}`
+			const fields = {
+				intent: 'updateMealDetails',
+				mealId: meal.id,
+				date,
+				text: 'Takeout instead',
+				label: 'dinner',
+			}
+			await act(session, fields)
+			let updated = await prisma.meal.findUniqueOrThrow({
+				where: { id: meal.id },
+			})
+			expect(updated).toMatchObject({
+				date: new Date(date),
+				order: 8,
+				mealPlanId: destination.mealPlanId,
+				completed: true,
+				genericText: 'Takeout instead',
+				servingAt: null,
+				servingTimeZone: null,
+			})
+			// An unchanged date must not append again even after another Meal is added.
+			await act(session, {
+				intent: 'addTextMeal',
+				date,
+				text: 'Later addition',
+			})
+			expect(await act(session, { ...fields, label: 'lunch' })).toEqual({
+				status: 'success',
+			})
+			updated = await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } })
+			expect(updated).toMatchObject({
+				order: 8,
+				label: 'lunch',
+				completed: true,
+			})
+		},
+	)
+
+	test.each<Record<string, string>>([
+		{ date: '' },
+		{ date: '2026-02-30' },
+		{ date: 'not-a-date' },
+		{ date: '2026-02-13T18:00:00Z' },
+		{ guestCount: '1000' },
+		{ time: '39:99', timeZone: 'Europe/Berlin' },
+		{ time: '18:30', timeZone: 'invalid-zone' },
+	])('invalid details leave no partial move: %j', async (invalid) => {
+		const { session, meal } = await setupTextMeal()
+		const result = await act(session, {
+			intent: 'updateMealDetails',
+			mealId: meal.id,
+			date: '2026-02-13',
+			text: 'Changed',
+			...invalid,
+		})
+		expect(result).toMatchObject({ status: 'error' })
+		expect(await findHouseholdMeals(session.householdId)).toEqual([meal])
+		expect(
+			await prisma.mealPlan.count({
+				where: { householdId: session.householdId },
+			}),
+		).toBe(1)
+	})
+
+	test('denied and missing Meals create no destination plan or partial edits', async () => {
+		const { session, meal } = await setupTextMeal()
+		const outsider = await setupUser()
+		for (const mealId of [meal.id, 'missing-meal']) {
+			await expect(
+				act(outsider, {
+					intent: 'updateMealDetails',
+					mealId,
+					date: '2026-02-13',
+					text: 'Changed',
+				}),
+			).rejects.toMatchObject({ status: 404 })
+		}
+		expect(await findHouseholdMeals(session.householdId)).toEqual([meal])
+		expect(
+			await prisma.mealPlan.count({
+				where: { householdId: outsider.householdId },
+			}),
+		).toBe(0)
+	})
+
+	test('a failed write rolls back destination creation and all details', async () => {
+		const { session, meal } = await setupTextMeal()
+		await prisma.$executeRawUnsafe(
+			`CREATE TRIGGER fail_meal_move BEFORE UPDATE ON "Meal" BEGIN SELECT RAISE(ABORT, 'injected move failure'); END`,
+		)
+		try {
+			await expect(
+				act(session, {
+					intent: 'updateMealDetails',
+					mealId: meal.id,
+					date: '2026-02-13',
+					label: 'dinner',
+					text: 'Changed',
+					time: '18:30',
+					timeZone: 'Europe/Berlin',
+					guestCount: '6',
+				}),
+			).rejects.toThrow()
+		} finally {
+			await prisma.$executeRawUnsafe('DROP TRIGGER fail_meal_move')
+		}
+		expect(await findHouseholdMeals(session.householdId)).toEqual([meal])
+		expect(
+			await prisma.mealPlan.count({
+				where: { householdId: session.householdId },
+			}),
+		).toBe(1)
+	})
+
+	test.each([
+		[
+			'Europe/Berlin',
+			'2026-03-29',
+			'18:30',
+			'2026-03-29T16:30:00.000Z',
+			'18:30',
+		],
+		[
+			'Europe/Berlin',
+			'2026-03-29',
+			'02:30',
+			'2026-03-29T01:30:00.000Z',
+			'03:30',
+		],
+		[
+			'Europe/Berlin',
+			'2026-10-25',
+			'02:30',
+			'2026-10-25T01:30:00.000Z',
+			'02:30',
+		],
+		[
+			'America/New_York',
+			'2026-03-08',
+			'02:30',
+			'2026-03-08T06:30:00.000Z',
+			'01:30',
+		],
+		[
+			'America/New_York',
+			'2026-11-01',
+			'01:30',
+			'2026-11-01T05:30:00.000Z',
+			'01:30',
+		],
+		[
+			'Pacific/Auckland',
+			'2026-02-13',
+			'00:30',
+			'2026-02-12T11:30:00.000Z',
+			'00:30',
+		],
+	])(
+		'reuses stored-zone conversion: %s on %s at %s',
+		async (zone, date, time, instant, displayed) => {
+			const { session, meal } = await setupTextMeal()
+			await act(session, {
+				intent: 'updateMealDetails',
+				mealId: meal.id,
+				date: '2026-02-02',
+				time,
+				timeZone: zone,
+			})
+			// A browser in another zone must not reinterpret an existing serving time.
+			await act(session, {
+				intent: 'updateMealDetails',
+				mealId: meal.id,
+				date,
+				time,
+				timeZone: 'Asia/Tokyo',
+			})
+			const updated = await prisma.meal.findUniqueOrThrow({
+				where: { id: meal.id },
+			})
+			expect(updated.servingTimeZone).toBe(zone)
+			expect(updated.servingAt?.toISOString()).toBe(instant)
+			expect(servingWallTime(updated.servingAt!, zone)).toBe(displayed)
+		},
+	)
+
+	test('unchanged details preserve either occurrence of an overlapping serving time', async () => {
+		const { session, meal } = await setupTextMeal('2026-10-25')
+		for (const instant of [
+			'2026-10-25T00:30:00.000Z',
+			'2026-10-25T01:30:00.000Z',
+		]) {
+			await prisma.meal.update({
+				where: { id: meal.id },
+				data: {
+					servingAt: new Date(instant),
+					servingTimeZone: 'Europe/Berlin',
+				},
+			})
+			await act(session, {
+				intent: 'updateMealDetails',
+				mealId: meal.id,
+				date: '2026-10-25',
+				time: '02:30',
+				timeZone: 'Asia/Tokyo',
+				label: 'lunch',
+			})
+			expect(
+				(
+					await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } })
+				).servingAt?.toISOString(),
+			).toBe(instant)
+		}
+	})
+})
 
 describe('meal plan actions', () => {
 	test('addMeal keeps a 1× manual batch when Recipe yield is unknown', async () => {
@@ -379,7 +726,7 @@ describe('meal plan actions', () => {
 			{ intent: 'removeMeal', mealId: meal!.id },
 			{ intent: 'moveMeal', mealId: meal!.id, direction: 'up' },
 			{ intent: 'addRecipeToMeal', mealId: meal!.id, recipeId: recipe.id },
-			{ intent: 'updateMealDetails', mealId: meal!.id },
+			{ intent: 'updateMealDetails', mealId: meal!.id, date: '2026-02-02' },
 		]
 		for (const fields of denied) {
 			await expect(act(outsider, fields)).rejects.toEqual(
@@ -718,6 +1065,7 @@ describe('meal plan actions', () => {
 
 		await act(session, {
 			intent: 'updateMealDetails',
+			date: '2026-02-02',
 			mealId: meal!.id,
 			label: 'dinner',
 			time: '18:30',
@@ -739,6 +1087,7 @@ describe('meal plan actions', () => {
 		// A forged non-clock time is rejected, not rolled over into later days.
 		const forged = await act(session, {
 			intent: 'updateMealDetails',
+			date: '2026-02-02',
 			mealId: meal!.id,
 			time: '39:99',
 			timeZone: 'Europe/Berlin',
@@ -748,7 +1097,11 @@ describe('meal plan actions', () => {
 		expect(updated.servingAt?.toISOString()).toBe('2026-02-02T17:30:00.000Z')
 
 		// The form always submits every field, so absence clears.
-		await act(session, { intent: 'updateMealDetails', mealId: meal!.id })
+		await act(session, {
+			intent: 'updateMealDetails',
+			mealId: meal!.id,
+			date: '2026-02-02',
+		})
 		updated = await prisma.meal.findUniqueOrThrow({ where: { id: meal!.id } })
 		expect(updated).toMatchObject({
 			label: null,
@@ -777,6 +1130,7 @@ describe('meal plan actions', () => {
 
 		await act(session, {
 			intent: 'updateMealDetails',
+			date: '2026-02-02',
 			mealId: textMeal.id,
 			text: 'Takeout instead',
 		})
@@ -788,6 +1142,7 @@ describe('meal plan actions', () => {
 		// Generic text and Recipe items stay mutually exclusive (#98).
 		await act(session, {
 			intent: 'updateMealDetails',
+			date: '2026-02-03',
 			mealId: recipeMeal.id,
 			text: 'Sneaky text',
 		})

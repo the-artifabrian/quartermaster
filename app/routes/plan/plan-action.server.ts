@@ -1,7 +1,8 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
+import { redirect } from 'react-router'
 import { type PrismaClient } from '#app/generated/prisma/client.ts'
-import { getWeekStart } from '#app/utils/date.ts'
+import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
@@ -24,7 +25,10 @@ import {
 } from '#app/utils/meal.server.ts'
 import { ScaleMultiplierSchema } from '#app/utils/menu-validation.ts'
 import { planMenu } from '#app/utils/plan-menu.server.ts'
-import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
+import {
+	servingInstantFromWallTime,
+	servingWallTime,
+} from '#app/utils/serving-time.ts'
 import {
 	reconcileMealShoppingContributions,
 	removeMealWithShoppingContributions,
@@ -55,9 +59,12 @@ export function createPlanAction(
 
 		// Every id submitted by the client is re-resolved through the household
 		// before any write — other-household Meals, items, and Recipes 404.
-		async function requireMeal(mealId: unknown) {
+		async function requireMeal(
+			mealId: unknown,
+			mealDb: Pick<PrismaClient, 'meal'> = db,
+		) {
 			invariantResponse(typeof mealId === 'string', 'Meal ID is required')
-			const meal = await db.meal.findFirst({
+			const meal = await mealDb.meal.findFirst({
 				where: { id: mealId, mealPlan: { householdId } },
 			})
 			invariantResponse(meal, 'Meal not found', { status: 404 })
@@ -337,30 +344,68 @@ export function createPlanAction(
 			if (submission.status !== 'success') {
 				return { status: 'error' as const, submission: submission.reply() }
 			}
-			const { mealId, label, time, timeZone, guestCount, text } =
+			const { mealId, date, label, time, timeZone, guestCount, text } =
 				submission.value
-			const meal = await requireMeal(mealId)
-			// Serving time is stored as one UTC instant plus its originating IANA
-			// zone, recomputed from the Meal's semantic date (#98).
-			const servingAt =
-				time != null
-					? servingInstantFromWallTime(meal.date, time, timeZone!)
-					: null
-			await db.meal.update({
-				where: { id: meal.id },
-				data: {
-					label: label ?? null,
-					servingAt,
-					servingTimeZone: servingAt ? timeZone : null,
-					guestCount: guestCount ?? null,
-					// Generic text stays what identifies a text-only Meal — it is
-					// editable but never removable or addable here (#98: text and
-					// Recipe items are mutually exclusive for a saved Meal).
-					...(meal.genericText != null && text != null
-						? { genericText: text }
-						: {}),
-				},
+			const moved = await db.$transaction(async (tx) => {
+				const meal = await requireMeal(mealId, tx)
+				const moved = date.getTime() !== meal.date.getTime()
+				const weekStart = getWeekStart(date)
+				const mealPlanId =
+					getWeekStart(meal.date).getTime() === weekStart.getTime()
+						? meal.mealPlanId
+						: (await ensureMealPlan(tx, { householdId, weekStart })).id
+				let order = meal.order
+				if (moved) {
+					// Compare semantic dates after reading: recovered SQLite data can
+					// store the same date as either INTEGER milliseconds or ISO text.
+					const destinationMeals = await tx.meal.findMany({
+						where: { mealPlanId },
+						select: { date: true, order: true },
+					})
+					order =
+						destinationMeals.reduce(
+							(max, other) =>
+								other.date.getTime() === date.getTime()
+									? Math.max(max, other.order)
+									: max,
+							-1,
+						) + 1
+				}
+				// Existing times keep their stored zone, including when edited from
+				// another browser zone. An unchanged time also keeps its exact
+				// instant (which may be either occurrence of an autumn overlap).
+				const zone = meal.servingTimeZone ?? timeZone!
+				const servingAt =
+					time == null
+						? null
+						: !moved &&
+							  meal.servingAt &&
+							  servingWallTime(meal.servingAt, zone) === time
+							? meal.servingAt
+							: servingInstantFromWallTime(date, time, zone)
+				await tx.meal.update({
+					where: { id: meal.id },
+					data: {
+						date,
+						mealPlanId,
+						order,
+						label: label ?? null,
+						servingAt,
+						servingTimeZone: servingAt ? zone : null,
+						guestCount: guestCount ?? null,
+						// Text remains exclusive to text-only Meals.
+						...(meal.genericText != null && text != null
+							? { genericText: text }
+							: {}),
+					},
+				})
+				return moved
 			})
+			if (moved) {
+				return redirect(
+					`/plan?weekStart=${serializeDate(getWeekStart(date))}&mealId=${encodeURIComponent(mealId)}`,
+				)
+			}
 			return { status: 'success' as const }
 		}
 

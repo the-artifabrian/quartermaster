@@ -2,10 +2,11 @@
 
 ## Where things stand
 
-Quartermaster is a daily-used personal app. The core loop works:
+Quartermaster is a solo project used daily by its maintainer, built for personal
+use and portfolio value. The core loop works:
 
 ```text
-save Recipes → plan Meals → generate Shopping → cook
+save Recipes → plan Meals → build Shopping → cook
 ```
 
 Roadmap [#98](https://github.com/the-artifabrian/quartermaster/issues/98) is
@@ -16,18 +17,23 @@ removed because they added more friction than value. Romanian/RON costing was
 tested on fixed examples and stopped because useful coverage required too much
 identity and price-catalogue work.
 
-#250 and #126 remain normal-use observation logs, not implementation gates.
-Archived Pantry cleanup (#120), reviewed metadata suggestions (#127), discovery
-sections (#129), product costing (#133–#136), and durable ingredient links
-(#144) are deferred until real use gives them a reason to return. Their unused
-observation tickets (#128 and #130) are closed.
+#250 is an optional place for Staples notes; the formal #126 metadata checkpoint
+is retired. Current priorities and task decisions live in
+[#249](https://github.com/the-artifabrian/quartermaster/issues/249). Archived
+Pantry cleanup (#120), reviewed metadata suggestions (#127), discovery sections
+(#129), product costing (#133–#136), and durable ingredient links (#144) are
+deferred until real use gives them a reason to return. Their unused observation
+tickets (#128 and #130) are closed.
 
 ## Product direction
 
-Quartermaster should be a tight daily driver, not a kitchen-management system. A
-feature should reduce setup, clarify Shopping, or help once a Recipe has been
-chosen. If it adds recurring maintenance or visible complexity without regular
-value, simplify or remove it.
+Quartermaster should stay useful and pleasant for everyday cooking. The normal
+path is choosing a Recipe, planning it, then selectively adding ingredients to
+Shopping; direct Shopping entry is also common. Full-plan generation is
+optional. A feature should remove real work, improve an interaction or deliver a
+measurable technical benefit. Portfolio value includes understandable code and
+polished behavior. Simplify or remove work whose maintenance and complexity
+outweigh its usefulness.
 
 Current product rules:
 
@@ -49,6 +55,9 @@ Current product rules:
   progress, review findings and verification. Create, update and close issues as
   the work progresses. Keep local documentation minimal and limited to durable
   project guidance; put task-specific handoffs in the issue.
+- Keep only a small next-work selection. Open issues are candidates, not
+  delivery commitments; close dormant proposals and choose again after a focused
+  change.
 - Implement one focused, reversible issue on its own local branch, preserving
   unrelated local work. Run appropriate checks and exercise affected journeys
   with disposable data.
@@ -56,9 +65,10 @@ Current product rules:
   correctness, regressions, failure handling, and unnecessary complexity. Fix
   worthwhile findings within scope; record unrelated findings separately. Rerun
   affected checks and review the fixes before handing over.
-- Provide Alex with manual testing steps in the GitHub issue: exact
-  checkout/start commands, disposable data setup, journeys to try, expected
-  results, and known limitations.
+- Provide working local startup/data instructions and one useful ordinary
+  journey for Alex to review, with the expected result and material limitations.
+  Put detailed automated failure evidence in the issue; do not require manual
+  replay of every tested case.
 - Wait for Alex's explicit approval before opening a PR. If manual testing finds
   problems, fix and recheck them locally, then provide updated testing steps.
   Continue independent authorized work while waiting.
@@ -89,8 +99,9 @@ Current product rules:
    behavior. Archived Pantry rows remain recoverable; #250 collects normal-use
    notes and #120 cleanup is deferred.
 3. **Recipe metadata and discovery (#121–#130).** Honest nullable time/yield and
-   the small Cuisine/Season/Course vocabulary shipped. #126 collects normal-use
-   notes. Reviewed metadata suggestions and discovery sections did not earn
+   the small Cuisine/Season/Course vocabulary shipped. The formal #126
+   observation checkpoint is retired; concrete problems can be recorded when
+   they arise. Reviewed metadata suggestions and discovery sections did not earn
    implementation and remain deferred; their unused observation tickets are
    closed.
 4. **Costing (#131–#136).** The reproducible Romanian/RON spike produced honest

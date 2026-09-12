@@ -1,4 +1,5 @@
 import { type HouseholdEventData } from './household-events.server.ts'
+import { getHouseholdClientId } from './household-client.tsx'
 
 type EventCallback = (event: HouseholdEventData) => void
 
@@ -33,6 +34,7 @@ function broadcast(event: HouseholdEventData) {
 	}
 
 	for (const cb of listeners) {
+		if (event.payload.originClientId === getHouseholdClientId()) continue
 		cb(event)
 	}
 }

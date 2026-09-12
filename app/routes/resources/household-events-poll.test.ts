@@ -88,7 +88,7 @@ describe('household-events-poll loader', () => {
 		expect(result.data.events).toEqual([])
 	})
 
-	test('returns events after since timestamp, excluding own events', async () => {
+	test('returns household events including the acting account’s other devices', async () => {
 		const user = await setupUser()
 		const otherUser = await setupOtherUser(user.householdId)
 		const cookie = await getSessionCookieHeader(user)
@@ -106,7 +106,7 @@ describe('household-events-poll loader', () => {
 			},
 		})
 
-		// Create an event from the current user (should be excluded)
+		// Own-account events must reach other documents/devices too.
 		await prisma.householdEvent.create({
 			data: {
 				type: 'shopping_list_item_added',
@@ -125,7 +125,8 @@ describe('household-events-poll loader', () => {
 			),
 		})) as { data: { events: any[] } }
 
-		expect(result.data.events).toHaveLength(1)
+		expect(result.data.events).toHaveLength(2)
+		expect(result.data.events[1].payload).toEqual({ name: 'Salad' })
 		expect(result.data.events[0].type).toBe('shopping_list_item_added')
 		expect(result.data.events[0].payload).toEqual({ name: 'Pasta' })
 		expect(result.data.events[0].userId).toBe(otherUser.userId)

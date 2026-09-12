@@ -95,6 +95,15 @@ A Meal contribution stores current generated provenance, not event history.
 Refreshing one Meal replaces only that Meal’s contribution and preserves manual
 rows, other Meals, and compatible checked state.
 
+Shopping checks submit an explicit state and the observed purchase version.
+SQLite triggers advance that version for row and Meal-contribution changes, so
+checking cannot silently cover demand added after the shopper saw it. One latest
+request ID permits safe checkbox retries without an operation history. The open
+page reconciles uncertain writes before replay and excludes pending checks from
+Clear checked; it does not retain an offline queue. JSON recovery creates fresh
+write identities while preserving purchase data. Table-rebuild migrations must
+retain the version triggers.
+
 ## Staples and legacy Pantry
 
 `HouseholdIngredient` is the active household availability model. A row has a

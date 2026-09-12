@@ -73,6 +73,12 @@ import {
 	mergeOptimisticShoppingItems,
 } from '#app/utils/shopping-optimistic.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
+import { writeShoppingCheck } from '#app/utils/shopping-check.server.ts'
+import { useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
+import {
+	getHouseholdClientId,
+	HouseholdClientInput,
+} from '#app/utils/household-client.tsx'
 import { type Route } from './+types/shopping.ts'
 
 export const handle: SEOHandle = {
@@ -280,6 +286,7 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 
 		void emitHouseholdEvent({
+			originClientId: formData.get('originClientId'),
 			type: 'shopping_list_generated',
 			payload: { count: dedupedItems.length + promotedIds.length },
 			userId,
@@ -393,6 +400,7 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 
 		void emitHouseholdEvent({
+			originClientId: formData.get('originClientId'),
 			type: 'shopping_list_item_added',
 			payload: { name },
 			userId,
@@ -406,30 +414,7 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	if (intent === 'toggle') {
-		const itemId = formData.get('itemId')
-		invariantResponse(typeof itemId === 'string', 'Item ID is required')
-
-		const item = await prisma.shoppingListItem.findFirst({
-			where: {
-				id: itemId,
-				list: { householdId },
-			},
-		})
-		invariantResponse(item, 'Item not found', { status: 404 })
-
-		await prisma.shoppingListItem.update({
-			where: { id: itemId },
-			data: { checked: !item.checked },
-		})
-
-		void emitHouseholdEvent({
-			type: 'shopping_list_item_toggled',
-			payload: { name: item.name, checked: !item.checked },
-			userId,
-			householdId,
-		})
-
-		return { status: 'success' as const }
+		return writeShoppingCheck(prisma, { householdId, userId }, formData)
 	}
 
 	if (intent === 'move') {
@@ -446,6 +431,7 @@ export async function action({ request }: Route.ActionArgs) {
 			data: { horizon },
 		})
 		void emitHouseholdEvent({
+			originClientId: formData.get('originClientId'),
 			type: 'shopping_list_item_edited',
 			payload: { name: item.name, horizon },
 			userId,
@@ -481,6 +467,7 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 		if (result.count > 0) {
 			void emitHouseholdEvent({
+				originClientId: formData.get('originClientId'),
 				type: 'shopping_list_item_edited',
 				payload: { count: result.count, horizon },
 				userId,
@@ -505,6 +492,7 @@ export async function action({ request }: Route.ActionArgs) {
 		await prisma.shoppingListItem.delete({ where: { id: itemId } })
 
 		void emitHouseholdEvent({
+			originClientId: formData.get('originClientId'),
 			type: 'shopping_list_item_deleted',
 			payload: { name: item.name },
 			userId,
@@ -541,6 +529,7 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 
 		void emitHouseholdEvent({
+			originClientId: formData.get('originClientId'),
 			type: 'shopping_list_item_edited',
 			payload: { name: submission.value.name },
 			userId,
@@ -565,6 +554,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		await removeGeneratedShoppingAmount(prisma, { itemId })
 		void emitHouseholdEvent({
+			originClientId: formData.get('originClientId'),
 			type: 'shopping_list_item_edited',
 			payload: { name: item.name },
 			userId,
@@ -575,15 +565,20 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if (intent === 'clear-checked') {
 		const horizon = parseShoppingHorizon(formData.get('horizon'))
+		const excludedIds = formData
+			.getAll('pendingItemId')
+			.filter((id): id is string => typeof id === 'string')
 		await prisma.shoppingListItem.deleteMany({
 			where: {
 				listId: shoppingList.id,
 				checked: true,
 				horizon,
+				id: { notIn: excludedIds },
 			},
 		})
 
 		void emitHouseholdEvent({
+			originClientId: formData.get('originClientId'),
 			type: 'shopping_list_cleared',
 			payload: {},
 			userId,
@@ -649,6 +644,7 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 
 			void emitHouseholdEvent({
+				originClientId: formData.get('originClientId'),
 				type: 'shopping_list_item_added',
 				payload: { count: newItems.length, source: 'voice' },
 				userId,
@@ -769,6 +765,7 @@ function LaterQuickAdd() {
 				}}
 				className="flex items-center gap-2"
 			>
+				<HouseholdClientInput />
 				<input type="hidden" name="intent" value="add" />
 				<input type="hidden" name="horizon" value={LATER} />
 				{canForce && <input type="hidden" name="force" value="true" />}
@@ -797,16 +794,19 @@ function LaterQuickAdd() {
 }
 
 function ShoppingItems({
+	checks,
 	items,
 	voiceAddedNames,
 }: {
 	items: DisplayShoppingItem[]
+	checks: ReturnType<typeof useShoppingChecks>
 	voiceAddedNames: Set<string>
 }) {
 	return (
 		<div className="divide-border/40 divide-y">
 			{items.map((item) => (
 				<ShoppingListItemCard
+					checks={checks}
 					key={item.id}
 					item={item}
 					isVoiceAdded={voiceAddedNames.has(item.name.toLowerCase().trim())}
@@ -820,10 +820,12 @@ function ClearCheckedControl({
 	checkedCount,
 	horizon,
 	pending,
+	pendingIds,
 }: {
 	checkedCount: number
 	horizon: ShoppingHorizon
 	pending: boolean
+	pendingIds: string[]
 }) {
 	if (checkedCount === 0) return null
 	const sectionLabel = horizon === LATER ? 'Later' : 'Next shop'
@@ -842,7 +844,11 @@ function ClearCheckedControl({
 					}
 				}}
 			>
+				<HouseholdClientInput />
 				<input type="hidden" name="intent" value="clear-checked" />
+				{pendingIds.map((id) => (
+					<input key={id} type="hidden" name="pendingItemId" value={id} />
+				))}
 				<input type="hidden" name="horizon" value={horizon} />
 				<PendingButton
 					type="submit"
@@ -871,6 +877,7 @@ export default function ShoppingListRoute({
 		staplesEnabled,
 		shoppingIdentities,
 	} = loaderData
+	const checks = useShoppingChecks(shoppingList.items, shoppingList.id)
 	const defaultWeek =
 		weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
 		weeksWithPlans[0]?.weekStart ??
@@ -930,6 +937,7 @@ export default function ShoppingListRoute({
 							label: 'Move to Next shop',
 							onClick: () => {
 								const data = new FormData()
+								data.set('originClientId', getHouseholdClientId())
 								data.set('intent', 'move-items')
 								data.set('itemIds', JSON.stringify(moveItemIds))
 								data.set('horizon', NEXT_SHOP)
@@ -961,6 +969,7 @@ export default function ShoppingListRoute({
 			} else {
 				// Multiple items: bulk-add directly
 				const fd = new FormData()
+				fd.set('originClientId', getHouseholdClientId())
 				fd.set('intent', 'bulk-add')
 				fd.set('items', JSON.stringify(items))
 				fd.set('horizon', NEXT_SHOP)
@@ -1012,15 +1021,16 @@ export default function ShoppingListRoute({
 	}, [quickAddFetcher.state, quickAddFetcher.data])
 
 	const pendingAddedItems = usePendingShoppingItems(shoppingList.id)
-	const allItems = mergeOptimisticShoppingItems(
-		shoppingList.items,
-		pendingAddedItems,
-	)
+	const allItems = mergeOptimisticShoppingItems(checks.items, pendingAddedItems)
 	const totalItems = allItems.length
 	const nextItems = allItems.filter((item) => item.horizon === NEXT_SHOP)
 	const laterItems = allItems.filter((item) => item.horizon === LATER)
-	const checkedNextItems = nextItems.filter((item) => item.checked).length
-	const checkedLaterItems = laterItems.filter((item) => item.checked).length
+	const checkedNextItems = nextItems.filter(
+		(item) => item.checked && !checks.pendingIds.includes(item.id),
+	).length
+	const checkedLaterItems = laterItems.filter(
+		(item) => item.checked && !checks.pendingIds.includes(item.id),
+	).length
 
 	const searchLower = search.toLowerCase()
 	const filterBySearch = (items: typeof allItems) =>
@@ -1048,6 +1058,13 @@ export default function ShoppingListRoute({
 	return (
 		<div className="pb-28 md:pb-6">
 			{isProActive && <ShoppingListLiveRefresh />}
+			{checks.notices.length > 0 && (
+				<div role="alert" className="container-narrow py-3 text-sm">
+					{checks.notices.map((message) => (
+						<p key={message}>{message}</p>
+					))}
+				</div>
+			)}
 			{/* Page Header */}
 			<div className="border-border/50 border-b">
 				<div className="container-narrow py-4">
@@ -1079,6 +1096,7 @@ export default function ShoppingListRoute({
 							)}
 							{hasMealPlan && (
 								<Form method="POST" className="flex items-center gap-2">
+									<HouseholdClientInput />
 									<input type="hidden" name="intent" value="generate" />
 									<input type="hidden" name="horizon" value={NEXT_SHOP} />
 									<input type="hidden" name="weekStart" value={defaultWeek} />
@@ -1144,6 +1162,7 @@ export default function ShoppingListRoute({
 							if (!qaName.trim()) e.preventDefault()
 						}}
 					>
+						<HouseholdClientInput />
 						<input type="hidden" name="intent" value="add" />
 						<input type="hidden" name="horizon" value={NEXT_SHOP} />
 						{canForceQuickAdd && (
@@ -1281,6 +1300,7 @@ export default function ShoppingListRoute({
 						>
 							{filteredNextItems.length > 0 ? (
 								<ShoppingItems
+									checks={checks}
 									items={filteredNextItems}
 									voiceAddedNames={voiceAddedNames}
 								/>
@@ -1318,6 +1338,7 @@ export default function ShoppingListRoute({
 							{!search && (
 								<ClearCheckedControl
 									checkedCount={checkedNextItems}
+									pendingIds={checks.pendingIds}
 									horizon={NEXT_SHOP}
 									pending={isClearingChecked && clearingHorizon === NEXT_SHOP}
 								/>
@@ -1361,6 +1382,7 @@ export default function ShoppingListRoute({
 							{!search && <LaterQuickAdd />}
 							{filteredLaterItems.length > 0 ? (
 								<ShoppingItems
+									checks={checks}
 									items={filteredLaterItems}
 									voiceAddedNames={voiceAddedNames}
 								/>
@@ -1372,6 +1394,7 @@ export default function ShoppingListRoute({
 							{!search && (
 								<ClearCheckedControl
 									checkedCount={checkedLaterItems}
+									pendingIds={checks.pendingIds}
 									horizon={LATER}
 									pending={isClearingChecked && clearingHorizon === LATER}
 								/>

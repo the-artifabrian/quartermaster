@@ -1291,6 +1291,9 @@ describe('Meal Shopping contributions across horizons (#175)', () => {
 		await runShoppingAction(session, {
 			intent: 'toggle',
 			itemId: lamb.id,
+			checked: 'true',
+			observedVersion: String(lamb.checkVersion),
+			mutationId: 'check-lamb',
 		})
 		await runShoppingAction(session, {
 			intent: 'move',

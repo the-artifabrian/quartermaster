@@ -14,6 +14,8 @@ function realItem(name: string, checked = false): ShoppingListItem {
 		unit: null,
 		category: 'other',
 		checked,
+		checkVersion: 0,
+		lastCheckMutationId: null,
 		source: 'manual',
 		horizon: 'next',
 		listId: 'list1',

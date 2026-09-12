@@ -303,7 +303,7 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 			await prisma.shoppingListItem.findUniqueOrThrow({
 				where: { id: manualSalt.id },
 			}),
-		).toEqual(manualSalt)
+		).toEqual({ ...manualSalt, checkVersion: manualSalt.checkVersion + 1 })
 		expect(
 			await prisma.mealShoppingContribution.count({
 				where: { mealId: meal.id, canonicalName: 'salt' },
@@ -336,7 +336,7 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 			await prisma.shoppingListItem.findUniqueOrThrow({
 				where: { id: manualSalt.id },
 			}),
-		).toEqual(manualSalt)
+		).toEqual({ ...manualSalt, checkVersion: manualSalt.checkVersion + 2 })
 		expect(
 			await prisma.mealShoppingContribution.count({
 				where: { mealId: meal.id, canonicalName: 'salt' },

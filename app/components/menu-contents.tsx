@@ -2,7 +2,6 @@ import { Link } from 'react-router'
 import { RecipeThumb } from '#app/components/recipe-selector.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
-import { sectionLabelClass } from '#app/utils/misc.tsx'
 import {
 	formatTargetYieldAmount,
 	getTypedYield,
@@ -37,7 +36,9 @@ export function MenuContents({
 					<section key={section.id}>
 						{/* The unnamed section stays headingless */}
 						{section.name ? (
-							<h2 className={`${sectionLabelClass} mb-3`}>{section.name}</h2>
+							<h2 className="border-border mb-1 border-b pb-1.5 font-serif text-lg font-normal md:mb-3">
+								{section.name}
+							</h2>
 						) : null}
 						{section.items.length === 0 ? (
 							section.name ? (
@@ -50,7 +51,7 @@ export function MenuContents({
 								</p>
 							)
 						) : (
-							<ul className="max-md:divide-border/50 max-md:border-border/50 max-md:bg-card/50 max-md:divide-y max-md:overflow-hidden max-md:rounded-lg max-md:border md:space-y-2">
+							<ul className="max-md:divide-border/40 max-md:divide-y md:space-y-2">
 								{section.items.map((item) =>
 									item.kind === 'note' ? (
 										<MenuNoteCard key={item.id} item={item} />
@@ -97,7 +98,7 @@ type MenuDetailItem = {
  */
 function MenuNoteCard({ item }: { item: MenuDetailItem }) {
 	return (
-		<li className="md:border-border/60 md:bg-card px-3.5 py-3 md:rounded-lg md:border md:p-3">
+		<li className="md:border-border/60 md:bg-card py-3.5 md:rounded-lg md:border md:p-3">
 			<div className="min-w-0">
 				<p className="min-w-0 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
 					{item.note}
@@ -162,9 +163,13 @@ function MenuRecipeCard({
 	const content = (
 		<>
 			{item.recipe ? (
-				<RecipeThumb title={title} image={item.recipe.image} />
+				<RecipeThumb
+					title={title}
+					image={item.recipe.image}
+					className="max-md:size-11"
+				/>
 			) : (
-				<span className="bg-muted/70 flex size-9 shrink-0 items-center justify-center rounded-md">
+				<span className="bg-muted/70 flex size-9 shrink-0 items-center justify-center rounded-md max-md:size-11">
 					<Icon
 						name="question-mark-circled"
 						className="text-muted-foreground size-4"
@@ -209,7 +214,7 @@ function MenuRecipeCard({
 								? `/recipes/${item.recipe.id}?scale=${formatScaleMultiplier(item.scaleMultiplier)}`
 								: `/recipes/${item.recipe.id}`
 					}
-					className="active:bg-muted/40 md:border-border/60 md:bg-card md:hover:bg-muted/40 flex items-center gap-3 px-3 py-3 transition-colors md:rounded-lg md:border md:p-3"
+					className="active:bg-muted/40 md:border-border/60 md:bg-card md:hover:bg-muted/40 flex items-center gap-3.5 py-3 transition-colors md:rounded-lg md:border md:p-3"
 				>
 					{content}
 				</Link>
@@ -217,7 +222,7 @@ function MenuRecipeCard({
 		)
 	}
 	return (
-		<li className="md:border-border/60 md:bg-muted/30 flex items-center gap-3 px-3 py-3 md:rounded-lg md:border md:border-dashed md:p-3">
+		<li className="md:border-border/60 md:bg-muted/30 flex items-center gap-3.5 py-3 md:rounded-lg md:border md:border-dashed md:p-3">
 			{content}
 		</li>
 	)

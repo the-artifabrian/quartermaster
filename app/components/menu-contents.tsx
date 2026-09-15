@@ -50,7 +50,7 @@ export function MenuContents({
 								</p>
 							)
 						) : (
-							<ul className="max-md:divide-border/40 max-md:-mx-4 max-md:divide-y sm:max-md:-mx-8 md:space-y-2">
+							<ul className="max-md:divide-border/50 max-md:border-border/50 max-md:bg-card/50 max-md:divide-y max-md:overflow-hidden max-md:rounded-lg max-md:border md:space-y-2">
 								{section.items.map((item) =>
 									item.kind === 'note' ? (
 										<MenuNoteCard key={item.id} item={item} />
@@ -97,7 +97,7 @@ type MenuDetailItem = {
  */
 function MenuNoteCard({ item }: { item: MenuDetailItem }) {
 	return (
-		<li className="md:border-border/60 md:bg-card px-4 py-3 sm:max-md:px-8 md:rounded-lg md:border md:p-3">
+		<li className="md:border-border/60 md:bg-card px-3.5 py-3 md:rounded-lg md:border md:p-3">
 			<div className="min-w-0">
 				<p className="min-w-0 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
 					{item.note}
@@ -209,7 +209,7 @@ function MenuRecipeCard({
 								? `/recipes/${item.recipe.id}?scale=${formatScaleMultiplier(item.scaleMultiplier)}`
 								: `/recipes/${item.recipe.id}`
 					}
-					className="active:bg-muted/40 md:border-border/60 md:bg-card md:hover:bg-muted/40 flex items-center gap-3 px-4 py-3 transition-colors sm:max-md:px-8 md:rounded-lg md:border md:p-3"
+					className="active:bg-muted/40 md:border-border/60 md:bg-card md:hover:bg-muted/40 flex items-center gap-3 px-3 py-3 transition-colors md:rounded-lg md:border md:p-3"
 				>
 					{content}
 				</Link>
@@ -217,7 +217,7 @@ function MenuRecipeCard({
 		)
 	}
 	return (
-		<li className="md:border-border/60 md:bg-muted/30 flex items-center gap-3 px-4 py-3 sm:max-md:px-8 md:rounded-lg md:border md:border-dashed md:p-3">
+		<li className="md:border-border/60 md:bg-muted/30 flex items-center gap-3 px-3 py-3 md:rounded-lg md:border md:border-dashed md:p-3">
 			{content}
 		</li>
 	)

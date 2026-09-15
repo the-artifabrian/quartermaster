@@ -1,5 +1,4 @@
 import { Link } from 'react-router'
-import { RecipeThumb } from '#app/components/recipe-selector.tsx'
 import { Icon } from './ui/icon.tsx'
 
 type MenuCardProps = {
@@ -19,10 +18,15 @@ export function MenuCard({
 	recipeCount = 0,
 	recipes = [],
 }: MenuCardProps) {
+	// What's on the Menu, by name, then who it's for.
+	const named = recipes.map((recipe) => recipe.title)
+	const remaining = recipeCount - named.length
+	const contents =
+		named.length > 0
+			? `${named.join(', ')}${remaining > 0 ? ` +${remaining}` : ''}`
+			: null
 	const meta = [
-		recipeCount > 0
-			? `${recipeCount} ${recipeCount === 1 ? 'recipe' : 'recipes'}`
-			: null,
+		contents,
 		defaultGuestCount ? `${defaultGuestCount} guests` : null,
 	].filter(Boolean)
 	return (
@@ -31,21 +35,7 @@ export function MenuCard({
 			viewTransition
 			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-all md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
 		>
-			{/* Menus carry no imagery of their own (Gate 1A dogfood); the row
-			    borrows a small stack of its Recipes' thumbs instead. */}
-			{recipes.length > 0 ? (
-				<span className="flex shrink-0 -space-x-3 md:hidden">
-					{recipes.map((recipe, index) => (
-						<RecipeThumb
-							key={index}
-							title={recipe.title}
-							image={recipe.image}
-							className="ring-background size-10 rounded-full ring-2"
-						/>
-					))}
-				</span>
-			) : null}
-
+			{/* Menus carry no imagery (Gate 1A dogfood) — the row is text. */}
 			{/* Content */}
 			<div className="flex min-w-0 flex-1 flex-col justify-center md:justify-start md:p-6">
 				<h3 className="min-w-0 font-serif text-[17px] leading-[1.4] md:text-base md:leading-[1.3] md:tracking-[-0.005em]">
@@ -59,7 +49,7 @@ export function MenuCard({
 					</span>
 				) : null}
 				{meta.length > 0 ? (
-					<span className="text-muted-foreground/80 mt-1 text-xs md:hidden">
+					<span className="text-muted-foreground/80 mt-1 line-clamp-1 text-xs md:hidden">
 						{meta.join(' · ')}
 					</span>
 				) : null}

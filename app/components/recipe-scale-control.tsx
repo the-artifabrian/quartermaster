@@ -221,10 +221,10 @@ export function RecipeIngredientsControls({
 						onClick={onToggleMetric}
 						aria-pressed={useMetric}
 						className={cn(
-							'focus-visible:ring-ring min-h-11 shrink-0 rounded-full px-2.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-hidden print:hidden',
+							'focus-visible:ring-ring flex h-8 shrink-0 items-center rounded-full border px-2.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-hidden print:hidden',
 							useMetric
-								? 'bg-primary text-primary-foreground'
-								: 'text-muted-foreground hover:text-foreground',
+								? 'border-border text-foreground'
+								: 'text-muted-foreground hover:text-foreground border-transparent',
 						)}
 					>
 						Metric

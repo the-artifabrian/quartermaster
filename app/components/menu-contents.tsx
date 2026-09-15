@@ -50,7 +50,7 @@ export function MenuContents({
 								</p>
 							)
 						) : (
-							<ul className="space-y-2">
+							<ul className="max-md:divide-border/40 max-md:-mx-4 max-md:divide-y sm:max-md:-mx-8 md:space-y-2">
 								{section.items.map((item) =>
 									item.kind === 'note' ? (
 										<MenuNoteCard key={item.id} item={item} />
@@ -97,30 +97,36 @@ type MenuDetailItem = {
  */
 function MenuNoteCard({ item }: { item: MenuDetailItem }) {
 	return (
-		<li className="border-border/60 bg-card flex items-start gap-3 rounded-lg border p-3">
-			<span className="bg-muted/70 flex size-9 shrink-0 items-center justify-center rounded-md">
-				<Icon name="pencil-2" className="text-muted-foreground size-4" />
-			</span>
-			<div className="min-w-0 flex-1">
+		<li className="md:border-border/60 md:bg-card px-4 py-3 sm:max-md:px-8 md:rounded-lg md:border md:p-3">
+			<div className="border-accent min-w-0 border-l-[3px] pl-3">
 				<p className="min-w-0 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
 					{item.note}
 				</p>
 				{item.shoppingLines.length > 0 ? (
-					<ul className="mt-2 space-y-1">
-						{item.shoppingLines.map((line) => (
-							<li
-								key={line.id}
-								className="text-muted-foreground flex items-baseline gap-1.5 text-sm"
-							>
-								<Icon name="cart" size="xs" className="translate-y-px" />
-								<span className="min-w-0 break-words">{line.name}</span>
-								{line.quantity || line.unit ? (
-									<span className="shrink-0 tabular-nums">
-										{[line.quantity, line.unit].filter(Boolean).join(' ')}
+					<ul className="mt-1.5 space-y-0.5">
+						{item.shoppingLines.map((line) => {
+							const quantity = [line.quantity, line.unit]
+								.filter(Boolean)
+								.join(' ')
+							return (
+								<li
+									key={line.id}
+									className="text-muted-foreground flex items-baseline gap-1.5 text-sm"
+								>
+									<Icon
+										name="cart"
+										size="xs"
+										className="shrink-0 translate-y-px"
+									/>
+									<span className="min-w-0 break-words">
+										{line.name}
+										{quantity ? (
+											<span className="tabular-nums"> · {quantity}</span>
+										) : null}
 									</span>
-								) : null}
-							</li>
-						))}
+								</li>
+							)
+						})}
 					</ul>
 				) : null}
 			</div>
@@ -141,14 +147,17 @@ function MenuRecipeCard({
 		item.scaleMultiplier != null
 			? scaleMultiplierToTargetYield(item.scaleMultiplier, recipeYield)
 			: null
-	// Multiplier remains the shared quantity vocabulary. Explicit yield only
-	// adds a friendly derived output after it.
-	const quantity =
+	// Multiplier remains the shared quantity vocabulary, but 1× is the default
+	// and reads as noise on every row — only a real scale shows the prefix.
+	const scaledPrefix =
+		item.scaleMultiplier != null && item.scaleMultiplier !== 1
+			? `${formatScaleMultiplier(item.scaleMultiplier)}×`
+			: null
+	const madeYield =
 		item.scaleMultiplier != null && recipeYield && targetYield != null
-			? `${formatScaleMultiplier(item.scaleMultiplier)}× · makes ${formatTargetYieldAmount(targetYield)} ${recipeYield.label}`
-			: item.scaleMultiplier != null && item.scaleMultiplier !== 1
-				? `${formatScaleMultiplier(item.scaleMultiplier)}×`
-				: null
+			? `makes ${formatTargetYieldAmount(targetYield)} ${recipeYield.label}`
+			: null
+	const quantity = [scaledPrefix, madeYield].filter(Boolean).join(' · ') || null
 
 	const content = (
 		<>
@@ -200,7 +209,7 @@ function MenuRecipeCard({
 								? `/recipes/${item.recipe.id}?scale=${formatScaleMultiplier(item.scaleMultiplier)}`
 								: `/recipes/${item.recipe.id}`
 					}
-					className="border-border/60 bg-card hover:bg-muted/40 flex items-center gap-3 rounded-lg border p-3 transition-colors"
+					className="active:bg-muted/40 md:border-border/60 md:bg-card md:hover:bg-muted/40 flex items-center gap-3 px-4 py-3 transition-colors sm:max-md:px-8 md:rounded-lg md:border md:p-3"
 				>
 					{content}
 				</Link>
@@ -208,7 +217,7 @@ function MenuRecipeCard({
 		)
 	}
 	return (
-		<li className="border-border/60 bg-muted/30 flex items-center gap-3 rounded-lg border border-dashed p-3">
+		<li className="md:border-border/60 md:bg-muted/30 flex items-center gap-3 px-4 py-3 sm:max-md:px-8 md:rounded-lg md:border md:border-dashed md:p-3">
 			{content}
 		</li>
 	)

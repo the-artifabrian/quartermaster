@@ -18,7 +18,7 @@ export function MenuCard({
 		<Link
 			to={`/recipes/menus/${id}`}
 			viewTransition
-			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-all md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
+			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-2.5 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-all md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
 		>
 			{/* Menus carry no imagery — the card is its title (Gate 1A dogfood) */}
 			{/* Content */}
@@ -27,8 +27,13 @@ export function MenuCard({
 					<span className="line-clamp-2">{title}</span>
 				</h3>
 
-				{/* Mobile meta: default guests only */}
-				{defaultGuestCount ? (
+				{/* Mobile meta: the description says more than a repeated guest
+				    count; guests trail it only when there is nothing else. */}
+				{description ? (
+					<span className="text-muted-foreground mt-0.5 line-clamp-1 text-[13px] md:hidden">
+						{description}
+					</span>
+				) : defaultGuestCount ? (
 					<span className="text-muted-foreground mt-0.5 flex items-center gap-1 text-[13px] md:hidden">
 						<Icon name="avatar" size="xs" />
 						{defaultGuestCount} guests

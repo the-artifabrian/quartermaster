@@ -53,7 +53,13 @@ test('Menu cooking carries each card scale without changing saved quantities', a
 		for (const [index, scale] of [2, 0.5, 1].entries()) {
 			await page.goto(`/recipes/menus/${menu.id}`)
 			const card = page.getByRole('link', { name: /Hummus.*makes/ }).nth(index)
-			await expect(card).toContainText(`${scale}× · makes ${4 * scale} bowls`)
+			// 1× is the default and stays implicit; only a real scale shows the prefix.
+			await expect(card).toContainText(
+				scale === 1
+					? `makes ${4 * scale} bowls`
+					: `${scale}× · makes ${4 * scale} bowls`,
+			)
+			if (scale === 1) await expect(card).not.toContainText('1×')
 			await card.click()
 			await expect(
 				page.getByRole('button', { name: `Scale ${scale}×` }),

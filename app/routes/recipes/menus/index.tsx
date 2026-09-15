@@ -27,11 +27,41 @@ export async function loader({ request }: Route.LoaderArgs) {
 			title: true,
 			description: true,
 			defaultGuestCount: true,
+			sections: {
+				orderBy: { order: 'asc' },
+				select: {
+					items: {
+						orderBy: { order: 'asc' },
+						where: { kind: 'recipe' },
+						select: {
+							recipe: {
+								select: {
+									title: true,
+									householdId: true,
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		orderBy: { updatedAt: 'desc' },
 	})
 
-	return { menus }
+	// The list carries no Menu imagery; each row names its Recipes in Menu
+	// order instead. Dangling references are skipped.
+	return {
+		menus: menus.map(({ sections, ...menu }) => {
+			const recipes = sections.flatMap((section) =>
+				section.items.flatMap((item) =>
+					item.recipe && item.recipe.householdId === householdId
+						? [{ title: item.recipe.title }]
+						: [],
+				),
+			)
+			return { ...menu, recipes }
+		}),
+	}
 }
 
 export default function MenusIndex({ loaderData }: Route.ComponentProps) {
@@ -72,6 +102,7 @@ export default function MenusIndex({ loaderData }: Route.ComponentProps) {
 								title={menu.title}
 								description={menu.description}
 								defaultGuestCount={menu.defaultGuestCount}
+								recipes={menu.recipes}
 							/>
 						))}
 					</RecipeCardGrid>

@@ -12,6 +12,7 @@ import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
 import { RecipeIngredientsSheet } from '#app/components/recipe-ingredients-sheet.tsx'
 import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
 import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
+import { RecipeNotes } from '#app/components/recipe-notes.tsx'
 import { RecipeIngredientsControls } from '#app/components/recipe-scale-control.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import {
@@ -738,20 +739,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</p>
 				)}
 
-				{/* My Notes */}
-				{recipe.notes && (
-					<div className="mt-6">
-						<div className="border-accent bg-accent/5 rounded-lg border-l-[3px] py-3 pr-4 pl-4">
-							<p className="text-muted-foreground mb-1 text-xs font-semibold tracking-wide uppercase">
-								My Notes
-							</p>
-							<pre className="font-handwritten text-[1.125rem] leading-relaxed whitespace-pre-wrap">
-								{recipe.notes}
-							</pre>
-						</div>
-					</div>
-				)}
-
 				{/* Action bar */}
 				<Popover open={planPickerOpen} onOpenChange={setPlanPickerOpen}>
 					<PopoverAnchor>
@@ -832,6 +819,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						</Button>
 					</PopoverContent>
 				</Popover>
+
+				{/* Personal notes sit under the actions, collapsed, so the header
+				    stays compact and Ingredients start within the first screen. */}
+				{recipe.notes && <RecipeNotes notes={recipe.notes} className="mt-4" />}
 
 				{usesLegacyPantry && !hasInventory && (
 					<OnboardingNudge

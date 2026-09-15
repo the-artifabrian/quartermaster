@@ -60,13 +60,17 @@ type RecipeSelectorProps = {
 export function RecipeThumb({
 	title,
 	image,
+	className,
 }: {
 	title: string
 	image: { objectKey: string } | null
+	className?: string
 }) {
 	if (image) {
 		return (
-			<span className="size-9 shrink-0 overflow-hidden rounded-md">
+			<span
+				className={cn('size-9 shrink-0 overflow-hidden rounded-md', className)}
+			>
 				<Img
 					src={`/resources/images?objectKey=${encodeURIComponent(image.objectKey)}`}
 					alt=""
@@ -83,6 +87,7 @@ export function RecipeThumb({
 			className={cn(
 				'flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md',
 				placeholder.bgClass,
+				className,
 			)}
 		>
 			<span className={cn('font-serif text-sm', placeholder.letterColorClass)}>

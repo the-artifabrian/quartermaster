@@ -26,8 +26,8 @@ see [CONTEXT.md](../CONTEXT.md).
 - **Young Serif**: page titles, Recipe titles, and editorial day headings. It
   has one weight; vary size, not weight.
 - **DM Sans**: body text, labels, metadata, navigation, and controls.
-- **Caveat**: personal Recipe notes and a few marketing artifacts only. It is
-  the user’s voice, not the app’s.
+- **Caveat**: a few marketing artifacts only. Recipe notes used to be set in it;
+  they now use the body sans for legibility.
 
 Useful sizes:
 
@@ -129,7 +129,9 @@ placeholder.
 - Put the title and optional hero first, then metadata, ingredients, and steps.
 - Desktop may keep ingredients sticky beside instructions; mobile stacks them.
 - Ingredient and instruction check-off must work across the full row.
-- Personal notes use a copper edge and Caveat only when notes exist.
+- Personal notes render only when they exist: a quiet tinted block in the body
+  sans, collapsed to a few lines with a Show more toggle. No copper edge and no
+  handwriting on the detail page.
 - Staples/Out-aware availability belongs here because it can lead to an
   immediate Shopping action.
 - Keep scaling, cooking cues, unit display, and print practical rather than
@@ -138,6 +140,8 @@ placeholder.
 ### Menus
 
 - A Menu reads as ordered sections of Recipe and note rows.
+- A named section is a Young Serif heading over a hairline rule; on phones its
+  rows are flat and divided, and 1× stays implicit on Recipe rows.
 - Use quiet section insets only when several sections need visual grouping.
 - Reorder and move controls need labels, keyboard access, and phone-sized
   targets; drag is optional.
@@ -202,4 +206,4 @@ Start with the nearest existing surface and these defaults:
 If a new pattern needs a long explanation here, first ask whether it belongs in
 the component itself or whether the UI can be simpler.
 
-_Updated 4 September 2026._
+_Updated 15 September 2026._

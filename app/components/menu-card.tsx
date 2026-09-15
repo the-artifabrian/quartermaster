@@ -6,6 +6,7 @@ type MenuCardProps = {
 	title: string
 	description?: string | null
 	defaultGuestCount?: number | null
+	recipes?: Array<{ title: string }>
 }
 
 export function MenuCard({
@@ -13,25 +14,35 @@ export function MenuCard({
 	title,
 	description,
 	defaultGuestCount,
+	recipes = [],
 }: MenuCardProps) {
+	// What's on the Menu, by name — the courses under the title.
+	const contents = recipes.map((recipe) => recipe.title).join(', ')
 	return (
 		<Link
 			to={`/recipes/menus/${id}`}
 			viewTransition
-			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-all md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
+			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3.5 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-all md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
 		>
-			{/* Menus carry no imagery — the card is its title (Gate 1A dogfood) */}
-			{/* Content */}
+			{/* Menus carry no imagery (Gate 1A dogfood) — the row reads like a
+			    printed menu card: title, guests at the right, courses beneath. */}
 			<div className="flex min-w-0 flex-1 flex-col justify-center md:justify-start md:p-6">
-				<h3 className="min-w-0 font-serif text-[17px] leading-[1.4] md:text-base md:leading-[1.3] md:tracking-[-0.005em]">
-					<span className="line-clamp-2">{title}</span>
-				</h3>
+				<div className="flex items-baseline gap-3">
+					<h3 className="min-w-0 flex-1 font-serif text-lg leading-[1.35] md:text-base md:leading-[1.3] md:tracking-[-0.005em]">
+						<span className="line-clamp-2">{title}</span>
+					</h3>
+					{defaultGuestCount ? (
+						<span className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs tabular-nums md:hidden">
+							<Icon name="avatar" size="xs" />
+							{defaultGuestCount}
+							<span className="sr-only"> guests</span>
+						</span>
+					) : null}
+				</div>
 
-				{/* Mobile meta: default guests only */}
-				{defaultGuestCount ? (
-					<span className="text-muted-foreground mt-0.5 flex items-center gap-1 text-[13px] md:hidden">
-						<Icon name="avatar" size="xs" />
-						{defaultGuestCount} guests
+				{contents ? (
+					<span className="text-muted-foreground mt-1 line-clamp-2 text-[13px] leading-snug md:hidden">
+						{contents}
 					</span>
 				) : null}
 

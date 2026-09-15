@@ -9,6 +9,11 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '#app/components/ui/tooltip.tsx'
+import {
 	getWeekStart,
 	MEAL_TYPES,
 	MEAL_TYPE_LABELS,
@@ -336,46 +341,7 @@ export default function MenuDetail({
 				Menus
 			</Link>
 
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-				<h1 className="font-serif text-2xl font-normal">{menu.title}</h1>
-				<div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
-					<Button
-						variant="outline"
-						onClick={async () => {
-							const url = `${window.location.origin}/share/menus/${menu.id}`
-							try {
-								await navigator.clipboard.writeText(url)
-								toast.success('Public link copied', {
-									description:
-										'Anyone with this link can view the Menu and its Recipes.',
-								})
-							} catch {
-								toast.error('Unable to copy the link')
-							}
-						}}
-					>
-						<Icon name="share" size="sm" />
-						Share
-					</Button>
-					<Button asChild variant="outline">
-						<Link to={`/recipes/menus/${menu.id}/edit`}>
-							<Icon name="pencil-1" size="sm" />
-							Edit
-						</Link>
-					</Button>
-					{!showPlanPanel && (
-						<Button
-							onClick={() => {
-								setPlanning(true)
-								setPlanFormDismissed(false)
-							}}
-						>
-							<Icon name="calendar" size="sm" />
-							Add to Plan
-						</Button>
-					)}
-				</div>
-			</div>
+			<h1 className="font-serif text-2xl font-normal">{menu.title}</h1>
 
 			{menu.defaultGuestCount ? (
 				<p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-sm">
@@ -389,6 +355,57 @@ export default function MenuDetail({
 					{menu.description}
 				</p>
 			)}
+
+			{/* One primary action; Share and Edit stay quiet beside it, the
+			    same shape as the Recipe action bar. */}
+			<div className="mt-4 flex items-center gap-1">
+				{!showPlanPanel && (
+					<Button
+						className="flex-1 sm:flex-none"
+						onClick={() => {
+							setPlanning(true)
+							setPlanFormDismissed(false)
+						}}
+					>
+						<Icon name="calendar" size="sm" />
+						Add to Plan
+					</Button>
+				)}
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Share"
+							onClick={async () => {
+								const url = `${window.location.origin}/share/menus/${menu.id}`
+								try {
+									await navigator.clipboard.writeText(url)
+									toast.success('Public link copied', {
+										description:
+											'Anyone with this link can view the Menu and its Recipes.',
+									})
+								} catch {
+									toast.error('Unable to copy the link')
+								}
+							}}
+						>
+							<Icon name="share" size="md" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>Share public link</TooltipContent>
+				</Tooltip>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button asChild variant="ghost" size="icon" aria-label="Edit">
+							<Link to={`/recipes/menus/${menu.id}/edit`}>
+								<Icon name="pencil-1" size="md" />
+							</Link>
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>Edit Menu</TooltipContent>
+				</Tooltip>
+			</div>
 
 			{showPlanPanel && (
 				<AddToPlanPanel

@@ -65,7 +65,7 @@ export function IngredientList({
 
 	return (
 		<>
-			<ul className="space-y-0.5 leading-[1.5] print:columns-2 print:space-y-0 print:gap-x-6 print:text-sm print:leading-[1.5]">
+			<ul className="space-y-1 leading-[1.7] print:columns-2 print:space-y-0 print:gap-x-6 print:text-sm print:leading-[1.5]">
 				{ingredients.map((ingredient) => {
 					if (ingredient.isHeading) {
 						return (
@@ -88,7 +88,7 @@ export function IngredientList({
 							aria-label={ingredient.name}
 							tabIndex={0}
 							className={cn(
-								'flex cursor-pointer items-center gap-3 rounded-lg px-1 py-1.5 transition-colors select-none',
+								'flex cursor-pointer items-center gap-3 rounded-lg px-1 py-2.5 transition-colors select-none',
 								'hover:bg-accent/5',
 								'focus-visible:ring-primary/50 focus-visible:ring-2 focus-visible:outline-none',
 								'print:gap-1.5 print:rounded-none print:px-0 print:py-0.5',
@@ -213,7 +213,7 @@ function MissingIngredientActions({
 
 	return (
 		<span
-			className="-my-2 ml-auto flex shrink-0 items-center print:hidden"
+			className="ml-auto flex shrink-0 items-center print:hidden"
 			onClick={(e) => e.stopPropagation()}
 			onKeyDown={(e) => e.stopPropagation()}
 		>

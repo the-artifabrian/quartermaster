@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { cn } from '#app/utils/misc.tsx'
 
 /**
@@ -16,6 +16,7 @@ export function RecipeNotes({
 	const [expanded, setExpanded] = useState(false)
 	const [overflows, setOverflows] = useState(false)
 	const textRef = useRef<HTMLParagraphElement>(null)
+	const textId = useId()
 
 	useEffect(() => {
 		const el = textRef.current
@@ -42,7 +43,7 @@ export function RecipeNotes({
 			</p>
 			<p
 				ref={textRef}
-				id="recipe-notes-text"
+				id={textId}
 				className={cn(
 					'text-[15px] leading-relaxed whitespace-pre-wrap',
 					!expanded && 'line-clamp-3 print:line-clamp-none',
@@ -54,7 +55,7 @@ export function RecipeNotes({
 				<button
 					type="button"
 					aria-expanded={expanded}
-					aria-controls="recipe-notes-text"
+					aria-controls={textId}
 					onClick={() => setExpanded((value) => !value)}
 					className="text-primary hover:text-primary/80 focus-visible:ring-ring mt-1 -ml-1 min-h-9 rounded-sm px-1 text-sm font-medium focus-visible:ring-2 focus-visible:outline-hidden print:hidden"
 				>

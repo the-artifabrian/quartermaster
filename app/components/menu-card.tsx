@@ -35,6 +35,7 @@ export function MenuCard({
 						<span className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs tabular-nums md:hidden">
 							<Icon name="avatar" size="xs" />
 							{defaultGuestCount}
+							<span className="sr-only"> guests</span>
 						</span>
 					) : null}
 				</div>

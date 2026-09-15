@@ -98,39 +98,37 @@ type MenuDetailItem = {
  */
 function MenuNoteCard({ item }: { item: MenuDetailItem }) {
 	return (
-		<li className="md:border-border/60 md:bg-card py-3.5 md:rounded-lg md:border md:p-3">
-			<div className="min-w-0">
-				<p className="min-w-0 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
-					{item.note}
-				</p>
-				{item.shoppingLines.length > 0 ? (
-					<ul className="mt-1.5 space-y-0.5">
-						{item.shoppingLines.map((line) => {
-							const quantity = [line.quantity, line.unit]
-								.filter(Boolean)
-								.join(' ')
-							return (
-								<li
-									key={line.id}
-									className="text-muted-foreground flex items-baseline gap-1.5 text-sm"
-								>
-									<Icon
-										name="cart"
-										size="xs"
-										className="shrink-0 translate-y-px"
-									/>
-									<span className="min-w-0 break-words">
-										{line.name}
-										{quantity ? (
-											<span className="tabular-nums"> · {quantity}</span>
-										) : null}
-									</span>
-								</li>
-							)
-						})}
-					</ul>
-				) : null}
-			</div>
+		<li className="md:border-border/60 md:bg-card min-w-0 py-3.5 md:rounded-lg md:border md:p-3">
+			<p className="min-w-0 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
+				{item.note}
+			</p>
+			{item.shoppingLines.length > 0 ? (
+				<ul className="mt-1.5 space-y-0.5">
+					{item.shoppingLines.map((line) => {
+						const quantity = [line.quantity, line.unit]
+							.filter(Boolean)
+							.join(' ')
+						return (
+							<li
+								key={line.id}
+								className="text-muted-foreground flex items-baseline gap-1.5 text-sm"
+							>
+								<Icon
+									name="cart"
+									size="xs"
+									className="shrink-0 translate-y-px"
+								/>
+								<span className="min-w-0 break-words">
+									{line.name}
+									{quantity ? (
+										<span className="tabular-nums"> · {quantity}</span>
+									) : null}
+								</span>
+							</li>
+						)
+					})}
+				</ul>
+			) : null}
 		</li>
 	)
 }

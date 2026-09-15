@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { cn } from '#app/utils/misc.tsx'
 
 /**
- * Personal Recipe notes: copper edge, quiet sans, collapsed to a few lines
+ * Personal Recipe notes: a quiet tinted block, sans, collapsed to a few lines
  * by default so a long process note never pushes Ingredients off screen.
  * The toggle only appears when the note actually overflows the clamp.
  */
@@ -33,7 +33,7 @@ export function RecipeNotes({
 	return (
 		<div
 			className={cn(
-				'border-accent bg-accent/5 rounded-lg border-l-[3px] py-2.5 pr-3 pl-3.5 print:break-inside-avoid',
+				'bg-muted/40 rounded-lg px-3.5 py-3 print:break-inside-avoid',
 				className,
 			)}
 		>

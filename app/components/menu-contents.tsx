@@ -98,7 +98,7 @@ type MenuDetailItem = {
 function MenuNoteCard({ item }: { item: MenuDetailItem }) {
 	return (
 		<li className="md:border-border/60 md:bg-card px-4 py-3 sm:max-md:px-8 md:rounded-lg md:border md:p-3">
-			<div className="border-accent min-w-0 border-l-[3px] pl-3">
+			<div className="min-w-0">
 				<p className="min-w-0 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
 					{item.note}
 				</p>

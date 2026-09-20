@@ -28,6 +28,8 @@ see [CONTEXT.md](../CONTEXT.md).
 - **DM Sans**: body text, labels, metadata, navigation, and controls.
 - **Caveat**: a few marketing artifacts only. Recipe notes used to be set in it;
   they now use the body sans for legibility.
+- **Source Sans 3**: the homepage only, as its body sans (`font-humanist`). The
+  route loads it itself; the app never uses it.
 
 Useful sizes:
 
@@ -65,6 +67,19 @@ The exact semantic tokens live in `app/styles/tailwind.css`.
 Raw copper does not meet contrast for small text on cream. Use it for dots,
 edges, and fills; use `--copper-text` when copper text is necessary.
 
+### Homepage palette
+
+The marketing homepage sits on its own espresso palette in both themes:
+`espresso` (canvas), `espresso-deep` (sunk bands), `espresso-surface` and
+`espresso-raised` (mock app screens and their controls), `espresso-line`
+(hairlines), `cream` and `cream-muted` (text), `sage` for the primary CTA and
+`copper` for at most two highlights such as the “Today” marker. The tokens live
+next to the semantic ones in `app/styles/tailwind.css`.
+
+The route sets `data-chrome="espresso"` on the app shell (see `root.tsx`), which
+remaps the semantic tokens so the shared header and footer sit on the same
+canvas. Keep the homepage to these tokens; do not add page-specific colors.
+
 ## Layout and surfaces
 
 Use an 8px spacing rhythm:
@@ -79,7 +94,7 @@ Common maximum widths:
 - Shopping: 480px
 - Recipe detail and settings: 880px
 - Recipe library and Staples: 1080px
-- Marketing content: 960px
+- Marketing content: 960px (the homepage uses the full 1400px `container`)
 
 Static groups use either a flat divided list or a quiet `bg-muted/40 rounded-lg`
 inset with no shadow. Inline controls use at most an 8px radius. Twelve-pixel

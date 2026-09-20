@@ -107,7 +107,7 @@ export default function Index() {
 
 function Hero() {
 	return (
-		<section className="container pt-10 pb-12 sm:pt-16 sm:pb-20 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-end lg:gap-16 lg:pt-20 lg:pb-16">
+		<section className="container pt-10 pb-12 sm:pt-16 sm:pb-20 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-end lg:gap-16 lg:pt-16 lg:pb-16">
 			<div className="max-w-[34rem]">
 				<h1 className="font-serif text-[2.75rem] leading-[1.02] tracking-[-0.02em] text-balance sm:text-[3.5rem] lg:text-[5.5rem]">
 					What are we making this week?
@@ -176,15 +176,15 @@ function FeatureBand({
 	const sunk = index % 2 === 0
 	return (
 		<section
-			id={id}
-			className={cn(
-				'scroll-mt-20 py-16 sm:py-24 lg:py-28',
-				sunk && 'bg-espresso-deep',
-			)}
+			className={cn('py-16 sm:py-24 lg:py-28', sunk && 'bg-espresso-deep')}
 		>
+			{/* The anchor sits on the content, not the padded section, so "See how
+			    it works" lands the band just under the header (sticky from md,
+			    69px tall) instead of leaving the padding as a blank gap. */}
 			<div
+				id={id}
 				className={cn(
-					'container grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-start lg:gap-20',
+					'container grid scroll-mt-6 gap-8 md:scroll-mt-24 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-start lg:gap-20',
 					screenSide === 'right' &&
 						'lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]',
 				)}

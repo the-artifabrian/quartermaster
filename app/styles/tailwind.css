@@ -55,6 +55,20 @@
 	--ease-exit: cubic-bezier(0.55, 0, 0.68, 0.19);
 }
 
+/* The homepage re-themes the site chrome around it (header, Log In)
+   so the whole viewport sits on the espresso palette in either theme. */
+[data-chrome='espresso'] {
+	--background: var(--color-espresso);
+	--foreground: var(--color-cream);
+	--card: var(--color-espresso);
+	--card-foreground: var(--color-cream);
+	--muted-foreground: var(--color-cream-muted);
+	--border: var(--color-espresso-line);
+	--primary: var(--color-espresso-raised);
+	--primary-foreground: var(--color-cream);
+	--ring: var(--color-cream-muted);
+}
+
 .dark {
 	--background: #1a1816;
 	--foreground: #e2dbd1;
@@ -126,6 +140,20 @@
 	--font-sans: 'DM Sans', system-ui, sans-serif;
 	--font-serif: 'Young Serif', Georgia, serif;
 	--font-handwritten: 'Caveat', cursive;
+	/* Homepage palette: warm espresso canvas, visibly lighter
+	   surfaces, cream text, and one accent (the app's sage green) reserved for the primary
+	   CTA and at most two highlights. */
+	--color-espresso: #241f1a;
+	--color-espresso-deep: #1c1814;
+	--color-espresso-surface: #332a22;
+	--color-espresso-raised: #413729;
+	--color-espresso-line: #564a3c;
+	--color-cream: #f3ebdf;
+	--color-cream-muted: #bdae9a;
+	--color-sage: #8cb393;
+	--color-sage-foreground: #1a1816;
+	--color-copper: #d4a87a;
+	--font-humanist: 'Source Sans 3', 'Helvetica Neue', Arial, sans-serif;
 	--ease-page-settle: var(--ease-page-settle);
 	--ease-hover-lift: var(--ease-hover-lift);
 	--ease-reveal: var(--ease-reveal);

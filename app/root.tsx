@@ -362,6 +362,7 @@ function App() {
 	const user = useOptionalUser()
 	const theme = useTheme()
 	const isPro = data.tierInfo.isProActive
+	const { pathname } = useLocation()
 	useToast(data.toast)
 
 	return (
@@ -385,7 +386,10 @@ function App() {
 				optimizerEndpoint="/resources/images"
 				getSrc={getImgSrc}
 			>
-				<div className="flex min-h-screen flex-col justify-between">
+				<div
+					className="flex min-h-screen flex-col justify-between"
+					data-chrome={pathname === '/' ? 'espresso' : undefined}
+				>
 					<header className="bg-card/80 border-border/50 z-40 border-b backdrop-blur-sm md:sticky md:top-0">
 						<nav
 							aria-label="Main"

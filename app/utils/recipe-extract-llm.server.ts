@@ -9,6 +9,13 @@ import {
 	type JsonSchema,
 } from './anthropic-json.server.ts'
 import {
+	emptyRecipeMetadataGroups,
+	RECIPE_METADATA_DIMENSIONS,
+	RECIPE_METADATA_LABELS,
+	recipeMetadataNameKey,
+	type RecipeMetadataDimension,
+} from './recipe-metadata.ts'
+import {
 	MAX_RAW_TEXT_LENGTH,
 	MAX_RECIPE_DESCRIPTION_LENGTH,
 	MAX_RECIPE_INGREDIENTS,
@@ -42,12 +49,23 @@ const MAX_INGREDIENT_AMOUNT_LENGTH = 20
 const MAX_INGREDIENT_UNIT_LENGTH = 30
 const MAX_INGREDIENT_NOTES_LENGTH = 500
 const MAX_INSTRUCTION_LENGTH = 5000
+// Per dimension. A household with a dozen cuisines can have several that argue
+// for themselves; pre-ticking all of them on the review page is noise, and the
+// user still has the full list to add from.
+const MAX_METADATA_SUGGESTIONS = 3
 
 export const ALLOWED_IMAGE_MEDIA_TYPES = [
 	'image/jpeg',
 	'image/png',
 	'image/webp',
 ] as const
+
+/**
+ * A household's own value names, per dimension — the only Cuisine, Season and
+ * Course values an extraction is allowed to come back with. The prompt states
+ * them; `matchVocabulary` below is what makes that binding.
+ */
+export type RecipeMetadataVocabulary = Record<RecipeMetadataDimension, string[]>
 
 export type ExtractedRecipeFromLLM = {
 	title: string
@@ -65,6 +83,8 @@ export type ExtractedRecipeFromLLM = {
 		isHeading: boolean
 	}>
 	instructions: Array<{ content: string }>
+	/** Matched household values, in the household's own spelling. */
+	metadata: RecipeMetadataVocabulary
 }
 
 const ExtractedIngredientSchema = z
@@ -111,61 +131,108 @@ const ExtractedInstructionSchema = z
 	.refine(Boolean)
 	.transform((content) => ({ content }))
 
-const ExtractedRecipeSchema: z.ZodType<ExtractedRecipeFromLLM> = z
-	.object({
-		title: z.string().trim().min(1),
-		description: z.unknown().optional(),
-		notes: z.unknown().optional(),
-		activeTime: z.unknown().optional(),
-		totalTime: z.unknown().optional(),
-		yieldAmount: z.unknown().optional(),
-		yieldLabel: z.unknown().optional(),
-		ingredients: z.array(z.unknown()),
-		instructions: z.array(z.unknown()),
-	})
-	.transform((recipe) => ({
-		title: recipe.title.slice(0, MAX_TITLE_LENGTH),
-		description:
-			typeof recipe.description === 'string'
-				? recipe.description.trim().slice(0, MAX_DESCRIPTION_LENGTH) || null
-				: null,
-		notes:
-			typeof recipe.notes === 'string'
-				? recipe.notes.trim().slice(0, MAX_NOTES_LENGTH) || null
-				: null,
-		...reconcileTimes(recipe.activeTime, recipe.totalTime),
-		yieldAmount:
-			typeof recipe.yieldAmount === 'number' &&
-			recipe.yieldAmount > 0 &&
-			typeof recipe.yieldLabel === 'string' &&
-			recipe.yieldLabel.trim()
-				? recipe.yieldAmount
-				: null,
-		yieldLabel:
-			typeof recipe.yieldAmount === 'number' &&
-			recipe.yieldAmount > 0 &&
-			typeof recipe.yieldLabel === 'string' &&
-			recipe.yieldLabel.trim()
-				? recipe.yieldLabel.trim().slice(0, 100)
-				: null,
-		ingredients: recipe.ingredients
-			.slice(0, MAX_INGREDIENTS)
-			.flatMap((ingredient) => {
-				const parsed = ExtractedIngredientSchema.safeParse(ingredient)
-				return parsed.success ? [parsed.data] : []
-			}),
-		instructions: recipe.instructions
-			.slice(0, MAX_INSTRUCTIONS)
-			.flatMap((instruction) => {
-				const parsed = ExtractedInstructionSchema.safeParse(instruction)
-				return parsed.success ? [parsed.data] : []
-			}),
-	}))
-	.refine(
-		(recipe) =>
-			recipe.ingredients.some((ingredient) => !ingredient.isHeading) &&
-			recipe.instructions.length > 0,
-	)
+/**
+ * Built per request rather than once: the drop rule below needs the household's
+ * own value names, which structured outputs cannot express (the schema subset
+ * has no per-request enum) and which the prompt can only ask for.
+ */
+function extractedRecipeSchema(
+	vocabulary: RecipeMetadataVocabulary,
+): z.ZodType<ExtractedRecipeFromLLM> {
+	return z
+		.object({
+			title: z.string().trim().min(1),
+			description: z.unknown().optional(),
+			notes: z.unknown().optional(),
+			activeTime: z.unknown().optional(),
+			totalTime: z.unknown().optional(),
+			yieldAmount: z.unknown().optional(),
+			yieldLabel: z.unknown().optional(),
+			ingredients: z.array(z.unknown()),
+			instructions: z.array(z.unknown()),
+			metadata: z.unknown().optional(),
+		})
+		.transform((recipe) => ({
+			title: recipe.title.slice(0, MAX_TITLE_LENGTH),
+			description:
+				typeof recipe.description === 'string'
+					? recipe.description.trim().slice(0, MAX_DESCRIPTION_LENGTH) || null
+					: null,
+			notes:
+				typeof recipe.notes === 'string'
+					? recipe.notes.trim().slice(0, MAX_NOTES_LENGTH) || null
+					: null,
+			...reconcileTimes(recipe.activeTime, recipe.totalTime),
+			yieldAmount:
+				typeof recipe.yieldAmount === 'number' &&
+				recipe.yieldAmount > 0 &&
+				typeof recipe.yieldLabel === 'string' &&
+				recipe.yieldLabel.trim()
+					? recipe.yieldAmount
+					: null,
+			yieldLabel:
+				typeof recipe.yieldAmount === 'number' &&
+				recipe.yieldAmount > 0 &&
+				typeof recipe.yieldLabel === 'string' &&
+				recipe.yieldLabel.trim()
+					? recipe.yieldLabel.trim().slice(0, 100)
+					: null,
+			ingredients: recipe.ingredients
+				.slice(0, MAX_INGREDIENTS)
+				.flatMap((ingredient) => {
+					const parsed = ExtractedIngredientSchema.safeParse(ingredient)
+					return parsed.success ? [parsed.data] : []
+				}),
+			instructions: recipe.instructions
+				.slice(0, MAX_INSTRUCTIONS)
+				.flatMap((instruction) => {
+					const parsed = ExtractedInstructionSchema.safeParse(instruction)
+					return parsed.success ? [parsed.data] : []
+				}),
+			metadata: matchVocabulary(recipe.metadata, vocabulary),
+		}))
+		.refine(
+			(recipe) =>
+				recipe.ingredients.some((ingredient) => !ingredient.isHeading) &&
+				recipe.instructions.length > 0,
+		)
+}
+
+/**
+ * Keep only the names this household already has, in its own spelling, and drop
+ * everything else. This is what makes "never invent a value" true: the prompt
+ * asks for matches, and a value the household cannot name is discarded rather
+ * than created. Matching is on the same normalized identity the rest of the
+ * app uses, so "italian" from the model finds the household's "Italian".
+ */
+function matchVocabulary(
+	raw: unknown,
+	vocabulary: RecipeMetadataVocabulary,
+): RecipeMetadataVocabulary {
+	const suggested =
+		typeof raw === 'object' && raw !== null
+			? (raw as Record<string, unknown>)
+			: {}
+	const matched = emptyRecipeMetadataGroups<string>()
+
+	for (const dimension of RECIPE_METADATA_DIMENSIONS) {
+		const known = new Map(
+			vocabulary[dimension].map((name) => [recipeMetadataNameKey(name), name]),
+		)
+		const values = suggested[dimension]
+		if (!Array.isArray(values)) continue
+
+		for (const value of values) {
+			if (matched[dimension].length >= MAX_METADATA_SUGGESTIONS) break
+			if (typeof value !== 'string') continue
+			const name = known.get(recipeMetadataNameKey(value))
+			if (!name || matched[dimension].includes(name)) continue
+			matched[dimension].push(name)
+		}
+	}
+
+	return matched
+}
 
 /**
  * The shape the provider constrains the response to. It settles the types the
@@ -212,6 +279,20 @@ const EXTRACT_JSON_SCHEMA: JsonSchema = {
 						additionalProperties: false,
 					},
 				},
+				// Free strings, not a per-household enum: an enum would have to be
+				// rebuilt per request, and the model would still need the prompt to
+				// know what the names mean. The prompt asks; Zod enforces.
+				metadata: {
+					type: 'object',
+					properties: Object.fromEntries(
+						RECIPE_METADATA_DIMENSIONS.map((dimension) => [
+							dimension,
+							{ type: 'array', items: { type: 'string' } },
+						]),
+					),
+					required: RECIPE_METADATA_DIMENSIONS,
+					additionalProperties: false,
+				},
 			},
 			required: [
 				'title',
@@ -223,6 +304,7 @@ const EXTRACT_JSON_SCHEMA: JsonSchema = {
 				'yieldLabel',
 				'ingredients',
 				'instructions',
+				'metadata',
 			],
 			additionalProperties: false,
 		},
@@ -272,6 +354,9 @@ const SYSTEM_PROMPT =
 export function buildExtractPrompt(
 	mode: 'text' | 'image',
 	rawText?: string,
+	// Defaulted so the prompt-shape tests can ask for the prompt on its own; both
+	// production call sites pass the household's real lists.
+	vocabulary: RecipeMetadataVocabulary = emptyRecipeMetadataGroups<string>(),
 ): string {
 	const intro =
 		mode === 'text'
@@ -282,6 +367,13 @@ export function buildExtractPrompt(
 		mode === 'text' && rawText
 			? `\n---\n${rawText.slice(0, MAX_TEXT_LENGTH)}\n---\n`
 			: ''
+
+	const householdLists = RECIPE_METADATA_DIMENSIONS.map(
+		(dimension) =>
+			`${RECIPE_METADATA_LABELS[dimension]}: ${
+				vocabulary[dimension].join(', ') || '(empty — always answer [])'
+			}`,
+	).join('; ')
 
 	return `${intro}${textBlock}
 
@@ -300,7 +392,8 @@ Rules:
 - When ingredients are grouped into sub-sections (e.g., "For the Sauce", "Dry Batter", "Pie Dough", "Streusel Topping"), emit a heading row for each section immediately before the ingredients in that section. A heading row has isHeading: true, name set to the section title (cleaned up — drop a leading "For the" / "For "), and amount/unit/notes set to null. Regular ingredients have isHeading: false. List every ingredient from every sub-section individually; do NOT merge or sum quantities of the same ingredient across different sub-sections — they are used separately. Do NOT put the section name into the notes field — use a heading row instead
 - If multiple recipes are present, extract only the main or primary recipe
 - Return at most ${MAX_INGREDIENTS} ingredient rows (heading rows count toward that) and at most ${MAX_INSTRUCTIONS} instruction steps. If the source has more, keep the most important ones rather than stopping partway through
-- Copy Active time, Total time, and Yield only when the source explicitly states them; otherwise use null. Never estimate or default metadata. Total time must not be shorter than Active time
+- Suggest Cuisine, Season and Course for this recipe by choosing from this household's own lists, copying a name exactly as it is spelled there — ${householdLists}. At most ${MAX_METADATA_SUGGESTIONS} per group, and usually one. Answer [] for a group whose list is empty, or when nothing on it fits, or when the recipe gives no reason to choose. Never invent a value and never answer with one that is not on the list above: anything else is discarded
+- Copy Active time, Total time, and Yield only when the source explicitly states them; otherwise use null. Never estimate or default them. Total time must not be shorter than Active time
 - activeTime and totalTime are plain whole numbers of minutes: "20 min" is 20, "1 hr 15 min" is 75, "1½ hours" is 90
 - A yield must include both a positive numeric amount and its source label (for example, "Serves 6" becomes 6 + "servings"; "Makes 2 loaves" becomes 2 + "loaves")
 - If no recognizable recipe is found, return {"error": "no_recipe_found"}
@@ -324,7 +417,8 @@ Return a single JSON object with this exact structure:
   ],
   "instructions": [
     {"content": "Step description in imperative form"}
-  ]
+  ],
+  "metadata": {"cuisine": [], "season": [], "course": []}
 }`
 }
 
@@ -334,8 +428,9 @@ Return a single JSON object with this exact structure:
  */
 export function parseExtractResponse(
 	text: string,
+	vocabulary: RecipeMetadataVocabulary = emptyRecipeMetadataGroups<string>(),
 ): ExtractedRecipeFromLLM | null {
-	const result = parseAnthropicJson(text, ExtractedRecipeSchema)
+	const result = parseAnthropicJson(text, extractedRecipeSchema(vocabulary))
 	return result.ok ? result.data : null
 }
 
@@ -344,6 +439,7 @@ export function parseExtractResponse(
  */
 export async function extractRecipeFromText(
 	rawText: string,
+	vocabulary: RecipeMetadataVocabulary = emptyRecipeMetadataGroups<string>(),
 ): Promise<ExtractedRecipeFromLLM | { error: string }> {
 	const result = await requestAnthropicJson({
 		feature: 'recipe-extract-text',
@@ -351,9 +447,9 @@ export async function extractRecipeFromText(
 		maxTokens: MAX_TOKENS,
 		timeoutMs: TIMEOUT_TEXT_MS,
 		system: SYSTEM_PROMPT,
-		prompt: buildExtractPrompt('text', rawText),
+		prompt: buildExtractPrompt('text', rawText, vocabulary),
 		jsonSchema: EXTRACT_JSON_SCHEMA,
-		schema: ExtractedRecipeSchema,
+		schema: extractedRecipeSchema(vocabulary),
 	})
 
 	return result.ok
@@ -392,6 +488,7 @@ async function prepareImage(
  */
 export async function extractRecipeFromImages(
 	images: Array<{ base64: string; mediaType: string }>,
+	vocabulary: RecipeMetadataVocabulary = emptyRecipeMetadataGroups<string>(),
 ): Promise<ExtractedRecipeFromLLM | { error: string }> {
 	if (images.length === 0) {
 		return { error: 'No images provided.' }
@@ -442,10 +539,13 @@ export async function extractRecipeFromImages(
 		system: SYSTEM_PROMPT,
 		prompt: [
 			...imageBlocks,
-			{ type: 'text', text: buildExtractPrompt('image') },
+			{
+				type: 'text',
+				text: buildExtractPrompt('image', undefined, vocabulary),
+			},
 		],
 		jsonSchema: EXTRACT_JSON_SCHEMA,
-		schema: ExtractedRecipeSchema,
+		schema: extractedRecipeSchema(vocabulary),
 	})
 
 	return result.ok

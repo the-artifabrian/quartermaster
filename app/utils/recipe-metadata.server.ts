@@ -1,4 +1,5 @@
 import { type Prisma } from '#app/generated/prisma/client.ts'
+import { prisma } from './db.server.ts'
 import {
 	RECIPE_METADATA_DIMENSIONS,
 	RecipeMetadataDimensionSchema,
@@ -9,6 +10,23 @@ import {
 } from './recipe-metadata.ts'
 
 export class RecipeMetadataSelectionError extends Error {}
+
+/**
+ * The household's classification values, ordered the way every selector shows
+ * them. New, Edit and Import all read the same list, so a value added on one
+ * page is offered on the others in the same order.
+ */
+export function recipeMetadataOptions(householdId: string) {
+	return prisma.recipeMetadataValue.findMany({
+		where: { householdId },
+		select: { id: true, dimension: true, name: true, nameKey: true },
+		orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
+	})
+}
+
+export type RecipeMetadataOptionRow = Awaited<
+	ReturnType<typeof recipeMetadataOptions>
+>[number]
 
 export async function resolveRecipeMetadataValueIds(
 	tx: Prisma.TransactionClient,

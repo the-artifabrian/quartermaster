@@ -31,7 +31,19 @@ import {
 	ALLOWED_IMAGE_MEDIA_TYPES,
 	extractRecipeFromImages,
 	extractRecipeFromText,
+	type RecipeMetadataVocabulary,
 } from '#app/utils/recipe-extract-llm.server.ts'
+import {
+	recipeMetadataOptions,
+	type RecipeMetadataOptionRow,
+} from '#app/utils/recipe-metadata.server.ts'
+import {
+	emptyRecipeMetadataGroups,
+	groupRecipeMetadataValues,
+	RECIPE_METADATA_DIMENSIONS,
+	recipeMetadataIdentity,
+	recipeMetadataNameKey,
+} from '#app/utils/recipe-metadata.ts'
 import {
 	ImportUrlSchema,
 	MAX_RAW_TEXT_LENGTH,
@@ -49,9 +61,52 @@ export const meta: Route.MetaFunction = () => {
 
 type ImportTab = 'url' | 'text' | 'image'
 
+/** The names the extraction may choose from, per dimension. */
+function metadataVocabulary(
+	values: RecipeMetadataOptionRow[],
+): RecipeMetadataVocabulary {
+	const grouped = groupRecipeMetadataValues(values)
+	const vocabulary = emptyRecipeMetadataGroups<string>()
+	for (const dimension of RECIPE_METADATA_DIMENSIONS) {
+		vocabulary[dimension] = grouped[dimension].map((value) => value.name)
+	}
+	return vocabulary
+}
+
+/**
+ * The household rows behind the names the extraction matched. A matched name
+ * is one the household already has, so this only looks rows up — it never
+ * creates one, and a name it cannot place is simply not ticked.
+ */
+function matchedValueIds(
+	values: RecipeMetadataOptionRow[],
+	matched: RecipeMetadataVocabulary,
+) {
+	const grouped = groupRecipeMetadataValues(values)
+	const idsByIdentity = new Map(
+		RECIPE_METADATA_DIMENSIONS.flatMap((dimension) =>
+			grouped[dimension].map(
+				(value) =>
+					[recipeMetadataIdentity(dimension, value.nameKey), value.id] as const,
+			),
+		),
+	)
+	return RECIPE_METADATA_DIMENSIONS.flatMap((dimension) =>
+		matched[dimension].flatMap((name) => {
+			const id = idsByIdentity.get(
+				recipeMetadataIdentity(dimension, recipeMetadataNameKey(name)),
+			)
+			return id ? [id] : []
+		}),
+	)
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
-	const { isProActive } = await requireUserWithTier(request)
-	return { isProActive }
+	const { householdId, isProActive } = await requireUserWithTier(request)
+	return {
+		isProActive,
+		metadataOptions: await recipeMetadataOptions(householdId),
+	}
 }
 
 export type ExtractedRecipe = {
@@ -66,6 +121,11 @@ export type ExtractedRecipe = {
 	yieldAmount: number | null
 	yieldLabel: string | null
 	sourceUrl: string
+	/**
+	 * Household values the extraction matched, pre-ticked on the review page.
+	 * Only the AI paths produce these, and nothing is written until the save.
+	 */
+	metadataValueIds: string[]
 	ingredients: Array<{
 		name: string
 		amount?: string
@@ -273,6 +333,7 @@ function extractRecipe(
 		yieldAmount: typedYield?.amount ?? null,
 		yieldLabel: typedYield?.label ?? null,
 		sourceUrl: url,
+		metadataValueIds: [],
 		// Provenance, not data: some sites embed enormous JSON-LD blobs, and this
 		// is posted straight back to saveImportedRecipe on save. Bound it here so
 		// the field can never exceed what that schema accepts.
@@ -601,6 +662,7 @@ export async function action({ request }: Route.ActionArgs) {
 			yieldAmount: parsed.yieldAmount ?? null,
 			yieldLabel: parsed.yieldLabel ?? null,
 			sourceUrl: sourceUrl || '',
+			metadataValueIds: [],
 			rawText,
 			warnings: parsed.warnings.filter(
 				(warning) => !warning.startsWith('Joined steps'),
@@ -725,6 +787,9 @@ export async function action({ request }: Route.ActionArgs) {
 			)
 		}
 
+		const metadataValues = await recipeMetadataOptions(householdId)
+		const vocabulary = metadataVocabulary(metadataValues)
+
 		let llmResult: Awaited<ReturnType<typeof extractRecipeFromText>>
 
 		if (intentKey === 'extract-image') {
@@ -775,9 +840,9 @@ export async function action({ request }: Route.ActionArgs) {
 				})
 			}
 
-			llmResult = await extractRecipeFromImages(validatedImages)
+			llmResult = await extractRecipeFromImages(validatedImages, vocabulary)
 		} else {
-			llmResult = await extractRecipeFromText(rawText)
+			llmResult = await extractRecipeFromText(rawText, vocabulary)
 		}
 
 		if ('error' in llmResult) {
@@ -802,6 +867,7 @@ export async function action({ request }: Route.ActionArgs) {
 			yieldAmount: llmResult.yieldAmount,
 			yieldLabel: llmResult.yieldLabel,
 			sourceUrl: (formData.get('sourceUrl') as string) || '',
+			metadataValueIds: matchedValueIds(metadataValues, llmResult.metadata),
 			rawText: (intentKey === 'extract-text'
 				? rawText
 				: JSON.stringify(llmResult, null, 2)
@@ -1158,7 +1224,10 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						</div>
 					)}
 
-					<ImportRecipeReview recipe={recipe!} />
+					<ImportRecipeReview
+						recipe={recipe!}
+						metadataOptions={loaderData.metadataOptions}
+					/>
 				</div>
 			)}
 		</div>

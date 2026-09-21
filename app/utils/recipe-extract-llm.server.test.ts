@@ -57,7 +57,15 @@ import {
 	parseExtractResponse,
 	extractRecipeFromText,
 	extractRecipeFromImages,
+	type RecipeMetadataVocabulary,
 } from './recipe-extract-llm.server.ts'
+
+/** One household's own Cuisine, Season and Course values. */
+const household: RecipeMetadataVocabulary = {
+	cuisine: ['Italian', 'Thai', 'Romanian'],
+	season: ['Summer', 'Year-round'],
+	course: ['Main', 'Side'],
+}
 
 const validResponse = {
 	title: 'Creamy Garlic Pasta',
@@ -78,6 +86,7 @@ const validResponse = {
 		{ content: 'Add cream and simmer for 3 minutes.' },
 		{ content: 'Toss with pasta and parmesan.' },
 	],
+	metadata: { cuisine: ['Italian'], season: [], course: ['Main'] },
 }
 
 type SchemaBranch = {
@@ -235,6 +244,37 @@ describe('buildExtractPrompt', () => {
 		const prompt = buildExtractPrompt('text', 'some text')
 		expect(prompt).toContain('do NOT merge or sum quantities')
 		expect(prompt).toContain('sub-section')
+	})
+
+	test("names this household's own values for every dimension", () => {
+		const prompt = buildExtractPrompt('text', 'some text', household)
+		expect(prompt).toContain('Cuisine: Italian, Thai, Romanian')
+		expect(prompt).toContain('Season: Summer, Year-round')
+		expect(prompt).toContain('Course: Main, Side')
+		// The whole point of listing them: a value off the list is not a value.
+		expect(prompt).toContain('Never invent a value')
+		expect(prompt).toContain('copying a name exactly as it is spelled there')
+	})
+
+	test('asks for an empty group where the household has no values', () => {
+		// A household starts with no Cuisine at all; the model still has to be
+		// told what to answer rather than left to fill the gap itself.
+		const prompt = buildExtractPrompt('text', 'some text', {
+			...household,
+			cuisine: [],
+		})
+		expect(prompt).toContain('Cuisine: (empty — always answer [])')
+		expect(prompt).toContain('Season: Summer, Year-round')
+	})
+
+	test('keeps the metadata groups empty in the structure template', () => {
+		// Same reason the times stay null: a worked example here would invite a
+		// classification the source never supported.
+		const prompt = buildExtractPrompt('text', 'some text', household)
+		expect(prompt).toContain(
+			'"metadata": {"cuisine": [], "season": [], "course": []}',
+		)
+		expect(prompt).not.toContain('"cuisine": ["Italian"]')
 	})
 
 	test('instructs heading rows instead of section-in-notes', () => {
@@ -557,6 +597,78 @@ describe('parseExtractResponse', () => {
 		// Verify it's stored as a raw string (React text nodes will escape on render)
 		expect(typeof result!.title).toBe('string')
 	})
+
+	test("keeps only the household's own values, in the household's spelling", () => {
+		const suggested = {
+			...validResponse,
+			metadata: {
+				cuisine: ['  italian '],
+				season: ['Summer'],
+				course: ['Main'],
+			},
+		}
+		const result = parseExtractResponse(JSON.stringify(suggested), household)
+		// The match is on the same normalized identity the rest of the app uses,
+		// and what comes back is the household's row, not the model's spelling.
+		expect(result!.metadata).toEqual({
+			cuisine: ['Italian'],
+			season: ['Summer'],
+			course: ['Main'],
+		})
+	})
+
+	test('drops a value this household does not have rather than inventing it', () => {
+		const invented = {
+			...validResponse,
+			metadata: {
+				cuisine: ['Klingon', 'Thai'],
+				season: ['Monsoon'],
+				course: ['Main'],
+			},
+		}
+		const result = parseExtractResponse(JSON.stringify(invented), household)
+		expect(result!.metadata).toEqual({
+			cuisine: ['Thai'],
+			season: [],
+			course: ['Main'],
+		})
+	})
+
+	test('suggests nothing when the household has no values to match', () => {
+		// The default: no vocabulary passed is a household with nothing to offer.
+		const result = parseExtractResponse(JSON.stringify(validResponse))
+		expect(result!.metadata).toEqual({ cuisine: [], season: [], course: [] })
+	})
+
+	test('keeps the suggestion list short and free of repeats', () => {
+		const everything = {
+			...validResponse,
+			metadata: {
+				cuisine: ['Italian', 'italian', 'Thai', 'Romanian', 'Japanese'],
+				season: [],
+				course: [],
+			},
+		}
+		const result = parseExtractResponse(JSON.stringify(everything), {
+			...household,
+			cuisine: [...household.cuisine, 'Japanese'],
+		})
+		// Capped per dimension, and a repeat does not use up a slot: pre-ticking
+		// a household's whole list is noise the user has to undo.
+		expect(result!.metadata.cuisine).toEqual(['Italian', 'Thai', 'Romanian'])
+	})
+
+	test('survives a response with no metadata, or the wrong shape for it', () => {
+		const { metadata: _metadata, ...without } = validResponse
+		expect(
+			parseExtractResponse(JSON.stringify(without), household)!.metadata,
+		).toEqual({ cuisine: [], season: [], course: [] })
+
+		const wrongShape = { ...validResponse, metadata: { cuisine: 'Italian' } }
+		expect(
+			parseExtractResponse(JSON.stringify(wrongShape), household)!.metadata,
+		).toEqual({ cuisine: [], season: [], course: [] })
+	})
 })
 
 describe('extractRecipeFromText', () => {
@@ -757,6 +869,65 @@ describe('extractRecipeFromText', () => {
 		})
 	})
 
+	test('the schema gives the model a place to put each suggestion', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		let capturedBody: string | undefined
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
+			capturedBody = opts?.body as string
+			return new Response(
+				JSON.stringify({
+					content: [{ type: 'text', text: JSON.stringify(validResponse) }],
+				}),
+				{ status: 200 },
+			)
+		})
+
+		const result = await extractRecipeFromText('some recipe text', household)
+		expect(result).toMatchObject({
+			metadata: { cuisine: ['Italian'], season: [], course: ['Main'] },
+		})
+
+		// additionalProperties: false — a field the prompt asks for and the schema
+		// omits is one the model is structurally unable to answer with.
+		const branch = recipeBranch(capturedBody!)
+		expect(branch.required).toContain('metadata')
+		expect(branch.properties.metadata).toEqual({
+			type: 'object',
+			properties: {
+				cuisine: { type: 'array', items: { type: 'string' } },
+				season: { type: 'array', items: { type: 'string' } },
+				course: { type: 'array', items: { type: 'string' } },
+			},
+			required: ['cuisine', 'season', 'course'],
+			additionalProperties: false,
+		})
+	})
+
+	test("does not close the schema around one household's values", async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		let capturedBody: string | undefined
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
+			capturedBody = opts?.body as string
+			return new Response(
+				JSON.stringify({
+					content: [{ type: 'text', text: JSON.stringify(validResponse) }],
+				}),
+				{ status: 200 },
+			)
+		})
+
+		await extractRecipeFromText('some recipe text', household)
+		// The names belong in the prompt, which explains them; an enum here would
+		// be rebuilt per request and would still need the prompt anyway. Dropping
+		// what does not match is the Zod schema's job, tested above.
+		const body = capturedBody!
+		expect(
+			JSON.stringify(recipeBranch(body).properties.metadata),
+		).not.toContain('Italian')
+		const sent = JSON.parse(body) as { messages: Array<{ content: string }> }
+		expect(sent.messages[0]!.content).toContain('Italian')
+	})
+
 	test('the prompt example and the schema describe the same object', async () => {
 		process.env.ANTHROPIC_API_KEY = 'test-key'
 		let capturedBody: string | undefined
@@ -782,6 +953,7 @@ describe('extractRecipeFromText', () => {
 		) as {
 			ingredients: Array<Record<string, unknown>>
 			instructions: Array<Record<string, unknown>>
+			metadata: Record<string, unknown>
 		}
 		const branch = recipeBranch(capturedBody!)
 		expect(Object.keys(example).sort()).toEqual([...branch.required].sort())
@@ -789,12 +961,16 @@ describe('extractRecipeFromText', () => {
 		const rows = branch.properties as {
 			ingredients: { items: { required: string[] } }
 			instructions: { items: { required: string[] } }
+			metadata: { required: string[] }
 		}
 		expect(Object.keys(example.ingredients[0]!).sort()).toEqual(
 			[...rows.ingredients.items.required].sort(),
 		)
 		expect(Object.keys(example.instructions[0]!).sort()).toEqual(
 			[...rows.instructions.items.required].sort(),
+		)
+		expect(Object.keys(example.metadata).sort()).toEqual(
+			[...rows.metadata.required].sort(),
 		)
 	})
 })

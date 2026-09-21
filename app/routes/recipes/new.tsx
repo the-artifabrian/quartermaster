@@ -6,6 +6,7 @@ import { RecipeForm } from '#app/components/recipe-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
+	recipeMetadataOptions,
 	RecipeMetadataSelectionError,
 	resolveRecipeMetadataValueIds,
 } from '#app/utils/recipe-metadata.server.ts'
@@ -27,12 +28,7 @@ export const meta: Route.MetaFunction = () => {
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
-	const metadataOptions = await prisma.recipeMetadataValue.findMany({
-		where: { householdId },
-		select: { id: true, dimension: true, name: true, nameKey: true },
-		orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
-	})
-	return { metadataOptions }
+	return { metadataOptions: await recipeMetadataOptions(householdId) }
 }
 
 export async function action({ request }: Route.ActionArgs) {

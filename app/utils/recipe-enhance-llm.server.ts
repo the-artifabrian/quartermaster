@@ -189,8 +189,9 @@ Rules:
 }
 
 /**
- * Parse and validate the LLM response.
- * Extracts JSON from the response text, validates structure.
+ * Validate the LLM response against the enhanceable fields and reconcile the
+ * times with what the recipe already has. `null` when the response is not
+ * usable — it is bare JSON or it is nothing.
  */
 export function parseEnhanceResponse(
 	text: string,

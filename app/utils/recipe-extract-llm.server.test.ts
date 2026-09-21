@@ -1,18 +1,43 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 
-const sharpCalls: Array<{ resize: unknown[]; jpeg: unknown[] }> = []
+type SharpChain = {
+	rotate: () => SharpChain
+	resize: (...args: unknown[]) => SharpChain
+	jpeg: (...args: unknown[]) => SharpChain
+	toBuffer: () => Promise<Buffer>
+}
+
+const sharpCalls: Array<{
+	rotated: boolean
+	resize: unknown[]
+	jpeg: unknown[]
+}> = []
 
 vi.mock('sharp', () => ({
-	default: () => ({
-		resize: (...resize: unknown[]) => ({
-			jpeg: (...jpeg: unknown[]) => {
-				sharpCalls.push({ resize, jpeg })
-				return {
-					toBuffer: () => Promise.resolve(Buffer.from('optimized')),
-				}
+	default: () => {
+		const call = {
+			rotated: false,
+			resize: [] as unknown[],
+			jpeg: [] as unknown[],
+		}
+		const chain: SharpChain = {
+			rotate: () => {
+				call.rotated = true
+				return chain
 			},
-		}),
-	}),
+			resize: (...resize: unknown[]) => {
+				call.resize = resize
+				return chain
+			},
+			jpeg: (...jpeg: unknown[]) => {
+				call.jpeg = jpeg
+				sharpCalls.push(call)
+				return chain
+			},
+			toBuffer: () => Promise.resolve(Buffer.from('optimized')),
+		}
+		return chain
+	},
 }))
 
 import {
@@ -105,12 +130,12 @@ describe('buildExtractPrompt', () => {
 
 	test('names every canonical unit consolidation understands', () => {
 		const prompt = buildExtractPrompt('text', 'some text')
-		for (const unit of CANONICAL_UNITS) {
-			expect(prompt).toContain(unit)
-		}
-		for (const unit of CANONICAL_COUNT_UNITS) {
-			expect(prompt).toContain(unit)
-		}
+		// The joined lists, not each unit on its own: "l" and "g" would match
+		// anywhere in the prose and prove nothing.
+		expect(prompt).toContain(CANONICAL_UNITS.join(', '))
+		expect(prompt).toContain(CANONICAL_COUNT_UNITS.join(', '))
+		expect(CANONICAL_UNITS).toContain('tbsp')
+		expect(CANONICAL_COUNT_UNITS).toContain('each')
 		// The canonical list replaces the old "never use 'unit' as a unit" patch.
 		expect(prompt).not.toContain('Never use "unit" as a unit')
 		expect(prompt).toContain('linguri')
@@ -811,6 +836,9 @@ describe('extractRecipeFromImages', () => {
 		// smaller throws away recipe text on a 1170×2532 screenshot.
 		expect(sharpCalls).toHaveLength(1)
 		expect(sharpCalls[0]!.resize.slice(0, 2)).toEqual([1568, 1568])
+		// Without auto-orientation a portrait photo arrives on its side: sharp
+		// drops the EXIF tag on write and leaves the pixels as they were.
+		expect(sharpCalls[0]!.rotated).toBe(true)
 		expect(sharpCalls[0]!.jpeg[0]).toMatchObject({
 			quality: expect.any(Number),
 		})

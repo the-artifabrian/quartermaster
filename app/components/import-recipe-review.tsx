@@ -269,15 +269,6 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 								)
 							})()}
 
-						{details.notes && (
-							<div>
-								<h3 className="mb-2 font-medium">Notes</h3>
-								<p className="text-muted-foreground text-sm wrap-anywhere whitespace-pre-wrap">
-									{details.notes}
-								</p>
-							</div>
-						)}
-
 						{instructions.length > 0 && (
 							<div>
 								<h3 className="mb-2 font-medium">
@@ -296,6 +287,15 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 										</li>
 									))}
 								</ol>
+							</div>
+						)}
+
+						{details.notes && (
+							<div>
+								<h3 className="mb-2 font-medium">Notes</h3>
+								<p className="text-muted-foreground text-sm wrap-anywhere whitespace-pre-wrap">
+									{details.notes}
+								</p>
 							</div>
 						)}
 					</div>

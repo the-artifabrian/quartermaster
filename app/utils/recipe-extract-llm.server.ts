@@ -300,6 +300,10 @@ async function prepareImage(
 	const { default: sharp } = await import('sharp')
 	const buf = Buffer.from(imageBase64, 'base64')
 	const optimized = await sharp(buf)
+		// Auto-orient first: sharp drops the EXIF orientation tag on write but
+		// does not turn the pixels, so a photo shot in portrait would otherwise
+		// reach the model on its side, with every line of the recipe vertical.
+		.rotate()
 		.resize(IMAGE_MAX_DIMENSION, IMAGE_MAX_DIMENSION, {
 			fit: 'inside',
 			withoutEnlargement: true,

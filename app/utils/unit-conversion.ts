@@ -126,12 +126,12 @@ export function isCountUnit(normalizedUnit: string): boolean {
  * set instead of keeping a second copy that silently drifts — anything
  * outside it survives as a string but never consolidates on a shopping list.
  */
-export const CANONICAL_UNITS: string[] = [
+export const CANONICAL_UNITS: readonly string[] = [
 	...new Set(UNIT_FAMILIES.flatMap((family) => Object.keys(family.units))),
 ]
 
 /** Count-like units, which consolidation treats as unitless. */
-export const CANONICAL_COUNT_UNITS: string[] = [...COUNT_UNITS]
+export const CANONICAL_COUNT_UNITS: readonly string[] = [...COUNT_UNITS]
 
 /**
  * Find which unit family a normalized unit belongs to.

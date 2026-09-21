@@ -49,10 +49,20 @@ function anthropicResponse(text: string) {
 }
 
 describe('parseAnthropicJson', () => {
-	test('extracts fenced JSON and validates it with the caller schema', () => {
+	test('validates a bare JSON response with the caller schema', () => {
+		expect(parseAnthropicJson('{"value":"ok"}', FeatureSchema)).toEqual({
+			ok: true,
+			data: { value: 'ok' },
+		})
+	})
+
+	test('treats a fenced response as the failure it is', () => {
+		// Structured outputs return bare JSON. Fences used to be scraped off;
+		// nothing does that now, so a fenced response is a parse failure the
+		// caller reports rather than a response quietly repaired.
 		expect(
 			parseAnthropicJson('```json\n{"value":"ok"}\n```', FeatureSchema),
-		).toEqual({ ok: true, data: { value: 'ok' } })
+		).toEqual({ ok: false, failure: { kind: 'parse' } })
 	})
 
 	test('distinguishes malformed JSON from a schema failure', () => {

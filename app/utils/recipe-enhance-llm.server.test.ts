@@ -105,10 +105,11 @@ describe('parseEnhanceResponse', () => {
 		expect(parseEnhanceResponse('')).toBeNull()
 	})
 
-	it('handles markdown code block wrapping', () => {
+	it('returns null for a fenced response', () => {
+		// Fences used to be scraped off. Structured outputs return bare JSON, so
+		// a fenced response is a failure now rather than something to repair.
 		const text = '```json\n{"description": "A test recipe."}\n```'
-		const result = parseEnhanceResponse(text)
-		expect(result?.description).toBe('A test recipe.')
+		expect(parseEnhanceResponse(text)).toBeNull()
 	})
 
 	it('returns null for invalid field types gracefully', () => {

@@ -107,16 +107,15 @@ export function isAnthropicConfigured(
  * Parse the JSON value from an Anthropic text response and validate it through
  * the caller's feature-local schema.
  *
- * Structured outputs make the fence- and prose-tolerant scraping below dead
- * weight in principle. It stays until the change is verified in production
- * (#280): the cost is one failed `JSON.parse` on a response that never needed
- * it, and the alternative is trusting a guarantee we have not watched hold.
+ * `output_config.format` means the response is bare, schema-valid JSON. A
+ * response that is not is a real failure, reported as `kind: 'parse'` rather
+ * than scraped for something usable.
  */
 export function parseAnthropicJson<T>(
 	text: string,
 	schema: z.ZodType<T>,
 ): AnthropicJsonResult<T> {
-	const parsedJson = parseJsonValue(text)
+	const parsedJson = tryParseJson(text.trim())
 	if (!parsedJson.ok) return parsedJson
 
 	const parsedSchema = schema.safeParse(parsedJson.data)
@@ -234,30 +233,6 @@ export async function requestAnthropicJson<T>(
 		})
 	}
 	return result
-}
-
-function parseJsonValue(
-	text: string,
-): { ok: true; data: unknown } | { ok: false; failure: { kind: 'parse' } } {
-	const trimmed = text.trim()
-	const direct = tryParseJson(trimmed)
-	if (direct.ok) return direct
-
-	// Fallback: everything below this line handles a response that structured
-	// outputs should have made impossible. Remove it once production confirms
-	// that (#280).
-
-	const objectStart = trimmed.indexOf('{')
-	const arrayStart = trimmed.indexOf('[')
-	const starts = [objectStart, arrayStart].filter((index) => index >= 0)
-	if (starts.length === 0) return { ok: false, failure: { kind: 'parse' } }
-
-	const start = Math.min(...starts)
-	const closingCharacter = trimmed[start] === '{' ? '}' : ']'
-	const end = trimmed.lastIndexOf(closingCharacter)
-	if (end <= start) return { ok: false, failure: { kind: 'parse' } }
-
-	return tryParseJson(trimmed.slice(start, end + 1))
 }
 
 function tryParseJson(

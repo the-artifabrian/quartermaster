@@ -4,75 +4,84 @@ import { expect, test } from '#tests/playwright-utils.ts'
 
 const PHONE_VIEWPORT = { width: 390, height: 844 }
 
-async function expectMobileEditableControlsToBeSafe(page: Page) {
+async function auditMobileEditableControls(page: Page) {
 	// A role query cannot enumerate every native editable control for this
 	// computed-style audit, especially controls without an accessible name.
 	// eslint-disable-next-line playwright/no-raw-locators
-	const audit = await page
-		.locator('input, textarea, select')
-		.evaluateAll((elements) =>
-			elements.flatMap((element) => {
-				const textInputTypes = new Set([
-					'text',
-					'search',
-					'email',
-					'password',
-					'tel',
-					'url',
-					'number',
-					'date',
-					'datetime-local',
-					'month',
-					'time',
-					'week',
-					'file',
-				])
-				const isEditable =
-					element instanceof HTMLSelectElement ||
-					element instanceof HTMLTextAreaElement ||
-					(element instanceof HTMLInputElement &&
-						textInputTypes.has(element.type))
-				if (!isEditable || !element.matches(':enabled')) return []
-				if (
-					(element instanceof HTMLInputElement ||
-						element instanceof HTMLTextAreaElement) &&
-					element.readOnly
-				) {
-					return []
-				}
+	return page.locator('input, textarea, select').evaluateAll((elements) =>
+		elements.flatMap((element) => {
+			const textInputTypes = new Set([
+				'text',
+				'search',
+				'email',
+				'password',
+				'tel',
+				'url',
+				'number',
+				'date',
+				'datetime-local',
+				'month',
+				'time',
+				'week',
+				'file',
+			])
+			const isEditable =
+				element instanceof HTMLSelectElement ||
+				element instanceof HTMLTextAreaElement ||
+				(element instanceof HTMLInputElement &&
+					textInputTypes.has(element.type))
+			if (!isEditable || !element.matches(':enabled')) return []
+			if (
+				(element instanceof HTMLInputElement ||
+					element instanceof HTMLTextAreaElement) &&
+				element.readOnly
+			) {
+				return []
+			}
 
-				const style = getComputedStyle(element)
-				const rect = element.getBoundingClientRect()
-				if (
-					style.display === 'none' ||
-					style.visibility === 'hidden' ||
-					rect.width === 0 ||
-					rect.height === 0
-				) {
-					return []
-				}
+			const style = getComputedStyle(element)
+			const rect = element.getBoundingClientRect()
+			if (
+				style.display === 'none' ||
+				style.visibility === 'hidden' ||
+				rect.width === 0 ||
+				rect.height === 0
+			) {
+				return []
+			}
 
-				return [
-					{
-						control: [
-							element.tagName.toLowerCase(),
-							element.id ? `#${element.id}` : '',
-							element.getAttribute('name')
-								? `[name="${element.getAttribute('name')}"]`
-								: '',
-							element.getAttribute('placeholder')
-								? `[placeholder="${element.getAttribute('placeholder')}"]`
-								: '',
-						].join(''),
-						fontSize: Number.parseFloat(style.fontSize),
-						left: rect.left,
-						right: rect.right,
-					},
-				]
-			}),
-		)
+			return [
+				{
+					control: [
+						element.tagName.toLowerCase(),
+						element.id ? `#${element.id}` : '',
+						element.getAttribute('name')
+							? `[name="${element.getAttribute('name')}"]`
+							: '',
+						element.getAttribute('placeholder')
+							? `[placeholder="${element.getAttribute('placeholder')}"]`
+							: '',
+					].join(''),
+					fontSize: Number.parseFloat(style.fontSize),
+					left: rect.left,
+					right: rect.right,
+				},
+			]
+		}),
+	)
+}
 
-	expect(audit.length).toBeGreaterThan(0)
+async function expectMobileEditableControlsToBeSafe(page: Page) {
+	// Controls that a tap reveals can arrive a frame after the tap resolves, so
+	// poll for the audit instead of sampling the page once.
+	let audit: Awaited<ReturnType<typeof auditMobileEditableControls>> = []
+	await expect
+		.poll(async () => {
+			audit = await auditMobileEditableControls(page)
+			return audit.length
+		})
+		.toBeGreaterThan(0)
+
 	const viewportWidth = page.viewportSize()?.width
 	expect(viewportWidth).toBeDefined()
 	expect(
@@ -223,6 +232,8 @@ test('mobile auth, Recipes, Staples, Plan, and settings controls are zoom-safe',
 	await expectMobileEditableControlsToBeSafe(page)
 
 	await page.goto('/inventory')
+	// Staples has no editable control of its own until the add form opens.
+	await page.getByRole('button', { name: 'Add Staple' }).click()
 	await expectMobileEditableControlsToBeSafe(page)
 
 	await page.goto('/settings/profile/import')
@@ -247,20 +258,18 @@ test('the mobile size adjustment ends below md without restricting user zoom', a
 	await page.setViewportSize({ width: 767, height: 844 })
 	await page.goto('/recipes')
 	await page.getByRole('button', { name: 'Toggle filters' }).click()
-	await expect(page.getByPlaceholder('Search recipes...')).toHaveCSS(
-		'font-size',
-		'16px',
-	)
+	await expect(
+		page.getByRole('searchbox', { name: 'Search by name or ingredient' }),
+	).toHaveCSS('font-size', '16px')
 	await expect(page.getByRole('combobox', { name: 'Sort recipes' })).toHaveCSS(
 		'font-size',
 		'16px',
 	)
 
 	await page.setViewportSize({ width: 768, height: 844 })
-	await expect(page.getByPlaceholder('Search recipes...')).toHaveCSS(
-		'font-size',
-		'14px',
-	)
+	await expect(
+		page.getByRole('searchbox', { name: 'Search by name or ingredient' }),
+	).toHaveCSS('font-size', '14px')
 	await expect(page.getByRole('combobox', { name: 'Sort recipes' })).toHaveCSS(
 		'font-size',
 		'12px',

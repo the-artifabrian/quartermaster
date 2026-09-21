@@ -86,7 +86,12 @@ export const test = base.extend<{
 			userId = user.id
 			return user
 		})
-		await prisma.user.delete({ where: { id: userId } }).catch(() => {})
+		// A failed `getOrInsertUser` leaves `userId` undefined. Prisma drops an
+		// undefined filter, so an unguarded delete would reach every user in the
+		// database rather than none.
+		if (userId) {
+			await prisma.user.delete({ where: { id: userId } }).catch(() => {})
+		}
 	},
 	login: async ({ page }, use) => {
 		let userId: string | undefined = undefined
@@ -118,7 +123,7 @@ export const test = base.extend<{
 			await page.context().addCookies([newConfig])
 			return user
 		})
-		await prisma.user.deleteMany({ where: { id: userId } })
+		if (userId) await prisma.user.deleteMany({ where: { id: userId } })
 	},
 	prepareGoogleUser: async ({ page }, use, testInfo) => {
 		await page.route(/\/auth\/google(?!\/callback)/, async (route, request) => {

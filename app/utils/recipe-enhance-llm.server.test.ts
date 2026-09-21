@@ -207,6 +207,53 @@ describe('enhanceRecipeMetadata', () => {
 		})
 	})
 
+	it('asks for times the review page can use, as whole minutes or nothing', async () => {
+		vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
+		let capturedBody: string | undefined
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
+			capturedBody = opts?.body as string
+			return new Response(
+				JSON.stringify({
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify({
+								description: 'A classic Roman pasta.',
+								activeTime: 10,
+								totalTime: 20,
+							}),
+						},
+					],
+				}),
+				{ status: 200 },
+			)
+		})
+
+		await enhanceRecipeMetadata(sampleInput)
+
+		const schema = (
+			JSON.parse(capturedBody!) as {
+				output_config: {
+					format: {
+						type: string
+						schema: { properties: Record<string, unknown>; required: string[] }
+					}
+				}
+			}
+		).output_config.format
+		expect(schema.type).toBe('json_schema')
+		expect(schema.schema.properties.activeTime).toEqual({
+			anyOf: [{ type: 'integer' }, { type: 'null' }],
+		})
+		// Suggesting nothing has to stay sayable: null is a value here, not an
+		// absent key, so every field is required.
+		expect(schema.schema.required).toEqual([
+			'description',
+			'activeTime',
+			'totalTime',
+		])
+	})
+
 	it('preserves feature-local wording for configuration and rate limits', async () => {
 		vi.stubEnv('ANTHROPIC_API_KEY', '')
 		await expect(enhanceRecipeMetadata(sampleInput)).resolves.toEqual({

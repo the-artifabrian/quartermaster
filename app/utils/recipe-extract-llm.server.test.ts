@@ -80,6 +80,27 @@ const validResponse = {
 	],
 }
 
+type SchemaBranch = {
+	properties: Record<string, unknown>
+	required: string[]
+}
+
+/** The `output_config.format` schema the request asked the provider for. */
+function outputSchema(body: string): { anyOf: SchemaBranch[] } {
+	const parsed = JSON.parse(body) as {
+		output_config: {
+			format: { type: string; schema: { anyOf: SchemaBranch[] } }
+		}
+	}
+	expect(parsed.output_config.format.type).toBe('json_schema')
+	return parsed.output_config.format.schema
+}
+
+/** Its recipe branch — the other branch is the no-recipe answer. */
+function recipeBranch(body: string): SchemaBranch {
+	return outputSchema(body).anyOf[0]!
+}
+
 describe('buildExtractPrompt', () => {
 	test('includes raw text in output for text mode', () => {
 		const prompt = buildExtractPrompt('text', 'My recipe caption here')
@@ -665,6 +686,117 @@ describe('extractRecipeFromText', () => {
 		expect(body.max_tokens).toBeGreaterThanOrEqual(8192)
 		expect(body.model).toBe('claude-haiku-4-5-20251001')
 	})
+
+	test('a time the model used to answer with as "20 min" now arrives as a number', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		let capturedBody: string | undefined
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
+			capturedBody = opts?.body as string
+			return new Response(
+				JSON.stringify({
+					stop_reason: 'end_turn',
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify({
+								...validResponse,
+								activeTime: 20,
+								totalTime: 75,
+							}),
+						},
+					],
+				}),
+				{ status: 200 },
+			)
+		})
+
+		const result = await extractRecipeFromText(
+			'Active time: 20 min. Total time: 1 hr 15 min.',
+		)
+		expect(result).toMatchObject({ activeTime: 20, totalTime: 75 })
+
+		// #278 could only ask for this in the prompt, and Sonnet still answered
+		// "20 min" on real screenshots — a string the schema discards, so the
+		// time vanished from the review page. Now it is not a value the model
+		// can produce at all.
+		const times = recipeBranch(capturedBody!).properties
+		expect(times.activeTime).toEqual({
+			anyOf: [{ type: 'integer' }, { type: 'null' }],
+		})
+		expect(times.totalTime).toEqual({
+			anyOf: [{ type: 'integer' }, { type: 'null' }],
+		})
+	})
+
+	test('leaves the model a way to say there is no recipe here', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		let capturedBody: string | undefined
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
+			capturedBody = opts?.body as string
+			return new Response(
+				JSON.stringify({
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify({ error: 'no_recipe_found' }),
+						},
+					],
+				}),
+				{ status: 200 },
+			)
+		})
+
+		const result = await extractRecipeFromText('a page about nothing')
+		expect((result as { error: string }).error).toContain(
+			"Couldn't find a recipe",
+		)
+		// Without a branch for it, a constrained response would have to be a
+		// recipe, and a page with none would come back invented.
+		expect(outputSchema(capturedBody!).anyOf[1]).toMatchObject({
+			properties: { error: { enum: ['no_recipe_found'] } },
+		})
+	})
+
+	test('the prompt example and the schema describe the same object', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		let capturedBody: string | undefined
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
+			capturedBody = opts?.body as string
+			return new Response(
+				JSON.stringify({
+					content: [{ type: 'text', text: JSON.stringify(validResponse) }],
+				}),
+				{ status: 200 },
+			)
+		})
+
+		await extractRecipeFromText('some recipe text')
+
+		// The response shape is now stated twice, and additionalProperties: false
+		// makes the schema the one that binds: a field added to the example alone
+		// is a field the model is no longer able to return.
+		const marker = 'Return a single JSON object with this exact structure:'
+		const prompt = buildExtractPrompt('text', 'some recipe text')
+		const example = JSON.parse(
+			prompt.slice(prompt.indexOf(marker) + marker.length),
+		) as {
+			ingredients: Array<Record<string, unknown>>
+			instructions: Array<Record<string, unknown>>
+		}
+		const branch = recipeBranch(capturedBody!)
+		expect(Object.keys(example).sort()).toEqual([...branch.required].sort())
+
+		const rows = branch.properties as {
+			ingredients: { items: { required: string[] } }
+			instructions: { items: { required: string[] } }
+		}
+		expect(Object.keys(example.ingredients[0]!).sort()).toEqual(
+			[...rows.ingredients.items.required].sort(),
+		)
+		expect(Object.keys(example.instructions[0]!).sort()).toEqual(
+			[...rows.instructions.items.required].sort(),
+		)
+	})
 })
 
 describe('extractRecipeFromImages', () => {
@@ -848,5 +980,31 @@ describe('extractRecipeFromImages', () => {
 		expect((JSON.parse(capturedBody!) as { model: string }).model).toBe(
 			'claude-sonnet-5',
 		)
+	})
+
+	test('constrains the image response to the same schema as the text one', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		let capturedBody: string | undefined
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
+			capturedBody = opts?.body as string
+			return new Response(
+				JSON.stringify({
+					content: [{ type: 'text', text: JSON.stringify(validResponse) }],
+				}),
+				{ status: 200 },
+			)
+		})
+
+		await extractRecipeFromImages([
+			{ base64: 'base64data', mediaType: 'image/jpeg' },
+		])
+
+		const properties = recipeBranch(capturedBody!).properties
+		expect(properties.activeTime).toEqual({
+			anyOf: [{ type: 'integer' }, { type: 'null' }],
+		})
+		expect(properties.ingredients).toMatchObject({
+			items: { required: ['name', 'amount', 'unit', 'notes', 'isHeading'] },
+		})
 	})
 })

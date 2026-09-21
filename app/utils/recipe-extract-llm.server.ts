@@ -2,9 +2,11 @@ import { z } from 'zod'
 import {
 	ANTHROPIC_MODELS,
 	isAnthropicConfigured,
+	nullable,
 	parseAnthropicJson,
 	requestAnthropicJson,
 	type AnthropicJsonFailure,
+	type JsonSchema,
 } from './anthropic-json.server.ts'
 import {
 	MAX_RAW_TEXT_LENGTH,
@@ -166,6 +168,77 @@ const ExtractedRecipeSchema: z.ZodType<ExtractedRecipeFromLLM> = z
 	)
 
 /**
+ * The shape the provider constrains the response to. It settles the types the
+ * prompt used to only ask for — a time arrives as a whole number of minutes or
+ * not at all — while every cap, trim and coercion stays in the Zod schema
+ * above, which structured outputs cannot express.
+ */
+const EXTRACT_JSON_SCHEMA: JsonSchema = {
+	anyOf: [
+		{
+			type: 'object',
+			properties: {
+				title: { type: 'string' },
+				description: nullable({ type: 'string' }),
+				notes: nullable({ type: 'string' }),
+				activeTime: nullable({ type: 'integer' }),
+				totalTime: nullable({ type: 'integer' }),
+				yieldAmount: nullable({ type: 'number' }),
+				yieldLabel: nullable({ type: 'string' }),
+				ingredients: {
+					type: 'array',
+					items: {
+						type: 'object',
+						properties: {
+							name: { type: 'string' },
+							amount: nullable({ type: 'string' }),
+							// Left a free string: the prompt asks for a canonical
+							// unit or null, and an enum here would make the model
+							// pick a wrong unit where it should have picked none.
+							unit: nullable({ type: 'string' }),
+							notes: nullable({ type: 'string' }),
+							isHeading: { type: 'boolean' },
+						},
+						required: ['name', 'amount', 'unit', 'notes', 'isHeading'],
+						additionalProperties: false,
+					},
+				},
+				instructions: {
+					type: 'array',
+					items: {
+						type: 'object',
+						properties: { content: { type: 'string' } },
+						required: ['content'],
+						additionalProperties: false,
+					},
+				},
+			},
+			required: [
+				'title',
+				'description',
+				'notes',
+				'activeTime',
+				'totalTime',
+				'yieldAmount',
+				'yieldLabel',
+				'ingredients',
+				'instructions',
+			],
+			additionalProperties: false,
+		},
+		// The "there is no recipe here" answer needs its own branch: without one
+		// the schema would leave the model no way to say it, and a page with no
+		// recipe would come back as an invented one.
+		{
+			type: 'object',
+			properties: { error: { type: 'string', enum: ['no_recipe_found'] } },
+			required: ['error'],
+			additionalProperties: false,
+		},
+	],
+}
+
+/**
  * Read Active and Total time, and drop a Total shorter than the Active it is
  * paired with. The enhance path applies the same rule to its suggestions; a
  * contradiction reaching the review page is the same confusion either way.
@@ -194,7 +267,7 @@ function positiveMinutes(value: unknown): number | null {
 }
 
 const SYSTEM_PROMPT =
-	'You are a recipe extraction assistant. Extract a structured recipe from informal text or images such as social media captions, screenshots, blog posts, or YouTube descriptions. The content may contain emojis, abbreviations, hashtags, casual language, non-English text, or missing structure. Do your best to identify the recipe. Return only valid JSON — no markdown, no explanation.'
+	'You are a recipe extraction assistant. Extract a structured recipe from informal text or images such as social media captions, screenshots, blog posts, or YouTube descriptions. The content may contain emojis, abbreviations, hashtags, casual language, non-English text, or missing structure. Do your best to identify the recipe.'
 
 export function buildExtractPrompt(
 	mode: 'text' | 'image',
@@ -228,7 +301,7 @@ Rules:
 - If multiple recipes are present, extract only the main or primary recipe
 - Return at most ${MAX_INGREDIENTS} ingredient rows (heading rows count toward that) and at most ${MAX_INSTRUCTIONS} instruction steps. If the source has more, keep the most important ones rather than stopping partway through
 - Copy Active time, Total time, and Yield only when the source explicitly states them; otherwise use null. Never estimate or default metadata. Total time must not be shorter than Active time
-- activeTime and totalTime are plain whole numbers of minutes, never strings and never with a unit: "20 min" is 20, "1 hr 15 min" is 75, "1½ hours" is 90. A string is discarded and the time is lost
+- activeTime and totalTime are plain whole numbers of minutes: "20 min" is 20, "1 hr 15 min" is 75, "1½ hours" is 90
 - A yield must include both a positive numeric amount and its source label (for example, "Serves 6" becomes 6 + "servings"; "Makes 2 loaves" becomes 2 + "loaves")
 - If no recognizable recipe is found, return {"error": "no_recipe_found"}
 
@@ -279,6 +352,7 @@ export async function extractRecipeFromText(
 		timeoutMs: TIMEOUT_TEXT_MS,
 		system: SYSTEM_PROMPT,
 		prompt: buildExtractPrompt('text', rawText),
+		jsonSchema: EXTRACT_JSON_SCHEMA,
 		schema: ExtractedRecipeSchema,
 	})
 
@@ -370,6 +444,7 @@ export async function extractRecipeFromImages(
 			...imageBlocks,
 			{ type: 'text', text: buildExtractPrompt('image') },
 		],
+		jsonSchema: EXTRACT_JSON_SCHEMA,
 		schema: ExtractedRecipeSchema,
 	})
 

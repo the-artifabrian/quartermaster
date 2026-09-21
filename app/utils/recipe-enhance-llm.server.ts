@@ -1,9 +1,11 @@
 import { z } from 'zod'
 import {
 	ANTHROPIC_MODELS,
+	nullable,
 	parseAnthropicJson,
 	requestAnthropicJson,
 	type AnthropicJsonFailure,
+	type JsonSchema,
 } from './anthropic-json.server.ts'
 import { MAX_RECIPE_DESCRIPTION_LENGTH } from './recipe-validation.ts'
 
@@ -50,6 +52,22 @@ const EnhanceableFieldsSchema: z.ZodType<EnhanceableFields> = z
 					: totalTime,
 		}
 	})
+
+/**
+ * The shape the provider constrains the response to. The times come back as
+ * whole numbers of minutes; the reconciliation against the recipe's current
+ * times below is a rule no schema can state.
+ */
+const ENHANCE_JSON_SCHEMA: JsonSchema = {
+	type: 'object',
+	properties: {
+		description: nullable({ type: 'string' }),
+		activeTime: nullable({ type: 'integer' }),
+		totalTime: nullable({ type: 'integer' }),
+	},
+	required: ['description', 'activeTime', 'totalTime'],
+	additionalProperties: false,
+}
 
 function positiveMinutes(value: unknown): number | null {
 	if (typeof value !== 'number' || !Number.isFinite(value)) return null
@@ -102,8 +120,9 @@ export async function enhanceRecipeMetadata(
 		maxTokens: MAX_TOKENS,
 		timeoutMs: TIMEOUT_MS,
 		system:
-			'You are a practical home cook. Analyze the recipe and suggest a concise description and realistic time estimates. Return only valid JSON — no markdown, no explanation.',
+			'You are a practical home cook. Analyze the recipe and suggest a concise description and realistic time estimates.',
 		prompt: buildEnhancePrompt(input),
+		jsonSchema: ENHANCE_JSON_SCHEMA,
 		schema: EnhanceableFieldsSchema,
 	})
 

@@ -1,5 +1,6 @@
 import closeWithGrace from 'close-with-grace'
 import { setupServer } from 'msw/node'
+import { isLocalHostname } from '../setup/network-guard.ts'
 import { handlers as anthropicHandlers } from './anthropic.ts'
 import { handlers as googleHandlers } from './google.ts'
 import { handlers as pwnedPasswordApiHandlers } from './pwned-passwords.ts'
@@ -27,12 +28,7 @@ server.listen({
 		}
 		// Tests that spin up a real local server (e.g. the SSE/compression
 		// harness) talk to themselves — nothing to mock.
-		// `URL.hostname` keeps the brackets on IPv6 literals ('[::1]').
-		if (
-			['127.0.0.1', 'localhost', '[::1]'].includes(
-				new URL(request.url).hostname,
-			)
-		) {
+		if (isLocalHostname(new URL(request.url).hostname)) {
 			return
 		}
 		// Print the regular MSW unhandled request warning otherwise.

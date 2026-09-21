@@ -87,8 +87,8 @@ const ImportRecipeSchema = z
 		yieldAmount: z.number().positive().nullable().optional(),
 		yieldLabel: z.string().trim().min(1).max(100).nullable().optional(),
 		isFavorite: z.boolean().optional(),
-		// Optional so exports from before #173 remain importable.
-		isAiGenerated: z.boolean().optional(),
+		// Exports written before #278 carry isAiGenerated. It is not declared here
+		// and the schema is not strict, so the key is ignored rather than rejected.
 		sourceUrl: z.string().max(2000).nullable().optional(),
 		// Truncated, never rejected: rawText is ancillary provenance, and losing a
 		// whole Recipe from a restore because its source text is long would be a
@@ -491,7 +491,6 @@ async function importRecipes(
 						yieldAmount: recipe.yieldAmount ?? undefined,
 						yieldLabel: recipe.yieldLabel ?? undefined,
 						isFavorite: recipe.isFavorite ?? false,
-						isAiGenerated: recipe.isAiGenerated ?? false,
 						sourceUrl: recipe.sourceUrl || null,
 						rawText: recipe.rawText ?? null,
 						notes: recipe.notes || null,

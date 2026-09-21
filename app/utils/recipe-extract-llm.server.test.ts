@@ -1,15 +1,57 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 
+type SharpChain = {
+	rotate: () => SharpChain
+	resize: (...args: unknown[]) => SharpChain
+	jpeg: (...args: unknown[]) => SharpChain
+	toBuffer: () => Promise<Buffer>
+}
+
+const sharpCalls: Array<{
+	rotated: boolean
+	resize: unknown[]
+	jpeg: unknown[]
+}> = []
+
 vi.mock('sharp', () => ({
-	default: () => ({
-		resize: () => ({
-			jpeg: () => ({
-				toBuffer: () => Promise.resolve(Buffer.from('optimized')),
-			}),
-		}),
-	}),
+	default: () => {
+		const call = {
+			rotated: false,
+			resize: [] as unknown[],
+			jpeg: [] as unknown[],
+		}
+		const chain: SharpChain = {
+			rotate: () => {
+				call.rotated = true
+				return chain
+			},
+			resize: (...resize: unknown[]) => {
+				call.resize = resize
+				return chain
+			},
+			jpeg: (...jpeg: unknown[]) => {
+				call.jpeg = jpeg
+				sharpCalls.push(call)
+				return chain
+			},
+			toBuffer: () => Promise.resolve(Buffer.from('optimized')),
+		}
+		return chain
+	},
 }))
 
+import {
+	MAX_RAW_TEXT_LENGTH,
+	MAX_RECIPE_DESCRIPTION_LENGTH,
+	MAX_RECIPE_INGREDIENTS,
+	MAX_RECIPE_INSTRUCTIONS,
+	MAX_RECIPE_NOTES_LENGTH,
+	MAX_RECIPE_TITLE_LENGTH,
+	RecipeDescriptionSchema,
+	RecipeNotesSchema,
+	RecipeTitleSchema,
+} from './recipe-validation.ts'
+import { CANONICAL_COUNT_UNITS, CANONICAL_UNITS } from './unit-conversion.ts'
 import {
 	buildExtractPrompt,
 	parseExtractResponse,
@@ -45,12 +87,13 @@ describe('buildExtractPrompt', () => {
 		expect(prompt).toContain('---')
 	})
 
-	test('truncates text at 16000 chars', () => {
-		const longText = 'x'.repeat(20_000)
+	test('carries the whole paste the box accepts, and truncates beyond it', () => {
+		const longText = 'x'.repeat(MAX_RAW_TEXT_LENGTH + 10_000)
 		const prompt = buildExtractPrompt('text', longText)
-		// The text between delimiters should be capped
-		expect(prompt).not.toContain('x'.repeat(20_000))
-		expect(prompt).toContain('x'.repeat(16_000))
+		// A blog post puts the recipe card last: cutting below the paste limit
+		// drops exactly the part that matters.
+		expect(prompt).toContain('x'.repeat(MAX_RAW_TEXT_LENGTH))
+		expect(prompt).not.toContain('x'.repeat(MAX_RAW_TEXT_LENGTH + 1))
 	})
 
 	test('contains JSON structure template', () => {
@@ -82,8 +125,89 @@ describe('buildExtractPrompt', () => {
 	test('includes key extraction rules', () => {
 		const prompt = buildExtractPrompt('text', 'some text')
 		expect(prompt).toContain('Infer the recipe title')
-		expect(prompt).toContain('original units')
 		expect(prompt).toContain('no_recipe_found')
+	})
+
+	test('names every canonical unit consolidation understands', () => {
+		const prompt = buildExtractPrompt('text', 'some text')
+		// The joined lists, not each unit on its own: "l" and "g" would match
+		// anywhere in the prose and prove nothing.
+		expect(prompt).toContain(CANONICAL_UNITS.join(', '))
+		expect(prompt).toContain(CANONICAL_COUNT_UNITS.join(', '))
+		expect(CANONICAL_UNITS).toContain('tbsp')
+		expect(CANONICAL_COUNT_UNITS).toContain('each')
+		// The canonical list replaces the old "never use 'unit' as a unit" patch.
+		expect(prompt).not.toContain('Never use "unit" as a unit')
+		expect(prompt).toContain('linguri')
+		expect(prompt).toContain('Never convert between metric and imperial')
+	})
+
+	test('asks for an amount format parseAmount actually reads', () => {
+		const prompt = buildExtractPrompt('text', 'some text')
+		expect(prompt).toContain('1.5')
+		expect(prompt).toContain('never "1,5"')
+		expect(prompt).toContain('1 1/2')
+		// "1 to 2" parses as 1, so the range has to survive in notes.
+		expect(prompt).toContain('lower bound')
+	})
+
+	test('separates the bare ingredient name from its preparation', () => {
+		const prompt = buildExtractPrompt('text', 'some text')
+		expect(prompt).toContain('name is the bare ingredient')
+		expect(prompt).toContain('belong in notes')
+	})
+
+	test('says which fields are written in English', () => {
+		const prompt = buildExtractPrompt('text', 'some text')
+		expect(prompt).toContain(
+			'Write the title, description, instructions, ingredient names and notes in English',
+		)
+	})
+
+	test('states the caps the save path enforces', () => {
+		const prompt = buildExtractPrompt('text', 'some text')
+		expect(prompt).toContain(`under ${MAX_RECIPE_TITLE_LENGTH} characters`)
+		expect(prompt).toContain(
+			`at most ${MAX_RECIPE_INGREDIENTS} ingredient rows`,
+		)
+		expect(prompt).toContain(
+			`at most ${MAX_RECIPE_INSTRUCTIONS} instruction steps`,
+		)
+		expect(prompt).toContain(`under ${MAX_RECIPE_NOTES_LENGTH} characters`)
+	})
+
+	test("asks for the cook's notes as a top-level field", () => {
+		const prompt = buildExtractPrompt('text', 'some text')
+		expect(prompt).toContain('"notes"')
+		expect(prompt).toContain('substitutions, storage, make-ahead')
+	})
+
+	test('rules out a Total time shorter than Active time', () => {
+		const prompt = buildExtractPrompt('text', 'some text')
+		expect(prompt).toContain('Total time must not be shorter than Active time')
+	})
+
+	test('asks for times as whole minutes, which is all the schema accepts', () => {
+		const prompt = buildExtractPrompt('text', 'some text')
+		// Sonnet returns "20 min" / "1 hr 15 min" without this rule, and a string
+		// is discarded, so the stated time silently disappears from the review.
+		expect(prompt).toContain('plain whole numbers of minutes')
+		expect(prompt).toContain('"1 hr 15 min" is 75')
+		// The template keeps nulls: a worked example here would invite the model
+		// to default times the source never stated.
+		expect(prompt).toContain('"activeTime": null')
+	})
+
+	test('discards a time the model sent as a string rather than guessing', () => {
+		const stringTimes = {
+			...validResponse,
+			activeTime: '20 min',
+			totalTime: '1 hr 15 min',
+		}
+		expect(parseExtractResponse(JSON.stringify(stringTimes))).toMatchObject({
+			activeTime: null,
+			totalTime: null,
+		})
 	})
 
 	test('includes sub-section handling rule', () => {
@@ -167,8 +291,8 @@ describe('parseExtractResponse', () => {
 		).toBeNull()
 	})
 
-	test('caps ingredients at 50', () => {
-		const manyIngs = {
+	test('keeps every row the creation form would accept', () => {
+		const manyRows = {
 			...validResponse,
 			ingredients: Array.from({ length: 60 }, (_, i) => ({
 				name: `ingredient-${i}`,
@@ -176,20 +300,35 @@ describe('parseExtractResponse', () => {
 				unit: 'cup',
 				notes: null,
 			})),
-		}
-		const result = parseExtractResponse(JSON.stringify(manyIngs))
-		expect(result!.ingredients).toHaveLength(50)
-	})
-
-	test('caps instructions at 30', () => {
-		const manyInsts = {
-			...validResponse,
 			instructions: Array.from({ length: 40 }, (_, i) => ({
 				content: `Step ${i + 1}`,
 			})),
 		}
-		const result = parseExtractResponse(JSON.stringify(manyInsts))
-		expect(result!.instructions).toHaveLength(30)
+		const result = parseExtractResponse(JSON.stringify(manyRows))
+		expect(result!.ingredients).toHaveLength(60)
+		expect(result!.instructions).toHaveLength(40)
+	})
+
+	test('caps rows at the form limits', () => {
+		const tooManyRows = {
+			...validResponse,
+			ingredients: Array.from(
+				{ length: MAX_RECIPE_INGREDIENTS + 20 },
+				(_, i) => ({
+					name: `ingredient-${i}`,
+					amount: '1',
+					unit: 'cup',
+					notes: null,
+				}),
+			),
+			instructions: Array.from(
+				{ length: MAX_RECIPE_INSTRUCTIONS + 20 },
+				(_, i) => ({ content: `Step ${i + 1}` }),
+			),
+		}
+		const result = parseExtractResponse(JSON.stringify(tooManyRows))
+		expect(result!.ingredients).toHaveLength(MAX_RECIPE_INGREDIENTS)
+		expect(result!.instructions).toHaveLength(MAX_RECIPE_INSTRUCTIONS)
 	})
 
 	test('keeps incomplete yield metadata unknown', () => {
@@ -228,16 +367,59 @@ describe('parseExtractResponse', () => {
 		expect(result!.description).toBeNull()
 	})
 
-	test('truncates overlong title', () => {
-		const longTitle = { ...validResponse, title: 'A'.repeat(500) }
-		const result = parseExtractResponse(JSON.stringify(longTitle))
-		expect(result!.title).toHaveLength(200)
+	test('truncates title and description to what a save accepts', () => {
+		const overlong = {
+			...validResponse,
+			title: 'A'.repeat(500),
+			description: 'B'.repeat(5000),
+		}
+		const result = parseExtractResponse(JSON.stringify(overlong))
+		expect(result!.title).toHaveLength(MAX_RECIPE_TITLE_LENGTH)
+		expect(result!.description).toHaveLength(MAX_RECIPE_DESCRIPTION_LENGTH)
+		// The review page must never hand the save path a value it will reject.
+		expect(RecipeTitleSchema.safeParse(result!.title).success).toBe(true)
+		expect(RecipeDescriptionSchema.safeParse(result!.description).success).toBe(
+			true,
+		)
 	})
 
-	test('truncates overlong description', () => {
-		const longDesc = { ...validResponse, description: 'B'.repeat(5000) }
-		const result = parseExtractResponse(JSON.stringify(longDesc))
-		expect(result!.description).toHaveLength(2000)
+	test("keeps the cook's notes and caps them at the save limit", () => {
+		const withNotes = {
+			...validResponse,
+			notes: 'Swap the cream for coconut milk. Keeps three days, covered.',
+		}
+		expect(parseExtractResponse(JSON.stringify(withNotes))!.notes).toBe(
+			'Swap the cream for coconut milk. Keeps three days, covered.',
+		)
+
+		const longNotes = { ...validResponse, notes: 'N'.repeat(5000) }
+		const capped = parseExtractResponse(JSON.stringify(longNotes))!.notes
+		expect(capped).toHaveLength(MAX_RECIPE_NOTES_LENGTH)
+		expect(RecipeNotesSchema.safeParse(capped).success).toBe(true)
+	})
+
+	test('returns null notes when the source has no tips', () => {
+		expect(
+			parseExtractResponse(JSON.stringify(validResponse))!.notes,
+		).toBeNull()
+		expect(
+			parseExtractResponse(JSON.stringify({ ...validResponse, notes: '   ' }))!
+				.notes,
+		).toBeNull()
+	})
+
+	test('drops a Total time shorter than the Active time it is paired with', () => {
+		const impossible = { ...validResponse, activeTime: 30, totalTime: 10 }
+		const result = parseExtractResponse(JSON.stringify(impossible))
+		expect(result).toMatchObject({ activeTime: 30, totalTime: null })
+	})
+
+	test('keeps a Total time equal to or longer than Active time', () => {
+		const fine = { ...validResponse, activeTime: 30, totalTime: 30 }
+		expect(parseExtractResponse(JSON.stringify(fine))).toMatchObject({
+			activeTime: 30,
+			totalTime: 30,
+		})
 	})
 
 	test('truncates overlong ingredient fields', () => {
@@ -435,6 +617,54 @@ describe('extractRecipeFromText', () => {
 		const result = await extractRecipeFromText('some text')
 		expect((result as { error: string }).error).toContain('rate limit')
 	})
+
+	test('reports a truncated answer as too long, not as no recipe found', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			new Response(
+				JSON.stringify({
+					stop_reason: 'max_tokens',
+					// Cut mid-array, exactly as the provider returns it.
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(validResponse).slice(0, 120),
+						},
+					],
+				}),
+				{ status: 200 },
+			),
+		)
+
+		const error = (await extractRecipeFromText('a very long recipe')) as {
+			error: string
+		}
+		expect(error.error).toContain('too long to extract')
+		expect(error.error).not.toContain("Couldn't find a recipe")
+	})
+
+	test('asks for enough output tokens to carry a full recipe', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		let capturedBody: string | undefined
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
+			capturedBody = opts?.body as string
+			return new Response(
+				JSON.stringify({
+					stop_reason: 'end_turn',
+					content: [{ type: 'text', text: JSON.stringify(validResponse) }],
+				}),
+				{ status: 200 },
+			)
+		})
+
+		await extractRecipeFromText('some recipe text')
+		const body = JSON.parse(capturedBody!) as {
+			max_tokens: number
+			model: string
+		}
+		expect(body.max_tokens).toBeGreaterThanOrEqual(8192)
+		expect(body.model).toBe('claude-haiku-4-5-20251001')
+	})
 })
 
 describe('extractRecipeFromImages', () => {
@@ -582,5 +812,41 @@ describe('extractRecipeFromImages', () => {
 		expect(result).not.toHaveProperty('error')
 		expect((result as { title: string }).title).toBe('Creamy Garlic Pasta')
 		expect((result as { ingredients: unknown[] }).ingredients).toHaveLength(4)
+	})
+
+	test('keeps a phone screenshot large enough to read', async () => {
+		process.env.ANTHROPIC_API_KEY = 'test-key'
+		sharpCalls.length = 0
+		let capturedBody: string | undefined
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
+			capturedBody = opts?.body as string
+			return new Response(
+				JSON.stringify({
+					content: [{ type: 'text', text: JSON.stringify(validResponse) }],
+				}),
+				{ status: 200 },
+			)
+		})
+
+		await extractRecipeFromImages([
+			{ base64: 'base64data', mediaType: 'image/jpeg' },
+		])
+
+		// 1568px is what Sonnet accepts before downsampling on its own; anything
+		// smaller throws away recipe text on a 1170×2532 screenshot.
+		expect(sharpCalls).toHaveLength(1)
+		expect(sharpCalls[0]!.resize.slice(0, 2)).toEqual([1568, 1568])
+		// Without auto-orientation a portrait photo arrives on its side: sharp
+		// drops the EXIF tag on write and leaves the pixels as they were.
+		expect(sharpCalls[0]!.rotated).toBe(true)
+		expect(sharpCalls[0]!.jpeg[0]).toMatchObject({
+			quality: expect.any(Number),
+		})
+		expect(
+			(sharpCalls[0]!.jpeg[0] as { quality: number }).quality,
+		).toBeGreaterThan(80)
+		expect((JSON.parse(capturedBody!) as { model: string }).model).toBe(
+			'claude-sonnet-5',
+		)
 	})
 })

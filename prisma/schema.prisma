@@ -228,7 +228,6 @@ model Recipe {
   /// Free-text typed-yield label; intentionally not an enum or fixed vocabulary.
   yieldLabel  String?
   isFavorite     Boolean  @default(false)
-  isAiGenerated  Boolean  @default(false)
   sourceUrl      String?
   rawText     String?
   notes       String?

@@ -49,7 +49,6 @@ async function setup() {
 			rawText: 'private recoverable input',
 			notes: 'private personal note',
 			isFavorite: true,
-			isAiGenerated: true,
 			image: {
 				create: {
 					objectKey: 'menu-test/chickpeas.png',
@@ -341,7 +340,6 @@ test('Save copies one complete Recipe per source, preserves positions, ignores t
 		rawText: recipe.rawText,
 		notes: null,
 		isFavorite: false,
-		isAiGenerated: true,
 		activeTime: 10,
 		totalTime: 25,
 		yieldAmount: 4,

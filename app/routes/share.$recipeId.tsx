@@ -125,7 +125,6 @@ export async function action({ params, request }: Route.ActionArgs) {
 			yieldAmount: recipe.yieldAmount,
 			yieldLabel: recipe.yieldLabel,
 			isFavorite: false,
-			isAiGenerated: recipe.isAiGenerated,
 			sourceUrl: recipe.sourceUrl,
 			rawText: recipe.rawText,
 			userId,

@@ -317,7 +317,6 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 180,
 				yieldAmount: 2.5,
 				yieldLabel: 'large braided loaves for a celebration table',
-				isAiGenerated: true,
 				userId: source.userId,
 				householdId: source.householdId,
 				ingredients: { create: { name: 'flour', order: 0 } },
@@ -335,7 +334,6 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 180,
 				yieldAmount: 2.5,
 				yieldLabel: 'large braided loaves for a celebration table',
-				isAiGenerated: true,
 			}),
 		)
 
@@ -349,7 +347,6 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 180,
 				yieldAmount: 2.5,
 				yieldLabel: 'large braided loaves for a celebration table',
-				isAiGenerated: true,
 			}),
 		)
 	})
@@ -364,6 +361,9 @@ describe('Recipe time and typed yield recovery', () => {
 					servings: 4,
 					prepTime: 10,
 					cookTime: 20,
+					// Written before #278 dropped the column. The restore ignores the
+					// key instead of failing the Recipe.
+					isAiGenerated: true,
 					ingredients: [{ name: 'onion' }],
 					instructions: ['Cook the onion.'],
 				},
@@ -380,9 +380,9 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 30,
 				yieldAmount: null,
 				yieldLabel: null,
-				isAiGenerated: false,
 			}),
 		)
+		expect(recipe).not.toHaveProperty('isAiGenerated')
 		expect(recipe).not.toHaveProperty('servings')
 		expect(recipe).not.toHaveProperty('prepTime')
 		expect(recipe).not.toHaveProperty('cookTime')
@@ -397,7 +397,6 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 75,
 				yieldAmount: 3.5,
 				yieldLabel: 'small jars',
-				isAiGenerated: true,
 				userId: source.userId,
 				householdId: source.householdId,
 				ingredients: { create: { name: 'tomatoes', order: 0 } },
@@ -413,7 +412,6 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 75,
 				yieldAmount: 3.5,
 				yieldLabel: 'small jars',
-				isAiGenerated: true,
 			}),
 		)
 
@@ -427,7 +425,6 @@ describe('Recipe time and typed yield recovery', () => {
 				totalTime: 75,
 				yieldAmount: 3.5,
 				yieldLabel: 'small jars',
-				isAiGenerated: true,
 			}),
 		)
 	})

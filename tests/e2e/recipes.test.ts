@@ -122,10 +122,11 @@ test('legacy Pantry generation is gone while AI import and provenance remain', a
 	).toHaveCount(0)
 	await page.keyboard.press('Escape')
 
+	// The AI-Generated badge went with the generator (#278): AI import only
+	// transcribes a recipe someone else wrote, so no card carries the mark.
 	await prisma.recipe.create({
 		data: {
 			title: 'Historical AI Recipe',
-			isAiGenerated: true,
 			userId: user.id,
 			householdId: household.id,
 		},
@@ -137,7 +138,7 @@ test('legacy Pantry generation is gone while AI import and provenance remain', a
 	await expect(historicalCard).toBeVisible()
 	await expect(
 		historicalCard.getByRole('img', { name: 'AI Generated' }),
-	).toBeVisible()
+	).toHaveCount(0)
 
 	await page.setViewportSize({ width: 390, height: 844 })
 	await page.goto('/recipes')

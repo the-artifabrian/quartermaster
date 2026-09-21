@@ -64,6 +64,7 @@ function reviewFields(recipe: ExtractedRecipe): Record<string, string> {
 		title: recipe.title,
 		rawText: recipe.rawText,
 		sourceUrl: recipe.sourceUrl,
+		notes: recipe.notes ?? '',
 	}
 	for (const name of [
 		'description',
@@ -170,7 +171,8 @@ test('text source preserves the original title and exact text before normalizati
 		await prisma.recipe.findFirst({
 			where: { householdId: session.householdId },
 		}),
-	).toMatchObject({ rawText, yieldAmount: 2 })
+		// Deterministic parsing produces no cook's notes.
+	).toMatchObject({ rawText, yieldAmount: 2, notes: null })
 })
 test('source survives full household and Recipe-only JSON recovery; older exports still import', async () => {
 	const session = await user()
@@ -396,6 +398,7 @@ test('image extraction preserves the extracted structure through edited save wit
 		const structure = {
 			title: 'Image chickpeas',
 			description: null,
+			notes: 'Keeps three days in the fridge. Swap in butter beans.',
 			activeTime: 5,
 			totalTime: 20,
 			yieldAmount: 2,
@@ -465,7 +468,11 @@ test('image extraction preserves the extracted structure through edited save wit
 			await prisma.recipe.findFirst({
 				where: { householdId: session.householdId },
 			}),
-		).toMatchObject({ rawText: recipe.rawText })
+		).toMatchObject({
+			rawText: recipe.rawText,
+			// The cook's notes survive the review page and reach Recipe.notes.
+			notes: structure.notes,
+		})
 	} finally {
 		if (oldKey === undefined) delete process.env.ANTHROPIC_API_KEY
 		else process.env.ANTHROPIC_API_KEY = oldKey

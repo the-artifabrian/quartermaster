@@ -41,9 +41,7 @@ const EnhanceableFieldsSchema: z.ZodType<EnhanceableFields> = z
 		return {
 			description:
 				typeof fields.description === 'string' && fields.description.trim()
-					? fields.description
-							.trim()
-							.slice(0, MAX_RECIPE_DESCRIPTION_LENGTH)
+					? fields.description.trim().slice(0, MAX_RECIPE_DESCRIPTION_LENGTH)
 					: null,
 			activeTime,
 			totalTime:
@@ -124,6 +122,8 @@ function enhanceError(failure: AnthropicJsonFailure): string {
 			return 'Recipe enhance timed out. Please try again.'
 		case 'empty-response':
 			return 'Recipe enhance returned an empty response. Please try again.'
+		case 'max-tokens':
+			return 'Recipe enhance returned more than it could fit. Please try again.'
 		case 'parse':
 		case 'schema':
 			return 'Recipe enhance returned an unexpected response. Please try again.'

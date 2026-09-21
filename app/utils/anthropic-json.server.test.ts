@@ -162,4 +162,42 @@ describe('requestAnthropicJson', () => {
 		expect(wrongShape.ok).toBe(false)
 		if (!wrongShape.ok) expect(wrongShape.failure.kind).toBe('schema')
 	})
+
+	test('reports a max_tokens stop as its own failure, not as bad JSON', async () => {
+		const logError = vi.fn()
+		const truncated = await requestAnthropicJson(request, {
+			apiKey: () => 'test-key',
+			fetch: async () =>
+				new Response(
+					JSON.stringify({
+						stop_reason: 'max_tokens',
+						content: [{ type: 'text', text: '{"value":"cut off mid-va' }],
+					}),
+					{ status: 200 },
+				),
+			logError,
+		})
+		expect(truncated).toEqual({ ok: false, failure: { kind: 'max-tokens' } })
+		expect(logError).toHaveBeenCalledWith(
+			expect.any(String),
+			expect.objectContaining({ kind: 'max-tokens', feature: 'test-feature' }),
+		)
+	})
+
+	test('a complete answer is unaffected by its stop reason', async () => {
+		const complete = await requestAnthropicJson(
+			request,
+			makeAdapter(
+				async () =>
+					new Response(
+						JSON.stringify({
+							stop_reason: 'end_turn',
+							content: [{ type: 'text', text: '{"value":"ok"}' }],
+						}),
+						{ status: 200 },
+					),
+			),
+		)
+		expect(complete).toEqual({ ok: true, data: { value: 'ok' } })
+	})
 })

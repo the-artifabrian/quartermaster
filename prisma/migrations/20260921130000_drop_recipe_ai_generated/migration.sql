@@ -1,0 +1,12 @@
+-- Remove the AI-generated flag from Recipe (#278). The badge dates from when
+-- the app generated recipes outright; AI import only transcribes a recipe a
+-- person wrote, so flagging the result mislabels its authorship. No create
+-- path ever set the column — only share, export and household copy read it —
+-- so every stored value is the default.
+--
+-- A plain DROP COLUMN rather than the table rebuild used by
+-- 20260830160000_contract_legacy_recipe_metadata: the column carries no index,
+-- no CHECK constraint and no foreign key, which is exactly the case SQLite's
+-- DROP COLUMN supports, and it leaves the Recipe yield constraints and indexes
+-- untouched instead of recreating them.
+ALTER TABLE "Recipe" DROP COLUMN "isAiGenerated";

@@ -134,7 +134,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			yieldAmount: true,
 			yieldLabel: true,
 			isFavorite: true,
-			isAiGenerated: true,
 			sourceUrl: true,
 			rawText: true,
 			notes: true,

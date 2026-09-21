@@ -151,7 +151,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		description: true,
 		totalTime: true,
 		isFavorite: true,
-		isAiGenerated: true,
 		image: { select: { objectKey: true } },
 		_count: {
 			select: {
@@ -629,7 +628,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								totalTime={recipe.totalTime}
 								showUnknownTime={Boolean(maxTime)}
 								isFavorite={recipe.isFavorite}
-								isAiGenerated={recipe.isAiGenerated}
 							/>
 						))}
 					</RecipeCardGrid>

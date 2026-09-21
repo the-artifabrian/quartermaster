@@ -59,6 +59,8 @@ export type ExtractedRecipe = {
 	warnings?: string[]
 	title: string
 	description: string | null
+	/** The cook's own tips — only the AI extraction paths produce these. */
+	notes: string | null
 	activeTime: number | null
 	totalTime: number | null
 	yieldAmount: number | null
@@ -265,6 +267,7 @@ function extractRecipe(
 		description: jsonLd.description
 			? cleanJsonLdText(String(jsonLd.description))
 			: null,
+		notes: null,
 		activeTime: parseExplicitDuration(jsonLd.prepTime),
 		totalTime: parseExplicitDuration(jsonLd.totalTime),
 		yieldAmount: typedYield?.amount ?? null,
@@ -592,6 +595,7 @@ export async function action({ request }: Route.ActionArgs) {
 		const recipe: ExtractedRecipe = {
 			title: parsed.title || 'Untitled Recipe',
 			description: parsed.description || null,
+			notes: null,
 			activeTime: null,
 			totalTime: null,
 			yieldAmount: parsed.yieldAmount ?? null,
@@ -792,6 +796,7 @@ export async function action({ request }: Route.ActionArgs) {
 		const recipe: ExtractedRecipe = {
 			title: llmResult.title,
 			description: llmResult.description,
+			notes: llmResult.notes,
 			activeTime: llmResult.activeTime,
 			totalTime: llmResult.totalTime,
 			yieldAmount: llmResult.yieldAmount,

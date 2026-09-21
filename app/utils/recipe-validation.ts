@@ -1,13 +1,15 @@
 import { z } from 'zod'
 import { RecipeMetadataSelectionFieldSchema } from './recipe-metadata.ts'
 
+export const MAX_RECIPE_TITLE_LENGTH = 100
+
 export const RecipeTitleSchema = z
 	.string({
 		error: (issue) =>
 			issue.input === undefined ? 'Title is required' : undefined,
 	})
 	.min(1, { message: 'Title is required' })
-	.max(100, { message: 'Title is too long' })
+	.max(MAX_RECIPE_TITLE_LENGTH, { message: 'Title is too long' })
 
 export const MAX_RECIPE_DESCRIPTION_LENGTH = 500
 
@@ -25,10 +27,18 @@ export const RecipeDescriptionSchema = z
 	.max(MAX_RECIPE_DESCRIPTION_LENGTH, { message: 'Description is too long' })
 	.optional()
 
+export const MAX_RECIPE_NOTES_LENGTH = 2000
+
 export const RecipeNotesSchema = z
 	.string()
-	.max(2000, { message: 'Notes are too long' })
+	.max(MAX_RECIPE_NOTES_LENGTH, { message: 'Notes are too long' })
 	.optional()
+
+// Row ceilings for one Recipe. The creation form, the save schema and the AI
+// extraction prompt all read these, so what the model is told to return and
+// what a save accepts cannot drift apart.
+export const MAX_RECIPE_INGREDIENTS = 200
+export const MAX_RECIPE_INSTRUCTIONS = 200
 
 export const IngredientSchema = z.object({
 	id: z.string().optional(),
@@ -108,11 +118,11 @@ export const RecipeSchema = z
 		ingredients: z
 			.array(IngredientSchema)
 			.min(1, { message: 'At least one ingredient is required' })
-			.max(200, { message: 'Too many ingredients' }),
+			.max(MAX_RECIPE_INGREDIENTS, { message: 'Too many ingredients' }),
 		instructions: z
 			.array(InstructionSchema)
 			.min(1, { message: 'At least one instruction is required' })
-			.max(200, { message: 'Too many instructions' }),
+			.max(MAX_RECIPE_INSTRUCTIONS, { message: 'Too many instructions' }),
 	})
 	.superRefine((recipe, context) => {
 		if (recipe.yieldAmount != null && recipe.yieldLabel == null) {

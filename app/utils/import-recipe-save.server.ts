@@ -51,6 +51,7 @@ export async function saveImportedRecipe(
 		yieldLabel,
 		sourceUrl,
 		rawText,
+		notes,
 		ingredients,
 		instructions,
 	} = submission.value
@@ -67,6 +68,7 @@ export async function saveImportedRecipe(
 				yieldLabel,
 				sourceUrl: sourceUrl || null,
 				rawText: rawText ?? null,
+				notes: notes || null,
 				userId,
 				householdId,
 				ingredients: {

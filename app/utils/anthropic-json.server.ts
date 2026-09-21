@@ -3,9 +3,13 @@ import { z } from 'zod'
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_API_VERSION = '2023-06-01'
 
+// Recheck both IDs against the Models API (GET /v1/models) whenever this file
+// is touched — a model that is current today is a generation behind after the
+// next release. Verified 2026-09-21: Haiku 4.5 is still the current Haiku, and
+// claude-sonnet-5 is the current Sonnet.
 export const ANTHROPIC_MODELS = {
 	fast: 'claude-haiku-4-5-20251001',
-	vision: 'claude-sonnet-4-6',
+	vision: 'claude-sonnet-5',
 } as const
 
 type AnthropicModel = (typeof ANTHROPIC_MODELS)[keyof typeof ANTHROPIC_MODELS]
@@ -27,6 +31,7 @@ export type AnthropicJsonFailure =
 	| { kind: 'provider'; status?: number }
 	| { kind: 'timeout' }
 	| { kind: 'empty-response' }
+	| { kind: 'max-tokens' }
 	| { kind: 'parse' }
 	| { kind: 'schema' }
 
@@ -64,6 +69,7 @@ const AnthropicResponseSchema = z.object({
 			}),
 		)
 		.default([]),
+	stop_reason: z.string().nullish(),
 })
 
 export function isAnthropicConfigured(
@@ -165,6 +171,18 @@ export async function requestAnthropicJson<T>(
 			issues: parsedResponse.error.issues,
 		})
 		return { ok: false, failure: { kind: 'provider' } }
+	}
+
+	// A max_tokens stop means the JSON is cut mid-value. Report it as its own
+	// failure rather than letting the parse fail, which reads to the caller like
+	// the model found nothing.
+	if (parsedResponse.data.stop_reason === 'max_tokens') {
+		adapter.logError('Anthropic JSON response hit max_tokens', {
+			feature: request.feature,
+			kind: 'max-tokens',
+			maxTokens: request.maxTokens,
+		})
+		return { ok: false, failure: { kind: 'max-tokens' } }
 	}
 
 	const text = parsedResponse.data.content.find(

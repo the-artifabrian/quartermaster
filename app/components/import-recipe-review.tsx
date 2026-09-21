@@ -26,6 +26,7 @@ function reviewFieldLabel(field: string) {
 	const labels: Record<string, string> = {
 		title: 'Title',
 		description: 'Description',
+		notes: 'Notes',
 		ingredients: 'Ingredients',
 		instructions: 'Instructions',
 		activeTime: 'Active time',
@@ -45,6 +46,7 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 	const [details, setDetails] = useState(() => ({
 		title: recipe.title,
 		description: recipe.description ?? '',
+		notes: recipe.notes ?? '',
 		activeTime: recipe.activeTime?.toString() ?? '',
 		totalTime: recipe.totalTime?.toString() ?? '',
 		yieldAmount: recipe.yieldAmount?.toString() ?? '',
@@ -267,6 +269,15 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 								)
 							})()}
 
+						{details.notes && (
+							<div>
+								<h3 className="mb-2 font-medium">Notes</h3>
+								<p className="text-muted-foreground text-sm wrap-anywhere whitespace-pre-wrap">
+									{details.notes}
+								</p>
+							</div>
+						)}
+
 						{instructions.length > 0 && (
 							<div>
 								<h3 className="mb-2 font-medium">
@@ -330,6 +341,19 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 								value={details.description}
 								onChange={(event) =>
 									setDetails({ ...details, description: event.target.value })
+								}
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="review-notes">Notes</Label>
+							<Textarea
+								id="review-notes"
+								name="notes"
+								rows={4}
+								placeholder="Substitutions, storage, make-ahead tips"
+								value={details.notes}
+								onChange={(event) =>
+									setDetails({ ...details, notes: event.target.value })
 								}
 							/>
 						</div>

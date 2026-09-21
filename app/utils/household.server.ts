@@ -488,7 +488,6 @@ async function deepCopyRecipes(
 				yieldAmount: recipe.yieldAmount,
 				yieldLabel: recipe.yieldLabel,
 				isFavorite: recipe.isFavorite,
-				isAiGenerated: recipe.isAiGenerated,
 				sourceUrl: recipe.sourceUrl,
 				rawText: recipe.rawText,
 				notes: recipe.notes,

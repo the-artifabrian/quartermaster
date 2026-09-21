@@ -12,7 +12,6 @@ type RecipeCardProps = {
 	totalTime?: number | null
 	showUnknownTime?: boolean
 	isFavorite?: boolean
-	isAiGenerated?: boolean
 }
 
 export function RecipeCard({
@@ -23,7 +22,6 @@ export function RecipeCard({
 	totalTime,
 	showUnknownTime = false,
 	isFavorite,
-	isAiGenerated,
 }: RecipeCardProps) {
 	const placeholder = !imageObjectKey ? getRecipePlaceholder(title) : null
 
@@ -128,14 +126,6 @@ export function RecipeCard({
 							<Icon name="clock" size="xs" />
 							{totalTime != null ? `${totalTime} min` : 'Time unknown'}
 						</span>
-					)}
-					{isAiGenerated && (
-						<Icon
-							name="sparkles"
-							size="xs"
-							title="AI Generated"
-							className="text-muted-foreground/50 ml-auto"
-						/>
 					)}
 				</div>
 			</div>

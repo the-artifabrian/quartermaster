@@ -300,7 +300,7 @@ export async function action({ request }: Route.ActionArgs) {
 					status: 'success' as const,
 					action: 'toggle-staple-out' as const,
 					isOut,
-					message: `${staple.displayName} is no longer Out. It remains in Next shop.`,
+					message: `${staple.displayName} is no longer Out.`,
 				}
 			}
 

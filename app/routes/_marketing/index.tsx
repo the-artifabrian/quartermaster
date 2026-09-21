@@ -757,10 +757,7 @@ function StaplesScreen() {
 
 				<div className="border-espresso-line/70 mt-5 overflow-hidden rounded-xl border">
 					<div className="bg-espresso-raised/60 flex items-center justify-between px-4 py-3">
-						<div>
-							<p className="font-serif text-xl">Out</p>
-							<p className="text-cream-muted text-sm">Waiting in Next shop</p>
-						</div>
+						<p className="font-serif text-xl">Out</p>
 						<span className="border-copper/60 text-copper flex size-6 items-center justify-center rounded-full border text-xs font-semibold tabular-nums">
 							2
 						</span>

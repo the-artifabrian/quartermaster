@@ -4,6 +4,7 @@ import { createId } from '@paralleldrive/cuid2'
 import { expect, test } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
+import '#tests/setup/db-setup.ts'
 
 /**
  * Executes the statements from the shipped #106 contraction migration, so the

@@ -5,6 +5,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader } from './shopping-staples.tsx'
+import '#tests/setup/db-setup.ts'
 
 async function setupHousehold(name: string, staplesCutoverAt: Date | null) {
 	return prisma.$transaction(async (tx) => {

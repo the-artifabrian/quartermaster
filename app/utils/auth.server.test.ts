@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import { describe, expect, test, vi } from 'vitest'
-import { server } from '#tests/mocks/index.ts'
+import { server } from '#tests/setup/mocks-setup.ts'
 import { consoleWarn } from '#tests/setup/setup-test-env.ts'
 import { checkIsCommonPassword, getPasswordHashParts } from './auth.server.ts'
 

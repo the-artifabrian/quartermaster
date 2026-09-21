@@ -5,6 +5,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action } from './index.tsx'
+import '#tests/setup/db-setup.ts'
 
 afterEach(() => vi.restoreAllMocks())
 

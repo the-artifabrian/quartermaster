@@ -8,6 +8,7 @@ import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { action as planAction } from './$menuId.tsx'
+import '#tests/setup/db-setup.ts'
 
 function makeMenuArgs(menuId: string) {
 	return {

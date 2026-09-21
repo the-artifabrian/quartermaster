@@ -8,6 +8,7 @@ import {
 	handleSubscriptionDeleted,
 	handleSubscriptionUpdated,
 } from './stripe.server.ts'
+import '#tests/setup/db-setup.ts'
 
 const mockPeriodEnd = Math.floor(Date.now() / 1000) + 30 * 86400
 

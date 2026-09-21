@@ -1,15 +1,22 @@
 import 'dotenv/config'
-import './db-setup.ts'
+import './test-database.ts'
 import '#app/utils/env.server.ts'
 // we need these to be imported first 👆
 
-import { cleanup } from '@testing-library/react'
-import { afterEach, beforeEach, vi, type MockInstance } from 'vitest'
-import { server } from '#tests/mocks/index.ts'
+import { beforeEach, vi, type MockInstance } from 'vitest'
 import './custom-matchers.ts'
+import { installNetworkGuard } from './network-guard.ts'
 
-afterEach(() => server.resetHandlers())
-afterEach(() => cleanup())
+// Everything in this file is paid for by all ~120 test files, so it stays
+// cheap. The expensive setup is opt-in and lives next door:
+//   - `db-setup.ts` for tests that use the database
+//   - `mocks-setup.ts` for tests that call a third-party API
+//   - `dom-setup.ts`, loaded below for `@vitest-environment jsdom` files
+if (typeof document !== 'undefined') {
+	await import('./dom-setup.ts')
+}
+
+installNetworkGuard()
 
 export let consoleError: MockInstance<(typeof console)['error']>
 export let consoleWarn: MockInstance<(typeof console)['warn']>

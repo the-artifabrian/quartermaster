@@ -13,6 +13,7 @@ import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action as recipeAction } from '../recipes/$recipeId.tsx'
 import { action as shoppingAction } from '../shopping.tsx'
 import { action as planAction, loader as planLoader } from './index.tsx'
+import '#tests/setup/db-setup.ts'
 
 const PLAN_ARGS = {
 	params: {},

@@ -12,6 +12,7 @@ import { loader as detailLoader } from './$menuId.tsx'
 import { action as editAction, loader as editLoader } from './$menuId_.edit.tsx'
 import { loader as indexLoader } from './index.tsx'
 import { action as newAction } from './new.tsx'
+import '#tests/setup/db-setup.ts'
 
 function makeIndexArgs() {
 	return {

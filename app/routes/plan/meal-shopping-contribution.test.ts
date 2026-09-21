@@ -15,6 +15,7 @@ import {
 	loader as shoppingLoader,
 } from '../shopping.tsx'
 import { action as planAction, loader as planLoader } from './index.tsx'
+import '#tests/setup/db-setup.ts'
 
 const PLAN_ARGS = {
 	params: {},

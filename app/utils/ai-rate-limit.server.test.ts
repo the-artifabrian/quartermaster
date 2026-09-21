@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { checkAndRecordAiUsage } from './ai-rate-limit.server.ts'
+import '#tests/setup/db-setup.ts'
 
 async function setupUser() {
 	const user = await prisma.user.create({ data: createUser() })

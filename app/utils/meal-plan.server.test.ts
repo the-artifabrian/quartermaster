@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
 import { createUser } from '#tests/db-utils.ts'
+import '#tests/setup/db-setup.ts'
 
 async function setupHousehold() {
 	const user = await prisma.user.create({ data: createUser() })

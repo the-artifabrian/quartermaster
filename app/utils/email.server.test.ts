@@ -1,6 +1,6 @@
 import { HttpResponse, delay, http } from 'msw'
 import { afterEach, expect, test, vi } from 'vitest'
-import { server } from '#tests/mocks/index.ts'
+import { server } from '#tests/setup/mocks-setup.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { sendEmail } from './email.server.ts'
 import { init } from './env.server.ts'

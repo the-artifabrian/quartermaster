@@ -9,6 +9,7 @@ import {
 	removeMember,
 	revokeInvite,
 } from './household.server.ts'
+import '#tests/setup/db-setup.ts'
 
 async function setupUser() {
 	return prisma.$transaction(async (tx) => {

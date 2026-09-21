@@ -9,6 +9,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { loader, action } from './$recipeId.tsx'
+import '#tests/setup/db-setup.ts'
 
 function makeActionArgs(recipeId: string) {
 	return {

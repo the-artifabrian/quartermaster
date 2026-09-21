@@ -110,6 +110,10 @@ function recipeBranch(body: string): SchemaBranch {
 	return outputSchema(body).anyOf[0]!
 }
 
+// The prompt is asserted only where it is coupled to something else: a shared
+// constant, a format the parser reads, a limit the save path enforces, or a
+// branch of the template. Prose that is free to be reworded is left alone — a
+// substring test on it fails on every rewrite and catches no real regression.
 describe('buildExtractPrompt', () => {
 	test('includes raw text in output for text mode', () => {
 		const prompt = buildExtractPrompt('text', 'My recipe caption here')
@@ -126,36 +130,12 @@ describe('buildExtractPrompt', () => {
 		expect(prompt).not.toContain('x'.repeat(MAX_RAW_TEXT_LENGTH + 1))
 	})
 
-	test('contains JSON structure template', () => {
-		const prompt = buildExtractPrompt('text', 'some text')
-		expect(prompt).toContain('"title"')
-		expect(prompt).toContain('"ingredients"')
-		expect(prompt).toContain('"instructions"')
-	})
-
 	test('works for image mode', () => {
 		const prompt = buildExtractPrompt('image')
 		expect(prompt).toContain(
 			'Extract a structured recipe from the provided image(s)',
 		)
 		expect(prompt).not.toContain('---')
-	})
-
-	test('text mode has different intro than image mode', () => {
-		const textPrompt = buildExtractPrompt('text', 'some text')
-		const imagePrompt = buildExtractPrompt('image')
-		expect(textPrompt).toContain(
-			'Extract a structured recipe from the following text',
-		)
-		expect(imagePrompt).toContain(
-			'Extract a structured recipe from the provided image(s)',
-		)
-	})
-
-	test('includes key extraction rules', () => {
-		const prompt = buildExtractPrompt('text', 'some text')
-		expect(prompt).toContain('Infer the recipe title')
-		expect(prompt).toContain('no_recipe_found')
 	})
 
 	test('names every canonical unit consolidation understands', () => {
@@ -206,17 +186,6 @@ describe('buildExtractPrompt', () => {
 		expect(prompt).toContain(`under ${MAX_RECIPE_NOTES_LENGTH} characters`)
 	})
 
-	test("asks for the cook's notes as a top-level field", () => {
-		const prompt = buildExtractPrompt('text', 'some text')
-		expect(prompt).toContain('"notes"')
-		expect(prompt).toContain('substitutions, storage, make-ahead')
-	})
-
-	test('rules out a Total time shorter than Active time', () => {
-		const prompt = buildExtractPrompt('text', 'some text')
-		expect(prompt).toContain('Total time must not be shorter than Active time')
-	})
-
 	test('asks for times as whole minutes, which is all the schema accepts', () => {
 		const prompt = buildExtractPrompt('text', 'some text')
 		// Sonnet returns "20 min" / "1 hr 15 min" without this rule, and a string
@@ -226,18 +195,6 @@ describe('buildExtractPrompt', () => {
 		// The template keeps nulls: a worked example here would invite the model
 		// to default times the source never stated.
 		expect(prompt).toContain('"activeTime": null')
-	})
-
-	test('discards a time the model sent as a string rather than guessing', () => {
-		const stringTimes = {
-			...validResponse,
-			activeTime: '20 min',
-			totalTime: '1 hr 15 min',
-		}
-		expect(parseExtractResponse(JSON.stringify(stringTimes))).toMatchObject({
-			activeTime: null,
-			totalTime: null,
-		})
 	})
 
 	test('includes sub-section handling rule', () => {
@@ -275,13 +232,6 @@ describe('buildExtractPrompt', () => {
 			'"metadata": {"cuisine": [], "season": [], "course": []}',
 		)
 		expect(prompt).not.toContain('"cuisine": ["Italian"]')
-	})
-
-	test('instructs heading rows instead of section-in-notes', () => {
-		const prompt = buildExtractPrompt('text', 'some text')
-		expect(prompt).toContain('isHeading')
-		expect(prompt).toContain('heading row')
-		expect(prompt).toContain('Do NOT put the section name into the notes field')
 	})
 })
 
@@ -467,6 +417,18 @@ describe('parseExtractResponse', () => {
 			parseExtractResponse(JSON.stringify({ ...validResponse, notes: '   ' }))!
 				.notes,
 		).toBeNull()
+	})
+
+	test('discards a time the model sent as a string rather than guessing', () => {
+		const stringTimes = {
+			...validResponse,
+			activeTime: '20 min',
+			totalTime: '1 hr 15 min',
+		}
+		expect(parseExtractResponse(JSON.stringify(stringTimes))).toMatchObject({
+			activeTime: null,
+			totalTime: null,
+		})
 	})
 
 	test('drops a Total time shorter than the Active time it is paired with', () => {

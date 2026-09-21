@@ -12,6 +12,7 @@ import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { loader as shoppingStaplesLoader } from '../resources/shopping-staples.tsx'
 import { action, loader } from '../shopping.tsx'
+import '#tests/setup/db-setup.ts'
 
 const ACTION_ARGS_BASE = {
 	params: {},

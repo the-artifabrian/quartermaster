@@ -5,6 +5,8 @@ import { BASE_URL } from '#tests/utils.ts'
 import { handleVerification } from './onboarding/index.server.ts'
 import { action } from './signup.tsx'
 import { VerifySchema } from './verify.tsx'
+import '#tests/setup/db-setup.ts'
+import '#tests/setup/mocks-setup.ts'
 
 test('email signup and verification retain the destination shared Menu', async () => {
 	const redirectTo = '/share/menus/terrace-dinner'

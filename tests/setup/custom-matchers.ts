@@ -1,16 +1,11 @@
 import * as setCookieParser from 'set-cookie-parser'
 import { expect } from 'vitest'
-import { sessionKey } from '#app/utils/auth.server.ts'
-import { prisma } from '#app/utils/db.server.ts'
-import { authSessionStorage } from '#app/utils/session.server.ts'
-import {
-	type ToastInput,
-	toastSessionStorage,
-	toastKey,
-} from '#app/utils/toast.server.ts'
-import { convertSetCookieToCookie } from '#tests/utils.ts'
+import { type ToastInput } from '#app/utils/toast.server.ts'
 
-import '@testing-library/jest-dom/vitest'
+// The session and toast matchers reach into the server modules (Prisma, auth,
+// session storage), which is most of what importing this file used to cost.
+// They load on first use instead, so files that never assert on a session or a
+// toast never pay for them.
 
 expect.extend({
 	toHaveRedirect(response: unknown, redirectTo?: string) {
@@ -77,6 +72,17 @@ expect.extend({
 		}
 	},
 	async toHaveSessionForUser(response: Response, userId: string) {
+		const [
+			{ sessionKey },
+			{ prisma },
+			{ authSessionStorage },
+			{ convertSetCookieToCookie },
+		] = await Promise.all([
+			import('#app/utils/auth.server.ts'),
+			import('#app/utils/db.server.ts'),
+			import('#app/utils/session.server.ts'),
+			import('#tests/utils.ts'),
+		])
 		const setCookies = response.headers.getSetCookie()
 		const sessionSetCookie = setCookies.find(
 			(c) => setCookieParser.parseString(c)?.name === 'en_session',
@@ -118,6 +124,11 @@ expect.extend({
 		}
 	},
 	async toSendToast(response: Response, toast: ToastInput) {
+		const [{ toastSessionStorage, toastKey }, { convertSetCookieToCookie }] =
+			await Promise.all([
+				import('#app/utils/toast.server.ts'),
+				import('#tests/utils.ts'),
+			])
 		const setCookies = response.headers.getSetCookie()
 		const toastSetCookie = setCookies.find(
 			(c) => setCookieParser.parseString(c)?.name === 'en_toast',

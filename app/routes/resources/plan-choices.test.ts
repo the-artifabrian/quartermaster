@@ -6,6 +6,7 @@ import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader } from './plan-choices.tsx'
+import '#tests/setup/db-setup.ts'
 
 async function setupHousehold(name: string) {
 	return prisma.$transaction(async (tx) => {

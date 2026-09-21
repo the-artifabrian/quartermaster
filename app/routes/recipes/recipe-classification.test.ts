@@ -11,6 +11,7 @@ import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action as editAction } from './$recipeId_.edit.tsx'
 import { loader as indexLoader } from './index.tsx'
 import { action as newAction } from './new.tsx'
+import '#tests/setup/db-setup.ts'
 
 function routeArgs<T extends Record<string, string> = Record<never, never>>(
 	path: string,

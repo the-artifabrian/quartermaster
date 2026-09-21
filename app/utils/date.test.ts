@@ -14,7 +14,6 @@ import {
 	formatMonthDay,
 	formatWeekdayName,
 	formatWeekRange,
-	MEAL_TYPES,
 } from './date.ts'
 
 describe('parseDate', () => {
@@ -318,15 +317,5 @@ describe('formatTimeAgo', () => {
 
 	test('returns "X years ago" for 730+ days', () => {
 		expect(formatTimeAgo(daysAgo(730))).toBe('2 years ago')
-	})
-})
-
-describe('MEAL_TYPES', () => {
-	test('has 4 meal types', () => {
-		expect(MEAL_TYPES).toHaveLength(4)
-		expect(MEAL_TYPES).toContain('breakfast')
-		expect(MEAL_TYPES).toContain('lunch')
-		expect(MEAL_TYPES).toContain('dinner')
-		expect(MEAL_TYPES).toContain('snack')
 	})
 })

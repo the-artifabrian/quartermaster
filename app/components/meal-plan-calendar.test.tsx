@@ -13,7 +13,7 @@ import { HttpResponse, http } from 'msw'
 import { createRoutesStub, Link } from 'react-router'
 import { expect, test } from 'vitest'
 import { getCurrentWeekStart, getWeekDays, parseDate } from '#app/utils/date.ts'
-import { server } from '#tests/mocks/index.ts'
+import { server } from '#tests/setup/mocks-setup.ts'
 import { type PlanMeal } from './meal-card.tsx'
 import { MealPlanCalendar } from './meal-plan-calendar.tsx'
 

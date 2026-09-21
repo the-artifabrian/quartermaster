@@ -81,8 +81,9 @@ describe('parseSpeechItemsWithLLM', () => {
 		})
 	})
 
-	test('handles markdown code blocks in response', async () => {
+	test('returns null when the response is not bare JSON', async () => {
 		vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
+		consoleError.mockImplementation(() => {})
 
 		server.use(
 			http.post('https://api.anthropic.com/v1/messages', () => {
@@ -97,9 +98,9 @@ describe('parseSpeechItemsWithLLM', () => {
 			}),
 		)
 
-		const result = await parseSpeechItemsWithLLM('three apples')
-		expect(result).toHaveLength(1)
-		expect(result![0]).toEqual({ name: 'apples', quantity: '3', unit: '' })
+		// A fenced response was scraped clean before structured outputs; now it
+		// fails, and the caller falls back to its own parsing.
+		expect(await parseSpeechItemsWithLLM('three apples')).toBeNull()
 	})
 
 	test('returns null on 500 API error', async () => {

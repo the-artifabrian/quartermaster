@@ -520,7 +520,6 @@ export function ActiveStaples({
 					<StapleGroup
 						id="out-staples"
 						title="Out"
-						description="Waiting in Next shop"
 						staples={outStaples}
 						countLabel={`${outStaples.length} Out Staple${outStaples.length === 1 ? '' : 's'}`}
 						isOut
@@ -602,7 +601,6 @@ export function ActiveStaples({
 function StapleGroup({
 	id,
 	title,
-	description,
 	staples,
 	countLabel,
 	isOut = false,
@@ -614,7 +612,6 @@ function StapleGroup({
 }: {
 	id: string
 	title: string
-	description?: string
 	staples: Array<{ id: string; displayName: string; isOut: boolean }>
 	countLabel: string
 	isOut?: boolean
@@ -644,14 +641,9 @@ function StapleGroup({
 						: 'flex items-baseline justify-between border-b pb-2'
 				}
 			>
-				<div>
-					<h2 id={`${id}-heading`} className="font-serif text-xl font-normal">
-						{title}
-					</h2>
-					{description && (
-						<p className="text-muted-foreground text-sm">{description}</p>
-					)}
-				</div>
+				<h2 id={`${id}-heading`} className="font-serif text-xl font-normal">
+					{title}
+				</h2>
 				<span
 					aria-label={countLabel}
 					className={

@@ -43,7 +43,7 @@ test('large Staple lists put the Out task first and search both groups', async (
 	const availableGroup = screen.getByRole('region', {
 		name: 'Usually available',
 	})
-	expect(outGroup).toHaveTextContent('Waiting in Next shop')
+	expect(outGroup).not.toHaveTextContent('Next shop')
 	expect(within(outGroup).getByLabelText('2 Out Staples')).toBeVisible()
 	expect(
 		within(availableGroup).getByLabelText('12 usually available Staples'),

@@ -7,6 +7,7 @@ import * as householdEvents from '#app/utils/household-events.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { loader } from './household-events.tsx'
+import '#tests/setup/db-setup.ts'
 
 const LOADER_ARGS_BASE = {
 	params: {},

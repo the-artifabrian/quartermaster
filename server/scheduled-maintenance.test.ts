@@ -6,6 +6,7 @@ import {
 	startScheduledMaintenance,
 	type MaintenanceSummary,
 } from './scheduled-maintenance.ts'
+import '#tests/setup/db-setup.ts'
 
 const EMPTY_SUMMARY: MaintenanceSummary = {
 	sessions: 0,

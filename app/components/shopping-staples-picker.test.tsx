@@ -7,7 +7,7 @@ import { HttpResponse, http } from 'msw'
 import { createRoutesStub } from 'react-router'
 import { expect, test } from 'vitest'
 import { getHouseholdClientId } from '#app/utils/household-client.tsx'
-import { server } from '#tests/mocks/index.ts'
+import { server } from '#tests/setup/mocks-setup.ts'
 import { ShoppingStaplesPicker } from './shopping-staples-picker.tsx'
 
 test('loads Staple choices once per Shopping screen and derives current list state', async () => {

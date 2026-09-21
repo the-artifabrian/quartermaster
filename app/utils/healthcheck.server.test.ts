@@ -6,6 +6,7 @@ import {
 	assertDatabaseWritable,
 	getAvailableDiskBytes,
 } from './healthcheck.server.ts'
+import '#tests/setup/db-setup.ts'
 
 const VOLUME_PATH = '/data'
 const ONE_MEBIBYTE = 1024n * 1024n

@@ -12,6 +12,7 @@ import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { action, loader } from './index.tsx'
 import { createPlanAction } from './plan-action.server.ts'
+import '#tests/setup/db-setup.ts'
 
 const ACTION_ARGS_BASE = {
 	params: {},
@@ -668,9 +669,9 @@ describe('meal plan actions', () => {
 			menuError:
 				'This Menu has nothing to plan yet—add a Recipe or note first.',
 		})
-		expect(
-			await prisma.meal.count({ where: { sourceMenuId: menu.id } }),
-		).toBe(0)
+		expect(await prisma.meal.count({ where: { sourceMenuId: menu.id } })).toBe(
+			0,
+		)
 	})
 
 	test('concurrent household members adding to a fresh week share one plan', async () => {

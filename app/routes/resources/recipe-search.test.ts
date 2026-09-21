@@ -5,6 +5,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader } from './recipe-search.tsx'
+import '#tests/setup/db-setup.ts'
 
 async function setupHousehold(name: string) {
 	return prisma.$transaction(async (tx) => {

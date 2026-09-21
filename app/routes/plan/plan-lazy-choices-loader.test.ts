@@ -6,6 +6,7 @@ import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader } from './index.tsx'
+import '#tests/setup/db-setup.ts'
 
 const observedQueries: string[] = []
 prisma.$on('query', (event) => observedQueries.push(event.query))

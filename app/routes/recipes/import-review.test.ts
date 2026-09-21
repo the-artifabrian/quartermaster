@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import sharp from 'sharp'
-import { server } from '#tests/mocks/index.ts'
+import { server } from '#tests/setup/mocks-setup.ts'
 import { RouterContextProvider } from 'react-router'
 import { expect, test, vi } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
@@ -18,6 +18,7 @@ import {
 	loader as shareLoader,
 	action as shareAction,
 } from '../share.$recipeId.tsx'
+import '#tests/setup/db-setup.ts'
 
 const chickpeaLine =
 	'2 cans chickpeas, drained and rinsed thoroughly under cold running water (reserve the liquid for another recipe; if using dried chickpeas instead, soak them overnight and simmer until completely tender before measuring the equivalent cooked weight)'

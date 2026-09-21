@@ -197,7 +197,16 @@ Vitest covers pure logic and authenticated loader/action behavior against real
 test SQLite databases. Focused Playwright tests cover interaction-heavy paths.
 Migration tests execute shipped SQL when data conversion itself is the risk.
 
+A test file opts into the setup it needs: `import '#tests/setup/db-setup.ts'`
+for a freshly seeded database before each test,
+`import '#tests/setup/mocks-setup.ts'` for the MSW handlers, and the
+`@vitest-environment jsdom` docblock for a DOM. Files needing none of those pay
+for none of them, and a query or an outbound request made without the matching
+import fails with an error naming it. Worker databases live under a directory
+unique to each run, so concurrent runs cannot overwrite or clean up one
+another's files.
+
 Full Playwright is not a CI release gate. Browser checks and simulations are
 implementation evidence, not substitutes for normal use.
 
-_Updated 3 September 2026._
+_Updated 21 September 2026._

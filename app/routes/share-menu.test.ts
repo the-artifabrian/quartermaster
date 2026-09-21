@@ -7,7 +7,7 @@ import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { planMenu } from '#app/utils/plan-menu.server.ts'
 import { saveSharedMenu } from '#app/utils/share-menu.server.ts'
 import { createUser } from '#tests/db-utils.ts'
-import { server } from '#tests/mocks/index.ts'
+import { server } from '#tests/setup/mocks-setup.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as detailLoader } from './recipes/menus/$menuId.tsx'
@@ -15,6 +15,7 @@ import { loader as exportLoader } from './resources/export-all-data.tsx'
 import { action as importAction } from './settings/profile/import.tsx'
 import { action, loader } from './share.menus.$menuId.tsx'
 import { loader as recipeLoader } from './share.menus.$menuId_.recipes.$itemId.tsx'
+import '#tests/setup/db-setup.ts'
 
 async function household() {
 	const session = await prisma.session.create({

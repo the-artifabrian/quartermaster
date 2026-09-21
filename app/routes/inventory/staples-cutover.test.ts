@@ -7,6 +7,7 @@ import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action as recipeAction } from '../recipes/$recipeId.tsx'
 import { loader as recipesLoader } from '../recipes/index.tsx'
 import { action, loader } from './index.tsx'
+import '#tests/setup/db-setup.ts'
 
 const ROUTE_ARGS = {
 	params: {},

@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import { describe, expect, test, vi } from 'vitest'
-import { server } from '#tests/mocks/index.ts'
+import { server } from '#tests/setup/mocks-setup.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { parseSpeechItemsWithLLM } from './speech-parse-llm.server.ts'
 

@@ -4,12 +4,13 @@ import { describe, expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
-import { server } from '#tests/mocks/index.ts'
+import { server } from '#tests/setup/mocks-setup.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action as enhanceAction } from '../resources/enhance-recipe.tsx'
 import { action as recipeAction } from './$recipeId.tsx'
 import { action as importAction } from './import.tsx'
+import '#tests/setup/db-setup.ts'
 
 async function setupProHousehold() {
 	return prisma.$transaction(async (tx) => {

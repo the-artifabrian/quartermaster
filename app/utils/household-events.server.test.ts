@@ -5,6 +5,7 @@ import {
 	emitHouseholdEvent,
 	householdEventBus,
 } from './household-events.server.ts'
+import '#tests/setup/db-setup.ts'
 
 async function setupUser() {
 	return prisma.$transaction(async (tx) => {

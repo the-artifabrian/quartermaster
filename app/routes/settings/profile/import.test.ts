@@ -10,6 +10,7 @@ import { loader as exportLoader } from '../../resources/export-all-data.tsx'
 import { loader as recipeExportLoader } from '../../resources/export-recipes.tsx'
 import { loader as shoppingLoader } from '../../shopping.tsx'
 import { action } from './import.tsx'
+import '#tests/setup/db-setup.ts'
 
 const ACTION_ARGS_BASE = {
 	params: {},

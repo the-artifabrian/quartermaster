@@ -4,12 +4,13 @@ import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
-import { server } from '#tests/mocks/index.ts'
+import { server } from '#tests/setup/mocks-setup.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as detailLoader } from './$recipeId.tsx'
 import { action as editAction } from './$recipeId_.edit.tsx'
 import { action as importAction } from './import.tsx'
 import { action as newAction } from './new.tsx'
+import '#tests/setup/db-setup.ts'
 
 function routeArgs<
 	TParams extends Record<string, string> = Record<string, never>,

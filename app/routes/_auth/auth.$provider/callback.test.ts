@@ -12,10 +12,11 @@ import { authSessionStorage } from '#app/utils/session.server.ts'
 import { generateTOTP } from '#app/utils/totp.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { insertGoogleUser, deleteGoogleUsers } from '#tests/mocks/google.ts'
-import { server } from '#tests/mocks/index.ts'
+import { server } from '#tests/setup/mocks-setup.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, convertSetCookieToCookie } from '#tests/utils.ts'
 import { loader } from './callback.ts'
+import '#tests/setup/db-setup.ts'
 
 const ROUTE_PATH = '/auth/google/callback'
 const PARAMS = { provider: 'google' }

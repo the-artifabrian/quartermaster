@@ -2,6 +2,7 @@ import { z } from 'zod'
 import {
 	ANTHROPIC_MODELS,
 	requestAnthropicJson,
+	type JsonSchema,
 } from './anthropic-json.server.ts'
 import { type ParsedItem } from './parse-speech-item.ts'
 
@@ -36,6 +37,28 @@ const SpeechItemsSchema: z.ZodType<ParsedItem[]> = z
 	)
 
 /**
+ * The shape the provider constrains the response to. Every property is
+ * required, so a quantity or unit the transcript never gave arrives as an
+ * empty string rather than a missing key — which is what the Zod schema above
+ * already normalizes absent values to. The canonical unit list stays in the
+ * prompt, and the item cap stays in that schema; structured outputs can state
+ * neither.
+ */
+const SPEECH_JSON_SCHEMA: JsonSchema = {
+	type: 'array',
+	items: {
+		type: 'object',
+		properties: {
+			name: { type: 'string' },
+			quantity: { type: 'string' },
+			unit: { type: 'string' },
+		},
+		required: ['name', 'quantity', 'unit'],
+		additionalProperties: false,
+	},
+}
+
+/**
  * Parse a speech transcript into structured grocery items using Claude Haiku.
  *
  * Returns `ParsedItem[]` on success, or `null` on any failure so the caller
@@ -50,12 +73,12 @@ export async function parseSpeechItemsWithLLM(
 		maxTokens: 512,
 		timeoutMs: TIMEOUT_MS,
 		system: `You are a grocery list parser that extracts items from speech-to-text transcripts.
-Return ONLY a valid JSON array — no markdown fences, no explanation.
 
 CRITICAL: Speech-to-text often produces garbage, hallucinated, or nonsensical output.
 If the transcript is gibberish, unintelligible, or does not contain any recognizable grocery/food items, return an empty array: []
 Do NOT invent or guess items that aren't clearly present in the transcript.`,
 		prompt: buildPrompt(transcript),
+		jsonSchema: SPEECH_JSON_SCHEMA,
 		schema: SpeechItemsSchema,
 	})
 

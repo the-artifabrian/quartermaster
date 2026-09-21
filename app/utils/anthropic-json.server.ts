@@ -25,6 +25,29 @@ export type AnthropicContentBlock =
 			}
 	  }
 
+/**
+ * The JSON Schema subset structured outputs accepts. It has no string or
+ * numeric constraints and no recursion, so the feature-level caps and
+ * coercions stay in the callers' Zod schemas; this only fixes the shape and
+ * the types of what comes back.
+ */
+export type JsonSchema =
+	| { type: 'string'; enum?: readonly string[] }
+	| { type: 'number' | 'integer' | 'boolean' | 'null' }
+	| { type: 'array'; items: JsonSchema }
+	| {
+			type: 'object'
+			properties: Record<string, JsonSchema>
+			required: readonly string[]
+			additionalProperties: false
+	  }
+	| { anyOf: readonly JsonSchema[] }
+
+/** A field the model may leave empty. `null` is a type, not an absent key. */
+export function nullable(schema: JsonSchema): JsonSchema {
+	return { anyOf: [schema, { type: 'null' }] }
+}
+
 export type AnthropicJsonFailure =
 	| { kind: 'configuration' }
 	| { kind: 'rate-limit'; status: 429 }
@@ -45,6 +68,8 @@ export type AnthropicJsonRequest<T> = {
 	timeoutMs: number
 	system: string
 	prompt: string | AnthropicContentBlock[]
+	/** Constrains the response through `output_config.format`. */
+	jsonSchema: JsonSchema
 	schema: z.ZodType<T>
 }
 
@@ -81,6 +106,11 @@ export function isAnthropicConfigured(
 /**
  * Parse the JSON value from an Anthropic text response and validate it through
  * the caller's feature-local schema.
+ *
+ * Structured outputs make the fence- and prose-tolerant scraping below dead
+ * weight in principle. It stays until the change is verified in production
+ * (#280): the cost is one failed `JSON.parse` on a response that never needed
+ * it, and the alternative is trusting a guarantee we have not watched hold.
  */
 export function parseAnthropicJson<T>(
 	text: string,
@@ -122,6 +152,12 @@ export async function requestAnthropicJson<T>(
 				max_tokens: request.maxTokens,
 				system: request.system,
 				messages: [{ role: 'user', content: request.prompt }],
+				// Structured outputs: the response is schema-valid by
+				// construction, so a stray sentence or fence can no longer turn
+				// a good answer into a parse failure.
+				output_config: {
+					format: { type: 'json_schema', schema: request.jsonSchema },
+				},
 			}),
 			signal: AbortSignal.timeout(request.timeoutMs),
 		})
@@ -206,6 +242,10 @@ function parseJsonValue(
 	const trimmed = text.trim()
 	const direct = tryParseJson(trimmed)
 	if (direct.ok) return direct
+
+	// Fallback: everything below this line handles a response that structured
+	// outputs should have made impossible. Remove it once production confirms
+	// that (#280).
 
 	const objectStart = trimmed.indexOf('{')
 	const arrayStart = trimmed.indexOf('[')

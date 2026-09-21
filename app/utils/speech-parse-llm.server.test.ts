@@ -40,6 +40,47 @@ describe('parseSpeechItemsWithLLM', () => {
 		expect(result![2]).toEqual({ name: 'milk', quantity: '', unit: '' })
 	})
 
+	test('constrains the answer to a list of items, empty when nothing was said', async () => {
+		vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
+		let capturedBody: unknown
+
+		server.use(
+			http.post(
+				'https://api.anthropic.com/v1/messages',
+				async ({ request }) => {
+					capturedBody = await request.json()
+					return HttpResponse.json({
+						content: [{ type: 'text', text: '[]' }],
+					})
+				},
+			),
+		)
+
+		await parseSpeechItemsWithLLM('mmm uhh')
+
+		const format = (
+			capturedBody as {
+				output_config: { format: { type: string; schema: unknown } }
+			}
+		).output_config.format
+		expect(format.type).toBe('json_schema')
+		// An array root, so "no items" stays expressible as [] rather than
+		// needing a wrapper object the parser would have to unwrap.
+		expect(format.schema).toEqual({
+			type: 'array',
+			items: {
+				type: 'object',
+				properties: {
+					name: { type: 'string' },
+					quantity: { type: 'string' },
+					unit: { type: 'string' },
+				},
+				required: ['name', 'quantity', 'unit'],
+				additionalProperties: false,
+			},
+		})
+	})
+
 	test('handles markdown code blocks in response', async () => {
 		vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
 

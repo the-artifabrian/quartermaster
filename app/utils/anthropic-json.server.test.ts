@@ -3,13 +3,22 @@ import { z } from 'zod'
 import {
 	ANTHROPIC_MODELS,
 	isAnthropicConfigured,
+	nullable,
 	parseAnthropicJson,
 	requestAnthropicJson,
 	type AnthropicJsonAdapter,
 	type AnthropicJsonRequest,
+	type JsonSchema,
 } from './anthropic-json.server.ts'
 
 const FeatureSchema = z.object({ value: z.string() })
+
+const featureJsonSchema: JsonSchema = {
+	type: 'object',
+	properties: { value: { type: 'string' } },
+	required: ['value'],
+	additionalProperties: false,
+}
 
 const request: AnthropicJsonRequest<{ value: string }> = {
 	feature: 'test-feature',
@@ -18,6 +27,7 @@ const request: AnthropicJsonRequest<{ value: string }> = {
 	timeoutMs: 250,
 	system: 'Return JSON.',
 	prompt: 'Give me a value.',
+	jsonSchema: featureJsonSchema,
 	schema: FeatureSchema,
 }
 
@@ -57,6 +67,14 @@ describe('parseAnthropicJson', () => {
 	})
 })
 
+describe('nullable', () => {
+	test('offers the model the value or an explicit null', () => {
+		expect(nullable({ type: 'integer' })).toEqual({
+			anyOf: [{ type: 'integer' }, { type: 'null' }],
+		})
+	})
+})
+
 describe('requestAnthropicJson', () => {
 	test('reports whether the shared provider is configured', () => {
 		expect(isAnthropicConfigured(makeAdapter(vi.fn(), 'test-key'))).toBe(true)
@@ -82,6 +100,9 @@ describe('requestAnthropicJson', () => {
 			max_tokens: 128,
 			system: 'Return JSON.',
 			messages: [{ role: 'user', content: 'Give me a value.' }],
+			output_config: {
+				format: { type: 'json_schema', schema: featureJsonSchema },
+			},
 		})
 		expect(init?.signal).toBeInstanceOf(AbortSignal)
 	})

@@ -247,8 +247,10 @@ test('validation and persistence failures retain the entire corrected review; re
 			},
 		},
 	})
+	// The save writes the Recipe and its classifications in one transaction, so
+	// a persistence failure now surfaces from there, not from recipe.create.
 	const failure = vi
-		.spyOn(prisma.recipe, 'create')
+		.spyOn(prisma, '$transaction')
 		.mockRejectedValueOnce(new Error('Synthetic persistence failure'))
 	const failed = await importAction(
 		await args(session, '/recipes/import', fields),
@@ -413,6 +415,9 @@ test('image extraction preserves the extracted structure through edited save wit
 				},
 			],
 			instructions: [{ content: 'Warm and serve.' }],
+			// The response now carries a group per dimension; this one suggests
+			// nothing, and the household has no values to match anyway.
+			metadata: { cuisine: [], season: [], course: [] },
 		}
 		server.use(
 			http.post('https://api.anthropic.com/v1/messages', () => {
@@ -473,6 +478,105 @@ test('image extraction preserves the extracted structure through edited save wit
 			// The cook's notes survive the review page and reach Recipe.notes.
 			notes: structure.notes,
 		})
+	} finally {
+		if (oldKey === undefined) delete process.env.ANTHROPIC_API_KEY
+		else process.env.ANTHROPIC_API_KEY = oldKey
+	}
+})
+
+test('AI suggestions arrive pre-ticked and are written only by the reviewed save', async () => {
+	const session = await user()
+	const oldKey = process.env.ANTHROPIC_API_KEY
+	process.env.ANTHROPIC_API_KEY = 'test-key'
+	try {
+		const [italian, summer] = await Promise.all(
+			[
+				{ dimension: 'cuisine', name: 'Italian' },
+				{ dimension: 'season', name: 'Summer' },
+			].map((value) =>
+				prisma.recipeMetadataValue.create({
+					data: {
+						...value,
+						nameKey: value.name.toLowerCase(),
+						householdId: session.householdId,
+					},
+					select: { id: true, name: true },
+				}),
+			),
+		)
+		server.use(
+			http.post('https://api.anthropic.com/v1/messages', () =>
+				HttpResponse.json({
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify({
+								title: 'Suggested pasta',
+								description: null,
+								notes: null,
+								activeTime: null,
+								totalTime: null,
+								yieldAmount: null,
+								yieldLabel: null,
+								ingredients: [
+									{
+										name: 'pasta',
+										amount: '200',
+										unit: 'g',
+										notes: null,
+										isHeading: false,
+									},
+								],
+								instructions: [{ content: 'Boil the pasta.' }],
+								metadata: {
+									// One match per dimension the household can name, plus a
+									// Course it cannot: that one is dropped, never created.
+									cuisine: ['italian'],
+									season: ['Summer'],
+									course: ['Supper'],
+								},
+							}),
+						},
+					],
+				}),
+			),
+		)
+
+		const recipe = await extract(session, {
+			intent: 'extract-text',
+			rawText: 'Boil 200g of pasta.',
+		})
+		expect(recipe.metadataValueIds).toEqual(
+			expect.arrayContaining([italian!.id, summer!.id]),
+		)
+		expect(recipe.metadataValueIds).toHaveLength(2)
+		// A suggestion is a proposal: the review page has not been saved yet.
+		expect(await prisma.recipeMetadataAssignment.count()).toBe(0)
+		expect(
+			await prisma.recipeMetadataValue.count({
+				where: { householdId: session.householdId },
+			}),
+		).toBe(2)
+
+		await importAction(
+			await args(session, '/recipes/import', {
+				...reviewFields(recipe),
+				recipeMetadata: JSON.stringify({
+					selectedValueIds: recipe.metadataValueIds,
+					newValues: { cuisine: [], season: [], course: [] },
+				}),
+			}),
+		)
+		const saved = await prisma.recipe.findFirstOrThrow({
+			where: { householdId: session.householdId },
+			select: {
+				metadataAssignments: { select: { value: { select: { name: true } } } },
+			},
+		})
+		expect(saved.metadataAssignments.map((a) => a.value.name).sort()).toEqual([
+			'Italian',
+			'Summer',
+		])
 	} finally {
 		if (oldKey === undefined) delete process.env.ANTHROPIC_API_KEY
 		else process.env.ANTHROPIC_API_KEY = oldKey

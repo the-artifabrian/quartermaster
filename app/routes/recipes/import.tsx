@@ -33,6 +33,12 @@ import {
 	extractRecipeFromText,
 } from '#app/utils/recipe-extract-llm.server.ts'
 import {
+	emptyRecipeMetadataGroups,
+	groupRecipeMetadataValues,
+	RECIPE_METADATA_DIMENSIONS,
+	recipeMetadataNameKey,
+} from '#app/utils/recipe-metadata.ts'
+import {
 	ImportUrlSchema,
 	MAX_RAW_TEXT_LENGTH,
 } from '#app/utils/recipe-validation.ts'
@@ -49,9 +55,21 @@ export const meta: Route.MetaFunction = () => {
 
 type ImportTab = 'url' | 'text' | 'image'
 
+/** The household's Cuisine, Season and Course values, for prompt and selector. */
+async function householdMetadataValues(householdId: string) {
+	return prisma.recipeMetadataValue.findMany({
+		where: { householdId },
+		select: { id: true, dimension: true, name: true, nameKey: true },
+		orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
+	})
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
-	const { isProActive } = await requireUserWithTier(request)
-	return { isProActive }
+	const { householdId, isProActive } = await requireUserWithTier(request)
+	return {
+		isProActive,
+		metadataOptions: await householdMetadataValues(householdId),
+	}
 }
 
 export type ExtractedRecipe = {
@@ -66,6 +84,11 @@ export type ExtractedRecipe = {
 	yieldAmount: number | null
 	yieldLabel: string | null
 	sourceUrl: string
+	/**
+	 * Household values the extraction matched, pre-ticked on the review page.
+	 * Only the AI paths produce these, and nothing is written until the save.
+	 */
+	metadataValueIds: string[]
 	ingredients: Array<{
 		name: string
 		amount?: string
@@ -273,6 +296,7 @@ function extractRecipe(
 		yieldAmount: typedYield?.amount ?? null,
 		yieldLabel: typedYield?.label ?? null,
 		sourceUrl: url,
+		metadataValueIds: [],
 		// Provenance, not data: some sites embed enormous JSON-LD blobs, and this
 		// is posted straight back to saveImportedRecipe on save. Bound it here so
 		// the field can never exceed what that schema accepts.
@@ -601,6 +625,7 @@ export async function action({ request }: Route.ActionArgs) {
 			yieldAmount: parsed.yieldAmount ?? null,
 			yieldLabel: parsed.yieldLabel ?? null,
 			sourceUrl: sourceUrl || '',
+			metadataValueIds: [],
 			rawText,
 			warnings: parsed.warnings.filter(
 				(warning) => !warning.startsWith('Joined steps'),
@@ -725,6 +750,15 @@ export async function action({ request }: Route.ActionArgs) {
 			)
 		}
 
+		const metadataValues = await householdMetadataValues(householdId)
+		const metadataByDimension = groupRecipeMetadataValues(metadataValues)
+		const vocabulary = emptyRecipeMetadataGroups<string>()
+		for (const dimension of RECIPE_METADATA_DIMENSIONS) {
+			vocabulary[dimension] = metadataByDimension[dimension].map(
+				(value) => value.name,
+			)
+		}
+
 		let llmResult: Awaited<ReturnType<typeof extractRecipeFromText>>
 
 		if (intentKey === 'extract-image') {
@@ -775,9 +809,9 @@ export async function action({ request }: Route.ActionArgs) {
 				})
 			}
 
-			llmResult = await extractRecipeFromImages(validatedImages)
+			llmResult = await extractRecipeFromImages(validatedImages, vocabulary)
 		} else {
-			llmResult = await extractRecipeFromText(rawText)
+			llmResult = await extractRecipeFromText(rawText, vocabulary)
 		}
 
 		if ('error' in llmResult) {
@@ -802,6 +836,20 @@ export async function action({ request }: Route.ActionArgs) {
 			yieldAmount: llmResult.yieldAmount,
 			yieldLabel: llmResult.yieldLabel,
 			sourceUrl: (formData.get('sourceUrl') as string) || '',
+			// Names back to this household's own rows. A suggestion the model
+			// matched is a value that already exists, so nothing is created here.
+			metadataValueIds: RECIPE_METADATA_DIMENSIONS.flatMap((dimension) => {
+				const idsByNameKey = new Map(
+					metadataByDimension[dimension].map((value) => [
+						value.nameKey,
+						value.id,
+					]),
+				)
+				return llmResult.metadata[dimension].flatMap((name) => {
+					const id = idsByNameKey.get(recipeMetadataNameKey(name))
+					return id ? [id] : []
+				})
+			}),
 			rawText: (intentKey === 'extract-text'
 				? rawText
 				: JSON.stringify(llmResult, null, 2)
@@ -1158,7 +1206,10 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						</div>
 					)}
 
-					<ImportRecipeReview recipe={recipe!} />
+					<ImportRecipeReview
+						recipe={recipe!}
+						metadataOptions={loaderData.metadataOptions}
+					/>
 				</div>
 			)}
 		</div>

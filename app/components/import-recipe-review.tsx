@@ -10,6 +10,10 @@ import {
 	type InstructionFieldValue,
 } from './instruction-fields.tsx'
 import { RecipeMetadataCard } from './recipe-metadata-card.tsx'
+import {
+	RecipeMetadataFields,
+	type RecipeMetadataOption,
+} from './recipe-metadata-fields.tsx'
 import { invalidateServiceWorkerData } from './service-worker-data-sync.tsx'
 import { Button } from './ui/button.tsx'
 import { Input } from './ui/input.tsx'
@@ -34,12 +38,19 @@ function reviewFieldLabel(field: string) {
 		yieldAmount: 'Yield amount',
 		yieldLabel: 'What it makes',
 		sourceUrl: 'Source URL',
+		recipeMetadata: 'Classification',
 	}
 	return labels[field] ?? field
 }
 
 // Mounted once per explicit extraction. Save/revalidation never reinitializes it.
-export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
+export function ImportRecipeReview({
+	recipe,
+	metadataOptions,
+}: {
+	recipe: ExtractedRecipe
+	metadataOptions: RecipeMetadataOption[]
+}) {
 	const navigate = useNavigate()
 	const [editing, setEditing] = useState(false)
 	const [warnings, setWarnings] = useState(recipe.warnings ?? [])
@@ -394,6 +405,15 @@ export function ImportRecipeReview({ recipe }: { recipe: ExtractedRecipe }) {
 						</div>
 					</details>
 				</div>
+				{/* Outside the edit-only block on purpose: a suggestion the user
+				    never sees is not one, and the chips are already an editor. */}
+				<section className="space-y-3">
+					<h3 className="font-serif text-lg">Classification</h3>
+					<RecipeMetadataFields
+						options={metadataOptions}
+						selectedValueIds={recipe.metadataValueIds}
+					/>
+				</section>
 				<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
 					<Button
 						type="button"

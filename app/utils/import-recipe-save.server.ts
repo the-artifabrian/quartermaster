@@ -108,13 +108,15 @@ export async function saveImportedRecipe(
 			})
 		})
 	} catch (error) {
-		// A classification the household does not have is the user's to fix, not
-		// an unknown outcome: say so instead of sending them to My Recipes.
+		// A classification the household does not have is the user's to fix, and
+		// nothing was written. Report it against the field the chips submit, the
+		// way any other validation error is reported: a form-level error reads on
+		// the review page as an unknown outcome and sends them to My Recipes.
 		if (error instanceof RecipeMetadataSelectionError) {
 			return failure(
-				error.message,
+				'Correct the fields listed below, then save again.',
 				400,
-				submission.reply({ formErrors: [error.message] }),
+				submission.reply({ fieldErrors: { recipeMetadata: [error.message] } }),
 			)
 		}
 		return failure(

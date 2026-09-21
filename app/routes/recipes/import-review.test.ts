@@ -583,6 +583,47 @@ test('AI suggestions arrive pre-ticked and are written only by the reviewed save
 	}
 })
 
+test('a classification this household cannot name is reported on the field, not as an unknown save', async () => {
+	const session = await user()
+	const other = await user()
+	const stranger = await prisma.recipeMetadataValue.create({
+		data: {
+			dimension: 'cuisine',
+			name: 'Italian',
+			nameKey: 'italian',
+			householdId: other.householdId,
+		},
+		select: { id: true },
+	})
+	const failed = await importAction(
+		await args(session, '/recipes/import', {
+			...reviewFields(await extract(session)),
+			recipeMetadata: JSON.stringify({
+				selectedValueIds: [stranger.id],
+				newValues: { cuisine: [], season: [], course: [] },
+			}),
+		}),
+	)
+	// Reported against the field the chips submit: the review page treats a
+	// form-level error as an outcome it could not confirm and points at My
+	// Recipes, which would be wrong — nothing was written.
+	expect(failed).toMatchObject({
+		init: { status: 400 },
+		data: {
+			result: {
+				error: {
+					recipeMetadata: [
+						'One or more Recipe classifications are not available in this household.',
+					],
+				},
+			},
+		},
+	})
+	expect(
+		await prisma.recipe.count({ where: { householdId: session.householdId } }),
+	).toBe(0)
+})
+
 test('JSON review save is authenticated, validates all fields and writes only to the signed-in household', async () => {
 	const session = await user()
 	const other = await user()

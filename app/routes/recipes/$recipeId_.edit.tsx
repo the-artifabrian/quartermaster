@@ -10,6 +10,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { useDoubleCheck } from '#app/utils/misc.tsx'
 import {
+	recipeMetadataOptions,
 	RecipeMetadataSelectionError,
 	resolveRecipeMetadataValueIds,
 } from '#app/utils/recipe-metadata.server.ts'
@@ -74,11 +75,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 				metadataAssignments: { select: { valueId: true } },
 			},
 		}),
-		prisma.recipeMetadataValue.findMany({
-			where: { householdId },
-			select: { id: true, dimension: true, name: true, nameKey: true },
-			orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
-		}),
+		recipeMetadataOptions(householdId),
 	])
 
 	invariantResponse(recipe, 'Recipe not found', { status: 404 })

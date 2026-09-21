@@ -31,11 +31,17 @@ import {
 	ALLOWED_IMAGE_MEDIA_TYPES,
 	extractRecipeFromImages,
 	extractRecipeFromText,
+	type RecipeMetadataVocabulary,
 } from '#app/utils/recipe-extract-llm.server.ts'
+import {
+	recipeMetadataOptions,
+	type RecipeMetadataOptionRow,
+} from '#app/utils/recipe-metadata.server.ts'
 import {
 	emptyRecipeMetadataGroups,
 	groupRecipeMetadataValues,
 	RECIPE_METADATA_DIMENSIONS,
+	recipeMetadataIdentity,
 	recipeMetadataNameKey,
 } from '#app/utils/recipe-metadata.ts'
 import {
@@ -55,20 +61,51 @@ export const meta: Route.MetaFunction = () => {
 
 type ImportTab = 'url' | 'text' | 'image'
 
-/** The household's Cuisine, Season and Course values, for prompt and selector. */
-async function householdMetadataValues(householdId: string) {
-	return prisma.recipeMetadataValue.findMany({
-		where: { householdId },
-		select: { id: true, dimension: true, name: true, nameKey: true },
-		orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
-	})
+/** The names the extraction may choose from, per dimension. */
+function metadataVocabulary(
+	values: RecipeMetadataOptionRow[],
+): RecipeMetadataVocabulary {
+	const grouped = groupRecipeMetadataValues(values)
+	const vocabulary = emptyRecipeMetadataGroups<string>()
+	for (const dimension of RECIPE_METADATA_DIMENSIONS) {
+		vocabulary[dimension] = grouped[dimension].map((value) => value.name)
+	}
+	return vocabulary
+}
+
+/**
+ * The household rows behind the names the extraction matched. A matched name
+ * is one the household already has, so this only looks rows up — it never
+ * creates one, and a name it cannot place is simply not ticked.
+ */
+function matchedValueIds(
+	values: RecipeMetadataOptionRow[],
+	matched: RecipeMetadataVocabulary,
+) {
+	const grouped = groupRecipeMetadataValues(values)
+	const idsByIdentity = new Map(
+		RECIPE_METADATA_DIMENSIONS.flatMap((dimension) =>
+			grouped[dimension].map(
+				(value) =>
+					[recipeMetadataIdentity(dimension, value.nameKey), value.id] as const,
+			),
+		),
+	)
+	return RECIPE_METADATA_DIMENSIONS.flatMap((dimension) =>
+		matched[dimension].flatMap((name) => {
+			const id = idsByIdentity.get(
+				recipeMetadataIdentity(dimension, recipeMetadataNameKey(name)),
+			)
+			return id ? [id] : []
+		}),
+	)
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId, isProActive } = await requireUserWithTier(request)
 	return {
 		isProActive,
-		metadataOptions: await householdMetadataValues(householdId),
+		metadataOptions: await recipeMetadataOptions(householdId),
 	}
 }
 
@@ -750,14 +787,8 @@ export async function action({ request }: Route.ActionArgs) {
 			)
 		}
 
-		const metadataValues = await householdMetadataValues(householdId)
-		const metadataByDimension = groupRecipeMetadataValues(metadataValues)
-		const vocabulary = emptyRecipeMetadataGroups<string>()
-		for (const dimension of RECIPE_METADATA_DIMENSIONS) {
-			vocabulary[dimension] = metadataByDimension[dimension].map(
-				(value) => value.name,
-			)
-		}
+		const metadataValues = await recipeMetadataOptions(householdId)
+		const vocabulary = metadataVocabulary(metadataValues)
 
 		let llmResult: Awaited<ReturnType<typeof extractRecipeFromText>>
 
@@ -836,20 +867,7 @@ export async function action({ request }: Route.ActionArgs) {
 			yieldAmount: llmResult.yieldAmount,
 			yieldLabel: llmResult.yieldLabel,
 			sourceUrl: (formData.get('sourceUrl') as string) || '',
-			// Names back to this household's own rows. A suggestion the model
-			// matched is a value that already exists, so nothing is created here.
-			metadataValueIds: RECIPE_METADATA_DIMENSIONS.flatMap((dimension) => {
-				const idsByNameKey = new Map(
-					metadataByDimension[dimension].map((value) => [
-						value.nameKey,
-						value.id,
-					]),
-				)
-				return llmResult.metadata[dimension].flatMap((name) => {
-					const id = idsByNameKey.get(recipeMetadataNameKey(name))
-					return id ? [id] : []
-				})
-			}),
+			metadataValueIds: matchedValueIds(metadataValues, llmResult.metadata),
 			rawText: (intentKey === 'extract-text'
 				? rawText
 				: JSON.stringify(llmResult, null, 2)

@@ -2,7 +2,12 @@ import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Img } from 'openimg/react'
 import { useState, useEffect, useRef } from 'react'
-import { useFetcher, useRouteLoaderData, useSearchParams } from 'react-router'
+import {
+	useFetcher,
+	useNavigate,
+	useRouteLoaderData,
+	useSearchParams,
+} from 'react-router'
 import { toast } from 'sonner'
 import { Divider } from '#app/components/divider.tsx'
 import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
@@ -20,6 +25,7 @@ import {
 	PopoverAnchor,
 	PopoverContent,
 } from '#app/components/ui/popover.tsx'
+import { type PlannedMealResult } from '#app/routes/plan/plan-action.server.ts'
 import {
 	addDaysUTC,
 	formatDayLabel,
@@ -541,8 +547,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	useWakeLock(keepAwake)
 
 	// Add-to-plan popover state
+	const navigate = useNavigate()
 	const [planPickerOpen, setPlanPickerOpen] = useState(false)
-	const planFetcher = useFetcher({ key: 'add-to-plan' })
+	const planFetcher = useFetcher<{
+		status: 'success' | 'error'
+		meal?: PlannedMealResult
+	}>({ key: 'add-to-plan' })
 	const prevPlanFetcherState = useRef(planFetcher.state)
 	const submittedPlanRef = useRef<{ date: string; label: MealType | null }>({
 		date: '',
@@ -612,14 +622,22 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			const { date, label } = submittedPlanRef.current
 			const d = new Date(date + 'T00:00:00.000Z')
 			const dayLabel = isToday(d) ? 'Today' : formatDayLabel(d)
-			toast.success(
-				label
-					? `Added to ${dayLabel} ${MEAL_TYPE_LABELS[label]}`
-					: `Added to ${dayLabel}`,
-			)
+			const where = label ? `${dayLabel} ${MEAL_TYPE_LABELS[label]}` : dayLabel
+			const meal = planFetcher.data.meal
+			if (meal && !meal.created) {
+				// The Meal that already holds this Recipe keeps its own multiplier
+				// — name it, and point at the Meal to change it there (#236).
+				toast.info('Already planned', {
+					description: `${where} · ${formatScaleMultiplier(meal.scaleMultiplier)}×`,
+					duration: 8000,
+					action: { label: 'View', onClick: () => navigate(meal.href) },
+				})
+			} else {
+				toast.success(`Added to ${where}`)
+			}
 		}
 		prevPlanFetcherState.current = planFetcher.state
-	}, [planFetcher.state, planFetcher.data])
+	}, [planFetcher.state, planFetcher.data, navigate])
 
 	function handleAddToPlanSubmit() {
 		submittedPlanRef.current = { date: planDate, label: planMealType }

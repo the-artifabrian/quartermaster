@@ -554,7 +554,10 @@ describe('meal plan actions', () => {
 			date: '2026-02-02', // Monday
 			recipeId: recipe.id,
 		})
-		expect(result).toEqual({ status: 'success' })
+		expect(result).toMatchObject({
+			status: 'success',
+			meal: { created: true, scaleMultiplier: 1 },
+		})
 
 		const meals = await findHouseholdMeals(session.householdId)
 		expect(meals).toHaveLength(1)
@@ -606,6 +609,144 @@ describe('meal plan actions', () => {
 		const [meal] = await findHouseholdMeals(session.householdId)
 		expect(meal).toMatchObject({ label: 'lunch' })
 		expect(meal!.recipeItems[0]!.scaleMultiplier).toBe(1.5)
+	})
+
+	// #236: the action reports which Meal now holds the Recipe and the
+	// multiplier that Meal actually carries, so neither caller can imply a
+	// re-submitted scale was applied.
+	describe('addMeal feedback', () => {
+		test('a new Meal reports created with the requested multiplier and a link to itself', async () => {
+			const session = await setupUser()
+			const recipe = await setupRecipe(session.userId, session.householdId)
+
+			const result = await act(session, {
+				intent: 'addMeal',
+				date: '2026-02-04', // Wednesday of the 2026-02-02 week
+				recipeId: recipe.id,
+				label: 'dinner',
+				multiplier: '3',
+			})
+
+			const [meal] = await findHouseholdMeals(session.householdId)
+			expect(result).toEqual({
+				status: 'success',
+				meal: {
+					id: meal!.id,
+					created: true,
+					scaleMultiplier: 3,
+					href: `/plan?weekStart=2026-02-02&mealId=${meal!.id}`,
+				},
+			})
+			expect(meal!.recipeItems[0]!.scaleMultiplier).toBe(3)
+		})
+
+		test('re-adding a planned Recipe reports the existing Meal and keeps its multiplier', async () => {
+			const session = await setupUser()
+			const recipe = await setupRecipe(session.userId, session.householdId)
+			const fields = {
+				intent: 'addMeal',
+				date: '2026-02-02',
+				recipeId: recipe.id,
+				label: 'dinner',
+			}
+
+			const first = await act(session, fields)
+			const second = await act(session, { ...fields, multiplier: '3' })
+
+			const meals = await findHouseholdMeals(session.householdId)
+			expect(meals).toHaveLength(1)
+			// Both submissions name the same Meal.
+			expect(first).toMatchObject({
+				meal: { id: meals[0]!.id, created: true },
+			})
+			expect(second).toEqual({
+				status: 'success',
+				meal: {
+					id: meals[0]!.id,
+					created: false,
+					// The planned 1x stands; the requested 3x was not applied.
+					scaleMultiplier: 1,
+					href: `/plan?weekStart=2026-02-02&mealId=${meals[0]!.id}`,
+				},
+			})
+			expect(meals[0]!.recipeItems[0]!.scaleMultiplier).toBe(1)
+		})
+
+		test('the same Recipe on another day or under another label is a new Meal', async () => {
+			const session = await setupUser()
+			const recipe = await setupRecipe(session.userId, session.householdId)
+
+			const dinner = await act(session, {
+				intent: 'addMeal',
+				date: '2026-02-02',
+				recipeId: recipe.id,
+				label: 'dinner',
+			})
+			const lunch = await act(session, {
+				intent: 'addMeal',
+				date: '2026-02-02',
+				recipeId: recipe.id,
+				label: 'lunch',
+			})
+			const nextDay = await act(session, {
+				intent: 'addMeal',
+				date: '2026-02-03',
+				recipeId: recipe.id,
+				label: 'dinner',
+			})
+
+			for (const result of [dinner, lunch, nextDay]) {
+				expect(result).toMatchObject({ meal: { created: true } })
+			}
+			expect(await findHouseholdMeals(session.householdId)).toHaveLength(3)
+		})
+
+		test('overlapping adds leave one Meal and report the multiplier it really has', async () => {
+			const session = await setupUser()
+			const recipe = await setupRecipe(session.userId, session.householdId)
+			const fields = {
+				intent: 'addMeal',
+				date: '2026-02-02',
+				recipeId: recipe.id,
+				label: 'dinner',
+			}
+
+			const results = await Promise.all([
+				act(session, { ...fields, multiplier: '1' }),
+				act(session, { ...fields, multiplier: '3' }),
+			])
+
+			const meals = await findHouseholdMeals(session.householdId)
+			expect(meals).toHaveLength(1)
+			// Which request wins the race is not fixed; what matters is that the
+			// loser never creates an equivalent duplicate, never overwrites the
+			// winner's multiplier, and is told the multiplier actually stored.
+			const planned = meals[0]!.recipeItems[0]!.scaleMultiplier
+			expect([1, 3]).toContain(planned)
+			const href = `/plan?weekStart=2026-02-02&mealId=${meals[0]!.id}`
+			expect(results).toEqual(
+				expect.arrayContaining([
+					{
+						status: 'success',
+						meal: {
+							id: meals[0]!.id,
+							created: true,
+							scaleMultiplier: planned,
+							href,
+						},
+					},
+					{
+						status: 'success',
+						meal: {
+							id: meals[0]!.id,
+							created: false,
+							scaleMultiplier: planned,
+							href,
+						},
+					},
+				]),
+			)
+		})
 	})
 
 	test('addMenu plans one frozen Meal on the chosen day with Menu defaults', async () => {
@@ -710,10 +851,10 @@ describe('meal plan actions', () => {
 			),
 		)
 
-		expect(results).toEqual(
+		expect(results).toMatchObject(
 			Array.from({ length: 7 }, () => ({
 				status: 'fulfilled',
-				value: { status: 'success' },
+				value: { status: 'success', meal: { created: true } },
 			})),
 		)
 		const plans = await prisma.mealPlan.findMany({

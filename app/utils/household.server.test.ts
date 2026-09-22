@@ -150,11 +150,12 @@ describe('acceptInvite', () => {
 		const owner = await setupUserWithRecipe('Owner Recipe')
 		const joiner = await setupUserWithRecipe('Joiner Recipe')
 
-		// Add inventory to joiner's household
-		await prisma.inventoryItem.create({
+		// Add a Staple to joiner's household
+		await prisma.householdIngredient.create({
 			data: {
-				name: 'flour',
-				userId: joiner.id,
+				displayName: 'Flour',
+				canonicalKey: 'flour',
+				isStaple: true,
 				householdId: joiner.householdId,
 			},
 		})
@@ -174,11 +175,11 @@ describe('acceptInvite', () => {
 		})
 		expect(movedRecipe!.householdId).toBe(owner.householdId)
 
-		// Joiner's inventory should now be in owner's household
-		const movedInventory = await prisma.inventoryItem.findFirst({
-			where: { name: 'flour', userId: joiner.id },
+		// Joiner's Staple should now be in owner's household
+		const movedStaple = await prisma.householdIngredient.findFirst({
+			where: { canonicalKey: 'flour' },
 		})
-		expect(movedInventory!.householdId).toBe(owner.householdId)
+		expect(movedStaple!.householdId).toBe(owner.householdId)
 
 		// Joiner should be a member of owner's household
 		const membership = await prisma.householdMember.findUnique({
@@ -284,39 +285,27 @@ describe('acceptInvite', () => {
 		expect(await prisma.menu.count()).toBe(3)
 	})
 
-	test('sole member: canonical ingredients move while the target household cutover and collisions win', async () => {
+	test('sole member: canonical ingredients move and target collisions win', async () => {
 		const owner = await setupUser()
 		const joiner = await setupUser()
-		const targetCutoverAt = new Date('2026-08-24T08:00:00.000Z')
-		await prisma.household.update({
-			where: { id: owner.householdId },
-			data: { staplesCutoverAt: targetCutoverAt },
-		})
-		await prisma.household.update({
-			where: { id: joiner.householdId },
-			data: { staplesCutoverAt: new Date('2026-08-25T08:00:00.000Z') },
-		})
 		await prisma.householdIngredient.createMany({
 			data: [
 				{
 					displayName: 'Salt',
 					canonicalKey: 'salt',
 					isStaple: true,
-					isOut: false,
 					householdId: owner.householdId,
 				},
 				{
 					displayName: 'Fancy salt',
 					canonicalKey: 'salt',
 					isStaple: true,
-					isOut: true,
 					householdId: joiner.householdId,
 				},
 				{
 					displayName: 'Cumin',
 					canonicalKey: 'cumin',
 					isStaple: true,
-					isOut: true,
 					householdId: joiner.householdId,
 				},
 			],
@@ -325,12 +314,6 @@ describe('acceptInvite', () => {
 		const invite = await createHouseholdInvite(owner.householdId, owner.id)
 		await acceptInvite(invite.token, joiner.id)
 
-		expect(
-			await prisma.household.findUniqueOrThrow({
-				where: { id: owner.householdId },
-				select: { staplesCutoverAt: true },
-			}),
-		).toEqual({ staplesCutoverAt: targetCutoverAt })
 		expect(
 			await prisma.householdIngredient.findMany({
 				where: { householdId: owner.householdId },
@@ -339,98 +322,17 @@ describe('acceptInvite', () => {
 					displayName: true,
 					canonicalKey: true,
 					isStaple: true,
-					isOut: true,
 				},
 			}),
 		).toEqual([
-			{
-				displayName: 'Cumin',
-				canonicalKey: 'cumin',
-				isStaple: true,
-				isOut: true,
-			},
-			{
-				displayName: 'Salt',
-				canonicalKey: 'salt',
-				isStaple: true,
-				isOut: false,
-			},
+			{ displayName: 'Cumin', canonicalKey: 'cumin', isStaple: true },
+			{ displayName: 'Salt', canonicalKey: 'salt', isStaple: true },
 		])
 		expect(
 			await prisma.householdIngredient.count({
 				where: { householdId: joiner.householdId },
 			}),
 		).toBe(0)
-	})
-
-	test('sole member: a confirmed empty Staples cutover moves to an uncut-over target', async () => {
-		const owner = await setupUser()
-		const joiner = await setupUser()
-		const sourceCutoverAt = new Date('2026-08-25T08:00:00.000Z')
-		await prisma.household.update({
-			where: { id: joiner.householdId },
-			data: { staplesCutoverAt: sourceCutoverAt },
-		})
-
-		const invite = await createHouseholdInvite(owner.householdId, owner.id)
-		await acceptInvite(invite.token, joiner.id)
-
-		expect(
-			await prisma.household.findUniqueOrThrow({
-				where: { id: owner.householdId },
-				select: {
-					staplesCutoverAt: true,
-					_count: { select: { householdIngredients: true } },
-				},
-			}),
-		).toEqual({
-			staplesCutoverAt: sourceCutoverAt,
-			_count: { householdIngredients: 0 },
-		})
-	})
-
-	test('sole member: canonical rows do not imply cutover during a household move', async () => {
-		const owner = await setupUser()
-		const joiner = await setupUser()
-		await prisma.householdIngredient.create({
-			data: {
-				displayName: 'Cumin',
-				canonicalKey: 'cumin',
-				isStaple: true,
-				isOut: true,
-				householdId: joiner.householdId,
-			},
-		})
-
-		const invite = await createHouseholdInvite(owner.householdId, owner.id)
-		await acceptInvite(invite.token, joiner.id)
-
-		expect(
-			await prisma.household.findUniqueOrThrow({
-				where: { id: owner.householdId },
-				select: {
-					staplesCutoverAt: true,
-					householdIngredients: {
-						select: {
-							displayName: true,
-							canonicalKey: true,
-							isStaple: true,
-							isOut: true,
-						},
-					},
-				},
-			}),
-		).toEqual({
-			staplesCutoverAt: null,
-			householdIngredients: [
-				{
-					displayName: 'Cumin',
-					canonicalKey: 'cumin',
-					isStaple: true,
-					isOut: true,
-				},
-			],
-		})
 	})
 
 	test('sole member: menu cards, note shopping lines, and recipe references survive the move', async () => {

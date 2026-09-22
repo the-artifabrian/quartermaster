@@ -75,8 +75,8 @@ export default function AboutRoute() {
 					<Icon name="home" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Keep Staples.</span>{' '}
-						Save the ingredients your household normally has and mark anything
-						Out. Shopping includes every non-Staple plus required Out Staples.
+						Save the ingredients your household normally has. Shopping includes
+						every non-Staple; a Staple you do need is one tap away.
 					</p>
 				</div>
 				<div className="flex gap-3">

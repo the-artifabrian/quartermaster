@@ -76,11 +76,6 @@ export function formatEventMessage(
 				message: `${username} cleared checked items from the shopping list`,
 				url: '/shopping',
 			}
-		case 'shopping_list_to_inventory':
-			return {
-				message: `${username} added ${payload.count} items to Pantry from the shopping list`,
-				url: '/inventory',
-			}
 		case 'household_member_joined':
 			return {
 				message: `${username} joined the household`,

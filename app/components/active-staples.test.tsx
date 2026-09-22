@@ -5,23 +5,24 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { createRoutesStub, useLoaderData } from 'react-router'
 import { expect, test } from 'vitest'
-import { ActiveStaples } from './staples-cutover.tsx'
+import { ActiveStaples } from './active-staples.tsx'
 
 const largeStapleList = [
-	{ id: 'rice', displayName: 'Brown rice', isOut: true },
-	{ id: 'salt', displayName: 'Salt', isOut: true },
-	{ id: 'apples', displayName: 'Apples', isOut: false },
-	{ id: 'beans', displayName: 'Beans', isOut: false },
-	{ id: 'coffee', displayName: 'Coffee', isOut: false },
-	{ id: 'eggs', displayName: 'Eggs', isOut: false },
-	{ id: 'flour', displayName: 'Flour', isOut: false },
-	{ id: 'garlic', displayName: 'Garlic', isOut: false },
-	{ id: 'milk', displayName: 'Milk', isOut: false },
-	{ id: 'oats', displayName: 'Oats', isOut: false },
-	{ id: 'oil', displayName: 'Olive oil', isOut: false },
-	{ id: 'pasta', displayName: 'Pasta', isOut: false },
-	{ id: 'pepper', displayName: 'Pepper', isOut: false },
-	{ id: 'tea', displayName: 'Tea', isOut: false },
+	{ id: 'rice', displayName: 'Brown rice', onShoppingList: false },
+	// Already waiting in Next shop, so its row says so without being tapped.
+	{ id: 'salt', displayName: 'Salt', onShoppingList: true },
+	{ id: 'apples', displayName: 'Apples', onShoppingList: false },
+	{ id: 'beans', displayName: 'Beans', onShoppingList: false },
+	{ id: 'coffee', displayName: 'Coffee', onShoppingList: false },
+	{ id: 'eggs', displayName: 'Eggs', onShoppingList: false },
+	{ id: 'flour', displayName: 'Flour', onShoppingList: false },
+	{ id: 'garlic', displayName: 'Garlic', onShoppingList: false },
+	{ id: 'milk', displayName: 'Milk', onShoppingList: false },
+	{ id: 'oats', displayName: 'Oats', onShoppingList: false },
+	{ id: 'oil', displayName: 'Olive oil', onShoppingList: false },
+	{ id: 'pasta', displayName: 'Pasta', onShoppingList: false },
+	{ id: 'pepper', displayName: 'Pepper', onShoppingList: false },
+	{ id: 'tea', displayName: 'Tea', onShoppingList: false },
 ]
 
 function renderStaples() {
@@ -35,46 +36,34 @@ function renderStaples() {
 	render(<Stub initialEntries={['/']} />)
 }
 
-test('large Staple lists put the Out task first and search both groups', async () => {
+test('the list is one alphabetical set of usual items, searchable', async () => {
 	renderStaples()
 	const user = userEvent.setup()
 
-	const outGroup = screen.getByRole('region', { name: 'Out' })
-	const availableGroup = screen.getByRole('region', {
-		name: 'Usually available',
-	})
-	expect(outGroup).not.toHaveTextContent('Next shop')
-	expect(within(outGroup).getByLabelText('2 Out Staples')).toBeVisible()
+	const list = screen.getByRole('list', { name: 'Staples' })
+	expect(within(list).getAllByRole('listitem')).toHaveLength(14)
+	expect(within(list).getAllByRole('listitem')[0]).toHaveTextContent('Apples')
+	// Each row carries its own action and its own state; nothing states an
+	// availability, and nothing asks the reader to look at the top of the page.
 	expect(
-		within(availableGroup).getByLabelText('12 usually available Staples'),
+		within(list).getByRole('button', { name: 'Add Apples to Next shop' }),
 	).toBeVisible()
 	expect(
-		outGroup.compareDocumentPosition(availableGroup) &
-			Node.DOCUMENT_POSITION_FOLLOWING,
-	).toBeTruthy()
-	expect(within(outGroup).getAllByRole('listitem')).toHaveLength(2)
-	expect(within(outGroup).getAllByRole('listitem')[0]).toHaveTextContent(
-		'Brown rice',
-	)
-	expect(
-		within(outGroup).getByRole('button', {
-			name: 'Mark Brown rice available',
-		}),
-	).toHaveTextContent('Available')
-	expect(
-		within(availableGroup).getByRole('button', { name: 'Mark Apples Out' }),
-	).toHaveTextContent('Out')
+		within(list).getByRole('button', { name: 'Salt is in Next shop' }),
+	).toHaveTextContent('On list')
+	expect(list).not.toHaveTextContent('Out')
+	expect(list).not.toHaveTextContent('Available')
+	// The live region is for a screen reader, not a banner to scroll back to.
+	expect(screen.getByRole('status')).toHaveClass('sr-only')
 
 	const search = screen.getByRole('searchbox', { name: 'Search Staples' })
 	const addButton = screen.getByRole('button', { name: 'Add Staple' })
 	expect(search).toBeVisible()
-	expect(screen.getByRole('status')).toHaveClass('sr-only')
 	expect(screen.queryByRole('textbox', { name: 'Add a Staple' })).toBeNull()
 	await user.click(addButton)
 	const addInput = screen.getByRole('textbox', { name: 'Add a Staple' })
 	expect(addInput).toBeVisible()
 	expect(addInput).toHaveAttribute('placeholder', 'Staple name')
-	expect(addInput.closest('form')).not.toHaveClass('bg-muted/40')
 	expect(screen.queryByRole('searchbox', { name: 'Search Staples' })).toBeNull()
 	await user.keyboard('{Escape}')
 	await waitFor(() =>
@@ -85,10 +74,11 @@ test('large Staple lists put the Out task first and search both groups', async (
 		name: 'Search Staples',
 	})
 	await user.type(restoredSearch, 'rice')
-	expect(within(outGroup).getByLabelText('1 Out Staple')).toBeVisible()
 	expect(
-		within(availableGroup).getByLabelText('0 usually available Staples'),
-	).toBeVisible()
+		within(screen.getByRole('list', { name: 'Staples' })).getAllByRole(
+			'listitem',
+		),
+	).toHaveLength(1)
 	expect(screen.getByText('Brown rice')).toBeVisible()
 	expect(screen.queryByText('Apples')).toBeNull()
 
@@ -100,11 +90,12 @@ test('large Staple lists put the Out task first and search both groups', async (
 	await user.click(screen.getByRole('button', { name: 'Clear search' }))
 	expect(screen.getByText('Brown rice')).toBeVisible()
 
-	expect(screen.getByText('Advanced')).toBeVisible()
-	expect(screen.queryByText(/legacy Pantry item/)).toBeNull()
+	// The archived Pantry and its restore action are gone (#289).
+	expect(screen.queryByText('Advanced')).toBeNull()
+	expect(screen.queryByText(/Pantry/)).toBeNull()
 })
 
-test('marking a Staple Out moves it immediately, restores focus, and announces the result', async () => {
+test('adding says so on the row itself, holds focus, and keeps the row in place', async () => {
 	let staples = largeStapleList
 	let finishAction: (() => void) | undefined
 	const actionCanFinish = new Promise<void>((resolve) => {
@@ -125,12 +116,12 @@ test('marking a Staple Out moves it immediately, restores focus, and announces t
 				await actionCanFinish
 				staples = staples.map((staple) =>
 					staple.id === formData.get('itemId')
-						? { ...staple, isOut: !staple.isOut }
+						? { ...staple, onShoppingList: true }
 						: staple,
 				)
 				return {
 					status: 'success',
-					action: 'toggle-staple-out',
+					action: 'add-staple-to-shop',
 					message: 'Apples was added to Next shop.',
 				}
 			},
@@ -139,25 +130,35 @@ test('marking a Staple Out moves it immediately, restores focus, and announces t
 	render(<Stub initialEntries={['/']} />)
 	const user = userEvent.setup()
 
-	await user.click(
-		await screen.findByRole('button', { name: 'Mark Apples Out' }),
-	)
-	const optimisticButton = await screen.findByRole('button', {
-		name: 'Mark Apples available',
+	const appleButton = await screen.findByRole('button', {
+		name: 'Add Apples to Next shop',
 	})
+	await user.click(appleButton)
+	await waitFor(() => expect(appleButton).toHaveAttribute('aria-busy', 'true'))
+	// In flight the row already reads as done, so a second tap is not invited.
+	expect(appleButton).toHaveTextContent('On list')
+	// The row does not move or disappear — this list is not a queue.
 	expect(
-		within(screen.getByRole('region', { name: 'Out' })).getByText('Apples'),
-	).toBeVisible()
-	expect(optimisticButton).toHaveFocus()
+		within(screen.getByRole('list', { name: 'Staples' })).getAllByRole(
+			'listitem',
+		)[0],
+	).toHaveTextContent('Apples')
 
 	finishAction?.()
-	await waitFor(() => expect(optimisticButton).not.toHaveAttribute('aria-busy'))
-	expect(screen.getByRole('status')).toHaveTextContent(
-		'Apples was added to Next shop.',
-	)
+	await waitFor(() => expect(appleButton).not.toHaveAttribute('aria-busy'))
+	// The loader has revalidated, so the row keeps saying it without the
+	// in-flight guess holding it there.
 	expect(
-		screen.getByRole('button', { name: 'Mark Apples available' }),
-	).toHaveFocus()
+		screen.getByRole('button', { name: 'Apples is in Next shop' }),
+	).toHaveTextContent('On list')
+	// The live region is fed from the row, so it settles a tick after the
+	// fetcher does.
+	await waitFor(() =>
+		expect(screen.getByRole('status')).toHaveTextContent(
+			'Apples was added to Next shop.',
+		),
+	)
+	expect(appleButton).toHaveFocus()
 })
 
 test('add and remove keep their controls visible through pending and failure states', async () => {
@@ -174,7 +175,7 @@ test('add and remove keep their controls visible through pending and failure sta
 			path: '/',
 			Component: () => (
 				<ActiveStaples
-					staples={[{ id: 'salt', displayName: 'Salt', isOut: false }]}
+					staples={[{ id: 'salt', displayName: 'Salt', onShoppingList: false }]}
 				/>
 			),
 			action: async ({ request }) => {
@@ -199,11 +200,6 @@ test('add and remove keep their controls visible through pending and failure sta
 	render(<Stub initialEntries={['/']} />)
 	const user = userEvent.setup()
 
-	expect(
-		within(screen.getByRole('region', { name: 'Out' })).getByText(
-			'Nothing is Out.',
-		),
-	).toBeVisible()
 	expect(screen.queryByRole('searchbox', { name: 'Search Staples' })).toBeNull()
 	const addButton = screen.getByRole('button', { name: 'Add Staple' })
 	expect(addButton).toHaveClass('min-h-11')
@@ -233,4 +229,15 @@ test('add and remove keep their controls visible through pending and failure sta
 	expect(
 		await screen.findByText('Could not remove Salt. Try again.'),
 	).toHaveAttribute('role', 'alert')
+})
+
+test('an empty list explains what a Staple is for', () => {
+	const Stub = createRoutesStub([
+		{ path: '/', Component: () => <ActiveStaples staples={[]} /> },
+	])
+	render(<Stub initialEntries={['/']} />)
+
+	expect(screen.getByRole('heading', { name: 'No Staples yet' })).toBeVisible()
+	expect(screen.queryByRole('list', { name: 'Staples' })).toBeNull()
+	expect(screen.getByRole('button', { name: 'Add Staple' })).toBeVisible()
 })

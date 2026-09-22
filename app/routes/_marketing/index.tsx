@@ -85,7 +85,7 @@ export default function Index() {
 			<FeatureBand
 				index={3}
 				heading="Minus what you already have"
-				body="Add the Staples you usually have. Mark one Out when you run low."
+				body="Add the Staples you usually have. Shopping leaves them out, and one tap puts any of them back on the list."
 				screenSide="left"
 				screen={<StaplesScreen />}
 			/>
@@ -728,21 +728,23 @@ function scaled(amount: string) {
 }
 
 const staples = [
-	'all-purpose flour',
-	'black pepper',
-	'butter',
-	'canned tomatoes',
-	'eggs',
-	'garlic',
+	{ name: 'all-purpose flour' },
+	{ name: 'black pepper' },
+	{ name: 'butter' },
+	{ name: 'canned tomatoes' },
+	{ name: 'eggs' },
+	{ name: 'garlic' },
+	{ name: 'limes', onList: true },
+	{ name: 'white miso', onList: true },
 ]
 
 function StaplesScreen() {
 	return (
-		<AppScreen label="The Staples page: two items Out, 31 usually available">
+		<AppScreen label="The Staples page: 33 usual items, two already on Next shop">
 			<div className="px-5 py-5 sm:px-6">
 				<h3 className="font-serif text-2xl">Staples</h3>
 				<p className="text-cream-muted mt-1 text-sm">
-					Things you usually have. Mark one Out to add it to Next shop.
+					Things you usually have. Add one to put it on Next shop.
 				</p>
 				<div className="mt-4 flex gap-2">
 					<div className="border-espresso-line/60 bg-espresso-raised/50 text-cream-muted flex h-11 flex-1 items-center gap-2 rounded-lg border px-3 text-sm">
@@ -755,39 +757,22 @@ function StaplesScreen() {
 					</span>
 				</div>
 
-				<div className="border-espresso-line/70 mt-5 overflow-hidden rounded-xl border">
-					<div className="bg-espresso-raised/60 flex items-center justify-between px-4 py-3">
-						<p className="font-serif text-xl">Out</p>
-						<span className="border-copper/60 text-copper flex size-6 items-center justify-center rounded-full border text-xs font-semibold tabular-nums">
-							2
-						</span>
-					</div>
-					{['limes', 'white miso'].map((name) => (
-						<div
-							key={name}
-							className="border-espresso-line/60 flex items-center gap-3 border-t px-4 py-3"
-						>
-							<span className="bg-copper size-2 rounded-full" />
-							<span className="flex-1 text-[15px]">{name}</span>
-							<span className="border-espresso-line/70 bg-espresso-raised inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium">
-								Back in
+				<div className="border-espresso-line/60 divide-espresso-line/60 mt-5 divide-y border-t">
+					{staples.map((staple) => (
+						<div key={staple.name} className="flex items-center gap-2 py-2">
+							<span className="min-w-0 flex-1 truncate text-[15px]">
+								{staple.name}
 							</span>
-						</div>
-					))}
-				</div>
-
-				<div className="mt-6 flex items-baseline justify-between">
-					<p className="font-serif text-xl">Usually available</p>
-					<p className="text-cream-muted text-sm tabular-nums">31</p>
-				</div>
-				<div className="border-espresso-line/60 divide-espresso-line/60 mt-2 divide-y border-t">
-					{staples.map((name) => (
-						<div key={name} className="flex items-center gap-3 py-2.5">
-							<span className="bg-cream-muted/40 size-2 rounded-full" />
-							<span className="flex-1 text-[15px]">{name}</span>
-							<span className="border-espresso-line/70 inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium">
-								Out
-							</span>
+							{staple.onList ? (
+								<span className="text-cream-muted inline-flex h-9 items-center gap-1.5 px-3 text-sm">
+									<Icon name="check" size="sm" />
+									On list
+								</span>
+							) : (
+								<span className="border-espresso-line/70 bg-espresso-raised inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium">
+									Add
+								</span>
+							)}
 							<span className="text-cream-muted flex size-8 items-center justify-center">
 								<Icon name="trash" size="sm" />
 							</span>

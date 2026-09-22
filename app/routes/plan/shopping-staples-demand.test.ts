@@ -36,9 +36,7 @@ type TestSession = {
 	householdId: string
 }
 
-async function setupCutoverHousehold(
-	staples: Array<{ displayName: string; isOut?: boolean }>,
-): Promise<TestSession> {
+async function setupHousehold(stapleNames: string[]): Promise<TestSession> {
 	return prisma.$transaction(async (tx) => {
 		const session = await tx.session.create({
 			data: {
@@ -55,14 +53,12 @@ async function setupCutoverHousehold(
 		const household = await tx.household.create({
 			data: {
 				name: 'Staples test household',
-				staplesCutoverAt: new Date(),
 				members: { create: { userId: session.userId, role: 'owner' } },
 				householdIngredients: {
-					create: staples.map((staple) => ({
-						displayName: staple.displayName,
-						canonicalKey: staple.displayName.toLowerCase(),
+					create: stapleNames.map((displayName) => ({
+						displayName,
+						canonicalKey: displayName.toLowerCase(),
 						isStaple: true,
-						isOut: staple.isOut ?? false,
 					})),
 				},
 			},
@@ -177,20 +173,18 @@ async function getRows(householdId: string) {
 }
 
 describe('household Staple annotation at explicit Shopping actions (#116)', () => {
-	test('the Plan picker unticks a normal Staple, offers an Out one, and isolates households', async () => {
-		const normal = await setupCutoverHousehold([{ displayName: 'salt' }])
-		const out = await setupCutoverHousehold([
-			{ displayName: 'salt', isOut: true },
-		])
-		const normalRecipe = await setupRecipe(normal, 'Normal salt supper')
-		const outRecipe = await setupRecipe(out, 'Out of salt supper')
-		const normalMeal = await setupMeal(normal, normalRecipe)
-		const outMeal = await setupMeal(out, outRecipe)
+	test('the Plan picker unticks each household\u2019s own Staples', async () => {
+		const stocked = await setupHousehold(['chicken'])
+		const unstocked = await setupHousehold([])
+		const stockedRecipe = await setupRecipe(stocked, 'Chicken supper')
+		const unstockedRecipe = await setupRecipe(unstocked, 'Also chicken supper')
+		const stockedMeal = await setupMeal(stocked, stockedRecipe)
+		const unstockedMeal = await setupMeal(unstocked, unstockedRecipe)
 
 		// Each household's own picker defaults, then the ticked lines.
 		for (const [session, meal] of [
-			[normal, normalMeal],
-			[out, outMeal],
+			[stocked, stockedMeal],
+			[unstocked, unstockedMeal],
 		] as const) {
 			const choices = await runPlanPickerLoader(session)
 			const lines = choices.data.days[0]!.meals[0]!.lines
@@ -207,25 +201,23 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 			})
 		}
 
-		expect((await getRows(normal.householdId)).map((row) => row.name)).toEqual([
-			'chicken',
-			'medium/small peaches',
-		])
-		// Out beats the hardcoded pantry heuristic: salt is ticked by default.
-		expect((await getRows(out.householdId)).map((row) => row.name)).toEqual([
-			'chicken',
-			'medium/small peaches',
-			'salt',
-		])
+		expect((await getRows(stocked.householdId)).map((row) => row.name)).toEqual(
+			['medium/small peaches'],
+		)
 		expect(
-			(await getRows(out.householdId)).every(
+			(await getRows(unstocked.householdId)).map((row) => row.name),
+		).toEqual(['chicken', 'medium/small peaches'])
+		// Neither household saved salt, and neither is asked to untick it every
+		// week: the plain-basics heuristic still supplies the picker default.
+		expect(
+			(await getRows(unstocked.householdId)).every(
 				(row) => row.source === 'meal' && !row.checked,
 			),
 		).toBe(true)
 	})
 
 	test('a Staple change leaves an active list untouched until the next explicit Recipe add', async () => {
-		const session = await setupCutoverHousehold([{ displayName: 'salt' }])
+		const session = await setupHousehold(['salt'])
 		const recipe = await setupRecipe(session, 'Chicken and peaches')
 
 		await recipeAction({
@@ -242,6 +234,7 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 			['chicken', 'medium/small peaches'],
 		)
 
+		// Removing the Staple: the household no longer assumes it is in.
 		await prisma.householdIngredient.update({
 			where: {
 				householdId_canonicalKey: {
@@ -249,9 +242,9 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 					canonicalKey: 'salt',
 				},
 			},
-			data: { isOut: true },
+			data: { isStaple: false },
 		})
-		// Changing availability never mutates the current Shopping rows itself.
+		// Changing the Staples never mutates the current Shopping rows itself.
 		expect((await getRows(session.householdId)).map((row) => row.name)).toEqual(
 			['chicken', 'medium/small peaches'],
 		)
@@ -271,10 +264,8 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 		)
 	})
 
-	test('Meal refresh applies later Staple state while preserving a colliding manual row', async () => {
-		const session = await setupCutoverHousehold([
-			{ displayName: 'salt', isOut: true },
-		])
+	test('Meal refresh applies a later Staple change while preserving a colliding manual row', async () => {
+		const session = await setupHousehold([])
 		const recipe = await setupRecipe(session, 'Refreshable supper')
 		const meal = await setupMeal(session, recipe)
 		await runShoppingAction(session, {
@@ -302,16 +293,15 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 			}),
 		).toBe(1)
 
-		await prisma.householdIngredient.update({
-			where: {
-				householdId_canonicalKey: {
-					householdId: session.householdId,
-					canonicalKey: 'salt',
-				},
+		await prisma.householdIngredient.create({
+			data: {
+				householdId: session.householdId,
+				displayName: 'salt',
+				canonicalKey: 'salt',
+				isStaple: true,
 			},
-			data: { isOut: false },
 		})
-		// The availability write only marks fresh demand stale; rows and
+		// The Staples write only marks fresh demand stale; rows and
 		// contributions stay byte-for-byte present until explicit refresh.
 		expect(
 			await prisma.shoppingListItem.findUniqueOrThrow({
@@ -352,7 +342,7 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 					canonicalKey: 'salt',
 				},
 			},
-			data: { isOut: true },
+			data: { isStaple: false },
 		})
 		expect(
 			await prisma.mealShoppingContribution.count({

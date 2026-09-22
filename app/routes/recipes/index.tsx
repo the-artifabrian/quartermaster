@@ -94,12 +94,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		}
 	})()
 
-	const [householdAvailability, mealCount, totalRecipeCount] =
+	const [householdMetadata, stapleCount, mealCount, totalRecipeCount] =
 		await Promise.all([
 			prisma.household.findUniqueOrThrow({
 				where: { id: householdId },
 				select: {
-					staplesCutoverAt: true,
 					recipeMetadataValues: {
 						select: {
 							id: true,
@@ -115,6 +114,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 					},
 				},
 			}),
+			prisma.householdIngredient.count({
+				where: { householdId, isStaple: true },
+			}),
 			isProActive
 				? prisma.meal.count({
 						where: { mealPlan: { householdId } },
@@ -123,7 +125,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			prisma.recipe.count({ where: { householdId } }),
 		])
 
-	const metadataOptions = householdAvailability.recipeMetadataValues
+	const metadataOptions = householdMetadata.recipeMetadataValues
 	const metadataFilters = Object.fromEntries(
 		RECIPE_METADATA_DIMENSIONS.map((dimension) => {
 			const available = new Set(
@@ -220,9 +222,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		totalRecipeCount,
 		onboarding: {
 			hasRecipes: totalRecipeCount > 0,
-			// Choosing an explicit (possibly empty) Staples set completes this step.
-			// Archived Pantry rows are recovery data, not active setup.
-			hasStaples: householdAvailability.staplesCutoverAt != null,
+			hasStaples: stapleCount > 0,
 			hasMealPlan: mealCount > 0,
 		},
 	}

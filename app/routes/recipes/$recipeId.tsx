@@ -11,7 +11,6 @@ import {
 import { toast } from 'sonner'
 import { Divider } from '#app/components/divider.tsx'
 import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
-import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { RecipeActionBar } from '#app/components/recipe-action-bar.tsx'
 import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
 import { RecipeIngredientsSheet } from '#app/components/recipe-ingredients-sheet.tsx'
@@ -39,8 +38,6 @@ import { prisma } from '#app/utils/db.server.ts'
 import { parseAmount, scaleAmount } from '#app/utils/fractions.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
-import { activeLegacyPantryWhere } from '#app/utils/legacy-pantry.server.ts'
 import {
 	formatScaleMultiplier,
 	ScaleMultiplierSchema,
@@ -53,7 +50,6 @@ import { cn } from '#app/utils/misc.tsx'
 import { formatRecipeForCopy } from '#app/utils/recipe-copy.ts'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
-import { normalizeIngredientName } from '#app/utils/recipe-matching.server.ts'
 import { MAX_RECIPE_DESCRIPTION_LENGTH } from '#app/utils/recipe-validation.ts'
 import {
 	buildShoppingDemand,
@@ -65,7 +61,6 @@ import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import {
 	annotateShoppingDemand,
-	findMissingRecipeIngredientIds,
 	loadShoppingAvailability,
 } from '#app/utils/shopping-list.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
@@ -173,26 +168,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		status: 403,
 	})
 
-	const [tierInfo, availability] = await Promise.all([
-		getUserTier(userId),
-		loadShoppingAvailability(prisma, householdId),
-	])
-
-	const missingIngredientIds = findMissingRecipeIngredientIds(
-		recipe.ingredients,
-		availability,
-	)
+	const tierInfo = await getUserTier(userId)
 
 	return {
 		recipe,
 		userId,
 		householdId,
 		isProActive: tierInfo.isProActive,
-		missingIngredientIds,
-		hasInventory:
-			availability.kind === 'legacy-pantry' &&
-			availability.inventoryItems.length > 0,
-		usesLegacyPantry: availability.kind === 'legacy-pantry',
 	}
 }
 
@@ -279,50 +261,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 		return { success: true }
 	}
 
-	if (intent === 'mark-have-ingredient') {
-		const activeHousehold = await prisma.household.findFirst({
-			where: { id: householdId, staplesCutoverAt: null },
-			select: { id: true },
-		})
-		invariantResponse(activeHousehold, 'Legacy Pantry is archived', {
-			status: 409,
-		})
-		const ingredientId = formData.get('ingredientId')
-		invariantResponse(
-			typeof ingredientId === 'string',
-			'Ingredient ID is required',
-		)
-
-		const ingredient = await prisma.ingredient.findFirst({
-			where: { id: ingredientId, recipeId },
-			select: { name: true },
-		})
-		invariantResponse(ingredient, 'Ingredient not found', { status: 404 })
-
-		// Check for existing duplicate in Pantry
-		const existingItems = await prisma.inventoryItem.findMany({
-			where: activeLegacyPantryWhere(householdId),
-			select: { id: true, name: true },
-		})
-
-		const match = findMatchingInventoryItem(ingredient.name, existingItems)
-		if (!match) {
-			// Clean up the ingredient name for Pantry display:
-			// "mashed ripe banana" → "banana", "boneless skinless chicken thighs" → "chicken thigh"
-			const cleaned = normalizeIngredientName(ingredient.name)
-
-			await prisma.inventoryItem.create({
-				data: {
-					name: cleaned,
-					userId,
-					householdId,
-				},
-			})
-		}
-
-		return { success: true, markedHave: ingredientId }
-	}
-
 	if (intent === 'add-single-to-shopping-list') {
 		const ingredientId = formData.get('ingredientId')
 		invariantResponse(
@@ -405,8 +343,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 		// One demand module for every generation entry point (#108): the same
 		// heading/optional handling and consolidation as generate-from-Plan, then
-		// the same availability seam. Legacy Pantry matches are pre-checked before
-		// cutover; household Staple/Out state filters generated demand afterward.
+		// the same availability seam, which leaves out the household's Staples.
 		const demand = buildShoppingDemand({
 			recipeBatches: [
 				{ ingredients: fullRecipe.ingredients, scaleMultiplier: safeRatio },
@@ -442,7 +379,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 					return {
 						...converted,
 						category: line.category,
-						checked: line.inStock,
 						source: 'recipe',
 						horizon: NEXT_SHOP,
 						listId: ensuredShoppingList.id,
@@ -458,13 +394,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			householdId,
 		})
 
-		return {
-			success: true,
-			addedToShoppingList: newItems.length,
-			// Before cutover, legacy Pantry matches land pre-checked instead of
-			// silently dropping (#108); post-cutover lines are always unchecked.
-			addedInStock: newItems.filter((line) => line.inStock).length,
-		}
+		return { success: true, addedToShoppingList: newItems.length }
 	}
 
 	return { success: false }
@@ -495,13 +425,7 @@ function toShoppingItem(
 }
 
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
-	const {
-		recipe,
-		isProActive,
-		missingIngredientIds,
-		hasInventory,
-		usesLegacyPantry,
-	} = loaderData
+	const { recipe, isProActive } = loaderData
 	const rootData = useRouteLoaderData('root') as
 		{ requestInfo?: { origin?: string } } | undefined
 	const origin = rootData?.requestInfo?.origin
@@ -841,18 +765,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				    stays compact and Ingredients start within the first screen. */}
 				{recipe.notes && <RecipeNotes notes={recipe.notes} className="mt-4" />}
 
-				{usesLegacyPantry && !hasInventory && (
-					<OnboardingNudge
-						nudgeId="stock-kitchen"
-						icon="home"
-						title="Next up: choose your Staples"
-						description="Save what your household normally keeps and mark anything Out."
-						ctaText="Choose Staples"
-						ctaHref="/inventory"
-						className="mt-4 print:hidden"
-					/>
-				)}
-
 				{/* Content zone: Ingredients + Instructions */}
 				<div className="mt-4 grid gap-5 md:mt-8 lg:grid-cols-[6fr_7fr] lg:gap-6 print:grid-cols-1 print:gap-4">
 					{/* Ingredients - sticky on desktop, interactive checkboxes */}
@@ -881,9 +793,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									checkedIngredients={checkedIngredients}
 									onToggle={toggleIngredient}
 									ratio={ratio}
-									missingIngredientIds={missingIngredientIds}
 									recipeId={recipe.id}
-									canMarkUsuallyOnHand={usesLegacyPantry}
 									useMetric={useMetric}
 								/>
 							</div>
@@ -911,9 +821,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					checkedIngredients={checkedIngredients}
 					onToggle={toggleIngredient}
 					ratio={ratio}
-					missingIngredientIds={missingIngredientIds}
 					recipeId={recipe.id}
-					canMarkUsuallyOnHand={usesLegacyPantry}
 					useMetric={useMetric}
 				/>
 

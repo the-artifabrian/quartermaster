@@ -31,7 +31,6 @@ type UserRow = {
 	joined: string
 	lastActive: string | null
 	recipeCount: number
-	inventoryCount: number
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -63,7 +62,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 				take: 1,
 			},
 			_count: {
-				select: { recipes: true, inventoryItems: true },
+				select: { recipes: true },
 			},
 		},
 		orderBy: { createdAt: 'asc' },
@@ -93,7 +92,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			joined: user.createdAt.toISOString(),
 			lastActive: user.sessions[0]?.updatedAt.toISOString() ?? null,
 			recipeCount: user._count.recipes,
-			inventoryCount: user._count.inventoryItems,
 		}
 	})
 
@@ -127,7 +125,6 @@ const columns: { key: SortKey; label: string; numeric?: boolean }[] = [
 	{ key: 'joined', label: 'Joined' },
 	{ key: 'lastActive', label: 'Last Active' },
 	{ key: 'recipeCount', label: 'Recipes', numeric: true },
-	{ key: 'inventoryCount', label: 'Pantry', numeric: true },
 ]
 
 function compareRows(a: UserRow, b: UserRow, key: SortKey, dir: SortDir) {
@@ -250,11 +247,6 @@ export default function UsersAdminRoute({ loaderData }: Route.ComponentProps) {
 									className={`px-3 py-2 text-right tabular-nums ${user.recipeCount === 0 ? 'text-muted-foreground' : ''}`}
 								>
 									{user.recipeCount}
-								</td>
-								<td
-									className={`px-3 py-2 text-right tabular-nums ${user.inventoryCount === 0 ? 'text-muted-foreground' : ''}`}
-								>
-									{user.inventoryCount}
 								</td>
 							</tr>
 						))}

@@ -48,8 +48,8 @@ export default function PrivacyRoute() {
 					<p className="text-muted-foreground mt-2">
 						Quartermaster collects the minimum data needed to provide the
 						service. This includes account and authentication data, plus the
-						Recipes, classifications, Menus, Meals, Staples/Out state, Shopping,
-						and archived Pantry recovery data your household creates.
+						Recipes, classifications, Menus, Meals, Staples, and Shopping your
+						household creates.
 					</p>
 				</section>
 
@@ -129,11 +129,11 @@ export default function PrivacyRoute() {
 					</h2>
 					<p className="text-muted-foreground mt-2">
 						You can download a JSON export of your profile and household
-						Recipes, classifications, Staples/Out state, archived Pantry
-						recovery data, Menus, Plans, and Shopping. Recipe images are
-						referenced rather than embedded. Go to Settings &gt; Profile to
-						export your data or delete your account. Data belonging to a shared
-						household may remain available to its other members.
+						Recipes, classifications, Staples, recovery data, Menus, Plans, and
+						Shopping. Recipe images are referenced rather than embedded. Go to
+						Settings &gt; Profile to export your data or delete your account.
+						Data belonging to a shared household may remain available to its
+						other members.
 					</p>
 				</section>
 

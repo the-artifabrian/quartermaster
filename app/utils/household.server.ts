@@ -141,25 +141,8 @@ export async function acceptInvite(token: string, userId: string) {
 
 		if (currentHouseholdId && currentHouseholdMemberCount === 1) {
 			// Sole member: move all data to new household
-			const sourceCutover = await tx.household.findUniqueOrThrow({
-				where: { id: currentHouseholdId },
-				select: { staplesCutoverAt: true },
-			})
-			if (sourceCutover.staplesCutoverAt != null) {
-				// A target that already cut over keeps its own timestamp. Otherwise
-				// preserve the source household's explicit choice, including a
-				// confirmed empty selection; row presence never implies cutover.
-				await tx.household.updateMany({
-					where: { id: targetHouseholdId, staplesCutoverAt: null },
-					data: { staplesCutoverAt: sourceCutover.staplesCutoverAt },
-				})
-			}
 			await moveRecipeMetadataValues(tx, currentHouseholdId, targetHouseholdId)
 			await tx.recipe.updateMany({
-				where: { householdId: currentHouseholdId },
-				data: { householdId: targetHouseholdId },
-			})
-			await tx.inventoryItem.updateMany({
 				where: { householdId: currentHouseholdId },
 				data: { householdId: targetHouseholdId },
 			})

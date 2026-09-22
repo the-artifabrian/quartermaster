@@ -10,20 +10,20 @@ save Recipes → plan Meals → build Shopping → cook
 ```
 
 Roadmap [#98](https://github.com/the-artifabrian/quartermaster/issues/98) is
-complete. It shipped Menus, ordered Meals, combined Shopping, household
-Staples/Out, honest Recipe time/yield, and manual Recipe classification and
-filtering. AI quantity planning and the preparation checklist were tried and
-removed because they added more friction than value. Romanian/RON costing was
-tested on fixed examples and stopped because useful coverage required too much
-identity and price-catalogue work.
+complete. It shipped Menus, ordered Meals, combined Shopping, household Staples,
+honest Recipe time/yield, and manual Recipe classification and filtering. AI
+quantity planning and the preparation checklist were tried and removed because
+they added more friction than value. Romanian/RON costing was tested on fixed
+examples and stopped because useful coverage required too much identity and
+price-catalogue work.
 
-#250 is an optional place for Staples notes; the formal #126 metadata checkpoint
-is retired. Current priorities and task decisions live in
-[#249](https://github.com/the-artifabrian/quartermaster/issues/249). Archived
-Pantry cleanup (#120), reviewed metadata suggestions (#127), discovery sections
-(#129), product costing (#133–#136), and durable ingredient links (#144) are
-deferred until real use gives them a reason to return. Their unused observation
-tickets (#128 and #130) are closed.
+The formal #126 metadata checkpoint is retired. Current priorities and task
+decisions live in
+[#249](https://github.com/the-artifabrian/quartermaster/issues/249). Reviewed
+metadata suggestions (#127), discovery sections (#129), product costing
+(#133–#136), and durable ingredient links (#144) are deferred until real use
+gives them a reason to return. Their unused observation tickets (#128 and #130)
+are closed.
 
 ## Product direction
 
@@ -40,9 +40,8 @@ Current product rules:
 - Keep single-Recipe cooking fast.
 - Menus are reusable; planned Meals are stable snapshots.
 - Shopping changes only after an explicit action.
-- Staples/Out is a small household availability model, not exact stock.
-- Recipe cards stay minimal. Recently Updated is the real default; availability
-  belongs on Recipe detail.
+- Staples are a small household availability model, not exact stock.
+- Recipe cards stay minimal. Recently Updated is the real default.
 - Recipe capture offers Import (URL, text, screenshots) and Write a Recipe.
   Quick Entry and the migration-only text/file bulk importer are retired; JSON
   export/restore remains supported.
@@ -95,9 +94,11 @@ Current product rules:
    shipped with stable snapshots and explicit Shopping contributions. AI
    quantity planning was removed after normal use showed that reviewing its
    output was harder than adjusting the stored multiplier directly.
-2. **Staples (#115–#120).** Household Staples/Out replaced active Pantry
-   behavior. Archived Pantry rows remain recoverable; #250 collects normal-use
-   notes and #120 cleanup is deferred.
+2. **Staples (#115–#120, #289).** Household Staples replaced Pantry behavior.
+   Real use then showed that maintaining an Available/Out state per Staple was a
+   chore that earned nothing once the Plan picker (#288) existed, so #289
+   dropped it along with the archived Pantry, the cutover flag and #120's
+   deferred cleanup. Staples are now a quick-add list of usual items.
 3. **Recipe metadata and discovery (#121–#130).** Honest nullable time/yield and
    the small Cuisine/Season/Course vocabulary shipped. The formal #126
    observation checkpoint is retired; concrete problems can be recorded when
@@ -118,8 +119,6 @@ presentation.
 
 ## Known debt and deliberate leftovers
 
-- Archived `InventoryItem` data and compatibility paths remain for Staples
-  recovery. Remove them only when their maintenance cost is real.
 - Ingredient matching still has legacy fuzzy behavior. #144 is a possible
   durable-link replacement, not current work.
 - `emitHouseholdEvent()` is fire-and-forget; revisit if real contention appears.

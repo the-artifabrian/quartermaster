@@ -26,7 +26,6 @@ test('ordinary Shopping loading leaves Staple choices on demand', async () => {
 	const household = await prisma.household.create({
 		data: {
 			name: 'Lazy Shopping Staples Household',
-			staplesCutoverAt: new Date('2026-09-04T12:00:00Z'),
 			members: { create: { userId: session.userId, role: 'owner' } },
 			householdIngredients: {
 				create: {
@@ -57,9 +56,6 @@ test('ordinary Shopping loading leaves Staple choices on demand', async () => {
 	const routeQueries = observedQueries.slice(queryStart).join('\n')
 
 	expect(result).not.toHaveProperty('staples')
-	expect(result).toMatchObject({
-		staplesEnabled: true,
-		shoppingIdentities: ['salt'],
-	})
+	expect(result).toMatchObject({ shoppingIdentities: ['salt'] })
 	expect(routeQueries).not.toMatch(/\bHouseholdIngredient\b/)
 })

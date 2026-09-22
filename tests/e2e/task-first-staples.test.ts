@@ -21,11 +21,10 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	const household = await prisma.household.create({
 		data: {
 			name: 'Large task-first Staples Household',
-			staplesCutoverAt: new Date(),
 			members: { create: { userId: user.id, role: 'owner' } },
 		},
 	})
-	const availableNames = [
+	const stapleNames = [
 		'Apples',
 		'Beans',
 		'Coffee',
@@ -53,32 +52,24 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 		'Cinnamon',
 		'Cornmeal',
 		'Yeast',
+		'Brown rice',
+		'Salt',
+		'Vanilla',
 	]
-	const outNames = ['Brown rice', 'Salt', 'Vanilla']
 	await prisma.householdIngredient.createMany({
-		data: [
-			...availableNames.map((displayName) => ({
-				householdId: household.id,
-				displayName,
-				canonicalKey: displayName.toLocaleLowerCase(),
-				isStaple: true,
-				isOut: false,
-			})),
-			...outNames.map((displayName) => ({
-				householdId: household.id,
-				displayName,
-				canonicalKey: displayName.toLocaleLowerCase(),
-				isStaple: true,
-				isOut: true,
-			})),
-		],
+		data: stapleNames.map((displayName) => ({
+			householdId: household.id,
+			displayName,
+			canonicalKey: displayName.toLocaleLowerCase(),
+			isStaple: true,
+		})),
 	})
 
 	await page.setViewportSize({ width: 390, height: 844 })
 	await page.route('**/inventory*', async (route) => {
 		if (
 			route.request().method() === 'POST' &&
-			route.request().postData()?.includes('intent=toggle-staple-out')
+			route.request().postData()?.includes('intent=add-staple-to-shop')
 		) {
 			await new Promise((resolve) => setTimeout(resolve, 400))
 		}
@@ -87,17 +78,8 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	await page.goto('/inventory')
 	await waitForStaplesHydration(page)
 
-	const outGroup = page.getByRole('region', { name: 'Out' })
-	const availableGroup = page.getByRole('region', { name: 'Usually available' })
-	await expect(outGroup.getByLabel('3 Out Staples')).toBeVisible()
-	await expect(
-		availableGroup.getByLabel('27 usually available Staples'),
-	).toBeVisible()
-	const [outBox, availableBox] = await Promise.all([
-		outGroup.boundingBox(),
-		availableGroup.boundingBox(),
-	])
-	expect(outBox?.y).toBeLessThan(availableBox?.y ?? 0)
+	const list = page.getByRole('list', { name: 'Staples' })
+	await expect(list.getByRole('listitem')).toHaveCount(30)
 
 	const search = page.getByRole('searchbox', { name: 'Search Staples' })
 	const addButton = page.getByRole('button', { name: 'Add Staple' })
@@ -118,11 +100,8 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	await expect(search).toBeVisible()
 
 	await search.fill('rice')
-	await expect(outGroup.getByText('Brown rice')).toBeVisible()
-	await expect(outGroup.getByLabel('1 Out Staple')).toBeVisible()
-	await expect(
-		availableGroup.getByLabel('0 usually available Staples'),
-	).toBeVisible()
+	await expect(list.getByRole('listitem')).toHaveCount(1)
+	await expect(list.getByText('Brown rice')).toBeVisible()
 	await search.fill('missing staple')
 	await expect(
 		page.getByRole('heading', { name: 'No Staples found' }),
@@ -132,26 +111,20 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	const response = page.waitForResponse(
 		(candidate) =>
 			candidate.request().method() === 'POST' &&
-			candidate.request().postData()?.includes('intent=toggle-staple-out') ===
+			candidate.request().postData()?.includes('intent=add-staple-to-shop') ===
 				true,
 	)
-	await page.getByRole('button', { name: 'Mark Apples Out' }).click()
-	const movedButton = page.getByRole('button', {
-		name: 'Mark Apples available',
-	})
-	await expect(outGroup.getByText('Apples')).toBeVisible()
-	await expect(movedButton).toBeFocused()
+	const applesRow = list.getByRole('listitem').filter({ hasText: 'Apples' })
+	const applesButton = applesRow.getByRole('button').first()
+	await applesButton.click()
+	await expect(applesButton).toBeFocused()
 	await response
-	await expect(
-		page.getByRole('status').filter({
-			hasText: 'Apples was added to Next shop.',
-		}),
-	).toBeVisible()
-	await expect(movedButton).toBeFocused()
+	// The row says where it went, and stays where it was.
+	await expect(applesButton).toHaveAccessibleName('Apples is in Next shop')
+	await expect(applesButton).toBeFocused()
+	await expect(list.getByRole('listitem')).toHaveCount(30)
 
-	const finalRow = availableGroup
-		.getByRole('listitem')
-		.filter({ hasText: 'Zucchini' })
+	const finalRow = list.getByRole('listitem').filter({ hasText: 'Zucchini' })
 	await finalRow.scrollIntoViewIfNeeded()
 	const bottomNav = page
 		.getByRole('navigation', { name: 'Main' })

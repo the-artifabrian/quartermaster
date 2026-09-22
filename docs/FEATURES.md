@@ -33,7 +33,7 @@ plan into Shopping.
   Plan, and Shopping unchanged.
 - Add a Recipe to a Menu, Plan, or Shopping.
 - Recipe cards stay minimal. Recently Updated is the default. Recipe detail
-  shows actionable Staples/Out-aware availability.
+  shows what the Recipe needs, with each ingredient one tap from Shopping.
 
 ### Menus
 
@@ -64,19 +64,18 @@ plan into Shopping.
 ### Staples
 
 - Keep a household list of ingredients normally assumed available.
-- Mark a Staple Out to ensure it is unchecked in Next shop immediately;
-  generated Shopping also treats it as unavailable when required.
-- Search, add, remove, and restore Staples across household changes and full
-  data recovery.
-- Archived Pantry data remains available as a deliberate rollback path but is
-  inert after the Staples cutover.
+- Add a Staple to Next shop from its row; a matching row already there is moved
+  or brought back rather than duplicated, and a Staple already waiting reads “On
+  list” instead. Staples carry no availability state.
+- Search, add, and remove Staples; they survive household changes and full data
+  recovery.
 
 ### Shopping
 
 - Generate from a selected Plan week or add one Recipe/Meal explicitly.
 - Combine compatible quantities across Recipes and Menu note lines while leaving
   unresolved or incompatible amounts visible.
-- Omit normal Staples; include Out Staples and every non-Staple.
+- Omit lines matching a household Staple; include everything else.
 - Add several household Staples to the next shop from one quiet header picker.
 - Keep manual rows separate from generated Meal contributions so refreshes do
   not overwrite another Meal or a shopper’s correction.

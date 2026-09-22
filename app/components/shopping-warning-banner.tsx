@@ -104,32 +104,5 @@ export function WarningBanner({
 		)
 	}
 
-	if (actionData.warningType === 'in_inventory') {
-		return (
-			<div className="bg-accent/10 mb-3 flex items-start gap-2 rounded-md p-3">
-				<Icon
-					name="question-mark-circled"
-					className="text-accent mt-0.5 size-4 shrink-0"
-				/>
-				<div className="flex-1 text-sm">
-					<p className="font-medium">
-						{actionData.inventoryName as string} is usually on hand.
-					</p>
-					<p className="text-muted-foreground mt-0.5">
-						Tap + to add anyway, or{' '}
-						<button
-							type="button"
-							onClick={onDismiss}
-							className="text-primary underline underline-offset-2"
-						>
-							cancel
-						</button>
-						.
-					</p>
-				</div>
-			</div>
-		)
-	}
-
 	return null
 }

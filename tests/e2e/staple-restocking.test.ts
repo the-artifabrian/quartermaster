@@ -13,7 +13,7 @@ async function waitForStaplesHydration(page: Page) {
 	await expect(addInput).toBeHidden()
 }
 
-test('marking a Staple Out adds it to Next shop from a phone', async ({
+test('tapping a Staple adds it to Next shop from a phone', async ({
 	page,
 	login,
 }) => {
@@ -21,7 +21,6 @@ test('marking a Staple Out adds it to Next shop from a phone', async ({
 	const household = await prisma.household.create({
 		data: {
 			name: 'Phone Restocking Household',
-			staplesCutoverAt: new Date(),
 			members: { create: { userId: user.id, role: 'owner' } },
 			householdIngredients: {
 				create: {
@@ -46,33 +45,35 @@ test('marking a Staple Out adds it to Next shop from a phone', async ({
 	await page.route('**/inventory*', async (route) => {
 		if (
 			route.request().method() === 'POST' &&
-			route.request().postData()?.includes('intent=toggle-staple-out')
+			route.request().postData()?.includes('intent=add-staple-to-shop')
 		) {
 			await new Promise((resolve) => setTimeout(resolve, 500))
 		}
 		await route.continue()
 	})
 
-	const outButton = page.getByRole('button', { name: 'Mark Salt Out' })
+	// Scoped to the row, because the button's name flips to "is in Next shop"
+	// the moment it is pressed.
+	const saltRow = page
+		.getByRole('list', { name: 'Staples' })
+		.getByRole('listitem')
+		.filter({ hasText: 'Salt' })
+	const saltButton = saltRow.getByRole('button').first()
+	await expect(saltButton).toHaveAccessibleName('Add Salt to Next shop')
 	const response = page.waitForResponse(
 		(candidate) =>
 			candidate.request().method() === 'POST' &&
-			candidate.request().postData()?.includes('intent=toggle-staple-out') ===
+			candidate.request().postData()?.includes('intent=add-staple-to-shop') ===
 				true,
 	)
-	await outButton.click()
-	const optimisticOutButton = page.getByRole('button', {
-		name: 'Mark Salt available',
-	})
-	await expect(optimisticOutButton).toHaveAttribute('aria-busy', 'true')
-	await expect(optimisticOutButton).toHaveAttribute('aria-disabled', 'true')
-	await expect(optimisticOutButton).toBeFocused()
+	await saltButton.click()
+	// The row answers for itself straight away, and keeps saying so.
+	await expect(saltButton).toHaveText('On list')
+	await expect(saltButton).toHaveAttribute('aria-busy', 'true')
 	await response
-	await expect(
-		page
-			.getByRole('status')
-			.filter({ hasText: 'Salt was added to Next shop.' }),
-	).toBeVisible()
+	await expect(saltButton).toHaveAccessibleName('Salt is in Next shop')
+	await expect(saltButton).toHaveText('On list')
+	await expect(saltButton).toBeFocused()
 
 	await page.getByRole('link', { name: 'Shop' }).click()
 	const nextShop = page.getByTestId('next-shopping-items')
@@ -91,7 +92,7 @@ test('marking a Staple Out adds it to Next shop from a phone', async ({
 		.toBe(1)
 })
 
-test('a failed restock rolls the optimistic Out state back with an alert', async ({
+test('a failed restock reports it and leaves the Staple tappable', async ({
 	page,
 	login,
 }) => {
@@ -99,7 +100,6 @@ test('a failed restock rolls the optimistic Out state back with an alert', async
 	const household = await prisma.household.create({
 		data: {
 			name: 'Failed Restocking Household',
-			staplesCutoverAt: new Date(),
 			members: { create: { userId: user.id, role: 'owner' } },
 			householdIngredients: {
 				create: {
@@ -124,26 +124,34 @@ test('a failed restock rolls the optimistic Out state back with an alert', async
 		await page.setViewportSize({ width: 390, height: 844 })
 		await page.goto('/inventory')
 		await waitForStaplesHydration(page)
-		const outButton = page.getByRole('button', {
-			name: 'Mark Failure salt Out',
-		})
+		const saltRow = page
+			.getByRole('list', { name: 'Staples' })
+			.getByRole('listitem')
+			.filter({ hasText: 'Failure salt' })
+		const saltButton = saltRow.getByRole('button').first()
 
-		await outButton.click()
+		await saltButton.click()
 
+		// The failure is reported on the row that failed, not at the top of a
+		// list the shopper has already scrolled past.
 		await expect(
-			page.getByRole('alert').filter({
-				hasText: 'Could not mark Failure salt Out. Try again.',
+			saltRow.getByRole('alert').filter({
+				hasText: 'Could not add Failure salt to Next shop. Try again.',
 			}),
 		).toBeVisible()
-		await expect(outButton).not.toHaveAttribute('aria-busy')
-		await expect(outButton).toBeEnabled()
-		await expect(outButton).toBeFocused()
+		await expect(saltButton).toHaveAccessibleName(
+			'Add Failure salt to Next shop',
+		)
+		await expect(saltButton).not.toHaveAttribute('aria-busy')
+		await expect(saltButton).toBeEnabled()
+		await expect(saltButton).toBeFocused()
+		// The Staple itself is untouched — a tap never changed it.
 		expect(
 			await prisma.householdIngredient.findUniqueOrThrow({
 				where: { id: household.householdIngredients[0]!.id },
-				select: { isOut: true },
+				select: { isStaple: true },
 			}),
-		).toEqual({ isOut: false })
+		).toEqual({ isStaple: true })
 	} finally {
 		await prisma.$executeRawUnsafe('DROP TRIGGER reject_failure_staple_restock')
 	}

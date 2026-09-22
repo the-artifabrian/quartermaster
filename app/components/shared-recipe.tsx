@@ -192,8 +192,8 @@ export function SharedRecipeView({
 									checkedIngredients={checkedIngredients}
 									onToggle={toggleIngredient}
 									ratio={ratio}
-									missingIngredientIds={[]}
 									recipeId={recipe.id}
+									canAddToShopping={false}
 								/>
 							</div>
 						</div>

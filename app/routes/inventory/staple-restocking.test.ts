@@ -31,7 +31,6 @@ async function setupHousehold(displayName = 'Salt') {
 		const household = await tx.household.create({
 			data: {
 				name: 'Restocking Household',
-				staplesCutoverAt: new Date(),
 				members: { create: { userId: session.userId, role: 'owner' } },
 				householdIngredients: {
 					create: {
@@ -54,7 +53,7 @@ async function setupHousehold(displayName = 'Salt') {
 	})
 }
 
-async function postToggle(
+async function postAddToShop(
 	session: { id: string; stapleId: string },
 	itemId = session.stapleId,
 ) {
@@ -67,7 +66,7 @@ async function postToggle(
 				'Content-Type': 'application/x-www-form-urlencoded',
 			},
 			body: new URLSearchParams({
-				intent: 'toggle-staple-out',
+				intent: 'add-staple-to-shop',
 				itemId,
 			}).toString(),
 		}),
@@ -75,7 +74,7 @@ async function postToggle(
 	})
 }
 
-async function loadInventory(session: { id: string }) {
+async function loadStaples(session: { id: string }) {
 	const cookie = await getSessionCookieHeader(session)
 	return loader({
 		request: new Request(`${BASE_URL}/inventory`, { headers: { cookie } }),
@@ -83,20 +82,22 @@ async function loadInventory(session: { id: string }) {
 	})
 }
 
-describe('marking a Staple Out restocks Next shop', () => {
+describe('tapping a Staple restocks Next shop', () => {
 	test('creates one manual Next-shop row when no match exists', async () => {
 		const session = await setupHousehold()
 
-		const result = await postToggle(session)
+		const result = await postAddToShop(session)
 
 		expect(result).toMatchObject({
 			status: 'success',
-			action: 'toggle-staple-out',
-			isOut: true,
+			action: 'add-staple-to-shop',
 			shoppingEffect: 'added',
 			message: 'Salt was added to Next shop.',
 		})
-		expect((await loadInventory(session)).staples[0]!.isOut).toBe(true)
+		// The Staple stays on the list and its row now says where it went.
+		expect((await loadStaples(session)).staples).toEqual([
+			{ id: session.stapleId, displayName: 'Salt', onShoppingList: true },
+		])
 		expect(
 			await prisma.shoppingListItem.findMany({
 				where: { list: { householdId: session.householdId } },
@@ -149,11 +150,10 @@ describe('marking a Staple Out restocks Next shop', () => {
 			},
 		})
 
-		const result = await postToggle(session)
+		const result = await postAddToShop(session)
 
 		expect(result).toMatchObject({
 			status: 'success',
-			isOut: true,
 			shoppingEffect: 'moved',
 			message: 'Salt was moved to Next shop.',
 		})
@@ -198,11 +198,10 @@ describe('marking a Staple Out restocks Next shop', () => {
 			},
 		})
 
-		const result = await postToggle(session)
+		const result = await postAddToShop(session)
 
 		expect(result).toMatchObject({
 			status: 'success',
-			isOut: true,
 			shoppingEffect: 'resurfaced',
 			message: 'Salt was brought back to Next shop.',
 		})
@@ -214,7 +213,7 @@ describe('marking a Staple Out restocks Next shop', () => {
 		).toEqual([{ id: row.id, checked: false, horizon: 'next' }])
 	})
 
-	test('leaves an unchecked Next-shop match intact and decouples marking not Out', async () => {
+	test('leaves an unchecked Next-shop match intact, however often it is tapped', async () => {
 		const session = await setupHousehold()
 		const list = await prisma.shoppingList.create({
 			data: {
@@ -232,19 +231,19 @@ describe('marking a Staple Out restocks Next shop', () => {
 			},
 		})
 
-		const markedOut = await postToggle(session)
-		expect(markedOut).toMatchObject({
+		const firstTap = await postAddToShop(session)
+		expect(firstTap).toMatchObject({
 			status: 'success',
-			isOut: true,
 			shoppingEffect: 'already-in-next-shop',
 			message: 'Salt is already in Next shop.',
 		})
 
-		const markedNotOut = await postToggle(session)
-		expect(markedNotOut).toMatchObject({
+		// A second tap is not an undo: the list already says what it says.
+		const secondTap = await postAddToShop(session)
+		expect(secondTap).toMatchObject({
 			status: 'success',
-			isOut: false,
-			message: 'Salt is no longer Out.',
+			shoppingEffect: 'already-in-next-shop',
+			message: 'Salt is already in Next shop.',
 		})
 		expect(
 			await prisma.shoppingListItem.findMany({
@@ -268,11 +267,12 @@ describe('marking a Staple Out restocks Next shop', () => {
 				horizon: 'next',
 			},
 		])
+		// Neither tap added anything, so neither told the other member one did.
 		expect(
 			await prisma.householdEvent.count({
 				where: { householdId: session.householdId },
 			}),
-		).toBe(1)
+		).toBe(0)
 	})
 
 	test('resurfaces a checked Later match with its Meal contribution intact', async () => {
@@ -319,12 +319,9 @@ describe('marking a Staple Out restocks Next shop', () => {
 			},
 		})
 
-		const result = await postToggle(session)
+		const result = await postAddToShop(session)
 
-		expect(result).toMatchObject({
-			shoppingEffect: 'resurfaced',
-			isOut: true,
-		})
+		expect(result).toMatchObject({ shoppingEffect: 'resurfaced' })
 		expect(
 			await prisma.shoppingListItem.findUniqueOrThrow({
 				where: { id: row.id },
@@ -374,7 +371,7 @@ describe('marking a Staple Out restocks Next shop', () => {
 			},
 		})
 
-		await postToggle(session)
+		await postAddToShop(session)
 
 		expect(
 			await prisma.shoppingListItem.findMany({
@@ -392,10 +389,9 @@ describe('marking a Staple Out restocks Next shop', () => {
 		const owner = await setupHousehold('Salt')
 		const other = await setupHousehold('Rice')
 
-		await expect(postToggle(owner, other.stapleId)).rejects.toMatchObject({
+		await expect(postAddToShop(owner, other.stapleId)).rejects.toMatchObject({
 			status: 404,
 		})
-		expect((await loadInventory(other)).staples[0]!.isOut).toBe(false)
 		expect(
 			await prisma.shoppingListItem.count({
 				where: {
@@ -405,7 +401,7 @@ describe('marking a Staple Out restocks Next shop', () => {
 		).toBe(0)
 	})
 
-	test('rolls back Out when the Shopping update fails', async () => {
+	test('adds nothing when the Shopping write fails', async () => {
 		const session = await setupHousehold()
 		await prisma.$executeRawUnsafe(`
 			CREATE TRIGGER reject_staple_restock
@@ -416,15 +412,14 @@ describe('marking a Staple Out restocks Next shop', () => {
 		`)
 
 		try {
-			const result = (await postToggle(session)) as any
+			const result = (await postAddToShop(session)) as any
 
 			expect(result.init?.status).toBe(500)
 			expect(result.data).toEqual({
 				status: 'error',
-				action: 'toggle-staple-out',
-				message: 'Could not mark Salt Out. Try again.',
+				action: 'add-staple-to-shop',
+				message: 'Could not add Salt to Next shop. Try again.',
 			})
-			expect((await loadInventory(session)).staples[0]!.isOut).toBe(false)
 			expect(
 				await prisma.shoppingListItem.count({
 					where: { list: { householdId: session.householdId } },

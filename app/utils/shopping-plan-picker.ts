@@ -10,9 +10,9 @@ export type PlanPickerLineStatus =
 	/** A row with this identity is already on the Shopping list. */
 	| 'on-list'
 	/**
-	 * The household normally has this: a Staple that is not Out, or one of the
-	 * plain basics the ingredient heuristic recognises (water, salt, pepper,
-	 * plain oils). Adding a Meal from Plan already omits the first; the picker
+	 * The household normally has this: one of its Staples, or one of the plain
+	 * basics the ingredient heuristic recognises (water, salt, pepper, plain
+	 * oils). Adding a Meal from Plan already omits the first; the picker
 	 * leaves the second unticked too, rather than asking the household to
 	 * untick salt every week.
 	 */

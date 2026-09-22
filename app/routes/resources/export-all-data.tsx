@@ -6,197 +6,183 @@ import { type Route } from './+types/export-all-data.ts'
 export async function loader({ request }: Route.LoaderArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
 
-	const [user, recipes, inventory, mealPlans, shoppingLists, menus] =
-		await Promise.all([
-			prisma.user.findUniqueOrThrow({
-				where: { id: userId },
-				select: { username: true, email: true, name: true },
-			}),
-			prisma.recipe.findMany({
-				where: { householdId },
-				select: {
-					id: true,
-					title: true,
-					description: true,
-					activeTime: true,
-					totalTime: true,
-					yieldAmount: true,
-					yieldLabel: true,
-					isFavorite: true,
-					sourceUrl: true,
-					rawText: true,
-					notes: true,
-					ingredients: {
-						select: { name: true, amount: true, unit: true, notes: true },
-						orderBy: { order: 'asc' },
+	const [user, recipes, mealPlans, shoppingLists, menus] = await Promise.all([
+		prisma.user.findUniqueOrThrow({
+			where: { id: userId },
+			select: { username: true, email: true, name: true },
+		}),
+		prisma.recipe.findMany({
+			where: { householdId },
+			select: {
+				id: true,
+				title: true,
+				description: true,
+				activeTime: true,
+				totalTime: true,
+				yieldAmount: true,
+				yieldLabel: true,
+				isFavorite: true,
+				sourceUrl: true,
+				rawText: true,
+				notes: true,
+				ingredients: {
+					select: { name: true, amount: true, unit: true, notes: true },
+					orderBy: { order: 'asc' },
+				},
+				instructions: {
+					select: { content: true },
+					orderBy: { order: 'asc' },
+				},
+				image: { select: { objectKey: true, altText: true } },
+				metadataAssignments: {
+					select: {
+						value: {
+							select: {
+								dimension: true,
+								name: true,
+								nameKey: true,
+								sortOrder: true,
+							},
+						},
 					},
-					instructions: {
-						select: { content: true },
-						orderBy: { order: 'asc' },
-					},
-					image: { select: { objectKey: true, altText: true } },
-					metadataAssignments: {
-						select: {
-							value: {
-								select: {
-									dimension: true,
-									name: true,
-									nameKey: true,
-									sortOrder: true,
+					orderBy: { valueId: 'asc' },
+				},
+			},
+			orderBy: { title: 'asc' },
+		}),
+		prisma.mealPlan.findMany({
+			where: { householdId },
+			select: {
+				weekStart: true,
+				meals: {
+					select: {
+						id: true,
+						date: true,
+						order: true,
+						label: true,
+						servingAt: true,
+						servingTimeZone: true,
+						genericText: true,
+						completed: true,
+						guestCount: true,
+						sourceMenu: { select: { title: true } },
+						sourceMenuRevision: true,
+						sections: {
+							orderBy: { order: 'asc' },
+							select: { id: true, name: true },
+						},
+						noteItems: {
+							orderBy: { order: 'asc' },
+							select: {
+								text: true,
+								order: true,
+								sectionId: true,
+								shoppingLines: {
+									orderBy: { order: 'asc' },
+									select: { name: true, quantity: true, unit: true },
 								},
 							},
 						},
-						orderBy: { valueId: 'asc' },
+						recipeItems: {
+							select: {
+								recipeId: true,
+								recipeTitle: true,
+								scaleMultiplier: true,
+								cooked: true,
+								note: true,
+								order: true,
+								sectionId: true,
+							},
+							orderBy: { order: 'asc' },
+						},
 					},
+					orderBy: [{ date: 'asc' }, { order: 'asc' }],
 				},
-				orderBy: { title: 'asc' },
-			}),
-			prisma.inventoryItem.findMany({
-				where: { householdId },
-				select: {
-					name: true,
-				},
-				orderBy: [{ name: 'asc' }],
-			}),
-			prisma.mealPlan.findMany({
-				where: { householdId },
-				select: {
-					weekStart: true,
-					meals: {
-						select: {
-							id: true,
-							date: true,
-							order: true,
-							label: true,
-							servingAt: true,
-							servingTimeZone: true,
-							genericText: true,
-							completed: true,
-							guestCount: true,
-							sourceMenu: { select: { title: true } },
-							sourceMenuRevision: true,
-							sections: {
-								orderBy: { order: 'asc' },
-								select: { id: true, name: true },
-							},
-							noteItems: {
-								orderBy: { order: 'asc' },
-								select: {
-									text: true,
-									order: true,
-									sectionId: true,
-									shoppingLines: {
-										orderBy: { order: 'asc' },
-										select: { name: true, quantity: true, unit: true },
-									},
-								},
-							},
-							recipeItems: {
-								select: {
-									recipeId: true,
-									recipeTitle: true,
-									scaleMultiplier: true,
-									cooked: true,
-									note: true,
-									order: true,
-									sectionId: true,
-								},
-								orderBy: { order: 'asc' },
+			},
+			orderBy: { weekStart: 'desc' },
+		}),
+		prisma.shoppingList.findMany({
+			where: { householdId },
+			select: {
+				name: true,
+				items: {
+					select: {
+						id: true,
+						name: true,
+						quantity: true,
+						unit: true,
+						category: true,
+						checked: true,
+						source: true,
+						horizon: true,
+						mealContributions: {
+							orderBy: [{ canonicalName: 'asc' }, { id: 'asc' }],
+							select: {
+								mealId: true,
+								canonicalName: true,
+								name: true,
+								quantity: true,
+								unit: true,
 							},
 						},
-						orderBy: [{ date: 'asc' }, { order: 'asc' }],
 					},
+					orderBy: { name: 'asc' },
 				},
-				orderBy: { weekStart: 'desc' },
-			}),
-			prisma.shoppingList.findMany({
-				where: { householdId },
-				select: {
-					name: true,
-					items: {
-						select: {
-							id: true,
-							name: true,
-							quantity: true,
-							unit: true,
-							category: true,
-							checked: true,
-							source: true,
-							horizon: true,
-							mealContributions: {
-								orderBy: [{ canonicalName: 'asc' }, { id: 'asc' }],
-								select: {
-									mealId: true,
-									canonicalName: true,
-									name: true,
-									quantity: true,
-									unit: true,
-								},
-							},
-						},
-						orderBy: { name: 'asc' },
-					},
-				},
-				orderBy: { updatedAt: 'desc' },
-			}),
-			prisma.menu.findMany({
-				where: { householdId },
-				select: {
-					title: true,
-					description: true,
-					defaultGuestCount: true,
-					copiedFromMenuId: true,
-					sections: {
-						orderBy: { order: 'asc' },
-						select: {
-							name: true,
-							items: {
-								orderBy: { order: 'asc' },
-								select: {
-									kind: true,
-									recipeId: true,
-									recipeTitle: true,
-									scaleMultiplier: true,
-									note: true,
-									shoppingLines: {
-										orderBy: { order: 'asc' },
-										select: { name: true, quantity: true, unit: true },
-									},
+			},
+			orderBy: { updatedAt: 'desc' },
+		}),
+		prisma.menu.findMany({
+			where: { householdId },
+			select: {
+				title: true,
+				description: true,
+				defaultGuestCount: true,
+				copiedFromMenuId: true,
+				sections: {
+					orderBy: { order: 'asc' },
+					select: {
+						name: true,
+						items: {
+							orderBy: { order: 'asc' },
+							select: {
+								kind: true,
+								recipeId: true,
+								recipeTitle: true,
+								scaleMultiplier: true,
+								note: true,
+								shoppingLines: {
+									orderBy: { order: 'asc' },
+									select: { name: true, quantity: true, unit: true },
 								},
 							},
 						},
 					},
 				},
-				orderBy: { title: 'asc' },
-			}),
-		])
-	const [household, householdIngredients, recipeMetadataValues] =
-		await Promise.all([
-			prisma.household.findUniqueOrThrow({
-				where: { id: householdId },
-				select: { staplesCutoverAt: true },
-			}),
-			prisma.householdIngredient.findMany({
-				where: { householdId },
-				select: {
-					displayName: true,
-					canonicalKey: true,
-					isStaple: true,
-					isOut: true,
-				},
-				orderBy: [{ canonicalKey: 'asc' }, { id: 'asc' }],
-			}),
-			prisma.recipeMetadataValue.findMany({
-				where: { householdId },
-				select: {
-					dimension: true,
-					name: true,
-					nameKey: true,
-					sortOrder: true,
-				},
-				orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
-			}),
-		])
+			},
+			orderBy: { title: 'asc' },
+		}),
+	])
+	const [householdIngredients, recipeMetadataValues] = await Promise.all([
+		prisma.householdIngredient.findMany({
+			where: { householdId },
+			select: {
+				displayName: true,
+				canonicalKey: true,
+				isStaple: true,
+			},
+			orderBy: [{ canonicalKey: 'asc' }, { id: 'asc' }],
+		}),
+		prisma.recipeMetadataValue.findMany({
+			where: { householdId },
+			select: {
+				dimension: true,
+				name: true,
+				nameKey: true,
+				sortOrder: true,
+			},
+			orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
+		}),
+	])
 
 	// Export-local reference keys: import restores Menu Recipe references by
 	// key, so renamed Recipes still reconnect; title fallback is for older
@@ -217,9 +203,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			username: user.username,
 			email: user.email,
 			name: user.name,
-		},
-		household: {
-			staplesCutoverAt: household.staplesCutoverAt?.toISOString() ?? null,
 		},
 		householdIngredients,
 		recipeMetadataValues,
@@ -251,9 +234,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 						altText: recipe.image.altText,
 					}
 				: null,
-		})),
-		inventory: inventory.map((item) => ({
-			name: item.name,
 		})),
 		mealPlans: mealPlans.map((plan) => ({
 			weekStart: plan.weekStart.toISOString(),

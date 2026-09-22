@@ -34,14 +34,9 @@ import {
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import { activeLegacyPantryWhere } from '#app/utils/legacy-pantry.server.ts'
 import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { parseTypedItem } from '#app/utils/parse-speech-item.ts'
-import {
-	buildInventoryLookup,
-	findInventoryMatch,
-} from '#app/utils/recipe-matching.server.ts'
 import {
 	editShoppingDisplayGroup,
 	reconcileMealShoppingContributions,
@@ -63,10 +58,6 @@ import {
 	ShoppingListItemSchema,
 	guessCategory,
 } from '#app/utils/shopping-list-validation.ts'
-import {
-	annotateShoppingDemand,
-	loadShoppingAvailability,
-} from '#app/utils/shopping-list.server.ts'
 import {
 	type DisplayShoppingItem,
 	makeOptimisticShoppingItem,
@@ -136,32 +127,26 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// demand — a Recipe item or a note card's Shopping lines. Text-only Meals
 	// have no Shopping behavior, so a week of only "Leftovers" has nothing to
 	// offer the picker.
-	const [mealPlans, household] = await Promise.all([
-		prisma.mealPlan.findMany({
-			where: {
-				householdId,
-				weekStart: { in: [prevWeek, currentWeek, nextWeek] },
-			},
-			select: {
-				weekStart: true,
-				meals: {
-					where: {
-						genericText: null,
-						OR: [
-							{ recipeItems: { some: {} } },
-							{ noteItems: { some: { shoppingLines: { some: {} } } } },
-						],
-					},
-					select: { id: true },
-					take: 1,
+	const mealPlans = await prisma.mealPlan.findMany({
+		where: {
+			householdId,
+			weekStart: { in: [prevWeek, currentWeek, nextWeek] },
+		},
+		select: {
+			weekStart: true,
+			meals: {
+				where: {
+					genericText: null,
+					OR: [
+						{ recipeItems: { some: {} } },
+						{ noteItems: { some: { shoppingLines: { some: {} } } } },
+					],
 				},
+				select: { id: true },
+				take: 1,
 			},
-		}),
-		prisma.household.findUniqueOrThrow({
-			where: { id: householdId },
-			select: { staplesCutoverAt: true },
-		}),
-	])
+		},
+	})
 
 	const weeksWithPlans = [prevWeek, currentWeek, nextWeek]
 		.filter((week) =>
@@ -185,7 +170,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		hasMealPlan,
 		weeksWithPlans,
 		isProActive,
-		staplesEnabled: household.staplesCutoverAt != null,
 		shoppingIdentities,
 	}
 }
@@ -246,15 +230,12 @@ export async function action({ request }: Route.ActionArgs) {
 			select: { id: true },
 		})
 		const allowedMealIds = meals.map((meal) => meal.id)
-		const [demandByMeal, availability] = await Promise.all([
-			loadMealShoppingDemand(prisma, {
-				mealIds: allowedMealIds,
-				// Cooked Recipe items are not something to shop for — the picker
-				// never offered them.
-				includeCooked: false,
-			}),
-			loadShoppingAvailability(prisma, householdId),
-		])
+		const demandByMeal = await loadMealShoppingDemand(prisma, {
+			mealIds: allowedMealIds,
+			// Cooked Recipe items are not something to shop for — the picker
+			// never offered them.
+			includeCooked: false,
+		})
 
 		let createdRowCount = 0
 		let attachedCount = 0
@@ -265,20 +246,12 @@ export async function action({ request }: Route.ActionArgs) {
 			const demand = demandByMeal.get(mealId)
 			const picked = pickedByMeal.get(mealId)
 			if (!demand || !picked) continue
-			// The tick set decides what is added; the availability seam still
-			// decides what arrives pre-checked, exactly as a Meal add does.
-			const inStock = new Map(
-				annotateShoppingDemand(demand.lines, availability).lines.map((line) => [
-					line.canonicalName,
-					line.inStock,
-				]),
+			// The tick set decides what is added. A Staple match the household
+			// ticked anyway is still added: the seam's omission is a default for
+			// generated demand, not a veto over an explicit pick.
+			const lines = demand.lines.filter((line) =>
+				picked.has(line.canonicalName),
 			)
-			const lines = demand.lines
-				.filter((line) => picked.has(line.canonicalName))
-				.map((line) => ({
-					...line,
-					inStock: inStock.get(line.canonicalName) ?? false,
-				}))
 			if (lines.length === 0) continue
 
 			const result = await reconcileMealShoppingContributions(prisma, {
@@ -360,38 +333,17 @@ export async function action({ request }: Route.ActionArgs) {
 			}
 		}
 
-		if (!force) {
-			if (duplicate) {
-				return {
-					status: 'warning' as const,
-					warningType: 'already_on_list' as const,
-					existingName: duplicate.name,
-					existingQuantity: duplicate.quantity,
-					existingUnit: duplicate.unit,
-					submittedName: name,
-					submittedQuantity: quantity,
-					submittedUnit: unit,
-					targetHorizon: horizon,
-				}
-			}
-
-			// Check inventory
-			const inventoryItems = await prisma.inventoryItem.findMany({
-				where: activeLegacyPantryWhere(householdId),
-			})
-			const inInventory = findInventoryMatch(
-				{ name },
-				buildInventoryLookup(inventoryItems),
-			)
-			if (inInventory) {
-				return {
-					status: 'warning' as const,
-					warningType: 'in_inventory' as const,
-					inventoryName: inInventory.name,
-					submittedName: name,
-					submittedQuantity: quantity,
-					submittedUnit: unit,
-				}
+		if (!force && duplicate) {
+			return {
+				status: 'warning' as const,
+				warningType: 'already_on_list' as const,
+				existingName: duplicate.name,
+				existingQuantity: duplicate.quantity,
+				existingUnit: duplicate.unit,
+				submittedName: name,
+				submittedQuantity: quantity,
+				submittedUnit: unit,
+				targetHorizon: horizon,
 			}
 		}
 
@@ -884,7 +836,6 @@ export default function ShoppingListRoute({
 		hasMealPlan,
 		weeksWithPlans,
 		isProActive,
-		staplesEnabled,
 		shoppingIdentities,
 	} = loaderData
 	const checks = useShoppingChecks(shoppingList.items, shoppingList.id)
@@ -1091,13 +1042,11 @@ export default function ShoppingListRoute({
 							)}
 						</h1>
 						<div className="flex items-center gap-2 sm:ml-auto">
-							{staplesEnabled && (
-								<ShoppingStaplesPicker
-									key={shoppingList.householdId ?? shoppingList.id}
-									shoppingIdentities={shoppingIdentities}
-									showQuietCue={nextItems.length === 0}
-								/>
-							)}
+							<ShoppingStaplesPicker
+								key={shoppingList.householdId ?? shoppingList.id}
+								shoppingIdentities={shoppingIdentities}
+								showQuietCue={nextItems.length === 0}
+							/>
 							{hasMealPlan && <ShoppingPlanPicker weeks={weeksWithPlans} />}
 						</div>
 					</div>

@@ -47,7 +47,9 @@ function mealTitle({
  * headings and optional ingredients never reach demand at all. Lines the
  * household would normally skip — Staple matches, plain pantry basics, and
  * rows already on the list — still appear, unticked and with the reason,
- * because only the household knows when the usual assumption is wrong.
+ * because only the household knows when the usual assumption is wrong. A
+ * Staple is the whole of that first reason since #289: there is no Out state
+ * that could make one needed on its own.
  */
 export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
@@ -90,14 +92,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 	})
 	const listedIdentities = new Set(
 		listedRows.map((row) => demandIdentity(row.name)),
-	)
-	// Once the household has recorded a Staple, its state is authoritative:
-	// a normal one is already gone at the availability seam, and an Out one is
-	// needed however ordinary the hardcoded heuristic thinks the item is.
-	const recordedStapleIdentities = new Set(
-		availability.kind === 'household-staples'
-			? availability.staples.map((staple) => demandIdentity(staple.displayName))
-			: [],
 	)
 
 	const days: PlanPickerDay[] = []
@@ -144,11 +138,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 					listedIdentities,
 					keptByAvailability,
 					// Explicit note Shopping text is deliberate, so the heuristic
-					// stays off it — the same exception the availability seam makes.
+					// stays off it: a household that wrote "olive oil" on a note
+					// card meant to buy some.
 					pantryStaple:
-						!line.fromNote &&
-						!recordedStapleIdentities.has(line.canonicalName) &&
-						isStapleIngredient({ name: line.name }),
+						!line.fromNote && isStapleIngredient({ name: line.name }),
 				}),
 			})),
 		})

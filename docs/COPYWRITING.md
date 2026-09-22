@@ -9,16 +9,14 @@ Use the terms in [CONTEXT.md](../CONTEXT.md). In user-facing copy:
 - **Recipe**: ingredients and instructions for one thing.
 - **Menu**: a reusable group of Recipes and notes served together.
 - **Meal**: one scheduled item in the Plan.
-- **Staples**: household ingredients normally assumed available.
-- **Out**: a Staple to put in Next shop and include in generated Shopping when
-  required.
+- **Staples**: household ingredients normally assumed available, kept as a
+  quick-add list. Tapping one adds it to Next shop.
 - **Shopping**: the current list. Prefer this over “Shopping List” when the
   shorter label reads naturally.
-- **Pantry**: archived legacy behavior only. Do not present it as the active
-  model.
 
 Repeat the right term instead of inventing synonyms such as kitchen memory,
-stock, inventory, or meal slot.
+stock, inventory, pantry, or meal slot. Staples have no Out or Available state;
+do not describe one.
 
 ## Rules
 
@@ -88,5 +86,5 @@ Before shipping copy, ask:
 - Does it promise more certainty than we have?
 - Does it sound natural on a Tuesday night?
 
-Useful defaults: “Add a Recipe,” “Plan a Meal,” “Generate Shopping,” “Mark Out,”
-“Try again,” and “Nothing changed.”
+Useful defaults: “Add a Recipe,” “Plan a Meal,” “Add to Next shop,” “Try again,”
+and “Nothing changed.”

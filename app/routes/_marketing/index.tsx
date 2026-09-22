@@ -728,23 +728,23 @@ function scaled(amount: string) {
 }
 
 const staples = [
-	'all-purpose flour',
-	'black pepper',
-	'butter',
-	'canned tomatoes',
-	'eggs',
-	'garlic',
-	'limes',
-	'white miso',
+	{ name: 'all-purpose flour' },
+	{ name: 'black pepper' },
+	{ name: 'butter' },
+	{ name: 'canned tomatoes' },
+	{ name: 'eggs' },
+	{ name: 'garlic' },
+	{ name: 'limes', onList: true },
+	{ name: 'white miso', onList: true },
 ]
 
 function StaplesScreen() {
 	return (
-		<AppScreen label="The Staples page: 33 usual items, each one tap from Next shop">
+		<AppScreen label="The Staples page: 33 usual items, two already on Next shop">
 			<div className="px-5 py-5 sm:px-6">
 				<h3 className="font-serif text-2xl">Staples</h3>
 				<p className="text-cream-muted mt-1 text-sm">
-					Things you usually have. Tap one to add it to Next shop.
+					Things you usually have. Add one to put it on Next shop.
 				</p>
 				<div className="mt-4 flex gap-2">
 					<div className="border-espresso-line/60 bg-espresso-raised/50 text-cream-muted flex h-11 flex-1 items-center gap-2 rounded-lg border px-3 text-sm">
@@ -758,14 +758,21 @@ function StaplesScreen() {
 				</div>
 
 				<div className="border-espresso-line/60 divide-espresso-line/60 mt-5 divide-y border-t">
-					{staples.map((name) => (
-						<div key={name} className="flex items-center gap-3 py-2.5">
-							<Icon
-								name="plus"
-								size="sm"
-								className="text-cream-muted/60 shrink-0"
-							/>
-							<span className="flex-1 text-[15px]">{name}</span>
+					{staples.map((staple) => (
+						<div key={staple.name} className="flex items-center gap-2 py-2">
+							<span className="min-w-0 flex-1 truncate text-[15px]">
+								{staple.name}
+							</span>
+							{staple.onList ? (
+								<span className="text-cream-muted inline-flex h-9 items-center gap-1.5 px-3 text-sm">
+									<Icon name="check" size="sm" />
+									On list
+								</span>
+							) : (
+								<span className="border-espresso-line/70 bg-espresso-raised inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium">
+									Add
+								</span>
+							)}
 							<span className="text-cream-muted flex size-8 items-center justify-center">
 								<Icon name="trash" size="sm" />
 							</span>

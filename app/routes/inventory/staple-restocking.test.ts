@@ -94,9 +94,9 @@ describe('tapping a Staple restocks Next shop', () => {
 			shoppingEffect: 'added',
 			message: 'Salt was added to Next shop.',
 		})
-		// A tap is an add, not a state change: the Staple stays on the list.
+		// The Staple stays on the list and its row now says where it went.
 		expect((await loadStaples(session)).staples).toEqual([
-			{ id: session.stapleId, displayName: 'Salt' },
+			{ id: session.stapleId, displayName: 'Salt', onShoppingList: true },
 		])
 		expect(
 			await prisma.shoppingListItem.findMany({
@@ -267,11 +267,12 @@ describe('tapping a Staple restocks Next shop', () => {
 				horizon: 'next',
 			},
 		])
+		// Neither tap added anything, so neither told the other member one did.
 		expect(
 			await prisma.householdEvent.count({
 				where: { householdId: session.householdId },
 			}),
-		).toBe(2)
+		).toBe(0)
 	})
 
 	test('resurfaces a checked Later match with its Meal contribution intact', async () => {

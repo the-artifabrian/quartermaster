@@ -52,9 +52,14 @@ test('tapping a Staple adds it to Next shop from a phone', async ({
 		await route.continue()
 	})
 
-	const saltButton = page.getByRole('button', {
-		name: 'Add Salt to Next shop',
-	})
+	// Scoped to the row, because the button's name flips to "is in Next shop"
+	// the moment it is pressed.
+	const saltRow = page
+		.getByRole('list', { name: 'Staples' })
+		.getByRole('listitem')
+		.filter({ hasText: 'Salt' })
+	const saltButton = saltRow.getByRole('button').first()
+	await expect(saltButton).toHaveAccessibleName('Add Salt to Next shop')
 	const response = page.waitForResponse(
 		(candidate) =>
 			candidate.request().method() === 'POST' &&
@@ -62,15 +67,13 @@ test('tapping a Staple adds it to Next shop from a phone', async ({
 				true,
 	)
 	await saltButton.click()
+	// The row answers for itself straight away, and keeps saying so.
+	await expect(saltButton).toHaveText('On list')
 	await expect(saltButton).toHaveAttribute('aria-busy', 'true')
-	await expect(saltButton).toHaveAttribute('aria-disabled', 'true')
-	await expect(saltButton).toBeFocused()
 	await response
-	await expect(
-		page
-			.getByRole('status')
-			.filter({ hasText: 'Salt was added to Next shop.' }),
-	).toBeVisible()
+	await expect(saltButton).toHaveAccessibleName('Salt is in Next shop')
+	await expect(saltButton).toHaveText('On list')
+	await expect(saltButton).toBeFocused()
 
 	await page.getByRole('link', { name: 'Shop' }).click()
 	const nextShop = page.getByTestId('next-shopping-items')
@@ -121,17 +124,24 @@ test('a failed restock reports it and leaves the Staple tappable', async ({
 		await page.setViewportSize({ width: 390, height: 844 })
 		await page.goto('/inventory')
 		await waitForStaplesHydration(page)
-		const saltButton = page.getByRole('button', {
-			name: 'Add Failure salt to Next shop',
-		})
+		const saltRow = page
+			.getByRole('list', { name: 'Staples' })
+			.getByRole('listitem')
+			.filter({ hasText: 'Failure salt' })
+		const saltButton = saltRow.getByRole('button').first()
 
 		await saltButton.click()
 
+		// The failure is reported on the row that failed, not at the top of a
+		// list the shopper has already scrolled past.
 		await expect(
-			page.getByRole('alert').filter({
+			saltRow.getByRole('alert').filter({
 				hasText: 'Could not add Failure salt to Next shop. Try again.',
 			}),
 		).toBeVisible()
+		await expect(saltButton).toHaveAccessibleName(
+			'Add Failure salt to Next shop',
+		)
 		await expect(saltButton).not.toHaveAttribute('aria-busy')
 		await expect(saltButton).toBeEnabled()
 		await expect(saltButton).toBeFocused()

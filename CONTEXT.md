@@ -51,5 +51,5 @@ purchase history
 
 **Staple**: A canonical household ingredient normally assumed available and
 omitted from generated Shopping demand. A household keeps its Staples as a
-quick-add list: tapping one puts it on the next shop. _Avoid_: Out, available,
-running low, pantry item
+quick-add list: adding one from its row puts it on the next shop. _Avoid_: Out,
+available, running low, pantry item

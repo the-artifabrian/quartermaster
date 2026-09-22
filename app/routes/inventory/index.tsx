@@ -13,6 +13,8 @@ import {
 	type NextShopRestockEffect,
 	resolveNextShopRestockTarget,
 } from '#app/utils/shopping-horizon.server.ts'
+import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
+import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { type Route } from './+types/index.ts'
@@ -27,13 +29,32 @@ export const meta: Route.MetaFunction = () => {
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
-	const staples = await prisma.householdIngredient.findMany({
-		where: { householdId, isStaple: true },
-		orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
-		select: { id: true, displayName: true },
-	})
+	// Each row says whether it is already waiting in Next shop, because that is
+	// the question the screen exists to answer and a banner at the top of a
+	// long list cannot. "Waiting" is exactly the state that makes another add a
+	// no-op: an unchecked Next-shop row is the preferred restock target, so a
+	// Later or checked match still has somewhere useful to go.
+	const [staples, waitingRows] = await Promise.all([
+		prisma.householdIngredient.findMany({
+			where: { householdId, isStaple: true },
+			orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
+			select: { id: true, displayName: true },
+		}),
+		prisma.shoppingListItem.findMany({
+			where: { list: { householdId }, checked: false, horizon: NEXT_SHOP },
+			select: { name: true },
+		}),
+	])
+	const waitingIdentities = new Set(
+		waitingRows.map((row) => demandIdentity(row.name)),
+	)
 
-	return { staples }
+	return {
+		staples: staples.map((staple) => ({
+			...staple,
+			onShoppingList: waitingIdentities.has(demandIdentity(staple.displayName)),
+		})),
+	}
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -121,12 +142,16 @@ export async function action({ request }: Route.ActionArgs) {
 				)
 			}
 
-			await emitHouseholdEvent({
-				type: 'shopping_list_item_added',
-				payload: { name: staple.displayName },
-				userId,
-				householdId,
-			})
+			// Only tell the other member something happened when it did. A row
+			// already waiting in Next shop is not an addition.
+			if (shoppingEffect !== 'already-in-next-shop') {
+				await emitHouseholdEvent({
+					type: 'shopping_list_item_added',
+					payload: { name: staple.displayName },
+					userId,
+					householdId,
+				})
+			}
 			return {
 				status: 'success' as const,
 				action: 'add-staple-to-shop' as const,

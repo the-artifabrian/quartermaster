@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
-import { cn } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
@@ -12,29 +11,32 @@ type StaplesResponse = {
 	action?: 'add-staple' | 'add-staple-to-shop' | 'remove-staple'
 }
 
-type Staple = { id: string; displayName: string }
+type Staple = {
+	id: string
+	displayName: string
+	/** A matching row is already waiting, unchecked, in Next shop. */
+	onShoppingList: boolean
+}
 
 /**
- * The Staples screen: the household's list of usual items (#289). One tap puts
- * a Staple on Next shop, which is the only thing this list does — a Staple has
- * no Available/Out state to maintain, because nothing downstream asked for
- * one. Generated Shopping omits a Staple match by default and the Plan picker
- * offers it unticked, both of which a tap here corrects in one move.
+ * The Staples screen: the household's list of usual items (#289). Adding one to
+ * Next shop is the only thing this list does — a Staple has no Available/Out
+ * state to maintain, because nothing downstream asked for one. Generated
+ * Shopping omits a Staple match by default and the Plan picker offers it
+ * unticked, both of which an add here corrects in one tap.
+ *
+ * Each row carries its own state and its own errors. Standing in the kitchen
+ * you are usually scrolled somewhere down a long list, so a banner at the top
+ * of the page is a message you will never see; "On list" on the row itself is
+ * the answer to "did that work?" and to "have I already done this one?".
  */
 export function ActiveStaples({ staples }: { staples: Staple[] }) {
 	const addFetcher = useFetcher<StaplesResponse>()
-	const shopFetcher = useFetcher<StaplesResponse>()
 	const [search, setSearch] = useState('')
 	const [newStaple, setNewStaple] = useState('')
 	const [addOpen, setAddOpen] = useState(false)
+	const [announcement, setAnnouncement] = useState('')
 	const addButtonRef = useRef<HTMLButtonElement>(null)
-	const lastShoppedId = useRef<string | null>(null)
-	const shopButtons = useRef(new Map<string, HTMLButtonElement>())
-	const submittedShopId = shopFetcher.formData?.get('itemId')
-	const pendingShopId =
-		shopFetcher.state !== 'idle' && typeof submittedShopId === 'string'
-			? submittedShopId
-			: null
 
 	const filteredStaples = useMemo(() => {
 		const query = search.trim().toLocaleLowerCase()
@@ -61,34 +63,6 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 		}
 	}, [addFetcher.data, addFetcher.state])
 
-	// A tap re-renders the row it was on; keep the keyboard where it was.
-	useEffect(() => {
-		const itemId = lastShoppedId.current
-		if (!itemId) return
-		const frame = requestAnimationFrame(() =>
-			shopButtons.current.get(itemId)?.focus(),
-		)
-		return () => cancelAnimationFrame(frame)
-	}, [pendingShopId, staples, shopFetcher.state])
-
-	function addToShop(staple: Staple) {
-		if (shopFetcher.state !== 'idle') return
-		lastShoppedId.current = staple.id
-		void shopFetcher.submit(
-			{ intent: 'add-staple-to-shop', itemId: staple.id },
-			{ method: 'POST' },
-		)
-	}
-
-	const pendingStaple = pendingShopId
-		? staples.find((staple) => staple.id === pendingShopId)
-		: undefined
-	const shopFeedback = pendingStaple
-		? `Adding ${pendingStaple.displayName} to Next shop…`
-		: shopFetcher.data?.message
-	const shopFailed =
-		shopFetcher.state === 'idle' && shopFetcher.data?.status === 'error'
-
 	function openAdd() {
 		addFetcher.reset()
 		setSearch('')
@@ -107,7 +81,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 			<header>
 				<h1 className="font-serif text-2xl font-normal">Staples</h1>
 				<p className="text-muted-foreground mt-1 max-w-xl text-sm">
-					Things you usually have. Tap one to add it to Next shop.
+					Things you usually have. Add one to put it on Next shop.
 				</p>
 
 				{addOpen ? (
@@ -197,18 +171,10 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 				)}
 			</header>
 
-			{/* The row itself is the tap target, so this line always holds its
-			    space: a Staple must not slide out from under the finger that
-			    just tapped it. */}
-			<p
-				className={cn(
-					'mt-3 min-h-5 text-sm',
-					shopFailed ? 'text-destructive' : 'text-muted-foreground',
-				)}
-				role={shopFailed ? 'alert' : 'status'}
-				aria-live="polite"
-			>
-				{shopFeedback}
+			{/* The row says what happened; this repeats it for a screen reader,
+			    whose focus stays on a button whose label just changed. */}
+			<p className="sr-only" role="status" aria-live="polite">
+				{announcement}
 			</p>
 
 			{search.trim() && filteredStaples.length === 0 ? (
@@ -235,13 +201,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 						<StapleRow
 							key={staple.id}
 							staple={staple}
-							onAddToShop={() => addToShop(staple)}
-							isAddPending={pendingShopId === staple.id}
-							addBusy={shopFetcher.state !== 'idle'}
-							setAddButton={(button) => {
-								if (button) shopButtons.current.set(staple.id, button)
-								else shopButtons.current.delete(staple.id)
-							}}
+							onAnnounce={setAnnouncement}
 						/>
 					))}
 				</ul>
@@ -260,41 +220,62 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 
 function StapleRow({
 	staple,
-	onAddToShop,
-	isAddPending,
-	addBusy,
-	setAddButton,
+	onAnnounce,
 }: {
 	staple: Staple
-	onAddToShop: () => void
-	isAddPending: boolean
-	addBusy: boolean
-	setAddButton: (button: HTMLButtonElement | null) => void
+	onAnnounce: (message: string) => void
 }) {
+	// One fetcher per row, so adding three things in a row does not queue
+	// behind a list-wide lock, and a failure belongs to the row that failed.
+	const shopFetcher = useFetcher<StaplesResponse>()
 	const removeFetcher = useFetcher<StaplesResponse>()
 	const [confirmRemove, setConfirmRemove] = useState(false)
+	const isAdding = shopFetcher.state !== 'idle'
+	// The loader is revalidated by the time the fetcher is idle, so this only
+	// covers the request itself.
+	const onShoppingList = staple.onShoppingList || isAdding
+	const shopFailed = !isAdding && shopFetcher.data?.status === 'error'
+
+	useEffect(() => {
+		if (shopFetcher.state !== 'idle') return
+		const message = shopFetcher.data?.message
+		if (message) onAnnounce(message)
+	}, [onAnnounce, shopFetcher.data, shopFetcher.state])
 
 	return (
 		<li className="w-full min-w-0 py-1">
 			<div className="flex w-full min-w-0 items-center gap-2">
-				{/* The name is the button: the list's one job is adding to the
-				    next shop, so the whole row carries it. */}
-				<button
-					ref={setAddButton}
+				<span className="min-w-0 flex-1 truncate pl-1">
+					{staple.displayName}
+				</span>
+				{/* Enabled even when the row is already on the list: a second tap
+				    writes nothing and answers "is this one done?" out loud. */}
+				<Button
 					type="button"
-					className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-md px-1 text-left"
-					aria-label={`Add ${staple.displayName} to Next shop`}
-					aria-busy={isAddPending || undefined}
-					aria-disabled={addBusy || undefined}
-					onClick={onAddToShop}
+					variant={onShoppingList ? 'ghost' : 'outline'}
+					className="min-h-11 min-w-24 shrink-0 justify-center px-3"
+					aria-label={
+						onShoppingList
+							? `${staple.displayName} is in Next shop`
+							: `Add ${staple.displayName} to Next shop`
+					}
+					aria-busy={isAdding || undefined}
+					onClick={() =>
+						void shopFetcher.submit(
+							{ intent: 'add-staple-to-shop', itemId: staple.id },
+							{ method: 'POST' },
+						)
+					}
 				>
-					<Icon
-						name="plus"
-						size="sm"
-						className="text-muted-foreground/60 shrink-0"
-					/>
-					<span className="min-w-0 flex-1 truncate">{staple.displayName}</span>
-				</button>
+					{onShoppingList ? (
+						<>
+							<Icon name="check" size="sm" />
+							<span className="text-muted-foreground">On list</span>
+						</>
+					) : (
+						'Add'
+					)}
+				</Button>
 				<Button
 					type="button"
 					variant={confirmRemove ? 'destructive' : 'ghost'}
@@ -317,7 +298,7 @@ function StapleRow({
 						)
 					}}
 					aria-busy={removeFetcher.state !== 'idle' || undefined}
-					disabled={addBusy || removeFetcher.state !== 'idle'}
+					disabled={removeFetcher.state !== 'idle'}
 				>
 					<Icon name="trash" size="sm" />
 					{removeFetcher.state !== 'idle' ? (
@@ -327,8 +308,14 @@ function StapleRow({
 					)}
 				</Button>
 			</div>
+			{shopFailed && (
+				<p className="text-destructive mt-1 pl-1 text-sm" role="alert">
+					{shopFetcher.data?.message ??
+						`Could not add ${staple.displayName} to Next shop`}
+				</p>
+			)}
 			{removeFetcher.data?.status === 'error' && (
-				<p className="text-destructive mt-1 text-sm" role="alert">
+				<p className="text-destructive mt-1 pl-1 text-sm" role="alert">
 					{removeFetcher.data.message ??
 						`Could not remove ${staple.displayName}`}
 				</p>

@@ -14,7 +14,8 @@ system.
 1. Save or import the Recipes you cook.
 2. Plan individual Recipes or reusable multi-dish Menus as ordered Meals.
 3. Generate Shopping from the plan.
-4. Keep a short household Staples list; tap one to put it on the next shop.
+4. Keep a short household Staples list; add one from its row to put it on the
+   next shop.
 5. Cook from the Recipe and check off Shopping together in real time.
 
 Recipe cards and Recipe detail stay simple: they show what a Recipe needs, with
@@ -27,7 +28,7 @@ matching a Staple and keeps everything else.
 - **Menus** are reusable groups of ordered Recipe and note cards.
 - **Meals** are scheduled Recipe items, Menu snapshots, or plain text.
 - **Staples** are household ingredients normally assumed available, kept as a
-  quick-add list: tap one and it lands in Next shop.
+  quick-add list: add one and it lands in Next shop.
 - **Shopping** combines Recipe ingredients, Menu note lines, and manual items
   without pretending to know exact stock.
 

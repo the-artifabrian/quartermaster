@@ -186,8 +186,12 @@ placeholder.
 
 - Use one compact searchable alphabetical list with direct Add and Remove
   controls; no grouping.
-- The row itself adds the Staple to Next shop, and says so in its accessible
-  name. Announce the result, and keep the row where it was.
+- Each row carries its own Add control, its own state and its own errors. A
+  shopper is usually scrolled somewhere down a long list, so a banner at the top
+  of the page is a message they will never see.
+- A Staple already waiting in Next shop reads “On list” in place of Add. Keep
+  the control focusable and the row where it was; repeat the result in a
+  visually hidden live region for a screen reader.
 - No availability state, quantities, expiry dates, stock ledger, images, or
   category sections.
 

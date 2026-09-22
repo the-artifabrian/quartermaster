@@ -64,8 +64,9 @@ plan into Shopping.
 ### Staples
 
 - Keep a household list of ingredients normally assumed available.
-- Tap a Staple to put it on Next shop; a matching row already there is moved or
-  brought back rather than duplicated. Staples carry no availability state.
+- Add a Staple to Next shop from its row; a matching row already there is moved
+  or brought back rather than duplicated, and a Staple already waiting reads “On
+  list” instead. Staples carry no availability state.
 - Search, add, and remove Staples; they survive household changes and full data
   recovery.
 

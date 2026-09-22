@@ -57,8 +57,11 @@ test('the Staples screen loads its Staples and nothing else', async () => {
 	const routeQueries = observedQueries.slice(queryStart).join('\n')
 
 	expect(result).toEqual({
-		staples: [{ id: expect.any(String), displayName: 'Salt' }],
+		staples: [
+			{ id: expect.any(String), displayName: 'Salt', onShoppingList: false },
+		],
 	})
-	// The list is the whole page: no tier, no Plan, no Shopping read.
-	expect(routeQueries).not.toMatch(/\b(?:Subscription|Meal|ShoppingList)\b/)
+	// The Shopping read is load-bearing — each row says whether it is already
+	// waiting. Nothing else is: no tier, no Plan.
+	expect(routeQueries).not.toMatch(/\b(?:Subscription|Meal)\b/)
 })

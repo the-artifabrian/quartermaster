@@ -3,25 +3,26 @@
  */
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
-import { createRoutesStub } from 'react-router'
+import { createRoutesStub, useLoaderData } from 'react-router'
 import { expect, test } from 'vitest'
 import { ActiveStaples } from './active-staples.tsx'
 
 const largeStapleList = [
-	{ id: 'rice', displayName: 'Brown rice' },
-	{ id: 'salt', displayName: 'Salt' },
-	{ id: 'apples', displayName: 'Apples' },
-	{ id: 'beans', displayName: 'Beans' },
-	{ id: 'coffee', displayName: 'Coffee' },
-	{ id: 'eggs', displayName: 'Eggs' },
-	{ id: 'flour', displayName: 'Flour' },
-	{ id: 'garlic', displayName: 'Garlic' },
-	{ id: 'milk', displayName: 'Milk' },
-	{ id: 'oats', displayName: 'Oats' },
-	{ id: 'oil', displayName: 'Olive oil' },
-	{ id: 'pasta', displayName: 'Pasta' },
-	{ id: 'pepper', displayName: 'Pepper' },
-	{ id: 'tea', displayName: 'Tea' },
+	{ id: 'rice', displayName: 'Brown rice', onShoppingList: false },
+	// Already waiting in Next shop, so its row says so without being tapped.
+	{ id: 'salt', displayName: 'Salt', onShoppingList: true },
+	{ id: 'apples', displayName: 'Apples', onShoppingList: false },
+	{ id: 'beans', displayName: 'Beans', onShoppingList: false },
+	{ id: 'coffee', displayName: 'Coffee', onShoppingList: false },
+	{ id: 'eggs', displayName: 'Eggs', onShoppingList: false },
+	{ id: 'flour', displayName: 'Flour', onShoppingList: false },
+	{ id: 'garlic', displayName: 'Garlic', onShoppingList: false },
+	{ id: 'milk', displayName: 'Milk', onShoppingList: false },
+	{ id: 'oats', displayName: 'Oats', onShoppingList: false },
+	{ id: 'oil', displayName: 'Olive oil', onShoppingList: false },
+	{ id: 'pasta', displayName: 'Pasta', onShoppingList: false },
+	{ id: 'pepper', displayName: 'Pepper', onShoppingList: false },
+	{ id: 'tea', displayName: 'Tea', onShoppingList: false },
 ]
 
 function renderStaples() {
@@ -42,19 +43,22 @@ test('the list is one alphabetical set of usual items, searchable', async () => 
 	const list = screen.getByRole('list', { name: 'Staples' })
 	expect(within(list).getAllByRole('listitem')).toHaveLength(14)
 	expect(within(list).getAllByRole('listitem')[0]).toHaveTextContent('Apples')
-	// One tap is the whole interaction; nothing states an availability.
+	// Each row carries its own action and its own state; nothing states an
+	// availability, and nothing asks the reader to look at the top of the page.
 	expect(
 		within(list).getByRole('button', { name: 'Add Apples to Next shop' }),
 	).toBeVisible()
+	expect(
+		within(list).getByRole('button', { name: 'Salt is in Next shop' }),
+	).toHaveTextContent('On list')
 	expect(list).not.toHaveTextContent('Out')
 	expect(list).not.toHaveTextContent('Available')
+	// The live region is for a screen reader, not a banner to scroll back to.
+	expect(screen.getByRole('status')).toHaveClass('sr-only')
 
 	const search = screen.getByRole('searchbox', { name: 'Search Staples' })
 	const addButton = screen.getByRole('button', { name: 'Add Staple' })
 	expect(search).toBeVisible()
-	// The feedback line holds its space so a tap never moves the list.
-	expect(screen.getByRole('status')).toHaveClass('min-h-5')
-	expect(screen.getByRole('status')).toBeEmptyDOMElement()
 	expect(screen.queryByRole('textbox', { name: 'Add a Staple' })).toBeNull()
 	await user.click(addButton)
 	const addInput = screen.getByRole('textbox', { name: 'Add a Staple' })
@@ -91,19 +95,30 @@ test('the list is one alphabetical set of usual items, searchable', async () => 
 	expect(screen.queryByText(/Pantry/)).toBeNull()
 })
 
-test('tapping a Staple keeps it in place, holds focus, and announces the result', async () => {
+test('adding says so on the row itself, holds focus, and keeps the row in place', async () => {
+	let staples = largeStapleList
 	let finishAction: (() => void) | undefined
 	const actionCanFinish = new Promise<void>((resolve) => {
 		finishAction = resolve
 	})
+	function TestRoute() {
+		const loaderData = useLoaderData() as { staples: typeof largeStapleList }
+		return <ActiveStaples staples={loaderData.staples} />
+	}
 	const Stub = createRoutesStub([
 		{
 			path: '/',
-			Component: () => <ActiveStaples staples={largeStapleList} />,
+			Component: TestRoute,
 			HydrateFallback: () => null,
-			loader: () => ({}),
-			action: async () => {
+			loader: () => ({ staples }),
+			action: async ({ request }) => {
+				const formData = await request.formData()
 				await actionCanFinish
+				staples = staples.map((staple) =>
+					staple.id === formData.get('itemId')
+						? { ...staple, onShoppingList: true }
+						: staple,
+				)
 				return {
 					status: 'success',
 					action: 'add-staple-to-shop',
@@ -120,9 +135,8 @@ test('tapping a Staple keeps it in place, holds focus, and announces the result'
 	})
 	await user.click(appleButton)
 	await waitFor(() => expect(appleButton).toHaveAttribute('aria-busy', 'true'))
-	expect(screen.getByRole('status')).toHaveTextContent(
-		'Adding Apples to Next shop…',
-	)
+	// In flight the row already reads as done, so a second tap is not invited.
+	expect(appleButton).toHaveTextContent('On list')
 	// The row does not move or disappear — this list is not a queue.
 	expect(
 		within(screen.getByRole('list', { name: 'Staples' })).getAllByRole(
@@ -132,8 +146,17 @@ test('tapping a Staple keeps it in place, holds focus, and announces the result'
 
 	finishAction?.()
 	await waitFor(() => expect(appleButton).not.toHaveAttribute('aria-busy'))
-	expect(screen.getByRole('status')).toHaveTextContent(
-		'Apples was added to Next shop.',
+	// The loader has revalidated, so the row keeps saying it without the
+	// in-flight guess holding it there.
+	expect(
+		screen.getByRole('button', { name: 'Apples is in Next shop' }),
+	).toHaveTextContent('On list')
+	// The live region is fed from the row, so it settles a tick after the
+	// fetcher does.
+	await waitFor(() =>
+		expect(screen.getByRole('status')).toHaveTextContent(
+			'Apples was added to Next shop.',
+		),
 	)
 	expect(appleButton).toHaveFocus()
 })
@@ -151,7 +174,9 @@ test('add and remove keep their controls visible through pending and failure sta
 		{
 			path: '/',
 			Component: () => (
-				<ActiveStaples staples={[{ id: 'salt', displayName: 'Salt' }]} />
+				<ActiveStaples
+					staples={[{ id: 'salt', displayName: 'Salt', onShoppingList: false }]}
+				/>
 			),
 			action: async ({ request }) => {
 				const formData = await request.formData()

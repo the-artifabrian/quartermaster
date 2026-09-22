@@ -114,18 +114,13 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 			candidate.request().postData()?.includes('intent=add-staple-to-shop') ===
 				true,
 	)
-	const applesButton = page.getByRole('button', {
-		name: 'Add Apples to Next shop',
-	})
+	const applesRow = list.getByRole('listitem').filter({ hasText: 'Apples' })
+	const applesButton = applesRow.getByRole('button').first()
 	await applesButton.click()
 	await expect(applesButton).toBeFocused()
 	await response
-	await expect(
-		page.getByRole('status').filter({
-			hasText: 'Apples was added to Next shop.',
-		}),
-	).toBeVisible()
-	// The row is still where it was: adding to the shop is not a state change.
+	// The row says where it went, and stays where it was.
+	await expect(applesButton).toHaveAccessibleName('Apples is in Next shop')
 	await expect(applesButton).toBeFocused()
 	await expect(list.getByRole('listitem')).toHaveCount(30)
 

@@ -9,23 +9,8 @@ import {
 } from './shopping-list.server.ts'
 
 describe('annotateShoppingDemand', () => {
-	function legacy(names: string[]): ShoppingAvailability {
-		return {
-			kind: 'legacy-pantry',
-			inventoryItems: names.map((name) => ({ name })),
-		}
-	}
-
-	function householdStaples(
-		items: Array<{ displayName: string; isOut?: boolean }>,
-	): ShoppingAvailability {
-		return {
-			kind: 'household-staples',
-			staples: items.map((item) => ({
-				displayName: item.displayName,
-				isOut: item.isOut ?? false,
-			})),
-		}
+	function householdStaples(displayNames: string[]): ShoppingAvailability {
+		return { staples: displayNames.map((displayName) => ({ displayName })) }
 	}
 
 	function makeDemandLine(name: string): ShoppingDemandLine {
@@ -38,67 +23,7 @@ describe('annotateShoppingDemand', () => {
 		}
 	}
 
-	test('legacy recovery strips hard-coded staple ingredients', () => {
-		const lines = [makeDemandLine('salt'), makeDemandLine('chicken')]
-		const result = annotateShoppingDemand(lines, legacy([]))
-		expect(result.lines).toHaveLength(1)
-		expect(result.lines[0]!.name).toBe('chicken')
-		expect(result.lines[0]!.inStock).toBe(false)
-		expect(result.stapleCount).toBe(1)
-	})
-
-	test('legacy recovery keeps explicit staple-looking note demand (#109)', () => {
-		const noteLine = { ...makeDemandLine('salt'), fromNote: true }
-		const result = annotateShoppingDemand(
-			[noteLine, makeDemandLine('salt')],
-			legacy([]),
-		)
-		expect(result.lines).toHaveLength(1)
-		expect(result.lines[0]!.name).toBe('salt')
-		expect(result.stapleCount).toBe(1)
-	})
-
-	test('legacy recovery annotates Pantry matches as inStock', () => {
-		const lines = [makeDemandLine('chicken'), makeDemandLine('rice')]
-		const result = annotateShoppingDemand(lines, legacy(['chicken']))
-		expect(result.lines).toHaveLength(2)
-		const chicken = result.lines.find((line) => line.name === 'chicken')!
-		const rice = result.lines.find((line) => line.name === 'rice')!
-		expect(chicken.inStock).toBe(true)
-		expect(rice.inStock).toBe(false)
-		expect(result.inStockCount).toBe(1)
-	})
-
-	test('a pantry "red wine" does not put "red wine vinegar" in stock', () => {
-		const lines = [makeDemandLine('red wine vinegar')]
-		const result = annotateShoppingDemand(lines, legacy(['red wine']))
-		expect(result.lines[0]!.inStock).toBe(false)
-		expect(result.inStockCount).toBe(0)
-	})
-
-	test('legacy recovery returns correct staple and Pantry counts', () => {
-		const lines = [
-			makeDemandLine('salt'),
-			makeDemandLine('water'),
-			makeDemandLine('chicken'),
-			makeDemandLine('broccoli'),
-		]
-		const result = annotateShoppingDemand(lines, legacy(['chicken']))
-		expect(result.stapleCount).toBe(2) // salt, water
-		expect(result.lines).toHaveLength(2) // chicken, broccoli
-		expect(result.inStockCount).toBe(1) // chicken
-	})
-
-	test('empty legacy Pantry only strips hard-coded staples', () => {
-		const lines = [makeDemandLine('chicken'), makeDemandLine('olive oil')]
-		const result = annotateShoppingDemand(lines, legacy([]))
-		expect(result.lines).toHaveLength(1)
-		expect(result.lines[0]!.name).toBe('chicken')
-		expect(result.lines[0]!.inStock).toBe(false)
-		expect(result.stapleCount).toBe(1) // olive oil is a staple
-	})
-
-	test('post-cutover normal Staples are omitted while Out Staples and non-Staples remain', () => {
+	test('a Staple match is omitted and every other line remains', () => {
 		const lines = [
 			makeDemandLine('salt'),
 			makeDemandLine('olive oil'),
@@ -106,22 +31,18 @@ describe('annotateShoppingDemand', () => {
 		]
 		const result = annotateShoppingDemand(
 			lines,
-			householdStaples([
-				{ displayName: 'salt' },
-				{ displayName: 'olive oil', isOut: true },
-			]),
+			householdStaples(['salt', 'olive oil']),
 		)
 
-		expect(result.lines.map((line) => line.name)).toEqual([
-			'olive oil',
-			'chicken',
-		])
-		expect(result.lines.every((line) => !line.inStock)).toBe(true)
-		expect(result.stapleCount).toBe(1)
-		expect(result.inStockCount).toBe(0)
+		expect(result.lines.map((line) => line.name)).toEqual(['chicken'])
+		expect(result.stapleCount).toBe(2)
+		expect(result.neededCount).toBe(1)
 	})
 
-	test('post-cutover saved state replaces hard-coded staple assumptions', () => {
+	test('saved Staples replace the hard-coded staple assumptions', () => {
+		// The ingredient heuristic still calls salt and water basics, but this
+		// seam answers only from what the household saved. The Plan picker is
+		// where the heuristic gets its say, as an unticked default.
 		const result = annotateShoppingDemand(
 			[makeDemandLine('salt'), makeDemandLine('water')],
 			householdStaples([]),
@@ -131,62 +52,49 @@ describe('annotateShoppingDemand', () => {
 		expect(result.stapleCount).toBe(0)
 	})
 
-	test('post-cutover Staple state applies to generated note demand too', () => {
+	test('a Staple match is omitted from generated note demand too', () => {
 		const noteLine = { ...makeDemandLine('salt'), fromNote: true }
-		const normal = annotateShoppingDemand(
-			[noteLine],
-			householdStaples([{ displayName: 'salt' }]),
-		)
-		const out = annotateShoppingDemand(
-			[noteLine],
-			householdStaples([{ displayName: 'salt', isOut: true }]),
-		)
 
-		expect(normal.lines).toHaveLength(0)
-		expect(out.lines.map((line) => line.name)).toEqual(['salt'])
+		expect(
+			annotateShoppingDemand([noteLine], householdStaples(['salt'])).lines,
+		).toHaveLength(0)
+		expect(
+			annotateShoppingDemand([noteLine], householdStaples([])).lines,
+		).toEqual([noteLine])
 	})
 
-	test('unresolved identities remain visible unless that exact household Staple is normal', () => {
+	test('an unresolved identity is kept unless it is itself a Staple', () => {
 		const unresolved = makeDemandLine('medium/small peaches')
+
+		expect(
+			annotateShoppingDemand([unresolved], householdStaples(['salt'])).lines,
+		).toEqual([unresolved])
 		expect(
 			annotateShoppingDemand(
 				[unresolved],
-				householdStaples([{ displayName: 'salt' }]),
-			).lines,
-		).toEqual([{ ...unresolved, inStock: false }])
-		expect(
-			annotateShoppingDemand(
-				[unresolved],
-				householdStaples([{ displayName: 'medium/small peaches' }]),
+				householdStaples(['medium/small peaches']),
 			).lines,
 		).toHaveLength(0)
 	})
 
-	test('an Out match wins when exact household identities converge on one demand identity', () => {
-		const result = annotateShoppingDemand(
-			[makeDemandLine('cilantro')],
-			householdStaples([
-				{ displayName: 'cilantro' },
-				{ displayName: 'coriander', isOut: true },
-			]),
-		)
-		expect(result.lines.map((line) => line.name)).toEqual(['cilantro'])
+	test('exact household identities converging on one demand identity both match', () => {
+		// cilantro/coriander are separate household identities that share a
+		// demand identity; either one saved means the household has it.
+		expect(
+			annotateShoppingDemand(
+				[makeDemandLine('cilantro')],
+				householdStaples(['coriander']),
+			).lines,
+		).toHaveLength(0)
 	})
 
-	test('neededCount includes non-Staples, Out Staples, and unresolved demand', () => {
+	test('lines are returned unchanged — the seam only removes', () => {
+		const chicken = makeDemandLine('chicken')
 		const result = annotateShoppingDemand(
-			[
-				makeDemandLine('salt'),
-				makeDemandLine('olive oil'),
-				makeDemandLine('chicken'),
-				makeDemandLine('medium/small peaches'),
-			],
-			householdStaples([
-				{ displayName: 'salt' },
-				{ displayName: 'olive oil', isOut: true },
-			]),
+			[makeDemandLine('salt'), chicken],
+			householdStaples(['salt']),
 		)
 
-		expect(result.neededCount).toBe(3)
+		expect(result.lines[0]).toBe(chicken)
 	})
 })

@@ -25,7 +25,6 @@ model User {
   connections      Connection[]
   passkey          Passkey[]
   recipes          Recipe[]
-  inventoryItems   InventoryItem[]
   shoppingLists    ShoppingList[]
   householdMembers HouseholdMember[]
   householdInvites HouseholdInvite[]
@@ -150,17 +149,12 @@ model Household {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  /// The reviewed product cutover boundary. null means legacy Pantry behavior
-  /// is active; a timestamp (including an empty confirmed selection) means
-  /// HouseholdIngredient rows are the sole canonical household source.
-  staplesCutoverAt DateTime?
 
   members           HouseholdMember[]
   invites           HouseholdInvite[]
   events            HouseholdEvent[]
   recipes           Recipe[]
   recipeMetadataValues RecipeMetadataValue[]
-  inventoryItems    InventoryItem[]
   householdIngredients HouseholdIngredient[]
   mealPlans         MealPlan[]
   shoppingLists     ShoppingList[]
@@ -425,25 +419,9 @@ model MenuShoppingLine {
   @@index([itemId, order])
 }
 
-model InventoryItem {
-  id        String    @id @default(cuid())
-  name      String    // Free-text: "chicken breast", "Chicken Breasts"
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      String
-  household   Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
-  householdId String?
-
-  @@index([userId])
-  @@index([householdId])
-}
-
-/// One durable household ingredient identity. Release 2's explicit cutover
-/// seeds Staple rows here; later ingredient-library work may also retain
-/// non-Staple identities without changing what this entity means.
+/// One durable household ingredient identity. Staple rows are the household's
+/// quick-add list of usual items; later ingredient-library work may also
+/// retain non-Staple identities without changing what this entity means.
 model HouseholdIngredient {
   id           String  @id @default(cuid())
   displayName  String
@@ -452,7 +430,6 @@ model HouseholdIngredient {
   /// synonym equivalence.
   canonicalKey String
   isStaple     Boolean @default(false)
-  isOut        Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -461,7 +438,7 @@ model HouseholdIngredient {
   householdId String
 
   @@unique([householdId, canonicalKey])
-  @@index([householdId, isStaple, isOut])
+  @@index([householdId, isStaple])
 }
 
 model MealPlan {

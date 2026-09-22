@@ -7,7 +7,7 @@ import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader } from './shopping-staples.tsx'
 import '#tests/setup/db-setup.ts'
 
-async function setupHousehold(name: string, staplesCutoverAt: Date | null) {
+async function setupHousehold(name: string) {
 	return prisma.$transaction(async (tx) => {
 		const session = await tx.session.create({
 			data: {
@@ -19,7 +19,6 @@ async function setupHousehold(name: string, staplesCutoverAt: Date | null) {
 		const household = await tx.household.create({
 			data: {
 				name,
-				staplesCutoverAt,
 				members: { create: { userId: session.userId, role: 'owner' } },
 			},
 		})
@@ -42,14 +41,8 @@ test('Shopping Staple choices require an authenticated household', async () => {
 })
 
 test('Shopping Staple choices are active, ordered, and household scoped', async () => {
-	const owner = await setupHousehold(
-		'Shopping choice owner',
-		new Date('2026-09-04T12:00:00Z'),
-	)
-	const outsider = await setupHousehold(
-		'Other Shopping household',
-		new Date('2026-09-04T12:00:00Z'),
-	)
+	const owner = await setupHousehold('Shopping choice owner')
+	const outsider = await setupHousehold('Other Shopping household')
 	await prisma.householdIngredient.createMany({
 		data: [
 			{
@@ -104,28 +97,4 @@ test('Shopping Staple choices are active, ordered, and household scoped', async 
 			shoppingIdentity: 'greek yogurt',
 		},
 	])
-})
-
-test('Shopping Staple choices stay empty before explicit cutover', async () => {
-	const owner = await setupHousehold('Legacy Pantry household', null)
-	await prisma.householdIngredient.create({
-		data: {
-			householdId: owner.householdId,
-			displayName: 'Salt',
-			canonicalKey: 'salt',
-			isStaple: true,
-		},
-	})
-	const cookie = await getSessionCookieHeader(owner)
-	const path = '/resources/shopping-staples'
-
-	const result = await loader({
-		request: new Request(`${BASE_URL}${path}`, { headers: { cookie } }),
-		params: {},
-		context: new RouterContextProvider(),
-		pattern: path,
-		url: new URL(`${BASE_URL}${path}`),
-	})
-
-	expect(result.data).toEqual({ staples: [] })
 })

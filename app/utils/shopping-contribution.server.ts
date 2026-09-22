@@ -27,11 +27,11 @@ export async function reconcileMealShoppingContributions(
 	}: {
 		mealId: string
 		listId: string
-		/** Demand lines after availability annotation (staples already gone). */
-		lines: Array<ShoppingDemandLine & { inStock: boolean }>
+		/** Demand lines after availability annotation (Staples already gone). */
+		lines: ShoppingDemandLine[]
 	},
 ): Promise<{
-	/** New Shopping rows created (in-stock ones arrive pre-checked). */
+	/** New Shopping rows created. */
 	createdRowCount: number
 	/** Demand recorded against an already-displayed row (no visual change). */
 	attachedCount: number
@@ -129,7 +129,7 @@ export async function reconcileMealShoppingContributions(
 						quantity: line.quantity,
 						unit: line.unit,
 						category: line.category,
-						checked: line.inStock,
+						checked: false,
 						source: 'meal',
 						horizon: NEXT_SHOP,
 					},
@@ -187,7 +187,7 @@ export async function replaceMealShoppingContributions(
 	}: {
 		mealId: string
 		listId: string
-		lines: Array<ShoppingDemandLine & { inStock: boolean }>
+		lines: ShoppingDemandLine[]
 	},
 ): Promise<{
 	createdRowCount: number

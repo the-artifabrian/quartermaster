@@ -82,7 +82,7 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 	await expect(page.getByText('E2E Updated Pasta')).not.toBeVisible()
 })
 
-test('legacy Pantry generation is gone while AI import and provenance remain', async ({
+test('Recipe generation is gone while AI import and provenance remain', async ({
 	page,
 	login,
 }) => {
@@ -94,9 +94,6 @@ test('legacy Pantry generation is gone while AI import and provenance remain', a
 		data: {
 			name: 'Generator removal household',
 			members: { create: { userId: user.id, role: 'owner' } },
-			inventoryItems: {
-				create: { name: 'archived chickpeas', userId: user.id },
-			},
 		},
 	})
 

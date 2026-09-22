@@ -20,7 +20,6 @@ async function setupActiveStaples() {
 	const household = await prisma.household.create({
 		data: {
 			name: 'Staple mutation failures',
-			staplesCutoverAt: new Date(),
 			members: { create: { userId: session.userId, role: 'owner' } },
 			householdIngredients: {
 				create: {

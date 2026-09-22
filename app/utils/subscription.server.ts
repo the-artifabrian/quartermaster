@@ -1,33 +1,6 @@
 import { prisma } from './db.server.ts'
 import { requireUserWithHousehold } from './household.server.ts'
-import { FREE_INVENTORY_LIMIT } from './subscription.ts'
 import { redirectWithToast } from './toast.server.ts'
-
-export { FREE_INVENTORY_LIMIT }
-
-export type InventoryUsage = {
-	count: number
-	limit: number | null
-	remaining: number | null
-	isAtLimit: boolean
-}
-
-export async function getInventoryUsage(
-	householdId: string,
-	isProActive: boolean,
-): Promise<InventoryUsage> {
-	const count = await prisma.inventoryItem.count({ where: { householdId } })
-	if (isProActive) {
-		return { count, limit: null, remaining: null, isAtLimit: false }
-	}
-	const remaining = Math.max(0, FREE_INVENTORY_LIMIT - count)
-	return {
-		count,
-		limit: FREE_INVENTORY_LIMIT,
-		remaining,
-		isAtLimit: remaining === 0,
-	}
-}
 
 export type TierInfo = {
 	tier: string
@@ -159,8 +132,7 @@ export async function requireProTier(request: Request) {
 			throw await redirectWithToast('/upgrade', {
 				type: 'message',
 				title: 'Pro access ended',
-				description:
-					'Your data is safe. Subscribe to continue.',
+				description: 'Your data is safe. Subscribe to continue.',
 			})
 		}
 		throw await redirectWithToast('/upgrade', {

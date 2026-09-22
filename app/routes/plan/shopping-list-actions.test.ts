@@ -627,7 +627,7 @@ describe('shopping list actions', () => {
 		).toMatchObject({ checked: true })
 	})
 
-	test('the choice resource exposes only active Staples while Shopping owns current identities', async () => {
+	test('the choice resource exposes only Staples while Shopping owns current identities', async () => {
 		const session = await setupUser()
 		await prisma.householdIngredient.createMany({
 			data: [
@@ -652,16 +652,6 @@ describe('shopping list actions', () => {
 			],
 		})
 
-		const beforeCutover = await shoppingStaplesLoader({
-			request: await makeLoaderRequest(session),
-			...STAPLE_RESOURCE_ARGS_BASE,
-		})
-		expect(beforeCutover.data.staples).toEqual([])
-
-		await prisma.household.update({
-			where: { id: session.householdId },
-			data: { staplesCutoverAt: new Date() },
-		})
 		await action({
 			request: await makeRequest(session, {
 				intent: 'add',
@@ -670,7 +660,7 @@ describe('shopping list actions', () => {
 			...ACTION_ARGS_BASE,
 		})
 
-		const afterCutover = await loader({
+		const shopping = await loader({
 			request: await makeLoaderRequest(session),
 			...ACTION_ARGS_BASE,
 		})
@@ -678,7 +668,7 @@ describe('shopping list actions', () => {
 			request: await makeLoaderRequest(session),
 			...STAPLE_RESOURCE_ARGS_BASE,
 		})
-		expect(afterCutover.shoppingIdentities).toEqual(['banana'])
+		expect(shopping.shoppingIdentities).toEqual(['banana'])
 		expect(choices.data.staples).toEqual([
 			{
 				id: expect.any(String),

@@ -81,11 +81,10 @@ test('a redirect away from a filtered list still carries its toast', () => {
 	).toBe(true)
 })
 
-test('the pantry-limit redirect back to /inventory revalidates', () => {
-	// User is ON /inventory (committed), clicks through to /inventory/new,
-	// whose loader throws redirectWithToast('/inventory') — so the pair the
-	// router hands us is /inventory → /inventory, not /inventory/new →
-	// /inventory (a navigation whose loader redirected never commits).
+test('a redirect landing back on the page it started from revalidates', () => {
+	// A navigation whose loader redirects never commits, so the pair the router
+	// hands us is /inventory → /inventory: identical on both sides, and
+	// indistinguishable from a no-op without the marker cookie.
 	setPendingToastMarker()
 	expect(
 		shouldRevalidate(

@@ -17,7 +17,7 @@ const ARGS_BASE = {
 	url: new URL(`${BASE_URL}${PATH}`),
 }
 
-async function setupHousehold(name: string, staplesCutoverAt: Date | null) {
+async function setupHousehold(name: string) {
 	return prisma.$transaction(async (tx) => {
 		const session = await tx.session.create({
 			data: {
@@ -29,7 +29,6 @@ async function setupHousehold(name: string, staplesCutoverAt: Date | null) {
 		const household = await tx.household.create({
 			data: {
 				name,
-				staplesCutoverAt,
 				members: { create: { userId: session.userId, role: 'owner' } },
 			},
 		})
@@ -55,7 +54,7 @@ test('the Plan picker requires an authenticated household', async () => {
 })
 
 test('default ticks skip a Staple, a pantry line and a line already on the list', async () => {
-	const session = await setupHousehold('Picker household', new Date())
+	const session = await setupHousehold('Picker household')
 	await prisma.householdIngredient.create({
 		data: {
 			householdId: session.householdId,
@@ -122,24 +121,15 @@ test('default ticks skip a Staple, a pantry line and a line already on the list'
 		cucumber: 'needed',
 		// A saved household Staple: assumed on hand.
 		olive: 'on-hand',
-		// The pantry heuristic, which survives the Staples cutover here.
+		// The plain-basics heuristic, which the picker keeps for its defaults.
 		salt: 'on-hand',
 		// Already a row on the list.
 		feta: 'on-list',
 	})
 })
 
-test('an Out Staple is still needed, and cooked items are never offered', async () => {
-	const session = await setupHousehold('Out Staple household', new Date())
-	await prisma.householdIngredient.create({
-		data: {
-			householdId: session.householdId,
-			displayName: 'Olives',
-			canonicalKey: 'olives',
-			isStaple: true,
-			isOut: true,
-		},
-	})
+test('an unsaved ingredient is needed, and cooked items are never offered', async () => {
+	const session = await setupHousehold('Tapenade household')
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Tapenade',
@@ -210,7 +200,7 @@ test('an Out Staple is still needed, and cooked items are never offered', async 
 })
 
 test('note-card Shopping lines are offered alongside Recipe lines', async () => {
-	const session = await setupHousehold('Menu household', new Date())
+	const session = await setupHousehold('Menu household')
 	const weekStart = getCurrentWeekStart()
 	await prisma.mealPlan.create({
 		data: {
@@ -247,7 +237,7 @@ test('note-card Shopping lines are offered alongside Recipe lines', async () => 
 })
 
 test('a week with no Plan is an empty picker, not an error', async () => {
-	const session = await setupHousehold('Empty household', new Date())
+	const session = await setupHousehold('Empty household')
 
 	const result = await loadWeek(session)
 

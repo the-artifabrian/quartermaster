@@ -7,11 +7,7 @@ import { type Route } from './+types/shopping-staples.ts'
 export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
 	const staples = await prisma.householdIngredient.findMany({
-		where: {
-			householdId,
-			isStaple: true,
-			household: { staplesCutoverAt: { not: null } },
-		},
+		where: { householdId, isStaple: true },
 		orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
 		select: { id: true, displayName: true },
 	})

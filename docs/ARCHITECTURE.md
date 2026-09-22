@@ -37,8 +37,7 @@ User
     │   ├── MealRecipeItem
     │   ├── MealSection → MealNoteItem → MealShoppingLine
     │   └── MealShoppingContribution
-    ├── HouseholdIngredient (Staples/Out)
-    ├── InventoryItem (archived Pantry recovery)
+    ├── HouseholdIngredient (Staples)
     ├── ShoppingList → ShoppingListItem
     ├── HouseholdInvite
     └── HouseholdEvent
@@ -82,7 +81,7 @@ buildShoppingDemand()
     │ scale, omit headings/optional lines, normalize, combine compatible units
     ▼
 annotateShoppingDemand()
-    │ normal Staples omitted; Out Staples and non-Staples kept
+    │ Staple matches omitted; everything else kept
     ▼
 Shopping rows + optional MealShoppingContribution provenance
 ```
@@ -104,21 +103,23 @@ Clear checked; it does not retain an offline queue. JSON recovery creates fresh
 write identities while preserving purchase data. Table-rebuild migrations must
 retain the version triggers.
 
-## Staples and legacy Pantry
+## Staples
 
-`HouseholdIngredient` is the active household availability model. A row has a
-stable canonical key plus `isStaple` and `isOut`.
+`HouseholdIngredient` is the household availability model, and the only one. A
+row has a stable canonical key plus `isStaple`; there is no per-Staple state
+(#289). Staples are a quick-add list of usual items: tapping one on the Staples
+screen, or picking it in Shopping's From Staples popover, puts it on Next shop
+through `resolveNextShopRestockTarget`.
 
-`Household.staplesCutoverAt` chooses the mode:
+`annotateShoppingDemand` is the one seam that reads them, and it answers one
+question: does this demand line match a Staple? A match is dropped from
+generated demand, so adding a whole Meal omits it and the Plan picker offers it
+unticked. Nothing else consults availability — Recipe cards and Recipe detail
+show what a Recipe needs, not what the household has.
 
-- Before cutover, the recoverable legacy Pantry behavior applies.
-- After cutover, HouseholdIngredient rows are the only availability source.
-- Clearing the timestamp explicitly restores legacy behavior.
-- Archived `InventoryItem` rows remain stored and exportable until cleanup is
-  worth the loss of that rollback path.
-
-Recipe cards do not serialize or show availability. Recipe detail and Shopping
-share the Staples/Out interpretation.
+The plain-basics heuristic (`isStapleIngredient`: water, salt, pepper, plain
+oils) is deliberately separate from saved Staples. It supplies the Plan picker's
+unticked defaults only; it never removes a line on its own.
 
 ## Ingredient parsing and identity
 

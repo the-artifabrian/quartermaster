@@ -73,16 +73,15 @@ describe('formatEventMessage', () => {
 		expect(result.url).toBe('/shopping')
 	})
 
-	test('shopping_list_to_inventory', () => {
+	test('a retired event type from an older release still reads sanely', () => {
+		// 'shopping_list_to_inventory' rows outlive the legacy Pantry (#289).
 		const result = formatEventMessage(
-			'shopping_list_to_inventory',
+			'shopping_list_to_inventory' as never,
 			{ count: 3 },
 			'Alex',
 		)
-		expect(result.message).toBe(
-			'Alex added 3 items to Pantry from the shopping list',
-		)
-		expect(result.url).toBe('/inventory')
+		expect(result.message).toBe('Alex performed an action')
+		expect(result.url).toBeNull()
 	})
 
 	test('household_member_joined', () => {
@@ -143,7 +142,7 @@ describe('formatEventBatch', () => {
 		const result = formatEventBatch([
 			event('shopping_list_item_added', { name: 'Butter' }),
 			event('shopping_list_item_added', { name: 'Eggs' }),
-			event('shopping_list_to_inventory', { count: 3 }),
+			event('shopping_list_to_inventory' as never, { count: 3 }),
 			event('household_member_joined'),
 		])
 		expect(result).toHaveLength(1)

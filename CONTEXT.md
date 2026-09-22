@@ -50,7 +50,6 @@ demand, retained separately from manual Shopping rows. _Avoid_: Shopping event,
 purchase history
 
 **Staple**: A canonical household ingredient normally assumed available and
-omitted from generated Shopping demand.
-
-**Out**: The state of a Staple that should be included when a Recipe requires
-it. _Avoid_: Running low, depleted quantity
+omitted from generated Shopping demand. A household keeps its Staples as a
+quick-add list: tapping one puts it on the next shop. _Avoid_: Out, available,
+running low, pantry item

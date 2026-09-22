@@ -1,45 +1,20 @@
-import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useCallback, useEffect, useState } from 'react'
-import { data, Link } from 'react-router'
-import { z } from 'zod'
-import { InventoryItemCard } from '#app/components/inventory-item-card.tsx'
-import { InventoryMobileFab } from '#app/components/inventory-mobile-fab.tsx'
-import { InventoryQuickAdd } from '#app/components/inventory-quick-add.tsx'
-import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
-import {
-	ActiveStaples,
-	StaplesCutover,
-} from '#app/components/staples-cutover.tsx'
-import { Button } from '#app/components/ui/button.tsx'
-import { Icon } from '#app/components/ui/icon.tsx'
+import { data } from 'react-router'
+import { ActiveStaples } from '#app/components/active-staples.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
-	buildStaplesCutoverOptions,
 	HouseholdIngredientDisplayNameSchema,
 	householdIngredientKey,
-	StaplesCutoverSelectionSchema,
 } from '#app/utils/household-ingredient.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { findMatchingInventoryItem } from '#app/utils/inventory-dedup.server.ts'
-import {
-	InventoryItemNameSchema,
-	InventoryItemSchema,
-} from '#app/utils/inventory-validation.ts'
-import { cn } from '#app/utils/misc.tsx'
 import {
 	type NextShopRestockEffect,
 	resolveNextShopRestockTarget,
 } from '#app/utils/shopping-horizon.server.ts'
-import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
-import {
-	getInventoryUsage,
-	getUserTier,
-} from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -51,52 +26,14 @@ export const meta: Route.MetaFunction = () => {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { userId, householdId } = await requireUserWithHousehold(request)
-	const household = await prisma.household.findUniqueOrThrow({
-		where: { id: householdId },
-		select: { staplesCutoverAt: true },
+	const { householdId } = await requireUserWithHousehold(request)
+	const staples = await prisma.householdIngredient.findMany({
+		where: { householdId, isStaple: true },
+		orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
+		select: { id: true, displayName: true },
 	})
 
-	if (household.staplesCutoverAt != null) {
-		const staples = await prisma.householdIngredient.findMany({
-			where: { householdId, isStaple: true },
-			orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
-			select: { id: true, displayName: true, isOut: true },
-		})
-
-		return {
-			mode: 'staples' as const,
-			staples,
-		}
-	}
-
-	const [tier, items, staples, mealCount] = await Promise.all([
-		getUserTier(userId),
-		prisma.inventoryItem.findMany({
-			where: { householdId },
-			orderBy: [{ name: 'asc' }],
-		}),
-		prisma.householdIngredient.findMany({
-			where: { householdId, isStaple: true },
-			orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
-		}),
-		prisma.meal.count({
-			where: { mealPlan: { householdId } },
-		}),
-	])
-	const inventoryUsage = await getInventoryUsage(householdId, tier.isProActive)
-
-	return {
-		mode: 'legacy' as const,
-		items,
-		staples,
-		staplesCutoverAt: null,
-		cutoverOptions: buildStaplesCutoverOptions(items, staples),
-		archivedInventoryCount: items.length,
-		inventoryUsage,
-		isProActive: tier.isProActive,
-		mealCount,
-	}
+	return { staples }
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -104,124 +41,7 @@ export async function action({ request }: Route.ActionArgs) {
 	const formData = await request.formData()
 	const intent = formData.get('intent')
 
-	if (intent === 'confirm-staples-cutover') {
-		const rawItems = formData.get('items')
-		let items: unknown
-		try {
-			items = typeof rawItems === 'string' ? JSON.parse(rawItems) : null
-		} catch {
-			return data(
-				{ status: 'error' as const, message: 'Invalid Staple selection' },
-				{ status: 400 },
-			)
-		}
-		const parsed = StaplesCutoverSelectionSchema.safeParse(items)
-		if (!parsed.success) {
-			return data(
-				{ status: 'error' as const, message: 'Invalid Staple selection' },
-				{ status: 400 },
-			)
-		}
-
-		const alreadyCutOver = await prisma.household.findFirst({
-			where: { id: householdId, staplesCutoverAt: { not: null } },
-			select: { id: true },
-		})
-		if (alreadyCutOver) {
-			return data(
-				{ status: 'error' as const, message: 'Staples are already active' },
-				{ status: 409 },
-			)
-		}
-
-		try {
-			await prisma.$transaction(async (tx) => {
-				// A recovery and second reviewed cutover may revisit a prior set.
-				// Retain stable identities and the Out state of selected rows, while
-				// only this confirmed selection remains classified as Staple.
-				await tx.householdIngredient.updateMany({
-					where: {
-						householdId,
-						isStaple: true,
-						...(parsed.data.length > 0
-							? {
-									canonicalKey: {
-										notIn: parsed.data.map((item) => item.canonicalKey),
-									},
-								}
-							: {}),
-					},
-					data: { isStaple: false, isOut: false },
-				})
-				for (const item of parsed.data) {
-					await tx.householdIngredient.upsert({
-						where: {
-							householdId_canonicalKey: {
-								householdId,
-								canonicalKey: item.canonicalKey,
-							},
-						},
-						create: {
-							...item,
-							isStaple: true,
-							isOut: false,
-							householdId,
-						},
-						update: {
-							displayName: item.displayName,
-							isStaple: true,
-						},
-					})
-				}
-				const cutover = await tx.household.updateMany({
-					where: { id: householdId, staplesCutoverAt: null },
-					data: { staplesCutoverAt: new Date() },
-				})
-				if (cutover.count !== 1) throw new Error('CUTOVER_ALREADY_COMPLETED')
-			})
-		} catch (error) {
-			if (
-				error instanceof Error &&
-				error.message === 'CUTOVER_ALREADY_COMPLETED'
-			) {
-				return data(
-					{ status: 'error' as const, message: 'Staples are already active' },
-					{ status: 409 },
-				)
-			}
-			throw error
-		}
-
-		return {
-			status: 'success' as const,
-			action: 'confirm-staples-cutover' as const,
-			savedCount: parsed.data.length,
-		}
-	}
-
-	if (intent === 'restore-legacy-pantry') {
-		await prisma.household.update({
-			where: { id: householdId },
-			data: { staplesCutoverAt: null },
-		})
-		return {
-			status: 'success' as const,
-			action: 'restore-legacy-pantry' as const,
-		}
-	}
-
-	const household = await prisma.household.findUniqueOrThrow({
-		where: { id: householdId },
-		select: { staplesCutoverAt: true },
-	})
-
 	if (intent === 'add-staple') {
-		if (household.staplesCutoverAt == null) {
-			return data(
-				{ status: 'error' as const, message: 'Staples are not active' },
-				{ status: 409 },
-			)
-		}
 		const parsed = HouseholdIngredientDisplayNameSchema.safeParse(
 			formData.get('displayName'),
 		)
@@ -233,6 +53,8 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 		const canonicalKey = householdIngredientKey(parsed.data)
 		try {
+			// An identity the household already holds is re-classified rather
+			// than duplicated: canonical key is household identity.
 			await prisma.householdIngredient.upsert({
 				where: {
 					householdId_canonicalKey: { householdId, canonicalKey },
@@ -242,7 +64,6 @@ export async function action({ request }: Route.ActionArgs) {
 					displayName: parsed.data,
 					canonicalKey,
 					isStaple: true,
-					isOut: false,
 				},
 				update: {
 					displayName: parsed.data,
@@ -263,47 +84,19 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const, action: 'add-staple' as const }
 	}
 
-	if (intent === 'toggle-staple-out' || intent === 'remove-staple') {
-		if (household.staplesCutoverAt == null) {
-			return data(
-				{ status: 'error' as const, message: 'Staples are not active' },
-				{ status: 409 },
-			)
-		}
+	if (intent === 'add-staple-to-shop' || intent === 'remove-staple') {
 		const itemId = formData.get('itemId')
 		invariantResponse(typeof itemId === 'string', 'Staple ID is required')
 		const staple = await prisma.householdIngredient.findFirst({
 			where: { id: itemId, householdId, isStaple: true },
-			select: { id: true, displayName: true, isOut: true },
+			select: { id: true, displayName: true },
 		})
 		invariantResponse(staple, 'Staple not found', { status: 404 })
 
-		if (intent === 'toggle-staple-out') {
-			const isOut = !staple.isOut
-			if (!isOut) {
-				try {
-					await prisma.householdIngredient.update({
-						where: { id: staple.id },
-						data: { isOut },
-					})
-				} catch {
-					return data(
-						{
-							status: 'error' as const,
-							action: 'toggle-staple-out' as const,
-							message: `Could not mark ${staple.displayName} available. Try again.`,
-						},
-						{ status: 500 },
-					)
-				}
-				return {
-					status: 'success' as const,
-					action: 'toggle-staple-out' as const,
-					isOut,
-					message: `${staple.displayName} is no longer Out.`,
-				}
-			}
-
+		if (intent === 'add-staple-to-shop') {
+			// The same resolution the Shopping page's Staples picker uses: a row
+			// already in Next shop is left alone, a Later one moves up, and a
+			// checked one comes back rather than arriving twice.
 			let shoppingEffect: NextShopRestockEffect
 			try {
 				shoppingEffect = await prisma.$transaction(async (tx) => {
@@ -311,24 +104,18 @@ export async function action({ request }: Route.ActionArgs) {
 						userId,
 						householdId,
 					})
-					const effect = await resolveNextShopRestockTarget(tx, {
+					return resolveNextShopRestockTarget(tx, {
 						listId: shoppingList.id,
 						name: staple.displayName,
 						category: guessCategory(staple.displayName),
 					})
-
-					await tx.householdIngredient.update({
-						where: { id: staple.id },
-						data: { isOut },
-					})
-					return effect
 				})
 			} catch {
 				return data(
 					{
 						status: 'error' as const,
-						action: 'toggle-staple-out' as const,
-						message: `Could not mark ${staple.displayName} Out. Try again.`,
+						action: 'add-staple-to-shop' as const,
+						message: `Could not add ${staple.displayName} to Next shop. Try again.`,
 					},
 					{ status: 500 },
 				)
@@ -342,8 +129,7 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 			return {
 				status: 'success' as const,
-				action: 'toggle-staple-out' as const,
-				isOut,
+				action: 'add-staple-to-shop' as const,
 				shoppingEffect,
 				message:
 					shoppingEffect === 'added'
@@ -357,9 +143,11 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 
 		try {
+			// The identity survives its classification: other household data may
+			// reference this canonical key.
 			await prisma.householdIngredient.update({
 				where: { id: staple.id },
-				data: { isStaple: false, isOut: false },
+				data: { isStaple: false },
 			})
 		} catch {
 			return data(
@@ -374,516 +162,9 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const, action: 'remove-staple' as const }
 	}
 
-	if (household.staplesCutoverAt != null) {
-		return data(
-			{ status: 'error' as const, message: 'Legacy Pantry is archived' },
-			{ status: 409 },
-		)
-	}
-
-	const { isProActive } = await getUserTier(userId)
-
-	if (intent === 'create') {
-		const usage = await getInventoryUsage(householdId, isProActive)
-		if (usage.isAtLimit) {
-			return { status: 'error' as const, message: 'Free plan limit reached' }
-		}
-
-		const submission = parseWithZod(formData, { schema: InventoryItemSchema })
-		if (submission.status !== 'success') {
-			return { status: 'error' as const, submission: submission.reply() }
-		}
-
-		const force = formData.get('force')
-
-		// Check for duplicates unless force is set
-		if (!force) {
-			const existingItems = await prisma.inventoryItem.findMany({
-				where: { householdId },
-			})
-			const match = findMatchingInventoryItem(
-				submission.value.name,
-				existingItems,
-			)
-			if (match) {
-				return {
-					status: 'duplicate_warning' as const,
-					existingItem: {
-						id: match.id,
-						name: match.name,
-					},
-				}
-			}
-		}
-
-		if (force === 'merge') {
-			// Acknowledge the existing item — don't create a duplicate
-			const existingItems = await prisma.inventoryItem.findMany({
-				where: { householdId },
-			})
-			const match = findMatchingInventoryItem(
-				submission.value.name,
-				existingItems,
-			)
-			if (match) {
-				return { status: 'merged' as const, mergedInto: match.name }
-			}
-		}
-
-		// force === 'add' or no duplicate found — create normally
-		await prisma.inventoryItem.create({
-			data: {
-				name: submission.value.name,
-				userId,
-				householdId,
-			},
-		})
-
-		return { status: 'success' as const }
-	}
-
-	if (intent === 'bulk-create') {
-		const usage = await getInventoryUsage(householdId, isProActive)
-		const itemsJson = formData.get('items')
-		invariantResponse(typeof itemsJson === 'string', 'Items are required')
-
-		const BulkCreateSchema = z
-			.array(
-				z.object({
-					name: InventoryItemNameSchema,
-				}),
-			)
-			.min(1)
-			.max(200)
-
-		let json: unknown
-		try {
-			json = JSON.parse(itemsJson)
-		} catch {
-			return { status: 'error' as const }
-		}
-		const parsed = BulkCreateSchema.safeParse(json)
-		if (!parsed.success) {
-			return { status: 'error' as const }
-		}
-		// Truncate to remaining slots for free users
-		const items =
-			usage.remaining !== null
-				? parsed.data.slice(0, usage.remaining)
-				: parsed.data
-
-		if (items.length === 0) {
-			return { status: 'error' as const, message: 'Free plan limit reached' }
-		}
-
-		// Load existing items for dedup; track in-place for intra-batch dedup
-		const existingItems = await prisma.inventoryItem.findMany({
-			where: { householdId },
-		})
-		const trackingItems = [...existingItems]
-
-		const toCreate: typeof items = []
-		let skippedCount = 0
-
-		for (const item of items) {
-			const match = findMatchingInventoryItem(item.name, trackingItems)
-			if (match) {
-				skippedCount++
-			} else {
-				toCreate.push(item)
-				// Add to tracking so subsequent items in the batch can detect it
-				trackingItems.push({
-					id: `pending-${toCreate.length}`,
-					name: item.name,
-					userId,
-					householdId,
-					createdAt: new Date(),
-					updatedAt: new Date(),
-				} as (typeof existingItems)[number])
-			}
-		}
-
-		if (toCreate.length > 0) {
-			await prisma.$transaction(
-				toCreate.map((item) =>
-					prisma.inventoryItem.create({
-						data: {
-							name: item.name,
-							userId,
-							householdId,
-						},
-					}),
-				),
-			)
-		}
-
-		return {
-			status: 'success' as const,
-			createdCount: toCreate.length,
-			skippedCount,
-		}
-	}
-
-	if (intent === 'delete') {
-		const itemId = formData.get('itemId')
-		invariantResponse(typeof itemId === 'string', 'Item ID is required')
-
-		const item = await prisma.inventoryItem.findFirst({
-			where: { id: itemId, householdId },
-		})
-		invariantResponse(item, 'Item not found', { status: 404 })
-
-		await prisma.inventoryItem.delete({ where: { id: itemId } })
-
-		return { status: 'success' as const }
-	}
-
-	if (intent === 'rename') {
-		const itemId = formData.get('itemId')
-		const name = formData.get('name')
-		invariantResponse(typeof itemId === 'string', 'Item ID is required')
-		invariantResponse(typeof name === 'string', 'Name is required')
-
-		const parsed = InventoryItemNameSchema.safeParse(name)
-		if (!parsed.success) {
-			return { status: 'error' as const, message: 'Invalid name' }
-		}
-
-		const item = await prisma.inventoryItem.findFirst({
-			where: { id: itemId, householdId },
-		})
-		invariantResponse(item, 'Item not found', { status: 404 })
-
-		// Dedup check: another item with the same canonical name
-		const existingItems = await prisma.inventoryItem.findMany({
-			where: { householdId },
-		})
-		const match = findMatchingInventoryItem(
-			parsed.data,
-			existingItems.filter((i) => i.id !== itemId),
-		)
-		if (match) {
-			return {
-				status: 'error' as const,
-				message: `"${match.name}" is already in your Pantry`,
-			}
-		}
-
-		await prisma.inventoryItem.update({
-			where: { id: itemId },
-			data: { name: parsed.data },
-		})
-
-		return { status: 'success' as const }
-	}
-
-	if (intent === 'add-to-shopping') {
-		const itemId = formData.get('itemId')
-		invariantResponse(typeof itemId === 'string', 'Item ID is required')
-
-		const item = await prisma.inventoryItem.findFirst({
-			where: { id: itemId, householdId },
-		})
-		invariantResponse(item, 'Item not found', { status: 404 })
-
-		const shoppingList = await ensureShoppingList(prisma, {
-			userId,
-			householdId,
-		})
-
-		await prisma.shoppingListItem.create({
-			data: {
-				name: item.name,
-				category: guessCategory(item.name),
-				source: 'manual',
-				horizon: NEXT_SHOP,
-				listId: shoppingList.id,
-			},
-		})
-
-		void emitHouseholdEvent({
-			type: 'shopping_list_item_added',
-			payload: { name: item.name },
-			userId,
-			householdId,
-		})
-
-		return { status: 'success' as const, action: 'add-to-shopping' as const }
-	}
-
-	return { status: 'error' as const }
+	return data({ status: 'error' as const }, { status: 400 })
 }
 
-const SEARCH_THRESHOLD = 15
-
-export default function InventoryIndex({ loaderData }: Route.ComponentProps) {
-	if (loaderData.mode === 'staples') {
-		return <ActiveStaples staples={loaderData.staples} />
-	}
-
-	return <LegacyInventory loaderData={loaderData} />
-}
-
-function LegacyInventory({
-	loaderData,
-}: {
-	loaderData: Extract<Route.ComponentProps['loaderData'], { mode: 'legacy' }>
-}) {
-	const {
-		items,
-		cutoverOptions,
-		archivedInventoryCount,
-		inventoryUsage,
-		isProActive,
-		mealCount,
-	} = loaderData
-
-	const [search, setSearch] = useState('')
-	const [fabOpen, setFabOpen] = useState(false)
-	const [showCutover, setShowCutover] = useState(items.length === 0)
-
-	const [voiceAddedNames, setVoiceAddedNames] = useState<Set<string>>(new Set())
-	const handleVoiceItemsAdded = useCallback((names: string[]) => {
-		setVoiceAddedNames(
-			(prev) => new Set([...prev, ...names.map((n) => n.toLowerCase().trim())]),
-		)
-	}, [])
-	useEffect(() => {
-		if (voiceAddedNames.size === 0) return
-		const timer = setTimeout(() => setVoiceAddedNames(new Set()), 60_000)
-		return () => clearTimeout(timer)
-	}, [voiceAddedNames])
-
-	if (showCutover) {
-		return (
-			<StaplesCutover
-				options={cutoverOptions}
-				archivedInventoryCount={archivedInventoryCount}
-				onCancel={items.length > 0 ? () => setShowCutover(false) : undefined}
-			/>
-		)
-	}
-
-	const filteredItems = search
-		? items.filter((item) =>
-				item.name.toLowerCase().includes(search.toLowerCase()),
-			)
-		: items
-
-	const showSearch = items.length >= SEARCH_THRESHOLD
-
-	return (
-		<div className="overflow-x-clip pb-28 md:pb-6">
-			<div className="bg-accent/8 border-border/40 border-b">
-				<div className="container-content flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-					<div>
-						<p className="font-medium">Ready to switch to Staples?</p>
-						<p className="text-muted-foreground mt-1 text-sm">
-							Review this Pantry with editable household defaults before
-							anything changes.
-						</p>
-					</div>
-					<Button type="button" onClick={() => setShowCutover(true)}>
-						Review and switch
-					</Button>
-				</div>
-			</div>
-			{/* Page Header */}
-			<div className="container-content flex items-center justify-between gap-3 py-3 md:py-4">
-				<div>
-					<h1 className="font-serif text-2xl font-normal">Pantry</h1>
-					{/* Item count for Pro users (free users see X/Y below) */}
-					{items.length > 0 && inventoryUsage.limit === null && (
-						<p className="text-muted-foreground mt-0.5 text-sm">
-							{items.length} {items.length === 1 ? 'item' : 'items'}
-						</p>
-					)}
-					{/* Status line */}
-					{inventoryUsage.limit !== null && (
-						<p className="text-muted-foreground mt-0.5 text-sm">
-							<span
-								className={cn(
-									inventoryUsage.isAtLimit
-										? 'text-amber-600 dark:text-amber-400'
-										: '',
-								)}
-							>
-								{inventoryUsage.count}/{inventoryUsage.limit} free Pantry items
-							</span>
-						</p>
-					)}
-				</div>
-				{inventoryUsage.isAtLimit ? (
-					<Button asChild size="sm">
-						<Link to="/upgrade">Upgrade</Link>
-					</Button>
-				) : (
-					<Button asChild className="hidden sm:inline-flex">
-						<Link to="/inventory/new">
-							<Icon name="plus" size="sm" />
-							Add
-						</Link>
-					</Button>
-				)}
-			</div>
-
-			<div className="container-content py-2">
-				{/* Free plan limit banner */}
-				{inventoryUsage.isAtLimit && (
-					<div className="bg-accent/8 mb-6 flex flex-col gap-3 rounded-md p-4 sm:flex-row sm:items-center sm:justify-between">
-						<div>
-							<p className="text-copper-text text-[0.75rem] font-medium tracking-[0.08em] uppercase">
-								Free plan limit reached
-							</p>
-							<p className="text-muted-foreground mt-1 text-sm">
-								Upgrade to Pro for unlimited Pantry items, real-time shopping
-								sync, and AI recipe tools.
-							</p>
-						</div>
-						<Button asChild size="sm" className="shrink-0">
-							<Link to="/upgrade">Upgrade to Pro</Link>
-						</Button>
-					</div>
-				)}
-
-				{items.length > 0 && mealCount === 0 && (
-					<OnboardingNudge
-						nudgeId="plan-your-week"
-						icon="calendar"
-						title="Ready to plan your week?"
-						description="Add recipes to your meal plan and we'll generate a shopping list, so you only buy what you actually need."
-						ctaText="Plan Meals"
-						ctaHref="/plan"
-						className="mb-4"
-					/>
-				)}
-
-				{/* Search */}
-				<div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-					{showSearch && (
-						<div className="relative sm:w-56">
-							<Icon
-								name="magnifying-glass"
-								size="sm"
-								className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
-							/>
-							<input
-								type="search"
-								placeholder="Search Pantry..."
-								value={search}
-								onChange={(e) => setSearch(e.target.value)}
-								className="border-border/50 bg-secondary/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-9 w-full rounded-full border pr-4 pl-9 text-sm transition-colors outline-none focus:ring-1"
-							/>
-						</div>
-					)}
-				</div>
-
-				{/* Quick Add (desktop only — mobile uses FAB) */}
-				{!inventoryUsage.isAtLimit && (
-					<div className="mb-2 hidden md:block">
-						<InventoryQuickAdd
-							isProActive={isProActive}
-							onVoiceItemsAdded={handleVoiceItemsAdded}
-						/>
-					</div>
-				)}
-
-				{/* Items List */}
-				{filteredItems.length > 0 ? (
-					<div>
-						{groupByFirstLetter(filteredItems).map(
-							({ letter, items: groupItems }) => (
-								<div key={letter}>
-									<div className="bg-background/95 sticky top-0 z-10 px-1 py-0.5 backdrop-blur-sm">
-										<span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-											{letter}
-										</span>
-									</div>
-									<div className="divide-border/40 divide-y">
-										{groupItems.map((item) => {
-											const isVoiceAdded = voiceAddedNames.has(
-												item.name.toLowerCase().trim(),
-											)
-											return (
-												<div key={item.id}>
-													<InventoryItemCard
-														item={item}
-														isVoiceAdded={isVoiceAdded}
-													/>
-												</div>
-											)
-										})}
-									</div>
-								</div>
-							),
-						)}
-					</div>
-				) : search ? (
-					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="border-border mx-auto flex size-16 items-center justify-center rounded-full border-2 border-dashed">
-							<Icon
-								name="magnifying-glass"
-								className="text-muted-foreground size-6"
-							/>
-						</div>
-						<h2 className="mt-4 font-serif text-xl font-normal">
-							No items matching &ldquo;{search}&rdquo;
-						</h2>
-						<p className="text-muted-foreground mt-2 max-w-sm">
-							Try a different search term.
-						</p>
-						<Button
-							variant="outline"
-							className="mt-4"
-							onClick={() => setSearch('')}
-						>
-							Clear Search
-						</Button>
-					</div>
-				) : (
-					<div className="flex flex-col items-center justify-center py-16 text-center">
-						<div className="border-border mx-auto flex size-16 items-center justify-center rounded-full border-2 border-dashed">
-							<Icon name="file-text" className="text-muted-foreground size-6" />
-						</div>
-						<h2 className="mt-4 font-serif text-xl font-normal">
-							Nothing here yet
-						</h2>
-						<p className="text-muted-foreground mt-2 max-w-sm">
-							Add ingredients you usually keep around. No quantities, no
-							counting.
-						</p>
-						<Button asChild className="mt-6">
-							<Link to="/inventory/new">
-								<Icon name="plus" size="sm" />
-								Add
-							</Link>
-						</Button>
-					</div>
-				)}
-			</div>
-
-			{!inventoryUsage.isAtLimit && (
-				<InventoryMobileFab
-					open={fabOpen}
-					onOpenChange={setFabOpen}
-					isProActive={isProActive}
-					onVoiceItemsAdded={handleVoiceItemsAdded}
-				/>
-			)}
-		</div>
-	)
-}
-
-function groupByFirstLetter<T extends { name: string }>(items: T[]) {
-	const groups: Array<{ letter: string; items: T[] }> = []
-	let currentLetter = ''
-	for (const item of items) {
-		const letter = item.name[0]?.toUpperCase() ?? '#'
-		if (letter !== currentLetter) {
-			currentLetter = letter
-			groups.push({ letter, items: [] })
-		}
-		groups[groups.length - 1]!.items.push(item)
-	}
-	return groups
+export default function StaplesIndex({ loaderData }: Route.ComponentProps) {
+	return <ActiveStaples staples={loaderData.staples} />
 }

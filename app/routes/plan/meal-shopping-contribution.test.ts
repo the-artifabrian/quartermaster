@@ -49,6 +49,15 @@ async function setupUser() {
 			data: {
 				name: 'Test Household',
 				members: { create: { userId: session.userId, role: 'owner' } },
+				// Since #289 the availability seam knows only what the household
+				// saved, so the fixture's salt is a Staple, not a hardcoded guess.
+				householdIngredients: {
+					create: {
+						displayName: 'salt',
+						canonicalKey: 'salt',
+						isStaple: true,
+					},
+				},
 			},
 		})
 		return { ...session, householdId: household.id }
@@ -372,14 +381,6 @@ describe('refreshMealShopping — one-Meal replacement (#110)', () => {
 			where: { id: stock.id },
 			data: { name: 'yogurt', amount: '1', unit: 'cup' },
 		})
-		await prisma.inventoryItem.create({
-			data: {
-				name: 'yogurt',
-				userId: session.userId,
-				householdId: session.householdId,
-			},
-		})
-
 		const result = (await runPlanAction(session, {
 			intent: 'refreshMealShopping',
 			mealId: mealA.id,
@@ -626,11 +627,12 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 		const meal = await setupMeal(session.householdId, recipe, {
 			scaleMultiplier: 2,
 		})
-		// One usually-on-hand ingredient so the pre-check path is compared too.
-		await prisma.inventoryItem.create({
+		// One Staple, so the availability seam's omission is compared too.
+		await prisma.householdIngredient.create({
 			data: {
-				name: 'chicken stock',
-				userId: session.userId,
+				displayName: 'chicken stock',
+				canonicalKey: 'chicken stock',
+				isStaple: true,
 				householdId: session.householdId,
 			},
 		})
@@ -672,8 +674,7 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 		await prisma.shoppingListItem.deleteMany({})
 		await prisma.mealShoppingContribution.deleteMany({})
 
-		// Unified entry point: add Recipe from its page at the same ratio —
-		// in-stock lines arrive pre-checked instead of silently dropped (#76).
+		// Unified entry point: add Recipe from its page at the same ratio.
 		await recipeAction({
 			request: await makeRequest(session, `/recipes/${recipe.id}`, {
 				intent: 'add-to-shopping-list',
@@ -1063,22 +1064,27 @@ describe('addMealToShopping — multi-Recipe and note-line aggregation (#109)', 
 		).toEqual(['good bread'])
 	})
 
-	test('a staple-looking note line is explicit intent and still contributes', async () => {
+	test('a note line is judged by the household Staples, not the heuristic', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 		const meal = await setupMeal(session.householdId, recipe)
-		// The Recipe's own 'salt' ingredient stays stripped; the note line lands.
-		await addNoteLines(meal.id, [{ name: 'salt', quantity: '1', unit: 'box' }])
+		// 'olive oil' is one of the plain basics the ingredient heuristic knows,
+		// but this household never saved it, so nothing removes it. 'salt' is a
+		// saved Staple, and a Staple is omitted wherever the demand came from.
+		await addNoteLines(meal.id, [
+			{ name: 'olive oil', quantity: '1', unit: 'bottle' },
+			{ name: 'salt', quantity: '1', unit: 'box' },
+		])
 
 		await runPlanAction(session, {
 			intent: 'addMealToShopping',
 			mealId: meal.id,
 		})
-		const salt = (await getShoppingRows(session.householdId)).filter(
-			(row) => row.name === 'salt',
-		)
-		expect(salt).toHaveLength(1)
-		expect(salt[0]!.quantity).toBe('1')
+		const rows = await getShoppingRows(session.householdId)
+		expect(rows.filter((row) => row.name === 'olive oil')).toMatchObject([
+			{ quantity: '1', unit: 'bottle' },
+		])
+		expect(rows.filter((row) => row.name === 'salt')).toHaveLength(0)
 	})
 
 	test('a note line and Recipe demand for the same ingredient become one row with one honest total', async () => {

@@ -14,20 +14,20 @@ system.
 1. Save or import the Recipes you cook.
 2. Plan individual Recipes or reusable multi-dish Menus as ordered Meals.
 3. Generate Shopping from the plan.
-4. Keep a short household Staples list; mark a Staple Out when it needs buying.
+4. Keep a short household Staples list; tap one to put it on the next shop.
 5. Cook from the Recipe and check off Shopping together in real time.
 
-Recipe cards stay simple. Availability appears on Recipe detail, where it can
-help with a decision, and Shopping omits normal Staples while including Out
-Staples and non-Staples.
+Recipe cards and Recipe detail stay simple: they show what a Recipe needs, with
+each ingredient one tap from Shopping. Generated Shopping leaves out the lines
+matching a Staple and keeps everything else.
 
 ## Product shape
 
 - **Recipes** hold the canonical ingredients and instructions.
 - **Menus** are reusable groups of ordered Recipe and note cards.
 - **Meals** are scheduled Recipe items, Menu snapshots, or plain text.
-- **Staples** are household ingredients normally assumed available; **Out** puts
-  one in Next shop and keeps generated Shopping aware that it is unavailable.
+- **Staples** are household ingredients normally assumed available, kept as a
+  quick-add list: tap one and it lands in Next shop.
 - **Shopping** combines Recipe ingredients, Menu note lines, and manual items
   without pretending to know exact stock.
 

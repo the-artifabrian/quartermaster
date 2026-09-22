@@ -21,7 +21,7 @@ const faqs = [
 	{
 		question: 'How does Quartermaster calculate what a Recipe needs?',
 		answer:
-			'It builds the same deterministic ingredient demand used by Shopping, omits normal household Staples, and counts non-Staples plus required Staples marked Out. Partial or unresolved ingredients stay in the count instead of being guessed away.',
+			'It builds the same deterministic ingredient demand used by Shopping and omits your household Staples, because those are the things you usually have. Partial or unresolved ingredients stay in the count instead of being guessed away.',
 	},
 	{
 		question: 'Can I share with my partner or household?',
@@ -31,12 +31,12 @@ const faqs = [
 	{
 		question: 'Can I export my data?',
 		answer:
-			'Yes. Go to Settings > Data to export your profile and household Recipes, classifications, Staples, archived Pantry recovery data, Menus, Plans, and Shopping as JSON. Recipe images are referenced rather than embedded. You can import the export back in.',
+			'Yes. Go to Settings > Data to export your profile and household Recipes, classifications, Staples, Menus, Plans, and Shopping as JSON. Recipe images are referenced rather than embedded. You can import the export back in.',
 	},
 	{
 		question: 'How does meal planning work?',
 		answer:
-			'The Planner shows an ordered week of Meals made from Recipes, Menu snapshots, or simple notes. When you\u2019re ready, generate Shopping explicitly; normal Staples are omitted and required Out Staples are included.',
+			'The Planner shows an ordered week of Meals made from Recipes, Menu snapshots, or simple notes. When you\u2019re ready, open From Plan and tick the Meals you are shopping for; lines matching your Staples arrive unticked.',
 	},
 	{
 		question: 'Which features use AI?',

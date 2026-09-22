@@ -432,71 +432,41 @@ describe('Recipe time and typed yield recovery', () => {
 })
 
 describe('household Staples recovery', () => {
-	test('full export and import preserve canonical rows, cutover state, and archived Pantry independently', async () => {
+	test('full export and import preserve canonical rows', async () => {
 		const source = await setupUser()
-		const cutoverAt = new Date('2026-08-25T10:30:00.000Z')
-		await prisma.household.update({
-			where: { id: source.householdId },
-			data: { staplesCutoverAt: cutoverAt },
-		})
 		await prisma.householdIngredient.createMany({
 			data: [
 				{
 					displayName: 'Salt',
 					canonicalKey: 'salt',
 					isStaple: true,
-					isOut: false,
 					householdId: source.householdId,
 				},
 				{
 					displayName: 'Olive oil',
 					canonicalKey: 'olive oil',
 					isStaple: true,
-					isOut: true,
 					householdId: source.householdId,
 				},
 				{
 					displayName: 'Lemons',
 					canonicalKey: 'lemons',
 					isStaple: false,
-					isOut: false,
 					householdId: source.householdId,
 				},
 			],
 		})
-		await prisma.inventoryItem.create({
-			data: {
-				name: 'Archived garlic',
-				userId: source.userId,
-				householdId: source.householdId,
-			},
-		})
 
 		const exported = await exportHousehold(source)
-		expect(exported.household).toEqual({
-			staplesCutoverAt: cutoverAt.toISOString(),
-		})
+		// The retired cutover boundary and legacy Pantry are no longer written
+		// (#289), and a Staple carries no state beyond being one.
+		expect(exported).not.toHaveProperty('household')
+		expect(exported).not.toHaveProperty('inventory')
 		expect(exported.householdIngredients).toEqual([
-			{
-				displayName: 'Lemons',
-				canonicalKey: 'lemons',
-				isStaple: false,
-				isOut: false,
-			},
-			{
-				displayName: 'Olive oil',
-				canonicalKey: 'olive oil',
-				isStaple: true,
-				isOut: true,
-			},
-			{
-				displayName: 'Salt',
-				canonicalKey: 'salt',
-				isStaple: true,
-				isOut: false,
-			},
+			{ displayName: 'Lemons', canonicalKey: 'lemons', isStaple: false },
+			{ displayName: 'Olive oil', canonicalKey: 'olive oil', isStaple: true },
+			{ displayName: 'Salt', canonicalKey: 'salt', isStaple: true },
 		])
-		expect(exported.inventory).toContainEqual({ name: 'Archived garlic' })
 
 		const target = await setupUser()
 		const result = (await importPayload(target, exported)) as any
@@ -505,12 +475,6 @@ describe('household Staples recovery', () => {
 			skipped: 0,
 		})
 		expect(
-			await prisma.household.findUniqueOrThrow({
-				where: { id: target.householdId },
-				select: { staplesCutoverAt: true },
-			}),
-		).toEqual({ staplesCutoverAt: cutoverAt })
-		expect(
 			await prisma.householdIngredient.findMany({
 				where: { householdId: target.householdId },
 				orderBy: { canonicalKey: 'asc' },
@@ -518,79 +482,48 @@ describe('household Staples recovery', () => {
 					displayName: true,
 					canonicalKey: true,
 					isStaple: true,
-					isOut: true,
 				},
 			}),
 		).toEqual(exported.householdIngredients)
+		// Recovery never reaches back into the household it came from.
 		expect(
-			await prisma.inventoryItem.findFirst({
-				where: {
-					householdId: target.householdId,
-					name: 'archived garlic',
-				},
-				select: { name: true },
-			}),
-		).toEqual({ name: 'archived garlic' })
-		expect(
-			await prisma.household.findUniqueOrThrow({
-				where: { id: source.householdId },
+			await prisma.householdIngredient.findMany({
+				where: { householdId: source.householdId },
+				orderBy: { canonicalKey: 'asc' },
 				select: {
-					staplesCutoverAt: true,
-					householdIngredients: {
-						orderBy: { canonicalKey: 'asc' },
-						select: {
-							displayName: true,
-							canonicalKey: true,
-							isStaple: true,
-							isOut: true,
-						},
-					},
+					displayName: true,
+					canonicalKey: true,
+					isStaple: true,
 				},
 			}),
-		).toEqual({
-			staplesCutoverAt: cutoverAt,
-			householdIngredients: exported.householdIngredients,
-		})
+		).toEqual(exported.householdIngredients)
 	})
 
 	test('target and first-imported canonical identities win collisions without changing the source household', async () => {
 		const source = await setupUser()
-		const sourceCutoverAt = new Date('2026-08-25T12:00:00.000Z')
-		await prisma.household.update({
-			where: { id: source.householdId },
-			data: { staplesCutoverAt: sourceCutoverAt },
-		})
 		await prisma.householdIngredient.createMany({
 			data: [
 				{
 					displayName: 'Cumin',
 					canonicalKey: 'cumin',
 					isStaple: true,
-					isOut: true,
 					householdId: source.householdId,
 				},
 				{
 					displayName: 'Salt',
 					canonicalKey: 'salt',
 					isStaple: true,
-					isOut: true,
 					householdId: source.householdId,
 				},
 			],
 		})
 
 		const target = await setupUser()
-		const targetCutoverAt = new Date('2026-08-24T12:00:00.000Z')
-		await prisma.household.update({
-			where: { id: target.householdId },
-			data: { staplesCutoverAt: targetCutoverAt },
-		})
 		await prisma.householdIngredient.create({
 			data: {
-				displayName: 'Salt',
+				displayName: 'Table salt',
 				canonicalKey: 'salt',
-				isStaple: true,
-				isOut: false,
+				isStaple: false,
 				householdId: target.householdId,
 			},
 		})
@@ -600,7 +533,6 @@ describe('household Staples recovery', () => {
 			displayName: 'cumin',
 			canonicalKey: 'cumin',
 			isStaple: false,
-			isOut: false,
 		})
 		const result = (await importPayload(target, exported)) as any
 
@@ -608,124 +540,33 @@ describe('household Staples recovery', () => {
 			created: 1,
 			skipped: 2,
 		})
-		expect(result.results.staplesCutoverRestored).toBe(false)
 		expect(
-			await prisma.household.findMany({
-				where: { id: { in: [source.householdId, target.householdId] } },
-				orderBy: { id: 'asc' },
-				select: {
-					id: true,
-					staplesCutoverAt: true,
-					householdIngredients: {
-						orderBy: { canonicalKey: 'asc' },
-						select: {
-							displayName: true,
-							canonicalKey: true,
-							isStaple: true,
-							isOut: true,
-						},
-					},
-				},
+			await prisma.householdIngredient.findMany({
+				where: { householdId: target.householdId },
+				orderBy: { canonicalKey: 'asc' },
+				select: { displayName: true, canonicalKey: true, isStaple: true },
 			}),
-		).toEqual(
-			[
-				{
-					id: source.householdId,
-					staplesCutoverAt: sourceCutoverAt,
-					householdIngredients: [
-						{
-							displayName: 'Cumin',
-							canonicalKey: 'cumin',
-							isStaple: true,
-							isOut: true,
-						},
-						{
-							displayName: 'Salt',
-							canonicalKey: 'salt',
-							isStaple: true,
-							isOut: true,
-						},
-					],
-				},
-				{
-					id: target.householdId,
-					staplesCutoverAt: targetCutoverAt,
-					householdIngredients: [
-						{
-							displayName: 'Cumin',
-							canonicalKey: 'cumin',
-							isStaple: true,
-							isOut: true,
-						},
-						{
-							displayName: 'Salt',
-							canonicalKey: 'salt',
-							isStaple: true,
-							isOut: false,
-						},
-					],
-				},
-			].sort((a, b) => a.id.localeCompare(b.id)),
-		)
+		).toEqual([
+			{ displayName: 'Cumin', canonicalKey: 'cumin', isStaple: true },
+			// The target's own row for this identity is not rewritten.
+			{ displayName: 'Table salt', canonicalKey: 'salt', isStaple: false },
+		])
+		expect(
+			await prisma.householdIngredient.findMany({
+				where: { householdId: source.householdId },
+				orderBy: { canonicalKey: 'asc' },
+				select: { displayName: true, canonicalKey: true, isStaple: true },
+			}),
+		).toEqual([
+			{ displayName: 'Cumin', canonicalKey: 'cumin', isStaple: true },
+			{ displayName: 'Salt', canonicalKey: 'salt', isStaple: true },
+		])
 	})
 
-	test('a confirmed empty Staples selection round-trips independently of canonical rows', async () => {
-		const source = await setupUser()
-		const cutoverAt = new Date('2026-08-25T12:30:00.000Z')
-		await prisma.household.update({
-			where: { id: source.householdId },
-			data: { staplesCutoverAt: cutoverAt },
-		})
-		const exported = await exportHousehold(source)
-		expect(exported.householdIngredients).toEqual([])
-
+	test('an older export carrying Out, a Pantry and a cutover still imports', async () => {
 		const target = await setupUser()
-		await importPayload(target, exported)
 
-		expect(
-			await prisma.household.findUniqueOrThrow({
-				where: { id: target.householdId },
-				select: {
-					staplesCutoverAt: true,
-					_count: { select: { householdIngredients: true } },
-				},
-			}),
-		).toEqual({
-			staplesCutoverAt: cutoverAt,
-			_count: { householdIngredients: 0 },
-		})
-	})
-
-	test('older full exports without Staples still restore archived Inventory', async () => {
-		const target = await setupUser()
-		await importPayload(target, {
-			format: 'quartermaster-full-export-v1',
-			recipes: [],
-			inventory: [{ name: 'Legacy Vanilla Beans', location: 'pantry' }],
-		})
-
-		expect(
-			await prisma.household.findUniqueOrThrow({
-				where: { id: target.householdId },
-				select: {
-					staplesCutoverAt: true,
-					householdIngredients: true,
-					inventoryItems: {
-						where: { name: 'legacy vanilla beans' },
-						select: { name: true },
-					},
-				},
-			}),
-		).toEqual({
-			staplesCutoverAt: null,
-			householdIngredients: [],
-			inventoryItems: [{ name: 'legacy vanilla beans' }],
-		})
-	})
-
-	test('imports reject Out state for a non-Staple without partial canonical recovery', async () => {
-		const target = await setupUser()
-		const response = await importPayload(target, {
+		const result = (await importPayload(target, {
 			format: 'quartermaster-full-export-v1',
 			recipes: [],
 			household: { staplesCutoverAt: '2026-08-25T13:00:00.000Z' },
@@ -733,75 +574,59 @@ describe('household Staples recovery', () => {
 				{
 					displayName: 'Salt',
 					canonicalKey: 'salt',
+					isStaple: true,
+					isOut: true,
+				},
+				// Out on a non-Staple was rejected before #289; now the field is
+				// not read at all, so the row is simply restored as written.
+				{
+					displayName: 'Lemons',
+					canonicalKey: 'lemons',
 					isStaple: false,
 					isOut: true,
 				},
 			],
-		})
+			inventory: [{ name: 'Legacy Vanilla Beans', location: 'pantry' }],
+		})) as any
 
-		expect(response).toEqual(
-			expect.objectContaining({
-				data: expect.objectContaining({
-					error: expect.stringContaining('Only a Staple can be Out'),
-					results: null,
-				}),
-				init: { status: 400 },
-			}),
-		)
-		expect(
-			await prisma.household.findUniqueOrThrow({
-				where: { id: target.householdId },
-				select: {
-					staplesCutoverAt: true,
-					_count: { select: { householdIngredients: true } },
-				},
-			}),
-		).toEqual({
-			staplesCutoverAt: null,
-			_count: { householdIngredients: 0 },
+		expect(result.results.householdIngredients).toEqual({
+			created: 2,
+			skipped: 0,
 		})
+		expect(result.results).not.toHaveProperty('inventory')
+		expect(result.results).not.toHaveProperty('staplesCutoverRestored')
+		expect(
+			await prisma.householdIngredient.findMany({
+				where: { householdId: target.householdId },
+				orderBy: { canonicalKey: 'asc' },
+				select: { displayName: true, canonicalKey: true, isStaple: true },
+			}),
+		).toEqual([
+			{ displayName: 'Lemons', canonicalKey: 'lemons', isStaple: false },
+			{ displayName: 'Salt', canonicalKey: 'salt', isStaple: true },
+		])
 	})
 
-	test('free households restore Staples without opening Pro-only legacy import sections', async () => {
+	test('Staples are household-owned, so a free household restores them too', async () => {
 		const target = await setupUser({ tier: null })
-		const cutoverAt = '2026-08-25T11:00:00.000Z'
 		const result = (await importPayload(target, {
 			format: 'quartermaster-full-export-v1',
 			recipes: [],
-			household: { staplesCutoverAt: cutoverAt },
 			householdIngredients: [
-				{
-					displayName: 'Salt',
-					canonicalKey: 'salt',
-					isStaple: true,
-					isOut: false,
-				},
+				{ displayName: 'Salt', canonicalKey: 'salt', isStaple: true },
 			],
-			inventory: [{ name: 'Pro-only archived garlic' }],
 		})) as any
 
 		expect(result.results.householdIngredients).toEqual({
 			created: 1,
 			skipped: 0,
 		})
-		expect(result.results.staplesCutoverRestored).toBe(true)
-		expect(
-			await prisma.household.findUniqueOrThrow({
-				where: { id: target.householdId },
-				select: { staplesCutoverAt: true },
-			}),
-		).toEqual({ staplesCutoverAt: new Date(cutoverAt) })
 		expect(
 			await prisma.householdIngredient.findFirstOrThrow({
 				where: { householdId: target.householdId },
-				select: { canonicalKey: true, isStaple: true, isOut: true },
+				select: { canonicalKey: true, isStaple: true },
 			}),
-		).toEqual({ canonicalKey: 'salt', isStaple: true, isOut: false })
-		expect(
-			await prisma.inventoryItem.count({
-				where: { householdId: target.householdId },
-			}),
-		).toBe(0)
+		).toEqual({ canonicalKey: 'salt', isStaple: true })
 	})
 })
 

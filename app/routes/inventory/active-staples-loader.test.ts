@@ -10,7 +10,7 @@ import '#tests/setup/db-setup.ts'
 const observedQueries: string[] = []
 prisma.$on('query', (event) => observedQueries.push(event.query))
 
-test('active Staples loads only the household cutover state and active Staples', async () => {
+test('the Staples screen loads its Staples and nothing else', async () => {
 	const session = await prisma.session.create({
 		data: {
 			expirationDate: getSessionExpirationDate(),
@@ -26,11 +26,7 @@ test('active Staples loads only the household cutover state and active Staples',
 	await prisma.household.create({
 		data: {
 			name: 'Task-first Staples Household',
-			staplesCutoverAt: new Date('2026-09-04T12:00:00Z'),
 			members: { create: { userId: session.userId, role: 'owner' } },
-			inventoryItems: {
-				create: { name: 'Archived flour', userId: session.userId },
-			},
 			householdIngredients: {
 				create: {
 					displayName: 'Salt',
@@ -61,14 +57,8 @@ test('active Staples loads only the household cutover state and active Staples',
 	const routeQueries = observedQueries.slice(queryStart).join('\n')
 
 	expect(result).toEqual({
-		mode: 'staples',
-		staples: [
-			{
-				id: expect.any(String),
-				displayName: 'Salt',
-				isOut: false,
-			},
-		],
+		staples: [{ id: expect.any(String), displayName: 'Salt' }],
 	})
-	expect(routeQueries).not.toMatch(/\b(?:InventoryItem|Subscription|Meal)\b/)
+	// The list is the whole page: no tier, no Plan, no Shopping read.
+	expect(routeQueries).not.toMatch(/\b(?:Subscription|Meal|ShoppingList)\b/)
 })

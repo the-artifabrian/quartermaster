@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react'
 import { Link, useFetcher } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
@@ -29,40 +28,19 @@ export function IngredientList({
 	checkedIngredients,
 	onToggle,
 	ratio,
-	missingIngredientIds,
 	recipeId,
-	canMarkUsuallyOnHand = true,
+	canAddToShopping = true,
 	useMetric,
 }: {
 	ingredients: Array<IngredientListIngredient>
 	checkedIngredients: Set<string>
 	onToggle: (id: string) => void
 	ratio: number
-	missingIngredientIds: string[]
 	recipeId: string
-	canMarkUsuallyOnHand?: boolean
+	/** False on the anonymous share page, which has no Shopping list. */
+	canAddToShopping?: boolean
 	useMetric?: boolean
 }) {
-	const [localHaveIds, setLocalHaveIds] = useState<Set<string>>(() => new Set())
-
-	// Clear optimistic state when loader revalidates (server is now authoritative)
-	const prevMissingRef = useRef(missingIngredientIds)
-	useEffect(() => {
-		if (prevMissingRef.current !== missingIngredientIds) {
-			prevMissingRef.current = missingIngredientIds
-			setLocalHaveIds(new Set())
-		}
-	}, [missingIngredientIds])
-
-	const effectiveMissingIds = missingIngredientIds.filter(
-		(id) => !localHaveIds.has(id),
-	)
-	const effectiveMissingSet = new Set(effectiveMissingIds)
-
-	function handleMarkedHave(ingredientId: string) {
-		setLocalHaveIds((prev) => new Set([...prev, ingredientId]))
-	}
-
 	return (
 		<>
 			<ul className="space-y-1 leading-[1.7] print:columns-2 print:space-y-0 print:gap-x-6 print:text-sm print:leading-[1.5]">
@@ -78,7 +56,6 @@ export function IngredientList({
 					}
 
 					const isChecked = checkedIngredients.has(ingredient.id)
-					const isMissing = effectiveMissingSet.has(ingredient.id)
 
 					return (
 						<li
@@ -171,14 +148,14 @@ export function IngredientList({
 									</span>
 								)}
 							</span>
-							{isMissing && !isChecked && !ingredient.linkedRecipeId && (
-								<MissingIngredientActions
+							{/* A sub-Recipe row links to the Recipe that makes it; there
+							    is nothing to buy under that one name. */}
+							{canAddToShopping && !isChecked && !ingredient.linkedRecipeId && (
+								<AddIngredientToShopping
 									ingredientId={ingredient.id}
 									recipeId={recipeId}
 									ratio={ratio}
 									useMetric={useMetric}
-									onMarkedHave={handleMarkedHave}
-									canMarkUsuallyOnHand={canMarkUsuallyOnHand}
 								/>
 							)}
 						</li>
@@ -189,22 +166,18 @@ export function IngredientList({
 	)
 }
 
-function MissingIngredientActions({
+/** Put one ingredient on the Shopping list, straight from the Recipe. */
+function AddIngredientToShopping({
 	ingredientId,
 	recipeId,
 	ratio,
 	useMetric,
-	onMarkedHave,
-	canMarkUsuallyOnHand,
 }: {
 	ingredientId: string
 	recipeId: string
 	ratio: number
 	useMetric?: boolean
-	onMarkedHave: (id: string) => void
-	canMarkUsuallyOnHand: boolean
 }) {
-	const haveFetcher = useFetcher()
 	const cartFetcher = useFetcher()
 
 	const cartData = cartFetcher.data as
@@ -217,34 +190,6 @@ function MissingIngredientActions({
 			onClick={(e) => e.stopPropagation()}
 			onKeyDown={(e) => e.stopPropagation()}
 		>
-			{canMarkUsuallyOnHand && (
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<button
-							type="button"
-							aria-label="Usually on hand"
-							className="text-muted-foreground/50 hover:text-primary flex size-[44px] items-center justify-center rounded-md transition-colors"
-							disabled={haveFetcher.state !== 'idle'}
-							onClick={() => {
-								onMarkedHave(ingredientId)
-								void haveFetcher.submit(
-									{
-										intent: 'mark-have-ingredient',
-										ingredientId,
-									},
-									{
-										method: 'POST',
-										action: `/recipes/${recipeId}`,
-									},
-								)
-							}}
-						>
-							<Icon name="file-text" className="size-4" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent>Usually on hand</TooltipContent>
-				</Tooltip>
-			)}
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<button

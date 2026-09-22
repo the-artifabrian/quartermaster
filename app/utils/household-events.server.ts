@@ -9,7 +9,6 @@ export type HouseholdEventType =
 	| 'shopping_list_item_edited'
 	| 'shopping_list_item_deleted'
 	| 'shopping_list_cleared'
-	| 'shopping_list_to_inventory'
 	| 'household_member_joined'
 	| 'household_member_left'
 

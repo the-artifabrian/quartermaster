@@ -147,8 +147,8 @@ placeholder.
 - Personal notes render only when they exist: a quiet tinted block in the body
   sans, collapsed to a few lines with a Show more toggle. No copper edge and no
   handwriting on the detail page.
-- Staples/Out-aware availability belongs here because it can lead to an
-  immediate Shopping action.
+- Every ingredient row offers a direct Shopping action; the page never claims to
+  know what the household has.
 - Keep scaling, cooking cues, unit display, and print practical rather than
   decorative.
 
@@ -184,11 +184,12 @@ placeholder.
 
 ### Staples
 
-- Use a compact searchable alphabetical list with direct Add, Out, and Remove
-  controls.
-- Out must expose clear pressed/state feedback.
-- Keep the archived Pantry restore action secondary and explicit.
-- No quantities, expiry dates, stock ledger, images, or category sections.
+- Use one compact searchable alphabetical list with direct Add and Remove
+  controls; no grouping.
+- The row itself adds the Staple to Next shop, and says so in its accessible
+  name. Announce the result, and keep the row where it was.
+- No availability state, quantities, expiry dates, stock ledger, images, or
+  category sections.
 
 ### Empty states and onboarding
 

@@ -128,7 +128,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const meals = mealPlan.meals.map((meal) => {
 		// Stored contribution fields are the last-added demand fingerprint. Build
 		// the same currently annotated demand again. Ingredient, multiplier,
-		// composition, note-line, and household Staple/Out changes may mark it
+		// composition, note-line, and household Staple changes may mark it
 		// stale, but only a later explicit refresh mutates Shopping.
 		const freshDemand = annotateShoppingDemand(
 			buildShoppingDemand({

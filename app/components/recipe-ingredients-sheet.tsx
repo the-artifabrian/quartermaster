@@ -20,9 +20,7 @@ export function RecipeIngredientsSheet({
 	checkedIngredients,
 	onToggle,
 	ratio,
-	missingIngredientIds,
 	recipeId,
-	canMarkUsuallyOnHand,
 	useMetric,
 }: {
 	visible: boolean
@@ -32,9 +30,7 @@ export function RecipeIngredientsSheet({
 	checkedIngredients: Set<string>
 	onToggle: (id: string) => void
 	ratio: number
-	missingIngredientIds: string[]
 	recipeId: string
-	canMarkUsuallyOnHand?: boolean
 	useMetric?: boolean
 }) {
 	const [open, setOpen] = useState(false)
@@ -50,9 +46,7 @@ export function RecipeIngredientsSheet({
 						checkedIngredients={checkedIngredients}
 						onToggle={onToggle}
 						ratio={ratio}
-						missingIngredientIds={missingIngredientIds}
 						recipeId={recipeId}
-						canMarkUsuallyOnHand={canMarkUsuallyOnHand}
 						useMetric={useMetric}
 					/>
 				</IngredientsSheet>

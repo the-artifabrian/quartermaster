@@ -71,6 +71,7 @@ function AddMealControl({
 	const [pendingRecipeAdd, setPendingRecipeAdd] = useState(false)
 	const recipeSubmissionStarted = useRef(false)
 	const submittedLabel = useRef<MealType | null>(null)
+	const dateLabel = `${formatWeekdayName(date)}, ${formatMonthDay(date)}`
 
 	useEffect(() => {
 		if (!pendingMenuSubmission) return
@@ -114,14 +115,14 @@ function AddMealControl({
 		if (fetcher.data?.status === 'success' && meal && !meal.created) {
 			const mealLabel = submittedLabel.current
 			toast.info('Already planned', {
-				description: `${formatWeekdayName(date)}, ${formatMonthDay(date)}${
+				description: `${dateLabel}${
 					mealLabel ? ` ${MEAL_TYPE_LABELS[mealLabel]}` : ''
 				} · ${formatScaleMultiplier(meal.scaleMultiplier)}×`,
 				duration: 8000,
 				action: { label: 'View', onClick: () => navigate(meal.href) },
 			})
 		}
-	}, [date, fetcher.data, fetcher.state, navigate, pendingRecipeAdd])
+	}, [dateLabel, fetcher.data, fetcher.state, navigate, pendingRecipeAdd])
 
 	function close() {
 		setOpen(false)
@@ -172,7 +173,6 @@ function AddMealControl({
 		close()
 	}
 
-	const dateLabel = `${formatWeekdayName(date)}, ${formatMonthDay(date)}`
 	const fields = (
 		<>
 			<fieldset className="mb-3">

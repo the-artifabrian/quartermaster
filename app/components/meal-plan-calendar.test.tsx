@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import {
+	act,
 	fireEvent,
 	render,
 	screen,
@@ -10,8 +11,9 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
-import { createRoutesStub, Link } from 'react-router'
-import { expect, test } from 'vitest'
+import { createRoutesStub, Link, useSearchParams } from 'react-router'
+import { toast } from 'sonner'
+import { expect, test, vi } from 'vitest'
 import { getCurrentWeekStart, getWeekDays, parseDate } from '#app/utils/date.ts'
 import { server } from '#tests/setup/mocks-setup.ts'
 import { type PlanMeal } from './meal-card.tsx'
@@ -114,6 +116,7 @@ function renderCalendar(
 		calendarMeals?: PlanMeal[]
 		useDefaultChoices?: boolean
 		initialEntry?: string
+		extraRoutes?: Parameters<typeof createRoutesStub>[0]
 	} = {},
 ) {
 	if (options.useDefaultChoices !== false) {
@@ -133,6 +136,7 @@ function renderCalendar(
 			),
 			action,
 		},
+		...(options.extraRoutes ?? []),
 	])
 	render(<Stub initialEntries={[options.initialEntry ?? '/']} />)
 }
@@ -598,6 +602,86 @@ test('mobile explains a stale empty Menu and lets the user retry', async () => {
 		).not.toBeInTheDocument(),
 	)
 	expect(attempts).toBe(2)
+})
+
+// #236: the quick-add closes optimistically, so the result is reported after
+// the fact — and only when the Recipe was already planned.
+test('mobile reports an already-planned Recipe and links to that Meal', async () => {
+	const user = userEvent.setup()
+	const info = vi.spyOn(toast, 'info')
+	let submittedRecipeId: FormDataEntryValue | null = null
+	renderCalendar(
+		async ({ request }) => {
+			const formData = await request.formData()
+			submittedRecipeId = formData.get('recipeId')
+			// Herb Salad is the one the day already holds, at its own 2x.
+			const created = submittedRecipeId !== 'recipe-2'
+			return {
+				status: 'success' as const,
+				meal: {
+					id: created ? 'meal-new' : 'meal-1',
+					created,
+					scaleMultiplier: created ? 1 : 2,
+					href: `/plan?weekStart=2026-04-06&mealId=${created ? 'meal-new' : 'meal-1'}`,
+				},
+			}
+		},
+		{
+			extraRoutes: [
+				{
+					path: '/plan',
+					Component: function PlanTarget() {
+						const [searchParams] = useSearchParams()
+						return <p>{`Focused ${searchParams.get('mealId')}`}</p>
+					},
+				},
+			],
+		},
+	)
+	const mobile = screen.getByTestId('mobile-plan')
+
+	async function addOnWednesday(name: RegExp, search: string) {
+		await user.click(
+			within(mobile).getByRole('button', {
+				name: 'Add Meal to Wednesday, Apr 8',
+			}),
+		)
+		const composer = within(mobile).getByRole('region', {
+			name: 'Add Meal for Wednesday, Apr 8',
+		})
+		await user.click(within(composer).getByRole('button', { name: 'Dinner' }))
+		await user.type(
+			await within(composer).findByPlaceholderText(
+				'Search Recipes and Menus...',
+			),
+			search,
+		)
+		await user.click(within(composer).getByRole('button', { name }))
+	}
+
+	// A genuinely new Meal says nothing beyond the Meal appearing in Plan.
+	await addOnWednesday(/Garlic Flatbread/, 'garlic')
+	await waitFor(() => expect(submittedRecipeId).toBe('recipe-3'))
+
+	await addOnWednesday(/Herb Salad/, 'herb salad')
+	await waitFor(() =>
+		expect(info).toHaveBeenCalledWith(
+			'Already planned',
+			expect.objectContaining({
+				// The planned 2x, not the 1x this submission would have created.
+				description: 'Wednesday, Apr 8 Dinner · 2×',
+			}),
+		),
+	)
+	expect(info).toHaveBeenCalledTimes(1)
+
+	const viewAction = info.mock.calls[0]?.[1]?.action as {
+		label: string
+		onClick: (event: unknown) => void
+	}
+	expect(viewAction.label).toBe('View')
+	await act(async () => viewAction.onClick({}))
+	expect(screen.getByText('Focused meal-1')).toBeVisible()
 })
 
 test('mobile closes an open Add Meal draft when the selected day changes', async () => {

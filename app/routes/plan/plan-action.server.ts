@@ -41,6 +41,23 @@ import {
 	loadShoppingAvailability,
 } from '#app/utils/shopping-list.server.ts'
 
+/**
+ * What `addMeal` reports back: which Meal now holds the Recipe, whether this
+ * request created it, the multiplier that Meal actually carries, and where to
+ * open it (#236). Both add-to-Plan callers render from this.
+ */
+export type PlannedMealResult = {
+	id: string
+	created: boolean
+	scaleMultiplier: number
+	href: string
+}
+
+/** Deep-link to one Meal in Plan — the week it lives in, focused on the card. */
+function mealPlanHref({ date, mealId }: { date: Date; mealId: string }) {
+	return `/plan?weekStart=${serializeDate(getWeekStart(date))}&mealId=${encodeURIComponent(mealId)}`
+}
+
 type PlanActionUser = Pick<
 	Awaited<ReturnType<typeof requireUserWithHousehold>>,
 	'userId' | 'householdId'
@@ -100,14 +117,23 @@ export function createPlanAction(
 				householdId,
 				weekStart: getWeekStart(date),
 			})
-			await createRecipeMeal(db, {
+			const { created, mealId, scaleMultiplier } = await createRecipeMeal(db, {
 				mealPlanId: mealPlan.id,
 				date,
 				label: label ?? null,
 				recipe,
 				scaleMultiplier: multiplier ?? 1,
 			})
-			return { status: 'success' as const }
+			// Both callers report what is actually planned (#236): a semantic
+			// match keeps its own multiplier, so success alone would imply the
+			// requested scale was applied. The href points at that exact Meal.
+			const meal: PlannedMealResult = {
+				id: mealId,
+				created,
+				scaleMultiplier,
+				href: mealPlanHref({ date, mealId }),
+			}
+			return { status: 'success' as const, meal }
 		}
 
 		// The saved-Menu fast path mirrors Recipe selection in Plan: the chosen
@@ -402,9 +428,7 @@ export function createPlanAction(
 				return moved
 			})
 			if (moved) {
-				return redirect(
-					`/plan?weekStart=${serializeDate(getWeekStart(date))}&mealId=${encodeURIComponent(mealId)}`,
-				)
+				return redirect(mealPlanHref({ date, mealId }))
 			}
 			return { status: 'success' as const }
 		}

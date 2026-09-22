@@ -159,6 +159,10 @@ export async function createMealWithItems(
  * The one-Recipe fast path. Idempotent on (plan, day, label, Recipe) — the
  * same dedupe the legacy unique constraint gave slot assignment — so
  * double-taps and repeat submissions do not stack duplicate Meals.
+ *
+ * Returns the Meal that now holds the Recipe together with the multiplier it
+ * actually carries: a match keeps its own multiplier, so the caller can say
+ * what is planned instead of implying the requested scale was applied (#236).
  */
 export async function createRecipeMeal(
 	db: PrismaClient,
@@ -183,9 +187,27 @@ export async function createRecipeMeal(
 			label,
 			recipeItems: { some: { recipeId: recipe.id } },
 		},
-		select: { id: true },
+		// Repeat submissions must resolve to the same Meal, so the day's manual
+		// order decides when more than one Meal holds the Recipe.
+		orderBy: [{ order: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+		select: {
+			id: true,
+			recipeItems: {
+				where: { recipeId: recipe.id },
+				orderBy: [{ order: 'asc' }, { id: 'asc' }],
+				take: 1,
+				select: { scaleMultiplier: true },
+			},
+		},
 	})
-	if (existing) return { created: false as const, mealId: existing.id }
+	if (existing) {
+		return {
+			created: false as const,
+			mealId: existing.id,
+			// The `some` filter above guarantees the matching item exists.
+			scaleMultiplier: existing.recipeItems[0]!.scaleMultiplier,
+		}
+	}
 
 	const mealId = await createMealWithItems(db, {
 		mealPlanId,
@@ -195,7 +217,7 @@ export async function createRecipeMeal(
 			{ recipeId: recipe.id, recipeTitle: recipe.title, scaleMultiplier },
 		],
 	})
-	return { created: true as const, mealId }
+	return { created: true as const, mealId, scaleMultiplier }
 }
 
 /** Add a Recipe to an existing Meal. No-op when the Meal already holds it. */

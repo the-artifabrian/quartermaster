@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { useFetcher, useSearchParams } from 'react-router'
+import { useFetcher, useNavigate, useSearchParams } from 'react-router'
+import { toast } from 'sonner'
 import {
 	PlanChoiceRequestState,
 	type PlanChoices,
 	usePlanChoices,
 } from '#app/components/plan-choices.tsx'
+import { type PlannedMealResult } from '#app/routes/plan/plan-action.server.ts'
 import {
 	MEAL_TYPES,
 	MEAL_TYPE_LABELS,
@@ -15,6 +17,7 @@ import {
 	isToday,
 	serializeDate,
 } from '#app/utils/date.ts'
+import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { type PlanMeal, MealCard } from './meal-card.tsx'
 import { type PlanItemChoice, PlanItemSelector } from './recipe-selector.tsx'
@@ -32,6 +35,7 @@ type AddMealPresentation = 'primary' | 'row' | 'empty-row'
 type AddMealActionData = {
 	status: 'success' | 'error'
 	menuError?: string
+	meal?: PlannedMealResult
 }
 
 function initialSelectedDate(weekDays: Date[], meals: PlanMeal[]): string {
@@ -54,6 +58,7 @@ function AddMealControl({
 	presentation: AddMealPresentation
 }) {
 	const fetcher = useFetcher<AddMealActionData>()
+	const navigate = useNavigate()
 	const [open, setOpen] = useState(false)
 	const [mode, setMode] = useState<'item' | 'text'>('item')
 	const [label, setLabel] = useState<MealType | null>(null)
@@ -61,6 +66,12 @@ function AddMealControl({
 	const [pendingMenuSubmission, setPendingMenuSubmission] = useState(false)
 	const [menuError, setMenuError] = useState<string | null>(null)
 	const menuSubmissionStarted = useRef(false)
+	// Recipe quick-add closes optimistically, so its result is reported after
+	// the fact; the submitted label is captured because `close()` clears it.
+	const [pendingRecipeAdd, setPendingRecipeAdd] = useState(false)
+	const recipeSubmissionStarted = useRef(false)
+	const submittedLabel = useRef<MealType | null>(null)
+	const dateLabel = `${formatWeekdayName(date)}, ${formatMonthDay(date)}`
 
 	useEffect(() => {
 		if (!pendingMenuSubmission) return
@@ -88,6 +99,31 @@ function AddMealControl({
 		}
 	}, [fetcher.data, fetcher.state, pendingMenuSubmission])
 
+	useEffect(() => {
+		if (!pendingRecipeAdd) return
+		if (fetcher.state !== 'idle') {
+			recipeSubmissionStarted.current = true
+			return
+		}
+		if (!recipeSubmissionStarted.current) return
+
+		recipeSubmissionStarted.current = false
+		setPendingRecipeAdd(false)
+		const meal = fetcher.data?.meal
+		// A semantic match keeps its own multiplier, so say what is planned and
+		// point at that Meal rather than implying this scale was applied (#236).
+		if (fetcher.data?.status === 'success' && meal && !meal.created) {
+			const mealLabel = submittedLabel.current
+			toast.info('Already planned', {
+				description: `${dateLabel}${
+					mealLabel ? ` ${MEAL_TYPE_LABELS[mealLabel]}` : ''
+				} · ${formatScaleMultiplier(meal.scaleMultiplier)}×`,
+				duration: 8000,
+				action: { label: 'View', onClick: () => navigate(meal.href) },
+			})
+		}
+	}, [dateLabel, fetcher.data, fetcher.state, navigate, pendingRecipeAdd])
+
 	function close() {
 		setOpen(false)
 		setMode('item')
@@ -102,6 +138,10 @@ function AddMealControl({
 		if (choice.kind === 'menu') {
 			setMenuError(null)
 			setPendingMenuSubmission(true)
+		} else {
+			submittedLabel.current = label
+			recipeSubmissionStarted.current = false
+			setPendingRecipeAdd(true)
 		}
 		void fetcher.submit(
 			{
@@ -133,7 +173,6 @@ function AddMealControl({
 		close()
 	}
 
-	const dateLabel = `${formatWeekdayName(date)}, ${formatMonthDay(date)}`
 	const fields = (
 		<>
 			<fieldset className="mb-3">

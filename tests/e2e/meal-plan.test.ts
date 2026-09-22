@@ -406,3 +406,59 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 		}
 	}
 })
+
+// #236: adding a Recipe that is already planned must report the Meal that
+// exists, not imply the newly requested scale was applied.
+test('Recipe already in Plan reports the planned Meal and links to it', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const household = await prisma.household.create({
+		data: {
+			name: 'Already planned household',
+			members: { create: { userId: user.id, role: 'owner' } },
+		},
+	})
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Miso Soup',
+			userId: user.id,
+			householdId: household.id,
+			ingredients: {
+				create: { name: 'miso', amount: '2', unit: 'tbsp', order: 0 },
+			},
+		},
+	})
+
+	// Plan it once at 1× from the Recipe page — the picker opens on Today
+	// Dinner, which is the ordinary one-tap add.
+	await page.goto(`/recipes/${recipe.id}`)
+	await page.getByRole('button', { name: 'Add to meal plan' }).click()
+	await page.getByRole('button', { name: 'Add to Plan' }).click()
+	await expect(page.getByText('Added to Today Dinner')).toBeVisible()
+
+	// Submitting the same Recipe at 3× leaves the planned Meal alone.
+	await page.goto(`/recipes/${recipe.id}?scale=3`)
+	await page.getByRole('button', { name: 'Add to meal plan' }).click()
+	await page.getByRole('button', { name: 'Add to Plan' }).click()
+	await expect(page.getByText('Already planned')).toBeVisible()
+	await expect(page.getByText('Today Dinner · 1×')).toBeVisible()
+
+	// …and the message leads to that Meal.
+	await page.getByRole('button', { name: 'View' }).click()
+	await expect(page).toHaveURL(/\/plan\?weekStart=.*mealId=/)
+	await expect(
+		page
+			.getByRole('link', { name: 'Miso Soup', exact: true })
+			.filter({ visible: true })
+			.first(),
+	).toBeVisible()
+
+	expect(
+		await prisma.mealRecipeItem.findMany({
+			where: { meal: { mealPlan: { householdId: household.id } } },
+			select: { scaleMultiplier: true },
+		}),
+	).toEqual([{ scaleMultiplier: 1 }])
+})

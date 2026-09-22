@@ -150,6 +150,7 @@ const freeFeatures = [
 const proFeatures = [
 	'Everything in Free, plus:',
 	'Real-time shopping list sync',
+	'Voice input on Shopping',
 	'AI Recipe import and enhancement',
 ]
 

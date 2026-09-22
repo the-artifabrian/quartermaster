@@ -195,6 +195,12 @@ test('an Out Staple is still needed, and cooked items are never offered', async 
 
 	expect(result.data.days).toHaveLength(1)
 	expect(result.data.days[0]!.meals).toHaveLength(1)
+	// The picker row reads like the Plan card: every Recipe card on the Meal,
+	// cooked ones included, even though only the uncooked lines are offered.
+	expect(result.data.days[0]!.meals[0]).toMatchObject({
+		title: '2-recipe Meal',
+		recipeTitles: ['Tapenade', 'Toast'],
+	})
 	expect(
 		result.data.days[0]!.meals[0]!.lines.map((line) => [
 			line.canonicalName,

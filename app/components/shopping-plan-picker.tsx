@@ -13,6 +13,7 @@ import { HouseholdClientInput } from '#app/utils/household-client.tsx'
 import { cn } from '#app/utils/misc.tsx'
 import {
 	defaultPickedLines,
+	startsExpanded,
 	type PlanPickerDay,
 	type PlanPickerLine,
 } from '#app/utils/shopping-plan-picker.ts'
@@ -82,6 +83,9 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 		status: 'idle',
 	})
 	const [picks, setPicks] = useState<Picks>(() => new Map())
+	const [expandedMeals, setExpandedMeals] = useState<ReadonlySet<string>>(
+		() => new Set(),
+	)
 
 	const week = weeks[weekIndex]
 
@@ -102,17 +106,22 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 			const result: unknown = await response.json()
 			if (!isWeekChoices(result)) throw new Error('Invalid Plan response')
 			setChoiceState({ status: 'success', choices: result })
+			const meals = result.days.flatMap((day) => day.meals)
 			// Fewest taps: everything is ticked except what the household would
 			// normally skip — Staples, pantry lines, and rows already on the list.
 			setPicks(
 				new Map(
-					result.days.flatMap((day) =>
-						day.meals.map(
-							(meal) =>
-								[meal.id, new Set(defaultPickedLines(meal.lines))] as const,
-						),
+					meals.map(
+						(meal) =>
+							[meal.id, new Set(defaultPickedLines(meal.lines))] as const,
 					),
 				),
+			)
+			// A week of big Meals is hundreds of lines of scroll, so wide ones
+			// arrive closed: the Meal rows are the overview, and opening one is
+			// how you overrule its default ticks.
+			setExpandedMeals(
+				new Set(meals.filter(startsExpanded).map((meal) => meal.id)),
 			)
 		} catch {
 			if (controller.signal.aborted) return
@@ -182,6 +191,14 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 		})
 	}
 
+	function toggleExpanded(mealId: string) {
+		setExpandedMeals((current) => {
+			const next = new Set(current)
+			if (!next.delete(mealId)) next.add(mealId)
+			return next
+		})
+	}
+
 	function showWeek(index: number) {
 		const target = weeks[index]
 		if (!target) return
@@ -213,7 +230,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 					From Plan
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent align="end" className="w-[min(24rem,calc(100vw-2rem))]">
+			<PopoverContent align="end" className="w-[calc(100vw-2rem)] sm:w-[28rem]">
 				<h2 className="font-serif text-lg">What are we buying for?</h2>
 				<p className="text-muted-foreground mt-1 text-sm">
 					Pick the Meals and lines to add to Next shop.
@@ -278,76 +295,111 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 					</div>
 				)}
 				{choiceState.status === 'success' && days.length > 0 && (
-					<div className="mt-3 max-h-80 space-y-4 overflow-y-auto">
+					<div className="mt-3 max-h-[min(60vh,28rem)] space-y-4 overflow-y-auto pr-1">
 						{days.map((day) => (
 							<div key={day.date}>
-								<p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
+								<p className="bg-popover text-muted-foreground sticky top-0 z-20 py-1 text-[11px] font-semibold tracking-wider uppercase">
 									{day.label}
 								</p>
 								{day.meals.map((meal) => {
 									const picked = picks.get(meal.id) ?? new Set<string>()
 									const allPicked = picked.size === meal.lines.length
+									const isExpanded = expandedMeals.has(meal.id)
+									const panelId = `plan-picker-${meal.id}`
+									// "4-recipe Meal" names nothing on its own; its Recipe
+									// cards do. A single-Recipe Meal is already named after
+									// its Recipe, so the familiar label is what is left to say.
+									const subtitle =
+										meal.recipeTitles.length > 1
+											? meal.recipeTitles.join(', ')
+											: meal.label
 									return (
 										<div key={meal.id} className="mt-2">
-											<button
-												type="button"
-												onClick={() => toggleMeal(meal.id, meal.lines)}
-												aria-pressed={
-													allPicked ? true : picked.size > 0 ? 'mixed' : false
-												}
-												className="flex min-h-11 w-full items-center gap-3 text-left"
-											>
-												<TickBox
-													checked={allPicked}
-													partial={picked.size > 0 && !allPicked}
-												/>
-												<span className="min-w-0 flex-1">
-													<span className="block truncate font-medium">
-														{meal.title}
-													</span>
-													{meal.label && (
-														<span className="text-muted-foreground block text-xs">
-															{meal.label}
+											<div className="bg-popover sticky top-6 z-10 flex items-center gap-3">
+												<button
+													type="button"
+													onClick={() => toggleMeal(meal.id, meal.lines)}
+													aria-pressed={
+														allPicked ? true : picked.size > 0 ? 'mixed' : false
+													}
+													aria-label={`${allPicked ? 'Untick' : 'Tick'} every line in ${meal.title}`}
+													className="flex min-h-11 shrink-0 items-center"
+												>
+													<TickBox
+														checked={allPicked}
+														partial={picked.size > 0 && !allPicked}
+													/>
+												</button>
+												<button
+													type="button"
+													onClick={() => toggleExpanded(meal.id)}
+													aria-expanded={isExpanded}
+													aria-controls={panelId}
+													className="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-1 text-left"
+												>
+													<span className="min-w-0 flex-1">
+														<span className="block truncate font-medium">
+															{meal.title}
 														</span>
-													)}
-												</span>
-											</button>
-											<div className="border-border/60 ml-2.5 border-l pl-4">
-												{meal.lines.map((line) => {
-													const isPicked = picked.has(line.canonicalName)
-													const note = STATUS_NOTE[line.status]
-													const amount = lineAmount(line)
-													return (
-														<button
-															key={line.canonicalName}
-															type="button"
-															onClick={() =>
-																toggleLine(meal.id, line.canonicalName)
-															}
-															aria-pressed={isPicked}
-															className="flex min-h-11 w-full items-center gap-3 py-1 text-left"
-														>
-															<TickBox checked={isPicked} />
-															<span className="min-w-0 flex-1">
-																<span className="block truncate text-sm">
-																	{line.name}
-																	{amount && (
-																		<span className="text-muted-foreground">
-																			{' '}
-																			· {amount}
+														{subtitle && (
+															<span className="text-muted-foreground block truncate text-xs">
+																{subtitle}
+															</span>
+														)}
+														{!isExpanded && (
+															<span className="text-muted-foreground block text-xs">
+																{picked.size} of {meal.lines.length} ticked
+															</span>
+														)}
+													</span>
+													<Icon
+														name={isExpanded ? 'chevron-down' : 'chevron-right'}
+														size="sm"
+														className="text-muted-foreground shrink-0"
+													/>
+												</button>
+											</div>
+											{isExpanded && (
+												<div
+													id={panelId}
+													className="border-border/60 ml-2.5 border-l pl-4"
+												>
+													{meal.lines.map((line) => {
+														const isPicked = picked.has(line.canonicalName)
+														const note = STATUS_NOTE[line.status]
+														const amount = lineAmount(line)
+														return (
+															<button
+																key={line.canonicalName}
+																type="button"
+																onClick={() =>
+																	toggleLine(meal.id, line.canonicalName)
+																}
+																aria-pressed={isPicked}
+																className="flex min-h-11 w-full items-center gap-3 py-1 text-left"
+															>
+																<TickBox checked={isPicked} />
+																<span className="min-w-0 flex-1">
+																	<span className="block text-sm">
+																		{line.name}
+																		{amount && (
+																			<span className="text-muted-foreground">
+																				{' '}
+																				· {amount}
+																			</span>
+																		)}
+																	</span>
+																	{note && (
+																		<span className="text-muted-foreground block text-xs">
+																			{note}
 																		</span>
 																	)}
 																</span>
-																{note && (
-																	<span className="text-muted-foreground block text-xs">
-																		{note}
-																	</span>
-																)}
-															</span>
-														</button>
-													)
-												})}
-											</div>
+															</button>
+														)
+													})}
+												</div>
+											)}
 										</div>
 									)
 								})}

@@ -123,13 +123,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 		const label = meal.label
 			? (MEAL_TYPE_LABELS[meal.label as MealType] ?? meal.label)
 			: null
-		const title = mealTitle({
-			label: meal.label,
-			recipeTitles: meal.recipeItems.map((item) => item.recipeTitle),
-		})
+		const recipeTitles = meal.recipeItems.map((item) => item.recipeTitle)
+		const title = mealTitle({ label: meal.label, recipeTitles })
 		day.meals.push({
 			id: meal.id,
 			title,
+			// A multi-Recipe Meal is named "4-recipe Meal", which says nothing
+			// about the lines beneath it. The Plan card answers that by listing
+			// the Recipe cards; the picker carries the same list.
+			recipeTitles,
 			// Two Meals on one day can share a Recipe title; the familiar label
 			// is what tells them apart. Never repeated as its own title.
 			label: label === title ? null : label,

@@ -32,6 +32,8 @@ export type PlanPickerMeal = {
 	title: string
 	/** Familiar label ("Dinner"), when it is not already the title. */
 	label: string | null
+	/** Every Recipe card on the Meal, in Plan order. */
+	recipeTitles: string[]
 	lines: PlanPickerLine[]
 }
 
@@ -70,4 +72,15 @@ export function defaultPickedLines(lines: PlanPickerLine[]): string[] {
 	return lines
 		.filter((line) => line.status === 'needed')
 		.map((line) => line.canonicalName)
+}
+
+/**
+ * A Meal wide enough to bury the rest of the week starts collapsed. Small
+ * Meals stay open: a two-line Meal behind a disclosure is a tap for nothing,
+ * and most weeks are small.
+ */
+export const PICKER_COLLAPSE_THRESHOLD = 6
+
+export function startsExpanded(meal: PlanPickerMeal) {
+	return meal.lines.length <= PICKER_COLLAPSE_THRESHOLD
 }

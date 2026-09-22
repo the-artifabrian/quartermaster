@@ -13,7 +13,6 @@ import { HouseholdClientInput } from '#app/utils/household-client.tsx'
 import { cn } from '#app/utils/misc.tsx'
 import {
 	defaultPickedLines,
-	startsExpanded,
 	type PlanPickerDay,
 	type PlanPickerLine,
 } from '#app/utils/shopping-plan-picker.ts'
@@ -83,7 +82,10 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 		status: 'idle',
 	})
 	const [picks, setPicks] = useState<Picks>(() => new Map())
-	const [expandedMeals, setExpandedMeals] = useState<ReadonlySet<string>>(
+	// Every Meal is open: seeing the lines is the point, and a disclosure in
+	// front of them is a tap for nothing. This holds only the Meals the
+	// household has folded away.
+	const [collapsedMeals, setCollapsedMeals] = useState<ReadonlySet<string>>(
 		() => new Set(),
 	)
 
@@ -117,12 +119,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 					),
 				),
 			)
-			// A week of big Meals is hundreds of lines of scroll, so wide ones
-			// arrive closed: the Meal rows are the overview, and opening one is
-			// how you overrule its default ticks.
-			setExpandedMeals(
-				new Set(meals.filter(startsExpanded).map((meal) => meal.id)),
-			)
+			setCollapsedMeals(new Set())
 		} catch {
 			if (controller.signal.aborted) return
 			setChoiceState({ status: 'error' })
@@ -192,7 +189,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 	}
 
 	function toggleExpanded(mealId: string) {
-		setExpandedMeals((current) => {
+		setCollapsedMeals((current) => {
 			const next = new Set(current)
 			if (!next.delete(mealId)) next.add(mealId)
 			return next
@@ -298,13 +295,13 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 					<div className="mt-3 max-h-[min(60vh,28rem)] space-y-4 overflow-y-auto pr-1">
 						{days.map((day) => (
 							<div key={day.date}>
-								<p className="bg-popover text-muted-foreground sticky top-0 z-20 py-1 text-[11px] font-semibold tracking-wider uppercase">
+								<p className="text-muted-foreground py-1 text-[11px] font-semibold tracking-wider uppercase">
 									{day.label}
 								</p>
 								{day.meals.map((meal) => {
 									const picked = picks.get(meal.id) ?? new Set<string>()
 									const allPicked = picked.size === meal.lines.length
-									const isExpanded = expandedMeals.has(meal.id)
+									const isExpanded = !collapsedMeals.has(meal.id)
 									const panelId = `plan-picker-${meal.id}`
 									// "4-recipe Meal" names nothing on its own; its Recipe
 									// cards do. A single-Recipe Meal is already named after
@@ -315,7 +312,10 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 											: meal.label
 									return (
 										<div key={meal.id} className="mt-2">
-											<div className="bg-popover sticky top-6 z-10 flex items-center gap-3">
+											{/* The Meal heading is what has to stay put while its lines
+											    scroll. The day label above it does not stick: a day
+											    ending would push its Meal heading up underneath it. */}
+											<div className="bg-popover sticky top-0 z-10 flex items-center gap-3">
 												<button
 													type="button"
 													onClick={() => toggleMeal(meal.id, meal.lines)}
@@ -346,11 +346,11 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 																{subtitle}
 															</span>
 														)}
-														{!isExpanded && (
-															<span className="text-muted-foreground block text-xs">
-																{picked.size} of {meal.lines.length} ticked
-															</span>
-														)}
+														{/* Live tally: the sticky header answers "how much of this
+														    Meal am I buying" while its lines scroll. */}
+														<span className="text-muted-foreground block text-xs">
+															{picked.size} of {meal.lines.length} ticked
+														</span>
 													</span>
 													<Icon
 														name={isExpanded ? 'chevron-down' : 'chevron-right'}

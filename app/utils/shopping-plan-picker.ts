@@ -73,14 +73,3 @@ export function defaultPickedLines(lines: PlanPickerLine[]): string[] {
 		.filter((line) => line.status === 'needed')
 		.map((line) => line.canonicalName)
 }
-
-/**
- * A Meal wide enough to bury the rest of the week starts collapsed. Small
- * Meals stay open: a two-line Meal behind a disclosure is a tap for nothing,
- * and most weeks are small.
- */
-export const PICKER_COLLAPSE_THRESHOLD = 6
-
-export function startsExpanded(meal: PlanPickerMeal) {
-	return meal.lines.length <= PICKER_COLLAPSE_THRESHOLD
-}

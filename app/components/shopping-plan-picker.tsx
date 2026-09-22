@@ -315,7 +315,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 			{choiceState.status === 'success' && days.length > 0 && (
 				<div
 					className={cn(
-						'mt-3 space-y-3 overflow-y-auto overscroll-contain pr-1',
+						'mt-3 scrollbar-thin space-y-3 overflow-y-auto overscroll-contain pr-1',
 						isSheet ? 'min-h-0 flex-1' : 'max-h-[min(60vh,28rem)]',
 					)}
 				>

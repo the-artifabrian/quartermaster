@@ -68,8 +68,18 @@ export function planPickerLineStatus({
 	return 'needed'
 }
 
-/** Lines a picker group ticks by default. */
-export function defaultPickedLines(lines: PlanPickerLine[]): string[] {
+/**
+ * Lines a picker group ticks by default. A Meal on a day already gone starts
+ * with nothing ticked: by Tuesday, Monday's dinner was either cooked or
+ * skipped, and ticking its lines would pad the shop with food for a day that
+ * is over. The household can still tick the Meal back in one tap when it was
+ * only postponed.
+ */
+export function defaultPickedLines(
+	lines: PlanPickerLine[],
+	{ past = false }: { past?: boolean } = {},
+): string[] {
+	if (past) return []
 	return lines
 		.filter((line) => line.status === 'needed')
 		.map((line) => line.canonicalName)

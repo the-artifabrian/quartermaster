@@ -9,6 +9,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from '#app/components/ui/popover.tsx'
+import { isPast, parseDate } from '#app/utils/date.ts'
 import { HouseholdClientInput } from '#app/utils/household-client.tsx'
 import { cn } from '#app/utils/misc.tsx'
 import {
@@ -68,6 +69,11 @@ function lineAmount(line: PlanPickerLine) {
 	return [line.quantity, line.unit].filter(Boolean).join(' ')
 }
 
+/** The phone's today, as the Plan calendar reckons it, against a `yyyy-MM-dd` day. */
+function isPastDay(date: string) {
+	return isPast(parseDate(date))
+}
+
 const STATUS_NOTE: Record<PlanPickerLine['status'], string | null> = {
 	needed: null,
 	'on-list': 'Already on list',
@@ -119,18 +125,27 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 			const result: unknown = await response.json()
 			if (!isWeekChoices(result)) throw new Error('Invalid Plan response')
 			setChoiceState({ status: 'success', choices: result })
-			const meals = result.days.flatMap((day) => day.meals)
 			// Fewest taps: everything is ticked except what the household would
-			// normally skip — Staples, pantry lines, and rows already on the list.
+			// normally skip — Staples, pantry lines, rows already on the list, and
+			// whole Meals on days already gone. Those start folded too, so the
+			// week opens on what is still ahead.
+			const meals = result.days.flatMap((day) =>
+				day.meals.map((meal) => ({ meal, past: isPastDay(day.date) })),
+			)
 			setPicks(
 				new Map(
 					meals.map(
-						(meal) =>
-							[meal.id, new Set(defaultPickedLines(meal.lines))] as const,
+						({ meal, past }) =>
+							[
+								meal.id,
+								new Set(defaultPickedLines(meal.lines, { past })),
+							] as const,
 					),
 				),
 			)
-			setCollapsedMeals(new Set())
+			setCollapsedMeals(
+				new Set(meals.filter(({ past }) => past).map(({ meal }) => meal.id)),
+			)
 		} catch {
 			if (controller.signal.aborted) return
 			setChoiceState({ status: 'error' })
@@ -328,10 +343,14 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 							// "4-recipe Meal" names nothing on its own; its Recipe
 							// cards do. A single-Recipe Meal is already named after
 							// its Recipe, so the familiar label is what is left to say.
-							const subtitle =
+							const subtitle = [
+								isPastDay(day.date) ? 'Already past' : null,
 								meal.recipeTitles.length > 1
 									? meal.recipeTitles.join(', ')
-									: meal.label
+									: meal.label,
+							]
+								.filter(Boolean)
+								.join(' · ')
 							return (
 								<div key={meal.id}>
 									{/* The Meal heading is what has to stay put while its

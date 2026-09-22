@@ -11,6 +11,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action as recipeAction } from '../recipes/$recipeId.tsx'
+import { loader as planPickerLoader } from '../resources/shopping-plan.tsx'
 import { action as shoppingAction } from '../shopping.tsx'
 import { action as planAction, loader as planLoader } from './index.tsx'
 import '#tests/setup/db-setup.ts'
@@ -106,6 +107,18 @@ async function runPlanAction(
 	})
 }
 
+async function runPlanPickerLoader(session: TestSession) {
+	const cookie = await getSessionCookieHeader(session)
+	const url = new URL(`${BASE_URL}/resources/shopping-plan`)
+	return planPickerLoader({
+		request: new Request(url, { headers: { cookie } }),
+		params: {},
+		context: new RouterContextProvider(),
+		pattern: '/resources/shopping-plan',
+		url,
+	})
+}
+
 async function runPlanLoader(session: TestSession) {
 	const cookie = await getSessionCookieHeader(session)
 	return planLoader({
@@ -164,23 +177,41 @@ async function getRows(householdId: string) {
 }
 
 describe('household Staple annotation at explicit Shopping actions (#116)', () => {
-	test('week generation omits normal Staples, includes Out Staples and unresolved non-Staples, and isolates households', async () => {
+	test('the Plan picker unticks a normal Staple, offers an Out one, and isolates households', async () => {
 		const normal = await setupCutoverHousehold([{ displayName: 'salt' }])
 		const out = await setupCutoverHousehold([
 			{ displayName: 'salt', isOut: true },
 		])
 		const normalRecipe = await setupRecipe(normal, 'Normal salt supper')
 		const outRecipe = await setupRecipe(out, 'Out of salt supper')
-		await setupMeal(normal, normalRecipe)
-		await setupMeal(out, outRecipe)
+		const normalMeal = await setupMeal(normal, normalRecipe)
+		const outMeal = await setupMeal(out, outRecipe)
 
-		await runShoppingAction(normal, { intent: 'generate' })
-		await runShoppingAction(out, { intent: 'generate' })
+		// Each household's own picker defaults, then the ticked lines.
+		for (const [session, meal] of [
+			[normal, normalMeal],
+			[out, outMeal],
+		] as const) {
+			const choices = await runPlanPickerLoader(session)
+			const lines = choices.data.days[0]!.meals[0]!.lines
+			await runShoppingAction(session, {
+				intent: 'add-from-plan',
+				picks: JSON.stringify([
+					{
+						mealId: meal.id,
+						lines: lines
+							.filter((line) => line.status === 'needed')
+							.map((line) => line.canonicalName),
+					},
+				]),
+			})
+		}
 
 		expect((await getRows(normal.householdId)).map((row) => row.name)).toEqual([
 			'chicken',
 			'medium/small peaches',
 		])
+		// Out beats the hardcoded pantry heuristic: salt is ticked by default.
 		expect((await getRows(out.householdId)).map((row) => row.name)).toEqual([
 			'chicken',
 			'medium/small peaches',
@@ -188,7 +219,7 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 		])
 		expect(
 			(await getRows(out.householdId)).every(
-				(row) => row.source === 'generated' && !row.checked,
+				(row) => row.source === 'meal' && !row.checked,
 			),
 		).toBe(true)
 	})

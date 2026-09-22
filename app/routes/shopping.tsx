@@ -15,6 +15,7 @@ import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { ShoppingListLiveRefresh } from '#app/components/shopping-live-refresh.tsx'
 import { MobileFabAdd } from '#app/components/shopping-mobile-fab.tsx'
+import { ShoppingPlanPicker } from '#app/components/shopping-plan-picker.tsx'
 import { ShoppingStaplesPicker } from '#app/components/shopping-staples-picker.tsx'
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -28,14 +29,13 @@ import {
 	getCurrentWeekStart,
 	getPreviousWeek,
 	getNextWeek,
-	getWeekStart,
-	parseDate,
 	serializeDate,
 	formatWeekRange,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { activeLegacyPantryWhere } from '#app/utils/legacy-pantry.server.ts'
+import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { parseTypedItem } from '#app/utils/parse-speech-item.ts'
 import {
@@ -44,6 +44,7 @@ import {
 } from '#app/utils/recipe-matching.server.ts'
 import {
 	editShoppingDisplayGroup,
+	reconcileMealShoppingContributions,
 	removeGeneratedShoppingAmount,
 } from '#app/utils/shopping-contribution.server.ts'
 import {
@@ -51,7 +52,6 @@ import {
 	combineRowDisplay,
 	demandIdentity,
 } from '#app/utils/shopping-demand.server.ts'
-import { resolveNextShopDemandTargets } from '#app/utils/shopping-horizon.server.ts'
 import {
 	LATER,
 	NEXT_SHOP,
@@ -132,9 +132,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const prevWeek = getPreviousWeek(currentWeek)
 	const nextWeek = getNextWeek(currentWeek)
 
-	// A week counts as planned when it has at least one Recipe item — text-only
-	// Meals have no Shopping behavior, so a week of only "Leftovers" offers
-	// nothing to generate from.
+	// A week counts as planned when one of its Meals can contribute Shopping
+	// demand — a Recipe item or a note card's Shopping lines. Text-only Meals
+	// have no Shopping behavior, so a week of only "Leftovers" has nothing to
+	// offer the picker.
 	const [mealPlans, household] = await Promise.all([
 		prisma.mealPlan.findMany({
 			where: {
@@ -144,7 +145,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 			select: {
 				weekStart: true,
 				meals: {
-					where: { recipeItems: { some: {} } },
+					where: {
+						genericText: null,
+						OR: [
+							{ recipeItems: { some: {} } },
+							{ noteItems: { some: { shoppingLines: { some: {} } } } },
+						],
+					},
 					select: { id: true },
 					take: 1,
 				},
@@ -193,110 +200,114 @@ export async function action({ request }: Route.ActionArgs) {
 		householdId,
 	})
 
-	if (intent === 'generate') {
-		// Get meal plan for specified week (or current week)
-		const weekStartParam = formData.get('weekStart')
-		const weekStart =
-			typeof weekStartParam === 'string' && weekStartParam
-				? getWeekStart(parseDate(weekStartParam))
-				: getCurrentWeekStart()
-		// Week-wide generation reads Meal Recipe items (#106): uncooked items
-		// scale by their stored batch multiplier. Missing cards (recipeId null)
-		// produce no fresh demand, and text-only Meals have no items at all.
-		const mealPlan = await prisma.mealPlan.findUnique({
-			where: { householdId_weekStart: { householdId, weekStart } },
-			include: {
-				meals: {
-					include: {
-						recipeItems: {
-							where: { cooked: false },
-							include: {
-								recipe: {
-									include: {
-										ingredients: true,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		})
-
-		invariantResponse(mealPlan, 'No meal plan found for this week', {
-			status: 404,
-		})
-
-		// Week-wide demand through the one pure demand module (#108).
-		const demand = buildShoppingDemand({
-			recipeBatches: mealPlan.meals
-				.flatMap((meal) => meal.recipeItems)
-				.flatMap((item) =>
-					item.recipe
-						? [
-								{
-									ingredients: item.recipe.ingredients,
-									scaleMultiplier: item.scaleMultiplier,
-								},
-							]
-						: [],
+	// From Plan (#288): the household picks Meals and lines in the picker, and
+	// each ticked Meal writes through the same Meal-add path as adding that
+	// Meal from Plan (#225/#226). There is no week-wide rebuild: a second pick
+	// of the same Meal records nothing new, and an untouched line stays off.
+	if (intent === 'add-from-plan') {
+		const rawPicks = formData.get('picks')
+		invariantResponse(typeof rawPicks === 'string', 'Picks are required')
+		let picks: Array<{ mealId: string; lines: string[] }>
+		try {
+			picks = JSON.parse(rawPicks) as typeof picks
+		} catch {
+			throw new Response('Invalid picks data', { status: 400 })
+		}
+		invariantResponse(
+			Array.isArray(picks) &&
+				picks.length > 0 &&
+				picks.length <= 50 &&
+				picks.every(
+					(pick) =>
+						pick != null &&
+						typeof pick.mealId === 'string' &&
+						Array.isArray(pick.lines) &&
+						pick.lines.every((name) => typeof name === 'string'),
 				),
-		})
+			'Invalid picks data',
+		)
 
-		const availability = await loadShoppingAvailability(prisma, householdId)
-		const { lines, inStockCount } = annotateShoppingDemand(demand, availability)
+		// One tick set per Meal, so a repeated Meal id is one reconcile.
+		const pickedByMeal = new Map<string, Set<string>>()
+		for (const pick of picks) {
+			const lines = pickedByMeal.get(pick.mealId) ?? new Set<string>()
+			for (const name of pick.lines) lines.add(name)
+			pickedByMeal.set(pick.mealId, lines)
+		}
 
-		// Delete existing generated items — except rows a Meal contribution
-		// currently feeds: contributions are durable recovery data (#108), so
-		// week-wide regeneration must not destroy one-Meal provenance.
-		await prisma.shoppingListItem.deleteMany({
+		// Every Meal id is re-resolved through the household before any write;
+		// a text-only Meal has no Shopping behavior (#98 story 43).
+		const meals = await prisma.meal.findMany({
 			where: {
-				listId: shoppingList.id,
-				source: 'generated',
-				checked: false,
-				horizon: NEXT_SHOP,
-				mealContributions: { none: {} },
+				id: { in: [...pickedByMeal.keys()] },
+				mealPlan: { householdId },
+				genericText: null,
 			},
+			select: { id: true },
 		})
+		const allowedMealIds = meals.map((meal) => meal.id)
+		const [demandByMeal, availability] = await Promise.all([
+			loadMealShoppingDemand(prisma, {
+				mealIds: allowedMealIds,
+				// Cooked Recipe items are not something to shop for — the picker
+				// never offered them.
+				includeCooked: false,
+			}),
+			loadShoppingAvailability(prisma, householdId),
+		])
 
-		// Generated demand always targets Next shop. An unchecked Later match is
-		// promoted in place; checked matches keep their already-bought state.
-		const { targets, promotedIds } = await resolveNextShopDemandTargets(
-			prisma,
-			{
-				listId: shoppingList.id,
-				canonicalNames: lines.map((line) => line.canonicalName),
-			},
-		)
-		const dedupedItems = lines.filter(
-			(line) => !targets.has(line.canonicalName),
-		)
-
-		// Create new items — in-stock items are pre-checked
-		await prisma.shoppingListItem.createMany({
-			data: dedupedItems.map(
-				({ inStock, canonicalName, fromNote, ...line }) => ({
+		let createdRowCount = 0
+		let attachedCount = 0
+		let alreadyContributedCount = 0
+		let promotedRowCount = 0
+		// Sequential: each reconcile reads the list state the previous one left.
+		for (const mealId of allowedMealIds) {
+			const demand = demandByMeal.get(mealId)
+			const picked = pickedByMeal.get(mealId)
+			if (!demand || !picked) continue
+			// The tick set decides what is added; the availability seam still
+			// decides what arrives pre-checked, exactly as a Meal add does.
+			const inStock = new Map(
+				annotateShoppingDemand(demand.lines, availability).lines.map((line) => [
+					line.canonicalName,
+					line.inStock,
+				]),
+			)
+			const lines = demand.lines
+				.filter((line) => picked.has(line.canonicalName))
+				.map((line) => ({
 					...line,
-					checked: inStock,
-					source: 'generated',
-					horizon: NEXT_SHOP,
-					listId: shoppingList.id,
-				}),
-			),
-		})
+					inStock: inStock.get(line.canonicalName) ?? false,
+				}))
+			if (lines.length === 0) continue
 
-		void emitHouseholdEvent({
-			originClientId: formData.get('originClientId'),
-			type: 'shopping_list_generated',
-			payload: { count: dedupedItems.length + promotedIds.length },
-			userId,
-			householdId,
-		})
+			const result = await reconcileMealShoppingContributions(prisma, {
+				mealId,
+				listId: shoppingList.id,
+				lines,
+			})
+			createdRowCount += result.createdRowCount
+			attachedCount += result.attachedCount
+			alreadyContributedCount += result.alreadyContributedCount
+			promotedRowCount += result.promotedRowCount
+		}
+
+		const changedCount = createdRowCount + attachedCount + promotedRowCount
+		if (changedCount > 0) {
+			void emitHouseholdEvent({
+				originClientId: formData.get('originClientId'),
+				type: 'shopping_list_generated',
+				payload: { count: changedCount },
+				userId,
+				householdId,
+			})
+		}
 
 		return {
 			status: 'success' as const,
-			inStockCount,
-			weekLabel: formatWeekRange(weekStart),
+			createdRowCount,
+			attachedCount,
+			alreadyContributedCount,
 		}
 	}
 
@@ -867,7 +878,6 @@ function ClearCheckedControl({
 
 export default function ShoppingListRoute({
 	loaderData,
-	actionData,
 }: Route.ComponentProps) {
 	const {
 		shoppingList,
@@ -878,10 +888,6 @@ export default function ShoppingListRoute({
 		shoppingIdentities,
 	} = loaderData
 	const checks = useShoppingChecks(shoppingList.items, shoppingList.id)
-	const defaultWeek =
-		weeksWithPlans.find((w) => w.isCurrent)?.weekStart ??
-		weeksWithPlans[0]?.weekStart ??
-		''
 	// Quick-add uses fetcher so form state survives SSE-triggered revalidations
 	const quickAddFetcher = useFetcher<Record<string, unknown>>()
 	const [qaName, setQaName] = useState('')
@@ -897,8 +903,6 @@ export default function ShoppingListRoute({
 	const [voiceAddedNames, setVoiceAddedNames] = useState<Set<string>>(new Set())
 	const navigation = useNavigation()
 	const pendingIntent = navigation.formData?.get('intent')
-	const isGeneratingFromPlan =
-		navigation.state !== 'idle' && pendingIntent === 'generate'
 	const isClearingChecked =
 		navigation.state !== 'idle' && pendingIntent === 'clear-checked'
 	const clearingHorizon = parseShoppingHorizon(
@@ -1094,36 +1098,10 @@ export default function ShoppingListRoute({
 									showQuietCue={nextItems.length === 0}
 								/>
 							)}
-							{hasMealPlan && (
-								<Form method="POST" className="flex items-center gap-2">
-									<HouseholdClientInput />
-									<input type="hidden" name="intent" value="generate" />
-									<input type="hidden" name="horizon" value={NEXT_SHOP} />
-									<input type="hidden" name="weekStart" value={defaultWeek} />
-									<PendingButton
-										type="submit"
-										variant="outline"
-										size="sm"
-										pending={isGeneratingFromPlan}
-										pendingLabel="Generating shopping list"
-										aria-label="Generate shopping list from meal plan"
-									>
-										<Icon name="calendar" size="sm" />
-										From Plan
-									</PendingButton>
-								</Form>
-							)}
+							{hasMealPlan && <ShoppingPlanPicker weeks={weeksWithPlans} />}
 						</div>
 					</div>
 				</div>
-				{actionData?.status === 'success' && 'weekLabel' in actionData && (
-					<p className="text-muted-foreground container-narrow pb-4 text-center text-sm">
-						Generated for {actionData.weekLabel}
-						{typeof actionData.inStockCount === 'number' &&
-							actionData.inStockCount > 0 &&
-							` · ${actionData.inStockCount} usually on hand`}
-					</p>
-				)}
 			</div>
 
 			<div className="container-narrow py-4">
@@ -1318,7 +1296,8 @@ export default function ShoppingListRoute({
 									<p className="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
 										{hasMealPlan ? (
 											<>
-												Use <strong>From Plan</strong> or add an item by hand.
+												Pick from <strong>From Plan</strong> or add an item by
+												hand.
 											</>
 										) : (
 											<>

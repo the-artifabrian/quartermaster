@@ -10,6 +10,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { action as recipeAction } from '../recipes/$recipeId.tsx'
+import { loader as planPickerLoader } from '../resources/shopping-plan.tsx'
 import {
 	action as shoppingAction,
 	loader as shoppingLoader,
@@ -88,6 +89,18 @@ async function runShoppingAction(
 	return shoppingAction({
 		request: await makeRequest(session, '/shopping', formFields),
 		...SHOPPING_ARGS,
+	})
+}
+
+async function runPlanPickerLoader(session: { id: string }) {
+	const cookie = await getSessionCookieHeader(session)
+	const url = new URL(`${BASE_URL}/resources/shopping-plan`)
+	return planPickerLoader({
+		request: new Request(url, { headers: { cookie } }),
+		params: {},
+		context: new RouterContextProvider(),
+		pattern: '/resources/shopping-plan',
+		url,
 	})
 }
 
@@ -607,7 +620,7 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 		expect(await prisma.mealShoppingContribution.count()).toBe(0)
 	})
 
-	test('one-Recipe demand is equivalent to the trusted generate-from-Plan flow', async () => {
+	test('one-Meal demand is equivalent at every entry point that adds it', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 		const meal = await setupMeal(session.householdId, recipe, {
@@ -631,19 +644,33 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 				row.checked,
 			])
 
-		// Trusted flow: week-wide generation.
-		await runShoppingAction(session, { intent: 'generate' })
-		const trusted = project(await getShoppingRows(session.householdId))
-		expect(trusted.length).toBeGreaterThan(0)
-		await prisma.shoppingListItem.deleteMany({})
-
-		// New flow: explicit one-Meal add.
+		// Reference flow: the explicit one-Meal add from Plan.
 		await runPlanAction(session, {
 			intent: 'addMealToShopping',
 			mealId: meal.id,
 		})
+		const trusted = project(await getShoppingRows(session.householdId))
+		expect(trusted.length).toBeGreaterThan(0)
+		await prisma.shoppingListItem.deleteMany({})
+		await prisma.mealShoppingContribution.deleteMany({})
+
+		// From Plan's picker at its default ticks (#288) reconciles the same
+		// demand through the same path.
+		const choices = await runPlanPickerLoader(session)
+		await runShoppingAction(session, {
+			intent: 'add-from-plan',
+			picks: JSON.stringify([
+				{
+					mealId: meal.id,
+					lines: choices.data.days[0]!.meals[0]!.lines.filter(
+						(line) => line.status === 'needed',
+					).map((line) => line.canonicalName),
+				},
+			]),
+		})
 		expect(project(await getShoppingRows(session.householdId))).toEqual(trusted)
 		await prisma.shoppingListItem.deleteMany({})
+		await prisma.mealShoppingContribution.deleteMany({})
 
 		// Unified entry point: add Recipe from its page at the same ratio —
 		// in-stock lines arrive pre-checked instead of silently dropped (#76).

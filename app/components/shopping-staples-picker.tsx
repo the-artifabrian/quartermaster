@@ -206,7 +206,7 @@ export function ShoppingStaplesPicker({
 					)}
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent align="end" className="w-[min(22rem,calc(100vw-2rem))]">
+			<PopoverContent align="end" className="w-[calc(100vw-2rem)] sm:w-[28rem]">
 				<h2 className="font-serif text-lg">What do you need this trip?</h2>
 				<p className="text-muted-foreground mt-1 text-sm">
 					Pick Staples to add to Next shop.
@@ -260,7 +260,7 @@ export function ShoppingStaplesPicker({
 					</div>
 				)}
 				{choiceState.status === 'success' && staples.length > 0 && (
-					<div className="mt-3 max-h-64 divide-y overflow-y-auto">
+					<div className="mt-3 max-h-64 scrollbar-thin divide-y overflow-y-auto overscroll-contain pr-1">
 						{visibleStaples.length > 0 ? (
 							visibleStaples.map((staple) => {
 								const isSelected =

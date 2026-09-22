@@ -12,6 +12,7 @@ import {
 	MealDetailsSchema,
 } from '#app/utils/meal-plan-validation.ts'
 import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
+import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
 import {
 	addRecipeToMeal,
 	createMealWithItems,
@@ -34,7 +35,6 @@ import {
 	removeMealWithShoppingContributions,
 	replaceMealShoppingContributions,
 } from '#app/utils/shopping-contribution.server.ts'
-import { buildShoppingDemand } from '#app/utils/shopping-demand.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
 	annotateShoppingDemand,
@@ -244,45 +244,18 @@ export function createPlanAction(
 			// Recipe must be replaced or removed before it can contribute again.
 			// Note-card Shopping lines contribute alongside Recipe items (#109);
 			// a note-only snapshot Meal is a valid contributor.
-			const [recipeItems, noteLines] = await Promise.all([
-				db.mealRecipeItem.findMany({
-					where: { mealId: meal.id },
-					include: { recipe: { include: { ingredients: true } } },
-				}),
-				db.mealShoppingLine.findMany({
-					where: { noteItem: { mealId: meal.id } },
-					// noteItemId breaks ties between note items sharing an order value
-					// — demand part order (and so composite quantities) must be
-					// deterministic across identical adds.
-					orderBy: [
-						{ noteItem: { order: 'asc' } },
-						{ noteItemId: 'asc' },
-						{ order: 'asc' },
-					],
-					select: { name: true, quantity: true, unit: true },
-				}),
-			])
+			const mealDemand = await loadMealShoppingDemand(db, {
+				mealIds: [meal.id],
+				includeCooked: true,
+			})
+			const { lines: demand, hasMissingRecipeCards } = mealDemand.get(meal.id)!
 			if (intent === 'refreshMealShopping') {
 				invariantResponse(
-					recipeItems.every((item) => item.recipe != null),
+					!hasMissingRecipeCards,
 					'Replace or remove missing Recipe cards before refreshing Shopping',
 					{ status: 400 },
 				)
 			}
-
-			const demand = buildShoppingDemand({
-				recipeBatches: recipeItems.flatMap((item) =>
-					item.recipe
-						? [
-								{
-									ingredients: item.recipe.ingredients,
-									scaleMultiplier: item.scaleMultiplier,
-								},
-							]
-						: [],
-				),
-				noteLines,
-			})
 
 			const availability = await loadShoppingAvailability(db, householdId)
 			const { lines } = annotateShoppingDemand(demand, availability)

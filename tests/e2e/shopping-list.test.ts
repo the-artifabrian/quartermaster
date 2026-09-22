@@ -122,7 +122,7 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	await expect(previous).toBeVisible()
 })
 
-test('Shopping list flow: generate → verify items → add manual → check → clear', async ({
+test('Shopping list flow: pick from Plan → verify items → add manual → check → clear', async ({
 	page,
 	login,
 }) => {
@@ -155,6 +155,7 @@ test('Shopping list flow: generate → verify items → add manual → check →
 					{ name: 'chicken breast', amount: '2', unit: 'lbs', order: 0 },
 					{ name: 'jasmine rice', amount: '1', unit: 'cup', order: 1 },
 					{ name: 'broccoli', amount: '1', unit: 'head', order: 2 },
+					{ name: 'spring onions', amount: '1', unit: 'bunch', order: 3 },
 				],
 			},
 			instructions: {
@@ -199,31 +200,36 @@ test('Shopping list flow: generate → verify items → add manual → check →
 			request.method() === 'POST'
 				? (request.postDataJSON() as Record<string, unknown>)
 				: null
-		if (form?.intent === 'generate' || form?.intent === 'clear-checked') {
+		if (form?.intent === 'add-from-plan' || form?.intent === 'clear-checked') {
 			await new Promise((resolve) => setTimeout(resolve, 1250))
 		}
 		await route.continue()
 	})
 
-	// 2. Generate from the meal plan with local feedback on phone and desktop.
-	for (const viewport of [
-		{ width: 390, height: 844 },
-		{ width: 1280, height: 800 },
-	]) {
-		await page.setViewportSize(viewport)
-		await expectLocalPendingFeedback({
-			page,
-			button: page.getByRole('button', {
-				name: /generate shopping list from meal plan/i,
-			}),
-			statusName: 'Generating shopping list',
-		})
+	// 2. Open the From Plan picker, untick one line, and add the rest with
+	// local feedback on phone and desktop.
+	await page.setViewportSize({ width: 1280, height: 800 })
+	await page.getByRole('button', { name: /from plan/i }).click()
+	await expect(
+		page.getByRole('heading', { name: /what are we buying for/i }),
+	).toBeVisible()
+	for (const name of [/^broccoli/i, /^jasmine rice/i]) {
+		const line = page.getByRole('button', { name })
+		await expect(line).toHaveAttribute('aria-pressed', 'true')
+		await line.click()
+		await expect(line).toHaveAttribute('aria-pressed', 'false')
 	}
+	await expectLocalPendingFeedback({
+		page,
+		button: page.getByRole('button', { name: /add 2 from 1 meal/i }),
+		statusName: 'Adding picked Meals to Shopping',
+	})
 
-	// 3. Verify generated items appear
+	// 3. Only the picked lines land on the list.
 	await expect(page.getByText('chicken breast')).toBeVisible()
-	await expect(page.getByText('jasmine rice')).toBeVisible()
-	await expect(page.getByText('broccoli')).toBeVisible()
+	await expect(page.getByText('spring onions')).toBeVisible()
+	await expect(page.getByText('jasmine rice')).toBeHidden()
+	await expect(page.getByText('broccoli')).toBeHidden()
 
 	for (const viewport of [
 		{ width: 390, height: 844 },
@@ -246,7 +252,8 @@ test('Shopping list flow: generate → verify items → add manual → check →
 			expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width)
 		}
 		if (viewport.width < 768) {
-			await page.getByRole('button', { name: 'Close' }).click()
+			// `exact` keeps this off a lingering toast's "Close toast" button.
+			await page.getByRole('button', { name: 'Close', exact: true }).click()
 		}
 	}
 
@@ -279,7 +286,7 @@ test('Shopping list flow: generate → verify items → add manual → check →
 	}
 
 	// The checked items should be gone, while unchecked items remain.
-	await expect(page.getByText('jasmine rice')).toBeVisible()
+	await expect(page.getByText('spring onions')).toBeVisible()
 })
 
 test('household Staples can be added together from the quiet Shopping picker', async ({

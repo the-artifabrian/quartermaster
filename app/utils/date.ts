@@ -76,6 +76,11 @@ export function formatWeekdayName(date: Date): string {
 	return FULL_DAY_NAMES[date.getUTCDay()]!
 }
 
+/** Format like "Sat 26" using UTC fields: the day as a list heading reads it. */
+export function formatShortDay(date: Date): string {
+	return `${DAY_NAMES[date.getUTCDay()]} ${date.getUTCDate()}`
+}
+
 /** Format like "Jun 11" using UTC fields. */
 export function formatMonthDay(date: Date): string {
 	return `${MONTH_NAMES[date.getUTCMonth()]} ${date.getUTCDate()}`

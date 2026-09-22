@@ -84,3 +84,20 @@ export function defaultPickedLines(
 		.filter((line) => line.status === 'needed')
 		.map((line) => line.canonicalName)
 }
+
+/**
+ * What the Meal box ticks next. An empty Meal fills with its default lines
+ * first, so ticking a past Meal back does not drag in salt and rows already
+ * on the list; a part-ticked Meal fills up; only a full one empties.
+ */
+export function toggleMealPicks(
+	lines: PlanPickerLine[],
+	picked: ReadonlySet<string>,
+): Set<string> {
+	if (picked.size === lines.length) return new Set()
+	if (picked.size === 0) {
+		const needed = defaultPickedLines(lines)
+		if (needed.length > 0) return new Set(needed)
+	}
+	return new Set(lines.map((line) => line.canonicalName))
+}

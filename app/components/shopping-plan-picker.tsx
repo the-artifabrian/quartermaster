@@ -14,6 +14,7 @@ import { HouseholdClientInput } from '#app/utils/household-client.tsx'
 import { cn } from '#app/utils/misc.tsx'
 import {
 	defaultPickedLines,
+	toggleMealPicks,
 	type PlanPickerDay,
 	type PlanPickerLine,
 } from '#app/utils/shopping-plan-picker.ts'
@@ -202,13 +203,9 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 	function toggleMeal(mealId: string, lines: PlanPickerLine[]) {
 		setPicks((current) => {
 			const next = new Map(current)
-			const picked = next.get(mealId) ?? new Set<string>()
-			// A part-ticked Meal fills up first; only a full one empties.
 			next.set(
 				mealId,
-				picked.size === lines.length
-					? new Set()
-					: new Set(lines.map((line) => line.canonicalName)),
+				toggleMealPicks(lines, next.get(mealId) ?? new Set<string>()),
 			)
 			return next
 		})
@@ -363,7 +360,13 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 											aria-pressed={
 												allPicked ? true : picked.size > 0 ? 'mixed' : false
 											}
-											aria-label={`${allPicked ? 'Untick' : 'Tick'} every line in ${meal.title}`}
+											aria-label={
+												allPicked
+													? `Untick every line in ${meal.title}`
+													: picked.size === 0
+														? `Tick ${meal.title}`
+														: `Tick every line in ${meal.title}`
+											}
 											className="flex min-h-11 shrink-0 items-center"
 										>
 											<TickBox

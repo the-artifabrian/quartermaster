@@ -1245,8 +1245,8 @@ export default function ShoppingListRoute({
 									<p className="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
 										{hasMealPlan ? (
 											<>
-												Pick from <strong>From Plan</strong> or add an item by
-												hand.
+												Open <strong>From Plan</strong> to pick Meals, or add an
+												item by hand.
 											</>
 										) : (
 											<>

@@ -19,9 +19,9 @@ const faqs = [
 			'Open New Recipe > Import to paste a URL or recipe text. Pro also includes AI extraction from pasted text and screenshots. Choose Write a Recipe to enter one manually. Restore a Quartermaster JSON export from Settings > Data.',
 	},
 	{
-		question: 'How does Quartermaster calculate what a Recipe needs?',
+		question: 'What lands on Shopping when I add a Meal?',
 		answer:
-			'It builds the same deterministic ingredient demand used by Shopping and omits your household Staples, because those are the things you usually have. Partial or unresolved ingredients stay in the count instead of being guessed away.',
+			'Every ingredient except optional ones and those matching your household Staples, which are the things you usually have. Amounts that cannot be resolved stay on the list as written instead of being guessed away. Any single ingredient, Staple or not, can be added from its row on the Recipe.',
 	},
 	{
 		question: 'Can I share with my partner or household?',
@@ -36,7 +36,7 @@ const faqs = [
 	{
 		question: 'How does meal planning work?',
 		answer:
-			'The Planner shows an ordered week of Meals made from Recipes, Menu snapshots, or simple notes. When you\u2019re ready, open From Plan and tick the Meals you are shopping for; lines matching your Staples arrive unticked.',
+			'The Planner shows an ordered week of Meals made from Recipes, Menu snapshots, or simple notes. When you\u2019re ready, open From Plan on Shopping: every Meal and line arrives ticked except things usually on hand, such as your Staples and salt, lines already on the list, and days that have passed. Untick what you do not need and add the rest.',
 	},
 	{
 		question: 'Which features use AI?',

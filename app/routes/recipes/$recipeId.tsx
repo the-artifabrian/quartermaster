@@ -51,18 +51,11 @@ import { formatRecipeForCopy } from '#app/utils/recipe-copy.ts'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { MAX_RECIPE_DESCRIPTION_LENGTH } from '#app/utils/recipe-validation.ts'
-import {
-	buildShoppingDemand,
-	demandIdentity,
-} from '#app/utils/shopping-demand.server.ts'
+import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
 import { resolveNextShopDemandTargets } from '#app/utils/shopping-horizon.server.ts'
 import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { guessCategory } from '#app/utils/shopping-list-validation.ts'
-import {
-	annotateShoppingDemand,
-	loadShoppingAvailability,
-} from '#app/utils/shopping-list.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
 import { getKeepAwakePreference, useWakeLock } from '#app/utils/wake-lock.ts'
@@ -329,72 +322,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 			wasNew: isNew,
 			wasPromoted: promotedIds.length > 0,
 		}
-	}
-
-	if (intent === 'add-to-shopping-list') {
-		const safeRatio = parseServingRatio(formData)
-		const useMetric = formData.get('useMetric') === '1'
-
-		const fullRecipe = await prisma.recipe.findUnique({
-			where: { id: recipeId },
-			include: { ingredients: true },
-		})
-		invariantResponse(fullRecipe, 'Recipe not found')
-
-		// One demand module for every generation entry point (#108): the same
-		// heading/optional handling and consolidation as generate-from-Plan, then
-		// the same availability seam, which leaves out the household's Staples.
-		const demand = buildShoppingDemand({
-			recipeBatches: [
-				{ ingredients: fullRecipe.ingredients, scaleMultiplier: safeRatio },
-			],
-		})
-
-		const availability = await loadShoppingAvailability(prisma, householdId)
-		const { lines } = annotateShoppingDemand(demand, availability)
-
-		if (lines.length === 0) {
-			return { success: true, addedToShoppingList: 0 }
-		}
-
-		const ensuredShoppingList = await ensureShoppingList(prisma, {
-			userId,
-			householdId,
-		})
-		const { targets } = await resolveNextShopDemandTargets(prisma, {
-			listId: ensuredShoppingList.id,
-			canonicalNames: lines.map((line) => line.canonicalName),
-		})
-		const newItems = lines.filter((line) => !targets.has(line.canonicalName))
-
-		if (newItems.length > 0) {
-			await prisma.shoppingListItem.createMany({
-				data: newItems.map((line) => {
-					const converted = toShoppingItem(
-						line.name,
-						line.quantity,
-						line.unit,
-						useMetric,
-					)
-					return {
-						...converted,
-						category: line.category,
-						source: 'recipe',
-						horizon: NEXT_SHOP,
-						listId: ensuredShoppingList.id,
-					}
-				}),
-			})
-		}
-
-		void emitHouseholdEvent({
-			type: 'shopping_list_item_added',
-			payload: { name: recipe.title, source: 'recipe' },
-			userId,
-			householdId,
-		})
-
-		return { success: true, addedToShoppingList: newItems.length }
 	}
 
 	return { success: false }

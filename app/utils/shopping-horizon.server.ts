@@ -92,7 +92,7 @@ export async function resolveNextShopDemandTargets(
 /**
  * Ensure one preferred matching row is unchecked in Next shop for an explicit
  * restock action. Unlike generated demand, this policy may resurface a checked
- * row because the household has just said the Staple is Out.
+ * row because the household has just asked for the Staple again.
  */
 export async function resolveNextShopRestockTarget(
 	db: ShoppingHorizonDatabase,

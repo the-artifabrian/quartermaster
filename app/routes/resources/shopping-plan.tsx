@@ -1,8 +1,7 @@
 import { data } from 'react-router'
 import {
-	formatMonthDay,
 	formatWeekRange,
-	formatWeekdayName,
+	formatShortDay,
 	getCurrentWeekStart,
 	getWeekStart,
 	MEAL_TYPE_LABELS,
@@ -115,7 +114,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		if (!day) {
 			day = {
 				date,
-				label: `${formatWeekdayName(meal.date)} · ${formatMonthDay(meal.date)}`,
+				label: formatShortDay(meal.date),
 				meals: [],
 			}
 			days.push(day)

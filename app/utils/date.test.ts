@@ -12,6 +12,7 @@ import {
 	formatTimeAgo,
 	formatDayLabel,
 	formatMonthDay,
+	formatShortDay,
 	formatWeekdayName,
 	formatWeekRange,
 } from './date.ts'
@@ -167,6 +168,18 @@ describe('formatWeekdayName', () => {
 	test('formats Sunday', () => {
 		const sun = new Date('2026-02-08T00:00:00.000Z')
 		expect(formatWeekdayName(sun)).toBe('Sunday')
+	})
+})
+
+describe('formatShortDay', () => {
+	test('formats weekday and day number using UTC fields', () => {
+		const sat = new Date('2026-09-26T00:00:00.000Z')
+		expect(formatShortDay(sat)).toBe('Sat 26')
+	})
+
+	test('does not pad single-digit days', () => {
+		const mon = new Date('2026-02-02T23:59:59.000Z')
+		expect(formatShortDay(mon)).toBe('Mon 2')
 	})
 })
 

@@ -221,7 +221,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	}
 	await expectLocalPendingFeedback({
 		page,
-		button: page.getByRole('button', { name: /add 2 to next shop/i }),
+		button: page.getByRole('button', { name: /add 2 from 1 meal/i }),
 		statusName: 'Adding picked Meals to Shopping',
 	})
 

@@ -39,6 +39,7 @@ export type PlanPickerMeal = {
 
 export type PlanPickerDay = {
 	date: string
+	/** "Sat 26": the prefix each of the day's Meal headings carries. */
 	label: string
 	meals: PlanPickerMeal[]
 }

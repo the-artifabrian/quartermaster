@@ -206,7 +206,7 @@ export function ShoppingStaplesPicker({
 					)}
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent align="end" className="w-[min(22rem,calc(100vw-2rem))]">
+			<PopoverContent align="end" className="w-[calc(100vw-2rem)] sm:w-[28rem]">
 				<h2 className="font-serif text-lg">What do you need this trip?</h2>
 				<p className="text-muted-foreground mt-1 text-sm">
 					Pick Staples to add to Next shop.

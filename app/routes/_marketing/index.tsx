@@ -91,8 +91,8 @@ export default function Index() {
 			/>
 			<FeatureBand
 				index={4}
-				heading="The list writes itself"
-				body="Generate Shopping from the week’s Meals. Staples stay off the list unless they’re Out."
+				heading="Pick what you’ll buy"
+				body="Open From Plan, tick the Meals you’re shopping for, and only those lines land on the list."
 				screenSide="right"
 				screen={<ShoppingScreen />}
 			/>
@@ -875,9 +875,6 @@ function ShoppingScreen() {
 				</div>
 			</div>
 			<div className="px-5 py-4 sm:px-6">
-				<p className="text-cream-muted pb-1 text-sm">
-					Generated for Sep 21 – 27 · 6 usually on hand
-				</p>
 				<div className="divide-espresso-line/60 divide-y">
 					{shoppingNext.map((item) => (
 						<ShoppingRow key={item.name} {...item} />

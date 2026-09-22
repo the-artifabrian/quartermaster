@@ -190,111 +190,7 @@ describe('shopping list actions', () => {
 		}
 	})
 
-	test('generate from meal plan creates items', async () => {
-		const session = await setupUser()
-		await setupMealPlanWithRecipe(session.userId, session.householdId)
-
-		const request = await makeRequest(session, { intent: 'generate' })
-		const result = (await action({ request, ...ACTION_ARGS_BASE })) as {
-			status: string
-		}
-		expect(result.status).toBe('success')
-
-		const list = await prisma.shoppingList.findFirst({
-			where: { userId: session.userId },
-			include: { items: true },
-		})
-		expect(list!.items.length).toBeGreaterThan(0)
-		expect(list!.items.every((i) => i.source === 'generated')).toBe(true)
-	})
-
-	test('generate reads Meal items: multipliers scale, cooked items and missing cards contribute nothing', async () => {
-		const session = await setupUser()
-		const recipe = await prisma.recipe.create({
-			data: {
-				title: 'Kofta',
-				userId: session.userId,
-				householdId: session.householdId,
-				ingredients: {
-					create: [{ name: 'ground lamb', amount: '500', unit: 'g', order: 0 }],
-				},
-			},
-		})
-		const cookedRecipe = await prisma.recipe.create({
-			data: {
-				title: 'Salad',
-				userId: session.userId,
-				householdId: session.householdId,
-				ingredients: {
-					create: [{ name: 'cucumber', amount: '2', order: 0 }],
-				},
-			},
-		})
-		const weekStart = getCurrentWeekStart()
-		await prisma.mealPlan.create({
-			data: {
-				householdId: session.householdId,
-				weekStart,
-				meals: {
-					create: [
-						{
-							date: weekStart,
-							order: 0,
-							recipeItems: {
-								create: [
-									// 2× batches — the stored multiplier scales directly,
-									// no serving-denominator arithmetic.
-									{
-										order: 0,
-										recipeId: recipe.id,
-										recipeTitle: recipe.title,
-										scaleMultiplier: 2,
-									},
-									// Cooked: no demand.
-									{
-										order: 1,
-										recipeId: cookedRecipe.id,
-										recipeTitle: cookedRecipe.title,
-										scaleMultiplier: 1,
-										cooked: true,
-									},
-									// Missing card (Recipe deleted): no fresh demand.
-									{
-										order: 2,
-										recipeId: null,
-										recipeTitle: 'Retired Recipe',
-										scaleMultiplier: 1,
-									},
-								],
-							},
-						},
-						// Text-only Meal: no Shopping behavior.
-						{
-							date: weekStart,
-							order: 1,
-							genericText: 'Leftovers',
-						},
-					],
-				},
-			},
-		})
-
-		const request = await makeRequest(session, { intent: 'generate' })
-		const result = (await action({ request, ...ACTION_ARGS_BASE })) as {
-			status: string
-		}
-		expect(result.status).toBe('success')
-
-		const list = await prisma.shoppingList.findFirst({
-			where: { userId: session.userId },
-			include: { items: true },
-		})
-		expect(
-			list!.items.map((item) => [item.name, item.quantity, item.unit]),
-		).toEqual([['ground lamb', '1000', 'g']])
-	})
-
-	test('loader offers only weeks whose Meals hold Recipe items', async () => {
+	test('loader offers only weeks whose Meals can contribute Shopping demand', async () => {
 		const session = await setupUser()
 		const weekStart = getCurrentWeekStart()
 		const mealPlan = await prisma.mealPlan.create({
@@ -307,7 +203,7 @@ describe('shopping list actions', () => {
 			},
 		})
 
-		// A week of only text-only Meals has nothing to generate from.
+		// A week of only text-only Meals has nothing to offer the picker.
 		const before = await loader({
 			request: await makeLoaderRequest(session),
 			...ACTION_ARGS_BASE,
@@ -345,6 +241,390 @@ describe('shopping list actions', () => {
 		})
 		expect(after.hasMealPlan).toBe(true)
 		expect(after.weeksWithPlans.map((week) => week.isCurrent)).toEqual([true])
+	})
+
+	test('a picked Meal writes through the Meal-add path, and picking it again changes nothing', async () => {
+		const session = await setupUser()
+		await setupMealPlanWithRecipe(session.userId, session.householdId)
+		const meal = await prisma.meal.findFirstOrThrow({
+			where: { mealPlan: { householdId: session.householdId } },
+		})
+
+		const first = (await action({
+			request: await makeRequest(session, {
+				intent: 'add-from-plan',
+				picks: JSON.stringify([
+					{ mealId: meal.id, lines: ['chicken', 'rice'] },
+				]),
+			}),
+			...ACTION_ARGS_BASE,
+		})) as { status: string; createdRowCount: number }
+		expect(first).toMatchObject({ status: 'success', createdRowCount: 2 })
+
+		const list = await prisma.shoppingList.findFirstOrThrow({
+			where: { householdId: session.householdId },
+		})
+		const rowsAfterFirst = await prisma.shoppingListItem.findMany({
+			where: { listId: list.id },
+			orderBy: { name: 'asc' },
+			select: {
+				name: true,
+				quantity: true,
+				unit: true,
+				source: true,
+				horizon: true,
+				checked: true,
+			},
+		})
+		// Rows the Meal-add path creates, not week-generated ones.
+		expect(rowsAfterFirst).toEqual([
+			{
+				name: 'chicken',
+				quantity: '2',
+				unit: 'lbs',
+				source: 'meal',
+				horizon: 'next',
+				checked: false,
+			},
+			{
+				name: 'rice',
+				quantity: '1',
+				unit: 'cup',
+				source: 'meal',
+				horizon: 'next',
+				checked: false,
+			},
+		])
+		expect(
+			await prisma.mealShoppingContribution.count({
+				where: { mealId: meal.id },
+			}),
+		).toBe(2)
+
+		// Idempotent: the same pick records no new demand and adds no rows.
+		const second = (await action({
+			request: await makeRequest(session, {
+				intent: 'add-from-plan',
+				picks: JSON.stringify([
+					{ mealId: meal.id, lines: ['chicken', 'rice'] },
+				]),
+			}),
+			...ACTION_ARGS_BASE,
+		})) as {
+			status: string
+			createdRowCount: number
+			alreadyContributedCount: number
+		}
+		expect(second).toMatchObject({
+			status: 'success',
+			createdRowCount: 0,
+			alreadyContributedCount: 2,
+		})
+		expect(
+			await prisma.shoppingListItem.findMany({
+				where: { listId: list.id },
+				orderBy: { name: 'asc' },
+				select: { name: true },
+			}),
+		).toEqual([{ name: 'chicken' }, { name: 'rice' }])
+	})
+
+	test('an unticked line stays off the list', async () => {
+		const session = await setupUser()
+		await setupMealPlanWithRecipe(session.userId, session.householdId)
+		const meal = await prisma.meal.findFirstOrThrow({
+			where: { mealPlan: { householdId: session.householdId } },
+		})
+
+		await action({
+			request: await makeRequest(session, {
+				intent: 'add-from-plan',
+				picks: JSON.stringify([{ mealId: meal.id, lines: ['chicken'] }]),
+			}),
+			...ACTION_ARGS_BASE,
+		})
+
+		expect(
+			await prisma.shoppingListItem.findMany({
+				where: { list: { householdId: session.householdId } },
+				select: { name: true },
+			}),
+		).toEqual([{ name: 'chicken' }])
+	})
+
+	test('a usually-on-hand line still lands when the household ticks it', async () => {
+		const session = await setupUser()
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Brine',
+				userId: session.userId,
+				householdId: session.householdId,
+				ingredients: {
+					create: [{ name: 'salt', amount: '100', unit: 'g', order: 0 }],
+				},
+			},
+		})
+		const weekStart = getCurrentWeekStart()
+		const mealPlan = await prisma.mealPlan.create({
+			data: {
+				householdId: session.householdId,
+				weekStart,
+				meals: {
+					create: {
+						date: weekStart,
+						order: 0,
+						recipeItems: {
+							create: {
+								order: 0,
+								recipeId: recipe.id,
+								recipeTitle: recipe.title,
+								scaleMultiplier: 1,
+							},
+						},
+					},
+				},
+			},
+			include: { meals: true },
+		})
+
+		// The picker unticks salt by default; the tick set is what decides, so
+		// an explicit tick overrides the usual assumption.
+		await action({
+			request: await makeRequest(session, {
+				intent: 'add-from-plan',
+				picks: JSON.stringify([
+					{ mealId: mealPlan.meals[0]!.id, lines: ['salt'] },
+				]),
+			}),
+			...ACTION_ARGS_BASE,
+		})
+
+		expect(
+			await prisma.shoppingListItem.findMany({
+				where: { list: { householdId: session.householdId } },
+				select: { name: true, quantity: true, unit: true, source: true },
+			}),
+		).toEqual([{ name: 'salt', quantity: '100', unit: 'g', source: 'meal' }])
+	})
+
+	test('picks cannot reach cooked items, missing cards, text-only Meals or another household', async () => {
+		const session = await setupUser()
+		const outsider = await setupUser()
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Kofta',
+				userId: session.userId,
+				householdId: session.householdId,
+				ingredients: {
+					create: [{ name: 'ground lamb', amount: '500', unit: 'g', order: 0 }],
+				},
+			},
+		})
+		const cookedRecipe = await prisma.recipe.create({
+			data: {
+				title: 'Salad',
+				userId: session.userId,
+				householdId: session.householdId,
+				ingredients: { create: [{ name: 'cucumber', amount: '2', order: 0 }] },
+			},
+		})
+		const weekStart = getCurrentWeekStart()
+		const mealPlan = await prisma.mealPlan.create({
+			data: {
+				householdId: session.householdId,
+				weekStart,
+				meals: {
+					create: [
+						{
+							date: weekStart,
+							order: 0,
+							recipeItems: {
+								create: [
+									// 2× batches — the stored multiplier scales directly.
+									{
+										order: 0,
+										recipeId: recipe.id,
+										recipeTitle: recipe.title,
+										scaleMultiplier: 2,
+									},
+									// Cooked: already made, never offered.
+									{
+										order: 1,
+										recipeId: cookedRecipe.id,
+										recipeTitle: cookedRecipe.title,
+										scaleMultiplier: 1,
+										cooked: true,
+									},
+									// Missing card (Recipe deleted): no fresh demand.
+									{
+										order: 2,
+										recipeId: null,
+										recipeTitle: 'Retired Recipe',
+										scaleMultiplier: 1,
+									},
+								],
+							},
+						},
+						{ date: weekStart, order: 1, genericText: 'Leftovers' },
+					],
+				},
+			},
+			include: { meals: { orderBy: { order: 'asc' } } },
+		})
+		const [recipeMeal, textMeal] = mealPlan.meals
+		const outsiderPlan = await prisma.mealPlan.create({
+			data: {
+				householdId: outsider.householdId,
+				weekStart,
+				meals: { create: { date: weekStart, order: 0 } },
+			},
+			include: { meals: true },
+		})
+
+		await action({
+			request: await makeRequest(session, {
+				intent: 'add-from-plan',
+				picks: JSON.stringify([
+					{
+						mealId: recipeMeal!.id,
+						lines: ['ground lamb', 'cucumber', 'retired recipe'],
+					},
+					{ mealId: textMeal!.id, lines: ['leftovers'] },
+					{ mealId: outsiderPlan.meals[0]!.id, lines: ['anything'] },
+				]),
+			}),
+			...ACTION_ARGS_BASE,
+		})
+
+		expect(
+			await prisma.shoppingListItem.findMany({
+				where: { list: { householdId: session.householdId } },
+				select: { name: true, quantity: true, unit: true },
+			}),
+		).toEqual([{ name: 'ground lamb', quantity: '1000', unit: 'g' }])
+		expect(
+			await prisma.shoppingListItem.count({
+				where: { list: { householdId: outsider.householdId } },
+			}),
+		).toBe(0)
+	})
+
+	test('picked demand promotes an unchecked Later match and adds beside a checked purchase', async () => {
+		const session = await setupUser()
+		await setupMealPlanWithRecipe(session.userId, session.householdId)
+		const meal = await prisma.meal.findFirstOrThrow({
+			where: { mealPlan: { householdId: session.householdId } },
+		})
+		const list = await ensureShoppingList(prisma, {
+			userId: session.userId,
+			householdId: session.householdId,
+		})
+		await prisma.shoppingListItem.createMany({
+			data: [
+				{
+					name: 'chicken',
+					quantity: 'family pack',
+					listId: list.id,
+					horizon: 'later',
+					source: 'manual',
+				},
+				{
+					name: 'rice',
+					listId: list.id,
+					horizon: 'later',
+					checked: true,
+					source: 'manual',
+				},
+			],
+		})
+
+		await action({
+			request: await makeRequest(session, {
+				intent: 'add-from-plan',
+				picks: JSON.stringify([
+					{ mealId: meal.id, lines: ['chicken', 'rice'] },
+				]),
+			}),
+			...ACTION_ARGS_BASE,
+		})
+
+		expect(
+			await prisma.shoppingListItem.findMany({
+				where: { listId: list.id },
+				orderBy: [{ name: 'asc' }, { checked: 'asc' }],
+				select: {
+					name: true,
+					quantity: true,
+					horizon: true,
+					checked: true,
+					source: true,
+				},
+			}),
+		).toEqual([
+			{
+				name: 'chicken',
+				quantity: 'family pack',
+				horizon: 'next',
+				checked: false,
+				source: 'manual',
+			},
+			{
+				name: 'rice',
+				quantity: '1',
+				horizon: 'next',
+				checked: false,
+				source: 'meal',
+			},
+			{
+				name: 'rice',
+				quantity: null,
+				horizon: 'later',
+				checked: true,
+				source: 'manual',
+			},
+		])
+	})
+
+	test('legacy generated rows still display and check', async () => {
+		const session = await setupUser()
+		const list = await ensureShoppingList(prisma, {
+			userId: session.userId,
+			householdId: session.householdId,
+		})
+		// Rows From Plan wrote before #288 are ordinary rows now; nothing reads
+		// their source value any more.
+		const legacy = await prisma.shoppingListItem.create({
+			data: {
+				listId: list.id,
+				name: 'Leeks',
+				quantity: '3',
+				source: 'generated',
+				horizon: 'next',
+			},
+		})
+
+		const seen = await loader({
+			request: await makeLoaderRequest(session),
+			...ACTION_ARGS_BASE,
+		})
+		const row = seen.shoppingList.items.find((item) => item.id === legacy.id)!
+		expect(row.display).toMatchObject({ quantity: '3', unit: null })
+
+		await action({
+			request: await makeRequest(session, {
+				intent: 'toggle',
+				itemId: legacy.id,
+				checked: 'true',
+				observedVersion: String(legacy.checkVersion),
+				mutationId: 'check-legacy-leeks',
+			}),
+			...ACTION_ARGS_BASE,
+		})
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: legacy.id },
+			}),
+		).toMatchObject({ checked: true })
 	})
 
 	test('the choice resource exposes only active Staples while Shopping owns current identities', async () => {
@@ -411,30 +691,6 @@ describe('shopping list actions', () => {
 				shoppingIdentity: 'milk',
 			},
 		])
-	})
-
-	test('generate replaces previous generated items', async () => {
-		const session = await setupUser()
-		await setupMealPlanWithRecipe(session.userId, session.householdId)
-
-		// Generate twice
-		await action({
-			request: await makeRequest(session, { intent: 'generate' }),
-			...ACTION_ARGS_BASE,
-		})
-		await action({
-			request: await makeRequest(session, { intent: 'generate' }),
-			...ACTION_ARGS_BASE,
-		})
-
-		const list = await prisma.shoppingList.findFirst({
-			where: { userId: session.userId },
-			include: { items: true },
-		})
-		// Should not have duplicates
-		const generatedItems = list!.items.filter((i) => i.source === 'generated')
-		const uniqueNames = new Set(generatedItems.map((i) => i.name))
-		expect(generatedItems).toHaveLength(uniqueNames.size)
 	})
 
 	test('add manual item', async () => {
@@ -971,84 +1227,6 @@ describe('shopping list actions', () => {
 				select: { name: true, horizon: true, checked: true },
 			}),
 		).toEqual([{ name: 'Candles', horizon: 'later', checked: true }])
-	})
-
-	test('generated Plan demand promotes unchecked Later matches and adds new demand beside checked purchases', async () => {
-		const session = await setupUser()
-		await setupMealPlanWithRecipe(session.userId, session.householdId)
-		const list = await ensureShoppingList(prisma, {
-			userId: session.userId,
-			householdId: session.householdId,
-		})
-		await prisma.shoppingListItem.createMany({
-			data: [
-				{
-					name: 'chicken',
-					quantity: 'family pack',
-					listId: list.id,
-					horizon: 'later',
-					source: 'manual',
-				},
-				{
-					name: 'rice',
-					listId: list.id,
-					horizon: 'later',
-					checked: true,
-					source: 'manual',
-				},
-			],
-		})
-
-		await action({
-			request: await makeRequest(session, { intent: 'generate' }),
-			...ACTION_ARGS_BASE,
-		})
-
-		expect(
-			await prisma.shoppingListItem.findMany({
-				where: { listId: list.id },
-				orderBy: [{ name: 'asc' }, { checked: 'asc' }],
-				select: {
-					name: true,
-					quantity: true,
-					horizon: true,
-					checked: true,
-					source: true,
-				},
-			}),
-		).toEqual([
-			{
-				name: 'chicken',
-				quantity: 'family pack',
-				horizon: 'next',
-				checked: false,
-				source: 'manual',
-			},
-			{
-				name: 'rice',
-				quantity: '1',
-				horizon: 'next',
-				checked: false,
-				source: 'generated',
-			},
-			{
-				name: 'rice',
-				quantity: null,
-				horizon: 'later',
-				checked: true,
-				source: 'manual',
-			},
-		])
-	})
-
-	test('generate without meal plan returns 404', async () => {
-		const session = await setupUser()
-
-		const request = await makeRequest(session, { intent: 'generate' })
-		const response = action({ request, ...ACTION_ARGS_BASE })
-		await expect(response).rejects.toEqual(
-			expect.objectContaining({ status: 404 }),
-		)
 	})
 
 	test('bulk-add normalizes note lines: trims, dedups by canonical identity, keeps explicit staples', async () => {

@@ -876,6 +876,40 @@ describe('removeMember', () => {
 		})
 		expect(removedMembership).toBeNull()
 	})
+
+	test('an owner cannot remove someone from another household', async () => {
+		const owner = await setupUser()
+		const otherOwner = await setupUser()
+		const outsider = await prisma.user.create({ data: createUser() })
+		await prisma.householdMember.create({
+			data: {
+				householdId: otherOwner.householdId,
+				userId: outsider.id,
+				role: 'member',
+			},
+		})
+		const loner = await prisma.user.create({ data: createUser() })
+
+		await expect(
+			removeMember(owner.id, outsider.id, owner.householdId),
+		).rejects.toThrow('not a member of this household')
+		await expect(
+			removeMember(owner.id, loner.id, owner.householdId),
+		).rejects.toThrow('not a member of this household')
+
+		expect(
+			await prisma.householdMember.findMany({
+				where: { userId: { in: [outsider.id, loner.id] } },
+				select: { userId: true, householdId: true, role: true },
+			}),
+		).toEqual([
+			{
+				userId: outsider.id,
+				householdId: otherOwner.householdId,
+				role: 'member',
+			},
+		])
+	})
 })
 
 describe('revokeInvite', () => {

@@ -408,6 +408,16 @@ export async function removeMember(
 		throw new Error('Owner cannot remove themselves')
 	}
 
+	// leaveHousehold acts on whatever household the target is in, so the
+	// target must be checked against the owner's household first.
+	const targetMember = await prisma.householdMember.findUnique({
+		where: { householdId_userId: { householdId, userId: targetUserId } },
+		select: { userId: true },
+	})
+	if (!targetMember) {
+		throw new Error('That user is not a member of this household')
+	}
+
 	// Delegate to leaveHousehold for the target user
 	await leaveHousehold(targetUserId)
 }

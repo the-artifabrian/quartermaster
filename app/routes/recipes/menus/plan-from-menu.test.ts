@@ -418,7 +418,7 @@ describe('add to plan from menu detail', () => {
 		const stranger = await setupUser()
 		await expect(
 			planMenu(stranger, menu.id, { date: '2026-09-01' }),
-		).rejects.toThrow()
+		).rejects.toMatchObject({ status: 404 })
 		expect(await prisma.meal.count({ where: { sourceMenuId: menu.id } })).toBe(
 			0,
 		)

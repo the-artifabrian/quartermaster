@@ -8,8 +8,8 @@ import { expect, test, createUser, waitFor } from '#tests/playwright-utils.ts'
 const CODE_REGEX = /Here's your verification code: (?<code>[\d\w]+)/
 
 test('Users can update their basic info', async ({ page, navigate, login }) => {
-	await login()
-	await navigate('/settings/profile')
+	const user = await login()
+	await navigate('/settings/profile/edit')
 
 	const newUserData = createUser()
 
@@ -19,6 +19,15 @@ test('Users can update their basic info', async ({ page, navigate, login }) => {
 		.fill(newUserData.username)
 
 	await page.getByRole('button', { name: /^save/i }).click()
+
+	await expect
+		.poll(() =>
+			prisma.user.findUnique({
+				where: { id: user.id },
+				select: { name: true, username: true },
+			}),
+		)
+		.toEqual({ name: newUserData.name, username: newUserData.username })
 })
 
 test('Users can update their password', async ({ page, navigate, login }) => {
@@ -27,7 +36,7 @@ test('Users can update their password', async ({ page, navigate, login }) => {
 	const user = await login({ password: oldPassword })
 	await navigate('/settings/profile')
 
-	await page.getByRole('link', { name: /change password/i }).click()
+	await page.getByRole('link', { name: /^password$/i }).click()
 
 	await page
 		.getByRole('textbox', { name: /^current password/i })
@@ -61,7 +70,7 @@ test('Users can change their email address', async ({
 	const newEmailAddress = faker.internet.email().toLowerCase()
 	expect(preUpdateUser.email).not.toEqual(newEmailAddress)
 	await navigate('/settings/profile')
-	await page.getByRole('link', { name: /change email/i }).click()
+	await page.getByRole('link', { name: /^email/i }).click()
 	await page.getByRole('textbox', { name: /new email/i }).fill(newEmailAddress)
 	await page.getByRole('button', { name: /send confirmation/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()

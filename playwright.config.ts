@@ -11,8 +11,9 @@ export default defineConfig({
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
-	workers: process.env.CI ? 1 : undefined,
-	reporter: 'html',
+	// GitHub's runners for public repos have 4 vCPUs.
+	workers: process.env.CI ? 4 : undefined,
+	reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'html',
 	use: {
 		baseURL: `http://localhost:${PORT}/`,
 		trace: 'on-first-retry',
@@ -31,7 +32,8 @@ export default defineConfig({
 		command: process.env.CI ? 'bun run start:mocks' : 'bun run dev',
 		port: Number(PORT),
 		timeout: 60 * 1000,
-		reuseExistingServer: true,
+		// A CI-mode run must never attach to a dev server and its database.
+		reuseExistingServer: !process.env.CI,
 		stdout: 'pipe',
 		stderr: 'pipe',
 		env: {

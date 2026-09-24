@@ -145,7 +145,7 @@ test('share a dinner, sign in, save, edit, cook and plan an independent Menu on 
 		await page.goto(publicPath)
 		await expect(page.getByRole('heading', { name: menu.title })).toBeVisible()
 		await expect(page.getByText('Usually for 6 guests')).toBeVisible()
-		await expect(page.getByText('mint', { exact: true })).toBeVisible()
+		await expect(page.getByText('mint · 2 bunches')).toBeVisible()
 		await expect(
 			page.getByRole('link', { name: /Lemon chickpeas/ }).first(),
 		).toContainText('1.5× · makes 6 bowls')

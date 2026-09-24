@@ -6,7 +6,6 @@ async function setup(userId: string) {
 	const household = await prisma.household.create({
 		data: {
 			name: 'Disposable check test',
-			staplesCutoverAt: new Date(),
 			members: { create: { userId, role: 'owner' } },
 		},
 	})

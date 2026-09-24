@@ -100,9 +100,13 @@ test.describe('Move a Meal', () => {
 				where: { list: { householdId: household.id } },
 				include: { mealContributions: true },
 			})
-		await expect.poll(async () => (await readShopping()).length).toBe(1)
+		await expect(page.getByText('Added 1 item to Shopping')).toBeVisible()
 		const shopping = await readShopping()
+		expect(shopping).toHaveLength(1)
 
+		// The closed menu hands focus back to its trigger; reopening before then
+		// lets that late focus close the new menu as a click outside.
+		await expect(mealActions).toBeFocused()
 		await mealActions.click()
 		await page.getByRole('menuitem', { name: 'Edit details' }).click()
 		await expect(mobile.getByLabel('Date', { exact: true })).toHaveValue(

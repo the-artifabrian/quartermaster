@@ -1,9 +1,16 @@
+import { isIP } from 'node:net'
 import { http, HttpResponse } from 'msw'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { server } from '#tests/setup/mocks-setup.ts'
-import { fetchPublicUrl, isPublicUrl } from './public-url.server.ts'
+import {
+	fetchPublicUrl,
+	isPublicUrl,
+	type ResolveHost,
+} from './public-url.server.ts'
 
 const PUBLIC_IP = '93.184.216.34'
+const OTHER_PUBLIC_IP = '93.184.216.35'
+const PUBLIC_IPV6 = '2606:4700::6810:84e5'
 
 function resolverFor(records: Record<string, Array<string>>) {
 	const lookups: Array<string> = []
@@ -15,6 +22,35 @@ function resolverFor(records: Record<string, Array<string>>) {
 		return addresses.map((address) => ({ address }))
 	}
 	return { resolveHost, lookups }
+}
+
+type Visit = { address: string; host: string; path: string }
+
+/**
+ * Stands in for the network: records the address each request connects to
+ * and the host it names. A request that carries a name instead of an address
+ * is resolved again with the same DNS, as a real network stack would.
+ */
+function networkAnswering(
+	resolveHost: ResolveHost,
+	respond: (visit: Visit) => Response = () => HttpResponse.text('ok'),
+) {
+	const visits: Array<Visit> = []
+	server.use(
+		http.all('*', async ({ request }) => {
+			const url = new URL(request.url)
+			const name = url.hostname.replace(/^\[|\]$/g, '')
+			const [first] = isIP(name) ? [{ address: name }] : await resolveHost(name)
+			const visit = {
+				address: first?.address ?? 'unresolved',
+				host: request.headers.get('host') ?? url.host,
+				path: url.pathname,
+			}
+			visits.push(visit)
+			return respond(visit)
+		}),
+	)
+	return visits
 }
 
 test('private and reserved address literals are refused in any spelling', async () => {
@@ -91,44 +127,35 @@ test('only http and https URLs are allowed', async () => {
 
 test('a redirect to an internal address is refused before it is requested', async () => {
 	const { resolveHost } = resolverFor({ 'recipes.example': [PUBLIC_IP] })
-	const internalHits: Array<string> = []
-	server.use(
-		http.get('https://recipes.example/moved', () =>
-			HttpResponse.redirect('http://10.0.0.5/secret', 302),
-		),
-		http.get('http://10.0.0.5/secret', ({ request }) => {
-			internalHits.push(request.url)
-			return HttpResponse.text('secret')
-		}),
+	const visits = networkAnswering(resolveHost, () =>
+		HttpResponse.redirect('http://10.0.0.5/secret', 302),
 	)
 
 	expect(
 		await fetchPublicUrl('https://recipes.example/moved', {}, { resolveHost }),
 	).toBeNull()
-	expect(internalHits).toEqual([])
+	expect(visits).toEqual([
+		{ address: PUBLIC_IP, host: 'recipes.example', path: '/moved' },
+	])
 })
 
 test('public redirects are followed one checked hop at a time', async () => {
 	const { resolveHost, lookups } = resolverFor({
 		'recipes.example': [PUBLIC_IP],
-		'www.recipes.example': [PUBLIC_IP],
+		'www.recipes.example': [OTHER_PUBLIC_IP],
 	})
-	server.use(
-		http.get('https://recipes.example/soup', () =>
-			HttpResponse.redirect('https://www.recipes.example/soup', 301),
-		),
-		http.get(
-			'https://www.recipes.example/soup',
-			() =>
-				new HttpResponse(null, {
-					status: 308,
-					headers: { Location: '/recipes/soup' },
-				}),
-		),
-		http.get('https://www.recipes.example/recipes/soup', () =>
-			HttpResponse.text('<h1>Soup</h1>'),
-		),
-	)
+	const visits = networkAnswering(resolveHost, ({ host, path }) => {
+		if (host === 'recipes.example') {
+			return HttpResponse.redirect('https://www.recipes.example/soup', 301)
+		}
+		if (path === '/soup') {
+			return new HttpResponse(null, {
+				status: 308,
+				headers: { Location: '/recipes/soup' },
+			})
+		}
+		return HttpResponse.text('<h1>Soup</h1>')
+	})
 
 	const response = await fetchPublicUrl(
 		'https://recipes.example/soup',
@@ -143,16 +170,21 @@ test('public redirects are followed one checked hop at a time', async () => {
 		'www.recipes.example',
 		'www.recipes.example',
 	])
+	expect(visits).toEqual([
+		{ address: PUBLIC_IP, host: 'recipes.example', path: '/soup' },
+		{ address: OTHER_PUBLIC_IP, host: 'www.recipes.example', path: '/soup' },
+		{
+			address: OTHER_PUBLIC_IP,
+			host: 'www.recipes.example',
+			path: '/recipes/soup',
+		},
+	])
 })
 
 test('a redirect loop stops instead of following forever', async () => {
 	const { resolveHost } = resolverFor({ 'recipes.example': [PUBLIC_IP] })
-	let hops = 0
-	server.use(
-		http.get('https://recipes.example/loop', () => {
-			hops++
-			return HttpResponse.redirect('https://recipes.example/loop', 302)
-		}),
+	const visits = networkAnswering(resolveHost, () =>
+		HttpResponse.redirect('https://recipes.example/loop', 302),
 	)
 
 	expect(
@@ -162,5 +194,93 @@ test('a redirect loop stops instead of following forever', async () => {
 			{ resolveHost, maxRedirects: 3 },
 		),
 	).toBeNull()
-	expect(hops).toBe(4)
+	expect(visits).toHaveLength(4)
+})
+
+test('the request connects to the address that was checked, even when DNS later answers differently', async () => {
+	// A hostile DNS server answers with a public address for the check and a
+	// private one for every lookup after it (DNS rebinding).
+	const answers = [PUBLIC_IP]
+	const lookups: Array<string> = []
+	const resolveHost = async (hostname: string) => {
+		lookups.push(hostname)
+		return [{ address: answers.shift() ?? '10.0.0.5' }]
+	}
+	const visits = networkAnswering(resolveHost, () =>
+		HttpResponse.text('<h1>Soup</h1>'),
+	)
+
+	const response = await fetchPublicUrl(
+		'https://rebind.example/soup',
+		{},
+		{ resolveHost },
+	)
+
+	expect(await response?.text()).toBe('<h1>Soup</h1>')
+	expect(visits).toEqual([
+		{ address: PUBLIC_IP, host: 'rebind.example', path: '/soup' },
+	])
+	expect(lookups).toEqual(['rebind.example'])
+})
+
+test('the pinned request names the original host for Host, SNI and the certificate check', async () => {
+	const { resolveHost } = resolverFor({ 'recipes.example': [PUBLIC_IP] })
+	const visits = networkAnswering(resolveHost)
+	const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+	const response = await fetchPublicUrl(
+		'https://recipes.example:8443/soup?serves=2',
+		{},
+		{ resolveHost },
+	)
+
+	expect(visits).toEqual([
+		{ address: PUBLIC_IP, host: 'recipes.example:8443', path: '/soup' },
+	])
+	// Bun sends tls.serverName as SNI and verifies the certificate against
+	// it. Nothing else in tls, so verification can never be switched off.
+	expect(Reflect.get(fetchSpy.mock.calls[0]?.[1] ?? {}, 'tls')).toEqual({
+		serverName: 'recipes.example',
+	})
+	expect(response?.url).toBe('https://recipes.example:8443/soup?serves=2')
+})
+
+test('several addresses are tried in turn, IPv4 first, and only those checked', async () => {
+	const { resolveHost } = resolverFor({
+		'recipes.example': [PUBLIC_IPV6, PUBLIC_IP, OTHER_PUBLIC_IP],
+	})
+	const visits = networkAnswering(resolveHost, ({ address }) =>
+		address === PUBLIC_IPV6
+			? HttpResponse.text('<h1>Soup</h1>')
+			: HttpResponse.error(),
+	)
+
+	const response = await fetchPublicUrl(
+		'https://recipes.example/soup',
+		{},
+		{ resolveHost },
+	)
+
+	expect(await response?.text()).toBe('<h1>Soup</h1>')
+	expect(visits).toEqual([
+		{ address: PUBLIC_IP, host: 'recipes.example', path: '/soup' },
+		{ address: OTHER_PUBLIC_IP, host: 'recipes.example', path: '/soup' },
+		{ address: PUBLIC_IPV6, host: 'recipes.example', path: '/soup' },
+	])
+})
+
+test("the caller's abort signal still stops a pinned request", async () => {
+	const { resolveHost } = resolverFor({
+		'recipes.example': [PUBLIC_IP, OTHER_PUBLIC_IP],
+	})
+	const visits = networkAnswering(resolveHost)
+
+	await expect(
+		fetchPublicUrl(
+			'https://recipes.example/soup',
+			{ signal: AbortSignal.abort() },
+			{ resolveHost },
+		),
+	).rejects.toMatchObject({ name: 'AbortError' })
+	expect(visits).toEqual([])
 })

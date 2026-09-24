@@ -5,10 +5,9 @@ import { BlockList, isIP } from 'node:net'
  * Server-side fetches of user-supplied URLs (Recipe import) must never reach
  * this machine, the Fly private network, or cloud metadata. A URL counts as
  * public only when it is http(s) and every address its host resolves to lies
- * outside the private and reserved ranges below.
- *
- * Residual risk: fetch resolves the host again, so a DNS answer that changes
- * between the check and the request (rebinding) is not covered.
+ * outside the private and reserved ranges below. `fetchPublicUrl` connects to
+ * one of the addresses it checked, so a DNS answer that changes after the
+ * check (rebinding) cannot move the request.
  */
 
 export type ResolveHost = (
@@ -68,38 +67,108 @@ function isPublicAddress(address: string) {
 	return !nonPublic.check(address, family === 4 ? 'ipv4' : 'ipv6')
 }
 
-export async function isPublicUrl(
+type CheckedUrl = {
+	url: URL
+	/** The host without IPv6 brackets or a trailing dot. */
+	hostname: string
+	/** Every address the host resolved to. All of them are public. */
+	addresses: Array<string>
+}
+
+/** Resolves the host once. Returns null unless the URL is public. */
+async function checkUrl(
 	url: string | URL,
-	resolveHost: ResolveHost = resolveWithDns,
-): Promise<boolean> {
+	resolveHost: ResolveHost,
+): Promise<CheckedUrl | null> {
 	let parsed: URL
 	try {
 		parsed = new URL(url)
 	} catch {
-		return false
+		return null
 	}
-	if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+	if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
 
 	// URL keeps brackets on IPv6 literals and already normalizes other IPv4
 	// spellings (2130706433, 0x7f.1) to dotted decimal.
 	const hostname = parsed.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '')
-	if (isIP(hostname)) return isPublicAddress(hostname)
-	if (!hostname.includes('.') || INTERNAL_NAME.test(hostname)) return false
+	if (isIP(hostname)) {
+		return isPublicAddress(hostname)
+			? { url: parsed, hostname, addresses: [hostname] }
+			: null
+	}
+	if (!hostname.includes('.') || INTERNAL_NAME.test(hostname)) return null
 
 	try {
-		const addresses = await resolveHost(hostname)
-		return (
-			addresses.length > 0 &&
-			addresses.every(({ address }) => isPublicAddress(address))
+		const addresses = (await resolveHost(hostname)).map(
+			({ address }) => address,
 		)
+		if (addresses.length === 0 || !addresses.every(isPublicAddress)) return null
+		return { url: parsed, hostname, addresses }
 	} catch {
-		return false
+		return null
 	}
+}
+
+export async function isPublicUrl(
+	url: string | URL,
+	resolveHost: ResolveHost = resolveWithDns,
+): Promise<boolean> {
+	return (await checkUrl(url, resolveHost)) !== null
+}
+
+// Bun's fetch extension, which the DOM RequestInit type does not declare.
+type BunRequestInit = RequestInit & { tls?: { serverName?: string } }
+
+/**
+ * Requests the URL from one address. Bun's fetch has no DNS hook, so the URL
+ * names the address itself, and the Host header and `tls.serverName` carry
+ * the original name. Bun sends serverName as SNI and verifies the certificate
+ * against it. Bun also keys its keep-alive pool by serverName but not by Host,
+ * so this keeps a socket verified for one name from serving another name at
+ * the same address.
+ */
+function fetchFrom(target: CheckedUrl, address: string, init: RequestInit) {
+	if (address === target.hostname) return fetch(target.url, init)
+
+	const url = new URL(target.url)
+	url.hostname = isIP(address) === 6 ? `[${address}]` : address
+	const headers = new Headers(init.headers)
+	headers.set('Host', target.url.host)
+	const pinned: BunRequestInit = {
+		...init,
+		headers,
+		tls: { serverName: target.hostname },
+	}
+	return fetch(url, pinned)
+}
+
+/**
+ * Tries the checked addresses in turn, IPv4 first because not every network
+ * routes IPv6, and never any address the check did not see.
+ */
+async function fetchChecked(target: CheckedUrl, init: RequestInit) {
+	const addresses = [...target.addresses].sort((a, b) => isIP(a) - isIP(b))
+	let failure: unknown
+	for (const address of addresses) {
+		try {
+			const response = await fetchFrom(target, address, init)
+			// Report the URL that was asked for, not the address that served it,
+			// so relative links resolve against the name.
+			const url = new URL(target.url)
+			url.hash = ''
+			Object.defineProperty(response, 'url', { value: url.href })
+			return response
+		} catch (error) {
+			failure = error
+		}
+	}
+	throw failure
 }
 
 /**
  * Fetches a user-supplied URL, checking every redirect hop before requesting
- * it. Returns null when any hop is not public or the redirects do not end.
+ * it and connecting only to an address the check approved. Returns null when
+ * any hop is not public or the redirects do not end.
  */
 export async function fetchPublicUrl(
 	url: string,
@@ -111,8 +180,9 @@ export async function fetchPublicUrl(
 ): Promise<Response | null> {
 	let current = url
 	for (let hop = 0; hop <= maxRedirects; hop++) {
-		if (!(await isPublicUrl(current, resolveHost))) return null
-		const response = await fetch(current, { ...init, redirect: 'manual' })
+		const target = await checkUrl(current, resolveHost)
+		if (!target) return null
+		const response = await fetchChecked(target, { ...init, redirect: 'manual' })
 		const location = response.headers.get('location')
 		if (response.status < 300 || response.status >= 400 || !location) {
 			return response

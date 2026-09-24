@@ -124,8 +124,8 @@ presentation.
 - `emitHouseholdEvent()` is fire-and-forget; revisit if real contention appears.
 - Some AI Recipe helpers remain optional and secondary. AI Recipe import is the
   proven high-value path.
-- Full Playwright is not a CI release gate; focused browser checks are useful
-  when interaction itself is the risk.
+- Playwright runs on every pull request but is not yet a required check or a
+  deploy gate.
 
 Operational restore steps live in [RESTORE.md](./RESTORE.md). Product terms live
 in [CONTEXT.md](../CONTEXT.md).

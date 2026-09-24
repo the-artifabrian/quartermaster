@@ -142,7 +142,7 @@ function MenuRecipeCard({
 }) {
 	const title = item.recipe?.title ?? item.recipeTitle ?? 'Recipe'
 	const recipeYield = item.recipe ? getTypedYield(item.recipe) : null
-	const targetYield =
+	const derivedTarget =
 		item.scaleMultiplier != null
 			? scaleMultiplierToTargetYield(item.scaleMultiplier, recipeYield)
 			: null
@@ -153,8 +153,8 @@ function MenuRecipeCard({
 			? `${formatScaleMultiplier(item.scaleMultiplier)}×`
 			: null
 	const madeYield =
-		item.scaleMultiplier != null && recipeYield && targetYield != null
-			? `makes ${formatTargetYieldAmount(targetYield)} ${recipeYield.label}`
+		item.scaleMultiplier != null && recipeYield && derivedTarget != null
+			? `makes ${formatTargetYieldAmount(derivedTarget)} ${recipeYield.label}`
 			: null
 	const quantity = [scaledPrefix, madeYield].filter(Boolean).join(' · ') || null
 

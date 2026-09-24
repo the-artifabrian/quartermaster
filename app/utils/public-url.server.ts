@@ -160,6 +160,10 @@ function fetchFrom(target: CheckedUrl, address: string, init: RequestInit) {
 	return fetch(url, pinned)
 }
 
+// Skips the public-address guard. Exported only for
+// scripts/check-address-pinning.ts, which runs it under Bun.
+export { fetchFrom as unguardedFetchFrom }
+
 /**
  * Tries the checked addresses in turn, IPv4 first because not every network
  * routes IPv6, and never any address the check did not see.

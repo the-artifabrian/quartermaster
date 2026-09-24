@@ -39,6 +39,14 @@ jobs:
       - name: 🔬 Lint
         run: bun run lint
 
+      # Vitest runs under Node, so this runs the Recipe URL import's address
+      # pinning under the Bun above. It takes about a second, and this is the
+      # fastest job that gates deploys, so a failure shows up under "⬣ ESLint".
+      # It runs even when lint fails, so a lint error cannot hide its result.
+      - name: 📌 Address pinning under Bun
+        if: ${{ !cancelled() }}
+        run: bun run test:address-pinning
+
   typecheck:
     name: ʦ TypeScript
     runs-on: ubuntu-22.04

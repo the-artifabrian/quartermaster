@@ -12,25 +12,33 @@ MIN_AVAILABLE_MB=${MIN_AVAILABLE_MB:-75}
 MAX_SWAP_USED_MB=${MAX_SWAP_USED_MB:-150}
 PROM_URL="https://api.fly.io/prometheus/personal/api/v1/query"
 
+# Retries because Fly's Prometheus occasionally answers one query empty or
+# errors while the stored series has no gap, and every failed run emails.
 query_mb() {
-	local value
-	value=$(
-		curl -sf --get "$PROM_URL" \
-			--data-urlencode "query=$1" \
-			-H "Authorization: $FLY_METRICS_TOKEN" |
-			jq -er '.data.result[0].value[1]'
-	) || return 1
-	awk -v b="$value" 'BEGIN { printf "%d", b / 1048576 }'
+	local value attempt
+	for attempt in 1 2 3; do
+		((attempt == 1)) || sleep 5
+		if value=$(
+			curl -sf --max-time 15 --get "$PROM_URL" \
+				--data-urlencode "query=$1" \
+				-H "Authorization: $FLY_METRICS_TOKEN" |
+				jq -er '.data.result[0].value[1]'
+		); then
+			awk -v b="$value" 'BEGIN { printf "%d", b / 1048576 }'
+			return 0
+		fi
+	done
+	return 1
 }
 
-# An empty result is itself an alert: app gone, metrics broken, or the token
-# expired — all states where this monitor is blind and must say so.
+# An empty result after retries is itself an alert: app gone, metrics broken,
+# or the token expired — all states where this monitor is blind and must say so.
 avail_mb=$(query_mb "fly_instance_memory_mem_available{app=\"$APP\"}") || {
-	echo "::error::No mem_available datapoint for $APP — app down, metrics broken, or FLY_METRICS_TOKEN expired"
+	echo "::error::No mem_available datapoint for $APP after 3 tries — app down, metrics broken, or FLY_METRICS_TOKEN expired"
 	exit 1
 }
 swap_mb=$(query_mb "fly_instance_memory_swap_total{app=\"$APP\"} - fly_instance_memory_swap_free{app=\"$APP\"}") || {
-	echo "::error::No swap datapoint for $APP — app down, metrics broken, or FLY_METRICS_TOKEN expired"
+	echo "::error::No swap datapoint for $APP after 3 tries — app down, metrics broken, or FLY_METRICS_TOKEN expired"
 	exit 1
 }
 

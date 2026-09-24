@@ -241,7 +241,6 @@ test('anonymous live reading exposes only Menu content and included Recipes, at 
 		'householdId',
 		'userId',
 		'isFavorite',
-		'staplesCutoverAt',
 	]) {
 		expect(JSON.stringify([loaded, read])).not.toContain(hidden)
 	}

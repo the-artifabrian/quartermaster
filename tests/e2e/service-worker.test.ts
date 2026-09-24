@@ -73,14 +73,45 @@ test('the installed worker waits for a document boundary and uses a build-scoped
 	login,
 }) => {
 	await login()
+	// Chromium shows a first worker as `waiting` for a moment before it
+	// activates. Record the update prompt from page load, so a prompt that
+	// shows only in that moment still fails.
+	await page.addInitScript(() => {
+		const state = window as Window & { updatePromptShown?: boolean }
+		state.updatePromptShown = false
+		new MutationObserver((_, observer) => {
+			const prompt = [...document.querySelectorAll('button')].some(
+				(button) => button.textContent?.trim() === 'Update available',
+			)
+			if (!prompt) return
+			state.updatePromptShown = true
+			observer.disconnect()
+		}).observe(document, {
+			childList: true,
+			subtree: true,
+			characterData: true,
+		})
+	})
 	await page.goto('/inventory')
 	await page.evaluate(() => navigator.serviceWorker.ready)
 	expect(
 		await page.evaluate(() => Boolean(navigator.serviceWorker.controller)),
 	).toBe(false)
-	await expect(
-		page.getByRole('button', { name: 'Update available' }),
-	).toHaveCount(0)
+	// waitForFunction treats an async predicate's Promise as truthy and returns
+	// at once, so poll the worker state instead.
+	await expect
+		.poll(() =>
+			page.evaluate(
+				async () => (await navigator.serviceWorker.ready).active?.state,
+			),
+		)
+		.toBe('activated')
+	expect(
+		await page.evaluate(
+			() =>
+				(window as Window & { updatePromptShown?: boolean }).updatePromptShown,
+		),
+	).toBe(false)
 	await page.reload()
 	await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller))
 	const result = await page.evaluate(async () => {

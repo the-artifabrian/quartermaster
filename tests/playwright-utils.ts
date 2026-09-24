@@ -149,7 +149,7 @@ export const test = base.extend<{
 			await prisma.user.delete({ where: { id: user.id } })
 			await prisma.session.deleteMany({ where: { userId: user.id } })
 		}
-		await deleteGoogleUser(googleUser!.primaryEmail)
+		await deleteGoogleUser(googleUser!.code)
 	},
 })
 export const { expect } = test

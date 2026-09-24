@@ -145,7 +145,7 @@ test('share a dinner, sign in, save, edit, cook and plan an independent Menu on 
 		await page.goto(publicPath)
 		await expect(page.getByRole('heading', { name: menu.title })).toBeVisible()
 		await expect(page.getByText('Usually for 6 guests')).toBeVisible()
-		await expect(page.getByText('mint', { exact: true })).toBeVisible()
+		await expect(page.getByText('mint · 2 bunches')).toBeVisible()
 		await expect(
 			page.getByRole('link', { name: /Lemon chickpeas/ }).first(),
 		).toContainText('1.5× · makes 6 bowls')
@@ -249,11 +249,12 @@ test('share a dinner, sign in, save, edit, cook and plan an independent Menu on 
 			.click()
 		const image = page.getByRole('img', { name: 'Shared Recipe image fixture' })
 		await expect(image).toBeVisible()
-		expect(
-			await image.evaluate(
-				(element) => (element as HTMLImageElement).naturalWidth,
-			),
-		).toBeGreaterThan(0)
+		// Visible is not loaded: the copied image is encoded on first request.
+		await expect
+			.poll(() =>
+				image.evaluate((element) => (element as HTMLImageElement).naturalWidth),
+			)
+			.toBeGreaterThan(0)
 		const anonymous = await browser.newContext()
 		const anonPage = await anonymous.newPage()
 		expect((await anonPage.goto(publicPath))!.status()).toBe(404)

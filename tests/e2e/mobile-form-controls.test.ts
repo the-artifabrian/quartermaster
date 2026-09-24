@@ -128,7 +128,6 @@ async function createHousehold(userId: string) {
 	const household = await prisma.household.create({
 		data: {
 			name: 'Mobile controls household',
-			staplesCutoverAt: new Date(),
 			members: { create: { userId, role: 'owner' } },
 			householdIngredients: {
 				create: {

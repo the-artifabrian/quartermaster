@@ -12,7 +12,6 @@ for (const width of [390, 1280]) {
 		const household = await prisma.household.create({
 			data: {
 				name: 'Search clarity',
-				staplesCutoverAt: new Date(),
 				members: { create: { userId: user.id, role: 'owner' } },
 			},
 		})

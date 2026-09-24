@@ -16,7 +16,12 @@ async function setupUser() {
 				members: { create: { userId: user.id, role: 'owner' } },
 			},
 		})
-		return { id: user.id, householdId: household.id, username: user.username }
+		return {
+			id: user.id,
+			householdId: household.id,
+			name: user.name,
+			username: user.username,
+		}
 	})
 }
 
@@ -63,7 +68,7 @@ describe('emitHouseholdEvent', () => {
 		expect(eventData.payload).toEqual({ count: 12 })
 		expect(eventData.userId).toBe(user.id)
 		expect(eventData.householdId).toBe(user.householdId)
-		expect(typeof eventData.username).toBe('string')
-		expect(eventData.username.length).toBeGreaterThan(0)
+		// The activity toast names the member by display name.
+		expect(eventData.username).toBe(user.name)
 	})
 })

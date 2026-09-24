@@ -64,7 +64,6 @@ import {
 	mergeOptimisticShoppingItems,
 } from '#app/utils/shopping-optimistic.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
-import { writeShoppingCheck } from '#app/utils/shopping-check.server.ts'
 import { useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
 import {
 	getHouseholdClientId,
@@ -374,10 +373,6 @@ export async function action({ request }: Route.ActionArgs) {
 			status: 'success' as const,
 			submission: submission.reply({ resetForm: true }),
 		}
-	}
-
-	if (intent === 'toggle') {
-		return writeShoppingCheck(prisma, { householdId, userId }, formData)
 	}
 
 	if (intent === 'move') {

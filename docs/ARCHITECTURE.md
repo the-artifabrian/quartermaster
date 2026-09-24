@@ -194,9 +194,14 @@ tested together:
 
 ## Testing
 
-Vitest covers pure logic and authenticated loader/action behavior against real
-test SQLite databases. Focused Playwright tests cover interaction-heavy paths.
-Migration tests execute shipped SQL when data conversion itself is the risk.
+Which layer to test in, and how, is in [AGENTS.md](../AGENTS.md#testing). Vitest
+runs pure logic and authenticated loader/action behavior against real test
+SQLite databases. Playwright runs user flows against a production build. A
+migration test rehearses a data-converting migration against legacy data before
+it ships. Delete the test once production has applied the migration, because the
+conversion can never run again. `app/utils/schema-constraints.test.ts` guards
+the CHECK constraints and triggers that exist only in migration SQL, since
+Prisma would drop them silently if it rebuilt those tables.
 
 A test file opts into the setup it needs: `import '#tests/setup/db-setup.ts'`
 for a freshly seeded database before each test,
@@ -207,7 +212,8 @@ import fails with an error naming it. Worker databases live under a directory
 unique to each run, so concurrent runs cannot overwrite or clean up one
 another's files.
 
-Full Playwright is not a CI release gate. Browser checks and simulations are
-implementation evidence, not substitutes for normal use.
+Playwright runs on every pull request and uploads its HTML report. It is not yet
+a required check, and deploys do not wait for it. Browser checks and simulations
+are implementation evidence, not substitutes for normal use.
 
-_Updated 21 September 2026._
+_Updated 24 September 2026._

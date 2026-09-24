@@ -147,34 +147,6 @@ export function parseDate(dateString: string): Date {
 	return new Date(dateString + 'T00:00:00.000Z')
 }
 
-export function formatTimeAgo(date: Date): string {
-	const now = new Date()
-	// Normalize to midnight to avoid DST off-by-one errors
-	const startOfToday = new Date(
-		now.getFullYear(),
-		now.getMonth(),
-		now.getDate(),
-	)
-	const startOfDate = new Date(
-		date.getFullYear(),
-		date.getMonth(),
-		date.getDate(),
-	)
-	const diffDays = Math.round(
-		(startOfToday.getTime() - startOfDate.getTime()) / (1000 * 60 * 60 * 24),
-	)
-
-	if (diffDays === 0) return 'today'
-	if (diffDays === 1) return 'yesterday'
-	if (diffDays < 7) return `${diffDays} days ago`
-	if (diffDays < 14) return '1 week ago'
-	if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
-	if (diffDays < 60) return '1 month ago'
-	if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`
-	const years = Math.floor(diffDays / 365)
-	return `${years} ${years === 1 ? 'year' : 'years'} ago`
-}
-
 export const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const
 export type MealType = (typeof MEAL_TYPES)[number]
 

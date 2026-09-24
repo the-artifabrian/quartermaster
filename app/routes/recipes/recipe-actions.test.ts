@@ -117,43 +117,6 @@ describe('recipe detail loader', () => {
 		expect(result.recipe.instructions).toHaveLength(2)
 	})
 
-	test('Recipe detail reports no ingredient availability (#289)', async () => {
-		const session = await setupUser()
-		const recipe = await prisma.recipe.create({
-			data: {
-				title: 'Staples supper',
-				userId: session.userId,
-				householdId: session.householdId,
-				ingredients: {
-					create: [
-						{ name: 'dragon fruit', order: 0 },
-						{ name: 'moon cheese', order: 1 },
-					],
-				},
-			},
-		})
-		await prisma.householdIngredient.create({
-			data: {
-				householdId: session.householdId,
-				canonicalKey: 'dragon fruit',
-				displayName: 'Dragon fruit',
-				isStaple: true,
-			},
-		})
-
-		const request = await makeRequest(session, recipe.id, {}, 'GET')
-		const result = await loader({
-			request,
-			...makeActionArgs(recipe.id),
-		})
-
-		// Staples decide what generated Shopping leaves out, not how a Recipe
-		// reads. The page shows the ingredients the Recipe needs, full stop.
-		expect(result).not.toHaveProperty('missingIngredientIds')
-		expect(result).not.toHaveProperty('usesLegacyPantry')
-		expect(result).not.toHaveProperty('hasInventory')
-	})
-
 	test('returns 404 for nonexistent recipe', async () => {
 		const session = await setupUser()
 

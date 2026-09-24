@@ -2,7 +2,7 @@ import { faker } from '@faker-js/faker'
 import { describe, expect, test } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
-import { AUTO_TRIAL_DAYS, signup } from './auth.server.ts'
+import { signup } from './auth.server.ts'
 import { getUserTier } from './subscription.server.ts'
 import '#tests/setup/db-setup.ts'
 
@@ -21,10 +21,6 @@ async function ensureUserRole() {
 }
 
 describe('auto-trial on signup', () => {
-	test('AUTO_TRIAL_DAYS is 14', () => {
-		expect(AUTO_TRIAL_DAYS).toBe(14)
-	})
-
 	test('signup() creates subscription with trialEndsAt ~14 days out', async () => {
 		await ensureUserRole()
 

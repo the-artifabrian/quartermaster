@@ -2,7 +2,6 @@ import { describe, expect, test, vi } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import {
-	getSubscriptionTierFromPriceId,
 	handleCheckoutCompleted,
 	handleInvoicePaid,
 	handleSubscriptionDeleted,
@@ -28,13 +27,6 @@ const mockRetrieveSubscription = async () => ({
 async function setupUser() {
 	return prisma.user.create({ data: createUser() })
 }
-
-describe('getSubscriptionTierFromPriceId', () => {
-	test('returns pro for any price ID', () => {
-		expect(getSubscriptionTierFromPriceId('price_random')).toBe('pro')
-		expect(getSubscriptionTierFromPriceId('price_yearly_test')).toBe('pro')
-	})
-})
 
 describe('handleCheckoutCompleted', () => {
 	test('creates subscription for new user', async () => {

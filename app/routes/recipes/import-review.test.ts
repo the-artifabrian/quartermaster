@@ -20,6 +20,13 @@ import {
 } from '../share.$recipeId.tsx'
 import '#tests/setup/db-setup.ts'
 
+// URL imports resolve their host before fetching. This file's hosts are
+// fictional, so they resolve to a public address here.
+vi.mock('node:dns/promises', async (importOriginal) => ({
+	...(await importOriginal<typeof import('node:dns/promises')>()),
+	lookup: async () => [{ address: '93.184.216.34', family: 4 }],
+}))
+
 const chickpeaLine =
 	'2 cans chickpeas, drained and rinsed thoroughly under cold running water (reserve the liquid for another recipe; if using dried chickpeas instead, soak them overnight and simmer until completely tender before measuring the equivalent cooked weight)'
 const title = 'Chickpea lunch'
@@ -390,6 +397,33 @@ test('URL extraction retains original structured Recipe content and URL, keeps d
 		init: { status: 400 },
 		data: { recipe: null },
 	})
+})
+
+test('URL extraction refuses a public page that redirects into the private network', async () => {
+	const session = await user()
+	const internalHits: Array<string> = []
+	server.use(
+		http.get('https://recipes.example.test/moved', () =>
+			HttpResponse.redirect('http://169.254.169.254/latest/meta-data', 302),
+		),
+		http.get('http://169.254.169.254/latest/meta-data', ({ request }) => {
+			internalHits.push(request.url)
+			return HttpResponse.text('secret')
+		}),
+	)
+
+	const result = await importAction(
+		await args(session, '/recipes/import', {
+			intent: 'fetch',
+			url: 'https://recipes.example.test/moved',
+		}),
+	)
+
+	expect(result).toMatchObject({
+		init: { status: 400 },
+		data: { recipe: null },
+	})
+	expect(internalHits).toEqual([])
 })
 
 test('image extraction preserves the extracted structure through edited save without another provider call', async () => {

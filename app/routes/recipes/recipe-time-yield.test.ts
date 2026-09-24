@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import { RouterContextProvider } from 'react-router'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
@@ -11,6 +11,13 @@ import { action as editAction } from './$recipeId_.edit.tsx'
 import { action as importAction } from './import.tsx'
 import { action as newAction } from './new.tsx'
 import '#tests/setup/db-setup.ts'
+
+// URL imports resolve their host before fetching. This file's hosts are
+// fictional, so they resolve to a public address here.
+vi.mock('node:dns/promises', async (importOriginal) => ({
+	...(await importOriginal<typeof import('node:dns/promises')>()),
+	lookup: async () => [{ address: '93.184.216.34', family: 4 }],
+}))
 
 function routeArgs<
 	TParams extends Record<string, string> = Record<string, never>,

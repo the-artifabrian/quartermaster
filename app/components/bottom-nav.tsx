@@ -86,6 +86,7 @@ export function BottomNav() {
 		tabPath: string
 		startedAt: number
 		fromLocationKey: string
+		supersededPathname: string | undefined
 	} | null>(null)
 
 	// Track the last visited path for each tab section
@@ -117,9 +118,13 @@ export function BottomNav() {
 		}
 
 		if (navigation.state !== 'idle') {
-			if (pathIsInTab(navigation.location?.pathname, pendingInput.tabPath)) {
+			const pathname = navigation.location?.pathname
+			if (pathIsInTab(pathname, pendingInput.tabPath)) {
 				pendingStartedRef.current = true
-			} else if (navigation.location?.pathname) {
+			} else if (pathname && pathname !== pendingInput.supersededPathname) {
+				// The navigation this tap interrupted can still be reported until
+				// the router starts the new one (it may first discover the route),
+				// so only a different destination means the tap went elsewhere.
 				clearPending()
 			}
 			return
@@ -219,6 +224,10 @@ export function BottomNav() {
 									tabPath: item.to,
 									startedAt,
 									fromLocationKey: location.key,
+									supersededPathname:
+										navigation.state === 'idle'
+											? undefined
+											: navigation.location?.pathname,
 								})
 								timing.begin({
 									destination: item.destination,

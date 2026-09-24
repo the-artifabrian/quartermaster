@@ -10,7 +10,6 @@ for (const width of [390, 1280]) {
 		const household = await prisma.household.create({
 			data: {
 				name: 'Cooking checks household',
-				staplesCutoverAt: new Date(),
 				members: { create: { userId: user.id, role: 'owner' } },
 			},
 		})
@@ -159,7 +158,6 @@ test('cooking checks isolate accounts and household changes in the same browser'
 	const household = await prisma.household.create({
 		data: {
 			name: 'Shared cooking household',
-			staplesCutoverAt: new Date(),
 			members: {
 				create: [
 					{ userId: first.id, role: 'owner' },
@@ -169,7 +167,7 @@ test('cooking checks isolate accounts and household changes in the same browser'
 		},
 	})
 	const otherHousehold = await prisma.household.create({
-		data: { name: 'Moved cooking household', staplesCutoverAt: new Date() },
+		data: { name: 'Moved cooking household' },
 	})
 	try {
 		const recipe = await prisma.recipe.create({
@@ -226,7 +224,6 @@ test('edited cooking content cannot inherit checks after reload', async ({
 	const household = await prisma.household.create({
 		data: {
 			name: 'Edited cooking household',
-			staplesCutoverAt: new Date(),
 			members: { create: { userId: user.id, role: 'owner' } },
 		},
 	})

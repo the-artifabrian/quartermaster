@@ -238,7 +238,6 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 	const household = await prisma.household.create({
 		data: {
 			name: 'Bottom navigation trace Household',
-			staplesCutoverAt: new Date(),
 			members: { create: { userId: user.id, role: 'owner' } },
 		},
 	})
@@ -432,7 +431,6 @@ test('pending feedback clears when a tab navigation is interrupted or fails', as
 	await prisma.household.create({
 		data: {
 			name: 'Bottom navigation interruption Household',
-			staplesCutoverAt: new Date(),
 			members: { create: { userId: user.id, role: 'owner' } },
 		},
 	})

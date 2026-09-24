@@ -1,5 +1,5 @@
 import { type Locator, type Page } from '@playwright/test'
-import { getCurrentWeekStart } from '#app/utils/date.ts'
+import { getWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
@@ -37,7 +37,6 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	const household = await prisma.household.create({
 		data: {
 			name: 'Disposable new purchase review',
-			staplesCutoverAt: new Date(),
 			members: { create: { userId: user.id, role: 'owner' } },
 		},
 	})
@@ -164,14 +163,19 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 		},
 	})
 
-	const weekStart = getCurrentWeekStart()
+	// The picker folds Meals from before today, so plan this one for today.
+	const now = new Date()
+	const today = new Date(
+		Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+	)
+	const weekStart = getWeekStart(today)
 	await prisma.mealPlan.create({
 		data: {
 			householdId: household.id,
 			weekStart,
 			meals: {
 				create: {
-					date: weekStart,
+					date: today,
 					order: 0,
 					label: 'dinner',
 					recipeItems: {
@@ -298,7 +302,6 @@ test('household Staples can be added together from the quiet Shopping picker', a
 	const household = await prisma.household.create({
 		data: {
 			name: 'Staples Picker Household',
-			staplesCutoverAt: new Date(),
 			members: { create: { userId: user.id, role: 'owner' } },
 			householdIngredients: {
 				create: [

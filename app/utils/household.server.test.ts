@@ -660,7 +660,7 @@ describe('acceptInvite', () => {
 		)
 	})
 
-	test('multi-member: recipes are copied, inventory stays', async () => {
+	test('multi-member: recipes are copied, Staples stay', async () => {
 		// Create a household with 2 members
 		const owner = await setupUser()
 		const existingMember = await prisma.user.create({ data: createUser() })
@@ -698,6 +698,16 @@ describe('acceptInvite', () => {
 			},
 		})
 
+		// The Staples belong to the household the partner keeps using.
+		const staple = await prisma.householdIngredient.create({
+			data: {
+				displayName: 'Saffron',
+				canonicalKey: 'saffron',
+				isStaple: true,
+				householdId: joinerOldHouseholdId,
+			},
+		})
+
 		const invite = await createHouseholdInvite(owner.householdId, owner.id)
 		await acceptInvite(invite.token, joiner.id)
 
@@ -727,6 +737,16 @@ describe('acceptInvite', () => {
 			where: { recipeId: copiedRecipe!.id },
 		})
 		expect(copiedIngredients).toHaveLength(2)
+
+		// The Staple stays with the old household and is not copied over.
+		expect(
+			await prisma.householdIngredient.findUnique({ where: { id: staple.id } }),
+		).toMatchObject({ householdId: joinerOldHouseholdId })
+		expect(
+			await prisma.householdIngredient.count({
+				where: { householdId: owner.householdId, canonicalKey: 'saffron' },
+			}),
+		).toBe(0)
 	})
 
 	test('throws if already a member', async () => {
@@ -816,8 +836,7 @@ describe('leaveHousehold', () => {
 		expect(originalRecipe).not.toBeNull()
 	})
 
-	test('cleans up empty old household', async () => {
-		// Create a household with owner + member, then member leaves
+	test('keeps the old household while its owner remains', async () => {
 		const owner = await setupUser()
 		const member = await prisma.user.create({ data: createUser() })
 		await prisma.householdMember.create({
@@ -828,15 +847,33 @@ describe('leaveHousehold', () => {
 			},
 		})
 
-		// Remove owner so member is the only one, then remove member too
-		// Actually: just have the member leave, then verify owner stays
 		await leaveHousehold(member.id)
 
-		// Old household should still exist (owner remains)
 		const oldHousehold = await prisma.household.findUnique({
 			where: { id: owner.householdId },
 		})
 		expect(oldHousehold).not.toBeNull()
+	})
+
+	test('deletes the old household when its last member leaves', async () => {
+		const owner = await setupUser()
+		const member = await prisma.user.create({ data: createUser() })
+		await prisma.householdMember.create({
+			data: {
+				householdId: owner.householdId,
+				userId: member.id,
+				role: 'member',
+			},
+		})
+		// Deleting the owner's account leaves the member alone in the household.
+		await prisma.user.delete({ where: { id: owner.id } })
+
+		await leaveHousehold(member.id)
+
+		const oldHousehold = await prisma.household.findUnique({
+			where: { id: owner.householdId },
+		})
+		expect(oldHousehold).toBeNull()
 	})
 
 	test('owner cannot leave household', async () => {

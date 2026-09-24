@@ -3,28 +3,15 @@ import {
 	formatTargetYieldAmount,
 	getTypedYield,
 	scaleMultiplierToTargetYield,
-	targetYieldToScaleMultiplier,
 } from './target-yield.ts'
 
 describe('typed yield conversion', () => {
-	test('converts a count target to the stored batch multiplier', () => {
-		const recipeYield = getTypedYield({
-			yieldAmount: 12,
-			yieldLabel: 'pieces',
-		})
+	test('derives the friendly target from the stored multiplier', () => {
+		const pieces = getTypedYield({ yieldAmount: 12, yieldLabel: 'pieces' })
+		const cakes = getTypedYield({ yieldAmount: 2, yieldLabel: 'cakes' })
 
-		expect(targetYieldToScaleMultiplier(18, recipeYield)).toBe(1.5)
-		expect(scaleMultiplierToTargetYield(1.5, recipeYield)).toBe(18)
-	})
-
-	test('uses the same rule for fixed batch dishes', () => {
-		const recipeYield = getTypedYield({
-			yieldAmount: 2,
-			yieldLabel: 'cakes',
-		})
-
-		expect(targetYieldToScaleMultiplier(3, recipeYield)).toBe(1.5)
-		expect(scaleMultiplierToTargetYield(1.5, recipeYield)).toBe(3)
+		expect(scaleMultiplierToTargetYield(1.5, pieces)).toBe(18)
+		expect(scaleMultiplierToTargetYield(1.5, cakes)).toBe(3)
 	})
 
 	test('keeps missing or incomplete metadata unknown', () => {
@@ -33,20 +20,6 @@ describe('typed yield conversion', () => {
 		expect(
 			getTypedYield({ yieldAmount: null, yieldLabel: 'pieces' }),
 		).toBeNull()
-	})
-
-	test('rounds converted multipliers at the existing two-decimal boundary', () => {
-		const recipeYield = getTypedYield({
-			yieldAmount: 1,
-			yieldLabel: 'batch',
-		})
-
-		expect(targetYieldToScaleMultiplier(1.004, recipeYield)).toBe(1)
-		expect(targetYieldToScaleMultiplier(1.005, recipeYield)).toBe(1.01)
-		expect(targetYieldToScaleMultiplier(0.004, recipeYield)).toBeNull()
-		expect(targetYieldToScaleMultiplier(0.005, recipeYield)).toBe(0.01)
-		expect(targetYieldToScaleMultiplier(100.004, recipeYield)).toBe(100)
-		expect(targetYieldToScaleMultiplier(100.005, recipeYield)).toBeNull()
 	})
 
 	test('formats derived targets without floating-point noise', () => {

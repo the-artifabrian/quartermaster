@@ -172,7 +172,12 @@ describe('household-events-poll loader', () => {
 		expect(event).toHaveProperty('createdAt')
 		expect(typeof event.id).toBe('string')
 		expect(typeof event.createdAt).toBe('string')
-		expect(typeof event.username).toBe('string')
+		// The activity toast names the member who acted, by display name.
+		const actor = await prisma.user.findUniqueOrThrow({
+			where: { id: otherUser.userId },
+			select: { name: true },
+		})
+		expect(event.username).toBe(actor.name)
 	})
 
 	test('does not return events before since timestamp', async () => {

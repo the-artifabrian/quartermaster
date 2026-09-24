@@ -1107,6 +1107,14 @@ describe('meal plan actions', () => {
 			multiplier: '0',
 		})
 		expect(invalid).toMatchObject({ status: 'error' })
+		// The rejected value is never written.
+		expect(
+			(
+				await prisma.mealRecipeItem.findUniqueOrThrow({
+					where: { id: item.id },
+				})
+			).scaleMultiplier,
+		).toBe(2.5)
 	})
 
 	test('removeItem deletes the item; removing the last item removes the Meal', async () => {

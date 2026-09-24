@@ -749,6 +749,82 @@ describe('acceptInvite', () => {
 		).toBe(0)
 	})
 
+	test('multi-member: a copied Recipe links to the copy of its sub-Recipe, never back to the old household', async () => {
+		const owner = await setupUser()
+		const joiner = await setupUser()
+		const partner = await prisma.user.create({ data: createUser() })
+		await prisma.householdMember.create({
+			data: {
+				householdId: joiner.householdId,
+				userId: partner.id,
+				role: 'member',
+			},
+		})
+		// Created before its sub-Recipe, so a copy that remapped links Recipe by
+		// Recipe would reach this one before the sub-Recipe's copy exists.
+		const chicken = await prisma.recipe.create({
+			data: {
+				title: 'Chicken with salsa verde',
+				userId: joiner.id,
+				householdId: joiner.householdId,
+			},
+		})
+		const salsa = await prisma.recipe.create({
+			data: {
+				title: 'Salsa verde',
+				userId: joiner.id,
+				householdId: joiner.householdId,
+			},
+		})
+		// The partner's Recipe is not copied: it stays with the old household.
+		const partnerAioli = await prisma.recipe.create({
+			data: {
+				title: 'Aioli',
+				userId: partner.id,
+				householdId: joiner.householdId,
+			},
+		})
+		await prisma.ingredient.createMany({
+			data: [
+				{
+					recipeId: chicken.id,
+					name: 'salsa verde',
+					order: 0,
+					linkedRecipeId: salsa.id,
+				},
+				{
+					recipeId: chicken.id,
+					name: 'aioli',
+					order: 1,
+					linkedRecipeId: partnerAioli.id,
+				},
+			],
+		})
+
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+		await acceptInvite(invite.token, joiner.id)
+
+		const copiedSalsa = await prisma.recipe.findFirstOrThrow({
+			where: { householdId: owner.householdId, title: 'Salsa verde' },
+			select: { id: true },
+		})
+		const copiedLines = await prisma.ingredient.findMany({
+			where: {
+				recipe: {
+					householdId: owner.householdId,
+					title: 'Chicken with salsa verde',
+				},
+			},
+			select: { name: true, linkedRecipeId: true },
+			orderBy: { order: 'asc' },
+		})
+		expect(copiedSalsa.id).not.toBe(salsa.id)
+		expect(copiedLines).toEqual([
+			{ name: 'salsa verde', linkedRecipeId: copiedSalsa.id },
+			{ name: 'aioli', linkedRecipeId: null },
+		])
+	})
+
 	test('throws if already a member', async () => {
 		const owner = await setupUser()
 		const invite = await createHouseholdInvite(owner.householdId, owner.id)

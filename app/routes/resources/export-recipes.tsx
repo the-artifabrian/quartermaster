@@ -8,6 +8,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const recipes = await prisma.recipe.findMany({
 		where: { householdId },
 		select: {
+			id: true,
 			title: true,
 			description: true,
 			activeTime: true,
@@ -24,6 +25,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					unit: true,
 					notes: true,
 					isHeading: true,
+					linkedRecipeId: true,
 				},
 				orderBy: { order: 'asc' },
 			},
@@ -49,10 +51,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 		orderBy: { title: 'asc' },
 	})
 
+	// Export-local reference keys, as in the full export: an ingredient's
+	// sub-Recipe link names the linked Recipe's ref, never a database id (#311).
+	const recipeRefById = new Map(
+		recipes.map((recipe, index) => [recipe.id, `r${index + 1}`]),
+	)
+
 	const exportData = {
 		exportedAt: new Date().toISOString(),
 		recipeCount: recipes.length,
 		recipes: recipes.map((recipe) => ({
+			ref: recipeRefById.get(recipe.id)!,
 			title: recipe.title,
 			description: recipe.description,
 			activeTime: recipe.activeTime,
@@ -71,6 +80,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 				unit: ing.unit,
 				notes: ing.notes,
 				isHeading: ing.isHeading,
+				linkedRecipeRef:
+					(ing.linkedRecipeId && recipeRefById.get(ing.linkedRecipeId)) || null,
 			})),
 			instructions: recipe.instructions.map((inst) => ({
 				content: inst.content,

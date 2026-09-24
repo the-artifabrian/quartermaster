@@ -57,6 +57,10 @@ const ImportIngredientSchema = z.object({
 	// Exports written before #257 omit the flag. Those lines restore as
 	// ingredients: a lost heading is not guessed back from its name.
 	isHeading: z.boolean().optional(),
+	// The linked sub-Recipe's ref in this file (#311). A ref with no Recipe in
+	// the file restores a plain ingredient: it is never read as a database id.
+	// Older exports omit it, and no link is guessed from a name.
+	linkedRecipeRef: z.string().max(50).nullable().optional(),
 })
 
 const ImportRecipeMetadataValueSchema = z
@@ -425,6 +429,13 @@ async function importRecipes(
 	householdId: string,
 ) {
 	const stats = { created: 0, skipped: 0, errored: 0 }
+	// Sub-Recipe links of the Recipes this import creates. A skipped duplicate
+	// keeps the household's own lines untouched.
+	const pendingLinks: Array<{
+		recipeId: string
+		ingredientId: string
+		ref: string
+	}> = []
 
 	for (const recipe of recipes) {
 		const lowerTitle = recipe.title.toLowerCase()
@@ -453,6 +464,7 @@ async function importRecipes(
 				content: typeof inst === 'string' ? inst : inst.content,
 				order,
 			}))
+			const ingredientIds = recipe.ingredients.map(() => createId())
 
 			const created = await prisma.$transaction(async (tx) => {
 				const metadataValueIds = await ensureRecipeMetadataValues(
@@ -479,6 +491,7 @@ async function importRecipes(
 						},
 						ingredients: {
 							create: recipe.ingredients.map((ing, order) => ({
+								id: ingredientIds[order],
 								name: ing.name,
 								amount: ing.amount || null,
 								unit: ing.unit || null,
@@ -495,9 +508,41 @@ async function importRecipes(
 			titleToIdMap.set(lowerTitle, created.id)
 			titleById.set(created.id, recipe.title)
 			if (recipe.ref) refToIdMap.set(recipe.ref, created.id)
+			// The editor never links a heading, so a file cannot either.
+			recipe.ingredients.forEach((ing, order) => {
+				if (ing.linkedRecipeRef && !ing.isHeading)
+					pendingLinks.push({
+						recipeId: created.id,
+						ingredientId: ingredientIds[order]!,
+						ref: ing.linkedRecipeRef,
+					})
+			})
 			stats.created++
 		} catch {
 			stats.errored++
+		}
+	}
+
+	// Links resolve only once every Recipe in the file has a household row, so
+	// a Recipe can link to one later in the file. A ref resolves through this
+	// file's Recipes alone; one that names no Recipe here stays plain. So does
+	// one that resolves back to its own Recipe, which the picker never offers.
+	for (const link of pendingLinks) {
+		const linkedRecipeId = refToIdMap.get(link.ref)
+		if (!linkedRecipeId || linkedRecipeId === link.recipeId) continue
+		try {
+			await prisma.ingredient.update({
+				where: { id: link.ingredientId },
+				data: { linkedRecipeId },
+			})
+		} catch (error) {
+			// The link is dropped either way, so the Recipes already restored
+			// still count as created. Only the expected race is silent: P2025 when
+			// the linking Recipe was deleted mid-import, P2003 when the linked
+			// one was. Anything else is logged.
+			const code = (error as { code?: unknown } | null)?.code
+			if (code !== 'P2025' && code !== 'P2003')
+				console.error('Unable to restore a sub-Recipe link', error)
 		}
 	}
 

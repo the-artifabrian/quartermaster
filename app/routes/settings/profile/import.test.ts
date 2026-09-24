@@ -529,6 +529,282 @@ describe('ingredient heading recovery', () => {
 	})
 })
 
+describe('sub-Recipe link recovery', () => {
+	// "Chicken with salsa verde" sorts before "Salsa verde", so both exports
+	// write the link ahead of its target: a restore that resolved links while
+	// it was still creating Recipes would miss it.
+	async function createLinkedRecipes(source: {
+		userId: string
+		householdId: string
+	}) {
+		const salsa = await prisma.recipe.create({
+			data: {
+				title: 'Salsa verde',
+				userId: source.userId,
+				householdId: source.householdId,
+				ingredients: { create: { name: 'parsley', order: 0 } },
+			},
+		})
+		await prisma.recipe.create({
+			data: {
+				title: 'Chicken with salsa verde',
+				userId: source.userId,
+				householdId: source.householdId,
+				ingredients: {
+					create: [
+						{ name: 'chicken thighs', order: 0 },
+						{
+							name: 'salsa verde',
+							amount: '1',
+							unit: 'batch',
+							order: 1,
+							linkedRecipeId: salsa.id,
+						},
+					],
+				},
+			},
+		})
+		return { salsa }
+	}
+
+	async function ingredientLinks(householdId: string) {
+		const lines = await prisma.ingredient.findMany({
+			where: { recipe: { householdId } },
+			select: {
+				name: true,
+				linkedRecipeId: true,
+				recipe: { select: { title: true } },
+			},
+			orderBy: [{ recipe: { title: 'asc' } }, { order: 'asc' }],
+		})
+		return lines.map((line) => [
+			line.recipe.title,
+			line.name,
+			line.linkedRecipeId,
+		])
+	}
+
+	async function recipeId(householdId: string, title: string) {
+		const recipe = await prisma.recipe.findFirstOrThrow({
+			where: { householdId, title },
+			select: { id: true },
+		})
+		return recipe.id
+	}
+
+	test('full export and import keep a link to a Recipe in the same file', async () => {
+		const source = await setupUser()
+		const { salsa } = await createLinkedRecipes(source)
+
+		const target = await setupUser()
+		await importPayload(target, await exportHousehold(source))
+
+		// The link lands on the target's own restored Recipe, never on the
+		// source household's Recipe, which still exists in this database.
+		const restoredSalsaId = await recipeId(target.householdId, 'Salsa verde')
+		expect(restoredSalsaId).not.toBe(salsa.id)
+		expect(await ingredientLinks(target.householdId)).toEqual([
+			['Chicken with salsa verde', 'chicken thighs', null],
+			['Chicken with salsa verde', 'salsa verde', restoredSalsaId],
+			['Salsa verde', 'parsley', null],
+		])
+	})
+
+	test('Recipe-only export and import keep a link to a Recipe in the same file', async () => {
+		const source = await setupUser()
+		const { salsa } = await createLinkedRecipes(source)
+
+		const target = await setupUser()
+		await importPayload(target, await exportRecipes(source))
+
+		const restoredSalsaId = await recipeId(target.householdId, 'Salsa verde')
+		expect(restoredSalsaId).not.toBe(salsa.id)
+		expect(await ingredientLinks(target.householdId)).toEqual([
+			['Chicken with salsa verde', 'chicken thighs', null],
+			['Chicken with salsa verde', 'salsa verde', restoredSalsaId],
+			['Salsa verde', 'parsley', null],
+		])
+	})
+
+	test('a link whose target is missing from the file restores as a plain ingredient', async () => {
+		const source = await setupUser()
+		await createLinkedRecipes(source)
+		const exported = await exportRecipes(source)
+		// The file lost its Salsa verde Recipe, say trimmed by hand.
+		exported.recipes = exported.recipes.filter(
+			(recipe: { title: string }) => recipe.title !== 'Salsa verde',
+		)
+		exported.recipeCount = exported.recipes.length
+
+		const target = await setupUser()
+		const result = await importPayload(target, exported)
+
+		expect(result).toEqual(
+			expect.objectContaining({
+				results: expect.objectContaining({
+					recipes: { created: 1, skipped: 0, errored: 0 },
+				}),
+			}),
+		)
+		expect(await ingredientLinks(target.householdId)).toEqual([
+			['Chicken with salsa verde', 'chicken thighs', null],
+			['Chicken with salsa verde', 'salsa verde', null],
+		])
+	})
+
+	test('a ref restores a link only to another Recipe in the same file, and never on a heading', async () => {
+		const target = await setupUser()
+		const salsaId = (
+			await prisma.recipe.create({
+				data: {
+					title: 'Salsa verde',
+					userId: target.userId,
+					householdId: target.householdId,
+				},
+			})
+		).id
+
+		await importPayload(target, {
+			exportedAt: '2026-09-01T12:00:00.000Z',
+			recipeCount: 3,
+			recipes: [
+				{
+					ref: 'r1',
+					title: 'Chicken with gravy',
+					ingredients: [
+						// A database id is not a ref in this file.
+						{ name: 'salsa verde', linkedRecipeRef: salsaId },
+						// The editor drops links on headings.
+						{ name: 'Gravy', isHeading: true, linkedRecipeRef: 'r2' },
+						{ name: 'gravy', linkedRecipeRef: 'r2' },
+						// The picker leaves out the Recipe being edited.
+						{ name: 'leftover chicken', linkedRecipeRef: 'r1' },
+						// r3 shares this Recipe's title, so it restores as this
+						// Recipe and the link would point back at it.
+						{ name: 'roast chicken', linkedRecipeRef: 'r3' },
+					],
+					instructions: [],
+				},
+				{ ref: 'r2', title: 'Gravy', ingredients: [], instructions: [] },
+				{
+					ref: 'r3',
+					title: 'chicken with Gravy',
+					ingredients: [],
+					instructions: [],
+				},
+			],
+		})
+
+		const gravyId = await recipeId(target.householdId, 'Gravy')
+		expect(await ingredientLinks(target.householdId)).toEqual([
+			['Chicken with gravy', 'salsa verde', null],
+			['Chicken with gravy', 'Gravy', null],
+			['Chicken with gravy', 'gravy', gravyId],
+			['Chicken with gravy', 'leftover chicken', null],
+			['Chicken with gravy', 'roast chicken', null],
+		])
+	})
+
+	test('an older export without link references restores every line unlinked, even one named after a Recipe in the file', async () => {
+		const target = await setupUser()
+		const result = await importPayload(target, {
+			exportedAt: '2026-01-10T12:00:00.000Z',
+			recipeCount: 2,
+			recipes: [
+				{
+					title: 'Chicken with salsa verde',
+					ingredients: [{ name: 'Salsa verde', amount: '1', unit: 'batch' }],
+					instructions: [{ content: 'Roast and dress.' }],
+				},
+				{
+					title: 'Salsa verde',
+					ingredients: [{ name: 'parsley' }],
+					instructions: [{ content: 'Chop and stir.' }],
+				},
+			],
+		})
+
+		expect(result).toEqual(
+			expect.objectContaining({
+				results: expect.objectContaining({
+					recipes: { created: 2, skipped: 0, errored: 0 },
+				}),
+			}),
+		)
+		expect(await ingredientLinks(target.householdId)).toEqual([
+			['Chicken with salsa verde', 'Salsa verde', null],
+			['Salsa verde', 'parsley', null],
+		])
+	})
+
+	test('a link to a Recipe the household already has reconnects to that Recipe', async () => {
+		const source = await setupUser()
+		await createLinkedRecipes(source)
+		const exported = await exportHousehold(source)
+
+		const target = await setupUser()
+		const householdSalsaId = (
+			await prisma.recipe.create({
+				data: {
+					title: 'Salsa verde',
+					userId: target.userId,
+					householdId: target.householdId,
+					ingredients: { create: { name: 'basil', order: 0 } },
+				},
+			})
+		).id
+		const result = await importPayload(target, exported)
+
+		expect(result).toEqual(
+			expect.objectContaining({
+				results: expect.objectContaining({
+					recipes: { created: 1, skipped: 1, errored: 0 },
+				}),
+			}),
+		)
+		expect(await ingredientLinks(target.householdId)).toEqual([
+			['Chicken with salsa verde', 'chicken thighs', null],
+			['Chicken with salsa verde', 'salsa verde', householdSalsaId],
+			['Salsa verde', 'basil', null],
+		])
+	})
+
+	test('a Recipe the household already has keeps its own unlinked lines', async () => {
+		const source = await setupUser()
+		await createLinkedRecipes(source)
+		const exported = await exportHousehold(source)
+
+		const target = await setupUser()
+		await prisma.recipe.create({
+			data: {
+				title: 'Chicken with salsa verde',
+				userId: target.userId,
+				householdId: target.householdId,
+				ingredients: {
+					create: [
+						{ name: 'chicken thighs', order: 0 },
+						{ name: 'salsa verde', order: 1 },
+					],
+				},
+			},
+		})
+		const result = await importPayload(target, exported)
+
+		expect(result).toEqual(
+			expect.objectContaining({
+				results: expect.objectContaining({
+					recipes: { created: 1, skipped: 1, errored: 0 },
+				}),
+			}),
+		)
+		expect(await ingredientLinks(target.householdId)).toEqual([
+			['Chicken with salsa verde', 'chicken thighs', null],
+			['Chicken with salsa verde', 'salsa verde', null],
+			['Salsa verde', 'parsley', null],
+		])
+	})
+})
+
 describe('household Staples recovery', () => {
 	test('full export and import preserve canonical rows', async () => {
 		const source = await setupUser()

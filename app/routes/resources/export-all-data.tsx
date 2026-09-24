@@ -26,7 +26,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 				rawText: true,
 				notes: true,
 				ingredients: {
-					select: { name: true, amount: true, unit: true, notes: true },
+					select: {
+						name: true,
+						amount: true,
+						unit: true,
+						notes: true,
+						isHeading: true,
+					},
 					orderBy: { order: 'asc' },
 				},
 				instructions: {
@@ -226,6 +232,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 				amount: ing.amount,
 				unit: ing.unit,
 				notes: ing.notes,
+				isHeading: ing.isHeading,
 			})),
 			instructions: recipe.instructions.map((inst) => inst.content),
 			image: recipe.image

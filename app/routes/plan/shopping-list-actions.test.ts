@@ -10,6 +10,7 @@ import { createPrismaClient, prisma } from '#app/utils/db.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
+import { action as shoppingCheckAction } from '../resources/shopping-check.tsx'
 import { loader as shoppingStaplesLoader } from '../resources/shopping-staples.tsx'
 import { action, loader } from '../shopping.tsx'
 import '#tests/setup/db-setup.ts'
@@ -107,6 +108,33 @@ async function makeRequest(
 		},
 		body: formData.toString(),
 	})
+}
+
+// Checks go through the resource route the Shopping page posts to.
+async function checkItem(session: { id: string }, itemId: string) {
+	const { checkVersion } = await prisma.shoppingListItem.findUniqueOrThrow({
+		where: { id: itemId },
+	})
+	const response = await shoppingCheckAction({
+		request: new Request(`${BASE_URL}/resources/shopping-check`, {
+			method: 'POST',
+			headers: {
+				cookie: await getSessionCookieHeader(session),
+				'Content-Type': 'application/x-www-form-urlencoded',
+			},
+			body: new URLSearchParams({
+				itemId,
+				checked: 'true',
+				observedVersion: String(checkVersion),
+				mutationId: `check-${itemId}`,
+			}).toString(),
+		}),
+		params: {},
+		context: new RouterContextProvider(),
+		pattern: '/resources/shopping-check',
+		url: new URL(`${BASE_URL}/resources/shopping-check`),
+	})
+	expect(await response.json()).toMatchObject({ status: 'success' })
 }
 
 async function makeLoaderRequest(session: { id: string }) {
@@ -610,16 +638,7 @@ describe('shopping list actions', () => {
 		const row = seen.shoppingList.items.find((item) => item.id === legacy.id)!
 		expect(row.display).toMatchObject({ quantity: '3', unit: null })
 
-		await action({
-			request: await makeRequest(session, {
-				intent: 'toggle',
-				itemId: legacy.id,
-				checked: 'true',
-				observedVersion: String(legacy.checkVersion),
-				mutationId: 'check-legacy-leeks',
-			}),
-			...ACTION_ARGS_BASE,
-		})
+		await checkItem(session, legacy.id)
 		expect(
 			await prisma.shoppingListItem.findUniqueOrThrow({
 				where: { id: legacy.id },
@@ -784,22 +803,7 @@ describe('shopping list actions', () => {
 			}),
 			...ACTION_ARGS_BASE,
 		})
-		await action({
-			request: await makeRequest(session, {
-				intent: 'toggle',
-				itemId: warning.itemId as string,
-				checked: 'true',
-				observedVersion: String(
-					(
-						await prisma.shoppingListItem.findUniqueOrThrow({
-							where: { id: warning.itemId as string },
-						})
-					).checkVersion,
-				),
-				mutationId: 'check-moved-item',
-			}),
-			...ACTION_ARGS_BASE,
-		})
+		await checkItem(session, warning.itemId as string)
 		await action({
 			request: await makeRequest(session, {
 				intent: 'move',
@@ -847,229 +851,6 @@ describe('shopping list actions', () => {
 				where: { list: { householdId: session.householdId } },
 			}),
 		).toBe(2)
-	})
-
-	test('toggle checked', async () => {
-		const session = await setupUser()
-
-		// Add an item first
-		await action({
-			request: await makeRequest(session, {
-				intent: 'add',
-				name: 'Eggs',
-			}),
-			...ACTION_ARGS_BASE,
-		})
-
-		const list = await prisma.shoppingList.findFirst({
-			where: { userId: session.userId },
-			include: { items: true },
-		})
-		const item = list!.items[0]!
-		expect(item.checked).toBe(false)
-
-		// Toggle
-		await action({
-			request: await makeRequest(session, {
-				intent: 'toggle',
-				itemId: item.id,
-				checked: 'true',
-				observedVersion: String(item.checkVersion),
-				mutationId: 'check-eggs',
-			}),
-			...ACTION_ARGS_BASE,
-		})
-
-		const updated = await prisma.shoppingListItem.findUnique({
-			where: { id: item.id },
-		})
-		expect(updated!.checked).toBe(true)
-	})
-
-	test('retrying the same desired check does not uncheck the purchase', async () => {
-		const session = await setupUser()
-		const list = await ensureShoppingList(prisma, session)
-		const item = await prisma.shoppingListItem.create({
-			data: { listId: list.id, name: 'Eggs' },
-		})
-		const fields = {
-			intent: 'toggle',
-			itemId: item.id,
-			checked: 'true',
-			observedVersion: '0',
-			mutationId: 'same-check-request',
-		}
-		for (let attempt = 0; attempt < 2; attempt++) {
-			await action({
-				request: await makeRequest(session, fields),
-				...ACTION_ARGS_BASE,
-			})
-		}
-		expect(
-			await prisma.shoppingListItem.findUnique({ where: { id: item.id } }),
-		).toMatchObject({ checked: true })
-	})
-
-	test('a contribution-only change invalidates the requirement seen in Shopping', async () => {
-		const session = await setupUser()
-		await setupMealPlanWithRecipe(session.userId, session.householdId)
-		const meal = await prisma.meal.findFirstOrThrow({
-			where: { mealPlan: { householdId: session.householdId } },
-		})
-		const list = await ensureShoppingList(prisma, session)
-		const item = await prisma.shoppingListItem.create({
-			data: { listId: list.id, name: 'Rice', quantity: '200', unit: 'g' },
-		})
-		const seen = await loader({
-			...ACTION_ARGS_BASE,
-			request: await makeLoaderRequest(session),
-		})
-		const observed = seen.shoppingList.items.find((row) => row.id === item.id)!
-		await prisma.mealShoppingContribution.create({
-			data: {
-				mealId: meal.id,
-				itemId: item.id,
-				canonicalName: 'rice',
-				name: 'Rice',
-				quantity: '400',
-				unit: 'g',
-			},
-		})
-		const result = await action({
-			...ACTION_ARGS_BASE,
-			request: await makeRequest(session, {
-				intent: 'toggle',
-				itemId: item.id,
-				checked: 'true',
-				observedVersion: String(observed.checkVersion),
-				mutationId: 'stale-rice',
-			}),
-		})
-		expect(result).toMatchObject({
-			status: 'conflict',
-			item: {
-				checked: false,
-				quantity: '200',
-				display: { quantity: '600', unit: 'g' },
-			},
-		})
-	})
-
-	test('a retry after another member unchecks cannot overwrite their later decision', async () => {
-		const session = await setupUser()
-		const other = await prisma.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						householdMembers: {
-							create: { householdId: session.householdId, role: 'member' },
-						},
-					},
-				},
-			},
-			select: { id: true },
-		})
-		const list = await ensureShoppingList(prisma, session)
-		const item = await prisma.shoppingListItem.create({
-			data: { listId: list.id, name: 'Rice' },
-		})
-		const first = {
-			intent: 'toggle',
-			itemId: item.id,
-			checked: 'true',
-			observedVersion: '0',
-			mutationId: 'lost-response',
-		}
-		await action({
-			...ACTION_ARGS_BASE,
-			request: await makeRequest(session, first),
-		})
-		await action({
-			...ACTION_ARGS_BASE,
-			request: await makeRequest(other, {
-				...first,
-				checked: 'false',
-				observedVersion: '1',
-				mutationId: 'later-uncheck',
-			}),
-		})
-		expect(
-			await action({
-				...ACTION_ARGS_BASE,
-				request: await makeRequest(session, first),
-			}),
-		).toMatchObject({
-			status: 'conflict',
-			item: { checked: false, checkVersion: 2 },
-		})
-	})
-
-	test('overlapping observed writes have one winner without toggling twice', async () => {
-		const session = await setupUser()
-		const list = await ensureShoppingList(prisma, session)
-		const item = await prisma.shoppingListItem.create({
-			data: { listId: list.id, name: 'Rice' },
-		})
-		const requests = await Promise.all(
-			['first', 'second'].map((mutationId) =>
-				makeRequest(session, {
-					intent: 'toggle',
-					itemId: item.id,
-					checked: 'true',
-					observedVersion: '0',
-					mutationId,
-				}),
-			),
-		)
-		const results = await Promise.all(
-			requests.map((request) => action({ ...ACTION_ARGS_BASE, request })),
-		)
-		expect(results.map((result) => result.status).sort()).toEqual([
-			'conflict',
-			'success',
-		])
-		expect(
-			await prisma.shoppingListItem.findUniqueOrThrow({
-				where: { id: item.id },
-			}),
-		).toMatchObject({ checked: true, checkVersion: 1 })
-	})
-
-	test('old toggle submissions and cross-household checks cannot write', async () => {
-		const session = await setupUser()
-		const outsider = await setupUser()
-		const list = await ensureShoppingList(prisma, session)
-		const item = await prisma.shoppingListItem.create({
-			data: { listId: list.id, name: 'Rice' },
-		})
-		expect(
-			await action({
-				...ACTION_ARGS_BASE,
-				request: await makeRequest(session, {
-					intent: 'toggle',
-					itemId: item.id,
-				}),
-			}),
-		).toMatchObject({ status: 'invalid' })
-		expect(
-			await action({
-				...ACTION_ARGS_BASE,
-				request: await makeRequest(outsider, {
-					intent: 'toggle',
-					itemId: item.id,
-					checked: 'true',
-					observedVersion: '0',
-					mutationId: 'foreign',
-				}),
-			}),
-		).toMatchObject({ status: 'missing' })
-		expect(
-			await prisma.shoppingListItem.findUniqueOrThrow({
-				where: { id: item.id },
-			}),
-		).toMatchObject({ checked: false })
 	})
 
 	test('Clear checked excludes an unsynced item even if its save already committed', async () => {
@@ -1153,16 +934,7 @@ describe('shopping list actions', () => {
 		})
 
 		// Check the first item
-		await action({
-			request: await makeRequest(session, {
-				intent: 'toggle',
-				itemId: list!.items[0]!.id,
-				checked: 'true',
-				observedVersion: String(list!.items[0]!.checkVersion),
-				mutationId: 'check-first-item',
-			}),
-			...ACTION_ARGS_BASE,
-		})
+		await checkItem(session, list!.items[0]!.id)
 
 		// Clear checked
 		const result = (await action({

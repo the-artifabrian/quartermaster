@@ -28,6 +28,26 @@ async function setupUser() {
 	return prisma.user.create({ data: createUser() })
 }
 
+/** Another customer's live subscription, which no stray event may touch. */
+async function setupBystanderSubscription() {
+	const user = await setupUser()
+	return prisma.subscription.create({
+		data: {
+			userId: user.id,
+			tier: 'pro',
+			stripeCustomerId: 'cus_bystander',
+			stripeSubscriptionId: 'sub_bystander',
+			subscriptionExpiresAt: new Date('2027-01-15T00:00:00Z'),
+		},
+	})
+}
+
+async function expectUnchanged(subscription: { id: string }) {
+	expect(
+		await prisma.subscription.findUnique({ where: { id: subscription.id } }),
+	).toEqual(subscription)
+}
+
 describe('handleCheckoutCompleted', () => {
 	test('creates subscription for new user', async () => {
 		const user = await setupUser()
@@ -106,6 +126,9 @@ describe('handleCheckoutCompleted', () => {
 	})
 
 	test('ignores session without client_reference_id', async () => {
+		// A user exists, so a checkout attributed by guesswork has somewhere to
+		// land.
+		await setupUser()
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 		try {
 			await handleCheckoutCompleted(
@@ -119,6 +142,7 @@ describe('handleCheckoutCompleted', () => {
 			expect(consoleError).toHaveBeenCalledWith(
 				'Checkout session missing client_reference_id',
 			)
+			expect(await prisma.subscription.count()).toBe(0)
 		} finally {
 			consoleError.mockRestore()
 		}
@@ -159,6 +183,7 @@ describe('handleInvoicePaid', () => {
 	})
 
 	test('logs an invoice for an unknown subscription', async () => {
+		const bystander = await setupBystanderSubscription()
 		const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 		await handleInvoicePaid(
 			{
@@ -173,6 +198,7 @@ describe('handleInvoicePaid', () => {
 		expect(consoleWarn).toHaveBeenCalledWith(
 			'Stripe invoice.paid ignored: no local subscription for sub_unknown_999',
 		)
+		await expectUnchanged(bystander)
 	})
 })
 
@@ -213,16 +239,25 @@ describe('handleSubscriptionUpdated', () => {
 	})
 
 	test('logs an update for an unknown subscription', async () => {
+		const bystander = await setupBystanderSubscription()
 		const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
 		await handleSubscriptionUpdated({
 			id: 'sub_update_unknown',
-			items: { data: [] },
+			items: {
+				data: [
+					{
+						price: { id: 'price_pro_yearly' },
+						current_period_end: mockPeriodEnd,
+					},
+				],
+			},
 		} as any)
 
 		expect(consoleWarn).toHaveBeenCalledWith(
 			'Stripe customer.subscription.updated ignored: no local subscription for sub_update_unknown',
 		)
+		await expectUnchanged(bystander)
 	})
 })
 
@@ -254,6 +289,7 @@ describe('handleSubscriptionDeleted', () => {
 	})
 
 	test('logs a deletion for an unknown subscription', async () => {
+		const bystander = await setupBystanderSubscription()
 		const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 		await handleSubscriptionDeleted({
 			id: 'sub_unknown_999',
@@ -261,5 +297,6 @@ describe('handleSubscriptionDeleted', () => {
 		expect(consoleWarn).toHaveBeenCalledWith(
 			'Stripe customer.subscription.deleted ignored: no local subscription for sub_unknown_999',
 		)
+		await expectUnchanged(bystander)
 	})
 })

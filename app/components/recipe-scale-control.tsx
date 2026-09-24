@@ -150,9 +150,12 @@ export function RecipeIngredientsControls({
 	onToggleMetric,
 }: RecipeIngredientsControlsProps) {
 	const recipeYield = getTypedYield({ yieldAmount, yieldLabel })
-	const targetYield = scaleMultiplierToTargetYield(scaleMultiplier, recipeYield)
+	const derivedTarget = scaleMultiplierToTargetYield(
+		scaleMultiplier,
+		recipeYield,
+	)
 	const formattedTargetYield =
-		targetYield != null ? formatTargetYieldAmount(targetYield) : null
+		derivedTarget != null ? formatTargetYieldAmount(derivedTarget) : null
 	const displayedMultiplier = formatScaleMultiplier(scaleMultiplier)
 
 	return (

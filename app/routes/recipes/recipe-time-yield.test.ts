@@ -12,12 +12,14 @@ import { action as importAction } from './import.tsx'
 import { action as newAction } from './new.tsx'
 import '#tests/setup/db-setup.ts'
 
-// URL imports resolve their host before fetching. This file's hosts are
-// fictional, so they resolve to a public address here.
+// URL imports resolve their host once, then connect to the checked address
+// and name the host in the Host header. This file's hosts are fictional, so
+// they resolve to a public address here, and their pages are mocked there.
 vi.mock('node:dns/promises', async (importOriginal) => ({
 	...(await importOriginal<typeof import('node:dns/promises')>()),
 	lookup: async () => [{ address: '93.184.216.34', family: 4 }],
 }))
+const CHECKED_ORIGIN = 'https://93.184.216.34'
 
 function routeArgs<
 	TParams extends Record<string, string> = Record<string, never>,
@@ -309,7 +311,7 @@ test('URL import previews only explicit Recipe time and typed yield metadata', a
 	const session = await setupUser()
 	const sourceUrl = 'https://recipes.example/braided-loaf'
 	server.use(
-		http.get(sourceUrl, () =>
+		http.get(`${CHECKED_ORIGIN}/braided-loaf`, () =>
 			HttpResponse.html(`
 				<script type="application/ld+json">
 					${JSON.stringify({
@@ -385,7 +387,7 @@ test('URL import keeps missing Total and typed Yield unknown', async () => {
 	const session = await setupUser()
 	const sourceUrl = 'https://recipes.example/explicit-only'
 	server.use(
-		http.get(sourceUrl, () =>
+		http.get(`${CHECKED_ORIGIN}/explicit-only`, () =>
 			HttpResponse.html(`
 				<script type="application/ld+json">
 					${JSON.stringify({
@@ -428,7 +430,7 @@ test('URL import keeps range yield text unknown', async () => {
 	const session = await setupUser()
 	const sourceUrl = 'https://recipes.example/range-yield'
 	server.use(
-		http.get(sourceUrl, () =>
+		http.get(`${CHECKED_ORIGIN}/range-yield`, () =>
 			HttpResponse.html(`
 				<script type="application/ld+json">
 					${JSON.stringify({

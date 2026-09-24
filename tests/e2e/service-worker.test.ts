@@ -146,26 +146,28 @@ test('Route data is current online and falls back only inside the live session',
 	await login()
 	await takeControl(page)
 
-	// The session-sync effect runs after hydration. Re-fetch until the production
-	// worker has created the build- and session-scoped cache.
-	await page.waitForFunction(async () => {
-		await fetch('/plan.data')
-		for (const cacheName of await caches.keys()) {
-			if (!cacheName.startsWith('qm-data-')) continue
-			const cache = await caches.open(cacheName)
-			if (await cache.match('/plan.data')) return true
-		}
-		return false
-	})
-
-	await page.evaluate(async () => {
-		const cacheName = (await caches.keys()).find((name) =>
-			name.startsWith('qm-data-'),
+	// The worker caches Route data only after the page names its session, which
+	// happens after hydration, and it writes the cache after it has answered the
+	// page. Keep requesting until a session cache holds /plan.data, then replace
+	// that entry in the same step. Use expect.poll: page.waitForFunction calls
+	// an async predicate once and resolves with whatever it returns.
+	await expect
+		.poll(
+			() =>
+				page.evaluate(async () => {
+					for (const cacheName of await caches.keys()) {
+						if (!cacheName.startsWith('qm-data-')) continue
+						const cache = await caches.open(cacheName)
+						if (!(await cache.match('/plan.data'))) continue
+						await cache.put('/plan.data', new Response('STALE ROUTE DATA'))
+						return true
+					}
+					await fetch('/plan.data')
+					return false
+				}),
+			{ message: 'a session data cache holds /plan.data' },
 		)
-		if (!cacheName) throw new Error('Session data cache was not created')
-		const cache = await caches.open(cacheName)
-		await cache.put('/plan.data', new Response('STALE ROUTE DATA'))
-	})
+		.toBe(true)
 
 	const online = await page.evaluate(async () => {
 		const response = await fetch('/plan.data')
@@ -179,14 +181,22 @@ test('Route data is current online and falls back only inside the live session',
 	expect(online.body).not.toBe('STALE ROUTE DATA')
 	expect(online.cacheControl).toBe('private, no-cache')
 
-	await page.waitForFunction(async () => {
-		const cacheName = (await caches.keys()).find((name) =>
-			name.startsWith('qm-data-'),
+	// The worker stores the fresh response after returning it.
+	await expect
+		.poll(
+			() =>
+				page.evaluate(async () => {
+					for (const cacheName of await caches.keys()) {
+						if (!cacheName.startsWith('qm-data-')) continue
+						const cache = await caches.open(cacheName)
+						const response = await cache.match('/plan.data')
+						if (response) return response.text()
+					}
+					return null
+				}),
+			{ message: 'the worker stores the fresh /plan.data' },
 		)
-		if (!cacheName) return false
-		const response = await (await caches.open(cacheName)).match('/plan.data')
-		return response ? (await response.text()) !== 'STALE ROUTE DATA' : false
-	})
+		.toBe(online.body)
 
 	await context.setOffline(true)
 	try {

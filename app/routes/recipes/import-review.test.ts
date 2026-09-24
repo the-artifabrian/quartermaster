@@ -20,12 +20,14 @@ import {
 } from '../share.$recipeId.tsx'
 import '#tests/setup/db-setup.ts'
 
-// URL imports resolve their host before fetching. This file's hosts are
-// fictional, so they resolve to a public address here.
+// URL imports resolve their host once, then connect to the checked address
+// and name the host in the Host header. This file's hosts are fictional, so
+// they resolve to a public address here, and their pages are mocked there.
 vi.mock('node:dns/promises', async (importOriginal) => ({
 	...(await importOriginal<typeof import('node:dns/promises')>()),
 	lookup: async () => [{ address: '93.184.216.34', family: 4 }],
 }))
+const CHECKED_ORIGIN = 'https://93.184.216.34'
 
 const chickpeaLine =
 	'2 cans chickpeas, drained and rinsed thoroughly under cold running water (reserve the liquid for another recipe; if using dried chickpeas instead, soak them overnight and simmer until completely tender before measuring the equivalent cooked weight)'
@@ -367,7 +369,7 @@ test('URL extraction retains original structured Recipe content and URL, keeps d
 		unusualNote: 'Keep this recoverable.',
 	}
 	server.use(
-		http.get(url, () =>
+		http.get(`${CHECKED_ORIGIN}/source`, () =>
 			HttpResponse.html(
 				`<script type="application/ld+json">${JSON.stringify(original)}</script>`,
 			),
@@ -403,7 +405,7 @@ test('URL extraction refuses a public page that redirects into the private netwo
 	const session = await user()
 	const internalHits: Array<string> = []
 	server.use(
-		http.get('https://recipes.example.test/moved', () =>
+		http.get(`${CHECKED_ORIGIN}/moved`, () =>
 			HttpResponse.redirect('http://169.254.169.254/latest/meta-data', 302),
 		),
 		http.get('http://169.254.169.254/latest/meta-data', ({ request }) => {

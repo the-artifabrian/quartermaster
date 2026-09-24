@@ -656,22 +656,32 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 			},
 		})
 
-		const project = (rows: Awaited<ReturnType<typeof getShoppingRows>>) =>
-			rows.map((row) => [
+		// Rows are what the household sees; contributions are where each line
+		// came from, which Meal deletion and refresh depend on.
+		const project = async () => ({
+			rows: (await getShoppingRows(session.householdId)).map((row) => [
 				row.name,
 				row.quantity,
 				row.unit,
 				row.category,
 				row.checked,
-			])
+			]),
+			contributions: (await getContributions(session.householdId)).map((c) => [
+				c.mealId,
+				c.canonicalName,
+				c.quantity,
+				c.unit,
+			]),
+		})
 
 		// Reference flow: the explicit one-Meal add from Plan.
 		await runPlanAction(session, {
 			intent: 'addMealToShopping',
 			mealId: meal.id,
 		})
-		const trusted = project(await getShoppingRows(session.householdId))
-		expect(trusted.length).toBeGreaterThan(0)
+		const trusted = await project()
+		expect(trusted.rows.length).toBeGreaterThan(0)
+		expect(trusted.contributions).toHaveLength(trusted.rows.length)
 		await prisma.shoppingListItem.deleteMany({})
 		await prisma.mealShoppingContribution.deleteMany({})
 
@@ -689,9 +699,7 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 				},
 			]),
 		})
-		expect(project(await getShoppingRows(session.householdId))).toEqual(trusted)
-		await prisma.shoppingListItem.deleteMany({})
-		await prisma.mealShoppingContribution.deleteMany({})
+		expect(await project()).toEqual(trusted)
 	})
 
 	test('a text-only Meal has no Shopping behavior', async () => {
@@ -948,6 +956,20 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 
 		expect(result.shopping.createdRowCount).toBe(0)
 		expect(result.shopping.alreadyContributedCount).toBe(1)
+		expect(await getShoppingRows(session.householdId)).toHaveLength(1)
+
+		// Ticking the same line again in From Plan must find it too.
+		const choices = await runPlanPickerLoader(session)
+		const line = choices.data.days[0]!.meals[0]!.lines[0]!
+		const repick = await runShoppingAction(session, {
+			intent: 'add-from-plan',
+			picks: JSON.stringify([{ mealId: meal.id, lines: [line.canonicalName] }]),
+		})
+		expect(repick).toMatchObject({
+			status: 'success',
+			createdRowCount: 0,
+			alreadyContributedCount: 1,
+		})
 		expect(await getShoppingRows(session.householdId)).toHaveLength(1)
 	})
 

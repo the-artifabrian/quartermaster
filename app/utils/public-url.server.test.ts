@@ -223,6 +223,40 @@ test('the request connects to the address that was checked, even when DNS later 
 	expect(lookups).toEqual(['rebind.example'])
 })
 
+test('an address with a zone ID is refused rather than fetched by name', async () => {
+	// A URL cannot carry a zone ID, so pinning to one would leave the name in
+	// the URL for fetch to resolve again. Bun's BlockList also passes
+	// fe80::1%eth0 as public.
+	const answers = ['2606:4700::1%eth0']
+	const resolveHost = async () => [{ address: answers.shift() ?? '10.0.0.5' }]
+	const visits = networkAnswering(resolveHost)
+
+	const response = await fetchPublicUrl(
+		'https://rebind.example/soup',
+		{},
+		{ resolveHost },
+	)
+
+	expect(visits).toEqual([])
+	expect(response).toBeNull()
+})
+
+test('IPv6 answers are pinned in whatever spelling DNS gives them', async () => {
+	const { resolveHost } = resolverFor({
+		'mapped.example': ['::ffff:93.184.216.34'],
+		'long.example': ['2606:4700:0:0:0:0:6810:84E5'],
+	})
+	const visits = networkAnswering(resolveHost)
+
+	await fetchPublicUrl('https://mapped.example/', {}, { resolveHost })
+	await fetchPublicUrl('https://long.example/', {}, { resolveHost })
+
+	expect(visits).toEqual([
+		{ address: '::ffff:5db8:d822', host: 'mapped.example', path: '/' },
+		{ address: '2606:4700::6810:84e5', host: 'long.example', path: '/' },
+	])
+})
+
 test('the pinned request names the original host for Host, SNI and the certificate check', async () => {
 	const { resolveHost } = resolverFor({ 'recipes.example': [PUBLIC_IP] })
 	const visits = networkAnswering(resolveHost)

@@ -59,6 +59,9 @@ const resolveWithDns: ResolveHost = (hostname) =>
 	lookup(hostname, { all: true, verbatim: true })
 
 function isPublicAddress(address: string) {
+	// A zone ID (fe80::1%eth0) scopes an address to one interface. Bun's
+	// BlockList does not match scoped addresses, and a URL cannot carry them.
+	if (address.includes('%')) return false
 	const family = isIP(address)
 	if (family === 0) return false
 	if (family === 6 && nat64.check(address, 'ipv6')) {
@@ -126,12 +129,27 @@ type BunRequestInit = RequestInit & { tls?: { serverName?: string } }
  * against it. Bun also keys its keep-alive pool by serverName but not by Host,
  * so this keeps a socket verified for one name from serving another name at
  * the same address.
+ *
+ * The cost is accepted: each distinct serverName gets its own SSL context in
+ * Bun, about 1 MB each. Bun caches at most 60 of them and drops any idle for
+ * 30 minutes, so the memory stays bounded. Sending Host without serverName
+ * would avoid the cost but lets pooled sockets cross names.
  */
 function fetchFrom(target: CheckedUrl, address: string, init: RequestInit) {
 	if (address === target.hostname) return fetch(target.url, init)
 
+	// Parsing throws for anything a URL cannot carry as a host, and gives the
+	// spelling the setter will produce (::ffff:5db8:d822, lowercase, ::).
+	const host = new URL(
+		`http://${isIP(address) === 6 ? `[${address}]` : address}`,
+	).hostname
 	const url = new URL(target.url)
-	url.hostname = isIP(address) === 6 ? `[${address}]` : address
+	url.hostname = host
+	// The setter silently keeps the name when it rejects a host, and fetch
+	// would then resolve the name again. Never send that request.
+	if (url.hostname !== host) {
+		throw new Error(`Could not pin ${target.hostname} to ${address}`)
+	}
 	const headers = new Headers(init.headers)
 	headers.set('Host', target.url.host)
 	const pinned: BunRequestInit = {
@@ -168,11 +186,12 @@ async function fetchChecked(target: CheckedUrl, init: RequestInit) {
 /**
  * Fetches a user-supplied URL, checking every redirect hop before requesting
  * it and connecting only to an address the check approved. Returns null when
- * any hop is not public or the redirects do not end.
+ * any hop is not public or the redirects do not end. The request carries no
+ * method or body, because a fallback to the next address replays it.
  */
 export async function fetchPublicUrl(
 	url: string,
-	init: Omit<RequestInit, 'redirect'>,
+	init: Omit<RequestInit, 'redirect' | 'body' | 'method'>,
 	{
 		resolveHost = resolveWithDns,
 		maxRedirects = 5,

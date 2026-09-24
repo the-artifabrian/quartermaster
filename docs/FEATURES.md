@@ -72,13 +72,15 @@ plan into Shopping.
 
 ### Shopping
 
-- Generate from a selected Plan week or add one Recipe/Meal explicitly.
+- Pick Meals and lines from a Plan week in the From Plan picker, or add one Meal
+  explicitly from its Plan card. Staple matches, plain pantry basics, lines
+  already on the list, and days that have passed arrive unticked.
 - Combine compatible quantities across Recipes and Menu note lines while leaving
   unresolved or incompatible amounts visible.
 - Omit lines matching a household Staple; include everything else.
 - Add several household Staples to the next shop from one quiet header picker.
-- Keep manual rows separate from generated Meal contributions so refreshes do
-  not overwrite another Meal or a shopper’s correction.
+- Keep manual rows separate from Meal contributions so refreshes do not
+  overwrite another Meal or a shopper’s correction.
 - Edit, search, check off, clear, and quick-add in a flat list with no aisle
   grouping.
 - Sync household changes through SSE with polling fallback.
@@ -115,4 +117,4 @@ Product terms live in [CONTEXT.md](../CONTEXT.md). Shipped, stopped, and
 deferred roadmap outcomes live in [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)
 and roadmap #98.
 
-_Updated 4 September 2026._
+_Updated 22 September 2026._

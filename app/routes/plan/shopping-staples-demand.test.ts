@@ -10,7 +10,6 @@ import { getCurrentWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
-import { action as recipeAction } from '../recipes/$recipeId.tsx'
 import { loader as planPickerLoader } from '../resources/shopping-plan.tsx'
 import { action as shoppingAction } from '../shopping.tsx'
 import { action as planAction, loader as planLoader } from './index.tsx'
@@ -216,22 +215,30 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 		).toBe(true)
 	})
 
-	test('a Staple change leaves an active list untouched until the next explicit Recipe add', async () => {
-		const session = await setupHousehold(['salt'])
+	test('a Staple change leaves an active list untouched until the next picker add', async () => {
+		const session = await setupHousehold(['chicken'])
 		const recipe = await setupRecipe(session, 'Chicken and peaches')
+		const meal = await setupMeal(session, recipe)
 
-		await recipeAction({
-			request: await makeRequest(session, `/recipes/${recipe.id}`, {
-				intent: 'add-to-shopping-list',
-				servingRatio: '1',
-			}),
-			params: { recipeId: recipe.id },
-			context: new RouterContextProvider(),
-			pattern: '/recipes/:recipeId',
-			url: new URL(`${BASE_URL}/recipes/${recipe.id}`),
-		})
+		async function addPickerDefaults() {
+			const choices = await runPlanPickerLoader(session)
+			const lines = choices.data.days[0]!.meals[0]!.lines
+			await runShoppingAction(session, {
+				intent: 'add-from-plan',
+				picks: JSON.stringify([
+					{
+						mealId: meal.id,
+						lines: lines
+							.filter((line) => line.status === 'needed')
+							.map((line) => line.canonicalName),
+					},
+				]),
+			})
+		}
+
+		await addPickerDefaults()
 		expect((await getRows(session.householdId)).map((row) => row.name)).toEqual(
-			['chicken', 'medium/small peaches'],
+			['medium/small peaches'],
 		)
 
 		// Removing the Staple: the household no longer assumes it is in.
@@ -239,28 +246,21 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 			where: {
 				householdId_canonicalKey: {
 					householdId: session.householdId,
-					canonicalKey: 'salt',
+					canonicalKey: 'chicken',
 				},
 			},
 			data: { isStaple: false },
 		})
 		// Changing the Staples never mutates the current Shopping rows itself.
 		expect((await getRows(session.householdId)).map((row) => row.name)).toEqual(
-			['chicken', 'medium/small peaches'],
+			['medium/small peaches'],
 		)
 
-		await recipeAction({
-			request: await makeRequest(session, `/recipes/${recipe.id}`, {
-				intent: 'add-to-shopping-list',
-				servingRatio: '1',
-			}),
-			params: { recipeId: recipe.id },
-			context: new RouterContextProvider(),
-			pattern: '/recipes/:recipeId',
-			url: new URL(`${BASE_URL}/recipes/${recipe.id}`),
-		})
+		// The next open of the picker ticks chicken by default; peaches stay
+		// unticked as already on the list.
+		await addPickerDefaults()
 		expect((await getRows(session.householdId)).map((row) => row.name)).toEqual(
-			['chicken', 'medium/small peaches', 'salt'],
+			['chicken', 'medium/small peaches'],
 		)
 	})
 

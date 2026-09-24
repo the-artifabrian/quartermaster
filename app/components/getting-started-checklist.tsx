@@ -48,7 +48,7 @@ export function GettingStartedChecklist({
 		},
 		{
 			title: 'Plan a Meal',
-			description: 'Plan your week and generate Shopping when you are ready',
+			description: 'Plan your week, then pick what to buy from it',
 			icon: 'cookie',
 			href: '/plan',
 			done: onboarding.hasMealPlan,

@@ -9,7 +9,6 @@ import { getCurrentWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
-import { action as recipeAction } from '../recipes/$recipeId.tsx'
 import { loader as planPickerLoader } from '../resources/shopping-plan.tsx'
 import {
 	action as shoppingAction,
@@ -673,19 +672,6 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 		expect(project(await getShoppingRows(session.householdId))).toEqual(trusted)
 		await prisma.shoppingListItem.deleteMany({})
 		await prisma.mealShoppingContribution.deleteMany({})
-
-		// Unified entry point: add Recipe from its page at the same ratio.
-		await recipeAction({
-			request: await makeRequest(session, `/recipes/${recipe.id}`, {
-				intent: 'add-to-shopping-list',
-				servingRatio: '2',
-			}),
-			params: { recipeId: recipe.id },
-			context: new RouterContextProvider(),
-			pattern: '/recipes/:recipeId',
-			url: new URL(`${BASE_URL}/recipes/${recipe.id}`),
-		})
-		expect(project(await getShoppingRows(session.householdId))).toEqual(trusted)
 	})
 
 	test('a text-only Meal has no Shopping behavior', async () => {

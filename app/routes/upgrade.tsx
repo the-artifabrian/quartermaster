@@ -139,8 +139,8 @@ const freeFeatures = [
 	'Unlimited recipes',
 	'Import from URL or paste',
 	'Meal planning calendar',
-	'Basic shopping list generation',
-	'Household Staples and Out state',
+	'Shopping picked from your Plan',
+	'Household Staples',
 	'Recipe time, yield, and filters',
 	'Interactive cooking view',
 	'Household sharing',
@@ -150,6 +150,7 @@ const freeFeatures = [
 const proFeatures = [
 	'Everything in Free, plus:',
 	'Real-time shopping list sync',
+	'Voice input on Shopping',
 	'AI Recipe import and enhancement',
 ]
 

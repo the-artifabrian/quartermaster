@@ -80,15 +80,13 @@ export default function AboutRoute() {
 					</p>
 				</div>
 				<div className="flex gap-3">
-					<Icon
-						name="magnifying-glass"
-						className="text-primary mt-0.5 size-5 shrink-0"
-					/>
+					<Icon name="cart" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">
-							Check what to buy.
+							Shop one ingredient.
 						</span>{' '}
-						See what a Recipe would add to Shopping before you plan it.
+						Out of one thing a Recipe needs? Tap it on the Recipe and it lands
+						on Shopping, Staple or not.
 					</p>
 				</div>
 				<div className="flex gap-3">

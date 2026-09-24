@@ -200,8 +200,8 @@ SQLite databases. Playwright runs user flows against a production build. A
 migration test rehearses a data-converting migration against legacy data before
 it ships. Delete the test once production has applied the migration, because the
 conversion can never run again. `app/utils/schema-constraints.test.ts` guards
-the CHECK constraints that exist only in migration SQL, since Prisma would drop
-them silently if it rebuilt those tables.
+the CHECK constraints and triggers that exist only in migration SQL, since
+Prisma would drop them silently if it rebuilt those tables.
 
 A test file opts into the setup it needs: `import '#tests/setup/db-setup.ts'`
 for a freshly seeded database before each test,

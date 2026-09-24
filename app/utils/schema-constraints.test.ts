@@ -3,10 +3,10 @@ import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import '#tests/setup/db-setup.ts'
 
-// These CHECK constraints exist only in migration SQL. Prisma's schema cannot
-// express them, so a Prisma-generated rebuild of one of these tables would drop
-// them silently. Each test saves a valid row first, so a rejected row can only
-// mean the constraint refused it.
+// These CHECK constraints and triggers exist only in migration SQL. Prisma's
+// schema cannot express them, so a Prisma-generated rebuild of one of these
+// tables would drop them silently. Each CHECK test saves a valid row first, so
+// a rejected row can only mean the constraint refused it.
 
 const CHECK_FAILED = /CHECK constraint failed/
 
@@ -82,4 +82,85 @@ test('a Recipe metadata value names a known dimension', async () => {
 
 	await expect(value('cuisine', 'Nordic')).resolves.toBeDefined()
 	await expect(value('diet', 'Vegan')).rejects.toThrow(CHECK_FAILED)
+})
+
+// Shopping checks compare the version a phone last saw with the row's current
+// one. The app never writes checkVersion; only these triggers advance it.
+async function setupShoppingRows(names: Array<string>) {
+	const { userId, householdId } = await setupHousehold()
+	const list = await prisma.shoppingList.create({
+		data: { userId, householdId },
+		select: { id: true },
+	})
+	const rows = await Promise.all(
+		names.map((name) =>
+			prisma.shoppingListItem.create({
+				data: { name, listId: list.id },
+				select: { id: true, name: true },
+			}),
+		),
+	)
+	const versions = async () =>
+		Object.fromEntries(
+			(
+				await prisma.shoppingListItem.findMany({
+					where: { listId: list.id },
+					select: { name: true, checkVersion: true },
+				})
+			).map((row) => [row.name, row.checkVersion]),
+		)
+	return { rows, versions }
+}
+
+test('a Shopping row advances its check version only when its content changes', async () => {
+	const {
+		rows: [rice],
+		versions,
+	} = await setupShoppingRows(['Rice'])
+	const update = (data: { checked?: boolean; quantity?: string }) =>
+		prisma.shoppingListItem.update({ where: { id: rice!.id }, data })
+
+	await update({ checked: true })
+	expect(await versions()).toEqual({ Rice: 1 })
+	await update({ quantity: '500 g' })
+	expect(await versions()).toEqual({ Rice: 2 })
+	// A retried write that changes nothing is not a new revision.
+	await update({ checked: true, quantity: '500 g' })
+	expect(await versions()).toEqual({ Rice: 2 })
+})
+
+test('Meal demand joining, changing, moving or leaving a Shopping row advances its check version', async () => {
+	const {
+		rows: [rice, beans],
+		versions,
+	} = await setupShoppingRows(['Rice', 'Beans'])
+
+	const contribution = await prisma.mealShoppingContribution.create({
+		data: {
+			itemId: rice!.id,
+			canonicalName: 'rice',
+			name: 'rice',
+			quantity: '400',
+			unit: 'g',
+		},
+		select: { id: true },
+	})
+	expect(await versions()).toEqual({ Rice: 1, Beans: 0 })
+
+	const update = (data: { quantity?: string; itemId?: string }) =>
+		prisma.mealShoppingContribution.update({
+			where: { id: contribution.id },
+			data,
+		})
+	await update({ quantity: '600' })
+	expect(await versions()).toEqual({ Rice: 2, Beans: 0 })
+	await update({ quantity: '600' })
+	expect(await versions()).toEqual({ Rice: 2, Beans: 0 })
+	await update({ itemId: beans!.id })
+	expect(await versions()).toEqual({ Rice: 3, Beans: 1 })
+
+	await prisma.mealShoppingContribution.delete({
+		where: { id: contribution.id },
+	})
+	expect(await versions()).toEqual({ Rice: 3, Beans: 2 })
 })

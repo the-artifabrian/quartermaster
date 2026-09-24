@@ -91,6 +91,20 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	expect(addBox).not.toBeNull()
 	expect(Math.abs(searchBox!.y - addBox!.y)).toBeLessThanOrEqual(1)
 	expect(addBox!.x).toBeGreaterThanOrEqual(searchBox!.x + searchBox!.width)
+
+	// Every add and remove control is a 44×44 touch target on the phone.
+	const applesRow = list.getByRole('listitem').filter({ hasText: 'Apples' })
+	for (const control of [
+		addButton,
+		applesRow.getByRole('button', { name: 'Add Apples to Next shop' }),
+		applesRow.getByRole('button', { name: 'Remove Apples' }),
+	]) {
+		const box = await control.boundingBox()
+		expect(box, `${control}`).not.toBeNull()
+		expect(box!.width, `${control} width`).toBeGreaterThanOrEqual(44)
+		expect(box!.height, `${control} height`).toBeGreaterThanOrEqual(44)
+	}
+
 	await addButton.click()
 	await expect(search).toBeHidden()
 	await expect(
@@ -114,7 +128,6 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 			candidate.request().postData()?.includes('intent=add-staple-to-shop') ===
 				true,
 	)
-	const applesRow = list.getByRole('listitem').filter({ hasText: 'Apples' })
 	const applesButton = applesRow.getByRole('button').first()
 	await applesButton.click()
 	await expect(applesButton).toBeFocused()

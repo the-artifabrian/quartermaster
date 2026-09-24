@@ -40,11 +40,19 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 	// Submit
 	await page.getByRole('button', { name: /create recipe/i }).click()
 
-	// 2. Verify redirected to recipe detail
-	await expect(page).toHaveURL(/\/recipes\/[a-z0-9]+$/)
+	// 2. Verify redirected to recipe detail ("new" would match an id pattern)
+	await expect(page).toHaveURL(/\/recipes\/(?!new$)[a-z0-9]+$/)
+	const recipeId = new URL(page.url()).pathname.split('/').at(-1)!
 	await expect(
 		page.getByRole('heading', { name: 'E2E Test Pasta' }),
 	).toBeVisible()
+	await expect(page.getByText('Makes 4 servings')).toBeVisible()
+	expect(
+		await prisma.recipe.findUnique({
+			where: { id: recipeId },
+			select: { yieldAmount: true, yieldLabel: true },
+		}),
+	).toEqual({ yieldAmount: 4, yieldLabel: 'servings' })
 	// Use .first() to avoid strict mode issues with dev-mode JSON viewer duplicates
 	await expect(page.getByText('A simple test recipe').first()).toBeVisible()
 	await expect(page.getByText('spaghetti').first()).toBeVisible()
@@ -77,9 +85,11 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 	// Double-check confirmation
 	await page.getByRole('button', { name: /are you sure/i }).click()
 
-	// Should redirect to recipes list
-	await expect(page).toHaveURL(/\/recipes/)
-	await expect(page.getByText('E2E Updated Pasta')).not.toBeVisible()
+	// Lands on the Recipes list, not back on /recipes/:id or its edit form
+	await expect(page).toHaveURL('/recipes')
+	await expect(page.getByRole('heading', { name: /^My Recipes/ })).toBeVisible()
+	await expect(page.getByText('E2E Updated Pasta')).toHaveCount(0)
+	expect(await prisma.recipe.findUnique({ where: { id: recipeId } })).toBeNull()
 })
 
 test('Recipe generation is gone while AI import and provenance remain', async ({
@@ -370,6 +380,33 @@ test('custom Recipe yield labels fit phone and desktop detail layouts', async ({
 		},
 	})
 
+	async function expectYieldFits(yieldText: Locator, viewportWidth: number) {
+		await expect(yieldText).toBeVisible()
+		const box = await yieldText.boundingBox()
+		expect(box).not.toBeNull()
+		expect(box!.x).toBeGreaterThanOrEqual(0)
+		expect(box!.x + box!.width).toBeLessThanOrEqual(viewportWidth)
+		// A clipped, ellipsized or line-clamped label keeps its box on screen,
+		// so also check that the box the text is laid out in shows all of it.
+		// Inline elements report 0 for every size, so this climbs to a block.
+		const size = await yieldText.evaluate((element) => {
+			let box: Element = element
+			while (getComputedStyle(box).display === 'inline' && box.parentElement) {
+				box = box.parentElement
+			}
+			return {
+				scrollWidth: box.scrollWidth,
+				clientWidth: box.clientWidth,
+				scrollHeight: box.scrollHeight,
+				clientHeight: box.clientHeight,
+			}
+		})
+		expect(size.clientWidth).toBeGreaterThan(0)
+		expect(size.scrollWidth).toBeLessThanOrEqual(size.clientWidth)
+		expect(size.clientHeight).toBeGreaterThan(0)
+		expect(size.scrollHeight).toBeLessThanOrEqual(size.clientHeight)
+	}
+
 	for (const viewport of [
 		{ width: 390, height: 844 },
 		{ width: 768, height: 900 },
@@ -377,13 +414,17 @@ test('custom Recipe yield labels fit phone and desktop detail layouts', async ({
 	]) {
 		await page.setViewportSize(viewport)
 		await page.goto(`/recipes/${recipe.id}`)
-		const yieldText = page.getByText(`Makes 2.5 ${yieldLabel}`)
-		await expect(yieldText).toBeVisible()
-		const box = await yieldText.boundingBox()
-		expect(box).not.toBeNull()
-		expect(box!.x).toBeGreaterThanOrEqual(0)
-		expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width)
+		await expectYieldFits(
+			page.getByText(`Makes 2.5 ${yieldLabel}`),
+			viewport.width,
+		)
 	}
+
+	// Scaling adds the original amount to the same line, its longest form.
+	await page.setViewportSize({ width: 390, height: 844 })
+	await page.goto(`/recipes/${recipe.id}?scale=1.5`)
+	await expect(page.getByText('original: 2.5')).toBeVisible()
+	await expectYieldFits(page.getByText(`Makes 3.75 ${yieldLabel}`), 390)
 })
 
 test('manual Recipe scaling stays multiplier-first and shows known yield as context', async ({

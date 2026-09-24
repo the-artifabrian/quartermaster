@@ -54,6 +54,9 @@ const ImportIngredientSchema = z.object({
 	amount: z.string().max(50).nullable().optional(),
 	unit: z.string().max(50).nullable().optional(),
 	notes: z.string().max(500).nullable().optional(),
+	// Exports written before #257 omit the flag. Those lines restore as
+	// ingredients: a lost heading is not guessed back from its name.
+	isHeading: z.boolean().optional(),
 })
 
 const ImportRecipeMetadataValueSchema = z
@@ -480,6 +483,7 @@ async function importRecipes(
 								amount: ing.amount || null,
 								unit: ing.unit || null,
 								notes: ing.notes || null,
+								isHeading: ing.isHeading ?? false,
 								order,
 							})),
 						},

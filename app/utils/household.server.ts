@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { createId } from '@paralleldrive/cuid2'
 import { createOwnHousehold, requireUserId } from './auth.server.ts'
 import { prisma } from './db.server.ts'
 import { menuTitleKey } from './menu-validation.ts'
@@ -437,6 +438,16 @@ async function deepCopyRecipes(
 			metadataAssignments: { include: { value: true } },
 		},
 	})
+	// Copies get their ids up front so each sub-Recipe link can point at the
+	// copy of its target once every copy exists.
+	const recipeIds = new Map<string, string>(
+		recipes.map((recipe: { id: string }) => [recipe.id, createId()]),
+	)
+	const ingredientIds = new Map<string, string>(
+		recipes.flatMap((recipe: { ingredients: Array<{ id: string }> }) =>
+			recipe.ingredients.map((ing) => [ing.id, createId()] as const),
+		),
+	)
 
 	for (const recipe of recipes) {
 		const metadataValueIds = await ensureRecipeMetadataValues(
@@ -455,6 +466,7 @@ async function deepCopyRecipes(
 		)
 		await tx.recipe.create({
 			data: {
+				id: recipeIds.get(recipe.id)!,
 				title: recipe.title,
 				description: recipe.description,
 				activeTime: recipe.activeTime,
@@ -473,6 +485,7 @@ async function deepCopyRecipes(
 				ingredients: {
 					create: recipe.ingredients.map(
 						(ing: {
+							id: string
 							name: string
 							amount: string | null
 							unit: string | null
@@ -480,6 +493,7 @@ async function deepCopyRecipes(
 							isHeading: boolean
 							order: number
 						}) => ({
+							id: ingredientIds.get(ing.id)!,
 							name: ing.name,
 							amount: ing.amount,
 							unit: ing.unit,
@@ -509,5 +523,21 @@ async function deepCopyRecipes(
 					: {}),
 			},
 		})
+	}
+	// A link survives only when its target was copied too. One to a Recipe
+	// left behind in the old household becomes a plain ingredient.
+	for (const recipe of recipes) {
+		for (const ing of recipe.ingredients as Array<{
+			id: string
+			linkedRecipeId: string | null
+		}>) {
+			const linkedRecipeId =
+				ing.linkedRecipeId && recipeIds.get(ing.linkedRecipeId)
+			if (linkedRecipeId)
+				await tx.ingredient.update({
+					where: { id: ingredientIds.get(ing.id)! },
+					data: { linkedRecipeId },
+				})
+		}
 	}
 }

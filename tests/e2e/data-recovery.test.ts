@@ -125,3 +125,89 @@ test('a Recipe restored from its export keeps its heading out of checks and Shop
 	})
 	expect(shoppingNames).toEqual([{ name: 'capers' }, { name: 'parsley' }])
 })
+
+test('a Recipe restored from its export still opens its sub-Recipe', async ({
+	page,
+	login,
+}) => {
+	test.setTimeout(30_000)
+	const user = await login()
+	const salsa = await prisma.recipe.create({
+		data: {
+			title: 'Salsa verde',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: { create: { name: 'parsley', order: 0 } },
+			instructions: { create: { content: 'Chop and stir.', order: 0 } },
+		},
+	})
+	const chicken = await prisma.recipe.create({
+		data: {
+			title: 'Chicken with salsa verde',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: {
+				create: [
+					{ name: 'chicken thighs', amount: '6', order: 0 },
+					{
+						name: 'salsa verde',
+						amount: '1',
+						unit: 'batch',
+						order: 1,
+						linkedRecipeId: salsa.id,
+					},
+				],
+			},
+			instructions: { create: { content: 'Roast and dress.', order: 0 } },
+		},
+	})
+
+	await page.goto('/settings/profile')
+	const downloading = page.waitForEvent('download')
+	await page.getByRole('link', { name: 'Export All Data' }).click()
+	const download = await downloading
+	const exportFile = await readFile(await download.path())
+
+	// Both Recipes are lost, then restored from that file.
+	await prisma.recipe.deleteMany({
+		where: { id: { in: [chicken.id, salsa.id] } },
+	})
+	await page.goto('/settings/profile/import')
+	await page.getByLabel('Select export file').setInputFiles({
+		name: download.suggestedFilename(),
+		mimeType: 'application/json',
+		buffer: exportFile,
+	})
+	await page.getByRole('button', { name: 'Import', exact: true }).click()
+	await expect(page.getByRole('link', { name: 'View recipes' })).toBeVisible()
+
+	const restoredSalsa = await prisma.recipe.findFirstOrThrow({
+		where: { householdId: user.householdId, title: 'Salsa verde' },
+		select: { id: true },
+	})
+	const restoredChicken = await prisma.recipe.findFirstOrThrow({
+		where: { householdId: user.householdId, title: 'Chicken with salsa verde' },
+		select: {
+			id: true,
+			ingredients: {
+				select: { name: true, linkedRecipeId: true },
+				orderBy: { order: 'asc' },
+			},
+		},
+	})
+	expect(restoredChicken.ingredients).toEqual([
+		{ name: 'chicken thighs', linkedRecipeId: null },
+		{ name: 'salsa verde', linkedRecipeId: restoredSalsa.id },
+	])
+
+	// Recipe detail opens the restored sub-Recipe from the linked line.
+	await page.goto(`/recipes/${restoredChicken.id}`)
+	await expect(page.getByRole('link', { name: 'chicken thighs' })).toHaveCount(
+		0,
+	)
+	await page.getByRole('link', { name: 'salsa verde', exact: true }).click()
+	await expect(page).toHaveURL(new RegExp(`/recipes/${restoredSalsa.id}$`))
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Salsa verde' }),
+	).toBeVisible()
+})

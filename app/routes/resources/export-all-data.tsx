@@ -32,6 +32,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 						unit: true,
 						notes: true,
 						isHeading: true,
+						linkedRecipeId: true,
 					},
 					orderBy: { order: 'asc' },
 				},
@@ -233,6 +234,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 				unit: ing.unit,
 				notes: ing.notes,
 				isHeading: ing.isHeading,
+				// A sub-Recipe link is written as the linked Recipe's ref in this
+				// file, never a database id, and is resolved after every Recipe
+				// in the file is restored (#311).
+				linkedRecipeRef:
+					(ing.linkedRecipeId && recipeRefById.get(ing.linkedRecipeId)) || null,
 			})),
 			instructions: recipe.instructions.map((inst) => inst.content),
 			image: recipe.image

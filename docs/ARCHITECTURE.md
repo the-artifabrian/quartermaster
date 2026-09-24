@@ -196,8 +196,12 @@ tested together:
 
 Which layer to test in, and how, is in [AGENTS.md](../AGENTS.md#testing). Vitest
 runs pure logic and authenticated loader/action behavior against real test
-SQLite databases. Playwright runs user flows against a production build.
-Migration tests execute shipped SQL when data conversion itself is the risk.
+SQLite databases. Playwright runs user flows against a production build. A
+migration test rehearses a data-converting migration against legacy data before
+it ships. Delete the test once production has applied the migration, because the
+conversion can never run again. `app/utils/schema-constraints.test.ts` guards
+the CHECK constraints that exist only in migration SQL, since Prisma would drop
+them silently if it rebuilt those tables.
 
 A test file opts into the setup it needs: `import '#tests/setup/db-setup.ts'`
 for a freshly seeded database before each test,

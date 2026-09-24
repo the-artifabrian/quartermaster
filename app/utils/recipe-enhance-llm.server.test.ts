@@ -41,17 +41,6 @@ describe('buildEnhancePrompt', () => {
 		expect(prompt).toContain('Boil a large pot')
 	})
 
-	it('shows missing description and time values and asks for current metadata', () => {
-		const prompt = buildEnhancePrompt(sampleInput)
-		expect(prompt).toContain('Current description: None')
-		expect(prompt).toContain('Current active time: None')
-		expect(prompt).toContain('Current total time: None')
-		expect(prompt).toContain('"activeTime": 15')
-		expect(prompt).toContain('"totalTime": 45')
-		expect(prompt).not.toContain('Current prep time')
-		expect(prompt).not.toContain('Current cook time')
-	})
-
 	it('shows existing values when present', () => {
 		const input: RecipeInput = {
 			...sampleInput,

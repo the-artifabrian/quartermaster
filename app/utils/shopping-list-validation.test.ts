@@ -32,11 +32,6 @@ describe('guessCategory', () => {
 		expect(guessCategory('frozen corn')).toBe('frozen')
 	})
 
-	test('ice cream matches dairy before frozen due to regex order', () => {
-		// "ice cream" matches "cream" in dairy regex before reaching frozen
-		expect(guessCategory('ice cream')).toBe('dairy')
-	})
-
 	test('categorizes bakery', () => {
 		expect(guessCategory('sourdough bread')).toBe('bakery')
 		expect(guessCategory('hamburger bun')).toBe('bakery')

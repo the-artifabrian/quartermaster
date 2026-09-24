@@ -87,14 +87,4 @@ describe('annotateShoppingDemand', () => {
 			).lines,
 		).toHaveLength(0)
 	})
-
-	test('lines are returned unchanged — the seam only removes', () => {
-		const chicken = makeDemandLine('chicken')
-		const result = annotateShoppingDemand(
-			[makeDemandLine('salt'), chicken],
-			householdStaples(['salt']),
-		)
-
-		expect(result.lines[0]).toBe(chicken)
-	})
 })

@@ -205,12 +205,22 @@ export async function fetchPublicUrl(
 	for (let hop = 0; hop <= maxRedirects; hop++) {
 		const target = await checkUrl(current, resolveHost)
 		if (!target) return null
-		const response = await fetchChecked(target, { ...init, redirect: 'manual' })
+		const hopController = new AbortController()
+		const signal = init.signal
+			? AbortSignal.any([init.signal, hopController.signal])
+			: hopController.signal
+		const response = await fetchChecked(target, {
+			...init,
+			signal,
+			redirect: 'manual',
+		})
 		const location = response.headers.get('location')
 		if (response.status < 300 || response.status >= 400 || !location) {
 			return response
 		}
-		await response.body?.cancel()
+		// Aborting closes the hop's connection. Cancelling its body instead
+		// leaves Bun reading the body into memory for as long as it lasts.
+		hopController.abort()
 		current = new URL(location, current).href
 	}
 	return null

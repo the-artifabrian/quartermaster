@@ -212,6 +212,14 @@ import fails with an error naming it. Worker databases live under a directory
 unique to each run, so concurrent runs cannot overwrite or clean up one
 another's files.
 
+`bun run test:address-pinning` runs the Recipe URL import's pinned fetch under
+Bun, which Vitest cannot, against a local HTTPS server with a throwaway CA. The
+pinning relies on Bun using `tls.serverName` for SNI, the certificate check and
+the keep-alive pool key, so a Bun upgrade must pass it. CI runs it in the lint
+job on CI's Bun version, so upgrade that version together with the Dockerfile's.
+Only this check may import `unguardedFetchFrom`, which skips the public-address
+guard.
+
 Playwright runs on every pull request and uploads its HTML report. It is not yet
 a required check, and deploys do not wait for it. Browser checks and simulations
 are implementation evidence, not substitutes for normal use.

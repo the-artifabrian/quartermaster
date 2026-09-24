@@ -18,13 +18,14 @@
     "start:mocks": "NODE_ENV=production MOCKS=true bun index.ts",
     "test": "vitest",
     "coverage": "vitest run --coverage",
+    "test:address-pinning": "bun scripts/check-address-pinning.ts",
     "test:e2e": "bun run test:e2e:dev --silent",
     "test:e2e:dev": "playwright test --ui",
     "pretest:e2e:run": "bun run build",
     "test:e2e:run": "CI=true playwright test",
     "test:e2e:install": "bunx playwright install --with-deps chromium",
     "typecheck": "react-router typegen && tsc",
-    "validate": "bun run test --run && bun run lint && bun run typecheck && bun run test:e2e:run"
+    "validate": "bun run test --run && bun run test:address-pinning && bun run lint && bun run typecheck && bun run test:e2e:run"
   },
   "prettier": "@epic-web/config/prettier",
   "dependencies": {

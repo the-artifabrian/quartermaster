@@ -48,6 +48,7 @@ import {
 	ImportUrlSchema,
 	MAX_RAW_TEXT_LENGTH,
 } from '#app/utils/recipe-validation.ts'
+import { fetchPublicUrl } from '#app/utils/public-url.server.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
 
@@ -141,33 +142,6 @@ type DuplicateMatch = {
 	title: string
 	sourceUrl: string | null
 	matchReason: 'same-url' | 'similar-title'
-}
-
-function isAllowedUrl(url: string): boolean {
-	try {
-		const parsed = new URL(url)
-		if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-			return false
-		}
-		const hostname = parsed.hostname
-		// Block localhost and private/reserved ranges
-		if (
-			hostname === 'localhost' ||
-			hostname === '127.0.0.1' ||
-			hostname === '[::1]' ||
-			hostname === '0.0.0.0' ||
-			hostname.endsWith('.local') ||
-			hostname.startsWith('10.') ||
-			hostname.startsWith('192.168.') ||
-			hostname.startsWith('169.254.') ||
-			/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
-		) {
-			return false
-		}
-		return true
-	} catch {
-		return false
-	}
 }
 
 function findRecipeInJsonLd(obj: unknown): Record<string, unknown> | null {
@@ -438,27 +412,14 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const { url } = submission.value
 
-		if (!isAllowedUrl(url)) {
-			return data(
-				{
-					intent: 'fetch' as const,
-					error:
-						'This URL cannot be imported. Please use a public HTTP(S) URL.',
-					recipe: null,
-					result: null,
-					duplicates: null,
-				},
-				{ status: 400 },
-			)
-		}
-
 		try {
 			const controller = new AbortController()
 			const timeout = setTimeout(() => controller.abort(), 10000)
 
-			const response = await fetch(url, {
+			// Checks the URL and every redirect hop before requesting it, so an
+			// import can never reach this machine or the private network.
+			const response = await fetchPublicUrl(url, {
 				signal: controller.signal,
-				redirect: 'follow',
 				headers: {
 					'User-Agent':
 						'Mozilla/5.0 (compatible; Quartermaster/1.0; +recipe-import)',
@@ -467,8 +428,7 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 			clearTimeout(timeout)
 
-			// Validate final URL after redirects to prevent SSRF via redirect
-			if (response.url && !isAllowedUrl(response.url)) {
+			if (!response) {
 				return data(
 					{
 						intent: 'fetch' as const,

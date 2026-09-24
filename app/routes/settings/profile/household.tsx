@@ -117,14 +117,15 @@ export async function action({ request }: Route.ActionArgs) {
 			if (typeof targetUserId !== 'string') {
 				throw new Response('Invalid targetUserId', { status: 400 })
 			}
-			// Emit before removing (user still has membership)
+			// Remove first, so a request naming someone outside this household
+			// fails before it can announce a departure.
+			await removeMember(userId, targetUserId, householdId)
 			void emitHouseholdEvent({
 				type: 'household_member_left',
 				payload: {},
 				userId: targetUserId,
 				householdId,
 			})
-			await removeMember(userId, targetUserId, householdId)
 			return { result: null, inviteToken: null }
 		}
 		case 'leave-household': {

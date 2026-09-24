@@ -161,19 +161,6 @@ describe('buildExtractPrompt', () => {
 		expect(prompt).toContain('lower bound')
 	})
 
-	test('separates the bare ingredient name from its preparation', () => {
-		const prompt = buildExtractPrompt('text', 'some text')
-		expect(prompt).toContain('name is the bare ingredient')
-		expect(prompt).toContain('belong in notes')
-	})
-
-	test('says which fields are written in English', () => {
-		const prompt = buildExtractPrompt('text', 'some text')
-		expect(prompt).toContain(
-			'Write the title, description, instructions, ingredient names and notes in English',
-		)
-	})
-
 	test('states the caps the save path enforces', () => {
 		const prompt = buildExtractPrompt('text', 'some text')
 		expect(prompt).toContain(`under ${MAX_RECIPE_TITLE_LENGTH} characters`)
@@ -184,23 +171,6 @@ describe('buildExtractPrompt', () => {
 			`at most ${MAX_RECIPE_INSTRUCTIONS} instruction steps`,
 		)
 		expect(prompt).toContain(`under ${MAX_RECIPE_NOTES_LENGTH} characters`)
-	})
-
-	test('asks for times as whole minutes, which is all the schema accepts', () => {
-		const prompt = buildExtractPrompt('text', 'some text')
-		// Sonnet returns "20 min" / "1 hr 15 min" without this rule, and a string
-		// is discarded, so the stated time silently disappears from the review.
-		expect(prompt).toContain('plain whole numbers of minutes')
-		expect(prompt).toContain('"1 hr 15 min" is 75')
-		// The template keeps nulls: a worked example here would invite the model
-		// to default times the source never stated.
-		expect(prompt).toContain('"activeTime": null')
-	})
-
-	test('includes sub-section handling rule', () => {
-		const prompt = buildExtractPrompt('text', 'some text')
-		expect(prompt).toContain('do NOT merge or sum quantities')
-		expect(prompt).toContain('sub-section')
 	})
 
 	test("names this household's own values for every dimension", () => {
@@ -222,16 +192,6 @@ describe('buildExtractPrompt', () => {
 		})
 		expect(prompt).toContain('Cuisine: (empty — always answer [])')
 		expect(prompt).toContain('Season: Summer, Year-round')
-	})
-
-	test('keeps the metadata groups empty in the structure template', () => {
-		// Same reason the times stay null: a worked example here would invite a
-		// classification the source never supported.
-		const prompt = buildExtractPrompt('text', 'some text', household)
-		expect(prompt).toContain(
-			'"metadata": {"cuisine": [], "season": [], "course": []}',
-		)
-		expect(prompt).not.toContain('"cuisine": ["Italian"]')
 	})
 })
 

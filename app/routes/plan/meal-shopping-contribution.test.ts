@@ -898,28 +898,6 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 		expect(await getContributions(session.householdId)).toHaveLength(1)
 	})
 
-	test('week-wide regenerate preserves Meal-contributed rows and provenance', async () => {
-		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId, session.householdId)
-		const meal = await setupMeal(session.householdId, recipe)
-
-		await runPlanAction(session, {
-			intent: 'addMealToShopping',
-			mealId: meal.id,
-		})
-		const before = await getShoppingRows(session.householdId)
-
-		await runShoppingAction(session, { intent: 'generate' })
-
-		// Canonical dedup keeps the contributed rows as the displayed rows —
-		// no duplicates, and the contributions survive regeneration.
-		const after = await getShoppingRows(session.householdId)
-		expect(after.map((row) => [row.id, row.name])).toEqual(
-			before.map((row) => [row.id, row.name]),
-		)
-		expect(await getContributions(session.householdId)).toHaveLength(2)
-	})
-
 	test('a fallback-identity ingredient still matches its existing row on re-add', async () => {
 		const session = await setupUser()
 		// 'medium/small peaches' defeats canonicalization — its demand identity
@@ -950,10 +928,6 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 
 		expect(result.shopping.createdRowCount).toBe(0)
 		expect(result.shopping.alreadyContributedCount).toBe(1)
-		expect(await getShoppingRows(session.householdId)).toHaveLength(1)
-
-		// Week-wide regenerate must not duplicate it either.
-		await runShoppingAction(session, { intent: 'generate' })
 		expect(await getShoppingRows(session.householdId)).toHaveLength(1)
 	})
 

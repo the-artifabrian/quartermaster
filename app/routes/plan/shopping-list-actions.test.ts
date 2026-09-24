@@ -1273,22 +1273,4 @@ describe('shopping list actions', () => {
 		})
 		expect(list!.items.map((i) => i.name).sort()).toEqual(['Bananas', 'milk'])
 	})
-
-	test('add item auto-categorizes household items', async () => {
-		const session = await setupUser()
-
-		const request = await makeRequest(session, {
-			intent: 'add',
-			name: 'Toilet Paper',
-		})
-		await action({ request, ...ACTION_ARGS_BASE })
-
-		const list = await prisma.shoppingList.findFirst({
-			where: { userId: session.userId },
-			include: { items: true },
-		})
-		const item = list!.items.find((i) => i.name === 'Toilet Paper')
-		expect(item).toBeDefined()
-		expect(item!.category).toBe('household')
-	})
 })

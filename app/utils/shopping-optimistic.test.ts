@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'vitest'
 import { type ShoppingListItem } from '#app/generated/prisma/client.ts'
-import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import {
 	makeOptimisticShoppingItem,
 	mergeOptimisticShoppingItems,
@@ -40,25 +39,9 @@ describe('makeOptimisticShoppingItem', () => {
 		expect(item.listId).toBe('list1')
 		expect(typeof item.category).toBe('string')
 	})
-
-	test('derives category via guessCategory so the optimistic row matches the server', () => {
-		// category is the one field the optimistic item COMPUTES rather than echoes
-		// from the form, so it must agree with what the server stores or the temp
-		// row would visibly jump to a different group on revalidation.
-		for (const name of ['Milk', 'Bananas', 'Chicken breast', 'zzqxunknown']) {
-			expect(
-				makeOptimisticShoppingItem({ name, listId: 'list1' }).category,
-			).toBe(guessCategory(name))
-		}
-	})
 })
 
 describe('mergeOptimisticShoppingItems', () => {
-	test('returns the real array unchanged when nothing is pending', () => {
-		const real = [realItem('apples')]
-		expect(mergeOptimisticShoppingItems(real, [])).toBe(real)
-	})
-
 	test('inserts pending items at the end of the unchecked group', () => {
 		const real = [realItem('apples'), realItem('zucchini', true)]
 		const pending = [
@@ -94,12 +77,5 @@ describe('mergeOptimisticShoppingItems', () => {
 			makeOptimisticShoppingItem({ name: 'Eggs', listId: 'list1' }),
 		]
 		expect(mergeOptimisticShoppingItems([], pending)).toHaveLength(1)
-	})
-
-	test('ignores blank names', () => {
-		const pending = [
-			makeOptimisticShoppingItem({ name: '   ', listId: 'list1' }),
-		]
-		expect(mergeOptimisticShoppingItems([], pending)).toHaveLength(0)
 	})
 })

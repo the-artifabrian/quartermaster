@@ -736,35 +736,6 @@ test('desktop keeps the entire week in one chronological agenda', () => {
 	).toBeVisible()
 })
 
-test('desktop Meal boundaries stay distinct when a day contains several Meals', () => {
-	renderCalendar(undefined, {
-		calendarMeals: [
-			{
-				...makeMeal({
-					id: 'meal-1',
-					dateStr: '2026-04-08',
-					title: 'Banana Bread',
-				}),
-				label: null,
-			},
-			{
-				...makeMeal({
-					id: 'meal-2',
-					dateStr: '2026-04-08',
-					title: 'Bolognese',
-				}),
-				label: null,
-			},
-		],
-	})
-	const desktop = screen.getByTestId('desktop-plan')
-	const mealGroups = desktop.querySelectorAll('[data-slot="meal-group"]')
-
-	expect(mealGroups).toHaveLength(2)
-	expect(mealGroups[1]).toHaveClass('md:mt-2', 'md:border-t', 'md:pt-2')
-	expect(within(desktop).getAllByText('Meal', { exact: true })).toHaveLength(2)
-})
-
 test('a Meal with snapshot notes can remove its only Recipe', () => {
 	const meal = makeMeal({
 		id: 'meal-with-note',

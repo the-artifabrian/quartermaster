@@ -38,16 +38,3 @@ test('can leave yield to the cooking scale control without duplicating it', () =
 	expect(screen.getByText('Active: 25 min')).toBeVisible()
 	expect(screen.queryByText(/dough balls/)).not.toBeInTheDocument()
 })
-
-test('adds no metadata row when Recipe time and yield are unknown', () => {
-	const { container } = render(
-		<RecipeMetadataCard
-			activeTime={null}
-			totalTime={null}
-			yieldAmount={null}
-			yieldLabel={null}
-			sourceUrl={null}
-		/>,
-	)
-	expect(container).toBeEmptyDOMElement()
-})

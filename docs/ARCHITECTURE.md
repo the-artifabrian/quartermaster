@@ -216,4 +216,8 @@ Playwright runs on every pull request and uploads its HTML report. It is not yet
 a required check, and deploys do not wait for it. Browser checks and simulations
 are implementation evidence, not substitutes for normal use.
 
+`page.waitForFunction` does not await an async predicate: it resolves with the
+first result, even `false`. To wait on async page state such as Cache Storage,
+use `expect.poll(() => page.evaluate(async () => …))`.
+
 _Updated 24 September 2026._

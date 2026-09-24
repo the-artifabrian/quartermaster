@@ -1,5 +1,6 @@
 import { invariant } from '@epic-web/invariant'
 import { faker } from '@faker-js/faker'
+import { createOwnHousehold } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	normalizeEmail,
@@ -31,6 +32,12 @@ const test = base.extend<{
 		email: string
 		password: string
 	}
+	insertRegisteredUser(options: { password: string }): Promise<{
+		id: string
+		email: string
+		username: string
+		name: string | null
+	}>
 }>({
 	getOnboardingData: async ({}, use) => {
 		const userData = createUser()
@@ -41,7 +48,30 @@ const test = base.extend<{
 			}
 			return onboardingData
 		})
+		// Signup gave the user a Household, which deleting the user leaves behind.
+		const households = await prisma.household.findMany({
+			where: { members: { some: { user: { username: userData.username } } } },
+			select: { id: true },
+		})
 		await prisma.user.deleteMany({ where: { username: userData.username } })
+		await prisma.household.deleteMany({
+			where: { id: { in: households.map((household) => household.id) } },
+		})
+	},
+	// A registered user signed up, so they already have a Household.
+	insertRegisteredUser: async ({ page, insertNewUser }, use) => {
+		let householdId: string | undefined
+		await use(async (options) => {
+			const user = await insertNewUser(options)
+			householdId = (await createOwnHousehold(prisma, user)).id
+			return user
+		})
+		// Stop the page's new requests before the Household goes, as `login`
+		// does. `insertNewUser` deletes the user afterwards.
+		await page.close()
+		if (householdId) {
+			await prisma.household.delete({ where: { id: householdId } })
+		}
 	},
 })
 
@@ -209,13 +239,15 @@ test('logs user in after Google OAuth if they are already registered', async ({
 	// ... and create one:
 	const name = faker.person.fullName()
 	const user = await prisma.user.create({
-		select: { id: true, name: true },
+		select: { id: true, name: true, username: true },
 		data: {
 			email: normalizeEmail(googleUser.primaryEmail),
 			username: normalizeUsername(googleUser.primaryEmail.split('@')[0]!),
 			name,
 		},
 	})
+	// A registered user signed up, so they already have a Household.
+	await createOwnHousehold(prisma, user)
 
 	// let's verify there is no connection between the Google user
 	// and our app's user:
@@ -335,9 +367,13 @@ test('shows help texts on entering invalid details on onboarding page after Goog
 	await expect(page.getByText(/14 days of full Pro access/i)).toBeVisible()
 })
 
-test('login as existing user', async ({ page, navigate, insertNewUser }) => {
+test('login as existing user', async ({
+	page,
+	navigate,
+	insertRegisteredUser,
+}) => {
 	const password = faker.internet.password()
-	const user = await insertNewUser({ password })
+	const user = await insertRegisteredUser({ password })
 	invariant(user.name, 'User name not found')
 	await navigate('/login')
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
@@ -351,10 +387,10 @@ test('login as existing user', async ({ page, navigate, insertNewUser }) => {
 test('reset password with a link', async ({
 	page,
 	navigate,
-	insertNewUser,
+	insertRegisteredUser,
 }) => {
 	const originalPassword = faker.internet.password()
-	const user = await insertNewUser({ password: originalPassword })
+	const user = await insertRegisteredUser({ password: originalPassword })
 	invariant(user.name, 'User name not found')
 	await navigate('/login')
 

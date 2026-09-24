@@ -15,12 +15,6 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	// One long deliberate path — the default per-test budget is too tight.
 	test.setTimeout(60_000)
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Test Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
 
 	const titles = [
@@ -36,7 +30,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 			data: {
 				title,
 				userId: user.id,
-				householdId: household.id,
+				householdId: user.householdId,
 				...(title === 'Hummus' && {
 					yieldAmount: 4,
 					yieldLabel: 'bowls',
@@ -199,7 +193,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	expect(exportResponse.ok()).toBeTruthy()
 	const exportBody = await exportResponse.text()
 
-	await prisma.menu.deleteMany({ where: { householdId: household.id } })
+	await prisma.menu.deleteMany({ where: { householdId: user.householdId } })
 
 	await page.goto('/settings/profile/import')
 	await page.locator('input[type="file"]').setInputFiles({
@@ -238,7 +232,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	// multiplier-first UI in Plan, and scales Shopping demand.
 	const restoredMenu = await prisma.menu.findFirstOrThrow({
 		where: {
-			householdId: household.id,
+			householdId: user.householdId,
 			title: 'Levantine Terrace Dinner',
 		},
 	})

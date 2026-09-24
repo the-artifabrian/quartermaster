@@ -12,12 +12,6 @@ test('a Recipe restored from its export keeps its heading out of checks and Shop
 }) => {
 	test.setTimeout(30_000)
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Recovery household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	// Adding to Shopping, from the Recipe or the Plan, needs Pro.
 	await prisma.subscription.create({
 		data: {
@@ -30,7 +24,7 @@ test('a Recipe restored from its export keeps its heading out of checks and Shop
 		data: {
 			title: 'Roast chicken',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			ingredients: {
 				create: [
 					{ name: 'Salsa verde', isHeading: true, order: 0 },
@@ -60,7 +54,7 @@ test('a Recipe restored from its export keeps its heading out of checks and Shop
 	await expect(page.getByRole('link', { name: 'View recipes' })).toBeVisible()
 
 	const restored = await prisma.recipe.findFirstOrThrow({
-		where: { householdId: household.id, title: 'Roast chicken' },
+		where: { householdId: user.householdId, title: 'Roast chicken' },
 		select: {
 			id: true,
 			ingredients: {
@@ -94,7 +88,7 @@ test('a Recipe restored from its export keeps its heading out of checks and Shop
 	)
 	await prisma.mealPlan.create({
 		data: {
-			householdId: household.id,
+			householdId: user.householdId,
 			weekStart: getWeekStart(today),
 			meals: {
 				create: {
@@ -125,7 +119,7 @@ test('a Recipe restored from its export keeps its heading out of checks and Shop
 	await expect(page.getByText('capers', { exact: true })).toBeVisible()
 
 	const shoppingNames = await prisma.shoppingListItem.findMany({
-		where: { list: { householdId: household.id } },
+		where: { list: { householdId: user.householdId } },
 		select: { name: true },
 		orderBy: { name: 'asc' },
 	})

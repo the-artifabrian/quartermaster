@@ -1,12 +1,11 @@
 import crypto from 'node:crypto'
-import { requireUserId } from './auth.server.ts'
+import { createOwnHousehold, requireUserId } from './auth.server.ts'
 import { prisma } from './db.server.ts'
 import { menuTitleKey } from './menu-validation.ts'
 import {
 	ensureRecipeMetadataValues,
 	moveRecipeMetadataValues,
 } from './recipe-metadata.server.ts'
-import { DEFAULT_RECIPE_METADATA_VALUE_CREATE } from './recipe-metadata.ts'
 
 /**
  * Returns the current user's household info.
@@ -32,17 +31,7 @@ export async function requireUserWithHousehold(request: Request) {
 			select: { name: true, username: true },
 		})
 
-		const household = await prisma.household.create({
-			data: {
-				name: `${user.name ?? user.username}'s Household`,
-				recipeMetadataValues: {
-					create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
-				},
-				members: {
-					create: { userId, role: 'owner' },
-				},
-			},
-		})
+		const household = await createOwnHousehold(prisma, { id: userId, ...user })
 
 		return { userId, householdId: household.id, role: 'owner' }
 	} catch {
@@ -356,15 +345,7 @@ export async function leaveHousehold(userId: string) {
 
 	await prisma.$transaction(async (tx) => {
 		// Create new solo household
-		const newHousehold = await tx.household.create({
-			data: {
-				name: `${user.name ?? user.username}'s Household`,
-				recipeMetadataValues: {
-					create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
-				},
-				members: { create: { userId, role: 'owner' } },
-			},
-		})
+		const newHousehold = await createOwnHousehold(tx, { id: userId, ...user })
 
 		// Deep-copy user's recipes to new household
 		await deepCopyRecipes(tx, userId, oldHouseholdId, newHousehold.id)

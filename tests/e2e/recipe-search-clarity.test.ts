@@ -9,12 +9,6 @@ for (const width of [390, 1280]) {
 		test.setTimeout(40_000)
 		await page.setViewportSize({ width, height: 900 })
 		const user = await login()
-		const household = await prisma.household.create({
-			data: {
-				name: 'Search clarity',
-				members: { create: { userId: user.id, role: 'owner' } },
-			},
-		})
 		for (const [title, totalTime, isFavorite] of [
 			['Walnut pasta', 25, false],
 			['Chickpea lunch', null, true],
@@ -27,7 +21,7 @@ for (const width of [390, 1280]) {
 					totalTime,
 					isFavorite,
 					userId: user.id,
-					householdId: household.id,
+					householdId: user.householdId,
 					ingredients: {
 						create: {
 							name: title === 'Walnut pasta' ? 'walnuts' : 'rice',

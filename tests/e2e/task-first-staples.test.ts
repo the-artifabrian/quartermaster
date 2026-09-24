@@ -18,12 +18,6 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	login,
 }) => {
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Large task-first Staples Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	const stapleNames = [
 		'Apples',
 		'Beans',
@@ -58,7 +52,7 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	]
 	await prisma.householdIngredient.createMany({
 		data: stapleNames.map((displayName) => ({
-			householdId: household.id,
+			householdId: user.householdId,
 			displayName,
 			canonicalKey: displayName.toLocaleLowerCase(),
 			isStaple: true,

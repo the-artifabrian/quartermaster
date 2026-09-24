@@ -34,18 +34,12 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	login,
 }) => {
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Disposable new purchase review',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Rice supper',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			ingredients: {
 				create: { name: 'rice', amount: '400', unit: 'g', order: 0 },
 			},
@@ -55,7 +49,7 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	await prisma.shoppingList.create({
 		data: {
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			items: {
 				create: { name: 'rice', quantity: '200', unit: 'g', checked: true },
 			},
@@ -72,7 +66,7 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	await expect
 		.poll(() =>
 			prisma.shoppingListItem.count({
-				where: { list: { householdId: household.id } },
+				where: { list: { householdId: user.householdId } },
 			}),
 		)
 		.toBe(2)
@@ -128,13 +122,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	test.setTimeout(30_000)
 	const user = await login()
 
-	// Create household + Pro access (shopping requires Pro)
-	const household = await prisma.household.create({
-		data: {
-			name: 'Test Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
+	// Pro access (shopping requires Pro)
 	await prisma.subscription.create({
 		data: {
 			userId: user.id,
@@ -148,7 +136,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 		data: {
 			title: 'Test Recipe',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			ingredients: {
 				create: [
 					{ name: 'chicken breast', amount: '2', unit: 'lbs', order: 0 },
@@ -171,7 +159,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	const weekStart = getWeekStart(today)
 	await prisma.mealPlan.create({
 		data: {
-			householdId: household.id,
+			householdId: user.householdId,
 			weekStart,
 			meals: {
 				create: {
@@ -299,18 +287,28 @@ test('household Staples can be added together from the quiet Shopping picker', a
 }) => {
 	test.setTimeout(30_000)
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Staples Picker Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-			householdIngredients: {
-				create: [
-					{ displayName: 'Milk', canonicalKey: 'milk', isStaple: true },
-					{ displayName: 'Yogurt', canonicalKey: 'yogurt', isStaple: true },
-					{ displayName: 'Salt', canonicalKey: 'salt', isStaple: true },
-				],
+	const { householdId } = user
+	await prisma.householdIngredient.createMany({
+		data: [
+			{
+				householdId,
+				displayName: 'Milk',
+				canonicalKey: 'milk',
+				isStaple: true,
 			},
-		},
+			{
+				householdId,
+				displayName: 'Yogurt',
+				canonicalKey: 'yogurt',
+				isStaple: true,
+			},
+			{
+				householdId,
+				displayName: 'Salt',
+				canonicalKey: 'salt',
+				isStaple: true,
+			},
+		],
 	})
 	await prisma.subscription.create({
 		data: {
@@ -322,7 +320,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 	await prisma.shoppingList.create({
 		data: {
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			items: { create: { name: 'Salt', horizon: 'later' } },
 		},
 	})
@@ -376,7 +374,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 	await expect
 		.poll(() =>
 			prisma.shoppingListItem.findMany({
-				where: { list: { householdId: household.id } },
+				where: { list: { householdId: user.householdId } },
 				orderBy: { name: 'asc' },
 				select: { name: true, horizon: true },
 			}),
@@ -442,12 +440,6 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 }) => {
 	test.setTimeout(30_000)
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Shopping Horizons Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	await prisma.subscription.create({
 		data: {
 			userId: user.id,
@@ -458,7 +450,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 	await prisma.shoppingList.create({
 		data: {
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			items: {
 				create: [
 					{ name: 'Milk', horizon: 'next' },

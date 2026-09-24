@@ -18,17 +18,12 @@ test('tapping a Staple adds it to Next shop from a phone', async ({
 	login,
 }) => {
 	const user = await login()
-	const household = await prisma.household.create({
+	await prisma.householdIngredient.create({
 		data: {
-			name: 'Phone Restocking Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-			householdIngredients: {
-				create: {
-					displayName: 'Salt',
-					canonicalKey: 'salt',
-					isStaple: true,
-				},
-			},
+			householdId: user.householdId,
+			displayName: 'Salt',
+			canonicalKey: 'salt',
+			isStaple: true,
 		},
 	})
 	await prisma.subscription.create({
@@ -84,7 +79,7 @@ test('tapping a Staple adds it to Next shop from a phone', async ({
 		.poll(() =>
 			prisma.householdEvent.count({
 				where: {
-					householdId: household.id,
+					householdId: user.householdId,
 					type: 'shopping_list_item_added',
 				},
 			}),
@@ -97,19 +92,14 @@ test('a failed restock reports it and leaves the Staple tappable', async ({
 	login,
 }) => {
 	const user = await login()
-	const household = await prisma.household.create({
+	const staple = await prisma.householdIngredient.create({
 		data: {
-			name: 'Failed Restocking Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-			householdIngredients: {
-				create: {
-					displayName: 'Failure salt',
-					canonicalKey: 'failure salt',
-					isStaple: true,
-				},
-			},
+			householdId: user.householdId,
+			displayName: 'Failure salt',
+			canonicalKey: 'failure salt',
+			isStaple: true,
 		},
-		select: { householdIngredients: { select: { id: true } } },
+		select: { id: true },
 	})
 	await prisma.$executeRawUnsafe(`
 		CREATE TRIGGER reject_failure_staple_restock
@@ -148,7 +138,7 @@ test('a failed restock reports it and leaves the Staple tappable', async ({
 		// The Staple itself is untouched — a tap never changed it.
 		expect(
 			await prisma.householdIngredient.findUniqueOrThrow({
-				where: { id: household.householdIngredients[0]!.id },
+				where: { id: staple.id },
 				select: { isStaple: true },
 			}),
 		).toEqual({ isStaple: true })

@@ -1,6 +1,5 @@
 import { type Locator } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
-import { DEFAULT_RECIPE_METADATA_VALUE_CREATE } from '#app/utils/recipe-metadata.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
 test('Recipe CRUD flow: create → list → detail → edit → delete', async ({
@@ -100,12 +99,6 @@ test('Recipe generation is gone while AI import and provenance remain', async ({
 	await prisma.subscription.create({
 		data: { userId: user.id, tier: 'pro' },
 	})
-	const household = await prisma.household.create({
-		data: {
-			name: 'Generator removal household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 
 	await page.setViewportSize({ width: 1280, height: 800 })
 	await page.goto('/recipes')
@@ -135,7 +128,7 @@ test('Recipe generation is gone while AI import and provenance remain', async ({
 		data: {
 			title: 'Historical AI Recipe',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 		},
 	})
 	await page.reload()
@@ -177,20 +170,12 @@ test('Recipe search and filter', async ({ page, login }) => {
 	test.setTimeout(30_000)
 	const user = await login()
 
-	// Recipes are household-scoped, so DB-seeded recipes need a household
-	const household = await prisma.household.create({
-		data: {
-			name: 'Test Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
-
 	// Create a couple recipes via DB for speed
 	await prisma.recipe.create({
 		data: {
 			title: 'Spicy Thai Curry',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			activeTime: 10,
 			totalTime: 35,
 			yieldAmount: 4,
@@ -207,7 +192,7 @@ test('Recipe search and filter', async ({ page, login }) => {
 		data: {
 			title: 'Simple Green Salad',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			ingredients: {
 				create: [{ name: 'lettuce', amount: '1', unit: 'head', order: 0 }],
 			},
@@ -221,12 +206,12 @@ test('Recipe search and filter', async ({ page, login }) => {
 			{
 				title: 'Chicken Curry',
 				userId: user.id,
-				householdId: household.id,
+				householdId: user.householdId,
 			},
 			{
 				title: 'Ciorbă',
 				userId: user.id,
-				householdId: household.id,
+				householdId: user.householdId,
 			},
 		],
 	})
@@ -280,21 +265,14 @@ test('Recipe classification edits and filters fit phone and desktop layouts', as
 	page,
 	login,
 }) => {
+	// Like a signup, the fixture's Household starts with the default Seasons
+	// and Courses.
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Classification layout household',
-			members: { create: { userId: user.id, role: 'owner' } },
-			recipeMetadataValues: {
-				create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
-			},
-		},
-	})
 	const classifiedRecipe = await prisma.recipe.create({
 		data: {
 			title: 'Levantine supper',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			ingredients: { create: { name: 'chickpeas', order: 0 } },
 			instructions: { create: { content: 'Combine.', order: 0 } },
 		},
@@ -303,7 +281,7 @@ test('Recipe classification edits and filters fit phone and desktop layouts', as
 		data: {
 			title: 'Plain pasta',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			ingredients: { create: { name: 'pasta', order: 0 } },
 			instructions: { create: { content: 'Boil.', order: 0 } },
 		},
@@ -358,12 +336,6 @@ test('custom Recipe yield labels fit phone and desktop detail layouts', async ({
 	login,
 }) => {
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Metadata layout household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	const yieldLabel =
 		'extraordinaryceremonialbraidedloaveswithacustomhouseholdname'
 	const recipe = await prisma.recipe.create({
@@ -374,7 +346,7 @@ test('custom Recipe yield labels fit phone and desktop detail layouts', async ({
 			yieldAmount: 2.5,
 			yieldLabel,
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			ingredients: { create: { name: 'flour', order: 0 } },
 			instructions: { create: { content: 'Knead.', order: 0 } },
 		},
@@ -432,19 +404,13 @@ test('manual Recipe scaling stays multiplier-first and shows known yield as cont
 	login,
 }) => {
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Manual scale household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	const known = await prisma.recipe.create({
 		data: {
 			title: 'Twelve parcels',
 			yieldAmount: 12,
 			yieldLabel: 'pieces',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 		},
 	})
 	const unknown = await prisma.recipe.create({
@@ -453,7 +419,7 @@ test('manual Recipe scaling stays multiplier-first and shows known yield as cont
 			yieldAmount: null,
 			yieldLabel: null,
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 		},
 	})
 	async function openScaleEditor(trigger: Locator) {
@@ -532,17 +498,11 @@ test('phone Recipes restore Ingredients after its heading passes', async ({
 	login,
 }) => {
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Mid-cook household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Long mid-cook Recipe',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			ingredients: {
 				create: Array.from({ length: 12 }, (_, index) => ({
 					name: `ingredient ${index + 1}`,
@@ -596,18 +556,12 @@ test('Recipe instructions show passive cooking cues and ignore stored timers', a
 	login,
 }) => {
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Cooking cues household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	const instruction = 'Preheat to 400°F, bake for 12 minutes, then rest 5 min.'
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Glanceable Roast',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			ingredients: {
 				create: { name: 'cauliflower', amount: '1', unit: 'head', order: 0 },
 			},
@@ -741,12 +695,6 @@ test('Recipe detail copies clean scaled text and reports clipboard results', asy
 	login,
 }) => {
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Recipe copy household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Clipboard Soup',
@@ -754,7 +702,7 @@ test('Recipe detail copies clean scaled text and reports clipboard results', asy
 			rawText: 'Internal import data.',
 			notes: 'Private cooking notes.',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			ingredients: {
 				create: [
 					{ name: 'For the soup', isHeading: true, order: 0 },

@@ -124,18 +124,19 @@ async function expectFocusKeepsActionReachable(
 	)
 }
 
-async function createHousehold(userId: string) {
-	const household = await prisma.household.create({
+async function seedHousehold({
+	id: userId,
+	householdId,
+}: {
+	id: string
+	householdId: string
+}) {
+	await prisma.householdIngredient.create({
 		data: {
-			name: 'Mobile controls household',
-			members: { create: { userId, role: 'owner' } },
-			householdIngredients: {
-				create: {
-					displayName: 'Milk',
-					canonicalKey: 'milk',
-					isStaple: true,
-				},
-			},
+			householdId,
+			displayName: 'Milk',
+			canonicalKey: 'milk',
+			isStaple: true,
 		},
 	})
 	await prisma.subscription.create({
@@ -146,16 +147,15 @@ async function createHousehold(userId: string) {
 		},
 	})
 	await prisma.shoppingList.create({
-		data: { userId, householdId: household.id },
+		data: { userId, householdId },
 	})
 	await prisma.recipe.create({
 		data: {
 			title: 'Mobile Test Recipe',
 			userId,
-			householdId: household.id,
+			householdId,
 		},
 	})
-	return household
 }
 
 test('mobile Shopping add controls stay zoom-safe and keep Add reachable', async ({
@@ -163,7 +163,7 @@ test('mobile Shopping add controls stay zoom-safe and keep Add reachable', async
 	login,
 }) => {
 	const user = await login()
-	const household = await createHousehold(user.id)
+	await seedHousehold(user)
 	await page.setViewportSize(PHONE_VIEWPORT)
 	await page.goto('/shopping')
 	await page.getByRole('button', { name: 'Add item' }).click()
@@ -195,7 +195,7 @@ test('mobile Shopping add controls stay zoom-safe and keep Add reachable', async
 	await expect
 		.poll(() =>
 			prisma.shoppingListItem.findFirst({
-				where: { name: 'Apples', list: { householdId: household.id } },
+				where: { name: 'Apples', list: { householdId: user.householdId } },
 				select: { name: true, quantity: true, unit: true },
 			}),
 		)
@@ -210,8 +210,7 @@ test('mobile auth, Recipes, Staples, Plan, and settings controls are zoom-safe',
 	await page.goto('/login')
 	await expectMobileEditableControlsToBeSafe(page)
 
-	const user = await login()
-	await createHousehold(user.id)
+	await seedHousehold(await login())
 
 	await page.goto('/settings/profile/edit')
 	await expectMobileEditableControlsToBeSafe(page)
@@ -251,8 +250,7 @@ test('the mobile size adjustment ends below md without restricting user zoom', a
 	page,
 	login,
 }) => {
-	const user = await login()
-	await createHousehold(user.id)
+	await seedHousehold(await login())
 
 	await page.setViewportSize({ width: 767, height: 844 })
 	await page.goto('/recipes')

@@ -3,11 +3,6 @@ export type TypedYield = {
 	label: string
 }
 
-const MULTIPLIER_DECIMAL_PLACES = 2
-const MULTIPLIER_FACTOR = 10 ** MULTIPLIER_DECIMAL_PLACES
-const MIN_SCALE_MULTIPLIER = 0.01
-const MAX_SCALE_MULTIPLIER = 100
-
 /**
  * A Recipe has a usable typed yield only when both halves of the explicit
  * metadata pair are present.
@@ -26,35 +21,6 @@ export function getTypedYield(recipe: {
 		return null
 	}
 	return { amount: recipe.yieldAmount, label }
-}
-
-function roundScaleMultiplier(value: number) {
-	// Scale epsilon with the value so decimal half boundaries such as 1.005 and
-	// 100.005 behave consistently despite their binary floating representation.
-	const epsilon = Number.EPSILON * Math.max(1, Math.abs(value))
-	return Math.round((value + epsilon) * MULTIPLIER_FACTOR) / MULTIPLIER_FACTOR
-}
-
-/**
- * The one target-yield write rule. A target is presentation input; the result
- * remains the positive, bounded multiplier every downstream consumer stores.
- */
-export function targetYieldToScaleMultiplier(
-	targetAmount: number,
-	recipeYield: TypedYield | null,
-): number | null {
-	if (
-		recipeYield == null ||
-		!Number.isFinite(targetAmount) ||
-		targetAmount <= 0
-	) {
-		return null
-	}
-	const multiplier = roundScaleMultiplier(targetAmount / recipeYield.amount)
-	return multiplier >= MIN_SCALE_MULTIPLIER &&
-		multiplier <= MAX_SCALE_MULTIPLIER
-		? multiplier
-		: null
 }
 
 /** Derive the friendly target from the stored source-of-truth multiplier. */

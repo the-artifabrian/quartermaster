@@ -9,6 +9,7 @@ import { getCurrentWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
+import { action as shoppingCheckAction } from '../resources/shopping-check.tsx'
 import { loader as planPickerLoader } from '../resources/shopping-plan.tsx'
 import {
 	action as shoppingAction,
@@ -98,6 +99,25 @@ async function runShoppingAction(
 		request: await makeRequest(session, '/shopping', formFields),
 		...SHOPPING_ARGS,
 	})
+}
+
+// Checks go through the resource route the Shopping page posts to.
+async function runShoppingCheck(
+	session: { id: string },
+	formFields: Record<string, string>,
+) {
+	const response = await shoppingCheckAction({
+		request: await makeRequest(
+			session,
+			'/resources/shopping-check',
+			formFields,
+		),
+		params: {},
+		context: new RouterContextProvider(),
+		pattern: '/resources/shopping-check',
+		url: new URL(`${BASE_URL}/resources/shopping-check`),
+	})
+	return response.json()
 }
 
 async function runPlanPickerLoader(session: { id: string }) {
@@ -1215,8 +1235,7 @@ describe('Shopping display grouping — combined totals without rewriting identi
 			item: { id: string; checkVersion: number },
 			checked: boolean,
 		) =>
-			runShoppingAction(session, {
-				intent: 'toggle',
+			runShoppingCheck(session, {
 				itemId: item.id,
 				checked: String(checked),
 				observedVersion: String(item.checkVersion),
@@ -1390,8 +1409,7 @@ describe('Meal Shopping contributions across horizons (#175)', () => {
 		const lamb = (await getShoppingRows(session.householdId)).find((row) =>
 			row.name.includes('lamb'),
 		)!
-		await runShoppingAction(session, {
-			intent: 'toggle',
+		await runShoppingCheck(session, {
 			itemId: lamb.id,
 			checked: 'true',
 			observedVersion: String(lamb.checkVersion),

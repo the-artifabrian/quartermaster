@@ -6,8 +6,10 @@ name: 🐕 prod memory alert
 # which self-restarts the machine as the last line of defense.
 on:
   schedule:
-    # Twice an hour, off the congested top-of-hour slot.
-    - cron: '13,43 * * * *'
+    # Every 4h, off the congested top-of-hour slot. A slow leak takes days to
+    # matter and fast failures are the in-process watchdogs' job, so more
+    # often only multiplies emails (a sustained breach emails on every run).
+    - cron: '13 */4 * * *'
   workflow_dispatch:
 
 permissions: {}

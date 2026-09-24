@@ -220,6 +220,13 @@ job on CI's Bun version, so upgrade that version together with the Dockerfile's.
 Only this check may import `unguardedFetchFrom`, which skips the public-address
 guard.
 
+The Playwright `login` fixture signs in a user who already has a Household,
+created the same way signup creates one, and returns its `householdId`. Seed
+test data into that Household. Creating another one for the same user gives them
+two memberships, and the app would pick one at random. `insertNewUser` inserts a
+user with no Household, which production can't produce; give them one with
+`createOwnHousehold` before they sign in through the UI.
+
 Playwright runs on every pull request and uploads its HTML report. It is not yet
 a required check, and deploys do not wait for it. Browser checks and simulations
 are implementation evidence, not substitutes for normal use.

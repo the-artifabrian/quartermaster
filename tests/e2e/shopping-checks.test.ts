@@ -2,18 +2,18 @@ import { type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
-async function setup(userId: string) {
-	const household = await prisma.household.create({
-		data: {
-			name: 'Disposable check test',
-			members: { create: { userId, role: 'owner' } },
-		},
-	})
+async function setup({
+	id: userId,
+	householdId,
+}: {
+	id: string
+	householdId: string
+}) {
 	await prisma.subscription.create({ data: { userId, tier: 'pro' } })
 	const list = await prisma.shoppingList.create({
 		data: {
 			userId,
-			householdId: household.id,
+			householdId,
 			items: {
 				create: [
 					{ name: 'Rice', quantity: '200', unit: 'g' },
@@ -23,7 +23,7 @@ async function setup(userId: string) {
 		},
 		include: { items: true },
 	})
-	return { household, rice: list.items.find((item) => item.name === 'Rice')! }
+	return { rice: list.items.find((item) => item.name === 'Rice')! }
 }
 
 async function openShopping(page: Page) {
@@ -54,7 +54,7 @@ for (const outcome of ['deleted', 'signed out']) {
 		login,
 	}) => {
 		const user = await login()
-		const { rice } = await setup(user.id)
+		const { rice } = await setup(user)
 		await openShopping(page)
 		if (outcome === 'deleted')
 			await prisma.shoppingListItem.delete({ where: { id: rice.id } })
@@ -78,7 +78,7 @@ test('a failed write is retried once after confirming its original requirement',
 	page,
 	login,
 }) => {
-	await setup((await login()).id)
+	await setup(await login())
 	await openShopping(page)
 	const requests: string[] = []
 	await page.route('**/resources/shopping-check?*', (route) => {
@@ -97,7 +97,7 @@ test('a failed check yields to changed household data on background refresh', as
 	page,
 	login,
 }) => {
-	const { rice } = await setup((await login()).id)
+	const { rice } = await setup(await login())
 	await openShopping(page)
 	await page.route('**/resources/shopping-check?*', (route) => route.abort())
 	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
@@ -123,7 +123,7 @@ test('failed checks survive refresh and Clear checked; navigation warns only wit
 	page,
 	login,
 }) => {
-	const { rice } = await setup((await login()).id)
+	const { rice } = await setup(await login())
 	await page.setViewportSize({ width: 390, height: 844 })
 	await openShopping(page)
 	await page.route('**/resources/shopping-check?*', (route) => route.abort())
@@ -183,7 +183,7 @@ for (const laterChange of [false, true]) {
 		page,
 		login,
 	}) => {
-		const { rice } = await setup((await login()).id)
+		const { rice } = await setup(await login())
 		await openShopping(page)
 		let writes = 0
 		await page.route('**/resources/shopping-check?*', async (route) => {
@@ -230,7 +230,7 @@ test('rapid taps coalesce while background refresh cannot overwrite pending inte
 	page,
 	login,
 }) => {
-	const { rice } = await setup((await login()).id)
+	const { rice } = await setup(await login())
 	await page.setViewportSize({ width: 390, height: 844 })
 	await openShopping(page)
 	const rowHeight = (await riceRow(page).boundingBox())!.height
@@ -290,7 +290,7 @@ test('reversing an uncertain check cannot be undone by its delayed original requ
 	page,
 	login,
 }) => {
-	const { rice } = await setup((await login()).id)
+	const { rice } = await setup(await login())
 	await openShopping(page)
 	const failed = responseGate()
 	let delayedForm: Record<string, string> | undefined
@@ -328,7 +328,7 @@ test('a late successful response yields to a newer requirement already refreshed
 	page,
 	login,
 }) => {
-	const { rice } = await setup((await login()).id)
+	const { rice } = await setup(await login())
 	await openShopping(page)
 	const committed = responseGate()
 	const release = responseGate()
@@ -365,7 +365,7 @@ test('stalled writes have a deadline and stop after one unsuccessful automatic r
 	page,
 	login,
 }) => {
-	await setup((await login()).id)
+	await setup(await login())
 	await page.clock.install()
 	await openShopping(page)
 	const requests: string[] = []
@@ -395,7 +395,7 @@ for (const fallback of [false, true]) {
 		login,
 	}) => {
 		test.setTimeout(45_000)
-		await setup((await login()).id)
+		await setup(await login())
 		await openShopping(page)
 		const phone = await page.context().newPage()
 		await phone.setViewportSize({ width: 390, height: 844 })

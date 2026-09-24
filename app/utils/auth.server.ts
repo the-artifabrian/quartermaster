@@ -6,6 +6,7 @@ import { safeRedirect } from 'remix-utils/safe-redirect'
 import {
 	type Connection,
 	type Password,
+	type Prisma,
 	type User,
 } from '#app/generated/prisma/client.ts'
 import { providers } from './connections.server.ts'
@@ -118,6 +119,27 @@ export async function resetUserPassword({
 	})
 }
 
+/**
+ * Creates a Household with `user` as its only member and owner, named after
+ * them and holding the default Seasons and Courses. Signup calls this in the
+ * transaction that creates the User, so every User has a Household from the
+ * start. Leaving a Household gives the user a new one the same way, and the
+ * E2E `login` fixture uses it so its users start like real ones.
+ */
+export function createOwnHousehold(
+	db: Pick<Prisma.TransactionClient, 'household'>,
+	user: { id: string; name: string | null; username: string },
+) {
+	return db.household.create({
+		select: { id: true },
+		data: {
+			name: `${user.name ?? user.username}'s Household`,
+			recipeMetadataValues: { create: DEFAULT_RECIPE_METADATA_VALUE_CREATE },
+			members: { create: { userId: user.id, role: 'owner' } },
+		},
+	})
+}
+
 export async function signup({
 	email,
 	username,
@@ -152,18 +174,7 @@ export async function signup({
 			select: { id: true, expirationDate: true, userId: true },
 		})
 
-		// Create a household for the new user
-		await tx.household.create({
-			data: {
-				name: `${name ?? username}'s Household`,
-				recipeMetadataValues: {
-					create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
-				},
-				members: {
-					create: { userId: newSession.userId, role: 'owner' },
-				},
-			},
-		})
+		await createOwnHousehold(tx, { id: newSession.userId, name, username })
 
 		// Create a free subscription with auto-trial
 		await tx.subscription.create({
@@ -207,18 +218,7 @@ export async function signupWithConnection({
 			select: { id: true },
 		})
 
-		// Create a household for the new user
-		await tx.household.create({
-			data: {
-				name: `${name ?? username}'s Household`,
-				recipeMetadataValues: {
-					create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
-				},
-				members: {
-					create: { userId: newUser.id, role: 'owner' },
-				},
-			},
-		})
+		await createOwnHousehold(tx, { id: newUser.id, name, username })
 
 		// Create a free subscription with auto-trial
 		await tx.subscription.create({

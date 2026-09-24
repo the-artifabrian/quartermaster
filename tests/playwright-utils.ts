@@ -3,6 +3,7 @@ import { href, type Register } from 'react-router'
 import * as setCookieParser from 'set-cookie-parser'
 import { type User as UserModel } from '#app/generated/prisma/client.ts'
 import {
+	createOwnHousehold,
 	getPasswordHash,
 	getSessionExpirationDate,
 	sessionKey,
@@ -33,6 +34,8 @@ type User = {
 	username: string
 	name: string | null
 }
+
+type LoggedInUser = User & { householdId: string }
 
 async function getOrInsertUser({
 	id,
@@ -71,7 +74,7 @@ export const test = base.extend<{
 		...args: Parameters<typeof href<Path>>
 	) => Promise<null | Response>
 	insertNewUser(options?: GetOrInsertUserOptions): Promise<User>
-	login(options?: GetOrInsertUserOptions): Promise<User>
+	login(options?: GetOrInsertUserOptions): Promise<LoggedInUser>
 	prepareGoogleUser(): Promise<GoogleUser>
 }>({
 	navigate: async ({ page }, use) => {
@@ -79,6 +82,9 @@ export const test = base.extend<{
 			return page.goto(href(...args))
 		})
 	},
+	// Inserts a user with no Household and no session. Production can't make
+	// that user, since signup always creates a Household, so give them one
+	// with `createOwnHousehold` before they sign in through the UI.
 	insertNewUser: async ({}, use) => {
 		let userId: string | undefined = undefined
 		await use(async (options) => {
@@ -93,11 +99,28 @@ export const test = base.extend<{
 			await prisma.user.delete({ where: { id: userId } }).catch(() => {})
 		}
 	},
+	// Signs a user in and returns them with the id of their Household. A new
+	// user gets a Household the way signup gives one. `{ id }` signs in an
+	// existing user in the Household they already belong to, and creates one
+	// only if they have none. Seed data into `householdId`; a test that creates
+	// another Household for this user gives them two memberships.
 	login: async ({ page }, use) => {
-		let userId: string | undefined = undefined
+		const createdUserIds: Array<string> = []
+		const createdHouseholdIds: Array<string> = []
 		await use(async (options) => {
 			const user = await getOrInsertUser(options)
-			userId = user.id
+			if (!options?.id) createdUserIds.push(user.id)
+			const membership = options?.id
+				? await prisma.householdMember.findFirst({
+						where: { userId: user.id },
+						select: { householdId: true },
+					})
+				: null
+			let householdId = membership?.householdId
+			if (!householdId) {
+				householdId = (await createOwnHousehold(prisma, user)).id
+				createdHouseholdIds.push(householdId)
+			}
 			const session = await prisma.session.create({
 				data: {
 					expirationDate: getSessionExpirationDate(),
@@ -121,9 +144,16 @@ export const test = base.extend<{
 				sameSite: cookieConfig.sameSite as 'Strict' | 'Lax' | 'None',
 			}
 			await page.context().addCookies([newConfig])
-			return user
+			return { ...user, householdId }
 		})
-		if (userId) await prisma.user.deleteMany({ where: { id: userId } })
+		// Close the page first, so live refresh and revalidation send no new
+		// requests for the rows the deletes below remove. A request the server
+		// already has still runs, and can log a foreign key error.
+		await page.close()
+		await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } })
+		await prisma.household.deleteMany({
+			where: { id: { in: createdHouseholdIds } },
+		})
 	},
 	prepareGoogleUser: async ({ page }, use, testInfo) => {
 		await page.route(/\/auth\/google(?!\/callback)/, async (route, request) => {
@@ -146,8 +176,17 @@ export const test = base.extend<{
 			where: { email: normalizeEmail(googleUser!.primaryEmail) },
 		})
 		if (user) {
+			// Deleting the user leaves their Household behind. Delete it after the
+			// user, so a request still arriving can't create another for them.
+			const households = await prisma.household.findMany({
+				where: { members: { some: { userId: user.id } } },
+				select: { id: true },
+			})
 			await prisma.user.delete({ where: { id: user.id } })
 			await prisma.session.deleteMany({ where: { userId: user.id } })
+			await prisma.household.deleteMany({
+				where: { id: { in: households.map((household) => household.id) } },
+			})
 		}
 		await deleteGoogleUser(googleUser!.code)
 	},

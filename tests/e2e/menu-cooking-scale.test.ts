@@ -7,17 +7,11 @@ test('Menu cooking carries each card scale without changing saved quantities', a
 }) => {
 	test.setTimeout(60_000)
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Menu cooking household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Hummus',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			yieldAmount: 4,
 			yieldLabel: 'bowls',
 			ingredients: {
@@ -29,7 +23,7 @@ test('Menu cooking carries each card scale without changing saved quantities', a
 		data: {
 			title: 'Hummus dinner',
 			titleKey: 'hummus dinner',
-			householdId: household.id,
+			householdId: user.householdId,
 			sections: {
 				create: {
 					items: {
@@ -92,12 +86,12 @@ test('Menu cooking carries each card scale without changing saved quantities', a
 	).toEqual([2, 0.5, 1].map((scaleMultiplier) => ({ scaleMultiplier })))
 	expect(
 		await prisma.meal.count({
-			where: { mealPlan: { householdId: household.id } },
+			where: { mealPlan: { householdId: user.householdId } },
 		}),
 	).toBe(0)
 	expect(
 		await prisma.shoppingListItem.count({
-			where: { list: { householdId: household.id } },
+			where: { list: { householdId: user.householdId } },
 		}),
 	).toBe(0)
 

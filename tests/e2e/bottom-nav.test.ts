@@ -235,17 +235,11 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 	login,
 }) => {
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Bottom navigation trace Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Bottom Nav Recipe',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 		},
 	})
 	await prisma.subscription.create({
@@ -291,7 +285,7 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 				payload: { name: 'Milk' },
 				userId: 'another-household-member',
 				username: 'Another member',
-				householdId: household.id,
+				householdId: user.householdId,
 				createdAt: new Date().toISOString(),
 			})}\n\n`,
 		})
@@ -427,13 +421,7 @@ test('pending feedback clears when a tab navigation is interrupted or fails', as
 	page,
 	login,
 }) => {
-	const user = await login()
-	await prisma.household.create({
-		data: {
-			name: 'Bottom navigation interruption Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
+	await login()
 
 	await page.route(/\/plan\.data(?:\?|$)/, async (route) => {
 		await new Promise((resolve) => setTimeout(resolve, 800))

@@ -8,16 +8,10 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 }) => {
 	await page.setViewportSize({ width: 390, height: 844 })
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Lazy Plan choices E2E Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	const recipes = await Promise.all(
 		['Anchor Pasta', 'Crisp Salad', 'Warm Bread'].map((title) =>
 			prisma.recipe.create({
-				data: { title, userId: user.id, householdId: household.id },
+				data: { title, userId: user.id, householdId: user.householdId },
 			}),
 		),
 	)
@@ -28,7 +22,7 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 	const plannedDay = getWeekDays(weekStart).find(isToday) ?? weekStart
 	const anchorMeal = await prisma.meal.create({
 		data: {
-			mealPlan: { create: { householdId: household.id, weekStart } },
+			mealPlan: { create: { householdId: user.householdId, weekStart } },
 			date: plannedDay,
 			order: 0,
 			recipeItems: {
@@ -148,7 +142,7 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 		.poll(() =>
 			prisma.meal.count({
 				where: {
-					mealPlan: { householdId: household.id },
+					mealPlan: { householdId: user.householdId },
 					recipeItems: { some: { recipeId: addMealRecipe.id } },
 				},
 			}),

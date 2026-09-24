@@ -16,24 +16,21 @@ test.describe('Move a Meal', () => {
 		login,
 	}) => {
 		const user = await login()
-		const household = await prisma.household.create({
-			data: {
-				name: 'Meal move household',
-				members: { create: { userId: user.id, role: 'owner' } },
-			},
-		})
 		const recipe = await prisma.recipe.create({
 			data: {
 				title: 'Lemon Pasta',
 				userId: user.id,
-				householdId: household.id,
+				householdId: user.householdId,
 				ingredients: {
 					create: { name: 'pasta', amount: '200', unit: 'g', order: 0 },
 				},
 			},
 		})
 		const plan = await prisma.mealPlan.create({
-			data: { householdId: household.id, weekStart: new Date('2026-10-19') },
+			data: {
+				householdId: user.householdId,
+				weekStart: new Date('2026-10-19'),
+			},
 		})
 		const meal = await prisma.meal.create({
 			data: {
@@ -59,7 +56,7 @@ test.describe('Move a Meal', () => {
 		})
 		await prisma.mealPlan.create({
 			data: {
-				householdId: household.id,
+				householdId: user.householdId,
 				weekStart: new Date('2026-10-26'),
 				meals: {
 					create: [
@@ -97,7 +94,7 @@ test.describe('Move a Meal', () => {
 			.click()
 		const readShopping = () =>
 			prisma.shoppingListItem.findMany({
-				where: { list: { householdId: household.id } },
+				where: { list: { householdId: user.householdId } },
 				include: { mealContributions: true },
 			})
 		await expect(page.getByText('Added 1 item to Shopping')).toBeVisible()
@@ -166,21 +163,12 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 }) => {
 	const user = await login()
 
-	// The login fixture creates a bare user; the app expects a household
-	// because all plan/recipe data is household-scoped.
-	const household = await prisma.household.create({
-		data: {
-			name: 'Test Household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
-
 	// Create recipes via DB
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Test Stir Fry',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			ingredients: {
 				create: [
 					{ name: 'chicken', amount: '1', unit: 'lb', order: 0 },
@@ -196,14 +184,14 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 		data: {
 			title: 'Herb Salad',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 		},
 	})
 	const menuRecipe = await prisma.recipe.create({
 		data: {
 			title: 'Garlic Flatbread',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 		},
 	})
 	const menu = await prisma.menu.create({
@@ -211,7 +199,7 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 			title: 'Friday Supper',
 			titleKey: menuTitleKey('Friday Supper'),
 			defaultGuestCount: 4,
-			householdId: household.id,
+			householdId: user.householdId,
 			sections: {
 				create: {
 					name: null,
@@ -245,7 +233,7 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 	const plannedDay = weekDays.find(isToday) ?? weekDays[0]!
 	await prisma.mealPlan.create({
 		data: {
-			householdId: household.id,
+			householdId: user.householdId,
 			weekStart,
 			meals: {
 				create: {
@@ -318,7 +306,7 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 		.poll(async () =>
 			prisma.meal.count({
 				where: {
-					mealPlan: { householdId: household.id },
+					mealPlan: { householdId: user.householdId },
 					recipeItems: { some: { recipeId: secondRecipe.id } },
 				},
 			}),
@@ -418,17 +406,11 @@ test('Recipe already in Plan reports the planned Meal and links to it', async ({
 	login,
 }) => {
 	const user = await login()
-	const household = await prisma.household.create({
-		data: {
-			name: 'Already planned household',
-			members: { create: { userId: user.id, role: 'owner' } },
-		},
-	})
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Miso Soup',
 			userId: user.id,
-			householdId: household.id,
+			householdId: user.householdId,
 			ingredients: {
 				create: { name: 'miso', amount: '2', unit: 'tbsp', order: 0 },
 			},
@@ -461,7 +443,7 @@ test('Recipe already in Plan reports the planned Meal and links to it', async ({
 
 	expect(
 		await prisma.mealRecipeItem.findMany({
-			where: { meal: { mealPlan: { householdId: household.id } } },
+			where: { meal: { mealPlan: { householdId: user.householdId } } },
 			select: { scaleMultiplier: true },
 		}),
 	).toEqual([{ scaleMultiplier: 1 }])

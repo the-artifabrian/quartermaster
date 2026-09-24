@@ -152,17 +152,18 @@ test('Route data is current online and falls back only inside the live session',
 
 	// The worker stores the fresh response after returning it.
 	await expect
-		.poll(() =>
-			page.evaluate(async () => {
-				const cacheName = (await caches.keys()).find((name) =>
-					name.startsWith('qm-data-'),
-				)
-				if (!cacheName) return null
-				const response = await (
-					await caches.open(cacheName)
-				).match('/plan.data')
-				return response ? response.text() : null
-			}),
+		.poll(
+			() =>
+				page.evaluate(async () => {
+					for (const cacheName of await caches.keys()) {
+						if (!cacheName.startsWith('qm-data-')) continue
+						const cache = await caches.open(cacheName)
+						const response = await cache.match('/plan.data')
+						if (response) return response.text()
+					}
+					return null
+				}),
+			{ message: 'the worker stores the fresh /plan.data' },
 		)
 		.toBe(online.body)
 

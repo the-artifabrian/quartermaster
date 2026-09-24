@@ -7,6 +7,7 @@ import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
+import { ACCEPT_ENCODING } from '#app/utils/bounded-body.server.ts'
 import { action as importAction, type ExtractedRecipe } from './import.tsx'
 import { loader as detailLoader } from './$recipeId.tsx'
 import { action as editAction } from './$recipeId_.edit.tsx'
@@ -426,6 +427,142 @@ test('URL extraction refuses a public page that redirects into the private netwo
 		data: { recipe: null },
 	})
 	expect(internalHits).toEqual([])
+})
+
+test('URL extraction times out on a page that sends its headers and then stalls', async () => {
+	const session = await user()
+	let bodyStarted!: () => void
+	const started = new Promise<void>((resolve) => (bodyStarted = resolve))
+	server.use(
+		http.get(
+			`${CHECKED_ORIGIN}/stalls`,
+			() =>
+				new HttpResponse(
+					new ReadableStream({
+						start(controller) {
+							controller.enqueue(new TextEncoder().encode('<html><head>'))
+						},
+						pull() {
+							bodyStarted()
+							return new Promise(() => {})
+						},
+					}),
+					{ headers: { 'Content-Type': 'text/html' } },
+				),
+		),
+	)
+
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+	try {
+		const result = importAction(
+			await args(session, '/recipes/import', {
+				intent: 'fetch',
+				url: 'https://recipes.example.test/stalls',
+			}),
+		)
+		await started
+		await vi.advanceTimersByTimeAsync(10_000)
+
+		expect(await result).toMatchObject({
+			init: { status: 400 },
+			data: {
+				recipe: null,
+				error: 'Request timed out. The site took too long to respond.',
+			},
+		})
+	} finally {
+		vi.useRealTimers()
+	}
+})
+
+test('URL extraction refuses a page that decodes past 5 MB whatever its Content-Length says, and stops reading it', async () => {
+	const session = await user()
+	const chunk = new Uint8Array(64 * 1024).fill(97)
+	let servedBytes = 0
+	let pageRequest: Request | undefined
+	server.use(
+		http.get(`${CHECKED_ORIGIN}/huge`, ({ request }) => {
+			pageRequest = request
+			return new HttpResponse(
+				new ReadableStream({
+					pull(controller) {
+						if (servedBytes >= 16 * 1024 * 1024) return controller.close()
+						servedBytes += chunk.byteLength
+						controller.enqueue(chunk)
+					},
+				}),
+				{
+					headers: { 'Content-Type': 'text/html', 'Content-Length': '2048' },
+				},
+			)
+		}),
+	)
+
+	const result = await importAction(
+		await args(session, '/recipes/import', {
+			intent: 'fetch',
+			url: 'https://recipes.example.test/huge',
+		}),
+	)
+
+	expect(result).toMatchObject({
+		init: { status: 400 },
+		data: { recipe: null, error: 'Page is too large to import.' },
+	})
+	expect(servedBytes).toBeLessThan(6 * 1024 * 1024)
+	// Bun keeps downloading a cancelled body until its request is aborted.
+	expect(pageRequest?.signal.aborted).toBe(true)
+})
+
+test('URL extraction aborts a page that answers with an error status instead of leaving its body streaming', async () => {
+	const session = await user()
+	let pageRequest: Request | undefined
+	server.use(
+		http.get(`${CHECKED_ORIGIN}/gone`, ({ request }) => {
+			pageRequest = request
+			return new HttpResponse(
+				new ReadableStream({
+					pull(controller) {
+						controller.enqueue(new Uint8Array(64 * 1024).fill(97))
+					},
+				}),
+				{ status: 404, headers: { 'Content-Type': 'text/html' } },
+			)
+		}),
+	)
+
+	const result = await importAction(
+		await args(session, '/recipes/import', {
+			intent: 'fetch',
+			url: 'https://recipes.example.test/gone',
+		}),
+	)
+
+	expect(result).toMatchObject({
+		init: { status: 400 },
+		data: { recipe: null, error: 'Failed to fetch URL (404)' },
+	})
+	expect(pageRequest?.signal.aborted).toBe(true)
+})
+
+test('URL extraction asks only for the encodings it can decode', async () => {
+	const session = await user()
+	let acceptEncoding: string | null = null
+	server.use(
+		http.get(`${CHECKED_ORIGIN}/plain`, ({ request }) => {
+			acceptEncoding = request.headers.get('Accept-Encoding')
+			return HttpResponse.html('<p>No recipe here.</p>')
+		}),
+	)
+
+	await importAction(
+		await args(session, '/recipes/import', {
+			intent: 'fetch',
+			url: 'https://recipes.example.test/plain',
+		}),
+	)
+
+	expect(acceptEncoding).toBe(ACCEPT_ENCODING)
 })
 
 test('image extraction preserves the extracted structure through edited save without another provider call', async () => {

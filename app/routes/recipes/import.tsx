@@ -48,6 +48,13 @@ import {
 	ImportUrlSchema,
 	MAX_RAW_TEXT_LENGTH,
 } from '#app/utils/recipe-validation.ts'
+import {
+	ACCEPT_ENCODING,
+	BodyTooLargeError,
+	KEEP_BODY_ENCODED,
+	readBoundedText,
+	UnsupportedEncodingError,
+} from '#app/utils/bounded-body.server.ts'
 import { fetchPublicUrl } from '#app/utils/public-url.server.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
@@ -412,21 +419,22 @@ export async function action({ request }: Route.ActionArgs) {
 
 		const { url } = submission.value
 
+		// One deadline covers the headers and the body.
+		const controller = new AbortController()
+		const timeout = setTimeout(() => controller.abort(), 10000)
 		try {
-			const controller = new AbortController()
-			const timeout = setTimeout(() => controller.abort(), 10000)
-
 			// Checks the URL and every redirect hop before requesting it, so an
 			// import can never reach this machine or the private network.
 			const response = await fetchPublicUrl(url, {
+				...KEEP_BODY_ENCODED,
 				signal: controller.signal,
 				headers: {
 					'User-Agent':
 						'Mozilla/5.0 (compatible; Quartermaster/1.0; +recipe-import)',
 					Accept: 'text/html',
+					'Accept-Encoding': ACCEPT_ENCODING,
 				},
 			})
-			clearTimeout(timeout)
 
 			if (!response) {
 				return data(
@@ -442,6 +450,9 @@ export async function action({ request }: Route.ActionArgs) {
 				)
 			}
 
+			// Don't cancel the unread body here: in Bun, cancelling a body that was
+			// never read pulls all of it into memory. The abort in `finally`
+			// releases the connection instead.
 			if (!response.ok) {
 				return data(
 					{
@@ -455,35 +466,12 @@ export async function action({ request }: Route.ActionArgs) {
 				)
 			}
 
-			const contentLength = response.headers.get('Content-Length')
-			const MAX_RESPONSE_SIZE = 5 * 1024 * 1024 // 5MB
-			if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_SIZE) {
-				return data(
-					{
-						intent: 'fetch' as const,
-						error: 'Page is too large to import.',
-						recipe: null,
-						result: null,
-						duplicates: null,
-					},
-					{ status: 400 },
-				)
-			}
-
-			const html = await response.text()
-
-			if (html.length > MAX_RESPONSE_SIZE) {
-				return data(
-					{
-						intent: 'fetch' as const,
-						error: 'Page is too large to import.',
-						recipe: null,
-						result: null,
-						duplicates: null,
-					},
-					{ status: 400 },
-				)
-			}
+			// Content-Length is the size on the wire, before decompression, so the
+			// limit applies to the decoded body as it arrives.
+			const html = await readBoundedText(response, {
+				maxBytes: 5 * 1024 * 1024,
+				signal: controller.signal,
+			})
 			const $ = cheerio.load(html)
 
 			let recipeData: Record<string, unknown> | null = null
@@ -547,9 +535,13 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 		} catch (error) {
 			const message =
-				error instanceof Error && error.name === 'AbortError'
-					? 'Request timed out. The site took too long to respond.'
-					: 'Failed to fetch the URL. Please check the address and try again.'
+				error instanceof BodyTooLargeError
+					? 'Page is too large to import.'
+					: error instanceof UnsupportedEncodingError
+						? 'The site sent the page in an encoding that cannot be imported.'
+						: error instanceof Error && error.name === 'AbortError'
+							? 'Request timed out. The site took too long to respond.'
+							: 'Failed to fetch the URL. Please check the address and try again.'
 			return data(
 				{
 					intent: 'fetch' as const,
@@ -560,6 +552,11 @@ export async function action({ request }: Route.ActionArgs) {
 				},
 				{ status: 400 },
 			)
+		} finally {
+			clearTimeout(timeout)
+			// Releases the page's connection. Bun keeps downloading a body that
+			// was cancelled or left unread until its request is aborted.
+			controller.abort()
 		}
 	}
 

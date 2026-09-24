@@ -181,6 +181,41 @@ test('public redirects are followed one checked hop at a time', async () => {
 	])
 })
 
+test("a redirect hop is aborted rather than left streaming its body, and the caller's signal governs the last hop", async () => {
+	const { resolveHost } = resolverFor({ 'recipes.example': [PUBLIC_IP] })
+	const requests: Array<Request> = []
+	server.use(
+		http.all('*', ({ request }) => {
+			requests.push(request)
+			if (new URL(request.url).pathname === '/soup') {
+				return HttpResponse.text('<h1>Soup</h1>')
+			}
+			// An endless body, which Bun would download for as long as the
+			// hop's connection stays open.
+			return new HttpResponse(
+				new ReadableStream({
+					pull(controller) {
+						controller.enqueue(new Uint8Array(64 * 1024))
+					},
+				}),
+				{ status: 302, headers: { Location: '/soup' } },
+			)
+		}),
+	)
+	const caller = new AbortController()
+
+	const response = await fetchPublicUrl(
+		'https://recipes.example/moved',
+		{ signal: caller.signal },
+		{ resolveHost },
+	)
+
+	expect(await response?.text()).toBe('<h1>Soup</h1>')
+	expect(requests.map(({ signal }) => signal.aborted)).toEqual([true, false])
+	caller.abort()
+	expect(requests[1]?.signal.aborted).toBe(true)
+})
+
 test('a redirect loop stops instead of following forever', async () => {
 	const { resolveHost } = resolverFor({ 'recipes.example': [PUBLIC_IP] })
 	const visits = networkAnswering(resolveHost, () =>

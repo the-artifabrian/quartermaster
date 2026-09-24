@@ -431,6 +431,104 @@ describe('Recipe time and typed yield recovery', () => {
 	})
 })
 
+// Heading names here trip neither the ingredient parser's heading heuristics
+// ("For the …", trailing colon, short all-caps) nor Shopping's safety net
+// (its exact list includes "Garnish" and "Dressing"), so only the preserved
+// flag can make them headings.
+describe('ingredient heading recovery', () => {
+	const sourceIngredients = [
+		{ name: 'Salsa verde', isHeading: true },
+		{ name: 'flat-leaf parsley', isHeading: false },
+		{ name: 'capers', isHeading: false },
+		{ name: 'Roast potatoes', isHeading: true },
+		{ name: 'waxy potatoes', isHeading: false },
+		{ name: 'olive oil', isHeading: false },
+	]
+
+	async function createHeadedRecipe(source: {
+		userId: string
+		householdId: string
+	}) {
+		// Inserted in reverse so row order disagrees with the stored order: an
+		// export that stopped sorting by it would scramble the sections.
+		await prisma.recipe.create({
+			data: {
+				title: 'Chicken with salsa verde',
+				userId: source.userId,
+				householdId: source.householdId,
+				ingredients: {
+					create: sourceIngredients
+						.map((ingredient, order) => ({ ...ingredient, order }))
+						.reverse(),
+				},
+				instructions: { create: { content: 'Roast and dress.', order: 0 } },
+			},
+		})
+	}
+
+	async function restoredIngredients(householdId: string) {
+		return prisma.ingredient.findMany({
+			where: { recipe: { householdId } },
+			select: { name: true, isHeading: true },
+			orderBy: { order: 'asc' },
+		})
+	}
+
+	test('full export and import keep headings and their positions', async () => {
+		const source = await setupUser()
+		await createHeadedRecipe(source)
+
+		const target = await setupUser()
+		await importPayload(target, await exportHousehold(source))
+
+		expect(await restoredIngredients(target.householdId)).toEqual(
+			sourceIngredients,
+		)
+	})
+
+	test('Recipe-only export and import keep headings and their positions', async () => {
+		const source = await setupUser()
+		await createHeadedRecipe(source)
+
+		const target = await setupUser()
+		await importPayload(target, await exportRecipes(source))
+
+		expect(await restoredIngredients(target.householdId)).toEqual(
+			sourceIngredients,
+		)
+	})
+
+	test('an older export without the flag imports every line as an ingredient, even heading-like ones', async () => {
+		const target = await setupUser()
+		const result = await importPayload(target, {
+			exportedAt: '2026-01-10T12:00:00.000Z',
+			recipeCount: 1,
+			recipes: [
+				{
+					title: 'Older salad',
+					ingredients: [
+						{ name: 'For the dressing:', amount: null, unit: null },
+						{ name: 'olive oil', amount: '3', unit: 'tbsp' },
+					],
+					instructions: [{ content: 'Whisk and toss.' }],
+				},
+			],
+		})
+
+		expect(result).toEqual(
+			expect.objectContaining({
+				results: expect.objectContaining({
+					recipes: { created: 1, skipped: 0, errored: 0 },
+				}),
+			}),
+		)
+		expect(await restoredIngredients(target.householdId)).toEqual([
+			{ name: 'For the dressing:', isHeading: false },
+			{ name: 'olive oil', isHeading: false },
+		])
+	})
+})
+
 describe('household Staples recovery', () => {
 	test('full export and import preserve canonical rows', async () => {
 		const source = await setupUser()

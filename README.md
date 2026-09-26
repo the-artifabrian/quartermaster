@@ -65,10 +65,11 @@ Bootstrapped from the [Epic Stack](https://www.epicweb.dev/epic-stack).
   documented journal dance, nightly offsite backups, and a restore runbook.
   [Deployment and recovery](docs/ARCHITECTURE.md#deployment-and-recovery) ·
   [Restore runbook](docs/RESTORE.md)
-- **Two watchdogs.** One restarts the process before memory pressure reaches
-  swap; the other watches the event loop from a worker thread, since a wedged
-  loop cannot report itself. Both live in [`server/`](server/), each commented
-  with the failure it guards against.
+- **Two watchdogs.** One restarts the process when a slow leak has pushed the
+  box toward thrash and a forced GC cannot recover it; the other watches the
+  event loop from a worker thread, since a wedged loop cannot report itself.
+  Both live in [`server/`](server/), each commented with the failure it guards
+  against.
 
 ## Getting started
 

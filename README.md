@@ -67,8 +67,8 @@ Bootstrapped from the [Epic Stack](https://www.epicweb.dev/epic-stack).
   [Restore runbook](docs/RESTORE.md)
 - **Two watchdogs.** One restarts the process before memory pressure reaches
   swap; the other watches the event loop from a worker thread, since a wedged
-  loop cannot report itself. Both live in [`server/`](server/), with the outage
-  that motivated each.
+  loop cannot report itself. Both live in [`server/`](server/), each commented
+  with the failure it guards against.
 
 ## Getting started
 

@@ -19,10 +19,9 @@ import {
 	MAX_RECIPE_IMAGE_SIZE,
 	ACCEPTED_RECIPE_IMAGE_TYPES,
 } from '#app/utils/recipe-validation.ts'
-import {
-	uploadRecipeImage,
-	deleteRecipeImage,
-} from '#app/utils/storage.server.ts'
+import { deleteRecipeImageUnlessShared } from '#app/utils/recipe-image.server.ts'
+import { assertLinkedRecipesInHousehold } from '#app/utils/recipe-links.server.ts'
+import { uploadRecipeImage } from '#app/utils/storage.server.ts'
 import { type Route } from './+types/$recipeId_.edit.ts'
 
 export const handle: SEOHandle = {
@@ -136,7 +135,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	// Handle delete
 	if (intent === 'delete') {
-		// Delete recipe image from storage if it exists
+		// Drop the picture from storage unless a copy of this Recipe still shows
+		// it; the row itself goes with the Recipe.
 		const recipeWithImage = await prisma.recipe.findUnique({
 			where: { id: recipeId },
 			select: { image: { select: { objectKey: true } } },
@@ -144,7 +144,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 		if (recipeWithImage?.image?.objectKey) {
 			try {
-				await deleteRecipeImage(recipeWithImage.image.objectKey)
+				await deleteRecipeImageUnlessShared(recipeWithImage.image.objectKey, {
+					exceptRecipeId: recipeId,
+				})
 			} catch (error) {
 				console.error('Failed to delete recipe image from storage:', error)
 				// Continue with recipe deletion even if image deletion fails
@@ -216,6 +218,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 		notes,
 	} = submission.value
 
+	await assertLinkedRecipesInHousehold(ingredients, householdId)
+
 	// Update recipe - delete all ingredients and instructions, then recreate.
 	// Classification identity resolves inside the same transaction, so a
 	// spoofed foreign-household value cannot partially change the Recipe.
@@ -285,10 +289,12 @@ export async function action({ request, params }: Route.ActionArgs) {
 			select: { objectKey: true },
 		})
 
-		// Delete existing image from storage if it exists
+		// Delete existing image from storage unless a copy still shows it
 		if (existingImage?.objectKey) {
 			try {
-				await deleteRecipeImage(existingImage.objectKey)
+				await deleteRecipeImageUnlessShared(existingImage.objectKey, {
+					exceptRecipeId: recipeId,
+				})
 			} catch (error) {
 				console.error('Failed to delete old recipe image from storage:', error)
 				// Continue with new image upload even if old image deletion fails

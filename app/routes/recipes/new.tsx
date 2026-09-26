@@ -10,6 +10,7 @@ import {
 	RecipeMetadataSelectionError,
 	resolveRecipeMetadataValueIds,
 } from '#app/utils/recipe-metadata.server.ts'
+import { assertLinkedRecipesInHousehold } from '#app/utils/recipe-links.server.ts'
 import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
@@ -111,6 +112,8 @@ export async function action({ request }: Route.ActionArgs) {
 		sourceUrl,
 		notes,
 	} = submission.value
+
+	await assertLinkedRecipesInHousehold(ingredients, householdId)
 
 	let recipe: { id: string }
 	try {

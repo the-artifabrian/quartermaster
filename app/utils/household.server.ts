@@ -101,22 +101,6 @@ export async function acceptInvite(token: string, userId: string) {
 	})
 	if (existingMember) throw new Error('Already a member of this household')
 
-	// Get user's current household info
-	const currentMembership = await prisma.householdMember.findFirst({
-		where: { userId },
-		select: { householdId: true },
-	})
-
-	const currentHouseholdId = currentMembership?.householdId
-
-	// Count members in user's current household
-	let currentHouseholdMemberCount = 0
-	if (currentHouseholdId) {
-		currentHouseholdMemberCount = await prisma.householdMember.count({
-			where: { householdId: currentHouseholdId },
-		})
-	}
-
 	const targetHouseholdId = invite.householdId
 
 	await prisma.$transaction(async (tx) => {
@@ -128,6 +112,20 @@ export async function acceptInvite(token: string, userId: string) {
 		if (updated.count === 0) {
 			throw new Error('Invite already used')
 		}
+
+		// Read the current household inside the transaction: whether the user
+		// is its sole member decides between moving everything and copying
+		// Recipes, and a partner joining or leaving in between must not flip it.
+		const currentMembership = await tx.householdMember.findFirst({
+			where: { userId },
+			select: { householdId: true },
+		})
+		const currentHouseholdId = currentMembership?.householdId
+		const currentHouseholdMemberCount = currentHouseholdId
+			? await tx.householdMember.count({
+					where: { householdId: currentHouseholdId },
+				})
+			: 0
 
 		if (currentHouseholdId && currentHouseholdMemberCount === 1) {
 			// Sole member: move all data to new household
@@ -511,6 +509,10 @@ async function deepCopyRecipes(
 						}),
 					),
 				},
+				// The copy shares the source's bytes: copying them means a fetch
+				// inside this write transaction. Image deletes count references
+				// first, so either side may drop its picture without blanking the
+				// other's.
 				...(recipe.image
 					? {
 							image: {

@@ -1,7 +1,10 @@
 import fs from 'node:fs/promises'
+import path from 'node:path'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
+
+const UPLOADS_DIR = 'tests/fixtures/uploaded'
 
 test('a saved shared Recipe keeps its picture after the source deletes theirs', async ({
 	page,
@@ -15,6 +18,17 @@ test('a saved shared Recipe keeps its picture after the source deletes theirs', 
 			members: { create: { userId: source.id, role: 'owner' } },
 		},
 	})
+	// The source's picture is an upload of its own, so its bytes can go away
+	// the way a real delete removes them. A fixture image cannot be removed.
+	const sourceUploads = path.join(UPLOADS_DIR, 'users', source.id)
+	const sourceObjectKey = `users/${source.id}/recipes/source/images/carrots.png`
+	await fs.mkdir(path.dirname(path.join(UPLOADS_DIR, sourceObjectKey)), {
+		recursive: true,
+	})
+	await fs.copyFile(
+		'tests/fixtures/images/notes/1.png',
+		path.join(UPLOADS_DIR, sourceObjectKey),
+	)
 	try {
 		const recipe = await prisma.recipe.create({
 			data: {
@@ -23,7 +37,7 @@ test('a saved shared Recipe keeps its picture after the source deletes theirs', 
 				householdId: sourceHome.id,
 				image: {
 					create: {
-						objectKey: 'notes/1.png',
+						objectKey: sourceObjectKey,
 						altText: 'Shared carrots picture',
 					},
 				},
@@ -47,7 +61,9 @@ test('a saved shared Recipe keeps its picture after the source deletes theirs', 
 			new RegExp(`^users/${recipient.id}/recipes/${saved.id}/images/`),
 		)
 
+		// The source deletes its Recipe: the row goes and so do its bytes.
 		await prisma.recipe.delete({ where: { id: recipe.id } })
+		await fs.rm(sourceUploads, { recursive: true, force: true })
 		await page.reload()
 		const image = page.getByRole('img', { name: 'Shared carrots picture' })
 		await expect(image).toBeVisible()
@@ -58,10 +74,11 @@ test('a saved shared Recipe keeps its picture after the source deletes theirs', 
 			)
 			.toBeGreaterThan(0)
 	} finally {
-		await fs.rm(`tests/fixtures/uploaded/users/${recipient.id}`, {
+		await fs.rm(path.join(UPLOADS_DIR, 'users', recipient.id), {
 			recursive: true,
 			force: true,
 		})
+		await fs.rm(sourceUploads, { recursive: true, force: true })
 		await prisma.household.delete({ where: { id: sourceHome.id } })
 		await prisma.user.delete({ where: { id: source.id } })
 	}

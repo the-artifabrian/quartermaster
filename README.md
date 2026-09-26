@@ -1,5 +1,7 @@
 # Quartermaster
 
+[![Deploy](https://github.com/the-artifabrian/quartermaster/actions/workflows/deploy.yml/badge.svg)](https://github.com/the-artifabrian/quartermaster/actions/workflows/deploy.yml)
+
 A personal cookbook for saving Recipes, planning Meals, and making one useful
 Shopping list.
 
@@ -51,6 +53,24 @@ without API keys.
 
 Bootstrapped from the [Epic Stack](https://www.epicweb.dev/epic-stack).
 
+## Engineering notes
+
+- **Shopping checks are versioned.** Every check submits the purchase version it
+  saw, and SQLite triggers advance that version whenever demand changes, so a
+  check can never silently cover an ingredient added after the shopper looked.
+  Retries are safe through one latest request id.
+  [Shopping in ARCHITECTURE](docs/ARCHITECTURE.md#shopping)
+- **One small machine, run deliberately.** SQLite under LiteFS with a static
+  lease on a single Fly Machine, forward-only Prisma migrations with a
+  documented journal dance, nightly offsite backups, and a restore runbook.
+  [Deployment and recovery](docs/ARCHITECTURE.md#deployment-and-recovery) ·
+  [Restore runbook](docs/RESTORE.md)
+- **Two watchdogs.** One restarts the process when a slow leak has pushed the
+  box toward thrash and a forced GC cannot recover it; the other watches the
+  event loop from a worker thread, since a wedged loop cannot report itself.
+  Both live in [`server/`](server/), each commented with the failure it guards
+  against.
+
 ## Getting started
 
 Requires [Bun](https://bun.com/) >= 1.3.13.
@@ -67,13 +87,13 @@ The development environment mocks Stripe, storage, Google OAuth, and email. See
 
 ## Docs
 
+- [Architecture](docs/ARCHITECTURE.md)
 - [Product terms](CONTEXT.md)
 - [Features](docs/FEATURES.md)
-- [Development plan](docs/DEVELOPMENT_PLAN.md)
-- [Architecture](docs/ARCHITECTURE.md)
 - [Design system](docs/DESIGN_SYSTEM.md)
 - [Copy guide](docs/COPYWRITING.md)
 - [Database restore runbook](docs/RESTORE.md)
+- [Development plan](docs/DEVELOPMENT_PLAN.md)
 
 ## License
 

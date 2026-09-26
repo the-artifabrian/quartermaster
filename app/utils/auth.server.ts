@@ -73,6 +73,20 @@ export async function requireUserId(
 	return userId
 }
 
+/**
+ * Admin pages are hidden rather than refused: anyone without the role lands
+ * on the homepage as if the route did not exist.
+ */
+export async function requireAdmin(request: Request) {
+	const userId = await requireUserId(request)
+	const user = await prisma.user.findFirst({
+		select: { id: true },
+		where: { id: userId, roles: { some: { name: 'admin' } } },
+	})
+	if (!user) throw redirect('/')
+	return user.id
+}
+
 export async function requireAnonymous(request: Request) {
 	const userId = await getUserId(request)
 	if (userId) {

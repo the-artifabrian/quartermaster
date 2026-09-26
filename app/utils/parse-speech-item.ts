@@ -246,7 +246,7 @@ export function parseSpeechItem(transcript: string): ParsedItem {
 }
 
 /**
- * Parse a *typed* item like "2 lemons" or "2 lbs chicken" (E4). Unlike
+ * Parse a *typed* item like "2 lemons" or "2 lbs chicken". Unlike
  * parseSpeechItem there's no transcript cleanup and no lowercasing — typed
  * text is taken as written. Returns null when there's no leading quantity,
  * so callers can fall back to the raw input untouched.

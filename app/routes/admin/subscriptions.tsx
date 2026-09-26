@@ -1,8 +1,8 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { data, Link, redirect, useFetcher } from 'react-router'
+import { data, Link, useFetcher } from 'react-router'
 import { Spacer } from '#app/components/spacer.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireAdmin } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { type Route } from './+types/subscriptions.ts'
 
@@ -20,16 +20,6 @@ type UserRow = {
 	isTrialing: boolean
 	trialExpired: boolean
 	trialEndsAt: string | null
-}
-
-async function requireAdmin(request: Request) {
-	const userId = await requireUserId(request)
-	const user = await prisma.user.findFirst({
-		select: { id: true },
-		where: { id: userId, roles: { some: { name: 'admin' } } },
-	})
-	if (!user) throw redirect('/')
-	return user.id
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

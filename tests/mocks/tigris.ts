@@ -107,4 +107,24 @@ export const handlers = [
 			}
 		},
 	),
+
+	http.delete(
+		`${STORAGE_ENDPOINT}/${STORAGE_BUCKET}/:key*`,
+		async ({ request, params }) => {
+			if (!validateAuth(request.headers)) {
+				return new HttpResponse('Unauthorized', { status: 401 })
+			}
+			const { key } = params
+			assertKey(key)
+
+			// Fixture images are shared read-only inputs; only uploads are removable.
+			const filePath = path.join(MOCK_STORAGE_DIR, ...key)
+			try {
+				await fs.rm(filePath)
+			} catch {
+				return new HttpResponse('Not found', { status: 404 })
+			}
+			return new HttpResponse(null, { status: 204 })
+		},
+	),
 ]

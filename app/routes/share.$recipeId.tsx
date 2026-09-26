@@ -1,10 +1,15 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { createId } from '@paralleldrive/cuid2'
 import { redirect } from 'react-router'
 import { SharedRecipeView } from '#app/components/shared-recipe.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { sharedRecipeSelect } from '#app/utils/share-menu.server.ts'
+import {
+	copyRecipeImage,
+	deleteRecipeImage,
+} from '#app/utils/storage.server.ts'
 import { type Route } from './+types/share.$recipeId.ts'
 
 export const handle: SEOHandle = {
@@ -116,48 +121,62 @@ export async function action({ params, request }: Route.ActionArgs) {
 		return redirect(`/recipes/${existing.id}`)
 	}
 
-	const newRecipe = await prisma.recipe.create({
-		data: {
-			title: recipe.title,
-			description: recipe.description,
-			activeTime: recipe.activeTime,
-			totalTime: recipe.totalTime,
-			yieldAmount: recipe.yieldAmount,
-			yieldLabel: recipe.yieldLabel,
-			isFavorite: false,
-			sourceUrl: recipe.sourceUrl,
-			rawText: recipe.rawText,
-			userId,
-			householdId,
-			ingredients: {
-				create: recipe.ingredients.map((ing) => ({
-					name: ing.name,
-					amount: ing.amount,
-					unit: ing.unit,
-					notes: ing.notes,
-					isHeading: ing.isHeading,
-					order: ing.order,
-				})),
-			},
-			instructions: {
-				create: recipe.instructions.map((inst) => ({
-					content: inst.content,
-					order: inst.order,
-				})),
-			},
-			...(recipe.image
-				? {
-						image: {
-							create: {
-								altText: recipe.image.altText,
-								objectKey: recipe.image.objectKey,
+	// The copy gets its own bytes under the recipient's key, as Menu sharing
+	// does, so the source editing or deleting its picture never touches it.
+	const newRecipeId = createId()
+	const imageObjectKey = recipe.image
+		? await copyRecipeImage(recipe.image.objectKey, userId, newRecipeId)
+		: null
+	let newRecipe: { id: string }
+	try {
+		newRecipe = await prisma.recipe.create({
+			data: {
+				id: newRecipeId,
+				title: recipe.title,
+				description: recipe.description,
+				activeTime: recipe.activeTime,
+				totalTime: recipe.totalTime,
+				yieldAmount: recipe.yieldAmount,
+				yieldLabel: recipe.yieldLabel,
+				isFavorite: false,
+				sourceUrl: recipe.sourceUrl,
+				rawText: recipe.rawText,
+				userId,
+				householdId,
+				ingredients: {
+					create: recipe.ingredients.map((ing) => ({
+						name: ing.name,
+						amount: ing.amount,
+						unit: ing.unit,
+						notes: ing.notes,
+						isHeading: ing.isHeading,
+						order: ing.order,
+					})),
+				},
+				instructions: {
+					create: recipe.instructions.map((inst) => ({
+						content: inst.content,
+						order: inst.order,
+					})),
+				},
+				...(recipe.image && imageObjectKey
+					? {
+							image: {
+								create: {
+									altText: recipe.image.altText,
+									objectKey: imageObjectKey,
+								},
 							},
-						},
-					}
-				: {}),
-		},
-		select: { id: true },
-	})
+						}
+					: {}),
+			},
+			select: { id: true },
+		})
+	} catch (error) {
+		// The staged copy belongs only to this attempt.
+		if (imageObjectKey) await deleteRecipeImage(imageObjectKey).catch(() => {})
+		throw error
+	}
 
 	return redirect(`/recipes/${newRecipe.id}`)
 }

@@ -4,7 +4,8 @@ import { type Prisma } from '#app/generated/prisma/client.ts'
 import { prisma } from './db.server.ts'
 import { menuTitleKey } from './menu-validation.ts'
 import { ensureRecipeMetadataValues } from './recipe-metadata.server.ts'
-import { copyRecipeImage, deleteRecipeImage } from './storage.server.ts'
+import { deleteRecipeImageUnlessShared } from './recipe-image.server.ts'
+import { copyRecipeImage } from './storage.server.ts'
 
 export const sharedRecipeSelect = {
 	id: true,
@@ -276,9 +277,7 @@ export async function saveSharedMenu({
 		// Also clean up staged images when another request saved first. Check
 		// references after commit, so cleanup never removes a successful copy.
 		if (!committed)
-			for (const objectKey of imageKeys.values()) {
-				const used = await prisma.recipeImage.count({ where: { objectKey } })
-				if (!used) await deleteRecipeImage(objectKey).catch(() => {})
-			}
+			for (const objectKey of imageKeys.values())
+				await deleteRecipeImageUnlessShared(objectKey).catch(() => {})
 	}
 }

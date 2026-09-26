@@ -24,7 +24,7 @@ export function MenuCard({
 			viewTransition
 			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3.5 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-all md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
 		>
-			{/* Menus carry no imagery (Gate 1A dogfood) — the row reads like a
+			{/* Menus carry no imagery (#149) — the row reads like a
 			    printed menu card: title, guests at the right, courses beneath. */}
 			<div className="flex min-w-0 flex-1 flex-col justify-center md:justify-start md:p-6">
 				<div className="flex items-baseline gap-3">

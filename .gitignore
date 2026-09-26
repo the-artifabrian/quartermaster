@@ -37,3 +37,6 @@ apple-notes-export/
 .agents/
 .cursor/
 prisma/shadow.db
+
+# skills CLI lock for the ignored .agents/ directory
+skills-lock.json

@@ -149,7 +149,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	const { title, description, defaultGuestCount } = submission.value
 
 	// A blank name marks the headingless unnamed section; any section may take
-	// or lose a name in place (Gate 1A dogfood), so no stored row is special.
+	// or lose a name in place (#149), so no stored row is special.
 	const storedUnnamed = menu.sections.find((section) => section.name === null)
 
 	// Full-state reconcile: the submission is the Menu's complete composition.

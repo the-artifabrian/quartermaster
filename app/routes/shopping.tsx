@@ -294,7 +294,7 @@ export async function action({ request }: Route.ActionArgs) {
 		const force = formData.get('force') === 'true'
 		const horizon = parseShoppingHorizon(formData.get('horizon'))
 
-		// "2 lemons" typed into the bare input becomes qty 2 + "lemons" (E4).
+		// "2 lemons" typed into the bare input becomes qty 2 + "lemons".
 		// Only when no explicit quantity came along — the Qty & unit fields win.
 		// Parsing happens before the duplicate/inventory checks so "2 lemons"
 		// matches an existing "lemons" row.

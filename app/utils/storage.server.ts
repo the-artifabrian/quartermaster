@@ -51,18 +51,6 @@ export async function deleteRecipeImage(objectKey: string) {
 	return deleteFromStorage(objectKey)
 }
 
-export async function uploadNoteImage(
-	userId: string,
-	noteId: string,
-	file: File | FileUpload,
-) {
-	const fileId = createId()
-	const fileExtension = file.name.split('.').pop() || ''
-	const timestamp = Date.now()
-	const key = `users/${userId}/notes/${noteId}/images/${timestamp}-${fileId}.${fileExtension}`
-	return uploadToStorage(file, key)
-}
-
 export async function uploadRecipeImage(
 	userId: string,
 	recipeId: string,

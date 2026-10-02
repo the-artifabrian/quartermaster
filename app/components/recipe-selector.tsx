@@ -1,5 +1,5 @@
 import { Img } from 'openimg/react'
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -159,6 +159,16 @@ function ItemSelector({
 	emptyMessage,
 }: PlanItemSelectorProps & { placeholder: string; emptyMessage: string }) {
 	const [search, setSearch] = useState('')
+	const listRef = useRef<HTMLDivElement>(null)
+
+	// Keep the list at the height it opened with. A narrowing search would
+	// otherwise shrink the page under an open phone keyboard, and iOS Safari
+	// then clamps the scroll it used to lift the input above the keyboard,
+	// leaving the input hidden behind it.
+	useLayoutEffect(() => {
+		const list = listRef.current
+		if (list) list.style.minHeight = `${list.offsetHeight}px`
+	}, [])
 
 	const filteredRecipes = rankRecipeTitleMatches(
 		recipes.filter((recipe) => !excludeRecipeIds.includes(recipe.id)),
@@ -216,7 +226,10 @@ function ItemSelector({
 					<Icon name="cross-1" size="sm" />
 				</Button>
 			</div>
-			<div className="max-h-[300px] scrollbar-thin space-y-0.5 overflow-y-auto">
+			<div
+				ref={listRef}
+				className="max-h-[300px] scrollbar-thin space-y-0.5 overflow-y-auto"
+			>
 				{!hasAnyChoice ? (
 					<div className="py-4 text-center">
 						<p className="text-muted-foreground text-sm">{emptyMessage}</p>

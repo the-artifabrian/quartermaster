@@ -238,10 +238,35 @@ export async function acceptInvite(token: string, userId: string) {
 				}
 				await tx.mealPlan.delete({ where: { id: sourcePlan.id } })
 			}
-			await tx.shoppingList.updateMany({
-				where: { householdId: currentHouseholdId },
-				data: { householdId: targetHouseholdId },
-			})
+			// A Household holds one Shopping list (`householdId` is unique), and
+			// each list is created lazily on the first Shopping visit, so two
+			// people who both used the app before joining each bring one. The
+			// source rows join the target list whole and unmerged, like Meals
+			// above; with no target list the source list just changes household.
+			// The source list is deleted explicitly: its Household relation is
+			// SetNull, so the Household delete below would orphan it instead.
+			const [sourceList, targetList] = await Promise.all([
+				tx.shoppingList.findUnique({
+					where: { householdId: currentHouseholdId },
+					select: { id: true },
+				}),
+				tx.shoppingList.findUnique({
+					where: { householdId: targetHouseholdId },
+					select: { id: true },
+				}),
+			])
+			if (sourceList && targetList) {
+				await tx.shoppingListItem.updateMany({
+					where: { listId: sourceList.id },
+					data: { listId: targetList.id },
+				})
+				await tx.shoppingList.delete({ where: { id: sourceList.id } })
+			} else if (sourceList) {
+				await tx.shoppingList.update({
+					where: { id: sourceList.id },
+					data: { householdId: targetHouseholdId },
+				})
+			}
 			// Menus are household-owned and would be cascade-deleted with the
 			// old household. Move them, disambiguating title collisions with
 			// deterministic "Title (2)", "Title (3)" suffixes.

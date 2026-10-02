@@ -230,6 +230,94 @@ describe('acceptInvite', () => {
 		})
 	})
 
+	test('sole member: Shopping items join the target list when both households already have one', async () => {
+		const owner = await setupUser()
+		const joiner = await setupUser()
+		// Each list is created lazily on the first Shopping visit, so two people
+		// who both used the app before joining each bring one. A Household may
+		// hold only one list (`householdId` is unique), so the move must merge.
+		const ownerList = await prisma.shoppingList.create({
+			data: {
+				userId: owner.id,
+				householdId: owner.householdId,
+				items: { create: { name: 'Olive oil', horizon: 'next' } },
+			},
+		})
+		const weekStart = new Date('2026-03-02T00:00:00.000Z')
+		const joinerPlan = await prisma.mealPlan.create({
+			data: { householdId: joiner.householdId, weekStart },
+		})
+		const meal = await prisma.meal.create({
+			data: { mealPlanId: joinerPlan.id, date: weekStart, order: 0 },
+		})
+		const joinerList = await prisma.shoppingList.create({
+			data: {
+				userId: joiner.id,
+				householdId: joiner.householdId,
+				items: {
+					create: {
+						name: 'Lemons',
+						quantity: '4',
+						checked: true,
+						horizon: 'later',
+						source: 'generated',
+						mealContributions: {
+							create: {
+								mealId: meal.id,
+								canonicalName: 'lemon',
+								name: 'Lemons',
+								quantity: '4',
+							},
+						},
+					},
+				},
+			},
+		})
+
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+		await acceptInvite(invite.token, joiner.id)
+
+		const targetList = await prisma.shoppingList.findUniqueOrThrow({
+			where: { householdId: owner.householdId },
+			include: {
+				items: {
+					orderBy: { name: 'asc' },
+					include: {
+						mealContributions: {
+							select: { mealId: true, canonicalName: true },
+						},
+					},
+				},
+			},
+		})
+		expect(targetList.id).toBe(ownerList.id)
+		expect(targetList.items).toMatchObject([
+			{
+				name: 'Lemons',
+				quantity: '4',
+				checked: true,
+				horizon: 'later',
+				source: 'generated',
+				mealContributions: [{ mealId: meal.id, canonicalName: 'lemon' }],
+			},
+			{ name: 'Olive oil', horizon: 'next', mealContributions: [] },
+		])
+		// The contributing Meal moved into the target household with its items.
+		expect(
+			await prisma.meal.findUniqueOrThrow({
+				where: { id: meal.id },
+				select: { mealPlan: { select: { householdId: true } } },
+			}),
+		).toEqual({ mealPlan: { householdId: owner.householdId } })
+		// The joiner's list is gone rather than orphaned: the Household relation
+		// is SetNull, so a forgotten delete would leave a householdless list.
+		expect(
+			await prisma.shoppingList.findUnique({ where: { id: joinerList.id } }),
+		).toBeNull()
+		expect(
+			await prisma.shoppingList.count({ where: { userId: joiner.id } }),
+		).toBe(0)
+	})
 	test('sole member: menus move, colliding titles get deterministic suffixes', async () => {
 		const owner = await setupUser()
 		const joiner = await setupUser()

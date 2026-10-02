@@ -97,10 +97,12 @@ export async function action({ request }: Route.ActionArgs) {
 			'Already a member of this household',
 			'Invite already used',
 		]
-		const message =
+		const isKnown =
 			error instanceof Error && knownMessages.includes(error.message)
-				? error.message
-				: 'Failed to join household'
+		if (!isKnown) {
+			console.error('Failed to join household', { token, userId }, error)
+		}
+		const message = isKnown ? error.message : 'Failed to join household'
 		return redirectWithToast('/', {
 			type: 'error',
 			description: message,

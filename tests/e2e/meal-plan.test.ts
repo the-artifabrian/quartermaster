@@ -490,11 +490,30 @@ test('Narrowing the phone Plan picker keeps the page height, so the input stays 
 	await expect(
 		composer.getByRole('button', { name: /Herb Omelette/ }),
 	).toBeVisible()
+	// The composer slides in over 280ms; take the baseline once it has settled.
+	await composer.evaluate((section) =>
+		Promise.all(
+			section
+				.getAnimations({ subtree: true })
+				.map((animation) => animation.finished),
+		).then(() => undefined),
+	)
 	await page.evaluate(() => document.fonts.ready.then(() => undefined))
 	const pageHeight = () =>
 		page.evaluate(() => document.documentElement.scrollHeight)
+	const searchBox = async () => {
+		const box = await search.boundingBox()
+		return (
+			box && {
+				x: Math.round(box.x),
+				y: Math.round(box.y),
+				width: Math.round(box.width),
+				height: Math.round(box.height),
+			}
+		)
+	}
 	const openedHeight = await pageHeight()
-	const openedSearchBox = await search.boundingBox()
+	const openedSearchBox = await searchBox()
 
 	// Playwright has no phone keyboard, so the test holds the invariant iOS
 	// Safari needs: while the results narrow, the page keeps its height and
@@ -508,12 +527,12 @@ test('Narrowing the phone Plan picker keeps the page height, so the input stays 
 		composer.getByRole('button', { name: /Herb Omelette/ }),
 	).toHaveCount(0)
 	expect(await pageHeight()).toBe(openedHeight)
-	expect(await search.boundingBox()).toEqual(openedSearchBox)
+	expect(await searchBox()).toEqual(openedSearchBox)
 
 	await search.fill('zzzz')
 	await expect(composer.getByText('No Recipes or Menus found')).toBeVisible()
 	expect(await pageHeight()).toBe(openedHeight)
-	expect(await search.boundingBox()).toEqual(openedSearchBox)
+	expect(await searchBox()).toEqual(openedSearchBox)
 
 	await search.fill('coq')
 	await composer.getByRole('button', { name: /Coq au Vin/ }).click()

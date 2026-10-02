@@ -291,8 +291,12 @@ test('Recipe classification edits and filters fit phone and desktop layouts', as
 	await page.goto(`/recipes/${classifiedRecipe.id}/edit`)
 	await page.getByText('Classification', { exact: true }).click()
 	const cuisineGroup = page.getByRole('group', { name: 'Cuisine' })
-	await cuisineGroup.getByLabel('Add cuisine').fill('  Levantine  ')
-	await cuisineGroup.getByRole('button', { name: 'Add' }).click()
+	await cuisineGroup.getByRole('button', { name: 'Add cuisine' }).click()
+	const cuisineInput = cuisineGroup.getByRole('textbox', {
+		name: 'Add cuisine',
+	})
+	await cuisineInput.fill('  Levantine  ')
+	await cuisineInput.press('Enter')
 	await expect(
 		cuisineGroup.getByRole('button', { name: 'Levantine' }),
 	).toHaveAttribute('aria-pressed', 'true')

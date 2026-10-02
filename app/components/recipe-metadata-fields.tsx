@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '#app/utils/misc.tsx'
 import {
 	emptyRecipeMetadataGroups,
@@ -9,7 +9,7 @@ import {
 	recipeMetadataNameKey,
 	type RecipeMetadataDimension,
 } from '#app/utils/recipe-metadata.ts'
-import { Button } from './ui/button.tsx'
+import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
 
 export type RecipeMetadataOption = {
@@ -24,6 +24,9 @@ type NewOption = { name: string; nameKey: string }
 function customOptionKey(dimension: RecipeMetadataDimension, nameKey: string) {
 	return `new:${dimension}:${nameKey}`
 }
+
+const chipClassName =
+	'flex min-h-10 items-center rounded-full border px-3 text-sm transition-colors'
 
 export function RecipeMetadataFields({
 	options,
@@ -40,16 +43,24 @@ export function RecipeMetadataFields({
 	const [newOptions, setNewOptions] = useState<
 		Record<RecipeMetadataDimension, NewOption[]>
 	>(() => emptyRecipeMetadataGroups<NewOption>())
-	const [drafts, setDrafts] = useState<Record<RecipeMetadataDimension, string>>(
-		{
-			cuisine: '',
-			season: '',
-			course: '',
-		},
-	)
-	const [errors, setErrors] = useState<
-		Partial<Record<RecipeMetadataDimension, string>>
+	// One group adds at a time, so the draft and its error belong to the
+	// open input rather than to every group.
+	const [adding, setAdding] = useState<RecipeMetadataDimension | null>(null)
+	const [draft, setDraft] = useState('')
+	const [error, setError] = useState<string | null>(null)
+	const addButtons = useRef<
+		Partial<Record<RecipeMetadataDimension, HTMLButtonElement | null>>
 	>({})
+	// The Add chip only mounts once its input is gone, so a keyboard close
+	// hands focus back after that render.
+	const focusAfterClose = useRef<RecipeMetadataDimension | null>(null)
+
+	useEffect(() => {
+		const dimension = focusAfterClose.current
+		if (!dimension) return
+		focusAfterClose.current = null
+		addButtons.current[dimension]?.focus()
+	})
 
 	function toggle(key: string) {
 		setSelected((current) => {
@@ -60,14 +71,25 @@ export function RecipeMetadataFields({
 		})
 	}
 
-	function addValue(dimension: RecipeMetadataDimension) {
-		const parsed = RecipeMetadataNameSchema.safeParse(drafts[dimension])
+	function openAdd(dimension: RecipeMetadataDimension) {
+		setAdding(dimension)
+		setDraft('')
+		setError(null)
+	}
+
+	function closeAdd({ restoreFocus = false } = {}) {
+		if (restoreFocus) focusAfterClose.current = adding
+		setAdding(null)
+		setDraft('')
+		setError(null)
+	}
+
+	/** Adds the draft to its group. Returns false when the name is rejected. */
+	function commitDraft(dimension: RecipeMetadataDimension) {
+		const parsed = RecipeMetadataNameSchema.safeParse(draft)
 		if (!parsed.success) {
-			setErrors((current) => ({
-				...current,
-				[dimension]: parsed.error.issues[0]?.message ?? 'Enter a name',
-			}))
-			return
+			setError(parsed.error.issues[0]?.message ?? 'Enter a name')
+			return false
 		}
 
 		const name = parsed.data
@@ -89,9 +111,12 @@ export function RecipeMetadataFields({
 			}))
 			setSelected((current) => new Set(current).add(key))
 		}
-		setDrafts((current) => ({ ...current, [dimension]: '' }))
-		setErrors((current) => ({ ...current, [dimension]: undefined }))
+		setDraft('')
+		setError(null)
+		return true
 	}
+
+	const draftIsBlank = draft.trim() === ''
 
 	const serializedSelection = JSON.stringify({
 		selectedValueIds: options
@@ -110,83 +135,92 @@ export function RecipeMetadataFields({
 	})
 
 	return (
-		<div className="space-y-5">
+		<div className="space-y-4">
 			<input type="hidden" name="recipeMetadata" value={serializedSelection} />
-			<p className="text-muted-foreground text-sm">
-				Optional. Choose as many as fit; leave any group empty when it is not
-				useful.
-			</p>
 			{RECIPE_METADATA_DIMENSIONS.map((dimension) => {
 				const label = RECIPE_METADATA_LABELS[dimension]
+				const addLabel = `Add ${label.toLowerCase()}`
+				const chips = [
+					...groupedOptions[dimension].map((option) => ({
+						key: option.id,
+						name: option.name,
+					})),
+					...newOptions[dimension].map((option) => ({
+						key: customOptionKey(dimension, option.nameKey),
+						name: option.name,
+					})),
+				]
 				return (
-					<fieldset key={dimension} className="space-y-2.5">
+					<fieldset key={dimension} className="space-y-2">
 						<legend className="text-sm font-medium">{label}</legend>
-						<div className="flex flex-wrap gap-2">
-							{groupedOptions[dimension].map((option) => (
+						<div className="flex flex-wrap items-center gap-2">
+							{chips.map((chip) => (
 								<button
-									key={option.id}
+									key={chip.key}
 									type="button"
-									aria-pressed={selected.has(option.id)}
-									onClick={() => toggle(option.id)}
+									aria-pressed={selected.has(chip.key)}
+									onClick={() => toggle(chip.key)}
 									className={cn(
-										'flex min-h-10 items-center rounded-full border px-3 text-sm transition-colors',
-										selected.has(option.id)
+										chipClassName,
+										selected.has(chip.key)
 											? 'border-primary bg-primary text-primary-foreground'
 											: 'border-border bg-background hover:bg-muted',
 									)}
 								>
-									{option.name}
+									{chip.name}
 								</button>
 							))}
-							{newOptions[dimension].map((option) => {
-								const key = customOptionKey(dimension, option.nameKey)
-								return (
-									<button
-										key={key}
-										type="button"
-										aria-pressed={selected.has(key)}
-										onClick={() => toggle(key)}
-										className={cn(
-											'flex min-h-10 items-center rounded-full border px-3 text-sm transition-colors',
-											selected.has(key)
-												? 'border-primary bg-primary text-primary-foreground'
-												: 'border-border bg-background hover:bg-muted',
-										)}
-									>
-										{option.name}
-									</button>
-								)
-							})}
+							{adding === dimension ? (
+								<Input
+									autoFocus
+									enterKeyHint="done"
+									value={draft}
+									onChange={(event) => setDraft(event.target.value)}
+									onKeyDown={(event) => {
+										if (event.key === 'Escape') {
+											event.preventDefault()
+											closeAdd({ restoreFocus: true })
+											return
+										}
+										if (event.key !== 'Enter') return
+										event.preventDefault()
+										if (draftIsBlank) closeAdd({ restoreFocus: true })
+										else commitDraft(dimension)
+									}}
+									onBlur={(event) => {
+										// Tapping away keeps what was typed; an empty input
+										// just folds back into the chip. A blur that comes from
+										// the input leaving the page (Escape already closed it)
+										// must not resurrect the cancelled name.
+										if (!event.currentTarget.isConnected) return
+										if (draftIsBlank || commitDraft(dimension)) closeAdd()
+									}}
+									placeholder={addLabel}
+									aria-label={addLabel}
+									aria-invalid={error ? true : undefined}
+									className="w-44 rounded-full px-4"
+								/>
+							) : (
+								<button
+									ref={(element) => {
+										addButtons.current[dimension] = element
+									}}
+									type="button"
+									aria-label={addLabel}
+									onClick={() => openAdd(dimension)}
+									className={cn(
+										chipClassName,
+										'border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground gap-1 border-dashed',
+									)}
+								>
+									<Icon name="plus" size="sm" />
+									Add
+								</button>
+							)}
 						</div>
-						<div className="flex max-w-md gap-2">
-							<Input
-								value={drafts[dimension]}
-								onChange={(event) =>
-									setDrafts((current) => ({
-										...current,
-										[dimension]: event.target.value,
-									}))
-								}
-								onKeyDown={(event) => {
-									if (event.key !== 'Enter') return
-									event.preventDefault()
-									addValue(dimension)
-								}}
-								placeholder={`Add ${label.toLowerCase()}`}
-								aria-label={`Add ${label.toLowerCase()}`}
-								aria-invalid={errors[dimension] ? true : undefined}
-							/>
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => addValue(dimension)}
-							>
-								Add
-							</Button>
-						</div>
-						{errors[dimension] && (
+						{adding === dimension && error && (
 							<p className="text-destructive text-sm" role="alert">
-								{errors[dimension]}
+								{error}
 							</p>
 						)}
 					</fieldset>

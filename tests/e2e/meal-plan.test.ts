@@ -448,3 +448,84 @@ test('Recipe already in Plan reports the planned Meal and links to it', async ({
 		}),
 	).toEqual([{ scaleMultiplier: 1 }])
 })
+
+test('Narrowing the phone Plan picker keeps the page height, so the input stays above the keyboard', async ({
+	page,
+	login,
+}) => {
+	await page.setViewportSize({ width: 390, height: 844 })
+	const user = await login()
+	// Enough Recipes to overflow the picker's 300px list, the case where a
+	// narrowing search shrinks the page the most.
+	const titles = [
+		'Anchor Pasta',
+		'Barley Soup',
+		'Coq au Vin',
+		'Crisp Salad',
+		'Dal Makhani',
+		'Fish Tacos',
+		'Garlic Flatbread',
+		'Herb Omelette',
+	]
+	const recipes = await Promise.all(
+		titles.map((title) =>
+			prisma.recipe.create({
+				data: { title, userId: user.id, householdId: user.householdId },
+			}),
+		),
+	)
+	const coqAuVin = recipes.find((recipe) => recipe.title === 'Coq au Vin')!
+
+	await page.goto('/plan')
+	const mobile = page.getByTestId('mobile-plan')
+	const composer = mobile.getByRole('region', { name: /^Add Meal for/ })
+	await expect(async () => {
+		if (!(await composer.isVisible())) {
+			await mobile.getByRole('button', { name: /^Add Meal to/ }).click()
+		}
+		await expect(composer).toBeVisible({ timeout: 1000 })
+	}).toPass()
+	const search = composer.getByPlaceholder('Search Recipes and Menus...')
+	await expect(search).toBeVisible()
+	await expect(
+		composer.getByRole('button', { name: /Herb Omelette/ }),
+	).toBeVisible()
+	await page.evaluate(() => document.fonts.ready.then(() => undefined))
+	const pageHeight = () =>
+		page.evaluate(() => document.documentElement.scrollHeight)
+	const openedHeight = await pageHeight()
+	const openedSearchBox = await search.boundingBox()
+
+	// Playwright has no phone keyboard, so the test holds the invariant iOS
+	// Safari needs: while the results narrow, the page keeps its height and
+	// the input stays where the keyboard was raised around it. A shorter page
+	// makes iOS clamp its scroll and drop the input behind the keyboard.
+	await search.fill('coq')
+	await expect(
+		composer.getByRole('button', { name: /Coq au Vin/ }),
+	).toBeVisible()
+	await expect(
+		composer.getByRole('button', { name: /Herb Omelette/ }),
+	).toHaveCount(0)
+	expect(await pageHeight()).toBe(openedHeight)
+	expect(await search.boundingBox()).toEqual(openedSearchBox)
+
+	await search.fill('zzzz')
+	await expect(composer.getByText('No Recipes or Menus found')).toBeVisible()
+	expect(await pageHeight()).toBe(openedHeight)
+	expect(await search.boundingBox()).toEqual(openedSearchBox)
+
+	await search.fill('coq')
+	await composer.getByRole('button', { name: /Coq au Vin/ }).click()
+	await expect(mobile.getByText('Coq au Vin', { exact: true })).toBeVisible()
+	await expect
+		.poll(() =>
+			prisma.meal.count({
+				where: {
+					mealPlan: { householdId: user.householdId },
+					recipeItems: { some: { recipeId: coqAuVin.id } },
+				},
+			}),
+		)
+		.toBe(1)
+})

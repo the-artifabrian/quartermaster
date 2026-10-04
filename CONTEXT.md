@@ -53,3 +53,13 @@ purchase history
 omitted from generated Shopping demand. A household keeps its Staples as a
 quick-add list: adding one from its row puts it on the next shop. _Avoid_: Out,
 available, running low, pantry item
+
+## Surfaces
+
+**Web app**: Quartermaster opened in a browser, including the Home Screen
+install from Safari. The only surface where Pro is sold. _Avoid_: Website, PWA,
+web version
+
+**iOS app**: The App Store distribution of Quartermaster. It presents the Web
+app and adds share-sheet import, and it sells and advertises nothing. _Avoid_:
+Shell, wrapper, native app

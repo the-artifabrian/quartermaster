@@ -6,14 +6,14 @@ date: 2026-10-04
 # Ship the iOS app as a small native shell around the Web app
 
 The Web app is server-rendered, so the iOS app cannot carry the UI in its
-binary. It has to load `https://quartermaster.app` in a `WKWebView`. Everything
-that shell needs is a thin layer over system frameworks: a web view with
-App-Bound Domains so the service worker runs, a navigation policy that keeps the
-site in the app and sends other hosts to Safari, an offline view, Associated
-Domains for passkeys and universal links, and a Share Extension. That is a few
-hundred lines of Swift in `ios/`, and the work that takes time (signing,
-entitlements, the extension target, App Store Connect) is the same whichever
-tool produces the web view. So we write the shell ourselves.
+binary. It has to load `https://useqm.app` in a `WKWebView`. Everything that
+shell needs is a thin layer over system frameworks: a web view with App-Bound
+Domains so the service worker runs, a navigation policy that keeps the site in
+the app and sends other hosts to Safari, an offline view, Associated Domains for
+passkeys and universal links, and a Share Extension. That is a few hundred lines
+of Swift in `ios/`, and the work that takes time (signing, entitlements, the
+extension target, App Store Connect) is the same whichever tool produces the web
+view. So we write the shell ourselves.
 
 ## Considered options
 

@@ -32,14 +32,14 @@ tool produces the web view. So we write the shell ourselves.
   navigation from Turbo link visits. The Web app routes with React Router and
   does not load Turbo.
 - **Commercial wrappers** (for example Median). Maintained and built for this,
-  at a yearly cost and as a closed dependency for a two-person product.
+  for a yearly fee, which a portfolio project does not need to pay.
 - **Bundling the web build, or a React Native rewrite.** Either a client-side
   rewrite of the server-rendered app or a second UI to keep in step.
 
 ## Consequences
 
-- The server identifies the iOS app by a user-agent token and hides what the app
-  must not show: Pro purchasing (ADR 0001) and Google sign-in.
+- The server identifies the iOS app by a user-agent token and hides Pro
+  (ADR 0001) and Google sign-in there.
 - Google sign-in is unavailable in the app, since Google refuses OAuth in
   embedded web views. Password and passkey login remain.
 - Android later can use a Trusted Web Activity, which Play accepts for PWAs

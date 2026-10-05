@@ -28,7 +28,11 @@ import { Toaster } from './components/ui/sonner.tsx'
 import { UserDropdown } from './components/user-dropdown.tsx'
 import { useOptionalTheme, useTheme } from './routes/resources/theme-switch.tsx'
 import tailwindStyleSheetUrl from './styles/tailwind.css?url'
-import { getUserId, logout } from './utils/auth.server.ts'
+import {
+	getUserId,
+	logout,
+	refreshSessionIfNeeded,
+} from './utils/auth.server.ts'
 import { ClientHintCheck, getHints } from './utils/client-hints.tsx'
 import { prisma } from './utils/db.server.ts'
 import { getEnv } from './utils/env.server.ts'
@@ -131,43 +135,46 @@ export async function loader({ request }: Route.LoaderArgs) {
 		desc: 'getUserId in root',
 	})
 
-	// These four lookups are independent of each other — run them
-	// concurrently. This loader runs on every forced revalidation, so its
-	// latency is navigation latency.
-	const [user, tierInfo, member, toastResult] = await Promise.all([
-		userId
-			? time(
-					() =>
-						prisma.user.findUnique({
-							select: {
-								id: true,
-								name: true,
-								username: true,
-								roles: {
-									select: {
-										name: true,
-										permissions: {
-											select: { entity: true, action: true, access: true },
+	// These lookups are independent of each other — run them concurrently.
+	// This loader runs on every forced revalidation, so its latency is
+	// navigation latency. getUserId has already logged out an expired session,
+	// so the refresh only ever extends a live one.
+	const [user, tierInfo, member, toastResult, sessionCookie] =
+		await Promise.all([
+			userId
+				? time(
+						() =>
+							prisma.user.findUnique({
+								select: {
+									id: true,
+									name: true,
+									username: true,
+									roles: {
+										select: {
+											name: true,
+											permissions: {
+												select: { entity: true, action: true, access: true },
+											},
 										},
 									},
 								},
-							},
-							where: { id: userId },
-						}),
-					{ timings, type: 'find user', desc: 'find user in root' },
-				)
-			: null,
-		userId ? getUserTier(userId) : DEFAULT_TIER_INFO,
-		userId
-			? prisma.householdMember.findFirst({
-					where: { userId },
-					select: {
-						household: { select: { id: true, name: true } },
-					},
-				})
-			: null,
-		getToast(request),
-	])
+								where: { id: userId },
+							}),
+						{ timings, type: 'find user', desc: 'find user in root' },
+					)
+				: null,
+			userId ? getUserTier(userId) : DEFAULT_TIER_INFO,
+			userId
+				? prisma.householdMember.findFirst({
+						where: { userId },
+						select: {
+							household: { select: { id: true, name: true } },
+						},
+					})
+				: null,
+			getToast(request),
+			userId ? refreshSessionIfNeeded(request) : null,
+		])
 	if (userId && !user) {
 		console.info('something weird happened')
 		// something weird happened... The user is authenticated but we can't find
@@ -200,6 +207,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			headers: combineHeaders(
 				{ 'Server-Timing': timings.toString() },
 				toastHeaders,
+				sessionCookie ? { 'set-cookie': sessionCookie } : null,
 			),
 		},
 	)

@@ -1,11 +1,20 @@
 import SwiftUI
 
 final class OfflineModel: ObservableObject {
+    enum Reason {
+        /// The device could not reach the server.
+        case offline
+        /// Anything else: a server or TLS error, or the page crashing twice.
+        case failed
+    }
+
+    @Published var reason = Reason.offline
     @Published var isRetrying = false
 }
 
-/// Shown when a page fails to load and the service worker has nothing cached
-/// for it, most often a first launch without a connection.
+/// Covers the screen when there is no page to show: a first launch that could
+/// not load and that the service worker had nothing cached for, or a page
+/// whose process keeps crashing.
 struct OfflineView: View {
     @ObservedObject var model: OfflineModel
     let retry: () -> Void
@@ -14,13 +23,15 @@ struct OfflineView: View {
         ZStack {
             Color("LaunchBackground").ignoresSafeArea()
             VStack(spacing: 12) {
-                Image(systemName: "wifi.slash")
+                Image(systemName: model.reason == .offline ? "wifi.slash" : "exclamationmark.triangle")
                     .font(.system(size: 36))
                     .foregroundStyle(.secondary)
                     .padding(.bottom, 4)
-                Text("Can’t reach Quartermaster")
+                Text(model.reason == .offline ? "Can’t reach Quartermaster" : "Quartermaster didn’t load")
                     .font(.system(.title2, design: .serif))
-                Text("Check your connection, then try again.")
+                Text(model.reason == .offline
+                    ? "Check your connection, then try again."
+                    : "Something went wrong. Try again in a moment.")
                     .foregroundStyle(.secondary)
                 Button(action: retry) {
                     ZStack {

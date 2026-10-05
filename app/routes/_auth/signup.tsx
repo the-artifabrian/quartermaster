@@ -15,6 +15,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { EmailSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/signup.ts'
 import { prepareVerification } from './verify.server.ts'
@@ -123,6 +124,9 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 	const isPending = useIsPending()
 	const [searchParams] = useSearchParams()
 	const redirectTo = searchParams.get('redirectTo')
+	// Google refuses OAuth in embedded web views, so the iOS app offers no
+	// Google signup.
+	const isNativeShell = useIsNativeShell()
 	const [form, fields] = useForm({
 		id: 'signup-form',
 		defaultValue: { redirectTo },
@@ -172,16 +176,20 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 						Submit
 					</StatusButton>
 				</Form>
-				<div className="my-4 flex items-center gap-4">
-					<hr className="flex-1" />
-					<span className="text-muted-foreground text-sm">or</span>
-					<hr className="flex-1" />
-				</div>
-				<ProviderConnectionForm
-					type="Signup"
-					redirectTo={redirectTo}
-					providerName={GOOGLE_PROVIDER_NAME}
-				/>
+				{isNativeShell ? null : (
+					<>
+						<div className="my-4 flex items-center gap-4">
+							<hr className="flex-1" />
+							<span className="text-muted-foreground text-sm">or</span>
+							<hr className="flex-1" />
+						</div>
+						<ProviderConnectionForm
+							type="Signup"
+							redirectTo={redirectTo}
+							providerName={GOOGLE_PROVIDER_NAME}
+						/>
+					</>
+				)}
 				<div className="text-muted-foreground mt-6 text-center text-sm">
 					Already have an account?{' '}
 					<Link

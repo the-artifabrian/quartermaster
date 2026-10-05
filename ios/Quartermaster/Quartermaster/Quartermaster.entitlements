@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- webcredentials: passkeys in the web view (WebAuthn needs the site to
+	     vouch for the app). applinks: https://useqm.app links open the app.
+	     Both are matched against /.well-known/apple-app-site-association on
+	     the site (#326, 0.5). -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>webcredentials:useqm.app</string>
+		<string>applinks:useqm.app</string>
+	</array>
+</dict>
+</plist>

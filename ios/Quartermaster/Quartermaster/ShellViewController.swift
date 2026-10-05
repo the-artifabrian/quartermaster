@@ -223,7 +223,10 @@ extension ShellViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         offline.isRetrying = false
-        log.error("Navigation failed after commit: \(error as NSError, privacy: .public)")
+        // Only the domain and code: an NSURLError carries the failing URL, which
+        // can hold a verification code or a shared link.
+        let failure = error as NSError
+        log.error("Navigation failed after commit: \(failure.domain, privacy: .public) \(failure.code)")
     }
 
     func webView(
@@ -243,7 +246,7 @@ extension ShellViewController: WKNavigationDelegate {
             lastRequestedURL = failed
         }
         let isConnectivity = error.domain == NSURLErrorDomain && connectivityErrors.contains(error.code)
-        log.error("Load failed: \(error, privacy: .public)")
+        log.error("Load failed: \(error.domain, privacy: .public) \(error.code)")
 
         // With a page already showing, keep it. The offline view is for when
         // there is nothing else on screen.
@@ -286,7 +289,7 @@ extension ShellViewController: WKDownloadDelegate {
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         } catch {
-            log.error("Download folder failed: \(error, privacy: .public)")
+            log.error("Download folder failed: \((error as NSError).domain, privacy: .public) \((error as NSError).code)")
             return completionHandler(nil)
         }
         let file = folder.appending(path: suggestedFilename.isEmpty ? "Download" : suggestedFilename)
@@ -311,7 +314,7 @@ extension ShellViewController: WKDownloadDelegate {
     }
 
     func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
-        log.error("Download failed: \(error, privacy: .public)")
+        log.error("Download failed: \((error as NSError).domain, privacy: .public) \((error as NSError).code)")
         if let file = downloadFiles.removeValue(forKey: ObjectIdentifier(download)) {
             try? FileManager.default.removeItem(at: file.deletingLastPathComponent())
         }

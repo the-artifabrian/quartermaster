@@ -3,13 +3,12 @@ import { type Page } from '@playwright/test'
 import * as setCookieParser from 'set-cookie-parser'
 import { prisma } from '#app/utils/db.server.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
+import { SAFARI_UA, SHELL_UA } from '#tests/native-shell.ts'
 import { createUser, expect, test } from '#tests/playwright-utils.ts'
-import { SAFARI_UA, SHELL_UA } from '#tests/user-agents.ts'
 
-// WKWebView drops a session cookie without an expiry when iOS kills the app,
-// so the iOS app never offers "Remember me" and always gets an expiring
-// session cookie.
-
+// WKWebView drops a session cookie without an expiry when iOS kills the
+// app, so the iOS app never offers "Remember me" and always gets an
+// expiring session cookie.
 // `onboardingEmailSessionKey` in app/routes/_auth/onboarding/index.tsx. The
 // route module imports the icon sprite, which Playwright cannot load.
 const onboardingEmailSessionKey = 'onboardingEmail'

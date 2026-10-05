@@ -15,6 +15,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { EmailSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/signup.ts'
 import { prepareVerification } from './verify.server.ts'
@@ -123,6 +124,9 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 	const isPending = useIsPending()
 	const [searchParams] = useSearchParams()
 	const redirectTo = searchParams.get('redirectTo')
+	// Google refuses OAuth in embedded web views, so the iOS app offers no
+	// Google signup.
+	const isNativeShell = useIsNativeShell()
 	const [form, fields] = useForm({
 		id: 'signup-form',
 		defaultValue: { redirectTo },
@@ -142,9 +146,12 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 				<p className="text-muted-foreground mt-3 text-lg">
 					Enter your email to create an account.
 				</p>
-				<p className="text-muted-foreground mt-1 text-sm">
-					Free for 14 days. No credit card needed.
-				</p>
+				{/* The iOS app shows no copy about Pro or its trial (ADR 0001). */}
+				{isNativeShell ? null : (
+					<p className="text-muted-foreground mt-1 text-sm">
+						Free for 14 days. No credit card needed.
+					</p>
+				)}
 			</div>
 			<div className="mx-auto mt-8 max-w-sm min-w-full sm:min-w-[368px]">
 				<Form method="POST" {...getFormProps(form)}>

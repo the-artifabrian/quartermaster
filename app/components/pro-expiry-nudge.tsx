@@ -7,53 +7,56 @@ import { useSubscriptionTier } from '#app/utils/subscription.ts'
 export function ProExpiryNudge() {
 	const tierInfo = useSubscriptionTier()
 	const navigate = useNavigate()
-	// The iOS app may not point at buying Pro (ADR 0001), so there the notice
-	// keeps its title and loses the Subscribe copy and the Upgrade button.
+	// The iOS app shows no copy about Pro and may not point at buying it (ADR
+	// 0001), so there the notice names the features that end, not the tier,
+	// and has no Subscribe copy or Upgrade button.
 	const isNativeShell = useIsNativeShell()
 
 	useEffect(() => {
 		if (!tierInfo?.isProActive || tierInfo.daysUntilExpiry === null) return
 
+		const days = tierInfo.daysUntilExpiry
 		const expiresAtIso = tierInfo.proExpiresAt
 			? new Date(tierInfo.proExpiresAt).toISOString().split('T')[0]
 			: 'unknown'
+		const shellNotice = `Voice input and AI import end in ${days} day${days === 1 ? '' : 's'}`
 
-		if (tierInfo.daysUntilExpiry <= 3 && tierInfo.daysUntilExpiry > 0) {
+		if (days <= 3 && days > 0) {
 			const key = `pro-expiry-3d:${expiresAtIso}`
 			if (!localStorage.getItem(key)) {
 				localStorage.setItem(key, '1')
-				toast.warning(
-					`Your Pro access expires in ${tierInfo.daysUntilExpiry} day${tierInfo.daysUntilExpiry === 1 ? '' : 's'}`,
-					{
-						duration: 10000,
-						...(isNativeShell
-							? {}
-							: {
-									description: 'Subscribe to keep Pro features.',
-									action: {
-										label: 'Upgrade',
-										onClick: () => navigate('/upgrade'),
-									},
-								}),
-					},
-				)
+				if (isNativeShell) {
+					toast.warning(shellNotice, { duration: 10000 })
+				} else {
+					toast.warning(
+						`Your Pro access expires in ${days} day${days === 1 ? '' : 's'}`,
+						{
+							description: 'Subscribe to keep Pro features.',
+							duration: 10000,
+							action: {
+								label: 'Upgrade',
+								onClick: () => navigate('/upgrade'),
+							},
+						},
+					)
+				}
 			}
-		} else if (tierInfo.daysUntilExpiry <= 7 && tierInfo.daysUntilExpiry > 3) {
+		} else if (days <= 7 && days > 3) {
 			const key = `pro-expiry-7d:${expiresAtIso}`
 			if (!localStorage.getItem(key)) {
 				localStorage.setItem(key, '1')
-				toast.info(`Pro access expires in ${tierInfo.daysUntilExpiry} days`, {
-					duration: 8000,
-					...(isNativeShell
-						? {}
-						: {
-								description: 'Subscribe to continue.',
-								action: {
-									label: 'Upgrade',
-									onClick: () => navigate('/upgrade'),
-								},
-							}),
-				})
+				if (isNativeShell) {
+					toast.info(shellNotice, { duration: 8000 })
+				} else {
+					toast.info(`Pro access expires in ${days} days`, {
+						description: 'Subscribe to continue.',
+						duration: 8000,
+						action: {
+							label: 'Upgrade',
+							onClick: () => navigate('/upgrade'),
+						},
+					})
+				}
 			}
 		}
 	}, [tierInfo, navigate, isNativeShell])

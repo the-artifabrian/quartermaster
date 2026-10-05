@@ -127,13 +127,23 @@ export async function requireUserWithTier(request: Request) {
  * plain 403 instead.
  */
 export async function requireProTier(request: Request) {
+	const proTier = await requireProTierOrNativeShellNull(request)
+	if (!proTier) throw new Response('Forbidden', { status: 403 })
+	return proTier
+}
+
+/**
+ * `requireProTier` for resource routes that a fetcher or `fetch` calls.
+ * In the iOS app it returns null for a user without Pro, so the route can
+ * return an error its caller shows in place. A thrown 403 would reach the
+ * root error boundary and replace the screen.
+ */
+export async function requireProTierOrNativeShellNull(request: Request) {
 	const { userId, householdId, role } = await requireUserWithHousehold(request)
 	const tierInfo = await getUserTier(userId)
 
 	if (!tierInfo.isProActive) {
-		if (isNativeShell(request)) {
-			throw new Response('Forbidden', { status: 403 })
-		}
+		if (isNativeShell(request)) return null
 		if (tierInfo.wasProPreviously) {
 			throw await redirectWithToast('/upgrade', {
 				type: 'message',

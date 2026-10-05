@@ -1,7 +1,7 @@
 import { type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
+import { SAFARI_UA, SHELL_UA } from '#tests/native-shell.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
-import { SAFARI_UA, SHELL_UA } from '#tests/user-agents.ts'
 
 // Pro is a reference implementation of a Stripe subscription, and Apple
 // rejects apps that point at buying outside the App Store (ADR 0001). The
@@ -93,11 +93,9 @@ test.describe('in the iOS app', () => {
 			expect(response.status(), path).toBe(403)
 			expect(response.headers()['location'], path).toBeUndefined()
 		}
-		const unchanged = await prisma.recipe.findUniqueOrThrow({
-			where: { id: recipe.id },
-			select: { description: true },
-		})
-		expect(unchanged.description).toBeNull()
+		expect(await prisma.usageEvent.count({ where: { userId: user.id } })).toBe(
+			0,
+		)
 	})
 
 	test('a Pro user keeps voice, enhance, and text and image import', async ({
@@ -145,6 +143,71 @@ test.describe('in the iOS app', () => {
 		await expect(page.getByText('Pro', { exact: true })).toBeVisible()
 		await expect(page.locator('a[href="/upgrade"]')).toHaveCount(0)
 	})
+
+	test('a Pro user whose Pro lapses sees enhance fail in place', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+		const recipe = await createRecipe(user)
+
+		await page.goto(`/recipes/${recipe.id}`)
+		await openMoreActions(page)
+		await prisma.subscription.delete({ where: { userId: user.id } })
+		await page
+			.getByRole('menuitem', { name: 'Suggest description & times' })
+			.click()
+
+		await expect(
+			page.getByText('Recipe enhancement is not available.'),
+		).toBeVisible()
+		await expect(
+			page.getByRole('heading', { name: 'Lemon rice', level: 1 }),
+		).toBeVisible()
+		await expect(page.getByText(/Forbidden/)).toHaveCount(0)
+		expect(await prisma.usageEvent.count({ where: { userId: user.id } })).toBe(
+			0,
+		)
+	})
+
+	test('a trial about to end names the features, not Pro, and offers no upgrade', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'free',
+				trialEndsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+			},
+		})
+
+		await page.goto('/recipes')
+
+		await expect(
+			page.getByText('Voice input and AI import end in 2 days', {
+				exact: true,
+			}),
+		).toBeVisible()
+		await expect(page.getByText(/\bPro\b|Subscribe/)).toHaveCount(0)
+		await expect(page.getByRole('button', { name: 'Upgrade' })).toHaveCount(0)
+	})
+
+	test('the logged-out pages say nothing about the trial or Pro', async ({
+		page,
+	}) => {
+		for (const path of ['/', '/signup']) {
+			await page.goto(path)
+			await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+			await expect(
+				page.getByText(/14 days|credit card|free plan|upgrade|subscribe/i),
+				path,
+			).toHaveCount(0)
+			await expect(page.getByText(/\bPro\b/), path).toHaveCount(0)
+		}
+	})
 })
 
 test.describe('in a browser', () => {
@@ -181,5 +244,14 @@ test.describe('in a browser', () => {
 		})
 		expect(response.status()).toBe(302)
 		expect(response.headers()['location']).toBe('/upgrade')
+
+		await page.context().clearCookies()
+		for (const path of ['/', '/signup']) {
+			await page.goto(path)
+			await expect(
+				page.getByText('Free for 14 days. No credit card needed.'),
+				path,
+			).toBeVisible()
+		}
 	})
 })

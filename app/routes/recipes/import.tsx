@@ -34,6 +34,7 @@ import {
 	parseIngredient,
 	parseISODuration,
 } from '#app/utils/ingredient-parser.server.ts'
+import { isNativeShell } from '#app/utils/native-shell.server.ts'
 import { AI_FEATURE_USED } from '#app/utils/posthog-events.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import {
@@ -686,7 +687,10 @@ export async function action({ request }: Route.ActionArgs) {
 			return data(
 				{
 					intent: intentKey,
-					error: 'AI extraction requires a Pro subscription.',
+					// The iOS app shows no copy about Pro (ADR 0001).
+					error: isNativeShell(request)
+						? 'AI extraction is not available.'
+						: 'AI extraction requires a Pro subscription.',
 					recipe: null,
 					result: null,
 					duplicates: null,
@@ -949,8 +953,8 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	const [activeTab, setActiveTab] = useState<ImportTab>(defaultTab)
 	// The iOS app may not point at buying Pro (ADR 0001), so a free user there
 	// gets only the URL import, without the tabs that lead to Pro.
-	const isNativeShell = useIsNativeShell()
-	const showTabs = isProActive || !isNativeShell
+	const inNativeShell = useIsNativeShell()
+	const showTabs = isProActive || !inNativeShell
 	const visibleTab = showTabs ? activeTab : 'url'
 
 	return (

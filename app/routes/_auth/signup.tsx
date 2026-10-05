@@ -179,16 +179,20 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 						Submit
 					</StatusButton>
 				</Form>
-				<div className="my-4 flex items-center gap-4">
-					<hr className="flex-1" />
-					<span className="text-muted-foreground text-sm">or</span>
-					<hr className="flex-1" />
-				</div>
-				<ProviderConnectionForm
-					type="Signup"
-					redirectTo={redirectTo}
-					providerName={GOOGLE_PROVIDER_NAME}
-				/>
+				{isNativeShell ? null : (
+					<>
+						<div className="my-4 flex items-center gap-4">
+							<hr className="flex-1" />
+							<span className="text-muted-foreground text-sm">or</span>
+							<hr className="flex-1" />
+						</div>
+						<ProviderConnectionForm
+							type="Signup"
+							redirectTo={redirectTo}
+							providerName={GOOGLE_PROVIDER_NAME}
+						/>
+					</>
+				)}
 				<div className="text-muted-foreground mt-6 text-center text-sm">
 					Already have an account?{' '}
 					<Link

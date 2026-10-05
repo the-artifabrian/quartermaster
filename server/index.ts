@@ -152,7 +152,20 @@ const strongRateLimit = rateLimit({
 })
 
 const generalRateLimit = rateLimit(rateLimitDefault)
+// Apple's CDN fetches the app-site-association file from shared addresses; a
+// 429 there breaks passkey login and universal links for every iOS user.
+const unthrottledPaths = new Set([
+	'/.well-known/apple-app-site-association',
+	'/apple-app-site-association',
+])
 app.use((req, res, next) => {
+	if (
+		(req.method === 'GET' || req.method === 'HEAD') &&
+		unthrottledPaths.has(req.path)
+	) {
+		return next()
+	}
+
 	const strongPaths = [
 		'/login',
 		'/signup',

@@ -42,6 +42,11 @@ const schema = z.object({
 
 	ALLOW_INDEXING: z.enum(['true', 'false']).optional(),
 
+	// iOS shell (optional). Without a Team ID the apple-app-site-association
+	// file is a 404; IOS_BUNDLE_ID defaults to app.useqm.ios.
+	APPLE_TEAM_ID: z.preprocess(emptyAsUndefined, z.string().optional()),
+	IOS_BUNDLE_ID: z.preprocess(emptyAsUndefined, z.string().optional()),
+
 	// Anthropic API (optional — used for AI Recipe import and enhancement)
 	ANTHROPIC_API_KEY: z.string().optional(),
 

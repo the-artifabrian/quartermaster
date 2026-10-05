@@ -16,6 +16,7 @@ import {
 	ProviderConnectionForm,
 } from '#app/utils/connections.tsx'
 import { getErrorMessage, useIsPending } from '#app/utils/misc.tsx'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { PasswordSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/login.ts'
 import { handleNewSession } from './login.server.ts'
@@ -83,6 +84,8 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 	const isPending = useIsPending()
 	const [searchParams] = useSearchParams()
 	const redirectTo = searchParams.get('redirectTo')
+	// The iOS app always remembers the login; the server enforces it.
+	const isNativeShell = useIsNativeShell()
 
 	const [form, fields] = useForm({
 		id: 'login-form',
@@ -132,17 +135,19 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 							/>
 
 							<div className="flex justify-between pt-3">
-								<CheckboxField
-									labelProps={{
-										htmlFor: fields.remember.id,
-										children: 'Remember me',
-									}}
-									buttonProps={getInputProps(fields.remember, {
-										type: 'checkbox',
-									})}
-									errors={fields.remember.errors}
-								/>
-								<div>
+								{isNativeShell ? null : (
+									<CheckboxField
+										labelProps={{
+											htmlFor: fields.remember.id,
+											children: 'Remember me',
+										}}
+										buttonProps={getInputProps(fields.remember, {
+											type: 'checkbox',
+										})}
+										errors={fields.remember.errors}
+									/>
+								)}
+								<div className="ml-auto">
 									<Link to="/forgot-password" className="text-sm font-semibold">
 										Forgot password?
 									</Link>
@@ -169,7 +174,7 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 						<div className="flex flex-col gap-5">
 							<PasskeyLogin
 								redirectTo={redirectTo}
-								remember={fields.remember.value === 'on'}
+								remember={isNativeShell || fields.remember.value === 'on'}
 							/>
 						</div>
 						<div className="my-4 flex items-center gap-4">

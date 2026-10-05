@@ -14,8 +14,10 @@ import {
 } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
+import { isNativeShell } from '#app/utils/native-shell.server.ts'
 import { USER_SIGNED_UP } from '#app/utils/posthog-events.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import {
@@ -115,7 +117,9 @@ export async function action({ request }: Route.ActionArgs) {
 	headers.append(
 		'set-cookie',
 		await authSessionStorage.commitSession(authSession, {
-			expires: remember ? session.expirationDate : undefined,
+			// WKWebView drops a cookie without an expiry when iOS kills the app.
+			expires:
+				remember || isNativeShell(request) ? session.expirationDate : undefined,
 		}),
 	)
 	headers.append(
@@ -144,6 +148,8 @@ export default function OnboardingRoute({
 	const isPending = useIsPending()
 	const [searchParams] = useSearchParams()
 	const redirectTo = searchParams.get('redirectTo')
+	// The iOS app always remembers the login; the server enforces it.
+	const isNativeShell = useIsNativeShell()
 
 	const [form, fields] = useForm({
 		id: 'onboarding-form',
@@ -224,14 +230,18 @@ export default function OnboardingRoute({
 						)}
 						errors={fields.agreeToTermsOfServiceAndPrivacyPolicy.errors}
 					/>
-					<CheckboxField
-						labelProps={{
-							htmlFor: fields.remember.id,
-							children: 'Remember me',
-						}}
-						buttonProps={getInputProps(fields.remember, { type: 'checkbox' })}
-						errors={fields.remember.errors}
-					/>
+					{isNativeShell ? null : (
+						<CheckboxField
+							labelProps={{
+								htmlFor: fields.remember.id,
+								children: 'Remember me',
+							}}
+							buttonProps={getInputProps(fields.remember, {
+								type: 'checkbox',
+							})}
+							errors={fields.remember.errors}
+						/>
+					)}
 
 					<input {...getInputProps(fields.redirectTo, { type: 'hidden' })} />
 					<ErrorList errors={form.errors} id={form.errorId} />

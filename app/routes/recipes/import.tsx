@@ -2,8 +2,15 @@ import { parseWithZod } from '@conform-to/zod/v4'
 import { parseFormData, type FileUpload } from '@mjackson/form-data-parser'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import * as cheerio from 'cheerio'
-import { useState } from 'react'
-import { data, Form, Link, useActionData, useNavigation } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import {
+	data,
+	Form,
+	Link,
+	useActionData,
+	useNavigation,
+	useSubmit,
+} from 'react-router'
 import { ImportRecipeReview } from '#app/components/import-recipe-review.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -19,6 +26,7 @@ import {
 } from '#app/utils/recipe-text-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { saveImportedRecipe } from '#app/utils/import-recipe-save.server.ts'
+import { importUrlFromSearch } from '#app/utils/import-url.ts'
 import {
 	detectIngredientHeading,
 	isAllCapsHouseStyle,
@@ -114,6 +122,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	return {
 		isProActive,
 		metadataOptions: await recipeMetadataOptions(householdId),
+		sharedUrl: importUrlFromSearch(new URL(request.url).search),
 	}
 }
 
@@ -886,9 +895,26 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
-	const { isProActive } = loaderData
+	const { isProActive, sharedUrl } = loaderData
 	const actionData = useActionData<typeof action>()
 	const navigation = useNavigation()
+	const submit = useSubmit()
+	const autoFetched = useRef(false)
+
+	// A share sheet opens this page with ?url=…, so fetch that page once. The
+	// fetch posts to the bare path and replaces this history entry, so the
+	// address no longer carries the URL: going back to the import page, or
+	// reloading it, shows an empty form instead of fetching again. The ref
+	// stops a second effect run in the same visit from posting twice.
+	useEffect(() => {
+		if (!sharedUrl || autoFetched.current) return
+		autoFetched.current = true
+		void submit(
+			{ intent: 'fetch', url: sharedUrl },
+			{ method: 'POST', action: '/recipes/import', replace: true },
+		)
+	}, [sharedUrl, submit])
+
 	const isSubmitting = navigation.state !== 'idle'
 	const submittingIntent =
 		isSubmitting && navigation.formData
@@ -978,6 +1004,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								name="url"
 								type="url"
 								placeholder="https://example.com/recipe/..."
+								defaultValue={sharedUrl ?? undefined}
 								autoFocus
 								required
 							/>

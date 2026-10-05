@@ -1,6 +1,7 @@
 import { faker } from '@faker-js/faker'
 import bcrypt from 'bcryptjs'
 import { UniqueEnforcer } from 'enforce-unique'
+import { prisma } from '#app/utils/db.server.ts'
 
 const uniqueUsernameEnforcer = new UniqueEnforcer()
 
@@ -35,3 +36,11 @@ export function createPassword(password: string = faker.internet.password()) {
 	}
 }
 
+/** Ensure the 'user' role exists (migrations create the table but tests skip seed). */
+export async function ensureUserRole() {
+	await prisma.role.upsert({
+		where: { name: 'user' },
+		create: { name: 'user' },
+		update: {},
+	})
+}

@@ -2,8 +2,15 @@ import { parseWithZod } from '@conform-to/zod/v4'
 import { parseFormData, type FileUpload } from '@mjackson/form-data-parser'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import * as cheerio from 'cheerio'
-import { useState } from 'react'
-import { data, Form, Link, useActionData, useNavigation } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import {
+	data,
+	Form,
+	Link,
+	useActionData,
+	useNavigation,
+	useSubmit,
+} from 'react-router'
 import { ImportRecipeReview } from '#app/components/import-recipe-review.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -12,6 +19,7 @@ import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
 import { checkAndRecordAiUsage } from '#app/utils/ai-rate-limit.server.ts'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import {
 	extractYieldFromTitle,
 	joinBrokenUnitSteps,
@@ -19,12 +27,14 @@ import {
 } from '#app/utils/recipe-text-parser.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { saveImportedRecipe } from '#app/utils/import-recipe-save.server.ts'
+import { importUrlFromSearch } from '#app/utils/import-url.ts'
 import {
 	detectIngredientHeading,
 	isAllCapsHouseStyle,
 	parseIngredient,
 	parseISODuration,
 } from '#app/utils/ingredient-parser.server.ts'
+import { isNativeShell } from '#app/utils/native-shell.server.ts'
 import { AI_FEATURE_USED } from '#app/utils/posthog-events.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import {
@@ -114,6 +124,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	return {
 		isProActive,
 		metadataOptions: await recipeMetadataOptions(householdId),
+		sharedUrl: importUrlFromSearch(new URL(request.url).search),
 	}
 }
 
@@ -676,7 +687,10 @@ export async function action({ request }: Route.ActionArgs) {
 			return data(
 				{
 					intent: intentKey,
-					error: 'AI extraction requires a Pro subscription.',
+					// The iOS app shows no copy about Pro (ADR 0001).
+					error: isNativeShell(request)
+						? 'AI extraction is not available.'
+						: 'AI extraction requires a Pro subscription.',
 					recipe: null,
 					result: null,
 					duplicates: null,
@@ -886,9 +900,26 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
-	const { isProActive } = loaderData
+	const { isProActive, sharedUrl } = loaderData
 	const actionData = useActionData<typeof action>()
 	const navigation = useNavigation()
+	const submit = useSubmit()
+	const autoFetched = useRef(false)
+
+	// A share sheet opens this page with ?url=…, so fetch that page once. The
+	// fetch posts to the bare path and replaces this history entry, so the
+	// address no longer carries the URL: going back to the import page, or
+	// reloading it, shows an empty form instead of fetching again. The ref
+	// stops a second effect run in the same visit from posting twice.
+	useEffect(() => {
+		if (!sharedUrl || autoFetched.current) return
+		autoFetched.current = true
+		void submit(
+			{ intent: 'fetch', url: sharedUrl },
+			{ method: 'POST', action: '/recipes/import', replace: true },
+		)
+	}, [sharedUrl, submit])
+
 	const isSubmitting = navigation.state !== 'idle'
 	const submittingIntent =
 		isSubmitting && navigation.formData
@@ -920,12 +951,19 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				? 'image'
 				: 'url'
 	const [activeTab, setActiveTab] = useState<ImportTab>(defaultTab)
+	// The iOS app may not point at buying Pro (ADR 0001), so a free user there
+	// gets the free URL and text imports without the AI extraction that leads
+	// to Pro.
+	const hideAi = useIsNativeShell() && !isProActive
+	const visibleTab = hideAi && activeTab === 'image' ? 'url' : activeTab
 
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
 			<h1 className="mb-2 font-serif text-2xl font-normal">Import Recipe</h1>
 			<p className="text-muted-foreground mb-6">
-				Import a recipe from a URL, paste text, or upload screenshots.
+				{hideAi
+					? 'Import a recipe from a URL or paste text.'
+					: 'Import a recipe from a URL, paste text, or upload screenshots.'}
 			</p>
 
 			{/* Input forms */}
@@ -935,7 +973,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					<button
 						type="button"
 						className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-							activeTab === 'url'
+							visibleTab === 'url'
 								? 'bg-accent text-accent-foreground'
 								: 'text-muted-foreground hover:text-foreground'
 						}`}
@@ -946,7 +984,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					<button
 						type="button"
 						className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-							activeTab === 'text'
+							visibleTab === 'text'
 								? 'bg-accent text-accent-foreground'
 								: 'text-muted-foreground hover:text-foreground'
 						}`}
@@ -954,22 +992,26 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					>
 						From Text
 					</button>
-					<button
-						type="button"
-						className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-							activeTab === 'image'
-								? 'bg-accent text-accent-foreground'
-								: 'text-muted-foreground hover:text-foreground'
-						}`}
-						onClick={() => setActiveTab('image')}
-					>
-						From Image
-					</button>
+					{!hideAi && (
+						<button
+							type="button"
+							className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+								activeTab === 'image'
+									? 'bg-accent text-accent-foreground'
+									: 'text-muted-foreground hover:text-foreground'
+							}`}
+							onClick={() => setActiveTab('image')}
+						>
+							From Image
+						</button>
+					)}
 				</div>
 
 				{/* URL tab */}
-				{activeTab === 'url' && (
-					<Form method="POST" className="space-y-4">
+				{visibleTab === 'url' && (
+					// The bare path, so a submit before hydration also drops ?url=
+					// and the auto-fetch cannot follow it.
+					<Form method="POST" action="/recipes/import" className="space-y-4">
 						<input type="hidden" name="intent" value="fetch" />
 						<div className="space-y-2">
 							<Label htmlFor="url">Recipe URL</Label>
@@ -978,6 +1020,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								name="url"
 								type="url"
 								placeholder="https://example.com/recipe/..."
+								defaultValue={sharedUrl ?? undefined}
 								autoFocus
 								required
 							/>
@@ -1007,7 +1050,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Text tab */}
-				{activeTab === 'text' && (
+				{visibleTab === 'text' && (
 					<Form method="POST" className="space-y-4">
 						<div className="space-y-2">
 							<Label htmlFor="rawText">Recipe text</Label>
@@ -1060,7 +1103,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 										? 'Extracting...'
 										: 'Extract with AI'}
 								</StatusButton>
-							) : (
+							) : hideAi ? null : (
 								<Button asChild>
 									<Link to="/upgrade">
 										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
@@ -1076,7 +1119,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Image tab */}
-				{activeTab === 'image' && (
+				{visibleTab === 'image' && (
 					<Form
 						method="POST"
 						encType="multipart/form-data"

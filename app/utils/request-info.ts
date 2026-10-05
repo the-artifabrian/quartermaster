@@ -17,3 +17,11 @@ export function useOptionalRequestInfo() {
 
 	return data?.requestInfo
 }
+
+/**
+ * True when the page is running inside the iOS app's shell. The root loader
+ * reads the shell's user-agent token; see `native-shell.server.ts`.
+ */
+export function useIsNativeShell() {
+	return useOptionalRequestInfo()?.isNativeShell ?? false
+}

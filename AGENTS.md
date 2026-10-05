@@ -1,7 +1,7 @@
 # Agent notes
 
-Product terms live in [CONTEXT.md](CONTEXT.md). Test setup and mechanics live in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#testing).
+Product terms live in [GLOSSARY.md](GLOSSARY.md). Test setup and mechanics live
+in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#testing).
 
 ## Testing
 

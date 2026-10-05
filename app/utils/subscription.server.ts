@@ -1,5 +1,6 @@
 import { prisma } from './db.server.ts'
 import { requireUserWithHousehold } from './household.server.ts'
+import { isNativeShell } from './native-shell.server.ts'
 import { redirectWithToast } from './toast.server.ts'
 
 export type TierInfo = {
@@ -122,12 +123,27 @@ export async function requireUserWithTier(request: Request) {
 /**
  * Drop-in replacement for `requireUserWithHousehold` on Pro-only routes.
  * Redirects to /upgrade if the user doesn't have an active Pro subscription.
+ * The iOS app may not point at buying Pro (ADR 0001), so there it throws a
+ * plain 403 instead.
  */
 export async function requireProTier(request: Request) {
+	const proTier = await requireProTierOrNativeShellNull(request)
+	if (!proTier) throw new Response('Forbidden', { status: 403 })
+	return proTier
+}
+
+/**
+ * `requireProTier` for resource routes that a fetcher or `fetch` calls.
+ * In the iOS app it returns null for a user without Pro, so the route can
+ * return an error its caller shows in place. A thrown 403 would reach the
+ * root error boundary and replace the screen.
+ */
+export async function requireProTierOrNativeShellNull(request: Request) {
 	const { userId, householdId, role } = await requireUserWithHousehold(request)
 	const tierInfo = await getUserTier(userId)
 
 	if (!tierInfo.isProActive) {
+		if (isNativeShell(request)) return null
 		if (tierInfo.wasProPreviously) {
 			throw await redirectWithToast('/upgrade', {
 				type: 'message',

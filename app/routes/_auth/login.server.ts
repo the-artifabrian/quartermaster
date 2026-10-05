@@ -5,6 +5,7 @@ import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_
 import { getUserId, sessionKey } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { combineResponseInits } from '#app/utils/misc.tsx'
+import { shouldRememberSession } from '#app/utils/native-shell.server.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
@@ -28,6 +29,9 @@ export async function handleNewSession(
 	},
 	responseInit?: ResponseInit,
 ) {
+	// The 2FA path carries this value through the verify session to
+	// handleVerification.
+	remember = shouldRememberSession(request, remember)
 	const verification = await prisma.verification.findUnique({
 		select: { id: true },
 		where: {

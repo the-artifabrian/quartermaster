@@ -113,7 +113,7 @@ plan into Shopping.
 - SQLite/Prisma on Fly.io with LiteFS, object storage, pre-migration backups,
   Vitest coverage, and focused Playwright flows.
 
-Product terms live in [CONTEXT.md](../CONTEXT.md). Shipped, stopped, and
+Product terms live in [GLOSSARY.md](../GLOSSARY.md). Shipped, stopped, and
 deferred roadmap outcomes live in [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)
 and roadmap #98.
 

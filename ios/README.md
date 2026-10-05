@@ -116,6 +116,31 @@ Checks by hand (#328, 2.2), on the Simulator and then a device:
    open.
 6. Then retire the "Send to Quartermaster" Shortcut (#326, 0.6).
 
+## TestFlight and App Store builds
+
+Every build that reaches a phone goes through TestFlight. The archive and the
+upload run from the command line, signed automatically with the team's Apple
+Distribution certificate, and use the Apple ID signed in to Xcode (Xcode >
+Settings > Accounts).
+
+```sh
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+xcodebuild -project ios/Quartermaster/Quartermaster.xcodeproj -scheme Quartermaster \
+  -configuration Release -destination 'generic/platform=iOS' \
+  -archivePath /tmp/Quartermaster.xcarchive -allowProvisioningUpdates \
+  DEVELOPMENT_TEAM=<team id> archive
+xcodebuild -exportArchive -archivePath /tmp/Quartermaster.xcarchive \
+  -exportOptionsPlist ios/ExportOptions.plist -exportPath /tmp/export \
+  -allowProvisioningUpdates
+```
+
+`ios/ExportOptions.plist` uploads straight to App Store Connect and lets it pick
+the build number (`manageAppVersionAndBuildNumber`), so the project's
+`CURRENT_PROJECT_VERSION` can stay at 1. The App Store Connect app record for
+`app.useqm.ios` must exist first; the export fails with "App record … not found"
+otherwise. Both Info.plists set `ITSAppUsesNonExemptEncryption` to false (HTTPS
+only), so no export-compliance question per build.
+
 ## App icon
 
 `AppIcon-1024.png` is the recipe card from `other/generate-favicons.mjs`

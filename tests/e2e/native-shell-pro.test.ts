@@ -57,17 +57,37 @@ test.describe('in the iOS app', () => {
 		await expect(page.locator('a[href="/upgrade"]')).toHaveCount(0)
 		await expect(page.getByText(/subscri|stripe|billing/i)).toHaveCount(0)
 
+		// Parsing pasted text is free; extracting with AI is Pro.
 		await page.goto('/recipes/import')
+		await expect(
+			page.getByText('Import a recipe from a URL or paste text.'),
+		).toBeVisible()
 		await expect(page.getByLabel('Recipe URL')).toBeVisible()
 		await expect(
-			page.getByRole('button', { name: 'Fetch Recipe' }),
+			page.getByRole('button', { name: 'From Image', exact: true }),
+		).toHaveCount(0)
+		await expect(async () => {
+			await page.getByRole('button', { name: 'From Text', exact: true }).click()
+			await expect(page.getByLabel('Recipe text')).toBeVisible({
+				timeout: 2000,
+			})
+		}).toPass({ timeout: 10_000 })
+		await expect(
+			page.getByRole('button', { name: 'Parse Recipe', exact: true }),
 		).toBeVisible()
-		for (const tab of importTabs) {
-			await expect(
-				page.getByRole('button', { name: tab, exact: true }),
-			).toHaveCount(0)
-		}
+		await expect(page.getByText('Extract with AI')).toHaveCount(0)
 		await expect(page.getByText(/\bPro\b/)).toHaveCount(0)
+		await expect(page.locator('a[href="/upgrade"]')).toHaveCount(0)
+		await expect(page.getByLabel(/Upload screenshots/)).toHaveCount(0)
+		await page
+			.getByLabel('Recipe text')
+			.fill('Garlic toast\nIngredients\n2 slices bread\n1 clove garlic')
+		await page
+			.getByRole('button', { name: 'Parse Recipe', exact: true })
+			.click()
+		await expect(
+			page.getByRole('heading', { name: 'Garlic toast', exact: true }),
+		).toBeVisible()
 
 		await page.goto(`/recipes/${recipe.id}`)
 		await openMoreActions(page)

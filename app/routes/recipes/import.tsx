@@ -952,47 +952,47 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				: 'url'
 	const [activeTab, setActiveTab] = useState<ImportTab>(defaultTab)
 	// The iOS app may not point at buying Pro (ADR 0001), so a free user there
-	// gets only the URL import, without the tabs that lead to Pro.
-	const inNativeShell = useIsNativeShell()
-	const showTabs = isProActive || !inNativeShell
-	const visibleTab = showTabs ? activeTab : 'url'
+	// gets the free URL and text imports without the AI extraction that leads
+	// to Pro.
+	const hideAi = useIsNativeShell() && !isProActive
+	const visibleTab = hideAi && activeTab === 'image' ? 'url' : activeTab
 
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
 			<h1 className="mb-2 font-serif text-2xl font-normal">Import Recipe</h1>
 			<p className="text-muted-foreground mb-6">
-				{showTabs
-					? 'Import a recipe from a URL, paste text, or upload screenshots.'
-					: 'Import a recipe from a URL.'}
+				{hideAi
+					? 'Import a recipe from a URL or paste text.'
+					: 'Import a recipe from a URL, paste text, or upload screenshots.'}
 			</p>
 
 			{/* Input forms */}
 			<fieldset hidden={hasRecipe} disabled={isSubmitting}>
 				{/* Tab bar */}
-				{showTabs && (
-					<div className="mb-6 flex gap-1 rounded-lg border p-1">
-						<button
-							type="button"
-							className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-								activeTab === 'url'
-									? 'bg-accent text-accent-foreground'
-									: 'text-muted-foreground hover:text-foreground'
-							}`}
-							onClick={() => setActiveTab('url')}
-						>
-							From URL
-						</button>
-						<button
-							type="button"
-							className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-								activeTab === 'text'
-									? 'bg-accent text-accent-foreground'
-									: 'text-muted-foreground hover:text-foreground'
-							}`}
-							onClick={() => setActiveTab('text')}
-						>
-							From Text
-						</button>
+				<div className="mb-6 flex gap-1 rounded-lg border p-1">
+					<button
+						type="button"
+						className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+							visibleTab === 'url'
+								? 'bg-accent text-accent-foreground'
+								: 'text-muted-foreground hover:text-foreground'
+						}`}
+						onClick={() => setActiveTab('url')}
+					>
+						From URL
+					</button>
+					<button
+						type="button"
+						className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+							visibleTab === 'text'
+								? 'bg-accent text-accent-foreground'
+								: 'text-muted-foreground hover:text-foreground'
+						}`}
+						onClick={() => setActiveTab('text')}
+					>
+						From Text
+					</button>
+					{!hideAi && (
 						<button
 							type="button"
 							className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
@@ -1004,8 +1004,8 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						>
 							From Image
 						</button>
-					</div>
-				)}
+					)}
+				</div>
 
 				{/* URL tab */}
 				{visibleTab === 'url' && (
@@ -1103,7 +1103,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 										? 'Extracting...'
 										: 'Extract with AI'}
 								</StatusButton>
-							) : (
+							) : hideAi ? null : (
 								<Button asChild>
 									<Link to="/upgrade">
 										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />

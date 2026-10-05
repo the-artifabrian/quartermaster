@@ -1,11 +1,15 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useSubscriptionTier } from '#app/utils/subscription.ts'
 
 export function ProExpiryNudge() {
 	const tierInfo = useSubscriptionTier()
 	const navigate = useNavigate()
+	// The iOS app may not point at buying Pro (ADR 0001), so there the notice
+	// keeps its title and loses the Subscribe copy and the Upgrade button.
+	const isNativeShell = useIsNativeShell()
 
 	useEffect(() => {
 		if (!tierInfo?.isProActive || tierInfo.daysUntilExpiry === null) return
@@ -21,12 +25,16 @@ export function ProExpiryNudge() {
 				toast.warning(
 					`Your Pro access expires in ${tierInfo.daysUntilExpiry} day${tierInfo.daysUntilExpiry === 1 ? '' : 's'}`,
 					{
-						description: 'Subscribe to keep Pro features.',
 						duration: 10000,
-						action: {
-							label: 'Upgrade',
-							onClick: () => navigate('/upgrade'),
-						},
+						...(isNativeShell
+							? {}
+							: {
+									description: 'Subscribe to keep Pro features.',
+									action: {
+										label: 'Upgrade',
+										onClick: () => navigate('/upgrade'),
+									},
+								}),
 					},
 				)
 			}
@@ -35,16 +43,20 @@ export function ProExpiryNudge() {
 			if (!localStorage.getItem(key)) {
 				localStorage.setItem(key, '1')
 				toast.info(`Pro access expires in ${tierInfo.daysUntilExpiry} days`, {
-					description: 'Subscribe to continue.',
 					duration: 8000,
-					action: {
-						label: 'Upgrade',
-						onClick: () => navigate('/upgrade'),
-					},
+					...(isNativeShell
+						? {}
+						: {
+								description: 'Subscribe to continue.',
+								action: {
+									label: 'Upgrade',
+									onClick: () => navigate('/upgrade'),
+								},
+							}),
 				})
 			}
 		}
-	}, [tierInfo, navigate])
+	}, [tierInfo, navigate, isNativeShell])
 
 	return null
 }

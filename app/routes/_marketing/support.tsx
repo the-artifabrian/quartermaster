@@ -3,6 +3,7 @@ import { data, Link } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { type Route } from './+types/support.ts'
 
 export const handle: SEOHandle = {
@@ -17,6 +18,9 @@ const faqs = [
 		question: 'How do I import recipes?',
 		answer:
 			'Open New Recipe > Import to paste a URL or recipe text. Pro also includes AI extraction from pasted text and screenshots. Choose Write a Recipe to enter one manually. Restore a Quartermaster JSON export from Settings > Data.',
+		// The iOS app shows no copy about Pro (ADR 0001).
+		nativeShellAnswer:
+			'Open New Recipe > Import to paste a URL. Choose Write a Recipe to enter one manually. Restore a Quartermaster JSON export from Settings > Data.',
 	},
 	{
 		question: 'What lands on Shopping when I add a Meal?',
@@ -82,6 +86,7 @@ export function loader() {
 export const headers: Route.HeadersFunction = pipeHeaders
 
 export default function SupportRoute() {
+	const isNativeShell = useIsNativeShell()
 	return (
 		<div className="container max-w-2xl py-12">
 			<script
@@ -109,7 +114,11 @@ export default function SupportRoute() {
 										<dt className="text-foreground font-medium">
 											{faq.question}
 										</dt>
-										<dd className="mt-0.5">{faq.answer}</dd>
+										<dd className="mt-0.5">
+											{isNativeShell && faq.nativeShellAnswer
+												? faq.nativeShellAnswer
+												: faq.answer}
+										</dd>
 									</div>
 								))}
 							</dl>

@@ -3,6 +3,7 @@ import { data, Form, Link, redirect } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
+import { isNativeShell } from '#app/utils/native-shell.server.ts'
 import {
 	CHECKOUT_STARTED,
 	UPGRADE_PAGE_VIEWED,
@@ -25,11 +26,23 @@ export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
 }
 
-export const meta: Route.MetaFunction = () => {
+export const meta: Route.MetaFunction = ({ error }) => {
+	if (error) return [{ title: 'Quartermaster' }]
 	return [{ title: 'Upgrade | Quartermaster' }]
 }
 
+// The iOS app may not point at buying Pro (ADR 0001), so there the page does
+// not exist and renders the same not-found page as an unknown route.
+export { ErrorBoundary } from './$.tsx'
+
+function throwNotFoundInNativeShell(request: Request) {
+	if (isNativeShell(request)) {
+		throw new Response('Not found', { status: 404 })
+	}
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
+	throwNotFoundInNativeShell(request)
 	const userId = await getUserId(request)
 	let tierInfo: TierInfo = {
 		tier: 'free',
@@ -99,6 +112,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
+	throwNotFoundInNativeShell(request)
 	const userId = await getUserId(request)
 	if (!userId) {
 		return redirect('/login?redirectTo=/upgrade')

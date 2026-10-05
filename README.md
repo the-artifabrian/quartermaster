@@ -88,7 +88,7 @@ The development environment mocks Stripe, storage, Google OAuth, and email. See
 ## Docs
 
 - [Architecture](docs/ARCHITECTURE.md)
-- [Product terms](CONTEXT.md)
+- [Product terms](GLOSSARY.md)
 - [Features](docs/FEATURES.md)
 - [Design system](docs/DESIGN_SYSTEM.md)
 - [Copy guide](docs/COPYWRITING.md)

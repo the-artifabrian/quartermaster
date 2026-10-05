@@ -128,6 +128,6 @@ presentation.
   deploy gate.
 
 Operational restore steps live in [RESTORE.md](./RESTORE.md). Product terms live
-in [CONTEXT.md](../CONTEXT.md).
+in [GLOSSARY.md](../GLOSSARY.md).
 
 _Updated 12 September 2026._

@@ -2,7 +2,7 @@
 
 Quartermaster is a household-scoped React Router app backed by SQLite. This
 document describes the durable shape and important data flows. Product terms
-live in [CONTEXT.md](../CONTEXT.md); feature details live in
+live in [GLOSSARY.md](../GLOSSARY.md); feature details live in
 [FEATURES.md](./FEATURES.md).
 
 ## System

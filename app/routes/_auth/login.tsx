@@ -84,7 +84,9 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 	const isPending = useIsPending()
 	const [searchParams] = useSearchParams()
 	const redirectTo = searchParams.get('redirectTo')
-	// The iOS app always remembers the login; the server enforces it.
+	// The iOS app always remembers the login; the server enforces it. Google
+	// refuses OAuth in embedded web views, so the iOS app offers no Google
+	// login.
 	const isNativeShell = useIsNativeShell()
 
 	const [form, fields] = useForm({
@@ -177,16 +179,25 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 								remember={fields.remember.value === 'on'}
 							/>
 						</div>
-						<div className="my-4 flex items-center gap-4">
-							<hr className="flex-1" />
-							<span className="text-muted-foreground text-sm">or</span>
-							<hr className="flex-1" />
-						</div>
-						<ProviderConnectionForm
-							type="Login"
-							providerName={GOOGLE_PROVIDER_NAME}
-							redirectTo={redirectTo}
-						/>
+						{isNativeShell ? (
+							<p className="text-muted-foreground mt-4 text-center text-sm">
+								Signed up with Google? Add a passkey or password in Settings on
+								the web first.
+							</p>
+						) : (
+							<>
+								<div className="my-4 flex items-center gap-4">
+									<hr className="flex-1" />
+									<span className="text-muted-foreground text-sm">or</span>
+									<hr className="flex-1" />
+								</div>
+								<ProviderConnectionForm
+									type="Login"
+									providerName={GOOGLE_PROVIDER_NAME}
+									redirectTo={redirectTo}
+								/>
+							</>
+						)}
 						<div className="flex items-center justify-center gap-2 pt-6">
 							<span className="text-muted-foreground">New here?</span>
 							<Link

@@ -5,6 +5,13 @@ import { createUser } from '#tests/db-utils.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
 const UPLOADS_DIR = 'tests/fixtures/uploaded'
+// An 8x8 orange PNG. The page encodes the saved copy to AVIF on its first
+// request, and a large fixture makes that take longer than the test waits on
+// a loaded CI runner. A tiny source keeps the encode at a few milliseconds.
+const TINY_PNG = Buffer.from(
+	'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQI12N4UGWPFTEMLQkAHGBmQW+NP7cAAAAASUVORK5CYII=',
+	'base64',
+)
 
 test('a saved shared Recipe keeps its picture after the source deletes theirs', async ({
 	page,
@@ -25,10 +32,7 @@ test('a saved shared Recipe keeps its picture after the source deletes theirs', 
 	await fs.mkdir(path.dirname(path.join(UPLOADS_DIR, sourceObjectKey)), {
 		recursive: true,
 	})
-	await fs.copyFile(
-		'tests/fixtures/images/notes/1.png',
-		path.join(UPLOADS_DIR, sourceObjectKey),
-	)
+	await fs.writeFile(path.join(UPLOADS_DIR, sourceObjectKey), TINY_PNG)
 	try {
 		const recipe = await prisma.recipe.create({
 			data: {

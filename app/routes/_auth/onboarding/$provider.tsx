@@ -25,7 +25,7 @@ import {
 import { ProviderNameSchema } from '#app/utils/connections.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
-import { isNativeShell } from '#app/utils/native-shell.server.ts'
+import { shouldRememberSession } from '#app/utils/native-shell.server.ts'
 import { USER_SIGNED_UP } from '#app/utils/posthog-events.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
@@ -162,9 +162,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 	headers.append(
 		'set-cookie',
 		await authSessionStorage.commitSession(authSession, {
-			// WKWebView drops a cookie without an expiry when iOS kills the app.
-			expires:
-				remember || isNativeShell(request) ? session.expirationDate : undefined,
+			expires: shouldRememberSession(request, remember ?? false)
+				? session.expirationDate
+				: undefined,
 		}),
 	)
 	headers.append(

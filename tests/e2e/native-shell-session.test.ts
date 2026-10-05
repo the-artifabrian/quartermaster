@@ -3,12 +3,7 @@ import { type Page } from '@playwright/test'
 import * as setCookieParser from 'set-cookie-parser'
 import { prisma } from '#app/utils/db.server.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
-import {
-	createUser,
-	expect,
-	test,
-	type AppPages,
-} from '#tests/playwright-utils.ts'
+import { createUser, expect, test } from '#tests/playwright-utils.ts'
 
 // The iOS app loads the Web app in a WKWebView and appends this token to the
 // user agent. WKWebView drops a session cookie without an expiry when iOS
@@ -30,13 +25,30 @@ async function sessionCookieExpiry(page: Page): Promise<number> {
 	return session.expires
 }
 
+// Asserts the session cookie outlives the app and lasts as long as the
+// user's session row.
+async function expectCookieToLastAsLongAsTheSession(
+	page: Page,
+	where: { userId: string } | { user: { username: string } },
+) {
+	const expires = await sessionCookieExpiry(page)
+	expect(expires, 'session cookie must outlive the app').not.toBe(-1)
+	const session = await prisma.session.findFirstOrThrow({
+		where,
+		select: { expirationDate: true },
+	})
+	// Chrome rebases Expires on the response's Date header, so the stored
+	// expiry lands within a few seconds of the session's, not on it.
+	expect(
+		Math.abs(expires - session.expirationDate.getTime() / 1000),
+	).toBeLessThan(10)
+}
+
 async function logInThroughTheForm(
 	page: Page,
-	navigate: (path: AppPages) => Promise<unknown>,
 	user: { username: string },
 	password: string,
 ) {
-	await navigate('/login')
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByLabel(/^password$/i).fill(password)
 	await page.getByRole('button', { name: /log in/i }).click()
@@ -62,19 +74,9 @@ test.describe('in the iOS app', () => {
 		await expect(page.getByRole('button', { name: /log in/i })).toBeVisible()
 		await expect(page.getByLabel(/remember me/i)).toHaveCount(0)
 
-		await logInThroughTheForm(page, navigate, user, password)
+		await logInThroughTheForm(page, user, password)
 
-		const expires = await sessionCookieExpiry(page)
-		expect(expires, 'session cookie must outlive the app').not.toBe(-1)
-		const session = await prisma.session.findFirstOrThrow({
-			where: { userId: user.id },
-			select: { expirationDate: true },
-		})
-		// Chrome rebases Expires on the response's Date header, so the stored
-		// expiry lands within a few seconds of the session's, not on it.
-		expect(
-			Math.abs(expires - session.expirationDate.getTime() / 1000),
-		).toBeLessThan(10)
+		await expectCookieToLastAsLongAsTheSession(page, { userId: user.id })
 	})
 
 	test('onboarding hides Remember me and keeps the new session past an app kill', async ({
@@ -118,10 +120,7 @@ test.describe('in the iOS app', () => {
 			await page.getByRole('button', { name: /create an account/i }).click()
 			await expect(page).toHaveURL('/recipes')
 
-			expect(
-				await sessionCookieExpiry(page),
-				'session cookie must outlive the app',
-			).not.toBe(-1)
+			await expectCookieToLastAsLongAsTheSession(page, { user: { username } })
 		} finally {
 			await page.close()
 			const households = await prisma.household.findMany({
@@ -152,7 +151,7 @@ test.describe('in a browser', () => {
 		await expect(page.getByLabel(/remember me/i)).toBeVisible()
 		await expect(page.getByLabel(/remember me/i)).not.toBeChecked()
 
-		await logInThroughTheForm(page, navigate, user, password)
+		await logInThroughTheForm(page, user, password)
 
 		expect(await sessionCookieExpiry(page)).toBe(-1)
 	})

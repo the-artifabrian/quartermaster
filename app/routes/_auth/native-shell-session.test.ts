@@ -10,7 +10,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { generateTOTP } from '#app/utils/totp.server.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createUser, ensureUserRole } from '#tests/db-utils.ts'
 import { BASE_URL, convertSetCookieToCookie } from '#tests/utils.ts'
 import { action as loginAction } from './login.tsx'
 import { handleNewSession, handleVerification } from './login.server.ts'
@@ -34,16 +34,6 @@ const SAFARI_UA =
 	'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
 const SHELL_UA =
 	'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 QuartermasterShell/1'
-
-// Migrations create the roles table, and tests skip the seed that fills it.
-// Every new user, inserted or signed up, connects to the 'user' role.
-async function ensureUserRole() {
-	await prisma.role.upsert({
-		where: { name: 'user' },
-		create: { name: 'user' },
-		update: {},
-	})
-}
 
 function post(
 	path: string,
@@ -197,9 +187,11 @@ test('a shell login that stops for two-factor still ends with an expiring cookie
 		type: twoFAVerificationType,
 		target: user.id,
 	})
+	// The verify request comes without the token, so only the value the login
+	// stored in the verify session can make this cookie expire.
 	const verified = await handleVerification({
 		request: post('/verify', {
-			userAgent: SHELL_UA,
+			userAgent: SAFARI_UA,
 			body: Object.fromEntries(body),
 			cookie: convertSetCookieToCookie(verifySetCookie),
 		}),
@@ -282,4 +274,24 @@ test('provider onboarding in the shell sets an expiring cookie with Remember me 
 		),
 	)
 	expect(sessionCookie(response).expires).toBeInstanceOf(Date)
+})
+
+test('provider onboarding in a browser with Remember me unchecked keeps a browser-session cookie', async () => {
+	const { username, name, agreeToTermsOfServiceAndPrivacyPolicy } =
+		await prepareSignup()
+	const response = await providerOnboardingAction(
+		routeArgs(
+			post('/onboarding/google', {
+				userAgent: SAFARI_UA,
+				body: { username, name, agreeToTermsOfServiceAndPrivacyPolicy },
+				cookie: await verifyCookie({
+					[onboardingEmailSessionKey]: `${username}@example.com`,
+					[providerIdKey]: `google-${username}`,
+				}),
+			}),
+			'/onboarding/:provider',
+			{ provider: 'google' },
+		),
+	)
+	expect(sessionCookie(response).expires).toBeUndefined()
 })

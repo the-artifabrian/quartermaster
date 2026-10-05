@@ -174,7 +174,7 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 						<div className="flex flex-col gap-5">
 							<PasskeyLogin
 								redirectTo={redirectTo}
-								remember={isNativeShell || fields.remember.value === 'on'}
+								remember={fields.remember.value === 'on'}
 							/>
 						</div>
 						<div className="my-4 flex items-center gap-4">

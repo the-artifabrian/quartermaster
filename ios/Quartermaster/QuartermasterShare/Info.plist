@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionAttributes</key>
+		<dict>
+			<!-- One shared item holding a web URL (not a file) or text, and at
+			     most one URL. Text with no link in it still shows the
+			     extension; it then cancels. -->
+			<key>NSExtensionActivationRule</key>
+			<string>SUBQUERY(extensionItems, $item, SUBQUERY($item.attachments, $a, (ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.url" AND NOT (ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.file-url")) OR ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.plain-text").@count >= 1 AND SUBQUERY($item.attachments, $a, ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.url" AND NOT (ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.file-url")).@count &lt;= 1).@count == 1</string>
+		</dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.share-services</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>$(PRODUCT_MODULE_NAME).ShareViewController</string>
+	</dict>
+</dict>
+</plist>

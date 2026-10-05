@@ -4,7 +4,7 @@ Write like a person trying to get dinner sorted. Be calm, concrete, and brief.
 
 ## Product terms
 
-Use the terms in [CONTEXT.md](../CONTEXT.md). In user-facing copy:
+Use the terms in [GLOSSARY.md](../GLOSSARY.md). In user-facing copy:
 
 - **Recipe**: ingredients and instructions for one thing.
 - **Menu**: a reusable group of Recipes and notes served together.

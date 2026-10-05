@@ -21,6 +21,8 @@ export const AUTO_TRIAL_DAYS = 14
 export const SESSION_EXPIRATION_TIME = 1000 * 60 * 60 * 24 * 30
 export const getSessionExpirationDate = () =>
 	new Date(Date.now() + SESSION_EXPIRATION_TIME)
+/** A remembered session with less than this left is extended on use. */
+export const SESSION_REFRESH_THRESHOLD = 1000 * 60 * 60 * 24 * 7
 
 export const sessionKey = 'sessionId'
 
@@ -51,6 +53,45 @@ export async function getUserId(request: Request) {
 		})
 	}
 	return session.userId
+}
+
+/**
+ * Extends a remembered session that is still in use, so a daily user is not
+ * logged out when the 30 days run out. When the session has less than
+ * SESSION_REFRESH_THRESHOLD left, its expiration moves a full session length
+ * out and the returned Set-Cookie carries the new Expires. Returns null when
+ * nothing changed.
+ *
+ * Only a cookie that has an `expires` ("Remember me") is considered, so a
+ * browser-session cookie stays one and costs no query. An expired or missing
+ * Session is left to getUserId, which logs it out.
+ */
+export async function refreshSessionIfNeeded(request: Request) {
+	const authSession = await authSessionStorage.getSession(
+		request.headers.get('cookie'),
+	)
+	const sessionId = authSession.get(sessionKey)
+	if (!sessionId || !authSession.has('expires')) return null
+	const session = await prisma.session.findUnique({
+		select: { expirationDate: true },
+		where: { id: sessionId },
+	})
+	if (!session) return null
+	const now = Date.now()
+	const remaining = session.expirationDate.getTime() - now
+	if (remaining <= 0 || remaining >= SESSION_REFRESH_THRESHOLD) return null
+
+	const expirationDate = getSessionExpirationDate()
+	// Guarded on the row still being live, so a session that expires or is
+	// logged out between the read and the write is not brought back.
+	const { count } = await prisma.session.updateMany({
+		where: { id: sessionId, expirationDate: { gt: new Date(now) } },
+		data: { expirationDate },
+	})
+	if (count === 0) return null
+	return authSessionStorage.commitSession(authSession, {
+		expires: expirationDate,
+	})
 }
 
 export async function requireUserId(

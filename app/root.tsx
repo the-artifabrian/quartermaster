@@ -34,6 +34,7 @@ import { prisma } from './utils/db.server.ts'
 import { getEnv } from './utils/env.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
 import { combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
+import { isNativeShell } from './utils/native-shell.server.ts'
 import { useNonce } from './utils/nonce-provider.ts'
 import { getPostHogHost } from './utils/posthog-config.ts'
 import {
@@ -187,6 +188,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 				hints: getHints(request),
 				origin: getDomainUrl(request),
 				path: new URL(request.url).pathname,
+				isNativeShell: isNativeShell(request),
 				userPrefs: {
 					theme: getTheme(request),
 				},

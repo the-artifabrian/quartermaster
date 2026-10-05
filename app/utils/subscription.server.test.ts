@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker'
 import { describe, expect, test } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createUser, ensureUserRole } from '#tests/db-utils.ts'
 import { signup } from './auth.server.ts'
 import { getUserTier } from './subscription.server.ts'
 import '#tests/setup/db-setup.ts'
@@ -9,15 +9,6 @@ import '#tests/setup/db-setup.ts'
 async function setupUser() {
 	const user = await prisma.user.create({ data: createUser() })
 	return user
-}
-
-/** Ensure the 'user' role exists (migrations create the table but tests skip seed). */
-async function ensureUserRole() {
-	await prisma.role.upsert({
-		where: { name: 'user' },
-		create: { name: 'user' },
-		update: {},
-	})
 }
 
 describe('auto-trial on signup', () => {

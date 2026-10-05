@@ -5,7 +5,7 @@ kitchen tool. This file holds durable visual rules, not a screen-by-screen
 duplicate of the code.
 
 For product voice, see [COPYWRITING.md](./COPYWRITING.md). For product terms,
-see [CONTEXT.md](../CONTEXT.md).
+see [GLOSSARY.md](../GLOSSARY.md).
 
 ## Core rules
 

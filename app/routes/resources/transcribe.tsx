@@ -1,7 +1,7 @@
 import { parseFormData, type FileUpload } from '@mjackson/form-data-parser'
 import { data } from 'react-router'
 import { type ParsedItem } from '#app/utils/parse-speech-item.ts'
-import { requireProTier } from '#app/utils/subscription.server.ts'
+import { requireProTierOrNativeShellNull } from '#app/utils/subscription.server.ts'
 import { transcribeAudio } from '#app/utils/whisper.server.ts'
 import { type Route } from './+types/transcribe.ts'
 
@@ -15,7 +15,16 @@ const ACCEPTED_AUDIO_TYPES = [
 ]
 
 export async function action({ request }: Route.ActionArgs) {
-	await requireProTier(request)
+	if (!(await requireProTierOrNativeShellNull(request))) {
+		return data(
+			{
+				error: 'Voice input is not available.',
+				items: [] as ParsedItem[],
+				transcription: null as string | null,
+			},
+			{ status: 403 },
+		)
+	}
 
 	let audioFile: FileUpload | null = null
 

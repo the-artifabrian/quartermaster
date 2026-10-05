@@ -19,6 +19,7 @@ import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
 import { checkAndRecordAiUsage } from '#app/utils/ai-rate-limit.server.ts'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import {
 	extractYieldFromTitle,
 	joinBrokenUnitSteps,
@@ -33,6 +34,7 @@ import {
 	parseIngredient,
 	parseISODuration,
 } from '#app/utils/ingredient-parser.server.ts'
+import { isNativeShell } from '#app/utils/native-shell.server.ts'
 import { AI_FEATURE_USED } from '#app/utils/posthog-events.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import {
@@ -685,7 +687,10 @@ export async function action({ request }: Route.ActionArgs) {
 			return data(
 				{
 					intent: intentKey,
-					error: 'AI extraction requires a Pro subscription.',
+					// The iOS app shows no copy about Pro (ADR 0001).
+					error: isNativeShell(request)
+						? 'AI extraction is not available.'
+						: 'AI extraction requires a Pro subscription.',
 					recipe: null,
 					result: null,
 					duplicates: null,
@@ -946,12 +951,19 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				? 'image'
 				: 'url'
 	const [activeTab, setActiveTab] = useState<ImportTab>(defaultTab)
+	// The iOS app may not point at buying Pro (ADR 0001), so a free user there
+	// gets the free URL and text imports without the AI extraction that leads
+	// to Pro.
+	const hideAi = useIsNativeShell() && !isProActive
+	const visibleTab = hideAi && activeTab === 'image' ? 'url' : activeTab
 
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
 			<h1 className="mb-2 font-serif text-2xl font-normal">Import Recipe</h1>
 			<p className="text-muted-foreground mb-6">
-				Import a recipe from a URL, paste text, or upload screenshots.
+				{hideAi
+					? 'Import a recipe from a URL or paste text.'
+					: 'Import a recipe from a URL, paste text, or upload screenshots.'}
 			</p>
 
 			{/* Input forms */}
@@ -961,7 +973,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					<button
 						type="button"
 						className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-							activeTab === 'url'
+							visibleTab === 'url'
 								? 'bg-accent text-accent-foreground'
 								: 'text-muted-foreground hover:text-foreground'
 						}`}
@@ -972,7 +984,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					<button
 						type="button"
 						className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-							activeTab === 'text'
+							visibleTab === 'text'
 								? 'bg-accent text-accent-foreground'
 								: 'text-muted-foreground hover:text-foreground'
 						}`}
@@ -980,21 +992,23 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					>
 						From Text
 					</button>
-					<button
-						type="button"
-						className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-							activeTab === 'image'
-								? 'bg-accent text-accent-foreground'
-								: 'text-muted-foreground hover:text-foreground'
-						}`}
-						onClick={() => setActiveTab('image')}
-					>
-						From Image
-					</button>
+					{!hideAi && (
+						<button
+							type="button"
+							className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+								activeTab === 'image'
+									? 'bg-accent text-accent-foreground'
+									: 'text-muted-foreground hover:text-foreground'
+							}`}
+							onClick={() => setActiveTab('image')}
+						>
+							From Image
+						</button>
+					)}
 				</div>
 
 				{/* URL tab */}
-				{activeTab === 'url' && (
+				{visibleTab === 'url' && (
 					// The bare path, so a submit before hydration also drops ?url=
 					// and the auto-fetch cannot follow it.
 					<Form method="POST" action="/recipes/import" className="space-y-4">
@@ -1036,7 +1050,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Text tab */}
-				{activeTab === 'text' && (
+				{visibleTab === 'text' && (
 					<Form method="POST" className="space-y-4">
 						<div className="space-y-2">
 							<Label htmlFor="rawText">Recipe text</Label>
@@ -1089,7 +1103,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 										? 'Extracting...'
 										: 'Extract with AI'}
 								</StatusButton>
-							) : (
+							) : hideAi ? null : (
 								<Button asChild>
 									<Link to="/upgrade">
 										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
@@ -1105,7 +1119,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Image tab */}
-				{activeTab === 'image' && (
+				{visibleTab === 'image' && (
 					<Form
 						method="POST"
 						encType="multipart/form-data"

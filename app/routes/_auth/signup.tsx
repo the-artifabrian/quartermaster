@@ -146,9 +146,12 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 				<p className="text-muted-foreground mt-3 text-lg">
 					Enter your email to create an account.
 				</p>
-				<p className="text-muted-foreground mt-1 text-sm">
-					Free for 14 days. No credit card needed.
-				</p>
+				{/* The iOS app shows no copy about Pro or its trial (ADR 0001). */}
+				{isNativeShell ? null : (
+					<p className="text-muted-foreground mt-1 text-sm">
+						Free for 14 days. No credit card needed.
+					</p>
+				)}
 			</div>
 			<div className="mx-auto mt-8 max-w-sm min-w-full sm:min-w-[368px]">
 				<Form method="POST" {...getFormProps(form)}>

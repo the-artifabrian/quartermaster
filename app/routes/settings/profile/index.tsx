@@ -8,7 +8,7 @@ import { ThemeSwitch } from '#app/routes/resources/theme-switch.tsx'
 import { requireUserId, sessionKey } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
-import { useRequestInfo } from '#app/utils/request-info.ts'
+import { useIsNativeShell, useRequestInfo } from '#app/utils/request-info.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
@@ -94,6 +94,9 @@ export async function action({ request }: Route.ActionArgs) {
 export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 	const { user, tierInfo } = loaderData
 	const requestInfo = useRequestInfo()
+	// The iOS app may not point at buying Pro (ADR 0001): the row shows the
+	// tier but links nowhere and says nothing about subscribing.
+	const isNativeShell = useIsNativeShell()
 	const tierLabel = tierInfo.isProActive ? 'Pro' : 'Free'
 
 	return (
@@ -123,9 +126,9 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 			<SettingsSection label="General">
 				<SettingsRow to="household" icon="home" label="Household" />
 				<SettingsRow
-					to="/upgrade"
+					to={isNativeShell ? undefined : '/upgrade'}
 					icon="sparkles"
-					label="Subscription"
+					label={isNativeShell ? 'Tier' : 'Subscription'}
 					badge={
 						<span
 							className={cn(

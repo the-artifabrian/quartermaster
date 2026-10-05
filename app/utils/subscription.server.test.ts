@@ -1,23 +1,16 @@
 import { faker } from '@faker-js/faker'
 import { describe, expect, test } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
-import { createUser } from '#tests/db-utils.ts'
-import { signup } from './auth.server.ts'
-import { getUserTier } from './subscription.server.ts'
+import { createUser, ensureUserRole } from '#tests/db-utils.ts'
+import { SAFARI_UA, SHELL_UA } from '#tests/native-shell.ts'
+import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
+import { getSessionExpirationDate, signup } from './auth.server.ts'
+import { getUserTier, requireProTier } from './subscription.server.ts'
 import '#tests/setup/db-setup.ts'
 
 async function setupUser() {
 	const user = await prisma.user.create({ data: createUser() })
 	return user
-}
-
-/** Ensure the 'user' role exists (migrations create the table but tests skip seed). */
-async function ensureUserRole() {
-	await prisma.role.upsert({
-		where: { name: 'user' },
-		create: { name: 'user' },
-		update: {},
-	})
 }
 
 describe('auto-trial on signup', () => {
@@ -458,5 +451,85 @@ describe('wasProPreviously', () => {
 
 		expect(tier.wasProPreviously).toBe(false)
 		expect(tier.isProActive).toBe(true)
+	})
+})
+
+async function signedInRequest(
+	subscription: { tier: string; trialEndsAt?: Date } | null,
+	userAgent: string,
+) {
+	const session = await prisma.session.create({
+		data: {
+			expirationDate: getSessionExpirationDate(),
+			user: {
+				create: {
+					...createUser(),
+					...(subscription ? { subscription: { create: subscription } } : {}),
+				},
+			},
+		},
+		select: { id: true },
+	})
+	return new Request(`${BASE_URL}/resources/transcribe`, {
+		method: 'POST',
+		headers: {
+			cookie: await getSessionCookieHeader(session),
+			'User-Agent': userAgent,
+		},
+	})
+}
+
+async function thrownResponse(promise: Promise<unknown>) {
+	const thrown = await promise.then(
+		() => null,
+		(error: unknown) => error,
+	)
+	if (!(thrown instanceof Response)) {
+		throw new Error(`Expected a thrown Response, got ${String(thrown)}`)
+	}
+	return thrown
+}
+
+// The iOS app may not point at buying Pro (ADR 0001), so a Pro-only request
+// from it ends in a plain 403: no redirect to /upgrade and no toast about Pro.
+describe('requireProTier', () => {
+	test('in the iOS app, a free user gets a 403 with no redirect or toast', async () => {
+		const request = await signedInRequest(null, SHELL_UA)
+
+		const response = await thrownResponse(requireProTier(request))
+
+		expect(response.status).toBe(403)
+		expect(response.headers.get('Location')).toBeNull()
+		expect(response.headers.get('Set-Cookie')).toBeNull()
+	})
+
+	test('in the iOS app, a user whose Pro ended gets a 403 with no redirect or toast', async () => {
+		const request = await signedInRequest(
+			{ tier: 'free', trialEndsAt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+			SHELL_UA,
+		)
+
+		const response = await thrownResponse(requireProTier(request))
+
+		expect(response.status).toBe(403)
+		expect(response.headers.get('Location')).toBeNull()
+		expect(response.headers.get('Set-Cookie')).toBeNull()
+	})
+
+	test('in the iOS app, a Pro user passes', async () => {
+		const request = await signedInRequest({ tier: 'pro' }, SHELL_UA)
+
+		const result = await requireProTier(request)
+
+		expect(result.isProActive).toBe(true)
+	})
+
+	test('in a browser, a free user is still sent to /upgrade', async () => {
+		const request = await signedInRequest(null, SAFARI_UA)
+
+		const response = await thrownResponse(requireProTier(request))
+
+		expect(response.status).toBe(302)
+		expect(response.headers.get('Location')).toBe('/upgrade')
 	})
 })

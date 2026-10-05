@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useModal } from '#app/utils/use-modal.ts'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -23,6 +24,7 @@ export function EnhanceRecipeModal({
 	onClose: () => void
 }) {
 	const fetcher = useFetcher({ key: 'apply-enhancement' })
+	const isNativeShell = useIsNativeShell()
 
 	// Determine which fields have actual changes
 	const hasDescriptionChange =
@@ -63,11 +65,16 @@ export function EnhanceRecipeModal({
 			} else if (result.error) {
 				toast.error(result.error)
 			} else if (result.requiresPro) {
-				toast.error('Recipe enhancement requires Pro.')
+				// The iOS app shows no copy about Pro (ADR 0001).
+				toast.error(
+					isNativeShell
+						? 'Recipe enhancement is not available.'
+						: 'Recipe enhancement requires Pro.',
+				)
 			}
 		}
 		prevApplyState.current = fetcher.state
-	}, [fetcher.state, fetcher.data, onClose])
+	}, [fetcher.state, fetcher.data, onClose, isNativeShell])
 
 	function handleApply() {
 		const formData = new FormData()

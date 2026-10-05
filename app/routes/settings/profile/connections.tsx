@@ -21,6 +21,7 @@ import {
 } from '#app/utils/connections.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { pipeHeaders } from '#app/utils/headers.server.js'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { makeTimings } from '#app/utils/timing.server.ts'
 import { createToastHeaders } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/connections.ts'
@@ -114,6 +115,9 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function Connections({ loaderData }: Route.ComponentProps) {
+	// Google refuses OAuth in embedded web views, so the iOS app offers no
+	// new connections.
+	const isNativeShell = useIsNativeShell()
 	return (
 		<div className="mx-auto max-w-md">
 			{loaderData.connections.length ? (
@@ -133,15 +137,17 @@ export default function Connections({ loaderData }: Route.ComponentProps) {
 			) : (
 				<p>You don't have any connections yet.</p>
 			)}
-			<div className="border-border mt-5 flex flex-col gap-5 border-t-2 border-b-2 py-3">
-				{providerNames.map((providerName) => (
-					<ProviderConnectionForm
-						key={providerName}
-						type="Connect"
-						providerName={providerName}
-					/>
-				))}
-			</div>
+			{isNativeShell ? null : (
+				<div className="border-border mt-5 flex flex-col gap-5 border-t-2 border-b-2 py-3">
+					{providerNames.map((providerName) => (
+						<ProviderConnectionForm
+							key={providerName}
+							type="Connect"
+							providerName={providerName}
+						/>
+					))}
+				</div>
+			)}
 		</div>
 	)
 }

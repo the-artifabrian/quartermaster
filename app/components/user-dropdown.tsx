@@ -1,6 +1,7 @@
 import { Link, useRouteLoaderData } from 'react-router'
 import { type loader as rootLoader } from '#app/root.tsx'
 import { cn } from '#app/utils/misc.tsx'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useDaysUntilExpiry, useIsProActive } from '#app/utils/subscription.ts'
 import { useUser } from '#app/utils/user.ts'
 
@@ -10,6 +11,8 @@ export function UserDropdown() {
 	const householdName = rootData?.householdName
 	const isPro = useIsProActive()
 	const daysLeft = useDaysUntilExpiry()
+	// The iOS app shows no copy about Pro (ADR 0001).
+	const isNativeShell = useIsNativeShell()
 	const initial = (user.name ?? user.username).charAt(0).toUpperCase()
 	return (
 		<Link
@@ -31,7 +34,7 @@ export function UserDropdown() {
 				{householdName && householdName !== 'My Household' && (
 					<span className="text-muted-foreground text-xs">{householdName}</span>
 				)}
-				{isPro && daysLeft !== null && daysLeft <= 14 ? (
+				{!isNativeShell && isPro && daysLeft !== null && daysLeft <= 14 ? (
 					<span
 						className={cn(
 							'text-xs font-medium',

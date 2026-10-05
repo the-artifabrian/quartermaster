@@ -8,7 +8,7 @@ import {
 	type EnhanceableFields,
 	enhanceRecipeMetadata,
 } from '#app/utils/recipe-enhance-llm.server.ts'
-import { requireProTier } from '#app/utils/subscription.server.ts'
+import { requireProTierOrNativeShellNull } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/enhance-recipe.ts'
 
 const DAILY_LIMIT = 10
@@ -18,7 +18,17 @@ const EnhanceRequestSchema = z.object({
 })
 
 export async function action({ request }: Route.ActionArgs) {
-	const { userId, householdId } = await requireProTier(request)
+	const proTier = await requireProTierOrNativeShellNull(request)
+	if (!proTier) {
+		return data(
+			{
+				error: 'Recipe enhancement is not available.',
+				suggestions: null as EnhanceableFields | null,
+			},
+			{ status: 403 },
+		)
+	}
+	const { userId, householdId } = proTier
 
 	const formData = await request.formData()
 	const parsed = EnhanceRequestSchema.safeParse({

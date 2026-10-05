@@ -16,6 +16,7 @@ import {
 	ProviderConnectionForm,
 } from '#app/utils/connections.tsx'
 import { getErrorMessage, useIsPending } from '#app/utils/misc.tsx'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { PasswordSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/login.ts'
 import { handleNewSession } from './login.server.ts'
@@ -83,6 +84,10 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 	const isPending = useIsPending()
 	const [searchParams] = useSearchParams()
 	const redirectTo = searchParams.get('redirectTo')
+	// The iOS app always remembers the login; the server enforces it. Google
+	// refuses OAuth in embedded web views, so the iOS app offers no Google
+	// login.
+	const isNativeShell = useIsNativeShell()
 
 	const [form, fields] = useForm({
 		id: 'login-form',
@@ -132,17 +137,19 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 							/>
 
 							<div className="flex justify-between pt-3">
-								<CheckboxField
-									labelProps={{
-										htmlFor: fields.remember.id,
-										children: 'Remember me',
-									}}
-									buttonProps={getInputProps(fields.remember, {
-										type: 'checkbox',
-									})}
-									errors={fields.remember.errors}
-								/>
-								<div>
+								{isNativeShell ? null : (
+									<CheckboxField
+										labelProps={{
+											htmlFor: fields.remember.id,
+											children: 'Remember me',
+										}}
+										buttonProps={getInputProps(fields.remember, {
+											type: 'checkbox',
+										})}
+										errors={fields.remember.errors}
+									/>
+								)}
+								<div className="ml-auto">
 									<Link to="/forgot-password" className="text-sm font-semibold">
 										Forgot password?
 									</Link>
@@ -172,16 +179,25 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 								remember={fields.remember.value === 'on'}
 							/>
 						</div>
-						<div className="my-4 flex items-center gap-4">
-							<hr className="flex-1" />
-							<span className="text-muted-foreground text-sm">or</span>
-							<hr className="flex-1" />
-						</div>
-						<ProviderConnectionForm
-							type="Login"
-							providerName={GOOGLE_PROVIDER_NAME}
-							redirectTo={redirectTo}
-						/>
+						{isNativeShell ? (
+							<p className="text-muted-foreground mt-4 text-center text-sm">
+								Signed up with Google? Add a passkey or password in Settings on
+								the web first.
+							</p>
+						) : (
+							<>
+								<div className="my-4 flex items-center gap-4">
+									<hr className="flex-1" />
+									<span className="text-muted-foreground text-sm">or</span>
+									<hr className="flex-1" />
+								</div>
+								<ProviderConnectionForm
+									type="Login"
+									providerName={GOOGLE_PROVIDER_NAME}
+									redirectTo={redirectTo}
+								/>
+							</>
+						)}
 						<div className="flex items-center justify-center gap-2 pt-6">
 							<span className="text-muted-foreground">New here?</span>
 							<Link

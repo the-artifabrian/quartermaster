@@ -6,6 +6,7 @@ import { getUserId } from '#app/utils/auth.server.ts'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -106,6 +107,8 @@ export default function Index() {
 // ---------------------------------------------------------------------------
 
 function Hero() {
+	// The iOS app shows no copy about Pro or its trial (ADR 0001).
+	const isNativeShell = useIsNativeShell()
 	return (
 		<section className="container pt-10 pb-12 sm:pt-16 sm:pb-20 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-end lg:gap-16 lg:pt-16 lg:pb-16">
 			<div className="max-w-[34rem]">
@@ -126,9 +129,11 @@ function Hero() {
 						See how it works
 					</a>
 				</div>
-				<p className="text-cream-muted mt-5 text-[15px]">
-					Free for 14 days. No credit card needed.
-				</p>
+				{isNativeShell ? null : (
+					<p className="text-cream-muted mt-5 text-[15px]">
+						Free for 14 days. No credit card needed.
+					</p>
+				)}
 			</div>
 
 			<div className="mt-10 lg:mt-0">
@@ -226,14 +231,18 @@ function FeatureBand({
 // ---------------------------------------------------------------------------
 
 function ClosingCta() {
+	// The iOS app shows no copy about Pro or its trial (ADR 0001).
+	const isNativeShell = useIsNativeShell()
 	return (
 		<section className="px-4 py-20 text-center sm:py-24 lg:py-28">
 			<h2 className="mx-auto max-w-[22ch] font-serif text-[2.25rem] leading-[1.1] tracking-[-0.015em] text-balance sm:text-[3rem]">
 				Decide dinner once, for the whole week.
 			</h2>
-			<p className="text-cream/80 mx-auto mt-5 max-w-[28rem] text-lg leading-[1.55]">
-				Free for 14 days. Your Recipes stay on the free plan.
-			</p>
+			{isNativeShell ? null : (
+				<p className="text-cream/80 mx-auto mt-5 max-w-[28rem] text-lg leading-[1.55]">
+					Free for 14 days. Your Recipes stay on the free plan.
+				</p>
+			)}
 			<div className="mt-9 flex justify-center">
 				<PrimaryCta />
 			</div>

@@ -7,9 +7,10 @@ import os
 /// Hosts the shell's view controller in the SwiftUI scene.
 struct ShellView: UIViewControllerRepresentable {
     let config: ShellConfig
+    let inbox: PageInbox
 
     func makeUIViewController(context: Context) -> ShellViewController {
-        ShellViewController(config: config)
+        ShellViewController(config: config, inbox: inbox)
     }
 
     func updateUIViewController(_ controller: ShellViewController, context: Context) {}
@@ -33,6 +34,7 @@ private let connectivityErrors: Set<Int> = [
 /// The web view that presents the Web app, plus the native offline view.
 final class ShellViewController: UIViewController {
     private let config: ShellConfig
+    private let inbox: PageInbox
     private let links: LinkPolicy
     private let offline = OfflineModel()
     private var offlineController: UIHostingController<OfflineView>?
@@ -47,8 +49,9 @@ final class ShellViewController: UIViewController {
     /// Where each running download is being written.
     private var downloadFiles: [ObjectIdentifier: URL] = [:]
 
-    init(config: ShellConfig) {
+    init(config: ShellConfig, inbox: PageInbox) {
         self.config = config
+        self.inbox = inbox
         self.links = LinkPolicy(host: config.host)
         super.init(nibName: nil, bundle: nil)
     }
@@ -88,12 +91,48 @@ final class ShellViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        load(config.startURL)
+        if let page = inbox.attach({ [weak self] page in self?.openIncoming(page) }) {
+            load(page)
+        } else {
+            loadStartPageOnceActive()
+        }
+    }
+
+    /// A link that launched the app can reach `.onOpenURL` after this view
+    /// has loaded. Holding the start page until the app is active lets that
+    /// link load first, rather than the start page loading and then being
+    /// replaced.
+    private func loadStartPageOnceActive() {
+        let loadStart = { [weak self] in
+            guard let self, self.lastRequestedURL == nil else { return }
+            self.load(self.config.startURL)
+        }
+        if UIApplication.shared.applicationState == .active {
+            return DispatchQueue.main.async(execute: loadStart)
+        }
+        var observer: NSObjectProtocol?
+        observer = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { _ in
+            observer.map(NotificationCenter.default.removeObserver)
+            observer = nil
+            DispatchQueue.main.async(execute: loadStart)
+        }
     }
 
     private func load(_ url: URL) {
         lastRequestedURL = url
         webView.load(URLRequest(url: url))
+    }
+
+    /// A page from a link opened while the app was running. A Safari sheet
+    /// left open would hide it, so it closes; alerts stay, since WebKit is
+    /// waiting on their answer.
+    private func openIncoming(_ page: URL) {
+        if presentedViewController is SFSafariViewController {
+            dismiss(animated: false)
+        }
+        load(page)
     }
 
     private func isAppPage(_ url: URL) -> Bool {

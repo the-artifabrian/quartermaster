@@ -995,7 +995,9 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 
 				{/* URL tab */}
 				{activeTab === 'url' && (
-					<Form method="POST" className="space-y-4">
+					// The bare path, so a submit before hydration also drops ?url=
+					// and the auto-fetch cannot follow it.
+					<Form method="POST" action="/recipes/import" className="space-y-4">
 						<input type="hidden" name="intent" value="fetch" />
 						<div className="space-y-2">
 							<Label htmlFor="url">Recipe URL</Label>

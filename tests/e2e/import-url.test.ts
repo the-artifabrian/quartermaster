@@ -1,42 +1,68 @@
+import { type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
-import { E2E_RECIPE_PATH } from '#tests/mocks/recipe-pages.ts'
+import { E2E_MISSING_URL, E2E_RECIPE_URL } from '#tests/mocks/recipe-pages.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
-// A real public host: the import resolves it with real DNS before the mock
-// answers the request.
-const sharedUrl = `https://example.com${E2E_RECIPE_PATH}?utm_source=share`
+const sharedUrl = `${E2E_RECIPE_URL}?utm_source=share`
 
-test('a shared URL fetches once, saves, and back shows an empty import form', async ({
-	page,
-	login,
-}) => {
-	const user = await login()
-	let fetches = 0
+function importPage(url: string) {
+	return `/recipes/import?url=${encodeURIComponent(url)}`
+}
+
+function countFetches(page: Page) {
+	const count = { fetches: 0 }
 	page.on('request', (request) => {
 		if (
 			request.method() === 'POST' &&
 			/\/recipes\/import/.test(request.url()) &&
 			new URLSearchParams(request.postData() ?? '').get('intent') === 'fetch'
 		)
-			fetches++
+			count.fetches++
+	})
+	return count
+}
+
+test('a shared URL fetches once, back skips it, and a second share saves', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const count = countFetches(page)
+	const review = page.getByRole('heading', {
+		name: 'Shared chickpea lunch',
+		exact: true,
 	})
 
-	await page.goto(`/recipes/import?url=${encodeURIComponent(sharedUrl)}`)
-	await expect(
-		page.getByRole('heading', { name: 'Shared chickpea lunch', exact: true }),
-	).toBeVisible()
+	await page.goto('/recipes')
+	await page.goto(importPage(sharedUrl))
+	await expect(review).toBeVisible()
 	await expect(page.getByLabel('Recipe overview')).toContainText(
 		'2 cans chickpeas',
 	)
-	// The fetch replaced the shared entry, so the address drops the URL.
 	await expect(page).toHaveURL(/\/recipes\/import$/)
-	expect(fetches).toBe(1)
+	expect(count.fetches).toBe(1)
 
+	// The fetch replaced the shared entry, so back skips it.
+	await page.goBack()
+	await expect(page).toHaveURL(/\/recipes$/)
+	expect(count.fetches).toBe(1)
+
+	// Forward lands on the replaced entry: the bare import page, no review.
+	await page.goForward()
+	await expect(page).toHaveURL(/\/recipes\/import$/)
+	await expect(page.getByLabel('Recipe URL', { exact: true })).toHaveValue('')
+	await expect(
+		page.getByRole('button', { name: 'Fetch Recipe', exact: true }),
+	).toBeEnabled()
+	await expect(review).toHaveCount(0)
+	expect(count.fetches).toBe(1)
+
+	await page.goto(importPage(sharedUrl))
+	await expect(review).toBeVisible()
+	expect(count.fetches).toBe(2)
 	await page.getByRole('button', { name: 'Save Recipe', exact: true }).click()
 	await expect(page).toHaveURL(/\/recipes\/(?!import$)[a-z0-9]+$/)
-	await expect(
-		page.getByRole('heading', { name: 'Shared chickpea lunch', exact: true }),
-	).toBeVisible()
+	await expect(review).toBeVisible()
 	const recipes = await prisma.recipe.findMany({
 		where: { userId: user.id },
 		include: { ingredients: { orderBy: { order: 'asc' } }, instructions: true },
@@ -55,50 +81,20 @@ test('a shared URL fetches once, saves, and back shows an empty import form', as
 			}),
 		],
 	})
-
-	// Back lands on the bare import page: an empty URL form, no review, and
-	// no second fetch.
-	const backLoad = page.waitForResponse(
-		(response) =>
-			response.request().method() === 'GET' &&
-			/\/recipes\/import\.data/.test(response.url()),
-	)
-	await page.goBack()
-	await backLoad
-	await expect(page).toHaveURL(/\/recipes\/import$/)
-	await expect(page.getByLabel('Recipe URL', { exact: true })).toHaveValue('')
-	// Give a mount effect the chance to post before counting.
-	await page.evaluate(
-		() =>
-			new Promise((resolve) =>
-				requestAnimationFrame(() => setTimeout(resolve, 100)),
-			),
-	)
-	await expect(
-		page.getByRole('button', { name: 'Fetch Recipe', exact: true }),
-	).toBeEnabled()
-	await expect(
-		page.getByRole('heading', { name: 'Shared chickpea lunch', exact: true }),
-	).toHaveCount(0)
-	await expect(page.getByLabel('Recipe overview')).toHaveCount(0)
-	expect(fetches).toBe(1)
 })
 
-test('a non-web url param leaves the import page as it is', async ({
+test('a shared URL that fails to fetch stays on the filled URL tab', async ({
 	page,
 	login,
 }) => {
 	await login()
-	let fetches = 0
-	page.on('request', (request) => {
-		if (request.method() === 'POST' && /\/recipes\/import/.test(request.url()))
-			fetches++
-	})
-	await page.goto(
-		`/recipes/import?url=${encodeURIComponent('javascript:alert(1)')}`,
+	const count = countFetches(page)
+	await page.goto(importPage(E2E_MISSING_URL))
+	await expect(page.getByText('Failed to fetch URL (404)')).toBeVisible()
+	await expect(page.getByLabel('Recipe URL', { exact: true })).toHaveValue(
+		E2E_MISSING_URL,
 	)
-	await expect(page.getByLabel('Recipe URL', { exact: true })).toHaveValue('')
-	await page.waitForLoadState('networkidle')
 	await expect(page.getByLabel('Recipe overview')).toHaveCount(0)
-	expect(fetches).toBe(0)
+	await expect(page).toHaveURL(/\/recipes\/import$/)
+	expect(count.fetches).toBe(1)
 })

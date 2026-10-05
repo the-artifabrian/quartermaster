@@ -3,6 +3,7 @@
  * is none to fetch. Only an absolute http(s) URL counts, so a bad or missing
  * value leaves the import page as it is. The first `url` param wins, and the
  * value is returned as shared, keeping its own query string and fragment.
+ * The shared URL must be percent-encoded, or its own `&` and `#` end it early.
  */
 export function importUrlFromSearch(search: string): string | null {
 	const value = new URLSearchParams(search).get('url')?.trim()

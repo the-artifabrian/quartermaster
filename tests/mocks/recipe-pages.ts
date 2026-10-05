@@ -1,12 +1,14 @@
 import { http, HttpResponse, type HttpHandler } from 'msw'
 
 /**
- * Recipe pages for the URL import. The import resolves the page's host with
- * real DNS and then requests the checked address, naming the host in the Host
- * header, so these handlers match on the path under any origin. Use a real
- * public host such as example.com in the imported URL.
+ * Recipe pages for the URL import. The import only resolves a host name with
+ * real DNS, so these pages sit on an IP literal instead: 203.0.113.10 is in
+ * TEST-NET-3, which the public-address guard accepts, and an IP literal is
+ * fetched as written, so the handlers can match its exact origin.
  */
-export const E2E_RECIPE_PATH = '/e2e/chickpea-lunch'
+const E2E_ORIGIN = 'https://203.0.113.10'
+export const E2E_RECIPE_URL = `${E2E_ORIGIN}/e2e/chickpea-lunch`
+export const E2E_MISSING_URL = `${E2E_ORIGIN}/e2e/missing`
 
 const chickpeaLunch = {
 	'@context': 'https://schema.org',
@@ -43,5 +45,6 @@ function htmlStream(html: string) {
 }
 
 export const handlers: Array<HttpHandler> = [
-	http.get(`*${E2E_RECIPE_PATH}`, () => htmlStream(chickpeaLunchPage)),
+	http.get(E2E_RECIPE_URL, () => htmlStream(chickpeaLunchPage)),
+	http.get(E2E_MISSING_URL, () => new HttpResponse(null, { status: 404 })),
 ]

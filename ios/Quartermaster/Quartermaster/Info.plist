@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>QMBaseURL</key>
+	<string>$(QM_BASE_URL)</string>
+	<key>WKAppBoundDomains</key>
+	<array>
+		<string>useqm.app</string>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Quartermaster uses the microphone when you tap the voice button on your Shopping list, so you can say items instead of typing them.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Quartermaster uses the camera when you choose to take a photo for a Recipe, or a photo of a printed Recipe to import.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Quartermaster opens your photo library when you choose a picture to add to a Recipe, or a photo of a Recipe to import.</string>
+</dict>
+</plist>

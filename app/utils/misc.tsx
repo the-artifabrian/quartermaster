@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFormAction, useNavigation } from 'react-router'
 import { useSpinDelay } from 'spin-delay'
 import { twMerge } from 'tailwind-merge'
+import { haptic } from './shell-bridge.ts'
 
 export function getImgSrc({
 	height,
@@ -220,6 +221,8 @@ export function useDoubleCheck() {
 				? undefined
 				: (e) => {
 						e.preventDefault()
+						// Arming a destructive action warns in the iOS app.
+						haptic('warning')
 						setDoubleCheck(true)
 					}
 

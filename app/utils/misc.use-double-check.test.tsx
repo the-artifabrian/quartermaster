@@ -111,3 +111,23 @@ test('the button is a polite live region so the armed swap is announced', () => 
 	render(<TestComponent />)
 	expect(screen.getByRole('button')).toHaveAttribute('aria-live', 'polite')
 })
+
+test('arming warns once through the iOS app haptic; confirming does not warn again', async () => {
+	const posted: string[] = []
+	window.webkit = {
+		messageHandlers: { haptic: { postMessage: (kind) => posted.push(kind) } },
+	}
+	try {
+		const user = userEvent.setup()
+		render(<TestComponent />)
+		const button = screen.getByRole('button')
+
+		await user.click(button)
+		expect(posted).toEqual(['warning'])
+
+		await user.click(button)
+		expect(posted).toEqual(['warning'])
+	} finally {
+		delete window.webkit
+	}
+})

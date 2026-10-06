@@ -477,7 +477,7 @@ export function RecipeForm({
 				/>
 			</FormSection>
 
-			<div className="bg-background/95 sticky bottom-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom))] z-10 flex justify-end gap-4 border-t py-3 supports-[backdrop-filter]:backdrop-blur-sm md:static md:bottom-auto md:z-auto md:bg-transparent md:pt-6 md:pb-0 md:backdrop-blur-none">
+			<div className="bg-background/95 sticky bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset))] z-10 flex justify-end gap-4 border-t py-3 supports-[backdrop-filter]:backdrop-blur-sm md:static md:bottom-auto md:z-auto md:bg-transparent md:pt-6 md:pb-0 md:backdrop-blur-none">
 				<Button type="button" variant="outline" onClick={() => history.back()}>
 					Cancel
 				</Button>

@@ -18,7 +18,14 @@ export function UserDropdown() {
 		<Link
 			to="/settings/profile"
 			prefetch="intent"
-			className="bg-card hover:bg-muted/50 border-border/50 flex items-center gap-2 rounded-full border p-1 transition-colors sm:pr-3"
+			// In the iOS app the initial stands alone, without the ring, in a 44pt
+			// hit area.
+			className={cn(
+				'flex items-center gap-2 rounded-full transition-colors sm:pr-3',
+				isNativeShell
+					? 'p-1.5'
+					: 'bg-card hover:bg-muted/50 border-border/50 border p-1',
+			)}
 			aria-label="Settings"
 		>
 			<div

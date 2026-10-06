@@ -82,7 +82,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 	}
 
 	return (
-		<div className="container-content w-full min-w-0 overflow-x-hidden py-4 pb-[calc(var(--bottom-nav-h)+2rem+env(safe-area-inset-bottom))] md:py-6 md:pb-8">
+		<div className="container-content w-full min-w-0 overflow-x-hidden py-4 pb-[calc(var(--bottom-nav-h)+2rem+var(--bottom-nav-inset))] md:py-6 md:pb-8">
 			<header>
 				<h1 className="font-serif text-2xl font-normal">Staples</h1>
 				<p className="text-muted-foreground mt-1 max-w-xl text-sm">

@@ -40,7 +40,7 @@ import { ClientHintCheck, getHints } from './utils/client-hints.tsx'
 import { prisma } from './utils/db.server.ts'
 import { getEnv } from './utils/env.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
-import { combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
+import { cn, combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
 import { isNativeShell } from './utils/native-shell.server.ts'
 import { useNavDirection } from './utils/nav-direction.ts'
 import { useNonce } from './utils/nonce-provider.ts'
@@ -450,7 +450,12 @@ function App() {
 					>
 						<nav
 							aria-label="Main"
-							className="container flex flex-wrap items-center justify-between gap-4 py-3 sm:flex-nowrap md:gap-8"
+							// Signed in, the iOS app's row is as tall as a native nav bar
+							// (44pt): the Settings link is 44pt itself.
+							className={cn(
+								'container flex flex-wrap items-center justify-between gap-4 sm:flex-nowrap md:gap-8',
+								isNativeShell && user ? 'py-0' : 'py-3',
+							)}
 						>
 							<Logo />
 							<div className="ml-auto flex items-center gap-4 md:gap-10">

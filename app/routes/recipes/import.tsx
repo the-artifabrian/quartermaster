@@ -958,7 +958,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	const visibleTab = hideAi && activeTab === 'image' ? 'url' : activeTab
 
 	return (
-		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+env(safe-area-inset-bottom))] md:pb-6">
+		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			<h1 className="mb-2 font-serif text-2xl font-normal">Import Recipe</h1>
 			<p className="text-muted-foreground mb-6">
 				{hideAi

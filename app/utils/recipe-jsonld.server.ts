@@ -1,0 +1,187 @@
+import { type ExtractedRecipe } from './import-recipe-types.ts'
+import {
+	detectIngredientHeading,
+	isAllCapsHouseStyle,
+	parseIngredient,
+	parseISODuration,
+} from './ingredient-parser.server.ts'
+import {
+	extractYieldFromTitle,
+	joinBrokenUnitSteps,
+} from './recipe-text-parser.ts'
+import { MAX_RAW_TEXT_LENGTH } from './recipe-validation.ts'
+
+export function findRecipeInJsonLd(
+	obj: unknown,
+): Record<string, unknown> | null {
+	if (!obj || typeof obj !== 'object') return null
+
+	if (Array.isArray(obj)) {
+		for (const item of obj) {
+			const found = findRecipeInJsonLd(item)
+			if (found) return found
+		}
+		return null
+	}
+
+	const record = obj as Record<string, unknown>
+
+	// Check @type
+	const type = record['@type']
+	if (type === 'Recipe' || (Array.isArray(type) && type.includes('Recipe'))) {
+		return record
+	}
+
+	// Check @graph
+	if (record['@graph']) {
+		return findRecipeInJsonLd(record['@graph'])
+	}
+
+	return null
+}
+
+/** Decode HTML entities and strip tags from JSON-LD text values */
+export function cleanJsonLdText(text: string): string {
+	return (
+		text
+			// Replace <br> variants with spaces
+			.replace(/<br\s*\/?>/gi, ' ')
+			// Strip remaining HTML tags
+			.replace(/<[^>]+>/g, '')
+			// Decode common HTML entities
+			.replace(/&nbsp;/gi, ' ')
+			.replace(/&amp;/gi, '&')
+			.replace(/&lt;/gi, '<')
+			.replace(/&gt;/gi, '>')
+			.replace(/&quot;/gi, '"')
+			.replace(/&#39;/gi, "'")
+			.replace(/&#x27;/gi, "'")
+			// Decode numeric HTML entities: &#40; → ( , &#x28; → (
+			.replace(/&#(\d+);/g, (_, code) =>
+				String.fromCharCode(parseInt(code, 10)),
+			)
+			.replace(/&#x([0-9a-fA-F]+);/g, (_, code) =>
+				String.fromCharCode(parseInt(code, 16)),
+			)
+			// Collapse multiple spaces into one
+			.replace(/\s{2,}/g, ' ')
+			.trim()
+	)
+}
+
+export function parseTypedYield(value: unknown): {
+	amount: number
+	label: string
+} | null {
+	if (value == null) return null
+	const raw = cleanJsonLdText(
+		String(Array.isArray(value) ? (value[0] ?? '') : value),
+	)
+	const amountMatch = raw.match(/\d+(?:[.,]\d+)?/)
+	if (!amountMatch || amountMatch.index == null) return null
+	const amount = Number(amountMatch[0].replace(',', '.'))
+	if (!Number.isFinite(amount) || amount <= 0) return null
+
+	const prefix = raw.slice(0, amountMatch.index).trim()
+	const rawSuffix = raw.slice(amountMatch.index + amountMatch[0].length)
+	if (/^\s*(?:[-–—]|to)\s*\d/i.test(rawSuffix)) return null
+	const suffix = rawSuffix.replace(/^[\s:;,.\-–—]+/, '').trim()
+	const label = suffix || (/^serves?\b/i.test(prefix) ? 'servings' : '')
+	if (!label) return null
+	return { amount, label: label.slice(0, 100).trim() }
+}
+
+export function parseExplicitDuration(value: unknown): number | null {
+	if (value == null) return null
+	const minutes = parseISODuration(String(value))
+	return minutes != null && minutes > 0 ? minutes : null
+}
+
+export function parseInstructions(value: unknown): Array<{ content: string }> {
+	if (!value) return []
+
+	if (typeof value === 'string') {
+		return cleanJsonLdText(value)
+			.split(/\n+/)
+			.map((s) => s.trim())
+			.filter(Boolean)
+			.map((content) => ({ content }))
+	}
+
+	if (Array.isArray(value)) {
+		const result: Array<{ content: string }> = []
+		for (const item of value) {
+			if (typeof item === 'string') {
+				const cleaned = cleanJsonLdText(item)
+				if (cleaned) result.push({ content: cleaned })
+			} else if (item && typeof item === 'object') {
+				const obj = item as Record<string, unknown>
+				// HowToStep
+				if (obj.text) {
+					const text = cleanJsonLdText(String(obj.text))
+					if (text) result.push({ content: text })
+				}
+				// HowToSection
+				else if (obj.itemListElement) {
+					const sectionSteps = parseInstructions(obj.itemListElement)
+					result.push(...sectionSteps)
+				}
+			}
+		}
+		return result
+	}
+
+	return []
+}
+
+export function extractRecipe(
+	jsonLd: Record<string, unknown>,
+	url: string,
+): ExtractedRecipe {
+	const rawIngredients = (jsonLd.recipeIngredient as string[]) || []
+	const cleanedLines = rawIngredients.map(cleanJsonLdText)
+	// When the whole list is caps, caps is house style, not structure
+	const allCapsIsHeading = !isAllCapsHouseStyle(cleanedLines)
+	const ingredients = cleanedLines
+		.map((cleaned) => {
+			// Sites stuff sub-section headers ("For the crust") into
+			// recipeIngredient — keep them as headings, not fake ingredients
+			const heading = detectIngredientHeading(cleaned, { allCapsIsHeading })
+			if (heading) return { name: heading, isHeading: true }
+			return parseIngredient(cleaned)
+		})
+		.filter((ing): ing is NonNullable<typeof ing> => ing !== null)
+
+	const instructions = joinBrokenUnitSteps(
+		parseInstructions(jsonLd.recipeInstructions),
+	)
+
+	const titleYield = extractYieldFromTitle(
+		cleanJsonLdText(String(jsonLd.name || 'Untitled Recipe')),
+	)
+	const typedYield =
+		parseTypedYield(jsonLd.recipeYield) ??
+		(titleYield.yieldAmount != null && titleYield.yieldLabel != null
+			? { amount: titleYield.yieldAmount, label: titleYield.yieldLabel }
+			: null)
+
+	return {
+		title: titleYield.title,
+		description: jsonLd.description
+			? cleanJsonLdText(String(jsonLd.description))
+			: null,
+		notes: null,
+		activeTime: parseExplicitDuration(jsonLd.prepTime),
+		totalTime: parseExplicitDuration(jsonLd.totalTime),
+		yieldAmount: typedYield?.amount ?? null,
+		yieldLabel: typedYield?.label ?? null,
+		sourceUrl: url,
+		metadataValueIds: [],
+		// Provenance, not data: some sites embed enormous JSON-LD blobs, and this
+		// is posted straight back to saveImportedRecipe on save. Bound it here so
+		// the field can never exceed what that schema accepts.
+		rawText: JSON.stringify(jsonLd, null, 2).slice(0, MAX_RAW_TEXT_LENGTH),
+		ingredients,
+		instructions,
+	}
+}

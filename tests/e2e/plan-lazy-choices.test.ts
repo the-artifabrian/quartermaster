@@ -120,16 +120,32 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 	await composer.getByRole('button', { name: /Crisp Salad/ }).click()
 	await expect(mobile.getByText('Crisp Salad', { exact: true })).toBeVisible()
 
-	await mobile
-		.getByRole('button', { name: 'Meal actions for Anchor Pasta' })
-		.click()
-	await page.getByRole('menuitem', { name: 'Add Recipe' }).click()
-	const recipeSearch = mobile.getByPlaceholder('Search recipes...')
+	const anchorCard = mobile.locator(`[data-meal-id="${anchorMeal.id}"]`)
+	const addRecipe = anchorCard.getByRole('button', {
+		name: 'Add Recipe to Anchor Pasta',
+	})
+	await addRecipe.click()
+	const recipeSearch = anchorCard.getByPlaceholder('Search recipes...')
 	await expect(recipeSearch).toBeVisible()
+	await expect(addRecipe).toBeHidden()
 	await expect(
-		mobile.getByRole('button', { name: 'Anchor Pasta', exact: true }),
+		anchorCard.getByRole('button', { name: 'Anchor Pasta', exact: true }),
 	).toHaveCount(0)
-	await mobile.getByRole('button', { name: /Warm Bread/ }).click()
+	await anchorCard.getByRole('button', { name: 'Close picker' }).click()
+	await expect(recipeSearch).toBeHidden()
+	await expect(addRecipe).toBeFocused()
+
+	await addRecipe.click()
+	await anchorCard.getByRole('button', { name: /Warm Bread/ }).click()
+	await expect(
+		anchorCard.getByText('Anchor Pasta', { exact: true }),
+	).toBeVisible()
+	await expect(
+		anchorCard.getByText('Warm Bread', { exact: true }),
+	).toBeVisible()
+	await expect(
+		anchorCard.getByRole('button', { name: /^Add Recipe to/ }),
+	).toBeVisible()
 	await expect
 		.poll(() =>
 			prisma.mealRecipeItem.count({

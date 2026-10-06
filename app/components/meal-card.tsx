@@ -494,6 +494,20 @@ export function MealCard({
 		}
 	}>()
 	const [addingRecipe, setAddingRecipe] = useState(false)
+	const addRecipeButtonRef = useRef<HTMLButtonElement>(null)
+	// Closing the picker unmounts whatever had focus; hand focus back to the
+	// button that opened it instead of dropping it on the page.
+	const restoreAddRecipeFocus = useRef(false)
+	useEffect(() => {
+		if (!addingRecipe && restoreAddRecipeFocus.current) {
+			restoreAddRecipeFocus.current = false
+			addRecipeButtonRef.current?.focus()
+		}
+	}, [addingRecipe])
+	function closeRecipePicker() {
+		restoreAddRecipeFocus.current = true
+		setAddingRecipe(false)
+	}
 	const [editingDetails, setEditingDetails] = useState(false)
 	const [confirmingDelete, setConfirmingDelete] = useState(false)
 	const [menuOpen, setMenuOpen] = useState(false)
@@ -632,17 +646,6 @@ export function MealCard({
 						</button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
-						{!isText ? (
-							<DropdownMenuItem
-								onSelect={() => {
-									choices.load()
-									setAddingRecipe(true)
-								}}
-							>
-								<Icon name="plus" size="sm" />
-								Add Recipe
-							</DropdownMenuItem>
-						) : null}
 						{canMoveUp ? (
 							<DropdownMenuItem
 								onSelect={() => {
@@ -677,9 +680,7 @@ export function MealCard({
 								Move later
 							</DropdownMenuItem>
 						) : null}
-						{!isText || canMoveUp || canMoveDown ? (
-							<DropdownMenuSeparator />
-						) : null}
+						{canMoveUp || canMoveDown ? <DropdownMenuSeparator /> : null}
 						<DropdownMenuItem onSelect={() => submitMealCooked(!isComplete)}>
 							<Icon name="check" size="sm" />
 							{isComplete ? 'Mark not cooked' : 'Mark meal cooked'}
@@ -855,7 +856,7 @@ export function MealCard({
 					))}
 
 					{/* Add another Recipe directly to this Meal (#98 story 41). The
-					    action lives in the Meal menu; only the active picker enters flow. */}
+					    picker replaces the button while open and has its own Cancel. */}
 					{addingRecipe ? (
 						<div className="bg-card animate-fade-up-reveal shadow-warm-lg mt-2 rounded-lg border p-3">
 							{choices.state.status === 'success' ? (
@@ -865,7 +866,7 @@ export function MealCard({
 									excludeRecipeIds={meal.items.flatMap(
 										(item) => item.recipe?.id ?? [],
 									)}
-									onCancel={() => setAddingRecipe(false)}
+									onCancel={closeRecipePicker}
 									onPick={(recipe) => {
 										void addRecipeFetcher.submit(
 											{
@@ -875,19 +876,33 @@ export function MealCard({
 											},
 											{ method: 'POST' },
 										)
-										setAddingRecipe(false)
+										closeRecipePicker()
 									}}
 								/>
 							) : (
 								<PlanChoiceRequestState
 									state={choices.state.status}
 									onRetry={choices.load}
-									onCancel={() => setAddingRecipe(false)}
+									onCancel={closeRecipePicker}
 									subject="Recipes"
 								/>
 							)}
 						</div>
-					) : null}
+					) : (
+						<button
+							ref={addRecipeButtonRef}
+							type="button"
+							onClick={() => {
+								choices.load()
+								setAddingRecipe(true)
+							}}
+							aria-label={`Add Recipe to ${mealActionName}`}
+							className="text-primary hover:text-primary/75 mt-1 flex min-h-9 items-center gap-1 text-xs font-semibold transition-colors"
+						>
+							<Icon name="plus" className="size-3" />
+							Add Recipe
+						</button>
+					)}
 				</div>
 			)}
 		</div>

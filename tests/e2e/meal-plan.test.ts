@@ -285,6 +285,25 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 		page.getByRole('button', { name: /suggest meals/i }),
 	).toHaveCount(0)
 
+	// An empty day stacks its Add Meal link under "Nothing planned", like a
+	// day with Meals puts it on its own row.
+	await page.setViewportSize({ width: 1280, height: 800 })
+	const emptyDay = desktopPlan
+		.getByRole('button', { name: /^Add Meal to/ })
+		.filter({ hasText: 'Nothing planned' })
+		.first()
+	const nothingPlannedBox = await emptyDay
+		.getByText('Nothing planned', { exact: true })
+		.boundingBox()
+	const emptyDayAddBox = await emptyDay
+		.getByText('Add Meal', { exact: true })
+		.boundingBox()
+	expect(nothingPlannedBox).not.toBeNull()
+	expect(emptyDayAddBox).not.toBeNull()
+	expect(emptyDayAddBox!.y).toBeGreaterThanOrEqual(
+		nothingPlannedBox!.y + nothingPlannedBox!.height,
+	)
+
 	// 3. Add another Meal through the fast path: Add Meal → pick a Recipe.
 	// (Polling the first click instead of networkidle — household-events
 	// long-polling never settles.)

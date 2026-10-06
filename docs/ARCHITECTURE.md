@@ -22,6 +22,30 @@ Express → React Router loaders and actions
 The app runs on Bun in Fly.io. Express owns middleware and hands application
 routing to React Router.
 
+### Route files
+
+`app/routes.ts` only calls `react-router-auto-routes`, so the URL map is the
+file tree under `app/routes/`. The rules that matter here:
+
+- A folder adds a URL segment, and a dot in a file name does the same:
+  `plan/shopping-list.tsx` and `share.$recipeId.tsx` both become two segments.
+  `index.tsx` is the folder's own page.
+- A `_` prefix on a folder adds no segment. `_auth/login.tsx` is `/login`;
+  `_marketing/` and `_seo/` work the same way.
+- `_layout.tsx` is the only file that nests. `recipes/_layout.tsx` wraps every
+  `/recipes/*` page and runs its loader first; a folder without one, such as
+  `_auth/`, is organisation only and its files are siblings under root.
+- `$param` is a dynamic segment and `$.tsx` is the catch-all.
+- A trailing `_` on a segment stops it nesting under the file of the same name.
+  `recipes/$recipeId_.edit.tsx` is `/recipes/:recipeId/edit` as a sibling of
+  `$recipeId.tsx`, so the edit page does not render inside the Recipe page.
+  `settings/profile/password_.create.tsx` works the same way.
+- `[.]` escapes a dot: `_seo/robots[.]txt.ts` is `/robots.txt`.
+- `*.server.ts`, `*.client.ts`, `*.test.ts` and anything under a `+` prefix
+  (`_marketing/+logos/`) sit next to routes without becoming routes.
+
+When a case is unclear, `bunx react-router routes` prints the compiled tree.
+
 ## Data model
 
 Most user data belongs to a Household, not an individual User.
@@ -143,6 +167,28 @@ requireUserId(request)
 
 Authorization happens in loaders/actions, not only in the UI. Pro limits are
 feature-specific and degrade without making household data unreadable.
+
+**Sessions.** `app/utils/session.server.ts` is the cookie storage.
+`app/utils/auth.server.ts` owns the `Session` rows: a session lasts
+`SESSION_EXPIRATION_TIME` (30 days), and `refreshSessionIfNeeded` extends a
+remembered one that has under `SESSION_REFRESH_THRESHOLD` (7 days) left. The
+"Remember me" box decides whether the cookie carries an `expires`; without one
+it is a browser-session cookie and is never extended. The iOS shell always
+remembers (`shouldRememberSession` in `app/utils/native-shell.server.ts`),
+because WKWebView drops session cookies when iOS kills the app.
+
+**Pro.** `app/utils/subscription.server.ts` is the source of truth:
+`getUserTier` reads the Stripe-backed `Subscription` row, `requireProTier`
+guards Pro-only loaders and actions (redirecting to `/upgrade`, or a 403 in the
+iOS shell per ADR 0001), `requireProTierOrNativeShellNull` does the same for
+resource routes a fetcher calls, and `requireUserWithTier` returns the tier
+without redirecting for pages that only show or hide Pro features. The client
+reads the tier through the hooks in `app/utils/subscription.ts`. To find every
+place a user sees Pro, search rather than trust a list:
+
+```sh
+grep -rlw Pro app --include='*.tsx'
+```
 
 ## Real-time refresh
 

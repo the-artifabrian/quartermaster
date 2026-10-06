@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
-import { useFetchers, useNavigation } from 'react-router'
+import { useFetchers, useLocation, useNavigation } from 'react-router'
 import { loaderCache } from '#app/utils/loader-cache.ts'
 
 function postToServiceWorker(message: Record<string, unknown>) {
@@ -67,12 +67,15 @@ export function ServiceWorkerDataSync({
 	const tokenRef = useRef(token)
 	tokenRef.current = token
 
-	// A different user or Household (or none) drops the loader cache. A layout
-	// effect, so the identity is known before the first page's effects
-	// remember its data.
+	// A different user or Household (or none) drops the loader cache. The
+	// committed location tells the cache which loads are navigations. Layout
+	// effects, so both are known before the first page's effects remember its
+	// data.
+	const { pathname, search } = useLocation()
 	useLayoutEffect(() => {
 		loaderCache.setIdentity(token)
-	}, [token])
+		loaderCache.setLocation(pathname + search)
+	}, [token, pathname, search])
 
 	// Keep the SW's cache namespace in sync with the current session. Re-send on
 	// SW controllerchange and on app-resume (visibilitychange): the SW may have
@@ -109,6 +112,8 @@ export function ServiceWorkerDataSync({
 	//
 	// The in-memory loader cache drops on every mutation, Shopping included: it
 	// holds no offline fallbacks, and a Shopping change shows on Plan and Staples.
+	// It drops when the submission starts too, so the redirect an action returns
+	// is never answered from memory.
 	const navigation = useNavigation()
 	const fetchers = useFetchers()
 	const submissions = [navigation, ...fetchers]
@@ -127,7 +132,7 @@ export function ServiceWorkerDataSync({
 		wasMutating.current = isMutating
 	}, [isMutating])
 	useEffect(() => {
-		if (wasSubmitting.current && !isSubmitting) loaderCache.clear()
+		if (wasSubmitting.current !== isSubmitting) loaderCache.clear()
 		wasSubmitting.current = isSubmitting
 	}, [isSubmitting])
 

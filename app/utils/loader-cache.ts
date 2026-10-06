@@ -1,5 +1,3 @@
-import { isRouteErrorResponse } from 'react-router'
-
 /**
  * Stale-while-revalidate memory for route loader data.
  *
@@ -8,6 +6,10 @@ import { isRouteErrorResponse } from 'react-router'
  * once behind it (see `useStaleRevalidate`). A load of the URL the page is
  * already on (any revalidation: after an action, a fetcher, pull to refresh)
  * always asks the server and refills the entry.
+ *
+ * "The URL the page is on" is the router's committed location, not
+ * `window.location`: on back and forward the browser shows the target URL
+ * before the loaders run, and that navigation should still be instant.
  *
  * Entries are keyed by the signed-in user and Household as well as the URL,
  * and a change of either drops them all, so one Household's data is never
@@ -21,14 +23,13 @@ type LoaderArgs<T> = {
 
 type Entry = { data: unknown; seq: number }
 
-export function createLoaderCache({
-	maxEntries = 32,
-	reportError,
-}: {
-	maxEntries?: number
-	reportError: (error: unknown) => void
-}) {
+function isObject(value: unknown): value is object {
+	return typeof value === 'object' && value !== null
+}
+
+export function createLoaderCache({ maxEntries = 32 } = {}) {
 	let identity: string | null = null
+	let location: string | null = null
 	// Orders loads, so a response that started before a clear, or before a newer
 	// response for the same URL, cannot overwrite what came after it.
 	let seq = 0
@@ -37,15 +38,13 @@ export function createLoaderCache({
 	// recently used.
 	const entries = new Map<string, Entry>()
 	const servedFromCache = new WeakSet<object>()
-	const backgroundRevalidations = new Set<string>()
+	// Everything `load` returned. `remember` is only for data that never passed
+	// through it (the server-rendered first page), so it cannot store a response
+	// that `load` refused after a clear.
+	const loaded = new WeakSet<object>()
 
 	function keyFor(href: string) {
 		return identity == null ? null : `${identity}\n${href}`
-	}
-
-	function hrefOf(request: Request) {
-		const url = new URL(request.url)
-		return url.pathname + url.search
 	}
 
 	function read(key: string) {
@@ -71,7 +70,6 @@ export function createLoaderCache({
 
 	function clear() {
 		entries.clear()
-		backgroundRevalidations.clear()
 		clearedAt = ++seq
 	}
 
@@ -83,73 +81,57 @@ export function createLoaderCache({
 			clear()
 		},
 
+		/** The pathname and search of the router's committed location. */
+		setLocation(href: string | null) {
+			location = href
+		},
+
 		clear,
 
-		/**
-		 * `currentHref` is the pathname and search of the page the user is on. The
-		 * cache answers only a load of some other URL, which is a navigation.
-		 */
-		async load<T>(
-			{ request, serverLoader }: LoaderArgs<T>,
-			currentHref: string,
-		): Promise<T> {
-			const href = hrefOf(request)
+		async load<T>({ request, serverLoader }: LoaderArgs<T>): Promise<T> {
+			const url = new URL(request.url)
+			const href = url.pathname + url.search
 			const key = keyFor(href)
 			if (key == null) return serverLoader()
 
-			if (href !== currentHref) {
+			// Only a navigation, a load of some other URL than the committed one,
+			// may be answered from memory. Before the first commit nothing is known,
+			// so everything goes to the server.
+			if (location != null && href !== location) {
 				const hit = read(key)
 				if (hit) {
-					if (typeof hit.data === 'object' && hit.data !== null) {
+					if (isObject(hit.data)) {
 						servedFromCache.add(hit.data)
+						loaded.add(hit.data)
 					}
 					return hit.data as T
 				}
 			}
 
-			const background = backgroundRevalidations.delete(key)
 			const startedAt = ++seq
 			try {
 				const data = await serverLoader()
+				if (isObject(data)) loaded.add(data)
 				store(key, data, startedAt)
 				return data
 			} catch (error) {
-				if (request.signal.aborted) throw error
-				const stale = entries.get(key)
-				entries.delete(key)
-				// A redirect or an error response is the server's real answer for this
-				// URL now, so it replaces the page. Anything else (the network, a
-				// server fault) on a background revalidation leaves the page the user
-				// is reading in place; the next navigation goes to the server and uses
-				// the route's normal error path.
-				const isAnswer =
-					error instanceof Response || isRouteErrorResponse(error)
-				if (background && stale && !isAnswer) {
-					reportError(error)
-					if (typeof stale.data === 'object' && stale.data !== null) {
-						servedFromCache.delete(stale.data)
-					}
-					return stale.data as T
-				}
+				// The server's answer for this URL is now an error or a redirect, so
+				// no stale page stays behind for the next navigation. An abort (the
+				// user went elsewhere) says nothing about the entry.
+				if (!request.signal.aborted) entries.delete(key)
 				throw error
 			}
 		},
 
 		/**
-		 * Stores data the page rendered without a load storing it: the first,
+		 * Stores data the page rendered without `load` returning it: the first,
 		 * server-rendered page. An entry a load stored is newer and stays.
 		 */
 		remember(href: string, data: unknown) {
+			if (isObject(data) && loaded.has(data)) return
 			const key = keyFor(href)
 			if (key == null || entries.has(key)) return
 			store(key, data, ++seq)
-		},
-
-		/** Whether `load` would answer this request from the cache. */
-		willServe(request: Request, currentHref: string) {
-			const href = hrefOf(request)
-			const key = keyFor(href)
-			return key != null && href !== currentHref && entries.has(key)
 		},
 
 		/**
@@ -157,38 +139,15 @@ export function createLoaderCache({
 		 * shows it revalidates exactly once.
 		 */
 		takeServedFromCache(data: unknown) {
-			if (typeof data !== 'object' || data === null) return false
+			if (!isObject(data)) return false
 			return servedFromCache.delete(data)
-		},
-
-		/**
-		 * Marks the next load of `href` as the revalidation behind cached data, so
-		 * a network failure keeps the page rather than replacing it with an error.
-		 */
-		markBackgroundRevalidation(href: string) {
-			const key = keyFor(href)
-			if (key != null) backgroundRevalidations.add(key)
 		},
 	}
 }
 
 export type LoaderCache = ReturnType<typeof createLoaderCache>
 
-export const loaderCache = createLoaderCache({
-	reportError: (error) => {
-		// reportError surfaces it like an uncaught error (console and PostHog's
-		// exception autocapture) without breaking the page.
-		if (typeof globalThis.reportError === 'function') {
-			globalThis.reportError(error)
-		} else {
-			console.error(error)
-		}
-	},
-})
-
-function currentHref() {
-	return window.location.pathname + window.location.search
-}
+export const loaderCache = createLoaderCache()
 
 /**
  * The body of a route's `clientLoader` (with `clientLoader.hydrate = false`, so
@@ -196,10 +155,5 @@ function currentHref() {
  * through unchanged.
  */
 export function staleWhileRevalidate<T>(args: LoaderArgs<T>): Promise<T> {
-	return loaderCache.load(args, currentHref())
-}
-
-/** For a parent route whose loader only guards: the child page is cached. */
-export function willServeFromCache(request: Request) {
-	return loaderCache.willServe(request, currentHref())
+	return loaderCache.load(args)
 }

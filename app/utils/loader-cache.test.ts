@@ -1,5 +1,9 @@
-import { describe, expect, test, vi } from 'vitest'
-import { createLoaderCache } from './loader-cache.ts'
+import { afterEach, describe, expect, test, vi } from 'vitest'
+import {
+	createLoaderCache,
+	loaderCache,
+	staleWhileRevalidate,
+} from './loader-cache.ts'
 
 const ORIGIN = 'https://useqm.app'
 
@@ -18,10 +22,9 @@ function deferred<T>() {
 }
 
 function setup({ maxEntries }: { maxEntries?: number } = {}) {
-	const reportError = vi.fn()
-	const cache = createLoaderCache({ maxEntries, reportError })
+	const cache = createLoaderCache({ maxEntries })
 	cache.setIdentity('alex-home')
-	return { cache, reportError }
+	return { cache }
 }
 
 /** Loads `href` from somewhere else, so the cache may answer. */
@@ -31,7 +34,8 @@ function navigate<T>(
 	serverLoader: () => Promise<T>,
 	from = '/elsewhere',
 ) {
-	return cache.load({ request: request(href), serverLoader }, from)
+	cache.setLocation(from)
+	return cache.load({ request: request(href), serverLoader })
 }
 
 /** Loads `href` while already on it, the way every revalidation does. */
@@ -41,7 +45,8 @@ function revalidate<T>(
 	serverLoader: () => Promise<T>,
 	signal?: AbortSignal,
 ) {
-	return cache.load({ request: request(href, signal), serverLoader }, href)
+	cache.setLocation(href)
+	return cache.load({ request: request(href, signal), serverLoader })
 }
 
 describe('serving from the cache', () => {
@@ -119,7 +124,7 @@ describe('serving from the cache', () => {
 
 describe('identity scoping', () => {
 	test('without a known identity nothing is read or stored', async () => {
-		const cache = createLoaderCache({ reportError: vi.fn() })
+		const cache = createLoaderCache()
 		await navigate(cache, '/plan', async () => ({ meals: ['tacos'] }))
 
 		const fresh = { meals: ['soup'] }
@@ -232,10 +237,8 @@ describe('size cap', () => {
 
 describe('server errors', () => {
 	test('a redirect on the revalidation of a cached URL wins and leaves no stale entry', async () => {
-		const { cache, reportError } = setup()
+		const { cache } = setup()
 		await navigate(cache, '/recipes/r1', async () => ({ title: 'Soup' }))
-		await navigate(cache, '/recipes/r1', async () => ({}))
-		cache.markBackgroundRevalidation('/recipes/r1')
 
 		const redirect = new Response(null, {
 			status: 302,
@@ -244,7 +247,6 @@ describe('server errors', () => {
 		await expect(
 			revalidate(cache, '/recipes/r1', () => Promise.reject(redirect)),
 		).rejects.toBe(redirect)
-		expect(reportError).not.toHaveBeenCalled()
 
 		const server = vi.fn(async () => ({ title: 'Gone' }))
 		await navigate(cache, '/recipes/r1', server)
@@ -252,10 +254,8 @@ describe('server errors', () => {
 	})
 
 	test('a 404 on the revalidation of a cached URL wins and leaves no stale entry', async () => {
-		const { cache, reportError } = setup()
+		const { cache } = setup()
 		await navigate(cache, '/recipes/r1', async () => ({ title: 'Soup' }))
-		await navigate(cache, '/recipes/r1', async () => ({}))
-		cache.markBackgroundRevalidation('/recipes/r1')
 
 		const notFound = {
 			status: 404,
@@ -266,74 +266,41 @@ describe('server errors', () => {
 		await expect(
 			revalidate(cache, '/recipes/r1', () => Promise.reject(notFound)),
 		).rejects.toBe(notFound)
-		expect(reportError).not.toHaveBeenCalled()
 
 		const server = vi.fn(async () => ({}))
 		await navigate(cache, '/recipes/r1', server)
 		expect(server).toHaveBeenCalledOnce()
 	})
 
-	test('an error on a navigation that missed the cache is thrown and nothing is stored', async () => {
-		const { cache, reportError } = setup()
-		const failure = new Error('database is locked')
-		await expect(
-			navigate(cache, '/plan', () => Promise.reject(failure)),
-		).rejects.toBe(failure)
-		expect(reportError).not.toHaveBeenCalled()
-
-		const fresh = { meals: [] }
-		expect(await navigate(cache, '/plan', async () => fresh)).toBe(fresh)
-	})
-
-	test('a failed background revalidation keeps the cached page, reports the error, and sends the next navigation to the server', async () => {
-		const { cache, reportError } = setup()
-		const cached = { meals: ['tacos'] }
-		await navigate(cache, '/plan', async () => cached)
-		await navigate(cache, '/plan', async () => ({}))
-		cache.markBackgroundRevalidation('/plan')
+	test('a failed revalidation goes to the error path and the next navigation asks the server', async () => {
+		const { cache } = setup()
+		await navigate(cache, '/plan', async () => ({ meals: ['tacos'] }))
 
 		const failure = new TypeError('Load failed')
-		expect(
-			await revalidate(cache, '/plan', () => Promise.reject(failure)),
-		).toBe(cached)
-		expect(reportError).toHaveBeenCalledWith(failure)
-		// Keeping the page must not trigger another background revalidation.
-		expect(cache.takeServedFromCache(cached)).toBe(false)
+		await expect(
+			revalidate(cache, '/plan', () => Promise.reject(failure)),
+		).rejects.toBe(failure)
 
 		const next = vi.fn(() => Promise.reject(failure))
 		await expect(navigate(cache, '/plan', next)).rejects.toBe(failure)
 		expect(next).toHaveBeenCalledOnce()
 	})
 
-	test('a post-action revalidation error goes to the error path even with a cached entry', async () => {
-		const { cache, reportError } = setup()
-		await navigate(cache, '/plan', async () => ({ meals: ['tacos'] }))
-
-		const failure = new Error('constraint failed')
+	test('an error on a navigation that missed the cache is thrown and nothing is stored', async () => {
+		const { cache } = setup()
+		const failure = new Error('database is locked')
 		await expect(
-			revalidate(cache, '/plan', () => Promise.reject(failure)),
+			navigate(cache, '/plan', () => Promise.reject(failure)),
 		).rejects.toBe(failure)
-		expect(reportError).not.toHaveBeenCalled()
+
+		const fresh = { meals: [] }
+		expect(await navigate(cache, '/plan', async () => fresh)).toBe(fresh)
 	})
 
-	test('the background mark covers one revalidation only', async () => {
+	test('a revalidation aborted by a navigation keeps the entry', async () => {
 		const { cache } = setup()
 		const cached = { meals: ['tacos'] }
 		await navigate(cache, '/plan', async () => cached)
-		cache.markBackgroundRevalidation('/plan')
-		await revalidate(cache, '/plan', async () => cached)
-
-		const failure = new Error('constraint failed')
-		await expect(
-			revalidate(cache, '/plan', () => Promise.reject(failure)),
-		).rejects.toBe(failure)
-	})
-
-	test('a background revalidation aborted by a navigation keeps the entry and reports nothing', async () => {
-		const { cache, reportError } = setup()
-		const cached = { meals: ['tacos'] }
-		await navigate(cache, '/plan', async () => cached)
-		cache.markBackgroundRevalidation('/plan')
 
 		const controller = new AbortController()
 		const pending = deferred<never>()
@@ -347,7 +314,6 @@ describe('server errors', () => {
 		controller.abort(abort)
 		pending.reject(abort)
 		await expect(load).rejects.toBe(abort)
-		expect(reportError).not.toHaveBeenCalled()
 
 		expect(await navigate(cache, '/plan', async () => ({}))).toBe(cached)
 	})
@@ -405,8 +371,20 @@ describe('remembering the first page', () => {
 		expect(await navigate(cache, '/plan', async () => ({}))).toBe(loaded)
 	})
 
+	test('a response a clear refused is not stored by remembering it', async () => {
+		const { cache } = setup()
+		const pending = deferred<{ items: string[] }>()
+		const load = navigate(cache, '/shopping', () => pending.promise)
+		cache.clear()
+		pending.resolve({ items: ['before the write'] })
+		cache.remember('/shopping', await load)
+
+		const fresh = { items: ['after the write'] }
+		expect(await navigate(cache, '/shopping', async () => fresh)).toBe(fresh)
+	})
+
 	test('nothing is remembered without a known identity', async () => {
-		const cache = createLoaderCache({ reportError: vi.fn() })
+		const cache = createLoaderCache()
 		cache.remember('/plan', { meals: ['tacos'] })
 		cache.setIdentity('alex-home')
 
@@ -415,15 +393,47 @@ describe('remembering the first page', () => {
 	})
 })
 
-describe('peeking for a parent guard', () => {
-	test('reports a hit only for a navigation to a cached URL', async () => {
-		const { cache } = setup()
-		await navigate(cache, '/recipes', async () => ({ recipes: [] }))
+describe('the committed location', () => {
+	afterEach(() => {
+		loaderCache.setIdentity(null)
+		loaderCache.setLocation(null)
+		vi.unstubAllGlobals()
+	})
 
-		expect(cache.willServe(request('/recipes'), '/plan')).toBe(true)
-		expect(cache.willServe(request('/recipes'), '/recipes')).toBe(false)
-		expect(cache.willServe(request('/recipes/r1'), '/plan')).toBe(false)
-		cache.setIdentity(null)
-		expect(cache.willServe(request('/recipes'), '/plan')).toBe(false)
+	test('back and forward to a cached page are served from the cache, though window.location already shows the target', async () => {
+		loaderCache.setIdentity('alex-home')
+		loaderCache.setLocation('/shopping')
+		const plan = { meals: ['tacos'] }
+		await staleWhileRevalidate({
+			request: request('/plan'),
+			serverLoader: async () => plan,
+		})
+		// The user went on to Shopping, then pressed Back: the browser already
+		// shows /plan while the router is still on /shopping.
+		loaderCache.setLocation('/shopping')
+		vi.stubGlobal('window', { location: { pathname: '/plan', search: '' } })
+
+		const server = vi.fn(async () => ({ meals: [] }))
+		expect(
+			await staleWhileRevalidate({
+				request: request('/plan'),
+				serverLoader: server,
+			}),
+		).toBe(plan)
+		expect(server).not.toHaveBeenCalled()
+	})
+
+	test('before the first commit every load asks the server', async () => {
+		const { cache } = setup()
+		await navigate(cache, '/plan', async () => ({ meals: ['tacos'] }))
+		cache.setLocation(null)
+
+		const fresh = { meals: [] }
+		expect(
+			await cache.load({
+				request: request('/plan'),
+				serverLoader: async () => fresh,
+			}),
+		).toBe(fresh)
 	})
 })

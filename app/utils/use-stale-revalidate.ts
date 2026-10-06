@@ -23,7 +23,6 @@ export function useStaleRevalidate(loaderData: unknown) {
 			loaderCache.remember(href, loaderData)
 			return
 		}
-		loaderCache.markBackgroundRevalidation(href)
 		void revalidate()
 	}, [loaderData, href, revalidate])
 }

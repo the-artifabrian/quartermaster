@@ -245,6 +245,13 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 	await prisma.subscription.create({
 		data: { userId: user.id, tier: 'pro' },
 	})
+	await prisma.shoppingList.create({
+		data: {
+			userId: user.id,
+			householdId: user.householdId,
+			items: { create: { name: 'Milk' } },
+		},
+	})
 
 	const requestCounts = new Map<string, number>()
 	const transferTracker = await trackDataTransfer(page)
@@ -323,8 +330,7 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 		expect(metric.inputToFeedbackMs).not.toBeNull()
 		expect(metric.inputToFeedbackMs!).toBeLessThan(34)
 		expect(metric.inputToIdleMs).not.toBeNull()
-		// The Recipes guard layout loads beside the page, in parallel.
-		expect(metric.dataRequests).toBe(metric.destination === 'Recipes' ? 2 : 1)
+		expect(metric.dataRequests).toBe(1)
 		expect(metric.dataTransferBytes).toBeGreaterThan(0)
 	}
 	expect(
@@ -337,6 +343,14 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 				).__bottomNavViewTransitions ?? 0,
 		),
 	).toBeGreaterThanOrEqual(destinations.length)
+
+	// Every tab is in the loader cache now, and a tab from memory commits
+	// before a pending state shows. A Shopping check drops the cache, so the
+	// presses below wait on the (delayed) server again.
+	const milk = page.getByRole('group', { name: 'Milk shopping item' })
+	await milk.getByRole('button', { name: 'Check off item' }).click()
+	await expect(milk.getByRole('button', { name: 'Uncheck item' })).toBeVisible()
+	await expect(milk.getByRole('status')).toBeHidden()
 
 	const recipesLink = nav.getByRole('link', { name: 'Recipes', exact: true })
 	const requestCountBeforeCancel = requestCounts.get('/recipes') ?? 0
@@ -392,9 +406,7 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 	await page.keyboard.up('Enter')
 	await expect(page).toHaveURL('/plan')
 	await expect(planLink).not.toHaveAttribute('data-pending')
-	// The second visit comes from the loader cache, and its revalidation
-	// behind the page reloads root and Plan.
-	await expect.poll(() => requestCounts.get('/plan')).toBe(3)
+	expect(requestCounts.get('/plan')).toBe(2)
 
 	await page.goto(`/recipes/${recipe.id}`)
 	await expect(page.getByRole('heading', { name: recipe.title })).toBeVisible()
@@ -414,8 +426,9 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 	await restoreRecipesLink.click()
 	await expect(page).toHaveURL('/recipes')
-	// Trace, the cancelled press, and this click.
-	expect(requestCounts.get('/recipes')).toBe(3)
+	// Trace, the cancelled press, and this press: within the tab, root
+	// reloads beside the list.
+	expect(requestCounts.get('/recipes')).toBe(4)
 	await page.goBack()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 	await page.goForward()

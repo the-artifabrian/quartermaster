@@ -69,7 +69,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function NewMenu() {
 	return (
-		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+env(safe-area-inset-bottom))] md:pb-6">
+		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			<h1 className="mb-6 font-serif text-2xl font-normal">New Menu</h1>
 			<MenuForm submitLabel="Create Menu" />
 		</div>

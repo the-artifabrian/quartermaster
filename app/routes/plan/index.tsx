@@ -165,7 +165,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const currentWeek = serializeDate(getCurrentWeekStart())
 
 	return (
-		<div className="pb-[calc(var(--bottom-nav-h)+1rem+env(safe-area-inset-bottom))] md:pb-6">
+		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			<div className="container-grid py-4">
 				<h1 className="font-serif text-2xl">Meal Plan</h1>
 

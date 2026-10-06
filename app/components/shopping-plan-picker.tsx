@@ -535,7 +535,7 @@ function PickerSheet({
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby="plan-picker-title"
-				className="animate-slide-up-reveal border-border/60 bg-popover text-popover-foreground shadow-warm-lg fixed inset-x-0 top-[calc(env(safe-area-inset-top)+2.5rem)] bottom-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom))] z-[60] flex flex-col rounded-t-xl border-t p-4"
+				className="animate-slide-up-reveal border-border/60 bg-popover text-popover-foreground shadow-warm-lg fixed inset-x-0 top-[calc(env(safe-area-inset-top)+2.5rem)] bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset))] z-[60] flex flex-col rounded-t-xl border-t p-4"
 			>
 				{children}
 			</div>

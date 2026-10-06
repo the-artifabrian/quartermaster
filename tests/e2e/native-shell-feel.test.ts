@@ -187,14 +187,25 @@ test.describe('the homepage in the iOS app', () => {
 test.describe('the tab bar in the iOS app', () => {
 	test.use({ userAgent: SHELL_UA, viewport: { width: 390, height: 844 } })
 
-	test('the tab bar is as tall as a native one', async ({ page, login }) => {
+	test('the tab bar is a 46pt row that overlaps the home indicator inset', async ({
+		page,
+		login,
+	}) => {
 		await login()
 		await page.goto('/plan')
-		// Playwright has no home indicator, so the bar is the row of tabs and
-		// its 1px top border.
+		// Playwright has no home indicator, so the inset is 0 and the bar is the
+		// row of tabs and its 1px top border.
 		expect(
 			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
-		).toBe(51)
+		).toBe(47)
+	})
+
+	test('the header is as tall as a native nav bar', async ({ page, login }) => {
+		await login()
+		await page.goto('/plan')
+		// Playwright has no status bar, so the header is the 44pt row and its
+		// 1px bottom border.
+		expect((await page.getByRole('banner').boundingBox())?.height).toBe(45)
 	})
 
 	test('a sheet docks on the tab bar with no gap', async ({ page, login }) => {
@@ -246,10 +257,14 @@ test.describe('the tab bar in the iOS app', () => {
 test.describe('in a browser', () => {
 	test.use({ userAgent: SAFARI_UA })
 
-	test('the tab bar keeps its height', async ({ page, login }) => {
+	test('the header and the tab bar keep their heights', async ({
+		page,
+		login,
+	}) => {
 		await page.setViewportSize({ width: 390, height: 844 })
 		await login()
 		await page.goto('/plan')
+		expect((await page.getByRole('banner').boundingBox())?.height).toBe(67)
 		expect(
 			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
 		).toBe(65)

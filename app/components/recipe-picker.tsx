@@ -120,7 +120,7 @@ function PickerSheet({
 			aria-labelledby="recipe-picker-sheet-title"
 		>
 			<div className="fixed inset-0 z-40 bg-black/15" onClick={onClose} />
-			<div className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom))] z-50 rounded-t-xl border-t p-4">
+			<div className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset))] z-50 rounded-t-xl border-t p-4">
 				<div className="mb-2 flex items-center justify-between">
 					<span id="recipe-picker-sheet-title" className="text-sm font-medium">
 						Add a recipe

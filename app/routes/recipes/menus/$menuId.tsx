@@ -334,7 +334,7 @@ export default function MenuDetail({
 			]
 		: []
 	return (
-		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+env(safe-area-inset-bottom))] md:pb-6">
+		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			<Link
 				to="/recipes/menus"
 				viewTransition

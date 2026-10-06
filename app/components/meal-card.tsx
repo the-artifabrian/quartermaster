@@ -407,6 +407,8 @@ function MealDetailsForm({
 				<Input
 					id={`guests-${meal.id}`}
 					type="number"
+					inputMode="numeric"
+					enterKeyHint="done"
 					name="guestCount"
 					min={1}
 					max={999}

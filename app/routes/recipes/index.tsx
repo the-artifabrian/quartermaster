@@ -475,6 +475,8 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							/>
 							<input
 								type="search"
+								inputMode="search"
+								enterKeyHint="search"
 								placeholder="Search by name or ingredient"
 								aria-label="Search by name or ingredient"
 								value={searchInput}

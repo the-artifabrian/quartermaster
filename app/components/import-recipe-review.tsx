@@ -386,6 +386,14 @@ export function ImportRecipeReview({
 										name={name}
 										type={name === 'yieldLabel' ? 'text' : 'number'}
 										step={name === 'yieldAmount' ? 'any' : '1'}
+										inputMode={
+											name === 'yieldLabel'
+												? undefined
+												: name === 'yieldAmount'
+													? 'decimal'
+													: 'numeric'
+										}
+										enterKeyHint="done"
 										value={details[name]}
 										onChange={(event) =>
 											setDetails({ ...details, [name]: event.target.value })

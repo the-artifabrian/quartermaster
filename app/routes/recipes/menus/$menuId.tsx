@@ -275,6 +275,8 @@ function AddToPlanPanel({
 					<Input
 						id="plan-guests"
 						type="number"
+						inputMode="numeric"
+						enterKeyHint="done"
 						name="guestCount"
 						min={1}
 						max={999}

@@ -226,6 +226,8 @@ export function RecipeForm({
 							key={yieldAmountKey}
 							{...yieldAmountProps}
 							step="any"
+							inputMode="decimal"
+							enterKeyHint="done"
 							placeholder="4"
 							aria-label="Amount this recipe makes"
 							aria-invalid={
@@ -419,6 +421,8 @@ export function RecipeForm({
 							inputProps={{
 								...getInputProps(fields.activeTime, { type: 'number' }),
 								min: 1,
+								inputMode: 'numeric',
+								enterKeyHint: 'done',
 								placeholder: '—',
 							}}
 							errors={fields.activeTime.errors}
@@ -428,6 +432,8 @@ export function RecipeForm({
 							inputProps={{
 								...getInputProps(fields.totalTime, { type: 'number' }),
 								min: 1,
+								inputMode: 'numeric',
+								enterKeyHint: 'done',
 								placeholder: '—',
 							}}
 							errors={fields.totalTime.errors}

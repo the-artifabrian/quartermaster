@@ -191,6 +191,7 @@ export function MenuForm({
 					min: 1,
 					max: 999,
 					inputMode: 'numeric',
+					enterKeyHint: 'done',
 					placeholder: '—',
 				}}
 				errors={fields.defaultGuestCount.errors}
@@ -679,6 +680,7 @@ function MenuItemRow({
 						key={multiplierKey}
 						{...multiplierProps}
 						inputMode="decimal"
+						enterKeyHint="done"
 						className="h-10 w-16 text-center tabular-nums"
 					/>
 					<span aria-hidden="true" className="text-muted-foreground text-sm">
@@ -954,6 +956,7 @@ function ShoppingLineRow({
 					key={quantityKey}
 					{...quantityProps}
 					placeholder="Qty"
+					enterKeyHint="done"
 					aria-label={`Shopping line ${lineIndex + 1} quantity`}
 					className="h-10 w-14"
 				/>

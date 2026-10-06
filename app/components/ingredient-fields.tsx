@@ -424,6 +424,7 @@ function SortableIngredientRow({
 						<Input
 							id={`${id}-amount`}
 							placeholder="Amount"
+							enterKeyHint="done"
 							value={ingredient.amount ?? ''}
 							onChange={(e) => onUpdate('amount', e.target.value)}
 							className="flex-1"
@@ -569,6 +570,8 @@ function RecipeLinkPicker({
 				<Input
 					ref={inputRef}
 					placeholder="Search recipes..."
+					inputMode="search"
+					enterKeyHint="search"
 					value={query}
 					onChange={(e) => {
 						setQuery(e.target.value)

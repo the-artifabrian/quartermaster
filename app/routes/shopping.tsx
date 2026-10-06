@@ -737,6 +737,7 @@ function LaterQuickAdd() {
 						setWarningDismissed(false)
 					}}
 					placeholder="Add for later..."
+					enterKeyHint="go"
 					className="h-9 min-w-0 flex-1"
 				/>
 				<button
@@ -1103,6 +1104,7 @@ export default function ShoppingListRoute({
 										setWarningDismissed(false)
 									}}
 									placeholder="Add an item..."
+									enterKeyHint="go"
 									className="h-10 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
 								/>
 							</div>
@@ -1160,6 +1162,7 @@ export default function ShoppingListRoute({
 										value={qaQuantity}
 										onChange={(e) => setQaQuantity(e.target.value)}
 										placeholder="Qty"
+										enterKeyHint="go"
 										className="h-8 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
 									/>
 								</div>
@@ -1169,6 +1172,7 @@ export default function ShoppingListRoute({
 										value={qaUnit}
 										onChange={(e) => setQaUnit(e.target.value)}
 										placeholder="Unit"
+										enterKeyHint="go"
 										className="h-8 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
 									/>
 								</div>
@@ -1194,6 +1198,8 @@ export default function ShoppingListRoute({
 						/>
 						<Input
 							type="search"
+							inputMode="search"
+							enterKeyHint="search"
 							placeholder="Search shopping list..."
 							value={search}
 							onChange={(e) => setSearch(e.target.value)}

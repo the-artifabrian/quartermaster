@@ -191,6 +191,7 @@ export function MobileFabAdd({
 									setWarningDismissed(false)
 								}}
 								placeholder="Add an item..."
+								enterKeyHint="go"
 								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-10 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-sm outline-none focus:ring-1"
 							/>
 							{isProActive && (
@@ -236,6 +237,7 @@ export function MobileFabAdd({
 									value={quantity}
 									onChange={(e) => setQuantity(e.target.value)}
 									placeholder="Qty"
+									enterKeyHint="go"
 									className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-8 w-16 rounded-lg border bg-transparent px-2 text-sm outline-none"
 								/>
 								<input
@@ -243,6 +245,7 @@ export function MobileFabAdd({
 									value={unit}
 									onChange={(e) => setUnit(e.target.value)}
 									placeholder="Unit"
+									enterKeyHint="go"
 									className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-8 min-w-0 flex-1 rounded-lg border bg-transparent px-2 text-sm outline-none"
 								/>
 								<button

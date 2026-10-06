@@ -165,7 +165,7 @@ export default function ChangePasswordRoute({
 				errors={fields.confirmNewPassword.errors}
 			/>
 			<ErrorList id={form.errorId} errors={form.errors} />
-			<div className="grid w-full grid-cols-2 gap-6">
+			<div className="mt-8 grid w-full grid-cols-2 gap-6">
 				<Button variant="secondary" asChild>
 					<Link to="..">Cancel</Link>
 				</Button>

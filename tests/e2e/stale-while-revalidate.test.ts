@@ -7,6 +7,15 @@ import { expect, test } from '#tests/playwright-utils.ts'
 test.use({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } })
 
 const PLAN_ROUTE = 'routes/plan/index'
+const SHOPPING_ROUTE = 'routes/shopping'
+
+function openGate() {
+	let release = () => {}
+	const promise = new Promise<void>((resolve) => {
+		release = resolve
+	})
+	return { promise, release }
+}
 
 function bottomNav(page: Page) {
 	return page
@@ -76,21 +85,21 @@ test("a revisited Plan shows at once from memory, then shows the other member's 
 
 	// Hold every Plan .data request until the test lets it go, and note where
 	// the page already was when each one left.
-	let release = () => {}
-	const gate = new Promise<void>((resolve) => {
-		release = resolve
-	})
+	let gate = openGate()
 	const planRequests: Array<{ pathname: string; showedTacos: boolean }> = []
+	// Root requests pass, but each is noted with where the page was.
+	const rootRequests: Array<{ pathname: string; showedTacos: boolean }> = []
 	await page.route('**/plan.data*', async (route) => {
-		if (isPlanData(route.request().url())) {
-			planRequests.push(
-				await page.evaluate(() => ({
-					pathname: window.location.pathname,
-					showedTacos: document.body.innerText.includes('Tacos'),
-				})),
-			)
+		const seen = await page.evaluate(() => ({
+			pathname: window.location.pathname,
+			showedTacos: document.body.innerText.includes('Tacos'),
+		}))
+		if (!isPlanData(route.request().url())) {
+			rootRequests.push(seen)
+			return route.continue()
 		}
-		await gate
+		planRequests.push(seen)
+		await gate.promise
 		await route.continue()
 	})
 
@@ -102,8 +111,11 @@ test("a revisited Plan shows at once from memory, then shows the other member's 
 	// the navigation waiting on the server.
 	await expect.poll(() => planRequests.length).toBe(1)
 	expect(planRequests[0]).toEqual({ pathname: '/plan', showedTacos: true })
+	// A tab switch does not wait on root either; root reloads only in the
+	// revalidation behind the page.
+	expect(rootRequests.every((request) => request.showedTacos)).toBe(true)
 
-	release()
+	gate.release()
 	await expect(mobile.getByText("Sam's curry")).toBeVisible()
 	await expect(mobile.getByText('Tacos')).toBeVisible()
 	// Fresh data does not start another revalidation.
@@ -112,4 +124,89 @@ test("a revisited Plan shows at once from memory, then shows the other member's 
 	expect(await prisma.meal.count({ where: { mealPlanId: mealPlan.id } })).toBe(
 		2,
 	)
+
+	// Back (the WKWebView swipe, the browser button) gets Plan from memory too:
+	// the browser shows /plan before the loaders run, but the router is still
+	// on Shopping. Root reloads on a back navigation (single fetch), so that one
+	// request goes before the page shows; Plan's own goes after.
+	await nav.getByRole('link', { name: 'Shop', exact: true }).click()
+	await expect(page).toHaveURL('/shopping')
+	await expect(mobile).toHaveCount(0)
+	gate = openGate()
+	planRequests.length = 0
+	rootRequests.length = 0
+	await page.goBack()
+	await expect(page).toHaveURL('/plan')
+	await expect(mobile.getByText("Sam's curry")).toBeVisible()
+	await expect.poll(() => planRequests.length).toBe(1)
+	expect(planRequests[0]).toEqual({ pathname: '/plan', showedTacos: true })
+	expect(rootRequests[0]).toEqual({ pathname: '/plan', showedTacos: false })
+	gate.release()
+	await page.waitForTimeout(500)
+	expect(planRequests).toHaveLength(1)
+})
+
+test('a checked Shopping item is not shown unchecked from memory', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const list = await prisma.shoppingList.create({
+		data: {
+			userId: user.id,
+			householdId: user.householdId,
+			items: { create: { name: 'Rice', quantity: '200', unit: 'g' } },
+		},
+		include: { items: true },
+	})
+	const rice = page.getByRole('group', { name: 'Rice shopping item' })
+	const nav = bottomNav(page)
+	await page.goto('/shopping')
+	await page.waitForFunction(() =>
+		[
+			...document.querySelectorAll<HTMLInputElement>(
+				'input[name="originClientId"]',
+			),
+		].some((input) => input.value),
+	)
+
+	// The check is a native fetch, outside the Router.
+	await rice.getByRole('button', { name: 'Check off item' }).click()
+	await expect(rice.getByRole('button', { name: 'Uncheck item' })).toBeVisible()
+	await expect(rice.getByRole('status')).toBeHidden()
+	await expect
+		.poll(
+			async () =>
+				(
+					await prisma.shoppingListItem.findUniqueOrThrow({
+						where: { id: list.items[0]!.id },
+					})
+				).checked,
+		)
+		.toBe(true)
+
+	await nav.getByRole('link', { name: 'Plan', exact: true }).click()
+	await expect(page).toHaveURL('/plan')
+
+	const gate = openGate()
+	const shoppingRequests: string[] = []
+	await page.route('**/shopping.data*', async (route) => {
+		const { searchParams } = new URL(route.request().url())
+		if (
+			(searchParams.get('_routes') ?? '').split(',').includes(SHOPPING_ROUTE)
+		) {
+			shoppingRequests.push(await page.evaluate(() => window.location.pathname))
+		}
+		await gate.promise
+		await route.continue()
+	})
+	await nav.getByRole('link', { name: 'Shop', exact: true }).click()
+	// The check dropped the remembered Shopping page, so the navigation waits
+	// for the server instead of showing Rice unchecked.
+	await expect.poll(() => shoppingRequests.length).toBe(1)
+	expect(shoppingRequests[0]).toBe('/plan')
+	await expect(page).toHaveURL('/plan')
+	gate.release()
+	await expect(page).toHaveURL('/shopping')
+	await expect(rice.getByRole('button', { name: 'Uncheck item' })).toBeVisible()
 })

@@ -22,6 +22,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { PlanMenuSchema } from '#app/utils/meal-plan-validation.ts'
+import { BACK_TO_LIST } from '#app/utils/nav-direction.ts'
 import { planMenu } from '#app/utils/plan-menu.server.ts'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
 import { type Route } from './+types/$menuId.ts'
@@ -274,6 +275,8 @@ function AddToPlanPanel({
 					<Input
 						id="plan-guests"
 						type="number"
+						inputMode="numeric"
+						enterKeyHint="done"
 						name="guestCount"
 						min={1}
 						max={999}
@@ -335,6 +338,7 @@ export default function MenuDetail({
 			<Link
 				to="/recipes/menus"
 				viewTransition
+				state={BACK_TO_LIST}
 				className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5 text-sm transition-colors"
 			>
 				<Icon name="arrow-left" size="sm" />

@@ -226,6 +226,8 @@ export function RecipeForm({
 							key={yieldAmountKey}
 							{...yieldAmountProps}
 							step="any"
+							inputMode="decimal"
+							enterKeyHint="done"
 							placeholder="4"
 							aria-label="Amount this recipe makes"
 							aria-invalid={
@@ -419,6 +421,8 @@ export function RecipeForm({
 							inputProps={{
 								...getInputProps(fields.activeTime, { type: 'number' }),
 								min: 1,
+								inputMode: 'numeric',
+								enterKeyHint: 'done',
 								placeholder: '—',
 							}}
 							errors={fields.activeTime.errors}
@@ -428,6 +432,8 @@ export function RecipeForm({
 							inputProps={{
 								...getInputProps(fields.totalTime, { type: 'number' }),
 								min: 1,
+								inputMode: 'numeric',
+								enterKeyHint: 'done',
 								placeholder: '—',
 							}}
 							errors={fields.totalTime.errors}
@@ -450,7 +456,7 @@ export function RecipeForm({
 				/>
 			</FormSection>
 
-			<div className="bg-background/95 sticky bottom-16 z-10 flex justify-end gap-4 border-t py-3 supports-[backdrop-filter]:backdrop-blur-sm md:static md:bottom-auto md:z-auto md:bg-transparent md:pt-6 md:pb-0 md:backdrop-blur-none">
+			<div className="bg-background/95 sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 flex justify-end gap-4 border-t py-3 supports-[backdrop-filter]:backdrop-blur-sm md:static md:bottom-auto md:z-auto md:bg-transparent md:pt-6 md:pb-0 md:backdrop-blur-none">
 				<Button type="button" variant="outline" onClick={() => history.back()}>
 					Cancel
 				</Button>

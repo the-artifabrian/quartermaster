@@ -134,6 +134,7 @@ export function ShoppingListItemCard({
 										: (display.quantity ?? '')
 								}
 								placeholder="Qty"
+								enterKeyHint="done"
 								className="flex-1"
 								maxLength={50}
 							/>

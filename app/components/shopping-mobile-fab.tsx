@@ -191,6 +191,7 @@ export function MobileFabAdd({
 									setWarningDismissed(false)
 								}}
 								placeholder="Add an item..."
+								enterKeyHint="go"
 								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-10 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-sm outline-none focus:ring-1"
 							/>
 							{isProActive && (
@@ -236,6 +237,7 @@ export function MobileFabAdd({
 									value={quantity}
 									onChange={(e) => setQuantity(e.target.value)}
 									placeholder="Qty"
+									enterKeyHint="go"
 									className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-8 w-16 rounded-lg border bg-transparent px-2 text-sm outline-none"
 								/>
 								<input
@@ -243,6 +245,7 @@ export function MobileFabAdd({
 									value={unit}
 									onChange={(e) => setUnit(e.target.value)}
 									placeholder="Unit"
+									enterKeyHint="go"
 									className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-8 min-w-0 flex-1 rounded-lg border bg-transparent px-2 text-sm outline-none"
 								/>
 								<button
@@ -275,7 +278,7 @@ export function MobileFabAdd({
 			{!open && (
 				<button
 					type="button"
-					className="bg-primary text-primary-foreground shadow-warm-md fixed right-4 bottom-[5.5rem] z-50 flex size-12 items-center justify-center rounded-full transition-all active:scale-95"
+					className="bg-primary text-primary-foreground shadow-warm-md fixed right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex size-12 items-center justify-center rounded-full transition-all active:scale-95"
 					aria-label="Add item"
 					onClick={() => onOpenChange(true)}
 				>

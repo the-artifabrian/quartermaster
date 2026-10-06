@@ -213,6 +213,8 @@ function ItemSelector({
 			<div className="flex items-center gap-2">
 				<Input
 					placeholder={placeholder}
+					inputMode="search"
+					enterKeyHint="search"
 					value={search}
 					onChange={(e) => setSearch(e.target.value)}
 					autoFocus

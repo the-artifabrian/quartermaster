@@ -113,6 +113,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 								value={newStaple}
 								onChange={(event) => setNewStaple(event.currentTarget.value)}
 								placeholder="Staple name"
+								enterKeyHint="done"
 								maxLength={200}
 								className="min-h-11"
 								disabled={addFetcher.state !== 'idle'}
@@ -155,6 +156,8 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 								<Input
 									id="search-staples"
 									type="search"
+									inputMode="search"
+									enterKeyHint="search"
 									value={search}
 									onChange={(event) => setSearch(event.currentTarget.value)}
 									placeholder="Search"

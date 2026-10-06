@@ -231,7 +231,7 @@ export function ServiceWorkerUpdate() {
 	}
 
 	return (
-		<div className="bg-card border-border shadow-warm-lg fixed right-4 bottom-24 z-50 flex items-center gap-3 rounded-lg border p-3 md:bottom-4">
+		<div className="bg-card border-border shadow-warm-lg fixed right-4 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-50 flex items-center gap-3 rounded-lg border p-3 md:bottom-4">
 			<span
 				role="status"
 				aria-live="polite"

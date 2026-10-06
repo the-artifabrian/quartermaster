@@ -1,6 +1,7 @@
 import { Img } from 'openimg/react'
-import { Link } from 'react-router'
+import { Link, useViewTransitionState } from 'react-router'
 import { cn } from '#app/utils/misc.tsx'
+import { OPEN_DETAIL } from '#app/utils/nav-direction.ts'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import { Icon } from './ui/icon.tsx'
 
@@ -24,15 +25,23 @@ export function RecipeCard({
 	isFavorite,
 }: RecipeCardProps) {
 	const placeholder = !imageObjectKey ? getRecipePlaceholder(title) : null
+	const to = `/recipes/${id}`
+	// True while this card's Recipe page slides in or out; the image moves
+	// between the card and the page.
+	const isTransitioning = useViewTransitionState(to)
 
 	return (
 		<Link
-			to={`/recipes/${id}`}
+			to={to}
 			viewTransition
+			state={OPEN_DETAIL}
 			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-all md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
 		>
 			{/* Image / Placeholder — thumbnail on mobile, full-width on desktop */}
 			<div
+				data-recipe-image-transition={
+					isTransitioning && imageObjectKey ? '' : undefined
+				}
 				className={cn(
 					'relative shrink-0 overflow-hidden rounded-lg md:rounded-none',
 					imageObjectKey

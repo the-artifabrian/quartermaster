@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { act, render, waitFor } from '@testing-library/react'
-import { createMemoryRouter, RouterProvider } from 'react-router'
+import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { expect, test, vi } from 'vitest'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import {
@@ -88,15 +88,24 @@ function setupAnalyticsEnvironment({
 function renderAnalytics(
 	element: React.ReactNode,
 	initialEntry = '/recipes?view=mine',
+	{ nativeShell = false } = {},
 ) {
+	const testRoute = { id: 'routes/test', path: '*', element }
 	const router = createMemoryRouter(
-		[
-			{
-				id: 'routes/test',
-				path: '*',
-				element,
-			},
-		],
+		nativeShell
+			? [
+					{
+						// The root loader is where the page learns it is in the iOS app.
+						id: 'root',
+						path: '/',
+						loader: () => ({ requestInfo: { isNativeShell: true } }),
+						// Rendered while that loader runs on the first render.
+						HydrateFallback: () => null,
+						element: <Outlet />,
+						children: [testRoute],
+					},
+				]
+			: [testRoute],
 		{ initialEntries: [initialEntry] },
 	)
 	return render(
@@ -145,6 +154,7 @@ test('loads PostHog only when the browser is idle and replays initial analytics'
 	expect(client.registerForSession).toHaveBeenCalledWith({
 		app_build: 'abc123def456',
 		display_mode: 'browser',
+		native_shell: false,
 		initial_route: 'routes/test',
 		navigation_type: 'unknown',
 		initial_visibility: 'visible',
@@ -241,6 +251,7 @@ test('reports one installed PWA launch before its first pageview', async () => {
 	expect(client.capture).toHaveBeenNthCalledWith(1, PWA_LAUNCHED, {
 		app_build: 'abc123def456',
 		display_mode: 'standalone',
+		native_shell: false,
 		initial_route: 'routes/test',
 		navigation_type: 'unknown',
 		initial_visibility: 'visible',
@@ -251,6 +262,41 @@ test('reports one installed PWA launch before its first pageview', async () => {
 		$current_url: window.location.href,
 		route_id: 'routes/test',
 	})
+})
+
+test('reports an iOS app launch, whose web view is not standalone, with the shell timing', async () => {
+	using _environment = setupAnalyticsEnvironment()
+	using _now = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+	vi.stubGlobal(
+		'matchMedia',
+		vi.fn(() => ({ matches: false })),
+	)
+	window.__qmShell = { initAt: 9_000, loadAt: 9_400 }
+	try {
+		const client = makeClient()
+		posthogClientModule.initializePostHog.mockReturnValue(client)
+
+		renderAnalytics(<PostHogPageview />, '/recipes', { nativeShell: true })
+		await act(async () =>
+			runWhenIdle?.({ didTimeout: false, timeRemaining: () => 50 }),
+		)
+		await waitFor(() =>
+			expect(posthogClientModule.initializePostHog).toHaveBeenCalledOnce(),
+		)
+
+		expect(client.capture).toHaveBeenNthCalledWith(
+			1,
+			PWA_LAUNCHED,
+			expect.objectContaining({
+				display_mode: 'browser',
+				native_shell: true,
+				shell_init_to_load_ms: 400,
+				shell_load_to_now_ms: 600,
+			}),
+		)
+	} finally {
+		delete window.__qmShell
+	}
 })
 
 test('does not count a standalone document reload as a new PWA launch', async () => {

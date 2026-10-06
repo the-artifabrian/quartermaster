@@ -19,6 +19,7 @@ import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
+import { NativeShellBridge } from './components/native-shell-bridge.tsx'
 import { NavTiming } from './components/nav-timing.tsx'
 import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { ProExpiryNudge } from './components/pro-expiry-nudge.tsx'
@@ -41,6 +42,7 @@ import { getEnv } from './utils/env.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
 import { combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
 import { isNativeShell } from './utils/native-shell.server.ts'
+import { useNavDirection } from './utils/nav-direction.ts'
 import { useNonce } from './utils/nonce-provider.ts'
 import { getPostHogHost } from './utils/posthog-config.ts'
 import {
@@ -278,6 +280,7 @@ function Document({
 	env = {},
 	origin,
 	path,
+	isNativeShell = false,
 }: {
 	children: React.ReactNode
 	nonce: string
@@ -285,6 +288,7 @@ function Document({
 	env?: Record<string, string | undefined>
 	origin?: string
 	path?: string
+	isNativeShell?: boolean
 }) {
 	const allowIndexing = ENV.ALLOW_INDEXING !== 'false'
 	const launchTheme = launchThemes[theme]
@@ -292,7 +296,13 @@ function Document({
 		? new URL(getPostHogHost(env.POSTHOG_HOST)).origin
 		: null
 	return (
-		<html lang="en" className={`${theme} h-full overflow-x-hidden`}>
+		<html
+			lang="en"
+			className={`${theme} h-full overflow-x-hidden`}
+			// The iOS app draws the page under the status bar; tailwind.css keys
+			// the safe-area padding off this attribute.
+			data-native-shell={isNativeShell ? '' : undefined}
+		>
 			<head>
 				<meta charSet="utf-8" />
 				<meta name="color-scheme" content="light dark" />
@@ -318,7 +328,14 @@ function Document({
 				{posthogOrigin ? (
 					<link rel="preconnect" href={posthogOrigin} crossOrigin="anonymous" />
 				) : null}
-				<meta name="viewport" content="width=device-width,initial-scale=1" />
+				<meta
+					name="viewport"
+					content={
+						isNativeShell
+							? 'width=device-width,initial-scale=1,viewport-fit=cover'
+							: 'width=device-width,initial-scale=1'
+					}
+				/>
 				<meta name="mobile-web-app-capable" content="yes" />
 				<meta name="apple-mobile-web-app-capable" content="yes" />
 				<meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -364,6 +381,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 			env={data?.ENV}
 			origin={data?.requestInfo.origin}
 			path={data?.requestInfo.path}
+			isNativeShell={data?.requestInfo.isNativeShell}
 		>
 			{children}
 		</Document>
@@ -376,7 +394,11 @@ function App() {
 	const theme = useTheme()
 	const isPro = data.tierInfo.isProActive
 	const { pathname } = useLocation()
+	const isNativeShell = data.requestInfo.isNativeShell
+	// The homepage re-themes the chrome around it to espresso in either theme.
+	const chrome = pathname === '/' ? 'espresso' : undefined
 	useToast(data.toast)
+	useNavDirection()
 
 	return (
 		<NavTiming>
@@ -395,15 +417,31 @@ function App() {
 				householdId={data.householdId}
 			/>
 			<ServiceWorkerUpdate />
+			{isNativeShell ? (
+				// The status bar sits on the chrome, so espresso needs light text.
+				<NativeShellBridge theme={chrome === 'espresso' ? 'dark' : theme} />
+			) : null}
 			<OpenImgContextProvider
 				optimizerEndpoint="/resources/images"
 				getSrc={getImgSrc}
 			>
 				<div
 					className="flex min-h-screen flex-col justify-between"
-					data-chrome={pathname === '/' ? 'espresso' : undefined}
+					data-chrome={chrome}
 				>
-					<header className="bg-card/80 border-border/50 z-40 border-b backdrop-blur-sm md:sticky md:top-0">
+					{isNativeShell ? (
+						// Content scrolls under the status bar behind the same frosted
+						// background as the bottom tab bar.
+						<div
+							aria-hidden="true"
+							data-status-bar-backdrop=""
+							className="bg-card/95 pointer-events-none fixed inset-x-0 top-0 z-50 h-[env(safe-area-inset-top)] backdrop-blur-sm print:hidden"
+						/>
+					) : null}
+					<header
+						data-site-header=""
+						className="bg-card/80 border-border/50 z-40 border-b backdrop-blur-sm md:sticky md:top-0"
+					>
 						<nav
 							aria-label="Main"
 							className="container flex flex-wrap items-center justify-between gap-4 py-3 sm:flex-nowrap md:gap-8"
@@ -472,7 +510,15 @@ function App() {
 					</main>
 				</div>
 				<BottomNav />
-				<Toaster closeButton position="top-center" theme={theme} />
+				<Toaster
+					closeButton
+					position="top-center"
+					theme={theme}
+					// Sonner's default offsets, pushed below the status bar in the iOS
+					// app. The inset is 0 everywhere else.
+					offset={{ top: 'calc(24px + env(safe-area-inset-top))' }}
+					mobileOffset={{ top: 'calc(16px + env(safe-area-inset-top))' }}
+				/>
 				<OfflineIndicator />
 				{user && isPro ? <HouseholdActivityNotifier /> : null}
 				{user ? <ProExpiryNudge /> : null}

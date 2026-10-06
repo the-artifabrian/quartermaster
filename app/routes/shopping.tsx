@@ -53,6 +53,7 @@ import {
 	parseShoppingHorizon,
 	type ShoppingHorizon,
 } from '#app/utils/shopping-horizon.ts'
+import { haptic } from '#app/utils/shell-bridge.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
 	ShoppingListItemSchema,
@@ -736,6 +737,7 @@ function LaterQuickAdd() {
 						setWarningDismissed(false)
 					}}
 					placeholder="Add for later..."
+					enterKeyHint="go"
 					className="h-9 min-w-0 flex-1"
 				/>
 				<button
@@ -793,6 +795,7 @@ function ClearCheckedControl({
 				method="POST"
 				className="inline"
 				onSubmit={(event) => {
+					haptic('warning')
 					if (
 						!confirm(
 							`Clear ${checkedCount} checked item${checkedCount !== 1 ? 's' : ''} from ${sectionLabel}?`,
@@ -1006,7 +1009,7 @@ export default function ShoppingListRoute({
 		showWarning && warningData.warningType !== 'move_to_section'
 
 	return (
-		<div className="pb-28 md:pb-6">
+		<div className="pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-6">
 			{isProActive && <ShoppingListLiveRefresh />}
 			{checks.notices.length > 0 && (
 				<div role="alert" className="container-narrow py-3 text-sm">
@@ -1101,6 +1104,7 @@ export default function ShoppingListRoute({
 										setWarningDismissed(false)
 									}}
 									placeholder="Add an item..."
+									enterKeyHint="go"
 									className="h-10 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
 								/>
 							</div>
@@ -1158,6 +1162,7 @@ export default function ShoppingListRoute({
 										value={qaQuantity}
 										onChange={(e) => setQaQuantity(e.target.value)}
 										placeholder="Qty"
+										enterKeyHint="go"
 										className="h-8 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
 									/>
 								</div>
@@ -1167,6 +1172,7 @@ export default function ShoppingListRoute({
 										value={qaUnit}
 										onChange={(e) => setQaUnit(e.target.value)}
 										placeholder="Unit"
+										enterKeyHint="go"
 										className="h-8 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
 									/>
 								</div>
@@ -1192,6 +1198,8 @@ export default function ShoppingListRoute({
 						/>
 						<Input
 							type="search"
+							inputMode="search"
+							enterKeyHint="search"
 							placeholder="Search shopping list..."
 							value={search}
 							onChange={(e) => setSearch(e.target.value)}

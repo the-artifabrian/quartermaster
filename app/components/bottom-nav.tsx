@@ -6,6 +6,7 @@ import {
 } from 'react'
 import { NavLink, useLocation, useNavigate, useNavigation } from 'react-router'
 import { cn } from '#app/utils/misc.tsx'
+import { haptic } from '#app/utils/shell-bridge.ts'
 import { useIsProActive } from '#app/utils/subscription.ts'
 import { useShoppingActivityDot } from '#app/utils/use-shopping-activity-dot.ts'
 import { useOptionalUser } from '#app/utils/user.ts'
@@ -172,6 +173,7 @@ export function BottomNav() {
 	return (
 		<nav
 			aria-label="Main"
+			data-bottom-nav=""
 			className="bg-card/95 border-border fixed inset-x-0 bottom-0 z-50 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden print:hidden"
 		>
 			<div className="grid h-16 grid-cols-4 items-center">
@@ -229,6 +231,7 @@ export function BottomNav() {
 								)
 									return
 								if (isOnSubPage) delete lastPathPerTab.current[item.to]
+								haptic('selection')
 								startTabNavigation(item, linkTo, startedAt)
 								void navigate(linkTo, { viewTransition: true })
 							}}
@@ -274,6 +277,9 @@ export function BottomNav() {
 								if (isOnSubPage) delete lastPathPerTab.current[item.to]
 								if (!isNormalLinkActivation(event) || event.defaultPrevented)
 									return
+								// Only a click no press switched gets here (the keyboard's), so
+								// one tap gives one haptic.
+								haptic('selection')
 
 								const startedAt =
 									inputRef.current?.tabPath === item.to

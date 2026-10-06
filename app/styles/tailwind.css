@@ -363,6 +363,18 @@ html {
 		-webkit-tap-highlight-color: transparent;
 	}
 
+	/* In the iOS app, a long press on a link or image does not open the
+	   callout, and one on the header or tab bar does not select text. Safari
+	   and the Home Screen install keep Copy, Open in New Tab and Save Image. */
+	:root[data-native-shell] :is(a, img) {
+		-webkit-touch-callout: none;
+	}
+
+	:root[data-native-shell] :is([data-site-header], [data-bottom-nav]) {
+		-webkit-user-select: none;
+		user-select: none;
+	}
+
 	a,
 	button,
 	[role='button'],
@@ -426,6 +438,108 @@ html {
 ::view-transition-old(root),
 ::view-transition-new(root) {
 	animation-duration: 180ms;
+}
+
+/* The iOS app (`<html data-native-shell>`) draws the page under the status
+   bar. The header scrolls away with its padding; the fixed backdrop keeps the
+   status bar readable over whatever scrolls under it. */
+:root[data-native-shell] [data-site-header] {
+	padding-top: env(safe-area-inset-top);
+}
+
+/* In the iOS app, detail pages slide like a native push and pop
+   (`data-nav-direction`, set by useNavDirection); tab switches keep the
+   cross-fade. The status bar backdrop and the tab bar stay put, and the
+   Recipe image moves from its card to the Recipe page. */
+:root[data-native-shell] [data-status-bar-backdrop] {
+	view-transition-name: status-bar;
+}
+
+:root[data-native-shell] [data-bottom-nav] {
+	view-transition-name: bottom-nav;
+}
+
+:root[data-native-shell] [data-recipe-image-transition] {
+	view-transition-name: recipe-image;
+}
+
+::view-transition-old(recipe-image),
+::view-transition-new(recipe-image) {
+	height: 100%;
+	object-fit: cover;
+}
+
+@keyframes page-enter-from-right {
+	from {
+		transform: translateX(100%);
+	}
+}
+
+@keyframes page-leave-to-right {
+	to {
+		transform: translateX(100%);
+	}
+}
+
+@keyframes page-recede-left {
+	to {
+		transform: translateX(-25%);
+	}
+}
+
+@keyframes page-return-from-left {
+	from {
+		transform: translateX(-25%);
+	}
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	:root[data-native-shell][data-nav-direction]::view-transition-old(root),
+	:root[data-native-shell][data-nav-direction]::view-transition-new(root) {
+		animation-duration: 320ms;
+		animation-timing-function: var(--ease-page-settle);
+		animation-fill-mode: both;
+		mix-blend-mode: normal;
+	}
+
+	:root[data-native-shell][data-nav-direction='forward']::view-transition-old(
+			root
+		) {
+		animation-name: page-recede-left;
+	}
+
+	:root[data-native-shell][data-nav-direction='forward']::view-transition-new(
+			root
+		) {
+		animation-name: page-enter-from-right;
+	}
+
+	:root[data-native-shell][data-nav-direction='back']::view-transition-old(
+			root
+		) {
+		animation-name: page-leave-to-right;
+		z-index: 1;
+	}
+
+	:root[data-native-shell][data-nav-direction='back']::view-transition-new(
+			root
+		) {
+		animation-name: page-return-from-left;
+	}
+
+	:root[data-native-shell][data-nav-direction]::view-transition-group(
+			recipe-image
+		) {
+		animation-duration: 320ms;
+		animation-timing-function: var(--ease-page-settle);
+	}
+}
+
+/* The system's back swipe already moved the page. */
+:root[data-native-shell][data-nav-direction='none']::view-transition-group(*),
+:root[data-native-shell][data-nav-direction='none']::view-transition-old(*),
+:root[data-native-shell][data-nav-direction='none']::view-transition-new(*) {
+	animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

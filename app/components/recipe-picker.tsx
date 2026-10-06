@@ -178,6 +178,8 @@ function PickerList({
 		<div className="space-y-2">
 			<Input
 				placeholder="Search recipes..."
+				inputMode="search"
+				enterKeyHint="search"
 				value={search}
 				onChange={(e) => setSearch(e.target.value)}
 				autoFocus

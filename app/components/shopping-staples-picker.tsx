@@ -251,6 +251,8 @@ export function ShoppingStaplesPicker({
 						/>
 						<Input
 							type="search"
+							inputMode="search"
+							enterKeyHint="search"
 							value={search}
 							onChange={(event) => setSearch(event.currentTarget.value)}
 							placeholder="Search Staples"

@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { OPEN_DETAIL } from '#app/utils/nav-direction.ts'
 import { Icon } from './ui/icon.tsx'
 
 type MenuCardProps = {
@@ -22,6 +23,7 @@ export function MenuCard({
 		<Link
 			to={`/recipes/menus/${id}`}
 			viewTransition
+			state={OPEN_DETAIL}
 			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3.5 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-all md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
 		>
 			{/* Menus carry no imagery (#149) — the row reads like a

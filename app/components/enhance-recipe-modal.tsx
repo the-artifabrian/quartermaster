@@ -128,7 +128,7 @@ export function EnhanceRecipeModal({
 				onClick={onClose}
 			/>
 			{/* Modal */}
-			<div className="bg-card shadow-warm-lg relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-xl p-6 sm:rounded-xl">
+			<div className="bg-card shadow-warm-lg relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:rounded-xl sm:pb-6">
 				<div className="mb-1 flex items-center justify-between">
 					<h2
 						id="enhance-title"

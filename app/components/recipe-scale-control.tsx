@@ -72,6 +72,7 @@ export function RecipeScaleControl({
 			<Input
 				type="text"
 				inputMode="decimal"
+				enterKeyHint="done"
 				value={draft}
 				onChange={(event) => {
 					if (!isAllowedScaleDraft(event.target.value)) return

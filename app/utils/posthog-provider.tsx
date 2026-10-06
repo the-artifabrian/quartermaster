@@ -25,6 +25,8 @@ import {
 	getPwaUpdateTelemetry,
 	type PwaTelemetryCapture,
 } from './pwa-update-telemetry.ts'
+import { useIsNativeShell } from './request-info.ts'
+import { getShellLaunchTiming } from './shell-bridge.ts'
 
 type AnalyticsProperties = Record<string, unknown>
 export type AnalyticsCaptureOptions = {
@@ -205,6 +207,7 @@ export function PostHogPageview() {
 	const location = useLocation()
 	const routeId = getCurrentRouteId(useMatches())
 	const posthog = usePostHog()
+	const isNativeShell = useIsNativeShell()
 	const initialRouteRef = useRef(routeId)
 	const initialContextRef = useRef<ReturnType<
 		typeof getPwaSessionContext
@@ -215,6 +218,7 @@ export function PostHogPageview() {
 		initialContextRef.current ??= getPwaSessionContext({
 			appBuild: window.ENV.APP_BUILD,
 			initialRoute: initialRouteRef.current,
+			nativeShell: isNativeShell,
 		})
 		const sessionContext = initialContextRef.current
 		// Register before capture so PostHog's built-in Web Vitals inherit the
@@ -223,11 +227,17 @@ export function PostHogPageview() {
 		posthog.registerForSession(sessionContext)
 		if (!didCaptureLaunchRef.current) {
 			didCaptureLaunchRef.current = true
+			// The iOS app's web view reports display mode `browser`; its launch
+			// counts too, with the shell's own timing.
+			const shellTiming = getShellLaunchTiming()
 			if (
-				sessionContext.display_mode === 'standalone' &&
+				(sessionContext.display_mode === 'standalone' || shellTiming) &&
 				sessionContext.navigation_type !== 'reload'
 			) {
-				posthog.capture(PWA_LAUNCHED, sessionContext)
+				posthog.capture(
+					PWA_LAUNCHED,
+					shellTiming ? { ...sessionContext, ...shellTiming } : sessionContext,
+				)
 			}
 			const updateTelemetry = getPwaUpdateTelemetry({
 				toBuild: sessionContext.app_build,
@@ -255,7 +265,7 @@ export function PostHogPageview() {
 			$current_url: window.location.href,
 			route_id: routeId,
 		})
-	}, [location.pathname, location.search, posthog, routeId])
+	}, [location.pathname, location.search, posthog, routeId, isNativeShell])
 
 	return null
 }

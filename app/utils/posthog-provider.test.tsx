@@ -99,6 +99,8 @@ function renderAnalytics(
 						id: 'root',
 						path: '/',
 						loader: () => ({ requestInfo: { isNativeShell: true } }),
+						// Rendered while that loader runs on the first render.
+						HydrateFallback: () => null,
 						element: <Outlet />,
 						children: [testRoute],
 					},

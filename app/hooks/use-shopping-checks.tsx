@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef } from 'react'
 import { useBlocker } from 'react-router'
 import { getHouseholdClientId } from '#app/utils/household-client.tsx'
+import { haptic } from '#app/utils/shell-bridge.ts'
 import { type DisplayShoppingItem } from '#app/utils/shopping-optimistic.ts'
 
 type Item = DisplayShoppingItem
@@ -296,6 +297,7 @@ export function useShoppingChecks(serverItems: Item[], listId: string) {
 			sameList ? pending.current.get(id)?.status : undefined,
 		toggle(item: Item) {
 			if (item.id.startsWith('optimistic:')) return
+			haptic('selection')
 			notices.current.delete(item.id)
 			let entry = pending.current.get(item.id)
 			if (entry) entry.desired = !entry.desired

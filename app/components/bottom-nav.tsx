@@ -6,6 +6,7 @@ import {
 } from 'react'
 import { NavLink, useLocation, useNavigate, useNavigation } from 'react-router'
 import { cn } from '#app/utils/misc.tsx'
+import { haptic } from '#app/utils/shell-bridge.ts'
 import { useIsProActive } from '#app/utils/subscription.ts'
 import { useShoppingActivityDot } from '#app/utils/use-shopping-activity-dot.ts'
 import { useOptionalUser } from '#app/utils/user.ts'
@@ -274,6 +275,7 @@ export function BottomNav() {
 								if (isOnSubPage) delete lastPathPerTab.current[item.to]
 								if (!isNormalLinkActivation(event) || event.defaultPrevented)
 									return
+								haptic('selection')
 
 								const startedAt =
 									inputRef.current?.tabPath === item.to

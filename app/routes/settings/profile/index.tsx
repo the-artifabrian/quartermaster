@@ -10,6 +10,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import { useIsNativeShell, useRequestInfo } from '#app/utils/request-info.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
+import { haptic } from '#app/utils/shell-bridge.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import {
@@ -427,6 +428,10 @@ function DeleteData() {
 						type: 'submit',
 						name: 'intent',
 						value: deleteDataActionIntent,
+						// The first tap arms "Are you sure?".
+						onClick: () => {
+							if (!dc.doubleCheck) haptic('warning')
+						},
 					})}
 					variant="destructive"
 					status={fetcher.state !== 'idle' ? 'pending' : 'idle'}

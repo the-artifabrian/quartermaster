@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { type ExtractedRecipe } from '#app/routes/recipes/import.tsx'
+import { haptic } from '#app/utils/shell-bridge.ts'
 import {
 	IngredientFields,
 	type IngredientFieldValue,
@@ -132,6 +133,7 @@ export function ImportRecipeReview({
 			if (response.ok && typeof result.recipeId === 'string') {
 				confirmedId = result.recipeId
 				setSavedRecipeId(confirmedId)
+				haptic('success')
 				await navigate(`/recipes/${confirmedId}`)
 				return
 			}
@@ -419,6 +421,7 @@ export function ImportRecipeReview({
 						type="button"
 						variant="outline"
 						onClick={() => {
+							haptic('warning')
 							if (
 								window.confirm('Discard this review and start another import?')
 							)

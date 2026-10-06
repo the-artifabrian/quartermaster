@@ -53,6 +53,7 @@ import {
 	parseShoppingHorizon,
 	type ShoppingHorizon,
 } from '#app/utils/shopping-horizon.ts'
+import { haptic } from '#app/utils/shell-bridge.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
 	ShoppingListItemSchema,
@@ -793,6 +794,7 @@ function ClearCheckedControl({
 				method="POST"
 				className="inline"
 				onSubmit={(event) => {
+					haptic('warning')
 					if (
 						!confirm(
 							`Clear ${checkedCount} checked item${checkedCount !== 1 ? 's' : ''} from ${sectionLabel}?`,

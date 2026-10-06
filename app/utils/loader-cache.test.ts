@@ -122,6 +122,144 @@ describe('serving from the cache', () => {
 	})
 })
 
+describe('view-only params', () => {
+	// Plan's `day` and `mealId` pick what the page shows; its loader never reads
+	// them, so they are left out of the entry's key.
+	const view = { viewOnlyParams: ['day', 'mealId'] }
+
+	function navigateView<T>(
+		cache: ReturnType<typeof createLoaderCache>,
+		href: string,
+		serverLoader: () => Promise<T>,
+		from = '/recipes/r1',
+	) {
+		cache.setLocation(from)
+		return cache.load({ request: request(href), serverLoader }, view)
+	}
+
+	test('an entry stored without a day is served for a URL with one', async () => {
+		const { cache } = setup()
+		const week = { weekStart: '2026-10-19' }
+		await navigateView(cache, '/plan?weekStart=2026-10-19', async () => week)
+
+		const server = vi.fn(async () => ({}))
+		expect(
+			await navigateView(
+				cache,
+				'/plan?weekStart=2026-10-19&day=2026-10-22&mealId=m1',
+				server,
+			),
+		).toBe(week)
+		expect(server).not.toHaveBeenCalled()
+	})
+
+	test('an entry stored under one day is served for another day', async () => {
+		const { cache } = setup()
+		const week = { weekStart: '2026-10-19' }
+		await navigateView(
+			cache,
+			'/plan?weekStart=2026-10-19&day=2026-10-20',
+			async () => week,
+		)
+
+		const server = vi.fn(async () => ({}))
+		expect(
+			await navigateView(
+				cache,
+				'/plan?weekStart=2026-10-19&day=2026-10-22',
+				server,
+			),
+		).toBe(week)
+		expect(server).not.toHaveBeenCalled()
+	})
+
+	test('another week is a different entry', async () => {
+		const { cache } = setup()
+		await navigateView(
+			cache,
+			'/plan?weekStart=2026-10-19&day=2026-10-22',
+			async () => ({
+				weekStart: '2026-10-19',
+			}),
+		)
+
+		const nextWeek = { weekStart: '2026-10-26' }
+		const server = vi.fn(async () => nextWeek)
+		expect(
+			await navigateView(
+				cache,
+				'/plan?weekStart=2026-10-26&day=2026-10-22',
+				server,
+			),
+		).toBe(nextWeek)
+		expect(server).toHaveBeenCalledOnce()
+	})
+
+	test('param order does not matter', async () => {
+		const { cache } = setup()
+		const week = { weekStart: '2026-10-19' }
+		await navigateView(
+			cache,
+			'/plan?day=2026-10-20&weekStart=2026-10-19',
+			async () => week,
+		)
+
+		const server = vi.fn(async () => ({}))
+		expect(
+			await navigateView(
+				cache,
+				'/plan?weekStart=2026-10-19&day=2026-10-22',
+				server,
+			),
+		).toBe(week)
+		expect(server).not.toHaveBeenCalled()
+	})
+
+	test('a route without view-only params keeps exact matching', async () => {
+		const { cache } = setup()
+		await navigate(cache, '/recipes?q=soup&tag=quick', async () => ({
+			recipes: ['soup'],
+		}))
+
+		const withDay = { recipes: [] }
+		const server = vi.fn(async () => withDay)
+		expect(
+			await navigate(cache, '/recipes?q=soup&tag=quick&day=x', server),
+		).toBe(withDay)
+		const reordered = { recipes: ['reordered'] }
+		expect(
+			await navigate(cache, '/recipes?tag=quick&q=soup', async () => reordered),
+		).toBe(reordered)
+	})
+
+	test('a revalidation while on a day asks the server', async () => {
+		const { cache } = setup()
+		await navigateView(cache, '/plan?weekStart=2026-10-19', async () => ({
+			meals: ['tacos'],
+		}))
+
+		// After an action, or the revalidation behind a cached page, the page is
+		// on the URL with its day.
+		const href = '/plan?weekStart=2026-10-19&day=2026-10-22'
+		const fresh = { meals: ['tacos', 'curry'] }
+		const server = vi.fn(async () => fresh)
+		expect(await navigateView(cache, href, server, href)).toBe(fresh)
+		expect(server).toHaveBeenCalledOnce()
+	})
+
+	test('a page first rendered on a day is remembered for the week', async () => {
+		const { cache } = setup()
+		const hydrated = { meals: ['tacos'] }
+		cache.remember('/plan?weekStart=2026-10-19&day=2026-10-22', hydrated, view)
+
+		const server = vi.fn(async () => ({}))
+		expect(
+			await navigateView(cache, '/plan?weekStart=2026-10-19', server),
+		).toBe(hydrated)
+		expect(server).not.toHaveBeenCalled()
+	})
+})
+
 describe('identity scoping', () => {
 	test('without a known identity nothing is read or stored', async () => {
 		const cache = createLoaderCache()

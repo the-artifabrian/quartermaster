@@ -650,82 +650,139 @@ test('Narrowing the phone Plan picker keeps the page height, so the input stays 
 		.toBe(1)
 })
 
-test('The phone Plan keeps the picked day through a Recipe visit and a reload, without reloading the week', async ({
-	page,
-	login,
-}) => {
-	const user = await login()
-	const [soup, risotto] = await Promise.all(
-		['Lentil Soup', 'Pea Risotto'].map((title) =>
-			prisma.recipe.create({
-				data: { title, userId: user.id, householdId: user.householdId },
-			}),
-		),
-	)
-	await prisma.mealPlan.create({
-		data: {
-			householdId: user.householdId,
-			weekStart: new Date('2026-10-19'),
-			meals: {
-				create: [soup!, risotto!].map((recipe, index) => ({
-					date: new Date(index === 0 ? '2026-10-20' : '2026-10-22'),
-					order: 0,
-					recipeItems: {
-						create: {
-							recipeId: recipe.id,
-							recipeTitle: recipe.title,
-							order: 0,
+test.describe('Picked day', () => {
+	// page.route cannot see requests a service worker answers.
+	test.use({ serviceWorkers: 'block' })
+
+	test('The phone Plan keeps the picked day through a Recipe visit and a reload, without reloading the week', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const [soup, risotto] = await Promise.all(
+			['Lentil Soup', 'Pea Risotto'].map((title) =>
+				prisma.recipe.create({
+					data: { title, userId: user.id, householdId: user.householdId },
+				}),
+			),
+		)
+		const plan = await prisma.mealPlan.create({
+			data: {
+				householdId: user.householdId,
+				weekStart: new Date('2026-10-19'),
+				meals: {
+					create: [soup!, risotto!].map((recipe, index) => ({
+						date: new Date(index === 0 ? '2026-10-20' : '2026-10-22'),
+						order: 0,
+						recipeItems: {
+							create: {
+								recipeId: recipe.id,
+								recipeTitle: recipe.title,
+								order: 0,
+							},
 						},
-					},
-				})),
+					})),
+				},
 			},
-		},
-	})
-
-	await page.setViewportSize({ width: 390, height: 844 })
-	await page.goto('/plan?weekStart=2026-10-19')
-	const mobile = page.getByTestId('mobile-plan')
-	const thursday = mobile.getByRole('button', {
-		name: 'Show Thursday, Oct 22, 1 Meal planned',
-	})
-	// Today is outside this week, so Plan opens on the first day with Meals.
-	await expect(mobile.getByRole('heading', { name: 'Oct 20' })).toBeVisible()
-
-	const loaderRequests: string[] = []
-	page.on('request', (request) => {
-		if (new URL(request.url()).pathname.endsWith('.data')) {
-			loaderRequests.push(request.url())
-		}
-	})
-	const historyLength = await page.evaluate(() => history.length)
-	// A tap before hydration does nothing, so tap until the page takes it.
-	await expect(async () => {
-		await thursday.click()
-		await expect(thursday).toHaveAttribute('aria-pressed', 'true', {
-			timeout: 1000,
 		})
-	}).toPass()
-	await expect(page).toHaveURL('/plan?weekStart=2026-10-19&day=2026-10-22')
-	await expect(mobile.getByRole('heading', { name: 'Oct 22' })).toBeVisible()
-	// The router runs loaders before it commits the URL, so any reload of the
-	// week would have been requested by now. The tap replaced the entry.
-	expect(loaderRequests).toEqual([])
-	expect(await page.evaluate(() => history.length)).toBe(historyLength)
 
-	await mobile.getByRole('link', { name: 'Pea Risotto', exact: true }).click()
-	await expect(page).toHaveURL(`/recipes/${risotto!.id}`)
-	await page.goBack()
-	await expect(page).toHaveURL('/plan?weekStart=2026-10-19&day=2026-10-22')
-	await expect(thursday).toHaveAttribute('aria-pressed', 'true')
-	await expect(mobile.getByRole('heading', { name: 'Oct 22' })).toBeVisible()
-	await expect(
-		mobile.getByRole('link', { name: 'Pea Risotto', exact: true }),
-	).toBeVisible()
+		await page.setViewportSize({ width: 390, height: 844 })
+		await page.goto('/plan?weekStart=2026-10-19')
+		const mobile = page.getByTestId('mobile-plan')
+		const thursday = mobile.getByRole('button', {
+			name: /^Show Thursday, Oct 22,/,
+		})
+		// Today is outside this week, so Plan opens on the first day with Meals.
+		await expect(mobile.getByRole('heading', { name: 'Oct 20' })).toBeVisible()
 
-	await page.reload()
-	await expect(thursday).toHaveAttribute('aria-pressed', 'true')
-	await expect(mobile.getByRole('heading', { name: 'Oct 22' })).toBeVisible()
-	await expect(
-		mobile.getByRole('link', { name: 'Lentil Soup', exact: true }),
-	).toHaveCount(0)
+		const loaderRequests: string[] = []
+		page.on('request', (request) => {
+			if (new URL(request.url()).pathname.endsWith('.data')) {
+				loaderRequests.push(request.url())
+			}
+		})
+		const historyLength = await page.evaluate(() => history.length)
+		// A tap before hydration does nothing, so tap until the page takes it.
+		await expect(async () => {
+			await thursday.click()
+			await expect(thursday).toHaveAttribute('aria-pressed', 'true', {
+				timeout: 1000,
+			})
+		}).toPass()
+		await expect(page).toHaveURL('/plan?weekStart=2026-10-19&day=2026-10-22')
+		await expect(mobile.getByRole('heading', { name: 'Oct 22' })).toBeVisible()
+		// The router runs loaders before it commits the URL, so any reload of the
+		// week would have been requested by now. The tap replaced the entry.
+		expect(loaderRequests).toEqual([])
+		expect(await page.evaluate(() => history.length)).toBe(historyLength)
+
+		await mobile.getByRole('link', { name: 'Pea Risotto', exact: true }).click()
+		await expect(page).toHaveURL(`/recipes/${risotto!.id}`)
+
+		// Someone plans leftovers for Thursday while the Recipe is open.
+		await prisma.meal.create({
+			data: {
+				mealPlanId: plan.id,
+				date: new Date('2026-10-22'),
+				order: 1,
+				genericText: 'Leftovers',
+			},
+		})
+		// Hold Plan's own .data request, and note what the page already showed
+		// when it left. Root's passes: single fetch reloads root before a back
+		// navigation shows the page.
+		let release = () => {}
+		const gate = new Promise<void>((resolve) => {
+			release = resolve
+		})
+		const planRequests: Array<{ href: string; showedThursday: boolean }> = []
+		await page.route('**/plan.data*', async (route) => {
+			const { searchParams } = new URL(route.request().url())
+			if (
+				!(searchParams.get('_routes') ?? '')
+					.split(',')
+					.includes('routes/plan/index')
+			) {
+				return route.continue()
+			}
+			planRequests.push(
+				await page.evaluate(() => ({
+					href: window.location.pathname + window.location.search,
+					showedThursday:
+						document.querySelector('[data-testid="mobile-plan"] h2')
+							?.textContent === 'Oct 22' &&
+						document.body.innerText.includes('Pea Risotto'),
+				})),
+			)
+			await gate
+			await route.continue()
+		})
+
+		// Back shows the week from memory on the picked day at once; the one Plan
+		// request is the revalidation behind it.
+		await page.goBack()
+		await expect(page).toHaveURL('/plan?weekStart=2026-10-19&day=2026-10-22')
+		await expect(thursday).toHaveAttribute('aria-pressed', 'true')
+		await expect(mobile.getByRole('heading', { name: 'Oct 22' })).toBeVisible()
+		await expect(
+			mobile.getByRole('link', { name: 'Pea Risotto', exact: true }),
+		).toBeVisible()
+		await expect(mobile.getByText('Leftovers')).toHaveCount(0)
+		await expect.poll(() => planRequests.length).toBe(1)
+		expect(planRequests[0]).toEqual({
+			href: '/plan?weekStart=2026-10-19&day=2026-10-22',
+			showedThursday: true,
+		})
+		release()
+		await expect(mobile.getByText('Leftovers')).toBeVisible()
+		await expect(thursday).toHaveAttribute('aria-pressed', 'true')
+		await page.unroute('**/plan.data*')
+
+		await page.reload()
+		await expect(thursday).toHaveAttribute('aria-pressed', 'true')
+		await expect(mobile.getByRole('heading', { name: 'Oct 22' })).toBeVisible()
+		await expect(
+			mobile.getByRole('link', { name: 'Lentil Soup', exact: true }),
+		).toHaveCount(0)
+	})
 })

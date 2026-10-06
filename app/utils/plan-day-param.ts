@@ -47,12 +47,16 @@ export function resolveSelectedDay(args: SelectedDayArgs): string {
 	)
 }
 
-/** Search params that only pick what the page shows; the loader never reads them. */
-const VIEW_PARAMS = ['day', 'mealId']
+/**
+ * Search params that only pick what the Plan shows; its loader never reads
+ * them. Plan neither reloads (`planShouldRevalidate`) nor keys its loader cache
+ * entry on them.
+ */
+export const PLAN_VIEW_ONLY_PARAMS = ['day', 'mealId'] as const
 
 function dataSearch(url: URL) {
 	const params = new URLSearchParams(url.search)
-	for (const name of VIEW_PARAMS) params.delete(name)
+	for (const name of PLAN_VIEW_ONLY_PARAMS) params.delete(name)
 	params.sort()
 	return params.toString()
 }

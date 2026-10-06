@@ -8,7 +8,9 @@ live in [GLOSSARY.md](../GLOSSARY.md); feature details live in
 ## System
 
 ```text
-Browser / PWA
+Browser / PWA        iOS shell (WKWebView, ios/)
+    │                    │  user agent QuartermasterShell/1
+    └────────────────────┘  + message bridge
     │
 Express → React Router loaders and actions
     ├── Prisma → SQLite → LiteFS
@@ -48,6 +50,30 @@ file tree under `app/routes/`. The rules that matter here:
   (`_marketing/+logos/`) sit next to routes without becoming routes.
 
 When a case is unclear, `bunx react-router routes` prints the compiled tree.
+
+### iOS shell
+
+The iOS app is a small Swift shell whose web view loads the same deployed Web
+app ([ADR 0002](adr/0002-small-native-shell.md)). Nothing is bundled; a deploy
+reaches the app at once. The two sides meet in three places:
+
+- **Detection.** The shell appends `QuartermasterShell/1` to the user agent.
+  `isNativeShell` in `app/utils/native-shell.server.ts` reads it, the root
+  loader passes it down, and components ask `useIsNativeShell()` from
+  `app/utils/request-info.ts`. Anyone can send the token, so it may only hide
+  things or pick safer defaults (Pro and Google sign-in hidden, sessions always
+  remembered); it never grants access.
+- **Messages.** The page talks to the shell through `WKScriptMessageHandler`s
+  named `haptic`, `theme` and `refresh`; the shell talks back by dispatching a
+  `qm:refresh` event on pull to refresh and by injecting launch timestamps. The
+  Web side is `app/utils/shell-bridge.ts`, which checks that a handler exists
+  before each call so the same code runs in Safari and the Home Screen install.
+  The Swift side is `ios/Quartermaster/Quartermaster/ShellBridge.swift`.
+- **Contract.** The "Shell bridge" section of [the iOS README](../ios/README.md)
+  is the contract: message names, bodies and what the shell does with each.
+  Change it there first, then both sides. Shell behaviour reaches users only
+  through an App Store build, so the Web side must keep working against the
+  previous shell.
 
 ## Data model
 

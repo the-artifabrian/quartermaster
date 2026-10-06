@@ -10,7 +10,7 @@ struct ShellView: UIViewControllerRepresentable {
     let config: ShellConfig
     let inbox: PageInbox
     let theme: PageTheme
-    let initAt: Double
+    let initAt: Double?
 
     func makeUIViewController(context: Context) -> ShellViewController {
         ShellViewController(config: config, inbox: inbox, theme: theme, initAt: initAt)
@@ -41,8 +41,9 @@ final class ShellViewController: UIViewController {
     private let theme: PageTheme
     private let links: LinkPolicy
     private let resume: ResumeState
-    /// When the app started, epoch ms, for `window.__qmShell`.
-    private let initAt: Double
+    /// When the app started, epoch ms, for `window.__qmShell`; nil when
+    /// prewarmed.
+    private let initAt: Double?
     private let offline = OfflineModel()
     private var offlineController: UIHostingController<OfflineView>?
     private var webView: WKWebView!
@@ -62,7 +63,7 @@ final class ShellViewController: UIViewController {
     /// Where each running download is being written.
     private var downloadFiles: [ObjectIdentifier: URL] = [:]
 
-    init(config: ShellConfig, inbox: PageInbox, theme: PageTheme, initAt: Double) {
+    init(config: ShellConfig, inbox: PageInbox, theme: PageTheme, initAt: Double?) {
         self.config = config
         self.inbox = inbox
         self.theme = theme
@@ -133,9 +134,20 @@ final class ShellViewController: UIViewController {
     private func loadFirstPage() {
         let incoming = inbox.attach { [weak self] page in self?.openIncoming(page) }
         let page = incoming ?? resume.page() ?? config.startURL
-        contentController.addUserScript(LaunchTiming.script(initAt: initAt, loadAt: LaunchTiming.now()))
-        hasLaunchTimingScript = true
+        if let initAt {
+            contentController.addUserScript(LaunchTiming.script(initAt: initAt, loadAt: LaunchTiming.now()))
+            hasLaunchTimingScript = true
+        }
         load(page)
+    }
+
+    /// Once the first document has loaded, or the first load has failed:
+    /// a Retry minutes later would report a launch that took minutes. This is
+    /// the shell's only user script, so removing all of them removes just it.
+    private func dropLaunchTimingScript() {
+        guard hasLaunchTimingScript else { return }
+        hasLaunchTimingScript = false
+        contentController.removeAllUserScripts()
     }
 
     /// Debug builds take `-QMSessionCookie <value>`: the site's session cookie,
@@ -367,10 +379,7 @@ extension ShellViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         offline.isRetrying = false
-        if hasLaunchTimingScript {
-            hasLaunchTimingScript = false
-            contentController.removeAllUserScripts()
-        }
+        dropLaunchTimingScript()
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -393,6 +402,9 @@ extension ShellViewController: WKNavigationDelegate {
         // a navigation that turned into a download ends).
         if error.domain == NSURLErrorDomain, error.code == NSURLErrorCancelled { return }
         if error.domain == "WebKitErrorDomain", error.code == 102 { return }
+        // A real failure; a cancelled first load (returned above) keeps the
+        // launch timing script for the link that replaced it.
+        dropLaunchTimingScript()
 
         if let failed = error.userInfo[NSURLErrorFailingURLErrorKey] as? URL, isAppPage(failed) {
             lastRequestedURL = failed

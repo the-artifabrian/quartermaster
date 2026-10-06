@@ -143,6 +143,13 @@ enum LaunchTiming {
         Date().timeIntervalSince1970 * 1000
     }
 
+    /// The app's start time, or nil when iOS prewarmed the process: the app
+    /// was then initialised well before the user's tap, and no numbers beat
+    /// wrong ones.
+    static func appInit() -> Double? {
+        ProcessInfo.processInfo.environment["ActivePrewarm"] == "1" ? nil : now()
+    }
+
     /// A main-frame, document-start script defining `window.__qmShell`.
     static func script(initAt: Double, loadAt: Double) -> WKUserScript {
         let source = "window.__qmShell = { initAt: \(Int64(initAt.rounded())), loadAt: \(Int64(loadAt.rounded())) };"

@@ -5,7 +5,7 @@ struct QuartermasterApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var theme = PageTheme()
     /// For `window.__qmShell` (#346, 5.2).
-    private let initAt = LaunchTiming.now()
+    private let initAt = LaunchTiming.appInit()
     private let config = Shell.config
     private let inbox = Shell.inbox
 

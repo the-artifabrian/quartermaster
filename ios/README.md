@@ -127,7 +127,10 @@ body is a string, and anything outside the values below is ignored.
   script, main frame only: `window.__qmShell = { initAt, loadAt }`, both epoch
   milliseconds (`Date.now()` units). `initAt` is when the app started and
   `loadAt` when the shell started the first load. The script is removed once
-  that document finishes loading, so a later reload does not see it.
+  that document finishes loading, or once the first load fails (a load replaced
+  by an incoming link keeps it), so a later reload or Retry does not see it.
+  When iOS prewarmed the app, `initAt` would predate the tap by an unknown time,
+  so there is no `__qmShell` at all.
 - **Theme and appearance.** Until the page posts a theme the status bar follows
   the system. The scene applies the page's theme with `.preferredColorScheme`,
   which would also reach the page as `prefers-color-scheme` and freeze a page on

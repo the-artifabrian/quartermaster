@@ -546,6 +546,39 @@ test('URL extraction aborts a page that answers with an error status instead of 
 	expect(pageRequest?.signal.aborted).toBe(true)
 })
 
+test('URL extraction reports unreadable recipe data as a parse error, not a fetch error', async () => {
+	const session = await user()
+	server.use(
+		http.get(`${CHECKED_ORIGIN}/string-ingredients`, () =>
+			HttpResponse.html(
+				`<script type="application/ld+json">${JSON.stringify({
+					'@type': 'Recipe',
+					name: title,
+					recipeIngredient: '2 cans chickpeas\n1 lemon',
+				})}</script>`,
+			),
+		),
+	)
+
+	const result = await importAction(
+		await args(session, '/recipes/import', {
+			intent: 'fetch',
+			url: 'https://recipes.example.test/string-ingredients',
+		}),
+	)
+
+	expect(result).toMatchObject({
+		init: { status: 400 },
+		data: {
+			intent: 'fetch',
+			recipe: null,
+			result: null,
+			duplicates: null,
+			error: 'The recipe data on this page could not be read.',
+		},
+	})
+})
+
 test('URL extraction asks only for the encodings it can decode', async () => {
 	const session = await user()
 	let acceptEncoding: string | null = null

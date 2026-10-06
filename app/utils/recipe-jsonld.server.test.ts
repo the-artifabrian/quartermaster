@@ -3,6 +3,7 @@ import {
 	cleanJsonLdText,
 	extractRecipe,
 	findRecipeInJsonLd,
+	RecipeShapeError,
 } from './recipe-jsonld.server.ts'
 import { MAX_RAW_TEXT_LENGTH } from './recipe-validation.ts'
 
@@ -60,6 +61,15 @@ test('HTML tags, named entities and numeric entities become plain text', () => {
 	).toBe(`Salt & pepper to taste (optional) "fine" 'sea'`)
 })
 
+test('an escaped entity decodes once, to the entity text', () => {
+	expect(cleanJsonLdText('Use &amp;lt;b&amp;gt; tags')).toBe(
+		'Use &lt;b&gt; tags',
+	)
+	expect(cleanJsonLdText('Flour &amp;#40;sifted&amp;#41;')).toBe(
+		'Flour &#40;sifted&#41;',
+	)
+})
+
 describe('yield', () => {
 	test('a number with a label', () => {
 		expect(recipe({ recipeYield: '4 servings' })).toMatchObject({
@@ -89,6 +99,37 @@ describe('yield', () => {
 		})
 	})
 
+	test('the WP Recipe Maker array reads the labelled entry', () => {
+		expect(recipe({ recipeYield: ['4', '4 servings'] })).toMatchObject({
+			yieldAmount: 4,
+			yieldLabel: 'servings',
+		})
+	})
+
+	test('a bare number, as a JSON number or a string, means servings', () => {
+		expect(recipe({ recipeYield: 4 })).toMatchObject({
+			yieldAmount: 4,
+			yieldLabel: 'servings',
+		})
+		expect(recipe({ recipeYield: '4' })).toMatchObject({
+			yieldAmount: 4,
+			yieldLabel: 'servings',
+		})
+	})
+
+	test('a range gives no yield', () => {
+		expect(recipe({ recipeYield: '4-6 servings' })).toMatchObject({
+			yieldAmount: null,
+			yieldLabel: null,
+		})
+	})
+
+	test('an unreadable recipeYield still falls back to the title', () => {
+		expect(
+			recipe({ recipeYield: ['about'], name: 'Weeknight Chili (Serves 4)' }),
+		).toMatchObject({ yieldAmount: 4, yieldLabel: 'servings' })
+	})
+
 	test('with no recipeYield, a "(Serves 4)" title gives the yield', () => {
 		expect(recipe({ name: 'Weeknight Chili (Serves 4)' })).toMatchObject({
 			title: 'Weeknight Chili',
@@ -105,6 +146,25 @@ describe('times', () => {
 			totalTime: null,
 		})
 	})
+
+	test('an ISO duration with a zero day part', () => {
+		expect(recipe({ totalTime: 'P0DT1H30M' }).totalTime).toBe(90)
+	})
+
+	test('bare minutes, as a string or a JSON number', () => {
+		expect(recipe({ prepTime: '30', totalTime: 45 })).toMatchObject({
+			activeTime: 30,
+			totalTime: 45,
+		})
+	})
+
+	test('zero or negative bare minutes mean no time', () => {
+		expect(recipe({ prepTime: '0', totalTime: -5 })).toMatchObject({
+			activeTime: null,
+			totalTime: null,
+		})
+		expect(recipe({ prepTime: 0 }).activeTime).toBe(null)
+	})
 })
 
 describe('instructions', () => {
@@ -116,6 +176,35 @@ describe('instructions', () => {
 			{ content: 'Chop the onion.' },
 			{ content: 'Fry it.' },
 			{ content: 'Serve.' },
+		])
+	})
+
+	test('one string with blank lines between steps keeps the steps apart', () => {
+		expect(
+			recipe({ recipeInstructions: 'Chop the onion.\n\nFry it.\n\n\nServe.' })
+				.instructions,
+		).toEqual([
+			{ content: 'Chop the onion.' },
+			{ content: 'Fry it.' },
+			{ content: 'Serve.' },
+		])
+		expect(
+			recipe({ recipeInstructions: 'Chop the onion.\r\n\r\nFry it.' })
+				.instructions,
+		).toEqual([{ content: 'Chop the onion.' }, { content: 'Fry it.' }])
+	})
+
+	test('a HowToStep with its text only in name is kept; text wins over name', () => {
+		expect(
+			recipe({
+				recipeInstructions: [
+					{ '@type': 'HowToStep', name: 'Preheat the oven.' },
+					{ '@type': 'HowToStep', name: 'Bake', text: 'Bake for 20 minutes.' },
+				],
+			}).instructions,
+		).toEqual([
+			{ content: 'Preheat the oven.' },
+			{ content: 'Bake for 20 minutes.' },
 		])
 	})
 
@@ -170,6 +259,16 @@ test('a sub-section header in recipeIngredient stays a heading', () => {
 		false,
 		false,
 	])
+})
+
+test('a recipeIngredient that is not a list is refused, not half-read', () => {
+	expect(() =>
+		recipe({ recipeIngredient: '2 cans chickpeas\n1 lemon' }),
+	).toThrow(RecipeShapeError)
+	expect(() => recipe({ recipeIngredient: { text: '1 lemon' } })).toThrow(
+		RecipeShapeError,
+	)
+	expect(recipe({ recipeIngredient: null }).ingredients).toEqual([])
 })
 
 test('an all-capitals ingredient list is house style, so no line is a heading', () => {

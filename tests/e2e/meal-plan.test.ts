@@ -234,7 +234,7 @@ test('Update Shopping List puts a rescaled Meal on Shopping at its new amount', 
 	expect(await readPasta()).toMatchObject({ quantity: '400', unit: 'g' })
 
 	await page.goto('/shopping')
-	await expect(page.getByLabel('pasta shopping item')).toContainText('400')
+	await expect(page.getByLabel('pasta shopping item')).toContainText('400 g')
 })
 
 test('Meal plan: view Meals, add one fast, and mark as cooked', async ({

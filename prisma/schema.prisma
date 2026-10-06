@@ -660,15 +660,15 @@ model MealShoppingContribution {
   mealId String?
 
   /// The displayed Shopping row this contribution currently feeds. Deleting
-  /// the row removes the current contribution; a later explicit refresh may
+  /// the row removes the current contribution; a later explicit update may
   /// add the demand again (#98 stories 66/67).
   item   ShoppingListItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   itemId String
 
   /// Normalized demand identity within the Meal.
   canonicalName String
-  /// The normalized demand that was actually added — the fingerprint a later
-  /// explicit refresh (#110) compares against freshly computed demand.
+  /// The normalized demand that was actually added — the demand a later
+  /// update compares against.
   name     String
   quantity String?
   unit     String?

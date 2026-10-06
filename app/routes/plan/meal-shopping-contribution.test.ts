@@ -448,6 +448,35 @@ describe('refreshMealShopping — one-Meal replacement (#110)', () => {
 		).toEqual(['lemon'])
 		expect((await runPlanLoader(session)).meals[0]!.addedToShopping).toBe(true)
 	})
+	test('with no demand left, clears the Meal from Shopping', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const meal = await setupMeal(session.householdId, recipe)
+		await prisma.mealNoteItem.create({
+			data: { mealId: meal.id, order: 1, text: 'Light the grill early' },
+		})
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+
+		const item = await prisma.mealRecipeItem.findFirstOrThrow({
+			where: { mealId: meal.id },
+		})
+		await runPlanAction(session, { intent: 'removeItem', itemId: item.id })
+		// Still on Shopping, so the card keeps offering an update.
+		expect((await runPlanLoader(session)).meals[0]!.addedToShopping).toBe(true)
+
+		await expect(
+			runPlanAction(session, {
+				intent: 'refreshMealShopping',
+				mealId: meal.id,
+			}),
+		).resolves.toMatchObject({ status: 'success' })
+		expect(await getContributions(session.householdId)).toEqual([])
+		expect(await getShoppingRows(session.householdId)).toEqual([])
+		expect((await runPlanLoader(session)).meals[0]!.addedToShopping).toBe(false)
+	})
 })
 
 describe('Shopping generated-group conversion (#110)', () => {

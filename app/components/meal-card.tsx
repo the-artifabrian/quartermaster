@@ -492,6 +492,7 @@ export function MealCard({
 			alreadyContributedCount?: number
 			updatedContributionCount?: number
 			removedContributionCount?: number
+			promotedRowCount?: number
 		}
 	}>()
 	const [addingRecipe, setAddingRecipe] = useState(false)
@@ -555,7 +556,14 @@ export function MealCard({
 			const data = addToShoppingFetcher.data
 			if (data?.status === 'success' && data.shopping) {
 				if (data.refreshed) {
-					toast.success('Shopping List updated')
+					const changed =
+						data.shopping.createdRowCount +
+						(data.shopping.attachedCount ?? 0) +
+						(data.shopping.updatedContributionCount ?? 0) +
+						(data.shopping.removedContributionCount ?? 0) +
+						(data.shopping.promotedRowCount ?? 0)
+					if (changed > 0) toast.success('Shopping List updated')
+					else toast.info('Shopping List is up to date')
 					prevShoppingState.current = addToShoppingFetcher.state
 					return
 				}
@@ -684,8 +692,9 @@ export function MealCard({
 						</DropdownMenuItem>
 						{/* A Meal reaches Shopping only through this explicit action —
 						    planning never live-syncs Shopping. Text-only Meals have no
-						    Shopping behavior (#108). */}
-						{!isText && hasShoppingDemand && (
+						    Shopping behavior (#108). A Meal already on Shopping keeps
+						    Update after losing its demand, so the update can clear it. */}
+						{!isText && (hasShoppingDemand || meal.addedToShopping) && (
 							<DropdownMenuItem
 								disabled={addToShoppingFetcher.state !== 'idle'}
 								onSelect={() => {

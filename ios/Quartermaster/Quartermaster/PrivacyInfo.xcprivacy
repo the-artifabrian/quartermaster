@@ -3,8 +3,9 @@
 <plist version="1.0">
 <dict>
 	<!-- Mirrors /privacy on the web site and the App Store privacy labels.
-	     The shell itself stores nothing; the data below is what the site
-	     collects once you are logged in. -->
+	     The shell itself keeps only the address of the last page, on the
+	     device; the data below is what the site collects once you are logged
+	     in. -->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>
@@ -112,7 +113,8 @@
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
 		<dict>
-			<!-- ShellConfig reads the -QMBaseURL launch argument in Debug builds. -->
+			<!-- ResumeState keeps the last page for the next launch, and Debug
+			     builds read the -QMBaseURL and -QMSessionCookie launch arguments. -->
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
 			<key>NSPrivacyAccessedAPITypeReasons</key>

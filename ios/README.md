@@ -14,8 +14,9 @@ target without touching the project file.
 | `ShellViewController.swift`                    | Web view, navigation and UI delegates, offline view hosting, appearance    |
 | `ShellBridge.swift`                            | Page-to-shell messages, pull to refresh, launch timing (Shell bridge)      |
 | `ShellConfig.swift`                            | Base URL, start path, user agent token, app-bound check, back swipe        |
-| `LinkPolicy.swift`                             | Where a URL opens: web view, Safari sheet, or iOS                          |
+| `LinkPolicy.swift`                             | Where a URL opens: web view, Safari sheet, or iOS; what is an app page     |
 | `IncomingURL.swift`                            | Which page an incoming link opens                                          |
+| `ResumeState.swift`                            | Which page a cold start reopens                                            |
 | `OfflineView.swift`                            | Native offline view with Retry                                             |
 | `Info.plist`                                   | App-bound domains, base URL, URL scheme, launch screen, permission strings |
 | `QuartermasterShare/ShareViewController.swift` | Share Extension: finds the shared link, opens the app                      |
@@ -144,6 +145,17 @@ documents, and the app is a single document with client-side navigation, so the
 page shown under the swipe can be stale or blank. To be judged on a phone; set
 the constant to false to drop it. Link previews on long-press are off
 (`allowsLinkPreview = false`).
+
+## Resume where you left off
+
+When the app goes to the background the shell saves the current page's URL
+(`QMResumePage` in UserDefaults). A cold start loads it instead of `/plan` when
+it is still an app page: http or https on the base URL's host (`LinkPolicy`),
+and not under `/login`, `/logout`, `/signup`, `/verify`, `/onboarding`,
+`/forgot-password`, `/reset-password`, `/auth`, `/webauthn` or
+`/household/join`. Leaving from one of those clears the saved page. A link that
+opened the app wins over the saved page. With the offline view up, or before any
+page has loaded, the saved page is left as it was.
 
 ## Share Extension
 

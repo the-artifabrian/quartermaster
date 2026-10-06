@@ -40,6 +40,7 @@ final class ShellViewController: UIViewController {
     private let inbox: PageInbox
     private let theme: PageTheme
     private let links: LinkPolicy
+    private let resume: ResumeState
     /// When the app started, epoch ms, for `window.__qmShell`.
     private let initAt: Double
     private let offline = OfflineModel()
@@ -67,6 +68,7 @@ final class ShellViewController: UIViewController {
         self.theme = theme
         self.initAt = initAt
         self.links = LinkPolicy(host: config.host)
+        self.resume = ResumeState(links: links)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -113,6 +115,9 @@ final class ShellViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(saveResumePage),
+            name: UIApplication.didEnterBackgroundNotification, object: nil)
         installDebugSession { [weak self] in self?.loadFirstPage() }
     }
 
@@ -127,7 +132,7 @@ final class ShellViewController: UIViewController {
     /// arrives later replaces this load mid-flight.
     private func loadFirstPage() {
         let incoming = inbox.attach { [weak self] page in self?.openIncoming(page) }
-        let page = incoming ?? config.startURL
+        let page = incoming ?? resume.page() ?? config.startURL
         contentController.addUserScript(LaunchTiming.script(initAt: initAt, loadAt: LaunchTiming.now()))
         hasLaunchTimingScript = true
         load(page)
@@ -180,7 +185,14 @@ final class ShellViewController: UIViewController {
     }
 
     private func isAppPage(_ url: URL) -> Bool {
-        ["http", "https"].contains(url.scheme?.lowercased()) && links.isAppHost(url.host())
+        links.isAppPage(url)
+    }
+
+    /// Remembers the page for the next cold start. With nothing loaded yet,
+    /// or the offline view up, the page saved last time stays.
+    @objc private func saveResumePage() {
+        guard hasCommittedPage, offlineController == nil, let url = webView.url else { return }
+        resume.save(url)
     }
 
     // MARK: Appearance

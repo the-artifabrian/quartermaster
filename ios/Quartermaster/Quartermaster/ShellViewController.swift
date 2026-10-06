@@ -1,3 +1,4 @@
+import Combine
 import SafariServices
 import SwiftUI
 import UIKit
@@ -8,10 +9,11 @@ import os
 struct ShellView: UIViewControllerRepresentable {
     let config: ShellConfig
     let inbox: PageInbox
+    let theme: PageTheme
     let initAt: Double
 
     func makeUIViewController(context: Context) -> ShellViewController {
-        ShellViewController(config: config, inbox: inbox, initAt: initAt)
+        ShellViewController(config: config, inbox: inbox, theme: theme, initAt: initAt)
     }
 
     func updateUIViewController(_ controller: ShellViewController, context: Context) {}
@@ -36,6 +38,7 @@ private let connectivityErrors: Set<Int> = [
 final class ShellViewController: UIViewController {
     private let config: ShellConfig
     private let inbox: PageInbox
+    private let theme: PageTheme
     private let links: LinkPolicy
     /// When the app started, epoch ms, for `window.__qmShell`.
     private let initAt: Double
@@ -43,9 +46,11 @@ final class ShellViewController: UIViewController {
     private var offlineController: UIHostingController<OfflineView>?
     private var webView: WKWebView!
     private let contentController = WKUserContentController()
+    private var refresh: PageRefresh!
     /// Whether `window.__qmShell` is still injected. Only the first document
     /// should see it; a reload would report a launch that did not happen.
     private var hasLaunchTimingScript = false
+    private var themeObservation: AnyCancellable?
     /// The last main-frame URL the web view tried to load, for Retry.
     private var lastRequestedURL: URL?
     /// Whether any page has committed. WKWebView.url already holds the
@@ -56,9 +61,10 @@ final class ShellViewController: UIViewController {
     /// Where each running download is being written.
     private var downloadFiles: [ObjectIdentifier: URL] = [:]
 
-    init(config: ShellConfig, inbox: PageInbox, initAt: Double) {
+    init(config: ShellConfig, inbox: PageInbox, theme: PageTheme, initAt: Double) {
         self.config = config
         self.inbox = inbox
+        self.theme = theme
         self.initAt = initAt
         self.links = LinkPolicy(host: config.host)
         super.init(nibName: nil, bundle: nil)
@@ -79,6 +85,8 @@ final class ShellViewController: UIViewController {
         .filter { !$0.isEmpty }
         .joined(separator: " ")
         configuration.allowsInlineMediaPlayback = true
+        let bridge = ShellBridge(links: links, theme: theme) { [weak self] in self?.refresh.finish() }
+        bridge.install(in: contentController)
         configuration.userContentController = contentController
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -99,12 +107,19 @@ final class ShellViewController: UIViewController {
         }
         #endif
         self.webView = webView
+        refresh = PageRefresh(webView: webView)
         view = webView
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         installDebugSession { [weak self] in self?.loadFirstPage() }
+    }
+
+    override func viewIsAppearing(_ animated: Bool) {
+        super.viewIsAppearing(animated)
+        applyAppearance()
+        observeAppearance()
     }
 
     /// Starts at once, without waiting for the app to become active. A link
@@ -168,12 +183,63 @@ final class ShellViewController: UIViewController {
         ["http", "https"].contains(url.scheme?.lowercased()) && links.isAppHost(url.host())
     }
 
+    // MARK: Appearance
+
+    /// The scene follows the page's theme (`.preferredColorScheme`, for the
+    /// status bar), but the web view must not: it passes its appearance on to
+    /// the page as `prefers-color-scheme`, and a page on the System theme
+    /// would then stay on whatever it reported last. So the web view takes the
+    /// screen's appearance, which is the system's, while the canvas around
+    /// the page and the offline view take the page's.
+    private func applyAppearance() {
+        guard let screen = view.window?.windowScene?.screen else { return }
+        let system = screen.traitCollection.userInterfaceStyle
+        let page: UIUserInterfaceStyle
+        switch theme.colorScheme {
+        case .light: page = .light
+        case .dark: page = .dark
+        default: page = system
+        }
+        if webView.overrideUserInterfaceStyle != system {
+            webView.overrideUserInterfaceStyle = system
+        }
+        let canvas = UIColor(named: "LaunchBackground")?.resolvedColor(with: UITraitCollection(userInterfaceStyle: page))
+        webView.backgroundColor = canvas
+        webView.scrollView.backgroundColor = canvas
+        offlineController?.view.overrideUserInterfaceStyle = page
+    }
+
+    /// UIKit reports no change of the screen's appearance while the scene is
+    /// overridden. Changing it from Control Center or Settings, or on a
+    /// schedule while the phone is locked, makes the app active again
+    /// afterwards, which is when the web view catches up.
+    private func observeAppearance() {
+        guard themeObservation == nil, let scene = view.window?.windowScene else { return }
+        themeObservation = theme.$colorScheme
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.applyAppearance() }
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(appearanceMayHaveChanged),
+            name: UIApplication.didBecomeActiveNotification, object: nil)
+        // Without an override the scene follows the system at once.
+        if #available(iOS 17, *) {
+            scene.registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (_: UIWindowScene, _) in
+                self?.applyAppearance()
+            }
+        }
+    }
+
+    @objc private func appearanceMayHaveChanged() {
+        applyAppearance()
+    }
+
     // MARK: Offline view
 
     private func showOffline(_ reason: OfflineModel.Reason) {
         offline.reason = reason
         offline.isRetrying = false
         guard offlineController == nil else { return }
+        refresh.isAvailable = false
         let controller = UIHostingController(
             rootView: OfflineView(model: offline) { [weak self] in self?.retry() })
         controller.view.backgroundColor = .clear
@@ -183,6 +249,7 @@ final class ShellViewController: UIViewController {
         view.addSubview(controller.view)
         controller.didMove(toParent: self)
         offlineController = controller
+        applyAppearance()
     }
 
     private func hideOffline() {
@@ -192,6 +259,7 @@ final class ShellViewController: UIViewController {
         controller.view.removeFromSuperview()
         controller.removeFromParent()
         offlineController = nil
+        refresh.isAvailable = true
     }
 
     private func retry() {

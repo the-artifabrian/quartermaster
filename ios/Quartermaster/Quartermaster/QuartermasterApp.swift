@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct QuartermasterApp: App {
+    @StateObject private var theme = PageTheme()
     /// For `window.__qmShell` (#346, 5.2).
     private let initAt = LaunchTiming.now()
     private let config = ShellConfig.load()
@@ -11,9 +12,12 @@ struct QuartermasterApp: App {
         WindowGroup {
             // The web view handles the keyboard and safe areas itself, the way
             // Safari does, so SwiftUI must not resize it.
-            ShellView(config: config, inbox: inbox, initAt: initAt)
+            ShellView(config: config, inbox: inbox, theme: theme, initAt: initAt)
                 .ignoresSafeArea()
                 .background(Color("LaunchBackground"))
+                // The page draws under the status bar, so the bar follows the
+                // page's theme rather than the system's.
+                .preferredColorScheme(theme.colorScheme)
                 // quartermaster://import from the Share Extension.
                 .onOpenURL { url in
                     if let page = IncomingURL.page(for: url, baseURL: config.baseURL) {

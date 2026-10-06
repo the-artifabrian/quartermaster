@@ -11,8 +11,8 @@ target without touching the project file.
 | File                                           | Role                                                                       |
 | ---------------------------------------------- | -------------------------------------------------------------------------- |
 | `QuartermasterApp.swift`                       | App entry, one SwiftUI scene, incoming links                               |
-| `ShellViewController.swift`                    | Web view, navigation and UI delegates, offline view hosting                |
-| `ShellBridge.swift`                            | Launch timing for the page (Shell bridge)                                  |
+| `ShellViewController.swift`                    | Web view, navigation and UI delegates, offline view hosting, appearance    |
+| `ShellBridge.swift`                            | Page-to-shell messages, pull to refresh, launch timing (Shell bridge)      |
 | `ShellConfig.swift`                            | Base URL, start path, user agent token, app-bound check, back swipe        |
 | `LinkPolicy.swift`                             | Where a URL opens: web view, Safari sheet, or iOS                          |
 | `IncomingURL.swift`                            | Which page an incoming link opens                                          |
@@ -105,11 +105,36 @@ was.
 
 ## Shell bridge
 
-The first document after launch gets a document-start script, main frame only:
-`window.__qmShell = { initAt, loadAt }`, both epoch milliseconds (`Date.now()`
-units). `initAt` is when the app started and `loadAt` when the shell started the
-first load. The script is removed once that document finishes loading, so a
-later reload does not see it.
+The page and the shell talk through three `WKScriptMessageHandler`s, one
+CustomEvent and one injected script. `ShellBridge.swift` holds the shell's side.
+The shell only listens to the main frame of the app's own host. Each message
+body is a string, and anything outside the values below is ignored.
+
+| Page to shell                                      | Body                                                          | Shell does                                                              |
+| -------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `webkit.messageHandlers.haptic.postMessage(body)`  | `selection`, `light`, `medium`, `success`, `warning`, `error` | Plays it: selection, light or medium impact, or a notification feedback |
+| `webkit.messageHandlers.theme.postMessage(body)`   | `light`, `dark`                                               | Status bar for that theme; post on load and on every theme change       |
+| `webkit.messageHandlers.refresh.postMessage(body)` | `done`                                                        | Stops the pull-to-refresh spinner                                       |
+
+- **Pull to refresh.** Pulling the page down dispatches
+  `window.dispatchEvent(new CustomEvent('qm:refresh'))`. The page revalidates
+  its data and posts `done` to `refresh`; the spinner stops then, or after 5 s
+  if nothing answers. While the offline view is up there is no pull, since that
+  view has its own Retry.
+- **Launch timing.** The first document after launch gets a document-start
+  script, main frame only: `window.__qmShell = { initAt, loadAt }`, both epoch
+  milliseconds (`Date.now()` units). `initAt` is when the app started and
+  `loadAt` when the shell started the first load. The script is removed once
+  that document finishes loading, so a later reload does not see it.
+- **Theme and appearance.** Until the page posts a theme the status bar follows
+  the system. The scene applies the page's theme with `.preferredColorScheme`,
+  which would also reach the page as `prefers-color-scheme` and freeze a page on
+  the System theme. So the web view keeps the system's appearance, and catches
+  up with a system change the next time the app becomes active (on iOS 17 and
+  later at once while the page has no theme override). The canvas behind the
+  page and the offline view use the page's theme.
+- **User agent.** WebKit's user agent ends with `QuartermasterShell/1`, which
+  the server checks to hide Pro and Google sign-in.
 
 ## Back swipe
 

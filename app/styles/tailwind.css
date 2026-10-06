@@ -363,6 +363,12 @@ html {
 		-webkit-tap-highlight-color: transparent;
 	}
 
+	/* A long press on a link or image does not open the iOS callout. */
+	a,
+	img {
+		-webkit-touch-callout: none;
+	}
+
 	a,
 	button,
 	[role='button'],

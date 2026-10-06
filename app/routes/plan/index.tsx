@@ -1,5 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Link } from 'react-router'
+import { Link, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -18,6 +18,10 @@ import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
 import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
+import {
+	PLAN_VIEW_ONLY_PARAMS,
+	planShouldRevalidate,
+} from '#app/utils/plan-day-param.ts'
 import { useStaleRevalidate } from '#app/utils/use-stale-revalidate.ts'
 import { type Route } from './+types/index.ts'
 import { createPlanAction } from './plan-action.server.ts'
@@ -151,12 +155,18 @@ export const action = createPlanAction(prisma)
 // Shows the last data for this URL at once on a navigation and revalidates
 // behind it; see loader-cache.ts.
 export async function clientLoader(args: Route.ClientLoaderArgs) {
-	return staleWhileRevalidate(args)
+	return staleWhileRevalidate(args, { viewOnlyParams: PLAN_VIEW_ONLY_PARAMS })
 }
 clientLoader.hydrate = false as const
 
+// Picking a day only sets the URL's `day` and drops a Meal link's `mealId`;
+// the loaded week stays.
+export function shouldRevalidate(args: ShouldRevalidateFunctionArgs) {
+	return planShouldRevalidate(args)
+}
+
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
-	useStaleRevalidate(loaderData)
+	useStaleRevalidate(loaderData, { viewOnlyParams: PLAN_VIEW_ONLY_PARAMS })
 	const { meals, weekDays, weekStart, planScope, shoppingListItemCount } =
 		loaderData
 

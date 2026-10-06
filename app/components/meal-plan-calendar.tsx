@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useFetcher, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import {
@@ -19,6 +19,11 @@ import {
 } from '#app/utils/date.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
+import {
+	defaultSelectedDay,
+	resolveSelectedDay,
+	selectedDayFromUrl,
+} from '#app/utils/plan-day-param.ts'
 import { type PlanMeal, MealCard } from './meal-card.tsx'
 import { type PlanItemChoice, PlanItemSelector } from './recipe-selector.tsx'
 import { Button } from './ui/button.tsx'
@@ -36,12 +41,6 @@ type AddMealActionData = {
 	status: 'success' | 'error'
 	menuError?: string
 	meal?: PlannedMealResult
-}
-
-function initialSelectedDate(weekDays: Date[], meals: PlanMeal[]): string {
-	const today = weekDays.find(isToday)
-	if (today) return serializeDate(today)
-	return meals[0]?.dateStr ?? serializeDate(weekDays[0]!)
 }
 
 /**
@@ -396,21 +395,50 @@ function MealCards({
 
 export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
 	const choices = usePlanChoices()
-	const [searchParams] = useSearchParams()
+	const [searchParams, setSearchParams] = useSearchParams()
 	const targetMealId = searchParams.get('mealId')
-	const targetDate = meals.find((meal) => meal.id === targetMealId)?.dateStr
-	const [selectedDate, setSelectedDate] = useState(
-		() => targetDate ?? initialSelectedDate(weekDays, meals),
+	const urlParams = {
+		weekDays,
+		meals,
+		mealId: targetMealId,
+		day: searchParams.get('day'),
+	}
+	const urlDate = selectedDayFromUrl(urlParams)
+	const [selectedDate, setSelectedDate] = useState(() =>
+		resolveSelectedDay(urlParams),
 	)
-	useEffect(() => {
-		if (targetDate) setSelectedDate(targetDate)
-	}, [targetMealId, targetDate])
+	const search = searchParams.toString()
+	const defaultDate = defaultSelectedDay(weekDays, meals)
+	// The URL picks the day: a Meal link's day, else a valid `day`. A URL with
+	// neither, such as the Plan tab tapped again, goes back to the default day;
+	// a link to a Meal that is gone keeps the day on screen. Only a URL change
+	// (or the linked Meal moving) picks again, so adding or removing a Meal
+	// never moves the selection. A layout effect, so a Plan tab tap never paints
+	// the old day for a frame.
+	useLayoutEffect(() => {
+		if (urlDate) setSelectedDate(urlDate)
+		else if (!targetMealId) setSelectedDate(defaultDate)
+		// Not on `defaultDate`: a Meal added or removed must not move the day.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [search, targetMealId, urlDate])
 
 	useEffect(() => {
 		if (!weekDays.some((date) => serializeDate(date) === selectedDate)) {
-			setSelectedDate(initialSelectedDate(weekDays, meals))
+			setSelectedDate(defaultSelectedDay(weekDays, meals))
 		}
 	}, [weekDays, meals, selectedDate])
+
+	function selectDay(dateStr: string) {
+		setSelectedDate(dateStr)
+		// The day goes in the URL so back and reload return to it. Replace, so
+		// day taps add no history entries; the Meal link gives way to the day.
+		const next = new URLSearchParams(searchParams)
+		next.delete('mealId')
+		next.set('day', dateStr)
+		// The same URL again would be a revalidation, reloading the week.
+		if (next.toString() === search) return
+		setSearchParams(next, { replace: true, preventScrollReset: true })
+	}
 
 	const mealsByDay = new Map<string, PlanMeal[]>()
 	for (const meal of meals) {
@@ -441,7 +469,7 @@ export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
 							<button
 								key={dateStr}
 								type="button"
-								onClick={() => setSelectedDate(dateStr)}
+								onClick={() => selectDay(dateStr)}
 								aria-pressed={selected}
 								aria-current={today ? 'date' : undefined}
 								aria-label={`Show ${today ? 'Today' : formatWeekdayName(date)}, ${formatMonthDay(date)}, ${mealCount === 0 ? 'no Meals planned' : `${mealCount} ${mealCount === 1 ? 'Meal' : 'Meals'} planned`}`}
@@ -458,12 +486,6 @@ export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
 										'text-muted-foreground/65',
 								)}
 							>
-								{today ? (
-									<span
-										aria-hidden="true"
-										className="bg-accent absolute top-1.5 h-0.5 w-4 rounded-full"
-									/>
-								) : null}
 								<span className="text-[9px] font-semibold tracking-wide uppercase">
 									{today ? 'Today' : formatWeekdayName(date).slice(0, 3)}
 								</span>

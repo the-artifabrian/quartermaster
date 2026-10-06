@@ -11,6 +11,10 @@
  * `window.location`: on back and forward the browser shows the target URL
  * before the loaders run, and that navigation should still be instant.
  *
+ * A route whose search has params its loader never reads (Plan's selected day)
+ * names them in `viewOnlyParams`, so the URL is compared and keyed without
+ * them: the entry for a week is served whichever day the URL shows.
+ *
  * Entries are keyed by the signed-in user and Household as well as the URL,
  * and a change of either drops them all, so one Household's data is never
  * served to another on a shared device. Every mutation drops them too.
@@ -22,6 +26,35 @@ type LoaderArgs<T> = {
 }
 
 type Entry = { data: unknown; seq: number }
+
+export type LoaderCacheOptions = {
+	/** Search params the loader never reads; the URL is keyed without them. */
+	viewOnlyParams?: readonly string[]
+}
+
+/**
+ * `href` (a pathname and search) without the view-only params, the rest of the
+ * search sorted: two URLs that load the same data give the same string.
+ */
+export function withoutViewOnlyParams(
+	href: string,
+	viewOnlyParams: readonly string[],
+) {
+	const url = new URL(href, 'http://cache.invalid')
+	for (const name of viewOnlyParams) url.searchParams.delete(name)
+	url.searchParams.sort()
+	return url.pathname + url.search
+}
+
+/**
+ * The pathname and search a URL is keyed and compared by. Without view-only
+ * params that is the URL as it is.
+ */
+function cacheHref(href: string, { viewOnlyParams }: LoaderCacheOptions = {}) {
+	return viewOnlyParams?.length
+		? withoutViewOnlyParams(href, viewOnlyParams)
+		: href
+}
 
 function isObject(value: unknown): value is object {
 	return typeof value === 'object' && value !== null
@@ -88,16 +121,19 @@ export function createLoaderCache({ maxEntries = 32 } = {}) {
 
 		clear,
 
-		async load<T>({ request, serverLoader }: LoaderArgs<T>): Promise<T> {
+		async load<T>(
+			{ request, serverLoader }: LoaderArgs<T>,
+			options?: LoaderCacheOptions,
+		): Promise<T> {
 			const url = new URL(request.url)
-			const href = url.pathname + url.search
+			const href = cacheHref(url.pathname + url.search, options)
 			const key = keyFor(href)
 			if (key == null) return serverLoader()
 
 			// Only a navigation, a load of some other URL than the committed one,
 			// may be answered from memory. Before the first commit nothing is known,
 			// so everything goes to the server.
-			if (location != null && href !== location) {
+			if (location != null && href !== cacheHref(location, options)) {
 				const hit = read(key)
 				if (hit) {
 					if (isObject(hit.data)) {
@@ -127,9 +163,9 @@ export function createLoaderCache({ maxEntries = 32 } = {}) {
 		 * Stores data the page rendered without `load` returning it: the first,
 		 * server-rendered page. An entry a load stored is newer and stays.
 		 */
-		remember(href: string, data: unknown) {
+		remember(href: string, data: unknown, options?: LoaderCacheOptions) {
 			if (isObject(data) && loaded.has(data)) return
-			const key = keyFor(href)
+			const key = keyFor(cacheHref(href, options))
 			if (key == null || entries.has(key)) return
 			store(key, data, ++seq)
 		},
@@ -154,6 +190,9 @@ export const loaderCache = createLoaderCache()
  * the first load always renders server data). Passes the server result
  * through unchanged.
  */
-export function staleWhileRevalidate<T>(args: LoaderArgs<T>): Promise<T> {
-	return loaderCache.load(args)
+export function staleWhileRevalidate<T>(
+	args: LoaderArgs<T>,
+	options?: LoaderCacheOptions,
+): Promise<T> {
+	return loaderCache.load(args, options)
 }

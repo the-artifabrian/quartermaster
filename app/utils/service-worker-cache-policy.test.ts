@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 import { describe, expect, test } from 'vitest'
+import { PLAN_VIEW_ONLY_PARAMS } from './plan-day-param.ts'
 
 const ORIGIN = 'https://quartermaster.test'
 const webmanifestPath = fileURLToPath(
@@ -832,6 +833,52 @@ describe('session-scoped Route data', () => {
 
 		expect(await cached?.text()).toBe('CURRENT SESSION FALLBACK')
 		expect(miss?.status).toBe(503)
+	})
+
+	test.each(PLAN_VIEW_ONLY_PARAMS)(
+		'offline, a Plan URL with another %s falls back to the cached week',
+		async (param) => {
+			const worker = loadServiceWorker()
+			await worker.dispatchMessage({
+				type: 'qm-data-session',
+				token: 'session',
+			})
+			worker.setFetch(async () => routeDataResponse('WEEK'))
+			await worker.dispatchFetch(
+				`/plan.data?weekStart=2026-10-19&${param}=first&_routes=routes%2Fplan%2Findex`,
+			)
+			worker.setFetch(async () => {
+				throw new TypeError('Failed to fetch')
+			})
+
+			const otherDay = await worker.dispatchFetch(
+				`/plan.data?weekStart=2026-10-19&${param}=second&_routes=routes%2Fplan%2Findex`,
+			)
+			const noDay = await worker.dispatchFetch(
+				'/plan.data?weekStart=2026-10-19&_routes=routes%2Fplan%2Findex',
+			)
+			const otherWeek = await worker.dispatchFetch(
+				`/plan.data?weekStart=2026-10-26&${param}=first&_routes=routes%2Fplan%2Findex`,
+			)
+
+			expect(await otherDay?.text()).toBe('WEEK')
+			expect(await noDay?.text()).toBe('WEEK')
+			expect(otherWeek?.status).toBe(503)
+		},
+	)
+
+	test('other Route data keeps exact URLs offline', async () => {
+		const worker = loadServiceWorker()
+		await worker.dispatchMessage({ type: 'qm-data-session', token: 'session' })
+		worker.setFetch(async () => routeDataResponse('RECIPES'))
+		await worker.dispatchFetch('/recipes.data?day=first')
+		worker.setFetch(async () => {
+			throw new TypeError('Failed to fetch')
+		})
+
+		const response = await worker.dispatchFetch('/recipes.data?day=second')
+
+		expect(response?.status).toBe(503)
 	})
 
 	test('a quota failure cannot replace or fail the network response', async () => {

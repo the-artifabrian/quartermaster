@@ -191,6 +191,41 @@ test('opening another Meal on the same target date restores that day after manua
 	expect(mobile.getByText('Herb Salad')).toBeVisible()
 })
 
+test('the Plan tab again (no day in the URL) goes back to the default day', async () => {
+	const user = userEvent.setup()
+	const Stub = createRoutesStub([
+		{
+			path: '/',
+			Component: () => (
+				<>
+					<Link to="/">Plan tab</Link>
+					<Link to="/?mealId=meal-gone">Removed Meal</Link>
+					<MealPlanCalendar weekDays={weekDays} meals={meals} />
+				</>
+			),
+		},
+	])
+	render(<Stub initialEntries={['/?day=2026-04-09']} />)
+	const mobile = within(screen.getByTestId('mobile-plan'))
+	const thursday = mobile.getByRole('button', {
+		name: 'Show Thursday, Apr 9, 1 Meal planned',
+	})
+	expect(thursday).toHaveAttribute('aria-pressed', 'true')
+
+	// A link to a Meal that is gone keeps the day on screen.
+	await user.click(screen.getByRole('link', { name: 'Removed Meal' }))
+	expect(thursday).toHaveAttribute('aria-pressed', 'true')
+
+	// Today is outside this week, so the default is the first day with Meals.
+	await user.click(screen.getByRole('link', { name: 'Plan tab' }))
+	expect(
+		mobile.getByRole('button', {
+			name: 'Show Wednesday, Apr 8, 1 Meal planned',
+		}),
+	).toHaveAttribute('aria-pressed', 'true')
+	expect(mobile.getByText('Banana Bread')).toBeVisible()
+})
+
 test('Edit details submits the date and stored-zone clock time, and keeps validation errors visible', async () => {
 	const user = userEvent.setup()
 	let submitted: Record<string, FormDataEntryValue> | undefined

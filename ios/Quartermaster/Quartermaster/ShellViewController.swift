@@ -75,6 +75,10 @@ final class ShellViewController: UIViewController {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = self
         webView.uiDelegate = self
+        webView.allowsBackForwardNavigationGestures = ShellConfig.allowsBackSwipe
+        // Long-pressing a link opens the menu without a page preview, as in
+        // a native app.
+        webView.allowsLinkPreview = false
         // Show the launch colour, not white, until the first page paints.
         let canvas = UIColor(named: "LaunchBackground")
         webView.isOpaque = false

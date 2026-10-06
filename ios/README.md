@@ -12,7 +12,7 @@ target without touching the project file.
 | ---------------------------------------------- | -------------------------------------------------------------------------- |
 | `QuartermasterApp.swift`                       | App entry, one SwiftUI scene, incoming links                               |
 | `ShellViewController.swift`                    | Web view, navigation and UI delegates, offline view hosting                |
-| `ShellConfig.swift`                            | Base URL, start path, user agent token, app-bound check                    |
+| `ShellConfig.swift`                            | Base URL, start path, user agent token, app-bound check, back swipe        |
 | `LinkPolicy.swift`                             | Where a URL opens: web view, Safari sheet, or iOS                          |
 | `IncomingURL.swift`                            | Which page an incoming link opens                                          |
 | `OfflineView.swift`                            | Native offline view with Retry                                             |
@@ -101,6 +101,15 @@ Run it with the app open and again after
 on the import page. `quartermaster://something-else` and
 `quartermaster://import?url=javascript:alert(1)` should leave the app where it
 was.
+
+## Back swipe
+
+`allowsBackForwardNavigationGestures` is on, behind
+`ShellConfig.allowsBackSwipe`. WebKit slides between snapshots of whole
+documents, and the app is a single document with client-side navigation, so the
+page shown under the swipe can be stale or blank. To be judged on a phone; set
+the constant to false to drop it. Link previews on long-press are off
+(`allowsLinkPreview = false`).
 
 ## Share Extension
 

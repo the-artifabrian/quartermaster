@@ -231,8 +231,8 @@ export function RecipeIngredientsControls({
 							className={cn(
 								'flex h-8 items-center rounded-full border px-2.5 text-xs font-medium transition-colors',
 								useMetric
-									? 'border-border text-foreground'
-									: 'text-muted-foreground group-hover/metric:text-foreground border-transparent',
+									? 'border-primary bg-primary text-primary-foreground'
+									: 'border-border text-muted-foreground group-hover/metric:text-foreground',
 							)}
 						>
 							Metric

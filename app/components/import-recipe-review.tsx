@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { type ExtractedRecipe } from '#app/routes/recipes/import.tsx'
 import { haptic } from '#app/utils/shell-bridge.ts'
+import { DurationHint } from './duration-hint.tsx'
 import {
 	IngredientFields,
 	type IngredientFieldValue,
@@ -399,6 +400,9 @@ export function ImportRecipeReview({
 											setDetails({ ...details, [name]: event.target.value })
 										}
 									/>
+									{name === 'activeTime' || name === 'totalTime' ? (
+										<DurationHint minutes={details[name]} />
+									) : null}
 								</div>
 							))}
 						</div>

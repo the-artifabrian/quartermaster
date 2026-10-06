@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
+import { formatDuration } from '#app/utils/format-duration.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import {
@@ -360,7 +361,7 @@ function RecipeOption({
 					{totalTime != null && (
 						<span className="text-muted-foreground inline-flex items-center gap-0.5 text-xs">
 							<Icon name="clock" className="size-3" />
-							{totalTime}m
+							{formatDuration(totalTime)}
 						</span>
 					)}
 				</span>

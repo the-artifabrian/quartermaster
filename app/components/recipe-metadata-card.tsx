@@ -1,11 +1,5 @@
 import { Icon } from '#app/components/ui/icon.tsx'
-
-function formatDuration(minutes: number) {
-	if (minutes < 60) return `${minutes} min`
-	const hours = Math.floor(minutes / 60)
-	const remainingMinutes = minutes % 60
-	return `${hours} hr${remainingMinutes ? ` ${remainingMinutes} min` : ''}`
-}
+import { formatDuration } from '#app/utils/format-duration.ts'
 
 export function RecipeMetadataCard({
 	activeTime,

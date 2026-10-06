@@ -2,7 +2,6 @@
 
 const STATIC_CACHE_ROOT = 'qm-static-'
 const IMAGES_CACHE = 'qm-images-v1'
-const FONTS_CACHE = 'qm-fonts-v1'
 const CACHE_VERSION = '__QM_CACHE_VERSION__'
 const STATIC_CACHE = `${STATIC_CACHE_ROOT}${CACHE_VERSION}`
 const PUBLIC_CACHE = `qm-public-${CACHE_VERSION}`
@@ -20,7 +19,6 @@ const START_URL = '__QM_START_URL__'
 
 const MAX_IMAGES = 100
 const MAX_DATA = 64
-const MAX_FONTS = 16
 
 // Per-session (user+household) cache for authenticated `.data` (RR7 single-fetch).
 // The SW can't read the httpOnly session cookie, so the client posts an opaque
@@ -64,16 +62,12 @@ self.addEventListener('activate', (event) => {
 							k !== CACHE_STATE &&
 							!retainedStaticCaches.has(k) &&
 							k !== IMAGES_CACHE &&
-							k !== FONTS_CACHE &&
 							k !== PUBLIC_CACHE &&
 							// Current-generation `.data` caches are reaped once the page
 							// identifies its live session; older generations are deleted here.
 							!k.startsWith(DATA_CACHE_PREFIX),
 					)
 					.map((k) => caches.delete(k)),
-				// Google can change the font file URLs behind its stylesheet. Keep that
-				// long-lived cross-deploy cache useful without letting it grow forever.
-				trimCache(FONTS_CACHE, MAX_FONTS),
 			])
 			await setActiveStaticCache(STATIC_CACHE)
 		})(),
@@ -122,18 +116,6 @@ self.addEventListener('fetch', (event) => {
 
 	const url = new URL(request.url)
 
-	// ── Google Fonts (cache-first) ───────────────────────────────
-	// Must precede the same-origin guard below. The font stylesheet and files
-	// are render-blocking and cross-origin, so without this they hit the network
-	// on every cold launch — a major cause of slow first paint + white flash.
-	// Caches opaque responses too (the stylesheet link is no-cors).
-	if (
-		url.hostname === 'fonts.googleapis.com' ||
-		url.hostname === 'fonts.gstatic.com'
-	) {
-		event.respondWith(cacheFirst(event, request, FONTS_CACHE, MAX_FONTS))
-		return
-	}
 
 	// Skip non-same-origin
 	if (url.origin !== self.location.origin) return

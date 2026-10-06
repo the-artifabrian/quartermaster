@@ -329,13 +329,13 @@ describe('service-worker lifecycle and public resources', () => {
 			'/assets/old.js',
 			new Response('OLD ASSET'),
 		)
-		for (let index = 0; index < 18; index++) {
-			await storage.seed(
-				'qm-fonts-v1',
-				`https://fonts.gstatic.com/font-${index}.woff2`,
-				new Response(`FONT ${index}`),
-			)
-		}
+		// The fonts are self-hosted under /assets now; the old Google Fonts
+		// cache is reaped like any other stale qm- cache.
+		await storage.seed(
+			'qm-fonts-v1',
+			'https://fonts.gstatic.com/font-0.woff2',
+			new Response('FONT 0'),
+		)
 
 		const worker = loadServiceWorker({
 			storage,
@@ -358,7 +358,7 @@ describe('service-worker lifecycle and public resources', () => {
 			await (await storage.open('qm-static-v1')).match('/assets/old.js'),
 		).toBeDefined()
 		expect(await storage.keys()).toContain('qm-static-current-build')
-		expect((await storage.open('qm-fonts-v1')).entries.size).toBe(16)
+		expect(await storage.keys()).not.toContain('qm-fonts-v1')
 		expect(worker.wasClaimed()).toBe(false)
 	})
 

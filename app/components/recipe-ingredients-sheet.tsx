@@ -54,7 +54,7 @@ export function RecipeIngredientsSheet({
 				<button
 					type="button"
 					onClick={() => setOpen(true)}
-					className="bg-card text-foreground shadow-warm-lg border-border/60 fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-4 z-50 flex h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-all active:scale-95 md:bottom-4"
+					className="bg-card text-foreground shadow-warm-lg border-border/60 fixed bottom-[calc(var(--bottom-nav-h)+1.5rem+env(safe-area-inset-bottom))] left-4 z-50 flex h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-all active:scale-95 md:bottom-4"
 				>
 					Ingredients
 					<span className="text-muted-foreground text-xs tabular-nums">
@@ -83,7 +83,7 @@ function IngredientsSheet({
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby="ingredients-sheet-title"
-				className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-50 rounded-t-xl border-t p-4 md:bottom-0"
+				className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom))] z-50 rounded-t-xl border-t p-4 md:bottom-0"
 			>
 				<div className="mb-2 flex items-center justify-between">
 					<span id="ingredients-sheet-title" className="text-sm font-medium">

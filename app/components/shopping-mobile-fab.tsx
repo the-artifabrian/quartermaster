@@ -278,7 +278,7 @@ export function MobileFabAdd({
 			{!open && (
 				<button
 					type="button"
-					className="bg-primary text-primary-foreground shadow-warm-md fixed right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex size-12 items-center justify-center rounded-full transition-all active:scale-95"
+					className="bg-primary text-primary-foreground shadow-warm-md fixed right-4 bottom-[calc(var(--bottom-nav-h)+1.5rem+env(safe-area-inset-bottom))] z-50 flex size-12 items-center justify-center rounded-full transition-all active:scale-95"
 					aria-label="Add item"
 					onClick={() => onOpenChange(true)}
 				>
@@ -311,7 +311,7 @@ function AddItemSheet({
 			aria-labelledby="shopping-add-sheet-title"
 		>
 			<div className="fixed inset-0 z-40 bg-black/15" onClick={onClose} />
-			<div className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-50 rounded-t-xl border-t p-4">
+			<div className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom))] z-50 rounded-t-xl border-t p-4">
 				<div className="mb-2 flex items-center justify-between">
 					<span id="shopping-add-sheet-title" className="text-sm font-medium">
 						Add to list

@@ -54,6 +54,10 @@
 	--ease-reveal: cubic-bezier(0.16, 0.85, 0.45, 1);
 	--ease-micro: cubic-bezier(0.33, 1, 0.68, 1);
 	--ease-exit: cubic-bezier(0.55, 0, 0.68, 0.19);
+
+	/* The tab bar's row, without its border and the home indicator inset.
+	   Sheets, buttons and padding that sit above the bar add to it. */
+	--bottom-nav-h: 4rem;
 }
 
 /* The homepage re-themes the site chrome around it (header, Log In)
@@ -445,6 +449,12 @@ html {
    status bar readable over whatever scrolls under it. */
 :root[data-native-shell] [data-site-header] {
 	padding-top: env(safe-area-inset-top);
+}
+
+/* In the iOS app the tab bar is as tall as a native one (49pt), so whatever
+   docks above it moves down with it. */
+:root[data-native-shell] {
+	--bottom-nav-h: 50px;
 }
 
 /* In the iOS app, detail pages slide like a native push and pop

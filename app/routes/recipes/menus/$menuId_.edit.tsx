@@ -394,7 +394,7 @@ export default function EditMenu({ loaderData }: Route.ComponentProps) {
 	const { menu, sections, recipes } = loaderData
 
 	return (
-		<div className="container max-w-2xl py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
+		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+env(safe-area-inset-bottom))] md:pb-6">
 			<h1 className="mb-6 font-serif text-2xl font-normal">Edit Menu</h1>
 			<MenuForm
 				menu={menu}

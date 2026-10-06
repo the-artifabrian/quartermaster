@@ -1019,7 +1019,7 @@ export default function ShoppingListRoute({
 		showWarning && warningData.warningType !== 'move_to_section'
 
 	return (
-		<div className="pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-6">
+		<div className="pb-[calc(var(--bottom-nav-h)+3rem+env(safe-area-inset-bottom))] md:pb-6">
 			{isProActive && <ShoppingListLiveRefresh />}
 			{checks.notices.length > 0 && (
 				<div role="alert" className="container-narrow py-3 text-sm">

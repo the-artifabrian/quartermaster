@@ -830,11 +830,23 @@ describe('parseISODuration', () => {
 	test('returns undefined for invalid input', () => {
 		expect(parseISODuration('')).toBeUndefined()
 		expect(parseISODuration('invalid')).toBeUndefined()
-		expect(parseISODuration('P1D')).toBeUndefined()
 		expect(parseISODuration('30')).toBeUndefined()
+		expect(parseISODuration('P1DT')).toBeUndefined()
 	})
 
 	test('parses seconds only', () => {
 		expect(parseISODuration('PT45S')).toBe(1)
+	})
+
+	test('parses a day part', () => {
+		expect(parseISODuration('P0DT1H30M')).toBe(90)
+		expect(parseISODuration('P1DT2H')).toBe(1560)
+		expect(parseISODuration('P1D')).toBe(1440)
+	})
+
+	test('returns undefined for an empty or zero duration with a day part', () => {
+		expect(parseISODuration('P0D')).toBeUndefined()
+		expect(parseISODuration('P')).toBeUndefined()
+		expect(parseISODuration('PT')).toBeUndefined()
 	})
 })

@@ -14,6 +14,7 @@ import { fetchPublicUrl } from '#app/utils/public-url.server.ts'
 import {
 	extractRecipe,
 	findRecipeInJsonLd,
+	RecipeShapeError,
 } from '#app/utils/recipe-jsonld.server.ts'
 import { ImportUrlSchema } from '#app/utils/recipe-validation.ts'
 
@@ -119,7 +120,22 @@ export async function importFromUrl(
 			)
 		}
 
-		const recipe = extractRecipe(recipeData, url)
+		let recipe
+		try {
+			recipe = extractRecipe(recipeData, url)
+		} catch (error) {
+			if (!(error instanceof RecipeShapeError)) throw error
+			return data(
+				{
+					intent: 'fetch' as const,
+					error: 'The recipe data on this page could not be read.',
+					recipe: null,
+					result: null,
+					duplicates: null,
+				},
+				{ status: 400 },
+			)
+		}
 
 		// Check for duplicates
 		const duplicates: DuplicateMatch[] = []

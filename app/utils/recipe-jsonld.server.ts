@@ -11,6 +11,14 @@ import {
 } from './recipe-text-parser.ts'
 import { MAX_RAW_TEXT_LENGTH } from './recipe-validation.ts'
 
+/** The Recipe node has a field in a shape the import cannot read. */
+export class RecipeShapeError extends Error {
+	constructor(message: string) {
+		super(message)
+		this.name = 'RecipeShapeError'
+	}
+}
+
 export function findRecipeInJsonLd(
 	obj: unknown,
 ): Record<string, unknown> | null {
@@ -73,10 +81,29 @@ function parseTypedYield(value: unknown): {
 	amount: number
 	label: string
 } | null {
+	// WP Recipe Maker sends ["24", "24 cookies"]: a labelled entry wins, and
+	// only without one does a bare number count, as schema.org's servings
+	const entries: unknown[] = Array.isArray(value) ? value : [value]
+	for (const entry of entries) {
+		const parsed = parseYieldEntry(entry)
+		if (parsed) return parsed
+	}
+	for (const entry of entries) {
+		if (entry == null) continue
+		const raw = cleanJsonLdText(String(entry))
+		if (/^\d+$/.test(raw) && Number(raw) > 0) {
+			return { amount: Number(raw), label: 'servings' }
+		}
+	}
+	return null
+}
+
+function parseYieldEntry(value: unknown): {
+	amount: number
+	label: string
+} | null {
 	if (value == null) return null
-	const raw = cleanJsonLdText(
-		String(Array.isArray(value) ? (value[0] ?? '') : value),
-	)
+	const raw = cleanJsonLdText(String(value))
 	const amountMatch = raw.match(/\d+(?:[.,]\d+)?/)
 	if (!amountMatch || amountMatch.index == null) return null
 	const amount = Number(amountMatch[0].replace(',', '.'))
@@ -93,7 +120,9 @@ function parseTypedYield(value: unknown): {
 
 function parseExplicitDuration(value: unknown): number | null {
 	if (value == null) return null
-	const minutes = parseISODuration(String(value))
+	// Some sites send bare minutes ("30" or 30) instead of an ISO duration
+	const raw = String(value).trim()
+	const minutes = /^\d+$/.test(raw) ? Number(raw) : parseISODuration(raw)
 	return minutes != null && minutes > 0 ? minutes : null
 }
 
@@ -101,9 +130,10 @@ function parseInstructions(value: unknown): Array<{ content: string }> {
 	if (!value) return []
 
 	if (typeof value === 'string') {
-		return cleanJsonLdText(value)
+		// Split before cleaning, which collapses blank lines into a space
+		return value
 			.split(/\n+/)
-			.map((s) => s.trim())
+			.map(cleanJsonLdText)
 			.filter(Boolean)
 			.map((content) => ({ content }))
 	}
@@ -126,6 +156,12 @@ function parseInstructions(value: unknown): Array<{ content: string }> {
 					const sectionSteps = parseInstructions(obj.itemListElement)
 					result.push(...sectionSteps)
 				}
+				// HowToStep with its text only in name. A HowToSection's name is a
+				// title, never a step, even when the section has no children.
+				else if (obj.name && !isHowToSection(obj)) {
+					const name = cleanJsonLdText(String(obj.name))
+					if (name) result.push({ content: name })
+				}
 			}
 		}
 		return result
@@ -134,11 +170,26 @@ function parseInstructions(value: unknown): Array<{ content: string }> {
 	return []
 }
 
+function isHowToSection(obj: Record<string, unknown>): boolean {
+	const type = obj['@type']
+	return (
+		type === 'HowToSection' ||
+		(Array.isArray(type) && type.includes('HowToSection'))
+	)
+}
+
 export function extractRecipe(
 	jsonLd: Record<string, unknown>,
 	url: string,
 ): ExtractedRecipe {
-	const rawIngredients = (jsonLd.recipeIngredient as string[]) || []
+	const ingredientField = jsonLd.recipeIngredient || []
+	if (
+		!Array.isArray(ingredientField) ||
+		!ingredientField.every((line) => typeof line === 'string')
+	) {
+		throw new RecipeShapeError('recipeIngredient is not a list of strings')
+	}
+	const rawIngredients: string[] = ingredientField
 	const cleanedLines = rawIngredients.map(cleanJsonLdText)
 	// When the whole list is caps, caps is house style, not structure
 	const allCapsIsHeading = !isAllCapsHouseStyle(cleanedLines)

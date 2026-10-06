@@ -5,16 +5,21 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { useState } from 'react'
 import { createRoutesStub, useFetcher } from 'react-router'
-import { beforeEach, expect, test } from 'vitest'
+import { expect, test } from 'vitest'
 import { loaderCache } from '#app/utils/loader-cache.ts'
 import { ServiceWorkerDataSync } from './service-worker-data-sync.tsx'
 
 const planRequest = new Request('https://useqm.app/plan')
 
-beforeEach(() => {
-	loaderCache.setIdentity(null)
-	loaderCache.setLocation(null)
-})
+/** Starts and ends a test with an empty, signed-out cache singleton. */
+function freshCache() {
+	const reset = () => {
+		loaderCache.setIdentity(null)
+		loaderCache.setLocation(null)
+	}
+	reset()
+	return { [Symbol.dispose]: reset }
+}
 
 /**
  * Whether a navigation to /plan would be answered from memory. The cache reads
@@ -44,6 +49,7 @@ async function cachePlan(currentPath: string) {
 }
 
 test('a Shopping submission drops the loader cache when it starts and when it settles', async () => {
+	using _cache = freshCache()
 	let finish = () => {}
 	const actionDone = new Promise<void>((resolve) => {
 		finish = resolve
@@ -93,6 +99,7 @@ test('a Shopping submission drops the loader cache when it starts and when it se
 })
 
 test('switching user or signing out drops the loader cache', async () => {
+	using _cache = freshCache()
 	function Page() {
 		const [userId, setUserId] = useState<string | null>('alex')
 		return (
@@ -118,6 +125,7 @@ test('switching user or signing out drops the loader cache', async () => {
 })
 
 test('the committed router location is what the cache compares against', async () => {
+	using _cache = freshCache()
 	const Stub = createRoutesStub([
 		{
 			path: '/shopping',

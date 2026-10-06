@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import {
 	createLoaderCache,
 	loaderCache,
@@ -394,13 +394,14 @@ describe('remembering the first page', () => {
 })
 
 describe('the committed location', () => {
-	afterEach(() => {
-		loaderCache.setIdentity(null)
-		loaderCache.setLocation(null)
-		vi.unstubAllGlobals()
-	})
-
 	test('back and forward to a cached page are served from the cache, though window.location already shows the target', async () => {
+		using _singleton = {
+			[Symbol.dispose]() {
+				loaderCache.setIdentity(null)
+				loaderCache.setLocation(null)
+				vi.unstubAllGlobals()
+			},
+		}
 		loaderCache.setIdentity('alex-home')
 		loaderCache.setLocation('/shopping')
 		const plan = { meals: ['tacos'] }

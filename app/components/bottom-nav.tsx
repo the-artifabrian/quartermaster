@@ -4,7 +4,7 @@ import {
 	useRef,
 	useState,
 } from 'react'
-import { NavLink, useLocation, useNavigation } from 'react-router'
+import { NavLink, useLocation, useNavigate, useNavigation } from 'react-router'
 import { cn } from '#app/utils/misc.tsx'
 import { useIsProActive } from '#app/utils/subscription.ts'
 import { useShoppingActivityDot } from '#app/utils/use-shopping-activity-dot.ts'
@@ -74,6 +74,7 @@ function pathIsInTab(path: string | undefined, tabPath: string) {
 export function BottomNav() {
 	const location = useLocation()
 	const navigation = useNavigation()
+	const navigate = useNavigate()
 	const user = useOptionalUser()
 	const isProActive = useIsProActive()
 	const showShoppingDot = useShoppingActivityDot(isProActive)
@@ -81,6 +82,9 @@ export function BottomNav() {
 	const lastPathPerTab = useRef<Record<string, string>>({})
 	const inputRef = useRef<{ tabPath: string; startedAt: number } | null>(null)
 	const pendingStartedRef = useRef(false)
+	// The tab a press already switched to, so the click that follows the press
+	// does not switch a second time.
+	const pressNavigatedRef = useRef<string | null>(null)
 	const [pressedTab, setPressedTab] = useState<string | null>(null)
 	const [pendingInput, setPendingInput] = useState<{
 		tabPath: string
@@ -141,6 +145,28 @@ export function BottomNav() {
 		timing,
 	])
 
+	const startTabNavigation = (
+		item: NavItem,
+		destinationPath: string,
+		startedAt: number,
+	) => {
+		inputRef.current = null
+		pendingStartedRef.current = false
+		setPendingInput({
+			tabPath: item.to,
+			startedAt,
+			fromLocationKey: location.key,
+			supersededPathname:
+				navigation.state === 'idle' ? undefined : navigation.location?.pathname,
+		})
+		timing.begin({
+			destination: item.destination,
+			destinationPath,
+			tabPath: item.to,
+			startedAt,
+		})
+	}
+
 	if (!user) return null
 
 	return (
@@ -175,14 +201,33 @@ export function BottomNav() {
 							data-pressed={isPressed ? 'true' : undefined}
 							onPointerDown={(event) => {
 								if (event.button !== 0 || !event.isPrimary) return
-								inputRef.current = {
-									tabPath: item.to,
-									startedAt: performance.now(),
-								}
+								const startedAt = performance.now()
 								setPressedTab(item.to)
+								if (
+									event.metaKey ||
+									event.ctrlKey ||
+									event.shiftKey ||
+									event.altKey
+								) {
+									// A modified press belongs to the browser (new tab or
+									// window); the click decides.
+									pressNavigatedRef.current = null
+									inputRef.current = { tabPath: item.to, startedAt }
+									return
+								}
+								// Switch on the press, as a native tab bar does, not on the
+								// click that follows once the finger lifts. The bar is fixed
+								// and does not scroll, so a press on it is a tap.
+								pressNavigatedRef.current = item.to
+								if (isPending) return
+								if (isOnSubPage) delete lastPathPerTab.current[item.to]
+								startTabNavigation(item, linkTo, startedAt)
+								void navigate(linkTo, { viewTransition: true })
 							}}
 							onPointerUp={() => setPressedTab(null)}
 							onPointerCancel={() => {
+								// No click follows a cancelled press.
+								pressNavigatedRef.current = null
 								if (inputRef.current?.tabPath === item.to)
 									inputRef.current = null
 								setPressedTab(null)
@@ -205,10 +250,19 @@ export function BottomNav() {
 								if (event.key === 'Enter') setPressedTab(null)
 							}}
 							onBlur={() => {
+								pressNavigatedRef.current = null
 								inputRef.current = null
 								setPressedTab(null)
 							}}
 							onClick={(event) => {
+								// A keyboard click has detail 0; a pointer click follows the
+								// press that already switched.
+								if (event.detail > 0 && pressNavigatedRef.current === item.to) {
+									pressNavigatedRef.current = null
+									event.preventDefault()
+									return
+								}
+								pressNavigatedRef.current = null
 								if (isOnSubPage) delete lastPathPerTab.current[item.to]
 								if (!isNormalLinkActivation(event) || event.defaultPrevented)
 									return
@@ -217,24 +271,8 @@ export function BottomNav() {
 									inputRef.current?.tabPath === item.to
 										? inputRef.current.startedAt
 										: performance.now()
-								inputRef.current = null
 								setPressedTab(null)
-								pendingStartedRef.current = false
-								setPendingInput({
-									tabPath: item.to,
-									startedAt,
-									fromLocationKey: location.key,
-									supersededPathname:
-										navigation.state === 'idle'
-											? undefined
-											: navigation.location?.pathname,
-								})
-								timing.begin({
-									destination: item.destination,
-									destinationPath: linkTo,
-									tabPath: item.to,
-									startedAt,
-								})
+								startTabNavigation(item, linkTo, startedAt)
 							}}
 							className={cn(
 								'relative flex flex-col items-center justify-center gap-1 py-2 transition-[color,background-color,transform] duration-150',

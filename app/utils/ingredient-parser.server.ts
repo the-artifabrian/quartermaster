@@ -11,7 +11,7 @@ export function parseISODuration(duration: string): number | undefined {
 	if (!duration) return undefined
 
 	const match = duration.match(
-		/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/,
+		/^P(?:(\d+)D)?(?:T(?=\d)(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/,
 	)
 	if (!match) return undefined
 

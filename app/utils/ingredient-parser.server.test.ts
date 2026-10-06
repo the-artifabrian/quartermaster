@@ -831,6 +831,7 @@ describe('parseISODuration', () => {
 		expect(parseISODuration('')).toBeUndefined()
 		expect(parseISODuration('invalid')).toBeUndefined()
 		expect(parseISODuration('30')).toBeUndefined()
+		expect(parseISODuration('P1DT')).toBeUndefined()
 	})
 
 	test('parses seconds only', () => {

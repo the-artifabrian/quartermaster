@@ -58,6 +58,7 @@ export function cleanJsonLdText(text: string): string {
 			.replace(/<[^>]+>/g, '')
 			// Decode common HTML entities
 			.replace(/&nbsp;/gi, ' ')
+			.replace(/&amp;/gi, '&')
 			.replace(/&lt;/gi, '<')
 			.replace(/&gt;/gi, '>')
 			.replace(/&quot;/gi, '"')
@@ -70,8 +71,6 @@ export function cleanJsonLdText(text: string): string {
 			.replace(/&#x([0-9a-fA-F]+);/g, (_, code) =>
 				String.fromCharCode(parseInt(code, 16)),
 			)
-			// Last, so an escaped entity (&amp;lt;) decodes only once
-			.replace(/&amp;/gi, '&')
 			// Collapse multiple spaces into one
 			.replace(/\s{2,}/g, ' ')
 			.trim()
@@ -82,11 +81,19 @@ function parseTypedYield(value: unknown): {
 	amount: number
 	label: string
 } | null {
-	// WP Recipe Maker sends ["4", "4 servings"]: take the first readable entry
+	// WP Recipe Maker sends ["24", "24 cookies"]: a labelled entry wins, and
+	// only without one does a bare number count, as schema.org's servings
 	const entries: unknown[] = Array.isArray(value) ? value : [value]
 	for (const entry of entries) {
 		const parsed = parseYieldEntry(entry)
 		if (parsed) return parsed
+	}
+	for (const entry of entries) {
+		if (entry == null) continue
+		const raw = cleanJsonLdText(String(entry))
+		if (/^\d+$/.test(raw) && Number(raw) > 0) {
+			return { amount: Number(raw), label: 'servings' }
+		}
 	}
 	return null
 }
@@ -97,11 +104,6 @@ function parseYieldEntry(value: unknown): {
 } | null {
 	if (value == null) return null
 	const raw = cleanJsonLdText(String(value))
-	// schema.org reads a bare number as servings
-	if (/^\d+$/.test(raw)) {
-		const amount = Number(raw)
-		return amount > 0 ? { amount, label: 'servings' } : null
-	}
 	const amountMatch = raw.match(/\d+(?:[.,]\d+)?/)
 	if (!amountMatch || amountMatch.index == null) return null
 	const amount = Number(amountMatch[0].replace(',', '.'))
@@ -154,9 +156,9 @@ function parseInstructions(value: unknown): Array<{ content: string }> {
 					const sectionSteps = parseInstructions(obj.itemListElement)
 					result.push(...sectionSteps)
 				}
-				// HowToStep with its text only in name; after the section check
-				// so a HowToSection title never becomes a step
-				else if (obj.name) {
+				// HowToStep with its text only in name. A HowToSection's name is a
+				// title, never a step, even when the section has no children.
+				else if (obj.name && !isHowToSection(obj)) {
 					const name = cleanJsonLdText(String(obj.name))
 					if (name) result.push({ content: name })
 				}
@@ -168,15 +170,26 @@ function parseInstructions(value: unknown): Array<{ content: string }> {
 	return []
 }
 
+function isHowToSection(obj: Record<string, unknown>): boolean {
+	const type = obj['@type']
+	return (
+		type === 'HowToSection' ||
+		(Array.isArray(type) && type.includes('HowToSection'))
+	)
+}
+
 export function extractRecipe(
 	jsonLd: Record<string, unknown>,
 	url: string,
 ): ExtractedRecipe {
-	const ingredientField = jsonLd.recipeIngredient
-	if (ingredientField != null && !Array.isArray(ingredientField)) {
-		throw new RecipeShapeError('recipeIngredient is not a list')
+	const ingredientField = jsonLd.recipeIngredient || []
+	if (
+		!Array.isArray(ingredientField) ||
+		!ingredientField.every((line) => typeof line === 'string')
+	) {
+		throw new RecipeShapeError('recipeIngredient is not a list of strings')
 	}
-	const rawIngredients = (ingredientField as string[] | null) ?? []
+	const rawIngredients: string[] = ingredientField
 	const cleanedLines = rawIngredients.map(cleanJsonLdText)
 	// When the whole list is caps, caps is house style, not structure
 	const allCapsIsHeading = !isAllCapsHouseStyle(cleanedLines)

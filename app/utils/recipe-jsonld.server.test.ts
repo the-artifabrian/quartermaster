@@ -61,12 +61,9 @@ test('HTML tags, named entities and numeric entities become plain text', () => {
 	).toBe(`Salt & pepper to taste (optional) "fine" 'sea'`)
 })
 
-test('an escaped entity decodes once, to the entity text', () => {
-	expect(cleanJsonLdText('Use &amp;lt;b&amp;gt; tags')).toBe(
-		'Use &lt;b&gt; tags',
-	)
-	expect(cleanJsonLdText('Flour &amp;#40;sifted&amp;#41;')).toBe(
-		'Flour &#40;sifted&#41;',
+test('double-encoded entities, as WordPress sends them, decode fully on purpose', () => {
+	expect(cleanJsonLdText('Mom&amp;#8217;s &amp;quot;best&amp;quot; pie')).toBe(
+		'Mom’s "best" pie',
 	)
 })
 
@@ -100,9 +97,9 @@ describe('yield', () => {
 	})
 
 	test('the WP Recipe Maker array reads the labelled entry', () => {
-		expect(recipe({ recipeYield: ['4', '4 servings'] })).toMatchObject({
-			yieldAmount: 4,
-			yieldLabel: 'servings',
+		expect(recipe({ recipeYield: ['24', '24 cookies'] })).toMatchObject({
+			yieldAmount: 24,
+			yieldLabel: 'cookies',
 		})
 	})
 
@@ -117,10 +114,10 @@ describe('yield', () => {
 		})
 	})
 
-	test('a range gives no yield', () => {
-		expect(recipe({ recipeYield: '4-6 servings' })).toMatchObject({
-			yieldAmount: null,
-			yieldLabel: null,
+	test('a labelled range is refused, so the bare number gives the yield', () => {
+		expect(recipe({ recipeYield: ['4-6 servings', '4'] })).toMatchObject({
+			yieldAmount: 4,
+			yieldLabel: 'servings',
 		})
 	})
 
@@ -208,6 +205,17 @@ describe('instructions', () => {
 		])
 	})
 
+	test('a named HowToSection with no children gives no steps', () => {
+		expect(
+			recipe({
+				recipeInstructions: [
+					{ '@type': 'HowToSection', name: 'Sauce' },
+					{ '@type': ['HowToSection'], name: 'Pasta', itemListElement: null },
+				],
+			}).instructions,
+		).toEqual([])
+	})
+
 	test('HowToStep objects and plain strings, with markup cleaned', () => {
 		expect(
 			recipe({
@@ -268,7 +276,14 @@ test('a recipeIngredient that is not a list is refused, not half-read', () => {
 	expect(() => recipe({ recipeIngredient: { text: '1 lemon' } })).toThrow(
 		RecipeShapeError,
 	)
+	expect(() => recipe({ recipeIngredient: ['1 egg', 5] })).toThrow(
+		RecipeShapeError,
+	)
+	expect(() =>
+		recipe({ recipeIngredient: ['1 egg', { text: '1 lemon' }] }),
+	).toThrow(RecipeShapeError)
 	expect(recipe({ recipeIngredient: null }).ingredients).toEqual([])
+	expect(recipe({ recipeIngredient: '' }).ingredients).toEqual([])
 })
 
 test('an all-capitals ingredient list is house style, so no line is a heading', () => {

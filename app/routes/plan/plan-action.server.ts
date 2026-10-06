@@ -240,22 +240,15 @@ export function createPlanAction(
 				{ status: 400 },
 			)
 
-			// Missing cards (recipeId null) produce no fresh demand — a deleted
-			// Recipe must be replaced or removed before it can contribute again.
-			// Note-card Shopping lines contribute alongside Recipe items (#109);
-			// a note-only snapshot Meal is a valid contributor.
+			// Missing cards (recipeId null) contribute nothing, so an update drops
+			// a deleted Recipe's lines. Note-card Shopping lines contribute
+			// alongside Recipe items (#109); a note-only snapshot Meal is a valid
+			// contributor.
 			const mealDemand = await loadMealShoppingDemand(db, {
 				mealIds: [meal.id],
 				includeCooked: true,
 			})
-			const { lines: demand, hasMissingRecipeCards } = mealDemand.get(meal.id)!
-			if (intent === 'refreshMealShopping') {
-				invariantResponse(
-					!hasMissingRecipeCards,
-					'Replace or remove missing Recipe cards before refreshing Shopping',
-					{ status: 400 },
-				)
-			}
+			const { lines: demand } = mealDemand.get(meal.id)!
 
 			const availability = await loadShoppingAvailability(db, householdId)
 			const { lines } = annotateShoppingDemand(demand, availability)

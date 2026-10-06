@@ -91,8 +91,9 @@ into a total. Manual Shopping rows are first-class and are not removed by
 Staples logic.
 
 A Meal contribution stores current generated provenance, not event history.
-Refreshing one Meal replaces only that Meal’s contribution and preserves manual
-rows, other Meals, and compatible checked state.
+Updating one Meal replaces only that Meal’s contribution with its current
+demand, so a deleted Recipe’s lines leave the list. Manual rows, other Meals,
+and compatible checked state are preserved.
 
 Shopping checks submit an explicit state and the observed purchase version.
 SQLite triggers advance that version for row and Meal-contribution changes, so
@@ -235,4 +236,4 @@ are implementation evidence, not substitutes for normal use.
 first result, even `false`. To wait on async page state such as Cache Storage,
 use `expect.poll(() => page.evaluate(async () => …))`.
 
-_Updated 24 September 2026._
+_Updated 6 October 2026._

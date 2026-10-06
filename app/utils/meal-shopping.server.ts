@@ -7,12 +7,6 @@ import {
 export type MealShoppingDemand = {
 	/** Normalized demand lines for this Meal, in demand-module order. */
 	lines: ShoppingDemandLine[]
-	/**
-	 * True when a Recipe card points at a deleted Recipe. Such a card produces
-	 * no fresh demand, so an explicit refresh must be blocked rather than
-	 * silently dropping what it used to contribute.
-	 */
-	hasMissingRecipeCards: boolean
 }
 
 /**
@@ -79,7 +73,6 @@ export async function loadMealShoppingDemand(
 					.filter((line) => line.noteItem.mealId === mealId)
 					.map(({ name, quantity, unit }) => ({ name, quantity, unit })),
 			}),
-			hasMissingRecipeCards: items.some((item) => item.recipe == null),
 		})
 	}
 	return demand

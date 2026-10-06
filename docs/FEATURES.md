@@ -58,8 +58,9 @@ plan into Shopping.
   cooked state.
 - Add Recipes to an existing Meal, reorder Meals, and edit Meal details without
   leaving the Plan.
-- Add one Meal’s demand to Shopping explicitly and refresh it when relevant
-  Recipe or quantity inputs change.
+- Add one Meal’s demand to Shopping explicitly, and update it later from the
+  Meal’s current Recipes, multipliers, and note lines. An update drops the lines
+  of a deleted Recipe.
 
 ### Staples
 
@@ -79,8 +80,8 @@ plan into Shopping.
   unresolved or incompatible amounts visible.
 - Omit lines matching a household Staple; include everything else.
 - Add several household Staples to the next shop from one quiet header picker.
-- Keep manual rows separate from Meal contributions so refreshes do not
-  overwrite another Meal or a shopper’s correction.
+- Keep manual rows separate from Meal contributions so updates do not overwrite
+  another Meal or a shopper’s correction.
 - Edit, search, check off, clear, and quick-add in a flat list with no aisle
   grouping.
 - Sync household changes through SSE with polling fallback.
@@ -117,4 +118,4 @@ Product terms live in [GLOSSARY.md](../GLOSSARY.md). Shipped, stopped, and
 deferred roadmap outcomes live in [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)
 and roadmap #98.
 
-_Updated 22 September 2026._
+_Updated 6 October 2026._

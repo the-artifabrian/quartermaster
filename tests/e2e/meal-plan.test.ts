@@ -157,6 +157,86 @@ test.describe('Move a Meal', () => {
 	})
 })
 
+test('Update Shopping List puts a rescaled Meal on Shopping at its new amount', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Tomato Pasta',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: {
+				create: { name: 'pasta', amount: '200', unit: 'g', order: 0 },
+			},
+		},
+	})
+	const plan = await prisma.mealPlan.create({
+		data: { householdId: user.householdId, weekStart: new Date('2026-10-19') },
+	})
+	const meal = await prisma.meal.create({
+		data: {
+			mealPlanId: plan.id,
+			date: new Date('2026-10-21'),
+			order: 0,
+			recipeItems: {
+				create: { recipeId: recipe.id, recipeTitle: recipe.title, order: 0 },
+			},
+		},
+		include: { recipeItems: true },
+	})
+	const readPasta = () =>
+		prisma.shoppingListItem.findFirstOrThrow({
+			where: { list: { householdId: user.householdId }, name: 'pasta' },
+		})
+
+	await page.setViewportSize({ width: 390, height: 844 })
+	await page.goto('/plan?weekStart=2026-10-19')
+	const card = page
+		.getByTestId('mobile-plan')
+		.locator(`[data-meal-id="${meal.id}"]`)
+	const mealActions = card.getByRole('button', {
+		name: 'Meal actions for Tomato Pasta',
+	})
+	async function chooseMenuItem(name: string) {
+		await expect(async () => {
+			await mealActions.click()
+			await expect(
+				page.getByRole('menuitem', { name, exact: true }),
+			).toBeVisible({ timeout: 2000 })
+		}).toPass()
+		await page.getByRole('menuitem', { name, exact: true }).click()
+	}
+
+	await chooseMenuItem('Add to Shopping List')
+	await expect(page.getByText('Added 1 item to Shopping')).toBeVisible()
+	expect(await readPasta()).toMatchObject({ quantity: '200', unit: 'g' })
+	// The closed menu hands focus back to its trigger; reopening before then
+	// lets that late focus close the new menu as a click outside.
+	await expect(mealActions).toBeFocused()
+
+	await card.getByLabel('Scale multiplier').fill('2')
+	await card.getByLabel('Scale multiplier').press('Enter')
+	await expect
+		.poll(async () => {
+			const item = await prisma.mealRecipeItem.findUniqueOrThrow({
+				where: { id: meal.recipeItems[0]!.id },
+			})
+			return item.scaleMultiplier
+		})
+		.toBe(2)
+	// Rescaling alone leaves Shopping as it was.
+	expect(await readPasta()).toMatchObject({ quantity: '200', unit: 'g' })
+
+	await chooseMenuItem('Update Shopping List')
+	await expect(page.getByText('Shopping List updated')).toBeVisible()
+	expect(await readPasta()).toMatchObject({ quantity: '400', unit: 'g' })
+
+	await page.goto('/shopping')
+	await expect(page.getByLabel('pasta shopping item')).toContainText('400 g')
+})
+
 test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 	page,
 	login,

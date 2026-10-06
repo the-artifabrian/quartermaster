@@ -12,7 +12,7 @@ import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as planPickerLoader } from '../resources/shopping-plan.tsx'
 import { action as shoppingAction } from '../shopping.tsx'
-import { action as planAction, loader as planLoader } from './index.tsx'
+import { action as planAction } from './index.tsx'
 import '#tests/setup/db-setup.ts'
 
 const PLAN_ARGS = {
@@ -111,14 +111,6 @@ async function runPlanPickerLoader(session: TestSession) {
 		context: new RouterContextProvider(),
 		pattern: '/resources/shopping-plan',
 		url,
-	})
-}
-
-async function runPlanLoader(session: TestSession) {
-	const cookie = await getSessionCookieHeader(session)
-	return planLoader({
-		request: new Request(`${BASE_URL}/plan`, { headers: { cookie } }),
-		...PLAN_ARGS,
 	})
 }
 
@@ -301,8 +293,8 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 				isStaple: true,
 			},
 		})
-		// The Staples write only marks fresh demand stale; rows and
-		// contributions stay byte-for-byte present until explicit refresh.
+		// The Staples write leaves rows and contributions byte-for-byte
+		// present until an explicit update.
 		expect(
 			await prisma.shoppingListItem.findUniqueOrThrow({
 				where: { id: manualSalt.id },
@@ -313,9 +305,6 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 				where: { mealId: meal.id, canonicalName: 'salt' },
 			}),
 		).toBe(1)
-		expect((await runPlanLoader(session)).meals[0]!.shoppingDemandStatus).toBe(
-			'stale',
-		)
 
 		await runPlanAction(session, {
 			intent: 'refreshMealShopping',
@@ -331,9 +320,6 @@ describe('household Staple annotation at explicit Shopping actions (#116)', () =
 				where: { mealId: meal.id, canonicalName: 'salt' },
 			}),
 		).toBe(0)
-		expect((await runPlanLoader(session)).meals[0]!.shoppingDemandStatus).toBe(
-			'current',
-		)
 
 		await prisma.householdIngredient.update({
 			where: {

@@ -66,8 +66,10 @@ for hosts without a dot, so this works with the real site, not with `localhost`
 or `127.0.0.1`:
 
 ```sh
-xcrun simctl launch booted app.useqm.ios -QMSessionCookie "$EN_SESSION"
+xcrun simctl launch booted app.useqm.ios -QMSessionCookie "$EN_SESSION" -QMStartPath /recipes
 ```
+
+`-QMStartPath </path>` (Debug only) opens that page instead of `/plan`.
 
 ## Incoming links
 

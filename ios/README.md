@@ -12,6 +12,7 @@ target without touching the project file.
 | ---------------------------------------------- | -------------------------------------------------------------------------- |
 | `QuartermasterApp.swift`                       | App entry, one SwiftUI scene, incoming links                               |
 | `ShellViewController.swift`                    | Web view, navigation and UI delegates, offline view hosting                |
+| `ShellBridge.swift`                            | Launch timing for the page (Shell bridge)                                  |
 | `ShellConfig.swift`                            | Base URL, start path, user agent token, app-bound check, back swipe        |
 | `LinkPolicy.swift`                             | Where a URL opens: web view, Safari sheet, or iOS                          |
 | `IncomingURL.swift`                            | Which page an incoming link opens                                          |
@@ -85,9 +86,9 @@ https, is ignored. Universal links on the base URL's host load as they are, once
 the `applinks` entitlement is on (1.6 below). `IncomingURL.swift` holds the
 rules.
 
-A link that launches the app loads instead of the start page, not after it: the
-start page waits until the app is active, which costs a normal launch under 100
-ms.
+The first page starts loading as soon as the shell's view loads. A link that
+launched the app has usually reached the shell by then and loads instead of the
+start page; one that arrives later replaces the start page mid-flight.
 
 To try it in the Simulator (iOS asks "Open in Quartermaster?" first, so tap
 Open):
@@ -101,6 +102,14 @@ Run it with the app open and again after
 on the import page. `quartermaster://something-else` and
 `quartermaster://import?url=javascript:alert(1)` should leave the app where it
 was.
+
+## Shell bridge
+
+The first document after launch gets a document-start script, main frame only:
+`window.__qmShell = { initAt, loadAt }`, both epoch milliseconds (`Date.now()`
+units). `initAt` is when the app started and `loadAt` when the shell started the
+first load. The script is removed once that document finishes loading, so a
+later reload does not see it.
 
 ## Back swipe
 

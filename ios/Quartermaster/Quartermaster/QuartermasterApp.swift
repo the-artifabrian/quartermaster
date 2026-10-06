@@ -2,6 +2,8 @@ import SwiftUI
 
 @main
 struct QuartermasterApp: App {
+    /// For `window.__qmShell` (#346, 5.2).
+    private let initAt = LaunchTiming.now()
     private let config = ShellConfig.load()
     private let inbox = PageInbox()
 
@@ -9,7 +11,7 @@ struct QuartermasterApp: App {
         WindowGroup {
             // The web view handles the keyboard and safe areas itself, the way
             // Safari does, so SwiftUI must not resize it.
-            ShellView(config: config, inbox: inbox)
+            ShellView(config: config, inbox: inbox, initAt: initAt)
                 .ignoresSafeArea()
                 .background(Color("LaunchBackground"))
                 // quartermaster://import from the Share Extension.

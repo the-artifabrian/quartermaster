@@ -8,9 +8,10 @@ import os
 struct ShellView: UIViewControllerRepresentable {
     let config: ShellConfig
     let inbox: PageInbox
+    let initAt: Double
 
     func makeUIViewController(context: Context) -> ShellViewController {
-        ShellViewController(config: config, inbox: inbox)
+        ShellViewController(config: config, inbox: inbox, initAt: initAt)
     }
 
     func updateUIViewController(_ controller: ShellViewController, context: Context) {}
@@ -36,9 +37,15 @@ final class ShellViewController: UIViewController {
     private let config: ShellConfig
     private let inbox: PageInbox
     private let links: LinkPolicy
+    /// When the app started, epoch ms, for `window.__qmShell`.
+    private let initAt: Double
     private let offline = OfflineModel()
     private var offlineController: UIHostingController<OfflineView>?
     private var webView: WKWebView!
+    private let contentController = WKUserContentController()
+    /// Whether `window.__qmShell` is still injected. Only the first document
+    /// should see it; a reload would report a launch that did not happen.
+    private var hasLaunchTimingScript = false
     /// The last main-frame URL the web view tried to load, for Retry.
     private var lastRequestedURL: URL?
     /// Whether any page has committed. WKWebView.url already holds the
@@ -49,9 +56,10 @@ final class ShellViewController: UIViewController {
     /// Where each running download is being written.
     private var downloadFiles: [ObjectIdentifier: URL] = [:]
 
-    init(config: ShellConfig, inbox: PageInbox) {
+    init(config: ShellConfig, inbox: PageInbox, initAt: Double) {
         self.config = config
         self.inbox = inbox
+        self.initAt = initAt
         self.links = LinkPolicy(host: config.host)
         super.init(nibName: nil, bundle: nil)
     }
@@ -71,6 +79,7 @@ final class ShellViewController: UIViewController {
         .filter { !$0.isEmpty }
         .joined(separator: " ")
         configuration.allowsInlineMediaPlayback = true
+        configuration.userContentController = contentController
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = self
@@ -98,12 +107,15 @@ final class ShellViewController: UIViewController {
         installDebugSession { [weak self] in self?.loadFirstPage() }
     }
 
+    /// Starts at once, without waiting for the app to become active. A link
+    /// that launched the app usually reaches the inbox first; one that
+    /// arrives later replaces this load mid-flight.
     private func loadFirstPage() {
-        if let page = inbox.attach({ [weak self] page in self?.openIncoming(page) }) {
-            load(page)
-        } else {
-            loadStartPageOnceActive()
-        }
+        let incoming = inbox.attach { [weak self] page in self?.openIncoming(page) }
+        let page = incoming ?? config.startURL
+        contentController.addUserScript(LaunchTiming.script(initAt: initAt, loadAt: LaunchTiming.now()))
+        hasLaunchTimingScript = true
+        load(page)
     }
 
     /// Debug builds take `-QMSessionCookie <value>`: the site's session cookie,
@@ -135,28 +147,6 @@ final class ShellViewController: UIViewController {
         }
         #endif
         proceed()
-    }
-
-    /// A link that launched the app can reach `.onOpenURL` after this view
-    /// has loaded. Holding the start page until the app is active lets that
-    /// link load first, rather than the start page loading and then being
-    /// replaced.
-    private func loadStartPageOnceActive() {
-        let loadStart = { [weak self] in
-            guard let self, self.lastRequestedURL == nil else { return }
-            self.load(self.config.startURL)
-        }
-        if UIApplication.shared.applicationState == .active {
-            return DispatchQueue.main.async(execute: loadStart)
-        }
-        var observer: NSObjectProtocol?
-        observer = NotificationCenter.default.addObserver(
-            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
-        ) { _ in
-            observer.map(NotificationCenter.default.removeObserver)
-            observer = nil
-            DispatchQueue.main.async(execute: loadStart)
-        }
     }
 
     private func load(_ url: URL) {
@@ -297,6 +287,10 @@ extension ShellViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         offline.isRetrying = false
+        if hasLaunchTimingScript {
+            hasLaunchTimingScript = false
+            contentController.removeAllUserScripts()
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

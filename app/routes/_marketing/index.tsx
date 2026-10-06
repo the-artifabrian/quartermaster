@@ -3,6 +3,7 @@ import { type ReactNode } from 'react'
 import { data, Link, redirect } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
+import { formatDuration } from '#app/utils/format-duration.ts'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
 import { cn } from '#app/utils/misc.tsx'
@@ -434,13 +435,6 @@ const nextWeek: PlanDay[] = [
 	{ day: 'Sunday', date: 4 },
 ]
 
-function formatMinutes(minutes: number) {
-	if (minutes < 60) return `${minutes} min`
-	const hours = Math.floor(minutes / 60)
-	const rest = minutes % 60
-	return rest ? `${hours} hr ${rest} min` : `${hours} hr`
-}
-
 /** The desktop week agenda from `MealPlanCalendar`, rendered statically. */
 function PlanAgenda({
 	days,
@@ -507,7 +501,7 @@ function PlanAgenda({
 										<span>{row.meal.label}</span>
 										<span className="inline-flex items-center gap-0.5 normal-case">
 											<Icon name="clock" className="size-3" />
-											{formatMinutes(row.meal.minutes)}
+											{formatDuration(row.meal.minutes)}
 										</span>
 										{row.meal.guests ? (
 											<span className="normal-case">

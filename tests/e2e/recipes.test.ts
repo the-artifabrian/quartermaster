@@ -449,8 +449,14 @@ test('long Recipe times read in hours and days on the card, detail and edit form
 	).toHaveValue('30')
 	await expect(page.getByText(/^= /)).toHaveCount(1)
 
-	await totalTime.fill('1560')
-	await expect(page.getByText('= 1 day 2 hr')).toBeVisible()
+	await expect(totalTime).toHaveAttribute('aria-describedby', /\S/)
+	const hintId = await totalTime.getAttribute('aria-describedby')
+	await expect(page.locator(`[id="${hintId}"]`)).toHaveText('= 19 hr')
+	// Conform listens for input only after hydration, so retry the typing.
+	await expect(async () => {
+		await totalTime.fill('1560')
+		await expect(page.getByText('= 1 day 2 hr')).toBeVisible({ timeout: 2000 })
+	}).toPass({ timeout: 15_000 })
 	await page.getByRole('button', { name: /save changes/i }).click()
 
 	await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}$`))

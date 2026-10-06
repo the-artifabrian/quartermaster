@@ -421,7 +421,10 @@ export function RecipeForm({
 							<Field
 								labelProps={{ children: 'Active Time (min)' }}
 								inputProps={{
-									...getInputProps(fields.activeTime, { type: 'number' }),
+									...getInputProps(fields.activeTime, {
+										type: 'number',
+										ariaDescribedBy: fields.activeTime.descriptionId,
+									}),
 									min: 1,
 									inputMode: 'numeric',
 									enterKeyHint: 'done',
@@ -429,13 +432,20 @@ export function RecipeForm({
 								}}
 								errors={fields.activeTime.errors}
 							/>
-							<DurationHint minutes={fields.activeTime.value} />
+							<DurationHint
+								id={fields.activeTime.descriptionId}
+								minutes={fields.activeTime.value}
+								className="mt-1"
+							/>
 						</div>
 						<div>
 							<Field
 								labelProps={{ children: 'Total Time (min)' }}
 								inputProps={{
-									...getInputProps(fields.totalTime, { type: 'number' }),
+									...getInputProps(fields.totalTime, {
+										type: 'number',
+										ariaDescribedBy: fields.totalTime.descriptionId,
+									}),
 									min: 1,
 									inputMode: 'numeric',
 									enterKeyHint: 'done',
@@ -443,7 +453,11 @@ export function RecipeForm({
 								}}
 								errors={fields.totalTime.errors}
 							/>
-							<DurationHint minutes={fields.totalTime.value} />
+							<DurationHint
+								id={fields.totalTime.descriptionId}
+								minutes={fields.totalTime.value}
+								className="mt-1"
+							/>
 						</div>
 					</div>
 				</div>

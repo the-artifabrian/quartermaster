@@ -20,6 +20,7 @@ import {
 } from '#app/components/ui/dropdown-menu.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
+import { formatDuration } from '#app/utils/format-duration.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
@@ -286,7 +287,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	)
 	const restrictions = [
 		...(favoritesOnly ? ['Favorites'] : []),
-		...(maxTime ? [`Up to ${maxTime} min`] : []),
+		...(maxTime ? [`Up to ${formatDuration(maxTime)}`] : []),
 		...(quality === 'flagged' ? ['Flagged Recipes'] : []),
 		...RECIPE_METADATA_DIMENSIONS.flatMap((dimension) => {
 			const names = metadataOptions

@@ -395,13 +395,21 @@ export function ImportRecipeReview({
 													: 'numeric'
 										}
 										enterKeyHint="done"
+										aria-describedby={
+											name === 'activeTime' || name === 'totalTime'
+												? `review-${name}-hint`
+												: undefined
+										}
 										value={details[name]}
 										onChange={(event) =>
 											setDetails({ ...details, [name]: event.target.value })
 										}
 									/>
 									{name === 'activeTime' || name === 'totalTime' ? (
-										<DurationHint minutes={details[name]} />
+										<DurationHint
+											id={`review-${name}-hint`}
+											minutes={details[name]}
+										/>
 									) : null}
 								</div>
 							))}

@@ -23,6 +23,7 @@ import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { formatServingTime, servingWallTime } from '#app/utils/serving-time.ts'
+import { haptic } from '#app/utils/shell-bridge.ts'
 import { RecipeSelector } from './recipe-selector.tsx'
 
 export type PlanMealItem = {
@@ -220,7 +221,10 @@ function ItemRow({
 							variant="ghost"
 							className="size-9 p-0 md:size-7"
 							aria-label={`Remove ${item.recipeTitle} from this meal`}
-							onClick={() => setConfirmingRemove(true)}
+							onClick={() => {
+								haptic('warning')
+								setConfirmingRemove(true)
+							}}
 						>
 							<Icon name="trash" className="size-3.5" />
 						</Button>
@@ -759,6 +763,7 @@ export function MealCard({
 								onSelect={(event) => {
 									if (!confirmingDelete) {
 										event.preventDefault()
+										haptic('warning')
 										setConfirmingDelete(true)
 										return
 									}

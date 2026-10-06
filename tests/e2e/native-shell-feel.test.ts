@@ -57,6 +57,27 @@ async function openShopping(page: Page) {
 	)
 }
 
+async function expectSheetDocksOnTabBar(page: Page) {
+	await page.getByRole('button', { name: 'Add item' }).click()
+
+	const sheet = page
+		.getByRole('dialog', { name: 'Add to list' })
+		.locator(':scope > div')
+		.last()
+	const bar = page.locator('[data-bottom-nav]')
+	// The sheet slides up as it opens; poll until it has settled.
+	await expect
+		.poll(async () => {
+			const [sheetBox, barBox] = await Promise.all([
+				sheet.boundingBox(),
+				bar.boundingBox(),
+			])
+			if (!sheetBox || !barBox) return Infinity
+			return Math.abs(sheetBox.y + sheetBox.height - barBox.y)
+		})
+		.toBeLessThanOrEqual(1)
+}
+
 const count = (messages: string[], message: string) =>
 	messages.filter((m) => m === message).length
 
@@ -191,17 +212,37 @@ test.describe('the homepage in the iOS app', () => {
 test.describe('the tab bar in the iOS app', () => {
 	test.use({ userAgent: SHELL_UA, viewport: { width: 390, height: 844 } })
 
-	test('the tab bar is as tall as a native one on the full home indicator inset', async ({
+	test('the tab bar leaves 18pt of the home indicator inset under its row', async ({
 		page,
 		login,
 	}) => {
 		await setHomeIndicatorInset(page, 34)
 		await login()
 		await page.goto('/plan')
-		// The 50pt row, its 1px top border, and the whole 34pt inset.
+		// The 50pt row, its 1px top border, and 18pt of the 34pt inset.
 		expect(
 			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
-		).toBe(85)
+		).toBe(69)
+		// The active tab is its icon and its label, with no underline.
+		await expect(
+			page
+				.getByRole('navigation', { name: 'Main' })
+				.getByRole('link', { name: 'Plan', exact: true })
+				.locator(':scope > *'),
+		).toHaveCount(2)
+	})
+
+	test('with no home indicator inset, the tab bar is its row alone', async ({
+		page,
+		login,
+	}) => {
+		await createShoppingList(await login())
+		await openShopping(page)
+		// The 50pt row and its 1px top border; the inset stops at 0.
+		expect(
+			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
+		).toBe(51)
+		await expectSheetDocksOnTabBar(page)
 	})
 
 	test('the header is as tall as a native nav bar', async ({ page, login }) => {
@@ -231,24 +272,7 @@ test.describe('the tab bar in the iOS app', () => {
 		await setHomeIndicatorInset(page, 34)
 		await createShoppingList(await login())
 		await openShopping(page)
-		await page.getByRole('button', { name: 'Add item' }).click()
-
-		const sheet = page
-			.getByRole('dialog', { name: 'Add to list' })
-			.locator(':scope > div')
-			.last()
-		const bar = page.locator('[data-bottom-nav]')
-		// The sheet slides up as it opens; poll until it has settled.
-		await expect
-			.poll(async () => {
-				const [sheetBox, barBox] = await Promise.all([
-					sheet.boundingBox(),
-					bar.boundingBox(),
-				])
-				if (!sheetBox || !barBox) return Infinity
-				return Math.abs(sheetBox.y + sheetBox.height - barBox.y)
-			})
-			.toBeLessThanOrEqual(1)
+		await expectSheetDocksOnTabBar(page)
 	})
 
 	test('a tab tap or Enter taps the haptic once', async ({ page, login }) => {

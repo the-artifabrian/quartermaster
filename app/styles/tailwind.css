@@ -454,12 +454,16 @@ html {
 	padding-top: env(safe-area-inset-top);
 }
 
-/* In the iOS app the tab bar is as tall as a native one (49pt) and sits on
-   the full home indicator inset. Whatever docks above the bar moves down
-   with it. */
+/* In the iOS app the tab bar's row is as tall as a native one (49pt) and
+   the bar leaves 18pt under it on the 34pt home indicator inset, not the
+   whole inset. That keeps the labels clear of the home indicator (5pt tall,
+   8pt from the screen edge) and shrinks the empty band that read as a gap.
+   Whatever docks above the bar moves down with it, so the inset stops at 0
+   where there is no home indicator: padding would clamp a negative value,
+   but a sheet's bottom offset would not. */
 :root[data-native-shell] {
 	--bottom-nav-h: 50px;
-	--bottom-nav-inset: env(safe-area-inset-bottom);
+	--bottom-nav-inset: max(0px, calc(env(safe-area-inset-bottom) - 16px));
 }
 
 /* In the iOS app, detail pages slide like a native push and pop

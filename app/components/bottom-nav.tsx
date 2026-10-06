@@ -179,9 +179,9 @@ export function BottomNav() {
 			className="bg-card/95 border-border fixed inset-x-0 bottom-0 z-50 border-t pb-(--bottom-nav-inset) backdrop-blur-sm md:hidden print:hidden"
 		>
 			<div
-				// --bottom-nav-h: as tall as a native tab bar (49pt) in the iOS app,
-				// so the labels end just above the home indicator instead of
-				// floating a row above it.
+				// --bottom-nav-h: as tall as a native tab bar (49pt) in the iOS app;
+				// --bottom-nav-inset keeps the labels just clear of the home
+				// indicator.
 				className="grid h-(--bottom-nav-h) grid-cols-4 items-center"
 			>
 				{navItems.map((item) => {
@@ -334,18 +334,6 @@ export function BottomNav() {
 							>
 								{item.label}
 							</span>
-							{(isActive || isPending) && (
-								<span
-									aria-hidden="true"
-									className={cn(
-										'bg-accent absolute h-0.5 rounded-full transition-[width,opacity] duration-150',
-										isNativeShell ? 'bottom-0' : 'bottom-1',
-										isPending
-											? 'w-6 animate-pulse opacity-70 motion-reduce:animate-none'
-											: 'w-4',
-									)}
-								/>
-							)}
 						</NavLink>
 					)
 				})}

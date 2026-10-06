@@ -84,10 +84,12 @@ test('captures only coarse, non-content launch context with safe fallbacks', () 
 		getPwaSessionContext({
 			appBuild: 'abc123def456',
 			initialRoute: 'routes/recipes/$recipeId',
+			nativeShell: true,
 		}),
 	).toEqual({
 		app_build: 'abc123def456',
 		display_mode: 'browser',
+		native_shell: true,
 		initial_route: 'routes/recipes/$recipeId',
 		navigation_type: 'unknown',
 		initial_visibility: 'visible',
@@ -119,6 +121,7 @@ test('captures supported navigation and service-worker state', () => {
 	).toEqual({
 		app_build: 'abc123def456',
 		display_mode: 'standalone',
+		native_shell: false,
 		initial_route: 'routes/plan',
 		navigation_type: 'reload',
 		initial_visibility: 'visible',

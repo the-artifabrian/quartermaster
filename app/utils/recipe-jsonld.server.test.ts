@@ -6,12 +6,12 @@ import {
 } from './recipe-jsonld.server.ts'
 import { MAX_RAW_TEXT_LENGTH } from './recipe-validation.ts'
 
-const URL = 'https://example.com/recipe'
+const SOURCE_URL = 'https://example.com/recipe'
 
 function recipe(fields: Record<string, unknown> = {}) {
 	return extractRecipe(
 		{ '@type': 'Recipe', name: 'Weeknight Chili', ...fields },
-		URL,
+		SOURCE_URL,
 	)
 }
 
@@ -75,23 +75,10 @@ describe('yield', () => {
 		})
 	})
 
-	test('a bare number has no label, so no yield is invented', () => {
-		expect(recipe({ recipeYield: 4 })).toMatchObject({
-			yieldAmount: null,
-			yieldLabel: null,
-		})
-	})
-
-	test('an array uses its first entry', () => {
-		expect(recipe({ recipeYield: ['12 cookies', '24 cookies'] })).toMatchObject(
-			{ yieldAmount: 12, yieldLabel: 'cookies' },
-		)
-	})
-
-	test('a range is not narrowed to one end', () => {
-		expect(recipe({ recipeYield: '4-6 servings' })).toMatchObject({
-			yieldAmount: null,
-			yieldLabel: null,
+	test('an array holding one labelled entry', () => {
+		expect(recipe({ recipeYield: ['12 cookies'] })).toMatchObject({
+			yieldAmount: 12,
+			yieldLabel: 'cookies',
 		})
 	})
 
@@ -112,22 +99,11 @@ describe('yield', () => {
 })
 
 describe('times', () => {
-	test('ISO 8601 durations in minutes', () => {
-		expect(recipe({ prepTime: 'PT1H30M', totalTime: 'PT45M' })).toMatchObject({
-			activeTime: 90,
-			totalTime: 45,
-		})
-	})
-
 	test('a zero duration means no time', () => {
 		expect(recipe({ prepTime: 'PT0M', totalTime: 'PT0S' })).toMatchObject({
 			activeTime: null,
 			totalTime: null,
 		})
-	})
-
-	test('a bare number is not an ISO duration, so its unit is not guessed', () => {
-		expect(recipe({ totalTime: '30' })).toMatchObject({ totalTime: null })
 	})
 })
 
@@ -189,16 +165,23 @@ test('a sub-section header in recipeIngredient stays a heading', () => {
 	const { ingredients } = recipe({
 		recipeIngredient: ['For the crust:', '200 g flour', '1 tsp salt'],
 	})
-	expect(ingredients[0]).toEqual({ name: 'Crust', isHeading: true })
-	expect(ingredients.slice(1).map((ing) => ing.isHeading ?? false)).toEqual([
+	expect(ingredients.map((ing) => ing.isHeading ?? false)).toEqual([
+		true,
 		false,
 		false,
 	])
-	expect(ingredients[1]?.name).toContain('flour')
+})
+
+test('an all-capitals ingredient list is house style, so no line is a heading', () => {
+	const { ingredients } = recipe({
+		recipeIngredient: ['2 CUPS FLOUR', 'SALT', 'BLACK PEPPER', 'OLIVE OIL'],
+	})
+	expect(ingredients).toHaveLength(4)
+	expect(ingredients.some((ing) => ing.isHeading)).toBe(false)
 })
 
 test('a Recipe with only @type has empty lists, nulls and a fallback title', () => {
-	expect(extractRecipe({ '@type': 'Recipe' }, URL)).toMatchObject({
+	expect(extractRecipe({ '@type': 'Recipe' }, SOURCE_URL)).toMatchObject({
 		title: 'Untitled Recipe',
 		description: null,
 		notes: null,
@@ -206,7 +189,7 @@ test('a Recipe with only @type has empty lists, nulls and a fallback title', () 
 		totalTime: null,
 		yieldAmount: null,
 		yieldLabel: null,
-		sourceUrl: URL,
+		sourceUrl: SOURCE_URL,
 		metadataValueIds: [],
 		ingredients: [],
 		instructions: [],

@@ -14,10 +14,7 @@ import { Input } from '#app/components/ui/input.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
-import {
-	type ExtractedRecipe,
-	type ImportTab,
-} from '#app/utils/import-recipe-types.ts'
+import { type ExtractedRecipe } from '#app/utils/import-recipe-types.ts'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { importUrlFromSearch } from '#app/utils/import-url.ts'
 import { recipeMetadataOptions } from '#app/utils/recipe-metadata.server.ts'
@@ -32,6 +29,8 @@ export const handle: SEOHandle = {
 export const meta: Route.MetaFunction = () => {
 	return [{ title: 'Import Recipe | Quartermaster' }]
 }
+
+type ImportTab = 'url' | 'text' | 'image'
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId, isProActive } = await requireUserWithTier(request)

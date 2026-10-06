@@ -69,7 +69,7 @@ export function cleanJsonLdText(text: string): string {
 	)
 }
 
-export function parseTypedYield(value: unknown): {
+function parseTypedYield(value: unknown): {
 	amount: number
 	label: string
 } | null {
@@ -91,13 +91,13 @@ export function parseTypedYield(value: unknown): {
 	return { amount, label: label.slice(0, 100).trim() }
 }
 
-export function parseExplicitDuration(value: unknown): number | null {
+function parseExplicitDuration(value: unknown): number | null {
 	if (value == null) return null
 	const minutes = parseISODuration(String(value))
 	return minutes != null && minutes > 0 ? minutes : null
 }
 
-export function parseInstructions(value: unknown): Array<{ content: string }> {
+function parseInstructions(value: unknown): Array<{ content: string }> {
 	if (!value) return []
 
 	if (typeof value === 'string') {

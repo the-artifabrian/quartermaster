@@ -15,8 +15,8 @@ export const MAX_RECIPE_DESCRIPTION_LENGTH = 500
 
 // The original pasted/scraped source text kept alongside a Recipe. Lives here
 // rather than next to one of its writers because there are three of them — the
-// paste and URL flows in routes/recipes/import-*.server.ts, the JSON data
-// import in routes/settings/profile/import.tsx, and saveImportedRecipe — and
+// paste and URL flows in the Recipe import modules, the JSON data import in
+// routes/settings/profile/import.tsx, and saveImportedRecipe — and
 // until 2026-09-11 only the first enforced a ceiling. Every other recipe field
 // is bounded at its schema; an unbounded one is how oversized user text reaches
 // code that was never measured against it.

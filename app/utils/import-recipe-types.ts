@@ -31,5 +31,3 @@ export type DuplicateMatch = {
 	sourceUrl: string | null
 	matchReason: 'same-url' | 'similar-title'
 }
-
-export type ImportTab = 'url' | 'text' | 'image'

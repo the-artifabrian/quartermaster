@@ -355,19 +355,20 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 		pointerId: 2,
 		pointerType: 'touch',
 	})
+	// The press itself switched tabs (#346, 5.0); the cancel only ends the
+	// pressed look.
 	await expect(recipesLink).not.toHaveAttribute('data-pressed')
-	await page.waitForTimeout(ROUTE_DELAY_MS + 50)
-	await expect(page).toHaveURL('/shopping')
-	expect(requestCounts.get('/recipes') ?? 0).toBe(requestCountBeforeCancel)
+	await expect(page).toHaveURL('/recipes')
+	await expect(recipesLink).not.toHaveAttribute('data-pending', /.+/)
+	expect(requestCounts.get('/recipes') ?? 0).toBe(requestCountBeforeCancel + 1)
 
 	const planLink = nav.getByRole('link', { name: 'Plan', exact: true })
-	const shopLink = nav.getByRole('link', { name: 'Shop', exact: true })
 	await installTraceProbe(planLink)
 	await planLink.focus()
 	await page.keyboard.down('Enter')
 	await expect(planLink).toHaveAttribute('data-pending', 'true')
 	await expect(planLink).not.toHaveAttribute('aria-current')
-	await expect(shopLink).toHaveAttribute('aria-current', 'page')
+	await expect(recipesLink).toHaveAttribute('aria-current', 'page')
 	await page.evaluate(
 		() =>
 			new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
@@ -410,7 +411,8 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 	await restoreRecipesLink.click()
 	await expect(page).toHaveURL('/recipes')
-	expect(requestCounts.get('/recipes')).toBe(2)
+	// Trace, the cancelled press, and this click.
+	expect(requestCounts.get('/recipes')).toBe(3)
 	await page.goBack()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 	await page.goForward()

@@ -245,6 +245,13 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 	await prisma.subscription.create({
 		data: { userId: user.id, tier: 'pro' },
 	})
+	await prisma.shoppingList.create({
+		data: {
+			userId: user.id,
+			householdId: user.householdId,
+			items: { create: { name: 'Milk' } },
+		},
+	})
 
 	const requestCounts = new Map<string, number>()
 	const transferTracker = await trackDataTransfer(page)
@@ -337,6 +344,14 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 		),
 	).toBeGreaterThanOrEqual(destinations.length)
 
+	// Every tab is in the loader cache now, and a tab from memory commits
+	// before a pending state shows. A Shopping check drops the cache, so the
+	// presses below wait on the (delayed) server again.
+	const milk = page.getByRole('group', { name: 'Milk shopping item' })
+	await milk.getByRole('button', { name: 'Check off item' }).click()
+	await expect(milk.getByRole('button', { name: 'Uncheck item' })).toBeVisible()
+	await expect(milk.getByRole('status')).toBeHidden()
+
 	const recipesLink = nav.getByRole('link', { name: 'Recipes', exact: true })
 	const requestCountBeforeCancel = requestCounts.get('/recipes') ?? 0
 	await recipesLink.dispatchEvent('pointerdown', {
@@ -411,8 +426,9 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 	await restoreRecipesLink.click()
 	await expect(page).toHaveURL('/recipes')
-	// Trace, the cancelled press, and this click.
-	expect(requestCounts.get('/recipes')).toBe(3)
+	// Trace, the cancelled press, and this press: within the tab, root
+	// reloads beside the list.
+	expect(requestCounts.get('/recipes')).toBe(4)
 	await page.goBack()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 	await page.goForward()

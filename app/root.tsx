@@ -219,9 +219,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 /**
- * Skip re-running the root loader on normal page-to-page navigations.
- * The root loader provides mostly-static data (user, theme, ENV) and
- * notification count (tracked client-side via SSE).
+ * When to re-run the root loader. It provides mostly-static data (user, theme,
+ * ENV) and notification count (tracked client-side via SSE).
+ *
+ * With single fetch (React Router 8.3), the router passes
+ * `defaultShouldRevalidate: true` to every match on any navigation that is not
+ * after a failed action, so deferring to it re-runs root on page-to-page
+ * navigations too, back and forward included. Links that should skip root opt
+ * out at the call site with `defaultShouldRevalidate={false}` (the bottom tab
+ * bar does, between tabs).
  *
  * Revalidate when:
  * - A flash toast is pending (the `en_toast_pending` marker cookie set by
@@ -229,15 +235,16 @@ export async function loader({ request }: Route.LoaderArgs) {
  *   This is an explicit signal, not an inference from URL shape — a
  *   `redirectWithToast` that keeps the pathname and only changes the search
  *   (e.g. /upgrade?session_id=… → /upgrade) still delivers its toast.
- * - The router says so (`defaultShouldRevalidate`): same-URL revalidation,
- *   forced revalidation (Set-Cookie redirects replayed as X-Remix-Revalidate,
+ * - The router says so (`defaultShouldRevalidate`): page-to-page and back or
+ *   forward navigations (see above), same-URL revalidation, forced
+ *   revalidation (Set-Cookie redirects replayed as X-Remix-Revalidate,
  *   useRevalidator), and successful form submissions.
  *
  * Skip when:
  * - Search params change on the same page (filters, pagination) — root data
  *   doesn't depend on them.
- * - The router says so: ordinary page-to-page navigations, and after a failed
- *   (4xx) action, where the router deliberately skips revalidation — the old
+ * - The router says so: a link that opts out, and after a failed (4xx)
+ *   action, where the router deliberately skips revalidation — the old
  *   unconditional `if (formAction) return true` overrode that and re-ran the
  *   root queries on every validation error.
  */
@@ -264,10 +271,9 @@ export function shouldRevalidate({
 		return false
 	}
 
-	// Otherwise defer to the router. On an ordinary page-to-page navigation
-	// that's false (root data doesn't depend on the URL); it's true for
-	// same-URL revalidation, forced revalidation and successful submissions,
-	// and false after failed (4xx) actions.
+	// Otherwise defer to the router: false after failed (4xx) actions and when a
+	// link opts out, true otherwise (see above), including same-URL
+	// revalidation, forced revalidation and successful submissions.
 	return defaultShouldRevalidate
 }
 

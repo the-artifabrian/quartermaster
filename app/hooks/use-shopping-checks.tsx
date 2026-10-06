@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef } from 'react'
 import { useBlocker } from 'react-router'
 import { getHouseholdClientId } from '#app/utils/household-client.tsx'
+import { loaderCache } from '#app/utils/loader-cache.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
 import { type DisplayShoppingItem } from '#app/utils/shopping-optimistic.ts'
 
@@ -133,6 +134,10 @@ export function useShoppingChecks(serverItems: Item[], listId: string) {
 		const controller = new AbortController()
 		entry.controller = controller
 		const timeout = setTimeout(() => controller.abort(), 8_000)
+		// A check is a write outside the Router, so the loader cache does not see
+		// it. Drop the cache when it starts and when it settles (even uncertain:
+		// the server may have committed), so no page shows the item's old state.
+		if (sent) loaderCache.clear()
 		try {
 			const response = await fetch(
 				`/resources/shopping-check?itemId=${encodeURIComponent(entry.item.id)}`,
@@ -160,6 +165,7 @@ export function useShoppingChecks(serverItems: Item[], listId: string) {
 			return result
 		} finally {
 			clearTimeout(timeout)
+			if (sent) loaderCache.clear()
 		}
 	}
 

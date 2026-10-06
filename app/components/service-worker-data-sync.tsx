@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
-import { useFetchers, useNavigation } from 'react-router'
+import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useFetchers, useLocation, useNavigation } from 'react-router'
+import { loaderCache } from '#app/utils/loader-cache.ts'
 
 function postToServiceWorker(message: Record<string, unknown>) {
 	if (typeof navigator === 'undefined' || !navigator.serviceWorker) return
@@ -24,6 +25,7 @@ function postToServiceWorker(message: Record<string, unknown>) {
 
 /** Native fetch mutations use the same invalidation as Router submissions. */
 export function invalidateServiceWorkerData() {
+	loaderCache.clear()
 	postToServiceWorker({ type: 'qm-data-invalidate' })
 }
 
@@ -65,6 +67,16 @@ export function ServiceWorkerDataSync({
 	const tokenRef = useRef(token)
 	tokenRef.current = token
 
+	// A different user or Household (or none) drops the loader cache. The
+	// committed location tells the cache which loads are navigations. Layout
+	// effects, so both are known before the first page's effects remember its
+	// data.
+	const { pathname, search } = useLocation()
+	useLayoutEffect(() => {
+		loaderCache.setIdentity(token)
+		loaderCache.setLocation(pathname + search)
+	}, [token, pathname, search])
+
 	// Keep the SW's cache namespace in sync with the current session. Re-send on
 	// SW controllerchange and on app-resume (visibilitychange): the SW may have
 	// been terminated while the PWA was backgrounded — the exact slow-nav case.
@@ -97,18 +109,32 @@ export function ServiceWorkerDataSync({
 	// network-first, and clearing the whole namespace on every checkbox tap would
 	// needlessly evict unrelated offline fallbacks. Other mutations may affect
 	// several screens, so they retain the existing coarse invalidation.
+	//
+	// The in-memory loader cache drops on every mutation, Shopping included: it
+	// holds no offline fallbacks, and a Shopping change shows on Plan and Staples.
+	// It drops when the submission starts too, so the redirect an action returns
+	// is never answered from memory.
 	const navigation = useNavigation()
 	const fetchers = useFetchers()
-	const isMutating =
-		invalidatesDataCache(navigation.formMethod, navigation.formAction) ||
-		fetchers.some((f) => invalidatesDataCache(f.formMethod, f.formAction))
+	const submissions = [navigation, ...fetchers]
+	const isMutating = submissions.some((s) =>
+		invalidatesDataCache(s.formMethod, s.formAction),
+	)
+	const isSubmitting = submissions.some(
+		(s) => s.formMethod != null && s.formMethod !== 'GET',
+	)
 	const wasMutating = useRef(false)
+	const wasSubmitting = useRef(false)
 	useEffect(() => {
 		if (wasMutating.current && !isMutating) {
-			invalidateServiceWorkerData()
+			postToServiceWorker({ type: 'qm-data-invalidate' })
 		}
 		wasMutating.current = isMutating
 	}, [isMutating])
+	useEffect(() => {
+		if (wasSubmitting.current !== isSubmitting) loaderCache.clear()
+		wasSubmitting.current = isSubmitting
+	}, [isSubmitting])
 
 	return null
 }

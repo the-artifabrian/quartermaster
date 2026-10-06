@@ -191,11 +191,20 @@ export function BottomNav() {
 						: (lastPathPerTab.current[item.to] ?? item.to)
 					const isPressed = pressedTab === item.to
 					const isPending = pendingInput?.tabPath === item.to
+					// Single fetch would otherwise rerun the root loader on every tab
+					// switch, so even a page from the loader cache waited on a round
+					// trip. A pending toast still revalidates it (root
+					// shouldRevalidate), and so does the cached page's revalidation.
+					// Only between tabs: the target page is then always a new route,
+					// which loads anyway, while within a tab the same route with a
+					// different search must still load.
+					const defaultShouldRevalidate = isActive ? undefined : false
 
 					return (
 						<NavLink
 							key={item.to}
 							to={linkTo}
+							defaultShouldRevalidate={defaultShouldRevalidate}
 							viewTransition
 							aria-busy={isPending || undefined}
 							data-bottom-nav-tab={item.destination}
@@ -233,7 +242,10 @@ export function BottomNav() {
 								if (isOnSubPage) delete lastPathPerTab.current[item.to]
 								haptic('selection')
 								startTabNavigation(item, linkTo, startedAt)
-								void navigate(linkTo, { viewTransition: true })
+								void navigate(linkTo, {
+									viewTransition: true,
+									defaultShouldRevalidate,
+								})
 							}}
 							onPointerUp={() => setPressedTab(null)}
 							onPointerCancel={() => {
@@ -261,7 +273,10 @@ export function BottomNav() {
 								if (event.key === 'Enter') setPressedTab(null)
 							}}
 							onBlur={() => {
-								pressNavigatedRef.current = null
+								// Pressing another tab blurs this one after that press set the
+								// ref; clearing it then let the press's click navigate again.
+								if (pressNavigatedRef.current === item.to)
+									pressNavigatedRef.current = null
 								inputRef.current = null
 								setPressedTab(null)
 							}}

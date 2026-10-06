@@ -66,6 +66,10 @@ test('a second press on the tab being switched to starts nothing new', async ({
 
 	await shop.dispatchEvent('pointerdown', touch)
 	await expect(shop).toHaveAttribute('data-pending', 'true')
+	// The tapped tab looks selected while Plan is still showing.
+	await expect(shop).toHaveClass(/(^|\s)text-primary(\s|$)/)
+	await expect(tab(page, 'Plan')).not.toHaveClass(/(^|\s)text-primary(\s|$)/)
+	await expect(tab(page, 'Plan')).toHaveAttribute('aria-current', 'page')
 	await shop.dispatchEvent('pointerup', { ...touch, buttons: 0 })
 	await shop.dispatchEvent('pointerdown', touch)
 	await shop.dispatchEvent('pointerup', { ...touch, buttons: 0 })

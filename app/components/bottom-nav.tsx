@@ -179,9 +179,9 @@ export function BottomNav() {
 			className="bg-card/95 border-border fixed inset-x-0 bottom-0 z-50 border-t pb-(--bottom-nav-inset) backdrop-blur-sm md:hidden print:hidden"
 		>
 			<div
-				// --bottom-nav-h: as tall as a native tab bar (49pt) in the iOS app,
-				// so the labels end just above the home indicator instead of
-				// floating a row above it.
+				// --bottom-nav-h: a 50pt row in the iOS app (a native bar's 49pt plus
+				// its hairline); --bottom-nav-inset keeps the labels just clear of
+				// the home indicator.
 				className="grid h-(--bottom-nav-h) grid-cols-4 items-center"
 			>
 				{navItems.map((item) => {
@@ -190,7 +190,6 @@ export function BottomNav() {
 							? location.pathname === '/'
 							: location.pathname.startsWith(path),
 					)
-					const iconName = isActive ? item.iconFilled : item.icon
 					const isOnSubPage = isActive && location.pathname !== item.to
 					// Switching tabs: restore last position. Active tab on sub-page: go to root.
 					const linkTo = isActive
@@ -198,6 +197,11 @@ export function BottomNav() {
 						: (lastPathPerTab.current[item.to] ?? item.to)
 					const isPressed = pressedTab === item.to
 					const isPending = pendingInput?.tabPath === item.to
+					// As in a native tab bar, the tab being switched to looks selected
+					// at once and the one being left does not. aria-current stays
+					// with the page that is showing.
+					const isSelected = pendingInput ? isPending : isActive
+					const iconName = isSelected ? item.iconFilled : item.icon
 					// Single fetch would otherwise rerun the root loader on every tab
 					// switch, so even a page from the loader cache waited on a round
 					// trip. A pending toast still revalidates it (root
@@ -311,13 +315,13 @@ export function BottomNav() {
 								startTabNavigation(item, linkTo, startedAt)
 							}}
 							className={cn(
-								'relative flex flex-col items-center justify-center transition-[color,transform] duration-150',
+								'flex flex-col items-center justify-center transition-[color,transform] duration-150',
 								isNativeShell ? 'gap-0.5 py-1' : 'gap-1 py-2',
-								isActive
+								isSelected
 									? 'text-primary'
 									: 'text-muted-foreground hover:text-foreground',
-								isPressed && 'text-foreground scale-[0.97]',
-								isPending && 'text-foreground',
+								isPressed && 'scale-[0.97]',
+								isPressed && !isSelected && 'text-foreground',
 							)}
 						>
 							<span className="relative flex">
@@ -330,22 +334,10 @@ export function BottomNav() {
 								)}
 							</span>
 							<span
-								className={cn('text-xs leading-4', isActive && 'font-medium')}
+								className={cn('text-xs leading-4', isSelected && 'font-medium')}
 							>
 								{item.label}
 							</span>
-							{(isActive || isPending) && (
-								<span
-									aria-hidden="true"
-									className={cn(
-										'bg-accent absolute h-0.5 rounded-full transition-[width,opacity] duration-150',
-										isNativeShell ? 'bottom-0' : 'bottom-1',
-										isPending
-											? 'w-6 animate-pulse opacity-70 motion-reduce:animate-none'
-											: 'w-4',
-									)}
-								/>
-							)}
 						</NavLink>
 					)
 				})}

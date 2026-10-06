@@ -385,6 +385,36 @@ describe('overlapping loads', () => {
 	})
 })
 
+describe('remembering the first page', () => {
+	test('server-rendered data is remembered, so the next visit to it is instant', async () => {
+		const { cache } = setup()
+		const hydrated = { meals: ['tacos'] }
+		cache.remember('/plan', hydrated)
+
+		const server = vi.fn(async () => ({}))
+		expect(await navigate(cache, '/plan', server)).toBe(hydrated)
+		expect(server).not.toHaveBeenCalled()
+	})
+
+	test('remembering does not replace an entry a load stored', async () => {
+		const { cache } = setup()
+		const loaded = { meals: ['soup'] }
+		await navigate(cache, '/plan', async () => loaded)
+		cache.remember('/plan', { meals: ['older render'] })
+
+		expect(await navigate(cache, '/plan', async () => ({}))).toBe(loaded)
+	})
+
+	test('nothing is remembered without a known identity', async () => {
+		const cache = createLoaderCache({ reportError: vi.fn() })
+		cache.remember('/plan', { meals: ['tacos'] })
+		cache.setIdentity('alex-home')
+
+		const fresh = { meals: [] }
+		expect(await navigate(cache, '/plan', async () => fresh)).toBe(fresh)
+	})
+})
+
 describe('peeking for a parent guard', () => {
 	test('reports a hit only for a navigation to a cached URL', async () => {
 		const { cache } = setup()

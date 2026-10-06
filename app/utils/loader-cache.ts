@@ -135,6 +135,16 @@ export function createLoaderCache({
 			}
 		},
 
+		/**
+		 * Stores data the page rendered without a load storing it: the first,
+		 * server-rendered page. An entry a load stored is newer and stays.
+		 */
+		remember(href: string, data: unknown) {
+			const key = keyFor(href)
+			if (key == null || entries.has(key)) return
+			store(key, data, ++seq)
+		},
+
 		/** Whether `load` would answer this request from the cache. */
 		willServe(request: Request, currentHref: string) {
 			const href = hrefOf(request)

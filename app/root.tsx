@@ -13,6 +13,8 @@ import {
 } from 'react-router'
 import { type Route } from './+types/root.ts'
 import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
+import dmSansFontUrl from './assets/fonts/dm-sans-latin.woff2?url'
+import youngSerifFontUrl from './assets/fonts/young-serif-latin.woff2?url'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
@@ -56,19 +58,20 @@ import { useOptionalUser } from './utils/user.ts'
 
 export const links: Route.LinksFunction = () => {
 	return [
-		// Google Fonts
-		{ rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+		// Self-hosted fonts (app/styles/fonts.css). The two faces above the fold
+		// are preloaded; fonts need crossOrigin even on the same origin.
 		{
-			rel: 'preconnect',
-			href: 'https://fonts.gstatic.com',
+			rel: 'preload',
+			href: dmSansFontUrl,
+			as: 'font',
+			type: 'font/woff2',
 			crossOrigin: 'anonymous',
 		} as const,
 		{
-			rel: 'stylesheet',
-			href: 'https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=Young+Serif&family=Caveat:wght@400;700&display=swap',
-			// crossOrigin makes the stylesheet a CORS (non-opaque) response so the
-			// service worker can cache it via response.ok and replay it reliably;
-			// Google serves Access-Control-Allow-Origin: * on the CSS.
+			rel: 'preload',
+			href: youngSerifFontUrl,
+			as: 'font',
+			type: 'font/woff2',
 			crossOrigin: 'anonymous',
 		} as const,
 		{

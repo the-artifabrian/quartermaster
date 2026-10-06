@@ -24,13 +24,6 @@ export const meta: Route.MetaFunction = ({ matches }) => [
 	...baseMetaTags(matches),
 ]
 
-export const links: Route.LinksFunction = () => [
-	{
-		rel: 'stylesheet',
-		href: 'https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&display=swap',
-	},
-]
-
 export async function loader({ request }: Route.LoaderArgs) {
 	const userId = await getUserId(request)
 	if (userId) {

@@ -196,6 +196,14 @@ export function BottomNav() {
 						<NavLink
 							key={item.to}
 							to={linkTo}
+							// Single fetch would otherwise rerun the root loader on every tab
+							// switch, so even a page from the loader cache waited on a round
+							// trip. A pending toast still revalidates it (root
+							// shouldRevalidate), and so does the cached page's revalidation.
+							// Only between tabs: the target page is then always a new route,
+							// which loads anyway, while within a tab the same route with a
+							// different search must still load.
+							defaultShouldRevalidate={isActive ? undefined : false}
 							viewTransition
 							aria-busy={isPending || undefined}
 							data-bottom-nav-tab={item.destination}

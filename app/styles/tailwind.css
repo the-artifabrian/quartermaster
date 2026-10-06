@@ -428,6 +428,13 @@ html {
 	animation-duration: 180ms;
 }
 
+/* The iOS app (`<html data-native-shell>`) draws the page under the status
+   bar. The header scrolls away with its padding; the fixed backdrop keeps the
+   status bar readable over whatever scrolls under it. */
+:root[data-native-shell] [data-site-header] {
+	padding-top: env(safe-area-inset-top);
+}
+
 @media (prefers-reduced-motion: reduce) {
 	*,
 	::before,

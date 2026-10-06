@@ -275,7 +275,7 @@ export function MobileFabAdd({
 			{!open && (
 				<button
 					type="button"
-					className="bg-primary text-primary-foreground shadow-warm-md fixed right-4 bottom-[5.5rem] z-50 flex size-12 items-center justify-center rounded-full transition-all active:scale-95"
+					className="bg-primary text-primary-foreground shadow-warm-md fixed right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex size-12 items-center justify-center rounded-full transition-all active:scale-95"
 					aria-label="Add item"
 					onClick={() => onOpenChange(true)}
 				>

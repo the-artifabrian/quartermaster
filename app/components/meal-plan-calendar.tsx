@@ -407,11 +407,19 @@ export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
 	const [selectedDate, setSelectedDate] = useState(() =>
 		resolveSelectedDay(urlParams),
 	)
-	// A Meal link or a day in the URL picks the day; without one the page keeps
-	// the day it shows.
+	const search = searchParams.toString()
+	const defaultDate = defaultSelectedDay(weekDays, meals)
+	// The URL picks the day: a Meal link's day, else a valid `day`. A URL with
+	// neither, such as the Plan tab tapped again, goes back to the default day;
+	// a link to a Meal that is gone keeps the day on screen. Only a URL change
+	// (or the linked Meal moving) picks again, so adding or removing a Meal
+	// never moves the selection.
 	useEffect(() => {
 		if (urlDate) setSelectedDate(urlDate)
-	}, [targetMealId, urlDate])
+		else if (!targetMealId) setSelectedDate(defaultDate)
+		// Not on `defaultDate`: a Meal added or removed must not move the day.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [search, targetMealId, urlDate])
 
 	useEffect(() => {
 		if (!weekDays.some((date) => serializeDate(date) === selectedDate)) {
@@ -423,15 +431,12 @@ export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
 		setSelectedDate(dateStr)
 		// The day goes in the URL so back and reload return to it. Replace, so
 		// day taps add no history entries; the Meal link gives way to the day.
-		setSearchParams(
-			(prev) => {
-				const next = new URLSearchParams(prev)
-				next.delete('mealId')
-				next.set('day', dateStr)
-				return next
-			},
-			{ replace: true, preventScrollReset: true },
-		)
+		const next = new URLSearchParams(searchParams)
+		next.delete('mealId')
+		next.set('day', dateStr)
+		// The same URL again would be a revalidation, reloading the week.
+		if (next.toString() === search) return
+		setSearchParams(next, { replace: true, preventScrollReset: true })
 	}
 
 	const mealsByDay = new Map<string, PlanMeal[]>()

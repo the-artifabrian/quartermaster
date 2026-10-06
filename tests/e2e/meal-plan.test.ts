@@ -1,8 +1,12 @@
+import { type Page } from '@playwright/test'
 import {
+	addDaysUTC,
+	formatMonthDay,
 	formatWeekdayName,
 	getCurrentWeekStart,
 	getWeekDays,
 	isToday,
+	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
@@ -654,25 +658,42 @@ test.describe('Picked day', () => {
 	// page.route cannot see requests a service worker answers.
 	test.use({ serviceWorkers: 'block' })
 
-	test('The phone Plan keeps the picked day through a Recipe visit and a reload, without reloading the week', async ({
-		page,
-		login,
-	}) => {
-		const user = await login()
+	// A past week, so today is never in it and Plan opens on its first day
+	// with Meals.
+	const weekStart = addDaysUTC(getCurrentWeekStart(), -14)
+	const [, tuesday, wednesday, thursday] = getWeekDays(weekStart) as [
+		Date,
+		Date,
+		Date,
+		Date,
+	]
+	const weekUrl = `/plan?weekStart=${serializeDate(weekStart)}`
+	const dayUrl = (date: Date) => `${weekUrl}&day=${serializeDate(date)}`
+
+	function dayButton(page: Page, date: Date) {
+		return page.getByTestId('mobile-plan').getByRole('button', {
+			name: new RegExp(
+				`^Show ${formatWeekdayName(date)}, ${formatMonthDay(date)},`,
+			),
+		})
+	}
+
+	async function seedWeek(userId: string, householdId: string) {
 		const [soup, risotto] = await Promise.all(
 			['Lentil Soup', 'Pea Risotto'].map((title) =>
-				prisma.recipe.create({
-					data: { title, userId: user.id, householdId: user.householdId },
-				}),
+				prisma.recipe.create({ data: { title, userId, householdId } }),
 			),
 		)
-		const plan = await prisma.mealPlan.create({
+		return prisma.mealPlan.create({
 			data: {
-				householdId: user.householdId,
-				weekStart: new Date('2026-10-19'),
+				householdId,
+				weekStart,
 				meals: {
-					create: [soup!, risotto!].map((recipe, index) => ({
-						date: new Date(index === 0 ? '2026-10-20' : '2026-10-22'),
+					create: [
+						{ date: tuesday, recipe: soup! },
+						{ date: thursday, recipe: risotto! },
+					].map(({ date, recipe }) => ({
+						date,
 						order: 0,
 						recipeItems: {
 							create: {
@@ -685,57 +706,19 @@ test.describe('Picked day', () => {
 				},
 			},
 		})
+	}
 
-		await page.setViewportSize({ width: 390, height: 844 })
-		await page.goto('/plan?weekStart=2026-10-19')
-		const mobile = page.getByTestId('mobile-plan')
-		const thursday = mobile.getByRole('button', {
-			name: /^Show Thursday, Oct 22,/,
-		})
-		// Today is outside this week, so Plan opens on the first day with Meals.
-		await expect(mobile.getByRole('heading', { name: 'Oct 20' })).toBeVisible()
-
-		const loaderRequests: string[] = []
-		page.on('request', (request) => {
-			if (new URL(request.url()).pathname.endsWith('.data')) {
-				loaderRequests.push(request.url())
-			}
-		})
-		const historyLength = await page.evaluate(() => history.length)
-		// A tap before hydration does nothing, so tap until the page takes it.
-		await expect(async () => {
-			await thursday.click()
-			await expect(thursday).toHaveAttribute('aria-pressed', 'true', {
-				timeout: 1000,
-			})
-		}).toPass()
-		await expect(page).toHaveURL('/plan?weekStart=2026-10-19&day=2026-10-22')
-		await expect(mobile.getByRole('heading', { name: 'Oct 22' })).toBeVisible()
-		// The router runs loaders before it commits the URL, so any reload of the
-		// week would have been requested by now. The tap replaced the entry.
-		expect(loaderRequests).toEqual([])
-		expect(await page.evaluate(() => history.length)).toBe(historyLength)
-
-		await mobile.getByRole('link', { name: 'Pea Risotto', exact: true }).click()
-		await expect(page).toHaveURL(`/recipes/${risotto!.id}`)
-
-		// Someone plans leftovers for Thursday while the Recipe is open.
-		await prisma.meal.create({
-			data: {
-				mealPlanId: plan.id,
-				date: new Date('2026-10-22'),
-				order: 1,
-				genericText: 'Leftovers',
-			},
-		})
-		// Hold Plan's own .data request, and note what the page already showed
-		// when it left. Root's passes: single fetch reloads root before a back
-		// navigation shows the page.
+	/**
+	 * Holds Plan's own .data requests until `release`, noting where the page
+	 * was and what it showed when each left. Root's pass: single fetch reloads
+	 * root before a back navigation shows the page.
+	 */
+	async function holdPlanData(page: Page) {
 		let release = () => {}
 		const gate = new Promise<void>((resolve) => {
 			release = resolve
 		})
-		const planRequests: Array<{ href: string; showedThursday: boolean }> = []
+		const requests: Array<{ href: string; heading: string | null }> = []
 		await page.route('**/plan.data*', async (route) => {
 			const { searchParams } = new URL(route.request().url())
 			if (
@@ -745,44 +728,166 @@ test.describe('Picked day', () => {
 			) {
 				return route.continue()
 			}
-			planRequests.push(
+			requests.push(
 				await page.evaluate(() => ({
 					href: window.location.pathname + window.location.search,
-					showedThursday:
+					heading:
 						document.querySelector('[data-testid="mobile-plan"] h2')
-							?.textContent === 'Oct 22' &&
-						document.body.innerText.includes('Pea Risotto'),
+							?.textContent ?? null,
 				})),
 			)
 			await gate
-			await route.continue()
+			// A navigation may have aborted the request meanwhile.
+			await route.continue().catch(() => {})
 		})
+		return { requests, release }
+	}
 
-		// Back shows the week from memory on the picked day at once; the one Plan
-		// request is the revalidation behind it.
+	/** Taps a day, retrying until the page has hydrated and takes the tap. */
+	async function tapDay(page: Page, date: Date) {
+		await expect(async () => {
+			await dayButton(page, date).click()
+			await expect(dayButton(page, date)).toHaveAttribute(
+				'aria-pressed',
+				'true',
+				{ timeout: 1000 },
+			)
+		}).toPass()
+	}
+
+	test('The phone Plan keeps the picked day through a Recipe visit and a reload, without reloading the week', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const plan = await seedWeek(user.id, user.householdId)
+		const mobile = page.getByTestId('mobile-plan')
+		await page.setViewportSize({ width: 390, height: 844 })
+		await page.goto(weekUrl)
+		await expect(
+			mobile.getByRole('heading', { name: formatMonthDay(tuesday) }),
+		).toBeVisible()
+
+		const loaderRequests: string[] = []
+		page.on('request', (request) => {
+			if (new URL(request.url()).pathname.endsWith('.data')) {
+				loaderRequests.push(request.url())
+			}
+		})
+		const historyLength = await page.evaluate(() => history.length)
+		await tapDay(page, thursday)
+		await expect(page).toHaveURL(dayUrl(thursday))
+		await expect(
+			mobile.getByRole('heading', { name: formatMonthDay(thursday) }),
+		).toBeVisible()
+		// The router runs loaders before it commits the URL, so any reload of
+		// the week would have been requested by now. The tap replaced the entry.
+		expect(loaderRequests).toEqual([])
+		expect(await page.evaluate(() => history.length)).toBe(historyLength)
+		// Tapping the picked day again is not a reload either. The next tap's
+		// URL change shows the router has handled it.
+		await dayButton(page, thursday).click()
+		await dayButton(page, wednesday).click()
+		await expect(page).toHaveURL(dayUrl(wednesday))
+		await dayButton(page, thursday).click()
+		await expect(page).toHaveURL(dayUrl(thursday))
+		expect(loaderRequests).toEqual([])
+		expect(await page.evaluate(() => history.length)).toBe(historyLength)
+
+		await mobile.getByRole('link', { name: 'Pea Risotto', exact: true }).click()
+		await expect(page).toHaveURL(/\/recipes\//)
+
+		// Someone plans leftovers for Thursday while the Recipe is open.
+		await prisma.meal.create({
+			data: {
+				mealPlanId: plan.id,
+				date: thursday,
+				order: 1,
+				genericText: 'Leftovers',
+			},
+		})
+		const held = await holdPlanData(page)
+
+		// Back shows the week from memory on the picked day at once; the one
+		// Plan request is the revalidation behind it.
 		await page.goBack()
-		await expect(page).toHaveURL('/plan?weekStart=2026-10-19&day=2026-10-22')
-		await expect(thursday).toHaveAttribute('aria-pressed', 'true')
-		await expect(mobile.getByRole('heading', { name: 'Oct 22' })).toBeVisible()
+		await expect(page).toHaveURL(dayUrl(thursday))
+		await expect(dayButton(page, thursday)).toHaveAttribute(
+			'aria-pressed',
+			'true',
+		)
 		await expect(
 			mobile.getByRole('link', { name: 'Pea Risotto', exact: true }),
 		).toBeVisible()
 		await expect(mobile.getByText('Leftovers')).toHaveCount(0)
-		await expect.poll(() => planRequests.length).toBe(1)
-		expect(planRequests[0]).toEqual({
-			href: '/plan?weekStart=2026-10-19&day=2026-10-22',
-			showedThursday: true,
+		await expect.poll(() => held.requests.length).toBe(1)
+		expect(held.requests[0]).toEqual({
+			href: dayUrl(thursday),
+			heading: formatMonthDay(thursday),
 		})
-		release()
+		held.release()
 		await expect(mobile.getByText('Leftovers')).toBeVisible()
-		await expect(thursday).toHaveAttribute('aria-pressed', 'true')
+		await expect(dayButton(page, thursday)).toHaveAttribute(
+			'aria-pressed',
+			'true',
+		)
 		await page.unroute('**/plan.data*')
 
 		await page.reload()
-		await expect(thursday).toHaveAttribute('aria-pressed', 'true')
-		await expect(mobile.getByRole('heading', { name: 'Oct 22' })).toBeVisible()
+		await expect(dayButton(page, thursday)).toHaveAttribute(
+			'aria-pressed',
+			'true',
+		)
+		await expect(
+			mobile.getByRole('heading', { name: formatMonthDay(thursday) }),
+		).toBeVisible()
 		await expect(
 			mobile.getByRole('link', { name: 'Lentil Soup', exact: true }),
 		).toHaveCount(0)
+	})
+
+	test('A day tap during the revalidation behind a remembered Plan still brings the fresh week', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const plan = await seedWeek(user.id, user.householdId)
+		const mobile = page.getByTestId('mobile-plan')
+		await page.setViewportSize({ width: 390, height: 844 })
+		await page.goto(weekUrl)
+		await tapDay(page, thursday)
+		await mobile.getByRole('link', { name: 'Pea Risotto', exact: true }).click()
+		await expect(page).toHaveURL(/\/recipes\//)
+
+		await prisma.meal.create({
+			data: {
+				mealPlanId: plan.id,
+				date: wednesday,
+				order: 0,
+				genericText: 'Leftovers',
+			},
+		})
+		const held = await holdPlanData(page)
+		await page.goBack()
+		await expect(
+			mobile.getByRole('link', { name: 'Pea Risotto', exact: true }),
+		).toBeVisible()
+		await expect.poll(() => held.requests.length).toBe(1)
+
+		// The tap is a navigation: it aborts the held revalidation and loads
+		// nothing itself, so the page asks again.
+		await dayButton(page, wednesday).click()
+		await expect(page).toHaveURL(dayUrl(wednesday))
+		await expect.poll(() => held.requests.length).toBe(2)
+		expect(held.requests[1]).toEqual({
+			href: dayUrl(wednesday),
+			heading: formatMonthDay(wednesday),
+		})
+		held.release()
+		await expect(mobile.getByText('Leftovers')).toBeVisible()
+		await expect(dayButton(page, wednesday)).toHaveAttribute(
+			'aria-pressed',
+			'true',
+		)
 	})
 })

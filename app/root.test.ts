@@ -116,10 +116,15 @@ test('a pending toast forces revalidation even on shapes the router would skip',
 	).toBe(true)
 })
 
-test('an ordinary page-to-page navigation skips the root loader', () => {
+test('a page-to-page navigation follows the router default, which single fetch sets to true', () => {
 	expect(
 		shouldRevalidate(navigation({ from: '/recipes', to: '/recipes/abc123' })),
 	).toBe(false)
+	expect(
+		shouldRevalidate(
+			navigation({ from: '/recipes', to: '/recipes/abc123', forced: true }),
+		),
+	).toBe(true)
 })
 
 test('changing filters on a list skips the root loader', () => {

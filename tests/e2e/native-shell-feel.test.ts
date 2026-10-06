@@ -1,6 +1,10 @@
 import { type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
-import { SAFARI_UA, SHELL_UA } from '#tests/native-shell.ts'
+import {
+	SAFARI_UA,
+	SHELL_UA,
+	setHomeIndicatorInset,
+} from '#tests/native-shell.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
 // The iOS app registers `haptic`, `theme` and `refresh` message handlers on
@@ -191,13 +195,14 @@ test.describe('the tab bar in the iOS app', () => {
 		page,
 		login,
 	}) => {
+		await setHomeIndicatorInset(page, 34)
 		await login()
 		await page.goto('/plan')
-		// Playwright has no home indicator, so the inset is 0 and the bar is the
-		// row of tabs and its 1px top border.
+		// The 46pt row, its 1px top border, and the 34pt inset less the 12pt
+		// the row overlaps.
 		expect(
 			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
-		).toBe(47)
+		).toBe(69)
 	})
 
 	test('the header is as tall as a native nav bar', async ({ page, login }) => {
@@ -206,9 +211,25 @@ test.describe('the tab bar in the iOS app', () => {
 		// Playwright has no status bar, so the header is the 44pt row and its
 		// 1px bottom border.
 		expect((await page.getByRole('banner').boundingBox())?.height).toBe(45)
+		const settings = await page
+			.getByRole('banner')
+			.getByRole('link', { name: 'Settings' })
+			.boundingBox()
+		expect([settings?.width, settings?.height]).toEqual([44, 44])
+	})
+
+	test('signed out, the header keeps its padding around Sign Up', async ({
+		page,
+	}) => {
+		await page.goto('/login')
+		await expect(
+			page.getByRole('banner').getByRole('link', { name: 'Sign Up' }),
+		).toBeVisible()
+		expect((await page.getByRole('banner').boundingBox())?.height).toBe(69)
 	})
 
 	test('a sheet docks on the tab bar with no gap', async ({ page, login }) => {
+		await setHomeIndicatorInset(page, 34)
 		await createShoppingList(await login())
 		await openShopping(page)
 		await page.getByRole('button', { name: 'Add item' }).click()
@@ -262,12 +283,14 @@ test.describe('in a browser', () => {
 		login,
 	}) => {
 		await page.setViewportSize({ width: 390, height: 844 })
+		await setHomeIndicatorInset(page, 34)
 		await login()
 		await page.goto('/plan')
 		expect((await page.getByRole('banner').boundingBox())?.height).toBe(67)
+		// The 64px row, its 1px top border, and the whole 34pt inset.
 		expect(
 			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
-		).toBe(65)
+		).toBe(99)
 	})
 
 	test('keeps the Home Screen layout clear of the status bar', async ({

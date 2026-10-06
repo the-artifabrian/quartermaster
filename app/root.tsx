@@ -450,11 +450,11 @@ function App() {
 					>
 						<nav
 							aria-label="Main"
-							// In the iOS app the row is as tall as a native nav bar (44pt):
-							// the Settings link and Log In are 44pt themselves.
+							// Signed in, the iOS app's row is as tall as a native nav bar
+							// (44pt): the Settings link is 44pt itself.
 							className={cn(
 								'container flex flex-wrap items-center justify-between gap-4 sm:flex-nowrap md:gap-8',
-								isNativeShell ? 'py-0' : 'py-3',
+								isNativeShell && user ? 'py-0' : 'py-3',
 							)}
 						>
 							<Logo />

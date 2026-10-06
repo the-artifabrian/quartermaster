@@ -179,9 +179,9 @@ export function BottomNav() {
 			className="bg-card/95 border-border fixed inset-x-0 bottom-0 z-50 border-t pb-(--bottom-nav-inset) backdrop-blur-sm md:hidden print:hidden"
 		>
 			<div
-				// In the iOS app the row is 46pt and --bottom-nav-inset sits it 12pt
-				// inside the home indicator inset, so the labels end about 22pt
-				// above the screen edge instead of floating a row above it.
+				// --bottom-nav-h: as tall as a native tab bar (49pt) in the iOS app,
+				// so the labels end just above the home indicator instead of
+				// floating a row above it.
 				className="grid h-(--bottom-nav-h) grid-cols-4 items-center"
 			>
 				{navItems.map((item) => {
@@ -312,7 +312,7 @@ export function BottomNav() {
 							}}
 							className={cn(
 								'relative flex flex-col items-center justify-center transition-[color,transform] duration-150',
-								isNativeShell ? 'h-full gap-0.5 pt-0 pb-0.5' : 'gap-1 py-2',
+								isNativeShell ? 'gap-0.5 py-1' : 'gap-1 py-2',
 								isActive
 									? 'text-primary'
 									: 'text-muted-foreground hover:text-foreground',

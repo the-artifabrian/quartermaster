@@ -14,18 +14,18 @@ test('a household with no Staples adds the first ones from the suggestions', asy
 		page.getByRole('heading', { name: 'No Staples yet' }),
 	).toBeVisible()
 	const suggestions = page.getByRole('list', { name: 'Suggested Staples' })
-	await suggestions.getByRole('button', { name: 'Add Olive oil' }).click()
+	const oliveOil = suggestions.getByRole('button', { name: 'Add olive oil' })
+	await expect(oliveOil).toHaveText('olive oil')
+	await oliveOil.click()
 
 	const staples = page.getByRole('list', { name: 'Staples' })
-	await expect(staples.getByText('Olive oil')).toBeVisible()
-	await expect(
-		suggestions.getByRole('button', { name: 'Add Olive oil' }),
-	).toHaveCount(0)
+	await expect(staples.getByText('olive oil', { exact: true })).toBeVisible()
+	await expect(oliveOil).toHaveCount(0)
 	await expect(
 		page.getByRole('heading', { name: 'Others you might keep' }),
 	).toBeVisible()
-	await suggestions.getByRole('button', { name: 'Add Garlic' }).click()
-	await expect(staples.getByText('Garlic')).toBeVisible()
+	await suggestions.getByRole('button', { name: 'Add garlic' }).click()
+	await expect(staples.getByText('garlic', { exact: true })).toBeVisible()
 
 	await expect
 		.poll(() =>
@@ -35,11 +35,11 @@ test('a household with no Staples adds the first ones from the suggestions', asy
 				orderBy: { displayName: 'asc' },
 			}),
 		)
-		.toEqual([{ displayName: 'Garlic' }, { displayName: 'Olive oil' }])
+		.toEqual([{ displayName: 'garlic' }, { displayName: 'olive oil' }])
 
 	// A later visit with Staples present shows no suggestions.
 	await page.goto('/inventory')
-	await expect(staples.getByText('Garlic')).toBeVisible()
+	await expect(staples.getByText('garlic', { exact: true })).toBeVisible()
 	await expect(
 		page.getByRole('list', { name: 'Suggested Staples' }),
 	).toHaveCount(0)

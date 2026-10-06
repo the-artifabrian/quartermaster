@@ -5,21 +5,21 @@ import { Icon } from './ui/icon.tsx'
 
 /** Things most households keep; the first Staples are a tap each (#351). */
 export const SUGGESTED_STAPLES = [
-	'Salt',
-	'Pepper',
-	'Olive oil',
-	'Garlic',
-	'Onions',
-	'Butter',
-	'Eggs',
-	'Milk',
-	'Flour',
-	'Sugar',
-	'Rice',
-	'Pasta',
-	'Soy sauce',
-	'Stock cubes',
-	'Tinned tomatoes',
+	'salt',
+	'pepper',
+	'olive oil',
+	'garlic',
+	'onions',
+	'butter',
+	'eggs',
+	'milk',
+	'flour',
+	'sugar',
+	'rice',
+	'pasta',
+	'soy sauce',
+	'stock cubes',
+	'tinned tomatoes',
 ]
 
 type Response = { status: 'success' | 'error'; message?: string }

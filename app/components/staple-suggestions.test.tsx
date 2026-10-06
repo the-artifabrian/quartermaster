@@ -45,23 +45,25 @@ test('a tap posts add-staple with the suggested name', async () => {
 		SUGGESTED_STAPLES.length,
 	)
 
-	await userEvent.click(screen.getByRole('button', { name: 'Add Olive oil' }))
+	const oliveOil = screen.getByRole('button', { name: 'Add olive oil' })
+	expect(oliveOil).toHaveTextContent(/^olive oil$/)
+	await userEvent.click(oliveOil)
 
 	await waitFor(() =>
 		expect(posted).toEqual([
-			{ intent: 'add-staple', displayName: 'Olive oil' },
+			{ intent: 'add-staple', displayName: 'olive oil' },
 		]),
 	)
 })
 
 test('a held name hides its suggestion regardless of case and spacing', () => {
-	renderSuggestions(['olive  OIL', ' salt '])
+	renderSuggestions(['Olive  OIL', ' Salt '])
 	const list = screen.getByRole('list', { name: 'Suggested Staples' })
 	expect(
-		within(list).queryByRole('button', { name: 'Add Olive oil' }),
+		within(list).queryByRole('button', { name: 'Add olive oil' }),
 	).toBeNull()
-	expect(within(list).queryByRole('button', { name: 'Add Salt' })).toBeNull()
-	expect(within(list).getByRole('button', { name: 'Add Garlic' })).toBeVisible()
+	expect(within(list).queryByRole('button', { name: 'Add salt' })).toBeNull()
+	expect(within(list).getByRole('button', { name: 'Add garlic' })).toBeVisible()
 })
 
 test('nothing renders once every suggestion is held', () => {
@@ -93,7 +95,7 @@ test('suggestions stay for the visit after the first add, minus the added one', 
 		const [staples, setStaples] = useState<ReturnType<typeof staple>[]>([])
 		return (
 			<>
-				<button type="button" onClick={() => setStaples([staple('1', 'Salt')])}>
+				<button type="button" onClick={() => setStaples([staple('1', 'salt')])}>
 					simulate revalidation
 				</button>
 				<ActiveStaples staples={staples} />
@@ -103,7 +105,7 @@ test('suggestions stay for the visit after the first add, minus the added one', 
 	const Stub = createRoutesStub([{ path: '/', Component: Page }])
 	render(<Stub initialEntries={['/']} />)
 	expect(screen.getByRole('heading', { name: 'No Staples yet' })).toBeVisible()
-	expect(screen.getByRole('button', { name: 'Add Salt' })).toBeVisible()
+	expect(screen.getByRole('button', { name: 'Add salt' })).toBeVisible()
 
 	await userEvent.click(
 		screen.getByRole('button', { name: 'simulate revalidation' }),
@@ -114,6 +116,6 @@ test('suggestions stay for the visit after the first add, minus the added one', 
 		screen.getByRole('heading', { name: 'Others you might keep' }),
 	).toBeVisible()
 	const list = screen.getByRole('list', { name: 'Suggested Staples' })
-	expect(within(list).queryByRole('button', { name: 'Add Salt' })).toBeNull()
-	expect(within(list).getByRole('button', { name: 'Add Pepper' })).toBeVisible()
+	expect(within(list).queryByRole('button', { name: 'Add salt' })).toBeNull()
+	expect(within(list).getByRole('button', { name: 'Add pepper' })).toBeVisible()
 })

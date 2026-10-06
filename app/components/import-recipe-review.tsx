@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { type ExtractedRecipe } from '#app/routes/recipes/import.tsx'
+import { type ExtractedRecipe } from '#app/utils/import-recipe-types.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
 import { DurationHint } from './duration-hint.tsx'
 import {

@@ -219,7 +219,15 @@ export function BottomNav() {
 								// click that follows once the finger lifts. The bar is fixed
 								// and does not scroll, so a press on it is a tap.
 								pressNavigatedRef.current = item.to
-								if (isPending) return
+								// A press on the tab the router is already switching to starts
+								// nothing new. A pending look left by a blocked navigation does
+								// not count.
+								if (
+									isPending &&
+									navigation.state !== 'idle' &&
+									pathIsInTab(navigation.location?.pathname, item.to)
+								)
+									return
 								if (isOnSubPage) delete lastPathPerTab.current[item.to]
 								startTabNavigation(item, linkTo, startedAt)
 								void navigate(linkTo, { viewTransition: true })

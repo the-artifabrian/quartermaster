@@ -395,6 +395,8 @@ function App() {
 	const isPro = data.tierInfo.isProActive
 	const { pathname } = useLocation()
 	const isNativeShell = data.requestInfo.isNativeShell
+	// The homepage re-themes the chrome around it to espresso in either theme.
+	const chrome = pathname === '/' ? 'espresso' : undefined
 	useToast(data.toast)
 	useNavDirection()
 
@@ -415,14 +417,17 @@ function App() {
 				householdId={data.householdId}
 			/>
 			<ServiceWorkerUpdate />
-			{isNativeShell ? <NativeShellBridge theme={theme} /> : null}
+			{isNativeShell ? (
+				// The status bar sits on the chrome, so espresso needs light text.
+				<NativeShellBridge theme={chrome === 'espresso' ? 'dark' : theme} />
+			) : null}
 			<OpenImgContextProvider
 				optimizerEndpoint="/resources/images"
 				getSrc={getImgSrc}
 			>
 				<div
 					className="flex min-h-screen flex-col justify-between"
-					data-chrome={pathname === '/' ? 'espresso' : undefined}
+					data-chrome={chrome}
 				>
 					{isNativeShell ? (
 						// Content scrolls under the status bar behind the same frosted

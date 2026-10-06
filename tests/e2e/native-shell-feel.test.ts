@@ -229,10 +229,16 @@ test.describe('the tab bar in the iOS app', () => {
 		await setHomeIndicatorInset(page, 34)
 		await login()
 		await page.goto('/plan')
-		// The 50pt row, its 1px top border, and 18pt of the 34pt inset.
-		expect(
-			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
-		).toBe(69)
+		// The 54pt row, its 1px top border, and 18pt of the 34pt inset.
+		const bar = (await page.locator('[data-bottom-nav]').boundingBox())!
+		expect(bar.height).toBe(73)
+		// The icons sit as far below the bar's edge as the labels sit above the
+		// home indicator, whose top is 13pt from the screen edge.
+		const plan = page.getByRole('link', { name: 'Plan' })
+		const icon = (await plan.locator('svg').boundingBox())!
+		const label = (await plan.getByText('Plan').boundingBox())!
+		expect(icon.y - bar.y).toBe(9)
+		expect(bar.y + bar.height - 13 - (label.y + label.height)).toBe(9)
 		await expectNoActiveTabUnderline(page)
 	})
 
@@ -242,10 +248,10 @@ test.describe('the tab bar in the iOS app', () => {
 	}) => {
 		await createShoppingList(await login())
 		await openShopping(page)
-		// The 50pt row and its 1px top border; the inset stops at 0.
+		// The 54pt row and its 1px top border; the inset stops at 0.
 		expect(
 			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
-		).toBe(51)
+		).toBe(55)
 		await expectSheetDocksOnTabBar(page)
 	})
 

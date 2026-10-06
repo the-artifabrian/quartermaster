@@ -179,9 +179,10 @@ export function BottomNav() {
 			className="bg-card/95 border-border fixed inset-x-0 bottom-0 z-50 border-t pb-(--bottom-nav-inset) backdrop-blur-sm md:hidden print:hidden"
 		>
 			<div
-				// --bottom-nav-h: a 50pt row in the iOS app (a native bar's 49pt plus
-				// its hairline); --bottom-nav-inset keeps the labels just clear of
-				// the home indicator.
+				// --bottom-nav-h: a 54pt row in the iOS app, where the links take more
+				// padding above the icon than below the label so the icons sit as far
+				// below the bar's edge as the labels sit above the home indicator;
+				// --bottom-nav-inset keeps the labels just clear of it.
 				className="grid h-(--bottom-nav-h) grid-cols-4 items-center"
 			>
 				{navItems.map((item) => {
@@ -316,7 +317,7 @@ export function BottomNav() {
 							}}
 							className={cn(
 								'flex flex-col items-center justify-center transition-[color,transform] duration-150',
-								isNativeShell ? 'gap-0.5 py-1' : 'gap-1 py-2',
+								isNativeShell ? 'gap-0.5 pt-2 pb-1' : 'gap-1 py-2',
 								isSelected
 									? 'text-primary'
 									: 'text-muted-foreground hover:text-foreground',

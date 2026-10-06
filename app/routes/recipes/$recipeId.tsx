@@ -7,6 +7,7 @@ import {
 	useNavigate,
 	useRouteLoaderData,
 	useSearchParams,
+	useViewTransitionState,
 } from 'react-router'
 import { toast } from 'sonner'
 import { Divider } from '#app/components/divider.tsx'
@@ -353,6 +354,8 @@ function toShoppingItem(
 
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const { recipe, isProActive } = loaderData
+	// The image moves from its Recipes card while the page slides in or out.
+	const imageTransitionsFromList = useViewTransitionState('/recipes')
 	const rootData = useRouteLoaderData('root') as
 		{ requestInfo?: { origin?: string } } | undefined
 	const origin = rootData?.requestInfo?.origin
@@ -593,6 +596,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							<Img
 								src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
 								alt={recipe.image.altText ?? recipe.title}
+								data-recipe-image-transition={
+									imageTransitionsFromList ? '' : undefined
+								}
 								className="md:border-border aspect-[16/10] w-full object-cover md:aspect-4/3 md:rounded-md md:border"
 								width={800}
 								height={600}

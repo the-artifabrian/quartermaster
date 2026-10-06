@@ -173,6 +173,7 @@ export function BottomNav() {
 	return (
 		<nav
 			aria-label="Main"
+			data-bottom-nav=""
 			className="bg-card/95 border-border fixed inset-x-0 bottom-0 z-50 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden print:hidden"
 		>
 			<div className="grid h-16 grid-cols-4 items-center">

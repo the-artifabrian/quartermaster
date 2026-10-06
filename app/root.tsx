@@ -42,6 +42,7 @@ import { getEnv } from './utils/env.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
 import { combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
 import { isNativeShell } from './utils/native-shell.server.ts'
+import { useNavDirection } from './utils/nav-direction.ts'
 import { useNonce } from './utils/nonce-provider.ts'
 import { getPostHogHost } from './utils/posthog-config.ts'
 import {
@@ -395,6 +396,7 @@ function App() {
 	const { pathname } = useLocation()
 	const isNativeShell = data.requestInfo.isNativeShell
 	useToast(data.toast)
+	useNavDirection()
 
 	return (
 		<NavTiming>

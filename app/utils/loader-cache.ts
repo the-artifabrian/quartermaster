@@ -33,15 +33,27 @@ export type LoaderCacheOptions = {
 }
 
 /**
- * The pathname and search a URL is keyed and compared by. Without view-only
- * params that is the URL as it is; with them, the rest of the search, sorted.
+ * `href` (a pathname and search) without the view-only params, the rest of the
+ * search sorted: two URLs that load the same data give the same string.
  */
-function cacheHref(href: string, { viewOnlyParams }: LoaderCacheOptions = {}) {
-	if (!viewOnlyParams?.length) return href
+export function withoutViewOnlyParams(
+	href: string,
+	viewOnlyParams: readonly string[],
+) {
 	const url = new URL(href, 'http://cache.invalid')
 	for (const name of viewOnlyParams) url.searchParams.delete(name)
 	url.searchParams.sort()
 	return url.pathname + url.search
+}
+
+/**
+ * The pathname and search a URL is keyed and compared by. Without view-only
+ * params that is the URL as it is.
+ */
+function cacheHref(href: string, { viewOnlyParams }: LoaderCacheOptions = {}) {
+	return viewOnlyParams?.length
+		? withoutViewOnlyParams(href, viewOnlyParams)
+		: href
 }
 
 function isObject(value: unknown): value is object {

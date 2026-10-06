@@ -159,7 +159,8 @@ export async function clientLoader(args: Route.ClientLoaderArgs) {
 }
 clientLoader.hydrate = false as const
 
-// Picking a day only changes the URL's `day`; the loaded week stays.
+// Picking a day only sets the URL's `day` and drops a Meal link's `mealId`;
+// the loaded week stays.
 export function shouldRevalidate(args: ShouldRevalidateFunctionArgs) {
 	return planShouldRevalidate(args)
 }

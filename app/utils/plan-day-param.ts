@@ -1,4 +1,5 @@
 import { isToday, serializeDate } from './date.ts'
+import { withoutViewOnlyParams } from './loader-cache.ts'
 
 /**
  * The mobile Plan keeps its selected day in the URL as `?day=yyyy-MM-dd`, so
@@ -54,11 +55,8 @@ export function resolveSelectedDay(args: SelectedDayArgs): string {
  */
 export const PLAN_VIEW_ONLY_PARAMS = ['day', 'mealId'] as const
 
-function dataSearch(url: URL) {
-	const params = new URLSearchParams(url.search)
-	for (const name of PLAN_VIEW_ONLY_PARAMS) params.delete(name)
-	params.sort()
-	return params.toString()
+function dataHref(url: URL) {
+	return withoutViewOnlyParams(url.pathname + url.search, PLAN_VIEW_ONLY_PARAMS)
 }
 
 /**
@@ -80,9 +78,8 @@ export function planShouldRevalidate({
 }) {
 	if (
 		!formMethod &&
-		currentUrl.pathname === nextUrl.pathname &&
 		currentUrl.search !== nextUrl.search &&
-		dataSearch(currentUrl) === dataSearch(nextUrl)
+		dataHref(currentUrl) === dataHref(nextUrl)
 	) {
 		return false
 	}

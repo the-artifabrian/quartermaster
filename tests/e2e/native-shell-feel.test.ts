@@ -191,18 +191,17 @@ test.describe('the homepage in the iOS app', () => {
 test.describe('the tab bar in the iOS app', () => {
 	test.use({ userAgent: SHELL_UA, viewport: { width: 390, height: 844 } })
 
-	test('the tab bar is a 46pt row that overlaps the home indicator inset', async ({
+	test('the tab bar is as tall as a native one on the full home indicator inset', async ({
 		page,
 		login,
 	}) => {
 		await setHomeIndicatorInset(page, 34)
 		await login()
 		await page.goto('/plan')
-		// The 46pt row, its 1px top border, and the 34pt inset less the 12pt
-		// the row overlaps.
+		// The 50pt row, its 1px top border, and the whole 34pt inset.
 		expect(
 			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
-		).toBe(69)
+		).toBe(85)
 	})
 
 	test('the header is as tall as a native nav bar', async ({ page, login }) => {

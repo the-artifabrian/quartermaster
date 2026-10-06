@@ -454,12 +454,12 @@ html {
 	padding-top: env(safe-area-inset-top);
 }
 
-/* In the iOS app the tab bar is a 46pt row whose content sits 12pt inside
-   the home indicator inset, so the labels end about 22pt above the screen
-   edge. Whatever docks above the bar moves down with it. */
+/* In the iOS app the tab bar is as tall as a native one (49pt) and sits on
+   the full home indicator inset. Whatever docks above the bar moves down
+   with it. */
 :root[data-native-shell] {
-	--bottom-nav-h: 46px;
-	--bottom-nav-inset: max(0px, calc(env(safe-area-inset-bottom) - 12px));
+	--bottom-nav-h: 50px;
+	--bottom-nav-inset: env(safe-area-inset-bottom);
 }
 
 /* In the iOS app, detail pages slide like a native push and pop

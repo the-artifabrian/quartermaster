@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { type ExtractedRecipe } from '#app/routes/recipes/import.tsx'
 import { haptic } from '#app/utils/shell-bridge.ts'
+import { DurationHint } from './duration-hint.tsx'
 import {
 	IngredientFields,
 	type IngredientFieldValue,
@@ -394,11 +395,22 @@ export function ImportRecipeReview({
 													: 'numeric'
 										}
 										enterKeyHint="done"
+										aria-describedby={
+											name === 'activeTime' || name === 'totalTime'
+												? `review-${name}-hint`
+												: undefined
+										}
 										value={details[name]}
 										onChange={(event) =>
 											setDetails({ ...details, [name]: event.target.value })
 										}
 									/>
+									{name === 'activeTime' || name === 'totalTime' ? (
+										<DurationHint
+											id={`review-${name}-hint`}
+											minutes={details[name]}
+										/>
+									) : null}
 								</div>
 							))}
 						</div>

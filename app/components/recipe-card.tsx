@@ -1,5 +1,6 @@
 import { Img } from 'openimg/react'
 import { Link, useViewTransitionState } from 'react-router'
+import { formatDuration } from '#app/utils/format-duration.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { OPEN_DETAIL } from '#app/utils/nav-direction.ts'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
@@ -111,7 +112,7 @@ export function RecipeCard({
 					<div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-[13px] md:hidden">
 						<span className="flex items-center gap-1">
 							<Icon name="clock" size="xs" />
-							{totalTime != null ? `${totalTime} min` : 'Time unknown'}
+							{totalTime != null ? formatDuration(totalTime) : 'Time unknown'}
 						</span>
 					</div>
 				)}
@@ -133,7 +134,7 @@ export function RecipeCard({
 					{(totalTime != null || showUnknownTime) && (
 						<span className="text-muted-foreground flex items-center gap-1 text-xs">
 							<Icon name="clock" size="xs" />
-							{totalTime != null ? `${totalTime} min` : 'Time unknown'}
+							{totalTime != null ? formatDuration(totalTime) : 'Time unknown'}
 						</span>
 					)}
 				</div>

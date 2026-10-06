@@ -224,15 +224,15 @@ export function RecipeIngredientsControls({
 						type="button"
 						onClick={onToggleMetric}
 						aria-pressed={useMetric}
-						className="focus-visible:ring-ring group/metric flex min-h-11 shrink-0 items-center rounded-full focus-visible:ring-2 focus-visible:outline-hidden print:hidden"
+						className="focus-visible:ring-ring focus-visible:ring-offset-background group/metric flex min-h-11 shrink-0 items-center rounded-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden print:hidden"
 					>
 						{/* The pill is 32px tall; the button keeps the 44px target */}
 						<span
 							className={cn(
 								'flex h-8 items-center rounded-full border px-2.5 text-xs font-medium transition-colors',
 								useMetric
-									? 'border-border text-foreground'
-									: 'text-muted-foreground group-hover/metric:text-foreground border-transparent',
+									? 'border-primary bg-primary text-primary-foreground'
+									: 'border-border/50 bg-secondary/50 text-muted-foreground group-hover/metric:bg-secondary group-hover/metric:text-foreground',
 							)}
 						>
 							Metric

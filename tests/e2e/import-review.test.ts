@@ -45,7 +45,13 @@ test('correct import, fail validation and connection, then save once with origin
 	await page
 		.getByPlaceholder('Step 1')
 		.fill('Serve the chickpeas with extra lemon.')
-	await page.getByLabel('Total time (min)', { exact: true }).fill('25')
+	const totalTime = page.getByLabel('Total time (min)', { exact: true })
+	await totalTime.fill('1140')
+	await expect(totalTime).toHaveAttribute(
+		'aria-describedby',
+		'review-totalTime-hint',
+	)
+	await expect(page.locator('#review-totalTime-hint')).toHaveText('= 19 hr')
 	await page.getByRole('button', { name: 'Done editing', exact: true }).click()
 	await expect(page.getByLabel('Recipe overview')).toContainText(
 		'3 cans chickpeas',
@@ -53,9 +59,7 @@ test('correct import, fail validation and connection, then save once with origin
 	await expect(page.getByLabel('Recipe overview')).toContainText(
 		'Serve the chickpeas with extra lemon.',
 	)
-	await expect(page.getByLabel('Recipe overview')).toContainText(
-		'Total: 25 min',
-	)
+	await expect(page.getByLabel('Recipe overview')).toContainText('Total: 19 hr')
 	await expect(page.getByText('Original input', { exact: true })).toHaveCount(0)
 	await page.getByRole('button', { name: 'Edit', exact: true }).click()
 	await expect(page.getByText('Original input', { exact: true })).toHaveCount(0)
@@ -65,7 +69,7 @@ test('correct import, fail validation and connection, then save once with origin
 	)
 	await expect(
 		page.getByLabel('Total time (min)', { exact: true }),
-	).toHaveValue('25')
+	).toHaveValue('1140')
 	await page.getByLabel('Title', { exact: true }).fill('')
 	await page.getByRole('button', { name: 'Save Recipe', exact: true }).click()
 	await expect(page.getByRole('alert')).toContainText('Title is required')
@@ -120,6 +124,7 @@ test('correct import, fail validation and connection, then save once with origin
 	expect(recipes).toHaveLength(1)
 	expect(recipes[0]).toMatchObject({
 		rawText: original,
+		totalTime: 1140,
 		ingredients: [
 			expect.objectContaining({ amount: '3', name: 'chickpeas' }),
 			expect.objectContaining({ name: 'lemon' }),

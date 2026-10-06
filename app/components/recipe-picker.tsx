@@ -11,6 +11,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from '#app/components/ui/popover.tsx'
+import { formatDuration } from '#app/utils/format-duration.ts'
 import { rankRecipeTitleMatches } from '#app/utils/recipe-search.ts'
 import { useModal } from '#app/utils/use-modal.ts'
 
@@ -263,7 +264,7 @@ function PickerOption({
 				{totalTime != null && (
 					<span className="text-muted-foreground inline-flex shrink-0 items-center gap-0.5 text-xs">
 						<Icon name="clock" className="size-3" />
-						{totalTime}m
+						{formatDuration(totalTime)}
 					</span>
 				)}
 			</div>

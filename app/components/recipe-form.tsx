@@ -5,6 +5,7 @@ import { useId, useState } from 'react'
 import { Form, useActionData, useNavigation } from 'react-router'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { RecipeSchema } from '#app/utils/recipe-validation.ts'
+import { DurationHint } from './duration-hint.tsx'
 import { ErrorList, Field, TextareaField } from './forms.tsx'
 import {
 	IngredientFields,
@@ -416,28 +417,48 @@ export function RecipeForm({
 					/>
 
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-						<Field
-							labelProps={{ children: 'Active Time (min)' }}
-							inputProps={{
-								...getInputProps(fields.activeTime, { type: 'number' }),
-								min: 1,
-								inputMode: 'numeric',
-								enterKeyHint: 'done',
-								placeholder: '—',
-							}}
-							errors={fields.activeTime.errors}
-						/>
-						<Field
-							labelProps={{ children: 'Total Time (min)' }}
-							inputProps={{
-								...getInputProps(fields.totalTime, { type: 'number' }),
-								min: 1,
-								inputMode: 'numeric',
-								enterKeyHint: 'done',
-								placeholder: '—',
-							}}
-							errors={fields.totalTime.errors}
-						/>
+						<div>
+							<Field
+								labelProps={{ children: 'Active Time (min)' }}
+								inputProps={{
+									...getInputProps(fields.activeTime, {
+										type: 'number',
+										ariaDescribedBy: fields.activeTime.descriptionId,
+									}),
+									min: 1,
+									inputMode: 'numeric',
+									enterKeyHint: 'done',
+									placeholder: '—',
+								}}
+								errors={fields.activeTime.errors}
+							/>
+							<DurationHint
+								id={fields.activeTime.descriptionId}
+								minutes={fields.activeTime.value}
+								className="mt-1"
+							/>
+						</div>
+						<div>
+							<Field
+								labelProps={{ children: 'Total Time (min)' }}
+								inputProps={{
+									...getInputProps(fields.totalTime, {
+										type: 'number',
+										ariaDescribedBy: fields.totalTime.descriptionId,
+									}),
+									min: 1,
+									inputMode: 'numeric',
+									enterKeyHint: 'done',
+									placeholder: '—',
+								}}
+								errors={fields.totalTime.errors}
+							/>
+							<DurationHint
+								id={fields.totalTime.descriptionId}
+								minutes={fields.totalTime.value}
+								className="mt-1"
+							/>
+						</div>
 					</div>
 				</div>
 			</FormSection>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
+import { formatDuration } from '#app/utils/format-duration.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useModal } from '#app/utils/use-modal.ts'
@@ -230,7 +231,7 @@ export function EnhanceRecipeModal({
 }
 
 function formatMinutes(minutes: number | null): string {
-	return minutes == null ? '—' : `${minutes} min`
+	return minutes == null ? '—' : formatDuration(minutes)
 }
 
 function FieldRow({

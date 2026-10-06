@@ -403,6 +403,72 @@ test('custom Recipe yield labels fit phone and desktop detail layouts', async ({
 	await expectYieldFits(page.getByText(`Makes 3.75 ${yieldLabel}`), 390)
 })
 
+test('long Recipe times read in hours and days on the card, detail and edit form', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Overnight focaccia',
+			activeTime: 30,
+			totalTime: 1140,
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: { create: { name: 'flour', order: 0 } },
+			instructions: { create: { content: 'Proof overnight.', order: 0 } },
+		},
+	})
+	const card = page.getByRole('link', { name: /Overnight focaccia/ })
+
+	// The Recipe card shows the time on phone and desktop in different rows.
+	for (const viewport of [
+		{ width: 390, height: 844 },
+		{ width: 1280, height: 800 },
+	]) {
+		await page.setViewportSize(viewport)
+		await page.goto('/recipes')
+		await expect(
+			card.getByText('19 hr', { exact: true }).filter({ visible: true }),
+		).toHaveCount(1)
+		await expect(card.getByText(/1140/)).toHaveCount(0)
+	}
+
+	await page.goto(`/recipes/${recipe.id}`)
+	await expect(page.getByText('Total: 19 hr')).toBeVisible()
+	await expect(page.getByText('Active: 30 min')).toBeVisible()
+
+	await page.goto(`/recipes/${recipe.id}/edit`)
+	await page.getByText('Details', { exact: true }).click()
+	const totalTime = page.getByRole('spinbutton', { name: 'Total Time (min)' })
+	await expect(totalTime).toHaveValue('1140')
+	await expect(page.getByText('= 19 hr')).toBeVisible()
+	// Under an hour the minutes already read plainly, so there is no hint.
+	await expect(
+		page.getByRole('spinbutton', { name: 'Active Time (min)' }),
+	).toHaveValue('30')
+	await expect(page.getByText(/^= /)).toHaveCount(1)
+
+	await expect(totalTime).toHaveAttribute('aria-describedby', /\S/)
+	const hintId = await totalTime.getAttribute('aria-describedby')
+	await expect(page.locator(`[id="${hintId}"]`)).toHaveText('= 19 hr')
+	// Conform listens for input only after hydration, so retry the typing.
+	await expect(async () => {
+		await totalTime.fill('1560')
+		await expect(page.getByText('= 1 day 2 hr')).toBeVisible({ timeout: 2000 })
+	}).toPass({ timeout: 15_000 })
+	await page.getByRole('button', { name: /save changes/i }).click()
+
+	await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}$`))
+	await expect(page.getByText('Total: 1 day 2 hr')).toBeVisible()
+	expect(
+		await prisma.recipe.findUnique({
+			where: { id: recipe.id },
+			select: { activeTime: true, totalTime: true },
+		}),
+	).toEqual({ activeTime: 30, totalTime: 1560 })
+})
+
 test('manual Recipe scaling stays multiplier-first and shows known yield as context', async ({
 	page,
 	login,

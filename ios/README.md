@@ -61,7 +61,9 @@ is allowed for local hosts only (`NSAllowsLocalNetworking`).
 
 Debug builds also take `-QMSessionCookie <value>`, the site's `en_session`
 cookie from a browser login, set before the first load. A screenshot run starts
-logged in without typing into the simulator:
+logged in without typing into the simulator. The cookie storage drops cookies
+for hosts without a dot, so this works with the real site, not with `localhost`
+or `127.0.0.1`:
 
 ```sh
 xcrun simctl launch booted app.useqm.ios -QMSessionCookie "$EN_SESSION"

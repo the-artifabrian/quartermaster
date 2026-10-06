@@ -107,13 +107,26 @@ final class ShellViewController: UIViewController {
     /// typing into the simulator. The value comes from a browser login.
     private func installDebugSession(then proceed: @escaping () -> Void) {
         #if DEBUG
-        if let value = UserDefaults.standard.string(forKey: "QMSessionCookie"),
-           let cookie = HTTPCookie(properties: [
-               .name: "en_session", .value: value, .domain: config.host, .path: "/",
-               .secure: config.baseURL.scheme?.lowercased() == "https" ? "TRUE" : "FALSE",
-           ])
-        {
-            webView.configuration.websiteDataStore.httpCookieStore.setCookie(cookie, completionHandler: proceed)
+        if let value = UserDefaults.standard.string(forKey: "QMSessionCookie") {
+            // The presence of `.secure` marks the cookie secure, whatever its
+            // value, so a local http server gets no such key.
+            var properties: [HTTPCookiePropertyKey: Any] = [
+                .name: "en_session", .value: value, .domain: config.host, .path: "/",
+            ]
+            if config.baseURL.scheme?.lowercased() == "https" { properties[.secure] = "TRUE" }
+            guard let cookie = HTTPCookie(properties: properties) else {
+                NSLog("QMSessionCookie: HTTPCookie init failed for host %@", config.host)
+                return proceed()
+            }
+            let store = webView.configuration.websiteDataStore.httpCookieStore
+            let host = config.host
+            store.setCookie(cookie) {
+                store.getAllCookies { all in
+                    NSLog("QMSessionCookie: set for %@; store now has %d cookies: %@", host, all.count,
+                          all.map { "\($0.name)@\($0.domain)\($0.path) secure=\($0.isSecure)" }.joined(separator: ", "))
+                    proceed()
+                }
+            }
             return
         }
         #endif

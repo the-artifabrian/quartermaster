@@ -61,6 +61,8 @@ import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
 import { getKeepAwakePreference, useWakeLock } from '#app/utils/wake-lock.ts'
+import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
+import { useStaleRevalidate } from '#app/utils/use-stale-revalidate.ts'
 import { type Route } from './+types/$recipeId.ts'
 
 export const handle: SEOHandle = {
@@ -353,7 +355,15 @@ function toShoppingItem(
 	return { name, quantity: display.quantity, unit: display.unit }
 }
 
+// Shows the last data for this URL at once on a navigation and revalidates
+// behind it; see loader-cache.ts.
+export async function clientLoader(args: Route.ClientLoaderArgs) {
+	return staleWhileRevalidate(args)
+}
+clientLoader.hydrate = false as const
+
 export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
+	useStaleRevalidate(loaderData)
 	const { recipe, isProActive } = loaderData
 	// The image moves from its Recipes card while the page slides in or out.
 	const imageTransitionsFromList = useViewTransitionState('/recipes')

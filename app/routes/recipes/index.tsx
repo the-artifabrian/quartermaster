@@ -31,6 +31,8 @@ import {
 import { recipeMetadataFilterWhere } from '#app/utils/recipe-search.server.ts'
 import { rankRecipeSearchMatches } from '#app/utils/recipe-search.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
+import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
+import { useStaleRevalidate } from '#app/utils/use-stale-revalidate.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -228,7 +230,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 	}
 }
 
+// Shows the last data for this URL at once on a navigation and revalidates
+// behind it; see loader-cache.ts.
+export async function clientLoader(args: Route.ClientLoaderArgs) {
+	return staleWhileRevalidate(args)
+}
+clientLoader.hydrate = false as const
+
 export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
+	useStaleRevalidate(loaderData)
 	const {
 		recipes,
 		search,

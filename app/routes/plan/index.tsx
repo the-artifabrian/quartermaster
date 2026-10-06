@@ -25,6 +25,8 @@ import {
 	annotateShoppingDemand,
 	loadShoppingAvailability,
 } from '#app/utils/shopping-list.server.ts'
+import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
+import { useStaleRevalidate } from '#app/utils/use-stale-revalidate.ts'
 import { type Route } from './+types/index.ts'
 import { createPlanAction } from './plan-action.server.ts'
 
@@ -211,7 +213,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export const action = createPlanAction(prisma)
 
+// Shows the last data for this URL at once on a navigation and revalidates
+// behind it; see loader-cache.ts.
+export async function clientLoader(args: Route.ClientLoaderArgs) {
+	return staleWhileRevalidate(args)
+}
+clientLoader.hydrate = false as const
+
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
+	useStaleRevalidate(loaderData)
 	const { meals, weekDays, weekStart, planScope, shoppingListItemCount } =
 		loaderData
 

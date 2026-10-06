@@ -78,6 +78,16 @@ async function expectSheetDocksOnTabBar(page: Page) {
 		.toBeLessThanOrEqual(1)
 }
 
+// Guards the removed active-tab underline: the tab is its icon and label.
+async function expectNoActiveTabUnderline(page: Page) {
+	await expect(
+		page
+			.getByRole('navigation', { name: 'Main' })
+			.getByRole('link', { name: 'Plan', exact: true })
+			.locator(':scope > *'),
+	).toHaveCount(2)
+}
+
 const count = (messages: string[], message: string) =>
 	messages.filter((m) => m === message).length
 
@@ -223,13 +233,7 @@ test.describe('the tab bar in the iOS app', () => {
 		expect(
 			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
 		).toBe(69)
-		// The active tab is its icon and its label, with no underline.
-		await expect(
-			page
-				.getByRole('navigation', { name: 'Main' })
-				.getByRole('link', { name: 'Plan', exact: true })
-				.locator(':scope > *'),
-		).toHaveCount(2)
+		await expectNoActiveTabUnderline(page)
 	})
 
 	test('with no home indicator inset, the tab bar is its row alone', async ({
@@ -314,6 +318,7 @@ test.describe('in a browser', () => {
 		expect(
 			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
 		).toBe(99)
+		await expectNoActiveTabUnderline(page)
 	})
 
 	test('keeps the Home Screen layout clear of the status bar', async ({

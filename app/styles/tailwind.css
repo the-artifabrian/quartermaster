@@ -454,9 +454,9 @@ html {
 	padding-top: env(safe-area-inset-top);
 }
 
-/* In the iOS app the tab bar's row is as tall as a native one (49pt) and
-   the bar leaves 18pt under it on the 34pt home indicator inset, not the
-   whole inset. That keeps the labels clear of the home indicator (5pt tall,
+/* In the iOS app the tab bar is a 50pt row (a native bar's 49pt plus its
+   hairline) and leaves 18pt under it on the 34pt home indicator inset, not
+   the whole inset. That keeps the labels clear of the home indicator (5pt tall,
    8pt from the screen edge) and shrinks the empty band that read as a gap.
    Whatever docks above the bar moves down with it, so the inset stops at 0
    where there is no home indicator: padding would clamp a negative value,

@@ -201,7 +201,8 @@ self.addEventListener('fetch', (event) => {
 	// 4xx/5xx errors — always reaches React Router unchanged. Until the client has
 	// supplied a namespace, `.data` remains network-only.
 	// Each entry is keyed by its exact URL (including any ?_routes), so a cached
-	// payload always matches the shape React Router asked for.
+	// payload always matches the shape React Router asked for. Plan's view-only
+	// params are left out (see dataCacheKey); its loader never reads them.
 	if (isEligibleRouteData(url)) {
 		if (!dataCacheName) {
 			event.respondWith(networkOnlyData(request))
@@ -431,6 +432,21 @@ async function networkOnlyData(request) {
 	}
 }
 
+// Plan's selected day and Meal link only pick what the page shows
+// (PLAN_VIEW_ONLY_PARAMS in app/utils/plan-day-param.ts, which the cache-policy
+// test checks against), so Plan data is keyed without them: offline, any day of
+// a cached week falls back to it.
+const PLAN_VIEW_ONLY_PARAMS = ['day', 'mealId']
+
+/** The Cache Storage key for Route data: its URL, Plan's without view params. */
+function dataCacheKey(request) {
+	const url = new URL(request.url)
+	if (url.pathname !== '/plan.data') return request
+	for (const name of PLAN_VIEW_ONLY_PARAMS) url.searchParams.delete(name)
+	url.searchParams.sort()
+	return url.href
+}
+
 /** Network-first Route data: use this session's cache only on transport failure. */
 async function networkFirstData(
 	event,
@@ -457,7 +473,7 @@ async function networkFirstData(
 			const cacheResponse = response.clone()
 			event.waitUntil(
 				putCurrentData(
-					request,
+					dataCacheKey(request),
 					cacheResponse,
 					cacheName,
 					cacheEpoch,
@@ -474,7 +490,7 @@ async function networkFirstData(
 		}
 		try {
 			const cache = await caches.open(cacheName)
-			const cached = await cache.match(request)
+			const cached = await cache.match(dataCacheKey(request))
 			if (
 				cached &&
 				cacheName === dataCacheName &&

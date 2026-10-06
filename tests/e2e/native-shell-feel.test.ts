@@ -190,11 +190,34 @@ test.describe('the tab bar in the iOS app', () => {
 	test('the tab bar is as tall as a native one', async ({ page, login }) => {
 		await login()
 		await page.goto('/plan')
-		const row = page
-			.getByRole('navigation', { name: 'Main' })
-			.getByRole('link', { name: 'Plan', exact: true })
-		// Playwright has no home indicator, so the bar is only the row of tabs.
-		expect((await row.boundingBox())?.height).toBe(50)
+		// Playwright has no home indicator, so the bar is the row of tabs and
+		// its 1px top border.
+		expect(
+			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
+		).toBe(51)
+	})
+
+	test('a sheet docks on the tab bar with no gap', async ({ page, login }) => {
+		await createShoppingList(await login())
+		await openShopping(page)
+		await page.getByRole('button', { name: 'Add item' }).click()
+
+		const sheet = page
+			.getByRole('dialog', { name: 'Add to list' })
+			.locator(':scope > div')
+			.last()
+		const bar = page.locator('[data-bottom-nav]')
+		// The sheet slides up as it opens; poll until it has settled.
+		await expect
+			.poll(async () => {
+				const [sheetBox, barBox] = await Promise.all([
+					sheet.boundingBox(),
+					bar.boundingBox(),
+				])
+				if (!sheetBox || !barBox) return Infinity
+				return Math.abs(sheetBox.y + sheetBox.height - barBox.y)
+			})
+			.toBeLessThanOrEqual(1)
 	})
 
 	test('a tab tap or Enter taps the haptic once', async ({ page, login }) => {
@@ -227,10 +250,9 @@ test.describe('in a browser', () => {
 		await page.setViewportSize({ width: 390, height: 844 })
 		await login()
 		await page.goto('/plan')
-		const row = page
-			.getByRole('navigation', { name: 'Main' })
-			.getByRole('link', { name: 'Plan', exact: true })
-		expect((await row.boundingBox())?.height).toBe(60)
+		expect(
+			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
+		).toBe(65)
 	})
 
 	test('keeps the Home Screen layout clear of the status bar', async ({

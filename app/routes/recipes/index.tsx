@@ -422,7 +422,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	const displayRecipes = recipes
 
 	return (
-		<div className="pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
+		<div className="pb-[calc(var(--bottom-nav-h)+1rem+env(safe-area-inset-bottom))] md:pb-6">
 			{/* Page Header */}
 			<div className="border-border/50 border-b">
 				<div className="container-grid flex items-center justify-between gap-3 py-3 md:py-4">

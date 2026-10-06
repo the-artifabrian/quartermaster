@@ -126,7 +126,7 @@ export default function SharedMenu({ loaderData }: Route.ComponentProps) {
 	const { menu, savedMenuId, isLoggedIn } = loaderData
 	const save = useFetcher<typeof action>()
 	return (
-		<div className="container max-w-2xl py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6">
+		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+env(safe-area-inset-bottom))] md:pb-6">
 			<p className="text-muted-foreground mb-2 text-sm">
 				Shared on{' '}
 				<Link to="/" className="text-primary hover:underline">

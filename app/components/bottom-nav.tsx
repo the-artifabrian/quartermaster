@@ -179,12 +179,10 @@ export function BottomNav() {
 			className="bg-card/95 border-border fixed inset-x-0 bottom-0 z-50 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden print:hidden"
 		>
 			<div
-				className={cn(
-					'grid grid-cols-4 items-center',
-					// As tall as a native tab bar (49pt): the labels end just above the
-					// home indicator instead of floating a row above it.
-					isNativeShell ? 'h-[50px]' : 'h-16',
-				)}
+				// --bottom-nav-h: as tall as a native tab bar (49pt) in the iOS app,
+				// so the labels end just above the home indicator instead of
+				// floating a row above it.
+				className="grid h-(--bottom-nav-h) grid-cols-4 items-center"
 			>
 				{navItems.map((item) => {
 					const isActive = item.matchPaths?.some((path) =>

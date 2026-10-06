@@ -231,6 +231,7 @@ export function BottomNav() {
 								)
 									return
 								if (isOnSubPage) delete lastPathPerTab.current[item.to]
+								haptic('selection')
 								startTabNavigation(item, linkTo, startedAt)
 								void navigate(linkTo, { viewTransition: true })
 							}}
@@ -276,6 +277,8 @@ export function BottomNav() {
 								if (isOnSubPage) delete lastPathPerTab.current[item.to]
 								if (!isNormalLinkActivation(event) || event.defaultPrevented)
 									return
+								// Only a click no press switched gets here (the keyboard's), so
+								// one tap gives one haptic.
 								haptic('selection')
 
 								const startedAt =

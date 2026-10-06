@@ -127,6 +127,30 @@ test.describe('in the iOS app', () => {
 	})
 })
 
+test.describe('the tab bar in the iOS app', () => {
+	test.use({ userAgent: SHELL_UA, viewport: { width: 390, height: 844 } })
+
+	test('a tab tap or Enter taps the haptic once', async ({ page, login }) => {
+		const messages = await recordBridgeMessages(page)
+		await login()
+		await openShopping(page)
+		const tabHaptics = async () =>
+			(await messages()).filter((m) => m === 'haptic:selection').length
+
+		const tabBar = page.getByRole('navigation', { name: 'Main' })
+		await tabBar.getByRole('link', { name: 'Plan', exact: true }).click()
+		await expect(page).toHaveURL('/plan')
+		await page.waitForTimeout(200)
+		expect(await tabHaptics()).toBe(1)
+
+		await tabBar.getByRole('link', { name: 'Shop', exact: true }).focus()
+		await page.keyboard.press('Enter')
+		await expect(page).toHaveURL('/shopping')
+		await page.waitForTimeout(200)
+		expect(await tabHaptics()).toBe(2)
+	})
+})
+
 test.describe('in a browser', () => {
 	test.use({ userAgent: SAFARI_UA })
 

@@ -53,6 +53,9 @@ async function openShopping(page: Page) {
 	)
 }
 
+const count = (messages: string[], message: string) =>
+	messages.filter((m) => m === message).length
+
 const viewport = (page: Page) =>
 	page.locator('meta[name="viewport"]').getAttribute('content')
 
@@ -86,12 +89,10 @@ test.describe('in the iOS app', () => {
 			.getByRole('button', { name: 'Check off item' })
 			.click()
 
-		await expect(
-			page
-				.getByRole('group', { name: 'Rice shopping item' })
-				.getByRole('button', { name: 'Uncheck item' }),
-		).toBeVisible()
-		expect(await messages()).toContain('haptic:selection')
+		const uncheck = page
+			.getByRole('group', { name: 'Rice shopping item' })
+			.getByRole('button', { name: 'Uncheck item' })
+		await expect(uncheck).toBeVisible()
 		await expect
 			.poll(
 				async () =>
@@ -102,6 +103,9 @@ test.describe('in the iOS app', () => {
 					).checked,
 			)
 			.toBe(true)
+		// The check has settled; one tap gave one haptic.
+		await expect(uncheck).not.toHaveAttribute('aria-busy', /.+/)
+		expect(count(await messages(), 'haptic:selection')).toBe(1)
 	})
 
 	test('pull to refresh reloads the page data and then reports done', async ({
@@ -116,14 +120,67 @@ test.describe('in the iOS app', () => {
 			data: { listId: list.id, name: 'Lemons' },
 		})
 
-		await page.evaluate(() =>
-			window.dispatchEvent(new CustomEvent('qm:refresh')),
-		)
+		const pull = () =>
+			page.evaluate(() => window.dispatchEvent(new CustomEvent('qm:refresh')))
+		const dones = async () => count(await messages(), 'refresh:done')
 
+		await pull()
 		await expect(
 			page.getByRole('group', { name: 'Lemons shopping item' }),
 		).toBeVisible()
-		await expect.poll(messages).toContain('refresh:done')
+		await expect.poll(dones).toBe(1)
+
+		await pull()
+		await expect.poll(dones).toBe(2)
+	})
+
+	test('a Recipe slides in from its card, and backing out of Edit does not slide it in again', async ({
+		page,
+		login,
+	}) => {
+		const messages = await recordBridgeMessages(page)
+		const user = await login()
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Lemon rice',
+				userId: user.id,
+				householdId: user.householdId,
+			},
+		})
+		const direction = () =>
+			page.evaluate(() => document.documentElement.dataset.navDirection ?? null)
+
+		await page.goto('/recipes')
+		// The theme is posted after hydration, so the card link is live.
+		await expect.poll(messages).toContain('theme:dark')
+		await page.getByRole('link', { name: /Lemon rice/ }).click()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+		// The URL changes before the router commits the new page.
+		await expect.poll(direction).toBe('forward')
+
+		await page.getByRole('link', { name: 'Edit recipe' }).click()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+		await page.getByRole('button', { name: 'Cancel' }).click()
+		await expect(
+			page.getByRole('heading', { level: 1, name: 'Lemon rice' }),
+		).toBeVisible()
+		expect(await direction()).not.toBe('forward')
+	})
+})
+
+test.describe('the homepage in the iOS app', () => {
+	test.use({ userAgent: SHELL_UA, colorScheme: 'light' })
+
+	test('reports dark for the espresso chrome, then the theme again', async ({
+		page,
+	}) => {
+		const messages = await recordBridgeMessages(page)
+		await page.goto('/')
+		await expect.poll(messages).toContain('theme:dark')
+
+		await page.getByRole('banner').getByRole('link', { name: 'Log In' }).click()
+		await expect(page).toHaveURL('/login')
+		await expect.poll(messages).toContain('theme:light')
 	})
 })
 
@@ -134,19 +191,21 @@ test.describe('the tab bar in the iOS app', () => {
 		const messages = await recordBridgeMessages(page)
 		await login()
 		await openShopping(page)
-		const tabHaptics = async () =>
-			(await messages()).filter((m) => m === 'haptic:selection').length
+		const tabHaptics = async () => count(await messages(), 'haptic:selection')
 
 		const tabBar = page.getByRole('navigation', { name: 'Main' })
-		await tabBar.getByRole('link', { name: 'Plan', exact: true }).click()
+		const plan = tabBar.getByRole('link', { name: 'Plan', exact: true })
+		await plan.click()
 		await expect(page).toHaveURL('/plan')
-		await page.waitForTimeout(200)
+		// The press and the click after it have both run once the switch ends.
+		await expect(plan).not.toHaveAttribute('data-pending', /.+/)
 		expect(await tabHaptics()).toBe(1)
 
-		await tabBar.getByRole('link', { name: 'Shop', exact: true }).focus()
+		const shop = tabBar.getByRole('link', { name: 'Shop', exact: true })
+		await shop.focus()
 		await page.keyboard.press('Enter')
 		await expect(page).toHaveURL('/shopping')
-		await page.waitForTimeout(200)
+		await expect(shop).not.toHaveAttribute('data-pending', /.+/)
 		expect(await tabHaptics()).toBe(2)
 	})
 })

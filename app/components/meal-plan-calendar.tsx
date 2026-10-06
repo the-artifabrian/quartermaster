@@ -19,6 +19,11 @@ import {
 } from '#app/utils/date.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
+import {
+	defaultSelectedDay,
+	resolveSelectedDay,
+	selectedDayFromUrl,
+} from '#app/utils/plan-day-param.ts'
 import { type PlanMeal, MealCard } from './meal-card.tsx'
 import { type PlanItemChoice, PlanItemSelector } from './recipe-selector.tsx'
 import { Button } from './ui/button.tsx'
@@ -36,12 +41,6 @@ type AddMealActionData = {
 	status: 'success' | 'error'
 	menuError?: string
 	meal?: PlannedMealResult
-}
-
-function initialSelectedDate(weekDays: Date[], meals: PlanMeal[]): string {
-	const today = weekDays.find(isToday)
-	if (today) return serializeDate(today)
-	return meals[0]?.dateStr ?? serializeDate(weekDays[0]!)
 }
 
 /**
@@ -396,21 +395,44 @@ function MealCards({
 
 export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
 	const choices = usePlanChoices()
-	const [searchParams] = useSearchParams()
+	const [searchParams, setSearchParams] = useSearchParams()
 	const targetMealId = searchParams.get('mealId')
-	const targetDate = meals.find((meal) => meal.id === targetMealId)?.dateStr
-	const [selectedDate, setSelectedDate] = useState(
-		() => targetDate ?? initialSelectedDate(weekDays, meals),
+	const urlParams = {
+		weekDays,
+		meals,
+		mealId: targetMealId,
+		day: searchParams.get('day'),
+	}
+	const urlDate = selectedDayFromUrl(urlParams)
+	const [selectedDate, setSelectedDate] = useState(() =>
+		resolveSelectedDay(urlParams),
 	)
+	// A Meal link or a day in the URL picks the day; without one the page keeps
+	// the day it shows.
 	useEffect(() => {
-		if (targetDate) setSelectedDate(targetDate)
-	}, [targetMealId, targetDate])
+		if (urlDate) setSelectedDate(urlDate)
+	}, [targetMealId, urlDate])
 
 	useEffect(() => {
 		if (!weekDays.some((date) => serializeDate(date) === selectedDate)) {
-			setSelectedDate(initialSelectedDate(weekDays, meals))
+			setSelectedDate(defaultSelectedDay(weekDays, meals))
 		}
 	}, [weekDays, meals, selectedDate])
+
+	function selectDay(dateStr: string) {
+		setSelectedDate(dateStr)
+		// The day goes in the URL so back and reload return to it. Replace, so
+		// day taps add no history entries; the Meal link gives way to the day.
+		setSearchParams(
+			(prev) => {
+				const next = new URLSearchParams(prev)
+				next.delete('mealId')
+				next.set('day', dateStr)
+				return next
+			},
+			{ replace: true, preventScrollReset: true },
+		)
+	}
 
 	const mealsByDay = new Map<string, PlanMeal[]>()
 	for (const meal of meals) {
@@ -441,7 +463,7 @@ export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
 							<button
 								key={dateStr}
 								type="button"
-								onClick={() => setSelectedDate(dateStr)}
+								onClick={() => selectDay(dateStr)}
 								aria-pressed={selected}
 								aria-current={today ? 'date' : undefined}
 								aria-label={`Show ${today ? 'Today' : formatWeekdayName(date)}, ${formatMonthDay(date)}, ${mealCount === 0 ? 'no Meals planned' : `${mealCount} ${mealCount === 1 ? 'Meal' : 'Meals'} planned`}`}

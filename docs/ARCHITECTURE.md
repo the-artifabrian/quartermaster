@@ -36,10 +36,13 @@ file tree under `app/routes/`. The rules that matter here:
   `/recipes/*` page and runs its loader first; a folder without one, such as
   `_auth/`, is organisation only and its files are siblings under root.
 - `$param` is a dynamic segment and `$.tsx` is the catch-all.
-- A trailing `_` on a segment stops it nesting under the file of the same name.
-  `recipes/$recipeId_.edit.tsx` is `/recipes/:recipeId/edit` as a sibling of
-  `$recipeId.tsx`, so the edit page does not render inside the Recipe page.
-  `settings/profile/password_.create.tsx` works the same way.
+- A trailing `_` on a segment is stripped and changes nothing else.
+  `recipes/$recipeId_.edit.tsx` is `/recipes/:recipeId/edit`, a sibling of
+  `$recipeId.tsx` under the Recipes layout; `$recipeId.edit.tsx` would be the
+  same route, since only `_layout.tsx` can be a parent here. The underscore is a
+  Remix flat-routes habit (where it kept a page out of its namesake's
+  `<Outlet>`); the plugin's `createRoutePath` just drops it.
+  `settings/profile/password_.create.tsx` is the same case.
 - `[.]` escapes a dot: `_seo/robots[.]txt.ts` is `/robots.txt`.
 - `*.server.ts`, `*.client.ts`, `*.test.ts` and anything under a `+` prefix
   (`_marketing/+logos/`) sit next to routes without becoming routes.

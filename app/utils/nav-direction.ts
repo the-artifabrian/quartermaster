@@ -26,33 +26,42 @@ function markedDirection(state: unknown) {
 }
 
 /**
- * A push follows its link's marker. A pop undoes the entry it leaves, or
- * replays the entry it lands on when going forward through history.
+ * A push follows its link's marker. Going back undoes the entry it leaves, and
+ * only a forward-marked one slides back: a back never slides forward. Going
+ * forward through history replays the entry it lands on. When the history
+ * move is unknown, a pop is treated as a back.
  */
 export function getNavDirection({
 	type,
 	from,
 	to,
+	historyMove,
 	hasUAVisualTransition = false,
 }: {
 	type: NavigationType | `${NavigationType}`
 	from: unknown
 	to: unknown
+	historyMove?: 'back' | 'forward'
 	hasUAVisualTransition?: boolean
 }): NavDirection | null {
 	if (type !== 'POP') return markedDirection(to)
 	// The system's back swipe already animated the page.
 	if (hasUAVisualTransition) return 'none'
-	const leaving = markedDirection(from)
-	if (leaving) return leaving === 'forward' ? 'back' : 'forward'
-	return markedDirection(to)
+	if (historyMove === 'forward') return markedDirection(to)
+	return markedDirection(from) === 'forward' ? 'back' : null
+}
+
+/** React Router numbers its history entries in `history.state.idx`. */
+function historyIndex() {
+	const idx = (window.history.state as { idx?: unknown } | null)?.idx
+	return typeof idx === 'number' ? idx : null
 }
 
 /** Sets `data-nav-direction` on `<html>` for each committed navigation. */
 export function useNavDirection() {
 	const location = useLocation()
 	const type = useNavigationType()
-	const previousState = useRef<{ state: unknown } | null>(null)
+	const previous = useRef<{ state: unknown; idx: number | null } | null>(null)
 	const popHadUATransition = useRef(false)
 
 	useEffect(() => {
@@ -68,13 +77,20 @@ export function useNavDirection() {
 	// A layout effect, so the attribute is in place before the router's view
 	// transition resolves its update and starts the animation.
 	useLayoutEffect(() => {
-		const previous = previousState.current
-		previousState.current = { state: location.state }
-		if (!previous) return
+		const left = previous.current
+		const idx = historyIndex()
+		previous.current = { state: location.state, idx }
+		if (!left) return
 		const direction = getNavDirection({
 			type,
-			from: previous.state,
+			from: left.state,
 			to: location.state,
+			historyMove:
+				idx === null || left.idx === null || idx === left.idx
+					? undefined
+					: idx < left.idx
+						? 'back'
+						: 'forward',
 			hasUAVisualTransition: popHadUATransition.current,
 		})
 		popHadUATransition.current = false

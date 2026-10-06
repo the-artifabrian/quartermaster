@@ -4,6 +4,7 @@ import { Img } from 'openimg/react'
 import { useState, useEffect, useRef } from 'react'
 import {
 	useFetcher,
+	useLocation,
 	useNavigate,
 	useRouteLoaderData,
 	useSearchParams,
@@ -361,6 +362,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const origin = rootData?.requestInfo?.origin
 	const recipeJsonLd = getRecipeJsonLd(recipe, origin)
 	const [searchParams, setSearchParams] = useSearchParams()
+	const location = useLocation()
 	const favoriteFetcher = useFetcher()
 	const isFavorite =
 		favoriteFetcher.formData?.get('intent') === 'toggleFavorite'
@@ -531,7 +533,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				}
 				return prev
 			},
-			{ replace: true },
+			// Keep the Recipe's OPEN_DETAIL marker, so going back still slides.
+			{ replace: true, state: location.state },
 		)
 	}
 

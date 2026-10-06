@@ -3,6 +3,7 @@ import { useFetcher } from 'react-router'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
+import { StapleSuggestions } from './staple-suggestions.tsx'
 
 type StaplesResponse = {
 	status: 'success' | 'error'
@@ -37,6 +38,10 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 	const [addOpen, setAddOpen] = useState(false)
 	const [announcement, setAnnouncement] = useState('')
 	const addButtonRef = useRef<HTMLButtonElement>(null)
+	// A household with no Staples gets suggestions; they stay for the visit so
+	// several can be added in a row, and are gone on a later visit (#351).
+	const [suggesting] = useState(staples.length === 0)
+	const heldNames = staples.map((staple) => staple.displayName)
 
 	const filteredStaples = useMemo(() => {
 		const query = search.trim().toLocaleLowerCase()
@@ -205,6 +210,12 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 						/>
 					))}
 				</ul>
+			) : suggesting ? (
+				<StapleSuggestions
+					held={heldNames}
+					heading="No Staples yet"
+					lead="Tap the ones your household usually has, or add your own. Each is one tap away from every shop."
+				/>
 			) : (
 				<div className="bg-muted/40 mt-5 rounded-lg p-6 text-center">
 					<h2 className="font-serif text-xl font-normal">No Staples yet</h2>
@@ -214,6 +225,13 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 					</p>
 				</div>
 			)}
+			{suggesting && staples.length > 0 && !search.trim() ? (
+				<StapleSuggestions
+					held={heldNames}
+					heading="Others you might keep"
+					lead="Tap to add."
+				/>
+			) : null}
 		</div>
 	)
 }

@@ -200,9 +200,10 @@ self.addEventListener('fetch', (event) => {
 	// transport failure, but an origin response — including auth redirects and
 	// 4xx/5xx errors — always reaches React Router unchanged. Until the client has
 	// supplied a namespace, `.data` remains network-only.
-	// Each entry is keyed by its exact URL (including any ?_routes), so a cached
-	// payload always matches the shape React Router asked for. Plan's view-only
-	// params are left out (see dataCacheKey); its loader never reads them.
+	// Each entry is keyed by its URL (including any ?_routes), so a cached
+	// payload always matches the shape React Router asked for. For Plan the key
+	// leaves out its view-only params and sorts the rest of the search (see
+	// dataCacheKey); its loader never reads them.
 	if (isEligibleRouteData(url)) {
 		if (!dataCacheName) {
 			event.respondWith(networkOnlyData(request))

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useFetcher, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import {
@@ -413,8 +413,9 @@ export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
 	// neither, such as the Plan tab tapped again, goes back to the default day;
 	// a link to a Meal that is gone keeps the day on screen. Only a URL change
 	// (or the linked Meal moving) picks again, so adding or removing a Meal
-	// never moves the selection.
-	useEffect(() => {
+	// never moves the selection. A layout effect, so a Plan tab tap never paints
+	// the old day for a frame.
+	useLayoutEffect(() => {
 		if (urlDate) setSelectedDate(urlDate)
 		else if (!targetMealId) setSelectedDate(defaultDate)
 		// Not on `defaultDate`: a Meal added or removed must not move the day.

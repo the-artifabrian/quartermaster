@@ -17,14 +17,6 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
-import {
-	buildShoppingDemand,
-	demandFingerprint,
-} from '#app/utils/shopping-demand.server.ts'
-import {
-	annotateShoppingDemand,
-	loadShoppingAvailability,
-} from '#app/utils/shopping-list.server.ts'
 import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
 import { useStaleRevalidate } from '#app/utils/use-stale-revalidate.ts'
 import { type Route } from './+types/index.ts'
@@ -95,108 +87,51 @@ export async function loader({ request }: Route.LoaderArgs) {
 									yieldLabel: true,
 									totalTime: true,
 									image: { select: { objectKey: true } },
-									ingredients: {
-										select: {
-											name: true,
-											amount: true,
-											unit: true,
-											isHeading: true,
-											notes: true,
-										},
-									},
 								},
 							},
 						},
 					},
-					shoppingContributions: {
-						select: {
-							canonicalName: true,
-							name: true,
-							quantity: true,
-							unit: true,
-						},
-					},
+					// One row is enough to know the Meal is on Shopping.
+					shoppingContributions: { select: { id: true }, take: 1 },
 				},
 			},
 		},
 	})
 
 	const weekDays = getWeekDays(weekStart)
-	const shoppingAvailability = await loadShoppingAvailability(
-		prisma,
-		householdId,
-	)
-
-	const meals = mealPlan.meals.map((meal) => {
-		// Stored contribution fields are the last-added demand fingerprint. Build
-		// the same currently annotated demand again. Ingredient, multiplier,
-		// composition, note-line, and household Staple changes may mark it
-		// stale, but only a later explicit refresh mutates Shopping.
-		const freshDemand = annotateShoppingDemand(
-			buildShoppingDemand({
-				recipeBatches: meal.recipeItems.flatMap((item) =>
-					item.recipe
-						? [
-								{
-									ingredients: item.recipe.ingredients,
-									scaleMultiplier: item.scaleMultiplier,
-								},
-							]
-						: [],
-				),
-				noteLines: meal.noteItems.flatMap((item) => item.shoppingLines),
-			}),
-			shoppingAvailability,
-		).lines
-		const hasStoredDemand = meal.shoppingContributions.length > 0
-		const demandChanged =
-			demandFingerprint(freshDemand) !==
-			demandFingerprint(meal.shoppingContributions)
-		const hasMissingRecipe = meal.recipeItems.some(
-			(item) => item.recipe == null,
-		)
-		const shoppingDemandStatus = !hasStoredDemand
-			? ('not-added' as const)
-			: !demandChanged
-				? ('current' as const)
-				: hasMissingRecipe
-					? ('blocked' as const)
-					: ('stale' as const)
-
-		return {
-			id: meal.id,
-			dateStr: serializeDate(meal.date),
-			label: meal.label,
-			servingAt: meal.servingAt?.toISOString() ?? null,
-			servingTimeZone: meal.servingTimeZone,
-			genericText: meal.genericText,
-			completed: meal.completed,
-			guestCount: meal.guestCount,
-			sourceMenu: meal.sourceMenu,
-			sections: meal.sections,
-			noteItems: meal.noteItems,
-			shoppingDemandStatus,
-			items: meal.recipeItems.map((item) => ({
-				id: item.id,
-				recipeTitle: item.recipeTitle,
-				scaleMultiplier: item.scaleMultiplier,
-				cooked: item.cooked,
-				note: item.note,
-				order: item.order,
-				sectionId: item.sectionId,
-				recipe: item.recipe
-					? {
-							id: item.recipe.id,
-							title: item.recipe.title,
-							yieldAmount: item.recipe.yieldAmount,
-							yieldLabel: item.recipe.yieldLabel,
-							totalTime: item.recipe.totalTime,
-							image: item.recipe.image,
-						}
-					: null,
-			})),
-		}
-	})
+	const meals = mealPlan.meals.map((meal) => ({
+		id: meal.id,
+		dateStr: serializeDate(meal.date),
+		label: meal.label,
+		servingAt: meal.servingAt?.toISOString() ?? null,
+		servingTimeZone: meal.servingTimeZone,
+		genericText: meal.genericText,
+		completed: meal.completed,
+		guestCount: meal.guestCount,
+		sourceMenu: meal.sourceMenu,
+		sections: meal.sections,
+		noteItems: meal.noteItems,
+		addedToShopping: meal.shoppingContributions.length > 0,
+		items: meal.recipeItems.map((item) => ({
+			id: item.id,
+			recipeTitle: item.recipeTitle,
+			scaleMultiplier: item.scaleMultiplier,
+			cooked: item.cooked,
+			note: item.note,
+			order: item.order,
+			sectionId: item.sectionId,
+			recipe: item.recipe
+				? {
+						id: item.recipe.id,
+						title: item.recipe.title,
+						yieldAmount: item.recipe.yieldAmount,
+						yieldLabel: item.recipe.yieldLabel,
+						totalTime: item.recipe.totalTime,
+						image: item.recipe.image,
+					}
+				: null,
+		})),
+	}))
 
 	const shoppingListItemCount = await prisma.shoppingListItem.count({
 		where: { list: { householdId } },

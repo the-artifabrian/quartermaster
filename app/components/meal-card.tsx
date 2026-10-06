@@ -71,7 +71,8 @@ export type PlanMeal = {
 	/// Frozen Menu snapshot structure (#107); empty for planner-created Meals.
 	sections: Array<{ id: string; name: string | null }>
 	noteItems: PlanMealNote[]
-	shoppingDemandStatus: 'not-added' | 'current' | 'stale' | 'blocked'
+	/// True once the Meal has been added to Shopping.
+	addedToShopping: boolean
 	items: PlanMealItem[]
 }
 
@@ -554,7 +555,7 @@ export function MealCard({
 			const data = addToShoppingFetcher.data
 			if (data?.status === 'success' && data.shopping) {
 				if (data.refreshed) {
-					toast.success('Shopping contribution refreshed')
+					toast.success('Shopping List updated')
 					prevShoppingState.current = addToShoppingFetcher.state
 					return
 				}
@@ -617,16 +618,6 @@ export function MealCard({
 							<Icon name="file-text" className="size-3 shrink-0" />
 							<span className="truncate">{meal.sourceMenu.title}</span>
 						</Link>
-					)}
-					{meal.shoppingDemandStatus === 'stale' && (
-						<span className="text-amber-700 normal-case dark:text-amber-300">
-							· Shopping changed
-						</span>
-					)}
-					{meal.shoppingDemandStatus === 'blocked' && (
-						<span className="text-amber-700 normal-case dark:text-amber-300">
-							· Shopping refresh blocked
-						</span>
 					)}
 				</div>
 
@@ -696,18 +687,13 @@ export function MealCard({
 						    Shopping behavior (#108). */}
 						{!isText && hasShoppingDemand && (
 							<DropdownMenuItem
-								disabled={
-									addToShoppingFetcher.state !== 'idle' ||
-									meal.shoppingDemandStatus === 'current' ||
-									meal.shoppingDemandStatus === 'blocked'
-								}
+								disabled={addToShoppingFetcher.state !== 'idle'}
 								onSelect={() => {
 									void addToShoppingFetcher.submit(
 										{
-											intent:
-												meal.shoppingDemandStatus === 'stale'
-													? 'refreshMealShopping'
-													: 'addMealToShopping',
+											intent: meal.addedToShopping
+												? 'refreshMealShopping'
+												: 'addMealToShopping',
 											mealId: meal.id,
 										},
 										{ method: 'POST' },
@@ -715,22 +701,16 @@ export function MealCard({
 								}}
 							>
 								<Icon
-									name={
-										meal.shoppingDemandStatus === 'stale' ? 'update' : 'cart'
-									}
+									name={meal.addedToShopping ? 'update' : 'cart'}
 									size="sm"
 								/>
-								{meal.shoppingDemandStatus === 'stale'
-									? 'Refresh Shopping List'
-									: meal.shoppingDemandStatus === 'blocked'
-										? 'Replace missing Recipe to refresh'
-										: meal.shoppingDemandStatus === 'current'
-											? 'Shopping List is current'
-											: 'Add to Shopping List'}
+								{meal.addedToShopping
+									? 'Update Shopping List'
+									: 'Add to Shopping List'}
 							</DropdownMenuItem>
 						)}
 						<DropdownMenuSeparator />
-						{confirmingDelete && meal.shoppingDemandStatus !== 'not-added' ? (
+						{confirmingDelete && meal.addedToShopping ? (
 							<>
 								<DropdownMenuItem
 									onSelect={() => {

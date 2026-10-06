@@ -215,123 +215,46 @@ async function getContributions(householdId: string) {
 	})
 }
 
-describe('Meal Shopping demand status (#110)', () => {
-	test('accepted multiplier changes mark demand stale while cooked and label edits do not', async () => {
+describe('Meal addedToShopping', () => {
+	test('reports whether the Meal has contributions, whatever changed since the add', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 		const meal = await setupMeal(session.householdId, recipe)
+		expect((await runPlanLoader(session)).meals[0]!.addedToShopping).toBe(false)
+
 		await runPlanAction(session, {
 			intent: 'addMealToShopping',
 			mealId: meal.id,
 		})
-
-		const current = await runPlanLoader(session)
-		expect(current.meals[0]!.shoppingDemandStatus).toBe('current')
+		expect((await runPlanLoader(session)).meals[0]!.addedToShopping).toBe(true)
 
 		const item = await prisma.mealRecipeItem.findFirstOrThrow({
 			where: { mealId: meal.id },
 		})
 		await runPlanAction(session, {
-			intent: 'setItemCooked',
-			itemId: item.id,
-			cooked: 'true',
-		})
-		await prisma.meal.update({
-			where: { id: meal.id },
-			data: { label: 'dinner' },
-		})
-		expect((await runPlanLoader(session)).meals[0]!.shoppingDemandStatus).toBe(
-			'current',
-		)
-
-		await runPlanAction(session, {
 			intent: 'setItemMultiplier',
 			itemId: item.id,
 			multiplier: '2',
 		})
-		expect((await runPlanLoader(session)).meals[0]!.shoppingDemandStatus).toBe(
-			'stale',
-		)
+		expect((await runPlanLoader(session)).meals[0]!.addedToShopping).toBe(true)
 	})
 
-	test('ingredient, Meal-composition, and note-line changes each mark only current demand stale', async () => {
+	test('stays false when every demand line is a Staple', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId, session.householdId)
-		const meal = await setupMeal(session.householdId, recipe)
+		const salty = await prisma.recipe.create({
+			data: {
+				title: 'Salt crust',
+				userId: session.userId,
+				householdId: session.householdId,
+				ingredients: { create: [{ name: 'salt', order: 0 }] },
+			},
+		})
+		const meal = await setupMeal(session.householdId, salty)
 		await runPlanAction(session, {
 			intent: 'addMealToShopping',
 			mealId: meal.id,
 		})
-
-		await prisma.recipe.update({
-			where: { id: recipe.id },
-			data: { description: 'A display-only description' },
-		})
-		expect((await runPlanLoader(session)).meals[0]!.shoppingDemandStatus).toBe(
-			'current',
-		)
-		const lamb = await prisma.ingredient.findFirstOrThrow({
-			where: { recipeId: recipe.id, name: 'ground lamb' },
-		})
-		await prisma.ingredient.update({
-			where: { id: lamb.id },
-			data: { amount: '600' },
-		})
-		expect((await runPlanLoader(session)).meals[0]!.shoppingDemandStatus).toBe(
-			'stale',
-		)
-		await runPlanAction(session, {
-			intent: 'refreshMealShopping',
-			mealId: meal.id,
-		})
-
-		const side = await prisma.recipe.create({
-			data: {
-				title: 'Flatbread',
-				userId: session.userId,
-				householdId: session.householdId,
-				ingredients: {
-					create: [{ name: 'flour', amount: '500', unit: 'g', order: 0 }],
-				},
-			},
-		})
-		await runPlanAction(session, {
-			intent: 'addRecipeToMeal',
-			mealId: meal.id,
-			recipeId: side.id,
-		})
-		expect((await runPlanLoader(session)).meals[0]!.shoppingDemandStatus).toBe(
-			'stale',
-		)
-		await runPlanAction(session, {
-			intent: 'refreshMealShopping',
-			mealId: meal.id,
-		})
-
-		const note = await addNoteLines(meal.id, [
-			{ name: 'lemons', quantity: '6' },
-		])
-		expect((await runPlanLoader(session)).meals[0]!.shoppingDemandStatus).toBe(
-			'stale',
-		)
-		await runPlanAction(session, {
-			intent: 'refreshMealShopping',
-			mealId: meal.id,
-		})
-		await prisma.mealNoteItem.update({
-			where: { id: note.id },
-			data: { text: 'Display text only' },
-		})
-		expect((await runPlanLoader(session)).meals[0]!.shoppingDemandStatus).toBe(
-			'current',
-		)
-		await prisma.mealShoppingLine.updateMany({
-			where: { noteItemId: note.id },
-			data: { quantity: '8' },
-		})
-		expect((await runPlanLoader(session)).meals[0]!.shoppingDemandStatus).toBe(
-			'stale',
-		)
+		expect((await runPlanLoader(session)).meals[0]!.addedToShopping).toBe(false)
 	})
 })
 
@@ -445,12 +368,9 @@ describe('refreshMealShopping — one-Meal replacement (#110)', () => {
 			checked: false,
 			source: 'meal',
 		})
-		expect((await runPlanLoader(session)).meals[0]!.shoppingDemandStatus).toBe(
-			'current',
-		)
 	})
 
-	test('a missing Recipe blocks refresh and leaves its existing contribution untouched', async () => {
+	test('picks up an added Recipe and note line', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 		const meal = await setupMeal(session.householdId, recipe)
@@ -458,19 +378,75 @@ describe('refreshMealShopping — one-Meal replacement (#110)', () => {
 			intent: 'addMealToShopping',
 			mealId: meal.id,
 		})
-		const before = await getContributions(session.householdId)
+
+		const side = await prisma.recipe.create({
+			data: {
+				title: 'Flatbread',
+				userId: session.userId,
+				householdId: session.householdId,
+				ingredients: {
+					create: [{ name: 'flour', amount: '500', unit: 'g', order: 0 }],
+				},
+			},
+		})
+		await runPlanAction(session, {
+			intent: 'addRecipeToMeal',
+			mealId: meal.id,
+			recipeId: side.id,
+		})
+		await addNoteLines(meal.id, [{ name: 'lemons', quantity: '6' }])
+		await runPlanAction(session, {
+			intent: 'refreshMealShopping',
+			mealId: meal.id,
+		})
+
+		const rows = await getShoppingRows(session.householdId)
+		expect(rows.map((row) => row.name)).toEqual([
+			'chicken stock',
+			'flour',
+			'ground lamb',
+			'lemons',
+		])
+		expect(rows.find((row) => row.name === 'flour')).toMatchObject({
+			quantity: '500',
+			unit: 'g',
+		})
+		expect(rows.find((row) => row.name === 'lemons')).toMatchObject({
+			quantity: '6',
+		})
+	})
+
+	test("drops a deleted Recipe's lines and keeps the rest of the Meal", async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const meal = await setupMeal(session.householdId, recipe)
+		await addNoteLines(meal.id, [{ name: 'lemons', quantity: '6' }])
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
 
 		await prisma.recipe.delete({ where: { id: recipe.id } })
-		expect((await runPlanLoader(session)).meals[0]!.shoppingDemandStatus).toBe(
-			'blocked',
-		)
+		// Deleting the Recipe alone leaves Shopping as it was.
+		expect(
+			(await getShoppingRows(session.householdId)).map((row) => row.name),
+		).toEqual(['chicken stock', 'ground lamb', 'lemons'])
+
 		await expect(
 			runPlanAction(session, {
 				intent: 'refreshMealShopping',
 				mealId: meal.id,
 			}),
-		).rejects.toEqual(expect.objectContaining({ status: 400 }))
-		expect(await getContributions(session.householdId)).toEqual(before)
+		).resolves.toMatchObject({ status: 'success' })
+		expect(
+			(await getShoppingRows(session.householdId)).map((row) => row.name),
+		).toEqual(['lemons'])
+		expect(
+			(await getContributions(session.householdId)).map(
+				(row) => row.canonicalName,
+			),
+		).toEqual(['lemon'])
+		expect((await runPlanLoader(session)).meals[0]!.addedToShopping).toBe(true)
 	})
 })
 

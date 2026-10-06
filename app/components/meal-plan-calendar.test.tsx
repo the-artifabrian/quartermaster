@@ -80,7 +80,7 @@ function makeMeal({
 		sourceMenu: null,
 		sections: [],
 		noteItems: [],
-		shoppingDemandStatus: 'not-added',
+		addedToShopping: false,
 		items: [
 			{
 				id: `${id}-item`,

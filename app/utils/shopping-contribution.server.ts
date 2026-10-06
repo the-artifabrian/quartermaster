@@ -16,7 +16,7 @@ import { guessCategory } from './shopping-list-validation.ts'
  * source Meal and the displayed Shopping row its demand feeds. NOT an event
  * ledger: re-adding is idempotent, no history accumulates. Manual Shopping
  * rows stay durable manual rows — a matching row is only pointed at, never
- * rewritten. Explicit refresh/replacement semantics arrive with #110.
+ * rewritten. replaceMealShoppingContributions handles an explicit update.
  */
 export async function reconcileMealShoppingContributions(
 	db: PrismaClient,

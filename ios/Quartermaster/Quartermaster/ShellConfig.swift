@@ -15,6 +15,12 @@ struct ShellConfig {
     /// The manifest's `start_url`.
     static let defaultStartPath = "/plan"
 
+    /// Swipe from the screen edge to go back or forward. WebKit slides
+    /// between snapshots of whole documents, and the app is one document, so
+    /// after in-app navigations the page under the swipe can be stale or
+    /// blank. Set to false to drop the gesture.
+    static let allowsBackSwipe = true
+
     let baseURL: URL
     let appBoundDomains: Set<String>
     let startPath: String

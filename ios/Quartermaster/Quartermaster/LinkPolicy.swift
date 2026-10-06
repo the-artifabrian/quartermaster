@@ -32,4 +32,9 @@ struct LinkPolicy {
     func isAppHost(_ candidate: String?) -> Bool {
         candidate?.lowercased() == host
     }
+
+    /// A page of the Web app: http(s) on the app's host.
+    func isAppPage(_ url: URL) -> Bool {
+        ["http", "https"].contains(url.scheme?.lowercased()) && isAppHost(url.host())
+    }
 }

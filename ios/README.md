@@ -8,17 +8,20 @@ issue #325 and its phases #326 to #329.
 buildable folders: any file added there joins the app or the Share Extension
 target without touching the project file.
 
-| File                                           | Role                                                                       |
-| ---------------------------------------------- | -------------------------------------------------------------------------- |
-| `QuartermasterApp.swift`                       | App entry, one SwiftUI scene, incoming links                               |
-| `ShellViewController.swift`                    | Web view, navigation and UI delegates, offline view hosting                |
-| `ShellConfig.swift`                            | Base URL, start path, user agent token, app-bound check                    |
-| `LinkPolicy.swift`                             | Where a URL opens: web view, Safari sheet, or iOS                          |
-| `IncomingURL.swift`                            | Which page an incoming link opens                                          |
-| `OfflineView.swift`                            | Native offline view with Retry                                             |
-| `Info.plist`                                   | App-bound domains, base URL, URL scheme, launch screen, permission strings |
-| `QuartermasterShare/ShareViewController.swift` | Share Extension: finds the shared link, opens the app                      |
-| `QuartermasterShare/Info.plist`                | Share Extension activation rule                                            |
+| File                                           | Role                                                                                      |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `QuartermasterApp.swift`                       | App entry, one SwiftUI scene, incoming links, page inbox                                  |
+| `ShellViewController.swift`                    | Web view, navigation and UI delegates, offline view hosting, appearance                   |
+| `ShellBridge.swift`                            | Page-to-shell messages, pull to refresh, launch timing (Shell bridge)                     |
+| `ShellConfig.swift`                            | Base URL, start path, user agent token, app-bound check, back swipe                       |
+| `LinkPolicy.swift`                             | Where a URL opens: web view, Safari sheet, or iOS; what is an app page                    |
+| `IncomingURL.swift`                            | Which page an incoming link opens                                                         |
+| `ResumeState.swift`                            | Which page a cold start reopens                                                           |
+| `QuickActions.swift`                           | Home Screen quick actions, app and scene delegates                                        |
+| `OfflineView.swift`                            | Native offline view with Retry                                                            |
+| `Info.plist`                                   | App-bound domains, base URL, URL scheme, quick actions, launch screen, permission strings |
+| `QuartermasterShare/ShareViewController.swift` | Share Extension: finds the shared link, opens the app                                     |
+| `QuartermasterShare/Info.plist`                | Share Extension activation rule                                                           |
 
 ## Open and run
 
@@ -85,9 +88,9 @@ https, is ignored. Universal links on the base URL's host load as they are, once
 the `applinks` entitlement is on (1.6 below). `IncomingURL.swift` holds the
 rules.
 
-A link that launches the app loads instead of the start page, not after it: the
-start page waits until the app is active, which costs a normal launch under 100
-ms.
+The first page starts loading as soon as the shell's view loads. A link that
+launched the app has usually reached the shell by then and loads instead of the
+start page; one that arrives later replaces the start page mid-flight.
 
 To try it in the Simulator (iOS asks "Open in Quartermaster?" first, so tap
 Open):
@@ -101,6 +104,72 @@ Run it with the app open and again after
 on the import page. `quartermaster://something-else` and
 `quartermaster://import?url=javascript:alert(1)` should leave the app where it
 was.
+
+## Shell bridge
+
+The page and the shell talk through three `WKScriptMessageHandler`s, one
+CustomEvent and one injected script. `ShellBridge.swift` holds the shell's side.
+The shell only listens to the main frame of the app's own host. Each message
+body is a string, and anything outside the values below is ignored.
+
+| Page to shell                                      | Body                                                          | Shell does                                                              |
+| -------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `webkit.messageHandlers.haptic.postMessage(body)`  | `selection`, `light`, `medium`, `success`, `warning`, `error` | Plays it: selection, light or medium impact, or a notification feedback |
+| `webkit.messageHandlers.theme.postMessage(body)`   | `light`, `dark`                                               | Status bar for that theme; post on load and on every theme change       |
+| `webkit.messageHandlers.refresh.postMessage(body)` | `done`                                                        | Stops the pull-to-refresh spinner                                       |
+
+- **Pull to refresh.** Pulling the page down dispatches
+  `window.dispatchEvent(new CustomEvent('qm:refresh'))`. The page revalidates
+  its data and posts `done` to `refresh`; the spinner stops then, or after 5 s
+  if nothing answers. While the offline view is up there is no pull, since that
+  view has its own Retry.
+- **Launch timing.** The first document after launch gets a document-start
+  script, main frame only: `window.__qmShell = { initAt, loadAt }`, both epoch
+  milliseconds (`Date.now()` units). `initAt` is when the app started and
+  `loadAt` when the shell started the first load. The script is removed once
+  that document finishes loading, or once the first load fails (a load replaced
+  by an incoming link keeps it), so a later reload or Retry does not see it.
+  When iOS prewarmed the app, `initAt` would predate the tap by an unknown time,
+  so there is no `__qmShell` at all.
+- **Theme and appearance.** Until the page posts a theme the status bar follows
+  the system. The scene applies the page's theme with `.preferredColorScheme`,
+  which would also reach the page as `prefers-color-scheme` and freeze a page on
+  the System theme. So the web view keeps the system's appearance, and catches
+  up with a system change the next time the app becomes active (on iOS 17 and
+  later at once while the page has no theme override). The canvas behind the
+  page and the offline view use the page's theme.
+- **User agent.** WebKit's user agent ends with `QuartermasterShell/1`, which
+  the server checks to hide Pro and Google sign-in.
+
+## Back swipe
+
+`allowsBackForwardNavigationGestures` is on, behind
+`ShellConfig.allowsBackSwipe`. WebKit slides between snapshots of whole
+documents, and the app is a single document with client-side navigation, so the
+page shown under the swipe can be stale or blank. To be judged on a phone; set
+the constant to false to drop it. Link previews on long-press are off
+(`allowsLinkPreview = false`).
+
+## Resume where you left off
+
+When the app goes to the background the shell saves the current page's URL
+(`QMResumePage` in UserDefaults). A cold start loads it instead of `/plan` when
+it is still an app page: http or https on the base URL's host (`LinkPolicy`),
+and not under `/login`, `/logout`, `/signup`, `/verify`, `/onboarding`,
+`/forgot-password`, `/reset-password`, `/auth`, `/webauthn` or
+`/household/join`. Leaving from one of those clears the saved page. A link or
+quick action that opened the app wins over the saved page. With the offline view
+up, or before any page has loaded, the saved page is left as it was.
+
+## Home Screen quick actions
+
+Long-press the app icon for **Shopping** (`/shopping`) and **Import recipe**
+(`/recipes/import`). They are static `UIApplicationShortcutItems` in Info.plist;
+`QuickActions.swift` maps their types to pages. SwiftUI's `App` has no hook for
+them, so an `AppDelegate` (through `UIApplicationDelegateAdaptor`) installs a
+`SceneDelegate`. A cold start from a quick action hands the page to the inbox
+before the shell loads, so it opens that page, not `/plan` and not the saved
+one. With the app running, the scene delegate hands it over the same way.
 
 ## Share Extension
 

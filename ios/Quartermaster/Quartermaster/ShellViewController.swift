@@ -1,3 +1,4 @@
+import Combine
 import SafariServices
 import SwiftUI
 import UIKit
@@ -8,9 +9,11 @@ import os
 struct ShellView: UIViewControllerRepresentable {
     let config: ShellConfig
     let inbox: PageInbox
+    let theme: PageTheme
+    let initAt: Double?
 
     func makeUIViewController(context: Context) -> ShellViewController {
-        ShellViewController(config: config, inbox: inbox)
+        ShellViewController(config: config, inbox: inbox, theme: theme, initAt: initAt)
     }
 
     func updateUIViewController(_ controller: ShellViewController, context: Context) {}
@@ -35,10 +38,21 @@ private let connectivityErrors: Set<Int> = [
 final class ShellViewController: UIViewController {
     private let config: ShellConfig
     private let inbox: PageInbox
+    private let theme: PageTheme
     private let links: LinkPolicy
+    private let resume: ResumeState
+    /// When the app started, epoch ms, for `window.__qmShell`; nil when
+    /// prewarmed.
+    private let initAt: Double?
     private let offline = OfflineModel()
     private var offlineController: UIHostingController<OfflineView>?
     private var webView: WKWebView!
+    private let contentController = WKUserContentController()
+    private var refresh: PageRefresh!
+    /// Whether `window.__qmShell` is still injected. Only the first document
+    /// should see it; a reload would report a launch that did not happen.
+    private var hasLaunchTimingScript = false
+    private var themeObservation: AnyCancellable?
     /// The last main-frame URL the web view tried to load, for Retry.
     private var lastRequestedURL: URL?
     /// Whether any page has committed. WKWebView.url already holds the
@@ -49,10 +63,13 @@ final class ShellViewController: UIViewController {
     /// Where each running download is being written.
     private var downloadFiles: [ObjectIdentifier: URL] = [:]
 
-    init(config: ShellConfig, inbox: PageInbox) {
+    init(config: ShellConfig, inbox: PageInbox, theme: PageTheme, initAt: Double?) {
         self.config = config
         self.inbox = inbox
+        self.theme = theme
+        self.initAt = initAt
         self.links = LinkPolicy(host: config.host)
+        self.resume = ResumeState(links: links)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -71,10 +88,17 @@ final class ShellViewController: UIViewController {
         .filter { !$0.isEmpty }
         .joined(separator: " ")
         configuration.allowsInlineMediaPlayback = true
+        let bridge = ShellBridge(links: links, theme: theme) { [weak self] in self?.refresh.finish() }
+        bridge.install(in: contentController)
+        configuration.userContentController = contentController
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = self
         webView.uiDelegate = self
+        webView.allowsBackForwardNavigationGestures = ShellConfig.allowsBackSwipe
+        // Long-pressing a link opens the menu without a page preview, as in
+        // a native app.
+        webView.allowsLinkPreview = false
         // Show the launch colour, not white, until the first page paints.
         let canvas = UIColor(named: "LaunchBackground")
         webView.isOpaque = false
@@ -86,20 +110,44 @@ final class ShellViewController: UIViewController {
         }
         #endif
         self.webView = webView
+        refresh = PageRefresh(webView: webView)
         view = webView
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(saveResumePage),
+            name: UIApplication.didEnterBackgroundNotification, object: nil)
         installDebugSession { [weak self] in self?.loadFirstPage() }
     }
 
+    override func viewIsAppearing(_ animated: Bool) {
+        super.viewIsAppearing(animated)
+        applyAppearance()
+        observeAppearance()
+    }
+
+    /// Starts at once, without waiting for the app to become active. A link
+    /// or quick action that launched the app usually reaches the inbox first;
+    /// one that arrives later replaces this load mid-flight.
     private func loadFirstPage() {
-        if let page = inbox.attach({ [weak self] page in self?.openIncoming(page) }) {
-            load(page)
-        } else {
-            loadStartPageOnceActive()
+        let incoming = inbox.attach { [weak self] page in self?.openIncoming(page) }
+        let page = incoming ?? resume.page() ?? config.startURL
+        if let initAt {
+            contentController.addUserScript(LaunchTiming.script(initAt: initAt, loadAt: LaunchTiming.now()))
+            hasLaunchTimingScript = true
         }
+        load(page)
+    }
+
+    /// Once the first document has loaded, or the first load has failed:
+    /// a Retry minutes later would report a launch that took minutes. This is
+    /// the shell's only user script, so removing all of them removes just it.
+    private func dropLaunchTimingScript() {
+        guard hasLaunchTimingScript else { return }
+        hasLaunchTimingScript = false
+        contentController.removeAllUserScripts()
     }
 
     /// Debug builds take `-QMSessionCookie <value>`: the site's session cookie,
@@ -133,28 +181,6 @@ final class ShellViewController: UIViewController {
         proceed()
     }
 
-    /// A link that launched the app can reach `.onOpenURL` after this view
-    /// has loaded. Holding the start page until the app is active lets that
-    /// link load first, rather than the start page loading and then being
-    /// replaced.
-    private func loadStartPageOnceActive() {
-        let loadStart = { [weak self] in
-            guard let self, self.lastRequestedURL == nil else { return }
-            self.load(self.config.startURL)
-        }
-        if UIApplication.shared.applicationState == .active {
-            return DispatchQueue.main.async(execute: loadStart)
-        }
-        var observer: NSObjectProtocol?
-        observer = NotificationCenter.default.addObserver(
-            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
-        ) { _ in
-            observer.map(NotificationCenter.default.removeObserver)
-            observer = nil
-            DispatchQueue.main.async(execute: loadStart)
-        }
-    }
-
     private func load(_ url: URL) {
         lastRequestedURL = url
         webView.load(URLRequest(url: url))
@@ -170,8 +196,57 @@ final class ShellViewController: UIViewController {
         load(page)
     }
 
-    private func isAppPage(_ url: URL) -> Bool {
-        ["http", "https"].contains(url.scheme?.lowercased()) && links.isAppHost(url.host())
+    /// Remembers the page for the next cold start. With nothing loaded yet,
+    /// or the offline view up, the page saved last time stays.
+    @objc private func saveResumePage() {
+        guard hasCommittedPage, offlineController == nil, let url = webView.url else { return }
+        resume.save(url)
+    }
+
+    // MARK: Appearance
+
+    /// The scene follows the page's theme (`.preferredColorScheme`, for the
+    /// status bar), but the web view must not: it passes its appearance on to
+    /// the page as `prefers-color-scheme`, and a page on the System theme
+    /// would then stay on whatever it reported last. So the web view takes the
+    /// screen's appearance, which is the system's, while the canvas around
+    /// the page and the offline view take the page's.
+    @objc private func applyAppearance() {
+        guard let screen = view.window?.windowScene?.screen else { return }
+        let system = screen.traitCollection.userInterfaceStyle
+        let page: UIUserInterfaceStyle
+        switch theme.colorScheme {
+        case .light: page = .light
+        case .dark: page = .dark
+        default: page = system
+        }
+        if webView.overrideUserInterfaceStyle != system {
+            webView.overrideUserInterfaceStyle = system
+        }
+        let canvas = UIColor(named: "LaunchBackground")?.resolvedColor(with: UITraitCollection(userInterfaceStyle: page))
+        webView.backgroundColor = canvas
+        webView.scrollView.backgroundColor = canvas
+        offlineController?.view.overrideUserInterfaceStyle = page
+    }
+
+    /// UIKit reports no change of the screen's appearance while the scene is
+    /// overridden. Changing it from Control Center or Settings, or on a
+    /// schedule while the phone is locked, makes the app active again
+    /// afterwards, which is when the web view catches up.
+    private func observeAppearance() {
+        guard themeObservation == nil, let scene = view.window?.windowScene else { return }
+        themeObservation = theme.$colorScheme
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.applyAppearance() }
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(applyAppearance),
+            name: UIApplication.didBecomeActiveNotification, object: nil)
+        // Without an override the scene follows the system at once.
+        if #available(iOS 17, *) {
+            scene.registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (_: UIWindowScene, _) in
+                self?.applyAppearance()
+            }
+        }
     }
 
     // MARK: Offline view
@@ -180,6 +255,7 @@ final class ShellViewController: UIViewController {
         offline.reason = reason
         offline.isRetrying = false
         guard offlineController == nil else { return }
+        refresh.isAvailable = false
         let controller = UIHostingController(
             rootView: OfflineView(model: offline) { [weak self] in self?.retry() })
         controller.view.backgroundColor = .clear
@@ -189,6 +265,7 @@ final class ShellViewController: UIViewController {
         view.addSubview(controller.view)
         controller.didMove(toParent: self)
         offlineController = controller
+        applyAppearance()
     }
 
     private func hideOffline() {
@@ -198,6 +275,7 @@ final class ShellViewController: UIViewController {
         controller.view.removeFromSuperview()
         controller.removeFromParent()
         offlineController = nil
+        refresh.isAvailable = true
     }
 
     private func retry() {
@@ -254,7 +332,7 @@ extension ShellViewController: WKNavigationDelegate {
 
         let destination = links.destination(for: url)
         if destination == .webView {
-            if action.targetFrame != nil, isAppPage(url) {
+            if action.targetFrame != nil, links.isAppPage(url) {
                 lastRequestedURL = url
             }
             decisionHandler(.allow)
@@ -293,6 +371,7 @@ extension ShellViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         offline.isRetrying = false
+        dropLaunchTimingScript()
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -315,8 +394,11 @@ extension ShellViewController: WKNavigationDelegate {
         // a navigation that turned into a download ends).
         if error.domain == NSURLErrorDomain, error.code == NSURLErrorCancelled { return }
         if error.domain == "WebKitErrorDomain", error.code == 102 { return }
+        // A real failure; a cancelled first load (returned above) keeps the
+        // launch timing script for the link that replaced it.
+        dropLaunchTimingScript()
 
-        if let failed = error.userInfo[NSURLErrorFailingURLErrorKey] as? URL, isAppPage(failed) {
+        if let failed = error.userInfo[NSURLErrorFailingURLErrorKey] as? URL, links.isAppPage(failed) {
             lastRequestedURL = failed
         }
         let isConnectivity = error.domain == NSURLErrorDomain && connectivityErrors.contains(error.code)
@@ -408,7 +490,7 @@ extension ShellViewController: WKUIDelegate {
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
         guard let url = action.request.url else { return nil }
-        if isAppPage(url) {
+        if links.isAppPage(url) {
             lastRequestedURL = url
             webView.load(action.request)
         } else {

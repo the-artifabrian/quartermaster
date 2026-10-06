@@ -19,6 +19,26 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Home Screen quick actions. QuickActions.swift maps each type to a page. -->
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>app.useqm.ios.shopping</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Shopping</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>cart</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>app.useqm.ios.import-recipe</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Import recipe</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>square.and.arrow.down</string>
+		</dict>
+	</array>
 	<key>WKAppBoundDomains</key>
 	<array>
 		<string>useqm.app</string>

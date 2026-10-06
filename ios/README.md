@@ -8,19 +8,20 @@ issue #325 and its phases #326 to #329.
 buildable folders: any file added there joins the app or the Share Extension
 target without touching the project file.
 
-| File                                           | Role                                                                       |
-| ---------------------------------------------- | -------------------------------------------------------------------------- |
-| `QuartermasterApp.swift`                       | App entry, one SwiftUI scene, incoming links                               |
-| `ShellViewController.swift`                    | Web view, navigation and UI delegates, offline view hosting, appearance    |
-| `ShellBridge.swift`                            | Page-to-shell messages, pull to refresh, launch timing (Shell bridge)      |
-| `ShellConfig.swift`                            | Base URL, start path, user agent token, app-bound check, back swipe        |
-| `LinkPolicy.swift`                             | Where a URL opens: web view, Safari sheet, or iOS; what is an app page     |
-| `IncomingURL.swift`                            | Which page an incoming link opens                                          |
-| `ResumeState.swift`                            | Which page a cold start reopens                                            |
-| `OfflineView.swift`                            | Native offline view with Retry                                             |
-| `Info.plist`                                   | App-bound domains, base URL, URL scheme, launch screen, permission strings |
-| `QuartermasterShare/ShareViewController.swift` | Share Extension: finds the shared link, opens the app                      |
-| `QuartermasterShare/Info.plist`                | Share Extension activation rule                                            |
+| File                                           | Role                                                                                      |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `QuartermasterApp.swift`                       | App entry, one SwiftUI scene, incoming links, page inbox                                  |
+| `ShellViewController.swift`                    | Web view, navigation and UI delegates, offline view hosting, appearance                   |
+| `ShellBridge.swift`                            | Page-to-shell messages, pull to refresh, launch timing (Shell bridge)                     |
+| `ShellConfig.swift`                            | Base URL, start path, user agent token, app-bound check, back swipe                       |
+| `LinkPolicy.swift`                             | Where a URL opens: web view, Safari sheet, or iOS; what is an app page                    |
+| `IncomingURL.swift`                            | Which page an incoming link opens                                                         |
+| `ResumeState.swift`                            | Which page a cold start reopens                                                           |
+| `QuickActions.swift`                           | Home Screen quick actions, app and scene delegates                                        |
+| `OfflineView.swift`                            | Native offline view with Retry                                                            |
+| `Info.plist`                                   | App-bound domains, base URL, URL scheme, quick actions, launch screen, permission strings |
+| `QuartermasterShare/ShareViewController.swift` | Share Extension: finds the shared link, opens the app                                     |
+| `QuartermasterShare/Info.plist`                | Share Extension activation rule                                                           |
 
 ## Open and run
 
@@ -153,9 +154,19 @@ When the app goes to the background the shell saves the current page's URL
 it is still an app page: http or https on the base URL's host (`LinkPolicy`),
 and not under `/login`, `/logout`, `/signup`, `/verify`, `/onboarding`,
 `/forgot-password`, `/reset-password`, `/auth`, `/webauthn` or
-`/household/join`. Leaving from one of those clears the saved page. A link that
-opened the app wins over the saved page. With the offline view up, or before any
-page has loaded, the saved page is left as it was.
+`/household/join`. Leaving from one of those clears the saved page. A link or
+quick action that opened the app wins over the saved page. With the offline view
+up, or before any page has loaded, the saved page is left as it was.
+
+## Home Screen quick actions
+
+Long-press the app icon for **Shopping** (`/shopping`) and **Import recipe**
+(`/recipes/import`). They are static `UIApplicationShortcutItems` in Info.plist;
+`QuickActions.swift` maps their types to pages. SwiftUI's `App` has no hook for
+them, so an `AppDelegate` (through `UIApplicationDelegateAdaptor`) installs a
+`SceneDelegate`. A cold start from a quick action hands the page to the inbox
+before the shell loads, so it opens that page, not `/plan` and not the saved
+one. With the app running, the scene delegate hands it over the same way.
 
 ## Share Extension
 

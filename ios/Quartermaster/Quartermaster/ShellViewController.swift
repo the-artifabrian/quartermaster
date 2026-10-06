@@ -128,8 +128,8 @@ final class ShellViewController: UIViewController {
     }
 
     /// Starts at once, without waiting for the app to become active. A link
-    /// that launched the app usually reaches the inbox first; one that
-    /// arrives later replaces this load mid-flight.
+    /// or quick action that launched the app usually reaches the inbox first;
+    /// one that arrives later replaces this load mid-flight.
     private func loadFirstPage() {
         let incoming = inbox.attach { [weak self] page in self?.openIncoming(page) }
         let page = incoming ?? resume.page() ?? config.startURL

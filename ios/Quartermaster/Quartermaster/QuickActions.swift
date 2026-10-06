@@ -36,7 +36,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         options: UIScene.ConnectionOptions
     ) -> UISceneConfiguration {
         // A quick action that launched the app arrives here, before the shell
-        // has loaded, so the inbox holds it for the first load.
+        // has loaded, so the inbox holds it for the first load. UIKit can skip
+        // this call when it reconnects a saved session, so the scene delegate
+        // reads it too; a second delivery only overwrites the same page.
         if let item = options.shortcutItem {
             QuickAction.perform(item)
         }
@@ -46,8 +48,19 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 }
 
-/// Quick actions while the app is running.
+/// Quick actions that launch the app into a reconnected scene, and those that
+/// arrive while it is running.
 final class SceneDelegate: NSObject, UIWindowSceneDelegate {
+    func scene(
+        _ scene: UIScene,
+        willConnectTo session: UISceneSession,
+        options connectionOptions: UIScene.ConnectionOptions
+    ) {
+        if let item = connectionOptions.shortcutItem {
+            QuickAction.perform(item)
+        }
+    }
+
     func windowScene(
         _ windowScene: UIWindowScene,
         performActionFor shortcutItem: UIApplicationShortcutItem,

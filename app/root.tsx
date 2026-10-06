@@ -19,6 +19,7 @@ import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
+import { NativeShellBridge } from './components/native-shell-bridge.tsx'
 import { NavTiming } from './components/nav-timing.tsx'
 import { OfflineIndicator } from './components/offline-indicator.tsx'
 import { ProExpiryNudge } from './components/pro-expiry-nudge.tsx'
@@ -376,6 +377,7 @@ function App() {
 	const theme = useTheme()
 	const isPro = data.tierInfo.isProActive
 	const { pathname } = useLocation()
+	const isNativeShell = data.requestInfo.isNativeShell
 	useToast(data.toast)
 
 	return (
@@ -395,6 +397,7 @@ function App() {
 				householdId={data.householdId}
 			/>
 			<ServiceWorkerUpdate />
+			{isNativeShell ? <NativeShellBridge theme={theme} /> : null}
 			<OpenImgContextProvider
 				optimizerEndpoint="/resources/images"
 				getSrc={getImgSrc}

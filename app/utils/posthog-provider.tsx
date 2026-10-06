@@ -25,6 +25,7 @@ import {
 	getPwaUpdateTelemetry,
 	type PwaTelemetryCapture,
 } from './pwa-update-telemetry.ts'
+import { getShellLaunchTiming } from './shell-bridge.ts'
 
 type AnalyticsProperties = Record<string, unknown>
 export type AnalyticsCaptureOptions = {
@@ -223,11 +224,17 @@ export function PostHogPageview() {
 		posthog.registerForSession(sessionContext)
 		if (!didCaptureLaunchRef.current) {
 			didCaptureLaunchRef.current = true
+			// The iOS app's web view reports display mode `browser`; its launch
+			// counts too, with the shell's own timing.
+			const shellTiming = getShellLaunchTiming()
 			if (
-				sessionContext.display_mode === 'standalone' &&
+				(sessionContext.display_mode === 'standalone' || shellTiming) &&
 				sessionContext.navigation_type !== 'reload'
 			) {
-				posthog.capture(PWA_LAUNCHED, sessionContext)
+				posthog.capture(
+					PWA_LAUNCHED,
+					shellTiming ? { ...sessionContext, ...shellTiming } : sessionContext,
+				)
 			}
 			const updateTelemetry = getPwaUpdateTelemetry({
 				toBuild: sessionContext.app_build,

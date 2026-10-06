@@ -253,6 +253,40 @@ test('reports one installed PWA launch before its first pageview', async () => {
 	})
 })
 
+test('reports an iOS app launch, whose web view is not standalone, with the shell timing', async () => {
+	using _environment = setupAnalyticsEnvironment()
+	using _now = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+	vi.stubGlobal(
+		'matchMedia',
+		vi.fn(() => ({ matches: false })),
+	)
+	window.__qmShell = { initAt: 9_000, loadAt: 9_400 }
+	try {
+		const client = makeClient()
+		posthogClientModule.initializePostHog.mockReturnValue(client)
+
+		renderAnalytics(<PostHogPageview />, '/recipes')
+		await act(async () =>
+			runWhenIdle?.({ didTimeout: false, timeRemaining: () => 50 }),
+		)
+		await waitFor(() =>
+			expect(posthogClientModule.initializePostHog).toHaveBeenCalledOnce(),
+		)
+
+		expect(client.capture).toHaveBeenNthCalledWith(
+			1,
+			PWA_LAUNCHED,
+			expect.objectContaining({
+				display_mode: 'browser',
+				shell_init_to_load_ms: 400,
+				shell_load_to_now_ms: 600,
+			}),
+		)
+	} finally {
+		delete window.__qmShell
+	}
+})
+
 test('does not count a standalone document reload as a new PWA launch', async () => {
 	using _environment = setupAnalyticsEnvironment()
 	vi.stubGlobal(

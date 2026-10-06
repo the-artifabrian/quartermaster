@@ -536,7 +536,9 @@ export function MealCard({
 			? meal.items[0]!.recipeTitle
 			: meal.label
 				? mealLabelText(meal.label)
-				: `${meal.items.length}-recipe Meal`
+				: meal.items.length === 0
+					? 'this Meal'
+					: `${meal.items.length}-recipe Meal`
 	const hasShoppingDemand =
 		meal.items.length > 0 ||
 		meal.noteItems.some((note) => note.shoppingLines.length > 0)
@@ -897,7 +899,7 @@ export function MealCard({
 								setAddingRecipe(true)
 							}}
 							aria-label={`Add Recipe to ${mealActionName}`}
-							className="text-primary hover:text-primary/75 mt-1 flex min-h-9 items-center gap-1 text-xs font-semibold transition-colors"
+							className="text-muted-foreground hover:text-foreground flex min-h-11 items-center gap-1 text-xs font-semibold transition-colors md:mt-1 md:min-h-9 md:pl-8"
 						>
 							<Icon name="plus" className="size-3" />
 							Add Recipe

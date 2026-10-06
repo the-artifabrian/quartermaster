@@ -59,6 +59,14 @@ App-bound limits, and with them the service worker, only apply when the host is
 listed in `WKAppBoundDomains`, so a local server runs without them. Plain HTTP
 is allowed for local hosts only (`NSAllowsLocalNetworking`).
 
+Debug builds also take `-QMSessionCookie <value>`, the site's `en_session`
+cookie from a browser login, set before the first load. A screenshot run starts
+logged in without typing into the simulator:
+
+```sh
+xcrun simctl launch booted app.useqm.ios -QMSessionCookie "$EN_SESSION"
+```
+
 ## Incoming links
 
 The app registers the `quartermaster` URL scheme. It opens one URL:

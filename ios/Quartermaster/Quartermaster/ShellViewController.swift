@@ -91,11 +91,33 @@ final class ShellViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        installDebugSession { [weak self] in self?.loadFirstPage() }
+    }
+
+    private func loadFirstPage() {
         if let page = inbox.attach({ [weak self] page in self?.openIncoming(page) }) {
             load(page)
         } else {
             loadStartPageOnceActive()
         }
+    }
+
+    /// Debug builds take `-QMSessionCookie <value>`: the site's session cookie,
+    /// set before the first load, so a screenshot run starts logged in without
+    /// typing into the simulator. The value comes from a browser login.
+    private func installDebugSession(then proceed: @escaping () -> Void) {
+        #if DEBUG
+        if let value = UserDefaults.standard.string(forKey: "QMSessionCookie"),
+           let cookie = HTTPCookie(properties: [
+               .name: "en_session", .value: value, .domain: config.host, .path: "/",
+               .secure: config.baseURL.scheme?.lowercased() == "https" ? "TRUE" : "FALSE",
+           ])
+        {
+            webView.configuration.websiteDataStore.httpCookieStore.setCookie(cookie, completionHandler: proceed)
+            return
+        }
+        #endif
+        proceed()
     }
 
     /// A link that launched the app can reach `.onOpenURL` after this view

@@ -219,12 +219,60 @@ place a user sees Pro, search rather than trust a list:
 grep -rlw Pro app --include='*.tsx'
 ```
 
-## Real-time refresh
+## Keeping loader data fresh
 
-Shopping mutations emit a household event. The server writes a `HouseholdEvent`
-row and publishes on a household channel; other active clients refresh through
-SSE. Polling covers reconnects. This is refresh signaling, not collaborative
-document editing.
+Four layers can answer a navigation with data the server did not just produce.
+Each has one owner and one invalidation trigger.
+
+| Layer                        | Owner                                                                   | Serves                                                                                       | Dropped by                                                                                                                                            |
+| ---------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| In-memory loader cache       | `app/utils/loader-cache.ts`, used by each route's `clientLoader`        | The last data for a URL visited this session, on Plan, Shopping, Recipes, Staples and Recipe | Any non-GET submission, when it starts and when it ends; a change of user or Household; a page reload                                                 |
+| Service worker `.data` cache | `public/sw.js`, driven by `app/components/service-worker-data-sync.tsx` | The same five routes' `.data` responses when the network fails, keyed per user and Household | `qm-data-invalidate` after any mutation except a Shopping one; `qm-data-purge` on logout; a new deploy's cache version                                |
+| Root loader skipped          | `shouldRevalidate` in `app/root.tsx`                                    | Header, user, tier and theme from the previous page                                          | Any navigation the router marks for revalidation, except same-page search changes and links that opt out (the bottom tabs); a pending toast forces it |
+| Route loader skipped         | A route's own `shouldRevalidate`, such as Plan's day picker             | The route's current data when only view-only search params changed                           | Everything else: the route runs its loader                                                                                                            |
+
+The stale-while-revalidate routes show the cached entry at once, then
+`useStaleRevalidate` (`app/utils/use-stale-revalidate.ts`) revalidates once
+behind it. A load of the URL the page is already on, whoever started it, always
+goes to the server, so a revalidation never reads its own cache.
+
+How a change reaches other screens:
+
+- **A mutation in this tab.** The submission clears the in-memory cache as it
+  starts and again as it ends, and posts `qm-data-invalidate` when it ends. The
+  next navigation to any screen reads the server. The action's redirect is never
+  answered from memory. So if the Plan looks stale after a Recipe edit, the edit
+  was not a Router submission: a native `fetch` must call
+  `invalidateServiceWorkerData()` itself.
+- **A change by another household member.** Shopping mutations and Plan actions
+  that touch the list write a `HouseholdEvent` row and publish it; the event
+  types are in `app/utils/household-events.server.ts`. Every open client holds
+  one `EventSource` on `/resources/household-events`
+  (`app/utils/household-event-source.client.tsx`), polls every 30 seconds to
+  cover reconnects, and drops its own events by client id. Subscribers decide
+  what to do: Shopping revalidates after a 500 ms debounce, the tab bar shows a
+  dot, and the root toasts a batched summary. Edits to Recipes, Meals and
+  Staples themselves emit no event today, so another member sees them on their
+  next navigation or pull to refresh. This is refresh signalling, not
+  collaborative editing.
+- **An app relaunch.** Memory starts empty, so the first visit to each screen
+  hits the network. The service worker answers that request from its `.data`
+  cache only if the network fails, and a document navigation gets the cached app
+  shell only offline. Nothing cached outlives a deploy: the cache names carry
+  the build's version and old generations are reaped on activate.
+
+Why the rules are shaped this way:
+
+- Shopping mutations skip `qm-data-invalidate` because the next Shopping read is
+  network-first anyway, and clearing the namespace on every tick would evict the
+  offline fallbacks of unrelated screens.
+- Root is skipped for same-page search changes and tab switches because its data
+  (user, tier, theme) does not depend on them, and single fetch would otherwise
+  re-run it on every page-to-page navigation, back and forward included. Back
+  and forward still wait on one root request.
+- The `.data` cache is per user and Household so a shared device never shows one
+  Household's data to another; until the client has sent its namespace the
+  worker is network-only.
 
 ## AI
 

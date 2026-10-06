@@ -155,7 +155,7 @@ export default function ForgotPasswordRoute() {
 								</div>
 								<ErrorList errors={form.errors} id={form.errorId} />
 
-								<div className="mt-6">
+								<div className="mt-8">
 									<StatusButton
 										className="w-full"
 										status={

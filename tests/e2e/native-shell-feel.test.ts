@@ -187,6 +187,16 @@ test.describe('the homepage in the iOS app', () => {
 test.describe('the tab bar in the iOS app', () => {
 	test.use({ userAgent: SHELL_UA, viewport: { width: 390, height: 844 } })
 
+	test('the tab bar is as tall as a native one', async ({ page, login }) => {
+		await login()
+		await page.goto('/plan')
+		const row = page
+			.getByRole('navigation', { name: 'Main' })
+			.getByRole('link', { name: 'Plan', exact: true })
+		// Playwright has no home indicator, so the bar is only the row of tabs.
+		expect((await row.boundingBox())?.height).toBe(50)
+	})
+
 	test('a tab tap or Enter taps the haptic once', async ({ page, login }) => {
 		const messages = await recordBridgeMessages(page)
 		await login()
@@ -212,6 +222,16 @@ test.describe('the tab bar in the iOS app', () => {
 
 test.describe('in a browser', () => {
 	test.use({ userAgent: SAFARI_UA })
+
+	test('the tab bar keeps its height', async ({ page, login }) => {
+		await page.setViewportSize({ width: 390, height: 844 })
+		await login()
+		await page.goto('/plan')
+		const row = page
+			.getByRole('navigation', { name: 'Main' })
+			.getByRole('link', { name: 'Plan', exact: true })
+		expect((await row.boundingBox())?.height).toBe(60)
+	})
 
 	test('keeps the Home Screen layout clear of the status bar', async ({
 		page,

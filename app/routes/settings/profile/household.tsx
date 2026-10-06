@@ -220,7 +220,7 @@ function RenameHouseholdForm({ name }: { name: string }) {
 				errors={fields.name.errors}
 			/>
 			<ErrorList errors={form.errors} id={form.errorId} />
-			<div className="mt-2">
+			<div className="mt-8">
 				<StatusButton
 					type="submit"
 					name="intent"

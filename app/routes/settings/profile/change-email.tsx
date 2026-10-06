@@ -130,7 +130,7 @@ export default function ChangeEmailIndex({
 						errors={fields.email.errors}
 					/>
 					<ErrorList id={form.errorId} errors={form.errors} />
-					<div>
+					<div className="mt-8">
 						<StatusButton
 							status={isPending ? 'pending' : (form.status ?? 'idle')}
 						>

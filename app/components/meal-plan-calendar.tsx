@@ -329,12 +329,12 @@ function AddMealControl({
 					setOpen(true)
 				}}
 				aria-label={`Add Meal to ${dateLabel}`}
-				className="group flex min-h-12 w-full items-center gap-3 text-left text-sm transition-colors"
+				className="group flex w-full flex-col items-start pt-2 text-left text-sm transition-colors"
 			>
 				<span className="text-muted-foreground group-hover:text-foreground">
 					Nothing planned
 				</span>
-				<span className="text-primary group-hover:text-primary/75 inline-flex items-center gap-1 text-xs font-semibold">
+				<span className="text-primary group-hover:text-primary/75 flex min-h-9 items-center gap-1 text-xs font-semibold transition-colors">
 					<Icon name="plus" className="size-3" />
 					Add Meal
 				</span>

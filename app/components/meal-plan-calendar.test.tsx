@@ -437,10 +437,9 @@ test('reuses the shared choices for Add another Recipe and excludes Meal Recipes
 	await user.click(within(mobile).getByRole('button', { name: 'Close picker' }))
 	await user.click(
 		within(mobile).getByRole('button', {
-			name: 'Meal actions for Banana Bread',
+			name: 'Add Recipe to Banana Bread',
 		}),
 	)
-	await user.click(await screen.findByRole('menuitem', { name: 'Add Recipe' }))
 
 	const search = within(mobile).getByPlaceholderText('Search recipes...')
 	const picker = search.closest('.space-y-2')

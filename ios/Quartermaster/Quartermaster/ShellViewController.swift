@@ -196,10 +196,6 @@ final class ShellViewController: UIViewController {
         load(page)
     }
 
-    private func isAppPage(_ url: URL) -> Bool {
-        links.isAppPage(url)
-    }
-
     /// Remembers the page for the next cold start. With nothing loaded yet,
     /// or the offline view up, the page saved last time stays.
     @objc private func saveResumePage() {
@@ -215,7 +211,7 @@ final class ShellViewController: UIViewController {
     /// would then stay on whatever it reported last. So the web view takes the
     /// screen's appearance, which is the system's, while the canvas around
     /// the page and the offline view take the page's.
-    private func applyAppearance() {
+    @objc private func applyAppearance() {
         guard let screen = view.window?.windowScene?.screen else { return }
         let system = screen.traitCollection.userInterfaceStyle
         let page: UIUserInterfaceStyle
@@ -243,7 +239,7 @@ final class ShellViewController: UIViewController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.applyAppearance() }
         NotificationCenter.default.addObserver(
-            self, selector: #selector(appearanceMayHaveChanged),
+            self, selector: #selector(applyAppearance),
             name: UIApplication.didBecomeActiveNotification, object: nil)
         // Without an override the scene follows the system at once.
         if #available(iOS 17, *) {
@@ -251,10 +247,6 @@ final class ShellViewController: UIViewController {
                 self?.applyAppearance()
             }
         }
-    }
-
-    @objc private func appearanceMayHaveChanged() {
-        applyAppearance()
     }
 
     // MARK: Offline view
@@ -340,7 +332,7 @@ extension ShellViewController: WKNavigationDelegate {
 
         let destination = links.destination(for: url)
         if destination == .webView {
-            if action.targetFrame != nil, isAppPage(url) {
+            if action.targetFrame != nil, links.isAppPage(url) {
                 lastRequestedURL = url
             }
             decisionHandler(.allow)
@@ -406,7 +398,7 @@ extension ShellViewController: WKNavigationDelegate {
         // launch timing script for the link that replaced it.
         dropLaunchTimingScript()
 
-        if let failed = error.userInfo[NSURLErrorFailingURLErrorKey] as? URL, isAppPage(failed) {
+        if let failed = error.userInfo[NSURLErrorFailingURLErrorKey] as? URL, links.isAppPage(failed) {
             lastRequestedURL = failed
         }
         let isConnectivity = error.domain == NSURLErrorDomain && connectivityErrors.contains(error.code)
@@ -498,7 +490,7 @@ extension ShellViewController: WKUIDelegate {
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
         guard let url = action.request.url else { return nil }
-        if isAppPage(url) {
+        if links.isAppPage(url) {
             lastRequestedURL = url
             webView.load(action.request)
         } else {

@@ -18,8 +18,7 @@ enum IncomingURL {
         case scheme:
             return importPage(for: url, baseURL: baseURL)
         case "http", "https":
-            guard let host = url.host()?.lowercased(), host == baseURL.host()?.lowercased() else { return nil }
-            return url
+            return LinkPolicy(host: baseURL.host()?.lowercased() ?? "").isAppPage(url) ? url : nil
         default:
             return nil
         }

@@ -435,7 +435,7 @@ function App() {
 					) : null}
 					<header
 						data-site-header=""
-						className="bg-card/80 border-border/50 z-40 border-b backdrop-blur-sm select-none md:sticky md:top-0"
+						className="bg-card/80 border-border/50 z-40 border-b backdrop-blur-sm md:sticky md:top-0"
 					>
 						<nav
 							aria-label="Main"

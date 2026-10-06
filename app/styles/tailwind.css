@@ -363,10 +363,16 @@ html {
 		-webkit-tap-highlight-color: transparent;
 	}
 
-	/* A long press on a link or image does not open the iOS callout. */
-	a,
-	img {
+	/* In the iOS app, a long press on a link or image does not open the
+	   callout, and one on the header or tab bar does not select text. Safari
+	   and the Home Screen install keep Copy, Open in New Tab and Save Image. */
+	:root[data-native-shell] :is(a, img) {
 		-webkit-touch-callout: none;
+	}
+
+	:root[data-native-shell] :is([data-site-header], [data-bottom-nav]) {
+		-webkit-user-select: none;
+		user-select: none;
 	}
 
 	a,

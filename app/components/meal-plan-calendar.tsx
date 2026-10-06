@@ -458,12 +458,6 @@ export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
 										'text-muted-foreground/65',
 								)}
 							>
-								{today ? (
-									<span
-										aria-hidden="true"
-										className="bg-accent absolute top-1.5 h-0.5 w-4 rounded-full"
-									/>
-								) : null}
 								<span className="text-[9px] font-semibold tracking-wide uppercase">
 									{today ? 'Today' : formatWeekdayName(date).slice(0, 3)}
 								</span>

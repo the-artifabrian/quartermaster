@@ -272,7 +272,7 @@ export default function OnboardingProviderRoute({
 
 					<ErrorList errors={form.errors} id={form.errorId} />
 
-					<div className="flex items-center justify-between gap-6">
+					<div className="mt-8 flex items-center justify-between gap-6">
 						<StatusButton
 							className="w-full"
 							status={isPending ? 'pending' : (form.status ?? 'idle')}

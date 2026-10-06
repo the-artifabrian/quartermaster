@@ -161,7 +161,7 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 							/>
 							<ErrorList errors={form.errors} id={form.errorId} />
 
-							<div className="flex items-center justify-between gap-6 pt-3">
+							<div className="flex items-center justify-between gap-6 pt-8">
 								<StatusButton
 									className="w-full"
 									status={isPending ? 'pending' : (form.status ?? 'idle')}

@@ -169,7 +169,7 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 						errors={fields.email.errors}
 					/>
 					<ErrorList errors={form.errors} id={form.errorId} />
-					<div className="mt-4" />
+					<div className="mt-8" />
 					<StatusButton
 						className="w-full"
 						status={isPending ? 'pending' : (form.status ?? 'idle')}

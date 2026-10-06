@@ -133,7 +133,7 @@ export default function ResetPasswordPage({
 					<ErrorList errors={form.errors} id={form.errorId} />
 
 					<StatusButton
-						className="w-full"
+						className="mt-8 w-full"
 						status={isPending ? 'pending' : (form.status ?? 'idle')}
 						type="submit"
 						disabled={isPending}

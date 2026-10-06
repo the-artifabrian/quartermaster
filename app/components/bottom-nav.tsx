@@ -6,6 +6,7 @@ import {
 } from 'react'
 import { NavLink, useLocation, useNavigate, useNavigation } from 'react-router'
 import { cn } from '#app/utils/misc.tsx'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
 import { useIsProActive } from '#app/utils/subscription.ts'
 import { useShoppingActivityDot } from '#app/utils/use-shopping-activity-dot.ts'
@@ -77,6 +78,7 @@ export function BottomNav() {
 	const navigation = useNavigation()
 	const navigate = useNavigate()
 	const user = useOptionalUser()
+	const isNativeShell = useIsNativeShell()
 	const isProActive = useIsProActive()
 	const showShoppingDot = useShoppingActivityDot(isProActive)
 	const timing = useBottomNavTiming()
@@ -176,7 +178,14 @@ export function BottomNav() {
 			data-bottom-nav=""
 			className="bg-card/95 border-border fixed inset-x-0 bottom-0 z-50 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden print:hidden"
 		>
-			<div className="grid h-16 grid-cols-4 items-center">
+			<div
+				className={cn(
+					'grid grid-cols-4 items-center',
+					// As tall as a native tab bar (49pt): the labels end just above the
+					// home indicator instead of floating a row above it.
+					isNativeShell ? 'h-[50px]' : 'h-16',
+				)}
+			>
 				{navItems.map((item) => {
 					const isActive = item.matchPaths?.some((path) =>
 						path === '/'
@@ -304,15 +313,16 @@ export function BottomNav() {
 								startTabNavigation(item, linkTo, startedAt)
 							}}
 							className={cn(
-								'relative flex flex-col items-center justify-center gap-1 py-2 transition-[color,background-color,transform] duration-150',
+								'relative flex flex-col items-center justify-center transition-[color,transform] duration-150',
+								isNativeShell ? 'gap-0.5 py-1' : 'gap-1 py-2',
 								isActive
 									? 'text-primary'
 									: 'text-muted-foreground hover:text-foreground',
-								isPressed && 'bg-accent/15 text-foreground scale-[0.97]',
-								isPending && 'bg-accent/10 text-foreground',
+								isPressed && 'text-foreground scale-[0.97]',
+								isPending && 'text-foreground',
 							)}
 						>
-							<span className="relative">
+							<span className="relative flex">
 								<Icon name={iconName} size="lg" />
 								{item.to === '/shopping' && showShoppingDot && (
 									<span
@@ -330,7 +340,8 @@ export function BottomNav() {
 								<span
 									aria-hidden="true"
 									className={cn(
-										'bg-accent absolute bottom-1 h-0.5 rounded-full transition-[width,opacity] duration-150',
+										'bg-accent absolute h-0.5 rounded-full transition-[width,opacity] duration-150',
+										isNativeShell ? 'bottom-0' : 'bottom-1',
 										isPending
 											? 'w-6 animate-pulse opacity-70 motion-reduce:animate-none'
 											: 'w-4',

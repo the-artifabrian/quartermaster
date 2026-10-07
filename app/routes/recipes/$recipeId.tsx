@@ -53,6 +53,7 @@ import { formatRecipeForCopy } from '#app/utils/recipe-copy.ts'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { MAX_RECIPE_DESCRIPTION_LENGTH } from '#app/utils/recipe-validation.ts'
+import { shareOrCopy } from '#app/utils/share-link.ts'
 import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
 import { resolveNextShopDemandTargets } from '#app/utils/shopping-horizon.server.ts'
 import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
@@ -557,12 +558,23 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 
 	async function handleShare() {
 		const url = `${origin ?? window.location.origin}/share/${recipe.id}`
-		try {
-			await navigator.clipboard.writeText(url)
+		const outcome = await shareOrCopy({
+			data: { title: recipe.title, url },
+			share:
+				typeof navigator.share === 'function'
+					? (data) => navigator.share(data)
+					: undefined,
+			canShare:
+				typeof navigator.canShare === 'function'
+					? (data) => navigator.canShare(data)
+					: undefined,
+			copy: (text) => navigator.clipboard.writeText(text),
+		})
+		if (outcome === 'copied') {
 			toast.success('Public link copied', {
 				description: 'Anyone with this link can view the recipe.',
 			})
-		} catch {
+		} else if (outcome === 'copy-failed') {
 			toast.error('Unable to copy — try copying the URL manually')
 		}
 	}

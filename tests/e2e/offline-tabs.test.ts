@@ -97,7 +97,7 @@ async function seedHousehold(user: { id: string; householdId: string }) {
 	})
 }
 
-test('offline, a tab keeps the app and its tab bar, and Retry loads it once back online', async ({
+test('offline, a tab keeps the app and its tab bar, and retries by itself once back online', async ({
 	page,
 	context,
 	login,
@@ -116,15 +116,14 @@ test('offline, a tab keeps the app and its tab bar, and Retry loads it once back
 	await waitForCachedData(page, '/inventory.data')
 
 	const navigations: string[] = []
-	const failedStyles: string[] = []
+	const failedAssets: string[] = []
 	page.on('request', (request: Request) => {
 		if (request.isNavigationRequest()) navigations.push(request.url())
 	})
-	page.on('response', (response) => {
-		const url = new URL(response.url())
-		if (url.pathname.startsWith('/assets/') && !response.ok()) {
-			failedStyles.push(url.pathname)
-		}
+	// An uncached chunk offline fails as a request, not as a response.
+	page.on('requestfailed', (request) => {
+		const url = new URL(request.url())
+		if (url.pathname.startsWith('/assets/')) failedAssets.push(url.pathname)
 	})
 
 	await context.setOffline(true)
@@ -143,7 +142,7 @@ test('offline, a tab keeps the app and its tab bar, and Retry loads it once back
 	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
 	await expect(bottomNav(page)).toBeVisible()
 	expect(navigations).toEqual([])
-	expect(failedStyles).toEqual([])
+	expect(failedAssets).toEqual([])
 
 	await tab(page, 'Plan').click()
 	await expect(page.getByRole('heading', { name: 'Meal Plan' })).toBeVisible()
@@ -152,8 +151,17 @@ test('offline, a tab keeps the app and its tab bar, and Retry loads it once back
 	await tab(page, 'Shop').click()
 	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
 
+	// Retry while still offline keeps the notice and the app.
+	const retry = page.getByRole('button', { name: 'Connect to retry' })
+	await expect(retry).toHaveAttribute('aria-disabled', 'true')
+	// Playwright waits for aria-disabled buttons; a tap still clicks them.
+	await retry.click({ force: true })
+	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
+	await expect(bottomNav(page)).toBeVisible()
+	await expect(page.getByRole('banner')).toBeVisible()
+
+	// Back online, the notice retries by itself.
 	await context.setOffline(false)
-	await page.getByRole('button', { name: 'Retry' }).click()
 	await expect(
 		page.getByRole('heading', { name: /Shopping List/ }),
 	).toBeVisible()

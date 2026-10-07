@@ -201,3 +201,37 @@ test('leaving a filtered list re-runs the root loader', () => {
 		),
 	).toBe(true)
 })
+
+/** Sets navigator.onLine for one test. */
+function offline() {
+	Object.defineProperty(window.navigator, 'onLine', {
+		configurable: true,
+		get: () => false,
+	})
+	return {
+		[Symbol.dispose]: () =>
+			Object.defineProperty(window.navigator, 'onLine', {
+				configurable: true,
+				get: () => true,
+			}),
+	}
+}
+
+test('offline, a forced revalidation skips root, whose data has no offline copy', () => {
+	using _offline = offline()
+	expect(
+		shouldRevalidate(
+			navigation({ from: '/shopping', to: '/shopping', forced: true }),
+		),
+	).toBe(false)
+})
+
+test('offline, a pending toast waits for the network instead of failing root', () => {
+	using _offline = offline()
+	setPendingToastMarker()
+	expect(
+		shouldRevalidate(
+			navigation({ from: '/recipes', to: '/upgrade', forced: true }),
+		),
+	).toBe(false)
+})

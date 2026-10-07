@@ -257,6 +257,12 @@ export function shouldRevalidate({
 	currentUrl: URL
 	nextUrl: URL
 }) {
+	// Offline, the root request would fail: the service worker never caches it,
+	// and the error would replace the whole app with the root error page. Keep
+	// the data the page has; a pending toast stays in its cookie until the next
+	// root load online. Covers Retry, pull to refresh and live refreshes.
+	if (typeof navigator !== 'undefined' && !navigator.onLine) return false
+
 	// A toast is waiting — never skip, whatever shape the navigation takes.
 	if (hasPendingToastCookie()) return true
 

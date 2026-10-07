@@ -20,12 +20,13 @@ function getServerSnapshot() {
 
 const TOAST_ID = 'offline-indicator'
 
+/** Whether the browser reports a network; true during server rendering. */
+export function useIsOnline() {
+	return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+}
+
 export function OfflineIndicator() {
-	const isOnline = useSyncExternalStore(
-		subscribe,
-		getSnapshot,
-		getServerSnapshot,
-	)
+	const isOnline = useIsOnline()
 
 	useEffect(() => {
 		if (!isOnline) {

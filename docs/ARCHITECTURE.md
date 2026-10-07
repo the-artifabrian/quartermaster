@@ -275,10 +275,12 @@ Why the rules are shaped this way:
   worker is network-only. A worker the browser restarted mid-session asks the
   requesting page for its namespace when a request fails, and serves only that
   namespace's cache.
-- Offline, the refresh behind a remembered page waits for the `online` event: it
-  re-runs the root loader, which has no offline copy. A tab whose data the
-  worker lacks shows an offline notice from its own error boundary, inside the
-  app, so the tab bar stays.
+- Offline, root's `shouldRevalidate` skips the root loader, which has no offline
+  copy and whose failure would replace the whole app; a pending toast waits in
+  its cookie. The refresh behind a remembered page waits for the `online` event.
+  A tab whose data the worker lacks shows an offline notice from its own error
+  boundary, inside the app, so the tab bar stays; it retries by itself once the
+  network is back.
 
 ## AI
 

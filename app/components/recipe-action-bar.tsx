@@ -116,7 +116,7 @@ export function RecipeActionBar({
 						<Icon name="share" size="md" />
 					</Button>
 				</TooltipTrigger>
-				<TooltipContent>Copy public link</TooltipContent>
+				<TooltipContent>Share public link</TooltipContent>
 			</Tooltip>
 
 			{/* Overflow: contextual reset, print, enhance */}

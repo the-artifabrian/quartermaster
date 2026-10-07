@@ -1,8 +1,15 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useState } from 'react'
-import { data, Form, Link, redirect, useNavigation } from 'react-router'
+import { useRef, useState } from 'react'
+import {
+	data,
+	Form,
+	Link,
+	redirect,
+	useNavigation,
+	useRouteLoaderData,
+} from 'react-router'
 import { toast } from 'sonner'
 import { MenuContents } from '#app/components/menu-contents.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -25,6 +32,7 @@ import { PlanMenuSchema } from '#app/utils/meal-plan-validation.ts'
 import { BACK_TO_LIST } from '#app/utils/nav-direction.ts'
 import { planMenu } from '#app/utils/plan-menu.server.ts'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
+import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
 import { type Route } from './+types/$menuId.ts'
 
 export const handle: SEOHandle = {
@@ -333,6 +341,34 @@ export default function MenuDetail({
 				),
 			]
 		: []
+	const rootData = useRouteLoaderData('root') as
+		{ requestInfo?: { origin?: string } } | undefined
+	const origin = rootData?.requestInfo?.origin
+	// Taps are ignored until the first share settles, so a second tap cannot
+	// copy the link behind an open sheet.
+	const shareInFlight = useRef(false)
+	async function handleShare() {
+		if (shareInFlight.current) return
+		shareInFlight.current = true
+		try {
+			const url = `${origin ?? window.location.origin}/share/menus/${menu.id}`
+			// share() is the first await, so it runs inside the tap's activation.
+			const outcome = await shareOrCopy({
+				data: { title: menu.title, url },
+				...browserShareFunctions(),
+			})
+			if (outcome === 'copied') {
+				toast.success('Public link copied', {
+					description:
+						'Anyone with this link can view the Menu and its Recipes.',
+				})
+			} else if (outcome === 'copy-failed') {
+				toast.error('Unable to copy the link')
+			}
+		} finally {
+			shareInFlight.current = false
+		}
+	}
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			<Link
@@ -381,18 +417,7 @@ export default function MenuDetail({
 							variant="ghost"
 							size="icon"
 							aria-label="Share"
-							onClick={async () => {
-								const url = `${window.location.origin}/share/menus/${menu.id}`
-								try {
-									await navigator.clipboard.writeText(url)
-									toast.success('Public link copied', {
-										description:
-											'Anyone with this link can view the Menu and its Recipes.',
-									})
-								} catch {
-									toast.error('Unable to copy the link')
-								}
-							}}
+							onClick={handleShare}
 						>
 							<Icon name="share" size="md" />
 						</Button>

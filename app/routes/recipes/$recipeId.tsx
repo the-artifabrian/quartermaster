@@ -53,6 +53,7 @@ import { formatRecipeForCopy } from '#app/utils/recipe-copy.ts'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { MAX_RECIPE_DESCRIPTION_LENGTH } from '#app/utils/recipe-validation.ts'
+import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
 import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
 import { resolveNextShopDemandTargets } from '#app/utils/shopping-horizon.server.ts'
 import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
@@ -555,15 +556,29 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		})
 	}
 
+	// A second tap while the sheet is open makes Safari reject share() with
+	// InvalidStateError, which would copy the link behind the sheet. Taps are
+	// ignored until the first share settles.
+	const shareInFlight = useRef(false)
 	async function handleShare() {
-		const url = `${origin ?? window.location.origin}/share/${recipe.id}`
+		if (shareInFlight.current) return
+		shareInFlight.current = true
 		try {
-			await navigator.clipboard.writeText(url)
-			toast.success('Public link copied', {
-				description: 'Anyone with this link can view the recipe.',
+			const url = `${origin ?? window.location.origin}/share/${recipe.id}`
+			// share() is the first await, so it runs inside the tap's activation.
+			const outcome = await shareOrCopy({
+				data: { title: recipe.title, url },
+				...browserShareFunctions(),
 			})
-		} catch {
-			toast.error('Unable to copy — try copying the URL manually')
+			if (outcome === 'copied') {
+				toast.success('Public link copied', {
+					description: 'Anyone with this link can view the recipe.',
+				})
+			} else if (outcome === 'copy-failed') {
+				toast.error('Unable to copy — try copying the URL manually')
+			}
+		} finally {
+			shareInFlight.current = false
 		}
 	}
 

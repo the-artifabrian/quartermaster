@@ -10,8 +10,10 @@ const ACTIVE_STATIC_CACHE_KEY = '/__qm-active-static-cache__'
 
 // The build replaces this sentinel with every file in build/client/assets.
 // Embedding the list also changes sw.js whenever the hashed asset set changes,
-// which makes the browser install a new worker. Assets are cached on demand in
-// that build's isolated cache after activation.
+// which makes the browser install a new worker. After activation the worker
+// warms every JavaScript file on the list into that build's isolated cache (see
+// warmCurrentAssets), so a tab whose route module was never loaded still opens
+// offline. Assets a page requests first are cached on demand as before.
 const CURRENT_ASSET_PATHS = new Set(['__QM_CLIENT_ASSET_PATHS__'])
 // Keep the offline root bridge coupled to the PWA manifest instead of copying
 // its start_url by hand. The build replaces this sentinel too.
@@ -19,6 +21,7 @@ const START_URL = '__QM_START_URL__'
 
 const MAX_IMAGES = 100
 const MAX_DATA = 64
+const WARM_CONCURRENCY = 6
 
 // Per-session (user+household) cache for authenticated `.data` (RR7 single-fetch).
 // The SW can't read the httpOnly session cookie, so the client posts an opaque
@@ -70,6 +73,11 @@ self.addEventListener('activate', (event) => {
 					.map((k) => caches.delete(k)),
 			])
 			await setActiveStaticCache(STATIC_CACHE)
+			// Fetch events wait for activation to settle, so warming here would hold
+			// every request behind a couple of megabytes of downloads. Start it after
+			// and do not wait. A worker stopped mid-warm resumes when the next page
+			// load posts qm-warm-assets.
+			void warmCurrentAssets()
 		})(),
 	)
 })
@@ -81,12 +89,15 @@ self.addEventListener('activate', (event) => {
 //  - qm-data-purge: logout — forget the namespace and reap all `.data` caches.
 //  - qm-data-invalidate: after a mutation — drop this session's `.data` cache so
 //    the next navigation refetches fresh.
+//  - qm-warm-assets: once per page load — finish warming this build's chunks.
 self.addEventListener('message', (event) => {
 	const msg = event.data
 	if (!msg || typeof msg !== 'object') return
 
 	if (msg.type === 'qm-activate-update') {
 		event.waitUntil(self.skipWaiting())
+	} else if (msg.type === 'qm-warm-assets') {
+		event.waitUntil(warmCurrentAssets())
 	} else if (
 		msg.type === 'qm-data-session' &&
 		typeof msg.token === 'string' &&
@@ -115,7 +126,6 @@ self.addEventListener('fetch', (event) => {
 	if (request.method !== 'GET') return
 
 	const url = new URL(request.url)
-
 
 	// Skip non-same-origin
 	if (url.origin !== self.location.origin) return
@@ -304,6 +314,39 @@ async function staticAsset(event, request, url) {
 	}
 
 	return (await matchPreviousStaticAsset(request)) ?? fetch(request)
+}
+
+/**
+ * Put every JavaScript file of the current build in its static cache, so any
+ * route module can load offline. Fonts and CSS arrive with the document. A file
+ * already cached is skipped, one N-1 holds is promoted, and the rest are
+ * fetched a few at a time. Failures are left for the on-demand path.
+ */
+async function warmCurrentAssets() {
+	try {
+		const cache = await caches.open(STATIC_CACHE)
+		const queue = [...CURRENT_ASSET_PATHS].filter((path) =>
+			path.endsWith('.js'),
+		)
+		const warmNext = async () => {
+			while (queue.length) {
+				const path = queue.shift()
+				try {
+					if (await cache.match(path)) continue
+					const response =
+						(await matchPreviousStaticAsset(path)) ?? (await fetch(path))
+					if (response.ok) await putAndTrim(cache, path, response, STATIC_CACHE)
+				} catch {
+					// Offline or evicted; the on-demand path tries again.
+				}
+			}
+		}
+		await Promise.allSettled(
+			Array.from({ length: WARM_CONCURRENCY }, () => warmNext()),
+		)
+	} catch {
+		// Cache Storage is best-effort.
+	}
 }
 
 async function matchPreviousStaticAsset(request) {

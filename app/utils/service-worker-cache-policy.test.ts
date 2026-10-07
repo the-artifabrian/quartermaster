@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { PLAN_VIEW_ONLY_PARAMS } from './plan-day-param.ts'
 
 const ORIGIN = 'https://quartermaster.test'
@@ -542,6 +542,127 @@ describe('service-worker lifecycle and public resources', () => {
 		expect(
 			await worker.dispatchFetch('/site.webmanifest?cache-bust=1'),
 		).toBeUndefined()
+	})
+})
+
+describe('warming the current build into the static cache', () => {
+	const ASSETS = [
+		'/assets/root-a1.js',
+		'/assets/shopping-b2.js',
+		'/assets/plan-c3.js',
+		'/assets/app-d4.css',
+	]
+
+	test('after warm, every current .js asset is served from cache offline', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		await worker.dispatchActivate()
+		worker.setFetch(async ({ url }) => new Response(`asset:${url}`))
+
+		await worker.dispatchMessage({ type: 'qm-warm-assets' })
+		worker.setFetch(async () => {
+			throw new TypeError('Failed to fetch')
+		})
+
+		for (const path of ASSETS.filter((asset) => asset.endsWith('.js'))) {
+			const response = await worker.dispatchFetch(path)
+			expect(await response?.text()).toBe(`asset:${ORIGIN}${path}`)
+		}
+	})
+
+	test('warm skips assets that are not JavaScript', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		worker.setFetch(async ({ url }) => new Response(`asset:${url}`))
+
+		await worker.dispatchMessage({ type: 'qm-warm-assets' })
+
+		expect(worker.fetchCalls.map(({ url }) => url)).not.toContain(
+			`${ORIGIN}/assets/app-d4.css`,
+		)
+	})
+
+	test('assets the previous generation holds are promoted without a fetch', async () => {
+		const storage = new MemoryCacheStorage()
+		await storage.seed(
+			'qm-static-previous-build',
+			'/assets/root-a1.js',
+			new Response('N-1 ROOT'),
+		)
+		await (
+			await storage.open('qm-cache-state-v1')
+		).put(
+			'/__qm-active-static-cache__',
+			new Response('qm-static-previous-build'),
+		)
+		const worker = loadServiceWorker({
+			storage,
+			cacheVersion: 'current-build',
+			currentAssetPaths: ASSETS,
+		})
+		worker.setFetch(async ({ url }) => new Response(`asset:${url}`))
+
+		await worker.dispatchMessage({ type: 'qm-warm-assets' })
+
+		expect(worker.fetchCalls.map(({ url }) => url)).not.toContain(
+			`${ORIGIN}/assets/root-a1.js`,
+		)
+		const promoted = await (
+			await storage.open('qm-static-current-build')
+		).match('/assets/root-a1.js')
+		expect(await promoted?.text()).toBe('N-1 ROOT')
+	})
+
+	test('a failing asset does not stop the others', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		worker.setFetch(async ({ url }) => {
+			if (url.endsWith('/root-a1.js')) throw new TypeError('Failed to fetch')
+			if (url.endsWith('/plan-c3.js')) {
+				return new Response('Not found', { status: 404 })
+			}
+			return new Response(`asset:${url}`)
+		})
+
+		await worker.dispatchMessage({ type: 'qm-warm-assets' })
+
+		const cache = await worker.storage.open('qm-static-test-build')
+		expect(await cache.match('/assets/shopping-b2.js')).toBeDefined()
+		expect(await cache.match('/assets/root-a1.js')).toBeUndefined()
+		expect(await cache.match('/assets/plan-c3.js')).toBeUndefined()
+	})
+
+	test('a second warm fetches nothing', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		worker.setFetch(async ({ url }) => new Response(`asset:${url}`))
+		await worker.dispatchMessage({ type: 'qm-warm-assets' })
+		const firstRun = worker.fetchCalls.length
+
+		await worker.dispatchMessage({ type: 'qm-warm-assets' })
+
+		expect(firstRun).toBe(3)
+		expect(worker.fetchCalls).toHaveLength(firstRun)
+	})
+
+	test('activation settles without waiting for the warm, which starts after it', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		worker.setFetch(() => new Promise<Response>(() => {}))
+
+		await worker.dispatchActivate()
+
+		expect(
+			await (
+				await worker.storage.open('qm-cache-state-v1')
+			).match('/__qm-active-static-cache__'),
+		).toBeDefined()
+		await vi.waitFor(() => expect(worker.fetchCalls.length).toBeGreaterThan(0))
+	})
+
+	test('a cache write failure during warm is swallowed', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		worker.setFetch(async ({ url }) => new Response(`asset:${url}`))
+		worker.storage.rejectWrites = true
+
+		await expect(
+			worker.dispatchMessage({ type: 'qm-warm-assets' }),
+		).resolves.toBeUndefined()
 	})
 })
 

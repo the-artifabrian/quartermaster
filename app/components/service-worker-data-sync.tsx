@@ -23,6 +23,28 @@ function postToServiceWorker(message: Record<string, unknown>) {
 		.catch(() => {})
 }
 
+let warmRequested = false
+
+/**
+ * Asks the active worker, once per page load and when the page is idle, to
+ * finish putting this build's chunks in its cache. The worker starts that
+ * itself after activation; this resumes a fill the browser cut short by
+ * stopping the worker.
+ */
+function requestAssetWarm() {
+	if (warmRequested || typeof navigator === 'undefined') return
+	if (!navigator.serviceWorker) return
+	warmRequested = true
+	void navigator.serviceWorker.ready
+		.then((registration) => {
+			const post = () =>
+				registration.active?.postMessage({ type: 'qm-warm-assets' })
+			if ('requestIdleCallback' in window) window.requestIdleCallback(post)
+			else setTimeout(post, 2000)
+		})
+		.catch(() => {})
+}
+
 /** Native fetch mutations use the same invalidation as Router submissions. */
 export function invalidateServiceWorkerData() {
 	loaderCache.clear()
@@ -66,6 +88,8 @@ export function ServiceWorkerDataSync({
 	const token = userId && householdId ? `${userId}-${householdId}` : null
 	const tokenRef = useRef(token)
 	tokenRef.current = token
+
+	useEffect(requestAssetWarm, [])
 
 	// A different user or Household (or none) drops the loader cache. The
 	// committed location tells the cache which loads are navigations. Layout

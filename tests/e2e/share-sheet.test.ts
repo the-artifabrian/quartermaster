@@ -42,7 +42,9 @@ async function stubShareSheet(page: Page, rejectWith?: string) {
 }
 
 // The handler has finished with the share when a later Copy Recipe toast
-// shows, so an absent share toast is really absent and not just late.
+// shows, so an absent share toast is really absent and not just late. That
+// barrier holds only because the share stub settles in a microtask and every
+// caller first polls shareCalls, so the share has already settled by the tap.
 async function expectNoShareToast(page: Page) {
 	await page.getByRole('button', { name: 'Copy Recipe' }).click()
 	const announcements = page.getByRole('region', { name: /Notifications/ })
@@ -78,6 +80,39 @@ test('a cancelled share sheet stays silent', async ({ page, login }) => {
 
 	await page.getByRole('button', { name: 'Share recipe' }).click()
 	await expect.poll(() => page.evaluate(() => window.shareCalls.length)).toBe(1)
+	await expectNoShareToast(page)
+})
+
+test('a second tap while the share sheet is open is ignored', async ({
+	page,
+	login,
+}) => {
+	const recipe = await createRecipe(await login())
+	// The sheet stays open until the test closes it. Safari rejects a second
+	// share() with InvalidStateError meanwhile; this stub just records it.
+	await page.addInitScript(() => {
+		window.shareCalls = []
+		Object.defineProperty(Navigator.prototype, 'share', {
+			configurable: true,
+			value: (data: ShareData) => {
+				window.shareCalls.push(data)
+				return new Promise<void>((resolve) => {
+					;(window as unknown as { closeSheet: () => void }).closeSheet =
+						resolve
+				})
+			},
+		})
+	})
+	await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+	await page.goto(`/recipes/${recipe.id}`)
+
+	const share = page.getByRole('button', { name: 'Share recipe' })
+	await share.click()
+	await share.click()
+	expect(await page.evaluate(() => window.shareCalls.length)).toBe(1)
+	await page.evaluate(() =>
+		(window as unknown as { closeSheet: () => void }).closeSheet(),
+	)
 	await expectNoShareToast(page)
 })
 
@@ -122,4 +157,42 @@ test('without a share sheet, Share copies the public link', async ({
 	await expect(
 		page.getByRole('heading', { name: 'Sheet Pan Gnocchi' }),
 	).toBeVisible()
+})
+
+test('Share on a Menu opens the system share sheet with its title and public link', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createRecipe(user)
+	const menu = await prisma.menu.create({
+		data: {
+			title: 'Friday Supper',
+			titleKey: 'friday supper',
+			householdId: user.householdId,
+			sections: {
+				create: {
+					items: {
+						create: {
+							kind: 'recipe',
+							recipeId: recipe.id,
+							recipeTitle: recipe.title,
+							scaleMultiplier: 1,
+							order: 0,
+						},
+					},
+				},
+			},
+		},
+	})
+	await stubShareSheet(page)
+	await page.goto(`/recipes/menus/${menu.id}`)
+
+	await page.getByRole('button', { name: 'Share', exact: true }).click()
+	const origin = new URL(page.url()).origin
+	await expect
+		.poll(() => page.evaluate(() => window.shareCalls))
+		.toEqual([
+			{ title: 'Friday Supper', url: `${origin}/share/menus/${menu.id}` },
+		])
 })

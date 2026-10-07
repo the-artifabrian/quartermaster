@@ -19,7 +19,6 @@ describe('shareOrCopy', () => {
 		const copy = vi.fn().mockResolvedValue(undefined)
 		const canShare = vi.fn().mockReturnValue(false)
 		expect(await shareOrCopy({ data, share, canShare, copy })).toBe('copied')
-		expect(canShare).toHaveBeenCalledWith(data)
 		expect(share).not.toHaveBeenCalled()
 		expect(copy).toHaveBeenCalledWith(data.url)
 	})

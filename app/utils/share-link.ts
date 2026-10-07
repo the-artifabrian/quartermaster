@@ -7,7 +7,8 @@ export type ShareOutcome = 'shared' | 'cancelled' | 'copied' | 'copy-failed'
  * otherwise. The browser functions come in as parameters so the decision can
  * be tested without touching `navigator`; leave `share` or `canShare` out when
  * the browser lacks them. A cancelled sheet is silent. Any other share failure
- * still leaves the person with the link by copying it.
+ * falls back to copying the link. iOS may refuse that copy once the tap's
+ * user activation is spent on the sheet, and the result is then 'copy-failed'.
  */
 export async function shareOrCopy({
 	data,
@@ -43,4 +44,22 @@ function isAbort(error: unknown) {
 		'name' in error &&
 		error.name === 'AbortError'
 	)
+}
+
+/**
+ * The browser's own share and clipboard functions, in the shape `shareOrCopy`
+ * takes. `share` and `canShare` are left out where the browser lacks them.
+ */
+export function browserShareFunctions() {
+	return {
+		share:
+			typeof navigator.share === 'function'
+				? (data: ShareLinkData) => navigator.share(data)
+				: undefined,
+		canShare:
+			typeof navigator.canShare === 'function'
+				? (data: ShareLinkData) => navigator.canShare(data)
+				: undefined,
+		copy: (text: string) => navigator.clipboard.writeText(text),
+	}
 }

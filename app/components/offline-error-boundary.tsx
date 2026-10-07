@@ -5,6 +5,7 @@ import {
 	useRevalidator,
 	useRouteError,
 } from 'react-router'
+import { retryTabOnly } from '#app/utils/tab-retry.ts'
 import { GeneralErrorBoundary } from './error-boundary.tsx'
 import { useIsOnline } from './offline-indicator.tsx'
 import { Button } from './ui/button.tsx'
@@ -26,6 +27,11 @@ function isOfflineError(error: unknown) {
 	const offline = typeof navigator !== 'undefined' && !navigator.onLine
 	return offline && (isRouteErrorResponse(error) || error instanceof TypeError)
 }
+
+// The `online` event can arrive before requests get through (a radio coming
+// up; in Chromium, the page before its service worker). A retry that fails
+// leaves this notice up, so try a few times; success unmounts it.
+const ONLINE_RETRY_DELAYS_MS = [0, 1000, 3000]
 
 const TAB_NAMES: Array<[prefix: string, name: string]> = [
 	['/recipes', 'Recipes'],
@@ -60,9 +66,20 @@ function OfflineNotice() {
 	const isOnline = useIsOnline()
 
 	useEffect(() => {
-		const onOnline = () => void revalidate()
-		window.addEventListener('online', onOnline)
-		return () => window.removeEventListener('online', onOnline)
+		let cancelled = false
+		const onOnline = async () => {
+			for (const delay of ONLINE_RETRY_DELAYS_MS) {
+				await new Promise((resolve) => setTimeout(resolve, delay))
+				if (cancelled || !navigator.onLine) return
+				await retryTabOnly(revalidate).catch(() => {})
+			}
+		}
+		const listener = () => void onOnline()
+		window.addEventListener('online', listener)
+		return () => {
+			cancelled = true
+			window.removeEventListener('online', listener)
+		}
 	}, [revalidate])
 
 	const retrying = state === 'loading'
@@ -81,7 +98,7 @@ function OfflineNotice() {
 				aria-disabled={unavailable || undefined}
 				className="aria-disabled:opacity-50"
 				onClick={() => {
-					if (!unavailable) void revalidate()
+					if (!unavailable) void retryTabOnly(revalidate)
 				}}
 			>
 				{retrying ? 'Retrying…' : isOnline ? 'Retry' : 'Connect to retry'}

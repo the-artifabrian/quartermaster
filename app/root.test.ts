@@ -3,6 +3,7 @@
  */
 import { afterEach, expect, test } from 'vitest'
 import { shouldRevalidate } from './root.tsx'
+import { retryTabOnly } from './utils/tab-retry.ts'
 import { TOAST_PENDING_COOKIE } from './utils/toast-pending.ts'
 
 const BASE_URL = 'https://quartermaster.app'
@@ -234,4 +235,26 @@ test('offline, a pending toast waits for the network instead of failing root', (
 			navigation({ from: '/recipes', to: '/upgrade', forced: true }),
 		),
 	).toBe(false)
+})
+
+test("the offline notice's retry reloads the tab, not root, and only while it runs", async () => {
+	const retry = navigation({ from: '/shopping', to: '/shopping', forced: true })
+	let duringRetry: boolean | undefined
+	await retryTabOnly(async () => {
+		duringRetry = shouldRevalidate(retry)
+	})
+
+	expect(duringRetry).toBe(false)
+	expect(shouldRevalidate(retry)).toBe(true)
+})
+
+test('a failed tab retry still lets root revalidate afterwards', async () => {
+	const retry = navigation({ from: '/shopping', to: '/shopping', forced: true })
+	await expect(
+		retryTabOnly(async () => {
+			throw new Error('network')
+		}),
+	).rejects.toThrow('network')
+
+	expect(shouldRevalidate(retry)).toBe(true)
 })

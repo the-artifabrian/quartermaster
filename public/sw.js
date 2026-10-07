@@ -322,9 +322,18 @@ async function staticAsset(event, request, url) {
  * Put every JavaScript file of the current build in its static cache, so any
  * route module can load offline. Fonts and CSS arrive with the document. A file
  * already cached is skipped, one N-1 holds is promoted, and the rest are
- * fetched a few at a time. Failures are left for the on-demand path.
+ * fetched a few at a time. Failures are left for the on-demand path. Activation
+ * and a page's qm-warm-assets can ask at once; they share one run.
  */
-async function warmCurrentAssets() {
+let warming = null
+function warmCurrentAssets() {
+	warming ??= fillStaticCache().finally(() => {
+		warming = null
+	})
+	return warming
+}
+
+async function fillStaticCache() {
 	try {
 		const cache = await caches.open(STATIC_CACHE)
 		const queue = [...CURRENT_ASSET_PATHS].filter((path) =>

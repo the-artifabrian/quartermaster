@@ -36,9 +36,8 @@ function requestAssetWarm() {
 	if (!navigator.serviceWorker) return
 	warmRequested = true
 	void navigator.serviceWorker.ready
-		.then((registration) => {
-			const post = () =>
-				registration.active?.postMessage({ type: 'qm-warm-assets' })
+		.then(() => {
+			const post = () => postToServiceWorker({ type: 'qm-warm-assets' })
 			if ('requestIdleCallback' in window) window.requestIdleCallback(post)
 			else setTimeout(post, 2000)
 		})

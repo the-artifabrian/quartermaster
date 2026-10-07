@@ -692,6 +692,30 @@ describe('warming the current build into the static cache', () => {
 		await vi.waitFor(() => expect(worker.fetchCalls.length).toBeGreaterThan(0))
 	})
 
+	test('a warm requested while another runs fetches each asset once', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		let release = () => {}
+		const gate = new Promise<void>((resolve) => {
+			release = resolve
+		})
+		worker.setFetch(async ({ url }) => {
+			await gate
+			return new Response(`asset:${url}`)
+		})
+
+		const first = worker.dispatchMessage({ type: 'qm-warm-assets' })
+		await vi.waitFor(() => expect(worker.fetchCalls.length).toBeGreaterThan(0))
+		const second = worker.dispatchMessage({ type: 'qm-warm-assets' })
+		release()
+		await Promise.all([first, second])
+
+		expect(worker.fetchCalls.map(({ url }) => url).sort()).toEqual([
+			`${ORIGIN}/assets/plan-c3.js`,
+			`${ORIGIN}/assets/root-a1.js`,
+			`${ORIGIN}/assets/shopping-b2.js`,
+		])
+	})
+
 	test('a cache write failure during warm is swallowed', async () => {
 		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
 		worker.setFetch(async ({ url }) => new Response(`asset:${url}`))

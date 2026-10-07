@@ -225,3 +225,52 @@ test('other worker messages get no session reply', async () => {
 
 	expect(worker.requestSession('qm-something-else')).not.toHaveBeenCalled()
 })
+
+test('each page load asks the active worker, not a waiting one, to warm its chunks once', async () => {
+	using _cache = freshCache()
+	const original = Object.getOwnPropertyDescriptor(navigator, 'serviceWorker')
+	const active = { postMessage: vi.fn() }
+	const waiting = { postMessage: vi.fn() }
+	Object.defineProperty(navigator, 'serviceWorker', {
+		configurable: true,
+		value: Object.assign(new EventTarget(), {
+			controller: null,
+			ready: Promise.resolve({ active, waiting }),
+		}),
+	})
+	vi.stubGlobal('requestIdleCallback', (callback: () => void) => callback())
+	using _restore = {
+		[Symbol.dispose]() {
+			vi.unstubAllGlobals()
+			if (original) Object.defineProperty(navigator, 'serviceWorker', original)
+			else Reflect.deleteProperty(navigator, 'serviceWorker')
+		},
+	}
+	// A fresh module is a fresh page load.
+	vi.resetModules()
+	const { ServiceWorkerDataSync: FreshSync } =
+		await import('./service-worker-data-sync.tsx')
+	const Stub = createRoutesStub([
+		{
+			path: '/plan',
+			Component: () => (
+				<>
+					<FreshSync userId="alex" householdId="home" />
+					<FreshSync userId="alex" householdId="home" />
+				</>
+			),
+		},
+	])
+	const { unmount } = render(<Stub initialEntries={['/plan']} />)
+	const warms = () =>
+		active.postMessage.mock.calls.filter(
+			([message]) => message?.type === 'qm-warm-assets',
+		)
+	await waitFor(() => expect(warms()).toHaveLength(1))
+	unmount()
+	render(<Stub initialEntries={['/plan']} />)
+	await new Promise((resolve) => setTimeout(resolve, 50))
+
+	expect(warms()).toHaveLength(1)
+	expect(waiting.postMessage).not.toHaveBeenCalled()
+})

@@ -197,12 +197,20 @@ Checks by hand (#328, 2.2), on the Simulator and then a device:
    open.
 6. Then retire the "Send to Quartermaster" Shortcut (#326, 0.6).
 
-## TestFlight and App Store builds
+## TestFlight builds
+
+The app is distributed through TestFlight internal testing; there is no App
+Store listing. TestFlight builds expire 90 days after upload, so a fresh upload
+from master about every two months keeps the app installable:
+
+```sh
+sh ios/upload-testflight.sh
+```
 
 Every build that reaches a phone goes through TestFlight. The archive and the
 upload run from the command line, signed automatically with the team's Apple
 Distribution certificate, and use the Apple ID signed in to Xcode (Xcode >
-Settings > Accounts).
+Settings > Accounts). The script runs these two commands:
 
 ```sh
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
@@ -218,9 +226,11 @@ xcodebuild -exportArchive -archivePath /tmp/Quartermaster.xcarchive \
 `ios/ExportOptions.plist` uploads straight to App Store Connect and lets it pick
 the build number (`manageAppVersionAndBuildNumber`), so the project's
 `CURRENT_PROJECT_VERSION` can stay at 1. The App Store Connect app record for
-`app.useqm.ios` must exist first; the export fails with "App record … not found"
-otherwise. Both Info.plists set `ITSAppUsesNonExemptEncryption` to false (HTTPS
-only), so no export-compliance question per build.
+`app.useqm.ios` exists; the export fails with "App record … not found" if it is
+ever removed. Testers are the team's App Store Connect users (internal testing),
+which needs no Beta App Review. Both Info.plists set
+`ITSAppUsesNonExemptEncryption` to false (HTTPS only), so no export-compliance
+question per build.
 
 ## App icon
 

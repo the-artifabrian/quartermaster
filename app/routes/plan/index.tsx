@@ -1,6 +1,7 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Link, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
+import { OfflineErrorBoundary } from '#app/components/offline-error-boundary.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -151,6 +152,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export const action = createPlanAction(prisma)
+
+export const ErrorBoundary = OfflineErrorBoundary
 
 // Shows the last data for this URL at once on a navigation and revalidates
 // behind it; see loader-cache.ts.

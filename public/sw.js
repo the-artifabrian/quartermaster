@@ -10,8 +10,10 @@ const ACTIVE_STATIC_CACHE_KEY = '/__qm-active-static-cache__'
 
 // The build replaces this sentinel with every file in build/client/assets.
 // Embedding the list also changes sw.js whenever the hashed asset set changes,
-// which makes the browser install a new worker. Assets are cached on demand in
-// that build's isolated cache after activation.
+// which makes the browser install a new worker. After activation the worker
+// warms every JavaScript file on the list into that build's isolated cache (see
+// warmCurrentAssets), so a tab whose route module was never loaded still opens
+// offline. Assets a page requests first are cached on demand as before.
 const CURRENT_ASSET_PATHS = new Set(['__QM_CLIENT_ASSET_PATHS__'])
 // Keep the offline root bridge coupled to the PWA manifest instead of copying
 // its start_url by hand. The build replaces this sentinel too.
@@ -19,18 +21,31 @@ const START_URL = '__QM_START_URL__'
 
 const MAX_IMAGES = 100
 const MAX_DATA = 64
+const WARM_CONCURRENCY = 6
+const SESSION_REQUEST_TIMEOUT_MS = 500
 
 // Per-session (user+household) cache for authenticated `.data` (RR7 single-fetch).
 // The SW can't read the httpOnly session cookie, so the client posts an opaque
 // `<userId>-<householdId>` token after hydration. Until that token is known,
-// `.data` is network-only — never served or written from cache — so one
+// `.data` goes to the network and is never written to a cache, so one
 // household's data can never be served to another on a shared device.
+// The token lives only in memory. The browser can stop an idle worker while its
+// page stays open (#315); the fresh worker knows no session. When such a
+// worker's network request fails, and no page has spoken to it yet, it asks the
+// page that sent the request for its token (askPageForSession) and, given one,
+// adopts it exactly as the qm-data-session message does: it serves only that
+// page's cache and reaps every other. A page that answers null, or not within
+// SESSION_REQUEST_TIMEOUT_MS, gets the 503 as before. Online, nothing is asked.
 // The build-derived generation prevents an older payload shape from hydrating a
 // newer client without relying on a manually bumped cache version.
 const DATA_CACHE_ROOT = 'qm-data-'
 const DATA_CACHE_PREFIX = `${DATA_CACHE_ROOT}${CACHE_VERSION}-`
 let dataCacheName = null
 let dataCacheEpoch = 0
+// False until a page has told this worker its session (or that it has none).
+// Only a worker that has never heard from a page asks one: after a logout, a
+// stale tab must not hand back the token that was just purged.
+let sessionStateKnown = false
 
 // ── Activate ────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
@@ -70,6 +85,11 @@ self.addEventListener('activate', (event) => {
 					.map((k) => caches.delete(k)),
 			])
 			await setActiveStaticCache(STATIC_CACHE)
+			// Fetch events wait for activation to settle, so warming here would hold
+			// every request behind a couple of megabytes of downloads. Start it after
+			// and do not wait. A worker stopped mid-warm resumes when the next page
+			// load posts qm-warm-assets.
+			void warmCurrentAssets()
 		})(),
 	)
 })
@@ -81,23 +101,21 @@ self.addEventListener('activate', (event) => {
 //  - qm-data-purge: logout — forget the namespace and reap all `.data` caches.
 //  - qm-data-invalidate: after a mutation — drop this session's `.data` cache so
 //    the next navigation refetches fresh.
+//  - qm-warm-assets: once per page load — finish warming this build's chunks.
 self.addEventListener('message', (event) => {
 	const msg = event.data
 	if (!msg || typeof msg !== 'object') return
 
 	if (msg.type === 'qm-activate-update') {
 		event.waitUntil(self.skipWaiting())
-	} else if (
-		msg.type === 'qm-data-session' &&
-		typeof msg.token === 'string' &&
-		msg.token
-	) {
-		const next = DATA_CACHE_PREFIX + msg.token
-		if (next === dataCacheName) return
-		dataCacheName = next
-		dataCacheEpoch++
-		event.waitUntil(reapDataCaches(next))
+	} else if (msg.type === 'qm-warm-assets') {
+		event.waitUntil(warmCurrentAssets())
+	} else if (msg.type === 'qm-data-session' && isSessionToken(msg.token)) {
+		sessionStateKnown = true
+		const reaping = adoptDataSession(msg.token)
+		if (reaping) event.waitUntil(reaping)
 	} else if (msg.type === 'qm-data-purge') {
+		sessionStateKnown = true
 		dataCacheName = null
 		dataCacheEpoch++
 		event.waitUntil(reapDataCaches(null))
@@ -115,7 +133,6 @@ self.addEventListener('fetch', (event) => {
 	if (request.method !== 'GET') return
 
 	const url = new URL(request.url)
-
 
 	// Skip non-same-origin
 	if (url.origin !== self.location.origin) return
@@ -199,14 +216,15 @@ self.addEventListener('fetch', (event) => {
 	// only in the current session/Household namespace. A cache entry can answer a
 	// transport failure, but an origin response — including auth redirects and
 	// 4xx/5xx errors — always reaches React Router unchanged. Until the client has
-	// supplied a namespace, `.data` remains network-only.
+	// supplied a namespace, `.data` is network-only, except that a transport
+	// failure asks the requesting page for its namespace (see unknownSessionData).
 	// Each entry is keyed by its URL (including any ?_routes), so a cached
 	// payload always matches the shape React Router asked for. For Plan the key
 	// leaves out its view-only params and sorts the rest of the search (see
 	// dataCacheKey); its loader never reads them.
 	if (isEligibleRouteData(url)) {
 		if (!dataCacheName) {
-			event.respondWith(networkOnlyData(request))
+			event.respondWith(unknownSessionData(event, request))
 			return
 		}
 		event.respondWith(
@@ -304,6 +322,48 @@ async function staticAsset(event, request, url) {
 	}
 
 	return (await matchPreviousStaticAsset(request)) ?? fetch(request)
+}
+
+/**
+ * Put every JavaScript file of the current build in its static cache, so any
+ * route module can load offline. Fonts and CSS arrive with the document. A file
+ * already cached is skipped, one N-1 holds is promoted, and the rest are
+ * fetched a few at a time. Failures are left for the on-demand path. Activation
+ * and a page's qm-warm-assets can ask at once; they share one run.
+ */
+let warming = null
+function warmCurrentAssets() {
+	warming ??= fillStaticCache().finally(() => {
+		warming = null
+	})
+	return warming
+}
+
+async function fillStaticCache() {
+	try {
+		const cache = await caches.open(STATIC_CACHE)
+		const queue = [...CURRENT_ASSET_PATHS].filter((path) =>
+			path.endsWith('.js'),
+		)
+		const warmNext = async () => {
+			while (queue.length) {
+				const path = queue.shift()
+				try {
+					if (await cache.match(path)) continue
+					const response =
+						(await matchPreviousStaticAsset(path)) ?? (await fetch(path))
+					if (response.ok) await putAndTrim(cache, path, response, STATIC_CACHE)
+				} catch {
+					// Offline or evicted; the on-demand path tries again.
+				}
+			}
+		}
+		await Promise.allSettled(
+			Array.from({ length: WARM_CONCURRENCY }, () => warmNext()),
+		)
+	} catch {
+		// Cache Storage is best-effort.
+	}
 }
 
 async function matchPreviousStaticAsset(request) {
@@ -421,15 +481,70 @@ async function cacheManifest(request, response) {
 }
 
 /**
- * Network-only for `.data` when the per-session cache namespace isn't known yet
- * (pre-hydration or logged out): never read or write a cache, so one household's
- * data can never be served to another. 503 on failure → RR ErrorBoundary.
+ * `.data` while the per-session cache namespace isn't known (pre-hydration,
+ * logged out, or a restarted worker): the network, never written to a cache.
+ * On a transport failure in a worker no page has spoken to yet, ask the
+ * requesting page for its session and, given one, answer from that session's
+ * cache. Otherwise 503 → the Route's ErrorBoundary.
  */
-async function networkOnlyData(request) {
+async function unknownSessionData(event, request) {
 	try {
 		return await fetch(request)
 	} catch {
-		return new Response('Offline', { status: 503 })
+		// Asked below.
+	}
+	if (sessionStateKnown) return new Response('Offline', { status: 503 })
+	const epoch = dataCacheEpoch
+	const token = await askPageForSession(event)
+	if (token && epoch === dataCacheEpoch) {
+		const reaping = adoptDataSession(token)
+		if (reaping) event.waitUntil(reaping)
+	}
+	// A logout or another session that arrived during the wait wins.
+	if (token && dataCacheName === DATA_CACHE_PREFIX + token) {
+		return cachedData(request, dataCacheName, dataCacheEpoch)
+	}
+	return new Response('Offline', { status: 503 })
+}
+
+function isSessionToken(token) {
+	return typeof token === 'string' && token !== ''
+}
+
+/** Use the `<userId>-<householdId>` namespace; returns the reap, if any. */
+function adoptDataSession(token) {
+	const next = DATA_CACHE_PREFIX + token
+	if (next === dataCacheName) return null
+	dataCacheName = next
+	dataCacheEpoch++
+	return reapDataCaches(next)
+}
+
+/**
+ * Ask the page behind a fetch for its session token over a MessageChannel.
+ * Resolves null when there is no such page, it is signed out, or it does not
+ * answer in time. The token is kept in memory only, as from qm-data-session.
+ */
+async function askPageForSession(event) {
+	let channel = null
+	try {
+		const client = event.clientId && (await self.clients.get(event.clientId))
+		if (!client) return null
+		channel = new MessageChannel()
+		const port = channel.port1
+		return await new Promise((resolve) => {
+			const timer = setTimeout(() => resolve(null), SESSION_REQUEST_TIMEOUT_MS)
+			port.onmessage = (message) => {
+				clearTimeout(timer)
+				const token = message.data?.token
+				resolve(isSessionToken(token) ? token : null)
+			}
+			client.postMessage({ type: 'qm-data-session-request' }, [channel.port2])
+		})
+	} catch {
+		return null
+	} finally {
+		channel?.port1.close()
 	}
 }
 
@@ -484,27 +599,33 @@ async function networkFirstData(
 		}
 		return response
 	} catch {
-		// A session switch, logout, or mutation can happen while fetch is pending.
-		// Never answer from (or recreate) the namespace that was current at dispatch.
-		if (cacheName !== dataCacheName || cacheEpoch !== dataCacheEpoch) {
-			return new Response('Offline', { status: 503 })
-		}
-		try {
-			const cache = await caches.open(cacheName)
-			const cached = await cache.match(dataCacheKey(request))
-			if (
-				cached &&
-				cacheName === dataCacheName &&
-				cacheEpoch === dataCacheEpoch
-			) {
-				return cached
-			}
-		} catch {
-			// Cache Storage is best-effort; its failure is an ordinary offline miss.
-		}
+		return cachedData(request, cacheName, cacheEpoch)
+	}
+}
 
+/**
+ * This session's cached Route data, or the offline 503. A session switch,
+ * logout, or mutation can happen while a fetch is pending: never answer from
+ * the namespace that was current at dispatch unless it still is.
+ */
+async function cachedData(request, cacheName, cacheEpoch) {
+	if (cacheName !== dataCacheName || cacheEpoch !== dataCacheEpoch) {
 		return new Response('Offline', { status: 503 })
 	}
+	try {
+		const cache = await caches.open(cacheName)
+		const cached = await cache.match(dataCacheKey(request))
+		if (
+			cached &&
+			cacheName === dataCacheName &&
+			cacheEpoch === dataCacheEpoch
+		) {
+			return cached
+		}
+	} catch {
+		// Cache Storage is best-effort; its failure is an ordinary offline miss.
+	}
+	return new Response('Offline', { status: 503 })
 }
 
 /** Cache data only while the dispatching session/epoch is still current. */

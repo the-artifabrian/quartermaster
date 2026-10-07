@@ -23,6 +23,27 @@ function postToServiceWorker(message: Record<string, unknown>) {
 		.catch(() => {})
 }
 
+let warmRequested = false
+
+/**
+ * Asks the active worker, once per page load and when the page is idle, to
+ * finish putting this build's chunks in its cache. The worker starts that
+ * itself after activation; this resumes a fill the browser cut short by
+ * stopping the worker.
+ */
+function requestAssetWarm() {
+	if (warmRequested || typeof navigator === 'undefined') return
+	if (!navigator.serviceWorker) return
+	warmRequested = true
+	void navigator.serviceWorker.ready
+		.then(() => {
+			const post = () => postToServiceWorker({ type: 'qm-warm-assets' })
+			if ('requestIdleCallback' in window) window.requestIdleCallback(post)
+			else setTimeout(post, 2000)
+		})
+		.catch(() => {})
+}
+
 /** Native fetch mutations use the same invalidation as Router submissions. */
 export function invalidateServiceWorkerData() {
 	loaderCache.clear()
@@ -67,6 +88,8 @@ export function ServiceWorkerDataSync({
 	const tokenRef = useRef(token)
 	tokenRef.current = token
 
+	useEffect(requestAssetWarm, [])
+
 	// A different user or Household (or none) drops the loader cache. The
 	// committed location tells the cache which loads are navigations. Layout
 	// effects, so both are known before the first page's effects remember its
@@ -100,6 +123,19 @@ export function ServiceWorkerDataSync({
 			navigator.serviceWorker?.removeEventListener('controllerchange', sync)
 		}
 	}, [token])
+
+	// A worker the browser restarted while this page stayed open knows no
+	// session. Offline, it asks the page that sent a `.data` request before
+	// giving up, and replies here on the port it sent.
+	useEffect(() => {
+		const onMessage = (event: MessageEvent) => {
+			if (event.data?.type !== 'qm-data-session-request') return
+			event.ports[0]?.postMessage({ token: tokenRef.current })
+		}
+		navigator.serviceWorker?.addEventListener('message', onMessage)
+		return () =>
+			navigator.serviceWorker?.removeEventListener('message', onMessage)
+	}, [])
 
 	// After the user's own mutations, drop the cached `.data` so a later
 	// navigation never shows stale-after-write. Coarse (the whole session

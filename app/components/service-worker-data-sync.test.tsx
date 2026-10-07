@@ -5,7 +5,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { useState } from 'react'
 import { createRoutesStub, useFetcher } from 'react-router'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { loaderCache } from '#app/utils/loader-cache.ts'
 import { ServiceWorkerDataSync } from './service-worker-data-sync.tsx'
 
@@ -153,4 +153,124 @@ test('the committed router location is what the cache compares against', async (
 	await expect(
 		loaderCache.load({ request: shoppingRequest, serverLoader: fail }),
 	).rejects.toThrow('asked the server')
+})
+
+/** A service worker container the component can listen on, for one test. */
+function fakeServiceWorkers() {
+	const original = Object.getOwnPropertyDescriptor(navigator, 'serviceWorker')
+	const container = Object.assign(new EventTarget(), {
+		controller: { postMessage: vi.fn() },
+		ready: new Promise<never>(() => {}),
+	})
+	Object.defineProperty(navigator, 'serviceWorker', {
+		configurable: true,
+		value: container,
+	})
+	/** Sends the worker's session request; resolves with what the page replied. */
+	function requestSession(type = 'qm-data-session-request') {
+		const port = { postMessage: vi.fn() }
+		container.dispatchEvent(
+			Object.assign(new Event('message'), { data: { type }, ports: [port] }),
+		)
+		return port.postMessage
+	}
+	return {
+		requestSession,
+		[Symbol.dispose]() {
+			if (original) Object.defineProperty(navigator, 'serviceWorker', original)
+			else Reflect.deleteProperty(navigator, 'serviceWorker')
+		},
+	}
+}
+
+test("a restarted worker's session request gets the current session, or null signed out", async () => {
+	using _cache = freshCache()
+	using worker = fakeServiceWorkers()
+	function Page() {
+		const [userId, setUserId] = useState<string | null>('alex')
+		return (
+			<>
+				<ServiceWorkerDataSync userId={userId} householdId="home" />
+				<button onClick={() => setUserId('sam')}>Switch to Sam</button>
+				<button onClick={() => setUserId(null)}>Log out</button>
+			</>
+		)
+	}
+	const Stub = createRoutesStub([{ path: '/plan', Component: Page }])
+	render(<Stub initialEntries={['/plan']} />)
+	await screen.findByRole('button', { name: 'Log out' })
+
+	expect(worker.requestSession()).toHaveBeenCalledWith({ token: 'alex-home' })
+
+	await userEvent.click(screen.getByRole('button', { name: 'Switch to Sam' }))
+	expect(worker.requestSession()).toHaveBeenCalledWith({ token: 'sam-home' })
+
+	await userEvent.click(screen.getByRole('button', { name: 'Log out' }))
+	expect(worker.requestSession()).toHaveBeenCalledWith({ token: null })
+})
+
+test('other worker messages get no session reply', async () => {
+	using _cache = freshCache()
+	using worker = fakeServiceWorkers()
+	const Stub = createRoutesStub([
+		{
+			path: '/plan',
+			Component: () => (
+				<ServiceWorkerDataSync userId="alex" householdId="home" />
+			),
+		},
+	])
+	render(<Stub initialEntries={['/plan']} />)
+	await waitFor(() => expect(worker.requestSession()).toHaveBeenCalledTimes(1))
+
+	expect(worker.requestSession('qm-something-else')).not.toHaveBeenCalled()
+})
+
+test('each page load asks the active worker, not a waiting one, to warm its chunks once', async () => {
+	using _cache = freshCache()
+	const original = Object.getOwnPropertyDescriptor(navigator, 'serviceWorker')
+	const active = { postMessage: vi.fn() }
+	const waiting = { postMessage: vi.fn() }
+	Object.defineProperty(navigator, 'serviceWorker', {
+		configurable: true,
+		value: Object.assign(new EventTarget(), {
+			controller: null,
+			ready: Promise.resolve({ active, waiting }),
+		}),
+	})
+	vi.stubGlobal('requestIdleCallback', (callback: () => void) => callback())
+	using _restore = {
+		[Symbol.dispose]() {
+			vi.unstubAllGlobals()
+			if (original) Object.defineProperty(navigator, 'serviceWorker', original)
+			else Reflect.deleteProperty(navigator, 'serviceWorker')
+		},
+	}
+	// A fresh module is a fresh page load.
+	vi.resetModules()
+	const { ServiceWorkerDataSync: FreshSync } =
+		await import('./service-worker-data-sync.tsx')
+	const Stub = createRoutesStub([
+		{
+			path: '/plan',
+			Component: () => (
+				<>
+					<FreshSync userId="alex" householdId="home" />
+					<FreshSync userId="alex" householdId="home" />
+				</>
+			),
+		},
+	])
+	const { unmount } = render(<Stub initialEntries={['/plan']} />)
+	const warms = () =>
+		active.postMessage.mock.calls.filter(
+			([message]) => message?.type === 'qm-warm-assets',
+		)
+	await waitFor(() => expect(warms()).toHaveLength(1))
+	unmount()
+	render(<Stub initialEntries={['/plan']} />)
+	await new Promise((resolve) => setTimeout(resolve, 50))
+
+	expect(warms()).toHaveLength(1)
+	expect(waiting.postMessage).not.toHaveBeenCalled()
 })

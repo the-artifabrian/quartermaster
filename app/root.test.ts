@@ -3,6 +3,7 @@
  */
 import { afterEach, expect, test } from 'vitest'
 import { shouldRevalidate } from './root.tsx'
+import { retryTabOnly } from './utils/tab-retry.ts'
 import { TOAST_PENDING_COOKIE } from './utils/toast-pending.ts'
 
 const BASE_URL = 'https://quartermaster.app'
@@ -200,4 +201,89 @@ test('leaving a filtered list re-runs the root loader', () => {
 			navigation({ from: '/recipes?cuisine=thai', to: '/recipes/abc123' }),
 		),
 	).toBe(true)
+})
+
+/** Sets navigator.onLine for one test. */
+function offline() {
+	Object.defineProperty(window.navigator, 'onLine', {
+		configurable: true,
+		get: () => false,
+	})
+	return {
+		[Symbol.dispose]: () =>
+			Object.defineProperty(window.navigator, 'onLine', {
+				configurable: true,
+				get: () => true,
+			}),
+	}
+}
+
+test('offline, a forced revalidation skips root, whose data has no offline copy', () => {
+	using _offline = offline()
+	expect(
+		shouldRevalidate(
+			navigation({ from: '/shopping', to: '/shopping', forced: true }),
+		),
+	).toBe(false)
+})
+
+test('offline, a pending toast waits for the network instead of failing root', () => {
+	using _offline = offline()
+	setPendingToastMarker()
+	expect(
+		shouldRevalidate(
+			navigation({ from: '/recipes', to: '/upgrade', forced: true }),
+		),
+	).toBe(false)
+})
+
+test("the offline notice's retry reloads the tab, not root, and only while it runs", async () => {
+	const retry = navigation({ from: '/shopping', to: '/shopping', forced: true })
+	let duringRetry: boolean | undefined
+	await retryTabOnly(async () => {
+		duringRetry = shouldRevalidate(retry)
+	})
+
+	expect(duringRetry).toBe(false)
+	expect(shouldRevalidate(retry)).toBe(true)
+})
+
+test('a failed tab retry still lets root revalidate afterwards', async () => {
+	const retry = navigation({ from: '/shopping', to: '/shopping', forced: true })
+	await expect(
+		retryTabOnly(async () => {
+			throw new Error('network')
+		}),
+	).rejects.toThrow('network')
+
+	expect(shouldRevalidate(retry)).toBe(true)
+})
+
+test('a tab tap during a tab retry follows the router defaults for root', async () => {
+	let duringRetry: boolean | undefined
+	await retryTabOnly(async () => {
+		duringRetry = shouldRevalidate(
+			// Single fetch's page-to-page default (see the test above).
+			navigation({ from: '/shopping', to: '/plan', forced: true }),
+		)
+	})
+
+	expect(duringRetry).toBe(true)
+})
+
+test('overlapping tab retries skip root until the last one ends', async () => {
+	const retry = navigation({ from: '/shopping', to: '/shopping', forced: true })
+	let finishFirst = () => {}
+	const first = retryTabOnly(
+		() =>
+			new Promise<void>((resolve) => {
+				finishFirst = resolve
+			}),
+	)
+	await retryTabOnly(async () => {})
+
+	expect(shouldRevalidate(retry)).toBe(false)
+	finishFirst()
+	await first
+	expect(shouldRevalidate(retry)).toBe(true)
 })

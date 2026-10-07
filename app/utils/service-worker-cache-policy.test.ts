@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { PLAN_VIEW_ONLY_PARAMS } from './plan-day-param.ts'
 
 const ORIGIN = 'https://quartermaster.test'
@@ -90,6 +90,13 @@ function fetchRequest(request: RequestLike): FetchRequest {
 	}
 }
 
+type PagePost = (message: unknown, port: MessagePort) => void
+
+/** A page that replies to the worker's session request with `token`. */
+function answers(token: unknown): PagePost {
+	return (_message, port) => port.postMessage({ token })
+}
+
 function routeDataResponse(body: string, status = 200) {
 	return new Response(body, {
 		status,
@@ -122,6 +129,9 @@ function loadServiceWorker({
 		.replace("'__QM_CACHE_VERSION__'", JSON.stringify(cacheVersion))
 
 	const listeners: Record<string, (event: any) => void> = {}
+	// The page the worker can ask for its session; none by default.
+	let pageClient: { id: string; postMessage: PagePost } | null = null
+	const sessionRequests: unknown[] = []
 	let claimed = false
 	let skipWaitingCalls = 0
 	let navigationPreloadEnabled = false
@@ -152,6 +162,15 @@ function loadServiceWorker({
 				claim: async () => {
 					claimed = true
 				},
+				get: async (id: string) =>
+					pageClient && pageClient.id === id
+						? {
+								postMessage: (message: unknown, transfer: MessagePort[]) => {
+									sessionRequests.push(message)
+									pageClient?.postMessage(message, transfer[0]!)
+								},
+							}
+						: undefined,
 			},
 			skipWaiting: async () => {
 				skipWaitingCalls++
@@ -165,6 +184,10 @@ function loadServiceWorker({
 		Request,
 		URL,
 		Set,
+		MessageChannel,
+		// Forwarded, so vi.useFakeTimers controls the worker's timers too.
+		setTimeout: (...args: Parameters<typeof setTimeout>) => setTimeout(...args),
+		clearTimeout: (id: ReturnType<typeof setTimeout>) => clearTimeout(id),
 		caches: storage,
 		fetch: runFetch,
 	}
@@ -176,7 +199,12 @@ function loadServiceWorker({
 		{
 			mode = 'cors',
 			preloadResponse,
-		}: { mode?: string; preloadResponse?: Promise<Response | undefined> } = {},
+			clientId = '',
+		}: {
+			mode?: string
+			preloadResponse?: Promise<Response | undefined>
+			clientId?: string
+		} = {},
 	) {
 		let responsePromise: Promise<Response> | undefined
 		const lifetimes: Promise<unknown>[] = []
@@ -187,6 +215,7 @@ function loadServiceWorker({
 				url: new URL(pathname, ORIGIN).href,
 			},
 			preloadResponse,
+			clientId,
 			respondWith: (response: Response | Promise<Response>) => {
 				responsePromise = Promise.resolve(response)
 			},
@@ -235,6 +264,11 @@ function loadServiceWorker({
 		) => {
 			fetchImplementation = implementation
 		},
+		/** The page that answers the worker's session requests, or none. */
+		setPageClient: (id: string, postMessage: PagePost) => {
+			pageClient = { id, postMessage }
+		},
+		sessionRequests,
 		wasClaimed: () => claimed,
 		skipWaitingCalls: () => skipWaitingCalls,
 		wasNavigationPreloadEnabled: () => navigationPreloadEnabled,
@@ -545,6 +579,151 @@ describe('service-worker lifecycle and public resources', () => {
 	})
 })
 
+describe('warming the current build into the static cache', () => {
+	const ASSETS = [
+		'/assets/root-a1.js',
+		'/assets/shopping-b2.js',
+		'/assets/plan-c3.js',
+		'/assets/app-d4.css',
+	]
+
+	test('after warm, every current .js asset is served from cache offline', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		await worker.dispatchActivate()
+		worker.setFetch(async ({ url }) => new Response(`asset:${url}`))
+
+		await worker.dispatchMessage({ type: 'qm-warm-assets' })
+		worker.setFetch(async () => {
+			throw new TypeError('Failed to fetch')
+		})
+
+		for (const path of ASSETS.filter((asset) => asset.endsWith('.js'))) {
+			const response = await worker.dispatchFetch(path)
+			expect(await response?.text()).toBe(`asset:${ORIGIN}${path}`)
+		}
+	})
+
+	test('warm skips assets that are not JavaScript', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		worker.setFetch(async ({ url }) => new Response(`asset:${url}`))
+
+		await worker.dispatchMessage({ type: 'qm-warm-assets' })
+
+		expect(worker.fetchCalls.map(({ url }) => url)).not.toContain(
+			`${ORIGIN}/assets/app-d4.css`,
+		)
+	})
+
+	test('assets the previous generation holds are promoted without a fetch', async () => {
+		const storage = new MemoryCacheStorage()
+		await storage.seed(
+			'qm-static-previous-build',
+			'/assets/root-a1.js',
+			new Response('N-1 ROOT'),
+		)
+		await (
+			await storage.open('qm-cache-state-v1')
+		).put(
+			'/__qm-active-static-cache__',
+			new Response('qm-static-previous-build'),
+		)
+		const worker = loadServiceWorker({
+			storage,
+			cacheVersion: 'current-build',
+			currentAssetPaths: ASSETS,
+		})
+		worker.setFetch(async ({ url }) => new Response(`asset:${url}`))
+
+		await worker.dispatchMessage({ type: 'qm-warm-assets' })
+
+		expect(worker.fetchCalls.map(({ url }) => url)).not.toContain(
+			`${ORIGIN}/assets/root-a1.js`,
+		)
+		const promoted = await (
+			await storage.open('qm-static-current-build')
+		).match('/assets/root-a1.js')
+		expect(await promoted?.text()).toBe('N-1 ROOT')
+	})
+
+	test('a failing asset does not stop the others', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		worker.setFetch(async ({ url }) => {
+			if (url.endsWith('/root-a1.js')) throw new TypeError('Failed to fetch')
+			if (url.endsWith('/plan-c3.js')) {
+				return new Response('Not found', { status: 404 })
+			}
+			return new Response(`asset:${url}`)
+		})
+
+		await worker.dispatchMessage({ type: 'qm-warm-assets' })
+
+		const cache = await worker.storage.open('qm-static-test-build')
+		expect(await cache.match('/assets/shopping-b2.js')).toBeDefined()
+		expect(await cache.match('/assets/root-a1.js')).toBeUndefined()
+		expect(await cache.match('/assets/plan-c3.js')).toBeUndefined()
+	})
+
+	test('a second warm fetches nothing', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		worker.setFetch(async ({ url }) => new Response(`asset:${url}`))
+		await worker.dispatchMessage({ type: 'qm-warm-assets' })
+		const firstRun = worker.fetchCalls.length
+
+		await worker.dispatchMessage({ type: 'qm-warm-assets' })
+
+		expect(firstRun).toBe(3)
+		expect(worker.fetchCalls).toHaveLength(firstRun)
+	})
+
+	test('activation settles without waiting for the warm, which starts after it', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		worker.setFetch(() => new Promise<Response>(() => {}))
+
+		await worker.dispatchActivate()
+
+		expect(
+			await (
+				await worker.storage.open('qm-cache-state-v1')
+			).match('/__qm-active-static-cache__'),
+		).toBeDefined()
+		await vi.waitFor(() => expect(worker.fetchCalls.length).toBeGreaterThan(0))
+	})
+
+	test('a warm requested while another runs fetches each asset once', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		let release = () => {}
+		const gate = new Promise<void>((resolve) => {
+			release = resolve
+		})
+		worker.setFetch(async ({ url }) => {
+			await gate
+			return new Response(`asset:${url}`)
+		})
+
+		const first = worker.dispatchMessage({ type: 'qm-warm-assets' })
+		await vi.waitFor(() => expect(worker.fetchCalls.length).toBeGreaterThan(0))
+		const second = worker.dispatchMessage({ type: 'qm-warm-assets' })
+		release()
+		await Promise.all([first, second])
+
+		expect(worker.fetchCalls.map(({ url }) => url).sort()).toEqual([
+			`${ORIGIN}/assets/plan-c3.js`,
+			`${ORIGIN}/assets/root-a1.js`,
+			`${ORIGIN}/assets/shopping-b2.js`,
+		])
+	})
+
+	test('a cache write failure during warm is swallowed', async () => {
+		const worker = loadServiceWorker({ currentAssetPaths: ASSETS })
+		worker.setFetch(async ({ url }) => new Response(`asset:${url}`))
+		worker.storage.rejectWrites = true
+
+		await expect(
+			worker.dispatchMessage({ type: 'qm-warm-assets' }),
+		).resolves.toBeUndefined()
+	})
+})
+
 describe('document navigation policy', () => {
 	test.each([
 		'/plan',
@@ -706,7 +885,7 @@ describe('session-scoped Route data', () => {
 		},
 	)
 
-	test('an unknown session is network-only and cannot use an existing cache', async () => {
+	test('with no page to ask, an unknown session is network-only and cannot use an existing cache', async () => {
 		const worker = loadServiceWorker({ cacheVersion: 'restart' })
 		await worker.storage.seed(
 			'qm-data-restart-user-a-household-a',
@@ -958,7 +1137,7 @@ describe('session-scoped Route data', () => {
 		expect(await response?.text()).toBe('Offline')
 	})
 
-	test('session changes, logout, and worker restart cannot cross namespaces', async () => {
+	test('session changes, logout, and a restarted worker with no page to ask cannot cross namespaces', async () => {
 		const storage = new MemoryCacheStorage()
 		const firstWorker = loadServiceWorker({
 			storage,
@@ -1016,6 +1195,193 @@ describe('session-scoped Route data', () => {
 		await restartedWorker.dispatchMessage({ type: 'qm-data-purge' })
 		expect(
 			(await storage.keys()).filter((name) => name.startsWith('qm-data-')),
+		).toEqual([])
+	})
+})
+
+// #315: the browser can stop an idle worker while its page stays open. The
+// fresh worker has no session, so offline it asks the page that sent the
+// request, and serves only the cache that page names.
+describe('a restarted worker asks the page for its session', () => {
+	const PAGE = 'page-client'
+
+	/** A worker restarted after the user-a session cached /plan.data, offline. */
+	async function restartedOffline() {
+		const storage = new MemoryCacheStorage()
+		await storage.seed(
+			'qm-data-restart-user-a',
+			'/plan.data',
+			routeDataResponse('USER A DATA'),
+		)
+		const worker = loadServiceWorker({ storage, cacheVersion: 'restart' })
+		worker.setFetch(async () => {
+			throw new TypeError('Failed to fetch')
+		})
+		return worker
+	}
+
+	test("offline, the page's own session cache answers", async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-a'))
+
+		const response = await worker.dispatchFetch('/plan.data', {
+			clientId: PAGE,
+		})
+
+		expect(response?.status).toBe(200)
+		expect(await response?.text()).toBe('USER A DATA')
+		expect(worker.sessionRequests).toEqual([
+			{ type: 'qm-data-session-request' },
+		])
+	})
+
+	test('the adopted session answers from its cache without a second fetch', async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-a'))
+
+		await worker.dispatchFetch('/plan.data', { clientId: PAGE })
+
+		expect(worker.fetchCalls).toHaveLength(1)
+	})
+
+	test('after a logout in this worker, a stale page is not asked', async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-a'))
+		await worker.dispatchMessage({ type: 'qm-data-purge' })
+		await worker.storage.seed(
+			'qm-data-restart-user-b',
+			'/plan.data',
+			routeDataResponse('USER B DATA'),
+		)
+
+		const response = await worker.dispatchFetch('/plan.data', {
+			clientId: PAGE,
+		})
+
+		expect(response?.status).toBe(503)
+		expect(worker.sessionRequests).toEqual([])
+		expect(await worker.storage.keys()).toContain('qm-data-restart-user-b')
+	})
+
+	test('the adopted session keeps caching once the network is back', async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-a'))
+		await worker.dispatchFetch('/plan.data', { clientId: PAGE })
+
+		worker.setFetch(async () => routeDataResponse('USER A FRESH'))
+		await worker.dispatchFetch('/inventory.data', { clientId: PAGE })
+
+		expect(worker.storage.puts).toEqual([
+			{ cacheName: 'qm-data-restart-user-a', url: `${ORIGIN}/inventory.data` },
+		])
+		expect(worker.sessionRequests).toHaveLength(1)
+	})
+
+	test('a page with no session gets the offline response', async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers(null))
+
+		const response = await worker.dispatchFetch('/plan.data', {
+			clientId: PAGE,
+		})
+
+		expect(response?.status).toBe(503)
+		expect(await response?.text()).toBe('Offline')
+		expect(await worker.storage.keys()).toContain('qm-data-restart-user-a')
+	})
+
+	test.each([[''], [42], [{ id: 'user-a' }]])(
+		'a malformed answer (%j) gets the offline response',
+		async (token) => {
+			const worker = await restartedOffline()
+			worker.setPageClient(PAGE, answers(token))
+
+			const response = await worker.dispatchFetch('/plan.data', {
+				clientId: PAGE,
+			})
+
+			expect(response?.status).toBe(503)
+		},
+	)
+
+	test('a page that does not answer in time gets the offline response', async () => {
+		vi.useFakeTimers()
+		try {
+			const worker = await restartedOffline()
+			worker.setPageClient(PAGE, () => {})
+
+			const pending = worker.dispatchFetch('/plan.data', { clientId: PAGE })
+			await vi.advanceTimersByTimeAsync(499)
+			let settled = false
+			void pending.then(() => {
+				settled = true
+			})
+			await vi.advanceTimersByTimeAsync(0)
+			expect(settled).toBe(false)
+			await vi.advanceTimersByTimeAsync(1)
+			const response = await pending
+
+			expect(response?.status).toBe(503)
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	test("another session's cache is never served, and is reaped", async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-b'))
+
+		const response = await worker.dispatchFetch('/plan.data', {
+			clientId: PAGE,
+		})
+
+		expect(response?.status).toBe(503)
+		expect(await worker.storage.keys()).not.toContain('qm-data-restart-user-a')
+	})
+
+	test('a request with no page client gets the offline response', async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-a'))
+
+		const response = await worker.dispatchFetch('/plan.data', {
+			clientId: 'some-other-client',
+		})
+
+		expect(response?.status).toBe(503)
+	})
+
+	test('online, the worker does not ask and does not cache', async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-a'))
+		worker.setFetch(async () => routeDataResponse('FRESH'))
+
+		const response = await worker.dispatchFetch('/plan.data', {
+			clientId: PAGE,
+		})
+
+		expect(await response?.text()).toBe('FRESH')
+		expect(worker.sessionRequests).toEqual([])
+		expect(worker.storage.puts).toEqual([])
+	})
+
+	test('a logout while the worker waits wins over the late answer', async () => {
+		const worker = await restartedOffline()
+		let reply = () => {}
+		worker.setPageClient(PAGE, (_message, port) => {
+			reply = () => port.postMessage({ token: 'user-a' })
+		})
+
+		const pending = worker.dispatchFetch('/plan.data', { clientId: PAGE })
+		await vi.waitFor(() => expect(worker.sessionRequests).toHaveLength(1))
+		await worker.dispatchMessage({ type: 'qm-data-purge' })
+		reply()
+		const response = await pending
+
+		expect(response?.status).toBe(503)
+		expect(
+			(await worker.storage.keys()).filter((name) =>
+				name.startsWith('qm-data-'),
+			),
 		).toEqual([])
 	})
 })

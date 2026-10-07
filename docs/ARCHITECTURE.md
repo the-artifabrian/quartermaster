@@ -272,7 +272,15 @@ Why the rules are shaped this way:
   and forward still wait on one root request.
 - The `.data` cache is per user and Household so a shared device never shows one
   Household's data to another; until the client has sent its namespace the
-  worker is network-only.
+  worker is network-only. A worker the browser restarted mid-session asks the
+  requesting page for its namespace when a request fails, and serves only that
+  namespace's cache.
+- Offline, root's `shouldRevalidate` skips the root loader, which has no offline
+  copy and whose failure would replace the whole app; a pending toast waits in
+  its cookie. The refresh behind a remembered page waits for the `online` event.
+  A tab whose data the worker lacks shows an offline notice from its own error
+  boundary, inside the app, so the tab bar stays; it retries by itself once the
+  network is back.
 
 ## AI
 

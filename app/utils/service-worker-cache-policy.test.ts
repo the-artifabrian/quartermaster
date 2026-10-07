@@ -200,12 +200,10 @@ function loadServiceWorker({
 			mode = 'cors',
 			preloadResponse,
 			clientId = '',
-			resultingClientId = '',
 		}: {
 			mode?: string
 			preloadResponse?: Promise<Response | undefined>
 			clientId?: string
-			resultingClientId?: string
 		} = {},
 	) {
 		let responsePromise: Promise<Response> | undefined
@@ -218,7 +216,6 @@ function loadServiceWorker({
 			},
 			preloadResponse,
 			clientId,
-			resultingClientId,
 			respondWith: (response: Response | Promise<Response>) => {
 				responsePromise = Promise.resolve(response)
 			},
@@ -888,7 +885,7 @@ describe('session-scoped Route data', () => {
 		},
 	)
 
-	test('an unknown session is network-only and cannot use an existing cache', async () => {
+	test('with no page to ask, an unknown session is network-only and cannot use an existing cache', async () => {
 		const worker = loadServiceWorker({ cacheVersion: 'restart' })
 		await worker.storage.seed(
 			'qm-data-restart-user-a-household-a',
@@ -1140,7 +1137,7 @@ describe('session-scoped Route data', () => {
 		expect(await response?.text()).toBe('Offline')
 	})
 
-	test('session changes, logout, and worker restart cannot cross namespaces', async () => {
+	test('session changes, logout, and a restarted worker with no page to ask cannot cross namespaces', async () => {
 		const storage = new MemoryCacheStorage()
 		const firstWorker = loadServiceWorker({
 			storage,
@@ -1238,6 +1235,34 @@ describe('a restarted worker asks the page for its session', () => {
 		])
 	})
 
+	test('the adopted session answers from its cache without a second fetch', async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-a'))
+
+		await worker.dispatchFetch('/plan.data', { clientId: PAGE })
+
+		expect(worker.fetchCalls).toHaveLength(1)
+	})
+
+	test('after a logout in this worker, a stale page is not asked', async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-a'))
+		await worker.dispatchMessage({ type: 'qm-data-purge' })
+		await worker.storage.seed(
+			'qm-data-restart-user-b',
+			'/plan.data',
+			routeDataResponse('USER B DATA'),
+		)
+
+		const response = await worker.dispatchFetch('/plan.data', {
+			clientId: PAGE,
+		})
+
+		expect(response?.status).toBe(503)
+		expect(worker.sessionRequests).toEqual([])
+		expect(await worker.storage.keys()).toContain('qm-data-restart-user-b')
+	})
+
 	test('the adopted session keeps caching once the network is back', async () => {
 		const worker = await restartedOffline()
 		worker.setPageClient(PAGE, answers('user-a'))
@@ -1323,17 +1348,6 @@ describe('a restarted worker asks the page for its session', () => {
 		})
 
 		expect(response?.status).toBe(503)
-	})
-
-	test('the resulting client answers when the request has no client id', async () => {
-		const worker = await restartedOffline()
-		worker.setPageClient(PAGE, answers('user-a'))
-
-		const response = await worker.dispatchFetch('/plan.data', {
-			resultingClientId: PAGE,
-		})
-
-		expect(await response?.text()).toBe('USER A DATA')
 	})
 
 	test('online, the worker does not ask and does not cache', async () => {

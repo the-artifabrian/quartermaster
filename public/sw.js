@@ -31,10 +31,10 @@ const SESSION_REQUEST_TIMEOUT_MS = 500
 // household's data can never be served to another on a shared device.
 // The token lives only in memory. The browser can stop an idle worker while its
 // page stays open (#315); the fresh worker knows no session. When such a
-// worker's network request fails, it asks the page that sent the request for
-// its token (askPageForSession) and, given one, adopts it exactly as the
-// qm-data-session message does: it serves only that page's cache and reaps
-// every other. A page that answers null, or not within SESSION_REQUEST_TIMEOUT_MS,
+// worker's network request fails, and no page has spoken to it yet, it asks the
+// page that sent the request for its token (askPageForSession) and, given one,
+// adopts it exactly as the qm-data-session message does: it serves only that
+// page's cache and reaps every other. A page that answers null, or not within SESSION_REQUEST_TIMEOUT_MS,
 // gets the 503 as before. Online, nothing is asked.
 // The build-derived generation prevents an older payload shape from hydrating a
 // newer client without relying on a manually bumped cache version.
@@ -42,6 +42,10 @@ const DATA_CACHE_ROOT = 'qm-data-'
 const DATA_CACHE_PREFIX = `${DATA_CACHE_ROOT}${CACHE_VERSION}-`
 let dataCacheName = null
 let dataCacheEpoch = 0
+// False until a page has told this worker its session (or that it has none).
+// Only a worker that has never heard from a page asks one: after a logout, a
+// stale tab must not hand back the token that was just purged.
+let sessionStateKnown = false
 
 // ── Activate ────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
@@ -107,9 +111,11 @@ self.addEventListener('message', (event) => {
 	} else if (msg.type === 'qm-warm-assets') {
 		event.waitUntil(warmCurrentAssets())
 	} else if (msg.type === 'qm-data-session' && isSessionToken(msg.token)) {
+		sessionStateKnown = true
 		const reaping = adoptDataSession(msg.token)
 		if (reaping) event.waitUntil(reaping)
 	} else if (msg.type === 'qm-data-purge') {
+		sessionStateKnown = true
 		dataCacheName = null
 		dataCacheEpoch++
 		event.waitUntil(reapDataCaches(null))
@@ -477,8 +483,9 @@ async function cacheManifest(request, response) {
 /**
  * `.data` while the per-session cache namespace isn't known (pre-hydration,
  * logged out, or a restarted worker): the network, never written to a cache.
- * On a transport failure, ask the requesting page for its session and, given
- * one, continue as that session. Otherwise 503 → the Route's ErrorBoundary.
+ * On a transport failure in a worker no page has spoken to yet, ask the
+ * requesting page for its session and, given one, answer from that session's
+ * cache. Otherwise 503 → the Route's ErrorBoundary.
  */
 async function unknownSessionData(event, request) {
 	try {
@@ -486,6 +493,7 @@ async function unknownSessionData(event, request) {
 	} catch {
 		// Asked below.
 	}
+	if (sessionStateKnown) return new Response('Offline', { status: 503 })
 	const epoch = dataCacheEpoch
 	const token = await askPageForSession(event)
 	if (token && epoch === dataCacheEpoch) {
@@ -494,13 +502,7 @@ async function unknownSessionData(event, request) {
 	}
 	// A logout or another session that arrived during the wait wins.
 	if (token && dataCacheName === DATA_CACHE_PREFIX + token) {
-		return networkFirstData(
-			event,
-			request,
-			dataCacheName,
-			dataCacheEpoch,
-			MAX_DATA,
-		)
+		return cachedData(request, dataCacheName, dataCacheEpoch)
 	}
 	return new Response('Offline', { status: 503 })
 }
@@ -526,10 +528,7 @@ function adoptDataSession(token) {
 async function askPageForSession(event) {
 	let channel = null
 	try {
-		const client =
-			(event.clientId && (await self.clients.get(event.clientId))) ||
-			(event.resultingClientId &&
-				(await self.clients.get(event.resultingClientId)))
+		const client = event.clientId && (await self.clients.get(event.clientId))
 		if (!client) return null
 		channel = new MessageChannel()
 		const port = channel.port1
@@ -600,27 +599,33 @@ async function networkFirstData(
 		}
 		return response
 	} catch {
-		// A session switch, logout, or mutation can happen while fetch is pending.
-		// Never answer from (or recreate) the namespace that was current at dispatch.
-		if (cacheName !== dataCacheName || cacheEpoch !== dataCacheEpoch) {
-			return new Response('Offline', { status: 503 })
-		}
-		try {
-			const cache = await caches.open(cacheName)
-			const cached = await cache.match(dataCacheKey(request))
-			if (
-				cached &&
-				cacheName === dataCacheName &&
-				cacheEpoch === dataCacheEpoch
-			) {
-				return cached
-			}
-		} catch {
-			// Cache Storage is best-effort; its failure is an ordinary offline miss.
-		}
+		return cachedData(request, cacheName, cacheEpoch)
+	}
+}
 
+/**
+ * This session's cached Route data, or the offline 503. A session switch,
+ * logout, or mutation can happen while a fetch is pending: never answer from
+ * the namespace that was current at dispatch unless it still is.
+ */
+async function cachedData(request, cacheName, cacheEpoch) {
+	if (cacheName !== dataCacheName || cacheEpoch !== dataCacheEpoch) {
 		return new Response('Offline', { status: 503 })
 	}
+	try {
+		const cache = await caches.open(cacheName)
+		const cached = await cache.match(dataCacheKey(request))
+		if (
+			cached &&
+			cacheName === dataCacheName &&
+			cacheEpoch === dataCacheEpoch
+		) {
+			return cached
+		}
+	} catch {
+		// Cache Storage is best-effort; its failure is an ordinary offline miss.
+	}
+	return new Response('Offline', { status: 503 })
 }
 
 /** Cache data only while the dispatching session/epoch is still current. */

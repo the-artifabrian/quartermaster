@@ -2,6 +2,7 @@ import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { data } from 'react-router'
 import { ActiveStaples } from '#app/components/active-staples.tsx'
+import { OfflineErrorBoundary } from '#app/components/offline-error-boundary.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
@@ -191,6 +192,8 @@ export async function action({ request }: Route.ActionArgs) {
 
 	return data({ status: 'error' as const }, { status: 400 })
 }
+
+export const ErrorBoundary = OfflineErrorBoundary
 
 // Shows the last data for this URL at once on a navigation and revalidates
 // behind it; see loader-cache.ts.

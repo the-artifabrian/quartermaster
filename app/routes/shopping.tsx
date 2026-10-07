@@ -11,6 +11,7 @@ import {
 	useRevalidator,
 } from 'react-router'
 import { toast } from 'sonner'
+import { OfflineErrorBoundary } from '#app/components/offline-error-boundary.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { ShoppingListLiveRefresh } from '#app/components/shopping-live-refresh.tsx'
@@ -827,6 +828,8 @@ function ClearCheckedControl({
 		</div>
 	)
 }
+
+export const ErrorBoundary = OfflineErrorBoundary
 
 // Shows the last data for this URL at once on a navigation and revalidates
 // behind it; see loader-cache.ts.

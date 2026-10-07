@@ -17,6 +17,10 @@ import { type LoaderCacheOptions, loaderCache } from './loader-cache.ts'
  * replace included) with the page's data unchanged runs again. A revalidation
  * that ends on the location it started from is never repeated, so a route
  * whose loader skips a plain revalidation cannot make this loop.
+ *
+ * Offline, the revalidation waits for the browser's `online` event. It would
+ * fail, and the root loader it re-runs has no offline copy, so the failure
+ * would replace the whole app with the root error page.
  */
 export function useStaleRevalidate(
 	loaderData: unknown,
@@ -30,15 +34,31 @@ export function useStaleRevalidate(
 	const handled = useRef<unknown>(undefined)
 	const viewOnlyParams = options?.viewOnlyParams
 
+	const waitingForNetwork = useRef(false)
 	useEffect(() => {
 		if (handled.current === loaderData) return
 		handled.current = loaderData
+		waitingForNetwork.current = false
 		if (!loaderCache.takeServedFromCache(loaderData)) {
 			loaderCache.remember(href, loaderData, { viewOnlyParams })
 			return
 		}
+		if (!navigator.onLine) {
+			waitingForNetwork.current = true
+			return
+		}
 		void revalidate()
 	}, [loaderData, href, revalidate, viewOnlyParams])
+
+	useEffect(() => {
+		const onOnline = () => {
+			if (!waitingForNetwork.current) return
+			waitingForNetwork.current = false
+			void revalidate()
+		}
+		window.addEventListener('online', onOnline)
+		return () => window.removeEventListener('online', onOnline)
+	}, [revalidate])
 
 	// The data and location the page showed while a revalidation was loading.
 	// Read from rendered state, not from the promise `revalidate` returns: that

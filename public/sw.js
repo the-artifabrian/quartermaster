@@ -34,8 +34,8 @@ const SESSION_REQUEST_TIMEOUT_MS = 500
 // worker's network request fails, and no page has spoken to it yet, it asks the
 // page that sent the request for its token (askPageForSession) and, given one,
 // adopts it exactly as the qm-data-session message does: it serves only that
-// page's cache and reaps every other. A page that answers null, or not within SESSION_REQUEST_TIMEOUT_MS,
-// gets the 503 as before. Online, nothing is asked.
+// page's cache and reaps every other. A page that answers null, or not within
+// SESSION_REQUEST_TIMEOUT_MS, gets the 503 as before. Online, nothing is asked.
 // The build-derived generation prevents an older payload shape from hydrating a
 // newer client without relying on a manually bumped cache version.
 const DATA_CACHE_ROOT = 'qm-data-'

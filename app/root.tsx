@@ -263,8 +263,9 @@ export function shouldRevalidate({
 	// the data the page has; a pending toast stays in its cookie until the next
 	// root load online. Covers Retry, pull to refresh and live refreshes.
 	if (typeof navigator !== 'undefined' && !navigator.onLine) return false
-	// The offline notice's Retry reloads only the tab (see tab-retry.ts).
-	if (isTabRetry()) return false
+	// The offline notice's Retry reloads only the tab (see tab-retry.ts). A tab
+	// tap that interrupts it is a navigation and follows the rules below.
+	if (isTabRetry() && currentUrl.href === nextUrl.href) return false
 
 	// A toast is waiting — never skip, whatever shape the navigation takes.
 	if (hasPendingToastCookie()) return true

@@ -227,3 +227,56 @@ test('a restarted worker serves the page its own cached data offline', async ({
 	await expect(page.getByText(NOT_LOADED_YET)).toHaveCount(0)
 	await expect(bottomNav(page)).toBeVisible()
 })
+
+test('the Retry button loads the tab once the network is really back', async ({
+	page,
+	context,
+	login,
+}) => {
+	test.setTimeout(60_000)
+	const user = await login()
+	await seedHousehold(user)
+	await takeControl(page)
+	await expect(page.getByRole('heading', { name: 'Meal Plan' })).toBeVisible()
+	await waitForWarmWorker(page)
+
+	const failedShopping: number[] = []
+	page.on('response', (response) => {
+		const url = new URL(response.url())
+		if (url.pathname === '/shopping.data' && response.status() === 503) {
+			failedShopping.push(response.status())
+		}
+	})
+
+	await context.setOffline(true)
+	await tab(page, 'Shop').click()
+	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
+	expect(failedShopping).toHaveLength(1)
+
+	// The page reports a network while its requests still fail, as when a
+	// phone's radio comes up: only the page target goes online, the service
+	// worker stays offline. Every automatic attempt fails and the notice stays.
+	const cdp = await context.newCDPSession(page)
+	await cdp.send('Network.emulateNetworkConditions', {
+		offline: false,
+		latency: 0,
+		downloadThroughput: -1,
+		uploadThroughput: -1,
+	})
+	await expect
+		.poll(() => failedShopping.length, { timeout: 10_000 })
+		.toBe(1 + 3)
+	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
+	await expect(bottomNav(page)).toBeVisible()
+	await expect(page.getByRole('banner')).toBeVisible()
+
+	await context.setOffline(false)
+	const retry = page.getByRole('button', { name: 'Retry', exact: true })
+	await expect(retry).not.toHaveAttribute('aria-disabled')
+	await retry.click()
+	await expect(
+		page.getByRole('heading', { name: /Shopping List/ }),
+	).toBeVisible()
+	await expect(page.getByText('Lemons')).toBeVisible()
+	expect(failedShopping).toHaveLength(4)
+})

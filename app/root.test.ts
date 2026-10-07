@@ -258,3 +258,32 @@ test('a failed tab retry still lets root revalidate afterwards', async () => {
 
 	expect(shouldRevalidate(retry)).toBe(true)
 })
+
+test('a tab tap during a tab retry follows the router defaults for root', async () => {
+	let duringRetry: boolean | undefined
+	await retryTabOnly(async () => {
+		duringRetry = shouldRevalidate(
+			// Single fetch's page-to-page default (see the test above).
+			navigation({ from: '/shopping', to: '/plan', forced: true }),
+		)
+	})
+
+	expect(duringRetry).toBe(true)
+})
+
+test('overlapping tab retries skip root until the last one ends', async () => {
+	const retry = navigation({ from: '/shopping', to: '/shopping', forced: true })
+	let finishFirst = () => {}
+	const first = retryTabOnly(
+		() =>
+			new Promise<void>((resolve) => {
+				finishFirst = resolve
+			}),
+	)
+	await retryTabOnly(async () => {})
+
+	expect(shouldRevalidate(retry)).toBe(false)
+	finishFirst()
+	await first
+	expect(shouldRevalidate(retry)).toBe(true)
+})

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import {
 	isRouteErrorResponse,
 	useLocation,
@@ -65,13 +65,21 @@ function OfflineNotice() {
 	const { revalidate, state } = useRevalidator()
 	const isOnline = useIsOnline()
 
+	// One run of attempts at a time, however many online events arrive.
+	const running = useRef(false)
 	useEffect(() => {
 		let cancelled = false
 		const onOnline = async () => {
-			for (const delay of ONLINE_RETRY_DELAYS_MS) {
-				await new Promise((resolve) => setTimeout(resolve, delay))
-				if (cancelled || !navigator.onLine) return
-				await retryTabOnly(revalidate).catch(() => {})
+			if (running.current) return
+			running.current = true
+			try {
+				for (const delay of ONLINE_RETRY_DELAYS_MS) {
+					await new Promise((resolve) => setTimeout(resolve, delay))
+					if (cancelled || !navigator.onLine) return
+					await retryTabOnly(revalidate).catch(() => {})
+				}
+			} finally {
+				running.current = false
 			}
 		}
 		const listener = () => void onOnline()

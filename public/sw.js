@@ -22,12 +22,20 @@ const START_URL = '__QM_START_URL__'
 const MAX_IMAGES = 100
 const MAX_DATA = 64
 const WARM_CONCURRENCY = 6
+const SESSION_REQUEST_TIMEOUT_MS = 500
 
 // Per-session (user+household) cache for authenticated `.data` (RR7 single-fetch).
 // The SW can't read the httpOnly session cookie, so the client posts an opaque
 // `<userId>-<householdId>` token after hydration. Until that token is known,
-// `.data` is network-only — never served or written from cache — so one
+// `.data` goes to the network and is never written to a cache, so one
 // household's data can never be served to another on a shared device.
+// The token lives only in memory. The browser can stop an idle worker while its
+// page stays open (#315); the fresh worker knows no session. When such a
+// worker's network request fails, it asks the page that sent the request for
+// its token (askPageForSession) and, given one, adopts it exactly as the
+// qm-data-session message does: it serves only that page's cache and reaps
+// every other. A page that answers null, or not within SESSION_REQUEST_TIMEOUT_MS,
+// gets the 503 as before. Online, nothing is asked.
 // The build-derived generation prevents an older payload shape from hydrating a
 // newer client without relying on a manually bumped cache version.
 const DATA_CACHE_ROOT = 'qm-data-'
@@ -98,16 +106,9 @@ self.addEventListener('message', (event) => {
 		event.waitUntil(self.skipWaiting())
 	} else if (msg.type === 'qm-warm-assets') {
 		event.waitUntil(warmCurrentAssets())
-	} else if (
-		msg.type === 'qm-data-session' &&
-		typeof msg.token === 'string' &&
-		msg.token
-	) {
-		const next = DATA_CACHE_PREFIX + msg.token
-		if (next === dataCacheName) return
-		dataCacheName = next
-		dataCacheEpoch++
-		event.waitUntil(reapDataCaches(next))
+	} else if (msg.type === 'qm-data-session' && isSessionToken(msg.token)) {
+		const reaping = adoptDataSession(msg.token)
+		if (reaping) event.waitUntil(reaping)
 	} else if (msg.type === 'qm-data-purge') {
 		dataCacheName = null
 		dataCacheEpoch++
@@ -209,14 +210,15 @@ self.addEventListener('fetch', (event) => {
 	// only in the current session/Household namespace. A cache entry can answer a
 	// transport failure, but an origin response — including auth redirects and
 	// 4xx/5xx errors — always reaches React Router unchanged. Until the client has
-	// supplied a namespace, `.data` remains network-only.
+	// supplied a namespace, `.data` is network-only, except that a transport
+	// failure asks the requesting page for its namespace (see unknownSessionData).
 	// Each entry is keyed by its URL (including any ?_routes), so a cached
 	// payload always matches the shape React Router asked for. For Plan the key
 	// leaves out its view-only params and sorts the rest of the search (see
 	// dataCacheKey); its loader never reads them.
 	if (isEligibleRouteData(url)) {
 		if (!dataCacheName) {
-			event.respondWith(networkOnlyData(request))
+			event.respondWith(unknownSessionData(event, request))
 			return
 		}
 		event.respondWith(
@@ -464,15 +466,77 @@ async function cacheManifest(request, response) {
 }
 
 /**
- * Network-only for `.data` when the per-session cache namespace isn't known yet
- * (pre-hydration or logged out): never read or write a cache, so one household's
- * data can never be served to another. 503 on failure → RR ErrorBoundary.
+ * `.data` while the per-session cache namespace isn't known (pre-hydration,
+ * logged out, or a restarted worker): the network, never written to a cache.
+ * On a transport failure, ask the requesting page for its session and, given
+ * one, continue as that session. Otherwise 503 → the Route's ErrorBoundary.
  */
-async function networkOnlyData(request) {
+async function unknownSessionData(event, request) {
 	try {
 		return await fetch(request)
 	} catch {
-		return new Response('Offline', { status: 503 })
+		// Asked below.
+	}
+	const epoch = dataCacheEpoch
+	const token = await askPageForSession(event)
+	if (token && epoch === dataCacheEpoch) {
+		const reaping = adoptDataSession(token)
+		if (reaping) event.waitUntil(reaping)
+	}
+	// A logout or another session that arrived during the wait wins.
+	if (token && dataCacheName === DATA_CACHE_PREFIX + token) {
+		return networkFirstData(
+			event,
+			request,
+			dataCacheName,
+			dataCacheEpoch,
+			MAX_DATA,
+		)
+	}
+	return new Response('Offline', { status: 503 })
+}
+
+function isSessionToken(token) {
+	return typeof token === 'string' && token !== ''
+}
+
+/** Use the `<userId>-<householdId>` namespace; returns the reap, if any. */
+function adoptDataSession(token) {
+	const next = DATA_CACHE_PREFIX + token
+	if (next === dataCacheName) return null
+	dataCacheName = next
+	dataCacheEpoch++
+	return reapDataCaches(next)
+}
+
+/**
+ * Ask the page behind a fetch for its session token over a MessageChannel.
+ * Resolves null when there is no such page, it is signed out, or it does not
+ * answer in time. The token is kept in memory only, as from qm-data-session.
+ */
+async function askPageForSession(event) {
+	let channel = null
+	try {
+		const client =
+			(event.clientId && (await self.clients.get(event.clientId))) ||
+			(event.resultingClientId &&
+				(await self.clients.get(event.resultingClientId)))
+		if (!client) return null
+		channel = new MessageChannel()
+		const port = channel.port1
+		return await new Promise((resolve) => {
+			const timer = setTimeout(() => resolve(null), SESSION_REQUEST_TIMEOUT_MS)
+			port.onmessage = (message) => {
+				clearTimeout(timer)
+				const token = message.data?.token
+				resolve(isSessionToken(token) ? token : null)
+			}
+			client.postMessage({ type: 'qm-data-session-request' }, [channel.port2])
+		})
+	} catch {
+		return null
+	} finally {
+		channel?.port1.close()
 	}
 }
 

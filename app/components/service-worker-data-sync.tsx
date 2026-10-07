@@ -125,6 +125,19 @@ export function ServiceWorkerDataSync({
 		}
 	}, [token])
 
+	// A worker the browser restarted while this page stayed open knows no
+	// session. Offline, it asks the page that sent a `.data` request before
+	// giving up, and replies here on the port it sent.
+	useEffect(() => {
+		const onMessage = (event: MessageEvent) => {
+			if (event.data?.type !== 'qm-data-session-request') return
+			event.ports[0]?.postMessage({ token: tokenRef.current })
+		}
+		navigator.serviceWorker?.addEventListener('message', onMessage)
+		return () =>
+			navigator.serviceWorker?.removeEventListener('message', onMessage)
+	}, [])
+
 	// After the user's own mutations, drop the cached `.data` so a later
 	// navigation never shows stale-after-write. Coarse (the whole session
 	// namespace); the next navigation refills from the network.

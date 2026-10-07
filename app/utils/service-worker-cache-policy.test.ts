@@ -90,6 +90,13 @@ function fetchRequest(request: RequestLike): FetchRequest {
 	}
 }
 
+type PagePost = (message: unknown, port: MessagePort) => void
+
+/** A page that replies to the worker's session request with `token`. */
+function answers(token: unknown): PagePost {
+	return (_message, port) => port.postMessage({ token })
+}
+
 function routeDataResponse(body: string, status = 200) {
 	return new Response(body, {
 		status,
@@ -122,6 +129,9 @@ function loadServiceWorker({
 		.replace("'__QM_CACHE_VERSION__'", JSON.stringify(cacheVersion))
 
 	const listeners: Record<string, (event: any) => void> = {}
+	// The page the worker can ask for its session; none by default.
+	let pageClient: { id: string; postMessage: PagePost } | null = null
+	const sessionRequests: unknown[] = []
 	let claimed = false
 	let skipWaitingCalls = 0
 	let navigationPreloadEnabled = false
@@ -152,6 +162,15 @@ function loadServiceWorker({
 				claim: async () => {
 					claimed = true
 				},
+				get: async (id: string) =>
+					pageClient && pageClient.id === id
+						? {
+								postMessage: (message: unknown, transfer: MessagePort[]) => {
+									sessionRequests.push(message)
+									pageClient?.postMessage(message, transfer[0]!)
+								},
+							}
+						: undefined,
 			},
 			skipWaiting: async () => {
 				skipWaitingCalls++
@@ -165,6 +184,10 @@ function loadServiceWorker({
 		Request,
 		URL,
 		Set,
+		MessageChannel,
+		// Forwarded, so vi.useFakeTimers controls the worker's timers too.
+		setTimeout: (...args: Parameters<typeof setTimeout>) => setTimeout(...args),
+		clearTimeout: (id: ReturnType<typeof setTimeout>) => clearTimeout(id),
 		caches: storage,
 		fetch: runFetch,
 	}
@@ -176,7 +199,14 @@ function loadServiceWorker({
 		{
 			mode = 'cors',
 			preloadResponse,
-		}: { mode?: string; preloadResponse?: Promise<Response | undefined> } = {},
+			clientId = '',
+			resultingClientId = '',
+		}: {
+			mode?: string
+			preloadResponse?: Promise<Response | undefined>
+			clientId?: string
+			resultingClientId?: string
+		} = {},
 	) {
 		let responsePromise: Promise<Response> | undefined
 		const lifetimes: Promise<unknown>[] = []
@@ -187,6 +217,8 @@ function loadServiceWorker({
 				url: new URL(pathname, ORIGIN).href,
 			},
 			preloadResponse,
+			clientId,
+			resultingClientId,
 			respondWith: (response: Response | Promise<Response>) => {
 				responsePromise = Promise.resolve(response)
 			},
@@ -235,6 +267,11 @@ function loadServiceWorker({
 		) => {
 			fetchImplementation = implementation
 		},
+		/** The page that answers the worker's session requests, or none. */
+		setPageClient: (id: string, postMessage: PagePost) => {
+			pageClient = { id, postMessage }
+		},
+		sessionRequests,
 		wasClaimed: () => claimed,
 		skipWaitingCalls: () => skipWaitingCalls,
 		wasNavigationPreloadEnabled: () => navigationPreloadEnabled,
@@ -1137,6 +1174,176 @@ describe('session-scoped Route data', () => {
 		await restartedWorker.dispatchMessage({ type: 'qm-data-purge' })
 		expect(
 			(await storage.keys()).filter((name) => name.startsWith('qm-data-')),
+		).toEqual([])
+	})
+})
+
+// #315: the browser can stop an idle worker while its page stays open. The
+// fresh worker has no session, so offline it asks the page that sent the
+// request, and serves only the cache that page names.
+describe('a restarted worker asks the page for its session', () => {
+	const PAGE = 'page-client'
+
+	/** A worker restarted after the user-a session cached /plan.data, offline. */
+	async function restartedOffline() {
+		const storage = new MemoryCacheStorage()
+		await storage.seed(
+			'qm-data-restart-user-a',
+			'/plan.data',
+			routeDataResponse('USER A DATA'),
+		)
+		const worker = loadServiceWorker({ storage, cacheVersion: 'restart' })
+		worker.setFetch(async () => {
+			throw new TypeError('Failed to fetch')
+		})
+		return worker
+	}
+
+	test("offline, the page's own session cache answers", async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-a'))
+
+		const response = await worker.dispatchFetch('/plan.data', {
+			clientId: PAGE,
+		})
+
+		expect(response?.status).toBe(200)
+		expect(await response?.text()).toBe('USER A DATA')
+		expect(worker.sessionRequests).toEqual([
+			{ type: 'qm-data-session-request' },
+		])
+	})
+
+	test('the adopted session keeps caching once the network is back', async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-a'))
+		await worker.dispatchFetch('/plan.data', { clientId: PAGE })
+
+		worker.setFetch(async () => routeDataResponse('USER A FRESH'))
+		await worker.dispatchFetch('/inventory.data', { clientId: PAGE })
+
+		expect(worker.storage.puts).toEqual([
+			{ cacheName: 'qm-data-restart-user-a', url: `${ORIGIN}/inventory.data` },
+		])
+		expect(worker.sessionRequests).toHaveLength(1)
+	})
+
+	test('a page with no session gets the offline response', async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers(null))
+
+		const response = await worker.dispatchFetch('/plan.data', {
+			clientId: PAGE,
+		})
+
+		expect(response?.status).toBe(503)
+		expect(await response?.text()).toBe('Offline')
+		expect(await worker.storage.keys()).toContain('qm-data-restart-user-a')
+	})
+
+	test.each([[''], [42], [{ id: 'user-a' }]])(
+		'a malformed answer (%j) gets the offline response',
+		async (token) => {
+			const worker = await restartedOffline()
+			worker.setPageClient(PAGE, answers(token))
+
+			const response = await worker.dispatchFetch('/plan.data', {
+				clientId: PAGE,
+			})
+
+			expect(response?.status).toBe(503)
+		},
+	)
+
+	test('a page that does not answer in time gets the offline response', async () => {
+		vi.useFakeTimers()
+		try {
+			const worker = await restartedOffline()
+			worker.setPageClient(PAGE, () => {})
+
+			const pending = worker.dispatchFetch('/plan.data', { clientId: PAGE })
+			await vi.advanceTimersByTimeAsync(499)
+			let settled = false
+			void pending.then(() => {
+				settled = true
+			})
+			await vi.advanceTimersByTimeAsync(0)
+			expect(settled).toBe(false)
+			await vi.advanceTimersByTimeAsync(1)
+			const response = await pending
+
+			expect(response?.status).toBe(503)
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	test("another session's cache is never served, and is reaped", async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-b'))
+
+		const response = await worker.dispatchFetch('/plan.data', {
+			clientId: PAGE,
+		})
+
+		expect(response?.status).toBe(503)
+		expect(await worker.storage.keys()).not.toContain('qm-data-restart-user-a')
+	})
+
+	test('a request with no page client gets the offline response', async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-a'))
+
+		const response = await worker.dispatchFetch('/plan.data', {
+			clientId: 'some-other-client',
+		})
+
+		expect(response?.status).toBe(503)
+	})
+
+	test('the resulting client answers when the request has no client id', async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-a'))
+
+		const response = await worker.dispatchFetch('/plan.data', {
+			resultingClientId: PAGE,
+		})
+
+		expect(await response?.text()).toBe('USER A DATA')
+	})
+
+	test('online, the worker does not ask and does not cache', async () => {
+		const worker = await restartedOffline()
+		worker.setPageClient(PAGE, answers('user-a'))
+		worker.setFetch(async () => routeDataResponse('FRESH'))
+
+		const response = await worker.dispatchFetch('/plan.data', {
+			clientId: PAGE,
+		})
+
+		expect(await response?.text()).toBe('FRESH')
+		expect(worker.sessionRequests).toEqual([])
+		expect(worker.storage.puts).toEqual([])
+	})
+
+	test('a logout while the worker waits wins over the late answer', async () => {
+		const worker = await restartedOffline()
+		let reply = () => {}
+		worker.setPageClient(PAGE, (_message, port) => {
+			reply = () => port.postMessage({ token: 'user-a' })
+		})
+
+		const pending = worker.dispatchFetch('/plan.data', { clientId: PAGE })
+		await vi.waitFor(() => expect(worker.sessionRequests).toHaveLength(1))
+		await worker.dispatchMessage({ type: 'qm-data-purge' })
+		reply()
+		const response = await pending
+
+		expect(response?.status).toBe(503)
+		expect(
+			(await worker.storage.keys()).filter((name) =>
+				name.startsWith('qm-data-'),
+			),
 		).toEqual([])
 	})
 })

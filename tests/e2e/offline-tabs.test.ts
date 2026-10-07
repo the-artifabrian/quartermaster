@@ -161,3 +161,61 @@ test('offline, a tab keeps the app and its tab bar, and Retry loads it once back
 	await expect(page.getByText(NOT_LOADED_YET)).toHaveCount(0)
 	expect(navigations).toEqual([])
 })
+
+test('a restarted worker serves the page its own cached data offline', async ({
+	page,
+	context,
+	login,
+}) => {
+	test.setTimeout(60_000)
+	const user = await login()
+	await seedHousehold(user)
+	await takeControl(page)
+	await waitForWarmWorker(page)
+	await tab(page, 'Staples').click()
+	await expect(page.getByText('Oat milk')).toBeVisible()
+	await waitForCachedData(page, '/inventory.data')
+
+	// A document load empties the in-memory loader cache, so the next Staples
+	// tap must ask the worker. The worker's data cache survives it.
+	await page.goto('/plan')
+	await expect(page.getByRole('heading', { name: 'Meal Plan' })).toBeVisible()
+	await waitForCachedData(page, '/inventory.data')
+
+	// The server's answer would now say Almond milk; only the worker's cache
+	// still says Oat milk.
+	await prisma.householdIngredient.updateMany({
+		where: { householdId: user.householdId, displayName: 'Oat milk' },
+		data: { displayName: 'Almond milk', canonicalKey: 'almond milk' },
+	})
+
+	const cdp = await context.newCDPSession(page)
+	const stopped = new Promise<void>((resolve) => {
+		cdp.on('ServiceWorker.workerVersionUpdated', ({ versions }) => {
+			if (
+				versions.length > 0 &&
+				versions.every((version) => version.runningStatus === 'stopped')
+			) {
+				resolve()
+			}
+		})
+	})
+	// Offline first: Chromium applies the emulation to the worker it starts
+	// for the next request.
+	await context.setOffline(true)
+	await cdp.send('ServiceWorker.enable')
+	await cdp.send('ServiceWorker.stopAllWorkers')
+	await stopped
+
+	const dataResponse = page.waitForResponse(
+		(response) => new URL(response.url()).pathname === '/inventory.data',
+	)
+	await tab(page, 'Staples').click()
+	const response = await dataResponse
+	expect(response.fromServiceWorker()).toBe(true)
+	expect(response.status()).toBe(200)
+	await expect(page.getByText('Oat milk')).toBeVisible()
+	await expect(page.getByText('Almond milk')).toHaveCount(0)
+	await expect(page.getByText(NOT_LOADED_YET)).toHaveCount(0)
+	await expect(bottomNav(page)).toBeVisible()
+})

@@ -58,6 +58,12 @@ describe('parseSpeechItemsWithLLM', () => {
 
 		await parseSpeechItemsWithLLM('mmm uhh')
 
+		// Speech answers inside a 4 s budget, so it turns thinking off rather
+		// than letting it spend the timeout and fall back to the regex parser.
+		expect(capturedBody).toMatchObject({
+			thinking: { type: 'disabled' },
+			output_config: { effort: 'low' },
+		})
 		const format = (
 			capturedBody as {
 				output_config: { format: { type: string; schema: unknown } }

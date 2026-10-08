@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from 'vitest'
 import { z } from 'zod'
 import {
 	ANTHROPIC_MODELS,
+	anthropicHeaders,
 	isAnthropicConfigured,
 	nullable,
 	parseAnthropicJson,
@@ -122,21 +123,36 @@ describe('requestAnthropicJson', () => {
 	test('sends nothing the 5.5 models reject with a 400', async () => {
 		// Haiku 5.5 and Sonnet 5.5 refuse non-default sampling parameters, an
 		// assistant prefill, and a thinking budget. Thinking stays at its default
-		// and effort is the latency lever instead.
+		// unless a caller turns it off, and effort is the latency lever.
 		const fetch = vi.fn<AnthropicJsonAdapter['fetch']>(async () =>
 			anthropicResponse('{"value":"ok"}'),
 		)
 		await requestAnthropicJson(request, makeAdapter(fetch))
+		await requestAnthropicJson(
+			{ ...request, thinking: 'disabled' },
+			makeAdapter(fetch),
+		)
 
-		const body = JSON.parse(fetch.mock.calls[0]![1]?.body as string) as Record<
-			string,
-			unknown
-		>
-		for (const key of ['temperature', 'top_p', 'top_k', 'thinking']) {
-			expect(body).not.toHaveProperty(key)
+		const [byDefault, withoutThinking] = fetch.mock.calls.map(
+			([, init]) => JSON.parse(init?.body as string) as Record<string, unknown>,
+		)
+		for (const body of [byDefault!, withoutThinking!]) {
+			for (const key of ['temperature', 'top_p', 'top_k']) {
+				expect(body).not.toHaveProperty(key)
+			}
+			const messages = body.messages as Array<{ role: string }>
+			expect(messages.map((message) => message.role)).toEqual(['user'])
 		}
-		const messages = body.messages as Array<{ role: string }>
-		expect(messages.map((message) => message.role)).toEqual(['user'])
+		expect(byDefault).not.toHaveProperty('thinking')
+		// Turning thinking off is allowed; a budget is not.
+		expect(withoutThinking!.thinking).toEqual({ type: 'disabled' })
+	})
+
+	test('sends the key and version from one place', () => {
+		expect(anthropicHeaders('sk-test')).toEqual({
+			'x-api-key': 'sk-test',
+			'anthropic-version': '2023-06-01',
+		})
 	})
 
 	test('reads the JSON from the text block when thinking comes first', async () => {

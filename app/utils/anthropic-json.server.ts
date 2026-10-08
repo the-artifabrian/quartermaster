@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const ANTHROPIC_API_BASE = 'https://api.anthropic.com/v1'
 const ANTHROPIC_API_URL = `${ANTHROPIC_API_BASE}/messages`
-export const ANTHROPIC_API_VERSION = '2023-06-01'
+const ANTHROPIC_API_VERSION = '2023-06-01'
 
 // Recheck both IDs against the Models API (GET /v1/models) whenever this file
 // is touched; a model that is current today is a generation behind after the
@@ -79,6 +79,12 @@ export type AnthropicJsonRequest<T> = {
 	/** Covers the thinking as well as the JSON. */
 	maxTokens: number
 	effort: AnthropicEffort
+	/**
+	 * Turns thinking off for a caller whose timeout leaves no room for it.
+	 * Omitted, thinking stays at the model's default; a budget is never sent,
+	 * since the 5.5 models reject one.
+	 */
+	thinking?: 'disabled'
 	timeoutMs: number
 	system: string
 	prompt: string | AnthropicContentBlock[]
@@ -110,6 +116,14 @@ const AnthropicResponseSchema = z.object({
 		.default([]),
 	stop_reason: z.string().nullish(),
 })
+
+/** The key and version every Anthropic API request sends. */
+export function anthropicHeaders(apiKey: string) {
+	return {
+		'x-api-key': apiKey,
+		'anthropic-version': ANTHROPIC_API_VERSION,
+	}
+}
 
 export function isAnthropicConfigured(
 	adapter: AnthropicJsonAdapter = defaultAdapter,
@@ -157,14 +171,16 @@ export async function requestAnthropicJson<T>(
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				'x-api-key': apiKey,
-				'anthropic-version': ANTHROPIC_API_VERSION,
+				...anthropicHeaders(apiKey),
 			},
 			body: JSON.stringify({
 				model: request.model,
 				max_tokens: request.maxTokens,
 				system: request.system,
 				messages: [{ role: 'user', content: request.prompt }],
+				...(request.thinking === 'disabled' && {
+					thinking: { type: 'disabled' },
+				}),
 				// No temperature, top_p, top_k, prefill or thinking budget: the
 				// 5.5 models reject each with a 400.
 				output_config: {

@@ -1,7 +1,7 @@
 import {
 	ANTHROPIC_API_BASE,
-	ANTHROPIC_API_VERSION,
 	ANTHROPIC_MODELS,
+	anthropicHeaders,
 } from './anthropic-json.server.ts'
 
 const CHECK_TIMEOUT_MS = 10_000
@@ -43,10 +43,7 @@ export async function checkAnthropicModels(
 				response = await adapter.fetch(
 					`${ANTHROPIC_API_BASE}/models/${encodeURIComponent(model)}`,
 					{
-						headers: {
-							'x-api-key': apiKey,
-							'anthropic-version': ANTHROPIC_API_VERSION,
-						},
+						headers: anthropicHeaders(apiKey),
 						signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
 					},
 				)
@@ -66,6 +63,8 @@ export async function checkAnthropicModels(
 					`❌ Anthropic Models API answered ${response.status} for ${model}; AI requests are likely to fail too.`,
 				)
 			}
+			// Only the status matters; release the connection.
+			void response.body?.cancel().catch(() => {})
 		}),
 	)
 }

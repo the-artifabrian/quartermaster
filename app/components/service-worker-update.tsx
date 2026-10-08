@@ -8,16 +8,21 @@ import { usePostHog } from '#app/utils/posthog-provider.tsx'
 import {
 	forgetPendingPwaUpdate,
 	markPendingPwaUpdateActivated,
+	type PwaUpdateTrigger,
 	rememberPendingPwaUpdate,
 	rememberPwaUpdatePrompt,
 } from '#app/utils/pwa-update-telemetry.ts'
 import { reloadPage } from '#app/utils/reload-page.client.ts'
-import { Button } from './ui/button.tsx'
 
 export const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000
-
-const UPDATE_CONFIRMATION =
-	'Update Quartermaster now? The app will reload and unsaved edits may be lost.'
+/** A return from background after this long applies a waiting update. */
+export const RESUME_ACTIVATION_AFTER_MS = 30 * 60 * 1000
+/**
+ * A browser can hold an activation for minutes. Past this, or after a tap or
+ * key press, the page no longer reloads when it lands and keeps running
+ * against the retained N-1 cache, as another window would.
+ */
+export const ACTIVATION_RELOAD_DEADLINE_MS = 10 * 1000
 
 type RouterNavigation = { state: 'idle' | 'loading' | 'submitting' }
 type RouterFetcher = {
@@ -39,25 +44,46 @@ export function hasPendingRouterWork(
 }
 
 /**
- * Registers the production worker after first paint and exposes an explicit
- * update boundary. A waiting worker cannot replace the running page until the
- * user accepts; other open windows keep working against the retained N-1 cache.
+ * Registers the production worker after first paint and applies a waiting
+ * update, without asking, at two moments only: the launch of this document,
+ * and a return from background after RESUME_ACTIVATION_AFTER_MS or more. Each
+ * moment covers the worker that is waiting when it happens, and the user's
+ * first tap or key press ends it, so the page never reloads under someone who
+ * has started using it. The same holds while the activation is in flight, and
+ * an activation that lands after ACTIVATION_RELOAD_DEADLINE_MS reloads nothing.
+ * A worker that becomes waiting mid-session waits for the next moment. Other open windows keep working against the retained N-1 cache
+ * until they launch again.
  */
 export function ServiceWorkerUpdate() {
 	const navigation = useNavigation()
 	const fetchers = useFetchers()
 	const posthog = usePostHog()
 	const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null)
+	// Every document starts as a launch. The moment closes once registration
+	// shows no waiting update, on the first interaction, or when it activates.
+	const [moment, setMoment] = useState<PwaUpdateTrigger | null>('launch')
 	const [isActivating, setIsActivating] = useState(false)
-	const [isOnline, setIsOnline] = useState(true)
 	const activationRequested = useRef(false)
+	const activationStartedAt = useRef(0)
+	const interactedDuringActivation = useRef(false)
 	const reloadRequested = useRef(false)
-	const reportedWaitingWorker = useRef<ServiceWorker | null>(null)
-	const reloadOnce = useCallback(() => {
-		if (reloadRequested.current) return
-		reloadRequested.current = true
-		markPendingPwaUpdateActivated()
-		reloadPage()
+	/** Reload once for this page's own activation, if it is still unused. */
+	const reloadForActivation = useCallback(() => {
+		if (!activationRequested.current) return false
+		if (
+			interactedDuringActivation.current ||
+			Date.now() - activationStartedAt.current > ACTIVATION_RELOAD_DEADLINE_MS
+		) {
+			activationRequested.current = false
+			setIsActivating(false)
+			return false
+		}
+		if (!reloadRequested.current) {
+			reloadRequested.current = true
+			markPendingPwaUpdateActivated()
+			reloadPage()
+		}
+		return true
 	}, [])
 
 	useEffect(() => {
@@ -67,16 +93,21 @@ export function ServiceWorkerUpdate() {
 		let disposed = false
 		let registration: ServiceWorkerRegistration | null = null
 		let lastUpdateCheck = 0
+		let hiddenAt: number | null = null
 		const observedWorkers = new Map<ServiceWorker, () => void>()
-		setIsOnline(navigator.onLine)
+
+		// During a first registration Chromium can briefly expose the installed
+		// worker as `waiting` before activating it. It is only an update when an
+		// existing active generation is present.
+		function getWaitingUpdate() {
+			return registration?.active && registration.waiting
+				? registration.waiting
+				: null
+		}
 
 		function revealWaitingWorker() {
-			// During a first registration Chromium can briefly expose the installed
-			// worker as `waiting` before activating it. It is only an update when an
-			// existing active generation is present.
-			if (!disposed && registration?.active && registration.waiting) {
-				setWaitingWorker(registration.waiting)
-			}
+			const worker = getWaitingUpdate()
+			if (!disposed && worker) setWaitingWorker(worker)
 		}
 
 		function observeInstallingWorker() {
@@ -98,6 +129,10 @@ export function ServiceWorkerUpdate() {
 		function observeRegistration(next: ServiceWorkerRegistration) {
 			if (disposed) return
 			registration = next
+			// The launch moment covers only a worker that was already waiting.
+			if (!getWaitingUpdate()) {
+				setMoment((current) => (current === 'launch' ? null : current))
+			}
 			registration.addEventListener('updatefound', observeInstallingWorker)
 			revealWaitingWorker()
 			observeInstallingWorker()
@@ -131,27 +166,34 @@ export function ServiceWorkerUpdate() {
 		}
 
 		function onControllerChange() {
-			if (activationRequested.current) {
-				reloadOnce()
+			if (reloadForActivation()) return
+
+			// Another window applied the update, or this one's landed too late to
+			// reload. The page keeps running its code against the N-1 assets until
+			// it launches again.
+			setWaitingWorker(null)
+		}
+
+		function onVisibilityChange() {
+			if (document.visibilityState === 'hidden') {
+				hiddenAt ??= Date.now()
 				return
 			}
-
-			// Another window may have accepted the same update. Do not reload this
-			// window without its user's consent; N-1 assets keep its old code usable.
-			setWaitingWorker(null)
-			setIsActivating(false)
-		}
-
-		const onVisibilityChange = () => checkForUpdate()
-		const onOnline = () => {
-			setIsOnline(true)
+			if (document.visibilityState !== 'visible') return
+			const awayFor = hiddenAt == null ? 0 : Date.now() - hiddenAt
+			hiddenAt = null
+			const worker = getWaitingUpdate()
+			if (awayFor >= RESUME_ACTIVATION_AFTER_MS && worker) {
+				setWaitingWorker(worker)
+				setMoment('resume')
+			}
 			checkForUpdate()
 		}
-		const onOffline = () => setIsOnline(false)
+
+		const onOnline = () => checkForUpdate()
 		serviceWorkers.addEventListener('controllerchange', onControllerChange)
 		document.addEventListener('visibilitychange', onVisibilityChange)
 		window.addEventListener('online', onOnline)
-		window.addEventListener('offline', onOffline)
 
 		if (document.readyState === 'complete') register()
 		else window.addEventListener('load', register, { once: true })
@@ -161,14 +203,29 @@ export function ServiceWorkerUpdate() {
 			window.removeEventListener('load', register)
 			document.removeEventListener('visibilitychange', onVisibilityChange)
 			window.removeEventListener('online', onOnline)
-			window.removeEventListener('offline', onOffline)
 			serviceWorkers.removeEventListener('controllerchange', onControllerChange)
 			registration?.removeEventListener('updatefound', observeInstallingWorker)
 			for (const [worker, listener] of observedWorkers) {
 				worker.removeEventListener('statechange', listener)
 			}
 		}
-	}, [reloadOnce])
+	}, [reloadForActivation])
+
+	// A tap or key press means someone is using the page: leave it alone.
+	useEffect(() => {
+		if (!moment && !isActivating) return
+		const onInteraction = () => {
+			setMoment(null)
+			if (activationRequested.current) interactedDuringActivation.current = true
+		}
+		const options = { capture: true, passive: true }
+		window.addEventListener('pointerdown', onInteraction, options)
+		window.addEventListener('keydown', onInteraction, options)
+		return () => {
+			window.removeEventListener('pointerdown', onInteraction, options)
+			window.removeEventListener('keydown', onInteraction, options)
+		}
+	}, [isActivating, moment])
 
 	useEffect(() => {
 		if (!isActivating || !waitingWorker) return
@@ -176,46 +233,35 @@ export function ServiceWorkerUpdate() {
 		// A page left uncontrolled after its first registration will not receive
 		// `controllerchange`, so activation itself is also a reload boundary.
 		const onStateChange = () => {
-			if (waitingWorker.state === 'activated') reloadOnce()
+			if (waitingWorker.state === 'activated') reloadForActivation()
 		}
 		waitingWorker.addEventListener('statechange', onStateChange)
 		onStateChange()
 		return () => waitingWorker.removeEventListener('statechange', onStateChange)
-	}, [isActivating, reloadOnce, waitingWorker])
+	}, [isActivating, reloadForActivation, waitingWorker])
 
+	// Wait for a pending navigation or mutation, so the reload loses neither.
 	const isBusy = hasPendingRouterWork(navigation, fetchers)
 	useEffect(() => {
-		if (
-			!waitingWorker ||
-			isBusy ||
-			reportedWaitingWorker.current === waitingWorker
-		) {
+		if (!moment || !waitingWorker || isBusy || activationRequested.current) {
 			return
 		}
-		reportedWaitingWorker.current = waitingWorker
-		const prompt = rememberPwaUpdatePrompt({
-			workerState: waitingWorker.state,
-		})
-		posthog.capture(PWA_UPDATE_PROMPT_SHOWN, prompt.properties, {
-			uuid: prompt.uuid,
-			timestamp: new Date(prompt.timestamp),
-		})
-	}, [isBusy, posthog, waitingWorker])
-
-	if (!waitingWorker || isBusy) return null
-
-	function acceptUpdate() {
-		if (
-			!waitingWorker ||
-			isActivating ||
-			!navigator.onLine ||
-			!window.confirm(UPDATE_CONFIRMATION)
-		) {
-			return
-		}
+		setMoment(null)
+		// Offline the reload could not fetch the new document. Keep the page.
+		if (!navigator.onLine) return
 
 		activationRequested.current = true
+		activationStartedAt.current = Date.now()
+		interactedDuringActivation.current = false
 		setIsActivating(true)
+		const shown = rememberPwaUpdatePrompt({
+			workerState: waitingWorker.state,
+			trigger: moment,
+		})
+		posthog.capture(PWA_UPDATE_PROMPT_SHOWN, shown.properties, {
+			uuid: shown.uuid,
+			timestamp: new Date(shown.timestamp),
+		})
 		const acceptance = rememberPendingPwaUpdate({ fromBuild: ENV.APP_BUILD })
 		posthog.capture(PWA_UPDATE_ACCEPTED, acceptance.properties, {
 			uuid: acceptance.uuid,
@@ -228,29 +274,7 @@ export function ServiceWorkerUpdate() {
 			setIsActivating(false)
 			forgetPendingPwaUpdate()
 		}
-	}
+	}, [isBusy, moment, posthog, waitingWorker])
 
-	return (
-		<div className="bg-card border-border shadow-warm-lg fixed right-4 bottom-[calc(var(--bottom-nav-h)+2rem+var(--bottom-nav-inset))] z-50 flex items-center gap-3 rounded-lg border p-3 md:bottom-4">
-			<span
-				role="status"
-				aria-live="polite"
-				className="text-foreground text-sm"
-			>
-				A new version is ready.
-			</span>
-			<Button
-				type="button"
-				size="sm"
-				onClick={acceptUpdate}
-				disabled={isActivating || !isOnline}
-			>
-				{isActivating
-					? 'Updating…'
-					: isOnline
-						? 'Update available'
-						: 'Update when online'}
-			</Button>
-		</div>
-	)
+	return null
 }

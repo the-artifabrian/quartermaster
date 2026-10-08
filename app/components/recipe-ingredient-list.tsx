@@ -194,7 +194,7 @@ function AddIngredientToShopping({
 				<TooltipTrigger asChild>
 					<button
 						type="button"
-						aria-label="Add to shopping list"
+						aria-label="Add to Shopping"
 						className={cn(
 							'flex size-[44px] items-center justify-center rounded-md transition-colors',
 							addedToCart
@@ -222,9 +222,9 @@ function AddIngredientToShopping({
 				<TooltipContent>
 					{addedToCart
 						? cartData?.wasNew === false
-							? 'Already on list'
+							? 'Already on Shopping'
 							: 'Added!'
-						: 'Add to shopping list'}
+						: 'Add to Shopping'}
 				</TooltipContent>
 			</Tooltip>
 		</span>

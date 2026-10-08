@@ -671,7 +671,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						/>
 					</PopoverAnchor>
 					<PopoverContent align="start" className="w-72 p-4">
-						<p className="mb-3 text-sm font-medium">Add to meal plan</p>
+						<p className="mb-3 text-sm font-medium">Add to Plan</p>
 						<div className="mb-3">
 							<p className="text-muted-foreground mb-1.5 text-xs">Day</p>
 							<div className="flex flex-wrap gap-1.5">

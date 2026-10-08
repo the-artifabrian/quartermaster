@@ -61,7 +61,7 @@ async function expectSheetDocksOnTabBar(page: Page) {
 	await page.getByRole('button', { name: 'Add item' }).click()
 
 	const sheet = page
-		.getByRole('dialog', { name: 'Add to list' })
+		.getByRole('dialog', { name: 'Add to Shopping' })
 		.locator(':scope > div')
 		.last()
 	const bar = page.locator('[data-bottom-nav]')
@@ -193,7 +193,7 @@ test.describe('in the iOS app', () => {
 		// The URL changes before the router commits the new page.
 		await expect.poll(direction).toBe('forward')
 
-		await page.getByRole('link', { name: 'Edit recipe' }).click()
+		await page.getByRole('link', { name: 'Edit Recipe' }).click()
 		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
 		await page.getByRole('button', { name: 'Cancel' }).click()
 		await expect(

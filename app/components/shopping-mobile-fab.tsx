@@ -314,7 +314,7 @@ function AddItemSheet({
 			<div className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset))] z-50 rounded-t-xl border-t p-4">
 				<div className="mb-2 flex items-center justify-between">
 					<span id="shopping-add-sheet-title" className="text-sm font-medium">
-						Add to list
+						Add to Shopping
 					</span>
 					<button
 						type="button"

@@ -297,7 +297,7 @@ function MealMenu() {
 			<div className={separator} />
 			<div className={item}>
 				<Icon name="check" size="sm" />
-				Mark meal cooked
+				Mark cooked
 			</div>
 			<div className={cn(item, 'bg-cream/8')}>
 				<Icon name="pencil-1" size="sm" />
@@ -305,7 +305,7 @@ function MealMenu() {
 			</div>
 			<div className={item}>
 				<Icon name="cart" size="sm" />
-				Add to Shopping List
+				Add to Shopping
 			</div>
 			<div className={separator} />
 			<div className={item}>

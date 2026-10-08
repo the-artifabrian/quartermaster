@@ -62,7 +62,7 @@ test('Share opens the system share sheet with the Recipe title and public link',
 	await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
 	await page.goto(`/recipes/${recipe.id}`)
 
-	await page.getByRole('button', { name: 'Share recipe' }).click()
+	await page.getByRole('button', { name: 'Share', exact: true }).click()
 	const origin = new URL(page.url()).origin
 	await expect
 		.poll(() => page.evaluate(() => window.shareCalls))
@@ -78,7 +78,7 @@ test('a cancelled share sheet stays silent', async ({ page, login }) => {
 	await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
 	await page.goto(`/recipes/${recipe.id}`)
 
-	await page.getByRole('button', { name: 'Share recipe' }).click()
+	await page.getByRole('button', { name: 'Share', exact: true }).click()
 	await expect.poll(() => page.evaluate(() => window.shareCalls.length)).toBe(1)
 	await expectNoShareToast(page)
 })
@@ -106,7 +106,7 @@ test('a second tap while the share sheet is open is ignored', async ({
 	await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
 	await page.goto(`/recipes/${recipe.id}`)
 
-	const share = page.getByRole('button', { name: 'Share recipe' })
+	const share = page.getByRole('button', { name: 'Share', exact: true })
 	await share.click()
 	await share.click()
 	expect(await page.evaluate(() => window.shareCalls.length)).toBe(1)
@@ -125,7 +125,7 @@ test('a share sheet that fails still copies the public link', async ({
 	await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
 	await page.goto(`/recipes/${recipe.id}`)
 
-	await page.getByRole('button', { name: 'Share recipe' }).click()
+	await page.getByRole('button', { name: 'Share', exact: true }).click()
 	await expect(page.getByText('Public link copied')).toBeVisible()
 	const origin = new URL(page.url()).origin
 	expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
@@ -146,7 +146,7 @@ test('without a share sheet, Share copies the public link', async ({
 	await page.goto(`/recipes/${recipe.id}`)
 	expect(await page.evaluate(() => 'share' in navigator)).toBe(false)
 
-	await page.getByRole('button', { name: 'Share recipe' }).click()
+	await page.getByRole('button', { name: 'Share', exact: true }).click()
 	await expect(page.getByText('Public link copied')).toBeVisible()
 	const origin = new URL(page.url()).origin
 	const link = await page.evaluate(() => navigator.clipboard.readText())

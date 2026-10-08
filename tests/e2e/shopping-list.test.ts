@@ -58,10 +58,10 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	await page.setViewportSize({ width: 390, height: 844 })
 	await page.goto(`/recipes/${recipe.id}`)
 	await page
-		.getByRole('button', { name: 'Add to shopping list', exact: true })
+		.getByRole('button', { name: 'Add to Shopping', exact: true })
 		.click()
 	await expect(
-		page.getByRole('button', { name: 'Add to shopping list', exact: true }),
+		page.getByRole('button', { name: 'Add to Shopping', exact: true }),
 	).toBeDisabled()
 	await expect
 		.poll(() =>
@@ -147,7 +147,7 @@ test('a range amount added from a Recipe keeps both ends on Shopping (#384)', as
 	const addRow = (name: string) =>
 		page
 			.getByRole('checkbox', { name, exact: true })
-			.getByRole('button', { name: 'Add to shopping list', exact: true })
+			.getByRole('button', { name: 'Add to Shopping', exact: true })
 			.click()
 
 	await addRow('garlic')

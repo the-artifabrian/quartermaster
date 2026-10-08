@@ -60,7 +60,7 @@ test.describe('in the iOS app', () => {
 		// Parsing pasted text is free; extracting with AI is Pro.
 		await page.goto('/recipes/import')
 		await expect(
-			page.getByText('Import a recipe from a URL or paste text.'),
+			page.getByText('Paste a Recipe URL or its text.'),
 		).toBeVisible()
 		await expect(page.getByLabel('Recipe URL')).toBeVisible()
 		await expect(

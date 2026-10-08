@@ -379,9 +379,7 @@ test('shows the existing empty choice state after a successful request', async (
 	expect(
 		await within(mobile).findByText('No Recipes or Menus found'),
 	).toBeVisible()
-	expect(
-		within(mobile).getByRole('link', { name: 'Create a new recipe' }),
-	).toBeVisible()
+	expect(within(mobile).getByRole('link', { name: 'New Recipe' })).toBeVisible()
 })
 
 test('mobile Add Meal opens the real picker inline for the selected day', async () => {

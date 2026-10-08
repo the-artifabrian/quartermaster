@@ -684,7 +684,7 @@ export function MealCard({
 						{canMoveUp || canMoveDown ? <DropdownMenuSeparator /> : null}
 						<DropdownMenuItem onSelect={() => submitMealCooked(!isComplete)}>
 							<Icon name="check" size="sm" />
-							{isComplete ? 'Mark not cooked' : 'Mark meal cooked'}
+							{isComplete ? 'Mark not cooked' : 'Mark cooked'}
 						</DropdownMenuItem>
 						<DropdownMenuItem onSelect={() => setEditingDetails(true)}>
 							<Icon name="pencil-1" size="sm" />
@@ -713,9 +713,7 @@ export function MealCard({
 									name={meal.addedToShopping ? 'update' : 'cart'}
 									size="sm"
 								/>
-								{meal.addedToShopping
-									? 'Update Shopping List'
-									: 'Add to Shopping List'}
+								{meal.addedToShopping ? 'Update Shopping' : 'Add to Shopping'}
 							</DropdownMenuItem>
 						)}
 						<DropdownMenuSeparator />
@@ -797,7 +795,7 @@ export function MealCard({
 						type="button"
 						onClick={() => submitMealCooked(!isComplete)}
 						className="flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-0 md:min-w-0 md:p-1"
-						aria-label={isComplete ? 'Mark as not done' : 'Mark as done'}
+						aria-label={isComplete ? 'Mark not cooked' : 'Mark cooked'}
 					>
 						{isComplete ? (
 							<span className="border-primary bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">

@@ -75,13 +75,13 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	// React hydration lands asynchronously and `networkidle` never settles
 	// here — poll the first picker open until the popover actually responds.
 	await expect(async () => {
-		await visibleButton('Add recipe').first().click()
+		await visibleButton('Add Recipe').first().click()
 		await expect(pickerSearch()).toBeVisible({ timeout: 2000 })
 	}).toPass({ timeout: 15_000 })
 
 	// 3. Five recipes: four into the unnamed section…
 	for (const [index, title] of titles.slice(0, 4).entries()) {
-		if (index > 0) await visibleButton('Add recipe').click()
+		if (index > 0) await visibleButton('Add Recipe').click()
 		await pickerSearch().fill(title)
 		await pickerOption(title).click()
 		await expect(
@@ -97,7 +97,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	await page.getByRole('button', { name: 'Add section' }).click()
 	await page.getByLabel('Section name').last().fill('Dessert')
 	const sections = page.locator('fieldset > ul > li')
-	await visibleButton('Add recipe').nth(1).click()
+	await visibleButton('Add Recipe').nth(1).click()
 	await pickerSearch().fill('Orange Cake')
 	await pickerOption('Orange Cake').click()
 	await expect(
@@ -259,7 +259,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	).toEqual(expect.arrayContaining(['1.5', '2.5']))
 
 	await visibleButton('Meal actions').click()
-	await page.getByRole('menuitem', { name: 'Add to Shopping List' }).click()
+	await page.getByRole('menuitem', { name: 'Add to Shopping' }).click()
 	await expect
 		.poll(async () => {
 			return await prisma.mealShoppingContribution.findFirst({

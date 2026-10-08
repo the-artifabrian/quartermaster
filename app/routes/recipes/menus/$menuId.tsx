@@ -422,7 +422,7 @@ export default function MenuDetail({
 							<Icon name="share" size="md" />
 						</Button>
 					</TooltipTrigger>
-					<TooltipContent>Share public link</TooltipContent>
+					<TooltipContent>Share</TooltipContent>
 				</Tooltip>
 				<Tooltip>
 					<TooltipTrigger asChild>

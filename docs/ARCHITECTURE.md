@@ -241,12 +241,12 @@ grep -rlw Pro app --include='*.tsx'
 Four layers can answer a navigation with data the server did not just produce.
 Each has one owner and one invalidation trigger.
 
-| Layer                        | Owner                                                                   | Serves                                                                                       | Dropped by                                                                                                                                            |
-| ---------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| In-memory loader cache       | `app/utils/loader-cache.ts`, used by each route's `clientLoader`        | The last data for a URL visited this session, on Plan, Shopping, Recipes, Staples and Recipe | Any non-GET submission, when it starts and when it ends; a change of user or Household; a page reload                                                 |
-| Service worker `.data` cache | `public/sw.js`, driven by `app/components/service-worker-data-sync.tsx` | The same five routes' `.data` responses when the network fails, keyed per user and Household | `qm-data-invalidate` after any mutation except a Shopping one; `qm-data-purge` on logout; a new deploy's cache version                                |
-| Root loader skipped          | `shouldRevalidate` in `app/root.tsx`                                    | Header, user, tier and theme from the previous page                                          | Any navigation the router marks for revalidation, except same-page search changes and links that opt out (the bottom tabs); a pending toast forces it |
-| Route loader skipped         | A route's own `shouldRevalidate`, such as Plan's day picker             | The route's current data when only view-only search params changed                           | Everything else: the route runs its loader                                                                                                            |
+| Layer                        | Owner                                                                   | Serves                                                                                                                  | Dropped by                                                                                                                                            |
+| ---------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| In-memory loader cache       | `app/utils/loader-cache.ts`, used by each route's `clientLoader`        | The last data for a URL visited this session, on Plan, Shopping, Recipes, Staples and Recipe                            | Any non-GET submission, when it starts and when it ends; a change of user or Household; a page reload                                                 |
+| Service worker `.data` cache | `public/sw.js`, driven by `app/components/service-worker-data-sync.tsx` | The same five routes' `.data` responses when the network fails or has not answered in 4 s, keyed per user and Household | `qm-data-invalidate` after any mutation except a Shopping one; `qm-data-purge` on logout; a new deploy's cache version                                |
+| Root loader skipped          | `shouldRevalidate` in `app/root.tsx`                                    | Header, user, tier and theme from the previous page                                                                     | Any navigation the router marks for revalidation, except same-page search changes and links that opt out (the bottom tabs); a pending toast forces it |
+| Route loader skipped         | A route's own `shouldRevalidate`, such as Plan's day picker             | The route's current data when only view-only search params changed                                                      | Everything else: the route runs its loader                                                                                                            |
 
 The stale-while-revalidate routes show the cached entry at once, then
 `useStaleRevalidate` (`app/utils/use-stale-revalidate.ts`) revalidates once
@@ -266,17 +266,20 @@ How a change reaches other screens:
   types are in `app/utils/household-events.server.ts`. Every open client holds
   one `EventSource` on `/resources/household-events`
   (`app/utils/household-event-source.client.tsx`), polls every 30 seconds to
-  cover reconnects, and drops its own events by client id. Subscribers decide
-  what to do: Shopping revalidates after a 500 ms debounce, the tab bar shows a
-  dot, and the root toasts a batched summary. Edits to Recipes, Meals and
-  Staples themselves emit no event today, so another member sees them on their
-  next navigation or pull to refresh. This is refresh signalling, not
-  collaborative editing.
+  cover reconnects, and drops its own events by client id. The server sends a
+  `keepalive` event every 30 seconds; a stream that shows nothing for 75 seconds
+  (a half-open cellular socket fires no error) is closed and reopened the way an
+  error is, with polling in between. Subscribers decide what to do: Shopping
+  revalidates after a 500 ms debounce, the tab bar shows a dot, and the root
+  toasts a batched summary. Edits to Recipes, Meals and Staples themselves emit
+  no event today, so another member sees them on their next navigation or pull
+  to refresh. This is refresh signalling, not collaborative editing.
 - **An app relaunch.** Memory starts empty, so the first visit to each screen
   hits the network. The service worker answers that request from its `.data`
-  cache only if the network fails, and a document navigation gets the cached app
-  shell only offline. Nothing cached outlives a deploy: the cache names carry
-  the build's version and old generations are reaped on activate.
+  cache only if the network fails or has not answered in 4 seconds (the late
+  response still refreshes the cache), and a document navigation gets the cached
+  app shell only offline. Nothing cached outlives a deploy: the cache names
+  carry the build's version and old generations are reaped on activate.
 
 Why the rules are shaped this way:
 

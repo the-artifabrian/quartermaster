@@ -132,7 +132,7 @@ export default function ForgotPasswordRoute() {
 								to="/login"
 								className="mt-8 inline-block text-base font-bold"
 							>
-								Back to Login
+								Back to log in
 							</Link>
 						</div>
 					) : (
@@ -174,7 +174,7 @@ export default function ForgotPasswordRoute() {
 								to="/login"
 								className="mt-6 block text-center text-base font-bold"
 							>
-								Back to Login
+								Back to log in
 							</Link>
 						</>
 					)}

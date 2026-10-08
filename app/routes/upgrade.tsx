@@ -255,7 +255,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 							</Button>
 						) : (
 							<Button asChild variant="outline" className="w-full">
-								<Link to="/signup">Sign Up Free</Link>
+								<Link to="/signup">Sign up free</Link>
 							</Button>
 						)}
 					</div>

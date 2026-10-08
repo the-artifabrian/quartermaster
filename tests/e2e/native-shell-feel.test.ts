@@ -213,7 +213,7 @@ test.describe('the homepage in the iOS app', () => {
 		await page.goto('/')
 		await expect.poll(messages).toContain('theme:dark')
 
-		await page.getByRole('banner').getByRole('link', { name: 'Log In' }).click()
+		await page.getByRole('banner').getByRole('link', { name: 'Log in' }).click()
 		await expect(page).toHaveURL('/login')
 		await expect.poll(messages).toContain('theme:light')
 	})
@@ -268,12 +268,12 @@ test.describe('the tab bar in the iOS app', () => {
 		expect([settings?.width, settings?.height]).toEqual([44, 44])
 	})
 
-	test('signed out, the header keeps its padding around Sign Up', async ({
+	test('signed out, the header keeps its padding around Sign up', async ({
 		page,
 	}) => {
 		await page.goto('/login')
 		await expect(
-			page.getByRole('banner').getByRole('link', { name: 'Sign Up' }),
+			page.getByRole('banner').getByRole('link', { name: 'Sign up' }),
 		).toBeVisible()
 		expect((await page.getByRole('banner').boundingBox())?.height).toBe(69)
 	})

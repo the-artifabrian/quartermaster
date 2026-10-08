@@ -564,7 +564,7 @@ function HeaderAuthButton() {
 	return (
 		<Button asChild variant="default" size="lg">
 			<Link to={isLogin ? '/signup' : '/login'}>
-				{isLogin ? 'Sign Up' : 'Log In'}
+				{isLogin ? 'Sign up' : 'Log in'}
 			</Link>
 		</Button>
 	)

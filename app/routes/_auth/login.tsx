@@ -238,7 +238,7 @@ function PasskeyLogin({
 	const [isPending] = useTransition()
 	const [error, setError] = useState<string | null>(null)
 	const [passkeyMessage, setPasskeyMessage] = useOptimistic<string | null>(
-		'Login with a passkey',
+		'Log in with a passkey',
 	)
 	const navigate = useNavigate()
 
@@ -306,7 +306,7 @@ function PasskeyLogin({
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Login to Quartermaster' }]
+	return [{ title: 'Log in to Quartermaster' }]
 }
 
 export function ErrorBoundary() {

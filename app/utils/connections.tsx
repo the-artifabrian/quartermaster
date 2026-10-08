@@ -19,6 +19,12 @@ export const providerIcons: Record<ProviderName, React.ReactNode> = {
 	[GOOGLE_PROVIDER_NAME]: <Icon name="google-logo" />,
 } as const
 
+const typeLabels = {
+	Connect: 'Connect',
+	Login: 'Log in',
+	Signup: 'Sign up',
+} as const
+
 export function ProviderConnectionForm({
 	redirectTo,
 	type,
@@ -48,7 +54,7 @@ export function ProviderConnectionForm({
 				<span className="inline-flex items-center gap-1.5">
 					{providerIcons[providerName]}
 					<span>
-						{type} with {label}
+						{typeLabels[type]} with {label}
 					</span>
 				</span>
 			</StatusButton>

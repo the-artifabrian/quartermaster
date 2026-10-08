@@ -70,7 +70,7 @@ test('Users can register and use passkeys', async ({
 		client.once('WebAuthn.credentialAsserted', () => resolve())
 	})
 
-	await page.getByRole('button', { name: /login with a passkey/i }).click()
+	await page.getByRole('button', { name: /log in with a passkey/i }).click()
 
 	// Check for error message before waiting for completion
 	const errorLocator = page.getByText(/failed to authenticate/i)
@@ -117,7 +117,7 @@ test('Users can register and use passkeys', async ({
 		client.once('WebAuthn.credentialAsserted', () => resolve())
 	})
 
-	await page.getByRole('button', { name: /login with a passkey/i }).click()
+	await page.getByRole('button', { name: /log in with a passkey/i }).click()
 
 	await deletedPasskeyAssertedPromise
 

@@ -212,7 +212,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 							name="exit"
 							className="text-muted-foreground size-5 shrink-0"
 						/>
-						<span>Log Out</span>
+						<span>Log out</span>
 					</button>
 				</Form>
 			</SettingsSection>

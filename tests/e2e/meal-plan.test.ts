@@ -554,6 +554,96 @@ test('Recipe already in Plan reports the planned Meal and links to it', async ({
 	).toEqual([{ scaleMultiplier: 1 }])
 })
 
+test.describe('Plan quick-add failure', () => {
+	// page.route cannot see requests a service worker answers.
+	test.use({ serviceWorkers: 'block' })
+
+	test('A Recipe the server fails to add is named in an error toast', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.recipe.create({
+			data: {
+				title: 'Herb Salad',
+				userId: user.id,
+				householdId: user.householdId,
+			},
+		})
+		await page.route('**/plan.data*', (route) =>
+			route.request().method() === 'POST'
+				? route.fulfill({ status: 500, body: 'Unexpected Server Error' })
+				: route.continue(),
+		)
+
+		await page.goto('/plan')
+		const desktopPlan = page.getByTestId('desktop-plan')
+		await expect(async () => {
+			await desktopPlan
+				.getByRole('button', { name: /add meal/i })
+				.first()
+				.click()
+			await expect(
+				page.getByPlaceholder('Search Recipes and Menus...').first(),
+			).toBeVisible({ timeout: 2000 })
+		}).toPass()
+		await page.getByRole('button', { name: /herb salad/i }).click()
+
+		// The picker still closes at once, and the failure follows as a toast.
+		await expect(
+			page.getByPlaceholder('Search Recipes and Menus...'),
+		).toHaveCount(0)
+		const announcements = page.getByRole('region', { name: /Notifications/ })
+		await expect(
+			announcements.getByText('Could not add Herb Salad to Plan'),
+		).toBeVisible()
+		await expect(
+			page.getByRole('heading', { name: /meal plan/i }),
+		).toBeVisible()
+		await expect(
+			desktopPlan.getByText('Herb Salad', { exact: true }),
+		).toHaveCount(0)
+		expect(
+			await prisma.meal.count({
+				where: { mealPlan: { householdId: user.householdId } },
+			}),
+		).toBe(0)
+	})
+
+	test('A Recipe page add the server fails says so and keeps the page', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Miso Soup',
+				userId: user.id,
+				householdId: user.householdId,
+			},
+		})
+		await page.route('**/plan.data*', (route) =>
+			route.request().method() === 'POST'
+				? route.fulfill({ status: 500, body: 'Unexpected Server Error' })
+				: route.continue(),
+		)
+
+		await page.goto(`/recipes/${recipe.id}`)
+		await page.getByRole('button', { name: 'Add to meal plan' }).click()
+		await page.getByRole('button', { name: 'Add to Plan' }).click()
+		const announcements = page.getByRole('region', { name: /Notifications/ })
+		await expect(
+			announcements.getByText('Could not add Miso Soup to Plan'),
+		).toBeVisible()
+		await expect(page.getByRole('heading', { name: 'Miso Soup' })).toBeVisible()
+		expect(
+			await prisma.meal.count({
+				where: { mealPlan: { householdId: user.householdId } },
+			}),
+		).toBe(0)
+	})
+})
+
 test('Narrowing the phone Plan picker keeps the page height, so the input stays above the keyboard', async ({
 	page,
 	login,

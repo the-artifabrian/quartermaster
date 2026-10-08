@@ -70,6 +70,7 @@ function AddMealControl({
 	const [pendingRecipeAdd, setPendingRecipeAdd] = useState(false)
 	const recipeSubmissionStarted = useRef(false)
 	const submittedLabel = useRef<MealType | null>(null)
+	const submittedRecipeTitle = useRef('')
 	const dateLabel = `${formatWeekdayName(date)}, ${formatMonthDay(date)}`
 
 	useEffect(() => {
@@ -109,9 +110,13 @@ function AddMealControl({
 		recipeSubmissionStarted.current = false
 		setPendingRecipeAdd(false)
 		const meal = fetcher.data?.meal
+		if (fetcher.data?.status !== 'success') {
+			toast.error(`Could not add ${submittedRecipeTitle.current} to Plan`)
+			return
+		}
 		// A semantic match keeps its own multiplier, so say what is planned and
 		// point at that Meal rather than implying this scale was applied (#236).
-		if (fetcher.data?.status === 'success' && meal && !meal.created) {
+		if (meal && !meal.created) {
 			const mealLabel = submittedLabel.current
 			toast.info('Already planned', {
 				description: `${dateLabel}${
@@ -139,6 +144,7 @@ function AddMealControl({
 			setPendingMenuSubmission(true)
 		} else {
 			submittedLabel.current = label
+			submittedRecipeTitle.current = choice.recipe.title
 			recipeSubmissionStarted.current = false
 			setPendingRecipeAdd(true)
 		}

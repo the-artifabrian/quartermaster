@@ -77,6 +77,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 					url: src,
 				}
 			}
+			// A filesystem path never climbs out of the folder it names.
+			invariantResponse(!src.includes('..'), 'Invalid src', { status: 400 })
 			// Retrieve image from filesystem (public folder)
 			if (src.startsWith('/assets')) {
 				// Files managed by Vite

@@ -365,17 +365,20 @@ function useCopyInviteLink(token: string) {
 
 /** The invite link, selected, for copying by hand. */
 function ManualCopyField({ url }: { url: string }) {
+	const input = useRef<HTMLInputElement>(null)
+	// Select once when shown; a re-render of the page must not take focus back.
+	useEffect(() => {
+		input.current?.focus()
+		input.current?.select()
+	}, [])
 	return (
 		<input
+			ref={input}
 			type="text"
 			readOnly
 			value={url}
 			aria-label="Invite link"
 			className="bg-background w-full min-w-0 rounded border px-2 py-1 text-sm"
-			ref={(input) => {
-				input?.focus()
-				input?.select()
-			}}
 			onFocus={(event) => event.currentTarget.select()}
 		/>
 	)

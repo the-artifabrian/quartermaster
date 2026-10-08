@@ -147,9 +147,10 @@ export function isRangeAmount(amount: string): boolean {
 }
 
 /**
- * Both ends of a range and the dash to rejoin them with: the author's own
- * dash, or a hyphen for "to". Null when either end defeats parsing, so the
- * caller passes the range through verbatim rather than collapsing it.
+ * Both ends of a range and the dash to rejoin them with: a hyphen or en dash
+ * as the author wrote it, otherwise a hyphen ("~" before a digit reads as
+ * "about", so "2~4" would be noise). Null when either end defeats parsing, so
+ * the caller passes the range through verbatim rather than collapsing it.
  */
 function parseRangeAmount(
 	amount: string,
@@ -159,7 +160,7 @@ function parseRangeAmount(
 	const low = parseAmount(match[1]!)
 	const high = parseAmount(match[3]!)
 	if (low === null || high === null) return null
-	const separator = match[2]!.toLowerCase() === 'to' ? '-' : match[2]!
+	const separator = match[2] === '–' ? '–' : '-'
 	return { low, high, separator }
 }
 

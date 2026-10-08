@@ -127,7 +127,10 @@ test('a range amount added from a Recipe keeps both ends on Shopping (#384)', as
 			userId: user.id,
 			householdId: user.householdId,
 			ingredients: {
-				create: { name: 'garlic', amount: '1-2', unit: 'cloves', order: 0 },
+				create: [
+					{ name: 'garlic', amount: '1-2', unit: 'cloves', order: 0 },
+					{ name: 'flour', amount: '1-2', unit: 'cups', order: 1 },
+				],
 			},
 			instructions: { create: { content: 'Rub the toast.', order: 0 } },
 		},
@@ -135,17 +138,35 @@ test('a range amount added from a Recipe keeps both ends on Shopping (#384)', as
 	await page.setViewportSize({ width: 390, height: 844 })
 	await page.goto(`/recipes/${recipe.id}`)
 	await expect(page.getByText('1-2 cloves', { exact: false })).toBeVisible()
-	await page
-		.getByRole('button', { name: 'Add to shopping list', exact: true })
-		.click()
+	const savedItems = () =>
+		prisma.shoppingListItem.findMany({
+			where: { list: { householdId: user.householdId } },
+			select: { name: true, quantity: true, unit: true },
+			orderBy: { name: 'asc' },
+		})
+	const addRow = (name: string) =>
+		page
+			.getByRole('checkbox', { name, exact: true })
+			.getByRole('button', { name: 'Add to shopping list', exact: true })
+			.click()
+
+	await addRow('garlic')
 	await expect
-		.poll(() =>
-			prisma.shoppingListItem.findMany({
-				where: { list: { householdId: user.householdId } },
-				select: { name: true, quantity: true, unit: true },
-			}),
-		)
+		.poll(savedItems)
 		.toEqual([{ name: 'garlic', quantity: '1-2', unit: 'cloves' }])
+
+	// Metric converts a single amount; a range has no single value and
+	// stays in the author's unit.
+	await page.getByRole('button', { name: 'Metric' }).click()
+	await expect(page.getByRole('button', { name: 'Metric' })).toHaveAttribute(
+		'aria-pressed',
+		'true',
+	)
+	await addRow('flour')
+	await expect.poll(savedItems).toEqual([
+		{ name: 'flour', quantity: '1-2', unit: 'cups' },
+		{ name: 'garlic', quantity: '1-2', unit: 'cloves' },
+	])
 
 	await page
 		.getByRole('link', { name: 'Shop', exact: true })
@@ -154,6 +175,9 @@ test('a range amount added from a Recipe keeps both ends on Shopping (#384)', as
 	await expect(
 		page.getByRole('group', { name: 'garlic shopping item' }),
 	).toContainText('1-2 cloves')
+	await expect(
+		page.getByRole('group', { name: 'flour shopping item' }),
+	).toContainText('1-2 cups')
 })
 
 test('Shopping list flow: pick from Plan → verify items → add manual → check → clear', async ({

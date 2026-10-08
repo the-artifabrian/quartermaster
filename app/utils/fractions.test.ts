@@ -253,6 +253,11 @@ describe('scaleAmount with a range', () => {
 		expect(scaleAmount('1–2', 0.5)).toBe('1/2–1')
 	})
 
+	test('a tilde or em dash range rejoins with a hyphen', () => {
+		expect(scaleAmount('1~2', 2)).toBe('2-4')
+		expect(scaleAmount('1—2', 2)).toBe('2-4')
+	})
+
 	test('a "to" range scales end by end', () => {
 		// Written as a hyphen, the way the Plan path has always shown it.
 		expect(scaleAmount('2 to 3', 1)).toBe('2-3')

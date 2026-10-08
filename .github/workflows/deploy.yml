@@ -142,7 +142,7 @@ jobs:
         run: bunx playwright test
         env:
           # Runner load makes the 34 ms bottom-nav feedback budget flaky; the
-          # number is still logged to the report.
+          # number is still logged to the report (#304).
           BOTTOM_NAV_FEEDBACK_TRACE_ONLY: '1'
 
       - name: 📊 Upload report

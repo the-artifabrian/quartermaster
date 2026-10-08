@@ -16,7 +16,7 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
 import { type ExtractedRecipe } from '#app/utils/import-recipe-types.ts'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
-import { downscaleInputFiles } from '#app/utils/downscale-image.ts'
+import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import { importUrlFromSearch } from '#app/utils/import-url.ts'
 import { recipeMetadataOptions } from '#app/utils/recipe-metadata.server.ts'
 import { MAX_IMPORT_IMAGE_SIZE } from '#app/utils/recipe-validation.ts'
@@ -99,7 +99,9 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				? 'image'
 				: 'url'
 	const [activeTab, setActiveTab] = useState<ImportTab>(defaultTab)
-	const [preparingImages, setPreparingImages] = useState(false)
+	const { preparing: preparingImages, fit: fitImages } = useFitFileInput(
+		MAX_IMPORT_IMAGE_SIZE,
+	)
 	// The iOS app may not point at buying Pro (ADR 0001), so a free user there
 	// gets the free URL and text imports without the AI extraction that leads
 	// to Pro.
@@ -283,15 +285,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								type="file"
 								accept="image/jpeg,image/png,image/webp"
 								multiple
-								onChange={async (event) => {
-									const input = event.currentTarget
-									setPreparingImages(true)
-									try {
-										await downscaleInputFiles(input, MAX_IMPORT_IMAGE_SIZE)
-									} finally {
-										setPreparingImages(false)
-									}
-								}}
+								onChange={(event) => void fitImages(event.currentTarget)}
 							/>
 							<p className="text-muted-foreground text-xs">
 								JPEG, PNG, or WebP. Large images are resized. Multiple images

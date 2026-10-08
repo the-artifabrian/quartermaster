@@ -1,3 +1,5 @@
+import { useCallback, useRef, useState } from 'react'
+
 /** The longest edge, in pixels, of a photo the browser has re-encoded. */
 export const MAX_DOWNSCALED_EDGE = 2048
 
@@ -93,20 +95,42 @@ async function decodeInBrowser(file: Blob): Promise<DecodedImage> {
 }
 
 /**
- * Replace each chosen photo on a file input with one that fits `maxBytes`.
+ * Shrinks the photos chosen on a file input so each fits `maxBytes`.
+ *
+ * `fit(input)` replaces the input's files with ones that fit, and resolves
+ * false when a later pick has superseded it, so a slow first photo never
+ * overwrites a second one. `preparing` is true until the latest pick is ready.
  * Setting `files` does not fire another change event.
  */
-export async function downscaleInputFiles(
-	input: HTMLInputElement,
+export function useFitFileInput(
 	maxBytes: number,
+	decode: DecodeImage = decodeInBrowser,
 ) {
-	const chosen = Array.from(input.files ?? [])
-	if (!chosen.some((file) => file.size > maxBytes)) return
-	const fitted = await Promise.all(
-		chosen.map((file) => downscaleImageToFit(file, maxBytes)),
+	const latest = useRef(0)
+	const [preparing, setPreparing] = useState(false)
+
+	const fit = useCallback(
+		async (input: HTMLInputElement) => {
+			const call = ++latest.current
+			setPreparing(true)
+			try {
+				const chosen = Array.from(input.files ?? [])
+				const fitted = await Promise.all(
+					chosen.map((file) => downscaleImageToFit(file, maxBytes, decode)),
+				)
+				if (call !== latest.current) return false
+				if (fitted.some((file, index) => file !== chosen[index])) {
+					const transfer = new DataTransfer()
+					for (const file of fitted) transfer.items.add(file)
+					input.files = transfer.files
+				}
+				return true
+			} finally {
+				if (call === latest.current) setPreparing(false)
+			}
+		},
+		[maxBytes, decode],
 	)
-	if (fitted.every((file, index) => file === chosen[index])) return
-	const transfer = new DataTransfer()
-	for (const file of fitted) transfer.items.add(file)
-	input.files = transfer.files
+
+	return { preparing, fit }
 }

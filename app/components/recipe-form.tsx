@@ -4,7 +4,7 @@ import { Img } from 'openimg/react'
 import { useId, useState } from 'react'
 import { Form, useActionData, useNavigation } from 'react-router'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
-import { downscaleInputFiles } from '#app/utils/downscale-image.ts'
+import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import {
 	MAX_RECIPE_IMAGE_SIZE,
 	RecipeSchema,
@@ -172,16 +172,14 @@ export function RecipeForm({
 		{ type: 'text' },
 	)
 
-	const [preparingPhoto, setPreparingPhoto] = useState(false)
+	// Phone photos are often over the upload limit; shrink them here.
+	const { preparing: preparingPhoto, fit: fitPhoto } = useFitFileInput(
+		MAX_RECIPE_IMAGE_SIZE,
+	)
 	const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const input = e.currentTarget
-		setPreparingPhoto(true)
-		try {
-			// Phone photos are often over the upload limit; shrink them here.
-			await downscaleInputFiles(input, MAX_RECIPE_IMAGE_SIZE)
-		} finally {
-			setPreparingPhoto(false)
-		}
+		// A later pick owns the preview.
+		if (!(await fitPhoto(input))) return
 		const file = input.files?.[0]
 		if (file) {
 			const reader = new FileReader()

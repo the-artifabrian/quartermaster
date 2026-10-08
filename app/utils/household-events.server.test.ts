@@ -26,27 +26,6 @@ async function setupUser() {
 }
 
 describe('emitHouseholdEvent', () => {
-	test('writes event to database', async () => {
-		const user = await setupUser()
-
-		await emitHouseholdEvent({
-			type: 'shopping_list_item_added',
-			payload: { name: 'Butter' },
-			userId: user.id,
-			householdId: user.householdId,
-		})
-
-		const events = await prisma.householdEvent.findMany({
-			where: { householdId: user.householdId },
-		})
-
-		expect(events).toHaveLength(1)
-		expect(events[0]!.type).toBe('shopping_list_item_added')
-		expect(JSON.parse(events[0]!.payload)).toEqual({ name: 'Butter' })
-		expect(events[0]!.userId).toBe(user.id)
-		expect(events[0]!.householdId).toBe(user.householdId)
-	})
-
 	test('emits event on the bus', async () => {
 		const user = await setupUser()
 

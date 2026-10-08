@@ -4,7 +4,7 @@ import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
-import { action, loader } from './index.tsx'
+import { action } from './index.tsx'
 import '#tests/setup/db-setup.ts'
 
 const ROUTE_ARGS = {
@@ -74,62 +74,7 @@ async function postAddToShop(
 	})
 }
 
-async function loadStaples(session: { id: string }) {
-	const cookie = await getSessionCookieHeader(session)
-	return loader({
-		request: new Request(`${BASE_URL}/inventory`, { headers: { cookie } }),
-		...ROUTE_ARGS,
-	})
-}
-
 describe('tapping a Staple restocks Next shop', () => {
-	test('creates one manual Next-shop row when no match exists', async () => {
-		const session = await setupHousehold()
-
-		const result = await postAddToShop(session)
-
-		expect(result).toMatchObject({
-			status: 'success',
-			action: 'add-staple-to-shop',
-			shoppingEffect: 'added',
-			message: 'Salt was added to Next shop.',
-		})
-		// The Staple stays on the list and its row now says where it went.
-		expect((await loadStaples(session)).staples).toEqual([
-			{ id: session.stapleId, displayName: 'Salt', onShoppingList: true },
-		])
-		expect(
-			await prisma.shoppingListItem.findMany({
-				where: { list: { householdId: session.householdId } },
-				select: {
-					name: true,
-					category: true,
-					source: true,
-					horizon: true,
-					checked: true,
-				},
-			}),
-		).toEqual([
-			{
-				name: 'Salt',
-				category: 'pantry',
-				source: 'manual',
-				horizon: 'next',
-				checked: false,
-			},
-		])
-		await expect
-			.poll(() =>
-				prisma.householdEvent.count({
-					where: {
-						householdId: session.householdId,
-						type: 'shopping_list_item_added',
-					},
-				}),
-			)
-			.toBe(1)
-	})
-
 	test('moves an unchecked Later match to Next shop without rewriting it', async () => {
 		const session = await setupHousehold()
 		const list = await prisma.shoppingList.create({

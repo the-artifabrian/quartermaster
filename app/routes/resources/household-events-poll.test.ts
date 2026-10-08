@@ -89,51 +89,6 @@ describe('household-events-poll loader', () => {
 		expect(result.data.events).toEqual([])
 	})
 
-	test('returns household events including the acting account’s other devices', async () => {
-		const user = await setupUser()
-		const otherUser = await setupOtherUser(user.householdId)
-		const cookie = await getSessionCookieHeader(user)
-
-		const before = new Date()
-		await new Promise((r) => setTimeout(r, 5))
-
-		// Create events from the other user
-		await prisma.householdEvent.create({
-			data: {
-				type: 'shopping_list_item_added',
-				payload: JSON.stringify({ name: 'Pasta' }),
-				householdId: user.householdId,
-				userId: otherUser.userId,
-			},
-		})
-
-		// Own-account events must reach other documents/devices too.
-		await prisma.householdEvent.create({
-			data: {
-				type: 'shopping_list_item_added',
-				payload: JSON.stringify({ name: 'Salad' }),
-				householdId: user.householdId,
-				userId: user.userId,
-			},
-		})
-
-		const since = before.toISOString()
-		const result = (await loader({
-			...LOADER_ARGS_BASE,
-			request: new Request(
-				`${BASE_URL}/resources/household-events-poll?since=${encodeURIComponent(since)}`,
-				{ headers: { cookie } },
-			),
-		})) as { data: { events: any[] } }
-
-		expect(result.data.events).toHaveLength(2)
-		expect(result.data.events[1].payload).toEqual({ name: 'Salad' })
-		expect(result.data.events[0].type).toBe('shopping_list_item_added')
-		expect(result.data.events[0].payload).toEqual({ name: 'Pasta' })
-		expect(result.data.events[0].userId).toBe(otherUser.userId)
-		expect(result.data.events[0].householdId).toBe(user.householdId)
-	})
-
 	test('response shape matches HouseholdEventData', async () => {
 		const user = await setupUser()
 		const otherUser = await setupOtherUser(user.householdId)

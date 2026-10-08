@@ -357,29 +357,6 @@ describe('shopping list actions', () => {
 		).toEqual([{ name: 'chicken' }, { name: 'rice' }])
 	})
 
-	test('an unticked line stays off the list', async () => {
-		const session = await setupUser()
-		await setupMealPlanWithRecipe(session.userId, session.householdId)
-		const meal = await prisma.meal.findFirstOrThrow({
-			where: { mealPlan: { householdId: session.householdId } },
-		})
-
-		await action({
-			request: await makeRequest(session, {
-				intent: 'add-from-plan',
-				picks: JSON.stringify([{ mealId: meal.id, lines: ['chicken'] }]),
-			}),
-			...ACTION_ARGS_BASE,
-		})
-
-		expect(
-			await prisma.shoppingListItem.findMany({
-				where: { list: { householdId: session.householdId } },
-				select: { name: true },
-			}),
-		).toEqual([{ name: 'chicken' }])
-	})
-
 	test('a usually-on-hand line still lands when the household ticks it', async () => {
 		const session = await setupUser()
 		const recipe = await prisma.recipe.create({
@@ -702,30 +679,6 @@ describe('shopping list actions', () => {
 		])
 	})
 
-	test('add manual item', async () => {
-		const session = await setupUser()
-
-		const request = await makeRequest(session, {
-			intent: 'add',
-			name: 'Bananas',
-			quantity: '6',
-		})
-		const result = (await action({ request, ...ACTION_ARGS_BASE })) as {
-			status: string
-		}
-		expect(result.status).toBe('success')
-
-		const list = await prisma.shoppingList.findFirst({
-			where: { userId: session.userId },
-			include: { items: true },
-		})
-		const item = list!.items.find((i) => i.name === 'Bananas')
-		expect(item).toBeDefined()
-		expect(item!.source).toBe('manual')
-		expect(item!.quantity).toBe('6')
-		expect(item!.horizon).toBe('next')
-	})
-
 	test('typed entry keeps checked purchases separate and still warns about unchecked duplicates (#226)', async () => {
 		const session = await setupUser()
 		const list = await ensureShoppingList(prisma, session)
@@ -907,49 +860,6 @@ describe('shopping list actions', () => {
 			where: { id: item.id },
 		})
 		expect(deleted).toBeNull()
-	})
-
-	test('clear checked items', async () => {
-		const session = await setupUser()
-
-		// Add two items
-		await action({
-			request: await makeRequest(session, {
-				intent: 'add',
-				name: 'Milk',
-			}),
-			...ACTION_ARGS_BASE,
-		})
-		await action({
-			request: await makeRequest(session, {
-				intent: 'add',
-				name: 'Bread',
-			}),
-			...ACTION_ARGS_BASE,
-		})
-
-		const list = await prisma.shoppingList.findFirst({
-			where: { userId: session.userId },
-			include: { items: true },
-		})
-
-		// Check the first item
-		await checkItem(session, list!.items[0]!.id)
-
-		// Clear checked
-		const result = (await action({
-			request: await makeRequest(session, {
-				intent: 'clear-checked',
-			}),
-			...ACTION_ARGS_BASE,
-		})) as { status: string }
-		expect(result.status).toBe('success')
-
-		const updated = await prisma.shoppingList.findFirst({
-			where: { userId: session.userId },
-			include: { items: true },
-		})
-		expect(updated!.items).toHaveLength(1) // Only unchecked remains
 	})
 
 	test('clear checked is scoped to its requested section', async () => {

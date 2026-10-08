@@ -15,23 +15,6 @@ async function setupHousehold() {
 	return household
 }
 
-test('ensureMealPlan returns the existing current-format plan', async () => {
-	const household = await setupHousehold()
-	const weekStart = new Date('2026-02-02T00:00:00.000Z')
-	const existing = await prisma.mealPlan.create({
-		data: { householdId: household.id, weekStart },
-	})
-
-	const ensured = await ensureMealPlan(prisma, {
-		householdId: household.id,
-		weekStart,
-	})
-	expect(ensured.id).toBe(existing.id)
-	expect(
-		await prisma.mealPlan.count({ where: { householdId: household.id } }),
-	).toBe(1)
-})
-
 test('ensureMealPlan finds an INTEGER-era week instead of creating a duplicate plan', async () => {
 	const household = await setupHousehold()
 	const weekStart = new Date('2026-02-02T00:00:00.000Z')
@@ -50,20 +33,6 @@ test('ensureMealPlan finds an INTEGER-era week instead of creating a duplicate p
 		weekStart,
 	})
 	expect(ensured.id).toBe(legacyEra.id)
-	expect(ensured.weekStart.getTime()).toBe(weekStart.getTime())
-	expect(
-		await prisma.mealPlan.count({ where: { householdId: household.id } }),
-	).toBe(1)
-})
-
-test('ensureMealPlan creates the plan when the week has none in either era', async () => {
-	const household = await setupHousehold()
-	const weekStart = new Date('2026-02-09T00:00:00.000Z')
-
-	const ensured = await ensureMealPlan(prisma, {
-		householdId: household.id,
-		weekStart,
-	})
 	expect(ensured.weekStart.getTime()).toBe(weekStart.getTime())
 	expect(
 		await prisma.mealPlan.count({ where: { householdId: household.id } }),

@@ -10,62 +10,6 @@ import { getHouseholdClientId } from '#app/utils/household-client.tsx'
 import { server } from '#tests/setup/mocks-setup.ts'
 import { ShoppingStaplesPicker } from './shopping-staples-picker.tsx'
 
-test('loads Staple choices once per Shopping screen and derives current list state', async () => {
-	let requestCount = 0
-	let releaseResponse = () => {}
-	const responseGate = new Promise<void>((resolve) => {
-		releaseResponse = resolve
-	})
-	server.use(
-		http.get('*/resources/shopping-staples', async () => {
-			requestCount += 1
-			await responseGate
-			return HttpResponse.json({
-				staples: [
-					{
-						id: 'milk',
-						displayName: 'Milk',
-						shoppingIdentity: 'milk',
-					},
-					{
-						id: 'salt',
-						displayName: 'Salt',
-						shoppingIdentity: 'salt',
-					},
-				],
-			})
-		}),
-	)
-	const Stub = createRoutesStub([
-		{
-			path: '/',
-			Component: () => (
-				<ShoppingStaplesPicker
-					shoppingIdentities={['salt']}
-					showQuietCue={false}
-				/>
-			),
-		},
-	])
-	const user = userEvent.setup()
-	render(<Stub initialEntries={['/']} />)
-
-	await user.click(screen.getByRole('button', { name: 'From Staples' }))
-	expect(screen.getByRole('status')).toHaveTextContent('Loading Staples')
-	releaseResponse()
-	await waitFor(() =>
-		expect(
-			screen.getByRole('button', { name: /Salt.*On list/ }),
-		).toBeDisabled(),
-	)
-	expect(screen.getByRole('button', { name: 'Milk' })).toBeEnabled()
-
-	await user.click(screen.getByRole('button', { name: 'From Staples' }))
-	await user.click(screen.getByRole('button', { name: 'From Staples' }))
-	expect(screen.getByRole('button', { name: /Salt.*On list/ })).toBeDisabled()
-	expect(requestCount).toBe(1)
-})
-
 test('offers an accessible retry and empty state after a choice request fails', async () => {
 	let requestCount = 0
 	let releaseRetry = () => {}

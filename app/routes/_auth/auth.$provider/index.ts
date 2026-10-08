@@ -12,14 +12,18 @@ export async function loader() {
 
 export async function action({ request, params }: Route.ActionArgs) {
 	const providerName = ProviderNameSchema.parse(params.provider)
+	// The strategy reads the body, so read redirectTo from a copy first.
+	const rawRedirectTo = await request
+		.clone()
+		.formData()
+		.then((formData) => formData.get('redirectTo'))
+		.catch(() => null)
 
 	try {
 		await handleMockAction(providerName, request)
 		return await authenticator.authenticate(providerName, request)
 	} catch (error: unknown) {
 		if (error instanceof Response) {
-			const formData = await request.formData()
-			const rawRedirectTo = formData.get('redirectTo')
 			const redirectTo =
 				typeof rawRedirectTo === 'string'
 					? rawRedirectTo

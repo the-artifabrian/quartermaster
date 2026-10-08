@@ -256,6 +256,20 @@ function loadServiceWorker({
 		}
 	}
 
+	/** A mutation: the worker sees it but leaves it to the network. */
+	function dispatchMutation(pathname: string, method = 'POST') {
+		let handled = false
+		listeners.fetch?.({
+			request: { method, mode: 'cors', url: new URL(pathname, ORIGIN).href },
+			clientId: '',
+			respondWith: () => {
+				handled = true
+			},
+			waitUntil: () => {},
+		})
+		if (handled) throw new Error(`${method} ${pathname} was answered`)
+	}
+
 	async function dispatchMessage(data: unknown) {
 		const lifetimes: Promise<unknown>[] = []
 		listeners.message?.({
@@ -287,6 +301,7 @@ function loadServiceWorker({
 		dispatchActivate,
 		dispatchFetch,
 		dispatchInstall,
+		dispatchMutation,
 		startFetch,
 		dispatchMessage,
 		setFetch: (
@@ -1575,4 +1590,148 @@ describe('a stalled Route data request', () => {
 			}
 		},
 	)
+
+	test.each(['POST', 'DELETE'])(
+		'after a %s, a stalled request with a cache hit keeps waiting on the network',
+		async (method) => {
+			vi.useFakeTimers()
+			try {
+				const { worker, answer } = await stalledWorker()
+				await worker.storage.seed(
+					SESSION_CACHE,
+					'/shopping.data',
+					routeDataResponse('BEFORE'),
+				)
+
+				worker.dispatchMutation('/shopping', method)
+				const fetch = worker.startFetch('/shopping.data')
+				const response = track(fetch.response)
+				await vi.advanceTimersByTimeAsync(30_000)
+				expect(response.settled).toBe(false)
+
+				answer(routeDataResponse('AFTER'))
+				expect(await (await fetch.response).text()).toBe('AFTER')
+				await fetch.settled()
+			} finally {
+				vi.useRealTimers()
+			}
+		},
+	)
+
+	test('after a mutation, a transport failure still answers from the cache', async () => {
+		const worker = loadServiceWorker()
+		await worker.dispatchMessage({ type: 'qm-data-session', token: 'session' })
+		await worker.storage.seed(
+			SESSION_CACHE,
+			'/shopping.data',
+			routeDataResponse('CACHED'),
+		)
+		worker.setFetch(async () => {
+			throw new TypeError('Failed to fetch')
+		})
+
+		worker.dispatchMutation('/shopping')
+		const response = await worker.dispatchFetch('/shopping.data')
+
+		expect(await response?.text()).toBe('CACHED')
+	})
+
+	test('a fresh response after the mutation restores the 4 s fallback', async () => {
+		vi.useFakeTimers()
+		try {
+			const { worker, answer } = await stalledWorker()
+			worker.dispatchMutation('/shopping')
+			const fresh = worker.startFetch('/shopping.data')
+			answer(routeDataResponse('AFTER'))
+			await fresh.settled()
+
+			const stalled = worker.startFetch('/shopping.data')
+			await vi.advanceTimersByTimeAsync(4000)
+			expect(await (await stalled.response).text()).toBe('AFTER')
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	test('a new data epoch after the mutation restores the 4 s fallback', async () => {
+		vi.useFakeTimers()
+		try {
+			const { worker } = await stalledWorker()
+			worker.dispatchMutation('/plan')
+			await worker.dispatchMessage({ type: 'qm-data-invalidate' })
+			await worker.storage.seed(
+				SESSION_CACHE,
+				'/plan.data',
+				routeDataResponse('REFILLED'),
+			)
+
+			const stalled = worker.startFetch('/plan.data')
+			await vi.advanceTimersByTimeAsync(4000)
+			expect(await (await stalled.response).text()).toBe('REFILLED')
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	test('a network failure after the cached answer is swallowed', async () => {
+		vi.useFakeTimers()
+		try {
+			const worker = loadServiceWorker()
+			await worker.dispatchMessage({
+				type: 'qm-data-session',
+				token: 'session',
+			})
+			await worker.storage.seed(
+				SESSION_CACHE,
+				'/plan.data',
+				routeDataResponse('OLD'),
+			)
+			let fail!: (error: Error) => void
+			worker.setFetch(
+				() =>
+					new Promise<Response>((_resolve, reject) => {
+						fail = reject
+					}),
+			)
+
+			const fetch = worker.startFetch('/plan.data')
+			await vi.advanceTimersByTimeAsync(4000)
+			expect(await (await fetch.response).text()).toBe('OLD')
+
+			fail(new TypeError('Failed to fetch'))
+			await fetch.settled()
+			expect(await cachedText(worker, SESSION_CACHE)).toBe('OLD')
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	test('a stall with nothing cached that then fails gets the offline response', async () => {
+		vi.useFakeTimers()
+		try {
+			const worker = loadServiceWorker()
+			await worker.dispatchMessage({
+				type: 'qm-data-session',
+				token: 'session',
+			})
+			let fail!: (error: Error) => void
+			worker.setFetch(
+				() =>
+					new Promise<Response>((_resolve, reject) => {
+						fail = reject
+					}),
+			)
+
+			const fetch = worker.startFetch('/plan.data')
+			await vi.advanceTimersByTimeAsync(10_000)
+			fail(new TypeError('Failed to fetch'))
+			const response = await fetch.response
+
+			expect(response.status).toBe(503)
+			expect(await response.text()).toBe('Offline')
+			await fetch.settled()
+		} finally {
+			vi.useRealTimers()
+		}
+	})
 })

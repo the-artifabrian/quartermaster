@@ -227,6 +227,35 @@ function loadServiceWorker({
 		return response
 	}
 
+	/**
+	 * Dispatch a fetch without waiting for its lifetime: the response can settle
+	 * while a waitUntil (a background cache refresh) is still pending.
+	 */
+	function startFetch(pathname: string) {
+		let responsePromise: Promise<Response> | undefined
+		const lifetimes: Promise<unknown>[] = []
+		listeners.fetch?.({
+			request: {
+				method: 'GET',
+				mode: 'cors',
+				url: new URL(pathname, ORIGIN).href,
+			},
+			clientId: '',
+			respondWith: (response: Response | Promise<Response>) => {
+				responsePromise = Promise.resolve(response)
+			},
+			waitUntil: (promise: Promise<unknown>) => lifetimes.push(promise),
+		})
+		if (!responsePromise) throw new Error(`${pathname} was not handled`)
+		return {
+			response: responsePromise,
+			settled: async () => {
+				await responsePromise
+				await Promise.all(lifetimes)
+			},
+		}
+	}
+
 	async function dispatchMessage(data: unknown) {
 		const lifetimes: Promise<unknown>[] = []
 		listeners.message?.({
@@ -258,6 +287,7 @@ function loadServiceWorker({
 		dispatchActivate,
 		dispatchFetch,
 		dispatchInstall,
+		startFetch,
 		dispatchMessage,
 		setFetch: (
 			implementation: (request: FetchRequest) => Promise<Response>,
@@ -1384,4 +1414,165 @@ describe('a restarted worker asks the page for its session', () => {
 			),
 		).toEqual([])
 	})
+})
+
+describe('a stalled Route data request', () => {
+	const SESSION_CACHE = 'qm-data-test-build-session'
+
+	/** A worker in session `session` whose network answers only when told to. */
+	async function stalledWorker() {
+		const worker = loadServiceWorker()
+		await worker.dispatchMessage({ type: 'qm-data-session', token: 'session' })
+		let answer!: (response: Response) => void
+		worker.setFetch(
+			() =>
+				new Promise<Response>((resolve) => {
+					answer = resolve
+				}),
+		)
+		return { worker, answer: (response: Response) => answer(response) }
+	}
+
+	async function cachedText(
+		worker: ReturnType<typeof loadServiceWorker>,
+		name: string,
+	) {
+		const cached = await (await worker.storage.open(name)).match('/plan.data')
+		return cached ? await cached.text() : null
+	}
+
+	function track(promise: Promise<unknown>) {
+		const state = { settled: false }
+		void promise.then(() => {
+			state.settled = true
+		})
+		return state
+	}
+
+	test('a response within the timeout is served and refreshes the cache', async () => {
+		vi.useFakeTimers()
+		try {
+			const { worker, answer } = await stalledWorker()
+			await worker.storage.seed(
+				SESSION_CACHE,
+				'/plan.data',
+				routeDataResponse('OLD'),
+			)
+
+			const fetch = worker.startFetch('/plan.data')
+			await vi.advanceTimersByTimeAsync(3000)
+			answer(routeDataResponse('FRESH'))
+
+			expect(await (await fetch.response).text()).toBe('FRESH')
+			await fetch.settled()
+			expect(await cachedText(worker, SESSION_CACHE)).toBe('FRESH')
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	test("after 4 s it answers from this session's cache, and the late response refreshes it", async () => {
+		vi.useFakeTimers()
+		try {
+			const { worker, answer } = await stalledWorker()
+			await worker.storage.seed(
+				SESSION_CACHE,
+				'/plan.data',
+				routeDataResponse('OLD'),
+			)
+
+			const fetch = worker.startFetch('/plan.data')
+			const response = track(fetch.response)
+			await vi.advanceTimersByTimeAsync(3999)
+			expect(response.settled).toBe(false)
+			await vi.advanceTimersByTimeAsync(1)
+			expect(response.settled).toBe(true)
+			expect(await (await fetch.response).text()).toBe('OLD')
+
+			answer(routeDataResponse('LATE'))
+			await fetch.settled()
+			expect(await cachedText(worker, SESSION_CACHE)).toBe('LATE')
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	test('a late response that is not plain Route data does not replace the cache', async () => {
+		vi.useFakeTimers()
+		try {
+			const { worker, answer } = await stalledWorker()
+			await worker.storage.seed(
+				SESSION_CACHE,
+				'/plan.data',
+				routeDataResponse('OLD'),
+			)
+
+			const fetch = worker.startFetch('/plan.data')
+			await vi.advanceTimersByTimeAsync(4000)
+			expect(await (await fetch.response).text()).toBe('OLD')
+
+			answer(routeDataResponse('SINGLE-FETCH REDIRECT', 202))
+			await fetch.settled()
+			expect(await cachedText(worker, SESSION_CACHE)).toBe('OLD')
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	test('with nothing cached it keeps waiting on the network', async () => {
+		vi.useFakeTimers()
+		try {
+			const { worker, answer } = await stalledWorker()
+
+			const fetch = worker.startFetch('/plan.data')
+			const response = track(fetch.response)
+			await vi.advanceTimersByTimeAsync(30_000)
+			expect(response.settled).toBe(false)
+
+			answer(routeDataResponse('SLOW BUT FRESH'))
+			expect(await (await fetch.response).text()).toBe('SLOW BUT FRESH')
+			await fetch.settled()
+			expect(await cachedText(worker, SESSION_CACHE)).toBe('SLOW BUT FRESH')
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	test.each([
+		{
+			change: 'a session switch',
+			message: { type: 'qm-data-session', token: 'other' },
+		},
+		{ change: 'a logout', message: { type: 'qm-data-purge' } },
+		{ change: 'an invalidation', message: { type: 'qm-data-invalidate' } },
+	])(
+		'$change during the stall never answers from the old namespace',
+		async ({ message }) => {
+			vi.useFakeTimers()
+			try {
+				const { worker, answer } = await stalledWorker()
+				await worker.storage.seed(
+					SESSION_CACHE,
+					'/plan.data',
+					routeDataResponse('OLD'),
+				)
+
+				const fetch = worker.startFetch('/plan.data')
+				const response = track(fetch.response)
+				await vi.advanceTimersByTimeAsync(2000)
+				await worker.dispatchMessage(message)
+				await vi.advanceTimersByTimeAsync(10_000)
+				expect(response.settled).toBe(false)
+
+				answer(routeDataResponse('NETWORK'))
+				expect(await (await fetch.response).text()).toBe('NETWORK')
+				await fetch.settled()
+				// The dispatching namespace is gone and is not recreated.
+				expect(await worker.storage.keys()).not.toContain(SESSION_CACHE)
+				expect(worker.storage.puts).toEqual([])
+			} finally {
+				vi.useRealTimers()
+			}
+		},
+	)
 })

@@ -130,6 +130,24 @@ export async function acceptInvite(token: string, userId: string) {
 		if (currentHouseholdId && currentHouseholdMemberCount === 1) {
 			// Sole member: move all data to new household
 			await moveRecipeMetadataValues(tx, currentHouseholdId, targetHouseholdId)
+			// Both households may have saved the same shared Recipe. Keep both
+			// copies; repeat Save keeps opening the target's, as with Menus.
+			const targetRecipeSources = await tx.recipe.findMany({
+				where: {
+					householdId: targetHouseholdId,
+					copiedFromRecipeId: { not: null },
+				},
+				select: { copiedFromRecipeId: true },
+			})
+			await tx.recipe.updateMany({
+				where: {
+					householdId: currentHouseholdId,
+					copiedFromRecipeId: {
+						in: targetRecipeSources.map((recipe) => recipe.copiedFromRecipeId!),
+					},
+				},
+				data: { copiedFromRecipeId: null },
+			})
 			await tx.recipe.updateMany({
 				where: { householdId: currentHouseholdId },
 				data: { householdId: targetHouseholdId },

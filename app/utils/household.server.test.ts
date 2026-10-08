@@ -146,6 +146,39 @@ describe('acceptInvite', () => {
 		])
 	})
 
+	test('moving two copies of one shared Recipe keeps both, and the target copy keeps the repeat-save identity', async () => {
+		const owner = await setupUser()
+		const joiner = await setupUser()
+		// A Recipe only the joiner saved keeps its source on the move.
+		const sources = ['shared-recipe-source', 'shared-recipe-source', 'other']
+		const recipes = await Promise.all(
+			[owner, joiner, joiner].map((user, index) =>
+				prisma.recipe.create({
+					data: {
+						title: `Copy ${index}`,
+						userId: user.id,
+						householdId: user.householdId,
+						copiedFromRecipeId: sources[index],
+					},
+				}),
+			),
+		)
+		const invite = await createHouseholdInvite(owner.householdId, owner.id)
+
+		await acceptInvite(invite.token, joiner.id)
+
+		const moved = await prisma.recipe.findMany({
+			where: { householdId: owner.householdId },
+			select: { id: true, copiedFromRecipeId: true },
+			orderBy: { title: 'asc' },
+		})
+		expect(moved).toEqual([
+			{ id: recipes[0]!.id, copiedFromRecipeId: 'shared-recipe-source' },
+			{ id: recipes[1]!.id, copiedFromRecipeId: null },
+			{ id: recipes[2]!.id, copiedFromRecipeId: 'other' },
+		])
+	})
+
 	test('sole member: data is moved, old household deleted', async () => {
 		const owner = await setupUserWithRecipe('Owner Recipe')
 		const joiner = await setupUserWithRecipe('Joiner Recipe')

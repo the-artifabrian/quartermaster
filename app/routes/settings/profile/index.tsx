@@ -452,7 +452,7 @@ function DeleteData({ outcome }: { outcome: AccountDeletionOutcome }) {
 			>
 				{outcome.kind === 'household-stays'
 					? `Your Recipes and Shopping stay with ${outcome.heirName}.`
-					: `This deletes the Household and all its Recipes.`}
+					: `This deletes the Household and everything in it: Recipes, Menus, Plan, Staples and Shopping.`}
 			</p>
 		</div>
 	)

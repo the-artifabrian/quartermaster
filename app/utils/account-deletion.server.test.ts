@@ -239,6 +239,25 @@ describe('deleteAccount with another member remaining', () => {
 		).toEqual({ userId: first.id })
 	})
 
+	test('an owner-less Household gets its heir as owner when a member deletes', async () => {
+		// The old bare user delete could leave a Household with no owner.
+		const first = await insertUser()
+		const leaver = await insertUser()
+		const household = await householdWith([
+			{ userId: first.id, role: 'member' },
+			{ userId: leaver.id, role: 'member' },
+		])
+
+		await deleteAccount(leaver.id)
+
+		expect(
+			await prisma.householdMember.findMany({
+				where: { householdId: household.id },
+				select: { userId: true, role: true },
+			}),
+		).toEqual([{ userId: first.id, role: 'owner' }])
+	})
+
 	test('Recipes left behind in a former Household stay there', async () => {
 		// leaveHousehold copies a member's Recipes and leaves the originals,
 		// still pointing at the leaver, in the Household they left.
@@ -351,7 +370,7 @@ describe('deleteAccount as the sole member', () => {
 		})
 		await prisma.householdEvent.create({
 			data: {
-				type: 'recipe-created',
+				type: 'household_member_joined',
 				payload: '{}',
 				householdId: household.id,
 				userId: user.id,

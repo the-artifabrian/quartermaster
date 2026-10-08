@@ -52,8 +52,9 @@ export async function getAccountDeletionOutcome(
  * Recipes, the Shopping list and pending invites point at the user who made
  * them, and those foreign keys cascade on user delete. While anyone else is
  * in the Household, those rows move to its heir (see `findHeir`), who also
- * becomes owner if the user was. A sole member takes the Household and
- * everything in it with them.
+ * becomes owner when the Household would otherwise have none (the user was
+ * owner, or an earlier delete already left it without one). A sole member
+ * takes the Household and everything in it with them.
  *
  * Row changes happen in one transaction. Stored photos are removed after it
  * commits, and only when no remaining Recipe shows them; a failed storage
@@ -112,11 +113,7 @@ export async function deleteAccount(userId: string) {
 				where: { createdById: userId, householdId },
 				data: { createdById: heir.userId },
 			})
-			if (
-				householdId === membership?.householdId &&
-				membership.role === 'owner' &&
-				heir.role !== 'owner'
-			) {
+			if (householdId === membership?.householdId && heir.role !== 'owner') {
 				await tx.householdMember.update({
 					where: { householdId_userId: { householdId, userId: heir.userId } },
 					data: { role: 'owner' },

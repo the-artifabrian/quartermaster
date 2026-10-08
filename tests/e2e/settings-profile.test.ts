@@ -159,7 +159,9 @@ test('Deleting the only member deletes the Household', async ({
 	await navigate('/settings/profile')
 
 	await expect(
-		page.getByText('This deletes the Household and all its Recipes.'),
+		page.getByText(
+			'This deletes the Household and everything in it: Recipes, Menus, Plan, Staples and Shopping.',
+		),
 	).toBeVisible()
 	await page.getByRole('button', { name: 'Delete my account' }).click()
 	await page.getByRole('button', { name: 'Delete?' }).click()

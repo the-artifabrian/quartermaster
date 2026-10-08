@@ -14,8 +14,8 @@ see [GLOSSARY.md](../GLOSSARY.md).
 - Keep content flat on the cream canvas. Use hairline dividers, not a stack of
   cards.
 - Elevation belongs to overlays: menus, popovers, sheets, dialogs, and toasts.
-- Sage means interactive. Copper marks “now” or the current location. Headings
-  stay ink.
+- Sage means interactive. Copper marks “now” and small dots for something new.
+  Headings stay ink.
 - Recipe imagery carries warmth. Shopping, Staples, settings, and Menus stay
   imageless.
 - Prefer fewer controls and fewer words. Reveal secondary actions only when
@@ -26,10 +26,14 @@ see [GLOSSARY.md](../GLOSSARY.md).
 - **Young Serif**: page titles, Recipe titles, and editorial day headings. It
   has one weight; vary size, not weight.
 - **DM Sans**: body text, labels, metadata, navigation, and controls.
-- **Caveat**: a few marketing artifacts only. Recipe notes used to be set in it;
-  they now use the body sans for legibility.
-- **Source Sans 3**: the homepage only, as its body sans (`font-humanist`). The
-  route loads it itself; the app never uses it.
+- **Source Sans 3**: the homepage only, as its body sans (`font-humanist`); the
+  app never uses it.
+
+All fonts are self-hosted: the files sit in `app/assets/fonts/` and
+`app/styles/fonts.css` declares them, so a face downloads only when a page uses
+it. `app/root.tsx` preloads the Young Serif and DM Sans latin files. Caveat is
+still declared (`fonts.css`, and `--font-handwritten` in
+`app/styles/tailwind.css`), but no page uses it.
 
 Useful sizes:
 
@@ -103,8 +107,10 @@ radii and warm shadows are for floating layers.
 ## Navigation
 
 Mobile has four tabs: Recipes, Staples, Plan, and Shop. The active tab uses sage
-plus a small copper marker. Sub-pages rely on app navigation instead of adding a
-“Back to…” link at the top of every screen.
+text and a medium-weight label. A small copper dot on the Shopping icon appears
+when another member changes Shopping while you are elsewhere in the app, and
+clears when you open Shopping. Sub-pages rely on app navigation instead of
+adding a “Back to…” link at the top of every screen.
 
 On desktop, keep the same information hierarchy and give content more width; do
 not add extra product destinations just because space exists.
@@ -226,4 +232,4 @@ Start with the nearest existing surface and these defaults:
 If a new pattern needs a long explanation here, first ask whether it belongs in
 the component itself or whether the UI can be simpler.
 
-_Updated 15 September 2026._
+_Updated 8 October 2026._

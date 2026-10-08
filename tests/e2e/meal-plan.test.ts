@@ -606,7 +606,7 @@ test.describe('Plan quick-add failure', () => {
 			announcements.getByText('Could not add Herb Salad to Plan'),
 		).toBeVisible()
 		await expect(
-			page.getByRole('heading', { name: /meal plan/i }),
+			page.getByRole('heading', { level: 1, name: 'Plan', exact: true }),
 		).toBeVisible()
 		await expect(
 			desktopPlan.getByText('Herb Salad', { exact: true }),
@@ -637,8 +637,11 @@ test.describe('Plan quick-add failure', () => {
 		)
 
 		await page.goto(`/recipes/${recipe.id}`)
-		await page.getByRole('button', { name: 'Add to meal plan' }).click()
 		await page.getByRole('button', { name: 'Add to Plan' }).click()
+		await page
+			.getByRole('dialog')
+			.getByRole('button', { name: 'Add to Plan' })
+			.click()
 		const announcements = page.getByRole('region', { name: /Notifications/ })
 		await expect(
 			announcements.getByText('Could not add Miso Soup to Plan'),

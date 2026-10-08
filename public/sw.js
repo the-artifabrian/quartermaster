@@ -23,6 +23,9 @@ const MAX_IMAGES = 100
 const MAX_DATA = 64
 const WARM_CONCURRENCY = 6
 const SESSION_REQUEST_TIMEOUT_MS = 500
+// How long Route data waits on the network before this session's cache answers.
+const DATA_NETWORK_TIMEOUT_MS = 4000
+const STALLED = Symbol('stalled')
 
 // Per-session (user+household) cache for authenticated `.data` (RR7 single-fetch).
 // The SW can't read the httpOnly session cookie, so the client posts an opaque
@@ -46,6 +49,15 @@ let dataCacheEpoch = 0
 // Only a worker that has never heard from a page asks one: after a logout, a
 // stale tab must not hand back the token that was just purged.
 let sessionStateKnown = false
+// A same-origin mutation (any non-GET) makes every cached `.data` entry
+// suspect until fresh data arrives: the revalidation after an action is sent
+// before the page posts qm-data-invalidate, and Shopping mutations never post
+// it. Until then a stalled request waits on the network instead of answering
+// from the cache after DATA_NETWORK_TIMEOUT_MS; a transport failure still falls
+// back. A cacheable 200 sent after the latest mutation, or a new data epoch,
+// makes the cache trusted again.
+let writeSeq = 0
+let trustedSeq = 0
 
 // ── Activate ────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
@@ -117,11 +129,11 @@ self.addEventListener('message', (event) => {
 	} else if (msg.type === 'qm-data-purge') {
 		sessionStateKnown = true
 		dataCacheName = null
-		dataCacheEpoch++
+		nextDataEpoch()
 		event.waitUntil(reapDataCaches(null))
 	} else if (msg.type === 'qm-data-invalidate') {
 		if (dataCacheName) {
-			dataCacheEpoch++
+			nextDataEpoch()
 			event.waitUntil(caches.delete(dataCacheName))
 		}
 	}
@@ -130,9 +142,11 @@ self.addEventListener('message', (event) => {
 // ── Fetch ───────────────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
 	const { request } = event
-	if (request.method !== 'GET') return
-
 	const url = new URL(request.url)
+	if (request.method !== 'GET') {
+		if (url.origin === self.location.origin) writeSeq++
+		return
+	}
 
 	// Skip non-same-origin
 	if (url.origin !== self.location.origin) return
@@ -511,12 +525,18 @@ function isSessionToken(token) {
 	return typeof token === 'string' && token !== ''
 }
 
+/** Start a new data epoch: in-flight `.data` may no longer touch the cache. */
+function nextDataEpoch() {
+	dataCacheEpoch++
+	trustedSeq = writeSeq
+}
+
 /** Use the `<userId>-<householdId>` namespace; returns the reap, if any. */
 function adoptDataSession(token) {
 	const next = DATA_CACHE_PREFIX + token
 	if (next === dataCacheName) return null
 	dataCacheName = next
-	dataCacheEpoch++
+	nextDataEpoch()
 	return reapDataCaches(next)
 }
 
@@ -563,7 +583,13 @@ function dataCacheKey(request) {
 	return url.href
 }
 
-/** Network-first Route data: use this session's cache only on transport failure. */
+/**
+ * Network-first Route data. This session's cache answers a transport failure,
+ * and also a request still unanswered after DATA_NETWORK_TIMEOUT_MS: on a
+ * stalled cellular socket, fetch can wait until the OS drops it. The request
+ * keeps running and its response refreshes the cache. With nothing cached, the
+ * stalled request keeps waiting on the network.
+ */
 async function networkFirstData(
 	event,
 	request,
@@ -571,46 +597,80 @@ async function networkFirstData(
 	cacheEpoch,
 	maxEntries,
 ) {
-	try {
-		const response = await fetch(request)
-		// Only cache a plain 200. A React Router single-fetch redirect rides in-band
-		// on a 202 body (.ok, not .redirected), and a followed HTTP redirect or
-		// captive-portal response has redirected=true. Neither may be replayed.
-		if (
-			response.status === 200 &&
-			!response.redirected &&
-			response.headers
-				.get('Content-Type')
-				?.toLowerCase()
-				.startsWith('text/x-script')
-		) {
-			// Reserve the cache body before yielding; the client may start consuming
-			// the returned response while Cache Storage is still opening.
-			const cacheResponse = response.clone()
-			event.waitUntil(
-				putCurrentData(
+	const sentAfterWrite = writeSeq
+	const network = fetch(request)
+	// Registered before the race below, so the cache copy is reserved before the
+	// client can start consuming the response it may receive.
+	event.waitUntil(
+		network.then(
+			(response) => {
+				if (!isCacheableData(response)) return
+				if (sentAfterWrite === writeSeq) trustedSeq = writeSeq
+				return putCurrentData(
 					dataCacheKey(request),
-					cacheResponse,
+					response.clone(),
 					cacheName,
 					cacheEpoch,
 					maxEntries,
-				),
-			)
-		}
-		return response
+				)
+			},
+			() => {},
+		),
+	)
+
+	let timer
+	const stalled = new Promise((resolve) => {
+		timer = setTimeout(resolve, DATA_NETWORK_TIMEOUT_MS, STALLED)
+	})
+	try {
+		const first = await Promise.race([network, stalled])
+		if (first !== STALLED) return first
+		// After a mutation the cache may predate it: keep waiting.
+		if (trustedSeq !== writeSeq) return await network
+		// A response that lands during the cache read still wins.
+		const cached = matchCurrentData(request, cacheName, cacheEpoch)
+		const next = await Promise.race([network, cached.then(() => STALLED)])
+		if (next !== STALLED) return next
+		return (await cached) ?? (await network)
 	} catch {
 		return cachedData(request, cacheName, cacheEpoch)
+	} finally {
+		clearTimeout(timer)
 	}
 }
 
 /**
- * This session's cached Route data, or the offline 503. A session switch,
- * logout, or mutation can happen while a fetch is pending: never answer from
- * the namespace that was current at dispatch unless it still is.
+ * Only cache a plain 200. A React Router single-fetch redirect rides in-band on
+ * a 202 body (.ok, not .redirected), and a followed HTTP redirect or
+ * captive-portal response has redirected=true. Neither may be replayed.
  */
+function isCacheableData(response) {
+	return (
+		response.status === 200 &&
+		!response.redirected &&
+		response.headers
+			.get('Content-Type')
+			?.toLowerCase()
+			.startsWith('text/x-script')
+	)
+}
+
+/** This session's cached Route data, or the offline 503. */
 async function cachedData(request, cacheName, cacheEpoch) {
+	return (
+		(await matchCurrentData(request, cacheName, cacheEpoch)) ??
+		new Response('Offline', { status: 503 })
+	)
+}
+
+/**
+ * This session's cached Route data, or null. A session switch, logout, or
+ * mutation can happen while a fetch is pending: never answer from the
+ * namespace that was current at dispatch unless it still is.
+ */
+async function matchCurrentData(request, cacheName, cacheEpoch) {
 	if (cacheName !== dataCacheName || cacheEpoch !== dataCacheEpoch) {
-		return new Response('Offline', { status: 503 })
+		return null
 	}
 	try {
 		const cache = await caches.open(cacheName)
@@ -623,9 +683,9 @@ async function cachedData(request, cacheName, cacheEpoch) {
 			return cached
 		}
 	} catch {
-		// Cache Storage is best-effort; its failure is an ordinary offline miss.
+		// Cache Storage is best-effort; its failure is an ordinary cache miss.
 	}
-	return new Response('Offline', { status: 503 })
+	return null
 }
 
 /** Cache data only while the dispatching session/epoch is still current. */

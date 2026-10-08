@@ -281,6 +281,20 @@ if (IS_DEV) {
 	app.get([/^\/img\/.*/, /^\/favicons\/.*/], (_req, res) => {
 		return res.status(404).send('Not found')
 	})
+	if (process.env.MOCKS === 'true') {
+		// Playwright's page.route cannot hold a request the service worker makes,
+		// so an e2e test stands in for a stalled cellular connection by setting
+		// this cookie: every Route data (.data) request then waits that many
+		// milliseconds before the app answers. Mocks mode only, never in production.
+		app.use((req, _res, next) => {
+			if (!req.path.endsWith('.data')) return next()
+			const delay = Number(
+				/(?:^|;\s*)qm-e2e-delay-ms=(\d+)/.exec(req.headers.cookie ?? '')?.[1],
+			)
+			if (!delay) return next()
+			setTimeout(next, Math.min(delay, 30_000))
+		})
+	}
 	app.use(await import(BUILD_PATH).then((mod) => mod.app))
 }
 

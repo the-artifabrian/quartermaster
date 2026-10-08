@@ -1084,7 +1084,7 @@ describe('extractRecipeFromImages', () => {
 			max_tokens: number
 			output_config: { effort: string }
 		}
-		expect(body.model).toBe('claude-haiku-5-5')
+		expect(body.model).toBe('claude-sonnet-5-5')
 		expect(body.max_tokens).toBeGreaterThanOrEqual(8192)
 		expect(body.output_config.effort).toBe('low')
 	})

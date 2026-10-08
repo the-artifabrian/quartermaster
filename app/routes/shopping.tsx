@@ -36,7 +36,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
-import { cn } from '#app/utils/misc.tsx'
+import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import { parseTypedItem } from '#app/utils/parse-speech-item.ts'
 import {
 	editShoppingDisplayGroup,
@@ -54,7 +54,6 @@ import {
 	parseShoppingHorizon,
 	type ShoppingHorizon,
 } from '#app/utils/shopping-horizon.ts'
-import { haptic } from '#app/utils/shell-bridge.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
 	ShoppingListItemSchema,
@@ -790,24 +789,12 @@ function ClearCheckedControl({
 	pending: boolean
 	pendingIds: string[]
 }) {
+	const dc = useDoubleCheck()
 	if (checkedCount === 0) return null
 	const sectionLabel = horizon === LATER ? 'Later' : 'Next shop'
 	return (
 		<div className="animate-slide-up-reveal flex items-center justify-center pt-4">
-			<Form
-				method="POST"
-				className="inline"
-				onSubmit={(event) => {
-					haptic('warning')
-					if (
-						!confirm(
-							`Clear ${checkedCount} checked item${checkedCount !== 1 ? 's' : ''} from ${sectionLabel}?`,
-						)
-					) {
-						event.preventDefault()
-					}
-				}}
-			>
+			<Form method="POST" className="inline">
 				<HouseholdClientInput />
 				<input type="hidden" name="intent" value="clear-checked" />
 				{pendingIds.map((id) => (
@@ -815,14 +802,21 @@ function ClearCheckedControl({
 				))}
 				<input type="hidden" name="horizon" value={horizon} />
 				<PendingButton
-					type="submit"
+					{...dc.getButtonProps({
+						type: 'submit',
+						'aria-label': `Clear checked items from ${sectionLabel}`,
+					})}
 					variant="link"
 					pending={pending}
 					pendingLabel={`Clearing checked items from ${sectionLabel}`}
-					aria-label={`Clear checked items from ${sectionLabel}`}
-					className="text-muted-foreground hover:text-foreground h-auto p-0 text-sm underline underline-offset-2"
+					className={cn(
+						'h-auto p-0 text-sm underline underline-offset-2',
+						dc.doubleCheck
+							? 'text-destructive font-medium'
+							: 'text-muted-foreground hover:text-foreground',
+					)}
 				>
-					Clear checked
+					{dc.doubleCheck ? 'Clear?' : 'Clear checked'}
 				</PendingButton>
 			</Form>
 		</div>

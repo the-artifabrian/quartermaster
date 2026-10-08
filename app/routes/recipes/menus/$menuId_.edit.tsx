@@ -426,7 +426,7 @@ function DeleteMenu() {
 				status={isDeleting ? 'pending' : 'idle'}
 			>
 				<Icon name="trash" size="sm">
-					{dc.doubleCheck ? 'Are you sure?' : 'Delete Menu'}
+					{dc.doubleCheck ? 'Delete?' : 'Delete Menu'}
 				</Icon>
 			</StatusButton>
 		</fetcher.Form>

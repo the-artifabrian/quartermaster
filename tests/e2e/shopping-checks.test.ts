@@ -138,22 +138,23 @@ test('failed checks survive refresh and Clear checked; navigation warns only wit
 	await expect(
 		page.getByRole('heading', { level: 1, name: /^Shopping/ }),
 	).toBeVisible()
-	page.once('dialog', (dialog) => void dialog.accept())
-	await page
-		.getByRole('button', { name: 'Clear checked items from Next shop' })
-		.click()
+	const clearChecked = page.getByRole('button', {
+		name: 'Clear checked items from Next shop',
+	})
+	await clearChecked.click()
+	await expect(clearChecked).toHaveText('Clear?')
+	await clearChecked.click()
 	await expect(
 		page.getByRole('group', { name: 'Bread shopping item' }),
 	).toBeHidden()
 	await expect(riceRow(page).getByRole('alert')).toBeVisible()
-	page.once('dialog', (dialog) => {
-		expect(dialog.message()).toContain('aren’t confirmed')
-		void dialog.dismiss()
-	})
 	await page
 		.getByRole('link', { name: 'Recipes', exact: true })
 		.filter({ visible: true })
 		.click()
+	await expect(
+		page.getByText(/aren’t confirmed. Tap again to leave/),
+	).toBeVisible()
 	await expect(page).toHaveURL('/shopping')
 	await page.unroute('**/resources/shopping-check?*')
 	await riceRow(page)
@@ -168,9 +169,6 @@ test('failed checks survive refresh and Clear checked; navigation warns only wit
 			}),
 		)
 		.toEqual({ checked: true })
-	page.once('dialog', () => {
-		throw new Error('Confirmed checks must not block navigation')
-	})
 	await page
 		.getByRole('link', { name: 'Recipes', exact: true })
 		.filter({ visible: true })
@@ -454,10 +452,12 @@ for (const fallback of [false, true]) {
 			page.locator('[aria-label$=" shopping item"]').last(),
 		).toHaveAttribute('aria-label', 'Rice shopping item')
 		page.off('request', countOriginRefresh)
-		page.once('dialog', (dialog) => void dialog.accept())
-		await page
-			.getByRole('button', { name: 'Clear checked items from Next shop' })
-			.click()
+		const clearChecked = page.getByRole('button', {
+			name: 'Clear checked items from Next shop',
+		})
+		await clearChecked.click()
+		await expect(clearChecked).toHaveText('Clear?')
+		await clearChecked.click()
 		await expect(riceRow(page)).toBeHidden()
 		await catchUp()
 		await expect(riceRow(phone)).toBeHidden()

@@ -366,7 +366,7 @@ function DeleteRecipe({ recipeId: _recipeId }: { recipeId: string }) {
 				status={isDeleting ? 'pending' : 'idle'}
 			>
 				<Icon name="trash" size="sm">
-					{dc.doubleCheck ? 'Are you sure?' : 'Delete Recipe'}
+					{dc.doubleCheck ? 'Delete?' : 'Delete Recipe'}
 				</Icon>
 			</StatusButton>
 		</fetcher.Form>

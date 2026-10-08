@@ -213,7 +213,7 @@ function ItemRow({
 							variant="destructive"
 							aria-label={`Tap again to remove ${item.recipeTitle}`}
 						>
-							<span className="text-xs">Sure?</span>
+							<span className="text-xs">Delete?</span>
 						</Button>
 					) : (
 						<Button
@@ -729,7 +729,7 @@ export function MealCard({
 									className="text-destructive focus:text-destructive font-medium"
 								>
 									<Icon name="trash" size="sm" />
-									Delete meal · keep Shopping
+									Delete Meal · keep Shopping
 								</DropdownMenuItem>
 								<DropdownMenuItem
 									onSelect={() => {
@@ -745,7 +745,7 @@ export function MealCard({
 									className="text-destructive focus:text-destructive"
 								>
 									<Icon name="trash" size="sm" />
-									Delete meal · remove generated amount
+									Delete Meal · remove generated amount
 								</DropdownMenuItem>
 							</>
 						) : (
@@ -768,7 +768,7 @@ export function MealCard({
 								)}
 							>
 								<Icon name="trash" size="sm" />
-								{confirmingDelete ? 'Really delete?' : 'Delete meal'}
+								{confirmingDelete ? 'Delete?' : 'Delete Meal'}
 							</DropdownMenuItem>
 						)}
 					</DropdownMenuContent>

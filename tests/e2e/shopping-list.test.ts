@@ -102,10 +102,12 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	await expect(previous.getByRole('status')).toBeHidden()
 	await outstanding.getByRole('button', { name: 'Check off item' }).click()
 	await expect(outstanding.getByRole('status')).toBeHidden()
-	page.once('dialog', (dialog) => void dialog.accept())
-	await page
-		.getByRole('button', { name: 'Clear checked items from Next shop' })
-		.click()
+	const clearChecked = page.getByRole('button', {
+		name: 'Clear checked items from Next shop',
+	})
+	await clearChecked.click()
+	await expect(clearChecked).toHaveText('Clear?')
+	await clearChecked.click()
 	await expect(rows).toHaveCount(1)
 	await expect(
 		previous.getByRole('button', { name: 'Check off item' }),
@@ -322,8 +324,27 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	await page.getByRole('button', { name: /add to next shop/i }).click()
 	await expect(page.getByText('Bananas')).toBeVisible()
 
-	// 5. Check and clear items with local feedback on phone and desktop.
-	page.on('dialog', (dialog) => void dialog.accept())
+	// 5. Deleting a row takes two taps; the second tap reads "Delete?".
+	const bananas = page.getByRole('group', { name: 'Bananas shopping item' })
+	await bananas.getByRole('button', { name: 'Item actions' }).click()
+	const deleteBananas = bananas.getByRole('button', { name: 'Delete item' })
+	await deleteBananas.click()
+	await expect(deleteBananas).toHaveText('Delete?')
+	await expect(bananas).toBeVisible()
+	await deleteBananas.click()
+	await expect(bananas).toBeHidden()
+	await expect
+		.poll(() =>
+			prisma.shoppingListItem.count({
+				where: {
+					name: 'Bananas',
+					list: { householdId: user.householdId },
+				},
+			}),
+		)
+		.toBe(0)
+
+	// 6. Check and clear items with local feedback on phone and desktop.
 	for (const viewport of [
 		{ width: 390, height: 844 },
 		{ width: 1280, height: 800 },
@@ -335,6 +356,9 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 			.click()
 		await expect(page.getByText(/\(1\/\d+\)/)).toBeVisible()
 
+		// The first tap arms Clear checked; the second clears.
+		await page.getByRole('button', { name: /clear checked/i }).click()
+		await expect(page.getByText('Clear?', { exact: true })).toBeVisible()
 		await expectLocalPendingFeedback({
 			page,
 			button: page.getByRole('button', { name: /clear checked/i }),

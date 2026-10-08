@@ -325,7 +325,7 @@ function StapleRow({
 					{removeFetcher.state !== 'idle' ? (
 						<span>Removing…</span>
 					) : (
-						confirmRemove && <span>Remove?</span>
+						confirmRemove && <span>Delete?</span>
 					)}
 				</Button>
 			</div>

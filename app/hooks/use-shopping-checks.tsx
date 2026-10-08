@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef } from 'react'
 import { useBlocker } from 'react-router'
+import { toast } from 'sonner'
 import { getHouseholdClientId } from '#app/utils/household-client.tsx'
 import { loaderCache } from '#app/utils/loader-cache.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
@@ -99,15 +100,23 @@ export function useShoppingChecks(serverItems: Item[], listId: string) {
 			pending.current.size > 0 &&
 			currentLocation.pathname !== nextLocation.pathname,
 	)
+	// Two taps, like every other discard: the first tap away warns and stays,
+	// a second within the same beat leaves.
+	const leaveArmedAt = useRef(0)
 	useEffect(() => {
 		if (blocker.state !== 'blocked') return
-		if (
-			window.confirm(
-				'Some Shopping checks aren’t confirmed. Leave and discard your pending changes?',
-			)
-		) {
+		if (Date.now() - leaveArmedAt.current < 4000) {
+			leaveArmedAt.current = 0
 			blocker.proceed()
-		} else blocker.reset()
+			return
+		}
+		leaveArmedAt.current = Date.now()
+		haptic('warning')
+		toast.warning(
+			'Some Shopping checks aren’t confirmed. Tap again to leave and discard them.',
+			{ id: 'unconfirmed-checks' },
+		)
+		blocker.reset()
 	}, [blocker])
 
 	function stillActive(entry: PendingCheck) {

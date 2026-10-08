@@ -282,7 +282,7 @@ function MemberRow({
 						size="sm"
 						status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
 					>
-						{dc.doubleCheck ? 'Are you sure?' : 'Remove'}
+						{dc.doubleCheck ? 'Remove?' : 'Remove'}
 					</StatusButton>
 				</fetcher.Form>
 			) : null}
@@ -478,7 +478,7 @@ function LeaveHousehold() {
 					status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
 				>
 					<Icon name="exit">
-						{dc.doubleCheck ? 'Are you sure?' : 'Leave household'}
+						{dc.doubleCheck ? 'Leave?' : 'Leave household'}
 					</Icon>
 				</StatusButton>
 			</fetcher.Form>

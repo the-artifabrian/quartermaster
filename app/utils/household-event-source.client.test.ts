@@ -154,3 +154,34 @@ test('after the last listener leaves, silence opens no stream', async () => {
 	expect(streams()[0]!.closed).toBe(true)
 	expect(pollRequests).toEqual([])
 })
+
+test('a stream reopened after the app was hidden gets a fresh 75 s', async () => {
+	using _network = fakeNetwork()
+	const visibility = new EventTarget()
+	let hidden = false
+	vi.stubGlobal('document', {
+		get hidden() {
+			return hidden
+		},
+		addEventListener: visibility.addEventListener.bind(visibility),
+		removeEventListener: visibility.removeEventListener.bind(visibility),
+	})
+	const setHidden = (next: boolean) => {
+		hidden = next
+		visibility.dispatchEvent(new Event('visibilitychange'))
+	}
+	await subscribe()
+	streams()[0]!.emit('open')
+
+	await vi.advanceTimersByTimeAsync(60_000)
+	setHidden(true)
+	expect(streams()[0]!.closed).toBe(true)
+	await vi.advanceTimersByTimeAsync(30_000)
+	setHidden(false)
+	expect(streams()).toHaveLength(2)
+	streams()[1]!.emit('open')
+
+	await vi.advanceTimersByTimeAsync(SILENCE_LIMIT_MS - 1)
+	expect(streams()).toHaveLength(2)
+	expect(streams()[1]!.closed).toBe(false)
+})

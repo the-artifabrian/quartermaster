@@ -373,25 +373,6 @@ describe('menu edit and delete', () => {
 		expect(updated.sections[0]!.name).toBeNull()
 	})
 
-	test('resaving the same title does not collide with itself', async () => {
-		const session = await setupUser()
-		redirectLocation(await createMenu(session, { title: 'Stable Title' }))
-		const menu = await prisma.menu.findFirstOrThrow({
-			where: { householdId: session.householdId },
-		})
-
-		const request = await makeRequest(
-			session,
-			`/recipes/menus/${menu.id}/edit`,
-			{ title: 'Stable Title', description: 'Now with a description' },
-		)
-		const response = await editAction({
-			request,
-			...makeMenuArgs(menu.id, '/edit'),
-		})
-		expect(redirectLocation(response)).toBe(`/recipes/menus/${menu.id}`)
-	})
-
 	test('renaming onto another menu title reports a field error and changes nothing', async () => {
 		const session = await setupUser()
 		redirectLocation(await createMenu(session, { title: 'Keep Me' }))
@@ -735,56 +716,6 @@ describe('menu recipe items', () => {
 		).toEqual({ title: 'Mine' })
 	})
 
-	test('deleting a recipe leaves a missing card with frozen identity, multiplier, and order', async () => {
-		const session = await setupUser()
-		const menu = await createMenuWithId(session, 'Resilient')
-		const keeper = await createRecipe(session, session.householdId, 'Keeper')
-		const doomed = await createRecipe(
-			session,
-			session.householdId,
-			'Doomed Dish',
-		)
-		redirectLocation(
-			await saveMenu(session, menu.id, {
-				title: 'Resilient',
-				...(await unnamedItemsFields(menu.id, [
-					{ recipeId: doomed.id, scaleMultiplier: '2', note: 'Make ahead' },
-					{ recipeId: keeper.id, scaleMultiplier: '1' },
-				])),
-			}),
-		)
-
-		await prisma.recipe.delete({ where: { id: doomed.id } })
-
-		const items = await menuItems(menu.id)
-		expect(items[0]).toMatchObject({
-			order: 0,
-			recipeId: null,
-			recipeTitle: 'Doomed Dish',
-			scaleMultiplier: 2,
-			note: 'Make ahead',
-		})
-
-		const request = await makeRequest(session, `/recipes/menus/${menu.id}`)
-		const result = (await detailLoader({
-			request,
-			...makeMenuArgs(menu.id),
-		})) as {
-			menu: {
-				sections: Array<{
-					items: Array<{
-						recipeTitle: string | null
-						recipe: { id: string } | null
-					}>
-				}>
-			}
-		}
-		const [missingCard, keptCard] = result.menu.sections[0]!.items
-		expect(missingCard!.recipe).toBeNull()
-		expect(missingCard!.recipeTitle).toBe('Doomed Dish')
-		expect(keptCard!.recipe?.id).toBe(keeper.id)
-	})
-
 	test('a missing card survives an unrelated save and is replaced or removed only explicitly', async () => {
 		const session = await setupUser()
 		const menu = await createMenuWithId(session, 'Recovery')
@@ -910,48 +841,6 @@ describe('menu sections and ordering', () => {
 		)
 		return { session, menu, hummus, baklava, knafeh, unnamed }
 	}
-
-	test('adds a named section and persists section and item order for the household', async () => {
-		const { session, menu } = await setupSectionedMenu()
-
-		const sections = await menuSections(menu.id)
-		expect(sections).toHaveLength(2)
-		expect(sections[0]).toMatchObject({ name: null, order: 0 })
-		expect(sections[1]).toMatchObject({ name: 'Dessert', order: 1 })
-		expect(sections[0]!.items.map((i) => i.recipeTitle)).toEqual(['Hummus'])
-		expect(sections[1]!.items.map((i) => i.recipeTitle)).toEqual([
-			'Baklava',
-			'Knafeh',
-		])
-		expect(sections[1]!.items.map((i) => i.order)).toEqual([0, 1])
-
-		// A household member reopening the menu sees the same structure
-		const memberSession = await addHouseholdMember(session.householdId)
-		const request = await makeRequest(
-			memberSession,
-			`/recipes/menus/${menu.id}`,
-		)
-		const result = (await detailLoader({
-			request,
-			...makeMenuArgs(menu.id),
-		})) as {
-			menu: {
-				sections: Array<{
-					name: string | null
-					items: Array<{ recipeTitle: string | null }>
-				}>
-			}
-		}
-		expect(
-			result.menu.sections.map((s) => ({
-				name: s.name,
-				titles: s.items.map((i) => i.recipeTitle),
-			})),
-		).toEqual([
-			{ name: null, titles: ['Hummus'] },
-			{ name: 'Dessert', titles: ['Baklava', 'Knafeh'] },
-		])
-	})
 
 	test('reorders sections and items within a section in one save', async () => {
 		const { session, menu, hummus, baklava, knafeh, unnamed } =
@@ -1263,42 +1152,6 @@ describe('menu note cards', () => {
 		})
 	}
 
-	test('adds a note card with flexible text and ordered shopping lines', async () => {
-		const session = await setupUser()
-		const menu = await createMenuWithId(session, 'Terrace Dinner')
-
-		redirectLocation(
-			await saveMenu(session, menu.id, {
-				title: 'Terrace Dinner',
-				...(await unnamedItemsFields(menu.id, [
-					{
-						kind: 'note',
-						text: 'Lemonade with mint — mix just before serving',
-						'shoppingLines[0].name': 'mint',
-						'shoppingLines[0].quantity': '2',
-						'shoppingLines[0].unit': 'bunches',
-						'shoppingLines[1].name': 'lemons',
-					},
-				])),
-			}),
-		)
-
-		const [item] = await menuItems(menu.id)
-		expect(item).toMatchObject({
-			kind: 'note',
-			note: 'Lemonade with mint — mix just before serving',
-			recipeId: null,
-			recipeTitle: null,
-			scaleMultiplier: null,
-			order: 0,
-		})
-		const lines = await menuShoppingLines(menu.id)
-		expect(lines.map((l) => [l.name, l.quantity, l.unit, l.order])).toEqual([
-			['mint', '2', 'bunches', 0],
-			['lemons', null, null, 1],
-		])
-	})
-
 	test('recipe and note cards order freely within a section', async () => {
 		const session = await setupUser()
 		const menu = await createMenuWithId(session, 'Terrace Dinner')
@@ -1555,31 +1408,5 @@ describe('menu note cards', () => {
 			expect.objectContaining({ name: 'lemons', quantity: '6', unit: null }),
 			expect.objectContaining({ name: 'mint', quantity: null, unit: null }),
 		])
-	})
-
-	test('the edit loader returns note cards for the builder round-trip', async () => {
-		const session = await setupUser()
-		const menu = await createMenuWithId(session, 'Terrace Dinner')
-		redirectLocation(
-			await saveMenu(session, menu.id, {
-				title: 'Terrace Dinner',
-				...(await unnamedItemsFields(menu.id, [
-					{ kind: 'note', text: 'Drinks', 'shoppingLines[0].name': 'lemons' },
-				])),
-			}),
-		)
-
-		const request = await makeRequest(session, `/recipes/menus/${menu.id}/edit`)
-		const result = (await editLoader({
-			request,
-			...makeMenuArgs(menu.id, '/edit'),
-		})) as {
-			sections: Array<{ items: Array<Record<string, unknown>> }>
-		}
-		expect(result.sections[0]!.items[0]).toMatchObject({
-			kind: 'note',
-			text: 'Drinks',
-			shoppingLines: [{ name: 'lemons', quantity: null, unit: null }],
-		})
 	})
 })

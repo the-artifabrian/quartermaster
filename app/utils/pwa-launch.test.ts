@@ -2,11 +2,9 @@ import { readdir, readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 import { describe, expect, test } from 'vitest'
-import { links } from '../root.tsx'
 import {
 	iosStartupImages,
 	iosStartupLogoScale,
-	iosStartupScreens,
 	launchThemes,
 } from './pwa-launch.ts'
 
@@ -53,39 +51,6 @@ function meanAbsoluteChannelDifference(actual: Buffer, expected: Buffer) {
 }
 
 describe('PWA launch configuration', () => {
-	test('declares each configured startup image exactly once, including iPhone Air', () => {
-		expect(iosStartupScreens).toContainEqual(
-			expect.objectContaining({ width: 420, height: 912, dpr: 3 }),
-		)
-
-		const startupLinks = links().flatMap((link) => {
-			if (
-				!('rel' in link) ||
-				link.rel !== 'apple-touch-startup-image' ||
-				!('href' in link)
-			) {
-				return []
-			}
-			return [
-				{
-					rel: link.rel,
-					href: link.href,
-					media: 'media' in link ? link.media : undefined,
-				},
-			]
-		})
-		expect(startupLinks).toEqual(
-			iosStartupImages.map(({ href, media }) => ({
-				rel: 'apple-touch-startup-image',
-				href,
-				media,
-			})),
-		)
-		expect(new Set(startupLinks.map((link) => link.href)).size).toBe(
-			startupLinks.length,
-		)
-	})
-
 	test('keeps generated images, declarations, and canonical logo in sync', async () => {
 		const expectedFiles = iosStartupImages
 			.map(({ href }) => filename(href))

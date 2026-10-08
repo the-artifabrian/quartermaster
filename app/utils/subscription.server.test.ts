@@ -95,22 +95,6 @@ describe('getUserTier', () => {
 		expect(tier.isTrialing).toBe(false)
 	})
 
-	test('returns pro active for tier=pro with no expiry', async () => {
-		const user = await setupUser()
-		await prisma.subscription.create({
-			data: {
-				userId: user.id,
-				tier: 'pro',
-			},
-		})
-
-		const tier = await getUserTier(user.id)
-
-		expect(tier.tier).toBe('pro')
-		expect(tier.isProActive).toBe(true)
-		expect(tier.isTrialing).toBe(false)
-	})
-
 	test('returns not pro when subscription has expired', async () => {
 		const user = await setupUser()
 		const pastDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)

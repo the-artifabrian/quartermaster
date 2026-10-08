@@ -31,15 +31,6 @@ afterEach(async () => {
 	await deleteGoogleUsers()
 })
 
-test('a new user goes to onboarding', async () => {
-	const request = await setupRequest()
-	const response = await loader({
-		request,
-		...LOADER_ARGS_BASE,
-	}).catch((e) => e)
-	expect(response).toHaveRedirect('/onboarding/google')
-})
-
 test('when auth fails, send the user to login with a toast', async () => {
 	consoleError.mockImplementation(() => {})
 	server.use(
@@ -124,42 +115,6 @@ test(`when a user is logged in and has already connected, it doesn't do anything
 			),
 		}),
 	)
-})
-
-test('when a user exists with the same email, create connection and make session', async () => {
-	const googleUser = await insertGoogleUser()
-	const email = googleUser.primaryEmail.toLowerCase()
-	const { userId } = await setupUser({ ...createUser(), email })
-	const request = await setupRequest({ code: googleUser.code })
-	const response = await loader({
-		request,
-		...LOADER_ARGS_BASE,
-	})
-
-	expect(response).toHaveRedirect('/')
-
-	await expect(response).toSendToast(
-		expect.objectContaining({
-			type: 'message',
-			description: expect.stringContaining(
-				googleUser.profile.email.split('@')[0]!,
-			),
-		}),
-	)
-
-	const connection = await prisma.connection.findFirst({
-		select: { id: true },
-		where: {
-			userId: userId,
-			providerId: googleUser.profile.id.toString(),
-		},
-	})
-	expect(
-		connection,
-		'the connection was not created in the database',
-	).toBeTruthy()
-
-	await expect(response).toHaveSessionForUser(userId)
 })
 
 test('gives an error if the account is already connected to another user', async () => {

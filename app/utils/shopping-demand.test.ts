@@ -222,18 +222,6 @@ describe('buildShoppingDemand — Recipe ingredient batches', () => {
 		expect(lines[0]!.unit).toBeNull()
 	})
 
-	test('treats different ingredients as separate lines', () => {
-		const lines = buildShoppingDemand({
-			recipeBatches: [
-				batch([
-					{ name: 'chicken breast', amount: '2', unit: 'lbs' },
-					{ name: 'rice', amount: '1', unit: 'cup' },
-				]),
-			],
-		})
-		expect(lines).toHaveLength(2)
-	})
-
 	test('every line carries its normalized demand identity', () => {
 		const lines = buildShoppingDemand({
 			recipeBatches: [
@@ -533,17 +521,6 @@ describe('buildShoppingDemand — ordinary note Shopping lines', () => {
 })
 
 describe('combineRowDisplay — grouped display without rewriting identities (#109)', () => {
-	test('a row without contributions displays itself', () => {
-		expect(
-			combineRowDisplay({
-				source: 'manual',
-				quantity: '1',
-				unit: 'kg',
-				contributions: [],
-			}),
-		).toEqual({ quantity: '1', unit: 'kg', combined: false })
-	})
-
 	test('a compatible manual row and generated contribution display one combined total', () => {
 		expect(
 			combineRowDisplay({

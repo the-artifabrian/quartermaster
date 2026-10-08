@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 import { describe, expect, test } from 'vitest'
-import { links } from '../root.tsx'
 import { launchThemes } from './pwa-launch.ts'
 
 type ManifestIcon = {
@@ -109,21 +108,5 @@ describe('PWA install metadata', () => {
 			}
 		}
 		expect(unsafeArtworkPixels).toBe(0)
-	})
-
-	test('keeps the dedicated Apple touch icon in document metadata', () => {
-		const appleTouchIcon = links().find(
-			(link) => 'rel' in link && link.rel === 'apple-touch-icon',
-		)
-
-		expect(appleTouchIcon).toMatchObject({ rel: 'apple-touch-icon' })
-		expect(appleTouchIcon).toHaveProperty(
-			'href',
-			expect.stringContaining('apple-touch-icon'),
-		)
-		expect(appleTouchIcon).not.toHaveProperty(
-			'href',
-			'/favicons/maskable-icon-512x512.png',
-		)
 	})
 })

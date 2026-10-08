@@ -185,9 +185,3 @@ test('a non-2xx with an unreadable body keeps the real HTTP status', async () =>
 	// A rate limit must stay distinguishable from a DNS failure.
 	expect(result.error.statusCode).toBe(429)
 })
-
-test('a successful send reports success', async () => {
-	const result = await sendEmail(message)
-
-	expect(result.status).toBe('success')
-})

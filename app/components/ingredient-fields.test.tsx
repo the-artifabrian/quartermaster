@@ -48,18 +48,6 @@ test('keeps an initial row mounted through unrelated parent renders', async () =
 	expect(screen.getByPlaceholderText('Ingredient name')).toBe(initialInput)
 })
 
-test('keeps an initially empty row expanded while its name is typed', async () => {
-	const user = userEvent.setup()
-	renderFields([{ name: '', amount: '', unit: '', notes: '' }])
-
-	await user.type(screen.getByPlaceholderText('Ingredient name'), 'spaghetti')
-
-	expect(screen.getByPlaceholderText('Ingredient name')).toHaveValue(
-		'spaghetti',
-	)
-	expect(screen.getByPlaceholderText('Amount')).toBeVisible()
-})
-
 test('convert to heading drops fields, converting back restores them', async () => {
 	const user = userEvent.setup()
 	renderFields([

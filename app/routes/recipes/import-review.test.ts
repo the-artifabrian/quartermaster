@@ -22,6 +22,29 @@ import {
 } from '../share.$recipeId.tsx'
 import '#tests/setup/db-setup.ts'
 
+const posthog = vi.hoisted(() => ({
+	captureServerEvent:
+		vi.fn<
+			(
+				userId: string,
+				event: string,
+				properties?: Record<string, unknown>,
+			) => void
+		>(),
+}))
+vi.mock('#app/utils/posthog.server.ts', async (importOriginal) => ({
+	...(await importOriginal<object>()),
+	captureServerEvent: posthog.captureServerEvent,
+}))
+
+/** The `ai_feature_used` properties the last extraction reported. */
+function lastExtractionEvent() {
+	const call = posthog.captureServerEvent.mock.calls
+		.filter(([, event]) => event === 'ai_feature_used')
+		.at(-1)
+	return call?.[2] as Record<string, unknown> | undefined
+}
+
 // URL imports resolve their host once, then connect to the checked address
 // and name the host in the Host header. This file's hosts are fictional, so
 // they resolve to a public address here, and their pages are mocked there.
@@ -668,6 +691,14 @@ test('image extraction preserves the extracted structure through edited save wit
 		expect(result).toMatchObject({ data: { error: null } })
 		const recipe = (result as { data: { recipe: ExtractedRecipe } }).data.recipe
 		expect(JSON.parse(recipe.rawText)).toEqual(structure)
+		// How long the extraction took, in whole milliseconds, so the model
+		// change can be compared in PostHog.
+		expect(lastExtractionEvent()).toMatchObject({
+			feature: 'recipe_extract',
+			source: 'image',
+			duration_ms: expect.any(Number),
+		})
+		expect(Number.isInteger(lastExtractionEvent()!.duration_ms)).toBe(true)
 		const fields = reviewFields(recipe)
 		fields['ingredients[0].amount'] = '3'
 		await importAction(await args(session, '/recipes/import', fields))
@@ -758,6 +789,12 @@ test('AI suggestions arrive pre-ticked and are written only by the reviewed save
 			expect.arrayContaining([italian!.id, summer!.id]),
 		)
 		expect(recipe.metadataValueIds).toHaveLength(2)
+		expect(lastExtractionEvent()).toMatchObject({
+			feature: 'recipe_extract',
+			source: 'text',
+			duration_ms: expect.any(Number),
+		})
+		expect(Number.isInteger(lastExtractionEvent()!.duration_ms)).toBe(true)
 		// A suggestion is a proposal: the review page has not been saved yet.
 		expect(await prisma.recipeMetadataAssignment.count()).toBe(0)
 		expect(

@@ -92,6 +92,7 @@ export async function action({ request }: Route.ActionArgs) {
 		)
 	}
 
+	const startedAt = performance.now()
 	const suggestions = await enhanceRecipeMetadata({
 		title: recipe.title,
 		description: recipe.description,
@@ -100,6 +101,7 @@ export async function action({ request }: Route.ActionArgs) {
 		ingredients: recipe.ingredients,
 		instructions: recipe.instructions,
 	})
+	const durationMs = Math.round(performance.now() - startedAt)
 
 	if ('error' in suggestions) {
 		return data({
@@ -111,6 +113,7 @@ export async function action({ request }: Route.ActionArgs) {
 	captureServerEvent(userId, AI_FEATURE_USED, {
 		feature: 'recipe_enhance',
 		recipe_id: recipeId,
+		duration_ms: durationMs,
 	})
 
 	return data({ error: null, suggestions })

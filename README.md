@@ -2,8 +2,8 @@
 
 [![Deploy](https://github.com/the-artifabrian/quartermaster/actions/workflows/deploy.yml/badge.svg)](https://github.com/the-artifabrian/quartermaster/actions/workflows/deploy.yml)
 
-A personal cookbook for saving Recipes, planning Meals, and making one useful
-Shopping list.
+A personal cookbook for saving Recipes, planning Meals, and keeping Shopping to
+one useful list.
 
 I built Quartermaster to replace 100+ Recipes scattered across Apple Notes. It
 now handles the whole weekly loop without turning the kitchen into an inventory
@@ -16,12 +16,12 @@ system.
 1. Save or import the Recipes you cook.
 2. Plan individual Recipes or reusable multi-dish Menus as ordered Meals.
 3. Open From Plan on Shopping and pick the Meals and lines to buy for.
-4. Keep a short household Staples list; add one from its row to put it on the
-   next shop.
+4. Keep a short household Staples list; add one from its row to put it on Next
+   shop.
 5. Cook from the Recipe and check off Shopping together in real time.
 
 Recipe cards and Recipe detail stay simple: they show what a Recipe needs, with
-each ingredient one tap from Shopping. Shopping picked from the plan starts with
+each ingredient one tap from Shopping. Shopping picked from the Plan starts with
 the lines matching a Staple unticked and keeps everything else.
 
 ## Product shape

@@ -115,6 +115,47 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	await expect(previous).toBeVisible()
 })
 
+test('a range amount added from a Recipe keeps both ends on Shopping (#384)', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Garlic toast',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: {
+				create: { name: 'garlic', amount: '1-2', unit: 'cloves', order: 0 },
+			},
+			instructions: { create: { content: 'Rub the toast.', order: 0 } },
+		},
+	})
+	await page.setViewportSize({ width: 390, height: 844 })
+	await page.goto(`/recipes/${recipe.id}`)
+	await expect(page.getByText('1-2 cloves', { exact: false })).toBeVisible()
+	await page
+		.getByRole('button', { name: 'Add to shopping list', exact: true })
+		.click()
+	await expect
+		.poll(() =>
+			prisma.shoppingListItem.findMany({
+				where: { list: { householdId: user.householdId } },
+				select: { name: true, quantity: true, unit: true },
+			}),
+		)
+		.toEqual([{ name: 'garlic', quantity: '1-2', unit: 'cloves' }])
+
+	await page
+		.getByRole('link', { name: 'Shop', exact: true })
+		.filter({ visible: true })
+		.click()
+	await expect(
+		page.getByRole('group', { name: 'garlic shopping item' }),
+	).toContainText('1-2 cloves')
+})
+
 test('Shopping list flow: pick from Plan → verify items → add manual → check → clear', async ({
 	page,
 	login,

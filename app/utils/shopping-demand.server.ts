@@ -1,4 +1,9 @@
-import { parseAmount, formatAmount, scaleAmount } from './fractions.ts'
+import {
+	parseAmount,
+	formatAmount,
+	isRangeAmount,
+	scaleAmount,
+} from './fractions.ts'
 import { parseIngredient } from './ingredient-parser.ts'
 import { scaleUpMetric } from './metric-conversion.ts'
 import {
@@ -161,12 +166,12 @@ export function buildShoppingDemand({
 
 			const normalizedName = demandIdentity(effectiveName)
 
-			// Scale the amount by the batch multiplier
-			const scaledAmount = scaleAmountString(
-				effectiveAmount,
-				ratio,
-				effectiveUnit,
-			)
+			// Scale the amount by the batch multiplier; one batch keeps the
+			// author's spelling.
+			const scaledAmount =
+				ratio === 1
+					? effectiveAmount
+					: scaleAmount(effectiveAmount, ratio, effectiveUnit)
 
 			if (ingredientMap.has(normalizedName)) {
 				ingredientMap.get(normalizedName)!.quantities.push({
@@ -228,45 +233,6 @@ export function buildShoppingDemand({
 	lines.sort((a, b) => a.category.localeCompare(b.category))
 
 	return lines
-}
-
-/**
- * A range amount like "1-2", "2 to 3", or "1½–2". Ranges are honest input:
- * they scale end-by-end but never sum — parseFloat would silently read
- * "1-2" as 1 and fabricate a false total (#109).
- */
-const RANGE_AMOUNT =
-	/^\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*(?:[-–—~]|to)\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*|[½⅓⅔¼¾⅛⅜⅝⅞])\s*$/i
-
-export function isRangeAmount(amount: string): boolean {
-	return RANGE_AMOUNT.test(amount)
-}
-
-function parseRangeAmount(
-	amount: string,
-): { low: number; high: number } | null {
-	const match = RANGE_AMOUNT.exec(amount)
-	if (!match) return null
-	const low = parseAmount(match[1]!)
-	const high = parseAmount(match[2]!)
-	if (low === null || high === null) return null
-	return { low, high }
-}
-
-export function scaleAmountString(
-	amount: string | null,
-	ratio: number,
-	unit?: string | null,
-): string | null {
-	if (!amount || ratio === 1) return amount
-	if (isRangeAmount(amount)) {
-		const range = parseRangeAmount(amount)
-		// A range scales end-by-end ("1-2" ×2 → "2-4"); one that defeats
-		// parsing passes through verbatim rather than collapsing to one end.
-		if (!range) return amount
-		return `${formatAmount(range.low * ratio, unit)}-${formatAmount(range.high * ratio, unit)}`
-	}
-	return scaleAmount(amount, ratio, unit)
 }
 
 export type DemandPart = {

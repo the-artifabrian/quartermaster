@@ -135,8 +135,38 @@ function snapToCommonFraction(
 }
 
 /**
+ * A range amount like "1-2", "2 to 3", or "1½–2". Ranges are honest input:
+ * they scale end by end but never sum. parseAmount would read "1-2" as 1,
+ * so every caller asks this first (#109, #384).
+ */
+const RANGE_AMOUNT =
+	/^\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*([-–—~]|to)\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*|[½⅓⅔¼¾⅛⅜⅝⅞])\s*$/i
+
+export function isRangeAmount(amount: string): boolean {
+	return RANGE_AMOUNT.test(amount)
+}
+
+/**
+ * Both ends of a range and the dash to rejoin them with: the author's own
+ * dash, or a hyphen for "to". Null when either end defeats parsing, so the
+ * caller passes the range through verbatim rather than collapsing it.
+ */
+function parseRangeAmount(
+	amount: string,
+): { low: number; high: number; separator: string } | null {
+	const match = RANGE_AMOUNT.exec(amount)
+	if (!match) return null
+	const low = parseAmount(match[1]!)
+	const high = parseAmount(match[3]!)
+	if (low === null || high === null) return null
+	const separator = match[2]!.toLowerCase() === 'to' ? '-' : match[2]!
+	return { low, high, separator }
+}
+
+/**
  * Scale an ingredient amount string by a ratio.
- * Returns the scaled amount as a formatted string, or the original if unparseable.
+ * Returns the scaled amount as a formatted string, or the original if
+ * unparseable. A range scales end by end ("1-2" ×2 → "2-4").
  */
 export function scaleAmount(
 	amount: string | null | undefined,
@@ -144,6 +174,11 @@ export function scaleAmount(
 	unit?: string | null,
 ): string | null {
 	if (!amount) return null
+	if (isRangeAmount(amount)) {
+		const range = parseRangeAmount(amount)
+		if (!range) return amount
+		return `${formatAmount(range.low * ratio, unit)}${range.separator}${formatAmount(range.high * ratio, unit)}`
+	}
 	const parsed = parseAmount(amount)
 	if (parsed === null) return amount
 	return formatAmount(parsed * ratio, unit)
@@ -157,7 +192,10 @@ export type KitchenAmount = {
 	 * false — the qualifier word already carries the approximation.
 	 */
 	approximate: boolean
-	/** Exact scaled numeric value, for downstream conversion (e.g. metric). */
+	/**
+	 * Exact scaled numeric value, for downstream conversion (e.g. metric).
+	 * Null for a range or an unparseable amount, which have no single value.
+	 */
 	value: number | null
 }
 
@@ -208,10 +246,28 @@ export function scaleAmountKitchen(
 	unit?: string | null,
 ): KitchenAmount | null {
 	if (!amount) return null
+	const verbatim = { display: amount, approximate: false, value: null }
+	if (isRangeAmount(amount)) {
+		const range = parseRangeAmount(amount)
+		if (!range) return verbatim
+		const low = scaleValueKitchen(range.low, ratio, unit)
+		const high = scaleValueKitchen(range.high, ratio, unit)
+		return {
+			display: `${low.display}${range.separator}${high.display}`,
+			approximate: low.approximate || high.approximate,
+			value: null,
+		}
+	}
 	const parsed = parseAmount(amount)
-	if (parsed === null)
-		return { display: amount, approximate: false, value: null }
+	if (parsed === null) return verbatim
+	return scaleValueKitchen(parsed, ratio, unit)
+}
 
+function scaleValueKitchen(
+	parsed: number,
+	ratio: number,
+	unit?: string | null,
+): KitchenAmount {
 	const value = parsed * ratio
 	if (ratio === 1) {
 		return { display: formatAmount(value, unit), approximate: false, value }

@@ -6,6 +6,10 @@ type EventCallback = (event: HouseholdEventData) => void
 let eventSource: EventSource | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let watchdogTimer: ReturnType<typeof setTimeout> | null = null
+// The server sends a keepalive every 30 s. A half-open socket (common on
+// cellular) fires no error, so a stream this quiet is treated as dead.
+const SILENCE_LIMIT_MS = 75_000
 const listeners = new Set<EventCallback>()
 
 // Dedup: bounded set of recently seen event IDs (FIFO eviction at 500)
@@ -84,18 +88,30 @@ function connect() {
 		lastSeenTimestamp = new Date().toISOString()
 	}
 
-	eventSource = new EventSource('/resources/household-events')
+	const source = new EventSource('/resources/household-events')
+	eventSource = source
+	// Every listener below ignores a stream that has since been replaced.
+	const current = () => eventSource === source
+	armWatchdog()
 
 	// SSE is healthy — drop the polling fallback if it was running, but first
 	// catch up on anything emitted during the gap: the fallback's first tick is
 	// 30s out, so it never covers the 3-5s reconnect window, and the server now
 	// deliberately ends every stream at its lifetime cap.
-	eventSource.addEventListener('open', () => {
+	source.addEventListener('open', () => {
+		if (!current()) return
+		armWatchdog()
 		stopPolling()
 		void poll()
 	})
 
-	eventSource.addEventListener('activity', (e) => {
+	source.addEventListener('keepalive', () => {
+		if (current()) armWatchdog()
+	})
+
+	source.addEventListener('activity', (e) => {
+		if (!current()) return
+		armWatchdog()
 		try {
 			const data = JSON.parse(e.data) as HouseholdEventData
 			broadcast(data)
@@ -104,25 +120,42 @@ function connect() {
 		}
 	})
 
-	eventSource.addEventListener('error', () => {
-		cleanup()
-		// Fall back to polling while the stream is down...
-		startPolling()
-		// ...and reconnect with 3-5s jitter (unless backgrounded).
-		const delay = 3000 + Math.random() * 2000
-		reconnectTimer = setTimeout(() => {
-			reconnectTimer = null
-			if (
-				listeners.size > 0 &&
-				!(typeof document !== 'undefined' && document.hidden)
-			) {
-				connect()
-			}
-		}, delay)
+	source.addEventListener('error', () => {
+		if (current()) dropAndReconnect()
 	})
 }
 
+/** Restart the silence countdown: the stream just showed it is alive. */
+function armWatchdog() {
+	if (watchdogTimer) clearTimeout(watchdogTimer)
+	watchdogTimer = setTimeout(() => {
+		watchdogTimer = null
+		dropAndReconnect()
+	}, SILENCE_LIMIT_MS)
+}
+
+/** Close the stream, poll while it is down, and reconnect after 3-5 s. */
+function dropAndReconnect() {
+	cleanup()
+	startPolling()
+	if (reconnectTimer) return
+	const delay = 3000 + Math.random() * 2000
+	reconnectTimer = setTimeout(() => {
+		reconnectTimer = null
+		if (
+			listeners.size > 0 &&
+			!(typeof document !== 'undefined' && document.hidden)
+		) {
+			connect()
+		}
+	}, delay)
+}
+
 function cleanup() {
+	if (watchdogTimer) {
+		clearTimeout(watchdogTimer)
+		watchdogTimer = null
+	}
 	if (eventSource) {
 		eventSource.close()
 		eventSource = null

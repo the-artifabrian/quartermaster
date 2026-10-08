@@ -96,3 +96,80 @@ test('Users can change their email address', async ({
 	})
 	expect(noticeEmail.subject).toContain('changed')
 })
+
+test('Deleting an account leaves the Household with the other member', async ({
+	page,
+	navigate,
+	login,
+	insertNewUser,
+}) => {
+	const user = await login()
+	const partner = await insertNewUser()
+	await prisma.user.update({
+		where: { id: partner.id },
+		data: { name: 'Robin Partner' },
+	})
+	await prisma.householdMember.create({
+		data: { householdId: user.householdId, userId: partner.id, role: 'member' },
+	})
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Shared lasagne',
+			userId: user.id,
+			householdId: user.householdId,
+		},
+	})
+	await navigate('/settings/profile')
+
+	await expect(
+		page.getByText('Your Recipes and Shopping stay with Robin Partner.'),
+	).toBeVisible()
+	await page.getByRole('button', { name: 'Delete my account' }).click()
+	await page.getByRole('button', { name: 'Delete?' }).click()
+	await expect(page).toHaveURL('/')
+
+	await expect.poll(() => prisma.user.count({ where: { id: user.id } })).toBe(0)
+	expect(
+		await prisma.recipe.findUnique({
+			where: { id: recipe.id },
+			select: { userId: true, householdId: true },
+		}),
+	).toEqual({ userId: partner.id, householdId: user.householdId })
+	expect(
+		await prisma.householdMember.findMany({
+			where: { householdId: user.householdId },
+			select: { userId: true, role: true },
+		}),
+	).toEqual([{ userId: partner.id, role: 'owner' }])
+})
+
+test('Deleting the only member deletes the Household', async ({
+	page,
+	navigate,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Solo soup',
+			userId: user.id,
+			householdId: user.householdId,
+		},
+	})
+	await navigate('/settings/profile')
+
+	await expect(
+		page.getByText(
+			'This deletes the Household and everything in it: Recipes, Menus, Plan, Staples and Shopping.',
+		),
+	).toBeVisible()
+	await page.getByRole('button', { name: 'Delete my account' }).click()
+	await page.getByRole('button', { name: 'Delete?' }).click()
+	await expect(page).toHaveURL('/')
+
+	await expect
+		.poll(() => prisma.household.count({ where: { id: user.householdId } }))
+		.toBe(0)
+	expect(await prisma.user.count({ where: { id: user.id } })).toBe(0)
+	expect(await prisma.recipe.count({ where: { id: recipe.id } })).toBe(0)
+})

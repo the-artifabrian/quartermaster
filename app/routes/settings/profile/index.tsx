@@ -5,6 +5,11 @@ import { Form, Link, useFetcher } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { ThemeSwitch } from '#app/routes/resources/theme-switch.tsx'
+import {
+	type AccountDeletionOutcome,
+	deleteAccount,
+	getAccountDeletionOutcome,
+} from '#app/utils/account-deletion.server.ts'
 import { requireUserId, sessionKey } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
@@ -52,12 +57,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 		where: { target_type: { type: twoFAVerificationType, target: userId } },
 	})
 
-	const [password, tierInfo] = await Promise.all([
+	const [password, tierInfo, deletionOutcome] = await Promise.all([
 		prisma.password.findUnique({
 			select: { userId: true },
 			where: { userId },
 		}),
 		getUserTier(userId),
+		getAccountDeletionOutcome(userId),
 	])
 
 	return {
@@ -65,6 +71,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		hasPassword: Boolean(password),
 		isTwoFactorEnabled: Boolean(twoFactorVerification),
 		tierInfo,
+		deletionOutcome,
 	}
 }
 
@@ -216,7 +223,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 					<SignOutOfSessions loaderData={loaderData} />
 				</div>
 				<div className="px-4 py-3">
-					<DeleteData />
+					<DeleteData outcome={loaderData.deletionOutcome} />
 				</div>
 			</SettingsSection>
 		</div>
@@ -407,7 +414,7 @@ function SignOutOfSessions({
 }
 
 async function deleteDataAction({ userId }: ProfileActionArgs) {
-	await prisma.user.delete({ where: { id: userId } })
+	await deleteAccount(userId)
 	return redirectWithToast('/', {
 		type: 'success',
 		title: 'Account deleted',
@@ -415,7 +422,7 @@ async function deleteDataAction({ userId }: ProfileActionArgs) {
 	})
 }
 
-function DeleteData() {
+function DeleteData({ outcome }: { outcome: AccountDeletionOutcome }) {
 	const dc = useDoubleCheck()
 	const fetcher = useFetcher<typeof deleteDataAction>()
 
@@ -427,6 +434,7 @@ function DeleteData() {
 						type: 'submit',
 						name: 'intent',
 						value: deleteDataActionIntent,
+						'aria-describedby': 'delete-account-outcome',
 					})}
 					variant="destructive"
 					status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
@@ -434,10 +442,18 @@ function DeleteData() {
 					size="sm"
 				>
 					<Icon name="trash">
-						{dc.doubleCheck ? `Are you sure?` : `Delete my account`}
+						{dc.doubleCheck ? `Delete?` : `Delete my account`}
 					</Icon>
 				</StatusButton>
 			</fetcher.Form>
+			<p
+				id="delete-account-outcome"
+				className="text-muted-foreground mt-2 text-sm"
+			>
+				{outcome.kind === 'household-stays'
+					? `Your Recipes and Shopping stay with ${outcome.heirName}.`
+					: `This deletes the Household and everything in it: Recipes, Menus, Plan, Staples and Shopping.`}
+			</p>
 		</div>
 	)
 }

@@ -9,12 +9,15 @@ const ANTHROPIC_API_VERSION = '2023-06-01'
 // next release. The server checks each id once at boot and logs one that the
 // API does not know (anthropic-model-check.server.ts).
 //
-// Haiku 5.5 reads images, and recipe extraction took 12 to 23 s on Haiku 4.5
-// and Sonnet 5, so both run on it. `vision` stays its own key so screenshots
-// can move to `claude-sonnet-5-5` without touching a caller.
+// Text extraction runs on Haiku 5.5: it took 12 to 23 s on Haiku 4.5 and
+// Sonnet 5, and the input is already text. Images run on Sonnet 5.5, because
+// photographed cookbook pages (glare, two columns, prose quantities) are where
+// a smaller model drops or reorders ingredients, and at this volume the price
+// difference is cents a month. `vision` stays its own key so the two can move
+// independently without touching a caller.
 export const ANTHROPIC_MODELS = {
 	fast: 'claude-haiku-5-5',
-	vision: 'claude-haiku-5-5',
+	vision: 'claude-sonnet-5-5',
 } as const
 
 type AnthropicModel = (typeof ANTHROPIC_MODELS)[keyof typeof ANTHROPIC_MODELS]

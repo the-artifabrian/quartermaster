@@ -2,8 +2,8 @@
 
 ## Where things stand
 
-Quartermaster is a solo project used daily by its maintainer, built for personal
-use and portfolio value. The core loop works:
+Quartermaster is a solo project used daily by two people in one Household, built
+for personal use and portfolio value. The core loop works:
 
 ```text
 save Recipes → plan Meals → build Shopping → cook
@@ -17,13 +17,20 @@ they added more friction than value. Romanian/RON costing was tested on fixed
 examples and stopped because useful coverage required too much identity and
 price-catalogue work.
 
-The formal #126 metadata checkpoint is retired. Current priorities and task
-decisions live in
-[#249](https://github.com/the-artifabrian/quartermaster/issues/249). Reviewed
-metadata suggestions (#127), discovery sections (#129), product costing
-(#133–#136), and durable ingredient links (#144) are deferred until real use
-gives them a reason to return. Their unused observation tickets (#128 and #130)
-are closed.
+The formal #126 metadata checkpoint is retired. Reviewed metadata suggestions
+(#127), discovery sections (#129), product costing (#133–#136), and durable
+ingredient links (#144) are deferred until real use gives them a reason to
+return. Their unused observation tickets (#128 and #130) are closed.
+
+The current work is the set of issues from the October 2026 audit, #383 to #391;
+the open issue list on GitHub is the source of truth for what remains.
+
+The iOS app is a small Swift shell around the Web app
+([ADR 0002](./adr/0002-small-native-shell.md)), distributed through TestFlight
+only, with no App Store listing. It sells and advertises nothing; Pro stays on
+the Web app ([ADR 0001](./adr/0001-keep-pro-out-of-the-ios-app.md)). Its open
+issue is #346, snappy navigation and launch. A TestFlight build expires after 90
+days, so re-upload one with `ios/upload-testflight.sh` about every two months.
 
 ## Product direction
 
@@ -60,21 +67,13 @@ Current product rules:
 - Implement one focused, reversible issue on its own local branch, preserving
   unrelated local work. Run appropriate checks and exercise affected journeys
   with disposable data.
-- Thoroughly review the complete diff against the issue's acceptance criteria:
-  correctness, regressions, failure handling, and unnecessary complexity. Fix
-  worthwhile findings within scope; record unrelated findings separately. Rerun
-  affected checks and review the fixes before handing over.
-- Provide working local startup/data instructions and one useful ordinary
-  journey for Alex to review, with the expected result and material limitations.
-  Put detailed automated failure evidence in the issue; do not require manual
-  replay of every tested case.
-- Wait for Alex's explicit approval before opening a PR. If manual testing finds
-  problems, fix and recheck them locally, then provide updated testing steps.
-  Continue independent authorized work while waiting.
-- Straightforward removals may proceed directly to a PR after thorough review
-  and sufficient automated and disposable-data checks, without requiring Alex to
-  test locally. Use judgment; this exception does not cover changes that need a
-  product or interaction decision.
+- Have a separate Opus agent review the complete diff against the issue's
+  acceptance criteria: correctness, regressions, failure handling, and
+  unnecessary complexity. Fix worthwhile findings within scope, record unrelated
+  findings separately, and rerun the affected checks.
+- Open the PR with the review findings and how each was handled in its body.
+- The agent merges once CI is green. Merging to `master` deploys.
+- Alex is asked only for steps that need his phone, Apple ID, or payment.
 - Product experiments also require a runnable local comparison and manual
   testing steps. Screenshots may supplement that handoff; they do not establish
   acceptance or authorize a production feature.
@@ -85,8 +84,6 @@ Current product rules:
   dogfooding.
 - Rehearse risky migrations on a disposable copy and preserve export/restore
   paths.
-- Because merging to `master` deploys, ask Alex before merging or otherwise
-  deploying. Approval to open a PR does not authorize merging or deployment.
 
 ## Roadmap outcomes
 
@@ -124,10 +121,10 @@ presentation.
 - `emitHouseholdEvent()` is fire-and-forget; revisit if real contention appears.
 - Some AI Recipe helpers remain optional and secondary. AI Recipe import is the
   proven high-value path.
-- Playwright runs on every pull request but is not yet a required check or a
-  deploy gate.
+- Playwright runs on every pull request and is a required check for merging;
+  deploys do not wait for it.
 
 Operational restore steps live in [RESTORE.md](./RESTORE.md). Product terms live
 in [GLOSSARY.md](../GLOSSARY.md).
 
-_Updated 12 September 2026._
+_Updated 8 October 2026._

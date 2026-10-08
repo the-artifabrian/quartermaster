@@ -35,8 +35,9 @@ file tree under `app/routes/`. The rules that matter here:
 - A `_` prefix on a folder adds no segment. `_auth/login.tsx` is `/login`;
   `_marketing/` and `_seo/` work the same way.
 - `_layout.tsx` is the only file that nests. `recipes/_layout.tsx` wraps every
-  `/recipes/*` page and runs its loader first; a folder without one, such as
-  `_auth/`, is organisation only and its files are siblings under root.
+  `/recipes/*` page in its error boundary and has no loader, since each child
+  signs the request in itself; a folder without a layout, such as `_auth/`, is
+  organisation only and its files are siblings under root.
 - `$param` is a dynamic segment and `$.tsx` is the catch-all.
 - A trailing `_` on a segment is stripped and changes nothing else.
   `recipes/$recipeId_.edit.tsx` is `/recipes/:recipeId/edit`, a sibling of
@@ -72,7 +73,7 @@ reaches the app at once. The two sides meet in three places:
 - **Contract.** The "Shell bridge" section of [the iOS README](../ios/README.md)
   is the contract: message names, bodies and what the shell does with each.
   Change it there first, then both sides. Shell behaviour reaches users only
-  through an App Store build, so the Web side must keep working against the
+  through a TestFlight build, so the Web side must keep working against the
   previous shell.
 
 ## Data model
@@ -85,20 +86,36 @@ User
 ├── access: Role, Permission, Subscription
 └── HouseholdMember → Household
     ├── Recipe → Ingredient, Instruction, RecipeImage
+    ├── RecipeMetadataValue (Cuisine, Season, Course)
+    │   └── RecipeMetadataAssignment ← Recipe
     ├── Menu → MenuSection → MenuItem → MenuShoppingLine
     ├── MealPlan → Meal
+    │   ├── MealSection
     │   ├── MealRecipeItem
-    │   ├── MealSection → MealNoteItem → MealShoppingLine
-    │   └── MealShoppingContribution
+    │   ├── MealNoteItem → MealShoppingLine
+    │   └── MealShoppingContribution → ShoppingListItem
     ├── HouseholdIngredient (Staples)
     ├── ShoppingList → ShoppingListItem
     ├── HouseholdInvite
     └── HouseholdEvent
 ```
 
+A Meal's Recipe items and note items each point at an optional MealSection, so
+deleting a section keeps its items. A RecipeMetadataAssignment joins one Recipe
+to one household classification value. A Shopping row's `horizon` puts it in
+Next shop or Later.
+
 `UsageEvent` records AI limits. New household data must be authorized by
 household membership, included in export/import when durable, and handled in
 sole-member household moves.
+
+Recipes, the Shopping list and invites also point at the User who made them, and
+those keys cascade on user delete. `deleteAccount` in
+`app/utils/account-deletion.server.ts` hands them to another member first (an
+owner, else the longest-standing member) and promotes that member when the
+Household would have no owner, so a deleted member's data stays with the
+Household. Only a sole member's deletion removes the Household. New data owned
+by a User and a Household needs the same handover.
 
 ## Planning
 

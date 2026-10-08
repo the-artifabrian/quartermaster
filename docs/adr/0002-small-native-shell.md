@@ -10,10 +10,10 @@ binary. It has to load `https://useqm.app` in a `WKWebView`. Everything that
 shell needs is a thin layer over system frameworks: a web view with App-Bound
 Domains so the service worker runs, a navigation policy that keeps the site in
 the app and sends other hosts to Safari, an offline view, Associated Domains for
-passkeys and universal links, and a Share Extension. That is a few hundred lines
-of Swift in `ios/`, and the work that takes time (signing, entitlements, the
-extension target, App Store Connect) is the same whichever tool produces the web
-view. So we write the shell ourselves.
+passkeys and universal links, and a Share Extension. That is 1,245 lines of
+Swift in `ios/` in October 2026, and the work that takes time (signing,
+entitlements, the extension target, App Store Connect) is the same whichever
+tool produces the web view. So we write the shell ourselves.
 
 ## Considered options
 

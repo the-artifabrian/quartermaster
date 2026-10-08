@@ -135,6 +135,38 @@ Then attach a machine to the new volume. The snapshot is a raw copy of a live
 volume, so the database inside it may need `PRAGMA quick_check` and, in the
 worst case, WAL recovery — treat it as less trustworthy than an offsite backup.
 
+## How a deploy migrates the database
+
+Migrations run at boot, from the `exec` steps in `other/litefs.yml`, in this
+order. The steps before `bun run start` run on the primary only
+(`if-candidate: true`); `bun run start` runs on every node.
+
+```yaml
+- cmd: bun /myapp/scripts/validate-env.ts
+- cmd:
+    bun /myapp/scripts/backup-db.ts --local-only --label pre-migration
+    --skip-if-missing
+- cmd: sqlite3 $DATABASE_PATH "PRAGMA journal_mode = DELETE;"
+- cmd: bunx prisma migrate deploy
+- cmd: bun prisma/run-seed-infrastructure.ts
+- cmd: sqlite3 $DATABASE_PATH "PRAGMA journal_mode = WAL;"
+- cmd: bun run start
+```
+
+- **Validate first.** A missing production secret fails the boot before anything
+  changes the schema. `auto_rollback` is off in `fly.toml`, so a machine that
+  migrated and then refused to start has no automatic way back.
+- **Dump second.** The local pre-migration snapshot is the only way back from a
+  bad migration; some migrations in the history are destructive.
+- **Journal dance.** Prisma's schema engine opens SQLite with
+  `locking_mode=EXCLUSIVE` (prisma-engines#4675), which LiteFS rejects on a WAL
+  database (litefs#425), so any migration would crash-loop the boot. Exclusive
+  locking works with a rollback journal, so the database switches to `DELETE`
+  for the migration and seed and back to `WAL` before the app starts. Keep both
+  switches while Prisma opens SQLite exclusively.
+
+The comments in `other/litefs.yml` carry the same reasons next to each step.
+
 ## When the boot-time dump blocks a deploy
 
 The pre-migration step fails the boot if it can't produce a verified snapshot,
@@ -148,8 +180,8 @@ fly secrets unset SKIP_DB_BACKUP --app quartermaster-94e5
 ```
 
 Leaving it set migrates the database with no way back, which is the situation
-the step exists to prevent. It only disables the boot-time dump — manual
-backups and `--list` keep working while it's set.
+the step exists to prevent. It only disables the boot-time dump — manual backups
+and `--list` keep working while it's set.
 
 ## Exercise log
 
@@ -172,9 +204,9 @@ Restore is only real if it's been done. Add a line each time.
     fail-closed step doesn't block a normal deploy.
   - `backup-db.ts` uploaded to `daily/` in 0.7s. SigV4 signing works against
     Tigris; the earlier `--list` returned an empty prefix rather than a 403.
-  - `restore-db.ts --latest` downloaded, unpacked, and passed `quick_check`.
-    Row counts matched the live database exactly: 13 users, 321 recipes, 27
-    shopping list items. Restored file is smaller (2.34 MB vs 2.7 MB) because
+  - `restore-db.ts --latest` downloaded, unpacked, and passed `quick_check`. Row
+    counts matched the live database exactly: 13 users, 321 recipes, 27 shopping
+    list items. Restored file is smaller (2.34 MB vs 2.7 MB) because
     `VACUUM INTO` drops free pages — expected, not data loss.
   - The GitHub workflow ran green via `workflow_dispatch` in 15s, confirming
     `FLY_API_TOKEN` is an org token that can open an SSH session.

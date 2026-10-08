@@ -1,8 +1,9 @@
 # iOS app
 
 A small Swift shell whose `WKWebView` loads https://useqm.app. Why a shell of
-our own: [ADR 0002](../docs/adr/0002-small-native-shell.md). The plan is in
-issue #325 and its phases #326 to #329.
+our own: [ADR 0002](../docs/adr/0002-small-native-shell.md). The app is
+distributed through TestFlight only (TestFlight builds below), and the open iOS
+work is #346, snappy navigation and launch.
 
 `Quartermaster/Quartermaster/` and `Quartermaster/QuartermasterShare/` are Xcode
 buildable folders: any file added there joins the app or the Share Extension
@@ -84,9 +85,8 @@ quartermaster://import?url=<percent-encoded http(s) URL>
 
 which loads `<base URL>/recipes/import?url=<same URL>`, so the import page
 starts fetching. Anything else on the scheme, or a `url` that is not http or
-https, is ignored. Universal links on the base URL's host load as they are, once
-the `applinks` entitlement is on (1.6 below). `IncomingURL.swift` holds the
-rules.
+https, is ignored. Universal links on the base URL's host load as they are.
+`IncomingURL.swift` holds the rules.
 
 The first page starts loading as soon as the shell's view loads. A link that
 launched the app has usually reached the shell by then and loads instead of the
@@ -239,20 +239,21 @@ question per build.
 alpha, since iOS applies its own mask. Launch colours follow
 `app/utils/pwa-launch.ts`: `#f6f1eb` light, `#1a1816` dark.
 
-## Still to do in #327
+## Checks on a phone
 
-- **1.6 Associated Domains.** The entitlement is in
-  `Quartermaster/Quartermaster.entitlements` (`webcredentials:useqm.app`,
-  `applinks:useqm.app`) and the app handles universal links and the
-  `quartermaster://` scheme (Incoming links above). What remains is on Apple's
-  side: the paid program active (#329, 3.1), the capability on the App ID (the
-  first `-allowProvisioningUpdates` build registers it), and the AASA file live
-  (#326, 0.5). Until then passkey login in the app fails with `NotAllowedError`
-  and links open in Safari.
-- **1.7 Layout checks** on a notched iPhone: status bar and safe areas, keyboard
-  on Shopping (FAB, voice button, add row) and the Recipe form. The web view
-  fills the screen and lets WebKit inset content, like Safari; the site has no
-  `viewport-fit=cover` yet (#326, 0.7).
-- **1.8 Function checks** on the device: logins, session after force-quit and
-  after a day, voice input, camera and library upload, URL import, airplane mode
-  after first load, Share Recipe logged out, links from Mail and Messages.
+Run these on a notched iPhone after a shell change, from a TestFlight build:
+
+- **Associated Domains.** The entitlement in
+  `Quartermaster/Quartermaster/Quartermaster.entitlements`
+  (`webcredentials:useqm.app`, `applinks:useqm.app`) pairs with the AASA file
+  the site serves from `app/routes/_seo/apple-app-site-association.ts`. Check
+  passkey login in the app, and that `https://useqm.app` links from Mail and
+  Messages open it.
+- **Layout.** The web view fills the screen. In the shell the site's viewport
+  meta adds `viewport-fit=cover` (`app/root.tsx`) and the page pads itself with
+  `env(safe-area-inset-*)`. Check the status bar, the tab bar above the home
+  indicator, and the keyboard on Shopping (FAB, voice button, add row) and the
+  Recipe form.
+- **Function.** Logins, session after force-quit and after a day, voice input,
+  camera and library upload, URL import, airplane mode after first load, Share
+  Recipe logged out, links from Mail and Messages.

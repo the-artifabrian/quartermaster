@@ -2,8 +2,8 @@
 
 [![Deploy](https://github.com/the-artifabrian/quartermaster/actions/workflows/deploy.yml/badge.svg)](https://github.com/the-artifabrian/quartermaster/actions/workflows/deploy.yml)
 
-A personal cookbook for saving Recipes, planning Meals, and making one useful
-Shopping list.
+A personal cookbook for saving Recipes, planning Meals, and keeping Shopping to
+one useful list.
 
 I built Quartermaster to replace 100+ Recipes scattered across Apple Notes. It
 now handles the whole weekly loop without turning the kitchen into an inventory
@@ -17,11 +17,11 @@ system.
 2. Plan individual Recipes or reusable multi-dish Menus as ordered Meals.
 3. Open From Plan on Shopping and pick the Meals and lines to buy for.
 4. Keep a short household Staples list; add one from its row to put it on the
-   next shop.
+   Next shop.
 5. Cook from the Recipe and check off Shopping together in real time.
 
 Recipe cards and Recipe detail stay simple: they show what a Recipe needs, with
-each ingredient one tap from Shopping. Shopping picked from the plan starts with
+each ingredient one tap from Shopping. Shopping picked from the Plan starts with
 the lines matching a Staple unticked and keeps everything else.
 
 ## Product shape
@@ -30,7 +30,7 @@ the lines matching a Staple unticked and keeps everything else.
 - **Menus** are reusable groups of ordered Recipe and note cards.
 - **Meals** are scheduled Recipe items, Menu snapshots, or plain text.
 - **Staples** are household ingredients normally assumed available, kept as a
-  quick-add list: add one and it lands in Next shop.
+  quick-add list: add one and it lands on the Next shop.
 - **Shopping** combines Recipe ingredients, Menu note lines, and manual items
   without pretending to know exact stock.
 
@@ -94,6 +94,9 @@ The development environment mocks Stripe, storage, Google OAuth, and email. See
 - [Copy guide](docs/COPYWRITING.md)
 - [Database restore runbook](docs/RESTORE.md)
 - [Development plan](docs/DEVELOPMENT_PLAN.md)
+- [Architecture decision records](docs/adr)
+- [iOS app](ios/README.md)
+- [Agent notes and testing rules](AGENTS.md)
 
 ## License
 

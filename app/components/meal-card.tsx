@@ -213,7 +213,7 @@ function ItemRow({
 							variant="destructive"
 							aria-label={`Tap again to remove ${item.recipeTitle}`}
 						>
-							<span className="text-xs">Delete?</span>
+							<span className="text-xs">Remove?</span>
 						</Button>
 					) : (
 						<Button

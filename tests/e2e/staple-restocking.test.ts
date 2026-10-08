@@ -70,7 +70,7 @@ test('tapping a Staple adds it to Next shop from a phone', async ({
 	await expect(saltButton).toHaveText('On list')
 	await expect(saltButton).toBeFocused()
 
-	await page.getByRole('link', { name: 'Shop' }).click()
+	await page.getByRole('link', { name: 'Shopping', exact: true }).click()
 	const nextShop = page.getByTestId('next-shopping-items')
 	await expect(
 		nextShop.getByRole('group', { name: 'Salt shopping item' }),

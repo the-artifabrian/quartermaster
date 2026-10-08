@@ -12,7 +12,7 @@ const touch = {
 	pointerType: 'touch',
 }
 
-function tab(page: Page, name: 'Recipes' | 'Staples' | 'Plan' | 'Shop') {
+function tab(page: Page, name: 'Recipes' | 'Staples' | 'Plan' | 'Shopping') {
 	return page
 		.getByRole('navigation', { name: 'Main' })
 		.getByRole('link', { name, exact: true })
@@ -41,7 +41,7 @@ test('a press switches tabs before the finger lifts, and the click after it adds
 	await login()
 	const counts = await countDataRequests(page)
 	await page.goto('/plan')
-	const shop = tab(page, 'Shop')
+	const shop = tab(page, 'Shopping')
 	await expect(shop).toBeVisible()
 
 	await shop.dispatchEvent('pointerdown', touch)
@@ -61,7 +61,7 @@ test('a second press on the tab being switched to starts nothing new', async ({
 	await login()
 	const counts = await countDataRequests(page, 400)
 	await page.goto('/plan')
-	const shop = tab(page, 'Shop')
+	const shop = tab(page, 'Shopping')
 	await expect(shop).toBeVisible()
 
 	await shop.dispatchEvent('pointerdown', touch)
@@ -86,7 +86,7 @@ test('a press on another tab during a pending switch wins', async ({
 	await login()
 	await countDataRequests(page, 400)
 	await page.goto('/plan')
-	const shop = tab(page, 'Shop')
+	const shop = tab(page, 'Shopping')
 	await expect(shop).toBeVisible()
 
 	await shop.dispatchEvent('pointerdown', touch)
@@ -105,7 +105,7 @@ test('the right mouse button and a modified press do not switch', async ({
 	await login()
 	const counts = await countDataRequests(page)
 	await page.goto('/plan')
-	const shop = tab(page, 'Shop')
+	const shop = tab(page, 'Shopping')
 	await expect(shop).toBeVisible()
 
 	await shop.dispatchEvent('pointerdown', {
@@ -127,7 +127,7 @@ test('the right mouse button and a modified press do not switch', async ({
 test('Enter on a focused tab still switches', async ({ page, login }) => {
 	await login()
 	await page.goto('/plan')
-	const shop = tab(page, 'Shop')
+	const shop = tab(page, 'Shopping')
 	await expect(shop).toBeVisible()
 
 	await shop.focus()

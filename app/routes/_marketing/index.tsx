@@ -449,9 +449,7 @@ function PlanAgenda({
 	return (
 		<div
 			role={framed ? 'img' : undefined}
-			aria-label={
-				framed ? 'This week’s Meal Plan, Monday to Sunday' : undefined
-			}
+			aria-label={framed ? 'This week’s Plan, Monday to Sunday' : undefined}
 			className={cn(
 				'bg-espresso-surface overflow-hidden rounded-2xl',
 				framed && 'border-espresso-line shadow-warm-lg border',
@@ -566,7 +564,7 @@ function PlanAgenda({
 
 function PlanScreen() {
 	return (
-		<AppScreen label="The Plan page: next week’s Meal Plan, Sep 28 – Oct 4, with the action menu open on Tuesday’s dinner">
+		<AppScreen label="The Plan page: next week, Sep 28 – Oct 4, with the action menu open on Tuesday’s dinner">
 			<div className="px-5 py-4 sm:px-6">
 				{/* The week row is the calendar's own title row; the section
 				    heading already says which page this is. */}
@@ -838,7 +836,7 @@ function ShoppingScreen() {
 			<div className="border-espresso-line/70 border-b px-5 py-4 sm:px-6">
 				<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
 					<h3 className="font-serif text-2xl">
-						Shopping List{' '}
+						Shopping{' '}
 						<span className="text-cream-muted font-humanist text-lg tabular-nums">
 							({checked}/{shoppingNext.length})
 						</span>

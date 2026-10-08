@@ -562,8 +562,8 @@ export function MealCard({
 						(data.shopping.updatedContributionCount ?? 0) +
 						(data.shopping.removedContributionCount ?? 0) +
 						(data.shopping.promotedRowCount ?? 0)
-					if (changed > 0) toast.success('Shopping List updated')
-					else toast.info('Shopping List is up to date')
+					if (changed > 0) toast.success('Shopping updated')
+					else toast.info('Shopping is up to date')
 					prevShoppingState.current = addToShoppingFetcher.state
 					return
 				}

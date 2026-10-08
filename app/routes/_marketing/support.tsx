@@ -30,7 +30,7 @@ const faqs = [
 	{
 		question: 'Can I share with my partner or household?',
 		answer:
-			'Yes. Go to Settings > Household to invite members via a link. Everyone in the household shares the same recipe library, Staples, meal plans, and shopping lists, with real-time sync.',
+			'Yes. Go to Settings > Household to invite members via a link. Everyone in the household shares the same Recipes, Staples, Plan, and Shopping, with real-time sync.',
 	},
 	{
 		question: 'Can I export my data?',
@@ -38,9 +38,9 @@ const faqs = [
 			'Yes. Go to Settings > Data to export your profile and household Recipes, classifications, Staples, Menus, Plans, and Shopping as JSON. Recipe images are referenced rather than embedded. You can import the export back in.',
 	},
 	{
-		question: 'How does meal planning work?',
+		question: 'How does the Plan work?',
 		answer:
-			'The Planner shows an ordered week of Meals made from Recipes, Menu snapshots, or simple notes. When you\u2019re ready, open From Plan on Shopping: every Meal and line arrives ticked except things usually on hand, such as your Staples and salt, lines already on the list, and days that have passed. Untick what you do not need and add the rest.',
+			'The Plan shows an ordered week of Meals made from Recipes, Menu snapshots, or simple notes. When you\u2019re ready, open From Plan on Shopping: every Meal and line arrives ticked except things usually on hand, such as your Staples and salt, lines already on the list, and days that have passed. Untick what you do not need and add the rest.',
 	},
 	{
 		question: 'Which features use AI?',

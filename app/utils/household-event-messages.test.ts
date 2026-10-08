@@ -12,7 +12,7 @@ describe('formatEventMessage', () => {
 			{ count: 24 },
 			'Alex',
 		)
-		expect(result.message).toBe('Alex generated the shopping list (24 items)')
+		expect(result.message).toBe('Alex generated Shopping (24 items)')
 		expect(result.url).toBe('/shopping')
 	})
 
@@ -22,7 +22,7 @@ describe('formatEventMessage', () => {
 			{ name: 'Butter' },
 			'Alex',
 		)
-		expect(result.message).toBe('Alex added Butter to the shopping list')
+		expect(result.message).toBe('Alex added Butter to Shopping')
 		expect(result.url).toBe('/shopping')
 	})
 
@@ -32,7 +32,7 @@ describe('formatEventMessage', () => {
 			{ name: 'Milk', checked: true },
 			'Alex',
 		)
-		expect(result.message).toBe('Alex checked off Milk on the shopping list')
+		expect(result.message).toBe('Alex checked off Milk on Shopping')
 		expect(result.url).toBe('/shopping')
 	})
 
@@ -42,7 +42,7 @@ describe('formatEventMessage', () => {
 			{ name: 'Milk', checked: false },
 			'Alex',
 		)
-		expect(result.message).toBe('Alex unchecked Milk on the shopping list')
+		expect(result.message).toBe('Alex unchecked Milk on Shopping')
 	})
 
 	test('shopping_list_item_edited', () => {
@@ -51,7 +51,7 @@ describe('formatEventMessage', () => {
 			{ name: 'Whole Milk' },
 			'Alex',
 		)
-		expect(result.message).toBe('Alex edited Whole Milk on the shopping list')
+		expect(result.message).toBe('Alex edited Whole Milk on Shopping')
 		expect(result.url).toBe('/shopping')
 	})
 
@@ -61,15 +61,13 @@ describe('formatEventMessage', () => {
 			{ name: 'Butter' },
 			'Alex',
 		)
-		expect(result.message).toBe('Alex removed Butter from the shopping list')
+		expect(result.message).toBe('Alex removed Butter from Shopping')
 		expect(result.url).toBe('/shopping')
 	})
 
 	test('shopping_list_cleared', () => {
 		const result = formatEventMessage('shopping_list_cleared', {}, 'Alex')
-		expect(result.message).toBe(
-			'Alex cleared checked items from the shopping list',
-		)
+		expect(result.message).toBe('Alex cleared checked items from Shopping')
 		expect(result.url).toBe('/shopping')
 	})
 
@@ -116,7 +114,7 @@ describe('formatEventBatch', () => {
 			event('household_member_joined'),
 		])
 		expect(result).toHaveLength(2)
-		expect(result[0]?.message).toBe('Sam added Butter to the shopping list')
+		expect(result[0]?.message).toBe('Sam added Butter to Shopping')
 		expect(result[1]?.message).toBe('Sam joined the household')
 	})
 

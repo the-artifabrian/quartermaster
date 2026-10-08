@@ -299,7 +299,7 @@ test.describe('the tab bar in the iOS app', () => {
 		await expect(plan).not.toHaveAttribute('data-pending', /.+/)
 		expect(await tabHaptics()).toBe(1)
 
-		const shop = tabBar.getByRole('link', { name: 'Shop', exact: true })
+		const shop = tabBar.getByRole('link', { name: 'Shopping', exact: true })
 		await shop.focus()
 		await page.keyboard.press('Enter')
 		await expect(page).toHaveURL('/shopping')

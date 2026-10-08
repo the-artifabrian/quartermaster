@@ -12,7 +12,7 @@ const FEEDBACK_BUDGET_MS = 34
 const ROUTE_DELAY_MS = 300
 
 type Destination = {
-	label: 'Recipes' | 'Staples' | 'Plan' | 'Shop'
+	label: 'Recipes' | 'Staples' | 'Plan' | 'Shopping'
 	path: '/recipes' | '/inventory' | '/plan' | '/shopping'
 }
 
@@ -20,7 +20,7 @@ const destinations: Destination[] = [
 	{ label: 'Recipes', path: '/recipes' },
 	{ label: 'Staples', path: '/inventory' },
 	{ label: 'Plan', path: '/plan' },
-	{ label: 'Shop', path: '/shopping' },
+	{ label: 'Shopping', path: '/shopping' },
 ]
 
 type TraceMetric = {
@@ -47,7 +47,7 @@ function dataPath(url: string) {
 function bottomNav(page: Page) {
 	return page
 		.getByRole('navigation', { name: 'Main' })
-		.filter({ has: page.getByRole('link', { name: 'Shop', exact: true }) })
+		.filter({ has: page.getByRole('link', { name: 'Shopping', exact: true }) })
 }
 
 async function trackDataTransfer(page: Page): Promise<TransferTracker> {
@@ -424,7 +424,7 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 	await page.goto(`/recipes/${recipe.id}`)
 	await expect(page.getByRole('heading', { name: recipe.title })).toBeVisible()
 	const detailNav = bottomNav(page)
-	await detailNav.getByRole('link', { name: 'Shop', exact: true }).click()
+	await detailNav.getByRole('link', { name: 'Shopping', exact: true }).click()
 	await expect(page).toHaveURL('/shopping')
 	expect(requestCounts.get('/shopping')).toBe(2)
 	const restoreRecipesLink = detailNav.getByRole('link', {
@@ -479,13 +479,13 @@ test('pending feedback clears when a tab navigation is interrupted or fails', as
 	await expect(page).toHaveURL('/recipes')
 	await expect(recipesLink).not.toHaveAttribute('data-pending')
 
-	const shopLink = nav.getByRole('link', { name: 'Shop', exact: true })
+	const shopLink = nav.getByRole('link', { name: 'Shopping', exact: true })
 	await shopLink.click()
 	await expect(shopLink).toHaveAttribute('data-pending', 'true')
 	await expect
 		.poll(async () => {
 			const committedShopLink = page.getByRole('link', {
-				name: 'Shop',
+				name: 'Shopping',
 				exact: true,
 			})
 			return (await committedShopLink.count()) === 0

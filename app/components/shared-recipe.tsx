@@ -221,7 +221,7 @@ export function SharedRecipeView({
 								<>
 									<p className="font-serif text-lg">Like this recipe?</p>
 									<p className="text-muted-foreground mt-1 text-sm">
-										Save it to your recipes to cook later, add to meal plans,
+										Save it to your Recipes to cook later, add it to your Plan,
 										and more.
 									</p>
 									<div className="mt-4 flex justify-center">

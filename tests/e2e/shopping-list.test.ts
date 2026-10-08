@@ -71,7 +71,7 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 		)
 		.toBe(2)
 	await page
-		.getByRole('link', { name: 'Shop', exact: true })
+		.getByRole('link', { name: 'Shopping', exact: true })
 		.filter({ visible: true })
 		.click()
 	const rows = page.getByRole('group', { name: 'rice shopping item' })
@@ -169,7 +169,7 @@ test('a range amount added from a Recipe keeps both ends on Shopping (#384)', as
 	])
 
 	await page
-		.getByRole('link', { name: 'Shop', exact: true })
+		.getByRole('link', { name: 'Shopping', exact: true })
 		.filter({ visible: true })
 		.click()
 	await expect(
@@ -247,7 +247,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	// 1. Navigate to shopping list
 	await page.goto('/shopping')
 	await expect(
-		page.getByRole('heading', { name: /shopping list/i }),
+		page.getByRole('heading', { level: 1, name: /^Shopping/ }),
 	).toBeVisible()
 
 	// Keep both audited actions pending long enough for delayed local feedback.
@@ -490,7 +490,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 
 	await page.getByRole('link', { name: 'Staples' }).click()
 	await expect(page).toHaveURL('/inventory')
-	await page.getByRole('link', { name: 'Shop' }).click()
+	await page.getByRole('link', { name: 'Shopping', exact: true }).click()
 	await expect(page).toHaveURL('/shopping')
 	await page.getByRole('button', { name: 'From Staples' }).click()
 	await expect(
@@ -547,7 +547,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 		await page.setViewportSize(viewport)
 		await page.goto('/shopping')
 		const pageHeading = page.getByRole('heading', { level: 1 })
-		await expect(pageHeading).toContainText('Shopping List')
+		await expect(pageHeading).toContainText('Shopping')
 		await expect(pageHeading).toContainText(activeProgress)
 		await expect(
 			page.getByRole('heading', { name: 'Next shop', exact: true }),
@@ -559,7 +559,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 
 		await laterToggle.click()
 		await expect(laterToggle).toHaveAttribute('aria-expanded', 'true')
-		await expect(page.getByPlaceholder('Add for later...')).toBeVisible()
+		await expect(page.getByPlaceholder('Add to Later...')).toBeVisible()
 		const laterGroup = page.getByRole('group', {
 			name: `${itemName} shopping item`,
 		})
@@ -592,7 +592,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 		// A search reveals a collapsed Later match without changing the stored
 		// expansion preference; clearing it collapses Later again.
 		await page.goto('/shopping')
-		const search = page.getByPlaceholder('Search shopping list...')
+		const search = page.getByPlaceholder('Search Shopping...')
 		await search.fill('Solar eclipse glasses')
 		await expect(
 			page.getByText('Solar eclipse glasses', { exact: true }),

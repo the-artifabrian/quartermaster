@@ -136,7 +136,7 @@ test('failed checks survive refresh and Clear checked; navigation warns only wit
 		fullPage: true,
 	})
 	await expect(
-		page.getByRole('heading', { name: /Shopping List/ }),
+		page.getByRole('heading', { level: 1, name: /^Shopping/ }),
 	).toBeVisible()
 	page.once('dialog', (dialog) => void dialog.accept())
 	await page

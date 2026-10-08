@@ -48,32 +48,32 @@ export function formatEventMessage(
 	switch (type) {
 		case 'shopping_list_generated':
 			return {
-				message: `${username} generated the shopping list (${payload.count} items)`,
+				message: `${username} generated Shopping (${payload.count} items)`,
 				url: '/shopping',
 			}
 		case 'shopping_list_item_added':
 			return {
-				message: `${username} added ${payload.name} to the shopping list`,
+				message: `${username} added ${payload.name} to Shopping`,
 				url: '/shopping',
 			}
 		case 'shopping_list_item_toggled':
 			return {
-				message: `${username} ${payload.checked ? 'checked off' : 'unchecked'} ${payload.name} on the shopping list`,
+				message: `${username} ${payload.checked ? 'checked off' : 'unchecked'} ${payload.name} on Shopping`,
 				url: '/shopping',
 			}
 		case 'shopping_list_item_edited':
 			return {
-				message: `${username} edited ${payload.name} on the shopping list`,
+				message: `${username} edited ${payload.name} on Shopping`,
 				url: '/shopping',
 			}
 		case 'shopping_list_item_deleted':
 			return {
-				message: `${username} removed ${payload.name} from the shopping list`,
+				message: `${username} removed ${payload.name} from Shopping`,
 				url: '/shopping',
 			}
 		case 'shopping_list_cleared':
 			return {
-				message: `${username} cleared checked items from the shopping list`,
+				message: `${username} cleared checked items from Shopping`,
 				url: '/shopping',
 			}
 		case 'household_member_joined':

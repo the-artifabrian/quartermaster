@@ -80,7 +80,7 @@ export const handle: SEOHandle = {
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Shopping List | Quartermaster' }]
+	return [{ title: 'Shopping | Quartermaster' }]
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -739,7 +739,7 @@ function LaterQuickAdd() {
 						setName(event.target.value)
 						setWarningDismissed(false)
 					}}
-					placeholder="Add for later..."
+					placeholder="Add to Later..."
 					enterKeyHint="go"
 					className="h-9 min-w-0 flex-1"
 				/>
@@ -747,7 +747,7 @@ function LaterQuickAdd() {
 					type="submit"
 					disabled={!name.trim() || fetcher.state !== 'idle'}
 					className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-9 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50"
-					aria-label={canForce ? 'Add to Later anyway' : 'Add for later'}
+					aria-label={canForce ? 'Add to Later anyway' : 'Add to Later'}
 				>
 					<Icon name="plus" className="size-5" />
 				</button>
@@ -1036,7 +1036,7 @@ export default function ShoppingListRoute({
 				<div className="container-narrow py-4">
 					<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
 						<h1 className="font-serif text-2xl font-normal">
-							Shopping List
+							Shopping
 							{nextItems.length > 0 && (
 								<>
 									<span
@@ -1213,7 +1213,7 @@ export default function ShoppingListRoute({
 							type="search"
 							inputMode="search"
 							enterKeyHint="search"
-							placeholder="Search shopping list..."
+							placeholder="Search Shopping..."
 							value={search}
 							onChange={(e) => setSearch(e.target.value)}
 							className="pl-9"
@@ -1256,7 +1256,7 @@ export default function ShoppingListRoute({
 										/>
 									</div>
 									<h3 className="mt-3 font-serif text-lg">
-										Nothing for the next shop
+										Nothing in Next shop
 									</h3>
 									<p className="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
 										{hasMealPlan ? (
@@ -1266,12 +1266,11 @@ export default function ShoppingListRoute({
 											</>
 										) : (
 											<>
-												Create a{' '}
 												<Link
 													to="/plan"
 													className="text-primary font-medium underline underline-offset-2"
 												>
-													meal plan
+													Plan a Meal
 												</Link>{' '}
 												or add an item by hand.
 											</>
@@ -1332,7 +1331,7 @@ export default function ShoppingListRoute({
 								/>
 							) : (
 								<p className="text-muted-foreground py-6 text-center text-sm">
-									Nothing saved for later.
+									Nothing in Later.
 								</p>
 							)}
 							{!search && (

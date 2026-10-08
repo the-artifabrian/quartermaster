@@ -32,7 +32,7 @@ export const handle: SEOHandle = {
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Meal Plan | Quartermaster' }]
+	return [{ title: 'Plan | Quartermaster' }]
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -199,7 +199,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			<div className="container-grid py-4">
-				<h1 className="font-serif text-2xl">Meal Plan</h1>
+				<h1 className="font-serif text-2xl">Plan</h1>
 
 				{/* Week Navigation */}
 				<div className="mx-auto mt-4 flex max-w-2xl items-center justify-between">
@@ -235,9 +235,9 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					<OnboardingNudge
 						nudgeId="generate-shopping-list"
 						icon="cart"
-						title="Generate your shopping list"
-						description="Head to the shopping list when you're ready. Your list changes only when you generate or refresh it."
-						ctaText="Go to Shopping List"
+						title="Generate Shopping"
+						description="Head to Shopping when you're ready. It changes only when you generate or refresh it."
+						ctaText="Go to Shopping"
 						ctaHref="/shopping"
 						className="mt-4"
 					/>

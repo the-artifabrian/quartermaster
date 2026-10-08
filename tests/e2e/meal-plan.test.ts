@@ -234,7 +234,7 @@ test('Update Shopping List puts a rescaled Meal on Shopping at its new amount', 
 	expect(await readPasta()).toMatchObject({ quantity: '200', unit: 'g' })
 
 	await chooseMenuItem('Update Shopping List')
-	await expect(page.getByText('Shopping List updated')).toBeVisible()
+	await expect(page.getByText('Shopping updated')).toBeVisible()
 	expect(await readPasta()).toMatchObject({ quantity: '400', unit: 'g' })
 
 	await page.goto('/shopping')
@@ -338,7 +338,9 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 
 	// 1. Navigate to meal plan
 	await page.goto('/plan')
-	await expect(page.getByRole('heading', { name: /meal plan/i })).toBeVisible()
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Plan', exact: true }),
+	).toBeVisible()
 	await expect(page.getByRole('link', { name: 'Previous week' })).toBeVisible()
 	await expect(page.getByRole('link', { name: 'Next week' })).toBeVisible()
 	await expect(page.getByRole('link', { name: 'Prep' })).toHaveCount(0)

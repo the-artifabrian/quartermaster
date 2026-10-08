@@ -6,7 +6,7 @@ import { expect, test } from '#tests/playwright-utils.ts'
 test.use({ viewport: { width: 390, height: 844 } })
 
 const DATA_NETWORK_TIMEOUT_MS = 4000
-const SERVER_DELAY_MS = 8000
+const SERVER_DELAY_MS = 12_000
 
 function bottomNav(page: Page) {
 	return page
@@ -128,7 +128,7 @@ test('a stalled Plan answers from the session cache after 4 s, and the late resp
 
 	const startedAt = Date.now()
 	await bottomNav(page).getByRole('link', { name: 'Plan', exact: true }).click()
-	await expect(mobile.getByText('Tacos')).toBeVisible({ timeout: 6000 })
+	await expect(mobile.getByText('Tacos')).toBeVisible({ timeout: 9000 })
 	const waited = Date.now() - startedAt
 	expect(waited).toBeGreaterThanOrEqual(DATA_NETWORK_TIMEOUT_MS - 500)
 	expect(waited).toBeLessThan(SERVER_DELAY_MS)

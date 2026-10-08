@@ -1,4 +1,7 @@
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { type Locator } from '@playwright/test'
+import sharp from 'sharp'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
@@ -89,6 +92,59 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 	await expect(page.getByRole('heading', { name: /^My Recipes/ })).toBeVisible()
 	await expect(page.getByText('E2E Updated Pasta')).toHaveCount(0)
 	expect(await prisma.recipe.findUnique({ where: { id: recipeId } })).toBeNull()
+})
+
+/**
+ * A 4 MB JPEG that decodes as 64×48 pixels: the bytes are comment segments,
+ * so the browser and the server's image route have almost nothing to decode.
+ */
+async function bulkyPhoto() {
+	const jpeg = await sharp({
+		create: { width: 64, height: 48, channels: 3, background: '#c86b3c' },
+	})
+		.jpeg()
+		.toBuffer()
+	const comment = Buffer.alloc(65_535 + 2, 0x20)
+	comment.writeUInt16BE(0xfffe, 0)
+	comment.writeUInt16BE(65_535, 2)
+	const comments = Array.from({ length: 64 }, () => comment)
+	// Comments go right after the start-of-image marker.
+	return Buffer.concat([jpeg.subarray(0, 2), ...comments, jpeg.subarray(2)])
+}
+
+test('a phone photo over 3 MB is resized in the browser and saved', async ({
+	page,
+	login,
+}) => {
+	await login()
+	const photo = await bulkyPhoto()
+	expect(photo.byteLength).toBeGreaterThan(4 * 1024 * 1024)
+
+	await page.goto('/recipes/new')
+	await page.getByRole('textbox', { name: /title/i }).fill('Photo Pasta')
+	await page.getByPlaceholder('Ingredient name').fill('spaghetti')
+	await page.getByPlaceholder('Step 1').fill('Boil water and cook pasta')
+	await page.getByText('Photo', { exact: true }).click()
+	await page.locator('input[type="file"][name="image"]').setInputFiles({
+		name: 'IMG_0001.JPG',
+		mimeType: 'image/jpeg',
+		buffer: photo,
+	})
+	await expect(page.getByRole('img', { name: 'Recipe preview' })).toBeVisible()
+	await page.getByRole('button', { name: /create recipe/i }).click()
+
+	await expect(page).toHaveURL(/\/recipes\/(?!new$)[a-z0-9]+$/)
+	const recipeId = new URL(page.url()).pathname.split('/').at(-1)!
+	await expect(page.getByRole('img', { name: 'Photo Pasta' })).toBeVisible()
+	const { objectKey } = await prisma.recipeImage.findUniqueOrThrow({
+		where: { recipeId },
+		select: { objectKey: true },
+	})
+	expect(objectKey).toMatch(/\.jpg$/)
+	const stored = await fs.stat(
+		path.join(process.cwd(), 'tests/fixtures/uploaded', objectKey),
+	)
+	expect(stored.size).toBeLessThan(3 * 1024 * 1024)
 })
 
 test('Recipe generation is gone while AI import and provenance remain', async ({

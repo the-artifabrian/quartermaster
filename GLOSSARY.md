@@ -60,6 +60,6 @@ available, running low, pantry item
 install from Safari. The only surface where Pro is sold. _Avoid_: Website, PWA,
 web version
 
-**iOS app**: The App Store distribution of Quartermaster. It presents the Web
-app and adds share-sheet import, and it sells and advertises nothing. _Avoid_:
-Shell, wrapper, native app
+**iOS app**: Quartermaster as a small native iOS shell, distributed through
+TestFlight. It presents the Web app and adds share-sheet import, and it sells
+and advertises nothing. _Avoid_: Shell, wrapper, native app

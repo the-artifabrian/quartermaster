@@ -17,7 +17,7 @@ test.describe('in the iOS app', () => {
 		await expect(page.getByRole('button', { name: /^log in$/i })).toBeVisible()
 		await expect(page.getByText(googleHint, { exact: true })).toBeVisible()
 		await expect(
-			page.getByRole('button', { name: /login with google/i }),
+			page.getByRole('button', { name: /log in with google/i }),
 		).toHaveCount(0)
 		await expect(page.getByText(/^or$/)).toHaveCount(0)
 	})
@@ -26,7 +26,7 @@ test.describe('in the iOS app', () => {
 		await navigate('/signup')
 		await expect(page.getByRole('button', { name: /submit/i })).toBeVisible()
 		await expect(
-			page.getByRole('button', { name: /signup with google/i }),
+			page.getByRole('button', { name: /sign up with google/i }),
 		).toHaveCount(0)
 		await expect(page.getByText(/^or$/)).toHaveCount(0)
 		await expect(page.getByText(googleHint)).toHaveCount(0)
@@ -54,7 +54,7 @@ test.describe('in a browser', () => {
 	test('login offers Google and no hint', async ({ page, navigate }) => {
 		await navigate('/login')
 		await expect(
-			page.getByRole('button', { name: /login with google/i }),
+			page.getByRole('button', { name: /log in with google/i }),
 		).toBeVisible()
 		await expect(page.getByText(googleHint)).toHaveCount(0)
 	})
@@ -62,7 +62,7 @@ test.describe('in a browser', () => {
 	test('signup offers Google', async ({ page, navigate }) => {
 		await navigate('/signup')
 		await expect(
-			page.getByRole('button', { name: /signup with google/i }),
+			page.getByRole('button', { name: /sign up with google/i }),
 		).toBeVisible()
 		await expect(page.getByText(googleHint)).toHaveCount(0)
 	})

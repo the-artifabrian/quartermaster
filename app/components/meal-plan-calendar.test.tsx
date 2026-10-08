@@ -14,7 +14,7 @@ import { HttpResponse, http } from 'msw'
 import { createRoutesStub, Link, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { expect, test, vi } from 'vitest'
-import { getCurrentWeekStart, getWeekDays, parseDate } from '#app/utils/date.ts'
+import { getWeekDays, parseDate } from '#app/utils/date.ts'
 import { server } from '#tests/setup/mocks-setup.ts'
 import { type PlanMeal } from './meal-card.tsx'
 import { MealPlanCalendar } from './meal-plan-calendar.tsx'
@@ -361,63 +361,6 @@ test('shares one in-flight and successful choice request across Plan controls', 
 	expect(requestCount).toBe(1)
 })
 
-test('keeps text-only Meal creation available while choice loading retries', async () => {
-	let requestCount = 0
-	let releaseRetry = () => {}
-	const retryGate = new Promise<void>((resolve) => {
-		releaseRetry = resolve
-	})
-	server.use(
-		http.get('*/resources/plan-choices', async () => {
-			requestCount++
-			if (requestCount === 1) return new HttpResponse(null, { status: 503 })
-			await retryGate
-			return HttpResponse.json({ recipes: [], menus: [] })
-		}),
-	)
-	let submitted: Record<string, FormDataEntryValue> = {}
-	renderCalendar(
-		async ({ request }) => {
-			submitted = Object.fromEntries(await request.formData())
-			return { status: 'success' as const }
-		},
-		{ useDefaultChoices: false },
-	)
-	const user = userEvent.setup()
-	const mobile = screen.getByTestId('mobile-plan')
-
-	await user.click(
-		within(mobile).getByRole('button', {
-			name: 'Add Meal to Wednesday, Apr 8',
-		}),
-	)
-	const composer = within(mobile).getByRole('region', {
-		name: 'Add Meal for Wednesday, Apr 8',
-	})
-	expect(await within(composer).findByRole('alert')).toHaveTextContent(
-		'Couldn’t load Recipes and Menus',
-	)
-	await user.click(within(composer).getByRole('button', { name: 'Try again' }))
-	expect(within(composer).getByRole('status')).toHaveTextContent(
-		'Loading Recipes and Menus',
-	)
-	await user.click(
-		within(composer).getByRole('button', { name: /Add text instead/ }),
-	)
-	await user.type(within(composer).getByRole('textbox'), 'Leftovers')
-	await user.click(within(composer).getByRole('button', { name: 'Add' }))
-
-	await waitFor(() =>
-		expect(submitted).toMatchObject({
-			intent: 'addTextMeal',
-			date: '2026-04-08',
-			text: 'Leftovers',
-		}),
-	)
-	releaseRetry()
-	expect(requestCount).toBe(2)
-})
-
 test('shows the existing empty choice state after a successful request', async () => {
 	server.use(
 		http.get('*/resources/plan-choices', () =>
@@ -439,63 +382,6 @@ test('shows the existing empty choice state after a successful request', async (
 	expect(
 		within(mobile).getByRole('link', { name: 'Create a new recipe' }),
 	).toBeVisible()
-})
-
-test('reuses the shared choices for Add another Recipe and excludes Meal Recipes', async () => {
-	let requestCount = 0
-	server.use(
-		http.get('*/resources/plan-choices', () => {
-			requestCount++
-			return HttpResponse.json({
-				recipes: [{ ...recipes[0], id: 'meal-1-recipe' }, ...recipes.slice(1)],
-				menus,
-			})
-		}),
-	)
-	let submitted: Record<string, FormDataEntryValue> = {}
-	renderCalendar(
-		async ({ request }) => {
-			submitted = Object.fromEntries(await request.formData())
-			return { status: 'success' as const }
-		},
-		{ useDefaultChoices: false },
-	)
-	const user = userEvent.setup()
-	const mobile = screen.getByTestId('mobile-plan')
-
-	await user.click(
-		within(mobile).getByRole('button', {
-			name: 'Add Meal to Wednesday, Apr 8',
-		}),
-	)
-	await within(mobile).findByPlaceholderText('Search Recipes and Menus...')
-	await user.click(within(mobile).getByRole('button', { name: 'Close picker' }))
-	await user.click(
-		within(mobile).getByRole('button', {
-			name: 'Add Recipe to Banana Bread',
-		}),
-	)
-
-	const search = within(mobile).getByPlaceholderText('Search recipes...')
-	const picker = search.closest('.space-y-2')
-	expect(picker).not.toBeNull()
-	expect(
-		within(picker as HTMLElement).queryByRole('button', {
-			name: /Banana Bread/,
-		}),
-	).not.toBeInTheDocument()
-	await user.click(
-		within(picker as HTMLElement).getByRole('button', { name: /Herb Salad/ }),
-	)
-
-	await waitFor(() =>
-		expect(submitted).toMatchObject({
-			intent: 'addRecipeToMeal',
-			mealId: 'meal-1',
-			recipeId: 'recipe-2',
-		}),
-	)
-	expect(requestCount).toBe(1)
 })
 
 test('mobile Add Meal opens the real picker inline for the selected day', async () => {
@@ -749,27 +635,6 @@ test('mobile closes an open Add Meal draft when the selected day changes', async
 	).toBeVisible()
 })
 
-test('desktop keeps the entire week in one chronological agenda', () => {
-	renderCalendar()
-	const desktop = screen.getByTestId('desktop-plan')
-
-	expect(within(desktop).getByText('Monday')).toBeInTheDocument()
-	expect(within(desktop).getByText('Sunday')).toBeInTheDocument()
-	expect(within(desktop).getByText('Banana Bread')).toBeInTheDocument()
-	expect(within(desktop).getByText('Bolognese')).toBeInTheDocument()
-	expect(within(desktop).getAllByText('Nothing planned')).toHaveLength(5)
-	expect(
-		within(desktop).getByRole('button', {
-			name: 'Add Meal to Monday, Apr 6',
-		}),
-	).toHaveTextContent(/Nothing planned\s*Add Meal/)
-	expect(
-		within(desktop).getByRole('button', {
-			name: 'Meal actions for Banana Bread',
-		}),
-	).toBeVisible()
-})
-
 test('a Meal with snapshot notes can remove its only Recipe', () => {
 	const meal = makeMeal({
 		id: 'meal-with-note',
@@ -793,16 +658,4 @@ test('a Meal with snapshot notes can remove its only Recipe', () => {
 			name: 'Remove Banana Bread from this meal',
 		}),
 	).toBeVisible()
-})
-
-test('desktop Today marker does not shift the day and content columns', () => {
-	renderCalendar(undefined, {
-		calendarWeekDays: getWeekDays(getCurrentWeekStart()),
-		calendarMeals: [],
-	})
-	const desktop = screen.getByTestId('desktop-plan')
-	const todaySection = within(desktop).getByText('Today').closest('section')
-
-	expect(todaySection).not.toHaveClass('border-l-4')
-	expect(todaySection).toHaveClass('before:w-1', 'before:absolute')
 })

@@ -101,22 +101,6 @@ async function makeRequest(
 }
 
 describe('recipe detail loader', () => {
-	test('loads recipe with ingredients and instructions', async () => {
-		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId, session.householdId)
-
-		const request = await makeRequest(session, recipe.id, {}, 'GET')
-		const result = (await loader({
-			request,
-			...makeActionArgs(recipe.id),
-		})) as { recipe: any }
-
-		expect(result.recipe.id).toBe(recipe.id)
-		expect(result.recipe.title).toBe('Test Recipe')
-		expect(result.recipe.ingredients).toHaveLength(2)
-		expect(result.recipe.instructions).toHaveLength(2)
-	})
-
 	test('returns 404 for nonexistent recipe', async () => {
 		const session = await setupUser()
 

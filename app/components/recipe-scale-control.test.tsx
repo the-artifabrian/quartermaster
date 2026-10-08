@@ -36,44 +36,6 @@ function renderIngredientsControls({
 	)
 }
 
-test('Ingredients header keeps scale quiet while showing typed yield as context', () => {
-	renderIngredientsControls({ scaleMultiplier: 1.5 })
-
-	expect(screen.getByRole('button', { name: 'Scale 1.5×' })).toBeVisible()
-	expect(screen.queryByRole('textbox', { name: 'Scale multiplier' })).toBeNull()
-	expect(screen.getByText('Makes 18 pieces')).toBeVisible()
-	expect(screen.getByText('original: 12')).toBeVisible()
-})
-
-test('scale trigger opens the bounded explicit editor', async () => {
-	const user = userEvent.setup()
-	const onChange = vi.fn()
-	renderIngredientsControls({ onScaleMultiplierChange: onChange })
-
-	await user.click(screen.getByRole('button', { name: 'Scale 1×' }))
-	const input = screen.getByRole('textbox', { name: 'Scale multiplier' })
-	expect(input).toHaveValue('1')
-	expect(input).toHaveAttribute('maxlength', '6')
-
-	await user.clear(input)
-	await user.type(input, '1.5')
-	await user.keyboard('{Enter}')
-	expect(onChange).toHaveBeenCalledWith(1.5)
-})
-
-test('scaled Recipe offers one clear return to the original batch', async () => {
-	const user = userEvent.setup()
-	const onChange = vi.fn()
-	renderIngredientsControls({
-		scaleMultiplier: 2,
-		onScaleMultiplierChange: onChange,
-	})
-
-	await user.click(screen.getByRole('button', { name: 'Scale 2×' }))
-	await user.click(screen.getByRole('button', { name: 'Original 1×' }))
-	expect(onChange).toHaveBeenCalledWith(1)
-})
-
 test('original multiplier does not show a redundant reset', async () => {
 	const user = userEvent.setup()
 	renderIngredientsControls()

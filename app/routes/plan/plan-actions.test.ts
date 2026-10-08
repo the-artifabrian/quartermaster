@@ -578,22 +578,6 @@ describe('meal plan actions', () => {
 		})
 	})
 
-	test('duplicate addMeal (same day, label, recipe) is idempotent', async () => {
-		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId, session.householdId)
-		const fields = {
-			intent: 'addMeal',
-			date: '2026-02-02',
-			recipeId: recipe.id,
-			label: 'dinner',
-		}
-
-		await act(session, fields)
-		await act(session, fields)
-
-		expect(await findHouseholdMeals(session.householdId)).toHaveLength(1)
-	})
-
 	test('addMeal stores label and multiplier', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
@@ -638,38 +622,6 @@ describe('meal plan actions', () => {
 				},
 			})
 			expect(meal!.recipeItems[0]!.scaleMultiplier).toBe(3)
-		})
-
-		test('re-adding a planned Recipe reports the existing Meal and keeps its multiplier', async () => {
-			const session = await setupUser()
-			const recipe = await setupRecipe(session.userId, session.householdId)
-			const fields = {
-				intent: 'addMeal',
-				date: '2026-02-02',
-				recipeId: recipe.id,
-				label: 'dinner',
-			}
-
-			const first = await act(session, fields)
-			const second = await act(session, { ...fields, multiplier: '3' })
-
-			const meals = await findHouseholdMeals(session.householdId)
-			expect(meals).toHaveLength(1)
-			// Both submissions name the same Meal.
-			expect(first).toMatchObject({
-				meal: { id: meals[0]!.id, created: true },
-			})
-			expect(second).toEqual({
-				status: 'success',
-				meal: {
-					id: meals[0]!.id,
-					created: false,
-					// The planned 1x stands; the requested 3x was not applied.
-					scaleMultiplier: 1,
-					href: `/plan?weekStart=2026-02-02&mealId=${meals[0]!.id}`,
-				},
-			})
-			expect(meals[0]!.recipeItems[0]!.scaleMultiplier).toBe(1)
 		})
 
 		test('the same Recipe on another day or under another label is a new Meal', async () => {

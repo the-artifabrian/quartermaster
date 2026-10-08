@@ -6,7 +6,10 @@ import {
 } from './anthropic-json.server.ts'
 import { type ParsedItem } from './parse-speech-item.ts'
 
+// Thinking is off for speech: it would spend this budget, and a timeout falls
+// back to the regex parser only after the full 4 s.
 const TIMEOUT_MS = 4_000
+const MAX_TOKENS = 1024
 const MAX_ITEMS = 50
 
 const SpeechItemSchema = z
@@ -70,7 +73,9 @@ export async function parseSpeechItemsWithLLM(
 	const result = await requestAnthropicJson({
 		feature: 'speech-parse',
 		model: ANTHROPIC_MODELS.fast,
-		maxTokens: 512,
+		maxTokens: MAX_TOKENS,
+		effort: 'low',
+		thinking: 'disabled',
 		timeoutMs: TIMEOUT_MS,
 		system: `You are a grocery list parser that extracts items from speech-to-text transcripts.
 

@@ -1,15 +1,20 @@
 import { z } from 'zod'
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
+export const ANTHROPIC_API_BASE = 'https://api.anthropic.com/v1'
+const ANTHROPIC_API_URL = `${ANTHROPIC_API_BASE}/messages`
 const ANTHROPIC_API_VERSION = '2023-06-01'
 
 // Recheck both IDs against the Models API (GET /v1/models) whenever this file
-// is touched — a model that is current today is a generation behind after the
-// next release. Verified 2026-09-21: Haiku 4.5 is still the current Haiku, and
-// claude-sonnet-5 is the current Sonnet.
+// is touched; a model that is current today is a generation behind after the
+// next release. The server checks each id once at boot and logs one that the
+// API does not know (anthropic-model-check.server.ts).
+//
+// Haiku 5.5 reads images, and recipe extraction took 12 to 23 s on Haiku 4.5
+// and Sonnet 5, so both run on it. `vision` stays its own key so screenshots
+// can move to `claude-sonnet-5-5` without touching a caller.
 export const ANTHROPIC_MODELS = {
-	fast: 'claude-haiku-4-5-20251001',
-	vision: 'claude-sonnet-5',
+	fast: 'claude-haiku-5-5',
+	vision: 'claude-haiku-5-5',
 } as const
 
 type AnthropicModel = (typeof ANTHROPIC_MODELS)[keyof typeof ANTHROPIC_MODELS]
@@ -61,10 +66,25 @@ export type AnthropicJsonFailure =
 export type AnthropicJsonResult<T> =
 	{ ok: true; data: T } | { ok: false; failure: AnthropicJsonFailure }
 
+/**
+ * How much the model thinks before it answers. Thinking is on by default on the
+ * 5.5 models and spends from `maxTokens`; `low` is the documented setting for
+ * extraction and classification latency.
+ */
+export type AnthropicEffort = 'low' | 'medium' | 'high'
+
 export type AnthropicJsonRequest<T> = {
 	feature: string
 	model: AnthropicModel
+	/** Covers the thinking as well as the JSON. */
 	maxTokens: number
+	effort: AnthropicEffort
+	/**
+	 * Turns thinking off for a caller whose timeout leaves no room for it.
+	 * Omitted, thinking stays at the model's default; a budget is never sent,
+	 * since the 5.5 models reject one.
+	 */
+	thinking?: 'disabled'
 	timeoutMs: number
 	system: string
 	prompt: string | AnthropicContentBlock[]
@@ -96,6 +116,14 @@ const AnthropicResponseSchema = z.object({
 		.default([]),
 	stop_reason: z.string().nullish(),
 })
+
+/** The key and version every Anthropic API request sends. */
+export function anthropicHeaders(apiKey: string) {
+	return {
+		'x-api-key': apiKey,
+		'anthropic-version': ANTHROPIC_API_VERSION,
+	}
+}
 
 export function isAnthropicConfigured(
 	adapter: AnthropicJsonAdapter = defaultAdapter,
@@ -143,18 +171,23 @@ export async function requestAnthropicJson<T>(
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				'x-api-key': apiKey,
-				'anthropic-version': ANTHROPIC_API_VERSION,
+				...anthropicHeaders(apiKey),
 			},
 			body: JSON.stringify({
 				model: request.model,
 				max_tokens: request.maxTokens,
 				system: request.system,
 				messages: [{ role: 'user', content: request.prompt }],
-				// Structured outputs: the response is schema-valid by
-				// construction, so a stray sentence or fence can no longer turn
-				// a good answer into a parse failure.
+				...(request.thinking === 'disabled' && {
+					thinking: { type: 'disabled' },
+				}),
+				// No temperature, top_p, top_k, prefill or thinking budget: the
+				// 5.5 models reject each with a 400.
 				output_config: {
+					effort: request.effort,
+					// Structured outputs: the response is schema-valid by
+					// construction, so a stray sentence or fence can no longer
+					// turn a good answer into a parse failure.
 					format: { type: 'json_schema', schema: request.jsonSchema },
 				},
 			}),
@@ -220,6 +253,20 @@ export async function requestAnthropicJson<T>(
 		return { ok: false, failure: { kind: 'max-tokens' } }
 	}
 
+	// A refusal can stop mid-JSON. Haiku has no server-side fallback model, so
+	// it is a provider failure, logged on its own line so it is not mistaken
+	// for an outage.
+	if (parsedResponse.data.stop_reason === 'refusal') {
+		adapter.logError('Anthropic JSON response was a refusal', {
+			feature: request.feature,
+			kind: 'provider',
+			model: request.model,
+		})
+		return { ok: false, failure: { kind: 'provider' } }
+	}
+
+	// Thinking blocks come first on the 5.5 models; the answer is the text
+	// block, found by type rather than position.
 	const text = parsedResponse.data.content.find(
 		(block) => block.type === 'text' && block.text,
 	)?.text

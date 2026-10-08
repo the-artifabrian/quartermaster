@@ -220,6 +220,7 @@ export async function importWithAi(
 	const vocabulary = metadataVocabulary(metadataValues)
 
 	let llmResult: Awaited<ReturnType<typeof extractRecipeFromText>>
+	let durationMs: number
 
 	if (intentKey === 'extract-image') {
 		const validatedImages: Array<{ base64: string; mediaType: string }> = []
@@ -269,9 +270,13 @@ export async function importWithAi(
 			})
 		}
 
+		const startedAt = performance.now()
 		llmResult = await extractRecipeFromImages(validatedImages, vocabulary)
+		durationMs = Math.round(performance.now() - startedAt)
 	} else {
+		const startedAt = performance.now()
 		llmResult = await extractRecipeFromText(rawText, vocabulary)
+		durationMs = Math.round(performance.now() - startedAt)
 	}
 
 	if ('error' in llmResult) {
@@ -330,6 +335,9 @@ export async function importWithAi(
 		...(intentKey === 'extract-image' && {
 			image_count: imageFiles.length,
 		}),
+		// Wall time of the model call, image preparation included, to compare
+		// models in PostHog.
+		duration_ms: durationMs,
 	})
 
 	return data({

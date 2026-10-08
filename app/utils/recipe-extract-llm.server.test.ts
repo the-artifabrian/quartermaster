@@ -716,9 +716,13 @@ describe('extractRecipeFromText', () => {
 		const body = JSON.parse(capturedBody!) as {
 			max_tokens: number
 			model: string
+			output_config: { effort: string }
 		}
+		// Thinking is on by default on Haiku 5.5 and spends from max_tokens, so
+		// the cap carries the thinking as well as the recipe.
 		expect(body.max_tokens).toBeGreaterThanOrEqual(8192)
-		expect(body.model).toBe('claude-haiku-4-5-20251001')
+		expect(body.model).toBe('claude-haiku-5-5')
+		expect(body.output_config.effort).toBe('low')
 	})
 
 	test('a time the model used to answer with as "20 min" now arrives as a number', async () => {
@@ -1075,9 +1079,14 @@ describe('extractRecipeFromImages', () => {
 		expect(
 			(sharpCalls[0]!.jpeg[0] as { quality: number }).quality,
 		).toBeGreaterThan(80)
-		expect((JSON.parse(capturedBody!) as { model: string }).model).toBe(
-			'claude-sonnet-5',
-		)
+		const body = JSON.parse(capturedBody!) as {
+			model: string
+			max_tokens: number
+			output_config: { effort: string }
+		}
+		expect(body.model).toBe('claude-haiku-5-5')
+		expect(body.max_tokens).toBeGreaterThanOrEqual(8192)
+		expect(body.output_config.effort).toBe('low')
 	})
 
 	test('constrains the image response to the same schema as the text one', async () => {

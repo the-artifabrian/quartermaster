@@ -6,6 +6,7 @@ import express from 'express'
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import getPort, { portNumbers } from 'get-port'
 import morgan from 'morgan'
+import { checkAnthropicModels } from '#app/utils/anthropic-model-check.server.ts'
 import { compressionMiddleware } from './compression.ts'
 import { startEventLoopWatchdog } from './event-loop-watchdog.ts'
 import { startMemoryWatchdog } from './memory-watchdog.ts'
@@ -324,3 +325,7 @@ ${styleText('bold', 'Press Ctrl+C to stop')}
 
 startScheduledMaintenance()
 registerGracefulShutdown(server)
+
+// Production only: dev and Playwright's mocks build boot often, and Vitest
+// never boots this file. In a mocks-mode production build MSW answers it.
+if (IS_PROD) void checkAnthropicModels()

@@ -435,7 +435,7 @@ export function parseExtractResponse(
 }
 
 /**
- * Extract a recipe from informal/unstructured text using Claude Haiku.
+ * Extract a recipe from informal/unstructured text with the fast model.
  */
 export async function extractRecipeFromText(
 	rawText: string,
@@ -445,6 +445,7 @@ export async function extractRecipeFromText(
 		feature: 'recipe-extract-text',
 		model: ANTHROPIC_MODELS.fast,
 		maxTokens: MAX_TOKENS,
+		effort: 'low',
 		timeoutMs: TIMEOUT_TEXT_MS,
 		system: SYSTEM_PROMPT,
 		prompt: buildExtractPrompt('text', rawText, vocabulary),
@@ -457,7 +458,7 @@ export async function extractRecipeFromText(
 		: { error: extractionError(result.failure, 'text') }
 }
 
-// Sonnet accepts up to 1568px on the long edge before it downsamples on its
+// Claude accepts up to 1568px on the long edge before it downsamples on its
 // own, so anything smaller only throws away recipe text: a 1170×2532 phone
 // screenshot used to arrive at 473×1024. Quality 88 keeps small type legible
 // at a size the request can still carry.
@@ -484,7 +485,8 @@ async function prepareImage(
 }
 
 /**
- * Extract a recipe from one or more images (screenshots, photos) using Claude Sonnet vision.
+ * Extract a recipe from one or more images (screenshots, photos) with the
+ * vision model.
  */
 export async function extractRecipeFromImages(
 	images: Array<{ base64: string; mediaType: string }>,
@@ -535,6 +537,7 @@ export async function extractRecipeFromImages(
 		feature: 'recipe-extract-image',
 		model: ANTHROPIC_MODELS.vision,
 		maxTokens: MAX_TOKENS,
+		effort: 'low',
 		timeoutMs: TIMEOUT_IMAGE_MS,
 		system: SYSTEM_PROMPT,
 		prompt: [

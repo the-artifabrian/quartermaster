@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from 'vitest'
 import { z } from 'zod'
 import {
 	ANTHROPIC_MODELS,
+	anthropicHeaders,
 	isAnthropicConfigured,
 	nullable,
 	parseAnthropicJson,
@@ -24,6 +25,7 @@ const request: AnthropicJsonRequest<{ value: string }> = {
 	feature: 'test-feature',
 	model: ANTHROPIC_MODELS.fast,
 	maxTokens: 128,
+	effort: 'low',
 	timeoutMs: 250,
 	system: 'Return JSON.',
 	prompt: 'Give me a value.',
@@ -111,10 +113,92 @@ describe('requestAnthropicJson', () => {
 			system: 'Return JSON.',
 			messages: [{ role: 'user', content: 'Give me a value.' }],
 			output_config: {
+				effort: 'low',
 				format: { type: 'json_schema', schema: featureJsonSchema },
 			},
 		})
 		expect(init?.signal).toBeInstanceOf(AbortSignal)
+	})
+
+	test('sends nothing the 5.5 models reject with a 400', async () => {
+		// Haiku 5.5 and Sonnet 5.5 refuse non-default sampling parameters, an
+		// assistant prefill, and a thinking budget. Thinking stays at its default
+		// unless a caller turns it off, and effort is the latency lever.
+		const fetch = vi.fn<AnthropicJsonAdapter['fetch']>(async () =>
+			anthropicResponse('{"value":"ok"}'),
+		)
+		await requestAnthropicJson(request, makeAdapter(fetch))
+		await requestAnthropicJson(
+			{ ...request, thinking: 'disabled' },
+			makeAdapter(fetch),
+		)
+
+		const [byDefault, withoutThinking] = fetch.mock.calls.map(
+			([, init]) => JSON.parse(init?.body as string) as Record<string, unknown>,
+		)
+		for (const body of [byDefault!, withoutThinking!]) {
+			for (const key of ['temperature', 'top_p', 'top_k']) {
+				expect(body).not.toHaveProperty(key)
+			}
+			const messages = body.messages as Array<{ role: string }>
+			expect(messages.map((message) => message.role)).toEqual(['user'])
+		}
+		expect(byDefault).not.toHaveProperty('thinking')
+		// Turning thinking off is allowed; a budget is not.
+		expect(withoutThinking!.thinking).toEqual({ type: 'disabled' })
+	})
+
+	test('sends the key and version from one place', () => {
+		expect(anthropicHeaders('sk-test')).toEqual({
+			'x-api-key': 'sk-test',
+			'anthropic-version': '2023-06-01',
+		})
+	})
+
+	test('reads the JSON from the text block when thinking comes first', async () => {
+		const result = await requestAnthropicJson(
+			request,
+			makeAdapter(
+				async () =>
+					new Response(
+						JSON.stringify({
+							stop_reason: 'end_turn',
+							content: [
+								{
+									type: 'thinking',
+									thinking: 'The value is ok.',
+									signature: 'sig',
+								},
+								{ type: 'text', text: '{"value":"ok"}' },
+							],
+						}),
+						{ status: 200 },
+					),
+			),
+		)
+		expect(result).toEqual({ ok: true, data: { value: 'ok' } })
+	})
+
+	test('reports a refusal as a provider failure with its own log line', async () => {
+		const logError = vi.fn()
+		const refused = await requestAnthropicJson(request, {
+			apiKey: () => 'test-key',
+			fetch: async () =>
+				new Response(
+					JSON.stringify({
+						stop_reason: 'refusal',
+						content: [{ type: 'text', text: '{"value":"partial' }],
+					}),
+					{ status: 200 },
+				),
+			logError,
+		})
+		expect(refused).toEqual({ ok: false, failure: { kind: 'provider' } })
+		expect(logError).toHaveBeenCalledOnce()
+		expect(logError).toHaveBeenCalledWith(
+			'Anthropic JSON response was a refusal',
+			expect.objectContaining({ feature: 'test-feature', kind: 'provider' }),
+		)
 	})
 
 	test('does not call the provider when it is not configured', async () => {

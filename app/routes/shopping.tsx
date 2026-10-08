@@ -792,7 +792,12 @@ function ClearCheckedControl(props: ClearCheckedProps) {
 	return <ClearCheckedForm {...props} />
 }
 
-function ClearCheckedForm({ horizon, pending, pendingIds }: ClearCheckedProps) {
+function ClearCheckedForm({
+	checkedCount,
+	horizon,
+	pending,
+	pendingIds,
+}: ClearCheckedProps) {
 	const dc = useDoubleCheck()
 	const sectionLabel = horizon === LATER ? 'Later' : 'Next shop'
 	return (
@@ -819,7 +824,7 @@ function ClearCheckedForm({ horizon, pending, pendingIds }: ClearCheckedProps) {
 							: 'text-muted-foreground hover:text-foreground',
 					)}
 				>
-					{dc.doubleCheck ? 'Clear?' : 'Clear checked'}
+					{dc.doubleCheck ? `Clear ${checkedCount}?` : 'Clear checked'}
 				</PendingButton>
 			</Form>
 		</div>

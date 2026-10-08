@@ -36,7 +36,8 @@ Each action has one name wherever it is offered:
 
 A destructive control takes two taps. The first tap arms it, and the second tap
 names the action as a question: “Delete?” for a delete, otherwise the verb, such
-as “Clear?” or “Leave?”. Do not use a browser confirm dialog or “Are you sure?”.
+as “Clear 3?” or “Leave?”. Do not use a browser confirm dialog or “Are you
+sure?”.
 
 ## Rules
 

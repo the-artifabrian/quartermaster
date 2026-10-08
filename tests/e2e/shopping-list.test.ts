@@ -106,7 +106,7 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 		name: 'Clear checked items from Next shop',
 	})
 	await clearChecked.click()
-	await expect(clearChecked).toHaveText('Clear?')
+	await expect(clearChecked).toHaveText(/^Clear \d+\?$/)
 	await clearChecked.click()
 	await expect(rows).toHaveCount(1)
 	await expect(
@@ -387,7 +387,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 
 		// The first tap arms Clear checked; the second clears.
 		await page.getByRole('button', { name: /clear checked/i }).click()
-		await expect(page.getByText('Clear?', { exact: true })).toBeVisible()
+		await expect(page.getByText('Clear 1?', { exact: true })).toBeVisible()
 		await expectLocalPendingFeedback({
 			page,
 			button: page.getByRole('button', { name: /clear checked/i }),

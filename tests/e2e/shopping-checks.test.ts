@@ -142,7 +142,7 @@ test('failed checks survive refresh and Clear checked; navigation warns only wit
 		name: 'Clear checked items from Next shop',
 	})
 	await clearChecked.click()
-	await expect(clearChecked).toHaveText('Clear?')
+	await expect(clearChecked).toHaveText(/^Clear \d+\?$/)
 	await clearChecked.click()
 	await expect(
 		page.getByRole('group', { name: 'Bread shopping item' }),
@@ -491,7 +491,7 @@ for (const fallback of [false, true]) {
 			name: 'Clear checked items from Next shop',
 		})
 		await clearChecked.click()
-		await expect(clearChecked).toHaveText('Clear?')
+		await expect(clearChecked).toHaveText(/^Clear \d+\?$/)
 		await clearChecked.click()
 		await expect(riceRow(page)).toBeHidden()
 		await catchUp()

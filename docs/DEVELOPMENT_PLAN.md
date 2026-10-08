@@ -2,8 +2,8 @@
 
 ## Where things stand
 
-Quartermaster is a solo project used daily by its maintainer, built for personal
-use and portfolio value. The core loop works:
+Quartermaster is a solo project used daily by two people in one Household, built
+for personal use and portfolio value. The core loop works:
 
 ```text
 save Recipes → plan Meals → build Shopping → cook
@@ -17,13 +17,20 @@ they added more friction than value. Romanian/RON costing was tested on fixed
 examples and stopped because useful coverage required too much identity and
 price-catalogue work.
 
-The formal #126 metadata checkpoint is retired. Current priorities and task
-decisions live in
-[#249](https://github.com/the-artifabrian/quartermaster/issues/249). Reviewed
-metadata suggestions (#127), discovery sections (#129), product costing
-(#133–#136), and durable ingredient links (#144) are deferred until real use
-gives them a reason to return. Their unused observation tickets (#128 and #130)
-are closed.
+The formal #126 metadata checkpoint is retired. Reviewed metadata suggestions
+(#127), discovery sections (#129), product costing (#133–#136), and durable
+ingredient links (#144) are deferred until real use gives them a reason to
+return. Their unused observation tickets (#128 and #130) are closed.
+
+The current work is the set of issues from the October 2026 audit, #383 to #391;
+the open issue list on GitHub is the source of truth for what remains.
+
+The iOS app is a small Swift shell around the Web app
+([ADR 0002](./adr/0002-small-native-shell.md)), distributed through TestFlight
+only, with no App Store listing. It sells and advertises nothing; Pro stays on
+the Web app ([ADR 0001](./adr/0001-keep-pro-out-of-the-ios-app.md)). Its open
+issue is #346, snappy navigation and launch. A TestFlight build expires after 90
+days, so `ios/upload-testflight.sh` re-uploads one about every two months.
 
 ## Product direction
 
@@ -124,10 +131,10 @@ presentation.
 - `emitHouseholdEvent()` is fire-and-forget; revisit if real contention appears.
 - Some AI Recipe helpers remain optional and secondary. AI Recipe import is the
   proven high-value path.
-- Playwright runs on every pull request but is not yet a required check or a
-  deploy gate.
+- Playwright runs on every pull request and is a required check for merging;
+  deploys do not wait for it.
 
 Operational restore steps live in [RESTORE.md](./RESTORE.md). Product terms live
 in [GLOSSARY.md](../GLOSSARY.md).
 
-_Updated 12 September 2026._
+_Updated 8 October 2026._

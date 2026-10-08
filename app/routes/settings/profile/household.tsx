@@ -130,14 +130,19 @@ export async function action({ request }: Route.ActionArgs) {
 			return { result: null, inviteToken: null }
 		}
 		case 'leave-household': {
-			// Emit before leaving (user still has membership)
-			void emitHouseholdEvent({
+			if (role === 'owner') {
+				throw new Response('The owner cannot leave the household', {
+					status: 403,
+				})
+			}
+			// Announce only a departure that happened.
+			await leaveHousehold(userId)
+			await emitHouseholdEvent({
 				type: 'household_member_left',
 				payload: {},
 				userId,
 				householdId,
 			})
-			await leaveHousehold(userId)
 			return redirectWithToast('/settings/profile/household', {
 				type: 'success',
 				description: 'You have left the household',

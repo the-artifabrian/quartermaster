@@ -10,7 +10,9 @@ import {
 import { MAX_RECIPE_DESCRIPTION_LENGTH } from './recipe-validation.ts'
 
 const TIMEOUT_MS = 10_000
-const MAX_TOKENS = 1024
+// The suggestions fit in a few hundred tokens; the rest is room for the
+// thinking Haiku 5.5 does by default, which spends from the same cap.
+const MAX_TOKENS = 4096
 
 export type EnhanceableFields = {
 	description: string | null
@@ -118,6 +120,7 @@ export async function enhanceRecipeMetadata(
 		feature: 'recipe-enhance',
 		model: ANTHROPIC_MODELS.fast,
 		maxTokens: MAX_TOKENS,
+		effort: 'low',
 		timeoutMs: TIMEOUT_MS,
 		system:
 			'You are a practical home cook. Analyze the recipe and suggest a concise description and realistic time estimates.',

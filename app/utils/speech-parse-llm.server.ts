@@ -7,6 +7,9 @@ import {
 import { type ParsedItem } from './parse-speech-item.ts'
 
 const TIMEOUT_MS = 4_000
+// The item list fits in a few hundred tokens; the rest is room for the thinking
+// Haiku 5.5 does by default, which spends from the same cap.
+const MAX_TOKENS = 2048
 const MAX_ITEMS = 50
 
 const SpeechItemSchema = z
@@ -70,7 +73,8 @@ export async function parseSpeechItemsWithLLM(
 	const result = await requestAnthropicJson({
 		feature: 'speech-parse',
 		model: ANTHROPIC_MODELS.fast,
-		maxTokens: 512,
+		maxTokens: MAX_TOKENS,
+		effort: 'low',
 		timeoutMs: TIMEOUT_MS,
 		system: `You are a grocery list parser that extracts items from speech-to-text transcripts.
 

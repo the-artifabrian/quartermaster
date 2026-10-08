@@ -219,7 +219,7 @@ export function SharedRecipeView({
 						<div className="bg-accent/5 inline-block rounded-lg px-8 py-6">
 							{isLoggedIn ? (
 								<>
-									<p className="font-serif text-lg">Like this recipe?</p>
+									<p className="font-serif text-lg">Like this Recipe?</p>
 									<p className="text-muted-foreground mt-1 text-sm">
 										Save it to your Recipes to cook later, add it to your Plan,
 										and more.
@@ -243,9 +243,9 @@ export function SharedRecipeView({
 								</>
 							) : (
 								<>
-									<p className="font-serif text-lg">Like this recipe?</p>
+									<p className="font-serif text-lg">Like this Recipe?</p>
 									<p className="text-muted-foreground mt-1 text-sm">
-										Sign up for Quartermaster to save recipes, plan meals, and
+										Sign up for Quartermaster to save Recipes, plan Meals, and
 										keep household Staples.
 									</p>
 									<div className="mt-4 flex justify-center gap-3">

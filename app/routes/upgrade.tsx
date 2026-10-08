@@ -150,9 +150,9 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 const freeFeatures = [
-	'Unlimited recipes',
+	'Unlimited Recipes',
 	'Import from URL or paste',
-	'Meal planning calendar',
+	'Weekly Plan',
 	'Shopping picked from your Plan',
 	'Household Staples',
 	'Recipe time, yield, and filters',

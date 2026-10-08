@@ -14,8 +14,7 @@ export const handle: SEOHandle = {
 	getSitemapEntries: () => [{ route: '', priority: 1.0 }],
 }
 
-const description =
-	'Save your Recipes. Plan Meals. Make one useful Shopping list.'
+const description = 'Save your Recipes. Plan Meals. Keep Shopping in one place.'
 
 export const meta: Route.MetaFunction = ({ matches }) => [
 	{ title: 'Quartermaster' },

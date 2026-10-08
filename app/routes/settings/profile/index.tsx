@@ -399,8 +399,8 @@ function SignOutOfSessions({
 					>
 						<Icon name="avatar">
 							{dc.doubleCheck
-								? `Are you sure?`
-								: `Sign out of ${otherSessionsCount} other sessions`}
+								? `Log out?`
+								: `Log out of ${otherSessionsCount} other sessions`}
 						</Icon>
 					</StatusButton>
 				</fetcher.Form>

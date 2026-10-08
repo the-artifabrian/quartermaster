@@ -102,7 +102,7 @@ export const links: Route.LinksFunction = () => {
 export const meta: Route.MetaFunction = ({ loaderData }) => {
 	const origin = loaderData?.requestInfo.origin ?? ''
 	const description =
-		'Save Recipes, plan Meals, and make one useful Shopping list.'
+		'Save Recipes, plan Meals, and keep Shopping in one place.'
 	return [
 		{ title: loaderData ? 'Quartermaster' : 'Error | Quartermaster' },
 		{ name: 'description', content: description },

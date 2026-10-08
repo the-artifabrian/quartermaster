@@ -172,7 +172,7 @@ self.addEventListener('fetch', (event) => {
 	if (url.pathname.startsWith('/assets/')) {
 		// Query variants stay network-only. Exact current-build assets use this
 		// generation; an old client may still read a content-hashed asset from the
-		// retained active generation after another window accepts an update.
+		// retained active generation after another window applies an update.
 		if (url.search === '') {
 			event.respondWith(staticAsset(event, request, url))
 		}

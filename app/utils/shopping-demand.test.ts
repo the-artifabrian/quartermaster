@@ -186,6 +186,13 @@ describe('buildShoppingDemand — Recipe ingredient batches', () => {
 		expect(lines[0]!.quantity).toBe('4-6')
 	})
 
+	test('an en dash range keeps its dash when scaled', () => {
+		const lines = buildShoppingDemand({
+			recipeBatches: [batch([{ name: 'green chilies', amount: '1–2' }], 2)],
+		})
+		expect(lines[0]!.quantity).toBe('2–4')
+	})
+
 	test('"2 to 3" reads as a range too', () => {
 		const lines = buildShoppingDemand({
 			recipeBatches: [

@@ -239,3 +239,81 @@ describe('scaleAmountKitchen', () => {
 		expect(scaleAmountKitchen('0.38', 0.5)?.display).toBe('0.19')
 	})
 })
+
+describe('scaleAmount with a range', () => {
+	test('a hyphen range scales end by end', () => {
+		expect(scaleAmount('1-2', 1)).toBe('1-2')
+		expect(scaleAmount('1-2', 2)).toBe('2-4')
+		expect(scaleAmount('1-2', 0.5)).toBe('1/2-1')
+	})
+
+	test('an en dash range keeps its dash', () => {
+		expect(scaleAmount('1–2', 1)).toBe('1–2')
+		expect(scaleAmount('1–2', 2)).toBe('2–4')
+		expect(scaleAmount('1–2', 0.5)).toBe('1/2–1')
+	})
+
+	test('a tilde or em dash range rejoins with a hyphen', () => {
+		expect(scaleAmount('1~2', 2)).toBe('2-4')
+		expect(scaleAmount('1—2', 2)).toBe('2-4')
+	})
+
+	test('a "to" range scales end by end', () => {
+		// Written as a hyphen, the way the Plan path has always shown it.
+		expect(scaleAmount('2 to 3', 1)).toBe('2-3')
+		expect(scaleAmount('2 to 3', 2)).toBe('4-6')
+		expect(scaleAmount('2 to 3', 0.5)).toBe('1-1 1/2')
+	})
+
+	test('fraction-bounded ranges keep both ends', () => {
+		expect(scaleAmount('1/2-1', 1)).toBe('1/2-1')
+		expect(scaleAmount('1/2-1', 2)).toBe('1-2')
+		expect(scaleAmount('1 1/2-2', 1)).toBe('1 1/2-2')
+		expect(scaleAmount('1 1/2-2', 2)).toBe('3-4')
+		expect(scaleAmount('1 1/2-2', 0.5)).toBe('3/4-1')
+	})
+
+	test('a plain number and a plain fraction keep their output', () => {
+		expect(scaleAmount('2', 1)).toBe('2')
+		expect(scaleAmount('1/2', 1)).toBe('1/2')
+		expect(scaleAmount('1/2', 0.5)).toBe('1/4')
+	})
+
+	test('a range with an unparseable end passes through unchanged', () => {
+		expect(scaleAmount('1/0-2', 2)).toBe('1/0-2')
+	})
+})
+
+describe('scaleAmountKitchen with a range', () => {
+	test('a range keeps both ends at ratio 1', () => {
+		expect(scaleAmountKitchen('1–2', 1)).toEqual({
+			display: '1–2',
+			approximate: false,
+			value: null,
+		})
+	})
+
+	test('a scaled range formats each end for the kitchen', () => {
+		expect(scaleAmountKitchen('1-2', 2)?.display).toBe('2-4')
+		// 5/8 tsp has no spoon; 1 1/4 tsp does.
+		expect(scaleAmountKitchen('1/2-1', 1.25, 'tsp')?.display).toBe(
+			'generous 1/2-1 1/4',
+		)
+	})
+
+	test('a rounded metric end marks the whole range approximate', () => {
+		expect(scaleAmountKitchen('250-300', 1.25, 'g')).toEqual({
+			display: '310-380',
+			approximate: true,
+			value: null,
+		})
+	})
+
+	test('a range with an unparseable end passes through unchanged', () => {
+		expect(scaleAmountKitchen('1/0-2', 2)).toEqual({
+			display: '1/0-2',
+			approximate: false,
+			value: null,
+		})
+	})
+})

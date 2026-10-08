@@ -2,16 +2,20 @@
  * @vitest-environment jsdom
  */
 import { act, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { expect, test, vi } from 'vitest'
 import {
 	PWA_UPDATE_ACCEPTED,
 	PWA_UPDATE_PROMPT_SHOWN,
 } from '#app/utils/posthog-events.ts'
-import { getPwaUpdateTelemetry } from '#app/utils/pwa-update-telemetry.ts'
 import {
+	getPwaUpdateTelemetry,
+	PWA_UPDATE_STORAGE_KEY,
+} from '#app/utils/pwa-update-telemetry.ts'
+import {
+	ACTIVATION_RELOAD_DEADLINE_MS,
 	hasPendingRouterWork,
+	RESUME_ACTIVATION_AFTER_MS,
 	ServiceWorkerUpdate,
 	UPDATE_CHECK_INTERVAL_MS,
 } from './service-worker-update.tsx'
@@ -24,6 +28,9 @@ vi.mock('#app/utils/reload-page.client.ts', () => ({
 vi.mock('#app/utils/posthog-provider.tsx', () => ({
 	usePostHog: () => analytics,
 }))
+
+const MINUTE = 60 * 1000
+const ACTIVATE = { type: 'qm-activate-update' }
 
 class FakeWorker extends EventTarget {
 	state: ServiceWorkerState = 'installed'
@@ -59,6 +66,8 @@ function setupBrowserEnvironment() {
 		navigator,
 		'serviceWorker',
 	)
+	vi.useFakeTimers({ toFake: ['Date'] })
+	vi.setSystemTime(new Date('2026-10-08T12:00:00Z'))
 	vi.stubGlobal('ENV', {
 		MODE: 'production',
 		APP_BUILD: 'old-build',
@@ -66,15 +75,22 @@ function setupBrowserEnvironment() {
 	const readyState = vi
 		.spyOn(document, 'readyState', 'get')
 		.mockReturnValue('complete')
-	vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+	const visibility = vi
+		.spyOn(document, 'visibilityState', 'get')
+		.mockReturnValue('visible')
+	const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true)
 	page.reload.mockClear()
 	analytics.capture.mockClear()
 	sessionStorage.clear()
 
 	return {
 		readyState,
+		visibility,
+		online,
 		[Symbol.dispose]() {
+			vi.useRealTimers()
 			vi.unstubAllGlobals()
+			vi.restoreAllMocks()
 			if (originalServiceWorker) {
 				Object.defineProperty(navigator, 'serviceWorker', originalServiceWorker)
 			} else {
@@ -82,6 +98,21 @@ function setupBrowserEnvironment() {
 			}
 		},
 	}
+}
+
+type Environment = ReturnType<typeof setupBrowserEnvironment>
+
+/** Background the page, let `minutes` pass, and bring it back. */
+async function returnAfter(environment: Environment, minutes: number) {
+	await act(async () => {
+		environment.visibility.mockReturnValue('hidden')
+		document.dispatchEvent(new Event('visibilitychange'))
+	})
+	vi.setSystemTime(Date.now() + minutes * MINUTE)
+	await act(async () => {
+		environment.visibility.mockReturnValue('visible')
+		document.dispatchEvent(new Event('visibilitychange'))
+	})
 }
 
 function deferred<T>() {
@@ -96,16 +127,21 @@ function renderUpdateControl(
 	registration: FakeRegistration,
 	{
 		controller = {} as ServiceWorker,
-		nextElement = <div>Next</div>,
 		nextLoader,
+		registered,
 	}: {
 		controller?: ServiceWorker | null
-		nextElement?: React.ReactNode
 		nextLoader?: () => Promise<unknown>
+		registered?: Promise<FakeRegistration>
 	} = {},
 ) {
 	const serviceWorkers = new FakeServiceWorkerContainer(registration)
 	serviceWorkers.controller = controller
+	if (registered) {
+		serviceWorkers.register.mockImplementation(
+			() => registered as unknown as Promise<ServiceWorkerRegistration>,
+		)
+	}
 	Object.defineProperty(navigator, 'serviceWorker', {
 		configurable: true,
 		value: serviceWorkers,
@@ -122,58 +158,59 @@ function renderUpdateControl(
 				),
 				children: [
 					{ index: true, element: <div>Home</div> },
-					{ path: 'next', element: nextElement, loader: nextLoader },
+					{ path: 'next', element: <div>Next</div>, loader: nextLoader },
 				],
 			},
 		],
 		{ initialEntries: ['/'] },
 	)
-	render(<RouterProvider router={router} />)
-	return { router, serviceWorkers }
+	const view = render(<RouterProvider router={router} />)
+	return { router, serviceWorkers, view }
 }
 
-test('a waiting update requires confirmation and reloads once after activation', async () => {
+/** Launch without an update, then have a worker finish installing. */
+async function launchThenInstallUpdate(
+	options: Parameters<typeof renderUpdateControl>[1] = {},
+) {
+	const registration = new FakeRegistration()
+	const worker = new FakeWorker()
+	worker.state = 'installing'
+	registration.installing = worker
+	const rendered = renderUpdateControl(registration, options)
+	await waitFor(() =>
+		expect(rendered.serviceWorkers.register).toHaveBeenCalled(),
+	)
+	await act(async () => {
+		registration.installing = null
+		registration.waiting = worker
+		worker.transitionTo('installed')
+	})
+	return { ...rendered, registration, worker }
+}
+
+// Failure list: a cold launch with a waiting worker activates it before the
+// first interaction and reloads at most once.
+test('a cold launch applies a waiting update without asking and reloads once', async () => {
 	using _environment = setupBrowserEnvironment()
-	const user = userEvent.setup()
 	const worker = new FakeWorker()
 	const registration = new FakeRegistration()
 	registration.waiting = worker
 	const { serviceWorkers } = renderUpdateControl(registration)
-	const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
 
-	const update = await screen.findByRole('button', {
-		name: 'Update available',
-	})
-	await waitFor(() =>
-		expect(analytics.capture).toHaveBeenCalledWith(
-			PWA_UPDATE_PROMPT_SHOWN,
-			{ worker_state: 'installed' },
-			{
-				uuid: expect.any(String),
-				timestamp: expect.any(Date),
-			},
-		),
+	await waitFor(() => expect(worker.postMessage).toHaveBeenCalledWith(ACTIVATE))
+	expect(screen.queryByRole('button')).not.toBeInTheDocument()
+	expect(screen.queryByRole('status')).not.toBeInTheDocument()
+	expect(analytics.capture).toHaveBeenCalledWith(
+		PWA_UPDATE_PROMPT_SHOWN,
+		{ worker_state: 'installed', trigger: 'launch' },
+		{ uuid: expect.any(String), timestamp: expect.any(Date) },
 	)
-	expect(registration.update).not.toHaveBeenCalled()
-
-	await user.click(update)
-	expect(confirm).toHaveBeenCalledWith(expect.stringContaining('unsaved edits'))
-	expect(worker.postMessage).not.toHaveBeenCalled()
-
-	confirm.mockReturnValue(true)
-	await user.click(update)
-	expect(worker.postMessage).toHaveBeenCalledWith({
-		type: 'qm-activate-update',
-	})
 	expect(analytics.capture).toHaveBeenCalledWith(
 		PWA_UPDATE_ACCEPTED,
 		expect.objectContaining({ from_build: 'old-build' }),
-		{
-			uuid: expect.any(String),
-			timestamp: expect.any(Date),
-		},
+		{ uuid: expect.any(String), timestamp: expect.any(Date) },
 	)
-	expect(update).toBeDisabled()
+	expect(page.reload).not.toHaveBeenCalled()
 
 	act(() => {
 		worker.transitionTo('activated')
@@ -181,55 +218,324 @@ test('a waiting update requires confirmation and reloads once after activation',
 		serviceWorkers.dispatchEvent(new Event('controllerchange'))
 	})
 	expect(page.reload).toHaveBeenCalledTimes(1)
-	expect(
-		getPwaUpdateTelemetry({ toBuild: 'new-build' }).completed?.properties,
-	).toMatchObject({
+	expect(worker.postMessage).toHaveBeenCalledTimes(1)
+	const telemetry = getPwaUpdateTelemetry({ toBuild: 'new-build' })
+	expect(telemetry.prompt?.properties).toEqual({
+		worker_state: 'installed',
+		trigger: 'launch',
+	})
+	expect(telemetry.completed?.properties).toMatchObject({
 		from_build: 'old-build',
 		to_build: 'new-build',
 		build_changed: true,
 	})
 })
 
-test('an accepted update reloads after activation when the page is not controlled', async () => {
+// Failure list: a browser can hold the activation for minutes. The reload
+// must not land on someone who has started using the page meanwhile.
+test('an activation that completes after a tap keeps the page', async () => {
 	using _environment = setupBrowserEnvironment()
-	const user = userEvent.setup()
+	const worker = new FakeWorker()
+	const registration = new FakeRegistration()
+	registration.waiting = worker
+	const { serviceWorkers } = renderUpdateControl(registration)
+	await waitFor(() => expect(worker.postMessage).toHaveBeenCalledWith(ACTIVATE))
+
+	await act(async () => {
+		window.dispatchEvent(new Event('pointerdown'))
+	})
+	act(() => {
+		worker.transitionTo('activated')
+		serviceWorkers.dispatchEvent(new Event('controllerchange'))
+	})
+
+	expect(page.reload).not.toHaveBeenCalled()
+})
+
+test('an activation that completes after the reload deadline keeps the page', async () => {
+	using _environment = setupBrowserEnvironment()
+	const worker = new FakeWorker()
+	const registration = new FakeRegistration()
+	registration.waiting = worker
+	const { serviceWorkers } = renderUpdateControl(registration, {
+		controller: null,
+	})
+	await waitFor(() => expect(worker.postMessage).toHaveBeenCalledWith(ACTIVATE))
+
+	vi.setSystemTime(Date.now() + ACTIVATION_RELOAD_DEADLINE_MS + 1)
+	act(() => {
+		worker.transitionTo('activated')
+		serviceWorkers.dispatchEvent(new Event('controllerchange'))
+	})
+
+	expect(page.reload).not.toHaveBeenCalled()
+})
+
+test('a launch update reloads after activation when the page is not controlled', async () => {
+	using _environment = setupBrowserEnvironment()
 	const worker = new FakeWorker()
 	const registration = new FakeRegistration()
 	registration.waiting = worker
 	renderUpdateControl(registration, { controller: null })
-	vi.spyOn(window, 'confirm').mockReturnValue(true)
 
-	const update = await screen.findByRole('button', {
-		name: 'Update available',
-	})
-	await user.click(update)
-	expect(worker.postMessage).toHaveBeenCalledWith({
-		type: 'qm-activate-update',
-	})
-	expect(update).toHaveAccessibleName('Updating…')
-
+	await waitFor(() => expect(worker.postMessage).toHaveBeenCalledWith(ACTIVATE))
 	act(() => worker.transitionTo('activated'))
 
 	await waitFor(() => expect(page.reload).toHaveBeenCalledTimes(1))
 })
 
-test('accepting a worker that has just activated still reloads the page', async () => {
+// Failure list: a worker that becomes waiting mid-session does not reload.
+test('a worker that becomes waiting mid-session stays waiting', async () => {
 	using _environment = setupBrowserEnvironment()
-	const user = userEvent.setup()
+	const { worker } = await launchThenInstallUpdate()
+
+	await act(async () => {})
+	expect(worker.postMessage).not.toHaveBeenCalled()
+	expect(page.reload).not.toHaveBeenCalled()
+	expect(analytics.capture).not.toHaveBeenCalled()
+})
+
+// Failure list: a resume after 29 minutes does not reload; after 31 it does,
+// once. Thirty minutes is the boundary.
+test.each([
+	{ minutes: 1, activates: false },
+	{ minutes: 29, activates: false },
+	{ minutes: RESUME_ACTIVATION_AFTER_MS / MINUTE, activates: true },
+	{ minutes: 31, activates: true },
+])(
+	'a return after $minutes minutes away applies the update: $activates',
+	async ({ minutes, activates }) => {
+		using environment = setupBrowserEnvironment()
+		const { worker } = await launchThenInstallUpdate()
+
+		await returnAfter(environment, minutes)
+
+		if (!activates) {
+			expect(worker.postMessage).not.toHaveBeenCalled()
+			expect(analytics.capture).not.toHaveBeenCalled()
+			return
+		}
+		await waitFor(() =>
+			expect(worker.postMessage).toHaveBeenCalledWith(ACTIVATE),
+		)
+		expect(analytics.capture).toHaveBeenCalledWith(
+			PWA_UPDATE_PROMPT_SHOWN,
+			{ worker_state: 'installed', trigger: 'resume' },
+			expect.anything(),
+		)
+	},
+)
+
+test('a long resume activates once and reloads once', async () => {
+	using environment = setupBrowserEnvironment()
+	const { worker, serviceWorkers } = await launchThenInstallUpdate()
+
+	await returnAfter(environment, 31)
+	await waitFor(() => expect(worker.postMessage).toHaveBeenCalledTimes(1))
+
+	act(() => {
+		worker.transitionTo('activated')
+		serviceWorkers.dispatchEvent(new Event('controllerchange'))
+		serviceWorkers.dispatchEvent(new Event('controllerchange'))
+	})
+	expect(page.reload).toHaveBeenCalledTimes(1)
+	expect(worker.postMessage).toHaveBeenCalledTimes(1)
+})
+
+test('becoming visible without having been hidden is not a resume', async () => {
+	using environment = setupBrowserEnvironment()
+	const { worker } = await launchThenInstallUpdate()
+
+	vi.setSystemTime(Date.now() + 31 * MINUTE)
+	await act(async () => {
+		environment.visibility.mockReturnValue('visible')
+		document.dispatchEvent(new Event('visibilitychange'))
+	})
+
+	expect(worker.postMessage).not.toHaveBeenCalled()
+})
+
+test('a launch that found no update does not apply one installed later in the session', async () => {
+	using _environment = setupBrowserEnvironment()
+	const registration = new FakeRegistration()
+	const { serviceWorkers } = renderUpdateControl(registration)
+	await waitFor(() => expect(serviceWorkers.register).toHaveBeenCalled())
+	await act(async () => {})
+
+	const worker = new FakeWorker()
+	worker.state = 'installing'
+	await act(async () => {
+		registration.installing = worker
+		registration.dispatchEvent(new Event('updatefound'))
+	})
+	await act(async () => {
+		registration.installing = null
+		registration.waiting = worker
+		worker.transitionTo('installed')
+	})
+	await act(async () => {})
+
+	expect(worker.postMessage).not.toHaveBeenCalled()
+})
+
+// Failure list: offline resume, no activation and no reload loop.
+test('offline launches and resumes keep the current page', async () => {
+	using environment = setupBrowserEnvironment()
+	environment.online.mockReturnValue(false)
 	const worker = new FakeWorker()
 	const registration = new FakeRegistration()
 	registration.waiting = worker
-	renderUpdateControl(registration, { controller: null })
-	vi.spyOn(window, 'confirm').mockReturnValue(true)
+	const { serviceWorkers } = renderUpdateControl(registration)
+	await waitFor(() => expect(serviceWorkers.register).toHaveBeenCalled())
+	await act(async () => {})
 
-	const update = await screen.findByRole('button', {
-		name: 'Update available',
+	await returnAfter(environment, 31)
+	// Coming back online is not a launch either.
+	environment.online.mockReturnValue(true)
+	await act(async () => {
+		window.dispatchEvent(new Event('online'))
 	})
-	act(() => worker.transitionTo('activated'))
-	await user.click(update)
+	expect(worker.postMessage).not.toHaveBeenCalled()
+	expect(page.reload).not.toHaveBeenCalled()
+	expect(analytics.capture).not.toHaveBeenCalled()
 
-	await waitFor(() => expect(page.reload).toHaveBeenCalledTimes(1))
+	// The next long resume online applies it.
+	await returnAfter(environment, 31)
+	await waitFor(() => expect(worker.postMessage).toHaveBeenCalledTimes(1))
 })
+
+test('an activation the worker cannot receive keeps the page and forgets its telemetry', async () => {
+	using _environment = setupBrowserEnvironment()
+	const worker = new FakeWorker()
+	worker.postMessage.mockImplementation(() => {
+		throw new DOMException('The worker is gone', 'InvalidStateError')
+	})
+	const registration = new FakeRegistration()
+	registration.waiting = worker
+	renderUpdateControl(registration)
+
+	await waitFor(() => expect(worker.postMessage).toHaveBeenCalledTimes(1))
+	await act(async () => {})
+
+	expect(worker.postMessage).toHaveBeenCalledTimes(1)
+	expect(page.reload).not.toHaveBeenCalled()
+	expect(sessionStorage.getItem(PWA_UPDATE_STORAGE_KEY)).toBeNull()
+})
+
+// Failure list: a newer deploy installs over the worker being activated. The
+// replaced worker goes redundant and the next long resume applies the newer
+// one.
+test('a worker that goes redundant during activation does not block the next update', async () => {
+	using environment = setupBrowserEnvironment()
+	const replaced = new FakeWorker()
+	const registration = new FakeRegistration()
+	registration.waiting = replaced
+	renderUpdateControl(registration)
+	await waitFor(() =>
+		expect(replaced.postMessage).toHaveBeenCalledWith(ACTIVATE),
+	)
+
+	const newer = new FakeWorker()
+	newer.state = 'installing'
+	await act(async () => {
+		registration.installing = newer
+		registration.dispatchEvent(new Event('updatefound'))
+	})
+	await act(async () => {
+		replaced.transitionTo('redundant')
+		registration.installing = null
+		registration.waiting = newer
+		newer.transitionTo('installed')
+	})
+	expect(newer.postMessage).not.toHaveBeenCalled()
+
+	await returnAfter(environment, 31)
+	await waitFor(() => expect(newer.postMessage).toHaveBeenCalledWith(ACTIVATE))
+	expect(replaced.postMessage).toHaveBeenCalledTimes(1)
+	expect(page.reload).not.toHaveBeenCalled()
+})
+
+// Failure list: two open windows. The other window's activation must not
+// reload this one; the retained N-1 cache keeps it working.
+test('an update applied by another window does not reload this one', async () => {
+	using environment = setupBrowserEnvironment()
+	const { worker, registration, serviceWorkers } =
+		await launchThenInstallUpdate()
+
+	await act(async () => {
+		worker.transitionTo('activated')
+		registration.active = worker
+		registration.waiting = null
+		serviceWorkers.dispatchEvent(new Event('controllerchange'))
+	})
+	await returnAfter(environment, 31)
+
+	expect(page.reload).not.toHaveBeenCalled()
+	expect(worker.postMessage).not.toHaveBeenCalled()
+})
+
+// Failure list: the iOS shell's pull to refresh is not a launch.
+test('pull to refresh in the iOS shell does not apply a waiting update', async () => {
+	using _environment = setupBrowserEnvironment()
+	const { worker } = await launchThenInstallUpdate()
+
+	await act(async () => {
+		window.dispatchEvent(new CustomEvent('qm:refresh'))
+	})
+
+	expect(worker.postMessage).not.toHaveBeenCalled()
+	expect(page.reload).not.toHaveBeenCalled()
+})
+
+test('a launch update waits for a pending navigation to finish', async () => {
+	using _environment = setupBrowserEnvironment()
+	const loader = deferred<null>()
+	const registered = deferred<FakeRegistration>()
+	const worker = new FakeWorker()
+	const registration = new FakeRegistration()
+	registration.waiting = worker
+	const { router } = renderUpdateControl(registration, {
+		nextLoader: () => loader.promise,
+		registered: registered.promise,
+	})
+
+	let navigation = Promise.resolve()
+	act(() => {
+		navigation = router.navigate('/next')
+	})
+	await waitFor(() => expect(router.state.navigation.state).toBe('loading'))
+	await act(async () => registered.resolve(registration))
+	expect(worker.postMessage).not.toHaveBeenCalled()
+
+	await act(async () => {
+		loader.resolve(null)
+		await navigation
+	})
+	await waitFor(() => expect(worker.postMessage).toHaveBeenCalledWith(ACTIVATE))
+})
+
+test.each(['pointerdown', 'keydown'])(
+	'a %s before the launch update could start keeps the page as it is',
+	async (interaction) => {
+		using _environment = setupBrowserEnvironment()
+		const registered = deferred<FakeRegistration>()
+		const worker = new FakeWorker()
+		const registration = new FakeRegistration()
+		registration.waiting = worker
+		const { serviceWorkers } = renderUpdateControl(registration, {
+			registered: registered.promise,
+		})
+		await waitFor(() => expect(serviceWorkers.register).toHaveBeenCalled())
+
+		await act(async () => {
+			window.dispatchEvent(new Event(interaction))
+		})
+		await act(async () => registered.resolve(registration))
+		await act(async () => {})
+
+		expect(worker.postMessage).not.toHaveBeenCalled()
+	},
+)
 
 test('registration waits until the initial page load has completed', async () => {
 	using environment = setupBrowserEnvironment()
@@ -244,44 +550,18 @@ test('registration waits until the initial page load has completed', async () =>
 	)
 })
 
-test('a first installation is not presented as an update', async () => {
+test('a first installation is not treated as an update', async () => {
 	using _environment = setupBrowserEnvironment()
 	const registration = new FakeRegistration()
 	registration.active = null
-	registration.waiting = new FakeWorker()
+	const worker = new FakeWorker()
+	registration.waiting = worker
 	const { serviceWorkers } = renderUpdateControl(registration)
 
 	await waitFor(() => expect(serviceWorkers.register).toHaveBeenCalled())
-	expect(
-		screen.queryByRole('button', { name: 'Update available' }),
-	).not.toBeInTheDocument()
-})
-
-test('the update action waits for an active navigation to finish', async () => {
-	using _environment = setupBrowserEnvironment()
-	const loader = deferred<null>()
-	const worker = new FakeWorker()
-	const registration = new FakeRegistration()
-	registration.waiting = worker
-	const { router } = renderUpdateControl(registration, {
-		nextLoader: () => loader.promise,
-	})
-
-	await screen.findByRole('button', { name: 'Update available' })
-	let navigation = Promise.resolve()
-	act(() => {
-		navigation = router.navigate('/next')
-	})
-	await waitFor(() => expect(router.state.navigation.state).toBe('loading'))
-	expect(
-		screen.queryByRole('button', { name: 'Update available' }),
-	).not.toBeInTheDocument()
-
-	await act(async () => {
-		loader.resolve(null)
-		await navigation
-	})
-	await screen.findByRole('button', { name: 'Update available' })
+	await act(async () => {})
+	expect(worker.postMessage).not.toHaveBeenCalled()
+	expect(analytics.capture).not.toHaveBeenCalled()
 })
 
 test('fetcher mutations count as pending work but fetcher loads do not', () => {
@@ -301,8 +581,6 @@ test('fetcher mutations count as pending work but fetcher loads do not', () => {
 
 test('foreground checks are throttled and recover after a failed request', async () => {
 	using _environment = setupBrowserEnvironment()
-	let now = 1_000
-	vi.spyOn(Date, 'now').mockImplementation(() => now)
 	const worker = new FakeWorker()
 	const registration = new FakeRegistration()
 	registration.update
@@ -318,7 +596,7 @@ test('foreground checks are throttled and recover after a failed request', async
 	})
 	expect(registration.update).not.toHaveBeenCalled()
 
-	now += UPDATE_CHECK_INTERVAL_MS
+	vi.setSystemTime(Date.now() + UPDATE_CHECK_INTERVAL_MS)
 	await act(async () => {
 		document.dispatchEvent(new Event('visibilitychange'))
 	})
@@ -327,66 +605,14 @@ test('foreground checks are throttled and recover after a failed request', async
 		document.dispatchEvent(new Event('visibilitychange'))
 	})
 	expect(registration.update).toHaveBeenCalledTimes(1)
-	expect(
-		screen.queryByRole('button', { name: 'Update available' }),
-	).not.toBeInTheDocument()
 
-	now += UPDATE_CHECK_INTERVAL_MS
+	vi.setSystemTime(Date.now() + UPDATE_CHECK_INTERVAL_MS)
 	await act(async () => {
 		document.dispatchEvent(new Event('visibilitychange'))
 	})
-	await screen.findByRole('button', { name: 'Update available' })
-	expect(registration.update).toHaveBeenCalledTimes(2)
-})
-
-test('a controller change accepted in another window does not reload this one', async () => {
-	using _environment = setupBrowserEnvironment()
-	const registration = new FakeRegistration()
-	registration.waiting = new FakeWorker()
-	const { serviceWorkers } = renderUpdateControl(registration)
-
-	await screen.findByRole('button', { name: 'Update available' })
-	await act(async () => {
-		serviceWorkers.dispatchEvent(new Event('controllerchange'))
-	})
-
-	await waitFor(() =>
-		expect(
-			screen.queryByRole('button', { name: 'Update available' }),
-		).not.toBeInTheDocument(),
-	)
-	expect(page.reload).not.toHaveBeenCalled()
-})
-
-test('an offline client keeps its current page instead of accepting the update', async () => {
-	using _environment = setupBrowserEnvironment()
-	vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
-	const registration = new FakeRegistration()
-	const worker = new FakeWorker()
-	registration.waiting = worker
-	renderUpdateControl(registration)
-
-	const update = await screen.findByRole('button', {
-		name: 'Update when online',
-	})
-	expect(update).toBeDisabled()
+	await waitFor(() => expect(registration.update).toHaveBeenCalledTimes(2))
+	// A worker found by a foreground check waits for the next launch or long
+	// resume.
+	await act(async () => {})
 	expect(worker.postMessage).not.toHaveBeenCalled()
-	expect(page.reload).not.toHaveBeenCalled()
-})
-
-test('an installing worker becomes visible only after it is waiting', async () => {
-	using _environment = setupBrowserEnvironment()
-	const worker = new FakeWorker()
-	worker.state = 'installing'
-	const registration = new FakeRegistration()
-	registration.installing = worker
-	renderUpdateControl(registration)
-
-	expect(
-		screen.queryByRole('button', { name: 'Update available' }),
-	).not.toBeInTheDocument()
-	registration.waiting = worker
-	act(() => worker.transitionTo('installed'))
-
-	await screen.findByRole('button', { name: 'Update available' })
 })

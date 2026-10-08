@@ -37,7 +37,11 @@ import {
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { parseAmount, scaleAmount } from '#app/utils/fractions.ts'
+import {
+	isRangeAmount,
+	parseAmount,
+	scaleAmount,
+} from '#app/utils/fractions.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
@@ -343,7 +347,8 @@ function toShoppingItem(
 	unit: string | null,
 	useMetric: boolean,
 ): { name: string; quantity: string | null; unit: string | null } {
-	if (!useMetric || !quantity || !unit) {
+	// A range has no single value to convert; it stays as written.
+	if (!useMetric || !quantity || !unit || isRangeAmount(quantity)) {
 		return { name, quantity, unit }
 	}
 	const parsed = parseAmount(quantity)

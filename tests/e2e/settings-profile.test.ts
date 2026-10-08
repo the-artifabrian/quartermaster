@@ -173,3 +173,50 @@ test('Deleting the only member deletes the Household', async ({
 	expect(await prisma.user.count({ where: { id: user.id } })).toBe(0)
 	expect(await prisma.recipe.count({ where: { id: recipe.id } })).toBe(0)
 })
+
+test('Copying a Household invite link says Copied, or shows the link to copy by hand', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+	await page.goto('/settings/profile/household')
+
+	await page.getByRole('button', { name: 'Generate invite link' }).click()
+	const copy = page.getByRole('button', { name: 'Copy', exact: true })
+	await copy.click()
+	await expect(
+		page.getByRole('button', { name: 'Copied', exact: true }),
+	).toBeVisible()
+	const invite = await prisma.householdInvite.findFirstOrThrow({
+		where: { householdId: user.householdId },
+		select: { token: true },
+	})
+	const inviteUrl = new URL(
+		`/household/join?token=${invite.token}`,
+		page.url(),
+	).toString()
+	await expect
+		.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+		.toBe(inviteUrl)
+	// The label goes back after two seconds.
+	await expect(copy).toBeVisible({ timeout: 4_000 })
+
+	await page.evaluate(() => {
+		Object.defineProperty(navigator.clipboard, 'writeText', {
+			configurable: true,
+			value: () => Promise.reject(new Error('Clipboard unavailable')),
+		})
+	})
+	await page.getByRole('button', { name: 'Copy link' }).click()
+	const manual = page.getByRole('textbox', { name: 'Invite link' })
+	await expect(manual).toHaveValue(inviteUrl)
+	await expect(manual).toBeFocused()
+	expect(
+		await manual.evaluate(
+			(input: HTMLInputElement) =>
+				input.selectionStart === 0 && input.selectionEnd === input.value.length,
+		),
+	).toBe(true)
+	await expect(page.getByRole('button', { name: 'Copied' })).toHaveCount(0)
+})

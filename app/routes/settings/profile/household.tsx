@@ -1,6 +1,7 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { useEffect, useRef, useState } from 'react'
 import { data, useFetcher } from 'react-router'
 import { z } from 'zod'
 import { ErrorList, Field } from '#app/components/forms.tsx'
@@ -329,22 +330,72 @@ function InviteSection({
 	)
 }
 
-function CopyLinkButton({ token }: { token: string }) {
-	const path = `/household/join?token=${token}`
+/**
+ * Copies an invite link. The button reads "Copied" for two seconds; when the
+ * browser refuses the copy, `failedUrl` holds the link to show for copying
+ * by hand.
+ */
+function useCopyInviteLink(token: string) {
+	const [copied, setCopied] = useState(false)
+	const [failedUrl, setFailedUrl] = useState<string | null>(null)
+	const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+	useEffect(() => () => clearTimeout(timer.current), [])
 
-	function handleCopy() {
-		const fullUrl = `${window.location.origin}${path}`
-		void navigator.clipboard.writeText(fullUrl)
+	async function copy() {
+		const url = `${window.location.origin}/household/join?token=${token}`
+		clearTimeout(timer.current)
+		try {
+			await navigator.clipboard.writeText(url)
+			setFailedUrl(null)
+			setCopied(true)
+			timer.current = setTimeout(() => setCopied(false), 2000)
+		} catch {
+			setCopied(false)
+			setFailedUrl(url)
+		}
 	}
 
+	return { copied, failedUrl, copy }
+}
+
+/** The invite link, selected, for copying by hand. */
+function ManualCopyField({ url }: { url: string }) {
 	return (
-		<div className="flex min-w-0 items-center gap-2">
-			<code className="bg-muted min-w-0 flex-1 truncate rounded px-2 py-1 text-sm">
-				{path}
-			</code>
-			<Button type="button" variant="outline" size="sm" onClick={handleCopy}>
-				Copy
-			</Button>
+		<input
+			type="text"
+			readOnly
+			value={url}
+			aria-label="Invite link"
+			className="bg-background w-full min-w-0 rounded border px-2 py-1 text-sm"
+			ref={(input) => {
+				input?.focus()
+				input?.select()
+			}}
+			onFocus={(event) => event.currentTarget.select()}
+		/>
+	)
+}
+
+function CopyLinkButton({ token }: { token: string }) {
+	const path = `/household/join?token=${token}`
+	const { copied, failedUrl, copy } = useCopyInviteLink(token)
+
+	return (
+		<div className="flex flex-col gap-2">
+			<div className="flex min-w-0 items-center gap-2">
+				<code className="bg-muted min-w-0 flex-1 truncate rounded px-2 py-1 text-sm">
+					{path}
+				</code>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					onClick={() => void copy()}
+				>
+					{copied ? 'Copied' : 'Copy'}
+				</Button>
+			</div>
+			{failedUrl ? <ManualCopyField url={failedUrl} /> : null}
 		</div>
 	)
 }
@@ -355,9 +406,10 @@ function InviteRow({
 	invite: { id: string; token: string; expiresAt: Date; createdAt: Date }
 }) {
 	const fetcher = useFetcher<typeof action>()
+	const { copied, failedUrl, copy } = useCopyInviteLink(invite.token)
 
 	return (
-		<div className="bg-muted/40 flex flex-col gap-3 rounded-lg p-3 sm:flex-row sm:items-center">
+		<div className="bg-muted/40 flex flex-col gap-3 rounded-lg p-3 sm:flex-row sm:flex-wrap sm:items-center">
 			<div className="min-w-0 flex-1">
 				<code className="text-xs">{invite.token.slice(0, 8)}...</code>
 				<p className="text-muted-foreground text-xs">
@@ -369,12 +421,9 @@ function InviteRow({
 					type="button"
 					variant="outline"
 					size="sm"
-					onClick={() => {
-						const fullUrl = `${window.location.origin}/household/join?token=${invite.token}`
-						void navigator.clipboard.writeText(fullUrl)
-					}}
+					onClick={() => void copy()}
 				>
-					Copy link
+					{copied ? 'Copied' : 'Copy link'}
 				</Button>
 				<fetcher.Form method="POST">
 					<input type="hidden" name="inviteId" value={invite.id} />
@@ -389,6 +438,11 @@ function InviteRow({
 					</Button>
 				</fetcher.Form>
 			</div>
+			{failedUrl ? (
+				<div className="sm:basis-full">
+					<ManualCopyField url={failedUrl} />
+				</div>
+			) : null}
 		</div>
 	)
 }

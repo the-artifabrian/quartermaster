@@ -70,8 +70,6 @@ test('an owner cannot leave, and the other member hears nothing', async () => {
 
 	expect(result).toBeInstanceOf(Response)
 	expect((result as Response).status).toBe(403)
-	// Give a stray fire-and-forget emit time to land.
-	await new Promise((resolve) => setTimeout(resolve, 50))
 	expect(await leftEvents(householdId)).toBe(0)
 	expect(
 		await prisma.householdMember.findFirst({

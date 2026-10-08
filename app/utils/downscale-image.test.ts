@@ -90,8 +90,23 @@ describe('downscaleImageToFit', () => {
 
 	test('returns the original when no size fits, so the server can say why', async () => {
 		const file = photo(5 * MB)
-		const { decode } = fakeDecoder(4032, 3024, 1000)
+		// Every size encodes to one byte over the limit, without allocating
+		// an encode the size of the picture.
+		const tooBig = new Blob([new Uint8Array(3 * MB + 1)], {
+			type: 'image/jpeg',
+		})
+		let encodes = 0
+		const decode: DecodeImage = async () => ({
+			width: 4032,
+			height: 3024,
+			async toJpeg() {
+				encodes++
+				return tooBig
+			},
+			close() {},
+		})
 		expect(await downscaleImageToFit(file, 3 * MB, decode)).toBe(file)
+		expect(encodes).toBeGreaterThan(1)
 	})
 
 	test('returns the original when the browser cannot decode it', async () => {

@@ -176,6 +176,41 @@ test('failed checks survive refresh and Clear checked; navigation warns only wit
 	await expect(page).toHaveURL('/recipes')
 })
 
+test('leaving with an unconfirmed check takes a second tap to the same tab', async ({
+	page,
+	login,
+}) => {
+	await setup(await login())
+	await page.setViewportSize({ width: 390, height: 844 })
+	await openShopping(page)
+	await page.route('**/resources/shopping-check?*', (route) => route.abort())
+	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+	await expect(riceRow(page).getByRole('alert')).toBeVisible()
+
+	const tab = (name: string) =>
+		page.getByRole('link', { name, exact: true }).filter({ visible: true })
+	const warning = page.getByText(/aren’t confirmed. Tap again to leave/)
+
+	// A tap to a different tab warns again instead of leaving.
+	await tab('Plan').click()
+	await expect(warning).toBeVisible()
+	await tab('Recipes').click()
+	await expect(page).toHaveURL('/shopping')
+
+	// A new pending check gets its own warning.
+	await page
+		.getByRole('group', { name: 'Bread shopping item' })
+		.getByRole('button', { name: 'Uncheck item' })
+		.click()
+	await tab('Recipes').click()
+	await expect(page).toHaveURL('/shopping')
+
+	// The second tap to the same tab leaves and takes the warning with it.
+	await tab('Recipes').click()
+	await expect(page).toHaveURL('/recipes')
+	await expect(warning).toBeHidden()
+})
+
 for (const laterChange of [false, true]) {
 	test(`lost response reconciles before replay${laterChange ? ' and respects a later device change' : ''}`, async ({
 		page,

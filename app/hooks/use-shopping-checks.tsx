@@ -101,16 +101,20 @@ export function useShoppingChecks(serverItems: Item[], listId: string) {
 			currentLocation.pathname !== nextLocation.pathname,
 	)
 	// Two taps, like every other discard: the first tap away warns and stays,
-	// a second within the same beat leaves.
-	const leaveArmedAt = useRef(0)
+	// a second tap to the same place within the same beat leaves. A new
+	// pending check disarms it, so that check gets its own warning.
+	const leaveArmed = useRef<{ at: number; pathname: string } | null>(null)
 	useEffect(() => {
 		if (blocker.state !== 'blocked') return
-		if (Date.now() - leaveArmedAt.current < 4000) {
-			leaveArmedAt.current = 0
+		const { pathname } = blocker.location
+		const armed = leaveArmed.current
+		if (armed && armed.pathname === pathname && Date.now() - armed.at < 4000) {
+			leaveArmed.current = null
+			toast.dismiss('unconfirmed-checks')
 			blocker.proceed()
 			return
 		}
-		leaveArmedAt.current = Date.now()
+		leaveArmed.current = { at: Date.now(), pathname }
 		haptic('warning')
 		toast.warning(
 			'Some Shopping checks aren’t confirmed. Tap again to leave and discard them.',
@@ -324,6 +328,7 @@ export function useShoppingChecks(serverItems: Item[], listId: string) {
 					running: false,
 				}
 				pending.current.set(item.id, entry)
+				leaveArmed.current = null
 			}
 			void run(entry, entry.status === 'failed')
 			redraw()

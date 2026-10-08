@@ -327,18 +327,18 @@ export function ShoppingListItemCard({
 											type: 'submit',
 											'aria-label': 'Delete item',
 											className: cn(
-												'flex h-10 min-w-10 items-center justify-center rounded-md transition-colors',
+												'flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-md transition-colors',
 												deleteCheck.doubleCheck
 													? 'bg-destructive text-destructive-foreground px-3 text-sm font-medium'
 													: 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive',
 											),
 										})}
 									>
-										{deleteCheck.doubleCheck ? (
-											'Delete?'
-										) : (
-											<Icon name="trash" size="sm" />
-										)}
+										{/* The icon stays mounted when armed: unmounting the
+										    tapped node would make the menu's outside-click
+										    check see a detached target and close the menu. */}
+										<Icon name="trash" size="sm" />
+										{deleteCheck.doubleCheck ? <span>Delete?</span> : null}
 									</button>
 								</deleteFetcher.Form>
 							</div>

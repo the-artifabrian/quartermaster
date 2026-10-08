@@ -778,19 +778,22 @@ function ShoppingItems({
 	)
 }
 
-function ClearCheckedControl({
-	checkedCount,
-	horizon,
-	pending,
-	pendingIds,
-}: {
+type ClearCheckedProps = {
 	checkedCount: number
 	horizon: ShoppingHorizon
 	pending: boolean
 	pendingIds: string[]
-}) {
+}
+
+function ClearCheckedControl(props: ClearCheckedProps) {
+	if (props.checkedCount === 0) return null
+	// Mounted only while there is something to clear, so an armed tap never
+	// carries over to the next batch of checked items.
+	return <ClearCheckedForm {...props} />
+}
+
+function ClearCheckedForm({ horizon, pending, pendingIds }: ClearCheckedProps) {
 	const dc = useDoubleCheck()
-	if (checkedCount === 0) return null
 	const sectionLabel = horizon === LATER ? 'Later' : 'Next shop'
 	return (
 		<div className="animate-slide-up-reveal flex items-center justify-center pt-4">

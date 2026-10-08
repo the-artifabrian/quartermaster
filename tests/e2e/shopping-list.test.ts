@@ -285,6 +285,9 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	})
 
 	// 3. Only the picked lines land on the list.
+	await expect(
+		page.getByRole('heading', { name: /what are we buying for/i }),
+	).toBeHidden()
 	await expect(page.getByText('chicken breast')).toBeVisible()
 	await expect(page.getByText('spring onions')).toBeVisible()
 	await expect(page.getByText('jasmine rice')).toBeHidden()
@@ -324,24 +327,42 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	await page.getByRole('button', { name: /add to next shop/i }).click()
 	await expect(page.getByText('Bananas')).toBeVisible()
 
-	// 5. Deleting a row takes two taps; the second tap reads "Delete?".
-	const bananas = page.getByRole('group', { name: 'Bananas shopping item' })
-	await bananas.getByRole('button', { name: 'Item actions' }).click()
-	const deleteBananas = bananas.getByRole('button', { name: 'Delete item' })
-	await deleteBananas.click()
-	await expect(deleteBananas).toHaveText('Delete?')
-	await expect(bananas).toBeVisible()
-	await deleteBananas.click()
-	await expect(bananas).toBeHidden()
+	// 5. Deleting a row takes two taps; the second tap reads "Delete?". Foil is
+	// added once Bananas is saved, and the page reloads once Foil is, so the
+	// menu opens on the saved row rather than the optimistic one it replaces.
 	await expect
 		.poll(() =>
 			prisma.shoppingListItem.count({
-				where: {
-					name: 'Bananas',
-					list: { householdId: user.householdId },
-				},
+				where: { name: 'Bananas', list: { householdId: user.householdId } },
 			}),
 		)
+		.toBe(1)
+	await page.reload()
+	await page
+		.getByPlaceholder(/add an item/i)
+		.filter({ visible: true })
+		.fill('Foil')
+	await page.getByRole('button', { name: /add to next shop/i }).click()
+	await expect(page.getByText('Foil', { exact: true })).toBeVisible()
+
+	const foilSaved = {
+		name: 'Foil',
+		list: { householdId: user.householdId },
+	}
+	await expect
+		.poll(() => prisma.shoppingListItem.count({ where: foilSaved }))
+		.toBe(1)
+	await page.reload()
+	const foil = page.getByRole('group', { name: 'Foil shopping item' })
+	await foil.getByRole('button', { name: 'Item actions' }).click()
+	const deleteFoil = foil.getByRole('button', { name: 'Delete item' })
+	await deleteFoil.click()
+	await expect(deleteFoil).toHaveText('Delete?')
+	await expect(foil).toBeVisible()
+	await deleteFoil.click()
+	await expect(foil).toBeHidden()
+	await expect
+		.poll(() => prisma.shoppingListItem.count({ where: foilSaved }))
 		.toBe(0)
 
 	// 6. Check and clear items with local feedback on phone and desktop.

@@ -166,7 +166,8 @@ export async function clientAction({
 	try {
 		return await serverAction()
 	} catch (error) {
-		if (intent !== 'addMeal') throw error
+		// A redirect, such as to log in after the session expired, still goes.
+		if (error instanceof Response || intent !== 'addMeal') throw error
 		return { status: 'error' as const }
 	}
 }

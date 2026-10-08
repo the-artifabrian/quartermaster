@@ -277,15 +277,19 @@ How a change reaches other screens:
 - **An app relaunch.** Memory starts empty, so the first visit to each screen
   hits the network. The service worker answers that request from its `.data`
   cache only if the network fails or has not answered in 4 seconds (the late
-  response still refreshes the cache), and a document navigation gets the cached
-  app shell only offline. Nothing cached outlives a deploy: the cache names
-  carry the build's version and old generations are reaped on activate.
+  response still refreshes the cache). After any mutation the 4 second fallback
+  pauses until fresh `.data` arrives, so the revalidation behind an action never
+  shows pre-mutation data; a failed network still falls back. And a document
+  navigation gets the cached app shell only offline. Nothing cached outlives a
+  deploy: the cache names carry the build's version and old generations are
+  reaped on activate.
 
 Why the rules are shaped this way:
 
 - Shopping mutations skip `qm-data-invalidate` because the next Shopping read is
-  network-first anyway, and clearing the namespace on every tick would evict the
-  offline fallbacks of unrelated screens.
+  network-first anyway (the worker's mutation pause covers a slow one), and
+  clearing the namespace on every tick would evict the offline fallbacks of
+  unrelated screens.
 - Root is skipped for same-page search changes and tab switches because its data
   (user, tier, theme) does not depend on them, and single fetch would otherwise
   re-run it on every page-to-page navigation, back and forward included. Back

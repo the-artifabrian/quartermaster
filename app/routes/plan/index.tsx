@@ -153,6 +153,25 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export const action = createPlanAction(prisma)
 
+/**
+ * Adding a Recipe closes the picker before the server answers, so a failed add
+ * comes back as an error result its caller can report. Any other failure still
+ * goes to the error boundary.
+ */
+export async function clientAction({
+	request,
+	serverAction,
+}: Route.ClientActionArgs) {
+	const intent = (await request.clone().formData()).get('intent')
+	try {
+		return await serverAction()
+	} catch (error) {
+		// A redirect, such as to log in after the session expired, still goes.
+		if (error instanceof Response || intent !== 'addMeal') throw error
+		return { status: 'error' as const }
+	}
+}
+
 export const ErrorBoundary = OfflineErrorBoundary
 
 // Shows the last data for this URL at once on a navigation and revalidates

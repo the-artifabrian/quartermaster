@@ -150,6 +150,19 @@ export const ImportUrlSchema = z.object({
 })
 
 export const MAX_RECIPE_IMAGE_SIZE = 1024 * 1024 * 3 // 3MB
+/** Each screenshot sent to a Recipe image import. */
+export const MAX_IMPORT_IMAGE_SIZE = 5 * 1024 * 1024
+
+/**
+ * The Recipe form's reply when the upload parser stops at a photo over
+ * `MAX_RECIPE_IMAGE_SIZE`. The parser stops before reading the other fields,
+ * so there is nothing to echo back; the browser still holds what was typed.
+ */
+export const photoTooLargeResult = {
+	status: 'error' as const,
+	initialValue: {},
+	error: { image: ['Photo is over 3 MB'] },
+}
 export const ACCEPTED_RECIPE_IMAGE_TYPES = [
 	'image/jpeg',
 	'image/jpg',

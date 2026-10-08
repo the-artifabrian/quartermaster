@@ -5,6 +5,7 @@ import { SharedRecipeView } from '#app/components/shared-recipe.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { isUniqueConstraintError } from '#app/utils/menu-validation.ts'
 import { sharedRecipeSelect } from '#app/utils/share-menu.server.ts'
 import {
 	copyRecipeImage,
@@ -14,6 +15,21 @@ import { type Route } from './+types/share.$recipeId.ts'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
+}
+
+/**
+ * The Household's own copy of a shared Recipe: the Recipe itself when it is
+ * already this Household's, or the copy saved from it. A Recipe that only
+ * shares the title is a different Recipe.
+ */
+function findSavedRecipe(householdId: string, recipeId: string) {
+	return prisma.recipe.findFirst({
+		where: {
+			householdId,
+			OR: [{ id: recipeId }, { copiedFromRecipeId: recipeId }],
+		},
+		select: { id: true },
+	})
 }
 
 export const meta: Route.MetaFunction = ({ loaderData, matches }) => {
@@ -84,11 +100,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 			select: { householdId: true },
 		})
 		if (member) {
-			const existing = await prisma.recipe.findFirst({
-				where: { householdId: member.householdId, title: recipe.title },
-				select: { id: true },
-			})
-			alreadySaved = Boolean(existing)
+			alreadySaved = Boolean(
+				await findSavedRecipe(member.householdId, recipeId),
+			)
 		}
 	}
 
@@ -113,10 +127,7 @@ export async function action({ params, request }: Route.ActionArgs) {
 	}
 
 	// Prevent duplicates from double-clicks or resubmits
-	const existing = await prisma.recipe.findFirst({
-		where: { householdId, title: recipe.title },
-		select: { id: true },
-	})
+	const existing = await findSavedRecipe(householdId, recipe.id)
 	if (existing) {
 		return redirect(`/recipes/${existing.id}`)
 	}
@@ -141,6 +152,7 @@ export async function action({ params, request }: Route.ActionArgs) {
 				isFavorite: false,
 				sourceUrl: recipe.sourceUrl,
 				rawText: recipe.rawText,
+				copiedFromRecipeId: recipe.id,
 				userId,
 				householdId,
 				ingredients: {
@@ -175,6 +187,11 @@ export async function action({ params, request }: Route.ActionArgs) {
 	} catch (error) {
 		// The staged copy belongs only to this attempt.
 		if (imageObjectKey) await deleteRecipeImage(imageObjectKey).catch(() => {})
+		// A concurrent save of the same Recipe won the unique key.
+		if (isUniqueConstraintError(error)) {
+			const saved = await findSavedRecipe(householdId, recipe.id)
+			if (saved) return redirect(`/recipes/${saved.id}`)
+		}
 		throw error
 	}
 

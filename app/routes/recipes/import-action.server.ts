@@ -1,4 +1,8 @@
-import { parseFormData, type FileUpload } from '@mjackson/form-data-parser'
+import {
+	MaxFileSizeExceededError,
+	parseFormData,
+	type FileUpload,
+} from '@mjackson/form-data-parser'
 import { data } from 'react-router'
 import { saveImportedRecipe } from '#app/utils/import-recipe-save.server.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
@@ -21,20 +25,34 @@ export async function importAction(request: Request) {
 
 	const contentType = request.headers.get('content-type') || ''
 	if (contentType.includes('multipart/form-data')) {
-		formData = await parseFormData(
-			request,
-			{ maxFileSize: MAX_IMAGE_SIZE },
-			async (file) => {
-				if (file.fieldName === 'image') {
-					if (imageFiles.length >= MAX_IMAGE_COUNT) return undefined
-					if (file.size > MAX_IMAGE_SIZE) return undefined
-					if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) return undefined
-					imageFiles.push(file)
-					return file
-				}
-				return undefined
-			},
-		)
+		try {
+			formData = await parseFormData(
+				request,
+				{ maxFileSize: MAX_IMAGE_SIZE },
+				async (file) => {
+					if (file.fieldName === 'image') {
+						if (imageFiles.length >= MAX_IMAGE_COUNT) return undefined
+						if (file.size > MAX_IMAGE_SIZE) return undefined
+						if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) return undefined
+						imageFiles.push(file)
+						return file
+					}
+					return undefined
+				},
+			)
+		} catch (error) {
+			if (!(error instanceof MaxFileSizeExceededError)) throw error
+			return data(
+				{
+					intent: 'extract-image' as const,
+					error: 'One or more images are too large. Maximum size is 5MB each.',
+					recipe: null,
+					result: null,
+					duplicates: null,
+				},
+				{ status: 400 },
+			)
+		}
 	} else {
 		formData = await request.formData()
 	}

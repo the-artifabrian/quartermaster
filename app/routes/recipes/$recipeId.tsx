@@ -507,9 +507,15 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			} else {
 				toast.success(`Added to ${where}`)
 			}
+		} else if (
+			prevPlanFetcherState.current !== 'idle' &&
+			planFetcher.state === 'idle' &&
+			planFetcher.data?.status === 'error'
+		) {
+			toast.error(`Could not add ${recipe.title} to Plan`)
 		}
 		prevPlanFetcherState.current = planFetcher.state
-	}, [planFetcher.state, planFetcher.data, navigate])
+	}, [planFetcher.state, planFetcher.data, navigate, recipe.title])
 
 	function handleAddToPlanSubmit() {
 		submittedPlanRef.current = { date: planDate, label: planMealType }

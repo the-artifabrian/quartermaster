@@ -1,5 +1,9 @@
 import { parseWithZod } from '@conform-to/zod/v4'
-import { parseFormData, type FileUpload } from '@mjackson/form-data-parser'
+import {
+	MaxFileSizeExceededError,
+	parseFormData,
+	type FileUpload,
+} from '@mjackson/form-data-parser'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { data, redirect } from 'react-router'
 import { RecipeForm } from '#app/components/recipe-form.tsx'
@@ -14,6 +18,7 @@ import { assertLinkedRecipesInHousehold } from '#app/utils/recipe-links.server.t
 import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
+	photoTooLargeResult,
 	ACCEPTED_RECIPE_IMAGE_TYPES,
 } from '#app/utils/recipe-validation.ts'
 import { uploadRecipeImage } from '#app/utils/storage.server.ts'
@@ -37,23 +42,31 @@ export async function action({ request }: Route.ActionArgs) {
 
 	let imageFile: FileUpload | null = null
 
-	const formData = await parseFormData(
-		request,
-		{ maxFileSize: MAX_RECIPE_IMAGE_SIZE },
-		async (file) => {
-			if (file.fieldName === 'image' && file.name) {
-				if (file.size > MAX_RECIPE_IMAGE_SIZE) {
-					return undefined
+	let formData: FormData
+	try {
+		formData = await parseFormData(
+			request,
+			{ maxFileSize: MAX_RECIPE_IMAGE_SIZE },
+			async (file) => {
+				if (file.fieldName === 'image' && file.name) {
+					if (file.size > MAX_RECIPE_IMAGE_SIZE) {
+						return undefined
+					}
+					if (!ACCEPTED_RECIPE_IMAGE_TYPES.includes(file.type)) {
+						return undefined
+					}
+					imageFile = file
+					return file
 				}
-				if (!ACCEPTED_RECIPE_IMAGE_TYPES.includes(file.type)) {
-					return undefined
-				}
-				imageFile = file
-				return file
-			}
-			return undefined
-		},
-	)
+				return undefined
+			},
+		)
+	} catch (error) {
+		if (error instanceof MaxFileSizeExceededError) {
+			return data({ result: photoTooLargeResult }, { status: 400 })
+		}
+		throw error
+	}
 
 	// Parse ingredients array from form data
 	const ingredients: Array<{

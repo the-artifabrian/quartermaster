@@ -225,6 +225,9 @@ model Recipe {
   sourceUrl      String?
   rawText     String?
   notes       String?
+  /// Repeat-save identity for a copy saved from a share link. Deliberately not
+  /// a foreign key: deleting the source must not affect this Recipe.
+  copiedFromRecipeId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -242,6 +245,7 @@ model Recipe {
   menuItems       MenuItem[]
   mealRecipeItems MealRecipeItem[]
 
+  @@unique([householdId, copiedFromRecipeId])
   @@index([userId])
   @@index([householdId])
   @@index([title])

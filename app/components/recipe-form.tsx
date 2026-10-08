@@ -4,7 +4,11 @@ import { Img } from 'openimg/react'
 import { useId, useState } from 'react'
 import { Form, useActionData, useNavigation } from 'react-router'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
-import { RecipeSchema } from '#app/utils/recipe-validation.ts'
+import { useFitFileInput } from '#app/utils/downscale-image.ts'
+import {
+	MAX_RECIPE_IMAGE_SIZE,
+	RecipeSchema,
+} from '#app/utils/recipe-validation.ts'
 import { DurationHint } from './duration-hint.tsx'
 import { ErrorList, Field, TextareaField } from './forms.tsx'
 import {
@@ -168,8 +172,15 @@ export function RecipeForm({
 		{ type: 'text' },
 	)
 
-	const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0]
+	// Phone photos are often over the upload limit; shrink them here.
+	const { preparing: preparingPhoto, fit: fitPhoto } = useFitFileInput(
+		MAX_RECIPE_IMAGE_SIZE,
+	)
+	const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const input = e.currentTarget
+		// A later pick owns the preview.
+		if (!(await fitPhoto(input))) return
+		const file = input.files?.[0]
 		if (file) {
 			const reader = new FileReader()
 			reader.onload = (event) => {
@@ -376,10 +387,12 @@ export function RecipeForm({
 							accept="image/jpeg,image/png,image/webp"
 							onChange={handleImageChange}
 							className="max-w-full text-sm"
+							aria-invalid={form.allErrors.image ? true : undefined}
 						/>
 						<p className="text-muted-foreground text-xs">
-							JPG, PNG or WebP. Max 3MB.
+							JPG, PNG or WebP. Large photos are resized.
 						</p>
+						<ErrorList errors={form.allErrors.image} />
 					</div>
 				</div>
 			</FormSection>
@@ -484,7 +497,7 @@ export function RecipeForm({
 				<StatusButton
 					type="submit"
 					status={isSubmitting ? 'pending' : 'idle'}
-					disabled={isSubmitting}
+					disabled={isSubmitting || preparingPhoto}
 				>
 					{submitLabel}
 				</StatusButton>

@@ -32,8 +32,8 @@ see [GLOSSARY.md](../GLOSSARY.md).
 All fonts are self-hosted: the files sit in `app/assets/fonts/` and
 `app/styles/fonts.css` declares them, so a face downloads only when a page uses
 it. `app/root.tsx` preloads the Young Serif and DM Sans latin files. Caveat is
-still declared (`fonts.css`, and `--font-handwritten` in
-`app/styles/tailwind.css`), but no page uses it.
+declared (`fonts.css`, and `--font-handwritten` in `app/styles/tailwind.css`),
+but no page uses it.
 
 Useful sizes:
 
@@ -106,9 +106,10 @@ radii and warm shadows are for floating layers.
 
 ## Navigation
 
-Mobile has four tabs: Recipes, Staples, Plan, and Shop. The active tab uses sage
-text and a medium-weight label. A small copper dot on the Shopping icon appears
-when another member changes Shopping while you are elsewhere in the app, and
+Mobile has four tabs: Recipes, Staples, Plan, and Shopping. The active tab uses
+sage text and a medium-weight label. A small copper dot on the Shopping icon
+appears when Shopping changes anywhere other than the open Shopping page
+(another member, another device, or an add from Recipes, Staples or Plan), and
 clears when you open Shopping. Sub-pages rely on app navigation instead of
 adding a “Back to…” link at the top of every screen.
 

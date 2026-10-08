@@ -244,10 +244,11 @@ alpha, since iOS applies its own mask. Launch colours follow
 Run these on a notched iPhone after a shell change, from a TestFlight build:
 
 - **Associated Domains.** The entitlement in
-  `Quartermaster/Quartermaster.entitlements` (`webcredentials:useqm.app`,
-  `applinks:useqm.app`) pairs with the AASA file the site serves from
-  `app/routes/_seo/apple-app-site-association.ts`. Check passkey login in the
-  app, and that `https://useqm.app` links from Mail and Messages open it.
+  `Quartermaster/Quartermaster/Quartermaster.entitlements`
+  (`webcredentials:useqm.app`, `applinks:useqm.app`) pairs with the AASA file
+  the site serves from `app/routes/_seo/apple-app-site-association.ts`. Check
+  passkey login in the app, and that `https://useqm.app` links from Mail and
+  Messages open it.
 - **Layout.** The web view fills the screen. In the shell the site's viewport
   meta adds `viewport-fit=cover` (`app/root.tsx`) and the page pads itself with
   `env(safe-area-inset-*)`. Check the status bar, the tab bar above the home

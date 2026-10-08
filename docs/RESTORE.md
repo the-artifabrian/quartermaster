@@ -137,8 +137,9 @@ worst case, WAL recovery — treat it as less trustworthy than an offsite backup
 
 ## How a deploy migrates the database
 
-Migrations run at boot, from the `exec` steps in `other/litefs.yml`, on the
-primary only (`if-candidate: true`), in this order:
+Migrations run at boot, from the `exec` steps in `other/litefs.yml`, in this
+order. The steps before `bun run start` run on the primary only
+(`if-candidate: true`); `bun run start` runs on every node.
 
 ```yaml
 - cmd: bun /myapp/scripts/validate-env.ts

@@ -359,6 +359,14 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	await deleteFoil.click()
 	await expect(deleteFoil).toHaveText('Delete?')
 	await expect(foil).toBeVisible()
+	expect(await prisma.shoppingListItem.count({ where: foilSaved })).toBe(1)
+	// Closing the menu disarms it, so a reopened menu needs two taps again.
+	await page.getByRole('heading', { level: 1, name: /^Shopping/ }).click()
+	await expect(deleteFoil).toBeHidden()
+	await foil.getByRole('button', { name: 'Item actions' }).click()
+	await expect(deleteFoil).not.toHaveText('Delete?')
+	await deleteFoil.click()
+	await expect(deleteFoil).toHaveText('Delete?')
 	await deleteFoil.click()
 	await expect(foil).toBeHidden()
 	await expect

@@ -37,7 +37,6 @@ export function ShoppingListItemCard({
 		minDuration: 0,
 	})
 	const deleteFetcher = useFetcher()
-	const deleteCheck = useDoubleCheck()
 	const moveFetcher = useFetcher()
 	const removeGeneratedFetcher = useFetcher()
 	const prevEditFetcherState = useRef(editFetcher.state)
@@ -318,29 +317,7 @@ export function ShoppingListItemCard({
 										</button>
 									</removeGeneratedFetcher.Form>
 								)}
-								<deleteFetcher.Form method="POST">
-									<HouseholdClientInput />
-									<input type="hidden" name="intent" value="delete" />
-									<input type="hidden" name="itemId" value={item.id} />
-									<button
-										{...deleteCheck.getButtonProps({
-											type: 'submit',
-											'aria-label': 'Delete item',
-											className: cn(
-												'flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-md transition-colors',
-												deleteCheck.doubleCheck
-													? 'bg-destructive text-destructive-foreground px-3 text-sm font-medium'
-													: 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive',
-											),
-										})}
-									>
-										{/* The icon stays mounted when armed: unmounting the
-										    tapped node would make the menu's outside-click
-										    check see a detached target and close the menu. */}
-										<Icon name="trash" size="sm" />
-										{deleteCheck.doubleCheck ? <span>Delete?</span> : null}
-									</button>
-								</deleteFetcher.Form>
+								<DeleteItemForm fetcher={deleteFetcher} itemId={item.id} />
 							</div>
 						)}
 					</div>
@@ -403,5 +380,43 @@ function ProduceCountLine({
 		<>
 			{quantity} {unit}
 		</>
+	)
+}
+
+// Mounted with the row's action menu, so closing the menu disarms it: iOS
+// Safari fires no blur when the user taps elsewhere, and an armed button
+// that survived a reopen would delete on one tap.
+function DeleteItemForm({
+	fetcher,
+	itemId,
+}: {
+	fetcher: ReturnType<typeof useFetcher>
+	itemId: string
+}) {
+	const deleteCheck = useDoubleCheck()
+	return (
+		<fetcher.Form method="POST">
+			<HouseholdClientInput />
+			<input type="hidden" name="intent" value="delete" />
+			<input type="hidden" name="itemId" value={itemId} />
+			<button
+				{...deleteCheck.getButtonProps({
+					type: 'submit',
+					'aria-label': 'Delete item',
+					className: cn(
+						'flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-md transition-colors',
+						deleteCheck.doubleCheck
+							? 'bg-destructive text-destructive-foreground px-3 text-sm font-medium'
+							: 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive',
+					),
+				})}
+			>
+				{/* The icon stays mounted when armed: unmounting the tapped node
+				    would make the menu's outside-click check see a detached
+				    target and close the menu. */}
+				<Icon name="trash" size="sm" />
+				{deleteCheck.doubleCheck ? <span>Delete?</span> : null}
+			</button>
+		</fetcher.Form>
 	)
 }

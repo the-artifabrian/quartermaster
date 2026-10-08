@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { styleText } from 'node:util'
 import { helmet } from '@nichtsam/helmet/node-http'
 import { ip as ipAddress } from 'address'
@@ -238,6 +239,24 @@ if (IS_DEV) {
 		res.set('Cache-Control', 'no-cache, no-store, must-revalidate')
 		next()
 	})
+	if (process.env.MOCKS === 'true') {
+		// Playwright cannot intercept the browser's fetch of the worker script, so
+		// an e2e test stands in for a deploy by setting this cookie on its own
+		// context. The script then differs by one comment, which installs a new
+		// worker the way a deploy does. Mocks mode only, never in production.
+		app.get('/sw.js', async (req, res, next) => {
+			const deploy = /(?:^|;\s*)qm-e2e-deploy=([\w-]+)/.exec(
+				req.headers.cookie ?? '',
+			)?.[1]
+			if (!deploy) return next()
+			try {
+				const script = await readFile('build/client/sw.js', 'utf8')
+				res.type('text/javascript').send(`${script}\n// e2e deploy ${deploy}\n`)
+			} catch (error) {
+				next(error)
+			}
+		})
+	}
 	// Let browsers and the service worker revalidate install metadata on every
 	// online request while still permitting a validated HTTP-cache response.
 	app.get('/site.webmanifest', (_req, res, next) => {

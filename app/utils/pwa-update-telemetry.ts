@@ -6,8 +6,12 @@ type StoredEvent = {
 	timestamp: number
 }
 
+/** The moment that applied a waiting update without asking. */
+export type PwaUpdateTrigger = 'launch' | 'resume'
+
 type StoredPrompt = StoredEvent & {
 	workerState: ServiceWorkerState
+	trigger?: PwaUpdateTrigger
 }
 
 type StoredAcceptance = StoredEvent & {
@@ -78,7 +82,9 @@ function readPendingUpdate(): PendingPwaUpdate | null {
 		if (
 			(pending.prompt != null &&
 				(!isStoredEvent(pending.prompt) ||
-					typeof pending.prompt.workerState !== 'string')) ||
+					typeof pending.prompt.workerState !== 'string' ||
+					(pending.prompt.trigger != null &&
+						typeof pending.prompt.trigger !== 'string'))) ||
 			(pending.accepted != null &&
 				(!isStoredEvent(pending.accepted) ||
 					typeof pending.accepted.fromBuild !== 'string')) ||
@@ -135,7 +141,10 @@ function toPromptCapture(prompt: StoredPrompt): PwaTelemetryCapture {
 	return {
 		uuid: prompt.uuid,
 		timestamp: prompt.timestamp,
-		properties: { worker_state: prompt.workerState },
+		properties: {
+			worker_state: prompt.workerState,
+			...(prompt.trigger ? { trigger: prompt.trigger } : {}),
+		},
 	}
 }
 
@@ -160,16 +169,27 @@ function toAcceptedCapture(
 	}
 }
 
+/**
+ * Record the start of an update. The event keeps its `prompt_shown` name from
+ * when the page asked first; it now marks the moment activation starts.
+ */
 export function rememberPwaUpdatePrompt({
 	workerState,
+	trigger,
 	shownAt = Date.now(),
 	eventUuid = createEventUuid(),
 }: {
 	workerState: ServiceWorkerState
+	trigger?: PwaUpdateTrigger
 	shownAt?: number
 	eventUuid?: string
 }): PwaTelemetryCapture {
-	const prompt = { uuid: eventUuid, timestamp: shownAt, workerState }
+	const prompt: StoredPrompt = {
+		uuid: eventUuid,
+		timestamp: shownAt,
+		workerState,
+		...(trigger ? { trigger } : {}),
+	}
 	writePendingUpdate({ version: 1, prompt })
 	return toPromptCapture(prompt)
 }

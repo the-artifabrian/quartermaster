@@ -29,15 +29,22 @@ let warmRequested = false
  * Asks the active worker, once per page load and when the page is idle, to
  * finish putting this build's chunks in its cache. The worker starts that
  * itself after activation; this resumes a fill the browser cut short by
- * stopping the worker.
+ * stopping the worker. A page with an update waiting skips it.
  */
 function requestAssetWarm() {
 	if (warmRequested || typeof navigator === 'undefined') return
 	if (!navigator.serviceWorker) return
 	warmRequested = true
 	void navigator.serviceWorker.ready
-		.then(() => {
-			const post = () => postToServiceWorker({ type: 'qm-warm-assets' })
+		.then((registration) => {
+			const post = () => {
+				// A waiting update replaces this worker, so warming its cache is
+				// wasted. Worse, in Chromium a message that reaches the outgoing
+				// worker just after the update calls skipWaiting holds the new worker
+				// in waiting for minutes.
+				if (registration.waiting) return
+				postToServiceWorker({ type: 'qm-warm-assets' })
+			}
 			if ('requestIdleCallback' in window) window.requestIdleCallback(post)
 			else setTimeout(post, 2000)
 		})

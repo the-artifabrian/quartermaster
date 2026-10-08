@@ -26,7 +26,10 @@ import {
 } from '#app/utils/recipe-validation.ts'
 import { deleteRecipeImageUnlessShared } from '#app/utils/recipe-image.server.ts'
 import { assertLinkedRecipesInHousehold } from '#app/utils/recipe-links.server.ts'
-import { uploadRecipeImage } from '#app/utils/storage.server.ts'
+import {
+	deleteRecipeImage,
+	uploadRecipeImage,
+} from '#app/utils/storage.server.ts'
 import { type Route } from './+types/$recipeId_.edit.ts'
 
 export const handle: SEOHandle = {
@@ -294,35 +297,34 @@ export async function action({ request, params }: Route.ActionArgs) {
 		throw error
 	}
 
-	// Upload image if provided
+	// Upload the new photo before touching the old one, so a failed upload
+	// leaves the Recipe with the photo it had.
 	if (imageFile) {
-		// Get existing image to delete from storage
 		const existingImage = await prisma.recipeImage.findUnique({
 			where: { recipeId },
 			select: { objectKey: true },
 		})
-
-		// Delete existing image from storage unless a copy still shows it
-		if (existingImage?.objectKey) {
-			try {
-				await deleteRecipeImageUnlessShared(existingImage.objectKey, {
-					exceptRecipeId: recipeId,
-				})
-			} catch (error) {
-				console.error('Failed to delete old recipe image from storage:', error)
-				// Continue with new image upload even if old image deletion fails
-			}
+		const objectKey = await uploadRecipeImage(userId, recipeId, imageFile)
+		try {
+			await prisma.recipeImage.upsert({
+				where: { recipeId },
+				create: { recipeId, objectKey },
+				update: { objectKey, altText: null },
+			})
+		} catch (error) {
+			await deleteRecipeImage(objectKey).catch(() => {})
+			throw error
 		}
 
-		// Delete existing image record and create new one
-		await prisma.recipeImage.deleteMany({ where: { recipeId } })
-		const objectKey = await uploadRecipeImage(userId, recipeId, imageFile)
-		await prisma.recipeImage.create({
-			data: {
-				recipeId,
-				objectKey,
-			},
-		})
+		// The row no longer points at the old object; delete it unless a copied
+		// Recipe still shows it.
+		if (existingImage?.objectKey) {
+			try {
+				await deleteRecipeImageUnlessShared(existingImage.objectKey)
+			} catch (error) {
+				console.error('Failed to delete old recipe image from storage:', error)
+			}
+		}
 	}
 
 	return redirect(`/recipes/${recipeId}`)

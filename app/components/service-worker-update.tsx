@@ -51,8 +51,9 @@ export function hasPendingRouterWork(
  * first tap or key press ends it, so the page never reloads under someone who
  * has started using it. The same holds while the activation is in flight, and
  * an activation that lands after ACTIVATION_RELOAD_DEADLINE_MS reloads nothing.
- * A worker that becomes waiting mid-session waits for the next moment. Other open windows keep working against the retained N-1 cache
- * until they launch again.
+ * A worker that becomes waiting mid-session waits for the next moment. Other
+ * open windows keep working against the retained N-1 cache until they launch
+ * again.
  */
 export function ServiceWorkerUpdate() {
 	const navigation = useNavigation()
@@ -76,6 +77,8 @@ export function ServiceWorkerUpdate() {
 		) {
 			activationRequested.current = false
 			setIsActivating(false)
+			setWaitingWorker(null)
+			setMoment(null)
 			return false
 		}
 		if (!reloadRequested.current) {
@@ -234,6 +237,14 @@ export function ServiceWorkerUpdate() {
 		// `controllerchange`, so activation itself is also a reload boundary.
 		const onStateChange = () => {
 			if (waitingWorker.state === 'activated') reloadForActivation()
+			if (waitingWorker.state === 'redundant') {
+				// A newer deploy installed over this worker. Drop it, so the next
+				// moment can apply the newer one.
+				activationRequested.current = false
+				setIsActivating(false)
+				setWaitingWorker(null)
+				forgetPendingPwaUpdate()
+			}
 		}
 		waitingWorker.addEventListener('statechange', onStateChange)
 		onStateChange()

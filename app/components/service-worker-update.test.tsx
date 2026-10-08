@@ -363,9 +363,15 @@ test('a launch that found no update does not apply one installed later in the se
 	await act(async () => {})
 
 	const worker = new FakeWorker()
+	worker.state = 'installing'
 	await act(async () => {
-		registration.waiting = worker
+		registration.installing = worker
 		registration.dispatchEvent(new Event('updatefound'))
+	})
+	await act(async () => {
+		registration.installing = null
+		registration.waiting = worker
+		worker.transitionTo('installed')
 	})
 	await act(async () => {})
 
@@ -414,6 +420,39 @@ test('an activation the worker cannot receive keeps the page and forgets its tel
 	expect(worker.postMessage).toHaveBeenCalledTimes(1)
 	expect(page.reload).not.toHaveBeenCalled()
 	expect(sessionStorage.getItem(PWA_UPDATE_STORAGE_KEY)).toBeNull()
+})
+
+// Failure list: a newer deploy installs over the worker being activated. The
+// replaced worker goes redundant and the next long resume applies the newer
+// one.
+test('a worker that goes redundant during activation does not block the next update', async () => {
+	using environment = setupBrowserEnvironment()
+	const replaced = new FakeWorker()
+	const registration = new FakeRegistration()
+	registration.waiting = replaced
+	renderUpdateControl(registration)
+	await waitFor(() =>
+		expect(replaced.postMessage).toHaveBeenCalledWith(ACTIVATE),
+	)
+
+	const newer = new FakeWorker()
+	newer.state = 'installing'
+	await act(async () => {
+		registration.installing = newer
+		registration.dispatchEvent(new Event('updatefound'))
+	})
+	await act(async () => {
+		replaced.transitionTo('redundant')
+		registration.installing = null
+		registration.waiting = newer
+		newer.transitionTo('installed')
+	})
+	expect(newer.postMessage).not.toHaveBeenCalled()
+
+	await returnAfter(environment, 31)
+	await waitFor(() => expect(newer.postMessage).toHaveBeenCalledWith(ACTIVATE))
+	expect(replaced.postMessage).toHaveBeenCalledTimes(1)
+	expect(page.reload).not.toHaveBeenCalled()
 })
 
 // Failure list: two open windows. The other window's activation must not

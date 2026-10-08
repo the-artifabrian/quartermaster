@@ -1722,7 +1722,7 @@ export default function ImportData() {
 							{(results.mealPlans.created > 0 ||
 								results.mealPlans.skipped > 0) && (
 								<ResultRow
-									label="Meal plan entries"
+									label="Plan entries"
 									created={results.mealPlans.created}
 									skipped={results.mealPlans.skipped}
 								/>
@@ -1737,7 +1737,7 @@ export default function ImportData() {
 							{(results.shoppingLists.created > 0 ||
 								results.shoppingLists.skipped > 0) && (
 								<ResultRow
-									label="Shopping list items"
+									label="Shopping items"
 									created={results.shoppingLists.created}
 									skipped={results.shoppingLists.skipped}
 								/>
@@ -1807,7 +1807,7 @@ export default function ImportData() {
 									)}
 									{preview.mealPlans > 0 && (
 										<PreviewRow
-											label="Meal plan entries"
+											label="Plan entries"
 											count={preview.mealPlans}
 										/>
 									)}
@@ -1816,7 +1816,7 @@ export default function ImportData() {
 									)}
 									{preview.shoppingLists > 0 && (
 										<PreviewRow
-											label="Shopping lists"
+											label="Shopping"
 											count={preview.shoppingLists}
 										/>
 									)}

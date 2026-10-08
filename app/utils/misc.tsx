@@ -236,7 +236,7 @@ export function useDoubleCheck() {
 
 		return {
 			...props,
-			// The armed state swaps the button's content to "Sure?" — a polite
+			// The armed state swaps the button's content to "Delete?" — a polite
 			// live region announces that change to assistive tech, which
 			// otherwise only ever hears the unarmed aria-label.
 			'aria-live': 'polite' as const,

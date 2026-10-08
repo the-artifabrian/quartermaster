@@ -88,13 +88,13 @@ test.describe('Move a Meal', () => {
 			await mealActions.click()
 			await expect(
 				page.getByRole('menuitem', {
-					name: 'Add to Shopping List',
+					name: 'Add to Shopping',
 					exact: true,
 				}),
 			).toBeVisible({ timeout: 2000 })
 		}).toPass()
 		await page
-			.getByRole('menuitem', { name: 'Add to Shopping List', exact: true })
+			.getByRole('menuitem', { name: 'Add to Shopping', exact: true })
 			.click()
 		const readShopping = () =>
 			prisma.shoppingListItem.findMany({
@@ -161,7 +161,7 @@ test.describe('Move a Meal', () => {
 	})
 })
 
-test('Update Shopping List puts a rescaled Meal on Shopping at its new amount', async ({
+test('Update Shopping puts a rescaled Meal on Shopping at its new amount', async ({
 	page,
 	login,
 }) => {
@@ -213,7 +213,7 @@ test('Update Shopping List puts a rescaled Meal on Shopping at its new amount', 
 		await page.getByRole('menuitem', { name, exact: true }).click()
 	}
 
-	await chooseMenuItem('Add to Shopping List')
+	await chooseMenuItem('Add to Shopping')
 	await expect(page.getByText('Added 1 item to Shopping')).toBeVisible()
 	expect(await readPasta()).toMatchObject({ quantity: '200', unit: 'g' })
 	// The closed menu hands focus back to its trigger; reopening before then
@@ -233,8 +233,8 @@ test('Update Shopping List puts a rescaled Meal on Shopping at its new amount', 
 	// Rescaling alone leaves Shopping as it was.
 	expect(await readPasta()).toMatchObject({ quantity: '200', unit: 'g' })
 
-	await chooseMenuItem('Update Shopping List')
-	await expect(page.getByText('Shopping List updated')).toBeVisible()
+	await chooseMenuItem('Update Shopping')
+	await expect(page.getByText('Shopping updated')).toBeVisible()
 	expect(await readPasta()).toMatchObject({ quantity: '400', unit: 'g' })
 
 	await page.goto('/shopping')
@@ -338,7 +338,9 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 
 	// 1. Navigate to meal plan
 	await page.goto('/plan')
-	await expect(page.getByRole('heading', { name: /meal plan/i })).toBeVisible()
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Plan', exact: true }),
+	).toBeVisible()
 	await expect(page.getByRole('link', { name: 'Previous week' })).toBeVisible()
 	await expect(page.getByRole('link', { name: 'Next week' })).toBeVisible()
 	await expect(page.getByRole('link', { name: 'Prep' })).toHaveCount(0)
@@ -525,14 +527,20 @@ test('Recipe already in Plan reports the planned Meal and links to it', async ({
 	// Plan it once at 1× from the Recipe page — the picker opens on Today
 	// Dinner, which is the ordinary one-tap add.
 	await page.goto(`/recipes/${recipe.id}`)
-	await page.getByRole('button', { name: 'Add to meal plan' }).click()
 	await page.getByRole('button', { name: 'Add to Plan' }).click()
+	await page
+		.getByRole('dialog')
+		.getByRole('button', { name: 'Add to Plan' })
+		.click()
 	await expect(page.getByText('Added to Today Dinner')).toBeVisible()
 
 	// Submitting the same Recipe at 3× leaves the planned Meal alone.
 	await page.goto(`/recipes/${recipe.id}?scale=3`)
-	await page.getByRole('button', { name: 'Add to meal plan' }).click()
 	await page.getByRole('button', { name: 'Add to Plan' }).click()
+	await page
+		.getByRole('dialog')
+		.getByRole('button', { name: 'Add to Plan' })
+		.click()
 	await expect(page.getByText('Already planned')).toBeVisible()
 	await expect(page.getByText('Today Dinner · 1×')).toBeVisible()
 
@@ -598,7 +606,7 @@ test.describe('Plan quick-add failure', () => {
 			announcements.getByText('Could not add Herb Salad to Plan'),
 		).toBeVisible()
 		await expect(
-			page.getByRole('heading', { name: /meal plan/i }),
+			page.getByRole('heading', { level: 1, name: 'Plan', exact: true }),
 		).toBeVisible()
 		await expect(
 			desktopPlan.getByText('Herb Salad', { exact: true }),
@@ -629,8 +637,11 @@ test.describe('Plan quick-add failure', () => {
 		)
 
 		await page.goto(`/recipes/${recipe.id}`)
-		await page.getByRole('button', { name: 'Add to meal plan' }).click()
 		await page.getByRole('button', { name: 'Add to Plan' }).click()
+		await page
+			.getByRole('dialog')
+			.getByRole('button', { name: 'Add to Plan' })
+			.click()
 		const announcements = page.getByRole('region', { name: /Notifications/ })
 		await expect(
 			announcements.getByText('Could not add Miso Soup to Plan'),

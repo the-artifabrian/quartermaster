@@ -192,7 +192,7 @@ test('add and remove keep their controls visible through pending and failure sta
 				return {
 					status: 'error',
 					action: 'remove-staple',
-					message: 'Could not remove Salt. Try again.',
+					message: 'Could not delete Salt. Try again.',
 				}
 			},
 		},
@@ -219,15 +219,15 @@ test('add and remove keep their controls visible through pending and failure sta
 	expect(screen.queryByText('Could not add Garlic. Try again.')).toBeNull()
 	await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
-	const removeButton = screen.getByRole('button', { name: 'Remove Salt' })
+	const removeButton = screen.getByRole('button', { name: 'Delete Salt' })
 	expect(removeButton).toHaveClass('min-h-11', 'min-w-11')
 	await user.click(removeButton)
-	await user.click(screen.getByRole('button', { name: 'Confirm remove Salt' }))
-	expect(await screen.findByText('Removing…')).toBeVisible()
+	await user.click(screen.getByRole('button', { name: 'Confirm delete Salt' }))
+	expect(await screen.findByText('Deleting…')).toBeVisible()
 	expect(screen.getByText('Salt')).toBeVisible()
 	finishRemove?.()
 	expect(
-		await screen.findByText('Could not remove Salt. Try again.'),
+		await screen.findByText('Could not delete Salt. Try again.'),
 	).toHaveAttribute('role', 'alert')
 })
 

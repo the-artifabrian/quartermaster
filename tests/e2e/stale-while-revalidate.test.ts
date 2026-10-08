@@ -20,7 +20,7 @@ function openGate() {
 function bottomNav(page: Page) {
 	return page
 		.getByRole('navigation', { name: 'Main' })
-		.filter({ has: page.getByRole('link', { name: 'Shop', exact: true }) })
+		.filter({ has: page.getByRole('link', { name: 'Shopping', exact: true }) })
 }
 
 function isPlanData(url: string) {
@@ -69,7 +69,7 @@ test("a revisited Plan shows at once from memory, then shows the other member's 
 	await page.waitForTimeout(300)
 	expect(dataRequests).toEqual([])
 
-	await nav.getByRole('link', { name: 'Shop', exact: true }).click()
+	await nav.getByRole('link', { name: 'Shopping', exact: true }).click()
 	await expect(page).toHaveURL('/shopping')
 	await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
@@ -129,7 +129,7 @@ test("a revisited Plan shows at once from memory, then shows the other member's 
 	// the browser shows /plan before the loaders run, but the router is still
 	// on Shopping. Root reloads on a back navigation (single fetch), so that one
 	// request goes before the page shows; Plan's own goes after.
-	await nav.getByRole('link', { name: 'Shop', exact: true }).click()
+	await nav.getByRole('link', { name: 'Shopping', exact: true }).click()
 	await expect(page).toHaveURL('/shopping')
 	await expect(mobile).toHaveCount(0)
 	gate = openGate()
@@ -200,7 +200,7 @@ test('a checked Shopping item is not shown unchecked from memory', async ({
 		await gate.promise
 		await route.continue()
 	})
-	await nav.getByRole('link', { name: 'Shop', exact: true }).click()
+	await nav.getByRole('link', { name: 'Shopping', exact: true }).click()
 	// The check dropped the remembered Shopping page, so the navigation waits
 	// for the server instead of showing Rice unchecked.
 	await expect.poll(() => shoppingRequests.length).toBe(1)

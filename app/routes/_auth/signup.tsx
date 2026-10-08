@@ -117,7 +117,7 @@ export function SignupEmail({
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Sign Up | Quartermaster' }]
+	return [{ title: 'Sign up | Quartermaster' }]
 }
 
 export default function SignupRoute({ actionData }: Route.ComponentProps) {

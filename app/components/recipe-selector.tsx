@@ -240,7 +240,7 @@ function ItemSelector({
 							to="/recipes/new"
 							className="text-primary mt-1 inline-block text-sm hover:underline"
 						>
-							Create a new recipe
+							New Recipe
 						</Link>
 					</div>
 				) : (

@@ -303,10 +303,10 @@ function StapleRow({
 					className="min-h-11 min-w-11 px-3"
 					aria-label={
 						removeFetcher.state !== 'idle'
-							? `Removing ${staple.displayName}`
+							? `Deleting ${staple.displayName}`
 							: confirmRemove
-								? `Confirm remove ${staple.displayName}`
-								: `Remove ${staple.displayName}`
+								? `Confirm delete ${staple.displayName}`
+								: `Delete ${staple.displayName}`
 					}
 					onClick={() => {
 						if (!confirmRemove) {
@@ -323,9 +323,9 @@ function StapleRow({
 				>
 					<Icon name="trash" size="sm" />
 					{removeFetcher.state !== 'idle' ? (
-						<span>Removing…</span>
+						<span>Deleting…</span>
 					) : (
-						confirmRemove && <span>Remove?</span>
+						confirmRemove && <span>Delete?</span>
 					)}
 				</Button>
 			</div>
@@ -338,7 +338,7 @@ function StapleRow({
 			{removeFetcher.data?.status === 'error' && (
 				<p className="text-destructive mt-1 pl-1 text-sm" role="alert">
 					{removeFetcher.data.message ??
-						`Could not remove ${staple.displayName}`}
+						`Could not delete ${staple.displayName}`}
 				</p>
 			)}
 		</li>

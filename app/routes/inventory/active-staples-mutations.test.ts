@@ -88,7 +88,7 @@ test('remove returns a useful failure without hiding the row', async () => {
 		data: {
 			status: 'error',
 			action: 'remove-staple',
-			message: 'Could not remove Salt. Try again.',
+			message: 'Could not delete Salt. Try again.',
 		},
 		init: { status: 500 },
 	})

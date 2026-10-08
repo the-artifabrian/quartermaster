@@ -8,6 +8,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { useDoubleCheck } from '#app/utils/misc.tsx'
 import { type Route } from './+types/passkeys.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
 
@@ -167,19 +168,7 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 									ago
 								</div>
 							</div>
-							<Form method="POST">
-								<input type="hidden" name="passkeyId" value={passkey.id} />
-								<Button
-									type="submit"
-									name="intent"
-									value="delete"
-									variant="destructive"
-									size="sm"
-									className="flex items-center gap-2"
-								>
-									<Icon name="trash">Delete</Icon>
-								</Button>
-							</Form>
+							<DeletePasskeyForm passkeyId={passkey.id} />
 						</li>
 					))}
 				</ul>
@@ -189,5 +178,26 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 				</div>
 			)}
 		</div>
+	)
+}
+
+function DeletePasskeyForm({ passkeyId }: { passkeyId: string }) {
+	const dc = useDoubleCheck()
+	return (
+		<Form method="POST">
+			<input type="hidden" name="passkeyId" value={passkeyId} />
+			<Button
+				{...dc.getButtonProps({
+					type: 'submit',
+					name: 'intent',
+					value: 'delete',
+				})}
+				variant="destructive"
+				size="sm"
+				className="flex items-center gap-2"
+			>
+				<Icon name="trash">{dc.doubleCheck ? 'Delete?' : 'Delete'}</Icon>
+			</Button>
+		</Form>
 	)
 }

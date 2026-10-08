@@ -53,7 +53,7 @@ export default function TwoFactorDisableRoute() {
 						type: 'submit',
 					})}
 				>
-					{dc.doubleCheck ? 'Are you sure?' : 'Disable 2FA'}
+					{dc.doubleCheck ? 'Disable?' : 'Disable 2FA'}
 				</StatusButton>
 			</disable2FAFetcher.Form>
 		</div>

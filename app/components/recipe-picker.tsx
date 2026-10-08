@@ -44,7 +44,7 @@ export function RecipePicker({
 	recipes,
 	excludeRecipeIds = [],
 	onPick,
-	label = 'Add recipe',
+	label = 'Add Recipe',
 	triggerVariant = 'outline',
 }: RecipePickerProps) {
 	const [popoverOpen, setPopoverOpen] = useState(false)

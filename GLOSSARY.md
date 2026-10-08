@@ -15,6 +15,9 @@ intended to be served together. _Avoid_: Recipe Pack, Collection
 **Meal**: One scheduled Plan entry containing Recipe items, a Menu snapshot, or
 generic text. _Avoid_: Meal slot, Plan row
 
+**Plan**: The household's week-by-week schedule of Meals. _Avoid_: Meal plan,
+calendar
+
 **Menu snapshot**: The stable copy of a Menu's structure, notes, display
 identity, and quantities held by a planned Meal.
 
@@ -41,6 +44,15 @@ or Side.
 
 ## Shopping and availability
 
+**Shopping**: The household's one list of rows to buy, kept in two horizons:
+Next shop and Later. _Avoid_: Shopping List, Shop, cart
+
+**Next shop**: The Shopping rows meant for the coming trip. _Avoid_: current
+list, active list
+
+**Later**: The Shopping rows kept aside for a future trip so they stay out of
+the Next shop. _Avoid_: saved for later, backlog
+
 **Shopping demand**: The deterministic ingredient and note-line requirements
 calculated from accepted Meal inputs before household availability or
 current-list state is applied.
@@ -51,8 +63,14 @@ purchase history
 
 **Staple**: A canonical household ingredient normally assumed available and
 omitted from generated Shopping demand. A household keeps its Staples as a
-quick-add list: adding one from its row puts it on the next shop. _Avoid_: Out,
+quick-add list: adding one from its row puts it on the Next shop. _Avoid_: Out,
 available, running low, pantry item
+
+## People
+
+**Household**: The group of users who share one set of Recipes, Menus, a Plan,
+Staples, and Shopping. Everything a user saves belongs to their Household, not
+to them. _Avoid_: account, family, team
 
 ## Surfaces
 

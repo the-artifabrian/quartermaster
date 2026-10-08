@@ -91,7 +91,7 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	for (const control of [
 		addButton,
 		applesRow.getByRole('button', { name: 'Add Apples to Next shop' }),
-		applesRow.getByRole('button', { name: 'Remove Apples' }),
+		applesRow.getByRole('button', { name: 'Delete Apples' }),
 	]) {
 		const box = await control.boundingBox()
 		expect(box, `${control}`).not.toBeNull()
@@ -135,7 +135,7 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	await finalRow.scrollIntoViewIfNeeded()
 	const bottomNav = page
 		.getByRole('navigation', { name: 'Main' })
-		.filter({ has: page.getByRole('link', { name: 'Shop', exact: true }) })
+		.filter({ has: page.getByRole('link', { name: 'Shopping', exact: true }) })
 	const [rowBox, navBox] = await Promise.all([
 		finalRow.boundingBox(),
 		bottomNav.boundingBox(),

@@ -78,7 +78,7 @@ test('a Recipe restored from its export keeps its heading out of checks and Shop
 	await expect(page.getByRole('checkbox', { name: 'parsley' })).toBeVisible()
 	await expect(page.getByRole('checkbox', { name: 'capers' })).toBeVisible()
 	await expect(
-		page.getByRole('button', { name: 'Add to shopping list' }),
+		page.getByRole('button', { name: 'Add to Shopping' }),
 	).toHaveCount(2)
 
 	// The picker folds Meals from before today, so plan this one for today.

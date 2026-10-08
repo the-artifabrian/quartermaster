@@ -182,7 +182,7 @@ export async function action({ request }: Route.ActionArgs) {
 				{
 					status: 'error' as const,
 					action: 'remove-staple' as const,
-					message: `Could not remove ${staple.displayName}. Try again.`,
+					message: `Could not delete ${staple.displayName}. Try again.`,
 				},
 				{ status: 500 },
 			)

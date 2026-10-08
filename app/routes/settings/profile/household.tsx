@@ -282,7 +282,7 @@ function MemberRow({
 						size="sm"
 						status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
 					>
-						{dc.doubleCheck ? 'Are you sure?' : 'Remove'}
+						{dc.doubleCheck ? 'Remove?' : 'Remove'}
 					</StatusButton>
 				</fetcher.Form>
 			) : null}
@@ -464,7 +464,7 @@ function LeaveHousehold() {
 			<h3 className="mb-4 text-base font-medium">Leave Household</h3>
 			<p className="text-muted-foreground mb-4 text-sm">
 				Leaving will create a new solo household for you. Your recipes will be
-				copied, but shared Staples and meal plans will stay with the current
+				copied, but shared Staples and the Plan will stay with the current
 				household.
 			</p>
 			<fetcher.Form method="POST">
@@ -478,7 +478,7 @@ function LeaveHousehold() {
 					status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
 				>
 					<Icon name="exit">
-						{dc.doubleCheck ? 'Are you sure?' : 'Leave household'}
+						{dc.doubleCheck ? 'Leave?' : 'Leave household'}
 					</Icon>
 				</StatusButton>
 			</fetcher.Form>

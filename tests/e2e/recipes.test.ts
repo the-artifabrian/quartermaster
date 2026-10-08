@@ -85,7 +85,7 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 	await page.getByRole('link', { name: /edit/i }).click()
 	await page.getByRole('button', { name: /delete recipe/i }).click()
 	// Double-check confirmation
-	await page.getByRole('button', { name: /are you sure/i }).click()
+	await page.getByRole('button', { name: 'Delete?' }).click()
 
 	// Lands on the Recipes list, not back on /recipes/:id or its edit form
 	await expect(page).toHaveURL('/recipes')

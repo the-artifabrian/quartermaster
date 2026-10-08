@@ -113,8 +113,8 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 			<h1 className="mb-2 font-serif text-2xl font-normal">Import Recipe</h1>
 			<p className="text-muted-foreground mb-6">
 				{hideAi
-					? 'Import a recipe from a URL or paste text.'
-					: 'Import a recipe from a URL, paste text, or upload screenshots.'}
+					? 'Paste a Recipe URL or its text.'
+					: 'Paste a Recipe URL or its text, or upload screenshots.'}
 			</p>
 
 			{/* Input forms */}

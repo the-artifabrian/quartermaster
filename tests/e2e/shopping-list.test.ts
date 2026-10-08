@@ -58,10 +58,10 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	await page.setViewportSize({ width: 390, height: 844 })
 	await page.goto(`/recipes/${recipe.id}`)
 	await page
-		.getByRole('button', { name: 'Add to shopping list', exact: true })
+		.getByRole('button', { name: 'Add to Shopping', exact: true })
 		.click()
 	await expect(
-		page.getByRole('button', { name: 'Add to shopping list', exact: true }),
+		page.getByRole('button', { name: 'Add to Shopping', exact: true }),
 	).toBeDisabled()
 	await expect
 		.poll(() =>
@@ -71,7 +71,7 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 		)
 		.toBe(2)
 	await page
-		.getByRole('link', { name: 'Shop', exact: true })
+		.getByRole('link', { name: 'Shopping', exact: true })
 		.filter({ visible: true })
 		.click()
 	const rows = page.getByRole('group', { name: 'rice shopping item' })
@@ -102,10 +102,12 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	await expect(previous.getByRole('status')).toBeHidden()
 	await outstanding.getByRole('button', { name: 'Check off item' }).click()
 	await expect(outstanding.getByRole('status')).toBeHidden()
-	page.once('dialog', (dialog) => void dialog.accept())
-	await page
-		.getByRole('button', { name: 'Clear checked items from Next shop' })
-		.click()
+	const clearChecked = page.getByRole('button', {
+		name: 'Clear checked items from Next shop',
+	})
+	await clearChecked.click()
+	await expect(clearChecked).toHaveText(/^Clear \d+\?$/)
+	await clearChecked.click()
 	await expect(rows).toHaveCount(1)
 	await expect(
 		previous.getByRole('button', { name: 'Check off item' }),
@@ -147,7 +149,7 @@ test('a range amount added from a Recipe keeps both ends on Shopping (#384)', as
 	const addRow = (name: string) =>
 		page
 			.getByRole('checkbox', { name, exact: true })
-			.getByRole('button', { name: 'Add to shopping list', exact: true })
+			.getByRole('button', { name: 'Add to Shopping', exact: true })
 			.click()
 
 	await addRow('garlic')
@@ -169,7 +171,7 @@ test('a range amount added from a Recipe keeps both ends on Shopping (#384)', as
 	])
 
 	await page
-		.getByRole('link', { name: 'Shop', exact: true })
+		.getByRole('link', { name: 'Shopping', exact: true })
 		.filter({ visible: true })
 		.click()
 	await expect(
@@ -247,7 +249,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	// 1. Navigate to shopping list
 	await page.goto('/shopping')
 	await expect(
-		page.getByRole('heading', { name: /shopping list/i }),
+		page.getByRole('heading', { level: 1, name: /^Shopping/ }),
 	).toBeVisible()
 
 	// Keep both audited actions pending long enough for delayed local feedback.
@@ -283,6 +285,9 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	})
 
 	// 3. Only the picked lines land on the list.
+	await expect(
+		page.getByRole('heading', { name: /what are we buying for/i }),
+	).toBeHidden()
 	await expect(page.getByText('chicken breast')).toBeVisible()
 	await expect(page.getByText('spring onions')).toBeVisible()
 	await expect(page.getByText('jasmine rice')).toBeHidden()
@@ -322,8 +327,53 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	await page.getByRole('button', { name: /add to next shop/i }).click()
 	await expect(page.getByText('Bananas')).toBeVisible()
 
-	// 5. Check and clear items with local feedback on phone and desktop.
-	page.on('dialog', (dialog) => void dialog.accept())
+	// 5. Deleting a row takes two taps; the second tap reads "Delete?". Foil is
+	// added once Bananas is saved, and the page reloads once Foil is, so the
+	// menu opens on the saved row rather than the optimistic one it replaces.
+	await expect
+		.poll(() =>
+			prisma.shoppingListItem.count({
+				where: { name: 'Bananas', list: { householdId: user.householdId } },
+			}),
+		)
+		.toBe(1)
+	await page.reload()
+	await page
+		.getByPlaceholder(/add an item/i)
+		.filter({ visible: true })
+		.fill('Foil')
+	await page.getByRole('button', { name: /add to next shop/i }).click()
+	await expect(page.getByText('Foil', { exact: true })).toBeVisible()
+
+	const foilSaved = {
+		name: 'Foil',
+		list: { householdId: user.householdId },
+	}
+	await expect
+		.poll(() => prisma.shoppingListItem.count({ where: foilSaved }))
+		.toBe(1)
+	await page.reload()
+	const foil = page.getByRole('group', { name: 'Foil shopping item' })
+	await foil.getByRole('button', { name: 'Item actions' }).click()
+	const deleteFoil = foil.getByRole('button', { name: 'Delete item' })
+	await deleteFoil.click()
+	await expect(deleteFoil).toHaveText('Delete?')
+	await expect(foil).toBeVisible()
+	expect(await prisma.shoppingListItem.count({ where: foilSaved })).toBe(1)
+	// Closing the menu disarms it, so a reopened menu needs two taps again.
+	await page.getByRole('heading', { level: 1, name: /^Shopping/ }).click()
+	await expect(deleteFoil).toBeHidden()
+	await foil.getByRole('button', { name: 'Item actions' }).click()
+	await expect(deleteFoil).not.toHaveText('Delete?')
+	await deleteFoil.click()
+	await expect(deleteFoil).toHaveText('Delete?')
+	await deleteFoil.click()
+	await expect(foil).toBeHidden()
+	await expect
+		.poll(() => prisma.shoppingListItem.count({ where: foilSaved }))
+		.toBe(0)
+
+	// 6. Check and clear items with local feedback on phone and desktop.
 	for (const viewport of [
 		{ width: 390, height: 844 },
 		{ width: 1280, height: 800 },
@@ -335,6 +385,9 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 			.click()
 		await expect(page.getByText(/\(1\/\d+\)/)).toBeVisible()
 
+		// The first tap arms Clear checked; the second clears.
+		await page.getByRole('button', { name: /clear checked/i }).click()
+		await expect(page.getByText('Clear 1?', { exact: true })).toBeVisible()
 		await expectLocalPendingFeedback({
 			page,
 			button: page.getByRole('button', { name: /clear checked/i }),
@@ -490,7 +543,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 
 	await page.getByRole('link', { name: 'Staples' }).click()
 	await expect(page).toHaveURL('/inventory')
-	await page.getByRole('link', { name: 'Shop' }).click()
+	await page.getByRole('link', { name: 'Shopping', exact: true }).click()
 	await expect(page).toHaveURL('/shopping')
 	await page.getByRole('button', { name: 'From Staples' }).click()
 	await expect(
@@ -547,7 +600,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 		await page.setViewportSize(viewport)
 		await page.goto('/shopping')
 		const pageHeading = page.getByRole('heading', { level: 1 })
-		await expect(pageHeading).toContainText('Shopping List')
+		await expect(pageHeading).toContainText('Shopping')
 		await expect(pageHeading).toContainText(activeProgress)
 		await expect(
 			page.getByRole('heading', { name: 'Next shop', exact: true }),
@@ -559,7 +612,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 
 		await laterToggle.click()
 		await expect(laterToggle).toHaveAttribute('aria-expanded', 'true')
-		await expect(page.getByPlaceholder('Add for later...')).toBeVisible()
+		await expect(page.getByPlaceholder('Add to Later...')).toBeVisible()
 		const laterGroup = page.getByRole('group', {
 			name: `${itemName} shopping item`,
 		})
@@ -592,7 +645,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 		// A search reveals a collapsed Later match without changing the stored
 		// expansion preference; clearing it collapses Later again.
 		await page.goto('/shopping')
-		const search = page.getByPlaceholder('Search shopping list...')
+		const search = page.getByPlaceholder('Search Shopping...')
 		await search.fill('Solar eclipse glasses')
 		await expect(
 			page.getByText('Solar eclipse glasses', { exact: true }),

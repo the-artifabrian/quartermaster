@@ -186,7 +186,7 @@ test('completes onboarding after Google OAuth given valid user details', async (
 	).toBeNull()
 
 	await navigate('/signup')
-	await page.getByRole('button', { name: /signup with google/i }).click()
+	await page.getByRole('button', { name: /sign up with google/i }).click()
 
 	await expect(page).toHaveURL(/\/onboarding\/google/)
 	await expect(
@@ -257,7 +257,7 @@ test('logs user in after Google OAuth if they are already registered', async ({
 	expect(connection).toBeNull()
 
 	await navigate('/signup')
-	await page.getByRole('button', { name: /signup with google/i }).click()
+	await page.getByRole('button', { name: /sign up with google/i }).click()
 
 	await expect(page).toHaveURL(`/recipes`)
 	await expect(
@@ -283,7 +283,7 @@ test('shows help texts on entering invalid details on onboarding page after Goog
 	const googleUser = await prepareGoogleUser()
 
 	await navigate('/signup')
-	await page.getByRole('button', { name: /signup with google/i }).click()
+	await page.getByRole('button', { name: /sign up with google/i }).click()
 
 	await expect(page).toHaveURL(/\/onboarding\/google/)
 	await expect(
@@ -378,7 +378,7 @@ test('login as existing user', async ({
 	await navigate('/login')
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByLabel(/^password$/i).fill(password)
-	await page.getByRole('button', { name: /log in/i }).click()
+	await page.getByRole('button', { name: 'Log in', exact: true }).click()
 	await expect(page).toHaveURL(`/recipes`)
 
 	await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
@@ -430,12 +430,12 @@ test('reset password with a link', async ({
 	await expect(page).toHaveURL('/login')
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByLabel(/^password$/i).fill(originalPassword)
-	await page.getByRole('button', { name: /log in/i }).click()
+	await page.getByRole('button', { name: 'Log in', exact: true }).click()
 
 	await expect(page.getByText(/invalid username or password/i)).toBeVisible()
 
 	await page.getByLabel(/^password$/i).fill(newPassword)
-	await page.getByRole('button', { name: /log in/i }).click()
+	await page.getByRole('button', { name: 'Log in', exact: true }).click()
 
 	await expect(page).toHaveURL(`/recipes`)
 

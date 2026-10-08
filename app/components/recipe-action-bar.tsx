@@ -67,25 +67,25 @@ export function RecipeActionBar({
 					<Button
 						variant="ghost"
 						size="icon"
-						aria-label="Add to meal plan"
+						aria-label="Add to Plan"
 						onClick={onAddToPlan}
 					>
 						<Icon name="calendar" size="md" />
 					</Button>
 				</TooltipTrigger>
-				<TooltipContent>Add to meal plan</TooltipContent>
+				<TooltipContent>Add to Plan</TooltipContent>
 			</Tooltip>
 
 			{/* Edit */}
 			<Tooltip>
 				<TooltipTrigger asChild>
-					<Button asChild variant="ghost" size="icon" aria-label="Edit recipe">
+					<Button asChild variant="ghost" size="icon" aria-label="Edit Recipe">
 						<Link to={`/recipes/${recipeId}/edit`}>
 							<Icon name="pencil-1" size="md" />
 						</Link>
 					</Button>
 				</TooltipTrigger>
-				<TooltipContent>Edit recipe</TooltipContent>
+				<TooltipContent>Edit Recipe</TooltipContent>
 			</Tooltip>
 
 			{/* Copy */}
@@ -101,7 +101,7 @@ export function RecipeActionBar({
 						<Icon name="copy" size="md" />
 					</Button>
 				</TooltipTrigger>
-				<TooltipContent>Copy recipe</TooltipContent>
+				<TooltipContent>Copy Recipe</TooltipContent>
 			</Tooltip>
 
 			{/* Share */}
@@ -110,13 +110,13 @@ export function RecipeActionBar({
 					<Button
 						variant="ghost"
 						size="icon"
-						aria-label="Share recipe"
+						aria-label="Share"
 						onClick={onShare}
 					>
 						<Icon name="share" size="md" />
 					</Button>
 				</TooltipTrigger>
-				<TooltipContent>Share public link</TooltipContent>
+				<TooltipContent>Share</TooltipContent>
 			</Tooltip>
 
 			{/* Overflow: contextual reset, print, enhance */}

@@ -70,7 +70,7 @@ test('Users can register and use passkeys', async ({
 		client.once('WebAuthn.credentialAsserted', () => resolve())
 	})
 
-	await page.getByRole('button', { name: /login with a passkey/i }).click()
+	await page.getByRole('button', { name: /log in with a passkey/i }).click()
 
 	// Check for error message before waiting for completion
 	const errorLocator = page.getByText(/failed to authenticate/i)
@@ -94,7 +94,8 @@ test('Users can register and use passkeys', async ({
 
 	// Go to passkeys page and delete the passkey
 	await navigate('/settings/profile/passkeys')
-	await page.getByRole('button', { name: /delete/i }).click()
+	await page.getByRole('button', { name: 'Delete', exact: true }).click()
+	await page.getByRole('button', { name: 'Delete?' }).click()
 
 	// Verify the passkey is no longer listed on the page
 	await expect(page.getByText(/no passkeys registered/i)).toBeVisible()
@@ -117,7 +118,7 @@ test('Users can register and use passkeys', async ({
 		client.once('WebAuthn.credentialAsserted', () => resolve())
 	})
 
-	await page.getByRole('button', { name: /login with a passkey/i }).click()
+	await page.getByRole('button', { name: /log in with a passkey/i }).click()
 
 	await deletedPasskeyAssertedPromise
 

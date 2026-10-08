@@ -130,7 +130,9 @@ test('online documents use the current deployment and never enter Cache Storage'
 	expect(response?.fromServiceWorker()).toBe(true)
 	expect(planRequests).toHaveLength(1)
 	expect(response?.headers()['cache-control']).toBe('private, no-cache')
-	await expect(page.getByRole('heading', { name: 'Meal Plan' })).toBeVisible()
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Plan', exact: true }),
+	).toBeVisible()
 	await expect(
 		page.getByRole('heading', { name: 'Previous account private plan' }),
 	).toHaveCount(0)
@@ -382,7 +384,9 @@ test('offline document launches use the safe app response', async ({
 		await expect(
 			page.getByRole('heading', { name: /you.re offline/i }),
 		).toBeVisible()
-		await expect(page.getByText('Meal Plan')).toHaveCount(0)
+		await expect(
+			page.getByRole('heading', { level: 1, name: 'Plan', exact: true }),
+		).toHaveCount(0)
 
 		const launchResponse = await page.goto('/')
 		expect(launchResponse?.fromServiceWorker()).toBe(true)

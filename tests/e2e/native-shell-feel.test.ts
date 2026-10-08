@@ -61,7 +61,7 @@ async function expectSheetDocksOnTabBar(page: Page) {
 	await page.getByRole('button', { name: 'Add item' }).click()
 
 	const sheet = page
-		.getByRole('dialog', { name: 'Add to list' })
+		.getByRole('dialog', { name: 'Add to Shopping' })
 		.locator(':scope > div')
 		.last()
 	const bar = page.locator('[data-bottom-nav]')
@@ -193,7 +193,7 @@ test.describe('in the iOS app', () => {
 		// The URL changes before the router commits the new page.
 		await expect.poll(direction).toBe('forward')
 
-		await page.getByRole('link', { name: 'Edit recipe' }).click()
+		await page.getByRole('link', { name: 'Edit Recipe' }).click()
 		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
 		await page.getByRole('button', { name: 'Cancel' }).click()
 		await expect(
@@ -213,7 +213,7 @@ test.describe('the homepage in the iOS app', () => {
 		await page.goto('/')
 		await expect.poll(messages).toContain('theme:dark')
 
-		await page.getByRole('banner').getByRole('link', { name: 'Log In' }).click()
+		await page.getByRole('banner').getByRole('link', { name: 'Log in' }).click()
 		await expect(page).toHaveURL('/login')
 		await expect.poll(messages).toContain('theme:light')
 	})
@@ -268,12 +268,12 @@ test.describe('the tab bar in the iOS app', () => {
 		expect([settings?.width, settings?.height]).toEqual([44, 44])
 	})
 
-	test('signed out, the header keeps its padding around Sign Up', async ({
+	test('signed out, the header keeps its padding around Sign up', async ({
 		page,
 	}) => {
 		await page.goto('/login')
 		await expect(
-			page.getByRole('banner').getByRole('link', { name: 'Sign Up' }),
+			page.getByRole('banner').getByRole('link', { name: 'Sign up' }),
 		).toBeVisible()
 		expect((await page.getByRole('banner').boundingBox())?.height).toBe(69)
 	})
@@ -299,7 +299,7 @@ test.describe('the tab bar in the iOS app', () => {
 		await expect(plan).not.toHaveAttribute('data-pending', /.+/)
 		expect(await tabHaptics()).toBe(1)
 
-		const shop = tabBar.getByRole('link', { name: 'Shop', exact: true })
+		const shop = tabBar.getByRole('link', { name: 'Shopping', exact: true })
 		await shop.focus()
 		await page.keyboard.press('Enter')
 		await expect(page).toHaveURL('/shopping')

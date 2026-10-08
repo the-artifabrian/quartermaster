@@ -52,7 +52,7 @@ const navItems: NavItem[] = [
 		to: '/shopping',
 		icon: 'cart' as IconName,
 		iconFilled: 'cart-filled' as IconName,
-		label: 'Shop',
+		label: 'Shopping',
 		destination: 'shop',
 		matchPaths: ['/shopping'],
 	},

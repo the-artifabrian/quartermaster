@@ -150,9 +150,9 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 const freeFeatures = [
-	'Unlimited recipes',
+	'Unlimited Recipes',
 	'Import from URL or paste',
-	'Meal planning calendar',
+	'Weekly Plan',
 	'Shopping picked from your Plan',
 	'Household Staples',
 	'Recipe time, yield, and filters',
@@ -163,7 +163,7 @@ const freeFeatures = [
 
 const proFeatures = [
 	'Everything in Free, plus:',
-	'Real-time shopping list sync',
+	'Real-time Shopping sync',
 	'Voice input on Shopping',
 	'AI Recipe import and enhancement',
 ]
@@ -191,8 +191,8 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					/>
 					<h2 className="text-lg font-semibold">Your Pro access has ended</h2>
 					<p className="text-muted-foreground mt-2 text-sm">
-						Your data is safe &mdash; recipes, Staples, meal plans, and shopping
-						lists are all preserved. Subscribe to pick up where you left off.
+						Your data is safe &mdash; Recipes, Staples, Plan, and Shopping are
+						all preserved. Subscribe to pick up where you left off.
 					</p>
 				</div>
 			) : null}
@@ -215,7 +215,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 							})}
 						</p>
 						<p className="text-muted-foreground mt-1 text-sm">
-							After your trial, you'll keep Recipes, meal planning, and basic
+							After your trial, you'll keep Recipes, the Plan, and basic
 							Shopping on the Free plan. Real-time sync and AI Recipe tools need
 							Pro.
 						</p>
@@ -255,7 +255,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 							</Button>
 						) : (
 							<Button asChild variant="outline" className="w-full">
-								<Link to="/signup">Sign Up Free</Link>
+								<Link to="/signup">Sign up free</Link>
 							</Button>
 						)}
 					</div>

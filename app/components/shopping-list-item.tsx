@@ -6,7 +6,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { type ShoppingListItem } from '#app/generated/prisma/client.ts'
 import { parseAmount } from '#app/utils/fractions.ts'
-import { cn } from '#app/utils/misc.tsx'
+import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import {
 	getProduceCountDisplay,
 	isWeightUnit,
@@ -317,18 +317,7 @@ export function ShoppingListItemCard({
 										</button>
 									</removeGeneratedFetcher.Form>
 								)}
-								<deleteFetcher.Form method="POST">
-									<HouseholdClientInput />
-									<input type="hidden" name="intent" value="delete" />
-									<input type="hidden" name="itemId" value={item.id} />
-									<button
-										type="submit"
-										className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex size-10 items-center justify-center rounded-md transition-colors"
-										aria-label="Delete item"
-									>
-										<Icon name="trash" size="sm" />
-									</button>
-								</deleteFetcher.Form>
+								<DeleteItemForm fetcher={deleteFetcher} itemId={item.id} />
 							</div>
 						)}
 					</div>
@@ -391,5 +380,43 @@ function ProduceCountLine({
 		<>
 			{quantity} {unit}
 		</>
+	)
+}
+
+// Mounted with the row's action menu, so closing the menu disarms it: iOS
+// Safari fires no blur when the user taps elsewhere, and an armed button
+// that survived a reopen would delete on one tap.
+function DeleteItemForm({
+	fetcher,
+	itemId,
+}: {
+	fetcher: ReturnType<typeof useFetcher>
+	itemId: string
+}) {
+	const deleteCheck = useDoubleCheck()
+	return (
+		<fetcher.Form method="POST">
+			<HouseholdClientInput />
+			<input type="hidden" name="intent" value="delete" />
+			<input type="hidden" name="itemId" value={itemId} />
+			<button
+				{...deleteCheck.getButtonProps({
+					type: 'submit',
+					'aria-label': 'Delete item',
+					className: cn(
+						'flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-md transition-colors',
+						deleteCheck.doubleCheck
+							? 'bg-destructive text-destructive-foreground px-3 text-sm font-medium'
+							: 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive',
+					),
+				})}
+			>
+				{/* The icon stays mounted when armed: unmounting the tapped node
+				    would make the menu's outside-click check see a detached
+				    target and close the menu. */}
+				<Icon name="trash" size="sm" />
+				{deleteCheck.doubleCheck ? <span>Delete?</span> : null}
+			</button>
+		</fetcher.Form>
 	)
 }

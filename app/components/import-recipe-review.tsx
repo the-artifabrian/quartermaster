@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { type ExtractedRecipe } from '#app/utils/import-recipe-types.ts'
+import { useDoubleCheck } from '#app/utils/misc.tsx'
 import { haptic } from '#app/utils/shell-bridge.ts'
 import { DurationHint } from './duration-hint.tsx'
 import {
@@ -54,6 +55,7 @@ export function ImportRecipeReview({
 	metadataOptions: RecipeMetadataOption[]
 }) {
 	const navigate = useNavigate()
+	const discardCheck = useDoubleCheck()
 	const [editing, setEditing] = useState(false)
 	const [warnings, setWarnings] = useState(recipe.warnings ?? [])
 	const [details, setDetails] = useState(() => ({
@@ -438,17 +440,16 @@ export function ImportRecipeReview({
 				</section>
 				<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
 					<Button
-						type="button"
-						variant="outline"
-						onClick={() => {
-							haptic('warning')
-							if (
-								window.confirm('Discard this review and start another import?')
-							)
-								window.location.assign('/recipes/import')
-						}}
+						{...discardCheck.getButtonProps({
+							type: 'button',
+							onClick: () => {
+								if (discardCheck.doubleCheck)
+									window.location.assign('/recipes/import')
+							},
+						})}
+						variant={discardCheck.doubleCheck ? 'destructive' : 'outline'}
 					>
-						Import Another
+						{discardCheck.doubleCheck ? 'Discard?' : 'Import another'}
 					</Button>
 					<Button type="button" variant="outline" onClick={toggleEditing}>
 						{editing ? 'Done editing' : 'Edit'}

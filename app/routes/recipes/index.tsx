@@ -690,7 +690,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							<Button asChild>
 								<Link to="/recipes/new">
 									<Icon name="plus" size="sm" />
-									Add Recipe
+									Write a Recipe
 								</Link>
 							</Button>
 							<Button asChild variant="outline">
@@ -739,7 +739,7 @@ function SearchEmptyState({
 				<Button asChild>
 					<Link to="/recipes/import">
 						<Icon name="link-2" size="sm" />
-						Import a recipe
+						Import
 					</Link>
 				</Button>
 			</div>

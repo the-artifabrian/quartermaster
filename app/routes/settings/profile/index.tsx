@@ -212,7 +212,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 							name="exit"
 							className="text-muted-foreground size-5 shrink-0"
 						/>
-						<span>Log Out</span>
+						<span>Log out</span>
 					</button>
 				</Form>
 			</SettingsSection>
@@ -399,8 +399,8 @@ function SignOutOfSessions({
 					>
 						<Icon name="avatar">
 							{dc.doubleCheck
-								? `Are you sure?`
-								: `Sign out of ${otherSessionsCount} other sessions`}
+								? `Log out?`
+								: `Log out of ${otherSessionsCount} other sessions`}
 						</Icon>
 					</StatusButton>
 				</fetcher.Form>

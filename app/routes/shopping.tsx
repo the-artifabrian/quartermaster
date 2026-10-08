@@ -36,7 +36,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
-import { cn } from '#app/utils/misc.tsx'
+import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
 import { parseTypedItem } from '#app/utils/parse-speech-item.ts'
 import {
 	editShoppingDisplayGroup,
@@ -54,7 +54,6 @@ import {
 	parseShoppingHorizon,
 	type ShoppingHorizon,
 } from '#app/utils/shopping-horizon.ts'
-import { haptic } from '#app/utils/shell-bridge.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
 	ShoppingListItemSchema,
@@ -80,7 +79,7 @@ export const handle: SEOHandle = {
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Shopping List | Quartermaster' }]
+	return [{ title: 'Shopping | Quartermaster' }]
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -739,7 +738,7 @@ function LaterQuickAdd() {
 						setName(event.target.value)
 						setWarningDismissed(false)
 					}}
-					placeholder="Add for later..."
+					placeholder="Add to Later..."
 					enterKeyHint="go"
 					className="h-9 min-w-0 flex-1"
 				/>
@@ -747,7 +746,7 @@ function LaterQuickAdd() {
 					type="submit"
 					disabled={!name.trim() || fetcher.state !== 'idle'}
 					className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-9 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50"
-					aria-label={canForce ? 'Add to Later anyway' : 'Add for later'}
+					aria-label={canForce ? 'Add to Later anyway' : 'Add to Later'}
 				>
 					<Icon name="plus" className="size-5" />
 				</button>
@@ -779,35 +778,31 @@ function ShoppingItems({
 	)
 }
 
-function ClearCheckedControl({
-	checkedCount,
-	horizon,
-	pending,
-	pendingIds,
-}: {
+type ClearCheckedProps = {
 	checkedCount: number
 	horizon: ShoppingHorizon
 	pending: boolean
 	pendingIds: string[]
-}) {
-	if (checkedCount === 0) return null
+}
+
+function ClearCheckedControl(props: ClearCheckedProps) {
+	if (props.checkedCount === 0) return null
+	// Mounted only while there is something to clear, so an armed tap never
+	// carries over to the next batch of checked items.
+	return <ClearCheckedForm {...props} />
+}
+
+function ClearCheckedForm({
+	checkedCount,
+	horizon,
+	pending,
+	pendingIds,
+}: ClearCheckedProps) {
+	const dc = useDoubleCheck()
 	const sectionLabel = horizon === LATER ? 'Later' : 'Next shop'
 	return (
 		<div className="animate-slide-up-reveal flex items-center justify-center pt-4">
-			<Form
-				method="POST"
-				className="inline"
-				onSubmit={(event) => {
-					haptic('warning')
-					if (
-						!confirm(
-							`Clear ${checkedCount} checked item${checkedCount !== 1 ? 's' : ''} from ${sectionLabel}?`,
-						)
-					) {
-						event.preventDefault()
-					}
-				}}
-			>
+			<Form method="POST" className="inline">
 				<HouseholdClientInput />
 				<input type="hidden" name="intent" value="clear-checked" />
 				{pendingIds.map((id) => (
@@ -815,14 +810,21 @@ function ClearCheckedControl({
 				))}
 				<input type="hidden" name="horizon" value={horizon} />
 				<PendingButton
-					type="submit"
+					{...dc.getButtonProps({
+						type: 'submit',
+						'aria-label': `Clear checked items from ${sectionLabel}`,
+					})}
 					variant="link"
 					pending={pending}
 					pendingLabel={`Clearing checked items from ${sectionLabel}`}
-					aria-label={`Clear checked items from ${sectionLabel}`}
-					className="text-muted-foreground hover:text-foreground h-auto p-0 text-sm underline underline-offset-2"
+					className={cn(
+						'h-auto p-0 text-sm underline underline-offset-2',
+						dc.doubleCheck
+							? 'text-destructive font-medium'
+							: 'text-muted-foreground hover:text-foreground',
+					)}
 				>
-					Clear checked
+					{dc.doubleCheck ? `Clear ${checkedCount}?` : 'Clear checked'}
 				</PendingButton>
 			</Form>
 		</div>
@@ -1036,7 +1038,7 @@ export default function ShoppingListRoute({
 				<div className="container-narrow py-4">
 					<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
 						<h1 className="font-serif text-2xl font-normal">
-							Shopping List
+							Shopping
 							{nextItems.length > 0 && (
 								<>
 									<span
@@ -1213,7 +1215,7 @@ export default function ShoppingListRoute({
 							type="search"
 							inputMode="search"
 							enterKeyHint="search"
-							placeholder="Search shopping list..."
+							placeholder="Search Shopping..."
 							value={search}
 							onChange={(e) => setSearch(e.target.value)}
 							className="pl-9"
@@ -1256,7 +1258,7 @@ export default function ShoppingListRoute({
 										/>
 									</div>
 									<h3 className="mt-3 font-serif text-lg">
-										Nothing for the next shop
+										Nothing in Next shop
 									</h3>
 									<p className="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
 										{hasMealPlan ? (
@@ -1266,12 +1268,11 @@ export default function ShoppingListRoute({
 											</>
 										) : (
 											<>
-												Create a{' '}
 												<Link
 													to="/plan"
 													className="text-primary font-medium underline underline-offset-2"
 												>
-													meal plan
+													Plan a Meal
 												</Link>{' '}
 												or add an item by hand.
 											</>
@@ -1332,7 +1333,7 @@ export default function ShoppingListRoute({
 								/>
 							) : (
 								<p className="text-muted-foreground py-6 text-center text-sm">
-									Nothing saved for later.
+									Nothing in Later.
 								</p>
 							)}
 							{!search && (

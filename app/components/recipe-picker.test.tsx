@@ -39,7 +39,7 @@ test('Menu Recipe picker finds accented titles with unaccented text', async () =
 	render(<Stub />)
 
 	await user.click(
-		screen.getAllByRole('button', { name: 'Add recipe' }).at(-1)!,
+		screen.getAllByRole('button', { name: 'Add Recipe' }).at(-1)!,
 	)
 	const picker = screen.getByRole('dialog', { name: 'Add a recipe' })
 	await user.type(

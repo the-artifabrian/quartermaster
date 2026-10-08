@@ -11,12 +11,33 @@ Use the terms in [GLOSSARY.md](../GLOSSARY.md). In user-facing copy:
 - **Meal**: one scheduled item in the Plan.
 - **Staples**: household ingredients normally assumed available, kept as a
   quick-add list. Tapping one adds it to Next shop.
-- **Shopping**: the current list. Prefer this over “Shopping List” when the
-  shorter label reads naturally.
+- **Plan**: the household's week-by-week schedule of Meals. Not “Meal Plan.”
+- **Shopping**: the household's one list, and the name of its tab. Not “Shopping
+  List” or “Shop.” Its two horizons are **Next shop** and **Later**.
+- **Household**: the people who share one set of Recipes, Menus, Plan, Staples,
+  and Shopping.
 
-Repeat the right term instead of inventing synonyms such as kitchen memory,
-stock, inventory, pantry, or meal slot. Staples have no Out or Available state;
-do not describe one.
+Capitalise these terms in copy. Repeat the right term instead of inventing
+synonyms such as kitchen memory, stock, inventory, pantry, or meal slot. Staples
+have no Out or Available state; do not describe one.
+
+## Action names
+
+Each action has one name wherever it is offered:
+
+- **Add to Plan** puts a Recipe or Menu on a day from its own page. **Add Meal**
+  adds one from the Plan page.
+- **Add to Shopping** puts a Meal, an ingredient, or an item on Shopping.
+  **Update Shopping** refreshes a Meal already there.
+- **New Recipe** makes a Recipe, by **Import** or **Write a Recipe**.
+- **Share** shares a Recipe or Menu.
+- **Log in** and **Log out**.
+- **Mark cooked** and **Mark not cooked** set a Meal's state.
+
+A destructive control takes two taps. The first tap arms it, and the second tap
+names the action as a question: “Delete?” for a delete, otherwise the verb, such
+as “Clear 3?” or “Leave?”. Do not use a browser confirm dialog or “Are you
+sure?”.
 
 ## Rules
 

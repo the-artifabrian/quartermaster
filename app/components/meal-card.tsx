@@ -213,7 +213,7 @@ function ItemRow({
 							variant="destructive"
 							aria-label={`Tap again to remove ${item.recipeTitle}`}
 						>
-							<span className="text-xs">Sure?</span>
+							<span className="text-xs">Remove?</span>
 						</Button>
 					) : (
 						<Button
@@ -562,8 +562,8 @@ export function MealCard({
 						(data.shopping.updatedContributionCount ?? 0) +
 						(data.shopping.removedContributionCount ?? 0) +
 						(data.shopping.promotedRowCount ?? 0)
-					if (changed > 0) toast.success('Shopping List updated')
-					else toast.info('Shopping List is up to date')
+					if (changed > 0) toast.success('Shopping updated')
+					else toast.info('Shopping is up to date')
 					prevShoppingState.current = addToShoppingFetcher.state
 					return
 				}
@@ -574,9 +574,9 @@ export function MealCard({
 						`Added ${createdRowCount} item${createdRowCount === 1 ? '' : 's'} to Shopping`,
 					)
 				} else if ((attachedCount ?? 0) > 0) {
-					toast.success('Everything is already on your Shopping list')
+					toast.success('Everything is already on Shopping')
 				} else if ((alreadyContributedCount ?? 0) > 0) {
-					toast.info('This meal is already on Shopping')
+					toast.info('This Meal is already on Shopping')
 				} else {
 					toast.info('Nothing to add to Shopping')
 				}
@@ -684,7 +684,7 @@ export function MealCard({
 						{canMoveUp || canMoveDown ? <DropdownMenuSeparator /> : null}
 						<DropdownMenuItem onSelect={() => submitMealCooked(!isComplete)}>
 							<Icon name="check" size="sm" />
-							{isComplete ? 'Mark not cooked' : 'Mark meal cooked'}
+							{isComplete ? 'Mark not cooked' : 'Mark cooked'}
 						</DropdownMenuItem>
 						<DropdownMenuItem onSelect={() => setEditingDetails(true)}>
 							<Icon name="pencil-1" size="sm" />
@@ -713,9 +713,7 @@ export function MealCard({
 									name={meal.addedToShopping ? 'update' : 'cart'}
 									size="sm"
 								/>
-								{meal.addedToShopping
-									? 'Update Shopping List'
-									: 'Add to Shopping List'}
+								{meal.addedToShopping ? 'Update Shopping' : 'Add to Shopping'}
 							</DropdownMenuItem>
 						)}
 						<DropdownMenuSeparator />
@@ -731,7 +729,7 @@ export function MealCard({
 									className="text-destructive focus:text-destructive font-medium"
 								>
 									<Icon name="trash" size="sm" />
-									Delete meal · keep Shopping
+									Delete Meal · keep Shopping
 								</DropdownMenuItem>
 								<DropdownMenuItem
 									onSelect={() => {
@@ -747,7 +745,7 @@ export function MealCard({
 									className="text-destructive focus:text-destructive"
 								>
 									<Icon name="trash" size="sm" />
-									Delete meal · remove generated amount
+									Delete Meal · remove generated amount
 								</DropdownMenuItem>
 							</>
 						) : (
@@ -770,7 +768,7 @@ export function MealCard({
 								)}
 							>
 								<Icon name="trash" size="sm" />
-								{confirmingDelete ? 'Really delete?' : 'Delete meal'}
+								{confirmingDelete ? 'Delete?' : 'Delete Meal'}
 							</DropdownMenuItem>
 						)}
 					</DropdownMenuContent>
@@ -797,7 +795,7 @@ export function MealCard({
 						type="button"
 						onClick={() => submitMealCooked(!isComplete)}
 						className="flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-0 md:min-w-0 md:p-1"
-						aria-label={isComplete ? 'Mark as not done' : 'Mark as done'}
+						aria-label={isComplete ? 'Mark not cooked' : 'Mark cooked'}
 					>
 						{isComplete ? (
 							<span className="border-primary bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">

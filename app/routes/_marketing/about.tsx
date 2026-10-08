@@ -45,10 +45,9 @@ export default function AboutRoute() {
 					dinner?" shouldn't be a 30-minute research project every night.
 				</p>
 				<p>
-					So I built the tool I wanted. One place for your recipes, your
-					Staples, your meal plan, and your shopping list. Quartermaster helps
-					you choose a Recipe, plan the week, and write Shopping when you're
-					ready.
+					So I built the tool I wanted. One place for your Recipes, your
+					Staples, your Plan, and your Shopping. Quartermaster helps you choose
+					a Recipe, plan the week, and write Shopping when you're ready.
 				</p>
 				<p>
 					It's built for people who actually cook at home, not food bloggers or
@@ -93,16 +92,16 @@ export default function AboutRoute() {
 					<Icon name="clock" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Plan and shop.</span>{' '}
-						Plan meals for the week. Quartermaster spots shared ingredients
-						across meals and builds one shopping list.
+						Plan Meals for the week. Quartermaster spots shared ingredients
+						across Meals and adds each to Shopping once.
 					</p>
 				</div>
 				<div className="flex gap-3">
 					<Icon name="avatar" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Cook together.</span>{' '}
-						Invite your partner or housemates to share a recipe library,
-						Staples, and meal plan. Changes sync in real time.
+						Invite your partner or housemates to share Recipes, Staples, the
+						Plan, and Shopping. Changes sync in real time.
 					</p>
 				</div>
 			</div>

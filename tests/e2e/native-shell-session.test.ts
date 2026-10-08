@@ -46,7 +46,7 @@ async function logInThroughTheForm(
 ) {
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByLabel(/^password$/i).fill(password)
-	await page.getByRole('button', { name: /log in/i }).click()
+	await page.getByRole('button', { name: 'Log in', exact: true }).click()
 	await expect(page).toHaveURL('/recipes')
 }
 
@@ -66,7 +66,9 @@ test.describe('in the iOS app', () => {
 		await prisma.session.deleteMany({ where: { userId: user.id } })
 
 		await navigate('/login')
-		await expect(page.getByRole('button', { name: /log in/i })).toBeVisible()
+		await expect(
+			page.getByRole('button', { name: 'Log in', exact: true }),
+		).toBeVisible()
 		await expect(page.getByLabel(/remember me/i)).toHaveCount(0)
 
 		await logInThroughTheForm(page, user, password)

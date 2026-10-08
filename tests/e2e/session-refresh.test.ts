@@ -81,7 +81,7 @@ test('a remembered session in daily use is extended near its end', async ({
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByLabel(/^password$/i).fill(password)
 	await page.getByLabel(/remember me/i).check()
-	await page.getByRole('button', { name: /log in/i }).click()
+	await page.getByRole('button', { name: 'Log in', exact: true }).click()
 	await expect(page).toHaveURL('/recipes')
 
 	const { id: sessionId } = await prisma.session.findFirstOrThrow({

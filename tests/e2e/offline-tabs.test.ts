@@ -72,10 +72,10 @@ async function waitForCachedData(page: Page, pathname: string) {
 function bottomNav(page: Page) {
 	return page
 		.getByRole('navigation', { name: 'Main' })
-		.filter({ has: page.getByRole('link', { name: 'Shop', exact: true }) })
+		.filter({ has: page.getByRole('link', { name: 'Shopping', exact: true }) })
 }
 
-function tab(page: Page, label: 'Recipes' | 'Staples' | 'Plan' | 'Shop') {
+function tab(page: Page, label: 'Recipes' | 'Staples' | 'Plan' | 'Shopping') {
 	return bottomNav(page).getByRole('link', { name: label, exact: true })
 }
 
@@ -106,7 +106,9 @@ test('offline, a tab keeps the app and its tab bar, and retries by itself once b
 	const user = await login()
 	await seedHousehold(user)
 	await takeControl(page)
-	await expect(page.getByRole('heading', { name: 'Meal Plan' })).toBeVisible()
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Plan', exact: true }),
+	).toBeVisible()
 	await waitForWarmWorker(page)
 
 	await tab(page, 'Recipes').click()
@@ -137,7 +139,7 @@ test('offline, a tab keeps the app and its tab bar, and retries by itself once b
 	await expect(bottomNav(page)).toBeVisible()
 
 	// A tab never loaded shows the notice, inside the app, without a reload.
-	await tab(page, 'Shop').click()
+	await tab(page, 'Shopping').click()
 	await expect(page).toHaveURL('/shopping')
 	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
 	await expect(bottomNav(page)).toBeVisible()
@@ -145,10 +147,12 @@ test('offline, a tab keeps the app and its tab bar, and retries by itself once b
 	expect(failedAssets).toEqual([])
 
 	await tab(page, 'Plan').click()
-	await expect(page.getByRole('heading', { name: 'Meal Plan' })).toBeVisible()
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Plan', exact: true }),
+	).toBeVisible()
 	await expect(page.getByText(NOT_LOADED_YET)).toHaveCount(0)
 
-	await tab(page, 'Shop').click()
+	await tab(page, 'Shopping').click()
 	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
 
 	// Retry while still offline keeps the notice and the app.
@@ -163,7 +167,7 @@ test('offline, a tab keeps the app and its tab bar, and retries by itself once b
 	// Back online, the notice retries by itself.
 	await context.setOffline(false)
 	await expect(
-		page.getByRole('heading', { name: /Shopping List/ }),
+		page.getByRole('heading', { level: 1, name: /^Shopping/ }),
 	).toBeVisible()
 	await expect(page.getByText('Lemons')).toBeVisible()
 	await expect(page.getByText(NOT_LOADED_YET)).toHaveCount(0)
@@ -187,7 +191,9 @@ test('a restarted worker serves the page its own cached data offline', async ({
 	// A document load empties the in-memory loader cache, so the next Staples
 	// tap must ask the worker. The worker's data cache survives it.
 	await page.goto('/plan')
-	await expect(page.getByRole('heading', { name: 'Meal Plan' })).toBeVisible()
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Plan', exact: true }),
+	).toBeVisible()
 	await waitForCachedData(page, '/inventory.data')
 
 	// The server's answer would now say Almond milk; only the worker's cache
@@ -237,7 +243,9 @@ test('the Retry button loads the tab once the network is really back', async ({
 	const user = await login()
 	await seedHousehold(user)
 	await takeControl(page)
-	await expect(page.getByRole('heading', { name: 'Meal Plan' })).toBeVisible()
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Plan', exact: true }),
+	).toBeVisible()
 	await waitForWarmWorker(page)
 
 	const failedShopping: number[] = []
@@ -249,7 +257,7 @@ test('the Retry button loads the tab once the network is really back', async ({
 	})
 
 	await context.setOffline(true)
-	await tab(page, 'Shop').click()
+	await tab(page, 'Shopping').click()
 	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
 	expect(failedShopping).toHaveLength(1)
 
@@ -275,7 +283,7 @@ test('the Retry button loads the tab once the network is really back', async ({
 	await expect(retry).not.toHaveAttribute('aria-disabled')
 	await retry.click()
 	await expect(
-		page.getByRole('heading', { name: /Shopping List/ }),
+		page.getByRole('heading', { level: 1, name: /^Shopping/ }),
 	).toBeVisible()
 	await expect(page.getByText('Lemons')).toBeVisible()
 	expect(failedShopping).toHaveLength(4)

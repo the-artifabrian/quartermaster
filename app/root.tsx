@@ -102,7 +102,7 @@ export const links: Route.LinksFunction = () => {
 export const meta: Route.MetaFunction = ({ loaderData }) => {
 	const origin = loaderData?.requestInfo.origin ?? ''
 	const description =
-		'Save Recipes, plan Meals, and make one useful Shopping list.'
+		'Save Recipes, plan Meals, and keep Shopping in one place.'
 	return [
 		{ title: loaderData ? 'Quartermaster' : 'Error | Quartermaster' },
 		{ name: 'description', content: description },
@@ -564,7 +564,7 @@ function HeaderAuthButton() {
 	return (
 		<Button asChild variant="default" size="lg">
 			<Link to={isLogin ? '/signup' : '/login'}>
-				{isLogin ? 'Sign Up' : 'Log In'}
+				{isLogin ? 'Sign up' : 'Log in'}
 			</Link>
 		</Button>
 	)

@@ -53,7 +53,7 @@ test('every unchecked ingredient offers Shopping, and nothing claims availabilit
 		screen.queryByRole('button', { name: 'Usually on hand' }),
 	).not.toBeInTheDocument()
 	expect(
-		screen.getAllByRole('button', { name: 'Add to shopping list' }),
+		screen.getAllByRole('button', { name: 'Add to Shopping' }),
 	).toHaveLength(1)
 	expect(screen.getByRole('checkbox', { name: 'rhubarb' })).toBeVisible()
 	expect(screen.getByRole('checkbox', { name: 'sugar' })).toBeVisible()
@@ -63,7 +63,7 @@ test('the anonymous share page offers no Shopping action', () => {
 	renderList({ canAddToShopping: false })
 
 	expect(
-		screen.queryByRole('button', { name: 'Add to shopping list' }),
+		screen.queryByRole('button', { name: 'Add to Shopping' }),
 	).not.toBeInTheDocument()
 	expect(screen.getByRole('checkbox', { name: 'rhubarb' })).toBeVisible()
 })

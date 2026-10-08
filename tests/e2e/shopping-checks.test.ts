@@ -136,24 +136,25 @@ test('failed checks survive refresh and Clear checked; navigation warns only wit
 		fullPage: true,
 	})
 	await expect(
-		page.getByRole('heading', { name: /Shopping List/ }),
+		page.getByRole('heading', { level: 1, name: /^Shopping/ }),
 	).toBeVisible()
-	page.once('dialog', (dialog) => void dialog.accept())
-	await page
-		.getByRole('button', { name: 'Clear checked items from Next shop' })
-		.click()
+	const clearChecked = page.getByRole('button', {
+		name: 'Clear checked items from Next shop',
+	})
+	await clearChecked.click()
+	await expect(clearChecked).toHaveText(/^Clear \d+\?$/)
+	await clearChecked.click()
 	await expect(
 		page.getByRole('group', { name: 'Bread shopping item' }),
 	).toBeHidden()
 	await expect(riceRow(page).getByRole('alert')).toBeVisible()
-	page.once('dialog', (dialog) => {
-		expect(dialog.message()).toContain('aren’t confirmed')
-		void dialog.dismiss()
-	})
 	await page
 		.getByRole('link', { name: 'Recipes', exact: true })
 		.filter({ visible: true })
 		.click()
+	await expect(
+		page.getByText(/aren’t confirmed. Tap again to leave/),
+	).toBeVisible()
 	await expect(page).toHaveURL('/shopping')
 	await page.unroute('**/resources/shopping-check?*')
 	await riceRow(page)
@@ -168,14 +169,46 @@ test('failed checks survive refresh and Clear checked; navigation warns only wit
 			}),
 		)
 		.toEqual({ checked: true })
-	page.once('dialog', () => {
-		throw new Error('Confirmed checks must not block navigation')
-	})
 	await page
 		.getByRole('link', { name: 'Recipes', exact: true })
 		.filter({ visible: true })
 		.click()
 	await expect(page).toHaveURL('/recipes')
+})
+
+test('leaving with an unconfirmed check takes a second tap to the same tab', async ({
+	page,
+	login,
+}) => {
+	await setup(await login())
+	await page.setViewportSize({ width: 390, height: 844 })
+	await openShopping(page)
+	await page.route('**/resources/shopping-check?*', (route) => route.abort())
+	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+	await expect(riceRow(page).getByRole('alert')).toBeVisible()
+
+	const tab = (name: string) =>
+		page.getByRole('link', { name, exact: true }).filter({ visible: true })
+	const warning = page.getByText(/aren’t confirmed. Tap again to leave/)
+
+	// A tap to a different tab warns again instead of leaving.
+	await tab('Plan').click()
+	await expect(warning).toBeVisible()
+	await tab('Recipes').click()
+	await expect(page).toHaveURL('/shopping')
+
+	// A new pending check gets its own warning.
+	await page
+		.getByRole('group', { name: 'Bread shopping item' })
+		.getByRole('button', { name: 'Uncheck item' })
+		.click()
+	await tab('Recipes').click()
+	await expect(page).toHaveURL('/shopping')
+
+	// The second tap to the same tab leaves and takes the warning with it.
+	await tab('Recipes').click()
+	await expect(page).toHaveURL('/recipes')
+	await expect(warning).toBeHidden()
 })
 
 for (const laterChange of [false, true]) {
@@ -454,10 +487,12 @@ for (const fallback of [false, true]) {
 			page.locator('[aria-label$=" shopping item"]').last(),
 		).toHaveAttribute('aria-label', 'Rice shopping item')
 		page.off('request', countOriginRefresh)
-		page.once('dialog', (dialog) => void dialog.accept())
-		await page
-			.getByRole('button', { name: 'Clear checked items from Next shop' })
-			.click()
+		const clearChecked = page.getByRole('button', {
+			name: 'Clear checked items from Next shop',
+		})
+		await clearChecked.click()
+		await expect(clearChecked).toHaveText(/^Clear \d+\?$/)
+		await clearChecked.click()
 		await expect(riceRow(page)).toBeHidden()
 		await catchUp()
 		await expect(riceRow(phone)).toBeHidden()

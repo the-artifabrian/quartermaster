@@ -30,7 +30,7 @@ The iOS app is a small Swift shell around the Web app
 only, with no App Store listing. It sells and advertises nothing; Pro stays on
 the Web app ([ADR 0001](./adr/0001-keep-pro-out-of-the-ios-app.md)). Its open
 issue is #346, snappy navigation and launch. A TestFlight build expires after 90
-days, so `ios/upload-testflight.sh` re-uploads one about every two months.
+days, so re-upload one with `ios/upload-testflight.sh` about every two months.
 
 ## Product direction
 

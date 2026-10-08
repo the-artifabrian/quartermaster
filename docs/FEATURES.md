@@ -50,7 +50,7 @@ plan into Shopping.
   export/import.
 - Share a Menu by link. Anyone can read it and open its Recipes; a signed-in
   reader can Save to my Menus, which copies the Menu and its Recipes into their
-  Household, and a later visit opens that copy.
+  Household, and a later visit offers Open my Menu.
 - Menus are intentionally imageless.
 
 ### Plan and Meals
@@ -71,9 +71,9 @@ plan into Shopping.
 ### Staples
 
 - Keep a household list of ingredients normally assumed available.
-- Add a Staple to Next shop from its row; a matching row already there is moved
-  or brought back rather than duplicated, and a Staple already waiting reads “On
-  list” instead. Staples carry no availability state.
+- Put a Staple on the Next shop from its row; a matching row already there is
+  moved or brought back rather than duplicated, and a Staple already waiting
+  reads “On list” instead. Staples carry no availability state.
 - Search, add, and remove Staples; they survive household changes and full data
   recovery.
 - A household with no Staples sees suggested ones (salt, olive oil, eggs, and
@@ -88,7 +88,7 @@ plan into Shopping.
 - Combine compatible quantities across Recipes and Menu note lines while leaving
   unresolved or incompatible amounts visible.
 - Omit lines matching a household Staple; include everything else.
-- Add several household Staples to Next shop from one quiet header picker.
+- Put several household Staples on the Next shop from one quiet header picker.
 - Keep manual rows separate from Meal contributions so updates do not overwrite
   another Meal or a shopper’s correction.
 - Edit, search, check off, clear, and quick-add in a flat list with no aisle

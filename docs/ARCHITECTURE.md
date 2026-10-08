@@ -359,12 +359,14 @@ two memberships, and the app would pick one at random. `insertNewUser` inserts a
 user with no Household, which production can't produce; give them one with
 `createOwnHousehold` before they sign in through the UI.
 
-Playwright runs on every pull request and uploads its HTML report. It is not yet
-a required check, and deploys do not wait for it. Browser checks and simulations
-are implementation evidence, not substitutes for normal use.
+Playwright runs on every pull request and uploads its HTML report. It is a
+required check for merging, and deploys do not wait for it. CI sets
+`BOTTOM_NAV_FEEDBACK_TRACE_ONLY=1`, so the 34 ms bottom-nav feedback budget is
+logged there and asserted only in local runs. Browser checks and simulations are
+implementation evidence, not substitutes for normal use.
 
 `page.waitForFunction` does not await an async predicate: it resolves with the
 first result, even `false`. To wait on async page state such as Cache Storage,
 use `expect.poll(() => page.evaluate(async () => …))`.
 
-_Updated 6 October 2026._
+_Updated 8 October 2026._

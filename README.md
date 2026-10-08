@@ -94,6 +94,9 @@ The development environment mocks Stripe, storage, Google OAuth, and email. See
 - [Copy guide](docs/COPYWRITING.md)
 - [Database restore runbook](docs/RESTORE.md)
 - [Development plan](docs/DEVELOPMENT_PLAN.md)
+- [Architecture decision records](docs/adr)
+- [iOS app](ios/README.md)
+- [Agent notes and testing rules](AGENTS.md)
 
 ## License
 

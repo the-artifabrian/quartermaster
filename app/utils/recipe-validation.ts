@@ -40,15 +40,34 @@ export const RecipeNotesSchema = z
 export const MAX_RECIPE_INGREDIENTS = 200
 export const MAX_RECIPE_INSTRUCTIONS = 200
 
+export const MAX_INGREDIENT_NAME_LENGTH = 200
+export const MAX_INGREDIENT_AMOUNT_LENGTH = 50
+export const MAX_INGREDIENT_UNIT_LENGTH = 50
+export const MAX_INGREDIENT_NOTES_LENGTH = 500
+export const MAX_INSTRUCTION_LENGTH = 5000
+export const MAX_YIELD_LABEL_LENGTH = 100
+export const MAX_SOURCE_URL_LENGTH = 2000
+
 export const IngredientSchema = z.object({
 	id: z.string().optional(),
 	name: z
 		.string()
 		.min(1, { message: 'Ingredient name is required' })
-		.max(200, { message: 'Ingredient name is too long' }),
-	amount: z.string().max(50, { message: 'Amount is too long' }).optional(),
-	unit: z.string().max(50, { message: 'Unit is too long' }).optional(),
-	notes: z.string().max(500, { message: 'Notes are too long' }).optional(),
+		.max(MAX_INGREDIENT_NAME_LENGTH, {
+			message: 'Ingredient name is too long',
+		}),
+	amount: z
+		.string()
+		.max(MAX_INGREDIENT_AMOUNT_LENGTH, { message: 'Amount is too long' })
+		.optional(),
+	unit: z
+		.string()
+		.max(MAX_INGREDIENT_UNIT_LENGTH, { message: 'Unit is too long' })
+		.optional(),
+	notes: z
+		.string()
+		.max(MAX_INGREDIENT_NOTES_LENGTH, { message: 'Notes are too long' })
+		.optional(),
 	isHeading: z.preprocess((v) => v === 'true', z.boolean()).optional(),
 	linkedRecipeId: z.string().optional(),
 })
@@ -58,7 +77,7 @@ export const InstructionSchema = z.object({
 	content: z
 		.string()
 		.min(1, { message: 'Instruction is required' })
-		.max(5000, { message: 'Instruction is too long' }),
+		.max(MAX_INSTRUCTION_LENGTH, { message: 'Instruction is too long' }),
 })
 
 const optionalPositiveInteger = z.preprocess(
@@ -77,7 +96,9 @@ const optionalYieldLabel = z.preprocess(
 	z
 		.string()
 		.trim()
-		.max(100, { message: 'What the recipe makes is too long' })
+		.max(MAX_YIELD_LABEL_LENGTH, {
+			message: 'What the recipe makes is too long',
+		})
 		.optional(),
 )
 
@@ -113,7 +134,7 @@ export const RecipeSchema = z
 		description: RecipeDescriptionSchema,
 		...recipeTimeYieldFields,
 		recipeMetadata: RecipeMetadataSelectionFieldSchema,
-		sourceUrl: z.url().max(2000).optional().or(z.literal('')),
+		sourceUrl: z.url().max(MAX_SOURCE_URL_LENGTH).optional().or(z.literal('')),
 		notes: RecipeNotesSchema,
 		ingredients: z
 			.array(IngredientSchema)

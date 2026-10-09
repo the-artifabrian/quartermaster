@@ -82,6 +82,25 @@ function recipeIdFromRedirect(response: unknown) {
 	return { recipeId: location!.split('/').at(-1)!, location: location! }
 }
 
+/** Imports a page, which saves it at once, and loads the saved Recipe. */
+async function importUrl(session: { id: string }, url: string) {
+	const response = await importAction({
+		request: await requestFor(session, '/recipes/import', {
+			intent: 'fetch',
+			url,
+		}),
+		...routeArgs('/recipes/import'),
+	})
+	expect(response).toBeInstanceOf(Response)
+	const location = (response as Response).headers.get('location')!
+	const recipeId = new URL(location, BASE_URL).pathname.split('/').at(-1)!
+	const result = await detailLoader({
+		request: await requestFor(session, location),
+		...routeArgs('/recipes/:recipeId', { recipeId }),
+	})
+	return result.recipe
+}
+
 test('create persists explicit Recipe time and typed yield metadata', async () => {
 	const session = await setupUser()
 	const response = await newAction({
@@ -307,7 +326,7 @@ test('Recipe metadata cannot be read or changed from another household', async (
 	)
 })
 
-test('URL import previews only explicit Recipe time and typed yield metadata', async () => {
+test('URL import saves only explicit Recipe time and typed yield metadata', async () => {
 	const session = await setupUser()
 	const sourceUrl = 'https://recipes.example/braided-loaf'
 	server.use(
@@ -330,50 +349,7 @@ test('URL import previews only explicit Recipe time and typed yield metadata', a
 		),
 	)
 
-	const result = (await importAction({
-		request: await requestFor(session, '/recipes/import', {
-			intent: 'fetch',
-			url: sourceUrl,
-		}),
-		...routeArgs('/recipes/import'),
-	})) as {
-		data?: { recipe: Record<string, unknown> }
-		recipe?: Record<string, unknown>
-	}
-	const payload = result.data ?? result
-
-	expect(payload.recipe).toEqual(
-		expect.objectContaining({
-			activeTime: 25,
-			totalTime: 180,
-			yieldAmount: 2.5,
-			yieldLabel: 'large braided loaves',
-		}),
-	)
-})
-
-test('URL import save persists explicit Recipe time and typed yield metadata', async () => {
-	const session = await setupUser()
-	const response = await importAction({
-		request: await requestFor(session, '/recipes/import', {
-			intent: 'save',
-			title: 'Imported braided loaf',
-			activeTime: '25',
-			totalTime: '180',
-			yieldAmount: '2.5',
-			yieldLabel: 'large braided loaves',
-			'ingredients[0].name': 'flour',
-			'instructions[0].content': 'Knead the dough.',
-		}),
-		...routeArgs('/recipes/import'),
-	})
-	const { recipeId, location } = recipeIdFromRedirect(response)
-
-	const result = await detailLoader({
-		request: await requestFor(session, location),
-		...routeArgs('/recipes/:recipeId', { recipeId }),
-	})
-	expect(result.recipe).toEqual(
+	expect(await importUrl(session, sourceUrl)).toEqual(
 		expect.objectContaining({
 			activeTime: 25,
 			totalTime: 180,
@@ -404,19 +380,7 @@ test('URL import keeps missing Total and typed Yield unknown', async () => {
 		),
 	)
 
-	const result = (await importAction({
-		request: await requestFor(session, '/recipes/import', {
-			intent: 'fetch',
-			url: sourceUrl,
-		}),
-		...routeArgs('/recipes/import'),
-	})) as {
-		data?: { recipe: Record<string, unknown> }
-		recipe?: Record<string, unknown>
-	}
-	const payload = result.data ?? result
-
-	expect(payload.recipe).toEqual(
+	expect(await importUrl(session, sourceUrl)).toEqual(
 		expect.objectContaining({
 			activeTime: 10,
 			totalTime: null,
@@ -446,19 +410,7 @@ test('URL import keeps range yield text unknown', async () => {
 		),
 	)
 
-	const result = (await importAction({
-		request: await requestFor(session, '/recipes/import', {
-			intent: 'fetch',
-			url: sourceUrl,
-		}),
-		...routeArgs('/recipes/import'),
-	})) as {
-		data?: { recipe: Record<string, unknown> }
-		recipe?: Record<string, unknown>
-	}
-	const payload = result.data ?? result
-
-	expect(payload.recipe).toEqual(
+	expect(await importUrl(session, sourceUrl)).toEqual(
 		expect.objectContaining({ yieldAmount: null, yieldLabel: null }),
 	)
 })

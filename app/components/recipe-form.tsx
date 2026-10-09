@@ -107,24 +107,27 @@ export function RecipeForm({
 	const formId = useId()
 	const isEditing = !!recipe
 
+	// An import can save a Recipe without ingredients or steps; editing it
+	// starts with one empty row to fill, as a new Recipe does.
 	const [ingredients, setIngredients] = useState<IngredientFieldValue[]>(
-		recipe?.ingredients?.map((i) => ({
-			id: i.id,
-			name: i.name,
-			amount: i.amount ?? '',
-			unit: i.unit ?? '',
-			notes: i.notes ?? '',
-			isHeading: i.isHeading ?? false,
-			linkedRecipeId: i.linkedRecipeId ?? undefined,
-			linkedRecipeTitle: i.linkedRecipeTitle ?? undefined,
-		})) ?? [{ name: '', amount: '', unit: '', notes: '' }],
+		recipe?.ingredients?.length
+			? recipe.ingredients.map((i) => ({
+					id: i.id,
+					name: i.name,
+					amount: i.amount ?? '',
+					unit: i.unit ?? '',
+					notes: i.notes ?? '',
+					isHeading: i.isHeading ?? false,
+					linkedRecipeId: i.linkedRecipeId ?? undefined,
+					linkedRecipeTitle: i.linkedRecipeTitle ?? undefined,
+				}))
+			: [{ name: '', amount: '', unit: '', notes: '' }],
 	)
 
 	const [instructions, setInstructions] = useState<InstructionFieldValue[]>(
-		recipe?.instructions?.map((i) => ({
-			id: i.id,
-			content: i.content,
-		})) ?? [{ content: '' }],
+		recipe?.instructions?.length
+			? recipe.instructions.map((i) => ({ id: i.id, content: i.content }))
+			: [{ content: '' }],
 	)
 
 	const [imagePreview, setImagePreview] = useState<string | null>(

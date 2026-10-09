@@ -1,11 +1,10 @@
 import { type FileUpload } from '@mjackson/form-data-parser'
-import { data } from 'react-router'
 import { checkAndRecordAiUsage } from '#app/utils/ai-rate-limit.server.ts'
-import { prisma } from '#app/utils/db.server.ts'
 import {
-	type DuplicateMatch,
-	type ExtractedRecipe,
-} from '#app/utils/import-recipe-types.ts'
+	importFailure,
+	saveImportedRecipe,
+} from '#app/utils/import-recipe-save.server.ts'
+import { type ExtractedRecipe } from '#app/utils/import-recipe-types.ts'
 import { isNativeShell } from '#app/utils/native-shell.server.ts'
 import { AI_FEATURE_USED } from '#app/utils/posthog-events.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
@@ -122,7 +121,7 @@ function detectImageMediaType(buffer: ArrayBuffer): string | null {
 
 /**
  * The `extract-text` and `extract-image` intents: a Pro user's text or
- * screenshots, read by the AI extraction.
+ * screenshots, read by the AI extraction and saved.
  */
 export async function importWithAi(
 	formData: FormData,
@@ -142,59 +141,30 @@ export async function importWithAi(
 	},
 ) {
 	if (!isProActive) {
-		return data(
-			{
-				intent: intentKey,
-				// The iOS app shows no copy about Pro (ADR 0001).
-				error: isNativeShell(request)
-					? 'AI extraction is not available.'
-					: 'AI extraction requires a Pro subscription.',
-				recipe: null,
-				result: null,
-				duplicates: null,
-			},
-			{ status: 403 },
+		return importFailure(
+			intentKey,
+			// The iOS app shows no copy about Pro (ADR 0001).
+			isNativeShell(request)
+				? 'AI extraction is not available.'
+				: 'AI extraction requires a Pro subscription.',
+			403,
 		)
 	}
 
 	const rawText = (formData.get('rawText') as string) || ''
 
 	if (intentKey === 'extract-text' && !rawText.trim()) {
-		return data(
-			{
-				intent: intentKey,
-				error: 'Please paste some recipe text.',
-				recipe: null,
-				result: null,
-				duplicates: null,
-			},
-			{ status: 400 },
-		)
+		return importFailure(intentKey, 'Please paste some recipe text.')
 	}
 
 	if (intentKey === 'extract-image' && imageFiles.length === 0) {
-		return data(
-			{
-				intent: intentKey,
-				error: 'Please upload at least one image.',
-				recipe: null,
-				result: null,
-				duplicates: null,
-			},
-			{ status: 400 },
-		)
+		return importFailure(intentKey, 'Please upload at least one image.')
 	}
 
 	if (rawText.length > MAX_RAW_TEXT_LENGTH) {
-		return data(
-			{
-				intent: intentKey,
-				error: 'Text is too long. Please shorten it and try again.',
-				recipe: null,
-				result: null,
-				duplicates: null,
-			},
-			{ status: 400 },
+		return importFailure(
+			intentKey,
+			'Text is too long. Please shorten it and try again.',
 		)
 	}
 
@@ -204,15 +174,10 @@ export async function importWithAi(
 		DAILY_EXTRACT_LIMIT,
 	)
 	if (!allowed) {
-		return data(
-			{
-				intent: intentKey,
-				error: `You've reached the daily limit of ${DAILY_EXTRACT_LIMIT} AI extractions. Try again tomorrow!`,
-				recipe: null,
-				result: null,
-				duplicates: null,
-			},
-			{ status: 429 },
+		return importFailure(
+			intentKey,
+			`You've reached the daily limit of ${DAILY_EXTRACT_LIMIT} AI extractions. Try again tomorrow!`,
+			429,
 		)
 	}
 
@@ -230,16 +195,9 @@ export async function importWithAi(
 
 			// Re-check actual buffer size (stream-level check may use client-reported size)
 			if (buffer.byteLength > MAX_IMAGE_SIZE) {
-				return data(
-					{
-						intent: intentKey,
-						error:
-							'One or more images are too large. Maximum size is 5MB each.',
-						recipe: null,
-						result: null,
-						duplicates: null,
-					},
-					{ status: 400 },
+				return importFailure(
+					intentKey,
+					'One or more images are too large. Maximum size is 5MB each.',
 				)
 			}
 
@@ -251,16 +209,9 @@ export async function importWithAi(
 					detectedType as (typeof ALLOWED_IMAGE_MEDIA_TYPES)[number],
 				)
 			) {
-				return data(
-					{
-						intent: intentKey,
-						error:
-							'Invalid image file. Please upload JPEG, PNG, or WebP images.',
-						recipe: null,
-						result: null,
-						duplicates: null,
-					},
-					{ status: 400 },
+				return importFailure(
+					intentKey,
+					'Invalid image file. Please upload JPEG, PNG, or WebP images.',
 				)
 			}
 
@@ -280,16 +231,7 @@ export async function importWithAi(
 	}
 
 	if ('error' in llmResult) {
-		return data(
-			{
-				intent: intentKey,
-				error: llmResult.error,
-				recipe: null,
-				result: null,
-				duplicates: null,
-			},
-			{ status: 422 },
-		)
+		return importFailure(intentKey, llmResult.error, 422)
 	}
 
 	const recipe: ExtractedRecipe = {
@@ -316,19 +258,6 @@ export async function importWithAi(
 		instructions: llmResult.instructions,
 	}
 
-	// Check for duplicates
-	const duplicates: DuplicateMatch[] = []
-	const titleMatches = await prisma.recipe.findMany({
-		where: {
-			householdId,
-			title: { equals: recipe.title },
-		},
-		select: { id: true, title: true, sourceUrl: true },
-	})
-	for (const match of titleMatches) {
-		duplicates.push({ ...match, matchReason: 'similar-title' })
-	}
-
 	captureServerEvent(userId, AI_FEATURE_USED, {
 		feature: 'recipe_extract',
 		source: intentKey === 'extract-image' ? 'image' : 'text',
@@ -340,11 +269,5 @@ export async function importWithAi(
 		duration_ms: durationMs,
 	})
 
-	return data({
-		intent: intentKey,
-		recipe,
-		error: null,
-		result: null,
-		duplicates: duplicates.length > 0 ? duplicates : null,
-	})
+	return saveImportedRecipe(recipe, intentKey, { userId, householdId })
 }

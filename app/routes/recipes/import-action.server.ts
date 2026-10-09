@@ -3,8 +3,7 @@ import {
 	parseFormData,
 	type FileUpload,
 } from '@mjackson/form-data-parser'
-import { data } from 'react-router'
-import { saveImportedRecipe } from '#app/utils/import-recipe-save.server.ts'
+import { importFailure } from '#app/utils/import-recipe-save.server.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import {
 	ACCEPTED_IMAGE_TYPES,
@@ -15,7 +14,10 @@ import {
 import { importFromUrl } from './import-fetch.server.ts'
 import { importFromText } from './import-parse-text.server.ts'
 
-/** Reads the import form, with any screenshots, and hands it to its intent. */
+/**
+ * Reads the import form, with any screenshots, and hands it to its intent.
+ * Every intent saves what it read and opens the new Recipe.
+ */
 export async function importAction(request: Request) {
 	const { userId, householdId, isProActive } =
 		await requireUserWithTier(request)
@@ -42,15 +44,9 @@ export async function importAction(request: Request) {
 			)
 		} catch (error) {
 			if (!(error instanceof MaxFileSizeExceededError)) throw error
-			return data(
-				{
-					intent: 'extract-image' as const,
-					error: 'One or more images are too large. Maximum size is 5MB each.',
-					recipe: null,
-					result: null,
-					duplicates: null,
-				},
-				{ status: 400 },
+			return importFailure(
+				'extract-image',
+				'One or more images are too large. Maximum size is 5MB each.',
 			)
 		}
 	} else {
@@ -60,11 +56,11 @@ export async function importAction(request: Request) {
 	const intent = formData.get('intent')
 
 	if (intent === 'fetch') {
-		return importFromUrl(formData, { householdId })
+		return importFromUrl(formData, { userId, householdId })
 	}
 
 	if (intent === 'parse-text') {
-		return importFromText(formData, { householdId })
+		return importFromText(formData, { userId, householdId })
 	}
 
 	if (intent === 'extract-text' || intent === 'extract-image') {
@@ -77,18 +73,5 @@ export async function importAction(request: Request) {
 		})
 	}
 
-	if (intent === 'save') {
-		return saveImportedRecipe(formData, { userId, householdId })
-	}
-
-	return data(
-		{
-			intent: null,
-			error: 'Invalid action',
-			recipe: null,
-			result: null,
-			duplicates: null,
-		},
-		{ status: 400 },
-	)
+	return importFailure(null, 'Invalid action')
 }

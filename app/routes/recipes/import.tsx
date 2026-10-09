@@ -1,24 +1,15 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useEffect, useRef, useState } from 'react'
-import {
-	Form,
-	Link,
-	useActionData,
-	useNavigation,
-	useSubmit,
-} from 'react-router'
-import { ImportRecipeReview } from '#app/components/import-recipe-review.tsx'
+import { useState } from 'react'
+import { Form, Link, useActionData, useNavigation } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { Label } from '#app/components/ui/label.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
-import { type ExtractedRecipe } from '#app/utils/import-recipe-types.ts'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import { importUrlFromSearch } from '#app/utils/import-url.ts'
-import { recipeMetadataOptions } from '#app/utils/recipe-metadata.server.ts'
 import { MAX_IMPORT_IMAGE_SIZE } from '#app/utils/recipe-validation.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
@@ -35,11 +26,45 @@ export const meta: Route.MetaFunction = () => {
 type ImportTab = 'url' | 'text' | 'image'
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { householdId, isProActive } = await requireUserWithTier(request)
+	const { isProActive } = await requireUserWithTier(request)
 	return {
 		isProActive,
-		metadataOptions: await recipeMetadataOptions(householdId),
 		sharedUrl: importUrlFromSearch(new URL(request.url).search),
+	}
+}
+
+// Not URL.canParse: this runs in the browser, and Safari before 17 lacks it.
+function hostOf(url: string | null) {
+	try {
+		return url ? new URL(url).hostname.replace(/^www\./, '') : null
+	} catch {
+		return null
+	}
+}
+
+/** What the page says while an import reads its source and saves it. */
+function importProgress(intent: string, url: string | null) {
+	const host = hostOf(url)
+	switch (intent) {
+		case 'fetch':
+			return {
+				title: host ? `Importing from ${host}…` : 'Importing the page…',
+				hint: null,
+			}
+		case 'parse-text':
+			return { title: 'Reading your text…', hint: null }
+		case 'extract-text':
+			return {
+				title: 'Reading your text with AI…',
+				hint: 'This can take a little while.',
+			}
+		case 'extract-image':
+			return {
+				title: 'Reading your screenshots…',
+				hint: 'This can take a little while.',
+			}
+		default:
+			return null
 	}
 }
 
@@ -51,38 +76,23 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	const { isProActive, sharedUrl } = loaderData
 	const actionData = useActionData<typeof action>()
 	const navigation = useNavigation()
-	const submit = useSubmit()
-	const autoFetched = useRef(false)
-
-	// A share sheet opens this page with ?url=…, so fetch that page once. The
-	// fetch posts to the bare path and replaces this history entry, so the
-	// address no longer carries the URL: going back to the import page, or
-	// reloading it, shows an empty form instead of fetching again. The ref
-	// stops a second effect run in the same visit from posting twice.
-	useEffect(() => {
-		if (!sharedUrl || autoFetched.current) return
-		autoFetched.current = true
-		void submit(
-			{ intent: 'fetch', url: sharedUrl },
-			{ method: 'POST', action: '/recipes/import', replace: true },
-		)
-	}, [sharedUrl, submit])
 
 	const isSubmitting = navigation.state !== 'idle'
-	const submittingIntent =
-		isSubmitting && navigation.formData
-			? navigation.formData.get('intent')
+	// An import's submission, until the Recipe it saved has loaded.
+	const progress =
+		navigation.formAction?.split('?')[0] === '/recipes/import' &&
+		navigation.formData
+			? importProgress(
+					String(navigation.formData.get('intent')),
+					navigation.formData.get('url') as string | null,
+				)
 			: null
+	const submittingIntent = navigation.formData?.get('intent') ?? null
 
-	const [review, setReview] = useState<ExtractedRecipe | null>(null)
-	if (!review && actionData?.recipe) setReview(actionData.recipe)
-	const recipe = review
-	const error = actionData && 'error' in actionData ? actionData.error : null
-	const actionIntent =
-		actionData && 'intent' in actionData ? actionData.intent : null
-	const duplicates =
-		actionData && 'duplicates' in actionData ? actionData.duplicates : null
-	const hasRecipe = recipe !== null
+	const error = actionData?.error ?? null
+	const actionIntent = actionData?.intent ?? null
+	const existing = actionData?.existing ?? null
+	const offerShared = sharedUrl !== null && !actionData && progress === null
 
 	const urlError = error && actionIntent === 'fetch' ? error : null
 	const textError =
@@ -114,11 +124,74 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 			<p className="text-muted-foreground mb-6">
 				{hideAi
 					? 'Paste a Recipe URL or its text.'
-					: 'Paste a Recipe URL or its text, or upload screenshots.'}
+					: 'Paste a Recipe URL or its text, or upload screenshots.'}{' '}
+				Quartermaster saves it to your Recipes, ready to edit.
 			</p>
 
-			{/* Input forms */}
-			<fieldset hidden={hasRecipe} disabled={isSubmitting}>
+			{progress ? (
+				<div
+					role="status"
+					className="flex flex-col items-center gap-2 py-16 text-center"
+				>
+					<Icon
+						name="update"
+						className="text-muted-foreground mb-2 size-6 animate-spin"
+					/>
+					<p className="font-serif text-lg">{progress.title}</p>
+					{progress.hint ? (
+						<p className="text-muted-foreground text-sm">{progress.hint}</p>
+					) : null}
+					<p className="text-muted-foreground text-sm">
+						It opens as soon as it’s saved.
+					</p>
+				</div>
+			) : null}
+
+			{/* A share sheet opens this page with ?url=…. An import saves, and any
+			    site can link here, so the link waits for a tap; it is never
+			    fetched on load. The tap posts to the bare path and replaces this
+			    history entry, so Back or a reload never offers it again. */}
+			{offerShared ? (
+				<div className="bg-muted/40 mb-6 rounded-lg p-4">
+					<h2 className="font-medium">Import this Recipe?</h2>
+					<p className="text-muted-foreground mt-1 text-sm wrap-anywhere">
+						{sharedUrl}
+					</p>
+					<div className="mt-3 flex flex-wrap gap-2">
+						<Form method="POST" action="/recipes/import" replace>
+							<input type="hidden" name="intent" value="fetch" />
+							<input type="hidden" name="url" value={sharedUrl} />
+							<Button type="submit" size="sm" className="min-h-11 px-4">
+								Import
+							</Button>
+						</Form>
+						<Button asChild size="sm" variant="ghost" className="min-h-11">
+							<Link to="/recipes/import" replace>
+								Use another link
+							</Link>
+						</Button>
+					</div>
+				</div>
+			) : null}
+
+			{existing && !progress ? (
+				<div role="status" className="bg-muted/40 mb-6 rounded-lg p-4">
+					<p className="font-medium">Already in your Recipes</p>
+					<p className="text-muted-foreground mt-1 text-sm wrap-anywhere">
+						You imported this link before as “{existing.title}”.
+					</p>
+					<Button asChild size="sm" className="mt-3 min-h-11 px-4">
+						<Link to={`/recipes/${existing.id}`}>Open it</Link>
+					</Button>
+				</div>
+			) : null}
+
+			{/* Input forms stay mounted while an import runs, so a failed one
+			    comes back with everything that was typed or picked. */}
+			<fieldset
+				hidden={progress !== null || offerShared}
+				disabled={isSubmitting}
+			>
 				{/* Tab bar */}
 				<div className="mb-6 flex gap-1 rounded-lg border p-1">
 					<button
@@ -333,55 +406,6 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					</Form>
 				)}
 			</fieldset>
-
-			{/* Preview & Save */}
-			{hasRecipe && (
-				<div className="space-y-6">
-					{duplicates && duplicates.length > 0 && (
-						<div className="rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950/50">
-							<div className="flex items-start gap-3">
-								<Icon
-									name="question-mark-circled"
-									className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
-								/>
-								<div className="space-y-2">
-									<p className="font-medium text-amber-800 dark:text-amber-200">
-										You may already have this recipe
-									</p>
-									<ul className="space-y-1 text-sm text-amber-700 dark:text-amber-300">
-										{duplicates.map((dup) => (
-											<li key={dup.id}>
-												<Link
-													to={`/recipes/${dup.id}`}
-													target="_blank"
-													className="underline hover:no-underline"
-												>
-													{dup.title}
-												</Link>{' '}
-												<span className="text-amber-600 dark:text-amber-400">
-													(
-													{dup.matchReason === 'same-url'
-														? 'same URL'
-														: 'same title'}
-													)
-												</span>
-											</li>
-										))}
-									</ul>
-									<p className="text-sm text-amber-600 dark:text-amber-400">
-										You can still save this recipe if you'd like a second copy.
-									</p>
-								</div>
-							</div>
-						</div>
-					)}
-
-					<ImportRecipeReview
-						recipe={recipe!}
-						metadataOptions={loaderData.metadataOptions}
-					/>
-				</div>
-			)}
 		</div>
 	)
 }

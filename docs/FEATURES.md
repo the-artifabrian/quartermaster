@@ -15,15 +15,19 @@ plan into Shopping.
 - Import one Recipe from a URL, pasted text, or screenshots; write a Recipe
   manually when needed. Quick Entry and the legacy text/file bulk importer have
   been removed. Household and Recipe JSON recovery remain available.
-- Imports open a readable overview with Save Recipe and optional Edit. Correct
-  titles, ingredients, steps and supplied time/yield before saving when needed.
-  Failed saves retain the active review; leaving or reloading Import does not
-  yet restore it.
+- An import saves the Recipe at once and opens it. A notice on the Recipe says
+  where it came from, which of ingredients or instructions it could not find,
+  and what it shortened to fit, with Edit, Import another and Undo. Text over a
+  limit moves to the field beside it when that keeps it whole (a long
+  description into Notes); anything still too long is cut at a word. Pasted text
+  with neither ingredients nor instructions saves nothing.
+- Importing a URL the Household already has opens nothing new; Import points at
+  the saved Recipe instead.
 - Imported Recipes retain pasted input or available extracted structure for
-  recovery, without displaying it in import editing, saved editing or reading.
-  Useful source URL access remains. Both JSON exports include retained source
-  and older exports remain accepted. Anonymous sharing omits raw source;
-  authenticated Save to my Recipes includes it in the copied Recipe.
+  recovery, without displaying it in editing or reading. Useful source URL
+  access remains. Both JSON exports include retained source and older exports
+  remain accepted. Anonymous sharing omits raw source; authenticated Save to my
+  Recipes includes it in the copied Recipe.
 - Scale ingredient display, switch units, print, and keep personal notes.
 - Cook with ingredient/step check-off, glanceable duration and temperature cues,
   wake lock, and local progress. Checks resume on this browser for up to seven
@@ -136,7 +140,8 @@ plan into Shopping.
 - A small Swift shell that loads the Web app, distributed through TestFlight
   only. A deploy reaches it at once.
 - Share-sheet import: a Recipe link shared from Safari, Messages, or a site's
-  share button opens Import with the fetch running.
+  share button opens Import with the link ready; one tap imports and saves it.
+  Opening the link alone saves nothing, since any site can link there.
 - Home Screen quick actions for Shopping and Import recipe, pull to refresh,
   haptics, reopening the last page on a cold start, and a native offline view
   with Retry.

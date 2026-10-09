@@ -26,6 +26,7 @@ import {
 } from '#app/utils/recipe-validation.ts'
 import { deleteRecipeImageUnlessShared } from '#app/utils/recipe-image.server.ts'
 import { assertLinkedRecipesInHousehold } from '#app/utils/recipe-links.server.ts'
+import { redirectWithToast } from '#app/utils/toast.server.ts'
 import {
 	deleteRecipeImage,
 	uploadRecipeImage,
@@ -155,7 +156,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		// it; the row itself goes with the Recipe.
 		const recipeWithImage = await prisma.recipe.findUnique({
 			where: { id: recipeId },
-			select: { image: { select: { objectKey: true } } },
+			select: { title: true, image: { select: { objectKey: true } } },
 		})
 
 		if (recipeWithImage?.image?.objectKey) {
@@ -170,6 +171,13 @@ export async function action({ request, params }: Route.ActionArgs) {
 		}
 
 		await prisma.recipe.delete({ where: { id: recipeId } })
+		// Undo on a just-imported Recipe goes back to Import to try again.
+		if (formData.get('undo') === 'import') {
+			return redirectWithToast('/recipes/import', {
+				type: 'success',
+				description: `Removed ${recipeWithImage?.title ?? 'the Recipe'}`,
+			})
+		}
 		return redirect('/recipes')
 	}
 

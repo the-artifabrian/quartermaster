@@ -140,7 +140,8 @@ plan into Shopping.
 - A small Swift shell that loads the Web app, distributed through TestFlight
   only. A deploy reaches it at once.
 - Share-sheet import: a Recipe link shared from Safari, Messages, or a site's
-  share button opens Import with the fetch running.
+  share button opens Import with the link ready; one tap imports and saves it.
+  Opening the link alone saves nothing, since any site can link there.
 - Home Screen quick actions for Shopping and Import recipe, pull to refresh,
   haptics, reopening the last page on a cold start, and a native offline view
   with Retry.

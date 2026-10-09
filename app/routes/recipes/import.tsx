@@ -1,12 +1,6 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useEffect, useRef, useState } from 'react'
-import {
-	Form,
-	Link,
-	useActionData,
-	useNavigation,
-	useSubmit,
-} from 'react-router'
+import { useState } from 'react'
+import { Form, Link, useActionData, useNavigation } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -82,22 +76,6 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	const { isProActive, sharedUrl } = loaderData
 	const actionData = useActionData<typeof action>()
 	const navigation = useNavigation()
-	const submit = useSubmit()
-	const autoFetched = useRef(false)
-
-	// A share sheet opens this page with ?url=…, so fetch that page once. The
-	// fetch posts to the bare path and replaces this history entry, so the
-	// address no longer carries the URL: going back to the import page, or
-	// reloading it, shows an empty form instead of fetching again. The ref
-	// stops a second effect run in the same visit from posting twice.
-	useEffect(() => {
-		if (!sharedUrl || autoFetched.current) return
-		autoFetched.current = true
-		void submit(
-			{ intent: 'fetch', url: sharedUrl },
-			{ method: 'POST', action: '/recipes/import', replace: true },
-		)
-	}, [sharedUrl, submit])
 
 	const isSubmitting = navigation.state !== 'idle'
 	// An import's submission, until the Recipe it saved has loaded.
@@ -114,6 +92,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	const error = actionData?.error ?? null
 	const actionIntent = actionData?.intent ?? null
 	const existing = actionData?.existing ?? null
+	const offerShared = sharedUrl !== null && !actionData && progress === null
 
 	const urlError = error && actionIntent === 'fetch' ? error : null
 	const textError =
@@ -168,13 +147,40 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				</div>
 			) : null}
 
+			{/* A share sheet opens this page with ?url=…. An import saves, and any
+			    site can link here, so the link waits for a tap; it is never
+			    fetched on load. The tap posts to the bare path and replaces this
+			    history entry, so Back or a reload never offers it again. */}
+			{offerShared ? (
+				<div className="bg-muted/40 mb-6 rounded-lg p-4">
+					<h2 className="font-medium">Import this Recipe?</h2>
+					<p className="text-muted-foreground mt-1 text-sm wrap-anywhere">
+						{sharedUrl}
+					</p>
+					<div className="mt-3 flex flex-wrap gap-2">
+						<Form method="POST" action="/recipes/import" replace>
+							<input type="hidden" name="intent" value="fetch" />
+							<input type="hidden" name="url" value={sharedUrl} />
+							<Button type="submit" size="sm" className="min-h-11 px-4">
+								Import
+							</Button>
+						</Form>
+						<Button asChild size="sm" variant="ghost" className="min-h-11">
+							<Link to="/recipes/import" replace>
+								Use another link
+							</Link>
+						</Button>
+					</div>
+				</div>
+			) : null}
+
 			{existing && !progress ? (
 				<div role="status" className="bg-muted/40 mb-6 rounded-lg p-4">
 					<p className="font-medium">Already in your Recipes</p>
 					<p className="text-muted-foreground mt-1 text-sm wrap-anywhere">
 						You imported this link before as “{existing.title}”.
 					</p>
-					<Button asChild size="sm" className="mt-3">
+					<Button asChild size="sm" className="mt-3 min-h-11 px-4">
 						<Link to={`/recipes/${existing.id}`}>Open it</Link>
 					</Button>
 				</div>
@@ -182,7 +188,10 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 
 			{/* Input forms stay mounted while an import runs, so a failed one
 			    comes back with everything that was typed or picked. */}
-			<fieldset hidden={progress !== null} disabled={isSubmitting}>
+			<fieldset
+				hidden={progress !== null || offerShared}
+				disabled={isSubmitting}
+			>
 				{/* Tab bar */}
 				<div className="mb-6 flex gap-1 rounded-lg border p-1">
 					<button

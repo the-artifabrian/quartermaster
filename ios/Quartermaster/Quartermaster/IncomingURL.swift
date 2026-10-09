@@ -4,8 +4,8 @@ import Foundation
 ///
 /// Two kinds arrive:
 /// - `quartermaster://import?url=<percent-encoded http(s) URL>`, from the
-///   Share Extension, opens the Recipe import page with that URL, which starts
-///   the fetch.
+///   Share Extension, opens the Recipe import page with that URL, ready to
+///   import with one tap.
 /// - A universal link (`https://useqm.app/…`) loads as it is.
 ///
 /// Anything else gives nil and is ignored.

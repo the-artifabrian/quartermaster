@@ -22,7 +22,16 @@ function countFetches(page: Page) {
 	return count
 }
 
-test('a shared URL saves once and opens the Recipe; back skips the import, and a second share points at the saved Recipe', async ({
+async function importSharedLink(page: Page, url: string) {
+	await page.goto(importPage(url))
+	await expect(
+		page.getByRole('heading', { name: 'Import this Recipe?' }),
+	).toBeVisible()
+	await expect(page.getByText(url, { exact: true })).toBeVisible()
+	await page.getByRole('button', { name: 'Import', exact: true }).click()
+}
+
+test('a shared URL waits for a tap, saves once and opens the Recipe; back skips the import, and a second share points at the saved Recipe', async ({
 	page,
 	login,
 }) => {
@@ -30,7 +39,15 @@ test('a shared URL saves once and opens the Recipe; back skips the import, and a
 	const count = countFetches(page)
 
 	await page.goto('/recipes')
+	// Any site can link here, so opening the link saves nothing by itself.
 	await page.goto(importPage(sharedUrl))
+	await expect(
+		page.getByRole('heading', { name: 'Import this Recipe?' }),
+	).toBeVisible()
+	await expect(page.getByLabel('Recipe URL', { exact: true })).toBeHidden()
+	expect(count.fetches).toBe(0)
+	expect(await prisma.recipe.count({ where: { userId: user.id } })).toBe(0)
+	await page.getByRole('button', { name: 'Import', exact: true }).click()
 	await expect(page).toHaveURL(/\/recipes\/(?!import)[a-z0-9]+\?imported=url$/)
 	await expect(
 		page.getByRole('heading', { name: 'Shared chickpea lunch', level: 1 }),
@@ -58,13 +75,13 @@ test('a shared URL saves once and opens the Recipe; back skips the import, and a
 		],
 	})
 
-	// The fetch replaced the shared entry and the save replaced Import, so
+	// The tap replaced the shared link's entry and the save replaced Import, so
 	// back skips both.
 	await page.goBack()
 	await expect(page).toHaveURL(/\/recipes$/)
 	expect(count.fetches).toBe(1)
 
-	await page.goto(importPage(sharedUrl))
+	await importSharedLink(page, sharedUrl)
 	await expect(page.getByText('Already in your Recipes')).toBeVisible()
 	await expect(
 		page.getByText('You imported this link before as “Shared chickpea lunch”.'),
@@ -82,7 +99,7 @@ test('a shared URL that fails to fetch stays on the filled URL tab', async ({
 }) => {
 	const user = await login()
 	const count = countFetches(page)
-	await page.goto(importPage(E2E_MISSING_URL))
+	await importSharedLink(page, E2E_MISSING_URL)
 	await expect(page.getByText('Failed to fetch URL (404)')).toBeVisible()
 	await expect(page.getByLabel('Recipe URL', { exact: true })).toHaveValue(
 		E2E_MISSING_URL,

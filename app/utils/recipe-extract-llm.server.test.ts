@@ -42,16 +42,16 @@ vi.mock('sharp', () => ({
 
 import {
 	MAX_RAW_TEXT_LENGTH,
-	MAX_RECIPE_DESCRIPTION_LENGTH,
 	MAX_RECIPE_INGREDIENTS,
 	MAX_RECIPE_INSTRUCTIONS,
 	MAX_RECIPE_NOTES_LENGTH,
 	MAX_RECIPE_TITLE_LENGTH,
-	RecipeDescriptionSchema,
-	RecipeNotesSchema,
-	RecipeTitleSchema,
 } from './recipe-validation.ts'
-import { CANONICAL_COUNT_UNITS, CANONICAL_UNITS } from './unit-conversion.ts'
+import { isRangeAmount, parseAmount } from './fractions.ts'
+import { isOptionalIngredient } from './recipe-matching.server.ts'
+import { detectTemperatures } from './temperature-detection.ts'
+import { detectTimes } from './time-detection.ts'
+import { CANONICAL_UNITS } from './unit-conversion.ts'
 import {
 	buildExtractPrompt,
 	parseExtractResponse,
@@ -117,8 +117,7 @@ function recipeBranch(body: string): SchemaBranch {
 describe('buildExtractPrompt', () => {
 	test('includes raw text in output for text mode', () => {
 		const prompt = buildExtractPrompt('text', 'My recipe caption here')
-		expect(prompt).toContain('My recipe caption here')
-		expect(prompt).toContain('---')
+		expect(prompt).toContain('<source>\nMy recipe caption here\n</source>')
 	})
 
 	test('carries the whole paste the box accepts, and truncates beyond it', () => {
@@ -132,20 +131,16 @@ describe('buildExtractPrompt', () => {
 
 	test('works for image mode', () => {
 		const prompt = buildExtractPrompt('image')
-		expect(prompt).toContain(
-			'Extract a structured recipe from the provided image(s)',
-		)
-		expect(prompt).not.toContain('---')
+		expect(prompt).toContain('Extract the recipe from the provided image(s)')
+		expect(prompt).not.toContain('<source>')
 	})
 
 	test('names every canonical unit consolidation understands', () => {
 		const prompt = buildExtractPrompt('text', 'some text')
-		// The joined lists, not each unit on its own: "l" and "g" would match
+		// The joined list, not each unit on its own: "l" and "g" would match
 		// anywhere in the prose and prove nothing.
 		expect(prompt).toContain(CANONICAL_UNITS.join(', '))
-		expect(prompt).toContain(CANONICAL_COUNT_UNITS.join(', '))
 		expect(CANONICAL_UNITS).toContain('tbsp')
-		expect(CANONICAL_COUNT_UNITS).toContain('each')
 		// The canonical list replaces the old "never use 'unit' as a unit" patch.
 		expect(prompt).not.toContain('Never use "unit" as a unit')
 		expect(prompt).toContain('linguri')
@@ -157,8 +152,26 @@ describe('buildExtractPrompt', () => {
 		expect(prompt).toContain('1.5')
 		expect(prompt).toContain('never "1,5"')
 		expect(prompt).toContain('1 1/2')
-		// "1 to 2" parses as 1, so the range has to survive in notes.
-		expect(prompt).toContain('lower bound')
+		// A range is an amount the app scales end by end and keeps whole on
+		// Shopping, so the prompt asks for the form the range reader accepts.
+		for (const range of ['"2-3"', '"1/2-1"']) {
+			expect(prompt).toContain(range)
+			expect(isRangeAmount(JSON.parse(range) as string)).toBe(true)
+		}
+		expect(parseAmount('1 1/2')).toBe(1.5)
+	})
+
+	test('asks for steps and ingredient notes in the forms the Recipe page and Shopping read', () => {
+		const prompt = buildExtractPrompt('text', 'some text')
+		// Step timers and temperature conversions come from these detectors.
+		expect(prompt).toContain('"10 minutes", "180°C", "350°F"')
+		expect(detectTimes('Simmer for 10 minutes.')).toHaveLength(1)
+		for (const temperature of ['180°C', '350°F']) {
+			expect(detectTemperatures(`Bake at ${temperature}.`)).toHaveLength(1)
+		}
+		// Shopping leaves out an ingredient whose notes say it is optional.
+		expect(prompt).toContain('Put "optional" in the notes')
+		expect(isOptionalIngredient({ notes: 'optional' })).toBe(true)
 	})
 
 	test('states the caps the save path enforces', () => {
@@ -242,14 +255,34 @@ describe('parseExtractResponse', () => {
 		expect(parseExtractResponse(JSON.stringify(noTitle))).toBeNull()
 	})
 
-	test('returns null for no ingredients', () => {
-		const noIngs = { ...validResponse, ingredients: [] }
-		expect(parseExtractResponse(JSON.stringify(noIngs))).toBeNull()
+	// A caption with only its ingredients ("method in the video") is a Recipe
+	// the save keeps and the Recipe page asks the cook to finish, as for every
+	// other import. Refusing it here pushed the model to invent the steps.
+	test('keeps ingredients without steps, and steps without ingredients', () => {
+		expect(
+			parseExtractResponse(
+				JSON.stringify({ ...validResponse, instructions: [] }),
+			),
+		).toMatchObject({
+			ingredients: validResponse.ingredients,
+			instructions: [],
+		})
+		expect(
+			parseExtractResponse(
+				JSON.stringify({ ...validResponse, ingredients: [] }),
+			),
+		).toMatchObject({
+			ingredients: [],
+			instructions: validResponse.instructions,
+		})
 	})
 
-	test('returns null for no instructions', () => {
-		const noInsts = { ...validResponse, instructions: [] }
-		expect(parseExtractResponse(JSON.stringify(noInsts))).toBeNull()
+	test('returns null with neither ingredients nor steps', () => {
+		expect(
+			parseExtractResponse(
+				JSON.stringify({ ...validResponse, ingredients: [], instructions: [] }),
+			),
+		).toBeNull()
 	})
 
 	test('returns null for invalid JSON', () => {
@@ -278,28 +311,6 @@ describe('parseExtractResponse', () => {
 		const result = parseExtractResponse(JSON.stringify(manyRows))
 		expect(result!.ingredients).toHaveLength(60)
 		expect(result!.instructions).toHaveLength(40)
-	})
-
-	test('caps rows at the form limits', () => {
-		const tooManyRows = {
-			...validResponse,
-			ingredients: Array.from(
-				{ length: MAX_RECIPE_INGREDIENTS + 20 },
-				(_, i) => ({
-					name: `ingredient-${i}`,
-					amount: '1',
-					unit: 'cup',
-					notes: null,
-				}),
-			),
-			instructions: Array.from(
-				{ length: MAX_RECIPE_INSTRUCTIONS + 20 },
-				(_, i) => ({ content: `Step ${i + 1}` }),
-			),
-		}
-		const result = parseExtractResponse(JSON.stringify(tooManyRows))
-		expect(result!.ingredients).toHaveLength(MAX_RECIPE_INGREDIENTS)
-		expect(result!.instructions).toHaveLength(MAX_RECIPE_INSTRUCTIONS)
 	})
 
 	test('keeps incomplete yield metadata unknown', () => {
@@ -338,23 +349,7 @@ describe('parseExtractResponse', () => {
 		expect(result!.description).toBeNull()
 	})
 
-	test('truncates title and description to what a save accepts', () => {
-		const overlong = {
-			...validResponse,
-			title: 'A'.repeat(500),
-			description: 'B'.repeat(5000),
-		}
-		const result = parseExtractResponse(JSON.stringify(overlong))
-		expect(result!.title).toHaveLength(MAX_RECIPE_TITLE_LENGTH)
-		expect(result!.description).toHaveLength(MAX_RECIPE_DESCRIPTION_LENGTH)
-		// An extraction must never reach the import save over a limit.
-		expect(RecipeTitleSchema.safeParse(result!.title).success).toBe(true)
-		expect(RecipeDescriptionSchema.safeParse(result!.description).success).toBe(
-			true,
-		)
-	})
-
-	test("keeps the cook's notes and caps them at the save limit", () => {
+	test("keeps the cook's notes", () => {
 		const withNotes = {
 			...validResponse,
 			notes: 'Swap the cream for coconut milk. Keeps three days, covered.',
@@ -362,11 +357,6 @@ describe('parseExtractResponse', () => {
 		expect(parseExtractResponse(JSON.stringify(withNotes))!.notes).toBe(
 			'Swap the cream for coconut milk. Keeps three days, covered.',
 		)
-
-		const longNotes = { ...validResponse, notes: 'N'.repeat(5000) }
-		const capped = parseExtractResponse(JSON.stringify(longNotes))!.notes
-		expect(capped).toHaveLength(MAX_RECIPE_NOTES_LENGTH)
-		expect(RecipeNotesSchema.safeParse(capped).success).toBe(true)
 	})
 
 	test('returns null notes when the source has no tips', () => {
@@ -403,34 +393,6 @@ describe('parseExtractResponse', () => {
 			activeTime: 30,
 			totalTime: 30,
 		})
-	})
-
-	test('truncates overlong ingredient fields', () => {
-		const longIng = {
-			...validResponse,
-			ingredients: [
-				{
-					name: 'N'.repeat(500),
-					amount: '9'.repeat(100),
-					unit: 'U'.repeat(100),
-					notes: 'X'.repeat(1000),
-				},
-			],
-		}
-		const result = parseExtractResponse(JSON.stringify(longIng))
-		expect(result!.ingredients[0]!.name).toHaveLength(200)
-		expect(result!.ingredients[0]!.amount).toHaveLength(20)
-		expect(result!.ingredients[0]!.unit).toHaveLength(30)
-		expect(result!.ingredients[0]!.notes).toHaveLength(500)
-	})
-
-	test('truncates overlong instruction content', () => {
-		const longInst = {
-			...validResponse,
-			instructions: [{ content: 'S'.repeat(10_000) }],
-		}
-		const result = parseExtractResponse(JSON.stringify(longInst))
-		expect(result!.instructions[0]!.content).toHaveLength(5000)
 	})
 
 	test('preserves heading rows and marks them isHeading: true', () => {
@@ -475,9 +437,10 @@ describe('parseExtractResponse', () => {
 		}
 	})
 
-	test('returns null when response has only heading rows', () => {
+	test('returns null when response has only heading rows and no steps', () => {
 		const headingsOnly = {
 			...validResponse,
+			instructions: [],
 			ingredients: [
 				{
 					name: 'Pie Dough',

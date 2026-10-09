@@ -22,6 +22,10 @@ plan into Shopping.
   description into Notes); anything still too long is cut at a word. An import
   with neither ingredients nor instructions saves nothing. The notice shows
   once: a reload, Back, or reopening the app does not bring it back.
+- Extract with AI (Pro) transcribes: it adds no ingredient, amount, step or time
+  the source does not give, and keeps ranges ("1-2 tsp") and measure words ("3
+  cloves", "1 pinch") as the amount and unit, as the other imports do. A caption
+  with only its ingredients saves without steps.
 - Importing a URL the Household already has opens nothing new; Import points at
   the saved Recipe instead, before any tap when the link was shared.
 - Imported Recipes retain pasted input or available extracted structure for

@@ -9,6 +9,7 @@ import { createUser } from '#tests/db-utils.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { ACCEPT_ENCODING } from '#app/utils/bounded-body.server.ts'
+import { MAX_RECIPE_TITLE_LENGTH } from '#app/utils/recipe-validation.ts'
 import { action as importAction, loader as importLoader } from './import.tsx'
 import { loader as detailLoader } from './$recipeId.tsx'
 import { action as editAction } from './$recipeId_.edit.tsx'
@@ -835,6 +836,143 @@ test('AI suggestions the household can name are saved as the classification; oth
 			'Italian',
 			'Summer',
 		])
+	} finally {
+		if (oldKey === undefined) delete process.env.ANTHROPIC_API_KEY
+		else process.env.ANTHROPIC_API_KEY = oldKey
+	}
+})
+
+test('an AI import with only ingredients saves and leaves the steps to the cook; one with nothing to cook from saves nothing', async () => {
+	const session = await user()
+	const oldKey = process.env.ANTHROPIC_API_KEY
+	process.env.ANTHROPIC_API_KEY = 'test-key'
+	const answer = (ingredients: unknown[]) => ({
+		title: 'Garlic noodles',
+		description: null,
+		notes: null,
+		activeTime: null,
+		totalTime: null,
+		yieldAmount: null,
+		yieldLabel: null,
+		ingredients,
+		instructions: [],
+		metadata: { cuisine: [], season: [], course: [] },
+	})
+	const answers = [
+		answer([
+			{
+				name: 'garlic',
+				amount: '3',
+				unit: 'cloves',
+				notes: 'minced',
+				isHeading: false,
+			},
+		]),
+		answer([
+			{ name: 'Sauce', amount: null, unit: null, notes: null, isHeading: true },
+		]),
+	]
+	try {
+		server.use(
+			http.post('https://api.anthropic.com/v1/messages', () =>
+				HttpResponse.json({
+					content: [{ type: 'text', text: JSON.stringify(answers.shift()) }],
+				}),
+			),
+		)
+		const { id, notice } = await importRecipe(session, {
+			intent: 'extract-text',
+			rawText: 'Garlic noodles\n3 cloves garlic, minced\nMethod in the video!',
+		})
+		expect(notice.get('imported')).toBe('text')
+		expect(
+			await prisma.recipe.findUniqueOrThrow({
+				where: { id },
+				include: { ingredients: true, instructions: true },
+			}),
+		).toMatchObject({
+			ingredients: [
+				expect.objectContaining({
+					name: 'garlic',
+					amount: '3',
+					unit: 'cloves',
+				}),
+			],
+			instructions: [],
+		})
+
+		// A refused answer is logged as a schema failure.
+		consoleError.mockImplementation(() => {})
+		const nothing = await importAction(
+			await args(session, '/recipes/import', {
+				intent: 'extract-text',
+				rawText: 'Sauce',
+			}),
+		)
+		expect(consoleError).toHaveBeenCalledTimes(1)
+		expect(nothing).toMatchObject({
+			data: {
+				intent: 'extract-text',
+				error: expect.stringMatching(/Couldn't find a recipe/),
+				existing: null,
+			},
+		})
+		expect(await recipeCount(session.householdId)).toBe(1)
+	} finally {
+		if (oldKey === undefined) delete process.env.ANTHROPIC_API_KEY
+		else process.env.ANTHROPIC_API_KEY = oldKey
+	}
+})
+
+test('an AI import over a limit is shortened at a word and the notice says so, like every other import', async () => {
+	const session = await user()
+	const oldKey = process.env.ANTHROPIC_API_KEY
+	process.env.ANTHROPIC_API_KEY = 'test-key'
+	const longTitle = `${'Slow-cooked '.repeat(12)}beans`
+	const longDescription = `${'A bowl of beans for a cold evening. '.repeat(20)}Serve hot.`
+	try {
+		server.use(
+			http.post('https://api.anthropic.com/v1/messages', () =>
+				HttpResponse.json({
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify({
+								title: longTitle,
+								description: longDescription,
+								notes: null,
+								activeTime: null,
+								totalTime: null,
+								yieldAmount: null,
+								yieldLabel: null,
+								ingredients: [
+									{
+										name: 'beans',
+										amount: '2',
+										unit: 'cans',
+										notes: null,
+										isHeading: false,
+									},
+								],
+								instructions: [{ content: 'Warm the beans.' }],
+								metadata: { cuisine: [], season: [], course: [] },
+							}),
+						},
+					],
+				}),
+			),
+		)
+		const { id, notice } = await importRecipe(session, {
+			intent: 'extract-text',
+			rawText: `${longTitle}\n${longDescription}\n2 cans beans\nWarm the beans.`,
+		})
+		expect(notice.get('shortened')).toBe('title')
+		const saved = await prisma.recipe.findUniqueOrThrow({ where: { id } })
+		expect(saved.title).toMatch(/^Slow-cooked( Slow-cooked)+…$/)
+		expect(saved.title.length).toBeLessThanOrEqual(MAX_RECIPE_TITLE_LENGTH)
+		// A long description moves whole into Notes instead of being cut.
+		expect(saved.description).toBeNull()
+		expect(saved.notes).toBe(longDescription)
 	} finally {
 		if (oldKey === undefined) delete process.env.ANTHROPIC_API_KEY
 		else process.env.ANTHROPIC_API_KEY = oldKey

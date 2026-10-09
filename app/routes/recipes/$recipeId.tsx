@@ -406,18 +406,34 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const origin = rootData?.requestInfo?.origin
 	const recipeJsonLd = getRecipeJsonLd(recipe, origin)
 	const [searchParams, setSearchParams] = useSearchParams()
-	const imported = importedFromSearch(searchParams)
-	function dismissImported() {
+	// The notice an import's redirect asks for, read once. The address drops
+	// it straight away, so a reload, Back, or the iOS app reopening this page
+	// never shows it, or its Undo, again.
+	const [imported, setImported] = useState(() => {
+		const found = importedFromSearch(searchParams)
+		return (
+			found && {
+				...found,
+				recipeId: recipe.id,
+				sameTitle: loaderData.sameTitle,
+			}
+		)
+	})
+	// Its "Open it" link shows another Recipe in this same component.
+	if (imported && imported.recipeId !== recipe.id) setImported(null)
+	const location = useLocation()
+	useEffect(() => {
+		if (!searchParams.has('imported') && !searchParams.has('shortened')) return
 		setSearchParams(
 			(prev) => {
 				prev.delete('imported')
 				prev.delete('shortened')
 				return prev
 			},
-			{ replace: true, preventScrollReset: true },
+			// Keep the Recipe's OPEN_DETAIL marker, so going back still slides.
+			{ replace: true, preventScrollReset: true, state: location.state },
 		)
-	}
-	const location = useLocation()
+	}, [searchParams, setSearchParams, location.state])
 	const favoriteFetcher = useFetcher()
 	const isFavorite =
 		favoriteFetcher.formData?.get('intent') === 'toggleFavorite'
@@ -661,8 +677,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							!recipe.ingredients.some((ingredient) => !ingredient.isHeading)
 						}
 						missingInstructions={recipe.instructions.length === 0}
-						sameTitle={loaderData.sameTitle}
-						onDismiss={dismissImported}
+						sameTitle={imported.sameTitle}
+						onDismiss={() => setImported(null)}
 					/>
 				) : null}
 				{/* Hero: Title + Image */}

@@ -9,7 +9,7 @@ import { createUser } from '#tests/db-utils.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { ACCEPT_ENCODING } from '#app/utils/bounded-body.server.ts'
-import { action as importAction } from './import.tsx'
+import { action as importAction, loader as importLoader } from './import.tsx'
 import { loader as detailLoader } from './$recipeId.tsx'
 import { action as editAction } from './$recipeId_.edit.tsx'
 import { loader as fullExport } from '../resources/export-all-data.tsx'
@@ -379,6 +379,86 @@ test('URL import saves the structured Recipe with its source, and a second impor
 	expect(blocked).toMatchObject({
 		init: { status: 400 },
 		data: { existing: null },
+	})
+})
+
+test('an import with no ingredients or instructions to read saves nothing, so the link still imports once it has them', async () => {
+	const session = await user()
+	const url = 'https://recipes.example.test/members-only'
+	let recipe: Record<string, unknown> = {
+		'@type': 'Recipe',
+		name: 'Members-only stew',
+		description: 'Subscribe to read this recipe.',
+	}
+	server.use(
+		http.get(`${CHECKED_ORIGIN}/members-only`, () =>
+			HttpResponse.html(
+				`<script type="application/ld+json">${JSON.stringify(recipe)}</script>`,
+			),
+		),
+	)
+	const importUrl = async () =>
+		importAction(
+			await args(session, '/recipes/import', { intent: 'fetch', url }),
+		)
+	const nothingToRead = {
+		init: { status: 400 },
+		data: {
+			intent: 'fetch',
+			error: expect.stringContaining('no ingredients or instructions'),
+			existing: null,
+		},
+	}
+
+	expect(await importUrl()).toMatchObject(nothingToRead)
+	// A heading is not something to cook from.
+	recipe = { ...recipe, recipeIngredient: ['For the stew:'] }
+	expect(await importUrl()).toMatchObject(nothingToRead)
+	expect(
+		await importAction(
+			await args(session, '/recipes/import', {
+				intent: 'parse-text',
+				rawText: 'Stew\nIngredients\nFor the stew:',
+			}),
+		),
+	).toMatchObject({
+		init: { status: 400 },
+		data: { intent: 'parse-text', existing: null },
+	})
+	expect(await recipeCount(session.householdId)).toBe(0)
+
+	recipe = {
+		...recipe,
+		recipeIngredient: ['For the stew:', '1 kg beef'],
+		recipeInstructions: ['Simmer.'],
+	}
+	const { id } = await importRecipe(session, { intent: 'fetch', url })
+	expect(
+		await prisma.recipe.findUniqueOrThrow({ where: { id } }),
+	).toMatchObject({ title: 'Members-only stew', sourceUrl: url })
+})
+
+test('Import names a shared link its Household already has before anything is tapped, and only for that Household', async () => {
+	const session = await user()
+	const other = await user()
+	const url = 'https://recipes.example.test/stew?utm_source=share'
+	const saved = await prisma.recipe.create({
+		data: {
+			title: 'Shared stew',
+			sourceUrl: url,
+			userId: session.userId,
+			householdId: session.householdId,
+		},
+		select: { id: true, title: true },
+	})
+	const path = `/recipes/import?url=${encodeURIComponent(url)}`
+	expect(await importLoader(await args(session, path))).toMatchObject({
+		sharedUrl: url,
+		sharedExisting: saved,
+	})
+	expect(await importLoader(await args(other, path))).toMatchObject({
+		sharedUrl: url,
+		sharedExisting: null,
 	})
 })
 

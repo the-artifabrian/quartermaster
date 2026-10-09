@@ -19,10 +19,11 @@ plan into Shopping.
   where it came from, which of ingredients or instructions it could not find,
   and what it shortened to fit, with Edit, Import another and Undo. Text over a
   limit moves to the field beside it when that keeps it whole (a long
-  description into Notes); anything still too long is cut at a word. Pasted text
-  with neither ingredients nor instructions saves nothing.
+  description into Notes); anything still too long is cut at a word. An import
+  with neither ingredients nor instructions saves nothing. The notice shows
+  once: a reload, Back, or reopening the app does not bring it back.
 - Importing a URL the Household already has opens nothing new; Import points at
-  the saved Recipe instead.
+  the saved Recipe instead, before any tap when the link was shared.
 - Imported Recipes retain pasted input or available extracted structure for
   recovery, without displaying it in editing or reading. Useful source URL
   access remains. Both JSON exports include retained source and older exports

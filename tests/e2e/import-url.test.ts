@@ -31,7 +31,7 @@ async function importSharedLink(page: Page, url: string) {
 	await page.getByRole('button', { name: 'Import', exact: true }).click()
 }
 
-test('a shared URL waits for a tap, saves once and opens the Recipe; back skips the import, and a second share points at the saved Recipe', async ({
+test('a shared URL waits for a tap, saves once and opens the Recipe; back skips the import, and a second share says it is saved before any tap', async ({
 	page,
 	login,
 }) => {
@@ -48,7 +48,7 @@ test('a shared URL waits for a tap, saves once and opens the Recipe; back skips 
 	expect(count.fetches).toBe(0)
 	expect(await prisma.recipe.count({ where: { userId: user.id } })).toBe(0)
 	await page.getByRole('button', { name: 'Import', exact: true }).click()
-	await expect(page).toHaveURL(/\/recipes\/(?!import)[a-z0-9]+\?imported=url$/)
+	await expect(page).toHaveURL(/\/recipes\/(?!import)[a-z0-9]+$/)
 	await expect(
 		page.getByRole('heading', { name: 'Shared chickpea lunch', level: 1 }),
 	).toBeVisible()
@@ -81,13 +81,16 @@ test('a shared URL waits for a tap, saves once and opens the Recipe; back skips 
 	await expect(page).toHaveURL(/\/recipes$/)
 	expect(count.fetches).toBe(1)
 
-	await importSharedLink(page, sharedUrl)
+	await page.goto(importPage(sharedUrl))
 	await expect(page.getByText('Already in your Recipes')).toBeVisible()
 	await expect(
-		page.getByText('You imported this link before as “Shared chickpea lunch”.'),
+		page.getByText('It’s saved as “Shared chickpea lunch”.'),
 	).toBeVisible()
-	await expect(page).toHaveURL(/\/recipes\/import$/)
-	expect(count.fetches).toBe(2)
+	await expect(
+		page.getByRole('heading', { name: 'Import this Recipe?' }),
+	).toHaveCount(0)
+	await expect(page.getByLabel('Recipe URL', { exact: true })).toHaveValue('')
+	expect(count.fetches).toBe(1)
 	expect(await prisma.recipe.count({ where: { userId: user.id } })).toBe(1)
 	await page.getByRole('link', { name: 'Open it', exact: true }).click()
 	await expect(page).toHaveURL(`/recipes/${recipes[0]!.id}`)

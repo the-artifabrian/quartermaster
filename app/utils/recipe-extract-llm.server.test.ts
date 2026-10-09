@@ -347,7 +347,7 @@ describe('parseExtractResponse', () => {
 		const result = parseExtractResponse(JSON.stringify(overlong))
 		expect(result!.title).toHaveLength(MAX_RECIPE_TITLE_LENGTH)
 		expect(result!.description).toHaveLength(MAX_RECIPE_DESCRIPTION_LENGTH)
-		// The review page must never hand the save path a value it will reject.
+		// An extraction must never reach the import save over a limit.
 		expect(RecipeTitleSchema.safeParse(result!.title).success).toBe(true)
 		expect(RecipeDescriptionSchema.safeParse(result!.description).success).toBe(
 			true,
@@ -755,8 +755,8 @@ describe('extractRecipeFromText', () => {
 
 		// #278 could only ask for this in the prompt, and Sonnet still answered
 		// "20 min" on real screenshots — a string the schema discards, so the
-		// time vanished from the review page. Now it is not a value the model
-		// can produce at all.
+		// time never reached the import. Now it is not a value the model can
+		// produce at all.
 		const times = recipeBranch(capturedBody!).properties
 		expect(times.activeTime).toEqual({
 			anyOf: [{ type: 'integer' }, { type: 'null' }],

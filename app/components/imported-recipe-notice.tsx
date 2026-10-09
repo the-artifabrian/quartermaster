@@ -106,7 +106,7 @@ export function ImportedRecipeNotice({
 					) : null}
 					{sameTitle ? (
 						<p className="text-sm">
-							You already had a Recipe with this title.{' '}
+							Another Recipe has this title.{' '}
 							<Link
 								to={`/recipes/${sameTitle.id}`}
 								className="text-primary underline underline-offset-4"

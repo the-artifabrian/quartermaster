@@ -40,7 +40,7 @@ const MAX_INSTRUCTIONS = MAX_RECIPE_INSTRUCTIONS
 
 // Field length caps — prevent absurd LLM output from reaching DB/UI. Titles,
 // descriptions and notes use the save schema's own limits so an extraction can
-// never produce a recipe that the review page then refuses to save.
+// never produce a recipe that the import save then has to shorten.
 const MAX_TITLE_LENGTH = MAX_RECIPE_TITLE_LENGTH
 const MAX_DESCRIPTION_LENGTH = MAX_RECIPE_DESCRIPTION_LENGTH
 const MAX_NOTES_LENGTH = MAX_RECIPE_NOTES_LENGTH
@@ -50,7 +50,7 @@ const MAX_INGREDIENT_UNIT_LENGTH = 30
 const MAX_INGREDIENT_NOTES_LENGTH = 500
 const MAX_INSTRUCTION_LENGTH = 5000
 // Per dimension. A household with a dozen cuisines can have several that argue
-// for themselves; pre-ticking all of them on the review page is noise, and the
+// for themselves; saving all of them with an import is noise, and the
 // user still has the full list to add from.
 const MAX_METADATA_SUGGESTIONS = 3
 
@@ -323,7 +323,7 @@ const EXTRACT_JSON_SCHEMA: JsonSchema = {
 /**
  * Read Active and Total time, and drop a Total shorter than the Active it is
  * paired with. The enhance path applies the same rule to its suggestions; a
- * contradiction reaching the review page is the same confusion either way.
+ * contradiction reaching a saved Recipe is the same confusion either way.
  */
 function reconcileTimes(
 	rawActiveTime: unknown,

@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner'
 import { Divider } from '#app/components/divider.tsx'
 import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
+import { ImportedRecipeNotice } from '#app/components/imported-recipe-notice.tsx'
 import { RecipeActionBar } from '#app/components/recipe-action-bar.tsx'
 import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
 import { RecipeIngredientsSheet } from '#app/components/recipe-ingredients-sheet.tsx'
@@ -44,6 +45,10 @@ import {
 } from '#app/utils/fractions.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import {
+	IMPORTED_FROM,
+	SHORTENED_PARTS,
+} from '#app/utils/import-recipe-types.ts'
 import {
 	formatScaleMultiplier,
 	ScaleMultiplierSchema,
@@ -172,11 +177,34 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
 	const tierInfo = await getUserTier(userId)
 
+	// A just-imported Recipe's notice points at an older one with its title.
+	const sameTitle = new URL(request.url).searchParams.has('imported')
+		? await prisma.recipe.findFirst({
+				where: { householdId, title: recipe.title, id: { not: recipe.id } },
+				select: { id: true, title: true },
+				orderBy: { createdAt: 'desc' },
+			})
+		: null
+
 	return {
 		recipe,
 		userId,
 		householdId,
 		isProActive: tierInfo.isProActive,
+		sameTitle,
+	}
+}
+
+/** The import an `?imported=` redirect describes, if this visit has one. */
+function importedFromSearch(searchParams: URLSearchParams) {
+	const from = IMPORTED_FROM.find(
+		(value) => value === searchParams.get('imported'),
+	)
+	if (!from) return null
+	const shortened = (searchParams.get('shortened') ?? '').split(',')
+	return {
+		from,
+		shortened: SHORTENED_PARTS.filter((part) => shortened.includes(part)),
 	}
 }
 
@@ -378,6 +406,17 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const origin = rootData?.requestInfo?.origin
 	const recipeJsonLd = getRecipeJsonLd(recipe, origin)
 	const [searchParams, setSearchParams] = useSearchParams()
+	const imported = importedFromSearch(searchParams)
+	function dismissImported() {
+		setSearchParams(
+			(prev) => {
+				prev.delete('imported')
+				prev.delete('shortened')
+				return prev
+			},
+			{ replace: true, preventScrollReset: true },
+		)
+	}
 	const location = useLocation()
 	const favoriteFetcher = useFetcher()
 	const isFavorite =
@@ -612,6 +651,20 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			/>
 
 			<div className="container-content pt-4 pb-[calc(var(--bottom-nav-h)+5.25rem+var(--bottom-nav-inset))] md:pt-6 md:pb-20 lg:pb-6 print:pt-0 print:pb-0">
+				{imported ? (
+					<ImportedRecipeNotice
+						recipeId={recipe.id}
+						from={imported.from}
+						sourceUrl={recipe.sourceUrl}
+						shortened={imported.shortened}
+						missingIngredients={
+							!recipe.ingredients.some((ingredient) => !ingredient.isHeading)
+						}
+						missingInstructions={recipe.instructions.length === 0}
+						sameTitle={loaderData.sameTitle}
+						onDismiss={dismissImported}
+					/>
+				) : null}
 				{/* Hero: Title + Image */}
 				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
 					<div className="min-w-0 flex-1">

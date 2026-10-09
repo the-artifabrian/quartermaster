@@ -1,6 +1,5 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import * as cheerio from 'cheerio'
-import { data } from 'react-router'
 import {
 	ACCEPT_ENCODING,
 	BodyTooLargeError,
@@ -8,8 +7,12 @@ import {
 	readBoundedText,
 	UnsupportedEncodingError,
 } from '#app/utils/bounded-body.server.ts'
-import { prisma } from '#app/utils/db.server.ts'
-import { type DuplicateMatch } from '#app/utils/import-recipe-types.ts'
+import {
+	alreadyImported,
+	findRecipeFromUrl,
+	importFailure,
+	saveImportedRecipe,
+} from '#app/utils/import-recipe-save.server.ts'
 import { fetchPublicUrl } from '#app/utils/public-url.server.ts'
 import {
 	extractRecipe,
@@ -18,26 +21,22 @@ import {
 } from '#app/utils/recipe-jsonld.server.ts'
 import { ImportUrlSchema } from '#app/utils/recipe-validation.ts'
 
-/** The `fetch` intent: read the Recipe from a page's JSON-LD. */
+/** The `fetch` intent: read the Recipe from a page's JSON-LD and save it. */
 export async function importFromUrl(
 	formData: FormData,
-	{ householdId }: { householdId: string },
+	user: { userId: string; householdId: string },
 ) {
 	const submission = parseWithZod(formData, { schema: ImportUrlSchema })
 	if (submission.status !== 'success') {
-		return data(
-			{
-				intent: 'fetch' as const,
-				error: 'Please enter a valid URL.',
-				recipe: null,
-				result: submission.reply(),
-				duplicates: null,
-			},
-			{ status: 400 },
-		)
+		return importFailure('fetch', 'Please enter a valid URL.')
 	}
 
 	const { url } = submission.value
+
+	// A link the household already has opens nothing new, so a page shared
+	// twice stays one Recipe. Checked before fetching: the answer is the same.
+	const existing = await findRecipeFromUrl(user.householdId, url)
+	if (existing) return alreadyImported('fetch', existing)
 
 	// One deadline covers the headers and the body.
 	const controller = new AbortController()
@@ -57,16 +56,9 @@ export async function importFromUrl(
 		})
 
 		if (!response) {
-			return data(
-				{
-					intent: 'fetch' as const,
-					error:
-						'This URL cannot be imported. Please use a public HTTP(S) URL.',
-					recipe: null,
-					result: null,
-					duplicates: null,
-				},
-				{ status: 400 },
+			return importFailure(
+				'fetch',
+				'This URL cannot be imported. Please use a public HTTP(S) URL.',
 			)
 		}
 
@@ -74,16 +66,7 @@ export async function importFromUrl(
 		// never read pulls all of it into memory. The abort in `finally`
 		// releases the connection instead.
 		if (!response.ok) {
-			return data(
-				{
-					intent: 'fetch' as const,
-					error: `Failed to fetch URL (${response.status})`,
-					recipe: null,
-					result: null,
-					duplicates: null,
-				},
-				{ status: 400 },
-			)
+			return importFailure('fetch', `Failed to fetch URL (${response.status})`)
 		}
 
 		// Content-Length is the size on the wire, before decompression, so the
@@ -107,16 +90,9 @@ export async function importFromUrl(
 		})
 
 		if (!recipeData) {
-			return data(
-				{
-					intent: 'fetch' as const,
-					error:
-						'No recipe data found on this page. The site may not use structured recipe data (JSON-LD).',
-					recipe: null,
-					result: null,
-					duplicates: null,
-				},
-				{ status: 400 },
+			return importFailure(
+				'fetch',
+				'No recipe data found on this page. The site may not use structured recipe data (JSON-LD).',
 			)
 		}
 
@@ -125,49 +101,13 @@ export async function importFromUrl(
 			recipe = extractRecipe(recipeData, url)
 		} catch (error) {
 			if (!(error instanceof RecipeShapeError)) throw error
-			return data(
-				{
-					intent: 'fetch' as const,
-					error: 'The recipe data on this page could not be read.',
-					recipe: null,
-					result: null,
-					duplicates: null,
-				},
-				{ status: 400 },
+			return importFailure(
+				'fetch',
+				'The recipe data on this page could not be read.',
 			)
 		}
 
-		// Check for duplicates
-		const duplicates: DuplicateMatch[] = []
-
-		const urlMatches = await prisma.recipe.findMany({
-			where: { householdId, sourceUrl: url },
-			select: { id: true, title: true, sourceUrl: true },
-		})
-		for (const match of urlMatches) {
-			duplicates.push({ ...match, matchReason: 'same-url' })
-		}
-
-		const urlMatchIds = new Set(urlMatches.map((m) => m.id))
-		const titleMatches = await prisma.recipe.findMany({
-			where: {
-				householdId,
-				title: { equals: recipe.title },
-				id: { notIn: [...urlMatchIds] },
-			},
-			select: { id: true, title: true, sourceUrl: true },
-		})
-		for (const match of titleMatches) {
-			duplicates.push({ ...match, matchReason: 'similar-title' })
-		}
-
-		return data({
-			intent: 'fetch' as const,
-			recipe,
-			error: null,
-			result: null,
-			duplicates: duplicates.length > 0 ? duplicates : null,
-		})
+		return saveImportedRecipe(recipe, 'fetch', user)
 	} catch (error) {
 		const message =
 			error instanceof BodyTooLargeError
@@ -177,16 +117,7 @@ export async function importFromUrl(
 					: error instanceof Error && error.name === 'AbortError'
 						? 'Request timed out. The site took too long to respond.'
 						: 'Failed to fetch the URL. Please check the address and try again.'
-		return data(
-			{
-				intent: 'fetch' as const,
-				error: message,
-				recipe: null,
-				result: null,
-				duplicates: null,
-			},
-			{ status: 400 },
-		)
+		return importFailure('fetch', message)
 	} finally {
 		clearTimeout(timeout)
 		// Releases the page's connection. Bun keeps downloading a body that

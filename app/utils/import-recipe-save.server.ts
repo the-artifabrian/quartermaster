@@ -1,136 +1,129 @@
-import { parseWithZod } from '@conform-to/zod/v4'
-import { data, redirect } from 'react-router'
-import { z } from 'zod'
+import { data, replace } from 'react-router'
 import { prisma } from './db.server.ts'
+import { fitImportedRecipe } from './import-recipe-fit.ts'
 import {
-	RecipeMetadataSelectionError,
-	resolveRecipeMetadataValueIds,
-} from './recipe-metadata.server.ts'
-import { MAX_RAW_TEXT_LENGTH, RecipeSchema } from './recipe-validation.ts'
+	type ExtractedRecipe,
+	type ImportedFrom,
+} from './import-recipe-types.ts'
 import { RECIPE_IMPORTED } from './posthog-events.ts'
 import { captureServerEvent } from './posthog.server.ts'
 
-export async function saveImportedRecipe(
-	formData: FormData,
-	{ userId, householdId }: { userId: string; householdId: string },
-	jsonReview = false,
-) {
-	// Validate every submitted row; never truncate at a count limit or a gap.
-	const submission = parseWithZod(formData, {
-		schema: RecipeSchema.safeExtend({
-			// Truncated, never rejected: the user is saving a recipe they already
-			// previewed, and rawText is a hidden provenance field they never typed.
-			// A validation error on it would be an unfixable dead end.
-			rawText: z
-				.string()
-				.transform((text) => text.slice(0, MAX_RAW_TEXT_LENGTH))
-				.optional(),
-		}),
-	})
-	const failure = (
-		error: string,
-		status: number,
-		result = submission.reply(),
-	) => {
-		const payload = {
-			intent: 'save' as const,
-			error,
-			result,
-			recipe: null,
-			duplicates: null,
-		}
-		return jsonReview
-			? Response.json(payload, { status })
-			: data(payload, { status })
-	}
-	if (submission.status !== 'success') {
-		return failure('Correct the fields listed below, then save again.', 400)
-	}
-	const {
-		title,
-		description,
-		activeTime,
-		totalTime,
-		yieldAmount,
-		yieldLabel,
-		sourceUrl,
-		rawText,
-		notes,
-		recipeMetadata,
-		ingredients,
-		instructions,
-	} = submission.value
+export type ImportIntent =
+	'fetch' | 'parse-text' | 'extract-text' | 'extract-image'
 
-	let recipe: { id: string }
+const importedFrom: Record<ImportIntent, ImportedFrom> = {
+	fetch: 'url',
+	'parse-text': 'text',
+	'extract-text': 'text',
+	'extract-image': 'images',
+}
+
+/** An import that saved nothing, said on the tab the cook used. */
+export function importFailure(
+	intent: ImportIntent | null,
+	error: string,
+	status = 400,
+) {
+	return data({ intent, error, existing: null }, { status })
+}
+
+/** The household's Recipe imported from `url`, if it has one. */
+export async function findRecipeFromUrl(householdId: string, url: string) {
+	return prisma.recipe.findFirst({
+		where: { householdId, sourceUrl: url },
+		select: { id: true, title: true },
+		orderBy: { createdAt: 'desc' },
+	})
+}
+
+/** A second import of a link the household already has: open nothing new. */
+export function alreadyImported(
+	intent: ImportIntent,
+	existing: { id: string; title: string },
+) {
+	return data({ intent, error: null, existing })
+}
+
+/**
+ * Saves what an import read and opens it. There is no review step: the
+ * Recipe page says what was saved, what is missing and what was shortened,
+ * and the cook edits it there.
+ */
+export async function saveImportedRecipe(
+	extracted: ExtractedRecipe,
+	intent: ImportIntent,
+	{ userId, householdId }: { userId: string; householdId: string },
+) {
+	let created: { id: string; title: string }
+	let shortened: string[]
+	let ingredientCount: number
 	try {
-		recipe = await prisma.$transaction(async (tx) => {
-			// Whatever the review page had ticked, including the AI's suggestions:
-			// ordinary selections, resolved and written only now, on this save.
-			const metadataValueIds = await resolveRecipeMetadataValueIds(
-				tx,
-				householdId,
-				recipeMetadata,
-			)
+		const fitted = fitImportedRecipe(extracted)
+		const { recipe } = fitted
+		shortened = fitted.shortened
+		ingredientCount = recipe.ingredients.length
+		if (recipe.sourceUrl) {
+			const existing = await findRecipeFromUrl(householdId, recipe.sourceUrl)
+			if (existing) return alreadyImported(intent, existing)
+		}
+		created = await prisma.$transaction(async (tx) => {
+			// Suggested classifications are ids this household had when the
+			// extraction ran; one deleted since then is skipped, not an error.
+			const values = recipe.metadataValueIds.length
+				? await tx.recipeMetadataValue.findMany({
+						where: { id: { in: recipe.metadataValueIds }, householdId },
+						select: { id: true },
+					})
+				: []
 			return tx.recipe.create({
 				data: {
-					title,
-					description,
-					activeTime,
-					totalTime,
-					yieldAmount,
-					yieldLabel,
-					sourceUrl: sourceUrl || null,
-					rawText: rawText ?? null,
-					notes: notes || null,
+					title: recipe.title,
+					description: recipe.description,
+					notes: recipe.notes,
+					activeTime: recipe.activeTime,
+					totalTime: recipe.totalTime,
+					yieldAmount: recipe.yieldAmount,
+					yieldLabel: recipe.yieldLabel,
+					sourceUrl: recipe.sourceUrl,
+					rawText: recipe.rawText,
 					userId,
 					householdId,
 					metadataAssignments: {
-						create: metadataValueIds.map((valueId) => ({ valueId })),
+						create: values.map((value) => ({ valueId: value.id })),
 					},
 					ingredients: {
-						create: ingredients.map((ing, order) => ({
-							name: ing.name,
-							amount: ing.isHeading ? null : ing.amount || null,
-							unit: ing.isHeading ? null : ing.unit || null,
-							notes: ing.isHeading ? null : ing.notes || null,
-							isHeading: ing.isHeading ?? false,
+						create: recipe.ingredients.map((ingredient, order) => ({
+							...ingredient,
 							order,
 						})),
 					},
 					instructions: {
-						create: instructions.map((inst, order) => ({
-							content: inst.content,
+						create: recipe.instructions.map((instruction, order) => ({
+							content: instruction.content,
 							order,
 						})),
 					},
 				},
-				select: { id: true },
+				select: { id: true, title: true },
 			})
 		})
 	} catch (error) {
-		// A classification the household does not have is the user's to fix, and
-		// nothing was written. Report it against the field the chips submit, the
-		// way any other validation error is reported: a form-level error reads on
-		// the review page as an unknown outcome and sends them to My Recipes.
-		if (error instanceof RecipeMetadataSelectionError) {
-			return failure(
-				'Correct the fields listed below, then save again.',
-				400,
-				submission.reply({ fieldErrors: { recipeMetadata: [error.message] } }),
-			)
-		}
-		return failure(
-			'We could not confirm the save. Your corrections are still here. Check My Recipes before trying again.',
+		console.error('Saving an imported Recipe failed:', error)
+		return importFailure(
+			intent,
+			'Nothing was saved. Try again in a moment.',
 			503,
-			submission.reply({ formErrors: ['Save could not be confirmed.'] }),
 		)
 	}
 
 	captureServerEvent(userId, RECIPE_IMPORTED, {
-		recipe_title: title,
-		ingredient_count: ingredients.length,
+		recipe_title: created.title,
+		ingredient_count: ingredientCount,
+		source: intent,
 	})
-	return jsonReview
-		? Response.json({ recipeId: recipe.id })
-		: redirect(`/recipes/${recipe.id}`)
+	const search = new URLSearchParams({ imported: importedFrom[intent] })
+	if (shortened.length) search.set('shortened', shortened.join(','))
+	// Replaces Import in history, so Back from the new Recipe goes to wherever
+	// the import started rather than to an empty form.
+	return replace(`/recipes/${created.id}?${search}`)
 }

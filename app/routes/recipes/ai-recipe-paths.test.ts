@@ -92,7 +92,7 @@ function configureAnthropic() {
 }
 
 describe('surviving AI Recipe paths', () => {
-	test('text extraction previews a Recipe before an explicit reviewed save', async () => {
+	test('text extraction saves the Recipe it read and counts one use', async () => {
 		using _anthropic = configureAnthropic()
 		const session = await setupProHousehold()
 		respondWithAnthropicJson({
@@ -114,65 +114,30 @@ describe('surviving AI Recipe paths', () => {
 			instructions: [{ content: 'Warm the chickpeas.' }],
 		})
 
-		const extracted = await importAction({
+		const saved = await importAction({
 			request: await postRequest(session, '/recipes/import', {
 				intent: 'extract-text',
 				rawText: 'Warm one can of chickpeas.',
 			}),
 			...routeArgs('/recipes/import'),
 		})
-		const preview = unwrapData<{
-			error: string | null
-			recipe: { title: string } | null
-		}>(extracted)
 
-		expect(preview).toMatchObject({
-			error: null,
-			recipe: {
-				title: 'AI extraction preview',
-				rawText: 'Warm one can of chickpeas.',
-			},
-		})
-		expect(
-			await prisma.recipe.count({
-				where: { householdId: session.householdId },
-			}),
-		).toBe(0)
-		expect(
-			await prisma.usageEvent.count({
-				where: { userId: session.userId, type: 'recipe_extract_llm_call' },
-			}),
-		).toBe(1)
-
-		const saved = await importAction({
-			request: await postRequest(session, '/recipes/import', {
-				intent: 'save',
-				title: 'Reviewed chickpeas',
-				rawText: 'Warm one can of chickpeas.',
-				description: 'The description after review.',
-				'ingredients[0].name': 'chickpeas',
-				'ingredients[0].amount': '1',
-				'ingredients[0].unit': 'can',
-				'instructions[0].content': 'Warm the chickpeas gently.',
-			}),
-			...routeArgs('/recipes/import'),
-		})
-
-		expect(
-			await prisma.usageEvent.count({
-				where: { userId: session.userId, type: 'recipe_extract_llm_call' },
-			}),
-		).toBe(1)
 		expect(saved).toBeInstanceOf(Response)
 		expect((saved as Response).status).toBe(302)
+		expect(
+			await prisma.usageEvent.count({
+				where: { userId: session.userId, type: 'recipe_extract_llm_call' },
+			}),
+		).toBe(1)
 		await expect(
 			prisma.recipe.findFirstOrThrow({
 				where: { householdId: session.householdId },
-				select: { title: true, description: true },
+				select: { title: true, description: true, rawText: true },
 			}),
 		).resolves.toEqual({
-			title: 'Reviewed chickpeas',
-			description: 'The description after review.',
+			title: 'AI extraction preview',
+			description: 'A proposed description.',
+			rawText: 'Warm one can of chickpeas.',
 		})
 	})
 

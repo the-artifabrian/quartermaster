@@ -229,8 +229,8 @@ export function extractRecipe(
 		sourceUrl: url,
 		metadataValueIds: [],
 		// Provenance, not data: some sites embed enormous JSON-LD blobs, and this
-		// is posted straight back to saveImportedRecipe on save. Bound it here so
-		// the field can never exceed what that schema accepts.
+		// is stored with the Recipe. Bound it here so the field can never exceed
+		// what a Recipe keeps.
 		rawText: JSON.stringify(jsonLd, null, 2).slice(0, MAX_RAW_TEXT_LENGTH),
 		ingredients,
 		instructions,

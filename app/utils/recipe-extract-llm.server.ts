@@ -33,22 +33,15 @@ const MAX_TOKENS = 16_000
 // The paste box accepts MAX_RAW_TEXT_LENGTH. Cutting below it drops the recipe
 // card blog posts put last, which is the part that matters.
 const MAX_TEXT_LENGTH = MAX_RAW_TEXT_LENGTH
-// Match the creation form exactly: a row the model is allowed to return is a
-// row a save accepts, and neither silently discards the tail of a recipe.
+// The prompt states the save limits. Nothing here cuts to them: a row or a
+// field over a limit reaches the import save whole, and `fitImportedRecipe`
+// shortens it at a word, moves text to the field beside it when that keeps it
+// whole, and reports the cut on the Recipe page.
 const MAX_INGREDIENTS = MAX_RECIPE_INGREDIENTS
 const MAX_INSTRUCTIONS = MAX_RECIPE_INSTRUCTIONS
-
-// Field length caps — prevent absurd LLM output from reaching DB/UI. Titles,
-// descriptions and notes use the save schema's own limits so an extraction can
-// never produce a recipe that the import save then has to shorten.
 const MAX_TITLE_LENGTH = MAX_RECIPE_TITLE_LENGTH
 const MAX_DESCRIPTION_LENGTH = MAX_RECIPE_DESCRIPTION_LENGTH
 const MAX_NOTES_LENGTH = MAX_RECIPE_NOTES_LENGTH
-const MAX_INGREDIENT_NAME_LENGTH = 200
-const MAX_INGREDIENT_AMOUNT_LENGTH = 20
-const MAX_INGREDIENT_UNIT_LENGTH = 30
-const MAX_INGREDIENT_NOTES_LENGTH = 500
-const MAX_INSTRUCTION_LENGTH = 5000
 // Per dimension. A household with a dozen cuisines can have several that argue
 // for themselves; saving all of them with an import is noise, and the
 // user still has the full list to add from.
@@ -98,25 +91,23 @@ const ExtractedIngredientSchema = z
 	.transform((ingredient) => {
 		const isHeading = ingredient.isHeading === true
 		return {
-			name: ingredient.name.trim().slice(0, MAX_INGREDIENT_NAME_LENGTH),
+			name: ingredient.name.trim(),
 			amount: isHeading
 				? null
 				: typeof ingredient.amount === 'string'
-					? ingredient.amount.trim().slice(0, MAX_INGREDIENT_AMOUNT_LENGTH) ||
-						null
+					? ingredient.amount.trim() || null
 					: typeof ingredient.amount === 'number'
 						? String(ingredient.amount)
 						: null,
 			unit: isHeading
 				? null
 				: typeof ingredient.unit === 'string'
-					? ingredient.unit.trim().slice(0, MAX_INGREDIENT_UNIT_LENGTH) || null
+					? ingredient.unit.trim() || null
 					: null,
 			notes: isHeading
 				? null
 				: typeof ingredient.notes === 'string'
-					? ingredient.notes.trim().slice(0, MAX_INGREDIENT_NOTES_LENGTH) ||
-						null
+					? ingredient.notes.trim() || null
 					: null,
 			isHeading,
 		}
@@ -127,7 +118,7 @@ const ExtractedInstructionSchema = z
 		z.string(),
 		z.object({ content: z.string() }).transform(({ content }) => content),
 	])
-	.transform((content) => content.trim().slice(0, MAX_INSTRUCTION_LENGTH))
+	.transform((content) => content.trim())
 	.refine(Boolean)
 	.transform((content) => ({ content }))
 
@@ -153,15 +144,13 @@ function extractedRecipeSchema(
 			metadata: z.unknown().optional(),
 		})
 		.transform((recipe) => ({
-			title: recipe.title.slice(0, MAX_TITLE_LENGTH),
+			title: recipe.title,
 			description:
 				typeof recipe.description === 'string'
-					? recipe.description.trim().slice(0, MAX_DESCRIPTION_LENGTH) || null
+					? recipe.description.trim() || null
 					: null,
 			notes:
-				typeof recipe.notes === 'string'
-					? recipe.notes.trim().slice(0, MAX_NOTES_LENGTH) || null
-					: null,
+				typeof recipe.notes === 'string' ? recipe.notes.trim() || null : null,
 			...reconcileTimes(recipe.activeTime, recipe.totalTime),
 			yieldAmount:
 				typeof recipe.yieldAmount === 'number' &&
@@ -175,20 +164,16 @@ function extractedRecipeSchema(
 				recipe.yieldAmount > 0 &&
 				typeof recipe.yieldLabel === 'string' &&
 				recipe.yieldLabel.trim()
-					? recipe.yieldLabel.trim().slice(0, 100)
+					? recipe.yieldLabel.trim()
 					: null,
-			ingredients: recipe.ingredients
-				.slice(0, MAX_INGREDIENTS)
-				.flatMap((ingredient) => {
-					const parsed = ExtractedIngredientSchema.safeParse(ingredient)
-					return parsed.success ? [parsed.data] : []
-				}),
-			instructions: recipe.instructions
-				.slice(0, MAX_INSTRUCTIONS)
-				.flatMap((instruction) => {
-					const parsed = ExtractedInstructionSchema.safeParse(instruction)
-					return parsed.success ? [parsed.data] : []
-				}),
+			ingredients: recipe.ingredients.flatMap((ingredient) => {
+				const parsed = ExtractedIngredientSchema.safeParse(ingredient)
+				return parsed.success ? [parsed.data] : []
+			}),
+			instructions: recipe.instructions.flatMap((instruction) => {
+				const parsed = ExtractedInstructionSchema.safeParse(instruction)
+				return parsed.success ? [parsed.data] : []
+			}),
 			metadata: matchVocabulary(recipe.metadata, vocabulary),
 		}))
 		.refine(
@@ -240,7 +225,7 @@ function matchVocabulary(
 /**
  * The shape the provider constrains the response to. It settles the types the
  * prompt used to only ask for — a time arrives as a whole number of minutes or
- * not at all — while every cap, trim and coercion stays in the Zod schema
+ * not at all — while every trim and coercion stays in the Zod schema
  * above, which structured outputs cannot express.
  */
 const EXTRACT_JSON_SCHEMA: JsonSchema = {
@@ -589,7 +574,7 @@ function extractionError(
 		case 'parse':
 		case 'schema':
 			return mode === 'text'
-				? "Couldn't find a recipe in the provided text. Try including ingredients and instructions."
+				? "Couldn't find a recipe in the provided text. Try including ingredients or instructions."
 				: "Couldn't find a recipe in the provided image(s). Make sure the image contains recipe text or ingredients."
 		case 'provider':
 			return 'Recipe extraction failed — the AI service returned an error. Please try again later.'

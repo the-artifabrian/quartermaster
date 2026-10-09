@@ -42,14 +42,10 @@ vi.mock('sharp', () => ({
 
 import {
 	MAX_RAW_TEXT_LENGTH,
-	MAX_RECIPE_DESCRIPTION_LENGTH,
 	MAX_RECIPE_INGREDIENTS,
 	MAX_RECIPE_INSTRUCTIONS,
 	MAX_RECIPE_NOTES_LENGTH,
 	MAX_RECIPE_TITLE_LENGTH,
-	RecipeDescriptionSchema,
-	RecipeNotesSchema,
-	RecipeTitleSchema,
 } from './recipe-validation.ts'
 import { isRangeAmount, parseAmount } from './fractions.ts'
 import { isOptionalIngredient } from './recipe-matching.server.ts'
@@ -317,28 +313,6 @@ describe('parseExtractResponse', () => {
 		expect(result!.instructions).toHaveLength(40)
 	})
 
-	test('caps rows at the form limits', () => {
-		const tooManyRows = {
-			...validResponse,
-			ingredients: Array.from(
-				{ length: MAX_RECIPE_INGREDIENTS + 20 },
-				(_, i) => ({
-					name: `ingredient-${i}`,
-					amount: '1',
-					unit: 'cup',
-					notes: null,
-				}),
-			),
-			instructions: Array.from(
-				{ length: MAX_RECIPE_INSTRUCTIONS + 20 },
-				(_, i) => ({ content: `Step ${i + 1}` }),
-			),
-		}
-		const result = parseExtractResponse(JSON.stringify(tooManyRows))
-		expect(result!.ingredients).toHaveLength(MAX_RECIPE_INGREDIENTS)
-		expect(result!.instructions).toHaveLength(MAX_RECIPE_INSTRUCTIONS)
-	})
-
 	test('keeps incomplete yield metadata unknown', () => {
 		const incompleteYield = { ...validResponse, yieldLabel: null }
 		const result = parseExtractResponse(JSON.stringify(incompleteYield))
@@ -375,23 +349,7 @@ describe('parseExtractResponse', () => {
 		expect(result!.description).toBeNull()
 	})
 
-	test('truncates title and description to what a save accepts', () => {
-		const overlong = {
-			...validResponse,
-			title: 'A'.repeat(500),
-			description: 'B'.repeat(5000),
-		}
-		const result = parseExtractResponse(JSON.stringify(overlong))
-		expect(result!.title).toHaveLength(MAX_RECIPE_TITLE_LENGTH)
-		expect(result!.description).toHaveLength(MAX_RECIPE_DESCRIPTION_LENGTH)
-		// An extraction must never reach the import save over a limit.
-		expect(RecipeTitleSchema.safeParse(result!.title).success).toBe(true)
-		expect(RecipeDescriptionSchema.safeParse(result!.description).success).toBe(
-			true,
-		)
-	})
-
-	test("keeps the cook's notes and caps them at the save limit", () => {
+	test("keeps the cook's notes", () => {
 		const withNotes = {
 			...validResponse,
 			notes: 'Swap the cream for coconut milk. Keeps three days, covered.',
@@ -399,11 +357,6 @@ describe('parseExtractResponse', () => {
 		expect(parseExtractResponse(JSON.stringify(withNotes))!.notes).toBe(
 			'Swap the cream for coconut milk. Keeps three days, covered.',
 		)
-
-		const longNotes = { ...validResponse, notes: 'N'.repeat(5000) }
-		const capped = parseExtractResponse(JSON.stringify(longNotes))!.notes
-		expect(capped).toHaveLength(MAX_RECIPE_NOTES_LENGTH)
-		expect(RecipeNotesSchema.safeParse(capped).success).toBe(true)
 	})
 
 	test('returns null notes when the source has no tips', () => {
@@ -440,34 +393,6 @@ describe('parseExtractResponse', () => {
 			activeTime: 30,
 			totalTime: 30,
 		})
-	})
-
-	test('truncates overlong ingredient fields', () => {
-		const longIng = {
-			...validResponse,
-			ingredients: [
-				{
-					name: 'N'.repeat(500),
-					amount: '9'.repeat(100),
-					unit: 'U'.repeat(100),
-					notes: 'X'.repeat(1000),
-				},
-			],
-		}
-		const result = parseExtractResponse(JSON.stringify(longIng))
-		expect(result!.ingredients[0]!.name).toHaveLength(200)
-		expect(result!.ingredients[0]!.amount).toHaveLength(20)
-		expect(result!.ingredients[0]!.unit).toHaveLength(30)
-		expect(result!.ingredients[0]!.notes).toHaveLength(500)
-	})
-
-	test('truncates overlong instruction content', () => {
-		const longInst = {
-			...validResponse,
-			instructions: [{ content: 'S'.repeat(10_000) }],
-		}
-		const result = parseExtractResponse(JSON.stringify(longInst))
-		expect(result!.instructions[0]!.content).toHaveLength(5000)
 	})
 
 	test('preserves heading rows and marks them isHeading: true', () => {

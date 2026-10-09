@@ -841,6 +841,88 @@ test('AI suggestions the household can name are saved as the classification; oth
 	}
 })
 
+test('an AI import with only ingredients saves and leaves the steps to the cook; one with nothing to cook from saves nothing', async () => {
+	const session = await user()
+	const oldKey = process.env.ANTHROPIC_API_KEY
+	process.env.ANTHROPIC_API_KEY = 'test-key'
+	const answer = (ingredients: unknown[]) => ({
+		title: 'Garlic noodles',
+		description: null,
+		notes: null,
+		activeTime: null,
+		totalTime: null,
+		yieldAmount: null,
+		yieldLabel: null,
+		ingredients,
+		instructions: [],
+		metadata: { cuisine: [], season: [], course: [] },
+	})
+	const answers = [
+		answer([
+			{
+				name: 'garlic',
+				amount: '3',
+				unit: 'cloves',
+				notes: 'minced',
+				isHeading: false,
+			},
+		]),
+		answer([
+			{ name: 'Sauce', amount: null, unit: null, notes: null, isHeading: true },
+		]),
+	]
+	try {
+		server.use(
+			http.post('https://api.anthropic.com/v1/messages', () =>
+				HttpResponse.json({
+					content: [{ type: 'text', text: JSON.stringify(answers.shift()) }],
+				}),
+			),
+		)
+		const { id, notice } = await importRecipe(session, {
+			intent: 'extract-text',
+			rawText: 'Garlic noodles\n3 cloves garlic, minced\nMethod in the video!',
+		})
+		expect(notice.get('imported')).toBe('text')
+		expect(
+			await prisma.recipe.findUniqueOrThrow({
+				where: { id },
+				include: { ingredients: true, instructions: true },
+			}),
+		).toMatchObject({
+			ingredients: [
+				expect.objectContaining({
+					name: 'garlic',
+					amount: '3',
+					unit: 'cloves',
+				}),
+			],
+			instructions: [],
+		})
+
+		// A refused answer is logged as a schema failure.
+		consoleError.mockImplementation(() => {})
+		const nothing = await importAction(
+			await args(session, '/recipes/import', {
+				intent: 'extract-text',
+				rawText: 'Sauce',
+			}),
+		)
+		expect(consoleError).toHaveBeenCalledTimes(1)
+		expect(nothing).toMatchObject({
+			data: {
+				intent: 'extract-text',
+				error: expect.stringMatching(/Couldn't find a recipe/),
+				existing: null,
+			},
+		})
+		expect(await recipeCount(session.householdId)).toBe(1)
+	} finally {
+		if (oldKey === undefined) delete process.env.ANTHROPIC_API_KEY
+		else process.env.ANTHROPIC_API_KEY = oldKey
+	}
+})
+
 test("an import needs a signed-in user and saves into that user's household, whatever the form says", async () => {
 	const session = await user()
 	const other = await user()

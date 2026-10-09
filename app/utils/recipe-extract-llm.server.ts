@@ -23,7 +23,7 @@ import {
 	MAX_RECIPE_NOTES_LENGTH,
 	MAX_RECIPE_TITLE_LENGTH,
 } from './recipe-validation.ts'
-import { CANONICAL_COUNT_UNITS, CANONICAL_UNITS } from './unit-conversion.ts'
+import { CANONICAL_UNITS } from './unit-conversion.ts'
 
 // Long enough for the whole paste the box accepts and for a recipe that fills
 // the row caps below; both were raised together on 2026-09-21.
@@ -192,8 +192,11 @@ function extractedRecipeSchema(
 			metadata: matchVocabulary(recipe.metadata, vocabulary),
 		}))
 		.refine(
+			// Either half is enough: the import saves what the source gives and
+			// the Recipe page asks for the rest. Requiring both pushed the model
+			// to invent the steps a caption leaves to its video.
 			(recipe) =>
-				recipe.ingredients.some((ingredient) => !ingredient.isHeading) &&
+				recipe.ingredients.some((ingredient) => !ingredient.isHeading) ||
 				recipe.instructions.length > 0,
 		)
 }
@@ -260,8 +263,8 @@ const EXTRACT_JSON_SCHEMA: JsonSchema = {
 							name: { type: 'string' },
 							amount: nullable({ type: 'string' }),
 							// Left a free string: the prompt asks for a canonical
-							// unit or null, and an enum here would make the model
-							// pick a wrong unit where it should have picked none.
+							// unit where one fits and keeps any other measure word
+							// ("cloves", "pinch") as written, which no enum holds.
 							unit: nullable({ type: 'string' }),
 							notes: nullable({ type: 'string' }),
 							isHeading: { type: 'boolean' },
@@ -348,8 +351,10 @@ function positiveMinutes(value: unknown): number | null {
 	return Number.isSafeInteger(minutes) && minutes > 0 ? minutes : null
 }
 
+// The Recipe is saved without a review step, so anything the model adds
+// would read as the author's. It transcribes; the cook fills any gap.
 const SYSTEM_PROMPT =
-	'You are a recipe extraction assistant. Extract a structured recipe from informal text or images such as social media captions, screenshots, blog posts, or YouTube descriptions. The content may contain emojis, abbreviations, hashtags, casual language, non-English text, or missing structure. Do your best to identify the recipe.'
+	'You transcribe recipes into structured data. The source may be a social media caption, a blog post, a YouTube description, a screenshot, a photographed cookbook page or a handwritten card, with emojis, hashtags, abbreviations, casual language, another language, or no structure at all. Copy the recipe it gives and never add to it: an ingredient, amount, step or time the source does not give stays out.'
 
 export function buildExtractPrompt(
 	mode: 'text' | 'image',
@@ -358,15 +363,17 @@ export function buildExtractPrompt(
 	// production call sites pass the household's real lists.
 	vocabulary: RecipeMetadataVocabulary = emptyRecipeMetadataGroups<string>(),
 ): string {
+	// The paste comes first and the rules after it. Tags, not a line of dashes:
+	// pasted posts are full of those.
+	const source =
+		mode === 'text' && rawText
+			? `<source>\n${rawText.slice(0, MAX_TEXT_LENGTH)}\n</source>\n\n`
+			: ''
+
 	const intro =
 		mode === 'text'
-			? 'Extract a structured recipe from the following text:'
-			: 'Extract a structured recipe from the provided image(s). If the recipe spans multiple images, combine the information from all images into a single complete recipe.'
-
-	const textBlock =
-		mode === 'text' && rawText
-			? `\n---\n${rawText.slice(0, MAX_TEXT_LENGTH)}\n---\n`
-			: ''
+			? 'Extract the recipe from the text between the <source> tags.'
+			: 'Extract the recipe from the provided image(s). Several screenshots of one recipe may arrive out of order, and consecutive screenshots often repeat the lines where they overlap: combine them into one recipe, in the order the recipe itself gives, and list a repeated line once.'
 
 	const householdLists = RECIPE_METADATA_DIMENSIONS.map(
 		(dimension) =>
@@ -375,33 +382,38 @@ export function buildExtractPrompt(
 			}`,
 	).join('; ')
 
-	return `${intro}${textBlock}
+	return `${source}${intro}
 
 Rules:
-- Infer the recipe title if not explicitly stated. Keep the title under ${MAX_TITLE_LENGTH} characters — a longer one is rejected when the recipe is saved
-- Write the title, description, instructions, ingredient names and notes in English, whatever the source language. Be precise with food terminology — e.g. Romanian "roșie" = tomato (not rosemary), "căței de usturoi" = garlic cloves (not sausage), "smântână" = sour cream. Keep an ingredient's original wording in that ingredient's notes. If unsure of a translation, keep the original name and note it
-- unit must be one of: ${CANONICAL_UNITS.join(', ')} — or null. Translate the source's unit word into that list without changing the quantity: Romanian "linguri" and German "EL" are both tbsp, "lingurițe" and "TL" are tsp, "cană" is cup. Never convert between metric and imperial — 200 g stays 200 g, never 7 oz
-- Use null for unit when the quantity is a count, and when the source's measure word is not in the list above. Put that measure word in notes instead: "2 lemons" → amount "2", unit null, name "lemons"; "2 cans of chickpeas" → amount "2", unit null, name "chickpeas", notes "cans"; "3 cloves garlic" → amount "3", unit null, name "garlic", notes "cloves". Keep a count word as the unit only when the source itself uses one of: ${CANONICAL_COUNT_UNITS.join(', ')}
-- amount must be a plain number ("2"), a decimal written with a dot ("1.5", never "1,5"), a fraction ("1/2"), or a mixed number ("1 1/2"). Nothing else — no words, no units, no "~". For a range, use the lower bound as the amount and put the range in notes: "1 to 2 tsp" → amount "1", unit "tsp", notes "1 to 2 tsp"
-- name is the bare ingredient and nothing else. Preparation, state, size and brand belong in notes: "finely chopped fresh parsley" → name "parsley", notes "fresh, finely chopped"; "large egg, room temperature" → name "egg", notes "large, room temperature"
-- Convert informal measurements to concrete quantities ("a handful" → "1/2 cup", "a pinch" → "1/4 tsp", "a couple twists" → "1/4 tsp")
-- Strip emojis, hashtags, and non-recipe content from the recipe fields
-- Put the cook's own advice in the top-level "notes" — substitutions, storage, make-ahead steps, serving suggestions, equipment tips — as short plain-text lines, under ${MAX_NOTES_LENGTH} characters. Use null when the source offers none. Do not repeat the instructions there
-- Convert conversational instructions to imperative form
-- Separate combined ingredients ("salt and pepper" → two items)
-- When ingredients are grouped into sub-sections (e.g., "For the Sauce", "Dry Batter", "Pie Dough", "Streusel Topping"), emit a heading row for each section immediately before the ingredients in that section. A heading row has isHeading: true, name set to the section title (cleaned up — drop a leading "For the" / "For "), and amount/unit/notes set to null. Regular ingredients have isHeading: false. List every ingredient from every sub-section individually; do NOT merge or sum quantities of the same ingredient across different sub-sections — they are used separately. Do NOT put the section name into the notes field — use a heading row instead
-- If multiple recipes are present, extract only the main or primary recipe
+- Copy only what the source gives. When it has ingredients but no steps (a caption that says "method in the video"), return "instructions": []. When it has steps but no ingredient list, list the ingredients its steps name, with the amounts the steps give. Never fill a gap with ingredients, amounts or steps of your own: the cook adds what is missing
+- If the source has neither ingredients nor steps, return {"error": "no_recipe_found"}
+- If it has several recipes, extract only the main one. When a page gives the same recipe twice (step-by-step photos in the post, then a recipe card), use the recipe card
+- Leave out everything that is not the recipe: emojis, hashtags, life stories, ratings, comments, nutrition facts, ads and links to other recipes
+- title: the source's name for the dish in English, or a short plain English name when it has none. Keep it under ${MAX_TITLE_LENGTH} characters: a longer one is cut when the recipe is saved
+- description: the source's own one- or two-sentence summary of the dish, under ${MAX_DESCRIPTION_LENGTH} characters, or null when it has none. Don't write one yourself
+- Write the title, description, instructions, ingredient names and notes in English, whatever the source language. Be precise with food terminology — e.g. Romanian "roșie" = tomato (not rosemary), "căței de usturoi" = garlic cloves (not sausage), "smântână" = sour cream. Keep each translated ingredient's original wording in its notes: "3 roșii" → name "tomatoes", notes "roșii". If unsure of a translation, keep the original name and note it
+- Shopping copies an ingredient's amount, unit and name, never its notes, so the quantity a shopper needs belongs in those three
+- name is the bare ingredient and nothing else. Preparation, state, size and brand belong in notes: "finely chopped fresh parsley" → name "parsley", notes "fresh, finely chopped"; "large egg, room temperature" → name "egg", notes "large, room temperature". Put "optional" in the notes of an optional ingredient: Shopping leaves those out
+- Separate combined ingredients: "salt and pepper to taste" → name "salt", notes "to taste" and name "pepper", notes "to taste"
+- amount is a plain number ("2"), a decimal written with a dot ("1.5", never "1,5"), a fraction ("1/2"), a mixed number ("1 1/2"), or a range of two of those joined by a hyphen ("2-3", "1/2-1"). Nothing else — no words, no units, no "~". "2 to 3 tbsp" → amount "2-3", unit "tbsp"
+- An ingredient the source gives no quantity for ("salt to taste", "oil for frying") has amount null and unit null, with "to taste" or "for frying" in its notes. Never turn a vague measure into a number
+- unit: when the source measures in one of ${CANONICAL_UNITS.join(', ')}, or in a word for one of them in any language, use that unit from this list: "tablespoons", Romanian "linguri" and German "EL" are all tbsp; "lingurițe" and "TL" are tsp; "cană" is cup. Never convert between metric and imperial — 200 g stays 200 g, never 7 oz
+- Any other measure word the source uses stays the unit, in English: "3 cloves garlic" → amount "3", unit "cloves", name "garlic"; "2 cans of chickpeas" → amount "2", unit "cans", name "chickpeas"; "a pinch of salt" → amount "1", unit "pinch", name "salt"; "a handful of basil" → amount "1", unit "handful", name "basil". When the quantity is a plain count, unit is null: "2 lemons" → amount "2", unit null, name "lemons"
+- When the source gives two measures for one ingredient, use the first as amount and unit and put the other in notes: "1 cup (240 ml) cream" → amount "1", unit "cup", notes "240 ml". When it adds two ("1/2 cup plus 2 tbsp"), use the first and put the whole measure in notes
+- When ingredients are grouped into sub-sections (e.g., "For the Sauce", "Dry Batter", "Pie Dough", "Streusel Topping"), emit a heading row for each section immediately before the ingredients in that section. A heading row has isHeading: true, name set to the section title without a leading "For the" or "For" ("For the sauce" → "Sauce"), and amount/unit/notes set to null. Regular ingredients have isHeading: false. List every ingredient from every sub-section individually; do NOT merge or sum quantities of the same ingredient across different sub-sections — they are used separately. Do NOT put the section name into the notes field — use a heading row instead
+- instructions: the source's own steps, in its order, one entry each, without a number or a "Step 1:" label — the app numbers the steps. Don't split a step into its sentences or merge steps; only a method written as one paragraph is split into steps. Convert conversational instructions to imperative form. A section title in the method ("For the sauce") is never a step on its own
+- In steps, write durations and temperatures in digits with their unit ("10 minutes", "180°C", "350°F"): the Recipe page turns those into timers. Never convert between °C and °F
 - Return at most ${MAX_INGREDIENTS} ingredient rows (heading rows count toward that) and at most ${MAX_INSTRUCTIONS} instruction steps. If the source has more, keep the most important ones rather than stopping partway through
+- Put the cook's own advice in the top-level "notes" — substitutions, storage, make-ahead steps, serving suggestions, equipment — as short plain-text lines, under ${MAX_NOTES_LENGTH} characters. Use null when the source offers none. Do not repeat the instructions there
 - Suggest Cuisine, Season and Course for this recipe by choosing from this household's own lists, copying a name exactly as it is spelled there — ${householdLists}. At most ${MAX_METADATA_SUGGESTIONS} per group, and usually one. Answer [] for a group whose list is empty, or when nothing on it fits, or when the recipe gives no reason to choose. Never invent a value and never answer with one that is not on the list above: anything else is discarded
-- Copy Active time, Total time, and Yield only when the source explicitly states them; otherwise use null. Never estimate or default them. Total time must not be shorter than Active time
+- activeTime is the source's prep or active time. totalTime is a total the source states ("Total time: 45 min", "ready in 45 minutes"), never a sum you work out: "prep 5 min, cook 15 min" gives activeTime 5 and totalTime null. Cook time alone is neither. Never estimate either one. Total time must not be shorter than Active time
 - activeTime and totalTime are plain whole numbers of minutes: "20 min" is 20, "1 hr 15 min" is 75, "1½ hours" is 90
-- A yield must include both a positive numeric amount and its source label (for example, "Serves 6" becomes 6 + "servings"; "Makes 2 loaves" becomes 2 + "loaves")
-- If no recognizable recipe is found, return {"error": "no_recipe_found"}
+- A yield needs a single positive amount and the source's label: "Serves 6" becomes 6 + "servings"; "Makes 2 loaves" becomes 2 + "loaves". A range ("Serves 4-6") has no single amount, so yieldAmount and yieldLabel are both null, as they are when the source states no yield
 
 Return a single JSON object with this exact structure:
 {
   "title": "Recipe Name",
-  "description": "Brief description (1-2 sentences, under ${MAX_DESCRIPTION_LENGTH} characters)",
+  "description": "The source's own one- or two-sentence summary, or null",
   "notes": "Cook's notes: substitutions, storage, make-ahead tips — or null",
   "activeTime": null,
   "totalTime": null,
@@ -410,13 +422,14 @@ Return a single JSON object with this exact structure:
   "ingredients": [
     {"name": "Sauce", "amount": null, "unit": null, "notes": null, "isHeading": true},
     {"name": "soy sauce", "amount": "2", "unit": "tbsp", "notes": null, "isHeading": false},
-    {"name": "garlic", "amount": "3", "unit": null, "notes": "cloves, minced", "isHeading": false},
+    {"name": "garlic", "amount": "3", "unit": "cloves", "notes": "minced", "isHeading": false},
+    {"name": "chili flakes", "amount": "1-2", "unit": "tsp", "notes": "optional", "isHeading": false},
     {"name": "Stir Fry", "amount": null, "unit": null, "notes": null, "isHeading": true},
     {"name": "chicken breast", "amount": "2", "unit": null, "notes": "diced", "isHeading": false},
-    {"name": "flour", "amount": "1", "unit": "cup", "notes": null, "isHeading": false}
+    {"name": "salt", "amount": null, "unit": null, "notes": "to taste", "isHeading": false}
   ],
   "instructions": [
-    {"content": "Step description in imperative form"}
+    {"content": "One step in imperative form, without its number"}
   ],
   "metadata": {"cuisine": [], "season": [], "course": []}
 }`

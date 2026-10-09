@@ -130,9 +130,6 @@ export const CANONICAL_UNITS: readonly string[] = [
 	...new Set(UNIT_FAMILIES.flatMap((family) => Object.keys(family.units))),
 ]
 
-/** Count-like units, which consolidation treats as unitless. */
-export const CANONICAL_COUNT_UNITS: readonly string[] = [...COUNT_UNITS]
-
 /**
  * Find which unit family a normalized unit belongs to.
  * Returns null if the unit isn't in any known family.

@@ -8,7 +8,8 @@ Ingredients
 Instructions
 Toss the chickpeas with lemon juice and serve.`
 
-const savedRecipeUrl = /\/recipes\/(?!import)[a-z0-9]+\?imported=text$/
+// The notice's params leave the address as soon as the Recipe opens.
+const savedRecipeUrl = /\/recipes\/(?!import)[a-z0-9]+$/
 
 test('pasted text saves at once and opens with a notice; Undo deletes it and returns to Import', async ({
 	page,
@@ -59,12 +60,6 @@ test('pasted text saves at once and opens with a notice; Undo deletes it and ret
 		],
 	})
 
-	// The import replaced its own history entry: Back skips the form.
-	await page.goBack()
-	await expect(page).toHaveURL(/\/recipes$/)
-	await page.goForward()
-	await expect(page).toHaveURL(savedRecipeUrl)
-
 	await notice.getByRole('button', { name: 'Undo', exact: true }).click()
 	await notice.getByRole('button', { name: 'Delete?', exact: true }).click()
 	await expect(page).toHaveURL(/\/recipes\/import$/)
@@ -75,6 +70,63 @@ test('pasted text saves at once and opens with a notice; Undo deletes it and ret
 			select: { id: true },
 		}),
 	).toEqual([{ id: older.id }])
+})
+
+test('the notice shows once: not on the Recipe it links to, after Back, or on a reload; Back skips the import', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const older = await prisma.recipe.create({
+		data: {
+			title: 'Chickpea lunch',
+			userId: user.id,
+			householdId: user.householdId,
+		},
+		select: { id: true },
+	})
+	await page.goto('/recipes')
+	await page.goto('/recipes/import')
+	await page.getByRole('button', { name: 'From Text', exact: true }).click()
+	await page.getByLabel('Recipe text', { exact: true }).fill(original)
+	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
+	const notice = page.getByRole('region', { name: 'Saved to your Recipes' })
+	await expect(notice).toBeVisible()
+	const saved = await prisma.recipe.findFirstOrThrow({
+		where: { userId: user.id, id: { not: older.id } },
+		select: { id: true },
+	})
+	await expect(page).toHaveURL(`/recipes/${saved.id}`)
+
+	// Same title, so only the address tells the two Recipes apart.
+	await notice.getByRole('link', { name: 'Open it' }).click()
+	await expect(page).toHaveURL(`/recipes/${older.id}`)
+	await expect(
+		page.getByRole('heading', { name: 'Chickpea lunch', level: 1 }),
+	).toBeVisible()
+	await expect(notice).toHaveCount(0)
+	await page.goBack()
+	await expect(page).toHaveURL(`/recipes/${saved.id}`)
+	await expect(
+		page.getByRole('heading', { name: 'Chickpea lunch', level: 1 }),
+	).toBeVisible()
+	await expect(notice).toHaveCount(0)
+
+	await page.reload()
+	await expect(
+		page.getByRole('heading', { name: 'Chickpea lunch', level: 1 }),
+	).toBeVisible()
+	await expect(notice).toHaveCount(0)
+
+	// The import replaced its own history entry: Back skips the form.
+	await page.goBack()
+	await expect(page).toHaveURL(/\/recipes$/)
+	await page.goForward()
+	await expect(page).toHaveURL(`/recipes/${saved.id}`)
+	await expect(
+		page.getByRole('heading', { name: 'Chickpea lunch', level: 1 }),
+	).toBeVisible()
+	await expect(notice).toHaveCount(0)
 })
 
 test('an import missing its steps saves, says so, and Edit adds them; the notice can be dismissed', async ({
@@ -120,7 +172,6 @@ test('an import missing its steps saves, says so, and Edit adds them; the notice
 	await expect(page).toHaveURL(savedRecipeUrl)
 	await notice.getByRole('button', { name: 'Dismiss' }).click()
 	await expect(notice).toHaveCount(0)
-	await expect(page).toHaveURL(/\/recipes\/(?!import)[a-z0-9]+$/)
 	await page.reload()
 	await expect(
 		page.getByRole('heading', { name: 'Toast', level: 1 }),

@@ -18,6 +18,18 @@ const importedFrom: Record<ImportIntent, ImportedFrom> = {
 	'extract-image': 'images',
 }
 
+// An import with no ingredient (headings aside) and no step has nothing to
+// cook from. It saves nothing: a title alone would be an empty Recipe, and for
+// a link, one that answers every later import of it.
+const nothingToRead: Record<ImportIntent, string> = {
+	fetch:
+		'The recipe data on this page has no ingredients or instructions. Paste its text in From Text instead.',
+	'parse-text':
+		'Could not find a recipe in the pasted text. Try including a title, ingredients, and instructions.',
+	'extract-text': 'Could not find a recipe in the pasted text.',
+	'extract-image': 'Could not find a recipe in the screenshots.',
+}
+
 /** An import that saved nothing, said on the tab the cook used. */
 export function importFailure(
 	intent: ImportIntent | null,
@@ -62,6 +74,12 @@ export async function saveImportedRecipe(
 		const { recipe } = fitted
 		shortened = fitted.shortened
 		ingredientCount = recipe.ingredients.length
+		if (
+			!recipe.ingredients.some((ingredient) => !ingredient.isHeading) &&
+			!recipe.instructions.length
+		) {
+			return importFailure(intent, nothingToRead[intent])
+		}
 		if (recipe.sourceUrl) {
 			const existing = await findRecipeFromUrl(householdId, recipe.sourceUrl)
 			if (existing) return alreadyImported(intent, existing)

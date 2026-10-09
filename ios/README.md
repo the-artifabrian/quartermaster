@@ -188,11 +188,13 @@ show an "Open Quartermaster" button.
 Checks by hand (#328, 2.2), on the Simulator and then a device:
 
 1. Safari on a Recipe page, Share, Quartermaster: the app opens on the import
-   page with the fetch running.
+   page with the link ready, and one tap on Import saves and opens the Recipe.
+   Sharing it again opens on "Already in your Recipes".
 2. Messages, long-press a message holding a Recipe link, Share, Quartermaster:
    same result.
 3. A Recipe site's own share button (Web Share), Quartermaster: same result.
-4. A page that is not a Recipe: the import page shows its usual error.
+4. A page that is not a Recipe: after the tap, the import page shows its usual
+   error.
 5. Each of the above with the app killed first (cold start) and with it already
    open.
 6. Then retire the "Send to Quartermaster" Shortcut (#326, 0.6).

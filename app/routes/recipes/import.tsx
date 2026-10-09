@@ -5,10 +5,10 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { Label } from '#app/components/ui/label.tsx'
-import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useFitFileInput } from '#app/utils/downscale-image.ts'
+import { findRecipeFromUrl } from '#app/utils/import-recipe-save.server.ts'
 import { importUrlFromSearch } from '#app/utils/import-url.ts'
 import { MAX_IMPORT_IMAGE_SIZE } from '#app/utils/recipe-validation.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
@@ -26,10 +26,16 @@ export const meta: Route.MetaFunction = () => {
 type ImportTab = 'url' | 'text' | 'image'
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { isProActive } = await requireUserWithTier(request)
+	const { isProActive, householdId } = await requireUserWithTier(request)
+	const sharedUrl = importUrlFromSearch(new URL(request.url).search)
 	return {
 		isProActive,
-		sharedUrl: importUrlFromSearch(new URL(request.url).search),
+		sharedUrl,
+		// A shared link the household already has says so straight away. Only
+		// a read, so it is safe on load, unlike the import itself.
+		sharedExisting: sharedUrl
+			? await findRecipeFromUrl(householdId, sharedUrl)
+			: null,
 	}
 }
 
@@ -73,7 +79,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
-	const { isProActive, sharedUrl } = loaderData
+	const { isProActive, sharedUrl, sharedExisting } = loaderData
 	const actionData = useActionData<typeof action>()
 	const navigation = useNavigation()
 
@@ -87,12 +93,12 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					navigation.formData.get('url') as string | null,
 				)
 			: null
-	const submittingIntent = navigation.formData?.get('intent') ?? null
 
 	const error = actionData?.error ?? null
 	const actionIntent = actionData?.intent ?? null
-	const existing = actionData?.existing ?? null
-	const offerShared = sharedUrl !== null && !actionData && progress === null
+	const existing = actionData ? actionData.existing : sharedExisting
+	const offerShared =
+		sharedUrl !== null && !sharedExisting && !actionData && progress === null
 
 	const urlError = error && actionIntent === 'fetch' ? error : null
 	const textError =
@@ -178,7 +184,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				<div role="status" className="bg-muted/40 mb-6 rounded-lg p-4">
 					<p className="font-medium">Already in your Recipes</p>
 					<p className="text-muted-foreground mt-1 text-sm wrap-anywhere">
-						You imported this link before as “{existing.title}”.
+						It’s saved as “{existing.title}”.
 					</p>
 					<Button asChild size="sm" className="mt-3 min-h-11 px-4">
 						<Link to={`/recipes/${existing.id}`}>Open it</Link>
@@ -233,8 +239,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 
 				{/* URL tab */}
 				{visibleTab === 'url' && (
-					// The bare path, so a submit before hydration also drops ?url=
-					// and the auto-fetch cannot follow it.
+					// The bare path, so a shared ?url= never outlives a submit.
 					<Form method="POST" action="/recipes/import" className="space-y-4">
 						<input type="hidden" name="intent" value="fetch" />
 						<div className="space-y-2">
@@ -244,7 +249,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								name="url"
 								type="url"
 								placeholder="https://example.com/recipe/..."
-								defaultValue={sharedUrl ?? undefined}
+								defaultValue={(!sharedExisting && sharedUrl) || undefined}
 								autoFocus
 								required
 							/>
@@ -262,13 +267,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 							>
 								Cancel
 							</Button>
-							<StatusButton
-								type="submit"
-								status={submittingIntent === 'fetch' ? 'pending' : 'idle'}
-								disabled={isSubmitting}
-							>
-								{submittingIntent === 'fetch' ? 'Fetching...' : 'Fetch Recipe'}
-							</StatusButton>
+							<Button type="submit">Import</Button>
 						</div>
 					</Form>
 				)}
@@ -300,33 +299,19 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 							>
 								Cancel
 							</Button>
-							<StatusButton
+							<Button
 								type="submit"
 								name="intent"
 								value="parse-text"
 								variant="outline"
-								status={submittingIntent === 'parse-text' ? 'pending' : 'idle'}
-								disabled={isSubmitting}
 							>
-								{submittingIntent === 'parse-text'
-									? 'Parsing...'
-									: 'Parse Recipe'}
-							</StatusButton>
+								Parse Recipe
+							</Button>
 							{isProActive ? (
-								<StatusButton
-									type="submit"
-									name="intent"
-									value="extract-text"
-									status={
-										submittingIntent === 'extract-text' ? 'pending' : 'idle'
-									}
-									disabled={isSubmitting}
-								>
+								<Button type="submit" name="intent" value="extract-text">
 									<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
-									{submittingIntent === 'extract-text'
-										? 'Extracting...'
-										: 'Extract with AI'}
-								</StatusButton>
+									Extract with AI
+								</Button>
 							) : hideAi ? null : (
 								<Button asChild>
 									<Link to="/upgrade">
@@ -379,18 +364,10 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								Cancel
 							</Button>
 							{isProActive ? (
-								<StatusButton
-									type="submit"
-									status={
-										submittingIntent === 'extract-image' ? 'pending' : 'idle'
-									}
-									disabled={isSubmitting || preparingImages}
-								>
+								<Button type="submit" disabled={preparingImages}>
 									<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
-									{submittingIntent === 'extract-image'
-										? 'Extracting...'
-										: 'Extract with AI'}
-								</StatusButton>
+									Extract with AI
+								</Button>
 							) : (
 								<Button asChild>
 									<Link to="/upgrade">

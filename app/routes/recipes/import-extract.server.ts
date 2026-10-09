@@ -242,7 +242,7 @@ export async function importWithAi(
 		totalTime: llmResult.totalTime,
 		yieldAmount: llmResult.yieldAmount,
 		yieldLabel: llmResult.yieldLabel,
-		sourceUrl: (formData.get('sourceUrl') as string) || '',
+		sourceUrl: '',
 		metadataValueIds: matchedValueIds(metadataValues, llmResult.metadata),
 		rawText: (intentKey === 'extract-text'
 			? rawText

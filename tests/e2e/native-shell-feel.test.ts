@@ -60,10 +60,7 @@ async function openShopping(page: Page) {
 async function expectSheetDocksOnTabBar(page: Page) {
 	await page.getByRole('button', { name: 'Add item' }).click()
 
-	const sheet = page
-		.getByRole('dialog', { name: 'Add to Shopping' })
-		.locator(':scope > div')
-		.last()
+	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
 	const bar = page.locator('[data-bottom-nav]')
 	// The sheet slides up as it opens; poll until it has settled.
 	await expect
@@ -174,6 +171,21 @@ test.describe('in the iOS app', () => {
 		login,
 	}) => {
 		const messages = await recordBridgeMessages(page)
+		await page.addInitScript(() => {
+			const start = document.startViewTransition.bind(document)
+			Object.assign(window, { __viewTransitions: 0 })
+			document.startViewTransition = (...args) => {
+				const w = window as unknown as { __viewTransitions: number }
+				w.__viewTransitions++
+				return start(...args)
+			}
+		})
+		const viewTransitions = () =>
+			page.evaluate(
+				() =>
+					(window as unknown as { __viewTransitions: number })
+						.__viewTransitions,
+			)
 		const user = await login()
 		const recipe = await prisma.recipe.create({
 			data: {
@@ -192,6 +204,7 @@ test.describe('in the iOS app', () => {
 		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 		// The URL changes before the router commits the new page.
 		await expect.poll(direction).toBe('forward')
+		expect(await viewTransitions()).toBe(1)
 
 		await page.getByRole('link', { name: 'Edit Recipe' }).click()
 		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
@@ -200,6 +213,18 @@ test.describe('in the iOS app', () => {
 			page.getByRole('heading', { level: 1, name: 'Lemon rice' }),
 		).toBeVisible()
 		expect(await direction()).not.toBe('forward')
+
+		// A tab switch from the Recipe starts no view transition: the page
+		// swaps in one frame and the tab bar stays as it is.
+		await page.setViewportSize({ width: 390, height: 844 })
+		const transitionsBeforeTab = await viewTransitions()
+		const tabBar = page.getByRole('navigation', { name: 'Main' })
+		await tabBar.getByRole('link', { name: 'Plan', exact: true }).click()
+		await expect(page).toHaveURL('/plan')
+		await tabBar.getByRole('link', { name: 'Recipes', exact: true }).click()
+		// The Recipes tab comes back to the Recipe it was on.
+		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+		expect(await viewTransitions()).toBe(transitionsBeforeTab)
 	})
 })
 

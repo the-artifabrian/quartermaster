@@ -217,7 +217,6 @@ export function BottomNav() {
 							key={item.to}
 							to={linkTo}
 							defaultShouldRevalidate={defaultShouldRevalidate}
-							viewTransition
 							aria-busy={isPending || undefined}
 							data-bottom-nav-tab={item.destination}
 							data-pending={isPending ? 'true' : undefined}
@@ -254,10 +253,9 @@ export function BottomNav() {
 								if (isOnSubPage) delete lastPathPerTab.current[item.to]
 								haptic('selection')
 								startTabNavigation(item, linkTo, startedAt)
-								void navigate(linkTo, {
-									viewTransition: true,
-									defaultShouldRevalidate,
-								})
+								// No view transition: as in a native tab bar, the new tab
+								// replaces the page in one frame.
+								void navigate(linkTo, { defaultShouldRevalidate })
 							}}
 							onPointerUp={() => setPressedTab(null)}
 							onPointerCancel={() => {

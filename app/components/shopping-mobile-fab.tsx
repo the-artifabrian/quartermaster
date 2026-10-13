@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFetcher, useRevalidator } from 'react-router'
 import { toast } from 'sonner'
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
+import { BottomSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
 	useSpeechToText,
@@ -13,7 +14,6 @@ import {
 } from '#app/hooks/use-speech-to-text.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
-import { useModal } from '#app/utils/use-modal.ts'
 
 export function MobileFabAdd({
 	open,
@@ -37,7 +37,8 @@ export function MobileFabAdd({
 
 	useEffect(() => {
 		if (open) {
-			setTimeout(() => inputRef.current?.focus(), 50)
+			// The sheet is still sliding up: focusing must not scroll the page.
+			setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 50)
 		}
 	}, [open])
 
@@ -158,175 +159,139 @@ export function MobileFabAdd({
 	// than the md breakpoint, so the fixed FAB would repeat on every page
 	return (
 		<div className="md:hidden print:hidden">
-			{open && (
-				<AddItemSheet onClose={() => onOpenChange(false)}>
-					{showWarning && (
-						<WarningBanner
-							actionData={warningData}
-							onDismiss={() => setWarningDismissed(true)}
-							onMoved={() => {
-								setName('')
-								setQuantity('')
-								setUnit('')
-							}}
-						/>
-					)}
-					<fetcher.Form
-						method="POST"
-						onSubmit={(e) => {
-							if (!name.trim()) e.preventDefault()
+			{/* Stays mounted under the sheet so focus can come back to it, and
+			    comes before it so the leaving sheet slides over it. */}
+			<button
+				type="button"
+				className={cn(
+					'bg-primary text-primary-foreground shadow-warm-md fixed right-4 bottom-[calc(var(--bottom-nav-h)+1.5rem+var(--bottom-nav-inset))] z-50 flex size-12 items-center justify-center rounded-full transition-all active:scale-95',
+					open && 'hidden',
+				)}
+				aria-label="Add item"
+				onClick={() => onOpenChange(true)}
+			>
+				<Icon name="plus" className="size-6" />
+			</button>
+			<BottomSheet
+				open={open}
+				onClose={() => onOpenChange(false)}
+				labelledBy="shopping-add-sheet-title"
+				title="Add to Shopping"
+			>
+				{showWarning && (
+					<WarningBanner
+						actionData={warningData}
+						onDismiss={() => setWarningDismissed(true)}
+						onMoved={() => {
+							setName('')
+							setQuantity('')
+							setUnit('')
 						}}
-					>
-						<HouseholdClientInput />
-						<input type="hidden" name="intent" value="add" />
-						<input type="hidden" name="horizon" value={NEXT_SHOP} />
-						{canForce && <input type="hidden" name="force" value="true" />}
-						<div className="flex items-center gap-2">
-							<input
-								ref={inputRef}
-								name="name"
-								value={name}
-								onChange={(e) => {
-									setName(e.target.value)
-									setWarningDismissed(false)
-								}}
-								placeholder="Add an item..."
-								enterKeyHint="go"
-								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-10 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-sm outline-none focus:ring-1"
-							/>
-							{isProActive && (
-								<button
-									type="button"
-									onClick={isRecording ? stopRecording : startRecording}
-									disabled={isTranscribing}
-									className={cn(
-										'flex size-10 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50',
-										isRecording
-											? 'bg-destructive text-destructive-foreground animate-pulse'
-											: 'bg-muted text-muted-foreground',
-									)}
-									aria-label={
-										isRecording
-											? 'Stop recording'
-											: isTranscribing
-												? 'Transcribing...'
-												: 'Voice input'
-									}
-								>
-									{isTranscribing ? (
-										<Icon name="update" className="size-4 animate-spin" />
-									) : (
-										<Icon name="microphone" className="size-5" />
-									)}
-								</button>
-							)}
+					/>
+				)}
+				<fetcher.Form
+					method="POST"
+					onSubmit={(e) => {
+						if (!name.trim()) e.preventDefault()
+					}}
+				>
+					<HouseholdClientInput />
+					<input type="hidden" name="intent" value="add" />
+					<input type="hidden" name="horizon" value={NEXT_SHOP} />
+					{canForce && <input type="hidden" name="force" value="true" />}
+					<div className="flex items-center gap-2">
+						<input
+							ref={inputRef}
+							name="name"
+							value={name}
+							onChange={(e) => {
+								setName(e.target.value)
+								setWarningDismissed(false)
+							}}
+							placeholder="Add an item..."
+							enterKeyHint="go"
+							className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-10 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-sm outline-none focus:ring-1"
+						/>
+						{isProActive && (
 							<button
-								type="submit"
-								disabled={!name.trim() || fetcher.state !== 'idle'}
-								className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-full disabled:opacity-50"
-								aria-label={canForce ? 'Add anyway' : 'Add to Next shop'}
+								type="button"
+								onClick={isRecording ? stopRecording : startRecording}
+								disabled={isTranscribing}
+								className={cn(
+									'flex size-10 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50',
+									isRecording
+										? 'bg-destructive text-destructive-foreground animate-pulse'
+										: 'bg-muted text-muted-foreground',
+								)}
+								aria-label={
+									isRecording
+										? 'Stop recording'
+										: isTranscribing
+											? 'Transcribing...'
+											: 'Voice input'
+								}
 							>
-								<Icon name="plus" className="size-5" />
+								{isTranscribing ? (
+									<Icon name="update" className="size-4 animate-spin" />
+								) : (
+									<Icon name="microphone" className="size-5" />
+								)}
 							</button>
-						</div>
-						{showQty ? (
-							<div className="mt-2 flex items-center gap-2">
-								<input
-									ref={qtyInputRef}
-									name="quantity"
-									value={quantity}
-									onChange={(e) => setQuantity(e.target.value)}
-									placeholder="Qty"
-									enterKeyHint="go"
-									className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-8 w-16 rounded-lg border bg-transparent px-2 text-sm outline-none"
-								/>
-								<input
-									name="unit"
-									value={unit}
-									onChange={(e) => setUnit(e.target.value)}
-									placeholder="Unit"
-									enterKeyHint="go"
-									className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-8 min-w-0 flex-1 rounded-lg border bg-transparent px-2 text-sm outline-none"
-								/>
-								<button
-									type="button"
-									onPointerDown={(e) => {
-										e.preventDefault()
-										setShowQty(false)
-										inputRef.current?.focus()
-									}}
-									className="text-muted-foreground/60 hover:text-muted-foreground shrink-0 text-xs"
-								>
-									Hide
-								</button>
-							</div>
-						) : (
+						)}
+						<button
+							type="submit"
+							disabled={!name.trim() || fetcher.state !== 'idle'}
+							className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-full disabled:opacity-50"
+							aria-label={canForce ? 'Add anyway' : 'Add to Next shop'}
+						>
+							<Icon name="plus" className="size-5" />
+						</button>
+					</div>
+					{showQty ? (
+						<div className="mt-2 flex items-center gap-2">
+							<input
+								ref={qtyInputRef}
+								name="quantity"
+								value={quantity}
+								onChange={(e) => setQuantity(e.target.value)}
+								placeholder="Qty"
+								enterKeyHint="go"
+								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-8 w-16 rounded-lg border bg-transparent px-2 text-sm outline-none"
+							/>
+							<input
+								name="unit"
+								value={unit}
+								onChange={(e) => setUnit(e.target.value)}
+								placeholder="Unit"
+								enterKeyHint="go"
+								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-8 min-w-0 flex-1 rounded-lg border bg-transparent px-2 text-sm outline-none"
+							/>
 							<button
 								type="button"
 								onPointerDown={(e) => {
 									e.preventDefault()
-									setShowQty(true)
+									setShowQty(false)
+									inputRef.current?.focus()
 								}}
-								className="text-muted-foreground/60 hover:text-muted-foreground mt-1.5 text-xs"
+								className="text-muted-foreground/60 hover:text-muted-foreground shrink-0 text-xs"
 							>
-								+ Qty &amp; unit
+								Hide
 							</button>
-						)}
-					</fetcher.Form>
-				</AddItemSheet>
-			)}
-			{!open && (
-				<button
-					type="button"
-					className="bg-primary text-primary-foreground shadow-warm-md fixed right-4 bottom-[calc(var(--bottom-nav-h)+1.5rem+var(--bottom-nav-inset))] z-50 flex size-12 items-center justify-center rounded-full transition-all active:scale-95"
-					aria-label="Add item"
-					onClick={() => onOpenChange(true)}
-				>
-					<Icon name="plus" className="size-6" />
-				</button>
-			)}
-		</div>
-	)
-}
-
-/**
- * Sheet chrome with modal keyboard behavior (D5): Escape closes, focus is
- * trapped while open and returns to the FAB on close — same pattern as the
- * recipe ingredients sheet.
- */
-function AddItemSheet({
-	onClose,
-	children,
-}: {
-	onClose: () => void
-	children: React.ReactNode
-}) {
-	const dialogRef = useModal(onClose)
-
-	return (
-		<div
-			ref={dialogRef}
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="shopping-add-sheet-title"
-		>
-			<div className="fixed inset-0 z-40 bg-black/15" onClick={onClose} />
-			<div className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset))] z-50 rounded-t-xl border-t p-4">
-				<div className="mb-2 flex items-center justify-between">
-					<span id="shopping-add-sheet-title" className="text-sm font-medium">
-						Add to Shopping
-					</span>
-					<button
-						type="button"
-						onClick={onClose}
-						className="text-muted-foreground hover:text-foreground -m-1 p-1"
-						aria-label="Close"
-					>
-						<Icon name="cross-1" size="sm" />
-					</button>
-				</div>
-				{children}
-			</div>
+						</div>
+					) : (
+						<button
+							type="button"
+							onPointerDown={(e) => {
+								e.preventDefault()
+								setShowQty(true)
+							}}
+							className="text-muted-foreground/60 hover:text-muted-foreground mt-1.5 text-xs"
+						>
+							+ Qty &amp; unit
+						</button>
+					)}
+				</fetcher.Form>
+			</BottomSheet>
 		</div>
 	)
 }

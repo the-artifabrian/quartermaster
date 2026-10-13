@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
 	getRecipeTotalTime,
 	RecipeThumb,
 } from '#app/components/recipe-selector.tsx'
+import { BottomSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -13,7 +14,6 @@ import {
 } from '#app/components/ui/popover.tsx'
 import { formatDuration } from '#app/utils/format-duration.ts'
 import { rankRecipeTitleMatches } from '#app/utils/recipe-search.ts'
-import { useModal } from '#app/utils/use-modal.ts'
 
 export type RecipePickerRecipe = {
 	id: string
@@ -89,54 +89,20 @@ export function RecipePicker({
 					<Icon name="plus" size="sm" />
 					{label}
 				</Button>
-				{sheetOpen ? (
-					<PickerSheet onClose={() => setSheetOpen(false)}>
-						<PickerList
-							recipes={recipes}
-							excludeRecipeIds={excludeRecipeIds}
-							onPick={pick}
-						/>
-					</PickerSheet>
-				) : null}
+				<BottomSheet
+					open={sheetOpen}
+					onClose={() => setSheetOpen(false)}
+					labelledBy="recipe-picker-sheet-title"
+					title="Add a recipe"
+				>
+					<PickerList
+						recipes={recipes}
+						excludeRecipeIds={excludeRecipeIds}
+						onPick={pick}
+					/>
+				</BottomSheet>
 			</div>
 		</>
-	)
-}
-
-function PickerSheet({
-	onClose,
-	children,
-}: {
-	onClose: () => void
-	children: React.ReactNode
-}) {
-	const dialogRef = useModal(onClose)
-
-	return (
-		<div
-			ref={dialogRef}
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="recipe-picker-sheet-title"
-		>
-			<div className="fixed inset-0 z-40 bg-black/15" onClick={onClose} />
-			<div className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset))] z-50 rounded-t-xl border-t p-4">
-				<div className="mb-2 flex items-center justify-between">
-					<span id="recipe-picker-sheet-title" className="text-sm font-medium">
-						Add a recipe
-					</span>
-					<button
-						type="button"
-						onClick={onClose}
-						className="text-muted-foreground hover:text-foreground -m-1 p-1"
-						aria-label="Close"
-					>
-						<Icon name="cross-1" size="sm" />
-					</button>
-				</div>
-				{children}
-			</div>
-		</div>
 	)
 }
 
@@ -150,6 +116,12 @@ function PickerList({
 	onPick: (recipe: RecipePickerRecipe) => void
 }) {
 	const [search, setSearch] = useState('')
+	const searchRef = useRef<HTMLInputElement>(null)
+	// Not autoFocus: on a phone the sheet is still below the screen, and
+	// focusing must not scroll the page to it.
+	useEffect(() => {
+		searchRef.current?.focus({ preventScroll: true })
+	}, [])
 
 	const available = recipes.filter((r) => !excludeRecipeIds.includes(r.id))
 	const filtered = rankRecipeTitleMatches(available, search)
@@ -183,7 +155,7 @@ function PickerList({
 				enterKeyHint="search"
 				value={search}
 				onChange={(e) => setSearch(e.target.value)}
-				autoFocus
+				ref={searchRef}
 			/>
 			<div className="max-h-[300px] scrollbar-thin space-y-0.5 overflow-y-auto overscroll-contain md:max-h-[340px]">
 				{emptyMessage ? (

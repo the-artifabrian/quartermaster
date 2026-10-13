@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
+import { BottomSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { PendingButton } from '#app/components/ui/pending-button.tsx'
@@ -18,7 +19,6 @@ import {
 	type PlanPickerDay,
 	type PlanPickerLine,
 } from '#app/utils/shopping-plan-picker.ts'
-import { useModal } from '#app/utils/use-modal.ts'
 
 export type PlanPickerWeek = {
 	weekStart: string
@@ -506,39 +506,17 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 					{panel}
 				</PopoverContent>
 			</Popover>
-			{open && isSheet && (
-				<PickerSheet onClose={closePicker}>{panel}</PickerSheet>
-			)}
-		</>
-	)
-}
-
-/**
- * Phone presentation: full width, from just under the status bar down to the
- * bottom nav, so the week gets the screen rather than a peephole. Same
- * backdrop, escape and focus handling as the other mobile sheets.
- */
-function PickerSheet({
-	onClose,
-	children,
-}: {
-	onClose: () => void
-	children: React.ReactNode
-}) {
-	const dialogRef = useModal(onClose)
-
-	return (
-		<>
-			<div className="fixed inset-0 z-40 bg-black/15" onClick={onClose} />
-			<div
-				ref={dialogRef}
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby="plan-picker-title"
-				className="animate-slide-up-reveal border-border/60 bg-popover text-popover-foreground shadow-warm-lg fixed inset-x-0 top-[calc(env(safe-area-inset-top)+2.5rem)] bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset))] z-[60] flex flex-col rounded-t-xl border-t p-4"
+			{/* Phone presentation: full width, from just under the status bar
+			    down to the bottom nav, so the week gets the screen rather than
+			    a peephole. */}
+			<BottomSheet
+				open={open && isSheet}
+				onClose={closePicker}
+				labelledBy="plan-picker-title"
+				className="bg-popover text-popover-foreground top-[calc(env(safe-area-inset-top)+2.5rem)] z-[60] flex flex-col"
 			>
-				{children}
-			</div>
+				{panel}
+			</BottomSheet>
 		</>
 	)
 }

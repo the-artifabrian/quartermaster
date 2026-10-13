@@ -874,13 +874,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				)}
 			</div>
 
-			{showEnhanceModal && enhanceFetcher.data?.suggestions && (
-				<EnhanceRecipeModal
-					recipe={recipe}
-					suggestions={enhanceFetcher.data.suggestions}
-					onClose={() => setShowEnhanceModal(false)}
-				/>
-			)}
+			<EnhanceRecipeModal
+				open={showEnhanceModal}
+				recipe={recipe}
+				suggestions={enhanceFetcher.data?.suggestions}
+				onClose={() => setShowEnhanceModal(false)}
+			/>
 		</>
 	)
 }

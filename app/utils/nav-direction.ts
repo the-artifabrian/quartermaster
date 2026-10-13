@@ -10,7 +10,8 @@ import {
  * `::view-transition-*` rules on `<html data-nav-direction>`: `forward`
  * slides the new page in from the right, `back` slides the old page out to
  * the right, `none` skips the animation, and no attribute keeps the
- * cross-fade (tab switches).
+ * cross-fade (a detail page in Safari or the Home Screen install). A tab
+ * switch starts no view transition at all.
  */
 export type NavDirection = 'forward' | 'back' | 'none'
 

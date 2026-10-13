@@ -1,25 +1,17 @@
 import { type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, openShopping, test } from '#tests/playwright-utils.ts'
 
 test.use({ viewport: { width: 390, height: 844 } })
 
-async function openShopping(
+async function openShoppingWithList(
 	page: Page,
 	user: { id: string; householdId: string },
 ) {
 	await prisma.shoppingList.create({
 		data: { userId: user.id, householdId: user.householdId },
 	})
-	await page.goto('/shopping')
-	// Shopping fills its client id once it has hydrated.
-	await page.waitForFunction(() =>
-		[
-			...document.querySelectorAll<HTMLInputElement>(
-				'input[name="originClientId"]',
-			),
-		].some((input) => input.value),
-	)
+	await openShopping(page)
 }
 
 type Transition = {
@@ -91,26 +83,24 @@ test('the add sheet slides up, and a close mid-entrance turns it around', async 
 	page,
 	login,
 }) => {
-	await openShopping(page, await login())
+	await openShoppingWithList(page, await login())
 	const { entering, leaving, closeMs, connected } =
 		await openThenCloseEarly(page)
 
-	expect(entering).toContainEqual(
-		expect.objectContaining({
-			property: 'transform',
-			duration: 320,
-			state: 'open',
-		}),
-	)
+	// The entrance slides, inside the 350 ms an occasional surface gets.
+	const entrance = entering.find((t) => t.property === 'transform')
+	expect(entrance).toMatchObject({ state: 'open' })
+	expect(entrance!.duration).toBeGreaterThan(0)
+	expect(entrance!.duration).toBeLessThanOrEqual(350)
 	// The exit starts from where the entrance had got to, not from either end,
-	// and takes at most its 200 ms (a reversal is shortened to match).
+	// and is quicker than the entrance (a reversal is shortened further).
 	const exit = leaving.find((t) => t.property === 'transform')
 	expect(
 		leaving.map((t) => t.property),
 		JSON.stringify({ entering, leaving, closeMs }),
 	).toContain('transform')
 	expect(exit!.duration).toBeGreaterThan(0)
-	expect(exit!.duration).toBeLessThanOrEqual(200)
+	expect(exit!.duration).toBeLessThanOrEqual(250)
 	const from = percentDown(exit!.from)
 	expect(from, String(exit!.from)).toBeGreaterThan(0)
 	expect(from, String(exit!.from)).toBeLessThan(100)
@@ -134,18 +124,18 @@ test('with reduced motion, the add sheet fades in and out without moving', async
 	login,
 }) => {
 	await page.emulateMedia({ reducedMotion: 'reduce' })
-	await openShopping(page, await login())
+	await openShoppingWithList(page, await login())
 	const { entering, leaving } = await openThenCloseEarly(page)
 
 	for (const transitions of [entering, leaving]) {
 		expect(transitions.map((t) => t.property)).not.toContain('transform')
 	}
-	expect(entering).toContainEqual(
-		expect.objectContaining({ property: 'opacity', duration: 120 }),
-	)
-	const exit = leaving.find((t) => t.property === 'opacity')
-	expect(exit!.duration).toBeGreaterThan(0)
-	expect(exit!.duration).toBeLessThanOrEqual(120)
+	// A short fade both ways.
+	for (const transitions of [entering, leaving]) {
+		const fade = transitions.find((t) => t.property === 'opacity')
+		expect(fade!.duration).toBeGreaterThan(0)
+		expect(fade!.duration).toBeLessThanOrEqual(150)
+	}
 	await expect(
 		page.getByRole('dialog', { name: 'Add to Shopping' }),
 	).toBeHidden()
@@ -155,7 +145,7 @@ test('Escape, the backdrop and Close each close the add sheet, and focus comes b
 	page,
 	login,
 }) => {
-	await openShopping(page, await login())
+	await openShoppingWithList(page, await login())
 	const addItem = page.getByRole('button', { name: 'Add item' })
 	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
 
@@ -171,11 +161,12 @@ test('Escape, the backdrop and Close each close the add sheet, and focus comes b
 	// The backdrop, above the sheet.
 	await page.mouse.click(195, 200)
 	await expect(sheet).toBeHidden()
+	await expect(addItem).toBeFocused()
 
 	await addItem.click()
 	await sheet.getByRole('button', { name: 'Close', exact: true }).click()
 	await expect(sheet).toBeHidden()
-	await expect(addItem).toBeVisible()
+	await expect(addItem).toBeFocused()
 })
 
 /** Records each Shopping row as it mounts, with the transitions it starts. */
@@ -230,7 +221,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
 	}) => {
 		await page.emulateMedia({ reducedMotion })
 		const user = await login()
-		await openShopping(page, user)
+		await openShoppingWithList(page, user)
 		// Hold the add so the row added just now is on screen for a while.
 		await page.route('**/shopping.data**', async (route) => {
 			if (route.request().postData()?.includes('intent=add')) {

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { expect, test, vi } from 'vitest'
@@ -130,7 +130,10 @@ test('two sheets are never open at once', async () => {
 
 	expect(onCloseFirst).toHaveBeenCalledTimes(1)
 	expect(screen.queryByRole('dialog', { name: 'First' })).toBeNull()
-	expect(screen.getByRole('dialog', { name: 'Second' })).toBeInTheDocument()
+	const second = screen.getByRole('dialog', { name: 'Second' })
+	// The first sheet's exit gives focus to no trigger: it stays in the sheet
+	// that is open.
+	expect(within(second).getByRole('button', { name: 'Close' })).toHaveFocus()
 })
 
 test('Escape closes only the open sheet, not one that is still leaving', async () => {

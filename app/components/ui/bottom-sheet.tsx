@@ -77,23 +77,43 @@ function SheetFrame({
 	})
 	const [self] = useState(() => ({ close: () => onCloseRef.current() }))
 
-	// Take focus on mount unless a child claimed it (autoFocus), and give it
-	// back once the sheet is gone.
+	// Take focus on each open unless a child claimed it. A reopen during the
+	// exit keeps this instance, so it takes focus again and remembers where
+	// focus was then.
+	const mountedRef = useRef(false)
 	useEffect(() => {
+		if (!open) return
 		const panel = panelRef.current
-		if (panel && !panel.contains(document.activeElement)) {
+		if (!panel) return
+		const active = document.activeElement as HTMLElement | null
+		if (
+			mountedRef.current &&
+			active &&
+			active !== document.body &&
+			!panel.contains(active)
+		) {
+			previouslyFocusedRef.current = active
+		}
+		mountedRef.current = true
+		if (!panel.contains(active)) {
 			panel
 				.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
 				// The panel is still below the screen as it starts to slide up.
 				?.focus({ preventScroll: true })
 		}
-		const previouslyFocused = previouslyFocusedRef.current
-		return () => {
-			if (previouslyFocused?.isConnected) {
+	}, [open])
+
+	// Give focus back once the sheet is gone, unless another sheet has opened
+	// since: focus belongs in that one.
+	useEffect(
+		() => () => {
+			const previouslyFocused = previouslyFocusedRef.current
+			if (openSheet === null && previouslyFocused?.isConnected) {
 				previouslyFocused.focus({ preventScroll: true })
 			}
-		}
-	}, [])
+		},
+		[],
+	)
 
 	useEffect(() => {
 		if (!open) return
@@ -147,7 +167,12 @@ function SheetFrame({
 		}
 		// getAnimations flushes style, so it sees the transitions the closed
 		// state has just started.
-		const animations = rootRef.current?.getAnimations?.({ subtree: true }) ?? []
+		// An endless animation inside (a spinner, a pulsing mic) never finishes.
+		const animations = (
+			rootRef.current?.getAnimations?.({ subtree: true }) ?? []
+		).filter(
+			(animation) => animation.effect?.getTiming().iterations !== Infinity,
+		)
 		const fallback = window.setTimeout(finish, EXIT_FALLBACK_MS)
 		void Promise.allSettled(animations.map((a) => a.finished)).then(finish)
 		return () => {

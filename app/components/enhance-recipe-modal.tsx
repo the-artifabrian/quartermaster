@@ -49,7 +49,7 @@ export function EnhanceRecipeModal({
 }
 
 function EnhanceSuggestions({
-	recipe,
+	recipe: currentRecipe,
 	suggestions,
 	onClose,
 }: {
@@ -57,6 +57,10 @@ function EnhanceSuggestions({
 	suggestions: EnhanceableFields
 	onClose: () => void
 }) {
+	// The Recipe as it was when the suggestions opened. Applying them
+	// revalidates the Recipe while the sheet leaves, and the review would
+	// otherwise turn into "looks complete" on its way out.
+	const [recipe] = useState(currentRecipe)
 	const fetcher = useFetcher({ key: 'apply-enhancement' })
 	const isNativeShell = useIsNativeShell()
 

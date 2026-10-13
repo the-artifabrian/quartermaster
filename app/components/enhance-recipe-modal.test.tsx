@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { render, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { createRoutesStub } from 'react-router'
 import { expect, test, vi } from 'vitest'
@@ -107,4 +108,48 @@ test('requires a compatible selection when one estimate conflicts with saved tim
 			enhance_totalTime: '60',
 		}),
 	)
+})
+
+test('the review stays as it was while the sheet leaves after Apply', async () => {
+	const user = userEvent.setup()
+	const suggestions = {
+		description: 'Creamy chickpeas warmed with care.',
+		activeTime: 10,
+		totalTime: 25,
+	}
+	function Page() {
+		const [recipe, setRecipe] = useState({
+			id: 'recipe-1',
+			description: null as string | null,
+			activeTime: null as number | null,
+			totalTime: null as number | null,
+		})
+		return (
+			<EnhanceRecipeModal
+				open
+				recipe={recipe}
+				suggestions={suggestions}
+				// The Recipe page revalidates with the applied values as it closes.
+				onClose={() => setRecipe({ id: 'recipe-1', ...suggestions })}
+			/>
+		)
+	}
+	const Stub = createRoutesStub([
+		{
+			path: '/recipes/:recipeId',
+			Component: Page,
+			action: () => ({ success: true }),
+		},
+	])
+
+	render(<Stub initialEntries={['/recipes/recipe-1']} />)
+	await user.click(screen.getByRole('button', { name: 'Apply Selected' }))
+
+	await waitFor(() =>
+		expect(
+			screen.getByRole('button', { name: 'Apply Selected' }),
+		).toBeEnabled(),
+	)
+	expect(screen.queryByText(/looks complete/)).toBeNull()
+	expect(screen.getByText('Total Time')).toBeVisible()
 })

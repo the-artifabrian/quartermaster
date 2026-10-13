@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import { BACK_TO_LIST, getNavDirection, OPEN_DETAIL } from './nav-direction.ts'
 
-test('a tab switch, which carries no marker, keeps the cross-fade', () => {
+test('a tab switch, which carries no marker, gets no slide', () => {
 	expect(getNavDirection({ type: 'PUSH', from: null, to: null })).toBeNull()
 })
 
@@ -71,7 +71,7 @@ test('a pop whose direction is unknown never slides forward', () => {
 	)
 })
 
-test('going back between tabs keeps the cross-fade', () => {
+test('going back between tabs gets no slide', () => {
 	expect(
 		getNavDirection({ type: 'POP', from: null, to: null, historyMove: 'back' }),
 	).toBeNull()

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
 	getRecipeTotalTime,
 	RecipeThumb,
@@ -116,6 +116,12 @@ function PickerList({
 	onPick: (recipe: RecipePickerRecipe) => void
 }) {
 	const [search, setSearch] = useState('')
+	const searchRef = useRef<HTMLInputElement>(null)
+	// Not autoFocus: on a phone the sheet is still below the screen, and
+	// focusing must not scroll the page to it.
+	useEffect(() => {
+		searchRef.current?.focus({ preventScroll: true })
+	}, [])
 
 	const available = recipes.filter((r) => !excludeRecipeIds.includes(r.id))
 	const filtered = rankRecipeTitleMatches(available, search)
@@ -149,7 +155,7 @@ function PickerList({
 				enterKeyHint="search"
 				value={search}
 				onChange={(e) => setSearch(e.target.value)}
-				autoFocus
+				ref={searchRef}
 			/>
 			<div className="max-h-[300px] scrollbar-thin space-y-0.5 overflow-y-auto overscroll-contain md:max-h-[340px]">
 				{emptyMessage ? (

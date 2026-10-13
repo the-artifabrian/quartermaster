@@ -1,4 +1,4 @@
-import { test as base, type Response } from '@playwright/test'
+import { test as base, type Page, type Response } from '@playwright/test'
 import { href, type Register } from 'react-router'
 import * as setCookieParser from 'set-cookie-parser'
 import { type User as UserModel } from '#app/generated/prisma/client.ts'
@@ -219,4 +219,16 @@ export async function waitFor<ReturnValue>(
 		await new Promise((r) => setTimeout(r, 100))
 	}
 	throw lastError
+}
+
+/** Opens Shopping and waits until it has hydrated: it fills its client id then. */
+export async function openShopping(page: Page) {
+	await page.goto('/shopping')
+	await page.waitForFunction(() =>
+		[
+			...document.querySelectorAll<HTMLInputElement>(
+				'input[name="originClientId"]',
+			),
+		].some((input) => input.value),
+	)
 }

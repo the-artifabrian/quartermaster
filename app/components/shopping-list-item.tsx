@@ -187,11 +187,11 @@ export function ShoppingListItemCard({
 					aria-pressed={optimisticChecked}
 					aria-busy={isChecking || undefined}
 					aria-describedby={checkState ? `check-status-${item.id}` : undefined}
-					className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+					className="group/check flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
 					aria-label={optimisticChecked ? 'Uncheck item' : 'Check off item'}
 				>
 					<div
-						className={`flex size-6 shrink-0 items-center justify-center rounded border-2 transition-colors duration-150 ${
+						className={`flex size-6 shrink-0 items-center justify-center rounded border-2 transition-[scale,background-color,border-color] duration-150 ease-(--ease-micro) group-enabled/check:group-active/check:scale-[0.97] ${
 							optimisticChecked
 								? 'border-primary bg-primary'
 								: 'border-border bg-muted/30'

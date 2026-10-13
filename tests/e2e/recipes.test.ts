@@ -703,15 +703,35 @@ test('going back to phone Recipes lands on the old position without scrolling th
 			)
 			.toBe('1200')
 	}).toPass()
+	// The first Recipe card fully on screen and not under a bar, so clicking
+	// it scrolls nothing.
 	const href = await page.evaluate(
 		() =>
-			document
-				.elementFromPoint(195, 422)
-				?.closest('a[href^="/recipes/"]')
+			[...document.querySelectorAll<HTMLAnchorElement>('a[href^="/recipes/"]')]
+				.find((link) => {
+					const box = link.getBoundingClientRect()
+					return (
+						link.textContent?.includes('Weeknight Recipe') &&
+						box.height > 0 &&
+						box.top >= 0 &&
+						box.left >= 0 &&
+						box.bottom <= window.innerHeight &&
+						box.right <= window.innerWidth &&
+						link.contains(
+							document.elementFromPoint(
+								box.left + box.width / 2,
+								box.top + box.height / 2,
+							),
+						)
+					)
+				})
 				?.getAttribute('href') ?? null,
 	)
 	expect(href).not.toBeNull()
 	await page.locator(`a[href="${href}"]`).click()
+	expect(
+		await page.evaluate(() => sessionStorage.getItem('scroll:/recipes')),
+	).toBe('1200')
 	await expect(page).toHaveURL(href!)
 	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
 

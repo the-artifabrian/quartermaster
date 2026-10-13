@@ -1,5 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { type ReactNode } from 'react'
+import { type MouseEvent, type ReactNode } from 'react'
 import { data, Link, redirect } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
@@ -117,6 +117,7 @@ function Hero() {
 					<PrimaryCta />
 					<a
 						href="#how-it-works"
+						onClick={glideToHowItWorks}
 						className="text-cream decoration-cream-muted/60 hover:decoration-cream text-base font-medium underline underline-offset-[6px] transition-colors"
 					>
 						See how it works
@@ -134,6 +135,16 @@ function Hero() {
 			</div>
 		</section>
 	)
+}
+
+// The app lands every scroll; this in-page link is the one place a glide fits.
+function glideToHowItWorks(event: MouseEvent<HTMLAnchorElement>) {
+	const target = document.getElementById('how-it-works')
+	if (!target) return
+	event.preventDefault()
+	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+	target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' })
+	history.pushState(null, '', '#how-it-works')
 }
 
 function PrimaryCta({ className }: { className?: string }) {

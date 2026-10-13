@@ -584,5 +584,10 @@ test.describe('the check square on a phone', () => {
 		await page.mouse.up()
 		addHeld.resolve()
 		await expect(pending).toBeEnabled()
+		await expect(pending).toHaveAttribute('aria-pressed', 'false')
+		const bananas = await prisma.shoppingListItem.findMany({
+			where: { name: 'Bananas', list: { householdId: user.householdId } },
+		})
+		expect(bananas.map((item) => item.checked)).toEqual([false])
 	})
 })

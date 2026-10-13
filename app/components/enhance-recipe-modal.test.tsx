@@ -27,6 +27,7 @@ test('reviews and applies estimated Recipe times with the description', async ()
 			path: '/recipes/:recipeId',
 			Component: () => (
 				<EnhanceRecipeModal
+					open
 					recipe={recipe}
 					suggestions={suggestions}
 					onClose={onClose}
@@ -65,6 +66,7 @@ test('requires a compatible selection when one estimate conflicts with saved tim
 			path: '/recipes/:recipeId',
 			Component: () => (
 				<EnhanceRecipeModal
+					open
 					recipe={{
 						id: 'recipe-1',
 						description: null,

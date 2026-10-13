@@ -468,9 +468,10 @@ html {
 }
 
 /* In the iOS app, detail pages slide like a native push and pop
-   (`data-nav-direction`, set by useNavDirection); tab switches keep the
-   cross-fade. The status bar backdrop and the tab bar stay put, and the
-   Recipe image moves from its card to the Recipe page. */
+   (`data-nav-direction`, set by useNavDirection). Tab switches start no view
+   transition: the tab bar swaps the page in one frame, as a native one does.
+   The status bar backdrop and the tab bar stay put, and the Recipe image
+   moves from its card to the Recipe page. */
 :root[data-native-shell] [data-status-bar-backdrop] {
 	view-transition-name: status-bar;
 }
@@ -562,6 +563,96 @@ html {
 	animation: none;
 }
 
+/* Bottom sheets (BottomSheet): the panel slides up from below its docked
+   edge and leaves the way it came while the backdrop fades. A closed sheet
+   keeps its `display` until the exit has run (allow-discrete) and lets taps
+   through while it leaves. A transition that is cut short turns around from
+   where it is. */
+[data-bottom-sheet][data-state='closed'] {
+	pointer-events: none;
+}
+
+[data-bottom-sheet-panel] {
+	transform: translateY(0);
+	transition-behavior: allow-discrete;
+	transition-property: transform, display;
+	transition-duration: 320ms;
+	transition-timing-function: var(--ease-page-settle);
+}
+
+[data-bottom-sheet-backdrop] {
+	opacity: 1;
+	transition-behavior: allow-discrete;
+	transition-property: opacity, display;
+	transition-duration: 200ms;
+	transition-timing-function: var(--ease-micro);
+}
+
+@starting-style {
+	[data-bottom-sheet-panel] {
+		transform: translateY(100%);
+	}
+
+	[data-bottom-sheet-backdrop] {
+		opacity: 0;
+	}
+}
+
+[data-bottom-sheet-panel][data-state='closed'] {
+	display: none;
+	transform: translateY(100%);
+	transition-duration: 200ms;
+	transition-timing-function: var(--ease-exit);
+}
+
+[data-bottom-sheet-backdrop][data-state='closed'] {
+	display: none;
+	opacity: 0;
+	transition-duration: 150ms;
+	transition-timing-function: var(--ease-exit);
+}
+
+/* From `sm` up the modal layout is a centered dialog: it settles in place. */
+@media (width >= 40rem) {
+	[data-bottom-sheet='modal'] [data-bottom-sheet-panel] {
+		opacity: 1;
+		transform: scale(1);
+		transition-property: opacity, transform, display;
+		transition-duration: 150ms;
+		transition-timing-function: var(--ease-micro);
+	}
+
+	@starting-style {
+		[data-bottom-sheet='modal'] [data-bottom-sheet-panel] {
+			opacity: 0;
+			transform: scale(0.97);
+		}
+	}
+
+	[data-bottom-sheet='modal'] [data-bottom-sheet-panel][data-state='closed'] {
+		opacity: 0;
+		transform: scale(0.97);
+		transition-duration: 120ms;
+		transition-timing-function: var(--ease-exit);
+	}
+}
+
+/* A Shopping row added just now eases in. The saved row that replaces it
+   mounts without the attribute and looks the same, so the swap shows
+   nothing. */
+[data-optimistic-row] {
+	transition-property: opacity, transform;
+	transition-duration: 200ms;
+	transition-timing-function: var(--ease-micro);
+}
+
+@starting-style {
+	[data-optimistic-row] {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	*,
 	::before,
@@ -575,5 +666,40 @@ html {
 	::view-transition-old(*),
 	::view-transition-new(*) {
 		animation: none !important;
+	}
+}
+
+/* Reduced motion still shows a sheet or a new row arrive and leave, as a
+   short fade with nothing moving. These outrank the blanket rule above. */
+@media (prefers-reduced-motion: reduce) {
+	[data-bottom-sheet] [data-bottom-sheet-panel] {
+		opacity: 1;
+		transform: none !important;
+		transition-property: opacity, display !important;
+		transition-duration: 120ms !important;
+		transition-timing-function: var(--ease-micro) !important;
+	}
+
+	[data-bottom-sheet] [data-bottom-sheet-panel][data-state='closed'] {
+		opacity: 0;
+	}
+
+	[data-bottom-sheet] [data-bottom-sheet-backdrop] {
+		transition-duration: 120ms !important;
+	}
+
+	[data-optimistic-row] {
+		transition-property: opacity !important;
+		transition-duration: 120ms !important;
+	}
+
+	@starting-style {
+		[data-bottom-sheet] [data-bottom-sheet-panel] {
+			opacity: 0;
+		}
+
+		[data-optimistic-row] {
+			transform: none;
+		}
 	}
 }

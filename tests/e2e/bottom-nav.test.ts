@@ -350,7 +350,8 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 					}
 				).__bottomNavViewTransitions ?? 0,
 		),
-	).toBeGreaterThanOrEqual(destinations.length)
+		// A tab switch swaps the page in one frame, as a native tab bar does.
+	).toBe(0)
 
 	// Every tab is in the loader cache now, and a tab from memory commits
 	// before a pending state shows. A Shopping check drops the cache, so the
@@ -442,6 +443,17 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 	// Trace, the cancelled press, and this press: within the tab, root
 	// reloads beside the list.
 	expect(requestCounts.get('/recipes')).toBe(4)
+	// Nor does Enter on a tab, or a tab that restores its detail page.
+	expect(
+		await page.evaluate(
+			() =>
+				(
+					window as typeof window & {
+						__bottomNavViewTransitions?: number
+					}
+				).__bottomNavViewTransitions ?? 0,
+		),
+	).toBe(0)
 	await page.goBack()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 	await page.goForward()

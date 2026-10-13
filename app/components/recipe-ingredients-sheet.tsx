@@ -3,8 +3,8 @@ import {
 	IngredientList,
 	type IngredientListIngredient,
 } from '#app/components/recipe-ingredient-list.tsx'
-import { Icon } from '#app/components/ui/icon.tsx'
-import { useModal } from '#app/utils/use-modal.ts'
+import { BottomSheet } from '#app/components/ui/bottom-sheet.tsx'
+import { cn } from '#app/utils/misc.tsx'
 
 /**
  * Mobile-only "ingredients at hand" affordance for mid-cook glances: a quiet
@@ -35,12 +35,33 @@ export function RecipeIngredientsSheet({
 }) {
 	const [open, setOpen] = useState(false)
 
-	if (!visible && !open) return null
-
 	return (
 		<div className="lg:hidden print:hidden">
-			{open ? (
-				<IngredientsSheet onClose={() => setOpen(false)}>
+			{/* Stays mounted under the sheet so focus can come back to it, and
+			    comes before it so the leaving sheet slides over it. */}
+			{visible && (
+				<button
+					type="button"
+					onClick={() => setOpen(true)}
+					className={cn(
+						'bg-card text-foreground shadow-warm-lg border-border/60 fixed bottom-[calc(var(--bottom-nav-h)+1.5rem+var(--bottom-nav-inset))] left-4 z-50 flex h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-all active:scale-95 md:bottom-4',
+						open && 'hidden',
+					)}
+				>
+					Ingredients
+					<span className="text-muted-foreground text-xs tabular-nums">
+						· {checkedCount}/{totalCount}
+					</span>
+				</button>
+			)}
+			<BottomSheet
+				open={open}
+				onClose={() => setOpen(false)}
+				labelledBy="ingredients-sheet-title"
+				title="Ingredients"
+				className="md:bottom-0"
+			>
+				<div className="max-h-[55dvh] overflow-y-auto overscroll-contain">
 					<IngredientList
 						ingredients={ingredients}
 						checkedIngredients={checkedIngredients}
@@ -49,59 +70,8 @@ export function RecipeIngredientsSheet({
 						recipeId={recipeId}
 						useMetric={useMetric}
 					/>
-				</IngredientsSheet>
-			) : (
-				<button
-					type="button"
-					onClick={() => setOpen(true)}
-					className="bg-card text-foreground shadow-warm-lg border-border/60 fixed bottom-[calc(var(--bottom-nav-h)+1.5rem+var(--bottom-nav-inset))] left-4 z-50 flex h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-all active:scale-95 md:bottom-4"
-				>
-					Ingredients
-					<span className="text-muted-foreground text-xs tabular-nums">
-						· {checkedCount}/{totalCount}
-					</span>
-				</button>
-			)}
+				</div>
+			</BottomSheet>
 		</div>
-	)
-}
-
-function IngredientsSheet({
-	onClose,
-	children,
-}: {
-	onClose: () => void
-	children: React.ReactNode
-}) {
-	const dialogRef = useModal(onClose)
-
-	return (
-		<>
-			<div className="fixed inset-0 z-40 bg-black/15" onClick={onClose} />
-			<div
-				ref={dialogRef}
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby="ingredients-sheet-title"
-				className="animate-slide-up-reveal border-border/60 bg-card shadow-warm-lg fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset))] z-50 rounded-t-xl border-t p-4 md:bottom-0"
-			>
-				<div className="mb-2 flex items-center justify-between">
-					<span id="ingredients-sheet-title" className="text-sm font-medium">
-						Ingredients
-					</span>
-					<button
-						type="button"
-						onClick={onClose}
-						className="text-muted-foreground hover:text-foreground -m-2 flex size-11 items-center justify-center rounded-md"
-						aria-label="Close"
-					>
-						<Icon name="cross-1" size="sm" />
-					</button>
-				</div>
-				<div className="max-h-[55vh] overflow-y-auto overscroll-contain">
-					{children}
-				</div>
-			</div>
-		</>
 	)
 }

@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { formatDuration } from '#app/utils/format-duration.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
-import { useModal } from '#app/utils/use-modal.ts'
+import { BottomSheet } from './ui/bottom-sheet.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 
@@ -15,7 +15,40 @@ type RecipeData = {
 	totalTime: number | null
 }
 
+/**
+ * AI suggestions for a Recipe's description and times. A bottom sheet over
+ * the tab bar on a phone, a centered dialog from `sm` up.
+ */
 export function EnhanceRecipeModal({
+	open,
+	recipe,
+	suggestions,
+	onClose,
+}: {
+	open: boolean
+	recipe: RecipeData
+	suggestions: EnhanceableFields | null | undefined
+	onClose: () => void
+}) {
+	return (
+		<BottomSheet
+			open={open && suggestions != null}
+			onClose={onClose}
+			labelledBy="enhance-title"
+			layout="modal"
+		>
+			{suggestions ? (
+				<EnhanceSuggestions
+					recipe={recipe}
+					suggestions={suggestions}
+					onClose={onClose}
+				/>
+			) : null}
+		</BottomSheet>
+	)
+}
+
+function EnhanceSuggestions({
 	recipe,
 	suggestions,
 	onClose,
@@ -45,7 +78,6 @@ export function EnhanceRecipeModal({
 		activeTime: hasActiveTimeChange && recipe.activeTime == null,
 		totalTime: hasTotalTimeChange && recipe.totalTime == null,
 	}))
-	const dialogRef = useModal(onClose)
 
 	// Close after successful apply (prevState ref prevents firing on mount with stale data)
 	const prevApplyState = useRef(fetcher.state)
@@ -116,117 +148,103 @@ export function EnhanceRecipeModal({
 		selectedTotalTime < selectedActiveTime
 
 	return (
-		<div
-			ref={dialogRef}
-			className="fixed inset-0 z-60 flex items-end justify-center sm:items-center"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="enhance-title"
-		>
-			{/* Backdrop */}
-			<div
-				className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-				onClick={onClose}
-			/>
-			{/* Modal */}
-			<div className="bg-card shadow-warm-lg relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:rounded-xl sm:pb-6">
-				<div className="mb-1 flex items-center justify-between">
-					<h2
-						id="enhance-title"
-						className="flex items-center gap-2 font-serif text-xl"
-					>
-						<Icon name="sparkles" className="text-accent size-5" />
-						Enhance Recipe
-					</h2>
-					<button
-						onClick={onClose}
-						aria-label="Close"
-						className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md p-1 focus-visible:ring-2 focus-visible:outline-none"
-					>
-						<Icon name="cross-1" size="sm" />
-					</button>
-				</div>
+		<>
+			<div className="mb-1 flex items-center justify-between">
+				<h2
+					id="enhance-title"
+					className="flex items-center gap-2 font-serif text-xl"
+				>
+					<Icon name="sparkles" className="text-accent size-5" />
+					Enhance Recipe
+				</h2>
+				<button
+					onClick={onClose}
+					aria-label="Close"
+					className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md p-1 focus-visible:ring-2 focus-visible:outline-none"
+				>
+					<Icon name="cross-1" size="sm" />
+				</button>
+			</div>
 
-				{hasAnyChange ? (
-					<>
-						<p className="text-muted-foreground mb-4 text-sm">
-							Review AI suggestions and select which to apply.
-						</p>
+			{hasAnyChange ? (
+				<>
+					<p className="text-muted-foreground mb-4 text-sm">
+						Review AI suggestions and select which to apply.
+					</p>
 
-						<div className="space-y-3">
-							{hasDescriptionChange && (
-								<FieldRow
-									label="Description"
-									current={recipe.description || '—'}
-									suggested={suggestions.description!}
-									checked={checked.description}
-									onToggle={() => toggleField('description')}
-								/>
-							)}
-
-							{hasActiveTimeChange && (
-								<FieldRow
-									label="Active Time"
-									current={formatMinutes(recipe.activeTime)}
-									suggested={formatMinutes(suggestions.activeTime)}
-									checked={checked.activeTime}
-									onToggle={() => toggleField('activeTime')}
-								/>
-							)}
-
-							{hasTotalTimeChange && (
-								<FieldRow
-									label="Total Time"
-									current={formatMinutes(recipe.totalTime)}
-									suggested={formatMinutes(suggestions.totalTime)}
-									checked={checked.totalTime}
-									onToggle={() => toggleField('totalTime')}
-								/>
-							)}
-						</div>
-
-						{hasInvalidTimeSelection && (
-							<p className="text-destructive mt-3 text-sm" role="alert">
-								Total time must be at least active time.
-							</p>
+					<div className="space-y-3">
+						{hasDescriptionChange && (
+							<FieldRow
+								label="Description"
+								current={recipe.description || '—'}
+								suggested={suggestions.description!}
+								checked={checked.description}
+								onToggle={() => toggleField('description')}
+							/>
 						)}
 
-						<div className="mt-5 flex gap-2">
-							<Button
-								onClick={handleApply}
-								disabled={
-									!hasAnySelected ||
-									hasInvalidTimeSelection ||
-									fetcher.state !== 'idle'
-								}
-								className="flex-1 gap-2"
-							>
-								{fetcher.state !== 'idle' ? (
-									<>
-										<Icon name="update" className="size-4 animate-spin" />
-										Applying...
-									</>
-								) : (
-									'Apply Selected'
-								)}
-							</Button>
-							<Button type="button" variant="ghost" onClick={onClose}>
-								Cancel
-							</Button>
-						</div>
-					</>
-				) : (
-					<>
-						<p className="text-muted-foreground mt-2 mb-5 text-sm">
-							This recipe looks complete! No improvements suggested.
+						{hasActiveTimeChange && (
+							<FieldRow
+								label="Active Time"
+								current={formatMinutes(recipe.activeTime)}
+								suggested={formatMinutes(suggestions.activeTime)}
+								checked={checked.activeTime}
+								onToggle={() => toggleField('activeTime')}
+							/>
+						)}
+
+						{hasTotalTimeChange && (
+							<FieldRow
+								label="Total Time"
+								current={formatMinutes(recipe.totalTime)}
+								suggested={formatMinutes(suggestions.totalTime)}
+								checked={checked.totalTime}
+								onToggle={() => toggleField('totalTime')}
+							/>
+						)}
+					</div>
+
+					{hasInvalidTimeSelection && (
+						<p className="text-destructive mt-3 text-sm" role="alert">
+							Total time must be at least active time.
 						</p>
-						<Button variant="ghost" onClick={onClose} className="w-full">
-							Close
+					)}
+
+					<div className="mt-5 flex gap-2">
+						<Button
+							onClick={handleApply}
+							disabled={
+								!hasAnySelected ||
+								hasInvalidTimeSelection ||
+								fetcher.state !== 'idle'
+							}
+							className="flex-1 gap-2"
+						>
+							{fetcher.state !== 'idle' ? (
+								<>
+									<Icon name="update" className="size-4 animate-spin" />
+									Applying...
+								</>
+							) : (
+								'Apply Selected'
+							)}
 						</Button>
-					</>
-				)}
-			</div>
-		</div>
+						<Button type="button" variant="ghost" onClick={onClose}>
+							Cancel
+						</Button>
+					</div>
+				</>
+			) : (
+				<>
+					<p className="text-muted-foreground mt-2 mb-5 text-sm">
+						This recipe looks complete! No improvements suggested.
+					</p>
+					<Button variant="ghost" onClick={onClose} className="w-full">
+						Close
+					</Button>
+				</>
+			)}
+		</>
 	)
 }
 

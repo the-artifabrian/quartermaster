@@ -177,6 +177,9 @@ export function ShoppingListItemCard({
 			className="group flex flex-wrap items-center gap-3 py-2.5"
 			role="group"
 			aria-label={`${item.name} shopping item`}
+			// A row added just now eases in (tailwind.css); the saved row that
+			// replaces it does not.
+			data-optimistic-row={item.id.startsWith('optimistic:') ? '' : undefined}
 		>
 			{/* Whole row toggles checkbox */}
 			<div className="flex min-w-0 flex-1 items-center gap-3">

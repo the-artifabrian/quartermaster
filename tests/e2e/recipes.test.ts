@@ -661,7 +661,6 @@ test('phone Recipes restore Ingredients after its heading passes', async ({
 		.getByRole('checkbox')
 		.filter({ hasText: 'Complete cooking step 12.' })
 	await page.evaluate(() => {
-		document.documentElement.style.scrollBehavior = 'auto'
 		window.scrollTo(0, document.documentElement.scrollHeight)
 	})
 	const [finalInstructionBox, floatingIngredientsBox] = await Promise.all([
@@ -675,6 +674,82 @@ test('phone Recipes restore Ingredients after its heading passes', async ({
 	).toBeLessThanOrEqual(floatingIngredientsBox!.y)
 	await floatingIngredients.click()
 	await expect(page.getByRole('dialog', { name: 'Ingredients' })).toBeVisible()
+})
+
+test('going back to phone Recipes lands on the old position without scrolling there', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.recipe.createMany({
+		data: Array.from({ length: 30 }, (_, index) => ({
+			title: `Weeknight Recipe ${index + 1}`,
+			userId: user.id,
+			householdId: user.householdId,
+		})),
+	})
+
+	await page.setViewportSize({ width: 390, height: 844 })
+	await page.goto('/recipes')
+	await expect(page.getByText('Weeknight Recipe 30')).toBeVisible()
+	// Scrolls before hydration go unrecorded, so scroll again until one is.
+	await expect(async () => {
+		await page.evaluate(() => window.scrollTo(0, 0))
+		await page.evaluate(() => window.scrollTo(0, 1200))
+		await expect
+			.poll(
+				() => page.evaluate(() => sessionStorage.getItem('scroll:/recipes')),
+				{ timeout: 500 },
+			)
+			.toBe('1200')
+	}).toPass()
+	// The first Recipe card fully on screen and not under a bar, so clicking
+	// it scrolls nothing.
+	const href = await page.evaluate(
+		() =>
+			[...document.querySelectorAll<HTMLAnchorElement>('a[href^="/recipes/"]')]
+				.find((link) => {
+					const box = link.getBoundingClientRect()
+					return (
+						link.textContent?.includes('Weeknight Recipe') &&
+						box.height > 0 &&
+						box.top >= 0 &&
+						box.left >= 0 &&
+						box.bottom <= window.innerHeight &&
+						box.right <= window.innerWidth &&
+						link.contains(
+							document.elementFromPoint(
+								box.left + box.width / 2,
+								box.top + box.height / 2,
+							),
+						)
+					)
+				})
+				?.getAttribute('href') ?? null,
+	)
+	expect(href).not.toBeNull()
+	await page.locator(`a[href="${href}"]`).click()
+	expect(
+		await page.evaluate(() => sessionStorage.getItem('scroll:/recipes')),
+	).toBe('1200')
+	await expect(page).toHaveURL(href!)
+	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+
+	// Every scroll position on the way back is either the top of the Recipe
+	// or the saved spot: a smooth restore passes through the ones between.
+	await page.evaluate(() => {
+		const seen: number[] = []
+		;(window as unknown as { seenScrolls: number[] }).seenScrolls = seen
+		window.addEventListener('scroll', () => seen.push(window.scrollY))
+	})
+	await page.goBack()
+	await expect(page).toHaveURL(/\/recipes$/)
+	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(1200)
+	const seen = await page.evaluate(
+		() => (window as unknown as { seenScrolls: number[] }).seenScrolls,
+	)
+	expect(seen.length).toBeGreaterThan(0)
+	expect(seen.filter((y) => y !== 0 && y !== 1200)).toEqual([])
 })
 
 test('Recipe instructions show passive cooking cues and ignore stored timers', async ({

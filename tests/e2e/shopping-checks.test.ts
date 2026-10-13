@@ -499,3 +499,95 @@ for (const fallback of [false, true]) {
 		await phone.close()
 	})
 }
+
+test.describe('the check square on a phone', () => {
+	test.use({ viewport: { width: 390, height: 844 } })
+
+	const square = (page: Page, name: string) =>
+		page
+			.getByRole('group', { name: `${name} shopping item` })
+			.getByRole('button', { name: /^(Check off|Uncheck) item$/ })
+			.locator('> div')
+			.first()
+	const scale = (page: Page, name: string) =>
+		square(page, name).evaluate((element) => {
+			const value = getComputedStyle(element).scale
+			return value === 'none' ? 1 : Number.parseFloat(value)
+		})
+	const afterTwoFrames = (page: Page) =>
+		page.evaluate(
+			() =>
+				new Promise((resolve) =>
+					requestAnimationFrame(() => requestAnimationFrame(resolve)),
+				),
+		)
+
+	test('presses under the finger and lets go without checking when the press slides off', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const { rice } = await setup(user)
+		await openShopping(page)
+		const box = (await square(page, 'Rice').boundingBox())!
+		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+		await page.mouse.down()
+		await expect.poll(() => scale(page, 'Rice')).toBeCloseTo(0.97, 3)
+		// Slide off the row to the top of the page before letting go.
+		await page.mouse.move(box.x + box.width / 2, 5)
+		await page.mouse.up()
+		await expect.poll(() => scale(page, 'Rice')).toBe(1)
+		await expect(
+			riceRow(page).getByRole('button', { name: 'Check off item' }),
+		).toHaveAttribute('aria-pressed', 'false')
+		expect(
+			(
+				await prisma.shoppingListItem.findUniqueOrThrow({
+					where: { id: rice.id },
+				})
+			).checked,
+		).toBe(false)
+	})
+
+	test('a row still being added shows no press', async ({ page, login }) => {
+		const user = await login()
+		await setup(user)
+		const addHeld = responseGate()
+		await page.route('**/shopping*', async (route) => {
+			const request = route.request()
+			const form =
+				request.method() === 'POST'
+					? (request.postDataJSON() as Record<string, unknown>)
+					: null
+			if (form?.intent === 'add') await addHeld.promise
+			await route.continue()
+		})
+		// Quick add is inline at desktop width; the press is checked on the phone.
+		await page.setViewportSize({ width: 1280, height: 800 })
+		await openShopping(page)
+		await page
+			.getByPlaceholder(/add an item/i)
+			.filter({ visible: true })
+			.fill('Bananas')
+		await page.getByRole('button', { name: /add to next shop/i }).click()
+		await page.setViewportSize({ width: 390, height: 844 })
+		const pending = page
+			.getByRole('group', { name: 'Bananas shopping item' })
+			.getByRole('button', { name: 'Check off item' })
+		await expect(pending).toBeDisabled()
+		const box = (await square(page, 'Bananas').boundingBox())!
+		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+		await page.mouse.down()
+		// Chromium marks a disabled button :active, so a press would show here.
+		await afterTwoFrames(page)
+		expect(await scale(page, 'Bananas')).toBe(1)
+		await page.mouse.up()
+		addHeld.resolve()
+		await expect(pending).toBeEnabled()
+		await expect(pending).toHaveAttribute('aria-pressed', 'false')
+		const bananas = await prisma.shoppingListItem.findMany({
+			where: { name: 'Bananas', list: { householdId: user.householdId } },
+		})
+		expect(bananas.map((item) => item.checked)).toEqual([false])
+	})
+})

@@ -49,9 +49,18 @@ final class ShellViewController: UIViewController {
     private var webView: WKWebView!
     private let contentController = WKUserContentController()
     private var refresh: PageRefresh!
-    /// Whether `window.__qmShell` is still injected. Only the first document
-    /// should see it; a reload would report a launch that did not happen.
-    private var hasLaunchTimingScript = false
+    /// `window.__qmShell`, while the first document should still see it; a
+    /// reload would report a launch that did not happen.
+    private var launchTimingScript: WKUserScript?
+    /// The insets the page gets before its first paint (ShellSafeArea): the
+    /// last launch's until the window reports its own.
+    private var safeArea = ShellSafeArea.stored()
+    /// The launch screen, drawn again over the web view until the page paints.
+    private var launchScreen: UIView?
+    private var launchScreenTimeout: DispatchWorkItem?
+    /// How long the launch screen may cover a page that never reports a
+    /// frame: an older Web build, or a document that is not the app.
+    static let launchScreenLimit: TimeInterval = 4
     private var themeObservation: AnyCancellable?
     /// The last main-frame URL the web view tried to load, for Retry.
     private var lastRequestedURL: URL?
@@ -88,7 +97,10 @@ final class ShellViewController: UIViewController {
         .filter { !$0.isEmpty }
         .joined(separator: " ")
         configuration.allowsInlineMediaPlayback = true
-        let bridge = ShellBridge(links: links, theme: theme) { [weak self] in self?.refresh.finish() }
+        let bridge = ShellBridge(
+            links: links, theme: theme,
+            refreshDone: { [weak self] in self?.refresh.finish() },
+            launchPainted: { [weak self] in self?.removeLaunchScreen(animated: true, reason: "painted") })
         bridge.install(in: contentController)
         configuration.userContentController = contentController
 
@@ -126,6 +138,12 @@ final class ShellViewController: UIViewController {
         super.viewIsAppearing(animated)
         applyAppearance()
         observeAppearance()
+        updateSafeArea()
+    }
+
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        updateSafeArea()
     }
 
     /// Starts at once, without waiting for the app to become active. A link
@@ -134,20 +152,59 @@ final class ShellViewController: UIViewController {
     private func loadFirstPage() {
         let incoming = inbox.attach { [weak self] page in self?.openIncoming(page) }
         let page = incoming ?? resume.page() ?? config.startURL
+        showLaunchScreen()
+        // The window usually exists by now; its insets beat the stored ones
+        // when the phone is held the other way round from last time.
+        updateSafeArea()
         if let initAt {
-            contentController.addUserScript(LaunchTiming.script(initAt: initAt, loadAt: LaunchTiming.now()))
-            hasLaunchTimingScript = true
+            launchTimingScript = LaunchTiming.script(initAt: initAt, loadAt: LaunchTiming.now())
         }
+        installUserScripts()
         load(page)
     }
 
-    /// Once the first document has loaded, or the first load has failed:
-    /// a Retry minutes later would report a launch that took minutes. This is
-    /// the shell's only user script, so removing all of them removes just it.
-    private func dropLaunchTimingScript() {
-        guard hasLaunchTimingScript else { return }
-        hasLaunchTimingScript = false
+    /// The shell's user scripts: the insets, for every document, and the
+    /// launch timing while the first document should still see it. The
+    /// controller can only drop all of its scripts, so a change reinstalls
+    /// the set.
+    private func installUserScripts() {
         contentController.removeAllUserScripts()
+        if let safeArea {
+            contentController.addUserScript(ShellSafeArea.script(safeArea))
+        }
+        if let launchTimingScript {
+            contentController.addUserScript(launchTimingScript)
+        }
+    }
+
+    /// Once the first document has loaded, or the first load has failed:
+    /// a Retry minutes later would report a launch that took minutes.
+    private func dropLaunchTimingScript() {
+        guard launchTimingScript != nil else { return }
+        launchTimingScript = nil
+        installUserScripts()
+    }
+
+    // MARK: Safe area
+
+    /// The scene's window, for the first load, when this view is not in it yet.
+    private var sceneWindow: UIWindow? {
+        (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.keyWindow
+    }
+
+    /// The window's insets, which leave out the keyboard. Later documents
+    /// start with them, the current one takes them now, and the next launch
+    /// starts from them.
+    private func updateSafeArea() {
+        guard let window = view.window ?? sceneWindow else { return }
+        let insets = ShellSafeArea.Insets(window.safeAreaInsets)
+        guard insets != safeArea else { return }
+        safeArea = insets
+        ShellSafeArea.store(insets)
+        log.info("Safe area: \(Int(insets.top)) \(Int(insets.bottom))")
+        installUserScripts()
+        // No document yet, or one still loading: the user script covers it.
+        webView.evaluateJavaScript(ShellSafeArea.source(insets)) { _, _ in }
     }
 
     /// Debug builds take `-QMSessionCookie <value>`: the site's session cookie,
@@ -201,6 +258,60 @@ final class ShellViewController: UIViewController {
     @objc private func saveResumePage() {
         guard hasCommittedPage, offlineController == nil, let url = webView.url else { return }
         resume.save(url)
+    }
+
+    // MARK: Launch screen
+
+    /// The system launch screen (Info.plist `UILaunchScreen`: the launch
+    /// colour with the logo in the middle), drawn again over the web view.
+    /// iOS takes its own down as soon as the app has a frame, most of a
+    /// second before the page has one; this one stays until the page reports
+    /// a frame, so the launch is one screen that fades into the page.
+    private func showLaunchScreen() {
+        // Constraints, not frames: the view has no size yet when the first
+        // page starts.
+        let screen = UIView()
+        screen.translatesAutoresizingMaskIntoConstraints = false
+        screen.backgroundColor = UIColor(named: "LaunchBackground")
+        // Swallows taps: the page under it is not there yet.
+        screen.isUserInteractionEnabled = true
+        let logo = UIImageView(image: UIImage(named: "LaunchLogo"))
+        logo.translatesAutoresizingMaskIntoConstraints = false
+        logo.isAccessibilityElement = false
+        screen.addSubview(logo)
+        view.addSubview(screen)
+        NSLayoutConstraint.activate([
+            screen.topAnchor.constraint(equalTo: view.topAnchor),
+            screen.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            screen.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            screen.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            // Where the system launch screen puts its image: the middle of
+            // the screen, not of the safe area.
+            logo.centerXAnchor.constraint(equalTo: screen.centerXAnchor),
+            logo.centerYAnchor.constraint(equalTo: screen.centerYAnchor),
+        ])
+        launchScreen = screen
+        let timeout = DispatchWorkItem { [weak self] in self?.removeLaunchScreen(animated: true, reason: "timeout") }
+        launchScreenTimeout = timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.launchScreenLimit, execute: timeout)
+        log.info("Launch screen shown")
+    }
+
+    private func removeLaunchScreen(animated: Bool, reason: StaticString) {
+        guard let screen = launchScreen else { return }
+        launchScreen = nil
+        launchScreenTimeout?.cancel()
+        launchScreenTimeout = nil
+        log.info("Launch screen lifted: \(reason, privacy: .public)")
+        guard animated else {
+            screen.removeFromSuperview()
+            return
+        }
+        UIView.animate(withDuration: 0.2, delay: 0, options: [.curveEaseOut]) {
+            screen.alpha = 0
+        } completion: { _ in
+            screen.removeFromSuperview()
+        }
     }
 
     // MARK: Appearance
@@ -372,6 +483,11 @@ extension ShellViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         offline.isRetrying = false
         dropLaunchTimingScript()
+        // A page that does not report its frame (an older Web build) has
+        // painted by the time it has loaded.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            self?.removeLaunchScreen(animated: true, reason: "loaded")
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -397,6 +513,7 @@ extension ShellViewController: WKNavigationDelegate {
         // A real failure; a cancelled first load (returned above) keeps the
         // launch timing script for the link that replaced it.
         dropLaunchTimingScript()
+        removeLaunchScreen(animated: false, reason: "load failed")
 
         if let failed = error.userInfo[NSURLErrorFailingURLErrorKey] as? URL, links.isAppPage(failed) {
             lastRequestedURL = failed
@@ -415,6 +532,7 @@ extension ShellViewController: WKNavigationDelegate {
         let now = Date()
         defer { lastProcessTermination = now }
         log.error("Web content process terminated")
+        removeLaunchScreen(animated: false, reason: "process ended")
 
         // A page that kills its process on load would reload forever.
         if let last = lastProcessTermination, now.timeIntervalSince(last) < 10 {

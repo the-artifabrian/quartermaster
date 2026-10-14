@@ -1,6 +1,9 @@
 import SwiftUI
 import UIKit
 import WebKit
+import os
+
+private let log = Logger(subsystem: "app.useqm.ios", category: "bridge")
 
 /// The messages the page sends the shell, through
 /// `window.webkit.messageHandlers.<name>.postMessage(<string>)`. The README's
@@ -16,19 +19,26 @@ final class ShellBridge: NSObject, WKScriptMessageHandler {
         case theme
         /// `done`, once the page has revalidated after `qm:refresh`.
         case refresh
+        /// `painted`, once a frame of the page is on screen.
+        case launch
     }
 
     private let links: LinkPolicy
     private let theme: PageTheme
     private let refreshDone: () -> Void
+    private let launchPainted: () -> Void
     private let haptics = Haptics()
 
-    /// The user content controller keeps its handlers alive, so `refreshDone`
+    /// The user content controller keeps its handlers alive, so the closures
     /// should not hold the shell strongly.
-    init(links: LinkPolicy, theme: PageTheme, refreshDone: @escaping () -> Void) {
+    init(
+        links: LinkPolicy, theme: PageTheme, refreshDone: @escaping () -> Void,
+        launchPainted: @escaping () -> Void
+    ) {
         self.links = links
         self.theme = theme
         self.refreshDone = refreshDone
+        self.launchPainted = launchPainted
     }
 
     func install(in controller: WKUserContentController) {
@@ -56,6 +66,11 @@ final class ShellBridge: NSObject, WKScriptMessageHandler {
             }
         case .refresh:
             if body == "done" { refreshDone() }
+        case .launch:
+            if body == "painted" {
+                log.info("Page painted")
+                launchPainted()
+            }
         }
     }
 }

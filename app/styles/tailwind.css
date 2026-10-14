@@ -58,9 +58,20 @@
 	/* The tab bar's row, without its border and the inset under it.
 	   Sheets, buttons and padding that sit above the bar add both. */
 	--bottom-nav-h: 4rem;
+	/* The screen's insets: the status bar and the home indicator. The iOS app
+	   sets --qm-shell-safe-top and --qm-shell-safe-bottom on <html> before the
+	   first paint, because env() reads 0 there until WebKit's first layout has
+	   landed, and the page would paint under the status bar and jump. The
+	   larger value wins, so a rotation env() knows about first still counts.
+	   Elsewhere the shell's values are unset and env() alone applies. */
+	--safe-top: max(env(safe-area-inset-top), var(--qm-shell-safe-top, 0px));
+	--safe-bottom: max(
+		env(safe-area-inset-bottom),
+		var(--qm-shell-safe-bottom, 0px)
+	);
 	/* The space the tab bar leaves under its row. Whatever sits above the bar
 	   adds this, not the home indicator inset. */
-	--bottom-nav-inset: env(safe-area-inset-bottom);
+	--bottom-nav-inset: var(--safe-bottom);
 }
 
 /* The homepage re-themes the site chrome around it (header, Log In)
@@ -450,7 +461,7 @@ html {
    bar. The header scrolls away with its padding; the fixed backdrop keeps the
    status bar readable over whatever scrolls under it. */
 :root[data-native-shell] [data-site-header] {
-	padding-top: env(safe-area-inset-top);
+	padding-top: var(--safe-top);
 }
 
 /* In the iOS app the tab bar is a 54pt row and leaves 18pt under it on the
@@ -464,7 +475,7 @@ html {
    but a sheet's bottom offset would not. */
 :root[data-native-shell] {
 	--bottom-nav-h: 54px;
-	--bottom-nav-inset: max(0px, calc(env(safe-area-inset-bottom) - 16px));
+	--bottom-nav-inset: max(0px, calc(var(--safe-bottom) - 16px));
 }
 
 /* In the iOS app, detail pages slide like a native push and pop

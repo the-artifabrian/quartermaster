@@ -513,7 +513,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 				open={open && isSheet}
 				onClose={closePicker}
 				labelledBy="plan-picker-title"
-				className="bg-popover text-popover-foreground top-[calc(env(safe-area-inset-top)+2.5rem)] z-[60] flex flex-col"
+				className="bg-popover text-popover-foreground top-[calc(var(--safe-top)+2.5rem)] z-[60] flex flex-col"
 			>
 				{panel}
 			</BottomSheet>

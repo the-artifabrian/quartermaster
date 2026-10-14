@@ -1,14 +1,15 @@
 /**
  * The Web app's side of the iOS shell bridge. The shell registers
- * `WKScriptMessageHandler`s named `haptic`, `theme` and `refresh`; every call
- * here checks that its handler exists, so outside the shell (Safari, the Home
- * Screen install, an older shell build) each one does nothing.
+ * `WKScriptMessageHandler`s named `haptic`, `theme`, `refresh` and `launch`;
+ * every call here checks that its handler exists, so outside the shell
+ * (Safari, the Home Screen install, an older shell build) each one does
+ * nothing.
  */
 
 export type HapticKind =
 	'selection' | 'light' | 'medium' | 'success' | 'warning' | 'error'
 
-type ShellHandlerName = 'haptic' | 'theme' | 'refresh'
+type ShellHandlerName = 'haptic' | 'theme' | 'refresh' | 'launch'
 
 declare global {
 	interface Window {
@@ -92,15 +93,59 @@ export function listenForShellRefresh() {
 	return () => window.removeEventListener('qm:refresh', onShellRefresh)
 }
 
+/**
+ * On a cold start the shell keeps its launch screen over the web view until
+ * the page has painted. Two animation frames after the entry module runs, a
+ * frame with the page's content has been put on screen, so the launch screen
+ * can go. Posted on every document; the shell ignores it when nothing covers
+ * the page.
+ */
+export function reportLaunchPainted() {
+	if (typeof window === 'undefined') return
+	requestAnimationFrame(() => {
+		requestAnimationFrame(() => post('launch', 'painted'))
+	})
+}
+
+export type ShellLaunchTiming = {
+	shell_init_to_load_ms: number
+	shell_load_to_now_ms: number
+	/**
+	 * From the shell's `load()` to the document's navigation start: WebKit's
+	 * processes starting and the navigation being set up. Missing when the
+	 * page cannot tell.
+	 */
+	shell_load_to_navigation_ms?: number
+	/**
+	 * From navigation start to the document's first byte: the service worker
+	 * booting and the document round trip. Missing when unknown.
+	 */
+	response_start_ms?: number
+}
+
 /** Launch timing from the shell's stamps, or null outside the shell. */
-export function getShellLaunchTiming() {
+export function getShellLaunchTiming(): ShellLaunchTiming | null {
 	if (typeof window === 'undefined') return null
 	const stamps = window.__qmShell
 	if (!stamps) return null
 	const { initAt, loadAt } = stamps
 	if (!Number.isFinite(initAt) || !Number.isFinite(loadAt)) return null
-	return {
+	const timing: ShellLaunchTiming = {
 		shell_init_to_load_ms: loadAt - initAt,
 		shell_load_to_now_ms: Date.now() - loadAt,
 	}
+	if (typeof performance === 'undefined') return timing
+	const navigationAt = performance.timeOrigin
+	if (Number.isFinite(navigationAt)) {
+		timing.shell_load_to_navigation_ms = Math.round(navigationAt - loadAt)
+	}
+	const navigation =
+		typeof performance.getEntriesByType === 'function'
+			? (performance.getEntriesByType('navigation')[0] as
+					PerformanceNavigationTiming | undefined)
+			: undefined
+	if (navigation && navigation.responseStart > 0) {
+		timing.response_start_ms = Math.round(navigation.responseStart)
+	}
+	return timing
 }

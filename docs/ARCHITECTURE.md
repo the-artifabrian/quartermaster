@@ -65,11 +65,12 @@ reaches the app at once. The two sides meet in three places:
   things or pick safer defaults (Pro and Google sign-in hidden, sessions always
   remembered); it never grants access.
 - **Messages.** The page talks to the shell through `WKScriptMessageHandler`s
-  named `haptic`, `theme` and `refresh`; the shell talks back by dispatching a
-  `qm:refresh` event on pull to refresh and by injecting launch timestamps. The
-  Web side is `app/utils/shell-bridge.ts`, which checks that a handler exists
-  before each call so the same code runs in Safari and the Home Screen install.
-  The Swift side is `ios/Quartermaster/Quartermaster/ShellBridge.swift`.
+  named `haptic`, `theme`, `refresh` and `launch`; the shell talks back by
+  dispatching a `qm:refresh` event on pull to refresh and by injecting launch
+  timestamps and the screen's insets at document start. The Web side is
+  `app/utils/shell-bridge.ts`, which checks that a handler exists before each
+  call so the same code runs in Safari and the Home Screen install. The Swift
+  side is `ios/Quartermaster/Quartermaster/ShellBridge.swift`.
 - **Contract.** The "Shell bridge" section of [the iOS README](../ios/README.md)
   is the contract: message names, bodies and what the shell does with each.
   Change it there first, then both sides. Shell behaviour reaches users only

@@ -16,3 +16,25 @@ export async function setHomeIndicatorInset(page: Page, bottom = 34) {
 		insets: { top: 0, left: 0, right: 0, bottom },
 	})
 }
+
+// The iOS app sets the screen's insets on <html> at document start, before
+// env(safe-area-inset-*) has them (iOS README, "Safe area"). Call it before
+// goto. Playwright's init script can run before <html> exists.
+export async function setShellSafeArea(
+	page: Page,
+	insets: { top: number; bottom: number },
+) {
+	await page.addInitScript((insets) => {
+		const apply = () => {
+			const root = document.documentElement
+			if (!root) return false
+			root.style.setProperty('--qm-shell-safe-top', `${insets.top}px`)
+			root.style.setProperty('--qm-shell-safe-bottom', `${insets.bottom}px`)
+			return true
+		}
+		if (apply()) return
+		new MutationObserver((_, observer) => {
+			if (apply()) observer.disconnect()
+		}).observe(document, { childList: true })
+	}, insets)
+}

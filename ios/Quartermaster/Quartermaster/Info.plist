@@ -52,6 +52,8 @@
 	<dict>
 		<key>UIColorName</key>
 		<string>LaunchBackground</string>
+		<key>UIImageName</key>
+		<string>LaunchLogo</string>
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Quartermaster uses the microphone when you tap the voice button on your Shopping list, so you can say items instead of typing them.</string>

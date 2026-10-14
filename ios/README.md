@@ -14,6 +14,7 @@ target without touching the project file.
 | `QuartermasterApp.swift`                       | App entry, one SwiftUI scene, incoming links, page inbox                                  |
 | `ShellViewController.swift`                    | Web view, navigation and UI delegates, offline view hosting, appearance                   |
 | `ShellBridge.swift`                            | Page-to-shell messages, pull to refresh, launch timing (Shell bridge)                     |
+| `SafeArea.swift`                               | The screen's insets, handed to the page before its first paint                            |
 | `ShellConfig.swift`                            | Base URL, start path, user agent token, app-bound check, back swipe                       |
 | `LinkPolicy.swift`                             | Where a URL opens: web view, Safari sheet, or iOS; what is an app page                    |
 | `IncomingURL.swift`                            | Which page an incoming link opens                                                         |
@@ -107,16 +108,17 @@ was.
 
 ## Shell bridge
 
-The page and the shell talk through three `WKScriptMessageHandler`s, one
-CustomEvent and one injected script. `ShellBridge.swift` holds the shell's side.
-The shell only listens to the main frame of the app's own host. Each message
-body is a string, and anything outside the values below is ignored.
+The page and the shell talk through four `WKScriptMessageHandler`s, one
+CustomEvent and two injected scripts. `ShellBridge.swift` holds the shell's
+side. The shell only listens to the main frame of the app's own host. Each
+message body is a string, and anything outside the values below is ignored.
 
 | Page to shell                                      | Body                                                          | Shell does                                                              |
 | -------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `webkit.messageHandlers.haptic.postMessage(body)`  | `selection`, `light`, `medium`, `success`, `warning`, `error` | Plays it: selection, light or medium impact, or a notification feedback |
 | `webkit.messageHandlers.theme.postMessage(body)`   | `light`, `dark`                                               | Status bar for that theme; post on load and on every theme change       |
 | `webkit.messageHandlers.refresh.postMessage(body)` | `done`                                                        | Stops the pull-to-refresh spinner                                       |
+| `webkit.messageHandlers.launch.postMessage(body)`  | `painted`                                                     | Lifts the launch screen; post once a frame of the page is up            |
 
 - **Pull to refresh.** Pulling the page down dispatches
   `window.dispatchEvent(new CustomEvent('qm:refresh'))`. The page revalidates
@@ -130,7 +132,29 @@ body is a string, and anything outside the values below is ignored.
   that document finishes loading, or once the first load fails (a load replaced
   by an incoming link keeps it), so a later reload or Retry does not see it.
   When iOS prewarmed the app, `initAt` would predate the tap by an unknown time,
-  so there is no `__qmShell` at all.
+  so there is no `__qmShell` at all. The page adds to these
+  `performance.timeOrigin - loadAt` (WebKit's processes starting and the
+  navigation being set up) and the document's `responseStart` (the service
+  worker booting and the document round trip).
+- **Safe area.** The page pads its header and tab bar with
+  `env(safe-area-inset-top)` and `-bottom`, which WebKit reports as 0 until its
+  first layout has landed: a cold start painted the page under the status bar
+  and shifted it down a frame later. So the shell sets `--qm-shell-safe-top` and
+  `--qm-shell-safe-bottom` on `<html>` in a document-start script
+  (`SafeArea.swift`), and `tailwind.css` takes the larger of those and `env()`
+  as `--safe-top` and `--safe-bottom`. The values are the window's safe-area
+  insets, which leave out the keyboard; they are stored in UserDefaults
+  (`QMSafeAreaInsets`) for the next launch, whose first document starts before
+  the view has a window, and set again on the live page whenever they change.
+- **Launch screen.** `Info.plist`'s `UILaunchScreen` is the launch colour
+  (`LaunchBackground`, light and dark) with the logo (`LaunchLogo`, the favicon
+  at 72pt) in the middle. iOS takes it down as soon as the app has a frame, most
+  of a second before the page has one, so the shell draws the same screen over
+  the web view at launch and fades it out (200 ms) when the page posts
+  `painted`, or 250 ms after the first document finishes loading, or after 4 s,
+  whichever comes first; a failed load or a crashed web process drops it at
+  once. A link that replaces the first load keeps it, since that page has not
+  painted either.
 - **Theme and appearance.** Until the page posts a theme the status bar follows
   the system. The scene applies the page's theme with `.preferredColorScheme`,
   which would also reach the page as `prefers-color-scheme` and freeze a page on
@@ -259,3 +283,8 @@ Run these on a notched iPhone after a shell change, from a TestFlight build:
 - **Function.** Logins, session after force-quit and after a day, voice input,
   camera and library upload, URL import, airplane mode after first load, Share
   Recipe logged out, links from Mail and Messages.
+- **Cold start.** Open Shopping, go to the Home Screen, force-quit, reopen: the
+  logo stays on the launch colour until Shopping fades in, with no blank frame
+  between, and Shopping lands without a jump at the status bar or the tab bar.
+  Then the same in the other system appearance. Then rotate to landscape: the
+  header loses its status-bar padding; rotate back and it returns.

@@ -43,8 +43,11 @@ function isServiceWorkerPublicAsset(relativePath) {
 	)
 }
 
+// The build's .br/.gz twins (scripts/precompress-assets.ts) are how the
+// server sends an asset, not assets of their own.
 const assetPaths = (await listFiles(assetsDirectory))
 	.map((file) => path.relative(assetsDirectory, file).split(path.sep).join('/'))
+	.filter((file) => !/\.(br|gz)$/.test(file))
 	.sort()
 	.map((file) => `/assets/${file}`)
 const publicFiles = (await listFiles(clientBuildDirectory))

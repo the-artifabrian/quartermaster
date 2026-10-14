@@ -8,6 +8,7 @@ import getPort, { portNumbers } from 'get-port'
 import morgan from 'morgan'
 import { checkAnthropicModels } from '#app/utils/anthropic-model-check.server.ts'
 import { compressionMiddleware } from './compression.ts'
+import { servePrecompressed } from './precompressed.ts'
 import { startEventLoopWatchdog } from './event-loop-watchdog.ts'
 import { startMemoryWatchdog } from './memory-watchdog.ts'
 import { startScheduledMaintenance } from './scheduled-maintenance.ts'
@@ -104,11 +105,14 @@ app.use((_, res, next) => {
 	next()
 })
 
+// originalUrl: servePrecompressed rewrites req.url to the asset's .br/.gz
+// twin, and the log should still name what the client asked for.
 morgan.token('url', (req) => {
+	const url = (req as express.Request).originalUrl ?? req.url ?? ''
 	try {
-		return decodeURIComponent(req.url ?? '')
+		return decodeURIComponent(url)
 	} catch {
-		return req.url ?? ''
+		return url
 	}
 })
 app.use(
@@ -264,9 +268,14 @@ if (IS_DEV) {
 		res.set('Cache-Control', 'no-cache')
 		next()
 	})
-	// React Router fingerprints its assets so we can cache forever.
+	// React Router fingerprints its assets so we can cache forever. The build
+	// leaves a .br and .gz twin next to each compressible asset
+	// (scripts/precompress-assets.ts); sending the twin spares the machine a
+	// fresh compression of every asset on every request, which is what it did
+	// while a phone pulled the whole bundle after a deploy.
 	app.use(
 		'/assets',
+		servePrecompressed('build/client/assets'),
 		express.static('build/client/assets', {
 			immutable: true,
 			maxAge: '1y',

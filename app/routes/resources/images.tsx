@@ -1,6 +1,6 @@
 import { promises as fs, constants, existsSync } from 'node:fs'
-import { invariantResponse } from '@epic-web/invariant'
-import { getImgResponse } from 'openimg/node'
+import { invariant, invariantResponse } from '@epic-web/invariant'
+import { getDefaultSharpPipeline, getImgResponse } from 'openimg/node'
 import { getDomainUrl } from '#app/utils/misc.tsx'
 import { getSignedGetRequestInfo } from '#app/utils/storage.server.ts'
 import { type Route } from './+types/images'
@@ -36,6 +36,20 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	return getImgResponse(request, {
 		headers,
+		// sharp's default AVIF effort (4) spends 250 ms per Recipe photo here and
+		// a few seconds on the production machine, which is what a Recipe page
+		// waits for on its first view after an import. Effort 1 encodes the same
+		// quality target in a fraction of the time for ~8% more bytes. The cache
+		// key stays the source's own, so the AVIFs already on disk keep serving.
+		getSharpPipeline: ({ params, source }) => {
+			if (params.format !== 'avif') return undefined
+			// getImgSource below only ever answers with a file or a fetch.
+			invariant(source.type !== 'data', 'Unexpected data image source')
+			return {
+				pipeline: getDefaultSharpPipeline(params).avif({ effort: 1 }),
+				cacheKey: source.type === 'fetch' ? source.url : source.path,
+			}
+		},
 		allowlistedOrigins: [
 			getDomainUrl(request),
 			process.env.AWS_ENDPOINT_URL_S3,

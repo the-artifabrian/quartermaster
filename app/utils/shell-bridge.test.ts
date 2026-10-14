@@ -9,6 +9,7 @@ import {
 	type HapticKind,
 	listenForShellRefresh,
 	postTheme,
+	reportLaunchPainted,
 } from './shell-bridge.ts'
 
 type Handler = { postMessage: (message: unknown) => void }
@@ -30,6 +31,7 @@ function shellGlobals() {
 	return {
 		[Symbol.dispose]() {
 			vi.unstubAllGlobals()
+			vi.restoreAllMocks()
 			delete window.webkit
 			delete window.__qmShell
 			vi.useRealTimers()
@@ -224,12 +226,84 @@ test('reports no shell timing when the shell sent a malformed stamp', () => {
 	expect(getShellLaunchTiming()).toBeNull()
 })
 
-test('measures shell init to load and load to now', () => {
+function navigationEntry(responseStart: number) {
+	return [{ responseStart } as PerformanceNavigationTiming]
+}
+
+test('measures shell init to load, load to now, load to navigation and the first byte', () => {
 	using _globals = shellGlobals()
 	vi.useFakeTimers({ now: 5000 })
+	vi.spyOn(performance, 'timeOrigin', 'get').mockReturnValue(2100.4)
+	vi.spyOn(performance, 'getEntriesByType').mockReturnValue(
+		navigationEntry(118.6),
+	)
+	window.__qmShell = { initAt: 1000, loadAt: 1800 }
+	expect(getShellLaunchTiming()).toEqual({
+		shell_init_to_load_ms: 800,
+		shell_load_to_now_ms: 3200,
+		shell_load_to_navigation_ms: 300,
+		response_start_ms: 119,
+	})
+})
+
+test('leaves out the navigation stamps the page does not have', () => {
+	using _globals = shellGlobals()
+	vi.useFakeTimers({ now: 5000 })
+	vi.spyOn(performance, 'timeOrigin', 'get').mockReturnValue(Number.NaN)
+	vi.spyOn(performance, 'getEntriesByType').mockReturnValue([])
 	window.__qmShell = { initAt: 1000, loadAt: 1800 }
 	expect(getShellLaunchTiming()).toEqual({
 		shell_init_to_load_ms: 800,
 		shell_load_to_now_ms: 3200,
 	})
+})
+
+test('leaves out a first byte of zero, which means the timing was withheld', () => {
+	using _globals = shellGlobals()
+	vi.useFakeTimers({ now: 5000 })
+	vi.spyOn(performance, 'timeOrigin', 'get').mockReturnValue(2000)
+	vi.spyOn(performance, 'getEntriesByType').mockReturnValue(navigationEntry(0))
+	window.__qmShell = { initAt: 1000, loadAt: 1800 }
+	expect(getShellLaunchTiming()).not.toHaveProperty('response_start_ms')
+})
+
+// --- launch painted ---------------------------------------------------------
+
+// A hand-driven requestAnimationFrame: each flush runs the callbacks queued
+// so far, the way one frame would.
+function fakeFrames() {
+	let queue: FrameRequestCallback[] = []
+	vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+		queue.push(callback)
+		return queue.length
+	})
+	return {
+		flush() {
+			const callbacks = queue
+			queue = []
+			for (const callback of callbacks) callback(performance.now())
+		},
+	}
+}
+
+test('does nothing on the Home Screen install, which has no launch handler', () => {
+	using _globals = shellGlobals()
+	const frames = fakeFrames()
+	expect(() => reportLaunchPainted()).not.toThrow()
+	frames.flush()
+	frames.flush()
+})
+
+test('reports painted once, and only after two frames', () => {
+	using _globals = shellGlobals()
+	const frames = fakeFrames()
+	const launch = recordingHandler()
+	installHandlers({ launch: launch.handler })
+	reportLaunchPainted()
+	frames.flush()
+	expect(launch.messages).toEqual([])
+	frames.flush()
+	expect(launch.messages).toEqual(['painted'])
+	frames.flush()
+	expect(launch.messages).toEqual(['painted'])
 })

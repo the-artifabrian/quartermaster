@@ -451,7 +451,7 @@ function App() {
 						<div
 							aria-hidden="true"
 							data-status-bar-backdrop=""
-							className="bg-card/95 pointer-events-none fixed inset-x-0 top-0 z-50 h-[env(safe-area-inset-top)] backdrop-blur-sm print:hidden"
+							className="bg-card/95 pointer-events-none fixed inset-x-0 top-0 z-50 h-(--safe-top) backdrop-blur-sm print:hidden"
 						/>
 					) : null}
 					<header
@@ -537,8 +537,8 @@ function App() {
 					theme={theme}
 					// Sonner's default offsets, pushed below the status bar in the iOS
 					// app. The inset is 0 everywhere else.
-					offset={{ top: 'calc(24px + env(safe-area-inset-top))' }}
-					mobileOffset={{ top: 'calc(16px + env(safe-area-inset-top))' }}
+					offset={{ top: 'calc(24px + var(--safe-top))' }}
+					mobileOffset={{ top: 'calc(16px + var(--safe-top))' }}
 				/>
 				<OfflineIndicator />
 				{user && isPro ? <HouseholdActivityNotifier /> : null}

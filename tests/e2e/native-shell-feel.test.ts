@@ -4,11 +4,12 @@ import {
 	SAFARI_UA,
 	SHELL_UA,
 	setHomeIndicatorInset,
+	setShellSafeArea,
 } from '#tests/native-shell.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
-// The iOS app registers `haptic`, `theme` and `refresh` message handlers on
-// its web view. These stand-ins record what the page posts to them.
+// The iOS app registers `haptic`, `theme`, `refresh` and `launch` message
+// handlers on its web view. These stand-ins record what the page posts to them.
 async function recordBridgeMessages(page: Page) {
 	await page.addInitScript(() => {
 		const messages: string[] = []
@@ -22,6 +23,7 @@ async function recordBridgeMessages(page: Page) {
 					haptic: handler('haptic'),
 					theme: handler('theme'),
 					refresh: handler('refresh'),
+					launch: handler('launch'),
 				},
 			},
 		})
@@ -94,7 +96,7 @@ const viewport = (page: Page) =>
 test.describe('in the iOS app', () => {
 	test.use({ userAgent: SHELL_UA, colorScheme: 'dark' })
 
-	test('draws under the status bar and reports the system theme', async ({
+	test('draws under the status bar, reports its first frame and the system theme', async ({
 		page,
 		navigate,
 		login,
@@ -105,7 +107,11 @@ test.describe('in the iOS app', () => {
 
 		expect(await viewport(page)).toContain('viewport-fit=cover')
 		await expect(page.locator('[data-status-bar-backdrop]')).toHaveCount(1)
+		// The shell lifts its cold-start picture on this; a page that never
+		// posts it would stay covered until the shell gives up.
+		await expect.poll(messages).toContain('launch:painted')
 		await expect.poll(messages).toContain('theme:dark')
+		expect(count(await messages(), 'launch:painted')).toBe(1)
 	})
 
 	test('checking a Shopping item taps the haptic and saves the check', async ({
@@ -265,6 +271,37 @@ test.describe('the tab bar in the iOS app', () => {
 		expect(icon.y - bar.y).toBe(9)
 		expect(bar.y + bar.height - 13 - (label.y + label.height)).toBe(9)
 		await expectNoActiveTabUnderline(page)
+	})
+
+	test('the insets the shell sets before the first paint lay out the header and the tab bar', async ({
+		page,
+		login,
+	}) => {
+		// Playwright's env() insets are 0, so the shell's values stand alone.
+		await setShellSafeArea(page, { top: 59, bottom: 34 })
+		await login()
+		await page.goto('/plan')
+		expect(
+			(await page.locator('[data-status-bar-backdrop]').boundingBox())?.height,
+		).toBe(59)
+		// The 44pt row, its 1px border, and the status bar above it.
+		expect((await page.getByRole('banner').boundingBox())?.height).toBe(104)
+		expect(
+			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
+		).toBe(73)
+	})
+
+	test("the larger of env() and the shell's inset wins, so a stale shell value cannot shrink the layout", async ({
+		page,
+		login,
+	}) => {
+		await setHomeIndicatorInset(page, 34)
+		await setShellSafeArea(page, { top: 0, bottom: 0 })
+		await login()
+		await page.goto('/plan')
+		expect(
+			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
+		).toBe(73)
 	})
 
 	test('with no home indicator inset, the tab bar is its row alone', async ({

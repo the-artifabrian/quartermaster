@@ -214,9 +214,9 @@ function SheetFrame({
 					'bg-card shadow-warm-lg overflow-y-auto overscroll-contain',
 					layout === 'modal'
 						? // Over the tab bar on a phone, so it clears the home indicator.
-							'relative max-h-[85dvh] w-full max-w-md rounded-t-xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:rounded-xl sm:pb-6'
+							'relative max-h-[85dvh] w-full max-w-md rounded-t-xl p-6 pb-[calc(1.5rem+var(--safe-bottom))] sm:rounded-xl sm:pb-6'
 						: // On the tab bar, and never taller than the screen above it.
-							'border-border/60 fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset))] z-50 max-h-[calc(100dvh-var(--bottom-nav-h)-var(--bottom-nav-inset)-env(safe-area-inset-top)-2.5rem)] rounded-t-xl border-t p-4',
+							'border-border/60 fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset))] z-50 max-h-[calc(100dvh-var(--bottom-nav-h)-var(--bottom-nav-inset)-var(--safe-top)-2.5rem)] rounded-t-xl border-t p-4',
 					className,
 				)}
 			>

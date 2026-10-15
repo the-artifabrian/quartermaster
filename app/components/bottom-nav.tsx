@@ -12,6 +12,12 @@ import { useIsProActive } from '#app/utils/subscription.ts'
 import { useShoppingActivityDot } from '#app/utils/use-shopping-activity-dot.ts'
 import { useOptionalUser } from '#app/utils/user.ts'
 import { type BottomNavDestination, useBottomNavTiming } from './nav-timing.tsx'
+import {
+	DEFAULT_RECIPES_LIBRARY_ROOT,
+	isRecipesTabPath,
+	type RecipesLibraryRoot,
+	recipesLibraryRootAfter,
+} from './recipes-library-root.ts'
 import { Icon, type IconName } from './ui/icon.tsx'
 
 type NavItem = {
@@ -95,6 +101,38 @@ export function BottomNav() {
 		fromLocationKey: string
 		supersededPathname: string | undefined
 	} | null>(null)
+
+	// The library a re-tap on the Recipes tab pops to. Derived in render, not
+	// in an effect: a re-tap reads the href of the render that showed the page,
+	// and nothing re-renders the bar between a list link's navigation and the
+	// tap that follows it.
+	const [library, setLibrary] = useState<{
+		locationKey: string
+		pathname: string
+		root: RecipesLibraryRoot
+	}>(() => ({
+		locationKey: location.key,
+		pathname: location.pathname,
+		root: recipesLibraryRootAfter(DEFAULT_RECIPES_LIBRARY_ROOT, {
+			pathname: location.pathname,
+			enteredFromOutside: false,
+		}),
+	}))
+	if (library.locationKey !== location.key) {
+		// The tab bar restoring the tab's last page, or Back returning to it,
+		// continues the same stack. Only a link from another tab (a planned
+		// Recipe on the Plan) starts a new one.
+		const restored =
+			lastPathPerTab.current['/recipes'] === location.pathname + location.search
+		setLibrary({
+			locationKey: location.key,
+			pathname: location.pathname,
+			root: recipesLibraryRootAfter(library.root, {
+				pathname: location.pathname,
+				enteredFromOutside: !isRecipesTabPath(library.pathname) && !restored,
+			}),
+		})
+	}
 
 	// Track the last visited path for each tab section
 	useEffect(() => {
@@ -191,10 +229,13 @@ export function BottomNav() {
 							? location.pathname === '/'
 							: location.pathname.startsWith(path),
 					)
-					const isOnSubPage = isActive && location.pathname !== item.to
+					// The Recipes tab's root is whichever of its two libraries the
+					// page below it was opened from.
+					const tabRoot = item.to === '/recipes' ? library.root : item.to
+					const isOnSubPage = isActive && location.pathname !== tabRoot
 					// Switching tabs: restore last position. Active tab on sub-page: go to root.
 					const linkTo = isActive
-						? item.to
+						? tabRoot
 						: (lastPathPerTab.current[item.to] ?? item.to)
 					const isPressed = pressedTab === item.to
 					const isPending = pendingInput?.tabPath === item.to

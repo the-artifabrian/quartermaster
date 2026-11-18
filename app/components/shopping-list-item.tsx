@@ -66,6 +66,9 @@ export function ShoppingListItemCard({
 	// On a phone the editor is a bottom sheet over the row; wider, it takes
 	// the row's place. Set when it opens.
 	const [editInSheet, setEditInSheet] = useState(false)
+	// Each open starts a fresh form, even one that reopens a sheet still
+	// leaving with what was typed before.
+	const [editCount, setEditCount] = useState(0)
 	const menuTriggerRef = useRef<HTMLButtonElement>(null)
 	const [menuOpen, setMenuOpen] = useState(false)
 	// Edit replaces the row, trigger included, so the closing menu has no
@@ -178,6 +181,7 @@ export function ShoppingListItemCard({
 
 	const editor = (
 		<editFetcher.Form
+			key={editCount}
 			method="POST"
 			onKeyDown={(e) => {
 				if (e.key === 'Escape') setIsEditing(false)
@@ -494,6 +498,7 @@ export function ShoppingListItemCard({
 									onSelect={() => {
 										openingEdit.current = true
 										setEditInSheet(opensAsSheet())
+										setEditCount((count) => count + 1)
 										setIsEditing(true)
 									}}
 								>

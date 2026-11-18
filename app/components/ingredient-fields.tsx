@@ -6,7 +6,6 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useId, useRef, useState, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { useFetcher } from 'react-router'
 import { useSortableList } from '#app/hooks/use-sortable-list.ts'
 import { cn } from '#app/utils/misc.tsx'
@@ -534,6 +533,9 @@ function RecipeLinkPicker({
 		recipes: Array<{ id: string; title: string }>
 	}>()
 	const inputRef = useRef<HTMLInputElement>(null)
+	// Where focus lands once a picked Recipe's sheet has left.
+	const removeLinkRef = useRef<HTMLButtonElement>(null)
+	const sheetTitleId = useId()
 
 	const doSearch = useCallback(
 		(q: string) => {
@@ -555,24 +557,24 @@ function RecipeLinkPicker({
 
 	const results = fetcher.data?.recipes ?? []
 
-	if (linkedRecipeId && linkedRecipeTitle) {
-		return (
-			<div className="flex items-center gap-2 rounded-md border px-3 py-2">
-				<Icon name="link-2" size="sm" className="text-primary shrink-0" />
-				<span className="min-w-0 flex-1 truncate text-sm">
-					{linkedRecipeTitle}
-				</span>
-				<button
-					type="button"
-					onClick={onUnlink}
-					className="text-muted-foreground hover:text-destructive -my-2 -mr-2 flex size-11 shrink-0 items-center justify-center"
-					aria-label="Remove recipe link"
-				>
-					<Icon name="cross-1" size="sm" />
-				</button>
-			</div>
-		)
-	}
+	const linked = linkedRecipeId && linkedRecipeTitle
+	const linkedBox = linked ? (
+		<div className="flex items-center gap-2 rounded-md border px-3 py-2">
+			<Icon name="link-2" size="sm" className="text-primary shrink-0" />
+			<span className="min-w-0 flex-1 truncate text-sm">
+				{linkedRecipeTitle}
+			</span>
+			<button
+				ref={removeLinkRef}
+				type="button"
+				onClick={onUnlink}
+				className="text-muted-foreground hover:text-destructive -my-2 -mr-2 flex size-11 shrink-0 items-center justify-center"
+				aria-label="Remove recipe link"
+			>
+				<Icon name="cross-1" size="sm" />
+			</button>
+		</div>
+	) : null
 
 	const search = (
 		<>
@@ -614,7 +616,6 @@ function RecipeLinkPicker({
 								onClick={() => {
 									onLink(recipe.id, recipe.title)
 									setOpen(false)
-									setQuery('')
 								}}
 							>
 								{recipe.title}
@@ -628,44 +629,52 @@ function RecipeLinkPicker({
 
 	return (
 		<>
-			<Popover
-				open={open && !inSheet}
-				onOpenChange={(nextOpen) => {
-					if (nextOpen) setInSheet(opensAsSheet())
-					setOpen(nextOpen)
-				}}
-			>
-				<PopoverTrigger asChild>
-					<button
-						type="button"
-						// Radix reports its own state, which is closed while the
-						// sheet stands in for the popover.
-						aria-expanded={open}
-						className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 rounded-md px-1 py-1 text-xs transition-colors"
-					>
-						<Icon name="link-2" size="sm" />
-						Link recipe
-					</button>
-				</PopoverTrigger>
-				<PopoverContent align="start" className="w-72 p-2">
-					{search}
-				</PopoverContent>
-			</Popover>
-			{/* On the body: the row sits in the Recipe form, where Enter in the
-			    search would submit it, and in a sortable list that moves. */}
-			{inSheet &&
-				createPortal(
-					<BottomSheet
-						open={open}
-						onClose={() => setOpen(false)}
-						labelledBy="recipe-link-sheet-title"
-						title="Link a Recipe"
-						initialFocusRef={inputRef}
-					>
+			{linkedBox ?? (
+				<Popover
+					open={open && !inSheet}
+					onOpenChange={(nextOpen) => {
+						if (nextOpen) {
+							// The last search clears here, not on close, so a sheet
+							// leaves as it was.
+							setQuery('')
+							setInSheet(opensAsSheet())
+						}
+						setOpen(nextOpen)
+					}}
+				>
+					<PopoverTrigger asChild>
+						<button
+							type="button"
+							// Radix reports its own state, which is closed while the
+							// sheet stands in for the popover.
+							aria-expanded={open}
+							className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 rounded-md px-1 py-1 text-xs transition-colors"
+						>
+							<Icon name="link-2" size="sm" />
+							Link recipe
+						</button>
+					</PopoverTrigger>
+					<PopoverContent align="start" className="w-72 p-2">
 						{search}
-					</BottomSheet>,
-					document.body,
-				)}
+					</PopoverContent>
+				</Popover>
+			)}
+			{/* Stays mounted beside the linked Recipe, so a pick still sees the
+			    sheet leave. BottomSheet renders on the body, out of the Recipe
+			    form (Enter in the search would submit it) and the sortable
+			    row. */}
+			{inSheet && (
+				<BottomSheet
+					open={open}
+					onClose={() => setOpen(false)}
+					labelledBy={sheetTitleId}
+					title="Link a Recipe"
+					initialFocusRef={inputRef}
+					returnFocusRef={removeLinkRef}
+				>
+					{search}
+				</BottomSheet>
+			)}
 		</>
 	)
 }

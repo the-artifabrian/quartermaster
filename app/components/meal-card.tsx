@@ -323,7 +323,9 @@ function MealDetailsForm({
 
 	useEffect(() => {
 		if (wasSubmitting.current && fetcher.state === 'idle') {
-			if (fetcher.data?.status === 'success') onDone()
+			// A saved Date change answers with a redirect to the moved Meal, so
+			// no data: anything but an error is done.
+			if (fetcher.data?.status !== 'error') onDone()
 		}
 		wasSubmitting.current = fetcher.state !== 'idle'
 	}, [fetcher.state, fetcher.data, onDone])
@@ -502,6 +504,9 @@ export function MealCard({
 	// they open in place. Set when each opens.
 	const [recipeInSheet, setRecipeInSheet] = useState(false)
 	const [detailsInSheet, setDetailsInSheet] = useState(false)
+	// Each open starts a fresh form and search, even one that reopens a
+	// sheet still leaving.
+	const [openCount, setOpenCount] = useState(0)
 	const addRecipeButtonRef = useRef<HTMLButtonElement>(null)
 	// Edit details' sheet hands focus back here: its menu item is gone.
 	const menuTriggerRef = useRef<HTMLButtonElement>(null)
@@ -626,6 +631,7 @@ export function MealCard({
 	const recipePicker =
 		choices.state.status === 'success' ? (
 			<RecipeSelector
+				key={openCount}
 				recipes={choices.state.recipes}
 				date={new Date(meal.dateStr + 'T00:00:00.000Z')}
 				excludeRecipeIds={meal.items.flatMap((item) => item.recipe?.id ?? [])}
@@ -768,6 +774,7 @@ export function MealCard({
 						<DropdownMenuItem
 							onSelect={() => {
 								setDetailsInSheet(opensAsSheet())
+								setOpenCount((count) => count + 1)
 								setEditingDetails(true)
 							}}
 						>
@@ -850,6 +857,7 @@ export function MealCard({
 					returnFocusRef={menuTriggerRef}
 				>
 					<MealDetailsForm
+						key={openCount}
 						meal={meal}
 						inSheet
 						onDone={() => setEditingDetails(false)}
@@ -933,6 +941,7 @@ export function MealCard({
 							onClick={() => {
 								choices.load()
 								setRecipeInSheet(opensAsSheet())
+								setOpenCount((count) => count + 1)
 								setAddingRecipe(true)
 							}}
 							aria-label={`Add Recipe to ${mealActionName}`}

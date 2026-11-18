@@ -79,6 +79,7 @@ export function ShoppingStaplesPicker({
 	const [cueDismissed, setCueDismissed] = useState(false)
 	const [selected, setSelected] = useState<Set<string>>(() => new Set())
 	const [search, setSearch] = useState('')
+	const clearPicksOnOpen = useRef(false)
 
 	const loadStaples = useCallback(async () => {
 		choiceRequest.current?.abort()
@@ -165,9 +166,9 @@ export function ShoppingStaplesPicker({
 					},
 				)
 			}
+			// Picks clear on the next open, so the sheet leaves as it was.
+			clearPicksOnOpen.current = true
 			setOpen(false)
-			setSelected(new Set())
-			setSearch('')
 		}
 		previousFetcherState.current = fetcher.state
 	}, [fetcher.data, fetcher.state, moveFetcher])
@@ -183,10 +184,13 @@ export function ShoppingStaplesPicker({
 
 	function setPickerOpen(nextOpen: boolean) {
 		if (nextOpen) {
+			if (clearPicksOnOpen.current) setSelected(new Set())
+			clearPicksOnOpen.current = false
+			setSearch('')
 			setInSheet(opensAsSheet())
 			setCueDismissed(true)
 			if (choiceState.status === 'idle') void loadStaples()
-		} else setSearch('')
+		}
 		setOpen(nextOpen)
 	}
 

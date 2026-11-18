@@ -113,10 +113,6 @@ function AddMealControl({
 		setPendingMenuSubmission(false)
 		if (fetcher.data?.status === 'success') {
 			setOpen(false)
-			setMode('item')
-			setLabel(null)
-			setText('')
-			setMenuError(null)
 		} else {
 			setMenuError(
 				fetcher.data?.menuError ??
@@ -154,19 +150,21 @@ function AddMealControl({
 		}
 	}, [dateLabel, fetcher.data, fetcher.state, navigate, pendingRecipeAdd])
 
+	// What the last open left behind clears on the next open, not on close,
+	// so a sheet leaves showing what it showed.
 	function openComposer() {
 		choices.load()
+		setMode('item')
+		setLabel(null)
+		setText('')
+		setMenuError(null)
 		setAsSheet(opensAsSheet())
 		setOpen(true)
 	}
 
 	function close() {
 		setOpen(false)
-		setMode('item')
-		setLabel(null)
-		setText('')
 		setPendingMenuSubmission(false)
-		setMenuError(null)
 		menuSubmissionStarted.current = false
 	}
 
@@ -334,33 +332,64 @@ function AddMealControl({
 		</>
 	)
 
-	if (presentation === 'primary') {
-		if (!open || asSheet) {
-			return (
-				<>
-					<Button
-						type="button"
-						onClick={openComposer}
-						aria-label={`Add Meal to ${dateLabel}`}
-					>
-						<Icon name="plus" size="sm" />
-						Add Meal
-					</Button>
-					{asSheet && (
-						<BottomSheet
-							open={open}
-							onClose={close}
-							labelledBy={`add-meal-${serializeDate(date)}-title`}
-							title="Add a Meal"
-							description={`${formatWeekdayName(date)} · ${formatMonthDay(date)}`}
-						>
-							{fields}
-						</BottomSheet>
-					)}
-				</>
-			)
-		}
+	const trigger =
+		presentation === 'primary' ? (
+			<Button
+				type="button"
+				onClick={openComposer}
+				aria-label={`Add Meal to ${dateLabel}`}
+			>
+				<Icon name="plus" size="sm" />
+				Add Meal
+			</Button>
+		) : presentation === 'empty-row' ? (
+			<button
+				type="button"
+				onClick={openComposer}
+				aria-label={`Add Meal to ${dateLabel}`}
+				className="group flex w-full flex-col items-start pt-2 text-left text-sm transition-colors"
+			>
+				<span className="text-muted-foreground group-hover:text-foreground">
+					Nothing planned
+				</span>
+				<span className="text-primary group-hover:text-primary/75 flex min-h-9 items-center gap-1 text-xs font-semibold transition-colors">
+					<Icon name="plus" className="size-3" />
+					Add Meal
+				</span>
+			</button>
+		) : (
+			<button
+				type="button"
+				onClick={openComposer}
+				aria-label={`Add Meal to ${dateLabel}`}
+				className="text-primary hover:text-primary/75 flex min-h-9 items-center gap-1 text-xs font-semibold transition-colors"
+			>
+				<Icon name="plus" className="size-3" />
+				Add Meal
+			</button>
+		)
 
+	// On a phone, upright or on its side, the composer is a sheet over the day.
+	if (!open || asSheet) {
+		return (
+			<>
+				{trigger}
+				{asSheet && (
+					<BottomSheet
+						open={open}
+						onClose={close}
+						labelledBy={`add-meal-${serializeDate(date)}-title`}
+						title="Add a Meal"
+						description={`${formatWeekdayName(date)} · ${formatMonthDay(date)}`}
+					>
+						{fields}
+					</BottomSheet>
+				)}
+			</>
+		)
+	}
+
+	if (presentation === 'primary') {
 		return (
 			<section
 				aria-label={`Add Meal for ${dateLabel}`}
@@ -376,39 +405,6 @@ function AddMealControl({
 				</div>
 				{fields}
 			</section>
-		)
-	}
-
-	if (presentation === 'empty-row' && !open) {
-		return (
-			<button
-				type="button"
-				onClick={openComposer}
-				aria-label={`Add Meal to ${dateLabel}`}
-				className="group flex w-full flex-col items-start pt-2 text-left text-sm transition-colors"
-			>
-				<span className="text-muted-foreground group-hover:text-foreground">
-					Nothing planned
-				</span>
-				<span className="text-primary group-hover:text-primary/75 flex min-h-9 items-center gap-1 text-xs font-semibold transition-colors">
-					<Icon name="plus" className="size-3" />
-					Add Meal
-				</span>
-			</button>
-		)
-	}
-
-	if (!open) {
-		return (
-			<button
-				type="button"
-				onClick={openComposer}
-				aria-label={`Add Meal to ${dateLabel}`}
-				className="text-primary hover:text-primary/75 flex min-h-9 items-center gap-1 text-xs font-semibold transition-colors"
-			>
-				<Icon name="plus" className="size-3" />
-				Add Meal
-			</button>
 		)
 	}
 

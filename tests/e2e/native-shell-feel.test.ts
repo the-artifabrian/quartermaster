@@ -124,12 +124,12 @@ test.describe('in the iOS app', () => {
 
 		await page
 			.getByRole('group', { name: 'Rice shopping item' })
-			.getByRole('button', { name: 'Check off item' })
+			.getByRole('button', { name: /^Check off / })
 			.click()
 
 		const uncheck = page
 			.getByRole('group', { name: 'Rice shopping item' })
-			.getByRole('button', { name: 'Uncheck item' })
+			.getByRole('button', { name: /^Uncheck / })
 		await expect(uncheck).toBeVisible()
 		await expect
 			.poll(

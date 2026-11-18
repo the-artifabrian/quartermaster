@@ -41,7 +41,7 @@ function shellGlobals() {
 
 // --- haptic -----------------------------------------------------------------
 
-test('does nothing on the Home Screen install, which has no webkit object', () => {
+test('does nothing in a browser, which has no webkit object', () => {
 	using _globals = shellGlobals()
 	expect(() => haptic('selection')).not.toThrow()
 })
@@ -208,7 +208,7 @@ test('answers done at once again after the root unmounts', () => {
 
 // --- launch timing ----------------------------------------------------------
 
-test('reports no shell timing for a Home Screen launch', () => {
+test('reports no shell timing in a browser', () => {
 	using _globals = shellGlobals()
 	expect(getShellLaunchTiming()).toBeNull()
 })
@@ -286,7 +286,7 @@ function fakeFrames() {
 	}
 }
 
-test('does nothing on the Home Screen install, which has no launch handler', () => {
+test('does nothing in a browser, which has no launch handler', () => {
 	using _globals = shellGlobals()
 	const frames = fakeFrames()
 	expect(() => reportLaunchPainted()).not.toThrow()

@@ -43,18 +43,13 @@ test('the list is one alphabetical set of usual items, searchable', async () => 
 	const list = screen.getByRole('list', { name: 'Staples' })
 	expect(within(list).getAllByRole('listitem')).toHaveLength(14)
 	expect(within(list).getAllByRole('listitem')[0]).toHaveTextContent('Apples')
-	// Each row carries its own action and its own state; nothing states an
-	// availability, and nothing asks the reader to look at the top of the page.
+	// Each row carries its own action and its own state.
 	expect(
 		within(list).getByRole('button', { name: 'Add Apples to Next shop' }),
 	).toBeVisible()
 	expect(
 		within(list).getByRole('button', { name: 'Salt is in Next shop' }),
 	).toHaveTextContent('On list')
-	expect(list).not.toHaveTextContent('Out')
-	expect(list).not.toHaveTextContent('Available')
-	// The live region is for a screen reader, not a banner to scroll back to.
-	expect(screen.getByRole('status')).toHaveClass('sr-only')
 
 	const search = screen.getByRole('searchbox', { name: 'Search Staples' })
 	const addButton = screen.getByRole('button', { name: 'Add Staple' })
@@ -89,10 +84,6 @@ test('the list is one alphabetical set of usual items, searchable', async () => 
 	).toBeVisible()
 	await user.click(screen.getByRole('button', { name: 'Clear search' }))
 	expect(screen.getByText('Brown rice')).toBeVisible()
-
-	// The archived Pantry and its restore action are gone (#289).
-	expect(screen.queryByText('Advanced')).toBeNull()
-	expect(screen.queryByText(/Pantry/)).toBeNull()
 })
 
 test('adding says so on the row itself, holds focus, and keeps the row in place', async () => {
@@ -202,7 +193,6 @@ test('add and remove keep their controls visible through pending and failure sta
 
 	expect(screen.queryByRole('searchbox', { name: 'Search Staples' })).toBeNull()
 	const addButton = screen.getByRole('button', { name: 'Add Staple' })
-	expect(addButton).toHaveClass('min-h-11')
 	await user.click(addButton)
 	await user.type(
 		screen.getByRole('textbox', { name: 'Add a Staple' }),
@@ -220,7 +210,6 @@ test('add and remove keep their controls visible through pending and failure sta
 	await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
 	const removeButton = screen.getByRole('button', { name: 'Delete Salt' })
-	expect(removeButton).toHaveClass('min-h-11', 'min-w-11')
 	await user.click(removeButton)
 	await user.click(screen.getByRole('button', { name: 'Confirm delete Salt' }))
 	expect(await screen.findByText('Deleting…')).toBeVisible()

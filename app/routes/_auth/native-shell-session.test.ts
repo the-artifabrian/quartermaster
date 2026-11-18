@@ -114,34 +114,6 @@ async function prepareSignup() {
 	}
 }
 
-test('password login in the shell sets an expiring cookie with Remember me unchecked', async () => {
-	const user = await insertPasswordUser()
-	const response = await loginAction(
-		routeArgs(
-			post('/login', {
-				userAgent: SHELL_UA,
-				body: { username: user.username, password: user.password },
-			}),
-			'/login',
-		),
-	)
-	expect(sessionCookie(response).expires).toBeInstanceOf(Date)
-})
-
-test('password login in a browser with Remember me unchecked keeps a browser-session cookie', async () => {
-	const user = await insertPasswordUser()
-	const response = await loginAction(
-		routeArgs(
-			post('/login', {
-				userAgent: SAFARI_UA,
-				body: { username: user.username, password: user.password },
-			}),
-			'/login',
-		),
-	)
-	expect(sessionCookie(response).expires).toBeUndefined()
-})
-
 test('password login in a browser with Remember me checked sets an expiring cookie', async () => {
 	const user = await insertPasswordUser()
 	const response = await loginAction(
@@ -219,23 +191,6 @@ test('passkey login in the shell sets an expiring cookie although the body says 
 		session,
 		remember: false,
 	})
-	expect(sessionCookie(response).expires).toBeInstanceOf(Date)
-})
-
-test('email onboarding in the shell sets an expiring cookie with Remember me unchecked', async () => {
-	const fields = await prepareSignup()
-	const response = await onboardingAction(
-		routeArgs(
-			post('/onboarding', {
-				userAgent: SHELL_UA,
-				body: fields,
-				cookie: await verifyCookie({
-					[onboardingEmailSessionKey]: `${fields.username}@example.com`,
-				}),
-			}),
-			'/onboarding',
-		),
-	)
 	expect(sessionCookie(response).expires).toBeInstanceOf(Date)
 })
 

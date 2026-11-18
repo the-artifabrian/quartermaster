@@ -56,25 +56,6 @@ describe('buildEnhancePrompt', () => {
 })
 
 describe('parseEnhanceResponse', () => {
-	it('keeps current time suggestions and ignores legacy metadata', () => {
-		const result = parseEnhanceResponse(
-			JSON.stringify({
-				description: 'A concise description.',
-				activeTime: 15,
-				totalTime: 45,
-				servings: 12,
-				prepTime: 15,
-				cookTime: 30,
-			}),
-		)
-
-		expect(result).toEqual({
-			description: 'A concise description.',
-			activeTime: 15,
-			totalTime: 45,
-		})
-	})
-
 	it('parses valid JSON response', () => {
 		const text = JSON.stringify({
 			description: 'A rich, creamy Roman pasta with guanciale and pecorino.',

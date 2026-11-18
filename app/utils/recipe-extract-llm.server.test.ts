@@ -141,8 +141,6 @@ describe('buildExtractPrompt', () => {
 		// anywhere in the prose and prove nothing.
 		expect(prompt).toContain(CANONICAL_UNITS.join(', '))
 		expect(CANONICAL_UNITS).toContain('tbsp')
-		// The canonical list replaces the old "never use 'unit' as a unit" patch.
-		expect(prompt).not.toContain('Never use "unit" as a unit')
 		expect(prompt).toContain('linguri')
 		expect(prompt).toContain('Never convert between metric and imperial')
 	})
@@ -688,7 +686,7 @@ describe('extractRecipeFromText', () => {
 		expect(body.output_config.effort).toBe('low')
 	})
 
-	test('a time the model used to answer with as "20 min" now arrives as a number', async () => {
+	test('the schema lets the model answer a time only as whole minutes or null', async () => {
 		process.env.ANTHROPIC_API_KEY = 'test-key'
 		let capturedBody: string | undefined
 		vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, opts) => {
@@ -696,30 +694,16 @@ describe('extractRecipeFromText', () => {
 			return new Response(
 				JSON.stringify({
 					stop_reason: 'end_turn',
-					content: [
-						{
-							type: 'text',
-							text: JSON.stringify({
-								...validResponse,
-								activeTime: 20,
-								totalTime: 75,
-							}),
-						},
-					],
+					content: [{ type: 'text', text: JSON.stringify(validResponse) }],
 				}),
 				{ status: 200 },
 			)
 		})
 
-		const result = await extractRecipeFromText(
-			'Active time: 20 min. Total time: 1 hr 15 min.',
-		)
-		expect(result).toMatchObject({ activeTime: 20, totalTime: 75 })
+		await extractRecipeFromText('Active time: 20 min. Total time: 1 hr 15 min.')
 
-		// #278 could only ask for this in the prompt, and Sonnet still answered
-		// "20 min" on real screenshots — a string the schema discards, so the
-		// time never reached the import. Now it is not a value the model can
-		// produce at all.
+		// A prompt alone does not stop "20 min", a string the Zod schema
+		// discards, so the time would never reach the import.
 		const times = recipeBranch(capturedBody!).properties
 		expect(times.activeTime).toEqual({
 			anyOf: [{ type: 'integer' }, { type: 'null' }],

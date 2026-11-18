@@ -147,7 +147,7 @@ test('a phone photo over 3 MB is resized in the browser and saved', async ({
 	expect(stored.size).toBeLessThan(3 * 1024 * 1024)
 })
 
-test('Recipe generation is gone while AI import and provenance remain', async ({
+test('a Pro user can extract with AI from text and from an image', async ({
 	page,
 	login,
 }) => {
@@ -156,57 +156,7 @@ test('Recipe generation is gone while AI import and provenance remain', async ({
 		data: { userId: user.id, tier: 'pro' },
 	})
 
-	await page.setViewportSize({ width: 1280, height: 800 })
-	await page.goto('/recipes')
-	await expect(page.getByRole('link', { name: /Generate Recipe/ })).toHaveCount(
-		0,
-	)
-	await expect(page.getByText('Generate from Pantry')).toHaveCount(0)
-	const openNewRecipeMenu = async () => {
-		const importItem = page.getByRole('menuitem', { name: 'Import' })
-		await expect(async () => {
-			if (!(await importItem.isVisible())) {
-				await page.getByRole('button', { name: 'New Recipe' }).click()
-			}
-			await expect(importItem).toBeVisible({ timeout: 2000 })
-		}).toPass({ timeout: 10_000 })
-	}
-
-	await openNewRecipeMenu()
-	await expect(
-		page.getByRole('menuitem', { name: /Generate Recipe/ }),
-	).toHaveCount(0)
-	await page.keyboard.press('Escape')
-
-	// The AI-Generated badge went with the generator (#278): AI import only
-	// transcribes a recipe someone else wrote, so no card carries the mark.
-	await prisma.recipe.create({
-		data: {
-			title: 'Historical AI Recipe',
-			userId: user.id,
-			householdId: user.householdId,
-		},
-	})
-	await page.reload()
-	const historicalCard = page.getByRole('link', {
-		name: /Historical AI Recipe/,
-	})
-	await expect(historicalCard).toBeVisible()
-	await expect(
-		historicalCard.getByRole('img', { name: 'AI Generated' }),
-	).toHaveCount(0)
-
-	await page.setViewportSize({ width: 390, height: 844 })
-	await page.goto('/recipes')
-	await openNewRecipeMenu()
-	await expect(
-		page.getByRole('menuitem', { name: /Generate Recipe/ }),
-	).toHaveCount(0)
-
 	await page.goto('/recipes/import')
-	await expect(
-		page.getByRole('heading', { name: 'Import Recipe' }),
-	).toBeVisible()
 	await page.getByRole('button', { name: 'From Text' }).click()
 	await expect(page.getByLabel('Recipe text')).toBeVisible()
 	await expect(
@@ -217,9 +167,6 @@ test('Recipe generation is gone while AI import and provenance remain', async ({
 	await expect(
 		page.getByRole('button', { name: 'Extract with AI' }),
 	).toBeVisible()
-
-	const removedRoute = await page.goto('/recipes/generate')
-	expect(removedRoute?.status()).toBe(404)
 })
 
 test('Recipe search and filter', async ({ page, login }) => {

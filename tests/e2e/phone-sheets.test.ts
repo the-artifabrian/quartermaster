@@ -117,6 +117,13 @@ async function pullDown(page: Page, target: Locator, by: number) {
 	await cdp.detach()
 }
 
+/**
+ * For what waits on a server round trip and a reload (a save landing in the
+ * database, the page showing it): a slow CI runner shares one SQLite file
+ * between the server and every test worker.
+ */
+const ROUND_TRIP = { timeout: 15_000 }
+
 /** Taps until a tap lands on a hydrated page and `then` holds. */
 async function tapUntil(control: Locator, then: () => Promise<void>) {
 	await expect(async () => {
@@ -209,11 +216,13 @@ test('Add a Meal is a sheet: picking a Recipe plans it and closes the sheet', as
 	await expect(sheet).toBeHidden()
 	await expect(mobile.getByRole('link', { name: 'Miso Soup' })).toBeVisible()
 	await expect
-		.poll(() =>
-			prisma.meal.findMany({
-				where: { mealPlan: { householdId: user.householdId } },
-				select: { label: true, recipeItems: { select: { recipeId: true } } },
-			}),
+		.poll(
+			() =>
+				prisma.meal.findMany({
+					where: { mealPlan: { householdId: user.householdId } },
+					select: { label: true, recipeItems: { select: { recipeId: true } } },
+				}),
+			ROUND_TRIP,
 		)
 		.toEqual([{ label: 'lunch', recipeItems: [{ recipeId: recipe.id }] }])
 })
@@ -242,11 +251,13 @@ test('Add a Meal as text saves from the sheet’s full-width Add', async ({
 	await expect(sheet).toBeHidden()
 	await expect(mobile.getByText('Leftovers', { exact: true })).toBeVisible()
 	await expect
-		.poll(() =>
-			prisma.meal.findMany({
-				where: { mealPlan: { householdId: user.householdId } },
-				select: { genericText: true },
-			}),
+		.poll(
+			() =>
+				prisma.meal.findMany({
+					where: { mealPlan: { householdId: user.householdId } },
+					select: { genericText: true },
+				}),
+			ROUND_TRIP,
 		)
 		.toEqual([{ genericText: 'Leftovers' }])
 })
@@ -272,10 +283,12 @@ test('Add a Recipe to a Meal is a sheet over the Meal', async ({
 	await expect(sheet).toBeHidden()
 	await expect(mobile.getByRole('link', { name: 'Steamed Rice' })).toBeVisible()
 	await expect
-		.poll(() =>
-			prisma.mealRecipeItem.count({
-				where: { mealId: meal.id, recipeId: rice.id },
-			}),
+		.poll(
+			() =>
+				prisma.mealRecipeItem.count({
+					where: { mealId: meal.id, recipeId: rice.id },
+				}),
+			ROUND_TRIP,
 		)
 		.toBe(1)
 })
@@ -312,16 +325,17 @@ test('Edit details is a sheet: Save stores the change and focus goes back to the
 
 	await sheet.getByLabel('Guests').fill('6')
 	await save.tap()
-	await expect(sheet).toBeHidden()
-	await expect(mobile.getByText('· 6 guests')).toBeVisible()
+	await expect(sheet).toBeHidden(ROUND_TRIP)
+	await expect(mobile.getByText('· 6 guests')).toBeVisible(ROUND_TRIP)
 	await expect
 		.poll(
 			async () =>
 				(await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } }))
 					.guestCount,
+			ROUND_TRIP,
 		)
 		.toBe(6)
-	await expect(actions).toBeFocused()
+	await expect(actions).toBeFocused(ROUND_TRIP)
 })
 
 test('Edit item is a sheet with labelled fields; Save stores it and focus returns to the row', async ({
@@ -358,17 +372,19 @@ test('Edit item is a sheet with labelled fields; Save stores it and focus return
 		'2',
 	)
 	await sheet.getByRole('button', { name: 'Save' }).tap()
-	await expect(sheet).toBeHidden()
-	await expect(row).toContainText('2 rolls')
+	await expect(sheet).toBeHidden(ROUND_TRIP)
+	await expect(row).toContainText('2 rolls', ROUND_TRIP)
 	await expect
-		.poll(() =>
-			prisma.shoppingListItem.findUniqueOrThrow({
-				where: { id: list.items[0]!.id },
-				select: { name: true, quantity: true, unit: true },
-			}),
+		.poll(
+			() =>
+				prisma.shoppingListItem.findUniqueOrThrow({
+					where: { id: list.items[0]!.id },
+					select: { name: true, quantity: true, unit: true },
+				}),
+			ROUND_TRIP,
 		)
 		.toEqual({ name: 'foil', quantity: '2', unit: 'rolls' })
-	await expect(actions).toBeFocused()
+	await expect(actions).toBeFocused(ROUND_TRIP)
 })
 
 test('Scale is a sheet; Done keeps a typed multiplier even when the tap leaves the field focused', async ({
@@ -402,8 +418,11 @@ test('Scale is a sheet; Done keeps a typed multiplier even when the tap leaves t
 	)
 	await sheet.getByRole('button', { name: 'Done' }).dispatchEvent('click')
 	await expect(sheet).toBeHidden()
-	await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}\\?scale=2$`))
-	await expect(page.getByText('Makes 24 pieces')).toBeVisible()
+	await expect(page).toHaveURL(
+		new RegExp(`/recipes/${recipe.id}\\?scale=2$`),
+		ROUND_TRIP,
+	)
+	await expect(page.getByText('Makes 24 pieces')).toBeVisible(ROUND_TRIP)
 })
 
 for (const way of ['Escape', 'the backdrop', 'a pull down'] as const) {
@@ -436,7 +455,10 @@ for (const way of ['Escape', 'the backdrop', 'a pull down'] as const) {
 		else if (way === 'the backdrop') await page.touchscreen.tap(195, 40)
 		else await pullDown(page, sheet.getByRole('heading'), 300)
 		await expect(sheet).toBeHidden()
-		await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}\\?scale=3$`))
+		await expect(page).toHaveURL(
+			new RegExp(`/recipes/${recipe.id}\\?scale=3$`),
+			ROUND_TRIP,
+		)
 	})
 }
 
@@ -471,17 +493,19 @@ test('From Staples is a sheet: picked Staples go to Next shop', async ({
 	await expectBottomSheet(page, sheet)
 	await sheet.getByRole('button', { name: 'Milk' }).tap()
 	await sheet.getByRole('button', { name: 'Add 1 to Next shop' }).tap()
-	await expect(sheet).toBeHidden()
+	await expect(sheet).toBeHidden(ROUND_TRIP)
 	await expect(
 		page.getByRole('group', { name: 'Milk shopping item' }),
 	).toBeVisible()
 	await expect
-		.poll(() =>
-			prisma.shoppingListItem.findMany({
-				where: { list: { householdId: user.householdId } },
-				select: { name: true, horizon: true },
-				orderBy: { name: 'asc' },
-			}),
+		.poll(
+			() =>
+				prisma.shoppingListItem.findMany({
+					where: { list: { householdId: user.householdId } },
+					select: { name: true, horizon: true },
+					orderBy: { name: 'asc' },
+				}),
+			ROUND_TRIP,
 		)
 		.toEqual([
 			{ name: 'Milk', horizon: 'next' },
@@ -529,15 +553,17 @@ test('Link recipe is a sheet; Enter in its search sends nothing; a pick leaves a
 	).toBeFocused()
 
 	await page.getByRole('button', { name: 'Save', exact: true }).tap()
-	await expect(page).not.toHaveURL(/\/recipes\/new$/)
+	await expect(page).not.toHaveURL(/\/recipes\/new$/, ROUND_TRIP)
 	await expect
-		.poll(() =>
-			prisma.ingredient.findMany({
-				where: {
-					recipe: { title: 'Margherita', householdId: user.householdId },
-				},
-				select: { name: true, linkedRecipeId: true },
-			}),
+		.poll(
+			() =>
+				prisma.ingredient.findMany({
+					where: {
+						recipe: { title: 'Margherita', householdId: user.householdId },
+					},
+					select: { name: true, linkedRecipeId: true },
+				}),
+			ROUND_TRIP,
 		)
 		.toEqual([{ name: 'dough', linkedRecipeId: dough.id }])
 })
@@ -577,13 +603,15 @@ test('Add to Plan from a Menu is a sheet and plans the Menu', async ({
 	await expectBottomSheet(page, sheet)
 	await sheet.getByLabel('Guests').fill('4')
 	await sheet.getByRole('button', { name: 'Add to Plan' }).tap()
-	await expect(page).toHaveURL(/\/plan/)
+	await expect(page).toHaveURL(/\/plan/, ROUND_TRIP)
 	await expect
-		.poll(() =>
-			prisma.meal.findMany({
-				where: { mealPlan: { householdId: user.householdId } },
-				select: { guestCount: true, sourceMenuId: true },
-			}),
+		.poll(
+			() =>
+				prisma.meal.findMany({
+					where: { mealPlan: { householdId: user.householdId } },
+					select: { guestCount: true, sourceMenuId: true },
+				}),
+			ROUND_TRIP,
 		)
 		.toEqual([{ guestCount: 4, sourceMenuId: menu.id }])
 })
@@ -794,6 +822,7 @@ test.describe('Plan Meals as flat rows', () => {
 							where: { mealId: meal.id },
 						})
 					).cooked,
+				ROUND_TRIP,
 			)
 			.toBe(true)
 		await mobile
@@ -1039,7 +1068,13 @@ test.describe('sheets while they come and go', () => {
 		await other.getByRole('menuitem', { name: /^Delete/ }).click()
 		await expect(foil).toBeHidden()
 		await expect
-			.poll(() => prisma.shoppingListItem.count({ where: { name: 'foil' } }))
+			.poll(
+				() =>
+					prisma.shoppingListItem.count({
+						where: { name: 'foil', list: { householdId: user.householdId } },
+					}),
+				ROUND_TRIP,
+			)
 			.toBe(0)
 
 		// Back on this phone, which catches up as it comes to the front.
@@ -1080,15 +1115,17 @@ test.describe('sheets while they come and go', () => {
 		await expectBottomSheet(page, sheet)
 		await sheet.getByLabel('Date', { exact: true }).fill(serializeDate(other))
 		await sheet.getByRole('button', { name: 'Save' }).tap()
-		await expect(sheet).toBeHidden()
+		await expect(sheet).toBeHidden(ROUND_TRIP)
 		const moved = mobile.locator(`[data-meal-id="${meal.id}"]`)
-		await expect(moved).toBeFocused()
+		await expect(moved).toBeFocused(ROUND_TRIP)
 		await expect
-			.poll(async () =>
-				serializeDate(
-					(await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } }))
-						.date,
-				),
+			.poll(
+				async () =>
+					serializeDate(
+						(await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } }))
+							.date,
+					),
+				ROUND_TRIP,
 			)
 			.toBe(serializeDate(other))
 		// Still focused once the sheet is long gone.
@@ -1202,7 +1239,7 @@ test('removing the first Recipe of a Meal takes the inset line above the next on
 				{ timeout: 1000 },
 			),
 	)
-	await expect.poll(() => drawsInsetLine(riceRow)).toBe(false)
+	await expect.poll(() => drawsInsetLine(riceRow), ROUND_TRIP).toBe(false)
 })
 
 test('removing the first Recipe under a Menu heading leaves no line under the heading', async ({
@@ -1242,7 +1279,7 @@ test('removing the first Recipe under a Menu heading leaves no line under the he
 				{ timeout: 1000 },
 			),
 	)
-	await expect.poll(() => drawsInsetLine(riceRow)).toBe(false)
+	await expect.poll(() => drawsInsetLine(riceRow), ROUND_TRIP).toBe(false)
 })
 
 test('reopening Edit details or Add a Recipe while it leaves starts afresh', async ({
@@ -1313,9 +1350,9 @@ test('a sheet still leaving when its page goes plays its exit to the end', async
 		.locator('[data-bottom-nav]')
 		.getByRole('link', { name: 'Plan' })
 		.dispatchEvent('click')
-	await expect(page).toHaveURL(/\/plan/)
+	await expect(page).toHaveURL(/\/plan/, ROUND_TRIP)
 	// Its own exit, cut short, then the copy that finishes it.
-	await expect.poll(() => sheetExits(page)).toBe(2)
+	await expect.poll(() => sheetExits(page), ROUND_TRIP).toBe(2)
 	expect(await sheetExitsReachable(page)).toEqual([true, false])
 	await expect(page.locator('[data-bottom-sheet]')).toHaveCount(0)
 })
@@ -1344,7 +1381,7 @@ test('Staples picked and added are not picked again after Shopping clears them',
 	)
 	await sheet.getByRole('button', { name: 'Milk' }).tap()
 	await sheet.getByRole('button', { name: 'Add 1 to Next shop' }).tap()
-	await expect(sheet).toBeHidden()
+	await expect(sheet).toBeHidden(ROUND_TRIP)
 
 	// Bought and cleared.
 	const milkRow = page.getByRole('group', { name: 'Milk shopping item' })
@@ -1354,7 +1391,13 @@ test('Staples picked and added are not picked again after Shopping clears them',
 		.tap()
 	await expect(milkRow).toBeHidden()
 	await expect
-		.poll(() => prisma.shoppingListItem.count({ where: { name: 'Milk' } }))
+		.poll(
+			() =>
+				prisma.shoppingListItem.count({
+					where: { name: 'Milk', list: { householdId: user.householdId } },
+				}),
+			ROUND_TRIP,
+		)
 		.toBe(0)
 
 	await fromStaples.tap()

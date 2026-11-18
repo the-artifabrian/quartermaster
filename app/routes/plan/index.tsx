@@ -1,5 +1,9 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Link, type ShouldRevalidateFunctionArgs } from 'react-router'
+import {
+	Link,
+	type ShouldRevalidateFunctionArgs,
+	useNavigate,
+} from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
 import { OfflineErrorBoundary } from '#app/components/offline-error-boundary.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
@@ -195,6 +199,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
 	const nextWeek = serializeDate(getNextWeek(parseDate(weekStart)))
 	const currentWeek = serializeDate(getCurrentWeekStart())
+	const navigate = useNavigate()
 
 	return (
 		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
@@ -229,7 +234,16 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container-grid">
-				<MealPlanCalendar key={planScope} weekDays={weekDays} meals={meals} />
+				<MealPlanCalendar
+					key={planScope}
+					weekDays={weekDays}
+					meals={meals}
+					onSwipeWeek={(direction) =>
+						void navigate(
+							`/plan?weekStart=${direction === 'previous' ? prevWeek : nextWeek}`,
+						)
+					}
+				/>
 
 				{meals.length > 0 && shoppingListItemCount === 0 && (
 					<OnboardingNudge

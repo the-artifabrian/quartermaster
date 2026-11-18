@@ -6,6 +6,7 @@ import {
 	type PlanChoices,
 	usePlanChoices,
 } from '#app/components/plan-choices.tsx'
+import { useHorizontalSwipe } from '#app/hooks/use-horizontal-swipe.ts'
 import { type PlannedMealResult } from '#app/routes/plan/plan-action.server.ts'
 import {
 	MEAL_TYPES,
@@ -19,6 +20,8 @@ import {
 } from '#app/utils/date.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { haptic } from '#app/utils/shell-bridge.ts'
+import { settleCommit } from '#app/utils/swipe.ts'
 import {
 	defaultSelectedDay,
 	resolveSelectedDay,
@@ -33,7 +36,16 @@ import { Input } from './ui/input.tsx'
 type MealPlanCalendarProps = {
 	weekDays: Date[]
 	meals: PlanMeal[]
+	/** Swiping the phone's day strip sideways turns the week. */
+	onSwipeWeek?: (direction: 'previous' | 'next') => void
 }
+
+/**
+ * The side the next week's strip comes in from after a swipe: the opposite
+ * of where the last one left. The calendar remounts per week, so this
+ * outlives the strip that set it.
+ */
+let weekStripEntry: -1 | 1 | null = null
 
 type AddMealPresentation = 'primary' | 'row' | 'empty-row'
 
@@ -399,7 +411,44 @@ function MealCards({
 	))
 }
 
-export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
+export function MealPlanCalendar({
+	weekDays,
+	meals,
+	onSwipeWeek,
+}: MealPlanCalendarProps) {
+	// The strip follows the finger and turns the week past a quarter of its
+	// width or on a flick: right for the week before, left for the week after.
+	const weekSwipe = useHorizontalSwipe<HTMLDivElement>({
+		enabled: Boolean(onSwipeWeek),
+		getBase: () => 0,
+		min: -Infinity,
+		max: Infinity,
+		onRelease: ({ offset, velocity }): number => {
+			const width: number = weekSwipe.ref.current?.offsetWidth ?? 0
+			const direction = settleCommit({ offset, velocity, width })
+			if (direction === 0 || !onSwipeWeek) return 0
+			haptic('selection')
+			weekStripEntry = direction === 1 ? -1 : 1
+			onSwipeWeek(direction === 1 ? 'previous' : 'next')
+			return direction * width
+		},
+	})
+	useLayoutEffect(() => {
+		const entry = weekStripEntry
+		weekStripEntry = null
+		const strip = weekSwipe.ref.current
+		if (!entry || !strip) return
+		const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+		strip.animate(
+			still
+				? [{ opacity: 0 }, { opacity: 1 }]
+				: [
+						{ transform: `translateX(${entry * 30}%)`, opacity: 0 },
+						{ transform: 'none', opacity: 1 },
+					],
+			{ duration: 220, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
+		)
+	}, [weekSwipe.ref])
 	const choices = usePlanChoices()
 	const [searchParams, setSearchParams] = useSearchParams()
 	const targetMealId = searchParams.get('mealId')
@@ -463,8 +512,10 @@ export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
 			{/* Mobile: pick a day, then work with only that day's Meals. */}
 			<div data-testid="mobile-plan" className="md:hidden">
 				<div
+					ref={weekSwipe.ref}
+					{...weekSwipe.handlers}
 					data-slot="mobile-week-days"
-					className="grid grid-cols-7 gap-1 py-1"
+					className="grid touch-pan-y grid-cols-7 gap-1 py-1"
 				>
 					{weekDays.map((date) => {
 						const dateStr = serializeDate(date)

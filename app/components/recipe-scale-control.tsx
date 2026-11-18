@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { BottomSheet, opensAsSheet } from '#app/components/ui/bottom-sheet.tsx'
+import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import {
@@ -158,6 +160,36 @@ export function RecipeIngredientsControls({
 	const formattedTargetYield =
 		derivedTarget != null ? formatTargetYieldAmount(derivedTarget) : null
 	const displayedMultiplier = formatScaleMultiplier(scaleMultiplier)
+	// A popover on wider screens, a bottom sheet on a phone (set on open).
+	const [open, setOpen] = useState(false)
+	const [inSheet, setInSheet] = useState(false)
+	// The multiplier field saves on blur or Enter. A tap on a button does not
+	// blur it on iOS, and closing would drop the draft, so closing blurs it.
+	function closeSheet() {
+		const active = document.activeElement
+		if (active instanceof HTMLElement) active.blur()
+		setOpen(false)
+	}
+
+	const scaleEditor = (
+		<>
+			<RecipeScaleControl
+				scaleMultiplier={scaleMultiplier}
+				yieldAmount={yieldAmount}
+				yieldLabel={yieldLabel}
+				onScaleMultiplierChange={onScaleMultiplierChange}
+			/>
+			{scaleMultiplier !== 1 ? (
+				<button
+					type="button"
+					onClick={() => onScaleMultiplierChange(1)}
+					className="text-primary hover:bg-accent/10 focus-visible:ring-ring mt-2 min-h-11 w-full rounded-md px-2 text-sm font-medium focus-visible:ring-2 focus-visible:outline-hidden"
+				>
+					Original 1×
+				</button>
+			) : null}
+		</>
+	)
 
 	return (
 		<div className="mb-4 min-w-0">
@@ -185,11 +217,20 @@ export function RecipeIngredientsControls({
 					Ingredients
 				</h2>
 
-				<Popover>
+				<Popover
+					open={open && !inSheet}
+					onOpenChange={(nextOpen) => {
+						if (nextOpen) setInSheet(opensAsSheet())
+						setOpen(nextOpen)
+					}}
+				>
 					<PopoverTrigger asChild>
 						<button
 							type="button"
 							aria-label={`Scale ${displayedMultiplier}×`}
+							// Radix reports its own state, which is closed while the
+							// sheet stands in for the popover.
+							aria-expanded={open}
 							className="text-muted-foreground hover:text-foreground focus-visible:ring-ring ml-auto flex min-h-11 shrink-0 items-center gap-1 rounded-sm px-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-hidden print:hidden"
 						>
 							<span>Scale</span>
@@ -201,23 +242,22 @@ export function RecipeIngredientsControls({
 					</PopoverTrigger>
 					<PopoverContent align="end" className="w-64 p-3">
 						<p className="mb-2 text-sm font-medium">Scale this recipe</p>
-						<RecipeScaleControl
-							scaleMultiplier={scaleMultiplier}
-							yieldAmount={yieldAmount}
-							yieldLabel={yieldLabel}
-							onScaleMultiplierChange={onScaleMultiplierChange}
-						/>
-						{scaleMultiplier !== 1 ? (
-							<button
-								type="button"
-								onClick={() => onScaleMultiplierChange(1)}
-								className="text-primary hover:bg-accent/10 focus-visible:ring-ring mt-2 min-h-11 w-full rounded-md px-2 text-sm font-medium focus-visible:ring-2 focus-visible:outline-hidden"
-							>
-								Original 1×
-							</button>
-						) : null}
+						{scaleEditor}
 					</PopoverContent>
 				</Popover>
+				{inSheet && (
+					<BottomSheet
+						open={open}
+						onClose={closeSheet}
+						labelledBy="recipe-scale-sheet-title"
+						title="Scale this recipe"
+					>
+						{scaleEditor}
+						<Button type="button" className="mt-4 w-full" onClick={closeSheet}>
+							Done
+						</Button>
+					</BottomSheet>
+				)}
 
 				{onToggleMetric ? (
 					<button

@@ -43,6 +43,8 @@ type PlanItemSelectorProps = {
 	onCancel: () => void
 	/** The parent owns the Recipe/Menu submit; this module owns discovery. */
 	onPick: (choice: PlanItemChoice) => void
+	/** Off inside a sheet, which has its own Close. */
+	showClose?: boolean
 }
 
 type RecipeSelectorProps = {
@@ -51,6 +53,7 @@ type RecipeSelectorProps = {
 	excludeRecipeIds?: string[]
 	onCancel: () => void
 	onPick: (recipe: RecipeSelectorRecipe) => void
+	showClose?: boolean
 }
 
 /**
@@ -132,6 +135,7 @@ export function RecipeSelector({
 	excludeRecipeIds,
 	onCancel,
 	onPick,
+	showClose,
 }: RecipeSelectorProps) {
 	return (
 		<ItemSelector
@@ -140,6 +144,7 @@ export function RecipeSelector({
 			date={date}
 			excludeRecipeIds={excludeRecipeIds}
 			onCancel={onCancel}
+			showClose={showClose}
 			onPick={(choice) => {
 				if (choice.kind === 'recipe') onPick(choice.recipe)
 			}}
@@ -156,6 +161,7 @@ function ItemSelector({
 	excludeRecipeIds = [],
 	onCancel,
 	onPick,
+	showClose = true,
 	placeholder,
 	emptyMessage,
 }: PlanItemSelectorProps & { placeholder: string; emptyMessage: string }) {
@@ -221,14 +227,16 @@ function ItemSelector({
 					onChange={(e) => setSearch(e.target.value)}
 					autoFocus
 				/>
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={onCancel}
-					aria-label="Close picker"
-				>
-					<Icon name="cross-1" size="sm" />
-				</Button>
+				{showClose && (
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={onCancel}
+						aria-label="Close picker"
+					>
+						<Icon name="cross-1" size="sm" />
+					</Button>
+				)}
 			</div>
 			<div
 				ref={listRef}

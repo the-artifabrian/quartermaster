@@ -6,9 +6,11 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useId, useRef, useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useFetcher } from 'react-router'
 import { useSortableList } from '#app/hooks/use-sortable-list.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { BottomSheet, opensAsSheet } from './ui/bottom-sheet.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
@@ -525,6 +527,8 @@ function RecipeLinkPicker({
 	excludeRecipeId?: string
 }) {
 	const [open, setOpen] = useState(false)
+	// A popover on wider screens, a bottom sheet on a phone (set on open).
+	const [inSheet, setInSheet] = useState(false)
 	const [query, setQuery] = useState('')
 	const fetcher = useFetcher<{
 		recipes: Array<{ id: string; title: string }>
@@ -570,63 +574,99 @@ function RecipeLinkPicker({
 		)
 	}
 
+	const search = (
+		<>
+			<Input
+				ref={inputRef}
+				placeholder="Search recipes..."
+				aria-label="Search recipes"
+				inputMode="search"
+				enterKeyHint="search"
+				value={query}
+				onChange={(e) => {
+					setQuery(e.target.value)
+					doSearch(e.target.value)
+				}}
+				className="mb-2"
+			/>
+			{query.length < 2 ? (
+				<p className="text-muted-foreground px-2 py-3 text-center text-xs">
+					Type to search your recipes
+				</p>
+			) : fetcher.state !== 'idle' ? (
+				<p className="text-muted-foreground px-2 py-3 text-center text-xs">
+					Searching...
+				</p>
+			) : results.length === 0 ? (
+				<p className="text-muted-foreground px-2 py-3 text-center text-xs">
+					No recipes found
+				</p>
+			) : (
+				<ul className={cn(!inSheet && 'max-h-48 overflow-y-auto')}>
+					{results.map((recipe) => (
+						<li key={recipe.id}>
+							<button
+								type="button"
+								className={cn(
+									'hover:bg-accent w-full rounded-md px-2 py-1.5 text-left text-sm',
+									inSheet && 'min-h-11',
+								)}
+								onClick={() => {
+									onLink(recipe.id, recipe.title)
+									setOpen(false)
+									setQuery('')
+								}}
+							>
+								{recipe.title}
+							</button>
+						</li>
+					))}
+				</ul>
+			)}
+		</>
+	)
+
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
-			<PopoverTrigger asChild>
-				<button
-					type="button"
-					className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 rounded-md px-1 py-1 text-xs transition-colors"
-				>
-					<Icon name="link-2" size="sm" />
-					Link recipe
-				</button>
-			</PopoverTrigger>
-			<PopoverContent align="start" className="w-72 p-2">
-				<Input
-					ref={inputRef}
-					placeholder="Search recipes..."
-					inputMode="search"
-					enterKeyHint="search"
-					value={query}
-					onChange={(e) => {
-						setQuery(e.target.value)
-						doSearch(e.target.value)
-					}}
-					className="mb-2"
-				/>
-				{query.length < 2 ? (
-					<p className="text-muted-foreground px-2 py-3 text-center text-xs">
-						Type to search your recipes
-					</p>
-				) : fetcher.state !== 'idle' ? (
-					<p className="text-muted-foreground px-2 py-3 text-center text-xs">
-						Searching...
-					</p>
-				) : results.length === 0 ? (
-					<p className="text-muted-foreground px-2 py-3 text-center text-xs">
-						No recipes found
-					</p>
-				) : (
-					<ul className="max-h-48 overflow-y-auto">
-						{results.map((recipe) => (
-							<li key={recipe.id}>
-								<button
-									type="button"
-									className="hover:bg-accent w-full rounded-md px-2 py-1.5 text-left text-sm"
-									onClick={() => {
-										onLink(recipe.id, recipe.title)
-										setOpen(false)
-										setQuery('')
-									}}
-								>
-									{recipe.title}
-								</button>
-							</li>
-						))}
-					</ul>
+		<>
+			<Popover
+				open={open && !inSheet}
+				onOpenChange={(nextOpen) => {
+					if (nextOpen) setInSheet(opensAsSheet())
+					setOpen(nextOpen)
+				}}
+			>
+				<PopoverTrigger asChild>
+					<button
+						type="button"
+						// Radix reports its own state, which is closed while the
+						// sheet stands in for the popover.
+						aria-expanded={open}
+						className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 rounded-md px-1 py-1 text-xs transition-colors"
+					>
+						<Icon name="link-2" size="sm" />
+						Link recipe
+					</button>
+				</PopoverTrigger>
+				<PopoverContent align="start" className="w-72 p-2">
+					{search}
+				</PopoverContent>
+			</Popover>
+			{/* On the body: the row sits in the Recipe form, where Enter in the
+			    search would submit it, and in a sortable list that moves. */}
+			{inSheet &&
+				createPortal(
+					<BottomSheet
+						open={open}
+						onClose={() => setOpen(false)}
+						labelledBy="recipe-link-sheet-title"
+						title="Link a recipe"
+						initialFocusRef={inputRef}
+					>
+						{search}
+					</BottomSheet>,
+					document.body,
 				)}
-			</PopoverContent>
-		</Popover>
+		</>
 	)
 }
 

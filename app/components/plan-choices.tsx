@@ -29,7 +29,8 @@ export function PlanChoiceRequestState({
 }: {
 	state: 'idle' | 'loading' | 'error'
 	onRetry: () => void
-	onCancel: () => void
+	/** Without it there is no Close: a sheet has its own. */
+	onCancel?: () => void
 	subject: string
 }) {
 	return (
@@ -57,15 +58,17 @@ export function PlanChoiceRequestState({
 						Loading {subject}…
 					</p>
 				)}
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon"
-					onClick={onCancel}
-					aria-label="Close picker"
-				>
-					<Icon name="cross-1" size="sm" />
-				</Button>
+				{onCancel && (
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						onClick={onCancel}
+						aria-label="Close picker"
+					>
+						<Icon name="cross-1" size="sm" />
+					</Button>
+				)}
 			</div>
 		</div>
 	)

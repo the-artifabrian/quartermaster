@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
+import { BottomSheet, opensAsSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -49,6 +50,9 @@ function isChoiceResponse(
 	)
 }
 
+const STAPLES_TITLE = 'What do you need this trip?'
+const STAPLES_DESCRIPTION = 'Pick Staples to add to Next shop.'
+
 type BulkAddResponse = {
 	status: 'success'
 	addedCount: number
@@ -70,6 +74,8 @@ export function ShoppingStaplesPicker({
 		status: 'idle',
 	})
 	const [open, setOpen] = useState(false)
+	// A popover on wider screens, a bottom sheet on a phone (set on open).
+	const [inSheet, setInSheet] = useState(false)
 	const [cueDismissed, setCueDismissed] = useState(false)
 	const [selected, setSelected] = useState<Set<string>>(() => new Set())
 	const [search, setSearch] = useState('')
@@ -175,165 +181,191 @@ export function ShoppingStaplesPicker({
 		})
 	}
 
-	return (
-		<Popover
-			open={open}
-			onOpenChange={(nextOpen) => {
-				setOpen(nextOpen)
-				if (nextOpen) {
-					setCueDismissed(true)
-					if (choiceState.status === 'idle') void loadStaples()
-				} else setSearch('')
-			}}
-		>
-			<PopoverTrigger asChild>
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					className="relative"
-					aria-label={
-						showCue ? 'From Staples, reminder available' : 'From Staples'
-					}
+	function setPickerOpen(nextOpen: boolean) {
+		if (nextOpen) {
+			setInSheet(opensAsSheet())
+			setCueDismissed(true)
+			if (choiceState.status === 'idle') void loadStaples()
+		} else setSearch('')
+		setOpen(nextOpen)
+	}
+
+	const panel = (
+		<>
+			{choiceState.status === 'loading' && (
+				<p
+					role="status"
+					aria-live="polite"
+					className="text-muted-foreground py-8 text-center text-sm"
 				>
-					<Icon name="cookie" size="sm" />
-					From Staples
-					{showCue && (
-						<span
-							className="bg-accent ring-background absolute -top-1 -right-1 size-2.5 rounded-full ring-2"
-							aria-hidden="true"
-						/>
-					)}
-				</Button>
-			</PopoverTrigger>
-			<PopoverContent align="end" className="w-[calc(100vw-2rem)] sm:w-[28rem]">
-				<h2 className="font-serif text-lg">What do you need this trip?</h2>
-				<p className="text-muted-foreground mt-1 text-sm">
-					Pick Staples to add to Next shop.
+					Loading Staples…
 				</p>
-				{choiceState.status === 'loading' && (
-					<p
-						role="status"
-						aria-live="polite"
-						className="text-muted-foreground py-8 text-center text-sm"
+			)}
+			{choiceState.status === 'error' && (
+				<div role="alert" className="py-6 text-center">
+					<p className="text-sm">Couldn&rsquo;t load Staples.</p>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="mt-3"
+						onClick={() => void loadStaples()}
 					>
-						Loading Staples…
+						Try again
+					</Button>
+				</div>
+			)}
+			{choiceState.status === 'success' && staples.length === 0 && (
+				<div role="status" className="py-6 text-center">
+					<p className="text-sm">No Staples yet.</p>
+					<p className="text-muted-foreground mt-1 text-xs">
+						Add them from the Staples screen.
 					</p>
-				)}
-				{choiceState.status === 'error' && (
-					<div role="alert" className="py-6 text-center">
-						<p className="text-sm">Couldn&rsquo;t load Staples.</p>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							className="mt-3"
-							onClick={() => void loadStaples()}
-						>
-							Try again
-						</Button>
-					</div>
-				)}
-				{choiceState.status === 'success' && staples.length === 0 && (
-					<div role="status" className="py-6 text-center">
-						<p className="text-sm">No Staples yet.</p>
-						<p className="text-muted-foreground mt-1 text-xs">
-							Add them from the Staples screen.
-						</p>
-					</div>
-				)}
-				{choiceState.status === 'success' && staples.length >= 10 && (
-					<div className="relative mt-3">
-						<Icon
-							name="magnifying-glass"
-							size="sm"
-							className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-						/>
-						<Input
-							type="search"
-							inputMode="search"
-							enterKeyHint="search"
-							value={search}
-							onChange={(event) => setSearch(event.currentTarget.value)}
-							placeholder="Search Staples"
-							aria-label="Search Staples"
-							className="pl-9"
-						/>
-					</div>
-				)}
-				{choiceState.status === 'success' && staples.length > 0 && (
-					<div className="mt-3 max-h-64 scrollbar-thin divide-y overflow-y-auto overscroll-contain pr-1">
-						{visibleStaples.length > 0 ? (
-							visibleStaples.map((staple) => {
-								const isSelected =
-									!staple.onShoppingList && selected.has(staple.id)
-								return (
-									<button
-										key={staple.id}
-										type="button"
-										disabled={staple.onShoppingList}
-										onClick={() => toggleStaple(staple.id)}
-										aria-pressed={isSelected}
-										className="flex min-h-11 w-full items-center gap-3 py-2 text-left disabled:opacity-45"
-									>
-										<span
-											className={cn(
-												'flex size-5 shrink-0 items-center justify-center rounded border',
-												isSelected
-													? 'border-primary bg-primary text-primary-foreground'
-													: 'border-border bg-background',
-											)}
-										>
-											{isSelected && <Icon name="check" size="xs" />}
-										</span>
-										<span className="min-w-0 flex-1 truncate">
-											{staple.displayName}
-										</span>
-										{staple.onShoppingList && (
-											<span className="text-muted-foreground text-xs">
-												On list
-											</span>
+				</div>
+			)}
+			{choiceState.status === 'success' && staples.length >= 10 && (
+				<div className="relative mt-3">
+					<Icon
+						name="magnifying-glass"
+						size="sm"
+						className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+					/>
+					<Input
+						type="search"
+						inputMode="search"
+						enterKeyHint="search"
+						value={search}
+						onChange={(event) => setSearch(event.currentTarget.value)}
+						placeholder="Search Staples"
+						aria-label="Search Staples"
+						className="pl-9"
+					/>
+				</div>
+			)}
+			{choiceState.status === 'success' && staples.length > 0 && (
+				<div className="mt-3 max-h-64 scrollbar-thin divide-y overflow-y-auto overscroll-contain pr-1">
+					{visibleStaples.length > 0 ? (
+						visibleStaples.map((staple) => {
+							const isSelected =
+								!staple.onShoppingList && selected.has(staple.id)
+							return (
+								<button
+									key={staple.id}
+									type="button"
+									disabled={staple.onShoppingList}
+									onClick={() => toggleStaple(staple.id)}
+									aria-pressed={isSelected}
+									className="flex min-h-11 w-full items-center gap-3 py-2 text-left disabled:opacity-45"
+								>
+									<span
+										className={cn(
+											'flex size-5 shrink-0 items-center justify-center rounded border',
+											isSelected
+												? 'border-primary bg-primary text-primary-foreground'
+												: 'border-border bg-background',
 										)}
-									</button>
-								)
-							})
-						) : (
-							<p className="text-muted-foreground py-6 text-center text-sm">
-								No Staples match &ldquo;{search.trim()}&rdquo;
-							</p>
+									>
+										{isSelected && <Icon name="check" size="xs" />}
+									</span>
+									<span className="min-w-0 flex-1 truncate">
+										{staple.displayName}
+									</span>
+									{staple.onShoppingList && (
+										<span className="text-muted-foreground text-xs">
+											On list
+										</span>
+									)}
+								</button>
+							)
+						})
+					) : (
+						<p className="text-muted-foreground py-6 text-center text-sm">
+							No Staples match &ldquo;{search.trim()}&rdquo;
+						</p>
+					)}
+				</div>
+			)}
+			{choiceState.status === 'success' && staples.length > 0 && (
+				<fetcher.Form method="POST">
+					<HouseholdClientInput />
+					<input type="hidden" name="intent" value="bulk-add" />
+					<input type="hidden" name="horizon" value={NEXT_SHOP} />
+					<input
+						type="hidden"
+						name="items"
+						value={JSON.stringify(
+							selectedStaples.map((staple) => ({
+								name: staple.displayName,
+							})),
 						)}
-					</div>
-				)}
-				{choiceState.status === 'success' && staples.length > 0 && (
-					<fetcher.Form method="POST">
-						<HouseholdClientInput />
-						<input type="hidden" name="intent" value="bulk-add" />
-						<input type="hidden" name="horizon" value={NEXT_SHOP} />
-						<input
-							type="hidden"
-							name="items"
-							value={JSON.stringify(
-								selectedStaples.map((staple) => ({
-									name: staple.displayName,
-								})),
-							)}
-						/>
-						<Button
-							type="submit"
-							className="mt-4 w-full"
-							disabled={
-								selectedStaples.length === 0 || fetcher.state !== 'idle'
-							}
-						>
-							{fetcher.state === 'idle'
-								? selectedStaples.length > 0
-									? `Add ${selectedStaples.length} to Next shop`
-									: 'Add to Next shop'
-								: 'Adding…'}
-						</Button>
-					</fetcher.Form>
-				)}
-			</PopoverContent>
-		</Popover>
+					/>
+					<Button
+						type="submit"
+						className="mt-4 w-full"
+						disabled={selectedStaples.length === 0 || fetcher.state !== 'idle'}
+					>
+						{fetcher.state === 'idle'
+							? selectedStaples.length > 0
+								? `Add ${selectedStaples.length} to Next shop`
+								: 'Add to Next shop'
+							: 'Adding…'}
+					</Button>
+				</fetcher.Form>
+			)}
+		</>
+	)
+
+	return (
+		<>
+			<Popover open={open && !inSheet} onOpenChange={setPickerOpen}>
+				<PopoverTrigger asChild>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="relative"
+						aria-label={
+							showCue ? 'From Staples, reminder available' : 'From Staples'
+						}
+						// Radix reports its own state, which is closed while the
+						// sheet stands in for the popover.
+						aria-expanded={open}
+					>
+						<Icon name="cookie" size="sm" />
+						From Staples
+						{showCue && (
+							<span
+								className="bg-accent ring-background absolute -top-1 -right-1 size-2.5 rounded-full ring-2"
+								aria-hidden="true"
+							/>
+						)}
+					</Button>
+				</PopoverTrigger>
+				<PopoverContent
+					align="end"
+					aria-labelledby="staples-picker-title"
+					className="w-[calc(100vw-2rem)] sm:w-[28rem]"
+				>
+					<h2 id="staples-picker-title" className="font-serif text-lg">
+						{STAPLES_TITLE}
+					</h2>
+					<p className="text-muted-foreground mt-1 text-sm">
+						{STAPLES_DESCRIPTION}
+					</p>
+					{panel}
+				</PopoverContent>
+			</Popover>
+			{inSheet && (
+				<BottomSheet
+					open={open}
+					onClose={() => setPickerOpen(false)}
+					labelledBy="staples-sheet-title"
+					title={STAPLES_TITLE}
+					description={STAPLES_DESCRIPTION}
+				>
+					{panel}
+				</BottomSheet>
+			)}
+		</>
 	)
 }

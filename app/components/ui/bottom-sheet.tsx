@@ -19,6 +19,17 @@ const EXIT_FALLBACK_MS = 500
 /** Where the sheet becomes a centered dialog. */
 const DIALOG_QUERY = '(width >= 40rem)'
 
+/**
+ * Whether a picker or form opening now should be a bottom sheet: on a phone
+ * (below `sm`). Wider screens keep their popover or inline panel. Read when it
+ * opens, so the server and the first render agree; no `matchMedia` (jsdom)
+ * means the wide UI.
+ */
+export function opensAsSheet() {
+	if (typeof window === 'undefined' || !window.matchMedia) return false
+	return !window.matchMedia(DIALOG_QUERY).matches
+}
+
 /** The sheet that is open now. Opening another closes it first. */
 let openSheet: { close: () => void } | null = null
 
@@ -37,6 +48,11 @@ type BottomSheetProps = {
 	 * child focused, else the first thing that can take it (Close).
 	 */
 	initialFocusRef?: RefObject<HTMLElement | null>
+	/**
+	 * Takes focus back once the sheet is gone, for a sheet opened from a menu
+	 * item that is gone by then. Without it focus goes back to what had it.
+	 */
+	returnFocusRef?: RefObject<HTMLElement | null>
 	/** Classes for the panel. */
 	className?: string
 	/** Classes for the part under the header, which scrolls. */
@@ -73,6 +89,7 @@ function SheetFrame({
 	title,
 	description,
 	initialFocusRef,
+	returnFocusRef,
 	className,
 	bodyClassName,
 	children,
@@ -134,9 +151,11 @@ function SheetFrame({
 
 	// Give focus back once the sheet is gone, unless another sheet has opened
 	// since: focus belongs in that one.
+	const returnFocusRefRef = useRef(returnFocusRef)
 	useEffect(
 		() => () => {
-			const previouslyFocused = previouslyFocusedRef.current
+			const previouslyFocused =
+				returnFocusRefRef.current?.current ?? previouslyFocusedRef.current
 			if (openSheet === null && previouslyFocused?.isConnected) {
 				previouslyFocused.focus({ preventScroll: true })
 			}

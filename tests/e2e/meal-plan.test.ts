@@ -110,13 +110,16 @@ test.describe('Move a Meal', () => {
 		await expect(mealActions).toBeFocused()
 		await mealActions.click()
 		await page.getByRole('menuitem', { name: 'Edit details' }).click()
-		await expect(mobile.getByLabel('Date', { exact: true })).toHaveValue(
+		// On a phone Edit details is a sheet over the Plan.
+		const details = page.getByRole('dialog', { name: 'Edit details' })
+		await expect(details.getByLabel('Date', { exact: true })).toHaveValue(
 			'2026-10-23',
 		)
-		await expect(mobile.getByLabel('Serving time')).toHaveValue('18:30')
-		await mobile.getByLabel('Date', { exact: true }).fill('2026-10-30')
-		await mobile.getByLabel('Guests').fill('4')
-		await mobile.getByRole('button', { name: 'Save', exact: true }).click()
+		await expect(details.getByLabel('Serving time')).toHaveValue('18:30')
+		await details.getByLabel('Date', { exact: true }).fill('2026-10-30')
+		await details.getByLabel('Guests').fill('4')
+		await details.getByRole('button', { name: 'Save', exact: true }).click()
+		await expect(details).toBeHidden()
 		await expect(page).toHaveURL(`/plan?weekStart=2026-10-26&mealId=${meal.id}`)
 		const movedCard = mobile.locator(`[data-meal-id="${meal.id}"]`)
 		await expect(mobile.getByRole('heading', { name: 'Oct 30' })).toBeVisible()
@@ -685,7 +688,7 @@ test('Narrowing the phone Plan picker keeps the sheet height, so the input stays
 	await page.goto('/plan')
 	const mobile = page.getByTestId('mobile-plan')
 	// On a phone the composer is a sheet over the page.
-	const composer = mobile.getByRole('dialog', { name: 'Add a Meal' })
+	const composer = page.getByRole('dialog', { name: 'Add a Meal' })
 	await expect(async () => {
 		if (!(await composer.isVisible())) {
 			await mobile.getByRole('button', { name: /^Add Meal to/ }).click()

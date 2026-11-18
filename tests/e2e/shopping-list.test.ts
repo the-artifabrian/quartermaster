@@ -324,6 +324,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 		if (viewport.width < 768) {
 			// `exact` keeps this off a lingering toast's "Close toast" button.
 			await page.getByRole('button', { name: 'Close', exact: true }).click()
+			await expect(page.getByRole('dialog')).toHaveCount(0)
 		}
 	}
 

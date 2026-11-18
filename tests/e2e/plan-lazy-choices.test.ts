@@ -62,7 +62,7 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 	const mobile = page.getByTestId('mobile-plan')
 	async function openAddMeal() {
 		// On a phone the composer is a sheet over the day.
-		const composer = mobile.getByRole('dialog', { name: 'Add a Meal' })
+		const composer = page.getByRole('dialog', { name: 'Add a Meal' })
 		await expect(async () => {
 			if (!(await composer.isVisible())) {
 				await mobile.getByRole('button', { name: /^Add Meal to/ }).click()

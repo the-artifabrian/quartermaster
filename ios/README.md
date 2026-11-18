@@ -171,8 +171,9 @@ message body is a string, and anything outside the values below is ignored.
 `ShellConfig.allowsBackSwipe`. WebKit slides between snapshots of whole
 documents, and the app is a single document with client-side navigation, so the
 page shown under the swipe can be stale or blank. To be judged on a phone; set
-the constant to false to drop it. Link previews on long-press are off
-(`allowsLinkPreview = false`).
+the constant to false to drop it: every pushed page has a Back button in its nav
+bar (`docs/DESIGN_SYSTEM.md`, Navigation), so the swipe is not the only way
+back. Link previews on long-press are off (`allowsLinkPreview = false`).
 
 ## Resume where you left off
 

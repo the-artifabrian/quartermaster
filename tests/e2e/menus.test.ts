@@ -64,7 +64,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	// 2. Create the menu (metadata-only create, then the builder via Edit)
 	await page.getByRole('link', { name: 'New Menu' }).first().click()
 	await page.getByLabel('Title').fill('Levantine Terrace Dinner')
-	await page.getByRole('button', { name: 'Create Menu' }).click()
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
 	await expect(
 		page.getByRole('heading', { name: 'Levantine Terrace Dinner' }),
 	).toBeVisible()
@@ -123,7 +123,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	await page.getByRole('button', { name: 'Move Hummus down' }).first().click()
 
 	// 6. One explicit atomic save
-	await page.getByRole('button', { name: 'Save Changes' }).click()
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
 	await expect(page).toHaveURL(/\/recipes\/menus\/[a-z0-9]+$/)
 
 	// Detail shows the saved order: unnamed section first, then Dessert

@@ -5,7 +5,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createRoutesStub } from 'react-router'
 import { expect, test, vi } from 'vitest'
-import { RecipeForm } from './recipe-form.tsx'
+import { RECIPE_FORM_ID, RecipeForm } from './recipe-form.tsx'
 
 test('Recipe form reopens explicit time and typed yield values for editing', () => {
 	const Stub = createRoutesStub([
@@ -48,7 +48,19 @@ test('invalid optional details reopen and focus the field before saving', async 
 	const user = userEvent.setup()
 	const save = vi.fn(() => null)
 	const Stub = createRoutesStub([
-		{ path: '/', action: save, Component: () => <RecipeForm /> },
+		{
+			path: '/',
+			action: save,
+			// Save lives in the nav bar, outside the form, as in the app.
+			Component: () => (
+				<>
+					<button type="submit" form={RECIPE_FORM_ID}>
+						Save
+					</button>
+					<RecipeForm />
+				</>
+			),
+		},
 	])
 	render(<Stub />)
 	await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Pasta')
@@ -60,7 +72,7 @@ test('invalid optional details reopen and focus the field before saving', async 
 	await user.type(source, 'not a URL')
 	await user.click(details)
 	expect(source).not.toBeVisible()
-	await user.click(screen.getByRole('button', { name: 'Save Recipe' }))
+	await user.click(screen.getByRole('button', { name: 'Save' }))
 	await waitFor(() => expect(source).toBeVisible())
 	expect(source).toHaveFocus()
 	expect(source).toHaveAttribute('aria-invalid', 'true')
@@ -68,6 +80,6 @@ test('invalid optional details reopen and focus the field before saving', async 
 	await user.clear(source)
 	await user.type(source, 'https://example.test/pasta')
 	await user.click(details)
-	await user.click(screen.getByRole('button', { name: 'Save Recipe' }))
+	await user.click(screen.getByRole('button', { name: 'Save' }))
 	await waitFor(() => expect(save).toHaveBeenCalledOnce())
 })

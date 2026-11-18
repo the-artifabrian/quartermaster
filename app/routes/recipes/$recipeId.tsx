@@ -1,5 +1,7 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import { recipeDetailNav } from '#app/utils/nav-back.ts'
 import { Img } from 'openimg/react'
 import { useState, useEffect, useRef } from 'react'
 import {
@@ -84,8 +86,9 @@ import { type Route } from './+types/$recipeId.ts'
 const PLAN_PICKER_SHEET_QUERY =
 	'(max-width: 639px), (pointer: coarse) and (max-height: 500px)'
 
-export const handle: SEOHandle = {
+export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
+	nav: recipeDetailNav,
 }
 
 export const meta: Route.MetaFunction = ({ loaderData, matches }) => {
@@ -516,13 +519,26 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	useEffect(() => {
 		const el = ingredientsHeaderRef.current
 		if (!el || typeof IntersectionObserver === 'undefined') return
-		const observer = new IntersectionObserver(([entry]) => {
-			if (!entry) return
-			const viewportTop = entry.rootBounds?.top ?? 0
-			setIngredientsPassed(
-				!entry.isIntersecting && entry.boundingClientRect.bottom < viewportTop,
-			)
-		})
+		// The heading has passed once it is under the pinned nav bar, not only
+		// once it leaves the screen.
+		const barBottom = Math.max(
+			0,
+			Math.round(
+				document.querySelector('[data-nav-bar]')?.getBoundingClientRect()
+					.bottom ?? 0,
+			),
+		)
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				if (!entry) return
+				const viewportTop = entry.rootBounds?.top ?? 0
+				setIngredientsPassed(
+					!entry.isIntersecting &&
+						entry.boundingClientRect.bottom < viewportTop,
+				)
+			},
+			{ rootMargin: `-${barBottom}px 0px 0px 0px` },
+		)
 		observer.observe(el)
 		return () => observer.disconnect()
 	}, [])
@@ -622,8 +638,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				}
 				return prev
 			},
-			// Keep the Recipe's OPEN_DETAIL marker, so going back still slides.
-			{ replace: true, state: location.state },
+			// Keep the Recipe's OPEN_DETAIL marker, so going back still slides,
+			// and the place in the Recipe the scale was changed from.
+			{ replace: true, state: location.state, preventScrollReset: true },
 		)
 	}
 
@@ -848,7 +865,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				{/* Content zone: Ingredients + Instructions */}
 				<div className="mt-4 grid gap-5 md:mt-8 lg:grid-cols-[6fr_7fr] lg:gap-6 print:grid-cols-1 print:gap-4">
 					{/* Ingredients - sticky on desktop, interactive checkboxes */}
-					<div className="min-w-0 lg:sticky lg:top-20 lg:self-start print:static">
+					<div className="min-w-0 lg:sticky lg:top-[calc(var(--nav-bar-bottom,4rem)+1rem)] lg:self-start print:static">
 						<div className="print:p-2">
 							<div ref={ingredientsHeaderRef}>
 								<RecipeIngredientsControls

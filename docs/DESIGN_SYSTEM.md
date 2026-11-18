@@ -132,11 +132,34 @@ Mobile has four tabs: Recipes, Staples, Plan, and Shopping. The active tab uses
 sage text and a medium-weight label. A small copper dot on the Shopping icon
 appears when Shopping changes anywhere other than the open Shopping page
 (another member, another device, or an add from Recipes, Staples or Plan), and
-clears when you open Shopping. Sub-pages rely on app navigation instead of
-adding a “Back to…” link at the top of every screen.
+clears when you open Shopping.
+
+Tab roots (Recipes, Menus, Staples, Plan, Shopping) keep the brand header.
+Pushed pages (Recipe detail, edit, new and Import; Menu detail, edit and new;
+Settings and its pages; Upgrade) swap it on phones for a nav bar pinned at the
+top, under the status bar in the iOS app: a sage `‹ Parent` back button on the
+left, and a small centered title that fades in (150ms opacity, instant with
+reduced motion) once the page's big serif h1 has scrolled under the bar. The
+page declares its parent in its route `handle` (`nav`, rules in
+`app/utils/nav-back.ts`). Back undoes the last move: it pops history to the page
+that opened this one — the parent, a Recipe's Menu, a linked Recipe, or another
+tab (the Plan behind tonight's Recipe, labelled “‹ Plan”) — stepping over the
+form that led there. A page the tab bar restored goes back down its own stack,
+past the other tabs. With nothing to return to (a deep link, a cold start) Back
+opens the parent in the page's place. Settings and Upgrade go back to whatever
+page opened them. Pages do not add their own “Back to…”, arrow or Cancel links.
+
+Edit screens (Recipe edit and new, Menu edit and new) put Cancel on the left of
+the bar and Save on the right (sage, semibold, dimmed while disabled, a spinner
+while saving), shown only while the form is on screen. The form has no Save bar
+of its own, and Return in its fields does not save (a Recipe's or a new Menu's
+title still does); Delete stays at the end of the form. Each pushed page has
+exactly one h1, its big title. Toasts open below the bar.
 
 On desktop, keep the same information hierarchy and give content more width; do
-not add extra product destinations just because space exists.
+not add extra product destinations just because space exists. The desktop header
+keeps its brand row and links on pushed pages, with the nav bar as a second row
+under it, since there is no tab bar.
 
 ## Imagery
 

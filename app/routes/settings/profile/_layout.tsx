@@ -1,13 +1,17 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Link, Outlet, useMatches } from 'react-router'
-import { Icon } from '#app/components/ui/icon.tsx'
+import { Outlet, useMatches } from 'react-router'
+import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
+import { settingsPageNav } from '#app/utils/nav-back.ts'
 import { type Route } from './+types/_layout.tsx'
 
 export type SettingsPageHandle = { pageTitle: string }
 
-export const handle: SEOHandle = {
+// Every page under Settings goes back to Settings; Settings itself (the
+// index route) declares its own.
+export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
+	nav: settingsPageNav,
 }
 
 export const meta: Route.MetaFunction = () => {
@@ -28,17 +32,6 @@ export default function SettingsLayout() {
 
 	return (
 		<div className="container max-w-3xl pt-8 pb-24">
-			{pageTitle ? (
-				<div className="mb-6 flex items-center gap-3">
-					<Link
-						to="/settings/profile"
-						className="text-muted-foreground hover:text-foreground -ml-1 flex items-center gap-1"
-					>
-						<Icon name="arrow-left" size="md" />
-						<span className="text-sm">Settings</span>
-					</Link>
-				</div>
-			) : null}
 			<h1 className="mb-6 font-serif text-2xl font-normal">
 				{pageTitle ?? 'Settings'}
 			</h1>

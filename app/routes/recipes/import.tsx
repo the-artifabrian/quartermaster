@@ -1,4 +1,6 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import { recipeImportNav } from '#app/utils/nav-back.ts'
 import { useState } from 'react'
 import { Form, Link, useActionData, useNavigation } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
@@ -19,8 +21,9 @@ import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
 import { importAction } from './import-action.server.ts'
 
-export const handle: SEOHandle = {
+export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
+	nav: recipeImportNav,
 }
 
 export const meta: Route.MetaFunction = () => {
@@ -246,13 +249,6 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 							</div>
 						)}
 						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => history.back()}
-							>
-								Cancel
-							</Button>
 							<Button type="submit">Import</Button>
 						</div>
 					</Form>
@@ -282,13 +278,6 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 							</div>
 						)}
 						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => history.back()}
-							>
-								Cancel
-							</Button>
 							<Button
 								type="submit"
 								name="intent"
@@ -347,13 +336,6 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 							</div>
 						)}
 						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => history.back()}
-							>
-								Cancel
-							</Button>
 							{isProActive ? (
 								<Button type="submit" disabled={preparingImages}>
 									<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />

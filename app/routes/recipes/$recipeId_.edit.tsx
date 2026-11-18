@@ -7,10 +7,12 @@ import {
 } from '@mjackson/form-data-parser'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { data, redirect, useFetcher } from 'react-router'
-import { RecipeForm } from '#app/components/recipe-form.tsx'
+import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
+import { recipeEditNav } from '#app/utils/nav-back.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { useDoubleCheck } from '#app/utils/misc.tsx'
 import {
@@ -33,8 +35,10 @@ import {
 } from '#app/utils/storage.server.ts'
 import { type Route } from './+types/$recipeId_.edit.ts'
 
-export const handle: SEOHandle = {
+export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
+	nav: ({ params }) => recipeEditNav(params.recipeId!),
+	navForm: RECIPE_FORM_ID,
 }
 
 export const meta: Route.MetaFunction = () => {
@@ -344,11 +348,7 @@ export default function EditRecipe({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			<h1 className="mb-6 font-serif text-2xl font-normal">Edit Recipe</h1>
-			<RecipeForm
-				recipe={recipe}
-				metadataOptions={metadataOptions}
-				submitLabel="Save Changes"
-			/>
+			<RecipeForm recipe={recipe} metadataOptions={metadataOptions} />
 			<div className="mt-8 border-t pt-8">
 				<DeleteRecipe recipeId={recipe.id} />
 			</div>

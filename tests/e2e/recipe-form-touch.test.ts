@@ -70,7 +70,7 @@ test('recipe steps reorder from the keyboard through a named, thumb-sized handle
 		'Heat the pan.',
 	)
 
-	await page.getByRole('button', { name: 'Save Changes' }).click()
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 	const steps = await prisma.instruction.findMany({
 		where: { recipeId: recipe.id },

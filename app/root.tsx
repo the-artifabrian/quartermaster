@@ -19,6 +19,11 @@ import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
+import {
+	NavBar,
+	useNavBarConfig,
+	useRecordHistory,
+} from './components/nav-bar.tsx'
 import { NativeShellBridge } from './components/native-shell-bridge.tsx'
 import { NavTiming } from './components/nav-timing.tsx'
 import { OfflineIndicator } from './components/offline-indicator.tsx'
@@ -415,6 +420,14 @@ function App() {
 	const chrome = pathname === '/' ? 'espresso' : undefined
 	useToast(data.toast)
 	useNavDirection()
+	useRecordHistory()
+	// Pushed pages (route handle `nav`) swap the brand header for a nav bar
+	// on phones; tab roots keep it. Only signed-in pages have one.
+	const navBarConfig = useNavBarConfig()
+	const navBar = user ? navBarConfig : null
+	const toastTop = navBar
+		? 'var(--nav-bar-bottom, calc(var(--safe-top) + 44px))'
+		: 'var(--safe-top)'
 
 	return (
 		<NavTiming>
@@ -456,7 +469,15 @@ function App() {
 					) : null}
 					<header
 						data-site-header=""
-						className="bg-card/80 border-border/50 z-40 border-b backdrop-blur-sm md:sticky md:top-0"
+						data-pushed={navBar ? '' : undefined}
+						// A pushed page's bar stays pinned on phones too, opaque, so its
+						// title has somewhere to show once the page's own scrolls away.
+						className={cn(
+							'border-border/50 z-40 border-b',
+							navBar
+								? 'bg-card sticky top-0'
+								: 'bg-card/80 backdrop-blur-sm md:sticky md:top-0',
+						)}
 					>
 						<nav
 							aria-label="Main"
@@ -465,6 +486,8 @@ function App() {
 							className={cn(
 								'container flex flex-wrap items-center justify-between gap-4 sm:flex-nowrap md:gap-8',
 								isNativeShell && user ? 'py-0' : 'py-3',
+								// Phones have the tab bar; the desktop header keeps its links.
+								navBar && 'max-md:hidden',
 							)}
 						>
 							<Logo />
@@ -524,6 +547,7 @@ function App() {
 								)}
 							</div>
 						</nav>
+						{navBar ? <NavBar {...navBar} /> : null}
 					</header>
 
 					<main id="main-content" className="flex flex-1 flex-col">
@@ -536,9 +560,10 @@ function App() {
 					position="top-center"
 					theme={theme}
 					// Sonner's default offsets, pushed below the status bar in the iOS
-					// app. The inset is 0 everywhere else.
-					offset={{ top: 'calc(24px + var(--safe-top))' }}
-					mobileOffset={{ top: 'calc(16px + var(--safe-top))' }}
+					// app (the inset is 0 everywhere else), and below a pushed page's
+					// nav bar, which stays pinned with Back and Save on it.
+					offset={{ top: `calc(24px + ${toastTop})` }}
+					mobileOffset={{ top: `calc(16px + ${toastTop})` }}
 				/>
 				<OfflineIndicator />
 				{user && isPro ? <HouseholdActivityNotifier /> : null}

@@ -98,3 +98,15 @@ test('location state set by other code is not mistaken for a direction', () => {
 	])
 		expect(getNavDirection({ type: 'PUSH', from: null, to: state })).toBeNull()
 })
+
+test("the nav bar's Back slides back from a page opened without a slide (a Recipe after Save)", () => {
+	expect(
+		getNavDirection({
+			type: 'POP',
+			from: null,
+			to: OPEN_DETAIL,
+			historyMove: 'back',
+			backButton: true,
+		}),
+	).toBe('back')
+})

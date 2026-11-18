@@ -214,7 +214,7 @@ test.describe('in the iOS app', () => {
 
 		await page.getByRole('link', { name: 'Edit Recipe' }).click()
 		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
-		await page.getByRole('button', { name: 'Cancel' }).click()
+		await page.getByRole('link', { name: 'Cancel' }).click()
 		await expect(
 			page.getByRole('heading', { level: 1, name: 'Lemon rice' }),
 		).toBeVisible()

@@ -22,6 +22,7 @@ import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
 import { RecipeNotes } from '#app/components/recipe-notes.tsx'
 import { RecipeIngredientsControls } from '#app/components/recipe-scale-control.tsx'
 import { Button } from '#app/components/ui/button.tsx'
+import { Chip } from '#app/components/ui/chip.tsx'
 import {
 	Popover,
 	PopoverAnchor,
@@ -668,10 +669,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		}
 	}
 
-	// Thumb-sized in the sheet; the popover keeps its compact chips.
-	const planChip = planPickerAsSheet
-		? 'min-h-11 px-3.5 text-sm'
-		: 'px-2.5 py-1 text-xs'
 	const planPickerBody = (
 		<>
 			<div className="mb-3">
@@ -684,10 +681,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				<div
 					role="group"
 					aria-labelledby="plan-picker-day-label"
-					className={cn(
-						'flex flex-wrap',
-						planPickerAsSheet ? 'gap-2' : 'gap-1.5',
-					)}
+					className="flex flex-wrap gap-2"
 				>
 					{Array.from({ length: 7 }, (_, i) => {
 						const d = addDaysUTC(todayUTC, i)
@@ -695,21 +689,13 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						const label =
 							i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : formatDayLabel(d)
 						return (
-							<button
+							<Chip
 								key={val}
-								type="button"
 								onClick={() => setPlanDate(val)}
-								aria-pressed={planDate === val}
-								className={cn(
-									'rounded-full border transition-colors',
-									planChip,
-									planDate === val
-										? 'border-primary bg-primary text-primary-foreground'
-										: 'border-border hover:border-primary/50',
-								)}
+								pressed={planDate === val}
 							>
 								{label}
-							</button>
+							</Chip>
 						)
 					})}
 				</div>
@@ -724,32 +710,21 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				<div
 					role="group"
 					aria-labelledby="plan-picker-label-label"
-					className={cn(
-						'flex flex-wrap',
-						planPickerAsSheet ? 'gap-2' : 'gap-1.5',
-					)}
+					className="flex flex-wrap gap-2"
 				>
 					{MEAL_TYPES.map((mt) => (
-						<button
+						<Chip
 							key={mt}
-							type="button"
 							onClick={() => setPlanMealType(planMealType === mt ? null : mt)}
-							aria-pressed={planMealType === mt}
-							className={cn(
-								'rounded-full border transition-colors',
-								planChip,
-								planMealType === mt
-									? 'border-primary bg-primary text-primary-foreground'
-									: 'border-border hover:border-primary/50',
-							)}
+							pressed={planMealType === mt}
 						>
 							{MEAL_TYPE_LABELS[mt]}
-						</button>
+						</Chip>
 					))}
 				</div>
 			</div>
 			<Button
-				className={cn('w-full', planPickerAsSheet ? 'h-11' : 'h-9')}
+				className="w-full"
 				onClick={handleAddToPlanSubmit}
 				disabled={planFetcher.state !== 'idle'}
 			>
@@ -847,7 +822,11 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							}
 						/>
 					</PopoverAnchor>
-					<PopoverContent align="start" className="w-72 p-4">
+					<PopoverContent
+						align="start"
+						collisionPadding={16}
+						className="max-h-(--radix-popover-content-available-height) w-96 overflow-y-auto p-4"
+					>
 						<p className="mb-3 text-sm font-medium">Add to Plan</p>
 						{planPickerBody}
 					</PopoverContent>

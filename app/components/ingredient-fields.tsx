@@ -388,7 +388,7 @@ function SortableIngredientRow({
 							<button
 								type="button"
 								onClick={onToggleExpand}
-								className="text-muted-foreground/60 hover:text-muted-foreground rounded-md p-2"
+								className="text-muted-foreground/60 hover:text-muted-foreground -my-1.5 flex size-11 items-center justify-center rounded-md"
 								aria-label="Collapse ingredient"
 							>
 								<Icon name="chevron-down" size="sm" />
@@ -401,7 +401,7 @@ function SortableIngredientRow({
 									variant="ghost"
 									size="icon"
 									onClick={onConvertToHeading}
-									className="size-9"
+									className="-my-1.5"
 									aria-label="Convert to section heading"
 								>
 									<Icon name="rows" size="sm" />
@@ -415,7 +415,7 @@ function SortableIngredientRow({
 							size="icon"
 							onClick={onRemove}
 							disabled={!canRemove}
-							className={cn('size-9', !canRemove && 'opacity-30')}
+							className={cn('-my-1.5', !canRemove && 'opacity-30')}
 							aria-label="Remove ingredient"
 						>
 							<Icon name="cross-1" size="sm" />
@@ -500,7 +500,7 @@ function SortableIngredientRow({
 						size="icon"
 						onClick={onRemove}
 						disabled={!canRemove}
-						className={cn('size-9 shrink-0', !canRemove && 'opacity-30')}
+						className={cn('-my-1.5 shrink-0', !canRemove && 'opacity-30')}
 						aria-label="Remove ingredient"
 					>
 						<Icon name="cross-1" size="sm" />
@@ -561,7 +561,7 @@ function RecipeLinkPicker({
 				<button
 					type="button"
 					onClick={onUnlink}
-					className="text-muted-foreground hover:text-destructive shrink-0"
+					className="text-muted-foreground hover:text-destructive -my-2 -mr-2 flex size-11 shrink-0 items-center justify-center"
 					aria-label="Remove recipe link"
 				>
 					<Icon name="cross-1" size="sm" />
@@ -695,7 +695,6 @@ function SortableHeadingRow({
 						variant="ghost"
 						size="icon"
 						onClick={onConvertToIngredient}
-						className="size-9"
 						aria-label="Convert to regular ingredient"
 					>
 						<Icon name="reset" size="sm" />
@@ -709,7 +708,7 @@ function SortableHeadingRow({
 				size="icon"
 				onClick={onRemove}
 				disabled={!canRemove}
-				className={cn('size-9', !canRemove && 'opacity-30')}
+				className={cn(!canRemove && 'opacity-30')}
 				aria-label="Remove heading"
 			>
 				<Icon name="cross-1" size="sm" />

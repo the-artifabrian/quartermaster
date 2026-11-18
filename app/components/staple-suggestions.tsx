@@ -1,7 +1,6 @@
 import { useFetcher } from 'react-router'
 import { householdIngredientKey } from '#app/utils/household-ingredient.ts'
-import { Button } from './ui/button.tsx'
-import { Icon } from './ui/icon.tsx'
+import { Chip } from './ui/chip.tsx'
 
 /** Things most households keep; the first Staples are a tap each (#351). */
 export const SUGGESTED_STAPLES = [
@@ -74,10 +73,9 @@ function SuggestionChip({ name }: { name: string }) {
 		<fetcher.Form method="post">
 			<input type="hidden" name="intent" value="add-staple" />
 			<input type="hidden" name="displayName" value={name} />
-			<Button
+			<Chip
 				type="submit"
-				variant="outline"
-				className="min-h-11 rounded-full"
+				icon={failed ? 'update' : 'plus'}
 				disabled={pending}
 				aria-label={
 					pending
@@ -87,9 +85,8 @@ function SuggestionChip({ name }: { name: string }) {
 							: `Add ${name}`
 				}
 			>
-				<Icon name={failed ? 'update' : 'plus'} size="sm" />
 				{name}
-			</Button>
+			</Chip>
 		</fetcher.Form>
 	)
 }

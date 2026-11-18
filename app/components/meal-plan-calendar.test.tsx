@@ -400,8 +400,8 @@ test('mobile Add Meal opens the real picker inline for the selected day', async 
 	expect(composer).toBeVisible()
 	expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 	expect(within(composer).getByText('Wednesday · Apr 8')).toBeVisible()
-	expect(within(composer).getByText(/Meal type/)).toHaveTextContent(
-		'Meal type (optional)',
+	expect(within(composer).getByText(/^Label/)).toHaveTextContent(
+		'Label (optional)',
 	)
 	await user.type(
 		await within(composer).findByPlaceholderText('Search Recipes and Menus...'),

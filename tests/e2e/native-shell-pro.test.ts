@@ -64,10 +64,10 @@ test.describe('in the iOS app', () => {
 		).toBeVisible()
 		await expect(page.getByLabel('Recipe URL')).toBeVisible()
 		await expect(
-			page.getByRole('button', { name: 'From Image', exact: true }),
+			page.getByRole('tab', { name: 'From Image', exact: true }),
 		).toHaveCount(0)
 		await expect(async () => {
-			await page.getByRole('button', { name: 'From Text', exact: true }).click()
+			await page.getByRole('tab', { name: 'From Text', exact: true }).click()
 			await expect(page.getByLabel('Recipe text')).toBeVisible({
 				timeout: 2000,
 			})
@@ -129,11 +129,11 @@ test.describe('in the iOS app', () => {
 		await page.goto('/recipes/import')
 		for (const tab of importTabs) {
 			await expect(
-				page.getByRole('button', { name: tab, exact: true }),
+				page.getByRole('tab', { name: tab, exact: true }),
 			).toBeVisible()
 		}
 		await expect(async () => {
-			await page.getByRole('button', { name: 'From Text', exact: true }).click()
+			await page.getByRole('tab', { name: 'From Text', exact: true }).click()
 			await expect(page.getByLabel('Recipe text')).toBeVisible({
 				timeout: 2000,
 			})
@@ -141,7 +141,7 @@ test.describe('in the iOS app', () => {
 		await expect(
 			page.getByRole('button', { name: 'Extract with AI' }),
 		).toBeVisible()
-		await page.getByRole('button', { name: 'From Image', exact: true }).click()
+		await page.getByRole('tab', { name: 'From Image', exact: true }).click()
 		await expect(page.getByLabel(/Upload screenshots/)).toBeVisible()
 		await expect(
 			page.getByRole('button', { name: 'Extract with AI' }),
@@ -254,7 +254,7 @@ test.describe('in a browser', () => {
 		await page.goto('/recipes/import')
 		for (const tab of importTabs) {
 			await expect(
-				page.getByRole('button', { name: tab, exact: true }),
+				page.getByRole('tab', { name: tab, exact: true }),
 			).toBeVisible()
 		}
 

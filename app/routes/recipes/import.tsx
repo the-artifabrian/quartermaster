@@ -5,6 +5,10 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { Label } from '#app/components/ui/label.tsx'
+import {
+	SegmentedControl,
+	tabPanelProps,
+} from '#app/components/ui/segmented-control.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useFitFileInput } from '#app/utils/downscale-image.ts'
@@ -167,11 +171,11 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						<Form method="POST" action="/recipes/import" replace>
 							<input type="hidden" name="intent" value="fetch" />
 							<input type="hidden" name="url" value={sharedUrl} />
-							<Button type="submit" size="sm" className="min-h-11 px-4">
+							<Button type="submit" size="sm" className="px-4">
 								Import
 							</Button>
 						</Form>
-						<Button asChild size="sm" variant="ghost" className="min-h-11">
+						<Button asChild size="sm" variant="ghost">
 							<Link to="/recipes/import" replace>
 								Use another link
 							</Link>
@@ -186,7 +190,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					<p className="text-muted-foreground mt-1 text-sm wrap-anywhere">
 						It’s saved as “{existing.title}”.
 					</p>
-					<Button asChild size="sm" className="mt-3 min-h-11 px-4">
+					<Button asChild size="sm" className="mt-3 px-4">
 						<Link to={`/recipes/${existing.id}`}>Open it</Link>
 					</Button>
 				</div>
@@ -198,49 +202,31 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				hidden={progress !== null || offerShared}
 				disabled={isSubmitting}
 			>
-				{/* Tab bar */}
-				<div className="mb-6 flex gap-1 rounded-lg border p-1">
-					<button
-						type="button"
-						className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-							visibleTab === 'url'
-								? 'bg-accent text-accent-foreground'
-								: 'text-muted-foreground hover:text-foreground'
-						}`}
-						onClick={() => setActiveTab('url')}
-					>
-						From URL
-					</button>
-					<button
-						type="button"
-						className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-							visibleTab === 'text'
-								? 'bg-accent text-accent-foreground'
-								: 'text-muted-foreground hover:text-foreground'
-						}`}
-						onClick={() => setActiveTab('text')}
-					>
-						From Text
-					</button>
-					{!hideAi && (
-						<button
-							type="button"
-							className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-								activeTab === 'image'
-									? 'bg-accent text-accent-foreground'
-									: 'text-muted-foreground hover:text-foreground'
-							}`}
-							onClick={() => setActiveTab('image')}
-						>
-							From Image
-						</button>
-					)}
-				</div>
+				<SegmentedControl
+					role="tablist"
+					idPrefix="import"
+					aria-label="Import from"
+					value={visibleTab}
+					onValueChange={setActiveTab}
+					options={[
+						{ value: 'url', label: 'From URL' },
+						{ value: 'text', label: 'From Text' },
+						...(hideAi
+							? []
+							: [{ value: 'image' as const, label: 'From Image' }]),
+					]}
+					className="mb-6 w-full"
+				/>
 
 				{/* URL tab */}
 				{visibleTab === 'url' && (
 					// The bare path, so a shared ?url= never outlives a submit.
-					<Form method="POST" action="/recipes/import" className="space-y-4">
+					<Form
+						{...tabPanelProps('import', 'url')}
+						method="POST"
+						action="/recipes/import"
+						className="space-y-4"
+					>
 						<input type="hidden" name="intent" value="fetch" />
 						<div className="space-y-2">
 							<Label htmlFor="url">Recipe URL</Label>
@@ -274,7 +260,11 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 
 				{/* Text tab */}
 				{visibleTab === 'text' && (
-					<Form method="POST" className="space-y-4">
+					<Form
+						{...tabPanelProps('import', 'text')}
+						method="POST"
+						className="space-y-4"
+					>
 						<div className="space-y-2">
 							<Label htmlFor="rawText">Recipe text</Label>
 							<Textarea
@@ -330,6 +320,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				{/* Image tab */}
 				{visibleTab === 'image' && (
 					<Form
+						{...tabPanelProps('import', 'image')}
 						method="POST"
 						encType="multipart/form-data"
 						className="space-y-4"

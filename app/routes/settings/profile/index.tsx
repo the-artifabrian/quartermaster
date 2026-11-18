@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Form, Link, useFetcher } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
+import { Switch } from '#app/components/ui/switch.tsx'
 import { ThemeSwitch } from '#app/routes/resources/theme-switch.tsx'
 import {
 	type AccountDeletionOutcome,
@@ -240,30 +241,18 @@ function KeepAwakeSwitch() {
 		setHydrated(true)
 	}, [])
 
-	function handleToggle() {
-		setEnabled((prev) => {
-			setKeepAwakePreference(!prev)
-			return !prev
-		})
+	function handleChange(next: boolean) {
+		setKeepAwakePreference(next)
+		setEnabled(next)
 	}
 
 	return (
-		<button
-			type="button"
-			role="switch"
-			aria-checked={enabled}
+		<Switch
+			checked={enabled}
+			onCheckedChange={handleChange}
 			aria-label="Keep screen awake while a recipe is open"
-			onClick={handleToggle}
 			disabled={!hydrated}
-			className={cn(
-				"relative rounded-full border px-3 py-1.5 text-xs font-medium transition-colors before:absolute before:-inset-2 before:content-['']",
-				enabled
-					? 'border-primary bg-primary text-primary-foreground'
-					: 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground',
-			)}
-		>
-			{enabled ? 'On' : 'Off'}
-		</button>
+		/>
 	)
 }
 

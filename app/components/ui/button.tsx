@@ -20,9 +20,11 @@ const buttonVariants = cva(
 				link: 'text-primary underline-offset-4 hover:underline',
 			},
 			size: {
-				default: 'h-10 px-4 py-2',
+				default: 'h-11 px-4 py-2',
 				wide: 'px-24 py-5',
-				sm: 'h-9 rounded-md px-3',
+				// Compact only with a mouse on a wide screen (`desktop:`); a
+				// finger, on any screen size, still gets a 44px target.
+				sm: 'h-11 rounded-md px-3 desktop:h-9',
 				lg: 'h-11 rounded-md px-8',
 				pill: 'px-12 py-3 leading-3',
 				icon: 'size-11',

@@ -446,21 +446,10 @@ function MealDetailsForm({
 				/>
 			</div>
 			<div className="flex justify-end gap-2">
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					className="h-11 md:h-9"
-					onClick={onDone}
-				>
+				<Button type="button" variant="ghost" size="sm" onClick={onDone}>
 					Cancel
 				</Button>
-				<Button
-					type="submit"
-					size="sm"
-					className="h-11 md:h-9"
-					disabled={fetcher.state !== 'idle'}
-				>
+				<Button type="submit" size="sm" disabled={fetcher.state !== 'idle'}>
 					{fetcher.state !== 'idle' ? 'Saving…' : 'Save'}
 				</Button>
 			</div>

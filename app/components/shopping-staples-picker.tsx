@@ -257,7 +257,7 @@ export function ShoppingStaplesPicker({
 							onChange={(event) => setSearch(event.currentTarget.value)}
 							placeholder="Search Staples"
 							aria-label="Search Staples"
-							className="min-h-11 pl-9"
+							className="pl-9"
 						/>
 					</div>
 				)}

@@ -221,9 +221,9 @@ test('mobile auth, Recipes, Staples, Plan, and settings controls are zoom-safe',
 
 	await page.goto('/recipes/import')
 	await expectMobileEditableControlsToBeSafe(page)
-	await page.getByRole('button', { name: 'From Text' }).click()
+	await page.getByRole('tab', { name: 'From Text' }).click()
 	await expectMobileEditableControlsToBeSafe(page)
-	await page.getByRole('button', { name: 'From Image' }).click()
+	await page.getByRole('tab', { name: 'From Image' }).click()
 	await expectMobileEditableControlsToBeSafe(page)
 
 	await page.goto('/recipes/new')

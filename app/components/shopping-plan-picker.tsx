@@ -270,23 +270,25 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 					<Button
 						type="button"
 						variant="ghost"
-						size="sm"
+						size="icon"
+						className="rounded-full"
 						disabled={weekIndex === 0}
 						onClick={() => showWeek(weekIndex - 1)}
 						aria-label="Previous week"
 					>
-						<Icon name="arrow-left" size="sm" />
+						<Icon name="chevron-left" size="md" />
 					</Button>
 					<span className="text-sm font-medium">{week.label}</span>
 					<Button
 						type="button"
 						variant="ghost"
-						size="sm"
+						size="icon"
+						className="rounded-full"
 						disabled={weekIndex === weeks.length - 1}
 						onClick={() => showWeek(weekIndex + 1)}
 						aria-label="Next week"
 					>
-						<Icon name="arrow-right" size="sm" />
+						<Icon name="chevron-right" size="md" />
 					</Button>
 				</div>
 			)}

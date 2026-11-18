@@ -116,13 +116,12 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 								enterKeyHint="done"
 								autoCapitalize="none"
 								maxLength={200}
-								className="min-h-11"
 								disabled={addFetcher.state !== 'idle'}
 							/>
 						</div>
 						<Button
 							type="submit"
-							className="min-h-11 shrink-0"
+							className="shrink-0"
 							disabled={!newStaple.trim() || addFetcher.state !== 'idle'}
 						>
 							{addFetcher.state === 'idle' ? 'Add' : 'Adding…'}
@@ -130,7 +129,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 						<Button
 							type="button"
 							variant="ghost"
-							className="min-h-11 shrink-0"
+							className="shrink-0"
 							disabled={addFetcher.state !== 'idle'}
 							onClick={cancelAdd}
 						>
@@ -162,7 +161,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 									value={search}
 									onChange={(event) => setSearch(event.currentTarget.value)}
 									placeholder="Search"
-									className="min-h-11 pl-9"
+									className="pl-9"
 								/>
 							</div>
 						)}
@@ -170,7 +169,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 							ref={addButtonRef}
 							type="button"
 							variant="outline"
-							className="min-h-11 shrink-0"
+							className="shrink-0"
 							aria-label="Add Staple"
 							onClick={openAdd}
 						>
@@ -195,7 +194,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 					<Button
 						type="button"
 						variant="outline"
-						className="mt-4 min-h-11"
+						className="mt-4"
 						onClick={() => setSearch('')}
 					>
 						Clear search
@@ -275,7 +274,7 @@ function StapleRow({
 				<Button
 					type="button"
 					variant={onShoppingList ? 'ghost' : 'outline'}
-					className="min-h-11 min-w-24 shrink-0 justify-center px-3"
+					className="min-w-24 shrink-0 justify-center px-3"
 					aria-label={
 						onShoppingList
 							? `${staple.displayName} is in Next shop`

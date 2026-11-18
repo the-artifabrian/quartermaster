@@ -104,6 +104,28 @@ Static groups use either a flat divided list or a quiet `bg-muted/40 rounded-lg`
 inset with no shadow. Inline controls use at most an 8px radius. Twelve-pixel
 radii and warm shadows are for floating layers.
 
+## Controls
+
+Use the shared controls in `app/components/ui/` rather than styling a button for
+each screen:
+
+- **Button and Input** are 44px tall wherever a finger taps them. A control may
+  drop below 44px only under the `desktop:` variant (a wide screen with a fine
+  pointer), never by width alone: a phone on its side or an iPad is wide but
+  touched. Button `sm` is compact only there.
+- **Chip** is the one chip: 44px tall, fully rounded, a hairline border, and a
+  sage fill when pressed (`aria-pressed`). Use it for picking days, labels, and
+  classification values, and for one-tap suggestions with a leading `+`. A
+  control that must stay its own element in a row of chips (a native `<select>`,
+  a menu trigger) takes the same look from `chipClassName`.
+- **Segmented control** picks one of two or three equal-width options with a
+  sage pill that slides under the selection. Use tabs when it switches what the
+  page shows, radios when it picks a setting, and `SegmentedLinks` when the
+  options are routes.
+- **Switch** is an iOS-style track and thumb for an on/off setting; never an
+  “On”/“Off” pill.
+- Previous and next use chevrons, not arrows.
+
 ## Navigation
 
 Mobile has four tabs: Recipes, Staples, Plan, and Shopping. The active tab uses
@@ -210,7 +232,8 @@ grids, illustrations, or congratulatory copy.
 
 ## Motion and accessibility
 
-- Animate transform and opacity only, usually 150–300ms.
+- Animate transform and opacity only, usually 150–300ms. A switch track and a
+  selected label may change color as their thumb or pill moves.
 - Respect `prefers-reduced-motion`; behavior must not depend on animation.
 - Keep visible focus, semantic landmarks, labelled icon buttons, and reachable
   reorder controls.
@@ -233,4 +256,4 @@ Start with the nearest existing surface and these defaults:
 If a new pattern needs a long explanation here, first ask whether it belongs in
 the component itself or whether the UI can be simpler.
 
-_Updated 8 October 2026._
+_Updated 18 November 2026._

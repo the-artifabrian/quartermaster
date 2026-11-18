@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { cn } from '#app/utils/misc.tsx'
 import {
 	emptyRecipeMetadataGroups,
 	groupRecipeMetadataValues,
@@ -9,7 +8,7 @@ import {
 	recipeMetadataNameKey,
 	type RecipeMetadataDimension,
 } from '#app/utils/recipe-metadata.ts'
-import { Icon } from './ui/icon.tsx'
+import { Chip } from './ui/chip.tsx'
 import { Input } from './ui/input.tsx'
 
 export type RecipeMetadataOption = {
@@ -24,9 +23,6 @@ type NewOption = { name: string; nameKey: string }
 function customOptionKey(dimension: RecipeMetadataDimension, nameKey: string) {
 	return `new:${dimension}:${nameKey}`
 }
-
-const chipClassName =
-	'flex min-h-10 items-center rounded-full border px-3 text-sm transition-colors'
 
 export function RecipeMetadataFields({
 	options,
@@ -155,20 +151,13 @@ export function RecipeMetadataFields({
 						<legend className="text-sm font-medium">{label}</legend>
 						<div className="flex flex-wrap items-center gap-2">
 							{chips.map((chip) => (
-								<button
+								<Chip
 									key={chip.key}
-									type="button"
-									aria-pressed={selected.has(chip.key)}
+									pressed={selected.has(chip.key)}
 									onClick={() => toggle(chip.key)}
-									className={cn(
-										chipClassName,
-										selected.has(chip.key)
-											? 'border-primary bg-primary text-primary-foreground'
-											: 'border-border bg-background hover:bg-muted',
-									)}
 								>
 									{chip.name}
-								</button>
+								</Chip>
 							))}
 							{adding === dimension ? (
 								<Input
@@ -201,21 +190,17 @@ export function RecipeMetadataFields({
 									className="w-44 rounded-full px-4"
 								/>
 							) : (
-								<button
+								<Chip
 									ref={(element) => {
 										addButtons.current[dimension] = element
 									}}
-									type="button"
+									icon="plus"
 									aria-label={addLabel}
 									onClick={() => openAdd(dimension)}
-									className={cn(
-										chipClassName,
-										'border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground gap-1 border-dashed',
-									)}
+									className="border-border/60 text-muted-foreground hover:text-foreground gap-1 border-dashed"
 								>
-									<Icon name="plus" size="sm" />
 									Add
-								</button>
+								</Chip>
 							)}
 						</div>
 						{adding === dimension && error && (

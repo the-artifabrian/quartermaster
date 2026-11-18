@@ -27,7 +27,7 @@ test('pasted text saves at once and opens with a notice; Undo deletes it and ret
 	await page.setViewportSize({ width: 390, height: 844 })
 	await page.goto('/recipes')
 	await page.goto('/recipes/import')
-	await page.getByRole('button', { name: 'From Text', exact: true }).click()
+	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
 	await page.getByLabel('Recipe text', { exact: true }).fill(original)
 	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
 
@@ -87,7 +87,7 @@ test('the notice shows once: not on the Recipe it links to, after Back, or on a 
 	})
 	await page.goto('/recipes')
 	await page.goto('/recipes/import')
-	await page.getByRole('button', { name: 'From Text', exact: true }).click()
+	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
 	await page.getByLabel('Recipe text', { exact: true }).fill(original)
 	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
 	const notice = page.getByRole('region', { name: 'Saved to your Recipes' })
@@ -135,7 +135,7 @@ test('an import missing its steps saves, says so, and Edit adds them; the notice
 }) => {
 	const user = await login()
 	await page.goto('/recipes/import')
-	await page.getByRole('button', { name: 'From Text', exact: true }).click()
+	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
 	await page
 		.getByLabel('Recipe text', { exact: true })
 		.fill('Lemon\nIngredients\n1 lemon')
@@ -164,7 +164,7 @@ test('an import missing its steps saves, says so, and Edit adds them; the notice
 	})
 
 	await page.goto('/recipes/import')
-	await page.getByRole('button', { name: 'From Text', exact: true }).click()
+	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
 	await page
 		.getByLabel('Recipe text', { exact: true })
 		.fill('Toast\nIngredients\n1 slice bread\nInstructions\nToast it.')
@@ -185,7 +185,7 @@ test('text with neither ingredients nor steps saves nothing and keeps what was p
 }) => {
 	const user = await login()
 	await page.goto('/recipes/import')
-	await page.getByRole('button', { name: 'From Text', exact: true }).click()
+	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
 	const text = 'Family notes\nServe with whatever greens are left.'
 	await page.getByLabel('Recipe text', { exact: true }).fill(text)
 	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()

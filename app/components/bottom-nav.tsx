@@ -7,6 +7,7 @@ import {
 import { NavLink, useLocation, useNavigate, useNavigation } from 'react-router'
 import { cn } from '#app/utils/misc.tsx'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
+import { VIA_TAB_BAR } from '#app/utils/nav-direction.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
 import { useIsProActive } from '#app/utils/subscription.ts'
 import { useShoppingActivityDot } from '#app/utils/use-shopping-activity-dot.ts'
@@ -29,7 +30,7 @@ type NavItem = {
 	matchPaths?: string[]
 }
 
-const navItems: NavItem[] = [
+export const navItems: NavItem[] = [
 	{
 		to: '/recipes',
 		icon: 'cookie' as IconName,
@@ -64,7 +65,9 @@ const navItems: NavItem[] = [
 	},
 ]
 
-function isNormalLinkActivation(event: ReactMouseEvent<HTMLAnchorElement>) {
+export function isNormalLinkActivation(
+	event: ReactMouseEvent<HTMLAnchorElement>,
+) {
 	return (
 		event.button === 0 &&
 		!event.metaKey &&
@@ -257,6 +260,7 @@ export function BottomNav() {
 						<NavLink
 							key={item.to}
 							to={linkTo}
+							state={VIA_TAB_BAR}
 							defaultShouldRevalidate={defaultShouldRevalidate}
 							aria-busy={isPending || undefined}
 							data-bottom-nav-tab={item.destination}
@@ -296,7 +300,10 @@ export function BottomNav() {
 								startTabNavigation(item, linkTo, startedAt)
 								// No view transition: as in a native tab bar, the new tab
 								// replaces the page in one frame.
-								void navigate(linkTo, { defaultShouldRevalidate })
+								void navigate(linkTo, {
+									defaultShouldRevalidate,
+									state: VIA_TAB_BAR,
+								})
 							}}
 							onPointerUp={() => setPressedTab(null)}
 							onPointerCancel={() => {

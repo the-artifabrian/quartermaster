@@ -1,20 +1,31 @@
+import { navItems } from '#app/components/bottom-nav.tsx'
+
 /**
- * Where the nav bar's Back (and an edit screen's Cancel) goes.
+ * Where the nav bar's Back (and an edit screen's Cancel) goes. Back undoes
+ * the last move.
  *
  * A pushed page names its parent: the page Back opens when there is nothing
  * in the app to return to (a deep link, a universal link, a cold start, a
- * reload). When the history entry behind the page is the parent, or another
+ * reload). When the history entry behind the page is the parent, another
  * page the rule returns to (a Menu behind one of its Recipes, a Recipe behind
- * a linked Recipe), Back pops to it instead, so the list keeps its filter and
- * scroll position. Forms that led to the page (the edit form after a save,
- * the new-Recipe form after creating one) are stepped over on the way.
+ * a linked Recipe), or a page outside the rule's tab that opened it (the Plan
+ * behind tonight's Recipe), Back pops to it instead, so that page keeps its
+ * filter and scroll position. Forms that led to the page (the edit form after
+ * a save, the new-Recipe form after creating one) are stepped over on the
+ * way. So are the other tabs' pages between a page the tab bar restored and
+ * the stack it continues.
  *
  * The browser does not say what is behind the current entry, so the app keeps
  * its own log of the entries it has shown, by React Router's history index.
  * Entries from before a reload or a full page load are unknown.
  */
 
-export type HistoryEntry = { pathname: string; search: string }
+export type HistoryEntry = {
+	pathname: string
+	search: string
+	/** The tab bar opened this entry, continuing the tab's own stack. */
+	viaTabBar?: boolean
+}
 /** In-app history entries by `history.state.idx`; a gap is an entry never seen. */
 export type HistoryLog = Readonly<Record<number, HistoryEntry>>
 
@@ -25,18 +36,19 @@ export type NavRule = {
 	returnsTo?: (pathname: string) => boolean
 	/** Pages Back steps over to reach the parent: the forms that led here. */
 	stepsOver?: (pathname: string, current: string) => boolean
+	/** The tab the page belongs to. A page outside it that opened this one is
+	 * where Back returns. */
+	tab?: (pathname: string) => boolean
 }
 
 export type BackTarget =
 	| { type: 'pop'; delta: number; label: string }
 	| { type: 'replace'; to: string; label: string }
 
+// The tab bar's roots, plus Menus, the Recipes tab's second library.
 const TAB_ROOT_LABELS: Record<string, string> = {
-	'/recipes': 'Recipes',
+	...Object.fromEntries(navItems.map((item) => [item.to, item.label])),
 	'/recipes/menus': 'Menus',
-	'/inventory': 'Staples',
-	'/plan': 'Plan',
-	'/shopping': 'Shopping',
 }
 
 const RECIPE_DETAIL = /^\/recipes\/(?!new$|import$|menus$)[^/]+$/
@@ -50,8 +62,8 @@ function isMenuDetail(pathname: string) {
 	return MENU_DETAIL.test(pathname)
 }
 
-function isTabRoot(pathname: string) {
-	return pathname in TAB_ROOT_LABELS
+function isRecipesTab(pathname: string) {
+	return pathname === '/recipes' || pathname.startsWith('/recipes/')
 }
 
 function isSettingsSubpage(pathname: string) {
@@ -73,24 +85,39 @@ export function resolveBack({
 	idx,
 	log,
 	pathname,
+	viaTabBar = false,
 	rule,
 }: {
 	idx: number | null
 	log: HistoryLog
 	pathname: string
+	/** The tab bar opened the current entry (it restored the tab's page). */
+	viaTabBar?: boolean
 	rule: NavRule
 }): BackTarget {
+	const outsideTab = (p: string) => (rule.tab ? !rule.tab(p) : false)
 	if (idx !== null) {
+		// Between a page the tab bar restored and the stack it continues lie
+		// the other tabs' pages, which did not open it.
+		let crossingTabs = viaTabBar
 		for (let j = idx - 1; j >= 0; j--) {
 			const entry = log[j]
 			// An entry the app never saw (before a reload): it could be anything.
 			if (!entry) break
 			const previous = entry.pathname
-			if (previous === pathname) continue
+			if (previous === pathname) {
+				crossingTabs = entry.viaTabBar ?? false
+				continue
+			}
+			if (crossingTabs && outsideTab(previous)) continue
 			if (previous === rule.parent || rule.returnsTo?.(previous)) {
 				return { type: 'pop', delta: idx - j, label: navLabel(previous) }
 			}
 			if (rule.stepsOver?.(previous, pathname)) continue
+			// Opened from another tab (a planned Recipe from the Plan).
+			if (outsideTab(previous)) {
+				return { type: 'pop', delta: idx - j, label: navLabel(previous) }
+			}
 			break
 		}
 	}
@@ -105,18 +132,17 @@ export function recordHistoryEntry(
 	log: HistoryLog,
 	{
 		idx,
-		pathname,
-		search,
 		action,
+		...entry
 	}: HistoryEntry & { idx: number; action: 'PUSH' | 'REPLACE' | 'POP' },
 ): HistoryLog {
 	const next: Record<number, HistoryEntry> = {}
-	for (const [key, entry] of Object.entries(log)) {
+	for (const [key, known] of Object.entries(log)) {
 		const at = Number(key)
 		if (action === 'PUSH' && at > idx) continue
-		next[at] = entry
+		next[at] = known
 	}
-	next[idx] = { pathname, search }
+	next[idx] = entry
 	return next
 }
 
@@ -124,6 +150,7 @@ export function recordHistoryEntry(
 
 export const recipeDetailNav: NavRule = {
 	parent: '/recipes',
+	tab: isRecipesTab,
 	returnsTo: (p) => isMenuDetail(p) || isRecipeDetail(p),
 	stepsOver: (p, current) =>
 		p === `${current}/edit` || p === '/recipes/new' || p === '/recipes/import',
@@ -139,6 +166,7 @@ export const recipeImportNav: NavRule = { parent: '/recipes' }
 
 export const menuDetailNav: NavRule = {
 	parent: '/recipes/menus',
+	tab: isRecipesTab,
 	stepsOver: (p, current) =>
 		p === `${current}/edit` || p === '/recipes/menus/new',
 }
@@ -150,12 +178,12 @@ export const menuEditNav = (menuId: string): NavRule => ({
 export const menuNewNav: NavRule = { parent: '/recipes/menus' }
 
 /**
- * Settings opens from the avatar, which only the tab roots show, so it goes
- * back to the tab it was opened from.
+ * Settings opens from the avatar: on a tab root on phones, on any page on
+ * desktop. It goes back to the page it was opened from.
  */
 export const settingsRootNav: NavRule = {
 	parent: '/recipes',
-	returnsTo: isTabRoot,
+	returnsTo: (p) => p !== '/settings/profile' && !isSettingsSubpage(p),
 	stepsOver: isSettingsSubpage,
 }
 
@@ -164,9 +192,10 @@ export const settingsPageNav: NavRule = {
 	stepsOver: isSettingsSubpage,
 }
 
+/** Upgrade opens from Settings, Import, or the Pro expiry notice on any page. */
 export const upgradeNav: NavRule = {
 	parent: '/settings/profile',
-	returnsTo: (p) => p === '/recipes/import',
+	returnsTo: (p) => p !== '/upgrade',
 }
 
 // The log of entries this document has shown. It lives in memory only:
@@ -200,17 +229,11 @@ export function recordHistory(
 	if (
 		entry.action !== 'PUSH' &&
 		known?.pathname === entry.pathname &&
-		known.search === entry.search
+		known.search === entry.search &&
+		(known.viaTabBar ?? false) === (entry.viaTabBar ?? false)
 	) {
 		return
 	}
 	currentLog = recordHistoryEntry(currentLog, entry)
 	for (const listener of listeners) listener()
-}
-
-/** React Router numbers its history entries in `history.state.idx`. */
-export function historyIndex() {
-	if (typeof window === 'undefined') return null
-	const idx = (window.history.state as { idx?: unknown } | null)?.idx
-	return typeof idx === 'number' ? idx : null
 }

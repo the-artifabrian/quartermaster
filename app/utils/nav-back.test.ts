@@ -10,23 +10,35 @@ import {
 	resolveBack,
 	settingsPageNav,
 	settingsRootNav,
+	upgradeNav,
 } from './nav-back.ts'
+
+/** A path as the tab bar opened it (restoring the tab's page). */
+const TAB = ' via tab bar'
+
+function entryOf(path: string): HistoryEntry {
+	const viaTabBar = path.endsWith(TAB)
+	const [pathname, search = ''] = path.replace(TAB, '').split('?')
+	return {
+		pathname: pathname!,
+		search: search ? `?${search}` : '',
+		...(viaTabBar ? { viaTabBar } : {}),
+	}
+}
 
 /** A log of in-app entries, index = history idx; null = never seen. */
 function logOf(...paths: Array<string | null>): HistoryLog {
 	const log: Record<number, HistoryEntry> = {}
 	paths.forEach((path, idx) => {
-		if (path === null) return
-		const [pathname, search = ''] = path.split('?')
-		log[idx] = { pathname: pathname!, search: search ? `?${search}` : '' }
+		if (path !== null) log[idx] = entryOf(path)
 	})
 	return log
 }
 
 function back(paths: Array<string | null>, rule = recipeDetailNav) {
 	const idx = paths.length - 1
-	const pathname = paths[idx]!.split('?')[0]!
-	return resolveBack({ idx, log: logOf(...paths), pathname, rule })
+	const { pathname, viaTabBar } = entryOf(paths[idx]!)
+	return resolveBack({ idx, log: logOf(...paths), pathname, viaTabBar, rule })
 }
 
 test('a cold deep link has nothing behind it, so Back opens the parent in its place', () => {
@@ -61,16 +73,59 @@ test('a filtered parent list is still the parent, so its search and scroll come 
 	})
 })
 
-test('a page from another tab behind it (a tab-bar restore) is not popped into', () => {
-	expect(back(['/recipes', '/recipes/r1', '/plan', '/recipes/r1'])).toEqual({
-		type: 'replace',
-		to: '/recipes',
-		label: 'Recipes',
+test('a Recipe opened from the Plan goes back to the Plan', () => {
+	expect(back(['/plan', '/recipes/r1'])).toEqual({
+		type: 'pop',
+		delta: 1,
+		label: 'Plan',
 	})
 })
 
-test('a Recipe opened from the Plan goes to Recipes, the tab it belongs to', () => {
-	expect(back(['/plan', '/recipes/r1'])).toEqual({
+test('a Menu opened from the Plan goes back to the Plan', () => {
+	expect(
+		back(['/plan?weekStart=2026-11-16', '/recipes/menus/m1'], menuDetailNav),
+	).toEqual({
+		type: 'pop',
+		delta: 1,
+		label: 'Plan',
+	})
+})
+
+test('a Recipe opened by a link from another tab goes back there, even with the Recipe further back', () => {
+	expect(back(['/recipes', '/recipes/r1', '/plan', '/recipes/r1'])).toEqual({
+		type: 'pop',
+		delta: 1,
+		label: 'Plan',
+	})
+})
+
+test('a Recipe the tab bar restored goes back down its own stack, to the filtered list', () => {
+	expect(
+		back(['/recipes?q=soup', '/recipes/r1', '/plan', `/recipes/r1${TAB}`]),
+	).toEqual({ type: 'pop', delta: 3, label: 'Recipes' })
+})
+
+test('a restored Recipe first opened from the Plan goes back to the Plan', () => {
+	expect(
+		back(['/plan', '/recipes/r1', '/shopping', `/recipes/r1${TAB}`]),
+	).toEqual({ type: 'pop', delta: 3, label: 'Plan' })
+})
+
+test('a restored Recipe saved after an edit still goes down its own stack', () => {
+	expect(
+		back([
+			'/recipes',
+			'/recipes/r1',
+			'/plan',
+			`/recipes/r1${TAB}`,
+			'/recipes/r1/edit',
+			'/recipes/r1',
+		]),
+	).toEqual({ type: 'pop', delta: 5, label: 'Recipes' })
+})
+
+test('a restored Recipe whose stack is from before a reload opens the parent', () => {
+	expect(back([null, '/plan', `/recipes/r1${TAB}`])).toEqual({
 		type: 'replace',
 		to: '/recipes',
 		label: 'Recipes',
@@ -139,9 +194,9 @@ test('an unknown entry in the middle stops the walk', () => {
 	})
 })
 
-test('a pass-through form does not carry Back past an unrelated page', () => {
+test('a pass-through form does not carry Back past another page of the tab', () => {
 	expect(
-		back(['/recipes', '/plan', '/recipes/r1/edit', '/recipes/r1']),
+		back(['/recipes', '/recipes/menus', '/recipes/r1/edit', '/recipes/r1']),
 	).toEqual({ type: 'replace', to: '/recipes', label: 'Recipes' })
 })
 
@@ -190,6 +245,29 @@ test('Settings goes back to the tab it was opened from', () => {
 	expect(
 		back(['/recipes/menus', '/settings/profile'], settingsRootNav),
 	).toEqual({ type: 'pop', delta: 1, label: 'Menus' })
+})
+
+test('Settings opened from a Recipe (the desktop header) goes back to it', () => {
+	expect(
+		back(['/recipes', '/recipes/r1', '/settings/profile'], settingsRootNav),
+	).toEqual({
+		type: 'pop',
+		delta: 1,
+		label: 'Recipe',
+	})
+})
+
+test('Upgrade goes back to the page whose Pro notice opened it', () => {
+	expect(back(['/plan', '/upgrade'], upgradeNav)).toEqual({
+		type: 'pop',
+		delta: 1,
+		label: 'Plan',
+	})
+	expect(back(['/upgrade'], upgradeNav)).toEqual({
+		type: 'replace',
+		to: '/settings/profile',
+		label: 'Settings',
+	})
 })
 
 test('Settings steps over its own subpages after a save', () => {
@@ -244,6 +322,17 @@ test('a push drops the forward entries it replaces', () => {
 		action: 'PUSH',
 	})
 	expect(log).toEqual(logOf('/recipes', '/recipes/r1', '/recipes/r2'))
+})
+
+test('the log keeps whether the tab bar opened an entry', () => {
+	const log = recordHistoryEntry(logOf('/recipes', '/plan'), {
+		idx: 2,
+		pathname: '/recipes/r1',
+		search: '',
+		viaTabBar: true,
+		action: 'PUSH',
+	})
+	expect(log).toEqual(logOf('/recipes', '/plan', `/recipes/r1${TAB}`))
 })
 
 test('a replace rewrites its own entry and keeps the ones after it', () => {

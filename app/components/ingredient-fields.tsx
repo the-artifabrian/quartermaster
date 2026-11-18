@@ -370,10 +370,11 @@ function SortableIngredientRow({
 					<div className="flex items-center gap-1">
 						<button
 							type="button"
-							className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none rounded-md p-2 active:cursor-grabbing"
+							// 44px to grab with a thumb; the negative margins keep the row's height.
+							className="text-muted-foreground/70 hover:text-muted-foreground active:bg-muted -my-1.5 -ml-1.5 flex size-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-md active:cursor-grabbing"
+							aria-label="Reorder ingredient"
 							{...attributes}
 							{...listeners}
-							tabIndex={-1}
 						>
 							<Icon name="dots-horizontal" size="sm" />
 						</button>
@@ -417,6 +418,7 @@ function SortableIngredientRow({
 					<Input
 						id={`${id}-name`}
 						placeholder="Ingredient name"
+						aria-label="Ingredient name"
 						value={ingredient.name}
 						onChange={(e) => onUpdate('name', e.target.value)}
 					/>
@@ -424,6 +426,7 @@ function SortableIngredientRow({
 						<Input
 							id={`${id}-amount`}
 							placeholder="Amount"
+							aria-label="Amount"
 							enterKeyHint="done"
 							value={ingredient.amount ?? ''}
 							onChange={(e) => onUpdate('amount', e.target.value)}
@@ -432,6 +435,9 @@ function SortableIngredientRow({
 						<Input
 							id={`${id}-unit`}
 							placeholder="Unit"
+							aria-label="Unit"
+							autoCapitalize="none"
+							autoCorrect="off"
 							value={ingredient.unit ?? ''}
 							onChange={(e) => onUpdate('unit', e.target.value)}
 							className="flex-1"
@@ -440,6 +446,7 @@ function SortableIngredientRow({
 					<Input
 						id={`${id}-notes`}
 						placeholder="Notes (e.g., diced)"
+						aria-label="Notes"
 						value={ingredient.notes ?? ''}
 						onChange={(e) => onUpdate('notes', e.target.value)}
 					/>
@@ -457,10 +464,11 @@ function SortableIngredientRow({
 				<div className="flex items-center gap-2">
 					<button
 						type="button"
-						className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none rounded-md p-2 active:cursor-grabbing"
+						// 44px to grab with a thumb; the negative margins keep the row's height.
+						className="text-muted-foreground/70 hover:text-muted-foreground active:bg-muted -my-1.5 -ml-1.5 flex size-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-md active:cursor-grabbing"
+						aria-label="Reorder ingredient"
 						{...attributes}
 						{...listeners}
-						tabIndex={-1}
 					>
 						<Icon name="dots-horizontal" size="sm" />
 					</button>
@@ -656,16 +664,18 @@ function SortableHeadingRow({
 		>
 			<button
 				type="button"
-				className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none rounded-md p-2 active:cursor-grabbing"
+				// 44px to grab with a thumb; the negative margins keep the row's height.
+				className="text-muted-foreground/70 hover:text-muted-foreground active:bg-muted -my-1.5 -ml-1.5 flex size-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-md active:cursor-grabbing"
+				aria-label="Reorder heading"
 				{...attributes}
 				{...listeners}
-				tabIndex={-1}
 			>
 				<Icon name="dots-horizontal" size="sm" />
 			</button>
 			<Input
 				id={`${id}-heading`}
 				placeholder="Section heading (e.g., Polenta, Sauce)"
+				aria-label="Section heading"
 				value={ingredient.name}
 				onChange={(e) => onUpdate('name', e.target.value)}
 				className="flex-1 font-semibold"

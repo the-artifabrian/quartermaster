@@ -477,8 +477,8 @@ function App() {
 												prefetch="intent"
 												className={({ isActive }) =>
 													isActive
-														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-all duration-200'
+														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200'
+														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-colors duration-200'
 												}
 											>
 												Recipes
@@ -488,8 +488,8 @@ function App() {
 												prefetch="intent"
 												className={({ isActive }) =>
 													isActive
-														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-all duration-200'
+														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200'
+														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-colors duration-200'
 												}
 											>
 												Staples
@@ -499,8 +499,8 @@ function App() {
 												prefetch="intent"
 												className={({ isActive }) =>
 													isActive
-														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-all duration-200'
+														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200'
+														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-colors duration-200'
 												}
 											>
 												Plan
@@ -510,8 +510,8 @@ function App() {
 												prefetch="intent"
 												className={({ isActive }) =>
 													isActive
-														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200'
-														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-all duration-200'
+														? 'text-primary rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200'
+														: 'text-muted-foreground hover:text-primary rounded-full px-4 py-1.5 text-sm transition-colors duration-200'
 												}
 											>
 												Shopping

@@ -180,10 +180,12 @@ function SortableInstructionRow({
 			<div className="flex shrink-0 flex-col items-center gap-1 pt-1">
 				<button
 					type="button"
-					className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none active:cursor-grabbing"
+					// 44px to grab with a thumb; the negative margins keep the
+					// step column as narrow as its number.
+					className="text-muted-foreground/70 hover:text-muted-foreground active:bg-muted -mx-2 -my-2.5 flex size-11 cursor-grab touch-none items-center justify-center rounded-md active:cursor-grabbing"
+					aria-label={`Reorder step ${index + 1}`}
 					{...attributes}
 					{...listeners}
-					tabIndex={-1}
 				>
 					<Icon name="dots-horizontal" size="sm" />
 				</button>
@@ -194,6 +196,7 @@ function SortableInstructionRow({
 			<div className="flex-1">
 				<Textarea
 					placeholder={`Step ${index + 1}`}
+					aria-label={`Step ${index + 1}`}
 					value={instruction.content}
 					onChange={(e) => onUpdate(e.target.value)}
 					rows={2}

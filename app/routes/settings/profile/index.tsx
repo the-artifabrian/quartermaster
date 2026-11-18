@@ -256,7 +256,7 @@ function KeepAwakeSwitch() {
 			onClick={handleToggle}
 			disabled={!hydrated}
 			className={cn(
-				'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+				"relative rounded-full border px-3 py-1.5 text-xs font-medium transition-colors before:absolute before:-inset-2 before:content-['']",
 				enabled
 					? 'border-primary bg-primary text-primary-foreground'
 					: 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground',

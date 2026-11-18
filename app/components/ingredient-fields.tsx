@@ -9,6 +9,7 @@ import { useId, useRef, useState, useEffect, useCallback } from 'react'
 import { useFetcher } from 'react-router'
 import { useSortableList } from '#app/hooks/use-sortable-list.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { BottomSheet, opensAsSheet } from './ui/bottom-sheet.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
@@ -525,11 +526,16 @@ function RecipeLinkPicker({
 	excludeRecipeId?: string
 }) {
 	const [open, setOpen] = useState(false)
+	// A popover on wider screens, a bottom sheet on a phone (set on open).
+	const [inSheet, setInSheet] = useState(false)
 	const [query, setQuery] = useState('')
 	const fetcher = useFetcher<{
 		recipes: Array<{ id: string; title: string }>
 	}>()
 	const inputRef = useRef<HTMLInputElement>(null)
+	// Where focus lands once a picked Recipe's sheet has left.
+	const removeLinkRef = useRef<HTMLButtonElement>(null)
+	const sheetTitleId = useId()
 
 	const doSearch = useCallback(
 		(q: string) => {
@@ -551,82 +557,125 @@ function RecipeLinkPicker({
 
 	const results = fetcher.data?.recipes ?? []
 
-	if (linkedRecipeId && linkedRecipeTitle) {
-		return (
-			<div className="flex items-center gap-2 rounded-md border px-3 py-2">
-				<Icon name="link-2" size="sm" className="text-primary shrink-0" />
-				<span className="min-w-0 flex-1 truncate text-sm">
-					{linkedRecipeTitle}
-				</span>
-				<button
-					type="button"
-					onClick={onUnlink}
-					className="text-muted-foreground hover:text-destructive -my-2 -mr-2 flex size-11 shrink-0 items-center justify-center"
-					aria-label="Remove recipe link"
-				>
-					<Icon name="cross-1" size="sm" />
-				</button>
-			</div>
-		)
-	}
+	const linked = linkedRecipeId && linkedRecipeTitle
+	const linkedBox = linked ? (
+		<div className="flex items-center gap-2 rounded-md border px-3 py-2">
+			<Icon name="link-2" size="sm" className="text-primary shrink-0" />
+			<span className="min-w-0 flex-1 truncate text-sm">
+				{linkedRecipeTitle}
+			</span>
+			<button
+				ref={removeLinkRef}
+				type="button"
+				onClick={onUnlink}
+				className="text-muted-foreground hover:text-destructive -my-2 -mr-2 flex size-11 shrink-0 items-center justify-center"
+				aria-label="Remove recipe link"
+			>
+				<Icon name="cross-1" size="sm" />
+			</button>
+		</div>
+	) : null
+
+	const search = (
+		<>
+			<Input
+				ref={inputRef}
+				placeholder="Search recipes..."
+				aria-label="Search recipes"
+				inputMode="search"
+				enterKeyHint="search"
+				value={query}
+				onChange={(e) => {
+					setQuery(e.target.value)
+					doSearch(e.target.value)
+				}}
+				className="mb-2"
+			/>
+			{query.length < 2 ? (
+				<p className="text-muted-foreground px-2 py-3 text-center text-xs">
+					Type to search your recipes
+				</p>
+			) : fetcher.state !== 'idle' ? (
+				<p className="text-muted-foreground px-2 py-3 text-center text-xs">
+					Searching...
+				</p>
+			) : results.length === 0 ? (
+				<p className="text-muted-foreground px-2 py-3 text-center text-xs">
+					No recipes found
+				</p>
+			) : (
+				<ul className={cn(!inSheet && 'max-h-48 overflow-y-auto')}>
+					{results.map((recipe) => (
+						<li key={recipe.id}>
+							<button
+								type="button"
+								className={cn(
+									'hover:bg-accent w-full rounded-md px-2 py-1.5 text-left text-sm',
+									inSheet && 'min-h-11',
+								)}
+								onClick={() => {
+									onLink(recipe.id, recipe.title)
+									setOpen(false)
+								}}
+							>
+								{recipe.title}
+							</button>
+						</li>
+					))}
+				</ul>
+			)}
+		</>
+	)
 
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
-			<PopoverTrigger asChild>
-				<button
-					type="button"
-					className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 rounded-md px-1 py-1 text-xs transition-colors"
-				>
-					<Icon name="link-2" size="sm" />
-					Link recipe
-				</button>
-			</PopoverTrigger>
-			<PopoverContent align="start" className="w-72 p-2">
-				<Input
-					ref={inputRef}
-					placeholder="Search recipes..."
-					inputMode="search"
-					enterKeyHint="search"
-					value={query}
-					onChange={(e) => {
-						setQuery(e.target.value)
-						doSearch(e.target.value)
+		<>
+			{linkedBox ?? (
+				<Popover
+					open={open && !inSheet}
+					onOpenChange={(nextOpen) => {
+						if (nextOpen) {
+							// The last search clears here, not on close, so a sheet
+							// leaves as it was.
+							setQuery('')
+							setInSheet(opensAsSheet())
+						}
+						setOpen(nextOpen)
 					}}
-					className="mb-2"
-				/>
-				{query.length < 2 ? (
-					<p className="text-muted-foreground px-2 py-3 text-center text-xs">
-						Type to search your recipes
-					</p>
-				) : fetcher.state !== 'idle' ? (
-					<p className="text-muted-foreground px-2 py-3 text-center text-xs">
-						Searching...
-					</p>
-				) : results.length === 0 ? (
-					<p className="text-muted-foreground px-2 py-3 text-center text-xs">
-						No recipes found
-					</p>
-				) : (
-					<ul className="max-h-48 overflow-y-auto">
-						{results.map((recipe) => (
-							<li key={recipe.id}>
-								<button
-									type="button"
-									className="hover:bg-accent w-full rounded-md px-2 py-1.5 text-left text-sm"
-									onClick={() => {
-										onLink(recipe.id, recipe.title)
-										setOpen(false)
-										setQuery('')
-									}}
-								>
-									{recipe.title}
-								</button>
-							</li>
-						))}
-					</ul>
-				)}
-			</PopoverContent>
-		</Popover>
+				>
+					<PopoverTrigger asChild>
+						<button
+							type="button"
+							// Radix reports its own state, which is closed while the
+							// sheet stands in for the popover.
+							aria-expanded={open}
+							className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 rounded-md px-1 py-1 text-xs transition-colors"
+						>
+							<Icon name="link-2" size="sm" />
+							Link recipe
+						</button>
+					</PopoverTrigger>
+					<PopoverContent align="start" className="w-72 p-2">
+						{search}
+					</PopoverContent>
+				</Popover>
+			)}
+			{/* Stays mounted beside the linked Recipe, so a pick still sees the
+			    sheet leave. BottomSheet renders on the body, out of the Recipe
+			    form (Enter in the search would submit it) and the sortable
+			    row. */}
+			{inSheet && (
+				<BottomSheet
+					open={open}
+					onClose={() => setOpen(false)}
+					labelledBy={sheetTitleId}
+					title="Link a Recipe"
+					initialFocusRef={inputRef}
+					returnFocusRef={removeLinkRef}
+				>
+					{search}
+				</BottomSheet>
+			)}
+		</>
 	)
 }
 

@@ -2,9 +2,11 @@ import {
 	type ReactNode,
 	type RefObject,
 	useEffect,
+	useLayoutEffect,
 	useRef,
 	useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { closeUndoForSheet } from '#app/components/undo-delete.tsx'
 import { useSheetDrag } from '#app/hooks/use-sheet-drag.ts'
 import { cn } from '#app/utils/misc.tsx'
@@ -16,8 +18,23 @@ const FOCUSABLE_SELECTOR =
 /** A sheet that leaves without an animation still unmounts after this. */
 const EXIT_FALLBACK_MS = 500
 
-/** Where the sheet becomes a centered dialog. */
-const DIALOG_QUERY = '(width >= 40rem)'
+/**
+ * A phone: below `sm`, or on its side (a finger on a short screen). There a
+ * sheet sits on the bottom edge and can be pulled down; elsewhere it is a
+ * centered dialog. The `dialog:` variant in tailwind.css is the opposite.
+ */
+const SHEET_QUERY = '(width < 40rem), (pointer: coarse) and (height <= 500px)'
+
+/**
+ * Whether a picker or form opening now should be a bottom sheet: on a phone
+ * (SHEET_QUERY). Wider screens keep their popover or inline panel. Read when
+ * it opens, so the server and the first render agree; no `matchMedia` (jsdom)
+ * means the wide UI.
+ */
+export function opensAsSheet() {
+	if (typeof window === 'undefined' || !window.matchMedia) return false
+	return window.matchMedia(SHEET_QUERY).matches
+}
 
 /** The sheet that is open now. Opening another closes it first. */
 let openSheet: { close: () => void } | null = null
@@ -37,6 +54,11 @@ type BottomSheetProps = {
 	 * child focused, else the first thing that can take it (Close).
 	 */
 	initialFocusRef?: RefObject<HTMLElement | null>
+	/**
+	 * Takes focus back once the sheet is gone, for a sheet opened from a menu
+	 * item that is gone by then. Without it focus goes back to what had it.
+	 */
+	returnFocusRef?: RefObject<HTMLElement | null>
 	/** Classes for the panel. */
 	className?: string
 	/** Classes for the part under the header, which scrolls. */
@@ -47,11 +69,16 @@ type BottomSheetProps = {
 /**
  * The phone's bottom sheet, one anatomy for every sheet: a grabber, a serif
  * title with an optional line under it, and a round Close button. It covers
- * the tab bar over a dimmed page, and from `sm` up it is a centered dialog.
- * The panel slides up from below on open and leaves the same way on close
- * while the backdrop fades (tailwind.css, "Bottom sheets"). It stays mounted
- * until its exit has run, then unmounts and gives focus back to whatever had
- * it before the sheet opened.
+ * the tab bar over a dimmed page; off a phone (SHEET_QUERY) it is a centered
+ * dialog. The panel slides up from below on open and leaves the same way on
+ * close while the backdrop fades (tailwind.css, "Bottom sheets"). It stays
+ * mounted until its exit has run, then unmounts and gives focus back to
+ * whatever had it before the sheet opened, unless focus has moved on since.
+ *
+ * It renders on `<body>`, so nothing around its owner (a hidden layout, a
+ * row's `inert` or transform, a form) reaches it. If its owner goes away
+ * while it is open (a row deleted elsewhere, a Meal moved to another day), a
+ * copy of it still plays the exit.
  *
  * While open it is modal to the keyboard: Escape closes it and Tab cycles
  * within it. On a phone it can also be pulled down to close (useSheetDrag).
@@ -73,6 +100,7 @@ function SheetFrame({
 	title,
 	description,
 	initialFocusRef,
+	returnFocusRef,
 	className,
 	bodyClassName,
 	children,
@@ -97,7 +125,7 @@ function SheetFrame({
 	useSheetDrag({
 		open,
 		// A centered dialog has no edge to pull it toward.
-		enabled: () => !window.matchMedia(DIALOG_QUERY).matches,
+		enabled: () => window.matchMedia(SHEET_QUERY).matches,
 		panelRef,
 		backdropRef,
 		onDismiss: () => onCloseRef.current(),
@@ -133,16 +161,38 @@ function SheetFrame({
 	}, [open, initialFocusRef])
 
 	// Give focus back once the sheet is gone, unless another sheet has opened
-	// since: focus belongs in that one.
+	// since (focus belongs in that one) or focus has moved on during the exit,
+	// such as to another row's menu. The sheet is off the page by now, so focus
+	// that was in it is on the body.
+	const returnFocusRefRef = useRef(returnFocusRef)
 	useEffect(
 		() => () => {
-			const previouslyFocused = previouslyFocusedRef.current
-			if (openSheet === null && previouslyFocused?.isConnected) {
+			const active = document.activeElement
+			const focusMovedOn = active != null && active !== document.body
+			const previouslyFocused =
+				returnFocusRefRef.current?.current ?? previouslyFocusedRef.current
+			if (
+				openSheet === null &&
+				!focusMovedOn &&
+				previouslyFocused?.isConnected
+			) {
 				previouslyFocused.focus({ preventScroll: true })
 			}
 		},
 		[],
 	)
+
+	// An owner that goes away before the sheet's exit has run (while it is
+	// open or already leaving) takes it along at once. A copy, inert, plays
+	// the exit in its place.
+	const exitedRef = useRef(false)
+	useLayoutEffect(() => {
+		const root = rootRef.current
+		return () => {
+			if (exitedRef.current || !root?.isConnected) return
+			playExitCopy(root)
+		}
+	}, [])
 
 	useEffect(() => {
 		if (!open) return
@@ -168,6 +218,19 @@ function SheetFrame({
 			if (event.key !== 'Tab') return
 			const panel = panelRef.current
 			if (!panel) return
+			// A tap on a part of the panel that takes no focus focuses the panel;
+			// Tab from there goes to its first control on its own, Shift+Tab
+			// would leave it.
+			if (document.activeElement === panel && event.shiftKey) {
+				const focusable =
+					panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+				const last = focusable[focusable.length - 1]
+				if (last) {
+					event.preventDefault()
+					last.focus()
+				}
+				return
+			}
 			const focusable = Array.from(
 				panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
 			)
@@ -189,11 +252,15 @@ function SheetFrame({
 	// Unmount once the exit transitions have run. Reopening cancels them, and
 	// the sheet stays.
 	useEffect(() => {
-		if (open) return
+		if (open) {
+			exitedRef.current = false
+			return
+		}
 		let done = false
 		const finish = () => {
 			if (done) return
 			done = true
+			exitedRef.current = true
 			onExitedRef.current()
 		}
 		// getAnimations flushes style, so it sees the transitions the closed
@@ -215,12 +282,12 @@ function SheetFrame({
 	const state = open ? 'open' : 'closed'
 	const descriptionId = `${labelledBy}-description`
 
-	return (
+	const frame = (
 		<div
 			ref={rootRef}
 			data-bottom-sheet=""
 			data-state={state}
-			className="fixed inset-0 z-60 flex items-end justify-center sm:items-center sm:p-4"
+			className="dialog:items-center dialog:p-4 fixed inset-0 z-60 flex items-end justify-center"
 		>
 			<div
 				ref={backdropRef}
@@ -233,13 +300,15 @@ function SheetFrame({
 				ref={panelRef}
 				role="dialog"
 				aria-modal="true"
+				// Taps on its text keep focus in the sheet, not on the page.
+				tabIndex={-1}
 				aria-labelledby={labelledBy}
 				aria-describedby={description != null ? descriptionId : undefined}
 				data-bottom-sheet-panel=""
 				data-state={state}
 				className={cn(
 					// Never taller than the screen under the status bar.
-					'bg-card shadow-warm-lg relative flex max-h-[calc(100dvh-var(--safe-top)-1rem)] w-full max-w-md flex-col rounded-t-2xl sm:max-h-[85dvh] sm:rounded-xl',
+					'bg-card shadow-warm-lg dialog:max-h-[85dvh] dialog:rounded-xl relative flex max-h-[calc(100dvh-var(--safe-top)-1rem)] w-full max-w-md flex-col rounded-t-2xl outline-none',
 					className,
 				)}
 			>
@@ -248,9 +317,9 @@ function SheetFrame({
 				<div
 					aria-hidden
 					data-bottom-sheet-grabber=""
-					className="bg-muted-foreground/30 mx-auto mt-2 h-[5px] w-9 shrink-0 rounded-full sm:hidden"
+					className="bg-muted-foreground/30 dialog:hidden mx-auto mt-2 h-[5px] w-9 shrink-0 rounded-full"
 				/>
-				<div className="flex shrink-0 items-start gap-3 px-5 pt-2 pb-3 sm:pt-4">
+				<div className="dialog:pt-4 flex shrink-0 items-start gap-3 px-5 pt-2 pb-3">
 					{/* pt-2 sets the title's first line level with the 44px Close. */}
 					<div className="min-w-0 flex-1 pt-2">
 						<h2 id={labelledBy} className="font-serif text-xl leading-7">
@@ -268,9 +337,10 @@ function SheetFrame({
 					<BottomSheetClose onClose={() => onCloseRef.current()} />
 				</div>
 				<div
+					data-bottom-sheet-body=""
 					className={cn(
 						// Clears the home indicator on a phone.
-						'min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(1.25rem+var(--safe-bottom))] sm:pb-5',
+						'dialog:pb-5 min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(1.25rem+var(--safe-bottom))]',
 						bodyClassName,
 					)}
 				>
@@ -279,6 +349,59 @@ function SheetFrame({
 			</div>
 		</div>
 	)
+	// A sheet opens on a tap, after hydration; the server never renders one.
+	return typeof document === 'undefined'
+		? frame
+		: createPortal(frame, document.body)
+}
+
+/**
+ * Plays a sheet's exit on an inert copy of it, for a sheet whose owner went
+ * away while it was open. The copy starts where the sheet was, so its entry
+ * (`@starting-style`) must not run first.
+ */
+function playExitCopy(root: HTMLElement) {
+	const copy = root.cloneNode(true) as HTMLElement
+	copy.inert = true
+	copy.setAttribute('aria-hidden', 'true')
+	for (const element of copy.querySelectorAll('[id]'))
+		element.removeAttribute('id')
+	const originals = [
+		root,
+		...root.querySelectorAll<HTMLElement>('[data-state]'),
+	]
+	const parts = [copy, ...copy.querySelectorAll<HTMLElement>('[data-state]')]
+	// From where the sheet is now: open, pulled part way, or already leaving.
+	parts.forEach((part, index) => {
+		const shown = getComputedStyle(originals[index]!)
+		part.style.transition = 'none'
+		part.style.setProperty('transform', shown.transform, 'important')
+		part.style.setProperty('opacity', shown.opacity, 'important')
+		part.setAttribute('data-state', 'open')
+	})
+	document.body.append(copy)
+	// A copy has none of the scrolled positions.
+	const body = root.querySelector('[data-bottom-sheet-body]')
+	const copyBody = copy.querySelector('[data-bottom-sheet-body]')
+	if (body && copyBody) copyBody.scrollTop = body.scrollTop
+	copy.getBoundingClientRect()
+	for (const part of parts) {
+		part.style.removeProperty('transition')
+		part.style.removeProperty('transform')
+		part.style.removeProperty('opacity')
+		part.setAttribute('data-state', 'closed')
+	}
+	// Gone once its exit has run; at once where nothing animates (jsdom).
+	const exits = copy.getAnimations?.({ subtree: true }) ?? []
+	if (exits.length === 0) {
+		copy.remove()
+		return
+	}
+	const fallback = window.setTimeout(() => copy.remove(), EXIT_FALLBACK_MS)
+	void Promise.allSettled(exits.map((exit) => exit.finished)).then(() => {
+		window.clearTimeout(fallback)
+		copy.remove()
+	})
 }
 
 function BottomSheetClose({ onClose }: { onClose: () => void }) {

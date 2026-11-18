@@ -9,10 +9,38 @@ function TooltipProvider(
 	return <TooltipPrimitive.Provider data-slot="tooltip-provider" {...props} />
 }
 
-function Tooltip(props: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+/**
+ * Tooltips are for a mouse. On a touch screen, and always in the iOS app, a
+ * tooltip never opens: Radix opens one on focus too, so focus coming back to
+ * a button after a sheet closes would otherwise show it.
+ */
+function canShowTooltips() {
+	if (document.documentElement.hasAttribute('data-native-shell')) return false
+	return (
+		window.matchMedia?.('(hover: hover) and (pointer: fine)').matches ?? true
+	)
+}
+
+function Tooltip({
+	open: openProp,
+	defaultOpen = false,
+	onOpenChange,
+	...props
+}: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+	const [openState, setOpenState] = React.useState(defaultOpen)
+	const open = openProp ?? openState
 	return (
 		<TooltipProvider>
-			<TooltipPrimitive.Root data-slot="tooltip" {...props} />
+			<TooltipPrimitive.Root
+				data-slot="tooltip"
+				{...props}
+				open={open}
+				onOpenChange={(nextOpen) => {
+					if (nextOpen && !canShowTooltips()) return
+					setOpenState(nextOpen)
+					onOpenChange?.(nextOpen)
+				}}
+			/>
 		</TooltipProvider>
 	)
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { useSpinDelay } from 'spin-delay'
+import { BottomSheet, opensAsSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import {
 	DropdownMenu,
@@ -62,6 +63,13 @@ export function ShoppingListItemCard({
 	isVoiceAdded,
 }: ShoppingListItemCardProps) {
 	const [isEditing, setIsEditing] = useState(false)
+	// On a phone the editor is a bottom sheet over the row; wider, it takes
+	// the row's place. Set when it opens.
+	const [editInSheet, setEditInSheet] = useState(false)
+	// Each open starts a fresh form, even one that reopens a sheet still
+	// leaving with what was typed before.
+	const [editCount, setEditCount] = useState(0)
+	const menuTriggerRef = useRef<HTMLButtonElement>(null)
 	const [menuOpen, setMenuOpen] = useState(false)
 	// Edit replaces the row, trigger included, so the closing menu has no
 	// trigger to hand focus back to; the edit field takes it instead.
@@ -171,78 +179,109 @@ export function ShoppingListItemCard({
 			{ method: 'POST' },
 		)
 
-	if (isEditing) {
+	const editor = (
+		<editFetcher.Form
+			key={editCount}
+			method="POST"
+			onKeyDown={(e) => {
+				if (e.key === 'Escape') setIsEditing(false)
+			}}
+		>
+			<HouseholdClientInput />
+			<input type="hidden" name="intent" value="edit" />
+			<input type="hidden" name="itemId" value={item.id} />
+			<div className={editInSheet ? 'space-y-3' : 'space-y-2'}>
+				<EditField label="Name" id={`edit-${item.id}-name`} show={editInSheet}>
+					<Input
+						id={`edit-${item.id}-name`}
+						name="name"
+						defaultValue={item.name}
+						placeholder="Item name"
+						// Items stay lowercase, like the ones From Plan.
+						autoCapitalize="none"
+						autoFocus
+						required
+						maxLength={100}
+					/>
+				</EditField>
+				<div className="flex gap-2">
+					<EditField
+						label="Quantity"
+						id={`edit-${item.id}-quantity`}
+						show={editInSheet}
+						className="flex-1"
+					>
+						<Input
+							id={`edit-${item.id}-quantity`}
+							name="quantity"
+							defaultValue={
+								item.source === 'manual'
+									? (item.quantity ?? '')
+									: (display.quantity ?? '')
+							}
+							placeholder="Qty"
+							enterKeyHint="done"
+							className="flex-1"
+							maxLength={50}
+						/>
+					</EditField>
+					<EditField
+						label="Unit"
+						id={`edit-${item.id}-unit`}
+						show={editInSheet}
+						className="flex-1"
+					>
+						<Input
+							id={`edit-${item.id}-unit`}
+							name="unit"
+							defaultValue={
+								item.source === 'manual'
+									? (item.unit ?? '')
+									: (display.unit ?? '')
+							}
+							placeholder="Unit"
+							autoCapitalize="none"
+							autoCorrect="off"
+							className="flex-1"
+							maxLength={20}
+						/>
+					</EditField>
+				</div>
+				{serverError && (
+					<p className="text-destructive text-sm">{serverError}</p>
+				)}
+				{editInSheet ? (
+					// A sheet closes by its own Close; Save is full width.
+					<Button type="submit" className="mt-1 w-full">
+						Save
+					</Button>
+				) : (
+					<div className="flex justify-end gap-2">
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							onClick={() => setIsEditing(false)}
+						>
+							Cancel
+						</Button>
+						<Button type="submit" size="sm">
+							Save
+						</Button>
+					</div>
+				)}
+			</div>
+		</editFetcher.Form>
+	)
+
+	if (isEditing && !editInSheet) {
 		return (
 			<div
 				className="p-3"
 				role="group"
 				aria-label={`${item.name} shopping item`}
 			>
-				<editFetcher.Form
-					method="POST"
-					onKeyDown={(e) => {
-						if (e.key === 'Escape') setIsEditing(false)
-					}}
-				>
-					<HouseholdClientInput />
-					<input type="hidden" name="intent" value="edit" />
-					<input type="hidden" name="itemId" value={item.id} />
-					<div className="space-y-2">
-						<Input
-							name="name"
-							defaultValue={item.name}
-							placeholder="Item name"
-							// Items stay lowercase, like the ones From Plan.
-							autoCapitalize="none"
-							autoFocus
-							required
-							maxLength={100}
-						/>
-						<div className="flex gap-2">
-							<Input
-								name="quantity"
-								defaultValue={
-									item.source === 'manual'
-										? (item.quantity ?? '')
-										: (display.quantity ?? '')
-								}
-								placeholder="Qty"
-								enterKeyHint="done"
-								className="flex-1"
-								maxLength={50}
-							/>
-							<Input
-								name="unit"
-								defaultValue={
-									item.source === 'manual'
-										? (item.unit ?? '')
-										: (display.unit ?? '')
-								}
-								placeholder="Unit"
-								autoCapitalize="none"
-								autoCorrect="off"
-								className="flex-1"
-								maxLength={20}
-							/>
-						</div>
-						{serverError && (
-							<p className="text-destructive text-sm">{serverError}</p>
-						)}
-						<div className="flex justify-end gap-2">
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								onClick={() => setIsEditing(false)}
-							>
-								Cancel
-							</Button>
-							<Button type="submit" size="sm">
-								Save
-							</Button>
-						</div>
-					</div>
-				</editFetcher.Form>
+				{editor}
 			</div>
 		)
 	}
@@ -396,6 +435,7 @@ export function ShoppingListItemCard({
 				<DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
 					<DropdownMenuTrigger asChild disabled={Boolean(checkState)}>
 						<button
+							ref={menuTriggerRef}
 							type="button"
 							// Radix opens a menu on pointerdown. A finger opens it on the
 							// tap instead, so a row swipe that starts here (where a thumb
@@ -457,6 +497,8 @@ export function ShoppingListItemCard({
 								<DropdownMenuItem
 									onSelect={() => {
 										openingEdit.current = true
+										setEditInSheet(opensAsSheet())
+										setEditCount((count) => count + 1)
 										setIsEditing(true)
 									}}
 								>
@@ -511,6 +553,46 @@ export function ShoppingListItemCard({
 					</div>
 				)}
 			</div>
+			{/* Outside the swiping row, so its taps and drags stay the sheet's. */}
+			{editInSheet && (
+				<BottomSheet
+					open={isEditing}
+					onClose={() => setIsEditing(false)}
+					labelledBy={`edit-${item.id}-title`}
+					title="Edit item"
+					returnFocusRef={menuTriggerRef}
+				>
+					{editor}
+				</BottomSheet>
+			)}
+		</div>
+	)
+}
+
+/** A visible label over a field in the sheet; the inline editor has none. */
+function EditField({
+	label,
+	id,
+	show,
+	className,
+	children,
+}: {
+	label: string
+	id: string
+	show: boolean
+	className?: string
+	children: React.ReactNode
+}) {
+	if (!show) return children
+	return (
+		<div className={className}>
+			<label
+				htmlFor={id}
+				className="text-muted-foreground mb-1 block text-xs font-medium"
+			>
+				{label}
+			</label>
+			{children}
 		</div>
 	)
 }

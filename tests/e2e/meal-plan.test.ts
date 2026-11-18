@@ -110,13 +110,16 @@ test.describe('Move a Meal', () => {
 		await expect(mealActions).toBeFocused()
 		await mealActions.click()
 		await page.getByRole('menuitem', { name: 'Edit details' }).click()
-		await expect(mobile.getByLabel('Date', { exact: true })).toHaveValue(
+		// On a phone Edit details is a sheet over the Plan.
+		const details = page.getByRole('dialog', { name: 'Edit details' })
+		await expect(details.getByLabel('Date', { exact: true })).toHaveValue(
 			'2026-10-23',
 		)
-		await expect(mobile.getByLabel('Serving time')).toHaveValue('18:30')
-		await mobile.getByLabel('Date', { exact: true }).fill('2026-10-30')
-		await mobile.getByLabel('Guests').fill('4')
-		await mobile.getByRole('button', { name: 'Save', exact: true }).click()
+		await expect(details.getByLabel('Serving time')).toHaveValue('18:30')
+		await details.getByLabel('Date', { exact: true }).fill('2026-10-30')
+		await details.getByLabel('Guests').fill('4')
+		await details.getByRole('button', { name: 'Save', exact: true }).click()
+		await expect(details).toBeHidden()
 		await expect(page).toHaveURL(`/plan?weekStart=2026-10-26&mealId=${meal.id}`)
 		const movedCard = mobile.locator(`[data-meal-id="${meal.id}"]`)
 		await expect(mobile.getByRole('heading', { name: 'Oct 30' })).toBeVisible()
@@ -655,7 +658,7 @@ test.describe('Plan quick-add failure', () => {
 	})
 })
 
-test('Narrowing the phone Plan picker keeps the page height, so the input stays above the keyboard', async ({
+test('Narrowing the phone Plan picker keeps the sheet height, so the input stays above the keyboard', async ({
 	page,
 	login,
 }) => {
@@ -684,7 +687,8 @@ test('Narrowing the phone Plan picker keeps the page height, so the input stays 
 
 	await page.goto('/plan')
 	const mobile = page.getByTestId('mobile-plan')
-	const composer = mobile.getByRole('region', { name: /^Add Meal for/ })
+	// On a phone the composer is a sheet over the page.
+	const composer = page.getByRole('dialog', { name: 'Add a Meal' })
 	await expect(async () => {
 		if (!(await composer.isVisible())) {
 			await mobile.getByRole('button', { name: /^Add Meal to/ }).click()
@@ -696,7 +700,7 @@ test('Narrowing the phone Plan picker keeps the page height, so the input stays 
 	await expect(
 		composer.getByRole('button', { name: /Herb Omelette/ }),
 	).toBeVisible()
-	// The composer slides in over 280ms; take the baseline once it has settled.
+	// The sheet slides up; take the baseline once it has settled.
 	await composer.evaluate((section) =>
 		Promise.all(
 			section
@@ -718,13 +722,16 @@ test('Narrowing the phone Plan picker keeps the page height, so the input stays 
 			}
 		)
 	}
+	const sheetHeight = async () =>
+		Math.round((await composer.boundingBox())!.height)
 	const openedHeight = await pageHeight()
+	const openedSheetHeight = await sheetHeight()
 	const openedSearchBox = await searchBox()
 
 	// Playwright has no phone keyboard, so the test holds the invariant iOS
-	// Safari needs: while the results narrow, the page keeps its height and
-	// the input stays where the keyboard was raised around it. A shorter page
-	// makes iOS clamp its scroll and drop the input behind the keyboard.
+	// Safari needs: while the results narrow, the sheet keeps its height and
+	// the input stays where the keyboard was raised around it. A shorter
+	// sheet drops the input down behind the keyboard.
 	await search.fill('coq')
 	await expect(
 		composer.getByRole('button', { name: /Coq au Vin/ }),
@@ -733,15 +740,18 @@ test('Narrowing the phone Plan picker keeps the page height, so the input stays 
 		composer.getByRole('button', { name: /Herb Omelette/ }),
 	).toHaveCount(0)
 	expect(await pageHeight()).toBe(openedHeight)
+	expect(await sheetHeight()).toBe(openedSheetHeight)
 	expect(await searchBox()).toEqual(openedSearchBox)
 
 	await search.fill('zzzz')
 	await expect(composer.getByText('No Recipes or Menus found')).toBeVisible()
 	expect(await pageHeight()).toBe(openedHeight)
+	expect(await sheetHeight()).toBe(openedSheetHeight)
 	expect(await searchBox()).toEqual(openedSearchBox)
 
 	await search.fill('coq')
 	await composer.getByRole('button', { name: /Coq au Vin/ }).click()
+	await expect(composer).toBeHidden()
 	await expect(mobile.getByText('Coq au Vin', { exact: true })).toBeVisible()
 	await expect
 		.poll(() =>

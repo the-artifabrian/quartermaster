@@ -30,7 +30,7 @@ import {
 	PopoverAnchor,
 	PopoverContent,
 } from '#app/components/ui/popover.tsx'
-import { BottomSheet } from '#app/components/ui/bottom-sheet.tsx'
+import { BottomSheet, opensAsSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { type PlannedMealResult } from '#app/routes/plan/plan-action.server.ts'
 import {
 	addDaysUTC,
@@ -78,13 +78,6 @@ import { getKeepAwakePreference, useWakeLock } from '#app/utils/wake-lock.ts'
 import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
 import { useStaleRevalidate } from '#app/utils/use-stale-revalidate.ts'
 import { type Route } from './+types/$recipeId.ts'
-
-/**
- * Add to Plan opens as a bottom sheet on a phone, upright or on its side, and
- * as a popover elsewhere.
- */
-const PLAN_PICKER_SHEET_QUERY =
-	'(max-width: 639px), (pointer: coarse) and (max-height: 500px)'
 
 export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
@@ -826,9 +819,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							favoriteFetcher={favoriteFetcher}
 							enhanceFetcher={enhanceFetcher}
 							onAddToPlan={() => {
-								setPlanPickerAsSheet(
-									window.matchMedia(PLAN_PICKER_SHEET_QUERY).matches,
-								)
+								// A sheet on a phone, upright or on its side; a popover
+								// elsewhere.
+								setPlanPickerAsSheet(opensAsSheet())
 								setPlanPickerOpen(true)
 							}}
 							onCopy={handleCopyRecipe}

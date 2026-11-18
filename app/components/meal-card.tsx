@@ -13,6 +13,7 @@ import {
 	useEnteringRows,
 	useHiddenRows,
 } from '#app/components/undo-delete.tsx'
+import { BottomSheet, opensAsSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import {
 	DropdownMenu,
@@ -302,9 +303,12 @@ function buildMealRows(meal: PlanMeal): MealRow[] {
 function MealDetailsForm({
 	meal,
 	onDone,
+	inSheet = false,
 }: {
 	meal: PlanMeal
 	onDone: () => void
+	/** A sheet closes by its own Close and puts Save full width. */
+	inSheet?: boolean
 }) {
 	const fetcher = useFetcher<{
 		status: string
@@ -433,14 +437,24 @@ function MealDetailsForm({
 					errors={Object.values(fetcher.data?.submission?.error ?? {}).flat()}
 				/>
 			</div>
-			<div className="flex justify-end gap-2">
-				<Button type="button" variant="ghost" size="sm" onClick={onDone}>
-					Cancel
-				</Button>
-				<Button type="submit" size="sm" disabled={fetcher.state !== 'idle'}>
+			{inSheet ? (
+				<Button
+					type="submit"
+					className="w-full"
+					disabled={fetcher.state !== 'idle'}
+				>
 					{fetcher.state !== 'idle' ? 'Saving…' : 'Save'}
 				</Button>
-			</div>
+			) : (
+				<div className="flex justify-end gap-2">
+					<Button type="button" variant="ghost" size="sm" onClick={onDone}>
+						Cancel
+					</Button>
+					<Button type="submit" size="sm" disabled={fetcher.state !== 'idle'}>
+						{fetcher.state !== 'idle' ? 'Saving…' : 'Save'}
+					</Button>
+				</div>
+			)}
 		</fetcher.Form>
 	)
 }
@@ -484,7 +498,17 @@ export function MealCard({
 		}
 	}>()
 	const [addingRecipe, setAddingRecipe] = useState(false)
+	// On a phone the Recipe picker and Edit details are bottom sheets; wider,
+	// they open in place. Set when each opens.
+	const [recipeInSheet, setRecipeInSheet] = useState(false)
+	const [detailsInSheet, setDetailsInSheet] = useState(false)
+	// Each open starts a fresh picker or form, even one that reopens a sheet
+	// still leaving. One count each, so opening one leaves the other alone.
+	const [recipeOpens, setRecipeOpens] = useState(0)
+	const [detailsOpens, setDetailsOpens] = useState(0)
 	const addRecipeButtonRef = useRef<HTMLButtonElement>(null)
+	// Edit details' sheet hands focus back here: its menu item is gone.
+	const menuTriggerRef = useRef<HTMLButtonElement>(null)
 	// Closing the picker unmounts whatever had focus; hand focus back to the
 	// button that opened it instead of dropping it on the page.
 	const restoreAddRecipeFocus = useRef(false)
@@ -603,6 +627,37 @@ export function MealCard({
 		prevShoppingState.current = addToShoppingFetcher.state
 	}, [addToShoppingFetcher.state, addToShoppingFetcher.data])
 
+	const recipePicker =
+		choices.state.status === 'success' ? (
+			<RecipeSelector
+				key={recipeOpens}
+				recipes={choices.state.recipes}
+				date={new Date(meal.dateStr + 'T00:00:00.000Z')}
+				excludeRecipeIds={meal.items.flatMap((item) => item.recipe?.id ?? [])}
+				onCancel={closeRecipePicker}
+				// A sheet has its own Close.
+				showClose={!recipeInSheet}
+				onPick={(recipe) => {
+					void addRecipeFetcher.submit(
+						{
+							intent: 'addRecipeToMeal',
+							mealId: meal.id,
+							recipeId: recipe.id,
+						},
+						{ method: 'POST' },
+					)
+					closeRecipePicker()
+				}}
+			/>
+		) : (
+			<PlanChoiceRequestState
+				state={choices.state.status}
+				onRetry={choices.load}
+				onCancel={recipeInSheet ? undefined : closeRecipePicker}
+				subject="Recipes"
+			/>
+		)
+
 	function submitMealCooked(cooked: boolean) {
 		void mealCookedFetcher.submit(
 			{ intent: 'setMealCooked', mealId: meal.id, cooked: String(cooked) },
@@ -615,7 +670,9 @@ export function MealCard({
 			ref={cardRef}
 			tabIndex={-1}
 			data-meal-id={meal.id}
-			className="group border-border/50 bg-card/60 shadow-warm focus-visible:ring-ring relative rounded-xl border p-3 focus-visible:ring-2 md:rounded-none md:border-0 md:bg-transparent md:px-0 md:py-1.5 md:shadow-none"
+			// A flat row under the day heading; the day draws the dividers
+			// between Meals (MealCards).
+			className="group focus-visible:ring-ring relative rounded-sm py-3 focus-visible:ring-2 md:py-1.5"
 		>
 			{/* Header: optional label/time/guests on the left — display metadata
 			    only, never what orders the day (#98) — controls on the right. */}
@@ -650,6 +707,7 @@ export function MealCard({
 				<DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
 					<DropdownMenuTrigger asChild>
 						<button
+							ref={menuTriggerRef}
 							type="button"
 							// Radix opens a menu on pointerdown. A finger opens it on the
 							// tap instead, so a scroll that starts on the button leaves
@@ -712,7 +770,13 @@ export function MealCard({
 							<Icon name="check" size="sm" />
 							{isComplete ? 'Mark not cooked' : 'Mark cooked'}
 						</DropdownMenuItem>
-						<DropdownMenuItem onSelect={() => setEditingDetails(true)}>
+						<DropdownMenuItem
+							onSelect={() => {
+								setDetailsInSheet(opensAsSheet())
+								setDetailsOpens((count) => count + 1)
+								setEditingDetails(true)
+							}}
+						>
 							<Icon name="pencil-1" size="sm" />
 							Edit details
 						</DropdownMenuItem>
@@ -774,14 +838,30 @@ export function MealCard({
 				</DropdownMenu>
 			</div>
 
-			{/* Edit details inline panel */}
-			{editingDetails && (
+			{/* Edit details: inline panel, or a sheet on a phone */}
+			{editingDetails && !detailsInSheet && (
 				<div className="border-border/50 bg-background mt-1 rounded-md border p-3">
 					<MealDetailsForm
 						meal={meal}
 						onDone={() => setEditingDetails(false)}
 					/>
 				</div>
+			)}
+			{detailsInSheet && (
+				<BottomSheet
+					open={editingDetails}
+					onClose={() => setEditingDetails(false)}
+					labelledBy={`meal-details-${meal.id}-title`}
+					title="Edit details"
+					returnFocusRef={menuTriggerRef}
+				>
+					<MealDetailsForm
+						key={detailsOpens}
+						meal={meal}
+						inSheet
+						onDone={() => setEditingDetails(false)}
+					/>
+				</BottomSheet>
 			)}
 
 			{isText ? (
@@ -815,67 +895,63 @@ export function MealCard({
 				</div>
 			) : (
 				<div className="space-y-0">
-					{rows.map((row, index) => (
-						<RowCollapse
-							key={row.key}
-							hidden={row.kind === 'recipe' && hidden.has(row.item.id)}
-							entering={row.kind === 'recipe' && entering.has(row.item.id)}
-							className={cn(
-								row.kind === 'heading'
-									? index > 0 && 'mt-3'
-									: index > 0 &&
-											rows[index - 1]!.kind !== 'heading' &&
-											'border-border/50 mt-2 border-t pt-2',
-							)}
-						>
-							{row.kind === 'heading' ? (
-								<h5 className="text-muted-foreground/80 text-[10px] font-semibold tracking-wider uppercase">
-									{row.name}
-								</h5>
-							) : row.kind === 'recipe' ? (
-								<ItemRow
-									item={row.item}
-									// The last Recipe goes with its Meal: Delete Meal.
-									showRemove={visibleItemCount > 1 || meal.noteItems.length > 0}
-								/>
-							) : (
-								<NoteRow note={row.note} />
-							)}
-						</RowCollapse>
-					))}
+					{rows.map((row, index) => {
+						// The Recipe or note showing just before this one, skipping
+						// rows deleted with Undo still waiting. A line goes between two
+						// that show, never under a heading or above the first.
+						let before: MealRow | undefined
+						for (let i = index - 1; i >= 0 && !before; i--) {
+							const candidate = rows[i]!
+							if (candidate.kind === 'recipe' && hidden.has(candidate.item.id))
+								continue
+							before = candidate
+						}
+						const insetLine =
+							row.kind !== 'heading' &&
+							before != null &&
+							before.kind !== 'heading'
+						return (
+							<RowCollapse
+								key={row.key}
+								hidden={row.kind === 'recipe' && hidden.has(row.item.id)}
+								entering={row.kind === 'recipe' && entering.has(row.item.id)}
+								className={cn(
+									row.kind === 'heading'
+										? index > 0 && 'mt-3'
+										: index > 0 &&
+												rows[index - 1]!.kind !== 'heading' &&
+												'mt-2 pt-2',
+									// Inset from the cooked toggle, so it reads as inside the
+									// Meal next to the full-width line between Meals.
+									insetLine &&
+										"before:border-border/60 relative before:absolute before:top-0 before:right-0 before:left-11 before:border-t before:content-[''] md:before:left-8",
+								)}
+							>
+								{row.kind === 'heading' ? (
+									<h5 className="text-muted-foreground/80 text-[10px] font-semibold tracking-wider uppercase">
+										{row.name}
+									</h5>
+								) : row.kind === 'recipe' ? (
+									<ItemRow
+										item={row.item}
+										// The last Recipe goes with its Meal: Delete Meal.
+										showRemove={
+											visibleItemCount > 1 || meal.noteItems.length > 0
+										}
+									/>
+								) : (
+									<NoteRow note={row.note} />
+								)}
+							</RowCollapse>
+						)
+					})}
 
 					{/* Add another Recipe directly to this Meal (#98 story 41). The
-					    picker replaces the button while open and has its own Cancel. */}
-					{addingRecipe ? (
+					    picker replaces the button while open and has its own Cancel;
+					    on a phone it is a sheet over the button. */}
+					{addingRecipe && !recipeInSheet ? (
 						<div className="bg-card animate-fade-up-reveal shadow-warm-lg mt-2 rounded-lg border p-3">
-							{choices.state.status === 'success' ? (
-								<RecipeSelector
-									recipes={choices.state.recipes}
-									date={new Date(meal.dateStr + 'T00:00:00.000Z')}
-									excludeRecipeIds={meal.items.flatMap(
-										(item) => item.recipe?.id ?? [],
-									)}
-									onCancel={closeRecipePicker}
-									onPick={(recipe) => {
-										void addRecipeFetcher.submit(
-											{
-												intent: 'addRecipeToMeal',
-												mealId: meal.id,
-												recipeId: recipe.id,
-											},
-											{ method: 'POST' },
-										)
-										closeRecipePicker()
-									}}
-								/>
-							) : (
-								<PlanChoiceRequestState
-									state={choices.state.status}
-									onRetry={choices.load}
-									onCancel={closeRecipePicker}
-									subject="Recipes"
-								/>
-							)}
+							{recipePicker}
 						</div>
 					) : (
 						<button
@@ -883,6 +959,8 @@ export function MealCard({
 							type="button"
 							onClick={() => {
 								choices.load()
+								setRecipeInSheet(opensAsSheet())
+								setRecipeOpens((count) => count + 1)
 								setAddingRecipe(true)
 							}}
 							aria-label={`Add Recipe to ${mealActionName}`}
@@ -891,6 +969,16 @@ export function MealCard({
 							<Icon name="plus" className="size-3" />
 							Add Recipe
 						</button>
+					)}
+					{recipeInSheet && (
+						<BottomSheet
+							open={addingRecipe}
+							onClose={closeRecipePicker}
+							labelledBy={`meal-add-recipe-${meal.id}-title`}
+							title="Add a Recipe"
+						>
+							{recipePicker}
+						</BottomSheet>
 					)}
 				</div>
 			)}

@@ -61,7 +61,8 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 	await page.goto('/plan')
 	const mobile = page.getByTestId('mobile-plan')
 	async function openAddMeal() {
-		const composer = mobile.getByRole('region', { name: /^Add Meal for/ })
+		// On a phone the composer is a sheet over the day.
+		const composer = page.getByRole('dialog', { name: 'Add a Meal' })
 		await expect(async () => {
 			if (!(await composer.isVisible())) {
 				await mobile.getByRole('button', { name: /^Add Meal to/ }).click()
@@ -86,7 +87,8 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 		composer.getByPlaceholder('Search Recipes and Menus...'),
 	).toBeVisible()
 
-	await composer.getByRole('button', { name: 'Close picker' }).click()
+	await composer.getByRole('button', { name: 'Close', exact: true }).click()
+	await expect(composer).toBeHidden()
 	composer = await openAddMeal()
 	await expect(
 		composer.getByPlaceholder('Search Recipes and Menus...'),
@@ -105,6 +107,7 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 	await composer.getByRole('button', { name: /Add text instead/ }).click()
 	await composer.getByRole('textbox', { name: 'Meal text' }).fill('Leftovers')
 	await composer.getByRole('button', { name: 'Add', exact: true }).click()
+	await expect(composer).toBeHidden()
 	await expect(mobile.getByText('Leftovers', { exact: true })).toBeVisible()
 
 	composer = await openAddMeal()
@@ -118,6 +121,7 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 	).toBeVisible()
 	expect(choiceRequestCount).toBe(4)
 	await composer.getByRole('button', { name: /Crisp Salad/ }).click()
+	await expect(composer).toBeHidden()
 	await expect(mobile.getByText('Crisp Salad', { exact: true })).toBeVisible()
 
 	const anchorCard = mobile.locator(`[data-meal-id="${anchorMeal.id}"]`)
@@ -125,18 +129,20 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 		name: 'Add Recipe to Anchor Pasta',
 	})
 	await addRecipe.click()
-	const recipeSearch = anchorCard.getByPlaceholder('Search recipes...')
+	// A sheet over the Meal on a phone.
+	const recipeSheet = page.getByRole('dialog', { name: 'Add a Recipe' })
+	const recipeSearch = recipeSheet.getByPlaceholder('Search recipes...')
 	await expect(recipeSearch).toBeVisible()
-	await expect(addRecipe).toBeHidden()
 	await expect(
-		anchorCard.getByRole('button', { name: 'Anchor Pasta', exact: true }),
+		recipeSheet.getByRole('button', { name: 'Anchor Pasta', exact: true }),
 	).toHaveCount(0)
-	await anchorCard.getByRole('button', { name: 'Close picker' }).click()
-	await expect(recipeSearch).toBeHidden()
+	await recipeSheet.getByRole('button', { name: 'Close', exact: true }).click()
+	await expect(recipeSheet).toBeHidden()
 	await expect(addRecipe).toBeFocused()
 
 	await addRecipe.click()
-	await anchorCard.getByRole('button', { name: /Warm Bread/ }).click()
+	await recipeSheet.getByRole('button', { name: /Warm Bread/ }).click()
+	await expect(recipeSheet).toBeHidden()
 	await expect(
 		anchorCard.getByText('Anchor Pasta', { exact: true }),
 	).toBeVisible()

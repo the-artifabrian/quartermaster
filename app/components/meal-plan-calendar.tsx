@@ -36,6 +36,7 @@ import { type PlanMeal, MealCard } from './meal-card.tsx'
 import { RowCollapse } from './ui/row-collapse.tsx'
 import { useEnteringRows, useHiddenRows } from './undo-delete.tsx'
 import { type PlanItemChoice, PlanItemSelector } from './recipe-selector.tsx'
+import { BottomSheet, opensAsSheet } from './ui/bottom-sheet.tsx'
 import { Button } from './ui/button.tsx'
 import { Chip } from './ui/chip.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -82,6 +83,8 @@ function AddMealControl({
 	const fetcher = useFetcher<AddMealActionData>()
 	const navigate = useNavigate()
 	const [open, setOpen] = useState(false)
+	// On a phone the composer is a bottom sheet; wider, it opens in place.
+	const [asSheet, setAsSheet] = useState(false)
 	const [mode, setMode] = useState<'item' | 'text'>('item')
 	const [label, setLabel] = useState<MealType | null>(null)
 	const [text, setText] = useState('')
@@ -110,10 +113,6 @@ function AddMealControl({
 		setPendingMenuSubmission(false)
 		if (fetcher.data?.status === 'success') {
 			setOpen(false)
-			setMode('item')
-			setLabel(null)
-			setText('')
-			setMenuError(null)
 		} else {
 			setMenuError(
 				fetcher.data?.menuError ??
@@ -151,13 +150,21 @@ function AddMealControl({
 		}
 	}, [dateLabel, fetcher.data, fetcher.state, navigate, pendingRecipeAdd])
 
-	function close() {
-		setOpen(false)
+	// What the last open left behind clears on the next open, not on close,
+	// so a sheet leaves showing what it showed.
+	function openComposer() {
+		choices.load()
 		setMode('item')
 		setLabel(null)
 		setText('')
-		setPendingMenuSubmission(false)
 		setMenuError(null)
+		setAsSheet(opensAsSheet())
+		setOpen(true)
+	}
+
+	function close() {
+		setOpen(false)
+		setPendingMenuSubmission(false)
 		menuSubmissionStarted.current = false
 	}
 
@@ -235,12 +242,13 @@ function AddMealControl({
 								date={date}
 								onCancel={close}
 								onPick={submitChoice}
+								showClose={!asSheet}
 							/>
 						) : (
 							<PlanChoiceRequestState
 								state={choices.state.status}
 								onRetry={choices.load}
-								onCancel={close}
+								onCancel={asSheet ? undefined : close}
 								subject="Recipes and Menus"
 							/>
 						)}
@@ -278,27 +286,44 @@ function AddMealControl({
 							maxLength={200}
 							aria-label="Meal text"
 						/>
-						<Button
-							variant="ghost"
-							size="icon"
-							onClick={close}
-							aria-label="Close add Meal"
-						>
-							<Icon name="cross-1" size="sm" />
-						</Button>
+						{/* A sheet has its own Close. */}
+						{!asSheet && (
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={close}
+								aria-label="Close add Meal"
+							>
+								<Icon name="cross-1" size="sm" />
+							</Button>
+						)}
 					</div>
-					<div className="flex items-center justify-between gap-3">
+					<div
+						className={cn(
+							'flex items-center justify-between gap-3',
+							// A sheet's primary action is full width at the bottom.
+							asSheet && 'flex-col items-stretch',
+						)}
+					>
 						<button
 							type="button"
 							onClick={() => {
 								choices.load()
 								setMode('item')
 							}}
-							className="text-muted-foreground hover:text-foreground -my-3.5 flex min-h-11 items-center text-xs underline-offset-2 hover:underline"
+							className={cn(
+								'text-muted-foreground hover:text-foreground flex min-h-11 items-center text-xs underline-offset-2 hover:underline',
+								!asSheet && '-my-3.5',
+							)}
 						>
 							Pick a Recipe or Menu instead
 						</button>
-						<Button size="sm" onClick={submitText} disabled={!text.trim()}>
+						<Button
+							size={asSheet ? 'default' : 'sm'}
+							className={cn(asSheet && 'w-full')}
+							onClick={submitText}
+							disabled={!text.trim()}
+						>
 							Add
 						</Button>
 					</div>
@@ -307,23 +332,64 @@ function AddMealControl({
 		</>
 	)
 
-	if (presentation === 'primary') {
-		if (!open) {
-			return (
-				<Button
-					type="button"
-					onClick={() => {
-						choices.load()
-						setOpen(true)
-					}}
-					aria-label={`Add Meal to ${dateLabel}`}
-				>
-					<Icon name="plus" size="sm" />
+	const trigger =
+		presentation === 'primary' ? (
+			<Button
+				type="button"
+				onClick={openComposer}
+				aria-label={`Add Meal to ${dateLabel}`}
+			>
+				<Icon name="plus" size="sm" />
+				Add Meal
+			</Button>
+		) : presentation === 'empty-row' ? (
+			<button
+				type="button"
+				onClick={openComposer}
+				aria-label={`Add Meal to ${dateLabel}`}
+				className="group flex w-full flex-col items-start pt-2 text-left text-sm transition-colors"
+			>
+				<span className="text-muted-foreground group-hover:text-foreground">
+					Nothing planned
+				</span>
+				<span className="text-primary group-hover:text-primary/75 flex min-h-9 items-center gap-1 text-xs font-semibold transition-colors">
+					<Icon name="plus" className="size-3" />
 					Add Meal
-				</Button>
-			)
-		}
+				</span>
+			</button>
+		) : (
+			<button
+				type="button"
+				onClick={openComposer}
+				aria-label={`Add Meal to ${dateLabel}`}
+				className="text-primary hover:text-primary/75 flex min-h-9 items-center gap-1 text-xs font-semibold transition-colors"
+			>
+				<Icon name="plus" className="size-3" />
+				Add Meal
+			</button>
+		)
 
+	// On a phone, upright or on its side, the composer is a sheet over the day.
+	if (!open || asSheet) {
+		return (
+			<>
+				{trigger}
+				{asSheet && (
+					<BottomSheet
+						open={open}
+						onClose={close}
+						labelledBy={`add-meal-${serializeDate(date)}-title`}
+						title="Add a Meal"
+						description={`${formatWeekdayName(date)} · ${formatMonthDay(date)}`}
+					>
+						{fields}
+					</BottomSheet>
+				)}
+			</>
+		)
+	}
+
+	if (presentation === 'primary') {
 		return (
 			<section
 				aria-label={`Add Meal for ${dateLabel}`}
@@ -339,45 +405,6 @@ function AddMealControl({
 				</div>
 				{fields}
 			</section>
-		)
-	}
-
-	if (presentation === 'empty-row' && !open) {
-		return (
-			<button
-				type="button"
-				onClick={() => {
-					choices.load()
-					setOpen(true)
-				}}
-				aria-label={`Add Meal to ${dateLabel}`}
-				className="group flex w-full flex-col items-start pt-2 text-left text-sm transition-colors"
-			>
-				<span className="text-muted-foreground group-hover:text-foreground">
-					Nothing planned
-				</span>
-				<span className="text-primary group-hover:text-primary/75 flex min-h-9 items-center gap-1 text-xs font-semibold transition-colors">
-					<Icon name="plus" className="size-3" />
-					Add Meal
-				</span>
-			</button>
-		)
-	}
-
-	if (!open) {
-		return (
-			<button
-				type="button"
-				onClick={() => {
-					choices.load()
-					setOpen(true)
-				}}
-				aria-label={`Add Meal to ${dateLabel}`}
-				className="text-primary hover:text-primary/75 flex min-h-9 items-center gap-1 text-xs font-semibold transition-colors"
-			>
-				<Icon name="plus" className="size-3" />
-				Add Meal
-			</button>
 		)
 	}
 
@@ -412,9 +439,9 @@ function MealCards({
 				hidden={index === -1}
 				entering={entering.has(meal.id)}
 				data-slot="meal-group"
-				className={cn(
-					index > 0 && 'md:border-border md:mt-2 md:border-t md:pt-2',
-				)}
+				// Flat Meal rows with a hairline between the ones showing
+				// (DESIGN_SYSTEM, Plan).
+				className={cn(index > 0 && 'border-border border-t md:mt-2 md:pt-2')}
 			>
 				<MealCard
 					meal={meal}
@@ -633,11 +660,11 @@ export function MealPlanCalendar({
 					/>
 				</div>
 
-				<div className="mt-4 space-y-3">
+				<div className="mt-2">
 					{shownCount(selectedMeals) > 0 ? (
 						<MealCards meals={selectedMeals} choices={choices} />
 					) : (
-						<div className="border-border/60 flex min-h-36 flex-col items-center justify-center rounded-2xl border border-dashed px-6 text-center">
+						<div className="border-border/60 mt-2 flex min-h-36 flex-col items-center justify-center rounded-2xl border border-dashed px-6 text-center">
 							<span className="bg-secondary text-muted-foreground flex size-10 items-center justify-center rounded-full">
 								<Icon name="calendar" size="sm" />
 							</span>

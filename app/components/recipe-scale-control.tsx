@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { type RefObject, useEffect, useRef, useState } from 'react'
+import { BottomSheet, opensAsSheet } from '#app/components/ui/bottom-sheet.tsx'
+import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import {
@@ -32,6 +34,8 @@ type RecipeScaleControlProps = {
 	yieldLabel: string | null
 	onScaleMultiplierChange: (scaleMultiplier: number) => void
 	compact?: boolean
+	/** Filled with a function that saves the typed multiplier now. */
+	commitRef?: RefObject<(() => void) | null>
 }
 
 /**
@@ -42,9 +46,14 @@ export function RecipeScaleControl({
 	scaleMultiplier,
 	onScaleMultiplierChange,
 	compact = false,
+	commitRef,
 }: RecipeScaleControlProps) {
 	const displayedValue = formatScaleMultiplier(scaleMultiplier)
 	const [draft, setDraft] = useState(displayedValue)
+	// The draft last sent. Closing Scale's sheet saves it and the field may
+	// blur straight after, before the parent has taken the value: that blur
+	// must not send it again. Editing the draft clears it.
+	const sentDraft = useRef<string | null>(null)
 
 	useEffect(() => {
 		setDraft(displayedValue)
@@ -52,13 +61,18 @@ export function RecipeScaleControl({
 
 	function commit() {
 		if (draft.trim() === displayedValue) return
+		if (draft === sentDraft.current) return
 		const parsed = ScaleMultiplierSchema.safeParse(draft)
 		if (!parsed.success) {
 			setDraft(displayedValue)
 			return
 		}
+		sentDraft.current = draft
 		onScaleMultiplierChange(parsed.data)
 	}
+	useEffect(() => {
+		if (commitRef) commitRef.current = commit
+	})
 
 	function adjustScale(delta: number) {
 		const nextMultiplier = Math.round((scaleMultiplier + delta) * 100) / 100
@@ -76,6 +90,7 @@ export function RecipeScaleControl({
 				value={draft}
 				onChange={(event) => {
 					if (!isAllowedScaleDraft(event.target.value)) return
+					sentDraft.current = null
 					setDraft(event.target.value)
 				}}
 				maxLength={6}
@@ -158,6 +173,37 @@ export function RecipeIngredientsControls({
 	const formattedTargetYield =
 		derivedTarget != null ? formatTargetYieldAmount(derivedTarget) : null
 	const displayedMultiplier = formatScaleMultiplier(scaleMultiplier)
+	// A popover on wider screens, a bottom sheet on a phone (set on open).
+	const [open, setOpen] = useState(false)
+	const [inSheet, setInSheet] = useState(false)
+	// The multiplier field saves on blur or Enter. On iOS a tap on a button
+	// does not blur it, nor does closing the sheet, so closing saves it.
+	const commitRef = useRef<(() => void) | null>(null)
+	function closeSheet() {
+		commitRef.current?.()
+		setOpen(false)
+	}
+
+	const scaleEditor = (
+		<>
+			<RecipeScaleControl
+				scaleMultiplier={scaleMultiplier}
+				yieldAmount={yieldAmount}
+				yieldLabel={yieldLabel}
+				onScaleMultiplierChange={onScaleMultiplierChange}
+				commitRef={commitRef}
+			/>
+			{scaleMultiplier !== 1 ? (
+				<button
+					type="button"
+					onClick={() => onScaleMultiplierChange(1)}
+					className="text-primary hover:bg-accent/10 focus-visible:ring-ring mt-2 min-h-11 w-full rounded-md px-2 text-sm font-medium focus-visible:ring-2 focus-visible:outline-hidden"
+				>
+					Original 1×
+				</button>
+			) : null}
+		</>
+	)
 
 	return (
 		<div className="mb-4 min-w-0">
@@ -185,11 +231,20 @@ export function RecipeIngredientsControls({
 					Ingredients
 				</h2>
 
-				<Popover>
+				<Popover
+					open={open && !inSheet}
+					onOpenChange={(nextOpen) => {
+						if (nextOpen) setInSheet(opensAsSheet())
+						setOpen(nextOpen)
+					}}
+				>
 					<PopoverTrigger asChild>
 						<button
 							type="button"
 							aria-label={`Scale ${displayedMultiplier}×`}
+							// Radix reports its own state, which is closed while the
+							// sheet stands in for the popover.
+							aria-expanded={open}
 							className="text-muted-foreground hover:text-foreground focus-visible:ring-ring ml-auto flex min-h-11 shrink-0 items-center gap-1 rounded-sm px-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-hidden print:hidden"
 						>
 							<span>Scale</span>
@@ -200,24 +255,23 @@ export function RecipeIngredientsControls({
 						</button>
 					</PopoverTrigger>
 					<PopoverContent align="end" className="w-64 p-3">
-						<p className="mb-2 text-sm font-medium">Scale this recipe</p>
-						<RecipeScaleControl
-							scaleMultiplier={scaleMultiplier}
-							yieldAmount={yieldAmount}
-							yieldLabel={yieldLabel}
-							onScaleMultiplierChange={onScaleMultiplierChange}
-						/>
-						{scaleMultiplier !== 1 ? (
-							<button
-								type="button"
-								onClick={() => onScaleMultiplierChange(1)}
-								className="text-primary hover:bg-accent/10 focus-visible:ring-ring mt-2 min-h-11 w-full rounded-md px-2 text-sm font-medium focus-visible:ring-2 focus-visible:outline-hidden"
-							>
-								Original 1×
-							</button>
-						) : null}
+						<p className="mb-2 text-sm font-medium">Scale this Recipe</p>
+						{scaleEditor}
 					</PopoverContent>
 				</Popover>
+				{inSheet && (
+					<BottomSheet
+						open={open}
+						onClose={closeSheet}
+						labelledBy="recipe-scale-sheet-title"
+						title="Scale this Recipe"
+					>
+						{scaleEditor}
+						<Button type="button" className="mt-4 w-full" onClick={closeSheet}>
+							Done
+						</Button>
+					</BottomSheet>
+				)}
 
 				{onToggleMetric ? (
 					<button

@@ -88,7 +88,9 @@ test('Add a meal names its label chips as Add to Plan does, at thumb size', asyn
 	const mobile = page.getByTestId('mobile-plan')
 	const addMeal = mobile.getByRole('button', { name: /^Add Meal to/ }).first()
 	await expectThumbTall(addMeal)
-	const label = mobile.getByRole('group', { name: 'Label (optional)' })
+	const label = page
+		.getByRole('dialog', { name: 'Add a Meal' })
+		.getByRole('group', { name: 'Label (optional)' })
 	await tapUntil(addMeal, () => expect(label).toBeVisible({ timeout: 2000 }))
 	const lunch = label.getByRole('button', { name: 'Lunch' })
 	await expectThumbTall(lunch)
@@ -157,7 +159,11 @@ test('Shopping From Staples, From Plan and the item editor Save are thumb-sized'
 	const foil = page.getByRole('group', { name: 'Foil shopping item' })
 	await foil.getByRole('button', { name: 'Item actions' }).tap()
 	await page.getByRole('menuitem', { name: 'Edit item' }).tap()
-	await expectThumbTall(foil.getByRole('button', { name: 'Save' }))
+	await expectThumbTall(
+		page
+			.getByRole('dialog', { name: 'Edit item' })
+			.getByRole('button', { name: 'Save' }),
+	)
 })
 
 /**

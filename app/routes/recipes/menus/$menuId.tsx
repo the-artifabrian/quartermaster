@@ -14,6 +14,7 @@ import {
 } from 'react-router'
 import { toast } from 'sonner'
 import { MenuContents } from '#app/components/menu-contents.tsx'
+import { BottomSheet, opensAsSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -31,6 +32,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { PlanMenuSchema } from '#app/utils/meal-plan-validation.ts'
+import { cn } from '#app/utils/misc.tsx'
 import { planMenu } from '#app/utils/plan-menu.server.ts'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
 import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
@@ -205,10 +207,13 @@ function AddToPlanPanel({
 	defaultGuestCount,
 	errors,
 	onCancel,
+	inSheet = false,
 }: {
 	defaultGuestCount: number | null
 	errors: string[]
 	onCancel: () => void
+	/** A sheet brings its own frame and Close and puts the action full width. */
+	inSheet?: boolean
 }) {
 	// The instant is named by wall time plus the browser's IANA zone; the zone
 	// travels in a hidden input so the server can store the pair (#98).
@@ -224,7 +229,9 @@ function AddToPlanPanel({
 	return (
 		<Form
 			method="POST"
-			className="border-border/60 bg-card mt-4 rounded-lg border p-4"
+			className={cn(
+				!inSheet && 'border-border/60 bg-card mt-4 rounded-lg border p-4',
+			)}
 		>
 			<input type="hidden" name="intent" value="planMenu" />
 			<input type="hidden" name="timeZone" value={timeZone} />
@@ -304,15 +311,22 @@ function AddToPlanPanel({
 					))}
 				</ul>
 			) : null}
-			<div className="mt-3 flex justify-end gap-2">
-				<Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-					Cancel
-				</Button>
-				<Button type="submit" size="sm" disabled={submitting}>
+			{inSheet ? (
+				<Button type="submit" className="mt-4 w-full" disabled={submitting}>
 					<Icon name="calendar" size="sm" />
 					{submitting ? 'Adding…' : 'Add to Plan'}
 				</Button>
-			</div>
+			) : (
+				<div className="mt-3 flex justify-end gap-2">
+					<Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+						Cancel
+					</Button>
+					<Button type="submit" size="sm" disabled={submitting}>
+						<Icon name="calendar" size="sm" />
+						{submitting ? 'Adding…' : 'Add to Plan'}
+					</Button>
+				</div>
+			)}
 		</Form>
 	)
 }
@@ -324,6 +338,8 @@ export default function MenuDetail({
 	const { menu } = loaderData
 	const [planning, setPlanning] = useState(false)
 	const [planFormDismissed, setPlanFormDismissed] = useState(false)
+	// On a phone the form is a bottom sheet; wider, it opens in place.
+	const [planInSheet, setPlanInSheet] = useState(false)
 	const planResult =
 		actionData != null && 'result' in actionData ? actionData.result : undefined
 	// A failed full-page POST re-renders with actionData — keep the panel open
@@ -341,6 +357,10 @@ export default function MenuDetail({
 				),
 			]
 		: []
+	function closePlanForm() {
+		setPlanning(false)
+		setPlanFormDismissed(true)
+	}
 	const rootData = useRouteLoaderData('root') as
 		{ requestInfo?: { origin?: string } } | undefined
 	const origin = rootData?.requestInfo?.origin
@@ -389,10 +409,11 @@ export default function MenuDetail({
 			{/* One primary action; Share and Edit stay quiet beside it, the
 			    same shape as the Recipe action bar. */}
 			<div className="mt-4 flex items-center gap-1">
-				{!showPlanPanel && (
+				{(!showPlanPanel || planInSheet) && (
 					<Button
 						className="flex-1 sm:flex-none"
 						onClick={() => {
+							setPlanInSheet(opensAsSheet())
 							setPlanning(true)
 							setPlanFormDismissed(false)
 						}}
@@ -426,15 +447,28 @@ export default function MenuDetail({
 				</Tooltip>
 			</div>
 
-			{showPlanPanel && (
+			{showPlanPanel && !planInSheet && (
 				<AddToPlanPanel
 					defaultGuestCount={menu.defaultGuestCount}
 					errors={planErrors}
-					onCancel={() => {
-						setPlanning(false)
-						setPlanFormDismissed(true)
-					}}
+					onCancel={closePlanForm}
 				/>
+			)}
+			{planInSheet && (
+				<BottomSheet
+					open={showPlanPanel}
+					onClose={closePlanForm}
+					labelledBy="menu-plan-sheet-title"
+					title="Add to Plan"
+					description={menu.title}
+				>
+					<AddToPlanPanel
+						defaultGuestCount={menu.defaultGuestCount}
+						errors={planErrors}
+						onCancel={closePlanForm}
+						inSheet
+					/>
+				</BottomSheet>
 			)}
 
 			<MenuContents menu={menu} />

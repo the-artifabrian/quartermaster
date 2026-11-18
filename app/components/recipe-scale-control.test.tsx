@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import {
@@ -149,4 +149,95 @@ test('compact Meal scaling retains comma-decimal entry', async () => {
 	await user.type(input, '1,5')
 	await user.tab()
 	expect(onChange).toHaveBeenCalledWith(1.5)
+})
+
+// Scale's sheet saves the typed multiplier through `commitRef` when it closes;
+// the field can blur right after, before the parent has taken the value.
+test('a save through commitRef followed by a blur saves once', async () => {
+	const user = userEvent.setup()
+	const onChange = vi.fn()
+	const commitRef: { current: (() => void) | null } = { current: null }
+	render(
+		<RecipeScaleControl
+			scaleMultiplier={1}
+			yieldAmount={null}
+			yieldLabel={null}
+			onScaleMultiplierChange={onChange}
+			commitRef={commitRef}
+		/>,
+	)
+	const input = screen.getByLabelText('Scale multiplier')
+	await user.clear(input)
+	await user.type(input, '2')
+	act(() => commitRef.current!())
+	await user.tab()
+	expect(onChange).toHaveBeenCalledTimes(1)
+	expect(onChange).toHaveBeenCalledWith(2)
+})
+
+test('two saves of the same typed multiplier through commitRef send it once', async () => {
+	const user = userEvent.setup()
+	const onChange = vi.fn()
+	const commitRef: { current: (() => void) | null } = { current: null }
+	render(
+		<RecipeScaleControl
+			scaleMultiplier={1}
+			yieldAmount={null}
+			yieldLabel={null}
+			onScaleMultiplierChange={onChange}
+			commitRef={commitRef}
+		/>,
+	)
+	await user.clear(screen.getByLabelText('Scale multiplier'))
+	await user.type(screen.getByLabelText('Scale multiplier'), '2')
+	act(() => commitRef.current!())
+	act(() => commitRef.current!())
+	expect(onChange).toHaveBeenCalledTimes(1)
+})
+
+test('after the parent takes a multiplier, a newly typed one still saves', async () => {
+	const user = userEvent.setup()
+	const onChange = vi.fn()
+	const commitRef: { current: (() => void) | null } = { current: null }
+	const props = {
+		yieldAmount: null,
+		yieldLabel: null,
+		onScaleMultiplierChange: onChange,
+		commitRef,
+	}
+	const { rerender } = render(
+		<RecipeScaleControl scaleMultiplier={1} {...props} />,
+	)
+	const input = screen.getByLabelText('Scale multiplier')
+	await user.clear(input)
+	await user.type(input, '2')
+	act(() => commitRef.current!())
+	rerender(<RecipeScaleControl scaleMultiplier={2} {...props} />)
+	await user.clear(input)
+	await user.type(input, '3')
+	act(() => commitRef.current!())
+	expect(onChange.mock.calls).toEqual([[2], [3]])
+})
+
+test('typing the sent multiplier again after editing it saves it again', async () => {
+	const user = userEvent.setup()
+	const onChange = vi.fn()
+	const commitRef: { current: (() => void) | null } = { current: null }
+	render(
+		<RecipeScaleControl
+			scaleMultiplier={1}
+			yieldAmount={null}
+			yieldLabel={null}
+			onScaleMultiplierChange={onChange}
+			commitRef={commitRef}
+		/>,
+	)
+	const input = screen.getByLabelText('Scale multiplier')
+	await user.clear(input)
+	await user.type(input, '2')
+	act(() => commitRef.current!())
+	await user.clear(input)
+	await user.type(input, '2')
+	act(() => commitRef.current!())
+	expect(onChange.mock.calls).toEqual([[2], [2]])
 })

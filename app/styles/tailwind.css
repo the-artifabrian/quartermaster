@@ -398,6 +398,7 @@ html {
 	button,
 	[role='button'],
 	[role='checkbox'],
+	[role^='menuitem'],
 	input,
 	select,
 	textarea,

@@ -2,7 +2,7 @@ import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
-test.use({ viewport: { width: 390, height: 844 } })
+test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
 const ITEMS = [
 	'canned tomatoes',
@@ -82,7 +82,7 @@ test('a tap near the edge of a Shopping row checks the item off', async ({
 		.toEqual({ checked: true })
 })
 
-test('the row menu opens above the add button, so Delete stays reachable', async ({
+test('a row menu near the bottom opens clear of the add button and tab bar', async ({
 	page,
 	login,
 }) => {
@@ -104,12 +104,19 @@ test('the row menu opens above the add button, so Delete stays reachable', async
 	await row(page, target).getByRole('button', { name: 'Item actions' }).click()
 	const deleteItem = page.getByRole('menuitem', { name: /^Delete/ })
 	await expect(deleteItem).toBeVisible()
-	const onTop = await deleteItem.evaluate((element) => {
-		const { x, y, width, height } = element.getBoundingClientRect()
-		const hit = document.elementFromPoint(x + width / 2, y + height / 2)
-		return element.contains(hit)
-	})
-	expect(onTop).toBe(true)
+	// The whole menu sits above both, so nothing covers any of its items.
+	// Measured once it has finished growing in.
+	await page
+		.getByRole('menu')
+		.evaluate((element) =>
+			Promise.all(element.getAnimations().map((a) => a.finished)),
+		)
+	const menu = (await page.getByRole('menu').boundingBox())!
+	const tabBar = (await page.locator('[data-bottom-nav]').boundingBox())!
+	expect(menu.y + menu.height).toBeLessThanOrEqual(fab.y)
+	expect(menu.y + menu.height).toBeLessThanOrEqual(tabBar.y)
+	// And its items are thumb-sized on a touch screen.
+	expect((await deleteItem.boundingBox())!.height).toBeGreaterThanOrEqual(44)
 
 	await deleteItem.click()
 	await expect(deleteItem).toHaveText('Delete?')

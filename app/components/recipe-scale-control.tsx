@@ -248,7 +248,7 @@ export function RecipeIngredientsControls({
 						</button>
 					</PopoverTrigger>
 					<PopoverContent align="end" className="w-64 p-3">
-						<p className="mb-2 text-sm font-medium">Scale this recipe</p>
+						<p className="mb-2 text-sm font-medium">Scale this Recipe</p>
 						{scaleEditor}
 					</PopoverContent>
 				</Popover>
@@ -257,7 +257,7 @@ export function RecipeIngredientsControls({
 						open={open}
 						onClose={closeSheet}
 						labelledBy="recipe-scale-sheet-title"
-						title="Scale this recipe"
+						title="Scale this Recipe"
 					>
 						{scaleEditor}
 						<Button type="button" className="mt-4 w-full" onClick={closeSheet}>

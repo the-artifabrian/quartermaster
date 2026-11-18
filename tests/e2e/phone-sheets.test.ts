@@ -68,27 +68,28 @@ async function planMeal(
 ) {
 	const today = todayUTC()
 	const weekStart = getWeekStart(today)
-	const meal = await prisma.meal.create({
+	const plan = await prisma.mealPlan.create({
 		data: {
-			mealPlan: {
-				connectOrCreate: {
-					where: {
-						householdId_weekStart: {
-							householdId: user.householdId,
-							weekStart,
+			householdId: user.householdId,
+			weekStart,
+			meals: {
+				create: {
+					date: today,
+					order: 0,
+					label: 'dinner',
+					recipeItems: {
+						create: {
+							recipeId: recipe.id,
+							recipeTitle: recipe.title,
+							order: 0,
 						},
 					},
-					create: { householdId: user.householdId, weekStart },
 				},
 			},
-			date: today,
-			order: 0,
-			label: 'dinner',
-			recipeItems: {
-				create: { recipeId: recipe.id, recipeTitle: recipe.title, order: 0 },
-			},
 		},
+		include: { meals: true },
 	})
+	const meal = plan.meals[0]!
 	return { meal, weekStart }
 }
 
@@ -264,6 +265,10 @@ test('Edit item is a sheet with labelled fields; Save stores it and focus return
 
 	await sheet.getByRole('textbox', { name: 'Quantity' }).fill('2')
 	await sheet.getByRole('textbox', { name: 'Unit' }).fill('rolls')
+	await expect(sheet.getByRole('textbox', { name: 'Name' })).toHaveValue('foil')
+	await expect(sheet.getByRole('textbox', { name: 'Quantity' })).toHaveValue(
+		'2',
+	)
 	await sheet.getByRole('button', { name: 'Save' }).tap()
 	await expect(sheet).toBeHidden()
 	await expect(row).toContainText('2 rolls')
@@ -289,7 +294,7 @@ test('Scale is a sheet; Done keeps a typed multiplier even when the tap leaves t
 	})
 
 	await page.goto(`/recipes/${recipe.id}`)
-	const sheet = page.getByRole('dialog', { name: 'Scale this recipe' })
+	const sheet = page.getByRole('dialog', { name: 'Scale this Recipe' })
 	await tapUntil(page.getByRole('button', { name: 'Scale 1×' }), () =>
 		expect(sheet).toBeVisible({ timeout: 1000 }),
 	)
@@ -372,7 +377,7 @@ test('Link recipe is a sheet; Enter in its search leaves the Recipe form alone',
 	await page.goto('/recipes/new')
 	await page.getByRole('textbox', { name: 'Title' }).fill('Margherita')
 	await page.getByRole('textbox', { name: 'Ingredient 1 name' }).fill('dough')
-	const sheet = page.getByRole('dialog', { name: 'Link a recipe' })
+	const sheet = page.getByRole('dialog', { name: 'Link a Recipe' })
 	await tapUntil(page.getByRole('button', { name: 'Link recipe' }), () =>
 		expect(sheet).toBeVisible({ timeout: 1000 }),
 	)
@@ -445,6 +450,35 @@ test('Add to Plan from a Menu is a sheet and plans the Menu', async ({
 			}),
 		)
 		.toEqual([{ guestCount: 4, sourceMenuId: menu.id }])
+})
+
+test('a Menu that cannot be planned keeps the Add to Plan sheet open with the reason', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const menu = await prisma.menu.create({
+		data: {
+			title: 'Empty',
+			titleKey: 'empty',
+			householdId: user.householdId,
+			sections: { create: {} },
+		},
+	})
+
+	await page.goto(`/recipes/menus/${menu.id}`)
+	const sheet = page.getByRole('dialog', { name: 'Add to Plan' })
+	await tapUntil(page.getByRole('button', { name: 'Add to Plan' }), () =>
+		expect(sheet).toBeVisible({ timeout: 1000 }),
+	)
+	await sheet.getByRole('button', { name: 'Add to Plan' }).tap()
+	await expect(sheet.getByText(/nothing to plan yet/)).toBeVisible()
+	await expect(page).toHaveURL(new RegExp(`/recipes/menus/${menu.id}$`))
+	expect(
+		await prisma.meal.count({
+			where: { mealPlan: { householdId: user.householdId } },
+		}),
+	).toBe(0)
 })
 
 test.describe('on a desktop', () => {

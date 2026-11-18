@@ -659,7 +659,7 @@ function RecipeLinkPicker({
 						open={open}
 						onClose={() => setOpen(false)}
 						labelledBy="recipe-link-sheet-title"
-						title="Link a recipe"
+						title="Link a Recipe"
 						initialFocusRef={inputRef}
 					>
 						{search}

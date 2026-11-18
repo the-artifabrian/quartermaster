@@ -124,6 +124,19 @@ async function pullDown(page: Page, target: Locator, by: number) {
  */
 const ROUND_TRIP = { timeout: 15_000 }
 
+/**
+ * A database read for `expect.poll` that, while another worker holds SQLite's
+ * lock past the busy timeout, counts as not there yet instead of failing the
+ * test. Any other error still fails it.
+ */
+function fromDb<T>(read: () => Promise<T>) {
+	return () =>
+		read().catch((error: unknown) => {
+			if (/timed out|SQLITE_BUSY/.test(String(error))) return 'database busy'
+			throw error
+		})
+}
+
 /** Taps until a tap lands on a hydrated page and `then` holds. */
 async function tapUntil(control: Locator, then: () => Promise<void>) {
 	await expect(async () => {
@@ -217,11 +230,12 @@ test('Add a Meal is a sheet: picking a Recipe plans it and closes the sheet', as
 	await expect(mobile.getByRole('link', { name: 'Miso Soup' })).toBeVisible()
 	await expect
 		.poll(
-			() =>
+			fromDb(() =>
 				prisma.meal.findMany({
 					where: { mealPlan: { householdId: user.householdId } },
 					select: { label: true, recipeItems: { select: { recipeId: true } } },
 				}),
+			),
 			ROUND_TRIP,
 		)
 		.toEqual([{ label: 'lunch', recipeItems: [{ recipeId: recipe.id }] }])
@@ -252,11 +266,12 @@ test('Add a Meal as text saves from the sheet’s full-width Add', async ({
 	await expect(mobile.getByText('Leftovers', { exact: true })).toBeVisible()
 	await expect
 		.poll(
-			() =>
+			fromDb(() =>
 				prisma.meal.findMany({
 					where: { mealPlan: { householdId: user.householdId } },
 					select: { genericText: true },
 				}),
+			),
 			ROUND_TRIP,
 		)
 		.toEqual([{ genericText: 'Leftovers' }])
@@ -284,10 +299,11 @@ test('Add a Recipe to a Meal is a sheet over the Meal', async ({
 	await expect(mobile.getByRole('link', { name: 'Steamed Rice' })).toBeVisible()
 	await expect
 		.poll(
-			() =>
+			fromDb(() =>
 				prisma.mealRecipeItem.count({
 					where: { mealId: meal.id, recipeId: rice.id },
 				}),
+			),
 			ROUND_TRIP,
 		)
 		.toBe(1)
@@ -329,9 +345,11 @@ test('Edit details is a sheet: Save stores the change and focus goes back to the
 	await expect(mobile.getByText('· 6 guests')).toBeVisible(ROUND_TRIP)
 	await expect
 		.poll(
-			async () =>
-				(await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } }))
-					.guestCount,
+			fromDb(
+				async () =>
+					(await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } }))
+						.guestCount,
+			),
 			ROUND_TRIP,
 		)
 		.toBe(6)
@@ -376,11 +394,12 @@ test('Edit item is a sheet with labelled fields; Save stores it and focus return
 	await expect(row).toContainText('2 rolls', ROUND_TRIP)
 	await expect
 		.poll(
-			() =>
+			fromDb(() =>
 				prisma.shoppingListItem.findUniqueOrThrow({
 					where: { id: list.items[0]!.id },
 					select: { name: true, quantity: true, unit: true },
 				}),
+			),
 			ROUND_TRIP,
 		)
 		.toEqual({ name: 'foil', quantity: '2', unit: 'rolls' })
@@ -499,12 +518,13 @@ test('From Staples is a sheet: picked Staples go to Next shop', async ({
 	).toBeVisible()
 	await expect
 		.poll(
-			() =>
+			fromDb(() =>
 				prisma.shoppingListItem.findMany({
 					where: { list: { householdId: user.householdId } },
 					select: { name: true, horizon: true },
 					orderBy: { name: 'asc' },
 				}),
+			),
 			ROUND_TRIP,
 		)
 		.toEqual([
@@ -556,13 +576,14 @@ test('Link recipe is a sheet; Enter in its search sends nothing; a pick leaves a
 	await expect(page).not.toHaveURL(/\/recipes\/new$/, ROUND_TRIP)
 	await expect
 		.poll(
-			() =>
+			fromDb(() =>
 				prisma.ingredient.findMany({
 					where: {
 						recipe: { title: 'Margherita', householdId: user.householdId },
 					},
 					select: { name: true, linkedRecipeId: true },
 				}),
+			),
 			ROUND_TRIP,
 		)
 		.toEqual([{ name: 'dough', linkedRecipeId: dough.id }])
@@ -606,11 +627,12 @@ test('Add to Plan from a Menu is a sheet and plans the Menu', async ({
 	await expect(page).toHaveURL(/\/plan/, ROUND_TRIP)
 	await expect
 		.poll(
-			() =>
+			fromDb(() =>
 				prisma.meal.findMany({
 					where: { mealPlan: { householdId: user.householdId } },
 					select: { guestCount: true, sourceMenuId: true },
 				}),
+			),
 			ROUND_TRIP,
 		)
 		.toEqual([{ guestCount: 4, sourceMenuId: menu.id }])
@@ -816,12 +838,14 @@ test.describe('Plan Meals as flat rows', () => {
 		}).toPass()
 		await expect
 			.poll(
-				async () =>
-					(
-						await prisma.mealRecipeItem.findFirstOrThrow({
-							where: { mealId: meal.id },
-						})
-					).cooked,
+				fromDb(
+					async () =>
+						(
+							await prisma.mealRecipeItem.findFirstOrThrow({
+								where: { mealId: meal.id },
+							})
+						).cooked,
+				),
 				ROUND_TRIP,
 			)
 			.toBe(true)
@@ -1069,10 +1093,11 @@ test.describe('sheets while they come and go', () => {
 		await expect(foil).toBeHidden()
 		await expect
 			.poll(
-				() =>
+				fromDb(() =>
 					prisma.shoppingListItem.count({
 						where: { name: 'foil', list: { householdId: user.householdId } },
 					}),
+				),
 				ROUND_TRIP,
 			)
 			.toBe(0)
@@ -1120,11 +1145,12 @@ test.describe('sheets while they come and go', () => {
 		await expect(moved).toBeFocused(ROUND_TRIP)
 		await expect
 			.poll(
-				async () =>
+				fromDb(async () =>
 					serializeDate(
 						(await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } }))
 							.date,
 					),
+				),
 				ROUND_TRIP,
 			)
 			.toBe(serializeDate(other))
@@ -1392,10 +1418,11 @@ test('Staples picked and added are not picked again after Shopping clears them',
 	await expect(milkRow).toBeHidden()
 	await expect
 		.poll(
-			() =>
+			fromDb(() =>
 				prisma.shoppingListItem.count({
 					where: { name: 'Milk', list: { householdId: user.householdId } },
 				}),
+			),
 			ROUND_TRIP,
 		)
 		.toBe(0)

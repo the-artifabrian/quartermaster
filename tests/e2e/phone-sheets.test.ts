@@ -1,7 +1,7 @@
 import { type Locator, type Page } from '@playwright/test'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { SHELL_UA } from '#tests/native-shell.ts'
+import { SAFARI_UA, SHELL_UA } from '#tests/native-shell.ts'
 import { expect, openShopping, test } from '#tests/playwright-utils.ts'
 
 // On a phone, everything you type or pick in is a bottom sheet: no popover
@@ -28,6 +28,70 @@ async function expectBottomSheet(page: Page, sheet: Locator) {
 
 const sheetWidth = (page: Page) =>
 	page.evaluate(() => document.body.clientWidth)
+
+/**
+ * Counts sheets seen leaving (a panel turning `closed` while on the page),
+ * from now on, including a copy that plays the exit for a sheet whose owner
+ * went away.
+ */
+async function recordSheetExits(page: Page) {
+	await page.evaluate(() => {
+		const record = window as unknown as { sheetExits: number }
+		record.sheetExits = 0
+		new MutationObserver((mutations) => {
+			for (const mutation of mutations) {
+				const target = mutation.target as Element
+				if (
+					target.matches('[data-bottom-sheet-panel]') &&
+					target.getAttribute('data-state') === 'closed' &&
+					target.isConnected
+				) {
+					record.sheetExits++
+				}
+			}
+		}).observe(document.body, {
+			subtree: true,
+			attributes: true,
+			attributeFilter: ['data-state'],
+		})
+	})
+}
+
+const sheetExits = (page: Page) =>
+	page.evaluate(() => (window as unknown as { sheetExits: number }).sheetExits)
+
+/**
+ * Slows CSS transitions tenfold, so a sheet's exit lasts until BottomSheet's
+ * 500ms fallback: room to act while it leaves.
+ */
+async function slowTransitions(page: Page) {
+	const cdp = await page.context().newCDPSession(page)
+	await cdp.send('Animation.enable')
+	await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.1 })
+}
+
+/**
+ * Drags one finger down from `fromY` of the way down a locator, the way a
+ * phone sends it.
+ */
+async function pullDown(page: Page, target: Locator, by: number) {
+	const box = (await target.boundingBox())!
+	const x = box.x + box.width / 2
+	const y = box.y + box.height * 0.3
+	const cdp = await page.context().newCDPSession(page)
+	const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', dy?: number) =>
+		cdp.send('Input.dispatchTouchEvent', {
+			type,
+			touchPoints: dy == null ? [] : [{ x, y: y + dy, id: 1 }],
+		})
+	await touch('touchStart', 0)
+	for (let i = 1; i <= 12; i++) {
+		await touch('touchMove', (by * i) / 12)
+		await page.waitForTimeout(30)
+	}
+	await touch('touchEnd')
+	await cdp.detach()
+}
 
 /** Taps until a tap lands on a hydrated page and `then` holds. */
 async function tapUntil(control: Locator, then: () => Promise<void>) {
@@ -318,6 +382,40 @@ test('Scale is a sheet; Done keeps a typed multiplier even when the tap leaves t
 	await expect(page.getByText('Makes 24 pieces')).toBeVisible()
 })
 
+for (const way of ['Escape', 'the backdrop', 'a pull down'] as const) {
+	test(`Scale keeps a typed multiplier when closed by ${way}`, async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user, 'Twelve parcels', {
+			yieldAmount: 12,
+			yieldLabel: 'pieces',
+		})
+
+		await page.goto(`/recipes/${recipe.id}`)
+		const sheet = page.getByRole('dialog', { name: 'Scale this Recipe' })
+		await tapUntil(page.getByRole('button', { name: 'Scale 1×' }), () =>
+			expect(sheet).toBeVisible({ timeout: 1000 }),
+		)
+		await expectBottomSheet(page, sheet)
+		await sheet.getByLabel('Scale multiplier').fill('3')
+		// As on iOS, no blur reaches the page to save it.
+		await page.evaluate(() =>
+			window.addEventListener(
+				'focusout',
+				(event) => event.stopImmediatePropagation(),
+				true,
+			),
+		)
+		if (way === 'Escape') await page.keyboard.press('Escape')
+		else if (way === 'the backdrop') await page.touchscreen.tap(195, 40)
+		else await pullDown(page, sheet.getByRole('heading'), 300)
+		await expect(sheet).toBeHidden()
+		await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}\\?scale=3$`))
+	})
+}
+
 test('From Staples is a sheet: picked Staples go to Next shop', async ({
 	page,
 	login,
@@ -367,7 +465,7 @@ test('From Staples is a sheet: picked Staples go to Next shop', async ({
 		])
 })
 
-test('Link recipe is a sheet; Enter in its search leaves the Recipe form alone', async ({
+test('Link recipe is a sheet; Enter in its search sends nothing; a pick leaves and focuses Remove recipe link', async ({
 	page,
 	login,
 }) => {
@@ -375,8 +473,10 @@ test('Link recipe is a sheet; Enter in its search leaves the Recipe form alone',
 	const dough = await createRecipe(user, 'Pizza dough')
 
 	await page.goto('/recipes/new')
+	// A Recipe ready to save, so an Enter that reached its form would send it.
 	await page.getByRole('textbox', { name: 'Title' }).fill('Margherita')
 	await page.getByRole('textbox', { name: 'Ingredient 1 name' }).fill('dough')
+	await page.getByRole('textbox', { name: 'Step 1' }).fill('Bake hot.')
 	const sheet = page.getByRole('dialog', { name: 'Link a Recipe' })
 	await tapUntil(page.getByRole('button', { name: 'Link recipe' }), () =>
 		expect(sheet).toBeVisible({ timeout: 1000 }),
@@ -385,14 +485,26 @@ test('Link recipe is a sheet; Enter in its search leaves the Recipe form alone',
 	const search = sheet.getByRole('textbox', { name: 'Search recipes' })
 	await expect(search).toBeFocused()
 	await search.fill('pizza')
+	await expect(sheet.getByRole('button', { name: 'Pizza dough' })).toBeVisible()
+	const posts: string[] = []
+	page.on('request', (request) => {
+		if (request.method() === 'POST') posts.push(request.url())
+	})
 	await search.press('Enter')
+	await page.waitForTimeout(500)
+	expect(posts).toEqual([])
 	await expect(page).toHaveURL(/\/recipes\/new$/)
+
+	await recordSheetExits(page)
 	await sheet.getByRole('button', { name: 'Pizza dough' }).tap()
 	await expect(sheet).toBeHidden()
+	expect(await sheetExits(page)).toBe(1)
 	await expect(page.getByText('Pizza dough', { exact: true })).toBeVisible()
+	await expect(
+		page.getByRole('button', { name: 'Remove recipe link' }),
+	).toBeFocused()
 
-	await page.getByRole('textbox', { name: 'Step 1' }).fill('Bake hot.')
-	await page.getByRole('button', { name: 'Create Recipe' }).tap()
+	await page.getByRole('button', { name: 'Save', exact: true }).tap()
 	await expect(page).not.toHaveURL(/\/recipes\/new$/)
 	await expect
 		.poll(() =>
@@ -537,10 +649,25 @@ test.describe('Plan Meals as flat rows', () => {
 				},
 			},
 		})
+		// A Meal of two Recipes, divided inside by an inset hairline.
+		const salad = await createRecipe(user, 'Cucumber Salad')
+		const pair = await prisma.meal.create({
+			data: {
+				mealPlanId: meal.mealPlanId,
+				date: meal.date,
+				order: 2,
+				recipeItems: {
+					create: [
+						{ recipeId: rice.id, recipeTitle: rice.title, order: 0 },
+						{ recipeId: salad.id, recipeTitle: salad.title, order: 1 },
+					],
+				},
+			},
+		})
 
-		for (const [viewport, copy] of [
-			[{ width: 390, height: 844 }, 'mobile-plan'],
-			[{ width: 1280, height: 800 }, 'desktop-plan'],
+		for (const [viewport, copy, inset] of [
+			[{ width: 390, height: 844 }, 'mobile-plan', 44],
+			[{ width: 1280, height: 800 }, 'desktop-plan', 32],
 		] as const) {
 			await page.setViewportSize(viewport)
 			await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
@@ -562,7 +689,7 @@ test.describe('Plan Meals as flat rows', () => {
 			})
 			// The second Meal sits under a hairline in the border colour.
 			const groups = plan.locator('[data-slot="meal-group"]')
-			await expect(groups).toHaveCount(2)
+			await expect(groups).toHaveCount(3)
 			const divider = await groups.nth(1).evaluate((element) => {
 				const probe = document.createElement('span')
 				probe.className = 'border-border border'
@@ -576,6 +703,24 @@ test.describe('Plan Meals as flat rows', () => {
 				}
 			})
 			expect(divider).toEqual({ width: '1px', matches: true })
+			// Between the two Recipes of one Meal: a hairline that starts past
+			// the cooked toggle, not at the row's edge.
+			const salads = plan
+				.locator(`[data-meal-id="${pair.id}"]`)
+				.getByRole('link', { name: 'Cucumber Salad' })
+			await expect(salads).toBeVisible()
+			const inner = await salads.evaluate((link) => {
+				let row = link.parentElement
+				while (row && !row.parentElement?.matches('.space-y-0')) {
+					row = row.parentElement
+				}
+				const line = getComputedStyle(row!, '::before')
+				return {
+					width: line.borderTopWidth,
+					left: Math.round(parseFloat(line.left)),
+				}
+			})
+			expect(inner).toEqual({ width: '1px', left: inset })
 		}
 
 		// The cooked toggle and the Meal's menu still work on a phone.
@@ -609,29 +754,333 @@ test.describe('Plan Meals as flat rows', () => {
 	})
 })
 
-test.describe('tooltips in the iOS app', () => {
-	test.use({ userAgent: SHELL_UA })
+for (const [where, use] of [
+	// A mouse, so only the app itself keeps tooltips shut.
+	['in the iOS app', { userAgent: SHELL_UA, hasTouch: false }],
+	// A finger in Safari: no hover, so no tooltips either.
+	['on a touch screen', { userAgent: SAFARI_UA, hasTouch: true }],
+] as const) {
+	test.describe(`tooltips ${where}`, () => {
+		test.use(use)
 
-	test('focus coming back to a Recipe action after a sheet shows no tooltip', async ({
+		test('focus coming back to a Recipe action after a sheet shows no tooltip', async ({
+			page,
+			login,
+		}) => {
+			const user = await login()
+			const recipe = await createRecipe(user, 'Miso Soup')
+
+			await page.goto(`/recipes/${recipe.id}`)
+			const addToPlan = page.getByRole('button', { name: 'Add to Plan' })
+			const sheet = page.getByRole('dialog', { name: 'Add to Plan' })
+			await expect(async () => {
+				await addToPlan.click()
+				await expect(sheet).toBeVisible({ timeout: 1000 })
+			}).toPass({ timeout: 10_000 })
+			await expectBottomSheet(page, sheet)
+			await sheet.getByRole('button', { name: 'Close', exact: true }).click()
+			await expect(sheet).toBeHidden()
+			// The case that showed one: focus back on a button with a tooltip.
+			await expect(addToPlan).toBeFocused()
+			await page.waitForTimeout(800)
+			await expect(page.locator('[data-slot="tooltip-content"]')).toHaveCount(0)
+		})
+	})
+}
+
+async function seedShopping(
+	user: { id: string; householdId: string },
+	names: string[],
+) {
+	return prisma.shoppingList.create({
+		data: {
+			userId: user.id,
+			householdId: user.householdId,
+			items: {
+				create: names.map((name) => ({ name, quantity: '1', unit: 'roll' })),
+			},
+		},
+		include: { items: true },
+	})
+}
+
+async function openEditItem(page: Page, name: string) {
+	const row = page.getByRole('group', { name: `${name} shopping item` })
+	await row.getByRole('button', { name: 'Item actions' }).tap()
+	await page.getByRole('menuitem', { name: 'Edit item' }).tap()
+	return page.getByRole('dialog', { name: 'Edit item' })
+}
+
+test.describe('sheets while they come and go', () => {
+	test('closing Edit item and opening another row’s menu at once keeps that menu open', async ({
+		page,
+		login,
+	}) => {
+		await seedShopping(await login(), ['foil', 'salt'])
+		await openShopping(page)
+		const sheet = await openEditItem(page, 'foil')
+		await expectBottomSheet(page, sheet)
+		await slowTransitions(page)
+		await sheet.getByRole('button', { name: 'Close', exact: true }).tap()
+		await page
+			.getByRole('group', { name: 'salt shopping item' })
+			.getByRole('button', { name: 'Item actions' })
+			.tap()
+		const editItem = page.getByRole('menuitem', { name: 'Edit item' })
+		await expect(editItem).toBeVisible()
+		// Past the leaving sheet's unmount, which once took focus back to foil.
+		await page.waitForTimeout(900)
+		await expect(editItem).toBeVisible()
+	})
+
+	test('reopening Edit item while it leaves shows the saved values, not what was typed', async ({
+		page,
+		login,
+	}) => {
+		await seedShopping(await login(), ['foil'])
+		await openShopping(page)
+		const sheet = await openEditItem(page, 'foil')
+		await expectBottomSheet(page, sheet)
+		await slowTransitions(page)
+		await sheet.getByRole('textbox', { name: 'Quantity' }).fill('9')
+		await sheet.getByRole('button', { name: 'Close', exact: true }).tap()
+		await openEditItem(page, 'foil')
+		await expect(sheet.getByRole('textbox', { name: 'Quantity' })).toHaveValue(
+			'1',
+		)
+		await expect(sheet.getByRole('textbox', { name: 'Name' })).toHaveValue(
+			'foil',
+		)
+	})
+
+	test('a closing Add a Meal sheet leaves as it was; the next open starts afresh', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		await page.goto('/plan')
+		const mobile = page.getByTestId('mobile-plan')
+		const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
+		await tapUntil(mobile.getByRole('button', { name: /^Add Meal to/ }), () =>
+			expect(sheet).toBeVisible({ timeout: 1000 }),
+		)
+		await expectBottomSheet(page, sheet)
+		await sheet.getByRole('button', { name: 'Lunch' }).tap()
+		await sheet.getByRole('button', { name: /^Add text instead/ }).tap()
+		await sheet.getByRole('textbox', { name: 'Meal text' }).fill('Leftovers')
+		// What the sheet holds the moment it starts to leave.
+		await page.evaluate(() => {
+			const record = window as unknown as { leavingText?: string | null }
+			new MutationObserver((mutations) => {
+				for (const mutation of mutations) {
+					const target = mutation.target as Element
+					if (
+						target.matches('[data-bottom-sheet-panel]') &&
+						target.getAttribute('data-state') === 'closed'
+					) {
+						record.leavingText =
+							target.querySelector<HTMLInputElement>(
+								'input[aria-label="Meal text"]',
+							)?.value ?? null
+					}
+				}
+			}).observe(document.body, {
+				subtree: true,
+				attributes: true,
+				attributeFilter: ['data-state'],
+			})
+		})
+		await sheet.getByRole('button', { name: 'Close', exact: true }).tap()
+		await expect(sheet).toBeHidden()
+		expect(
+			await page.evaluate(
+				() =>
+					(window as unknown as { leavingText?: string | null }).leavingText,
+			),
+		).toBe('Leftovers')
+
+		await mobile.getByRole('button', { name: /^Add Meal to/ }).tap()
+		await expect(
+			sheet.getByPlaceholder('Search Recipes and Menus...'),
+		).toBeVisible()
+		await expect(sheet.getByRole('button', { name: 'Lunch' })).toHaveAttribute(
+			'aria-pressed',
+			'false',
+		)
+	})
+
+	test('a tap on a sheet’s title keeps focus in the sheet, and Tab stays there', async ({
 		page,
 		login,
 	}) => {
 		const user = await login()
-		const recipe = await createRecipe(user, 'Miso Soup')
+		const miso = await createRecipe(user, 'Miso Soup')
+		const { weekStart } = await planMeal(user, miso)
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const actions = page
+			.getByTestId('mobile-plan')
+			.getByRole('button', { name: 'Meal actions for Miso Soup' })
+		const editDetails = page.getByRole('menuitem', { name: 'Edit details' })
+		await tapUntil(actions, () =>
+			expect(editDetails).toBeVisible({ timeout: 1000 }),
+		)
+		await editDetails.tap()
+		const sheet = page.getByRole('dialog', { name: 'Edit details' })
+		await expectBottomSheet(page, sheet)
+		await sheet.getByRole('heading', { name: 'Edit details' }).tap()
+		const focusInSheet = () =>
+			sheet.evaluate((dialog) => dialog.contains(document.activeElement))
+		expect(await focusInSheet()).toBe(true)
+		await page.keyboard.press('Shift+Tab')
+		expect(await focusInSheet()).toBe(true)
+		await expect(sheet.getByRole('button', { name: 'Save' })).toBeFocused()
+	})
 
-		await page.goto(`/recipes/${recipe.id}`)
-		await expect(page.locator('html')).toHaveAttribute('data-native-shell', '')
-		const addToPlan = page.getByRole('button', { name: 'Add to Plan' })
-		const sheet = page.getByRole('dialog', { name: 'Add to Plan' })
-		await tapUntil(addToPlan, () =>
-			expect(sheet).toBeVisible({ timeout: 1000 }),
+	test('a row deleted elsewhere under its open sheet still sees the sheet leave', async ({
+		page,
+		login,
+	}) => {
+		test.setTimeout(45_000)
+		const user = await login()
+		// Shopping follows other devices live with Pro.
+		await prisma.subscription.create({
+			data: {
+				userId: user.id,
+				tier: 'pro',
+				trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+			},
+		})
+		await seedShopping(user, ['foil', 'salt'])
+		await openShopping(page)
+		const sheet = await openEditItem(page, 'foil')
+		await expectBottomSheet(page, sheet)
+		await recordSheetExits(page)
+
+		// The other member deletes foil on their own device.
+		const other = await page.context().newPage()
+		await other.setViewportSize({ width: 1280, height: 800 })
+		await openShopping(other)
+		const foil = other.getByRole('group', { name: 'foil shopping item' })
+		await foil.getByRole('button', { name: 'Item actions' }).click()
+		const remove = other.getByRole('menuitem', { name: /^Delete/ })
+		await remove.click()
+		await expect(remove).toHaveText('Delete?')
+		await remove.click()
+		await expect(foil).toBeHidden()
+
+		// Back on this phone, which catches up as it comes to the front.
+		await page.bringToFront()
+		await expect(
+			page.getByRole('group', { name: 'foil shopping item' }),
+		).toBeHidden({ timeout: 15_000 })
+		await expect(sheet).toBeHidden()
+		expect(await sheetExits(page)).toBe(1)
+		await other.close()
+	})
+
+	test('a Date change in Edit details closes the sheet and focuses the moved Meal', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const miso = await createRecipe(user, 'Miso Soup')
+		const { meal, weekStart } = await planMeal(user, miso)
+		// Another day of the same week.
+		const today = todayUTC()
+		const other = new Date(
+			weekStart.getTime() +
+				(today.getTime() === weekStart.getTime() ? 1 : 0) * 86_400_000,
+		)
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const mobile = page.getByTestId('mobile-plan')
+		const editDetails = page.getByRole('menuitem', { name: 'Edit details' })
+		await tapUntil(
+			mobile.getByRole('button', { name: 'Meal actions for Miso Soup' }),
+			() => expect(editDetails).toBeVisible({ timeout: 1000 }),
+		)
+		await editDetails.tap()
+		const sheet = page.getByRole('dialog', { name: 'Edit details' })
+		await expectBottomSheet(page, sheet)
+		await sheet.getByLabel('Date', { exact: true }).fill(serializeDate(other))
+		await sheet.getByRole('button', { name: 'Save' }).tap()
+		await expect(sheet).toBeHidden()
+		const moved = mobile.locator(`[data-meal-id="${meal.id}"]`)
+		await expect(moved).toBeFocused()
+		await expect
+			.poll(async () =>
+				serializeDate(
+					(await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } }))
+						.date,
+				),
+			)
+			.toBe(serializeDate(other))
+		// Still focused once the sheet is long gone.
+		await page.waitForTimeout(600)
+		await expect(moved).toBeFocused()
+	})
+})
+
+test.describe('a phone on its side', () => {
+	test.use({ viewport: { width: 844, height: 390 }, hasTouch: true })
+
+	/** On the bottom edge with its grabber: a sheet, not a centered dialog. */
+	async function expectSheetOnBottomEdge(page: Page, sheet: Locator) {
+		await expect(sheet).toBeVisible()
+		await sheet.evaluate((element) =>
+			Promise.all(element.getAnimations().map((a) => a.finished)),
+		)
+		const box = (await sheet.boundingBox())!
+		expect(Math.round(box.y + box.height)).toBe(page.viewportSize()!.height)
+		await expect(sheet.locator('[data-bottom-sheet-grabber]')).toBeVisible()
+	}
+
+	test('Edit item is a sheet that a pull down closes', async ({
+		page,
+		login,
+	}) => {
+		await seedShopping(await login(), ['foil'])
+		await openShopping(page)
+		const sheet = await openEditItem(page, 'foil')
+		await expectSheetOnBottomEdge(page, sheet)
+		await pullDown(page, sheet.getByRole('heading', { name: 'Edit item' }), 250)
+		await expect(sheet).toBeHidden()
+	})
+
+	test('Add a Meal from the week agenda is a sheet', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		await page.goto('/plan')
+		const desktop = page.getByTestId('desktop-plan')
+		const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
+		await tapUntil(
+			desktop.getByRole('button', { name: /^Add Meal to/ }).first(),
+			() => expect(sheet).toBeVisible({ timeout: 1000 }),
+		)
+		await expectSheetOnBottomEdge(page, sheet)
+		await expect(
+			desktop.getByRole('region', { name: /^Add Meal for/ }),
+		).toHaveCount(0)
+	})
+
+	test('turning the phone with Add a Meal open keeps the sheet', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		await page.setViewportSize({ width: 390, height: 844 })
+		await page.goto('/plan')
+		const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
+		await tapUntil(
+			page
+				.getByTestId('mobile-plan')
+				.getByRole('button', { name: /^Add Meal to/ }),
+			() => expect(sheet).toBeVisible({ timeout: 1000 }),
 		)
 		await expectBottomSheet(page, sheet)
-		await sheet.getByRole('button', { name: 'Close', exact: true }).tap()
-		await expect(sheet).toBeHidden()
-		// The case that showed one: focus back on a button with a tooltip.
-		await expect(addToPlan).toBeFocused()
-		await page.waitForTimeout(800)
-		await expect(page.locator('[data-slot="tooltip-content"]')).toHaveCount(0)
+		await page.setViewportSize({ width: 844, height: 390 })
+		await expectSheetOnBottomEdge(page, sheet)
+		await expect(sheet).toHaveAttribute('data-state', 'open')
 	})
 })

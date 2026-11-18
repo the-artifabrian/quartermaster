@@ -978,7 +978,7 @@ test('an edit form the tab bar restored goes back down its own stack after Save 
 	}
 })
 
-test('opening a form from a list paints Cancel and Save in its first frame', async ({
+test('opening a form from a list commits Cancel and Save with the form', async ({
 	page,
 	login,
 }) => {
@@ -986,20 +986,24 @@ test('opening a form from a list paints Cancel and Save in its first frame', asy
 	await page.goto('/recipes/menus')
 	const newMenu = page.getByRole('link', { name: 'New Menu' }).first()
 	await hydrated(newMenu)
-	// Record, in every frame, which page is on screen and what the bar holds.
+	// Record what the bar holds each time the page changes, at the end of
+	// the task that changed it: what the browser may paint next. (A frame
+	// sampler can miss it: React often runs its effects before the paint.)
 	await page.evaluate(() => {
 		const frames: string[] = []
 		Object.assign(window, { __frames: frames })
-		const sample = () => {
+		new MutationObserver(() => {
 			const heading = document.querySelector('#main-content h1')
 			const save = document.querySelector('[data-nav-save]')
 			const back = document.querySelector('[data-nav-back]')
 			frames.push(
 				`${heading?.textContent?.trim()}: ${save ? 'save' : 'no save'} ${back?.textContent?.trim()}`,
 			)
-			requestAnimationFrame(sample)
-		}
-		requestAnimationFrame(sample)
+		}).observe(document.body, {
+			childList: true,
+			subtree: true,
+			characterData: true,
+		})
 	})
 	await newMenu.tap()
 	await expect(page).toHaveURL('/recipes/menus/new')

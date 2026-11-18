@@ -530,7 +530,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							value={sort}
 							onChange={(e) => handleSortChange(e.target.value)}
 							aria-label="Sort recipes"
-							className="border-border/50 bg-secondary/50 text-muted-foreground h-8 min-w-0 rounded-full border px-2.5 text-xs"
+							className="border-border/50 bg-secondary/50 text-muted-foreground h-11 min-w-0 rounded-full border px-2.5 text-xs md:h-8"
 						>
 							{SORT_OPTIONS.map((option) => (
 								<option key={option.value} value={option.value}>
@@ -542,7 +542,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							value={maxTime?.toString() ?? ''}
 							onChange={(e) => handleMaxTimeChange(e.target.value)}
 							aria-label="Filter by cook time"
-							className="border-border/50 bg-secondary/50 text-muted-foreground h-8 min-w-0 rounded-full border px-2.5 text-xs"
+							className="border-border/50 bg-secondary/50 text-muted-foreground h-11 min-w-0 rounded-full border px-2.5 text-xs md:h-8"
 						>
 							<option value="">Any time</option>
 							<option value="30">Under 30 min</option>
@@ -557,7 +557,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							}
 							aria-pressed={favoritesOnly}
 							className={cn(
-								'flex h-8 items-center gap-1 rounded-full border px-2.5 text-xs transition-colors',
+								'flex h-11 items-center gap-1 rounded-full border px-2.5 text-xs transition-colors md:h-8',
 								favoritesOnly
 									? 'border-primary bg-primary text-primary-foreground'
 									: 'border-border/50 bg-secondary/50 text-muted-foreground hover:bg-secondary',
@@ -578,7 +578,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 										<Button
 											variant={selectedCount ? 'secondary' : 'outline'}
 											size="sm"
-											className="h-8 rounded-full px-2.5 text-xs font-normal"
+											className="h-11 rounded-full px-2.5 text-xs font-normal md:h-8"
 										>
 											{RECIPE_METADATA_LABELS[dimension]}
 											{selectedCount > 0 && ` · ${selectedCount}`}

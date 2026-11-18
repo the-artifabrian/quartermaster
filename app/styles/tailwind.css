@@ -53,7 +53,9 @@
 	--ease-hover-lift: cubic-bezier(0.34, 0.01, 0.21, 1);
 	--ease-reveal: cubic-bezier(0.16, 0.85, 0.45, 1);
 	--ease-micro: cubic-bezier(0.33, 1, 0.68, 1);
-	--ease-exit: cubic-bezier(0.55, 0, 0.68, 0.19);
+	/* Sheets leave on an ease-out too: it moves at once and settles, where an
+	   ease-in spends the first half of a short exit barely moving. */
+	--ease-exit: cubic-bezier(0.23, 1, 0.32, 1);
 
 	/* The tab bar's row, without its border and the inset under it.
 	   Sheets, buttons and padding that sit above the bar add both. */

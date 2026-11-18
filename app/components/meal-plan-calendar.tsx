@@ -487,7 +487,7 @@ export function MealPlanCalendar({ weekDays, meals }: MealPlanCalendarProps) {
 								aria-current={today ? 'date' : undefined}
 								aria-label={`Show ${today ? 'Today' : formatWeekdayName(date)}, ${formatMonthDay(date)}, ${mealCount === 0 ? 'no Meals planned' : `${mealCount} ${mealCount === 1 ? 'Meal' : 'Meals'} planned`}`}
 								className={cn(
-									'relative flex min-h-16 min-w-0 flex-col items-center justify-center rounded-xl border px-0.5 transition-all',
+									'relative flex min-h-16 min-w-0 flex-col items-center justify-center rounded-xl border px-0.5 transition-[color,background-color,border-color,box-shadow]',
 									selected
 										? 'border-primary bg-primary text-primary-foreground ring-primary/20 ring-2'
 										: today

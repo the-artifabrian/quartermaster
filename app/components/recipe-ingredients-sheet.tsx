@@ -46,7 +46,7 @@ export function RecipeIngredientsSheet({
 					data-floating-ingredients=""
 					onClick={() => setOpen(true)}
 					className={cn(
-						'bg-card text-foreground shadow-warm-lg border-border/60 fixed bottom-[calc(var(--bottom-nav-h)+1.5rem+var(--bottom-nav-inset))] left-4 z-50 flex h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-all active:scale-95 md:bottom-4',
+						'bg-card text-foreground shadow-warm-lg border-border/60 fixed bottom-[calc(var(--bottom-nav-h)+1.5rem+var(--bottom-nav-inset))] left-4 z-50 flex h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-[scale] duration-150 ease-(--ease-micro) active:scale-95 md:bottom-4',
 						open && 'hidden',
 					)}
 				>

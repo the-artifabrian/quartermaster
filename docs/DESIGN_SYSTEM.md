@@ -135,7 +135,8 @@ each screen:
   tab bar over a dim scrim, clears the home indicator, and closes by a pull
   down, the scrim, Escape or Close. From `sm` up it is a centered dialog. A
   sheet's primary action is full width at the bottom.
-- Delete is always red, in menus too, from the start.
+- A Delete in a menu or behind a swipe is red from the start, not only once
+  armed.
 - A delete that can be undone (a Meal, a Recipe in a Meal, a Shopping item,
   Clear checked, a Staple) takes two taps: the first arms it, the second does
   it.

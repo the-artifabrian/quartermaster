@@ -12,7 +12,12 @@ test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 async function swipe(
 	page: Page,
 	target: Locator,
-	{ fromX, toX, ms }: { fromX: number; toX: number; ms: number },
+	{
+		fromX,
+		toX,
+		ms,
+		holdMs = 0,
+	}: { fromX: number; toX: number; ms: number; holdMs?: number },
 ) {
 	const box = (await target.boundingBox())!
 	const y = box.y + box.height / 2
@@ -30,11 +35,21 @@ async function swipe(
 		})
 		await page.waitForTimeout(ms / steps)
 	}
+	if (holdMs) await page.waitForTimeout(holdMs)
 	await cdp.send('Input.dispatchTouchEvent', {
 		type: 'touchEnd',
 		touchPoints: [],
 	})
 	await cdp.detach()
+}
+
+/** Where the row's sliding layer rests (px), once any settle has run. */
+async function restingX(row: Locator) {
+	return row.evaluate(async (element) => {
+		const layer = element.querySelector<HTMLElement>('.touch-pan-y')!
+		await Promise.all(layer.getAnimations().map((a) => a.finished))
+		return new DOMMatrix(getComputedStyle(layer).transform).m41
+	})
 }
 
 async function openShopping(page: Page) {
@@ -78,6 +93,8 @@ test('swiping a Shopping row left reveals Later and Delete; Delete removes it on
 	await swipe(page, eggs, { fromX: 0.8, toX: 0.2, ms: 240 })
 	await expect(deleteButton).toBeVisible()
 	await expect(eggs.getByRole('button', { name: 'Later' })).toBeVisible()
+	// The row sits clear of both actions.
+	await expect.poll(() => restingX(eggs)).toBe(-152)
 	// The drag did not also check the item off.
 	await expect(
 		eggs.getByRole('button', { name: 'Check off eggs' }),
@@ -121,6 +138,10 @@ test('a short, slow swipe snaps back, and a tap on an open row only shuts it', a
 	const oatMilk = row(page, 'oat milk')
 	await swipe(page, oatMilk, { fromX: 0.8, toX: 0.7, ms: 600 })
 	await expect(oatMilk.getByRole('button', { name: 'Delete' })).toBeHidden()
+	// A quick short drag held still before lifting is not a flick.
+	await swipe(page, oatMilk, { fromX: 0.8, toX: 0.65, ms: 60, holdMs: 400 })
+	await expect(oatMilk.getByRole('button', { name: 'Delete' })).toBeHidden()
+	await expect.poll(() => restingX(oatMilk)).toBe(0)
 
 	await swipe(page, oatMilk, { fromX: 0.8, toX: 0.2, ms: 240 })
 	await expect(oatMilk.getByRole('button', { name: 'Delete' })).toBeVisible()

@@ -6,7 +6,12 @@ test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 async function swipe(
 	page: Page,
 	target: Locator,
-	{ fromX, toX, ms }: { fromX: number; toX: number; ms: number },
+	{
+		fromX,
+		toX,
+		ms,
+		holdMs = 0,
+	}: { fromX: number; toX: number; ms: number; holdMs?: number },
 ) {
 	const box = (await target.boundingBox())!
 	const y = box.y + box.height / 2
@@ -24,11 +29,23 @@ async function swipe(
 		})
 		await page.waitForTimeout(ms / steps)
 	}
+	if (holdMs) await page.waitForTimeout(holdMs)
 	await cdp.send('Input.dispatchTouchEvent', {
 		type: 'touchEnd',
 		touchPoints: [],
 	})
 	await cdp.detach()
+}
+
+/** React has hydrated an element once it has attached its props to it. */
+async function hydrated(target: Locator) {
+	await expect
+		.poll(() =>
+			target.evaluate((element) =>
+				Object.keys(element).some((key) => key.startsWith('__reactProps')),
+			),
+		)
+		.toBe(true)
 }
 
 test('swiping the Plan day strip turns the week; a short swipe does not', async ({
@@ -39,20 +56,35 @@ test('swiping the Plan day strip turns the week; a short swipe does not', async 
 	await page.goto('/plan?weekStart=2026-11-16')
 	const strip = page.locator('[data-slot="mobile-week-days"]')
 	await expect(page.getByText('Nov 16 – 22')).toBeVisible()
-	// The strip answers once the page has hydrated.
-	await expect(async () => {
-		await swipe(page, strip, { fromX: 0.2, toX: 0.8, ms: 240 })
-		await expect(page).toHaveURL(/weekStart=2026-11-09/, { timeout: 1000 })
-	}).toPass()
+	await hydrated(strip)
+	await swipe(page, strip, { fromX: 0.2, toX: 0.8, ms: 240 })
+	await expect(page).toHaveURL(/weekStart=2026-11-09/)
 	await expect(page.getByText('Nov 9 – 15')).toBeVisible()
 
 	await swipe(page, strip, { fromX: 0.8, toX: 0.2, ms: 240 })
 	await expect(page).toHaveURL(/weekStart=2026-11-16/)
 	await expect(page.getByText('Nov 16 – 22')).toBeVisible()
 
+	// A short swipe, and a quick one held still before lifting, both snap
+	// back. Navigation is async, so watch for it rather than for the URL.
+	await hydrated(strip)
+	const weekLoads: string[] = []
+	page.on('request', (request) => {
+		if (/weekStart=2026-11-(09|23)/.test(request.url())) {
+			weekLoads.push(request.url())
+		}
+	})
 	await swipe(page, strip, { fromX: 0.5, toX: 0.6, ms: 600 })
+	await swipe(page, strip, { fromX: 0.5, toX: 0.6, ms: 60, holdMs: 400 })
+	await expect
+		.poll(() =>
+			strip.evaluate((element) => getComputedStyle(element).transform),
+		)
+		.toBe('none')
+	// Long enough for a navigation the swipe started to reach the network.
+	await page.waitForTimeout(300)
+	expect(weekLoads).toEqual([])
 	await expect(page.getByText('Nov 16 – 22')).toBeVisible()
-	await expect(page).toHaveURL(/weekStart=2026-11-16/)
 
 	// A tap still picks a day.
 	const friday = strip.getByRole('button', { name: /^Show Friday/ })

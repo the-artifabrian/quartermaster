@@ -56,3 +56,45 @@ export function settleCommit({ offset, velocity, width }: Release): -1 | 0 | 1 {
 	if (Math.abs(offset) < width / 4) return 0
 	return offset < 0 ? -1 : 1
 }
+
+/** Release velocity is read over about this much of the drag's end (ms). */
+const VELOCITY_WINDOW_MS = 100
+/** A finger that has not moved for this long before lifting was held still. */
+const STILL_MS = 60
+/** A drag shorter than this (px) is never a flick, however fast. */
+const MIN_FLICK_TRAVEL = 16
+
+type Sample = { x: number; t: number }
+
+/**
+ * Adds a move to a drag's samples, keeping just enough of them to read the
+ * release velocity: those inside the window and one from before it.
+ */
+export function pushSample(samples: Sample[], sample: Sample) {
+	samples.push(sample)
+	while (samples.length > 2 && samples[1]!.t <= sample.t - VELOCITY_WINDOW_MS) {
+		samples.shift()
+	}
+}
+
+/**
+ * The finger's speed when it lifts (px/ms), measured from a sample about a
+ * window before the lift to the last move. It reads as still when the finger
+ * rested before lifting (iOS sends no moves then), and when the whole drag
+ * (`travel`, px) was too short to count as a flick.
+ */
+export function releaseVelocity(
+	samples: Sample[],
+	releaseT: number,
+	travel: number,
+) {
+	const last = samples.at(-1)
+	if (!last || releaseT - last.t > STILL_MS) return 0
+	if (Math.abs(travel) < MIN_FLICK_TRAVEL) return 0
+	let first = samples[0]!
+	for (const sample of samples) {
+		if (sample.t <= releaseT - VELOCITY_WINDOW_MS) first = sample
+	}
+	const elapsed = releaseT - first.t
+	return elapsed > 0 ? (last.x - first.x) / elapsed : 0
+}

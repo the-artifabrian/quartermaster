@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { lockAxis, rubberBand, settleReveal, settleCommit } from './swipe.ts'
+import {
+	lockAxis,
+	releaseVelocity,
+	rubberBand,
+	settleReveal,
+	settleCommit,
+} from './swipe.ts'
 
 // Failure list, written before swipe.ts:
 // axis lock — no decision inside the slop; a mostly-horizontal move takes the
@@ -11,6 +17,10 @@ import { lockAxis, rubberBand, settleReveal, settleCommit } from './swipe.ts'
 //   half opens; a short fast flick opens; from open, a drag back past half
 //   or a flick back closes; a flick against a long drag wins; a drag the
 //   wrong way from shut stays shut.
+// release velocity — a steady drag reads its speed; a finger held still
+//   before lifting reads as still (iOS sends no moves while it rests); two
+//   moves a moment apart at the end don't read as a flick; a short drag
+//   never flicks however fast; no moves read as still.
 // commit settle (Plan week) — a short slow drag snaps back; past the
 //   distance threshold commits that way; a flick commits; a flick against
 //   the drag cancels.
@@ -88,5 +98,42 @@ describe('settleCommit', () => {
 	})
 	test('a flick against the drag cancels', () => {
 		expect(settleCommit({ offset: 140, velocity: -0.6, width })).toBe(0)
+	})
+})
+
+describe('releaseVelocity', () => {
+	// A finger moving 1px/ms left, sampled every 10ms for 100ms.
+	const steady = Array.from({ length: 11 }, (_, i) => ({
+		x: -i * 10,
+		t: i * 10,
+	}))
+	test('a steady drag reads its speed', () => {
+		expect(releaseVelocity(steady, 100, -100)).toBeCloseTo(-1)
+	})
+	test('a finger held still before lifting reads as still', () => {
+		expect(releaseVelocity(steady, 600, -100)).toBe(0)
+	})
+	test('two moves a moment apart at the end do not read as a flick', () => {
+		const coalesced = [
+			{ x: 0, t: 0 },
+			{ x: -40, t: 400 },
+			{ x: -44, t: 401 },
+		]
+		expect(Math.abs(releaseVelocity(coalesced, 401, -44))).toBeLessThan(0.3)
+	})
+	test('a short drag never flicks, however fast', () => {
+		expect(
+			releaseVelocity(
+				[
+					{ x: 0, t: 0 },
+					{ x: -9, t: 10 },
+				],
+				10,
+				-9,
+			),
+		).toBe(0)
+	})
+	test('no moves read as still', () => {
+		expect(releaseVelocity([], 50, 0)).toBe(0)
 	})
 })

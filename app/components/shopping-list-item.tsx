@@ -31,6 +31,23 @@ import { settleReveal } from '#app/utils/swipe.ts'
 
 /** Each action revealed behind a swiped row is this wide (px). */
 const SWIPE_ACTION_WIDTH = 76
+/**
+ * How far up from the bottom of the screen a row's menu keeps clear (px): the
+ * tab bar and the add button sit there, so a menu for a row near them opens
+ * upward instead of under them.
+ */
+function bottomClearance() {
+	const tops = ['[data-bottom-nav]', 'button[aria-label="Add item"]']
+		.map((selector) =>
+			document.querySelector(selector)?.getBoundingClientRect(),
+		)
+		.filter((box) => box && box.height > 0)
+		.map((box) => box!.top)
+	return tops.length ? window.innerHeight - Math.min(...tops) + 8 : 8
+}
+
+/** How long an armed Delete waits for its second tap (ms). */
+const DELETE_ARMED_MS = 4000
 
 /** The row whose actions are showing. Opening another shuts it. */
 let openSwipeRow: { close: () => void } | null = null
@@ -69,6 +86,17 @@ export function ShoppingListItemCard({
 	const menuPointer = useRef<string | null>(null)
 	const swipeRow = useRef<{ close: () => void } | null>(null)
 
+	// An armed Delete, in the menu or behind a swipe, disarms after a beat:
+	// it shouldn't wait minutes for a stray second tap.
+	useEffect(() => {
+		if (!confirmingDelete && !confirmingSwipeDelete) return
+		const timeout = setTimeout(() => {
+			setConfirmingDelete(false)
+			setConfirmingSwipeDelete(false)
+		}, DELETE_ARMED_MS)
+		return () => clearTimeout(timeout)
+	}, [confirmingDelete, confirmingSwipeDelete])
+
 	// Close edit mode when fetcher transitions from submitting/loading → idle
 	useEffect(() => {
 		if (
@@ -106,6 +134,7 @@ export function ShoppingListItemCard({
 			const open = settleReveal({ offset, velocity, width: swipeWidth })
 			if (open) {
 				if (!swipeOpen) haptic('selection')
+				setMenuOpen(false)
 				if (openSwipeRow !== swipeRow.current) openSwipeRow?.close()
 				openSwipeRow = swipeRow.current
 			} else if (openSwipeRow === swipeRow.current) {
@@ -127,6 +156,12 @@ export function ShoppingListItemCard({
 		swipeRow.current?.close()
 		if (openSwipeRow === swipeRow.current) openSwipeRow = null
 	}
+	// Checking or unchecking the item (here or on the other member's phone)
+	// adds or drops Delete; an open row keeps both actions in view.
+	const moveSwipe = swipe.moveTo
+	useEffect(() => {
+		if (swipeOpen) moveSwipe(-swipeWidth, true)
+	}, [swipeWidth, swipeOpen, moveSwipe])
 
 	// Hide once delete is submitted — formData covers in-flight,
 	// fetcher.data covers the idle frame before loaderData refreshes
@@ -282,8 +317,14 @@ export function ShoppingListItemCard({
 			</div>
 			<div
 				ref={swipe.ref}
-				onPointerDown={swipe.handlers.onPointerDown}
+				onPointerDown={(event) => {
+					// The menu is portaled out of the row but its events still
+					// bubble here through React; they are not the row's.
+					if (!event.currentTarget.contains(event.target as Node)) return
+					swipe.handlers.onPointerDown(event)
+				}}
 				onClickCapture={(event) => {
+					if (!event.currentTarget.contains(event.target as Node)) return
 					// A tap on an open row shuts it instead of checking the item.
 					if (swipeOpen) {
 						event.preventDefault()
@@ -293,7 +334,7 @@ export function ShoppingListItemCard({
 					}
 					swipe.handlers.onClickCapture(event)
 				}}
-				className="bg-background relative flex touch-pan-y flex-wrap items-center gap-3"
+				className="bg-background relative flex touch-pan-y touch-pinch-zoom flex-wrap items-center gap-3"
 			>
 				{/* Whole row toggles checkbox */}
 				<div className="flex min-w-0 flex-1 items-center gap-3">
@@ -412,6 +453,9 @@ export function ShoppingListItemCard({
 					</DropdownMenuTrigger>
 					<DropdownMenuContent
 						align="end"
+						collisionPadding={
+							menuOpen ? { top: 8, bottom: bottomClearance() } : undefined
+						}
 						className="min-w-48"
 						onCloseAutoFocus={(event) => {
 							if (!openingEdit.current) return
@@ -468,6 +512,11 @@ export function ShoppingListItemCard({
 										}
 										submitRowIntent(deleteFetcher, { intent: 'delete' })
 									}}
+									// Moving on to another item disarms it, as a blur did.
+									onBlur={() => setConfirmingDelete(false)}
+									aria-label={
+										confirmingDelete ? `Delete ${item.name}?` : undefined
+									}
 									className={cn(
 										'focus:text-destructive',
 										confirmingDelete && 'text-destructive font-medium',

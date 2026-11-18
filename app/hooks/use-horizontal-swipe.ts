@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { lockAxis, rubberBand } from '#app/utils/swipe.ts'
+import {
+	lockAxis,
+	pushSample,
+	releaseVelocity,
+	rubberBand,
+} from '#app/utils/swipe.ts'
 
-/** Release velocity is read over the last stretch of the drag. */
-const VELOCITY_WINDOW_MS = 100
 const SETTLE = 'transform 300ms var(--ease-page-settle)'
+/** A click this soon after a drag ends is the drag's, not a tap. */
+const SWALLOW_CLICK_MS = 400
 
 type Options = {
 	enabled: boolean
-	/** Where the element rests when the finger lands (px). */
+	/** Where the element rests (px). A finger landing mid-settle catches it
+	 * where it is instead. */
 	getBase: () => number
 	/** The range the element follows the finger in; past it, it resists. */
 	min: number
@@ -23,13 +29,15 @@ type Options = {
  * scrolling stays with the browser and only a sideways drag reaches here.
  *
  * Positions are written straight to the element's transform, not React state,
- * so a drag never re-renders. The click that ends a drag is swallowed.
+ * so a drag never re-renders. The click that ends a drag is swallowed. A
+ * finger landing while the element settles, or while an entrance animation
+ * runs on it, catches it where it is.
  */
 export function useHorizontalSwipe<T extends HTMLElement>(options: Options) {
 	const ref = useRef<T>(null)
 	const optionsRef = useRef(options)
 	optionsRef.current = options
-	const swallowClick = useRef(false)
+	const swallowClickUntil = useRef(0)
 	const cleanup = useRef<(() => void) | null>(null)
 
 	useEffect(() => () => cleanup.current?.(), [])
@@ -46,7 +54,7 @@ export function useHorizontalSwipe<T extends HTMLElement>(options: Options) {
 		(event: React.PointerEvent<T>) => {
 			// A drag that ended away from where it started fires no click, so
 			// a stale flag must not swallow this gesture's tap.
-			swallowClick.current = false
+			swallowClickUntil.current = 0
 			const { enabled, getBase } = optionsRef.current
 			if (!enabled || event.pointerType === 'mouse' || !event.isPrimary) return
 			const element = ref.current
@@ -56,7 +64,8 @@ export function useHorizontalSwipe<T extends HTMLElement>(options: Options) {
 			const pointerId = event.pointerId
 			const startX = event.clientX
 			const startY = event.clientY
-			const base = getBase()
+			const resting = getBase()
+			let base = resting
 			let axis: 'x' | 'y' | null = null
 			let offset = base
 			const samples: Array<{ x: number; t: number }> = []
@@ -70,28 +79,28 @@ export function useHorizontalSwipe<T extends HTMLElement>(options: Options) {
 					if (axis === 'y') return stop()
 					if (axis === null) return
 					element.setPointerCapture?.(pointerId)
+					// Catch the element where it is now: mid-settle, or partway
+					// through an entrance, which would otherwise outrank the
+					// transform written below.
+					const shown = new DOMMatrix(getComputedStyle(element).transform).m41
+					for (const animation of element.getAnimations()) animation.cancel()
+					base = Number.isFinite(shown) ? shown : resting
 				}
 				const { min, max } = optionsRef.current
 				offset = rubberBand(base + dx, min, max)
 				moveTo(offset, false)
-				samples.push({ x: move.clientX, t: move.timeStamp })
-				while (
-					samples.length > 2 &&
-					move.timeStamp - samples[0]!.t > VELOCITY_WINDOW_MS
-				) {
-					samples.shift()
-				}
+				pushSample(samples, { x: move.clientX, t: move.timeStamp })
 			}
 
 			const onUp = (up: PointerEvent) => {
 				if (up.pointerId !== pointerId) return
 				if (axis === 'x') {
-					const first = samples[0]
-					const last = samples[samples.length - 1]
-					const elapsed = first && last ? last.t - first.t : 0
-					const velocity =
-						first && last && elapsed > 0 ? (last.x - first.x) / elapsed : 0
-					swallowClick.current = true
+					const velocity = releaseVelocity(
+						samples,
+						up.timeStamp,
+						up.clientX - startX,
+					)
+					swallowClickUntil.current = up.timeStamp + SWALLOW_CLICK_MS
 					moveTo(optionsRef.current.onRelease({ offset, velocity }), true)
 				}
 				stop()
@@ -99,7 +108,7 @@ export function useHorizontalSwipe<T extends HTMLElement>(options: Options) {
 
 			const onCancel = (cancel: PointerEvent) => {
 				if (cancel.pointerId !== pointerId) return
-				if (axis === 'x') moveTo(base, true)
+				if (axis === 'x') moveTo(resting, true)
 				stop()
 			}
 
@@ -119,8 +128,8 @@ export function useHorizontalSwipe<T extends HTMLElement>(options: Options) {
 	)
 
 	const onClickCapture = useCallback((event: React.MouseEvent<T>) => {
-		if (!swallowClick.current) return
-		swallowClick.current = false
+		if (event.timeStamp > swallowClickUntil.current) return
+		swallowClickUntil.current = 0
 		event.preventDefault()
 		event.stopPropagation()
 	}, [])

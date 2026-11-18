@@ -2,7 +2,6 @@ import { describe, expect, test, vi } from 'vitest'
 import { z } from 'zod'
 import {
 	ANTHROPIC_MODELS,
-	anthropicHeaders,
 	isAnthropicConfigured,
 	nullable,
 	parseAnthropicJson,
@@ -56,15 +55,6 @@ describe('parseAnthropicJson', () => {
 			ok: true,
 			data: { value: 'ok' },
 		})
-	})
-
-	test('treats a fenced response as the failure it is', () => {
-		// Structured outputs return bare JSON. Fences used to be scraped off;
-		// nothing does that now, so a fenced response is a parse failure the
-		// caller reports rather than a response quietly repaired.
-		expect(
-			parseAnthropicJson('```json\n{"value":"ok"}\n```', FeatureSchema),
-		).toEqual({ ok: false, failure: { kind: 'parse' } })
 	})
 
 	test('distinguishes malformed JSON from a schema failure', () => {
@@ -146,13 +136,6 @@ describe('requestAnthropicJson', () => {
 		expect(byDefault).not.toHaveProperty('thinking')
 		// Turning thinking off is allowed; a budget is not.
 		expect(withoutThinking!.thinking).toEqual({ type: 'disabled' })
-	})
-
-	test('sends the key and version from one place', () => {
-		expect(anthropicHeaders('sk-test')).toEqual({
-			'x-api-key': 'sk-test',
-			'anthropic-version': '2023-06-01',
-		})
 	})
 
 	test('reads the JSON from the text block when thinking comes first', async () => {

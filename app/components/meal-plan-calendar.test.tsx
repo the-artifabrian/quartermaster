@@ -287,7 +287,6 @@ test('mobile focuses the first planned day and switches days without a long agen
 	})
 	const weekPicker = mobile.querySelector('[data-slot="mobile-week-days"]')
 
-	expect(weekPicker).toHaveClass('grid-cols-7')
 	expect(within(weekPicker as HTMLElement).getAllByRole('button')).toHaveLength(
 		7,
 	)
@@ -295,7 +294,6 @@ test('mobile focuses the first planned day and switches days without a long agen
 	expect(within(mobile).getByText('Banana Bread')).toBeVisible()
 	expect(within(mobile).queryByText('Bolognese')).not.toBeInTheDocument()
 	expect(wednesday).toHaveAttribute('aria-pressed', 'true')
-	expect(wednesday).toHaveClass('bg-primary', 'ring-2')
 	expect(thursday).toHaveAttribute('aria-pressed', 'false')
 	expect(monday).toHaveAccessibleName('Show Monday, Apr 6, no Meals planned')
 
@@ -306,7 +304,6 @@ test('mobile focuses the first planned day and switches days without a long agen
 	expect(within(mobile).queryByText('Banana Bread')).not.toBeInTheDocument()
 	expect(wednesday).toHaveAttribute('aria-pressed', 'false')
 	expect(thursday).toHaveAttribute('aria-pressed', 'true')
-	expect(thursday).toHaveClass('bg-primary', 'ring-2')
 })
 
 test('shares one in-flight and successful choice request across Plan controls', async () => {

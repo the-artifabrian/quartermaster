@@ -105,15 +105,16 @@ test('step buttons provide half-batch adjustments', async () => {
 	expect(onChange).toHaveBeenCalledWith(1.5)
 })
 
-test('long typed yield wraps without repeating the label', () => {
+test('a long typed yield reads once, scaled, beside its original', () => {
 	renderIngredientsControls({
 		scaleMultiplier: 2,
 		yieldAmount: 4,
 		yieldLabel: 'individual poolish dough balls',
 	})
 
-	const output = screen.getByText('Makes 8 individual poolish dough balls')
-	expect(output).not.toHaveClass('truncate')
+	expect(
+		screen.getByText('Makes 8 individual poolish dough balls'),
+	).toBeVisible()
 	expect(screen.getByText('original: 4')).toBeVisible()
 })
 

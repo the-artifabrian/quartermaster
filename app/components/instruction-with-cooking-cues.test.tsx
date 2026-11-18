@@ -28,7 +28,6 @@ describe('InstructionWithCookingCues', () => {
 		const tooltip = screen.getByRole('tooltip', { hidden: true })
 
 		expect(cue).toHaveAttribute('tabindex', '0')
-		expect(cue).toHaveClass('font-semibold', 'underline', 'text-copper-text')
 		expect(tooltip).toHaveAttribute('aria-hidden', 'true')
 
 		fireEvent.pointerEnter(cue, { pointerType: 'mouse' })

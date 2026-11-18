@@ -389,7 +389,7 @@ test.describe('in a browser', () => {
 		await expectNoActiveTabUnderline(page)
 	})
 
-	test('keeps the Home Screen layout clear of the status bar', async ({
+	test('keeps the layout clear of the status bar', async ({
 		page,
 		navigate,
 		login,

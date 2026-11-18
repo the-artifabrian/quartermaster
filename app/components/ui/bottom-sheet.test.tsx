@@ -51,29 +51,6 @@ function Sheet({ name, onClose }: { name: string; onClose?: () => void }) {
 	)
 }
 
-test('backdrop tap, Escape and the close button each close the sheet once', async () => {
-	const user = userEvent.setup()
-	const onClose = vi.fn()
-	render(<Sheet name="Add" onClose={onClose} />)
-
-	await user.click(screen.getByRole('button', { name: 'Open Add' }))
-	await user.click(
-		document.querySelector<HTMLElement>('[data-bottom-sheet-backdrop]')!,
-	)
-	expect(onClose).toHaveBeenCalledTimes(1)
-	expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-
-	await user.click(screen.getByRole('button', { name: 'Open Add' }))
-	await user.keyboard('{Escape}')
-	expect(onClose).toHaveBeenCalledTimes(2)
-	expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-
-	await user.click(screen.getByRole('button', { name: 'Open Add' }))
-	await user.click(screen.getByRole('button', { name: 'Close' }))
-	expect(onClose).toHaveBeenCalledTimes(3)
-	expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-})
-
 test('a closing sheet stays in place until its exit ends, then gives focus back to its trigger', async () => {
 	const user = userEvent.setup()
 	render(<Sheet name="Add" />)

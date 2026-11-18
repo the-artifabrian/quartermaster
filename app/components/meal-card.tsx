@@ -360,7 +360,7 @@ function MealDetailsForm({
 					name="date"
 					required
 					defaultValue={meal.dateStr}
-					className="h-9"
+					className="h-11 md:h-9"
 				/>
 			</div>
 
@@ -375,7 +375,7 @@ function MealDetailsForm({
 					id={`label-${meal.id}`}
 					name="label"
 					defaultValue={meal.label ?? ''}
-					className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+					className="border-input bg-background h-11 w-full rounded-md border px-2 text-sm md:h-9"
 				>
 					<option value="">No label</option>
 					{MEAL_TYPES.map((type) => (
@@ -398,7 +398,7 @@ function MealDetailsForm({
 					type="time"
 					name="time"
 					defaultValue={defaultTime}
-					className="h-9"
+					className="h-11 md:h-9"
 				/>
 			</div>
 
@@ -418,7 +418,7 @@ function MealDetailsForm({
 					min={1}
 					max={999}
 					defaultValue={meal.guestCount ?? ''}
-					className="h-9"
+					className="h-11 md:h-9"
 				/>
 			</div>
 
@@ -435,7 +435,7 @@ function MealDetailsForm({
 						name="text"
 						defaultValue={meal.genericText}
 						maxLength={200}
-						className="h-9"
+						className="h-11 md:h-9"
 					/>
 				</div>
 			)}
@@ -446,10 +446,21 @@ function MealDetailsForm({
 				/>
 			</div>
 			<div className="flex justify-end gap-2">
-				<Button type="button" variant="ghost" size="sm" onClick={onDone}>
+				<Button
+					type="button"
+					variant="ghost"
+					size="sm"
+					className="h-11 md:h-9"
+					onClick={onDone}
+				>
 					Cancel
 				</Button>
-				<Button type="submit" size="sm" disabled={fetcher.state !== 'idle'}>
+				<Button
+					type="submit"
+					size="sm"
+					className="h-11 md:h-9"
+					disabled={fetcher.state !== 'idle'}
+				>
 					{fetcher.state !== 'idle' ? 'Saving…' : 'Save'}
 				</Button>
 			</div>
@@ -513,6 +524,7 @@ export function MealCard({
 	const [editingDetails, setEditingDetails] = useState(false)
 	const [confirmingDelete, setConfirmingDelete] = useState(false)
 	const [menuOpen, setMenuOpen] = useState(false)
+	const menuPointer = useRef<string | null>(null)
 
 	const isText = meal.genericText != null
 	// A Recipe Meal derives completion from its items; a text-only Meal owns
@@ -640,7 +652,22 @@ export function MealCard({
 					<DropdownMenuTrigger asChild>
 						<button
 							type="button"
-							className="text-muted-foreground hover:text-foreground flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded transition-colors md:min-h-6 md:min-w-6"
+							// Radix opens a menu on pointerdown. A finger opens it on the
+							// tap instead, so a scroll that starts on the button leaves
+							// it shut.
+							onPointerDown={(event) => {
+								menuPointer.current = event.pointerType
+								if (event.pointerType !== 'mouse') event.preventDefault()
+							}}
+							onClick={() => {
+								if (menuPointer.current && menuPointer.current !== 'mouse') {
+									setMenuOpen((open) => !open)
+								}
+								menuPointer.current = null
+							}}
+							// 32px to the eye on a phone, 44px to the thumb: the
+							// pseudo-element takes taps without growing the header.
+							className="text-muted-foreground hover:text-foreground active:bg-muted relative flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded transition-colors before:absolute before:-inset-1.5 before:content-[''] md:min-h-6 md:min-w-6 md:before:hidden"
 							aria-label={`Meal actions for ${mealActionName}`}
 						>
 							<Icon name="dots-horizontal" className="size-3.5" />

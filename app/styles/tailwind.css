@@ -648,6 +648,14 @@ html {
 	}
 }
 
+/* The floating Ingredients button sits where another sheet's buttons do
+   (Add to Plan), and the page behind a sheet still scrolls. It steps aside
+   while any sheet is open. */
+:root:has([data-bottom-sheet-panel][data-state='open'])
+	[data-floating-ingredients] {
+	display: none;
+}
+
 /* A Shopping row added just now eases in. The saved row that replaces it
    mounts without the attribute and looks the same, so the swap shows
    nothing. */

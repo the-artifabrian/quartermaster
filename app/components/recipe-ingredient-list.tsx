@@ -199,7 +199,7 @@ function AddIngredientToShopping({
 							'flex size-[44px] items-center justify-center rounded-md transition-colors',
 							addedToCart
 								? 'text-primary'
-								: 'text-muted-foreground/50 hover:text-primary',
+								: 'text-muted-foreground/70 hover:text-primary active:bg-muted active:text-primary',
 						)}
 						disabled={cartFetcher.state !== 'idle' || addedToCart}
 						onClick={() => {

@@ -30,6 +30,7 @@ import {
 	historyIndex,
 	isViaTabBar,
 	markBackButtonPop,
+	VIA_TAB_BAR,
 } from '#app/utils/nav-direction.ts'
 import { isNormalLinkActivation } from './bottom-nav.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -45,7 +46,13 @@ export type NavBarHandle = {
 	navForm?: string
 }
 
-export type NavBarConfig = { rule: NavRule; form?: string }
+export type NavBarConfig = {
+	rule: NavRule
+	form?: string
+	/** The route's loader returned its data, so it renders its page (and
+	 * form), not its error. */
+	loaded?: boolean
+}
 
 function readNavHandle(handle: unknown): NavBarHandle | null {
 	if (typeof handle !== 'object' || handle === null) return null
@@ -63,7 +70,11 @@ export function useNavBarConfig(): NavBarConfig | null {
 			typeof handle.nav === 'function'
 				? handle.nav({ params: match.params })
 				: handle.nav
-		return { rule, form: handle.navForm }
+		return {
+			rule,
+			form: handle.navForm,
+			loaded: match.loaderData !== undefined,
+		}
 	}
 	return null
 }
@@ -155,8 +166,9 @@ function useTitleUnderBar(barRef: React.RefObject<HTMLElement | null>) {
 	const [state, setState] = useState({ pathname: '', title: '', under: false })
 	useEffect(() => {
 		const bar = barRef.current
+		if (!bar) return
+		// A page without an h1 (an error page) still has its bar measured.
 		const heading = document.querySelector('#main-content h1')
-		if (!bar || !heading) return
 		let observer: IntersectionObserver | null = null
 		const observe = () => {
 			observer?.disconnect()
@@ -171,6 +183,7 @@ function useTitleUnderBar(barRef: React.RefObject<HTMLElement | null>) {
 				'--nav-bar-bottom',
 				`${barBottom}px`,
 			)
+			if (!heading) return
 			observer = new IntersectionObserver(
 				([entry]) => {
 					if (!entry) return
@@ -208,7 +221,7 @@ function useTitleUnderBar(barRef: React.RefObject<HTMLElement | null>) {
 const barTextButton =
 	'text-primary flex min-h-11 items-center rounded-md px-2 text-[17px] leading-none transition-opacity active:opacity-60 md:text-base'
 
-export function NavBar({ rule, form }: NavBarConfig) {
+export function NavBar({ rule, form, loaded = true }: NavBarConfig) {
 	const location = useLocation()
 	const navigate = useNavigate()
 	const navigation = useNavigation()
@@ -219,12 +232,25 @@ export function NavBar({ rule, form }: NavBarConfig) {
 		() => saveBlocked,
 		() => false,
 	)
-	// The server renders the form with the page, so it renders Save too.
-	const formOnScreen = useSyncExternalStore(
-		subscribeForms,
-		() => (form ? mountedForms.has(form) : false),
-		() => Boolean(form),
-	)
+	// Whether the edit form is on screen. Until the form has reported, the
+	// route's own state says: its page (and form) renders unless it failed to
+	// load. A layout effect, subscribed before the form's own layout effect
+	// reports, so a first frame never shows Back where Cancel belongs.
+	const [formMount, setFormMount] = useState<{
+		form: string
+		mounted: boolean
+	} | null>(null)
+	useLayoutEffect(() => {
+		if (!form) return
+		const sync = () => setFormMount({ form, mounted: mountedForms.has(form) })
+		sync()
+		return subscribeForms(sync)
+	}, [form])
+	const formOnScreen = form
+		? formMount?.form === form
+			? formMount.mounted
+			: loaded
+		: false
 	const editing = form && formOnScreen ? form : null
 	const viaTabBar = isViaTabBar(location.state)
 	// The history entry this page committed on. The browser's own index moves
@@ -289,7 +315,9 @@ export function NavBar({ rule, form }: NavBarConfig) {
 				<Link
 					to={rule.parent}
 					replace
-					state={BACK_TO_LIST}
+					// A page the tab bar restored hands the restore on to the page
+					// that replaces it.
+					state={viaTabBar ? { ...BACK_TO_LIST, ...VIA_TAB_BAR } : BACK_TO_LIST}
 					viewTransition
 					onClick={onBack}
 					data-nav-back=""

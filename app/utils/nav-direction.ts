@@ -122,7 +122,9 @@ export function useNavDirection() {
 			backButton: type === 'POP' && backButtonPop,
 		})
 		popHadUATransition.current = false
-		if (type === 'POP') backButtonPop = false
+		// Whatever commits next, the mark belonged to it or was left by a pop
+		// that never came (a link tapped first).
+		backButtonPop = false
 		const root = document.documentElement
 		if (direction) root.dataset.navDirection = direction
 		else delete root.dataset.navDirection

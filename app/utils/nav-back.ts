@@ -83,7 +83,9 @@ function isSettingsSubpage(pathname: string) {
 export function navLabel(pathname: string) {
 	const tab = TAB_ROOT_LABELS[pathname]
 	if (tab) return tab
-	if (pathname === '/settings/profile') return 'Settings'
+	if (pathname === '/settings/profile' || isSettingsSubpage(pathname)) {
+		return 'Settings'
+	}
 	if (pathname === '/recipes/import') return 'Import'
 	if (isMenuDetail(pathname)) return 'Menu'
 	if (isRecipeDetail(pathname)) return 'Recipe'
@@ -106,26 +108,39 @@ export function resolveBack({
 }): BackTarget {
 	const outsideTab = (p: string) => (rule.tab ? !rule.tab(p) : false)
 	if (idx !== null) {
-		// Between a page the tab bar restored and the stack it continues lie
-		// the other tabs' pages, which did not open it.
-		let crossingTabs = viaTabBar
+		// Each tab keeps its own stack. A page the tab bar restored continues
+		// the stack it was left on: Back looks for that page further back
+		// (`seeking`), past the other tabs' pages, and never lands on another
+		// tab's page (`restored`).
+		let seeking = viaTabBar
+		let restored = viaTabBar
 		for (let j = idx - 1; j >= 0; j--) {
 			const entry = log[j]
 			// An entry the app never saw (before a reload): it could be anything.
 			if (!entry) break
 			const previous = entry.pathname
+			const entryRestored = entry.viaTabBar ?? false
 			if (previous === pathname) {
-				crossingTabs = entry.viaTabBar ?? false
+				seeking = entryRestored
+				restored ||= entryRestored
 				continue
 			}
-			if (crossingTabs && outsideTab(previous)) continue
-			if (previous === rule.parent || rule.returnsTo?.(previous)) {
+			if (seeking && outsideTab(previous)) continue
+			if (
+				previous === rule.parent ||
+				(!seeking && rule.returnsTo?.(previous))
+			) {
 				return { type: 'pop', delta: idx - j, label: navLabel(previous) }
 			}
-			if (rule.stepsOver?.(previous, pathname)) continue
+			if (rule.stepsOver?.(previous, pathname)) {
+				// A form the tab bar restored (then saved or cancelled) carries
+				// its restore over to this page.
+				if (entryRestored) seeking = restored = true
+				continue
+			}
 			// Opened from another tab (a planned Recipe from the Plan). Not from
 			// sign-in, which a deep link passes through on its way here.
-			if (outsideTab(previous) && isTabPage(previous)) {
+			if (!restored && outsideTab(previous) && isTabPage(previous)) {
 				return { type: 'pop', delta: idx - j, label: navLabel(previous) }
 			}
 			break
@@ -168,11 +183,15 @@ export const recipeDetailNav: NavRule = {
 
 export const recipeEditNav = (recipeId: string): NavRule => ({
 	parent: `/recipes/${recipeId}`,
+	tab: isRecipesTab,
 })
 
-export const recipeNewNav: NavRule = { parent: '/recipes' }
+export const recipeNewNav: NavRule = { parent: '/recipes', tab: isRecipesTab }
 
-export const recipeImportNav: NavRule = { parent: '/recipes' }
+export const recipeImportNav: NavRule = {
+	parent: '/recipes',
+	tab: isRecipesTab,
+}
 
 export const menuDetailNav: NavRule = {
 	parent: '/recipes/menus',
@@ -183,9 +202,13 @@ export const menuDetailNav: NavRule = {
 
 export const menuEditNav = (menuId: string): NavRule => ({
 	parent: `/recipes/menus/${menuId}`,
+	tab: isRecipesTab,
 })
 
-export const menuNewNav: NavRule = { parent: '/recipes/menus' }
+export const menuNewNav: NavRule = {
+	parent: '/recipes/menus',
+	tab: isRecipesTab,
+}
 
 /**
  * Settings opens from the avatar: on a tab root on phones, on any page of a
@@ -207,7 +230,7 @@ export const settingsPageNav: NavRule = {
  * of a tab. */
 export const upgradeNav: NavRule = {
 	parent: '/settings/profile',
-	returnsTo: isTabPage,
+	returnsTo: (p) => isTabPage(p) || isSettingsSubpage(p),
 }
 
 // The log of entries this document has shown. It lives in memory only:

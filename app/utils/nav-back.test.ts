@@ -113,10 +113,67 @@ test('a Recipe the tab bar restored goes back down its own stack, to the filtere
 	).toEqual({ type: 'pop', delta: 3, label: 'Recipes' })
 })
 
-test('a restored Recipe first opened from the Plan goes back to the Plan', () => {
+test('a restored Recipe first opened from the Plan stays in its tab: Back opens Recipes', () => {
 	expect(
 		back(['/plan', '/recipes/r1', '/shopping', `/recipes/r1${TAB}`]),
-	).toEqual({ type: 'pop', delta: 3, label: 'Plan' })
+	).toEqual({ type: 'replace', to: '/recipes', label: 'Recipes' })
+})
+
+test('a restored Recipe, edited and saved, still stays in its tab', () => {
+	expect(
+		back([
+			'/plan',
+			'/recipes/r1',
+			'/shopping',
+			`/recipes/r1${TAB}`,
+			'/recipes/r1/edit',
+			'/recipes/r1',
+		]),
+	).toEqual({ type: 'replace', to: '/recipes', label: 'Recipes' })
+})
+
+test('a restored Recipe does not go back to another Recipe that did not open it', () => {
+	expect(back(['/recipes/r2', '/plan', `/recipes/r1${TAB}`])).toEqual({
+		type: 'replace',
+		to: '/recipes',
+		label: 'Recipes',
+	})
+})
+
+test('a restored Recipe whose own entry is gone still finds the list behind it', () => {
+	expect(back(['/recipes', '/plan', `/recipes/r1${TAB}`])).toEqual({
+		type: 'pop',
+		delta: 2,
+		label: 'Recipes',
+	})
+})
+
+test('a Recipe saved from an edit form the tab bar restored goes down its own stack', () => {
+	expect(
+		back([
+			'/recipes',
+			'/recipes/r1',
+			'/recipes/r1/edit',
+			'/plan',
+			`/recipes/r1/edit${TAB}`,
+			'/recipes/r1',
+		]),
+	).toEqual({ type: 'pop', delta: 5, label: 'Recipes' })
+})
+
+test('Cancel on an edit form the tab bar restored returns to its Recipe, not the Plan', () => {
+	expect(
+		back(
+			[
+				'/recipes',
+				'/recipes/r1',
+				'/recipes/r1/edit',
+				'/plan',
+				`/recipes/r1/edit${TAB}`,
+			],
+			recipeEditNav('r1'),
+		),
+	).toEqual({ type: 'pop', delta: 3, label: 'Recipe' })
 })
 
 test('a restored Recipe saved after an edit still goes down its own stack', () => {
@@ -299,6 +356,9 @@ test('Upgrade goes back to the page whose Pro notice opened it', () => {
 		delta: 1,
 		label: 'Plan',
 	})
+	expect(back(['/settings/profile/household', '/upgrade'], upgradeNav)).toEqual(
+		{ type: 'pop', delta: 1, label: 'Settings' },
+	)
 	expect(back(['/upgrade'], upgradeNav)).toEqual({
 		type: 'replace',
 		to: '/settings/profile',

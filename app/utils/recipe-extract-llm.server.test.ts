@@ -694,16 +694,7 @@ describe('extractRecipeFromText', () => {
 			return new Response(
 				JSON.stringify({
 					stop_reason: 'end_turn',
-					content: [
-						{
-							type: 'text',
-							text: JSON.stringify({
-								...validResponse,
-								activeTime: 20,
-								totalTime: 75,
-							}),
-						},
-					],
+					content: [{ type: 'text', text: JSON.stringify(validResponse) }],
 				}),
 				{ status: 200 },
 			)

@@ -105,7 +105,7 @@ test('step buttons provide half-batch adjustments', async () => {
 	expect(onChange).toHaveBeenCalledWith(1.5)
 })
 
-test('a long typed yield reads once, scaled, beside its original', () => {
+test('a scaled typed yield names its label once, beside the original', () => {
 	renderIngredientsControls({
 		scaleMultiplier: 2,
 		yieldAmount: 4,

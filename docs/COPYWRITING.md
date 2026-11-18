@@ -34,12 +34,12 @@ Each action has one name wherever it is offered:
 - **Log in** and **Log out**.
 - **Mark cooked** and **Mark not cooked** set a Meal's state.
 
-A delete that can be undone takes two taps. The first tap arms it, and the
-second tap names the action as a question: “Delete?” for a delete, otherwise the
-verb, such as “Clear 3?”. One that cannot be undone opens a confirm sheet: the
-action as a question (“Delete this Recipe?”, “Leave this Household?”), one line
-on what is lost, a red button that names the action (“Delete Recipe”) and
-Cancel. Do not use a browser confirm dialog or “Are you sure?”.
+A delete that can be undone happens at once and says what went, with Undo:
+“Deleted milk”, “Cleared 3 checked items”, “Deleted Soup”. One that cannot opens
+a confirm sheet: the action as a question (“Delete this Recipe?”, “Leave this
+Household?”), one line on what is lost, a red button that names the action
+(“Delete Recipe”) and Cancel. Do not use a browser confirm dialog or “Are you
+sure?”.
 
 ## Rules
 

@@ -33,6 +33,8 @@ import {
 	selectedDayFromUrl,
 } from '#app/utils/plan-day-param.ts'
 import { type PlanMeal, MealCard } from './meal-card.tsx'
+import { RowCollapse } from './ui/row-collapse.tsx'
+import { useEnteringRows, useHiddenRows } from './undo-delete.tsx'
 import { type PlanItemChoice, PlanItemSelector } from './recipe-selector.tsx'
 import { Button } from './ui/button.tsx'
 import { Chip } from './ui/chip.tsx'
@@ -396,22 +398,33 @@ function MealCards({
 	meals: PlanMeal[]
 	choices: PlanChoices
 }) {
-	return meals.map((meal, index) => (
-		<div
-			key={meal.id}
-			data-slot="meal-group"
-			className={cn(
-				index > 0 && 'md:border-border md:mt-2 md:border-t md:pt-2',
-			)}
-		>
-			<MealCard
-				meal={meal}
-				choices={choices}
-				canMoveUp={index > 0}
-				canMoveDown={index < meals.length - 1}
-			/>
-		</div>
-	))
+	const hidden = useHiddenRows()
+	const entering = useEnteringRows()
+	// A Meal deleted with Undo still waiting stays here, collapsed, so Undo can
+	// open it again; order and moves count only the ones showing.
+	const shown = meals.filter((meal) => !hidden.has(meal.id))
+	return meals.map((meal) => {
+		const index = shown.indexOf(meal)
+		return (
+			// A deleted Meal closes its gap, and Undo opens it again.
+			<RowCollapse
+				key={meal.id}
+				hidden={index === -1}
+				entering={entering.has(meal.id)}
+				data-slot="meal-group"
+				className={cn(
+					index > 0 && 'md:border-border md:mt-2 md:border-t md:pt-2',
+				)}
+			>
+				<MealCard
+					meal={meal}
+					choices={choices}
+					canMoveUp={index > 0}
+					canMoveDown={index !== -1 && index < shown.length - 1}
+				/>
+			</RowCollapse>
+		)
+	})
 }
 
 export function MealPlanCalendar({
@@ -531,6 +544,10 @@ export function MealPlanCalendar({
 		setSearchParams(next, { replace: true, preventScrollReset: true })
 	}
 
+	// Counts and empty days leave out Meals deleted with Undo still waiting.
+	const hidden = useHiddenRows()
+	const shownCount = (dayMeals: PlanMeal[] | undefined) =>
+		dayMeals?.filter((meal) => !hidden.has(meal.id)).length ?? 0
 	const mealsByDay = new Map<string, PlanMeal[]>()
 	for (const meal of meals) {
 		const existing = mealsByDay.get(meal.dateStr) ?? []
@@ -557,7 +574,7 @@ export function MealPlanCalendar({
 						const dateStr = serializeDate(date)
 						const selected = dateStr === selectedDate
 						const today = isToday(date)
-						const mealCount = mealsByDay.get(dateStr)?.length ?? 0
+						const mealCount = shownCount(mealsByDay.get(dateStr))
 						return (
 							<button
 								key={dateStr}
@@ -617,7 +634,7 @@ export function MealPlanCalendar({
 				</div>
 
 				<div className="mt-4 space-y-3">
-					{selectedMeals.length > 0 ? (
+					{shownCount(selectedMeals) > 0 ? (
 						<MealCards meals={selectedMeals} choices={choices} />
 					) : (
 						<div className="border-border/60 flex min-h-36 flex-col items-center justify-center rounded-2xl border border-dashed px-6 text-center">
@@ -653,7 +670,7 @@ export function MealPlanCalendar({
 							<div
 								className={cn(
 									'border-border/80 bg-background/35 border-r px-5',
-									dayMeals.length > 0 ? 'py-4' : 'py-3',
+									shownCount(dayMeals) > 0 ? 'py-4' : 'py-3',
 									isToday(date) && 'border-accent/40 bg-accent/12',
 								)}
 							>
@@ -670,10 +687,10 @@ export function MealPlanCalendar({
 							<div
 								className={cn(
 									'min-w-0 px-5',
-									dayMeals.length > 0 ? 'py-2' : 'py-1',
+									shownCount(dayMeals) > 0 ? 'py-2' : 'py-1',
 								)}
 							>
-								{dayMeals.length > 0 ? (
+								{shownCount(dayMeals) > 0 ? (
 									<>
 										<div>
 											<MealCards meals={dayMeals} choices={choices} />

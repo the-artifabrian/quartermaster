@@ -84,7 +84,7 @@ async function seed(user: { id: string; householdId: string }) {
 	})
 }
 
-test('swiping a Shopping row left reveals Later and Delete; Delete removes it on a second tap', async ({
+test('swiping a Shopping row left reveals Later and Delete; Delete removes it at once, with Undo', async ({
 	page,
 	login,
 }) => {
@@ -112,20 +112,19 @@ test('swiping a Shopping row left reveals Later and Delete; Delete removes it on
 	await expect(lemons.getByRole('button', { name: 'Delete' })).toBeVisible()
 	await expect(deleteButton).toBeHidden()
 
-	// Delete asks twice, like the menu's: there is no undo.
-	const lemonsDelete = lemons.getByRole('button', { name: 'Delete' })
-	await lemonsDelete.click()
-	await expect(lemonsDelete).toHaveText('Delete?')
-	await expect(lemons).toBeVisible()
-	await lemonsDelete.click()
+	// Delete goes at once and offers Undo; it is saved once the toast goes.
+	await lemons.getByRole('button', { name: 'Delete' }).click()
 	await expect(lemons).toBeHidden()
+	await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible()
 	await expect
-		.poll(() =>
-			prisma.shoppingListItem.findMany({
-				where: { list: { householdId: user.householdId } },
-				select: { name: true, checked: true },
-				orderBy: { name: 'asc' },
-			}),
+		.poll(
+			() =>
+				prisma.shoppingListItem.findMany({
+					where: { list: { householdId: user.householdId } },
+					select: { name: true, checked: true },
+					orderBy: { name: 'asc' },
+				}),
+			{ timeout: 10_000 },
 		)
 		.toEqual([
 			{ name: 'eggs', checked: false },

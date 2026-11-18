@@ -132,14 +132,15 @@ test('a row menu near the bottom opens clear of the add button and tab bar', asy
 	await expect(deleteItem).toHaveCSS('color', red)
 
 	await deleteItem.click()
-	await expect(deleteItem).toHaveText('Delete?')
-	await deleteItem.click()
 	await expect(row(page, target)).toBeHidden()
+	// Saved once its Undo toast has gone.
 	await expect
-		.poll(() =>
-			prisma.shoppingListItem.count({
-				where: { name: target, list: { householdId: user.householdId } },
-			}),
+		.poll(
+			() =>
+				prisma.shoppingListItem.count({
+					where: { name: target, list: { householdId: user.householdId } },
+				}),
+			{ timeout: 10_000 },
 		)
 		.toBe(0)
 })

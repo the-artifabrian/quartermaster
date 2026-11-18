@@ -3,6 +3,12 @@ import { useFetcher } from 'react-router'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
+import { RowCollapse } from './ui/row-collapse.tsx'
+import {
+	useDeleteWithUndo,
+	useEnteringRows,
+	useHiddenRows,
+} from './undo-delete.tsx'
 import { StapleSuggestions } from './staple-suggestions.tsx'
 
 type StaplesResponse = {
@@ -249,8 +255,9 @@ function StapleRow({
 	// One fetcher per row, so adding three things in a row does not queue
 	// behind a list-wide lock, and a failure belongs to the row that failed.
 	const shopFetcher = useFetcher<StaplesResponse>()
-	const removeFetcher = useFetcher<StaplesResponse>()
-	const [confirmRemove, setConfirmRemove] = useState(false)
+	const deleteWithUndo = useDeleteWithUndo()
+	const hidden = useHiddenRows()
+	const entering = useEnteringRows()
 	const isAdding = shopFetcher.state !== 'idle'
 	// The loader is revalidated by the time the fetcher is idle, so this only
 	// covers the request itself.
@@ -264,7 +271,13 @@ function StapleRow({
 	}, [onAnnounce, shopFetcher.data, shopFetcher.state])
 
 	return (
-		<li className="w-full min-w-0 py-1">
+		// A removed Staple closes its gap, and Undo opens it again.
+		<RowCollapse
+			as="li"
+			hidden={hidden.has(staple.id)}
+			entering={entering.has(staple.id)}
+			className="w-full min-w-0 py-1"
+		>
 			<div className="flex w-full min-w-0 items-center gap-2">
 				<span className="min-w-0 flex-1 truncate pl-1">
 					{staple.displayName}
@@ -297,36 +310,24 @@ function StapleRow({
 						'Add'
 					)}
 				</Button>
+				{/* At once, with Undo: the Staple is only unmarked, never lost. */}
 				<Button
 					type="button"
-					variant={confirmRemove ? 'destructive' : 'ghost'}
-					className="min-h-11 min-w-11 px-3"
-					aria-label={
-						removeFetcher.state !== 'idle'
-							? `Deleting ${staple.displayName}`
-							: confirmRemove
-								? `Confirm delete ${staple.displayName}`
-								: `Delete ${staple.displayName}`
+					variant="ghost"
+					className="text-destructive hover:text-destructive min-h-11 min-w-11 px-3"
+					aria-label={`Remove ${staple.displayName}`}
+					onClick={() =>
+						deleteWithUndo({
+							key: `staple:${staple.id}`,
+							hides: [staple.id],
+							message: `Removed ${staple.displayName}`,
+							what: staple.displayName,
+							verb: 'remove',
+							request: { intent: 'remove-staple', stapleId: staple.id },
+						})
 					}
-					onClick={() => {
-						if (!confirmRemove) {
-							setConfirmRemove(true)
-							return
-						}
-						void removeFetcher.submit(
-							{ intent: 'remove-staple', itemId: staple.id },
-							{ method: 'POST' },
-						)
-					}}
-					aria-busy={removeFetcher.state !== 'idle' || undefined}
-					disabled={removeFetcher.state !== 'idle'}
 				>
 					<Icon name="trash" size="sm" />
-					{removeFetcher.state !== 'idle' ? (
-						<span>Deleting…</span>
-					) : (
-						confirmRemove && <span>Delete?</span>
-					)}
 				</Button>
 			</div>
 			{shopFailed && (
@@ -335,12 +336,6 @@ function StapleRow({
 						`Could not add ${staple.displayName} to Next shop`}
 				</p>
 			)}
-			{removeFetcher.data?.status === 'error' && (
-				<p className="text-destructive mt-1 pl-1 text-sm" role="alert">
-					{removeFetcher.data.message ??
-						`Could not delete ${staple.displayName}`}
-				</p>
-			)}
-		</li>
+		</RowCollapse>
 	)
 }

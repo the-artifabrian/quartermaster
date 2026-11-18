@@ -2,26 +2,25 @@ import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-	Form,
-	Link,
-	useFetcher,
-	useFetchers,
-	useNavigation,
-	useRevalidator,
-} from 'react-router'
+import { Link, useFetcher, useFetchers, useRevalidator } from 'react-router'
 import { toast } from 'sonner'
 import { OfflineErrorBoundary } from '#app/components/offline-error-boundary.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
+import {
+	useDeleteWithUndo,
+	useEnteringRows,
+	useHiddenRows,
+} from '#app/components/undo-delete.tsx'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { ShoppingListLiveRefresh } from '#app/components/shopping-live-refresh.tsx'
 import { MobileFabAdd } from '#app/components/shopping-mobile-fab.tsx'
 import { ShoppingPlanPicker } from '#app/components/shopping-plan-picker.tsx'
 import { ShoppingStaplesPicker } from '#app/components/shopping-staples-picker.tsx'
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
+import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
-import { PendingButton } from '#app/components/ui/pending-button.tsx'
+import { RowCollapse } from '#app/components/ui/row-collapse.tsx'
 import {
 	useSpeechToText,
 	type TranscribedItem,
@@ -36,7 +35,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
-import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
+import { cn } from '#app/utils/misc.tsx'
 import { parseTypedItem } from '#app/utils/parse-speech-item.ts'
 import {
 	editShoppingDisplayGroup,
@@ -524,12 +523,14 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const }
 	}
 
+	// Today's page clears through Undo (resources/undo-delete); a page loaded
+	// before that still posts here.
 	if (intent === 'clear-checked') {
 		const horizon = parseShoppingHorizon(formData.get('horizon'))
 		const excludedIds = formData
 			.getAll('pendingItemId')
 			.filter((id): id is string => typeof id === 'string')
-		await prisma.shoppingListItem.deleteMany({
+		const { count } = await prisma.shoppingListItem.deleteMany({
 			where: {
 				listId: shoppingList.id,
 				checked: true,
@@ -538,13 +539,15 @@ export async function action({ request }: Route.ActionArgs) {
 			},
 		})
 
-		void emitHouseholdEvent({
-			originClientId: formData.get('originClientId'),
-			type: 'shopping_list_cleared',
-			payload: {},
-			userId,
-			householdId,
-		})
+		if (count > 0) {
+			void emitHouseholdEvent({
+				originClientId: formData.get('originClientId'),
+				type: 'shopping_list_cleared',
+				payload: {},
+				userId,
+				householdId,
+			})
+		}
 
 		return { status: 'success' as const }
 	}
@@ -765,70 +768,75 @@ function ShoppingItems({
 	checks: ReturnType<typeof useShoppingChecks>
 	voiceAddedNames: Set<string>
 }) {
+	const hidden = useHiddenRows()
+	const entering = useEnteringRows()
 	return (
 		<div className="divide-border/40 divide-y">
 			{items.map((item) => (
-				<ShoppingListItemCard
-					checks={checks}
+				// A deleted row closes its gap, and Undo opens it again.
+				<RowCollapse
 					key={item.id}
-					item={item}
-					isVoiceAdded={voiceAddedNames.has(item.name.toLowerCase().trim())}
-				/>
+					hidden={hidden.has(item.id)}
+					entering={entering.has(item.id)}
+					instant={(hidden.get(item.id) ?? entering.get(item.id)) === 'instant'}
+				>
+					<ShoppingListItemCard
+						checks={checks}
+						item={item}
+						isVoiceAdded={voiceAddedNames.has(item.name.toLowerCase().trim())}
+					/>
+				</RowCollapse>
 			))}
 		</div>
 	)
 }
 
 type ClearCheckedProps = {
-	checkedCount: number
+	/** The checked items on screen whose check is saved. */
+	checked: Array<{ id: string }>
 	horizon: ShoppingHorizon
-	pending: boolean
-	pendingIds: string[]
 }
 
-function ClearCheckedControl(props: ClearCheckedProps) {
-	if (props.checkedCount === 0) return null
-	// Mounted only while there is something to clear, so an armed tap never
-	// carries over to the next batch of checked items.
-	return <ClearCheckedForm {...props} />
-}
-
-function ClearCheckedForm({
-	checkedCount,
-	horizon,
-	pending,
-	pendingIds,
-}: ClearCheckedProps) {
-	const dc = useDoubleCheck()
+/**
+ * Clears at once, with Undo. The rows go without an animation; only the rows
+ * on screen now are sent, so an item checked on the other phone a moment ago
+ * stays.
+ */
+function ClearCheckedControl({ checked, horizon }: ClearCheckedProps) {
+	const deleteWithUndo = useDeleteWithUndo()
+	if (checked.length === 0) return null
+	// At most 500 at a time (resources/undo-delete); a tap again clears more.
+	const checkedIds = checked.slice(0, 500).map((item) => item.id)
 	const sectionLabel = horizon === LATER ? 'Later' : 'Next shop'
+	const count = checkedIds.length
 	return (
 		<div className="animate-slide-up-reveal flex items-center justify-center pt-1">
-			<Form method="POST" className="inline">
-				<HouseholdClientInput />
-				<input type="hidden" name="intent" value="clear-checked" />
-				{pendingIds.map((id) => (
-					<input key={id} type="hidden" name="pendingItemId" value={id} />
-				))}
-				<input type="hidden" name="horizon" value={horizon} />
-				<PendingButton
-					{...dc.getButtonProps({
-						type: 'submit',
-						'aria-label': `Clear checked items from ${sectionLabel}`,
-					})}
-					variant="link"
-					pending={pending}
-					pendingLabel={`Clearing checked items from ${sectionLabel}`}
-					className={cn(
-						// 44px tall for the thumb; pt-1 above keeps the link where it was.
-						'min-h-11 px-3 py-0 text-sm underline underline-offset-2',
-						dc.doubleCheck
-							? 'text-destructive font-medium'
-							: 'text-muted-foreground hover:text-foreground',
-					)}
-				>
-					{dc.doubleCheck ? `Clear ${checkedCount}?` : 'Clear checked'}
-				</PendingButton>
-			</Form>
+			<Button
+				type="button"
+				variant="link"
+				aria-label={`Clear checked items from ${sectionLabel}`}
+				onClick={() =>
+					deleteWithUndo({
+						key: `clear-checked:${horizon}:${checkedIds.join(',')}`,
+						hides: checkedIds,
+						style: 'instant',
+						message: `Cleared ${count} checked item${count === 1 ? '' : 's'}`,
+						what: `the checked item${count === 1 ? '' : 's'}`,
+						verb: 'clear',
+						// Only rows still checked go: one unchecked on the other
+						// phone a moment ago stays.
+						request: {
+							intent: 'delete-shopping',
+							itemIds: checkedIds,
+							checkedOnly: true,
+						},
+					})
+				}
+				// 44px tall for the thumb; pt-1 above keeps the link where it was.
+				className="text-muted-foreground hover:text-foreground min-h-11 px-3 py-0 text-sm underline underline-offset-2"
+			>
+				Clear checked
+			</Button>
 		</div>
 	)
 }
@@ -867,13 +875,6 @@ export default function ShoppingListRoute({
 	const [fabOpen, setFabOpen] = useState(false)
 	const [warningDismissed, setWarningDismissed] = useState(false)
 	const [voiceAddedNames, setVoiceAddedNames] = useState<Set<string>>(new Set())
-	const navigation = useNavigation()
-	const pendingIntent = navigation.formData?.get('intent')
-	const isClearingChecked =
-		navigation.state !== 'idle' && pendingIntent === 'clear-checked'
-	const clearingHorizon = parseShoppingHorizon(
-		navigation.formData?.get('horizon') ?? null,
-	)
 
 	// Auto-clear voice highlights after 60 seconds
 	useEffect(() => {
@@ -991,16 +992,23 @@ export default function ShoppingListRoute({
 	}, [quickAddFetcher.state, quickAddFetcher.data])
 
 	const pendingAddedItems = usePendingShoppingItems(shoppingList.id)
-	const allItems = mergeOptimisticShoppingItems(checks.items, pendingAddedItems)
+	// Rows deleted with Undo still waiting stay in the lists, collapsed, so
+	// Undo can open them again; nothing counts them.
+	const hidden = useHiddenRows()
+	const listedItems = mergeOptimisticShoppingItems(
+		checks.items,
+		pendingAddedItems,
+	)
+	const allItems = listedItems.filter((item) => !hidden.has(item.id))
 	const totalItems = allItems.length
 	const nextItems = allItems.filter((item) => item.horizon === NEXT_SHOP)
 	const laterItems = allItems.filter((item) => item.horizon === LATER)
-	const checkedNextItems = nextItems.filter(
-		(item) => item.checked && !checks.pendingIds.includes(item.id),
-	).length
-	const checkedLaterItems = laterItems.filter(
-		(item) => item.checked && !checks.pendingIds.includes(item.id),
-	).length
+	const clearable = (items: typeof allItems) =>
+		items.filter((item) => item.checked && !checks.pendingIds.includes(item.id))
+	const clearableNext = clearable(nextItems)
+	const clearableLater = clearable(laterItems)
+	const checkedNextItems = clearableNext.length
+	const checkedLaterItems = clearableLater.length
 
 	const searchLower = search.toLowerCase()
 	const filterBySearch = (items: typeof allItems) =>
@@ -1009,6 +1017,13 @@ export default function ShoppingListRoute({
 			: items
 	const filteredNextItems = filterBySearch(nextItems)
 	const filteredLaterItems = filterBySearch(laterItems)
+	// What the lists render: the visible rows plus the collapsed ones.
+	const listedNextItems = filterBySearch(
+		listedItems.filter((item) => item.horizon === NEXT_SHOP),
+	)
+	const listedLaterItems = filterBySearch(
+		listedItems.filter((item) => item.horizon === LATER),
+	)
 	const hasSearchResults =
 		filteredNextItems.length > 0 || filteredLaterItems.length > 0
 	const showLaterContents =
@@ -1251,7 +1266,7 @@ export default function ShoppingListRoute({
 							{filteredNextItems.length > 0 ? (
 								<ShoppingItems
 									checks={checks}
-									items={filteredNextItems}
+									items={listedNextItems}
 									voiceAddedNames={voiceAddedNames}
 								/>
 							) : !search ? (
@@ -1287,10 +1302,8 @@ export default function ShoppingListRoute({
 							) : null}
 							{!search && (
 								<ClearCheckedControl
-									checkedCount={checkedNextItems}
-									pendingIds={checks.pendingIds}
+									checked={clearableNext}
 									horizon={NEXT_SHOP}
-									pending={isClearingChecked && clearingHorizon === NEXT_SHOP}
 								/>
 							)}
 						</div>
@@ -1333,7 +1346,7 @@ export default function ShoppingListRoute({
 							{filteredLaterItems.length > 0 ? (
 								<ShoppingItems
 									checks={checks}
-									items={filteredLaterItems}
+									items={listedLaterItems}
 									voiceAddedNames={voiceAddedNames}
 								/>
 							) : (
@@ -1342,12 +1355,7 @@ export default function ShoppingListRoute({
 								</p>
 							)}
 							{!search && (
-								<ClearCheckedControl
-									checkedCount={checkedLaterItems}
-									pendingIds={checks.pendingIds}
-									horizon={LATER}
-									pending={isClearingChecked && clearingHorizon === LATER}
-								/>
+								<ClearCheckedControl checked={clearableLater} horizon={LATER} />
 							)}
 						</div>
 					)}

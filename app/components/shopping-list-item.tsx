@@ -22,6 +22,7 @@ import { LATER, NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { type ShoppingItemDisplay } from '#app/utils/shopping-optimistic.ts'
 import { useHorizontalSwipe } from '#app/hooks/use-horizontal-swipe.ts'
 import { type useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
+import { useDeleteWithUndo } from '#app/components/undo-delete.tsx'
 import {
 	getHouseholdClientId,
 	HouseholdClientInput,
@@ -46,9 +47,6 @@ function bottomClearance() {
 	return tops.length ? window.innerHeight - Math.min(...tops) + 8 : 8
 }
 
-/** How long an armed Delete waits for its second tap (ms). */
-const DELETE_ARMED_MS = 4000
-
 /** The row whose actions are showing. Opening another shuts it. */
 let openSwipeRow: { close: () => void } | null = null
 
@@ -65,7 +63,6 @@ export function ShoppingListItemCard({
 }: ShoppingListItemCardProps) {
 	const [isEditing, setIsEditing] = useState(false)
 	const [menuOpen, setMenuOpen] = useState(false)
-	const [confirmingDelete, setConfirmingDelete] = useState(false)
 	// Edit replaces the row, trigger included, so the closing menu has no
 	// trigger to hand focus back to; the edit field takes it instead.
 	const openingEdit = useRef(false)
@@ -76,26 +73,13 @@ export function ShoppingListItemCard({
 		delay: 400,
 		minDuration: 0,
 	})
-	const deleteFetcher = useFetcher()
+	const deleteWithUndo = useDeleteWithUndo()
 	const moveFetcher = useFetcher()
 	const removeGeneratedFetcher = useFetcher()
 	const prevEditFetcherState = useRef(editFetcher.state)
 	const [swipeOpen, setSwipeOpen] = useState(false)
-	// Swipe Delete asks twice, like the menu's: there is no undo.
-	const [confirmingSwipeDelete, setConfirmingSwipeDelete] = useState(false)
 	const menuPointer = useRef<string | null>(null)
 	const swipeRow = useRef<{ close: () => void } | null>(null)
-
-	// An armed Delete, in the menu or behind a swipe, disarms after a beat:
-	// it shouldn't wait minutes for a stray second tap.
-	useEffect(() => {
-		if (!confirmingDelete && !confirmingSwipeDelete) return
-		const timeout = setTimeout(() => {
-			setConfirmingDelete(false)
-			setConfirmingSwipeDelete(false)
-		}, DELETE_ARMED_MS)
-		return () => clearTimeout(timeout)
-	}, [confirmingDelete, confirmingSwipeDelete])
 
 	// Close edit mode when fetcher transitions from submitting/loading → idle
 	useEffect(() => {
@@ -141,7 +125,6 @@ export function ShoppingListItemCard({
 				openSwipeRow = null
 			}
 			setSwipeOpen(open)
-			if (!open) setConfirmingSwipeDelete(false)
 			return open ? -swipeWidth : 0
 		},
 	})
@@ -149,7 +132,6 @@ export function ShoppingListItemCard({
 		close: () => {
 			swipe.moveTo(0, true)
 			setSwipeOpen(false)
-			setConfirmingSwipeDelete(false)
 		},
 	}
 	const closeSwipe = () => {
@@ -163,15 +145,6 @@ export function ShoppingListItemCard({
 		if (swipeOpen) moveSwipe(-swipeWidth, true)
 	}, [swipeWidth, swipeOpen, moveSwipe])
 
-	// Hide once delete is submitted — formData covers in-flight,
-	// fetcher.data covers the idle frame before loaderData refreshes
-	if (
-		deleteFetcher.formData?.get('intent') === 'delete' ||
-		deleteFetcher.data?.status === 'success'
-	) {
-		return null
-	}
-
 	const serverError =
 		isEditing &&
 		editFetcher.data?.status === 'error' &&
@@ -180,6 +153,15 @@ export function ShoppingListItemCard({
 			: null
 	const moveTarget = item.horizon === LATER ? NEXT_SHOP : LATER
 	const moveLabel = moveTarget === LATER ? 'Move to Later' : 'Move to Next shop'
+	// Goes at once with an Undo toast; the delete is sent when the toast goes.
+	const deleteItem = () =>
+		deleteWithUndo({
+			key: `shopping-item:${item.id}`,
+			hides: [item.id],
+			message: `Deleted ${item.name}`,
+			what: item.name,
+			request: { intent: 'delete-shopping', itemIds: [item.id] },
+		})
 	const submitRowIntent = (
 		fetcher: ReturnType<typeof useFetcher>,
 		fields: Record<string, string>,
@@ -304,18 +286,15 @@ export function ShoppingListItemCard({
 					<button
 						type="button"
 						onClick={() => {
-							if (!confirmingSwipeDelete) {
-								haptic('warning')
-								setConfirmingSwipeDelete(true)
-								return
-							}
-							closeSwipe()
-							submitRowIntent(deleteFetcher, { intent: 'delete' })
+							// The row collapses as it is, Delete showing, and shuts
+							// once it is out of sight, so Undo brings it back shut.
+							deleteItem()
+							window.setTimeout(closeSwipe, 250)
 						}}
 						className="bg-destructive text-destructive-foreground active:bg-destructive/90 flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium"
 					>
 						<Icon name="trash" size="sm" />
-						{confirmingSwipeDelete ? 'Delete?' : 'Delete'}
+						Delete
 					</button>
 				)}
 			</div>
@@ -414,16 +393,7 @@ export function ShoppingListItemCard({
 					</button>
 				</div>
 
-				<DropdownMenu
-					modal={false}
-					open={menuOpen}
-					onOpenChange={(open) => {
-						setMenuOpen(open)
-						// Closing the menu disarms Delete, so a reopened menu needs
-						// two taps again.
-						if (!open) setConfirmingDelete(false)
-					}}
-				>
+				<DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
 					<DropdownMenuTrigger asChild disabled={Boolean(checkState)}>
 						<button
 							type="button"
@@ -506,26 +476,9 @@ export function ShoppingListItemCard({
 									</DropdownMenuItem>
 								)}
 								<DropdownMenuSeparator />
-								<DropdownMenuItem
-									onSelect={(event) => {
-										if (!confirmingDelete) {
-											event.preventDefault()
-											haptic('warning')
-											setConfirmingDelete(true)
-											return
-										}
-										submitRowIntent(deleteFetcher, { intent: 'delete' })
-									}}
-									// Moving on to another item disarms it, as a blur did.
-									onBlur={() => setConfirmingDelete(false)}
-									aria-label={
-										confirmingDelete ? `Delete ${item.name}?` : undefined
-									}
-									variant="destructive"
-									className={cn(confirmingDelete && 'font-medium')}
-								>
+								<DropdownMenuItem variant="destructive" onSelect={deleteItem}>
 									<Icon name="trash" size="sm" />
-									{confirmingDelete ? 'Delete?' : 'Delete item'}
+									Delete item
 								</DropdownMenuItem>
 							</>
 						)}

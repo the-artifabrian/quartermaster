@@ -31,6 +31,7 @@ import { ProExpiryNudge } from './components/pro-expiry-nudge.tsx'
 import { ServiceWorkerDataSync } from './components/service-worker-data-sync.tsx'
 import { ServiceWorkerUpdate } from './components/service-worker-update.tsx'
 import { useToast } from './components/toaster.tsx'
+import { UndoToaster } from './components/undo-delete.tsx'
 import { Button } from './components/ui/button.tsx'
 import { Toaster } from './components/ui/sonner.tsx'
 import { UserDropdown } from './components/user-dropdown.tsx'
@@ -565,6 +566,7 @@ function App() {
 					offset={{ top: `calc(24px + ${toastTop})` }}
 					mobileOffset={{ top: `calc(16px + ${toastTop})` }}
 				/>
+				<UndoToaster theme={theme} />
 				<OfflineIndicator />
 				{user && isPro ? <HouseholdActivityNotifier /> : null}
 				{user ? <ProExpiryNudge /> : null}

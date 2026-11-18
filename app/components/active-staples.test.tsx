@@ -152,14 +152,10 @@ test('adding says so on the row itself, holds focus, and keeps the row in place'
 	expect(appleButton).toHaveFocus()
 })
 
-test('add and remove keep their controls visible through pending and failure states', async () => {
+test('add keeps its controls visible through pending and failure states', async () => {
 	let finishAdd: (() => void) | undefined
-	let finishRemove: (() => void) | undefined
 	const addCanFinish = new Promise<void>((resolve) => {
 		finishAdd = resolve
-	})
-	const removeCanFinish = new Promise<void>((resolve) => {
-		finishRemove = resolve
 	})
 	const Stub = createRoutesStub([
 		{
@@ -170,20 +166,12 @@ test('add and remove keep their controls visible through pending and failure sta
 				/>
 			),
 			action: async ({ request }) => {
-				const formData = await request.formData()
-				if (formData.get('intent') === 'add-staple') {
-					await addCanFinish
-					return {
-						status: 'error',
-						action: 'add-staple',
-						message: 'Could not add Garlic. Try again.',
-					}
-				}
-				await removeCanFinish
+				await request.formData()
+				await addCanFinish
 				return {
 					status: 'error',
-					action: 'remove-staple',
-					message: 'Could not delete Salt. Try again.',
+					action: 'add-staple',
+					message: 'Could not add Garlic. Try again.',
 				}
 			},
 		},
@@ -208,16 +196,6 @@ test('add and remove keep their controls visible through pending and failure sta
 	await user.click(screen.getByRole('button', { name: 'Add Staple' }))
 	expect(screen.queryByText('Could not add Garlic. Try again.')).toBeNull()
 	await user.click(screen.getByRole('button', { name: 'Cancel' }))
-
-	const removeButton = screen.getByRole('button', { name: 'Delete Salt' })
-	await user.click(removeButton)
-	await user.click(screen.getByRole('button', { name: 'Confirm delete Salt' }))
-	expect(await screen.findByText('Deleting…')).toBeVisible()
-	expect(screen.getByText('Salt')).toBeVisible()
-	finishRemove?.()
-	expect(
-		await screen.findByText('Could not delete Salt. Try again.'),
-	).toHaveAttribute('role', 'alert')
 })
 
 test('an empty list explains what a Staple is for', () => {

@@ -149,7 +149,7 @@ test('an import missing its steps saves, says so, and Edit adds them; the notice
 	await notice.getByRole('link', { name: 'Edit', exact: true }).click()
 	await expect(page).toHaveURL(/\/recipes\/[a-z0-9]+\/edit$/)
 	await page.getByPlaceholder('Step 1').fill('Squeeze the lemon.')
-	await page.getByRole('button', { name: 'Save Changes', exact: true }).click()
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
 	await expect(page).toHaveURL(/\/recipes\/(?!import)[a-z0-9]+$/)
 	await expect(notice).toHaveCount(0)
 	await expect(page.getByText('Squeeze the lemon.')).toBeVisible()

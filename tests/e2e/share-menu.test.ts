@@ -202,9 +202,7 @@ test('share a dinner, sign in, save, edit, cook and plan an independent Menu on 
 		)
 		await page.getByRole('link', { name: 'Edit', exact: true }).click()
 		await page.getByLabel('Title', { exact: true }).fill('My terrace dinner')
-		await page
-			.getByRole('button', { name: 'Save Changes', exact: true })
-			.click()
+		await page.getByRole('button', { name: 'Save', exact: true }).click()
 		await expect(
 			page.getByRole('heading', { name: 'My terrace dinner' }),
 		).toBeVisible()

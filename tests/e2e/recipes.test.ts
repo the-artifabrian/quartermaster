@@ -40,7 +40,7 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 	await page.getByPlaceholder('Step 1').fill('Boil water and cook pasta')
 
 	// Submit
-	await page.getByRole('button', { name: /create recipe/i }).click()
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
 
 	// 2. Verify redirected to recipe detail ("new" would match an id pattern)
 	await expect(page).toHaveURL(/\/recipes\/(?!new$)[a-z0-9]+$/)
@@ -73,7 +73,7 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 	await expect(page).toHaveURL(/\/recipes\/[a-z0-9]+\/edit/)
 
 	await page.getByRole('textbox', { name: /title/i }).fill('E2E Updated Pasta')
-	await page.getByRole('button', { name: /save changes/i }).click()
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
 
 	// Verify update
 	await expect(page).toHaveURL(/\/recipes\/[a-z0-9]+$/)
@@ -131,7 +131,7 @@ test('a phone photo over 3 MB is resized in the browser and saved', async ({
 		buffer: photo,
 	})
 	await expect(page.getByRole('img', { name: 'Recipe preview' })).toBeVisible()
-	await page.getByRole('button', { name: /create recipe/i }).click()
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
 
 	await expect(page).toHaveURL(/\/recipes\/(?!new$)[a-z0-9]+$/)
 	const recipeId = new URL(page.url()).pathname.split('/').at(-1)!
@@ -303,7 +303,7 @@ test('Recipe classification edits and filters fit phone and desktop layouts', as
 	await expect(
 		cuisineGroup.getByRole('button', { name: 'Levantine' }),
 	).toHaveAttribute('aria-pressed', 'true')
-	await page.getByRole('button', { name: 'Save Changes' }).click()
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
 	await expect(page).toHaveURL(new RegExp(`/recipes/${classifiedRecipe.id}$`))
 
 	for (const viewport of [
@@ -460,7 +460,7 @@ test('long Recipe times read in hours and days on the card, detail and edit form
 		await totalTime.fill('1560')
 		await expect(page.getByText('= 1 day 2 hr')).toBeVisible({ timeout: 2000 })
 	}).toPass({ timeout: 15_000 })
-	await page.getByRole('button', { name: /save changes/i }).click()
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
 
 	await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}$`))
 	await expect(page.getByText('Total: 1 day 2 hr')).toBeVisible()

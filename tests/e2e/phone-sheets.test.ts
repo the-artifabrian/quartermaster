@@ -1162,6 +1162,16 @@ test.describe('a phone on its side', () => {
 	})
 })
 
+/**
+ * Holds the Plan's reloads, so a row deleted with Undo stays on the page,
+ * collapsed, as it does until the Plan next loads.
+ */
+async function holdPlanReloads(page: Page) {
+	await page.route(/\/plan\.data/, (route) =>
+		route.request().method() === 'GET' ? undefined : route.continue(),
+	)
+}
+
 test('removing the first Recipe of a Meal takes the inset line above the next one', async ({
 	page,
 	login,
@@ -1184,6 +1194,7 @@ test('removing the first Recipe of a Meal takes the inset line above the next on
 		.getByRole('link', { name: 'Rice', exact: true })
 		.locator('xpath=ancestor::*[@data-row-collapse][1]')
 	expect(await drawsInsetLine(riceRow)).toBe(true)
+	await holdPlanReloads(page)
 	await tapUntil(
 		mobile.getByRole('button', { name: 'Remove Dal from this meal' }),
 		() =>
@@ -1223,6 +1234,7 @@ test('removing the first Recipe under a Menu heading leaves no line under the he
 		.getByRole('link', { name: 'Rice', exact: true })
 		.locator('xpath=ancestor::*[@data-row-collapse][1]')
 	expect(await drawsInsetLine(riceRow)).toBe(true)
+	await holdPlanReloads(page)
 	await tapUntil(
 		mobile.getByRole('button', { name: 'Remove Dal from this meal' }),
 		() =>

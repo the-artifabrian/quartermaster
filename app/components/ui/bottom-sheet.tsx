@@ -375,7 +375,17 @@ function playExitCopy(root: HTMLElement) {
 	for (const part of parts) part.style.removeProperty('transition')
 	copy.getBoundingClientRect()
 	for (const part of parts) part.setAttribute('data-state', 'closed')
-	window.setTimeout(() => copy.remove(), EXIT_FALLBACK_MS)
+	// Gone once its exit has run; at once where nothing animates (jsdom).
+	const exits = copy.getAnimations?.({ subtree: true }) ?? []
+	if (exits.length === 0) {
+		copy.remove()
+		return
+	}
+	const fallback = window.setTimeout(() => copy.remove(), EXIT_FALLBACK_MS)
+	void Promise.allSettled(exits.map((exit) => exit.finished)).then(() => {
+		window.clearTimeout(fallback)
+		copy.remove()
+	})
 }
 
 function BottomSheetClose({ onClose }: { onClose: () => void }) {

@@ -147,6 +147,28 @@ test('a phone photo over 3 MB is resized in the browser and saved', async ({
 	expect(stored.size).toBeLessThan(3 * 1024 * 1024)
 })
 
+test('a Pro user can extract with AI from text and from an image', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.subscription.create({
+		data: { userId: user.id, tier: 'pro' },
+	})
+
+	await page.goto('/recipes/import')
+	await page.getByRole('button', { name: 'From Text' }).click()
+	await expect(page.getByLabel('Recipe text')).toBeVisible()
+	await expect(
+		page.getByRole('button', { name: 'Extract with AI' }),
+	).toBeVisible()
+	await page.getByRole('button', { name: 'From Image' }).click()
+	await expect(page.getByLabel('Upload screenshots (up to 5)')).toBeVisible()
+	await expect(
+		page.getByRole('button', { name: 'Extract with AI' }),
+	).toBeVisible()
+})
+
 test('Recipe search and filter', async ({ page, login }) => {
 	test.setTimeout(30_000)
 	const user = await login()

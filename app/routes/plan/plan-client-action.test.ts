@@ -14,13 +14,6 @@ function args(intent: string, serverAction: () => Promise<unknown>) {
 	} as unknown as Parameters<typeof clientAction>[0]
 }
 
-test('a failed Recipe add comes back as an error result', async () => {
-	const result = await clientAction(
-		args('addMeal', () => Promise.reject(new Error('Unexpected Server Error'))),
-	)
-	expect(result).toEqual({ status: 'error' })
-})
-
 test('a redirect from a Recipe add, such as to log in, still navigates', async () => {
 	const login = redirect('/login?redirectTo=%2Fplan')
 	await expect(

@@ -11,7 +11,14 @@ async function swipe(
 		toX,
 		ms,
 		holdMs = 0,
-	}: { fromX: number; toX: number; ms: number; holdMs?: number },
+		steps = 12,
+	}: {
+		fromX: number
+		toX: number
+		ms: number
+		holdMs?: number
+		steps?: number
+	},
 ) {
 	const box = (await target.boundingBox())!
 	const y = box.y + box.height / 2
@@ -21,7 +28,6 @@ async function swipe(
 		type: 'touchStart',
 		touchPoints: point(fromX),
 	})
-	const steps = 12
 	for (let i = 1; i <= steps; i++) {
 		await cdp.send('Input.dispatchTouchEvent', {
 			type: 'touchMove',
@@ -74,13 +80,22 @@ test('swiping the Plan day strip turns the week; a short swipe does not', async 
 			weekLoads.push(request.url())
 		}
 	})
+	const settled = () =>
+		expect
+			.poll(() =>
+				strip.evaluate((element) => getComputedStyle(element).transform),
+			)
+			.toBe('none')
 	await swipe(page, strip, { fromX: 0.5, toX: 0.6, ms: 600 })
-	await swipe(page, strip, { fromX: 0.5, toX: 0.6, ms: 60, holdMs: 400 })
-	await expect
-		.poll(() =>
-			strip.evaluate((element) => getComputedStyle(element).transform),
-		)
-		.toBe('none')
+	await settled()
+	await swipe(page, strip, {
+		fromX: 0.5,
+		toX: 0.7,
+		ms: 0,
+		steps: 3,
+		holdMs: 400,
+	})
+	await settled()
 	// Long enough for a navigation the swipe started to reach the network.
 	await page.waitForTimeout(300)
 	expect(weekLoads).toEqual([])

@@ -17,7 +17,14 @@ async function swipe(
 		toX,
 		ms,
 		holdMs = 0,
-	}: { fromX: number; toX: number; ms: number; holdMs?: number },
+		steps = 12,
+	}: {
+		fromX: number
+		toX: number
+		ms: number
+		holdMs?: number
+		steps?: number
+	},
 ) {
 	const box = (await target.boundingBox())!
 	const y = box.y + box.height / 2
@@ -27,7 +34,6 @@ async function swipe(
 		type: 'touchStart',
 		touchPoints: point(fromX),
 	})
-	const steps = 12
 	for (let i = 1; i <= steps; i++) {
 		await cdp.send('Input.dispatchTouchEvent', {
 			type: 'touchMove',
@@ -138,8 +144,15 @@ test('a short, slow swipe snaps back, and a tap on an open row only shuts it', a
 	const oatMilk = row(page, 'oat milk')
 	await swipe(page, oatMilk, { fromX: 0.8, toX: 0.7, ms: 600 })
 	await expect(oatMilk.getByRole('button', { name: 'Delete' })).toBeHidden()
+	await expect.poll(() => restingX(oatMilk)).toBe(0)
 	// A quick short drag held still before lifting is not a flick.
-	await swipe(page, oatMilk, { fromX: 0.8, toX: 0.65, ms: 60, holdMs: 400 })
+	await swipe(page, oatMilk, {
+		fromX: 0.8,
+		toX: 0.63,
+		ms: 0,
+		steps: 3,
+		holdMs: 400,
+	})
 	await expect(oatMilk.getByRole('button', { name: 'Delete' })).toBeHidden()
 	await expect.poll(() => restingX(oatMilk)).toBe(0)
 

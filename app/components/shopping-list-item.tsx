@@ -210,6 +210,8 @@ export function ShoppingListItemCard({
 							name="name"
 							defaultValue={item.name}
 							placeholder="Item name"
+							// Items stay lowercase, like the ones From Plan.
+							autoCapitalize="none"
 							autoFocus
 							required
 							maxLength={100}
@@ -235,6 +237,8 @@ export function ShoppingListItemCard({
 										: (display.unit ?? '')
 								}
 								placeholder="Unit"
+								autoCapitalize="none"
+								autoCorrect="off"
 								className="flex-1"
 								maxLength={20}
 							/>

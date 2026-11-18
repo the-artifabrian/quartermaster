@@ -135,11 +135,13 @@ each screen:
   tab bar over a dim scrim, clears the home indicator, and closes by a pull
   down, the scrim, Escape or Close. From `sm` up it is a centered dialog. A
   sheet's primary action is full width at the bottom.
-- A Delete in a menu or behind a swipe is red from the start, not only once
-  armed.
+- A Delete in a menu or behind a swipe is red from the start.
 - A delete that can be undone (a Meal, a Recipe in a Meal, a Shopping item,
-  Clear checked, a Staple) takes two taps: the first arms it, the second does
-  it.
+  Clear checked, removing a Staple) happens at once with an Undo toast at the
+  bottom, above the tab bar; every other toast stays at the top. A deleted row,
+  Staple or Meal closes its gap and Undo opens it again; Clear checked goes at
+  once. The delete is saved at once and Undo puts back what it removed. Opening
+  a sheet closes the Undo toast, so it never sits over a sheet.
 - A delete that cannot be undone (Recipe, Menu, account, passkey, removing a
   member, leaving the Household, disabling 2FA) opens a confirm sheet
   (`ConfirmSheet`): the question as the title, one line on what is lost, a
@@ -275,7 +277,9 @@ grids, illustrations, or congratulatory copy.
 ## Motion and accessibility
 
 - Animate transform and opacity only, usually 150–300ms. A switch track and a
-  selected label may change color as their thumb or pill moves.
+  selected label may change color as their thumb or pill moves. The one change
+  of size is a deleted row closing its gap (`RowCollapse`): height and opacity
+  together, 200ms `--ease-exit`, and opacity only under reduced motion.
 - Respect `prefers-reduced-motion`; behavior must not depend on animation.
 - Keep visible focus, semantic landmarks, labelled icon buttons, and reachable
   reorder controls.

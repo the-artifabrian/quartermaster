@@ -150,8 +150,6 @@ test('failed checks survive refresh and Clear checked; navigation warns only wit
 		name: 'Clear checked items from Next shop',
 	})
 	await clearChecked.click()
-	await expect(clearChecked).toHaveText(/^Clear \d+\?$/)
-	await clearChecked.click()
 	await expect(
 		page.getByRole('group', { name: 'Bread shopping item' }),
 	).toBeHidden()
@@ -452,7 +450,7 @@ for (const fallback of [false, true]) {
 		login,
 	}) => {
 		test.setTimeout(45_000)
-		await setup(await login())
+		const { rice } = await setup(await login())
 		await openShopping(page)
 		const phone = await page.context().newPage()
 		await phone.setViewportSize({ width: 390, height: 844 })
@@ -517,9 +515,13 @@ for (const fallback of [false, true]) {
 			name: 'Clear checked items from Next shop',
 		})
 		await clearChecked.click()
-		await expect(clearChecked).toHaveText(/^Clear \d+\?$/)
-		await clearChecked.click()
 		await expect(riceRow(page)).toBeHidden()
+		// Cleared once its Undo toast has gone; the phone hears of it then.
+		await expect
+			.poll(() => prisma.shoppingListItem.count({ where: { id: rice.id } }), {
+				timeout: 10_000,
+			})
+			.toBe(0)
 		await catchUp()
 		await expect(riceRow(phone)).toBeHidden()
 		await phone.close()

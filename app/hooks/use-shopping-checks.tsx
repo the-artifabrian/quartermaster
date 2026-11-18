@@ -100,7 +100,7 @@ export function useShoppingChecks(serverItems: Item[], listId: string) {
 			pending.current.size > 0 &&
 			currentLocation.pathname !== nextLocation.pathname,
 	)
-	// Two taps, like every other discard: the first tap away warns and stays,
+	// Leaving with unconfirmed checks takes two taps: the first tap away warns and stays,
 	// a second tap to the same place within the same beat leaves. A new
 	// pending check disarms it, so that check gets its own warning.
 	const leaveArmed = useRef<{ at: number; pathname: string } | null>(null)

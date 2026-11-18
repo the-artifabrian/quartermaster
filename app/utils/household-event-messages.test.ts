@@ -71,6 +71,16 @@ describe('formatEventMessage', () => {
 		expect(result.url).toBe('/shopping')
 	})
 
+	test('shopping_list_restored', () => {
+		const result = formatEventMessage(
+			'shopping_list_restored',
+			{ name: '2 checked items' },
+			'Alex',
+		)
+		expect(result.message).toBe('Alex put 2 checked items back on Shopping')
+		expect(result.url).toBe('/shopping')
+	})
+
 	test('a retired event type from an older release still reads sanely', () => {
 		// 'shopping_list_to_inventory' rows outlive the legacy Pantry (#289).
 		const result = formatEventMessage(

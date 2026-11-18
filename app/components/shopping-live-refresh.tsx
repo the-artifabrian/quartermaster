@@ -6,6 +6,7 @@ const SHOPPING_EVENT_TYPES = new Set([
 	'shopping_list_generated',
 	'shopping_list_item_added',
 	'shopping_list_cleared',
+	'shopping_list_restored',
 	'shopping_list_item_toggled',
 	'shopping_list_item_edited',
 	'shopping_list_item_deleted',

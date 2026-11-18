@@ -1,10 +1,9 @@
 import { clsx, type ClassValue } from 'clsx'
 import { type GetSrcArgs, defaultGetSrc } from 'openimg/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFormAction, useNavigation } from 'react-router'
 import { useSpinDelay } from 'spin-delay'
 import { twMerge } from 'tailwind-merge'
-import { haptic } from './shell-bridge.ts'
 
 export function getImgSrc({
 	height,
@@ -184,69 +183,6 @@ export function useDelayedIsPending({
 		minDuration,
 	})
 	return delayedIsPending
-}
-
-function callAll<Args extends Array<unknown>>(
-	...fns: Array<((...args: Args) => unknown) | undefined>
-) {
-	return (...args: Args) => fns.forEach((fn) => fn?.(...args))
-}
-
-/**
- * Use this hook with a button and it will make it so the first click sets a
- * `doubleCheck` state to true, and the second click will actually trigger the
- * `onClick` handler. This allows you to have a button that can be like a
- * "are you sure?" experience for the user before doing destructive operations.
- */
-export function useDoubleCheck() {
-	const [doubleCheck, setDoubleCheck] = useState(false)
-
-	// Auto-disarm after a beat: an armed destructive button shouldn't wait
-	// indefinitely for a stray second tap minutes later. Blur still disarms
-	// sooner when focus moves on.
-	useEffect(() => {
-		if (!doubleCheck) return
-		const timeout = setTimeout(() => setDoubleCheck(false), 4000)
-		return () => clearTimeout(timeout)
-	}, [doubleCheck])
-
-	function getButtonProps(
-		props?: React.ButtonHTMLAttributes<HTMLButtonElement>,
-	) {
-		const onBlur: React.ButtonHTMLAttributes<HTMLButtonElement>['onBlur'] =
-			() => setDoubleCheck(false)
-
-		const onClick: React.ButtonHTMLAttributes<HTMLButtonElement>['onClick'] =
-			doubleCheck
-				? undefined
-				: (e) => {
-						e.preventDefault()
-						// Arming a destructive action warns in the iOS app.
-						haptic('warning')
-						setDoubleCheck(true)
-					}
-
-		const onKeyUp: React.ButtonHTMLAttributes<HTMLButtonElement>['onKeyUp'] = (
-			e,
-		) => {
-			if (e.key === 'Escape') {
-				setDoubleCheck(false)
-			}
-		}
-
-		return {
-			...props,
-			// The armed state swaps the button's content to "Delete?" — a polite
-			// live region announces that change to assistive tech, which
-			// otherwise only ever hears the unarmed aria-label.
-			'aria-live': 'polite' as const,
-			onBlur: callAll(onBlur, props?.onBlur),
-			onClick: callAll(onClick, props?.onClick),
-			onKeyUp: callAll(onKeyUp, props?.onKeyUp),
-		}
-	}
-
-	return { doubleCheck, getButtonProps }
 }
 
 /**

@@ -5,6 +5,7 @@ import {
 	useRef,
 	useState,
 } from 'react'
+import { closeUndoForSheet } from '#app/components/undo-delete.tsx'
 import { useSheetDrag } from '#app/hooks/use-sheet-drag.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { Icon } from './icon.tsx'
@@ -145,6 +146,8 @@ function SheetFrame({
 
 	useEffect(() => {
 		if (!open) return
+		// An Undo toast would sit over the sheet's controls: it goes.
+		closeUndoForSheet()
 		const other = openSheet
 		openSheet = self
 		if (other && other !== self) other.close()

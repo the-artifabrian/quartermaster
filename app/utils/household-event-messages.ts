@@ -71,6 +71,11 @@ export function formatEventMessage(
 				message: `${username} removed ${payload.name} from Shopping`,
 				url: '/shopping',
 			}
+		case 'shopping_list_restored':
+			return {
+				message: `${username} put ${payload.name} back on Shopping`,
+				url: '/shopping',
+			}
 		case 'shopping_list_cleared':
 			return {
 				message: `${username} cleared checked items from Shopping`,

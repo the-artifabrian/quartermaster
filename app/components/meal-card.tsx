@@ -8,6 +8,11 @@ import {
 	type PlanChoices,
 } from '#app/components/plan-choices.tsx'
 import { RecipeScaleControl } from '#app/components/recipe-scale-control.tsx'
+import {
+	useDeleteWithUndo,
+	useEnteringRows,
+	useHiddenRows,
+} from '#app/components/undo-delete.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import {
 	DropdownMenu,
@@ -18,12 +23,12 @@ import {
 } from '#app/components/ui/dropdown-menu.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
+import { RowCollapse } from '#app/components/ui/row-collapse.tsx'
 import { MEAL_TYPES, MEAL_TYPE_LABELS, type MealType } from '#app/utils/date.ts'
 import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { formatServingTime, servingWallTime } from '#app/utils/serving-time.ts'
-import { haptic } from '#app/utils/shell-bridge.ts'
 import { RecipeSelector } from './recipe-selector.tsx'
 
 export type PlanMealItem = {
@@ -115,21 +120,13 @@ function ItemRow({
 	showRemove: boolean
 }) {
 	const cookedFetcher = useFetcher()
-	const removeFetcher = useFetcher()
-	const [confirmingRemove, setConfirmingRemove] = useState(false)
+	const deleteWithUndo = useDeleteWithUndo()
 
 	// Optimistic cooked state while the toggle is in flight — read the
 	// submitted target value so repeat taps each show their own state
 	const isCooked = cookedFetcher.formData
 		? cookedFetcher.formData.get('cooked') === 'true'
 		: item.cooked
-
-	// Auto-disarm the remove confirmation like useDoubleCheck's blur behavior
-	useEffect(() => {
-		if (!confirmingRemove) return
-		const timer = setTimeout(() => setConfirmingRemove(false), 4000)
-		return () => clearTimeout(timer)
-	}, [confirmingRemove])
 
 	const missing = item.recipe == null
 	return (
@@ -201,36 +198,27 @@ function ItemRow({
 				) : null}
 			</div>
 
-			{/* Remove item */}
+			{/* Remove item: at once, with Undo */}
 			{showRemove && (
-				<removeFetcher.Form method="POST" className="shrink-0">
-					<input type="hidden" name="intent" value="removeItem" />
-					<input type="hidden" name="itemId" value={item.id} />
-					{confirmingRemove ? (
-						<Button
-							type="submit"
-							size="sm"
-							variant="destructive"
-							aria-label={`Tap again to remove ${item.recipeTitle}`}
-						>
-							<span className="text-xs">Remove?</span>
-						</Button>
-					) : (
-						<Button
-							type="button"
-							size="sm"
-							variant="ghost"
-							className="desktop:size-7 size-11 p-0"
-							aria-label={`Remove ${item.recipeTitle} from this meal`}
-							onClick={() => {
-								haptic('warning')
-								setConfirmingRemove(true)
-							}}
-						>
-							<Icon name="trash" className="size-3.5" />
-						</Button>
-					)}
-				</removeFetcher.Form>
+				<Button
+					type="button"
+					size="sm"
+					variant="ghost"
+					className="text-destructive hover:text-destructive desktop:size-7 size-11 shrink-0 p-0"
+					aria-label={`Remove ${item.recipeTitle} from this meal`}
+					onClick={() =>
+						deleteWithUndo({
+							key: `meal-item:${item.id}`,
+							hides: [item.id],
+							message: `Removed ${item.recipeTitle}`,
+							what: item.recipeTitle,
+							verb: 'remove',
+							request: { intent: 'delete-meal-item', itemId: item.id },
+						})
+					}
+				>
+					<Icon name="trash" className="size-3.5" />
+				</Button>
 			)}
 		</div>
 	)
@@ -481,7 +469,7 @@ export function MealCard({
 		}
 	}, [targetMealId, meal.id, meal.dateStr])
 	const mealCookedFetcher = useFetcher()
-	const removeMealFetcher = useFetcher()
+	const deleteWithUndo = useDeleteWithUndo()
 	const addRecipeFetcher = useFetcher()
 	const addToShoppingFetcher = useFetcher<{
 		status: string
@@ -511,7 +499,6 @@ export function MealCard({
 		setAddingRecipe(false)
 	}
 	const [editingDetails, setEditingDetails] = useState(false)
-	const [confirmingDelete, setConfirmingDelete] = useState(false)
 	const [menuOpen, setMenuOpen] = useState(false)
 	const menuPointer = useRef<string | null>(null)
 
@@ -533,6 +520,36 @@ export function MealCard({
 			: null
 
 	const rows = isText ? [] : buildMealRows(meal)
+	const hidden = useHiddenRows()
+	const entering = useEnteringRows()
+	const visibleItemCount = meal.items.filter(
+		(item) => !hidden.has(item.id),
+	).length
+	// The toast names the Meal as a person would: its text, its one Recipe or
+	// its label; anything else is "the Meal".
+	const mealToastName = isText
+		? meal.genericText
+		: meal.items.length === 1
+			? meal.items[0]!.recipeTitle
+			: meal.label
+				? mealLabelText(meal.label)
+				: 'the Meal'
+	// Goes at once, with Undo.
+	function deleteMeal(removeShoppingContributions: boolean) {
+		deleteWithUndo({
+			key: `meal:${meal.id}`,
+			hides: [meal.id],
+			what: 'the Meal',
+			message: removeShoppingContributions
+				? `Deleted ${mealToastName} and its Shopping amounts`
+				: `Deleted ${mealToastName}`,
+			request: {
+				intent: 'delete-meal',
+				mealId: meal.id,
+				removeShoppingContributions,
+			},
+		})
+	}
 	const mealActionName = isText
 		? meal.genericText
 		: meal.items.length === 1
@@ -630,14 +647,7 @@ export function MealCard({
 					)}
 				</div>
 
-				<DropdownMenu
-					modal={false}
-					open={menuOpen}
-					onOpenChange={(open) => {
-						setMenuOpen(open)
-						if (!open) setConfirmingDelete(false)
-					}}
-				>
+				<DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
 					<DropdownMenuTrigger asChild>
 						<button
 							type="button"
@@ -733,33 +743,19 @@ export function MealCard({
 							</DropdownMenuItem>
 						)}
 						<DropdownMenuSeparator />
-						{confirmingDelete && meal.addedToShopping ? (
+						{/* A Meal on Shopping asks what to do with its amounts there. */}
+						{meal.addedToShopping ? (
 							<>
 								<DropdownMenuItem
-									onSelect={() => {
-										void removeMealFetcher.submit(
-											{ intent: 'removeMeal', mealId: meal.id },
-											{ method: 'POST' },
-										)
-									}}
 									variant="destructive"
-									className="font-medium"
+									onSelect={() => deleteMeal(false)}
 								>
 									<Icon name="trash" size="sm" />
 									Delete Meal · keep Shopping
 								</DropdownMenuItem>
 								<DropdownMenuItem
-									onSelect={() => {
-										void removeMealFetcher.submit(
-											{
-												intent: 'removeMeal',
-												mealId: meal.id,
-												removeShoppingContributions: 'true',
-											},
-											{ method: 'POST' },
-										)
-									}}
 									variant="destructive"
+									onSelect={() => deleteMeal(true)}
 								>
 									<Icon name="trash" size="sm" />
 									Delete Meal · remove generated amount
@@ -767,23 +763,11 @@ export function MealCard({
 							</>
 						) : (
 							<DropdownMenuItem
-								onSelect={(event) => {
-									if (!confirmingDelete) {
-										event.preventDefault()
-										haptic('warning')
-										setConfirmingDelete(true)
-										return
-									}
-									void removeMealFetcher.submit(
-										{ intent: 'removeMeal', mealId: meal.id },
-										{ method: 'POST' },
-									)
-								}}
 								variant="destructive"
-								className={cn(confirmingDelete && 'font-medium')}
+								onSelect={() => deleteMeal(false)}
 							>
 								<Icon name="trash" size="sm" />
-								{confirmingDelete ? 'Delete?' : 'Delete Meal'}
+								Delete Meal
 							</DropdownMenuItem>
 						)}
 					</DropdownMenuContent>
@@ -832,8 +816,10 @@ export function MealCard({
 			) : (
 				<div className="space-y-0">
 					{rows.map((row, index) => (
-						<div
+						<RowCollapse
 							key={row.key}
+							hidden={row.kind === 'recipe' && hidden.has(row.item.id)}
+							entering={row.kind === 'recipe' && entering.has(row.item.id)}
 							className={cn(
 								row.kind === 'heading'
 									? index > 0 && 'mt-3'
@@ -849,14 +835,13 @@ export function MealCard({
 							) : row.kind === 'recipe' ? (
 								<ItemRow
 									item={row.item}
-									showRemove={
-										meal.items.length > 1 || meal.noteItems.length > 0
-									}
+									// The last Recipe goes with its Meal: Delete Meal.
+									showRemove={visibleItemCount > 1 || meal.noteItems.length > 0}
 								/>
 							) : (
 								<NoteRow note={row.note} />
 							)}
-						</div>
+						</RowCollapse>
 					))}
 
 					{/* Add another Recipe directly to this Meal (#98 story 41). The

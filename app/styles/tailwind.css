@@ -670,6 +670,38 @@ html {
 	display: none;
 }
 
+/* Undo toasts (UndoToaster) sit at the bottom, above the tab bar and its
+   border, near the thumb that deleted. On Shopping they stop short of the
+   Add item button rather than cover it. From `md` up there is no tab bar. */
+:root {
+	--undo-toast-bottom: calc(
+		var(--bottom-nav-h) + var(--bottom-nav-inset) + 1px + 0.75rem
+	);
+	--undo-toast-right: 16px;
+}
+
+:root:has([data-shopping-fab]:not(.hidden)) {
+	--undo-toast-right: calc(16px + 3rem + 0.75rem);
+}
+
+@media (width >= 48rem) {
+	:root {
+		--undo-toast-bottom: 1.5rem;
+	}
+}
+
+/* On a phone Sonner makes the toaster as wide as the screen and the toast as
+   wide as that less twice the left inset, so a right inset never shows. */
+@media (width <= 600px) {
+	.undo-toaster[data-sonner-toaster] {
+		width: auto;
+	}
+
+	.undo-toaster[data-sonner-toaster] [data-sonner-toast] {
+		width: 100%;
+	}
+}
+
 /* A Shopping row added just now eases in. The saved row that replaces it
    mounts without the attribute and looks the same, so the swap shows
    nothing. */
@@ -684,6 +716,44 @@ html {
 		opacity: 0;
 		transform: translateY(-4px);
 	}
+}
+
+/* Rows that close the gap (RowCollapse): a deleted Shopping row or Meal
+   shrinks to nothing as it fades, so the rows under it move up; Undo opens it
+   the same way. Its hairline goes with it. Clear checked goes at once. */
+[data-row-collapse] {
+	display: grid;
+	grid-template-rows: 1fr;
+	opacity: 1;
+	transition-property:
+		grid-template-rows, opacity, border-color, margin, padding;
+	transition-duration: 200ms;
+	transition-timing-function: var(--ease-exit);
+}
+
+/* Spacing between rows (space-y, a Meal's padding) closes with it. */
+[data-row-collapse][data-hidden] {
+	grid-template-rows: 0fr;
+	opacity: 0;
+	border-color: transparent;
+	margin-block: 0;
+	padding-block: 0;
+}
+
+[data-row-collapse][data-instant] {
+	transition: none;
+}
+
+/* The hairlines between rows belong to the rows that show: the last one
+   showing loses the line under it, and the first loses the line above. */
+[data-row-collapse]:not(:has(~ [data-row-collapse]:not([data-hidden]))) {
+	border-bottom-color: transparent;
+}
+
+[data-row-collapse]:not(
+	[data-row-collapse]:not([data-hidden]) ~ [data-row-collapse]
+) {
+	border-top-color: transparent;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -724,6 +794,23 @@ html {
 	[data-optimistic-row] {
 		transition-property: opacity !important;
 		transition-duration: 120ms !important;
+	}
+
+	/* A row fades where it is and only then gives up its space; one that comes
+	   back takes its space at once and fades in. */
+	[data-row-collapse] {
+		transition-property:
+			opacity, grid-template-rows, border-color, margin, padding !important;
+		transition-duration: 120ms, 0s, 0s, 0s, 0s !important;
+		transition-delay: 0s !important;
+	}
+
+	[data-row-collapse][data-hidden] {
+		transition-delay: 0s, 120ms, 120ms, 120ms, 120ms !important;
+	}
+
+	[data-row-collapse][data-instant] {
+		transition: none !important;
 	}
 
 	@starting-style {

@@ -163,6 +163,8 @@ export function MobileFabAdd({
 			    comes before it so the leaving sheet slides over it. */}
 			<button
 				type="button"
+				// Undo toasts stop short of it (tailwind.css, "Undo toasts").
+				data-shopping-fab=""
 				className={cn(
 					'bg-primary text-primary-foreground shadow-warm-md fixed right-4 bottom-[calc(var(--bottom-nav-h)+1.5rem+var(--bottom-nav-inset))] z-50 flex size-12 items-center justify-center rounded-full transition-[scale] duration-150 ease-(--ease-micro) active:scale-95',
 					open && 'hidden',

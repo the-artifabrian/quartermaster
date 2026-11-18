@@ -106,12 +106,20 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 		name: 'Clear checked items from Next shop',
 	})
 	await clearChecked.click()
-	await expect(clearChecked).toHaveText(/^Clear \d+\?$/)
-	await clearChecked.click()
 	await expect(rows).toHaveCount(1)
 	await expect(
 		previous.getByRole('button', { name: /^Check off / }),
 	).toBeVisible()
+	// Cleared once its Undo toast has gone.
+	await expect
+		.poll(
+			() =>
+				prisma.shoppingListItem.count({
+					where: { list: { householdId: user.householdId } },
+				}),
+			{ timeout: 10_000 },
+		)
+		.toBe(1)
 	await page.reload()
 	await expect(rows).toHaveCount(1)
 	await expect(previous).toBeVisible()
@@ -186,7 +194,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	page,
 	login,
 }) => {
-	test.setTimeout(30_000)
+	test.setTimeout(45_000)
 	const user = await login()
 
 	// Pro access (shopping requires Pro)
@@ -327,9 +335,9 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	await page.getByRole('button', { name: /add to next shop/i }).click()
 	await expect(page.getByText('Bananas')).toBeVisible()
 
-	// 5. Deleting a row takes two taps; the second tap reads "Delete?". Foil is
-	// added once Bananas is saved, and the page reloads once Foil is, so the
-	// menu opens on the saved row rather than the optimistic one it replaces.
+	// 5. Deleting a row takes one tap, with Undo. Foil is added once Bananas
+	// is saved, and the page reloads once Foil is, so the menu opens on the
+	// saved row rather than the optimistic one it replaces.
 	await expect
 		.poll(() =>
 			prisma.shoppingListItem.count({
@@ -356,48 +364,58 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	const foil = page.getByRole('group', { name: 'Foil shopping item' })
 	await foil.getByRole('button', { name: 'Item actions' }).click()
 	await expect(page.getByRole('menuitem', { name: 'Edit item' })).toBeVisible()
-	const deleteFoil = page.getByRole('menuitem', { name: /^Delete/ })
-	await deleteFoil.click()
-	await expect(deleteFoil).toHaveText('Delete?')
-	await expect(foil).toBeVisible()
-	expect(await prisma.shoppingListItem.count({ where: foilSaved })).toBe(1)
-	// Closing the menu disarms it, so a reopened menu needs two taps again.
-	await page.keyboard.press('Escape')
-	await expect(deleteFoil).toBeHidden()
-	await foil.getByRole('button', { name: 'Item actions' }).click()
-	await expect(deleteFoil).not.toHaveText('Delete?')
-	await deleteFoil.click()
-	await expect(deleteFoil).toHaveText('Delete?')
+	// Delete is red from the start and deletes at once, with Undo.
+	const deleteFoil = page.getByRole('menuitem', { name: 'Delete item' })
+	await expect(deleteFoil).toHaveCSS('color', 'rgb(184, 92, 74)')
 	await deleteFoil.click()
 	await expect(foil).toBeHidden()
 	await expect
-		.poll(() => prisma.shoppingListItem.count({ where: foilSaved }))
+		.poll(() => prisma.shoppingListItem.count({ where: foilSaved }), {
+			timeout: 10_000,
+		})
 		.toBe(0)
 
 	// 6. Check and clear items with local feedback on phone and desktop.
+	const clearedNames: string[] = []
 	for (const viewport of [
 		{ width: 390, height: 844 },
 		{ width: 1280, height: 800 },
 	]) {
 		await page.setViewportSize(viewport)
-		await page
-			.getByRole('button', { name: /^Check off / })
-			.first()
-			.click()
+		const checkOff = page.getByRole('button', { name: /^Check off / }).first()
+		const label = (await checkOff.getAttribute('aria-label'))!
+		clearedNames.push(label.replace(/^Check off /, ''))
+		await checkOff.click()
 		await expect(page.getByText(/\(1\/\d+\)/)).toBeVisible()
 
-		// The first tap arms Clear checked; the second clears.
+		// Clear checked clears at once; Undo is on offer at the bottom.
 		await page.getByRole('button', { name: /clear checked/i }).click()
-		await expect(page.getByText('Clear 1?', { exact: true })).toBeVisible()
-		await expectLocalPendingFeedback({
-			page,
-			button: page.getByRole('button', { name: /clear checked/i }),
-			statusName: 'Clearing checked items',
-		})
+		await expect(page.getByText(/\(0\/\d+\)/)).toBeVisible()
+		await expect(
+			page.getByRole('button', { name: /clear checked/i }),
+		).toBeHidden()
 	}
 
 	// The checked items should be gone, while unchecked items remain.
 	await expect(page.getByText('spring onions')).toBeVisible()
+	// And saved so, once the Undo toasts have gone.
+	await expect
+		.poll(
+			async () => {
+				const names = (
+					await prisma.shoppingListItem.findMany({
+						where: { list: { householdId: user.householdId } },
+						select: { name: true },
+					})
+				).map((item) => item.name)
+				return {
+					cleared: clearedNames.filter((name) => names.includes(name)),
+					springOnions: names.includes('spring onions'),
+				}
+			},
+			{ timeout: 10_000 },
+		)
+		.toEqual({ cleared: [], springOnions: true })
 })
 
 test('household Staples can be added together from the quiet Shopping picker', async ({

@@ -64,6 +64,7 @@ export function ShoppingListItemCard({
 	const removeGeneratedFetcher = useFetcher()
 	const prevEditFetcherState = useRef(editFetcher.state)
 	const [swipeOpen, setSwipeOpen] = useState(false)
+	const menuPointer = useRef<string | null>(null)
 	const swipeRow = useRef<{ close: () => void } | null>(null)
 
 	// Close edit mode when fetcher transitions from submitting/loading → idle
@@ -372,6 +373,19 @@ export function ShoppingListItemCard({
 					<DropdownMenuTrigger asChild disabled={Boolean(checkState)}>
 						<button
 							type="button"
+							// Radix opens a menu on pointerdown. A finger opens it on the
+							// tap instead, so a row swipe that starts here (where a thumb
+							// starts a left swipe) swallows that tap and leaves it shut.
+							onPointerDown={(event) => {
+								menuPointer.current = event.pointerType
+								if (event.pointerType !== 'mouse') event.preventDefault()
+							}}
+							onClick={() => {
+								if (menuPointer.current && menuPointer.current !== 'mouse') {
+									setMenuOpen((open) => !open)
+								}
+								menuPointer.current = null
+							}}
 							className="text-muted-foreground/70 hover:bg-muted hover:text-foreground active:bg-muted flex size-11 shrink-0 items-center justify-center rounded-full transition-colors"
 							aria-label="Item actions"
 						>

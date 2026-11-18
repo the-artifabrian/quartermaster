@@ -131,3 +131,23 @@ test('a short, slow swipe snaps back, and a tap on an open row only shuts it', a
 		}),
 	).toEqual({ checked: false })
 })
+
+test('a swipe that starts on the row menu button leaves the menu shut', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await seed(user)
+	await openShopping(page)
+
+	const eggs = row(page, 'eggs')
+	await swipe(page, eggs, { fromX: 0.96, toX: 0.4, ms: 240 })
+	await expect(eggs.getByRole('button', { name: 'Delete' })).toBeVisible()
+	await expect(page.getByRole('menu')).toBeHidden()
+
+	// A tap on the button still opens the menu.
+	await eggs.getByText('eggs', { exact: true }).click()
+	await expect(eggs.getByRole('button', { name: 'Delete' })).toBeHidden()
+	await eggs.getByRole('button', { name: 'Item actions' }).tap()
+	await expect(page.getByRole('menuitem', { name: 'Edit item' })).toBeVisible()
+})

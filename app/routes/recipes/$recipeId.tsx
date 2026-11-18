@@ -519,13 +519,26 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	useEffect(() => {
 		const el = ingredientsHeaderRef.current
 		if (!el || typeof IntersectionObserver === 'undefined') return
-		const observer = new IntersectionObserver(([entry]) => {
-			if (!entry) return
-			const viewportTop = entry.rootBounds?.top ?? 0
-			setIngredientsPassed(
-				!entry.isIntersecting && entry.boundingClientRect.bottom < viewportTop,
-			)
-		})
+		// The heading has passed once it is under the pinned nav bar, not only
+		// once it leaves the screen.
+		const barBottom = Math.max(
+			0,
+			Math.round(
+				document.querySelector('[data-nav-bar]')?.getBoundingClientRect()
+					.bottom ?? 0,
+			),
+		)
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				if (!entry) return
+				const viewportTop = entry.rootBounds?.top ?? 0
+				setIngredientsPassed(
+					!entry.isIntersecting &&
+						entry.boundingClientRect.bottom < viewportTop,
+				)
+			},
+			{ rootMargin: `-${barBottom}px 0px 0px 0px` },
+		)
 		observer.observe(el)
 		return () => observer.disconnect()
 	}, [])
@@ -625,8 +638,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				}
 				return prev
 			},
-			// Keep the Recipe's OPEN_DETAIL marker, so going back still slides.
-			{ replace: true, state: location.state },
+			// Keep the Recipe's OPEN_DETAIL marker, so going back still slides,
+			// and the place in the Recipe the scale was changed from.
+			{ replace: true, state: location.state, preventScrollReset: true },
 		)
 	}
 

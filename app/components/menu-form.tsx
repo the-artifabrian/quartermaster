@@ -29,6 +29,7 @@ import {
 	scaleMultiplierToTargetYield,
 } from '#app/utils/target-yield.ts'
 import { ErrorList, Field, TextareaField } from './forms.tsx'
+import { keepReturnFromSaving, useNavBarForm } from './nav-bar.tsx'
 import { Button } from './ui/button.tsx'
 import {
 	DropdownMenu,
@@ -147,9 +148,17 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 		shouldRevalidate: 'onBlur',
 		shouldValidate: 'onSubmit',
 	})
+	useNavBarForm(MENU_FORM_ID)
 
 	return (
-		<Form method="POST" {...getFormProps(form)} className="space-y-4">
+		<Form
+			method="POST"
+			{...getFormProps(form)}
+			onKeyDown={(event) =>
+				keepReturnFromSaving(event, { titleSaves: !builder })
+			}
+			className="space-y-4"
+		>
 			{/* Form-level errors */}
 			{form.errors && form.errors.length > 0 && (
 				<div className="border-destructive bg-destructive/10 rounded-lg border p-4">

@@ -425,6 +425,9 @@ function App() {
 	// on phones; tab roots keep it. Only signed-in pages have one.
 	const navBarConfig = useNavBarConfig()
 	const navBar = user ? navBarConfig : null
+	const toastTop = navBar
+		? 'var(--nav-bar-bottom, calc(var(--safe-top) + 44px))'
+		: 'var(--safe-top)'
 
 	return (
 		<NavTiming>
@@ -557,9 +560,10 @@ function App() {
 					position="top-center"
 					theme={theme}
 					// Sonner's default offsets, pushed below the status bar in the iOS
-					// app. The inset is 0 everywhere else.
-					offset={{ top: 'calc(24px + var(--safe-top))' }}
-					mobileOffset={{ top: 'calc(16px + var(--safe-top))' }}
+					// app (the inset is 0 everywhere else), and below a pushed page's
+					// nav bar, which stays pinned with Back and Save on it.
+					offset={{ top: `calc(24px + ${toastTop})` }}
+					mobileOffset={{ top: `calc(16px + ${toastTop})` }}
 				/>
 				<OfflineIndicator />
 				{user && isPro ? <HouseholdActivityNotifier /> : null}

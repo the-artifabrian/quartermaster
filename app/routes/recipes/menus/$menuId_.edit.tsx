@@ -1,9 +1,8 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { type NavBarHandle } from '#app/components/nav-bar.tsx'
-import { menuEditNav } from '#app/utils/nav-back.ts'
 import { data, redirect, useFetcher } from 'react-router'
+import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import {
 	MENU_FORM_ID,
 	MenuForm,
@@ -12,6 +11,7 @@ import {
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
+import { menuEditNav } from '#app/utils/nav-back.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	DUPLICATE_MENU_TITLE_MESSAGE,

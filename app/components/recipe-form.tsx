@@ -11,7 +11,7 @@ import {
 } from '#app/utils/recipe-validation.ts'
 import { DurationHint } from './duration-hint.tsx'
 import { ErrorList, Field, TextareaField } from './forms.tsx'
-import { useBlockNavBarSave } from './nav-bar.tsx'
+import { keepReturnFromSaving, useNavBarForm } from './nav-bar.tsx'
 import {
 	IngredientFields,
 	type IngredientFieldValue,
@@ -174,7 +174,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 	const { preparing: preparingPhoto, fit: fitPhoto } = useFitFileInput(
 		MAX_RECIPE_IMAGE_SIZE,
 	)
-	useBlockNavBarSave(preparingPhoto)
+	useNavBarForm(RECIPE_FORM_ID, { blocked: preparingPhoto })
 	const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const input = e.currentTarget
 		// A later pick owns the preview.
@@ -194,6 +194,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			method="POST"
 			encType="multipart/form-data"
 			{...getFormProps(form)}
+			onKeyDown={(event) => keepReturnFromSaving(event, { titleSaves: true })}
 			className="space-y-4"
 		>
 			{/* Form-level errors */}

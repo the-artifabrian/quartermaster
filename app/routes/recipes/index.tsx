@@ -10,6 +10,7 @@ import { GettingStartedChecklist } from '#app/components/getting-started-checkli
 import { LibrarySwitch } from '#app/components/library-switch.tsx'
 import { RecipeCard, RecipeCardGrid } from '#app/components/recipe-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
+import { Chip, chipClassName } from '#app/components/ui/chip.tsx'
 import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
@@ -237,6 +238,13 @@ export async function clientLoader(args: Route.ClientLoaderArgs) {
 	return staleWhileRevalidate(args)
 }
 clientLoader.hydrate = false as const
+
+// The filter row is one family of chips: 44px for a finger, compact with a
+// mouse on a wide screen, where the row sits beside the search field.
+const filterCompact =
+	'desktop:min-h-8 desktop:gap-1 desktop:px-2.5 desktop:text-xs'
+const filterSelect =
+	'h-11 min-w-0 desktop:h-8 desktop:min-h-8 desktop:px-2.5 desktop:text-xs'
 
 export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	useStaleRevalidate(loaderData)
@@ -530,7 +538,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							value={sort}
 							onChange={(e) => handleSortChange(e.target.value)}
 							aria-label="Sort recipes"
-							className="border-border/50 bg-secondary/50 text-muted-foreground h-11 min-w-0 rounded-full border px-2.5 text-xs md:h-8"
+							className={cn(chipClassName(), filterSelect)}
 						>
 							{SORT_OPTIONS.map((option) => (
 								<option key={option.value} value={option.value}>
@@ -542,30 +550,24 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							value={maxTime?.toString() ?? ''}
 							onChange={(e) => handleMaxTimeChange(e.target.value)}
 							aria-label="Filter by cook time"
-							className="border-border/50 bg-secondary/50 text-muted-foreground h-11 min-w-0 rounded-full border px-2.5 text-xs md:h-8"
+							className={cn(chipClassName(), filterSelect)}
 						>
 							<option value="">Any time</option>
 							<option value="30">Under 30 min</option>
 							<option value="60">Under 1 hour</option>
 							<option value="120">Under 2 hours</option>
 						</select>
-						<button
-							type="button"
+						<Chip
 							onClick={handleFavoritesToggle}
 							aria-label={
 								favoritesOnly ? 'Show all recipes' : 'Show favorites only'
 							}
-							aria-pressed={favoritesOnly}
-							className={cn(
-								'flex h-11 items-center gap-1 rounded-full border px-2.5 text-xs transition-colors md:h-8',
-								favoritesOnly
-									? 'border-primary bg-primary text-primary-foreground'
-									: 'border-border/50 bg-secondary/50 text-muted-foreground hover:bg-secondary',
-							)}
+							pressed={favoritesOnly}
+							icon={favoritesOnly ? 'heart-filled' : 'heart'}
+							className={filterCompact}
 						>
-							<Icon name={favoritesOnly ? 'heart-filled' : 'heart'} size="xs" />
 							Favorites
-						</button>
+						</Chip>
 						{RECIPE_METADATA_DIMENSIONS.map((dimension) => {
 							const options = metadataOptions.filter(
 								(option) => option.dimension === dimension,
@@ -574,16 +576,15 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							const selectedCount = metadataFilters[dimension].length
 							return (
 								<DropdownMenu key={dimension} modal={false}>
-									<DropdownMenuTrigger asChild>
-										<Button
-											variant={selectedCount ? 'secondary' : 'outline'}
-											size="sm"
-											className="h-11 rounded-full px-2.5 text-xs font-normal md:h-8"
-										>
-											{RECIPE_METADATA_LABELS[dimension]}
-											{selectedCount > 0 && ` · ${selectedCount}`}
-											<Icon name="chevron-down" size="xs" />
-										</Button>
+									<DropdownMenuTrigger
+										className={cn(
+											chipClassName(selectedCount > 0),
+											filterCompact,
+										)}
+									>
+										{RECIPE_METADATA_LABELS[dimension]}
+										{selectedCount > 0 && ` · ${selectedCount}`}
+										<Icon name="chevron-down" size="xs" />
 									</DropdownMenuTrigger>
 									<DropdownMenuContent align="start" className="min-w-44">
 										<DropdownMenuLabel>

@@ -5,6 +5,8 @@ import {
 	rubberBand,
 	settleReveal,
 	settleCommit,
+	settleDismiss,
+	sheetDragIntent,
 } from './swipe.ts'
 
 // Failure list, written before swipe.ts:
@@ -24,6 +26,14 @@ import {
 // commit settle (Plan week) — a short slow drag snaps back; past the
 //   distance threshold commits that way; a flick commits; a flick against
 //   the drag cancels.
+// sheet drag intent (BottomSheet) — no decision inside the slop; a pull down
+//   with the content at its top drags the sheet; a pull down with the content
+//   scrolled scrolls it back; a push up scrolls content that can scroll; a
+//   push up on content that can't scroll drags the sheet (and resists); a
+//   sideways move is not the sheet's.
+// dismiss settle (BottomSheet) — a short slow pull stays; a pull past the
+//   threshold dismisses; a short fast flick down dismisses; a flick up after
+//   a long pull stays; a sheet pushed up stays.
 
 describe('lockAxis', () => {
 	test('waits until the finger has moved past the slop', () => {
@@ -135,5 +145,50 @@ describe('releaseVelocity', () => {
 	})
 	test('no moves read as still', () => {
 		expect(releaseVelocity([], 50, 0)).toBe(0)
+	})
+})
+
+describe('sheetDragIntent', () => {
+	const top = { atTop: true, canScroll: true }
+	test('waits until the finger has moved past the slop', () => {
+		expect(sheetDragIntent({ dx: 1, dy: 5, ...top })).toBe('wait')
+	})
+	test('a pull down with the content at its top drags the sheet', () => {
+		expect(sheetDragIntent({ dx: 2, dy: 12, ...top })).toBe('sheet')
+	})
+	test('a pull down with the content scrolled scrolls it', () => {
+		expect(
+			sheetDragIntent({ dx: 2, dy: 12, atTop: false, canScroll: true }),
+		).toBe('scroll')
+	})
+	test('a push up scrolls content that can scroll', () => {
+		expect(sheetDragIntent({ dx: 0, dy: -12, ...top })).toBe('scroll')
+	})
+	test("a push up on content that can't scroll drags the sheet", () => {
+		expect(
+			sheetDragIntent({ dx: 0, dy: -12, atTop: true, canScroll: false }),
+		).toBe('sheet')
+	})
+	test('a sideways move is not the sheet’s', () => {
+		expect(sheetDragIntent({ dx: 14, dy: 4, ...top })).toBe('scroll')
+	})
+})
+
+describe('settleDismiss', () => {
+	const height = 300
+	test('a short slow pull stays', () => {
+		expect(settleDismiss({ offset: 60, velocity: 0.1, height })).toBe(false)
+	})
+	test('a pull past the threshold dismisses', () => {
+		expect(settleDismiss({ offset: 150, velocity: 0.1, height })).toBe(true)
+	})
+	test('a short fast flick down dismisses', () => {
+		expect(settleDismiss({ offset: 30, velocity: 0.8, height })).toBe(true)
+	})
+	test('a flick up after a long pull stays', () => {
+		expect(settleDismiss({ offset: 200, velocity: -0.8, height })).toBe(false)
+	})
+	test('a sheet pushed up stays', () => {
+		expect(settleDismiss({ offset: -10, velocity: -0.1, height })).toBe(false)
 	})
 })

@@ -1,6 +1,6 @@
 /**
- * The arithmetic behind the app's horizontal swipes (Shopping rows, the Plan
- * week). While the finger is down the element follows it 1:1; when it lifts,
+ * The arithmetic behind the app's swipes (Shopping rows, the Plan week, a
+ * bottom sheet pulled down). While the finger is down the element follows it 1:1; when it lifts,
  * these decide where it settles: by distance, unless the release was a flick,
  * in which case the flick's direction wins.
  */
@@ -11,6 +11,8 @@ const SLOP = 8
 const FLICK_VELOCITY = 0.3
 /** How much of the travel past an end still shows. */
 const ELASTICITY = 0.2
+/** How far down (of its height) a slow pull takes a sheet before it closes. */
+const DISMISS_FRACTION = 1 / 3
 
 /**
  * Which axis the gesture belongs to, or null while it is too small to tell.
@@ -64,6 +66,7 @@ const STILL_MS = 60
 /** A drag shorter than this (px) is never a flick, however fast. */
 const MIN_FLICK_TRAVEL = 16
 
+/** Where the finger was along the drag's axis (px), and when (ms). */
 type Sample = { x: number; t: number }
 
 /**
@@ -97,4 +100,48 @@ export function releaseVelocity(
 	}
 	const elapsed = releaseT - first.t
 	return elapsed > 0 ? (last.x - first.x) / elapsed : 0
+}
+
+type SheetMove = {
+	/** Movement since the finger landed (px), positive down. */
+	dx: number
+	dy: number
+	/** The content under the finger was scrolled to its top when it landed. */
+	atTop: boolean
+	/** That content is taller than its box. */
+	canScroll: boolean
+}
+
+/**
+ * Who a move on a bottom sheet belongs to: the sheet (it follows the finger),
+ * the content's own scrolling, or neither yet. A pull down only drags the
+ * sheet once the content is at its top, like an iOS sheet.
+ */
+export function sheetDragIntent({
+	dx,
+	dy,
+	atTop,
+	canScroll,
+}: SheetMove): 'sheet' | 'scroll' | 'wait' {
+	const axis = lockAxis(dx, dy)
+	if (axis === null) return 'wait'
+	if (axis === 'x') return 'scroll'
+	if (dy > 0) return atTop ? 'sheet' : 'scroll'
+	return canScroll ? 'scroll' : 'sheet'
+}
+
+/** Whether a sheet pulled down to `offset` should close when it is let go. */
+export function settleDismiss({
+	offset,
+	velocity,
+	height,
+}: {
+	/** How far down the sheet is (px). */
+	offset: number
+	/** Release velocity (px/ms), positive down. */
+	velocity: number
+	height: number
+}) {
+	if (Math.abs(velocity) > FLICK_VELOCITY) return velocity > 0
+	return offset > height * DISMISS_FRACTION
 }

@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { useSheetDrag } from '#app/hooks/use-sheet-drag.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { Icon } from './icon.tsx'
 
@@ -7,6 +8,9 @@ const FOCUSABLE_SELECTOR =
 
 /** A sheet that leaves without an animation still unmounts after this. */
 const EXIT_FALLBACK_MS = 500
+
+/** Where the modal layout stops being a sheet and becomes a dialog. */
+const MODAL_DIALOG_QUERY = '(width >= 40rem)'
 
 /** The sheet that is open now. Opening another closes it first. */
 let openSheet: { close: () => void } | null = null
@@ -40,7 +44,7 @@ type BottomSheetProps = {
  * focus back to whatever had it before the sheet opened.
  *
  * While open it is modal to the keyboard: Escape closes it and Tab cycles
- * within it.
+ * within it. On a phone it can also be pulled down to close (useSheetDrag).
  */
 export function BottomSheet({ open, ...props }: BottomSheetProps) {
 	const [rendered, setRendered] = useState(open)
@@ -63,6 +67,7 @@ function SheetFrame({
 }: BottomSheetProps & { onExited: () => void }) {
 	const rootRef = useRef<HTMLDivElement>(null)
 	const panelRef = useRef<HTMLDivElement>(null)
+	const backdropRef = useRef<HTMLDivElement>(null)
 	// Read while the trigger still has focus, before this sheet takes it.
 	const previouslyFocusedRef = useRef<HTMLElement | null>(
 		typeof document !== 'undefined'
@@ -76,6 +81,16 @@ function SheetFrame({
 		onExitedRef.current = onExited
 	})
 	const [self] = useState(() => ({ close: () => onCloseRef.current() }))
+
+	useSheetDrag({
+		open,
+		// A centered dialog has no edge to pull it toward.
+		enabled: () =>
+			layout === 'docked' || !window.matchMedia(MODAL_DIALOG_QUERY).matches,
+		panelRef,
+		backdropRef,
+		onDismiss: () => onCloseRef.current(),
+	})
 
 	// Take focus on each open unless a child claimed it. A reopen during the
 	// exit keeps this instance, so it takes focus again and remembers where
@@ -194,6 +209,7 @@ function SheetFrame({
 			)}
 		>
 			<div
+				ref={backdropRef}
 				data-bottom-sheet-backdrop=""
 				data-state={state}
 				className={cn(

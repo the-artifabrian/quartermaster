@@ -171,8 +171,8 @@ test('a checked Shopping item is not shown unchecked from memory', async ({
 	)
 
 	// The check is a native fetch, outside the Router.
-	await rice.getByRole('button', { name: 'Check off item' }).click()
-	await expect(rice.getByRole('button', { name: 'Uncheck item' })).toBeVisible()
+	await rice.getByRole('button', { name: /^Check off / }).click()
+	await expect(rice.getByRole('button', { name: /^Uncheck / })).toBeVisible()
 	await expect(rice.getByRole('status')).toBeHidden()
 	await expect
 		.poll(
@@ -208,5 +208,5 @@ test('a checked Shopping item is not shown unchecked from memory', async ({
 	await expect(page).toHaveURL('/plan')
 	gate.release()
 	await expect(page).toHaveURL('/shopping')
-	await expect(rice.getByRole('button', { name: 'Uncheck item' })).toBeVisible()
+	await expect(rice.getByRole('button', { name: /^Uncheck / })).toBeVisible()
 })

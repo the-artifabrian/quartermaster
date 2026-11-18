@@ -184,7 +184,8 @@ function AddMealControl({
 				<legend className="text-muted-foreground mb-1.5 text-[11px] font-semibold tracking-wide uppercase">
 					Meal type <span className="font-normal normal-case">(optional)</span>
 				</legend>
-				<div className="flex flex-wrap gap-1">
+				{/* Row gap leaves room for each chip's 44px tap area. */}
+				<div className="flex flex-wrap gap-x-1 gap-y-4">
 					{MEAL_TYPES.map((type) => (
 						<button
 							key={type}
@@ -193,7 +194,7 @@ function AddMealControl({
 							onClick={() => setLabel(label === type ? null : type)}
 							aria-pressed={label === type}
 							className={cn(
-								'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors disabled:opacity-60',
+								"relative rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] disabled:opacity-60",
 								label === type
 									? 'border-primary bg-primary text-primary-foreground'
 									: 'border-border text-muted-foreground hover:text-foreground',
@@ -232,7 +233,7 @@ function AddMealControl({
 					<button
 						type="button"
 						onClick={() => setMode('text')}
-						className="text-muted-foreground hover:text-foreground mt-3 text-xs underline-offset-2 hover:underline"
+						className="text-muted-foreground hover:text-foreground mt-0.5 -mb-3 flex min-h-11 items-center text-xs underline-offset-2 hover:underline"
 					>
 						Add text instead (for example, Leftovers)
 					</button>
@@ -258,6 +259,7 @@ function AddMealControl({
 								if (event.key === 'Escape') close()
 							}}
 							placeholder="Leftovers, takeout, dinner out..."
+							enterKeyHint="done"
 							maxLength={200}
 							aria-label="Meal text"
 						/>
@@ -277,11 +279,16 @@ function AddMealControl({
 								choices.load()
 								setMode('item')
 							}}
-							className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+							className="text-muted-foreground hover:text-foreground -my-3.5 flex min-h-11 items-center text-xs underline-offset-2 hover:underline"
 						>
 							Pick a Recipe or Menu instead
 						</button>
-						<Button size="sm" onClick={submitText} disabled={!text.trim()}>
+						<Button
+							size="sm"
+							className="h-11 md:h-9"
+							onClick={submitText}
+							disabled={!text.trim()}
+						>
 							Add
 						</Button>
 					</div>

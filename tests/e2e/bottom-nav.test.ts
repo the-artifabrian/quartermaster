@@ -357,8 +357,8 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 	// before a pending state shows. A Shopping check drops the cache, so the
 	// presses below wait on the (delayed) server again.
 	const milk = page.getByRole('group', { name: 'Milk shopping item' })
-	await milk.getByRole('button', { name: 'Check off item' }).click()
-	await expect(milk.getByRole('button', { name: 'Uncheck item' })).toBeVisible()
+	await milk.getByRole('button', { name: /^Check off / }).click()
+	await expect(milk.getByRole('button', { name: /^Uncheck / })).toBeVisible()
 	await expect(milk.getByRole('status')).toBeHidden()
 
 	const recipesLink = nav.getByRole('link', { name: 'Recipes', exact: true })

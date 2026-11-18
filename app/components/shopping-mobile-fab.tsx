@@ -164,7 +164,7 @@ export function MobileFabAdd({
 			<button
 				type="button"
 				className={cn(
-					'bg-primary text-primary-foreground shadow-warm-md fixed right-4 bottom-[calc(var(--bottom-nav-h)+1.5rem+var(--bottom-nav-inset))] z-50 flex size-12 items-center justify-center rounded-full transition-all active:scale-95',
+					'bg-primary text-primary-foreground shadow-warm-md fixed right-4 bottom-[calc(var(--bottom-nav-h)+1.5rem+var(--bottom-nav-inset))] z-50 flex size-12 items-center justify-center rounded-full transition-[scale] duration-150 ease-(--ease-micro) active:scale-95',
 					open && 'hidden',
 				)}
 				aria-label="Add item"
@@ -210,6 +210,7 @@ export function MobileFabAdd({
 							}}
 							placeholder="Add an item..."
 							enterKeyHint="go"
+							autoCapitalize="none"
 							className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-10 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-sm outline-none focus:ring-1"
 						/>
 						{isProActive && (
@@ -256,7 +257,7 @@ export function MobileFabAdd({
 								onChange={(e) => setQuantity(e.target.value)}
 								placeholder="Qty"
 								enterKeyHint="go"
-								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-8 w-16 rounded-lg border bg-transparent px-2 text-sm outline-none"
+								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-10 w-16 rounded-lg border bg-transparent px-2 text-sm outline-none"
 							/>
 							<input
 								name="unit"
@@ -264,7 +265,9 @@ export function MobileFabAdd({
 								onChange={(e) => setUnit(e.target.value)}
 								placeholder="Unit"
 								enterKeyHint="go"
-								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-8 min-w-0 flex-1 rounded-lg border bg-transparent px-2 text-sm outline-none"
+								autoCapitalize="none"
+								autoCorrect="off"
+								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-10 min-w-0 flex-1 rounded-lg border bg-transparent px-2 text-sm outline-none"
 							/>
 							<button
 								type="button"
@@ -273,7 +276,7 @@ export function MobileFabAdd({
 									setShowQty(false)
 									inputRef.current?.focus()
 								}}
-								className="text-muted-foreground/60 hover:text-muted-foreground shrink-0 text-xs"
+								className="text-muted-foreground hover:text-foreground -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-center px-2 text-xs"
 							>
 								Hide
 							</button>
@@ -285,7 +288,9 @@ export function MobileFabAdd({
 								e.preventDefault()
 								setShowQty(true)
 							}}
-							className="text-muted-foreground/60 hover:text-muted-foreground mt-1.5 text-xs"
+							// 44px tall for the thumb; the negative margin keeps the
+							// sheet the height it was.
+							className="text-muted-foreground hover:text-foreground -mx-1 -mb-2.5 flex min-h-11 items-center px-1 text-xs"
 						>
 							+ Qty &amp; unit
 						</button>

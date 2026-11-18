@@ -114,6 +114,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 								onChange={(event) => setNewStaple(event.currentTarget.value)}
 								placeholder="Staple name"
 								enterKeyHint="done"
+								autoCapitalize="none"
 								maxLength={200}
 								className="min-h-11"
 								disabled={addFetcher.state !== 'idle'}

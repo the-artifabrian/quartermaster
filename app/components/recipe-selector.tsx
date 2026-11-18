@@ -214,6 +214,7 @@ function ItemSelector({
 			<div className="flex items-center gap-2">
 				<Input
 					placeholder={placeholder}
+					aria-label={placeholder.replace(/\.+$|…$/, '')}
 					inputMode="search"
 					enterKeyHint="search"
 					value={search}

@@ -27,6 +27,7 @@ import {
 	PopoverAnchor,
 	PopoverContent,
 } from '#app/components/ui/popover.tsx'
+import { BottomSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { type PlannedMealResult } from '#app/routes/plan/plan-action.server.ts'
 import {
 	addDaysUTC,
@@ -74,6 +75,13 @@ import { getKeepAwakePreference, useWakeLock } from '#app/utils/wake-lock.ts'
 import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
 import { useStaleRevalidate } from '#app/utils/use-stale-revalidate.ts'
 import { type Route } from './+types/$recipeId.ts'
+
+/**
+ * Add to Plan opens as a bottom sheet on a phone, upright or on its side, and
+ * as a popover elsewhere.
+ */
+const PLAN_PICKER_SHEET_QUERY =
+	'(max-width: 639px), (pointer: coarse) and (max-height: 500px)'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
@@ -476,6 +484,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	// Add-to-plan popover state
 	const navigate = useNavigate()
 	const [planPickerOpen, setPlanPickerOpen] = useState(false)
+	// A phone gets the picker as a bottom sheet, like every other picker in
+	// the app, with room for thumb-sized chips; wider screens keep the popover.
+	const [planPickerAsSheet, setPlanPickerAsSheet] = useState(false)
 	const planFetcher = useFetcher<{
 		status: 'success' | 'error'
 		meal?: PlannedMealResult
@@ -657,6 +668,95 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		}
 	}
 
+	// Thumb-sized in the sheet; the popover keeps its compact chips.
+	const planChip = planPickerAsSheet
+		? 'min-h-11 px-3.5 text-sm'
+		: 'px-2.5 py-1 text-xs'
+	const planPickerBody = (
+		<>
+			<div className="mb-3">
+				<p
+					id="plan-picker-day-label"
+					className="text-muted-foreground mb-1.5 text-xs"
+				>
+					Day
+				</p>
+				<div
+					role="group"
+					aria-labelledby="plan-picker-day-label"
+					className={cn(
+						'flex flex-wrap',
+						planPickerAsSheet ? 'gap-2' : 'gap-1.5',
+					)}
+				>
+					{Array.from({ length: 7 }, (_, i) => {
+						const d = addDaysUTC(todayUTC, i)
+						const val = serializeDate(d)
+						const label =
+							i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : formatDayLabel(d)
+						return (
+							<button
+								key={val}
+								type="button"
+								onClick={() => setPlanDate(val)}
+								aria-pressed={planDate === val}
+								className={cn(
+									'rounded-full border transition-colors',
+									planChip,
+									planDate === val
+										? 'border-primary bg-primary text-primary-foreground'
+										: 'border-border hover:border-primary/50',
+								)}
+							>
+								{label}
+							</button>
+						)
+					})}
+				</div>
+			</div>
+			<div className="mb-4">
+				<p
+					id="plan-picker-label-label"
+					className="text-muted-foreground mb-1.5 text-xs"
+				>
+					Label (optional)
+				</p>
+				<div
+					role="group"
+					aria-labelledby="plan-picker-label-label"
+					className={cn(
+						'flex flex-wrap',
+						planPickerAsSheet ? 'gap-2' : 'gap-1.5',
+					)}
+				>
+					{MEAL_TYPES.map((mt) => (
+						<button
+							key={mt}
+							type="button"
+							onClick={() => setPlanMealType(planMealType === mt ? null : mt)}
+							aria-pressed={planMealType === mt}
+							className={cn(
+								'rounded-full border transition-colors',
+								planChip,
+								planMealType === mt
+									? 'border-primary bg-primary text-primary-foreground'
+									: 'border-border hover:border-primary/50',
+							)}
+						>
+							{MEAL_TYPE_LABELS[mt]}
+						</button>
+					))}
+				</div>
+			</div>
+			<Button
+				className={cn('w-full', planPickerAsSheet ? 'h-11' : 'h-9')}
+				onClick={handleAddToPlanSubmit}
+				disabled={planFetcher.state !== 'idle'}
+			>
+				{planFetcher.state !== 'idle' ? 'Adding...' : 'Add to Plan'}
+			</Button>
+		</>
+	)
 	return (
 		<>
 			<script
@@ -722,7 +822,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				)}
 
 				{/* Action bar */}
-				<Popover open={planPickerOpen} onOpenChange={setPlanPickerOpen}>
+				<Popover
+					open={planPickerOpen && !planPickerAsSheet}
+					onOpenChange={setPlanPickerOpen}
+				>
 					<PopoverAnchor>
 						<RecipeActionBar
 							recipeId={recipe.id}
@@ -730,7 +833,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							isProActive={isProActive}
 							favoriteFetcher={favoriteFetcher}
 							enhanceFetcher={enhanceFetcher}
-							onAddToPlan={() => setPlanPickerOpen(true)}
+							onAddToPlan={() => {
+								setPlanPickerAsSheet(
+									window.matchMedia(PLAN_PICKER_SHEET_QUERY).matches,
+								)
+								setPlanPickerOpen(true)
+							}}
 							onCopy={handleCopyRecipe}
 							onShare={handleShare}
 							onEnhance={handleEnhance}
@@ -741,66 +849,18 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</PopoverAnchor>
 					<PopoverContent align="start" className="w-72 p-4">
 						<p className="mb-3 text-sm font-medium">Add to Plan</p>
-						<div className="mb-3">
-							<p className="text-muted-foreground mb-1.5 text-xs">Day</p>
-							<div className="flex flex-wrap gap-1.5">
-								{Array.from({ length: 7 }, (_, i) => {
-									const d = addDaysUTC(todayUTC, i)
-									const val = serializeDate(d)
-									const label =
-										i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : formatDayLabel(d)
-									return (
-										<button
-											key={val}
-											type="button"
-											onClick={() => setPlanDate(val)}
-											className={cn(
-												'rounded-full border px-2.5 py-1 text-xs transition-colors',
-												planDate === val
-													? 'border-primary bg-primary text-primary-foreground'
-													: 'border-border hover:border-primary/50',
-											)}
-										>
-											{label}
-										</button>
-									)
-								})}
-							</div>
-						</div>
-						<div className="mb-4">
-							<p className="text-muted-foreground mb-1.5 text-xs">
-								Label (optional)
-							</p>
-							<div className="flex gap-1.5">
-								{MEAL_TYPES.map((mt) => (
-									<button
-										key={mt}
-										type="button"
-										onClick={() =>
-											setPlanMealType(planMealType === mt ? null : mt)
-										}
-										className={cn(
-											'rounded-full border px-2.5 py-1 text-xs transition-colors',
-											planMealType === mt
-												? 'border-primary bg-primary text-primary-foreground'
-												: 'border-border hover:border-primary/50',
-										)}
-									>
-										{MEAL_TYPE_LABELS[mt]}
-									</button>
-								))}
-							</div>
-						</div>
-						<Button
-							size="sm"
-							className="w-full"
-							onClick={handleAddToPlanSubmit}
-							disabled={planFetcher.state !== 'idle'}
-						>
-							{planFetcher.state !== 'idle' ? 'Adding...' : 'Add to Plan'}
-						</Button>
+						{planPickerBody}
 					</PopoverContent>
 				</Popover>
+				<BottomSheet
+					open={planPickerOpen && planPickerAsSheet}
+					onClose={() => setPlanPickerOpen(false)}
+					labelledBy="recipe-plan-picker-title"
+					title="Add to Plan"
+					className="bg-popover text-popover-foreground"
+				>
+					{planPickerBody}
+				</BottomSheet>
 
 				{/* Personal notes sit under the actions, collapsed, so the header
 				    stays compact and Ingredients start within the first screen. */}

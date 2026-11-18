@@ -761,6 +761,15 @@ html {
 	border-top-color: transparent;
 }
 
+/* An inset line drawn by `::before` (the Recipes inside a Plan Meal) goes the
+   same way, and with its row. */
+[data-row-collapse]:not(
+		[data-row-collapse]:not([data-hidden]) ~ [data-row-collapse]
+	)::before,
+[data-row-collapse][data-hidden]::before {
+	border-top-color: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	*,
 	::before,

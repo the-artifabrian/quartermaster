@@ -980,11 +980,12 @@ test.describe('sheets while they come and go', () => {
 		await openShopping(other)
 		const foil = other.getByRole('group', { name: 'foil shopping item' })
 		await foil.getByRole('button', { name: 'Item actions' }).click()
-		const remove = other.getByRole('menuitem', { name: /^Delete/ })
-		await remove.click()
-		await expect(remove).toHaveText('Delete?')
-		await remove.click()
+		// A delete goes at once, with Undo.
+		await other.getByRole('menuitem', { name: /^Delete/ }).click()
 		await expect(foil).toBeHidden()
+		await expect
+			.poll(() => prisma.shoppingListItem.count({ where: { name: 'foil' } }))
+			.toBe(0)
 
 		// Back on this phone, which catches up as it comes to the front.
 		await page.bringToFront()
@@ -1101,4 +1102,38 @@ test.describe('a phone on its side', () => {
 		await expectSheetOnBottomEdge(page, sheet)
 		await expect(sheet).toHaveAttribute('data-state', 'open')
 	})
+})
+
+test('removing the first Recipe of a Meal takes the inset line above the next one', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const dal = await createRecipe(user, 'Dal')
+	const rice = await createRecipe(user, 'Rice')
+	const { meal, weekStart } = await planMeal(user, dal)
+	await prisma.mealRecipeItem.create({
+		data: {
+			mealId: meal.id,
+			recipeId: rice.id,
+			recipeTitle: rice.title,
+			order: 1,
+		},
+	})
+	await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+	const mobile = page.getByTestId('mobile-plan')
+	const riceRow = mobile
+		.getByRole('link', { name: 'Rice', exact: true })
+		.locator('xpath=ancestor::*[@data-row-collapse][1]')
+	const insetLine = () =>
+		riceRow.evaluate((row) => getComputedStyle(row, '::before').borderTopColor)
+	expect(await insetLine()).not.toBe('rgba(0, 0, 0, 0)')
+	await tapUntil(
+		mobile.getByRole('button', { name: 'Remove Dal from this meal' }),
+		() =>
+			expect(mobile.getByRole('link', { name: 'Dal', exact: true })).toBeHidden(
+				{ timeout: 1000 },
+			),
+	)
+	await expect.poll(insetLine).toBe('rgba(0, 0, 0, 0)')
 })

@@ -66,6 +66,8 @@ test('a tap near the edge of a Shopping row checks the item off', async ({
 	const oatMilk = row(page, 'oat milk')
 	const box = await oatMilk.boundingBox()
 	expect(box).not.toBeNull()
+	// A one-line row keeps room around its name, not just a thumb's height.
+	expect(box!.height).toBeGreaterThanOrEqual(60)
 	// Two pixels inside the row's top edge, over the name rather than the box.
 	await page.mouse.click(box!.x + box!.width / 2, box!.y + 2)
 

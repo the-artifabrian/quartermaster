@@ -601,7 +601,9 @@ test('Back from a Recipe the tab bar restored returns to the filtered list where
 	// To the Plan and back with the tab bar, which restores the Recipe.
 	await tab('Plan').tap()
 	await expect(page).toHaveURL('/plan')
-	await tab('Recipes').tap()
+	// From the keyboard this time, the tab link's own click.
+	await tab('Recipes').focus()
+	await page.keyboard.press('Enter')
 	await expect(page).toHaveURL(recipeUrl)
 
 	await backButton(page, 'Recipes').tap()
@@ -616,14 +618,31 @@ test("an edit page showing its error has Back, not the form's Cancel and Save", 
 	login,
 }) => {
 	await login()
+	// Not even before hydration: the server's page has no Save either.
+	const html = await (
+		await page.request.get('/recipes/no-such-recipe/edit')
+	).text()
+	expect(html).toContain('data-nav-back')
+	expect(html).not.toContain('data-nav-save')
+
 	await page.goto('/recipes/no-such-recipe/edit')
 	const bar = page.locator('[data-nav-bar]')
 	await hydrated(backButton(page, 'Recipe'))
 	await expect(bar.getByRole('button', { name: 'Save' })).toHaveCount(0)
 	await expect(bar.getByRole('link', { name: 'Cancel' })).toHaveCount(0)
+	// The page has no h1 of its own, and the bar is still measured, so
+	// toasts open below it.
+	await expect(page.locator('#main-content h1')).toHaveCount(0)
+	await expect
+		.poll(() =>
+			page.evaluate(() =>
+				document.documentElement.style.getPropertyValue('--nav-bar-bottom'),
+			),
+		)
+		.toBe('44px')
 })
 
-test('Return in an ingredient or a Menu builder field does not save; in a Recipe title it does', async ({
+test('Return in an ingredient or a Menu builder field does not save; in a Recipe or new Menu title it does', async ({
 	page,
 	login,
 }) => {
@@ -632,6 +651,8 @@ test('Return in an ingredient or a Menu builder field does not save; in a Recipe
 	const title = page.getByRole('textbox', { name: /title/i })
 	await hydrated(title)
 	await title.fill('Return pasta')
+	// A form that would pass validation, so only the Return guard stops it.
+	await page.getByPlaceholder('Step 1').fill('Boil.')
 	const ingredient = page.getByPlaceholder('Ingredient name')
 	await ingredient.fill('spaghetti')
 	await ingredient.press('Enter')
@@ -641,7 +662,6 @@ test('Return in an ingredient or a Menu builder field does not save; in a Recipe
 		0,
 	)
 	// The title saves on Return, as it did when the form had its own Save.
-	await page.getByPlaceholder('Step 1').fill('Boil.')
 	await title.press('Enter')
 	await expect(page).toHaveURL(/\/recipes\/(?!new)[^/]+$/)
 	expect(await prisma.recipe.count({ where: { title: 'Return pasta' } })).toBe(
@@ -669,6 +689,28 @@ test('Return in an ingredient or a Menu builder field does not save; in a Recipe
 			where: { menuId: menu.id, name: 'Dessert' },
 		}),
 	).toBe(0)
+	// A Menu builder's title did nothing on Return before, and still does not.
+	const menuTitle = page.getByLabel('Title', { exact: true })
+	await menuTitle.fill('Mezze nights')
+	await menuTitle.press('Enter')
+	await page.waitForTimeout(500)
+	await expect(page).toHaveURL(`/recipes/menus/${menu.id}/edit`)
+	expect(
+		(await prisma.menu.findUniqueOrThrow({ where: { id: menu.id } })).title,
+	).toBe('Mezze night')
+
+	// A new Menu's title saves on Return.
+	await page.goto('/recipes/menus/new')
+	const newTitle = page.getByLabel('Title', { exact: true })
+	await hydrated(newTitle)
+	await newTitle.fill('Return dinner')
+	await newTitle.press('Enter')
+	await expect(page).toHaveURL(/\/recipes\/menus\/(?!new)[^/]+$/)
+	expect(
+		await prisma.menu.count({
+			where: { householdId: user.householdId, title: 'Return dinner' },
+		}),
+	).toBe(1)
 })
 
 test('Save waits for a photo still being shrunk', async ({ page, login }) => {
@@ -820,20 +862,28 @@ test('a toast on a pushed page opens below the bar', async ({
 		},
 		select: { id: true },
 	})
-	await page.goto(`/recipes/menus/${menu.id}`)
-	const share = page.getByRole('button', { name: 'Share' })
-	await hydrated(share)
-	await share.tap()
-	const toast = page.locator('[data-sonner-toast]').filter({
-		hasText: 'Public link copied',
-	})
-	await expect(toast).toBeVisible()
-	const barBottom = await page
-		.locator('[data-nav-bar]')
-		.evaluate((bar) => bar.getBoundingClientRect().bottom)
-	await expect
-		.poll(async () => (await toast.boundingBox())!.y)
-		.toBeGreaterThanOrEqual(barBottom)
+	// On desktop the bar is the header's second row, well below where a
+	// bar-high guess would put it.
+	for (const viewport of [
+		{ width: 390, height: 844 },
+		{ width: 1280, height: 800 },
+	]) {
+		await page.setViewportSize(viewport)
+		await page.goto(`/recipes/menus/${menu.id}`)
+		const share = page.getByRole('button', { name: 'Share' })
+		await hydrated(share)
+		await share.click()
+		const toast = page.locator('[data-sonner-toast]').filter({
+			hasText: 'Public link copied',
+		})
+		await expect(toast).toBeVisible()
+		const barBottom = await page
+			.locator('[data-nav-bar]')
+			.evaluate((bar) => bar.getBoundingClientRect().bottom)
+		await expect
+			.poll(async () => (await toast.boundingBox())!.y)
+			.toBeGreaterThanOrEqual(barBottom)
+	}
 })
 
 test('on desktop, Settings opened from a Recipe goes back to the Recipe', async ({
@@ -884,6 +934,109 @@ test('a Recipe reached by signing in from a deep link goes back to Recipes, not 
 	await page.getByRole('button', { name: 'Log in', exact: true }).click()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 
+	await backButton(page, 'Recipes').tap()
+	await expect(page).toHaveURL('/recipes')
+})
+
+test('an edit form the tab bar restored goes back down its own stack after Save or Cancel', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createLongRecipe(user, 'Lentil soup')
+	const tab = (name: string) =>
+		page
+			.getByRole('navigation', { name: 'Main' })
+			.getByRole('link', { name, exact: true })
+	const cancel = page
+		.locator('[data-nav-bar]')
+		.getByRole('link', { name: 'Cancel' })
+
+	for (const leave of ['Save', 'Cancel'] as const) {
+		await page.goto('/recipes')
+		const card = page.getByRole('link', { name: /Lentil soup recipe/ })
+		await hydrated(card)
+		const listIdx = await historyIdx(page)
+		await card.tap()
+		await page.getByRole('link', { name: 'Edit Recipe' }).tap()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+		// To the Plan and back with the tab bar, which restores the edit form.
+		await tab('Plan').tap()
+		await expect(page).toHaveURL('/plan')
+		await tab('Recipes').tap()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+
+		if (leave === 'Save') {
+			await page.locator('[data-nav-save]').tap()
+		} else {
+			await cancel.tap()
+		}
+		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+		await backButton(page, 'Recipes').tap()
+		await expect(page).toHaveURL('/recipes')
+		expect(await historyIdx(page)).toBe(listIdx)
+	}
+})
+
+test('opening a form from a list paints Cancel and Save in its first frame', async ({
+	page,
+	login,
+}) => {
+	await login()
+	await page.goto('/recipes/menus')
+	const newMenu = page.getByRole('link', { name: 'New Menu' }).first()
+	await hydrated(newMenu)
+	// Record, in every frame, which page is on screen and what the bar holds.
+	await page.evaluate(() => {
+		const frames: string[] = []
+		Object.assign(window, { __frames: frames })
+		const sample = () => {
+			const heading = document.querySelector('#main-content h1')
+			const save = document.querySelector('[data-nav-save]')
+			const back = document.querySelector('[data-nav-back]')
+			frames.push(
+				`${heading?.textContent?.trim()}: ${save ? 'save' : 'no save'} ${back?.textContent?.trim()}`,
+			)
+			requestAnimationFrame(sample)
+		}
+		requestAnimationFrame(sample)
+	})
+	await newMenu.tap()
+	await expect(page).toHaveURL('/recipes/menus/new')
+	await expect(page.locator('[data-nav-save]')).toBeVisible()
+	await page.waitForTimeout(300)
+	const frames = await page.evaluate(
+		() => (window as unknown as { __frames: string[] }).__frames,
+	)
+	const formFrames = frames.filter((f) => f.startsWith('New Menu:'))
+	expect(formFrames.length).toBeGreaterThan(0)
+	expect(formFrames.filter((f) => !f.includes(': save Cancel'))).toEqual([])
+})
+
+test('Cancel on a restored edit form that opens its Recipe hands the restore on', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createLongRecipe(user, 'Lentil soup')
+	const tab = (name: string) =>
+		page
+			.getByRole('navigation', { name: 'Main' })
+			.getByRole('link', { name, exact: true })
+	// Straight to the edit form, so Cancel has no Recipe behind it to pop to.
+	await page.goto(`/recipes/${recipe.id}/edit`)
+	await hydrated(tab('Plan'))
+	await tab('Plan').tap()
+	await expect(page).toHaveURL('/plan')
+	await tab('Recipes').tap()
+	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+	await page
+		.locator('[data-nav-bar]')
+		.getByRole('link', { name: 'Cancel' })
+		.tap()
+	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+	// The Recipe stays in the Recipes tab's stack: not back to the Plan.
+	await expect(backButton(page, 'Recipes')).toBeVisible()
 	await backButton(page, 'Recipes').tap()
 	await expect(page).toHaveURL('/recipes')
 })

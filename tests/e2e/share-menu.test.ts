@@ -220,7 +220,11 @@ test('share a dinner, sign in, save, edit, cook and plan an independent Menu on 
 		await page.getByRole('checkbox', { name: /Warm the chickpeas/ }).click()
 		await page.goto(savedPath)
 		await page.getByRole('button', { name: 'Add to Plan', exact: true }).click()
-		await page.getByRole('button', { name: 'Add to Plan', exact: true }).click()
+		// On a phone the form is a sheet over the Menu.
+		await page
+			.getByRole('dialog', { name: 'Add to Plan' })
+			.getByRole('button', { name: 'Add to Plan', exact: true })
+			.click()
 		await expect(page).toHaveURL(/\/plan/)
 		expect(
 			await prisma.meal.count({

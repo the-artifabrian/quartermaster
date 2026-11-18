@@ -223,30 +223,26 @@ test('Plan meal and Add Meal controls take taps around their drawn edges', async
 		).toBeVisible({ timeout: 1000 })
 	}).toPass()
 	await page.getByRole('menuitem', { name: 'Edit details' }).click()
-	await expectThumbSized(mobile.getByLabel('Guests'))
-	await expectThumbSized(mobile.getByRole('button', { name: 'Save' }))
-	await mobile.getByRole('button', { name: 'Cancel' }).click()
+	const details = page.getByRole('dialog', { name: 'Edit details' })
+	await slidIn(details)
+	await expectThumbSized(details.getByLabel('Guests'))
+	await expectThumbSized(details.getByRole('button', { name: 'Save' }))
+	await details.getByRole('button', { name: 'Close', exact: true }).tap()
+	await expect(details).toBeHidden()
 
 	await mobile.getByRole('button', { name: /^Add Meal to/ }).click()
-	const lunch = mobile.getByRole('button', { name: 'Lunch' })
-	await expect(lunch).toBeVisible()
-	// Measured once the section has finished sliding up into place.
-	await lunch.evaluate((element) =>
-		Promise.all(
-			element
-				.closest('.animate-fade-up-reveal')!
-				.getAnimations()
-				.map((animation) => animation.finished),
-		),
-	)
+	const composer = page.getByRole('dialog', { name: 'Add a Meal' })
+	// Measured once the sheet has finished sliding up into place.
+	await slidIn(composer)
+	const lunch = composer.getByRole('button', { name: 'Lunch' })
 	await expectThumbSized(lunch)
 	await lunch.tap()
 	await expect(lunch).toHaveAttribute('aria-pressed', 'true')
 	await expect(
-		mobile.getByRole('textbox', { name: 'Search Recipes and Menus' }),
+		composer.getByRole('textbox', { name: 'Search Recipes and Menus' }),
 	).toBeVisible()
 	await expectThumbSized(
-		mobile.getByRole('button', { name: /^Add text instead/ }),
+		composer.getByRole('button', { name: /^Add text instead/ }),
 	)
 })
 

@@ -522,6 +522,17 @@ test('household Staples can be added together from the quiet Shopping picker', a
 			{ name: 'Yogurt', horizon: 'next' },
 		])
 
+	// On a phone the picker is a sheet; its Close shuts it.
+	const staplesSheet = page.getByRole('dialog', {
+		name: 'What do you need this trip?',
+	})
+	async function closeStaplesSheet() {
+		await staplesSheet
+			.getByRole('button', { name: 'Close', exact: true })
+			.click()
+		await expect(staplesSheet).toBeHidden()
+	}
+
 	// The successful choices stay cached, while live Shopping rows continue to
 	// drive membership through action revalidation.
 	await page.getByRole('button', { name: 'From Staples' }).click()
@@ -532,7 +543,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 		page.getByRole('button', { name: /Yogurt.*On list/ }),
 	).toBeDisabled()
 	expect(choiceRequestCount).toBe(2)
-	await page.getByRole('button', { name: 'From Staples' }).click()
+	await closeStaplesSheet()
 
 	const milkRow = page.getByRole('group', { name: 'Milk shopping item' })
 	await milkRow.getByRole('button', { name: /^Check off / }).click()
@@ -541,7 +552,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 	await expect(
 		page.getByRole('button', { name: /Milk.*On list/ }),
 	).toBeDisabled()
-	await page.getByRole('button', { name: 'From Staples' }).click()
+	await closeStaplesSheet()
 	await milkRow.getByRole('button', { name: /^Uncheck / }).click()
 	await expect(
 		milkRow.getByRole('button', { name: /^Check off / }),
@@ -556,7 +567,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 		page.getByRole('button', { name: /Yogurt.*On list/ }),
 	).toBeDisabled()
 	expect(choiceRequestCount).toBe(2)
-	await page.getByRole('button', { name: 'From Staples' }).click()
+	await closeStaplesSheet()
 
 	await page.getByRole('link', { name: 'Staples' }).click()
 	await expect(page).toHaveURL('/inventory')

@@ -109,11 +109,15 @@ radii and warm shadows are for floating layers.
 Use the shared controls in `app/components/ui/` rather than styling a button for
 each screen:
 
-- **Button and Input** are 44px tall on a phone. Button `sm` is compact only
-  from `md` up, for dense desktop rows.
+- **Button and Input** are 44px tall wherever a finger taps them. A control may
+  drop below 44px only under the `desktop:` variant (a wide screen with a fine
+  pointer), never by width alone: a phone on its side or an iPad is wide but
+  touched. Button `sm` is compact only there.
 - **Chip** is the one chip: 44px tall, fully rounded, a hairline border, and a
   sage fill when pressed (`aria-pressed`). Use it for picking days, labels, and
-  classification values, and for one-tap suggestions with a leading `+`.
+  classification values, and for one-tap suggestions with a leading `+`. A
+  control that must stay its own element in a row of chips (a native `<select>`,
+  a menu trigger) takes the same look from `chipClassName`.
 - **Segmented control** picks one of two or three equal-width options with a
   sage pill that slides under the selection. Use tabs when it switches what the
   page shows, radios when it picks a setting, and `SegmentedLinks` when the

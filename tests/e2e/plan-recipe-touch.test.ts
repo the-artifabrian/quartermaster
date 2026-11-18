@@ -21,20 +21,12 @@ async function expectThumbSized(control: Locator) {
 	expect(box!.height).toBeGreaterThanOrEqual(44)
 }
 
-// Taps just outside a control's drawn box, where only an enlarged tap area
+// Taps just right of a control's drawn box, where only an enlarged tap area
 // reaches. A finger, so controls that open on a tap are tested as a phone
 // uses them.
-async function tapJustOutside(
-	page: Page,
-	control: Locator,
-	side: 'top' | 'right',
-) {
+async function tapJustRightOf(page: Page, control: Locator) {
 	const box = (await control.boundingBox())!
-	if (side === 'top') {
-		await page.touchscreen.tap(box.x + box.width / 2, box.y - 4)
-	} else {
-		await page.touchscreen.tap(box.x + box.width + 4, box.y + box.height / 2)
-	}
+	await page.touchscreen.tap(box.x + box.width + 4, box.y + box.height / 2)
 }
 
 function todayUTC() {
@@ -75,8 +67,8 @@ test('on a phone, Add to Plan opens as a sheet with thumb-sized choices', async 
 	const lunch = sheet.getByRole('button', { name: 'Lunch' })
 	await expectThumbSized(tomorrow)
 	await expectThumbSized(lunch)
-	await tomorrow.click()
-	await lunch.click()
+	await tomorrow.tap()
+	await lunch.tap()
 	await expect(tomorrow).toHaveAttribute('aria-pressed', 'true')
 	await expect(lunch).toHaveAttribute('aria-pressed', 'true')
 	await sheet.getByRole('button', { name: 'Add to Plan' }).click()
@@ -225,7 +217,7 @@ test('Plan meal and Add Meal controls take taps around their drawn edges', async
 	await cdp.detach()
 	await expect(page.getByRole('menu')).toBeHidden()
 	await expect(async () => {
-		await tapJustOutside(page, mealActions, 'right')
+		await tapJustRightOf(page, mealActions)
 		await expect(
 			page.getByRole('menuitem', { name: 'Edit details' }),
 		).toBeVisible({ timeout: 1000 })
@@ -247,7 +239,8 @@ test('Plan meal and Add Meal controls take taps around their drawn edges', async
 				.map((animation) => animation.finished),
 		),
 	)
-	await tapJustOutside(page, lunch, 'top')
+	await expectThumbSized(lunch)
+	await lunch.tap()
 	await expect(lunch).toHaveAttribute('aria-pressed', 'true')
 	await expect(
 		mobile.getByRole('textbox', { name: 'Search Recipes and Menus' }),

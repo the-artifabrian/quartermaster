@@ -35,6 +35,7 @@ import {
 import { type PlanMeal, MealCard } from './meal-card.tsx'
 import { type PlanItemChoice, PlanItemSelector } from './recipe-selector.tsx'
 import { Button } from './ui/button.tsx'
+import { Chip } from './ui/chip.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
 
@@ -202,26 +203,18 @@ function AddMealControl({
 		<>
 			<fieldset className="mb-3">
 				<legend className="text-muted-foreground mb-1.5 text-[11px] font-semibold tracking-wide uppercase">
-					Meal type <span className="font-normal normal-case">(optional)</span>
+					Label <span className="font-normal normal-case">(optional)</span>
 				</legend>
-				{/* Row gap leaves room for each chip's 44px tap area. */}
-				<div className="flex flex-wrap gap-x-1 gap-y-4">
+				<div className="flex flex-wrap gap-2">
 					{MEAL_TYPES.map((type) => (
-						<button
+						<Chip
 							key={type}
-							type="button"
 							disabled={pendingMenuSubmission}
 							onClick={() => setLabel(label === type ? null : type)}
-							aria-pressed={label === type}
-							className={cn(
-								"relative rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] disabled:opacity-60",
-								label === type
-									? 'border-primary bg-primary text-primary-foreground'
-									: 'border-border text-muted-foreground hover:text-foreground',
-							)}
+							pressed={label === type}
 						>
 							{MEAL_TYPE_LABELS[type]}
-						</button>
+						</Chip>
 					))}
 				</div>
 			</fieldset>
@@ -303,12 +296,7 @@ function AddMealControl({
 						>
 							Pick a Recipe or Menu instead
 						</button>
-						<Button
-							size="sm"
-							className="h-11 md:h-9"
-							onClick={submitText}
-							disabled={!text.trim()}
-						>
+						<Button size="sm" onClick={submitText} disabled={!text.trim()}>
 							Add
 						</Button>
 					</div>

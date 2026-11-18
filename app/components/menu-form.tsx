@@ -408,7 +408,6 @@ function MenuSectionsBuilder({
 				<Button
 					type="button"
 					variant="outline"
-					className="h-11 md:h-10"
 					onClick={() =>
 						form.insert({
 							name: fields.sections.name,
@@ -482,7 +481,6 @@ function MenuSectionCard({
 						{...nameProps}
 						placeholder="Section name (optional) — e.g. Dessert"
 						aria-label="Section name"
-						className="h-11"
 					/>
 					<ErrorList errors={section.name.errors} id={section.name.errorId} />
 				</div>
@@ -681,7 +679,7 @@ function MenuItemRow({
 						{...multiplierProps}
 						inputMode="decimal"
 						enterKeyHint="done"
-						className="h-10 w-16 text-center tabular-nums"
+						className="w-16 text-center tabular-nums"
 					/>
 					<span aria-hidden="true" className="text-muted-foreground text-sm">
 						×
@@ -725,7 +723,7 @@ function MenuItemRow({
 				{...noteProps}
 				placeholder="Note (optional) — e.g. serve at room temperature"
 				aria-label={`Note for ${title}`}
-				className="mt-2 h-10"
+				className="mt-2"
 			/>
 			{/* Labelled, keyboard-reachable ordering controls — dependable on
 			    phone where pointer drag is not (#101). */}
@@ -775,7 +773,7 @@ function MoveToSectionMenu({
 					type="button"
 					variant="ghost"
 					size="sm"
-					className="text-muted-foreground h-11 px-3 md:h-9"
+					className="text-muted-foreground"
 					aria-label={`Move ${label} to another section`}
 				>
 					Move to…
@@ -886,7 +884,7 @@ function MenuNoteRow({
 					type="button"
 					variant="ghost"
 					size="sm"
-					className="text-muted-foreground h-11 px-3 md:h-9"
+					className="text-muted-foreground"
 					onClick={() =>
 						form.insert({
 							name: item.shoppingLines.name,
@@ -950,7 +948,7 @@ function ShoppingLineRow({
 					{...nameProps}
 					placeholder="e.g. mint"
 					aria-label={`Shopping line ${lineIndex + 1} name`}
-					className="h-10 min-w-0 flex-1"
+					className="min-w-0 flex-1"
 				/>
 				<Input
 					key={quantityKey}
@@ -958,14 +956,14 @@ function ShoppingLineRow({
 					placeholder="Qty"
 					enterKeyHint="done"
 					aria-label={`Shopping line ${lineIndex + 1} quantity`}
-					className="h-10 w-14"
+					className="w-14"
 				/>
 				<Input
 					key={unitKey}
 					{...unitProps}
 					placeholder="Unit"
 					aria-label={`Shopping line ${lineIndex + 1} unit`}
-					className="h-10 w-16"
+					className="w-16"
 				/>
 				<Button
 					variant="ghost"

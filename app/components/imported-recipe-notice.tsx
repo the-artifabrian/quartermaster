@@ -128,15 +128,10 @@ export function ImportedRecipeNotice({
 				</Button>
 			</div>
 			<div className="mt-3 flex flex-wrap gap-2 pl-8">
-				<Button
-					asChild
-					size="sm"
-					className="min-h-11"
-					variant={needsEdit ? 'default' : 'outline'}
-				>
+				<Button asChild size="sm" variant={needsEdit ? 'default' : 'outline'}>
 					<Link to={`/recipes/${recipeId}/edit`}>Edit</Link>
 				</Button>
-				<Button asChild size="sm" variant="outline" className="min-h-11">
+				<Button asChild size="sm" variant="outline">
 					<Link to="/recipes/import">Import another</Link>
 				</Button>
 				{/* Replaces this Recipe in history, so Back cannot return to it. */}

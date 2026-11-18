@@ -252,10 +252,10 @@ test('a pull down on a scrolled Ingredients list scrolls it instead of closing t
 	expect(await restingOffset(sheet)).toBe(0)
 	expect(await list.evaluate((element) => element.scrollTop)).toBeLessThan(300)
 
-	// Back at the top, the same pull closes it.
+	// Back at the top, a pull past a third of the sheet closes it.
 	await list.evaluate((element) => {
 		element.scrollTop = 0
 	})
-	await pull(page, list, { fromY: 0.3, by: 250, ms: 400 })
+	await pull(page, list, { fromY: 0.3, by: 320, ms: 400 })
 	await expect(sheet).toBeHidden()
 })

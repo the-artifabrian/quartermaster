@@ -61,7 +61,10 @@ test('pasted text saves at once and opens with a notice; Undo deletes it and ret
 	})
 
 	await notice.getByRole('button', { name: 'Undo', exact: true }).click()
-	await notice.getByRole('button', { name: 'Delete?', exact: true }).click()
+	await page
+		.getByRole('dialog', { name: 'Undo this import?' })
+		.getByRole('button', { name: 'Delete Recipe' })
+		.click()
 	await expect(page).toHaveURL(/\/recipes\/import$/)
 	await expect(page.getByText('Removed Chickpea lunch')).toBeVisible()
 	expect(

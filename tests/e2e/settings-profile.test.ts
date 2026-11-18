@@ -125,7 +125,10 @@ test('Deleting an account leaves the Household with the other member', async ({
 		page.getByText('Your Recipes and Shopping stay with Robin Partner.'),
 	).toBeVisible()
 	await page.getByRole('button', { name: 'Delete my account' }).click()
-	await page.getByRole('button', { name: 'Delete?' }).click()
+	await page
+		.getByRole('dialog', { name: 'Delete your account?' })
+		.getByRole('button', { name: 'Delete account' })
+		.click()
 	await expect(page).toHaveURL('/')
 
 	await expect.poll(() => prisma.user.count({ where: { id: user.id } })).toBe(0)
@@ -164,7 +167,10 @@ test('Deleting the only member deletes the Household', async ({
 		),
 	).toBeVisible()
 	await page.getByRole('button', { name: 'Delete my account' }).click()
-	await page.getByRole('button', { name: 'Delete?' }).click()
+	await page
+		.getByRole('dialog', { name: 'Delete your account?' })
+		.getByRole('button', { name: 'Delete account' })
+		.click()
 	await expect(page).toHaveURL('/')
 
 	await expect

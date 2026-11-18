@@ -210,7 +210,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 				<div className="mx-auto mt-4 flex max-w-2xl items-center justify-between">
 					<Button asChild variant="ghost" size="icon" className="rounded-full">
 						<Link to={`/plan?weekStart=${prevWeek}`} aria-label="Previous week">
-							<Icon name="arrow-left" size="sm" />
+							<Icon name="chevron-left" size="md" />
 						</Link>
 					</Button>
 
@@ -227,7 +227,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 
 					<Button asChild variant="ghost" size="icon" className="rounded-full">
 						<Link to={`/plan?weekStart=${nextWeek}`} aria-label="Next week">
-							<Icon name="arrow-right" size="sm" />
+							<Icon name="chevron-right" size="md" />
 						</Link>
 					</Button>
 				</div>

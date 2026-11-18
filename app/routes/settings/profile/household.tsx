@@ -4,6 +4,7 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useEffect, useRef, useState } from 'react'
 import { data, useFetcher } from 'react-router'
 import { z } from 'zod'
+import { Divider } from '#app/components/divider.tsx'
 import { ErrorList, Field } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -172,7 +173,7 @@ export default function HouseholdSettings({
 				</div>
 			)}
 
-			<div className="border-foreground my-2 h-1 border-b-[1.5px]" />
+			<Divider />
 
 			<div>
 				<h3 className="mb-4 text-base font-medium">Members</h3>
@@ -190,14 +191,14 @@ export default function HouseholdSettings({
 
 			{isOwner ? (
 				<>
-					<div className="border-foreground my-2 h-1 border-b-[1.5px]" />
+					<Divider />
 					<InviteSection invites={household.invites} />
 				</>
 			) : null}
 
 			{!isOwner ? (
 				<>
-					<div className="border-foreground my-2 h-1 border-b-[1.5px]" />
+					<Divider />
 					<LeaveHousehold />
 				</>
 			) : null}

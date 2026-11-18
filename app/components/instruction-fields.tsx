@@ -1,20 +1,12 @@
-import {
-	DndContext,
-	closestCenter,
-	KeyboardSensor,
-	PointerSensor,
-	useSensor,
-	useSensors,
-	type DragEndEvent,
-} from '@dnd-kit/core'
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
 import {
 	SortableContext,
-	sortableKeyboardCoordinates,
 	useSortable,
 	verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useId } from 'react'
+import { useSortableList } from '#app/hooks/use-sortable-list.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -55,14 +47,11 @@ export function InstructionFields({
 	// Keep untouched initial rows mounted through unrelated form re-renders.
 	const instructions = ensureSortKeys(rawInstructions, `${dndId}-instruction`)
 
-	const sensors = useSensors(
-		useSensor(PointerSensor, {
-			activationConstraint: { distance: 5 },
-		}),
-		useSensor(KeyboardSensor, {
-			coordinateGetter: sortableKeyboardCoordinates,
-		}),
-	)
+	const sortable = useSortableList({
+		ids: instructions.map((instruction) => instruction.sortKey!),
+		describe: (id) =>
+			`step ${instructions.findIndex((step) => step.sortKey === id) + 1}`,
+	})
 
 	const addInstruction = () => {
 		onChange([...instructions, { content: '', sortKey: getSortKey() }])
@@ -112,7 +101,8 @@ export function InstructionFields({
 
 			<DndContext
 				id={dndId}
-				sensors={sensors}
+				sensors={sortable.sensors}
+				accessibility={sortable.accessibility}
 				collisionDetection={closestCenter}
 				onDragEnd={handleDragEnd}
 			>
@@ -180,10 +170,13 @@ function SortableInstructionRow({
 			<div className="flex shrink-0 flex-col items-center gap-1 pt-1">
 				<button
 					type="button"
-					className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none active:cursor-grabbing"
+					// 44px to grab with a thumb; the negative margins keep the
+					// step column as narrow as its number, and it sits above the
+					// number it overlaps. Hold to pick up; a swipe still scrolls.
+					className="text-muted-foreground/70 hover:text-muted-foreground active:bg-muted relative z-10 -mx-2 -my-2.5 flex size-11 cursor-grab touch-manipulation items-center justify-center rounded-md select-none active:cursor-grabbing"
+					aria-label={`Reorder step ${index + 1}`}
 					{...attributes}
 					{...listeners}
-					tabIndex={-1}
 				>
 					<Icon name="dots-horizontal" size="sm" />
 				</button>
@@ -194,6 +187,7 @@ function SortableInstructionRow({
 			<div className="flex-1">
 				<Textarea
 					placeholder={`Step ${index + 1}`}
+					aria-label={`Step ${index + 1}`}
 					value={instruction.content}
 					onChange={(e) => onUpdate(e.target.value)}
 					rows={2}

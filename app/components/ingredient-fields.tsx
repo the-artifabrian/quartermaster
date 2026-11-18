@@ -1,21 +1,13 @@
-import {
-	DndContext,
-	closestCenter,
-	KeyboardSensor,
-	PointerSensor,
-	useSensor,
-	useSensors,
-	type DragEndEvent,
-} from '@dnd-kit/core'
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
 import {
 	SortableContext,
-	sortableKeyboardCoordinates,
 	useSortable,
 	verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useId, useRef, useState, useEffect, useCallback } from 'react'
 import { useFetcher } from 'react-router'
+import { useSortableList } from '#app/hooks/use-sortable-list.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -120,14 +112,22 @@ export function IngredientFields({
 		})
 	}
 
-	const sensors = useSensors(
-		useSensor(PointerSensor, {
-			activationConstraint: { distance: 5 },
-		}),
-		useSensor(KeyboardSensor, {
-			coordinateGetter: sortableKeyboardCoordinates,
-		}),
-	)
+	// Each ingredient's number among the ingredients, headings aside: it
+	// tells the rows' fields apart for VoiceOver.
+	const ingredientNumbers = new Map<string, number>()
+	for (const ingredient of ingredients) {
+		if (!ingredient.isHeading) {
+			ingredientNumbers.set(ingredient.sortKey!, ingredientNumbers.size + 1)
+		}
+	}
+	const sortable = useSortableList({
+		ids: ingredients.map((ingredient) => ingredient.sortKey!),
+		describe: (id) => {
+			const row = ingredients.find((ingredient) => ingredient.sortKey === id)
+			if (row?.isHeading) return `heading ${row.name || 'without a name'}`
+			return row?.name || `ingredient ${ingredientNumbers.get(String(id))}`
+		},
+	})
 
 	const addIngredient = () => {
 		const key = getSortKey()
@@ -261,7 +261,8 @@ export function IngredientFields({
 
 			<DndContext
 				id={`${baseId}-dnd`}
-				sensors={sensors}
+				sensors={sortable.sensors}
+				accessibility={sortable.accessibility}
 				collisionDetection={closestCenter}
 				onDragEnd={handleDragEnd}
 			>
@@ -290,6 +291,7 @@ export function IngredientFields({
 									allowRecipeLinks={allowRecipeLinks}
 									key={ingredient.sortKey}
 									sortKey={ingredient.sortKey!}
+									number={ingredientNumbers.get(ingredient.sortKey!)!}
 									ingredient={ingredient}
 									isExpanded={isExpanded}
 									onToggleExpand={() => toggleExpanded(ingredient.sortKey!)}
@@ -317,6 +319,7 @@ export function IngredientFields({
 function SortableIngredientRow({
 	allowRecipeLinks,
 	sortKey,
+	number,
 	ingredient,
 	isExpanded,
 	onToggleExpand,
@@ -329,6 +332,8 @@ function SortableIngredientRow({
 	canRemove,
 }: {
 	sortKey: string
+	/** Its place among the ingredients, from 1. */
+	number: number
 	ingredient: IngredientFieldValue
 	isExpanded: boolean
 	onToggleExpand: () => void
@@ -370,10 +375,12 @@ function SortableIngredientRow({
 					<div className="flex items-center gap-1">
 						<button
 							type="button"
-							className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none rounded-md p-2 active:cursor-grabbing"
+							// 44px to grab with a thumb; the negative margins keep the row's
+							// height. Hold to pick up; a swipe still scrolls.
+							className="text-muted-foreground/70 hover:text-muted-foreground active:bg-muted -my-1.5 -ml-1.5 flex size-11 shrink-0 cursor-grab touch-manipulation items-center justify-center rounded-md select-none active:cursor-grabbing"
+							aria-label={`Reorder ingredient ${number}`}
 							{...attributes}
 							{...listeners}
-							tabIndex={-1}
 						>
 							<Icon name="dots-horizontal" size="sm" />
 						</button>
@@ -417,6 +424,7 @@ function SortableIngredientRow({
 					<Input
 						id={`${id}-name`}
 						placeholder="Ingredient name"
+						aria-label={`Ingredient ${number} name`}
 						value={ingredient.name}
 						onChange={(e) => onUpdate('name', e.target.value)}
 					/>
@@ -424,6 +432,7 @@ function SortableIngredientRow({
 						<Input
 							id={`${id}-amount`}
 							placeholder="Amount"
+							aria-label={`Ingredient ${number} amount`}
 							enterKeyHint="done"
 							value={ingredient.amount ?? ''}
 							onChange={(e) => onUpdate('amount', e.target.value)}
@@ -432,6 +441,9 @@ function SortableIngredientRow({
 						<Input
 							id={`${id}-unit`}
 							placeholder="Unit"
+							aria-label={`Ingredient ${number} unit`}
+							autoCapitalize="none"
+							autoCorrect="off"
 							value={ingredient.unit ?? ''}
 							onChange={(e) => onUpdate('unit', e.target.value)}
 							className="flex-1"
@@ -440,6 +452,7 @@ function SortableIngredientRow({
 					<Input
 						id={`${id}-notes`}
 						placeholder="Notes (e.g., diced)"
+						aria-label={`Ingredient ${number} notes`}
 						value={ingredient.notes ?? ''}
 						onChange={(e) => onUpdate('notes', e.target.value)}
 					/>
@@ -457,10 +470,12 @@ function SortableIngredientRow({
 				<div className="flex items-center gap-2">
 					<button
 						type="button"
-						className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none rounded-md p-2 active:cursor-grabbing"
+						// 44px to grab with a thumb; the negative margins keep the row's
+						// height. Hold to pick up; a swipe still scrolls.
+						className="text-muted-foreground/70 hover:text-muted-foreground active:bg-muted -my-1.5 -ml-1.5 flex size-11 shrink-0 cursor-grab touch-manipulation items-center justify-center rounded-md select-none active:cursor-grabbing"
+						aria-label={`Reorder ingredient ${number}`}
 						{...attributes}
 						{...listeners}
-						tabIndex={-1}
 					>
 						<Icon name="dots-horizontal" size="sm" />
 					</button>
@@ -656,16 +671,19 @@ function SortableHeadingRow({
 		>
 			<button
 				type="button"
-				className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none rounded-md p-2 active:cursor-grabbing"
+				// 44px to grab with a thumb; the negative margins keep the row's
+				// height. Hold to pick up; a swipe still scrolls.
+				className="text-muted-foreground/70 hover:text-muted-foreground active:bg-muted -my-1.5 -ml-1.5 flex size-11 shrink-0 cursor-grab touch-manipulation items-center justify-center rounded-md select-none active:cursor-grabbing"
+				aria-label="Reorder heading"
 				{...attributes}
 				{...listeners}
-				tabIndex={-1}
 			>
 				<Icon name="dots-horizontal" size="sm" />
 			</button>
 			<Input
 				id={`${id}-heading`}
 				placeholder="Section heading (e.g., Polenta, Sauce)"
+				aria-label="Section heading"
 				value={ingredient.name}
 				onChange={(e) => onUpdate('name', e.target.value)}
 				className="flex-1 font-semibold"

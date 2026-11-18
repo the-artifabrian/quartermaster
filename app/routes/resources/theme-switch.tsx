@@ -89,7 +89,7 @@ export function ThemeSwitch({
 			<div className="flex gap-2">
 				<button
 					type="submit"
-					className="flex size-8 cursor-pointer items-center justify-center"
+					className="-m-1.5 flex size-11 cursor-pointer items-center justify-center"
 				>
 					{modeLabel[mode]}
 				</button>

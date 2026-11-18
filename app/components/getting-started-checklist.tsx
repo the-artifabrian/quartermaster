@@ -80,7 +80,7 @@ export function GettingStartedChecklist({
 				<button
 					type="button"
 					onClick={handleDismiss}
-					className="text-muted-foreground hover:text-foreground -mr-1 rounded-md p-1 transition-colors"
+					className="text-muted-foreground hover:text-foreground -mr-3 flex size-11 items-center justify-center rounded-md transition-colors"
 					aria-label="Dismiss getting started checklist"
 				>
 					<Icon name="cross-1" size="sm" />
@@ -90,7 +90,7 @@ export function GettingStartedChecklist({
 			{/* Progress bar */}
 			<div className="bg-muted mb-4 h-1.5 overflow-hidden rounded-full">
 				<div
-					className="bg-primary h-full rounded-full transition-all duration-500 ease-out"
+					className="bg-primary h-full rounded-full transition-[width] duration-500 ease-out"
 					style={{ width: `${(completedCount / steps.length) * 100}%` }}
 				/>
 			</div>
@@ -131,7 +131,7 @@ export function GettingStartedChecklist({
 						{!step.done && (
 							<Link
 								to={step.href}
-								className="text-primary hover:text-primary/80 shrink-0 text-sm font-medium"
+								className="text-primary hover:text-primary/80 -my-3 -mr-2 inline-flex min-h-11 shrink-0 items-center px-2 text-sm font-medium"
 							>
 								Start
 							</Link>

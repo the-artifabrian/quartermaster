@@ -51,7 +51,8 @@ export function OnboardingNudge({
 						{' '}
 						<Link
 							to={ctaHref}
-							className="text-primary hover:text-primary/80 font-medium whitespace-nowrap"
+							// Inline padding widens the tap area without moving the text.
+							className="text-primary hover:text-primary/80 py-3 font-medium whitespace-nowrap"
 						>
 							{ctaText} &rarr;
 						</Link>
@@ -61,7 +62,7 @@ export function OnboardingNudge({
 			<button
 				type="button"
 				onClick={handleDismiss}
-				className="text-muted-foreground hover:text-foreground shrink-0 text-sm font-medium"
+				className="text-muted-foreground hover:text-foreground -my-3 -mr-2 flex min-h-11 shrink-0 items-center px-2 text-sm font-medium"
 			>
 				{dismissText}
 			</button>

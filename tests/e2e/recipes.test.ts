@@ -84,8 +84,10 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 	// 5. Delete recipe
 	await page.getByRole('link', { name: /edit/i }).click()
 	await page.getByRole('button', { name: /delete recipe/i }).click()
-	// Double-check confirmation
-	await page.getByRole('button', { name: 'Delete?' }).click()
+	// The confirm sheet asks, with Cancel first in line.
+	const confirm = page.getByRole('dialog', { name: 'Delete this Recipe?' })
+	await expect(confirm.getByRole('button', { name: 'Cancel' })).toBeFocused()
+	await confirm.getByRole('button', { name: 'Delete Recipe' }).click()
 
 	// Lands on the Recipes list, not back on /recipes/:id or its edit form
 	await expect(page).toHaveURL('/recipes')

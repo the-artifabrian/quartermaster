@@ -6,15 +6,16 @@ import {
 	type FileUpload,
 } from '@mjackson/form-data-parser'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { useState } from 'react'
 import { data, redirect, useFetcher } from 'react-router'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
+import { Button } from '#app/components/ui/button.tsx'
+import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { recipeEditNav } from '#app/utils/nav-back.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { useDoubleCheck } from '#app/utils/misc.tsx'
 import {
 	recipeMetadataOptions,
 	RecipeMetadataSelectionError,
@@ -357,26 +358,32 @@ export default function EditRecipe({ loaderData }: Route.ComponentProps) {
 }
 
 function DeleteRecipe({ recipeId: _recipeId }: { recipeId: string }) {
-	const dc = useDoubleCheck()
+	const [confirming, setConfirming] = useState(false)
 	const fetcher = useFetcher()
 	const isDeleting = fetcher.state !== 'idle'
 
 	return (
-		<fetcher.Form method="POST">
+		<fetcher.Form method="POST" id="delete-recipe">
 			<input type="hidden" name="intent" value="delete" />
-			<StatusButton
-				{...dc.getButtonProps({
-					type: 'submit',
-					name: 'intent',
-					value: 'delete',
-				})}
-				variant={dc.doubleCheck ? 'destructive' : 'outline'}
-				status={isDeleting ? 'pending' : 'idle'}
+			<Button
+				type="button"
+				variant="outline"
+				className="text-destructive hover:text-destructive"
+				onClick={() => setConfirming(true)}
 			>
 				<Icon name="trash" size="sm">
-					{dc.doubleCheck ? 'Delete?' : 'Delete Recipe'}
+					Delete Recipe
 				</Icon>
-			</StatusButton>
+			</Button>
+			<ConfirmSheet
+				open={confirming}
+				onCancel={() => setConfirming(false)}
+				title="Delete this Recipe?"
+				description="Its ingredients, steps and photo go for good."
+				confirmLabel="Delete Recipe"
+				formId="delete-recipe"
+				pending={isDeleting}
+			/>
 		</fetcher.Form>
 	)
 }

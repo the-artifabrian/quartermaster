@@ -9,7 +9,7 @@ import { cn } from '#app/utils/misc.tsx'
 /**
  * Mobile-only "ingredients at hand" affordance for mid-cook glances: a quiet
  * text pill that opens the ingredient list as a bottom sheet over the steps —
- * the same sheet pattern as the shopping quick-add. Check-off and scaled
+ * the same sheet as the shopping quick-add. Check-off and scaled
  * amounts work inside; dismiss and you're still on your step.
  */
 export function RecipeIngredientsSheet({
@@ -61,18 +61,15 @@ export function RecipeIngredientsSheet({
 				onClose={() => setOpen(false)}
 				labelledBy="ingredients-sheet-title"
 				title="Ingredients"
-				className="md:bottom-0"
 			>
-				<div className="max-h-[55dvh] overflow-y-auto overscroll-contain">
-					<IngredientList
-						ingredients={ingredients}
-						checkedIngredients={checkedIngredients}
-						onToggle={onToggle}
-						ratio={ratio}
-						recipeId={recipeId}
-						useMetric={useMetric}
-					/>
-				</div>
+				<IngredientList
+					ingredients={ingredients}
+					checkedIngredients={checkedIngredients}
+					onToggle={onToggle}
+					ratio={ratio}
+					recipeId={recipeId}
+					useMetric={useMetric}
+				/>
 			</BottomSheet>
 		</div>
 	)

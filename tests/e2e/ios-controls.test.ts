@@ -451,6 +451,15 @@ test('From Plan turns the week with thumb-sized chevrons', async ({
 		await expect(control.locator('use')).toHaveAttribute('href', icon)
 	}
 	await expect(previous).toBeDisabled()
+	// The sheet's primary action spans it, inside its 20px side padding.
+	const sheet = page.getByRole('dialog', { name: 'What are we buying for?' })
+	await sheet.evaluate((element) =>
+		Promise.all(element.getAnimations().map((a) => a.finished)),
+	)
+	const add = sheet.getByRole('button', { name: /^Add / })
+	await expect(add).toBeVisible()
+	const sheetBox = (await sheet.boundingBox())!
+	expect((await add.boundingBox())!.width).toBeCloseTo(sheetBox.width - 40, 0)
 	await next.tap()
 	await expect(next).toBeDisabled()
 	await expect(previous).toBeEnabled()

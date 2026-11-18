@@ -1,14 +1,14 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { startRegistration } from '@simplewebauthn/browser'
 import { formatDistanceToNow } from 'date-fns'
-import { useState } from 'react'
-import { Form, useRevalidator } from 'react-router'
+import { useEffect, useState } from 'react'
+import { Form, useNavigation, useRevalidator } from 'react-router'
 import { z } from 'zod'
 import { Button } from '#app/components/ui/button.tsx'
+import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { useDoubleCheck } from '#app/utils/misc.tsx'
 import { type Route } from './+types/passkeys.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
 
@@ -182,22 +182,41 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 }
 
 function DeletePasskeyForm({ passkeyId }: { passkeyId: string }) {
-	const dc = useDoubleCheck()
+	const [confirming, setConfirming] = useState(false)
+	const navigation = useNavigation()
+	const formId = `delete-passkey-${passkeyId}`
+	const pending =
+		navigation.state !== 'idle' &&
+		navigation.formData?.get('passkeyId') === passkeyId
+	// The deleted passkey's row goes, sheet and all. One that stays (the
+	// delete failed) puts its sheet away.
+	useEffect(() => {
+		if (navigation.state === 'idle') setConfirming(false)
+	}, [navigation.state])
+
 	return (
-		<Form method="POST">
+		<Form method="POST" id={formId}>
 			<input type="hidden" name="passkeyId" value={passkeyId} />
 			<Button
-				{...dc.getButtonProps({
-					type: 'submit',
-					name: 'intent',
-					value: 'delete',
-				})}
+				type="button"
+				onClick={() => setConfirming(true)}
 				variant="destructive"
 				size="sm"
 				className="flex items-center gap-2"
 			>
-				<Icon name="trash">{dc.doubleCheck ? 'Delete?' : 'Delete'}</Icon>
+				<Icon name="trash">Delete</Icon>
 			</Button>
+			<ConfirmSheet
+				open={confirming}
+				onCancel={() => setConfirming(false)}
+				title="Delete this passkey?"
+				description="You won’t be able to log in with it again."
+				confirmLabel="Delete passkey"
+				formId={formId}
+				name="intent"
+				value="delete"
+				pending={pending}
+			/>
 		</Form>
 	)
 }

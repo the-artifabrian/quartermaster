@@ -119,6 +119,17 @@ test('a row menu near the bottom opens clear of the add button and tab bar', asy
 	expect(menu.y + menu.height).toBeLessThanOrEqual(tabBar.y)
 	// And its items are thumb-sized on a touch screen.
 	expect((await deleteItem.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+	// Delete is red before it is armed, not only once it asks.
+	const red = await page.evaluate(() => {
+		const probe = document.createElement('span')
+		probe.className = 'text-destructive'
+		document.body.append(probe)
+		const color = getComputedStyle(probe).color
+		probe.remove()
+		return color
+	})
+	await expect(deleteItem).toHaveText('Delete item')
+	await expect(deleteItem).toHaveCSS('color', red)
 
 	await deleteItem.click()
 	await expect(deleteItem).toHaveText('Delete?')

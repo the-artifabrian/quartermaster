@@ -126,6 +126,25 @@ each screen:
   “On”/“Off” pill.
 - Previous and next use chevrons, not arrows.
 
+## Sheets and deleting
+
+- A bottom sheet is for anything you type or pick in; a dropdown menu is a short
+  list of actions. Every sheet has the same anatomy (`BottomSheet`): a grabber,
+  a Young Serif title on the left, a round Close button on the right (a 44px
+  target), and an optional one-line description under the title. It covers the
+  tab bar over a dim scrim, clears the home indicator, and closes by a pull
+  down, the scrim, Escape or Close. From `sm` up it is a centered dialog. A
+  sheet's primary action is full width at the bottom.
+- A Delete in a menu or behind a swipe is red from the start, not only once
+  armed.
+- A delete that can be undone (a Meal, a Recipe in a Meal, a Shopping item,
+  Clear checked, a Staple) takes two taps: the first arms it, the second does
+  it.
+- A delete that cannot be undone (Recipe, Menu, account, passkey, removing a
+  member, leaving the Household, disabling 2FA) opens a confirm sheet
+  (`ConfirmSheet`): the question as the title, one line on what is lost, a
+  full-width red button, and Cancel under it, which has focus.
+
 ## Navigation
 
 Mobile has four tabs: Recipes, Staples, Plan, and Shopping. The active tab uses

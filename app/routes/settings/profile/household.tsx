@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { Divider } from '#app/components/divider.tsx'
 import { ErrorList, Field } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
+import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
@@ -18,7 +19,6 @@ import {
 	removeMember,
 	leaveHousehold,
 } from '#app/utils/household.server.ts'
-import { useDoubleCheck } from '#app/utils/misc.tsx'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/household.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
@@ -256,14 +256,20 @@ function MemberRow({
 	isOwner: boolean
 	isCurrentUser: boolean
 }) {
-	const dc = useDoubleCheck()
+	const [confirming, setConfirming] = useState(false)
 	const fetcher = useFetcher<typeof action>()
+	const memberName = member.user.name ?? member.user.username
+	const formId = `remove-member-${member.user.id}`
+	// A removal that failed leaves the member here; the sheet goes.
+	useEffect(() => {
+		if (fetcher.state === 'idle' && fetcher.data) setConfirming(false)
+	}, [fetcher.state, fetcher.data])
 
 	return (
 		<li className="bg-muted/40 flex items-center justify-between rounded-lg p-3">
 			<div>
 				<p className="font-medium">
-					{member.user.name ?? member.user.username}
+					{memberName}
 					{isCurrentUser ? ' (you)' : ''}
 				</p>
 				<p className="text-muted-foreground text-sm">
@@ -271,20 +277,29 @@ function MemberRow({
 				</p>
 			</div>
 			{isOwner && !isCurrentUser ? (
-				<fetcher.Form method="POST">
+				<fetcher.Form method="POST" id={formId}>
 					<input type="hidden" name="targetUserId" value={member.user.id} />
 					<StatusButton
-						{...dc.getButtonProps({
-							type: 'submit',
-							name: 'intent',
-							value: 'remove-member',
-						})}
-						variant={dc.doubleCheck ? 'destructive' : 'default'}
+						type="button"
+						onClick={() => setConfirming(true)}
+						variant="outline"
 						size="sm"
+						className="text-destructive hover:text-destructive"
 						status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
 					>
-						{dc.doubleCheck ? 'Remove?' : 'Remove'}
+						Remove
 					</StatusButton>
+					<ConfirmSheet
+						open={confirming}
+						onCancel={() => setConfirming(false)}
+						title={`Remove ${memberName}?`}
+						description="They lose this Household’s Recipes, Plan and Shopping."
+						confirmLabel="Remove"
+						formId={formId}
+						name="intent"
+						value="remove-member"
+						pending={fetcher.state !== 'idle'}
+					/>
 				</fetcher.Form>
 			) : null}
 		</li>
@@ -457,8 +472,11 @@ function InviteRow({
 }
 
 function LeaveHousehold() {
-	const dc = useDoubleCheck()
+	const [confirming, setConfirming] = useState(false)
 	const fetcher = useFetcher<typeof action>()
+	useEffect(() => {
+		if (fetcher.state === 'idle' && fetcher.data) setConfirming(false)
+	}, [fetcher.state, fetcher.data])
 
 	return (
 		<div>
@@ -468,20 +486,27 @@ function LeaveHousehold() {
 				copied, but shared Staples and the Plan will stay with the current
 				household.
 			</p>
-			<fetcher.Form method="POST">
+			<fetcher.Form method="POST" id="leave-household">
 				<StatusButton
-					{...dc.getButtonProps({
-						type: 'submit',
-						name: 'intent',
-						value: 'leave-household',
-					})}
-					variant={dc.doubleCheck ? 'destructive' : 'default'}
+					type="button"
+					onClick={() => setConfirming(true)}
+					variant="outline"
+					className="text-destructive hover:text-destructive"
 					status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
 				>
-					<Icon name="exit">
-						{dc.doubleCheck ? 'Leave?' : 'Leave household'}
-					</Icon>
+					<Icon name="exit">Leave household</Icon>
 				</StatusButton>
+				<ConfirmSheet
+					open={confirming}
+					onCancel={() => setConfirming(false)}
+					title="Leave this Household?"
+					description="Shared Staples and the Plan stay here; your Recipes come with you."
+					confirmLabel="Leave household"
+					formId="leave-household"
+					name="intent"
+					value="leave-household"
+					pending={fetcher.state !== 'idle'}
+				/>
 			</fetcher.Form>
 		</div>
 	)

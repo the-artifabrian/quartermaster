@@ -1,12 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Form, Link, useNavigation } from 'react-router'
 import {
 	type ImportedFrom,
 	type ShortenedPart,
 } from '#app/utils/import-recipe-types.ts'
-import { useDoubleCheck } from '#app/utils/misc.tsx'
 import { haptic } from '#app/utils/shell-bridge.ts'
 import { Button } from './ui/button.tsx'
+import { ConfirmSheet } from './ui/confirm-sheet.tsx'
 import { Icon } from './ui/icon.tsx'
 import { StatusButton } from './ui/status-button.tsx'
 
@@ -57,7 +57,7 @@ export function ImportedRecipeNotice({
 	sameTitle: { id: string; title: string } | null
 	onDismiss: () => void
 }) {
-	const undoCheck = useDoubleCheck()
+	const [confirmingUndo, setConfirmingUndo] = useState(false)
 	const navigation = useNavigation()
 	const undoing =
 		navigation.formAction === `/recipes/${recipeId}/edit` &&
@@ -135,18 +135,33 @@ export function ImportedRecipeNotice({
 					<Link to="/recipes/import">Import another</Link>
 				</Button>
 				{/* Replaces this Recipe in history, so Back cannot return to it. */}
-				<Form method="POST" action={`/recipes/${recipeId}/edit`} replace>
+				<Form
+					method="POST"
+					action={`/recipes/${recipeId}/edit`}
+					replace
+					id="undo-import"
+				>
 					<input type="hidden" name="intent" value="delete" />
 					<input type="hidden" name="undo" value="import" />
 					<StatusButton
-						{...undoCheck.getButtonProps({ type: 'submit' })}
+						type="button"
+						onClick={() => setConfirmingUndo(true)}
 						size="sm"
-						variant={undoCheck.doubleCheck ? 'destructive' : 'ghost'}
+						variant="ghost"
 						status={undoing ? 'pending' : 'idle'}
 						disabled={undoing}
 					>
-						{undoCheck.doubleCheck ? 'Delete?' : 'Undo'}
+						Undo
 					</StatusButton>
+					<ConfirmSheet
+						open={confirmingUndo}
+						onCancel={() => setConfirmingUndo(false)}
+						title="Undo this import?"
+						description="The Recipe you just saved is deleted."
+						confirmLabel="Delete Recipe"
+						formId="undo-import"
+						pending={undoing}
+					/>
 				</Form>
 			</div>
 		</section>

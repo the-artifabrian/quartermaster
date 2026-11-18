@@ -220,7 +220,7 @@ function ItemRow({
 							type="button"
 							size="sm"
 							variant="ghost"
-							className="size-9 p-0 md:size-7"
+							className="desktop:size-7 size-11 p-0"
 							aria-label={`Remove ${item.recipeTitle} from this meal`}
 							onClick={() => {
 								haptic('warning')
@@ -742,7 +742,8 @@ export function MealCard({
 											{ method: 'POST' },
 										)
 									}}
-									className="text-destructive focus:text-destructive font-medium"
+									variant="destructive"
+									className="font-medium"
 								>
 									<Icon name="trash" size="sm" />
 									Delete Meal · keep Shopping
@@ -758,7 +759,7 @@ export function MealCard({
 											{ method: 'POST' },
 										)
 									}}
-									className="text-destructive focus:text-destructive"
+									variant="destructive"
 								>
 									<Icon name="trash" size="sm" />
 									Delete Meal · remove generated amount
@@ -778,10 +779,8 @@ export function MealCard({
 										{ method: 'POST' },
 									)
 								}}
-								className={cn(
-									confirmingDelete &&
-										'text-destructive focus:text-destructive font-medium',
-								)}
+								variant="destructive"
+								className={cn(confirmingDelete && 'font-medium')}
 							>
 								<Icon name="trash" size="sm" />
 								{confirmingDelete ? 'Delete?' : 'Delete Meal'}

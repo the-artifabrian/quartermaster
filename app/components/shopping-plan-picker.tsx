@@ -54,6 +54,8 @@ type Picks = Map<string, Set<string>>
  * the server never has to guess the viewport.
  */
 const SHEET_MEDIA_QUERY = '(max-width: 639px)'
+const PICKER_TITLE = 'What are we buying for?'
+const PICKER_DESCRIPTION = 'Pick the Meals and lines to add to Next shop.'
 type Presentation = 'popover' | 'sheet'
 
 function isWeekChoices(value: unknown): value is WeekChoices {
@@ -246,27 +248,35 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 	const pickedMealCount = pickedMeals.length
 
 	const panel = (
-		<div className={cn('flex min-h-0 flex-col', isSheet && 'h-full')}>
-			<div className="flex items-start justify-between gap-3">
-				<div className="min-w-0">
-					<h2 id="plan-picker-title" className="font-serif text-lg">
-						What are we buying for?
-					</h2>
-					<p className="text-muted-foreground mt-1 text-sm">
-						Pick the Meals and lines to add to Next shop.
-					</p>
+		<div className={cn('flex min-h-0 flex-col', isSheet && 'flex-1')}>
+			{/* The sheet brings its own header. */}
+			{!isSheet && (
+				<div className="flex items-start justify-between gap-3">
+					<div className="min-w-0">
+						<h2 id="plan-picker-title" className="font-serif text-lg">
+							{PICKER_TITLE}
+						</h2>
+						<p className="text-muted-foreground mt-1 text-sm">
+							{PICKER_DESCRIPTION}
+						</p>
+					</div>
+					<button
+						type="button"
+						onClick={closePicker}
+						className="text-muted-foreground hover:text-foreground -mt-2 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-md"
+						aria-label="Close"
+					>
+						<Icon name="cross-1" size="sm" />
+					</button>
 				</div>
-				<button
-					type="button"
-					onClick={closePicker}
-					className="text-muted-foreground hover:text-foreground -mt-2 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-md"
-					aria-label="Close"
-				>
-					<Icon name="cross-1" size="sm" />
-				</button>
-			</div>
+			)}
 			{weeks.length > 1 && (
-				<div className="mt-3 flex items-center justify-between gap-2">
+				<div
+					className={cn(
+						'flex items-center justify-between gap-2',
+						!isSheet && 'mt-3',
+					)}
+				>
 					<Button
 						type="button"
 						variant="ghost"
@@ -293,7 +303,11 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 				</div>
 			)}
 			{weeks.length === 1 && (
-				<p className="mt-3 text-center text-sm font-medium">{week.label}</p>
+				<p
+					className={cn('text-center text-sm font-medium', !isSheet && 'mt-3')}
+				>
+					{week.label}
+				</p>
 			)}
 			{choiceState.status === 'loading' && (
 				<p
@@ -453,7 +467,8 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 				</div>
 			)}
 			{choiceState.status === 'success' && days.length > 0 && (
-				<fetcher.Form method="POST">
+				// A grid, so the button's wrapper and the button span the width.
+				<fetcher.Form method="POST" className="mt-4 grid">
 					<HouseholdClientInput />
 					<input type="hidden" name="intent" value="add-from-plan" />
 					<input
@@ -463,7 +478,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 					/>
 					<PendingButton
 						type="submit"
-						className="mt-4 w-full"
+						className="w-full"
 						pending={fetcher.state !== 'idle'}
 						pendingLabel="Adding picked Meals to Shopping"
 						disabled={pickedLineCount === 0}
@@ -509,13 +524,16 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 				</PopoverContent>
 			</Popover>
 			{/* Phone presentation: full width, from just under the status bar
-			    down to the bottom nav, so the week gets the screen rather than
-			    a peephole. */}
+			    to the bottom edge, so the week gets the screen rather than a
+			    peephole. */}
 			<BottomSheet
 				open={open && isSheet}
 				onClose={closePicker}
 				labelledBy="plan-picker-title"
-				className="bg-popover text-popover-foreground top-[calc(var(--safe-top)+2.5rem)] z-[60] flex flex-col"
+				title={PICKER_TITLE}
+				description={PICKER_DESCRIPTION}
+				className="h-[calc(100dvh-var(--safe-top)-2.5rem)]"
+				bodyClassName="flex flex-col"
 			>
 				{panel}
 			</BottomSheet>

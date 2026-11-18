@@ -1,4 +1,10 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import {
+	type ReactNode,
+	type RefObject,
+	useEffect,
+	useRef,
+	useState,
+} from 'react'
 import { useSheetDrag } from '#app/hooks/use-sheet-drag.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { Icon } from './icon.tsx'
@@ -9,39 +15,42 @@ const FOCUSABLE_SELECTOR =
 /** A sheet that leaves without an animation still unmounts after this. */
 const EXIT_FALLBACK_MS = 500
 
-/** Where the modal layout stops being a sheet and becomes a dialog. */
-const MODAL_DIALOG_QUERY = '(width >= 40rem)'
+/** Where the sheet becomes a centered dialog. */
+const DIALOG_QUERY = '(width >= 40rem)'
 
 /** The sheet that is open now. Opening another closes it first. */
 let openSheet: { close: () => void } | null = null
 
 type BottomSheetProps = {
 	open: boolean
-	/** Backdrop tap, Escape and the close button all call this. */
+	/** Backdrop tap, Escape, the close button and a pull down all call this. */
 	onClose: () => void
-	/** The id of the sheet's title. */
+	/** The id the title gets; the dialog is labelled by it. */
 	labelledBy: string
+	/** The serif title at the top left, beside the round Close button. */
+	title: ReactNode
+	/** One line under the title. */
+	description?: ReactNode
 	/**
-	 * Renders the standard header: this title and a Close button. Leave it out
-	 * when the content brings its own heading (with `labelledBy` as its id) and
-	 * its own way to close.
+	 * Takes focus when the sheet opens. Without it focus goes to whatever a
+	 * child focused, else the first thing that can take it (Close).
 	 */
-	title?: ReactNode
-	/**
-	 * `docked` sits on the tab bar. `modal` covers the tab bar on a phone and
-	 * is a centered dialog from `sm` up.
-	 */
-	layout?: 'docked' | 'modal'
+	initialFocusRef?: RefObject<HTMLElement | null>
 	/** Classes for the panel. */
 	className?: string
+	/** Classes for the part under the header, which scrolls. */
+	bodyClassName?: string
 	children: ReactNode
 }
 
 /**
- * The phone's bottom sheet. The panel slides up from below on open and leaves
- * the same way on close while the backdrop fades (tailwind.css, "Bottom
- * sheets"). It stays mounted until its exit has run, then unmounts and gives
- * focus back to whatever had it before the sheet opened.
+ * The phone's bottom sheet, one anatomy for every sheet: a grabber, a serif
+ * title with an optional line under it, and a round Close button. It covers
+ * the tab bar over a dimmed page, and from `sm` up it is a centered dialog.
+ * The panel slides up from below on open and leaves the same way on close
+ * while the backdrop fades (tailwind.css, "Bottom sheets"). It stays mounted
+ * until its exit has run, then unmounts and gives focus back to whatever had
+ * it before the sheet opened.
  *
  * While open it is modal to the keyboard: Escape closes it and Tab cycles
  * within it. On a phone it can also be pulled down to close (useSheetDrag).
@@ -61,8 +70,10 @@ function SheetFrame({
 	onExited,
 	labelledBy,
 	title,
-	layout = 'docked',
+	description,
+	initialFocusRef,
 	className,
+	bodyClassName,
 	children,
 }: BottomSheetProps & { onExited: () => void }) {
 	const rootRef = useRef<HTMLDivElement>(null)
@@ -85,8 +96,7 @@ function SheetFrame({
 	useSheetDrag({
 		open,
 		// A centered dialog has no edge to pull it toward.
-		enabled: () =>
-			layout === 'docked' || !window.matchMedia(MODAL_DIALOG_QUERY).matches,
+		enabled: () => !window.matchMedia(DIALOG_QUERY).matches,
 		panelRef,
 		backdropRef,
 		onDismiss: () => onCloseRef.current(),
@@ -110,13 +120,16 @@ function SheetFrame({
 			previouslyFocusedRef.current = active
 		}
 		mountedRef.current = true
-		if (!panel.contains(active)) {
+		// The panel is still below the screen as it starts to slide up.
+		const initial = initialFocusRef?.current
+		if (initial && panel.contains(initial)) {
+			initial.focus({ preventScroll: true })
+		} else if (!panel.contains(active)) {
 			panel
 				.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
-				// The panel is still below the screen as it starts to slide up.
 				?.focus({ preventScroll: true })
 		}
-	}, [open])
+	}, [open, initialFocusRef])
 
 	// Give focus back once the sheet is gone, unless another sheet has opened
 	// since: focus belongs in that one.
@@ -197,26 +210,20 @@ function SheetFrame({
 	}, [open])
 
 	const state = open ? 'open' : 'closed'
+	const descriptionId = `${labelledBy}-description`
 
 	return (
 		<div
 			ref={rootRef}
-			data-bottom-sheet={layout}
+			data-bottom-sheet=""
 			data-state={state}
-			className={cn(
-				layout === 'modal' &&
-					'fixed inset-0 z-60 flex items-end justify-center sm:items-center',
-			)}
+			className="fixed inset-0 z-60 flex items-end justify-center sm:items-center sm:p-4"
 		>
 			<div
 				ref={backdropRef}
 				data-bottom-sheet-backdrop=""
 				data-state={state}
-				className={cn(
-					layout === 'modal'
-						? 'absolute inset-0 bg-black/50 backdrop-blur-sm'
-						: 'fixed inset-0 z-40 bg-black/15',
-				)}
+				className="absolute inset-0 bg-black/40"
 				onClick={() => onCloseRef.current()}
 			/>
 			<div
@@ -224,27 +231,48 @@ function SheetFrame({
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby={labelledBy}
+				aria-describedby={description != null ? descriptionId : undefined}
 				data-bottom-sheet-panel=""
 				data-state={state}
 				className={cn(
-					'bg-card shadow-warm-lg overflow-y-auto overscroll-contain',
-					layout === 'modal'
-						? // Over the tab bar on a phone, so it clears the home indicator.
-							'relative max-h-[85dvh] w-full max-w-md rounded-t-xl p-6 pb-[calc(1.5rem+var(--safe-bottom))] sm:rounded-xl sm:pb-6'
-						: // On the tab bar, and never taller than the screen above it.
-							'border-border/60 fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset))] z-50 max-h-[calc(100dvh-var(--bottom-nav-h)-var(--bottom-nav-inset)-var(--safe-top)-2.5rem)] rounded-t-xl border-t p-4',
+					// Never taller than the screen under the status bar.
+					'bg-card shadow-warm-lg relative flex max-h-[calc(100dvh-var(--safe-top)-1rem)] w-full max-w-md flex-col rounded-t-2xl sm:max-h-[85dvh] sm:rounded-xl',
 					className,
 				)}
 			>
-				{title != null && (
-					<div className="mb-2 flex items-center justify-between">
-						<span id={labelledBy} className="text-sm font-medium">
+				{/* The handle a pull down closes the sheet by. A pull anywhere
+				    on the sheet does the same, so it is only a cue. */}
+				<div
+					aria-hidden
+					data-bottom-sheet-grabber=""
+					className="bg-muted-foreground/30 mx-auto mt-2 h-[5px] w-9 shrink-0 rounded-full sm:hidden"
+				/>
+				<div className="flex shrink-0 items-start gap-3 px-5 pt-2 pb-3 sm:pt-4">
+					{/* pt-2 sets the title's first line level with the 44px Close. */}
+					<div className="min-w-0 flex-1 pt-2">
+						<h2 id={labelledBy} className="font-serif text-xl leading-7">
 							{title}
-						</span>
-						<BottomSheetClose onClose={() => onCloseRef.current()} />
+						</h2>
+						{description != null && (
+							<p
+								id={descriptionId}
+								className="text-muted-foreground mt-0.5 text-sm"
+							>
+								{description}
+							</p>
+						)}
 					</div>
-				)}
-				{children}
+					<BottomSheetClose onClose={() => onCloseRef.current()} />
+				</div>
+				<div
+					className={cn(
+						// Clears the home indicator on a phone.
+						'min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(1.25rem+var(--safe-bottom))] sm:pb-5',
+						bodyClassName,
+					)}
+				>
+					{children}
+				</div>
 			</div>
 		</div>
 	)
@@ -255,11 +283,13 @@ function BottomSheetClose({ onClose }: { onClose: () => void }) {
 		<button
 			type="button"
 			onClick={onClose}
-			// A 44pt target that takes no more height than the title's line.
-			className="text-muted-foreground hover:text-foreground -my-3 -mr-3 flex size-11 items-center justify-center rounded-md"
+			// A 44pt target around a smaller round button.
+			className="group/close -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full"
 			aria-label="Close"
 		>
-			<Icon name="cross-1" size="sm" />
+			<span className="bg-muted text-muted-foreground group-hover/close:text-foreground flex size-8 items-center justify-center rounded-full transition-colors group-active/close:scale-95">
+				<Icon name="cross-1" className="size-3.5" />
+			</span>
 		</button>
 	)
 }

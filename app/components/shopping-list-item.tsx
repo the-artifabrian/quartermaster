@@ -521,10 +521,8 @@ export function ShoppingListItemCard({
 									aria-label={
 										confirmingDelete ? `Delete ${item.name}?` : undefined
 									}
-									className={cn(
-										'focus:text-destructive',
-										confirmingDelete && 'text-destructive font-medium',
-									)}
+									variant="destructive"
+									className={cn(confirmingDelete && 'font-medium')}
 								>
 									<Icon name="trash" size="sm" />
 									{confirmingDelete ? 'Delete?' : 'Delete item'}

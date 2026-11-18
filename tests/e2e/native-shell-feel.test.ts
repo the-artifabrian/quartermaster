@@ -59,22 +59,26 @@ async function openShopping(page: Page) {
 	)
 }
 
-async function expectSheetDocksOnTabBar(page: Page) {
+/**
+ * A sheet covers the tab bar: it rests on the bottom edge of the screen, and
+ * what is in it stays clear of the home indicator (`inset`, px).
+ */
+async function expectSheetCoversTabBar(page: Page, inset: number) {
 	await page.getByRole('button', { name: 'Add item' }).click()
 
 	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
-	const bar = page.locator('[data-bottom-nav]')
+	const viewport = page.viewportSize()!
 	// The sheet slides up as it opens; poll until it has settled.
 	await expect
 		.poll(async () => {
-			const [sheetBox, barBox] = await Promise.all([
-				sheet.boundingBox(),
-				bar.boundingBox(),
-			])
-			if (!sheetBox || !barBox) return Infinity
-			return Math.abs(sheetBox.y + sheetBox.height - barBox.y)
+			const box = await sheet.boundingBox()
+			return box ? Math.abs(box.y + box.height - viewport.height) : Infinity
 		})
 		.toBeLessThanOrEqual(1)
+	const lowest = (await sheet
+		.getByRole('button', { name: '+ Qty & unit' })
+		.boundingBox())!
+	expect(lowest.y + lowest.height).toBeLessThanOrEqual(viewport.height - inset)
 }
 
 // Guards the removed active-tab underline: the tab is its icon and label.
@@ -314,7 +318,7 @@ test.describe('the tab bar in the iOS app', () => {
 		expect(
 			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
 		).toBe(55)
-		await expectSheetDocksOnTabBar(page)
+		await expectSheetCoversTabBar(page, 0)
 	})
 
 	test('the header is as tall as a native nav bar', async ({ page, login }) => {
@@ -340,11 +344,14 @@ test.describe('the tab bar in the iOS app', () => {
 		expect((await page.getByRole('banner').boundingBox())?.height).toBe(69)
 	})
 
-	test('a sheet docks on the tab bar with no gap', async ({ page, login }) => {
+	test('a sheet covers the tab bar and keeps clear of the home indicator', async ({
+		page,
+		login,
+	}) => {
 		await setHomeIndicatorInset(page, 34)
 		await createShoppingList(await login())
 		await openShopping(page)
-		await expectSheetDocksOnTabBar(page)
+		await expectSheetCoversTabBar(page, 34)
 	})
 
 	test('a tab tap or Enter taps the haptic once', async ({ page, login }) => {

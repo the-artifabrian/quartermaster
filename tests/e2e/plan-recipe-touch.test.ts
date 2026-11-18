@@ -249,3 +249,47 @@ test('Plan meal and Add Meal controls take taps around their drawn edges', async
 		mobile.getByRole('button', { name: /^Add text instead/ }),
 	)
 })
+
+test('a Meal with two Recipes gives each remove button a thumb-sized target', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const miso = await createRecipe(user)
+	const rice = await prisma.recipe.create({
+		data: {
+			title: 'Steamed Rice',
+			userId: user.id,
+			householdId: user.householdId,
+		},
+	})
+	const today = todayUTC()
+	const weekStart = getWeekStart(today)
+	await prisma.mealPlan.create({
+		data: {
+			householdId: user.householdId,
+			weekStart,
+			meals: {
+				create: {
+					date: today,
+					order: 0,
+					recipeItems: {
+						create: [
+							{ recipeId: miso.id, recipeTitle: miso.title, order: 0 },
+							{ recipeId: rice.id, recipeTitle: rice.title, order: 1 },
+						],
+					},
+				},
+			},
+		},
+	})
+
+	await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+	const mobile = page.getByTestId('mobile-plan')
+	await expectThumbSized(
+		mobile.getByRole('button', { name: 'Remove Steamed Rice from this meal' }),
+	)
+	await expectThumbSized(
+		mobile.getByRole('button', { name: 'Remove Miso Soup from this meal' }),
+	)
+})

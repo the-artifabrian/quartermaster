@@ -1,6 +1,7 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { useState } from 'react'
 import { data, redirect, useFetcher } from 'react-router'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import {
@@ -8,8 +9,9 @@ import {
 	MenuForm,
 	type MenuBuilderSection,
 } from '#app/components/menu-form.tsx'
+import { Button } from '#app/components/ui/button.tsx'
+import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { menuEditNav } from '#app/utils/nav-back.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -19,7 +21,6 @@ import {
 	MenuBuilderSchema,
 	menuTitleKey,
 } from '#app/utils/menu-validation.ts'
-import { useDoubleCheck } from '#app/utils/misc.tsx'
 import { type Route } from './+types/$menuId_.edit.ts'
 
 export const handle: SEOHandle & NavBarHandle = {
@@ -410,26 +411,32 @@ export default function EditMenu({ loaderData }: Route.ComponentProps) {
 }
 
 function DeleteMenu() {
-	const dc = useDoubleCheck()
+	const [confirming, setConfirming] = useState(false)
 	const fetcher = useFetcher()
 	const isDeleting = fetcher.state !== 'idle'
 
 	return (
-		<fetcher.Form method="POST">
+		<fetcher.Form method="POST" id="delete-menu">
 			<input type="hidden" name="intent" value="delete" />
-			<StatusButton
-				{...dc.getButtonProps({
-					type: 'submit',
-					name: 'intent',
-					value: 'delete',
-				})}
-				variant={dc.doubleCheck ? 'destructive' : 'outline'}
-				status={isDeleting ? 'pending' : 'idle'}
+			<Button
+				type="button"
+				variant="outline"
+				className="text-destructive hover:text-destructive"
+				onClick={() => setConfirming(true)}
 			>
 				<Icon name="trash" size="sm">
-					{dc.doubleCheck ? 'Delete?' : 'Delete Menu'}
+					Delete Menu
 				</Icon>
-			</StatusButton>
+			</Button>
+			<ConfirmSheet
+				open={confirming}
+				onCancel={() => setConfirming(false)}
+				title="Delete this Menu?"
+				description="Its sections and notes go for good. Your Recipes stay."
+				confirmLabel="Delete Menu"
+				formId="delete-menu"
+				pending={isDeleting}
+			/>
 		</fetcher.Form>
 	)
 }

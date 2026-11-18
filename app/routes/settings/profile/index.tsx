@@ -4,6 +4,7 @@ import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { settingsRootNav } from '#app/utils/nav-back.ts'
 import { useEffect, useState } from 'react'
 import { Form, Link, useFetcher } from 'react-router'
+import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { Switch } from '#app/components/ui/switch.tsx'
@@ -15,7 +16,7 @@ import {
 } from '#app/utils/account-deletion.server.ts'
 import { requireUserId, sessionKey } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
+import { cn } from '#app/utils/misc.tsx'
 import { useIsNativeShell, useRequestInfo } from '#app/utils/request-info.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
@@ -366,35 +367,42 @@ function SignOutOfSessions({
 }: {
 	loaderData: Route.ComponentProps['loaderData']
 }) {
-	const dc = useDoubleCheck()
+	const [confirming, setConfirming] = useState(false)
 	const fetcher = useFetcher<typeof signOutOfSessionsAction>()
 	const otherSessionsCount = loaderData.user._count.sessions - 1
+	const pending = fetcher.state !== 'idle'
+	// Done: the sheet goes and the button shows the result.
+	useEffect(() => {
+		if (fetcher.state === 'idle' && fetcher.data) setConfirming(false)
+	}, [fetcher.state, fetcher.data])
 
 	return (
 		<div>
 			{otherSessionsCount ? (
-				<fetcher.Form method="POST">
+				<fetcher.Form method="POST" id="sign-out-other-sessions">
 					<StatusButton
-						{...dc.getButtonProps({
-							type: 'submit',
-							name: 'intent',
-							value: signOutOfSessionsActionIntent,
-						})}
-						variant={dc.doubleCheck ? 'destructive' : 'outline'}
-						status={
-							fetcher.state !== 'idle'
-								? 'pending'
-								: (fetcher.data?.status ?? 'idle')
-						}
+						type="button"
+						onClick={() => setConfirming(true)}
+						variant="outline"
+						status={pending ? 'pending' : (fetcher.data?.status ?? 'idle')}
 						className="w-full"
 						size="sm"
 					>
 						<Icon name="avatar">
-							{dc.doubleCheck
-								? `Log out?`
-								: `Log out of ${otherSessionsCount} other sessions`}
+							Log out of {otherSessionsCount} other sessions
 						</Icon>
 					</StatusButton>
+					<ConfirmSheet
+						open={confirming}
+						onCancel={() => setConfirming(false)}
+						title={`Log out of ${otherSessionsCount} other sessions?`}
+						description="Those devices will need to log in again."
+						confirmLabel="Log Out"
+						formId="sign-out-other-sessions"
+						name="intent"
+						value={signOutOfSessionsActionIntent}
+						pending={pending}
+					/>
 				</fetcher.Form>
 			) : (
 				<p className="text-muted-foreground text-sm">
@@ -415,36 +423,44 @@ async function deleteDataAction({ userId }: ProfileActionArgs) {
 }
 
 function DeleteData({ outcome }: { outcome: AccountDeletionOutcome }) {
-	const dc = useDoubleCheck()
+	const [confirming, setConfirming] = useState(false)
 	const fetcher = useFetcher<typeof deleteDataAction>()
+	const consequence =
+		outcome.kind === 'household-stays'
+			? `Your Recipes and Shopping stay with ${outcome.heirName}.`
+			: `This deletes the Household and everything in it: Recipes, Menus, Plan, Staples and Shopping.`
 
 	return (
 		<div>
-			<fetcher.Form method="POST">
+			<fetcher.Form method="POST" id="delete-account">
 				<StatusButton
-					{...dc.getButtonProps({
-						type: 'submit',
-						name: 'intent',
-						value: deleteDataActionIntent,
-						'aria-describedby': 'delete-account-outcome',
-					})}
+					type="button"
+					onClick={() => setConfirming(true)}
+					aria-describedby="delete-account-outcome"
 					variant="destructive"
 					status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
 					className="w-full"
 					size="sm"
 				>
-					<Icon name="trash">
-						{dc.doubleCheck ? `Delete?` : `Delete my account`}
-					</Icon>
+					<Icon name="trash">Delete my account</Icon>
 				</StatusButton>
+				<ConfirmSheet
+					open={confirming}
+					onCancel={() => setConfirming(false)}
+					title="Delete your account?"
+					description={consequence}
+					confirmLabel="Delete Account"
+					formId="delete-account"
+					name="intent"
+					value={deleteDataActionIntent}
+					pending={fetcher.state !== 'idle'}
+				/>
 			</fetcher.Form>
 			<p
 				id="delete-account-outcome"
 				className="text-muted-foreground mt-2 text-sm"
 			>
-				{outcome.kind === 'household-stays'
-					? `Your Recipes and Shopping stay with ${outcome.heirName}.`
-					: `This deletes the Household and everything in it: Recipes, Menus, Plan, Staples and Shopping.`}
+				{consequence}
 			</p>
 		</div>
 	)

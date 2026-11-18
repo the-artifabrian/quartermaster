@@ -1,4 +1,6 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import { upgradeNav } from '#app/utils/nav-back.ts'
 import { data, Form, Link, redirect } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -22,8 +24,11 @@ import { getUserTier, type TierInfo } from '#app/utils/subscription.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/upgrade.ts'
 
-export const handle: SEOHandle = {
+// Signed in, the nav bar goes back; a visitor keeps the brand header and
+// the link home at the end of the page.
+export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
+	nav: upgradeNav,
 }
 
 export const meta: Route.MetaFunction = ({ error }) => {
@@ -296,14 +301,16 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 				</div>
 			</div>
 
-			<div className="mt-8 text-center">
-				<Button asChild variant="ghost">
-					<Link to={isLoggedIn ? '/recipes' : '/'}>
-						<Icon name="arrow-left" size="sm" className="mr-1" />
-						{isLoggedIn ? 'Back to Recipes' : 'Back to home'}
-					</Link>
-				</Button>
-			</div>
+			{isLoggedIn ? null : (
+				<div className="mt-8 text-center">
+					<Button asChild variant="ghost">
+						<Link to="/">
+							<Icon name="arrow-left" size="sm" className="mr-1" />
+							Back to home
+						</Link>
+					</Button>
+				</div>
+			)}
 		</div>
 	)
 }

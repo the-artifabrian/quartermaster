@@ -1,8 +1,11 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import { menuEditNav } from '#app/utils/nav-back.ts'
 import { data, redirect, useFetcher } from 'react-router'
 import {
+	MENU_FORM_ID,
 	MenuForm,
 	type MenuBuilderSection,
 } from '#app/components/menu-form.tsx'
@@ -19,8 +22,10 @@ import {
 import { useDoubleCheck } from '#app/utils/misc.tsx'
 import { type Route } from './+types/$menuId_.edit.ts'
 
-export const handle: SEOHandle = {
+export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
+	nav: ({ params }) => menuEditNav(params.menuId!),
+	navForm: MENU_FORM_ID,
 }
 
 export const meta: Route.MetaFunction = () => {
@@ -396,11 +401,7 @@ export default function EditMenu({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			<h1 className="mb-6 font-serif text-2xl font-normal">Edit Menu</h1>
-			<MenuForm
-				menu={menu}
-				submitLabel="Save Changes"
-				builder={{ sections, recipes }}
-			/>
+			<MenuForm menu={menu} builder={{ sections, recipes }} />
 			<div className="mt-8 border-t pt-8">
 				<DeleteMenu />
 			</div>

@@ -1,4 +1,6 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import { recipeImportNav } from '#app/utils/nav-back.ts'
 import { useState } from 'react'
 import { Form, Link, useActionData, useNavigation } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
@@ -19,8 +21,9 @@ import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
 import { importAction } from './import-action.server.ts'
 
-export const handle: SEOHandle = {
+export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
+	nav: recipeImportNav,
 }
 
 export const meta: Route.MetaFunction = () => {

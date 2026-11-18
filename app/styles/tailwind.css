@@ -465,10 +465,17 @@ html {
 }
 
 /* The iOS app (`<html data-native-shell>`) draws the page under the status
-   bar. The header scrolls away with its padding; the fixed backdrop keeps the
-   status bar readable over whatever scrolls under it. */
+   bar. A tab root's header scrolls away with its padding, and a pushed
+   page's nav bar stays pinned with it; the fixed backdrop keeps the status
+   bar readable over whatever scrolls under it. */
 :root[data-native-shell] [data-site-header] {
 	padding-top: var(--safe-top);
+}
+
+/* A pushed page's nav bar stays pinned at the top (NavBar), so the field a
+   form focuses or the anchor a link scrolls to lands below it. */
+:root:has([data-site-header][data-pushed]) {
+	scroll-padding-top: calc(var(--nav-bar-bottom, 0px) + 0.75rem);
 }
 
 /* In the iOS app the tab bar is a 54pt row and leaves 18pt under it on the

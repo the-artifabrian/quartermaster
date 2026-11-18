@@ -1,8 +1,8 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { Img } from 'openimg/react'
-import { useId, useState } from 'react'
-import { Form, useActionData, useNavigation } from 'react-router'
+import { useState } from 'react'
+import { Form, useActionData } from 'react-router'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import {
@@ -11,6 +11,7 @@ import {
 } from '#app/utils/recipe-validation.ts'
 import { DurationHint } from './duration-hint.tsx'
 import { ErrorList, Field, TextareaField } from './forms.tsx'
+import { useBlockNavBarSave } from './nav-bar.tsx'
 import {
 	IngredientFields,
 	type IngredientFieldValue,
@@ -23,10 +24,8 @@ import {
 	RecipeMetadataFields,
 	type RecipeMetadataOption,
 } from './recipe-metadata-fields.tsx'
-import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
-import { StatusButton } from './ui/status-button.tsx'
 
 type RecipeFormProps = {
 	recipe?: {
@@ -57,7 +56,6 @@ type RecipeFormProps = {
 		}>
 	}
 	metadataOptions?: RecipeMetadataOption[]
-	submitLabel?: string
 }
 
 function FormSection({
@@ -94,17 +92,13 @@ function FormSection({
 	)
 }
 
-export function RecipeForm({
-	recipe,
-	metadataOptions = [],
-	submitLabel = 'Save Recipe',
-}: RecipeFormProps) {
+/** The id the nav bar's Save submits (the route handle's `navForm`). */
+export const RECIPE_FORM_ID = 'recipe-form'
+
+export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 	const actionData = useActionData<{
 		result: { error?: Record<string, string[]> }
 	}>()
-	const navigation = useNavigation()
-	const isSubmitting = navigation.state === 'submitting'
-	const formId = useId()
 	const isEditing = !!recipe
 
 	// An import can save a Recipe without ingredients or steps; editing it
@@ -137,7 +131,8 @@ export function RecipeForm({
 	)
 
 	const [form, fields] = useForm({
-		id: formId,
+		// The nav bar's Save submits the form by this id (route handle).
+		id: RECIPE_FORM_ID,
 		constraint: getZodConstraint(RecipeSchema),
 		lastResult: actionData?.result as any,
 		onValidate({ form: formElement, formData }) {
@@ -179,6 +174,7 @@ export function RecipeForm({
 	const { preparing: preparingPhoto, fit: fitPhoto } = useFitFileInput(
 		MAX_RECIPE_IMAGE_SIZE,
 	)
+	useBlockNavBarSave(preparingPhoto)
 	const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const input = e.currentTarget
 		// A later pick owns the preview.
@@ -492,19 +488,6 @@ export function RecipeForm({
 					selectedValueIds={recipe?.metadataValueIds}
 				/>
 			</FormSection>
-
-			<div className="bg-background/95 sticky bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset))] z-10 flex justify-end gap-4 border-t py-3 supports-[backdrop-filter]:backdrop-blur-sm md:static md:bottom-auto md:z-auto md:bg-transparent md:pt-6 md:pb-0 md:backdrop-blur-none">
-				<Button type="button" variant="outline" onClick={() => history.back()}>
-					Cancel
-				</Button>
-				<StatusButton
-					type="submit"
-					status={isSubmitting ? 'pending' : 'idle'}
-					disabled={isSubmitting || preparingPhoto}
-				>
-					{submitLabel}
-				</StatusButton>
-			</div>
 		</Form>
 	)
 }

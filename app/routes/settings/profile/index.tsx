@@ -1,5 +1,7 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import { settingsRootNav } from '#app/utils/nav-back.ts'
 import { useEffect, useState } from 'react'
 import { Form, Link, useFetcher } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -25,8 +27,9 @@ import {
 import { type Route } from './+types/index.ts'
 import { twoFAVerificationType } from './two-factor/_layout.tsx'
 
-export const handle: SEOHandle = {
+export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
+	nav: settingsRootNav,
 }
 
 const signOutOfSessionsActionIntent = 'sign-out-of-sessions'

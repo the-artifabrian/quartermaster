@@ -7,8 +7,7 @@ import {
 	type FormMetadata,
 } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
-import { useId } from 'react'
-import { Form, Link, useActionData, useNavigation } from 'react-router'
+import { Form, useActionData } from 'react-router'
 import {
 	RecipePicker,
 	type RecipePickerRecipe,
@@ -39,7 +38,6 @@ import {
 } from './ui/dropdown-menu.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
-import { StatusButton } from './ui/status-button.tsx'
 import { Textarea } from './ui/textarea.tsx'
 
 export type MenuBuilderShoppingLine = {
@@ -82,7 +80,6 @@ type MenuFormProps = {
 		description?: string | null
 		defaultGuestCount?: number | null
 	}
-	submitLabel?: string
 	/**
 	 * When present, the form edits the Menu's sections and Recipe cards too:
 	 * the stored sections plus the household Recipes the picker may add.
@@ -94,22 +91,19 @@ type MenuFormProps = {
 	}
 }
 
-export function MenuForm({
-	menu,
-	submitLabel = 'Save Menu',
-	builder,
-}: MenuFormProps) {
+/** The id the nav bar's Save submits (the route handle's `navForm`). */
+export const MENU_FORM_ID = 'menu-form'
+
+export function MenuForm({ menu, builder }: MenuFormProps) {
 	const actionData = useActionData<{
 		result: { error?: Record<string, string[]> }
 	}>()
-	const navigation = useNavigation()
-	const isSubmitting = navigation.state === 'submitting'
-	const formId = useId()
 
 	// One schema for both modes: `sections` is optional, so metadata-only
 	// create parses cleanly and the create action simply never reads sections.
 	const [form, fields] = useForm({
-		id: formId,
+		// The nav bar's Save submits the form by this id (route handle).
+		id: MENU_FORM_ID,
 		constraint: getZodConstraint(MenuBuilderSchema),
 		lastResult: actionData?.result as any,
 		onValidate({ formData }) {
@@ -200,21 +194,6 @@ export function MenuForm({
 			{builder ? (
 				<MenuSectionsBuilder form={form} fields={fields} builder={builder} />
 			) : null}
-
-			<div className="flex items-center justify-end gap-3 pt-2">
-				<Button asChild variant="ghost">
-					<Link to={menu ? `/recipes/menus/${menu.id}` : '/recipes/menus'}>
-						Cancel
-					</Link>
-				</Button>
-				<StatusButton
-					type="submit"
-					status={isSubmitting ? 'pending' : 'idle'}
-					disabled={isSubmitting}
-				>
-					{submitLabel}
-				</StatusButton>
-			</div>
 		</Form>
 	)
 }

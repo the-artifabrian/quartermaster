@@ -1,6 +1,8 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import { menuDetailNav } from '#app/utils/nav-back.ts'
 import { useRef, useState } from 'react'
 import {
 	data,
@@ -29,14 +31,14 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { PlanMenuSchema } from '#app/utils/meal-plan-validation.ts'
-import { BACK_TO_LIST } from '#app/utils/nav-direction.ts'
 import { planMenu } from '#app/utils/plan-menu.server.ts'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
 import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
 import { type Route } from './+types/$menuId.ts'
 
-export const handle: SEOHandle = {
+export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
+	nav: menuDetailNav,
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {
@@ -369,16 +371,6 @@ export default function MenuDetail({
 	}
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
-			<Link
-				to="/recipes/menus"
-				viewTransition
-				state={BACK_TO_LIST}
-				className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5 text-sm transition-colors"
-			>
-				<Icon name="arrow-left" size="sm" />
-				Menus
-			</Link>
-
 			<h1 className="font-serif text-2xl font-normal">{menu.title}</h1>
 
 			{menu.defaultGuestCount ? (

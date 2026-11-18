@@ -822,7 +822,11 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							}
 						/>
 					</PopoverAnchor>
-					<PopoverContent align="start" className="w-72 p-4">
+					<PopoverContent
+						align="start"
+						collisionPadding={16}
+						className="max-h-(--radix-popover-content-available-height) w-96 overflow-y-auto p-4"
+					>
 						<p className="mb-3 text-sm font-medium">Add to Plan</p>
 						{planPickerBody}
 					</PopoverContent>

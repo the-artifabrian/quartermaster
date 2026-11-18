@@ -323,9 +323,7 @@ function MealDetailsForm({
 
 	useEffect(() => {
 		if (wasSubmitting.current && fetcher.state === 'idle') {
-			// A saved Date change answers with a redirect to the moved Meal, so
-			// no data: anything but an error is done.
-			if (fetcher.data?.status !== 'error') onDone()
+			if (fetcher.data?.status === 'success') onDone()
 		}
 		wasSubmitting.current = fetcher.state !== 'idle'
 	}, [fetcher.state, fetcher.data, onDone])

@@ -812,7 +812,7 @@ async function openEditItem(page: Page, name: string) {
 }
 
 test.describe('sheets while they come and go', () => {
-	test('closing Edit item and opening another row’s menu at once keeps that menu open', async ({
+	test('closing Edit item and opening another row’s menu at once keeps that menu open and focused', async ({
 		page,
 		login,
 	}) => {
@@ -831,6 +831,11 @@ test.describe('sheets while they come and go', () => {
 		// Past the leaving sheet's unmount, which once took focus back to foil.
 		await page.waitForTimeout(900)
 		await expect(editItem).toBeVisible()
+		expect(
+			await page
+				.getByRole('menu')
+				.evaluate((menu) => menu.contains(document.activeElement)),
+		).toBe(true)
 	})
 
 	test('reopening Edit item while it leaves shows the saved values, not what was typed', async ({
@@ -839,12 +844,25 @@ test.describe('sheets while they come and go', () => {
 	}) => {
 		await seedShopping(await login(), ['foil'])
 		await openShopping(page)
+		const actions = page
+			.getByRole('group', { name: 'foil shopping item' })
+			.getByRole('button', { name: 'Item actions' })
 		const sheet = await openEditItem(page, 'foil')
 		await expectBottomSheet(page, sheet)
+		const trigger = (await actions.boundingBox())!
 		await slowTransitions(page)
 		await sheet.getByRole('textbox', { name: 'Quantity' }).fill('9')
 		await sheet.getByRole('button', { name: 'Close', exact: true }).tap()
-		await openEditItem(page, 'foil')
+		// Reopen at once, before the leaving sheet is gone: no waiting for the
+		// slowed menu to hold still.
+		await page.mouse.click(
+			trigger.x + trigger.width / 2,
+			trigger.y + trigger.height / 2,
+		)
+		await page
+			.getByRole('menuitem', { name: 'Edit item' })
+			.dispatchEvent('click')
+		await expect(sheet).toHaveAttribute('data-state', 'open')
 		await expect(sheet.getByRole('textbox', { name: 'Quantity' })).toHaveValue(
 			'1',
 		)

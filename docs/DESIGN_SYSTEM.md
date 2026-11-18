@@ -133,13 +133,17 @@ each screen:
   a Young Serif title on the left, a round Close button on the right (a 44px
   target), and an optional one-line description under the title. It covers the
   tab bar over a dim scrim, clears the home indicator, and closes by a pull
-  down, the scrim, Escape or Close. From `sm` up it is a centered dialog. A
-  sheet's primary action is full width at the bottom.
-- On a phone (below `sm`) nothing you type or pick in is a popover or a panel
+  down, the scrim, Escape or Close. Off a phone it is a centered dialog. A
+  sheet's primary action is full width at the bottom. It renders on the page
+  body, takes focus while open and gives it back after, unless focus has moved
+  on in the meantime. A sheet leaves showing what it showed; what was typed or
+  picked clears on the next open.
+- A phone is below `sm`, or a finger on a screen no taller than 500px (a phone
+  on its side). On a phone nothing you type or pick in is a popover or a panel
   that opens in place: Add a Meal, Add a Recipe to a Meal, Edit details, Edit
   item, Scale, From Staples, From Plan, Add to Plan and Link recipe open as
-  sheets (`opensAsSheet`, read when they open). Wider screens keep their
-  popover or inline panel.
+  sheets (`opensAsSheet`, read when they open). Wider screens keep their popover
+  or inline panel.
 - A Delete in a menu or behind a swipe is red from the start.
 - A delete that can be undone (a Meal, a Recipe in a Meal, a Shopping item,
   Clear checked, removing a Staple) happens at once with an Undo toast at the
@@ -243,10 +247,9 @@ placeholder.
 ### Plan
 
 - Show an ordered list of Meals under each day, not permanent meal-type slots.
-- Use serif day headings, a copper marker for today, and flat Meal rows: no
-  card border, fill or shadow. A full-width hairline separates Meals; inside a
-  Meal, Recipes are separated by a lighter hairline inset past the cooked
-  toggle.
+- Use serif day headings, a copper marker for today, and flat Meal rows: no card
+  border, fill or shadow. A full-width hairline separates Meals; inside a Meal,
+  Recipes are separated by a lighter hairline inset past the cooked toggle.
 - A Meal may be one Recipe, several Recipe items, a Menu snapshot, or plain
   text. Keep the one-Recipe path fast.
 - Dense Menu snapshots may need progressive disclosure; do not solve density by

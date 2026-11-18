@@ -240,7 +240,6 @@ function AddToPlanPanel({
 						name="date"
 						required
 						defaultValue={defaultDate}
-						className="h-9"
 					/>
 				</div>
 				<div>
@@ -254,7 +253,7 @@ function AddToPlanPanel({
 						id="plan-label"
 						name="label"
 						defaultValue=""
-						className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+						className="border-input bg-background h-11 w-full rounded-md border px-3 text-base md:text-sm"
 					>
 						<option value="">No label</option>
 						{MEAL_TYPES.map((type) => (
@@ -271,7 +270,7 @@ function AddToPlanPanel({
 					>
 						Serving time
 					</label>
-					<Input id="plan-time" type="time" name="time" className="h-9" />
+					<Input id="plan-time" type="time" name="time" />
 				</div>
 				<div>
 					<label
@@ -289,7 +288,6 @@ function AddToPlanPanel({
 						min={1}
 						max={999}
 						defaultValue={defaultGuestCount ?? ''}
-						className="h-9"
 					/>
 				</div>
 			</div>

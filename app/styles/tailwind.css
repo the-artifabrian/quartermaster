@@ -3,6 +3,10 @@
 @import './fonts.css';
 
 @custom-variant dark (&:is(.dark *));
+/* A wide screen driven by a mouse or trackpad: the only place a control may
+   drop below a 44px touch target. A phone on its side or an iPad is wide but
+   still touched, so it keeps the full size. */
+@custom-variant desktop (@media (width >= 48rem) and (pointer: fine));
 
 :root {
 	--radius: 0.5rem;

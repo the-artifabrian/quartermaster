@@ -141,7 +141,6 @@ export function ImportedRecipeNotice({
 					<StatusButton
 						{...undoCheck.getButtonProps({ type: 'submit' })}
 						size="sm"
-						className="min-h-11"
 						variant={undoCheck.doubleCheck ? 'destructive' : 'ghost'}
 						status={undoing ? 'pending' : 'idle'}
 						disabled={undoing}

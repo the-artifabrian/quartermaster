@@ -35,7 +35,12 @@ export function EnhanceRecipeModal({
 			open={open && suggestions != null}
 			onClose={onClose}
 			labelledBy="enhance-title"
-			layout="modal"
+			title={
+				<span className="flex items-center gap-2">
+					<Icon name="sparkles" className="text-accent size-5" />
+					Enhance Recipe
+				</span>
+			}
 		>
 			{suggestions ? (
 				<EnhanceSuggestions
@@ -153,23 +158,6 @@ function EnhanceSuggestions({
 
 	return (
 		<>
-			<div className="mb-1 flex items-center justify-between">
-				<h2
-					id="enhance-title"
-					className="flex items-center gap-2 font-serif text-xl"
-				>
-					<Icon name="sparkles" className="text-accent size-5" />
-					Enhance Recipe
-				</h2>
-				<button
-					onClick={onClose}
-					aria-label="Close"
-					className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md p-1 focus-visible:ring-2 focus-visible:outline-none"
-				>
-					<Icon name="cross-1" size="sm" />
-				</button>
-			</div>
-
 			{hasAnyChange ? (
 				<>
 					<p className="text-muted-foreground mb-4 text-sm">
@@ -214,7 +202,7 @@ function EnhanceSuggestions({
 						</p>
 					)}
 
-					<div className="mt-5 flex gap-2">
+					<div className="mt-5">
 						<Button
 							onClick={handleApply}
 							disabled={
@@ -222,7 +210,7 @@ function EnhanceSuggestions({
 								hasInvalidTimeSelection ||
 								fetcher.state !== 'idle'
 							}
-							className="flex-1 gap-2"
+							className="w-full gap-2"
 						>
 							{fetcher.state !== 'idle' ? (
 								<>
@@ -233,18 +221,15 @@ function EnhanceSuggestions({
 								'Apply Selected'
 							)}
 						</Button>
-						<Button type="button" variant="ghost" onClick={onClose}>
-							Cancel
-						</Button>
 					</div>
 				</>
 			) : (
 				<>
-					<p className="text-muted-foreground mt-2 mb-5 text-sm">
+					<p className="text-muted-foreground mb-5 text-sm">
 						This recipe looks complete! No improvements suggested.
 					</p>
-					<Button variant="ghost" onClick={onClose} className="w-full">
-						Close
+					<Button variant="outline" onClick={onClose} className="w-full">
+						Done
 					</Button>
 				</>
 			)}

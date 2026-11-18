@@ -853,7 +853,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					onClose={() => setPlanPickerOpen(false)}
 					labelledBy="recipe-plan-picker-title"
 					title="Add to Plan"
-					className="bg-popover text-popover-foreground"
 				>
 					{planPickerBody}
 				</BottomSheet>

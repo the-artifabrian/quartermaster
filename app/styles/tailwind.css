@@ -588,8 +588,8 @@ html {
 	animation: none;
 }
 
-/* Bottom sheets (BottomSheet): the panel slides up from below its docked
-   edge and leaves the way it came while the backdrop fades. A closed sheet
+/* Bottom sheets (BottomSheet): the panel slides up from the bottom edge, over
+   the tab bar, and leaves the way it came while the backdrop fades. A closed sheet
    keeps its `display` until the exit has run (allow-discrete) and lets taps
    through while it leaves. A transition that is cut short turns around from
    where it is. */
@@ -637,9 +637,9 @@ html {
 	transition-timing-function: var(--ease-exit);
 }
 
-/* From `sm` up the modal layout is a centered dialog: it settles in place. */
+/* From `sm` up a sheet is a centered dialog: it settles in place. */
 @media (width >= 40rem) {
-	[data-bottom-sheet='modal'] [data-bottom-sheet-panel] {
+	[data-bottom-sheet] [data-bottom-sheet-panel] {
 		opacity: 1;
 		transform: scale(1);
 		transition-property: opacity, transform, display;
@@ -648,13 +648,13 @@ html {
 	}
 
 	@starting-style {
-		[data-bottom-sheet='modal'] [data-bottom-sheet-panel] {
+		[data-bottom-sheet] [data-bottom-sheet-panel] {
 			opacity: 0;
 			transform: scale(0.97);
 		}
 	}
 
-	[data-bottom-sheet='modal'] [data-bottom-sheet-panel][data-state='closed'] {
+	[data-bottom-sheet] [data-bottom-sheet-panel][data-state='closed'] {
 		opacity: 0;
 		transform: scale(0.97);
 		transition-duration: 120ms;

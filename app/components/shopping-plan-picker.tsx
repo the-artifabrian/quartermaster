@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
-import { BottomSheet } from '#app/components/ui/bottom-sheet.tsx'
+import { BottomSheet, opensAsSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { PendingButton } from '#app/components/ui/pending-button.tsx'
@@ -53,7 +53,6 @@ type Picks = Map<string, Set<string>>
  * at 60vh showed eight lines of a hundred-line week. Decided at open time, so
  * the server never has to guess the viewport.
  */
-const SHEET_MEDIA_QUERY = '(max-width: 639px)'
 const PICKER_TITLE = 'What are we buying for?'
 const PICKER_DESCRIPTION = 'Pick the Meals and lines to add to Next shop.'
 type Presentation = 'popover' | 'sheet'
@@ -230,9 +229,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 
 	const openPicker = useCallback(() => {
 		if (!week) return
-		setPresentation(
-			window.matchMedia(SHEET_MEDIA_QUERY).matches ? 'sheet' : 'popover',
-		)
+		setPresentation(opensAsSheet() ? 'sheet' : 'popover')
 		setOpen(true)
 		// Every open refetches: "Already on list" and the default ticks
 		// describe the list as it is now, and the previous open may have

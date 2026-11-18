@@ -467,7 +467,8 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 				</div>
 			)}
 			{choiceState.status === 'success' && days.length > 0 && (
-				<fetcher.Form method="POST">
+				// A grid, so the button's wrapper and the button span the width.
+				<fetcher.Form method="POST" className="mt-4 grid">
 					<HouseholdClientInput />
 					<input type="hidden" name="intent" value="add-from-plan" />
 					<input
@@ -477,7 +478,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 					/>
 					<PendingButton
 						type="submit"
-						className="mt-4 w-full"
+						className="w-full"
 						pending={fetcher.state !== 'idle'}
 						pendingLabel="Adding picked Meals to Shopping"
 						disabled={pickedLineCount === 0}

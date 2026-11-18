@@ -99,6 +99,14 @@ test('a Recipe opened by a link from another tab goes back there, even with the 
 	})
 })
 
+test('a Recipe reached through sign-in (a deep link) goes to Recipes, not back to sign-in', () => {
+	expect(back(['/login', '/recipes/r1'])).toEqual({
+		type: 'replace',
+		to: '/recipes',
+		label: 'Recipes',
+	})
+})
+
 test('a Recipe the tab bar restored goes back down its own stack, to the filtered list', () => {
 	expect(
 		back(['/recipes?q=soup', '/recipes/r1', '/plan', `/recipes/r1${TAB}`]),
@@ -254,6 +262,34 @@ test('Settings opened from a Recipe (the desktop header) goes back to it', () =>
 		type: 'pop',
 		delta: 1,
 		label: 'Recipe',
+	})
+})
+
+test('Settings steps over the code check a change of email passes through', () => {
+	expect(
+		back(
+			[
+				'/plan',
+				'/settings/profile',
+				'/settings/profile/change-email',
+				'/verify',
+				'/settings/profile',
+			],
+			settingsRootNav,
+		),
+	).toEqual({ type: 'pop', delta: 4, label: 'Plan' })
+})
+
+test('Settings and Upgrade do not go back to sign-in', () => {
+	expect(back(['/login', '/settings/profile'], settingsRootNav)).toEqual({
+		type: 'replace',
+		to: '/recipes',
+		label: 'Recipes',
+	})
+	expect(back(['/login', '/upgrade'], upgradeNav)).toEqual({
+		type: 'replace',
+		to: '/settings/profile',
+		label: 'Settings',
 	})
 })
 

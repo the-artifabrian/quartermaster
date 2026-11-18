@@ -554,8 +554,6 @@ test('a Recipe opened from the Plan goes back to the Plan where it was', async (
 		.getByRole('link', { name: 'Dish 12', exact: true })
 	await last.scrollIntoViewIfNeeded()
 	await hydrated(last)
-	const planScroll = await scrollY(page)
-	expect(planScroll).toBeGreaterThan(100)
 	const planIdx = await historyIdx(page)
 	await last.tap()
 	await expect(page).toHaveURL(`/recipes/${recipes[11]!.id}`)
@@ -563,9 +561,18 @@ test('a Recipe opened from the Plan goes back to the Plan where it was', async (
 	await backButton(page, 'Plan').tap()
 	await expect(page).toHaveURL(/\/plan/)
 	expect(await historyIdx(page)).toBe(planIdx)
-	// Back where it was: the Meal it opened is still on screen.
 	await expect(last).toBeInViewport()
-	expect(await scrollY(page)).toBeGreaterThan(planScroll / 2)
+	// The same place the browser's own Back restores. (Both land about 96px
+	// above where the tap was: the router saves the Plan's place as it
+	// leaves, not at the tap.)
+	const afterBack = await scrollY(page)
+	expect(afterBack).toBeGreaterThan(0)
+	await page.goForward()
+	await expect(page).toHaveURL(`/recipes/${recipes[11]!.id}`)
+	await page.goBack()
+	await expect(page).toHaveURL(/\/plan/)
+	await expect.poll(() => scrollY(page)).toBeGreaterThan(afterBack - 5)
+	expect(await scrollY(page)).toBeLessThan(afterBack + 5)
 })
 
 test('Back from a Recipe the tab bar restored returns to the filtered list where it was', async ({
@@ -856,6 +863,27 @@ test('Import has no Cancel of its own; the bar goes back', async ({
 	await importLink.tap()
 	await expect(page).toHaveURL(/\/recipes\/import/)
 	await expect(page.getByRole('button', { name: 'Cancel' })).toHaveCount(0)
+	await backButton(page, 'Recipes').tap()
+	await expect(page).toHaveURL('/recipes')
+})
+
+test('a Recipe reached by signing in from a deep link goes back to Recipes, not to sign-in', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createLongRecipe(user, 'Lentil soup')
+	await page.context().clearCookies()
+
+	await page.goto(`/recipes/${recipe.id}`)
+	await expect(page).toHaveURL(/\/login\?redirectTo=/)
+	const username = page.getByRole('textbox', { name: /username/i })
+	await hydrated(username)
+	await username.fill(user.username)
+	await page.getByLabel(/^password$/i).fill(user.username)
+	await page.getByRole('button', { name: 'Log in', exact: true }).click()
+	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+
 	await backButton(page, 'Recipes').tap()
 	await expect(page).toHaveURL('/recipes')
 })

@@ -62,8 +62,17 @@ function isMenuDetail(pathname: string) {
 	return MENU_DETAIL.test(pathname)
 }
 
+function isInTab(pathname: string, tab: string) {
+	return pathname === tab || pathname.startsWith(`${tab}/`)
+}
+
 function isRecipesTab(pathname: string) {
-	return pathname === '/recipes' || pathname.startsWith('/recipes/')
+	return isInTab(pathname, '/recipes')
+}
+
+/** A page of one of the tab bar's tabs: not sign-in, marketing, or Settings. */
+function isTabPage(pathname: string) {
+	return navItems.some((item) => isInTab(pathname, item.to))
 }
 
 function isSettingsSubpage(pathname: string) {
@@ -114,8 +123,9 @@ export function resolveBack({
 				return { type: 'pop', delta: idx - j, label: navLabel(previous) }
 			}
 			if (rule.stepsOver?.(previous, pathname)) continue
-			// Opened from another tab (a planned Recipe from the Plan).
-			if (outsideTab(previous)) {
+			// Opened from another tab (a planned Recipe from the Plan). Not from
+			// sign-in, which a deep link passes through on its way here.
+			if (outsideTab(previous) && isTabPage(previous)) {
 				return { type: 'pop', delta: idx - j, label: navLabel(previous) }
 			}
 			break
@@ -178,13 +188,14 @@ export const menuEditNav = (menuId: string): NavRule => ({
 export const menuNewNav: NavRule = { parent: '/recipes/menus' }
 
 /**
- * Settings opens from the avatar: on a tab root on phones, on any page on
- * desktop. It goes back to the page it was opened from.
+ * Settings opens from the avatar: on a tab root on phones, on any page of a
+ * tab on desktop. It goes back to the page it was opened from, over its own
+ * pages and the code check a change of email passes through.
  */
 export const settingsRootNav: NavRule = {
 	parent: '/recipes',
-	returnsTo: (p) => p !== '/settings/profile' && !isSettingsSubpage(p),
-	stepsOver: isSettingsSubpage,
+	returnsTo: isTabPage,
+	stepsOver: (p) => isSettingsSubpage(p) || p === '/verify',
 }
 
 export const settingsPageNav: NavRule = {
@@ -192,10 +203,11 @@ export const settingsPageNav: NavRule = {
 	stepsOver: isSettingsSubpage,
 }
 
-/** Upgrade opens from Settings, Import, or the Pro expiry notice on any page. */
+/** Upgrade opens from Settings, Import, or the Pro expiry notice on any page
+ * of a tab. */
 export const upgradeNav: NavRule = {
 	parent: '/settings/profile',
-	returnsTo: (p) => p !== '/upgrade',
+	returnsTo: isTabPage,
 }
 
 // The log of entries this document has shown. It lives in memory only:

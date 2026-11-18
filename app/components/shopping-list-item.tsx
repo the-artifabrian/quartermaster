@@ -2,11 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { useSpinDelay } from 'spin-delay'
 import { Button } from '#app/components/ui/button.tsx'
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from '#app/components/ui/dropdown-menu.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { type ShoppingListItem } from '#app/generated/prisma/client.ts'
 import { parseAmount } from '#app/utils/fractions.ts'
-import { cn, useDoubleCheck } from '#app/utils/misc.tsx'
+import { cn } from '#app/utils/misc.tsx'
 import {
 	getProduceCountDisplay,
 	isWeightUnit,
@@ -14,7 +21,11 @@ import {
 import { LATER, NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { type ShoppingItemDisplay } from '#app/utils/shopping-optimistic.ts'
 import { type useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
-import { HouseholdClientInput } from '#app/utils/household-client.tsx'
+import {
+	getHouseholdClientId,
+	HouseholdClientInput,
+} from '#app/utils/household-client.tsx'
+import { haptic } from '#app/utils/shell-bridge.ts'
 
 type ShoppingListItemCardProps = {
 	checks: ReturnType<typeof useShoppingChecks>
@@ -28,7 +39,11 @@ export function ShoppingListItemCard({
 	isVoiceAdded,
 }: ShoppingListItemCardProps) {
 	const [isEditing, setIsEditing] = useState(false)
-	const [showActions, setShowActions] = useState(false)
+	const [menuOpen, setMenuOpen] = useState(false)
+	const [confirmingDelete, setConfirmingDelete] = useState(false)
+	// Edit replaces the row, trigger included, so the closing menu has no
+	// trigger to hand focus back to; the edit field takes it instead.
+	const openingEdit = useRef(false)
 	const editFetcher = useFetcher()
 	const checkState = checks.state(item.id)
 	const isChecking = checkState === 'saving' || checkState === 'reconciling'
@@ -40,7 +55,6 @@ export function ShoppingListItemCard({
 	const moveFetcher = useFetcher()
 	const removeGeneratedFetcher = useFetcher()
 	const prevEditFetcherState = useRef(editFetcher.state)
-	const actionsRef = useRef<HTMLDivElement>(null)
 
 	// Close edit mode when fetcher transitions from submitting/loading → idle
 	useEffect(() => {
@@ -54,21 +68,6 @@ export function ShoppingListItemCard({
 		}
 		prevEditFetcherState.current = editFetcher.state
 	}, [editFetcher.state, editFetcher.data?.status, isEditing])
-
-	// Close actions menu on outside click
-	useEffect(() => {
-		if (!showActions) return
-		function handleClick(e: MouseEvent) {
-			if (
-				actionsRef.current &&
-				!actionsRef.current.contains(e.target as Node)
-			) {
-				setShowActions(false)
-			}
-		}
-		document.addEventListener('click', handleClick)
-		return () => document.removeEventListener('click', handleClick)
-	}, [showActions])
 
 	// Optimistic checked state
 	const optimisticChecked = item.checked
@@ -99,6 +98,14 @@ export function ShoppingListItemCard({
 			: null
 	const moveTarget = item.horizon === LATER ? NEXT_SHOP : LATER
 	const moveLabel = moveTarget === LATER ? 'Move to Later' : 'Move to Next shop'
+	const submitRowIntent = (
+		fetcher: ReturnType<typeof useFetcher>,
+		fields: Record<string, string>,
+	) =>
+		void fetcher.submit(
+			{ ...fields, itemId: item.id, originClientId: getHouseholdClientId() },
+			{ method: 'POST' },
+		)
 
 	if (isEditing) {
 		return (
@@ -174,7 +181,7 @@ export function ShoppingListItemCard({
 
 	return (
 		<div
-			className="group flex flex-wrap items-center gap-3 py-2.5"
+			className="group flex flex-wrap items-center gap-3"
 			role="group"
 			aria-label={`${item.name} shopping item`}
 			// A row added just now eases in (tailwind.css); the saved row that
@@ -190,8 +197,10 @@ export function ShoppingListItemCard({
 					aria-pressed={optimisticChecked}
 					aria-busy={isChecking || undefined}
 					aria-describedby={checkState ? `check-status-${item.id}` : undefined}
-					className="group/check flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
-					aria-label={optimisticChecked ? 'Uncheck item' : 'Check off item'}
+					// The padding sits on the button, not the row, so a tap anywhere
+					// in the row's height checks it off.
+					className="group/check flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-2.5 text-left select-none"
+					aria-label={`${optimisticChecked ? 'Uncheck' : 'Check off'} ${item.name}`}
 				>
 					<div
 						className={`flex size-6 shrink-0 items-center justify-center rounded border-2 transition-[scale,background-color,border-color] duration-150 ease-(--ease-micro) group-enabled/check:group-active/check:scale-[0.97] ${
@@ -251,87 +260,110 @@ export function ShoppingListItemCard({
 				</button>
 			</div>
 
-			{/* Overflow menu */}
-			<div ref={actionsRef} className="relative shrink-0">
-				<button
-					type="button"
-					onClick={() => setShowActions((v) => !v)}
-					disabled={Boolean(checkState)}
-					className="text-muted-foreground/40 hover:bg-muted hover:text-muted-foreground flex size-10 items-center justify-center rounded-full transition-colors"
-					aria-label="Item actions"
+			<DropdownMenu
+				modal={false}
+				open={menuOpen}
+				onOpenChange={(open) => {
+					setMenuOpen(open)
+					// Closing the menu disarms Delete, so a reopened menu needs
+					// two taps again.
+					if (!open) setConfirmingDelete(false)
+				}}
+			>
+				<DropdownMenuTrigger asChild disabled={Boolean(checkState)}>
+					<button
+						type="button"
+						className="text-muted-foreground/70 hover:bg-muted hover:text-foreground active:bg-muted flex size-11 shrink-0 items-center justify-center rounded-full transition-colors"
+						aria-label="Item actions"
+					>
+						<Icon
+							name={
+								isChecking && showCheckSpinner ? 'update' : 'dots-horizontal'
+							}
+							className={cn(
+								'size-4',
+								isChecking && showCheckSpinner && 'motion-safe:animate-spin',
+							)}
+							aria-hidden
+						/>
+					</button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent
+					align="end"
+					className="min-w-48"
+					onCloseAutoFocus={(event) => {
+						if (!openingEdit.current) return
+						openingEdit.current = false
+						event.preventDefault()
+					}}
 				>
-					<Icon
-						name={isChecking && showCheckSpinner ? 'update' : 'dots-horizontal'}
-						className={cn(
-							'size-4',
-							isChecking && showCheckSpinner && 'motion-safe:animate-spin',
-						)}
-						aria-hidden
-					/>
-				</button>
-				{showActions && (
-					<div className="bg-card shadow-warm-md animate-fade-up-reveal absolute right-0 z-10 mt-1 min-w-44 rounded-lg border p-1">
-						<moveFetcher.Form method="POST">
-							<HouseholdClientInput />
-							<input type="hidden" name="intent" value="move" />
-							<input type="hidden" name="itemId" value={item.id} />
-							<input type="hidden" name="horizon" value={moveTarget} />
-							<button
-								type="submit"
-								disabled={moveFetcher.state !== 'idle'}
-								className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-10 w-full items-center gap-2 rounded-md px-3 text-sm transition-colors disabled:opacity-50"
-								aria-label={moveLabel}
+					<DropdownMenuItem
+						disabled={moveFetcher.state !== 'idle'}
+						onSelect={() =>
+							submitRowIntent(moveFetcher, {
+								intent: 'move',
+								horizon: moveTarget,
+							})
+						}
+					>
+						<Icon
+							name={moveTarget === LATER ? 'arrow-down' : 'arrow-up'}
+							size="sm"
+						/>
+						{moveLabel}
+					</DropdownMenuItem>
+					{!optimisticChecked && (
+						<>
+							<DropdownMenuItem
+								onSelect={() => {
+									openingEdit.current = true
+									setIsEditing(true)
+								}}
 							>
-								<Icon
-									name={moveTarget === LATER ? 'arrow-down' : 'arrow-up'}
-									size="sm"
-								/>
-								{moveLabel}
-							</button>
-						</moveFetcher.Form>
-						{!optimisticChecked && (
-							<div className="border-border/50 flex items-center justify-end gap-1 border-t pt-1">
-								<button
-									type="button"
-									onClick={() => {
-										setIsEditing(true)
-										setShowActions(false)
-									}}
-									className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-10 items-center justify-center rounded-md transition-colors"
-									aria-label="Edit item"
+								<Icon name="pencil-1" size="sm" />
+								Edit item
+							</DropdownMenuItem>
+							{item.source === 'manual' && display.combined && (
+								<DropdownMenuItem
+									onSelect={() =>
+										submitRowIntent(removeGeneratedFetcher, {
+											intent: 'removeGeneratedAmount',
+										})
+									}
 								>
-									<Icon name="pencil-1" size="sm" />
-								</button>
-								{item.source === 'manual' && display.combined && (
-									<removeGeneratedFetcher.Form method="POST">
-										<HouseholdClientInput />
-										<input
-											type="hidden"
-											name="intent"
-											value="removeGeneratedAmount"
-										/>
-										<input type="hidden" name="itemId" value={item.id} />
-										<button
-											type="submit"
-											className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-10 items-center justify-center rounded-md transition-colors"
-											aria-label="Remove generated amount"
-										>
-											<Icon name="reset" size="sm" />
-										</button>
-									</removeGeneratedFetcher.Form>
+									<Icon name="reset" size="sm" />
+									Remove generated amount
+								</DropdownMenuItem>
+							)}
+							<DropdownMenuSeparator />
+							<DropdownMenuItem
+								onSelect={(event) => {
+									if (!confirmingDelete) {
+										event.preventDefault()
+										haptic('warning')
+										setConfirmingDelete(true)
+										return
+									}
+									submitRowIntent(deleteFetcher, { intent: 'delete' })
+								}}
+								className={cn(
+									'focus:text-destructive',
+									confirmingDelete && 'text-destructive font-medium',
 								)}
-								<DeleteItemForm fetcher={deleteFetcher} itemId={item.id} />
-							</div>
-						)}
-					</div>
-				)}
-			</div>
+							>
+								<Icon name="trash" size="sm" />
+								{confirmingDelete ? 'Delete?' : 'Delete item'}
+							</DropdownMenuItem>
+						</>
+					)}
+				</DropdownMenuContent>
+			</DropdownMenu>
 			{checkState && (
 				<div
 					id={`check-status-${item.id}`}
 					className={
 						checkState === 'failed'
-							? 'text-muted-foreground w-full pl-9 text-sm'
+							? 'text-muted-foreground w-full pb-2.5 pl-9 text-sm'
 							: 'sr-only'
 					}
 					role={checkState === 'failed' ? 'alert' : 'status'}
@@ -383,43 +415,5 @@ function ProduceCountLine({
 		<>
 			{quantity} {unit}
 		</>
-	)
-}
-
-// Mounted with the row's action menu, so closing the menu disarms it: iOS
-// Safari fires no blur when the user taps elsewhere, and an armed button
-// that survived a reopen would delete on one tap.
-function DeleteItemForm({
-	fetcher,
-	itemId,
-}: {
-	fetcher: ReturnType<typeof useFetcher>
-	itemId: string
-}) {
-	const deleteCheck = useDoubleCheck()
-	return (
-		<fetcher.Form method="POST">
-			<HouseholdClientInput />
-			<input type="hidden" name="intent" value="delete" />
-			<input type="hidden" name="itemId" value={itemId} />
-			<button
-				{...deleteCheck.getButtonProps({
-					type: 'submit',
-					'aria-label': 'Delete item',
-					className: cn(
-						'flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-md transition-colors',
-						deleteCheck.doubleCheck
-							? 'bg-destructive text-destructive-foreground px-3 text-sm font-medium'
-							: 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive',
-					),
-				})}
-			>
-				{/* The icon stays mounted when armed: unmounting the tapped node
-				    would make the menu's outside-click check see a detached
-				    target and close the menu. */}
-				<Icon name="trash" size="sm" />
-				{deleteCheck.doubleCheck ? <span>Delete?</span> : null}
-			</button>
-		</fetcher.Form>
 	)
 }

@@ -740,6 +740,7 @@ function LaterQuickAdd() {
 					}}
 					placeholder="Add to Later..."
 					enterKeyHint="go"
+					autoCapitalize="none"
 					className="h-9 min-w-0 flex-1"
 				/>
 				<button
@@ -801,7 +802,7 @@ function ClearCheckedForm({
 	const dc = useDoubleCheck()
 	const sectionLabel = horizon === LATER ? 'Later' : 'Next shop'
 	return (
-		<div className="animate-slide-up-reveal flex items-center justify-center pt-4">
+		<div className="animate-slide-up-reveal flex items-center justify-center pt-1">
 			<Form method="POST" className="inline">
 				<HouseholdClientInput />
 				<input type="hidden" name="intent" value="clear-checked" />
@@ -818,7 +819,8 @@ function ClearCheckedForm({
 					pending={pending}
 					pendingLabel={`Clearing checked items from ${sectionLabel}`}
 					className={cn(
-						'h-auto p-0 text-sm underline underline-offset-2',
+						// 44px tall for the thumb; pt-1 above keeps the link where it was.
+						'min-h-11 px-3 py-0 text-sm underline underline-offset-2',
 						dc.doubleCheck
 							? 'text-destructive font-medium'
 							: 'text-muted-foreground hover:text-foreground',
@@ -1120,6 +1122,7 @@ export default function ShoppingListRoute({
 									}}
 									placeholder="Add an item..."
 									enterKeyHint="go"
+									autoCapitalize="none"
 									className="h-10 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
 								/>
 							</div>
@@ -1188,6 +1191,8 @@ export default function ShoppingListRoute({
 										onChange={(e) => setQaUnit(e.target.value)}
 										placeholder="Unit"
 										enterKeyHint="go"
+										autoCapitalize="none"
+										autoCorrect="off"
 										className="h-8 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
 									/>
 								</div>

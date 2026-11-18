@@ -59,7 +59,9 @@ for (const outcome of ['deleted', 'signed out']) {
 		if (outcome === 'deleted')
 			await prisma.shoppingListItem.delete({ where: { id: rice.id } })
 		else await prisma.session.deleteMany({ where: { userId: user.id } })
-		await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+		await riceRow(page)
+			.getByRole('button', { name: /^Check off / })
+			.click()
 		await expect(page.getByRole('alert')).toContainText(
 			outcome === 'deleted' ? 'This item was removed' : 'Reload Shopping',
 		)
@@ -69,7 +71,7 @@ for (const outcome of ['deleted', 'signed out']) {
 		if (outcome === 'deleted') await expect(riceRow(page)).toBeHidden()
 		else
 			await expect(
-				riceRow(page).getByRole('button', { name: 'Check off item' }),
+				riceRow(page).getByRole('button', { name: /^Check off / }),
 			).toBeVisible()
 	})
 }
@@ -85,10 +87,12 @@ test('a failed write is retried once after confirming its original requirement',
 		requests.push(route.request().method())
 		return requests.length === 1 ? route.abort() : route.continue()
 	})
-	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+	await riceRow(page)
+		.getByRole('button', { name: /^Check off / })
+		.click()
 	await expect(riceRow(page).getByRole('status')).toBeHidden()
 	await expect(
-		riceRow(page).getByRole('button', { name: 'Uncheck item' }),
+		riceRow(page).getByRole('button', { name: /^Uncheck / }),
 	).toBeVisible()
 	expect(requests).toEqual(['POST', 'GET', 'POST'])
 })
@@ -100,7 +104,9 @@ test('a failed check yields to changed household data on background refresh', as
 	const { rice } = await setup(await login())
 	await openShopping(page)
 	await page.route('**/resources/shopping-check?*', (route) => route.abort())
-	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+	await riceRow(page)
+		.getByRole('button', { name: /^Check off / })
+		.click()
 	await expect(riceRow(page).getByRole('alert')).toBeVisible()
 	await prisma.shoppingListItem.update({
 		where: { id: rice.id },
@@ -111,7 +117,7 @@ test('a failed check yields to changed household data on background refresh', as
 	})
 	await expect(riceRow(page)).toContainText('600 g')
 	await expect(
-		riceRow(page).getByRole('button', { name: 'Check off item' }),
+		riceRow(page).getByRole('button', { name: /^Check off / }),
 	).toBeVisible()
 	await expect(
 		riceRow(page).getByRole('button', { name: 'Retry' }),
@@ -127,7 +133,9 @@ test('failed checks survive refresh and Clear checked; navigation warns only wit
 	await page.setViewportSize({ width: 390, height: 844 })
 	await openShopping(page)
 	await page.route('**/resources/shopping-check?*', (route) => route.abort())
-	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+	await riceRow(page)
+		.getByRole('button', { name: /^Check off / })
+		.click()
 	await expect(riceRow(page).getByRole('alert')).toContainText(
 		'Couldn’t confirm this check',
 	)
@@ -184,7 +192,9 @@ test('leaving with an unconfirmed check takes a second tap to the same tab', asy
 	await page.setViewportSize({ width: 390, height: 844 })
 	await openShopping(page)
 	await page.route('**/resources/shopping-check?*', (route) => route.abort())
-	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+	await riceRow(page)
+		.getByRole('button', { name: /^Check off / })
+		.click()
 	await expect(riceRow(page).getByRole('alert')).toBeVisible()
 
 	const tab = (name: string) =>
@@ -200,7 +210,7 @@ test('leaving with an unconfirmed check takes a second tap to the same tab', asy
 	// A new pending check gets its own warning.
 	await page
 		.getByRole('group', { name: 'Bread shopping item' })
-		.getByRole('button', { name: 'Uncheck item' })
+		.getByRole('button', { name: /^Uncheck / })
 		.click()
 	await tab('Recipes').click()
 	await expect(page).toHaveURL('/shopping')
@@ -237,11 +247,13 @@ for (const laterChange of [false, true]) {
 			}
 			await route.abort()
 		})
-		await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+		await riceRow(page)
+			.getByRole('button', { name: /^Check off / })
+			.click()
 		await expect(riceRow(page).getByRole('status')).toBeHidden()
 		await expect(
 			riceRow(page).getByRole('button', {
-				name: laterChange ? 'Check off item' : 'Uncheck item',
+				name: laterChange ? /^Check off / : /^Uncheck /,
 				exact: true,
 			}),
 		).toHaveAttribute('aria-pressed', String(!laterChange))
@@ -285,9 +297,13 @@ test('rapid taps coalesce while background refresh cannot overwrite pending inte
 		await held
 		await route.fulfill({ response })
 	})
-	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+	await riceRow(page)
+		.getByRole('button', { name: /^Check off / })
+		.click()
 	await didCommit
-	await riceRow(page).getByRole('button', { name: 'Uncheck item' }).click()
+	await riceRow(page)
+		.getByRole('button', { name: /^Uncheck / })
+		.click()
 	await page.request.post('/shopping', {
 		form: { intent: 'add', name: 'Apples', originClientId: 'other-device' },
 	})
@@ -295,12 +311,12 @@ test('rapid taps coalesce while background refresh cannot overwrite pending inte
 		page.getByRole('group', { name: 'Apples shopping item' }),
 	).toBeVisible()
 	await expect(
-		riceRow(page).getByRole('button', { name: 'Check off item' }),
+		riceRow(page).getByRole('button', { name: /^Check off / }),
 	).toHaveAttribute('aria-pressed', 'false')
 	await expect(riceRow(page).getByRole('status')).toBeVisible()
 	expect((await riceRow(page).boundingBox())!.height).toBe(rowHeight)
 	await expect(
-		riceRow(page).getByRole('button', { name: 'Check off item' }),
+		riceRow(page).getByRole('button', { name: /^Check off / }),
 	).toHaveAttribute('aria-busy', 'true')
 	await page.screenshot({
 		path: test.info().outputPath('pending-check.png'),
@@ -336,9 +352,13 @@ test('reversing an uncertain check cannot be undone by its delayed original requ
 		await failed.promise
 		await route.abort()
 	})
-	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+	await riceRow(page)
+		.getByRole('button', { name: /^Check off / })
+		.click()
 	await expect.poll(() => delayedForm).toBeDefined()
-	await riceRow(page).getByRole('button', { name: 'Uncheck item' }).click()
+	await riceRow(page)
+		.getByRole('button', { name: /^Uncheck / })
+		.click()
 	failed.resolve()
 	await expect(riceRow(page).getByRole('status')).toBeHidden()
 	await expect(riceRow(page).getByRole('alert')).toBeHidden()
@@ -353,7 +373,7 @@ test('reversing an uncertain check cannot be undone by its delayed original requ
 		}),
 	).toEqual({ checked: false })
 	await expect(
-		riceRow(page).getByRole('button', { name: 'Check off item' }),
+		riceRow(page).getByRole('button', { name: /^Check off / }),
 	).toHaveAttribute('aria-pressed', 'false')
 })
 
@@ -371,7 +391,9 @@ test('a late successful response yields to a newer requirement already refreshed
 		await release.promise
 		await route.fulfill({ response })
 	})
-	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+	await riceRow(page)
+		.getByRole('button', { name: /^Check off / })
+		.click()
 	await committed.promise
 	await prisma.shoppingListItem.update({
 		where: { id: rice.id },
@@ -389,7 +411,7 @@ test('a late successful response yields to a newer requirement already refreshed
 	await expect(riceRow(page).getByRole('status')).toBeHidden()
 	await expect(riceRow(page)).toContainText('600 g')
 	await expect(
-		riceRow(page).getByRole('button', { name: 'Check off item' }),
+		riceRow(page).getByRole('button', { name: /^Check off / }),
 	).toHaveAttribute('aria-pressed', 'false')
 	await expect(page.getByRole('alert')).toContainText('This item changed')
 })
@@ -407,7 +429,9 @@ test('stalled writes have a deadline and stop after one unsuccessful automatic r
 		if (route.request().method() === 'GET') return route.continue()
 		// Intentionally never answer either write; the browser must abort it.
 	})
-	await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+	await riceRow(page)
+		.getByRole('button', { name: /^Check off / })
+		.click()
 	await expect.poll(() => requests).toEqual(['POST'])
 	await page.clock.fastForward(8_100)
 	await expect.poll(() => requests).toEqual(['POST', 'GET', 'POST'])
@@ -476,11 +500,13 @@ for (const fallback of [false, true]) {
 				originRefreshes++
 		}
 		page.on('request', countOriginRefresh)
-		await riceRow(page).getByRole('button', { name: 'Check off item' }).click()
+		await riceRow(page)
+			.getByRole('button', { name: /^Check off / })
+			.click()
 		await expect(riceRow(page).getByRole('status')).toBeHidden()
 		await catchUp()
 		await expect(
-			riceRow(phone).getByRole('button', { name: 'Uncheck item' }),
+			riceRow(phone).getByRole('button', { name: /^Uncheck / }),
 		).toBeVisible()
 		expect(originRefreshes).toBe(0)
 		await expect(
@@ -506,7 +532,7 @@ test.describe('the check square on a phone', () => {
 	const square = (page: Page, name: string) =>
 		page
 			.getByRole('group', { name: `${name} shopping item` })
-			.getByRole('button', { name: /^(Check off|Uncheck) item$/ })
+			.getByRole('button', { name: /^(Check off|Uncheck) / })
 			.locator('> div')
 			.first()
 	const scale = (page: Page, name: string) =>
@@ -538,7 +564,7 @@ test.describe('the check square on a phone', () => {
 		await page.mouse.up()
 		await expect.poll(() => scale(page, 'Rice')).toBe(1)
 		await expect(
-			riceRow(page).getByRole('button', { name: 'Check off item' }),
+			riceRow(page).getByRole('button', { name: /^Check off / }),
 		).toHaveAttribute('aria-pressed', 'false')
 		expect(
 			(
@@ -573,7 +599,7 @@ test.describe('the check square on a phone', () => {
 		await page.setViewportSize({ width: 390, height: 844 })
 		const pending = page
 			.getByRole('group', { name: 'Bananas shopping item' })
-			.getByRole('button', { name: 'Check off item' })
+			.getByRole('button', { name: /^Check off / })
 		await expect(pending).toBeDisabled()
 		const box = (await square(page, 'Bananas').boundingBox())!
 		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)

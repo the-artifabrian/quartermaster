@@ -119,14 +119,12 @@ function isPlainClick(event: ReactMouseEvent<HTMLAnchorElement>) {
  */
 function useTitleUnderBar(barRef: React.RefObject<HTMLElement | null>) {
 	const location = useLocation()
-	const [state, setState] = useState({ title: '', under: false })
+	const [state, setState] = useState({ key: '', title: '', under: false })
 	useEffect(() => {
+		const key = location.key
 		const bar = barRef.current
 		const heading = document.querySelector('#main-content h1')
-		if (!bar || !heading) {
-			setState({ title: '', under: false })
-			return
-		}
+		if (!bar || !heading) return
 		let observer: IntersectionObserver | null = null
 		const observe = () => {
 			observer?.disconnect()
@@ -145,6 +143,7 @@ function useTitleUnderBar(barRef: React.RefObject<HTMLElement | null>) {
 				([entry]) => {
 					if (!entry) return
 					setState({
+						key,
 						title: heading.textContent?.trim() ?? '',
 						under:
 							!entry.isIntersecting && entry.boundingClientRect.top < barBottom,
@@ -163,7 +162,9 @@ function useTitleUnderBar(barRef: React.RefObject<HTMLElement | null>) {
 			document.documentElement.style.removeProperty('--nav-bar-bottom')
 		}
 	}, [barRef, location.key])
-	return state
+	// The bar outlives the page: a reading taken on the page before (a
+	// scrolled Recipe, before its Edit) does not show on this one.
+	return state.key === location.key ? state : { title: '', under: false }
 }
 
 const barTextButton =
@@ -180,6 +181,14 @@ export function NavBar({ rule, form }: NavBarConfig) {
 		() => saveBlocked,
 		() => false,
 	)
+	// The history entry this page committed on. The browser's own index moves
+	// as soon as a pop starts, while this page stays up until the next one has
+	// loaded.
+	const entry = useRef<{ key: string; idx: number | null } | null>(null)
+	if (entry.current?.key !== location.key) {
+		entry.current = { key: location.key, idx: historyIndex() }
+	}
+	const committedIdx = entry.current.idx
 	// The server cannot see the history, so it and the first client render
 	// label Back with the parent; the client re-renders with the log.
 	const log = useSyncExternalStore(
@@ -188,7 +197,7 @@ export function NavBar({ rule, form }: NavBarConfig) {
 		getServerHistoryLog,
 	)
 	const label = resolveBack({
-		idx: log === getServerHistoryLog() ? null : historyIndex(),
+		idx: log === getServerHistoryLog() ? null : committedIdx,
 		log,
 		pathname: location.pathname,
 		rule,
@@ -196,8 +205,14 @@ export function NavBar({ rule, form }: NavBarConfig) {
 
 	const onBack = (event: ReactMouseEvent<HTMLAnchorElement>) => {
 		if (!isPlainClick(event)) return
+		// A second tap while the first pop is still loading would go back
+		// again, or replace the page it is going to.
+		if (historyIndex() !== committedIdx) {
+			event.preventDefault()
+			return
+		}
 		const target = resolveBack({
-			idx: historyIndex(),
+			idx: committedIdx,
 			log: getHistoryLog(),
 			pathname: location.pathname,
 			rule,

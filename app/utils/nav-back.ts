@@ -11,6 +11,7 @@
  *
  * The browser does not say what is behind the current entry, so the app keeps
  * its own log of the entries it has shown, by React Router's history index.
+ * Entries from before a reload or a full page load are unknown.
  */
 
 export type HistoryEntry = { pathname: string; search: string }
@@ -168,29 +169,16 @@ export const upgradeNav: NavRule = {
 	returnsTo: (p) => p === '/recipes/import',
 }
 
-// The log of entries this tab has shown. It lives in sessionStorage so a
-// reload keeps it: the browser keeps the history across one, and React
-// Router keeps its index in `history.state`.
+// The log of entries this document has shown. It lives in memory only:
+// React Router numbers a new document's entries from 0 again, so a log kept
+// across documents (a reload, a full page load) would describe the wrong
+// pages, and Back falls back to the parent instead.
 
-const STORAGE_KEY = 'qm-history-log'
 const EMPTY: HistoryLog = Object.freeze({})
-let currentLog: HistoryLog | null = null
+let currentLog: HistoryLog = EMPTY
 const listeners = new Set<() => void>()
 
-function loadLog(): HistoryLog {
-	try {
-		const raw = window.sessionStorage.getItem(STORAGE_KEY)
-		const parsed: unknown = raw ? JSON.parse(raw) : null
-		if (parsed && typeof parsed === 'object') return parsed as HistoryLog
-	} catch {
-		// Storage blocked or garbled: start empty, Back falls back to parents.
-	}
-	return EMPTY
-}
-
 export function getHistoryLog(): HistoryLog {
-	if (typeof window === 'undefined') return EMPTY
-	currentLog ??= loadLog()
 	return currentLog
 }
 
@@ -208,8 +196,7 @@ export function subscribeHistoryLog(listener: () => void) {
 export function recordHistory(
 	entry: HistoryEntry & { idx: number; action: 'PUSH' | 'REPLACE' | 'POP' },
 ) {
-	const log = getHistoryLog()
-	const known = log[entry.idx]
+	const known = currentLog[entry.idx]
 	if (
 		entry.action !== 'PUSH' &&
 		known?.pathname === entry.pathname &&
@@ -217,12 +204,7 @@ export function recordHistory(
 	) {
 		return
 	}
-	currentLog = recordHistoryEntry(log, entry)
-	try {
-		window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(currentLog))
-	} catch {
-		// The in-memory log still serves this page load.
-	}
+	currentLog = recordHistoryEntry(currentLog, entry)
 	for (const listener of listeners) listener()
 }
 

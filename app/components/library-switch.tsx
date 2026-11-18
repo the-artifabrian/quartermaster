@@ -6,9 +6,13 @@ type Library = 'recipes' | 'menus'
 
 const PATHS = { recipes: '/recipes', menus: '/recipes/menus' } as const
 
-// History entries whose arrival has already slid the pill, so Back to one
-// does not slide it again.
-const slidEntries = new Set<string>()
+// History entries this switch has already arrived on, so Back to one (or a
+// reload, which keeps its state) does not slide the pill again.
+const seenEntries = new Set<string>()
+// False until a switch has mounted in this document. The first one may be the
+// hydration render, which has to match the server's (no slide), and a
+// switch's state only means "just switched" once one has been on screen.
+let switchMounted = false
 
 /**
  * List-local switch between the Recipes and Menus libraries. Both live in the
@@ -19,11 +23,12 @@ export function LibrarySwitch({ active }: { active: Library }) {
 	const location = useLocation()
 	const state = location.state as { librarySwitchFrom?: Library } | null
 	const from =
-		state?.librarySwitchFrom && !slidEntries.has(location.key)
+		switchMounted && state?.librarySwitchFrom && !seenEntries.has(location.key)
 			? PATHS[state.librarySwitchFrom]
 			: undefined
 	useEffect(() => {
-		if (from) slidEntries.add(location.key)
+		switchMounted = true
+		if (state?.librarySwitchFrom) seenEntries.add(location.key)
 		// Only the arrival counts; later renders of this entry don't slide.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [])

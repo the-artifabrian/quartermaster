@@ -10,8 +10,10 @@ import { cn } from '#app/utils/misc.tsx'
  * reduced motion it moves without sliding.
  *
  * - `SegmentedControl` picks a value in place. `role="tablist"` when it
- *   switches what the page shows (each option a tab), `"radiogroup"` when it
- *   picks a setting. Arrow keys move the selection, as in a native control.
+ *   switches what the page shows (each option a tab; give it an `idPrefix`
+ *   and mark the shown panel with `tabPanelProps`), `"radiogroup"` when it
+ *   picks a setting. Arrow keys move the selection, as in a native control:
+ *   Left/Right (and Home/End) for tabs, any arrow for radios.
  * - `SegmentedLinks` is the same look for links between routes; the current
  *   one carries `aria-current="page"`.
  */
@@ -20,6 +22,7 @@ export function SegmentedControl<Value extends string>({
 	value,
 	onValueChange,
 	role = 'radiogroup',
+	idPrefix,
 	className,
 	...props
 }: {
@@ -27,6 +30,8 @@ export function SegmentedControl<Value extends string>({
 	value: Value
 	onValueChange: (value: Value) => void
 	role?: 'tablist' | 'radiogroup'
+	/** Ties each tab to its panel: see `tabPanelProps`. */
+	idPrefix?: string
 	className?: string
 	'aria-label': string
 }) {
@@ -35,17 +40,25 @@ export function SegmentedControl<Value extends string>({
 		0,
 		options.findIndex((option) => option.value === value),
 	)
+	const tabs = role === 'tablist'
 
 	function onKeyDown(event: React.KeyboardEvent) {
-		const step =
-			event.key === 'ArrowRight' || event.key === 'ArrowDown'
-				? 1
-				: event.key === 'ArrowLeft' || event.key === 'ArrowUp'
-					? -1
-					: 0
-		if (step === 0) return
+		const last = options.length - 1
+		const keys: Record<string, number | undefined> = {
+			ArrowRight: (selectedIndex + 1) % options.length,
+			ArrowLeft: (selectedIndex + last) % options.length,
+			Home: 0,
+			End: last,
+			...(tabs
+				? {}
+				: {
+						ArrowDown: (selectedIndex + 1) % options.length,
+						ArrowUp: (selectedIndex + last) % options.length,
+					}),
+		}
+		const next = keys[event.key]
+		if (next === undefined) return
 		event.preventDefault()
-		const next = (selectedIndex + step + options.length) % options.length
 		onValueChange(options[next]!.value)
 		buttons.current[next]?.focus()
 	}
@@ -54,6 +67,7 @@ export function SegmentedControl<Value extends string>({
 		<div
 			role={role}
 			aria-label={props['aria-label']}
+			aria-orientation={tabs ? 'horizontal' : undefined}
 			onKeyDown={onKeyDown}
 			className={cn(trackClassName, className)}
 			style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}
@@ -68,9 +82,17 @@ export function SegmentedControl<Value extends string>({
 							buttons.current[index] = element
 						}}
 						type="button"
-						role={role === 'tablist' ? 'tab' : 'radio'}
-						{...(role === 'tablist'
-							? { 'aria-selected': selected }
+						role={tabs ? 'tab' : 'radio'}
+						{...(tabs
+							? {
+									'aria-selected': selected,
+									id: idPrefix ? tabId(idPrefix, option.value) : undefined,
+									// Only the shown panel is on the page.
+									'aria-controls':
+										idPrefix && selected
+											? panelId(idPrefix, option.value)
+											: undefined,
+								}
 							: { 'aria-checked': selected })}
 						tabIndex={selected ? 0 : -1}
 						onClick={() => onValueChange(option.value)}
@@ -82,6 +104,23 @@ export function SegmentedControl<Value extends string>({
 			})}
 		</div>
 	)
+}
+
+/** Props for the panel a `SegmentedControl` tab shows. */
+export function tabPanelProps(idPrefix: string, value: string) {
+	return {
+		role: 'tabpanel',
+		id: panelId(idPrefix, value),
+		'aria-labelledby': tabId(idPrefix, value),
+	} as const
+}
+
+function tabId(idPrefix: string, value: string) {
+	return `${idPrefix}-tab-${value}`
+}
+
+function panelId(idPrefix: string, value: string) {
+	return `${idPrefix}-panel-${value}`
 }
 
 export function SegmentedLinks({

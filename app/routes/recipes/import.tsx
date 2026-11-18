@@ -5,7 +5,10 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { Label } from '#app/components/ui/label.tsx'
-import { SegmentedControl } from '#app/components/ui/segmented-control.tsx'
+import {
+	SegmentedControl,
+	tabPanelProps,
+} from '#app/components/ui/segmented-control.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useFitFileInput } from '#app/utils/downscale-image.ts'
@@ -201,6 +204,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 			>
 				<SegmentedControl
 					role="tablist"
+					idPrefix="import"
 					aria-label="Import from"
 					value={visibleTab}
 					onValueChange={setActiveTab}
@@ -217,7 +221,12 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				{/* URL tab */}
 				{visibleTab === 'url' && (
 					// The bare path, so a shared ?url= never outlives a submit.
-					<Form method="POST" action="/recipes/import" className="space-y-4">
+					<Form
+						{...tabPanelProps('import', 'url')}
+						method="POST"
+						action="/recipes/import"
+						className="space-y-4"
+					>
 						<input type="hidden" name="intent" value="fetch" />
 						<div className="space-y-2">
 							<Label htmlFor="url">Recipe URL</Label>
@@ -251,7 +260,11 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 
 				{/* Text tab */}
 				{visibleTab === 'text' && (
-					<Form method="POST" className="space-y-4">
+					<Form
+						{...tabPanelProps('import', 'text')}
+						method="POST"
+						className="space-y-4"
+					>
 						<div className="space-y-2">
 							<Label htmlFor="rawText">Recipe text</Label>
 							<Textarea
@@ -307,6 +320,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				{/* Image tab */}
 				{visibleTab === 'image' && (
 					<Form
+						{...tabPanelProps('import', 'image')}
 						method="POST"
 						encType="multipart/form-data"
 						className="space-y-4"

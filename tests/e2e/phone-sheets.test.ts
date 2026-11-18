@@ -36,8 +36,14 @@ const sheetWidth = (page: Page) =>
  */
 async function recordSheetExits(page: Page) {
 	await page.evaluate(() => {
-		const record = window as unknown as { sheetExits: number }
+		const record = window as unknown as {
+			sheetExits: number
+			sheetExitsReachable: boolean[]
+		}
 		record.sheetExits = 0
+		// Whether each leaving sheet could still be reached (taps, Tab,
+		// VoiceOver): a copy playing the exit must not be.
+		record.sheetExitsReachable = []
 		new MutationObserver((mutations) => {
 			for (const mutation of mutations) {
 				const target = mutation.target as Element
@@ -47,6 +53,10 @@ async function recordSheetExits(page: Page) {
 					target.isConnected
 				) {
 					record.sheetExits++
+					const root = target.closest<HTMLElement>('[data-bottom-sheet]')!
+					record.sheetExitsReachable.push(
+						!root.inert && root.getAttribute('aria-hidden') !== 'true',
+					)
 				}
 			}
 		}).observe(document.body, {
@@ -59,6 +69,20 @@ async function recordSheetExits(page: Page) {
 
 const sheetExits = (page: Page) =>
 	page.evaluate(() => (window as unknown as { sheetExits: number }).sheetExits)
+
+const sheetExitsReachable = (page: Page) =>
+	page.evaluate(
+		() =>
+			(window as unknown as { sheetExitsReachable: boolean[] })
+				.sheetExitsReachable,
+	)
+
+/** True when a row draws its inset line (`::before`). */
+const drawsInsetLine = (row: Locator) =>
+	row.evaluate((element) => {
+		const line = getComputedStyle(element, '::before')
+		return line.content !== 'none' && line.borderTopWidth === '1px'
+	})
 
 /**
  * Slows CSS transitions tenfold, so a sheet's exit lasts until BottomSheet's
@@ -628,6 +652,33 @@ test.describe('on a desktop', () => {
 		).toBeVisible()
 		await expect(page.getByRole('dialog')).toHaveCount(0)
 	})
+
+	test('an Add Recipe search in progress stays when Edit details opens', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const miso = await createRecipe(user, 'Miso Soup')
+		await createRecipe(user, 'Steamed Rice')
+		const { weekStart } = await planMeal(user, miso)
+
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const desktop = page.getByTestId('desktop-plan')
+		const search = desktop.getByPlaceholder('Search recipes...')
+		await expect(async () => {
+			await desktop
+				.getByRole('button', { name: 'Add Recipe to Miso Soup' })
+				.click()
+			await expect(search).toBeVisible({ timeout: 1000 })
+		}).toPass()
+		await search.fill('ric')
+		await desktop
+			.getByRole('button', { name: 'Meal actions for Miso Soup' })
+			.click()
+		await page.getByRole('menuitem', { name: 'Edit details' }).click()
+		await expect(desktop.getByLabel('Guests')).toBeVisible()
+		await expect(search).toHaveValue('ric')
+	})
 })
 
 test.describe('Plan Meals as flat rows', () => {
@@ -945,10 +996,14 @@ test.describe('sheets while they come and go', () => {
 		await editDetails.tap()
 		const sheet = page.getByRole('dialog', { name: 'Edit details' })
 		await expectBottomSheet(page, sheet)
-		await sheet.getByRole('heading', { name: 'Edit details' }).tap()
+		const title = sheet.getByRole('heading', { name: 'Edit details' })
+		await title.tap()
 		const focusInSheet = () =>
 			sheet.evaluate((dialog) => dialog.contains(document.activeElement))
 		expect(await focusInSheet()).toBe(true)
+		await page.keyboard.press('Tab')
+		await expect(sheet.getByRole('button', { name: 'Close' })).toBeFocused()
+		await title.tap()
 		await page.keyboard.press('Shift+Tab')
 		expect(await focusInSheet()).toBe(true)
 		await expect(sheet.getByRole('button', { name: 'Save' })).toBeFocused()
@@ -994,6 +1049,9 @@ test.describe('sheets while they come and go', () => {
 		).toBeHidden({ timeout: 15_000 })
 		await expect(sheet).toBeHidden()
 		expect(await sheetExits(page)).toBe(1)
+		// The copy that played it was out of reach, and is gone after.
+		expect(await sheetExitsReachable(page)).toEqual([false])
+		await expect(page.locator('[data-bottom-sheet]')).toHaveCount(0)
 		await other.close()
 	})
 
@@ -1125,9 +1183,7 @@ test('removing the first Recipe of a Meal takes the inset line above the next on
 	const riceRow = mobile
 		.getByRole('link', { name: 'Rice', exact: true })
 		.locator('xpath=ancestor::*[@data-row-collapse][1]')
-	const insetLine = () =>
-		riceRow.evaluate((row) => getComputedStyle(row, '::before').borderTopColor)
-	expect(await insetLine()).not.toBe('rgba(0, 0, 0, 0)')
+	expect(await drawsInsetLine(riceRow)).toBe(true)
 	await tapUntil(
 		mobile.getByRole('button', { name: 'Remove Dal from this meal' }),
 		() =>
@@ -1135,5 +1191,162 @@ test('removing the first Recipe of a Meal takes the inset line above the next on
 				{ timeout: 1000 },
 			),
 	)
-	await expect.poll(insetLine).toBe('rgba(0, 0, 0, 0)')
+	await expect.poll(() => drawsInsetLine(riceRow)).toBe(false)
+})
+
+test('removing the first Recipe under a Menu heading leaves no line under the heading', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const dal = await createRecipe(user, 'Dal')
+	const rice = await createRecipe(user, 'Rice')
+	const { meal, weekStart } = await planMeal(user, dal)
+	// A Menu snapshot: a "Mains" heading over Dal and Rice.
+	await prisma.mealRecipeItem.deleteMany({ where: { mealId: meal.id } })
+	const mains = await prisma.mealSection.create({
+		data: { mealId: meal.id, name: 'Mains', order: 0 },
+	})
+	await prisma.mealRecipeItem.createMany({
+		data: [dal, rice].map((recipe, order) => ({
+			mealId: meal.id,
+			sectionId: mains.id,
+			recipeId: recipe.id,
+			recipeTitle: recipe.title,
+			order,
+		})),
+	})
+	await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+	const mobile = page.getByTestId('mobile-plan')
+	await expect(mobile.getByRole('heading', { name: 'Mains' })).toBeVisible()
+	const riceRow = mobile
+		.getByRole('link', { name: 'Rice', exact: true })
+		.locator('xpath=ancestor::*[@data-row-collapse][1]')
+	expect(await drawsInsetLine(riceRow)).toBe(true)
+	await tapUntil(
+		mobile.getByRole('button', { name: 'Remove Dal from this meal' }),
+		() =>
+			expect(mobile.getByRole('link', { name: 'Dal', exact: true })).toBeHidden(
+				{ timeout: 1000 },
+			),
+	)
+	await expect.poll(() => drawsInsetLine(riceRow)).toBe(false)
+})
+
+test('reopening Edit details or Add a Recipe while it leaves starts afresh', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const miso = await createRecipe(user, 'Miso Soup')
+	await createRecipe(user, 'Steamed Rice')
+	const { weekStart } = await planMeal(user, miso)
+	await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+	const mobile = page.getByTestId('mobile-plan')
+	const actions = mobile.getByRole('button', {
+		name: 'Meal actions for Miso Soup',
+	})
+	const editDetails = page.getByRole('menuitem', { name: 'Edit details' })
+	await tapUntil(actions, () =>
+		expect(editDetails).toBeVisible({ timeout: 1000 }),
+	)
+	await editDetails.tap()
+	const details = page.getByRole('dialog', { name: 'Edit details' })
+	await expectBottomSheet(page, details)
+	const actionsBox = (await actions.boundingBox())!
+	await slowTransitions(page)
+	await details.getByLabel('Guests').fill('9')
+	await details.getByRole('button', { name: 'Close', exact: true }).tap()
+	// Back at once, before the leaving sheet is gone.
+	await page.mouse.click(
+		actionsBox.x + actionsBox.width / 2,
+		actionsBox.y + actionsBox.height / 2,
+	)
+	await editDetails.dispatchEvent('click')
+	await expect(details).toHaveAttribute('data-state', 'open')
+	await expect(details.getByLabel('Guests')).toHaveValue('')
+	await details.getByRole('button', { name: 'Close', exact: true }).click()
+	await expect(details).toBeHidden()
+
+	const addRecipe = mobile.getByRole('button', {
+		name: 'Add Recipe to Miso Soup',
+	})
+	const picker = page.getByRole('dialog', { name: 'Add a Recipe' })
+	const addBox = (await addRecipe.boundingBox())!
+	await addRecipe.click()
+	await expect(picker).toHaveAttribute('data-state', 'open')
+	await picker.getByPlaceholder('Search recipes...').fill('ric')
+	await picker.getByRole('button', { name: 'Close', exact: true }).click()
+	await page.mouse.click(
+		addBox.x + addBox.width / 2,
+		addBox.y + addBox.height / 2,
+	)
+	await expect(picker).toHaveAttribute('data-state', 'open')
+	await expect(picker.getByPlaceholder('Search recipes...')).toHaveValue('')
+})
+
+test('a sheet still leaving when its page goes plays its exit to the end', async ({
+	page,
+	login,
+}) => {
+	await seedShopping(await login(), ['foil'])
+	await openShopping(page)
+	const sheet = await openEditItem(page, 'foil')
+	await expectBottomSheet(page, sheet)
+	await recordSheetExits(page)
+	await slowTransitions(page)
+	await sheet.getByRole('button', { name: 'Close', exact: true }).tap()
+	// Leave Shopping while the sheet is still on its way out.
+	await page
+		.locator('[data-bottom-nav]')
+		.getByRole('link', { name: 'Plan' })
+		.dispatchEvent('click')
+	await expect(page).toHaveURL(/\/plan/)
+	// Its own exit, cut short, then the copy that finishes it.
+	await expect.poll(() => sheetExits(page)).toBe(2)
+	expect(await sheetExitsReachable(page)).toEqual([true, false])
+	await expect(page.locator('[data-bottom-sheet]')).toHaveCount(0)
+})
+
+test('Staples picked and added are not picked again after Shopping clears them', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.householdIngredient.create({
+		data: {
+			householdId: user.householdId,
+			displayName: 'Milk',
+			canonicalKey: 'milk',
+			isStaple: true,
+		},
+	})
+	await seedShopping(user, ['foil'])
+	await openShopping(page)
+	const sheet = page.getByRole('dialog', {
+		name: 'What do you need this trip?',
+	})
+	const fromStaples = page.getByRole('button', { name: /^From Staples/ })
+	await tapUntil(fromStaples, () =>
+		expect(sheet).toBeVisible({ timeout: 1000 }),
+	)
+	await sheet.getByRole('button', { name: 'Milk' }).tap()
+	await sheet.getByRole('button', { name: 'Add 1 to Next shop' }).tap()
+	await expect(sheet).toBeHidden()
+
+	// Bought and cleared.
+	const milkRow = page.getByRole('group', { name: 'Milk shopping item' })
+	await milkRow.getByRole('button', { name: 'Check off Milk' }).tap()
+	await page
+		.getByRole('button', { name: 'Clear checked items from Next shop' })
+		.tap()
+	await expect(milkRow).toBeHidden()
+	await expect
+		.poll(() => prisma.shoppingListItem.count({ where: { name: 'Milk' } }))
+		.toBe(0)
+
+	await fromStaples.tap()
+	const milk = sheet.getByRole('button', { name: 'Milk' })
+	await expect(milk).toBeEnabled()
+	await expect(milk).toHaveAttribute('aria-pressed', 'false')
 })

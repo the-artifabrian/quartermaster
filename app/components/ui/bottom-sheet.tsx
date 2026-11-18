@@ -162,14 +162,13 @@ function SheetFrame({
 
 	// Give focus back once the sheet is gone, unless another sheet has opened
 	// since (focus belongs in that one) or focus has moved on during the exit,
-	// such as to another row's menu.
+	// such as to another row's menu. The sheet is off the page by now, so focus
+	// that was in it is on the body.
 	const returnFocusRefRef = useRef(returnFocusRef)
-	useEffect(() => {
-		const root = rootRef.current
-		return () => {
+	useEffect(
+		() => () => {
 			const active = document.activeElement
-			const focusMovedOn =
-				active != null && active !== document.body && !root?.contains(active)
+			const focusMovedOn = active != null && active !== document.body
 			const previouslyFocused =
 				returnFocusRefRef.current?.current ?? previouslyFocusedRef.current
 			if (
@@ -179,19 +178,18 @@ function SheetFrame({
 			) {
 				previouslyFocused.focus({ preventScroll: true })
 			}
-		}
-	}, [])
+		},
+		[],
+	)
 
-	// An owner that goes away while the sheet is open takes it along at once.
-	// A copy, inert, plays the exit in its place.
-	const openRef = useRef(open)
-	useLayoutEffect(() => {
-		openRef.current = open
-	})
+	// An owner that goes away before the sheet's exit has run (while it is
+	// open or already leaving) takes it along at once. A copy, inert, plays
+	// the exit in its place.
+	const exitedRef = useRef(false)
 	useLayoutEffect(() => {
 		const root = rootRef.current
 		return () => {
-			if (!openRef.current || !root?.isConnected) return
+			if (exitedRef.current || !root?.isConnected) return
 			playExitCopy(root)
 		}
 	}, [])
@@ -220,16 +218,16 @@ function SheetFrame({
 			if (event.key !== 'Tab') return
 			const panel = panelRef.current
 			if (!panel) return
-			// A tap on a part of the panel that takes no focus focuses the panel.
-			if (document.activeElement === panel) {
+			// A tap on a part of the panel that takes no focus focuses the panel;
+			// Tab from there goes to its first control on its own, Shift+Tab
+			// would leave it.
+			if (document.activeElement === panel && event.shiftKey) {
 				const focusable =
 					panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
-				const target = event.shiftKey
-					? focusable[focusable.length - 1]
-					: focusable[0]
-				if (target) {
+				const last = focusable[focusable.length - 1]
+				if (last) {
 					event.preventDefault()
-					target.focus()
+					last.focus()
 				}
 				return
 			}
@@ -254,11 +252,15 @@ function SheetFrame({
 	// Unmount once the exit transitions have run. Reopening cancels them, and
 	// the sheet stays.
 	useEffect(() => {
-		if (open) return
+		if (open) {
+			exitedRef.current = false
+			return
+		}
 		let done = false
 		const finish = () => {
 			if (done) return
 			done = true
+			exitedRef.current = true
 			onExitedRef.current()
 		}
 		// getAnimations flushes style, so it sees the transitions the closed
@@ -335,6 +337,7 @@ function SheetFrame({
 					<BottomSheetClose onClose={() => onCloseRef.current()} />
 				</div>
 				<div
+					data-bottom-sheet-body=""
 					className={cn(
 						// Clears the home indicator on a phone.
 						'dialog:pb-5 min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(1.25rem+var(--safe-bottom))]',
@@ -363,18 +366,31 @@ function playExitCopy(root: HTMLElement) {
 	copy.setAttribute('aria-hidden', 'true')
 	for (const element of copy.querySelectorAll('[id]'))
 		element.removeAttribute('id')
+	const originals = [
+		root,
+		...root.querySelectorAll<HTMLElement>('[data-state]'),
+	]
 	const parts = [copy, ...copy.querySelectorAll<HTMLElement>('[data-state]')]
+	// From where the sheet is now: open, pulled part way, or already leaving.
+	parts.forEach((part, index) => {
+		const shown = getComputedStyle(originals[index]!)
+		part.style.transition = 'none'
+		part.style.setProperty('transform', shown.transform, 'important')
+		part.style.setProperty('opacity', shown.opacity, 'important')
+		part.setAttribute('data-state', 'open')
+	})
+	document.body.append(copy)
+	// A copy has none of the scrolled positions.
+	const body = root.querySelector('[data-bottom-sheet-body]')
+	const copyBody = copy.querySelector('[data-bottom-sheet-body]')
+	if (body && copyBody) copyBody.scrollTop = body.scrollTop
+	copy.getBoundingClientRect()
 	for (const part of parts) {
-		// From where it rests, even if a pull had moved it.
+		part.style.removeProperty('transition')
 		part.style.removeProperty('transform')
 		part.style.removeProperty('opacity')
-		part.style.transition = 'none'
+		part.setAttribute('data-state', 'closed')
 	}
-	document.body.append(copy)
-	copy.getBoundingClientRect()
-	for (const part of parts) part.style.removeProperty('transition')
-	copy.getBoundingClientRect()
-	for (const part of parts) part.setAttribute('data-state', 'closed')
 	// Gone once its exit has run; at once where nothing animates (jsdom).
 	const exits = copy.getAnimations?.({ subtree: true }) ?? []
 	if (exits.length === 0) {

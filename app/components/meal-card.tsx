@@ -502,9 +502,10 @@ export function MealCard({
 	// they open in place. Set when each opens.
 	const [recipeInSheet, setRecipeInSheet] = useState(false)
 	const [detailsInSheet, setDetailsInSheet] = useState(false)
-	// Each open starts a fresh form and search, even one that reopens a
-	// sheet still leaving.
-	const [openCount, setOpenCount] = useState(0)
+	// Each open starts a fresh picker or form, even one that reopens a sheet
+	// still leaving. One count each, so opening one leaves the other alone.
+	const [recipeOpens, setRecipeOpens] = useState(0)
+	const [detailsOpens, setDetailsOpens] = useState(0)
 	const addRecipeButtonRef = useRef<HTMLButtonElement>(null)
 	// Edit details' sheet hands focus back here: its menu item is gone.
 	const menuTriggerRef = useRef<HTMLButtonElement>(null)
@@ -629,7 +630,7 @@ export function MealCard({
 	const recipePicker =
 		choices.state.status === 'success' ? (
 			<RecipeSelector
-				key={openCount}
+				key={recipeOpens}
 				recipes={choices.state.recipes}
 				date={new Date(meal.dateStr + 'T00:00:00.000Z')}
 				excludeRecipeIds={meal.items.flatMap((item) => item.recipe?.id ?? [])}
@@ -772,7 +773,7 @@ export function MealCard({
 						<DropdownMenuItem
 							onSelect={() => {
 								setDetailsInSheet(opensAsSheet())
-								setOpenCount((count) => count + 1)
+								setDetailsOpens((count) => count + 1)
 								setEditingDetails(true)
 							}}
 						>
@@ -855,7 +856,7 @@ export function MealCard({
 					returnFocusRef={menuTriggerRef}
 				>
 					<MealDetailsForm
-						key={openCount}
+						key={detailsOpens}
 						meal={meal}
 						inSheet
 						onDone={() => setEditingDetails(false)}
@@ -894,36 +895,56 @@ export function MealCard({
 				</div>
 			) : (
 				<div className="space-y-0">
-					{rows.map((row, index) => (
-						<RowCollapse
-							key={row.key}
-							hidden={row.kind === 'recipe' && hidden.has(row.item.id)}
-							entering={row.kind === 'recipe' && entering.has(row.item.id)}
-							className={cn(
-								row.kind === 'heading'
-									? index > 0 && 'mt-3'
-									: index > 0 &&
-											rows[index - 1]!.kind !== 'heading' &&
-											// Inset from the cooked toggle, so it reads as inside
-											// the Meal next to the full-width line between Meals.
-											"before:border-border/60 relative mt-2 pt-2 before:absolute before:top-0 before:right-0 before:left-11 before:border-t before:content-[''] md:before:left-8",
-							)}
-						>
-							{row.kind === 'heading' ? (
-								<h5 className="text-muted-foreground/80 text-[10px] font-semibold tracking-wider uppercase">
-									{row.name}
-								</h5>
-							) : row.kind === 'recipe' ? (
-								<ItemRow
-									item={row.item}
-									// The last Recipe goes with its Meal: Delete Meal.
-									showRemove={visibleItemCount > 1 || meal.noteItems.length > 0}
-								/>
-							) : (
-								<NoteRow note={row.note} />
-							)}
-						</RowCollapse>
-					))}
+					{rows.map((row, index) => {
+						// The Recipe or note showing just before this one, skipping
+						// rows deleted with Undo still waiting. A line goes between two
+						// that show, never under a heading or above the first.
+						let before: MealRow | undefined
+						for (let i = index - 1; i >= 0 && !before; i--) {
+							const candidate = rows[i]!
+							if (candidate.kind === 'recipe' && hidden.has(candidate.item.id))
+								continue
+							before = candidate
+						}
+						const insetLine =
+							row.kind !== 'heading' &&
+							before != null &&
+							before.kind !== 'heading'
+						return (
+							<RowCollapse
+								key={row.key}
+								hidden={row.kind === 'recipe' && hidden.has(row.item.id)}
+								entering={row.kind === 'recipe' && entering.has(row.item.id)}
+								className={cn(
+									row.kind === 'heading'
+										? index > 0 && 'mt-3'
+										: index > 0 &&
+												rows[index - 1]!.kind !== 'heading' &&
+												'mt-2 pt-2',
+									// Inset from the cooked toggle, so it reads as inside the
+									// Meal next to the full-width line between Meals.
+									insetLine &&
+										"before:border-border/60 relative before:absolute before:top-0 before:right-0 before:left-11 before:border-t before:content-[''] md:before:left-8",
+								)}
+							>
+								{row.kind === 'heading' ? (
+									<h5 className="text-muted-foreground/80 text-[10px] font-semibold tracking-wider uppercase">
+										{row.name}
+									</h5>
+								) : row.kind === 'recipe' ? (
+									<ItemRow
+										item={row.item}
+										// The last Recipe goes with its Meal: Delete Meal.
+										showRemove={
+											visibleItemCount > 1 || meal.noteItems.length > 0
+										}
+									/>
+								) : (
+									<NoteRow note={row.note} />
+								)}
+							</RowCollapse>
+						)
+					})}
 
 					{/* Add another Recipe directly to this Meal (#98 story 41). The
 					    picker replaces the button while open and has its own Cancel;
@@ -939,7 +960,7 @@ export function MealCard({
 							onClick={() => {
 								choices.load()
 								setRecipeInSheet(opensAsSheet())
-								setOpenCount((count) => count + 1)
+								setRecipeOpens((count) => count + 1)
 								setAddingRecipe(true)
 							}}
 							aria-label={`Add Recipe to ${mealActionName}`}

@@ -57,7 +57,7 @@ export function RecipeNotes({
 					aria-expanded={expanded}
 					aria-controls={textId}
 					onClick={() => setExpanded((value) => !value)}
-					className="text-primary hover:text-primary/80 focus-visible:ring-ring mt-1 -ml-1 min-h-9 rounded-sm px-1 text-sm font-medium focus-visible:ring-2 focus-visible:outline-hidden print:hidden"
+					className="text-primary hover:text-primary/80 focus-visible:ring-ring mt-1 -ml-1 min-h-11 rounded-sm px-1 text-sm font-medium focus-visible:ring-2 focus-visible:outline-hidden print:hidden"
 				>
 					{expanded ? 'Show less' : 'Show more'}
 				</button>

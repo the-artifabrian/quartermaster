@@ -211,7 +211,7 @@ export function MobileFabAdd({
 							placeholder="Add an item..."
 							enterKeyHint="go"
 							autoCapitalize="none"
-							className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-10 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-sm outline-none focus:ring-1"
+							className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-11 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-sm outline-none focus:ring-1"
 						/>
 						{isProActive && (
 							<button
@@ -219,7 +219,7 @@ export function MobileFabAdd({
 								onClick={isRecording ? stopRecording : startRecording}
 								disabled={isTranscribing}
 								className={cn(
-									'flex size-10 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50',
+									'flex size-11 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50',
 									isRecording
 										? 'bg-destructive text-destructive-foreground animate-pulse'
 										: 'bg-muted text-muted-foreground',
@@ -242,7 +242,7 @@ export function MobileFabAdd({
 						<button
 							type="submit"
 							disabled={!name.trim() || fetcher.state !== 'idle'}
-							className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-full disabled:opacity-50"
+							className="bg-primary text-primary-foreground flex size-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50"
 							aria-label={canForce ? 'Add anyway' : 'Add to Next shop'}
 						>
 							<Icon name="plus" className="size-5" />

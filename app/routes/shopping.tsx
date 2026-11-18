@@ -741,12 +741,12 @@ function LaterQuickAdd() {
 					placeholder="Add to Later..."
 					enterKeyHint="go"
 					autoCapitalize="none"
-					className="h-9 min-w-0 flex-1"
+					className="min-w-0 flex-1"
 				/>
 				<button
 					type="submit"
 					disabled={!name.trim() || fetcher.state !== 'idle'}
-					className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-9 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50"
+					className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-11 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50"
 					aria-label={canForce ? 'Add to Later anyway' : 'Add to Later'}
 				>
 					<Icon name="plus" className="size-5" />

@@ -561,7 +561,7 @@ function RecipeLinkPicker({
 				<button
 					type="button"
 					onClick={onUnlink}
-					className="text-muted-foreground hover:text-destructive shrink-0"
+					className="text-muted-foreground hover:text-destructive -my-2 -mr-2 flex size-11 shrink-0 items-center justify-center"
 					aria-label="Remove recipe link"
 				>
 					<Icon name="cross-1" size="sm" />

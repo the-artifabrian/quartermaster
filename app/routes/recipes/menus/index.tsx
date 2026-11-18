@@ -80,7 +80,7 @@ export default function MenusIndex({ loaderData }: Route.ComponentProps) {
 					</h1>
 					<Button
 						asChild
-						className="size-10 rounded-full p-0 sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2"
+						className="size-11 rounded-full p-0 sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2"
 					>
 						<Link to="/recipes/menus/new">
 							<Icon name="plus" size="sm" />

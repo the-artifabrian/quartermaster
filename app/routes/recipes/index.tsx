@@ -441,7 +441,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							<DropdownMenuTrigger asChild>
 								<Button
 									aria-label="New Recipe"
-									className="size-10 rounded-full p-0 sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2"
+									className="size-11 rounded-full p-0 sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2"
 								>
 									<Icon name="plus" size="sm" />
 									<span className="hidden sm:inline">New Recipe</span>

@@ -5,6 +5,14 @@ import { expect, test } from '#tests/playwright-utils.ts'
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
+/** Waits for a sheet to finish sliding in, so its controls hold still. */
+async function slidIn(sheet: Locator) {
+	await expect(sheet).toBeVisible()
+	await sheet.evaluate((element) =>
+		Promise.all(element.getAnimations().map((a) => a.finished)),
+	)
+}
+
 async function expectThumbSized(control: Locator) {
 	await expect(control).toBeVisible()
 	const box = await control.boundingBox()
@@ -59,7 +67,7 @@ test('on a phone, Add to Plan opens as a sheet with thumb-sized choices', async 
 	await page.goto(`/recipes/${recipe.id}`)
 	await page.getByRole('button', { name: 'Add to Plan' }).click()
 	const sheet = page.getByRole('dialog', { name: 'Add to Plan' })
-	await expect(sheet).toBeVisible()
+	await slidIn(sheet)
 	// A sheet spans the screen; the popover was 288px wide.
 	expect((await sheet.boundingBox())!.width).toBeGreaterThanOrEqual(360)
 
@@ -104,7 +112,7 @@ test('a phone on its side gets the sheet too; a desktop gets the popover', async
 	await page.goto(`/recipes/${recipe.id}`)
 	await page.getByRole('button', { name: 'Add to Plan' }).click()
 	const sheet = page.getByRole('dialog', { name: 'Add to Plan' })
-	await expect(sheet).toBeVisible()
+	await slidIn(sheet)
 	await expect(page.locator('[data-bottom-sheet]')).toHaveCount(1)
 	await expectThumbSized(sheet.getByRole('button', { name: 'Tomorrow' }))
 	await page.keyboard.press('Escape')
@@ -148,7 +156,7 @@ test('the floating Ingredients button steps aside while Add to Plan is open', as
 	await page.goto(`/recipes/${recipe.id}`)
 	await page.getByRole('button', { name: 'Add to Plan' }).click()
 	const sheet = page.getByRole('dialog', { name: 'Add to Plan' })
-	await expect(sheet).toBeVisible()
+	await slidIn(sheet)
 	// The page behind still scrolls, past the point where the button shows.
 	await page.evaluate(() =>
 		window.scrollTo(0, document.documentElement.scrollHeight),

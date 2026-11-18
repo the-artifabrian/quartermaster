@@ -62,6 +62,10 @@ export async function getAccountDeletionOutcome(
  */
 export async function deleteAccount(userId: string) {
 	const objectKeys = await prisma.$transaction(async (tx) => {
+		// Take SQLite's write lock first. A transaction that reads and then
+		// writes has to upgrade its lock, and SQLite fails that at once, without
+		// waiting out the busy timeout, when another connection is writing.
+		await tx.$executeRaw`UPDATE "User" SET "id" = "id" WHERE "id" = ${userId}`
 		// Every Household the user still has rows in: their own, plus any they
 		// left, where leaveHousehold kept the original Recipes under their id.
 		const [recipeHouseholds, listHouseholds, inviteHouseholds, membership] =

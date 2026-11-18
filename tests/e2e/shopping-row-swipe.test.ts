@@ -63,7 +63,7 @@ async function seed(user: { id: string; householdId: string }) {
 	})
 }
 
-test('swiping a Shopping row left reveals Later and Delete; Delete removes it', async ({
+test('swiping a Shopping row left reveals Later and Delete; Delete removes it on a second tap', async ({
 	page,
 	login,
 }) => {
@@ -89,7 +89,12 @@ test('swiping a Shopping row left reveals Later and Delete; Delete removes it', 
 	await expect(lemons.getByRole('button', { name: 'Delete' })).toBeVisible()
 	await expect(deleteButton).toBeHidden()
 
-	await lemons.getByRole('button', { name: 'Delete' }).click()
+	// Delete asks twice, like the menu's: there is no undo.
+	const lemonsDelete = lemons.getByRole('button', { name: 'Delete' })
+	await lemonsDelete.click()
+	await expect(lemonsDelete).toHaveText('Delete?')
+	await expect(lemons).toBeVisible()
+	await lemonsDelete.click()
 	await expect(lemons).toBeHidden()
 	await expect
 		.poll(() =>

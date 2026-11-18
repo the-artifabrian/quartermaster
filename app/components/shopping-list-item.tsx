@@ -64,6 +64,8 @@ export function ShoppingListItemCard({
 	const removeGeneratedFetcher = useFetcher()
 	const prevEditFetcherState = useRef(editFetcher.state)
 	const [swipeOpen, setSwipeOpen] = useState(false)
+	// Swipe Delete asks twice, like the menu's: there is no undo.
+	const [confirmingSwipeDelete, setConfirmingSwipeDelete] = useState(false)
 	const menuPointer = useRef<string | null>(null)
 	const swipeRow = useRef<{ close: () => void } | null>(null)
 
@@ -110,6 +112,7 @@ export function ShoppingListItemCard({
 				openSwipeRow = null
 			}
 			setSwipeOpen(open)
+			if (!open) setConfirmingSwipeDelete(false)
 			return open ? -swipeWidth : 0
 		},
 	})
@@ -117,6 +120,7 @@ export function ShoppingListItemCard({
 		close: () => {
 			swipe.moveTo(0, true)
 			setSwipeOpen(false)
+			setConfirmingSwipeDelete(false)
 		},
 	}
 	const closeSwipe = () => {
@@ -261,13 +265,18 @@ export function ShoppingListItemCard({
 					<button
 						type="button"
 						onClick={() => {
+							if (!confirmingSwipeDelete) {
+								haptic('warning')
+								setConfirmingSwipeDelete(true)
+								return
+							}
 							closeSwipe()
 							submitRowIntent(deleteFetcher, { intent: 'delete' })
 						}}
 						className="bg-destructive text-destructive-foreground active:bg-destructive/90 flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium"
 					>
 						<Icon name="trash" size="sm" />
-						Delete
+						{confirmingSwipeDelete ? 'Delete?' : 'Delete'}
 					</button>
 				)}
 			</div>

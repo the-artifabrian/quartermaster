@@ -503,10 +503,8 @@ export function MealCard({
 	const [recipeInSheet, setRecipeInSheet] = useState(false)
 	const [detailsInSheet, setDetailsInSheet] = useState(false)
 	const addRecipeButtonRef = useRef<HTMLButtonElement>(null)
+	// Edit details' sheet hands focus back here: its menu item is gone.
 	const menuTriggerRef = useRef<HTMLButtonElement>(null)
-	// A sheet opened from the menu keeps focus: the closing menu must not
-	// hand it back to its trigger.
-	const openingSheet = useRef(false)
 	// Closing the picker unmounts whatever had focus; hand focus back to the
 	// button that opened it instead of dropping it on the page.
 	const restoreAddRecipeFocus = useRef(false)
@@ -727,14 +725,7 @@ export function MealCard({
 							<Icon name="dots-horizontal" className="size-3.5" />
 						</button>
 					</DropdownMenuTrigger>
-					<DropdownMenuContent
-						align="end"
-						onCloseAutoFocus={(event) => {
-							if (!openingSheet.current) return
-							openingSheet.current = false
-							event.preventDefault()
-						}}
-					>
+					<DropdownMenuContent align="end">
 						{canMoveUp ? (
 							<DropdownMenuItem
 								onSelect={() => {
@@ -776,9 +767,7 @@ export function MealCard({
 						</DropdownMenuItem>
 						<DropdownMenuItem
 							onSelect={() => {
-								const inSheet = opensAsSheet()
-								openingSheet.current = inSheet
-								setDetailsInSheet(inSheet)
+								setDetailsInSheet(opensAsSheet())
 								setEditingDetails(true)
 							}}
 						>

@@ -297,8 +297,16 @@ test('Scale is a sheet; Done keeps a typed multiplier even when the tap leaves t
 	const multiplier = sheet.getByLabel('Scale multiplier')
 	await multiplier.fill('2')
 	await expect(multiplier).toBeFocused()
-	// A tap on iOS does not move focus off the field; a click event alone is
-	// that tap.
+	// On iOS a tap on a button does not blur the field, and closing the sheet
+	// sends no blur either. No blur reaches the page from here on, and a click
+	// event alone is the tap.
+	await page.evaluate(() =>
+		window.addEventListener(
+			'focusout',
+			(event) => event.stopImmediatePropagation(),
+			true,
+		),
+	)
 	await sheet.getByRole('button', { name: 'Done' }).dispatchEvent('click')
 	await expect(sheet).toBeHidden()
 	await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}\\?scale=2$`))

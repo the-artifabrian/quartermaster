@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type RefObject, useEffect, useRef, useState } from 'react'
 import { BottomSheet, opensAsSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -34,6 +34,8 @@ type RecipeScaleControlProps = {
 	yieldLabel: string | null
 	onScaleMultiplierChange: (scaleMultiplier: number) => void
 	compact?: boolean
+	/** Filled with a function that saves the typed multiplier now. */
+	commitRef?: RefObject<(() => void) | null>
 }
 
 /**
@@ -44,6 +46,7 @@ export function RecipeScaleControl({
 	scaleMultiplier,
 	onScaleMultiplierChange,
 	compact = false,
+	commitRef,
 }: RecipeScaleControlProps) {
 	const displayedValue = formatScaleMultiplier(scaleMultiplier)
 	const [draft, setDraft] = useState(displayedValue)
@@ -61,6 +64,9 @@ export function RecipeScaleControl({
 		}
 		onScaleMultiplierChange(parsed.data)
 	}
+	useEffect(() => {
+		if (commitRef) commitRef.current = commit
+	})
 
 	function adjustScale(delta: number) {
 		const nextMultiplier = Math.round((scaleMultiplier + delta) * 100) / 100
@@ -163,11 +169,11 @@ export function RecipeIngredientsControls({
 	// A popover on wider screens, a bottom sheet on a phone (set on open).
 	const [open, setOpen] = useState(false)
 	const [inSheet, setInSheet] = useState(false)
-	// The multiplier field saves on blur or Enter. A tap on a button does not
-	// blur it on iOS, and closing would drop the draft, so closing blurs it.
+	// The multiplier field saves on blur or Enter. On iOS a tap on a button
+	// does not blur it, nor does closing the sheet, so closing saves it.
+	const commitRef = useRef<(() => void) | null>(null)
 	function closeSheet() {
-		const active = document.activeElement
-		if (active instanceof HTMLElement) active.blur()
+		commitRef.current?.()
 		setOpen(false)
 	}
 
@@ -178,6 +184,7 @@ export function RecipeIngredientsControls({
 				yieldAmount={yieldAmount}
 				yieldLabel={yieldLabel}
 				onScaleMultiplierChange={onScaleMultiplierChange}
+				commitRef={commitRef}
 			/>
 			{scaleMultiplier !== 1 ? (
 				<button

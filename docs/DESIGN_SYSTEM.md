@@ -132,11 +132,30 @@ Mobile has four tabs: Recipes, Staples, Plan, and Shopping. The active tab uses
 sage text and a medium-weight label. A small copper dot on the Shopping icon
 appears when Shopping changes anywhere other than the open Shopping page
 (another member, another device, or an add from Recipes, Staples or Plan), and
-clears when you open Shopping. Sub-pages rely on app navigation instead of
-adding a “Back to…” link at the top of every screen.
+clears when you open Shopping.
+
+Tab roots (Recipes, Menus, Staples, Plan, Shopping) keep the brand header.
+Pushed pages (Recipe detail, edit, new and Import; Menu detail, edit and new;
+Settings and its pages; Upgrade) swap it on phones for a nav bar pinned at the
+top, under the status bar in the iOS app: a sage `‹ Parent` back button on the
+left, and a small centered title that fades in (150ms opacity, instant with
+reduced motion) once the page's big serif h1 has scrolled under the bar. The
+page declares its parent in its route `handle` (`nav`, rules in
+`app/utils/nav-back.ts`). Back pops history when the page behind is the parent,
+or a page it was opened from that the rule names (a Recipe's Menu, a linked
+Recipe), stepping over the form that led there; otherwise it opens the parent in
+the page's place. Settings goes back to the tab it was opened from. Pages do not
+add their own “Back to…” or arrow links.
+
+Edit screens (Recipe edit and new, Menu edit and new) put Cancel on the left of
+the bar and Save on the right (sage, semibold, dimmed while disabled, a spinner
+while saving). The form has no Save bar of its own; Delete stays at the end of
+the form. Each pushed page has exactly one h1, its big title.
 
 On desktop, keep the same information hierarchy and give content more width; do
-not add extra product destinations just because space exists.
+not add extra product destinations just because space exists. The desktop header
+keeps its brand row and links on pushed pages, with the nav bar as a second row
+under it, since there is no tab bar.
 
 ## Imagery
 

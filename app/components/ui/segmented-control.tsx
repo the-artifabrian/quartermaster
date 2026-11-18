@@ -1,5 +1,5 @@
 import type * as React from 'react'
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 
 import { cn } from '#app/utils/misc.tsx'
@@ -87,7 +87,7 @@ export function SegmentedControl<Value extends string>({
 export function SegmentedLinks({
 	links,
 	current,
-	pending,
+	slideFrom,
 	className,
 	...props
 }: {
@@ -95,41 +95,53 @@ export function SegmentedLinks({
 		to: string
 		label: React.ReactNode
 		viewTransition?: boolean
+		state?: unknown
 	}>
 	/** The `to` of the page shown. */
 	current: string
-	/** The `to` being navigated to: the pill moves there before it loads. */
-	pending?: string
+	/**
+	 * The `to` of the page just left through this control. Each page renders
+	 * its own copy, so the new copy starts its pill there and slides it over.
+	 */
+	slideFrom?: string
 	className?: string
 	'aria-label': string
 }) {
-	const currentIndex = links.findIndex((link) => link.to === current)
-	const pendingIndex = links.findIndex((link) => link.to === pending)
-	const selectedIndex = Math.max(
+	const currentIndex = Math.max(
 		0,
-		pendingIndex === -1 ? currentIndex : pendingIndex,
+		links.findIndex((link) => link.to === current),
 	)
+	const fromIndex = links.findIndex((link) => link.to === slideFrom)
+	const [enterFrom, setEnterFrom] = useState(
+		fromIndex === -1 || fromIndex === currentIndex ? null : fromIndex,
+	)
+	const pill = useRef<HTMLSpanElement>(null)
+	useEffect(() => {
+		if (enterFrom === null) return
+		// Settle the start position, so the move to the current link slides.
+		pill.current?.getBoundingClientRect()
+		setEnterFrom(null)
+	}, [enterFrom])
+	const pillIndex = enterFrom ?? currentIndex
 	return (
 		<nav
 			aria-label={props['aria-label']}
 			className={cn(trackClassName, className)}
 			style={{ gridTemplateColumns: `repeat(${links.length}, 1fr)` }}
 		>
-			<Pill index={selectedIndex} count={links.length} />
-			{links.map((link, index) => {
-				const selected = index === selectedIndex
-				return (
-					<Link
-						key={link.to}
-						to={link.to}
-						viewTransition={link.viewTransition}
-						aria-current={index === currentIndex ? 'page' : undefined}
-						className={segmentClassName(selected)}
-					>
-						{link.label}
-					</Link>
-				)
-			})}
+			<Pill ref={pill} index={pillIndex} count={links.length} />
+			{links.map((link, index) => (
+				<Link
+					key={link.to}
+					to={link.to}
+					viewTransition={link.viewTransition}
+					state={link.state}
+					aria-current={index === currentIndex ? 'page' : undefined}
+					className={segmentClassName(index === pillIndex)}
+				>
+					{link.label}
+				</Link>
+			))}
 		</nav>
 	)
 }
@@ -146,9 +158,19 @@ function segmentClassName(selected: boolean) {
 }
 
 /** The sage pill, inset 4px inside the selected option's cell. */
-function Pill({ index, count }: { index: number; count: number }) {
+function Pill({
+	index,
+	count,
+	ref,
+}: {
+	index: number
+	count: number
+	ref?: React.Ref<HTMLSpanElement>
+}) {
 	return (
 		<span
+			ref={ref}
+			data-slot="segmented-pill"
 			aria-hidden="true"
 			className="pointer-events-none absolute inset-y-0 left-0 -z-10 p-1 transition-transform duration-200 ease-(--ease-micro) motion-reduce:transition-none"
 			style={{

@@ -237,8 +237,27 @@ test('Recipes and Menus switch with a thumb-sized segmented control', async ({
 	await expect(recipes).toHaveAttribute('aria-current', 'page')
 	await expectThumbTall(menus)
 
+	// A tap before hydration is a plain page load, which has nothing to slide.
+	await page.waitForFunction(() => {
+		const link = document.querySelector('nav[aria-label="Library"] a')
+		return link
+			? Object.keys(link).some((key) => key.startsWith('__reactFiber'))
+			: false
+	})
+	// Each list draws its own switch; the arriving one slides its pill over
+	// from the link just left rather than appearing in place.
+	const slid = page.waitForFunction(
+		() =>
+			document
+				.querySelector('[data-slot="segmented-pill"]')
+				?.getAnimations()
+				.some((animation) => animation instanceof CSSTransition) ?? false,
+		undefined,
+		{ polling: 'raf' },
+	)
 	await menus.tap()
 	await expect(page).toHaveURL(/\/recipes\/menus$/)
+	await slid
 	await expect(menus).toHaveAttribute('aria-current', 'page')
 	await expect(recipes).not.toHaveAttribute('aria-current', 'page')
 

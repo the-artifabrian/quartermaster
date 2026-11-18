@@ -1,9 +1,9 @@
-import { Link } from 'react-router'
-import { cn } from '#app/utils/misc.tsx'
+import { useNavigation } from 'react-router'
+import { SegmentedLinks } from './ui/segmented-control.tsx'
 
 const LINKS = [
-	{ key: 'recipes', to: '/recipes', label: 'Recipes' },
-	{ key: 'menus', to: '/recipes/menus', label: 'Menus' },
+	{ key: 'recipes', to: '/recipes', label: 'Recipes', viewTransition: true },
+	{ key: 'menus', to: '/recipes/menus', label: 'Menus', viewTransition: true },
 ] as const
 
 /**
@@ -12,24 +12,16 @@ const LINKS = [
  * system.
  */
 export function LibrarySwitch({ active }: { active: 'recipes' | 'menus' }) {
+	// Each list renders its own switch, so the pill slides while the other
+	// list loads: it follows the pending navigation, not the page shown.
+	const pending = useNavigation().location?.pathname
 	return (
-		<nav aria-label="Library" className="mb-3 flex gap-1.5">
-			{LINKS.map((link) => (
-				<Link
-					key={link.key}
-					to={link.to}
-					viewTransition
-					aria-current={active === link.key ? 'page' : undefined}
-					className={cn(
-						'flex h-8 items-center rounded-full border px-3.5 text-xs font-medium transition-colors',
-						active === link.key
-							? 'border-primary bg-primary text-primary-foreground'
-							: 'border-border/50 bg-secondary/50 text-muted-foreground hover:bg-secondary',
-					)}
-				>
-					{link.label}
-				</Link>
-			))}
-		</nav>
+		<SegmentedLinks
+			aria-label="Library"
+			links={LINKS}
+			current={LINKS.find((link) => link.key === active)!.to}
+			pending={pending}
+			className="mb-3 w-fit"
+		/>
 	)
 }

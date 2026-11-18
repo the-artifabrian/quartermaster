@@ -3,7 +3,7 @@ import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
-test.use({ viewport: { width: 390, height: 844 } })
+test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
 async function expectThumbSized(control: Locator) {
 	await expect(control).toBeVisible()
@@ -13,19 +13,27 @@ async function expectThumbSized(control: Locator) {
 	expect(box!.height).toBeGreaterThanOrEqual(44)
 }
 
-// Clicks just outside a control's drawn box, where only an enlarged tap
-// area reaches.
-async function clickJustOutside(
+// Taps just outside a control's drawn box, where only an enlarged tap area
+// reaches. A finger, so controls that open on a tap are tested as a phone
+// uses them.
+async function tapJustOutside(
 	page: Page,
 	control: Locator,
 	side: 'top' | 'right',
 ) {
 	const box = (await control.boundingBox())!
 	if (side === 'top') {
-		await page.mouse.click(box.x + box.width / 2, box.y - 4)
+		await page.touchscreen.tap(box.x + box.width / 2, box.y - 4)
 	} else {
-		await page.mouse.click(box.x + box.width + 4, box.y + box.height / 2)
+		await page.touchscreen.tap(box.x + box.width + 4, box.y + box.height / 2)
 	}
+}
+
+function todayUTC() {
+	const today = new Date()
+	return new Date(
+		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
+	)
 }
 
 async function createRecipe(user: { id: string; householdId: string }) {
@@ -69,11 +77,87 @@ test('on a phone, Add to Plan opens as a sheet with thumb-sized choices', async 
 
 	const meals = await prisma.meal.findMany({
 		where: { mealPlan: { householdId: user.householdId } },
-		select: { label: true, recipeItems: { select: { recipeId: true } } },
+		select: {
+			date: true,
+			label: true,
+			recipeItems: { select: { recipeId: true } },
+		},
 	})
+	const tomorrowUTC = new Date(todayUTC().getTime() + 24 * 60 * 60 * 1000)
 	expect(meals).toEqual([
-		{ label: 'lunch', recipeItems: [{ recipeId: recipe.id }] },
+		{
+			date: tomorrowUTC,
+			label: 'lunch',
+			recipeItems: [{ recipeId: recipe.id }],
+		},
 	])
+})
+
+test('a phone on its side gets the sheet too; a desktop gets the popover', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createRecipe(user)
+
+	await page.setViewportSize({ width: 844, height: 390 })
+	await page.goto(`/recipes/${recipe.id}`)
+	await page.getByRole('button', { name: 'Add to Plan' }).click()
+	const sheet = page.getByRole('dialog', { name: 'Add to Plan' })
+	await expect(sheet).toBeVisible()
+	await expect(page.locator('[data-bottom-sheet]')).toHaveCount(1)
+	await expectThumbSized(sheet.getByRole('button', { name: 'Tomorrow' }))
+	await page.keyboard.press('Escape')
+	await expect(sheet).toBeHidden()
+
+	// A wider, taller screen keeps the popover.
+	await page.setViewportSize({ width: 1024, height: 768 })
+	await page.getByRole('button', { name: 'Add to Plan' }).click()
+	await expect(
+		page.getByRole('dialog').getByRole('button', { name: 'Add to Plan' }),
+	).toBeVisible()
+	await expect(page.locator('[data-bottom-sheet]')).toHaveCount(0)
+})
+
+test('the floating Ingredients button steps aside while Add to Plan is open', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Long Recipe',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: {
+				create: Array.from({ length: 12 }, (_, index) => ({
+					name: `ingredient ${index + 1}`,
+					amount: String(index + 1),
+					unit: 'g',
+					order: index,
+				})),
+			},
+			instructions: {
+				create: Array.from({ length: 12 }, (_, index) => ({
+					content: `Complete cooking step ${index + 1}.`,
+					order: index,
+				})),
+			},
+		},
+	})
+	await page.goto(`/recipes/${recipe.id}`)
+	await page.getByRole('button', { name: 'Add to Plan' }).click()
+	const sheet = page.getByRole('dialog', { name: 'Add to Plan' })
+	await expect(sheet).toBeVisible()
+	// The page behind still scrolls, past the point where the button shows.
+	await page.evaluate(() =>
+		window.scrollTo(0, document.documentElement.scrollHeight),
+	)
+	const floating = page.getByRole('button', { name: /^Ingredients · / })
+	await expect(sheet).toBeVisible()
+	await expect(floating).toBeHidden()
+	await page.keyboard.press('Escape')
+	await expect(floating).toBeVisible()
 })
 
 test('Plan meal and Add Meal controls take taps around their drawn edges', async ({
@@ -82,18 +166,15 @@ test('Plan meal and Add Meal controls take taps around their drawn edges', async
 }) => {
 	const user = await login()
 	const recipe = await createRecipe(user)
-	const today = new Date()
-	const todayUTC = new Date(
-		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
-	)
-	const weekStart = getWeekStart(todayUTC)
+	const today = todayUTC()
+	const weekStart = getWeekStart(today)
 	await prisma.mealPlan.create({
 		data: {
 			householdId: user.householdId,
 			weekStart,
 			meals: {
 				create: {
-					date: todayUTC,
+					date: today,
 					order: 0,
 					label: 'dinner',
 					recipeItems: {
@@ -114,8 +195,29 @@ test('Plan meal and Add Meal controls take taps around their drawn edges', async
 		name: 'Meal actions for Miso Soup',
 	})
 	await expect(mealActions).toBeVisible()
+	// A scroll that starts on the button leaves the menu shut.
+	const box = (await mealActions.boundingBox())!
+	const x = box.x + box.width / 2
+	const y = box.y + box.height / 2
+	const cdp = await page.context().newCDPSession(page)
+	await cdp.send('Input.dispatchTouchEvent', {
+		type: 'touchStart',
+		touchPoints: [{ x, y, id: 1 }],
+	})
+	for (const dy of [-15, -30, -45, -60]) {
+		await cdp.send('Input.dispatchTouchEvent', {
+			type: 'touchMove',
+			touchPoints: [{ x, y: y + dy, id: 1 }],
+		})
+	}
+	await cdp.send('Input.dispatchTouchEvent', {
+		type: 'touchEnd',
+		touchPoints: [],
+	})
+	await cdp.detach()
+	await expect(page.getByRole('menu')).toBeHidden()
 	await expect(async () => {
-		await clickJustOutside(page, mealActions, 'right')
+		await tapJustOutside(page, mealActions, 'right')
 		await expect(
 			page.getByRole('menuitem', { name: 'Edit details' }),
 		).toBeVisible({ timeout: 1000 })
@@ -128,7 +230,16 @@ test('Plan meal and Add Meal controls take taps around their drawn edges', async
 	await mobile.getByRole('button', { name: /^Add Meal to/ }).click()
 	const lunch = mobile.getByRole('button', { name: 'Lunch' })
 	await expect(lunch).toBeVisible()
-	await clickJustOutside(page, lunch, 'top')
+	// Measured once the section has finished sliding up into place.
+	await lunch.evaluate((element) =>
+		Promise.all(
+			element
+				.closest('.animate-fade-up-reveal')!
+				.getAnimations()
+				.map((animation) => animation.finished),
+		),
+	)
+	await tapJustOutside(page, lunch, 'top')
 	await expect(lunch).toHaveAttribute('aria-pressed', 'true')
 	await expect(
 		mobile.getByRole('textbox', { name: 'Search Recipes and Menus' }),

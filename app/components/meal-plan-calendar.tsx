@@ -285,7 +285,7 @@ function AddMealControl({
 						</button>
 						<Button
 							size="sm"
-							className="h-11 sm:h-9"
+							className="h-11 md:h-9"
 							onClick={submitText}
 							disabled={!text.trim()}
 						>

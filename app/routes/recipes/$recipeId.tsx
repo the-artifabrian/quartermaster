@@ -76,7 +76,12 @@ import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
 import { useStaleRevalidate } from '#app/utils/use-stale-revalidate.ts'
 import { type Route } from './+types/$recipeId.ts'
 
-const PLAN_PICKER_SHEET_QUERY = '(max-width: 639px)'
+/**
+ * Add to Plan opens as a bottom sheet on a phone, upright or on its side, and
+ * as a popover elsewhere.
+ */
+const PLAN_PICKER_SHEET_QUERY =
+	'(max-width: 639px), (pointer: coarse) and (max-height: 500px)'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
@@ -663,11 +668,27 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		}
 	}
 
+	// Thumb-sized in the sheet; the popover keeps its compact chips.
+	const planChip = planPickerAsSheet
+		? 'min-h-11 px-3.5 text-sm'
+		: 'px-2.5 py-1 text-xs'
 	const planPickerBody = (
 		<>
 			<div className="mb-3">
-				<p className="text-muted-foreground mb-1.5 text-xs">Day</p>
-				<div className="flex flex-wrap gap-2 sm:gap-1.5">
+				<p
+					id="plan-picker-day-label"
+					className="text-muted-foreground mb-1.5 text-xs"
+				>
+					Day
+				</p>
+				<div
+					role="group"
+					aria-labelledby="plan-picker-day-label"
+					className={cn(
+						'flex flex-wrap',
+						planPickerAsSheet ? 'gap-2' : 'gap-1.5',
+					)}
+				>
 					{Array.from({ length: 7 }, (_, i) => {
 						const d = addDaysUTC(todayUTC, i)
 						const val = serializeDate(d)
@@ -680,7 +701,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								onClick={() => setPlanDate(val)}
 								aria-pressed={planDate === val}
 								className={cn(
-									'min-h-11 rounded-full border px-3.5 text-sm transition-colors sm:min-h-0 sm:px-2.5 sm:py-1 sm:text-xs',
+									'rounded-full border transition-colors',
+									planChip,
 									planDate === val
 										? 'border-primary bg-primary text-primary-foreground'
 										: 'border-border hover:border-primary/50',
@@ -693,8 +715,20 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				</div>
 			</div>
 			<div className="mb-4">
-				<p className="text-muted-foreground mb-1.5 text-xs">Label (optional)</p>
-				<div className="flex flex-wrap gap-2 sm:gap-1.5">
+				<p
+					id="plan-picker-label-label"
+					className="text-muted-foreground mb-1.5 text-xs"
+				>
+					Label (optional)
+				</p>
+				<div
+					role="group"
+					aria-labelledby="plan-picker-label-label"
+					className={cn(
+						'flex flex-wrap',
+						planPickerAsSheet ? 'gap-2' : 'gap-1.5',
+					)}
+				>
 					{MEAL_TYPES.map((mt) => (
 						<button
 							key={mt}
@@ -702,7 +736,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							onClick={() => setPlanMealType(planMealType === mt ? null : mt)}
 							aria-pressed={planMealType === mt}
 							className={cn(
-								'min-h-11 rounded-full border px-3.5 text-sm transition-colors sm:min-h-0 sm:px-2.5 sm:py-1 sm:text-xs',
+								'rounded-full border transition-colors',
+								planChip,
 								planMealType === mt
 									? 'border-primary bg-primary text-primary-foreground'
 									: 'border-border hover:border-primary/50',
@@ -714,7 +749,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				</div>
 			</div>
 			<Button
-				className="h-11 w-full sm:h-9"
+				className={cn('w-full', planPickerAsSheet ? 'h-11' : 'h-9')}
 				onClick={handleAddToPlanSubmit}
 				disabled={planFetcher.state !== 'idle'}
 			>

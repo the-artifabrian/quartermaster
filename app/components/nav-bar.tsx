@@ -189,7 +189,10 @@ function useTitleUnderBar(barRef: React.RefObject<HTMLElement | null>) {
 		const resize = new ResizeObserver(observe)
 		resize.observe(bar)
 		// The header holds the status bar inset above the bar in the iOS app.
-		if (bar.parentElement) resize.observe(bar.parentElement)
+		// Its padding, so the border box.
+		if (bar.parentElement) {
+			resize.observe(bar.parentElement, { box: 'border-box' })
+		}
 		return () => {
 			observer?.disconnect()
 			resize.disconnect()

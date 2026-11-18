@@ -1,4 +1,6 @@
 import { type Locator, type Page } from '@playwright/test'
+import sharp from 'sharp'
+import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { SHELL_UA, setShellSafeArea } from '#tests/native-shell.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
@@ -237,6 +239,48 @@ test('a page opened from a scrolled page does not start with its title in the ba
 test.describe('in the iOS app', () => {
 	test.use({ userAgent: SHELL_UA })
 
+	test('the floating Ingredients button shows once the heading is under the bar', async ({
+		page,
+		login,
+	}) => {
+		await setShellSafeArea(page, { top: 47, bottom: 34 })
+		const user = await login()
+		const recipe = await createLongRecipe(user)
+		await page.goto(`/recipes/${recipe.id}`)
+		const scale = page.getByRole('button', { name: 'Scale 1×' })
+		await hydrated(scale)
+		const floating = page.locator('[data-floating-ingredients]')
+		await expect(floating).toHaveCount(0)
+		// The Ingredients heading row under the bar (47 + 44), still on screen.
+		await scale.evaluate((button) => {
+			const bottom = button.getBoundingClientRect().bottom + window.scrollY
+			window.scrollTo(0, bottom - 60)
+		})
+		const box = (await scale.boundingBox())!
+		expect(box.y + box.height).toBeGreaterThan(0)
+		expect(box.y + box.height).toBeLessThan(91)
+		await expect(floating).toBeVisible()
+	})
+
+	test('the bar re-measures when the status bar inset changes', async ({
+		page,
+		login,
+	}) => {
+		await setShellSafeArea(page, { top: 47, bottom: 34 })
+		const user = await login()
+		const recipe = await createLongRecipe(user)
+		await page.goto(`/recipes/${recipe.id}`)
+		const barBottom = () =>
+			page.evaluate(() =>
+				document.documentElement.style.getPropertyValue('--nav-bar-bottom'),
+			)
+		await expect.poll(barBottom).toBe('91px')
+		await page.evaluate(() =>
+			document.documentElement.style.setProperty('--qm-shell-safe-top', '59px'),
+		)
+		await expect.poll(barBottom).toBe('103px')
+	})
+
 	test('the small title shows once the big one is under the bar, which sits under the status bar', async ({
 		page,
 		login,
@@ -328,10 +372,16 @@ test('Save in the nav bar saves the edit and returns to the Recipe', async ({
 	})
 	expect(saved.title).toBe('Red lentil soup')
 
-	// Back from the saved Recipe steps over the edit form to the list.
+	// Back from the saved Recipe steps over the edit form to the list, and
+	// slides back though the redirect opened the Recipe without a slide.
 	await backButton(page, 'Recipes').tap()
 	await expect(page).toHaveURL('/recipes')
 	expect(await historyIdx(page)).toBe(listIdx)
+	await expect
+		.poll(() =>
+			page.evaluate(() => document.documentElement.dataset.navDirection),
+		)
+		.toBe('back')
 })
 
 test('Cancel discards the edit', async ({ page, login }) => {
@@ -340,6 +390,7 @@ test('Cancel discards the edit', async ({ page, login }) => {
 
 	await page.goto(`/recipes/${recipe.id}`)
 	await hydrated(page.getByRole('link', { name: 'Edit Recipe' }))
+	const recipeIdx = await historyIdx(page)
 	await page.getByRole('link', { name: 'Edit Recipe' }).tap()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
 	await page.getByLabel('Title').fill('Something else')
@@ -348,6 +399,8 @@ test('Cancel discards the edit', async ({ page, login }) => {
 		.getByRole('link', { name: 'Cancel' })
 		.tap()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+	// Popped back to the Recipe's own entry, not a new copy of it.
+	expect(await historyIdx(page)).toBe(recipeIdx)
 	await expect(
 		page.getByRole('heading', { level: 1, name: 'Lentil soup' }),
 	).toBeVisible()
@@ -439,4 +492,370 @@ test('Settings goes back to the tab it came from, and its pages back to Settings
 	await backButton(page, 'Plan').tap()
 	await expect(page).toHaveURL('/plan')
 	await expect(brand(page)).toBeVisible()
+})
+
+function todayUTC() {
+	const today = new Date()
+	return new Date(
+		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
+	)
+}
+
+/** A JPEG over the 3 MB upload limit, so the form shrinks it first. */
+async function bulkyPhoto() {
+	const jpeg = await sharp({
+		create: { width: 64, height: 48, channels: 3, background: '#c86b3c' },
+	})
+		.jpeg()
+		.toBuffer()
+	const comment = Buffer.alloc(65_535 + 2, 0x20)
+	comment.writeUInt16BE(0xfffe, 0)
+	comment.writeUInt16BE(65_535, 2)
+	const comments = Array.from({ length: 64 }, () => comment)
+	return Buffer.concat([jpeg.subarray(0, 2), ...comments, jpeg.subarray(2)])
+}
+
+const scrollY = (page: Page) => page.evaluate(() => window.scrollY)
+
+test('a Recipe opened from the Plan goes back to the Plan where it was', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipes = []
+	for (let i = 1; i <= 12; i++) {
+		recipes.push(await createLongRecipe(user, `Dish ${i}`))
+	}
+	const today = todayUTC()
+	const weekStart = getWeekStart(today)
+	await prisma.mealPlan.create({
+		data: {
+			householdId: user.householdId,
+			weekStart,
+			meals: {
+				create: recipes.map((recipe, order) => ({
+					date: today,
+					order,
+					recipeItems: {
+						create: {
+							recipeId: recipe.id,
+							recipeTitle: recipe.title,
+							order: 0,
+						},
+					},
+				})),
+			},
+		},
+	})
+
+	await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+	const last = page
+		.getByTestId('mobile-plan')
+		.getByRole('link', { name: 'Dish 12', exact: true })
+	await last.scrollIntoViewIfNeeded()
+	await hydrated(last)
+	const planScroll = await scrollY(page)
+	expect(planScroll).toBeGreaterThan(100)
+	const planIdx = await historyIdx(page)
+	await last.tap()
+	await expect(page).toHaveURL(`/recipes/${recipes[11]!.id}`)
+
+	await backButton(page, 'Plan').tap()
+	await expect(page).toHaveURL(/\/plan/)
+	expect(await historyIdx(page)).toBe(planIdx)
+	// Back where it was: the Meal it opened is still on screen.
+	await expect(last).toBeInViewport()
+	expect(await scrollY(page)).toBeGreaterThan(planScroll / 2)
+})
+
+test('Back from a Recipe the tab bar restored returns to the filtered list where it was', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await createRecipes(user, 30)
+	const tab = (name: string) =>
+		page
+			.getByRole('navigation', { name: 'Main' })
+			.getByRole('link', { name, exact: true })
+
+	await page.goto('/recipes?search=Soup')
+	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+	const card = page.getByRole('link', { name: /^Soup \d+ recipe/ }).last()
+	await expect(card).toBeInViewport()
+	await hydrated(card)
+	const listScroll = await scrollY(page)
+	expect(listScroll).toBeGreaterThan(500)
+	const listIdx = await historyIdx(page)
+	await card.tap()
+	await expect(page).toHaveURL(/\/recipes\/[^/?]+$/)
+	const recipeUrl = page.url()
+
+	// To the Plan and back with the tab bar, which restores the Recipe.
+	await tab('Plan').tap()
+	await expect(page).toHaveURL('/plan')
+	await tab('Recipes').tap()
+	await expect(page).toHaveURL(recipeUrl)
+
+	await backButton(page, 'Recipes').tap()
+	await expect(page).toHaveURL('/recipes?search=Soup')
+	expect(await historyIdx(page)).toBe(listIdx)
+	await expect.poll(() => scrollY(page)).toBeGreaterThan(listScroll - 5)
+	expect(await scrollY(page)).toBeLessThan(listScroll + 5)
+})
+
+test("an edit page showing its error has Back, not the form's Cancel and Save", async ({
+	page,
+	login,
+}) => {
+	await login()
+	await page.goto('/recipes/no-such-recipe/edit')
+	const bar = page.locator('[data-nav-bar]')
+	await hydrated(backButton(page, 'Recipe'))
+	await expect(bar.getByRole('button', { name: 'Save' })).toHaveCount(0)
+	await expect(bar.getByRole('link', { name: 'Cancel' })).toHaveCount(0)
+})
+
+test('Return in an ingredient or a Menu builder field does not save; in a Recipe title it does', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await page.goto('/recipes/new')
+	const title = page.getByRole('textbox', { name: /title/i })
+	await hydrated(title)
+	await title.fill('Return pasta')
+	const ingredient = page.getByPlaceholder('Ingredient name')
+	await ingredient.fill('spaghetti')
+	await ingredient.press('Enter')
+	await page.waitForTimeout(500)
+	await expect(page).toHaveURL('/recipes/new')
+	expect(await prisma.recipe.count({ where: { title: 'Return pasta' } })).toBe(
+		0,
+	)
+	// The title saves on Return, as it did when the form had its own Save.
+	await page.getByPlaceholder('Step 1').fill('Boil.')
+	await title.press('Enter')
+	await expect(page).toHaveURL(/\/recipes\/(?!new)[^/]+$/)
+	expect(await prisma.recipe.count({ where: { title: 'Return pasta' } })).toBe(
+		1,
+	)
+
+	const menu = await prisma.menu.create({
+		data: {
+			title: 'Mezze night',
+			titleKey: 'mezze night',
+			householdId: user.householdId,
+			sections: { create: { order: 0 } },
+		},
+		select: { id: true },
+	})
+	await page.goto(`/recipes/menus/${menu.id}/edit`)
+	const sectionName = page.getByPlaceholder(/Section name/).first()
+	await hydrated(sectionName)
+	await sectionName.fill('Dessert')
+	await sectionName.press('Enter')
+	await page.waitForTimeout(500)
+	await expect(page).toHaveURL(`/recipes/menus/${menu.id}/edit`)
+	expect(
+		await prisma.menuSection.count({
+			where: { menuId: menu.id, name: 'Dessert' },
+		}),
+	).toBe(0)
+})
+
+test('Save waits for a photo still being shrunk', async ({ page, login }) => {
+	await login()
+	// Hold the browser's image decode until the test lets it go.
+	await page.addInitScript(() => {
+		const decode = window.createImageBitmap.bind(window)
+		let release = () => {}
+		const held = new Promise<void>((resolve) => (release = resolve))
+		Object.assign(window, { __releasePhoto: () => release() })
+		window.createImageBitmap = (async (
+			...args: Parameters<typeof createImageBitmap>
+		) => {
+			await held
+			return decode(...args)
+		}) as typeof createImageBitmap
+	})
+	await page.goto('/recipes/new')
+	const title = page.getByRole('textbox', { name: /title/i })
+	await hydrated(title)
+	await title.fill('Photo pasta')
+	await page.getByPlaceholder('Ingredient name').fill('spaghetti')
+	await page.getByPlaceholder('Step 1').fill('Boil.')
+	await page.getByText('Photo', { exact: true }).click()
+	const save = page
+		.locator('[data-nav-bar]')
+		.getByRole('button', { name: 'Save', exact: true })
+	await expect(save).toBeEnabled()
+	await page.locator('input[type="file"][name="image"]').setInputFiles({
+		name: 'IMG_0001.JPG',
+		mimeType: 'image/jpeg',
+		buffer: await bulkyPhoto(),
+	})
+	await expect(save).toBeDisabled()
+	await page.evaluate(() =>
+		(window as unknown as { __releasePhoto: () => void }).__releasePhoto(),
+	)
+	await expect(save).toBeEnabled()
+	await save.tap()
+	await expect(page).toHaveURL(/\/recipes\/(?!new)[^/]+$/)
+	const saved = await prisma.recipe.findFirstOrThrow({
+		where: { title: 'Photo pasta' },
+		select: { image: { select: { objectKey: true } } },
+	})
+	expect(saved.image?.objectKey).toBeTruthy()
+})
+
+test('Save shows it is saving and sends the edit once', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createLongRecipe(user, 'Lentil soup')
+	await page.goto(`/recipes/${recipe.id}/edit`)
+	const title = page.getByLabel('Title')
+	await hydrated(title)
+	await title.fill('Red lentil soup')
+
+	let posts = 0
+	let release = () => {}
+	const held = new Promise<void>((resolve) => (release = resolve))
+	await page.route(/\/edit\.data/, async (route) => {
+		if (route.request().method() !== 'POST') return route.continue()
+		posts++
+		await held
+		await route.continue().catch(() => {})
+	})
+	const save = page.locator('[data-nav-save]')
+	await save.tap()
+	await expect(save).toBeDisabled()
+	await expect(save).toHaveAttribute('aria-busy', 'true')
+	await expect(save).toHaveText('Saving')
+	await save.tap({ force: true })
+	await page.waitForTimeout(300)
+	release()
+	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+	expect(posts).toBe(1)
+})
+
+test('the small title stays hidden while the big one is still below the fold', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createLongRecipe(user, 'Lentil soup')
+	// So short that the page's h1 starts below the screen.
+	await page.setViewportSize({ width: 390, height: 56 })
+	await page.goto(`/recipes/${recipe.id}`)
+	const title = page.locator('[data-nav-title]')
+	// The observer has reported: it has read the h1.
+	await expect(title).toHaveAttribute('data-nav-title', 'Lentil soup')
+	const headingTop = await page
+		.getByRole('heading', { level: 1, name: 'Lentil soup' })
+		.evaluate((h1) => h1.getBoundingClientRect().top)
+	expect(headingTop).toBeGreaterThan(56)
+	await expect(title).not.toHaveAttribute('data-shown')
+})
+
+test('changing the scale keeps the Recipe where it was, small title and all', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createLongRecipe(user, 'Lentil soup')
+	await page.goto(`/recipes/${recipe.id}`)
+	const scale = page.getByRole('button', { name: 'Scale 1×' })
+	await hydrated(scale)
+	// The big title under the bar, the scale control just below it.
+	await scale.evaluate((button) => {
+		const top = button.getBoundingClientRect().top + window.scrollY
+		window.scrollTo(0, top - 65)
+	})
+	const title = page.locator('[data-nav-title]')
+	await expect(title).toHaveAttribute('data-shown', '')
+	const before = await scrollY(page)
+	await page.evaluate(() => {
+		const frames: boolean[] = []
+		Object.assign(window, { __frames: frames })
+		const sample = () => {
+			frames.push(
+				document.querySelector('[data-nav-title]')!.hasAttribute('data-shown'),
+			)
+			requestAnimationFrame(sample)
+		}
+		requestAnimationFrame(sample)
+	})
+	await scale.tap()
+	await page.getByRole('button', { name: 'Increase recipe scale' }).tap()
+	await expect(page).toHaveURL(/scale=/)
+	await page.waitForTimeout(300)
+	expect(Math.abs((await scrollY(page)) - before)).toBeLessThan(5)
+	const frames = await page.evaluate(
+		() => (window as unknown as { __frames: boolean[] }).__frames,
+	)
+	expect(frames.every(Boolean)).toBe(true)
+})
+
+test('a toast on a pushed page opens below the bar', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+	const menu = await prisma.menu.create({
+		data: {
+			title: 'Mezze night',
+			titleKey: 'mezze night',
+			householdId: user.householdId,
+		},
+		select: { id: true },
+	})
+	await page.goto(`/recipes/menus/${menu.id}`)
+	const share = page.getByRole('button', { name: 'Share' })
+	await hydrated(share)
+	await share.tap()
+	const toast = page.locator('[data-sonner-toast]').filter({
+		hasText: 'Public link copied',
+	})
+	await expect(toast).toBeVisible()
+	const barBottom = await page
+		.locator('[data-nav-bar]')
+		.evaluate((bar) => bar.getBoundingClientRect().bottom)
+	await expect
+		.poll(async () => (await toast.boundingBox())!.y)
+		.toBeGreaterThanOrEqual(barBottom)
+})
+
+test('on desktop, Settings opened from a Recipe goes back to the Recipe', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createLongRecipe(user, 'Lentil soup')
+	await page.setViewportSize({ width: 1280, height: 800 })
+	await page.goto(`/recipes/${recipe.id}`)
+	const avatar = page.getByRole('link', { name: 'Settings', exact: true })
+	await hydrated(avatar)
+	await avatar.click()
+	await expect(page).toHaveURL('/settings/profile')
+	await backButton(page, 'Recipe').click()
+	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+})
+
+test('Import has no Cancel of its own; the bar goes back', async ({
+	page,
+	login,
+}) => {
+	await login()
+	await page.goto('/recipes')
+	const importLink = page.getByRole('link', { name: /Import/ }).first()
+	await hydrated(importLink)
+	await importLink.tap()
+	await expect(page).toHaveURL(/\/recipes\/import/)
+	await expect(page.getByRole('button', { name: 'Cancel' })).toHaveCount(0)
+	await backButton(page, 'Recipes').tap()
+	await expect(page).toHaveURL('/recipes')
 })

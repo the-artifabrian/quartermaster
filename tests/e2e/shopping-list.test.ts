@@ -79,17 +79,17 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	const outstanding = rows.filter({ hasText: '400 g' })
 	await expect(rows).toHaveCount(2)
 	await expect(
-		previous.getByRole('button', { name: 'Uncheck item' }),
+		previous.getByRole('button', { name: /^Uncheck / }),
 	).toBeVisible()
 	await expect(
-		outstanding.getByRole('button', { name: 'Check off item' }),
+		outstanding.getByRole('button', { name: /^Check off / }),
 	).toBeVisible()
 	await page.reload()
 	await expect(
-		previous.getByRole('button', { name: 'Uncheck item' }),
+		previous.getByRole('button', { name: /^Uncheck / }),
 	).toBeVisible()
 	await expect(
-		outstanding.getByRole('button', { name: 'Check off item' }),
+		outstanding.getByRole('button', { name: /^Check off / }),
 	).toBeVisible()
 	await page.screenshot({
 		path: test.info().outputPath('separate-purchases.png'),
@@ -98,9 +98,9 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	})
 
 	// Either portion can be checked and cleared without affecting the other.
-	await previous.getByRole('button', { name: 'Uncheck item' }).click()
+	await previous.getByRole('button', { name: /^Uncheck / }).click()
 	await expect(previous.getByRole('status')).toBeHidden()
-	await outstanding.getByRole('button', { name: 'Check off item' }).click()
+	await outstanding.getByRole('button', { name: /^Check off / }).click()
 	await expect(outstanding.getByRole('status')).toBeHidden()
 	const clearChecked = page.getByRole('button', {
 		name: 'Clear checked items from Next shop',
@@ -110,7 +110,7 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	await clearChecked.click()
 	await expect(rows).toHaveCount(1)
 	await expect(
-		previous.getByRole('button', { name: 'Check off item' }),
+		previous.getByRole('button', { name: /^Check off / }),
 	).toBeVisible()
 	await page.reload()
 	await expect(rows).toHaveCount(1)
@@ -355,13 +355,14 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	await page.reload()
 	const foil = page.getByRole('group', { name: 'Foil shopping item' })
 	await foil.getByRole('button', { name: 'Item actions' }).click()
-	const deleteFoil = foil.getByRole('button', { name: 'Delete item' })
+	await expect(page.getByRole('menuitem', { name: 'Edit item' })).toBeVisible()
+	const deleteFoil = page.getByRole('menuitem', { name: /^Delete/ })
 	await deleteFoil.click()
 	await expect(deleteFoil).toHaveText('Delete?')
 	await expect(foil).toBeVisible()
 	expect(await prisma.shoppingListItem.count({ where: foilSaved })).toBe(1)
 	// Closing the menu disarms it, so a reopened menu needs two taps again.
-	await page.getByRole('heading', { level: 1, name: /^Shopping/ }).click()
+	await page.keyboard.press('Escape')
 	await expect(deleteFoil).toBeHidden()
 	await foil.getByRole('button', { name: 'Item actions' }).click()
 	await expect(deleteFoil).not.toHaveText('Delete?')
@@ -380,7 +381,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	]) {
 		await page.setViewportSize(viewport)
 		await page
-			.getByRole('button', { name: /check off item/i })
+			.getByRole('button', { name: /^Check off / })
 			.first()
 			.click()
 		await expect(page.getByText(/\(1\/\d+\)/)).toBeVisible()
@@ -516,23 +517,21 @@ test('household Staples can be added together from the quiet Shopping picker', a
 	await page.getByRole('button', { name: 'From Staples' }).click()
 
 	const milkRow = page.getByRole('group', { name: 'Milk shopping item' })
-	await milkRow.getByRole('button', { name: 'Check off item' }).click()
-	await expect(
-		milkRow.getByRole('button', { name: 'Uncheck item' }),
-	).toBeVisible()
+	await milkRow.getByRole('button', { name: /^Check off / }).click()
+	await expect(milkRow.getByRole('button', { name: /^Uncheck / })).toBeVisible()
 	await page.getByRole('button', { name: 'From Staples' }).click()
 	await expect(
 		page.getByRole('button', { name: /Milk.*On list/ }),
 	).toBeDisabled()
 	await page.getByRole('button', { name: 'From Staples' }).click()
-	await milkRow.getByRole('button', { name: 'Uncheck item' }).click()
+	await milkRow.getByRole('button', { name: /^Uncheck / }).click()
 	await expect(
-		milkRow.getByRole('button', { name: 'Check off item' }),
+		milkRow.getByRole('button', { name: /^Check off / }),
 	).toBeVisible()
 
 	const yogurtRow = page.getByRole('group', { name: 'Yogurt shopping item' })
 	await yogurtRow.getByRole('button', { name: 'Item actions' }).click()
-	await yogurtRow.getByRole('button', { name: 'Move to Later' }).click()
+	await page.getByRole('menuitem', { name: 'Move to Later' }).click()
 	await expect(yogurtRow).toBeHidden()
 	await page.getByRole('button', { name: 'From Staples' }).click()
 	await expect(
@@ -617,7 +616,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 			name: `${itemName} shopping item`,
 		})
 		await expect(
-			laterGroup.getByRole('button', { name: 'Uncheck item' }),
+			laterGroup.getByRole('button', { name: /^Uncheck / }),
 		).toBeVisible()
 		await laterGroup.getByRole('button', { name: 'Item actions' }).click()
 		const moveResponse = page.waitForResponse(
@@ -626,7 +625,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 				response.url().includes('/shopping') &&
 				response.request().postData()?.includes('intent=move') === true,
 		)
-		await page.getByRole('button', { name: 'Move to Next shop' }).click()
+		await page.getByRole('menuitem', { name: 'Move to Next shop' }).click()
 		await moveResponse
 
 		const nextSection = page.getByTestId('next-shopping-items')
@@ -635,7 +634,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 		})
 		await expect(movedGroup).toBeVisible({ timeout: 10_000 })
 		await expect(
-			movedGroup.getByRole('button', { name: 'Uncheck item' }),
+			movedGroup.getByRole('button', { name: /^Uncheck / }),
 		).toBeVisible()
 		const movedBox = await movedGroup.boundingBox()
 		expect(movedBox).not.toBeNull()

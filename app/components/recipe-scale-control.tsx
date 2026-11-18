@@ -50,18 +50,25 @@ export function RecipeScaleControl({
 }: RecipeScaleControlProps) {
 	const displayedValue = formatScaleMultiplier(scaleMultiplier)
 	const [draft, setDraft] = useState(displayedValue)
+	// The draft last sent. Closing Scale's sheet saves it and the field may
+	// blur straight after, before the parent has taken the value: that blur
+	// must not send it again. Editing the draft or a new value clears it.
+	const sentDraft = useRef<string | null>(null)
 
 	useEffect(() => {
 		setDraft(displayedValue)
+		sentDraft.current = null
 	}, [displayedValue])
 
 	function commit() {
 		if (draft.trim() === displayedValue) return
+		if (draft === sentDraft.current) return
 		const parsed = ScaleMultiplierSchema.safeParse(draft)
 		if (!parsed.success) {
 			setDraft(displayedValue)
 			return
 		}
+		sentDraft.current = draft
 		onScaleMultiplierChange(parsed.data)
 	}
 	useEffect(() => {
@@ -84,6 +91,7 @@ export function RecipeScaleControl({
 				value={draft}
 				onChange={(event) => {
 					if (!isAllowedScaleDraft(event.target.value)) return
+					sentDraft.current = null
 					setDraft(event.target.value)
 				}}
 				maxLength={6}

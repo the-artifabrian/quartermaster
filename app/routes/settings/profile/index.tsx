@@ -397,7 +397,7 @@ function SignOutOfSessions({
 						onCancel={() => setConfirming(false)}
 						title={`Log out of ${otherSessionsCount} other sessions?`}
 						description="Those devices will need to log in again."
-						confirmLabel="Log Out"
+						confirmLabel="Log out"
 						formId="sign-out-other-sessions"
 						name="intent"
 						value={signOutOfSessionsActionIntent}
@@ -449,7 +449,7 @@ function DeleteData({ outcome }: { outcome: AccountDeletionOutcome }) {
 					onCancel={() => setConfirming(false)}
 					title="Delete your account?"
 					description={consequence}
-					confirmLabel="Delete Account"
+					confirmLabel="Delete account"
 					formId="delete-account"
 					name="intent"
 					value={deleteDataActionIntent}

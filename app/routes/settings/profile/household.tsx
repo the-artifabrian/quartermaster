@@ -501,7 +501,7 @@ function LeaveHousehold() {
 					onCancel={() => setConfirming(false)}
 					title="Leave this Household?"
 					description="Shared Staples and the Plan stay here; your Recipes come with you."
-					confirmLabel="Leave Household"
+					confirmLabel="Leave household"
 					formId="leave-household"
 					name="intent"
 					value="leave-household"

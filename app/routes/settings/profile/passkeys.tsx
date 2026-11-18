@@ -211,7 +211,7 @@ function DeletePasskeyForm({ passkeyId }: { passkeyId: string }) {
 				onCancel={() => setConfirming(false)}
 				title="Delete this passkey?"
 				description="You won’t be able to log in with it again."
-				confirmLabel="Delete Passkey"
+				confirmLabel="Delete passkey"
 				formId={formId}
 				name="intent"
 				value="delete"

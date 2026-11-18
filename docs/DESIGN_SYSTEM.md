@@ -135,6 +135,11 @@ each screen:
   tab bar over a dim scrim, clears the home indicator, and closes by a pull
   down, the scrim, Escape or Close. From `sm` up it is a centered dialog. A
   sheet's primary action is full width at the bottom.
+- On a phone (below `sm`) nothing you type or pick in is a popover or a panel
+  that opens in place: Add a Meal, Add a Recipe to a Meal, Edit details, Edit
+  item, Scale, From Staples, From Plan, Add to Plan and Link recipe open as
+  sheets (`opensAsSheet`, read when they open). Wider screens keep their
+  popover or inline panel.
 - A Delete in a menu or behind a swipe is red from the start.
 - A delete that can be undone (a Meal, a Recipe in a Meal, a Shopping item,
   Clear checked, removing a Staple) happens at once with an Undo toast at the
@@ -238,7 +243,10 @@ placeholder.
 ### Plan
 
 - Show an ordered list of Meals under each day, not permanent meal-type slots.
-- Use serif day headings, a copper marker for today, and flat Meal rows.
+- Use serif day headings, a copper marker for today, and flat Meal rows: no
+  card border, fill or shadow. A full-width hairline separates Meals; inside a
+  Meal, Recipes are separated by a lighter hairline inset past the cooked
+  toggle.
 - A Meal may be one Recipe, several Recipe items, a Menu snapshot, or plain
   text. Keep the one-Recipe path fast.
 - Dense Menu snapshots may need progressive disclosure; do not solve density by
@@ -283,7 +291,8 @@ grids, illustrations, or congratulatory copy.
 - Respect `prefers-reduced-motion`; behavior must not depend on animation.
 - Keep visible focus, semantic landmarks, labelled icon buttons, and reachable
   reorder controls.
-- Hover is polish. Every action must work by tap and keyboard.
+- Hover is polish. Every action must work by tap and keyboard. Tooltips are for
+  a mouse: they never open on a touch screen or in the iOS app.
 - Test realistic long Recipe titles, Menu notes, ingredients, and translated or
   custom labels at phone and desktop widths.
 

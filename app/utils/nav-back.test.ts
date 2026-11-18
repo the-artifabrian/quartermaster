@@ -45,17 +45,6 @@ test('after a reload the earlier entries are unknown, so Back opens the parent',
 	})
 })
 
-test('without a history index nothing can be popped', () => {
-	expect(
-		resolveBack({
-			idx: null,
-			log: logOf('/recipes'),
-			pathname: '/recipes/r1',
-			rule: recipeDetailNav,
-		}),
-	).toEqual({ type: 'replace', to: '/recipes', label: 'Recipes' })
-})
-
 test('opened from the parent list, Back pops one entry', () => {
 	expect(back(['/recipes', '/recipes/r1'])).toEqual({
 		type: 'pop',

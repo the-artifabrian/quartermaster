@@ -80,6 +80,7 @@ test('Back from a Recipe returns to the list where it was', async ({
 	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
 	const card = page.getByRole('link', { name: /^Soup \d+ recipe/ }).last()
 	await expect(card).toBeInViewport()
+	await hydrated(card)
 	const listScroll = await page.evaluate(() => window.scrollY)
 	expect(listScroll).toBeGreaterThan(500)
 	const listIdx = await historyIdx(page)
@@ -157,13 +158,80 @@ test('a Recipe opened from a Menu goes back to the Menu', async ({
 	await expect(
 		page.locator('main').getByRole('link', { name: 'Menus' }),
 	).toHaveCount(0)
+	await hydrated(page.getByRole('link', { name: /Hummus/ }))
+	const menuIdx = await historyIdx(page)
 	await page.getByRole('link', { name: /Hummus/ }).tap()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+
+	// Hold the Menu's data, so the Recipe stays up while the pop loads.
+	let release = () => {}
+	const held = new Promise<void>((resolve) => (release = resolve))
+	let requested = false
+	await page.route(/\/recipes\/menus\/[^/]+\.data/, async (route) => {
+		requested = true
+		await held
+		await route.continue()
+	})
 	await backButton(page, 'Menu').tap()
+	await expect.poll(() => requested).toBe(true)
+	// Still on the Recipe: the label still names the Menu, and a second tap
+	// neither goes back again nor replaces the Menu with Recipes.
+	await expect(backButton(page, 'Menu')).toBeVisible()
+	await backButton(page, 'Menu').tap()
+	release()
 	await expect(page).toHaveURL(`/recipes/menus/${menu.id}`)
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Mezze night' }),
+	).toBeVisible()
+	expect(await historyIdx(page)).toBe(menuIdx)
+	await page.unrouteAll()
 	// Cold, the Menu's parent is Menus.
 	await backButton(page, 'Menus').tap()
 	await expect(page).toHaveURL('/recipes/menus')
+})
+
+test('a page opened from a scrolled page does not start with its title in the bar', async ({
+	page,
+	login,
+}) => {
+	await login()
+	await page.goto('/settings/profile')
+	const household = page.getByRole('link', { name: /Household/ })
+	await hydrated(household)
+	// Scroll Settings' own title under the bar; its small title shows.
+	await page.evaluate(() => window.scrollTo(0, 200))
+	const title = page.locator('[data-nav-title]')
+	await expect(title).toHaveAttribute('data-shown', '')
+	await expect(title).toHaveAttribute('data-nav-title', 'Settings')
+
+	// Record, in every frame from here on, which page is on screen (its h1;
+	// the URL changes before the router commits the page) and the bar.
+	await page.evaluate(() => {
+		const frames: string[] = []
+		Object.assign(window, { __frames: frames })
+		const sample = () => {
+			const bar = document.querySelector('[data-nav-title]')
+			const heading = document.querySelector('#main-content h1')
+			frames.push(
+				`${heading?.textContent?.trim()}: ${bar?.hasAttribute('data-shown') ? 'shown' : 'hidden'} ${bar?.getAttribute('data-nav-title')}`,
+			)
+			requestAnimationFrame(sample)
+		}
+		requestAnimationFrame(sample)
+	})
+	await household.tap()
+	await expect(page).toHaveURL('/settings/profile/household')
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Household' }),
+	).toBeVisible()
+	await page.waitForTimeout(300)
+	const frames = await page.evaluate(
+		() => (window as unknown as { __frames: string[] }).__frames,
+	)
+	expect(frames.some((f) => f.startsWith('Household:'))).toBe(true)
+	expect(
+		frames.filter((f) => f.startsWith('Household:') && f.includes(' shown ')),
+	).toEqual([])
 })
 
 test.describe('in the iOS app', () => {
@@ -355,6 +423,7 @@ test('Settings goes back to the tab it came from, and its pages back to Settings
 }) => {
 	await login()
 	await page.goto('/plan')
+	await hydrated(page.getByRole('link', { name: 'Settings' }))
 	await page.getByRole('link', { name: 'Settings' }).tap()
 	await expect(page).toHaveURL('/settings/profile')
 	await expect(backButton(page, 'Plan')).toBeVisible()

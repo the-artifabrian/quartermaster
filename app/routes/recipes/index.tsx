@@ -434,7 +434,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			{/* Page Header */}
-			<div className="border-border/50 border-b">
+			<div>
 				<TitleRow className="container-grid py-3 md:py-4">
 					<h1 className="font-serif text-2xl font-normal">
 						My Recipes{' '}

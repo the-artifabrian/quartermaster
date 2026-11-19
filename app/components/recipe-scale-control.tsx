@@ -84,11 +84,12 @@ export function RecipeScaleControl({
 		<label
 			className={cn(
 				'flex items-center gap-1',
-				// The compact field is 28px to the eye; the label around it is
-				// 44px to the thumb (a tap on it focuses the field). The field
-				// sits above that area, so a tap in it still places the caret.
+				// The compact field is a quiet 28px fill to the eye, the × inside
+				// it; the label around it is 44px to the thumb (a tap on it
+				// focuses the field). The field sits above that area, so a tap in
+				// it still places the caret.
 				compact &&
-					"relative shrink-0 before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] md:before:hidden",
+					"bg-muted/70 focus-within:ring-ring/40 relative h-7 min-w-11 shrink-0 justify-center gap-0.5 rounded-md pr-2 pl-1.5 before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] focus-within:ring-2 md:before:hidden",
 			)}
 		>
 			<span className="sr-only">Scale multiplier</span>
@@ -114,11 +115,23 @@ export function RecipeScaleControl({
 				className={cn(
 					'text-center tabular-nums',
 					compact
-						? 'relative z-1 h-7 w-16 px-1.5 text-xs'
+						? cn(
+								'relative z-1 h-7 w-8 border-0 bg-transparent px-0 text-center text-xs focus-visible:ring-0 focus-visible:ring-offset-0 md:text-xs',
+								// 1× is the usual; a scaled Recipe reads in ink.
+								draft.trim() === '1' && 'text-muted-foreground',
+							)
 						: 'h-11 w-20 px-2 text-base',
 				)}
 			/>
-			<span aria-hidden="true" className="text-muted-foreground text-sm">
+			<span
+				aria-hidden="true"
+				className={cn(
+					'text-muted-foreground',
+					compact
+						? 'pointer-events-none relative z-1 text-sm md:text-xs'
+						: 'text-sm',
+				)}
+			>
 				×
 			</span>
 		</label>

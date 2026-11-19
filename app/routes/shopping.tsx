@@ -1051,7 +1051,7 @@ export default function ShoppingListRoute({
 				</div>
 			)}
 			{/* Page Header */}
-			<div className="border-border/50 border-b">
+			<div>
 				<div className="container-narrow py-4">
 					<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
 						<h1 className="font-serif text-2xl font-normal">

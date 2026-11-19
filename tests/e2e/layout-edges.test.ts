@@ -125,8 +125,28 @@ test('Plan rows share the page edges, and a Meal without a label has no empty he
 		.locator('svg')
 	expectNear((await box(dinnerDots)).right, right)
 
-	// The unlabeled Meal starts with its Recipe, and its actions end the row
-	// that holds Add Recipe.
+	// The unlabeled Meal starts with its Recipe: its cooked toggle is the
+	// first thing under the Meal's top padding, with no header line above it.
+	const pastaMeal = await box(
+		mobile
+			.locator('[data-meal-id]')
+			.filter({ has: page.getByRole('link', { name: 'Pasta alla Norma' }) }),
+	)
+	const pastaToggle = await box(
+		mobile.getByRole('button', { name: 'Mark Pasta alla Norma as cooked' }),
+	)
+	expect(pastaToggle.top - pastaMeal.top).toBeLessThanOrEqual(14)
+	// The labeled Meal keeps its header line above its first Recipe.
+	const dinnerMeal = await box(
+		mobile
+			.locator('[data-meal-id]')
+			.filter({ has: page.getByRole('link', { name: 'Miso Soup' }) }),
+	)
+	const soupToggle = await box(
+		mobile.getByRole('button', { name: 'Mark Miso Soup as cooked' }),
+	)
+	expect(soupToggle.top - dinnerMeal.top).toBeGreaterThan(30)
+	// Its actions end the row that holds Add Recipe.
 	const pastaDots = await box(
 		mobile.getByRole('button', { name: 'Meal actions for Pasta alla Norma' }),
 	)
@@ -244,4 +264,66 @@ test('Shopping rows start on the content edge and end their dots on it', async (
 		milk.getByRole('button', { name: 'Item actions' }).locator('svg'),
 	)
 	expectNear(dots.right, row.right)
+})
+
+test.describe('a wide touch screen', () => {
+	// An iPad, or a phone on its side, gets the wide agenda but is touched:
+	// its Meal controls stay 44px.
+	test.use({ viewport: { width: 820, height: 1180 }, hasTouch: true })
+
+	test('keeps the Meal row controls 44px', async ({ page, login }) => {
+		const user = await login()
+		const soup = await prisma.recipe.create({
+			data: {
+				title: 'Miso Soup',
+				userId: user.id,
+				householdId: user.householdId,
+			},
+		})
+		const today = todayUTC()
+		await prisma.mealPlan.create({
+			data: {
+				householdId: user.householdId,
+				weekStart: getWeekStart(today),
+				meals: {
+					create: {
+						date: today,
+						order: 0,
+						label: 'dinner',
+						recipeItems: {
+							create: { recipeId: soup.id, recipeTitle: soup.title, order: 0 },
+						},
+					},
+				},
+			},
+		})
+
+		await page.goto('/plan')
+		const agenda = page.getByTestId('desktop-plan')
+		expect(
+			await page.evaluate(() => matchMedia('(pointer: coarse)').matches),
+		).toBe(true)
+		for (const control of [
+			agenda.getByRole('button', { name: 'Mark Miso Soup as cooked' }),
+			agenda.getByRole('button', { name: 'Add Recipe to Miso Soup' }),
+			agenda.getByRole('link', { name: 'Miso Soup' }),
+		]) {
+			expect(
+				(await box(control)).bottom - (await box(control)).top,
+			).toBeGreaterThanOrEqual(44)
+		}
+		const toggle = await box(
+			agenda.getByRole('button', { name: 'Mark Miso Soup as cooked' }),
+		)
+		expect(toggle.right - toggle.left).toBeGreaterThanOrEqual(44)
+		// The dots are 32px to the eye; a pseudo-element takes taps around them.
+		const dots = agenda.getByRole('button', {
+			name: 'Meal actions for Miso Soup',
+		})
+		const hit = await dots.evaluate((element) => {
+			const before = getComputedStyle(element, '::before')
+			return { display: before.display, inset: before.top }
+		})
+		expect(hit.display).not.toBe('none')
+	})
 })

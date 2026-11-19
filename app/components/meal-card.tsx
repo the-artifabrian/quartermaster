@@ -121,7 +121,7 @@ function MultiplierControl({ item }: { item: PlanMealItem }) {
  * phone the circle's 44px tap box hangs into the page gutter.
  */
 const COOKED_TOGGLE =
-	'-ml-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-center md:mx-0 md:-ml-1 md:min-h-0 md:min-w-0 md:p-1'
+	'-ml-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-center desktop:mx-0 desktop:-ml-1 desktop:min-h-0 desktop:min-w-0 desktop:p-1'
 
 /** A trailing icon button whose glyph ends on the content edge. */
 const TRAILING_ICON_SLOT =
@@ -196,7 +196,7 @@ function ItemRow({
 										: `/recipes/${item.recipe.id}`
 								}
 								className={cn(
-									'flex min-h-11 min-w-0 items-center hover:underline md:inline md:min-h-0',
+									'desktop:inline desktop:min-h-0 flex min-h-11 min-w-0 items-center hover:underline',
 									!isCooked && 'text-foreground',
 								)}
 								onClick={(e) => e.stopPropagation()}
@@ -707,6 +707,11 @@ export function MealCard({
 	const hasHeader = Boolean(
 		meal.label || timeText || meal.guestCount != null || meal.sourceMenu,
 	)
+	const detailsPanel = editingDetails && !detailsInSheet && (
+		<div className="border-border/50 bg-background mt-1 rounded-md border p-3">
+			<MealDetailsForm meal={meal} onDone={() => setEditingDetails(false)} />
+		</div>
+	)
 	// The dots glyph ends on the content edge; the 44px tap area is wider.
 	const actions = (
 		<DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
@@ -729,7 +734,7 @@ export function MealCard({
 					}}
 					// 32px to the eye on a phone, 44px to the thumb: the
 					// pseudo-element takes taps without growing the header.
-					className="text-muted-foreground hover:text-foreground active:bg-muted relative -mr-[9px] flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded transition-colors before:absolute before:-inset-1.5 before:content-[''] md:-mr-[5px] md:min-h-6 md:min-w-6 md:before:hidden"
+					className="text-muted-foreground hover:text-foreground active:bg-muted desktop:-mr-[5px] desktop:min-h-6 desktop:min-w-6 desktop:before:hidden relative -mr-[9px] flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded transition-colors before:absolute before:-inset-1.5 before:content-['']"
 					aria-label={`Meal actions for ${mealActionName}`}
 				>
 					<Icon name="dots-horizontal" className="size-3.5" />
@@ -881,14 +886,9 @@ export function MealCard({
 			)}
 
 			{/* Edit details: inline panel, or a sheet on a phone */}
-			{editingDetails && !detailsInSheet && (
-				<div className="border-border/50 bg-background mt-1 rounded-md border p-3">
-					<MealDetailsForm
-						meal={meal}
-						onDone={() => setEditingDetails(false)}
-					/>
-				</div>
-			)}
+			{/* Edit details in place opens under the dots that opened it: under
+			    the header, or at the end of a Meal without one. */}
+			{hasHeader && detailsPanel}
 			{detailsInSheet && (
 				<BottomSheet
 					open={editingDetails}
@@ -1009,7 +1009,7 @@ export function MealCard({
 									setAddingRecipe(true)
 								}}
 								aria-label={`Add Recipe to ${mealActionName}`}
-								className="text-muted-foreground hover:text-foreground flex min-h-11 items-center gap-3 text-xs font-semibold transition-colors md:min-h-9"
+								className="text-muted-foreground hover:text-foreground desktop:min-h-9 flex min-h-11 items-center gap-3 text-xs font-semibold transition-colors"
 							>
 								<span className="flex w-5 justify-center">
 									<Icon name="plus" className="size-3" />
@@ -1031,6 +1031,7 @@ export function MealCard({
 					)}
 				</div>
 			)}
+			{!hasHeader && detailsPanel}
 		</div>
 	)
 }

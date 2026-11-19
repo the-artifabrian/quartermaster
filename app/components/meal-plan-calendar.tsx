@@ -621,7 +621,9 @@ export function MealPlanCalendar({
 										? 'border-primary bg-primary text-primary-foreground ring-primary/20 ring-2'
 										: today
 											? 'border-accent bg-accent/10 text-foreground'
-											: 'border-border bg-card hover:border-primary/40 hover:bg-secondary/50',
+											: // Other days are flat; only the selected day and today
+												// are marked.
+												'hover:bg-secondary/50 border-transparent',
 									!selected &&
 										!today &&
 										isPast(date) &&

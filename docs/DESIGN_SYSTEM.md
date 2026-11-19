@@ -100,6 +100,14 @@ Common maximum widths:
 - Recipe library and Staples: 1080px
 - Marketing content: 960px (the homepage uses the full 1400px `container`)
 
+Rows line up on the page's edges. What leads a row (a checkbox, a cooked circle,
+a step number, a small label, the first icon of a row of icons) starts on the
+content edge, and the dots, trash and cart glyphs that end a row end on it. A
+44px tap area reaches into the page gutter with a negative margin rather than
+pushing its glyph in. Inside a row, titles share one edge past the leading
+glyph, and a heading's chevron trails the heading. A page title has no rule
+under it.
+
 Static groups use either a flat divided list or a quiet `bg-muted/40 rounded-lg`
 inset with no shadow. Inline controls use at most an 8px radius. Twelve-pixel
 radii and warm shadows are for floating layers.
@@ -289,7 +297,15 @@ placeholder.
 - Show an ordered list of Meals under each day, not permanent meal-type slots.
 - Use serif day headings, a copper marker for today, and flat Meal rows: no card
   border, fill or shadow. A full-width hairline separates Meals; inside a Meal,
-  Recipes are separated by a lighter hairline inset past the cooked toggle.
+  Recipes are separated by a lighter hairline that starts where their titles
+  start.
+- On a phone the week strip marks only the selected day (a sage tile) and today
+  (a copper outline); the other days are flat. A dot marks a day with Meals.
+- A Meal's header line (label, time, guests, source Menu) shows only when it has
+  one of them; otherwise the Meal's dots end its last row. An empty day is plain
+  text.
+- A Recipe row's scale field is a quiet fill with the × inside, muted at 1×; the
+  fields of a day form one column.
 - A Meal may be one Recipe, several Recipe items, a Menu snapshot, or plain
   text. Keep the one-Recipe path fast.
 - Dense Menu snapshots may need progressive disclosure; do not solve density by

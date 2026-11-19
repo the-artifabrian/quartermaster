@@ -209,11 +209,12 @@ first into view below the bar, opening its section, and focuses it. A saved edit
 screen leaves as if dismissed: it pops back to the page that opened it, a new
 Recipe or Menu takes its form's place, and a Delete lands on the list with none
 of the deleted item's pages directly behind it. Going back to a Recipe or Menu
-that is gone, from anywhere in the history, opens its list in that entry's
-place; a link to one still says it is not found. A Save that cannot go through
-(offline, a linked sub-Recipe deleted meanwhile) keeps the form and its edits
-and says why. A reload or a closed tab with changes asks the browser first (not
-in the iOS app, whose web view shows no prompt).
+that is gone or has left the Household, from anywhere in the history (a page the
+browser kept is loaded again), opens its list in that entry's place; a link to
+one still says it is not found. A Save that cannot go through (offline, a linked
+sub-Recipe deleted meanwhile) keeps the form and its edits and says why. A
+reload or a closed tab with changes asks the browser first (not in the iOS app,
+whose web view shows no prompt).
 
 On desktop, keep the same information hierarchy and give content more width; do
 not add extra product destinations just because space exists. The desktop header

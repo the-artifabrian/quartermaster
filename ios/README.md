@@ -327,9 +327,11 @@ Checks by hand (#328, 2.2), on the Simulator and then a device:
 6. The same screenshot on a free account: "Screenshot import isn’t available on
    your account", nothing saved, no mention of Pro.
 7. A screenshot with no Recipe in it: the error on the image tab, the screenshot
-   still attached; airplane mode during the import: "Couldn’t reach
-   Quartermaster", the screenshot still attached, and Extract with AI works once
-   back online.
+   still attached; airplane mode before sharing, and again by leaving the app
+   mid-import: "Couldn’t reach Quartermaster to confirm the import. Check your
+   Recipes before you try again.", the screenshot still attached and the image
+   tab showing, and Extract with AI works once back online. Same for a link,
+   with the link still in the URL field.
 8. Each of the above with the app killed first (cold start) and with it already
    open, and once while logged out: after logging in, the import runs.
 9. `xcrun simctl openurl booted 'quartermaster://import?url=https%3A%2F%2Fexample.com%2Frecipe'`

@@ -282,6 +282,170 @@ test('a shared link that fails shows the error on the filled URL tab, and coming
 	expect(await recipesIn(user.householdId)).toHaveLength(0)
 })
 
+const OFFLINE_MESSAGE =
+	'Couldn’t reach Quartermaster to confirm the import. Check your Recipes before you try again.'
+
+test('a link shared with no connection says so and stays filled in for one tap', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const count = countFetches(page)
+	await page.goto(importPage(sharedUrl))
+	await offerReady(page)
+	await page.context().setOffline(true)
+
+	expect(await deliverShare(page, sharedUrl)).toBe(true)
+
+	await expect(page.getByText(OFFLINE_MESSAGE)).toBeVisible()
+	await expect(page.getByLabel('Recipe URL', { exact: true })).toHaveValue(
+		sharedUrl,
+	)
+	expect(count.fetches).toBe(1)
+	expect(await recipesIn(user.householdId)).toHaveLength(0)
+
+	await page.context().setOffline(false)
+	await importButton(page).tap()
+	await expect(page).toHaveURL(/\/recipes\/(?!import)[a-z0-9]+$/)
+	expect(count.fetches).toBe(2)
+	expect(await recipesIn(user.householdId)).toEqual([
+		expect.objectContaining({ sourceUrl: sharedUrl }),
+	])
+})
+
+test('a typed link with no connection says so and stays typed for one tap', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await page.goto('/recipes/import')
+	await hydrated(importButton(page))
+	await page.getByLabel('Recipe URL', { exact: true }).fill(E2E_RECIPE_URL)
+	await page.context().setOffline(true)
+	await importButton(page).tap()
+
+	await expect(page.getByText(OFFLINE_MESSAGE)).toBeVisible()
+	await expect(page.getByLabel('Recipe URL', { exact: true })).toHaveValue(
+		E2E_RECIPE_URL,
+	)
+	expect(await recipesIn(user.householdId)).toHaveLength(0)
+
+	await page.context().setOffline(false)
+	await importButton(page).tap()
+	await expect(page).toHaveURL(/\/recipes\/(?!import)[a-z0-9]+$/)
+	expect(await recipesIn(user.householdId)).toEqual([
+		expect.objectContaining({ sourceUrl: E2E_RECIPE_URL }),
+	])
+})
+
+test('the shell’s scripts refuse another origin and another page, so nothing is left for the import page', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+	const count = countImports(page)
+	const images = await screenshots(1)
+	const elsewhere = 'https://elsewhere.example'
+
+	// The right page, but not the origin the shell was told.
+	await page.goto(importPage(sharedUrl))
+	await offerReady(page)
+	expect(
+		await runShellScript(page, 'linkScript', {
+			link: sharedUrl,
+			origin: elsewhere,
+			path: '/recipes/import',
+		}),
+	).toBe(false)
+	await page.goto('/recipes/import')
+	await hydrated(importButton(page))
+	expect(
+		await runShellScript(page, 'imagesScript', {
+			images,
+			origin: elsewhere,
+			path: '/recipes/import',
+		}),
+	).toBe(false)
+
+	// Another page whose query happens to match: nothing may wait there for
+	// the import page to pick up later.
+	await page.goto(`/recipes?url=${encodeURIComponent(sharedUrl)}`)
+	const origin = new URL(page.url()).origin
+	expect(
+		await runShellScript(page, 'linkScript', {
+			link: sharedUrl,
+			origin,
+			path: '/recipes/import',
+		}),
+	).toBe(false)
+	await navigateInApp(page, importPage(sharedUrl))
+	await offerReady(page)
+	await page.goto('/recipes')
+	expect(
+		await runShellScript(page, 'imagesScript', {
+			images,
+			origin,
+			path: '/recipes/import',
+		}),
+	).toBe(false)
+	await navigateInApp(page, '/recipes/import')
+	await hydrated(importButton(page))
+	await settle(page)
+	await expect(offer(page)).toHaveCount(0)
+	expect(count).toEqual({ images: 0, links: 0 })
+	expect(await recipesIn(user.householdId)).toHaveLength(0)
+})
+
+test('a share that arrives while the page is still loading imports once it has loaded', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const count = countFetches(page)
+	await page.goto(importPage(sharedUrl))
+	await offerReady(page)
+	// Hold the page's next data load, so the page is busy when the share
+	// arrives.
+	let release = () => {}
+	const held = new Promise<void>((resolve) => (release = resolve))
+	await page.route(/\/recipes\/import\.data\?/, async (route) => {
+		if (route.request().method() === 'GET') await held
+		await route.continue()
+	})
+	await page.evaluate((to) => {
+		const router = (
+			window as unknown as {
+				__reactRouterDataRouter: { navigate: (to: string) => Promise<void> }
+			}
+		).__reactRouterDataRouter
+		void router.navigate(to)
+	}, importPage(sharedUrl))
+	await expect
+		.poll(() =>
+			page.evaluate(
+				() =>
+					(
+						window as unknown as {
+							__reactRouterDataRouter: {
+								state: { navigation: { state: string } }
+							}
+						}
+					).__reactRouterDataRouter.state.navigation.state,
+			),
+		)
+		.toBe('loading')
+
+	expect(await deliverShare(page, sharedUrl)).toBe(true)
+	release()
+
+	await expect(page).toHaveURL(/\/recipes\/(?!import)[a-z0-9]+$/)
+	expect(count.fetches).toBe(1)
+	expect(await recipesIn(user.householdId)).toEqual([
+		expect.objectContaining({ sourceUrl: sharedUrl }),
+	])
+})
+
 test('signed out, a share handed over again after login imports on the import page', async ({
 	page,
 	login,
@@ -542,7 +706,7 @@ test.describe('shared screenshots', () => {
 		expect(await recipesIn(user.householdId)).toHaveLength(1)
 	})
 
-	test('screenshots shared while the connection drops show that on the import page, still attached for one tap', async ({
+	test('screenshots shared with no connection say so on the import page, still attached for one tap', async ({
 		page,
 		login,
 	}) => {
@@ -550,35 +714,30 @@ test.describe('shared screenshots', () => {
 		await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
 		const count = countImports(page)
 		await importReady(page)
-		const dropPost = (route: Route) =>
-			route.request().method() === 'POST'
-				? route.abort('internetdisconnected')
-				: route.continue()
-		await page.route(/\/recipes\/import\.data/, dropPost)
+		await page.context().setOffline(true)
 
-		expect(await deliverScreenshots(page, await screenshots(1))).toBe(true)
+		expect(await deliverScreenshots(page, await screenshots(2))).toBe(true)
 
+		await expect(page.getByText(OFFLINE_MESSAGE)).toBeVisible()
 		await expect(
-			page.getByText(
-				'Couldn’t reach Quartermaster. Check your connection and try again.',
-			),
+			page.getByRole('tab', { name: 'From Image', selected: true }),
 		).toBeVisible()
 		const input = page.getByLabel('Upload screenshots (up to 5)')
 		expect(
-			await input.evaluate(
-				(element: HTMLInputElement) => element.files?.length,
+			await input.evaluate((element: HTMLInputElement) =>
+				Array.from(element.files ?? [], (file) => file.name),
 			),
-		).toBe(1)
+		).toEqual(['Screenshot 1.jpg', 'Screenshot 2.jpg'])
 		expect(count.images).toBe(1)
 		expect(await recipesIn(user.householdId)).toHaveLength(0)
 
-		await page.unroute(/\/recipes\/import\.data/, dropPost)
+		await page.context().setOffline(false)
 		await page.getByRole('button', { name: 'Extract with AI' }).tap()
 		await expect(page).toHaveURL(savedRecipe)
 		expect(count.images).toBe(2)
 		expect(await recipesIn(user.householdId)).toEqual([
 			expect.objectContaining({
-				title: 'Shared screenshot salad from 1 image',
+				title: 'Shared screenshot salad from 2 images',
 			}),
 		])
 	})

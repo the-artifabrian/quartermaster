@@ -28,8 +28,10 @@ plan into Shopping.
   the source does not give, and keeps ranges ("1-2 tsp") and measure words ("3
   cloves", "1 pinch") as the amount and unit, as the other imports do. A caption
   with only its ingredients saves without steps.
-- An import that cannot reach the server shows that on its tab, with what was
-  typed, picked or shared still there for one tap.
+- An import that gets no answer (offline, a dropped connection) says so on its
+  tab and keeps what was typed, picked or shared. The server may have saved it
+  anyway, so the message says to check Recipes before trying again; trying again
+  is one tap.
 - Importing a URL the Household already has opens nothing new; Import points at
   the saved Recipe instead, before any tap when the link was shared.
 - Imported Recipes retain pasted input or available extracted structure for

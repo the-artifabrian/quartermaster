@@ -2,7 +2,7 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { recipeImportNav } from '#app/utils/nav-back.ts'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Form, Link, useActionData, useNavigation } from 'react-router'
+import { data, Form, Link, useActionData, useNavigation } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -98,10 +98,28 @@ const IMPORT_INTENTS = new Set([
 ])
 
 /**
- * An import that cannot reach the server (offline, a dropped connection)
- * comes back as that tab's error, so what was typed, picked or shared stays
- * on the page and one tap tries again. Anything else, a redirect included,
- * goes on as before.
+ * A fetch that never got an answer: each browser's own words for it, or any
+ * TypeError while the browser says it is offline. A server error React Router
+ * rebuilds as a TypeError is none of these.
+ */
+function isNetworkFailure(error: unknown) {
+	if (!(error instanceof TypeError)) return false
+	if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+		return true
+	}
+	return (
+		error.message === 'Failed to fetch' || // Chromium
+		error.message === 'Load failed' || // Safari
+		error.message.startsWith('NetworkError when attempting to fetch') // Firefox
+	)
+}
+
+/**
+ * An import that got no answer (offline, a dropped connection, the app put
+ * away mid-import) comes back as that tab's error, so what was typed, picked
+ * or shared stays on the page. The server may still have saved it, so the
+ * message says to look first. A 503, so the loaders do not run again into the
+ * same dead connection. Anything else, a redirect included, goes on as before.
  */
 export async function clientAction({
 	request,
@@ -111,15 +129,18 @@ export async function clientAction({
 	try {
 		return await serverAction()
 	} catch (error) {
-		if (!(error instanceof TypeError) || typeof intent !== 'string') throw error
+		if (!isNetworkFailure(error) || typeof intent !== 'string') throw error
 		if (!IMPORT_INTENTS.has(intent)) throw error
-		return {
-			intent: intent as
-				'fetch' | 'parse-text' | 'extract-text' | 'extract-image',
-			error:
-				'Couldn’t reach Quartermaster. Check your connection and try again.',
-			existing: null,
-		}
+		return data(
+			{
+				intent: intent as
+					'fetch' | 'parse-text' | 'extract-text' | 'extract-image',
+				error:
+					'Couldn’t reach Quartermaster to confirm the import. Check your Recipes before you try again.',
+				existing: null,
+			},
+			{ status: 503 },
+		)
 	}
 }
 
@@ -133,36 +154,40 @@ export async function clientAction({
 function useShareImport({
 	enabled,
 	sharedUrl,
-	linkReady,
-	imagesReady,
+	idle,
+	offerShowing,
 	importLink,
 	importImages,
 }: {
 	enabled: boolean
 	sharedUrl: string | null
-	linkReady: boolean
-	imagesReady: boolean
+	/** No navigation or submission in flight. */
+	idle: boolean
+	/** The page offers its shared link ("Import this Recipe?"). */
+	offerShowing: boolean
 	importLink: () => void
 	importImages: (files: File[]) => void
 }) {
 	useEffect(() => {
 		if (!enabled) return
 		function take() {
-			// The router moves the URL before this page renders the new one;
-			// the effect runs again for that render and takes it then.
+			// The router moves the URL before this page renders the new one,
+			// and a navigation in flight may still change the page: either way
+			// the share waits, and the effect runs again once the page settles.
 			if (importUrlFromSearch(window.location.search) !== sharedUrl) return
+			if (!idle) return
 			const share = takeShareImport(MAX_IMPORT_IMAGE_COUNT)
 			if (!share) return
 			if (share.kind === 'link') {
-				if (share.url === sharedUrl && linkReady) importLink()
-			} else if (sharedUrl === null && imagesReady) {
+				if (share.url === sharedUrl && offerShowing) importLink()
+			} else if (sharedUrl === null) {
 				importImages(share.files)
 			}
 		}
 		take()
 		window.addEventListener(SHARE_IMPORT_EVENT, take)
 		return () => window.removeEventListener(SHARE_IMPORT_EVENT, take)
-	}, [enabled, sharedUrl, linkReady, imagesReady, importLink, importImages])
+	}, [enabled, sharedUrl, idle, offerShowing, importLink, importImages])
 }
 
 export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
@@ -240,8 +265,8 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	useShareImport({
 		enabled: isNativeShell,
 		sharedUrl,
-		linkReady: offerShared && navigation.state === 'idle',
-		imagesReady: progress === null && navigation.state === 'idle',
+		idle: navigation.state === 'idle',
+		offerShowing: offerShared,
 		importLink: importSharedLink,
 		importImages: importSharedImages,
 	})

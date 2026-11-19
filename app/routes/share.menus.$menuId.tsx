@@ -9,6 +9,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { findSavedMenu, saveSharedMenu } from '#app/utils/share-menu.server.ts'
 import { type Route } from './+types/share.menus.$menuId.ts'
+import { PushLink } from '#app/components/push-link.tsx'
 
 export const handle: SEOHandle = { getSitemapEntries: () => null }
 export const meta: Route.MetaFunction = ({ loaderData }) => [
@@ -147,7 +148,9 @@ export default function SharedMenu({ loaderData }: Route.ComponentProps) {
 			<div className="mt-5">
 				{savedMenuId ? (
 					<Button asChild>
-						<Link to={`/recipes/menus/${savedMenuId}`}>Open my Menu</Link>
+						<PushLink to={`/recipes/menus/${savedMenuId}`}>
+							Open my Menu
+						</PushLink>
 					</Button>
 				) : isLoggedIn ? (
 					<save.Form method="POST">

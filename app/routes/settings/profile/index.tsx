@@ -3,7 +3,7 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { settingsRootNav } from '#app/utils/nav-back.ts'
 import { useEffect, useState } from 'react'
-import { Form, Link, useFetcher } from 'react-router'
+import { Form, useFetcher } from 'react-router'
 import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
@@ -27,6 +27,7 @@ import {
 } from '#app/utils/wake-lock.ts'
 import { type Route } from './+types/index.ts'
 import { twoFAVerificationType } from './two-factor/_layout.tsx'
+import { PushLink } from '#app/components/push-link.tsx'
 
 export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
@@ -114,7 +115,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="flex flex-col gap-6">
 			{/* Profile Banner */}
-			<Link
+			<PushLink
 				to="edit"
 				className="bg-muted/40 hover:bg-muted/60 flex items-center gap-4 rounded-lg p-4 transition-colors"
 			>
@@ -132,7 +133,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 					name="chevron-right"
 					className="text-muted-foreground size-5 shrink-0"
 				/>
-			</Link>
+			</PushLink>
 
 			{/* General */}
 			<SettingsSection label="General">
@@ -327,9 +328,9 @@ function SettingsRow({
 
 	if (to) {
 		return (
-			<Link to={to} className={className}>
+			<PushLink to={to} className={className}>
 				{content}
-			</Link>
+			</PushLink>
 		)
 	}
 

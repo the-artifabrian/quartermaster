@@ -192,7 +192,9 @@ export function useNavDirection() {
 		// that never came (a link tapped first).
 		backButtonPop = false
 		const root = document.documentElement
-		if (direction) root.dataset.navDirection = direction
-		else delete root.dataset.navDirection
+		// Only the iOS app slides; elsewhere a transition keeps the cross-fade.
+		if (direction && root.hasAttribute('data-native-shell')) {
+			root.dataset.navDirection = direction
+		} else delete root.dataset.navDirection
 	}, [location.key, location.pathname, location.search, location.state, type])
 }

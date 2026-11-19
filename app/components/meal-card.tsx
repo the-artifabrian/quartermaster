@@ -1,6 +1,6 @@
 import { type SubmissionResult } from '@conform-to/react'
 import { useEffect, useRef, useState } from 'react'
-import { Link, useFetcher, useSearchParams } from 'react-router'
+import { useFetcher, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { ErrorList } from '#app/components/forms.tsx'
 import {
@@ -30,6 +30,7 @@ import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { formatServingTime, servingWallTime } from '#app/utils/serving-time.ts'
+import { PushLink } from './push-link.tsx'
 import { RecipeSelector } from './recipe-selector.tsx'
 
 export type PlanMealItem = {
@@ -175,7 +176,7 @@ function ItemRow({
 						)}
 					>
 						{item.recipe ? (
-							<Link
+							<PushLink
 								to={
 									item.scaleMultiplier !== 1
 										? `/recipes/${item.recipe.id}?scale=${formatScaleMultiplier(item.scaleMultiplier)}`
@@ -191,7 +192,7 @@ function ItemRow({
 								<span className="line-clamp-2 min-w-11 wrap-anywhere">
 									{item.recipeTitle}
 								</span>
-							</Link>
+							</PushLink>
 						) : (
 							<span className="text-muted-foreground line-clamp-2 min-w-0 wrap-anywhere">
 								{item.recipeTitle}
@@ -708,13 +709,13 @@ export function MealCard({
 					)}
 					{/* Where the snapshot came from — a reference, not live data */}
 					{meal.sourceMenu && (
-						<Link
+						<PushLink
 							to={`/recipes/menus/${meal.sourceMenu.id}`}
 							className="hover:text-foreground inline-flex max-w-full min-w-0 items-center gap-0.5 normal-case transition-colors"
 						>
 							<Icon name="file-text" className="size-3 shrink-0" />
 							<span className="truncate">{meal.sourceMenu.title}</span>
-						</Link>
+						</PushLink>
 					)}
 				</div>
 

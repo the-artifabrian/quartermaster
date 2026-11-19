@@ -1,9 +1,10 @@
-import { Link, useRouteLoaderData } from 'react-router'
+import { useRouteLoaderData } from 'react-router'
 import { type loader as rootLoader } from '#app/root.tsx'
 import { cn } from '#app/utils/misc.tsx'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useDaysUntilExpiry, useIsProActive } from '#app/utils/subscription.ts'
 import { useUser } from '#app/utils/user.ts'
+import { PushLink } from './push-link.tsx'
 
 export function UserDropdown() {
 	const user = useUser()
@@ -15,7 +16,7 @@ export function UserDropdown() {
 	const isNativeShell = useIsNativeShell()
 	const initial = (user.name ?? user.username).charAt(0).toUpperCase()
 	return (
-		<Link
+		<PushLink
 			to="/settings/profile"
 			prefetch="intent"
 			// In the iOS app the initial stands alone, without the ring, in a 44pt
@@ -56,6 +57,6 @@ export function UserDropdown() {
 					</span>
 				) : null}
 			</div>
-		</Link>
+		</PushLink>
 	)
 }

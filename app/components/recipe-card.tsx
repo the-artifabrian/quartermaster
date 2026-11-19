@@ -1,8 +1,8 @@
 import { Img } from 'openimg/react'
-import { Link, useViewTransitionState } from 'react-router'
+import { useViewTransitionState } from 'react-router'
+import { PushLink } from './push-link.tsx'
 import { formatDuration } from '#app/utils/format-duration.ts'
 import { cn } from '#app/utils/misc.tsx'
-import { OPEN_DETAIL } from '#app/utils/nav-direction.ts'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import { Icon } from './ui/icon.tsx'
 
@@ -32,10 +32,10 @@ export function RecipeCard({
 	const isTransitioning = useViewTransitionState(to)
 
 	return (
-		<Link
+		<PushLink
 			to={to}
+			// Outside the iOS app too: a cross-fade.
 			viewTransition
-			state={OPEN_DETAIL}
 			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-colors md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
 		>
 			{/* Image / Placeholder — thumbnail on mobile, full-width on desktop */}
@@ -139,7 +139,7 @@ export function RecipeCard({
 					)}
 				</div>
 			</div>
-		</Link>
+		</PushLink>
 	)
 }
 

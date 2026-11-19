@@ -8,7 +8,6 @@ import { useRef, useState } from 'react'
 import {
 	data,
 	Form,
-	Link,
 	redirect,
 	useNavigation,
 	useRouteLoaderData,
@@ -38,6 +37,7 @@ import { planMenu } from '#app/utils/plan-menu.server.ts'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
 import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
 import { type Route } from './+types/$menuId.ts'
+import { PushLink } from '#app/components/push-link.tsx'
 
 // Going back to this page once its item is gone opens /recipes/menus instead.
 export const clientMiddleware: Route.ClientMiddlewareFunction[] = [
@@ -444,9 +444,9 @@ export default function MenuDetail({
 				<Tooltip>
 					<TooltipTrigger asChild>
 						<Button asChild variant="ghost" size="icon" aria-label="Edit">
-							<Link to={`/recipes/menus/${menu.id}/edit`}>
+							<PushLink to={`/recipes/menus/${menu.id}/edit`}>
 								<Icon name="pencil-1" size="md" />
-							</Link>
+							</PushLink>
 						</Button>
 					</TooltipTrigger>
 					<TooltipContent>Edit Menu</TooltipContent>

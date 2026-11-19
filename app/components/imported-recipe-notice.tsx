@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Form, Link, useNavigation } from 'react-router'
+import { Form, useNavigation } from 'react-router'
 import {
 	type ImportedFrom,
 	type ShortenedPart,
@@ -9,6 +9,7 @@ import { Button } from './ui/button.tsx'
 import { ConfirmSheet } from './ui/confirm-sheet.tsx'
 import { Icon } from './ui/icon.tsx'
 import { StatusButton } from './ui/status-button.tsx'
+import { PushLink } from './push-link.tsx'
 
 const shortenedLabels: Record<ShortenedPart, string> = {
 	title: 'the title',
@@ -107,12 +108,12 @@ export function ImportedRecipeNotice({
 					{sameTitle ? (
 						<p className="text-sm">
 							Another Recipe has this title.{' '}
-							<Link
+							<PushLink
 								to={`/recipes/${sameTitle.id}`}
 								className="text-primary underline underline-offset-4"
 							>
 								Open it
-							</Link>
+							</PushLink>
 						</p>
 					) : null}
 				</div>
@@ -129,10 +130,10 @@ export function ImportedRecipeNotice({
 			</div>
 			<div className="mt-3 flex flex-wrap gap-2 pl-8">
 				<Button asChild size="sm" variant={needsEdit ? 'default' : 'outline'}>
-					<Link to={`/recipes/${recipeId}/edit`}>Edit</Link>
+					<PushLink to={`/recipes/${recipeId}/edit`}>Edit</PushLink>
 				</Button>
 				<Button asChild size="sm" variant="outline">
-					<Link to="/recipes/import">Import another</Link>
+					<PushLink to="/recipes/import">Import another</PushLink>
 				</Button>
 				{/* Replaces this Recipe in history, so Back cannot return to it. */}
 				<Form

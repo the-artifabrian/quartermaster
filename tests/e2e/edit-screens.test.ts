@@ -1124,3 +1124,29 @@ test.describe('a Save that cannot go through keeps the form', () => {
 		expect(await recipeTitle(recipe.id)).toBe('Red lentil soup')
 	})
 })
+
+test('Save after the session expired signs in and comes back to the edit screen, not its data', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createRecipe(user)
+	await page.goto(`/recipes/${recipe.id}/edit`)
+	await hydrated(saveButton(page))
+	await page.getByLabel('Title').fill('Red lentil soup')
+	// The session ends on the server (expired, or signed out elsewhere).
+	await prisma.session.deleteMany({ where: { userId: user.id } })
+	await saveButton(page).tap()
+
+	await expect(page).toHaveURL(/\/login\?/)
+	expect(new URL(page.url()).searchParams.get('redirectTo')).toBe(
+		`/recipes/${recipe.id}/edit`,
+	)
+	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
+	await page.getByLabel(/^password$/i).fill(user.username)
+	await page.getByRole('button', { name: 'Log in', exact: true }).click()
+	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Edit Recipe' }),
+	).toBeVisible()
+})

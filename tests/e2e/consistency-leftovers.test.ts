@@ -357,8 +357,49 @@ test('a Staple row swiped left shows a red Delete that removes it at once, with 
 
 	await drag(page, salt, { fromX: 0.8, toX: 0.2 })
 	await expect.poll(() => onTop(del)).toBe(true)
+	// This step has failed on CI only (twice, all retries): the tap reached
+	// the page but the Staple stayed. Record what the finger hit and which
+	// events arrived, so a failure says why.
+	await page.evaluate(() => {
+		const w = window as unknown as { __tapLog: string[] }
+		w.__tapLog = []
+		const name = (target: EventTarget | null) =>
+			target instanceof Element
+				? `${target.tagName.toLowerCase()}[${target.getAttribute('aria-label') ?? target.textContent?.trim().slice(0, 20) ?? ''}]`
+				: String(target)
+		for (const type of ['pointerdown', 'pointerup', 'click', 'focusin']) {
+			window.addEventListener(
+				type,
+				(event) =>
+					w.__tapLog.push(
+						`${Math.round(event.timeStamp)} ${type} ${name(event.target)}${event.defaultPrevented ? ' (prevented)' : ''}`,
+					),
+				{ capture: true },
+			)
+		}
+	})
+	const before = await del.evaluate((element) => {
+		const box = element.getBoundingClientRect()
+		const layer = element.previousElementSibling as HTMLElement | null
+		return {
+			box: [box.left, box.top, box.width, box.height].map(Math.round),
+			hit: document
+				.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+				?.getAttribute('aria-label'),
+			layer: layer ? getComputedStyle(layer).transform : null,
+		}
+	})
 	await del.tap()
-	await expect(salt).toBeHidden()
+	try {
+		await expect(salt).toBeHidden()
+	} catch (error) {
+		const log = await page.evaluate(
+			() => (window as unknown as { __tapLog: string[] }).__tapLog,
+		)
+		throw new Error(
+			`${String(error)}\nbefore tap: ${JSON.stringify(before)}\nevents: ${log.join(' | ')}`,
+		)
+	}
 	await expect(page.getByText('Deleted Salt')).toBeVisible()
 	await expect.poll(() => isStaple(user.householdId, 'salt')).toBe(false)
 	expect(await isStaple(user.householdId, 'apples')).toBe(true)
@@ -416,9 +457,7 @@ test('without a swipe, Tab reaches a Staple’s Delete, which slides into view, 
 	await expect(del).toBeFocused()
 	// The stop before it is the row's own Add.
 	await page.keyboard.press('Shift+Tab')
-	await expect(
-		salt.getByRole('button', { name: 'Need, Salt' }),
-	).toBeFocused()
+	await expect(salt.getByRole('button', { name: 'Need, Salt' })).toBeFocused()
 	await page.keyboard.press('Tab')
 	await expect(del).toBeFocused()
 	await expect.poll(() => onTop(del)).toBe(true)

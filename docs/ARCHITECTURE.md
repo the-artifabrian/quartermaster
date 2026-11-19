@@ -400,6 +400,12 @@ required check for merging, and deploys do not wait for it. CI sets
 logged there and asserted only in local runs. Browser checks and simulations are
 implementation evidence, not substitutes for normal use.
 
+Playwright gives its server a made-up `ANTHROPIC_API_KEY`, which wins over the
+one in `.env`, so a local run never reaches the real API. Requests carrying it
+get canned answers from `tests/mocks/anthropic.ts`: a Recipe whose title counts
+the images sent, or nothing found when the Household has a metadata value named
+`E2E_UNREADABLE_MARKER`.
+
 `page.waitForFunction` does not await an async predicate: it resolves with the
 first result, even `false`. To wait on async page state such as Cache Storage,
 use `expect.poll(() => page.evaluate(async () => …))`.

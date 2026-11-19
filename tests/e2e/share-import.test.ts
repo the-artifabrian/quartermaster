@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { faker } from '@faker-js/faker'
 import { type Locator, type Page, type Route } from '@playwright/test'
 import sharp from 'sharp'
@@ -18,28 +20,53 @@ function importPage(url: string) {
 }
 
 /**
- * What the shell runs once a page has loaded while a share is pending: the
- * body of `ShareIntent.linkScript` in `ShareIntent.swift`, called with
- * `callAsyncJavaScript` and the same three arguments. True when it handed the
- * link over.
+ * A script the shell runs on the import page while a share is pending, read
+ * from `ShareIntent.swift` itself, so these tests run exactly what the app
+ * runs: `linkScript` or `imagesScript`.
  */
-function deliverShare(page: Page, link: string) {
-	return page.evaluate(
-		({ link, origin, path }) => {
-			if (location.origin !== origin || location.pathname !== path) return false
-			if (new URLSearchParams(location.search).get('url') !== link) return false
-			window.__qmShareImport = { url: link }
-			window.dispatchEvent(
-				new CustomEvent('qm:share-import', { detail: { url: link } }),
-			)
-			return true
-		},
-		{
-			link,
-			origin: new URL(page.url()).origin,
-			path: '/recipes/import',
-		},
+function shellScript(name: 'linkScript' | 'imagesScript') {
+	const source = readFileSync(
+		path.join(
+			process.cwd(),
+			'ios/Quartermaster/Quartermaster/ShareIntent.swift',
+		),
+		'utf8',
 	)
+	const match = new RegExp(
+		`static let ${name} = """\\n([\\s\\S]*?)\\n( *)"""`,
+	).exec(source)
+	if (!match) throw new Error(`No ${name} in ShareIntent.swift`)
+	const indent = match[2]!
+	return match[1]!
+		.split('\n')
+		.map((line) => (line.startsWith(indent) ? line.slice(indent.length) : line))
+		.join('\n')
+}
+
+/**
+ * Runs a shell script the way `callAsyncJavaScript` does: as the body of an
+ * async function whose parameters are the arguments. Through the DevTools
+ * protocol, which the page's CSP does not govern, like the shell's own call.
+ */
+function runShellScript(
+	page: Page,
+	name: 'linkScript' | 'imagesScript',
+	args: Record<string, unknown>,
+): Promise<boolean> {
+	const names = Object.keys(args)
+	const values = names.map((key) => JSON.stringify(args[key])).join(', ')
+	return page.evaluate(
+		`(async (${names.join(', ')}) => {\n${shellScript(name)}\n})(${values})`,
+	)
+}
+
+/** The shell handing a shared link to the page. True when it did. */
+function deliverShare(page: Page, link: string) {
+	return runShellScript(page, 'linkScript', {
+		link,
+		origin: new URL(page.url()).origin,
+		path: '/recipes/import',
+	})
 }
 
 function countFetches(page: Page) {
@@ -317,28 +344,13 @@ async function screenshots(count: number): Promise<SharedImage[]> {
 	)
 }
 
-/**
- * What the shell runs for shared screenshots: the body of
- * `ShareIntent.imagesScript` in `ShareIntent.swift`, called with
- * `callAsyncJavaScript` and the same three arguments.
- */
+/** The shell handing shared screenshots to the page. True when it did. */
 function deliverScreenshots(page: Page, images: SharedImage[]) {
-	return page.evaluate(
-		({ images, origin, path }) => {
-			if (location.origin !== origin || location.pathname !== path) return false
-			if (new URLSearchParams(location.search).has('url')) return false
-			const files = images.map((image) => {
-				const binary = atob(image.data)
-				const bytes = new Uint8Array(binary.length)
-				for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-				return new File([bytes], image.name, { type: image.type })
-			})
-			window.__qmShareImport = { files }
-			window.dispatchEvent(new CustomEvent('qm:share-import'))
-			return true
-		},
-		{ images, origin: new URL(page.url()).origin, path: '/recipes/import' },
-	)
+	return runShellScript(page, 'imagesScript', {
+		images,
+		origin: new URL(page.url()).origin,
+		path: '/recipes/import',
+	})
 }
 
 /**

@@ -303,6 +303,13 @@ outside the URL:
    extraction as picking them by hand. Query string, hash and storage play no
    part, and outside the shell nothing listens.
 
+There is no Xcode test target. `ios/checks/share/main.swift` checks the pure
+parts (nonces, single use, expiry, pruning, screenshot files, page matching,
+image re-encoding) and evaluates the activation rule against sample shares; it
+compiles with those sources and runs on the Mac, with the command at its top.
+`tests/e2e/share-import.test.ts` runs `linkScript` and `imagesScript` as read
+from `ShareIntent.swift`.
+
 Checks by hand (#328, 2.2), on the Simulator and then a device:
 
 1. Safari on a Recipe page, Share, Quartermaster: the app opens on the import

@@ -43,7 +43,9 @@ struct ShareIntent: Equatable {
     /// sets `window.__qmShareImport` (read by a page that mounts later) and
     /// dispatches `qm:share-import` (heard by a page already up). True when it
     /// handed the share over. What was shared is an argument, never part of
-    /// the source. `tests/e2e/share-import.test.ts` runs the same bodies.
+    /// the source. `tests/e2e/share-import.test.ts` reads these literals from
+    /// this file and runs them, so keep them plain: no backslashes or
+    /// interpolation.
     var script: String {
         switch payload {
         case .link: return Self.linkScript

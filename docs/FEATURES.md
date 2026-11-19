@@ -28,6 +28,8 @@ plan into Shopping.
   the source does not give, and keeps ranges ("1-2 tsp") and measure words ("3
   cloves", "1 pinch") as the amount and unit, as the other imports do. A caption
   with only its ingredients saves without steps.
+- An import that cannot reach the server shows that on its tab, with what was
+  typed, picked or shared still there for one tap.
 - Importing a URL the Household already has opens nothing new; Import points at
   the saved Recipe instead, before any tap when the link was shared.
 - Imported Recipes retain pasted input or available extracted structure for
@@ -148,12 +150,15 @@ plan into Shopping.
   only. A deploy reaches it at once.
 - Share-sheet import: a Recipe link shared to Quartermaster from Safari,
   Messages, or a site's share button imports at once and opens the Recipe; a
-  failure shows on Import with the link filled in. Only the app's own Share
-  Extension can start that, through a single-use App Group nonce the shell
-  checks before handing the link to the page. A link opened any other way (a
-  universal link, `quartermaster://import?url=` from another app, a typed URL)
-  opens Import with the link ready and waits for a tap, since any site can link
-  there.
+  failure shows on Import with the link filled in. Up to five screenshots or
+  photos shared from Photos or the screenshot editor import at once as one
+  Recipe through the AI extraction (Pro; a free account is told it isn't
+  available), and a failure shows on the image tab with them still attached.
+  Only the app's own Share Extension can start either, through a single-use App
+  Group nonce the shell checks before handing the share to the page. A link
+  opened any other way (a universal link, `quartermaster://import?url=` from
+  another app, a typed URL) opens Import with the link ready and waits for a
+  tap, since any site can link there.
 - Home Screen quick actions for Shopping and Import recipe, pull to refresh,
   haptics, reopening the last page on a cold start, and a native offline view
   with Retry.

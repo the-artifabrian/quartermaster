@@ -21,9 +21,9 @@ declare global {
 		/** Epoch-ms stamps the shell injects at document start. */
 		__qmShell?: { initAt: number; loadAt: number }
 		/**
-		 * A link shared through the iOS app's own Share Extension, set by the
-		 * shell on the import page it opened for it. Read once with
-		 * `takeShareImport`.
+		 * A link or screenshots shared through the iOS app's own Share
+		 * Extension, set by the shell on the import page it opened for them.
+		 * Read once with `takeShareImport`.
 		 */
 		__qmShareImport?: unknown
 	}
@@ -162,21 +162,35 @@ export function getShellLaunchTiming(): ShellLaunchTiming | null {
  */
 export const SHARE_IMPORT_EVENT = 'qm:share-import'
 
+/** What the iOS app's own Share Extension shared: a link, or screenshots. */
+export type ShareImport =
+	{ kind: 'link'; url: string } | { kind: 'images'; files: File[] }
+
 /**
- * The link the shell handed over for a share made through the app's own Share
- * Extension, or null. Each delivery is read once: the value is cleared
- * whatever it holds, so a later visit to the same page waits for a tap. Only
- * the shell sets it; nothing in a URL or in storage reaches it.
+ * The share the shell handed over, or null. Each delivery is read once: the
+ * value is cleared whatever it holds, so a later visit to the same page waits
+ * for a tap. Only the shell sets it; nothing in a URL or in storage reaches
+ * it. Screenshots count only as 1 to `maxImages` files.
  */
-export function takeShareImport(): string | null {
+export function takeShareImport(maxImages: number): ShareImport | null {
 	if (typeof window === 'undefined' || !('__qmShareImport' in window)) {
 		return null
 	}
 	const value = window.__qmShareImport
 	delete window.__qmShareImport
-	const url =
-		typeof value === 'object' && value !== null && 'url' in value
-			? value.url
-			: null
-	return typeof url === 'string' ? url : null
+	if (typeof value !== 'object' || value === null) return null
+	if ('url' in value && typeof value.url === 'string') {
+		return { kind: 'link', url: value.url }
+	}
+	if ('files' in value && Array.isArray(value.files)) {
+		const files: unknown[] = value.files
+		if (
+			files.length >= 1 &&
+			files.length <= maxImages &&
+			files.every((file) => file instanceof File)
+		) {
+			return { kind: 'images', files: files as File[] }
+		}
+	}
+	return null
 }

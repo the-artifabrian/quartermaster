@@ -41,6 +41,9 @@ export default defineConfig({
 			NODE_ENV: 'test',
 			// A made-up Team ID so the apple-app-site-association file is served.
 			APPLE_TEAM_ID: 'ABCDE12345',
+			// Never the developer's real key: requests with this one get canned
+			// answers from tests/mocks/anthropic.ts (E2E_ANTHROPIC_KEY).
+			ANTHROPIC_API_KEY: 'e2e-mock-anthropic-key',
 		},
 	},
 })

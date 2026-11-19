@@ -50,6 +50,11 @@ is not saved, and offers **Discard Changes** and **Keep Editing**.
 A form error sits next to what it is about and says what to do there: “Name this
 ingredient, or remove it”, “Write this step, or remove it”.
 
+In the iOS app, copy never points at Pro (ADR 0001). A Pro-only action there
+says it is not available on the account and names the free way instead:
+“Screenshot import isn’t available on your account. Paste the Recipe’s link or
+text instead.”
+
 ## Rules
 
 - Tell the user what happened or what they can do next.

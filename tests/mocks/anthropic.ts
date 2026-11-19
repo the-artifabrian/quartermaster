@@ -2,6 +2,60 @@ import { http, HttpResponse, passthrough, type HttpHandler } from 'msw'
 
 const passthroughAnthropic = process.env.NODE_ENV !== 'test'
 
+/**
+ * The key Playwright gives its server (`playwright.config.ts`), so an e2e run
+ * never reaches the real API with the developer's own key. Requests made with
+ * it get canned answers below and are never passed through.
+ */
+export const E2E_ANTHROPIC_KEY = 'e2e-mock-anthropic-key'
+
+/**
+ * A Household metadata name that makes the canned extraction find nothing:
+ * the prompt lists the Household's names, and a test adds this one.
+ */
+export const E2E_UNREADABLE_MARKER = 'E2E unreadable'
+
+/**
+ * A canned image extraction: a Recipe whose title counts the images that
+ * arrived, or nothing found when the prompt holds `E2E_UNREADABLE_MARKER`.
+ */
+const e2eMessagesHandler = http.post(
+	'https://api.anthropic.com/v1/messages',
+	async ({ request }) => {
+		if (request.headers.get('x-api-key') !== E2E_ANTHROPIC_KEY) return
+		const body = (await request.json()) as {
+			messages: Array<{
+				content: Array<{ type: string; text?: string }>
+			}>
+		}
+		const content = body.messages[0]?.content ?? []
+		const images = content.filter((block) => block.type === 'image').length
+		const prompt = content.find((block) => block.type === 'text')?.text ?? ''
+		const answer = prompt.includes(E2E_UNREADABLE_MARKER)
+			? { error: 'no_recipe_found' }
+			: {
+					title: `Shared screenshot salad from ${images} ${images === 1 ? 'image' : 'images'}`,
+					description: null,
+					notes: null,
+					activeTime: null,
+					totalTime: null,
+					yieldAmount: null,
+					yieldLabel: null,
+					metadata: {},
+					ingredients: [
+						{ name: 'cucumber', amount: '1', unit: null, notes: null },
+					],
+					instructions: ['Slice the cucumber and serve.'],
+				}
+		return HttpResponse.json({
+			type: 'message',
+			role: 'assistant',
+			content: [{ type: 'text', text: JSON.stringify(answer) }],
+			stop_reason: 'end_turn',
+		})
+	},
+)
+
 // The ids the Models API answers for. The boot check asks about each
 // configured model; a typo or retired id gets the API's 404 here as well, so
 // a mocks-mode boot shows the same error production would.
@@ -31,6 +85,7 @@ const modelsHandler = http.get(
 
 export const handlers: Array<HttpHandler> = [
 	modelsHandler,
+	e2eMessagesHandler,
 	...(passthroughAnthropic
 		? [http.post('https://api.anthropic.com/v1/messages', () => passthrough())]
 		: []),

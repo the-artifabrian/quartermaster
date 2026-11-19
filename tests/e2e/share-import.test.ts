@@ -1,6 +1,8 @@
 import { faker } from '@faker-js/faker'
-import { type Locator, type Page } from '@playwright/test'
+import { type Locator, type Page, type Route } from '@playwright/test'
+import sharp from 'sharp'
 import { prisma } from '#app/utils/db.server.ts'
+import { E2E_UNREADABLE_MARKER } from '#tests/mocks/anthropic.ts'
 import { SHELL_UA } from '#tests/native-shell.ts'
 import { E2E_MISSING_URL, E2E_RECIPE_URL } from '#tests/mocks/recipe-pages.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
@@ -17,7 +19,7 @@ function importPage(url: string) {
 
 /**
  * What the shell runs once a page has loaded while a share is pending: the
- * body of `ShareIntent.deliveryScript` in `ShareHandoff.swift`, called with
+ * body of `ShareIntent.linkScript` in `ShareIntent.swift`, called with
  * `callAsyncJavaScript` and the same three arguments. True when it handed the
  * link over.
  */
@@ -285,4 +287,287 @@ test('signed out, a share handed over again after login imports on the import pa
 	expect(await recipesIn(user.householdId)).toEqual([
 		expect.objectContaining({ sourceUrl: sharedUrl }),
 	])
+})
+
+// Screenshots shared through the Share Extension land on the plain import page
+// and go through its image form: the same action, Pro check and limits.
+
+type SharedImage = { name: string; type: string; data: string }
+
+/** Small JPEGs, as the Share Extension writes them (base64). */
+async function screenshots(count: number): Promise<SharedImage[]> {
+	return Promise.all(
+		Array.from({ length: count }, async (_, index) => {
+			const jpeg = await sharp({
+				create: {
+					width: 64,
+					height: 48,
+					channels: 3,
+					background: ['#c86b3c', '#6b8f71', '#f6f1eb'][index % 3]!,
+				},
+			})
+				.jpeg()
+				.toBuffer()
+			return {
+				name: `Screenshot ${index + 1}.jpg`,
+				type: 'image/jpeg',
+				data: jpeg.toString('base64'),
+			}
+		}),
+	)
+}
+
+/**
+ * What the shell runs for shared screenshots: the body of
+ * `ShareIntent.imagesScript` in `ShareIntent.swift`, called with
+ * `callAsyncJavaScript` and the same three arguments.
+ */
+function deliverScreenshots(page: Page, images: SharedImage[]) {
+	return page.evaluate(
+		({ images, origin, path }) => {
+			if (location.origin !== origin || location.pathname !== path) return false
+			if (new URLSearchParams(location.search).has('url')) return false
+			const files = images.map((image) => {
+				const binary = atob(image.data)
+				const bytes = new Uint8Array(binary.length)
+				for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+				return new File([bytes], image.name, { type: image.type })
+			})
+			window.__qmShareImport = { files }
+			window.dispatchEvent(new CustomEvent('qm:share-import'))
+			return true
+		},
+		{ images, origin: new URL(page.url()).origin, path: '/recipes/import' },
+	)
+}
+
+/**
+ * POSTs of the image import (the only multipart one on this page; Chromium
+ * does not expose a body holding files), and of the link import.
+ */
+function countImports(page: Page) {
+	const count = { images: 0, links: 0 }
+	page.on('request', (request) => {
+		if (request.method() !== 'POST' || !/\/recipes\/import/.test(request.url()))
+			return
+		const type = request.headers()['content-type'] ?? ''
+		if (type.startsWith('multipart/form-data')) count.images++
+		else if (
+			new URLSearchParams(request.postData() ?? '').get('intent') === 'fetch'
+		)
+			count.links++
+	})
+	return count
+}
+
+/** The plain import page, hydrated. */
+async function importReady(page: Page) {
+	await page.goto('/recipes/import')
+	await hydrated(importButton(page))
+}
+
+const savedRecipe = /\/recipes\/(?!import)[a-z0-9]+$/
+
+test.describe('shared screenshots', () => {
+	test('one screenshot imports at once and opens the Recipe', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+		const count = countImports(page)
+		await importReady(page)
+
+		expect(await deliverScreenshots(page, await screenshots(1))).toBe(true)
+
+		await expect(page.getByText('Reading your screenshots…')).toBeVisible()
+		await expect(page).toHaveURL(savedRecipe)
+		await expect(
+			page.getByRole('heading', {
+				name: 'Shared screenshot salad from 1 image',
+				level: 1,
+			}),
+		).toBeVisible()
+		expect(count.images).toBe(1)
+		expect(await recipesIn(user.householdId)).toEqual([
+			expect.objectContaining({
+				title: 'Shared screenshot salad from 1 image',
+			}),
+		])
+	})
+
+	test('three screenshots import as one Recipe', async ({ page, login }) => {
+		const user = await login()
+		await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+		const count = countImports(page)
+		await importReady(page)
+
+		expect(await deliverScreenshots(page, await screenshots(3))).toBe(true)
+
+		await expect(page).toHaveURL(savedRecipe)
+		await expect(
+			page.getByRole('heading', {
+				name: 'Shared screenshot salad from 3 images',
+				level: 1,
+			}),
+		).toBeVisible()
+		expect(count.images).toBe(1)
+		expect(await recipesIn(user.householdId)).toEqual([
+			expect.objectContaining({
+				title: 'Shared screenshot salad from 3 images',
+			}),
+		])
+	})
+
+	test('a free account is told screenshot import is not available, and nothing is sent or saved', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const count = countImports(page)
+		await importReady(page)
+
+		expect(await deliverScreenshots(page, await screenshots(1))).toBe(true)
+
+		await expect(
+			page.getByText('Screenshot import isn’t available on your account'),
+		).toBeVisible()
+		await expect(
+			page.getByText('Paste the Recipe’s link or text instead.'),
+		).toBeVisible()
+		await settle(page)
+		expect(count.images).toBe(0)
+		expect(await recipesIn(user.householdId)).toHaveLength(0)
+		// The iOS app never points at Pro (ADR 0001).
+		await expect(page.getByText(/\bPro\b|upgrade/i)).toHaveCount(0)
+		await expect(page.getByRole('link', { name: /upgrade/i })).toHaveCount(0)
+	})
+
+	test('screenshots handed to a page offering a link import nothing', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+		const count = countImports(page)
+		await page.goto(importPage(sharedUrl))
+		await offerReady(page)
+		const images = await screenshots(1)
+
+		// The shell's own script refuses a page offering a link.
+		expect(await deliverScreenshots(page, images)).toBe(false)
+		// And the page refuses them if they are handed over anyway.
+		await page.evaluate((images) => {
+			window.__qmShareImport = {
+				files: images.map(
+					(image) => new File([image.data], image.name, { type: image.type }),
+				),
+			}
+			window.dispatchEvent(new CustomEvent('qm:share-import'))
+		}, images)
+		await expect
+			.poll(() => page.evaluate(() => '__qmShareImport' in window))
+			.toBe(false)
+		await settle(page)
+		await expect(offer(page)).toBeVisible()
+		expect(count).toEqual({ images: 0, links: 0 })
+		expect(await recipesIn(user.householdId)).toHaveLength(0)
+	})
+
+	test('screenshots with no Recipe show the error with the screenshots still attached, one tap retries, and the share is used up', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+		// The canned extraction finds nothing while the Household has this name.
+		const marker = await prisma.recipeMetadataValue.create({
+			data: {
+				householdId: user.householdId,
+				dimension: 'cuisine',
+				name: E2E_UNREADABLE_MARKER,
+				nameKey: E2E_UNREADABLE_MARKER.toLowerCase(),
+			},
+		})
+		const count = countImports(page)
+		await importReady(page)
+
+		expect(await deliverScreenshots(page, await screenshots(2))).toBe(true)
+
+		await expect(
+			page.getByText("Couldn't find a recipe in the provided image(s)."),
+		).toBeVisible()
+		await expect(page).toHaveURL(/\/recipes\/import$/)
+		await expect(
+			page.getByRole('tab', { name: 'From Image', selected: true }),
+		).toBeVisible()
+		const input = page.getByLabel('Upload screenshots (up to 5)')
+		expect(
+			await input.evaluate((element: HTMLInputElement) =>
+				Array.from(element.files ?? [], (file) => file.name),
+			),
+		).toEqual(['Screenshot 1.jpg', 'Screenshot 2.jpg'])
+		expect(count.images).toBe(1)
+		expect(await recipesIn(user.householdId)).toHaveLength(0)
+
+		// One tap tries again with the same screenshots.
+		await prisma.recipeMetadataValue.delete({ where: { id: marker.id } })
+		await page.getByRole('button', { name: 'Extract with AI' }).tap()
+		await expect(page).toHaveURL(savedRecipe)
+		await expect(
+			page.getByRole('heading', {
+				name: 'Shared screenshot salad from 2 images',
+				level: 1,
+			}),
+		).toBeVisible()
+		expect(count.images).toBe(2)
+
+		// The share was used up: the import page again sends nothing.
+		await navigateInApp(page, '/recipes/import')
+		await hydrated(importButton(page))
+		await settle(page)
+		expect(count.images).toBe(2)
+		expect(await recipesIn(user.householdId)).toHaveLength(1)
+	})
+
+	test('screenshots shared while the connection drops show that on the import page, still attached for one tap', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+		const count = countImports(page)
+		await importReady(page)
+		const dropPost = (route: Route) =>
+			route.request().method() === 'POST'
+				? route.abort('internetdisconnected')
+				: route.continue()
+		await page.route(/\/recipes\/import\.data/, dropPost)
+
+		expect(await deliverScreenshots(page, await screenshots(1))).toBe(true)
+
+		await expect(
+			page.getByText(
+				'Couldn’t reach Quartermaster. Check your connection and try again.',
+			),
+		).toBeVisible()
+		const input = page.getByLabel('Upload screenshots (up to 5)')
+		expect(
+			await input.evaluate(
+				(element: HTMLInputElement) => element.files?.length,
+			),
+		).toBe(1)
+		expect(count.images).toBe(1)
+		expect(await recipesIn(user.householdId)).toHaveLength(0)
+
+		await page.unroute(/\/recipes\/import\.data/, dropPost)
+		await page.getByRole('button', { name: 'Extract with AI' }).tap()
+		await expect(page).toHaveURL(savedRecipe)
+		expect(count.images).toBe(2)
+		expect(await recipesIn(user.householdId)).toEqual([
+			expect.objectContaining({
+				title: 'Shared screenshot salad from 1 image',
+			}),
+		])
+	})
 })

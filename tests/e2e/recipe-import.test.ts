@@ -170,9 +170,10 @@ test('an import missing its steps saves, says so, and Edit adds them; the notice
 	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
 	await page
 		.getByLabel('Recipe text', { exact: true })
-		.fill('Toast\nIngredients\n1 slice bread\nInstructions\nToast it.')
+		.fill('Toast\nIngredients\n1 slice bread')
 	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
 	await expect(page).toHaveURL(savedRecipeUrl)
+	await expect(notice).toContainText('We couldn’t find the instructions.')
 	await notice.getByRole('button', { name: 'Dismiss' }).click()
 	await expect(notice).toHaveCount(0)
 	await page.reload()
@@ -180,6 +181,61 @@ test('an import missing its steps saves, says so, and Edit adds them; the notice
 		page.getByRole('heading', { name: 'Toast', level: 1 }),
 	).toBeVisible()
 	await expect(notice).toHaveCount(0)
+})
+
+test('a clean import just opens the Recipe: no notice, one saved haptic', async ({
+	page,
+	login,
+}) => {
+	// The iOS app's haptic handler, recording what the page posts to it.
+	await page.addInitScript(() => {
+		const messages: string[] = []
+		Object.assign(window, {
+			__haptics: messages,
+			webkit: {
+				messageHandlers: {
+					haptic: { postMessage: (kind: string) => messages.push(kind) },
+				},
+			},
+		})
+	})
+	const user = await login()
+	await page.goto('/recipes/import')
+	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
+	await page
+		.getByLabel('Recipe text', { exact: true })
+		.fill('Toast\nIngredients\n1 slice bread\nInstructions\nToast it.')
+	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
+
+	await expect(page).toHaveURL(savedRecipeUrl)
+	await expect(
+		page.getByRole('heading', { name: 'Toast', level: 1 }),
+	).toBeVisible()
+	await expect(
+		page.getByRole('region', { name: 'Saved to your Recipes' }),
+	).toHaveCount(0)
+	await expect
+		.poll(() =>
+			page.evaluate(
+				() => (window as unknown as { __haptics: string[] }).__haptics,
+			),
+		)
+		.toEqual(['success'])
+	expect(
+		await prisma.recipe.findFirstOrThrow({
+			where: { userId: user.id },
+			include: { ingredients: true, instructions: true },
+		}),
+	).toMatchObject({
+		title: 'Toast',
+		ingredients: [
+			expect.objectContaining({
+				amount: '1',
+				name: expect.stringContaining('bread'),
+			}),
+		],
+		instructions: [expect.objectContaining({ content: 'Toast it.' })],
+	})
 })
 
 test('text with neither ingredients nor steps saves nothing and keeps what was pasted', async ({

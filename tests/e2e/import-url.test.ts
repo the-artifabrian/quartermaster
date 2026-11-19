@@ -52,9 +52,11 @@ test('a shared URL waits for a tap, saves once and opens the Recipe; back skips 
 	await expect(
 		page.getByRole('heading', { name: 'Shared chickpea lunch', level: 1 }),
 	).toBeVisible()
+	// A clean import just opens the Recipe; the notice is for imports with
+	// something to look at.
 	await expect(
 		page.getByRole('region', { name: 'Saved to your Recipes' }),
-	).toContainText('From 203.0.113.10')
+	).toHaveCount(0)
 	expect(count.fetches).toBe(1)
 	const recipes = await prisma.recipe.findMany({
 		where: { userId: user.id },

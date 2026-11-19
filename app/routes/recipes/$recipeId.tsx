@@ -68,6 +68,7 @@ import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { MAX_RECIPE_DESCRIPTION_LENGTH } from '#app/utils/recipe-validation.ts'
 import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
+import { haptic } from '#app/utils/shell-bridge.ts'
 import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
 import { resolveNextShopDemandTargets } from '#app/utils/shopping-horizon.server.ts'
 import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
@@ -432,6 +433,25 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	})
 	// Its "Open it" link shows another Recipe in this same component.
 	if (imported && imported.recipeId !== recipe.id) setImported(null)
+	// A clean import just opens the Recipe. The notice (with Edit and Undo)
+	// shows only when there is something to look at: a part it could not find
+	// or had to shorten, or an older Recipe with the same title.
+	const missingIngredients = !recipe.ingredients.some(
+		(ingredient) => !ingredient.isHeading,
+	)
+	const missingInstructions = recipe.instructions.length === 0
+	const importNeedsLook = Boolean(
+		imported &&
+		(missingIngredients ||
+			missingInstructions ||
+			imported.shortened.length > 0 ||
+			imported.sameTitle),
+	)
+	// The notice plays the saved haptic itself; a clean import plays it here.
+	const cleanImportId = imported && !importNeedsLook ? imported.recipeId : null
+	useEffect(() => {
+		if (cleanImportId) haptic('success')
+	}, [cleanImportId])
 	const location = useLocation()
 	useEffect(() => {
 		if (!searchParams.has('imported') && !searchParams.has('shortened')) return
@@ -758,16 +778,14 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			/>
 
 			<div className="container-content pt-4 pb-[calc(var(--bottom-nav-h)+5.25rem+var(--bottom-nav-inset))] md:pt-6 md:pb-20 lg:pb-6 print:pt-0 print:pb-0">
-				{imported ? (
+				{importNeedsLook && imported ? (
 					<ImportedRecipeNotice
 						recipeId={recipe.id}
 						from={imported.from}
 						sourceUrl={recipe.sourceUrl}
 						shortened={imported.shortened}
-						missingIngredients={
-							!recipe.ingredients.some((ingredient) => !ingredient.isHeading)
-						}
-						missingInstructions={recipe.instructions.length === 0}
+						missingIngredients={missingIngredients}
+						missingInstructions={missingInstructions}
 						sameTitle={imported.sameTitle}
 						onDismiss={() => setImported(null)}
 					/>

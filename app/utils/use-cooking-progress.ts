@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { z } from 'zod'
+import { haptic } from './shell-bridge.ts'
 
 const STORAGE_PREFIX = 'cooking-progress:v2:'
 const EXPIRY_MS = 7 * 24 * 60 * 60 * 1000
@@ -151,6 +152,8 @@ export function useCookingProgress(context: CookingContext) {
 
 	function toggle(kind: 'ingredients' | 'steps', token: string | undefined) {
 		if (!token) return
+		// Ticking and unticking both tick, as a checklist row does.
+		haptic('selection')
 		setProgress((previous) => {
 			const base = previous.contextKey === contextKey ? previous : empty
 			const next = new Set(base[kind])

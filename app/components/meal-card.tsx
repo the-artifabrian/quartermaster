@@ -30,6 +30,7 @@ import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { formatServingTime, servingWallTime } from '#app/utils/serving-time.ts'
+import { haptic } from '#app/utils/shell-bridge.ts'
 import { PushLink } from './push-link.tsx'
 import { RecipeSelector } from './recipe-selector.tsx'
 
@@ -139,7 +140,12 @@ function ItemRow({
 			)}
 		>
 			{/* Cooked checkbox — independent per Recipe item (#98) */}
-			<cookedFetcher.Form method="POST" className="shrink-0">
+			<cookedFetcher.Form
+				method="POST"
+				className="shrink-0"
+				// Marking cooked lands like a done task; unmarking just ticks.
+				onSubmit={() => haptic(isCooked ? 'selection' : 'success')}
+			>
 				<input type="hidden" name="intent" value="setItemCooked" />
 				<input type="hidden" name="itemId" value={item.id} />
 				{/* Explicit target (not a server-side flip) so double-taps and
@@ -674,6 +680,7 @@ export function MealCard({
 		)
 
 	function submitMealCooked(cooked: boolean) {
+		haptic(cooked ? 'success' : 'selection')
 		void mealCookedFetcher.submit(
 			{ intent: 'setMealCooked', mealId: meal.id, cooked: String(cooked) },
 			{ method: 'POST' },

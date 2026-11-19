@@ -27,6 +27,7 @@ import { isEditScreenDone } from '#app/utils/edit-screen.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
+import { haptic } from '#app/utils/shell-bridge.ts'
 import {
 	formatTargetYieldAmount,
 	getTypedYield,
@@ -177,6 +178,8 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 	const done = isEditScreenDone(actionData) ? actionData.done : null
 	useEffect(() => {
 		if (!done) return
+		// The server has the Save.
+		haptic('success')
 		leave(
 			resolveAfterSave({ idx: historyIndex(), log: getHistoryLog(), to: done }),
 		)

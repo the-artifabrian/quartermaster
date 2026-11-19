@@ -808,7 +808,11 @@ async function deleteRecipeFromEdit(page: Page) {
 async function watchNotFound(page: Page) {
 	await page.addInitScript(() => {
 		const check = () => {
-			if (/(Recipe|Menu) not found/.test(document.body?.textContent ?? '')) {
+			if (
+				/(Recipe|Menu) not found|Not authorized/.test(
+					document.body?.textContent ?? '',
+				)
+			) {
 				sessionStorage.setItem('sawNotFound', '1')
 			}
 		}
@@ -851,7 +855,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		expect(await sawNotFound(page)).toBe(false)
 	})
 
-	test('going back to it from before a reload opens Recipes, never its not-found page', async ({
+	test('going back to it after a reload opens Recipes, never its not-found page', async ({
 		page,
 		login,
 	}) => {
@@ -866,13 +870,87 @@ test.describe('a deleted Recipe left in the history', () => {
 		await deleteRecipeFromEdit(page)
 		await expect(page).toHaveURL('/recipes')
 
-		// The Recipe's entry belongs to the document before the reload.
+		// Chromium keeps this back within the page; the next test loads a
+		// new or kept document.
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
 			page.getByRole('heading', { name: /^My Recipes/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
+	})
+
+	test('a back to a page the browser loads again or kept opens Recipes when the Recipe is gone', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		await watchNotFound(page)
+		// A full load of the Recipe, then a full load of another page: going
+		// back is a new document, or one the back-forward cache kept, as an
+		// edge swipe after the iOS app's web view restarted.
+		await page.goto(`/recipes/${recipe.id}`)
+		await expect(
+			page.getByRole('heading', { level: 1, name: 'Lentil soup' }),
+		).toBeVisible()
+		await prisma.recipe.delete({ where: { id: recipe.id } })
+		await page.goto('/plan')
+		await page.goBack()
+		await expect(page).toHaveURL('/recipes')
+		await expect(
+			page.getByRole('heading', { name: /^My Recipes/ }),
+		).toBeVisible()
+		expect(await sawNotFound(page)).toBe(false)
+	})
+
+	test('a back to a page the browser loads again or kept shows the Recipe as it is now', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user, 'Pea soup')
+		await page.goto(`/recipes/${recipe.id}`)
+		await expect(
+			page.getByRole('heading', { level: 1, name: 'Pea soup' }),
+		).toBeVisible()
+		await prisma.recipe.update({
+			where: { id: recipe.id },
+			data: { title: 'Split pea soup' },
+		})
+		await page.goto('/plan')
+		await page.goBack()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+		await expect(
+			page.getByRole('heading', { level: 1, name: 'Split pea soup' }),
+		).toBeVisible()
+	})
+
+	test('going back to a Recipe moved out of the Household opens Recipes, not Not authorized', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		await watchNotFound(page)
+		await openRecipeFromList(page, recipe.title)
+		await mainTab(page, 'Plan').tap()
+		await expect(page).toHaveURL('/plan')
+		const elsewhere = await prisma.household.create({
+			data: { name: 'Elsewhere' },
+			select: { id: true },
+		})
+		await prisma.recipe.update({
+			where: { id: recipe.id },
+			data: { householdId: elsewhere.id },
+		})
+		await page.goBack()
+		await expect(page).toHaveURL('/recipes')
+		await expect(
+			page.getByRole('heading', { name: /^My Recipes/ }),
+		).toBeVisible()
+		expect(await sawNotFound(page)).toBe(false)
+		await prisma.household.delete({ where: { id: elsewhere.id } })
 	})
 
 	test('a link or a deep link to a missing Recipe still says it is not found', async ({
@@ -1093,6 +1171,28 @@ test.describe('a Save that cannot go through keeps the form', () => {
 		expect(await recipeTitle(soup.id)).toBe('Chicken noodle soup')
 	})
 
+	test('Delete while offline says nothing was deleted and closes its question', async ({
+		page,
+		context,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		await page.goto(`/recipes/${recipe.id}/edit`)
+		await hydrated(saveButton(page))
+		await context.setOffline(true)
+		await deleteRecipeFromEdit(page)
+		await expect(
+			page.getByText('You’re offline, so nothing was deleted.'),
+		).toBeVisible()
+		await expect(
+			page.getByRole('dialog', { name: 'Delete this Recipe?' }),
+		).toBeHidden()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+		expect(await prisma.recipe.count({ where: { id: recipe.id } })).toBe(1)
+		await context.setOffline(false)
+	})
+
 	test('Save while offline keeps the form and its edits and says nothing was saved', async ({
 		page,
 		context,
@@ -1134,8 +1234,8 @@ test('Save after the session expired signs in and comes back to the edit screen,
 	await page.goto(`/recipes/${recipe.id}/edit`)
 	await hydrated(saveButton(page))
 	await page.getByLabel('Title').fill('Red lentil soup')
-	// The session ends on the server (expired, or signed out elsewhere).
-	await prisma.session.deleteMany({ where: { userId: user.id } })
+	// The session cookie runs out while the form is open.
+	await page.context().clearCookies()
 	await saveButton(page).tap()
 
 	await expect(page).toHaveURL(/\/login\?/)

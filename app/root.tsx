@@ -475,9 +475,7 @@ function App() {
 						// title has somewhere to show once the page's own scrolls away.
 						className={cn(
 							'border-border/50 z-40 border-b',
-							navBar
-								? 'bg-card sticky top-0'
-								: 'bg-card md:sticky md:top-0',
+							navBar ? 'bg-card sticky top-0' : 'bg-card md:sticky md:top-0',
 						)}
 					>
 						<nav

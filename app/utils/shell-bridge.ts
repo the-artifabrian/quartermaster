@@ -20,6 +20,12 @@ declare global {
 		}
 		/** Epoch-ms stamps the shell injects at document start. */
 		__qmShell?: { initAt: number; loadAt: number }
+		/**
+		 * A link or screenshots shared through the iOS app's own Share
+		 * Extension, set by the shell on the import page it opened for them.
+		 * Read once with `takeShareImport`.
+		 */
+		__qmShareImport?: unknown
 	}
 }
 
@@ -148,4 +154,89 @@ export function getShellLaunchTiming(): ShellLaunchTiming | null {
 		timing.response_start_ms = Math.round(navigation.responseStart)
 	}
 	return timing
+}
+
+/**
+ * The shell dispatches this on the import page after setting
+ * `window.__qmShareImport` (iOS README, "Share import").
+ */
+export const SHARE_IMPORT_EVENT = 'qm:share-import'
+
+/** What the iOS app's own Share Extension shared: a link, or screenshots. */
+export type ShareImport =
+	{ kind: 'link'; url: string } | { kind: 'images'; files: File[] }
+
+/**
+ * Whether the share the shell handed over still belongs here: delivered for
+ * this page (`for`, the path and query it was handed to) and before its
+ * `expiresAt` (epoch ms). A share handed over while the page was being left
+ * must not wait for a later visit.
+ */
+function isShareFor(value: unknown, where: string, now: number) {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		'for' in value &&
+		value.for === where &&
+		'expiresAt' in value &&
+		typeof value.expiresAt === 'number' &&
+		now <= value.expiresAt
+	)
+}
+
+/** The page the shell hands shares to: its path and query. */
+export function currentSharePage() {
+	return `${window.location.pathname}${window.location.search}`
+}
+
+/**
+ * Drops the handed-over share when it no longer belongs to `where`, or has
+ * expired. With nothing to drop, nothing happens.
+ */
+export function dropStaleShareImport(where: string, now = Date.now()) {
+	if (typeof window === 'undefined' || !('__qmShareImport' in window)) return
+	if (!isShareFor(window.__qmShareImport, where, now)) {
+		delete window.__qmShareImport
+	}
+}
+
+/** Drops the handed-over share, whatever it is: its page is going away. */
+export function discardShareImport() {
+	if (typeof window === 'undefined') return
+	delete window.__qmShareImport
+}
+
+/**
+ * The share the shell handed over to `where`, or null. Each delivery is read
+ * once: the value is cleared whatever it holds, so a later visit to the same
+ * page waits for a tap. Only the shell sets it; nothing in a URL or in storage
+ * reaches it. One handed to another page, or expired, counts as none.
+ * Screenshots count only as 1 to `maxImages` files.
+ */
+export function takeShareImport(
+	maxImages: number,
+	where: string,
+	now = Date.now(),
+): ShareImport | null {
+	if (typeof window === 'undefined' || !('__qmShareImport' in window)) {
+		return null
+	}
+	const value = window.__qmShareImport
+	delete window.__qmShareImport
+	if (!isShareFor(value, where, now)) return null
+	if (typeof value !== 'object' || value === null) return null
+	if ('url' in value && typeof value.url === 'string') {
+		return { kind: 'link', url: value.url }
+	}
+	if ('files' in value && Array.isArray(value.files)) {
+		const files: unknown[] = value.files
+		if (
+			files.length >= 1 &&
+			files.length <= maxImages &&
+			files.every((file) => file instanceof File)
+		) {
+			return { kind: 'images', files: files as File[] }
+		}
+	}
+	return null
 }

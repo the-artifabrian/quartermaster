@@ -10,11 +10,12 @@
 	<dict>
 		<key>NSExtensionAttributes</key>
 		<dict>
-			<!-- One shared item holding a web URL (not a file) or text, and at
-			     most one URL. Text with no link in it still shows the
-			     extension; it then cancels. -->
+			<!-- One shared item holding a web URL (not a file), text, or
+			     images: at most one URL, and at most five images, the import's
+			     limit (MAX_IMPORT_IMAGE_COUNT, ShareStore.maxImages). Text with
+			     no link in it still shows the extension; it then cancels. -->
 			<key>NSExtensionActivationRule</key>
-			<string>SUBQUERY(extensionItems, $item, SUBQUERY($item.attachments, $a, (ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.url" AND NOT (ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.file-url")) OR ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.plain-text").@count >= 1 AND SUBQUERY($item.attachments, $a, ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.url" AND NOT (ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.file-url")).@count &lt;= 1).@count == 1</string>
+			<string>SUBQUERY(extensionItems, $item, SUBQUERY($item.attachments, $a, (ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.url" AND NOT (ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.file-url")) OR ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.plain-text" OR ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.image").@count >= 1 AND SUBQUERY($item.attachments, $a, (ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.url" AND NOT (ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.file-url"))).@count &lt;= 1 AND SUBQUERY($item.attachments, $a, ANY $a.registeredTypeIdentifiers UTI-CONFORMS-TO "public.image").@count &lt;= 5).@count == 1</string>
 		</dict>
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.share-services</string>

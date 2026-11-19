@@ -73,6 +73,11 @@
 			path = QuartermasterShare;
 			sourceTree = "<group>";
 		};
+		C10000000000000000000003 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,6 +103,7 @@
 			children = (
 				A10000000000000000000003 /* Quartermaster */,
 				B10000000000000000000003 /* QuartermasterShare */,
+				C10000000000000000000003 /* Shared */,
 				A10000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -130,6 +136,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				A10000000000000000000003 /* Quartermaster */,
+				C10000000000000000000003 /* Shared */,
 			);
 			name = Quartermaster;
 			packageProductDependencies = (
@@ -152,6 +159,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				B10000000000000000000003 /* QuartermasterShare */,
+				C10000000000000000000003 /* Shared */,
 			);
 			name = QuartermasterShare;
 			packageProductDependencies = (
@@ -352,6 +360,7 @@
 		B10000000000000000000031 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = QuartermasterShare/QuartermasterShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = "";
@@ -376,6 +385,7 @@
 		B10000000000000000000032 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = QuartermasterShare/QuartermasterShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = "";

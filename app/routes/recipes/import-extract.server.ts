@@ -26,13 +26,14 @@ import {
 	recipeMetadataNameKey,
 } from '#app/utils/recipe-metadata.ts'
 import {
+	MAX_IMPORT_IMAGE_COUNT,
 	MAX_IMPORT_IMAGE_SIZE,
 	MAX_RAW_TEXT_LENGTH,
 } from '#app/utils/recipe-validation.ts'
 
 const DAILY_EXTRACT_LIMIT = 10
 export const MAX_IMAGE_SIZE = MAX_IMPORT_IMAGE_SIZE
-export const MAX_IMAGE_COUNT = 5
+export const MAX_IMAGE_COUNT = MAX_IMPORT_IMAGE_COUNT
 export const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 /** The names the extraction may choose from, per dimension. */

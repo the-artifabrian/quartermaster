@@ -1,8 +1,9 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { isOfflineReply, saveUnlessOffline } from '#app/utils/offline-save.ts'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { menuNewNav } from '#app/utils/nav-back.ts'
-import { data, redirect } from 'react-router'
+import { data, replace, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { MENU_FORM_ID, MenuForm } from '#app/components/menu-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -22,6 +23,20 @@ export const handle: SEOHandle & NavBarHandle = {
 
 export const meta: Route.MetaFunction = () => {
 	return [{ title: 'New Menu | Quartermaster' }]
+}
+
+// Offline the reload would fail and replace the form with an error.
+export function shouldRevalidate({
+	actionResult,
+	defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+	if (isOfflineReply(actionResult)) return false
+	return defaultShouldRevalidate
+}
+
+// A Save offline keeps the form and its edits (offline-save.ts).
+export async function clientAction(args: Route.ClientActionArgs) {
+	return saveUnlessOffline(args, MenuSchema)
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -55,7 +70,9 @@ export async function action({ request }: Route.ActionArgs) {
 			},
 			select: { id: true },
 		})
-		return redirect(`/recipes/menus/${menu.id}`)
+		// The new Menu takes the form's place: going back from it goes to the
+		// page before the form.
+		return replace(`/recipes/menus/${menu.id}`)
 	} catch (error) {
 		if (isUniqueConstraintError(error)) {
 			return data(

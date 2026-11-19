@@ -18,9 +18,11 @@ import youngSerifFontUrl from './assets/fonts/young-serif-latin.woff2?url'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
+import { useRefreshAfterTraversal } from './components/gone-item.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
 import {
 	NavBar,
+	useEditFormOnScreen,
 	useNavBarConfig,
 	useRecordHistory,
 } from './components/nav-bar.tsx'
@@ -422,10 +424,16 @@ function App() {
 	useToast(data.toast)
 	useNavDirection()
 	useRecordHistory()
+	useRefreshAfterTraversal()
 	// Pushed pages (route handle `nav`) swap the brand header for a nav bar
 	// on phones; tab roots keep it. Only signed-in pages have one.
 	const navBarConfig = useNavBarConfig()
 	const navBar = user ? navBarConfig : null
+	// An edit screen (its route names the form the bar's Save submits) hides
+	// the tab bar, as an iOS edit screen does: Cancel and Save are the ways
+	// out. Its error page keeps it, an error after load included. The server
+	// knows both, so the first paint has no tab bar to lose.
+	const editScreen = useEditFormOnScreen(navBar?.form, navBar?.loaded ?? false)
 	const toastTop = navBar
 		? 'var(--nav-bar-bottom, calc(var(--safe-top) + 44px))'
 		: 'var(--safe-top)'
@@ -471,6 +479,7 @@ function App() {
 					<header
 						data-site-header=""
 						data-pushed={navBar ? '' : undefined}
+						data-edit-screen={editScreen ? '' : undefined}
 						// A pushed page's bar stays pinned on phones too, opaque, so its
 						// title has somewhere to show once the page's own scrolls away.
 						className={cn(
@@ -553,7 +562,7 @@ function App() {
 						<Outlet />
 					</main>
 				</div>
-				<BottomNav />
+				<BottomNav hidden={editScreen} />
 				<Toaster
 					closeButton
 					position="top-center"

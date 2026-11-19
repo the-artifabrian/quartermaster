@@ -10,10 +10,10 @@ import { navItems } from '#app/components/bottom-nav.tsx'
  * page the rule returns to (a Menu behind one of its Recipes, a Recipe behind
  * a linked Recipe), or a page outside the rule's tab that opened it (the Plan
  * behind tonight's Recipe), Back pops to it instead, so that page keeps its
- * filter and scroll position. Forms that led to the page (the edit form after
- * a save, the new-Recipe form after creating one) are stepped over on the
- * way. So are the other tabs' pages between a page the tab bar restored and
- * the stack it continues.
+ * filter and scroll position. Forms that led to the page are stepped over on
+ * the way (a hydrated edit screen leaves none behind, resolveAfterSave, but a
+ * Save without JavaScript redirects past one). So are the other tabs' pages
+ * between a page the tab bar restored and the stack it continues.
  *
  * The browser does not say what is behind the current entry, so the app keeps
  * its own log of the entries it has shown, by React Router's history index.
@@ -169,6 +169,84 @@ export function recordHistoryEntry(
 	}
 	next[idx] = entry
 	return next
+}
+
+/**
+ * Where an edit screen goes once its Save or Delete has gone through. It
+ * leaves as an iOS edit screen is dismissed: the page it lands on has behind
+ * it what the edit screen had, not the edit screen.
+ */
+export type LeaveTarget =
+	| { type: 'pop'; delta: number }
+	| { type: 'replace'; to: string }
+	/** Pop `delta` entries, then open `to` in the entry popped to. */
+	| { type: 'pop-replace'; delta: number; to: string }
+
+/**
+ * After a Save, the saved page `to`. An edit screen opened from that page
+ * pops back to it (it loads afresh), so neither the edit screen nor a second
+ * copy of the page is left behind. Otherwise the page replaces the edit
+ * screen. A new Recipe or Menu always replaces its form (the action's
+ * `replace` redirect), so it does not come here.
+ */
+export function resolveAfterSave({
+	idx,
+	log,
+	to,
+}: {
+	idx: number | null
+	log: HistoryLog
+	to: string
+}): LeaveTarget {
+	if (idx !== null && log[idx - 1]?.pathname === to) {
+		return { type: 'pop', delta: 1 }
+	}
+	return { type: 'replace', to }
+}
+
+/**
+ * After a Delete, the list `to`, without the deleted item's entries directly
+ * behind the edit screen: going back never opens a page that is gone. It pops
+ * back over them to the list when the list is right behind them. When
+ * something else is (the Plan that opened the Recipe, a cold start, a reload),
+ * it opens the list in the place of the first of them, so what was behind the
+ * item stays behind the list. Entries the app never saw, or further back
+ * behind another page, stay; going back to one of them opens the list in its
+ * place (gone-item.tsx).
+ */
+export function resolveAfterDelete({
+	idx,
+	log,
+	to,
+	gone,
+}: {
+	idx: number | null
+	log: HistoryLog
+	to: string
+	/** The deleted item's pages. */
+	gone: (pathname: string) => boolean
+}): LeaveTarget {
+	if (idx === null) return { type: 'replace', to }
+	let j = idx - 1
+	while (j >= 0 && log[j] && gone(log[j]!.pathname)) j--
+	const skipped = idx - 1 - j
+	if (j >= 0 && log[j]?.pathname === to) return { type: 'pop', delta: idx - j }
+	if (skipped > 0) return { type: 'pop-replace', delta: skipped, to }
+	return { type: 'replace', to }
+}
+
+/** A Recipe's own page and its edit screen. */
+export function recipePages(recipeId: string) {
+	return (pathname: string) =>
+		pathname === `/recipes/${recipeId}` ||
+		pathname === `/recipes/${recipeId}/edit`
+}
+
+/** A Menu's own page and its edit screen. */
+export function menuPages(menuId: string) {
+	return (pathname: string) =>
+		pathname === `/recipes/menus/${menuId}` ||
+		pathname === `/recipes/menus/${menuId}/edit`
 }
 
 // Rules for each pushed page.

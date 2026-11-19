@@ -7,7 +7,9 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { useId } from 'react'
 import { useSortableList } from '#app/hooks/use-sortable-list.ts'
+import { type RowErrors } from '#app/utils/list-errors.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { ErrorList, withoutRemoveOffer } from './forms.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Textarea } from './ui/textarea.tsx'
@@ -22,6 +24,8 @@ export type InstructionFieldValue = {
 type InstructionFieldsProps = {
 	instructions: InstructionFieldValue[]
 	onChange: (instructions: InstructionFieldValue[]) => void
+	/** Each step's errors by its position, then by field (list-errors.ts). */
+	rowErrors?: ReadonlyArray<RowErrors | undefined>
 }
 
 function getSortKey() {
@@ -42,6 +46,7 @@ function ensureSortKeys(
 export function InstructionFields({
 	instructions: rawInstructions,
 	onChange,
+	rowErrors,
 }: InstructionFieldsProps) {
 	const dndId = useId()
 	// Keep untouched initial rows mounted through unrelated form re-renders.
@@ -116,6 +121,7 @@ export function InstructionFields({
 								key={instruction.sortKey}
 								sortKey={instruction.sortKey!}
 								instruction={instruction}
+								errors={rowErrors?.[index]}
 								index={index}
 								onUpdate={(content) => updateInstruction(index, content)}
 								onRemove={() => removeInstruction(index)}
@@ -132,6 +138,7 @@ export function InstructionFields({
 function SortableInstructionRow({
 	sortKey,
 	instruction,
+	errors,
 	index,
 	onUpdate,
 	onRemove,
@@ -139,6 +146,7 @@ function SortableInstructionRow({
 }: {
 	sortKey: string
 	instruction: InstructionFieldValue
+	errors?: RowErrors
 	index: number
 	onUpdate: (content: string) => void
 	onRemove: () => void
@@ -152,6 +160,10 @@ function SortableInstructionRow({
 		transition,
 		isDragging,
 	} = useSortable({ id: sortKey })
+	const errorId = `${useId()}-errors`
+	const messages = (errors ? Object.values(errors).flat() : []).map(
+		(message) => (canRemove ? message : withoutRemoveOffer(message)),
+	)
 
 	const style = {
 		transform: CSS.Transform.toString(transform),
@@ -188,11 +200,18 @@ function SortableInstructionRow({
 				<Textarea
 					placeholder={`Step ${index + 1}`}
 					aria-label={`Step ${index + 1}`}
+					aria-invalid={messages.length ? true : undefined}
+					aria-describedby={messages.length ? errorId : undefined}
 					value={instruction.content}
 					onChange={(e) => onUpdate(e.target.value)}
 					rows={2}
 					className="[field-sizing:content] resize-none"
 				/>
+				{messages.length ? (
+					<div className="pt-1">
+						<ErrorList id={errorId} errors={messages} />
+					</div>
+				) : null}
 			</div>
 			<Button
 				type="button"

@@ -398,6 +398,11 @@ test('Cancel discards the edit', async ({ page, login }) => {
 		.locator('[data-nav-bar]')
 		.getByRole('link', { name: 'Cancel' })
 		.tap()
+	// With a change, Cancel asks first (edit-screens.test.ts).
+	await page
+		.getByRole('dialog', { name: 'Discard changes?' })
+		.getByRole('button', { name: 'Discard Changes' })
+		.tap()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 	// Popped back to the Recipe's own entry, not a new copy of it.
 	expect(await historyIdx(page)).toBe(recipeIdx)
@@ -938,46 +943,6 @@ test('a Recipe reached by signing in from a deep link goes back to Recipes, not 
 	await expect(page).toHaveURL('/recipes')
 })
 
-test('an edit form the tab bar restored goes back down its own stack after Save or Cancel', async ({
-	page,
-	login,
-}) => {
-	const user = await login()
-	const recipe = await createLongRecipe(user, 'Lentil soup')
-	const tab = (name: string) =>
-		page
-			.getByRole('navigation', { name: 'Main' })
-			.getByRole('link', { name, exact: true })
-	const cancel = page
-		.locator('[data-nav-bar]')
-		.getByRole('link', { name: 'Cancel' })
-
-	for (const leave of ['Save', 'Cancel'] as const) {
-		await page.goto('/recipes')
-		const card = page.getByRole('link', { name: /Lentil soup recipe/ })
-		await hydrated(card)
-		const listIdx = await historyIdx(page)
-		await card.tap()
-		await page.getByRole('link', { name: 'Edit Recipe' }).tap()
-		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
-		// To the Plan and back with the tab bar, which restores the edit form.
-		await tab('Plan').tap()
-		await expect(page).toHaveURL('/plan')
-		await tab('Recipes').tap()
-		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
-
-		if (leave === 'Save') {
-			await page.locator('[data-nav-save]').tap()
-		} else {
-			await cancel.tap()
-		}
-		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
-		await backButton(page, 'Recipes').tap()
-		await expect(page).toHaveURL('/recipes')
-		expect(await historyIdx(page)).toBe(listIdx)
-	}
-})
-
 test('opening a form from a list commits Cancel and Save with the form', async ({
 	page,
 	login,
@@ -1015,32 +980,4 @@ test('opening a form from a list commits Cancel and Save with the form', async (
 	const formFrames = frames.filter((f) => f.startsWith('New Menu:'))
 	expect(formFrames.length).toBeGreaterThan(0)
 	expect(formFrames.filter((f) => !f.includes(': save Cancel'))).toEqual([])
-})
-
-test('Cancel on a restored edit form that opens its Recipe hands the restore on', async ({
-	page,
-	login,
-}) => {
-	const user = await login()
-	const recipe = await createLongRecipe(user, 'Lentil soup')
-	const tab = (name: string) =>
-		page
-			.getByRole('navigation', { name: 'Main' })
-			.getByRole('link', { name, exact: true })
-	// Straight to the edit form, so Cancel has no Recipe behind it to pop to.
-	await page.goto(`/recipes/${recipe.id}/edit`)
-	await hydrated(tab('Plan'))
-	await tab('Plan').tap()
-	await expect(page).toHaveURL('/plan')
-	await tab('Recipes').tap()
-	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
-	await page
-		.locator('[data-nav-bar]')
-		.getByRole('link', { name: 'Cancel' })
-		.tap()
-	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
-	// The Recipe stays in the Recipes tab's stack: not back to the Plan.
-	await expect(backButton(page, 'Recipes')).toBeVisible()
-	await backButton(page, 'Recipes').tap()
-	await expect(page).toHaveURL('/recipes')
 })

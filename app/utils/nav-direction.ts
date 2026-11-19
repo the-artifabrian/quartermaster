@@ -4,6 +4,7 @@ import {
 	useLocation,
 	useNavigationType,
 } from 'react-router'
+import { noteCommit, notePopState } from './history-traversal.ts'
 
 /**
  * Which way a view transition moves the page. tailwind.css keys the
@@ -39,6 +40,16 @@ export function isViaTabBar(state: unknown) {
 let backButtonPop = false
 export function markBackButtonPop() {
 	backButtonPop = true
+}
+/**
+ * Clears the mark and says whether it was set. An edit screen that holds a
+ * pop back to ask first takes it, so a Keep Editing does not leave it for the
+ * next navigation, and puts it back on Discard.
+ */
+export function takeBackButtonPop() {
+	const marked = backButtonPop
+	backButtonPop = false
+	return marked
 }
 
 function markedDirection(state: unknown) {
@@ -93,6 +104,7 @@ export function useNavDirection() {
 
 	useEffect(() => {
 		const onPopState = (event: PopStateEvent) => {
+			notePopState(window.location.pathname + window.location.search)
 			popHadUATransition.current =
 				(event as PopStateEvent & { hasUAVisualTransition?: boolean })
 					.hasUAVisualTransition === true
@@ -104,6 +116,8 @@ export function useNavDirection() {
 	// A layout effect, so the attribute is in place before the router's view
 	// transition resolves its update and starts the animation.
 	useLayoutEffect(() => {
+		// Committed: a later load of this URL is a revalidation.
+		noteCommit(location.pathname + location.search)
 		const left = previous.current
 		const idx = historyIndex()
 		previous.current = { state: location.state, idx }
@@ -128,5 +142,5 @@ export function useNavDirection() {
 		const root = document.documentElement
 		if (direction) root.dataset.navDirection = direction
 		else delete root.dataset.navDirection
-	}, [location.key, location.state, type])
+	}, [location.key, location.pathname, location.search, location.state, type])
 }

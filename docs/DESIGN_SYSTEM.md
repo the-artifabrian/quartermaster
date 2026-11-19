@@ -162,7 +162,9 @@ each screen:
 - A delete that cannot be undone (Recipe, Menu, account, passkey, removing a
   member, leaving the Household, disabling 2FA) opens a confirm sheet
   (`ConfirmSheet`): the question as the title, one line on what is lost, a
-  full-width red button, and Cancel under it, which has focus.
+  full-width red button, and Cancel under it, which has focus. Leaving an edit
+  screen with changes asks the same way: “Discard changes?”, a red Discard
+  Changes, and Keep Editing in Cancel's place.
 
 ## Navigation
 
@@ -196,6 +198,23 @@ while saving), shown only while the form is on screen. The form has no Save bar
 of its own, and Return in its fields does not save (a Recipe's or a new Menu's
 title still does); Delete stays at the end of the form. Each pushed page has
 exactly one h1, its big title. Toasts open below the bar.
+
+Edit screens hide the tab bar, as an iOS edit screen does, from the server's
+first paint (Import keeps it). Cancel and Save are the ways out, and anything
+that sits above the tab bar elsewhere sits above the home indicator here.
+Leaving with changes by Cancel, the edge swipe or a link asks first; a form
+nobody changed never asks. A Save that finds errors shows each one at what it is
+about (a row's under the row, a list's under its section heading), scrolls the
+first into view below the bar, opening its section, and focuses it. A saved edit
+screen leaves as if dismissed: it pops back to the page that opened it, a new
+Recipe or Menu takes its form's place, and a Delete lands on the list with none
+of the deleted item's pages directly behind it. Going back to a Recipe or Menu
+that is gone or has left the Household, from anywhere in the history (a page the
+browser kept is loaded again), opens its list in that entry's place; a link to
+one still says it is not found. A Save that cannot go through (offline, a linked
+sub-Recipe deleted meanwhile) keeps the form and its edits and says why. A
+reload or a closed tab with changes asks the browser first (not in the iOS app,
+whose web view shows no prompt).
 
 On desktop, keep the same information hierarchy and give content more width; do
 not add extra product destinations just because space exists. The desktop header

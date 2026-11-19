@@ -1,6 +1,7 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { goneItemMiddleware } from '#app/components/gone-item.tsx'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { menuDetailNav } from '#app/utils/nav-back.ts'
 import { useRef, useState } from 'react'
@@ -37,6 +38,11 @@ import { planMenu } from '#app/utils/plan-menu.server.ts'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
 import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
 import { type Route } from './+types/$menuId.ts'
+
+// Going back to this page once its item is gone opens /recipes/menus instead.
+export const clientMiddleware: Route.ClientMiddlewareFunction[] = [
+	goneItemMiddleware('/recipes/menus'),
+]
 
 export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,

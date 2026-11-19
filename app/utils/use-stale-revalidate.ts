@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useRevalidator } from 'react-router'
+import {
+	clearRefreshAfterTraversal,
+	noteRefreshAfterTraversal,
+	wasLandedByTraversal,
+} from './history-traversal.ts'
 import { type LoaderCacheOptions, loaderCache } from './loader-cache.ts'
 
 /**
@@ -22,6 +27,22 @@ import { type LoaderCacheOptions, loaderCache } from './loader-cache.ts'
  * fail, and the root loader it re-runs has no offline copy, so the failure
  * would replace the whole app with the root error page.
  */
+/**
+ * Loads the stored page afresh. Reached by a back or forward, the refresh is
+ * that traversal's load, now or once back online: a Recipe gone since it was
+ * stored opens its list (gone-item.tsx).
+ */
+function refreshStored(revalidate: () => Promise<void> | void, path: string) {
+	if (!wasLandedByTraversal(path)) {
+		void revalidate()
+		return
+	}
+	noteRefreshAfterTraversal(path)
+	void Promise.resolve(revalidate()).finally(() =>
+		clearRefreshAfterTraversal(path),
+	)
+}
+
 export function useStaleRevalidate(
 	loaderData: unknown,
 	options?: LoaderCacheOptions,
@@ -47,14 +68,17 @@ export function useStaleRevalidate(
 			waitingForNetwork.current = true
 			return
 		}
-		void revalidate()
+		refreshStored(revalidate, href)
 	}, [loaderData, href, revalidate, viewOnlyParams])
 
 	useEffect(() => {
 		const onOnline = () => {
 			if (!waitingForNetwork.current) return
 			waitingForNetwork.current = false
-			void revalidate()
+			refreshStored(
+				revalidate,
+				window.location.pathname + window.location.search,
+			)
 		}
 		window.addEventListener('online', onOnline)
 		return () => window.removeEventListener('online', onOnline)

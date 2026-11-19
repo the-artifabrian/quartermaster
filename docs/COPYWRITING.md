@@ -44,7 +44,11 @@ A delete that can be undone happens at once and says what went, with Undo:
 a confirm sheet: the action as a question (“Delete this Recipe?”, “Leave this
 Household?”), one line on what is lost, a red button that names the action
 (“Delete Recipe”) and Cancel. Do not use a browser confirm dialog or “Are you
-sure?”.
+sure?”. Leaving an edit screen with changes asks “Discard changes?”, says what
+is not saved, and offers **Discard Changes** and **Keep Editing**.
+
+A form error sits next to what it is about and says what to do there: “Name this
+ingredient, or remove it”, “Write this step, or remove it”.
 
 ## Rules
 

@@ -115,6 +115,24 @@ function subscribeForms(listener: () => void) {
 	}
 }
 
+// While an edit screen leaves after Save or Delete, or a Delete is on its way,
+// Cancel and Save do nothing: they would go back twice, or post to a Recipe
+// that is gone.
+let barLocks = 0
+
+/** Holds the bar's Cancel/Back and Save while `locked`. */
+export function useLockNavBar(locked: boolean) {
+	useEffect(() => {
+		if (!locked) return
+		barLocks++
+		notifyForms()
+		return () => {
+			barLocks--
+			notifyForms()
+		}
+	}, [locked])
+}
+
 /** Called by an edit form whose id a route handle names as `navForm`. */
 export function useNavBarForm(formId: string, { blocked = false } = {}) {
 	// A layout effect, so a client navigation paints Save with the form.
@@ -218,6 +236,30 @@ function useTitleUnderBar(barRef: React.RefObject<HTMLElement | null>) {
 	return state.pathname === pathname ? state : { title: '', under: false }
 }
 
+/**
+ * Whether the route's edit form is on screen: the bar shows Cancel and Save,
+ * and the tab bar hides, only then. Until the form has reported, the route's
+ * own state says: its page (and form) renders unless it failed to load. Once
+ * it has, an error after load (a Delete that finds the Recipe gone) takes the
+ * form away and with it the edit screen. A layout effect, subscribed before
+ * the form's own layout effect reports, so a first frame never shows Back
+ * where Cancel belongs.
+ */
+export function useEditFormOnScreen(form: string | undefined, loaded: boolean) {
+	const [formMount, setFormMount] = useState<{
+		form: string
+		mounted: boolean
+	} | null>(null)
+	useLayoutEffect(() => {
+		if (!form) return
+		const sync = () => setFormMount({ form, mounted: mountedForms.has(form) })
+		sync()
+		return subscribeForms(sync)
+	}, [form])
+	if (!form) return false
+	return formMount?.form === form ? formMount.mounted : loaded
+}
+
 const barTextButton =
 	'text-primary flex min-h-11 items-center rounded-md px-2 text-[17px] leading-none transition-opacity active:opacity-60 md:text-base'
 
@@ -232,25 +274,12 @@ export function NavBar({ rule, form, loaded = true }: NavBarConfig) {
 		() => saveBlocked,
 		() => false,
 	)
-	// Whether the edit form is on screen. Until the form has reported, the
-	// route's own state says: its page (and form) renders unless it failed to
-	// load. A layout effect, subscribed before the form's own layout effect
-	// reports, so a first frame never shows Back where Cancel belongs.
-	const [formMount, setFormMount] = useState<{
-		form: string
-		mounted: boolean
-	} | null>(null)
-	useLayoutEffect(() => {
-		if (!form) return
-		const sync = () => setFormMount({ form, mounted: mountedForms.has(form) })
-		sync()
-		return subscribeForms(sync)
-	}, [form])
-	const formOnScreen = form
-		? formMount?.form === form
-			? formMount.mounted
-			: loaded
-		: false
+	const locked = useSyncExternalStore(
+		subscribeForms,
+		() => barLocks > 0,
+		() => false,
+	)
+	const formOnScreen = useEditFormOnScreen(form, loaded)
 	const editing = form && formOnScreen ? form : null
 	const viaTabBar = isViaTabBar(location.state)
 	// The history entry this page committed on. The browser's own index moves
@@ -277,6 +306,10 @@ export function NavBar({ rule, form, loaded = true }: NavBarConfig) {
 	}).label
 
 	const onBack = (event: ReactMouseEvent<HTMLAnchorElement>) => {
+		if (locked) {
+			event.preventDefault()
+			return
+		}
 		if (!isNormalLinkActivation(event) || event.defaultPrevented) return
 		// A second tap while the first pop is still loading would go back
 		// again, or replace the page it is going to.
@@ -322,9 +355,10 @@ export function NavBar({ rule, form, loaded = true }: NavBarConfig) {
 					onClick={onBack}
 					data-nav-back=""
 					aria-label={editing ? undefined : `Back to ${label}`}
+					aria-disabled={locked || undefined}
 					className={cn(
 						barTextButton,
-						'max-w-full min-w-0',
+						'max-w-full min-w-0 aria-disabled:opacity-40',
 						editing ? '-ml-2' : '-ml-3 gap-0.5 pl-1',
 					)}
 				>
@@ -355,7 +389,7 @@ export function NavBar({ rule, form, loaded = true }: NavBarConfig) {
 					<button
 						type="submit"
 						form={editing}
-						disabled={saving || blocked}
+						disabled={saving || blocked || locked}
 						aria-busy={saving || undefined}
 						data-nav-save=""
 						className={cn(

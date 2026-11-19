@@ -5,9 +5,10 @@ import {
 	type FileUpload,
 } from '@mjackson/form-data-parser'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { isOfflineReply, saveUnlessOffline } from '#app/utils/offline-save.ts'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { recipeNewNav } from '#app/utils/nav-back.ts'
-import { data, redirect } from 'react-router'
+import { data, replace, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -16,7 +17,10 @@ import {
 	RecipeMetadataSelectionError,
 	resolveRecipeMetadataValueIds,
 } from '#app/utils/recipe-metadata.server.ts'
-import { assertLinkedRecipesInHousehold } from '#app/utils/recipe-links.server.ts'
+import {
+	LINKED_RECIPE_GONE_MESSAGE,
+	unlinkableRows,
+} from '#app/utils/recipe-links.server.ts'
 import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
@@ -34,6 +38,20 @@ export const handle: SEOHandle & NavBarHandle = {
 
 export const meta: Route.MetaFunction = () => {
 	return [{ title: 'New Recipe | Quartermaster' }]
+}
+
+// Offline the reload would fail and replace the form with an error.
+export function shouldRevalidate({
+	actionResult,
+	defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+	if (isOfflineReply(actionResult)) return false
+	return defaultShouldRevalidate
+}
+
+// A Save offline keeps the form and its edits (offline-save.ts).
+export async function clientAction(args: Route.ClientActionArgs) {
+	return saveUnlessOffline(args, RecipeSchema)
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -130,7 +148,24 @@ export async function action({ request }: Route.ActionArgs) {
 		notes,
 	} = submission.value
 
-	await assertLinkedRecipesInHousehold(ingredients, householdId)
+	// A sub-Recipe another member deleted while the form was open: the form
+	// stays with its edits and says so at the row.
+	const unlinkable = await unlinkableRows(ingredients, householdId)
+	if (unlinkable.length > 0) {
+		return data(
+			{
+				result: submission.reply({
+					fieldErrors: Object.fromEntries(
+						unlinkable.map((index) => [
+							`ingredients[${index}].linkedRecipeId`,
+							[LINKED_RECIPE_GONE_MESSAGE],
+						]),
+					),
+				}),
+			},
+			{ status: 400 },
+		)
+	}
 
 	let recipe: { id: string }
 	try {
@@ -201,7 +236,9 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 	}
 
-	return redirect(`/recipes/${recipe.id}`)
+	// The new Recipe takes the form's place: going back from it goes to the
+	// page before the form.
+	return replace(`/recipes/${recipe.id}`)
 }
 
 export default function NewRecipe({ loaderData }: Route.ComponentProps) {

@@ -11,6 +11,7 @@ import {
 } from '#app/generated/prisma/client.ts'
 import { providers } from './connections.server.ts'
 import { prisma } from './db.server.ts'
+import { pagePathOf } from './page-path.ts'
 import { combineHeaders } from './misc.tsx'
 import { type ProviderUser } from './providers/provider.ts'
 import { DEFAULT_RECIPE_METADATA_VALUE_CREATE } from './recipe-metadata.ts'
@@ -104,7 +105,9 @@ export async function requireUserId(
 		redirectTo =
 			redirectTo === null
 				? null
-				: (redirectTo ?? `${requestUrl.pathname}${requestUrl.search}`)
+				: // A Save or fetcher asks for the page's data; send them back to
+					// the page.
+					(redirectTo ?? pagePathOf(requestUrl))
 		const loginParams = redirectTo ? new URLSearchParams({ redirectTo }) : null
 		const loginRedirect = ['/login', loginParams?.toString()]
 			.filter(Boolean)

@@ -1,6 +1,6 @@
 import { useInputControl } from '@conform-to/react'
 import { REGEXP_ONLY_DIGITS_AND_CHARS, type OTPInputProps } from 'input-otp'
-import React, { useId } from 'react'
+import React, { useEffect, useId, useRef } from 'react'
 import { Checkbox, type CheckboxProps } from './ui/checkbox.tsx'
 import {
 	InputOTP,
@@ -17,14 +17,23 @@ export type ListOfErrors = Array<string | null | undefined> | null | undefined
 export function ErrorList({
 	id,
 	errors,
+	focusable = false,
 }: {
 	errors?: ListOfErrors
 	id?: string
+	/** A list's own error, with no field to focus: a failed Save focuses
+	 * the message itself (focusFirstError). */
+	focusable?: boolean
 }) {
 	const errorsToRender = errors?.filter(Boolean)
 	if (!errorsToRender?.length) return null
 	return (
-		<ul id={id} className="flex flex-col gap-1">
+		<ul
+			id={id}
+			tabIndex={focusable ? -1 : undefined}
+			data-error-target={focusable ? '' : undefined}
+			className="flex flex-col gap-1 outline-none"
+		>
 			{errorsToRender.map((e) => (
 				<li key={e} className="text-foreground-destructive text-xs">
 					{e}
@@ -32,6 +41,81 @@ export function ErrorList({
 			))}
 		</ul>
 	)
+}
+
+/**
+ * A row error offers to remove the row ("Name this ingredient, or remove
+ * it"); the only row cannot be removed, so it says just what to do.
+ */
+export function withoutRemoveOffer(message: string) {
+	return message.replace(/, or remove it$/, '')
+}
+
+const ERROR_TARGETS =
+	'[aria-invalid="true"]:not([type="hidden"]), [data-error-target]'
+
+/**
+ * Brings the form's first error into view and focuses it: its field, or a
+ * list's own message. Collapsed sections around it open first. It lands mid
+ * screen, clear of the pinned nav bar. False when no error is on screen yet.
+ */
+export function focusFirstError(form: HTMLElement | null) {
+	const target = form?.querySelector<HTMLElement>(ERROR_TARGETS)
+	if (!target) return false
+	for (
+		let details = target.closest('details');
+		details;
+		details = details.parentElement?.closest('details') ?? null
+	) {
+		details.open = true
+	}
+	target.focus({ preventScroll: true })
+	// Optional: jsdom has none.
+	target.scrollIntoView?.({ block: 'center' })
+	return true
+}
+
+function hasErrors(result: unknown) {
+	if (typeof result !== 'object' || result === null) return false
+	const error = (result as { error?: Record<string, unknown> | null }).error
+	return Object.values(error ?? {}).some(
+		(errors) => Array.isArray(errors) && errors.length > 0,
+	)
+}
+
+/**
+ * After a failed Save, the first error comes into view and takes focus
+ * (focusFirstError): on the action's reply (`lastResult`) and when the
+ * returned function is called (a failed client validation). Revalidating a
+ * field on blur does neither, so it never moves focus.
+ */
+export function useFocusErrorOnFailedSave(formId: string, lastResult: unknown) {
+	const pending = useRef(false)
+	useEffect(() => {
+		if (hasErrors(lastResult)) pending.current = true
+	}, [lastResult])
+	// Every render: the errors show a render after the Save that found them.
+	useEffect(() => {
+		if (!pending.current) return
+		if (focusFirstError(document.getElementById(formId))) {
+			pending.current = false
+			return
+		}
+		const frame = requestAnimationFrame(() => {
+			pending.current = false
+			focusFirstError(document.getElementById(formId))
+		})
+		return () => cancelAnimationFrame(frame)
+	})
+	return () => {
+		pending.current = true
+		// The same errors as last time render nothing new.
+		requestAnimationFrame(() => {
+			if (!pending.current) return
+			pending.current = false
+			focusFirstError(document.getElementById(formId))
+		})
+	}
 }
 
 export function Field({
@@ -195,7 +279,7 @@ export function CheckboxField({
 				<label
 					htmlFor={id}
 					{...labelProps}
-					className="text-sm text-muted-foreground self-center"
+					className="text-muted-foreground self-center text-sm"
 				/>
 			</div>
 			<div className="px-4 pt-1 pb-3">

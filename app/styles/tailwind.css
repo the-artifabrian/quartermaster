@@ -496,6 +496,14 @@ html {
 	--bottom-nav-inset: max(0px, calc(var(--safe-bottom) - 16px));
 }
 
+/* An edit screen has no tab bar (root.tsx): whatever sits above the bar, the
+   page's own bottom padding included, sits above the home indicator instead.
+   After the rule above, which it overrides in the iOS app. */
+:root:has([data-site-header][data-edit-screen]) {
+	--bottom-nav-h: 0px;
+	--bottom-nav-inset: var(--safe-bottom);
+}
+
 /* In the iOS app, detail pages slide like a native push and pop
    (`data-nav-direction`, set by useNavDirection). Tab switches start no view
    transition: the tab bar swaps the page in one frame, as a native one does.

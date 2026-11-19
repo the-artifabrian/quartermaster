@@ -48,11 +48,24 @@ export const MAX_INSTRUCTION_LENGTH = 5000
 export const MAX_YIELD_LABEL_LENGTH = 100
 export const MAX_SOURCE_URL_LENGTH = 2000
 
+// The edit form shows these at the row they are about, so they say what to
+// do there. A heading row shows its own wording for a missing name.
+export const INGREDIENT_NAME_REQUIRED_MESSAGE =
+	'Name this ingredient, or remove it'
+export const HEADING_NAME_REQUIRED_MESSAGE = 'Name this heading, or remove it'
+export const INSTRUCTION_REQUIRED_MESSAGE = 'Write this step, or remove it'
+
 export const IngredientSchema = z.object({
 	id: z.string().optional(),
+	// Conform submits an empty field as missing, so both say the same.
 	name: z
-		.string()
-		.min(1, { message: 'Ingredient name is required' })
+		.string({
+			error: (issue) =>
+				issue.input === undefined
+					? INGREDIENT_NAME_REQUIRED_MESSAGE
+					: undefined,
+		})
+		.min(1, { message: INGREDIENT_NAME_REQUIRED_MESSAGE })
 		.max(MAX_INGREDIENT_NAME_LENGTH, {
 			message: 'Ingredient name is too long',
 		}),
@@ -75,8 +88,11 @@ export const IngredientSchema = z.object({
 export const InstructionSchema = z.object({
 	id: z.string().optional(),
 	content: z
-		.string()
-		.min(1, { message: 'Instruction is required' })
+		.string({
+			error: (issue) =>
+				issue.input === undefined ? INSTRUCTION_REQUIRED_MESSAGE : undefined,
+		})
+		.min(1, { message: INSTRUCTION_REQUIRED_MESSAGE })
 		.max(MAX_INSTRUCTION_LENGTH, { message: 'Instruction is too long' }),
 })
 
@@ -138,12 +154,16 @@ export const RecipeSchema = z
 		notes: RecipeNotesSchema,
 		ingredients: z
 			.array(IngredientSchema)
-			.min(1, { message: 'At least one ingredient is required' })
-			.max(MAX_RECIPE_INGREDIENTS, { message: 'Too many ingredients' }),
+			.min(1, { message: 'Add at least one ingredient' })
+			.max(MAX_RECIPE_INGREDIENTS, {
+				message: `A Recipe holds up to ${MAX_RECIPE_INGREDIENTS} ingredients`,
+			}),
 		instructions: z
 			.array(InstructionSchema)
-			.min(1, { message: 'At least one instruction is required' })
-			.max(MAX_RECIPE_INSTRUCTIONS, { message: 'Too many instructions' }),
+			.min(1, { message: 'Add at least one step' })
+			.max(MAX_RECIPE_INSTRUCTIONS, {
+				message: `A Recipe holds up to ${MAX_RECIPE_INSTRUCTIONS} steps`,
+			}),
 	})
 	.superRefine((recipe, context) => {
 		if (recipe.yieldAmount != null && recipe.yieldLabel == null) {

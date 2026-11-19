@@ -95,12 +95,64 @@ export function historyIndex() {
 	return typeof idx === 'number' ? idx : null
 }
 
+// The view transition on screen, if any. React Router starts one for a
+// navigation, and also for any revalidation that completes on a page a
+// transition once led to or from: it treats every revalidation as a POP and
+// finds the page among the transitions it applied. Such a revalidation,
+// landing while a navigation's slide plays, skips that slide mid-way and
+// starts another, so the page closes, half-reopens and closes again.
+let activeTransition: ViewTransition | null = null
+
+function trackViewTransitions() {
+	const doc = document as Document & { __qmTracksTransitions?: true }
+	if (
+		typeof doc.startViewTransition !== 'function' ||
+		doc.__qmTracksTransitions
+	)
+		return
+	doc.__qmTracksTransitions = true
+	const start = doc.startViewTransition.bind(doc)
+	doc.startViewTransition = ((update?: ViewTransitionUpdateCallback) => {
+		const transition = start(update)
+		activeTransition = transition
+		void transition.finished
+			.catch(() => {})
+			.then(() => {
+				if (activeTransition !== transition) return
+				activeTransition = null
+				// The slide is over. A transition the router starts without a
+				// navigation (a revalidation) moves nothing; the next navigation
+				// sets its own direction before its transition animates.
+				if (document.documentElement.dataset.navDirection)
+					document.documentElement.dataset.navDirection = 'none'
+			})
+		return transition
+	}) as typeof doc.startViewTransition
+}
+
+/**
+ * Resolves once the view transition on screen, if any, has finished. A
+ * revalidation waits for it, so it cannot cut a page's slide short.
+ */
+export function afterPageTransition(): Promise<void> {
+	const transition = activeTransition
+	if (!transition) return Promise.resolve()
+	return transition.finished.then(
+		() => {},
+		() => {},
+	)
+}
+
 /** Sets `data-nav-direction` on `<html>` for each committed navigation. */
 export function useNavDirection() {
 	const location = useLocation()
 	const type = useNavigationType()
 	const previous = useRef<{ state: unknown; idx: number | null } | null>(null)
 	const popHadUATransition = useRef(false)
+
+	useEffect(() => {
+		trackViewTransitions()
+	}, [])
 
 	useEffect(() => {
 		const onPopState = (event: PopStateEvent) => {

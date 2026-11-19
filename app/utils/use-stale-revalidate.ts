@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useLocation, useRevalidator } from 'react-router'
 import {
 	clearRefreshAfterTraversal,
@@ -6,6 +6,7 @@ import {
 	wasLandedByTraversal,
 } from './history-traversal.ts'
 import { type LoaderCacheOptions, loaderCache } from './loader-cache.ts'
+import { afterPageTransition } from './nav-direction.ts'
 
 /**
  * Revalidates once when the route's loader data came from the loader cache, so
@@ -22,6 +23,9 @@ import { type LoaderCacheOptions, loaderCache } from './loader-cache.ts'
  * replace included) with the page's data unchanged runs again. A revalidation
  * that ends on the location it started from is never repeated, so a route
  * whose loader skips a plain revalidation cannot make this loop.
+ *
+ * A revalidation waits for the page's slide to finish (afterPageTransition):
+ * landing during it, the router would cut the slide short and play it again.
  *
  * Offline, the revalidation waits for the browser's `online` event. It would
  * fail, and the root loader it re-runs has no offline copy, so the failure
@@ -47,8 +51,23 @@ export function useStaleRevalidate(
 	loaderData: unknown,
 	options?: LoaderCacheOptions,
 ) {
-	const { revalidate, state } = useRevalidator()
+	const { revalidate: revalidateNow, state } = useRevalidator()
 	const { pathname, search, key } = useLocation()
+	// Unmounted by a navigation while it waited, the page no longer needs it.
+	const mounted = useRef(true)
+	useEffect(() => {
+		mounted.current = true
+		return () => {
+			mounted.current = false
+		}
+	}, [])
+	const revalidate = useCallback(
+		() =>
+			afterPageTransition().then(() => {
+				if (mounted.current) return revalidateNow()
+			}),
+		[revalidateNow],
+	)
 	const href = pathname + search
 	// Acts once per data object, so a URL change that kept the data (no loader
 	// ran) never files it under the new URL.

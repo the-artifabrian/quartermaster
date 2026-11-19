@@ -593,7 +593,8 @@ html {
 	}
 }
 
-/* The system's back swipe already moved the page. */
+/* The system's back swipe already moved the page, or the page's slide has
+   ended (nav-direction.ts): a transition with no slide to play moves nothing. */
 :root[data-native-shell][data-nav-direction='none']::view-transition-group(*),
 :root[data-native-shell][data-nav-direction='none']::view-transition-old(*),
 :root[data-native-shell][data-nav-direction='none']::view-transition-new(*) {

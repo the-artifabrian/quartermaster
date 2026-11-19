@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
-import { assertLinkedRecipesInHousehold } from './recipe-links.server.ts'
+import { unlinkableRows } from './recipe-links.server.ts'
 import '#tests/setup/db-setup.ts'
 
 async function householdWithRecipe(title: string) {
@@ -19,38 +19,49 @@ async function householdWithRecipe(title: string) {
 	return { householdId: household.id, recipeId: recipe.id }
 }
 
-describe('assertLinkedRecipesInHousehold', () => {
-	test('accepts links to Recipes in the same household', async () => {
+describe('unlinkableRows', () => {
+	test('links to Recipes in the same household, and rows without a link, pass', async () => {
 		const mine = await householdWithRecipe('Stock')
 		await expect(
-			assertLinkedRecipesInHousehold(
+			unlinkableRows(
 				[{ linkedRecipeId: mine.recipeId }, { linkedRecipeId: null }, {}],
 				mine.householdId,
 			),
-		).resolves.toBeUndefined()
+		).resolves.toEqual([])
 	})
 
-	test('rejects a link to another household’s Recipe with a 400', async () => {
+	test('a link to another household’s Recipe is its row', async () => {
 		const mine = await householdWithRecipe('Soup')
 		const theirs = await householdWithRecipe('Their stock')
 		await expect(
-			assertLinkedRecipesInHousehold(
+			unlinkableRows(
 				[
 					{ linkedRecipeId: mine.recipeId },
 					{ linkedRecipeId: theirs.recipeId },
 				],
 				mine.householdId,
 			),
-		).rejects.toMatchObject({ status: 400 })
+		).resolves.toEqual([1])
 	})
 
-	test('rejects a link to a Recipe that does not exist', async () => {
+	test('a link to a Recipe that is gone (deleted by another member) is its row', async () => {
 		const mine = await householdWithRecipe('Bread')
 		await expect(
-			assertLinkedRecipesInHousehold(
-				[{ linkedRecipeId: 'missing' }],
+			unlinkableRows([{}, { linkedRecipeId: 'missing' }], mine.householdId),
+		).resolves.toEqual([1])
+	})
+
+	test('every row linking the gone Recipe is named, not just the first', async () => {
+		const mine = await householdWithRecipe('Lasagne')
+		await expect(
+			unlinkableRows(
+				[
+					{ linkedRecipeId: 'missing' },
+					{ linkedRecipeId: mine.recipeId },
+					{ linkedRecipeId: 'missing' },
+				],
 				mine.householdId,
 			),
-		).rejects.toMatchObject({ status: 400 })
+		).resolves.toEqual([0, 2])
 	})
 })

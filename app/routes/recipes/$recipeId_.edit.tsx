@@ -17,6 +17,10 @@ import {
 	ClientLeavesField,
 	useLeaveEditScreen,
 } from '#app/components/edit-screen.tsx'
+import {
+	GoneItemBoundary,
+	goneItemMiddleware,
+} from '#app/components/gone-item.tsx'
 import { type NavBarHandle, useLockNavBar } from '#app/components/nav-bar.tsx'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -48,13 +52,25 @@ import {
 	ACCEPTED_RECIPE_IMAGE_TYPES,
 } from '#app/utils/recipe-validation.ts'
 import { deleteRecipeImageUnlessShared } from '#app/utils/recipe-image.server.ts'
-import { assertLinkedRecipesInHousehold } from '#app/utils/recipe-links.server.ts'
+import {
+	LINKED_RECIPE_GONE_MESSAGE,
+	unlinkableRows,
+} from '#app/utils/recipe-links.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import {
 	deleteRecipeImage,
 	uploadRecipeImage,
 } from '#app/utils/storage.server.ts'
 import { type Route } from './+types/$recipeId_.edit.ts'
+
+// Going back to this page once its item is gone opens /recipes instead.
+export const clientMiddleware: Route.ClientMiddlewareFunction[] = [
+	goneItemMiddleware('/recipes'),
+]
+
+export function ErrorBoundary() {
+	return <GoneItemBoundary list="/recipes" />
+}
 
 export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
@@ -280,7 +296,24 @@ export async function action({ request, params }: Route.ActionArgs) {
 		notes,
 	} = submission.value
 
-	await assertLinkedRecipesInHousehold(ingredients, householdId)
+	// A sub-Recipe another member deleted while the form was open: the form
+	// stays with its edits and says so at the row.
+	const unlinkable = await unlinkableRows(ingredients, householdId)
+	if (unlinkable.length > 0) {
+		return data(
+			{
+				result: submission.reply({
+					fieldErrors: Object.fromEntries(
+						unlinkable.map((index) => [
+							`ingredients[${index}].linkedRecipeId`,
+							[LINKED_RECIPE_GONE_MESSAGE],
+						]),
+					),
+				}),
+			},
+			{ status: 400 },
+		)
+	}
 
 	// Update recipe - delete all ingredients and instructions, then recreate.
 	// Classification identity resolves inside the same transaction, so a

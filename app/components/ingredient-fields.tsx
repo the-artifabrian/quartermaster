@@ -506,7 +506,15 @@ function SortableIngredientRow({
 						value={ingredient.notes ?? ''}
 						onChange={(e) => onUpdate('notes', e.target.value)}
 					/>
-					<ErrorList id={errorId} errors={rowMessages(errors, canRemove)} />
+					<ErrorList
+						id={errorId}
+						errors={rowMessages(errors, canRemove)}
+						// An error with no field of its own (a gone linked
+						// Recipe) takes focus on the message.
+						focusable={Object.keys(errors ?? {}).some(
+							(field) => !(ROW_FIELDS as readonly string[]).includes(field),
+						)}
+					/>
 					{allowRecipeLinks && (
 						<RecipeLinkPicker
 							linkedRecipeId={ingredient.linkedRecipeId}

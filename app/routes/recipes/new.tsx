@@ -16,7 +16,10 @@ import {
 	RecipeMetadataSelectionError,
 	resolveRecipeMetadataValueIds,
 } from '#app/utils/recipe-metadata.server.ts'
-import { assertLinkedRecipesInHousehold } from '#app/utils/recipe-links.server.ts'
+import {
+	LINKED_RECIPE_GONE_MESSAGE,
+	unlinkableRows,
+} from '#app/utils/recipe-links.server.ts'
 import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
@@ -130,7 +133,24 @@ export async function action({ request }: Route.ActionArgs) {
 		notes,
 	} = submission.value
 
-	await assertLinkedRecipesInHousehold(ingredients, householdId)
+	// A sub-Recipe another member deleted while the form was open: the form
+	// stays with its edits and says so at the row.
+	const unlinkable = await unlinkableRows(ingredients, householdId)
+	if (unlinkable.length > 0) {
+		return data(
+			{
+				result: submission.reply({
+					fieldErrors: Object.fromEntries(
+						unlinkable.map((index) => [
+							`ingredients[${index}].linkedRecipeId`,
+							[LINKED_RECIPE_GONE_MESSAGE],
+						]),
+					),
+				}),
+			},
+			{ status: 400 },
+		)
+	}
 
 	let recipe: { id: string }
 	try {

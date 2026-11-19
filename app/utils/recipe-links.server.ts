@@ -1,12 +1,16 @@
-import { invariantResponse } from '@epic-web/invariant'
 import { prisma } from './db.server.ts'
 
+/** The message a row gets when its sub-Recipe link cannot be kept. */
+export const LINKED_RECIPE_GONE_MESSAGE =
+	'This linked Recipe was deleted. Remove the link to save'
+
 /**
- * A sub-Recipe link may only point inside the editor's own household. The
- * picker offers nothing else, so a foreign id can only arrive by hand; reject
- * the save rather than store a link the household cannot follow.
+ * The rows whose sub-Recipe link points outside the editor's household: a
+ * Recipe another member deleted while the form was open, or (by hand only;
+ * the picker offers nothing else) another household's. The save stops and
+ * the form shows the error at those rows, keeping the edits.
  */
-export async function assertLinkedRecipesInHousehold(
+export async function unlinkableRows(
 	ingredients: ReadonlyArray<{ linkedRecipeId?: string | null }>,
 	householdId: string,
 ) {
@@ -17,13 +21,18 @@ export async function assertLinkedRecipesInHousehold(
 			),
 		),
 	]
-	if (linkedIds.length === 0) return
-	const owned = await prisma.recipe.count({
-		where: { id: { in: linkedIds }, householdId },
-	})
-	invariantResponse(
-		owned === linkedIds.length,
-		'A linked Recipe is not in your household',
-		{ status: 400 },
+	if (linkedIds.length === 0) return []
+	const owned = new Set(
+		(
+			await prisma.recipe.findMany({
+				where: { id: { in: linkedIds }, householdId },
+				select: { id: true },
+			})
+		).map((recipe) => recipe.id),
+	)
+	return ingredients.flatMap((ingredient, index) =>
+		ingredient.linkedRecipeId && !owned.has(ingredient.linkedRecipeId)
+			? [index]
+			: [],
 	)
 }

@@ -2,7 +2,7 @@ import { prisma } from './db.server.ts'
 
 /** The message a row gets when its sub-Recipe link cannot be kept. */
 export const LINKED_RECIPE_GONE_MESSAGE =
-	'This linked Recipe was deleted. Remove the link to save'
+	'This linked Recipe was deleted. Remove the link to save.'
 
 /**
  * The rows whose sub-Recipe link points outside the editor's household: a

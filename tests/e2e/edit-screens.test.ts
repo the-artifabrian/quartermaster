@@ -1075,7 +1075,8 @@ test.describe('a Save that cannot go through keeps the form', () => {
 		await saveButton(page).tap()
 
 		const message = page.getByText(
-			'This linked Recipe was deleted. Remove the link to save',
+			'This linked Recipe was deleted. Remove the link to save.',
+			{ exact: true },
 		)
 		await expect(message).toBeVisible()
 		const target = page.locator('[data-error-target]', { has: message })

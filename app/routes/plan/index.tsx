@@ -1,4 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { useLayoutEffect, useRef } from 'react'
 import {
 	Link,
 	type ShouldRevalidateFunctionArgs,
@@ -201,6 +202,25 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	const nextWeek = serializeDate(getNextWeek(parseDate(weekStart)))
 	const currentWeek = serializeDate(getCurrentWeekStart())
 	const navigate = useNavigate()
+	// The week links render in the calendar's header, which is keyed by its
+	// week, so turning the week remounts them. The link that had focus gets
+	// it back, so the keyboard and VoiceOver keep their place.
+	const weekLinkFocus = useRef<string | null>(null)
+	useLayoutEffect(() => {
+		const label = weekLinkFocus.current
+		weekLinkFocus.current = null
+		if (!label) return
+		if (document.activeElement && document.activeElement !== document.body)
+			return
+		document
+			.querySelector<HTMLElement>(`a[aria-label="${label}"]`)
+			?.focus({ preventScroll: true })
+	}, [weekStart])
+	const keepWeekLinkFocus = (event: React.MouseEvent<HTMLAnchorElement>) => {
+		if (event.currentTarget === document.activeElement) {
+			weekLinkFocus.current = event.currentTarget.getAttribute('aria-label')
+		}
+	}
 
 	return (
 		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
@@ -232,6 +252,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 									<Link
 										to={`/plan?weekStart=${prevWeek}`}
 										aria-label="Previous week"
+										onClick={keepWeekLinkFocus}
 									>
 										<Icon name="chevron-left" size="md" />
 									</Link>
@@ -257,6 +278,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 									<Link
 										to={`/plan?weekStart=${nextWeek}`}
 										aria-label="Next week"
+										onClick={keepWeekLinkFocus}
 									>
 										<Icon name="chevron-right" size="md" />
 									</Link>

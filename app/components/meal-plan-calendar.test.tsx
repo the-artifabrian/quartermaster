@@ -132,13 +132,31 @@ function renderCalendar(
 		{
 			path: '/',
 			Component: () => (
-				<MealPlanCalendar weekDays={calendarWeekDays} meals={calendarMeals} />
+				<MealPlanCalendar
+					weekDays={calendarWeekDays}
+					meals={calendarMeals}
+					renderHeader={(titleAction) => (
+						<div data-testid="plan-title">{titleAction}</div>
+					)}
+				/>
 			),
 			action,
 		},
 		...(options.extraRoutes ?? []),
 	])
 	render(<Stub initialEntries={[options.initialEntry ?? '/']} />)
+}
+
+/** The round + beside the Plan title, for the day showing. */
+function titlePlus(day: string) {
+	return within(screen.getByTestId('plan-title')).getByRole('button', {
+		name: `Add Meal to ${day}`,
+	})
+}
+
+/** The Add a Meal sheet the title + opens. */
+function addMealSheet() {
+	return within(screen.getByRole('dialog', { name: 'Add a Meal' }))
 }
 
 test('a direct Meal link opens its day on mobile and still allows changing days', async () => {
@@ -321,16 +339,11 @@ test('shares one in-flight and successful choice request across Plan controls', 
 	)
 	const user = userEvent.setup()
 	renderCalendar(undefined, { useDefaultChoices: false })
-	const mobile = screen.getByTestId('mobile-plan')
 	const desktop = screen.getByTestId('desktop-plan')
 
 	expect(requestCount).toBe(0)
-	await user.click(
-		within(mobile).getByRole('button', {
-			name: 'Add Meal to Wednesday, Apr 8',
-		}),
-	)
-	expect(within(mobile).getByRole('status')).toHaveTextContent(
+	await user.click(titlePlus('Wednesday, Apr 8'))
+	expect(addMealSheet().getByRole('status')).toHaveTextContent(
 		'Loading Recipes and Menus',
 	)
 	await user.click(
@@ -344,16 +357,17 @@ test('shares one in-flight and successful choice request across Plan controls', 
 	expect(requestCount).toBe(1)
 
 	releaseResponse()
-	await within(mobile).findByPlaceholderText('Search Recipes and Menus...')
+	await addMealSheet().findByPlaceholderText('Search Recipes and Menus...')
 	await within(desktop).findByPlaceholderText('Search Recipes and Menus...')
-	await user.click(within(mobile).getByRole('button', { name: 'Close picker' }))
-	await user.click(
-		within(mobile).getByRole('button', {
-			name: 'Add Meal to Wednesday, Apr 8',
-		}),
+	await user.click(addMealSheet().getByRole('button', { name: 'Close' }))
+	await waitFor(() =>
+		expect(
+			screen.queryByRole('dialog', { name: 'Add a Meal' }),
+		).not.toBeInTheDocument(),
 	)
+	await user.click(titlePlus('Wednesday, Apr 8'))
 	expect(
-		within(mobile).getByPlaceholderText('Search Recipes and Menus...'),
+		addMealSheet().getByPlaceholderText('Search Recipes and Menus...'),
 	).toBeVisible()
 	expect(requestCount).toBe(1)
 })
@@ -366,20 +380,15 @@ test('shows the existing empty choice state after a successful request', async (
 	)
 	const user = userEvent.setup()
 	renderCalendar(undefined, { useDefaultChoices: false })
-	const mobile = screen.getByTestId('mobile-plan')
 
-	await user.click(
-		within(mobile).getByRole('button', {
-			name: 'Add Meal to Wednesday, Apr 8',
-		}),
-	)
+	await user.click(titlePlus('Wednesday, Apr 8'))
 	expect(
-		await within(mobile).findByText('No Recipes or Menus found'),
+		await addMealSheet().findByText('No Recipes or Menus found'),
 	).toBeVisible()
-	expect(within(mobile).getByRole('link', { name: 'New Recipe' })).toBeVisible()
+	expect(addMealSheet().getByRole('link', { name: 'New Recipe' })).toBeVisible()
 })
 
-test('mobile Add Meal opens the real picker inline for the selected day', async () => {
+test('the Plan title + opens the real picker in a sheet for the day showing', async () => {
 	const user = userEvent.setup()
 	let submittedDate: FormDataEntryValue | null = null
 	renderCalendar(async ({ request }) => {
@@ -387,28 +396,19 @@ test('mobile Add Meal opens the real picker inline for the selected day', async 
 		submittedDate = formData.get('date')
 		return null
 	})
-	const mobile = screen.getByTestId('mobile-plan')
 
-	await user.click(
-		within(mobile).getByRole('button', {
-			name: 'Add Meal to Wednesday, Apr 8',
-		}),
-	)
-	const composer = within(mobile).getByRole('region', {
-		name: 'Add Meal for Wednesday, Apr 8',
-	})
-	expect(composer).toBeVisible()
-	expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-	expect(within(composer).getByText('Wednesday · Apr 8')).toBeVisible()
-	expect(within(composer).getByText(/^Label/)).toHaveTextContent(
-		'Label (optional)',
-	)
+	await user.click(titlePlus('Wednesday, Apr 8'))
+	// A sheet even where the day's panel would open in place: the title row
+	// has no room for it.
+	const composer = addMealSheet()
+	expect(composer.getByText('Wednesday · Apr 8')).toBeVisible()
+	expect(composer.getByText(/^Label/)).toHaveTextContent('Label (optional)')
 	await user.type(
-		await within(composer).findByPlaceholderText('Search Recipes and Menus...'),
+		await composer.findByPlaceholderText('Search Recipes and Menus...'),
 		'hreb salad',
 	)
-	expect(within(composer).queryByText('Banana Bread')).not.toBeInTheDocument()
-	await user.click(within(composer).getByRole('button', { name: /Herb Salad/ }))
+	expect(composer.queryByText('Banana Bread')).not.toBeInTheDocument()
+	await user.click(composer.getByRole('button', { name: /Herb Salad/ }))
 
 	await waitFor(() => expect(submittedDate).toBe('2026-04-08'))
 })
@@ -420,27 +420,20 @@ test('mobile finds a saved Menu by one of its Recipes and adds it to the selecte
 		submitted = Object.fromEntries(await request.formData())
 		return { status: 'success' as const }
 	})
-	const mobile = screen.getByTestId('mobile-plan')
 
-	await user.click(
-		within(mobile).getByRole('button', {
-			name: 'Add Meal to Wednesday, Apr 8',
-		}),
-	)
-	const composer = within(mobile).getByRole('region', {
-		name: 'Add Meal for Wednesday, Apr 8',
-	})
-	await user.click(within(composer).getByRole('button', { name: 'Dinner' }))
+	await user.click(titlePlus('Wednesday, Apr 8'))
+	const composer = addMealSheet()
+	await user.click(composer.getByRole('button', { name: 'Dinner' }))
 	await user.type(
-		await within(composer).findByPlaceholderText('Search Recipes and Menus...'),
+		await composer.findByPlaceholderText('Search Recipes and Menus...'),
 		'garlic flatbrad',
 	)
 
-	expect(within(composer).getByText('Menus')).toBeVisible()
-	const recipeChoice = within(composer).getByRole('button', {
+	expect(composer.getByText('Menus')).toBeVisible()
+	const recipeChoice = composer.getByRole('button', {
 		name: /Garlic Flatbread/,
 	})
-	const menuChoice = within(composer).getByRole('button', {
+	const menuChoice = composer.getByRole('button', {
 		name: /Friday Supper/,
 	})
 	expect(
@@ -459,9 +452,7 @@ test('mobile finds a saved Menu by one of its Recipes and adds it to the selecte
 	)
 	await waitFor(() =>
 		expect(
-			within(mobile).queryByRole('region', {
-				name: 'Add Meal for Wednesday, Apr 8',
-			}),
+			screen.queryByRole('dialog', { name: 'Add a Meal' }),
 		).not.toBeInTheDocument(),
 	)
 })
@@ -479,41 +470,22 @@ test('mobile explains a stale empty Menu and lets the user retry', async () => {
 				}
 			: { status: 'success' as const }
 	})
-	const mobile = screen.getByTestId('mobile-plan')
 
-	await user.click(
-		within(mobile).getByRole('button', {
-			name: 'Add Meal to Wednesday, Apr 8',
-		}),
-	)
-	const composer = within(mobile).getByRole('region', {
-		name: 'Add Meal for Wednesday, Apr 8',
-	})
-	await within(composer).findByPlaceholderText('Search Recipes and Menus...')
-	await user.click(
-		within(composer).getByRole('button', { name: /Friday Supper/ }),
-	)
+	await user.click(titlePlus('Wednesday, Apr 8'))
+	const composer = addMealSheet()
+	await composer.findByPlaceholderText('Search Recipes and Menus...')
+	await user.click(composer.getByRole('button', { name: /Friday Supper/ }))
 
-	expect(await within(composer).findByRole('alert')).toHaveTextContent(
+	expect(await composer.findByRole('alert')).toHaveTextContent(
 		'This Menu has nothing to plan yet—add a Recipe or note first.',
 	)
-	expect(
-		within(mobile).getByRole('region', {
-			name: 'Add Meal for Wednesday, Apr 8',
-		}),
-	).toBeVisible()
-	expect(
-		within(composer).getByRole('button', { name: /Friday Supper/ }),
-	).toBeEnabled()
+	expect(screen.getByRole('dialog', { name: 'Add a Meal' })).toBeVisible()
+	expect(composer.getByRole('button', { name: /Friday Supper/ })).toBeEnabled()
 
-	await user.click(
-		within(composer).getByRole('button', { name: /Friday Supper/ }),
-	)
+	await user.click(composer.getByRole('button', { name: /Friday Supper/ }))
 	await waitFor(() =>
 		expect(
-			within(mobile).queryByRole('region', {
-				name: 'Add Meal for Wednesday, Apr 8',
-			}),
+			screen.queryByRole('dialog', { name: 'Add a Meal' }),
 		).not.toBeInTheDocument(),
 	)
 	expect(attempts).toBe(2)
@@ -553,25 +525,16 @@ test('mobile reports an already-planned Recipe and links to that Meal', async ()
 			],
 		},
 	)
-	const mobile = screen.getByTestId('mobile-plan')
 
 	async function addOnWednesday(name: RegExp, search: string) {
-		await user.click(
-			within(mobile).getByRole('button', {
-				name: 'Add Meal to Wednesday, Apr 8',
-			}),
-		)
-		const composer = within(mobile).getByRole('region', {
-			name: 'Add Meal for Wednesday, Apr 8',
-		})
-		await user.click(within(composer).getByRole('button', { name: 'Dinner' }))
+		await user.click(titlePlus('Wednesday, Apr 8'))
+		const composer = addMealSheet()
+		await user.click(composer.getByRole('button', { name: 'Dinner' }))
 		await user.type(
-			await within(composer).findByPlaceholderText(
-				'Search Recipes and Menus...',
-			),
+			await composer.findByPlaceholderText('Search Recipes and Menus...'),
 			search,
 		)
-		await user.click(within(composer).getByRole('button', { name }))
+		await user.click(composer.getByRole('button', { name }))
 	}
 
 	// A genuinely new Meal says nothing beyond the Meal appearing in Plan.
@@ -599,20 +562,11 @@ test('mobile reports an already-planned Recipe and links to that Meal', async ()
 	expect(screen.getByText('Focused meal-1')).toBeVisible()
 })
 
-test('mobile closes an open Add Meal draft when the selected day changes', async () => {
+test('the Plan title + follows the day showing', async () => {
 	const user = userEvent.setup()
 	renderCalendar()
 	const mobile = screen.getByTestId('mobile-plan')
-
-	await user.click(
-		within(mobile).getByRole('button', {
-			name: 'Add Meal to Wednesday, Apr 8',
-		}),
-	)
-	const composer = within(mobile).getByRole('region', {
-		name: 'Add Meal for Wednesday, Apr 8',
-	})
-	await user.click(within(composer).getByRole('button', { name: 'Dinner' }))
+	expect(titlePlus('Wednesday, Apr 8')).toBeVisible()
 
 	await user.click(
 		within(mobile).getByRole('button', {
@@ -620,14 +574,16 @@ test('mobile closes an open Add Meal draft when the selected day changes', async
 		}),
 	)
 
+	expect(titlePlus('Thursday, Apr 9')).toBeVisible()
 	expect(
-		within(mobile).queryByRole('region', { name: /Add Meal for/ }),
-	).not.toBeInTheDocument()
-	expect(
-		within(mobile).getByRole('button', {
-			name: 'Add Meal to Thursday, Apr 9',
+		within(screen.getByTestId('plan-title')).queryByRole('button', {
+			name: 'Add Meal to Wednesday, Apr 8',
 		}),
-	).toBeVisible()
+	).not.toBeInTheDocument()
+	// The day itself no longer has an Add Meal of its own.
+	expect(
+		within(mobile).queryByRole('button', { name: /^Add Meal/ }),
+	).not.toBeInTheDocument()
 })
 
 test('a Meal with snapshot notes can remove its only Recipe', () => {

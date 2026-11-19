@@ -230,7 +230,7 @@ test('Plan meal and Add Meal controls take taps around their drawn edges', async
 	await details.getByRole('button', { name: 'Close', exact: true }).tap()
 	await expect(details).toBeHidden()
 
-	await mobile.getByRole('button', { name: /^Add Meal to/ }).click()
+	await page.getByRole('button', { name: /^Add Meal to/ }).click()
 	const composer = page.getByRole('dialog', { name: 'Add a Meal' })
 	// Measured once the sheet has finished sliding up into place.
 	await slidIn(composer)

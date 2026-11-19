@@ -65,7 +65,7 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 		const composer = page.getByRole('dialog', { name: 'Add a Meal' })
 		await expect(async () => {
 			if (!(await composer.isVisible())) {
-				await mobile.getByRole('button', { name: /^Add Meal to/ }).click()
+				await page.getByRole('button', { name: /^Add Meal to/ }).click()
 			}
 			await expect(composer).toBeVisible({ timeout: 1000 })
 		}).toPass()

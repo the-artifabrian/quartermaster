@@ -83,8 +83,8 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	])
 	expect(searchBox).not.toBeNull()
 	expect(addBox).not.toBeNull()
-	expect(Math.abs(searchBox!.y - addBox!.y)).toBeLessThanOrEqual(1)
-	expect(addBox!.x).toBeGreaterThanOrEqual(searchBox!.x + searchBox!.width)
+	// The + sits beside the title, above the search.
+	expect(addBox!.y + addBox!.height).toBeLessThanOrEqual(searchBox!.y)
 
 	// Every add and remove control is a 44×44 touch target on the phone.
 	const applesRow = list.getByRole('listitem').filter({ hasText: 'Apples' })

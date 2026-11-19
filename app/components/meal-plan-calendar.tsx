@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+	type ReactNode,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from 'react'
 import {
 	useFetcher,
 	useNavigate,
@@ -41,12 +47,19 @@ import { Button } from './ui/button.tsx'
 import { Chip } from './ui/chip.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
+import { TitleAddButton } from './ui/title-add-button.tsx'
 
 type MealPlanCalendarProps = {
 	weekDays: Date[]
 	meals: PlanMeal[]
 	/** Swiping the phone's day strip sideways turns the week. */
 	onSwipeWeek?: (direction: 'previous' | 'next') => void
+	/**
+	 * The page's title and week navigation, given the phone's + (Add Meal to
+	 * the day showing) to place beside the title. The day is chosen in here,
+	 * so the title row is rendered in here too.
+	 */
+	renderHeader?: (titleAction: ReactNode) => ReactNode
 }
 
 /**
@@ -59,7 +72,7 @@ let weekStripEntry: { side: -1 | 1; from: string } | null = null
 /** A week slower than this to load brings its old strip back meanwhile. */
 const WEEK_LOAD_GRACE_MS = 300
 
-type AddMealPresentation = 'primary' | 'row' | 'empty-row'
+type AddMealPresentation = 'title' | 'row' | 'empty-row'
 
 type AddMealActionData = {
 	status: 'success' | 'error'
@@ -68,8 +81,10 @@ type AddMealActionData = {
 }
 
 /**
- * One add flow with two launch points: a primary action in the focused mobile
- * day, and a quiet row inside each desktop agenda day.
+ * One add flow with two launch points: the round + beside the Plan title on a
+ * phone, for the day showing, and a quiet row inside each desktop agenda day.
+ * The + always opens a sheet (a centered dialog from `sm`), since the title
+ * row has no room for the composer; the rows open it in place when wide.
  */
 function AddMealControl({
 	date,
@@ -158,7 +173,7 @@ function AddMealControl({
 		setLabel(null)
 		setText('')
 		setMenuError(null)
-		setAsSheet(opensAsSheet())
+		setAsSheet(presentation === 'title' || opensAsSheet())
 		setOpen(true)
 	}
 
@@ -333,15 +348,11 @@ function AddMealControl({
 	)
 
 	const trigger =
-		presentation === 'primary' ? (
-			<Button
-				type="button"
+		presentation === 'title' ? (
+			<TitleAddButton
 				onClick={openComposer}
 				aria-label={`Add Meal to ${dateLabel}`}
-			>
-				<Icon name="plus" size="sm" />
-				Add Meal
-			</Button>
+			/>
 		) : presentation === 'empty-row' ? (
 			<button
 				type="button"
@@ -386,25 +397,6 @@ function AddMealControl({
 					</BottomSheet>
 				)}
 			</>
-		)
-	}
-
-	if (presentation === 'primary') {
-		return (
-			<section
-				aria-label={`Add Meal for ${dateLabel}`}
-				className="border-border bg-muted/40 animate-fade-up-reveal w-full basis-full rounded-lg border p-3 sm:p-4"
-			>
-				<div className="mb-3">
-					<p className="text-primary text-xs font-semibold tracking-wider uppercase">
-						Add a Meal
-					</p>
-					<p className="text-muted-foreground mt-0.5 text-xs">
-						{formatWeekdayName(date)} · {formatMonthDay(date)}
-					</p>
-				</div>
-				{fields}
-			</section>
 		)
 	}
 
@@ -458,6 +450,7 @@ export function MealPlanCalendar({
 	weekDays,
 	meals,
 	onSwipeWeek,
+	renderHeader,
 }: MealPlanCalendarProps) {
 	// The strip follows the finger and turns the week past a quarter of its
 	// width or on a flick: right for the week before, left for the week after.
@@ -589,6 +582,18 @@ export function MealPlanCalendar({
 
 	return (
 		<>
+			{renderHeader?.(
+				// Phones only, like the day it adds to; the desktop agenda has an
+				// Add Meal in each day.
+				<div className="md:hidden">
+					<AddMealControl
+						key={selectedDate}
+						date={selectedDay}
+						choices={choices}
+						presentation="title"
+					/>
+				</div>,
+			)}
 			{/* Mobile: pick a day, then work with only that day's Meals. */}
 			<div data-testid="mobile-plan" className="md:hidden">
 				<div
@@ -643,21 +648,13 @@ export function MealPlanCalendar({
 					})}
 				</div>
 
-				<div className="mt-7 flex flex-wrap items-end justify-between gap-4">
-					<div>
-						<p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-							{isToday(selectedDay) ? 'Today' : formatWeekdayName(selectedDay)}
-						</p>
-						<h2 className="mt-0.5 font-serif text-2xl">
-							{formatMonthDay(selectedDay)}
-						</h2>
-					</div>
-					<AddMealControl
-						key={selectedDate}
-						date={selectedDay}
-						choices={choices}
-						presentation="primary"
-					/>
+				<div className="mt-7">
+					<p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+						{isToday(selectedDay) ? 'Today' : formatWeekdayName(selectedDay)}
+					</p>
+					<h2 className="mt-0.5 font-serif text-2xl">
+						{formatMonthDay(selectedDay)}
+					</h2>
 				</div>
 
 				<div className="mt-2">

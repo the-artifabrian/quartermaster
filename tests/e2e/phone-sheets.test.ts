@@ -211,7 +211,7 @@ test('Add a Meal is a sheet: picking a Recipe plans it and closes the sheet', as
 	await page.goto('/plan')
 	const mobile = page.getByTestId('mobile-plan')
 	const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
-	await tapUntil(mobile.getByRole('button', { name: /^Add Meal to/ }), () =>
+	await tapUntil(page.getByRole('button', { name: /^Add Meal to/ }), () =>
 		expect(sheet).toBeVisible({ timeout: 1000 }),
 	)
 	await expectBottomSheet(page, sheet)
@@ -250,7 +250,7 @@ test('Add a Meal as text saves from the sheet’s full-width Add', async ({
 	await page.goto('/plan')
 	const mobile = page.getByTestId('mobile-plan')
 	const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
-	await tapUntil(mobile.getByRole('button', { name: /^Add Meal to/ }), () =>
+	await tapUntil(page.getByRole('button', { name: /^Add Meal to/ }), () =>
 		expect(sheet).toBeVisible({ timeout: 1000 }),
 	)
 	await expectBottomSheet(page, sheet)
@@ -981,9 +981,8 @@ test.describe('sheets while they come and go', () => {
 	}) => {
 		await login()
 		await page.goto('/plan')
-		const mobile = page.getByTestId('mobile-plan')
 		const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
-		await tapUntil(mobile.getByRole('button', { name: /^Add Meal to/ }), () =>
+		await tapUntil(page.getByRole('button', { name: /^Add Meal to/ }), () =>
 			expect(sheet).toBeVisible({ timeout: 1000 }),
 		)
 		await expectBottomSheet(page, sheet)
@@ -1021,7 +1020,7 @@ test.describe('sheets while they come and go', () => {
 			),
 		).toBe('Leftovers')
 
-		await mobile.getByRole('button', { name: /^Add Meal to/ }).tap()
+		await page.getByRole('button', { name: /^Add Meal to/ }).tap()
 		await expect(
 			sheet.getByPlaceholder('Search Recipes and Menus...'),
 		).toBeVisible()
@@ -1212,11 +1211,8 @@ test.describe('a phone on its side', () => {
 		await page.setViewportSize({ width: 390, height: 844 })
 		await page.goto('/plan')
 		const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
-		await tapUntil(
-			page
-				.getByTestId('mobile-plan')
-				.getByRole('button', { name: /^Add Meal to/ }),
-			() => expect(sheet).toBeVisible({ timeout: 1000 }),
+		await tapUntil(page.getByRole('button', { name: /^Add Meal to/ }), () =>
+			expect(sheet).toBeVisible({ timeout: 1000 }),
 		)
 		await expectBottomSheet(page, sheet)
 		await page.setViewportSize({ width: 844, height: 390 })

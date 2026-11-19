@@ -691,76 +691,82 @@ test('a Meal delete that fails offline brings it back and says so', async ({
 	expect(await mealOrder(user.householdId)).toEqual(['Soup'])
 })
 
-test('a removed Staple is removed at once and collapses; Undo marks it again', async ({
-	page,
-	login,
-}) => {
-	const user = await login()
-	await prisma.householdIngredient.createMany({
-		data: ['Apples', 'Salt'].map((displayName) => ({
-			householdId: user.householdId,
-			displayName,
-			canonicalKey: displayName.toLowerCase(),
-			isStaple: true,
-		})),
+// A phone deletes a Staple by a swipe (consistency-leftovers.test.ts); a
+// mouse has the trash button.
+test.describe('with a mouse', () => {
+	test.use({ viewport: { width: 1024, height: 768 }, hasTouch: false })
+
+	test('a removed Staple is removed at once and collapses; Undo marks it again', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.householdIngredient.createMany({
+			data: ['Apples', 'Salt'].map((displayName) => ({
+				householdId: user.householdId,
+				displayName,
+				canonicalKey: displayName.toLowerCase(),
+				isStaple: true,
+			})),
+		})
+		const isStaple = () =>
+			prisma.householdIngredient
+				.findFirstOrThrow({
+					where: { householdId: user.householdId, canonicalKey: 'salt' },
+					select: { isStaple: true },
+				})
+				.then((staple) => staple.isStaple)
+		await page.goto('/inventory')
+
+		const remove = page.getByRole('button', { name: 'Remove Salt' })
+		// Red from the start: no arming.
+		await expect(remove).toHaveCSS('color', 'rgb(184, 92, 74)')
+		await recordCollapses(page)
+		await remove.click()
+		await expect(remove).toBeHidden()
+		await expectCollapses(page, OPENING)
+		await expect(toastOf(undoButton(page))).toContainText('Removed Salt')
+		await expect.poll(isStaple).toBe(false)
+
+		await undoButton(page).click()
+		await expect(remove).toBeVisible()
+		await expect.poll(isStaple).toBe(true)
+		await expect(
+			page.getByRole('button', { name: 'Remove Apples' }),
+		).toBeVisible()
 	})
-	const isStaple = () =>
-		prisma.householdIngredient
-			.findFirstOrThrow({
-				where: { householdId: user.householdId, canonicalKey: 'salt' },
-				select: { isStaple: true },
-			})
-			.then((staple) => staple.isStaple)
-	await page.goto('/inventory')
 
-	const remove = page.getByRole('button', { name: 'Remove Salt' })
-	// Red from the start: no arming.
-	await expect(remove).toHaveCSS('color', 'rgb(184, 92, 74)')
-	await recordCollapses(page)
-	await remove.click()
-	await expect(remove).toBeHidden()
-	await expectCollapses(page, OPENING)
-	await expect(toastOf(undoButton(page))).toContainText('Removed Salt')
-	await expect.poll(isStaple).toBe(false)
-
-	await undoButton(page).click()
-	await expect(remove).toBeVisible()
-	await expect.poll(isStaple).toBe(true)
-	await expect(
-		page.getByRole('button', { name: 'Remove Apples' }),
-	).toBeVisible()
-})
-
-test('a Staple removal that fails brings it back and says so', async ({
-	page,
-	context,
-	login,
-}) => {
-	const user = await login()
-	await prisma.householdIngredient.create({
-		data: {
-			householdId: user.householdId,
-			displayName: 'Salt',
-			canonicalKey: 'salt',
-			isStaple: true,
-		},
+	test('a Staple removal that fails brings it back and says so', async ({
+		page,
+		context,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.householdIngredient.create({
+			data: {
+				householdId: user.householdId,
+				displayName: 'Salt',
+				canonicalKey: 'salt',
+				isStaple: true,
+			},
+		})
+		await page.goto('/inventory')
+		const remove = page.getByRole('button', { name: 'Remove Salt' })
+		await context.setOffline(true)
+		await remove.click()
+		await expect(
+			page.getByText('You’re offline, so Salt wasn’t removed.'),
+		).toBeVisible()
+		await expect(remove).toBeVisible({ timeout: 2000 })
+		await context.setOffline(false)
+		expect(
+			(
+				await prisma.householdIngredient.findFirstOrThrow({
+					where: { householdId: user.householdId },
+				})
+			).isStaple,
+		).toBe(true)
 	})
-	await page.goto('/inventory')
-	const remove = page.getByRole('button', { name: 'Remove Salt' })
-	await context.setOffline(true)
-	await remove.click()
-	await expect(
-		page.getByText('You’re offline, so Salt wasn’t removed.'),
-	).toBeVisible()
-	await expect(remove).toBeVisible({ timeout: 2000 })
-	await context.setOffline(false)
-	expect(
-		(
-			await prisma.householdIngredient.findFirstOrThrow({
-				where: { householdId: user.householdId },
-			})
-		).isStaple,
-	).toBe(true)
 })
 
 test('a Recipe delete asks in a confirm sheet: Cancel and Escape keep it, Delete removes it', async ({

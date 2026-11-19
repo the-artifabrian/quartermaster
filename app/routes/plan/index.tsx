@@ -5,6 +5,7 @@ import {
 	useNavigate,
 } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
+import { TitleRow } from '#app/components/ui/title-add-button.tsx'
 import { OfflineErrorBoundary } from '#app/components/offline-error-boundary.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -203,36 +204,6 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
-			<div className="container-grid py-4">
-				<h1 className="font-serif text-2xl">Plan</h1>
-
-				{/* Week Navigation */}
-				<div className="mx-auto mt-4 flex max-w-2xl items-center justify-between">
-					<Button asChild variant="ghost" size="icon" className="rounded-full">
-						<Link to={`/plan?weekStart=${prevWeek}`} aria-label="Previous week">
-							<Icon name="chevron-left" size="md" />
-						</Link>
-					</Button>
-
-					<div className="text-center">
-						<p className="font-serif text-lg">
-							{formatWeekRange(parseDate(weekStart))}
-						</p>
-						{weekStart !== currentWeek && (
-							<Button asChild variant="link" size="sm">
-								<Link to="/plan">This Week</Link>
-							</Button>
-						)}
-					</div>
-
-					<Button asChild variant="ghost" size="icon" className="rounded-full">
-						<Link to={`/plan?weekStart=${nextWeek}`} aria-label="Next week">
-							<Icon name="chevron-right" size="md" />
-						</Link>
-					</Button>
-				</div>
-			</div>
-
 			<div className="container-grid">
 				<MealPlanCalendar
 					key={planScope}
@@ -243,6 +214,56 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 							`/plan?weekStart=${direction === 'previous' ? prevWeek : nextWeek}`,
 						)
 					}
+					renderHeader={(titleAction) => (
+						<div className="py-4">
+							<TitleRow>
+								<h1 className="font-serif text-2xl">Plan</h1>
+								{titleAction}
+							</TitleRow>
+
+							{/* Week Navigation */}
+							<div className="mx-auto mt-4 flex max-w-2xl items-center justify-between">
+								<Button
+									asChild
+									variant="ghost"
+									size="icon"
+									className="rounded-full"
+								>
+									<Link
+										to={`/plan?weekStart=${prevWeek}`}
+										aria-label="Previous week"
+									>
+										<Icon name="chevron-left" size="md" />
+									</Link>
+								</Button>
+
+								<div className="text-center">
+									<p className="font-serif text-lg">
+										{formatWeekRange(parseDate(weekStart))}
+									</p>
+									{weekStart !== currentWeek && (
+										<Button asChild variant="link" size="sm">
+											<Link to="/plan">This Week</Link>
+										</Button>
+									)}
+								</div>
+
+								<Button
+									asChild
+									variant="ghost"
+									size="icon"
+									className="rounded-full"
+								>
+									<Link
+										to={`/plan?weekStart=${nextWeek}`}
+										aria-label="Next week"
+									>
+										<Icon name="chevron-right" size="md" />
+									</Link>
+								</Button>
+							</div>
+						</div>
+					)}
 				/>
 
 				{meals.length > 0 && shoppingListItemCount === 0 && (

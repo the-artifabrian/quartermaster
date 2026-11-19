@@ -8,7 +8,13 @@ import { CSS } from '@dnd-kit/utilities'
 import { useId, useRef, useState, useEffect, useCallback } from 'react'
 import { useFetcher } from 'react-router'
 import { useSortableList } from '#app/hooks/use-sortable-list.ts'
+import { type RowErrors } from '#app/utils/list-errors.ts'
 import { cn } from '#app/utils/misc.tsx'
+import {
+	HEADING_NAME_REQUIRED_MESSAGE,
+	INGREDIENT_NAME_REQUIRED_MESSAGE,
+} from '#app/utils/recipe-validation.ts'
+import { ErrorList } from './forms.tsx'
 import { BottomSheet, opensAsSheet } from './ui/bottom-sheet.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -35,6 +41,31 @@ type IngredientFieldsProps = {
 	onChange: (ingredients: IngredientFieldValue[]) => void
 	/** Exclude this recipe from the link picker (prevents self-linking) */
 	excludeRecipeId?: string
+	/** Each row's errors by its position, then by field (list-errors.ts). */
+	rowErrors?: ReadonlyArray<RowErrors | undefined>
+}
+
+const ROW_FIELDS = ['name', 'amount', 'unit', 'notes'] as const
+
+/** A row's messages, its fields' in the order they show. */
+function rowMessages(errors: RowErrors | undefined) {
+	if (!errors) return []
+	const known: string[] = ROW_FIELDS.flatMap((field) => errors[field] ?? [])
+	const other = Object.entries(errors)
+		.filter(([field]) => !(ROW_FIELDS as readonly string[]).includes(field))
+		.flatMap(([, messages]) => messages)
+	return [...known, ...other]
+}
+
+/** Marks a row's field invalid and points it at the row's messages. */
+function invalidProps(
+	errors: RowErrors | undefined,
+	field: string,
+	errorId: string,
+) {
+	return errors?.[field]?.length
+		? { 'aria-invalid': true as const, 'aria-describedby': errorId }
+		: {}
 }
 
 function getSortKey() {
@@ -67,6 +98,7 @@ export function IngredientFields({
 	allowRecipeLinks = true,
 	onChange,
 	excludeRecipeId,
+	rowErrors,
 }: IngredientFieldsProps) {
 	const baseId = useId()
 	// `useId` is stable across parent renders and hydration. A random fallback
@@ -273,13 +305,18 @@ export function IngredientFields({
 				>
 					<div ref={listRef} className="divide-border divide-y">
 						{ingredients.map((ingredient, index) => {
+							const errors = rowErrors?.[index]
+							// A row with an error stays open to show the field.
 							const isExpanded =
-								!ingredient.name || expandedKeys.has(ingredient.sortKey!)
+								!ingredient.name ||
+								expandedKeys.has(ingredient.sortKey!) ||
+								rowMessages(errors).length > 0
 							return ingredient.isHeading ? (
 								<SortableHeadingRow
 									key={ingredient.sortKey}
 									sortKey={ingredient.sortKey!}
 									ingredient={ingredient}
+									errors={errors}
 									onUpdate={(field, value) =>
 										updateIngredient(index, field, value)
 									}
@@ -294,6 +331,7 @@ export function IngredientFields({
 									sortKey={ingredient.sortKey!}
 									number={ingredientNumbers.get(ingredient.sortKey!)!}
 									ingredient={ingredient}
+									errors={errors}
 									isExpanded={isExpanded}
 									onToggleExpand={() => toggleExpanded(ingredient.sortKey!)}
 									onUpdate={(field, value) =>
@@ -322,6 +360,7 @@ function SortableIngredientRow({
 	sortKey,
 	number,
 	ingredient,
+	errors,
 	isExpanded,
 	onToggleExpand,
 	onUpdate,
@@ -336,6 +375,7 @@ function SortableIngredientRow({
 	/** Its place among the ingredients, from 1. */
 	number: number
 	ingredient: IngredientFieldValue
+	errors?: RowErrors
 	isExpanded: boolean
 	onToggleExpand: () => void
 	onUpdate: (field: keyof IngredientFieldValue, value: string) => void
@@ -348,6 +388,7 @@ function SortableIngredientRow({
 	canRemove: boolean
 }) {
 	const id = useId()
+	const errorId = `${id}-errors`
 	const {
 		attributes,
 		listeners,
@@ -426,6 +467,7 @@ function SortableIngredientRow({
 						id={`${id}-name`}
 						placeholder="Ingredient name"
 						aria-label={`Ingredient ${number} name`}
+						{...invalidProps(errors, 'name', errorId)}
 						value={ingredient.name}
 						onChange={(e) => onUpdate('name', e.target.value)}
 					/>
@@ -434,6 +476,7 @@ function SortableIngredientRow({
 							id={`${id}-amount`}
 							placeholder="Amount"
 							aria-label={`Ingredient ${number} amount`}
+							{...invalidProps(errors, 'amount', errorId)}
 							enterKeyHint="done"
 							value={ingredient.amount ?? ''}
 							onChange={(e) => onUpdate('amount', e.target.value)}
@@ -443,6 +486,7 @@ function SortableIngredientRow({
 							id={`${id}-unit`}
 							placeholder="Unit"
 							aria-label={`Ingredient ${number} unit`}
+							{...invalidProps(errors, 'unit', errorId)}
 							autoCapitalize="none"
 							autoCorrect="off"
 							value={ingredient.unit ?? ''}
@@ -454,9 +498,11 @@ function SortableIngredientRow({
 						id={`${id}-notes`}
 						placeholder="Notes (e.g., diced)"
 						aria-label={`Ingredient ${number} notes`}
+						{...invalidProps(errors, 'notes', errorId)}
 						value={ingredient.notes ?? ''}
 						onChange={(e) => onUpdate('notes', e.target.value)}
 					/>
+					<ErrorList id={errorId} errors={rowMessages(errors)} />
 					{allowRecipeLinks && (
 						<RecipeLinkPicker
 							linkedRecipeId={ingredient.linkedRecipeId}
@@ -685,6 +731,7 @@ function RecipeLinkPicker({
 function SortableHeadingRow({
 	sortKey,
 	ingredient,
+	errors,
 	onUpdate,
 	onRemove,
 	canRemove,
@@ -692,12 +739,20 @@ function SortableHeadingRow({
 }: {
 	sortKey: string
 	ingredient: IngredientFieldValue
+	errors?: RowErrors
 	onUpdate: (field: keyof IngredientFieldValue, value: string) => void
 	onRemove: () => void
 	canRemove: boolean
 	onConvertToIngredient: () => void
 }) {
 	const id = useId()
+	const errorId = `${id}-errors`
+	// The save schema says "ingredient" for any row; this one is a heading.
+	const messages = rowMessages(errors).map((message) =>
+		message === INGREDIENT_NAME_REQUIRED_MESSAGE
+			? HEADING_NAME_REQUIRED_MESSAGE
+			: message,
+	)
 	const {
 		attributes,
 		listeners,
@@ -717,54 +772,62 @@ function SortableHeadingRow({
 			ref={setNodeRef}
 			style={style}
 			className={cn(
-				'border-accent/30 bg-accent/5 flex items-center gap-2 rounded-lg border-l-4 px-2 py-3 first:pt-2 last:pb-2',
+				'border-accent/30 bg-accent/5 flex flex-col gap-1 rounded-lg border-l-4 px-2 py-3 first:pt-2 last:pb-2',
 				isDragging && 'shadow-warm-lg z-10 opacity-80',
 			)}
 		>
-			<button
-				type="button"
-				// 44px to grab with a thumb; the negative margins keep the row's
-				// height. Hold to pick up; a swipe still scrolls.
-				className="text-muted-foreground/70 hover:text-muted-foreground active:bg-muted -my-1.5 -ml-1.5 flex size-11 shrink-0 cursor-grab touch-manipulation items-center justify-center rounded-md select-none active:cursor-grabbing"
-				aria-label="Reorder heading"
-				{...attributes}
-				{...listeners}
-			>
-				<Icon name="dots-horizontal" size="sm" />
-			</button>
-			<Input
-				id={`${id}-heading`}
-				placeholder="Section heading (e.g., Polenta, Sauce)"
-				aria-label="Section heading"
-				value={ingredient.name}
-				onChange={(e) => onUpdate('name', e.target.value)}
-				className="flex-1 font-semibold"
-			/>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon"
-						onClick={onConvertToIngredient}
-						aria-label="Convert to regular ingredient"
-					>
-						<Icon name="reset" size="sm" />
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent>Convert to regular ingredient</TooltipContent>
-			</Tooltip>
-			<Button
-				type="button"
-				variant="ghost"
-				size="icon"
-				onClick={onRemove}
-				disabled={!canRemove}
-				className={cn(!canRemove && 'opacity-30')}
-				aria-label="Remove heading"
-			>
-				<Icon name="cross-1" size="sm" />
-			</Button>
+			<div className="flex items-center gap-2">
+				<button
+					type="button"
+					// 44px to grab with a thumb; the negative margins keep the row's
+					// height. Hold to pick up; a swipe still scrolls.
+					className="text-muted-foreground/70 hover:text-muted-foreground active:bg-muted -my-1.5 -ml-1.5 flex size-11 shrink-0 cursor-grab touch-manipulation items-center justify-center rounded-md select-none active:cursor-grabbing"
+					aria-label="Reorder heading"
+					{...attributes}
+					{...listeners}
+				>
+					<Icon name="dots-horizontal" size="sm" />
+				</button>
+				<Input
+					id={`${id}-heading`}
+					placeholder="Section heading (e.g., Polenta, Sauce)"
+					aria-label="Section heading"
+					{...invalidProps(errors, 'name', errorId)}
+					value={ingredient.name}
+					onChange={(e) => onUpdate('name', e.target.value)}
+					className="flex-1 font-semibold"
+				/>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							onClick={onConvertToIngredient}
+							aria-label="Convert to regular ingredient"
+						>
+							<Icon name="reset" size="sm" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>Convert to regular ingredient</TooltipContent>
+				</Tooltip>
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon"
+					onClick={onRemove}
+					disabled={!canRemove}
+					className={cn(!canRemove && 'opacity-30')}
+					aria-label="Remove heading"
+				>
+					<Icon name="cross-1" size="sm" />
+				</Button>
+			</div>
+			{messages.length ? (
+				<div className="pl-10">
+					<ErrorList id={errorId} errors={messages} />
+				</div>
+			) : null}
 		</div>
 	)
 }

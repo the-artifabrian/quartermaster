@@ -82,7 +82,11 @@ function pathIsInTab(path: string | undefined, tabPath: string) {
 	return path === tabPath || path?.startsWith(`${tabPath}/`) === true
 }
 
-export function BottomNav() {
+/**
+ * `hidden` on an edit screen: the bar stays mounted without its markup, so
+ * the stack each tab restores survives the edit screen.
+ */
+export function BottomNav({ hidden = false }: { hidden?: boolean }) {
 	const location = useLocation()
 	const navigation = useNavigation()
 	const navigate = useNavigate()
@@ -211,7 +215,7 @@ export function BottomNav() {
 		})
 	}
 
-	if (!user) return null
+	if (!user || hidden) return null
 
 	return (
 		<nav

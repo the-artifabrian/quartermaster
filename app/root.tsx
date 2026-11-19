@@ -426,6 +426,11 @@ function App() {
 	// on phones; tab roots keep it. Only signed-in pages have one.
 	const navBarConfig = useNavBarConfig()
 	const navBar = user ? navBarConfig : null
+	// An edit screen (its route names the form the bar's Save submits) hides
+	// the tab bar, as an iOS edit screen does: Cancel and Save are the ways
+	// out. Its error page keeps it. The server knows both, so the first paint
+	// has no tab bar to lose.
+	const editScreen = Boolean(navBar?.form && navBar.loaded)
 	const toastTop = navBar
 		? 'var(--nav-bar-bottom, calc(var(--safe-top) + 44px))'
 		: 'var(--safe-top)'
@@ -471,6 +476,7 @@ function App() {
 					<header
 						data-site-header=""
 						data-pushed={navBar ? '' : undefined}
+						data-edit-screen={editScreen ? '' : undefined}
 						// A pushed page's bar stays pinned on phones too, opaque, so its
 						// title has somewhere to show once the page's own scrolls away.
 						className={cn(
@@ -553,7 +559,7 @@ function App() {
 						<Outlet />
 					</main>
 				</div>
-				<BottomNav />
+				<BottomNav hidden={editScreen} />
 				<Toaster
 					closeButton
 					position="top-center"

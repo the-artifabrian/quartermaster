@@ -215,10 +215,10 @@ test('Add a Meal is a sheet: picking a Recipe plans it and closes the sheet', as
 		expect(sheet).toBeVisible({ timeout: 1000 }),
 	)
 	await expectBottomSheet(page, sheet)
-	// Nothing opened in place under the day.
-	await expect(
-		mobile.getByRole('region', { name: /^Add Meal for/ }),
-	).toHaveCount(0)
+	// Nothing opened in place, in the title row or under the day.
+	await expect(page.getByRole('region', { name: /^Add Meal for/ })).toHaveCount(
+		0,
+	)
 	// The sheet's own Close, not a second one from the picker.
 	await expect(sheet.getByRole('button', { name: 'Close picker' })).toHaveCount(
 		0,

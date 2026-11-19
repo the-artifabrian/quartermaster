@@ -718,21 +718,21 @@ test.describe('with a mouse', () => {
 				.then((staple) => staple.isStaple)
 		await page.goto('/inventory')
 
-		const remove = page.getByRole('button', { name: 'Remove Salt' })
+		const remove = page.getByRole('button', { name: 'Delete Salt' })
 		// Red from the start: no arming.
 		await expect(remove).toHaveCSS('color', 'rgb(184, 92, 74)')
 		await recordCollapses(page)
 		await remove.click()
 		await expect(remove).toBeHidden()
 		await expectCollapses(page, OPENING)
-		await expect(toastOf(undoButton(page))).toContainText('Removed Salt')
+		await expect(toastOf(undoButton(page))).toContainText('Deleted Salt')
 		await expect.poll(isStaple).toBe(false)
 
 		await undoButton(page).click()
 		await expect(remove).toBeVisible()
 		await expect.poll(isStaple).toBe(true)
 		await expect(
-			page.getByRole('button', { name: 'Remove Apples' }),
+			page.getByRole('button', { name: 'Delete Apples' }),
 		).toBeVisible()
 	})
 
@@ -751,11 +751,11 @@ test.describe('with a mouse', () => {
 			},
 		})
 		await page.goto('/inventory')
-		const remove = page.getByRole('button', { name: 'Remove Salt' })
+		const remove = page.getByRole('button', { name: 'Delete Salt' })
 		await context.setOffline(true)
 		await remove.click()
 		await expect(
-			page.getByText('You’re offline, so Salt wasn’t removed.'),
+			page.getByText('You’re offline, so Salt wasn’t deleted.'),
 		).toBeVisible()
 		await expect(remove).toBeVisible({ timeout: 2000 })
 		await context.setOffline(false)

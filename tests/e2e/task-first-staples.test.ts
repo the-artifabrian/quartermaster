@@ -2,6 +2,9 @@ import { type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
+// A phone: a finger, so each row shows what a phone shows.
+test.use({ hasTouch: true })
+
 async function waitForStaplesHydration(page: Page) {
 	const addButton = page.getByRole('button', { name: 'Add Staple' })
 	const addInput = page.getByRole('textbox', { name: 'Add a Staple' })
@@ -86,12 +89,13 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	// The + sits beside the title, above the search.
 	expect(addBox!.y + addBox!.height).toBeLessThanOrEqual(searchBox!.y)
 
-	// Every add and remove control is a 44×44 touch target on the phone.
+	// Every add and delete control is a 44×44 touch target on the phone:
+	// Delete is the one a swipe uncovers.
 	const applesRow = list.getByRole('listitem').filter({ hasText: 'Apples' })
 	for (const control of [
 		addButton,
-		applesRow.getByRole('button', { name: 'Add Apples to Next shop' }),
-		applesRow.getByRole('button', { name: 'Remove Apples' }),
+		applesRow.getByRole('button', { name: 'Add to Shopping, Apples' }),
+		applesRow.getByRole('button', { name: 'Delete Apples' }),
 	]) {
 		const box = await control.boundingBox()
 		expect(box, `${control}`).not.toBeNull()
@@ -127,7 +131,7 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	await expect(applesButton).toBeFocused()
 	await response
 	// The row says where it went, and stays where it was.
-	await expect(applesButton).toHaveAccessibleName('Apples is in Next shop')
+	await expect(applesButton).toHaveAccessibleName('On list, Apples')
 	await expect(applesButton).toBeFocused()
 	await expect(list.getByRole('listitem')).toHaveCount(30)
 

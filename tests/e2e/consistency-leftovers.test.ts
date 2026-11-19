@@ -215,6 +215,11 @@ test('Recipes, Staples and Plan put one round + beside the title; Plan’s adds 
 	// The day heading no longer carries an Add Meal of its own.
 	await expect(page.getByRole('button', { name: /^Add Meal/ })).toHaveCount(1)
 
+	// The empty day points at the +, not at a button it no longer has.
+	await expect(
+		page.getByText('Tap + to plan a Recipe, Menu, or note.'),
+	).toBeVisible()
+
 	await plus.tap()
 	const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
 	await expect(sheet).toBeVisible()
@@ -231,6 +236,59 @@ test('Recipes, Staples and Plan put one round + beside the title; Plan’s adds 
 			}),
 		)
 		.toEqual([{ date: other, recipeItems: [{ recipeTitle: 'Miso Soup' }] }])
+})
+
+test('after a week swipe, Plan’s + adds to the day showing in the new week', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.recipe.create({
+		data: {
+			title: 'Miso Soup',
+			userId: user.id,
+			householdId: user.householdId,
+		},
+	})
+	const weekStart = getWeekStart(todayUTC())
+	const nextWeek = addDaysUTC(weekStart, 7)
+	await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+	const strip = page.locator('[data-slot="mobile-week-days"]')
+	await expect
+		.poll(() =>
+			strip.evaluate((element) =>
+				Object.keys(element).some((key) => key.startsWith('__reactProps')),
+			),
+		)
+		.toBe(true)
+	await drag(page, strip, { fromX: 0.8, toX: 0.2 })
+	await expect(page).toHaveURL(
+		new RegExp(`weekStart=${serializeDate(nextWeek)}`),
+	)
+
+	// Not the week's first day, so a + stuck on a default day shows.
+	const wednesday = addDaysUTC(nextWeek, 2)
+	await page
+		.getByRole('button', { name: new RegExp(`^Show ${dayName(wednesday)}`) })
+		.tap()
+	const plus = page.getByRole('button', {
+		name: `Add Meal to ${dayName(wednesday)}`,
+	})
+	await expect(plus).toBeVisible()
+	await expect(page.getByRole('button', { name: /^Add Meal/ })).toHaveCount(1)
+	await plus.tap()
+	const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
+	await expect(sheet).toBeVisible()
+	await sheet.getByRole('button', { name: /Miso Soup/ }).tap()
+	await expect(sheet).toBeHidden()
+	await expect
+		.poll(() =>
+			prisma.meal.findMany({
+				where: { mealPlan: { householdId: user.householdId } },
+				select: { date: true },
+			}),
+		)
+		.toEqual([{ date: wednesday }])
 })
 
 async function seedStaples(householdId: string, names: string[]) {
@@ -268,11 +326,15 @@ test('a Staple row swiped left shows a red Delete that removes it at once, with 
 	await page.goto('/inventory')
 
 	const salt = stapleRow(page, 'Salt')
-	const add = salt.getByRole('button', { name: 'Add Salt to Next shop' })
+	// The spoken name starts with the words on the button (so Voice Control's
+	// "tap Add to Shopping" works), then says which Staple.
+	const add = salt.getByRole('button', { name: /^Add to Shopping/ })
+	await expect(add).toHaveAccessibleName('Add to Shopping, Salt')
 	await expect(add).toHaveText('Add to Shopping')
-	// No trash button on a phone; Delete waits under the row.
-	await expect(salt.getByRole('button', { name: 'Remove Salt' })).toBeHidden()
+	// No trash button on a phone, only the Delete waiting under the row.
 	const del = salt.getByRole('button', { name: 'Delete Salt' })
+	await expect(del).toHaveCount(1)
+	await expect(del).toHaveText('Delete')
 	expect(await onTop(del)).toBe(false)
 
 	await drag(page, salt, { fromX: 0.8, toX: 0.2 })
@@ -287,17 +349,17 @@ test('a Staple row swiped left shows a red Delete that removes it at once, with 
 	await expect.poll(() => restingX(salt)).toBe(0)
 
 	// A tap on an open row shuts it rather than adding the Staple.
-	await apples.getByRole('button', { name: 'Add Apples to Next shop' }).tap()
+	await apples.getByRole('button', { name: 'Add to Shopping, Apples' }).tap()
 	await expect.poll(() => restingX(apples)).toBe(0)
 	await expect(
-		apples.getByRole('button', { name: 'Add Apples to Next shop' }),
+		apples.getByRole('button', { name: 'Add to Shopping, Apples' }),
 	).toBeVisible()
 
 	await drag(page, salt, { fromX: 0.8, toX: 0.2 })
 	await expect.poll(() => onTop(del)).toBe(true)
 	await del.tap()
 	await expect(salt).toBeHidden()
-	await expect(page.getByText('Removed Salt')).toBeVisible()
+	await expect(page.getByText('Deleted Salt')).toBeVisible()
 	await expect.poll(() => isStaple(user.householdId, 'salt')).toBe(false)
 	expect(await isStaple(user.householdId, 'apples')).toBe(true)
 
@@ -355,7 +417,7 @@ test('without a swipe, Tab reaches a Staple’s Delete, which slides into view, 
 	// The stop before it is the row's own Add.
 	await page.keyboard.press('Shift+Tab')
 	await expect(
-		salt.getByRole('button', { name: 'Add Salt to Next shop' }),
+		salt.getByRole('button', { name: 'Add to Shopping, Salt' }),
 	).toBeFocused()
 	await page.keyboard.press('Tab')
 	await expect(del).toBeFocused()
@@ -388,10 +450,12 @@ test.describe('with a mouse', () => {
 		await seedStaples(user.householdId, ['Salt'])
 		await page.goto('/inventory')
 		const salt = stapleRow(page, 'Salt')
-		await expect(salt.getByRole('button', { name: 'Delete Salt' })).toHaveCount(
-			0,
-		)
-		await salt.getByRole('button', { name: 'Remove Salt' }).click()
+		// One Delete, the trash in the row: the swipe's is not there.
+		const del = salt.getByRole('button', { name: 'Delete Salt' })
+		await expect(del).toHaveCount(1)
+		await expect(del).toHaveText('')
+		await del.click()
+		await expect(page.getByText('Deleted Salt')).toBeVisible()
 		await expect(salt).toBeHidden()
 		await expect.poll(() => isStaple(user.householdId, 'salt')).toBe(false)
 	})
@@ -526,6 +590,82 @@ test('a Plan Meal’s Recipe link and scale field each take a 44px tap area, sid
 	const text = (await misoLink.locator('span').boundingBox())!
 	await page.touchscreen.tap(text.x + 4, text.y - 8)
 	await expect(page).toHaveURL(new RegExp(`/recipes/${miso!.id}$`))
+})
+
+test('a long Recipe word wraps inside a Plan row, and a tap in the scale field edits it', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const titles = [
+		'Rindfleischsuppeneinlage',
+		'Donaudampfschifffahrtsgesellschaftskap',
+	]
+	const recipes = await Promise.all(
+		titles.map((title) =>
+			prisma.recipe.create({
+				data: { title, userId: user.id, householdId: user.householdId },
+			}),
+		),
+	)
+	const today = todayUTC()
+	const weekStart = getWeekStart(today)
+	await prisma.mealPlan.create({
+		data: {
+			householdId: user.householdId,
+			weekStart,
+			meals: {
+				create: {
+					date: today,
+					order: 0,
+					recipeItems: {
+						create: recipes.map((recipe, order) => ({
+							recipeId: recipe.id,
+							recipeTitle: recipe.title,
+							order,
+							scaleMultiplier: order === 0 ? 12.5 : 1.5,
+						})),
+					},
+				},
+			},
+		},
+	})
+	await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+	const mobile = page.getByTestId('mobile-plan')
+	const scales = mobile.getByRole('textbox', { name: 'Scale multiplier' })
+	await expect(scales).toHaveCount(2)
+	await expect(scales.nth(0)).toHaveValue('12.5')
+
+	// The page does not widen, and both fields stay on screen.
+	const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+		scrollWidth: document.documentElement.scrollWidth,
+		clientWidth: document.documentElement.clientWidth,
+	}))
+	expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+	for (const i of [0, 1]) {
+		const box = (await scales.nth(i).boundingBox())!
+		expect(box.x).toBeGreaterThanOrEqual(0)
+		expect(box.x + box.width).toBeLessThanOrEqual(clientWidth)
+	}
+
+	// The field itself takes a tap in it, not the label's larger area.
+	const field = scales.nth(0)
+	const box = (await field.boundingBox())!
+	const hits = await page.evaluate(
+		(points) =>
+			points.map(([x, y]) => document.elementFromPoint(x!, y!)?.tagName),
+		[
+			[box.x + box.width / 2, box.y + box.height / 2],
+			[box.x + box.width - 3, box.y + box.height / 2],
+		],
+	)
+	expect(hits).toEqual(['INPUT', 'INPUT'])
+	// A tap at its right end puts the caret after the value, so Backspace
+	// edits it.
+	await page.touchscreen.tap(box.x + box.width - 3, box.y + box.height / 2)
+	await expect(field).toBeFocused()
+	await page.keyboard.press('Backspace')
+	await expect(field).toHaveValue('12.')
 })
 
 test('a Recipe’s ingredient summary row and Link recipe take 44px taps', async ({

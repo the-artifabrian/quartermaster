@@ -7,7 +7,8 @@ work is #346, snappy navigation and launch.
 
 `Quartermaster/Quartermaster/` and `Quartermaster/QuartermasterShare/` are Xcode
 buildable folders: any file added there joins the app or the Share Extension
-target without touching the project file.
+target without touching the project file. Files in `Quartermaster/Shared/` join
+both.
 
 | File                                           | Role                                                                                      |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -18,12 +19,15 @@ target without touching the project file.
 | `ShellConfig.swift`                            | Base URL, start path, user agent token, app-bound check, back swipe                       |
 | `LinkPolicy.swift`                             | Where a URL opens: web view, Safari sheet, or iOS; what is an app page                    |
 | `IncomingURL.swift`                            | Which page an incoming link opens                                                         |
+| `ShareIntent.swift`                            | A share waiting for its import page, and the script that hands it over                    |
+| `Shared/SharedLinkStore.swift`                 | The App Group handoff from the Share Extension: nonces, single use, expiry                |
 | `ResumeState.swift`                            | Which page a cold start reopens                                                           |
 | `QuickActions.swift`                           | Home Screen quick actions, app and scene delegates                                        |
 | `OfflineView.swift`                            | Native offline view with Retry                                                            |
 | `Info.plist`                                   | App-bound domains, base URL, URL scheme, quick actions, launch screen, permission strings |
 | `QuartermasterShare/ShareViewController.swift` | Share Extension: finds the shared link, opens the app                                     |
 | `QuartermasterShare/Info.plist`                | Share Extension activation rule                                                           |
+| `*.entitlements`                               | Associated Domains (app), and the `group.app.useqm.ios` App Group (both targets)          |
 
 ## Open and run
 
@@ -78,16 +82,21 @@ xcrun simctl launch booted app.useqm.ios -QMSessionCookie "$EN_SESSION" -QMStart
 
 ## Incoming links
 
-The app registers the `quartermaster` URL scheme. It opens one URL:
+The app registers the `quartermaster` URL scheme. It opens two URLs:
 
 ```
+quartermaster://import?share=<nonce>
 quartermaster://import?url=<percent-encoded http(s) URL>
 ```
 
-which loads `<base URL>/recipes/import?url=<same URL>`, so the import page
-starts fetching. Anything else on the scheme, or a `url` that is not http or
-https, is ignored. Universal links on the base URL's host load as they are.
-`IncomingURL.swift` holds the rules.
+`share` is the app's own Share Extension (Share import, below): the import page
+opens and imports the link at once. `url` loads
+`<base URL>/recipes/import?url=<same URL>`, which waits for a tap on Import.
+Older Share Extension builds open it, and so can any app, or a site after
+Safari's prompt, so it never imports by itself. Anything else on the scheme, or
+a `url` that is not http or https, is ignored. Universal links on the base URL's
+host load as they are and never import by themselves either. `IncomingURL.swift`
+holds the rules.
 
 The first page starts loading as soon as the shell's view loads. A link that
 launched the app has usually reached the shell by then and loads instead of the
@@ -108,8 +117,8 @@ was.
 
 ## Shell bridge
 
-The page and the shell talk through four `WKScriptMessageHandler`s, one
-CustomEvent and two injected scripts. `ShellBridge.swift` holds the shell's
+The page and the shell talk through four `WKScriptMessageHandler`s, two
+CustomEvents and two injected scripts. `ShellBridge.swift` holds the shell's
 side. The shell only listens to the main frame of the app's own host. Each
 message body is a string, and anything outside the values below is ignored.
 
@@ -125,6 +134,11 @@ message body is a string, and anything outside the values below is ignored.
   its data and posts `done` to `refresh`; the spinner stops then, or after 5 s
   if nothing answers. While the offline view is up there is no pull, since that
   view has its own Retry.
+- **Share import.** For a share through the app's own Share Extension the shell
+  hands the link to the import page (Share import, below):
+  `window.__qmShareImport = { url }` and
+  `window.dispatchEvent(new CustomEvent('qm:share-import', { detail: { url } }))`.
+  The page reads the global when it mounts and on the event, and clears it.
 - **Launch timing.** The first document after launch gets a document-start
   script, main frame only: `window.__qmShell = { initAt, loadAt }`, both epoch
   milliseconds (`Date.now()` units). `initAt` is when the app started and
@@ -200,29 +214,83 @@ one. With the app running, the scene delegate hands it over the same way.
 
 `QuartermasterShare` (`app.useqm.ios.share`) appears in the share sheet for one
 shared item holding a web URL, or text with a URL in it. It takes the first
-http(s) link (a URL attachment first, then a link found in the text), opens
-`quartermaster://import?url=…` and closes. If there is no link it cancels. No
+http(s) link (a URL attachment first, then a link found in the text), hands it
+to the app (Share import, below) and closes. If there is no link it cancels. No
 network and no web view in the extension; the app does the fetch.
 
 Extensions have no supported way to open their app, so it calls
 `open(_:options:completionHandler:)` on the UIApplication at the end of its
 responder chain, as the Capacitor share-target plugins do. If App Review
-objects, the fallback (#328) is to write the URL to an App Group container and
-show an "Open Quartermaster" button.
+objects, the fallback (#328) is to show an "Open Quartermaster" button over the
+same App Group handoff.
+
+### Share import
+
+Sharing to Quartermaster is a deliberate act, so a share imports at once: the
+import page shows "Importing from …" and opens the Recipe, or shows the error on
+its URL tab with the link filled in. But anyone can open `/recipes/import?url=…`
+(a universal link from any site) or `quartermaster://import?url=…` (any app, or
+a site after Safari's prompt), and an import saves, so the page must be able to
+tell the app's own Share Extension from everyone else. Nothing a URL carries can
+do that, so the proof travels outside the URL:
+
+1. **App Group nonce.** The extension writes the link with a timestamp to
+   `SharedLinks/<nonce>.json` in the `group.app.useqm.ios` App Group container,
+   under 128 random bits (`SecRandomCopyBytes`) as 32 hex characters, and opens
+   `quartermaster://import?share=<nonce>`. Only the app and its extension carry
+   the App Group entitlement, so nobody else can write there, and a nonce cannot
+   be guessed. Without the container (a build lacking the entitlement), or if
+   the write fails, it opens `quartermaster://import?url=…` instead, which waits
+   for a tap.
+2. **The app takes the nonce once.** It accepts a nonce of exactly 32 lowercase
+   hex characters whose file exists and is under 2 minutes old (5 seconds of
+   clock skew allowed), holding an http(s) link with a host. It deletes the file
+   before using it, and if the delete fails the share is not used, so a nonce
+   works once. Every read and write also prunes stale and stray files. An
+   expired share opens its import page waiting for a tap; an unknown, used or
+   malformed nonce opens the empty import page.
+3. **The shell hands the link to the page.** It loads
+   `/recipes/import?url=<link>` and keeps a `ShareIntent` (the link, for 5
+   minutes) in memory. Each time a document finishes loading, and each time
+   `webView.url` changes while nothing is loading (the page's own navigations,
+   such as the redirect after signing in), it checks that the page is the app's
+   import page offering that same link. If so it runs
+   `ShareIntent.deliveryScript` with `callAsyncJavaScript` in the page's content
+   world, the link passed as an argument rather than written into the source.
+   The script checks the page again, sets the global and dispatches the event
+   (Shell bridge, above), and returns true. The intent is cleared before the
+   script runs and comes back only if the script found another page. Any other
+   incoming link or quick action replaces it, so it never reaches a page the
+   user did not share into, and a cold start that reopens the import page
+   carries none.
+4. **The page imports only on a match.** In the shell, the import page reads
+   `window.__qmShareImport` at mount and on `qm:share-import`, deletes it
+   whatever it holds, and submits the offer's own Import form only when the
+   handed link equals its `?url=` and the offer is showing. Same POST, same
+   duplicate check: a link already in the Household shows "Already in your
+   Recipes" instead. Query string, hash and storage play no part, and outside
+   the shell nothing listens.
 
 Checks by hand (#328, 2.2), on the Simulator and then a device:
 
 1. Safari on a Recipe page, Share, Quartermaster: the app opens on the import
-   page with the link ready, and one tap on Import saves and opens the Recipe.
-   Sharing it again opens on "Already in your Recipes".
+   page, imports, and opens the Recipe with no tap. Sharing it again opens on
+   "Already in your Recipes".
 2. Messages, long-press a message holding a Recipe link, Share, Quartermaster:
    same result.
 3. A Recipe site's own share button (Web Share), Quartermaster: same result.
-4. A page that is not a Recipe: after the tap, the import page shows its usual
-   error.
+4. A page that is not a Recipe: the import page shows its usual error on the URL
+   tab, with the link filled in.
 5. Each of the above with the app killed first (cold start) and with it already
-   open.
-6. Then retire the "Send to Quartermaster" Shortcut (#326, 0.6).
+   open, and once while logged out: after logging in, the import runs.
+6. `xcrun simctl openurl booted 'quartermaster://import?url=https%3A%2F%2Fexample.com%2Frecipe'`
+   still waits for the tap, and
+   `xcrun simctl openurl booted 'quartermaster://import?share=00000000000000000000000000000000'`
+   opens the empty import page.
+7. Then retire the "Send to Quartermaster" Shortcut (#326, 0.6).
+
+The App Groups capability registers with the App ID on the first archive with
+automatic signing (`-allowProvisioningUpdates`).
 
 ## TestFlight builds
 

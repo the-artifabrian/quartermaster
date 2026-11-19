@@ -1,11 +1,16 @@
 import Foundation
 
-/// Turns a URL the app was opened with into the page the web view loads.
+/// Turns a URL the app was opened with into what the shell does with it.
 ///
-/// Two kinds arrive:
-/// - `quartermaster://import?url=<percent-encoded http(s) URL>`, from the
-///   Share Extension, opens the Recipe import page with that URL, ready to
-///   import with one tap.
+/// Three kinds arrive:
+/// - `quartermaster://import?share=<nonce>`, from the app's own Share
+///   Extension. The link waits in the App Group under that nonce
+///   (`SharedLinkStore`); the shell opens the import page for it and hands
+///   the link to the page, which imports it at once.
+/// - `quartermaster://import?url=<percent-encoded http(s) URL>`, from older
+///   builds of the Share Extension or anything else that opens the scheme,
+///   opens the Recipe import page with that URL, ready to import with one
+///   tap.
 /// - A universal link (`https://useqm.app/…`) loads as it is.
 ///
 /// Anything else gives nil and is ignored.
@@ -13,23 +18,60 @@ enum IncomingURL {
     static let scheme = "quartermaster"
     static let importPath = "/recipes/import"
 
-    static func page(for url: URL, baseURL: URL) -> URL? {
+    enum Destination: Equatable {
+        /// Load this page.
+        case page(URL)
+        /// A share through the app's own Share Extension, under this nonce.
+        case share(nonce: String)
+    }
+
+    static func destination(for url: URL, baseURL: URL) -> Destination? {
         switch url.scheme?.lowercased() {
         case scheme:
-            return importPage(for: url, baseURL: baseURL)
+            return schemeDestination(for: url, baseURL: baseURL)
         case "http", "https":
-            return LinkPolicy(host: baseURL.host()?.lowercased() ?? "").isAppPage(url) ? url : nil
+            return LinkPolicy(host: baseURL.host()?.lowercased() ?? "").isAppPage(url) ? .page(url) : nil
         default:
             return nil
         }
     }
 
-    private static func importPage(for url: URL, baseURL: URL) -> URL? {
+    private static func schemeDestination(for url: URL, baseURL: URL) -> Destination? {
         guard
             url.host()?.lowercased() == "import",
             url.path().isEmpty || url.path() == "/",
-            let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-            let shared = components.queryItems?.first(where: { $0.name == "url" })?.value,
+            let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
+        else { return nil }
+        if let nonce = items.first(where: { $0.name == "share" })?.value {
+            return .share(nonce: nonce)
+        }
+        guard
+            let shared = items.first(where: { $0.name == "url" })?.value,
+            let page = importPage(for: shared, baseURL: baseURL)
+        else { return nil }
+        return .page(page)
+    }
+
+    /// What a share's nonce opens. A fresh share opens its import page with
+    /// the link to hand over; an old one opens the same page waiting for a
+    /// tap; an unknown or used nonce opens the empty import page.
+    static func sharedImport(_ lookup: SharedLinkStore.Lookup, baseURL: URL) -> (page: URL, intent: ShareIntent?) {
+        let emptyImport = baseURL.appending(path: importPath)
+        switch lookup {
+        case .accepted(let link):
+            guard let page = importPage(for: link, baseURL: baseURL) else { return (emptyImport, nil) }
+            return (page, ShareIntent(link: link))
+        case .expired(let link):
+            return (importPage(for: link, baseURL: baseURL) ?? emptyImport, nil)
+        case .missing:
+            return (emptyImport, nil)
+        }
+    }
+
+    /// `<base URL>/recipes/import?url=<shared>` for an http(s) URL with a
+    /// host, keeping `shared` exactly as given.
+    static func importPage(for shared: String, baseURL: URL) -> URL? {
+        guard
             let sharedURL = URL(string: shared),
             ["http", "https"].contains(sharedURL.scheme?.lowercased()),
             sharedURL.host() != nil,

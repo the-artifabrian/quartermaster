@@ -1,9 +1,12 @@
 import UIKit
 import UniformTypeIdentifiers
 
-/// Takes the link someone shares and opens it on the app's Recipe import page,
-/// through `quartermaster://import?url=<encoded link>`. The app's
-/// `IncomingURL` reads that URL; keep the two in step.
+/// Takes the link someone shares and opens it on the app's Recipe import page.
+/// The link goes into the App Group under a fresh nonce (`SharedLinkStore`)
+/// and the app opens through `quartermaster://import?share=<nonce>`, which
+/// tells it the share came from here, so it imports at once. Without the App
+/// Group it falls back to `quartermaster://import?url=<encoded link>`, which
+/// waits for a tap. The app's `IncomingURL` reads both; keep them in step.
 ///
 /// No network and no web view here: the app does the fetch.
 final class ShareViewController: UIViewController {
@@ -33,7 +36,9 @@ final class ShareViewController: UIViewController {
 
     private func share() async {
         let items = extensionContext?.inputItems.compactMap { $0 as? NSExtensionItem } ?? []
-        guard let link = await Self.firstLink(in: items), let appURL = Self.importURL(for: link) else {
+        guard let link = await Self.firstLink(in: items),
+              let appURL = Self.shareURL(for: link) ?? Self.importURL(for: link)
+        else {
             extensionContext?.cancelRequest(withError: NSError(
                 domain: "app.useqm.ios.share", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "No link to import"]))
@@ -90,6 +95,14 @@ final class ShareViewController: UIViewController {
     private static let queryValueAllowed = CharacterSet(
         charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 
+    /// `quartermaster://import?share=<nonce>`, with the link stored under the
+    /// nonce, or nil when the App Group is not there or the write failed.
+    private static func shareURL(for link: URL) -> URL? {
+        guard let nonce = SharedLinkStore.inAppGroup()?.put(link.absoluteString) else { return nil }
+        return URL(string: "quartermaster://import?share=\(nonce)")
+    }
+
+    /// The fallback, which the app opens waiting for a tap.
     private static func importURL(for link: URL) -> URL? {
         guard let value = link.absoluteString.addingPercentEncoding(withAllowedCharacters: queryValueAllowed) else {
             return nil

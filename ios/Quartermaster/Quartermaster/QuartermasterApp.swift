@@ -19,14 +19,22 @@ struct QuartermasterApp: App {
                 .preferredColorScheme(theme.colorScheme)
                 // quartermaster://import from the Share Extension.
                 .onOpenURL { url in
-                    if let page = IncomingURL.page(for: url, baseURL: Shell.config.baseURL) {
+                    let baseURL = Shell.config.baseURL
+                    switch IncomingURL.destination(for: url, baseURL: baseURL) {
+                    case .page(let page):
                         Shell.inbox.deliver(page)
+                    case .share(let nonce):
+                        let lookup = SharedLinkStore.inAppGroup()?.take(nonce) ?? .missing
+                        let opened = IncomingURL.sharedImport(lookup, baseURL: baseURL)
+                        Shell.inbox.deliver(opened.page, share: opened.intent)
+                    case nil:
+                        break
                     }
                 }
                 // Universal links, once the applinks entitlement is on (#327, 1.6).
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
                     if let url = activity.webpageURL,
-                       let page = IncomingURL.page(for: url, baseURL: Shell.config.baseURL) {
+                       case .page(let page) = IncomingURL.destination(for: url, baseURL: Shell.config.baseURL) {
                         Shell.inbox.deliver(page)
                     }
                 }
@@ -43,22 +51,25 @@ enum Shell {
 
 /// Passes pages from incoming links and quick actions to the shell. A link
 /// that launched the app can arrive before the shell's view has loaded, so the
-/// inbox holds it until the shell attaches.
+/// inbox holds it until the shell attaches. A page opened for a share through
+/// the app's own Share Extension comes with its `ShareIntent`.
 final class PageInbox {
-    private var pending: URL?
-    private var handler: ((URL) -> Void)?
+    typealias Handler = (URL, ShareIntent?) -> Void
 
-    func deliver(_ page: URL) {
+    private var pending: (page: URL, share: ShareIntent?)?
+    private var handler: Handler?
+
+    func deliver(_ page: URL, share: ShareIntent? = nil) {
         if let handler {
-            handler(page)
+            handler(page, share)
         } else {
-            pending = page
+            pending = (page, share)
         }
     }
 
     /// Starts handing pages to `handler`, and returns the one that arrived
     /// first, if any.
-    func attach(_ handler: @escaping (URL) -> Void) -> URL? {
+    func attach(_ handler: @escaping Handler) -> (page: URL, share: ShareIntent?)? {
         self.handler = handler
         defer { pending = nil }
         return pending

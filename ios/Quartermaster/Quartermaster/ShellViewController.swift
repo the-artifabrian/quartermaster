@@ -71,6 +71,19 @@ final class ShellViewController: UIViewController {
     private var lastProcessTermination: Date?
     /// Where each running download is being written.
     private var downloadFiles: [ObjectIdentifier: URL] = [:]
+    /// A share through the app's own Share Extension, until its import page
+    /// has it (`deliverPendingShare`).
+    private var pendingShare: ShareIntent?
+    /// True from opening a share's page until a document commits: before
+    /// that, `webView.url` already names the new page while the old document
+    /// is still the one that would run the script.
+    private var shareAwaitsDocument = false
+    /// Counts incoming pages, so a delivery that answers late cannot bring
+    /// back a share that a newer link replaced.
+    private var incomingGeneration = 0
+    /// `webView.url`, which also changes on the page's own client-side
+    /// navigations (after a sign-in, say).
+    private var urlObservation: NSKeyValueObservation?
 
     init(config: ShellConfig, inbox: PageInbox, theme: PageTheme, initAt: Double?) {
         self.config = config
@@ -123,6 +136,10 @@ final class ShellViewController: UIViewController {
         #endif
         self.webView = webView
         refresh = PageRefresh(webView: webView)
+        urlObservation = webView.observe(\.url) { [weak self] webView, _ in
+            guard !webView.isLoading else { return }
+            self?.deliverPendingShare()
+        }
         view = webView
     }
 
@@ -150,8 +167,9 @@ final class ShellViewController: UIViewController {
     /// or quick action that launched the app usually reaches the inbox first;
     /// one that arrives later replaces this load mid-flight.
     private func loadFirstPage() {
-        let incoming = inbox.attach { [weak self] page in self?.openIncoming(page) }
-        let page = incoming ?? resume.page() ?? config.startURL
+        let incoming = inbox.attach { [weak self] page, share in self?.openIncoming(page, share: share) }
+        let page = incoming?.page ?? resume.page() ?? config.startURL
+        expectShare(incoming?.share)
         showLaunchScreen()
         // The window usually exists by now; its insets beat the stored ones
         // when the phone is held the other way round from last time.
@@ -246,11 +264,52 @@ final class ShellViewController: UIViewController {
     /// A page from a link opened while the app was running. A Safari sheet
     /// left open would hide it, so it closes; alerts stay, since WebKit is
     /// waiting on their answer.
-    private func openIncoming(_ page: URL) {
+    private func openIncoming(_ page: URL, share: ShareIntent?) {
         if presentedViewController is SFSafariViewController {
             dismiss(animated: false)
         }
+        expectShare(share)
         load(page)
+    }
+
+    // MARK: Share import
+
+    /// Every incoming page replaces the pending share: one without a share
+    /// (a universal link, a quick action) clears it, so it never reaches a
+    /// page the user did not share into.
+    private func expectShare(_ share: ShareIntent?) {
+        incomingGeneration += 1
+        pendingShare = share
+        shareAwaitsDocument = share != nil
+    }
+
+    /// Hands the pending share to the page once the page is its import page,
+    /// whether that page loaded as a document or through the page's own
+    /// navigation after a sign-in. At most once: the share is cleared before
+    /// the script runs, and comes back only if the script found the wrong
+    /// page and no newer link replaced it.
+    private func deliverPendingShare() {
+        guard let intent = pendingShare, !shareAwaitsDocument else { return }
+        if intent.isExpired() {
+            pendingShare = nil
+            return
+        }
+        guard let page = webView.url, intent.matches(page, links: links) else { return }
+        pendingShare = nil
+        let generation = incomingGeneration
+        webView.callAsyncJavaScript(
+            ShareIntent.deliveryScript, arguments: intent.arguments(baseURL: config.baseURL),
+            in: nil, in: .page
+        ) { [weak self] result in
+            guard let self else { return }
+            if case .success(let handed) = result, handed as? Bool == true {
+                log.info("Share handed to the import page")
+                return
+            }
+            if generation == self.incomingGeneration, self.pendingShare == nil {
+                self.pendingShare = intent
+            }
+        }
     }
 
     /// Remembers the page for the next cold start. With nothing loaded yet,
@@ -477,12 +536,14 @@ extension ShellViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         hasCommittedPage = true
+        shareAwaitsDocument = false
         hideOffline()
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         offline.isRetrying = false
         dropLaunchTimingScript()
+        deliverPendingShare()
         // A page that does not report its frame (an older Web build) has
         // painted by the time it has loaded.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in

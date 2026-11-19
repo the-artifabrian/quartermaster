@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Shared with the app only: the Share Extension leaves the shared link
+	     here under a nonce, which tells the app the share came from its own
+	     extension (iOS README, "Share import"). -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.app.useqm.ios</string>
+	</array>
+</dict>
+</plist>

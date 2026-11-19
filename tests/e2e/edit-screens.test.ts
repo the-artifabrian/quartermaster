@@ -531,6 +531,33 @@ test.describe('leaving with changes asks first', () => {
 		}
 	})
 
+	test('changes the browser puts back after going back to the edit screen still ask before Cancel', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		await page.goto(`/recipes/${recipe.id}/edit`)
+		await hydrated(saveButton(page))
+		await page.getByLabel('Title').tap()
+		await page.getByLabel('Title').fill('Lentil soup EDITED')
+		// Leave the document (the browser asks; leave anyway), then come back:
+		// the browser puts the typed title back into the new page.
+		page.once('dialog', (dialog) => void dialog.accept())
+		await page.goto('/plan')
+		await page.goBack()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+		await hydrated(saveButton(page))
+		await expect(page.getByLabel('Title')).toHaveValue('Lentil soup EDITED')
+
+		await cancelLink(page).tap()
+		const sheet = discardSheet(page)
+		await expect(sheet).toBeVisible()
+		await sheet.getByRole('button', { name: 'Keep Editing' }).tap()
+		await expect(page.getByLabel('Title')).toHaveValue('Lentil soup EDITED')
+		expect(await recipeTitle(recipe.id)).toBe('Lentil soup')
+	})
+
 	test('a Menu with changes asks before Cancel too', async ({
 		page,
 		login,
@@ -951,6 +978,53 @@ test.describe('a deleted Recipe left in the history', () => {
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 		await prisma.household.delete({ where: { id: elsewhere.id } })
+	})
+
+	test('going back to a stored Recipe another member deleted opens Recipes', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		await watchNotFound(page)
+		await openRecipeFromList(page, recipe.title)
+		await mainTab(page, 'Plan').tap()
+		await expect(page).toHaveURL('/plan')
+		// Deleted on another device: nothing here empties the stored copy.
+		await prisma.recipe.delete({ where: { id: recipe.id } })
+		await page.goBack()
+		await expect(page).toHaveURL('/recipes')
+		await expect(
+			page.getByRole('heading', { name: /^My Recipes/ }),
+		).toBeVisible()
+		expect(await sawNotFound(page)).toBe(false)
+	})
+
+	test('going back offline shows the stored Recipe; once online, a Recipe deleted meanwhile opens Recipes', async ({
+		page,
+		context,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		await watchNotFound(page)
+		await openRecipeFromList(page, recipe.title)
+		await mainTab(page, 'Plan').tap()
+		await expect(page).toHaveURL('/plan')
+		await prisma.recipe.delete({ where: { id: recipe.id } })
+		await context.setOffline(true)
+		await page.goBack()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+		// The stored copy, until the network is back.
+		await expect(
+			page.getByRole('heading', { level: 1, name: 'Lentil soup' }),
+		).toBeVisible()
+		await context.setOffline(false)
+		await expect(page).toHaveURL('/recipes')
+		await expect(
+			page.getByRole('heading', { name: /^My Recipes/ }),
+		).toBeVisible()
+		expect(await sawNotFound(page)).toBe(false)
 	})
 
 	test('a link or a deep link to a missing Recipe still says it is not found', async ({

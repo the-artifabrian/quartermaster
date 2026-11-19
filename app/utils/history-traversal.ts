@@ -15,6 +15,10 @@
 
 let traversalTo: string | null = null
 let committed: string | null = null
+// The page a traversal committed, until the next commit: a page that showed
+// its stored data (loader-cache.ts) refreshes it right after, and that
+// refresh is the traversal's load.
+let landed: string | null = null
 let refreshing: string | null = null
 
 const pathOf = (url: { pathname: string; search: string }) =>
@@ -25,8 +29,14 @@ export function notePopState(target: string) {
 }
 
 export function noteCommit(path: string) {
+	landed = traversalTo === path && path !== committed ? path : null
 	committed = path
 	traversalTo = null
+}
+
+/** Whether the page showing at `path` was reached by a back or forward. */
+export function wasLandedByTraversal(path: string) {
+	return landed === path
 }
 
 export function noteRefreshAfterTraversal(path: string) {

@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useRevalidator } from 'react-router'
+import {
+	clearRefreshAfterTraversal,
+	noteRefreshAfterTraversal,
+	wasLandedByTraversal,
+} from './history-traversal.ts'
 import { type LoaderCacheOptions, loaderCache } from './loader-cache.ts'
 
 /**
@@ -45,6 +50,15 @@ export function useStaleRevalidate(
 		}
 		if (!navigator.onLine) {
 			waitingForNetwork.current = true
+			return
+		}
+		// Reached by a back or forward, the refresh is that traversal's load:
+		// a Recipe gone since it was stored opens its list (gone-item.tsx).
+		if (wasLandedByTraversal(href)) {
+			noteRefreshAfterTraversal(href)
+			void Promise.resolve(revalidate()).finally(() =>
+				clearRefreshAfterTraversal(href),
+			)
 			return
 		}
 		void revalidate()

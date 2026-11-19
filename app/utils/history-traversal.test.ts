@@ -8,6 +8,7 @@ import {
 	noteCommit,
 	notePopState,
 	noteRefreshAfterTraversal,
+	wasLandedByTraversal,
 } from './history-traversal.ts'
 
 /** Where the address bar is: the browser moves it before a pop loads. */
@@ -61,4 +62,24 @@ test('the search is part of the page', () => {
 	notePopState('/recipes?q=soup')
 	expect(isHistoryTraversalTo(url('/recipes'))).toBe(false)
 	expect(isHistoryTraversalTo(url('/recipes?q=soup'))).toBe(true)
+})
+
+test('a pop that showed stored data counts while its page refreshes that data', () => {
+	addressBar('/recipes/r1')
+	notePopState('/recipes/r1')
+	noteCommit('/recipes/r1')
+	expect(wasLandedByTraversal('/recipes/r1')).toBe(true)
+})
+
+test('a page a link opened was not landed by a traversal', () => {
+	addressBar('/recipes/r1')
+	noteCommit('/recipes/r1')
+	expect(wasLandedByTraversal('/recipes/r1')).toBe(false)
+})
+
+test('the router undoing a held pop does not land by traversal either', () => {
+	addressBar('/recipes/r1/edit')
+	notePopState('/recipes/r1/edit')
+	noteCommit('/recipes/r1/edit')
+	expect(wasLandedByTraversal('/recipes/r1/edit')).toBe(false)
 })

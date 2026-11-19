@@ -21,6 +21,7 @@ import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
 import {
 	NavBar,
+	useEditFormOnScreen,
 	useNavBarConfig,
 	useRecordHistory,
 } from './components/nav-bar.tsx'
@@ -428,9 +429,9 @@ function App() {
 	const navBar = user ? navBarConfig : null
 	// An edit screen (its route names the form the bar's Save submits) hides
 	// the tab bar, as an iOS edit screen does: Cancel and Save are the ways
-	// out. Its error page keeps it. The server knows both, so the first paint
-	// has no tab bar to lose.
-	const editScreen = Boolean(navBar?.form && navBar.loaded)
+	// out. Its error page keeps it, an error after load included. The server
+	// knows both, so the first paint has no tab bar to lose.
+	const editScreen = useEditFormOnScreen(navBar?.form, navBar?.loaded ?? false)
 	const toastTop = navBar
 		? 'var(--nav-bar-bottom, calc(var(--safe-top) + 44px))'
 		: 'var(--safe-top)'

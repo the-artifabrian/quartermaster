@@ -236,6 +236,30 @@ function useTitleUnderBar(barRef: React.RefObject<HTMLElement | null>) {
 	return state.pathname === pathname ? state : { title: '', under: false }
 }
 
+/**
+ * Whether the route's edit form is on screen: the bar shows Cancel and Save,
+ * and the tab bar hides, only then. Until the form has reported, the route's
+ * own state says: its page (and form) renders unless it failed to load. Once
+ * it has, an error after load (a Delete that finds the Recipe gone) takes the
+ * form away and with it the edit screen. A layout effect, subscribed before
+ * the form's own layout effect reports, so a first frame never shows Back
+ * where Cancel belongs.
+ */
+export function useEditFormOnScreen(form: string | undefined, loaded: boolean) {
+	const [formMount, setFormMount] = useState<{
+		form: string
+		mounted: boolean
+	} | null>(null)
+	useLayoutEffect(() => {
+		if (!form) return
+		const sync = () => setFormMount({ form, mounted: mountedForms.has(form) })
+		sync()
+		return subscribeForms(sync)
+	}, [form])
+	if (!form) return false
+	return formMount?.form === form ? formMount.mounted : loaded
+}
+
 const barTextButton =
 	'text-primary flex min-h-11 items-center rounded-md px-2 text-[17px] leading-none transition-opacity active:opacity-60 md:text-base'
 
@@ -255,25 +279,7 @@ export function NavBar({ rule, form, loaded = true }: NavBarConfig) {
 		() => barLocks > 0,
 		() => false,
 	)
-	// Whether the edit form is on screen. Until the form has reported, the
-	// route's own state says: its page (and form) renders unless it failed to
-	// load. A layout effect, subscribed before the form's own layout effect
-	// reports, so a first frame never shows Back where Cancel belongs.
-	const [formMount, setFormMount] = useState<{
-		form: string
-		mounted: boolean
-	} | null>(null)
-	useLayoutEffect(() => {
-		if (!form) return
-		const sync = () => setFormMount({ form, mounted: mountedForms.has(form) })
-		sync()
-		return subscribeForms(sync)
-	}, [form])
-	const formOnScreen = form
-		? formMount?.form === form
-			? formMount.mounted
-			: loaded
-		: false
+	const formOnScreen = useEditFormOnScreen(form, loaded)
 	const editing = form && formOnScreen ? form : null
 	const viaTabBar = isViaTabBar(location.state)
 	// The history entry this page committed on. The browser's own index moves

@@ -88,6 +88,12 @@ export function useLeaveEditScreen() {
 	return { leaving, leave }
 }
 
+// One entry per submitted value, as FormData lists them. Textareas keep
+// their line breaks either way, so both sides compare on \n.
+function entry(name: string, value: string) {
+	return `${name}=${value.replace(/\r\n/g, '\n')}`
+}
+
 /** The form's values as a string, for telling whether anything changed. */
 function formSnapshot(form: HTMLFormElement) {
 	const parts: string[] = []
@@ -95,16 +101,61 @@ function formSnapshot(form: HTMLFormElement) {
 		// Rendered after hydration, so it is missing from the first snapshot.
 		if (name === CLIENT_LEAVES_FIELD) continue
 		parts.push(
-			`${name}=${typeof value === 'string' ? value : `file:${value.name}:${value.size}`}`,
+			typeof value === 'string'
+				? entry(name, value)
+				: `${name}=file:${value.name}:${value.size}`,
 		)
 	}
 	return JSON.stringify(parts)
 }
 
 /**
+ * The same, from what the page rendered (each field's default), not what
+ * the fields hold now. A back to the edit screen that loads it again lets
+ * the browser put typed text back into the fields before the page reads
+ * them; those edits must still count as changes.
+ */
+function renderedSnapshot(form: HTMLFormElement) {
+	const parts: string[] = []
+	for (const element of Array.from(form.elements)) {
+		if (!(
+			element instanceof HTMLInputElement ||
+			element instanceof HTMLTextAreaElement ||
+			element instanceof HTMLSelectElement
+		)) {
+			continue
+		}
+		const { name } = element
+		if (!name || element.disabled || name === CLIENT_LEAVES_FIELD) continue
+		if (element instanceof HTMLSelectElement) {
+			for (const option of Array.from(element.options)) {
+				if (option.defaultSelected) parts.push(entry(name, option.value))
+			}
+			continue
+		}
+		if (element instanceof HTMLTextAreaElement) {
+			parts.push(entry(name, element.defaultValue))
+			continue
+		}
+		const type = element.type
+		if (['submit', 'button', 'image', 'reset'].includes(type)) continue
+		if (type === 'checkbox' || type === 'radio') {
+			if (element.defaultChecked) parts.push(entry(name, element.value))
+			continue
+		}
+		if (type === 'file') {
+			parts.push(`${name}=file::0`)
+			continue
+		}
+		parts.push(entry(name, element.defaultValue))
+	}
+	return JSON.stringify(parts)
+}
+
+/**
  * Asks before leaving an edit form with changes: by Cancel, the edge swipe
- * or browser back, or a link. The form is compared with what it showed
- * once mounted, so a form nobody touched never asks. Keep Editing stays with
+ * or browser back, or a link. The form is compared with what the page
+ * rendered, so a form nobody touched never asks. Keep Editing stays with
  * the edits; Discard Changes goes where the user was going.
  */
 export function DiscardChangesGuard({
@@ -118,7 +169,7 @@ export function DiscardChangesGuard({
 	const loaded = useRef<string | null>(null)
 	useEffect(() => {
 		const form = document.getElementById(formId)
-		if (form instanceof HTMLFormElement) loaded.current = formSnapshot(form)
+		if (form instanceof HTMLFormElement) loaded.current = renderedSnapshot(form)
 	}, [formId])
 
 	const changed = () => {

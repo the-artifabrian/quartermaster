@@ -182,15 +182,18 @@ function ItemRow({
 										: `/recipes/${item.recipe.id}`
 								}
 								className={cn(
-									'flex min-h-11 min-w-11 items-center hover:underline md:inline md:min-h-0 md:min-w-0',
+									'flex min-h-11 min-w-0 items-center hover:underline md:inline md:min-h-0',
 									!isCooked && 'text-foreground',
 								)}
 								onClick={(e) => e.stopPropagation()}
 							>
-								<span className="line-clamp-2">{item.recipeTitle}</span>
+								{/* A long word breaks rather than widen the page. */}
+								<span className="line-clamp-2 min-w-11 wrap-anywhere">
+									{item.recipeTitle}
+								</span>
 							</Link>
 						) : (
-							<span className="text-muted-foreground line-clamp-2">
+							<span className="text-muted-foreground line-clamp-2 min-w-0 wrap-anywhere">
 								{item.recipeTitle}
 							</span>
 						)}

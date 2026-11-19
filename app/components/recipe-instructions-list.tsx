@@ -49,7 +49,7 @@ export function RecipeInstructionsList({
 							aria-checked={isChecked}
 							tabIndex={0}
 							className={cn(
-								'border-border/30 flex cursor-pointer gap-4 border-b px-1 py-3 transition-colors select-none last:border-b-0 print:gap-2 print:border-b-0 print:px-0 print:py-0',
+								'border-border/30 flex cursor-pointer gap-3 border-b py-3 transition-colors select-none last:border-b-0 print:gap-2 print:border-b-0 print:px-0 print:py-0',
 								'focus-visible:ring-primary/50 focus-visible:rounded-lg focus-visible:ring-2 focus-visible:outline-none',
 							)}
 							onClick={() => handleToggle(instruction.id)}
@@ -62,7 +62,9 @@ export function RecipeInstructionsList({
 						>
 							<span
 								className={cn(
-									'flex size-8 shrink-0 items-center justify-center font-serif text-xl leading-none font-normal transition-colors print:size-5 print:text-sm',
+									// The width of an ingredient's checkbox, so steps and ingredients
+									// share their columns.
+									'flex h-8 w-6 shrink-0 items-center justify-center font-serif text-xl leading-none font-normal transition-colors print:size-5 print:text-sm',
 									isChecked ? 'text-primary/40' : 'text-muted-foreground',
 								)}
 							>

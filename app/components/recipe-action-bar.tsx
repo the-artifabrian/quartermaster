@@ -38,7 +38,9 @@ export function RecipeActionBar({
 	onResetCookingChecks?: () => void
 }) {
 	return (
-		<div className="mt-4 flex flex-wrap items-center gap-1 md:mt-6 md:gap-2 print:hidden">
+		// The first glyph sits on the content edge; its 44px button hangs into
+		// the gutter.
+		<div className="mt-4 -ml-3 flex flex-wrap items-center gap-1 md:mt-6 md:gap-2 print:hidden">
 			{/* Favorite */}
 			<favoriteFetcher.Form method="POST">
 				<input type="hidden" name="intent" value="toggleFavorite" />

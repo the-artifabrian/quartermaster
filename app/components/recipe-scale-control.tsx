@@ -227,6 +227,9 @@ export function RecipeIngredientsControls({
 					aria-expanded={ingredientsExpanded}
 					aria-controls="ingredients-list"
 				>
+					{/* The chevron trails, so the heading starts on the content edge
+					    like Instructions. */}
+					<h2 className="font-serif text-lg font-normal">Ingredients</h2>
 					<Icon
 						name="chevron-down"
 						size="sm"
@@ -236,7 +239,6 @@ export function RecipeIngredientsControls({
 							!ingredientsExpanded && '-rotate-90',
 						)}
 					/>
-					<h2 className="font-serif text-lg font-normal">Ingredients</h2>
 				</button>
 				<h2 className="hidden font-serif text-lg font-normal lg:block print:block">
 					Ingredients
@@ -309,7 +311,7 @@ export function RecipeIngredientsControls({
 			{formattedTargetYield != null && recipeYield ? (
 				<p
 					aria-live="polite"
-					className="text-muted-foreground min-w-0 pl-0 text-xs leading-relaxed break-words max-lg:pl-[1.375rem] print:hidden"
+					className="text-muted-foreground min-w-0 text-xs leading-relaxed break-words print:hidden"
 				>
 					<span>
 						Makes {formattedTargetYield} {recipeYield.label}

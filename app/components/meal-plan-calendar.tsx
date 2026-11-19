@@ -661,11 +661,9 @@ export function MealPlanCalendar({
 					{shownCount(selectedMeals) > 0 ? (
 						<MealCards meals={selectedMeals} choices={choices} />
 					) : (
-						<div className="border-border/60 mt-2 flex min-h-36 flex-col items-center justify-center rounded-2xl border border-dashed px-6 text-center">
-							<span className="bg-secondary text-muted-foreground flex size-10 items-center justify-center rounded-full">
-								<Icon name="calendar" size="sm" />
-							</span>
-							<p className="mt-3 font-serif text-lg">Nothing planned</p>
+						// Flat, like the Meals it stands in for.
+						<div className="py-3">
+							<p className="text-muted-foreground">Nothing planned</p>
 							<p className="text-muted-foreground mt-1 text-sm">
 								Tap + to plan a Recipe, Menu, or note.
 							</p>

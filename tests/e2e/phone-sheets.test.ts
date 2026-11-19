@@ -766,9 +766,9 @@ test.describe('Plan Meals as flat rows', () => {
 			},
 		})
 
-		for (const [viewport, copy, inset] of [
-			[{ width: 390, height: 844 }, 'mobile-plan', 44],
-			[{ width: 1280, height: 800 }, 'desktop-plan', 32],
+		for (const [viewport, copy] of [
+			[{ width: 390, height: 844 }, 'mobile-plan'],
+			[{ width: 1280, height: 800 }, 'desktop-plan'],
 		] as const) {
 			await page.setViewportSize(viewport)
 			await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
@@ -804,8 +804,8 @@ test.describe('Plan Meals as flat rows', () => {
 				}
 			})
 			expect(divider).toEqual({ width: '1px', matches: true })
-			// Between the two Recipes of one Meal: a hairline that starts past
-			// the cooked toggle, not at the row's edge.
+			// Between the two Recipes of one Meal: a hairline that starts where
+			// the titles start, past the cooked toggle.
 			const salads = plan
 				.locator(`[data-meal-id="${pair.id}"]`)
 				.getByRole('link', { name: 'Cucumber Salad' })
@@ -818,10 +818,14 @@ test.describe('Plan Meals as flat rows', () => {
 				const line = getComputedStyle(row!, '::before')
 				return {
 					width: line.borderTopWidth,
-					left: Math.round(parseFloat(line.left)),
+					left: Math.round(
+						row!.getBoundingClientRect().left + parseFloat(line.left),
+					),
+					title: Math.round(link.getBoundingClientRect().left),
 				}
 			})
-			expect(inner).toEqual({ width: '1px', left: inset })
+			expect(inner.width).toBe('1px')
+			expect(inner.left).toBe(inner.title)
 		}
 
 		// The cooked toggle and the Meal's menu still work on a phone.

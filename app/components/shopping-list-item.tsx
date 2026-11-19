@@ -254,7 +254,9 @@ export function ShoppingListItemCard({
 
 	return (
 		<div
-			className="group relative overflow-hidden"
+			// Reaches 14px into the right gutter, so the dots glyph of the 44px
+			// menu button ends on the content edge, under the list's hairlines.
+			className="group relative -mr-3.5 overflow-hidden"
 			role="group"
 			aria-label={`${item.name} shopping item`}
 			// A row added just now eases in (tailwind.css); the saved row that

@@ -1071,7 +1071,7 @@ export default function ShoppingListRoute({
 								</>
 							)}
 						</h1>
-						<div className="flex items-center gap-2 sm:ml-auto">
+						<div className="flex items-center gap-2">
 							<ShoppingStaplesPicker
 								key={shoppingList.householdId ?? shoppingList.id}
 								shoppingIdentities={shoppingIdentities}
@@ -1313,11 +1313,17 @@ export default function ShoppingListRoute({
 				<section className="border-border/50 mt-8 border-t pt-3">
 					<button
 						type="button"
-						className="hover:bg-muted/50 flex min-h-11 w-full items-center gap-2 rounded-md px-1 text-left"
+						// The heading starts on the content edge, like the list
+						// above; the hover fill reaches past it.
+						className="hover:bg-muted/50 -mx-2 flex min-h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-md px-2 text-left"
 						onClick={() => setLaterExpanded((expanded) => !expanded)}
 						aria-expanded={showLaterContents}
 						aria-controls="later-shopping-items"
 					>
+						<h2 className="font-serif text-lg">Later</h2>
+						<span className="text-muted-foreground text-sm tabular-nums">
+							({laterItems.length})
+						</span>
 						<Icon
 							name="chevron-down"
 							size="sm"
@@ -1326,10 +1332,6 @@ export default function ShoppingListRoute({
 								showLaterContents && 'rotate-180',
 							)}
 						/>
-						<h2 className="font-serif text-lg">Later</h2>
-						<span className="text-muted-foreground text-sm tabular-nums">
-							({laterItems.length})
-						</span>
 						{checkedLaterItems > 0 && (
 							<span className="text-muted-foreground ml-auto text-xs tabular-nums">
 								{checkedLaterItems} checked
@@ -1337,11 +1339,7 @@ export default function ShoppingListRoute({
 						)}
 					</button>
 					{showLaterContents && (
-						<div
-							id="later-shopping-items"
-							className="pl-1"
-							data-shopping-horizon={LATER}
-						>
+						<div id="later-shopping-items" data-shopping-horizon={LATER}>
 							{!search && <LaterQuickAdd />}
 							{filteredLaterItems.length > 0 ? (
 								<ShoppingItems

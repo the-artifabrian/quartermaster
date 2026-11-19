@@ -323,9 +323,7 @@ function StapleRow({
 					onClickCapture={swipe.handlers.onClickCapture}
 					className="bg-background relative z-1 flex w-full min-w-0 touch-pan-y touch-pinch-zoom items-center gap-2 py-1"
 				>
-					<span className="min-w-0 flex-1 truncate pl-1">
-						{staple.displayName}
-					</span>
+					<span className="min-w-0 flex-1 truncate">{staple.displayName}</span>
 					{/* Enabled even when the row is already on the list: a second tap
 					    writes nothing and answers "is this one done?" out loud. Its
 					    name starts with what it shows, then says which Staple. */}
@@ -390,7 +388,7 @@ function StapleRow({
 				</button>
 			</div>
 			{shopFailed && (
-				<p className="text-destructive mt-1 pl-1 text-sm" role="alert">
+				<p className="text-destructive mt-1 text-sm" role="alert">
 					{shopFetcher.data?.message ??
 						`Could not add ${staple.displayName} to Next shop`}
 				</p>

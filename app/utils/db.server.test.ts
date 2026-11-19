@@ -53,7 +53,7 @@ function openConnections(url: string) {
 
 /** Connections still open once garbage collection has freed what it can. */
 async function connectionsAfterCollection(url: string) {
-	const deadline = Date.now() + 5_000
+	const deadline = Date.now() + 3_000
 	let open = openConnections(url)
 	while (open > 2 && Date.now() < deadline) {
 		collectGarbage()

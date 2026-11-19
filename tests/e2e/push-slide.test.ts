@@ -19,6 +19,12 @@ type Transition = {
 	/** The animation the new page's snapshot runs. */
 	animation: string | null
 	finished: boolean
+	/** Sheets, menus and sheet copies on screen as the leaving page's picture
+	 * is taken, and once the new page has rendered. */
+	overlaysAtStart: number
+	overlaysAfterUpdate: number
+	/** Inert copies of a sheet playing its exit, once the new page rendered. */
+	sheetCopies: number
 }
 
 /**
@@ -35,7 +41,18 @@ async function instrument(page: Page) {
 			direction: string | null
 			animation: string | null
 			finished: boolean
+			overlaysAtStart: number
+			overlaysAfterUpdate: number
+			sheetCopies: number
 		}> = []
+		const overlaysShown = () =>
+			[
+				...document.querySelectorAll(
+					'[role=dialog], [role=menu], [data-bottom-sheet]',
+				),
+			].filter((overlay) =>
+				overlay.checkVisibility({ visibilityProperty: true }),
+			).length
 		Object.assign(window, {
 			__bridgeMessages: messages,
 			__transitions: transitions,
@@ -52,17 +69,25 @@ async function instrument(page: Page) {
 		document.startViewTransition = ((
 			...args: Parameters<typeof document.startViewTransition>
 		) => {
+			const overlaysAtStart = overlaysShown()
 			const transition = start(...args)
 			const record = {
 				direction: null as string | null,
 				animation: null as string | null,
 				finished: false,
+				overlaysAtStart,
+				overlaysAfterUpdate: 0,
+				sheetCopies: 0,
 			}
 			transitions.push(record)
 			transition.updateCallbackDone.then(
 				() => {
 					record.direction =
 						document.documentElement.dataset.navDirection ?? null
+					record.overlaysAfterUpdate = overlaysShown()
+					record.sheetCopies = document.querySelectorAll(
+						'[data-bottom-sheet][inert]',
+					).length
 				},
 				() => {},
 			)
@@ -163,6 +188,7 @@ async function instrument(page: Page) {
 					? 'page-enter-from-right'
 					: 'page-return-from-left',
 		})
+		return started[0]!
 	}
 
 	/**
@@ -342,17 +368,25 @@ test.describe('in the iOS app', () => {
 		const add = page.getByRole('button', { name: 'New Recipe' })
 		await hydrated(add)
 
+		// The menu goes as the push begins: it does not slide away with the
+		// page.
 		await add.tap()
-		await ui.expectSlide('forward', () =>
-			page.getByRole('menuitem', { name: 'Import' }).tap(),
-		)
+		await expect(page.getByRole('menu')).toBeVisible()
+		expect(
+			await ui.expectSlide('forward', () =>
+				page.getByRole('menuitem', { name: 'Import' }).tap(),
+			),
+		).toMatchObject({ overlaysAtStart: 0, overlaysAfterUpdate: 0 })
 		await expect(page).toHaveURL('/recipes/import')
 		await ui.expectSlide('back', () => backButton(page, 'Recipes').tap())
 
 		await add.tap()
-		await ui.expectSlide('forward', () =>
-			page.getByRole('menuitem', { name: 'Write a Recipe' }).tap(),
-		)
+		await expect(page.getByRole('menu')).toBeVisible()
+		expect(
+			await ui.expectSlide('forward', () =>
+				page.getByRole('menuitem', { name: 'Write a Recipe' }).tap(),
+			),
+		).toMatchObject({ overlaysAtStart: 0, overlaysAfterUpdate: 0 })
 		await expect(page).toHaveURL('/recipes/new')
 		await hydrated(saveButton(page))
 		await page.getByLabel('Title').fill('Bean stew')
@@ -522,8 +556,17 @@ test.describe('in the iOS app', () => {
 		const sheet = page.getByRole('dialog')
 		const newRecipe = sheet.getByRole('link', { name: 'New Recipe' })
 		await expect(newRecipe).toBeVisible()
-		await ui.expectSlide('forward', () => newRecipe.tap())
+		// The sheet goes as the push begins: it is not in the Plan's picture,
+		// and no copy of it slides down over the new page.
+		expect(
+			await ui.expectSlide('forward', () => newRecipe.tap()),
+		).toMatchObject({
+			overlaysAtStart: 0,
+			overlaysAfterUpdate: 0,
+			sheetCopies: 0,
+		})
 		await expect(page).toHaveURL('/recipes/new')
+		await expect(page.locator('[data-bottom-sheet]')).toHaveCount(0)
 	})
 
 	test('Settings and its pages slide in from the avatar', async ({
@@ -545,6 +588,18 @@ test.describe('in the iOS app', () => {
 		await expect(navBar(page)).toBeVisible()
 		await ui.expectSlide('back', () => backButton(page, 'Settings').tap())
 		await expect(page).toHaveURL('/settings/profile')
+
+		// A password page leaves by the nav bar's Back only.
+		await ui.expectSlide('forward', () =>
+			page.getByRole('link', { name: /^(Create )?Password$/ }).tap(),
+		)
+		await expect(page).toHaveURL(/\/settings\/profile\/password/)
+		await expect(
+			page.locator('main').getByRole('link', { name: 'Cancel' }),
+		).toHaveCount(0)
+		await ui.expectSlide('back', () => backButton(page, 'Settings').tap())
+		await expect(page).toHaveURL('/settings/profile')
+
 		await ui.expectSlide('back', () => backButton(page, 'Plan').tap())
 		await expect(page).toHaveURL('/plan')
 
@@ -708,7 +763,9 @@ test.describe('in the iOS app', () => {
 		login,
 	}) => {
 		const ui = await instrument(page)
-		// WebKit marks the popstate of its own back swipe; Chromium never does.
+		// The browser marks the popstate of a back it animated itself (WebKit's
+		// edge swipe); a back from script, as here, is unmarked, so the test
+		// marks it.
 		await page.addInitScript(() => {
 			Object.defineProperty(PopStateEvent.prototype, 'hasUAVisualTransition', {
 				configurable: true,
@@ -725,15 +782,23 @@ test.describe('in the iOS app', () => {
 		await ui.expectSlide('forward', () =>
 			page.getByRole('link', { name: 'Edit Recipe' }).tap(),
 		)
+		const before = (await ui.transitions()).length
 		await page.evaluate(() => {
 			Object.assign(window, { __uaSwipe: true })
 			window.history.back()
 		})
 		await expect(page).toHaveURL(`/recipes/${soup.id}`)
+		await expect
+			.poll(async () => (await ui.transitions()).length)
+			.toBeGreaterThan(before)
 		await ui.settled()
-		const last = (await ui.transitions()).at(-1)
-		expect(last?.direction).toBe('none')
-		expect(last?.animation).toBeNull()
+		// The pop's own transition, and any a revalidation starts after it,
+		// move nothing.
+		const started = (await ui.transitions()).slice(before)
+		expect(started[0]?.direction).toBe('none')
+		for (const transition of started) {
+			expect(transition.animation).toBeNull()
+		}
 	})
 
 	test.describe('haptics', () => {
@@ -778,6 +843,86 @@ test.describe('in the iOS app', () => {
 			await hydrated(step)
 			await ui.settled()
 			expect(await ui.haptics()).toEqual([])
+		})
+
+		test('a Save the server turns down, or one sent offline, lands no success', async ({
+			page,
+			context,
+			login,
+		}) => {
+			const ui = await instrument(page)
+			const user = await login()
+			const stock = await createRecipe(user, 'Vegetable stock')
+			const soup = await createRecipe(user, 'Lentil soup', {
+				linkedRecipeId: stock.id,
+			})
+			await prisma.menu.create({
+				data: {
+					title: 'Soup night',
+					titleKey: 'soup night',
+					householdId: user.householdId,
+					sections: { create: { name: null, order: 0 } },
+				},
+			})
+
+			await page.goto(`/recipes/${soup.id}/edit`)
+			await hydrated(saveButton(page))
+			await ui.settled()
+			await page.getByLabel('Title').fill('Red lentil soup')
+			// Only the server can tell: the linked Recipe is gone.
+			await prisma.recipe.delete({ where: { id: stock.id } })
+			const linkGone = page.getByText(
+				'This linked Recipe was deleted. Remove the link to save.',
+				{ exact: true },
+			)
+			expect(
+				await ui.hapticsOf(async () => {
+					await saveButton(page).tap()
+					await expect(linkGone).toBeVisible()
+				}),
+			).toEqual([])
+			await page.getByRole('button', { name: 'Remove recipe link' }).tap()
+
+			await context.setOffline(true)
+			expect(
+				await ui.hapticsOf(async () => {
+					await saveButton(page).tap()
+					await expect(
+						page.getByText(
+							'You’re offline, so nothing was saved. Your changes are still here.',
+						),
+					).toBeVisible()
+				}),
+			).toEqual([])
+			await context.setOffline(false)
+			expect(
+				(await prisma.recipe.findUniqueOrThrow({ where: { id: soup.id } }))
+					.title,
+			).toBe('Lentil soup')
+
+			expect(
+				await ui.hapticsOf(async () => {
+					await saveButton(page).tap()
+					await expect(page).toHaveURL(`/recipes/${soup.id}`)
+				}),
+			).toEqual(['success'])
+
+			// A new Menu whose title another Menu has.
+			await page.goto('/recipes/menus/new')
+			await hydrated(saveButton(page))
+			await ui.settled()
+			await page.getByLabel('Title').fill('Soup night')
+			expect(
+				await ui.hapticsOf(async () => {
+					await saveButton(page).tap()
+					await expect(
+						page.getByText('A menu with this title already exists'),
+					).toBeVisible()
+				}),
+			).toEqual([])
+			expect(
+				await prisma.menu.count({ where: { householdId: user.householdId } }),
+			).toBe(1)
 		})
 
 		test('Mark cooked lands as a success, unmarking ticks', async ({
@@ -896,7 +1041,7 @@ test.describe('in the iOS app', () => {
 test.describe('in Safari', () => {
 	test.use({ userAgent: SAFARI_UA })
 
-	test('pushes do not slide: a Recipe card cross-fades, Edit opens at once', async ({
+	test('pushes do not slide: a Recipe card cross-fades, Edit and Save open at once', async ({
 		page,
 		login,
 	}) => {
@@ -923,5 +1068,27 @@ test.describe('in Safari', () => {
 		expect(
 			await page.evaluate(() => document.documentElement.dataset.navDirection),
 		).toBeUndefined()
+
+		// Saves leave at once too: an edit, and a new Recipe.
+		await hydrated(saveButton(page))
+		await page.getByLabel('Title').fill('Red lentil soup')
+		await ui.expectNoTransition(
+			() => saveButton(page).tap(),
+			() => expect(heading(page, 'Red lentil soup')).toBeVisible(),
+		)
+		await page.goto('/recipes/new')
+		await hydrated(saveButton(page))
+		await page.getByLabel('Title').fill('Bean stew')
+		await page.getByLabel('Ingredient 1 name').fill('beans')
+		await page.getByLabel('Step 1', { exact: true }).fill('Simmer.')
+		await ui.expectNoTransition(
+			() => saveButton(page).tap(),
+			() => expect(heading(page, 'Bean stew')).toBeVisible(),
+		)
+		expect(
+			await prisma.recipe.count({
+				where: { householdId: user.householdId, title: 'Bean stew' },
+			}),
+		).toBe(1)
 	})
 })

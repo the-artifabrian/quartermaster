@@ -238,6 +238,26 @@ test('a clean import just opens the Recipe: no notice, one saved haptic', async 
 	})
 })
 
+test('an import that had to shorten its title still shows the notice', async ({
+	page,
+	login,
+}) => {
+	await login()
+	const title = `Slow roasted tomato soup ${'with basil '.repeat(10)}`.trim()
+	expect(title.length).toBeGreaterThan(100)
+	await page.goto('/recipes/import')
+	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
+	await page
+		.getByLabel('Recipe text', { exact: true })
+		.fill(`${title}\nIngredients\n4 tomatoes\nInstructions\nRoast them.`)
+	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
+
+	await expect(page).toHaveURL(savedRecipeUrl)
+	await expect(
+		page.getByRole('region', { name: 'Saved to your Recipes' }),
+	).toContainText('We shortened the title to fit.')
+})
+
 test('text with neither ingredients nor steps saves nothing and keeps what was pasted', async ({
 	page,
 	login,

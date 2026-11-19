@@ -16,14 +16,14 @@ plan into Shopping.
   manually when needed. Quick Entry and the legacy text/file bulk importer have
   been removed. Household and Recipe JSON recovery remain available.
 - An import saves the Recipe at once and opens it. When there is something to
-  look at, a notice on the Recipe says where it came from, which of
-  ingredients or instructions it could not find, what it shortened to fit, or
-  that an older Recipe has the same title, with Edit, Import another and Undo.
-  A clean import shows no notice. Text over a
-  limit moves to the field beside it when that keeps it whole (a long
-  description into Notes); anything still too long is cut at a word. An import
-  with neither ingredients nor instructions saves nothing. The notice shows
-  once: a reload, Back, or reopening the app does not bring it back.
+  look at, a notice on the Recipe says where it came from, which of ingredients
+  or instructions it could not find, what it shortened to fit, or that an older
+  Recipe has the same title, with Edit, Import another and Undo. A clean import
+  shows no notice. Text over a limit moves to the field beside it when that
+  keeps it whole (a long description into Notes); anything still too long is cut
+  at a word. An import with neither ingredients nor instructions saves nothing.
+  The notice shows once: a reload, Back, or reopening the app does not bring it
+  back.
 - Extract with AI (Pro) transcribes: it adds no ingredient, amount, step or time
   the source does not give, and keeps ranges ("1-2 tsp") and measure words ("3
   cloves", "1 pinch") as the amount and unit, as the other imports do. A caption

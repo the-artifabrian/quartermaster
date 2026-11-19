@@ -181,6 +181,7 @@ async function instrument(page: Page) {
 
 	return {
 		transitions,
+		messages,
 		haptics,
 		settled,
 		expectSlide,
@@ -745,11 +746,12 @@ test.describe('in the iOS app', () => {
 
 			// A pull to refresh revalidates the page.
 			expect(
-				await ui.hapticsOf(() =>
-					page.evaluate(() =>
+				await ui.hapticsOf(async () => {
+					await page.evaluate(() =>
 						window.dispatchEvent(new CustomEvent('qm:refresh')),
-					),
-				),
+					)
+					await expect.poll(ui.messages).toContain('refresh:done')
+				}),
 			).toEqual([])
 
 			expect(await ui.hapticsOf(() => lentils.tap())).toEqual(['selection'])
@@ -762,8 +764,11 @@ test.describe('in the iOS app', () => {
 			await expect(step).toHaveAttribute('aria-checked', 'true')
 
 			// The checks come back with the page, without a tick.
-			expect(await ui.hapticsOf(() => page.reload())).toEqual([])
+			await page.reload()
 			await expect(step).toHaveAttribute('aria-checked', 'true')
+			await hydrated(step)
+			await ui.settled()
+			expect(await ui.haptics()).toEqual([])
 		})
 
 		test('Mark cooked lands as a success, unmarking ticks', async ({

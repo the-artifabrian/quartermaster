@@ -45,8 +45,7 @@ export function SegmentedControl<Value extends string>({
 
 	// A new selection ticks, as a picker does; the one already chosen does not.
 	function select(next: Value) {
-		if (next === value) return
-		haptic('selection')
+		if (next !== value) haptic('selection')
 		onValueChange(next)
 	}
 

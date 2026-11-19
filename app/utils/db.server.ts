@@ -54,8 +54,9 @@ export function releaseWhenSettled(transaction: Transaction): Transaction {
 		throw new LibsqlError('The transaction is closed', 'TRANSACTION_CLOSED')
 	}
 	return {
-		async execute(stmt) {
-			return current().execute(stmt)
+		// Every argument passes through: dropping one would bind it as NULL.
+		async execute(...args: Parameters<Transaction['execute']>) {
+			return current().execute(...args)
 		},
 		async batch(stmts) {
 			return current().batch(stmts)

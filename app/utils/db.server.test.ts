@@ -89,7 +89,9 @@ test.each(['commit', 'fail a statement', 'throw'] as const)(
 			await new Promise((resolve) => setImmediate(resolve))
 		}
 
-		expect(await connectionsAfterCollection(url)).toBeLessThanOrEqual(2)
+		// Exactly the client's own connection. Zero would mean the count
+		// matched nothing (and could not catch a leak).
+		expect(await connectionsAfterCollection(url)).toBe(1)
 		const after = await db.household.findUniqueOrThrow({ where })
 		expect(after.name).toBe(
 			ending === 'commit' ? `Run ${TRANSACTIONS - 1}` : 'Start',
@@ -175,6 +177,47 @@ function fakeTransaction(overrides: Partial<Transaction> = {}) {
 		...overrides,
 	} satisfies Transaction
 }
+
+test('a COMMIT that fails on a real database lets go of its lock: other writers and the client go on', async () => {
+	await using database = await createWalDatabase()
+	const { db, url } = database
+	const household = await db.household.create({ data: { name: 'Start' } })
+	// A deferred foreign key is only checked at COMMIT, so the COMMIT fails.
+	const error = await db
+		.$transaction(async (tx) => {
+			await tx.$executeRawUnsafe('PRAGMA defer_foreign_keys = ON')
+			await tx.$executeRawUnsafe(
+				`INSERT INTO "HouseholdMember" ("id","householdId","userId","role","createdAt","updatedAt") VALUES ('m1','missing','missing','member',0,0)`,
+			)
+			await tx.household.update({
+				where: { id: household.id },
+				data: { name: 'Never' },
+			})
+		})
+		.then(
+			() => null,
+			(failure: unknown) => failure,
+		)
+	expect(String(error)).toMatch(/FOREIGN KEY/i)
+
+	const other = writeFromAnotherConnection(
+		url,
+		'UPDATE "Household" SET "name" = ? WHERE "id" = ?',
+		['Other', household.id],
+	).committed
+	// Well inside the 5 s busy timeout: nothing still holds the write lock.
+	expect(await settlesWithin(other, 2000)).toBe(true)
+	await other
+	await db.household.update({
+		where: { id: household.id },
+		data: { name: 'Same' },
+	})
+	expect(
+		(await db.household.findUniqueOrThrow({ where: { id: household.id } }))
+			.name,
+	).toBe('Same')
+	expect(await db.householdMember.count({ where: { id: 'm1' } })).toBe(0)
+})
 
 test('a COMMIT that fails rolls the transaction back and reports the failure', async () => {
 	const failure = new Error('SQLITE_BUSY')

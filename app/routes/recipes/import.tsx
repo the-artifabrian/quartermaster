@@ -1,7 +1,7 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { recipeImportNav } from '#app/utils/nav-back.ts'
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Form, Link, useActionData, useNavigation } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -17,6 +17,7 @@ import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import { findRecipeFromUrl } from '#app/utils/import-recipe-save.server.ts'
 import { importUrlFromSearch } from '#app/utils/import-url.ts'
 import { MAX_IMPORT_IMAGE_SIZE } from '#app/utils/recipe-validation.ts'
+import { SHARE_IMPORT_EVENT, takeShareImport } from '#app/utils/shell-bridge.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
 import { importAction } from './import-action.server.ts'
@@ -86,6 +87,38 @@ export async function action({ request }: Route.ActionArgs) {
 	return importAction(request)
 }
 
+/**
+ * A link shared through the iOS app's own Share Extension imports at once, as
+ * if Import had been tapped. Only the shell can hand one over (iOS README,
+ * "Share import"), and only for the link this page offers; a link from a site
+ * or another app, or a typed URL, still waits for the tap.
+ */
+function useShareImport({
+	enabled,
+	sharedUrl,
+	ready,
+	start,
+}: {
+	enabled: boolean
+	sharedUrl: string | null
+	ready: boolean
+	start: () => void
+}) {
+	useEffect(() => {
+		if (!enabled) return
+		function take() {
+			// The router moves the URL before this page renders the new one;
+			// the effect runs again for that render and takes it then.
+			if (importUrlFromSearch(window.location.search) !== sharedUrl) return
+			const link = takeShareImport()
+			if (link !== null && link === sharedUrl && ready) start()
+		}
+		take()
+		window.addEventListener(SHARE_IMPORT_EVENT, take)
+		return () => window.removeEventListener(SHARE_IMPORT_EVENT, take)
+	}, [enabled, sharedUrl, ready, start])
+}
+
 export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	const { isProActive, sharedUrl, sharedExisting } = loaderData
 	const actionData = useActionData<typeof action>()
@@ -129,7 +162,17 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	// The iOS app may not point at buying Pro (ADR 0001), so a free user there
 	// gets the free URL and text imports without the AI extraction that leads
 	// to Pro.
-	const hideAi = useIsNativeShell() && !isProActive
+	const isNativeShell = useIsNativeShell()
+	const hideAi = isNativeShell && !isProActive
+	// The share's import is the offer's own form, submitted as a tap would.
+	const offerForm = useRef<HTMLFormElement>(null)
+	const submitOffer = useCallback(() => offerForm.current?.requestSubmit(), [])
+	useShareImport({
+		enabled: isNativeShell,
+		sharedUrl,
+		ready: offerShared && navigation.state === 'idle',
+		start: submitOffer,
+	})
 	const visibleTab = hideAi && activeTab === 'image' ? 'url' : activeTab
 
 	return (
@@ -163,8 +206,10 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 
 			{/* A share sheet opens this page with ?url=…. An import saves, and any
 			    site can link here, so the link waits for a tap; it is never
-			    fetched on load. The tap posts to the bare path and replaces this
-			    history entry, so Back or a reload never offers it again. */}
+			    fetched on load. A share through the iOS app's own Share
+			    Extension submits it at once (useShareImport). The tap posts to
+			    the bare path and replaces this history entry, so Back or a
+			    reload never offers it again. */}
 			{offerShared ? (
 				<div className="bg-muted/40 mb-6 rounded-lg p-4">
 					<h2 className="font-medium">Import this Recipe?</h2>
@@ -172,7 +217,12 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						{sharedUrl}
 					</p>
 					<div className="mt-3 flex flex-wrap gap-2">
-						<Form method="POST" action="/recipes/import" replace>
+						<Form
+							ref={offerForm}
+							method="POST"
+							action="/recipes/import"
+							replace
+						>
 							<input type="hidden" name="intent" value="fetch" />
 							<input type="hidden" name="url" value={sharedUrl} />
 							<Button type="submit" size="sm" className="px-4">

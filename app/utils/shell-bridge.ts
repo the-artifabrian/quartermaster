@@ -20,6 +20,12 @@ declare global {
 		}
 		/** Epoch-ms stamps the shell injects at document start. */
 		__qmShell?: { initAt: number; loadAt: number }
+		/**
+		 * A link shared through the iOS app's own Share Extension, set by the
+		 * shell on the import page it opened for it. Read once with
+		 * `takeShareImport`.
+		 */
+		__qmShareImport?: unknown
 	}
 }
 
@@ -148,4 +154,29 @@ export function getShellLaunchTiming(): ShellLaunchTiming | null {
 		timing.response_start_ms = Math.round(navigation.responseStart)
 	}
 	return timing
+}
+
+/**
+ * The shell dispatches this on the import page after setting
+ * `window.__qmShareImport` (iOS README, "Share import").
+ */
+export const SHARE_IMPORT_EVENT = 'qm:share-import'
+
+/**
+ * The link the shell handed over for a share made through the app's own Share
+ * Extension, or null. Each delivery is read once: the value is cleared
+ * whatever it holds, so a later visit to the same page waits for a tap. Only
+ * the shell sets it; nothing in a URL or in storage reaches it.
+ */
+export function takeShareImport(): string | null {
+	if (typeof window === 'undefined' || !('__qmShareImport' in window)) {
+		return null
+	}
+	const value = window.__qmShareImport
+	delete window.__qmShareImport
+	const url =
+		typeof value === 'object' && value !== null && 'url' in value
+			? value.url
+			: null
+	return typeof url === 'string' ? url : null
 }

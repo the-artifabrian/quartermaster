@@ -20,7 +20,6 @@ export function TitleAddButton({
 	return (
 		<Button
 			type="button"
-			data-title-add=""
 			className={cn('size-11 shrink-0 rounded-full p-0', className)}
 			{...props}
 		>

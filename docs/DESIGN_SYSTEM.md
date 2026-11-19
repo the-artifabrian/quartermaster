@@ -154,7 +154,7 @@ each screen:
   instead; with a keyboard or VoiceOver its Delete is the next stop after Add,
   and the row slides open while it has focus.
 - A delete that can be undone (a Meal, a Recipe in a Meal, a Shopping item,
-  Clear checked, removing a Staple) happens at once with an Undo toast at the
+  Clear checked, deleting a Staple) happens at once with an Undo toast at the
   bottom, above the tab bar; every other toast stays at the top. A deleted row,
   Staple or Meal closes its gap and Undo opens it again; Clear checked goes at
   once. The delete is saved at once and Undo puts back what it removed. Opening
@@ -286,7 +286,10 @@ placeholder.
 
 - Use one compact searchable alphabetical list; no grouping. Each row has an Add
   to Shopping button, and is deleted by a swipe left (a trash button with a
-  mouse). The + beside the title adds a Staple.
+  mouse). The + beside the title adds a Staple. The button's spoken name starts
+  with its visible words and then names the Staple (“Add to Shopping, Salt”), so
+  Voice Control can tap it by what it shows; Delete is “Delete Salt” and its
+  toast “Deleted Salt”.
 - Each row carries its own Add control, its own state and its own errors. A
   shopper is usually scrolled somewhere down a long list, so a banner at the top
   of the page is a message they will never see.

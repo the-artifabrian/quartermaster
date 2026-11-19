@@ -11,9 +11,7 @@ import {
 	useHiddenRows,
 } from './undo-delete.tsx'
 import { StapleSuggestions } from './staple-suggestions.tsx'
-import { useHorizontalSwipe } from '#app/hooks/use-horizontal-swipe.ts'
-import { haptic } from '#app/utils/shell-bridge.ts'
-import { settleReveal } from '#app/utils/swipe.ts'
+import { useSwipeRow } from '#app/hooks/use-swipe-row.ts'
 
 type StaplesResponse = {
 	status: 'success' | 'error'
@@ -259,9 +257,6 @@ const SWIPE_ACTION_WIDTH = 76
  */
 const FINE_POINTER = '(pointer: fine)'
 
-/** The row whose Delete is showing. Opening another shuts it. */
-let openSwipeRow: { close: () => void } | null = null
-
 function StapleRow({
 	staple,
 	onAnnounce,
@@ -280,9 +275,17 @@ function StapleRow({
 	// covers the request itself.
 	const onShoppingList = staple.onShoppingList || isAdding
 	const shopFailed = !isAdding && shopFetcher.data?.status === 'error'
-	const [swipeOpen, setSwipeOpen] = useState(false)
-	const swipeRow = useRef<{ close: () => void } | null>(null)
+	// Focus on Delete opened the row, so focus leaving it shuts it. A swipe
+	// since then hands the row back to the finger.
 	const openedByFocus = useRef(false)
+	// Swiping a row left uncovers a red Delete, as on Shopping.
+	const swipe = useSwipeRow<HTMLDivElement>({
+		enabled: true,
+		width: SWIPE_ACTION_WIDTH,
+		onSwiped: () => {
+			openedByFocus.current = false
+		},
+	})
 
 	useEffect(() => {
 		if (shopFetcher.state !== 'idle') return
@@ -290,53 +293,19 @@ function StapleRow({
 		if (message) onAnnounce(message)
 	}, [onAnnounce, shopFetcher.data, shopFetcher.state])
 
-	function remove() {
+	function deleteStaple() {
 		// At once, with Undo: the Staple is only unmarked, never lost.
 		deleteWithUndo({
 			key: `staple:${staple.id}`,
 			hides: [staple.id],
-			message: `Removed ${staple.displayName}`,
+			message: `Deleted ${staple.displayName}`,
 			what: staple.displayName,
-			verb: 'remove',
 			request: { intent: 'remove-staple', stapleId: staple.id },
 		})
 	}
 
-	// Swiping a row left uncovers a red Delete, as on Shopping.
-	const swipe = useHorizontalSwipe<HTMLDivElement>({
-		enabled: true,
-		getBase: () => (swipeOpen ? -SWIPE_ACTION_WIDTH : 0),
-		min: -SWIPE_ACTION_WIDTH,
-		max: 0,
-		onRelease: ({ offset, velocity }) => {
-			const open = settleReveal({ offset, velocity, width: SWIPE_ACTION_WIDTH })
-			if (open) markOpen()
-			else forgetOpen()
-			setSwipeOpen(open)
-			return open ? -SWIPE_ACTION_WIDTH : 0
-		},
-	})
-	swipeRow.current ??= {
-		close: () => {
-			swipe.moveTo(0, true)
-			setSwipeOpen(false)
-		},
-	}
-	function markOpen() {
-		if (!swipeOpen) haptic('selection')
-		if (openSwipeRow !== swipeRow.current) openSwipeRow?.close()
-		openSwipeRow = swipeRow.current
-	}
-	function forgetOpen() {
-		if (openSwipeRow === swipeRow.current) openSwipeRow = null
-	}
-	function closeSwipe() {
-		swipeRow.current?.close()
-		forgetOpen()
-	}
-
 	return (
-		// A removed Staple closes its gap, and Undo opens it again.
+		// A deleted Staple closes its gap, and Undo opens it again.
 		<RowCollapse
 			as="li"
 			hidden={hidden.has(staple.id)}
@@ -350,32 +319,21 @@ function StapleRow({
 						if (window.matchMedia(FINE_POINTER).matches) return
 						swipe.handlers.onPointerDown(event)
 					}}
-					onClickCapture={(event) => {
-						// A tap on an open row shuts it instead of adding the Staple.
-						if (swipeOpen) {
-							event.preventDefault()
-							event.stopPropagation()
-							closeSwipe()
-							return
-						}
-						swipe.handlers.onClickCapture(event)
-					}}
+					// A tap on an open row shuts it instead of adding the Staple.
+					onClickCapture={swipe.handlers.onClickCapture}
 					className="bg-background relative z-1 flex w-full min-w-0 touch-pan-y touch-pinch-zoom items-center gap-2 py-1"
 				>
 					<span className="min-w-0 flex-1 truncate pl-1">
 						{staple.displayName}
 					</span>
 					{/* Enabled even when the row is already on the list: a second tap
-					    writes nothing and answers "is this one done?" out loud. */}
+					    writes nothing and answers "is this one done?" out loud. Its
+					    name starts with what it shows, then says which Staple. */}
 					<Button
 						type="button"
 						variant={onShoppingList ? 'ghost' : 'outline'}
 						className="min-w-24 shrink-0 justify-center px-3"
-						aria-label={
-							onShoppingList
-								? `${staple.displayName} is in Next shop`
-								: `Add ${staple.displayName} to Next shop`
-						}
+						aria-label={`${onShoppingList ? 'On list' : 'Add to Shopping'}, ${staple.displayName}`}
 						aria-busy={isAdding || undefined}
 						onClick={() =>
 							void shopFetcher.submit(
@@ -397,8 +355,8 @@ function StapleRow({
 						type="button"
 						variant="ghost"
 						className="text-destructive hover:text-destructive hidden min-h-11 min-w-11 px-3 pointer-fine:inline-flex"
-						aria-label={`Remove ${staple.displayName}`}
-						onClick={remove}
+						aria-label={`Delete ${staple.displayName}`}
+						onClick={deleteStaple}
 					>
 						<Icon name="trash" size="sm" />
 					</Button>
@@ -411,24 +369,18 @@ function StapleRow({
 					type="button"
 					aria-label={`Delete ${staple.displayName}`}
 					onFocus={() => {
-						if (swipeOpen) return
+						if (swipe.open) return
 						openedByFocus.current = true
-						markOpen()
-						swipe.moveTo(-SWIPE_ACTION_WIDTH, true)
-						setSwipeOpen(true)
+						swipe.show()
 					}}
 					onBlur={() => {
-						// Focus opened it, so focus leaving shuts it; a row a finger
-						// opened stays open until a tap elsewhere in it.
 						if (!openedByFocus.current) return
 						openedByFocus.current = false
-						closeSwipe()
+						swipe.close()
 					}}
 					onClick={() => {
-						// The row collapses as it is, Delete showing, and shuts once
-						// it is out of sight, so Undo brings it back shut.
-						remove()
-						window.setTimeout(closeSwipe, 250)
+						deleteStaple()
+						swipe.closeAfterDelete()
 					}}
 					style={{ width: SWIPE_ACTION_WIDTH }}
 					className="bg-destructive text-destructive-foreground active:bg-destructive/90 absolute inset-y-0 right-0 flex flex-col items-center justify-center gap-1 text-xs font-medium pointer-fine:hidden"

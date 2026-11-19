@@ -81,7 +81,15 @@ export function RecipeScaleControl({
 	}
 
 	const input = (
-		<label className="flex items-center gap-1">
+		<label
+			className={cn(
+				'flex items-center gap-1',
+				// The compact field is 28px to the eye; the label around it is
+				// 44px to the thumb (a tap on it focuses the field).
+				compact &&
+					"relative shrink-0 before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] md:before:hidden",
+			)}
+		>
 			<span className="sr-only">Scale multiplier</span>
 			<Input
 				type="text"

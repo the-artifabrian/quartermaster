@@ -163,35 +163,46 @@ function ItemRow({
 				</button>
 			</cookedFetcher.Form>
 
-			{/* Title + multiplier */}
+			{/* Title + multiplier. On a phone they share one line, the
+			    multiplier trailing, so each is 44px tall without the row
+			    growing; stacked, two 44px targets would not fit. */}
 			<div className="min-w-0 flex-1">
-				<h4
-					className={cn(
-						'line-clamp-2 font-serif text-[15px] leading-snug',
-						isCooked && 'text-muted-foreground line-through',
-					)}
-				>
-					{item.recipe ? (
-						<Link
-							to={
-								item.scaleMultiplier !== 1
-									? `/recipes/${item.recipe.id}?scale=${formatScaleMultiplier(item.scaleMultiplier)}`
-									: `/recipes/${item.recipe.id}`
-							}
-							className={cn('hover:underline', !isCooked && 'text-foreground')}
-							onClick={(e) => e.stopPropagation()}
-						>
-							{item.recipeTitle}
-						</Link>
+				<div className="flex min-w-0 items-center gap-2 md:block">
+					<h4
+						className={cn(
+							'flex min-w-0 flex-1 font-serif text-[15px] leading-snug md:block',
+							isCooked && 'text-muted-foreground line-through',
+						)}
+					>
+						{item.recipe ? (
+							<Link
+								to={
+									item.scaleMultiplier !== 1
+										? `/recipes/${item.recipe.id}?scale=${formatScaleMultiplier(item.scaleMultiplier)}`
+										: `/recipes/${item.recipe.id}`
+								}
+								className={cn(
+									'flex min-h-11 min-w-11 items-center hover:underline md:inline md:min-h-0 md:min-w-0',
+									!isCooked && 'text-foreground',
+								)}
+								onClick={(e) => e.stopPropagation()}
+							>
+								<span className="line-clamp-2">{item.recipeTitle}</span>
+							</Link>
+						) : (
+							<span className="text-muted-foreground line-clamp-2">
+								{item.recipeTitle}
+							</span>
+						)}
+					</h4>
+					{missing ? (
+						<p className="text-muted-foreground shrink-0 text-xs">
+							Recipe deleted
+						</p>
 					) : (
-						<span className="text-muted-foreground">{item.recipeTitle}</span>
+						<MultiplierControl item={item} />
 					)}
-				</h4>
-				{missing ? (
-					<p className="text-muted-foreground text-xs">Recipe deleted</p>
-				) : (
-					<MultiplierControl item={item} />
-				)}
+				</div>
 				{item.note ? (
 					<p className="text-muted-foreground text-xs leading-snug break-words">
 						{item.note}
@@ -886,7 +897,7 @@ export function MealCard({
 					</button>
 					<p
 						className={cn(
-							'min-w-0 flex-1 font-serif text-[15px] leading-snug',
+							'flex min-w-0 flex-1 font-serif text-[15px] leading-snug md:block',
 							isComplete && 'text-muted-foreground line-through',
 						)}
 					>

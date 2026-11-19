@@ -198,13 +198,14 @@ test('Recipes, Staples and Plan put one round + beside the title; Plan’s adds 
 	expect(staples).toEqual(recipes)
 	expect(plan).toEqual(recipes)
 
-	// Plan's + follows the day showing: pick a day that is not today.
+	// Plan's + follows the day showing: pick a day that is neither today
+	// (shown first) nor the first of the week.
 	const today = todayUTC()
 	const weekStart = getWeekStart(today)
 	const other =
-		serializeDate(today) === serializeDate(weekStart)
-			? addDaysUTC(weekStart, 1)
-			: weekStart
+		serializeDate(today) === serializeDate(addDaysUTC(weekStart, 2))
+			? addDaysUTC(weekStart, 3)
+			: addDaysUTC(weekStart, 2)
 	const otherName = dayName(other)
 	await page
 		.getByRole('button', { name: new RegExp(`^Show ${otherName}`) })
@@ -274,10 +275,6 @@ test('a Staple row swiped left shows a red Delete that removes it at once, with 
 	const del = salt.getByRole('button', { name: 'Delete Salt' })
 	expect(await onTop(del)).toBe(false)
 
-	// A mostly vertical drag is a scroll, not a swipe.
-	await drag(page, salt, { fromX: 0.6, toX: 0.5, dy: -80 })
-	expect(await restingX(salt)).toBe(0)
-
 	await drag(page, salt, { fromX: 0.8, toX: 0.2 })
 	await expect.poll(() => restingX(salt)).toBe(-76)
 	expect(await onTop(del)).toBe(true)
@@ -311,6 +308,30 @@ test('a Staple row swiped left shows a red Delete that removes it at once, with 
 	expect(await restingX(salt)).toBe(0)
 })
 
+test('a mostly vertical drag on a Staple row scrolls the page and leaves the row shut', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await seedStaples(
+		user.householdId,
+		Array.from(
+			{ length: 30 },
+			(_, i) => `Staple ${String(i).padStart(2, '0')}`,
+		),
+	)
+	await page.goto('/inventory')
+	const row = stapleRow(page, 'Staple 03')
+	await expect(row).toBeVisible()
+	expect(await page.evaluate(() => window.scrollY)).toBe(0)
+	// Well past half the 76px reveal sideways, but further up.
+	await drag(page, row, { fromX: 0.8, toX: 0.4, dy: -300 })
+	await expect
+		.poll(() => page.evaluate(() => window.scrollY))
+		.toBeGreaterThan(50)
+	expect(await restingX(row)).toBe(0)
+})
+
 test('without a swipe, Tab reaches a Staple’s Delete, which slides into view, and Enter removes it', async ({
 	page,
 	login,
@@ -321,7 +342,21 @@ test('without a swipe, Tab reaches a Staple’s Delete, which slides into view, 
 
 	const salt = stapleRow(page, 'Salt')
 	const del = salt.getByRole('button', { name: 'Delete Salt' })
-	await salt.getByRole('button', { name: 'Add Salt to Next shop' }).focus()
+	// Tab from the top of the page, as a keyboard reaches it.
+	await page.getByRole('heading', { name: 'Staples', level: 1 }).click()
+	for (let i = 0; i < 12; i++) {
+		await page.keyboard.press('Tab')
+		const focused = await page.evaluate(() =>
+			document.activeElement?.getAttribute('aria-label'),
+		)
+		if (focused === 'Delete Salt') break
+	}
+	await expect(del).toBeFocused()
+	// The stop before it is the row's own Add.
+	await page.keyboard.press('Shift+Tab')
+	await expect(
+		salt.getByRole('button', { name: 'Add Salt to Next shop' }),
+	).toBeFocused()
 	await page.keyboard.press('Tab')
 	await expect(del).toBeFocused()
 	await expect.poll(() => onTop(del)).toBe(true)
@@ -359,6 +394,35 @@ test.describe('with a mouse', () => {
 		await salt.getByRole('button', { name: 'Remove Salt' }).click()
 		await expect(salt).toBeHidden()
 		await expect.poll(() => isStaple(user.householdId, 'salt')).toBe(false)
+	})
+})
+
+test.describe('with a keyboard', () => {
+	test.use({
+		viewport: { width: 1024, height: 768 },
+		hasTouch: false,
+		userAgent: undefined,
+	})
+
+	test('Next week keeps focus while the week turns', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		await page.goto('/plan')
+		const next = page.getByRole('link', { name: 'Next week' })
+		const weekStart = getWeekStart(todayUTC())
+		await next.focus()
+		await page.keyboard.press('Enter')
+		await expect(page).toHaveURL(
+			new RegExp(`weekStart=${serializeDate(addDaysUTC(weekStart, 7))}`),
+		)
+		await expect(next).toBeFocused()
+		await page.keyboard.press('Enter')
+		await expect(page).toHaveURL(
+			new RegExp(`weekStart=${serializeDate(addDaysUTC(weekStart, 14))}`),
+		)
+		await expect(next).toBeFocused()
 	})
 })
 

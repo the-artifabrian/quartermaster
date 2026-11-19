@@ -134,7 +134,11 @@ async function instrument(page: Page) {
 			.toBe(true)
 	}
 
-	/** `act` navigates with exactly one view transition, sliding `direction`. */
+	/**
+	 * `act` navigates with exactly one view transition that moves, sliding
+	 * `direction`. The router may start another for the landed page's
+	 * revalidation (it treats one as a POP); that one must move nothing.
+	 */
 	async function expectSlide(
 		direction: 'forward' | 'back',
 		act: () => Promise<unknown>,
@@ -146,7 +150,12 @@ async function instrument(page: Page) {
 			.toBeGreaterThan(before)
 		await settled()
 		const started = (await transitions()).slice(before)
-		expect(started).toHaveLength(1)
+		const moved = started.filter((t) => t.animation !== null)
+		expect(moved).toHaveLength(1)
+		expect(started[0]).toBe(moved[0])
+		for (const after of started.slice(1)) {
+			expect(after).toMatchObject({ direction: 'none', animation: null })
+		}
 		expect(started[0]).toMatchObject({
 			direction,
 			animation:

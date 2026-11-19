@@ -2,6 +2,7 @@ import type * as React from 'react'
 import { useState } from 'react'
 
 import { cn } from '#app/utils/misc.tsx'
+import { haptic } from '#app/utils/shell-bridge.ts'
 
 /**
  * An on/off setting, drawn as an iOS switch: a 51×31 track whose thumb
@@ -35,6 +36,8 @@ export function Switch({
 				onClick?.(event)
 				if (event.defaultPrevented) return
 				setTapped(true)
+				// The light tick of a native switch.
+				haptic('selection')
 				onCheckedChange(!checked)
 			}}
 			className={cn(

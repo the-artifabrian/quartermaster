@@ -1,4 +1,4 @@
-import { type useFetcher, Link } from 'react-router'
+import { type useFetcher } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import {
 	DropdownMenu,
@@ -12,6 +12,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from '#app/components/ui/tooltip.tsx'
+import { PushLink } from './push-link.tsx'
 
 export function RecipeActionBar({
 	recipeId,
@@ -80,9 +81,9 @@ export function RecipeActionBar({
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<Button asChild variant="ghost" size="icon" aria-label="Edit Recipe">
-						<Link to={`/recipes/${recipeId}/edit`}>
+						<PushLink to={`/recipes/${recipeId}/edit`}>
 							<Icon name="pencil-1" size="md" />
-						</Link>
+						</PushLink>
 					</Button>
 				</TooltipTrigger>
 				<TooltipContent>Edit Recipe</TooltipContent>

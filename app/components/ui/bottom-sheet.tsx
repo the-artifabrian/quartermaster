@@ -39,6 +39,19 @@ export function opensAsSheet() {
 /** The sheet that is open now. Opening another closes it first. */
 let openSheet: { close: () => void } | null = null
 
+/**
+ * Closes the sheet `root` belongs to at once, for a push that starts from
+ * inside it (PushLink): iOS dismisses a sheet as the push begins. Hidden
+ * (tailwind.css), it is not in the leaving page's picture, and when its owner
+ * goes with that page no copy plays its exit over the new one.
+ */
+export function dismissSheetForPush(element: HTMLElement) {
+	const root = element.closest<HTMLElement>('[data-bottom-sheet]')
+	if (!root) return
+	root.setAttribute('data-push-dismissed', '')
+	openSheet?.close()
+}
+
 type BottomSheetProps = {
 	open: boolean
 	/** Backdrop tap, Escape, the close button and a pull down all call this. */
@@ -131,6 +144,13 @@ function SheetFrame({
 		onDismiss: () => onCloseRef.current(),
 	})
 
+	// A push from inside the sheet hid it as it left (dismissSheetForPush). A
+	// reopen during that exit keeps this frame: it shows again, before it
+	// paints, and turns back up from where the exit had got to.
+	useLayoutEffect(() => {
+		if (open) rootRef.current?.removeAttribute('data-push-dismissed')
+	}, [open])
+
 	// Take focus on each open unless a child claimed it. A reopen during the
 	// exit keeps this instance, so it takes focus again and remembers where
 	// focus was then.
@@ -190,6 +210,7 @@ function SheetFrame({
 		const root = rootRef.current
 		return () => {
 			if (exitedRef.current || !root?.isConnected) return
+			if (root.hasAttribute('data-push-dismissed')) return
 			playExitCopy(root)
 		}
 	}, [])

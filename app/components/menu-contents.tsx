@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { PushLink } from './push-link.tsx'
 import { RecipeThumb } from '#app/components/recipe-selector.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
@@ -202,9 +203,11 @@ function MenuRecipeCard({
 	)
 
 	if (item.recipe) {
+		const RecipeLink = sharedMenuId ? Link : PushLink
 		return (
 			<li>
-				<Link
+				{/* A shared Menu's Recipes open without the nav bar. */}
+				<RecipeLink
 					to={
 						sharedMenuId
 							? `/share/menus/${sharedMenuId}/recipes/${item.id}`
@@ -215,7 +218,7 @@ function MenuRecipeCard({
 					className="active:bg-muted/40 md:border-border/60 md:bg-card md:hover:bg-muted/40 flex items-center gap-3.5 py-3 transition-colors md:rounded-lg md:border md:p-3"
 				>
 					{content}
-				</Link>
+				</RecipeLink>
 			</li>
 		)
 	}

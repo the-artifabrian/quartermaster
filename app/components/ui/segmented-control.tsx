@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 
 import { cn } from '#app/utils/misc.tsx'
+import { haptic } from '#app/utils/shell-bridge.ts'
 
 /**
  * A row of equal-width options with one sage pill under the selected one.
@@ -42,6 +43,12 @@ export function SegmentedControl<Value extends string>({
 	)
 	const tabs = role === 'tablist'
 
+	// A new selection ticks, as a picker does; the one already chosen does not.
+	function select(next: Value) {
+		if (next !== value) haptic('selection')
+		onValueChange(next)
+	}
+
 	function onKeyDown(event: React.KeyboardEvent) {
 		const last = options.length - 1
 		const keys: Record<string, number | undefined> = {
@@ -59,7 +66,7 @@ export function SegmentedControl<Value extends string>({
 		const next = keys[event.key]
 		if (next === undefined) return
 		event.preventDefault()
-		onValueChange(options[next]!.value)
+		select(options[next]!.value)
 		buttons.current[next]?.focus()
 	}
 
@@ -95,7 +102,7 @@ export function SegmentedControl<Value extends string>({
 								}
 							: { 'aria-checked': selected })}
 						tabIndex={selected ? 0 : -1}
-						onClick={() => onValueChange(option.value)}
+						onClick={() => select(option.value)}
 						className={segmentClassName(selected)}
 					>
 						{option.label}

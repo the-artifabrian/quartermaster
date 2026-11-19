@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, type LinkProps } from 'react-router'
+import { PushLink } from '#app/components/push-link.tsx'
 import { Icon, type IconName } from '#app/components/ui/icon.tsx'
 import { cn } from '#app/utils/misc.tsx'
 import { useUser } from '#app/utils/user.ts'
@@ -9,6 +10,8 @@ interface Step {
 	description: string
 	icon: IconName
 	href: string
+	/** The step opens a page with a nav bar, which slides in. */
+	pushed?: boolean
 	done: boolean
 }
 
@@ -37,6 +40,7 @@ export function GettingStartedChecklist({
 			description: 'Type one in, paste text, or import from a URL',
 			icon: 'file-text',
 			href: '/recipes/new',
+			pushed: true,
 			done: onboarding.hasRecipes,
 		},
 		{
@@ -129,16 +133,22 @@ export function GettingStartedChecklist({
 							</p>
 						</div>
 						{!step.done && (
-							<Link
+							<StepLink
 								to={step.href}
+								pushed={step.pushed}
 								className="text-primary hover:text-primary/80 -my-3 -mr-2 inline-flex min-h-11 shrink-0 items-center px-2 text-sm font-medium"
 							>
 								Start
-							</Link>
+							</StepLink>
 						)}
 					</div>
 				))}
 			</div>
 		</div>
 	)
+}
+
+/** A tab opens without motion; a page with a nav bar slides in. */
+function StepLink({ pushed, ...props }: LinkProps & { pushed?: boolean }) {
+	return pushed ? <PushLink {...props} /> : <Link {...props} />
 }

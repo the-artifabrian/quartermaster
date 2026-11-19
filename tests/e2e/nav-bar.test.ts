@@ -372,16 +372,11 @@ test('Save in the nav bar saves the edit and returns to the Recipe', async ({
 	})
 	expect(saved.title).toBe('Red lentil soup')
 
-	// Back from the saved Recipe steps over the edit form to the list, and
-	// slides back though the redirect opened the Recipe without a slide.
+	// Back from the saved Recipe steps over the edit form to the list. (The
+	// slide is the iOS app's: push-slide.test.ts.)
 	await backButton(page, 'Recipes').tap()
 	await expect(page).toHaveURL('/recipes')
 	expect(await historyIdx(page)).toBe(listIdx)
-	await expect
-		.poll(() =>
-			page.evaluate(() => document.documentElement.dataset.navDirection),
-		)
-		.toBe('back')
 })
 
 test('Cancel discards the edit', async ({ page, login }) => {

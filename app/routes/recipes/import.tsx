@@ -20,6 +20,7 @@ import { MAX_IMPORT_IMAGE_SIZE } from '#app/utils/recipe-validation.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
 import { importAction } from './import-action.server.ts'
+import { PushLink } from '#app/components/push-link.tsx'
 
 export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
@@ -194,7 +195,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						It’s saved as “{existing.title}”.
 					</p>
 					<Button asChild size="sm" className="mt-3 px-4">
-						<Link to={`/recipes/${existing.id}`}>Open it</Link>
+						<PushLink to={`/recipes/${existing.id}`}>Open it</PushLink>
 					</Button>
 				</div>
 			) : null}
@@ -293,13 +294,13 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								</Button>
 							) : hideAi ? null : (
 								<Button asChild>
-									<Link to="/upgrade">
+									<PushLink to="/upgrade">
 										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
 										Extract with AI
 										<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
 											Pro
 										</span>
-									</Link>
+									</PushLink>
 								</Button>
 							)}
 						</div>
@@ -343,13 +344,13 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								</Button>
 							) : (
 								<Button asChild>
-									<Link to="/upgrade">
+									<PushLink to="/upgrade">
 										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
 										Extract with AI
 										<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
 											Pro
 										</span>
-									</Link>
+									</PushLink>
 								</Button>
 							)}
 						</div>

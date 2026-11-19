@@ -6,6 +6,11 @@ import { menuNewNav } from '#app/utils/nav-back.ts'
 import { data, replace, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { MENU_FORM_ID, MenuForm } from '#app/components/menu-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
+import {
+	clientLeaves,
+	type EditScreenDone,
+	isEditScreenDone,
+} from '#app/utils/edit-screen.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	DUPLICATE_MENU_TITLE_MESSAGE,
@@ -25,11 +30,14 @@ export const meta: Route.MetaFunction = () => {
 	return [{ title: 'New Menu | Quartermaster' }]
 }
 
-// Offline the reload would fail and replace the form with an error.
+// A Save that went through leaves the form for the new page (edit-screen.tsx),
+// so there is nothing to reload it for.
 export function shouldRevalidate({
 	actionResult,
 	defaultShouldRevalidate,
 }: ShouldRevalidateFunctionArgs) {
+	if (isEditScreenDone(actionResult)) return false
+	// Offline the reload would fail and replace the form with an error.
 	if (isOfflineReply(actionResult)) return false
 	return defaultShouldRevalidate
 }
@@ -71,7 +79,13 @@ export async function action({ request }: Route.ActionArgs) {
 			select: { id: true },
 		})
 		// The new Menu takes the form's place: going back from it goes to the
-		// page before the form.
+		// page before the form. A hydrated form leaves by itself, sliding back
+		// as an edit screen does (edit-screen.tsx).
+		if (clientLeaves(formData)) {
+			return data({
+				done: `/recipes/menus/${menu.id}`,
+			} satisfies EditScreenDone)
+		}
 		return replace(`/recipes/menus/${menu.id}`)
 	} catch (error) {
 		if (isUniqueConstraintError(error)) {

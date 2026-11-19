@@ -610,6 +610,13 @@ html {
 	pointer-events: none;
 }
 
+/* A push from inside a sheet or menu dismisses it at once (PushLink): it is
+   not in the leaving page's picture, and nothing of it stays over the new
+   page. */
+[data-push-dismissed] {
+	visibility: hidden !important;
+}
+
 [data-bottom-sheet-panel] {
 	transform: translateY(0);
 	transition-behavior: allow-discrete;

@@ -1,4 +1,4 @@
-import { Link, useFetcher } from 'react-router'
+import { useFetcher } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
 	Tooltip,
@@ -11,6 +11,7 @@ import {
 	formatMetricAmount,
 } from '#app/utils/metric-conversion.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { PushLink } from './push-link.tsx'
 
 export type IngredientListIngredient = {
 	id: string
@@ -132,13 +133,13 @@ export function IngredientList({
 									)
 								})()}
 								{ingredient.linkedRecipeId ? (
-									<Link
+									<PushLink
 										to={`/recipes/${ingredient.linkedRecipeId}`}
 										className="text-primary decoration-primary/30 hover:decoration-primary/60 underline underline-offset-2"
 										onClick={(e) => e.stopPropagation()}
 									>
 										{ingredient.name}
-									</Link>
+									</PushLink>
 								) : (
 									<span>{ingredient.name}</span>
 								)}

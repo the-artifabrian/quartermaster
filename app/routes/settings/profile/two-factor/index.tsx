@@ -1,5 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { redirect, Link, useFetcher } from 'react-router'
+import { redirect, useFetcher } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
@@ -9,6 +9,7 @@ import { type SettingsPageHandle } from '../../profile/_layout.tsx'
 import { type Route } from './+types/index.ts'
 import { twoFAVerificationType } from './_layout.tsx'
 import { twoFAVerifyVerificationType } from './verify.tsx'
+import { PushLink } from '#app/components/push-link.tsx'
 
 export const handle: SettingsPageHandle & SEOHandle = {
 	pageTitle: 'Two-Factor Auth',
@@ -54,9 +55,9 @@ export default function TwoFactorRoute({ loaderData }: Route.ComponentProps) {
 							You have enabled two-factor authentication.
 						</Icon>
 					</p>
-					<Link to="disable">
+					<PushLink to="disable">
 						<Icon name="lock-open-1">Disable 2FA</Icon>
-					</Link>
+					</PushLink>
 				</>
 			) : (
 				<>

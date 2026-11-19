@@ -214,13 +214,14 @@ test('a clean import just opens the Recipe: no notice, one saved haptic', async 
 	await expect(
 		page.getByRole('region', { name: 'Saved to your Recipes' }),
 	).toHaveCount(0)
+	// The From Text tab ticked as it was picked; the save lands once.
 	await expect
 		.poll(() =>
 			page.evaluate(
 				() => (window as unknown as { __haptics: string[] }).__haptics,
 			),
 		)
-		.toEqual(['success'])
+		.toEqual(['selection', 'success'])
 	expect(
 		await prisma.recipe.findFirstOrThrow({
 			where: { userId: user.id },

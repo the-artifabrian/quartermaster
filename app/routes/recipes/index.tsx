@@ -1,11 +1,6 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useEffect, useRef, useState } from 'react'
-import {
-	Link,
-	useLocation,
-	useNavigationType,
-	useSearchParams,
-} from 'react-router'
+import { useLocation, useNavigationType, useSearchParams } from 'react-router'
 import { GettingStartedChecklist } from '#app/components/getting-started-checklist.tsx'
 import { LibrarySwitch } from '#app/components/library-switch.tsx'
 import { RecipeCard, RecipeCardGrid } from '#app/components/recipe-card.tsx'
@@ -41,6 +36,7 @@ import { getUserTier } from '#app/utils/subscription.server.ts'
 import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
 import { useStaleRevalidate } from '#app/utils/use-stale-revalidate.ts'
 import { type Route } from './+types/index.ts'
+import { PushLink } from '#app/components/push-link.tsx'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
@@ -466,16 +462,16 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
 								<DropdownMenuItem asChild>
-									<Link to="/recipes/import">
+									<PushLink to="/recipes/import">
 										<Icon name="link-2" size="sm" />
 										Import
-									</Link>
+									</PushLink>
 								</DropdownMenuItem>
 								<DropdownMenuItem asChild>
-									<Link to="/recipes/new">
+									<PushLink to="/recipes/new">
 										<Icon name="pencil-1" size="sm" />
 										Write a Recipe
-									</Link>
+									</PushLink>
 								</DropdownMenuItem>
 							</DropdownMenuContent>
 						</DropdownMenu>
@@ -694,16 +690,16 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						</p>
 						<div className="mt-6 flex gap-3">
 							<Button asChild>
-								<Link to="/recipes/new">
+								<PushLink to="/recipes/new">
 									<Icon name="plus" size="sm" />
 									Write a Recipe
-								</Link>
+								</PushLink>
 							</Button>
 							<Button asChild variant="outline">
-								<Link to="/recipes/import">
+								<PushLink to="/recipes/import">
 									<Icon name="link-2" size="sm" />
 									Import
-								</Link>
+								</PushLink>
 							</Button>
 						</div>
 					</div>
@@ -743,10 +739,10 @@ function SearchEmptyState({
 					{restricted ? 'Clear search and filters' : 'Clear search'}
 				</Button>
 				<Button asChild>
-					<Link to="/recipes/import">
+					<PushLink to="/recipes/import">
 						<Icon name="link-2" size="sm" />
 						Import
-					</Link>
+					</PushLink>
 				</Button>
 			</div>
 		</div>

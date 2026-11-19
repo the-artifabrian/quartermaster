@@ -1,6 +1,5 @@
 import { Img } from 'openimg/react'
 import { useLayoutEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -11,6 +10,7 @@ import {
 	rankRecipeTitleMatches,
 	rankTitleAndRelatedMatches,
 } from '#app/utils/recipe-search.ts'
+import { PushLink } from './push-link.tsx'
 
 export type RecipeSelectorRecipe = {
 	id: string
@@ -245,12 +245,12 @@ function ItemSelector({
 				{!hasAnyChoice ? (
 					<div className="py-4 text-center">
 						<p className="text-muted-foreground text-sm">{emptyMessage}</p>
-						<Link
+						<PushLink
 							to="/recipes/new"
 							className="text-primary mt-1 inline-block text-sm hover:underline"
 						>
 							New Recipe
-						</Link>
+						</PushLink>
 					</div>
 				) : (
 					<>

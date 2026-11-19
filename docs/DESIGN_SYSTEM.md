@@ -216,6 +216,13 @@ sub-Recipe deleted meanwhile) keeps the form and its edits and says why. A
 reload or a closed tab with changes asks the browser first (not in the iOS app,
 whose web view shows no prompt).
 
+In the iOS app every push into a pushed page slides in from the right (320ms,
+the old page receding a quarter), and Back, Cancel and an edit screen's leave
+after Save or Delete slide back; tab switches and the system's edge swipe add
+none, and reduced motion turns it off. A link to a pushed page is a `PushLink`
+(`app/components/push-link.tsx`); a plain `Link` there opens without the slide.
+Outside the app pushes do not slide (the Recipe and Menu cards cross-fade).
+
 On desktop, keep the same information hierarchy and give content more width; do
 not add extra product destinations just because space exists. The desktop header
 keeps its brand row and links on pushed pages, with the nav bar as a second row
@@ -331,6 +338,12 @@ grids, illustrations, or congratulatory copy.
   of size is a deleted row closing its gap (`RowCollapse`): height and opacity
   together, 200ms `--ease-exit`, and opacity only under reduced motion.
 - Respect `prefers-reduced-motion`; behavior must not depend on animation.
+- Haptics (iOS app only, `haptic()` in `app/utils/shell-bridge.ts`) follow the
+  native control, once per tap, never on load or a refresh: `selection` for a
+  tab, a switch, a new segment, ticking or unticking a Shopping item, an
+  ingredient or a step, and unmarking cooked; `success` for Mark cooked, a Save
+  the server took, and an import; `medium` for a delete with Undo; `warning`
+  when a confirm sheet asks.
 - Keep visible focus, semantic landmarks, labelled icon buttons, and reachable
   reorder controls.
 - Hover is polish. Every action must work by tap and keyboard. Tooltips are for

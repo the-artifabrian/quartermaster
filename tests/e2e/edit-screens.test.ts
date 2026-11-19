@@ -400,14 +400,9 @@ test.describe('leaving with changes asks first', () => {
 		await cancelLink(page).tap()
 		await sheet.getByRole('button', { name: 'Discard Changes' }).tap()
 		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
-		// Back to the Recipe's own entry, as Cancel went before, sliding back
-		// as the nav bar's Back does.
+		// Back to the Recipe's own entry, as Cancel went before. (It slides
+		// back in the iOS app: push-slide.test.ts.)
 		expect(await historyIdx(page)).toBe(recipeIdx)
-		await expect
-			.poll(() =>
-				page.evaluate(() => document.documentElement.dataset.navDirection),
-			)
-			.toBe('back')
 		await expect(
 			page.getByRole('heading', { level: 1, name: 'Lentil soup' }),
 		).toBeVisible()
@@ -468,14 +463,9 @@ test.describe('leaving with changes asks first', () => {
 			.tap()
 		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 		expect(await historyIdx(page)).toBe(recipeIdx)
-		// A plain history back from a page opened without a slide: no slide,
-		// as before the edit screen asked.
 		await expect(
 			page.getByRole('heading', { level: 1, name: 'Lentil soup' }),
 		).toBeVisible()
-		expect(
-			await page.evaluate(() => document.documentElement.dataset.navDirection),
-		).toBeUndefined()
 		expect(await recipeTitle(recipe.id)).toBe('Lentil soup')
 	})
 

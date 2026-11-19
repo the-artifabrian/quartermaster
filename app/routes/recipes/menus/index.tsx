@@ -1,5 +1,4 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Link } from 'react-router'
 import { LibrarySwitch } from '#app/components/library-switch.tsx'
 import { MenuCard } from '#app/components/menu-card.tsx'
 import { RecipeCardGrid } from '#app/components/recipe-card.tsx'
@@ -8,6 +7,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { type Route } from './+types/index.ts'
+import { PushLink } from '#app/components/push-link.tsx'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
@@ -82,10 +82,10 @@ export default function MenusIndex({ loaderData }: Route.ComponentProps) {
 						asChild
 						className="size-11 rounded-full p-0 sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2"
 					>
-						<Link to="/recipes/menus/new">
+						<PushLink to="/recipes/menus/new">
 							<Icon name="plus" size="sm" />
 							<span className="hidden sm:inline">New Menu</span>
-						</Link>
+						</PushLink>
 					</Button>
 				</div>
 			</div>
@@ -118,10 +118,10 @@ export default function MenusIndex({ loaderData }: Route.ComponentProps) {
 							Create a Menu for Recipes and notes you serve together.
 						</p>
 						<Button asChild className="mt-6">
-							<Link to="/recipes/menus/new">
+							<PushLink to="/recipes/menus/new">
 								<Icon name="plus" size="sm" />
 								New Menu
-							</Link>
+							</PushLink>
 						</Button>
 					</div>
 				)}

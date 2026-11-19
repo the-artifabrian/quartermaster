@@ -1,7 +1,7 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { Img } from 'openimg/react'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Form, useActionData } from 'react-router'
 import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import { isEditScreenDone } from '#app/utils/edit-screen.ts'
@@ -196,11 +196,21 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 		ingredientErrors.rows.length > 0 ||
 		instructionErrors.list !== undefined ||
 		instructionErrors.rows.length > 0
+	// Only a change to the rows checks them again: errors arriving do not,
+	// or an error only the server can find (a gone linked Recipe) would be
+	// checked away by the form's own rules as soon as it shows.
+	const rowsHadErrors = useRef(rowsHaveErrors)
 	useEffect(() => {
-		if (rowsHaveErrors) form.validate()
-		// Only a change to the rows (or errors showing) checks them again.
+		rowsHadErrors.current = rowsHaveErrors
+	})
+	const rowsSeen = useRef<unknown[] | null>(null)
+	useEffect(() => {
+		const seen = rowsSeen.current
+		rowsSeen.current = [ingredients, instructions]
+		if (!seen || (seen[0] === ingredients && seen[1] === instructions)) return
+		if (rowsHadErrors.current) form.validate()
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ingredients, instructions, rowsHaveErrors])
+	}, [ingredients, instructions])
 
 	// A Save that went through leaves as if the screen was dismissed.
 	const { leaving, leave } = useLeaveEditScreen()

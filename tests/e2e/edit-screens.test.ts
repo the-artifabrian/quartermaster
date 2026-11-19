@@ -785,3 +785,341 @@ test.describe('history after Save and Delete', () => {
 		expect(await prisma.menu.count({ where: { id: menu.id } })).toBe(0)
 	})
 })
+
+const mainTab = (page: Page, name: string) =>
+	page
+		.getByRole('navigation', { name: 'Main' })
+		.getByRole('link', { name, exact: true })
+const backTo = (page: Page, label: string) =>
+	page.getByRole('link', { name: `Back to ${label}`, exact: true })
+
+async function deleteRecipeFromEdit(page: Page) {
+	await page.getByRole('button', { name: 'Delete Recipe' }).tap()
+	await page
+		.getByRole('dialog', { name: 'Delete this Recipe?' })
+		.getByRole('button', { name: 'Delete Recipe' })
+		.tap()
+}
+
+/**
+ * Records, across documents, whether a not-found page ever reached the DOM:
+ * one painted for a frame counts.
+ */
+async function watchNotFound(page: Page) {
+	await page.addInitScript(() => {
+		const check = () => {
+			if (/(Recipe|Menu) not found/.test(document.body?.textContent ?? '')) {
+				sessionStorage.setItem('sawNotFound', '1')
+			}
+		}
+		new MutationObserver(check).observe(document, {
+			childList: true,
+			subtree: true,
+			characterData: true,
+		})
+	})
+}
+const sawNotFound = (page: Page) =>
+	page.evaluate(() => sessionStorage.getItem('sawNotFound') === '1')
+
+test.describe('a deleted Recipe left in the history', () => {
+	test('going back to it after a trip through another tab opens Recipes, never its not-found page', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		await watchNotFound(page)
+		await openRecipeFromList(page, recipe.title)
+		// To the Plan and back with the tab bar, which restores the Recipe.
+		await mainTab(page, 'Plan').tap()
+		await expect(page).toHaveURL('/plan')
+		await mainTab(page, 'Recipes').tap()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+		await openEdit(page, recipe.id)
+		await deleteRecipeFromEdit(page)
+		await expect(page).toHaveURL('/recipes')
+
+		await page.goBack()
+		await expect(page).toHaveURL('/plan')
+		// The Recipe's first entry, behind the Plan.
+		await page.goBack()
+		await expect(page).toHaveURL('/recipes')
+		await expect(
+			page.getByRole('heading', { name: /^My Recipes/ }),
+		).toBeVisible()
+		expect(await sawNotFound(page)).toBe(false)
+	})
+
+	test('going back to it from before a reload opens Recipes, never its not-found page', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		await watchNotFound(page)
+		await openRecipeFromList(page, recipe.title)
+		await openEdit(page, recipe.id)
+		// As when iOS restarts the app's web view in the background.
+		await page.reload()
+		await hydrated(saveButton(page))
+		await deleteRecipeFromEdit(page)
+		await expect(page).toHaveURL('/recipes')
+
+		// The Recipe's entry belongs to the document before the reload.
+		await page.goBack()
+		await expect(page).toHaveURL('/recipes')
+		await expect(
+			page.getByRole('heading', { name: /^My Recipes/ }),
+		).toBeVisible()
+		expect(await sawNotFound(page)).toBe(false)
+	})
+
+	test('a link or a deep link to a missing Recipe still says it is not found', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		await page.goto('/recipes/no-such-recipe')
+		await expect(page.getByText('Recipe not found')).toBeVisible()
+		await expect(page).toHaveURL('/recipes/no-such-recipe')
+
+		// Deleted by another member after the list loaded.
+		await page.goto('/recipes')
+		const card = page.getByRole('link', { name: `${recipe.title} recipe` })
+		await hydrated(card)
+		await prisma.recipe.delete({ where: { id: recipe.id } })
+		await card.tap()
+		await expect(page.getByText('Recipe not found')).toBeVisible()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+	})
+})
+
+test.describe('more ways out of an edit screen', () => {
+	test('a reload or closing the page with changes asks the browser first; without changes it does not', async ({
+		page,
+		context,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		await page.goto(`/recipes/${recipe.id}/edit`)
+		await hydrated(saveButton(page))
+		await page.getByLabel('Title').tap()
+		await page.getByLabel('Title').fill('Something else')
+		const dialog = page.waitForEvent('dialog')
+		await page.close({ runBeforeUnload: true })
+		expect((await dialog).type()).toBe('beforeunload')
+		await (await dialog).dismiss()
+		expect(page.isClosed()).toBe(false)
+
+		const pristine = await context.newPage()
+		await pristine.goto(`/recipes/${recipe.id}/edit`)
+		await hydrated(saveButton(pristine))
+		await pristine.getByLabel('Title').tap()
+		const dialogs: string[] = []
+		pristine.on('dialog', (d) => {
+			dialogs.push(d.type())
+			void d.dismiss()
+		})
+		const closed = pristine.waitForEvent('close')
+		await pristine.close({ runBeforeUnload: true })
+		await closed
+		expect(dialogs).toEqual([])
+	})
+
+	test('an edit form the tab bar restored goes back down its own stack after Save or Cancel', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		for (const leave of ['Save', 'Cancel'] as const) {
+			await page.setViewportSize({ width: 390, height: 844 })
+			const { listIdx } = await openRecipeFromList(page, recipe.title)
+			await openEdit(page, recipe.id)
+			// The edit screen has no tab bar: off to the Plan by the desktop
+			// header, then back on a phone with the tab bar, which restores
+			// the edit form.
+			await page.setViewportSize({ width: 1280, height: 800 })
+			await page
+				.getByRole('banner')
+				.getByRole('link', { name: 'Plan', exact: true })
+				.click()
+			await expect(page).toHaveURL('/plan')
+			await page.setViewportSize({ width: 390, height: 844 })
+			await mainTab(page, 'Recipes').tap()
+			await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+			await hydrated(saveButton(page))
+
+			if (leave === 'Save') await saveButton(page).tap()
+			else await cancelLink(page).tap()
+			await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+			await expect(backTo(page, 'Recipes'), leave).toBeVisible()
+			await backTo(page, 'Recipes').tap()
+			await expect(page).toHaveURL('/recipes')
+			expect(await historyIdx(page), leave).toBe(listIdx)
+		}
+	})
+
+	test('Save or Cancel on a restored edit form opened cold hands the restore on to the Recipe', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		for (const leave of ['Save', 'Cancel'] as const) {
+			await page.setViewportSize({ width: 1280, height: 800 })
+			// Straight to the edit form, so nothing is behind it to pop to.
+			await page.goto(`/recipes/${recipe.id}/edit`)
+			const plan = page
+				.getByRole('banner')
+				.getByRole('link', { name: 'Plan', exact: true })
+			await hydrated(plan)
+			await plan.click()
+			await expect(page).toHaveURL('/plan')
+			await page.setViewportSize({ width: 390, height: 844 })
+			await mainTab(page, 'Recipes').tap()
+			await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+			await hydrated(saveButton(page))
+
+			if (leave === 'Save') await saveButton(page).tap()
+			else await cancelLink(page).tap()
+			await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+			// The Recipe stays in the Recipes tab's stack: not back to the Plan.
+			await expect(backTo(page, 'Recipes'), leave).toBeVisible()
+			await backTo(page, 'Recipes').tap()
+			await expect(page).toHaveURL('/recipes')
+		}
+	})
+
+	test('while Delete is on its way, the bar holds Cancel and Save', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		let release = () => {}
+		const held = new Promise<void>((resolve) => (release = resolve))
+		await page.route(/\/edit\.data/, async (route) => {
+			if (route.request().method() === 'POST') await held
+			await route.continue()
+		})
+		await page.goto(`/recipes/${recipe.id}/edit`)
+		await hydrated(saveButton(page))
+		await deleteRecipeFromEdit(page)
+
+		await expect(saveButton(page)).toBeDisabled()
+		await expect(cancelLink(page)).toHaveAttribute('aria-disabled', 'true')
+		// The sheet's scrim covers the bar on a phone; a click that reaches
+		// Cancel anyway (a keyboard, a desktop pointer) does nothing.
+		await cancelLink(page).dispatchEvent('click')
+		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+
+		release()
+		await expect(page).toHaveURL('/recipes')
+		expect(await prisma.recipe.count({ where: { id: recipe.id } })).toBe(0)
+	})
+
+	test('a Delete that finds the Recipe already gone shows its error page with the tab bar', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		await page.goto(`/recipes/${recipe.id}/edit`)
+		await hydrated(saveButton(page))
+		await expect(tabBar(page)).toHaveCount(0)
+		// Another member deletes it first.
+		await prisma.recipe.delete({ where: { id: recipe.id } })
+		await deleteRecipeFromEdit(page)
+		await expect(page.getByText('Recipe not found')).toBeVisible()
+		await expect(tabBar(page)).toBeVisible()
+	})
+})
+
+test.describe('a Save that cannot go through keeps the form', () => {
+	test('a linked sub-Recipe another member deleted shows at its row; the edits stay', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const stock = await prisma.recipe.create({
+			data: {
+				title: 'Chicken stock',
+				userId: user.id,
+				householdId: user.householdId,
+			},
+			select: { id: true },
+		})
+		const soup = await prisma.recipe.create({
+			data: {
+				title: 'Chicken soup',
+				userId: user.id,
+				householdId: user.householdId,
+				ingredients: {
+					create: [
+						{ name: 'stock', order: 0, linkedRecipeId: stock.id },
+						{ name: 'carrots', order: 1 },
+					],
+				},
+				instructions: { create: [{ content: 'Simmer.', order: 0 }] },
+			},
+			select: { id: true },
+		})
+		await page.goto(`/recipes/${soup.id}/edit`)
+		await hydrated(saveButton(page))
+		await page.getByLabel('Title').fill('Chicken noodle soup')
+		await prisma.recipe.delete({ where: { id: stock.id } })
+		await saveButton(page).tap()
+
+		const message = page.getByText(
+			'This linked Recipe was deleted. Remove the link to save',
+		)
+		await expect(message).toBeVisible()
+		const target = page.locator('[data-error-target]', { has: message })
+		await expect(target).toBeFocused()
+		await expectInViewBelowBar(page, target)
+		await expect(page).toHaveURL(`/recipes/${soup.id}/edit`)
+		await expect(page.getByLabel('Title')).toHaveValue('Chicken noodle soup')
+		expect(await recipeTitle(soup.id)).toBe('Chicken soup')
+
+		await page.getByRole('button', { name: 'Remove recipe link' }).tap()
+		await expect(message).toBeHidden()
+		await saveButton(page).tap()
+		await expect(page).toHaveURL(`/recipes/${soup.id}`)
+		expect(await recipeTitle(soup.id)).toBe('Chicken noodle soup')
+	})
+
+	test('Save while offline keeps the form and its edits and says nothing was saved', async ({
+		page,
+		context,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		await page.goto(`/recipes/${recipe.id}/edit`)
+		await hydrated(saveButton(page))
+		await page.getByLabel('Title').fill('Red lentil soup')
+		await context.setOffline(true)
+		await saveButton(page).tap()
+
+		const message = page.getByText(
+			'You’re offline, so nothing was saved. Your changes are still here.',
+		)
+		await expect(message).toBeVisible()
+		await expect(
+			page.locator('[data-error-target]', { has: message }),
+		).toBeFocused()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+		await expect(page.getByLabel('Title')).toHaveValue('Red lentil soup')
+		await expect(page.getByText(/hasn’t been loaded/)).toHaveCount(0)
+		expect(await recipeTitle(recipe.id)).toBe('Lentil soup')
+
+		await context.setOffline(false)
+		await saveButton(page).tap()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+		expect(await recipeTitle(recipe.id)).toBe('Red lentil soup')
+	})
+})

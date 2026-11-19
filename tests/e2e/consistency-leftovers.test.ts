@@ -435,6 +435,35 @@ test('without a swipe, Tab reaches a Staple’s Delete, which slides into view, 
 	expect(await isStaple(user.householdId, 'apples')).toBe(true)
 })
 
+test('a Staple row a finger swipes after Tab opened it stays open when focus leaves', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await seedStaples(user.householdId, ['Apples', 'Salt'])
+	await page.goto('/inventory')
+	const salt = stapleRow(page, 'Salt')
+	const del = salt.getByRole('button', { name: 'Delete Salt' })
+	await page.getByRole('heading', { name: 'Staples', level: 1 }).click()
+	for (let i = 0; i < 12; i++) {
+		await page.keyboard.press('Tab')
+		const focused = await page.evaluate(() =>
+			document.activeElement?.getAttribute('aria-label'),
+		)
+		if (focused === 'Delete Salt') break
+	}
+	await expect(del).toBeFocused()
+	await expect.poll(() => restingX(salt)).toBe(-76)
+
+	// The finger takes the row over: a swipe that leaves it open.
+	await drag(page, salt, { fromX: 0.5, toX: 0.3 })
+	await expect.poll(() => restingX(salt)).toBe(-76)
+	// Focus leaves Delete; the row is the finger's now, so it stays open.
+	await page.getByRole('heading', { name: 'Staples', level: 1 }).click()
+	await expect(del).not.toBeFocused()
+	expect(await restingX(salt)).toBe(-76)
+})
+
 test.describe('with a mouse', () => {
 	test.use({
 		viewport: { width: 1024, height: 768 },

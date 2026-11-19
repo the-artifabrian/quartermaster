@@ -132,8 +132,12 @@ jobs:
       - name: 🏗 Build
         run: bun run build
 
+      # WAL, as production runs it (other/litefs.yml).
       - name: 🛠 Setup Database
-        run: bunx prisma migrate deploy && bun prisma/run-seed-infrastructure.ts
+        run: |
+          bunx prisma migrate deploy
+          bun prisma/run-seed-infrastructure.ts
+          bun prisma/journal-mode-wal.ts
 
       - name: 📥 Install Playwright Browsers
         run: bunx playwright install --with-deps --only-shell chromium

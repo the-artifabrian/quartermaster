@@ -457,8 +457,10 @@ test.describe('in the iOS app', () => {
 		})
 
 		await page.goto('/recipes/menus')
-		// On a phone the title's + shows no words.
-		const newMenu = page.locator('main a[href="/recipes/menus/new"]')
+		// On a phone the title's + shows no words; its name is its label.
+		const newMenu = page
+			.getByRole('main')
+			.getByRole('link', { name: 'New Menu', exact: true })
 		await hydrated(newMenu)
 		await ui.expectSlide('forward', () => newMenu.tap())
 		await expect(page).toHaveURL('/recipes/menus/new')

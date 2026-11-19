@@ -538,12 +538,13 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	useEffect(() => {
 		const el = ingredientsHeaderRef.current
 		if (!el || typeof IntersectionObserver === 'undefined') return
-		// The heading has passed once it is under the pinned nav bar, not only
-		// once it leaves the screen.
+		// The heading has passed once it is under the pinned header (the nav
+		// bar is its last row where it shows), not only once it leaves the
+		// screen.
 		const barBottom = Math.max(
 			0,
 			Math.round(
-				document.querySelector('[data-nav-bar]')?.getBoundingClientRect()
+				document.querySelector('[data-site-header]')?.getBoundingClientRect()
 					.bottom ?? 0,
 			),
 		)

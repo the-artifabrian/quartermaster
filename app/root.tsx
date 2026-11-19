@@ -569,7 +569,7 @@ function App() {
 					theme={theme}
 					// Sonner's default offsets, pushed below the status bar in the iOS
 					// app (the inset is 0 everywhere else), and below a pushed page's
-					// nav bar, which stays pinned with Back and Save on it.
+					// pinned header (its nav bar on phones and on desktop edit screens).
 					offset={{ top: `calc(24px + ${toastTop})` }}
 					mobileOffset={{ top: `calc(16px + ${toastTop})` }}
 				/>

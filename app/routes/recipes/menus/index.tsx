@@ -4,6 +4,10 @@ import { MenuCard } from '#app/components/menu-card.tsx'
 import { RecipeCardGrid } from '#app/components/recipe-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import {
+	TitleAddButton,
+	TitleRow,
+} from '#app/components/ui/title-add-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { type Route } from './+types/index.ts'
@@ -71,23 +75,23 @@ export default function MenusIndex({ loaderData }: Route.ComponentProps) {
 		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			{/* Page Header */}
 			<div className="border-border/50 border-b">
-				<div className="container-grid flex items-center justify-between gap-3 py-3 md:py-4">
+				<TitleRow className="container-grid py-3 md:py-4">
 					<h1 className="font-serif text-2xl font-normal">
 						My Menus{' '}
 						<span className="text-muted-foreground text-base font-normal">
 							({menus.length})
 						</span>
 					</h1>
-					<Button
+					<TitleAddButton
 						asChild
-						className="size-11 rounded-full p-0 sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2"
+						aria-label="New Menu"
+						className="sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2"
 					>
 						<PushLink to="/recipes/menus/new">
-							<Icon name="plus" size="sm" />
 							<span className="hidden sm:inline">New Menu</span>
 						</PushLink>
-					</Button>
-				</div>
+					</TitleAddButton>
+				</TitleRow>
 			</div>
 
 			<div className="container-grid py-4">

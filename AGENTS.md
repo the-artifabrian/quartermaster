@@ -34,10 +34,13 @@ bun run build
 DB="$(mktemp -d)/e2e.db"
 export DATABASE_URL="file:$DB" DATABASE_PATH="$DB"
 bunx prisma migrate deploy && bun prisma/run-seed-infrastructure.ts
+bun prisma/journal-mode-wal.ts
 CI=true PORT=3117 bunx playwright test tests/e2e/<file>.test.ts
 ```
 
-`PORT` keeps the run off a dev server on :3000. Rebuild after changing app code.
+`PORT` keeps the run off a dev server on :3000. `journal-mode-wal.ts` puts the
+database in WAL mode, as production runs it, so the server and the tests' own
+writes contend the way they do there. Rebuild after changing app code.
 `tests/mocks` load from source, so mock changes need no rebuild.
 
 ### Evidence

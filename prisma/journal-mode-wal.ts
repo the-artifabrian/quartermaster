@@ -9,7 +9,7 @@
  * It refuses a missing file instead of creating an empty one, and prints the
  * mode it set.
  */
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 import { createClient } from '@libsql/client'
 
@@ -23,7 +23,20 @@ const databasePath = path.resolve(url.slice('file:'.length))
 // directory. Without that export, Bun loads .env and this would switch the
 // dev database (prisma/data.db) to WAL, so a database inside the checkout is
 // refused outside CI.
-if (!process.env.CI && databasePath.startsWith(process.cwd() + path.sep)) {
+const realDirectory = (file: string) => {
+	try {
+		return realpathSync(path.dirname(file))
+	} catch {
+		return path.dirname(file)
+	}
+}
+const checkout = realpathSync(process.cwd())
+const databaseDirectory = realDirectory(databasePath)
+if (
+	!process.env.CI &&
+	(databaseDirectory === checkout ||
+		databaseDirectory.startsWith(checkout + path.sep))
+) {
 	console.error(
 		`${databasePath} is inside the checkout; point DATABASE_URL at a throwaway e2e database`,
 	)

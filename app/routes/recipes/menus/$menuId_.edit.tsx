@@ -470,6 +470,12 @@ function DeleteMenu({ menuId }: { menuId: string }) {
 	// Cancel or Save while it deletes would land on, or post to, a gone item.
 	useLockNavBar(isDeleting)
 
+	// Offline nothing was deleted; the toast says so, and the question goes.
+	const offline = isOfflineReply(fetcher.data)
+	useEffect(() => {
+		if (offline) setConfirming(false)
+	}, [fetcher.data, offline])
+
 	// Gone: back to Menus, with none of the Menu's pages behind it.
 	const done = isEditScreenDone(fetcher.data) ? fetcher.data.done : null
 	useEffect(() => {

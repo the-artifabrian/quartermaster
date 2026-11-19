@@ -1,10 +1,9 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { data, redirect, Form, Link } from 'react-router'
+import { data, redirect, Form } from 'react-router'
 import { z } from 'zod'
 import { ErrorList, Field } from '#app/components/forms.tsx'
-import { Button } from '#app/components/ui/button.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import {
 	checkIsCommonPassword,
@@ -165,10 +164,8 @@ export default function ChangePasswordRoute({
 				errors={fields.confirmNewPassword.errors}
 			/>
 			<ErrorList id={form.errorId} errors={form.errors} />
-			<div className="mt-8 grid w-full grid-cols-2 gap-6">
-				<Button variant="secondary" asChild>
-					<Link to="..">Cancel</Link>
-				</Button>
+			{/* The nav bar's Back leaves; the form has no Cancel of its own. */}
+			<div className="mt-8">
 				<StatusButton
 					type="submit"
 					status={isPending ? 'pending' : (form.status ?? 'idle')}

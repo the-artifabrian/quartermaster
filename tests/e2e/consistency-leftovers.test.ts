@@ -327,10 +327,10 @@ test('a Staple row swiped left shows a red Delete that removes it at once, with 
 
 	const salt = stapleRow(page, 'Salt')
 	// The spoken name starts with the words on the button (so Voice Control's
-	// "tap Add to Shopping" works), then says which Staple.
-	const add = salt.getByRole('button', { name: /^Add to Shopping/ })
-	await expect(add).toHaveAccessibleName('Add to Shopping, Salt')
-	await expect(add).toHaveText('Add to Shopping')
+	// "tap Need" works), then says which Staple.
+	const add = salt.getByRole('button', { name: /^Need/ })
+	await expect(add).toHaveAccessibleName('Need, Salt')
+	await expect(add).toHaveText('Need')
 	// No trash button on a phone, only the Delete waiting under the row.
 	const del = salt.getByRole('button', { name: 'Delete Salt' })
 	await expect(del).toHaveCount(1)
@@ -349,10 +349,10 @@ test('a Staple row swiped left shows a red Delete that removes it at once, with 
 	await expect.poll(() => restingX(salt)).toBe(0)
 
 	// A tap on an open row shuts it rather than adding the Staple.
-	await apples.getByRole('button', { name: 'Add to Shopping, Apples' }).tap()
+	await apples.getByRole('button', { name: 'Need, Apples' }).tap()
 	await expect.poll(() => restingX(apples)).toBe(0)
 	await expect(
-		apples.getByRole('button', { name: 'Add to Shopping, Apples' }),
+		apples.getByRole('button', { name: 'Need, Apples' }),
 	).toBeVisible()
 
 	await drag(page, salt, { fromX: 0.8, toX: 0.2 })
@@ -417,7 +417,7 @@ test('without a swipe, Tab reaches a Staple’s Delete, which slides into view, 
 	// The stop before it is the row's own Add.
 	await page.keyboard.press('Shift+Tab')
 	await expect(
-		salt.getByRole('button', { name: 'Add to Shopping, Salt' }),
+		salt.getByRole('button', { name: 'Need, Salt' }),
 	).toBeFocused()
 	await page.keyboard.press('Tab')
 	await expect(del).toBeFocused()

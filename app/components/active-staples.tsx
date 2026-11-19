@@ -333,7 +333,7 @@ function StapleRow({
 						type="button"
 						variant={onShoppingList ? 'ghost' : 'outline'}
 						className="min-w-24 shrink-0 justify-center px-3"
-						aria-label={`${onShoppingList ? 'On list' : 'Add to Shopping'}, ${staple.displayName}`}
+						aria-label={`${onShoppingList ? 'On list' : 'Need'}, ${staple.displayName}`}
 						aria-busy={isAdding || undefined}
 						onClick={() =>
 							void shopFetcher.submit(
@@ -348,7 +348,7 @@ function StapleRow({
 								<span className="text-muted-foreground">On list</span>
 							</>
 						) : (
-							'Add to Shopping'
+							'Need'
 						)}
 					</Button>
 					<Button

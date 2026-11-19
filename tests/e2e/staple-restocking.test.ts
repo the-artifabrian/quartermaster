@@ -54,7 +54,7 @@ test('tapping a Staple adds it to Next shop from a phone', async ({
 		.getByRole('listitem')
 		.filter({ hasText: 'Salt' })
 	const saltButton = saltRow.getByRole('button').first()
-	await expect(saltButton).toHaveAccessibleName('Add to Shopping, Salt')
+	await expect(saltButton).toHaveAccessibleName('Need, Salt')
 	const response = page.waitForResponse(
 		(candidate) =>
 			candidate.request().method() === 'POST' &&
@@ -130,7 +130,7 @@ test('a failed restock reports it and leaves the Staple tappable', async ({
 			}),
 		).toBeVisible()
 		await expect(saltButton).toHaveAccessibleName(
-			'Add to Shopping, Failure salt',
+			'Need, Failure salt',
 		)
 		await expect(saltButton).not.toHaveAttribute('aria-busy')
 		await expect(saltButton).toBeEnabled()

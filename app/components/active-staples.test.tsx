@@ -45,7 +45,7 @@ test('the list is one alphabetical set of usual items, searchable', async () => 
 	expect(within(list).getAllByRole('listitem')[0]).toHaveTextContent('Apples')
 	// Each row carries its own action and its own state.
 	expect(
-		within(list).getByRole('button', { name: 'Add to Shopping, Apples' }),
+		within(list).getByRole('button', { name: 'Need, Apples' }),
 	).toBeVisible()
 	expect(
 		within(list).getByRole('button', { name: 'On list, Salt' }),
@@ -122,7 +122,7 @@ test('adding says so on the row itself, holds focus, and keeps the row in place'
 	const user = userEvent.setup()
 
 	const appleButton = await screen.findByRole('button', {
-		name: 'Add to Shopping, Apples',
+		name: 'Need, Apples',
 	})
 	await user.click(appleButton)
 	await waitFor(() => expect(appleButton).toHaveAttribute('aria-busy', 'true'))

@@ -128,6 +128,12 @@ already runs one transaction at a time. A transaction whose first SQL statement
 writes, and an array `$transaction([...])` that starts with a write, need
 nothing. An `upsert` may run a SELECT first, so it doesn't count as a write.
 
+libSQL runs each interactive transaction on a native connection of its own and
+never closes it, and Prisma keeps its last 100 closed transactions, so those
+connections and their page caches would stay in memory. `createPrismaClient` in
+`app/utils/db.server.ts` wraps the adapter so that a transaction lets go of its
+connection when it ends, and the next garbage collection frees it.
+
 ## Planning
 
 A Recipe is canonical cooking content. A Menu is a reusable arrangement of

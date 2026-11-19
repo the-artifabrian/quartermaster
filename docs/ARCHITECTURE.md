@@ -121,10 +121,12 @@ by a User and a Household needs the same handover.
 An interactive transaction that reads, or decides what to write, before its
 first write runs through `writeTransaction` in
 `app/utils/write-transaction.server.ts`. Its first statement takes SQLite's
-write lock, so a write from another connection makes it wait out the busy
-timeout instead of failing at its first write. A transaction whose first SQL
-statement writes, and an array `$transaction([...])` that starts with a write,
-need nothing. Prisma runs an `upsert` with an empty `update` as a SELECT first.
+write lock, so a write from another process (the e2e tests' own Prisma client,
+or an ops script over `fly ssh`) makes it wait out the busy timeout instead of
+failing at its first write. Within the app's one process the libsql adapter
+already runs one transaction at a time. A transaction whose first SQL statement
+writes, and an array `$transaction([...])` that starts with a write, need
+nothing. An `upsert` may run a SELECT first, so it doesn't count as a write.
 
 ## Planning
 

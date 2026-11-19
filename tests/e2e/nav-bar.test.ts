@@ -886,7 +886,7 @@ test('a toast on a pushed page opens below the bar', async ({
 	}
 })
 
-test('on desktop, Settings opened from a Recipe goes back to the Recipe', async ({
+test('on desktop the header does the bar’s job: no Back bar on a Recipe or Settings, but an edit screen keeps Cancel and Save', async ({
 	page,
 	login,
 }) => {
@@ -894,12 +894,29 @@ test('on desktop, Settings opened from a Recipe goes back to the Recipe', async 
 	const recipe = await createLongRecipe(user, 'Lentil soup')
 	await page.setViewportSize({ width: 1280, height: 800 })
 	await page.goto(`/recipes/${recipe.id}`)
+	const header = page.getByRole('navigation', { name: 'Main' })
+	await expect(header.getByRole('link', { name: 'Recipes' })).toBeVisible()
+	await expect(page.locator('[data-nav-bar]')).toBeHidden()
+
 	const avatar = page.getByRole('link', { name: 'Settings', exact: true })
 	await hydrated(avatar)
 	await avatar.click()
 	await expect(page).toHaveURL('/settings/profile')
-	await backButton(page, 'Recipe').click()
+	await expect(page.locator('[data-nav-bar]')).toBeHidden()
+	// The browser's Back still returns to the Recipe it came from.
+	await page.goBack()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+
+	await page.goto(`/recipes/${recipe.id}/edit`)
+	const bar = page.locator('[data-nav-bar]')
+	await expect(bar).toBeVisible()
+	await expect(bar.getByRole('link', { name: 'Cancel' })).toBeVisible()
+	await expect(bar.getByRole('button', { name: 'Save' })).toBeVisible()
+
+	// A phone keeps the bar on the Recipe.
+	await page.setViewportSize({ width: 390, height: 844 })
+	await page.goto(`/recipes/${recipe.id}`)
+	await expect(backButton(page, 'Recipes')).toBeVisible()
 })
 
 test('Import has no Cancel of its own; the bar goes back', async ({

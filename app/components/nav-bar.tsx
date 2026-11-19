@@ -341,8 +341,13 @@ export function NavBar({ rule, form, loaded = true }: NavBarConfig) {
 			ref={barRef}
 			data-nav-bar=""
 			// The sides keep room for "‹ Shopping" and Save, so the title stays
-			// centred on the bar and truncates before it reaches them.
-			className="container grid h-11 grid-cols-[minmax(6.5rem,1fr)_minmax(0,auto)_minmax(6.5rem,1fr)] items-center gap-2 print:hidden"
+			// centred on the bar and truncates before it reaches them. From md the
+			// header's own tab links (and the browser's Back) do the bar's job, so
+			// only an edit screen keeps it, for Cancel and Save.
+			className={cn(
+				'container grid h-11 grid-cols-[minmax(6.5rem,1fr)_minmax(0,auto)_minmax(6.5rem,1fr)] items-center gap-2 print:hidden',
+				!editing && 'md:hidden',
+			)}
 		>
 			<div className="flex min-w-0 justify-start">
 				<Link

@@ -225,8 +225,9 @@ Outside the app pushes do not slide (the Recipe and Menu cards cross-fade).
 
 On desktop, keep the same information hierarchy and give content more width; do
 not add extra product destinations just because space exists. The desktop header
-keeps its brand row and links on pushed pages, with the nav bar as a second row
-under it, since there is no tab bar.
+keeps its brand row and links on pushed pages. Its links and the browser's Back
+do the nav bar's job there, so from `md` only an edit screen keeps the nav bar,
+as a second row under the header, for Cancel and Save.
 
 ## Imagery
 

@@ -135,16 +135,17 @@ test.describe('errors that hold Save back', () => {
 		await saveButton(page).tap()
 
 		const name = page.getByLabel('Ingredient 1 name')
-		const nameError = page.getByText('Name this ingredient, or remove it')
+		// The only row cannot be removed, so its error does not offer to.
+		const nameError = page.getByText('Name this ingredient', { exact: true })
 		await expect(nameError).toBeVisible()
 		await expect(name).toBeFocused()
 		await expect(name).toHaveAttribute('aria-invalid', 'true')
-		await expect(name).toHaveAccessibleDescription(
-			'Name this ingredient, or remove it',
-		)
+		await expect(name).toHaveAccessibleDescription('Name this ingredient')
 		await expectInViewBelowBar(page, name)
 		const step = page.getByLabel('Step 1', { exact: true })
-		await expect(page.getByText('Write this step, or remove it')).toBeVisible()
+		await expect(
+			page.getByText('Write this step', { exact: true }),
+		).toBeVisible()
 		await expect(step).toHaveAttribute('aria-invalid', 'true')
 		await expect(page).toHaveURL('/recipes/new')
 		expect(
@@ -215,6 +216,37 @@ test.describe('errors that hold Save back', () => {
 
 		await expect(page.getByLabel('Source URL')).toBeFocused()
 		await expectInViewBelowBar(page, page.getByLabel('Source URL'))
+		expect(await recipeTitle(recipe.id)).toBe('Lentil soup')
+	})
+
+	test('too many new classifications show under Classification, which opens, and take focus', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		await page.goto(`/recipes/${recipe.id}/edit`)
+		await hydrated(saveButton(page))
+		const classification = page.locator('summary', {
+			hasText: 'Classification',
+		})
+		await classification.tap()
+		await page.getByRole('button', { name: 'Add cuisine' }).tap()
+		const input = page.getByRole('textbox', { name: 'Add cuisine' })
+		for (let n = 1; n <= 21; n++) {
+			await input.fill(`Cuisine ${n}`)
+			await input.press('Enter')
+		}
+		await classification.tap()
+		await page.evaluate(() => window.scrollTo(0, 0))
+		await saveButton(page).tap()
+
+		const message = page.getByText('Add up to 20 new cuisines at a time')
+		await expect(message).toBeVisible()
+		const target = page.locator('[data-error-target]', { has: message })
+		await expect(target).toBeFocused()
+		await expectInViewBelowBar(page, target)
+		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
 		expect(await recipeTitle(recipe.id)).toBe('Lentil soup')
 	})
 
@@ -600,7 +632,7 @@ test.describe('history after Save and Delete', () => {
 		expect(await historyIdx(page)).toBe(listIdx)
 	})
 
-	test('a new Menu takes the place of its form, and an edited Menu returns to its entry', async ({
+	test('a new Menu takes the place of its form: history back goes to Menus', async ({
 		page,
 		login,
 	}) => {
@@ -608,6 +640,7 @@ test.describe('history after Save and Delete', () => {
 		await page.goto('/recipes/menus')
 		const newMenu = page.getByRole('link', { name: 'New Menu' }).first()
 		await hydrated(newMenu)
+		const listIdx = await historyIdx(page)
 		await newMenu.tap()
 		await expect(page).toHaveURL('/recipes/menus/new')
 		await hydrated(saveButton(page))
@@ -618,28 +651,48 @@ test.describe('history after Save and Delete', () => {
 			page.getByRole('heading', { level: 1, name: 'Long lunch' }),
 		).toBeVisible()
 		expect(await historyIdx(page)).toBe(formIdx)
-		const menuIdx = formIdx
+		expect(
+			await prisma.menu.count({ where: { householdId: user.householdId } }),
+		).toBe(1)
 
+		await page.goBack()
+		await expect(page).toHaveURL('/recipes/menus')
+		expect(await historyIdx(page)).toBe(listIdx)
+	})
+
+	test('Save on an edited Menu returns to its entry: history back goes to Menus', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const menu = await createMenu(user)
+		await page.goto('/recipes/menus')
+		const card = page.getByRole('link', { name: /Terrace dinner/ }).first()
+		await hydrated(card)
+		const listIdx = await historyIdx(page)
+		await card.tap()
+		await expect(page).toHaveURL(`/recipes/menus/${menu.id}`)
+		const menuIdx = await historyIdx(page)
 		const edit = page.getByRole('link', { name: 'Edit', exact: true })
 		await hydrated(edit)
 		await edit.tap()
-		await expect(page).toHaveURL(/\/recipes\/menus\/[^/]+\/edit$/)
+		await expect(page).toHaveURL(`/recipes/menus/${menu.id}/edit`)
 		await hydrated(saveButton(page))
 		await page.getByLabel('Title').fill('Longer lunch')
 		await saveButton(page).tap()
-		await expect(page).toHaveURL(/\/recipes\/menus\/[^/]+$/)
 		await expect(
 			page.getByRole('heading', { level: 1, name: 'Longer lunch' }),
 		).toBeVisible()
 		expect(await historyIdx(page)).toBe(menuIdx)
-		const saved = await prisma.menu.findFirstOrThrow({
-			where: { householdId: user.householdId },
+		const saved = await prisma.menu.findUniqueOrThrow({
+			where: { id: menu.id },
 			select: { title: true },
 		})
 		expect(saved.title).toBe('Longer lunch')
 
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes/menus')
+		expect(await historyIdx(page)).toBe(listIdx)
 	})
 
 	test('Delete returns to the list over the Recipe: history back shows no page for it', async ({

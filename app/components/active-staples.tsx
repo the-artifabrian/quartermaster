@@ -316,7 +316,7 @@ function StapleRow({
 				<div
 					ref={swipe.ref}
 					onPointerDown={(event) => {
-						if (window.matchMedia(FINE_POINTER).matches) return
+						if (window.matchMedia?.(FINE_POINTER).matches) return
 						swipe.handlers.onPointerDown(event)
 					}}
 					// A tap on an open row shuts it instead of adding the Staple.

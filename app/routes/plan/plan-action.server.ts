@@ -40,6 +40,7 @@ import {
 	annotateShoppingDemand,
 	loadShoppingAvailability,
 } from '#app/utils/shopping-list.server.ts'
+import { writeTransaction } from '#app/utils/write-transaction.server.ts'
 
 /**
  * What `addMeal` reports back: which Meal now holds the Recipe, whether this
@@ -338,7 +339,7 @@ export function createPlanAction(
 			}
 			const { mealId, date, label, time, timeZone, guestCount, text } =
 				submission.value
-			const moved = await db.$transaction(async (tx) => {
+			const moved = await writeTransaction(db, async (tx) => {
 				const meal = await requireMeal(mealId, tx)
 				const moved = date.getTime() !== meal.date.getTime()
 				const weekStart = getWeekStart(date)

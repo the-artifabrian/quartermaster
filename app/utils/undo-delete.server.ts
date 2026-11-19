@@ -3,6 +3,7 @@ import { remember } from '@epic-web/remember'
 import { z } from 'zod'
 import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
 import { demandIdentity } from './shopping-demand.server.ts'
+import { writeTransaction } from './write-transaction.server.ts'
 
 /**
  * Deletes that Undo can reverse. Each delete happens at once and answers with
@@ -327,23 +328,6 @@ type Tx = Prisma.TransactionClient
 type ShoppingRow = z.infer<typeof ShoppingRowSnapshot>
 
 /**
- * One transaction that holds SQLite's write lock from its first statement,
- * so what it reads cannot change before it writes. (A transaction that reads
- * and then writes has to upgrade its lock, and SQLite fails that at once,
- * without waiting, when another connection is writing.)
- */
-function writeTransaction<T>(
-	db: Db,
-	householdId: string,
-	work: (tx: Tx) => Promise<T>,
-) {
-	return db.$transaction(async (tx) => {
-		await tx.$executeRaw`UPDATE "Household" SET "name" = "name" WHERE "id" = ${householdId}`
-		return work(tx)
-	})
-}
-
-/**
  * Delete Shopping rows of the Household; their Meal amounts go with them.
  * `checkedOnly` (Clear checked) takes only rows still checked: one the other
  * phone unchecked a moment ago stays. The snapshot is exactly what went.
@@ -356,7 +340,7 @@ export function deleteShoppingRows(
 		checkedOnly,
 	}: Scope & { ids: string[]; checkedOnly?: boolean },
 ): Promise<DeleteResult> {
-	return writeTransaction(db, householdId, async (tx) => {
+	return writeTransaction(db, async (tx) => {
 		const where = {
 			list: { householdId },
 			...(checkedOnly ? { checked: true } : {}),
@@ -519,7 +503,7 @@ export function restoreShoppingRows(
 	db: Db,
 	scope: Scope & { rows: ShoppingRow[] },
 ) {
-	return writeTransaction(db, scope.householdId, async (tx) => {
+	return writeTransaction(db, async (tx) => {
 		const counts = await putBackShoppingRows(tx, scope)
 		if (counts.restored + counts.merged + counts.amounts === 0) {
 			return { status: 'gone' as const }
@@ -655,9 +639,7 @@ export function deleteMeal(
 	db: Db,
 	input: Scope & { mealId: string; removeShoppingContributions: boolean },
 ) {
-	return writeTransaction(db, input.householdId, (tx) =>
-		deleteMealIn(tx, input),
-	)
+	return writeTransaction(db, (tx) => deleteMealIn(tx, input))
 }
 
 /**
@@ -672,7 +654,7 @@ export function restoreMeal(
 	{ householdId, snapshot }: Scope & { snapshot: z.infer<typeof MealSnapshot> },
 ) {
 	const { meal } = snapshot
-	return writeTransaction(db, householdId, async (tx) => {
+	return writeTransaction(db, async (tx) => {
 		const [plan, existing, recipes, menu] = await Promise.all([
 			tx.mealPlan.findFirst({
 				where: { id: meal.mealPlanId, householdId },
@@ -796,7 +778,7 @@ export function deleteMealItem(
 	db: Db,
 	{ householdId, itemId }: Scope & { itemId: string },
 ): Promise<DeleteResult> {
-	return writeTransaction(db, householdId, async (tx) => {
+	return writeTransaction(db, async (tx) => {
 		const item = await tx.mealRecipeItem.findFirst({
 			where: { id: itemId, meal: { mealPlan: { householdId } } },
 			select: mealSnapshotSelect.recipeItems.select,
@@ -836,7 +818,7 @@ export function restoreMealItem(
 	db: Db,
 	{ householdId, item }: Scope & { item: z.infer<typeof MealItemSnapshot> },
 ) {
-	return writeTransaction(db, householdId, async (tx) => {
+	return writeTransaction(db, async (tx) => {
 		const [meal, existing, recipe, section] = await Promise.all([
 			tx.meal.findFirst({
 				where: { id: item.mealId, mealPlan: { householdId } },

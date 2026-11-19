@@ -1,6 +1,7 @@
 import { type Prisma } from '#app/generated/prisma/client.ts'
 import { prisma } from './db.server.ts'
 import { deleteRecipeImageUnlessShared } from './recipe-image.server.ts'
+import { writeTransaction } from './write-transaction.server.ts'
 
 /**
  * The member who takes over a Household's data when `userId` leaves it: an
@@ -61,11 +62,7 @@ export async function getAccountDeletionOutcome(
  * delete is logged and does not undo the account deletion.
  */
 export async function deleteAccount(userId: string) {
-	const objectKeys = await prisma.$transaction(async (tx) => {
-		// Take SQLite's write lock first. A transaction that reads and then
-		// writes has to upgrade its lock, and SQLite fails that at once, without
-		// waiting out the busy timeout, when another connection is writing.
-		await tx.$executeRaw`UPDATE "User" SET "id" = "id" WHERE "id" = ${userId}`
+	const objectKeys = await writeTransaction(prisma, async (tx) => {
 		// Every Household the user still has rows in: their own, plus any they
 		// left, where leaveHousehold kept the original Recipes under their id.
 		const [recipeHouseholds, listHouseholds, inviteHouseholds, membership] =

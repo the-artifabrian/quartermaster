@@ -30,6 +30,7 @@ import {
 } from '#app/utils/shopping-horizon.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
+import { writeTransaction } from '#app/utils/write-transaction.server.ts'
 import { type Route } from './+types/import.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
 
@@ -466,7 +467,7 @@ async function importRecipes(
 			}))
 			const ingredientIds = recipe.ingredients.map(() => createId())
 
-			const created = await prisma.$transaction(async (tx) => {
+			const created = await writeTransaction(prisma, async (tx) => {
 				const metadataValueIds = await ensureRecipeMetadataValues(
 					tx,
 					householdId,
@@ -1193,7 +1194,7 @@ export async function action({ request }: Route.ActionArgs) {
 	// Import the complete vocabulary before Recipes so unassigned values survive
 	// full recovery. Existing target display values win on normalized identity.
 	if (fullHouseholdData?.recipeMetadataValues?.length) {
-		await prisma.$transaction(async (tx) => {
+		await writeTransaction(prisma, async (tx) => {
 			const existing = await tx.recipeMetadataValue.findMany({
 				where: { householdId },
 				select: { dimension: true, nameKey: true },
@@ -1265,7 +1266,7 @@ export async function action({ request }: Route.ActionArgs) {
 	// Existing target rows win; importing recovery data never silently rewrites
 	// a household that has already made its own choice.
 	if (fullHouseholdData?.householdIngredients !== undefined) {
-		await prisma.$transaction(async (tx) => {
+		await writeTransaction(prisma, async (tx) => {
 			const existing = await tx.householdIngredient.findMany({
 				where: { householdId },
 				select: { canonicalKey: true },

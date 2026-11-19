@@ -6,7 +6,11 @@ import {
 	menuNewNav,
 	recipeDetailNav,
 	recipeEditNav,
+	menuPages,
+	recipePages,
 	recordHistoryEntry,
+	resolveAfterDelete,
+	resolveAfterSave,
 	resolveBack,
 	settingsPageNav,
 	settingsRootNav,
@@ -440,4 +444,186 @@ test('a replace rewrites its own entry and keeps the ones after it', () => {
 		action: 'REPLACE',
 	})
 	expect(log).toEqual(logOf('/recipes', '/recipes/menus', '/recipes/r2'))
+})
+
+// After a Save or a Delete, an edit screen leaves as if it was dismissed:
+// what is behind the page it lands on is what was behind the edit screen.
+
+function afterSave(paths: Array<string | null>, to: string) {
+	return resolveAfterSave({
+		idx: paths.length - 1,
+		log: logOf(...paths),
+		to,
+	})
+}
+
+function afterDelete(
+	paths: Array<string | null>,
+	gone = recipePages('r1'),
+	to = '/recipes',
+) {
+	return resolveAfterDelete({
+		idx: paths.length - 1,
+		log: logOf(...paths),
+		to,
+		gone,
+	})
+}
+
+test('Save from an edit screen opened from its Recipe pops back to that Recipe', () => {
+	expect(
+		afterSave(['/recipes', '/recipes/r1', '/recipes/r1/edit'], '/recipes/r1'),
+	).toEqual({ type: 'pop', delta: 1 })
+})
+
+test('Save pops back to a scaled Recipe too, keeping its search', () => {
+	expect(
+		afterSave(['/recipes/r1?scale=2', '/recipes/r1/edit'], '/recipes/r1'),
+	).toEqual({ type: 'pop', delta: 1 })
+})
+
+test('Save on a deep-linked edit screen opens the Recipe in its place', () => {
+	expect(afterSave(['/recipes/r1/edit'], '/recipes/r1')).toEqual({
+		type: 'replace',
+		to: '/recipes/r1',
+	})
+})
+
+test('Save after a reload, with the entry behind unknown, opens the Recipe in its place', () => {
+	expect(afterSave([null, '/recipes/r1/edit'], '/recipes/r1')).toEqual({
+		type: 'replace',
+		to: '/recipes/r1',
+	})
+})
+
+test('Save never pops to another page behind the edit screen', () => {
+	expect(afterSave(['/recipes', '/recipes/r1/edit'], '/recipes/r1')).toEqual({
+		type: 'replace',
+		to: '/recipes/r1',
+	})
+	expect(afterSave(['/recipes/r2', '/recipes/r1/edit'], '/recipes/r1')).toEqual(
+		{ type: 'replace', to: '/recipes/r1' },
+	)
+})
+
+test('Save with no history index (before hydration) opens the page in place', () => {
+	expect(
+		resolveAfterSave({
+			idx: null,
+			log: logOf('/recipes/r1'),
+			to: '/recipes/r1',
+		}),
+	).toEqual({ type: 'replace', to: '/recipes/r1' })
+})
+
+test('Delete from list, Recipe, edit pops back to the list', () => {
+	expect(
+		afterDelete(['/plan', '/recipes', '/recipes/r1', '/recipes/r1/edit']),
+	).toEqual({ type: 'pop', delta: 2 })
+})
+
+test('Delete pops back to a filtered list, keeping its search', () => {
+	expect(
+		afterDelete(['/recipes?q=soup', '/recipes/r1', '/recipes/r1/edit']),
+	).toEqual({ type: 'pop', delta: 2 })
+})
+
+test('Delete steps over every entry of the deleted Recipe directly behind', () => {
+	expect(
+		afterDelete([
+			'/recipes',
+			'/recipes/r1',
+			'/recipes/r1/edit',
+			'/recipes/r1',
+			'/recipes/r1/edit',
+		]),
+	).toEqual({ type: 'pop', delta: 4 })
+})
+
+test('Delete of a Recipe opened from the Plan puts the list where the Recipe was', () => {
+	expect(afterDelete(['/plan', '/recipes/r1', '/recipes/r1/edit'])).toEqual({
+		type: 'pop-replace',
+		delta: 1,
+		to: '/recipes',
+	})
+})
+
+test('Delete of a cold-started Recipe puts the list where the Recipe was', () => {
+	expect(afterDelete(['/recipes/r1', '/recipes/r1/edit'])).toEqual({
+		type: 'pop-replace',
+		delta: 1,
+		to: '/recipes',
+	})
+})
+
+test('Delete after a reload replaces the known Recipe entries, not unknown ones', () => {
+	expect(afterDelete([null, '/recipes/r1', '/recipes/r1/edit'])).toEqual({
+		type: 'pop-replace',
+		delta: 1,
+		to: '/recipes',
+	})
+})
+
+test('Delete on a deep-linked edit screen opens the list in its place', () => {
+	expect(afterDelete(['/recipes/r1/edit'])).toEqual({
+		type: 'replace',
+		to: '/recipes',
+	})
+	expect(afterDelete([null, '/recipes/r1/edit'])).toEqual({
+		type: 'replace',
+		to: '/recipes',
+	})
+})
+
+test('Delete with another page right behind the edit screen opens the list in its place', () => {
+	expect(afterDelete(['/plan', '/recipes/r1/edit'])).toEqual({
+		type: 'replace',
+		to: '/recipes',
+	})
+})
+
+test('Delete does not step over another Recipe that only shares the id prefix', () => {
+	expect(
+		afterDelete([
+			'/recipes',
+			'/recipes/r10',
+			'/recipes/r1',
+			'/recipes/r1/edit',
+		]),
+	).toEqual({ type: 'pop-replace', delta: 1, to: '/recipes' })
+})
+
+test('Delete with no history index opens the list in place', () => {
+	expect(
+		resolveAfterDelete({
+			idx: null,
+			log: logOf('/recipes', '/recipes/r1'),
+			to: '/recipes',
+			gone: recipePages('r1'),
+		}),
+	).toEqual({ type: 'replace', to: '/recipes' })
+})
+
+test('Delete of a Menu pops back to Menus over the Menu and its edit screen', () => {
+	expect(
+		afterDelete(
+			['/recipes/menus', '/recipes/menus/m1', '/recipes/menus/m1/edit'],
+			menuPages('m1'),
+			'/recipes/menus',
+		),
+	).toEqual({ type: 'pop', delta: 2 })
+})
+
+test("a Recipe's pages are its own page and its edit screen, nothing else", () => {
+	const gone = recipePages('r1')
+	expect(gone('/recipes/r1')).toBe(true)
+	expect(gone('/recipes/r1/edit')).toBe(true)
+	expect(gone('/recipes/r10')).toBe(false)
+	expect(gone('/recipes/r1x/edit')).toBe(false)
+	expect(gone('/recipes')).toBe(false)
+	const menu = menuPages('m1')
+	expect(menu('/recipes/menus/m1')).toBe(true)
+	expect(menu('/recipes/menus/m1/edit')).toBe(true)
+	expect(menu('/recipes/menus/m10')).toBe(false)
+	expect(menu('/recipes/m1')).toBe(false)
 })

@@ -171,6 +171,82 @@ export function recordHistoryEntry(
 	return next
 }
 
+/**
+ * Where an edit screen goes once its Save or Delete has gone through. It
+ * leaves as an iOS edit screen is dismissed: the page it lands on has behind
+ * it what the edit screen had, not the edit screen.
+ */
+export type LeaveTarget =
+	| { type: 'pop'; delta: number }
+	| { type: 'replace'; to: string }
+	/** Pop `delta` entries, then open `to` in the entry popped to. */
+	| { type: 'pop-replace'; delta: number; to: string }
+
+/**
+ * After a Save, the saved page `to`. An edit screen opened from that page
+ * pops back to it (it loads afresh), so neither the edit screen nor a second
+ * copy of the page is left behind. Otherwise the page replaces the edit
+ * screen. A new Recipe or Menu always replaces its form (the action's
+ * `replace` redirect), so it does not come here.
+ */
+export function resolveAfterSave({
+	idx,
+	log,
+	to,
+}: {
+	idx: number | null
+	log: HistoryLog
+	to: string
+}): LeaveTarget {
+	if (idx !== null && log[idx - 1]?.pathname === to) {
+		return { type: 'pop', delta: 1 }
+	}
+	return { type: 'replace', to }
+}
+
+/**
+ * After a Delete, the list `to`, without the deleted item's entries directly
+ * behind the edit screen: going back never opens a page that is gone. It pops
+ * back over them to the list when the list is right behind them. When
+ * something else is (the Plan that opened the Recipe, a cold start, a reload),
+ * it opens the list in the place of the first of them, so what was behind the
+ * item stays behind the list. Entries the app never saw stay as they are.
+ */
+export function resolveAfterDelete({
+	idx,
+	log,
+	to,
+	gone,
+}: {
+	idx: number | null
+	log: HistoryLog
+	to: string
+	/** The deleted item's pages. */
+	gone: (pathname: string) => boolean
+}): LeaveTarget {
+	if (idx === null) return { type: 'replace', to }
+	let j = idx - 1
+	while (j >= 0 && log[j] && gone(log[j]!.pathname)) j--
+	const skipped = idx - 1 - j
+	if (j >= 0 && log[j]?.pathname === to) return { type: 'pop', delta: idx - j }
+	if (skipped > 0) return { type: 'pop-replace', delta: skipped, to }
+	return { type: 'replace', to }
+}
+
+/** A Recipe's own page and its edit screen. */
+export function recipePages(recipeId: string) {
+	return (pathname: string) =>
+		pathname === `/recipes/${recipeId}` ||
+		pathname === `/recipes/${recipeId}/edit`
+}
+
+/** A Menu's own page and its edit screen. */
+export function menuPages(menuId: string) {
+	return (pathname: string) =>
+		pathname === `/recipes/menus/${menuId}` ||
+		pathname === `/recipes/menus/${menuId}/edit`
+}
+
 // Rules for each pushed page.
 
 export const recipeDetailNav: NavRule = {

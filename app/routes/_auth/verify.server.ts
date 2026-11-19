@@ -7,6 +7,7 @@ import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { getDomainUrl } from '#app/utils/misc.tsx'
+import { pagePathOf } from '#app/utils/page-path.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { generateTOTP, verifyTOTP } from '#app/utils/totp.server.ts'
 import { type twoFAVerifyVerificationType } from '../settings/profile/two-factor/verify.tsx'
@@ -59,12 +60,12 @@ export async function requireRecentVerification(request: Request) {
 	const userId = await requireUserId(request)
 	const shouldReverify = await shouldRequestTwoFA(request)
 	if (shouldReverify) {
-		const reqUrl = new URL(request.url)
 		const redirectUrl = getRedirectToUrl({
 			request,
 			target: userId,
 			type: twoFAVerificationType,
-			redirectTo: reqUrl.pathname + reqUrl.search,
+			// A client navigation asks for the page's data; come back to the page.
+			redirectTo: pagePathOf(new URL(request.url)),
 		})
 		throw await redirectWithToast(redirectUrl.toString(), {
 			title: 'Please Reverify',

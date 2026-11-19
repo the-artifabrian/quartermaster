@@ -12,6 +12,7 @@ import {
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
+import { pagePathOf } from '#app/utils/page-path.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
 import { EmailSchema } from '#app/utils/user-validation.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
@@ -38,7 +39,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 		select: { email: true },
 	})
 	if (!user) {
-		const params = new URLSearchParams({ redirectTo: request.url })
+		const params = new URLSearchParams({
+			redirectTo: pagePathOf(new URL(request.url)),
+		})
 		throw redirect(`/login?${params}`)
 	}
 	return { user }

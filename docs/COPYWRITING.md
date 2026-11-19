@@ -34,6 +34,11 @@ Each action has one name wherever it is offered:
 - **Log in** and **Log out**.
 - **Mark cooked** and **Mark not cooked** set a Meal's state.
 
+A menu item drops the noun its menu is already about: “Edit” and “Delete” in a
+Shopping item's menu, “Print” in a Recipe's. Keep the noun where nothing around
+the label supplies it: sheet titles, confirm buttons (“Delete Recipe”), and the
+names of icon-only buttons.
+
 A delete that can be undone happens at once and says what went, with Undo:
 “Deleted milk”, “Cleared 3 checked items”, “Deleted Soup”. One that cannot opens
 a confirm sheet: the action as a question (“Delete this Recipe?”, “Leave this

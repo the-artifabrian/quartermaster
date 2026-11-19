@@ -211,14 +211,14 @@ test('Add a Meal is a sheet: picking a Recipe plans it and closes the sheet', as
 	await page.goto('/plan')
 	const mobile = page.getByTestId('mobile-plan')
 	const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
-	await tapUntil(mobile.getByRole('button', { name: /^Add Meal to/ }), () =>
+	await tapUntil(page.getByRole('button', { name: /^Add Meal to/ }), () =>
 		expect(sheet).toBeVisible({ timeout: 1000 }),
 	)
 	await expectBottomSheet(page, sheet)
-	// Nothing opened in place under the day.
-	await expect(
-		mobile.getByRole('region', { name: /^Add Meal for/ }),
-	).toHaveCount(0)
+	// Nothing opened in place, in the title row or under the day.
+	await expect(page.getByRole('region', { name: /^Add Meal for/ })).toHaveCount(
+		0,
+	)
 	// The sheet's own Close, not a second one from the picker.
 	await expect(sheet.getByRole('button', { name: 'Close picker' })).toHaveCount(
 		0,
@@ -250,7 +250,7 @@ test('Add a Meal as text saves from the sheet’s full-width Add', async ({
 	await page.goto('/plan')
 	const mobile = page.getByTestId('mobile-plan')
 	const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
-	await tapUntil(mobile.getByRole('button', { name: /^Add Meal to/ }), () =>
+	await tapUntil(page.getByRole('button', { name: /^Add Meal to/ }), () =>
 		expect(sheet).toBeVisible({ timeout: 1000 }),
 	)
 	await expectBottomSheet(page, sheet)
@@ -374,7 +374,7 @@ test('Edit item is a sheet with labelled fields; Save stores it and focus return
 	const row = page.getByRole('group', { name: 'foil shopping item' })
 	const actions = row.getByRole('button', { name: 'Item actions' })
 	await actions.tap()
-	await page.getByRole('menuitem', { name: 'Edit item' }).tap()
+	await page.getByRole('menuitem', { name: 'Edit', exact: true }).tap()
 	const sheet = page.getByRole('dialog', { name: 'Edit item' })
 	await expectBottomSheet(page, sheet)
 	// The row stays in the list under the sheet.
@@ -911,7 +911,7 @@ async function seedShopping(
 async function openEditItem(page: Page, name: string) {
 	const row = page.getByRole('group', { name: `${name} shopping item` })
 	await row.getByRole('button', { name: 'Item actions' }).tap()
-	await page.getByRole('menuitem', { name: 'Edit item' }).tap()
+	await page.getByRole('menuitem', { name: 'Edit', exact: true }).tap()
 	return page.getByRole('dialog', { name: 'Edit item' })
 }
 
@@ -930,7 +930,7 @@ test.describe('sheets while they come and go', () => {
 			.getByRole('group', { name: 'salt shopping item' })
 			.getByRole('button', { name: 'Item actions' })
 			.tap()
-		const editItem = page.getByRole('menuitem', { name: 'Edit item' })
+		const editItem = page.getByRole('menuitem', { name: 'Edit', exact: true })
 		await expect(editItem).toBeVisible()
 		// Past the leaving sheet's unmount, which once took focus back to foil.
 		await page.waitForTimeout(900)
@@ -964,7 +964,7 @@ test.describe('sheets while they come and go', () => {
 			trigger.y + trigger.height / 2,
 		)
 		await page
-			.getByRole('menuitem', { name: 'Edit item' })
+			.getByRole('menuitem', { name: 'Edit', exact: true })
 			.dispatchEvent('click')
 		await expect(sheet).toHaveAttribute('data-state', 'open')
 		await expect(sheet.getByRole('textbox', { name: 'Quantity' })).toHaveValue(
@@ -981,9 +981,8 @@ test.describe('sheets while they come and go', () => {
 	}) => {
 		await login()
 		await page.goto('/plan')
-		const mobile = page.getByTestId('mobile-plan')
 		const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
-		await tapUntil(mobile.getByRole('button', { name: /^Add Meal to/ }), () =>
+		await tapUntil(page.getByRole('button', { name: /^Add Meal to/ }), () =>
 			expect(sheet).toBeVisible({ timeout: 1000 }),
 		)
 		await expectBottomSheet(page, sheet)
@@ -1021,7 +1020,7 @@ test.describe('sheets while they come and go', () => {
 			),
 		).toBe('Leftovers')
 
-		await mobile.getByRole('button', { name: /^Add Meal to/ }).tap()
+		await page.getByRole('button', { name: /^Add Meal to/ }).tap()
 		await expect(
 			sheet.getByPlaceholder('Search Recipes and Menus...'),
 		).toBeVisible()
@@ -1212,11 +1211,8 @@ test.describe('a phone on its side', () => {
 		await page.setViewportSize({ width: 390, height: 844 })
 		await page.goto('/plan')
 		const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
-		await tapUntil(
-			page
-				.getByTestId('mobile-plan')
-				.getByRole('button', { name: /^Add Meal to/ }),
-			() => expect(sheet).toBeVisible({ timeout: 1000 }),
+		await tapUntil(page.getByRole('button', { name: /^Add Meal to/ }), () =>
+			expect(sheet).toBeVisible({ timeout: 1000 }),
 		)
 		await expectBottomSheet(page, sheet)
 		await page.setViewportSize({ width: 844, height: 390 })

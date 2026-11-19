@@ -85,8 +85,7 @@ test('Add a meal names its label chips as Add to Plan does, at thumb size', asyn
 }) => {
 	await login()
 	await page.goto('/plan')
-	const mobile = page.getByTestId('mobile-plan')
-	const addMeal = mobile.getByRole('button', { name: /^Add Meal to/ }).first()
+	const addMeal = page.getByRole('button', { name: /^Add Meal to/ }).first()
 	await expectThumbTall(addMeal)
 	const label = page
 		.getByRole('dialog', { name: 'Add a Meal' })
@@ -158,7 +157,7 @@ test('Shopping From Staples, From Plan and the item editor Save are thumb-sized'
 
 	const foil = page.getByRole('group', { name: 'Foil shopping item' })
 	await foil.getByRole('button', { name: 'Item actions' }).tap()
-	await page.getByRole('menuitem', { name: 'Edit item' }).tap()
+	await page.getByRole('menuitem', { name: 'Edit', exact: true }).tap()
 	await expectThumbTall(
 		page
 			.getByRole('dialog', { name: 'Edit item' })

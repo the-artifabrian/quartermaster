@@ -483,7 +483,8 @@ function SortableIngredientRow({
 					<button
 						type="button"
 						onClick={onToggleExpand}
-						className="text-foreground flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
+						// The row's full height, like its 44px neighbours.
+						className="text-foreground -my-1.5 flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left text-sm"
 					>
 						<Icon
 							name="chevron-down"
@@ -648,7 +649,9 @@ function RecipeLinkPicker({
 							// Radix reports its own state, which is closed while the
 							// sheet stands in for the popover.
 							aria-expanded={open}
-							className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 rounded-md px-1 py-1 text-xs transition-colors"
+							// Small to the eye, 44px to the thumb: the tap area reaches
+							// into the gap above and the row's padding below.
+							className="text-muted-foreground hover:text-foreground relative flex items-center gap-1.5 rounded-md px-1 py-1 text-xs transition-colors before:absolute before:inset-x-0 before:-top-2 before:-bottom-3 before:content-['']"
 						>
 							<Icon name="link-2" size="sm" />
 							Link recipe

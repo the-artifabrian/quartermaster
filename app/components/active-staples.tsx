@@ -4,12 +4,14 @@ import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
 import { RowCollapse } from './ui/row-collapse.tsx'
+import { TitleAddButton, TitleRow } from './ui/title-add-button.tsx'
 import {
 	useDeleteWithUndo,
 	useEnteringRows,
 	useHiddenRows,
 } from './undo-delete.tsx'
 import { StapleSuggestions } from './staple-suggestions.tsx'
+import { useSwipeRow } from '#app/hooks/use-swipe-row.ts'
 
 type StaplesResponse = {
 	status: 'success' | 'error'
@@ -75,6 +77,11 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 	}, [addFetcher.data, addFetcher.state])
 
 	function openAdd() {
+		// Already open: the + takes you back to the field.
+		if (addOpen) {
+			document.getElementById('new-staple')?.focus()
+			return
+		}
 		addFetcher.reset()
 		setSearch('')
 		setAddOpen(true)
@@ -90,7 +97,16 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 	return (
 		<div className="container-content w-full min-w-0 overflow-x-hidden py-4 pb-[calc(var(--bottom-nav-h)+2rem+var(--bottom-nav-inset))] md:py-6 md:pb-8">
 			<header>
-				<h1 className="font-serif text-2xl font-normal">Staples</h1>
+				<TitleRow>
+					<h1 className="font-serif text-2xl font-normal">Staples</h1>
+					<TitleAddButton
+						ref={addButtonRef}
+						aria-label="Add Staple"
+						aria-expanded={addOpen}
+						aria-controls={addOpen ? 'add-staple-form' : undefined}
+						onClick={openAdd}
+					/>
+				</TitleRow>
 				<p className="text-muted-foreground mt-1 max-w-xl text-sm">
 					Things you usually have. Add one to put it on Next shop.
 				</p>
@@ -147,42 +163,30 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 							</p>
 						)}
 					</addFetcher.Form>
-				) : (
+				) : staples.length >= 12 ? (
 					<div className="mt-4 flex items-center gap-2">
-						{staples.length >= 12 && (
-							<div className="relative min-w-0 flex-1 sm:max-w-md">
-								<label htmlFor="search-staples" className="sr-only">
-									Search Staples
-								</label>
-								<Icon
-									name="magnifying-glass"
-									size="sm"
-									className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-								/>
-								<Input
-									id="search-staples"
-									type="search"
-									inputMode="search"
-									enterKeyHint="search"
-									value={search}
-									onChange={(event) => setSearch(event.currentTarget.value)}
-									placeholder="Search"
-									className="pl-9"
-								/>
-							</div>
-						)}
-						<Button
-							ref={addButtonRef}
-							type="button"
-							variant="outline"
-							className="shrink-0"
-							aria-label="Add Staple"
-							onClick={openAdd}
-						>
-							<Icon name="plus" size="sm" /> Add
-						</Button>
+						<div className="relative min-w-0 flex-1 sm:max-w-md">
+							<label htmlFor="search-staples" className="sr-only">
+								Search Staples
+							</label>
+							<Icon
+								name="magnifying-glass"
+								size="sm"
+								className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+							/>
+							<Input
+								id="search-staples"
+								type="search"
+								inputMode="search"
+								enterKeyHint="search"
+								value={search}
+								onChange={(event) => setSearch(event.currentTarget.value)}
+								placeholder="Search"
+								className="pl-9"
+							/>
+						</div>
 					</div>
-				)}
+				) : null}
 			</header>
 
 			{/* The row says what happened; this repeats it for a screen reader,
@@ -245,6 +249,14 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 	)
 }
 
+/** The revealed Delete behind a swiped row is this wide (px), as on Shopping. */
+const SWIPE_ACTION_WIDTH = 76
+/**
+ * A mouse: the row shows its own trash button and does not swipe. Read when
+ * a finger lands, not on render, so the server and first render agree.
+ */
+const FINE_POINTER = '(pointer: fine)'
+
 function StapleRow({
 	staple,
 	onAnnounce,
@@ -263,6 +275,17 @@ function StapleRow({
 	// covers the request itself.
 	const onShoppingList = staple.onShoppingList || isAdding
 	const shopFailed = !isAdding && shopFetcher.data?.status === 'error'
+	// Focus on Delete opened the row, so focus leaving it shuts it. A swipe
+	// since then hands the row back to the finger.
+	const openedByFocus = useRef(false)
+	// Swiping a row left uncovers a red Delete, as on Shopping.
+	const swipe = useSwipeRow<HTMLDivElement>({
+		enabled: true,
+		width: SWIPE_ACTION_WIDTH,
+		onSwiped: () => {
+			openedByFocus.current = false
+		},
+	})
 
 	useEffect(() => {
 		if (shopFetcher.state !== 'idle') return
@@ -270,65 +293,101 @@ function StapleRow({
 		if (message) onAnnounce(message)
 	}, [onAnnounce, shopFetcher.data, shopFetcher.state])
 
+	function deleteStaple() {
+		// At once, with Undo: the Staple is only unmarked, never lost.
+		deleteWithUndo({
+			key: `staple:${staple.id}`,
+			hides: [staple.id],
+			message: `Deleted ${staple.displayName}`,
+			what: staple.displayName,
+			request: { intent: 'remove-staple', stapleId: staple.id },
+		})
+	}
+
 	return (
-		// A removed Staple closes its gap, and Undo opens it again.
+		// A deleted Staple closes its gap, and Undo opens it again.
 		<RowCollapse
 			as="li"
 			hidden={hidden.has(staple.id)}
 			entering={entering.has(staple.id)}
-			className="w-full min-w-0 py-1"
+			className="w-full min-w-0"
 		>
-			<div className="flex w-full min-w-0 items-center gap-2">
-				<span className="min-w-0 flex-1 truncate pl-1">
-					{staple.displayName}
-				</span>
-				{/* Enabled even when the row is already on the list: a second tap
-				    writes nothing and answers "is this one done?" out loud. */}
-				<Button
-					type="button"
-					variant={onShoppingList ? 'ghost' : 'outline'}
-					className="min-w-24 shrink-0 justify-center px-3"
-					aria-label={
-						onShoppingList
-							? `${staple.displayName} is in Next shop`
-							: `Add ${staple.displayName} to Next shop`
-					}
-					aria-busy={isAdding || undefined}
-					onClick={() =>
-						void shopFetcher.submit(
-							{ intent: 'add-staple-to-shop', itemId: staple.id },
-							{ method: 'POST' },
-						)
-					}
+			<div className="relative overflow-hidden">
+				<div
+					ref={swipe.ref}
+					onPointerDown={(event) => {
+						if (window.matchMedia?.(FINE_POINTER).matches) return
+						swipe.handlers.onPointerDown(event)
+					}}
+					// A tap on an open row shuts it instead of adding the Staple.
+					onClickCapture={swipe.handlers.onClickCapture}
+					className="bg-background relative z-1 flex w-full min-w-0 touch-pan-y touch-pinch-zoom items-center gap-2 py-1"
 				>
-					{onShoppingList ? (
-						<>
-							<Icon name="check" size="sm" />
-							<span className="text-muted-foreground">On list</span>
-						</>
-					) : (
-						'Add'
-					)}
-				</Button>
-				{/* At once, with Undo: the Staple is only unmarked, never lost. */}
-				<Button
+					<span className="min-w-0 flex-1 truncate pl-1">
+						{staple.displayName}
+					</span>
+					{/* Enabled even when the row is already on the list: a second tap
+					    writes nothing and answers "is this one done?" out loud. Its
+					    name starts with what it shows, then says which Staple. */}
+					<Button
+						type="button"
+						variant={onShoppingList ? 'ghost' : 'outline'}
+						className="min-w-24 shrink-0 justify-center px-3"
+						aria-label={`${onShoppingList ? 'On list' : 'Add to Shopping'}, ${staple.displayName}`}
+						aria-busy={isAdding || undefined}
+						onClick={() =>
+							void shopFetcher.submit(
+								{ intent: 'add-staple-to-shop', itemId: staple.id },
+								{ method: 'POST' },
+							)
+						}
+					>
+						{onShoppingList ? (
+							<>
+								<Icon name="check" size="sm" />
+								<span className="text-muted-foreground">On list</span>
+							</>
+						) : (
+							'Add to Shopping'
+						)}
+					</Button>
+					<Button
+						type="button"
+						variant="ghost"
+						className="text-destructive hover:text-destructive hidden min-h-11 min-w-11 px-3 pointer-fine:inline-flex"
+						aria-label={`Delete ${staple.displayName}`}
+						onClick={deleteStaple}
+					>
+						<Icon name="trash" size="sm" />
+					</Button>
+				</div>
+				{/* Under the row (which sits above it), uncovered by a swipe to
+				    the left. With a keyboard or VoiceOver it is the next stop
+				    after the row's Add, and the row slides open while it has
+				    focus. A mouse gets the trash button in the row instead. */}
+				<button
 					type="button"
-					variant="ghost"
-					className="text-destructive hover:text-destructive min-h-11 min-w-11 px-3"
-					aria-label={`Remove ${staple.displayName}`}
-					onClick={() =>
-						deleteWithUndo({
-							key: `staple:${staple.id}`,
-							hides: [staple.id],
-							message: `Removed ${staple.displayName}`,
-							what: staple.displayName,
-							verb: 'remove',
-							request: { intent: 'remove-staple', stapleId: staple.id },
-						})
-					}
+					aria-label={`Delete ${staple.displayName}`}
+					onFocus={() => {
+						if (swipe.open) return
+						openedByFocus.current = true
+						swipe.show()
+					}}
+					onBlur={() => {
+						if (!openedByFocus.current) return
+						openedByFocus.current = false
+						swipe.close()
+					}}
+					onClick={() => {
+						deleteStaple()
+						swipe.closeAfterDelete()
+					}}
+					style={{ width: SWIPE_ACTION_WIDTH }}
+					className="bg-destructive text-destructive-foreground active:bg-destructive/90 absolute inset-y-0 right-0 flex flex-col items-center justify-center gap-1 text-xs font-medium pointer-fine:hidden"
 				>
 					<Icon name="trash" size="sm" />
-				</Button>
+					Delete
+				</button>
 			</div>
 			{shopFailed && (
 				<p className="text-destructive mt-1 pl-1 text-sm" role="alert">

@@ -81,7 +81,16 @@ export function RecipeScaleControl({
 	}
 
 	const input = (
-		<label className="flex items-center gap-1">
+		<label
+			className={cn(
+				'flex items-center gap-1',
+				// The compact field is 28px to the eye; the label around it is
+				// 44px to the thumb (a tap on it focuses the field). The field
+				// sits above that area, so a tap in it still places the caret.
+				compact &&
+					"relative shrink-0 before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] md:before:hidden",
+			)}
+		>
 			<span className="sr-only">Scale multiplier</span>
 			<Input
 				type="text"
@@ -104,7 +113,9 @@ export function RecipeScaleControl({
 				aria-label="Scale multiplier"
 				className={cn(
 					'text-center tabular-nums',
-					compact ? 'h-7 w-16 px-1.5 text-xs' : 'h-11 w-20 px-2 text-base',
+					compact
+						? 'relative z-1 h-7 w-16 px-1.5 text-xs'
+						: 'h-11 w-20 px-2 text-base',
 				)}
 			/>
 			<span aria-hidden="true" className="text-muted-foreground text-sm">

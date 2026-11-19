@@ -24,7 +24,7 @@ async function createRecipe(user: { id: string; householdId: string }) {
 
 // Opens the Recipe's overflow menu, retrying until the page has hydrated.
 async function openMoreActions(page: Page) {
-	const print = page.getByRole('menuitem', { name: 'Print recipe' })
+	const print = page.getByRole('menuitem', { name: 'Print', exact: true })
 	await expect(async () => {
 		if (!(await print.isVisible())) {
 			await page.getByRole('button', { name: 'More actions' }).click()

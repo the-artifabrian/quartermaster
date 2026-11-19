@@ -217,7 +217,7 @@ export function BottomNav() {
 		<nav
 			aria-label="Main"
 			data-bottom-nav=""
-			className="bg-card/95 border-border fixed inset-x-0 bottom-0 z-50 border-t pb-(--bottom-nav-inset) backdrop-blur-sm md:hidden print:hidden"
+			className="bg-card border-border fixed inset-x-0 bottom-0 z-50 border-t pb-(--bottom-nav-inset) md:hidden print:hidden"
 		>
 			<div
 				// --bottom-nav-h: a 54pt row in the iOS app, where the links take more

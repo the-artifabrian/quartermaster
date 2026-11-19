@@ -138,7 +138,7 @@ export function RecipeActionBar({
 					)}
 					<DropdownMenuItem onSelect={() => window.print()}>
 						<Icon name="file-text" size="sm" />
-						Print recipe
+						Print
 					</DropdownMenuItem>
 					{isProActive && (
 						<DropdownMenuItem

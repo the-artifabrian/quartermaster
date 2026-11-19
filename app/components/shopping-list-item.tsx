@@ -21,15 +21,13 @@ import {
 } from '#app/utils/produce-weights.ts'
 import { LATER, NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { type ShoppingItemDisplay } from '#app/utils/shopping-optimistic.ts'
-import { useHorizontalSwipe } from '#app/hooks/use-horizontal-swipe.ts'
+import { useSwipeRow } from '#app/hooks/use-swipe-row.ts'
 import { type useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
 import { useDeleteWithUndo } from '#app/components/undo-delete.tsx'
 import {
 	getHouseholdClientId,
 	HouseholdClientInput,
 } from '#app/utils/household-client.tsx'
-import { haptic } from '#app/utils/shell-bridge.ts'
-import { settleReveal } from '#app/utils/swipe.ts'
 
 /** Each action revealed behind a swiped row is this wide (px). */
 const SWIPE_ACTION_WIDTH = 76
@@ -47,9 +45,6 @@ function bottomClearance() {
 		.map((box) => box!.top)
 	return tops.length ? window.innerHeight - Math.min(...tops) + 8 : 8
 }
-
-/** The row whose actions are showing. Opening another shuts it. */
-let openSwipeRow: { close: () => void } | null = null
 
 type ShoppingListItemCardProps = {
 	checks: ReturnType<typeof useShoppingChecks>
@@ -85,9 +80,7 @@ export function ShoppingListItemCard({
 	const moveFetcher = useFetcher()
 	const removeGeneratedFetcher = useFetcher()
 	const prevEditFetcherState = useRef(editFetcher.state)
-	const [swipeOpen, setSwipeOpen] = useState(false)
 	const menuPointer = useRef<string | null>(null)
-	const swipeRow = useRef<{ close: () => void } | null>(null)
 
 	// Close edit mode when fetcher transitions from submitting/loading → idle
 	useEffect(() => {
@@ -117,41 +110,14 @@ export function ShoppingListItemCard({
 	// Swiping a row left reveals Later (or Next shop) and, while unchecked,
 	// Delete: the menu's two most common actions, one gesture away.
 	const swipeWidth = SWIPE_ACTION_WIDTH * (optimisticChecked ? 1 : 2)
-	const swipe = useHorizontalSwipe<HTMLDivElement>({
+	const swipe = useSwipeRow<HTMLDivElement>({
 		enabled: !isEditing && !item.id.startsWith('optimistic:') && !checkState,
-		getBase: () => (swipeOpen ? -swipeWidth : 0),
-		min: -swipeWidth,
-		max: 0,
-		onRelease: ({ offset, velocity }) => {
-			const open = settleReveal({ offset, velocity, width: swipeWidth })
-			if (open) {
-				if (!swipeOpen) haptic('selection')
-				setMenuOpen(false)
-				if (openSwipeRow !== swipeRow.current) openSwipeRow?.close()
-				openSwipeRow = swipeRow.current
-			} else if (openSwipeRow === swipeRow.current) {
-				openSwipeRow = null
-			}
-			setSwipeOpen(open)
-			return open ? -swipeWidth : 0
+		width: swipeWidth,
+		onSwiped: (open) => {
+			if (open) setMenuOpen(false)
 		},
 	})
-	swipeRow.current ??= {
-		close: () => {
-			swipe.moveTo(0, true)
-			setSwipeOpen(false)
-		},
-	}
-	const closeSwipe = () => {
-		swipeRow.current?.close()
-		if (openSwipeRow === swipeRow.current) openSwipeRow = null
-	}
-	// Checking or unchecking the item (here or on the other member's phone)
-	// adds or drops Delete; an open row keeps both actions in view.
-	const moveSwipe = swipe.moveTo
-	useEffect(() => {
-		if (swipeOpen) moveSwipe(-swipeWidth, true)
-	}, [swipeWidth, swipeOpen, moveSwipe])
+	const swipeOpen = swipe.open
 
 	const serverError =
 		isEditing &&
@@ -307,7 +273,7 @@ export function ShoppingListItemCard({
 				<button
 					type="button"
 					onClick={() => {
-						closeSwipe()
+						swipe.close()
 						submitRowIntent(moveFetcher, {
 							intent: 'move',
 							horizon: moveTarget,
@@ -325,10 +291,8 @@ export function ShoppingListItemCard({
 					<button
 						type="button"
 						onClick={() => {
-							// The row collapses as it is, Delete showing, and shuts
-							// once it is out of sight, so Undo brings it back shut.
 							deleteItem()
-							window.setTimeout(closeSwipe, 250)
+							swipe.closeAfterDelete()
 						}}
 						className="bg-destructive text-destructive-foreground active:bg-destructive/90 flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium"
 					>
@@ -339,23 +303,8 @@ export function ShoppingListItemCard({
 			</div>
 			<div
 				ref={swipe.ref}
-				onPointerDown={(event) => {
-					// The menu is portaled out of the row but its events still
-					// bubble here through React; they are not the row's.
-					if (!event.currentTarget.contains(event.target as Node)) return
-					swipe.handlers.onPointerDown(event)
-				}}
-				onClickCapture={(event) => {
-					if (!event.currentTarget.contains(event.target as Node)) return
-					// A tap on an open row shuts it instead of checking the item.
-					if (swipeOpen) {
-						event.preventDefault()
-						event.stopPropagation()
-						closeSwipe()
-						return
-					}
-					swipe.handlers.onClickCapture(event)
-				}}
+				// A tap on an open row shuts it instead of checking the item.
+				{...swipe.handlers}
 				className="bg-background relative flex touch-pan-y touch-pinch-zoom flex-wrap items-center gap-3"
 			>
 				{/* Whole row toggles checkbox */}
@@ -503,7 +452,7 @@ export function ShoppingListItemCard({
 									}}
 								>
 									<Icon name="pencil-1" size="sm" />
-									Edit item
+									Edit
 								</DropdownMenuItem>
 								{item.source === 'manual' && display.combined && (
 									<DropdownMenuItem
@@ -520,7 +469,7 @@ export function ShoppingListItemCard({
 								<DropdownMenuSeparator />
 								<DropdownMenuItem variant="destructive" onSelect={deleteItem}>
 									<Icon name="trash" size="sm" />
-									Delete item
+									Delete
 								</DropdownMenuItem>
 							</>
 						)}

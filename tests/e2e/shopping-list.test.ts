@@ -364,9 +364,11 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	await page.reload()
 	const foil = page.getByRole('group', { name: 'Foil shopping item' })
 	await foil.getByRole('button', { name: 'Item actions' }).click()
-	await expect(page.getByRole('menuitem', { name: 'Edit item' })).toBeVisible()
+	await expect(
+		page.getByRole('menuitem', { name: 'Edit', exact: true }),
+	).toBeVisible()
 	// Delete is red from the start and deletes at once, with Undo.
-	const deleteFoil = page.getByRole('menuitem', { name: 'Delete item' })
+	const deleteFoil = page.getByRole('menuitem', { name: 'Delete', exact: true })
 	await expect(deleteFoil).toHaveCSS('color', 'rgb(184, 92, 74)')
 	await deleteFoil.click()
 	await expect(foil).toBeHidden()

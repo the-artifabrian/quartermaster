@@ -45,10 +45,10 @@ test('the list is one alphabetical set of usual items, searchable', async () => 
 	expect(within(list).getAllByRole('listitem')[0]).toHaveTextContent('Apples')
 	// Each row carries its own action and its own state.
 	expect(
-		within(list).getByRole('button', { name: 'Add Apples to Next shop' }),
+		within(list).getByRole('button', { name: 'Add to Shopping, Apples' }),
 	).toBeVisible()
 	expect(
-		within(list).getByRole('button', { name: 'Salt is in Next shop' }),
+		within(list).getByRole('button', { name: 'On list, Salt' }),
 	).toHaveTextContent('On list')
 
 	const search = screen.getByRole('searchbox', { name: 'Search Staples' })
@@ -122,7 +122,7 @@ test('adding says so on the row itself, holds focus, and keeps the row in place'
 	const user = userEvent.setup()
 
 	const appleButton = await screen.findByRole('button', {
-		name: 'Add Apples to Next shop',
+		name: 'Add to Shopping, Apples',
 	})
 	await user.click(appleButton)
 	await waitFor(() => expect(appleButton).toHaveAttribute('aria-busy', 'true'))
@@ -140,7 +140,7 @@ test('adding says so on the row itself, holds focus, and keeps the row in place'
 	// The loader has revalidated, so the row keeps saying it without the
 	// in-flight guess holding it there.
 	expect(
-		screen.getByRole('button', { name: 'Apples is in Next shop' }),
+		screen.getByRole('button', { name: 'On list, Apples' }),
 	).toHaveTextContent('On list')
 	// The live region is fed from the row, so it settles a tick after the
 	// fetcher does.

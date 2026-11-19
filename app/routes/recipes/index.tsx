@@ -20,6 +20,11 @@ import {
 	DropdownMenuTrigger,
 } from '#app/components/ui/dropdown-menu.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { Input } from '#app/components/ui/input.tsx'
+import {
+	TitleAddButton,
+	TitleRow,
+} from '#app/components/ui/title-add-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { formatDuration } from '#app/utils/format-duration.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -434,7 +439,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			{/* Page Header */}
 			<div className="border-border/50 border-b">
-				<div className="container-grid flex items-center justify-between gap-3 py-3 md:py-4">
+				<TitleRow className="container-grid py-3 md:py-4">
 					<h1 className="font-serif text-2xl font-normal">
 						My Recipes{' '}
 						<span className="text-muted-foreground text-base font-normal">
@@ -447,18 +452,17 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					<div className="flex gap-2">
 						<DropdownMenu modal={false}>
 							<DropdownMenuTrigger asChild>
-								<Button
+								<TitleAddButton
 									aria-label="New Recipe"
-									className="size-11 rounded-full p-0 sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2"
+									className="sm:h-auto sm:w-auto sm:rounded-lg sm:px-4 sm:py-2"
 								>
-									<Icon name="plus" size="sm" />
 									<span className="hidden sm:inline">New Recipe</span>
 									<Icon
 										name="chevron-down"
 										size="sm"
 										className="hidden sm:inline"
 									/>
-								</Button>
+								</TitleAddButton>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
 								<DropdownMenuItem asChild>
@@ -476,7 +480,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							</DropdownMenuContent>
 						</DropdownMenu>
 					</div>
-				</div>
+				</TitleRow>
 			</div>
 
 			<div className="container-grid py-4">
@@ -485,14 +489,14 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 				{/* Search & Filters */}
 				<div className="mb-3 space-y-1.5">
 					{/* Search bar + mobile filter toggle */}
-					<div className="flex items-center gap-1.5">
+					<div className="flex items-center gap-2">
 						<div className="relative flex-1">
 							<Icon
 								name="magnifying-glass"
-								className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
+								className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
 								size="sm"
 							/>
-							<input
+							<Input
 								type="search"
 								inputMode="search"
 								enterKeyHint="search"
@@ -503,7 +507,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 									setSearchInput(e.target.value)
 									handleSearchChange(e.target.value)
 								}}
-								className="border-border/50 bg-secondary/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-10 w-full rounded-full border pr-4 pl-10 text-sm transition-colors outline-none focus:ring-1"
+								className="pl-9"
 							/>
 						</div>
 						<button
@@ -512,10 +516,11 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							aria-expanded={filtersOpen}
 							aria-label="Toggle filters"
 							className={cn(
-								'relative flex size-11 shrink-0 items-center justify-center rounded-full border transition-colors md:hidden',
+								// The field's shape and height, so the two read as one row.
+								'relative flex size-11 shrink-0 items-center justify-center rounded-md border transition-colors md:hidden',
 								filtersOpen
 									? 'border-primary/30 bg-primary/10 text-primary'
-									: 'border-border/50 bg-secondary/50 text-muted-foreground',
+									: 'border-input bg-background text-muted-foreground',
 							)}
 						>
 							<Icon name="mixer-horizontal" size="sm" />

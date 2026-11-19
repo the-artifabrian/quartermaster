@@ -47,14 +47,14 @@ test('tapping a Staple adds it to Next shop from a phone', async ({
 		await route.continue()
 	})
 
-	// Scoped to the row, because the button's name flips to "is in Next shop"
+	// Scoped to the row, because the button's name flips to "On list"
 	// the moment it is pressed.
 	const saltRow = page
 		.getByRole('list', { name: 'Staples' })
 		.getByRole('listitem')
 		.filter({ hasText: 'Salt' })
 	const saltButton = saltRow.getByRole('button').first()
-	await expect(saltButton).toHaveAccessibleName('Add Salt to Next shop')
+	await expect(saltButton).toHaveAccessibleName('Add to Shopping, Salt')
 	const response = page.waitForResponse(
 		(candidate) =>
 			candidate.request().method() === 'POST' &&
@@ -66,7 +66,7 @@ test('tapping a Staple adds it to Next shop from a phone', async ({
 	await expect(saltButton).toHaveText('On list')
 	await expect(saltButton).toHaveAttribute('aria-busy', 'true')
 	await response
-	await expect(saltButton).toHaveAccessibleName('Salt is in Next shop')
+	await expect(saltButton).toHaveAccessibleName('On list, Salt')
 	await expect(saltButton).toHaveText('On list')
 	await expect(saltButton).toBeFocused()
 
@@ -130,7 +130,7 @@ test('a failed restock reports it and leaves the Staple tappable', async ({
 			}),
 		).toBeVisible()
 		await expect(saltButton).toHaveAccessibleName(
-			'Add Failure salt to Next shop',
+			'Add to Shopping, Failure salt',
 		)
 		await expect(saltButton).not.toHaveAttribute('aria-busy')
 		await expect(saltButton).toBeEnabled()

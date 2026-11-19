@@ -19,6 +19,16 @@ if (!url?.startsWith('file:')) {
 	process.exit(1)
 }
 const databasePath = path.resolve(url.slice('file:'.length))
+// Locally the recipe points DATABASE_URL at a throwaway file in a temp
+// directory. Without that export, Bun loads .env and this would switch the
+// dev database (prisma/data.db) to WAL, so a database inside the checkout is
+// refused outside CI.
+if (!process.env.CI && databasePath.startsWith(process.cwd() + path.sep)) {
+	console.error(
+		`${databasePath} is inside the checkout; point DATABASE_URL at a throwaway e2e database`,
+	)
+	process.exit(1)
+}
 if (!existsSync(databasePath)) {
 	console.error(`No database at ${databasePath}; migrate and seed it first`)
 	process.exit(1)

@@ -191,10 +191,13 @@ function useTitleUnderBar(barRef: React.RefObject<HTMLElement | null>) {
 		const observe = () => {
 			observer?.disconnect()
 			// rootMargin takes pixels only: the bar's bottom edge, status bar
-			// included in the iOS app.
+			// included in the iOS app. From md a page that is not an edit screen
+			// hides the bar, and the sticky header above it is what content
+			// must clear.
+			const edge = bar.getClientRects().length > 0 ? bar : bar.parentElement
 			const barBottom = Math.max(
 				0,
-				Math.round(bar.getBoundingClientRect().bottom),
+				Math.round((edge ?? bar).getBoundingClientRect().bottom),
 			)
 			// tailwind.css keeps focused and scrolled-to fields clear of the bar.
 			document.documentElement.style.setProperty(

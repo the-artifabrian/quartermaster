@@ -862,8 +862,8 @@ test('a toast on a pushed page opens below the bar', async ({
 		},
 		select: { id: true },
 	})
-	// On desktop the bar is the header's second row, well below where a
-	// bar-high guess would put it.
+	// The toast opens below the pinned header: on a phone its last row is the
+	// nav bar; on desktop the header has no bar here, only its links row.
 	for (const viewport of [
 		{ width: 390, height: 844 },
 		{ width: 1280, height: 800 },
@@ -877,12 +877,13 @@ test('a toast on a pushed page opens below the bar', async ({
 			hasText: 'Public link copied',
 		})
 		await expect(toast).toBeVisible()
-		const barBottom = await page
-			.locator('[data-nav-bar]')
-			.evaluate((bar) => bar.getBoundingClientRect().bottom)
+		const headerBottom = await page
+			.locator('[data-site-header]')
+			.evaluate((header) => header.getBoundingClientRect().bottom)
+		expect(headerBottom).toBeGreaterThan(40)
 		await expect
 			.poll(async () => (await toast.boundingBox())!.y)
-			.toBeGreaterThanOrEqual(barBottom)
+			.toBeGreaterThanOrEqual(headerBottom)
 	}
 })
 
@@ -897,6 +898,21 @@ test('on desktop the header does the bar’s job: no Back bar on a Recipe or Set
 	const header = page.getByRole('navigation', { name: 'Main' })
 	await expect(header.getByRole('link', { name: 'Recipes' })).toBeVisible()
 	await expect(page.locator('[data-nav-bar]')).toBeHidden()
+
+	// With the bar hidden, content still clears the sticky header: the
+	// Ingredients column pins below it (its sticky top reads --nav-bar-bottom).
+	const offsets = await page.evaluate(() => {
+		const header = document.querySelector('[data-site-header]')!
+		const column = document.querySelector<HTMLElement>(
+			'#main-content [class*="lg:sticky"]',
+		)!
+		return {
+			headerBottom: header.getBoundingClientRect().bottom,
+			stickyTop: parseFloat(getComputedStyle(column).top),
+		}
+	})
+	expect(offsets.headerBottom).toBeGreaterThan(40)
+	expect(offsets.stickyTop).toBeGreaterThanOrEqual(offsets.headerBottom)
 
 	const avatar = page.getByRole('link', { name: 'Settings', exact: true })
 	await hydrated(avatar)

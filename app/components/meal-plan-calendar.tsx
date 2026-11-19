@@ -667,7 +667,7 @@ export function MealPlanCalendar({
 							</span>
 							<p className="mt-3 font-serif text-lg">Nothing planned</p>
 							<p className="text-muted-foreground mt-1 text-sm">
-								Add a Recipe, Menu, or simple note when this day needs one.
+								Tap + to plan a Recipe, Menu, or note.
 							</p>
 						</div>
 					)}

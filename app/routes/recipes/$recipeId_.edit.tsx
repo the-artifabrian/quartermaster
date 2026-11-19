@@ -17,7 +17,7 @@ import {
 	ClientLeavesField,
 	useLeaveEditScreen,
 } from '#app/components/edit-screen.tsx'
-import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import { type NavBarHandle, useLockNavBar } from '#app/components/nav-bar.tsx'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
@@ -398,6 +398,8 @@ function DeleteRecipe({ recipeId }: { recipeId: string }) {
 	const fetcher = useFetcher()
 	const { leaving, leave } = useLeaveEditScreen()
 	const isDeleting = fetcher.state !== 'idle' || leaving
+	// Cancel or Save while it deletes would land on, or post to, a gone item.
+	useLockNavBar(isDeleting)
 
 	// Gone: back to the list, with none of the Recipe's pages behind it.
 	const done = isEditScreenDone(fetcher.data) ? fetcher.data.done : null

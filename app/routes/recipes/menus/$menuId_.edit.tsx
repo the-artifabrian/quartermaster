@@ -12,7 +12,7 @@ import {
 	ClientLeavesField,
 	useLeaveEditScreen,
 } from '#app/components/edit-screen.tsx'
-import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import { type NavBarHandle, useLockNavBar } from '#app/components/nav-bar.tsx'
 import {
 	MENU_FORM_ID,
 	MenuForm,
@@ -453,6 +453,8 @@ function DeleteMenu({ menuId }: { menuId: string }) {
 	const fetcher = useFetcher()
 	const { leaving, leave } = useLeaveEditScreen()
 	const isDeleting = fetcher.state !== 'idle' || leaving
+	// Cancel or Save while it deletes would land on, or post to, a gone item.
+	useLockNavBar(isDeleting)
 
 	// Gone: back to Menus, with none of the Menu's pages behind it.
 	const done = isEditScreenDone(fetcher.data) ? fetcher.data.done : null

@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { useBlocker, useNavigate } from 'react-router'
+import { useBlocker, useLocation, useNavigate } from 'react-router'
 import { CLIENT_LEAVES_FIELD } from '#app/utils/edit-screen.ts'
 import { type LeaveTarget } from '#app/utils/nav-back.ts'
 import {
 	BACK_TO_LIST,
+	isViaTabBar,
 	markBackButtonPop,
 	takeBackButtonPop,
+	VIA_TAB_BAR,
 } from '#app/utils/nav-direction.ts'
+import { useLockNavBar } from './nav-bar.tsx'
 import { ConfirmSheet } from './ui/confirm-sheet.tsx'
 
 // An edit screen (Recipe and Menu, edit and new) hides the tab bar: Cancel
@@ -42,7 +45,10 @@ let leavingDone = false
 /** Leaves after a Save or Delete went through (nav-back.ts resolveAfter*). */
 export function useLeaveEditScreen() {
 	const navigate = useNavigate()
+	const location = useLocation()
 	const [leaving, setLeaving] = useState(false)
+	// Cancel or Save tapped while it leaves would go back twice or post again.
+	useLockNavBar(leaving)
 	useEffect(
 		() => () => {
 			leavingDone = false
@@ -52,10 +58,17 @@ export function useLeaveEditScreen() {
 	const leave = (target: LeaveTarget) => {
 		leavingDone = true
 		setLeaving(true)
-		const replace = (to: string) =>
-			navigate(to, { replace: true, state: BACK_TO_LIST, viewTransition: true })
+		const replace = (to: string, state: object = BACK_TO_LIST) =>
+			navigate(to, { replace: true, state, viewTransition: true })
 		if (target.type === 'replace') {
-			void replace(target.to)
+			// An edit screen the tab bar restored hands the restore on to the
+			// page that takes its place, as Cancel does.
+			void replace(
+				target.to,
+				isViaTabBar(location.state)
+					? { ...BACK_TO_LIST, ...VIA_TAB_BAR }
+					: BACK_TO_LIST,
+			)
 			return
 		}
 		if (target.type === 'pop-replace') {
